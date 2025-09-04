@@ -1,0 +1,21 @@
+# Experiments and temporary files
+_sandbox/
+*.log
+*.tmp
+.DS_Store
+
+# Environment and secrets
+.env
+.env.local
+*.pem
+*.key
+
+# Dependencies
+node_modules/
+venv/
+__pycache__/
+
+# Build outputs
+dist/
+build/
+*.pyc
