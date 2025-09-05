@@ -75,7 +75,7 @@ export const useUserStore = create<UserState>((set, get) => ({
       const newUser: UserProfile = {
         id: `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         createdAt: new Date().toISOString(),
-        onboardingCompleted: false,
+        onboardingCompleted: userData.onboardingCompleted ?? false,
         notifications: {
           ...(userData.notifications || {}),
           enabled: userData.notifications?.enabled ?? true,

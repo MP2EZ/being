@@ -136,7 +136,7 @@ const CrisisPlanScreen: React.FC = () => {
 
           {/* Quick Coping Strategies */}
           <View style={styles.copingSection}>
-            <Text style={styles.sectionTitle}>⚡ Quick Coping Strategies</Text>
+            <Text style={styles.sectionTitle}>Quick Coping Strategies</Text>
             
             <CopingStrategy
               title="5-4-3-2-1 Grounding"

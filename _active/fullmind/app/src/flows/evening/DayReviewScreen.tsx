@@ -131,7 +131,7 @@ export const DayReviewScreen: React.FC<DayReviewScreenProps> = ({
           {/* Mindful Insight */}
           <View style={styles.insight}>
             <Text style={styles.insightText}>
-              💫 Remember: Each day brings both joys and challenges. Both are part of being human and both offer opportunities for growth.
+              Remember: Each day brings both joys and challenges. Both are part of being human and both offer opportunities for growth.
             </Text>
           </View>
         </View>

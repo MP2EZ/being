@@ -19,22 +19,21 @@ interface EmotionGridProps {
 interface Emotion {
   id: string;
   label: string;
-  emoji: string;
 }
 
 const EMOTIONS: Emotion[] = [
-  { id: 'happy', label: 'Happy', emoji: '😊' },
-  { id: 'calm', label: 'Calm', emoji: '😌' },
-  { id: 'excited', label: 'Excited', emoji: '🤗' },
-  { id: 'grateful', label: 'Grateful', emoji: '🙏' },
-  { id: 'anxious', label: 'Anxious', emoji: '😰' },
-  { id: 'sad', label: 'Sad', emoji: '😢' },
-  { id: 'frustrated', label: 'Frustrated', emoji: '😤' },
-  { id: 'tired', label: 'Tired', emoji: '😴' },
-  { id: 'confused', label: 'Confused', emoji: '😕' },
-  { id: 'hopeful', label: 'Hopeful', emoji: '🤞' },
-  { id: 'content', label: 'Content', emoji: '☺️' },
-  { id: 'stressed', label: 'Stressed', emoji: '😣' },
+  { id: 'happy', label: 'Happy' },
+  { id: 'calm', label: 'Calm' },
+  { id: 'excited', label: 'Excited' },
+  { id: 'grateful', label: 'Grateful' },
+  { id: 'anxious', label: 'Anxious' },
+  { id: 'sad', label: 'Sad' },
+  { id: 'frustrated', label: 'Frustrated' },
+  { id: 'tired', label: 'Tired' },
+  { id: 'confused', label: 'Confused' },
+  { id: 'hopeful', label: 'Hopeful' },
+  { id: 'content', label: 'Content' },
+  { id: 'stressed', label: 'Stressed' },
 ];
 
 export const EmotionGrid: React.FC<EmotionGridProps> = ({
@@ -80,7 +79,6 @@ export const EmotionGrid: React.FC<EmotionGridProps> = ({
         onPress={() => handleEmotionPress(item.id)}
         activeOpacity={0.7}
       >
-        <Text style={styles.emoji}>{item.emoji}</Text>
         <Text
           style={[
             styles.emotionLabel,

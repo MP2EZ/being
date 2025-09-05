@@ -116,7 +116,7 @@ export const BodyTensionReleaseScreen: React.FC<BodyTensionReleaseScreenProps> =
           {/* Mindful Insight */}
           <View style={styles.insight}>
             <Text style={styles.insightText}>
-              🌿 Your body holds the story of your day. By listening to it with kindness, you can release what no longer serves you.
+              Your body holds the story of your day. By listening to it with kindness, you can release what no longer serves you.
             </Text>
           </View>
         </View>

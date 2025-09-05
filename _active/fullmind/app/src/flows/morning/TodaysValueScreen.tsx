@@ -1,13 +1,13 @@
 /**
- * TodaysValueScreen - Step 5 of Morning Check-in
- * Select one value to focus on for the day
+ * TodaysValueScreen - Step 5 of Morning Check-in (Values & Intention)
+ * Select one value to focus on for the day and set intention
  */
 
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StepsIndicator } from '../../components/checkin';
-import { Button } from '../../components/core';
+import { Button, TextArea } from '../../components/core';
 import { useCheckInStore } from '../../store';
 import { colorSystem, spacing, borderRadius } from '../../constants/colors';
 import * as Haptics from 'expo-haptics';
@@ -38,6 +38,9 @@ export const TodaysValueScreen: React.FC<TodaysValueScreenProps> = ({
   const [selectedValue, setSelectedValue] = useState<string>(
     currentCheckIn?.data?.todayValue || ''
   );
+  const [intention, setIntention] = useState<string>(
+    currentCheckIn?.data?.intention || ''
+  );
 
   const handleValueSelect = async (valueId: string) => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -45,12 +48,17 @@ export const TodaysValueScreen: React.FC<TodaysValueScreenProps> = ({
   };
 
   const handleNext = () => {
-    updateCurrentCheckIn({ todayValue: selectedValue });
+    updateCurrentCheckIn({ 
+      todayValue: selectedValue,
+      intention: intention.trim()
+    });
     onNext();
   };
 
   const selectedValueData = CORE_VALUES.find(v => v.id === selectedValue);
   const hasSelection = selectedValue !== '';
+  const hasIntention = intention.trim().length > 0;
+  const canProceed = hasSelection && hasIntention;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -61,9 +69,9 @@ export const TodaysValueScreen: React.FC<TodaysValueScreenProps> = ({
           theme="morning"
         />
         
-        <Text style={styles.title}>Today's Guiding Value</Text>
+        <Text style={styles.title}>What Matters Most Today?</Text>
         <Text style={styles.subtitle}>
-          Choose one value to guide your decisions and actions today
+          Choose one value and set your intention for the day
         </Text>
       </View>
 
@@ -130,15 +138,43 @@ export const TodaysValueScreen: React.FC<TodaysValueScreenProps> = ({
           </View>
         )}
 
-        <View style={styles.guidance}>
-          <Text style={styles.guidanceTitle}>Why choose just one value?</Text>
-          <Text style={styles.guidanceText}>
-            • Focusing on one value creates clarity in decision-making{'\n'}
-            • It's easier to remember and apply throughout the day{'\n'}
-            • You can rotate through different values over time{'\n'}
-            • This practice builds intentional living habits
-          </Text>
-        </View>
+        {hasSelection && (
+          <View style={styles.intentionSection}>
+            <Text style={styles.intentionTitle}>Today I will...</Text>
+            <Text style={styles.intentionPrompt}>
+              How will you honor {selectedValueData?.label.toLowerCase()} today?
+            </Text>
+            
+            <TextArea
+              value={intention}
+              onChangeText={setIntention}
+              placeholder="Today I will focus on..."
+              minHeight={80}
+              style={styles.intentionTextArea}
+            />
+            
+            <View style={styles.intentionExamples}>
+              <Text style={styles.examplesTitle}>Example intentions:</Text>
+              <Text style={styles.examplesText}>
+                • "I will approach challenges with curiosity rather than judgment"{"\n"}
+                • "I will take three deep breaths before responding to stress"{"\n"}
+                • "I will celebrate small victories throughout my day"
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {!hasSelection && (
+          <View style={styles.guidance}>
+            <Text style={styles.guidanceTitle}>Why choose just one value?</Text>
+            <Text style={styles.guidanceText}>
+              • Focusing on one value creates clarity in decision-making{"\n"}
+              • It's easier to remember and apply throughout the day{"\n"}
+              • You can rotate through different values over time{"\n"}
+              • This practice builds intentional living habits
+            </Text>
+          </View>
+        )}
       </ScrollView>
 
       <View style={styles.buttonContainer}>
@@ -154,10 +190,10 @@ export const TodaysValueScreen: React.FC<TodaysValueScreenProps> = ({
         <Button
           theme="morning"
           onPress={handleNext}
-          disabled={!hasSelection}
+          disabled={!canProceed}
           style={styles.nextButton}
         >
-          Continue
+          Next
         </Button>
       </View>
     </SafeAreaView>
@@ -231,6 +267,44 @@ const styles = StyleSheet.create({
     color: colorSystem.base.white,
     fontStyle: 'italic',
     lineHeight: 20,
+  },
+  intentionSection: {
+    backgroundColor: colorSystem.base.white,
+    padding: spacing.lg,
+    borderRadius: borderRadius.large,
+    marginBottom: spacing.lg,
+  },
+  intentionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colorSystem.themes.morning.primary,
+    marginBottom: spacing.xs,
+    textAlign: 'center',
+  },
+  intentionPrompt: {
+    fontSize: 14,
+    color: colorSystem.gray[600],
+    marginBottom: spacing.md,
+    textAlign: 'center',
+  },
+  intentionTextArea: {
+    marginBottom: spacing.md,
+  },
+  intentionExamples: {
+    padding: spacing.md,
+    backgroundColor: colorSystem.themes.morning.background,
+    borderRadius: borderRadius.medium,
+  },
+  examplesTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colorSystem.base.black,
+    marginBottom: spacing.xs,
+  },
+  examplesText: {
+    fontSize: 13,
+    color: colorSystem.gray[600],
+    lineHeight: 18,
   },
   guidance: {
     padding: spacing.md,

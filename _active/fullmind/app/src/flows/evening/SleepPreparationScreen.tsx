@@ -129,7 +129,7 @@ export const SleepPreparationScreen: React.FC<SleepPreparationScreenProps> = ({
 
           {/* Sleep Ritual */}
           <View style={styles.ritual}>
-            <Text style={styles.ritualTitle}>✨ Evening Ritual</Text>
+            <Text style={styles.ritualTitle}>Evening Ritual</Text>
             <Text style={styles.ritualText}>
               Before sleep tonight, try this simple practice:
             </Text>
@@ -144,7 +144,7 @@ export const SleepPreparationScreen: React.FC<SleepPreparationScreenProps> = ({
           {/* Mindful Insight */}
           <View style={styles.insight}>
             <Text style={styles.insightText}>
-              🌙 Sleep is not earned, it is a gift. You deserve rest simply by being human. Sweet dreams.
+              Sleep is not earned, it is a gift. You deserve rest simply by being human. Sweet dreams.
             </Text>
           </View>
         </View>

@@ -141,7 +141,7 @@ export const GratitudeLearningScreen: React.FC<GratitudeLearningScreenProps> = (
           {/* Mindful Insight */}
           <View style={styles.insight}>
             <Text style={styles.insightText}>
-              🌙 Gratitude and self-awareness are the foundation of emotional well-being. By acknowledging both, you're nurturing your inner wisdom.
+              Gratitude and self-awareness are the foundation of emotional well-being. By acknowledging both, you're nurturing your inner wisdom.
             </Text>
           </View>
         </View>

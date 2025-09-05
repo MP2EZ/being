@@ -15,7 +15,7 @@ import { LoadingScreen } from '../components/core';
 import CheckInFlowScreen from '../screens/home/CheckInFlowScreen';
 import AssessmentFlowScreen from '../screens/assessment/AssessmentFlowScreen';
 import CrisisPlanScreen from '../screens/crisis/CrisisPlanScreen';
-// import OnboardingNavigator from './OnboardingNavigator';
+import OnboardingPlaceholder from '../screens/onboarding/OnboardingPlaceholder';
 
 const Stack = createStackNavigator();
 
@@ -37,7 +37,7 @@ const RootNavigator: React.FC = () => {
           // Onboarding Flow (first launch only)
           <Stack.Screen 
             name="Onboarding" 
-            component={() => null} // TODO: OnboardingNavigator 
+            component={OnboardingPlaceholder}
           />
         ) : (
           // Main App

@@ -27,18 +27,13 @@ export const Slider: React.FC<SliderProps> = ({
   const { colorSystem } = useTheme();
   const accentColor = theme ? colorSystem.themes[theme].primary : colorSystem.status.info;
   
-  const getEmoji = (val: number) => {
-    if (val <= 3) return '😔';
-    if (val <= 6) return '😐';
-    return '😊';
-  };
 
   return (
     <View style={[styles.container, style]}>
       <View style={styles.labelContainer}>
         <Text style={styles.label}>{label}</Text>
         <Text style={[styles.value, { color: accentColor }]}>
-          {value} {showEmoji && getEmoji(value)}
+          {value}
         </Text>
       </View>
       <View style={styles.sliderContainer}>

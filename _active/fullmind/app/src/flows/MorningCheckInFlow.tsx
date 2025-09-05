@@ -12,7 +12,7 @@ import {
   ThoughtsScreen,
   EnergyLevelsScreen,
   TodaysValueScreen,
-  IntentionScreen
+  DreamJournalScreen
 } from './morning';
 
 interface MorningCheckInFlowProps {
@@ -33,7 +33,7 @@ export const MorningCheckInFlow: React.FC<MorningCheckInFlowProps> = ({
     ThoughtsScreen,
     EnergyLevelsScreen,
     TodaysValueScreen,
-    IntentionScreen
+    DreamJournalScreen
   ];
 
   const handleNext = () => {
