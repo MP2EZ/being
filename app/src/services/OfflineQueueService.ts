@@ -4,7 +4,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { dataStore } from './storage/DataStore';
+import { dataStore } from './storage/SecureDataStore';
 import { QueuedAction, CheckIn, Assessment, UserProfile } from '../types';
 
 class OfflineQueueService {
@@ -273,7 +273,7 @@ class OfflineQueueService {
    * Generate unique ID for actions
    */
   private generateId(): string {
-    return `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return `${Date.now()}_${Math.random().toString(36).substr(2, 16)}`;
   }
 
   /**

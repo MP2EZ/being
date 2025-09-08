@@ -78,7 +78,11 @@ export interface CheckIn {
   };
 }
 
-export interface Assessment {
+// Import enhanced Assessment types from clinical module
+export type { Assessment, AssessmentID, CheckInID } from './clinical';
+
+// Legacy assessment interface for backward compatibility
+export interface LegacyAssessment {
   id: string;
   type: 'phq9' | 'gad7';
   completedAt: string;

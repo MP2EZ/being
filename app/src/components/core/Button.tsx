@@ -1,12 +1,12 @@
 import React from 'react';
 import { TouchableOpacity, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { useTheme } from '../../hooks/useTheme';
-import { useCommonHaptics } from '../../hooks/useHaptics';
+import { useCommonHaptics, useHaptics } from '../../hooks/useHaptics';
 import { borderRadius } from '../../constants/colors';
 
 interface ButtonProps {
   children: React.ReactNode;
-  variant?: 'primary' | 'secondary' | 'outline' | 'success';
+  variant?: 'primary' | 'secondary' | 'outline' | 'success' | 'emergency' | 'crisis';
   onPress?: () => void;
   disabled?: boolean;
   theme?: 'morning' | 'midday' | 'evening' | null;
@@ -14,6 +14,12 @@ interface ButtonProps {
   loading?: boolean;
   haptic?: boolean;
   style?: any;
+  // Accessibility props
+  accessibilityLabel?: string;
+  accessibilityHint?: string;
+  accessibilityRole?: string;
+  testID?: string;
+  emergency?: boolean; // Flag for crisis/emergency buttons
 }
 
 export const Button: React.FC<ButtonProps> = ({
@@ -25,16 +31,27 @@ export const Button: React.FC<ButtonProps> = ({
   fullWidth = true,
   loading = false,
   haptic = true,
-  style
+  style,
+  accessibilityLabel,
+  accessibilityHint,
+  accessibilityRole = 'button',
+  testID,
+  emergency = false
 }) => {
   const { colorSystem } = useTheme();
   const { onPress: hapticPress } = useCommonHaptics();
+  const { triggerHaptic } = useHaptics();
   
   const handlePress = async () => {
     if (disabled || loading) return;
     
     if (haptic) {
-      await hapticPress();
+      // Use stronger haptic feedback for emergency buttons
+      if (emergency || variant === 'emergency' || variant === 'crisis') {
+        await triggerHaptic('heavy');
+      } else {
+        await hapticPress();
+      }
     }
     
     onPress?.();
@@ -60,6 +77,10 @@ export const Button: React.FC<ButtonProps> = ({
         return 'transparent';
       case 'success':
         return colorSystem.status.success;
+      case 'emergency':
+        return colorSystem.status.critical;
+      case 'crisis':
+        return colorSystem.status.error;
       default:
         return colorSystem.status.info;
     }
@@ -74,7 +95,7 @@ export const Button: React.FC<ButtonProps> = ({
       return 'white';
     }
     
-    return (variant === 'primary' || variant === 'success') 
+    return (variant === 'primary' || variant === 'success' || variant === 'emergency' || variant === 'crisis') 
       ? 'white' 
       : colorSystem.base.black;
   };
@@ -93,16 +114,32 @@ export const Button: React.FC<ButtonProps> = ({
         },
         fullWidth && styles.fullWidth,
         disabled && styles.disabled,
+        (emergency || variant === 'emergency' || variant === 'crisis') && styles.emergencyButton,
         style
       ]}
       onPress={handlePress}
       activeOpacity={0.8}
       disabled={disabled || loading}
+      accessible={true}
+      accessibilityRole={accessibilityRole}
+      accessibilityLabel={accessibilityLabel || (typeof children === 'string' ? children : undefined)}
+      accessibilityHint={accessibilityHint}
+      testID={testID}
     >
       {loading ? (
         <ActivityIndicator color={textColor} />
       ) : (
-        <Text style={[styles.text, { color: textColor }]}>{children}</Text>
+        <Text 
+          style={[
+            styles.text, 
+            { color: textColor },
+            (emergency || variant === 'emergency' || variant === 'crisis') && styles.emergencyText
+          ]}
+          allowFontScaling={true}
+          maxFontSizeMultiplier={2.0}
+        >
+          {children}
+        </Text>
       )}
     </TouchableOpacity>
   );
@@ -116,6 +153,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
+    minHeight: 48, // WCAG AA compliant touch target
   },
   fullWidth: {
     width: '100%',
@@ -123,8 +161,18 @@ const styles = StyleSheet.create({
   disabled: {
     opacity: 0.6,
   },
+  emergencyButton: {
+    minHeight: 52, // Larger touch target for crisis situations
+    paddingVertical: 18,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
   text: {
     fontSize: 16,
     fontWeight: '500',
+  },
+  emergencyText: {
+    fontSize: 18,
+    fontWeight: '700',
   },
 });

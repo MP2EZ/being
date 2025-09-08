@@ -5,7 +5,7 @@
 
 import { create } from 'zustand';
 import { UserProfile } from '../types';
-import { dataStore } from '../services/storage/DataStore';
+import { dataStore } from '../services/storage/SecureDataStore';
 import { networkService } from '../services/NetworkService';
 
 interface UserState {
@@ -90,7 +90,7 @@ export const useUserStore = create<UserState>((set, get) => ({
 
     try {
       const newUser: UserProfile = {
-        id: `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        id: `user_${Date.now()}_${Math.random().toString(36).substr(2, 16)}`,
         createdAt: new Date().toISOString(),
         onboardingCompleted: userData.onboardingCompleted ?? false,
         notifications: {

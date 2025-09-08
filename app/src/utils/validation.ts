@@ -4,6 +4,20 @@
  */
 
 import { CheckIn, Assessment, UserProfile } from '../types';
+import {
+  PHQ9Answers,
+  GAD7Answers,
+  PHQ9Score,
+  GAD7Score,
+  AssessmentID,
+  CheckInID,
+  CRISIS_THRESHOLD_PHQ9,
+  CRISIS_THRESHOLD_GAD7,
+  SUICIDAL_IDEATION_QUESTION_INDEX,
+  SUICIDAL_IDEATION_THRESHOLD,
+  ClinicalValidationError,
+  createISODateString
+} from '../types/clinical';
 
 // Validation errors
 export class ValidationError extends Error {
@@ -195,28 +209,95 @@ const isValidTimeString = (timeString: string): boolean => {
   return timeRegex.test(timeString);
 };
 
-// Crisis intervention score thresholds - DO NOT MODIFY WITHOUT CLINICAL APPROVAL
-export const CRISIS_THRESHOLDS = {
-  PHQ9_SEVERE: 20,
-  GAD7_SEVERE: 15,
-  PHQ9_SUICIDAL_IDEATION_QUESTION: 8, // Question 9 index (0-based)
-  SUICIDAL_IDEATION_THRESHOLD: 1 // Any response > 0 on question 9
-} as const;
-
-// Check if assessment indicates crisis intervention needed
+// Type-safe Crisis Detection Functions - DO NOT MODIFY WITHOUT CLINICAL APPROVAL
 export const requiresCrisisIntervention = (assessment: Assessment): boolean => {
   if (assessment.type === 'phq9') {
-    // Check for severe depression or any suicidal ideation
-    const hasHighScore = assessment.score >= CRISIS_THRESHOLDS.PHQ9_SEVERE;
-    const hasSuicidalThoughts = assessment.answers[CRISIS_THRESHOLDS.PHQ9_SUICIDAL_IDEATION_QUESTION] >= CRISIS_THRESHOLDS.SUICIDAL_IDEATION_THRESHOLD;
+    // Type-safe access to PHQ-9 specific data
+    const hasHighScore = assessment.score >= CRISIS_THRESHOLD_PHQ9;
+    const hasSuicidalThoughts = assessment.answers[SUICIDAL_IDEATION_QUESTION_INDEX] >= SUICIDAL_IDEATION_THRESHOLD;
     return hasHighScore || hasSuicidalThoughts;
   }
   
   if (assessment.type === 'gad7') {
-    return assessment.score >= CRISIS_THRESHOLDS.GAD7_SEVERE;
+    return assessment.score >= CRISIS_THRESHOLD_GAD7;
   }
   
   return false;
+};
+
+// Type-safe PHQ-9 Answer Validation
+export const isValidPHQ9Answers = (answers: unknown): answers is PHQ9Answers => {
+  if (!Array.isArray(answers) || answers.length !== 9) {
+    return false;
+  }
+  
+  return answers.every(answer => 
+    typeof answer === 'number' && 
+    Number.isInteger(answer) && 
+    answer >= 0 && 
+    answer <= 3
+  );
+};
+
+// Type-safe GAD-7 Answer Validation
+export const isValidGAD7Answers = (answers: unknown): answers is GAD7Answers => {
+  if (!Array.isArray(answers) || answers.length !== 7) {
+    return false;
+  }
+  
+  return answers.every(answer => 
+    typeof answer === 'number' && 
+    Number.isInteger(answer) && 
+    answer >= 0 && 
+    answer <= 3
+  );
+};
+
+// Type-safe Score Validation
+export const isValidPHQ9Score = (score: number): score is PHQ9Score => {
+  return Number.isInteger(score) && score >= 0 && score <= 27;
+};
+
+export const isValidGAD7Score = (score: number): score is GAD7Score => {
+  return Number.isInteger(score) && score >= 0 && score <= 21;
+};
+
+// Clinical Calculation Functions with Type Safety
+export const calculatePHQ9Score = (answers: PHQ9Answers): PHQ9Score => {
+  const sum = answers.reduce((total, answer) => total + answer, 0);
+  if (!isValidPHQ9Score(sum)) {
+    throw new ClinicalValidationError(
+      `Invalid PHQ-9 score calculated: ${sum}`,
+      'phq9',
+      'score',
+      'score between 0-27',
+      sum
+    );
+  }
+  return sum;
+};
+
+export const calculateGAD7Score = (answers: GAD7Answers): GAD7Score => {
+  const sum = answers.reduce((total, answer) => total + answer, 0);
+  if (!isValidGAD7Score(sum)) {
+    throw new ClinicalValidationError(
+      `Invalid GAD-7 score calculated: ${sum}`,
+      'gad7',
+      'score',
+      'score between 0-21',
+      sum
+    );
+  }
+  return sum;
+};
+
+// ID Validation Functions
+export const isValidAssessmentID = (id: string): id is AssessmentID => {
+  return /^assessment_(phq9|gad7)_\d+_[a-z0-9]+$/.test(id);
+};
+
+export const isValidCheckInID = (id: string): id is CheckInID => {
+  return /^checkin_(morning|midday|evening)_\d+_[a-z0-9]+$/.test(id);
 };
 
 // Sanitize text input to prevent injection attacks

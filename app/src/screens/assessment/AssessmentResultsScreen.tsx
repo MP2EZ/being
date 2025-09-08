@@ -10,6 +10,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '../../components/core/Button';
 import { colorSystem, spacing, borderRadius } from '../../constants/colors';
 import { useAssessmentStore } from '../../store';
+import { CRISIS_THRESHOLDS, requiresCrisisIntervention } from '../../utils/validation';
 
 type AssessmentResultsParams = {
   AssessmentResults: {
@@ -58,7 +59,8 @@ export const AssessmentResultsScreen: React.FC = () => {
   
   const severity = getSeverityLevel(type, score);
   const recommendation = getRecommendation(type, score);
-  const isCritical = score >= 20 || (type === 'gad7' && score >= 15);
+  const isCritical = (type === 'phq9' && score >= CRISIS_THRESHOLDS.PHQ9_SEVERE) || 
+                     (type === 'gad7' && score >= CRISIS_THRESHOLDS.GAD7_SEVERE);
 
   React.useEffect(() => {
     // Complete the assessment in store

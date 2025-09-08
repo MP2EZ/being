@@ -5,7 +5,7 @@
 
 import { create } from 'zustand';
 import { CheckIn } from '../types';
-import { dataStore } from '../services/storage/DataStore';
+import { dataStore } from '../services/storage/SecureDataStore';
 import { networkService } from '../services/NetworkService';
 import { validateCheckInData, ValidationError, sanitizeTextInput, sanitizeArrayInput } from '../utils/validation';
 
@@ -79,7 +79,7 @@ export const useCheckInStore = create<CheckInState>((set, get) => ({
   startCheckIn: (type) => {
     const now = new Date().toISOString();
     const newCheckIn: Partial<CheckIn> = {
-      id: `checkin_${type}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      id: `checkin_${type}_${Date.now()}_${Math.random().toString(36).substr(2, 16)}`,
       type,
       startedAt: now,
       skipped: false,
@@ -179,7 +179,7 @@ export const useCheckInStore = create<CheckInState>((set, get) => ({
         // If offline, just add to local state optimistically
         const { checkIns, todaysCheckIns } = get();
         const updatedCheckIns = [...checkIns, completedCheckIn];
-        const updatedTodaysCheckIns = completedCheckIn.timestamp.startsWith(new Date().toISOString().split('T')[0])
+        const updatedTodaysCheckIns = completedCheckIn.completedAt?.startsWith(new Date().toISOString().split('T')[0])
           ? [...todaysCheckIns, completedCheckIn]
           : todaysCheckIns;
         set({ checkIns: updatedCheckIns, todaysCheckIns: updatedTodaysCheckIns });
@@ -203,7 +203,7 @@ export const useCheckInStore = create<CheckInState>((set, get) => ({
     try {
       const now = new Date().toISOString();
       const skippedCheckIn: CheckIn = {
-        id: `checkin_${type}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        id: `checkin_${type}_${Date.now()}_${Math.random().toString(36).substr(2, 16)}`,
         type,
         startedAt: now,
         completedAt: now,
