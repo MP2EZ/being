@@ -1,0 +1,1 @@
+export { PhoneMockup } from './PhoneMockup';

@@ -7,3 +7,5 @@ export { BrainIcon } from './BrainIcon';
 export { LoadingScreen } from './LoadingScreen';
 export { ErrorBoundary, withErrorBoundary } from './ErrorBoundary';
 export { AccessibleAlert } from './AccessibleAlert';
+export { SessionProgressBar } from './SessionProgressBar';
+export { ResumeSessionPrompt } from './ResumeSessionPrompt';

@@ -3,13 +3,14 @@
  * Shows today's progress and quick access to assessments
  */
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useCheckInStore, useUserStore } from '../../store';
-import { Card, Button } from '../../components/core';
+import { Card, Button, ResumeSessionPrompt } from '../../components/core';
 import { colorSystem, spacing } from '../../constants/colors';
+import { ResumableSession, SessionProgress } from '../../types/ResumableSession';
 
 const HomeScreen: React.FC = () => {
   const navigation = useNavigation();
@@ -18,12 +19,94 @@ const HomeScreen: React.FC = () => {
     todaysCheckIns, 
     loadTodaysCheckIns, 
     getTodaysProgress,
-    hasCompletedTodaysCheckIn 
+    hasCompletedTodaysCheckIn,
+    getSessionProgress,
+    resumeCheckIn,
+    clearPartialSession
   } = useCheckInStore();
+
+  // Resume session state
+  const [resumableSession, setResumableSession] = useState<{
+    type: 'morning' | 'midday' | 'evening';
+    progress: SessionProgress;
+  } | null>(null);
+  const [showResumePrompt, setShowResumePrompt] = useState(false);
+  const [isCheckingForSessions, setIsCheckingForSessions] = useState(true);
 
   useEffect(() => {
     loadTodaysCheckIns();
+    checkForResumableSessions();
   }, [loadTodaysCheckIns]);
+
+  // Check for resumable sessions on mount
+  const checkForResumableSessions = async () => {
+    setIsCheckingForSessions(true);
+    
+    try {
+      // Check each check-in type for active sessions
+      const checkInTypes: ('morning' | 'midday' | 'evening')[] = ['morning', 'midday', 'evening'];
+      
+      for (const type of checkInTypes) {
+        const sessionProgress = await getSessionProgress(type);
+        if (sessionProgress && sessionProgress.percentComplete >= 10) {
+          // Found a resumable session with meaningful progress
+          setResumableSession({
+            type,
+            progress: sessionProgress,
+          });
+          setShowResumePrompt(true);
+          break; // Show only the first resumable session found
+        }
+      }
+    } catch (error) {
+      console.error('Error checking for resumable sessions:', error);
+    } finally {
+      setIsCheckingForSessions(false);
+    }
+  };
+
+  // Handle resuming a session
+  const handleResumeSession = async () => {
+    if (!resumableSession) return;
+    
+    try {
+      const success = await resumeCheckIn(resumableSession.type);
+      if (success) {
+        setShowResumePrompt(false);
+        setResumableSession(null);
+        // Navigate to the check-in flow
+        (navigation as any).navigate('CheckInFlow', { 
+          type: resumableSession.type,
+          resuming: true 
+        });
+      } else {
+        // Session couldn't be resumed, clear it
+        setShowResumePrompt(false);
+        setResumableSession(null);
+      }
+    } catch (error) {
+      console.error('Error resuming session:', error);
+      setShowResumePrompt(false);
+      setResumableSession(null);
+    }
+  };
+
+  // Handle dismissing the resume prompt
+  const handleDismissResumePrompt = async () => {
+    if (!resumableSession) return;
+    
+    try {
+      // Clear the session progress to prevent showing again
+      await clearPartialSession(resumableSession.type);
+      setShowResumePrompt(false);
+      setResumableSession(null);
+    } catch (error) {
+      console.error('Error dismissing resume prompt:', error);
+      // Still hide the prompt even if clearing failed
+      setShowResumePrompt(false);
+      setResumableSession(null);
+    }
+  };
 
   const progress = getTodaysProgress();
   const currentHour = new Date().getHours();
@@ -142,6 +225,20 @@ const HomeScreen: React.FC = () => {
           </Button>
         </View>
       </ScrollView>
+
+      {/* Resume Session Prompt */}
+      {resumableSession && (
+        <ResumeSessionPrompt
+          isVisible={showResumePrompt}
+          checkInType={resumableSession.type}
+          percentage={resumableSession.progress.percentComplete}
+          estimatedTimeRemaining={resumableSession.progress.estimatedTimeRemaining}
+          onContinue={handleResumeSession}
+          onDismiss={handleDismissResumePrompt}
+          variant="modal"
+          testID="home-resume-session-prompt"
+        />
+      )}
     </SafeAreaView>
   );
 };

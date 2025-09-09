@@ -28,10 +28,19 @@
         "NSHealthShareUsageDescription": "FullMind integrates with Apple Health to provide comprehensive wellness tracking for your mental health journey.",
         "NSHealthUpdateUsageDescription": "FullMind can save your mindfulness session data to Apple Health to track your wellness progress.",
         "ITSAppUsesNonExemptEncryption": false,
-        "LSApplicationCategoryType": "public.app-category.healthcare-fitness"
+        "LSApplicationCategoryType": "public.app-category.healthcare-fitness",
+        "CFBundleURLTypes": [
+          {
+            "CFBundleURLName": "fullmind-deep-linking",
+            "CFBundleURLSchemes": ["fullmind"]
+          }
+        ]
       },
       "config": {
         "usesNonExemptEncryption": false
+      },
+      "entitlements": {
+        "com.apple.security.application-groups": ["group.com.fullmind.mbct.widgets"]
       }
     },
     "android": {
@@ -45,7 +54,18 @@
       "edgeToEdgeEnabled": true,
       "permissions": [
         "android.permission.RECORD_AUDIO",
-        "android.permission.MODIFY_AUDIO_SETTINGS"
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.WAKE_LOCK",
+        "android.permission.RECEIVE_BOOT_COMPLETED"
+      ],
+      "intentFilters": [
+        {
+          "action": "android.intent.action.VIEW",
+          "category": ["android.intent.category.DEFAULT", "android.intent.category.BROWSABLE"],
+          "data": {
+            "scheme": "fullmind"
+          }
+        }
       ]
     },
     "web": {
@@ -67,7 +87,8 @@
           "color": "#4A7C59",
           "defaultChannel": "default"
         }
-      ]
+      ],
+      "./plugins/expo-fullmind-widgets"
     ],
     "extra": {
       "eas": {

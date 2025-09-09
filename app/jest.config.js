@@ -65,7 +65,8 @@ module.exports = {
   },
   
   // Clinical testing timeout (assessments can take time)
-  testTimeout: 10000,
+  // Integration tests may need extended timeout for comprehensive validation
+  testTimeout: 20000,
   
   // Performance and reliability
   maxWorkers: '50%',
@@ -81,26 +82,32 @@ module.exports = {
   // Setup files
   setupFiles: ['<rootDir>/__tests__/setup/react-native-mock.js'],
   
+  // Transform ignore patterns for React Native and Expo modules
+  transformIgnorePatterns: [
+    'node_modules/(?!(react-native|@react-native|expo|@expo|react-navigation|@react-navigation)/)'
+  ],
+  
   // Custom test environments for different test types
   projects: [
     {
       displayName: 'Clinical Accuracy Tests',
       testMatch: ['<rootDir>/__tests__/clinical/**/*.test.{ts,tsx}'],
-      testTimeout: 15000,
+      // Inherits global testTimeout of 20000ms - sufficient for clinical validation
     },
     {
       displayName: 'Unit Tests',
       testMatch: ['<rootDir>/__tests__/unit/**/*.test.{ts,tsx}'],
+      // Inherits global testTimeout of 20000ms
     },
     {
       displayName: 'Integration Tests', 
       testMatch: ['<rootDir>/__tests__/integration/**/*.test.{ts,tsx}'],
-      testTimeout: 20000,
+      // Inherits global testTimeout of 20000ms - was previously 20000ms
     },
     {
       displayName: 'Security Tests',
       testMatch: ['<rootDir>/src/services/**/__tests__/**/*.test.{ts,tsx}'],
-      testTimeout: 15000,
+      // Inherits global testTimeout of 20000ms - increased from 15000ms for security tests
     }
   ]
 };

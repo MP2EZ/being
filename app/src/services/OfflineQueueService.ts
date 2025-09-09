@@ -1,48 +1,192 @@
 /**
- * OfflineQueueService - Handles offline data operations and sync
- * Queues actions when offline and processes them when connectivity returns
+ * Enhanced OfflineQueueService - Clinical-grade offline data operations and sync
+ * Advanced queue management with conflict resolution, priority handling, and clinical safety
+ * Integrates with AssetCacheService and ResumableSessionService for comprehensive offline experience
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Crypto from 'expo-crypto';
 import { dataStore } from './storage/SecureDataStore';
-import { QueuedAction, CheckIn, Assessment, UserProfile } from '../types';
+import { assetCacheService } from './AssetCacheService';
+import { resumableSessionService } from './ResumableSessionService';
+import { CheckIn, Assessment, UserProfile } from '../types';
+import {
+  EnhancedQueuedAction,
+  OfflineActionType,
+  OfflineActionData,
+  OfflinePriority,
+  OfflineError,
+  OfflineErrorCode,
+  ConflictResolutionStrategy,
+  RetryStrategy,
+  SyncConfiguration,
+  OfflineQueueStatistics,
+  DataIntegrityResult,
+  OfflineOperationResult,
+  BatchOperationResult,
+  ClinicalValidation,
+  OfflineActionMetadata,
+  ClinicalSafetyHelpers,
+  isOfflineActionData,
+  NetworkQuality
+} from '../types/offline';
 
-class OfflineQueueService {
-  private readonly QUEUE_KEY = '@fullmind_offline_queue';
-  private readonly MAX_RETRIES = 3;
-  private readonly RETRY_DELAY = 1000; // 1 second
+/**
+ * Enhanced OfflineQueueService with clinical safety and advanced features
+ */
+class EnhancedOfflineQueueService {
+  private readonly QUEUE_KEY = '@fullmind_enhanced_offline_queue';
+  private readonly STATISTICS_KEY = '@fullmind_queue_statistics';
+  private readonly CONFIG_KEY = '@fullmind_sync_config';
+  private readonly INTEGRITY_CHECK_KEY = '@fullmind_data_integrity';
+  
+  // Enhanced configuration
+  private readonly DEFAULT_MAX_RETRIES = 5;
+  private readonly CRITICAL_MAX_RETRIES = 10;
+  private readonly BASE_RETRY_DELAY = 1000; // 1 second
+  private readonly MAX_RETRY_DELAY = 60000; // 1 minute
+  private readonly MAX_QUEUE_SIZE = 10000;
+  private readonly BATCH_SIZE = 50;
+  private readonly CLINICAL_PROCESSING_TIMEOUT = 30000; // 30 seconds
+  
+  // State management
   private isProcessing = false;
-  private listeners: Array<(queueSize: number) => void> = [];
+  private batchProcessing = false;
+  private statistics: OfflineQueueStatistics;
+  private syncConfig: SyncConfiguration;
+  private listeners: Array<(statistics: OfflineQueueStatistics) => void> = [];
+  private performanceTimings: number[] = [];
+  private lastIntegrityCheck: string | null = null;
+
+  constructor() {
+    this.statistics = this.getDefaultStatistics();
+    this.syncConfig = this.getDefaultSyncConfig();
+    this.initialize();
+  }
 
   /**
-   * Add action to offline queue
+   * Initialize the enhanced offline queue service
+   */
+  private async initialize(): Promise<void> {
+    try {
+      await this.loadConfiguration();
+      await this.loadStatistics();
+      await this.migrateFromLegacyQueue();
+      await this.performIntegrityCheck();
+      this.schedulePeriodicMaintenance();
+      console.log('Enhanced OfflineQueueService initialized successfully');
+    } catch (error) {
+      console.error('Failed to initialize Enhanced OfflineQueueService:', error);
+    }
+  }
+
+  /**
+   * Enhanced queue action with clinical safety and advanced features
    */
   async queueAction(
-    action: 'save_checkin' | 'save_assessment' | 'update_user',
-    data: any
-  ): Promise<void> {
+    action: OfflineActionType,
+    data: OfflineActionData,
+    options: {
+      priority?: OfflinePriority;
+      conflictResolution?: ConflictResolutionStrategy;
+      clinicalValidation?: boolean;
+      dependencies?: string[];
+      metadata?: Partial<OfflineActionMetadata>;
+    } = {}
+  ): Promise<OfflineOperationResult> {
+    const startTime = Date.now();
+    
     try {
-      const queuedAction: QueuedAction = {
-        id: this.generateId(),
+      // Validate queue capacity
+      const currentQueue = await this.getQueue();
+      if (currentQueue.length >= this.MAX_QUEUE_SIZE) {
+        throw this.createError(
+          OfflineErrorCode.STORAGE_FULL,
+          'Offline queue has reached maximum capacity',
+          'high'
+        );
+      }
+
+      // Determine priority and clinical validation
+      const priority = options.priority || ClinicalSafetyHelpers.getClinicalPriority(action);
+      const requiresClinicalValidation = options.clinicalValidation || 
+                                       ClinicalSafetyHelpers.containsCrisisData(data);
+      
+      // Perform clinical validation if required
+      let clinicalValidation: ClinicalValidation | undefined;
+      if (requiresClinicalValidation) {
+        clinicalValidation = await this.performClinicalValidation(data, action);
+      }
+
+      // Create enhanced queued action
+      const queuedAction: EnhancedQueuedAction = {
+        id: await this.generateSecureId(),
         timestamp: new Date().toISOString(),
         action,
         data,
+        priority,
         retryCount: 0,
-        maxRetries: this.MAX_RETRIES
+        maxRetries: priority === OfflinePriority.CRITICAL ? this.CRITICAL_MAX_RETRIES : this.DEFAULT_MAX_RETRIES,
+        errorHistory: [],
+        dependencies: options.dependencies || [],
+        conflictResolution: options.conflictResolution || this.getDefaultConflictResolution(action),
+        clinicalValidation,
+        metadata: await this.createActionMetadata(data, options.metadata)
       };
 
-      const queue = await this.getQueue();
-      queue.push(queuedAction);
+      // Add to queue with priority ordering
+      await this.addToQueueWithPriority(queuedAction);
       
-      await AsyncStorage.setItem(this.QUEUE_KEY, JSON.stringify(queue));
+      // Update statistics
+      await this.updateStatistics('queued', queuedAction);
       
-      // Notify listeners about queue size change
-      this.notifyListeners(queue.length);
+      // Immediate processing for critical actions if possible
+      if (priority === OfflinePriority.CRITICAL && !this.isProcessing) {
+        this.processQueue().catch(error => 
+          console.error('Failed to process critical action immediately:', error)
+        );
+      }
+
+      const result: OfflineOperationResult = {
+        success: true,
+        queuedForLater: true,
+        clinicalValidation,
+        metadata: {
+          operationId: queuedAction.id,
+          timestamp: new Date().toISOString(),
+          executionTime: Date.now() - startTime,
+          networkQuality: NetworkQuality.OFFLINE,
+          offline: true
+        }
+      };
+
+      console.log(`Enhanced queue action: ${action} (Priority: ${priority}, ID: ${queuedAction.id})`);
+      return result;
       
-      console.log(`Queued ${action} action offline:`, queuedAction.id);
     } catch (error) {
-      console.error('Failed to queue offline action:', error);
-      throw new Error('Failed to queue offline action');
+      const offlineError = error instanceof Error && 'code' in error 
+        ? error as OfflineError
+        : this.createError(
+            OfflineErrorCode.UNKNOWN_ERROR,
+            error instanceof Error ? error.message : 'Failed to queue action',
+            'medium'
+          );
+
+      const result: OfflineOperationResult = {
+        success: false,
+        error: offlineError,
+        queuedForLater: false,
+        metadata: {
+          operationId: '',
+          timestamp: new Date().toISOString(),
+          executionTime: Date.now() - startTime,
+          networkQuality: NetworkQuality.OFFLINE,
+          offline: true
+        }
+      };
+
+      console.error('Failed to queue enhanced action:', error);
+      return result;
     }
   }
 
