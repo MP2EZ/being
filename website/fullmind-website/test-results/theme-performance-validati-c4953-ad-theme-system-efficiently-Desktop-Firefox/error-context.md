@@ -1,0 +1,56 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e1]:
+  - dialog "Unhandled Runtime Error":
+    - generic [ref=e2]:
+      - generic [ref=e3]:
+        - generic [ref=e4]:
+          - navigation [ref=e5]:
+            - button "previous" [disabled] [ref=e6]:
+              - img "previous" [ref=e7]
+            - button "next" [disabled] [ref=e9]:
+              - img "next" [ref=e10]
+            - generic [ref=e12]:
+              - generic [ref=e13]: "1"
+              - text: of
+              - generic [ref=e14]: "1"
+              - text: error
+            - generic [ref=e15]:
+              - generic "An outdated version detected (latest is 15.5.2), upgrade is highly recommended!" [ref=e17]: Next.js (14.2.32) is outdated
+              - link "(learn more)" [ref=e18] [cursor=pointer]:
+                - /url: https://nextjs.org/docs/messages/version-staleness
+          - button "Close" [ref=e19] [cursor=pointer]:
+            - img [ref=e21] [cursor=pointer]
+        - heading "Unhandled Runtime Error" [level=1] [ref=e24]
+        - paragraph [ref=e25]: "ReferenceError: setIsThemeTransitioning is not defined"
+      - generic [ref=e26]:
+        - heading "Source" [level=2] [ref=e27]
+        - generic [ref=e28]:
+          - link "src/contexts/ThemeContext.tsx (338:7) @ setIsThemeTransitioning" [ref=e30] [cursor=pointer]:
+            - generic [ref=e31] [cursor=pointer]: src/contexts/ThemeContext.tsx (338:7) @ setIsThemeTransitioning
+            - img [ref=e32] [cursor=pointer]
+          - generic [ref=e36]:
+            - generic [ref=e38]: 336 |
+            - generic [ref=e40]: // Skip theme transition if in crisis mode - maintain crisis visibility
+            - generic [ref=e42]: 337 |
+            - generic [ref=e44]: if
+            - generic [ref=e45]: (
+            - generic [ref=e46]: "!"
+            - generic [ref=e47]: "isCrisisMode) {"
+            - generic [ref=e48]: ">"
+            - generic [ref=e49]: 338 |
+            - generic [ref=e50]: setIsThemeTransitioning(
+            - generic [ref=e51]: "true"
+            - generic [ref=e52]: )
+            - generic [ref=e53]: ;
+            - generic [ref=e55]: "|"
+            - generic [ref=e57]: ^
+            - generic [ref=e59]: 339 |
+            - generic [ref=e60]: "}"
+            - generic [ref=e62]: 340 |
+            - generic [ref=e65]: 341 |
+            - generic [ref=e67]: // Batch DOM updates for performance
+        - heading "Call Stack" [level=2] [ref=e68]
+        - button "Show collapsed frames" [ref=e69] [cursor=pointer]
+```

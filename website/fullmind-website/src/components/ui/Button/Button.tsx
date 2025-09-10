@@ -11,10 +11,10 @@ import { cn } from '@/lib/utils';
 import { type ButtonProps } from '@/types';
 
 const buttonVariants = {
-  primary: 'bg-primary-500 text-white hover:bg-primary-600 focus:ring-primary-500/50 shadow-medium',
-  secondary: 'bg-white text-primary-500 border-2 border-primary-500 hover:bg-primary-50 focus:ring-primary-500/50',
-  outline: 'border-2 border-gray-300 text-gray-700 hover:border-gray-400 hover:bg-gray-50 focus:ring-gray-500/50',
-  ghost: 'text-gray-600 hover:text-gray-900 hover:bg-gray-100 focus:ring-gray-500/50',
+  primary: 'bg-theme-primary text-white hover:bg-theme-success focus:ring-theme-primary/50 shadow-medium',
+  secondary: 'bg-bg-primary text-theme-primary border-2 border-theme-primary hover:bg-surface-hover focus:ring-theme-primary/50',
+  outline: 'border-2 border-border-primary text-text-secondary hover:border-border-secondary hover:bg-surface-hover focus:ring-border-focus/50',
+  ghost: 'text-text-secondary hover:text-text-primary hover:bg-surface-hover focus:ring-border-focus/50',
   clinical: 'bg-clinical-safe text-white hover:bg-clinical-safe/90 focus:ring-clinical-safe/50 shadow-medium'
 };
 
@@ -42,7 +42,9 @@ export const Button: React.FC<ButtonProps> = ({
     // Layout and spacing
     'inline-flex items-center justify-center',
     'gap-2',
-    'transition-all duration-200 ease-in-out',
+    
+    // Theme-aware transitions
+    'theme-transition',
     
     // Typography
     'font-sans leading-none',
@@ -51,9 +53,10 @@ export const Button: React.FC<ButtonProps> = ({
     // Shape and borders
     'rounded-lg border-transparent',
     
-    // Focus and accessibility
+    // Focus and accessibility with theme-aware colors
     'focus:outline-none focus:ring-2 focus:ring-offset-2',
     'focus-visible:ring-2 focus-visible:ring-offset-2',
+    'focus:ring-offset-bg-primary',
     
     // Touch targets (minimum 44px for accessibility)
     'min-h-[44px]',

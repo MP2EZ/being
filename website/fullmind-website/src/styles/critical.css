@@ -13,7 +13,7 @@ h1,h2{margin:0;font-weight:inherit;font-size:inherit}
 a{color:inherit;text-decoration:inherit}
 button{font-family:inherit;font-feature-settings:inherit;font-variation-settings:inherit;font-size:100%;font-weight:inherit;line-height:inherit;color:inherit;margin:0;padding:0}
 
-/* Clinical color system - high priority */
+/* Clinical color system - high priority with crisis safety */
 :root{
   --color-primary-400:#60a5fa;
   --color-primary-500:#3b82f6;
@@ -22,6 +22,13 @@ button{font-family:inherit;font-feature-settings:inherit;font-variation-settings
   --color-morning-primary:#ff9f43;
   --color-midday-primary:#40b5ad;
   --color-evening-primary:#4a7c59;
+  
+  /* Crisis safety variables with hardcoded fallbacks */
+  --fm-crisis-bg: #dc2626;
+  --fm-crisis-text: #ffffff;
+  --fm-crisis-border: #991b1b;
+  --fm-crisis-hover: #b91c1c;
+  --fm-transition-duration: 150ms;
 }
 
 /* Critical hero section layout */
@@ -199,5 +206,42 @@ button{font-family:inherit;font-feature-settings:inherit;font-variation-settings
 @media (min-width:1280px){
   .phone-mockup{
     transform:rotate(6deg) scale(1.25);
+  }
+}
+
+/* Crisis button critical styles - always available */
+.crisis-button, #crisis-help-button{
+  min-width:60px;
+  min-height:60px;
+  background-color:var(--fm-crisis-bg);
+  color:var(--fm-crisis-text);
+  border:2px solid var(--fm-crisis-border);
+  font-weight:700;
+  cursor:pointer;
+  z-index:1000;
+  position:relative;
+}
+
+/* Crisis mode emergency override */
+.crisis-mode .crisis-button, 
+.crisis-mode #crisis-help-button, 
+.crisis-mode [data-crisis="true"]{
+  background-color:#ff0000 !important;
+  color:#ffffff !important;
+  border:3px solid #000000 !important;
+  transform:scale(1.1) !important;
+  z-index:9999 !important;
+}
+
+/* High contrast media query for crisis elements */
+@media (prefers-contrast:high){
+  .crisis-button, 
+  #crisis-help-button, 
+  [data-crisis="true"]{
+    background-color:#ff0000 !important;
+    color:#ffffff !important;
+    border:3px solid #000000 !important;
+    outline:3px solid #ffffff !important;
+    outline-offset:2px !important;
   }
 }

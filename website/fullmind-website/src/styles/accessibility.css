@@ -141,6 +141,17 @@
   color: highlighttext !important;
 }
 
+/* Crisis elements get maximum contrast in high contrast mode */
+.high-contrast .crisis-button,
+.high-contrast #crisis-help-button,
+.high-contrast [data-crisis="true"] {
+  background-color: #ff0000 !important;
+  color: #ffffff !important;
+  border: 3px solid #000000 !important;
+  outline: 3px solid #ffffff !important;
+  outline-offset: 2px !important;
+}
+
 /* ============================================================================
    REDUCED MOTION
    ============================================================================ */
@@ -244,16 +255,16 @@
    MENTAL HEALTH ACCESSIBILITY
    ============================================================================ */
 
-/* Crisis button specific styles */
+/* Crisis button specific styles with CSS variable fallbacks */
 .crisis-button,
 #crisis-help-button {
   min-width: 60px !important;
   min-height: 60px !important;
   font-weight: 700 !important;
   font-size: 1.125rem !important;
-  background-color: #dc2626 !important; /* red-600 */
-  color: white !important;
-  border: 3px solid #7f1d1d !important; /* red-900 */
+  background-color: var(--fm-crisis-bg, #dc2626) !important; /* red-600 fallback */
+  color: var(--fm-crisis-text, #ffffff) !important;
+  border: 3px solid var(--fm-crisis-border, #7f1d1d) !important; /* red-900 fallback */
   border-radius: 8px !important;
   box-shadow: 0 4px 12px rgba(220, 38, 38, 0.4) !important;
   position: sticky !important;
@@ -261,12 +272,27 @@
   z-index: 1000 !important;
 }
 
+/* Crisis element identification for high contrast */
+[data-crisis="true"] {
+  position: relative;
+}
+
+[data-crisis="true"]::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border: 2px solid var(--fm-crisis-border, #dc2626);
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: -1;
+}
+
 .crisis-button:hover,
 .crisis-button:focus,
 #crisis-help-button:hover,
 #crisis-help-button:focus {
-  background-color: #b91c1c !important; /* red-700 */
-  outline: 3px solid #fef2f2 !important; /* red-50 */
+  background-color: var(--fm-crisis-hover, #b91c1c) !important; /* red-700 fallback */
+  outline: 3px solid var(--fm-crisis-text, #ffffff) !important;
   outline-offset: 3px !important;
   transform: scale(1.05) !important;
 }

@@ -12,6 +12,9 @@ export { Clinical } from './Clinical';
 export { Pricing } from './Pricing';
 export { Footer } from './Footer';
 
+// UI Components that act like sections
+export { MobileCTABar } from '../ui/MobileCTABar';
+
 // Section collections
 export * from './Header';
 export * from './Hero';

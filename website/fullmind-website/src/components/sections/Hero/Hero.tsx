@@ -44,11 +44,11 @@ export const Hero: React.FC<HeroProps> = ({
           {/* Content Column */}
           <div className="max-w-xl mx-auto lg:mx-0">
             {/* Crisis Support Badge */}
-            <div className="inline-flex items-center px-4 py-2 rounded-full bg-clinical-safe/10 text-clinical-safe mb-8">
-              <div className="w-2 h-2 bg-clinical-safe rounded-full mr-2 animate-pulse-gentle"></div>
+            <div className="inline-flex items-center px-4 py-2 rounded-full bg-bg-clinical text-text-clinical border border-border-clinical mb-8 theme-transition">
+              <div className="w-2 h-2 bg-text-clinical rounded-full mr-2 animate-pulse-gentle"></div>
               <Typography 
                 variant="caption" 
-                className="font-medium text-clinical-safe"
+                className="font-medium text-text-clinical"
               >
                 24/7 Crisis Support Available - Call 988
               </Typography>
@@ -57,7 +57,7 @@ export const Hero: React.FC<HeroProps> = ({
             {/* Main Headline */}
             <Typography 
               variant="h1" 
-              className="text-4xl lg:text-5xl xl:text-6xl font-bold text-gray-900 mb-6 leading-tight"
+              className="text-4xl lg:text-5xl xl:text-6xl font-bold text-text-primary mb-6 leading-tight theme-transition"
               element="h1"
             >
               {heroContent.headline}
@@ -66,7 +66,7 @@ export const Hero: React.FC<HeroProps> = ({
             {/* Subheadline */}
             <Typography 
               variant="body" 
-              className="text-xl text-gray-600 mb-6 leading-relaxed"
+              className="text-xl text-text-secondary mb-6 leading-relaxed theme-transition"
               element="p"
             >
               {heroContent.subheadline}
@@ -78,14 +78,14 @@ export const Hero: React.FC<HeroProps> = ({
                 {heroContent.benefits.map((benefit, index) => (
                   <li key={index} className="flex items-start">
                     <svg 
-                      className="w-6 h-6 text-clinical-safe mr-3 mt-0.5 flex-shrink-0" 
+                      className="w-6 h-6 text-text-clinical mr-3 mt-0.5 flex-shrink-0 theme-transition" 
                       fill="currentColor" 
                       viewBox="0 0 20 20"
                       aria-hidden="true"
                     >
                       <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                     </svg>
-                    <Typography variant="body" className="text-gray-700 font-medium">
+                    <Typography variant="body" className="text-text-primary font-medium theme-transition">
                       {benefit}
                     </Typography>
                   </li>
@@ -99,7 +99,7 @@ export const Hero: React.FC<HeroProps> = ({
                 variant="primary"
                 size="lg"
                 href="/get-started"
-                className="bg-primary-500 hover:bg-primary-600 flex-shrink-0"
+                className="flex-shrink-0"
               >
                 {heroContent.cta.primary}
               </Button>
@@ -107,7 +107,7 @@ export const Hero: React.FC<HeroProps> = ({
                 variant="outline"
                 size="lg"
                 href="#demo"
-                className="text-primary-600 border-primary-300 hover:bg-primary-50 flex-shrink-0"
+                className="flex-shrink-0"
               >
                 <svg 
                   className="w-5 h-5 mr-2" 
@@ -123,7 +123,7 @@ export const Hero: React.FC<HeroProps> = ({
 
             {/* Download App Buttons */}
             <div className="mb-8">
-              <Typography variant="caption" className="text-gray-500 mb-4 block">
+              <Typography variant="caption" className="text-text-tertiary mb-4 block theme-transition">
                 Or download our app directly:
               </Typography>
               <DownloadButtons 
@@ -153,28 +153,28 @@ export const Hero: React.FC<HeroProps> = ({
                   </Typography>
                 </div>
               </div>
-              <Typography variant="body" className="text-gray-600">
+              <Typography variant="body" className="text-text-secondary theme-transition">
                 {heroContent.trust}
               </Typography>
             </div>
 
             {/* Clinical Validation Badge */}
             {variant === 'clinical' && (
-              <div className="mt-8 p-4 bg-white rounded-lg shadow-soft border border-clinical-safe/20">
+              <div className="mt-8 p-4 bg-surface-elevated rounded-lg shadow-soft border border-border-clinical theme-transition">
                 <div className="flex items-center mb-2">
                   <svg 
-                    className="w-5 h-5 text-clinical-safe mr-2" 
+                    className="w-5 h-5 text-text-clinical mr-2 theme-transition" 
                     fill="currentColor" 
                     viewBox="0 0 20 20"
                     aria-hidden="true"
                   >
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                   </svg>
-                  <Typography variant="body" className="font-semibold text-clinical-safe">
+                  <Typography variant="body" className="font-semibold text-text-clinical theme-transition">
                     Clinically Validated
                   </Typography>
                 </div>
-                <Typography variant="caption" className="text-gray-600">
+                <Typography variant="caption" className="text-text-secondary theme-transition">
                   Based on peer-reviewed MBCT research with proven effectiveness in reducing depression relapse by 43%
                 </Typography>
               </div>
@@ -223,10 +223,10 @@ export const Hero: React.FC<HeroProps> = ({
         </div>
       </Container>
 
-      {/* Background Decorations */}
+      {/* Background Decorations - Theme-aware */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-primary-200/20 rounded-full blur-3xl"></div>
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-clinical-safe/10 rounded-full blur-3xl"></div>
+        <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-theme-primary/20 rounded-full blur-3xl theme-transition"></div>
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-text-clinical/10 rounded-full blur-3xl theme-transition"></div>
       </div>
     </section>
   );

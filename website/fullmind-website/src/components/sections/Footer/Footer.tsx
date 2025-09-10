@@ -25,8 +25,8 @@ export const Footer: React.FC<FooterProps> = ({
   'data-testid': testId,
 }) => {
   const footerClasses = cn(
-    // Base styling
-    'bg-gray-900 text-white',
+    // Base styling with theme support
+    'bg-surface-depressed text-text-inverse theme-transition',
     
     // Clinical variant
     variant === 'clinical' && 'bg-clinical-safe text-white',
@@ -168,7 +168,7 @@ const FooterBrand: React.FC = () => {
       {/* Mission Statement */}
       <Typography 
         variant="body" 
-        className="text-gray-300 leading-relaxed mb-6"
+        className="text-text-tertiary leading-relaxed mb-6 theme-transition"
         element="p"
       >
         {siteConfig.description}
@@ -203,7 +203,7 @@ const FooterBrand: React.FC = () => {
               href={url}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-gray-400 hover:text-white transition-colors duration-200 focus:outline-none focus:text-white"
+              className="text-text-tertiary hover:text-text-inverse transition-colors duration-200 focus:outline-none focus:text-text-inverse theme-transition"
               aria-label={`Follow FullMind on ${name}`}
             >
               <Icon className="w-5 h-5" />
@@ -237,7 +237,7 @@ const FooterCompanyColumn: React.FC = () => {
           <li key={link.href}>
             <Link 
               href={link.href}
-              className="text-gray-300 hover:text-white transition-colors duration-200 focus:outline-none focus:text-white"
+              className="text-text-tertiary hover:text-text-inverse transition-colors duration-200 focus:outline-none focus:text-text-inverse theme-transition"
             >
               <Typography variant="body" className="text-sm">
                 {link.title}
@@ -287,7 +287,7 @@ const FooterNavColumn: React.FC<FooterNavColumnProps> = ({ title, links }) => {
           <li key={link.href}>
             <Link 
               href={link.href}
-              className="text-gray-300 hover:text-white transition-colors duration-200 focus:outline-none focus:text-white"
+              className="text-text-tertiary hover:text-text-inverse transition-colors duration-200 focus:outline-none focus:text-text-inverse theme-transition"
             >
               <Typography variant="body" className="text-sm">
                 {link.title}
@@ -304,11 +304,11 @@ const FooterNavColumn: React.FC<FooterNavColumnProps> = ({ title, links }) => {
 // Footer Bottom Component
 const FooterBottom: React.FC = () => {
   return (
-    <div className="border-t border-gray-800 py-6">
+    <div className="border-t border-border-primary py-6 theme-transition">
       <Container>
         <div className="flex flex-col lg:flex-row justify-between items-center space-y-4 lg:space-y-0">
           {/* Copyright */}
-          <Typography variant="caption" className="text-gray-400">
+          <Typography variant="caption" className="text-text-tertiary theme-transition">
             © {new Date().getFullYear()} FullMind. All rights reserved.
           </Typography>
 
@@ -318,7 +318,7 @@ const FooterBottom: React.FC = () => {
               <svg className="w-4 h-4 text-clinical-safe" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
               </svg>
-              <Typography variant="caption" className="text-gray-400">
+              <Typography variant="caption" className="text-text-tertiary theme-transition">
                 HIPAA Ready
               </Typography>
             </div>
@@ -326,7 +326,7 @@ const FooterBottom: React.FC = () => {
               <svg className="w-4 h-4 text-clinical-safe" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM4.332 8.027a6.012 6.012 0 011.912-2.706C6.512 5.73 6.974 6 7.5 6A1.5 1.5 0 019 7.5V8a2 2 0 004 0v-.5A1.5 1.5 0 0114.5 6c.526 0 .988-.27 1.256-.679a6.012 6.012 0 011.912 2.706A3.5 3.5 0 0116 11.5V16a1 1 0 01-1 1h-1a1 1 0 01-1-1v-2h-2v2a1 1 0 01-1 1H9a1 1 0 01-1-1v-4.5a3.5 3.5 0 01-1.668-3.473z" clipRule="evenodd" />
               </svg>
-              <Typography variant="caption" className="text-gray-400">
+              <Typography variant="caption" className="text-text-tertiary theme-transition">
                 WCAG AA
               </Typography>
             </div>

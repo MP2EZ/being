@@ -32,13 +32,13 @@ const tabSections = [
 // For Therapists Tab Content
 const TherapistsTab = () => {
   return (
-    <div className="py-24 bg-gradient-to-b from-white to-clinical-safe/5">
+    <div className="py-24 bg-gradient-to-b from-bg-primary to-bg-clinical theme-transition">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
-          <h2 className="text-3xl lg:text-4xl font-bold text-gray-900 mb-6">
+          <h2 className="text-3xl lg:text-4xl font-bold text-text-primary mb-6 theme-transition">
             For Mental Health Professionals
           </h2>
-          <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+          <p className="text-xl text-text-secondary max-w-3xl mx-auto theme-transition">
             Enhance your practice with clinical-grade MBCT tools, client progress monitoring, and evidence-based therapeutic resources.
           </p>
         </div>
@@ -70,11 +70,11 @@ const TherapistsTab = () => {
               description: 'Secure, compliant platform for sensitive mental health data.'
             }
           ].map((feature, index) => (
-            <div key={index} className="bg-white p-6 rounded-xl border border-gray-200 hover:shadow-lg transition-shadow">
-              <h3 className="text-xl font-semibold text-gray-900 mb-3">
+            <div key={index} className="theme-card p-6 rounded-xl hover:shadow-theme-medium transition-shadow">
+              <h3 className="text-xl font-semibold text-text-primary mb-3 theme-transition">
                 {feature.title}
               </h3>
-              <p className="text-gray-600">
+              <p className="text-text-secondary theme-transition">
                 {feature.description}
               </p>
             </div>
@@ -82,14 +82,14 @@ const TherapistsTab = () => {
         </div>
         
         <div className="mt-16 text-center">
-          <div className="bg-primary-50 rounded-2xl p-8 max-w-2xl mx-auto">
-            <h3 className="text-2xl font-bold text-gray-900 mb-4">
+          <div className="bg-bg-clinical rounded-2xl p-8 max-w-2xl mx-auto theme-transition">
+            <h3 className="text-2xl font-bold text-text-primary mb-4 theme-transition">
               Professional Beta Access
             </h3>
-            <p className="text-gray-600 mb-6">
+            <p className="text-text-secondary mb-6 theme-transition">
               Join our professional beta program to access advanced clinical features and help shape the future of digital MBCT.
             </p>
-            <button className="bg-primary-600 text-white px-8 py-3 rounded-lg font-medium hover:bg-primary-700 transition-colors">
+            <button className="bg-theme-primary text-white px-8 py-3 rounded-lg font-medium hover:opacity-90 transition-all theme-transition">
               Request Beta Access
             </button>
           </div>
@@ -160,14 +160,14 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-bg-primary theme-transition">
       {/* Header with Navigation - Critical above-fold content */}
       <CriticalContent>
         <Header />
       </CriticalContent>
       
       {/* Tab Navigation */}
-      <nav className="sticky top-16 z-40 bg-white/95 backdrop-blur-sm border-b border-gray-200" aria-label="Section navigation">
+      <nav className="sticky top-16 z-40 bg-bg-primary/95 backdrop-blur-sm border-b border-border-primary theme-transition" aria-label="Section navigation">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex space-x-8 overflow-x-auto">
             {tabSections.map((section) => (
@@ -175,11 +175,11 @@ export default function Home() {
                 key={section.id}
                 onClick={() => setActiveTab(section.id)}
                 className={cn(
-                  'relative px-1 py-4 text-sm font-medium transition-colors duration-200 whitespace-nowrap',
-                  'focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
+                  'relative px-1 py-4 text-sm font-medium transition-colors duration-200 whitespace-nowrap theme-transition',
+                  'focus:outline-none focus:ring-2 focus:ring-border-focus focus:ring-offset-2',
                   activeTab === section.id
-                    ? 'text-primary-600 border-b-2 border-primary-600'
-                    : 'text-gray-500 hover:text-gray-700 border-b-2 border-transparent hover:border-gray-300'
+                    ? 'text-theme-primary border-b-2 border-theme-primary'
+                    : 'text-text-secondary hover:text-text-primary border-b-2 border-transparent hover:border-border-secondary'
                 )}
                 aria-current={activeTab === section.id ? 'page' : undefined}
                 title={section.description}

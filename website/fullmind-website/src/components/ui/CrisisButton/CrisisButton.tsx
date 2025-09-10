@@ -53,12 +53,13 @@ export const CrisisButton: React.FC<CrisisButtonProps> = ({
   };
 
   const buttonClasses = cn(
-    // Base styling
+    // Base styling with CSS variable fallbacks
     'flex items-center justify-center',
-    'bg-clinical-warning text-white rounded-full shadow-strong',
+    'bg-crisis-bg text-crisis-text rounded-full shadow-strong',
     'transition-all duration-200 ease-in-out',
-    'focus:outline-none focus:ring-4 focus:ring-clinical-warning/50',
-    'hover:bg-clinical-warning/90 active:scale-95',
+    'focus:outline-none focus:ring-4 focus:ring-crisis-bg/50',
+    'hover:bg-crisis-hover active:scale-95',
+    'crisis-button', // Apply our utility class with all failsafes
     
     // Position styling
     position === 'fixed' && 'fixed bottom-4 right-4 z-50',
@@ -80,6 +81,7 @@ export const CrisisButton: React.FC<CrisisButtonProps> = ({
       onClick={handleCrisisHelp}
       aria-label="Emergency mental health crisis support - Call 988 suicide and crisis lifeline - Available 24/7"
       data-testid={testId || 'crisis-help-button'}
+      data-crisis="true"
       // High tabindex to ensure it's easily accessible
       tabIndex={0}
     >
@@ -120,7 +122,7 @@ export const CrisisModal: React.FC<CrisisModalProps> = ({ isOpen, onClose }) => 
       aria-modal="true"
       aria-labelledby="crisis-modal-title"
     >
-      <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+      <div className="bg-bg-primary text-text-primary rounded-lg shadow-xl max-w-md w-full p-6 border border-border-primary">
         <h2 
           id="crisis-modal-title"
           className="text-xl font-bold text-clinical-warning mb-4"
@@ -129,16 +131,17 @@ export const CrisisModal: React.FC<CrisisModalProps> = ({ isOpen, onClose }) => 
         </h2>
         
         <div className="space-y-4">
-          <div className="p-4 bg-clinical-warning/10 rounded-lg">
-            <h3 className="font-semibold text-clinical-warning mb-2">
+          <div className="p-4 bg-crisis-bg/10 rounded-lg border border-crisis-border/20">
+            <h3 className="font-semibold text-crisis-bg mb-2">
               988 Suicide & Crisis Lifeline
             </h3>
-            <p className="text-sm text-gray-600 mb-3">
+            <p className="text-sm text-text-secondary mb-3">
               Free and confidential emotional support 24/7
             </p>
             <a 
               href="tel:988"
-              className="inline-flex items-center px-4 py-2 bg-clinical-warning text-white rounded-md hover:bg-clinical-warning/90 focus:ring-2 focus:ring-clinical-warning/50"
+              className="inline-flex items-center px-4 py-2 bg-crisis-bg text-crisis-text rounded-md hover:bg-crisis-hover focus:ring-2 focus:ring-crisis-bg/50"
+              data-crisis="true"
             >
               <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
                 <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z" />
@@ -147,16 +150,16 @@ export const CrisisModal: React.FC<CrisisModalProps> = ({ isOpen, onClose }) => 
             </a>
           </div>
           
-          <div className="p-4 bg-blue-50 rounded-lg">
-            <h3 className="font-semibold text-blue-800 mb-2">
+          <div className="p-4 bg-bg-tertiary rounded-lg border border-border-primary">
+            <h3 className="font-semibold text-theme-primary mb-2">
               Crisis Text Line
             </h3>
-            <p className="text-sm text-gray-600 mb-3">
+            <p className="text-sm text-text-secondary mb-3">
               Text HOME to 741741
             </p>
             <a 
               href="sms:741741?body=HOME"
-              className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:ring-2 focus:ring-blue-500/50"
+              className="inline-flex items-center px-4 py-2 bg-theme-primary text-white rounded-md hover:bg-theme-success focus:ring-2 focus:ring-theme-primary/50"
             >
               <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
                 <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
@@ -169,7 +172,7 @@ export const CrisisModal: React.FC<CrisisModalProps> = ({ isOpen, onClose }) => 
         
         <button 
           onClick={onClose}
-          className="mt-6 w-full px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 focus:ring-2 focus:ring-gray-500/50"
+          className="mt-6 w-full px-4 py-2 text-text-secondary border border-border-primary rounded-md hover:bg-bg-tertiary focus:ring-2 focus:ring-theme-primary/50"
         >
           Close
         </button>

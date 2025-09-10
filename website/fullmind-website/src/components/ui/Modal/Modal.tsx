@@ -33,9 +33,9 @@ const modalSizes = {
 };
 
 const modalVariants = {
-  default: 'bg-white border-gray-200',
-  clinical: 'bg-white border-clinical-safe/20',
-  crisis: 'bg-white border-clinical-warning/20 ring-2 ring-clinical-warning/10'
+  default: 'bg-bg-primary text-text-primary border-border-primary',
+  clinical: 'bg-bg-clinical text-text-clinical border-border-clinical',
+  crisis: 'bg-bg-primary text-text-primary border-crisis-border ring-2 ring-crisis-bg/10'
 };
 
 export const Modal: React.FC<ModalProps> = ({
@@ -177,7 +177,7 @@ export const Modal: React.FC<ModalProps> = ({
       >
         {/* Header */}
         {(title || showCloseButton) && (
-          <div className="flex items-center justify-between p-6 border-b border-gray-200">
+          <div className="flex items-center justify-between p-6 border-b border-border-primary">
             {title && (
               <Typography
                 variant="h4"
@@ -193,7 +193,7 @@ export const Modal: React.FC<ModalProps> = ({
                 variant="ghost"
                 size="sm"
                 onClick={onClose}
-                className="absolute top-4 right-4 p-2 hover:bg-gray-100 rounded-md"
+                className="absolute top-4 right-4 p-2 hover:bg-surface-hover rounded-md"
                 aria-label="Close modal"
                 data-testid={testId ? `${testId}-close` : 'modal-close'}
               >

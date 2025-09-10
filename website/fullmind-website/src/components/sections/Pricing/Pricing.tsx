@@ -8,7 +8,7 @@
 import React from 'react';
 import { Container, Typography, Button, Card, DownloadButtons } from '@/components/ui';
 import { cn } from '@/lib/utils';
-import { pricingPlans, siteConfig } from '@/config/site';
+import { pricingPlans, siteConfig, trialConfig } from '@/config/site';
 
 // Extend window interface for Google Analytics
 declare global {
@@ -31,8 +31,8 @@ export const Pricing: React.FC<PricingProps> = ({
 }) => {
 
   const sectionClasses = cn(
-    // Base styling
-    'py-24 bg-gradient-to-b from-white to-gray-50',
+    // Base styling with theme support
+    'py-24 bg-gradient-to-b from-bg-primary to-bg-secondary theme-transition',
     
     // Variant styling
     variant === 'compact' && 'py-16',
@@ -92,15 +92,15 @@ export const Pricing: React.FC<PricingProps> = ({
           </Typography>
           <Typography 
             variant="lead" 
-            className="text-gray-600 mb-8"
+            className="text-text-secondary mb-8 theme-transition"
             element="p"
           >
-            Access the complete MBCT program designed by clinical experts. Start with a 7-day free trial, no credit card required.
+            Access the complete MBCT program designed by clinical experts. Start with a {trialConfig.duration.displayText} free trial, no credit card required.
           </Typography>
 
           {/* Savings Callout */}
           {annualSavings && (
-            <div className="inline-flex items-center px-4 py-2 bg-green-50 text-green-700 rounded-full border border-green-200 mb-8">
+            <div className="inline-flex items-center px-4 py-2 bg-clinical-safe/10 text-clinical-safe rounded-full border border-clinical-safe/20 mb-8 theme-transition">
               <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
               </svg>
@@ -127,11 +127,11 @@ export const Pricing: React.FC<PricingProps> = ({
 
         {/* Bottom CTA Section */}
         <div className="mt-16 text-center">
-          <div className="bg-primary-50 rounded-2xl p-8 max-w-4xl mx-auto">
-            <Typography variant="h3" className="mb-4" element="h3">
+          <div className="bg-bg-clinical rounded-2xl p-8 max-w-4xl mx-auto theme-transition">
+            <Typography variant="h3" className="mb-4 text-text-primary theme-transition" element="h3">
               Ready to Transform Your Mental Health?
             </Typography>
-            <Typography variant="body" className="text-gray-600 mb-8" element="p">
+            <Typography variant="body" className="text-text-secondary mb-8 theme-transition" element="p">
               Join thousands of people already using FullMind to build lasting resilience through evidence-based practices.
             </Typography>
             
@@ -141,11 +141,11 @@ export const Pricing: React.FC<PricingProps> = ({
                 className="justify-center"
               />
               <div className="text-center sm:text-left">
-                <Typography variant="caption" className="text-gray-500 block">
+                <Typography variant="caption" className="text-text-tertiary block theme-transition">
                   Free download • No credit card required
                 </Typography>
-                <Typography variant="caption" className="text-gray-500">
-                  Start your 7-day free trial today
+                <Typography variant="caption" className="text-text-tertiary theme-transition">
+                  Start your {trialConfig.duration.displayText} free trial today
                 </Typography>
               </div>
             </div>
@@ -153,19 +153,24 @@ export const Pricing: React.FC<PricingProps> = ({
         </div>
 
         {/* Trust Indicators */}
-        <div className="mt-12 pt-8 border-t border-gray-200">
+        <div className="mt-12 pt-8 border-t border-border-primary theme-transition">
           <div className="flex flex-wrap justify-center items-center gap-8 text-center">
             {[
-              { icon: '🏥', text: 'Clinically Validated' },
-              { icon: '🔒', text: 'HIPAA Ready' },
-              { icon: '♿', text: 'Fully Accessible' },
-              { icon: '🆘', text: '24/7 Crisis Support' }
+              { icon: '🏥', text: 'Clinically Validated', ariaLabel: 'Medical facility icon' },
+              { icon: '🔒', text: 'HIPAA Ready', ariaLabel: 'Security lock icon' },
+              { icon: '♿', text: 'Fully Accessible', ariaLabel: 'Accessibility symbol' },
+              { icon: '🆘', text: '24/7 Crisis Support', ariaLabel: 'Emergency SOS icon' }
             ].map((item, index) => (
               <div key={index} className="flex items-center space-x-2">
-                <span className="text-xl" role="img" aria-hidden="true">
+                <span 
+                  className="text-xl" 
+                  role="img" 
+                  aria-label={item.ariaLabel}
+                  aria-hidden="false"
+                >
                   {item.icon}
                 </span>
-                <Typography variant="caption" className="text-gray-600 font-medium">
+                <Typography variant="caption" className="text-text-secondary font-medium theme-transition">
                   {item.text}
                 </Typography>
               </div>
@@ -229,7 +234,7 @@ const PricingCard: React.FC<PricingCardProps> = ({
           <Typography variant="h4" className="mb-2" element="h3">
             {plan.name}
           </Typography>
-          <Typography variant="body" className="text-gray-600 mb-6" element="p">
+          <Typography variant="body" className="text-text-secondary mb-6 theme-transition" element="p">
             {plan.description}
           </Typography>
 
@@ -238,7 +243,7 @@ const PricingCard: React.FC<PricingCardProps> = ({
             <div className="flex items-baseline justify-center">
               <Typography 
                 variant="h2" 
-                className="text-primary-600"
+                className="text-theme-primary theme-transition"
                 element="span"
               >
                 {displayPrice}
@@ -248,7 +253,7 @@ const PricingCard: React.FC<PricingCardProps> = ({
             {/* Monthly equivalent for annual plan */}
             {monthlyEquivalent && (
               <div className="mt-2">
-                <Typography variant="body" className="text-gray-500">
+                <Typography variant="body" className="text-text-tertiary theme-transition">
                   (${monthlyEquivalent}/month billed annually)
                 </Typography>
               </div>
@@ -257,7 +262,7 @@ const PricingCard: React.FC<PricingCardProps> = ({
             {/* Savings highlight for annual plan */}
             {isAnnualPlan && annualSavings && (
               <div className="mt-3">
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-clinical-safe/10 text-clinical-safe theme-transition">
                   Save ${annualSavings} per year
                 </span>
               </div>
@@ -270,7 +275,7 @@ const PricingCard: React.FC<PricingCardProps> = ({
           {plan.features.map((feature, index) => (
             <li key={index} className="flex items-start">
               <svg 
-                className="w-5 h-5 text-primary-600 mt-0.5 mr-3 flex-shrink-0" 
+                className="w-5 h-5 text-theme-primary mt-0.5 mr-3 flex-shrink-0 theme-transition" 
                 fill="currentColor" 
                 viewBox="0 0 20 20"
                 aria-hidden="true"
@@ -281,7 +286,7 @@ const PricingCard: React.FC<PricingCardProps> = ({
                   clipRule="evenodd" 
                 />
               </svg>
-              <Typography variant="body" className="text-gray-700">
+              <Typography variant="body" className="text-text-primary theme-transition">
                 {feature}
               </Typography>
             </li>
@@ -324,8 +329,8 @@ const PricingCard: React.FC<PricingCardProps> = ({
           
           {/* Secondary info */}
           <div className="text-center">
-            <Typography variant="caption" className="text-gray-500">
-              7-day free trial • No credit card required
+            <Typography variant="caption" className="text-text-tertiary theme-transition">
+              {trialConfig.messaging.features}
             </Typography>
           </div>
         </div>

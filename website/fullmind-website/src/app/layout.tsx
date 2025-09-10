@@ -5,7 +5,9 @@ import "../styles/critical.css";
 import "../styles/accessibility.css";
 import "../styles/performance.css";
 import { AccessibilityProvider } from "@/contexts/AccessibilityContext";
+import { ThemeProvider } from "@/contexts/ThemeContext";
 import { PerformanceDashboard } from "@/components/ui/PerformanceDashboard/PerformanceDashboard";
+import { FEATURE_FLAGS } from "@/lib/constants";
 // import { SkipLinks, CrisisButton } from "@/components/ui"; // TODO: Implement accessibility components
 
 const geistSans = localFont({
@@ -109,49 +111,56 @@ export default function RootLayout({
         {/* Skip Links - First focusable elements for keyboard users */}
         {/* <SkipLinks /> TODO: Implement skip links component */}
 
-        {/* Accessibility Context Provider */}
-        <AccessibilityProvider
-          defaultPreferences={{
-            // Respect system preferences by default
-            reduceMotion: false, // Will be detected by hook
-            highContrast: false, // Will be detected by hook
-            // Enable helpful defaults for mental health users
-            focusIndicatorEnhanced: true,
-            screenReaderOptimized: true,
-          }}
+        {/* Always provide Theme Context - feature flag controls functionality */}
+        <ThemeProvider 
+          defaultColorMode={FEATURE_FLAGS.DARK_MODE ? "auto" : "light"} 
+          defaultThemeVariant="midday"
+          storageKey="fullmind-theme"
         >
-          {/* Emergency Crisis Button - Always accessible */}
-          {/* <CrisisButton position="fixed" size="standard" /> TODO: Implement crisis button */}
+          {/* Accessibility Context Provider */}
+          <AccessibilityProvider
+            defaultPreferences={{
+              // Respect system preferences by default
+              reduceMotion: false, // Will be detected by hook
+              highContrast: false, // Will be detected by hook
+              // Enable helpful defaults for mental health users
+              focusIndicatorEnhanced: true,
+              screenReaderMode: true,
+            }}
+          >
+            {/* Emergency Crisis Button - Always accessible */}
+            {/* <CrisisButton position="fixed" size="standard" /> TODO: Implement crisis button */}
 
-          {/* Main application content */}
-          <div id="app-root" className="min-h-screen">
-            {children}
-          </div>
+            {/* Main application content */}
+            <div id="app-root" className={`min-h-screen ${FEATURE_FLAGS.DARK_MODE ? 'theme-transition' : ''}`}>
+              {children}
+            </div>
 
-          {/* Performance monitoring dashboard - Development only */}
-          <PerformanceDashboard 
-            enabled={typeof window !== 'undefined' && window.location.hostname === 'localhost'}
-            position="bottom-right"
-          />
+            {/* Performance monitoring dashboard - Development only */}
+            <PerformanceDashboard 
+              enabled={typeof window !== 'undefined' && window.location.hostname === 'localhost'}
+              position="bottom-right"
+            />
 
-          {/* Global announcements region for screen readers */}
-          <div 
-            id="global-announcements"
-            aria-live="polite" 
-            aria-atomic="true" 
-            className="sr-only"
-            data-testid="global-announcements"
-          />
+            {/* Global announcements region for screen readers */}
+            <div 
+              id="global-announcements"
+              aria-live="polite" 
+              aria-atomic="true" 
+              className="sr-only"
+              data-testid="global-announcements"
+            />
 
-          {/* High-priority announcements region */}
-          <div 
-            id="urgent-announcements"
-            aria-live="assertive" 
-            aria-atomic="true" 
-            className="sr-only"
-            data-testid="urgent-announcements"
-          />
-        </AccessibilityProvider>
+            {/* High-priority announcements region */}
+            <div 
+              id="urgent-announcements"
+              aria-live="assertive" 
+              aria-atomic="true" 
+              className="sr-only"
+              data-testid="urgent-announcements"
+            />
+          </AccessibilityProvider>
+        </ThemeProvider>
 
         {/* Clinical Performance Monitoring Initialization */}
         <script

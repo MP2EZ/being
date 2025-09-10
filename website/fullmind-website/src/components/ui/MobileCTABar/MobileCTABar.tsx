@@ -8,7 +8,7 @@
 import React from 'react';
 import { Button, Typography } from '@/components/ui';
 import { cn } from '@/lib/utils';
-import { siteConfig } from '@/config/site';
+import { siteConfig, trialConfig } from '@/config/site';
 
 // Extend window interface for Google Analytics
 declare global {
@@ -80,7 +80,7 @@ const DownloadCTA: React.FC = () => {
           Start Your Mental Health Journey
         </Typography>
         <Typography variant="caption" className="text-gray-600">
-          Free download • 7-day trial
+          Free download • {trialConfig.duration.displayText} trial
         </Typography>
       </div>
       <Button

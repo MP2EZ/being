@@ -6,9 +6,10 @@ const config: Config = {
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
   ],
+  darkMode: 'class', // Enable class-based dark mode
   theme: {
     extend: {
-      // FullMind brand colors matching app themes
+      // FullMind brand colors matching app themes with dark mode support
       colors: {
         // Core brand colors
         primary: {
@@ -19,18 +20,30 @@ const config: Config = {
           700: '#164e63',
           900: '#0c4a6e',
         },
-        // Theme variants
+        // Theme variants with dark mode support
         morning: {
           primary: '#FF9F43',
           success: '#E8863A',
+          dark: {
+            primary: '#FF9F43', // Maintain warm therapeutic feeling in dark
+            success: '#E8863A'
+          }
         },
         midday: {
           primary: '#40B5AD',
           success: '#2C8A82',
+          dark: {
+            primary: '#40B5AD', // Maintain calming therapeutic feeling in dark
+            success: '#2C8A82'
+          }
         },
         evening: {
           primary: '#4A7C59',
           success: '#2D5016',
+          dark: {
+            primary: '#4A7C59', // Darker green for evening calm
+            success: '#2D5016'
+          }
         },
         // Clinical colors for healthcare UI
         clinical: {
@@ -39,14 +52,51 @@ const config: Config = {
           warning: '#ef4444', // red-500
           neutral: '#6b7280', // gray-500
         },
-        // Accessibility-compliant text colors
+        // Dynamic theme-aware colors using CSS variables
+        'theme-primary': 'var(--fm-theme-primary)',
+        'theme-success': 'var(--fm-theme-success)',
+        
+        // Background colors (CSS variable-based)
+        'bg-primary': 'var(--fm-bg-primary)',
+        'bg-secondary': 'var(--fm-bg-secondary)',
+        'bg-tertiary': 'var(--fm-bg-tertiary)',
+        'bg-overlay': 'var(--fm-bg-overlay)',
+        'bg-clinical': 'var(--fm-bg-clinical)',
+        
+        // Text colors (CSS variable-based)
+        'text-primary': 'var(--fm-text-primary)',
+        'text-secondary': 'var(--fm-text-secondary)',
+        'text-tertiary': 'var(--fm-text-tertiary)',
+        'text-inverse': 'var(--fm-text-inverse)',
+        'text-clinical': 'var(--fm-text-clinical)',
+        
+        // Border colors (CSS variable-based)
+        'border-primary': 'var(--fm-border-primary)',
+        'border-secondary': 'var(--fm-border-secondary)',
+        'border-focus': 'var(--fm-border-focus)',
+        'border-clinical': 'var(--fm-border-clinical)',
+        
+        // Surface colors (CSS variable-based)
+        'surface-elevated': 'var(--fm-surface-elevated)',
+        'surface-depressed': 'var(--fm-surface-depressed)',
+        'surface-interactive': 'var(--fm-surface-interactive)',
+        'surface-hover': 'var(--fm-surface-hover)',
+        'surface-active': 'var(--fm-surface-active)',
+        
+        // Crisis colors (always high contrast, CSS variable-based with fallbacks)
+        'crisis-bg': 'var(--fm-crisis-bg, #dc2626)',
+        'crisis-text': 'var(--fm-crisis-text, #ffffff)',
+        'crisis-border': 'var(--fm-crisis-border, #991b1b)',
+        'crisis-hover': 'var(--fm-crisis-hover, #b91c1c)',
+        
+        // Legacy compatibility
         text: {
-          primary: '#111827',   // gray-900 - AAA contrast
-          secondary: '#374151', // gray-700 - AA contrast
-          muted: '#6b7280',     // gray-500 - AA contrast on light bg
+          primary: 'var(--fm-text-primary)',
+          secondary: 'var(--fm-text-secondary)',
+          muted: 'var(--fm-text-tertiary)',
         },
-        background: "var(--background)",
-        foreground: "var(--foreground)",
+        background: 'var(--fm-bg-primary)',
+        foreground: 'var(--fm-text-primary)',
       },
       
       // Typography for clinical readability
@@ -82,6 +132,7 @@ const config: Config = {
         'slide-up': 'slideUp 0.3s ease-out',
         'pulse-gentle': 'pulseGentle 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
         'float': 'float 3s ease-in-out infinite',
+        'theme-transition': 'themeTransition 0.15s ease-in-out',
       },
       keyframes: {
         fadeIn: {
@@ -100,13 +151,24 @@ const config: Config = {
           '0%, 100%': { transform: 'translateY(0px) rotate(6deg)' },
           '50%': { transform: 'translateY(-8px) rotate(6deg)' },
         },
+        themeTransition: {
+          '0%': { opacity: '0.9' },
+          '100%': { opacity: '1' },
+        },
       },
 
-      // Shadow system for depth
+      // Enhanced shadow system with dark mode support
       boxShadow: {
         'soft': '0 2px 8px rgba(0, 0, 0, 0.08)',
         'medium': '0 4px 16px rgba(0, 0, 0, 0.12)',
         'strong': '0 8px 32px rgba(0, 0, 0, 0.16)',
+        // Dark mode shadows (more prominent)
+        'soft-dark': '0 2px 8px rgba(0, 0, 0, 0.25)',
+        'medium-dark': '0 4px 16px rgba(0, 0, 0, 0.35)',
+        'strong-dark': '0 8px 32px rgba(0, 0, 0, 0.45)',
+        // Clinical shadows (always visible)
+        'clinical': '0 2px 4px rgba(16, 185, 129, 0.15)',
+        'crisis': '0 2px 8px rgba(220, 38, 38, 0.25)',
       },
 
       // Border radius for consistent component styling
@@ -145,30 +207,50 @@ const config: Config = {
   plugins: [
     // Add custom plugin for accessibility utilities
     function({ addUtilities, theme, addBase }) {
-      // Add base accessibility styles
+      // Add base accessibility and dark mode styles
       addBase({
-        // Ensure focus is visible by default
-        '*:focus-visible': {
-          outline: `2px solid ${theme('colors.primary.500')}`,
-          outlineOffset: '2px',
+        // Root element preparation for themes
+        ':root': {
+          // Default CSS variables will be set by ThemeContext
+          '--fm-transition-duration': '150ms',
         },
         
-        // Ensure sufficient line height for readability
+        // Base body styles with theme support
         'body': {
           lineHeight: theme('lineHeight.6'), // 1.6
+          backgroundColor: 'var(--fm-bg-primary)',
+          color: 'var(--fm-text-primary)',
+          transition: 'background-color var(--fm-transition-duration) ease-in-out, color var(--fm-transition-duration) ease-in-out',
+        },
+        
+        // Ensure focus is visible with theme awareness
+        '*:focus-visible': {
+          outline: '2px solid var(--fm-border-focus)',
+          outlineOffset: '2px',
         },
         
         // High contrast media query styles
         '@media (prefers-contrast: high)': {
+          ':root': {
+            '--fm-contrast-multiplier': '1.5 !important',
+          },
           '*': {
             borderColor: 'currentColor !important',
           },
           'button, [role="button"]': {
             border: '2px solid currentColor !important',
           },
+          // Crisis elements get extra contrast in high contrast mode
+          '.crisis-element, [data-crisis="true"], .crisis-button, #crisis-help-button': {
+            backgroundColor: '#ff0000 !important',
+            color: '#ffffff !important',
+            border: '3px solid #000000 !important',
+            outline: '3px solid #ffffff !important',
+            outlineOffset: '2px !important',
+          },
         },
         
-        // Reduced motion media query styles
+        // Reduced motion media query styles (respect accessibility)
         '@media (prefers-reduced-motion: reduce)': {
           '*, *::before, *::after': {
             animationDuration: '0.01ms !important',
@@ -176,6 +258,48 @@ const config: Config = {
             transitionDuration: '0.01ms !important',
             scrollBehavior: 'auto !important',
           },
+          // Override theme transition for reduced motion
+          ':root': {
+            '--fm-transition-duration': '0.01ms !important',
+          },
+        },
+        
+        // Color scheme based on theme mode
+        '.light': {
+          colorScheme: 'light',
+        },
+        '.dark': {
+          colorScheme: 'dark',
+        },
+        
+        // Crisis mode overrides (emergency high contrast)
+        '.crisis-mode': {
+          '--fm-crisis-bg': '#ff0000 !important',
+          '--fm-crisis-text': '#ffffff !important',
+          '--fm-crisis-border': '#000000 !important',
+          '--fm-crisis-hover': '#cc0000 !important',
+          '--fm-transition-duration': '0ms !important',
+        },
+        
+        // Crisis mode ensures all crisis elements are immediately visible
+        '.crisis-mode .crisis-button, .crisis-mode #crisis-help-button, .crisis-mode [data-crisis="true"]': {
+          backgroundColor: '#ff0000 !important',
+          color: '#ffffff !important',
+          border: '3px solid #000000 !important',
+          outline: 'none !important',
+          transform: 'scale(1.1) !important',
+          zIndex: '9999 !important',
+        },
+        
+        // Theme-specific styles
+        '.theme-morning': {
+          '--fm-theme-hue': '30', // Orange hue for morning
+        },
+        '.theme-midday': {
+          '--fm-theme-hue': '180', // Cyan hue for midday
+        },
+        '.theme-evening': {
+          '--fm-theme-hue': '120', // Green hue for evening
         },
       });
 
@@ -206,19 +330,30 @@ const config: Config = {
           whiteSpace: 'normal',
         },
         
-        // Focus utilities
+        // Enhanced focus utilities with theme support
         '.focus-visible': {
           '&:focus-visible': {
-            outline: `2px solid ${theme('colors.primary.500')}`,
+            outline: '2px solid var(--fm-border-focus)',
             outlineOffset: '2px',
           },
         },
         
         '.focus-enhanced': {
           '&:focus, &:focus-visible': {
-            outline: `3px solid ${theme('colors.primary.500')}`,
+            outline: '3px solid var(--fm-border-focus)',
             outlineOffset: '3px',
-            boxShadow: `0 0 0 5px ${theme('colors.primary.500')}33`, // 20% opacity
+            boxShadow: '0 0 0 5px var(--fm-border-focus)',
+            filter: 'opacity(0.2)',
+          },
+        },
+        
+        // Crisis focus (always high visibility)
+        '.focus-crisis': {
+          '&:focus, &:focus-visible': {
+            outline: '3px solid var(--fm-crisis-border)',
+            outlineOffset: '2px',
+            boxShadow: '0 0 0 6px var(--fm-crisis-bg)',
+            filter: 'opacity(0.3)',
           },
         },
         
@@ -233,19 +368,69 @@ const config: Config = {
           minHeight: theme('minHeight.touch-target-large'),
         },
         
-        // Skip link utility
+        // Crisis button utility (always maximum accessibility with failsafe fallbacks)
+        '.crisis-button': {
+          minWidth: theme('minWidth.crisis-button'),
+          minHeight: theme('minHeight.crisis-button'),
+          backgroundColor: 'var(--fm-crisis-bg, #dc2626)',
+          color: 'var(--fm-crisis-text, #ffffff)',
+          border: '2px solid var(--fm-crisis-border, #991b1b)',
+          fontWeight: '700',
+          textAlign: 'center',
+          cursor: 'pointer',
+          transition: 'all var(--fm-transition-duration, 150ms) ease-in-out',
+          
+          '&:hover': {
+            backgroundColor: 'var(--fm-crisis-hover, #b91c1c)',
+            transform: 'translateY(-1px)',
+            boxShadow: theme('boxShadow.crisis'),
+          },
+          
+          '&:focus, &:focus-visible': {
+            outline: '3px solid var(--fm-crisis-border, #991b1b)',
+            outlineOffset: '2px',
+            boxShadow: '0 0 0 6px var(--fm-crisis-bg, #dc2626)',
+            filter: 'opacity(0.3)',
+          },
+        },
+        
+        // Theme-aware component utilities
+        '.theme-card': {
+          backgroundColor: 'var(--fm-surface-elevated)',
+          color: 'var(--fm-text-primary)',
+          border: '1px solid var(--fm-border-primary)',
+          borderRadius: theme('borderRadius.lg'),
+          transition: 'all var(--fm-transition-duration) ease-in-out',
+          
+          '&:hover': {
+            backgroundColor: 'var(--fm-surface-hover)',
+            borderColor: 'var(--fm-border-secondary)',
+          },
+        },
+        
+        // Clinical component styling
+        '.clinical-card': {
+          backgroundColor: 'var(--fm-bg-clinical)',
+          color: 'var(--fm-text-clinical)',
+          border: '1px solid var(--fm-border-clinical)',
+          borderRadius: theme('borderRadius.lg'),
+          boxShadow: theme('boxShadow.clinical'),
+        },
+        
+        // Skip link utility with theme support
         '.skip-link': {
           position: 'absolute',
           top: '-100px',
           left: '-100px',
           zIndex: '10000',
           padding: '8px 16px',
-          backgroundColor: theme('colors.clinical.safe'),
-          color: theme('colors.white'),
+          backgroundColor: 'var(--fm-crisis-bg)',
+          color: 'var(--fm-crisis-text)',
           textDecoration: 'none',
           fontWeight: '600',
           borderRadius: '0 0 4px 4px',
-          transition: 'all 0.2s ease',
+          border: '2px solid var(--fm-crisis-border)',
+          transition: 'all var(--fm-transition-duration) ease',
           
           '&:focus': {
             top: '0',
@@ -254,6 +439,47 @@ const config: Config = {
             height: 'auto',
             width: 'auto',
             overflow: 'visible',
+          },
+        },
+        
+        // Theme transition utilities
+        '.theme-transition': {
+          transition: 'all var(--fm-transition-duration) ease-in-out',
+        },
+        
+        '.theme-transition-fast': {
+          transition: 'all 75ms ease-in-out',
+        },
+        
+        '.theme-transition-slow': {
+          transition: 'all 300ms ease-in-out',
+        },
+        
+        // Shadow utilities that adapt to theme
+        '.shadow-theme-soft': {
+          '.light &': {
+            boxShadow: theme('boxShadow.soft'),
+          },
+          '.dark &': {
+            boxShadow: theme('boxShadow.soft-dark'),
+          },
+        },
+        
+        '.shadow-theme-medium': {
+          '.light &': {
+            boxShadow: theme('boxShadow.medium'),
+          },
+          '.dark &': {
+            boxShadow: theme('boxShadow.medium-dark'),
+          },
+        },
+        
+        '.shadow-theme-strong': {
+          '.light &': {
+            boxShadow: theme('boxShadow.strong'),
+          },
+          '.dark &': {
+            boxShadow: theme('boxShadow.strong-dark'),
           },
         },
       });

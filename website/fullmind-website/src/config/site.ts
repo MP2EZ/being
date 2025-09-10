@@ -3,7 +3,308 @@
  * Central configuration for site metadata, navigation, and features
  */
 
-import { type SiteConfig, type NavigationItem } from '@/types';
+import { type SiteConfig, type NavigationItem, type TrialConfig } from '@/types';
+
+// ============================================================================
+// 21-DAY TRIAL CONFIGURATION
+// ============================================================================
+
+/**
+ * Comprehensive 21-day trial configuration
+ * Clinical-grade trial system with conversion optimization
+ */
+export const trialConfig: TrialConfig = {
+  duration: {
+    days: 21,
+    displayText: '21-day',
+    maxDays: 30,
+    minDays: 7
+  },
+  messaging: {
+    primary: 'Experience 21 Days of Complete MBCT Practice',
+    secondary: '21-Day Journey Through Evidence-Based Mindfulness',
+    cta: {
+      primary: 'Start 21-Day Free Trial',
+      secondary: 'Learn About Our 21-Day Program',
+      variants: [
+        {
+          id: 'urgency',
+          text: 'Begin Your 21-Day Transformation',
+          variant: 'primary',
+          weight: 0.3,
+          context: 'all'
+        },
+        {
+          id: 'benefit',
+          text: 'Unlock 21 Days of Mental Wellness',
+          variant: 'primary', 
+          weight: 0.3,
+          context: 'hero'
+        },
+        {
+          id: 'clinical',
+          text: 'Access 21-Day Clinical Program',
+          variant: 'primary',
+          weight: 0.2,
+          context: 'pricing'
+        },
+        {
+          id: 'simple',
+          text: 'Try Free for 21 Days',
+          variant: 'outline',
+          weight: 0.2,
+          context: 'mobile'
+        }
+      ]
+    },
+    features: '21-day free trial • No credit card required • Full MBCT access',
+    disclaimer: 'Individual results may vary. Not a substitute for professional medical advice.',
+    benefits: [
+      'Complete 21-day MBCT program with daily guided practices',
+      'PHQ-9 and GAD-7 clinical assessments with progress tracking',
+      '24/7 crisis support and safety protocols throughout trial',
+      'Advanced mood analytics and personalized therapeutic insights',
+      'Evidence-based breathing techniques and mindfulness exercises'
+    ],
+    urgency: {
+      enabled: true,
+      message: 'Join 10,000+ people who started their 21-day transformation this month',
+      threshold: 30,
+      context: ['hero', 'pricing']
+    },
+    social: {
+      enabled: true,
+      userCount: '10,000+',
+      professionalCount: '500+',
+      recentSignups: '127 people started their 21-day journey today'
+    }
+  },
+  legal: {
+    terms: 'Free trial includes full access to all MBCT practices, clinical assessments, and crisis support features',
+    cancellation: 'Cancel anytime during your 21-day trial period with no charges or commitments',
+    requirements: 'No credit card required for trial access • Instant activation • Complete privacy protection',
+    privacyNotice: 'Your trial data is encrypted and never shared with third parties',
+    dataHandling: 'All trial usage data is anonymized and used only to improve your therapeutic experience',
+    compliance: {
+      hipaaReady: true,
+      gdprCompliant: true,
+      coppaCompliant: true,
+      calOPPACompliant: true,
+      clinicalDisclaimer: 'This app provides educational content and therapeutic tools but is not a substitute for professional mental health treatment. In case of mental health emergency, contact 988 immediately.'
+    }
+  },
+  features: {
+    included: [
+      {
+        id: 'mbct-program',
+        name: 'Complete 21-Day MBCT Program',
+        description: 'Full access to evidence-based mindfulness-based cognitive therapy practices',
+        clinicalValue: 'Proven to reduce depression relapse by 43% in clinical trials',
+        accessLevel: 'full'
+      },
+      {
+        id: 'clinical-assessments',
+        name: 'PHQ-9 & GAD-7 Assessments',
+        description: 'Validated clinical tools for depression and anxiety screening',
+        clinicalValue: 'Gold standard assessments used by healthcare professionals',
+        accessLevel: 'full'
+      },
+      {
+        id: 'crisis-support',
+        name: '24/7 Crisis Support Access',
+        description: 'Immediate access to crisis hotlines and safety resources',
+        clinicalValue: 'Critical safety net for mental health emergencies',
+        accessLevel: 'full'
+      },
+      {
+        id: 'breathing-practices',
+        name: '3-Minute Breathing Space',
+        description: 'Core MBCT breathing techniques for stress reduction',
+        clinicalValue: 'Scientifically validated stress interruption technique',
+        accessLevel: 'full'
+      },
+      {
+        id: 'mood-tracking',
+        name: 'Advanced Mood Analytics',
+        description: 'Daily mood tracking with personalized insights and patterns',
+        clinicalValue: 'Enables self-awareness and therapeutic progress monitoring',
+        accessLevel: 'full'
+      }
+    ],
+    excluded: [],
+    limitations: []
+  },
+  conversion: {
+    tracking: {
+      events: [
+        {
+          name: 'trial_started',
+          category: 'trial',
+          properties: {
+            trial_length: 21,
+            source: 'website'
+          },
+          clinicalImportance: 'critical'
+        },
+        {
+          name: 'trial_engagement_day_1',
+          category: 'engagement',
+          properties: {
+            first_session: true,
+            assessment_completed: false
+          },
+          clinicalImportance: 'critical'
+        },
+        {
+          name: 'assessment_completed',
+          category: 'engagement',
+          properties: {
+            assessment_type: 'PHQ-9',
+            trial_day: 0
+          },
+          clinicalImportance: 'critical'
+        },
+        {
+          name: 'breathing_practice_completed',
+          category: 'engagement',
+          properties: {
+            practice_duration: 180,
+            completion_rate: 1.0
+          },
+          clinicalImportance: 'important'
+        },
+        {
+          name: 'trial_completion',
+          category: 'conversion',
+          properties: {
+            days_active: 0,
+            practices_completed: 0
+          },
+          clinicalImportance: 'critical'
+        }
+      ],
+      goals: [
+        {
+          id: 'day_1_engagement',
+          name: 'First Day Engagement',
+          description: 'User completes initial assessment within 24 hours',
+          target: 75,
+          timeframe: 'immediate'
+        },
+        {
+          id: 'week_1_retention',
+          name: 'Week 1 Retention',
+          description: 'User remains active through first week',
+          target: 60,
+          timeframe: 'trial-period'
+        },
+        {
+          id: 'trial_completion',
+          name: '21-Day Trial Completion',
+          description: 'User completes full 21-day trial period',
+          target: 45,
+          timeframe: 'trial-period'
+        },
+        {
+          id: 'subscription_conversion',
+          name: 'Trial to Paid Conversion',
+          description: 'User converts to paid subscription',
+          target: 25,
+          timeframe: 'post-trial'
+        }
+      ],
+      attribution: {
+        enabled: true,
+        models: ['first-click', 'last-click'],
+        lookbackWindow: 30
+      }
+    },
+    optimization: {
+      abTesting: {
+        enabled: true,
+        tests: [
+          {
+            id: 'trial_length_test',
+            name: '21-Day vs 14-Day Trial Length',
+            description: 'Testing optimal trial duration for conversion',
+            variants: [
+              {
+                id: 'control_21_day',
+                name: '21-Day Control',
+                allocation: 0.7,
+                config: {}
+              },
+              {
+                id: 'variant_14_day',
+                name: '14-Day Variant',
+                allocation: 0.3,
+                config: {
+                  duration: {
+                    days: 14,
+                    displayText: '14-day',
+                    maxDays: 30,
+                    minDays: 7
+                  }
+                }
+              }
+            ],
+            trafficAllocation: 0.2,
+            status: 'draft'
+          }
+        ],
+        defaultExperience: 'control'
+      },
+      personalization: {
+        enabled: false,
+        segments: [],
+        rules: []
+      },
+      timing: {
+        delayedOffers: false,
+        exitIntent: {
+          enabled: true,
+          message: 'Wait! Start your 21-day transformation before you go',
+          offer: 'Get instant access to our complete MBCT program',
+          delay: 1000
+        },
+        scrollTriggers: [
+          {
+            id: 'pricing_highlight',
+            threshold: 80,
+            message: 'Ready to begin your 21-day journey?',
+            action: 'highlight'
+          }
+        ],
+        timeBasedTriggers: [
+          {
+            id: 'engagement_reminder',
+            delay: 45,
+            message: 'Join thousands who have transformed their mental health in just 21 days',
+            action: 'banner'
+          }
+        ]
+      }
+    },
+    retargeting: {
+      email: {
+        enabled: false,
+        sequences: [],
+        triggers: []
+      },
+      ads: {
+        enabled: false,
+        platforms: [],
+        audiences: [],
+        campaigns: []
+      },
+      push: {
+        enabled: false,
+        notifications: [],
+        triggers: []
+      }
+    }
+  }
+} as const;
 
 // ============================================================================
 // SITE METADATA & CONFIGURATION
@@ -19,7 +320,8 @@ export const siteConfig: SiteConfig = {
     playStore: 'https://play.google.com/store/apps/details?id=com.fullmind.app',
     github: 'https://github.com/fullmind-app',
     support: 'mailto:support@fullmind.app'
-  }
+  },
+  trial: trialConfig
 } as const;
 
 // ============================================================================
@@ -304,7 +606,7 @@ export const pricingPlans = [
       'Export clinical data'
     ],
     limitations: [],
-    cta: 'Start 7-Day Free Trial',
+    cta: trialConfig.messaging.cta.primary,
     highlighted: false,
     badge: null
   },
@@ -330,7 +632,7 @@ export const pricingPlans = [
       'Early access to new features'
     ],
     limitations: [],
-    cta: 'Start 7-Day Free Trial',
+    cta: trialConfig.messaging.cta.primary,
     highlighted: true,
     badge: 'BEST VALUE'
   }

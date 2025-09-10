@@ -1,0 +1,144 @@
+{
+  "timestamp": "2025-09-09T23:00:28.355Z",
+  "summary": {
+    "overallGrade": "B+",
+    "criticalIssues": 0,
+    "warnings": 0,
+    "optimizations": 0
+  },
+  "categories": [
+    {
+      "category": "Code Structure",
+      "score": 100,
+      "status": "EXCELLENT",
+      "findings": [
+        "✅ React Context with proper memoization: true",
+        "✅ SSR-safe implementation: true",
+        "✅ CSS variables for efficient updates: true",
+        "✅ Performance optimizations present: true",
+        "✅ Zustand store implementation found for state management",
+        "✅ Tailwind dark mode configured: true",
+        "✅ CSS variables integrated: true",
+        "✅ Crisis-specific colors defined: true"
+      ],
+      "recommendations": []
+    },
+    {
+      "category": "CSS Performance",
+      "score": 90,
+      "status": "EXCELLENT",
+      "findings": [
+        "✅ CSS Custom Properties: 61 variables found",
+        "✅ GPU-accelerated animations: true",
+        "✅ Reduced motion support: true",
+        "✅ Performance-optimized animations: true",
+        "✅ Optimal transition duration: 150ms",
+        "✅ Crisis mode CSS optimizations: true",
+        "✅ Instant crisis transitions: true"
+      ],
+      "recommendations": []
+    },
+    {
+      "category": "JavaScript Performance",
+      "score": 88,
+      "status": "EXCELLENT",
+      "findings": [
+        "✅ useMemo optimizations: 6 instances",
+        "✅ useCallback optimizations: 9 instances",
+        "✅ requestAnimationFrame usage: 1 instances",
+        "📊 useEffect hooks: 3 instances",
+        "✅ CSS variable updates: true",
+        "✅ Batched DOM updates: true",
+        "✅ Store selectors for optimization: true",
+        "✅ Performance monitoring: true",
+        "✅ State subscriptions: true"
+      ],
+      "recommendations": []
+    },
+    {
+      "category": "Bundle Size",
+      "score": 55,
+      "status": "GOOD",
+      "findings": [
+        "📊 JavaScript bundle size: 9418.27 KB",
+        "📊 CSS bundle size: 110.38 KB",
+        "📊 Total static assets: 9528.65 KB",
+        "📊 Theme-related files: 15",
+        "✅ Tree-shaking optimized: false"
+      ],
+      "recommendations": [
+        "JavaScript bundle is large, consider code splitting",
+        "CSS bundle is large, consider CSS optimization",
+        "Add \"sideEffects\": false to package.json for better tree-shaking"
+      ]
+    },
+    {
+      "category": "Theme Transitions",
+      "score": 87,
+      "status": "EXCELLENT",
+      "findings": [
+        "✅ Smooth easing functions: true",
+        "✅ Optimal transition duration: true",
+        "✅ GPU-accelerated properties: true",
+        "✅ Batched DOM updates: true",
+        "✅ Transition state management: true",
+        "✅ Reduced motion accessibility: true",
+        "✅ Avoids layout-triggering properties in transitions"
+      ],
+      "recommendations": [
+        "Consider adding will-change CSS property for better transition performance"
+      ]
+    },
+    {
+      "category": "Crisis Safety Performance",
+      "score": 98,
+      "status": "EXCELLENT",
+      "findings": [
+        "✅ Crisis mode CSS: true",
+        "✅ Instant crisis transitions: true",
+        "✅ Crisis-specific colors: true",
+        "✅ High contrast colors: true",
+        "✅ Crisis mode functions: true",
+        "✅ Immediate crisis updates: true",
+        "✅ Crisis mode overrides: true",
+        "✅ Crisis state in store: true",
+        "✅ Forced high contrast: true"
+      ],
+      "recommendations": []
+    },
+    {
+      "category": "Memory Efficiency",
+      "score": 74,
+      "status": "GOOD",
+      "findings": [
+        "✅ useMemo optimizations: 6 instances",
+        "✅ useCallback optimizations: 9 instances",
+        "✅ Proper effect dependencies: false",
+        "📊 Event listeners: false",
+        "✅ Cleanup functions: false",
+        "✅ Store selectors: true",
+        "📊 Store subscriptions: true"
+      ],
+      "recommendations": [
+        "Consider adding unsubscribe logic for store subscriptions",
+        "Minimize object creation in render functions for better memory efficiency"
+      ]
+    },
+    {
+      "category": "Accessibility Performance",
+      "score": 94,
+      "status": "EXCELLENT",
+      "findings": [
+        "✅ Reduced motion support: true",
+        "✅ High contrast support: true",
+        "✅ Focus utilities: true",
+        "✅ Touch target utilities: true",
+        "📊 ARIA support coverage: 96.2% (25/26 components)",
+        "✅ Keyboard navigation: false",
+        "✅ Screen reader support: true",
+        "✅ Contrast ratio utilities: true"
+      ],
+      "recommendations": []
+    }
+  ]
+}

@@ -276,7 +276,7 @@ export const FEATURE_FLAGS = {
   CRISIS_CHAT_WIDGET: false,      // Coming in Phase 2
   THERAPIST_PORTAL: false,        // Coming in Phase 3
   MULTILINGUAL_SUPPORT: false,    // Coming in Phase 4
-  DARK_MODE: false               // Coming in Phase 2
+  DARK_MODE: true                // ✅ NOW AVAILABLE - Clinical-grade dark mode implementation
 } as const;
 
 /**
