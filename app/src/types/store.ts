@@ -19,6 +19,29 @@ import {
 import { CheckIn, UserProfile, CrisisPlan } from '../types';
 import { DataSensitivity } from './security';
 
+// Advanced Features Integration
+import {
+  FullMindAdvancedFeatures,
+  AdvancedTherapeuticAnalytics,
+  ComprehensiveProgressReport,
+  HabitFormationInsights,
+  AdvancedFeatureError
+} from './advanced-features';
+
+import {
+  SQLiteSecurityConfig,
+  SQLiteMigrationState,
+  SQLiteQueryBuilder,
+  TherapeuticProgressMetrics
+} from './sqlite';
+
+import {
+  CalendarUserPreferences,
+  CalendarIntegrationStatus,
+  PrivacySafeCalendarEvent,
+  CalendarEventTemplate
+} from './calendar';
+
 // Base Store Interface with Error Handling
 interface BaseStore {
   readonly isLoading: boolean;
@@ -417,4 +440,226 @@ export const STORE_CONSTANTS = {
     MAX_QUERY_TIME_MS: 500,
     MAX_STATE_SIZE_MB: 10,
   },
+  ADVANCED_FEATURES: {
+    SQLITE_MIGRATION_TIMEOUT_MS: 300000, // 5 minutes
+    CALENDAR_OPERATION_TIMEOUT_MS: 1000, // 1 second
+    ANALYTICS_CACHE_DURATION_MS: 14400000, // 4 hours
+    FEATURE_SYNC_INTERVAL_MS: 300000, // 5 minutes
+  },
 } as const;
+
+// Advanced Features Store - SQLite Analytics Integration
+export interface SQLiteAnalyticsStore extends BaseStore {
+  // State
+  readonly migrationState: SQLiteMigrationState;
+  readonly securityConfig: SQLiteSecurityConfig;
+  readonly queryBuilder: SQLiteQueryBuilder | null;
+  readonly analyticsEnabled: boolean;
+  
+  // Migration Operations
+  readonly initializeMigration: (config: SQLiteSecurityConfig) => Promise<void>;
+  readonly performMigration: (
+    progressCallback?: (progress: any) => void
+  ) => Promise<void>;
+  readonly rollbackMigration: () => Promise<{ success: boolean; error?: string }>;
+  readonly checkMigrationStatus: () => Promise<SQLiteMigrationState>;
+  
+  // Analytics Operations
+  readonly enableAnalytics: () => Promise<void>;
+  readonly getTherapeuticProgress: (
+    userId: string,
+    timeRange: { startDate: string; endDate: string }
+  ) => Promise<TherapeuticProgressMetrics>;
+  readonly getHabitFormationAnalysis: (
+    userId: string,
+    days: number
+  ) => Promise<any>;
+  readonly optimizeDatabase: () => Promise<void>;
+  readonly validateDataIntegrity: () => Promise<any>;
+  
+  // Clinical Query Operations
+  readonly queryAssessmentPatterns: (
+    timeRange: { startDate: string; endDate: string },
+    assessmentType?: 'phq9' | 'gad7'
+  ) => Promise<readonly any[]>;
+  readonly getCrisisRiskAnalysis: (
+    emergencyAccess: boolean,
+    lookbackDays: number
+  ) => Promise<any>;
+  
+  // Performance and Health
+  readonly getPerformanceMetrics: () => Promise<any>;
+  readonly performHealthCheck: () => Promise<{ status: 'healthy' | 'warning' | 'critical'; issues: string[] }>;
+}
+
+// Calendar Integration Store - Privacy-Safe Scheduling
+export interface CalendarIntegrationStore extends BaseStore {
+  // State
+  readonly userPreferences: CalendarUserPreferences | null;
+  readonly integrationStatus: CalendarIntegrationStatus;
+  readonly scheduledEvents: readonly PrivacySafeCalendarEvent[];
+  readonly availableTemplates: readonly CalendarEventTemplate[];
+  
+  // Permission Management
+  readonly checkPermissions: () => Promise<any>;
+  readonly requestPermissions: (
+    degradationStrategy?: 'graceful' | 'strict'
+  ) => Promise<{ granted: boolean; fallbackMethod: string | null }>;
+  
+  // Event Management (Privacy-Safe)
+  readonly createTherapeuticEvent: (
+    template: CalendarEventTemplate,
+    customization?: Partial<PrivacySafeCalendarEvent>
+  ) => Promise<{ success: boolean; eventId: string | null }>;
+  readonly updateEvent: (
+    eventId: string,
+    updates: Partial<PrivacySafeCalendarEvent>
+  ) => Promise<{ success: boolean }>;
+  readonly deleteEvent: (eventId: string) => Promise<{ success: boolean }>;
+  
+  // Scheduling Intelligence
+  readonly createRecurringSchedule: (
+    template: CalendarEventTemplate,
+    recurrencePattern: any,
+    endDate: Date
+  ) => Promise<{ createdEvents: number; failedEvents: number }>;
+  readonly getOptimalScheduleTimes: (
+    userId: string,
+    days: number
+  ) => Promise<readonly string[]>;
+  readonly adaptScheduleForCrisis: (crisisActive: boolean) => Promise<void>;
+  
+  // User Preferences
+  readonly updateUserPreferences: (
+    preferences: Partial<CalendarUserPreferences>
+  ) => Promise<void>;
+  readonly getUserPreferences: () => Promise<CalendarUserPreferences | null>;
+  
+  // Privacy and Health
+  readonly validatePrivacyCompliance: (
+    event: PrivacySafeCalendarEvent
+  ) => Promise<{ passed: boolean; violations: string[] }>;
+  readonly performPrivacyAudit: () => Promise<any>;
+  readonly getIntegrationHealth: () => Promise<CalendarIntegrationStatus>;
+}
+
+// Advanced Analytics Store - Combined Insights
+export interface AdvancedAnalyticsStore extends BaseStore {
+  // State
+  readonly featuresEnabled: FullMindAdvancedFeatures;
+  readonly analyticsEngine: AdvancedTherapeuticAnalytics | null;
+  readonly cachedReports: Map<string, ComprehensiveProgressReport>;
+  readonly lastReportGeneration: string | null;
+  
+  // Comprehensive Analytics
+  readonly generateProgressReport: (
+    userId: string,
+    timeRange: { startDate: string; endDate: string }
+  ) => Promise<ComprehensiveProgressReport>;
+  readonly getHabitFormationInsights: (
+    userId: string,
+    days: number
+  ) => Promise<HabitFormationInsights>;
+  readonly getTherapeuticOptimizations: (
+    userId: string
+  ) => Promise<any>;
+  readonly getPredictiveScheduling: (
+    userId: string,
+    lookAheadDays: number
+  ) => Promise<any>;
+  
+  // Crisis-Aware Analytics
+  readonly getCrisisAwareInsights: (
+    userId: string,
+    emergencyAccess: boolean
+  ) => Promise<any>;
+  readonly generateCrisisReport: (
+    userId: string,
+    crisisEventId: string
+  ) => Promise<any>;
+  
+  // Feature Coordination
+  readonly enableAdvancedFeatures: (
+    features: Partial<FullMindAdvancedFeatures['featureInteractions']>
+  ) => Promise<void>;
+  readonly syncFeatures: () => Promise<void>;
+  readonly getFeatureHealth: () => Promise<{
+    sqliteHealthy: boolean;
+    calendarHealthy: boolean;
+    analyticsHealthy: boolean;
+    coordinationHealthy: boolean;
+  }>;
+  
+  // Performance and Caching
+  readonly clearAnalyticsCache: () => Promise<void>;
+  readonly optimizeAnalyticsPerformance: () => Promise<void>;
+  readonly getAnalyticsPerformance: () => Promise<{
+    avgQueryTime: number;
+    cacheHitRate: number;
+    memoryUsage: number;
+  }>;
+}
+
+// Extended User Store with Advanced Features
+export interface EnhancedUserStore extends UserStore {
+  // Advanced Feature Preferences
+  readonly advancedFeaturePreferences: {
+    readonly sqliteAnalyticsEnabled: boolean;
+    readonly calendarIntegrationEnabled: boolean;
+    readonly therapeuticInsightsEnabled: boolean;
+    readonly habitTrackingEnabled: boolean;
+    readonly predictiveSchedulingEnabled: boolean;
+  };
+  
+  // Privacy Controls
+  readonly privacyControls: {
+    readonly dataMinimization: boolean;
+    readonly encryptionLevel: 'standard' | 'enhanced' | 'maximum';
+    readonly analyticsScope: 'personal_only' | 'therapeutic_patterns' | 'full_insights';
+    readonly calendarPrivacyLevel: 'maximum' | 'balanced' | 'minimal';
+  };
+  
+  // Enhanced Actions
+  readonly updateAdvancedFeaturePreferences: (
+    preferences: Partial<EnhancedUserStore['advancedFeaturePreferences']>
+  ) => Promise<void>;
+  readonly updatePrivacyControls: (
+    controls: Partial<EnhancedUserStore['privacyControls']>
+  ) => Promise<void>;
+  readonly exportAdvancedAnalytics: () => Promise<{
+    data: ComprehensiveProgressReport[];
+    exportedAt: string;
+    privacyCompliant: boolean;
+  }>;
+}
+
+// Type Guards for Advanced Stores
+export const isSQLiteAnalyticsStore = (store: unknown): store is SQLiteAnalyticsStore => {
+  return (
+    typeof store === 'object' &&
+    store !== null &&
+    'migrationState' in store &&
+    'queryBuilder' in store &&
+    'performMigration' in store
+  );
+};
+
+export const isCalendarIntegrationStore = (store: unknown): store is CalendarIntegrationStore => {
+  return (
+    typeof store === 'object' &&
+    store !== null &&
+    'userPreferences' in store &&
+    'integrationStatus' in store &&
+    'createTherapeuticEvent' in store
+  );
+};
+
+export const isAdvancedAnalyticsStore = (store: unknown): store is AdvancedAnalyticsStore => {
+  return (
+    typeof store === 'object' &&
+    store !== null &&
+    'featuresEnabled' in store &&
+    'analyticsEngine' in store &&
+    'generateProgressReport' in store
+  );
+};
