@@ -1,0 +1,63 @@
+# Git Repository Files (CRITICAL - prevent recursion)
+.git/
+**/.git/
+*.git
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# Environment & Secrets
+.env
+.env.*
+!.env.example
+!.env.production
+*.pem
+*.key
+*.jks
+*.p8
+*.p12
+*.mobileprovision
+
+# Dependencies
+node_modules/
+venv/
+__pycache__/
+
+# Build Outputs
+dist/
+build/
+web-build/
+*.pyc
+
+# Expo/React Native
+.expo/
+expo-env.d.ts
+*.orig.*
+.kotlin/
+.metro-health-check*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# TypeScript
+*.tsbuildinfo
+
+# Testing
+coverage/
+
+# Temporary
+*.tmp
+_sandbox/
+
+# Backup files
+*.backup

@@ -1,0 +1,485 @@
+/**
+ * FullMind Performance & Clinical CSS
+ * Optimized for clinical-grade performance and accessibility
+ */
+
+/* Performance optimizations for critical rendering path */
+:root {
+  /* Color palette for consistent performance */
+  --color-clinical-primary: #40B5AD;
+  --color-clinical-secondary: #2C8A82;
+  --color-clinical-safe: #4A7C59;
+  --color-crisis-red: #DC2626;
+  --color-warning-amber: #F59E0B;
+  --color-success-green: #10B981;
+  
+  /* Typography scale for fast rendering */
+  --font-size-xs: 0.75rem;
+  --font-size-sm: 0.875rem;
+  --font-size-base: 1rem;
+  --font-size-lg: 1.125rem;
+  --font-size-xl: 1.25rem;
+  --font-size-2xl: 1.5rem;
+  --font-size-3xl: 1.875rem;
+  
+  /* Spacing scale for consistency */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-12: 3rem;
+  
+  /* Performance timing constants */
+  --animation-fast: 150ms;
+  --animation-normal: 250ms;
+  --animation-slow: 400ms;
+  
+  /* Clinical accessibility constants */
+  --focus-ring-width: 2px;
+  --focus-ring-offset: 2px;
+  --min-touch-target: 44px;
+  --reading-line-height: 1.6;
+}
+
+/* Critical rendering optimizations */
+* {
+  box-sizing: border-box;
+}
+
+html {
+  /* Optimize font rendering for mental health readability */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'kern' 1;
+  text-rendering: optimizeLegibility;
+  
+  /* Performance: Reduce paint complexity */
+  backface-visibility: hidden;
+  perspective: 1000px;
+}
+
+body {
+  /* Optimize for performance */
+  will-change: auto;
+  
+  /* Clinical typography for readability */
+  line-height: var(--reading-line-height);
+  font-size: var(--font-size-base);
+  
+  /* Reduce motion for accessibility */
+  scroll-behavior: smooth;
+}
+
+/* Respect user preferences for motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  
+  /* Maintain essential animations for clinical feedback */
+  .crisis-button,
+  .loading-spinner,
+  .focus-indicator {
+    animation-duration: var(--animation-normal) !important;
+  }
+}
+
+/* High contrast support for accessibility */
+@media (prefers-contrast: high) {
+  :root {
+    --color-clinical-primary: #000000;
+    --color-clinical-secondary: #000000;
+    --color-clinical-safe: #000000;
+    --color-crisis-red: #FF0000;
+    --color-warning-amber: #FF8C00;
+    --color-success-green: #008000;
+  }
+}
+
+/* Critical crisis button - Always performant */
+.crisis-button {
+  /* Performance: GPU acceleration */
+  transform: translateZ(0);
+  will-change: transform;
+  
+  /* Clinical accessibility requirements */
+  min-width: var(--min-touch-target);
+  min-height: var(--min-touch-target);
+  
+  /* High visibility */
+  background-color: var(--color-crisis-red);
+  color: white;
+  border: 2px solid var(--color-crisis-red);
+  border-radius: 8px;
+  
+  /* Fast interaction feedback */
+  transition: all var(--animation-fast) ease-out;
+  
+  /* Typography for stress situations */
+  font-weight: 700;
+  font-size: var(--font-size-lg);
+  text-align: center;
+  
+  /* Ensure always clickable */
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  
+  /* Accessibility */
+  outline: none;
+  
+  /* Performance: Contain layout changes */
+  contain: layout style paint;
+}
+
+.crisis-button:hover,
+.crisis-button:focus {
+  /* Quick visual feedback */
+  background-color: #B91C1C;
+  border-color: #B91C1C;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(220, 38, 38, 0.3);
+}
+
+.crisis-button:focus {
+  /* High-contrast focus indicator */
+  outline: var(--focus-ring-width) solid white;
+  outline-offset: var(--focus-ring-offset);
+  box-shadow: 0 0 0 calc(var(--focus-ring-width) + var(--focus-ring-offset)) var(--color-crisis-red);
+}
+
+.crisis-button:active {
+  /* Immediate feedback for activation */
+  transform: translateY(0);
+  background-color: #991B1B;
+}
+
+/* Performance-optimized focus indicators */
+.focus-indicator,
+*:focus {
+  /* High-performance focus indication */
+  outline: var(--focus-ring-width) solid var(--color-clinical-primary);
+  outline-offset: var(--focus-ring-offset);
+  border-radius: 4px;
+  
+  /* Performance: Avoid layout shifts */
+  box-shadow: 0 0 0 var(--focus-ring-offset) rgba(64, 181, 173, 0.2);
+}
+
+/* Button optimizations for clinical UI */
+button,
+.button {
+  /* Performance optimizations */
+  transform: translateZ(0);
+  will-change: transform;
+  contain: layout style paint;
+  
+  /* Clinical accessibility */
+  min-width: var(--min-touch-target);
+  min-height: var(--min-touch-target);
+  padding: var(--space-3) var(--space-6);
+  
+  /* Fast interaction feedback */
+  transition: all var(--animation-fast) ease-out;
+  
+  /* Typography for readability */
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+  
+  /* Consistent styling */
+  border-radius: 8px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:hover,
+.button:hover {
+  transform: translateY(-1px);
+}
+
+button:active,
+.button:active {
+  transform: translateY(0);
+}
+
+/* Loading states - Optimized for performance */
+.loading-spinner {
+  /* GPU acceleration */
+  transform: translateZ(0);
+  will-change: transform;
+  
+  /* Efficient animation */
+  animation: spin var(--animation-normal) linear infinite;
+  
+  /* Performance: Contain painting */
+  contain: layout style paint;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Skip links for accessibility */
+.skip-link {
+  /* Performance: Initially hidden efficiently */
+  position: absolute;
+  left: -9999px;
+  top: auto;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  
+  /* Fast transition when focused */
+  transition: all var(--animation-fast) ease-out;
+}
+
+.skip-link:focus {
+  /* Immediate visibility */
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: auto;
+  height: auto;
+  overflow: visible;
+  
+  /* High visibility */
+  z-index: 9999;
+  background: var(--color-clinical-primary);
+  color: white;
+  padding: var(--space-4);
+  text-decoration: none;
+  font-weight: 600;
+  
+  /* Performance: Contain layout */
+  contain: layout style paint;
+}
+
+/* Screen reader optimizations */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.sr-only:focus,
+.sr-only:active {
+  position: static;
+  width: auto;
+  height: auto;
+  padding: inherit;
+  margin: inherit;
+  overflow: visible;
+  clip: auto;
+  white-space: normal;
+}
+
+/* High-performance card animations */
+.card-hover {
+  /* GPU acceleration for smooth animations */
+  transform: translateZ(0);
+  will-change: transform, box-shadow;
+  transition: all var(--animation-normal) cubic-bezier(0.4, 0, 0.2, 1);
+  
+  /* Performance: Contain layout changes */
+  contain: layout style paint;
+}
+
+.card-hover:hover {
+  transform: translateY(-4px) translateZ(0);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+}
+
+/* Optimized text selection for mental health content */
+::selection {
+  background-color: rgba(64, 181, 173, 0.3);
+  color: inherit;
+}
+
+::-moz-selection {
+  background-color: rgba(64, 181, 173, 0.3);
+  color: inherit;
+}
+
+/* Performance-optimized scrollbars */
+::-webkit-scrollbar {
+  width: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 6px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-clinical-primary);
+  border-radius: 6px;
+  border: 2px solid #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-clinical-secondary);
+}
+
+/* Print optimizations for clinical content */
+@media print {
+  .crisis-button,
+  .skip-link,
+  .performance-dashboard {
+    display: none !important;
+  }
+  
+  * {
+    background: white !important;
+    color: black !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+  
+  a, a:visited {
+    text-decoration: underline;
+    color: black !important;
+  }
+  
+  a[href]:after {
+    content: " (" attr(href) ")";
+    font-size: 0.8em;
+  }
+}
+
+/* Performance dashboard styles */
+.performance-dashboard {
+  /* Performance: Efficient positioning */
+  position: fixed;
+  z-index: 10000;
+  
+  /* GPU acceleration */
+  transform: translateZ(0);
+  will-change: transform, opacity;
+  
+  /* Efficient animations */
+  transition: all var(--animation-fast) ease-out;
+  
+  /* Contain layout changes */
+  contain: layout style paint;
+}
+
+/* Animation utilities for clinical UI */
+.fade-in {
+  animation: fadeIn var(--animation-normal) ease-out forwards;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.slide-up {
+  animation: slideUp var(--animation-normal) ease-out forwards;
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Breathing animation for therapeutic content */
+.breathing-circle {
+  /* GPU acceleration for smooth 60fps animation */
+  transform: translateZ(0);
+  will-change: transform;
+  
+  /* 60-second breathing cycle (20s per phase) */
+  animation: breathingCycle 60s ease-in-out infinite;
+  
+  /* Performance: Contain animation */
+  contain: layout style paint;
+}
+
+@keyframes breathingCycle {
+  0% { transform: scale(1) translateZ(0); }
+  33.33% { transform: scale(1.2) translateZ(0); } /* Inhale (20s) */
+  66.66% { transform: scale(1.2) translateZ(0); } /* Hold (20s) */
+  100% { transform: scale(1) translateZ(0); } /* Exhale (20s) */
+}
+
+/* Optimized form controls for clinical accuracy */
+input, textarea, select {
+  /* Performance optimizations */
+  will-change: auto;
+  
+  /* Clinical accessibility */
+  min-height: var(--min-touch-target);
+  padding: var(--space-3);
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  
+  /* Typography for accuracy */
+  font-size: var(--font-size-base);
+  line-height: var(--reading-line-height);
+  
+  /* Fast feedback */
+  transition: border-color var(--animation-fast) ease-out;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: var(--color-clinical-primary);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(64, 181, 173, 0.1);
+}
+
+/* Clinical error states */
+.error {
+  border-color: var(--color-crisis-red) !important;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1) !important;
+}
+
+.error-message {
+  color: var(--color-crisis-red);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  margin-top: var(--space-1);
+}
+
+/* Success states */
+.success {
+  border-color: var(--color-success-green) !important;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1) !important;
+}
+
+/* Performance utilities */
+.gpu-accelerated {
+  transform: translateZ(0);
+  will-change: transform;
+}
+
+.contain-layout {
+  contain: layout style paint;
+}
+
+.optimize-legibility {
+  text-rendering: optimizeLegibility;
+}
+
+.disable-transitions {
+  transition: none !important;
+  animation: none !important;
+}
