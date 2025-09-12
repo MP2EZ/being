@@ -243,13 +243,13 @@ export interface AndroidCalendarAPI {
 }
 
 export interface iOSCalendarPermissions {
-  status: Calendar.CalendarPermissionResponse;
+  status: Calendar.PermissionResponse;
   canAskAgain: boolean;
   requestedAt: string;
 }
 
 export interface AndroidCalendarPermissions {
-  status: Calendar.CalendarPermissionResponse;
+  status: Calendar.PermissionResponse;
   canAskAgain: boolean;
   requestedAt: string;
 }
@@ -545,7 +545,7 @@ export class CalendarIntegrationService implements CalendarIntegrationAPI, Calen
         endDate: this.calculateReminderEndTime(template),
         timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         calendarId: calendar.id,
-        alarms: template.preferredTime ? [{ relativeOffset: -5 }] : undefined, // 5 min before
+        alarms: template.preferredTime ? [{ relativeOffset: -5 }] : [], // 5 min before
         notes: safeContent.description,
         allDay: false
       };
@@ -881,7 +881,7 @@ export class CalendarIntegrationService implements CalendarIntegrationAPI, Calen
     };
   }
 
-  async generateGenericDescription(context: TherapeuticContext): string {
+  generateGenericDescription(context: TherapeuticContext): string {
     const genericDescriptions = {
       maximum: [
         'Mindful moment',
@@ -903,7 +903,7 @@ export class CalendarIntegrationService implements CalendarIntegrationAPI, Calen
       ]
     };
 
-    const descriptions = genericDescriptions[this.privacyLevel];
+    const descriptions = genericDescriptions[this.privacyLevel] || genericDescriptions['maximum'];
     const randomIndex = Math.floor(Math.random() * descriptions.length);
     return descriptions[randomIndex];
   }
@@ -916,7 +916,7 @@ export class CalendarIntegrationService implements CalendarIntegrationAPI, Calen
     if (eventData.location) {
       risksIdentified.push('Location data present');
       mitigationApplied.push('Location data removed');
-      eventData.location = undefined;
+      delete eventData.location;
     }
 
     // Check for detailed notes
@@ -1218,22 +1218,26 @@ export class CalendarIntegrationService implements CalendarIntegrationAPI, Calen
         title: 'FullMind Therapeutic',
         color: '#40B5AD', // FullMind brand color
         entityType: Calendar.EntityTypes.EVENT,
-        sourceId: defaultCalendarSource.id,
+        sourceId: defaultCalendarSource.id || '',
         source: defaultCalendarSource,
         name: 'FullMind Therapeutic',
         ownerAccount: 'personal',
         accessLevel: Calendar.CalendarAccessLevel.OWNER
       });
 
-      const newCalendar = await Calendar.getCalendarAsync(calendarId);
+      const updatedCalendars = await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT);
+      const newCalendar = updatedCalendars.find(cal => cal.id === calendarId);
+      if (!newCalendar) {
+        throw new Error('Failed to retrieve created calendar');
+      }
       console.log('Created FullMind therapeutic calendar');
       return newCalendar;
 
     } catch (error) {
       console.error('Failed to get/create FullMind calendar:', error);
       // Fallback to default calendar
-      const calendars = await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT);
-      return calendars[0];
+      const fallbackCalendars = await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT);
+      return fallbackCalendars[0];
     }
   }
 

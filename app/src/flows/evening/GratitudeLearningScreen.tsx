@@ -23,16 +23,16 @@ export const GratitudeLearningScreen: React.FC<GratitudeLearningScreenProps> = (
   const { currentCheckIn, updateCurrentCheckIn } = useCheckInStore();
   
   const [gratitude1, setGratitude1] = useState(
-    currentCheckIn?.data?.gratitude1 || ''
+    (currentCheckIn as any)?.data?.gratitude1 || ''
   );
   const [gratitude2, setGratitude2] = useState(
-    currentCheckIn?.data?.gratitude2 || ''
+    (currentCheckIn as any)?.data?.gratitude2 || ''
   );
   const [gratitude3, setGratitude3] = useState(
-    currentCheckIn?.data?.gratitude3 || ''
+    (currentCheckIn as any)?.data?.gratitude3 || ''
   );
   const [dayLearning, setDayLearning] = useState(
-    currentCheckIn?.data?.dayLearning || ''
+    (currentCheckIn as any)?.data?.dayLearning || ''
   );
 
   const handleNext = () => {

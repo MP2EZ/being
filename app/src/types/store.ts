@@ -107,12 +107,16 @@ export type CurrentAssessment =
 // Assessment Configuration Types
 export interface PHQ9Config {
   readonly type: 'phq9';
+  readonly title: string;
+  readonly subtitle: string;
   readonly questions: readonly AssessmentQuestion[];
   readonly scoringThresholds: PHQ9ScoringThresholds;
 }
 
 export interface GAD7Config {
   readonly type: 'gad7';
+  readonly title: string;
+  readonly subtitle: string;
   readonly questions: readonly AssessmentQuestion[];
   readonly scoringThresholds: GAD7ScoringThresholds;
 }
@@ -125,7 +129,7 @@ export interface AssessmentQuestion {
 
 export interface AssessmentOption {
   readonly value: 0 | 1 | 2 | 3;
-  readonly text: string;
+  readonly label: string;
 }
 
 export interface PHQ9ScoringThresholds {

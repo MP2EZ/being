@@ -77,17 +77,27 @@ export const EveningReflectionFlow: React.FC<EveningReflectionFlowProps> = ({
     );
   };
 
-  const CurrentScreen = screens[currentScreen];
   const isFirstScreen = currentScreen === 0;
   const isLastScreen = currentScreen === screens.length - 1;
 
-  return (
-    <View style={styles.container}>
-      <CurrentScreen
+  const renderCurrentScreen = () => {
+    const ScreenComponent = screens[currentScreen];
+    if (!ScreenComponent) {
+      return null;
+    }
+
+    return (
+      <ScreenComponent
         onNext={isLastScreen ? handleComplete : handleNext}
         onBack={isFirstScreen ? handleCancel : handleBack}
         onComplete={isLastScreen ? handleComplete : undefined}
       />
+    );
+  };
+
+  return (
+    <View style={styles.container}>
+      {renderCurrentScreen()}
     </View>
   );
 };

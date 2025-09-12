@@ -22,7 +22,7 @@ export const BodyScanScreen: React.FC<BodyScanScreenProps> = ({
 }) => {
   const { currentCheckIn, updateCurrentCheckIn } = useCheckInStore();
   const [selectedAreas, setSelectedAreas] = useState<string[]>(
-    currentCheckIn?.data?.bodyAreas || []
+    (currentCheckIn as any)?.data?.bodyAreas || []
   );
 
   const handleNext = () => {

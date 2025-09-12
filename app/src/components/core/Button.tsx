@@ -1,5 +1,5 @@
 import React from 'react';
-import { TouchableOpacity, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { TouchableOpacity, Text, StyleSheet, ActivityIndicator, AccessibilityRole } from 'react-native';
 import { useTheme } from '../../hooks/useTheme';
 import { useCommonHaptics, useHaptics } from '../../hooks/useHaptics';
 import { borderRadius } from '../../constants/colors';
@@ -17,7 +17,7 @@ interface ButtonProps {
   // Accessibility props
   accessibilityLabel?: string;
   accessibilityHint?: string;
-  accessibilityRole?: string;
+  accessibilityRole?: AccessibilityRole;
   testID?: string;
   emergency?: boolean; // Flag for crisis/emergency buttons
 }

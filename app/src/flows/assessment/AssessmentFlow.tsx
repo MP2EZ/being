@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, Alert, StyleSheet } from 'react-native';
+import { View, Text, Alert, StyleSheet } from 'react-native';
 import { AssessmentQuestionScreen } from './AssessmentQuestionScreen';
 import { useAssessmentStore } from '../../store';
 
@@ -49,10 +49,17 @@ export const AssessmentFlow: React.FC<AssessmentFlowProps> = ({
   const isLastQuestion = progress.current === progress.total - 1;
 
   const handleAnswerSelect = (answer: number) => {
+    // Validate that answer is within valid range for clinical assessments
+    if (answer < 0 || answer > 3 || !Number.isInteger(answer)) {
+      console.error(`Invalid assessment answer: ${answer}. Must be 0, 1, 2, or 3.`);
+      return;
+    }
+    
+    const validAnswer = answer as 0 | 1 | 2 | 3;
     const newAnswers = [...currentAnswers];
-    newAnswers[progress.current] = answer;
+    newAnswers[progress.current] = validAnswer;
     setCurrentAnswers(newAnswers);
-    answerQuestion(answer);
+    answerQuestion(validAnswer);
   };
 
   const handleNext = async () => {
@@ -101,7 +108,17 @@ export const AssessmentFlow: React.FC<AssessmentFlowProps> = ({
     );
   };
 
-  const currentAnswer = currentAnswers[progress.current];
+  const currentAnswer = currentAnswers[progress.current] ?? null;
+
+  // Safety check for currentQuestion
+  if (!currentQuestion) {
+    console.error('Current question is undefined');
+    return (
+      <View style={styles.container}>
+        <Text>Error loading assessment question</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>

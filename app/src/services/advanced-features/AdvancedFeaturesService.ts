@@ -18,21 +18,26 @@ import {
   SQLiteMigrationState,
   SQLiteQueryBuilder,
   SQLiteMigrationProgress,
+  SQLiteMigrationError,
   TherapeuticProgressMetrics
 } from '../../types/sqlite';
+
+import { MigrationProgress } from '../storage/DataStoreMigrator';
 
 import {
   CalendarUserPreferences,
   CalendarIntegrationStatus,
   PrivacySafeCalendarEvent,
   CalendarEventTemplate,
-  CalendarIntegrationService
+  CalendarIntegrationService,
+  CalendarPrivacyError
 } from '../../types/calendar';
 
 import {
   ClinicalSafetyError,
   SQLiteMigrationClinicalError,
   CalendarPrivacyClinicalError,
+  AdvancedFeatureErrorImpl,
   clinicalErrorRecovery
 } from '../../types/advanced-errors';
 
@@ -111,16 +116,13 @@ export class AdvancedFeaturesService {
       
     } catch (error) {
       console.error('Failed to initialize AdvancedFeaturesService:', error);
-      throw new AdvancedFeatureError(
+      throw new AdvancedFeatureErrorImpl(
         'Service initialization failed',
-        'INITIALIZATION_ERROR',
+        'integration_error',
         error instanceof Error ? error : new Error(String(error)),
         ['analytics', 'scheduling', 'insights'],
         'moderate',
-        true,
-        ['Local notifications available', 'AsyncStorage fallback active'],
-        true,
-        ['Check device capabilities', 'Verify app permissions', 'Restart app if needed']
+        true
       );
     }
   }
@@ -138,7 +140,7 @@ export class AdvancedFeaturesService {
         await this.performSQLiteMigration();
       } else if (migrationStatus.isRequired && !migrationStatus.safeToMigrate) {
         throw new SQLiteMigrationClinicalError(
-          'INSUFFICIENT_STORAGE', // Assuming this is the likely reason
+          SQLiteMigrationError.INSUFFICIENT_STORAGE, // Assuming this is the likely reason
           `Migration unsafe: ${migrationStatus.recommendations.join(', ')}`,
           'moderate',
           false, // Don't rollback if we haven't started
@@ -156,7 +158,7 @@ export class AdvancedFeaturesService {
       }
       
       throw new SQLiteMigrationClinicalError(
-        'SCHEMA_MIGRATION_FAILED',
+        SQLiteMigrationError.SCHEMA_MIGRATION_FAILED,
         `SQLite initialization failed: ${error}`,
         'moderate',
         false,
@@ -175,14 +177,14 @@ export class AdvancedFeaturesService {
     try {
       const { dataStoreMigrator } = await import('../storage/DataStoreMigrator');
       
-      const result = await dataStoreMigrator.performMigration((progress: SQLiteMigrationProgress) => {
+      const result = await dataStoreMigrator.performMigration((progress: MigrationProgress) => {
         // Emit progress events for UI updates
         console.log(`SQLite Migration: ${progress.stage} (${progress.progress}%)`);
         
         // Timeout safety check
         if (progress.stage === 'error') {
           throw new SQLiteMigrationClinicalError(
-            'ROLLBACK_REQUIRED',
+            SQLiteMigrationError.ROLLBACK_REQUIRED,
             progress.error || 'Migration failed',
             'high',
             true,
@@ -193,7 +195,7 @@ export class AdvancedFeaturesService {
       
       if (!result.success) {
         throw new SQLiteMigrationClinicalError(
-          'DATA_INTEGRITY_VIOLATION',
+          SQLiteMigrationError.DATA_INTEGRITY_VIOLATION,
           `Migration failed: ${result.errors.join(', ')}`,
           'high',
           true,
@@ -221,7 +223,7 @@ export class AdvancedFeaturesService {
       
     } catch (error) {
       throw new CalendarPrivacyClinicalError(
-        'PERMISSION_DENIED_GRACEFUL',
+        CalendarPrivacyError.PERMISSION_DENIED_GRACEFUL,
         `Calendar initialization failed: ${error}`,
         'minimal',
         true // Local notifications available as fallback
@@ -296,7 +298,34 @@ export class AdvancedFeaturesService {
             ? ['basic_reminders', 'calendar_events', 'recurring_schedules', 'therapeutic_timing']
             : ['basic_reminders']
         },
-        userPreferences: await this.getCalendarUserPreferences(),
+        userPreferences: (await this.getCalendarUserPreferences()) || {
+          integrationLevel: 'disabled',
+          respectCrisisBoundaries: true,
+          privacyLevel: 'maximum',
+          therapeuticTiming: {
+            morningWindow: { startHour: 6, endHour: 10 },
+            middayWindow: { startHour: 11, endHour: 15 },
+            eveningWindow: { startHour: 18, endHour: 22 }
+          },
+          featureControls: {
+            createCalendarEvents: false,
+            sendReminders: false,
+            enableRecurrence: false,
+            crossPlatformSync: false,
+            shareCalendarData: false
+          },
+          crisisSettings: {
+            pauseDuringCrisis: true,
+            crisisOverrideDuration: 24,
+            emergencyContactIntegration: false
+          },
+          accessibility: {
+            largeTextCalendarEvents: false,
+            highContrastReminders: false,
+            voiceOverOptimized: false,
+            reducedMotionCalendar: false
+          }
+        },
         integrationHealth: await this.getCalendarIntegrationStatus(),
         privacyGuards: {
           phiExposurePrevention: true,
@@ -315,12 +344,12 @@ export class AdvancedFeaturesService {
       },
       performanceProfile: {
         sqliteMigration: {
-          maxMigrationTime: this.config.safetyLimits.maxMigrationTimeMs,
+          maxMigrationTime: this.config.safetyLimits.maxMigrationTimeMs as 300000,
           memoryUsageLimit: 150,
           criticalDataFirst: true
         },
         calendarIntegration: {
-          maxResponseTime: this.config.safetyLimits.maxCalendarOperationTimeMs,
+          maxResponseTime: this.config.safetyLimits.maxCalendarOperationTimeMs as 1000,
           fallbackLatency: 500,
           permissionTimeout: 10000
         },
@@ -391,7 +420,7 @@ export class AdvancedFeaturesService {
   ): Promise<{ success: boolean; eventId: string | null }> {
     if (!this.calendarService) {
       throw new CalendarPrivacyClinicalError(
-        'PERMISSION_DENIED_GRACEFUL',
+        CalendarPrivacyError.PERMISSION_DENIED_GRACEFUL,
         'Calendar integration not available',
         'minimal',
         true

@@ -56,6 +56,7 @@ export const CacheMonitor: React.FC<CacheMonitorProps> = ({
       const interval = setInterval(loadStats, 5000);
       return () => clearInterval(interval);
     }
+    return undefined;
   }, [visible, loadStats]);
 
   const handleClearCache = useCallback(() => {

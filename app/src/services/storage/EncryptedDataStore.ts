@@ -93,7 +93,7 @@ export class EncryptedDataStore {
       const encryptedData = await encryptionService.encryptData(
         user,
         DataSensitivity.PERSONAL,
-        { dataType: 'UserProfile', userId: user.id }
+        { dataType: 'UserProfile' }
       );
 
       const storageData = {

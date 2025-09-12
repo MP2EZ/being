@@ -133,7 +133,7 @@ class ExportService {
         csvContent += 'Date,Time,Type,Emotions,Body Areas,Thoughts,Energy Level,Daily Value\n';
         
         data.checkIns.forEach((checkIn: CheckIn) => {
-          const date = new Date(checkIn.timestamp);
+          const date = new Date(checkIn.startedAt);
           const emotions = Array.isArray(checkIn.data.emotions) ? checkIn.data.emotions.join('; ') : '';
           const bodyAreas = Array.isArray(checkIn.data.bodyAreas) ? checkIn.data.bodyAreas.join('; ') : '';
           const thoughts = checkIn.data.thoughts || '';
@@ -317,7 +317,7 @@ class ExportService {
         ${checkIns.map((checkIn: CheckIn) => `
         <div class="check-in">
           <h3>${checkIn.type.charAt(0).toUpperCase() + checkIn.type.slice(1)} Check-in</h3>
-          <div class="check-in-meta">${new Date(checkIn.timestamp).toLocaleString()}</div>
+          <div class="check-in-meta">${new Date(checkIn.startedAt).toLocaleString()}</div>
           
           ${checkIn.data.emotions ? `
           <div class="data-row">

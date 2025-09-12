@@ -134,7 +134,7 @@ export const WidgetDemo: React.FC = () => {
           <Text style={styles.infoTitle}>⚡ Performance</Text>
           <Text style={styles.infoText}>
             • Updates throttled to 1-minute intervals{'\n'}
-            • Memory usage monitored (<50MB){'\n'}
+            • Memory usage monitored (less than 50MB){'\n'}
             • Battery-efficient background processing{'\n'}
             • Intelligent caching with LRU eviction
           </Text>

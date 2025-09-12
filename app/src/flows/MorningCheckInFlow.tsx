@@ -84,7 +84,7 @@ export const MorningCheckInFlow: React.FC<MorningCheckInFlowProps> = ({
 
   // Auto-save progress when moving between screens
   useEffect(() => {
-    if (currentCheckIn && currentCheckIn.id && currentScreen > 0) {
+    if (currentCheckIn && (currentCheckIn as any).id && currentScreen > 0) {
       // Save progress after a delay to avoid excessive saves
       const timer = setTimeout(async () => {
         await savePartialProgress();
@@ -93,6 +93,8 @@ export const MorningCheckInFlow: React.FC<MorningCheckInFlowProps> = ({
       
       return () => clearTimeout(timer);
     }
+    // Return undefined for the else case
+    return undefined;
   }, [currentScreen, currentCheckIn, savePartialProgress, onProgressSave]);
 
   // Handle resume session dialog actions
@@ -103,7 +105,7 @@ export const MorningCheckInFlow: React.FC<MorningCheckInFlowProps> = ({
         // Determine which screen to show based on progress
         // This is a simplified approach - in a more sophisticated version,
         // you'd track exact screen progress
-        const dataKeys = Object.keys(currentCheckIn.data || {});
+        const dataKeys = Object.keys((currentCheckIn as any).data || {});
         let screenIndex = Math.min(dataKeys.length, screens.length - 1);
         setCurrentScreen(screenIndex);
       }
@@ -187,7 +189,6 @@ export const MorningCheckInFlow: React.FC<MorningCheckInFlowProps> = ({
     );
   };
 
-  const CurrentScreen = screens[currentScreen];
   const isFirstScreen = currentScreen === 0;
   const isLastScreen = currentScreen === screens.length - 1;
 
@@ -200,13 +201,24 @@ export const MorningCheckInFlow: React.FC<MorningCheckInFlowProps> = ({
     );
   }
 
-  return (
-    <View style={styles.container}>
-      <CurrentScreen
+  const renderCurrentScreen = () => {
+    const ScreenComponent = screens[currentScreen];
+    if (!ScreenComponent) {
+      return null;
+    }
+
+    return (
+      <ScreenComponent
         onNext={isLastScreen ? handleComplete : handleNext}
         onBack={isFirstScreen ? handleCancel : handleBack}
         onComplete={isLastScreen ? handleComplete : undefined}
       />
+    );
+  };
+
+  return (
+    <View style={styles.container}>
+      {renderCurrentScreen()}
       
       <ResumeSessionDialog
         visible={showResumeDialog}

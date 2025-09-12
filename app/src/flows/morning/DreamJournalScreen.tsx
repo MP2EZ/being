@@ -12,7 +12,7 @@ import { useCheckInStore } from '../../store';
 import { colorSystem, spacing, borderRadius } from '../../constants/colors';
 
 interface DreamJournalScreenProps {
-  onComplete?: () => void;
+  onComplete?: (() => void) | undefined;
   onBack: () => void;
 }
 
@@ -23,7 +23,7 @@ export const DreamJournalScreen: React.FC<DreamJournalScreenProps> = ({
   const { currentCheckIn, updateCurrentCheckIn } = useCheckInStore();
   
   const [dreams, setDreams] = useState<string>(
-    currentCheckIn?.data?.dreams || ''
+    (currentCheckIn as any)?.data?.dreams || ''
   );
 
   const handleComplete = () => {

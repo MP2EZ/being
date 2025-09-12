@@ -23,13 +23,13 @@ export const EnergyLevelsScreen: React.FC<EnergyLevelsScreenProps> = ({
   const { currentCheckIn, updateCurrentCheckIn } = useCheckInStore();
   
   const [sleepQuality, setSleepQuality] = useState<number>(
-    currentCheckIn?.data?.sleepQuality || 5
+    (currentCheckIn as any)?.data?.sleepQuality || 5
   );
   const [energyLevel, setEnergyLevel] = useState<number>(
-    currentCheckIn?.data?.energyLevel || 5
+    (currentCheckIn as any)?.data?.energyLevel || 5
   );
   const [anxietyLevel, setAnxietyLevel] = useState<number>(
-    currentCheckIn?.data?.anxietyLevel || 5
+    (currentCheckIn as any)?.data?.anxietyLevel || 5
   );
 
   const handleNext = () => {

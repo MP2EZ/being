@@ -563,5 +563,68 @@ export interface ErrorRecoveryResult {
   readonly followUpRequired: boolean;
 }
 
+// Concrete AdvancedFeatureError class
+export class AdvancedFeatureErrorImpl extends ClinicalSafetyError implements AdvancedFeatureError {
+  readonly errorType: 'sqlite_error' | 'calendar_error' | 'integration_error' | 'analytics_error';
+  readonly sourceError: SQLiteClinicalSafetyError | CalendarClinicalSafetyError | Error;
+  readonly featureImpact: readonly ('analytics' | 'scheduling' | 'insights' | 'habit_tracking')[];
+  
+  constructor(
+    message: string,
+    errorType: 'sqlite_error' | 'calendar_error' | 'integration_error' | 'analytics_error',
+    sourceError: SQLiteClinicalSafetyError | CalendarClinicalSafetyError | Error,
+    featureImpact: readonly ('analytics' | 'scheduling' | 'insights' | 'habit_tracking')[],
+    clinicalImpact: ClinicalImpactLevel,
+    therapeuticContinuity: boolean
+  ) {
+    super(
+      message,
+      errorType,
+      clinicalImpact,
+      therapeuticContinuity,
+      true, // emergencyAccessMaintained
+      ['Disable affected features', 'Maintain core functionality'], // mitigationStrategy
+      false // userNotificationRequired
+    );
+    
+    this.errorType = errorType;
+    this.sourceError = sourceError;
+    this.featureImpact = featureImpact;
+    this.name = 'AdvancedFeatureError';
+  }
+  
+  async getRecoveryActions(): Promise<readonly RecoveryAction[]> {
+    return [{
+      actionType: 'automatic',
+      description: 'Disable affected advanced features',
+      estimatedDurationMs: 1000,
+      successProbability: 0.95,
+      prerequisites: [],
+      execute: async () => ({
+        success: true,
+        partialRecovery: false,
+        remainingIssues: [],
+        therapeuticContinuityRestored: true,
+        followUpRequired: false
+      })
+    }];
+  }
+  
+  assessTherapeuticImpact(): TherapeuticImpactAssessment {
+    return {
+      impactLevel: this.clinicalImpact,
+      affectedCapabilities: ['therapeutic_scheduling', 'clinical_insights'],
+      continuityMaintained: this.therapeuticContinuity,
+      estimatedRecoveryTime: 5000,
+      alternativePathsAvailable: true,
+      emergencyProtocolsActive: false
+    };
+  }
+  
+  shouldRollback(): boolean {
+    return this.clinicalImpact === 'critical' || this.clinicalImpact === 'high';
+  }
+}
+
 // Export singleton
 export const clinicalErrorRecovery = ClinicalErrorRecoveryOrchestrator.getInstance();

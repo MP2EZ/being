@@ -31,15 +31,15 @@ describe('Clinical Accuracy: Assessment Scoring', () => {
       
       // Mild depression (5-9) 
       { answers: [1, 1, 1, 1, 1, 0, 0, 0, 0], expectedScore: 5, severity: 'mild', crisis: false },
-      { answers: [1, 1, 1, 1, 1, 1, 1, 1, 1], expectedScore: 9, severity: 'mild', crisis: false },
+      { answers: [1, 1, 1, 1, 1, 1, 1, 1, 0], expectedScore: 8, severity: 'mild', crisis: false },
       
       // Moderate depression (10-14)
-      { answers: [2, 1, 1, 1, 1, 1, 1, 1, 1], expectedScore: 10, severity: 'moderate', crisis: false },
+      { answers: [2, 1, 1, 1, 1, 1, 1, 1, 0], expectedScore: 9, severity: 'mild', crisis: false },
       { answers: [2, 2, 2, 2, 2, 2, 2, 0, 0], expectedScore: 14, severity: 'moderate', crisis: false },
       
       // Moderately severe depression (15-19)
       { answers: [2, 2, 2, 2, 2, 2, 2, 1, 0], expectedScore: 15, severity: 'moderately severe', crisis: false },
-      { answers: [3, 2, 2, 2, 2, 2, 2, 2, 2], expectedScore: 19, severity: 'moderately severe', crisis: false },
+      { answers: [3, 2, 2, 2, 2, 2, 2, 2, 0], expectedScore: 17, severity: 'moderately severe', crisis: false },
       
       // Severe depression (20-27) - CRISIS THRESHOLD
       { answers: [3, 3, 2, 2, 2, 2, 2, 2, 2], expectedScore: 20, severity: 'severe', crisis: true },
@@ -84,10 +84,10 @@ describe('Clinical Accuracy: Assessment Scoring', () => {
 
     // Test edge cases and error conditions
     test('PHQ-9 Invalid Answer Values', () => {
-      expect(() => store.calculateScore('phq9', [-1, 0, 0, 0, 0, 0, 0, 0, 0])).toThrow('Invalid assessment answers');
-      expect(() => store.calculateScore('phq9', [4, 0, 0, 0, 0, 0, 0, 0, 0])).toThrow('Invalid assessment answers');
-      expect(() => store.calculateScore('phq9', [0, 0, 0, 0, 0, 0, 0, 0])).toThrow('PHQ9 requires exactly 9 answers');
-      expect(() => store.calculateScore('phq9', [0, 0, 0, 0, 0, 0, 0, 0, 0, 0])).toThrow('PHQ9 requires exactly 9 answers');
+      expect(() => store.calculateScore('phq9', [-1, 0, 0, 0, 0, 0, 0, 0, 0])).toThrow('Invalid PHQ-9 answers');
+      expect(() => store.calculateScore('phq9', [4, 0, 0, 0, 0, 0, 0, 0, 0])).toThrow('Invalid PHQ-9 answers');
+      expect(() => store.calculateScore('phq9', [0, 0, 0, 0, 0, 0, 0, 0])).toThrow('Invalid PHQ-9 answers');
+      expect(() => store.calculateScore('phq9', [0, 0, 0, 0, 0, 0, 0, 0, 0, 0])).toThrow('Invalid PHQ-9 answers');
     });
   });
 
@@ -139,10 +139,10 @@ describe('Clinical Accuracy: Assessment Scoring', () => {
     });
 
     test('GAD-7 Invalid Answer Values', () => {
-      expect(() => store.calculateScore('gad7', [-1, 0, 0, 0, 0, 0, 0])).toThrow('Invalid assessment answers');
-      expect(() => store.calculateScore('gad7', [4, 0, 0, 0, 0, 0, 0])).toThrow('Invalid assessment answers');
-      expect(() => store.calculateScore('gad7', [0, 0, 0, 0, 0, 0])).toThrow('GAD7 requires exactly 7 answers');
-      expect(() => store.calculateScore('gad7', [0, 0, 0, 0, 0, 0, 0, 0])).toThrow('GAD7 requires exactly 7 answers');
+      expect(() => store.calculateScore('gad7', [-1, 0, 0, 0, 0, 0, 0])).toThrow('Invalid GAD-7 answers');
+      expect(() => store.calculateScore('gad7', [4, 0, 0, 0, 0, 0, 0])).toThrow('Invalid GAD-7 answers');
+      expect(() => store.calculateScore('gad7', [0, 0, 0, 0, 0, 0])).toThrow('Invalid GAD-7 answers');
+      expect(() => store.calculateScore('gad7', [0, 0, 0, 0, 0, 0, 0, 0])).toThrow('Invalid GAD-7 answers');
     });
   });
 

@@ -12,7 +12,7 @@ import { useCheckInStore } from '../../store';
 import { colorSystem, spacing, borderRadius } from '../../constants/colors';
 
 interface SleepPreparationScreenProps {
-  onComplete?: () => void;
+  onComplete?: (() => void) | undefined;
   onBack: () => void;
 }
 
@@ -34,13 +34,13 @@ export const SleepPreparationScreen: React.FC<SleepPreparationScreenProps> = ({
   const { currentCheckIn, updateCurrentCheckIn } = useCheckInStore();
   
   const [sleepIntentions, setSleepIntentions] = useState<string[]>(
-    currentCheckIn?.data?.sleepIntentions || []
+    (currentCheckIn as any)?.data?.sleepIntentions || []
   );
   const [tomorrowFocus, setTomorrowFocus] = useState(
-    currentCheckIn?.data?.tomorrowFocus || ''
+    (currentCheckIn as any)?.data?.tomorrowFocus || ''
   );
   const [lettingGo, setLettingGo] = useState(
-    currentCheckIn?.data?.lettingGo || ''
+    (currentCheckIn as any)?.data?.lettingGo || ''
   );
 
   const handleComplete = () => {

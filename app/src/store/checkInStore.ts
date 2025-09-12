@@ -165,14 +165,14 @@ const validateCheckInSyncData = (data: SyncableData): ClinicalValidationResult =
     result.dataIntegrityIssues.push('Invalid check-in type');
   }
 
-  if (!checkIn.timestamp) {
+  if (!checkIn.startedAt) {
     result.isValid = false;
     result.dataIntegrityIssues.push('Missing timestamp');
   }
 
   // Validate therapeutic continuity (check-ins should be within reasonable time bounds)
-  if (checkIn.timestamp) {
-    const checkInTime = new Date(checkIn.timestamp);
+  if (checkIn.startedAt) {
+    const checkInTime = new Date(checkIn.startedAt);
     const now = new Date();
     const timeDiff = Math.abs(now.getTime() - checkInTime.getTime());
     const hoursDiff = timeDiff / (1000 * 60 * 60);

@@ -20,10 +20,10 @@ import { syncOrchestrationService } from '../../services/SyncOrchestrationServic
 import {
   SyncConflict,
   ConflictType,
-  ConflictResolutionStrategy,
   SyncEntityType,
   ConflictResolution
 } from '../../types/sync';
+import { ConflictResolutionStrategy } from '../../types/offline';
 import { colors } from '../../constants/colors';
 import { CheckIn, Assessment, UserProfile } from '../../types';
 
@@ -57,7 +57,7 @@ export const ConflictResolutionModal: React.FC<ConflictResolutionModalProps> = (
       setConflicts(pendingConflicts);
       
       if (pendingConflicts.length > 0 && !currentConflict) {
-        setCurrentConflict(pendingConflicts[0]);
+        setCurrentConflict(pendingConflicts[0] || null);
       }
     } catch (error) {
       console.error('Failed to load conflicts:', error);
@@ -93,7 +93,7 @@ export const ConflictResolutionModal: React.FC<ConflictResolutionModalProps> = (
       
       // Move to next conflict or close
       if (remainingConflicts.length > 0) {
-        setCurrentConflict(remainingConflicts[0]);
+        setCurrentConflict(remainingConflicts[0] || null);
         setSelectedStrategy(null);
       } else {
         setCurrentConflict(null);
@@ -117,7 +117,7 @@ export const ConflictResolutionModal: React.FC<ConflictResolutionModalProps> = (
     const remainingConflicts = conflicts.filter(c => c.id !== currentConflict?.id);
     
     if (remainingConflicts.length > 0) {
-      setCurrentConflict(remainingConflicts[0]);
+      setCurrentConflict(remainingConflicts[0] || null);
       setSelectedStrategy(null);
     } else {
       onClose();
@@ -179,8 +179,8 @@ export const ConflictResolutionModal: React.FC<ConflictResolutionModalProps> = (
         return 'Use the version from the server (recommended for clinical data)';
       case ConflictResolutionStrategy.MERGE_TIMESTAMP:
         return 'Keep the most recently modified version';
-      case ConflictResolutionStrategy.MERGE_FIELDS:
-        return 'Combine both versions intelligently';
+      case ConflictResolutionStrategy.MERGE_CLINICAL:
+        return 'Combine both versions with clinical data priority';
       default:
         return 'Unknown strategy';
     }
@@ -212,7 +212,7 @@ export const ConflictResolutionModal: React.FC<ConflictResolutionModalProps> = (
       return [
         ConflictResolutionStrategy.CLIENT_WINS,
         ConflictResolutionStrategy.MERGE_TIMESTAMP,
-        ConflictResolutionStrategy.MERGE_FIELDS
+        ConflictResolutionStrategy.MERGE_CLINICAL
       ];
     }
     
@@ -258,7 +258,7 @@ export const ConflictResolutionModal: React.FC<ConflictResolutionModalProps> = (
       <Modal visible={visible} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={colors.morning.primary} />
+            <ActivityIndicator size="large" color={colors.themes.morning.primary} />
             <Text style={styles.loadingText}>Loading conflicts...</Text>
           </View>
         </View>
@@ -276,11 +276,12 @@ export const ConflictResolutionModal: React.FC<ConflictResolutionModalProps> = (
               All your data is synchronized successfully.
             </Text>
             <Button
-              title="Close"
               onPress={onClose}
               variant="primary"
               style={styles.closeButton}
-            />
+            >
+              Close
+            </Button>
           </Card>
         </View>
       </Modal>
@@ -383,18 +384,20 @@ export const ConflictResolutionModal: React.FC<ConflictResolutionModalProps> = (
           {/* Action Buttons */}
           <View style={styles.actionButtons}>
             <Button
-              title="Skip for Now"
               onPress={handleSkipConflict}
               variant="secondary"
               style={styles.skipButton}
-            />
+            >
+              Skip for Now
+            </Button>
             <Button
-              title={isResolving ? "Resolving..." : "Resolve"}
               onPress={handleResolveConflict}
               variant="primary"
               disabled={!selectedStrategy || isResolving}
               style={styles.resolveButton}
-            />
+            >
+              {isResolving ? "Resolving..." : "Resolve"}
+            </Button>
           </View>
         </View>
       </View>
@@ -551,8 +554,8 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   strategyOptionSelected: {
-    borderColor: colors.morning.primary,
-    backgroundColor: `${colors.morning.primary}0F`,
+    borderColor: colors.themes.morning.primary,
+    backgroundColor: `${colors.themes.morning.primary}0F`,
   },
   recommendedStrategy: {
     borderColor: '#28A745',
@@ -569,7 +572,7 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   strategyNameSelected: {
-    color: colors.morning.primary,
+    color: colors.themes.morning.primary,
   },
   recommendedLabel: {
     fontSize: 12,

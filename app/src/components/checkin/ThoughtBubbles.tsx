@@ -3,7 +3,7 @@
  * Floating bubbles that can be tapped to acknowledge thoughts
  */
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
 import Animated, {
   useAnimatedStyle,
@@ -13,10 +13,9 @@ import Animated, {
   withTiming,
   interpolate,
   Easing,
-  runOnJS,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { colorSystem, spacing, borderRadius } from '../../constants/colors';
+import { colorSystem, spacing } from '../../constants/colors';
 
 interface ThoughtBubblesProps {
   thoughts: string[];
@@ -108,8 +107,8 @@ const ThoughtBubble: React.FC<BubbleProps> = ({
         styles.bubble,
         animatedStyle,
         {
-          left: position.x * (screenWidth - 160), // Account for bubble width
-          top: position.y * CONTAINER_HEIGHT,
+          left: (position?.x ?? 0.5) * (screenWidth - 160), // Account for bubble width
+          top: (position?.y ?? 0.5) * CONTAINER_HEIGHT,
           borderColor: isAcknowledged 
             ? colorSystem.gray[400] 
             : colorSystem.themes[theme].light,

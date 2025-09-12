@@ -21,6 +21,96 @@ export class DataStore {
     PARTIAL_SESSIONS: '@fullmind_partial_sessions'
   };
 
+  // Clinical Data Validation Rules
+  private validateAssessment(assessment: Assessment): { valid: boolean; errors: string[] } {
+    const errors: string[] = [];
+
+    if (!assessment.id) errors.push('Assessment ID is required');
+    if (!assessment.type || !['phq9', 'gad7'].includes(assessment.type)) {
+      errors.push('Assessment type must be phq9 or gad7');
+    }
+    if (!Array.isArray(assessment.answers)) {
+      errors.push('Assessment answers must be an array');
+    } else {
+      // PHQ-9 validation: 9 questions, each 0-3
+      if (assessment.type === 'phq9') {
+        if (assessment.answers.length !== 9) {
+          errors.push('PHQ-9 must have exactly 9 answers');
+        }
+        assessment.answers.forEach((answer, index) => {
+          if (!Number.isInteger(answer) || answer < 0 || answer > 3) {
+            errors.push(`PHQ-9 Q${index + 1} must be integer 0-3, got ${answer}`);
+          }
+        });
+        const expectedScore = assessment.answers.reduce((sum, val) => sum + val, 0);
+        if (assessment.score !== expectedScore) {
+          errors.push(`PHQ-9 score mismatch: calculated ${expectedScore}, stored ${assessment.score}`);
+        }
+        if (assessment.score < 0 || assessment.score > 27) {
+          errors.push(`PHQ-9 score must be 0-27, got ${assessment.score}`);
+        }
+      }
+      
+      // GAD-7 validation: 7 questions, each 0-3
+      if (assessment.type === 'gad7') {
+        if (assessment.answers.length !== 7) {
+          errors.push('GAD-7 must have exactly 7 answers');
+        }
+        assessment.answers.forEach((answer, index) => {
+          if (!Number.isInteger(answer) || answer < 0 || answer > 3) {
+            errors.push(`GAD-7 Q${index + 1} must be integer 0-3, got ${answer}`);
+          }
+        });
+        const expectedScore = assessment.answers.reduce((sum, val) => sum + val, 0);
+        if (assessment.score !== expectedScore) {
+          errors.push(`GAD-7 score mismatch: calculated ${expectedScore}, stored ${assessment.score}`);
+        }
+        if (assessment.score < 0 || assessment.score > 21) {
+          errors.push(`GAD-7 score must be 0-21, got ${assessment.score}`);
+        }
+      }
+    }
+
+    if (!assessment.completedAt) {
+      errors.push('Assessment completedAt timestamp is required');
+    } else {
+      const date = new Date(assessment.completedAt);
+      if (isNaN(date.getTime())) {
+        errors.push('Assessment completedAt must be valid ISO date string');
+      }
+    }
+
+    const validSeverities = ['minimal', 'mild', 'moderate', 'moderately severe', 'severe'];
+    if (assessment.severity && !validSeverities.includes(assessment.severity)) {
+      errors.push(`Assessment severity must be one of: ${validSeverities.join(', ')}`);
+    }
+
+    return { valid: errors.length === 0, errors };
+  }
+
+  private validateCheckIn(checkIn: CheckIn): { valid: boolean; errors: string[] } {
+    const errors: string[] = [];
+
+    if (!checkIn.id) errors.push('CheckIn ID is required');
+    if (!checkIn.type || !['morning', 'midday', 'evening'].includes(checkIn.type)) {
+      errors.push('CheckIn type must be morning, midday, or evening');
+    }
+    if (!checkIn.startedAt) {
+      errors.push('CheckIn startedAt timestamp is required');
+    } else {
+      const date = new Date(checkIn.startedAt);
+      if (isNaN(date.getTime())) {
+        errors.push('CheckIn startedAt must be valid ISO date string');
+      }
+    }
+
+    if (typeof checkIn.skipped !== 'boolean') {
+      errors.push('CheckIn skipped must be boolean');
+    }
+
+    return { valid: errors.length === 0, errors };
+  }
+
   // User Profile Management
   async saveUser(user: UserProfile): Promise<void> {
     try {
@@ -43,6 +133,13 @@ export class DataStore {
 
   // Check-in Management with 90-day retention
   async saveCheckIn(checkIn: CheckIn): Promise<void> {
+    // CRITICAL: Validate check-in data for therapeutic accuracy
+    const validation = this.validateCheckIn(checkIn);
+    if (!validation.valid) {
+      console.error('CheckIn validation failed:', validation.errors);
+      throw new Error(`CheckIn validation failed: ${validation.errors.join('; ')}`);
+    }
+
     try {
       const existing = await this.getCheckIns();
       existing.push(checkIn);
@@ -55,6 +152,9 @@ export class DataStore {
       );
       
       await AsyncStorage.setItem(this.KEYS.CHECKINS, JSON.stringify(filtered));
+      
+      // Clear partial session for this check-in type after successful save
+      await this.clearPartialCheckIn(checkIn.type);
     } catch (error) {
       console.error('Failed to save check-in:', error);
       throw new Error('Failed to save check-in');
@@ -115,6 +215,13 @@ export class DataStore {
 
   // Assessment Management
   async saveAssessment(assessment: Assessment): Promise<void> {
+    // CRITICAL: Validate clinical data for 100% accuracy
+    const validation = this.validateAssessment(assessment);
+    if (!validation.valid) {
+      console.error('Assessment validation failed:', validation.errors);
+      throw new Error(`Assessment validation failed: ${validation.errors.join('; ')}`);
+    }
+
     try {
       const existing = await this.getAssessments();
       existing.push(assessment);

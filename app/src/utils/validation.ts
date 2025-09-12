@@ -19,6 +19,14 @@ import {
   createISODateString
 } from '../types/clinical';
 
+// Crisis thresholds for test compatibility
+export const CRISIS_THRESHOLDS = {
+  PHQ9_SEVERE: CRISIS_THRESHOLD_PHQ9,
+  GAD7_SEVERE: CRISIS_THRESHOLD_GAD7,
+  PHQ9_SUICIDAL_IDEATION_QUESTION: SUICIDAL_IDEATION_QUESTION_INDEX,
+  SUICIDAL_IDEATION_THRESHOLD: SUICIDAL_IDEATION_THRESHOLD,
+} as const;
+
 // Validation errors
 export class ValidationError extends Error {
   constructor(message: string, public field?: string) {
@@ -181,7 +189,7 @@ export const validateUserProfile = (user: Partial<UserProfile>): void => {
     throw new ValidationError('Valid creation date is required', 'createdAt');
   }
 
-  if (user.values && (!Array.isArray(user.values) || user.values.length < 3 || user.values.length > 5)) {
+  if (user.values !== undefined && (!Array.isArray(user.values) || user.values.length < 3 || user.values.length > 5)) {
     throw new ValidationError('User must select 3-5 values', 'values');
   }
 
@@ -264,7 +272,7 @@ export const isValidGAD7Score = (score: number): score is GAD7Score => {
 
 // Clinical Calculation Functions with Type Safety
 export const calculatePHQ9Score = (answers: PHQ9Answers): PHQ9Score => {
-  const sum = answers.reduce((total, answer) => total + answer, 0);
+  const sum = answers.reduce((total, answer) => total + answer, 0 as number);
   if (!isValidPHQ9Score(sum)) {
     throw new ClinicalValidationError(
       `Invalid PHQ-9 score calculated: ${sum}`,
@@ -274,11 +282,11 @@ export const calculatePHQ9Score = (answers: PHQ9Answers): PHQ9Score => {
       sum
     );
   }
-  return sum;
+  return sum as PHQ9Score;
 };
 
 export const calculateGAD7Score = (answers: GAD7Answers): GAD7Score => {
-  const sum = answers.reduce((total, answer) => total + answer, 0);
+  const sum = answers.reduce((total, answer) => total + answer, 0 as number);
   if (!isValidGAD7Score(sum)) {
     throw new ClinicalValidationError(
       `Invalid GAD-7 score calculated: ${sum}`,
@@ -288,7 +296,7 @@ export const calculateGAD7Score = (answers: GAD7Answers): GAD7Score => {
       sum
     );
   }
-  return sum;
+  return sum as GAD7Score;
 };
 
 // ID Validation Functions

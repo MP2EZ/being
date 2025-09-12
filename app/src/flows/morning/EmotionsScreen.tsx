@@ -22,7 +22,7 @@ export const EmotionsScreen: React.FC<EmotionsScreenProps> = ({
 }) => {
   const { currentCheckIn, updateCurrentCheckIn } = useCheckInStore();
   const [selectedEmotions, setSelectedEmotions] = useState<string[]>(
-    currentCheckIn?.data?.emotions || []
+    (currentCheckIn as any)?.data?.emotions || []
   );
 
   const handleNext = () => {

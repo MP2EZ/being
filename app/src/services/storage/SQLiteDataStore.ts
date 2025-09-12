@@ -519,6 +519,7 @@ export class SQLiteDataStore {
 
   /**
    * Execute the atomic migration with progress tracking
+   * CRISIS SAFETY: Progressive migration in 30-second chunks
    */
   async executeAtomicMigration(session: MigrationSession): Promise<MigrationResult> {
     if (!this.currentSession || this.currentSession.id !== session.id) {
@@ -528,6 +529,8 @@ export class SQLiteDataStore {
     const startTime = Date.now();
     let migratedRecords = 0;
     const errors: string[] = [];
+    const PROGRESS_CHUNK_MS = 30000; // 30-second progressive chunks
+    let lastProgressTime = startTime;
 
     try {
       // Stage 1: Prepare database and backup
@@ -540,8 +543,11 @@ export class SQLiteDataStore {
         estimatedTimeRemaining: session.estimatedDuration * 1000
       });
 
-      // Begin transaction for atomicity
-      await this.db?.execAsync('BEGIN TRANSACTION;');
+      // Begin transaction for atomicity with proper error handling
+      if (!this.db) {
+        throw new Error('Database not initialized for migration');
+      }
+      await this.db.execAsync('BEGIN TRANSACTION;');
 
       // Stage 2: Create schema if needed
       await this.reportProgress({
@@ -572,11 +578,21 @@ export class SQLiteDataStore {
         migratedRecords++;
       }
 
-      // Migrate check-ins
+      // Migrate check-ins with progressive chunking for crisis safety
       const checkIns = await encryptedDataStore.getCheckIns();
       for (let i = 0; i < checkIns.length; i++) {
         await this.migrateCheckIn(checkIns[i]);
         migratedRecords++;
+        
+        // Progressive chunk management - pause every 30 seconds
+        const currentTime = Date.now();
+        if (currentTime - lastProgressTime > PROGRESS_CHUNK_MS) {
+          console.log(`Migration progress: ${i + 1}/${checkIns.length} check-ins (${((i + 1) / checkIns.length * 100).toFixed(1)}%)`);
+          lastProgressTime = currentTime;
+          
+          // Allow other operations during long migrations
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
         
         const progress = 20 + (30 * (i + 1) / checkIns.length);
         await this.reportProgress({
@@ -681,13 +697,23 @@ export class SQLiteDataStore {
       };
 
     } catch (error) {
-      // Rollback transaction
-      await this.db?.execAsync('ROLLBACK;');
+      // Enhanced rollback with crisis safety
+      console.error('CRITICAL: Migration failure detected, initiating rollback', error);
+      
+      try {
+        if (this.db) {
+          await this.db.execAsync('ROLLBACK;');
+          console.log('✅ Migration rollback successful');
+        }
+      } catch (rollbackError) {
+        console.error('CRITICAL: Rollback failed', rollbackError);
+        errors.push(`Rollback failed: ${rollbackError}`);
+      }
       
       const errorMessage = `Migration failed: ${error}`;
       errors.push(errorMessage);
-      console.error(errorMessage);
-
+      
+      // Report error with crisis context
       await this.reportProgress({
         sessionId: session.id,
         stage: 'error',
@@ -695,7 +721,7 @@ export class SQLiteDataStore {
         recordsProcessed: migratedRecords,
         totalRecords: 0,
         estimatedTimeRemaining: 0,
-        error: errorMessage
+        error: `CRISIS ROLLBACK: ${errorMessage}`
       });
 
       return {

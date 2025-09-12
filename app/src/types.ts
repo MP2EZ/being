@@ -26,47 +26,60 @@ export interface UserProfile {
 // Check-in Data Types
 export interface CheckIn {
   id: string;
-  timestamp: string;
   type: 'morning' | 'midday' | 'evening';
+  startedAt: string;
+  completedAt?: string;
+  skipped: boolean;
   data: CheckInData;
-  completed: boolean;
-  duration?: number; // in seconds
 }
 
 export interface CheckInData {
   // Morning specific
   bodyAreas?: string[];
   emotions?: string[];
-  thoughts?: string;
-  energyLevel?: string;
-  dailyValue?: string;
-  dreamJournal?: string;
+  thoughts?: string[];
+  sleepQuality?: number;
+  energyLevel?: number;
+  anxietyLevel?: number;
+  todayValue?: string;
+  intention?: string;
+  dreams?: string;
   
   // Midday specific
-  currentActivity?: string;
-  stressLevel?: number;
-  mindfulMoments?: string[];
-  copingStrategies?: string[];
+  currentEmotions?: string[];
+  breathingCompleted?: boolean;
+  pleasantEvent?: string;
+  unpleasantEvent?: string;
+  currentNeed?: string;
   
   // Evening specific
-  dayRating?: number;
-  gratitudes?: string[];
-  challenges?: string[];
+  dayHighlight?: string;
+  dayChallenge?: string;
+  dayEmotions?: string[];
+  gratitude1?: string;
+  gratitude2?: string;
+  gratitude3?: string;
+  dayLearning?: string;
+  tensionAreas?: string[];
+  releaseNote?: string;
+  sleepIntentions?: string[];
+  tomorrowFocus?: string;
+  lettingGo?: string;
+  // Original evening fields (keep for backward compatibility)
+  overallMood?: number;
+  energyManagement?: number;
+  valuesAlignment?: number;
+  pleasantEvents?: string[];
+  unpleasantEvents?: string[];
+  learnings?: string;
+  thoughtPatterns?: string[];
+  tomorrowReminder?: string;
   tomorrowIntention?: string;
-  sleepReadiness?: number;
 }
 
 // Assessment Data Types
-export interface Assessment {
-  id: string;
-  timestamp: string;
-  type: 'phq9' | 'gad7';
-  answers: number[];
-  score: number;
-  severity: 'minimal' | 'mild' | 'moderate' | 'severe';
-  context: 'onboarding' | 'standalone' | 'clinical';
-  requiresCrisisIntervention: boolean;
-}
+// Use the Assessment type from clinical.ts for type consistency
+export type { Assessment } from './types/clinical';
 
 export interface AssessmentConfig {
   type: 'phq9' | 'gad7';

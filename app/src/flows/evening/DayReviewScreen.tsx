@@ -38,13 +38,13 @@ export const DayReviewScreen: React.FC<DayReviewScreenProps> = ({
   const { currentCheckIn, updateCurrentCheckIn } = useCheckInStore();
   
   const [dayHighlight, setDayHighlight] = useState(
-    currentCheckIn?.data?.dayHighlight || ''
+    (currentCheckIn as any)?.data?.dayHighlight || ''
   );
   const [dayChallenge, setDayChallenge] = useState(
-    currentCheckIn?.data?.dayChallenge || ''
+    (currentCheckIn as any)?.data?.dayChallenge || ''
   );
   const [dayEmotions, setDayEmotions] = useState<string[]>(
-    currentCheckIn?.data?.dayEmotions || []
+    (currentCheckIn as any)?.data?.dayEmotions || []
   );
 
   const handleNext = () => {

@@ -133,7 +133,7 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   syncButton: {
-    backgroundColor: colors.morning.primary,
+    backgroundColor: colors.themes.morning.primary,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 6,

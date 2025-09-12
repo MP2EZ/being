@@ -43,10 +43,7 @@ export const AccessibleAlert: React.FC<AccessibleAlertProps> = ({
     if (visible && urgency === 'emergency') {
       // Immediately announce emergency alerts
       const announcement = `URGENT: ${title}. ${message}`;
-      AccessibilityInfo.announceForAccessibility(
-        announcement,
-        { urgency: 'high' } as any
-      );
+      AccessibilityInfo.announceForAccessibility(announcement);
     }
   }, [visible, title, message, urgency]);
 
@@ -55,14 +52,15 @@ export const AccessibleAlert: React.FC<AccessibleAlertProps> = ({
       // Set focus to title when modal opens
       const timeout = setTimeout(() => {
         if (titleRef.current) {
-          AccessibilityInfo.setAccessibilityFocus(titleRef.current);
+          AccessibilityInfo.setAccessibilityFocus(titleRef.current as any);
         }
       }, 100);
       return () => clearTimeout(timeout);
     }
+    return undefined;
   }, [visible]);
 
-  const getButtonStyle = (style: string) => {
+  const getButtonStyle = (style: string = 'default') => {
     switch (style) {
       case 'emergency':
         return {
@@ -87,7 +85,7 @@ export const AccessibleAlert: React.FC<AccessibleAlertProps> = ({
     }
   };
 
-  const getButtonTextColor = (style: string) => {
+  const getButtonTextColor = (style: string = 'default') => {
     return style === 'cancel' ? colorSystem.base.black : colorSystem.base.white;
   };
 
@@ -107,7 +105,7 @@ export const AccessibleAlert: React.FC<AccessibleAlertProps> = ({
               urgency === 'emergency' && styles.emergencyContainer
             ]}
             accessible={true}
-            accessibilityRole="dialog"
+            accessibilityRole="alert"
             accessibilityLabel={`${title} alert dialog`}
           >
             <Text
@@ -117,7 +115,6 @@ export const AccessibleAlert: React.FC<AccessibleAlertProps> = ({
                 urgency === 'emergency' && styles.emergencyTitle
               ]}
               accessibilityRole="header"
-              accessibilityLevel={1}
               accessible={true}
             >
               {title}

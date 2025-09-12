@@ -127,7 +127,7 @@ export const PHQ9AssessmentSchema = z.object({
   requiresCrisisIntervention: z.boolean(),
 }).refine((assessment) => {
   // Validate that score matches answers
-  const calculatedScore = assessment.answers.reduce((sum, answer) => sum + answer, 0);
+  const calculatedScore = assessment.answers.reduce((sum, answer) => sum + answer, 0 as number);
   return assessment.score === calculatedScore;
 }, {
   message: 'PHQ-9 score must equal sum of answers',
@@ -145,7 +145,7 @@ export const GAD7AssessmentSchema = z.object({
   requiresCrisisIntervention: z.boolean(),
 }).refine((assessment) => {
   // Validate that score matches answers
-  const calculatedScore = assessment.answers.reduce((sum, answer) => sum + answer, 0);
+  const calculatedScore = assessment.answers.reduce((sum, answer) => sum + answer, 0 as number);
   return assessment.score === calculatedScore;
 }, {
   message: 'GAD-7 score must equal sum of answers',
@@ -153,7 +153,7 @@ export const GAD7AssessmentSchema = z.object({
 });
 
 // Combined Assessment Schema
-export const AssessmentSchema = z.discriminatedUnion('type', [
+export const AssessmentSchema = z.union([
   PHQ9AssessmentSchema,
   GAD7AssessmentSchema,
 ]);
@@ -305,7 +305,7 @@ export const validateScoreConsistency = (
   const validatedAnswers = answersSchema.parse(answers);
   
   // Validate score matches answers
-  const calculatedScore = validatedAnswers.reduce((sum, answer) => sum + answer, 0);
+  const calculatedScore = validatedAnswers.reduce((sum, answer) => sum + answer, 0 as number);
   if (score !== calculatedScore) {
     throw new ClinicalValidationError(
       `Score inconsistency: calculated ${calculatedScore}, provided ${score}`,

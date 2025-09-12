@@ -6,6 +6,8 @@
 module.exports = {
   preset: 'react-native',
   setupFilesAfterEnv: ['<rootDir>/__tests__/setup/jest.setup.js'],
+  
+  // Use node environment for most tests, jsdom only where needed
   testEnvironment: 'node',
   
   // Test organization
@@ -62,6 +64,11 @@ module.exports = {
   // Mock configuration
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
+    // Fix module imports for expo modules
+    '^expo-crypto$': '<rootDir>/__tests__/mocks/expo-crypto.js',
+    '^expo-secure-store$': '<rootDir>/__tests__/mocks/expo-secure-store.js',
+    '^expo-calendar$': '<rootDir>/__tests__/mocks/expo-calendar.js',
+    '^expo-sqlite$': '<rootDir>/__tests__/mocks/expo-sqlite.js',
   },
   
   // Clinical testing timeout (assessments can take time)
@@ -84,7 +91,7 @@ module.exports = {
   
   // Transform ignore patterns for React Native and Expo modules
   transformIgnorePatterns: [
-    'node_modules/(?!(react-native|@react-native|expo|@expo|react-navigation|@react-navigation)/)'
+    'node_modules/(?!(react-native|@react-native|expo|@expo|expo-.*|react-navigation|@react-navigation|react-native-.*)/)'
   ],
   
   // Custom test environments for different test types
@@ -92,22 +99,52 @@ module.exports = {
     {
       displayName: 'Clinical Accuracy Tests',
       testMatch: ['<rootDir>/__tests__/clinical/**/*.test.{ts,tsx}'],
-      // Inherits global testTimeout of 20000ms - sufficient for clinical validation
+      testEnvironment: 'node',
+      preset: 'react-native',
+      setupFilesAfterEnv: ['<rootDir>/__tests__/setup/jest.setup.js'],
+      transformIgnorePatterns: [
+        'node_modules/(?!(react-native|@react-native|expo|@expo|expo-.*|react-navigation|@react-navigation|react-native-.*)/)'
+      ],
     },
     {
       displayName: 'Unit Tests',
       testMatch: ['<rootDir>/__tests__/unit/**/*.test.{ts,tsx}'],
-      // Inherits global testTimeout of 20000ms
+      testEnvironment: 'node',
+      preset: 'react-native',
+      setupFilesAfterEnv: ['<rootDir>/__tests__/setup/jest.setup.js'],
+      transformIgnorePatterns: [
+        'node_modules/(?!(react-native|@react-native|expo|@expo|expo-.*|react-navigation|@react-navigation|react-native-.*)/)'
+      ],
     },
     {
       displayName: 'Integration Tests', 
       testMatch: ['<rootDir>/__tests__/integration/**/*.test.{ts,tsx}'],
-      // Inherits global testTimeout of 20000ms - was previously 20000ms
+      testEnvironment: 'node',
+      preset: 'react-native',
+      setupFilesAfterEnv: ['<rootDir>/__tests__/setup/jest.setup.js'],
+      transformIgnorePatterns: [
+        'node_modules/(?!(react-native|@react-native|expo|@expo|expo-.*|react-navigation|@react-navigation|react-native-.*)/)'
+      ],
+    },
+    {
+      displayName: 'Performance Tests',
+      testMatch: ['<rootDir>/__tests__/performance/**/*.test.{ts,tsx}'],
+      testEnvironment: 'node',
+      preset: 'react-native',
+      setupFilesAfterEnv: ['<rootDir>/__tests__/setup/jest.setup.js'],
+      transformIgnorePatterns: [
+        'node_modules/(?!(react-native|@react-native|expo|@expo|expo-.*|react-navigation|@react-navigation|react-native-.*)/)'
+      ],
     },
     {
       displayName: 'Security Tests',
       testMatch: ['<rootDir>/src/services/**/__tests__/**/*.test.{ts,tsx}'],
-      // Inherits global testTimeout of 20000ms - increased from 15000ms for security tests
+      testEnvironment: 'node',
+      preset: 'react-native',
+      setupFilesAfterEnv: ['<rootDir>/__tests__/setup/jest.setup.js'],
+      transformIgnorePatterns: [
+        'node_modules/(?!(react-native|@react-native|expo|@expo|expo-.*|react-navigation|@react-navigation|react-native-.*)/)'
+      ],
     }
   ]
 };

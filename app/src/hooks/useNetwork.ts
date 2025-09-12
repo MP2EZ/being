@@ -80,7 +80,7 @@ export const useNetwork = (): UseNetworkReturn => {
 
   // Set up queue size listener
   useEffect(() => {
-    const unsubscribe = offlineQueueService.addQueueListener((size) => {
+    const unsubscribe = offlineQueueService.addQueueListener((size: number) => {
       setQueueSize(size);
     });
 

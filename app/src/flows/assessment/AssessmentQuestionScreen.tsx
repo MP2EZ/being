@@ -107,7 +107,10 @@ export const AssessmentQuestionScreen: React.FC<AssessmentQuestionScreenProps> =
               {assessmentType === 'phq9' ? 'PHQ-9 Assessment' : 'GAD-7 Assessment'}
             </Text>
             <Text style={styles.subtitle}>
-              {currentAssessment?.config?.subtitle}
+              {currentAssessment?.config?.subtitle || 
+                (assessmentType === 'phq9' 
+                  ? 'Over the last 2 weeks, how often have you been bothered by:' 
+                  : 'Over the last 2 weeks, how often have you been bothered by:')}
             </Text>
           </View>
 

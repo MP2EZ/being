@@ -78,3 +78,6 @@ export const typography = {
   caption: { size: 14, weight: '400' as const, spacing: 0.2 },
   micro: { size: 12, weight: '500' as const, spacing: 0.3 }
 };
+
+// Export as 'colors' for backward compatibility
+export const colors = colorSystem;

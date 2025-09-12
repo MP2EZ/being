@@ -28,10 +28,7 @@ export const useCrisisIntervention = () => {
       ? 'URGENT: Crisis support needed. Emergency resources are now available.'
       : 'Crisis support resources are available if you need immediate help.';
     
-    AccessibilityInfo.announceForAccessibility(
-      announcement,
-      { urgency: immediate ? 'high' : 'medium' } as any
-    );
+    AccessibilityInfo.announceForAccessibility(announcement);
 
     setIsShowingCrisis(true);
   };
@@ -132,7 +129,7 @@ export const useCrisisIntervention = () => {
   ): boolean => {
     if (assessmentType === 'phq9') {
       // PHQ-9: Check for severe depression (≥20) or suicidal ideation (question 9 > 0)
-      const hasSuicidalThoughts = answers[8] > 0; // Question 9 (index 8)
+      const hasSuicidalThoughts = (answers[8] ?? 0) > 0; // Question 9 (index 8)
       const hasSevereDepression = score >= 20;
       
       return hasSuicidalThoughts || hasSevereDepression;

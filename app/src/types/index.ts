@@ -7,6 +7,8 @@ export interface UserProfile {
   id: string;
   createdAt: string; // ISO date
   onboardingCompleted: boolean;
+  privacyPolicyAccepted: boolean;
+  termsAccepted: boolean;
   values: string[]; // 3-5 selected
   notifications: {
     enabled: boolean;
@@ -17,6 +19,7 @@ export interface UserProfile {
   preferences: {
     haptics: boolean;
     theme: 'light' | 'dark' | 'auto';
+    language: string;
   };
   lastSyncDate?: string; // Future
   clinicalProfile?: {
@@ -129,15 +132,15 @@ export interface ExportData {
 
 // Assessment response options
 export interface AssessmentOption {
-  value: number;
-  label: string;
+  readonly value: 0 | 1 | 2 | 3;
+  readonly label: string;
 }
 
 // Assessment question structure
 export interface AssessmentQuestion {
-  id: number;
-  text: string;
-  options: AssessmentOption[];
+  readonly id: number;
+  readonly text: string;
+  readonly options: readonly AssessmentOption[];
 }
 
 // Assessment configuration
@@ -145,7 +148,7 @@ export interface AssessmentConfig {
   type: 'phq9' | 'gad7';
   title: string;
   subtitle: string;
-  questions: AssessmentQuestion[];
+  questions: readonly AssessmentQuestion[];
   scoringThresholds: {
     minimal: number;
     mild: number;

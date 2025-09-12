@@ -8,6 +8,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '../../components/core';
 import { useUserStore } from '../../store';
+import { UserProfile } from '../../types';
 import { colorSystem, spacing } from '../../constants/colors';
 
 export const OnboardingPlaceholder: React.FC = () => {
@@ -18,8 +19,10 @@ export const OnboardingPlaceholder: React.FC = () => {
       console.log('Creating user...');
       // Create a temporary user to bypass onboarding for testing
       await createUser({
-        values: ['Kindness', 'Growth', 'Peace'], // Default values for testing
+        values: ['Kindness', 'Growth', 'Peace'],
         onboardingCompleted: true,
+        privacyPolicyAccepted: true,
+        termsAccepted: true,
         notifications: {
           enabled: true,
           morning: '08:00',
@@ -28,7 +31,8 @@ export const OnboardingPlaceholder: React.FC = () => {
         },
         preferences: {
           haptics: true,
-          theme: 'auto'
+          theme: 'system',
+          language: 'en'
         }
       });
       console.log('User created successfully');

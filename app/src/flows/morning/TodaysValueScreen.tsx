@@ -36,10 +36,10 @@ export const TodaysValueScreen: React.FC<TodaysValueScreenProps> = ({
 }) => {
   const { currentCheckIn, updateCurrentCheckIn } = useCheckInStore();
   const [selectedValue, setSelectedValue] = useState<string>(
-    currentCheckIn?.data?.todayValue || ''
+    (currentCheckIn as any)?.data?.todayValue || ''
   );
   const [intention, setIntention] = useState<string>(
-    currentCheckIn?.data?.intention || ''
+    (currentCheckIn as any)?.data?.intention || ''
   );
 
   const handleValueSelect = async (valueId: string) => {

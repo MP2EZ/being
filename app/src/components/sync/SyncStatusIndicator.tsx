@@ -63,7 +63,7 @@ export const SyncStatusIndicator: React.FC<SyncStatusIndicatorProps> = ({
         setStoreStatus(entityStatus || null);
       }
       
-      const networkState = await networkAwareService.getNetworkState();
+      const networkState = networkAwareService.getState();
       setNetworkQuality(networkState.quality);
       
     } catch (error) {
@@ -95,13 +95,13 @@ export const SyncStatusIndicator: React.FC<SyncStatusIndicatorProps> = ({
     syncOrchestrationService.addEventListener('sync_status_changed', handleSyncStatusChanged);
     syncOrchestrationService.addEventListener('store_sync_status_changed', handleStoreStatusChanged);
     syncOrchestrationService.addEventListener('sync_progress_updated', handleStoreStatusChanged);
-    networkAwareService.addEventListener('network_state_changed', handleNetworkChanged);
+    const unsubscribeNetwork = networkAwareService.addNetworkListener(handleNetworkChanged);
     
     return () => {
       syncOrchestrationService.removeEventListener('sync_status_changed', handleSyncStatusChanged);
       syncOrchestrationService.removeEventListener('store_sync_status_changed', handleStoreStatusChanged);
       syncOrchestrationService.removeEventListener('sync_progress_updated', handleStoreStatusChanged);
-      networkAwareService.removeEventListener('network_state_changed', handleNetworkChanged);
+      unsubscribeNetwork();
     };
   }, [loadSyncState, entityType]);
 
@@ -131,6 +131,7 @@ export const SyncStatusIndicator: React.FC<SyncStatusIndicatorProps> = ({
       return () => pulseAnim.stop();
     } else {
       pulseAnimation.setValue(1);
+      return undefined;
     }
   }, [storeStatus?.status, syncState?.globalStatus, pulseAnimation]);
 
@@ -158,7 +159,7 @@ export const SyncStatusIndicator: React.FC<SyncStatusIndicatorProps> = ({
     
     switch (currentStatus) {
       case SyncStatus.SYNCING:
-        return colors.morning.primary;
+        return colors.themes.morning.primary;
       case SyncStatus.SUCCESS:
         return '#28A745';
       case SyncStatus.ERROR:

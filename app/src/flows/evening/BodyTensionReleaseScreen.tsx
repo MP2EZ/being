@@ -23,10 +23,10 @@ export const BodyTensionReleaseScreen: React.FC<BodyTensionReleaseScreenProps> =
   const { currentCheckIn, updateCurrentCheckIn } = useCheckInStore();
   
   const [tensionAreas, setTensionAreas] = useState<string[]>(
-    currentCheckIn?.data?.tensionAreas || []
+    (currentCheckIn as any)?.data?.tensionAreas || []
   );
   const [releaseNote, setReleaseNote] = useState(
-    currentCheckIn?.data?.releaseNote || ''
+    (currentCheckIn as any)?.data?.releaseNote || ''
   );
 
   const handleNext = () => {

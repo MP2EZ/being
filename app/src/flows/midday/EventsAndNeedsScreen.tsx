@@ -12,7 +12,7 @@ import { useCheckInStore } from '../../store';
 import { colorSystem, spacing, borderRadius } from '../../constants/colors';
 
 interface EventsAndNeedsScreenProps {
-  onComplete?: () => void;
+  onComplete?: (() => void) | undefined;
   onBack: () => void;
 }
 
@@ -34,13 +34,13 @@ export const EventsAndNeedsScreen: React.FC<EventsAndNeedsScreenProps> = ({
   const { currentCheckIn, updateCurrentCheckIn } = useCheckInStore();
   
   const [pleasantEvent, setPleasantEvent] = useState<string>(
-    currentCheckIn?.data?.pleasantEvent || ''
+    (currentCheckIn as any)?.data?.pleasantEvent || ''
   );
   const [unpleasantEvent, setUnpleasantEvent] = useState<string>(
-    currentCheckIn?.data?.unpleasantEvent || ''
+    (currentCheckIn as any)?.data?.unpleasantEvent || ''
   );
   const [currentNeed, setCurrentNeed] = useState<string[]>(
-    currentCheckIn?.data?.currentNeed ? [currentCheckIn.data.currentNeed] : []
+    (currentCheckIn as any)?.data?.currentNeed ? [(currentCheckIn as any).data.currentNeed] : []
   );
 
   const handleComplete = () => {
@@ -54,7 +54,8 @@ export const EventsAndNeedsScreen: React.FC<EventsAndNeedsScreenProps> = ({
 
   const handleNeedChange = (needs: string[]) => {
     // Only allow single selection for current need
-    setCurrentNeed(needs.length > 1 ? [needs[needs.length - 1]] : needs);
+    const filteredNeeds = needs.filter((need): need is string => typeof need === 'string' && need !== undefined);
+    setCurrentNeed(filteredNeeds.length > 1 ? [filteredNeeds[filteredNeeds.length - 1]] : filteredNeeds);
   };
 
   return (

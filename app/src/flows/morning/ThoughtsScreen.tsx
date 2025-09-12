@@ -32,7 +32,7 @@ export const ThoughtsScreen: React.FC<ThoughtsScreenProps> = ({
 }) => {
   const { currentCheckIn, updateCurrentCheckIn } = useCheckInStore();
   const [acknowledgedThoughts, setAcknowledgedThoughts] = useState<string[]>(
-    currentCheckIn?.data?.thoughts || []
+    (currentCheckIn as any)?.data?.thoughts || []
   );
   
   // Track which thoughts have been acknowledged in this session

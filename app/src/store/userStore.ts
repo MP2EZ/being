@@ -93,6 +93,8 @@ export const useUserStore = create<UserState>((set, get) => ({
         id: `user_${Date.now()}_${Math.random().toString(36).substr(2, 16)}`,
         createdAt: new Date().toISOString(),
         onboardingCompleted: userData.onboardingCompleted ?? false,
+        privacyPolicyAccepted: userData.privacyPolicyAccepted ?? false,
+        termsAccepted: userData.termsAccepted ?? false,
         notifications: {
           ...(userData.notifications || {}),
           enabled: userData.notifications?.enabled ?? true,
@@ -103,7 +105,8 @@ export const useUserStore = create<UserState>((set, get) => ({
         preferences: {
           ...(userData.preferences || {}),
           haptics: userData.preferences?.haptics ?? true,
-          theme: userData.preferences?.theme ?? 'auto'
+          theme: userData.preferences?.theme ?? 'auto',
+          language: userData.preferences?.language ?? 'en'
         },
         values: userData.values || []
       };
