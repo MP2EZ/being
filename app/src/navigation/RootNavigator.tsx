@@ -18,6 +18,12 @@ import AssessmentResultsScreen from '../screens/assessment/AssessmentResultsScre
 import CrisisPlanScreen from '../screens/crisis/CrisisPlanScreen';
 import OnboardingPlaceholder from '../screens/onboarding/OnboardingPlaceholder';
 
+// Payment screen imports
+import SubscriptionScreen from '../screens/payment/SubscriptionScreen';
+import PaymentMethodScreen from '../screens/payment/PaymentMethodScreen';
+import BillingHistoryScreen from '../screens/payment/BillingHistoryScreen';
+import PaymentSettingsScreen from '../screens/payment/PaymentSettingsScreen';
+
 const Stack = createStackNavigator();
 
 const RootNavigator: React.FC = () => {
@@ -73,10 +79,47 @@ const RootNavigator: React.FC = () => {
           }}
         />
         
-        <Stack.Screen 
-          name="CrisisPlan" 
+        <Stack.Screen
+          name="CrisisPlan"
           component={CrisisPlanScreen}
-          options={{ 
+          options={{
+            presentation: 'modal',
+            headerShown: false,
+          }}
+        />
+
+        {/* Payment Screens */}
+        <Stack.Screen
+          name="SubscriptionScreen"
+          component={SubscriptionScreen}
+          options={{
+            presentation: 'modal',
+            headerShown: false,
+          }}
+        />
+
+        <Stack.Screen
+          name="PaymentMethodScreen"
+          component={PaymentMethodScreen}
+          options={{
+            presentation: 'modal',
+            headerShown: false,
+          }}
+        />
+
+        <Stack.Screen
+          name="BillingHistoryScreen"
+          component={BillingHistoryScreen}
+          options={{
+            presentation: 'modal',
+            headerShown: false,
+          }}
+        />
+
+        <Stack.Screen
+          name="PaymentSettingsScreen"
+          component={PaymentSettingsScreen}
+          options={{
             presentation: 'modal',
             headerShown: false,
           }}

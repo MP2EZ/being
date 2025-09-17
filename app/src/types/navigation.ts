@@ -16,12 +16,29 @@ export type RootStackParamList = {
       reset?: boolean;
     };
   };
-  
+
   // Home screen
   Home: {
     fromWidget?: boolean;
     timestamp?: string;
   };
+
+  // Authentication screens
+  Authentication: undefined;
+  SignIn: {
+    returnTo?: string;
+    emergencyMode?: boolean;
+    migrationContext?: string;
+  };
+  SignUp: {
+    returnTo?: string;
+    migrationContext?: string;
+    inviteCode?: string;
+  };
+  ForgotPassword: {
+    email?: string;
+  };
+  OnboardingIntroduction: undefined;
 
   // Check-in flow
   CheckInFlow: {
@@ -142,4 +159,65 @@ export function isAssessmentNavigation(params: any): params is AssessmentNavigat
     ['phq9', 'gad7'].includes(params.type) &&
     params.context === 'standalone'
   );
+}
+
+// Authentication-specific navigation types
+export interface AuthNavigationParams {
+  returnTo?: string;
+  emergencyMode?: boolean;
+  migrationContext?: string;
+  performanceRequirements?: AuthPerformanceRequirements;
+}
+
+export interface AuthPerformanceRequirements {
+  readonly crisisResponseTime: number; // <200ms for crisis scenarios
+  readonly standardResponseTime: number; // <2000ms for standard auth
+  readonly biometricResponseTime: number; // <1000ms for biometric auth
+  readonly networkTimeout: number; // Network operation timeout
+  readonly measurePerformance: boolean; // Whether to track performance metrics
+}
+
+// Authentication state integration for navigation
+export interface NavigationAuthState {
+  readonly isAuthenticated: boolean;
+  readonly sessionType: 'anonymous' | 'authenticated' | 'emergency';
+  readonly authMethod?: string;
+  readonly canAccessCrisisFeatures: boolean;
+  readonly canAccessCloudFeatures: boolean;
+  readonly requiresBiometricSetup: boolean;
+  readonly migrationAvailable: boolean;
+  readonly lastAuthTime?: number;
+  readonly performanceMetrics?: AuthNavigationPerformanceMetrics;
+}
+
+export interface AuthNavigationPerformanceMetrics {
+  readonly lastSignInTime: number;
+  readonly averageSignInTime: number;
+  readonly crisisResponseTimes: readonly number[];
+  readonly biometricResponseTimes: readonly number[];
+  readonly networkLatencies: readonly number[];
+  readonly authErrors: readonly AuthNavigationError[];
+}
+
+export interface AuthNavigationError {
+  readonly timestamp: string;
+  readonly errorCode: string;
+  readonly screen: string;
+  readonly method: string;
+  readonly duration: number;
+  readonly resolved: boolean;
+}
+
+// Type guards for authentication navigation
+export function isAuthNavigation(params: any): params is AuthNavigationParams {
+  return params && (
+    typeof params.returnTo === 'string' ||
+    typeof params.emergencyMode === 'boolean' ||
+    typeof params.migrationContext === 'string'
+  );
+}
+
+export function requiresCrisisPerformance(params: any): boolean {
+  return params?.emergencyMode === true ||
+         params?.performanceRequirements?.crisisResponseTime < 200;
 }

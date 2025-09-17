@@ -10,6 +10,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AppState } from 'react-native';
 import RootNavigator from './src/navigation/RootNavigator';
 import { LoadingScreen } from './src/components/core';
+import OfflineCrisisManager from './src/services/OfflineCrisisManager';
 
 export default function App() {
   const [isAppReady, setIsAppReady] = useState(false);
@@ -25,7 +26,10 @@ export default function App() {
         setIsAppReady(true);
         
         // Background initialization - don't block launch
-        Promise.resolve().then(() => {
+        Promise.resolve().then(async () => {
+          // CRITICAL: Initialize offline crisis data for safety
+          await OfflineCrisisManager.initializeOfflineCrisisData();
+
           // Any heavy initialization goes here after UI is shown
           console.log('Background initialization started');
         });

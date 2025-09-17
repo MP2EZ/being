@@ -209,6 +209,14 @@ const isValidTimeString = (timeString: string): boolean => {
   return timeRegex.test(timeString);
 };
 
+// Crisis threshold constants - DO NOT MODIFY WITHOUT CLINICAL APPROVAL
+export const CRISIS_THRESHOLDS = {
+  PHQ9_SEVERE: CRISIS_THRESHOLD_PHQ9,
+  GAD7_SEVERE: CRISIS_THRESHOLD_GAD7,
+  PHQ9_SUICIDAL_IDEATION_QUESTION: SUICIDAL_IDEATION_QUESTION_INDEX,
+  SUICIDAL_IDEATION_THRESHOLD: SUICIDAL_IDEATION_THRESHOLD,
+} as const;
+
 // Type-safe Crisis Detection Functions - DO NOT MODIFY WITHOUT CLINICAL APPROVAL
 export const requiresCrisisIntervention = (assessment: Assessment): boolean => {
   if (assessment.type === 'phq9') {
@@ -264,7 +272,7 @@ export const isValidGAD7Score = (score: number): score is GAD7Score => {
 
 // Clinical Calculation Functions with Type Safety
 export const calculatePHQ9Score = (answers: PHQ9Answers): PHQ9Score => {
-  const sum = answers.reduce((total, answer) => total + answer, 0);
+  const sum = answers.reduce((total: number, answer: number) => total + answer, 0);
   if (!isValidPHQ9Score(sum)) {
     throw new ClinicalValidationError(
       `Invalid PHQ-9 score calculated: ${sum}`,
@@ -278,7 +286,7 @@ export const calculatePHQ9Score = (answers: PHQ9Answers): PHQ9Score => {
 };
 
 export const calculateGAD7Score = (answers: GAD7Answers): GAD7Score => {
-  const sum = answers.reduce((total, answer) => total + answer, 0);
+  const sum = answers.reduce((total: number, answer: number) => total + answer, 0);
   if (!isValidGAD7Score(sum)) {
     throw new ClinicalValidationError(
       `Invalid GAD-7 score calculated: ${sum}`,
