@@ -28,6 +28,31 @@ jest.mock('expo-notifications', () => ({
   getAllScheduledNotificationsAsync: jest.fn().mockResolvedValue([]),
 }));
 
+// Mock expo-crypto for encryption services
+jest.mock('expo-crypto', () => ({
+  CryptoDigestAlgorithm: {
+    SHA256: 'SHA256',
+    SHA1: 'SHA1',
+    MD5: 'MD5',
+  },
+  digestStringAsync: jest.fn().mockImplementation(async (algorithm, data) => {
+    // Return a consistent mock hash for testing
+    return `mock-hash-${algorithm}-${data.length}`;
+  }),
+  getRandomBytesAsync: jest.fn().mockImplementation(async (byteCount) => {
+    // Return mock random bytes
+    return new Uint8Array(byteCount).fill(42);
+  }),
+}));
+
+// Mock expo-secure-store for secure storage
+jest.mock('expo-secure-store', () => ({
+  setItemAsync: jest.fn().mockResolvedValue(undefined),
+  getItemAsync: jest.fn().mockResolvedValue(null),
+  deleteItemAsync: jest.fn().mockResolvedValue(undefined),
+  isAvailableAsync: jest.fn().mockResolvedValue(true),
+}));
+
 // Mock React Navigation
 jest.mock('@react-navigation/native', () => ({
   useNavigation: () => ({
