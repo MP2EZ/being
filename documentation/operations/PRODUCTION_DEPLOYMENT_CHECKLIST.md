@@ -42,11 +42,11 @@
 ### 🟡 ESSENTIAL - HIGH PRIORITY (95% completion acceptable)
 | Requirement | Validation Document | Sign-off Required |
 |-------------|-------------------|------------------|
-| Performance benchmarks | development/performance-benchmarks.md | Technical Lead |
+| Performance benchmarks | mobile-app/performance-benchmarks.md | Technical Lead |
 | Accessibility compliance | compliance/wcag-compliance-report.md | Accessibility Lead |
 | Security architecture | security/security-architecture.md | Security Officer |
 | Privacy policy compliance | compliance/privacy-policy.md | Legal Team |
-| Testing strategy completion | development/testing-strategy-production.md | QA Lead |
+| Testing strategy completion | mobile-app/testing-strategy-production.md | QA Lead |
 
 ### 🟢 IMPORTANT - STANDARD PRIORITY (90% completion acceptable)
 | Requirement | Validation Document | Sign-off Required |
@@ -253,7 +253,7 @@
   - [ ] Performance maintained under memory pressure
   - [ ] Network independence validated (offline functionality)
   - [ ] Battery impact assessment completed
-  - **Performance Report**: `development/performance-benchmarks.md`
+  - **Performance Report**: `mobile-app/performance-benchmarks.md`
   - **Technical Lead Sign-off**: _________________ Date: _______
 
 - [ ] **Emergency Access Time**: <3 seconds to crisis resources
@@ -270,7 +270,7 @@
   - [ ] Memory usage optimization validated
   - [ ] Background/foreground transition stability
   - [ ] Animation accuracy timing validation (exactly 180 seconds)
-  - **Performance Benchmarks**: `development/performance-benchmarks.md`
+  - **Performance Benchmarks**: `mobile-app/performance-benchmarks.md`
   - **Technical Lead Sign-off**: _________________ Date: _______
 
 ### 2. App Launch & User Experience
@@ -282,7 +282,7 @@
   - [ ] Image asset optimization implemented
   - [ ] Splash screen to interactive time measured
   - [ ] JavaScript thread optimization validated
-  - **Performance Report**: `development/performance-benchmarks.md`
+  - **Performance Report**: `mobile-app/performance-benchmarks.md`
   - **Technical Lead Sign-off**: _________________ Date: _______
 
 ---
@@ -298,7 +298,7 @@
   - [ ] Reading order logical and therapeutic-appropriate
   - [ ] Crisis intervention fully accessible via screen reader
   - [ ] Assessment forms optimized for audio navigation
-  - **Accessibility Report**: `development/accessibility-testing-report.md`
+  - **Accessibility Report**: `mobile-app/accessibility-testing-report.md`
   - **Accessibility Lead Sign-off**: _________________ Date: _______
 
 #### Visual Accessibility
