@@ -13,7 +13,10 @@
         "EXPO_PUBLIC_SENTRY_DSN": "",
         "EXPO_PUBLIC_ANALYTICS_ENABLED": "false",
         "EXPO_PUBLIC_CRASH_REPORTING": "false",
-        "EXPO_PUBLIC_FEATURE_FLAGS": "dev_tools:true,debug_mode:true,beta_features:true"
+        "EXPO_PUBLIC_FEATURE_FLAGS": "dev_tools:true,debug_mode:true,beta_features:true,cloud_sync:false",
+        "EXPO_PUBLIC_SUPABASE_URL": "$SUPABASE_URL_DEV",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "$SUPABASE_ANON_KEY_DEV",
+        "EXPO_PUBLIC_CLOUD_FEATURES_ENABLED": "false"
       },
       "ios": {
         "buildConfiguration": "Debug",
@@ -33,10 +36,13 @@
         "EXPO_PUBLIC_SENTRY_DSN": "$SENTRY_DSN_STAGING",
         "EXPO_PUBLIC_ANALYTICS_ENABLED": "true",
         "EXPO_PUBLIC_CRASH_REPORTING": "true",
-        "EXPO_PUBLIC_FEATURE_FLAGS": "beta_features:true,performance_monitoring:true",
+        "EXPO_PUBLIC_FEATURE_FLAGS": "beta_features:true,performance_monitoring:true,cloud_sync:false",
         "EXPO_PUBLIC_PRIVACY_POLICY_URL": "https://staging.fullmind.app/privacy",
         "EXPO_PUBLIC_TERMS_URL": "https://staging.fullmind.app/terms",
-        "EXPO_PUBLIC_SUPPORT_URL": "https://staging.fullmind.app/support"
+        "EXPO_PUBLIC_SUPPORT_URL": "https://staging.fullmind.app/support",
+        "EXPO_PUBLIC_SUPABASE_URL": "$SUPABASE_URL_STAGING",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "$SUPABASE_ANON_KEY_STAGING",
+        "EXPO_PUBLIC_CLOUD_FEATURES_ENABLED": "false"
       },
       "ios": {
         "buildConfiguration": "Release",
@@ -60,10 +66,13 @@
         "EXPO_PUBLIC_TERMS_URL": "https://fullmind.app/terms",
         "EXPO_PUBLIC_SUPPORT_URL": "https://fullmind.app/support",
         "EXPO_PUBLIC_CRISIS_RESOURCES_URL": "https://fullmind.app/crisis-resources",
-        "EXPO_PUBLIC_FEATURE_FLAGS": "production_mode:true,performance_monitoring:true,crisis_detection:true",
+        "EXPO_PUBLIC_FEATURE_FLAGS": "production_mode:true,performance_monitoring:true,crisis_detection:true,cloud_sync:false",
         "EXPO_PUBLIC_ENCRYPTION_ENABLED": "true",
         "EXPO_PUBLIC_BIOMETRIC_AUTH": "true",
-        "EXPO_PUBLIC_CLINICAL_ACCURACY_MODE": "true"
+        "EXPO_PUBLIC_CLINICAL_ACCURACY_MODE": "true",
+        "EXPO_PUBLIC_SUPABASE_URL": "$SUPABASE_URL_PRODUCTION",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "$SUPABASE_ANON_KEY_PRODUCTION",
+        "EXPO_PUBLIC_CLOUD_FEATURES_ENABLED": "false"
       },
       "ios": {
         "buildConfiguration": "Release",
