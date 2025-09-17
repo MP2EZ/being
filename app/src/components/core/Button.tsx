@@ -124,6 +124,11 @@ export const Button: React.FC<ButtonProps> = ({
       accessibilityRole={accessibilityRole}
       accessibilityLabel={accessibilityLabel || (typeof children === 'string' ? children : undefined)}
       accessibilityHint={accessibilityHint}
+      accessibilityState={{
+        disabled: disabled || loading,
+        busy: loading
+      }}
+      accessibilityValue={loading ? { text: "Loading, please wait" } : undefined}
       testID={testID}
     >
       {loading ? (

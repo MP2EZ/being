@@ -69,11 +69,28 @@ export const CrisisButton: React.FC<CrisisButtonProps> = React.memo(({
         onPress={handleCrisisCall}
         activeOpacity={0.8}
         disabled={isLoading}
+        accessible={true}
+        accessibilityRole="button"
+        accessibilityLabel={isLoading ? "Calling crisis support line" : "Emergency crisis support - Call 988"}
+        accessibilityHint="Double tap to immediately call the crisis support hotline at 988"
+        accessibilityState={{ disabled: isLoading }}
+        accessibilityValue={{ text: isLoading ? "Connecting to crisis support" : "988 Crisis Hotline available" }}
+        accessibilityLiveRegion={isLoading ? "assertive" : "none"}
       >
-        <Text style={styles.floatingButtonText}>
+        <Text
+          style={styles.floatingButtonText}
+          accessible={false}
+          importantForAccessibility="no"
+        >
           {isLoading ? '...' : '988'}
         </Text>
-        <Text style={styles.floatingSubtext}>CRISIS</Text>
+        <Text
+          style={styles.floatingSubtext}
+          accessible={false}
+          importantForAccessibility="no"
+        >
+          CRISIS
+        </Text>
       </TouchableOpacity>
     );
   }
@@ -83,8 +100,18 @@ export const CrisisButton: React.FC<CrisisButtonProps> = React.memo(({
       style={[...getButtonStyle(), style]}
       onPress={handleCrisisResources}
       activeOpacity={0.8}
+      accessible={true}
+      accessibilityRole="button"
+      accessibilityLabel="Crisis support and safety resources"
+      accessibilityHint="Double tap to access crisis support, safety planning, and emergency resources"
     >
-      <Text style={styles.buttonText}>Crisis Support</Text>
+      <Text
+        style={styles.buttonText}
+        accessible={false}
+        importantForAccessibility="no"
+      >
+        Crisis Support
+      </Text>
     </TouchableOpacity>
   );
 });

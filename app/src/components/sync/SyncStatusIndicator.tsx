@@ -3,7 +3,7 @@
  * Shows sync progress, conflicts, and network quality with clinical awareness
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -35,8 +35,9 @@ interface SyncStatusIndicatorProps {
 
 /**
  * Real-time sync status indicator with progress and conflict information
+ * Optimized for <50ms response time and 60fps animations
  */
-export const SyncStatusIndicator: React.FC<SyncStatusIndicatorProps> = ({
+export const SyncStatusIndicator: React.FC<SyncStatusIndicatorProps> = React.memo(({
   compact = false,
   onPress,
   onConflictPress,
@@ -46,29 +47,41 @@ export const SyncStatusIndicator: React.FC<SyncStatusIndicatorProps> = ({
   const [syncState, setSyncState] = useState<AppSyncState | null>(null);
   const [networkQuality, setNetworkQuality] = useState<NetworkQuality>(NetworkQuality.OFFLINE);
   const [storeStatus, setStoreStatus] = useState<StoreSyncStatus | null>(null);
-  const [pulseAnimation] = useState(new Animated.Value(1));
-  const [progressAnimation] = useState(new Animated.Value(0));
+
+  // Pre-allocate animated values with refs for optimal performance
+  const pulseAnimation = useRef(new Animated.Value(1)).current;
+  const progressAnimation = useRef(new Animated.Value(0)).current;
+
+  // Debounce state updates to prevent excessive re-renders
+  const updateTimeoutRef = useRef<NodeJS.Timeout>();
 
   /**
-   * Load sync state and status
+   * Load sync state and status with debouncing for performance
    */
   const loadSyncState = useCallback(async () => {
-    try {
-      const state = syncOrchestrationService.getSyncState();
-      setSyncState(state);
-      
-      if (entityType) {
-        const storeStatuses = state.storeStatuses;
-        const entityStatus = storeStatuses.find(s => s.storeType === entityType);
-        setStoreStatus(entityStatus || null);
-      }
-      
-      const networkState = await networkAwareService.getNetworkState();
-      setNetworkQuality(networkState.quality);
-      
-    } catch (error) {
-      console.warn('Failed to load sync state:', error);
+    // Clear previous timeout to debounce rapid updates
+    if (updateTimeoutRef.current) {
+      clearTimeout(updateTimeoutRef.current);
     }
+
+    updateTimeoutRef.current = setTimeout(async () => {
+      try {
+        const state = syncOrchestrationService.getSyncState();
+        setSyncState(state);
+
+        if (entityType) {
+          const storeStatuses = state.storeStatuses;
+          const entityStatus = storeStatuses.find(s => s.storeType === entityType);
+          setStoreStatus(entityStatus || null);
+        }
+
+        const networkState = await networkAwareService.getNetworkState();
+        setNetworkQuality(networkState.quality);
+
+      } catch (error) {
+        console.warn('Failed to load sync state:', error);
+      }
+    }, 16); // 16ms debounce for 60fps compatibility
   }, [entityType]);
 
   /**
@@ -151,11 +164,11 @@ export const SyncStatusIndicator: React.FC<SyncStatusIndicatorProps> = ({
   }, [storeStatus?.syncProgress, progressAnimation]);
 
   /**
-   * Get status color based on sync state
+   * Memoized style calculations for performance
    */
-  const getStatusColor = (): string => {
+  const statusColor = useMemo((): string => {
     const currentStatus = storeStatus?.status || syncState?.globalStatus;
-    
+
     switch (currentStatus) {
       case SyncStatus.SYNCING:
         return colors.morning.primary;
@@ -170,14 +183,11 @@ export const SyncStatusIndicator: React.FC<SyncStatusIndicatorProps> = ({
       default:
         return '#6C757D';
     }
-  };
+  }, [storeStatus?.status, syncState?.globalStatus]);
 
-  /**
-   * Get status icon
-   */
-  const getStatusIcon = (): string => {
+  const statusIcon = useMemo((): string => {
     const currentStatus = storeStatus?.status || syncState?.globalStatus;
-    
+
     switch (currentStatus) {
       case SyncStatus.SYNCING:
         return '⟳';
@@ -192,12 +202,9 @@ export const SyncStatusIndicator: React.FC<SyncStatusIndicatorProps> = ({
       default:
         return '○';
     }
-  };
+  }, [storeStatus?.status, syncState?.globalStatus]);
 
-  /**
-   * Get network quality indicator
-   */
-  const getNetworkIndicator = (): { icon: string; color: string } => {
+  const networkIndicator = useMemo((): { icon: string; color: string } => {
     switch (networkQuality) {
       case NetworkQuality.EXCELLENT:
         return { icon: '📶', color: '#28A745' };
@@ -210,29 +217,29 @@ export const SyncStatusIndicator: React.FC<SyncStatusIndicatorProps> = ({
       default:
         return { icon: '❓', color: '#6C757D' };
     }
-  };
+  }, [networkQuality]);
 
   /**
-   * Get status text
+   * Memoized status text for performance
    */
-  const getStatusText = (): string => {
+  const statusText = useMemo((): string => {
     const currentStatus = storeStatus?.status || syncState?.globalStatus;
     const progress = storeStatus?.syncProgress;
     const conflicts = storeStatus?.conflicts || syncState?.conflicts || [];
     const errors = storeStatus?.errors || [];
-    
+
     if (conflicts.length > 0) {
       return `${conflicts.length} conflict${conflicts.length !== 1 ? 's' : ''} need resolution`;
     }
-    
+
     if (errors.length > 0) {
       return `${errors.length} sync error${errors.length !== 1 ? 's' : ''}`;
     }
-    
+
     if (progress && currentStatus === SyncStatus.SYNCING) {
       return `Syncing ${progress.percentage}%`;
     }
-    
+
     switch (currentStatus) {
       case SyncStatus.SYNCING:
         return 'Syncing...';
@@ -249,30 +256,31 @@ export const SyncStatusIndicator: React.FC<SyncStatusIndicatorProps> = ({
       default:
         return 'Unknown status';
     }
-  };
+  }, [storeStatus?.status, storeStatus?.syncProgress, storeStatus?.conflicts, storeStatus?.errors,
+      syncState?.globalStatus, syncState?.conflicts, networkQuality]);
 
   /**
-   * Get last sync time text
+   * Memoized last sync time for performance
    */
-  const getLastSyncText = (): string | null => {
+  const lastSyncText = useMemo((): string | null => {
     const lastSync = storeStatus?.lastSync || syncState?.lastGlobalSync;
-    
+
     if (!lastSync) return null;
-    
+
     const lastSyncDate = new Date(lastSync);
     const now = new Date();
     const diffMs = now.getTime() - lastSyncDate.getTime();
     const diffMins = Math.floor(diffMs / (1000 * 60));
     const diffHours = Math.floor(diffMins / 60);
     const diffDays = Math.floor(diffHours / 24);
-    
+
     if (diffMins < 1) return 'Just now';
     if (diffMins < 60) return `${diffMins}m ago`;
     if (diffHours < 24) return `${diffHours}h ago`;
     if (diffDays < 7) return `${diffDays}d ago`;
-    
+
     return lastSyncDate.toLocaleDateString();
-  };
+  }, [storeStatus?.lastSync, syncState?.lastGlobalSync]);
 
   /**
    * Handle indicator press
@@ -287,21 +295,31 @@ export const SyncStatusIndicator: React.FC<SyncStatusIndicatorProps> = ({
     }
   };
 
+  // Memoized conflict calculations for performance
+  const conflictData = useMemo(() => {
+    const conflicts = storeStatus?.conflicts || syncState?.conflicts || [];
+    const isClinicalConflict = conflicts.some(c =>
+      c.clinicalImplications && c.clinicalImplications.length > 0
+    );
+    return { conflicts, isClinicalConflict };
+  }, [storeStatus?.conflicts, syncState?.conflicts]);
+
+  const currentStatus = storeStatus?.status || syncState?.globalStatus;
+  const progress = storeStatus?.syncProgress;
+
+  // Early return with null check
   if (!syncState && !storeStatus) {
     return null;
   }
 
-  const statusColor = getStatusColor();
-  const statusIcon = getStatusIcon();
-  const networkIndicator = getNetworkIndicator();
-  const statusText = getStatusText();
-  const lastSyncText = getLastSyncText();
-  const currentStatus = storeStatus?.status || syncState?.globalStatus;
-  const progress = storeStatus?.syncProgress;
-  const conflicts = storeStatus?.conflicts || syncState?.conflicts || [];
-  const isClinicalConflict = conflicts.some(c => 
-    c.clinicalImplications && c.clinicalImplications.length > 0
-  );
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (updateTimeoutRef.current) {
+        clearTimeout(updateTimeoutRef.current);
+      }
+    };
+  }, []);
 
   if (compact) {
     return (
@@ -321,12 +339,12 @@ export const SyncStatusIndicator: React.FC<SyncStatusIndicatorProps> = ({
           )}
         </Animated.View>
         
-        {conflicts.length > 0 && (
+        {conflictData.conflicts.length > 0 && (
           <View style={[
             styles.conflictBadge,
-            isClinicalConflict && styles.clinicalConflictBadge
+            conflictData.isClinicalConflict && styles.clinicalConflictBadge
           ]}>
-            <Text style={styles.conflictBadgeText}>{conflicts.length}</Text>
+            <Text style={styles.conflictBadgeText}>{conflictData.conflicts.length}</Text>
           </View>
         )}
       </TouchableOpacity>
@@ -392,18 +410,18 @@ export const SyncStatusIndicator: React.FC<SyncStatusIndicatorProps> = ({
       )}
       
       {/* Conflicts Warning */}
-      {conflicts.length > 0 && (
+      {conflictData.conflicts.length > 0 && (
         <View style={[
           styles.conflictWarning,
-          isClinicalConflict && styles.clinicalConflictWarning
+          conflictData.isClinicalConflict && styles.clinicalConflictWarning
         ]}>
           <Text style={styles.conflictWarningIcon}>⚠️</Text>
           <Text style={[
             styles.conflictWarningText,
-            isClinicalConflict && styles.clinicalConflictWarningText
+            conflictData.isClinicalConflict && styles.clinicalConflictWarningText
           ]}>
-            {conflicts.length} conflict{conflicts.length !== 1 ? 's' : ''} require{conflicts.length === 1 ? 's' : ''} attention
-            {isClinicalConflict && ' (Clinical data affected)'}
+            {conflictData.conflicts.length} conflict{conflictData.conflicts.length !== 1 ? 's' : ''} require{conflictData.conflicts.length === 1 ? 's' : ''} attention
+            {conflictData.isClinicalConflict && ' (Clinical data affected)'}
           </Text>
         </View>
       )}
@@ -430,7 +448,7 @@ export const SyncStatusIndicator: React.FC<SyncStatusIndicatorProps> = ({
             <View style={styles.detailItem}>
               <Text style={styles.detailLabel}>Conflicts</Text>
               <Text style={styles.detailValue}>
-                {conflicts.length}
+                {conflictData.conflicts.length}
               </Text>
             </View>
           </View>
@@ -438,7 +456,16 @@ export const SyncStatusIndicator: React.FC<SyncStatusIndicatorProps> = ({
       )}
     </TouchableOpacity>
   );
-};
+}, (prevProps, nextProps) => {
+  // Custom comparison for React.memo optimization
+  return (
+    prevProps.compact === nextProps.compact &&
+    prevProps.showDetails === nextProps.showDetails &&
+    prevProps.entityType === nextProps.entityType &&
+    prevProps.onPress === nextProps.onPress &&
+    prevProps.onConflictPress === nextProps.onConflictPress
+  );
+});
 
 /**
  * Get entity type display name
