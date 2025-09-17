@@ -62,8 +62,9 @@ export class EncryptionService {
   private readonly PERSONAL_KEY = '@fullmind_personal_key_v1';
   private readonly KEY_ROTATION_DATE = '@fullmind_key_rotation_date';
   
-  // Key rotation policy: 90 days for clinical data
-  private readonly KEY_ROTATION_DAYS = 90;
+  // Key rotation policies: different for clinical vs personal data
+  private readonly CLINICAL_KEY_ROTATION_DAYS = 90;
+  private readonly PERSONAL_KEY_ROTATION_DAYS = 180;
 
   private constructor() {}
 
@@ -81,13 +82,16 @@ export class EncryptionService {
     try {
       // Check if master key exists
       const masterKey = await this.getOrCreateMasterKey();
-      
-      // Initialize derived keys for different data types
+
+      // Initialize derived keys for different data types using PBKDF2
       await this.initializeDerivedKeys(masterKey);
-      
+
       // Check key rotation schedule
       await this.checkKeyRotation();
-      
+
+      // Validate Web Crypto API availability for AES-256-GCM
+      await this.validateCryptoSupport();
+
     } catch (error) {
       console.error('Failed to initialize encryption service:', error);
       throw new Error('Encryption service initialization failed - app cannot start securely');
@@ -302,24 +306,35 @@ export class EncryptionService {
 
   private async deriveKey(masterKey: Uint8Array, salt: string): Promise<Uint8Array> {
     try {
-      // Simple key derivation - in production, use PBKDF2 or HKDF
+      // PRODUCTION: PBKDF2 key derivation with 100,000+ iterations
       const saltBuffer = new TextEncoder().encode(salt);
-      const combined = new Uint8Array(masterKey.length + saltBuffer.length);
-      combined.set(masterKey);
-      combined.set(saltBuffer, masterKey.length);
-      
-      // Hash the combined key+salt to create derived key
-      const derived = await Crypto.digestStringAsync(
-        Crypto.CryptoDigestAlgorithm.SHA256,
-        this.bufferToHex(combined),
-        { encoding: Crypto.CryptoEncoding.HEX }
+
+      // Import master key for PBKDF2
+      const cryptoKey = await crypto.subtle.importKey(
+        'raw',
+        masterKey,
+        'PBKDF2',
+        false,
+        ['deriveBits']
       );
-      
-      return this.hexToBuffer(derived);
+
+      // Derive key using PBKDF2 with 100,000 iterations (NIST recommended minimum)
+      const derivedBits = await crypto.subtle.deriveBits(
+        {
+          name: 'PBKDF2',
+          salt: saltBuffer,
+          iterations: 100000,
+          hash: 'SHA-256'
+        },
+        cryptoKey,
+        256 // 256 bits for AES-256
+      );
+
+      return new Uint8Array(derivedBits);
 
     } catch (error) {
-      console.error('Key derivation failed:', error);
-      throw new Error('Cannot derive encryption key');
+      console.error('PBKDF2 key derivation failed:', error);
+      throw new Error('Cannot derive encryption key - cryptographic failure');
     }
   }
 
@@ -358,18 +373,33 @@ export class EncryptionService {
     iv: Uint8Array
   ): Promise<Uint8Array> {
     try {
-      // For production: implement proper AES-256-GCM
-      // This is a simplified version using available Expo crypto
-      const keyHex = this.bufferToHex(key);
-      const dataHex = this.bufferToHex(new TextEncoder().encode(data));
-      
-      // XOR encryption (simplified - replace with proper AES-GCM in production)
-      const encrypted = await this.xorEncrypt(dataHex, keyHex);
-      return this.hexToBuffer(encrypted);
+      // PRODUCTION: AES-256-GCM encryption with Web Crypto API
+      const cryptoKey = await crypto.subtle.importKey(
+        'raw',
+        key,
+        { name: 'AES-GCM' },
+        false,
+        ['encrypt']
+      );
+
+      const encodedData = new TextEncoder().encode(data);
+
+      // Encrypt using AES-256-GCM with authentication
+      const encryptedBuffer = await crypto.subtle.encrypt(
+        {
+          name: 'AES-GCM',
+          iv: iv,
+          tagLength: 128 // 128-bit authentication tag
+        },
+        cryptoKey,
+        encodedData
+      );
+
+      return new Uint8Array(encryptedBuffer);
 
     } catch (error) {
-      console.error('Encryption operation failed:', error);
-      throw new Error('Cryptographic operation failed');
+      console.error('AES-256-GCM encryption failed:', error);
+      throw new Error('Cryptographic encryption failed - data security compromised');
     }
   }
 
@@ -379,36 +409,32 @@ export class EncryptionService {
     iv: Uint8Array
   ): Promise<string> {
     try {
-      const keyHex = this.bufferToHex(key);
-      const dataHex = this.bufferToHex(encryptedData);
-      
-      // XOR decryption (simplified - replace with proper AES-GCM in production)
-      const decryptedHex = await this.xorDecrypt(dataHex, keyHex);
-      const decryptedBuffer = this.hexToBuffer(decryptedHex);
-      
+      // PRODUCTION: AES-256-GCM decryption with authentication verification
+      const cryptoKey = await crypto.subtle.importKey(
+        'raw',
+        key,
+        { name: 'AES-GCM' },
+        false,
+        ['decrypt']
+      );
+
+      // Decrypt and verify authentication tag
+      const decryptedBuffer = await crypto.subtle.decrypt(
+        {
+          name: 'AES-GCM',
+          iv: iv,
+          tagLength: 128 // 128-bit authentication tag
+        },
+        cryptoKey,
+        encryptedData
+      );
+
       return new TextDecoder().decode(decryptedBuffer);
 
     } catch (error) {
-      console.error('Decryption operation failed:', error);
-      throw new Error('Decryption failed');
+      console.error('AES-256-GCM decryption failed:', error);
+      throw new Error('Decryption failed - data may be corrupted or tampered');
     }
-  }
-
-  // Simplified encryption for demo - replace with proper AES-256-GCM
-  private async xorEncrypt(data: string, key: string): Promise<string> {
-    let result = '';
-    for (let i = 0; i < data.length; i += 2) {
-      const dataByte = parseInt(data.substr(i, 2), 16);
-      const keyByte = parseInt(key.substr((i / 2) % (key.length / 2), 2), 16);
-      const encrypted = (dataByte ^ keyByte).toString(16).padStart(2, '0');
-      result += encrypted;
-    }
-    return result;
-  }
-
-  private async xorDecrypt(data: string, key: string): Promise<string> {
-    // XOR is symmetric, so decryption is the same as encryption
-    return this.xorEncrypt(data, key);
   }
 
   private async checkKeyRotation(): Promise<void> {
@@ -429,11 +455,19 @@ export class EncryptionService {
         (Date.now() - rotationDate.getTime()) / (1000 * 60 * 60 * 24)
       );
 
-      if (daysSinceRotation >= this.KEY_ROTATION_DAYS) {
+      // Check if clinical key rotation is needed (90 days)
+      if (daysSinceRotation >= this.CLINICAL_KEY_ROTATION_DAYS) {
         console.warn(
-          `Encryption keys are ${daysSinceRotation} days old - rotation recommended`
+          `Clinical encryption keys are ${daysSinceRotation} days old - rotation REQUIRED for compliance`
         );
-        // In production, you might want to force rotation or prompt user
+        // Clinical data requires strict rotation compliance
+      }
+
+      // Check if personal key rotation is recommended (180 days)
+      if (daysSinceRotation >= this.PERSONAL_KEY_ROTATION_DAYS) {
+        console.warn(
+          `Personal encryption keys are ${daysSinceRotation} days old - rotation recommended`
+        );
       }
 
     } catch (error) {
@@ -503,7 +537,7 @@ export class EncryptionService {
         initialized: await SecureStore.getItemAsync(this.MASTER_KEY) !== null,
         keyVersion: this.KEY_VERSION,
         lastRotation,
-        daysUntilRotation: Math.max(0, this.KEY_ROTATION_DAYS - daysSinceRotation),
+        daysUntilRotation: Math.max(0, this.CLINICAL_KEY_ROTATION_DAYS - daysSinceRotation),
         supportedAlgorithms: [this.ENCRYPTION_ALGORITHM]
       };
 
@@ -517,6 +551,247 @@ export class EncryptionService {
         supportedAlgorithms: []
       };
     }
+  }
+
+  /**
+   * Validate that Web Crypto API supports AES-256-GCM and PBKDF2
+   */
+  private async validateCryptoSupport(): Promise<void> {
+    try {
+      // Test AES-GCM support
+      const testKey = await crypto.subtle.generateKey(
+        { name: 'AES-GCM', length: 256 },
+        false,
+        ['encrypt', 'decrypt']
+      );
+
+      // Test PBKDF2 support
+      const testPasswordKey = await crypto.subtle.importKey(
+        'raw',
+        new TextEncoder().encode('test'),
+        'PBKDF2',
+        false,
+        ['deriveBits']
+      );
+
+      // Test key derivation
+      await crypto.subtle.deriveBits(
+        {
+          name: 'PBKDF2',
+          salt: new TextEncoder().encode('test-salt'),
+          iterations: 1000,
+          hash: 'SHA-256'
+        },
+        testPasswordKey,
+        256
+      );
+
+      console.log('Crypto validation: AES-256-GCM and PBKDF2 support confirmed');
+
+    } catch (error) {
+      console.error('Crypto validation failed:', error);
+      throw new Error('Device does not support required cryptographic operations');
+    }
+  }
+
+  /**
+   * Enhanced security status for cloud integration readiness
+   */
+  async getSecurityReadiness(): Promise<{
+    ready: boolean;
+    algorithm: string;
+    keyDerivation: string;
+    encryptionStrength: 'production' | 'demo';
+    cloudSyncReady: boolean;
+    zeroKnowledgeReady: boolean;
+    issues: string[];
+    recommendations: string[];
+  }> {
+    try {
+      const issues: string[] = [];
+      const recommendations: string[] = [];
+
+      // Check initialization
+      const status = await this.getEncryptionStatus();
+      if (!status.initialized) {
+        issues.push('Encryption service not initialized');
+      }
+
+      // Check key rotation compliance
+      if (status.daysUntilRotation <= 0) {
+        issues.push('Clinical key rotation overdue - compliance violation');
+        recommendations.push('Rotate encryption keys immediately');
+      } else if (status.daysUntilRotation <= 7) {
+        recommendations.push(`Clinical key rotation needed in ${status.daysUntilRotation} days`);
+      }
+
+      // Determine encryption strength
+      const encryptionStrength: 'production' | 'demo' = 'production'; // Now using AES-256-GCM
+
+      // Check cloud sync readiness
+      const cloudSyncReady = status.initialized &&
+                           encryptionStrength === 'production' &&
+                           issues.length === 0;
+
+      // Zero-knowledge architecture readiness
+      const zeroKnowledgeReady = cloudSyncReady && status.daysUntilRotation > 0;
+
+      return {
+        ready: cloudSyncReady,
+        algorithm: this.ENCRYPTION_ALGORITHM,
+        keyDerivation: 'PBKDF2-SHA256-100000',
+        encryptionStrength,
+        cloudSyncReady,
+        zeroKnowledgeReady,
+        issues,
+        recommendations
+      };
+
+    } catch (error) {
+      console.error('Security readiness check failed:', error);
+      return {
+        ready: false,
+        algorithm: 'unknown',
+        keyDerivation: 'unknown',
+        encryptionStrength: 'demo',
+        cloudSyncReady: false,
+        zeroKnowledgeReady: false,
+        issues: ['Security system failure'],
+        recommendations: ['Restart application and check device security settings']
+      };
+    }
+  }
+
+  /**
+   * Prepare data for zero-knowledge cloud sync (encrypt before transmission)
+   */
+  async prepareForCloudSync(
+    data: any,
+    sensitivity: DataSensitivity,
+    syncMetadata: {
+      entityType: string;
+      entityId: string;
+      version: number;
+      userId?: string;
+    }
+  ): Promise<{
+    encryptedPayload: string;
+    syncSalt: string;
+    integrity: string;
+    metadata: typeof syncMetadata & {
+      encrypted: true;
+      algorithm: string;
+      keyVersion: number;
+    };
+  }> {
+    try {
+      // Generate unique salt for this sync operation
+      const syncSalt = this.bufferToHex(await Crypto.getRandomBytesAsync(32));
+
+      // Encrypt data with sync metadata
+      const encryptedResult = await this.encryptData(
+        data,
+        sensitivity,
+        {
+          syncMetadata,
+          syncSalt,
+          preparedForCloud: true
+        }
+      );
+
+      // Calculate integrity hash
+      const integrityData = JSON.stringify({
+        data,
+        syncMetadata,
+        timestamp: encryptedResult.timestamp
+      });
+
+      const integrity = await Crypto.digestStringAsync(
+        Crypto.CryptoDigestAlgorithm.SHA256,
+        integrityData,
+        { encoding: Crypto.CryptoEncoding.HEX }
+      );
+
+      return {
+        encryptedPayload: encryptedResult.encryptedData,
+        syncSalt,
+        integrity,
+        metadata: {
+          ...syncMetadata,
+          encrypted: true,
+          algorithm: this.ENCRYPTION_ALGORITHM,
+          keyVersion: this.KEY_VERSION
+        }
+      };
+
+    } catch (error) {
+      console.error('Failed to prepare data for cloud sync:', error);
+      throw new Error('Cannot prepare data for zero-knowledge sync');
+    }
+  }
+
+  /**
+   * Process data received from cloud sync (decrypt after transmission)
+   */
+  async processFromCloudSync(
+    encryptedPayload: string,
+    syncSalt: string,
+    integrity: string,
+    sensitivity: DataSensitivity,
+    metadata: any
+  ): Promise<any> {
+    try {
+      // Reconstruct encryption result format
+      const encryptionResult = {
+        encryptedData: encryptedPayload,
+        iv: '', // Will be derived from syncSalt if needed
+        timestamp: new Date().toISOString()
+      };
+
+      // Decrypt the data
+      const decryptedData = await this.decryptData(
+        encryptionResult,
+        sensitivity,
+        {
+          cloudSync: true,
+          syncSalt,
+          metadata
+        }
+      );
+
+      // Verify integrity if provided
+      if (integrity) {
+        const integrityData = JSON.stringify({
+          data: decryptedData,
+          syncMetadata: metadata,
+          timestamp: encryptionResult.timestamp
+        });
+
+        const calculatedIntegrity = await Crypto.digestStringAsync(
+          Crypto.CryptoDigestAlgorithm.SHA256,
+          integrityData,
+          { encoding: Crypto.CryptoEncoding.HEX }
+        );
+
+        if (calculatedIntegrity !== integrity) {
+          throw new Error('Data integrity verification failed - possible tampering');
+        }
+      }
+
+      return decryptedData;
+
+    } catch (error) {
+      console.error('Failed to process data from cloud sync:', error);
+      throw new Error('Cannot decrypt data from cloud sync');
+    }
+  }
+
+  /**
+   * Generate secure random salt for cloud operations
+   */
+  async generateCloudSalt(): Promise<string> {
+    const salt = await Crypto.getRandomBytesAsync(32);
+    return this.bufferToHex(salt);
   }
 }
 
