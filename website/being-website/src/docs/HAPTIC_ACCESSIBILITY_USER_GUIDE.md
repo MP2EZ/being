@@ -226,7 +226,7 @@ During mental health crises, haptic feedback can provide crucial accessibility:
 ### 📞 Getting Accessibility Support
 
 #### Being. Accessibility Support Team
-- **Email**: accessibility@fullmind.app
+- **Email**: accessibility@being.app
 - **Response Time**: 24 hours for accessibility issues
 - **Specialized Support**: Trauma-informed accessibility specialists available
 - **Languages**: Support available in multiple languages
@@ -234,7 +234,7 @@ During mental health crises, haptic feedback can provide crucial accessibility:
 #### Emergency Accessibility Support
 - **Crisis Situations**: 988 (National Suicide Prevention Lifeline)
 - **Being. Crisis Support**: Available 24/7 through the app
-- **Technical Emergency**: accessibility-emergency@fullmind.app
+- **Technical Emergency**: accessibility-emergency@being.app
 
 #### Community Resources
 - **User Forums**: Connect with other users about accessibility experiences
@@ -294,7 +294,7 @@ Your rights to accessible technology are protected by:
 If you encounter accessibility barriers:
 
 1. **Immediate Issue**: Use in-app accessibility feedback tool
-2. **Detailed Report**: Email accessibility@fullmind.app with:
+2. **Detailed Report**: Email accessibility@being.app with:
    - Description of the accessibility barrier
    - Your device and assistive technology setup
    - Steps to reproduce the issue

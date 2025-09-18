@@ -2,7 +2,7 @@
  * Authentication Store Types - Zustand Integration
  *
  * Type-safe store patterns for authentication state management
- * integrating with existing FullMind store architecture.
+ * integrating with existing Being. store architecture.
  */
 
 import type { StoreApi, UseBoundStore } from 'zustand';

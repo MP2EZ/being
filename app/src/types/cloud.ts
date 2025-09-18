@@ -1,7 +1,7 @@
 /**
  * P0-CLOUD Phase 1 Types - Zero-Knowledge Cloud Infrastructure
  *
- * HIPAA-compliant cloud integration with Supabase for FullMind MBCT
+ * HIPAA-compliant cloud integration with Supabase for Being. MBCT
  * All stored data is encrypted client-side for zero-knowledge architecture
  */
 

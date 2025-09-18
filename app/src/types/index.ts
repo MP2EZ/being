@@ -1,5 +1,5 @@
 /**
- * FullMind Data Models - Exact implementation from TRD v2.0
+ * Being. Data Models - Exact implementation from TRD v2.0
  * These interfaces must match the prototype data structure precisely
  */
 

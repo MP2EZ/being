@@ -232,4 +232,4 @@ All contributions must maintain:
 
 ---
 
-**FullMind Website** - Clinical-grade mental health technology with world-class accessibility and therapeutic effectiveness.
+**Being. Website** - Clinical-grade mental health technology with world-class accessibility and therapeutic effectiveness.

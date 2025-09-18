@@ -1,5 +1,5 @@
 /**
- * FullMind Website - Axe Accessibility Testing Configuration
+ * Being. Website - Axe Accessibility Testing Configuration
  * WCAG AA compliance testing with mental health specific rules
  */
 

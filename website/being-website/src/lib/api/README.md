@@ -10,7 +10,7 @@ The Being. Clinical Export API provides a comprehensive, production-ready system
 
 1. **[Clinical Export Service](./clinical-export-service.ts)** - Primary API interface
 2. **[Format Processors](./export-format-processors.ts)** - PDF/CSV generation engines  
-3. **[Being. Integration](./fullmind-data-integration.ts)** - Native data source integration
+3. **[Being. Integration](./being-data-integration.ts)** - Native data source integration
 4. **[Implementation Examples](./export-implementation-examples.ts)** - Real-world usage patterns
 
 ### Type Foundations
@@ -402,7 +402,7 @@ const result = await streamingProcessor.createDataStream(
 - `ClinicalExportConfig` - Service configuration
 - `PDFClinicalConfig` - PDF generation settings
 - `CSVExportConfig` - CSV export configuration
-- `Being.IntegrationConfig` - Data source integration
+- `BeingIntegrationConfig` - Data source integration
 
 ## 🤝 Contributing
 
@@ -426,7 +426,7 @@ const result = await streamingProcessor.createDataStream(
 - [Clinical Export Types](../../types/clinical-export.ts) - Complete type definitions
 - [Healthcare Types](../../types/healthcare.ts) - Clinical data structures  
 - [Implementation Examples](./export-implementation-examples.ts) - Usage patterns
-- [Being. Integration](./fullmind-data-integration.ts) - Data source integration
+- [Being. Integration](./being-data-integration.ts) - Data source integration
 
 ---
 

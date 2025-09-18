@@ -203,7 +203,7 @@ class SubscriptionTestRunner {
   }
 
   async runFullTestSuite() {
-    this.header('FullMind Subscription System Test Suite');
+    this.header('Being. Subscription System Test Suite');
     this.info('Day 17 Phase 5: Testing and Validation');
 
     // Test suites in execution order

@@ -5,7 +5,7 @@
 # Crisis-First Safety Deployment with Real-Time Monitoring
 # =============================================================================
 #
-# Deploys FullMind MBCT app with absolute preservation of crisis safety,
+# Deploys Being. MBCT app with absolute preservation of crisis safety,
 # zero-knowledge encryption, and therapeutic effectiveness in production.
 #
 # Usage:

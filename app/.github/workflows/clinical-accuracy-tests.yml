@@ -205,7 +205,7 @@ jobs:
       with:
         directory: ./app/coverage
         flags: clinical-accuracy
-        name: fullmind-clinical-tests
+        name: being-clinical-tests
     
     - name: Verify Critical Coverage Thresholds
       working-directory: ./app

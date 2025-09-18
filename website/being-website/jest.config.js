@@ -1,5 +1,5 @@
 /**
- * FullMind Clinical Testing Configuration
+ * Being. Clinical Testing Configuration
  * 
  * Comprehensive Jest configuration for clinical-grade testing including:
  * - Clinical accuracy validation (99.9% requirement)
