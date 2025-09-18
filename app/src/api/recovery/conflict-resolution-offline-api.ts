@@ -209,7 +209,7 @@ export class ConflictResolutionOfflineAPI {
     this.activeConflicts = new Map();
     this.resolutionHistory = new Map();
     this.userPreferences = new Map();
-    this.storageKey = config?.storageKey || 'fullmind_conflict_resolution';
+    this.storageKey = config?.storageKey || 'being_conflict_resolution';
     this.notificationCallback = config?.notificationCallback || null;
   }
 

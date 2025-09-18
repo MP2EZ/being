@@ -1,5 +1,5 @@
 /**
- * Crisis Webhook Handler for FullMind MBCT App
+ * Crisis Webhook Handler for Being. MBCT App
  *
  * Mental health crisis detection and response in webhook processing
  * - Real-time crisis assessment from payment events

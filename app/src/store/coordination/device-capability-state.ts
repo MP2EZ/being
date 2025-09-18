@@ -1,5 +1,5 @@
 /**
- * Device Capability State Management for FullMind MBCT App
+ * Device Capability State Management for Being. MBCT App
  *
  * Device-specific queue capabilities and resource management:
  * - Dynamic device capability assessment and resource monitoring
@@ -1298,7 +1298,7 @@ export const useDeviceCapabilityStore = create<DeviceCapabilityState & DeviceCap
         },
       })),
       {
-        name: 'fullmind-device-capability',
+        name: 'being-device-capability',
         storage: createJSONStorage(() => AsyncStorage),
         partialize: (state) => ({
           // Convert Maps to objects for serialization

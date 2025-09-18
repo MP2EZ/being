@@ -1,5 +1,5 @@
 /**
- * FullMind Performance Optimization System - Comprehensive Export
+ * Being. Performance Optimization System - Comprehensive Export
  *
  * Complete performance optimization suite delivering:
  * - <500ms sync propagation with crisis priority <200ms guarantee
@@ -267,7 +267,7 @@ export const initializePerformanceSystem = async (config: {
   enableMonitoring?: boolean;
   enableCrisisGuarantee?: boolean;
 }) => {
-  console.log('Initializing FullMind Performance System...');
+  console.log('Initializing Being. Performance System...');
 
   const performanceSystem = useUnifiedPerformanceSystem();
 
@@ -304,7 +304,7 @@ export const initializePerformanceSystem = async (config: {
     // Initialize memory optimization
     await performanceSystem.memory.trackUsage();
 
-    console.log('FullMind Performance System initialized successfully');
+    console.log('Being. Performance System initialized successfully');
 
     return {
       success: true,

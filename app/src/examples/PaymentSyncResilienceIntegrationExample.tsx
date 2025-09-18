@@ -2,7 +2,7 @@
  * Payment Sync Resilience Integration Example
  *
  * Demonstrates how to integrate the P0-CLOUD payment sync resilience UI components
- * in FullMind MBCT app screens following therapeutic UX principles
+ * in Being. MBCT app screens following therapeutic UX principles
  */
 
 import React, { useState, useEffect } from 'react';

@@ -1,5 +1,5 @@
 /**
- * Webhook Processor API for FullMind MBCT App
+ * Webhook Processor API for Being. MBCT App
  *
  * Central webhook processing with crisis safety guarantees
  * - <200ms crisis response guarantee

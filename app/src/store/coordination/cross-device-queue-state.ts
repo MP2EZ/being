@@ -1,5 +1,5 @@
 /**
- * Cross-Device Queue State Management for FullMind MBCT App
+ * Cross-Device Queue State Management for Being. MBCT App
  *
  * Multi-device queue coordination with comprehensive state synchronization:
  * - Multi-device queue state synchronization and conflict resolution
@@ -1416,7 +1416,7 @@ export const useCrossDeviceQueueStore = create<CrossDeviceQueueState & CrossDevi
         },
       })),
       {
-        name: 'fullmind-cross-device-queue',
+        name: 'being-cross-device-queue',
         storage: createJSONStorage(() => AsyncStorage),
         partialize: (state) => ({
           // Convert Maps to objects for serialization

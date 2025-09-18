@@ -214,7 +214,7 @@ export class OfflinePaymentQueueAPI {
     storageKey?: string;
     maxStorageBytes?: number;
   }) {
-    this.storageKey = config?.storageKey || 'fullmind_offline_payment_queue';
+    this.storageKey = config?.storageKey || 'being_offline_payment_queue';
     this.statusKey = `${this.storageKey}_status`;
     this.maxStorageBytes = config?.maxStorageBytes || 20 * 1024 * 1024; // 20MB
     this.tierPolicies = this.initializeTierPolicies();

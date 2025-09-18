@@ -1,5 +1,5 @@
 /**
- * Stripe Webhook Integration for FullMind MBCT App
+ * Stripe Webhook Integration for Being. MBCT App
  *
  * Stripe webhook handling with HMAC validation, crisis safety, and therapeutic continuity
  * - Secure signature verification using Stripe's HMAC SHA-256

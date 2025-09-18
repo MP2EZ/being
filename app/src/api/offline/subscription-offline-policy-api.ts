@@ -231,7 +231,7 @@ export class SubscriptionOfflinePolicyAPI {
     storageKey?: string;
     customPolicies?: Partial<Record<SubscriptionTier, Partial<SubscriptionPolicy>>>;
   }) {
-    this.storageKey = config?.storageKey || 'fullmind_subscription_policies';
+    this.storageKey = config?.storageKey || 'being_subscription_policies';
     this.policies = this.initializePolicies();
     this.usageTracker = new Map();
 

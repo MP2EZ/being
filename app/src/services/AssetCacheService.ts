@@ -85,9 +85,9 @@ interface CacheConfig {
 
 class AssetCacheService {
   private readonly CACHE_VERSION = '1.0.0';
-  private readonly CACHE_KEY_PREFIX = '@fullmind_asset_cache_';
-  private readonly METADATA_KEY = '@fullmind_asset_metadata';
-  private readonly STATS_KEY = '@fullmind_cache_stats';
+  private readonly CACHE_KEY_PREFIX = '@being_asset_cache_';
+  private readonly METADATA_KEY = '@being_asset_metadata';
+  private readonly STATS_KEY = '@being_cache_stats';
   
   private memoryCache: Map<string, any> = new Map();
   private cacheStats: CacheStatistics;

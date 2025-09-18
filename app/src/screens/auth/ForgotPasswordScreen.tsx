@@ -233,7 +233,7 @@ const ForgotPasswordScreen: React.FC = () => {
   const handleContactSupport = useCallback(() => {
     Alert.alert(
       'Contact Support',
-      'You can reach our support team at support@fullmind.app or through the in-app help section. Our team typically responds within 24 hours.',
+      'You can reach our support team at support@being.app or through the in-app help section. Our team typically responds within 24 hours.',
       [
         {
           text: 'Send Email',

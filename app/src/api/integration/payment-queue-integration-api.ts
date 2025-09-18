@@ -264,7 +264,7 @@ export class PaymentQueueIntegrationAPI {
     this.policyAPI = config?.policyAPI || new SubscriptionOfflinePolicyAPI();
     this.activeGracePeriods = new Map();
     this.paymentCallbacks = new Map();
-    this.storageKey = config?.storageKey || 'fullmind_payment_queue_integration';
+    this.storageKey = config?.storageKey || 'being_payment_queue_integration';
   }
 
   /**

@@ -1,5 +1,5 @@
 /**
- * Payment API Service for FullMind MBCT App
+ * Payment API Service for Being. MBCT App
  *
  * Comprehensive payment integration layer that:
  * - Integrates Stripe payments with HIPAA compliance
@@ -1093,7 +1093,7 @@ export class PaymentAPIService implements PaymentAPIClient {
     return {
       customerId,
       userId: 'crisis_user',
-      email: 'crisis@fullmind.app',
+      email: 'crisis@being.app',
       name: 'Emergency Access',
       created: new Date().toISOString()
     };

@@ -36,7 +36,7 @@ const validWebhookPayloads = {
         id: 'sub_test123',
         status: 'active',
         metadata: { userId: 'user_123' },
-        items: { data: [{ price: { lookup_key: 'fullmind_monthly' } }] },
+        items: { data: [{ price: { lookup_key: 'being_monthly' } }] },
         trial_end: null
       }
     },

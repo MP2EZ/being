@@ -526,7 +526,7 @@ class FeatureFlagValidator {
 
   // Main validation runner
   async runAllValidations() {
-    this.log(`${colors.bold}${colors.magenta}FullMind Feature Flag System Validation${colors.reset}`);
+    this.log(`${colors.bold}${colors.magenta}Being. Feature Flag System Validation${colors.reset}`);
     this.log(`${colors.magenta}Testing complete implementation for Day 6-7 validation${colors.reset}\n`);
 
     try {

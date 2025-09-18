@@ -1,5 +1,5 @@
 /**
- * Real-Time Webhook Sync for FullMind MBCT App
+ * Real-Time Webhook Sync for Being. MBCT App
  *
  * Live state updates from webhook processing with:
  * - Real-time state synchronization with <200ms crisis response

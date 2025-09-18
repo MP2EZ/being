@@ -662,7 +662,7 @@ class EnhancedPerformanceValidator {
       assessmentId: 'compression_test',
       responses: Array.from({ length: 21 }, () => Math.floor(Math.random() * 4)),
       metadata: {
-        userAgent: 'FullMind/1.0.0',
+        userAgent: 'Being/1.0.0',
         deviceInfo: 'Test Device',
         timestamp: new Date().toISOString(),
       },

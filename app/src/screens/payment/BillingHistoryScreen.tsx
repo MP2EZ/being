@@ -83,7 +83,7 @@ const MOCK_TRANSACTIONS: Transaction[] = [
     },
     invoiceId: 'inv_2024_001',
     receiptUrl: 'https://pay.stripe.com/receipts/example',
-    subscriptionPlan: 'fullmind_monthly',
+    subscriptionPlan: 'being_monthly',
     metadata: {
       therapeuticContext: 'continuing_care'
     }
@@ -96,7 +96,7 @@ const MOCK_TRANSACTIONS: Transaction[] = [
     currency: 'usd',
     description: 'Mindful Foundation Trial Started',
     date: '2023-12-15T14:20:00Z',
-    subscriptionPlan: 'fullmind_free_trial',
+    subscriptionPlan: 'being_free_trial',
     metadata: {
       therapeuticContext: 'initial_engagement'
     }
@@ -279,7 +279,7 @@ const BillingHistoryScreen: React.FC = () => {
     const amount = transaction.amount === 0 ? 'Free' : `$${(transaction.amount / 100).toFixed(2)}`;
 
     return `
-FullMind MBCT App - Transaction Receipt
+Being. MBCT App - Transaction Receipt
 
 Transaction ID: ${transaction.id}
 Date: ${date}
@@ -290,7 +290,7 @@ ${transaction.paymentMethod ? `Payment Method: ${transaction.paymentMethod.brand
 
 Thank you for investing in your mental health and wellbeing.
 
-Questions? Contact support@fullmind.app
+Questions? Contact support@being.app
 Crisis Support: Always call 988 for immediate help
     `.trim();
   };
@@ -572,7 +572,7 @@ Crisis Support: Always call 988 for immediate help
                 [
                   {
                     text: 'Email Support',
-                    onPress: () => Linking.openURL('mailto:support@fullmind.app?subject=Billing Question')
+                    onPress: () => Linking.openURL('mailto:support@being.app?subject=Billing Question')
                   },
                   { text: 'Cancel' }
                 ]

@@ -1,5 +1,5 @@
 /**
- * Webhook Event Queue System for FullMind P0-CLOUD Payment Infrastructure
+ * Webhook Event Queue System for Being. P0-CLOUD Payment Infrastructure
  *
  * Implements reliable webhook event processing with:
  * - Event queuing system for offline scenario handling

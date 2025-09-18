@@ -1,5 +1,5 @@
 /**
- * Crisis Protection Hook for FullMind MBCT App
+ * Crisis Protection Hook for Being. MBCT App
  *
  * Crisis safety during payment events with:
  * - <200ms crisis response guarantee

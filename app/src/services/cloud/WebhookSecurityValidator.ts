@@ -1,5 +1,5 @@
 /**
- * Webhook Security Validator for FullMind P0-CLOUD Payment System
+ * Webhook Security Validator for Being. P0-CLOUD Payment System
  *
  * Implements comprehensive security validation for webhook processing:
  * - HMAC signature verification with timing attack protection

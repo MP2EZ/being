@@ -1,7 +1,7 @@
 /**
  * Widget Services Index
  * Centralized export for all widget integration components
- * Production-ready TypeScript bridge for FullMind MBCT App
+ * Production-ready TypeScript bridge for Being. MBCT App
  */
 
 // Core Services
@@ -88,7 +88,7 @@ export const WIDGET_CONFIG = {
     STANDARD: 'standard', 
     ENHANCED: 'enhanced',
   },
-  DEEP_LINK_SCHEME: 'fullmind',
+  DEEP_LINK_SCHEME: 'being',
   PERFORMANCE_THRESHOLDS: {
     ACCEPTABLE_LATENCY_MS: 1000,
     WARNING_LATENCY_MS: 2000,

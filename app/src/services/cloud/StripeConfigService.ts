@@ -1,5 +1,5 @@
 /**
- * Stripe Configuration Service for FullMind MBCT App
+ * Stripe Configuration Service for Being. MBCT App
  *
  * Manages Stripe SDK configuration with:
  * - HIPAA-compliant environment setup
@@ -351,7 +351,7 @@ export class StripeConfigService {
         merchantIdentifier: config.merchantIdentifier,
         urlScheme: 'fullmind', // Deep link scheme for payment redirects
         applePay: this.isApplePayEnabled() ? {
-          merchantIdentifier: config.merchantIdentifier || 'merchant.com.fullmind.mbct',
+          merchantIdentifier: config.merchantIdentifier || 'merchant.com.being.mbct',
           buttonType: 'subscribe'
         } : undefined,
         googlePay: this.isGooglePayEnabled() ? {
@@ -515,7 +515,7 @@ export class StripeConfigService {
 
   // Configuration getter methods
   private getMerchantIdentifier(): string | undefined {
-    return process.env.EXPO_PUBLIC_APPLE_PAY_MERCHANT_ID || 'merchant.com.fullmind.mbct';
+    return process.env.EXPO_PUBLIC_APPLE_PAY_MERCHANT_ID || 'merchant.com.being.mbct';
   }
 
   private getGooglePayMerchantId(): string | undefined {

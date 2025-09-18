@@ -1,5 +1,5 @@
 /**
- * Enhanced Zustand Sync Store for FullMind MBCT App
+ * Enhanced Zustand Sync Store for Being. MBCT App
  *
  * Comprehensive real-time state synchronization with:
  * - Payment-aware subscription tier enforcement
@@ -1336,12 +1336,12 @@ export const useEnhancedSyncStore = create<EnhancedSyncStore>()(
 
           // Encrypt sensitive data before storage
           const encryptedData = await encryptionService.encrypt(JSON.stringify(persistData));
-          await AsyncStorage.setItem('fullmind_enhanced_sync_state', encryptedData);
+          await AsyncStorage.setItem('being_enhanced_sync_state', encryptedData);
         },
 
         restoreSyncState: async () => {
           try {
-            const encryptedData = await AsyncStorage.getItem('fullmind_enhanced_sync_state');
+            const encryptedData = await AsyncStorage.getItem('being_enhanced_sync_state');
             if (encryptedData) {
               const decryptedData = await encryptionService.decrypt(encryptedData);
               const persistData = JSON.parse(decryptedData);
@@ -1359,7 +1359,7 @@ export const useEnhancedSyncStore = create<EnhancedSyncStore>()(
         },
 
         clearSyncData: async () => {
-          await AsyncStorage.removeItem('fullmind_enhanced_sync_state');
+          await AsyncStorage.removeItem('being_enhanced_sync_state');
 
           set((state) => {
             // Reset to initial state
@@ -1543,7 +1543,7 @@ export const useEnhancedSyncStore = create<EnhancedSyncStore>()(
         },
       })),
       {
-        name: 'fullmind-enhanced-sync-store',
+        name: 'being-enhanced-sync-store',
         storage: createJSONStorage(() => AsyncStorage),
         partialize: (state) => ({
           syncState: state.syncState,

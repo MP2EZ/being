@@ -1,5 +1,5 @@
 /**
- * HIPAA-Compliant Stripe Payment Client for FullMind MBCT App
+ * HIPAA-Compliant Stripe Payment Client for Being. MBCT App
  *
  * Implements secure Stripe integration with:
  * - PCI DSS Level 2 compliance via Stripe's tokenization
@@ -107,7 +107,7 @@ export class StripePaymentClient {
   // Subscription Plans (would be fetched from Stripe in production)
   private readonly SUBSCRIPTION_PLANS: SubscriptionPlan[] = [
     {
-      planId: 'fullmind_monthly',
+      planId: 'being_monthly',
       name: 'FullMind Premium Monthly',
       description: 'Full access to MBCT practices and progress tracking',
       amount: 999, // $9.99 in cents
@@ -123,7 +123,7 @@ export class StripePaymentClient {
       trialDays: 7
     },
     {
-      planId: 'fullmind_annual',
+      planId: 'being_annual',
       name: 'FullMind Premium Annual',
       description: 'Full access with annual savings',
       amount: 9999, // $99.99 in cents (2 months free)
@@ -381,7 +381,7 @@ export class StripePaymentClient {
       // Confirm payment intent via Stripe
       const confirmedIntent = await this.callStripeAPI(`/payment_intents/${paymentIntentId}/confirm`, {
         payment_method: paymentMethodId,
-        return_url: 'fullmind://payment-success' // Deep link for mobile app
+        return_url: 'being://payment-success' // Deep link for mobile app
       });
 
       return {

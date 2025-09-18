@@ -1,5 +1,5 @@
 /**
- * Billing Event Handler for FullMind P0-CLOUD Payment System
+ * Billing Event Handler for Being. P0-CLOUD Payment System
  *
  * Implements comprehensive webhook processing with:
  * - Stripe webhook signature verification with HMAC validation
@@ -1085,9 +1085,9 @@ export class BillingEventHandler {
    */
   private mapSubscriptionTier(lookupKey?: string): string {
     const tierMap: { [key: string]: string } = {
-      'fullmind_monthly': 'premium',
-      'fullmind_annual': 'premium',
-      'fullmind_basic': 'basic'
+      'being_monthly': 'premium',
+      'being_annual': 'premium',
+      'being_basic': 'basic'
     };
 
     return tierMap[lookupKey || ''] || 'basic';

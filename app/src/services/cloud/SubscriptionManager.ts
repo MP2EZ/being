@@ -1,5 +1,5 @@
 /**
- * Subscription Manager for FullMind P0-CLOUD Phase 1
+ * Subscription Manager for Being. P0-CLOUD Phase 1
  *
  * Comprehensive subscription logic and API integration with:
  * - Trial-to-paid conversion with MBCT-compliant messaging
@@ -134,10 +134,10 @@ export class SubscriptionManager {
   private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
   // Storage keys
-  private readonly SUBSCRIPTION_STATE_KEY = '@fullmind_subscription_state_v1';
-  private readonly TRIAL_CONFIG_KEY = '@fullmind_trial_config_v1';
-  private readonly GRACE_PERIOD_KEY = '@fullmind_grace_period_v1';
-  private readonly FEATURE_CACHE_KEY = '@fullmind_feature_cache_v1';
+  private readonly SUBSCRIPTION_STATE_KEY = '@being_subscription_state_v1';
+  private readonly TRIAL_CONFIG_KEY = '@being_trial_config_v1';
+  private readonly GRACE_PERIOD_KEY = '@being_grace_period_v1';
+  private readonly FEATURE_CACHE_KEY = '@being_feature_cache_v1';
 
   // Subscription tiers configuration
   private readonly subscriptionTiers: Record<string, SubscriptionTier> = {

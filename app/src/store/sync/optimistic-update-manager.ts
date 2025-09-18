@@ -1,5 +1,5 @@
 /**
- * Optimistic Update Manager for FullMind MBCT App
+ * Optimistic Update Manager for Being. MBCT App
  *
  * Optimistic UI updates with robust conflict resolution:
  * - Immediate UI responsiveness with <100ms optimistic updates

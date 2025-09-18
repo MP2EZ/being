@@ -645,7 +645,7 @@ export const FEATURE_FLAG_CONSTANTS = {
   EMERGENCY_NOTIFICATION_DELAY: 60000, // 1 minute
   
   // Storage keys
-  STORAGE_KEY_PREFIX: 'fullmind_feature_flags',
-  METADATA_STORAGE_KEY: 'fullmind_feature_flags_metadata',
-  CONSENT_STORAGE_KEY: 'fullmind_feature_flags_consent'
+  STORAGE_KEY_PREFIX: 'being_feature_flags',
+  METADATA_STORAGE_KEY: 'being_feature_flags_metadata',
+  CONSENT_STORAGE_KEY: 'being_feature_flags_consent'
 } as const;

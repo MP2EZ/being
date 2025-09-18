@@ -1,5 +1,5 @@
 /**
- * Webhook Handlers Export Index for FullMind P0-CLOUD Payment System
+ * Webhook Handlers Export Index for Being. P0-CLOUD Payment System
  *
  * Provides a centralized export interface for all type-safe webhook handlers,
  * integration utilities, and performance monitoring components. Maintains
@@ -446,7 +446,7 @@ export const WebhookErrorUtils = {
  */
 export const WebhookHandlerDocs = {
   overview: `
-    FullMind P0-CLOUD Type-Safe Webhook Handlers
+    Being. P0-CLOUD Type-Safe Webhook Handlers
 
     Provides comprehensive, type-safe webhook handling with crisis safety guarantees,
     therapeutic continuity, and performance compliance. All handlers maintain <200ms

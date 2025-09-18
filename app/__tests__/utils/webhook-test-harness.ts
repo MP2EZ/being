@@ -1,5 +1,5 @@
 /**
- * Webhook Test Harness - FullMind MBCT App
+ * Webhook Test Harness - Being. MBCT App
  *
  * Comprehensive testing utilities for webhook system validation:
  * - Complete webhook system testing infrastructure

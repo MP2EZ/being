@@ -940,7 +940,7 @@ export class SecurityAuditReportingSystem {
     incidentAuditThreshold: 'high',
     reportRetentionYears: 7,
     encryptReports: true,
-    distributionList: ['security@fullmind.app', 'compliance@fullmind.app'],
+    distributionList: ['security@being.app', 'compliance@being.app'],
     externalAuditorRequired: false
   };
 

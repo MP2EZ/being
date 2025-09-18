@@ -1,5 +1,5 @@
 /**
- * Enhanced Sync Store Integration Example for FullMind MBCT App
+ * Enhanced Sync Store Integration Example for Being. MBCT App
  *
  * Demonstrates how the enhanced sync store patterns work together:
  * - Enhanced Sync Store: Core real-time state synchronization

@@ -936,7 +936,7 @@ export class HIPAAQueueEncryption {
   }
 
   private async storeHIPAACompliantData(result: HIPAAQueueEncryptionResult, operationId: string): Promise<void> {
-    const storageKey = `@fullmind_hipaa_queue_${operationId}`;
+    const storageKey = `@being_hipaa_queue_${operationId}`;
     await SecureStore.setItemAsync(storageKey, result.encryptedData);
   }
 

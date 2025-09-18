@@ -1,5 +1,5 @@
 /**
- * Payment Webhook Store for FullMind MBCT App
+ * Payment Webhook Store for Being. MBCT App
  *
  * Enhanced payment store with comprehensive webhook integration:
  * - Real-time subscription state synchronization

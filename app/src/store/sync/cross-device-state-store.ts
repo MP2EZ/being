@@ -645,7 +645,7 @@ export const useCrossDeviceStateStore = create<CrossDeviceStateManager>()(
 
             // Store encrypted session result
             await AsyncStorage.setItem(
-              `@fullmind_session_result_${sessionId}`,
+              `@being_session_result_${sessionId}`,
               await encryptionService.encryptData(completionRecord, DataSensitivity.PERSONAL)
             );
 
@@ -741,7 +741,7 @@ export const useCrossDeviceStateStore = create<CrossDeviceStateManager>()(
           ensureCrisisAccessibility: async (): Promise<boolean> => {
             try {
               // Verify local crisis state is accessible
-              const localCrisisState = await AsyncStorage.getItem('@fullmind_crisis_fallback_state');
+              const localCrisisState = await AsyncStorage.getItem('@being_crisis_fallback_state');
 
               // Verify 988 hotline access
               const hotlineReady = true; // Always available on mobile devices
@@ -1230,7 +1230,7 @@ export const useCrossDeviceStateStore = create<CrossDeviceStateManager>()(
         }
       }),
       {
-        name: 'fullmind-cross-device-state-store',
+        name: 'being-cross-device-state-store',
         storage: createJSONStorage(() => AsyncStorage),
         partialize: (state) => ({
           // Only persist essential state

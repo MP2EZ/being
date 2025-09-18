@@ -1,5 +1,5 @@
 /**
- * Complete Webhook Flow Integration Tests - FullMind MBCT App
+ * Complete Webhook Flow Integration Tests - Being. MBCT App
  *
  * End-to-end testing of the complete webhook system including:
  * - Real-time state synchronization across all stores

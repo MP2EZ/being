@@ -1,5 +1,5 @@
 /**
- * Crisis Queue State Management for FullMind MBCT App
+ * Crisis Queue State Management for Being. MBCT App
  *
  * Emergency operation state management with comprehensive crisis protection:
  * - Emergency operation state that bypasses offline queue completely
@@ -1031,7 +1031,7 @@ export const useCrisisQueueStore = create<CrisisQueueState & CrisisQueueActions>
         },
       })),
       {
-        name: 'fullmind-crisis-queue',
+        name: 'being-crisis-queue',
         storage: createJSONStorage(() => AsyncStorage),
         partialize: (state) => ({
           currentCrisisLevel: state.currentCrisisLevel,

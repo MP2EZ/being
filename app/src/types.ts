@@ -1,5 +1,5 @@
 /**
- * TypeScript type definitions for FullMind MBCT app
+ * TypeScript type definitions for Being. MBCT app
  * Comprehensive interfaces for all data models
  */
 

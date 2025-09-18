@@ -1,5 +1,5 @@
 /**
- * Payment Store for FullMind MBCT App
+ * Payment Store for Being. MBCT App
  *
  * Zustand-based state management for payment operations with:
  * - Crisis-safe payment state management
@@ -118,7 +118,7 @@ interface PaymentStoreState extends PaymentState, PaymentActions {
  * Crisis-Safe Payment Store Configuration
  */
 const STORAGE_CONFIG = {
-  name: 'fullmind-payment-store',
+  name: 'being-payment-store',
   storage: createJSONStorage(() => ({
     getItem: async (name: string): Promise<string | null> => {
       try {
@@ -332,7 +332,7 @@ export const usePaymentStore = create<PaymentStoreState>()(
             const crisisCustomer: CustomerResult = {
               customerId: `crisis_${userId}`,
               userId,
-              email: 'crisis@fullmind.app',
+              email: 'crisis@being.app',
               name: 'Emergency Access',
               created: new Date().toISOString()
             };

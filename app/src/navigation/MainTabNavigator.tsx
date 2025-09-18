@@ -122,7 +122,7 @@ const MainTabNavigator: React.FC = () => {
         name="Home" 
         component={HomeScreen}
         options={{
-          headerTitle: 'FullMind',
+          headerTitle: 'Being.',
           headerShown: false, // HomeScreen has its own SafeAreaView
           tabBarIcon: ({ focused, color }) => (
             <DiamondIcon color={focused ? colorSystem.themes.morning.primary : color} />

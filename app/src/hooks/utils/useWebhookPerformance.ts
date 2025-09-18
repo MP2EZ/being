@@ -1,5 +1,5 @@
 /**
- * Webhook Performance Monitoring Hook for FullMind MBCT App
+ * Webhook Performance Monitoring Hook for Being. MBCT App
  *
  * Crisis response time monitoring with:
  * - <200ms crisis response tracking

@@ -1,5 +1,5 @@
 /**
- * Stripe Integration API for FullMind MBCT App
+ * Stripe Integration API for Being. MBCT App
  *
  * Complete Stripe API integration with crisis safety guarantees
  * - Crisis-aware subscription management with therapeutic continuity
@@ -868,10 +868,10 @@ export class StripeIntegrationAPI {
 
   private async getStripeEmergencyResources(): Promise<string[]> {
     return [
-      'Payment Support: billing@fullmind.app',
+      'Payment Support: billing@being.app',
       'Emergency Grace Period: Available',
       'Crisis Support: 988 Suicide & Crisis Lifeline',
-      'Technical Support: support@fullmind.app',
+      'Technical Support: support@being.app',
     ];
   }
 

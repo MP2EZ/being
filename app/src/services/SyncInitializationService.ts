@@ -57,8 +57,8 @@ interface InitializationConfig {
  * Service initialization manager for the sync system
  */
 class SyncInitializationService {
-  private readonly SERVICE_STATUS_KEY = '@fullmind_sync_service_status';
-  private readonly INIT_CONFIG_KEY = '@fullmind_sync_init_config';
+  private readonly SERVICE_STATUS_KEY = '@being_sync_service_status';
+  private readonly INIT_CONFIG_KEY = '@being_sync_init_config';
   
   // Service dependencies (initialization order)
   private readonly serviceDependencies = new Map<string, string[]>([

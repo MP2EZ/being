@@ -1,5 +1,5 @@
 /**
- * Payment-Aware Feature Gates for FullMind P0-CLOUD
+ * Payment-Aware Feature Gates for Being. P0-CLOUD
  *
  * Advanced feature gate system that combines subscription tier access control
  * with feature flags while maintaining crisis safety guarantees.
@@ -108,8 +108,8 @@ export class PaymentAwareFeatureGates {
   private readonly CRISIS_BYPASS_ALL = true;
 
   // Storage keys
-  private readonly FEATURE_CACHE_KEY = '@fullmind_feature_gate_cache_v1';
-  private readonly USAGE_TRACKING_KEY = '@fullmind_feature_usage_v1';
+  private readonly FEATURE_CACHE_KEY = '@being_feature_gate_cache_v1';
+  private readonly USAGE_TRACKING_KEY = '@being_feature_usage_v1';
 
   // Feature gate definitions
   private readonly featureGates: Record<string, FeatureGateConfig> = {

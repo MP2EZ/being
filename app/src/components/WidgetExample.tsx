@@ -1,7 +1,7 @@
 /**
  * Widget Integration Example Component
  * Demonstrates comprehensive widget bridge usage with clinical-grade safety
- * Shows best practices for integrating widgets with the FullMind MBCT app
+ * Shows best practices for integrating widgets with the Being. MBCT app
  */
 
 import React, { useEffect, useCallback } from 'react';
@@ -83,9 +83,9 @@ export const WidgetExample: React.FC<WidgetExampleProps> = ({
    */
   const demonstrateDeepLink = useCallback(async () => {
     const exampleUrls = [
-      'fullmind://checkin/morning?resume=false',
-      'fullmind://checkin/evening?resume=true',
-      'fullmind://crisis'
+      'being://checkin/morning?resume=false',
+      'being://checkin/evening?resume=true',
+      'being://crisis'
     ];
 
     for (const url of exampleUrls) {

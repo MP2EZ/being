@@ -321,14 +321,14 @@ export const WidgetDemo: React.FC = () => {
       <CrisisSafeWidget title="🔗 Core Navigation Testing">
         <TouchableOpacity
           style={styles.deepLinkButton}
-          onPress={() => testDeepLink('fullmind://checkin/morning', 'Morning Check-in')}
+          onPress={() => testDeepLink('being://checkin/morning', 'Morning Check-in')}
         >
           <Text style={styles.buttonText}>Test: Morning Check-in</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.deepLinkButton}
-          onPress={() => testDeepLink('fullmind://crisis', 'Crisis Support')}
+          onPress={() => testDeepLink('being://crisis', 'Crisis Support')}
         >
           <Text style={styles.buttonText}>Test: Crisis Support</Text>
         </TouchableOpacity>
@@ -344,21 +344,21 @@ export const WidgetDemo: React.FC = () => {
 
           <TouchableOpacity
             style={styles.deepLinkButton}
-            onPress={() => testDeepLink('fullmind://checkin/midday?resume=true', 'Resume Midday')}
+            onPress={() => testDeepLink('being://checkin/midday?resume=true', 'Resume Midday')}
           >
             <Text style={styles.buttonText}>Test: Resume Midday Session</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.deepLinkButton}
-            onPress={() => testDeepLink('fullmind://checkin/evening', 'Evening Check-in')}
+            onPress={() => testDeepLink('being://checkin/evening', 'Evening Check-in')}
           >
             <Text style={styles.buttonText}>Test: Evening Check-in</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.deepLinkButton}
-            onPress={() => testDeepLink('fullmind://insights/trends', 'Advanced Insights')}
+            onPress={() => testDeepLink('being://insights/trends', 'Advanced Insights')}
           >
             <Text style={styles.buttonText}>Test: Advanced Insights</Text>
           </TouchableOpacity>
@@ -367,7 +367,7 @@ export const WidgetDemo: React.FC = () => {
 
         <TouchableOpacity 
           style={[styles.deepLinkButton, styles.crisisButton]} 
-          onPress={() => testDeepLink('fullmind://crisis', 'Crisis Intervention')}
+          onPress={() => testDeepLink('being://crisis', 'Crisis Intervention')}
         >
           <Text style={styles.buttonText}>Test: Crisis Intervention</Text>
         </TouchableOpacity>

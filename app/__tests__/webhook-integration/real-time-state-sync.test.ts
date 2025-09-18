@@ -1,5 +1,5 @@
 /**
- * Real-Time State Sync Integration Tests - FullMind MBCT App
+ * Real-Time State Sync Integration Tests - Being. MBCT App
  *
  * Comprehensive testing of real-time state synchronization including:
  * - WebSocket-style live updates across all stores

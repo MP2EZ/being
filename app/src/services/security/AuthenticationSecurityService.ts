@@ -151,11 +151,11 @@ export class AuthenticationSecurityService {
   };
 
   // Storage keys
-  private readonly AUTH_ATTEMPTS_KEY = '@fullmind_auth_attempts_v1';
-  private readonly DEVICE_BINDINGS_KEY = '@fullmind_device_bindings_v1';
-  private readonly RATE_LIMIT_KEY = '@fullmind_rate_limits_v1';
-  private readonly JWT_SECRET_KEY = '@fullmind_jwt_secret_v1';
-  private readonly CONFIG_KEY = '@fullmind_auth_config_v1';
+  private readonly AUTH_ATTEMPTS_KEY = '@being_auth_attempts_v1';
+  private readonly DEVICE_BINDINGS_KEY = '@being_device_bindings_v1';
+  private readonly RATE_LIMIT_KEY = '@being_rate_limits_v1';
+  private readonly JWT_SECRET_KEY = '@being_jwt_secret_v1';
+  private readonly CONFIG_KEY = '@being_auth_config_v1';
 
   private constructor() {
     this.initialize();

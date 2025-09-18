@@ -609,7 +609,7 @@ export type AuthenticationStoreEvent =
  * Store Constants
  */
 export const AUTHENTICATION_STORE_CONSTANTS = {
-  PERSIST_KEY: '@fullmind_auth_store',
+  PERSIST_KEY: '@being_auth_store',
   VERSION: 1,
   MAX_AUDIT_ENTRIES: 1000,
   PERFORMANCE_SAMPLE_SIZE: 100,

@@ -1,5 +1,5 @@
 /**
- * Webhook Store Integration for FullMind P0-CLOUD Payment System
+ * Webhook Store Integration for Being. P0-CLOUD Payment System
  *
  * Provides seamless integration between type-safe webhook handlers and the existing
  * PaymentStore implementation. Ensures crisis safety, performance compliance, and

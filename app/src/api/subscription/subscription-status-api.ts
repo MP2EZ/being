@@ -1,5 +1,5 @@
 /**
- * Subscription Status API for FullMind MBCT App
+ * Subscription Status API for Being. MBCT App
  *
  * Real-time subscription state management with crisis safety guarantees
  * - Therapeutic continuity preservation during subscription changes
@@ -797,7 +797,7 @@ export class SubscriptionStatusAPI {
     return [
       '988 Suicide & Crisis Lifeline',
       'Crisis Text Line: Text HOME to 741741',
-      'Emergency Support: support@fullmind.app',
+      'Emergency Support: support@being.app',
     ];
   }
 

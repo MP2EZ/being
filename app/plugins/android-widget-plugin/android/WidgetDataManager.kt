@@ -10,7 +10,7 @@ import java.security.MessageDigest
 import com.fullmind.widget.security.SecureWidgetStorage
 
 object WidgetDataManager {
-    private const val PREFS_NAME = "fullmind_widget_data"
+    private const val PREFS_NAME = "being_widget_data"
     private const val KEY_WIDGET_DATA = "widget_data"
     private const val KEY_LAST_UPDATE = "last_update"
     private const val KEY_UPDATE_COUNT = "update_count"

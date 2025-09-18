@@ -240,7 +240,7 @@ describe('Widget Accessibility Compliance - WCAG AA', () => {
         const widgetTitle = getByTestId('widget-title');
         const progressText = getByTestId('progress-text');
 
-        expect(widgetTitle.props.accessibilityLabel).toBe('FullMind mindfulness progress widget');
+        expect(widgetTitle.props.accessibilityLabel).toBe('Being. mindfulness progress widget');
         expect(progressText.props.accessibilityLabel).toContain('Today\'s mindfulness progress');
       });
 
@@ -529,7 +529,7 @@ const MockAccessibleWidget: React.FC<{ widgetData?: any }> = ({
     <View
       testID="widget-container"
       accessibilityRole="group"
-      accessibilityLabel={`FullMind mindfulness widget. ${widgetData.completionPercentage}% of today's practices completed${crisisVisible ? '. Crisis support is available.' : ''}`}
+      accessibilityLabel={`Being. mindfulness widget. ${widgetData.completionPercentage}% of today's practices completed${crisisVisible ? '. Crisis support is available.' : ''}`}
       style={{ padding: 16, backgroundColor: '#4A7C59' }}
     >
       {/* Header */}
@@ -537,7 +537,7 @@ const MockAccessibleWidget: React.FC<{ widgetData?: any }> = ({
         <Text
           testID="widget-title"
           accessibilityRole="header"
-          accessibilityLabel="FullMind mindfulness progress widget"
+          accessibilityLabel="Being. mindfulness progress widget"
           style={{ flex: 1, color: 'white', fontSize: 16, fontWeight: 'bold' }}
         >
           Today's Progress

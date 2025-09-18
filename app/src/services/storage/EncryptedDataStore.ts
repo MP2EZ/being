@@ -1,5 +1,5 @@
 /**
- * HIPAA-Compliant Encrypted Data Store for FullMind MBCT App
+ * HIPAA-Compliant Encrypted Data Store for Being. MBCT App
  * 
  * Provides transparent encryption for sensitive mental health data while
  * maintaining the same API as the original DataStore for seamless migration.
@@ -50,15 +50,15 @@ export interface EncryptedStorageInfo {
 
 export class EncryptedDataStore {
   private readonly KEYS = {
-    USER: '@fullmind_user',
-    CHECKINS: '@fullmind_checkins',
-    ASSESSMENTS: '@fullmind_assessments',
-    CRISIS_PLAN: '@fullmind_crisis',
-    PARTIAL_SESSIONS: '@fullmind_partial_sessions'
+    USER: '@being_user',
+    CHECKINS: '@being_checkins',
+    ASSESSMENTS: '@being_assessments',
+    CRISIS_PLAN: '@being_crisis',
+    PARTIAL_SESSIONS: '@being_partial_sessions'
   };
 
   // Migration tracking
-  private readonly MIGRATION_KEY = '@fullmind_encryption_migration';
+  private readonly MIGRATION_KEY = '@being_encryption_migration';
   private readonly ENCRYPTED_MARKER = '__ENCRYPTED_V1__';
 
   constructor() {

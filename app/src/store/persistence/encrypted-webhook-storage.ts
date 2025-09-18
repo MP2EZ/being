@@ -1,5 +1,5 @@
 /**
- * Encrypted Webhook Storage for FullMind MBCT App
+ * Encrypted Webhook Storage for Being. MBCT App
  *
  * HIPAA-compliant state persistence with:
  * - End-to-end encryption for all webhook state data

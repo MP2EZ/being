@@ -1,5 +1,5 @@
 /**
- * Store Integration Hooks Index for FullMind MBCT App
+ * Store Integration Hooks Index for Being. MBCT App
  *
  * Central export point for Zustand store integration hooks
  */

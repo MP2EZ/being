@@ -1,5 +1,5 @@
 /**
- * Payment-Specific Webhook Hook for FullMind MBCT App
+ * Payment-Specific Webhook Hook for Being. MBCT App
  *
  * Specialized payment webhook handling with:
  * - Crisis-safe payment processing

@@ -1,5 +1,5 @@
 /**
- * Crisis Scenario Simulator - FullMind MBCT App
+ * Crisis Scenario Simulator - Being. MBCT App
  *
  * Advanced crisis simulation for comprehensive testing:
  * - Mental health crisis simulation with therapeutic accuracy

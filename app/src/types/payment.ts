@@ -1,5 +1,5 @@
 /**
- * Payment System Types for FullMind MBCT App
+ * Payment System Types for Being. MBCT App
  *
  * Comprehensive type definitions for payment processing including:
  * - Stripe payment integration with HIPAA compliance

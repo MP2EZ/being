@@ -1,5 +1,5 @@
 /**
- * HIPAA-Compliant Audit & Compliance Types for FullMind MBCT App
+ * HIPAA-Compliant Audit & Compliance Types for Being. MBCT App
  *
  * Comprehensive audit trail types ensuring:
  * - HIPAA compliance for healthcare data handling

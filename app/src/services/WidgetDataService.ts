@@ -40,7 +40,7 @@ export type { WidgetData, WidgetSessionStatus } from '../types/widget';
  * Implements compile-time and runtime privacy validation
  */
 export class WidgetDataService implements WidgetTypeGuards {
-  private static readonly WIDGET_DATA_KEY = 'fullmind_widget_data';
+  private static readonly WIDGET_DATA_KEY = 'being_widget_data';
   private static readonly PERFORMANCE_METRICS_KEY = 'widget_performance_metrics';
   
   // Configuration
@@ -533,7 +533,7 @@ export class WidgetDataService implements WidgetTypeGuards {
       const urlObj = new URL(url);
       
       // Security: Validate URL scheme
-      if (urlObj.protocol !== 'fullmind:') {
+      if (urlObj.protocol !== 'being:') {
         throw new WidgetBridgeError(
           `Invalid deep link protocol: ${urlObj.protocol}`,
           'DEEP_LINK_INVALID',

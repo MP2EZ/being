@@ -1,5 +1,5 @@
 /**
- * Webhook Security Validation Hook for FullMind MBCT App
+ * Webhook Security Validation Hook for Being. MBCT App
  *
  * Comprehensive webhook security with:
  * - HMAC signature verification

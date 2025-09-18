@@ -154,7 +154,7 @@ export class CrisisQueueBypassAPI {
     storageKey?: string;
     responseTimeTargets?: Record<string, number>;
   }) {
-    this.storageKey = config?.storageKey || 'fullmind_crisis_operations';
+    this.storageKey = config?.storageKey || 'being_crisis_operations';
     this.metricsKey = `${this.storageKey}_metrics`;
     this.responseTimeTargets = config?.responseTimeTargets || {
       'emergency': 100,    // 988 hotline, immediate response

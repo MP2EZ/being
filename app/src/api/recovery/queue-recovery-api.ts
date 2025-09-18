@@ -147,7 +147,7 @@ export class QueueRecoveryAPI {
     this.recoveryInProgress = false;
     this.integrityCheckInterval = null;
 
-    const prefix = config?.storagePrefix || 'fullmind_queue_recovery';
+    const prefix = config?.storagePrefix || 'being_queue_recovery';
     this.storageKeys = {
       backup: `${prefix}_backup`,
       recovery: `${prefix}_status`,

@@ -1,5 +1,5 @@
 /**
- * Type-Safe Webhook Handler Implementation for FullMind P0-CLOUD Payment System
+ * Type-Safe Webhook Handler Implementation for Being. P0-CLOUD Payment System
  *
  * Implements all webhook handlers with strict TypeScript typing, crisis safety guarantees,
  * and performance constraints. Integrates with existing BillingEventHandler and PaymentStore
@@ -1151,9 +1151,9 @@ export class TypeSafeWebhookHandlerRegistry implements WebhookHandlerRegistry {
  */
 function mapSubscriptionTier(lookupKey?: string): string {
   const tierMap: { [key: string]: string } = {
-    'fullmind_monthly': 'premium',
-    'fullmind_annual': 'premium',
-    'fullmind_basic': 'basic'
+    'being_monthly': 'premium',
+    'being_annual': 'premium',
+    'being_basic': 'basic'
   };
 
   return tierMap[lookupKey || ''] || 'basic';

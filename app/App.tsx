@@ -1,5 +1,5 @@
 /**
- * FullMind MBCT App - Main Entry Point
+ * Being. MBCT App - Main Entry Point
  * Clinical-grade mindfulness-based cognitive therapy application
  * PERFORMANCE OPTIMIZED for <3 second cold start
  */

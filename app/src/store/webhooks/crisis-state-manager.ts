@@ -1,5 +1,5 @@
 /**
- * Crisis State Manager for FullMind MBCT App
+ * Crisis State Manager for Being. MBCT App
  *
  * Mental health crisis state coordination with:
  * - Real-time crisis detection and intervention protocols

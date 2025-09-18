@@ -1,4 +1,4 @@
-# FullMind MBCT App Configuration
+# Being. MBCT App Configuration
 
 ## Project Context
 Mobile app delivering clinical-grade MBCT practices
@@ -37,7 +37,7 @@ Mobile app delivering clinical-grade MBCT practices
 
 ## Domain Authority Coordination Framework
 
-### Authority Hierarchy for FullMind
+### Authority Hierarchy for Being.
 
 **Level 1: Domain Authorities (Non-Negotiable)**
 - **crisis**: Safety protocols and emergency response - highest priority for user safety
@@ -132,7 +132,7 @@ I will ensure [COMPLIANCE_ASPECT]: [COMMITMENT_TO_DOMAIN_STANDARDS]"
 - Check-in flow logic or mood tracking features
 - Any content that could affect therapeutic outcomes
 
-## FullMind-Specific Workflow Templates
+## Being.-Specific Workflow Templates
 
 ### Template F1: Clinical Content Validation
 **Use When**: Implementing therapeutic content, assessments, or MBCT practices  
@@ -262,7 +262,7 @@ I will ensure [COMPLIANCE_ASPECT]: [COMMITMENT_TO_DOMAIN_STANDARDS]"
 6. deploy: "Emergency deployment with monitoring for user safety impact"
 ```
 
-### FullMind Template Selection Guide
+### Being. Template Selection Guide
 
 **Clinical Content** → Template F1: Clinical Content Validation  
 **Safety Crisis** → Template F2: Crisis Protocol Implementation  
@@ -281,20 +281,20 @@ I will ensure [COMPLIANCE_ASPECT]: [COMMITMENT_TO_DOMAIN_STANDARDS]"
 - **General Bug Fixes** → Global Template 2: Bug Resolution
 - **Security Reviews** → Global Template 4: Security Review (+ compliance validation)
 
-**Technical Agent Coordination**: All technical agents (react, typescript, performance, state, security, test, review, api, deploy, accessibility) follow global framework patterns but must integrate with FullMind domain authorities.
+**Technical Agent Coordination**: All technical agents (react, typescript, performance, state, security, test, review, api, deploy, accessibility) follow global framework patterns but must integrate with Being. domain authorities.
 
 **Context Management**: Use global handoff protocols (Simple/Standard/Complex) with Complex Protocol required for all safety-critical or regulatory work.
 
 **Decision Framework**: 
 1. **Single Agent** (90%) → Use global guidelines, add domain validation for safety-critical
-2. **Core 6 Templates** (8%) → Use global templates, integrate FullMind domain authorities  
-3. **FullMind Templates** (2%) → Use specialized templates F1-F6 for domain-specific work
+2. **Core 6 Templates** (8%) → Use global templates, integrate Being. domain authorities  
+3. **Being. Templates** (2%) → Use specialized templates F1-F6 for domain-specific work
 
-**Escalation Path**: Single Agent → FullMind Template → Global Template + Domain Coordination → Architect Coordination
+**Escalation Path**: Single Agent → Being. Template → Global Template + Domain Coordination → Architect Coordination
 
-### When to Use FullMind vs Global Templates
+### When to Use Being. vs Global Templates
 
-**Use FullMind Templates (F1-F6) when**:
+**Use Being. Templates (F1-F6) when**:
 - Clinical content, assessments, or MBCT practices involved
 - Crisis detection, safety protocols, or emergency features
 - HIPAA compliance or healthcare data handling required
@@ -306,7 +306,7 @@ I will ensure [COMPLIANCE_ASPECT]: [COMMITMENT_TO_DOMAIN_STANDARDS]"
 - Non-clinical UI components or standard app features  
 - Development tooling, testing, or deployment workflows
 
-**Integration Requirement**: All FullMind work must satisfy both global technical standards and domain authority requirements.
+**Integration Requirement**: All Being. work must satisfy both global technical standards and domain authority requirements.
 
 ## Critical Requirements
 
@@ -444,12 +444,12 @@ themes: {
 - [ ] PHQ-9/GAD-7 scoring validation testing
 
 ## File References
-- Prototype: FullMind Design Prototype v1.7.html
-- Design: FullMind Design Library v1.1.tsx, FullMind DRD v1.3.md
-- Requirements: FullMind PRD v1.2.md
-- Technical: FullMind TRD v2.0.md
-- User Journeys: FullMind User Journey Flows & Persona Analysis.md
-- Feature Roadmap: FullMind Product Roadmap - Prioritized - Based on v1.7.md
+- Prototype: Being. Design Prototype v1.7.html
+- Design: Being. Design Library v1.1.tsx, Being. DRD v1.3.md
+- Requirements: Being. PRD v1.2.md
+- Technical: Being. TRD v2.0.md
+- User Journeys: Being. User Journey Flows & Persona Analysis.md
+- Feature Roadmap: Being. Product Roadmap - Prioritized - Based on v1.7.md
 
 ## Development Commands
 ```bash

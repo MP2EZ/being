@@ -149,7 +149,7 @@ export class RuntimePaymentValidator {
         if (!isValidCustomerData(data)) {
           const emergencyCustomer: CustomerData = {
             userId: 'emergency_user',
-            email: 'emergency@fullmind.app',
+            email: 'emergency@being.app',
             name: 'Emergency Access',
             metadata: {
               appUserId: 'emergency_user',

@@ -1,5 +1,5 @@
 /**
- * Jest Configuration for FullMind MBCT App
+ * Jest Configuration for Being. MBCT App
  * Critical: Prioritizes clinical accuracy testing
  */
 
@@ -170,59 +170,46 @@ module.exports = {
     {
       displayName: 'Clinical Accuracy Tests',
       testMatch: ['<rootDir>/__tests__/clinical/**/*.test.{ts,tsx}'],
-      testEnvironment: 'react-native',
-      testTimeout: 30000, // Clinical validation can take time
+      testEnvironment: 'react-native'
     },
     {
       displayName: 'Unit Tests',
-      testMatch: ['<rootDir>/__tests__/unit/**/*.test.{ts,tsx}'],
-      testTimeout: 20000
+      testMatch: ['<rootDir>/__tests__/unit/**/*.test.{ts,tsx}']
     },
     {
       displayName: 'Integration Tests',
-      testMatch: ['<rootDir>/__tests__/integration/**/*.test.{ts,tsx}'],
-      testTimeout: 45000, // Extended for comprehensive security integration
+      testMatch: ['<rootDir>/__tests__/integration/**/*.test.{ts,tsx}']
     },
     {
       displayName: 'Security Tests',
       testMatch: [
         '<rootDir>/__tests__/security/**/*.test.{ts,tsx}',
         '<rootDir>/src/services/**/__tests__/**/*.test.{ts,tsx}'
-      ],
-      testTimeout: 60000, // Extended for comprehensive security validation
+      ]
     },
     {
       displayName: 'Compliance Tests',
-      testMatch: ['<rootDir>/__tests__/compliance/**/*.test.{ts,tsx}'],
-      testTimeout: 60000, // Extended for compliance auditing
+      testMatch: ['<rootDir>/__tests__/compliance/**/*.test.{ts,tsx}']
     },
     {
       displayName: 'Regression Tests',
-      testMatch: ['<rootDir>/__tests__/regression/**/*.test.{ts,tsx}'],
-      testTimeout: 45000, // Extended for regression validation
+      testMatch: ['<rootDir>/__tests__/regression/**/*.test.{ts,tsx}']
     },
     {
       displayName: 'Payment Sync Resilience Tests',
       testMatch: ['<rootDir>/__tests__/payment-sync-resilience/**/*.test.{ts,tsx}'],
-      testTimeout: 120000, // Extended for resilience stress testing
       setupFilesAfterEnv: [
         '<rootDir>/__tests__/setup/jest.setup.js',
         '<rootDir>/__tests__/payment-sync-resilience/setup/resilience-test-setup.js'
-      ],
-      logHeapUsage: true,
-      detectLeaks: true
+      ]
     },
     {
       displayName: 'Cross-Device Sync Tests',
       testMatch: ['<rootDir>/__tests__/cross-device-sync/**/*.test.{ts,tsx}'],
-      testTimeout: 120000, // Extended for comprehensive sync testing
       setupFilesAfterEnv: [
         '<rootDir>/__tests__/setup/jest.setup.js',
         '<rootDir>/__tests__/cross-device-sync/setup/sync-test-setup.js'
-      ],
-      logHeapUsage: true,
-      detectLeaks: true,
-      maxConcurrency: 2, // Limited concurrency for accurate performance measurement
+      ]
     }
   ]
 };

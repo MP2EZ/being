@@ -1,5 +1,5 @@
 /**
- * Queue Performance State Management for FullMind MBCT App
+ * Queue Performance State Management for Being. MBCT App
  *
  * Performance monitoring state with comprehensive metrics and optimization:
  * - Real-time performance metrics collection and analysis
@@ -1230,7 +1230,7 @@ export const useQueuePerformanceStore = create<QueuePerformanceState & QueuePerf
         },
       })),
       {
-        name: 'fullmind-queue-performance',
+        name: 'being-queue-performance',
         storage: createJSONStorage(() => AsyncStorage),
         partialize: (state) => ({
           // Convert Maps to objects for serialization

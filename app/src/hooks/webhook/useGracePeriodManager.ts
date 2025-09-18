@@ -1,5 +1,5 @@
 /**
- * Therapeutic Grace Period Manager Hook for FullMind MBCT App
+ * Therapeutic Grace Period Manager Hook for Being. MBCT App
  *
  * MBCT-compliant grace period management with:
  * - Therapeutic continuity protection

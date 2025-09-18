@@ -902,11 +902,11 @@ export class QueueKeyManagement {
     const derivedKey = await this.deriveKey(baseKey, salt, config.keyDerivationRounds);
 
     // Store key securely
-    const keyName = `@fullmind_queue_${keyType}_${tier}_${deviceId}`;
+    const keyName = `@being_queue_${keyType}_${tier}_${deviceId}`;
     await SecureStore.setItemAsync(keyName, derivedKey);
 
     // Store key metadata
-    const metadataName = `@fullmind_queue_meta_${keyType}_${tier}_${deviceId}`;
+    const metadataName = `@being_queue_meta_${keyType}_${tier}_${deviceId}`;
     const metadata = {
       keyType,
       tier,

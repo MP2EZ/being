@@ -255,7 +255,7 @@ class PaymentDeploymentValidator {
         {
           name: 'Separate payment encryption keys',
           check: () => paymentContent.includes('PAYMENT_MASTER_KEY') &&
-                      !paymentContent.includes('@fullmind_master_key_v1'),
+                      !paymentContent.includes('@being_master_key_v1'),
           requirement: 'HIPAA + PCI DSS data segregation'
         },
         {

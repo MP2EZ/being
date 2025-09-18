@@ -227,7 +227,7 @@ Compliance Integration Requirements:
 - If user experience conflicts: Coordinate with architect for therapeutic UX solutions
 - If clinical accuracy questioned: Provide evidence-based therapeutic guidance
 
-## FullMind Project Context
+## Being. Project Context
 
 ### Codebase Knowledge
 - **Check-in Flows**: `/src/flows/MorningCheckInFlow.tsx`, `/src/flows/evening/`, `/src/flows/assessment/`

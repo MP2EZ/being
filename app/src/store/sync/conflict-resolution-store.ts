@@ -1,5 +1,5 @@
 /**
- * Conflict Resolution Store for FullMind MBCT App
+ * Conflict Resolution Store for Being. MBCT App
  *
  * Intelligent conflict resolution with therapeutic data prioritization:
  * - AI-assisted conflict detection and resolution algorithms
@@ -1330,7 +1330,7 @@ export const useConflictResolutionStore = create<ConflictResolutionStore>()(
         },
       })),
       {
-        name: 'fullmind-conflict-resolution-store',
+        name: 'being-conflict-resolution-store',
         storage: createJSONStorage(() => AsyncStorage),
         partialize: (state) => ({
           resolutionStrategies: state.resolutionStrategies,

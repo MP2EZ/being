@@ -1061,7 +1061,7 @@ export class OfflineQueueEncryption {
     // Initialize encryption keys for all subscription tiers
     for (const tier of ['free', 'premium', 'clinical']) {
       try {
-        const keyName = `@fullmind_queue_encryption_${tier}`;
+        const keyName = `@being_queue_encryption_${tier}`;
         const existingKey = await SecureStore.getItemAsync(keyName);
 
         if (!existingKey) {

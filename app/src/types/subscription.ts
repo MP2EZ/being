@@ -672,11 +672,11 @@ export const SUBSCRIPTION_CONSTANTS = {
 
   // Storage keys
   STORAGE_KEYS: {
-    SUBSCRIPTION_STATE: 'fullmind_subscription_state',
-    TRIAL_STATE: 'fullmind_trial_state',
-    FEATURE_CACHE: 'fullmind_feature_cache',
-    PERFORMANCE_METRICS: 'fullmind_subscription_performance',
-    CRISIS_OVERRIDES: 'fullmind_crisis_overrides'
+    SUBSCRIPTION_STATE: 'being_subscription_state',
+    TRIAL_STATE: 'being_trial_state',
+    FEATURE_CACHE: 'being_feature_cache',
+    PERFORMANCE_METRICS: 'being_subscription_performance',
+    CRISIS_OVERRIDES: 'being_crisis_overrides'
   }
 } as const;
 

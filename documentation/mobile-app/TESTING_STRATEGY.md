@@ -1,8 +1,8 @@
-# FullMind MBCT App - Comprehensive Testing Strategy
+# Being. MBCT App - Comprehensive Testing Strategy
 
 ## 🏥 Executive Summary
 
-This comprehensive testing strategy ensures **100% clinical accuracy** for FullMind's MBCT mental health app. The strategy prioritizes user safety with zero tolerance for bugs in critical assessment and crisis intervention features.
+This comprehensive testing strategy ensures **100% clinical accuracy** for Being.'s MBCT mental health app. The strategy prioritizes user safety with zero tolerance for bugs in critical assessment and crisis intervention features.
 
 ### Critical Safety Metrics
 - **PHQ-9/GAD-7 Scoring Accuracy**: 100% (All 348 possible score combinations tested)

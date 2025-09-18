@@ -31,7 +31,7 @@ export interface WidgetSessionStatus {
 }
 
 export class WidgetDataService {
-  private static readonly WIDGET_DATA_KEY = 'fullmind_widget_data';
+  private static readonly WIDGET_DATA_KEY = 'being_widget_data';
   private static readonly MAX_UPDATE_FREQUENCY_MS = 60000; // 1 minute
   private lastUpdateTime: number = 0;
 
@@ -121,7 +121,7 @@ export class WidgetDataService {
       const urlObj = new URL(url);
       
       // Security: Validate URL scheme
-      if (urlObj.protocol !== 'fullmind:') {
+      if (urlObj.protocol !== 'being:') {
         console.warn('Invalid deep link protocol:', urlObj.protocol);
         return;
       }

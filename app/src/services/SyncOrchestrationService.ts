@@ -65,10 +65,10 @@ export interface SyncCapableStore {
  * Enhanced sync orchestration service with clinical safety
  */
 class SyncOrchestrationService {
-  private readonly SYNC_STATE_KEY = '@fullmind_sync_state';
-  private readonly SYNC_CONFIG_KEY = '@fullmind_sync_config';
-  private readonly SYNC_AUDIT_KEY = '@fullmind_sync_audit';
-  private readonly SYNC_PERFORMANCE_KEY = '@fullmind_sync_performance';
+  private readonly SYNC_STATE_KEY = '@being_sync_state';
+  private readonly SYNC_CONFIG_KEY = '@being_sync_config';
+  private readonly SYNC_AUDIT_KEY = '@being_sync_audit';
+  private readonly SYNC_PERFORMANCE_KEY = '@being_sync_performance';
   
   // Service state
   private isInitialized = false;
@@ -706,10 +706,10 @@ class SyncOrchestrationService {
   private async getDeviceId(): Promise<string> {
     // This would typically use a device-specific identifier
     // For now, generate a stable identifier based on stored data
-    let deviceId = await AsyncStorage.getItem('@fullmind_device_id');
+    let deviceId = await AsyncStorage.getItem('@being_device_id');
     if (!deviceId) {
       deviceId = Crypto.randomUUID();
-      await AsyncStorage.setItem('@fullmind_device_id', deviceId);
+      await AsyncStorage.setItem('@being_device_id', deviceId);
     }
     return deviceId;
   }

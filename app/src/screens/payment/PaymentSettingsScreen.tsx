@@ -232,7 +232,7 @@ const PaymentSettingsScreen: React.FC = () => {
     if (confirmDowngrade) {
       await updateSubscription({
         ...activeSubscription,
-        plan: availablePlans.find(p => p.planId === 'fullmind_free_trial') || activeSubscription.plan,
+        plan: availablePlans.find(p => p.planId === 'being_free_trial') || activeSubscription.plan,
         cancelAtPeriodEnd: false // Continue with new plan
       });
 
@@ -387,7 +387,7 @@ const PaymentSettingsScreen: React.FC = () => {
           <TouchableOpacity
             style={styles.supportOption}
             onPress={() => {
-              Linking.openURL('mailto:support@fullmind.app?subject=Financial Assistance Request');
+              Linking.openURL('mailto:support@being.app?subject=Financial Assistance Request');
             }}
           >
             <Text style={styles.supportOptionTitle}>💬 Financial Assistance Program</Text>
@@ -653,7 +653,7 @@ const PaymentSettingsScreen: React.FC = () => {
           <Button
             variant="secondary"
             onPress={() => {
-              Linking.openURL('mailto:support@fullmind.app?subject=Subscription Support');
+              Linking.openURL('mailto:support@being.app?subject=Subscription Support');
             }}
           >
             Contact Support

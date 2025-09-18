@@ -102,7 +102,7 @@ describe('Session Security Tests', () => {
       const [storageKey, storedData] = mockDataStore.setItem.mock.calls[0];
       
       // Verify data goes through secure storage (encrypted by dataStore)
-      expect(storageKey).toBe('@fullmind_resumable_session_assessment_phq9');
+      expect(storageKey).toBe('@being_resumable_session_assessment_phq9');
       
       // Data should be JSON stringified but encrypted by SecureDataStore
       const parsedData = JSON.parse(storedData);
@@ -190,7 +190,7 @@ describe('Session Security Tests', () => {
 
       // Verify data is accessed through secure storage
       expect(mockDataStore.getItem).toHaveBeenCalledWith(
-        '@fullmind_resumable_session_assessment_phq9'
+        '@being_resumable_session_assessment_phq9'
       );
       
       expect(retrieved?.data.answers).toEqual(mockClinicalData.answers);
@@ -245,7 +245,7 @@ describe('Session Security Tests', () => {
       
       // Session should be removed from index
       expect(mockAsyncStorage.setItem).toHaveBeenCalledWith(
-        '@fullmind_session_index',
+        '@being_session_index',
         '[]'
       );
     });
@@ -285,7 +285,7 @@ describe('Session Security Tests', () => {
       expect(storageKey).not.toContain('555-0123');
       
       // Should use generic session key format
-      expect(storageKey).toMatch(/@fullmind_resumable_session_checkin_morning/);
+      expect(storageKey).toMatch(/@being_resumable_session_checkin_morning/);
     });
 
     test('session data minimization - only necessary data is stored', async () => {
@@ -514,7 +514,7 @@ describe('Session Security Tests', () => {
       // Verify secure deletion from all locations
       expect(mockDataStore.removeItem).toHaveBeenCalled();
       expect(mockAsyncStorage.setItem).toHaveBeenCalledWith(
-        '@fullmind_session_index',
+        '@being_session_index',
         '[]'
       );
     });

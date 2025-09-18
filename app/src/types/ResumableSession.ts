@@ -56,9 +56,9 @@ export interface ResumableSessionService {
 }
 
 export interface SessionStorageKeys {
-  RESUMABLE_SESSION_PREFIX: '@fullmind_resumable_session_';
-  SESSION_INDEX: '@fullmind_session_index';
-  SESSION_VERSION: '@fullmind_session_version';
+  RESUMABLE_SESSION_PREFIX: '@being_resumable_session_';
+  SESSION_INDEX: '@being_session_index';
+  SESSION_VERSION: '@being_session_version';
 }
 
 export const SESSION_CONSTANTS = {

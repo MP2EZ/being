@@ -1,5 +1,5 @@
 /**
- * Therapeutic Messaging Hook for FullMind MBCT App
+ * Therapeutic Messaging Hook for Being. MBCT App
  *
  * MBCT-compliant communication with:
  * - Anxiety-reducing language patterns

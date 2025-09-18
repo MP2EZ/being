@@ -476,9 +476,9 @@ CREATE TRIGGER update_rate_limits_updated_at
 
 -- Insert default subscription plans
 INSERT INTO subscription_plans (plan_id, name, description, amount, interval_type, trial_days, features) VALUES
-('fullmind_monthly', 'FullMind Premium Monthly', 'Full access to MBCT practices and progress tracking', 999, 'month', 7,
+('being_monthly', 'Being Premium Monthly', 'Full access to MBCT practices and progress tracking', 999, 'month', 7,
  '["All MBCT guided practices", "Progress tracking and insights", "Crisis support tools", "Personalized recommendations", "Cloud sync across devices"]'::jsonb),
-('fullmind_annual', 'FullMind Premium Annual', 'Full access with annual savings', 9999, 'year', 14,
+('being_annual', 'Being Premium Annual', 'Full access with annual savings', 9999, 'year', 14,
  '["All monthly features", "Annual savings (2 months free)", "Priority customer support", "Early access to new features"]'::jsonb)
 ON CONFLICT (plan_id) DO NOTHING;
 

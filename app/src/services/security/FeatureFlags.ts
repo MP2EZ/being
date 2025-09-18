@@ -113,8 +113,8 @@ export class FeatureFlagService {
   private securityContext: SecurityContext | null = null;
 
   // Storage keys
-  private readonly FLAGS_STORAGE_KEY = '@fullmind_feature_flags_v1';
-  private readonly METADATA_STORAGE_KEY = '@fullmind_flag_metadata_v1';
+  private readonly FLAGS_STORAGE_KEY = '@being_feature_flags_v1';
+  private readonly METADATA_STORAGE_KEY = '@being_flag_metadata_v1';
 
   // Performance monitoring
   private evaluationMetrics: Map<keyof CloudFeatureFlags, {

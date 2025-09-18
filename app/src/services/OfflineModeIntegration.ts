@@ -54,8 +54,8 @@ interface SyncStrategy {
 }
 
 class OfflineModeIntegrationService {
-  private readonly STATUS_KEY = '@fullmind_offline_status';
-  private readonly SYNC_LOG_KEY = '@fullmind_sync_log';
+  private readonly STATUS_KEY = '@being_offline_status';
+  private readonly SYNC_LOG_KEY = '@being_sync_log';
   
   private isInitialized = false;
   private currentNetworkState: NetInfoState | null = null;
@@ -584,7 +584,7 @@ class OfflineModeIntegrationService {
       checks.criticalAssets = cacheStats.criticalAssetsLoaded;
       
       // Check data store
-      const testKey = '@fullmind_offline_test';
+      const testKey = '@being_offline_test';
       await AsyncStorage.setItem(testKey, 'test');
       const testValue = await AsyncStorage.getItem(testKey);
       checks.dataStore = testValue === 'test';

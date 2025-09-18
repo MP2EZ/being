@@ -1,5 +1,5 @@
 /**
- * State Synchronization Service for FullMind P0-CLOUD
+ * State Synchronization Service for Being. P0-CLOUD
  *
  * Comprehensive state management and synchronization across:
  * - Payment and subscription state
@@ -129,9 +129,9 @@ export class StateSynchronizationService {
   };
 
   // Storage keys
-  private readonly STATE_CACHE_KEY = '@fullmind_sync_state_v1';
-  private readonly CONFLICT_LOG_KEY = '@fullmind_sync_conflicts_v1';
-  private readonly OFFLINE_QUEUE_KEY = '@fullmind_offline_queue_v1';
+  private readonly STATE_CACHE_KEY = '@being_sync_state_v1';
+  private readonly CONFLICT_LOG_KEY = '@being_sync_conflicts_v1';
+  private readonly OFFLINE_QUEUE_KEY = '@being_offline_queue_v1';
 
   // State management
   private currentState: SynchronizedState | null = null;
@@ -676,11 +676,11 @@ export class StateSynchronizationService {
 
   private async getDeviceId(): Promise<string> {
     try {
-      let deviceId = await SecureStore.getItemAsync('@fullmind_device_id');
+      let deviceId = await SecureStore.getItemAsync('@being_device_id');
       if (!deviceId) {
         const { randomUUID } = await import('expo-crypto');
         deviceId = `device_${await randomUUID()}`;
-        await SecureStore.setItemAsync('@fullmind_device_id', deviceId);
+        await SecureStore.setItemAsync('@being_device_id', deviceId);
       }
       return deviceId;
     } catch (error) {

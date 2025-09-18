@@ -46,7 +46,7 @@ const createMockSubscriptionCreatedEvent = (userId: string): WebhookEvent & { da
           id: 'si_test',
           price: {
             id: 'price_test',
-            lookup_key: 'fullmind_monthly',
+            lookup_key: 'being_monthly',
             recurring: { interval: 'month' as const }
           }
         }]

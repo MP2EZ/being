@@ -1,5 +1,5 @@
 /**
- * Subscription Sync Store for FullMind MBCT App
+ * Subscription Sync Store for Being. MBCT App
  *
  * Real-time subscription state management with:
  * - Live subscription status synchronization with conflict resolution

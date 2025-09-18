@@ -47,7 +47,7 @@ jest.mock('react-native', () => ({
     removeEventListener: jest.fn()
   },
   NativeModules: {
-    FullMindWidgets: {
+    BeingWidgets: {
       updateWidgetData: jest.fn().mockImplementation(async (data: string) => {
         await new Promise(resolve => setTimeout(resolve, 50 + Math.random() * 100));
         if (Math.random() < 0.05) { // 5% chance of transient failure
@@ -462,13 +462,13 @@ describe('Widget End-to-End Integration Tests', () => {
     test('should handle transient system failures gracefully', async () => {
       console.log('🔧 Testing system resilience...');
       
-      const { FullMindWidgets } = require('react-native').NativeModules;
+      const { BeingWidgets } = require('react-native').NativeModules;
       
       // Introduce intermittent failures
       let failureCount = 0;
-      const originalImpl = FullMindWidgets.updateWidgetData.getMockImplementation();
+      const originalImpl = BeingWidgets.updateWidgetData.getMockImplementation();
       
-      FullMindWidgets.updateWidgetData.mockImplementation(async (data: string) => {
+      BeingWidgets.updateWidgetData.mockImplementation(async (data: string) => {
         failureCount++;
         if (failureCount % 3 === 0) { // Fail every 3rd call
           throw new Error('Simulated system failure');
@@ -500,7 +500,7 @@ describe('Widget End-to-End Integration Tests', () => {
       expect(status.isInitialized).toBe(true);
       
       // At least some operations should have succeeded
-      expect(FullMindWidgets.updateWidgetData).toHaveBeenCalledTimes(failureCount);
+      expect(BeingWidgets.updateWidgetData).toHaveBeenCalledTimes(failureCount);
       
       console.log(`✅ System handled ${failureCount} operations with graceful failure recovery`);
     });

@@ -1,5 +1,5 @@
 /**
- * Webhook Security API for FullMind MBCT App
+ * Webhook Security API for Being. MBCT App
  *
  * HMAC validation, threat detection, and security monitoring for webhook processing
  * - Cryptographic signature verification with crisis-aware timing
@@ -844,8 +844,8 @@ export class WebhookSecurityAPI {
 
   private async getSecurityEmergencyResources(): Promise<string[]> {
     return [
-      'Security Support: security@fullmind.app',
-      'Emergency Contact: support@fullmind.app',
+      'Security Support: security@being.app',
+      'Emergency Contact: support@being.app',
       'Incident Response: 24/7 monitoring',
     ];
   }

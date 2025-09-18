@@ -1,5 +1,5 @@
 /**
- * Webhook State Manager for FullMind MBCT App
+ * Webhook State Manager for Being. MBCT App
  *
  * Central coordination hub for all webhook-related state management with:
  * - Crisis-safe state transitions (<200ms for emergency operations)

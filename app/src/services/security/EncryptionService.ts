@@ -1,5 +1,5 @@
 /**
- * HIPAA-Compliant Encryption Service for FullMind MBCT App
+ * HIPAA-Compliant Encryption Service for Being. MBCT App
  * 
  * Implements AES-256-GCM encryption for sensitive mental health data
  * Compliant with:
@@ -57,10 +57,10 @@ export class EncryptionService {
   private readonly KEY_VERSION = 1;
   
   // SecureStore keys for different encryption keys
-  private readonly MASTER_KEY = '@fullmind_master_key_v1';
-  private readonly CLINICAL_KEY = '@fullmind_clinical_key_v1';
-  private readonly PERSONAL_KEY = '@fullmind_personal_key_v1';
-  private readonly KEY_ROTATION_DATE = '@fullmind_key_rotation_date';
+  private readonly MASTER_KEY = '@being_master_key_v1';
+  private readonly CLINICAL_KEY = '@being_clinical_key_v1';
+  private readonly PERSONAL_KEY = '@being_personal_key_v1';
+  private readonly KEY_ROTATION_DATE = '@being_key_rotation_date';
   
   // Key rotation policies: different for clinical vs personal data
   private readonly CLINICAL_KEY_ROTATION_DAYS = 90;

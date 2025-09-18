@@ -2,7 +2,7 @@
 
 ## Overview
 
-This comprehensive API integration system provides webhook endpoint patterns and external service communication with crisis safety guarantees for the FullMind MBCT app. Built on the foundation of the TypeScript agent's webhook hooks and types system.
+This comprehensive API integration system provides webhook endpoint patterns and external service communication with crisis safety guarantees for the Being. MBCT app. Built on the foundation of the TypeScript agent's webhook hooks and types system.
 
 ## Architecture
 

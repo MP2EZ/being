@@ -1,5 +1,5 @@
 /**
- * Crisis Safety Type Constraints for FullMind MBCT App
+ * Crisis Safety Type Constraints for Being. MBCT App
  *
  * Defines strict type constraints ensuring:
  * - <200ms crisis response guarantees

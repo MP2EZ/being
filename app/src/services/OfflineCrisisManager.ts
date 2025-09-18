@@ -30,9 +30,9 @@ export interface EmergencyContact {
 }
 
 export class OfflineCrisisManager {
-  private static readonly CRISIS_STORAGE_KEY = '@fullmind_offline_crisis_resources';
-  private static readonly EMERGENCY_CONTACTS_KEY = '@fullmind_emergency_contacts';
-  private static readonly SAFETY_PLAN_KEY = '@fullmind_safety_plan';
+  private static readonly CRISIS_STORAGE_KEY = '@being_offline_crisis_resources';
+  private static readonly EMERGENCY_CONTACTS_KEY = '@being_emergency_contacts';
+  private static readonly SAFETY_PLAN_KEY = '@being_safety_plan';
 
   /**
    * Initialize critical crisis data for offline access

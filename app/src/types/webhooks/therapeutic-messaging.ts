@@ -1,5 +1,5 @@
 /**
- * Therapeutic Messaging Type System for FullMind MBCT App
+ * Therapeutic Messaging Type System for Being. MBCT App
  *
  * MBCT-compliant communication types ensuring:
  * - Anxiety-reducing language patterns

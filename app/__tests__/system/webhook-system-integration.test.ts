@@ -1,5 +1,5 @@
 /**
- * Webhook System Integration Tests - FullMind MBCT App
+ * Webhook System Integration Tests - Being. MBCT App
  *
  * Complete system integration testing combining all webhook phases:
  * - Phase 1: Payment store webhook integration

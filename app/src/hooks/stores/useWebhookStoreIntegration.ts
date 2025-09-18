@@ -1,5 +1,5 @@
 /**
- * Webhook Store Integration Hook for FullMind MBCT App
+ * Webhook Store Integration Hook for Being. MBCT App
  *
  * Seamless Zustand store integration with:
  * - Real-time webhook state synchronization

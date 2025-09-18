@@ -1,5 +1,5 @@
 /**
- * Cross-Device Coordination Store for FullMind MBCT App
+ * Cross-Device Coordination Store for Being. MBCT App
  *
  * Advanced multi-device state synchronization with:
  * - Therapeutic session handoff with context preservation
@@ -1496,7 +1496,7 @@ export const useCrossDeviceCoordinationStore = create<CrossDeviceCoordinationSto
         },
       })),
       {
-        name: 'fullmind-cross-device-coordination-store',
+        name: 'being-cross-device-coordination-store',
         storage: createJSONStorage(() => AsyncStorage),
         partialize: (state) => ({
           currentDevice: state.currentDevice,

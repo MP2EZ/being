@@ -1,5 +1,5 @@
 /**
- * Real-Time Subscription Status Hook for FullMind MBCT App
+ * Real-Time Subscription Status Hook for Being. MBCT App
  *
  * Real-time subscription state management with:
  * - Live subscription status synchronization

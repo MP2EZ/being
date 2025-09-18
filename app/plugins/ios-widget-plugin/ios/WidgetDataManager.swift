@@ -27,7 +27,7 @@ class WidgetDataManager {
             }
             
             // Fallback to unencrypted data (for development)
-            if let widgetDataJSON = userDefaults.string(forKey: "fullmind_widget_data"),
+            if let widgetDataJSON = userDefaults.string(forKey: "being_widget_data"),
                let widgetDataDict = parseJSON(widgetDataJSON) {
                 
                 // Verify data integrity
@@ -66,7 +66,7 @@ class WidgetDataManager {
     }
     
     private func storePlainData(_ jsonData: String) {
-        userDefaults.set(jsonData, forKey: "fullmind_widget_data")
+        userDefaults.set(jsonData, forKey: "being_widget_data")
         userDefaults.set(Date().timeIntervalSince1970, forKey: "last_update_timestamp")
     }
     

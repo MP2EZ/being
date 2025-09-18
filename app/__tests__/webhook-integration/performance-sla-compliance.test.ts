@@ -1,5 +1,5 @@
 /**
- * Performance SLA Compliance Tests - FullMind MBCT App
+ * Performance SLA Compliance Tests - Being. MBCT App
  *
  * Comprehensive performance validation including:
  * - End-to-end webhook processing performance (<2000ms normal, <200ms crisis)

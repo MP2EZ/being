@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * FullMind Payment UI Testing & Validation Script
+ * Being. Payment UI Testing & Validation Script
  * Day 16 Phase 5: Comprehensive Testing Execution
  *
  * CRITICAL TESTING AREAS:

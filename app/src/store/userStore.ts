@@ -214,10 +214,10 @@ export const useUserStore = create<EnhancedUserState>((set, get) => {
 
   // Device information for security binding
   const getDeviceId = async (): Promise<string> => {
-    let deviceId = await SecureStore.getItemAsync('@fullmind_device_id');
+    let deviceId = await SecureStore.getItemAsync('@being_device_id');
     if (!deviceId) {
       deviceId = `device_${await Crypto.randomUUID()}`;
-      await SecureStore.setItemAsync('@fullmind_device_id', deviceId);
+      await SecureStore.setItemAsync('@being_device_id', deviceId);
     }
     return deviceId;
   };
@@ -452,7 +452,7 @@ export const useUserStore = create<EnhancedUserState>((set, get) => {
       });
 
       // Clear persisted session
-      await SecureStore.deleteItemAsync('@fullmind_user_session_v1');
+      await SecureStore.deleteItemAsync('@being_user_session_v1');
 
     } catch (error) {
       console.error('Sign out failed:', error);
@@ -481,7 +481,7 @@ export const useUserStore = create<EnhancedUserState>((set, get) => {
   const persistSession = async (session: AuthSession) => {
     try {
       const encryptedSession = await encryptionService.encryptData(session, DataSensitivity.PERSONAL);
-      await SecureStore.setItemAsync('@fullmind_user_session_v1', JSON.stringify(encryptedSession));
+      await SecureStore.setItemAsync('@being_user_session_v1', JSON.stringify(encryptedSession));
     } catch (error) {
       console.error('Session persistence failed:', error);
     }
@@ -489,7 +489,7 @@ export const useUserStore = create<EnhancedUserState>((set, get) => {
 
   const hydrateSession = async (): Promise<void> => {
     try {
-      const encryptedData = await SecureStore.getItemAsync('@fullmind_user_session_v1');
+      const encryptedData = await SecureStore.getItemAsync('@being_user_session_v1');
       if (encryptedData) {
         const encryptedSession = JSON.parse(encryptedData);
         const session = await encryptionService.decryptData(encryptedSession, DataSensitivity.PERSONAL);
@@ -518,14 +518,14 @@ export const useUserStore = create<EnhancedUserState>((set, get) => {
           }
         } else {
           // Clean up expired session
-          await SecureStore.deleteItemAsync('@fullmind_user_session_v1');
+          await SecureStore.deleteItemAsync('@being_user_session_v1');
           console.log('Expired session cleaned up during hydration');
         }
       }
     } catch (error) {
       console.error('Session hydration failed:', error);
       // Clean up potentially corrupted session data
-      await SecureStore.deleteItemAsync('@fullmind_user_session_v1');
+      await SecureStore.deleteItemAsync('@being_user_session_v1');
     }
   };
 
@@ -1313,7 +1313,7 @@ export const useUserStore = create<EnhancedUserState>((set, get) => {
         if (session) {
           await sessionSecurityService.invalidateSession('app_cleanup');
         }
-        await SecureStore.deleteItemAsync('@fullmind_user_session_v1');
+        await SecureStore.deleteItemAsync('@being_user_session_v1');
         console.log('User store cleanup completed');
       } catch (error) {
         console.error('User store cleanup failed:', error);

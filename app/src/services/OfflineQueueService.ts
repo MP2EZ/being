@@ -35,10 +35,10 @@ import {
  * Enhanced OfflineQueueService with clinical safety and advanced features
  */
 class EnhancedOfflineQueueService {
-  private readonly QUEUE_KEY = '@fullmind_enhanced_offline_queue';
-  private readonly STATISTICS_KEY = '@fullmind_queue_statistics';
-  private readonly CONFIG_KEY = '@fullmind_sync_config';
-  private readonly INTEGRITY_CHECK_KEY = '@fullmind_data_integrity';
+  private readonly QUEUE_KEY = '@being_enhanced_offline_queue';
+  private readonly STATISTICS_KEY = '@being_queue_statistics';
+  private readonly CONFIG_KEY = '@being_sync_config';
+  private readonly INTEGRITY_CHECK_KEY = '@being_data_integrity';
   
   // Enhanced configuration
   private readonly DEFAULT_MAX_RETRIES = 5;

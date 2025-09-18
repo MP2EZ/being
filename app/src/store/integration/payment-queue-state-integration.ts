@@ -1,5 +1,5 @@
 /**
- * Payment Queue State Integration for FullMind MBCT App
+ * Payment Queue State Integration for Being. MBCT App
  *
  * Payment system queue state management with subscription awareness:
  * - Payment operation queue management with subscription tier enforcement
@@ -1073,7 +1073,7 @@ export const usePaymentQueueIntegrationStore = create<PaymentQueueIntegrationSta
         },
       })),
       {
-        name: 'fullmind-payment-queue-integration',
+        name: 'being-payment-queue-integration',
         storage: createJSONStorage(() => AsyncStorage),
         partialize: (state) => ({
           // Convert Maps to objects for serialization

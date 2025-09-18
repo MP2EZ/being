@@ -1,5 +1,5 @@
 /**
- * Webhook Hooks Index for FullMind MBCT App
+ * Webhook Hooks Index for Being. MBCT App
  *
  * Central export point for all webhook-related hooks
  */

@@ -1,5 +1,5 @@
 /**
- * FullMind Color System - Direct port from Design Library v1.1
+ * Being. Color System - Direct port from Design Library v1.1
  * React Native optimized version
  */
 

@@ -1,7 +1,7 @@
 /**
  * Comprehensive Offline Scenario Testing
  * Addresses critical gaps identified by crisis and clinician agents
- * Ensures clinical-grade reliability for FullMind MBCT app
+ * Ensures clinical-grade reliability for Being. MBCT app
  * 
  * Critical Requirements Addressed:
  * - Real-time crisis monitoring during partial assessments

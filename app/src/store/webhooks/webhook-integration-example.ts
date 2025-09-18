@@ -1,5 +1,5 @@
 /**
- * Webhook Integration Example for FullMind MBCT App
+ * Webhook Integration Example for Being. MBCT App
  *
  * Comprehensive example demonstrating real-time webhook state synchronization
  * with crisis-safe operations, therapeutic continuity, and performance monitoring.

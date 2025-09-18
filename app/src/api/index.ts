@@ -1,5 +1,5 @@
 /**
- * API Integration Index for FullMind MBCT App
+ * API Integration Index for Being. MBCT App
  *
  * Central export point for all API integration patterns
  * - Webhook processing with crisis safety guarantees

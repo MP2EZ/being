@@ -1,5 +1,5 @@
 /**
- * FullMind Cloud SDK - Type-Safe Client for Zero-Knowledge Cloud Services
+ * Being. Cloud SDK - Type-Safe Client for Zero-Knowledge Cloud Services
  *
  * Production-ready TypeScript SDK with comprehensive error handling,
  * validation, and monitoring for HIPAA-compliant cloud operations
@@ -75,9 +75,9 @@ interface SyncResult extends SDKResult<{
 }
 
 /**
- * Main FullMind Cloud SDK Class
+ * Main Being. Cloud SDK Class
  */
-export class FullMindCloudSDK {
+export class BeingCloudSDK {
   private config: SDKConfig;
   private initialized = false;
   private syncInProgress = false;
@@ -739,8 +739,8 @@ export class FullMindCloudSDK {
 /**
  * Create configured SDK instance
  */
-export const createCloudSDK = (config?: Partial<SDKConfig>): FullMindCloudSDK => {
-  return new FullMindCloudSDK(config);
+export const createCloudSDK = (config?: Partial<SDKConfig>): BeingCloudSDK => {
+  return new BeingCloudSDK(config);
 };
 
 /**

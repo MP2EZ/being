@@ -1,5 +1,5 @@
 /**
- * Payment Status Synchronization API for FullMind MBCT App
+ * Payment Status Synchronization API for Being. MBCT App
  *
  * Real-time payment status synchronization with crisis safety guarantees
  * - Immediate status updates for therapeutic continuity
@@ -621,7 +621,7 @@ export class PaymentStatusSyncAPI {
     return [
       '988 Suicide & Crisis Lifeline',
       'Crisis Text Line: Text HOME to 741741',
-      'Payment Support: support@fullmind.app',
+      'Payment Support: support@being.app',
     ];
   }
 

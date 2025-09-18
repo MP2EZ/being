@@ -1,5 +1,5 @@
 /**
- * Offline Queue Store for FullMind MBCT App
+ * Offline Queue Store for Being. MBCT App
  *
  * Core offline queue state management with crisis protection:
  * - Persistent queue state with encrypted storage for sensitive operations
@@ -678,7 +678,7 @@ export const useOfflineQueueStore = create<OfflineQueueState & OfflineQueueActio
         },
       })),
       {
-        name: 'fullmind-offline-queue',
+        name: 'being-offline-queue',
         storage: createJSONStorage(() => AsyncStorage),
         partialize: (state) => ({
           queuedOperations: state.queuedOperations,

@@ -111,9 +111,9 @@ export class SessionSecurityService {
   };
 
   // Storage keys
-  private readonly SESSION_KEY = '@fullmind_session_security_v1';
-  private readonly ACTIVITY_LOG_KEY = '@fullmind_session_activity_v1';
-  private readonly CONFIG_KEY = '@fullmind_session_config_v1';
+  private readonly SESSION_KEY = '@being_session_security_v1';
+  private readonly ACTIVITY_LOG_KEY = '@being_session_activity_v1';
+  private readonly CONFIG_KEY = '@being_session_config_v1';
 
   private constructor() {
     this.initialize();

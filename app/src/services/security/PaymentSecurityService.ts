@@ -1,5 +1,5 @@
 /**
- * PCI DSS Compliant Payment Security Service for FullMind MBCT App
+ * PCI DSS Compliant Payment Security Service for Being. MBCT App
  *
  * Implements PCI DSS Level 2 compliance with zero-card-data-storage strategy
  * Maintains <200ms crisis response times through payment bypass protocols
@@ -122,10 +122,10 @@ export class PaymentSecurityService {
 
   // PCI DSS Encryption Configuration - Separate from PHI encryption
   // These keys are completely isolated from health data encryption context
-  private readonly PAYMENT_KEY_PREFIX = '@fullmind_payment_';
-  private readonly PAYMENT_MASTER_KEY = '@fullmind_payment_master_v1'; // Separate from health master key
-  private readonly PAYMENT_TOKENIZATION_KEY = '@fullmind_payment_tokenization_v1';
-  private readonly PAYMENT_AUDIT_KEY = '@fullmind_payment_audit_v1';
+  private readonly PAYMENT_KEY_PREFIX = '@being_payment_';
+  private readonly PAYMENT_MASTER_KEY = '@being_payment_master_v1'; // Separate from health master key
+  private readonly PAYMENT_TOKENIZATION_KEY = '@being_payment_tokenization_v1';
+  private readonly PAYMENT_AUDIT_KEY = '@being_payment_audit_v1';
 
   // PCI DSS Key Rotation (more frequent than HIPAA)
   private readonly PAYMENT_KEY_ROTATION_DAYS = 30; // Monthly rotation for PCI compliance

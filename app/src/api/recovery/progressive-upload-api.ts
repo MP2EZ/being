@@ -177,7 +177,7 @@ export class ProgressiveUploadAPI {
     this.networkQuality = null;
     this.compressionWorker = null; // Would initialize web worker for compression
     this.progressCallbacks = new Map();
-    this.storageKey = config?.storageKey || 'fullmind_progressive_upload';
+    this.storageKey = config?.storageKey || 'being_progressive_upload';
 
     // Initialize network monitoring
     this.initializeNetworkMonitoring();

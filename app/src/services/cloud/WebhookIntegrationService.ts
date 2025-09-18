@@ -1,5 +1,5 @@
 /**
- * Webhook Integration Service for FullMind P0-CLOUD Payment System
+ * Webhook Integration Service for Being. P0-CLOUD Payment System
  *
  * Orchestrates comprehensive webhook processing with:
  * - Complete webhook lifecycle management with security validation

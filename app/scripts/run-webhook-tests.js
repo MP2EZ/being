@@ -181,7 +181,7 @@ class WebhookTestRunner {
   }
 
   async runAllTests() {
-    logHeader('FullMind Webhook UI Testing Suite - Crisis Safety & Therapeutic Validation');
+    logHeader('Being. Webhook UI Testing Suite - Crisis Safety & Therapeutic Validation');
 
     log('🧠 Mental Health App Testing Framework', 'magenta');
     log('🚨 Crisis Safety: Sub-200ms response requirements', 'yellow');

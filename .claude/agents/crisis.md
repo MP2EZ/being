@@ -233,7 +233,7 @@ Therapeutic Integration Requirements:
 - If therapeutic relationship damaged: Provide recovery protocols and professional referral options
 - If emergency resources unavailable: Activate backup systems and alternative intervention paths
 
-## FullMind Project Context
+## Being. Project Context
 
 ### Codebase Knowledge
 - **Assessment Store**: `/src/store/assessmentStore.ts` with crisis detection logic

@@ -54,7 +54,7 @@ const TestWidgetDisplay: React.FC<{ widgetData: WidgetData | null }> = ({ widget
 
   return (
     <div
-      accessibilityLabel="FullMind widget"
+      accessibilityLabel="Being. widget"
       accessibilityRole="region"
       accessible={true}
     >
@@ -342,7 +342,7 @@ describe('Widget Accessibility Comprehensive Tests', () => {
       
       // Should have clear, simple structure
       const region = getByRole('region');
-      expect(region.props.accessibilityLabel).toBe('FullMind widget');
+      expect(region.props.accessibilityLabel).toBe('Being. widget');
       
       // Progress should be easy to understand
       const progressBar = getByRole('progressbar');

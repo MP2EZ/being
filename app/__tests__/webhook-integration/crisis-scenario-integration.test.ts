@@ -1,5 +1,5 @@
 /**
- * Crisis Scenario Integration Tests - FullMind MBCT App
+ * Crisis Scenario Integration Tests - Being. MBCT App
  *
  * Comprehensive crisis safety validation including:
  * - <200ms crisis response guarantee across entire system

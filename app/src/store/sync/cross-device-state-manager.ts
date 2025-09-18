@@ -1,7 +1,7 @@
 /**
  * Cross-Device State Manager - Comprehensive Multi-Device State Synchronization
  *
- * Advanced state management orchestration for FullMind MBCT App:
+ * Advanced state management orchestration for Being. MBCT App:
  * - Crisis-first state sync with <200ms emergency response
  * - Zero-knowledge end-to-end encrypted state synchronization
  * - Therapeutic continuity preservation across device handoffs
@@ -611,7 +611,7 @@ class StateOrchestrationEngine {
   private async activateCrisisFallback(crisisData: any): Promise<void> {
     // Ensure local crisis state is immediately accessible
     await AsyncStorage.setItem(
-      '@fullmind_crisis_fallback_state',
+      '@being_crisis_fallback_state',
       await encryptionService.encryptData(crisisData, DataSensitivity.CLINICAL)
     );
 

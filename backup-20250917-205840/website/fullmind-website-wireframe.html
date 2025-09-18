@@ -1,0 +1,942 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FullMind Website Wireframe</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', system-ui, sans-serif;
+            line-height: 1.6;
+            color: #1C1C1C;
+        }
+        
+        /* Header */
+        .header {
+            background: white;
+            padding: 20px 0;
+            border-bottom: 1px solid #E8E8E8;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        .nav-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 24px;
+            font-weight: 600;
+            color: #1B2951;
+        }
+        
+        .nav-links {
+            display: flex;
+            gap: 30px;
+            align-items: center;
+        }
+        
+        .nav-links a {
+            color: #757575;
+            text-decoration: none;
+            font-size: 15px;
+            transition: color 0.2s;
+        }
+        
+        .nav-links a:hover {
+            color: #1B2951;
+        }
+        
+        .cta-button {
+            background: #4A90E2;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        
+        .cta-button:hover {
+            background: #3A7BC8;
+            transform: translateY(-2px);
+        }
+        
+        /* Hero Section */
+        .hero {
+            background: linear-gradient(135deg, #F0F7FF 0%, #FFF8F0 100%);
+            padding: 80px 20px;
+        }
+        
+        .hero-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 60px;
+            align-items: center;
+        }
+        
+        .hero-content h1 {
+            font-size: 48px;
+            font-weight: 300;
+            line-height: 1.2;
+            margin-bottom: 20px;
+            color: #1B2951;
+        }
+        
+        .hero-content h1 strong {
+            font-weight: 600;
+        }
+        
+        .hero-subtitle {
+            font-size: 20px;
+            color: #757575;
+            margin-bottom: 30px;
+        }
+        
+        .hero-bullets {
+            margin-bottom: 40px;
+        }
+        
+        .hero-bullet {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .check-icon {
+            width: 24px;
+            height: 24px;
+            background: #95B99C;
+            border-radius: 50%;
+            margin-right: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 14px;
+        }
+        
+        .hero-cta {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .primary-cta {
+            background: #FF9F43;
+            color: white;
+            padding: 16px 32px;
+            border-radius: 12px;
+            text-decoration: none;
+            font-size: 18px;
+            font-weight: 500;
+            transition: all 0.2s;
+            display: inline-block;
+        }
+        
+        .primary-cta:hover {
+            background: #E8863A;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(255, 159, 67, 0.3);
+        }
+        
+        .secondary-cta {
+            color: #4A90E2;
+            text-decoration: none;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .app-mockup {
+            position: relative;
+        }
+        
+        .phone-frame {
+            width: 320px;
+            height: 650px;
+            background: #000;
+            border-radius: 40px;
+            padding: 10px;
+            margin: 0 auto;
+            box-shadow: 0 30px 60px rgba(0,0,0,0.2);
+        }
+        
+        .phone-screen {
+            width: 100%;
+            height: 100%;
+            background: white;
+            border-radius: 30px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .screen-content {
+            padding: 20px;
+        }
+        
+        .mock-header {
+            text-align: center;
+            padding: 15px;
+            border-bottom: 1px solid #E8E8E8;
+            font-weight: 600;
+        }
+        
+        /* Trust Section */
+        .trust-section {
+            background: white;
+            padding: 60px 20px;
+            border-bottom: 1px solid #E8E8E8;
+        }
+        
+        .trust-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            text-align: center;
+        }
+        
+        .trust-items {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 40px;
+            margin-top: 40px;
+        }
+        
+        .trust-item {
+            text-align: center;
+        }
+        
+        .trust-icon {
+            width: 60px;
+            height: 60px;
+            background: #F0F7FF;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 15px;
+            font-size: 24px;
+        }
+        
+        .trust-number {
+            font-size: 32px;
+            font-weight: 600;
+            color: #1B2951;
+            margin-bottom: 5px;
+        }
+        
+        .trust-label {
+            color: #757575;
+            font-size: 14px;
+        }
+        
+        /* Features Section */
+        .features-section {
+            background: #FAFAFA;
+            padding: 80px 20px;
+        }
+        
+        .features-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .section-header {
+            text-align: center;
+            margin-bottom: 60px;
+        }
+        
+        .section-title {
+            font-size: 36px;
+            font-weight: 300;
+            margin-bottom: 15px;
+            color: #1B2951;
+        }
+        
+        .section-subtitle {
+            font-size: 18px;
+            color: #757575;
+        }
+        
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 30px;
+        }
+        
+        .feature-card {
+            background: white;
+            padding: 30px;
+            border-radius: 16px;
+            border: 1px solid #E8E8E8;
+            transition: all 0.3s;
+        }
+        
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        
+        .feature-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+            font-size: 24px;
+        }
+        
+        .morning-icon { background: #FFF8F0; color: #FF9F43; }
+        .midday-icon { background: #F0FBF9; color: #40B5AD; }
+        .evening-icon { background: #F0F8F4; color: #4A7C59; }
+        
+        .feature-title {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #1B2951;
+        }
+        
+        .feature-description {
+            color: #757575;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        
+        /* Clinical Section */
+        .clinical-section {
+            background: white;
+            padding: 80px 20px;
+        }
+        
+        .clinical-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 60px;
+            align-items: center;
+        }
+        
+        .clinical-content {
+            order: 2;
+        }
+        
+        .clinical-visual {
+            order: 1;
+            background: #F0F7FF;
+            padding: 40px;
+            border-radius: 20px;
+        }
+        
+        .assessment-preview {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        
+        .assessment-score {
+            background: #4A90E2;
+            color: white;
+            padding: 30px;
+            border-radius: 12px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .score-big {
+            font-size: 48px;
+            font-weight: bold;
+        }
+        
+        /* Therapist Section */
+        .therapist-section {
+            background: linear-gradient(135deg, #1B2951 0%, #2C5282 100%);
+            color: white;
+            padding: 80px 20px;
+        }
+        
+        .therapist-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            text-align: center;
+        }
+        
+        .therapist-quote {
+            font-size: 24px;
+            font-weight: 300;
+            line-height: 1.5;
+            margin-bottom: 30px;
+            font-style: italic;
+        }
+        
+        .therapist-author {
+            font-size: 16px;
+            opacity: 0.9;
+        }
+        
+        .therapist-badges {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-top: 40px;
+            flex-wrap: wrap;
+        }
+        
+        .badge {
+            background: rgba(255,255,255,0.1);
+            padding: 15px 25px;
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+        
+        /* Pricing Section */
+        .pricing-section {
+            background: #FAFAFA;
+            padding: 80px 20px;
+        }
+        
+        .pricing-container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        
+        .pricing-cards {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 30px;
+            margin-top: 40px;
+        }
+        
+        .pricing-card {
+            background: white;
+            padding: 40px;
+            border-radius: 16px;
+            border: 2px solid #E8E8E8;
+            text-align: center;
+            position: relative;
+        }
+        
+        .pricing-card.featured {
+            border-color: #FF9F43;
+            transform: scale(1.05);
+        }
+        
+        .pricing-badge {
+            position: absolute;
+            top: -12px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #FF9F43;
+            color: white;
+            padding: 5px 20px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .price {
+            font-size: 48px;
+            font-weight: 600;
+            color: #1B2951;
+            margin: 20px 0;
+        }
+        
+        .price-period {
+            font-size: 18px;
+            color: #757575;
+            font-weight: 400;
+        }
+        
+        .pricing-features {
+            margin: 30px 0;
+            text-align: left;
+        }
+        
+        .pricing-feature {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+        
+        /* Footer */
+        .footer {
+            background: #1B2951;
+            color: white;
+            padding: 60px 20px 30px;
+        }
+        
+        .footer-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .footer-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1fr;
+            gap: 40px;
+            margin-bottom: 40px;
+        }
+        
+        .footer-brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 15px;
+        }
+        
+        .footer-description {
+            opacity: 0.8;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        
+        .footer-links h4 {
+            margin-bottom: 15px;
+            font-size: 14px;
+            text-transform: uppercase;
+            opacity: 0.6;
+        }
+        
+        .footer-links a {
+            display: block;
+            color: white;
+            text-decoration: none;
+            opacity: 0.8;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+        
+        .footer-links a:hover {
+            opacity: 1;
+        }
+        
+        .footer-bottom {
+            border-top: 1px solid rgba(255,255,255,0.1);
+            padding-top: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .app-badges {
+            display: flex;
+            gap: 15px;
+        }
+        
+        .app-badge {
+            width: 140px;
+            height: 45px;
+            background: black;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 12px;
+        }
+        
+        /* Mobile CTA Bar */
+        .mobile-cta-bar {
+            display: none;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            padding: 15px;
+            box-shadow: 0 -5px 20px rgba(0,0,0,0.1);
+            z-index: 100;
+        }
+        
+        @media (max-width: 768px) {
+            .hero-container {
+                grid-template-columns: 1fr;
+            }
+            
+            .feature-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .clinical-container {
+                grid-template-columns: 1fr;
+            }
+            
+            .pricing-cards {
+                grid-template-columns: 1fr;
+            }
+            
+            .footer-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .trust-items {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .mobile-cta-bar {
+                display: block;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <nav class="nav-container">
+            <div class="logo">
+                <svg width="32" height="32" viewBox="0 0 32 32">
+                    <defs>
+                        <clipPath id="brainClip">
+                            <path d="M16 4C20 4 24 6 26 10C28 14 26 18 24 20C26 22 28 26 24 28C20 28 16 26 16 28C16 26 12 28 8 28C4 26 6 22 8 20C6 18 4 14 6 10C8 6 12 4 16 4Z" />
+                        </clipPath>
+                    </defs>
+                    <path d="M16 4C20 4 24 6 26 10C28 14 26 18 24 20C26 22 28 26 24 28C20 28 16 26 16 28C16 26 12 28 8 28C4 26 6 22 8 20C6 18 4 14 6 10C8 6 12 4 16 4Z" 
+                          fill="white" stroke="#1B2951" stroke-width="2"/>
+                    <g clip-path="url(#brainClip)">
+                        <rect x="0" y="12.8" width="32" height="19.2" fill="#1B2951" />
+                    </g>
+                </svg>
+                FullMind
+            </div>
+            <div class="nav-links">
+                <a href="#features">Features</a>
+                <a href="#clinical">Clinical</a>
+                <a href="#pricing">Pricing</a>
+                <a href="#therapists">For Therapists</a>
+                <a href="#" class="cta-button">Get Started</a>
+            </div>
+        </nav>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-container">
+            <div class="hero-content">
+                <h1>The <strong>Complete MBCT Protocol</strong><br>In Your Pocket</h1>
+                <p class="hero-subtitle">Evidence-based therapy that fits your real life. All essential MBCT techniques in just 15 minutes daily.</p>
+                
+                <div class="hero-bullets">
+                    <div class="hero-bullet">
+                        <div class="check-icon">✓</div>
+                        <span>Full 8-week MBCT curriculum, optimized for daily practice</span>
+                    </div>
+                    <div class="hero-bullet">
+                        <div class="check-icon">✓</div>
+                        <span>PHQ-9 & GAD-7 clinical assessments built-in</span>
+                    </div>
+                    <div class="hero-bullet">
+                        <div class="check-icon">✓</div>
+                        <span>Trusted by therapists, validated by research</span>
+                    </div>
+                    <div class="hero-bullet">
+                        <div class="check-icon">✓</div>
+                        <span>24/7 crisis support & prevention planning</span>
+                    </div>
+                </div>
+                
+                <div class="hero-cta">
+                    <a href="#" class="primary-cta">Start Free Trial</a>
+                    <a href="#" class="secondary-cta">Watch Demo →</a>
+                </div>
+            </div>
+            
+            <div class="app-mockup">
+                <div class="phone-frame">
+                    <div class="phone-screen">
+                        <div class="mock-header">Morning Check-in</div>
+                        <div class="screen-content">
+                            <h3 style="text-align: center; margin: 20px 0;">Notice Your Body</h3>
+                            <p style="text-align: center; color: #757575; font-size: 14px; margin-bottom: 20px;">Where do you feel tension?</p>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                                <div style="background: #FFF8F0; border: 2px solid #FF9F43; padding: 12px; border-radius: 8px; text-align: center; font-size: 14px;">Shoulders</div>
+                                <div style="background: #f5f5f5; border: 2px solid #e8e8e8; padding: 12px; border-radius: 8px; text-align: center; font-size: 14px;">Neck</div>
+                                <div style="background: #f5f5f5; border: 2px solid #e8e8e8; padding: 12px; border-radius: 8px; text-align: center; font-size: 14px;">Back</div>
+                                <div style="background: #FFF8F0; border: 2px solid #FF9F43; padding: 12px; border-radius: 8px; text-align: center; font-size: 14px;">Chest</div>
+                            </div>
+                            <div style="display: flex; gap: 8px; justify-content: center; margin: 30px 0;">
+                                <div style="width: 24px; height: 4px; background: #FF9F43; border-radius: 2px;"></div>
+                                <div style="width: 8px; height: 4px; background: #e8e8e8; border-radius: 2px;"></div>
+                                <div style="width: 8px; height: 4px; background: #e8e8e8; border-radius: 2px;"></div>
+                                <div style="width: 8px; height: 4px; background: #e8e8e8; border-radius: 2px;"></div>
+                            </div>
+                            <div style="background: #FF9F43; color: white; padding: 14px; border-radius: 12px; text-align: center; font-weight: 500;">Continue</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Trust Section -->
+    <section class="trust-section">
+        <div class="trust-container">
+            <div class="trust-items">
+                <div class="trust-item">
+                    <div class="trust-icon">🧠</div>
+                    <div class="trust-number">100%</div>
+                    <div class="trust-label">Evidence-Based</div>
+                </div>
+                <div class="trust-item">
+                    <div class="trust-icon">🔒</div>
+                    <div class="trust-number">Private</div>
+                    <div class="trust-label">Your Data, Your Device</div>
+                </div>
+                <div class="trust-item">
+                    <div class="trust-icon">⚕️</div>
+                    <div class="trust-number">Clinical</div>
+                    <div class="trust-label">Hospital-Grade Tools</div>
+                </div>
+                <div class="trust-item">
+                    <div class="trust-icon">📊</div>
+                    <div class="trust-number">85%</div>
+                    <div class="trust-label">Completion Rate</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="features-section" id="features">
+        <div class="features-container">
+            <div class="section-header">
+                <h2 class="section-title">Your Complete Daily Practice</h2>
+                <p class="section-subtitle">Three evidence-based check-ins that adapt to your schedule</p>
+            </div>
+            
+            <div class="feature-grid">
+                <div class="feature-card">
+                    <div class="feature-icon morning-icon">🌅</div>
+                    <h3 class="feature-title">Morning Check-in</h3>
+                    <p class="feature-description">Start with body awareness, emotion recognition, and intention setting. Build mindfulness before anxiety takes hold. 5-7 minutes.</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon midday-icon">☀️</div>
+                    <h3 class="feature-title">Midday Reset</h3>
+                    <p class="feature-description">The classic MBCT 3-minute breathing space. Interrupt rumination, reconnect with the present, choose your response.</p>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon evening-icon">🌙</div>
+                    <h3 class="feature-title">Evening Reflection</h3>
+                    <p class="feature-description">Process your day without judgment. Recognize patterns, celebrate progress, prepare for tomorrow. 5-6 minutes.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Clinical Section -->
+    <section class="clinical-section" id="clinical">
+        <div class="clinical-container">
+            <div class="clinical-visual">
+                <div class="assessment-preview">
+                    <div class="assessment-score">
+                        <div class="score-big">7</div>
+                        <div>PHQ-9 Score: Mild</div>
+                    </div>
+                    <h4>Track Real Progress</h4>
+                    <p style="color: #757575; font-size: 14px; margin-top: 10px;">
+                        Monitor your mental health with validated clinical assessments. Share reports directly with your therapist.
+                    </p>
+                </div>
+            </div>
+            
+            <div class="clinical-content">
+                <h2 class="section-title">Clinical Tools You Can Trust</h2>
+                <p style="color: #757575; margin: 20px 0; line-height: 1.8;">
+                    FullMind includes the same assessments used in hospitals and clinics worldwide. Track your progress with PHQ-9 for depression and GAD-7 for anxiety.
+                </p>
+                <ul style="list-style: none; padding: 0;">
+                    <li style="display: flex; align-items: center; margin-bottom: 15px;">
+                        <div class="check-icon">✓</div>
+                        <span>Weekly assessments with severity tracking</span>
+                    </li>
+                    <li style="display: flex; align-items: center; margin-bottom: 15px;">
+                        <div class="check-icon">✓</div>
+                        <span>Export reports for therapy sessions</span>
+                    </li>
+                    <li style="display: flex; align-items: center; margin-bottom: 15px;">
+                        <div class="check-icon">✓</div>
+                        <span>Pattern detection and early warning system</span>
+                    </li>
+                    <li style="display: flex; align-items: center;">
+                        <div class="check-icon">✓</div>
+                        <span>Crisis prevention planning built-in</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <!-- Therapist Section -->
+    <section class="therapist-section" id="therapists">
+        <div class="therapist-container">
+            <div class="therapist-quote">
+                "FullMind bridges the gap between sessions perfectly. My clients who use it consistently show significantly better outcomes."
+            </div>
+            <div class="therapist-author">— Dr. Sarah Mitchell, Clinical Psychologist, MBCT Certified</div>
+            
+            <div class="therapist-badges">
+                <div class="badge">MBCT Protocol Compliant</div>
+                <div class="badge">Therapist Recommended</div>
+                <div class="badge">Research Validated</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Pricing Section -->
+    <section class="pricing-section" id="pricing">
+        <div class="pricing-container">
+            <div class="section-header">
+                <h2 class="section-title">Start Your Mental Health Journey</h2>
+                <p class="section-subtitle">Try free for 7 days. Cancel anytime.</p>
+            </div>
+            
+            <div class="pricing-cards">
+                <div class="pricing-card">
+                    <h3>Monthly</h3>
+                    <div class="price">$9.99<span class="price-period">/month</span></div>
+                    <div class="pricing-features">
+                        <div class="pricing-feature">
+                            <div class="check-icon" style="width: 20px; height: 20px; font-size: 12px;">✓</div>
+                            <span>All MBCT practices</span>
+                        </div>
+                        <div class="pricing-feature">
+                            <div class="check-icon" style="width: 20px; height: 20px; font-size: 12px;">✓</div>
+                            <span>Clinical assessments</span>
+                        </div>
+                        <div class="pricing-feature">
+                            <div class="check-icon" style="width: 20px; height: 20px; font-size: 12px;">✓</div>
+                            <span>Crisis support</span>
+                        </div>
+                        <div class="pricing-feature">
+                            <div class="check-icon" style="width: 20px; height: 20px; font-size: 12px;">✓</div>
+                            <span>Progress insights</span>
+                        </div>
+                        <div class="pricing-feature">
+                            <div class="check-icon" style="width: 20px; height: 20px; font-size: 12px;">✓</div>
+                            <span>Export for therapy</span>
+                        </div>
+                    </div>
+                    <a href="#" class="primary-cta" style="width: 100%; text-align: center;">Start Free Trial</a>
+                </div>
+                
+                <div class="pricing-card featured">
+                    <div class="pricing-badge">BEST VALUE</div>
+                    <h3>Annual</h3>
+                    <div class="price">$79.99<span class="price-period">/year</span></div>
+                    <p style="color: #95B99C; font-size: 14px; margin-bottom: 20px;">Save 33% ($40/year)</p>
+                    <div class="pricing-features">
+                        <div class="pricing-feature">
+                            <div class="check-icon" style="width: 20px; height: 20px; font-size: 12px;">✓</div>
+                            <span>Everything in Monthly</span>
+                        </div>
+                        <div class="pricing-feature">
+                            <div class="check-icon" style="width: 20px; height: 20px; font-size: 12px;">✓</div>
+                            <span>Priority support</span>
+                        </div>
+                        <div class="pricing-feature">
+                            <div class="check-icon" style="width: 20px; height: 20px; font-size: 12px;">✓</div>
+                            <span>Early access to features</span>
+                        </div>
+                        <div class="pricing-feature">
+                            <div class="check-icon" style="width: 20px; height: 20px; font-size: 12px;">✓</div>
+                            <span>Annual progress report</span>
+                        </div>
+                    </div>
+                    <a href="#" class="primary-cta" style="width: 100%; text-align: center;">Start Free Trial</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-container">
+            <div class="footer-grid">
+                <div>
+                    <div class="footer-brand">
+                        <svg width="32" height="32" viewBox="0 0 32 32">
+                            <path d="M16 4C20 4 24 6 26 10C28 14 26 18 24 20C26 22 28 26 24 28C20 28 16 26 16 28C16 26 12 28 8 28C4 26 6 22 8 20C6 18 4 14 6 10C8 6 12 4 16 4Z" 
+                                  fill="white" stroke="white" stroke-width="2"/>
+                            <g>
+                                <rect x="0" y="12.8" width="32" height="19.2" fill="#1B2951" opacity="0.5" />
+                            </g>
+                        </svg>
+                        FullMind
+                    </div>
+                    <p class="footer-description">
+                        Complete MBCT practice for real life. Evidence-based mental health support that actually fits your daily routine.
+                    </p>
+                    <div class="app-badges" style="margin-top: 20px;">
+                        <div class="app-badge">Download on<br>App Store</div>
+                        <div class="app-badge">Get it on<br>Google Play</div>
+                    </div>
+                </div>
+                
+                <div class="footer-links">
+                    <h4>Product</h4>
+                    <a href="#">Features</a>
+                    <a href="#">Clinical Evidence</a>
+                    <a href="#">Pricing</a>
+                    <a href="#">FAQ</a>
+                </div>
+                
+                <div class="footer-links">
+                    <h4>Resources</h4>
+                    <a href="#">MBCT Guide</a>
+                    <a href="#">Research</a>
+                    <a href="#">Blog</a>
+                    <a href="#">Support</a>
+                </div>
+                
+                <div class="footer-links">
+                    <h4>Company</h4>
+                    <a href="#">About</a>
+                    <a href="#">Privacy</a>
+                    <a href="#">Terms</a>
+                    <a href="#">Contact</a>
+                </div>
+            </div>
+            
+            <div class="footer-bottom">
+                <div>© 2025 FullMind. All rights reserved.</div>
+                <div style="opacity: 0.6; font-size: 12px;">
+                    Not a replacement for professional therapy. If in crisis, call 988.
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Mobile CTA Bar -->
+    <div class="mobile-cta-bar">
+        <a href="#" class="primary-cta" style="width: 100%; text-align: center;">Download FullMind Free</a>
+    </div>
+</body>
+</html>

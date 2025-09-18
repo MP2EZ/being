@@ -1,5 +1,5 @@
 /**
- * Central Webhook Processing Hook for FullMind MBCT App
+ * Central Webhook Processing Hook for Being. MBCT App
  *
  * Crisis-safe webhook processing with:
  * - <200ms crisis response guarantee

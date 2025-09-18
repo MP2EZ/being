@@ -1,5 +1,5 @@
 /**
- * Utility Hooks Index for FullMind MBCT App
+ * Utility Hooks Index for Being. MBCT App
  *
  * Central export point for webhook utility hooks
  */

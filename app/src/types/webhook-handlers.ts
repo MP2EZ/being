@@ -1,5 +1,5 @@
 /**
- * Type-Safe Webhook Handlers for FullMind P0-CLOUD Payment System
+ * Type-Safe Webhook Handlers for Being. P0-CLOUD Payment System
  *
  * Comprehensive TypeScript interfaces providing strict type safety for all webhook handlers
  * with crisis safety guarantees, performance constraints, and therapeutic continuity support.

@@ -1,5 +1,5 @@
 /**
- * Comprehensive Webhook Event Type System for FullMind MBCT App
+ * Comprehensive Webhook Event Type System for Being. MBCT App
  *
  * Crisis-safe webhook event definitions with:
  * - <200ms performance constraints for emergency responses

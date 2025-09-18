@@ -611,7 +611,7 @@ export class CrossDeviceSyncEncryptionService {
 
       // Store in secure storage
       await SecureStore.setItemAsync(
-        '@fullmind_device_attestation',
+        '@being_device_attestation',
         JSON.stringify({
           deviceId: this.currentDeviceId,
           attestation: this.hardwareAttestation,
@@ -632,7 +632,7 @@ export class CrossDeviceSyncEncryptionService {
   private async initializeDeviceSpecificKeys(): Promise<void> {
     try {
       // Check if device-specific keys already exist
-      const existingKeyDerivation = await SecureStore.getItemAsync('@fullmind_device_key_derivation');
+      const existingKeyDerivation = await SecureStore.getItemAsync('@being_device_key_derivation');
 
       if (existingKeyDerivation) {
         const keyData = JSON.parse(existingKeyDerivation);
@@ -657,7 +657,7 @@ export class CrossDeviceSyncEncryptionService {
 
       // Store in secure storage
       await SecureStore.setItemAsync(
-        '@fullmind_device_key_derivation',
+        '@being_device_key_derivation',
         JSON.stringify(keyDerivation),
         {
           requireAuthentication: true,
@@ -801,7 +801,7 @@ export class CrossDeviceSyncEncryptionService {
   private async initializeDeviceAttestation(): Promise<void> {
     try {
       // Try to load existing device attestation
-      const existingAttestation = await SecureStore.getItemAsync('@fullmind_device_attestation');
+      const existingAttestation = await SecureStore.getItemAsync('@being_device_attestation');
 
       if (existingAttestation) {
         const attestationData = JSON.parse(existingAttestation);

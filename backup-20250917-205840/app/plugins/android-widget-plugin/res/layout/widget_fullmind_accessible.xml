@@ -1,0 +1,289 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Accessible FullMind Widget Layout
+    WCAG AA Compliant with Mental Health Accessibility Enhancements
+    
+    Accessibility Features:
+    - 48dp minimum touch targets for crisis scenarios
+    - High contrast color support
+    - Comprehensive content descriptions
+    - Logical focus order
+    - TalkBack optimization
+-->
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_container"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="16dp"
+    android:background="@drawable/widget_background_accessible"
+    android:contentDescription="FullMind mindfulness widget showing today's check-in progress"
+    android:importantForAccessibility="yes">
+
+    <!-- Header Section - Enhanced Accessibility -->
+    <LinearLayout
+        android:id="@+id/header_section"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_alignParentTop="true"
+        android:importantForAccessibility="yes"
+        android:contentDescription="Widget header with app icon and progress summary">
+
+        <!-- App Icon - Accessibility Optimized -->
+        <ImageView
+            android:id="@+id/app_icon"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:src="@drawable/app_icon_accessible"
+            android:contentDescription="FullMind mindfulness app icon"
+            android:importantForAccessibility="yes"
+            android:scaleType="centerInside" />
+
+        <!-- Title - WCAG Compliant -->
+        <TextView
+            android:id="@+id/widget_title"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginLeft="12dp"
+            android:layout_marginStart="12dp"
+            android:text="Today's Progress"
+            android:textColor="@color/accessible_text_primary"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:fontFamily="sans-serif-medium"
+            android:contentDescription="FullMind mindfulness progress widget"
+            android:importantForAccessibility="yes"
+            android:allowFontScaling="true"
+            android:maxFontSizeMultiplier="1.5" />
+
+        <!-- Progress Percentage - Enhanced for Screen Readers -->
+        <TextView
+            android:id="@+id/progress_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="0% Complete"
+            android:textColor="@color/accessible_text_primary"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:fontFamily="sans-serif"
+            android:contentDescription="Today's mindfulness progress percentage"
+            android:importantForAccessibility="yes"
+            android:allowFontScaling="true"
+            android:maxFontSizeMultiplier="2.0"
+            android:minHeight="44dp"
+            android:gravity="center_vertical" />
+
+    </LinearLayout>
+
+    <!-- Crisis Button - PRIORITY FOCUS - ALWAYS VISIBLE -->
+    <Button
+        android:id="@+id/crisis_button"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/header_section"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="12dp"
+        android:text="Get Help Now"
+        android:textColor="@color/accessible_text_on_crisis"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:background="@drawable/crisis_button_accessible"
+        android:padding="16dp"
+        android:minWidth="160dp"
+        android:minHeight="48dp"
+        android:visibility="visible"
+        android:drawableLeft="@drawable/ic_crisis_accessible"
+        android:drawablePadding="8dp"
+        android:gravity="center"
+        android:contentDescription="URGENT: Crisis support - Tap to call 988 immediately"
+        android:importantForAccessibility="yes"
+        android:accessibilityTraversalBefore="@id/sessions_section"
+        android:focusable="true"
+        android:clickable="true"
+        android:allowFontScaling="true"
+        android:maxFontSizeMultiplier="1.3" />
+
+    <!-- Session Indicators Section - Enhanced Touch Targets -->
+    <LinearLayout
+        android:id="@+id/sessions_section"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_below="@id/crisis_button"
+        android:layout_marginTop="20dp"
+        android:gravity="center_vertical"
+        android:contentDescription="Mindfulness session progress indicators"
+        android:importantForAccessibility="yes">
+
+        <!-- Morning Session - Accessible -->
+        <LinearLayout
+            android:id="@+id/morning_container"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:padding="12dp"
+            android:background="@drawable/session_container_accessible"
+            android:clickable="true"
+            android:focusable="true"
+            android:minHeight="48dp"
+            android:minWidth="48dp"
+            android:contentDescription="Morning mindfulness check-in session"
+            android:importantForAccessibility="yes"
+            android:accessibilityTraversalAfter="@id/crisis_button"
+            android:accessibilityTraversalBefore="@id/midday_container">
+
+            <ImageView
+                android:id="@+id/morning_indicator"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:src="@drawable/session_not_started_accessible"
+                android:contentDescription="Morning session status indicator"
+                android:importantForAccessibility="no"
+                android:scaleType="centerInside" />
+
+            <TextView
+                android:id="@+id/morning_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:text="Morning"
+                android:textColor="@color/accessible_text_secondary"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:gravity="center"
+                android:importantForAccessibility="no"
+                android:allowFontScaling="true"
+                android:maxFontSizeMultiplier="1.3" />
+
+        </LinearLayout>
+
+        <!-- Midday Session - Accessible -->
+        <LinearLayout
+            android:id="@+id/midday_container"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:padding="12dp"
+            android:background="@drawable/session_container_accessible"
+            android:clickable="true"
+            android:focusable="true"
+            android:minHeight="48dp"
+            android:minWidth="48dp"
+            android:contentDescription="Midday mindfulness pause session"
+            android:importantForAccessibility="yes"
+            android:accessibilityTraversalAfter="@id/morning_container"
+            android:accessibilityTraversalBefore="@id/evening_container">
+
+            <ImageView
+                android:id="@+id/midday_indicator"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:src="@drawable/session_not_started_accessible"
+                android:contentDescription="Midday session status indicator"
+                android:importantForAccessibility="no"
+                android:scaleType="centerInside" />
+
+            <TextView
+                android:id="@+id/midday_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:text="Midday"
+                android:textColor="@color/accessible_text_secondary"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:gravity="center"
+                android:importantForAccessibility="no"
+                android:allowFontScaling="true"
+                android:maxFontSizeMultiplier="1.3" />
+
+        </LinearLayout>
+
+        <!-- Evening Session - Accessible -->
+        <LinearLayout
+            android:id="@+id/evening_container"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:padding="12dp"
+            android:background="@drawable/session_container_accessible"
+            android:clickable="true"
+            android:focusable="true"
+            android:minHeight="48dp"
+            android:minWidth="48dp"
+            android:contentDescription="Evening reflection practice session"
+            android:importantForAccessibility="yes"
+            android:accessibilityTraversalAfter="@id/midday_container">
+
+            <ImageView
+                android:id="@+id/evening_indicator"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:src="@drawable/session_not_started_accessible"
+                android:contentDescription="Evening session status indicator"
+                android:importantForAccessibility="no"
+                android:scaleType="centerInside" />
+
+            <TextView
+                android:id="@+id/evening_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:text="Evening"
+                android:textColor="@color/accessible_text_secondary"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:gravity="center"
+                android:importantForAccessibility="no"
+                android:allowFontScaling="true"
+                android:maxFontSizeMultiplier="1.3" />
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+    <!-- Widget Info - For Screen Readers -->
+    <TextView
+        android:id="@+id/widget_info"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/sessions_section"
+        android:layout_marginTop="12dp"
+        android:text="Tap sessions to begin mindfulness practices. Crisis support available 24/7."
+        android:textColor="@color/accessible_text_hint"
+        android:textSize="10sp"
+        android:gravity="center"
+        android:contentDescription="Widget usage information and crisis support availability"
+        android:importantForAccessibility="yes"
+        android:allowFontScaling="true"
+        android:maxFontSizeMultiplier="1.5"
+        android:alpha="0.8"
+        android:visibility="gone" />
+
+    <!-- Last Update Time - Accessibility Debug Info -->
+    <TextView
+        android:id="@+id/last_update_text"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:layout_alignParentRight="true"
+        android:layout_alignParentEnd="true"
+        android:layout_marginBottom="4dp"
+        android:layout_marginRight="4dp"
+        android:layout_marginEnd="4dp"
+        android:text=""
+        android:textColor="@color/accessible_text_hint"
+        android:textSize="8sp"
+        android:alpha="0.6"
+        android:visibility="gone"
+        android:importantForAccessibility="no" />
+
+</RelativeLayout>

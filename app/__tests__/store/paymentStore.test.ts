@@ -478,8 +478,8 @@ describe('Payment Store', () => {
         currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
         cancelAtPeriodEnd: false,
         plan: {
-          planId: 'fullmind_monthly',
-          name: 'FullMind Premium Monthly',
+          planId: 'being_monthly',
+          name: 'Being. Premium Monthly',
           description: 'Monthly subscription',
           amount: 999,
           currency: 'usd',
@@ -504,7 +504,7 @@ describe('Payment Store', () => {
       });
 
       await act(async () => {
-        await result.current.createSubscription('fullmind_monthly', 'pm_test123', 7);
+        await result.current.createSubscription('being_monthly', 'pm_test123', 7);
       });
 
       expect(result.current.activeSubscription).toEqual(mockSubscription);
@@ -519,8 +519,8 @@ describe('Payment Store', () => {
         currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
         cancelAtPeriodEnd: true,
         plan: {
-          planId: 'fullmind_monthly',
-          name: 'FullMind Premium Monthly',
+          planId: 'being_monthly',
+          name: 'Being. Premium Monthly',
           description: 'Monthly subscription',
           amount: 999,
           currency: 'usd',
@@ -543,8 +543,8 @@ describe('Payment Store', () => {
           currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
           cancelAtPeriodEnd: false,
           plan: {
-            planId: 'fullmind_monthly',
-            name: 'FullMind Premium Monthly',
+            planId: 'being_monthly',
+            name: 'Being. Premium Monthly',
             description: 'Monthly subscription',
             amount: 999,
             currency: 'usd',

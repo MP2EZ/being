@@ -2,7 +2,7 @@
  * Comprehensive Authentication Types - Week 2 Implementation
  *
  * Type-safe authentication system with biometric support, session management,
- * OAuth integration, crisis response, and HIPAA compliance for FullMind MBCT app.
+ * OAuth integration, crisis response, and HIPAA compliance for Being. MBCT app.
  */
 
 import { z } from 'zod';
@@ -986,9 +986,9 @@ export const AUTHENTICATION_CONSTANTS = {
 
   // OAuth Configuration
   OAUTH: {
-    APPLE_CLIENT_ID: 'com.fullmind.mbct',
+    APPLE_CLIENT_ID: 'com.being.mbct',
     GOOGLE_CLIENT_ID: 'your-google-client-id',
-    REDIRECT_URI: 'com.fullmind.mbct://oauth/callback',
+    REDIRECT_URI: 'com.being.mbct://oauth/callback',
     PKCE_ENABLED: true,
     STATE_LENGTH: 32,
     NONCE_LENGTH: 32

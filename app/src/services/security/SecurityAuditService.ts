@@ -789,7 +789,7 @@ export class SecurityAuditService {
   private async loadPersistedAuditData(): Promise<void> {
     try {
       // Load recent audit events from secure storage
-      const persistedEvents = await SecureStore.getItemAsync('@fullmind_audit_events');
+      const persistedEvents = await SecureStore.getItemAsync('@being_audit_events');
       if (persistedEvents) {
         const events = JSON.parse(persistedEvents);
         // Decrypt and load events (implementation would decrypt each event)
@@ -1083,7 +1083,7 @@ export class SecurityAuditService {
     // Implementation would persist encrypted event to secure storage
     // This is a simplified version
     try {
-      const existingEvents = await SecureStore.getItemAsync('@fullmind_audit_events') || '[]';
+      const existingEvents = await SecureStore.getItemAsync('@being_audit_events') || '[]';
       const events = JSON.parse(existingEvents);
       events.push(encryptedEvent);
 
@@ -1092,7 +1092,7 @@ export class SecurityAuditService {
         events.splice(0, events.length - 1000);
       }
 
-      await SecureStore.setItemAsync('@fullmind_audit_events', JSON.stringify(events));
+      await SecureStore.setItemAsync('@being_audit_events', JSON.stringify(events));
     } catch (error) {
       console.warn('Failed to persist audit event:', error);
     }
@@ -1182,7 +1182,7 @@ export class SecurityAuditService {
 
   private async getCurrentDeviceId(): Promise<string> {
     try {
-      const deviceId = await SecureStore.getItemAsync('@fullmind_current_device_id');
+      const deviceId = await SecureStore.getItemAsync('@being_current_device_id');
       return deviceId || 'unknown_device';
     } catch {
       return 'unknown_device';

@@ -20,7 +20,7 @@
       },
       "ios": {
         "buildConfiguration": "Debug",
-        "bundleIdentifier": "com.fullmind.mbct.dev"
+        "bundleIdentifier": "com.being.mbct.dev"
       },
       "android": {
         "buildType": "apk",
@@ -32,21 +32,21 @@
       "env": {
         "EXPO_PUBLIC_ENV": "preview",
         "EXPO_PUBLIC_CRISIS_HOTLINE": "988",
-        "EXPO_PUBLIC_API_URL": "https://api-staging.fullmind.app",
+        "EXPO_PUBLIC_API_URL": "https://api-staging.being.app",
         "EXPO_PUBLIC_SENTRY_DSN": "$SENTRY_DSN_STAGING",
         "EXPO_PUBLIC_ANALYTICS_ENABLED": "true",
         "EXPO_PUBLIC_CRASH_REPORTING": "true",
         "EXPO_PUBLIC_FEATURE_FLAGS": "beta_features:true,performance_monitoring:true,cloud_sync:false",
-        "EXPO_PUBLIC_PRIVACY_POLICY_URL": "https://staging.fullmind.app/privacy",
-        "EXPO_PUBLIC_TERMS_URL": "https://staging.fullmind.app/terms",
-        "EXPO_PUBLIC_SUPPORT_URL": "https://staging.fullmind.app/support",
+        "EXPO_PUBLIC_PRIVACY_POLICY_URL": "https://staging.being.app/privacy",
+        "EXPO_PUBLIC_TERMS_URL": "https://staging.being.app/terms",
+        "EXPO_PUBLIC_SUPPORT_URL": "https://staging.being.app/support",
         "EXPO_PUBLIC_SUPABASE_URL": "$SUPABASE_URL_STAGING",
         "EXPO_PUBLIC_SUPABASE_ANON_KEY": "$SUPABASE_ANON_KEY_STAGING",
         "EXPO_PUBLIC_CLOUD_FEATURES_ENABLED": "false"
       },
       "ios": {
         "buildConfiguration": "Release",
-        "bundleIdentifier": "com.fullmind.mbct.preview",
+        "bundleIdentifier": "com.being.mbct.preview",
         "simulator": false
       },
       "android": {
@@ -57,15 +57,15 @@
       "env": {
         "EXPO_PUBLIC_ENV": "production",
         "EXPO_PUBLIC_CRISIS_HOTLINE": "988",
-        "EXPO_PUBLIC_API_URL": "https://api.fullmind.app",
+        "EXPO_PUBLIC_API_URL": "https://api.being.app",
         "EXPO_PUBLIC_SENTRY_DSN": "$SENTRY_DSN_PRODUCTION",
         "EXPO_PUBLIC_ANALYTICS_ENABLED": "true",
         "EXPO_PUBLIC_CRASH_REPORTING": "true",
         "EXPO_PUBLIC_PERFORMANCE_MONITORING": "true",
-        "EXPO_PUBLIC_PRIVACY_POLICY_URL": "https://fullmind.app/privacy",
-        "EXPO_PUBLIC_TERMS_URL": "https://fullmind.app/terms",
-        "EXPO_PUBLIC_SUPPORT_URL": "https://fullmind.app/support",
-        "EXPO_PUBLIC_CRISIS_RESOURCES_URL": "https://fullmind.app/crisis-resources",
+        "EXPO_PUBLIC_PRIVACY_POLICY_URL": "https://being.app/privacy",
+        "EXPO_PUBLIC_TERMS_URL": "https://being.app/terms",
+        "EXPO_PUBLIC_SUPPORT_URL": "https://being.app/support",
+        "EXPO_PUBLIC_CRISIS_RESOURCES_URL": "https://being.app/crisis-resources",
         "EXPO_PUBLIC_FEATURE_FLAGS": "production_mode:true,performance_monitoring:true,crisis_detection:true,cloud_sync:false",
         "EXPO_PUBLIC_ENCRYPTION_ENABLED": "true",
         "EXPO_PUBLIC_BIOMETRIC_AUTH": "true",
@@ -76,7 +76,7 @@
       },
       "ios": {
         "buildConfiguration": "Release",
-        "bundleIdentifier": "com.fullmind.mbct",
+        "bundleIdentifier": "com.being.mbct",
         "simulator": false,
         "enterprise": false,
         "resourceClass": "m-medium",
@@ -84,22 +84,22 @@
           "usesNonExemptEncryption": false
         },
         "infoPlist": {
-          "NSHealthShareUsageDescription": "FullMind integrates with Apple Health to provide comprehensive wellness tracking for your mental health journey.",
-          "NSHealthUpdateUsageDescription": "FullMind can save your mindfulness session data to Apple Health to track your wellness progress.",
+          "NSHealthShareUsageDescription": "Being. integrates with Apple Health to provide comprehensive wellness tracking for your mental health journey.",
+          "NSHealthUpdateUsageDescription": "Being. can save your mindfulness session data to Apple Health to track your wellness progress.",
           "ITSAppUsesNonExemptEncryption": false,
           "LSApplicationCategoryType": "public.app-category.healthcare-fitness",
           "NSUserTrackingUsageDescription": "This helps us improve our therapeutic content and provide personalized mindfulness experiences while keeping your data private.",
           "CFBundleURLTypes": [
             {
-              "CFBundleURLName": "fullmind-deep-linking",
-              "CFBundleURLSchemes": ["fullmind"]
+              "CFBundleURLName": "being-deep-linking",
+              "CFBundleURLSchemes": ["being"]
             }
           ],
           "UIBackgroundModes": ["background-processing", "background-fetch"],
-          "BGTaskSchedulerPermittedIdentifiers": ["com.fullmind.mbct.reminder", "com.fullmind.mbct.crisis-check"]
+          "BGTaskSchedulerPermittedIdentifiers": ["com.being.mbct.reminder", "com.being.mbct.crisis-check"]
         },
         "entitlements": {
-          "com.apple.security.application-groups": ["group.com.fullmind.mbct.widgets"],
+          "com.apple.security.application-groups": ["group.com.being.mbct.widgets"],
           "com.apple.developer.healthkit": true,
           "com.apple.developer.healthkit.access": ["health-records"]
         }
@@ -130,7 +130,7 @@
             "action": "android.intent.action.VIEW",
             "category": ["android.intent.category.DEFAULT", "android.intent.category.BROWSABLE"],
             "data": {
-              "scheme": "fullmind"
+              "scheme": "being"
             }
           }
         ]
@@ -140,7 +140,7 @@
       "extends": "production",
       "ios": {
         "buildConfiguration": "Release",
-        "bundleIdentifier": "com.fullmind.mbct",
+        "bundleIdentifier": "com.being.mbct",
         "simulator": false,
         "enterprise": false,
         "resourceClass": "m-medium",
@@ -163,11 +163,11 @@
         "appleId": "$APPLE_ID",
         "ascAppId": "$ASC_APP_ID",
         "appleTeamId": "$APPLE_TEAM_ID",
-        "sku": "fullmind-mbct-ios",
+        "sku": "being-mbct-ios",
         "language": "en-US",
-        "companyName": "FullMind Health Technologies",
-        "appName": "FullMind MBCT",
-        "copyright": "© 2024 FullMind Health Technologies. All rights reserved.",
+        "companyName": "Being. Health Technologies",
+        "appName": "Being. MBCT",
+        "copyright": "© 2024 Being. Health Technologies. All rights reserved.",
         "primaryCategory": "MEDICAL",
         "secondaryCategory": "HEALTH_AND_FITNESS",
         "primarySubcategoryOne": "HEALTH_AND_FITNESS",
@@ -198,7 +198,7 @@
         "appleId": "$APPLE_ID",
         "ascAppId": "$ASC_APP_ID",
         "appleTeamId": "$APPLE_TEAM_ID",
-        "sku": "fullmind-mbct-ios-preview"
+        "sku": "being-mbct-ios-preview"
       },
       "android": {
         "serviceAccountKeyPath": "$GOOGLE_SERVICE_ACCOUNT_KEY_PATH",

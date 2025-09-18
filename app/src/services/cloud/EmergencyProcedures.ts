@@ -80,11 +80,11 @@ export class EmergencyProceduresService {
    */
   private initializeEmergencyContacts(): Record<string, string> {
     return {
-      crisisTeam: process.env.EMERGENCY_CRISIS_TEAM || 'crisis-team@fullmind.app',
-      technicalTeam: process.env.EMERGENCY_TECHNICAL_TEAM || 'devops@fullmind.app',
-      complianceOfficer: process.env.EMERGENCY_COMPLIANCE_OFFICER || 'compliance@fullmind.app',
-      executiveEscalation: process.env.EMERGENCY_EXECUTIVE_TEAM || 'executives@fullmind.app',
-      legalTeam: process.env.EMERGENCY_LEGAL_TEAM || 'legal@fullmind.app'
+      crisisTeam: process.env.EMERGENCY_CRISIS_TEAM || 'crisis-team@being.app',
+      technicalTeam: process.env.EMERGENCY_TECHNICAL_TEAM || 'devops@being.app',
+      complianceOfficer: process.env.EMERGENCY_COMPLIANCE_OFFICER || 'compliance@being.app',
+      executiveEscalation: process.env.EMERGENCY_EXECUTIVE_TEAM || 'executives@being.app',
+      legalTeam: process.env.EMERGENCY_LEGAL_TEAM || 'legal@being.app'
     };
   }
 

@@ -57,7 +57,7 @@ interface SubscriptionPlan {
 // MBCT-Compliant Subscription Plans
 const THERAPEUTIC_PLANS: SubscriptionPlan[] = [
   {
-    planId: 'fullmind_free_trial',
+    planId: 'being_free_trial',
     name: 'Mindful Foundation',
     therapeuticName: 'Begin Your Journey',
     description: 'Start with essential mindfulness practices, no payment required initially',
@@ -78,7 +78,7 @@ const THERAPEUTIC_PLANS: SubscriptionPlan[] = [
     trialDays: 7
   },
   {
-    planId: 'fullmind_monthly',
+    planId: 'being_monthly',
     name: 'Mindful Growth',
     therapeuticName: 'Deepen Your Practice',
     description: 'Comprehensive MBCT support with monthly flexibility',
@@ -100,7 +100,7 @@ const THERAPEUTIC_PLANS: SubscriptionPlan[] = [
     trialDays: 14
   },
   {
-    planId: 'fullmind_annual',
+    planId: 'being_annual',
     name: 'Mindful Commitment',
     therapeuticName: 'Your Year of Transformation',
     description: 'Deep therapeutic commitment with significant savings',
@@ -315,7 +315,7 @@ const SubscriptionScreen: React.FC = () => {
 
     try {
       // For free trial, use enhanced trial management
-      if (plan.price === 0 || plan.planId === 'fullmind_free_trial') {
+      if (plan.price === 0 || plan.planId === 'being_free_trial') {
         await startMindfulTrial('current_user');
         announceForScreenReader('Your mindful foundation access has been activated. Welcome to your journey.');
         navigation.goBack();

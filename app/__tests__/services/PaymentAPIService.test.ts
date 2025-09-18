@@ -99,7 +99,7 @@ describe('PaymentAPIService', () => {
     amount: 999,
     currency: 'usd',
     subscriptionType: 'monthly',
-    description: 'FullMind Premium Monthly Subscription',
+    description: 'Being. Premium Monthly Subscription',
     metadata: {
       userId: 'test_user_123',
       deviceId: 'test_device_123',
@@ -370,7 +370,7 @@ describe('PaymentAPIService', () => {
 
     it('should create subscription successfully', async () => {
       const customerId = 'cus_test123';
-      const planId = 'fullmind_monthly';
+      const planId = 'being_monthly';
       const paymentMethodId = 'pm_test123';
 
       // Mock Stripe client subscription creation
@@ -393,7 +393,7 @@ describe('PaymentAPIService', () => {
 
     it('should create crisis subscription for therapeutic continuity', async () => {
       const customerId = 'cus_test123';
-      const planId = 'fullmind_monthly';
+      const planId = 'being_monthly';
 
       // Enable crisis mode
       await paymentAPIService.enableCrisisMode('test_user_123', 'test_device_123', 'therapeutic_continuity');
@@ -550,8 +550,8 @@ describe('PaymentAPIService', () => {
     it('should get available subscription plans', async () => {
       const mockPlans: SubscriptionPlan[] = [
         {
-          planId: 'fullmind_monthly',
-          name: 'FullMind Premium Monthly',
+          planId: 'being_monthly',
+          name: 'Being. Premium Monthly',
           description: 'Monthly subscription',
           amount: 999,
           currency: 'usd',
@@ -565,7 +565,7 @@ describe('PaymentAPIService', () => {
       const plans = await paymentAPIService.getAvailablePlans();
 
       expect(plans).toEqual(mockPlans);
-      expect(plans[0].planId).toBe('fullmind_monthly');
+      expect(plans[0].planId).toBe('being_monthly');
     });
 
     it('should validate payment method', async () => {

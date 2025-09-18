@@ -1,5 +1,5 @@
 /**
- * Subscription Manager Component for FullMind P0-CLOUD
+ * Subscription Manager Component for Being. P0-CLOUD
  *
  * React component demonstrating the enhanced state management integration with:
  * - Subscription Manager and Payment-Aware Feature Gates

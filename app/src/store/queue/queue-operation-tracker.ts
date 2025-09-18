@@ -1,5 +1,5 @@
 /**
- * Queue Operation Tracker for FullMind MBCT App
+ * Queue Operation Tracker for Being. MBCT App
  *
  * Individual operation state tracking with comprehensive monitoring:
  * - Real-time operation status tracking with detailed execution history
@@ -1029,7 +1029,7 @@ export const useQueueOperationTrackerStore = create<QueueOperationTrackerState &
         },
       })),
       {
-        name: 'fullmind-queue-operation-tracker',
+        name: 'being-queue-operation-tracker',
         storage: createJSONStorage(() => AsyncStorage),
         partialize: (state) => ({
           // Convert Map to object for serialization

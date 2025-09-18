@@ -36,7 +36,7 @@ export const UserStoreIntegrationExample: React.FC<UserStoreExampleProps> = ({
     isCrisisAccessible
   } = useUserStore();
 
-  const [email, setEmail] = useState('demo@fullmind.app');
+  const [email, setEmail] = useState('demo@being.app');
   const [password, setPassword] = useState('demo123');
   const [sessionTimeLeft, setSessionTimeLeft] = useState(0);
 
