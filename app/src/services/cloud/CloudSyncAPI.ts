@@ -57,6 +57,8 @@ type SyncBatchResponse = z.infer<typeof SyncBatchResponseSchema>;
  * Cloud Sync API Client for secure data operations
  */
 export class CloudSyncAPI {
+  private static instance: CloudSyncAPI | null = null;
+
   private client: SupabaseClient | null = null;
   private dbHelpers: ReturnType<typeof createSupabaseDatabaseHelpers> | null = null;
   private currentSession: Session | null = null;
@@ -64,6 +66,16 @@ export class CloudSyncAPI {
 
   constructor() {
     this.initialize();
+  }
+
+  /**
+   * Get singleton instance
+   */
+  public static getInstance(): CloudSyncAPI {
+    if (!CloudSyncAPI.instance) {
+      CloudSyncAPI.instance = new CloudSyncAPI();
+    }
+    return CloudSyncAPI.instance;
   }
 
   /**
@@ -703,4 +715,4 @@ export class CloudSyncAPI {
 }
 
 // Export singleton instance
-export const cloudSyncAPI = new CloudSyncAPI();
+export const cloudSyncAPI = CloudSyncAPI.getInstance();

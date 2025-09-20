@@ -11,7 +11,7 @@
  * - Emergency performance protocols with automatic fallbacks
  */
 
-import { EventEmitter } from 'events';
+import { EventEmitter } from '../../utils/EventEmitter';
 import { z } from 'zod';
 import { syncPerformanceOptimizer } from './SyncPerformanceOptimizer';
 import { crisisPerformanceGuardian } from './CrisisPerformanceGuardian';

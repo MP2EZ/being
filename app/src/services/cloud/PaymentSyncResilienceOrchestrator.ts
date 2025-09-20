@@ -18,7 +18,7 @@
  * - Complete integration with existing payment sync infrastructure
  */
 
-import { EventEmitter } from 'events';
+import { EventEmitter } from '../../utils/EventEmitter';
 import {
   PaymentSyncResilienceAPI,
   paymentSyncResilienceAPI,

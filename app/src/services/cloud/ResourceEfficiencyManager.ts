@@ -10,7 +10,7 @@
  * - System integration with platform-specific optimizations
  */
 
-import { EventEmitter } from 'events';
+import { EventEmitter } from '../../utils/EventEmitter';
 import { z } from 'zod';
 import { DataSensitivity } from '../security/EncryptionService';
 import { securityControlsService } from '../security/SecurityControlsService';

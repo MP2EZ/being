@@ -306,7 +306,9 @@ export interface OAuthAuthenticationResult {
 /**
  * JWT Token Types with 15-minute Expiry
  */
-export interface EnhancedJWTClaims extends BaseJWTValidationResult['claims'] {
+type BaseJWTClaims = BaseJWTValidationResult['claims'];
+
+export interface EnhancedJWTClaims extends BaseJWTClaims {
   readonly iss: string; // Issuer
   readonly sub: string; // Subject (user ID)
   readonly aud: string; // Audience

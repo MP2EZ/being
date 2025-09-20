@@ -17,7 +17,7 @@ import { create } from 'zustand';
 import { subscribeWithSelector, persist, createJSONStorage } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { EventEmitter } from 'events';
+import { EventEmitter } from '../../utils/EventEmitter';
 import * as Crypto from 'expo-crypto';
 
 // Core imports
@@ -645,7 +645,7 @@ export const useCrossDeviceStateStore = create<CrossDeviceStateManager>()(
 
             // Store encrypted session result
             await AsyncStorage.setItem(
-              `@being_session_result_${sessionId}`,
+              `being_session_result_${sessionId}`,
               await encryptionService.encryptData(completionRecord, DataSensitivity.PERSONAL)
             );
 
@@ -741,7 +741,7 @@ export const useCrossDeviceStateStore = create<CrossDeviceStateManager>()(
           ensureCrisisAccessibility: async (): Promise<boolean> => {
             try {
               // Verify local crisis state is accessible
-              const localCrisisState = await AsyncStorage.getItem('@being_crisis_fallback_state');
+              const localCrisisState = await AsyncStorage.getItem('being_crisis_fallback_state');
 
               // Verify 988 hotline access
               const hotlineReady = true; // Always available on mobile devices

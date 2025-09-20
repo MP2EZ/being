@@ -56,7 +56,7 @@ interface PaymentSyncConfig {
 /**
  * Comprehensive Payment API Service
  *
- * Integrates with existing FullMind infrastructure while maintaining:
+ * Integrates with existing Being. infrastructure while maintaining:
  * - Crisis safety protocols with emergency bypass
  * - HIPAA compliance with separate data contexts
  * - PCI DSS compliance through Stripe tokenization

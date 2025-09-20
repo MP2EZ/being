@@ -5,7 +5,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { enhancedOfflineQueueService } from '../../src/services/EnhancedOfflineQueueService';
+import { enhancedOfflineQueueService } from '../../services/OfflineQueueService';
 import { networkAwareService } from '../../src/services/NetworkAwareService';
 import { offlineIntegrationService } from '../../src/services/OfflineIntegrationService';
 import { OfflinePriority, NetworkQuality, OfflineActionType } from '../../src/types/offline';

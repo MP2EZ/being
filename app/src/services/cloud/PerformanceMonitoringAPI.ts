@@ -10,7 +10,7 @@
  * - Automatic optimization recommendations
  */
 
-import { EventEmitter } from 'events';
+import { EventEmitter } from '../../utils/EventEmitter';
 import { z } from 'zod';
 import { CLOUD_CONSTANTS } from '../../types/cloud';
 import { DataSensitivity } from '../security/EncryptionService';

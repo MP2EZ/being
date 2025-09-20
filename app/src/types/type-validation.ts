@@ -11,6 +11,13 @@
  * - Service integration type compliance
  */
 
+import {
+  AUTHENTICATION_CONSTANTS,
+  isAuthenticationFlow,
+  isEnhancedJWTClaims,
+  isAuthenticationError,
+  isCrisisMode
+} from './authentication';
 import type {
   AuthenticationMethod,
   AuthenticationResult,
@@ -22,12 +29,7 @@ import type {
   ComplianceStatus,
   CrisisTrigger,
   SessionPerformanceMetrics,
-  CrisisSessionContext,
-  AUTHENTICATION_CONSTANTS,
-  isAuthenticationFlow,
-  isEnhancedJWTClaims,
-  isAuthenticationError,
-  isCrisisMode
+  CrisisSessionContext
 } from './authentication';
 
 import type {

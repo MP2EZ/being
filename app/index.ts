@@ -1,5 +1,7 @@
 import { registerRootComponent } from 'expo';
 
+// Polyfills temporarily removed to test Metro bundler property descriptor conflict
+
 import App from './App';
 
 // registerRootComponent calls AppRegistry.registerComponent('main', () => App);

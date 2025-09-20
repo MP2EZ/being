@@ -12,7 +12,7 @@
  * - Integration with existing sync infrastructure
  */
 
-import { EventEmitter } from 'events';
+import { EventEmitter } from '../utils/EventEmitter';
 import { paymentAwareSyncContext, PaymentSyncContextResult } from './cloud/PaymentAwareSyncContext';
 import { usePaymentStore } from '../store/paymentStore';
 import {

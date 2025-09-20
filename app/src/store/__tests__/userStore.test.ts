@@ -264,7 +264,7 @@ describe('UserStore - Security & Performance Tests', () => {
         expect.any(Object) // DataSensitivity.PERSONAL
       );
       expect(SecureStore.setItemAsync).toHaveBeenCalledWith(
-        '@being_user_session_v1',
+        'being_user_session_v1',
         expect.any(String)
       );
     });
@@ -314,7 +314,7 @@ describe('UserStore - Security & Performance Tests', () => {
       expect(store.user).toBeNull();
 
       // Should clean up expired session
-      expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('@being_user_session_v1');
+      expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('being_user_session_v1');
     });
   });
 
@@ -401,7 +401,7 @@ describe('UserStore - Security & Performance Tests', () => {
       await userStoreUtils.cleanup();
 
       expect(sessionSecurityService.invalidateSession).toHaveBeenCalledWith('app_cleanup');
-      expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('@being_user_session_v1');
+      expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('being_user_session_v1');
     });
   });
 

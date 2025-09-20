@@ -1070,8 +1070,8 @@ export class CrisisQueueSecurity {
   private async initializeCrisisKeys(): Promise<void> {
     try {
       // Initialize emergency backup keys
-      const emergencyKeyName = '@being_crisis_emergency_key';
-      const therapeuticKeyName = '@being_crisis_therapeutic_key';
+      const emergencyKeyName = 'being_crisis_emergency_key';
+      const therapeuticKeyName = 'being_crisis_therapeutic_key';
 
       if (!await SecureStore.getItemAsync(emergencyKeyName)) {
         const emergencyKey = await this.generateCrisisKey('emergency');

@@ -18,7 +18,7 @@
  * - Zero performance degradation during payment failures
  */
 
-import { EventEmitter } from 'events';
+import { EventEmitter } from '../../utils/EventEmitter';
 import {
   PaymentAwareSyncRequest,
   PaymentAwareSyncResponse,

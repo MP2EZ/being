@@ -353,7 +353,7 @@ export class DataStoreMigrator {
       const backupData = await legacyDataStore.exportData();
       
       // Store backup in a separate AsyncStorage key
-      const backupKey = `@being_migration_backup_${Date.now()}`;
+      const backupKey = `being_migration_backup_${Date.now()}`;
       const backupJson = JSON.stringify({
         ...backupData,
         migrationMetadata: {
@@ -401,7 +401,7 @@ export class DataStoreMigrator {
       // Find the most recent backup
       const AsyncStorage = await import('@react-native-async-storage/async-storage');
       const allKeys = await AsyncStorage.default.getAllKeys();
-      const backupKeys = allKeys.filter(key => key.startsWith('@being_migration_backup_'));
+      const backupKeys = allKeys.filter(key => key.startsWith('being_migration_backup_'));
       
       if (backupKeys.length === 0) {
         return { success: false, error: 'No backup found for rollback' };

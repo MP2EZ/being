@@ -365,8 +365,8 @@ export class MultiLayerEncryptionFramework {
 
       for (const layer of layersToRotate) {
         try {
-          const keyName = `@being_ml_${layer}_key_${subscriptionTier}_v2`;
-          const rotationDateKey = `@being_ml_${layer}_rotation_${subscriptionTier}`;
+          const keyName = `being_ml_${layer}_key_${subscriptionTier}_v2`;
+          const rotationDateKey = `being_ml_${layer}_rotation_${subscriptionTier}`;
 
           // Generate new key for layer
           const newKey = await this.generateLayerKey(layer as any, tierConfig);
@@ -976,7 +976,7 @@ export class MultiLayerEncryptionFramework {
     layer: 'therapeutic' | 'context' | 'transport'
   ): Promise<KeyRotationInfo> {
     try {
-      const rotationDateKey = `@being_ml_${layer}_rotation_${tier}`;
+      const rotationDateKey = `being_ml_${layer}_rotation_${tier}`;
       const lastRotationStr = await SecureStore.getItemAsync(rotationDateKey);
 
       const tierConfig = this.getTierConfig(tier);

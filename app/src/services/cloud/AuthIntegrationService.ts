@@ -65,6 +65,7 @@ export interface CrisisAuthResult {
  * Coordinates between auth, security, and cloud services
  */
 export class AuthIntegrationService {
+  private static instance: AuthIntegrationService;
   private authStateListeners = new Set<(state: AuthSessionState) => void>();
   private currentSessionState: AuthSessionState | null = null;
   private performanceMetrics = {
@@ -74,6 +75,16 @@ export class AuthIntegrationService {
 
   constructor() {
     this.initializeIntegration();
+  }
+
+  /**
+   * Get singleton instance of AuthIntegrationService
+   */
+  static getInstance(): AuthIntegrationService {
+    if (!AuthIntegrationService.instance) {
+      AuthIntegrationService.instance = new AuthIntegrationService();
+    }
+    return AuthIntegrationService.instance;
   }
 
   /**

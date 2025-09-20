@@ -6,6 +6,9 @@
 import { CheckIn, Assessment, UserProfile, CrisisPlan } from './index';
 import { OfflinePriority, ConflictResolutionStrategy, NetworkQuality } from './offline';
 
+// Re-export essential types for sync operations
+export { ConflictResolutionStrategy } from './offline';
+
 /**
  * Sync operation status tracking
  */

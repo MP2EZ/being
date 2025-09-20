@@ -151,11 +151,11 @@ export class AuthenticationSecurityService {
   };
 
   // Storage keys
-  private readonly AUTH_ATTEMPTS_KEY = '@being_auth_attempts_v1';
-  private readonly DEVICE_BINDINGS_KEY = '@being_device_bindings_v1';
-  private readonly RATE_LIMIT_KEY = '@being_rate_limits_v1';
-  private readonly JWT_SECRET_KEY = '@being_jwt_secret_v1';
-  private readonly CONFIG_KEY = '@being_auth_config_v1';
+  private readonly AUTH_ATTEMPTS_KEY = 'being_auth_attempts_v1';
+  private readonly DEVICE_BINDINGS_KEY = 'being_device_bindings_v1';
+  private readonly RATE_LIMIT_KEY = 'being_rate_limits_v1';
+  private readonly JWT_SECRET_KEY = 'being_jwt_secret_v1';
+  private readonly CONFIG_KEY = 'being_auth_config_v1';
 
   private constructor() {
     this.initialize();
@@ -774,9 +774,9 @@ export class AuthenticationSecurityService {
 
     // Create JWT claims
     const accessClaims: JWTClaims = {
-      iss: 'fullmind-app',
+      iss: 'being-app',
       sub: userId,
-      aud: 'fullmind-users',
+      aud: 'being-users',
       exp: Math.floor(accessTokenExpiry.getTime() / 1000),
       iat: Math.floor(now.getTime() / 1000),
       jti: sessionId,

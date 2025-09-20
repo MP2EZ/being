@@ -268,10 +268,10 @@ export class CrisisAuthenticationService {
   };
 
   // Storage keys
-  private readonly CRISIS_SESSIONS_KEY = '@being_crisis_sessions_v1';
-  private readonly CRISIS_HISTORY_KEY = '@being_crisis_history_v1';
-  private readonly CRISIS_CONFIG_KEY = '@being_crisis_config_v1';
-  private readonly EMERGENCY_CONTACTS_KEY = '@being_emergency_contacts_v1';
+  private readonly CRISIS_SESSIONS_KEY = 'being_crisis_sessions_v1';
+  private readonly CRISIS_HISTORY_KEY = 'being_crisis_history_v1';
+  private readonly CRISIS_CONFIG_KEY = 'being_crisis_config_v1';
+  private readonly EMERGENCY_CONTACTS_KEY = 'being_emergency_contacts_v1';
 
   private constructor() {
     this.initialize();

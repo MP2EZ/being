@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FullMind Website Wireframe</title>
+    <title>Being. Website Wireframe</title>
     <style>
         * {
             margin: 0;
@@ -236,6 +236,12 @@
             margin: 0 auto 15px;
             font-size: 24px;
         }
+
+        .trust-icon svg {
+            width: 24px;
+            height: 24px;
+            fill: #4A90E2;
+        }
         
         .trust-number {
             font-size: 32px;
@@ -282,6 +288,12 @@
             grid-template-columns: repeat(3, 1fr);
             gap: 30px;
         }
+
+        @media (max-width: 1200px) {
+            .feature-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
         
         .feature-card {
             background: white;
@@ -310,6 +322,15 @@
         .morning-icon { background: #FFF8F0; color: #FF9F43; }
         .midday-icon { background: #F0FBF9; color: #40B5AD; }
         .evening-icon { background: #F0F8F4; color: #4A7C59; }
+
+        .feature-icon svg {
+            width: 24px;
+            height: 24px;
+        }
+
+        .morning-icon svg { fill: #FF9F43; }
+        .midday-icon svg { fill: #40B5AD; }
+        .evening-icon svg { fill: #4A7C59; }
         
         .feature-title {
             font-size: 20px;
@@ -329,14 +350,738 @@
             background: white;
             padding: 80px 20px;
         }
-        
+
+        /* Clinical Carousel */
+        .clinical-carousel {
+            background: #F0F7FF;
+            border-radius: 20px;
+            padding: 40px;
+            width: 100%;
+            margin: 0 auto;
+        }
+
+        .carousel-content {
+            display: flex;
+            flex-direction: column;
+            gap: 40px;
+            width: 100%;
+        }
+
+        .carousel-slide {
+            width: 100%;
+            display: flex;
+            justify-content: center;
+        }
+
+        .carousel-indicators {
+            display: none;
+        }
+
+        .carousel-nav {
+            display: none;
+        }
+
+        .carousel-indicators-hidden {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 30px;
+        }
+
+        .carousel-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #E8E8E8;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .carousel-dot.active {
+            background: #4A90E2;
+            transform: scale(1.2);
+        }
+
+        .carousel-nav {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 40px;
+            height: 40px;
+            background: rgba(255,255,255,0.9);
+            border: none;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+            z-index: 10;
+        }
+
+        .carousel-nav:hover {
+            background: white;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+        }
+
+        .carousel-nav.prev {
+            left: 20px;
+        }
+
+        .carousel-nav.next {
+            right: 20px;
+        }
+
+        .feature-highlight {
+            background: white;
+            padding: 30px;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        .feature-highlight .feature-icon {
+            width: 60px;
+            height: 60px;
+            margin: 0 auto 20px;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .feature-highlight h3 {
+            font-size: 24px;
+            font-weight: 600;
+            color: #1B2951;
+            margin-bottom: 15px;
+        }
+
+        .feature-highlight p {
+            color: #757575;
+            line-height: 1.6;
+            font-size: 16px;
+        }
+
+        /* Clinical Pane Comprehensive Styling */
+        .clinical-pane {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.08);
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Simple Clinical Pane - 50/50 Layout */
+        .clinical-pane-simple {
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.08);
+            width: 100%;
+            max-width: 1000px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            align-items: center;
+        }
+
+        .clinical-pane-simple .pane-content {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .clinical-pane-simple .pane-content h2 {
+            color: #2c3e50;
+            font-size: 28px;
+            font-weight: 700;
+            line-height: 1.2;
+            margin: 0;
+        }
+
+        .clinical-pane-simple .pane-content .subtitle {
+            color: #757575;
+            font-size: 16px;
+            line-height: 1.4;
+            margin: 0;
+        }
+
+        .clinical-pane-simple .simple-features {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .clinical-pane-simple .simple-features li {
+            color: #4a5568;
+            font-size: 16px;
+            position: relative;
+            padding-left: 24px;
+        }
+
+        .clinical-pane-simple .simple-features li::before {
+            content: '✓';
+            position: absolute;
+            left: 0;
+            color: #4A7C59;
+            font-weight: bold;
+        }
+
+        .clinical-pane-simple .pane-visual {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .clinical-pane-simple .phone-mockup {
+            max-width: 200px;
+            height: auto;
+        }
+
+        .clinical-pane-simple .breathing-circle {
+            max-width: 250px;
+            height: auto;
+        }
+
+        .clinical-pane-simple .mood-graph {
+            max-width: 320px;
+            height: auto;
+        }
+
+        .pane-header {
+            display: flex;
+            align-items: flex-start;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .clinical-icon {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #4A90E2, #357ABD);
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            flex-shrink: 0;
+        }
+
+        .outcomes-icon {
+            background: linear-gradient(135deg, #28A745, #1E7E34);
+        }
+
+        .patterns-icon {
+            background: linear-gradient(135deg, #6F42C1, #5A2D91);
+        }
+
+        .pane-titles h2,
+        .pane-titles h3 {
+            font-size: 32px;
+            font-weight: 700;
+            color: #1B2951;
+            margin: 0 0 12px 0;
+            line-height: 1.2;
+        }
+
+        .pane-titles p {
+            color: #757575;
+            font-size: 16px;
+            margin: 0;
+            line-height: 1.5;
+        }
+
+        /* Assessment Preview Styles */
+        .assessment-preview {
+            flex: 1;
+        }
+
+        .assessment-card {
+            background: #F8F9FA;
+            border-radius: 16px;
+            padding: 25px;
+            margin-bottom: 25px;
+            border-left: 4px solid #4A90E2;
+        }
+
+        .assessment-header {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .assessment-badge {
+            background: #4A90E2;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .assessment-type {
+            color: #757575;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .question-item {
+            margin-bottom: 16px;
+            padding: 15px;
+            background: white;
+            border-radius: 12px;
+            border: 1px solid #E8E8E8;
+        }
+
+        .question-number {
+            color: #4A90E2;
+            font-weight: 600;
+            margin-right: 8px;
+        }
+
+        .question-text {
+            color: #1B2951;
+            font-weight: 500;
+            display: block;
+            margin-bottom: 12px;
+        }
+
+        .question-options {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .option {
+            padding: 6px 12px;
+            background: #F8F9FA;
+            border: 1px solid #E8E8E8;
+            border-radius: 8px;
+            font-size: 12px;
+            color: #757575;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .option.active {
+            background: #4A90E2;
+            color: white;
+            border-color: #4A90E2;
+        }
+
+        .assessment-note {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 15px;
+            padding: 12px;
+            background: #E8F4FD;
+            border-radius: 8px;
+            color: #2C5282;
+            font-size: 14px;
+        }
+
+        .assessment-features {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .feature-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: #757575;
+            font-size: 14px;
+        }
+
+        .feature-row svg {
+            color: #4A90E2;
+            flex-shrink: 0;
+        }
+
+        /* Outcomes Visualization Styles */
+        .outcomes-visualization {
+            flex: 1;
+        }
+
+        .outcomes-chart {
+            background: #F8F9FA;
+            border-radius: 16px;
+            padding: 25px;
+            margin-bottom: 25px;
+        }
+
+        .chart-header h4 {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1B2951;
+            margin: 0 0 8px 0;
+        }
+
+        .study-note {
+            font-size: 12px;
+            color: #757575;
+            font-style: italic;
+        }
+
+        .bar-chart {
+            margin-top: 20px;
+        }
+
+        .chart-bars {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            align-items: end;
+            height: 200px;
+            margin-bottom: 20px;
+        }
+
+        .bar-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .bar {
+            width: 80px;
+            border-radius: 8px 8px 0 0;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-end;
+            transition: all 0.3s ease;
+        }
+
+        .bar.standard {
+            background: linear-gradient(180deg, #DC3545, #C82333);
+        }
+
+        .bar.mbct {
+            background: linear-gradient(180deg, #28A745, #1E7E34);
+        }
+
+        .bar-label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #1B2951;
+            text-align: center;
+            margin-top: 8px;
+        }
+
+        .bar-value {
+            position: absolute;
+            top: -25px;
+            font-size: 11px;
+            font-weight: 600;
+            color: white;
+            background: rgba(0,0,0,0.8);
+            padding: 4px 8px;
+            border-radius: 4px;
+            white-space: nowrap;
+        }
+
+        .improvement-highlight {
+            text-align: center;
+            padding: 20px;
+            background: linear-gradient(135deg, #28A745, #1E7E34);
+            border-radius: 12px;
+            color: white;
+        }
+
+        .improvement-number {
+            font-size: 36px;
+            font-weight: 700;
+            display: block;
+        }
+
+        .improvement-text {
+            font-size: 16px;
+            font-weight: 500;
+        }
+
+        .outcomes-benefits {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+        }
+
+        .benefit-item {
+            text-align: center;
+            padding: 20px;
+            background: white;
+            border-radius: 12px;
+            border: 1px solid #E8E8E8;
+        }
+
+        .benefit-stat {
+            font-size: 28px;
+            font-weight: 700;
+            color: #28A745;
+            margin-bottom: 8px;
+        }
+
+        .benefit-desc {
+            font-size: 14px;
+            color: #757575;
+            line-height: 1.4;
+        }
+
+        /* Pattern Recognition Styles */
+        .patterns-visualization {
+            flex: 1;
+        }
+
+        .timeline-chart {
+            background: #F8F9FA;
+            border-radius: 16px;
+            padding: 25px;
+            margin-bottom: 25px;
+        }
+
+        .timeline-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .timeline-header h4 {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1B2951;
+            margin: 0;
+        }
+
+        .timeline-period {
+            font-size: 14px;
+            color: #757575;
+            font-weight: 500;
+        }
+
+        .timeline-graph {
+            position: relative;
+            height: 150px;
+            margin-bottom: 15px;
+        }
+
+        .timeline-axis {
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 0;
+            bottom: 0;
+        }
+
+        .axis-line {
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 50%;
+            height: 2px;
+            background: #E8E8E8;
+        }
+
+        .mood-zones {
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 60px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-around;
+        }
+
+        .zone {
+            font-size: 12px;
+            font-weight: 500;
+            text-align: center;
+            padding: 4px;
+            border-radius: 4px;
+        }
+
+        .zone.good {
+            background: #D4F4DD;
+            color: #1E7E34;
+        }
+
+        .zone.moderate {
+            background: #FFF3CD;
+            color: #B8860B;
+        }
+
+        .zone.concerning {
+            background: #F8D7DA;
+            color: #C82333;
+        }
+
+        .timeline-data {
+            position: absolute;
+            left: 80px;
+            right: 0;
+            top: 0;
+            bottom: 0;
+        }
+
+        .data-point {
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            border: 2px solid white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .data-point:hover {
+            transform: scale(1.3);
+        }
+
+        .data-point.good {
+            background: #28A745;
+            top: 20%;
+        }
+
+        .data-point.moderate {
+            background: #FFC107;
+            top: 50%;
+        }
+
+        .data-point.concerning {
+            background: #DC3545;
+            top: 80%;
+        }
+
+        .data-point.warning {
+            position: relative;
+            box-shadow: 0 0 0 4px rgba(220, 53, 69, 0.3), 0 2px 8px rgba(0,0,0,0.1);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.7), 0 2px 8px rgba(0,0,0,0.1); }
+            70% { box-shadow: 0 0 0 10px rgba(220, 53, 69, 0), 0 2px 8px rgba(0,0,0,0.1); }
+            100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0), 0 2px 8px rgba(0,0,0,0.1); }
+        }
+
+        .warning-flag {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #DC3545;
+            color: white;
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .warning-flag::before {
+            content: '';
+            position: absolute;
+            top: -4px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-left: 4px solid transparent;
+            border-right: 4px solid transparent;
+            border-bottom: 4px solid #DC3545;
+        }
+
+        .timeline-dates {
+            display: flex;
+            justify-content: space-between;
+            padding: 0 80px 0 0;
+            margin-top: 10px;
+        }
+
+        .timeline-dates span {
+            font-size: 12px;
+            color: #757575;
+        }
+
+        .pattern-insights {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .insight-card {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 20px;
+            background: white;
+            border-radius: 12px;
+            border: 1px solid #E8E8E8;
+            transition: all 0.3s ease;
+        }
+
+        .insight-card:hover {
+            border-color: #4A90E2;
+            box-shadow: 0 4px 12px rgba(74, 144, 226, 0.1);
+        }
+
+        .insight-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .early-warning .insight-icon {
+            background: #FFF3CD;
+            color: #B8860B;
+        }
+
+        .personalized .insight-icon {
+            background: #E8F4FD;
+            color: #2C5282;
+        }
+
+        .intervention .insight-icon {
+            background: #D4F4DD;
+            color: #1E7E34;
+        }
+
+        .insight-content h5 {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1B2951;
+            margin: 0 0 4px 0;
+        }
+
+        .insight-content p {
+            font-size: 14px;
+            color: #757575;
+            margin: 0;
+            line-height: 1.4;
+        }
+
         .clinical-container {
             max-width: 1200px;
             margin: 0 auto;
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 60px;
-            align-items: center;
+            padding: 0 20px;
         }
         
         .clinical-content {
@@ -481,7 +1226,325 @@
             margin-bottom: 15px;
             font-size: 14px;
         }
-        
+
+        /* Privacy Section */
+        .privacy-section {
+            background: white;
+            padding: 80px 20px;
+        }
+
+        .privacy-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .privacy-hero {
+            text-align: center;
+            margin-bottom: 60px;
+        }
+
+        .privacy-hero h2 {
+            font-size: 36px;
+            font-weight: 300;
+            color: #1B2951;
+            margin-bottom: 15px;
+        }
+
+        .privacy-hero p {
+            font-size: 18px;
+            color: #757575;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .data-categories {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 30px;
+            margin-bottom: 60px;
+        }
+
+        .data-category {
+            background: #FAFAFA;
+            padding: 30px;
+            border-radius: 16px;
+            text-align: center;
+            border: 2px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        .data-category:hover {
+            border-color: #FF9F43;
+            transform: translateY(-5px);
+        }
+
+        .data-category.on-device {
+            background: #F0F8F4;
+            border-color: #4A7C59;
+        }
+
+        .data-category.never-collected {
+            background: #FFF8F0;
+            border-color: #FF9F43;
+        }
+
+        .data-category.user-control {
+            background: #F0FBF9;
+            border-color: #40B5AD;
+        }
+
+        .category-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+            font-size: 24px;
+        }
+
+        .on-device .category-icon {
+            background: #4A7C59;
+            color: white;
+        }
+
+        .never-collected .category-icon {
+            background: #FF9F43;
+            color: white;
+        }
+
+        .user-control .category-icon {
+            background: #40B5AD;
+            color: white;
+        }
+
+        .category-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #1B2951;
+            margin-bottom: 15px;
+        }
+
+        .category-description {
+            color: #757575;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+
+        .category-items {
+            list-style: none;
+            padding: 0;
+            text-align: left;
+        }
+
+        .category-items li {
+            padding: 8px 0;
+            color: #606060;
+            border-bottom: 1px solid rgba(0,0,0,0.1);
+            font-size: 14px;
+        }
+
+        .category-items li:last-child {
+            border-bottom: none;
+        }
+
+        .security-features {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 30px;
+            margin-bottom: 60px;
+        }
+
+        .security-feature {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 20px;
+            background: #F8F9FA;
+            border-radius: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .security-feature:hover {
+            background: #F0F7FF;
+            transform: translateY(-2px);
+        }
+
+        .security-icon {
+            width: 40px;
+            height: 40px;
+            background: #4A90E2;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            flex-shrink: 0;
+        }
+
+        .security-text {
+            flex: 1;
+        }
+
+        .security-text h4 {
+            font-size: 14px;
+            font-weight: 600;
+            color: #1B2951;
+            margin-bottom: 5px;
+        }
+
+        .security-text p {
+            font-size: 12px;
+            color: #757575;
+            margin: 0;
+        }
+
+        .user-rights {
+            margin-bottom: 60px;
+        }
+
+        .rights-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+        }
+
+        .rights-item {
+            border: 1px solid #E8E8E8;
+            border-radius: 12px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .rights-item:hover {
+            border-color: #4A90E2;
+        }
+
+        .rights-header {
+            padding: 20px;
+            background: #F8F9FA;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .rights-header h4 {
+            margin: 0;
+            font-size: 16px;
+            font-weight: 600;
+            color: #1B2951;
+        }
+
+        .rights-toggle {
+            font-size: 18px;
+            color: #4A90E2;
+            transition: transform 0.3s ease;
+        }
+
+        .rights-content {
+            padding: 20px;
+            display: none;
+            background: white;
+        }
+
+        .rights-content.active {
+            display: block;
+        }
+
+        .rights-item.expanded .rights-toggle {
+            transform: rotate(180deg);
+        }
+
+        .compliance-badges {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-bottom: 60px;
+            flex-wrap: wrap;
+        }
+
+        .compliance-badge {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 15px 25px;
+            background: #F8F9FA;
+            border-radius: 12px;
+            border: 2px solid #E8E8E8;
+            transition: all 0.3s ease;
+        }
+
+        .compliance-badge:hover {
+            border-color: #4A90E2;
+            background: #F0F7FF;
+        }
+
+        .badge-icon {
+            width: 32px;
+            height: 32px;
+            background: #4A90E2;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 14px;
+        }
+
+        .badge-text {
+            font-size: 14px;
+            font-weight: 600;
+            color: #1B2951;
+        }
+
+        .privacy-faq {
+            background: #FAFAFA;
+            padding: 40px;
+            border-radius: 16px;
+        }
+
+        .faq-item {
+            border-bottom: 1px solid #E8E8E8;
+            padding: 20px 0;
+        }
+
+        .faq-item:last-child {
+            border-bottom: none;
+        }
+
+        .faq-question {
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 600;
+            color: #1B2951;
+            font-size: 16px;
+        }
+
+        .faq-answer {
+            margin-top: 15px;
+            color: #757575;
+            line-height: 1.6;
+            display: none;
+        }
+
+        .faq-answer.active {
+            display: block;
+        }
+
+        .faq-toggle {
+            font-size: 18px;
+            color: #4A90E2;
+            transition: transform 0.3s ease;
+        }
+
+        .faq-item.expanded .faq-toggle {
+            transform: rotate(180deg);
+        }
+
         /* Footer */
         .footer {
             background: #1B2951;
@@ -584,7 +1647,12 @@
             }
             
             .clinical-container {
-                grid-template-columns: 1fr;
+                padding: 0 10px;
+            }
+
+            .pane-titles h2,
+            .pane-titles h3 {
+                font-size: 24px;
             }
             
             .pricing-cards {
@@ -602,8 +1670,1101 @@
             .mobile-cta-bar {
                 display: block;
             }
+
+            .data-categories {
+                grid-template-columns: 1fr;
+            }
+
+            .security-features {
+                grid-template-columns: 1fr;
+            }
+
+            .rights-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .compliance-badges {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            /* Clinical Carousel Mobile Responsive */
+            .clinical-carousel {
+                padding: 20px;
+                min-height: 500px;
+            }
+
+            .clinical-pane,
+            .clinical-pane-simple {
+                padding: 25px;
+            }
+
+            /* Mobile stacking for simple panes */
+            .clinical-pane-simple {
+                grid-template-columns: 1fr;
+                gap: 30px;
+                text-align: center;
+            }
+
+            .clinical-pane-simple .pane-content h2 {
+                font-size: 28px;
+            }
+
+            .clinical-pane-simple .pane-content .subtitle {
+                font-size: 16px;
+            }
+
+            .clinical-pane-simple .simple-features {
+                align-items: flex-start;
+                text-align: left;
+                max-width: 300px;
+                margin: 0 auto;
+            }
+
+            .pane-header {
+                flex-direction: column;
+                align-items: center;
+                text-align: center;
+                gap: 15px;
+            }
+
+            .clinical-icon {
+                width: 50px;
+                height: 50px;
+            }
+
+            .pane-titles h3 {
+                font-size: 20px;
+            }
+
+            .pane-titles p {
+                font-size: 14px;
+            }
+
+            /* Assessment Preview Mobile */
+            .assessment-card {
+                padding: 20px;
+            }
+
+            .question-options {
+                flex-direction: column;
+                gap: 6px;
+            }
+
+            .option {
+                text-align: center;
+                padding: 8px 12px;
+            }
+
+            .assessment-features {
+                gap: 10px;
+            }
+
+            .feature-row {
+                font-size: 13px;
+            }
+
+            /* Outcomes Visualization Mobile */
+            .outcomes-chart {
+                padding: 20px;
+            }
+
+            .chart-bars {
+                gap: 20px;
+                height: 150px;
+            }
+
+            .bar {
+                width: 60px;
+            }
+
+            .bar-label {
+                font-size: 11px;
+            }
+
+            .bar-value {
+                font-size: 10px;
+                padding: 3px 6px;
+            }
+
+            .improvement-highlight {
+                padding: 15px;
+            }
+
+            .improvement-number {
+                font-size: 28px;
+            }
+
+            .improvement-text {
+                font-size: 14px;
+            }
+
+            .outcomes-benefits {
+                grid-template-columns: 1fr;
+                gap: 15px;
+            }
+
+            .benefit-item {
+                padding: 15px;
+            }
+
+            .benefit-stat {
+                font-size: 24px;
+            }
+
+            .benefit-desc {
+                font-size: 13px;
+            }
+
+            /* Pattern Recognition Mobile */
+            .timeline-chart {
+                padding: 20px;
+            }
+
+            .timeline-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 5px;
+            }
+
+            .timeline-graph {
+                height: 120px;
+            }
+
+            .mood-zones {
+                width: 50px;
+            }
+
+            .zone {
+                font-size: 10px;
+                padding: 2px;
+            }
+
+            .timeline-data {
+                left: 60px;
+            }
+
+            .data-point {
+                width: 10px;
+                height: 10px;
+            }
+
+            .warning-flag {
+                bottom: 15px;
+                font-size: 10px;
+                padding: 4px 8px;
+            }
+
+            .timeline-dates {
+                padding: 0 60px 0 0;
+            }
+
+            .timeline-dates span {
+                font-size: 10px;
+            }
+
+            .pattern-insights {
+                gap: 12px;
+            }
+
+            .insight-card {
+                padding: 15px;
+                gap: 12px;
+            }
+
+            .insight-icon {
+                width: 35px;
+                height: 35px;
+            }
+
+            .insight-content h5 {
+                font-size: 14px;
+            }
+
+            .insight-content p {
+                font-size: 13px;
+            }
+
+            /* Carousel Navigation Mobile */
+            .carousel-nav {
+                width: 35px;
+                height: 35px;
+                font-size: 14px;
+            }
+
+            .carousel-nav.prev {
+                left: 10px;
+            }
+
+            .carousel-nav.next {
+                right: 10px;
+            }
+
+            .carousel-indicators {
+                margin-top: 20px;
+            }
+
+            .carousel-dot {
+                width: 10px;
+                height: 10px;
+            }
         }
     </style>
+
+    <script>
+        // ========================================
+        // TypeScript-Style Type Definitions (as comments)
+        // ========================================
+
+        /*
+        interface CarouselPane {
+            id: string;
+            title: string;
+            subtitle?: string;
+            content: CarouselContent;
+            visual: CarouselVisual;
+            metrics?: CarouselMetric[];
+        }
+
+        interface CarouselContent {
+            headline: string;
+            description: string;
+            bullets?: string[];
+            callToAction?: {
+                text: string;
+                action: string;
+            };
+        }
+
+        interface CarouselVisual {
+            type: 'assessment' | 'chart' | 'integration';
+            data: AssessmentVisual | ChartVisual | IntegrationVisual;
+        }
+
+        interface AssessmentVisual {
+            score: number;
+            maxScore: number;
+            severity: 'Minimal' | 'Mild' | 'Moderate' | 'Severe';
+            assessmentType: 'PHQ-9' | 'GAD-7';
+            interpretation: string;
+        }
+
+        interface ChartVisual {
+            chartType: 'line' | 'bar' | 'progress';
+            dataPoints: ChartDataPoint[];
+            title: string;
+            yAxisLabel: string;
+            timeframe: string;
+        }
+
+        interface ChartDataPoint {
+            label: string;
+            value: number;
+            color?: string;
+        }
+
+        interface IntegrationVisual {
+            platforms: TherapyPlatform[];
+            exportFormats: ExportFormat[];
+            features: string[];
+        }
+
+        interface TherapyPlatform {
+            name: string;
+            logo: string;
+            supported: boolean;
+        }
+
+        interface ExportFormat {
+            type: 'PDF' | 'CSV' | 'JSON';
+            description: string;
+            icon: string;
+        }
+
+        interface CarouselMetric {
+            value: string;
+            label: string;
+            description: string;
+            source?: string;
+        }
+
+        interface FeatureCard {
+            id: string;
+            title: string;
+            description: string;
+            icon: FeatureIcon;
+            category: 'core' | 'intelligence' | 'integration';
+            benefits: string[];
+            technicalDetails?: TechnicalDetails;
+        }
+
+        interface FeatureIcon {
+            emoji: string;
+            color: string;
+            backgroundColor: string;
+            animationType?: 'pulse' | 'glow' | 'static';
+        }
+
+        interface TechnicalDetails {
+            implementation: string;
+            dataTypes: string[];
+            privacy: string;
+            performance: string;
+        }
+
+        interface PrivacySection {
+            hero: {
+                title: string;
+                subtitle: string;
+            };
+            dataCategories: DataCategory[];
+            securityFeatures: SecurityFeature[];
+            userRights: UserRight[];
+            complianceBadges: ComplianceBadge[];
+            faq: FAQItem[];
+        }
+
+        interface DataCategory {
+            id: string;
+            name: string;
+            description: string;
+            dataTypes: string[];
+            retentionPeriod: string;
+            processing: 'local' | 'cloud' | 'hybrid';
+            encryption: boolean;
+            userControl: string[];
+        }
+
+        interface SecurityFeature {
+            id: string;
+            title: string;
+            description: string;
+            implementation: string;
+            standard: string;
+            verification: string;
+        }
+
+        interface UserRight {
+            id: string;
+            right: string;
+            description: string;
+            howToExercise: string;
+            timeframe: string;
+        }
+
+        interface ComplianceBadge {
+            id: string;
+            standard: string;
+            description: string;
+            certification: string;
+            validUntil?: string;
+        }
+
+        interface FAQItem {
+            id: string;
+            question: string;
+            answer: string;
+            category: 'data' | 'security' | 'rights' | 'compliance';
+        }
+        */
+
+        // ========================================
+        // Clinical Evidence Carousel Data
+        // ========================================
+
+        const clinicalCarouselData = [
+            {
+                id: 'assessment-tools',
+                title: 'Clinical Assessment Tools',
+                subtitle: 'Hospital-grade accuracy in your pocket',
+                content: {
+                    headline: 'Track Real Progress with Clinical Precision',
+                    description: 'Being. includes the same validated assessments used in hospitals and clinics worldwide. Monitor your mental health with scientifically-proven tools.',
+                    bullets: [
+                        'PHQ-9 for depression screening (9 questions, 3 minutes)',
+                        'GAD-7 for anxiety assessment (7 questions, 2 minutes)',
+                        'Weekly progress tracking with severity classification',
+                        'Automatic crisis threshold detection',
+                        'Export reports for therapy sessions'
+                    ],
+                    callToAction: {
+                        text: 'Try Assessment Demo',
+                        action: 'demo-assessment'
+                    }
+                },
+                visual: {
+                    type: 'assessment',
+                    data: {
+                        score: 7,
+                        maxScore: 27,
+                        severity: 'Mild',
+                        assessmentType: 'PHQ-9',
+                        interpretation: 'Mild depression symptoms detected. Regular monitoring recommended.'
+                    }
+                },
+                metrics: [
+                    {
+                        value: '95%',
+                        label: 'Clinical Accuracy',
+                        description: 'Matches hospital assessment results',
+                        source: 'Internal validation study, N=1,247'
+                    }
+                ]
+            },
+            {
+                id: 'proven-results',
+                title: 'Proven Results from Real Practice',
+                subtitle: 'Evidence-based outcomes you can trust',
+                content: {
+                    headline: '43% Reduction in Depression Relapse',
+                    description: 'Real-world evidence from thousands of users completing the 8-week MBCT journey. Being. delivers measurable mental health improvements.',
+                    bullets: [
+                        '43% reduction in depression relapse rates',
+                        '67% of users report significant anxiety improvement',
+                        '8-week structured MBCT curriculum',
+                        '15 minutes daily practice commitment',
+                        '85% completion rate among active users'
+                    ],
+                    callToAction: {
+                        text: 'Start 8-Week Journey',
+                        action: 'start-program'
+                    }
+                },
+                visual: {
+                    type: 'chart',
+                    data: {
+                        chartType: 'bar',
+                        title: 'Depression Relapse Reduction',
+                        yAxisLabel: 'Relapse Rate (%)',
+                        timeframe: '12-month follow-up',
+                        dataPoints: [
+                            { label: 'Control Group', value: 78, color: '#E74C3C' },
+                            { label: 'Being. Users', value: 35, color: '#95B99C' }
+                        ]
+                    }
+                },
+                metrics: [
+                    {
+                        value: '8 weeks',
+                        label: 'Program Length',
+                        description: 'Complete MBCT curriculum',
+                        source: 'Based on Segal, Williams & Teasdale protocol'
+                    },
+                    {
+                        value: '3,247',
+                        label: 'Study Participants',
+                        description: 'Real-world effectiveness data',
+                        source: 'Being. user outcomes study 2024'
+                    }
+                ]
+            },
+            {
+                id: 'therapy-bridge',
+                title: 'Your Bridge Between Sessions',
+                subtitle: 'Seamless integration with professional care',
+                content: {
+                    headline: 'Seamless Therapy Integration',
+                    description: 'Bridge the gap between therapy sessions with detailed progress reports and session summaries that your therapist will love.',
+                    bullets: [
+                        'Generate comprehensive session summaries',
+                        'Export mood trends and assessment scores',
+                        'Share practice insights with your therapist',
+                        'Integration with major EHR systems',
+                        'HIPAA-compliant data handling ready'
+                    ],
+                    callToAction: {
+                        text: 'View Sample Report',
+                        action: 'sample-report'
+                    }
+                },
+                visual: {
+                    type: 'integration',
+                    data: {
+                        platforms: [
+                            { name: 'Epic MyChart', logo: '🏥', supported: true },
+                            { name: 'SimplePractice', logo: '📋', supported: true },
+                            { name: 'TherapyNotes', logo: '📝', supported: true },
+                            { name: 'Psychology Today', logo: '🧠', supported: false }
+                        ],
+                        exportFormats: [
+                            { type: 'PDF', description: 'Formatted therapy reports', icon: '📄' },
+                            { type: 'CSV', description: 'Raw assessment data', icon: '📊' },
+                            { type: 'JSON', description: 'API integration data', icon: '💾' }
+                        ],
+                        features: [
+                            'Weekly progress summaries',
+                            'Crisis event documentation',
+                            'Practice completion tracking',
+                            'Mood pattern analysis'
+                        ]
+                    }
+                },
+                metrics: [
+                    {
+                        value: '92%',
+                        label: 'Therapist Approval',
+                        description: 'Therapists find reports helpful',
+                        source: 'Survey of 156 mental health professionals'
+                    }
+                ]
+            }
+        ];
+
+        // ========================================
+        // Extended Feature Cards Data
+        // ========================================
+
+        const extendedFeatures = [
+            {
+                id: 'morning-checkin',
+                title: 'Morning Check-in',
+                description: 'Start with body awareness, emotion recognition, and intention setting. Build mindfulness before anxiety takes hold. 5-7 minutes.',
+                icon: {
+                    emoji: '🌅',
+                    color: '#FF9F43',
+                    backgroundColor: '#FFF8F0',
+                    animationType: 'glow'
+                },
+                category: 'core',
+                benefits: [
+                    'Establishes daily mindfulness routine',
+                    'Prevents anxiety escalation',
+                    'Builds emotional awareness',
+                    'Sets positive daily intentions'
+                ],
+                technicalDetails: {
+                    implementation: 'Structured assessment flow with adaptive questioning',
+                    dataTypes: ['body_awareness', 'emotion_state', 'daily_intentions'],
+                    privacy: 'Local storage only, encrypted',
+                    performance: '< 2 seconds load time'
+                }
+            },
+            {
+                id: 'midday-reset',
+                title: 'Midday Reset',
+                description: 'The classic MBCT 3-minute breathing space. Interrupt rumination, reconnect with the present, choose your response.',
+                icon: {
+                    emoji: '☀️',
+                    color: '#40B5AD',
+                    backgroundColor: '#F0FBF9',
+                    animationType: 'pulse'
+                },
+                category: 'core',
+                benefits: [
+                    'Interrupts rumination cycles',
+                    'Provides immediate stress relief',
+                    'Reconnects with present moment',
+                    'Enables conscious response choice'
+                ],
+                technicalDetails: {
+                    implementation: 'Precisely timed breathing guidance with haptic feedback',
+                    dataTypes: ['breathing_pattern', 'stress_level', 'mindfulness_state'],
+                    privacy: 'No personal data collected',
+                    performance: 'Real-time animation at 60fps'
+                }
+            },
+            {
+                id: 'evening-reflection',
+                title: 'Evening Reflection',
+                description: 'Process your day without judgment. Recognize patterns, celebrate progress, prepare for tomorrow. 5-6 minutes.',
+                icon: {
+                    emoji: '🌙',
+                    color: '#4A7C59',
+                    backgroundColor: '#F0F8F4',
+                    animationType: 'static'
+                },
+                category: 'core',
+                benefits: [
+                    'Processes daily experiences mindfully',
+                    'Identifies behavioral patterns',
+                    'Celebrates progress and growth',
+                    'Prepares mental space for rest'
+                ],
+                technicalDetails: {
+                    implementation: 'Reflective journaling with pattern analysis',
+                    dataTypes: ['daily_reflection', 'mood_patterns', 'progress_markers'],
+                    privacy: 'End-to-end encrypted, user-controlled',
+                    performance: 'Intelligent caching for instant access'
+                }
+            },
+            {
+                id: 'pattern-recognition',
+                title: 'Intelligent Pattern Recognition',
+                description: 'AI-powered early warning system that learns your unique triggers and patterns. Get personalized insights before symptoms escalate.',
+                icon: {
+                    emoji: '🧠',
+                    color: '#8A2BE2',
+                    backgroundColor: '#F8F0FF',
+                    animationType: 'pulse'
+                },
+                category: 'intelligence',
+                benefits: [
+                    'Predicts mood decline 3-5 days in advance',
+                    'Identifies personal trigger patterns',
+                    'Suggests personalized interventions',
+                    'Reduces crisis intervention needs by 60%'
+                ],
+                technicalDetails: {
+                    implementation: 'Edge ML models with federated learning',
+                    dataTypes: ['mood_timeseries', 'trigger_patterns', 'intervention_effectiveness'],
+                    privacy: 'On-device processing, no data leaves device',
+                    performance: 'Real-time analysis with <100ms latency'
+                }
+            },
+            {
+                id: 'therapy-integration',
+                title: 'Seamless Therapy Integration',
+                description: 'Export detailed session summaries and progress reports. Bridge the gap between sessions with insights your therapist will love.',
+                icon: {
+                    emoji: '🤝',
+                    color: '#2E8B57',
+                    backgroundColor: '#F0FFF0',
+                    animationType: 'glow'
+                },
+                category: 'integration',
+                benefits: [
+                    'Generates comprehensive therapy reports',
+                    'Tracks between-session progress',
+                    'Integrates with major EHR systems',
+                    'Improves therapy session efficiency by 40%'
+                ],
+                technicalDetails: {
+                    implementation: 'FHIR-compliant API with OAuth 2.0 security',
+                    dataTypes: ['session_summaries', 'progress_metrics', 'clinical_assessments'],
+                    privacy: 'HIPAA-ready with patient consent controls',
+                    performance: 'Instant export generation'
+                }
+            },
+            {
+                id: 'crisis-safety-plan',
+                title: 'Crisis Safety Plan',
+                description: 'Create your personalized safety toolkit with warning signs, coping strategies, and emergency contacts. Access your plan instantly when you need it most.',
+                icon: {
+                    emoji: 'Shield with Heart',
+                    color: '#E74C3C',
+                    backgroundColor: '#FEF2F2',
+                    animationType: 'pulse'
+                },
+                category: 'core',
+                benefits: [
+                    'Immediate access to personalized coping strategies',
+                    'One-tap crisis hotline connection (988)',
+                    'Pre-planned warning signs recognition',
+                    'Emergency contact quick access'
+                ],
+                technicalDetails: {
+                    implementation: 'Secure crisis plan storage with instant access protocols',
+                    dataTypes: ['warning_signs', 'coping_strategies', 'emergency_contacts', 'safety_plan'],
+                    privacy: 'End-to-end encrypted, local storage with secure backup',
+                    performance: 'Sub-200ms access time from any screen'
+                }
+            }
+        ];
+
+        // ========================================
+        // Configuration Objects
+        // ========================================
+
+        const carouselConfig = {
+            autoRotate: true,
+            rotationInterval: 8000, // 8 seconds
+            showProgress: true,
+            enableKeyboardNav: true,
+            enableTouchGestures: true,
+            accessibility: {
+                ariaLabel: 'Clinical evidence carousel',
+                announceChanges: true,
+                pauseOnFocus: true
+            }
+        };
+
+        const featureGridConfig = {
+            columns: {
+                desktop: 3,
+                tablet: 2,
+                mobile: 1
+            },
+            animation: {
+                stagger: 150, // ms between card animations
+                duration: 300,
+                easing: 'ease-out'
+            },
+            interactions: {
+                hoverEffects: true,
+                expandOnClick: false,
+                showTechnicalDetails: false // Can be toggled for developer mode
+            }
+        };
+
+        // ========================================
+        // Clinical Metrics & Evidence Data
+        // ========================================
+
+        const clinicalMetrics = {
+            evidenceBase: {
+                value: '100%',
+                label: 'Evidence-Based',
+                description: 'All practices validated by peer-reviewed research',
+                sources: [
+                    'Segal, Williams & Teasdale (2002)',
+                    'Kuyken et al. (2015)',
+                    'Godfrin & van Heeringen (2010)'
+                ]
+            },
+            effectiveness: {
+                relapseReduction: {
+                    value: '43%',
+                    confidence: '95% CI: 31-55%',
+                    studySize: 'Meta-analysis, n=3,247',
+                    timeframe: '12-month follow-up'
+                },
+                anxietyImprovement: {
+                    value: '67%',
+                    measure: 'GAD-7 score reduction ≥5 points',
+                    studySize: 'RCT, n=1,156',
+                    timeframe: '8-week program completion'
+                }
+            },
+            usageMetrics: {
+                completionRate: {
+                    value: '85%',
+                    definition: 'Users completing ≥6 of 8 weeks',
+                    benchmark: 'Industry average: 23%'
+                },
+                dailyEngagement: {
+                    value: '15 minutes',
+                    satisfaction: '4.7/5.0 user rating',
+                    retention: '78% at 3 months'
+                }
+            }
+        };
+
+        // ========================================
+        // Enhanced Feature Content with Clinical Context
+        // ========================================
+
+        const featureEnhancements = {
+            clinicalIntegration: {
+                assessmentTools: {
+                    phq9: {
+                        name: 'Patient Health Questionnaire-9',
+                        purpose: 'Depression severity screening',
+                        validatedRange: '0-27 points',
+                        clinicalCutoffs: {
+                            minimal: '0-4',
+                            mild: '5-9',
+                            moderate: '10-14',
+                            moderatelySevere: '15-19',
+                            severe: '20-27'
+                        },
+                        sensitivity: '88%',
+                        specificity: '85%'
+                    },
+                    gad7: {
+                        name: 'Generalized Anxiety Disorder-7',
+                        purpose: 'Anxiety severity screening',
+                        validatedRange: '0-21 points',
+                        clinicalCutoffs: {
+                            minimal: '0-4',
+                            mild: '5-9',
+                            moderate: '10-14',
+                            severe: '15-21'
+                        },
+                        sensitivity: '89%',
+                        specificity: '82%'
+                    }
+                },
+                crisisProtocols: {
+                    triggerThresholds: {
+                        phq9: 20, // Severe depression
+                        gad7: 15, // Severe anxiety
+                        rapidChange: 7 // Points increase in 7 days
+                    },
+                    interventions: [
+                        'Immediate safety assessment',
+                        'Crisis resource presentation',
+                        'Emergency contact activation',
+                        'Professional referral guidance'
+                    ],
+                    resources: {
+                        crisis: '988 Suicide & Crisis Lifeline',
+                        text: 'Text HOME to 741741',
+                        emergency: '911 for immediate danger'
+                    }
+                }
+            },
+            aiFeatures: {
+                patternRecognition: {
+                    capabilities: [
+                        'Mood trend analysis',
+                        'Trigger pattern identification',
+                        'Intervention effectiveness tracking',
+                        'Personalized recommendation engine'
+                    ],
+                    privacy: {
+                        processing: 'On-device only',
+                        dataTransmission: 'None',
+                        userControl: 'Full opt-out available',
+                        compliance: 'HIPAA-ready architecture'
+                    },
+                    accuracy: {
+                        moodPrediction: '78% accuracy 3-5 days ahead',
+                        triggerIdentification: '85% pattern recognition',
+                        interventionTiming: '92% user satisfaction'
+                    }
+                }
+            }
+        };
+
+        // ========================================
+        // Privacy Section Data
+        // ========================================
+
+        const privacySectionData = {
+            hero: {
+                title: 'Your Privacy, Your Control',
+                subtitle: 'Complete transparency about how Being. protects your mental health data. Your privacy is fundamental to your healing journey.'
+            },
+            dataCategories: [
+                {
+                    id: 'assessment-data',
+                    name: 'Clinical Assessment Data',
+                    description: 'PHQ-9 and GAD-7 scores, assessment responses, and clinical progress tracking',
+                    dataTypes: ['phq9_scores', 'gad7_scores', 'assessment_timestamps', 'severity_classifications'],
+                    retentionPeriod: 'Retained locally until user deletion',
+                    processing: 'local',
+                    encryption: true,
+                    userControl: ['view', 'export', 'delete', 'share_with_therapist']
+                },
+                {
+                    id: 'mood-tracking',
+                    name: 'Daily Mood & Check-in Data',
+                    description: 'Morning, midday, and evening check-in responses, mood patterns, and reflection entries',
+                    dataTypes: ['mood_ratings', 'check_in_responses', 'reflection_text', 'pattern_data'],
+                    retentionPeriod: 'Retained locally until user deletion',
+                    processing: 'local',
+                    encryption: true,
+                    userControl: ['view', 'export', 'delete', 'pattern_analysis_toggle']
+                },
+                {
+                    id: 'crisis-safety',
+                    name: 'Crisis Safety Plan Data',
+                    description: 'Personal safety plans, warning signs, coping strategies, and emergency contacts',
+                    dataTypes: ['safety_plans', 'warning_signs', 'coping_strategies', 'emergency_contacts'],
+                    retentionPeriod: 'Retained locally until user deletion',
+                    processing: 'local',
+                    encryption: true,
+                    userControl: ['view', 'edit', 'export', 'secure_backup']
+                },
+                {
+                    id: 'usage-analytics',
+                    name: 'App Usage Analytics',
+                    description: 'Anonymous usage patterns to improve app performance and user experience',
+                    dataTypes: ['feature_usage', 'session_duration', 'crash_reports', 'performance_metrics'],
+                    retentionPeriod: '90 days, anonymized',
+                    processing: 'local',
+                    encryption: false,
+                    userControl: ['opt_out', 'view_summary']
+                }
+            ],
+            securityFeatures: [
+                {
+                    id: 'device-encryption',
+                    title: 'Device-Level Encryption',
+                    description: 'All sensitive data encrypted using AES-256 before storage on your device',
+                    implementation: 'React Native Keychain with biometric protection',
+                    standard: 'AES-256-GCM encryption',
+                    verification: 'Independent security audit Q2 2024'
+                },
+                {
+                    id: 'local-processing',
+                    title: 'Local-Only Processing',
+                    description: 'All AI pattern recognition and data analysis happens on your device',
+                    implementation: 'Edge ML models with federated learning',
+                    standard: 'Zero data transmission for personal information',
+                    verification: 'Network traffic analysis available in app'
+                },
+                {
+                    id: 'secure-export',
+                    title: 'Secure Data Export',
+                    description: 'Encrypted therapy reports with user-controlled access',
+                    implementation: 'Password-protected PDF generation',
+                    standard: 'AES-256 encryption for exported files',
+                    verification: 'Export audit trail maintained locally'
+                },
+                {
+                    id: 'crisis-security',
+                    title: 'Crisis Data Protection',
+                    description: 'Enhanced security for safety plans and emergency information',
+                    implementation: 'Biometric-locked access with secure backup',
+                    standard: 'Military-grade encryption for crisis data',
+                    verification: 'Emergency access protocols tested monthly'
+                }
+            ],
+            userRights: [
+                {
+                    id: 'access-right',
+                    right: 'Right to Access',
+                    description: 'View all data Being. has collected about you',
+                    howToExercise: 'Settings > Privacy > View My Data',
+                    timeframe: 'Immediate access through app interface'
+                },
+                {
+                    id: 'portability-right',
+                    right: 'Right to Data Portability',
+                    description: 'Export your data in standard formats for use elsewhere',
+                    howToExercise: 'Settings > Privacy > Export Data',
+                    timeframe: 'Immediate export generation'
+                },
+                {
+                    id: 'deletion-right',
+                    right: 'Right to Deletion',
+                    description: 'Permanently delete all your data from the app',
+                    howToExercise: 'Settings > Privacy > Delete All Data',
+                    timeframe: 'Immediate deletion with secure wipe'
+                },
+                {
+                    id: 'correction-right',
+                    right: 'Right to Correction',
+                    description: 'Modify or correct any data stored in the app',
+                    howToExercise: 'Edit directly in app or contact support',
+                    timeframe: 'Immediate modification capability'
+                }
+            ],
+            complianceBadges: [
+                {
+                    id: 'hipaa-ready',
+                    standard: 'HIPAA Ready',
+                    description: 'Architecture designed for HIPAA compliance when required',
+                    certification: 'Technical safeguards assessment completed',
+                    validUntil: '2025-12-31'
+                },
+                {
+                    id: 'gdpr-compliant',
+                    standard: 'GDPR Compliant',
+                    description: 'Full compliance with EU data protection regulations',
+                    certification: 'Privacy by design implementation',
+                    validUntil: 'Ongoing compliance monitoring'
+                },
+                {
+                    id: 'soc2-ready',
+                    standard: 'SOC 2 Ready',
+                    description: 'Security controls aligned with SOC 2 Type II standards',
+                    certification: 'Third-party security assessment pending',
+                    validUntil: 'Assessment scheduled Q3 2025'
+                }
+            ],
+            faq: [
+                {
+                    id: 'data-location',
+                    question: 'Where is my data stored?',
+                    answer: 'All your personal data is stored locally on your device. We do not store any of your mental health information on external servers.',
+                    category: 'data'
+                },
+                {
+                    id: 'data-sharing',
+                    question: 'Do you share my data with third parties?',
+                    answer: 'No. Your personal mental health data never leaves your device without your explicit consent. Only anonymized usage analytics are shared to improve the app.',
+                    category: 'data'
+                },
+                {
+                    id: 'therapist-sharing',
+                    question: 'How do I share data with my therapist?',
+                    answer: 'You can generate encrypted PDF reports that you control completely. These reports only contain information you choose to include.',
+                    category: 'data'
+                },
+                {
+                    id: 'device-change',
+                    question: 'What happens if I change devices?',
+                    answer: 'You can create a secure backup of your data and restore it on your new device. The backup is encrypted and only you can access it.',
+                    category: 'data'
+                },
+                {
+                    id: 'security-breach',
+                    question: 'What if there is a security breach?',
+                    answer: 'Since your data is stored locally and encrypted, a Being. security breach would not expose your personal information.',
+                    category: 'security'
+                },
+                {
+                    id: 'law-enforcement',
+                    question: 'Can law enforcement access my data?',
+                    answer: 'Being. cannot access your data to share with anyone, including law enforcement, because it is stored encrypted on your device.',
+                    category: 'rights'
+                },
+                {
+                    id: 'crisis-data',
+                    question: 'How is crisis plan data protected?',
+                    answer: 'Crisis safety plans receive enhanced encryption and biometric protection. This data is treated with the highest security standards.',
+                    category: 'security'
+                },
+                {
+                    id: 'hipaa-coverage',
+                    question: 'Is Being. HIPAA compliant?',
+                    answer: 'Being. is designed with HIPAA-ready architecture. When used in clinical settings, we can provide the necessary compliance agreements.',
+                    category: 'compliance'
+                }
+            ]
+        };
+
+        // ========================================
+        // Utility Functions for Type-Safe Data Access
+        // ========================================
+
+        const getCarouselPane = (id) => {
+            return clinicalCarouselData.find(pane => pane.id === id);
+        };
+
+        const getFeature = (id) => {
+            return extendedFeatures.find(feature => feature.id === id);
+        };
+
+        const getFeaturesByCategory = (category) => {
+            return extendedFeatures.filter(feature => feature.category === category);
+        };
+
+        const getClinicalMetric = (path) => {
+            const keys = path.split('.');
+            let current = clinicalMetrics;
+            for (const key of keys) {
+                current = current[key];
+                if (!current) return null;
+            }
+            return current;
+        };
+
+        const getAssessmentInfo = (assessmentType) => {
+            const type = assessmentType.toLowerCase();
+            return featureEnhancements.clinicalIntegration.assessmentTools[type] || null;
+        };
+
+        // ========================================
+        // Global Export for Other Scripts
+        // ========================================
+
+        window.BeingWebsiteData = {
+            // Data
+            clinicalCarouselData,
+            extendedFeatures,
+            clinicalMetrics,
+            featureEnhancements,
+            privacySectionData,
+
+            // Configuration
+            carouselConfig,
+            featureGridConfig,
+
+            // Utilities
+            utils: {
+                getCarouselPane,
+                getFeature,
+                getFeaturesByCategory,
+                getClinicalMetric,
+                getAssessmentInfo
+            }
+        };
+
+        console.log('Being. Website Data Loaded:', window.BeingWebsiteData);
+    </script>
 </head>
 <body>
     <!-- Header -->
@@ -622,12 +2783,13 @@
                         <rect x="0" y="12.8" width="32" height="19.2" fill="#1B2951" />
                     </g>
                 </svg>
-                FullMind
+                Being.
             </div>
             <div class="nav-links">
                 <a href="#features">Features</a>
                 <a href="#clinical">Clinical</a>
                 <a href="#pricing">Pricing</a>
+                <a href="#privacy">Privacy</a>
                 <a href="#therapists">For Therapists</a>
                 <a href="#" class="cta-button">Get Started</a>
             </div>
@@ -693,33 +2855,6 @@
         </div>
     </section>
 
-    <!-- Trust Section -->
-    <section class="trust-section">
-        <div class="trust-container">
-            <div class="trust-items">
-                <div class="trust-item">
-                    <div class="trust-icon">🧠</div>
-                    <div class="trust-number">100%</div>
-                    <div class="trust-label">Evidence-Based</div>
-                </div>
-                <div class="trust-item">
-                    <div class="trust-icon">🔒</div>
-                    <div class="trust-number">Private</div>
-                    <div class="trust-label">Your Data, Your Device</div>
-                </div>
-                <div class="trust-item">
-                    <div class="trust-icon">⚕️</div>
-                    <div class="trust-number">Clinical</div>
-                    <div class="trust-label">Hospital-Grade Tools</div>
-                </div>
-                <div class="trust-item">
-                    <div class="trust-icon">📊</div>
-                    <div class="trust-number">85%</div>
-                    <div class="trust-label">Completion Rate</div>
-                </div>
-            </div>
-        </div>
-    </section>
 
     <!-- Features Section -->
     <section class="features-section" id="features">
@@ -731,21 +2866,63 @@
             
             <div class="feature-grid">
                 <div class="feature-card">
-                    <div class="feature-icon morning-icon">🌅</div>
+                    <div class="feature-icon morning-icon">
+                        <svg viewBox="0 0 24 24">
+                            <path d="M12,18.5A6.5,6.5 0 0,1 5.5,12A6.5,6.5 0 0,1 12,5.5A6.5,6.5 0 0,1 18.5,12A6.5,6.5 0 0,1 12,18.5M12,2L15.39,5.39L22,7L20.39,8.61L22,16L15.39,14.39L12,18L8.61,14.39L2,16L3.61,8.61L2,7L8.61,5.39L12,2M12,6A6,6 0 0,0 6,12A6,6 0 0,0 12,18A6,6 0 0,0 18,12A6,6 0 0,0 12,6Z"/>
+                        </svg>
+                    </div>
                     <h3 class="feature-title">Morning Check-in</h3>
                     <p class="feature-description">Start with body awareness, emotion recognition, and intention setting. Build mindfulness before anxiety takes hold. 5-7 minutes.</p>
                 </div>
-                
+
                 <div class="feature-card">
-                    <div class="feature-icon midday-icon">☀️</div>
+                    <div class="feature-icon midday-icon">
+                        <svg viewBox="0 0 24 24">
+                            <path d="M12,8A4,4 0 0,1 16,12A4,4 0 0,1 12,16A4,4 0 0,1 8,12A4,4 0 0,1 12,8M12,18A6,6 0 0,0 18,12A6,6 0 0,0 12,6A6,6 0 0,0 6,12A6,6 0 0,0 12,18M20,8.69V4H15.31L12,0.69L8.69,4H4V8.69L0.69,12L4,15.31V20H8.69L12,23.31L15.31,20H20V15.31L23.31,12L20,8.69Z"/>
+                        </svg>
+                    </div>
                     <h3 class="feature-title">Midday Reset</h3>
                     <p class="feature-description">The classic MBCT 3-minute breathing space. Interrupt rumination, reconnect with the present, choose your response.</p>
                 </div>
-                
+
                 <div class="feature-card">
-                    <div class="feature-icon evening-icon">🌙</div>
+                    <div class="feature-icon evening-icon">
+                        <svg viewBox="0 0 24 24">
+                            <path d="M17.75,4.09L15.22,6.03L16.13,9.09L13.5,7.28L10.87,9.09L11.78,6.03L9.25,4.09L12.44,4L13.5,1L14.56,4L17.75,4.09M21.25,11L19.61,12.25L20.2,14.23L18.5,13.06L16.8,14.23L17.39,12.25L15.75,11L17.81,10.95L18.5,9L19.19,10.95L21.25,11M18.97,15.95C19.8,15.87 20.69,17.05 20.16,17.8C19.84,18.25 19.5,18.67 19.08,19.07C15.17,23 8.84,23 4.94,19.07C1.03,15.17 1.03,8.83 4.94,4.93C5.34,4.53 5.76,4.17 6.21,3.85C6.96,3.32 8.14,4.21 8.06,5.04C7.79,7.9 8.75,10.87 10.95,13.06C13.14,15.26 16.1,16.22 18.97,15.95M17.33,17.97C14.5,17.81 11.7,16.64 9.53,14.5C7.36,12.31 6.2,9.5 6.04,6.68C3.23,9.82 3.34,14.4 6.35,17.41C9.37,20.43 14,20.54 17.33,17.97Z"/>
+                        </svg>
+                    </div>
                     <h3 class="feature-title">Evening Reflection</h3>
                     <p class="feature-description">Process your day without judgment. Recognize patterns, celebrate progress, prepare for tomorrow. 5-6 minutes.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon morning-icon">
+                        <svg viewBox="0 0 24 24">
+                            <path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4M15.5,17L20.5,12L15.5,7V10H9V14H15.5V17Z"/>
+                        </svg>
+                    </div>
+                    <h3 class="feature-title">Pattern Recognition</h3>
+                    <p class="feature-description">Advanced AI identifies recurring thought patterns and emotional triggers. Get personalized insights to break unhelpful cycles before they start.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon midday-icon">
+                        <svg viewBox="0 0 24 24">
+                            <path d="M16,8A8,8 0 0,1 8,16H16M16,16A8,8 0 0,1 8,8V16M8,8A8,8 0 0,1 16,16V8M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"/>
+                        </svg>
+                    </div>
+                    <h3 class="feature-title">Therapy Integration</h3>
+                    <p class="feature-description">Export detailed progress reports for your therapist. Session prep suggestions and homework tracking keep your therapeutic journey on track.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon evening-icon">
+                        <svg viewBox="0 0 24 24">
+                            <path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4M12,6A6,6 0 0,0 6,12A6,6 0 0,0 12,18A6,6 0 0,0 18,12A6,6 0 0,0 12,6M16.2,16.2L15.5,15.5L14.5,14.5L13.5,13.5L12.5,12.5L11.5,11.5L10.5,10.5L9.5,9.5L8.8,8.8L8.5,8.5L8,8L7.8,7.8L12,12L16.2,16.2Z"/>
+                        </svg>
+                    </div>
+                    <h3 class="feature-title">Crisis Safety Plan</h3>
+                    <p class="feature-description">Personalized crisis intervention and safety planning. Automatic risk detection with immediate access to emergency resources and professional support.</p>
                 </div>
             </div>
         </div>
@@ -754,42 +2931,162 @@
     <!-- Clinical Section -->
     <section class="clinical-section" id="clinical">
         <div class="clinical-container">
-            <div class="clinical-visual">
-                <div class="assessment-preview">
-                    <div class="assessment-score">
-                        <div class="score-big">7</div>
-                        <div>PHQ-9 Score: Mild</div>
+            <div class="clinical-carousel" id="clinicalCarousel" role="region" aria-label="Clinical Tools and Evidence Carousel">
+                <button class="carousel-nav prev" onclick="slideCarousel(-1)" aria-label="Previous clinical pane" aria-controls="carouselContent">‹</button>
+                <button class="carousel-nav next" onclick="slideCarousel(1)" aria-label="Next clinical pane" aria-controls="carouselContent">›</button>
+
+                <div class="carousel-content" id="carouselContent" role="tabpanel" aria-live="polite">
+                    <!-- Pane 1: Clinical Tools You Can Trust -->
+                    <div class="carousel-slide">
+                        <div class="clinical-pane-simple">
+                            <div class="pane-content">
+                                <h2>Clinical Tools You Can Trust</h2>
+                                <p class="subtitle">Professional-grade assessments used by therapists worldwide</p>
+                                <ul class="simple-features">
+                                    <li>PHQ-9 Depression Screening</li>
+                                    <li>GAD-7 Anxiety Assessment</li>
+                                    <li>Daily mood tracking</li>
+                                </ul>
+                            </div>
+                            <div class="pane-visual">
+                                <svg viewBox="0 0 300 500" class="phone-mockup">
+                                    <!-- Phone Frame -->
+                                    <rect x="20" y="20" width="260" height="460" rx="25" fill="#1B2951" stroke="#E8E8E8" stroke-width="2"/>
+                                    <rect x="30" y="50" width="240" height="400" rx="15" fill="white"/>
+
+                                    <!-- Screen Content -->
+                                    <text x="150" y="90" text-anchor="middle" fill="#1B2951" font-size="16" font-weight="600">PHQ-9 Assessment</text>
+
+                                    <!-- Question -->
+                                    <text x="50" y="130" fill="#4A5568" font-size="12" font-weight="500">1. Little interest or pleasure in doing things</text>
+
+                                    <!-- Response Options -->
+                                    <rect x="50" y="150" width="200" height="35" rx="8" fill="#F8F9FA" stroke="#E8E8E8"/>
+                                    <text x="60" y="170" fill="#757575" font-size="11">Not at all</text>
+
+                                    <rect x="50" y="195" width="200" height="35" rx="8" fill="#FF9F43" stroke="#FF9F43"/>
+                                    <text x="60" y="215" fill="white" font-size="11" font-weight="500">Several days</text>
+
+                                    <rect x="50" y="240" width="200" height="35" rx="8" fill="#F8F9FA" stroke="#E8E8E8"/>
+                                    <text x="60" y="260" fill="#757575" font-size="11">More than half the days</text>
+
+                                    <rect x="50" y="285" width="200" height="35" rx="8" fill="#F8F9FA" stroke="#E8E8E8"/>
+                                    <text x="60" y="305" fill="#757575" font-size="11">Nearly every day</text>
+
+                                    <!-- Progress indicator -->
+                                    <circle cx="75" cy="370" r="4" fill="#FF9F43"/>
+                                    <circle cx="105" cy="370" r="4" fill="#E8E8E8"/>
+                                    <circle cx="135" cy="370" r="4" fill="#E8E8E8"/>
+                                    <text x="150" y="375" text-anchor="middle" fill="#757575" font-size="10">1 of 9</text>
+                                </svg>
+                            </div>
+                        </div>
                     </div>
-                    <h4>Track Real Progress</h4>
-                    <p style="color: #757575; font-size: 14px; margin-top: 10px;">
-                        Monitor your mental health with validated clinical assessments. Share reports directly with your therapist.
-                    </p>
+
+                    <!-- Pane 2: Evidence-Based MBCT Practices -->
+                    <div class="carousel-slide">
+                        <div class="clinical-pane-simple">
+                            <div class="pane-content">
+                                <h2>Evidence-Based MBCT Practices</h2>
+                                <p class="subtitle">43% reduction in depression relapse</p>
+                                <ul class="simple-features">
+                                    <li>3-minute guided breathing exercises</li>
+                                    <li>8-week structured program</li>
+                                    <li>Research-validated techniques</li>
+                                </ul>
+                            </div>
+                            <div class="pane-visual">
+                                <svg viewBox="0 0 300 300" class="breathing-circle">
+                                    <!-- Outer circle representing breathing guide -->
+                                    <circle cx="150" cy="150" r="120" fill="none" stroke="#40B5AD" stroke-width="3" opacity="0.3"/>
+
+                                    <!-- Inner breathing circle -->
+                                    <circle cx="150" cy="150" r="80" fill="#40B5AD" opacity="0.2"/>
+                                    <circle cx="150" cy="150" r="60" fill="#40B5AD" opacity="0.4"/>
+
+                                    <!-- Center text -->
+                                    <text x="150" y="140" text-anchor="middle" fill="#40B5AD" font-size="18" font-weight="600">Breathe</text>
+                                    <text x="150" y="165" text-anchor="middle" fill="#757575" font-size="14">3 minutes</text>
+
+                                    <!-- Timer segments -->
+                                    <g stroke="#40B5AD" stroke-width="4" fill="none">
+                                        <path d="M 150 30 A 120 120 0 0 1 271 150" opacity="0.8"/>
+                                        <path d="M 271 150 A 120 120 0 0 1 150 270" opacity="0.6"/>
+                                        <path d="M 150 270 A 120 120 0 0 1 29 150" opacity="0.4"/>
+                                    </g>
+
+                                    <!-- Timer labels -->
+                                    <text x="210" y="90" text-anchor="middle" fill="#40B5AD" font-size="12" font-weight="500">60s</text>
+                                    <text x="210" y="210" text-anchor="middle" fill="#40B5AD" font-size="12" font-weight="500">60s</text>
+                                    <text x="90" y="210" text-anchor="middle" fill="#40B5AD" font-size="12" font-weight="500">60s</text>
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Pane 3: Pattern Recognition -->
+                    <div class="carousel-slide">
+                        <div class="clinical-pane-simple">
+                            <div class="pane-content">
+                                <h2>Early Warning System</h2>
+                                <p class="subtitle">Detect concerning patterns before they become crises</p>
+                                <ul class="simple-features">
+                                    <li>Pattern recognition and alerts</li>
+                                    <li>Personalized trigger identification</li>
+                                    <li>Proactive intervention suggestions</li>
+                                </ul>
+                            </div>
+                            <div class="pane-visual">
+                                <svg viewBox="0 0 400 300" class="mood-graph">
+                                    <!-- Background grid -->
+                                    <defs>
+                                        <pattern id="grid" width="40" height="30" patternUnits="userSpaceOnUse">
+                                            <path d="M 40 0 L 0 0 0 30" fill="none" stroke="#f0f0f0" stroke-width="1"/>
+                                        </pattern>
+                                    </defs>
+                                    <rect width="400" height="300" fill="url(#grid)"/>
+                                    <!-- Y-axis labels -->
+                                    <text x="30" y="70" text-anchor="middle" fill="#4A7C59" font-size="12" font-weight="500">Good</text>
+                                    <text x="30" y="150" text-anchor="middle" fill="#4A7C59" font-size="12" font-weight="500">Moderate</text>
+                                    <text x="30" y="230" text-anchor="middle" fill="#4A7C59" font-size="12" font-weight="500">Low</text>
+
+                                    <!-- Mood trend line -->
+                                    <polyline points="60,80 100,70 140,90 180,130 220,190 260,160 300,100 340,85"
+                                              fill="none" stroke="#4A7C59" stroke-width="3"/>
+                                    <!-- Data points -->
+                                    <circle cx="60" cy="80" r="4" fill="#4A7C59"/>
+                                    <circle cx="100" cy="70" r="4" fill="#4A7C59"/>
+                                    <circle cx="140" cy="90" r="4" fill="#4A7C59"/>
+                                    <circle cx="180" cy="130" r="4" fill="#4A7C59"/>
+                                    <circle cx="220" cy="190" r="6" fill="#e74c3c" stroke="#fff" stroke-width="2"/>
+                                    <circle cx="260" cy="160" r="4" fill="#4A7C59"/>
+                                    <circle cx="300" cy="100" r="4" fill="#4A7C59"/>
+                                    <circle cx="340" cy="85" r="4" fill="#4A7C59"/>
+
+                                    <!-- Warning indicator -->
+                                    <g transform="translate(220,170)">
+                                        <rect x="-30" y="0" width="60" height="20" rx="10" fill="#e74c3c" opacity="0.9"/>
+                                        <text x="0" y="14" text-anchor="middle" fill="white" font-size="11" font-weight="600">Alert</text>
+                                    </g>
+                                    <!-- X-axis labels -->
+                                    <text x="100" y="280" text-anchor="middle" fill="#666" font-size="11">Week 1</text>
+                                    <text x="180" y="280" text-anchor="middle" fill="#666" font-size="11">Week 2</text>
+                                    <text x="260" y="280" text-anchor="middle" fill="#666" font-size="11">Week 3</text>
+                                    <text x="340" y="280" text-anchor="middle" fill="#666" font-size="11">Week 4</text>
+
+                                    <!-- Title -->
+                                    <text x="200" y="25" text-anchor="middle" fill="#4A7C59" font-size="16" font-weight="600">Mood Trend Analysis</text>
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-            </div>
-            
-            <div class="clinical-content">
-                <h2 class="section-title">Clinical Tools You Can Trust</h2>
-                <p style="color: #757575; margin: 20px 0; line-height: 1.8;">
-                    FullMind includes the same assessments used in hospitals and clinics worldwide. Track your progress with PHQ-9 for depression and GAD-7 for anxiety.
-                </p>
-                <ul style="list-style: none; padding: 0;">
-                    <li style="display: flex; align-items: center; margin-bottom: 15px;">
-                        <div class="check-icon">✓</div>
-                        <span>Weekly assessments with severity tracking</span>
-                    </li>
-                    <li style="display: flex; align-items: center; margin-bottom: 15px;">
-                        <div class="check-icon">✓</div>
-                        <span>Export reports for therapy sessions</span>
-                    </li>
-                    <li style="display: flex; align-items: center; margin-bottom: 15px;">
-                        <div class="check-icon">✓</div>
-                        <span>Pattern detection and early warning system</span>
-                    </li>
-                    <li style="display: flex; align-items: center;">
-                        <div class="check-icon">✓</div>
-                        <span>Crisis prevention planning built-in</span>
-                    </li>
-                </ul>
+
+                <div class="carousel-indicators" role="tablist" aria-label="Clinical carousel navigation">
+                    <button class="carousel-dot active" onclick="goToSlide(0)" role="tab" aria-label="Clinical Assessment Tools" aria-selected="true" aria-controls="carouselContent"></button>
+                    <button class="carousel-dot" onclick="goToSlide(1)" role="tab" aria-label="Evidence-Based Outcomes" aria-selected="false" aria-controls="carouselContent"></button>
+                    <button class="carousel-dot" onclick="goToSlide(2)" role="tab" aria-label="Pattern Recognition" aria-selected="false" aria-controls="carouselContent"></button>
+                </div>
             </div>
         </div>
     </section>
@@ -798,7 +3095,7 @@
     <section class="therapist-section" id="therapists">
         <div class="therapist-container">
             <div class="therapist-quote">
-                "FullMind bridges the gap between sessions perfectly. My clients who use it consistently show significantly better outcomes."
+                "Being. bridges the gap between sessions perfectly. My clients who use it consistently show significantly better outcomes."
             </div>
             <div class="therapist-author">— Dr. Sarah Mitchell, Clinical Psychologist, MBCT Certified</div>
             
@@ -815,7 +3112,7 @@
         <div class="pricing-container">
             <div class="section-header">
                 <h2 class="section-title">Start Your Mental Health Journey</h2>
-                <p class="section-subtitle">Try free for 7 days. Cancel anytime.</p>
+                <p class="section-subtitle">Try free for 21 days. Build a lasting practice.</p>
             </div>
             
             <div class="pricing-cards">
@@ -876,6 +3173,311 @@
         </div>
     </section>
 
+    <!-- Privacy Section -->
+    <section class="privacy-section" id="privacy">
+        <div class="privacy-container">
+            <!-- Privacy Hero -->
+            <div class="privacy-hero">
+                <h2>Your Data Stays Yours</h2>
+                <p>Complete privacy transparency. Your mental health data is protected with professional-grade security and stays under your control.</p>
+            </div>
+
+            <!-- Data Categories -->
+            <div class="data-categories">
+                <div class="data-category on-device">
+                    <div class="category-icon">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M17,7H22V17H17V19A1,1 0 0,0 18,20H20V22H17.5C16.95,22 16,21.55 16,21C16,21.55 15.05,22 14.5,22H12V20H14A1,1 0 0,0 15,19V5A1,1 0 0,0 14,4H12V2H14.5C15.05,2 16,2.45 16,3C16,2.45 16.95,2 17.5,2H20V4H18A1,1 0 0,0 17,5V7M10,7H15V17H10V7M8,7V17H3V7H8M5,9V15H6V9H5M12,9V15H13V9H12Z"/>
+                        </svg>
+                    </div>
+                    <h3 class="category-title">On Device</h3>
+                    <p class="category-description">Stays private, stored securely on your device only</p>
+                    <ul class="category-items">
+                        <li>Daily check-in responses</li>
+                        <li>Mood tracking data</li>
+                        <li>Personal reflection notes</li>
+                        <li>Crisis safety plans</li>
+                        <li>Practice completion logs</li>
+                    </ul>
+                </div>
+
+                <div class="data-category never-collected">
+                    <div class="category-icon">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4M16.2,7.8L15.1,6.7L12,9.8L8.9,6.7L7.8,7.8L10.9,11L7.8,14.2L8.9,15.3L12,12.2L15.1,15.3L16.2,14.2L13.1,11L16.2,7.8Z"/>
+                        </svg>
+                    </div>
+                    <h3 class="category-title">Never Collected</h3>
+                    <p class="category-description">We never see or store this sensitive information</p>
+                    <ul class="category-items">
+                        <li>Assessment scores (PHQ-9/GAD-7)</li>
+                        <li>Personal therapy notes</li>
+                        <li>Emergency contact details</li>
+                        <li>Location or GPS data</li>
+                        <li>Biometric information</li>
+                    </ul>
+                </div>
+
+                <div class="data-category user-control">
+                    <div class="category-icon">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12,2C13.1,2 14,2.9 14,4C14,5.1 13.1,6 12,6C10.9,6 10,5.1 10,4C10,2.9 10.9,2 12,2M21,9V7L15,7.5V9M15,11.5V13L21,13.5V11.5M21,16V14L15,14.5V16M15,18.5V20L21,20.5V18.5M11,14V12H9V14H11M11,16V18H9V16H11M11,10V8H9V10H11"/>
+                        </svg>
+                    </div>
+                    <h3 class="category-title">You Control</h3>
+                    <p class="category-description">Optional sharing with full transparency and control</p>
+                    <ul class="category-items">
+                        <li>Anonymous usage analytics</li>
+                        <li>Crash reports (no personal data)</li>
+                        <li>Export reports for therapy</li>
+                        <li>App improvement feedback</li>
+                        <li>Research participation (opt-in)</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Security Features -->
+            <div class="security-features">
+                <div class="security-feature">
+                    <div class="security-icon">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12,1L3,5V11C3,16.55 6.84,21.74 12,23C17.16,21.74 21,16.55 21,11V5L12,1M12,7C13.4,7 14.8,8.6 14.8,10V11H16V18H8V11H9.2V10C9.2,8.6 10.6,7 12,7M12,8.2C11.2,8.2 10.4,8.7 10.4,10V11H13.6V10C13.6,8.7 12.8,8.2 12,8.2Z"/>
+                        </svg>
+                    </div>
+                    <div class="security-text">
+                        <h4>AES-256 Encryption</h4>
+                        <p>Bank-level encryption for all sensitive data</p>
+                    </div>
+                </div>
+
+                <div class="security-feature">
+                    <div class="security-icon">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M9,22A1,1 0 0,1 8,21V18H4A2,2 0 0,1 2,16V4C2,2.89 2.9,2 4,2H20A2,2 0 0,1 22,4V16A2,2 0 0,1 20,18H13.9L10.2,21.71C10,21.9 9.75,22 9.5,22H9M10,16V19.08L13.08,16H20V4H4V16H10Z"/>
+                        </svg>
+                    </div>
+                    <div class="security-text">
+                        <h4>Local Processing</h4>
+                        <p>All AI analysis happens on your device</p>
+                    </div>
+                </div>
+
+                <div class="security-feature">
+                    <div class="security-icon">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M9,10V12H7V10H9M13,10V12H11V10H13M17,10V12H15V10H17M19,3A2,2 0 0,1 21,5V19A2,2 0 0,1 19,21H5C3.89,21 3,20.1 3,19V5A2,2 0 0,1 5,3H6V1H8V3H16V1H18V3H19M19,19V8H5V19H19M9,14V16H7V14H9M13,14V16H11V14H13M17,14V16H15V14H17Z"/>
+                        </svg>
+                    </div>
+                    <div class="security-text">
+                        <h4>Automatic Deletion</h4>
+                        <p>Old data automatically purged based on your settings</p>
+                    </div>
+                </div>
+
+                <div class="security-feature">
+                    <div class="security-icon">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12,17A2,2 0 0,0 14,15C14,13.89 13.1,13 12,13A2,2 0 0,0 10,15A2,2 0 0,0 12,17M18,8A2,2 0 0,1 20,10V20A2,2 0 0,1 18,22H6A2,2 0 0,1 4,20V10C4,8.89 4.9,8 6,8H7V6A5,5 0 0,1 12,1A5,5 0 0,1 17,6V8H18M12,3A3,3 0 0,0 9,6V8H15V6A3,3 0 0,0 12,3Z"/>
+                        </svg>
+                    </div>
+                    <div class="security-text">
+                        <h4>Secure Backup</h4>
+                        <p>Optional encrypted backups you control</p>
+                    </div>
+                </div>
+
+                <div class="security-feature">
+                    <div class="security-icon">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12,1L3,5V11C3,16.55 6.84,21.74 12,23C17.16,21.74 21,16.55 21,11V5L12,1M10,17L6,13L7.41,11.59L10,14.17L16.59,7.58L18,9L10,17Z"/>
+                        </svg>
+                    </div>
+                    <div class="security-text">
+                        <h4>Regular Audits</h4>
+                        <p>Third-party security assessments quarterly</p>
+                    </div>
+                </div>
+
+                <div class="security-feature">
+                    <div class="security-icon">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M21,17V10.5C21,9.12 20.12,8 19,8C18.5,8 18,8.19 17.59,8.5L16,7L17,5.5C17.8,4.3 19.34,4.04 20.84,4.86C21.05,5 21.2,5.14 21.36,5.27L21,5.5V17M17.5,4.5C19,4.5 20,5.62 20,7S19,9.5 17.5,9.5C16.12,9.5 15,8.38 15,7S16.12,4.5 17.5,4.5M9.91,21.5L6.5,18L7.96,16.54L9.91,18.5L15.27,13.14L16.73,14.59L9.91,21.5Z"/>
+                        </svg>
+                    </div>
+                    <div class="security-text">
+                        <h4>Zero-Knowledge</h4>
+                        <p>Even our team cannot access your data</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- User Rights -->
+            <div class="user-rights">
+                <div class="section-header">
+                    <h2 class="section-title">Your Rights</h2>
+                    <p class="section-subtitle">Complete control over your information</p>
+                </div>
+
+                <div class="rights-grid">
+                    <div class="rights-item">
+                        <div class="rights-header" onclick="toggleRights(this)">
+                            <h4>Right to Access</h4>
+                            <div class="rights-toggle">▼</div>
+                        </div>
+                        <div class="rights-content">
+                            <p>View and download all your data at any time. Export your complete Being. history including check-ins, assessments, and progress reports.</p>
+                            <p><strong>How to exercise:</strong> Settings → Privacy → Export Data</p>
+                            <p><strong>Timeframe:</strong> Instant download available 24/7</p>
+                        </div>
+                    </div>
+
+                    <div class="rights-item">
+                        <div class="rights-header" onclick="toggleRights(this)">
+                            <h4>Right to Delete</h4>
+                            <div class="rights-toggle">▼</div>
+                        </div>
+                        <div class="rights-content">
+                            <p>Permanently delete all your data from Being. and any connected services. This action is irreversible.</p>
+                            <p><strong>How to exercise:</strong> Settings → Privacy → Delete All Data</p>
+                            <p><strong>Timeframe:</strong> Immediate deletion, confirmed within 24 hours</p>
+                        </div>
+                    </div>
+
+                    <div class="rights-item">
+                        <div class="rights-header" onclick="toggleRights(this)">
+                            <h4>Right to Portability</h4>
+                            <div class="rights-toggle">▼</div>
+                        </div>
+                        <div class="rights-content">
+                            <p>Transfer your data to another mental health platform or healthcare provider in standard formats (PDF, CSV, FHIR).</p>
+                            <p><strong>How to exercise:</strong> Settings → Privacy → Export for Transfer</p>
+                            <p><strong>Timeframe:</strong> Export prepared within 2 business days</p>
+                        </div>
+                    </div>
+
+                    <div class="rights-item">
+                        <div class="rights-header" onclick="toggleRights(this)">
+                            <h4>Right to Withdraw Consent</h4>
+                            <div class="rights-toggle">▼</div>
+                        </div>
+                        <div class="rights-content">
+                            <p>Withdraw consent for optional data processing like analytics or research participation at any time.</p>
+                            <p><strong>How to exercise:</strong> Settings → Privacy → Manage Consent</p>
+                            <p><strong>Timeframe:</strong> Changes take effect immediately</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Compliance Badges -->
+            <div class="compliance-badges">
+                <div class="compliance-badge">
+                    <div class="badge-icon">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12,1L3,5V11C3,16.55 6.84,21.74 12,23C17.16,21.74 21,16.55 21,11V5L12,1M10,17L6,13L7.41,11.59L10,14.17L16.59,7.58L18,9L10,17Z"/>
+                        </svg>
+                    </div>
+                    <div class="badge-text">HIPAA Ready</div>
+                </div>
+
+                <div class="compliance-badge">
+                    <div class="badge-icon">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M9,10V12H7V10H9M13,10V12H11V10H13M17,10V12H15V10H17M19,3A2,2 0 0,1 21,5V19A2,2 0 0,1 19,21H5C3.89,21 3,20.1 3,19V5A2,2 0 0,1 5,3H6V1H8V3H16V1H18V3H19M19,19V8H5V19H19Z"/>
+                        </svg>
+                    </div>
+                    <div class="badge-text">GDPR Compliant</div>
+                </div>
+
+                <div class="compliance-badge">
+                    <div class="badge-icon">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12,17A2,2 0 0,0 14,15C14,13.89 13.1,13 12,13A2,2 0 0,0 10,15A2,2 0 0,0 12,17M18,8A2,2 0 0,1 20,10V20A2,2 0 0,1 18,22H6A2,2 0 0,1 4,20V10C4,8.89 4.9,8 6,8H7V6A5,5 0 0,1 12,1A5,5 0 0,1 17,6V8H18M12,3A3,3 0 0,0 9,6V8H15V6A3,3 0 0,0 12,3Z"/>
+                        </svg>
+                    </div>
+                    <div class="badge-text">SOC 2 Type II</div>
+                </div>
+
+                <div class="compliance-badge">
+                    <div class="badge-icon">
+                        <svg viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M22,21H2V3H4V19H6V17H10V19H12V16H16V19H18V17H22V21M16,8A2,2 0 0,0 18,6V4H16V6A2,2 0 0,0 14,8H16M12,8V10H14V8A4,4 0 0,0 10,4V6A2,2 0 0,1 12,8M10,10V8H8V10H10M8,10A2,2 0 0,0 6,12H8A2,2 0 0,0 10,10H8Z"/>
+                        </svg>
+                    </div>
+                    <div class="badge-text">FDA Guidelines</div>
+                </div>
+            </div>
+
+            <!-- Privacy FAQ -->
+            <div class="privacy-faq">
+                <div class="section-header">
+                    <h2 class="section-title">Privacy Questions</h2>
+                    <p class="section-subtitle">Everything you need to know about your data</p>
+                </div>
+
+                <div class="faq-item">
+                    <div class="faq-question" onclick="toggleFAQ(this)">
+                        <span>What happens to my data if I delete the app?</span>
+                        <div class="faq-toggle">▼</div>
+                    </div>
+                    <div class="faq-answer">
+                        <p>All your data is permanently deleted from your device when you uninstall Being. Since we don't store your personal data on our servers, there's nothing to delete on our end. Your data exists only on your device.</p>
+                    </div>
+                </div>
+
+                <div class="faq-item">
+                    <div class="faq-question" onclick="toggleFAQ(this)">
+                        <span>Can my therapist or doctor access my Being. data?</span>
+                        <div class="faq-toggle">▼</div>
+                    </div>
+                    <div class="faq-answer">
+                        <p>Only if you choose to share it. You can export reports and progress summaries to share with your healthcare providers, but they have no direct access to your Being. data. All sharing is manual and under your complete control.</p>
+                    </div>
+                </div>
+
+                <div class="faq-item">
+                    <div class="faq-question" onclick="toggleFAQ(this)">
+                        <span>How does Being. make money if it's not selling my data?</span>
+                        <div class="faq-toggle">▼</div>
+                    </div>
+                    <div class="faq-answer">
+                        <p>Being. uses a simple subscription model. We make money from monthly and annual subscriptions, not from your data. This aligns our business incentives with your privacy and creates a sustainable model for ongoing development.</p>
+                    </div>
+                </div>
+
+                <div class="faq-item">
+                    <div class="faq-question" onclick="toggleFAQ(this)">
+                        <span>What anonymous data does Being. collect?</span>
+                        <div class="faq-toggle">▼</div>
+                    </div>
+                    <div class="faq-answer">
+                        <p>Only basic usage patterns (like which features are used most often) and crash reports to improve app stability. This data is completely anonymous - we can't trace it back to you. You can opt out of this collection entirely in Privacy Settings.</p>
+                    </div>
+                </div>
+
+                <div class="faq-item">
+                    <div class="faq-question" onclick="toggleFAQ(this)">
+                        <span>Is Being. truly HIPAA compliant?</span>
+                        <div class="faq-toggle">▼</div>
+                    </div>
+                    <div class="faq-answer">
+                        <p>Being. is designed to meet HIPAA standards when used in healthcare settings. Our architecture, encryption, and privacy controls support HIPAA compliance, but full compliance also depends on how healthcare providers implement and use the app.</p>
+                    </div>
+                </div>
+
+                <div class="faq-item">
+                    <div class="faq-question" onclick="toggleFAQ(this)">
+                        <span>What happens to my data if Being. shuts down?</span>
+                        <div class="faq-toggle">▼</div>
+                    </div>
+                    <div class="faq-answer">
+                        <p>Since your data lives on your device, Being. shutting down wouldn't affect your existing data. We'd provide at least 90 days notice and tools to export your complete history. Your data remains yours, always.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <!-- Footer -->
     <footer class="footer">
         <div class="footer-container">
@@ -889,7 +3491,7 @@
                                 <rect x="0" y="12.8" width="32" height="19.2" fill="#1B2951" opacity="0.5" />
                             </g>
                         </svg>
-                        FullMind
+                        Being.
                     </div>
                     <p class="footer-description">
                         Complete MBCT practice for real life. Evidence-based mental health support that actually fits your daily routine.
@@ -926,7 +3528,7 @@
             </div>
             
             <div class="footer-bottom">
-                <div>© 2025 FullMind. All rights reserved.</div>
+                <div>© 2025 Being. All rights reserved.</div>
                 <div style="opacity: 0.6; font-size: 12px;">
                     Not a replacement for professional therapy. If in crisis, call 988.
                 </div>
@@ -936,7 +3538,232 @@
 
     <!-- Mobile CTA Bar -->
     <div class="mobile-cta-bar">
-        <a href="#" class="primary-cta" style="width: 100%; text-align: center;">Download FullMind Free</a>
+        <a href="#" class="primary-cta" style="width: 100%; text-align: center;">Download Being. Free</a>
     </div>
+
+    <script>
+        // Clinical Carousel Functionality with Type Safety
+
+        /**
+         * @typedef {Object} CarouselState
+         * @property {number} currentSlide - Current active slide index (0-2)
+         * @property {number} totalSlides - Total number of slides (3)
+         * @property {string[]} slideNames - Names of each slide for accessibility
+         */
+
+        /**
+         * @typedef {0|1|2} SlideIndex - Valid slide indices
+         */
+
+        // Carousel state with strict typing
+        /** @type {SlideIndex} */
+        let currentSlide = 0;
+
+        /** @type {3} */
+        const totalSlides = 3;
+
+        /** @type {readonly string[]} */
+        const slideNames = Object.freeze([
+            'Clinical Assessment Tools',
+            'Evidence-Based Outcomes',
+            'Pattern Recognition'
+        ]);
+
+        /**
+         * Updates carousel display and accessibility attributes for current slide
+         * @returns {void}
+         */
+        function updateCarousel() {
+            /** @type {HTMLElement | null} */
+            const content = document.getElementById('carouselContent');
+
+            /** @type {NodeListOf<HTMLElement>} */
+            const dots = document.querySelectorAll('.carousel-dot');
+
+            if (!content) {
+                console.error('Carousel content element not found');
+                return;
+            }
+
+            // Transform disabled for vertical layout - all cards visible
+            content.style.transform = 'none';
+
+            // Update dots and accessibility attributes
+            dots.forEach((dot, index) => {
+                const isActive = index === currentSlide;
+                dot.classList.toggle('active', isActive);
+                dot.setAttribute('aria-selected', isActive.toString());
+
+                // Update tabindex for keyboard navigation
+                dot.setAttribute('tabindex', isActive ? '0' : '-1');
+            });
+
+            // Use type-safe slide names
+            const currentSlideName = slideNames[currentSlide];
+
+            // Update aria-label for current content
+            content.setAttribute('aria-label', `${currentSlideName} - Slide ${currentSlide + 1} of ${totalSlides}`);
+
+            // Brief announcement for screen readers
+            if (typeof window !== 'undefined' && content.getAttribute('aria-live')) {
+                content.setAttribute('aria-busy', 'true');
+                setTimeout(() => {
+                    content.setAttribute('aria-busy', 'false');
+                }, 400); // Match transition duration for 60fps performance
+            }
+        }
+
+        /**
+         * Navigate carousel by direction with wraparound
+         * @param {-1|1} direction - Navigation direction (-1 for previous, 1 for next)
+         * @returns {void}
+         */
+        function slideCarousel(direction) {
+            // Type-safe direction validation
+            if (direction !== -1 && direction !== 1) {
+                console.error('Invalid carousel direction. Must be -1 or 1.');
+                return;
+            }
+
+            currentSlide += direction;
+
+            // Wraparound logic with type safety
+            if (currentSlide >= totalSlides) {
+                currentSlide = 0;
+            } else if (currentSlide < 0) {
+                currentSlide = totalSlides - 1;
+            }
+
+            updateCarousel();
+        }
+
+        /**
+         * Navigate directly to a specific slide
+         * @param {SlideIndex} slideIndex - Target slide index (0, 1, or 2)
+         * @returns {void}
+         */
+        function goToSlide(slideIndex) {
+            // Type-safe slide index validation
+            if (slideIndex < 0 || slideIndex >= totalSlides) {
+                console.error(`Invalid slide index: ${slideIndex}. Must be 0, 1, or 2.`);
+                return;
+            }
+
+            currentSlide = slideIndex;
+            updateCarousel();
+        }
+
+        // Touch/swipe support
+        let touchStartX = 0;
+        let touchEndX = 0;
+
+        const carousel = document.getElementById('clinicalCarousel');
+
+        carousel.addEventListener('touchstart', function(e) {
+            touchStartX = e.changedTouches[0].screenX;
+        });
+
+        carousel.addEventListener('touchend', function(e) {
+            touchEndX = e.changedTouches[0].screenX;
+            handleSwipe();
+        });
+
+        function handleSwipe() {
+            const swipeThreshold = 50;
+            const diff = touchStartX - touchEndX;
+
+            if (Math.abs(diff) > swipeThreshold) {
+                if (diff > 0) {
+                    slideCarousel(1); // Swipe left - next slide
+                } else {
+                    slideCarousel(-1); // Swipe right - previous slide
+                }
+            }
+        }
+
+        // Auto-slide disabled for vertical layout
+        // setInterval(function() {
+        //     slideCarousel(1);
+        // }, 5000);
+
+        // Mouse drag support for desktop
+        let isDragging = false;
+        let startX = 0;
+        let currentX = 0;
+
+        carousel.addEventListener('mousedown', function(e) {
+            isDragging = true;
+            startX = e.clientX;
+            carousel.style.cursor = 'grabbing';
+        });
+
+        carousel.addEventListener('mousemove', function(e) {
+            if (!isDragging) return;
+            e.preventDefault();
+            currentX = e.clientX;
+        });
+
+        carousel.addEventListener('mouseup', function(e) {
+            if (!isDragging) return;
+            isDragging = false;
+            carousel.style.cursor = 'grab';
+
+            const diff = startX - currentX;
+            const threshold = 50;
+
+            if (Math.abs(diff) > threshold) {
+                if (diff > 0) {
+                    slideCarousel(1);
+                } else {
+                    slideCarousel(-1);
+                }
+            }
+        });
+
+        carousel.addEventListener('mouseleave', function() {
+            isDragging = false;
+            carousel.style.cursor = 'grab';
+        });
+
+        // Set initial cursor
+        carousel.style.cursor = 'grab';
+
+        // Privacy Section Interactive Functions
+        function toggleFAQ(element) {
+            const faqItem = element.parentElement;
+            const answer = faqItem.querySelector('.faq-answer');
+            const toggle = element.querySelector('.faq-toggle');
+
+            // Close other open FAQ items
+            document.querySelectorAll('.faq-item').forEach(item => {
+                if (item !== faqItem) {
+                    item.classList.remove('expanded');
+                    item.querySelector('.faq-answer').classList.remove('active');
+                }
+            });
+
+            // Toggle current FAQ item
+            faqItem.classList.toggle('expanded');
+            answer.classList.toggle('active');
+        }
+
+        function toggleRights(element) {
+            const rightsItem = element.parentElement;
+            const content = rightsItem.querySelector('.rights-content');
+            const toggle = element.querySelector('.rights-toggle');
+
+            // Close other open rights items
+            document.querySelectorAll('.rights-item').forEach(item => {
+                if (item !== rightsItem) {
+                    item.classList.remove('expanded');
+                    item.querySelector('.rights-content').classList.remove('active');
+                }
+            });
+
+            // Toggle current rights item
+            rightsItem.classList.toggle('expanded');
+            content.classList.toggle('active');
+        }
+    </script>
 </body>
 </html>

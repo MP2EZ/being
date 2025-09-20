@@ -1,8 +1,8 @@
-# FullMind Website Accessibility Implementation
+# Being. Website Accessibility Implementation
 
 ## Overview
 
-This document outlines the comprehensive accessibility implementation for the FullMind website, designed to meet WCAG AA standards with enhanced mental health accessibility features.
+This document outlines the comprehensive accessibility implementation for the Being. website, designed to meet WCAG AA standards with enhanced mental health accessibility features.
 
 ## Accessibility Foundation
 
@@ -325,4 +325,4 @@ npm run test:accessibility
 npm run accessibility:audit
 ```
 
-This accessibility implementation ensures the FullMind website is not only WCAG AA compliant but specifically optimized for mental health users who may be experiencing crisis situations, anxiety, or other accessibility needs.
+This accessibility implementation ensures the Being. website is not only WCAG AA compliant but specifically optimized for mental health users who may be experiencing crisis situations, anxiety, or other accessibility needs.

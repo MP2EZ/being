@@ -4,6 +4,9 @@
  * PERFORMANCE OPTIMIZED for <3 second cold start
  */
 
+// Install crypto polyfill for React Native compatibility
+import './src/polyfills/crypto';
+
 import React, { useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';

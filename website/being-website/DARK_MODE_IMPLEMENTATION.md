@@ -1,8 +1,8 @@
-# FullMind Dark Mode Implementation Guide
+# Being. Dark Mode Implementation Guide
 
 ## 🎯 Overview
 
-This document outlines the comprehensive dark mode implementation for FullMind's website, maintaining clinical-grade standards and therapeutic effectiveness while providing an accessible dark mode experience.
+This document outlines the comprehensive dark mode implementation for Being.'s website, maintaining clinical-grade standards and therapeutic effectiveness while providing an accessible dark mode experience.
 
 ## 🏗 Architecture Summary
 

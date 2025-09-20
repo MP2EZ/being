@@ -10,7 +10,7 @@
  * - Emergency security protocols
  */
 
-import { EventEmitter } from 'events';
+import { EventEmitter } from '../../utils/EventEmitter';
 import { z } from 'zod';
 import {
   CloudAuditEntry,

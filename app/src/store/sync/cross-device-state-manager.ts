@@ -21,7 +21,7 @@ import { create } from 'zustand';
 import { subscribeWithSelector, persist, createJSONStorage } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { EventEmitter } from 'events';
+import { EventEmitter } from '../../utils/EventEmitter';
 import * as Crypto from 'expo-crypto';
 import { z } from 'zod';
 
@@ -611,7 +611,7 @@ class StateOrchestrationEngine {
   private async activateCrisisFallback(crisisData: any): Promise<void> {
     // Ensure local crisis state is immediately accessible
     await AsyncStorage.setItem(
-      '@being_crisis_fallback_state',
+      'being_crisis_fallback_state',
       await encryptionService.encryptData(crisisData, DataSensitivity.CLINICAL)
     );
 

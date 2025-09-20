@@ -13,9 +13,9 @@ const withBeingWidgets = (config) => {
     // iOS Widget Implementation
     withIOSWidget,
     withIOSEntitlements,
-    // Android Widget Implementation  
+    // Android Widget Implementation
     withAndroidWidget,
-    withAndroidManifest,
+    withAndroidManifestConfig,
     withAndroidStrings,
   ]);
 };
@@ -107,7 +107,7 @@ const withAndroidWidget = (config) => {
 /**
  * Android Manifest Configuration
  */
-const withAndroidManifest = (config) => {
+const withAndroidManifestConfig = (config) => {
   return withAndroidManifest(config, (config) => {
     const mainApplication = config.modResults.manifest.application[0];
     

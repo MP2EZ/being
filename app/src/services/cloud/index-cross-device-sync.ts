@@ -11,7 +11,8 @@
  * - Security integration and compliance validation
  */
 
-import { EventEmitter } from 'events';
+import { EventEmitter } from '../../utils/EventEmitter';
+import * as Crypto from 'expo-crypto';
 import {
   EncryptedDataContainer,
   CloudSyncOperation,
@@ -694,8 +695,7 @@ class CrossDeviceSyncManager extends EventEmitter implements ICrossDeviceSync {
   private async generatePublicKey(): Promise<string> {
     // Simplified public key generation
     // In production, would use proper cryptographic key generation
-    const keyBytes = new Uint8Array(32);
-    crypto.getRandomValues(keyBytes);
+    const keyBytes = await Crypto.getRandomBytesAsync(32);
     return Array.from(keyBytes, byte => byte.toString(16).padStart(2, '0')).join('');
   }
 

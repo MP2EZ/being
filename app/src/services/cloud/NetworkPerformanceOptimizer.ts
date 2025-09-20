@@ -11,7 +11,7 @@
  * - Battery-aware network usage optimization
  */
 
-import { EventEmitter } from 'events';
+import { EventEmitter } from '../../utils/EventEmitter';
 import { z } from 'zod';
 import { DataSensitivity } from '../security/EncryptionService';
 import { securityControlsService } from '../security/SecurityControlsService';

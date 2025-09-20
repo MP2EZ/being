@@ -534,8 +534,7 @@ export class DeviceManagementAPI {
    * Generate device-specific encryption key
    */
   private async generateDeviceKey(): Promise<string> {
-    const keyBytes = new Uint8Array(32); // 256-bit key
-    crypto.getRandomValues(keyBytes);
+    const keyBytes = await Crypto.getRandomBytesAsync(32); // 256-bit key
     return Array.from(keyBytes, byte => byte.toString(16).padStart(2, '0')).join('');
   }
 
@@ -543,8 +542,7 @@ export class DeviceManagementAPI {
    * Generate emergency access code
    */
   private async generateEmergencyCode(): Promise<string> {
-    const codeBytes = new Uint8Array(3); // 6-digit code
-    crypto.getRandomValues(codeBytes);
+    const codeBytes = await Crypto.getRandomBytesAsync(3); // 6-digit code
     const code = Array.from(codeBytes, byte => (byte % 10).toString()).join('');
     return code.padStart(6, '0');
   }

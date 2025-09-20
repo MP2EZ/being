@@ -133,9 +133,9 @@ export class SecurityControlsService {
   private zeroKnowledgeConfig: ZeroKnowledgeConfig;
 
   // Storage keys
-  private readonly AUDIT_LOG_KEY = '@being_audit_log_v1';
-  private readonly SECURITY_CONFIG_KEY = '@being_security_config_v1';
-  private readonly THREAT_DATA_KEY = '@being_threat_data_v1';
+  private readonly AUDIT_LOG_KEY = 'being_audit_log_v1';
+  private readonly SECURITY_CONFIG_KEY = 'being_security_config_v1';
+  private readonly THREAT_DATA_KEY = 'being_threat_data_v1';
 
   // Performance monitoring
   private performanceMetrics = {

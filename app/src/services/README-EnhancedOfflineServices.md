@@ -1,8 +1,8 @@
-# Enhanced Offline Services for FullMind MBCT App
+# Enhanced Offline Services for Being. MBCT App
 
 ## Overview
 
-The enhanced offline services provide clinical-grade offline functionality for the FullMind mental health app, ensuring therapeutic continuity and data safety even without network connectivity. This comprehensive system builds upon the existing offline infrastructure while adding advanced features for clinical data handling, network quality assessment, and intelligent synchronization.
+The enhanced offline services provide clinical-grade offline functionality for the Being. mental health app, ensuring therapeutic continuity and data safety even without network connectivity. This comprehensive system builds upon the existing offline infrastructure while adding advanced features for clinical data handling, network quality assessment, and intelligent synchronization.
 
 ## Architecture
 

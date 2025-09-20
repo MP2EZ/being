@@ -11,27 +11,34 @@ import { useUserStore } from '../../store';
 import { colorSystem, spacing } from '../../constants/colors';
 
 export const OnboardingPlaceholder: React.FC = () => {
-  const { createUser, updateUser } = useUserStore();
+  const { signUp, updateProfile } = useUserStore();
 
   const handleSkipOnboarding = async () => {
     try {
       console.log('Creating user...');
       // Create a temporary user to bypass onboarding for testing
-      await createUser({
-        values: ['Kindness', 'Growth', 'Peace'], // Default values for testing
-        onboardingCompleted: true,
-        notifications: {
-          enabled: true,
-          morning: '08:00',
-          midday: '13:00',
-          evening: '20:00'
-        },
-        preferences: {
-          haptics: true,
-          theme: 'auto'
-        }
-      });
-      console.log('User created successfully');
+      const authResult = await signUp('test@example.com', 'tempPassword123');
+
+      if (authResult === 'success') {
+        // Update profile with onboarding data
+        await updateProfile({
+          values: ['Kindness', 'Growth', 'Peace'], // Default values for testing
+          onboardingCompleted: true,
+          notifications: {
+            enabled: true,
+            morning: '08:00',
+            midday: '13:00',
+            evening: '20:00'
+          },
+          preferences: {
+            haptics: true,
+            theme: 'auto'
+          }
+        });
+        console.log('User created and profile updated successfully');
+      } else {
+        throw new Error(`Sign up failed with result: ${authResult}`);
+      }
     } catch (error) {
       console.error('Failed to create user:', error);
     }
@@ -40,7 +47,7 @@ export const OnboardingPlaceholder: React.FC = () => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
-        <Text style={styles.title}>Welcome to FullMind</Text>
+        <Text style={styles.title}>Welcome to Being</Text>
         <Text style={styles.subtitle}>
           Mindful awareness for emotional well-being
         </Text>
@@ -64,7 +71,7 @@ export const OnboardingPlaceholder: React.FC = () => {
         <Button
           onPress={() => {
             // Force bypass for testing
-            updateUser({ onboardingCompleted: true });
+            updateProfile({ onboardingCompleted: true });
           }}
           variant="outline"
           style={[styles.button, { marginTop: spacing.md }]}

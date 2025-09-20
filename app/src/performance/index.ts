@@ -125,14 +125,12 @@ export {
  * Provides integrated access to all performance optimization systems
  * with coordinated state management and cross-system optimization.
  */
-import {
-  useSyncPerformanceOptimizer,
-  useCrisisPerformanceGuarantee,
-  useSubscriptionTierOptimization,
-  useCrossDevicePerformance,
-  useMobileMemoryOptimization,
-  useRealTimePerformanceMonitor,
-} from './';
+import { useSyncPerformanceOptimizer } from './sync/sync-performance-optimizer';
+import { useCrisisPerformanceGuarantee } from './sync/crisis-performance-guarantee';
+import { useSubscriptionTierOptimization } from './sync/subscription-tier-optimization';
+import { useCrossDevicePerformance } from './sync/cross-device-performance';
+import { useMobileMemoryOptimization } from './resources/mobile-memory-optimization';
+import { useRealTimePerformanceMonitor } from './monitoring/real-time-performance-monitor';
 
 // Import the hook functions to make them available
 export const useUnifiedPerformanceSystem = () => {
@@ -383,33 +381,8 @@ export const performHealthCheck = async () => {
 // TYPE EXPORTS FOR EXTERNAL USE
 // ============================================================================
 
-// Re-export key types for external consumption
-export type {
-  // Core performance types
-  SyncPerformanceConfig,
-  PerformanceMetrics,
-  CrisisPerformanceMetrics,
-  TierPerformanceConfig,
-  DevicePerformanceProfile,
-
-  // Resource management types
-  MemoryUsageStats,
-  ObjectPoolConfig,
-
-  // Monitoring types
-  RealTimePerformanceMetrics,
-  PerformanceViolation,
-  SLACompliance,
-  PerformanceDashboardData,
-
-  // Store types
-  SyncPerformanceOptimizerStore,
-  CrisisPerformanceGuaranteeStore,
-  SubscriptionTierOptimizationStore,
-  CrossDevicePerformanceStore,
-  MobileMemoryOptimizationStore,
-  RealTimePerformanceMonitorStore,
-};
+// Note: All key types are already exported from their respective modules above.
+// No additional type exports needed here.
 
 // ============================================================================
 // PERFORMANCE CONSTANTS

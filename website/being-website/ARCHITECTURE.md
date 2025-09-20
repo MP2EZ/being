@@ -1,4 +1,4 @@
-# FullMind Website Architecture - Next.js 14
+# Being. Website Architecture - Next.js 14
 
 ## Clinical-Grade Performance Architecture
 
@@ -11,7 +11,7 @@
 ### Technology Stack
 - **Framework**: Next.js 14.2+ with App Router
 - **TypeScript**: Strict mode with clinical-grade type safety
-- **Styling**: Tailwind CSS with FullMind design system
+- **Styling**: Tailwind CSS with Being. design system
 - **Performance**: Image optimization, code splitting, edge caching
 - **Accessibility**: Built-in screen reader support, focus management
 
@@ -98,7 +98,7 @@ src/
 - Accessibility context
 - Error boundaries for clinical safety
 
-## Integration with FullMind Ecosystem
+## Integration with Being. Ecosystem
 
 ### Design System Alignment
 - Color palette from mobile app themes (morning/midday/evening)

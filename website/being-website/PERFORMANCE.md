@@ -1,6 +1,6 @@
-# FullMind Clinical Performance Standards
+# Being. Clinical Performance Standards
 
-This document outlines the clinical-grade performance optimization setup for the FullMind website, designed to meet therapeutic-grade standards for mental health applications.
+This document outlines the clinical-grade performance optimization setup for the Being. website, designed to meet therapeutic-grade standards for mental health applications.
 
 ## Performance Budgets
 
@@ -368,4 +368,4 @@ if (metric > threshold) {
    open reports/clinical-performance-report.json
    ```
 
-For questions about clinical performance requirements, consult the FullMind Clinical Standards documentation or the performance engineering team.
+For questions about clinical performance requirements, consult the Being. Clinical Standards documentation or the performance engineering team.

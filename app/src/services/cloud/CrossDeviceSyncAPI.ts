@@ -16,8 +16,9 @@
  * - 988 hotline access independence from sync status
  */
 
-import { EventEmitter } from 'events';
+import { EventEmitter } from '../../utils/EventEmitter';
 import { z } from 'zod';
+import * as Crypto from 'expo-crypto';
 import {
   EncryptedDataContainer,
   CloudSyncOperation,
@@ -407,9 +408,8 @@ class DeviceRegistrationManager {
    * Generate device-specific encryption key
    */
   private async generateDeviceKey(): Promise<string> {
-    const keyBytes = new Uint8Array(32);
-    crypto.getRandomValues(keyBytes);
-    return Array.from(keyBytes, byte => byte.toString(16).padStart(2, '0')).join('');
+    const randomBytes = await Crypto.getRandomBytesAsync(32);
+    return Array.from(randomBytes, byte => byte.toString(16).padStart(2, '0')).join('');
   }
 }
 

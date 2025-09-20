@@ -18,7 +18,7 @@
 
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
-import { EventEmitter } from 'events';
+import { EventEmitter } from '../../utils/EventEmitter';
 
 // Store imports
 import { useCrossDeviceStateStore, crossDeviceStateSelectors } from './cross-device-state-store';

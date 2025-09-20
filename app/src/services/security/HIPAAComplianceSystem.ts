@@ -1125,7 +1125,7 @@ export class HIPAAComplianceSystem {
   private async loadAuditEntries(): Promise<void> {
     // Load from secure storage if available
     try {
-      const storedEntries = await SecureStore.getItemAsync('@being_hipaa_audit_entries');
+      const storedEntries = await SecureStore.getItemAsync('being_hipaa_audit_entries');
       if (storedEntries) {
         this.auditEntries = JSON.parse(storedEntries);
       }
@@ -1136,7 +1136,7 @@ export class HIPAAComplianceSystem {
 
   private async storeEmergencyDocumentation(emergencyDoc: any): Promise<void> {
     try {
-      const key = `@being_emergency_doc_${emergencyDoc.emergencyAccessId}`;
+      const key = `being_emergency_doc_${emergencyDoc.emergencyAccessId}`;
       await SecureStore.setItemAsync(key, JSON.stringify(emergencyDoc));
     } catch (error) {
       console.error('Failed to store emergency documentation:', error);

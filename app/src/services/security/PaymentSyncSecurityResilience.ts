@@ -209,10 +209,10 @@ export class PaymentSyncSecurityResilienceService {
   private complianceCheckInterval: NodeJS.Timeout | null = null;
 
   // Secure storage keys
-  private readonly RESILIENCE_CONFIG_KEY = '@being_resilience_config_v1';
-  private readonly CRYPTOGRAPHIC_STATE_KEY = '@being_crypto_state_v1';
-  private readonly SECURITY_EVENTS_KEY = '@being_security_events_v1';
-  private readonly RECOVERY_OPERATIONS_KEY = '@being_recovery_ops_v1';
+  private readonly RESILIENCE_CONFIG_KEY = 'being_resilience_config_v1';
+  private readonly CRYPTOGRAPHIC_STATE_KEY = 'being_crypto_state_v1';
+  private readonly SECURITY_EVENTS_KEY = 'being_security_events_v1';
+  private readonly RECOVERY_OPERATIONS_KEY = 'being_recovery_ops_v1';
 
   // Default configuration optimized for mental health app security
   private readonly DEFAULT_CONFIG: SecurityResilienceConfig = {

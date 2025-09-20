@@ -33,7 +33,7 @@ describe('StorageKeyMigrator', () => {
 
   describe('assessMigrationNeeds', () => {
     it('should detect no migration needed when no old keys exist', async () => {
-      mockAsyncStorage.getAllKeys.mockResolvedValue(['@being_user', '@being_assessments']);
+      mockAsyncStorage.getAllKeys.mockResolvedValue(['being_user', 'being_assessments']);
 
       const assessment = await storageKeyMigrator.assessMigrationNeeds();
 
@@ -52,7 +52,7 @@ describe('StorageKeyMigrator', () => {
 
       mockAsyncStorage.getAllKeys.mockResolvedValue([
         ...oldKeys,
-        '@being_checkins' // Some new keys already exist
+        'being_checkins' // Some new keys already exist
       ]);
 
       // Mock data for size estimation
@@ -140,7 +140,7 @@ describe('StorageKeyMigrator', () => {
       mockAsyncStorage.getAllKeys.mockResolvedValue(['@fullmind_user']);
       mockAsyncStorage.getItem.mockImplementation(async (key) => {
         if (key === '@fullmind_user') return testData;
-        if (key === '@being_user') return testData; // Verification
+        if (key === 'being_user') return testData; // Verification
         return null;
       });
 
@@ -154,7 +154,7 @@ describe('StorageKeyMigrator', () => {
       expect(result.errors).toHaveLength(0);
 
       // Verify data was written to new location
-      expect(mockAsyncStorage.setItem).toHaveBeenCalledWith('@being_user', testData);
+      expect(mockAsyncStorage.setItem).toHaveBeenCalledWith('being_user', testData);
 
       // Verify old key was removed
       expect(mockAsyncStorage.removeItem).toHaveBeenCalledWith('@fullmind_user');
@@ -176,7 +176,7 @@ describe('StorageKeyMigrator', () => {
 
       mockSecureStore.getItemAsync.mockImplementation(async (key) => {
         if (key === '@fullmind_master_key_v1') return testKey;
-        if (key === '@being_master_key_v1') return testKey; // Verification
+        if (key === 'being_master_key_v1') return testKey; // Verification
         return null;
       });
 
@@ -194,7 +194,7 @@ describe('StorageKeyMigrator', () => {
       const result = await storageKeyMigrator.performMigration();
 
       expect(result.success).toBe(true);
-      expect(mockSecureStore.setItemAsync).toHaveBeenCalledWith('@being_master_key_v1', testKey);
+      expect(mockSecureStore.setItemAsync).toHaveBeenCalledWith('being_master_key_v1', testKey);
       expect(mockSecureStore.deleteItemAsync).toHaveBeenCalledWith('@fullmind_master_key_v1');
     });
 
@@ -238,14 +238,14 @@ describe('StorageKeyMigrator', () => {
       mockAsyncStorage.getAllKeys.mockResolvedValue(['@fullmind_assessments']);
       mockAsyncStorage.getItem.mockImplementation(async (key) => {
         if (key === '@fullmind_assessments') return validAssessmentData;
-        if (key === '@being_assessments') return validAssessmentData; // Verification
+        if (key === 'being_assessments') return validAssessmentData; // Verification
         return null;
       });
 
       const result = await storageKeyMigrator.performMigration();
 
       expect(result.success).toBe(true);
-      expect(mockAsyncStorage.setItem).toHaveBeenCalledWith('@being_assessments', validAssessmentData);
+      expect(mockAsyncStorage.setItem).toHaveBeenCalledWith('being_assessments', validAssessmentData);
     });
 
     it('should handle partial migration failure gracefully', async () => {
@@ -262,7 +262,7 @@ describe('StorageKeyMigrator', () => {
 
       // Simulate failure on second key
       mockAsyncStorage.setItem.mockImplementation(async (key, value) => {
-        if (key === '@being_assessments') {
+        if (key === 'being_assessments') {
           throw new Error('Storage write failed');
         }
       });
@@ -314,7 +314,7 @@ describe('StorageKeyMigrator', () => {
             type: 'async_storage',
             category: 'user',
             critical: true,
-            targetKey: '@being_user'
+            targetKey: 'being_user'
           }
         }
       });
@@ -334,7 +334,7 @@ describe('StorageKeyMigrator', () => {
       expect(mockAsyncStorage.setItem).toHaveBeenCalledWith('@fullmind_user', originalData);
 
       // Verify new key was removed
-      expect(mockAsyncStorage.removeItem).toHaveBeenCalledWith('@being_user');
+      expect(mockAsyncStorage.removeItem).toHaveBeenCalledWith('being_user');
     });
 
     it('should handle missing backup gracefully', async () => {
@@ -383,7 +383,7 @@ describe('StorageKeyMigrator', () => {
     it('should return sorted backup IDs', async () => {
       const allKeys = [
         'being_storage_migration_backup_1000',
-        '@being_user',
+        'being_user',
         'being_storage_migration_backup_3000',
         'being_storage_migration_backup_2000',
         'other_key'
@@ -401,7 +401,7 @@ describe('StorageKeyMigrator', () => {
     });
 
     it('should return empty array when no backups exist', async () => {
-      mockAsyncStorage.getAllKeys.mockResolvedValue(['@being_user', '@being_assessments']);
+      mockAsyncStorage.getAllKeys.mockResolvedValue(['being_user', 'being_assessments']);
 
       const backups = await storageKeyMigrator.getAvailableBackups();
 
@@ -417,7 +417,7 @@ describe('StorageKeyMigrator', () => {
       mockAsyncStorage.getAllKeys.mockResolvedValue(['@fullmind_user']);
       mockAsyncStorage.getItem.mockImplementation(async (key) => {
         if (key === '@fullmind_user') return originalData;
-        if (key === '@being_user') return corruptedData; // Simulated corruption
+        if (key === 'being_user') return corruptedData; // Simulated corruption
         return null;
       });
 
@@ -438,7 +438,7 @@ describe('StorageKeyMigrator', () => {
 
       mockAsyncStorage.getAllKeys.mockResolvedValue(['@fullmind_assessments']);
       mockAsyncStorage.getItem.mockImplementation(async (key) => {
-        if (key === '@fullmind_assessments' || key === '@being_assessments') {
+        if (key === '@fullmind_assessments' || key === 'being_assessments') {
           return criticalData;
         }
         return null;
@@ -471,7 +471,7 @@ describe('StorageKeyMigrator', () => {
 
       mockAsyncStorage.getItem.mockImplementation(async (key) => {
         if (key === '@fullmind_crisis') return crisisData;
-        if (key === '@being_crisis') return crisisData;
+        if (key === 'being_crisis') return crisisData;
         return JSON.stringify({ test: 'data' });
       });
 

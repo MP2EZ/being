@@ -835,7 +835,7 @@ export class EmergencyAuthenticationModel {
 
   private async loadEmergencyAuthCache(): Promise<void> {
     try {
-      const cachedAuth = await SecureStore.getItemAsync('@being_emergency_auth_cache');
+      const cachedAuth = await SecureStore.getItemAsync('being_emergency_auth_cache');
       if (cachedAuth) {
         const authData = JSON.parse(cachedAuth);
         for (const [deviceId, data] of Object.entries(authData)) {
@@ -1234,7 +1234,7 @@ export class EmergencyAuthenticationModel {
 
     try {
       const allCache = Object.fromEntries(this.emergencyAuthCache);
-      await SecureStore.setItemAsync('@being_emergency_auth_cache', JSON.stringify(allCache));
+      await SecureStore.setItemAsync('being_emergency_auth_cache', JSON.stringify(allCache));
     } catch (error) {
       console.warn('Failed to clear emergency auth cache:', error);
     }
@@ -1242,7 +1242,7 @@ export class EmergencyAuthenticationModel {
 
   private async checkEmergencyPinConfigured(): Promise<boolean> {
     try {
-      const emergencyPin = await SecureStore.getItemAsync('@being_emergency_pin');
+      const emergencyPin = await SecureStore.getItemAsync('being_emergency_pin');
       return !!emergencyPin;
     } catch {
       return false;
@@ -1251,7 +1251,7 @@ export class EmergencyAuthenticationModel {
 
   private async checkEmergencyCodeConfigured(): Promise<boolean> {
     try {
-      const emergencyCode = await SecureStore.getItemAsync('@being_emergency_code');
+      const emergencyCode = await SecureStore.getItemAsync('being_emergency_code');
       return !!emergencyCode;
     } catch {
       return false;

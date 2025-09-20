@@ -17,7 +17,7 @@
  * - Multi-tier fallback strategies based on subscription level
  */
 
-import { EventEmitter } from 'events';
+import { EventEmitter } from '../../utils/EventEmitter';
 import {
   PaymentAwareSyncRequest,
   PaymentAwareSyncResponse,

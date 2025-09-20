@@ -91,10 +91,10 @@ export class FeatureFlagManager {
   private initialized = false;
 
   // Secure storage keys
-  private readonly FEATURE_FLAGS_KEY = '@being_feature_flags_v1';
-  private readonly FEATURE_FLAGS_PROFILE_KEY = '@being_feature_profile_v1';
-  private readonly FEATURE_FLAGS_AUDIT_KEY = '@being_feature_audit_v1';
-  private readonly CRISIS_SAFETY_KEY = '@being_crisis_safety_v1';
+  private readonly FEATURE_FLAGS_KEY = 'being_feature_flags_v1';
+  private readonly FEATURE_FLAGS_PROFILE_KEY = 'being_feature_profile_v1';
+  private readonly FEATURE_FLAGS_AUDIT_KEY = 'being_feature_audit_v1';
+  private readonly CRISIS_SAFETY_KEY = 'being_crisis_safety_v1';
 
   // Built-in feature flag profiles
   private readonly profiles: Record<string, FeatureFlagProfile> = {

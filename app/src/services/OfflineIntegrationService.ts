@@ -4,7 +4,7 @@
  * Manages interactions between queue, network, cache, and session services
  */
 
-import { enhancedOfflineQueueService } from './EnhancedOfflineQueueService';
+import { offlineQueueService as enhancedOfflineQueueService } from './OfflineQueueService';
 import { networkAwareService } from './NetworkAwareService';
 import { assetCacheService } from './AssetCacheService';
 import { resumableSessionService } from './ResumableSessionService';

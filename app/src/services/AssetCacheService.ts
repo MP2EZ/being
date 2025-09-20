@@ -85,9 +85,9 @@ interface CacheConfig {
 
 class AssetCacheService {
   private readonly CACHE_VERSION = '1.0.0';
-  private readonly CACHE_KEY_PREFIX = '@being_asset_cache_';
-  private readonly METADATA_KEY = '@being_asset_metadata';
-  private readonly STATS_KEY = '@being_cache_stats';
+  private readonly CACHE_KEY_PREFIX = 'being_asset_cache_';
+  private readonly METADATA_KEY = 'being_asset_metadata';
+  private readonly STATS_KEY = 'being_cache_stats';
   
   private memoryCache: Map<string, any> = new Map();
   private cacheStats: CacheStatistics;
@@ -412,15 +412,30 @@ class AssetCacheService {
   }
 
   /**
+   * Static asset registry - Metro bundler requires static imports
+   */
+  private readonly assetRegistry: Record<string, any> = {
+    'icon.png': require('../../assets/icon.png'),
+    'favicon.png': require('../../assets/favicon.png'),
+    'adaptive-icon.png': require('../../assets/adaptive-icon.png'),
+    'splash-icon.png': require('../../assets/splash-icon.png'),
+  };
+
+  /**
    * Load asset from source (bundle or network)
    */
   private async loadFromSource(path: string, type: AssetType): Promise<any> {
     // For Phase 1, all assets are bundled (no network calls)
     try {
-      // Try to load from bundled assets
-      const asset = Asset.fromModule(require(`../../assets/${path}`));
-      await asset.downloadAsync();
-      return asset;
+      // Try to load from bundled assets using static registry
+      const assetModule = this.assetRegistry[path];
+      if (assetModule) {
+        const asset = Asset.fromModule(assetModule);
+        await asset.downloadAsync();
+        return asset;
+      } else {
+        throw new Error(`Asset not found in registry: ${path}`);
+      }
     } catch (error) {
       // Fallback to embedded data
       return this.getEmbeddedFallback(path);

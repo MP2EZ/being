@@ -65,7 +65,7 @@ export interface MigrationStatus {
 export class MigrationOrchestrator {
   private static instance: MigrationOrchestrator;
   private migrationInProgress = false;
-  private readonly MIGRATION_STATUS_KEY = '@being_migration_status_v1';
+  private readonly MIGRATION_STATUS_KEY = 'being_migration_status_v1';
 
   private constructor() {}
 
@@ -448,9 +448,9 @@ export class MigrationOrchestrator {
 
       // Validate that critical data can be accessed
       try {
-        const testUserData = await AsyncStorage.getItem('@being_user');
-        const testAssessments = await AsyncStorage.getItem('@being_assessments');
-        const testCrisis = await AsyncStorage.getItem('@being_crisis');
+        const testUserData = await AsyncStorage.getItem('being_user');
+        const testAssessments = await AsyncStorage.getItem('being_assessments');
+        const testCrisis = await AsyncStorage.getItem('being_crisis');
 
         // These keys might not exist for new users, which is OK
         if (testUserData === null && testAssessments === null && testCrisis === null) {

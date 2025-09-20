@@ -35,8 +35,8 @@ export interface StartupMigrationOptions {
 
 export class AppStartupMigrationService {
   private static instance: AppStartupMigrationService;
-  private readonly STARTUP_MIGRATION_KEY = '@being_startup_migration_status';
-  private readonly LAST_CHECK_KEY = '@being_last_migration_check';
+  private readonly STARTUP_MIGRATION_KEY = 'being_startup_migration_status';
+  private readonly LAST_CHECK_KEY = 'being_last_migration_check';
 
   private constructor() {}
 

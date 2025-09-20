@@ -10,7 +10,7 @@
  * - Crisis mode performance override with security protection
  */
 
-import { EventEmitter } from 'events';
+import { EventEmitter } from '../../utils/EventEmitter';
 import { z } from 'zod';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DataSensitivity } from '../security/EncryptionService';

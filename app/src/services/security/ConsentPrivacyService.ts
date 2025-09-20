@@ -312,10 +312,10 @@ export class ConsentPrivacyService {
   };
 
   // Storage keys
-  private readonly CONSENT_KEY = '@being_user_consents_v1';
-  private readonly PRIVACY_REQUESTS_KEY = '@being_privacy_requests_v1';
-  private readonly CONSENT_AUDITS_KEY = '@being_consent_audits_v1';
-  private readonly CONSENT_CONFIG_KEY = '@being_consent_config_v1';
+  private readonly CONSENT_KEY = 'being_user_consents_v1';
+  private readonly PRIVACY_REQUESTS_KEY = 'being_privacy_requests_v1';
+  private readonly CONSENT_AUDITS_KEY = 'being_consent_audits_v1';
+  private readonly CONSENT_CONFIG_KEY = 'being_consent_config_v1';
 
   private constructor() {
     this.initialize();

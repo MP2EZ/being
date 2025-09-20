@@ -10,7 +10,7 @@ import { CheckIn } from '../types';
 import { dataStore } from '../services/storage/SecureDataStore';
 import { networkService } from '../services/NetworkService';
 import { resumableSessionService } from '../services/ResumableSessionService';
-import { enhancedOfflineQueueService } from '../services/EnhancedOfflineQueueService';
+import { offlineQueueService as enhancedOfflineQueueService } from '../services/OfflineQueueService';
 import { ResumableSession, SessionProgress } from '../types/ResumableSession';
 import { validateCheckInData, ValidationError, sanitizeTextInput, sanitizeArrayInput } from '../utils/validation';
 import { withSync } from './mixins/syncMixin';

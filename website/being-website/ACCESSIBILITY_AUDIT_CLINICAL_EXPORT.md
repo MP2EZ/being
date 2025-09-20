@@ -1,4 +1,4 @@
-# FullMind Clinical Export System - Comprehensive Accessibility Audit Report
+# Being. Clinical Export System - Comprehensive Accessibility Audit Report
 
 **WCAG AA Compliance Assessment with Mental Health Accessibility Focus**
 
@@ -6,7 +6,7 @@
 
 ## Executive Summary
 
-This comprehensive accessibility audit evaluates the FullMind clinical export system against WCAG 2.1 AA standards with specialized focus on mental health accessibility requirements. The audit covers the complete export workflow including configuration, progress tracking, results presentation, and therapeutic data sharing.
+This comprehensive accessibility audit evaluates the Being. clinical export system against WCAG 2.1 AA standards with specialized focus on mental health accessibility requirements. The audit covers the complete export workflow including configuration, progress tracking, results presentation, and therapeutic data sharing.
 
 ### Overall Compliance Status: **NEEDS IMPROVEMENT** (73% WCAG AA Compliant)
 
@@ -930,7 +930,7 @@ const AccessibilityTesting = {
 
 ## 10. Conclusion
 
-The FullMind clinical export system demonstrates a strong foundation for accessibility with excellent therapeutic context integration. However, critical accessibility gaps exist that prevent full WCAG AA compliance and optimal mental health accessibility.
+The Being. clinical export system demonstrates a strong foundation for accessibility with excellent therapeutic context integration. However, critical accessibility gaps exist that prevent full WCAG AA compliance and optimal mental health accessibility.
 
 **Immediate Actions Required:**
 1. **Implement comprehensive keyboard navigation** for all export workflows

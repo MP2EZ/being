@@ -108,8 +108,8 @@ export class PaymentAwareFeatureGates {
   private readonly CRISIS_BYPASS_ALL = true;
 
   // Storage keys
-  private readonly FEATURE_CACHE_KEY = '@being_feature_gate_cache_v1';
-  private readonly USAGE_TRACKING_KEY = '@being_feature_usage_v1';
+  private readonly FEATURE_CACHE_KEY = 'being_feature_gate_cache_v1';
+  private readonly USAGE_TRACKING_KEY = 'being_feature_usage_v1';
 
   // Feature gate definitions
   private readonly featureGates: Record<string, FeatureGateConfig> = {

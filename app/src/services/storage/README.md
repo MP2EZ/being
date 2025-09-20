@@ -2,7 +2,7 @@
 
 ## Overview
 
-This comprehensive migration system handles the transition from Fullmind to Being. storage keys while ensuring **zero data loss** and maintaining the highest standards of clinical data safety. The system is specifically designed for mental health applications where data integrity is critical.
+This comprehensive migration system handles the transition from legacy to Being. storage keys while ensuring **zero data loss** and maintaining the highest standards of clinical data safety. The system is specifically designed for mental health applications where data integrity is critical.
 
 ## 🔒 Critical Safety Features
 

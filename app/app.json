@@ -8,7 +8,15 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "description": "Evidence-based mindfulness and cognitive therapy practices for mental wellness. Features daily check-ins, PHQ-9/GAD-7 assessments, and crisis support resources.",
-    "keywords": ["mindfulness", "mental health", "MBCT", "wellness", "meditation", "anxiety", "depression"],
+    "keywords": [
+      "mindfulness",
+      "mental health",
+      "MBCT",
+      "wellness",
+      "meditation",
+      "anxiety",
+      "depression"
+    ],
     "primaryColor": "#4A7C59",
     "privacy": "unlisted",
     "splash": {
@@ -32,7 +40,9 @@
         "CFBundleURLTypes": [
           {
             "CFBundleURLName": "being-deep-linking",
-            "CFBundleURLSchemes": ["being"]
+            "CFBundleURLSchemes": [
+              "being"
+            ]
           }
         ]
       },
@@ -40,7 +50,9 @@
         "usesNonExemptEncryption": false
       },
       "entitlements": {
-        "com.apple.security.application-groups": ["group.com.being.mbct.widgets"]
+        "com.apple.security.application-groups": [
+          "group.com.being.mbct.widgets"
+        ]
       }
     },
     "android": {
@@ -56,12 +68,17 @@
         "android.permission.RECORD_AUDIO",
         "android.permission.MODIFY_AUDIO_SETTINGS",
         "android.permission.WAKE_LOCK",
-        "android.permission.RECEIVE_BOOT_COMPLETED"
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT"
       ],
       "intentFilters": [
         {
           "action": "android.intent.action.VIEW",
-          "category": ["android.intent.category.DEFAULT", "android.intent.category.BROWSABLE"],
+          "category": [
+            "android.intent.category.DEFAULT",
+            "android.intent.category.BROWSABLE"
+          ],
           "data": {
             "scheme": "being"
           }
@@ -88,18 +105,20 @@
           "defaultChannel": "default"
         }
       ],
-      "./plugins/expo-being-widgets"
+      "./plugins/expo-being-widgets",
+      "expo-web-browser"
     ],
     "extra": {
-      "eas": {
-        "projectId": "being-mbct-2024"
-      },
       "clinicalVersion": "1.0",
       "privacyPolicyUrl": "https://being.app/privacy",
       "termsOfServiceUrl": "https://being.app/terms",
       "supportUrl": "https://being.app/support",
       "crisisHotline": "988",
-      "buildType": "production"
-    }
+      "buildType": "production",
+      "eas": {
+        "projectId": "75ab182c-82f1-4f22-bd9c-d57358950bc6"
+      }
+    },
+    "owner": "palouselabs"
   }
 }

@@ -20,7 +20,7 @@ import {
 } from '../types/feature-flags';
 import { secureDataStore } from '../services/storage/SecureDataStore';
 import { networkService } from '../services/NetworkService';
-import { crisisProtectionService } from '../services/CrisisProtectionService';
+import { crisisPerformanceGuardian as crisisProtectionService } from '../services/cloud/CrisisPerformanceGuardian';
 import { costMonitoringService } from '../services/cloud/CostMonitoring';
 import { cloudMonitoringService } from '../services/cloud/CloudMonitoring';
 

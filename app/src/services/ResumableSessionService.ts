@@ -16,9 +16,9 @@ import { dataStore } from './storage/SecureDataStore';
 
 class ResumableSessionServiceImpl {
   private readonly storageKeys: SessionStorageKeys = {
-    RESUMABLE_SESSION_PREFIX: '@being_resumable_session_',
-    SESSION_INDEX: '@being_session_index',
-    SESSION_VERSION: '@being_session_version',
+    RESUMABLE_SESSION_PREFIX: 'being_resumable_session_',
+    SESSION_INDEX: 'being_session_index',
+    SESSION_VERSION: 'being_session_version',
   };
 
   private cleanupInterval: NodeJS.Timeout | null = null;

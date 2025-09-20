@@ -2,12 +2,12 @@
  * Storage Key Migration Service for Being. MBCT App
  *
  * CRITICAL SAFETY REQUIREMENTS:
- * - Zero data loss during fullmind → being storage key migration
+ * - Zero data loss during legacy → being storage key migration
  * - 100% accuracy for clinical data (PHQ-9/GAD-7 assessments)
  * - Crisis information must be preserved with absolute fidelity
  * - Comprehensive rollback capability for emergency recovery
  *
- * This service handles the final phase of the Fullmind → Being. renaming project,
+ * This service handles the final phase of the legacy → Being. renaming project,
  * specifically migrating AsyncStorage keys while maintaining data integrity.
  */
 
@@ -66,7 +66,7 @@ export class StorageKeyMigrator {
     // Core session and resumable data
     {
       oldKey: '@fullmind_session_index',
-      newKey: '@being_session_index',
+      newKey: 'being_session_index',
       type: 'async_storage',
       dataCategory: 'system',
       criticalSafety: true,
@@ -74,7 +74,7 @@ export class StorageKeyMigrator {
     },
     {
       oldKey: '@fullmind_resumable_session_checkin_morning',
-      newKey: '@being_resumable_session_checkin_morning',
+      newKey: 'being_resumable_session_checkin_morning',
       type: 'async_storage',
       dataCategory: 'user',
       criticalSafety: true,
@@ -82,7 +82,7 @@ export class StorageKeyMigrator {
     },
     {
       oldKey: '@fullmind_resumable_session_checkin_midday',
-      newKey: '@being_resumable_session_checkin_midday',
+      newKey: 'being_resumable_session_checkin_midday',
       type: 'async_storage',
       dataCategory: 'user',
       criticalSafety: true,
@@ -90,7 +90,7 @@ export class StorageKeyMigrator {
     },
     {
       oldKey: '@fullmind_resumable_session_checkin_evening',
-      newKey: '@being_resumable_session_checkin_evening',
+      newKey: 'being_resumable_session_checkin_evening',
       type: 'async_storage',
       dataCategory: 'user',
       criticalSafety: true,
@@ -98,7 +98,7 @@ export class StorageKeyMigrator {
     },
     {
       oldKey: '@fullmind_resumable_session_assessment_phq9',
-      newKey: '@being_resumable_session_assessment_phq9',
+      newKey: 'being_resumable_session_assessment_phq9',
       type: 'async_storage',
       dataCategory: 'clinical',
       criticalSafety: true,
@@ -106,7 +106,7 @@ export class StorageKeyMigrator {
     },
     {
       oldKey: '@fullmind_resumable_session_assessment_gad7',
-      newKey: '@being_resumable_session_assessment_gad7',
+      newKey: 'being_resumable_session_assessment_gad7',
       type: 'async_storage',
       dataCategory: 'clinical',
       criticalSafety: true,
@@ -126,7 +126,7 @@ export class StorageKeyMigrator {
     // Core user data stores
     {
       oldKey: '@fullmind_user',
-      newKey: '@being_user',
+      newKey: 'being_user',
       type: 'async_storage',
       dataCategory: 'user',
       criticalSafety: true,
@@ -134,7 +134,7 @@ export class StorageKeyMigrator {
     },
     {
       oldKey: '@fullmind_checkins',
-      newKey: '@being_checkins',
+      newKey: 'being_checkins',
       type: 'async_storage',
       dataCategory: 'user',
       criticalSafety: true,
@@ -142,7 +142,7 @@ export class StorageKeyMigrator {
     },
     {
       oldKey: '@fullmind_assessments',
-      newKey: '@being_assessments',
+      newKey: 'being_assessments',
       type: 'async_storage',
       dataCategory: 'clinical',
       criticalSafety: true,
@@ -150,7 +150,7 @@ export class StorageKeyMigrator {
     },
     {
       oldKey: '@fullmind_assessments_encrypted',
-      newKey: '@being_assessments_encrypted',
+      newKey: 'being_assessments_encrypted',
       type: 'async_storage',
       dataCategory: 'clinical',
       criticalSafety: true,
@@ -160,7 +160,7 @@ export class StorageKeyMigrator {
     // Crisis and safety data
     {
       oldKey: '@fullmind_crisis',
-      newKey: '@being_crisis',
+      newKey: 'being_crisis',
       type: 'async_storage',
       dataCategory: 'crisis',
       criticalSafety: true,
@@ -168,7 +168,7 @@ export class StorageKeyMigrator {
     },
     {
       oldKey: '@fullmind_crisis_config_v1',
-      newKey: '@being_crisis_config_v1',
+      newKey: 'being_crisis_config_v1',
       type: 'async_storage',
       dataCategory: 'crisis',
       criticalSafety: true,
@@ -176,7 +176,7 @@ export class StorageKeyMigrator {
     },
     {
       oldKey: '@fullmind_emergency_contacts',
-      newKey: '@being_emergency_contacts',
+      newKey: 'being_emergency_contacts',
       type: 'secure_store',
       dataCategory: 'crisis',
       criticalSafety: true,
@@ -186,7 +186,7 @@ export class StorageKeyMigrator {
     // Security and encryption keys
     {
       oldKey: '@fullmind_master_key_v1',
-      newKey: '@being_master_key_v1',
+      newKey: 'being_master_key_v1',
       type: 'secure_store',
       dataCategory: 'system',
       criticalSafety: true,
@@ -194,7 +194,7 @@ export class StorageKeyMigrator {
     },
     {
       oldKey: '@fullmind_clinical_key_v1',
-      newKey: '@being_clinical_key_v1',
+      newKey: 'being_clinical_key_v1',
       type: 'secure_store',
       dataCategory: 'clinical',
       criticalSafety: true,
@@ -202,7 +202,7 @@ export class StorageKeyMigrator {
     },
     {
       oldKey: '@fullmind_personal_key_v1',
-      newKey: '@being_personal_key_v1',
+      newKey: 'being_personal_key_v1',
       type: 'secure_store',
       dataCategory: 'user',
       criticalSafety: true,
@@ -212,7 +212,7 @@ export class StorageKeyMigrator {
     // Authentication and device management
     {
       oldKey: '@fullmind_device_id',
-      newKey: '@being_device_id',
+      newKey: 'being_device_id',
       type: 'secure_store',
       dataCategory: 'system',
       criticalSafety: false,
@@ -220,7 +220,7 @@ export class StorageKeyMigrator {
     },
     {
       oldKey: '@fullmind_auth_store',
-      newKey: '@being_auth_store',
+      newKey: 'being_auth_store',
       type: 'async_storage',
       dataCategory: 'system',
       criticalSafety: true,
@@ -228,7 +228,7 @@ export class StorageKeyMigrator {
     },
     {
       oldKey: '@fullmind_auth_config_v1',
-      newKey: '@being_auth_config_v1',
+      newKey: 'being_auth_config_v1',
       type: 'async_storage',
       dataCategory: 'system',
       criticalSafety: false,
@@ -238,7 +238,7 @@ export class StorageKeyMigrator {
     // Audit and compliance
     {
       oldKey: '@fullmind_audit_events',
-      newKey: '@being_audit_events',
+      newKey: 'being_audit_events',
       type: 'secure_store',
       dataCategory: 'system',
       criticalSafety: true,
@@ -246,7 +246,7 @@ export class StorageKeyMigrator {
     },
     {
       oldKey: '@fullmind_audit_log_v1',
-      newKey: '@being_audit_log_v1',
+      newKey: 'being_audit_log_v1',
       type: 'async_storage',
       dataCategory: 'system',
       criticalSafety: true,
@@ -254,7 +254,7 @@ export class StorageKeyMigrator {
     },
     {
       oldKey: '@fullmind_consent_audits_v1',
-      newKey: '@being_consent_audits_v1',
+      newKey: 'being_consent_audits_v1',
       type: 'async_storage',
       dataCategory: 'system',
       criticalSafety: true,
@@ -264,7 +264,7 @@ export class StorageKeyMigrator {
     // Cache and performance (non-critical)
     {
       oldKey: '@fullmind_cache_stats',
-      newKey: '@being_cache_stats',
+      newKey: 'being_cache_stats',
       type: 'async_storage',
       dataCategory: 'cache',
       criticalSafety: false,
@@ -272,7 +272,7 @@ export class StorageKeyMigrator {
     },
     {
       oldKey: '@fullmind_asset_metadata',
-      newKey: '@being_asset_metadata',
+      newKey: 'being_asset_metadata',
       type: 'async_storage',
       dataCategory: 'cache',
       criticalSafety: false,
@@ -785,7 +785,7 @@ export class StorageKeyMigrator {
         backupId,
         timestamp: new Date().toISOString(),
         version: '1.0',
-        migration: 'fullmind_to_being_storage_keys',
+        migration: 'being_storage_keys_migration',
         keyCount: keysToMigrate.length,
         backup
       };

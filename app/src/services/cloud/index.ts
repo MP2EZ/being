@@ -1,5 +1,5 @@
 /**
- * FullMind Cloud Services - Week 2 Authentication Integration
+ * Being. Cloud Services - Week 2 Authentication Integration
  *
  * Enhanced with complete Supabase Auth implementation
  * HIPAA-compliant authentication with 15-minute sessions and emergency access

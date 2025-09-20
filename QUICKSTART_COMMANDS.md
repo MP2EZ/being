@@ -293,9 +293,3 @@ npm run test:mbct-compliance
 - **Technical Issues**: Check `app/CHANGELOG.md` for recent fixes
 - **Clinical Questions**: Refer to `.claude/CLAUDE.md` domain authorities
 - **Performance Issues**: Run `npm run performance:all`
-
-### 🎯 Development Focus
-1. **Crisis Risk Prediction** (CURR-AI-001) - Highest priority
-2. **Export PDF/CSV** (CURR-FUNC-002) - Quick win
-3. **3-Minute Breathing Timer** (P1-FUNC-001) - Core MBCT feature
-4. **Dark Mode** (P1-DES-001) - Accessibility improvement

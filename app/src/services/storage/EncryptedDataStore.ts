@@ -50,15 +50,15 @@ export interface EncryptedStorageInfo {
 
 export class EncryptedDataStore {
   private readonly KEYS = {
-    USER: '@being_user',
-    CHECKINS: '@being_checkins',
-    ASSESSMENTS: '@being_assessments',
-    CRISIS_PLAN: '@being_crisis',
-    PARTIAL_SESSIONS: '@being_partial_sessions'
+    USER: 'being_user',
+    CHECKINS: 'being_checkins',
+    ASSESSMENTS: 'being_assessments',
+    CRISIS_PLAN: 'being_crisis',
+    PARTIAL_SESSIONS: 'being_partial_sessions'
   };
 
   // Migration tracking
-  private readonly MIGRATION_KEY = '@being_encryption_migration';
+  private readonly MIGRATION_KEY = 'being_encryption_migration';
   private readonly ENCRYPTED_MARKER = '__ENCRYPTED_V1__';
 
   constructor() {

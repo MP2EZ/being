@@ -153,7 +153,7 @@ export class SupabaseAuthService {
           },
 
           // Storage key with app identifier
-          storageKey: 'fullmind-auth-session-v2',
+          storageKey: 'being-auth-session-v2',
 
           // Debug disabled in production
           debug: __DEV__ ? false : false
@@ -167,7 +167,7 @@ export class SupabaseAuthService {
         // Global settings
         global: {
           headers: {
-            'X-FullMind-Auth-Version': '2.0.0',
+            'X-Being-Auth-Version': '2.0.0',
             'X-HIPAA-Compliant': 'true',
             'X-Device-Binding': 'enabled',
             'X-Emergency-Access': 'enabled',
@@ -213,13 +213,13 @@ export class SupabaseAuthService {
   private async initializeDeviceBinding(): Promise<void> {
     try {
       // Get or create device ID
-      let deviceId = await AsyncStorage.getItem('fullmind-device-id');
+      let deviceId = await AsyncStorage.getItem('being-device-id');
       if (!deviceId) {
         deviceId = await Crypto.digestStringAsync(
           Crypto.CryptoDigestAlgorithm.SHA256,
           `${Date.now()}-${Math.random()}-${Platform.OS}`
         );
-        await AsyncStorage.setItem('fullmind-device-id', deviceId);
+        await AsyncStorage.setItem('being-device-id', deviceId);
       }
 
       // Create device info
@@ -245,7 +245,7 @@ export class SupabaseAuthService {
   private async generateDeviceBindingToken(deviceId: string): Promise<string> {
     const salt = await Crypto.digestStringAsync(
       Crypto.CryptoDigestAlgorithm.SHA256,
-      `${deviceId}-${Date.now()}-fullmind-binding`
+      `${deviceId}-${Date.now()}-being-binding`
     );
 
     return await Crypto.digestStringAsync(
@@ -324,7 +324,7 @@ export class SupabaseAuthService {
           trusted: true
         };
 
-        await AsyncStorage.setItem('fullmind-device-info', JSON.stringify(this.deviceInfo));
+        await AsyncStorage.setItem('being-device-info', JSON.stringify(this.deviceInfo));
       }
 
     } catch (error) {
@@ -573,7 +573,7 @@ export class SupabaseAuthService {
             hipaa_consent: true,
             device_id: this.deviceInfo?.deviceId,
             device_platform: this.deviceInfo?.platform,
-            created_via: 'fullmind_mobile_v2',
+            created_via: 'being_mobile_v2',
             app_version: process.env.EXPO_PUBLIC_APP_VERSION || '1.0.0',
             auth_version: '2.0.0'
           }
@@ -870,7 +870,7 @@ export class SupabaseAuthService {
       this.deviceInfo = null;
 
       // Clear device binding
-      await AsyncStorage.removeItem('fullmind-device-info');
+      await AsyncStorage.removeItem('being-device-info');
 
       await this.logAuthEvent('SIGNED_OUT', null, undefined, userId);
 
@@ -930,7 +930,7 @@ export class SupabaseAuthService {
       };
 
       // Store emergency session
-      await AsyncStorage.setItem('fullmind-emergency-session', JSON.stringify(emergencySession));
+      await AsyncStorage.setItem('being-emergency-session', JSON.stringify(emergencySession));
 
       await this.logAuthEvent('EMERGENCY_SESSION_CREATED', null, `Crisis: ${crisisType}, Severity: ${severity}`);
 
@@ -1017,7 +1017,7 @@ export class SupabaseAuthService {
       const rateLimited = !this.checkRateLimit('health-check');
 
       // Check for emergency session
-      const emergencySessionData = await AsyncStorage.getItem('fullmind-emergency-session');
+      const emergencySessionData = await AsyncStorage.getItem('being-emergency-session');
       const emergencyAccess = !!emergencySessionData;
 
       return {

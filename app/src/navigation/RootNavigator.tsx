@@ -27,11 +27,11 @@ import PaymentSettingsScreen from '../screens/payment/PaymentSettingsScreen';
 const Stack = createStackNavigator();
 
 const RootNavigator: React.FC = () => {
-  const { user, isLoading, loadUser, isOnboardingComplete } = useUserStore();
+  const { user, isLoading, initializeStore, isOnboardingComplete } = useUserStore();
 
   useEffect(() => {
-    loadUser();
-  }, [loadUser]);
+    initializeStore();
+  }, [initializeStore]);
 
   if (isLoading) {
     return <LoadingScreen />;

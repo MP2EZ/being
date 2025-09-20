@@ -35,6 +35,12 @@ Mobile app delivering clinical-grade MBCT practices
 - **During development**: Regular validation of clinical accuracy and compliance
 - **Before deployment**: Comprehensive accessibility and compliance review
 
+### Intern Agent Boundaries
+**PROHIBITED**: clinical|crisis|compliance|PHI|MBCT|PHQ-9|GAD-7|therapeutic|AsyncStorage|security
+**ALLOWED**: formatting|imports|scaffolding(non-clinical)|file-org|config(non-security)
+**AUTO-ESCALATE**: healthcare-terms|/assessment/|/crisis/|/clinical/|/therapeutic/
+**VALIDATION**: domain-authority-review-required
+
 ## Domain Authority Coordination Framework
 
 ### Authority Hierarchy for Being.

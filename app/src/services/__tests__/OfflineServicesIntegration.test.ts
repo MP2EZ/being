@@ -3,7 +3,7 @@
  * Validates clinical-grade functionality and integration between services
  */
 
-import { enhancedOfflineQueueService } from '../EnhancedOfflineQueueService';
+import { enhancedOfflineQueueService } from '../../services/OfflineQueueService';
 import { networkAwareService } from '../NetworkAwareService';
 import { offlineIntegrationService } from '../OfflineIntegrationService';
 import { assetCacheService } from '../AssetCacheService';

@@ -1,4 +1,4 @@
--- FullMind MBCT Authentication Setup - Week 2 Implementation
+-- Being. MBCT Authentication Setup - Week 2 Implementation
 -- HIPAA-compliant authentication with 15-minute sessions, device binding, and emergency access
 
 -- Enable required extensions

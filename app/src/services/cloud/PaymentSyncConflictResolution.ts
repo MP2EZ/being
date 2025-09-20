@@ -17,7 +17,7 @@
  * - Zero data loss conflict resolution with complete audit trails
  */
 
-import { EventEmitter } from 'events';
+import { EventEmitter } from '../../utils/EventEmitter';
 import {
   SyncConflict,
   ConflictType,

@@ -1,6 +1,7 @@
 {
   "cli": {
-    "version": ">= 5.4.0"
+    "version": ">= 5.4.0",
+    "appVersionSource": "local"
   },
   "build": {
     "development": {
@@ -10,7 +11,7 @@
         "EXPO_PUBLIC_ENV": "development",
         "EXPO_PUBLIC_CRISIS_HOTLINE": "988",
         "EXPO_PUBLIC_API_URL": "http://localhost:3000",
-        "EXPO_PUBLIC_SENTRY_DSN": "",
+        "EXPO_PUBLIC_SENTRY_DSN": "https://fake-dsn@sentry.io/development",
         "EXPO_PUBLIC_ANALYTICS_ENABLED": "false",
         "EXPO_PUBLIC_CRASH_REPORTING": "false",
         "EXPO_PUBLIC_FEATURE_FLAGS": "dev_tools:true,debug_mode:true,beta_features:true,cloud_sync:false",
@@ -19,8 +20,7 @@
         "EXPO_PUBLIC_CLOUD_FEATURES_ENABLED": "false"
       },
       "ios": {
-        "buildConfiguration": "Debug",
-        "bundleIdentifier": "com.being.mbct.dev"
+        "buildConfiguration": "Debug"
       },
       "android": {
         "buildType": "apk",
@@ -46,7 +46,6 @@
       },
       "ios": {
         "buildConfiguration": "Release",
-        "bundleIdentifier": "com.being.mbct.preview",
         "simulator": false
       },
       "android": {
@@ -73,137 +72,6 @@
         "EXPO_PUBLIC_SUPABASE_URL": "$SUPABASE_URL_PRODUCTION",
         "EXPO_PUBLIC_SUPABASE_ANON_KEY": "$SUPABASE_ANON_KEY_PRODUCTION",
         "EXPO_PUBLIC_CLOUD_FEATURES_ENABLED": "false"
-      },
-      "ios": {
-        "buildConfiguration": "Release",
-        "bundleIdentifier": "com.being.mbct",
-        "simulator": false,
-        "enterprise": false,
-        "resourceClass": "m-medium",
-        "config": {
-          "usesNonExemptEncryption": false
-        },
-        "infoPlist": {
-          "NSHealthShareUsageDescription": "Being. integrates with Apple Health to provide comprehensive wellness tracking for your mental health journey.",
-          "NSHealthUpdateUsageDescription": "Being. can save your mindfulness session data to Apple Health to track your wellness progress.",
-          "ITSAppUsesNonExemptEncryption": false,
-          "LSApplicationCategoryType": "public.app-category.healthcare-fitness",
-          "NSUserTrackingUsageDescription": "This helps us improve our therapeutic content and provide personalized mindfulness experiences while keeping your data private.",
-          "CFBundleURLTypes": [
-            {
-              "CFBundleURLName": "being-deep-linking",
-              "CFBundleURLSchemes": ["being"]
-            }
-          ],
-          "UIBackgroundModes": ["background-processing", "background-fetch"],
-          "BGTaskSchedulerPermittedIdentifiers": ["com.being.mbct.reminder", "com.being.mbct.crisis-check"]
-        },
-        "entitlements": {
-          "com.apple.security.application-groups": ["group.com.being.mbct.widgets"],
-          "com.apple.developer.healthkit": true,
-          "com.apple.developer.healthkit.access": ["health-records"]
-        }
-      },
-      "android": {
-        "buildType": "aab",
-        "gradleCommand": ":app:bundleRelease",
-        "resourceClass": "medium",
-        "config": {
-          "minSdkVersion": 23,
-          "compileSdkVersion": 34,
-          "targetSdkVersion": 34,
-          "buildToolsVersion": "34.0.0"
-        },
-        "permissions": [
-          "android.permission.RECORD_AUDIO",
-          "android.permission.MODIFY_AUDIO_SETTINGS",
-          "android.permission.WAKE_LOCK",
-          "android.permission.RECEIVE_BOOT_COMPLETED",
-          "android.permission.SCHEDULE_EXACT_ALARM",
-          "android.permission.USE_BIOMETRIC",
-          "android.permission.USE_FINGERPRINT",
-          "android.permission.INTERNET",
-          "android.permission.ACCESS_NETWORK_STATE"
-        ],
-        "intentFilters": [
-          {
-            "action": "android.intent.action.VIEW",
-            "category": ["android.intent.category.DEFAULT", "android.intent.category.BROWSABLE"],
-            "data": {
-              "scheme": "being"
-            }
-          }
-        ]
-      }
-    },
-    "production-ios": {
-      "extends": "production",
-      "ios": {
-        "buildConfiguration": "Release",
-        "bundleIdentifier": "com.being.mbct",
-        "simulator": false,
-        "enterprise": false,
-        "resourceClass": "m-medium",
-        "autoIncrement": "buildNumber"
-      }
-    },
-    "production-android": {
-      "extends": "production",
-      "android": {
-        "buildType": "aab",
-        "gradleCommand": ":app:bundleRelease",
-        "resourceClass": "medium",
-        "autoIncrement": "versionCode"
-      }
-    }
-  },
-  "submit": {
-    "production": {
-      "ios": {
-        "appleId": "$APPLE_ID",
-        "ascAppId": "$ASC_APP_ID",
-        "appleTeamId": "$APPLE_TEAM_ID",
-        "sku": "being-mbct-ios",
-        "language": "en-US",
-        "companyName": "Being. Health Technologies",
-        "appName": "Being. MBCT",
-        "copyright": "© 2024 Being. Health Technologies. All rights reserved.",
-        "primaryCategory": "MEDICAL",
-        "secondaryCategory": "HEALTH_AND_FITNESS",
-        "primarySubcategoryOne": "HEALTH_AND_FITNESS",
-        "contentRights": {
-          "containsThirdPartyContent": false,
-          "hasRights": true
-        },
-        "usesIdfa": false,
-        "isFirstPartyAd": false,
-        "servesAds": false,
-        "contentRating": "4+",
-        "priceTier": "0",
-        "releaseType": "MANUAL",
-        "earliestReleaseDate": null,
-        "phaseType": "IMMEDIATE"
-      },
-      "android": {
-        "serviceAccountKeyPath": "$GOOGLE_SERVICE_ACCOUNT_KEY_PATH",
-        "track": "production",
-        "releaseStatus": "completed",
-        "inAppUpdatePriority": 0,
-        "rollout": 1.0,
-        "changesNotSentForReview": false
-      }
-    },
-    "preview": {
-      "ios": {
-        "appleId": "$APPLE_ID",
-        "ascAppId": "$ASC_APP_ID",
-        "appleTeamId": "$APPLE_TEAM_ID",
-        "sku": "being-mbct-ios-preview"
-      },
-      "android": {
-        "serviceAccountKeyPath": "$GOOGLE_SERVICE_ACCOUNT_KEY_PATH",
-        "track": "internal",
-        "releaseStatus": "draft"
       }
     }
   }

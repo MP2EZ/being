@@ -1,10 +1,11 @@
 /**
- * User Data Migration Script: Fullmind → Being.
- * 
- * CRITICAL: This script migrates user data from old storage keys to new ones.
- * Data loss will occur if this is not run properly.
- * 
+ * User Data Migration Script: Being. - COMPLETED ✅
+ *
+ * Migration from @fullmind_* to @being_* storage keys completed successfully.
+ * AppStartupMigrationService.ts now handles this migration automatically.
+ *
  * Generated: December 17, 2024
+ * Completed: September 17, 2025
  */
 
 const AsyncStorage = require('@react-native-async-storage/async-storage');

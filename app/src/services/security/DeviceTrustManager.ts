@@ -763,7 +763,7 @@ export class DeviceTrustManager {
 
   private async loadDeviceTrustProfiles(): Promise<void> {
     try {
-      const storedProfiles = await SecureStore.getItemAsync('@being_device_trust_profiles');
+      const storedProfiles = await SecureStore.getItemAsync('being_device_trust_profiles');
       if (storedProfiles) {
         const profilesData = JSON.parse(storedProfiles);
         for (const [deviceId, profile] of Object.entries(profilesData)) {
@@ -981,7 +981,7 @@ export class DeviceTrustManager {
     try {
       const allProfiles = Object.fromEntries(this.deviceTrustProfiles);
       await SecureStore.setItemAsync(
-        '@being_device_trust_profiles',
+        'being_device_trust_profiles',
         JSON.stringify(allProfiles),
         {
           requireAuthentication: true,
@@ -1025,7 +1025,7 @@ export class DeviceTrustManager {
 
   private async getCurrentDeviceId(): Promise<string> {
     try {
-      const existingId = await SecureStore.getItemAsync('@being_current_device_id');
+      const existingId = await SecureStore.getItemAsync('being_current_device_id');
       if (existingId) {
         return existingId;
       }
@@ -1044,7 +1044,7 @@ export class DeviceTrustManager {
         { encoding: Crypto.CryptoEncoding.HEX }
       );
 
-      await SecureStore.setItemAsync('@being_current_device_id', deviceId.substring(0, 32));
+      await SecureStore.setItemAsync('being_current_device_id', deviceId.substring(0, 32));
       return deviceId.substring(0, 32);
 
     } catch (error) {

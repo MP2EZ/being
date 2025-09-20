@@ -118,6 +118,13 @@ export interface EmergencyPHIAccess {
   auditTrailMandatory: boolean;
 }
 
+export interface HIPAAComplianceReport {
+  reportId: string;
+  timestamp: string;
+  summary: string;
+  recommendations: string[];
+}
+
 /**
  * HIPAA Queue Encryption Implementation
  */
@@ -936,7 +943,7 @@ export class HIPAAQueueEncryption {
   }
 
   private async storeHIPAACompliantData(result: HIPAAQueueEncryptionResult, operationId: string): Promise<void> {
-    const storageKey = `@being_hipaa_queue_${operationId}`;
+    const storageKey = `being_hipaa_queue_${operationId}`;
     await SecureStore.setItemAsync(storageKey, result.encryptedData);
   }
 
@@ -1016,13 +1023,7 @@ export class HIPAAQueueEncryption {
     return true; // Would update audit trail
   }
 
-  // Additional interfaces
-  interface HIPAAComplianceReport {
-    reportId: string;
-    timestamp: string;
-    summary: string;
-    recommendations: string[];
-  }
+  // Additional interfaces moved outside class
 
   private async validateOperationCompliance(operation: QueueOperationEncryption, context: ValidationContext): Promise<{compliant: boolean, containsPHI: boolean, securelyHandled: boolean, gaps: string[]}> {
     return {

@@ -349,13 +349,13 @@ export class StripeConfigService {
       const sdkConfig: StripeSDKConfig = {
         publishableKey: config.publishableKey,
         merchantIdentifier: config.merchantIdentifier,
-        urlScheme: 'fullmind', // Deep link scheme for payment redirects
+        urlScheme: 'being', // Deep link scheme for payment redirects
         applePay: this.isApplePayEnabled() ? {
           merchantIdentifier: config.merchantIdentifier || 'merchant.com.being.mbct',
           buttonType: 'subscribe'
         } : undefined,
         googlePay: this.isGooglePayEnabled() ? {
-          merchantIdentifier: config.googlePayMerchantId || 'fullmind-merchant',
+          merchantIdentifier: config.googlePayMerchantId || 'being-merchant',
           environment: config.environment === 'production' ? 'production' : 'test',
           countryCode: 'US',
           currencyCode: 'USD'
@@ -389,7 +389,7 @@ export class StripeConfigService {
     try {
       const emergencySDKConfig: StripeSDKConfig = {
         publishableKey: emergencyConfig.publishableKey,
-        urlScheme: 'fullmind',
+        urlScheme: 'being',
         appearance: {
           theme: 'automatic',
           primaryColor: '#E74C3C' // Red to indicate emergency mode
@@ -519,7 +519,7 @@ export class StripeConfigService {
   }
 
   private getGooglePayMerchantId(): string | undefined {
-    return process.env.EXPO_PUBLIC_GOOGLE_PAY_MERCHANT_ID || 'fullmind-merchant';
+    return process.env.EXPO_PUBLIC_GOOGLE_PAY_MERCHANT_ID || 'being-merchant';
   }
 
   private getStripeApiVersion(): string {

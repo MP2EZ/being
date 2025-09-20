@@ -7,7 +7,7 @@
     <key>CFBundleDevelopmentRegion</key>
     <string>$(DEVELOPMENT_LANGUAGE)</string>
     <key>CFBundleDisplayName</key>
-    <string>app</string>
+    <string>Being.</string>
     <key>CFBundleExecutable</key>
     <string>$(EXECUTABLE_NAME)</string>
     <key>CFBundleIdentifier</key>
@@ -25,14 +25,20 @@
     <key>CFBundleURLTypes</key>
     <array>
       <dict>
+        <key>CFBundleURLName</key>
+        <string>being-deep-linking</string>
         <key>CFBundleURLSchemes</key>
         <array>
-          <string>com.anonymous.app</string>
+          <string>being</string>
         </array>
       </dict>
     </array>
     <key>CFBundleVersion</key>
     <string>1</string>
+    <key>ITSAppUsesNonExemptEncryption</key>
+    <false/>
+    <key>LSApplicationCategoryType</key>
+    <string>public.app-category.healthcare-fitness</string>
     <key>LSMinimumSystemVersion</key>
     <string>12.0</string>
     <key>LSRequiresIPhoneOS</key>
@@ -44,6 +50,12 @@
       <key>NSAllowsLocalNetworking</key>
       <true/>
     </dict>
+    <key>NSFaceIDUsageDescription</key>
+    <string>Allow $(PRODUCT_NAME) to use Face ID</string>
+    <key>NSHealthShareUsageDescription</key>
+    <string>Being. integrates with Apple Health to provide comprehensive wellness tracking for your mental health journey.</string>
+    <key>NSHealthUpdateUsageDescription</key>
+    <string>Being. can save your mindfulness session data to Apple Health to track your wellness progress.</string>
     <key>UILaunchStoryboardName</key>
     <string>SplashScreen</string>
     <key>UIRequiredDeviceCapabilities</key>
@@ -67,7 +79,7 @@
       <string>UIInterfaceOrientationLandscapeRight</string>
     </array>
     <key>UIUserInterfaceStyle</key>
-    <string>Light</string>
+    <string>Automatic</string>
     <key>UIViewControllerBasedStatusBarAppearance</key>
     <false/>
   </dict>

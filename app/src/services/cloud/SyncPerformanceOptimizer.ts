@@ -10,7 +10,7 @@
  * - Predictive optimization with usage pattern analysis
  */
 
-import { EventEmitter } from 'events';
+import { EventEmitter } from '../../utils/EventEmitter';
 import { z } from 'zod';
 import { performanceMonitoringAPI } from './PerformanceMonitoringAPI';
 import { crossDeviceSyncAPI } from './CrossDeviceSyncAPI';
