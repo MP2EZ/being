@@ -457,6 +457,36 @@ themes: {
 - User Journeys: Being. User Journey Flows & Persona Analysis.md
 - Feature Roadmap: Being. Product Roadmap - Prioritized - Based on v1.7.md
 
+## Documentation Structure
+
+CRITICAL: Follow co-location principle - docs live with code they document.
+
+### Structure Overview
+```
+/docs/              → ONLY legal/brand docs affecting both modules
+/app/docs/          → ALL app documentation (product, clinical, architecture)
+/website/docs/      → ALL website documentation
+/scripts/           → Cross-module operational scripts
+```
+
+### Placement Rules
+- `/docs/` - Legal (privacy, ToS), brand guidelines, project README only
+- `/app/docs/` - Product docs (PRD/TRD/DRD), clinical, architecture, security, operations
+- `/website/docs/` - Website implementation, performance reports, hosting
+- Old `/documentation/` folder is DEPRECATED - do not add files there
+
+### When Creating Documentation
+1. Ask: "Is this about the app, website, or both?"
+2. Place accordingly - prefer module-specific over project-level
+3. Update relevant README.md index when adding new docs
+4. Follow `/docs/DOCUMENTATION_GUIDE.md` for detailed placement rules
+
+### File References (Updated Paths)
+- Product docs: `/app/docs/product/` - PRD, TRD, DRD, roadmap
+- Clinical docs: `/app/docs/clinical/` - MBCT compliance, safety protocols
+- Architecture: `/app/docs/architecture/` - System design, data flow
+- Security: `/app/docs/security/` - Encryption, data protection
+
 ## Development Commands
 ```bash
 # Clinical accuracy validation
@@ -464,7 +494,7 @@ npm run test:clinical          # Run assessment scoring tests
 npm run validate:accessibility # Check WCAG compliance
 npm run lint:clinical         # Validate therapeutic language
 
-# Performance monitoring  
+# Performance monitoring
 npm run perf:breathing        # Test breathing circle performance
 npm run perf:crisis          # Validate crisis button response time
 ```
