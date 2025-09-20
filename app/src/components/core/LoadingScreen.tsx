@@ -66,7 +66,7 @@ export const LoadingScreen: React.FC = () => {
         </Animated.View>
 
         {/* App Name */}
-        <Text style={styles.appName}>FullMind</Text>
+        <Text style={styles.appName}>Being.</Text>
         
         {/* Tagline */}
         <Text style={styles.tagline}>

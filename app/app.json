@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "description": "Evidence-based mindfulness and cognitive therapy practices for mental wellness. Features daily check-ins, PHQ-9/GAD-7 assessments, and crisis support resources.",
     "keywords": [
       "mindfulness",
