@@ -5,6 +5,8 @@
 
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
+import { BaseError } from './src/types/core';
+import { getTimeOfDayTheme } from './src/utils/timeHelpers';
 
 export default function App() {
   console.log('🧪 MINIMAL APP: Testing for property descriptor conflicts');
@@ -13,7 +15,7 @@ export default function App() {
     <View style={styles.container}>
       <Text style={styles.title}>Being. MBCT App</Text>
       <Text style={styles.subtitle}>Minimal Test - Template T2</Text>
-      <Text style={styles.text}>
+      <Text style={styles.statusText}>
         Testing basic React Native components only.
         No navigation, no stores, no complex dependencies.
       </Text>
