@@ -5,7 +5,7 @@
 
 import NetInfo, { NetInfoState, NetInfoSubscription } from '@react-native-community/netinfo';
 import { offlineQueueService } from './OfflineQueueService';
-import { NetworkState } from '../types';
+import { NetworkState } from '../types.ts';
 
 class NetworkService {
   private currentState: NetworkState = {

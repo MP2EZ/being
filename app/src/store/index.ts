@@ -2,6 +2,45 @@ export { useUserStore } from './userStore';
 export { useCheckInStore } from './checkInStore';
 export { useAssessmentStore } from './assessmentStore';
 export { useFeatureFlagStore, initializeFeatureFlags } from './featureFlagStore';
+
+// STAGE 4 - Group 1: Enhanced State Management for Core User Journey
+export {
+  useDashboardStore,
+  dashboardStoreUtils,
+  type TimeContext,
+  type DailyProgress,
+  type MoodTrends,
+  type TherapeuticMilestones,
+  type CrisisMonitoring,
+  type SmartRecommendations
+} from './dashboardStore';
+
+export {
+  useBreathingSessionStore,
+  breathingSessionStoreUtils,
+  type BreathingPhase,
+  type BreathingSessionState
+} from './breathingSessionStore';
+
+export {
+  useProgressAnalyticsStore,
+  progressAnalyticsStoreUtils,
+  type AssessmentTrend,
+  type MoodAnalytics,
+  type PracticeAnalytics,
+  type TherapeuticProgress,
+  type AchievementSystem,
+  type PersonalizedInsights,
+  type CrisisPatternAnalysis
+} from './progressAnalyticsStore';
+
+export {
+  useReactiveStateManager,
+  reactiveStateManagerUtils,
+  initializeReactiveStateManager,
+  cleanupReactiveStateManager,
+  type CrossStoreEvent
+} from './reactiveStateManager';
 export {
   usePaymentStore,
   paymentSelectors,

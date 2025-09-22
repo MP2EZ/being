@@ -16,7 +16,9 @@
  */
 
 import { create } from 'zustand';
-import type { UserProfile } from '../types';
+import { subscribeWithSelector } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import type { UserProfile } from '../types.ts';
 import type { AuthSession } from '../types/auth-session';
 import {
   AUTHENTICATION_CONSTANTS
@@ -180,7 +182,47 @@ interface EnhancedSecurityConfig {
   targetSuccessRate: number;
 }
 
-export const useUserStore = create<EnhancedUserState>((set, get) => {
+/**
+ * Encrypted storage for sensitive user data
+ */
+const encryptedUserStorage = {
+  getItem: async (name: string): Promise<string | null> => {
+    try {
+      const encryptedData = await SecureStore.getItemAsync(name);
+      if (!encryptedData) return null;
+
+      const decrypted = await encryptionService.decryptData(
+        JSON.parse(encryptedData),
+        DataSensitivity.PERSONAL
+      );
+      return JSON.stringify(decrypted);
+    } catch (error) {
+      console.error('Failed to decrypt user data:', error);
+      return null;
+    }
+  },
+  setItem: async (name: string, value: string): Promise<void> => {
+    try {
+      const data = JSON.parse(value);
+      const encrypted = await encryptionService.encryptData(
+        data,
+        DataSensitivity.PERSONAL
+      );
+      await SecureStore.setItemAsync(name, JSON.stringify(encrypted));
+    } catch (error) {
+      console.error('Failed to encrypt user data:', error);
+      throw error;
+    }
+  },
+  removeItem: async (name: string): Promise<void> => {
+    await SecureStore.deleteItemAsync(name);
+  },
+};
+
+export const useUserStore = create<EnhancedUserState>(
+  subscribeWithSelector(
+    persist(
+      (set, get) => {
   // Enhanced security configuration using authentication constants
   const securityConfig: EnhancedSecurityConfig = {
     // Session Management
@@ -1322,7 +1364,79 @@ export const useUserStore = create<EnhancedUserState>((set, get) => {
       }
     }
   };
-});
+      },
+      {
+        name: 'being-user-store',
+        storage: createJSONStorage(() => encryptedUserStorage),
+        partialize: (state) => ({
+          user: state.user,
+          isAuthenticated: state.isAuthenticated,
+          sessionExpiry: state.sessionExpiry,
+          lastActivity: state.lastActivity,
+          biometricStatus: state.biometricStatus,
+          emergencyStatus: state.emergencyStatus,
+          securityLevel: state.securityLevel,
+          complianceStatus: state.complianceStatus,
+          performanceMetrics: state.performanceMetrics,
+          avgResponseTime: state.avgResponseTime,
+        }),
+        version: 1,
+        migrate: (persistedState: any, version: number) => {
+          // Handle data migration for security compliance
+          if (version === 0) {
+            return {
+              ...persistedState,
+              biometricStatus: {
+                available: false,
+                enrolled: [],
+                capabilities: {
+                  available: false,
+                  types: [],
+                  enrolled: false,
+                  hardwareBacked: false,
+                  encryptionSupported: false,
+                  livenessDetection: false,
+                  antiSpoofing: false
+                },
+                lastUsed: undefined,
+                failureCount: 0,
+                isLocked: false,
+                quality: 0
+              },
+              emergencyStatus: {
+                enabled: true,
+                contactsConfigured: false,
+                lastTested: undefined,
+                emergencyNumber: '988',
+                autoDialEnabled: false,
+                crisisDetectionEnabled: true
+              },
+              securityLevel: 'low',
+              complianceStatus: {
+                level: 'basic',
+                consentCurrent: false,
+                auditingEnabled: false,
+                encryptionCompliant: false,
+                dataRetentionCompliant: false,
+                issues: []
+              },
+            };
+          }
+          return persistedState;
+        },
+        onRehydrateStorage: () => (state) => {
+          if (state) {
+            console.log('User store rehydrated successfully');
+            // Validate session on rehydration
+            if (state.isAuthenticated && state.session) {
+              state.validateSession?.();
+            }
+          }
+        },
+      }
+    )
+  )
+);
 
 // Enhanced background session monitoring
 const setupSessionMonitoring = () => {

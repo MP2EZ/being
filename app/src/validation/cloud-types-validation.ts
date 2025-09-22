@@ -54,7 +54,7 @@ import {
 } from '../types/cloud';
 
 import { Assessment, PHQ9Assessment, GAD7Assessment } from '../types/clinical';
-import { CheckIn, UserProfile, CrisisPlan } from '../types';
+import { CheckIn, UserProfile, CrisisPlan } from '../types.ts';
 import { DataSensitivity } from '../types/security';
 
 /**

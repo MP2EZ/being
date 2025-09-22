@@ -9,7 +9,7 @@ import * as Crypto from 'expo-crypto';
 import { dataStore } from './storage/SecureDataStore';
 import { assetCacheService } from './AssetCacheService';
 import { resumableSessionService } from './ResumableSessionService';
-import { CheckIn, Assessment, UserProfile } from '../types';
+import { CheckIn, Assessment, UserProfile } from '../types.ts';
 import {
   EnhancedQueuedAction,
   OfflineActionType,

@@ -311,6 +311,26 @@ export type {
   RealTimeSecurityMonitoring
 } from './SecurityAuditService';
 
+// Clinical Data Security Services
+export { ClinicalDataSecurityOrchestrator, clinicalDataSecurityOrchestrator } from './ClinicalDataSecurityOrchestrator';
+export type {
+  ClinicalDataSecurityResult,
+  ClinicalProtectionMetrics,
+  ClinicalSecurityAuditEntry,
+  AssessmentDataProtection,
+  EmergencyAccessSecurity,
+  TherapeuticSessionSecurity,
+  ClinicalComplianceValidation
+} from './ClinicalDataSecurityOrchestrator';
+
+export { ClinicalAssessmentSecurity, clinicalAssessmentSecurity } from './ClinicalAssessmentSecurity';
+export type {
+  PHQ9Assessment,
+  GAD7Assessment,
+  AssessmentSecurityResult,
+  CrisisThresholdSecurity
+} from './ClinicalAssessmentSecurity';
+
 // Queue Encryption Security Services
 export { OfflineQueueEncryption, offlineQueueEncryption } from './queue/offline-queue-encryption';
 export type {
@@ -1602,6 +1622,198 @@ export const getCrossDeviceSecurityStatus = async (): Promise<any> => {
         crisisResponseCompliant: false,
         complianceStatus: 'unknown'
       }
+    };
+  }
+};
+
+// Clinical Data Security Functions for Therapeutic Components
+export const implementClinicalDataSecurity = async (
+  clinicalData: {
+    assessments?: any[];
+    checkIns?: any[];
+    therapeuticSessions?: any[];
+    crisisData?: any[];
+  },
+  context: ValidationContext,
+  securityLevel: 'basic' | 'enhanced' | 'clinical' = 'clinical'
+): Promise<any> => {
+  try {
+    const { clinicalDataSecurityOrchestrator } = require('./ClinicalDataSecurityOrchestrator');
+    return await clinicalDataSecurityOrchestrator.implementClinicalDataSecurity(
+      clinicalData,
+      context,
+      securityLevel
+    );
+  } catch (error) {
+    console.error('Clinical data security implementation failed:', error);
+    return {
+      protectionImplemented: false,
+      assessmentDataSecured: false,
+      emergencyAccessOperational: false,
+      therapeuticSessionsProtected: false,
+      clinicalComplianceAchieved: false,
+      performanceTargetsMet: false,
+      recommendations: [
+        'Critical security failure - implement emergency security protocols',
+        'Review and restart clinical data security implementation',
+        'Escalate to security team for immediate intervention'
+      ]
+    };
+  }
+};
+
+export const securePHQ9Assessment = async (
+  assessment: any,
+  context: ValidationContext
+): Promise<any> => {
+  try {
+    const { clinicalAssessmentSecurity } = require('./ClinicalAssessmentSecurity');
+    return await clinicalAssessmentSecurity.securePHQ9Assessment(assessment, context);
+  } catch (error) {
+    console.error('PHQ-9 assessment security failed:', error);
+    throw new Error(`PHQ-9 security failed: ${error}`);
+  }
+};
+
+export const secureGAD7Assessment = async (
+  assessment: any,
+  context: ValidationContext
+): Promise<any> => {
+  try {
+    const { clinicalAssessmentSecurity } = require('./ClinicalAssessmentSecurity');
+    return await clinicalAssessmentSecurity.secureGAD7Assessment(assessment, context);
+  } catch (error) {
+    console.error('GAD-7 assessment security failed:', error);
+    throw new Error(`GAD-7 security failed: ${error}`);
+  }
+};
+
+export const validateAssessmentScoring = async (
+  assessment: any,
+  assessmentType: 'phq9' | 'gad7'
+): Promise<any> => {
+  try {
+    const { clinicalAssessmentSecurity } = require('./ClinicalAssessmentSecurity');
+    return await clinicalAssessmentSecurity.validateAssessmentScoring(assessment, assessmentType);
+  } catch (error) {
+    console.error('Assessment scoring validation failed:', error);
+    return {
+      scoreAccurate: false,
+      severityCorrect: false,
+      calculationVerified: false,
+      expectedScore: 0,
+      expectedSeverity: 'unknown',
+      discrepancies: [`Validation error: ${error}`]
+    };
+  }
+};
+
+export const getClinicalSecurityMetrics = async (): Promise<any> => {
+  try {
+    const { clinicalDataSecurityOrchestrator } = require('./ClinicalDataSecurityOrchestrator');
+    const { clinicalAssessmentSecurity } = require('./ClinicalAssessmentSecurity');
+
+    const [orchestratorMetrics, assessmentMetrics] = await Promise.all([
+      clinicalDataSecurityOrchestrator.getClinicalSecurityMetrics(),
+      clinicalAssessmentSecurity.getClinicalAssessmentMetrics()
+    ]);
+
+    return {
+      clinicalDataSecurity: orchestratorMetrics,
+      assessmentSecurity: assessmentMetrics,
+      overallClinicalSecurity: {
+        ready: orchestratorMetrics.overallSecurityScore >= 85 &&
+               assessmentMetrics.scoringAccuracyRate >= 100,
+        crisisCompliant: orchestratorMetrics.emergencyReadiness >= 95,
+        assessmentAccuracy: assessmentMetrics.scoringAccuracyRate,
+        emergencyResponseCapable: orchestratorMetrics.emergencyReadiness >= 95 &&
+                                  assessmentMetrics.averageSecurityTime <= 100
+      }
+    };
+  } catch (error) {
+    console.error('Clinical security metrics retrieval failed:', error);
+    return {
+      overallClinicalSecurity: {
+        ready: false,
+        crisisCompliant: false,
+        assessmentAccuracy: 0,
+        emergencyResponseCapable: false
+      }
+    };
+  }
+};
+
+export const validateClinicalComplianceStatus = async (): Promise<boolean> => {
+  try {
+    const metrics = await getClinicalSecurityMetrics();
+    return metrics.overallClinicalSecurity.ready &&
+           metrics.overallClinicalSecurity.crisisCompliant &&
+           metrics.overallClinicalSecurity.assessmentAccuracy >= 100;
+  } catch (error) {
+    console.error('Clinical compliance status validation failed:', error);
+    return false;
+  }
+};
+
+// Emergency Clinical Access Functions
+export const enableEmergencyClinicalAccess = async (
+  crisisLevel: 'low' | 'medium' | 'high' | 'critical',
+  justification: string
+): Promise<boolean> => {
+  try {
+    console.log(`🚨 Enabling emergency clinical access for ${crisisLevel} crisis: ${justification}`);
+
+    // Enable emergency mode in all clinical security systems
+    await Promise.all([
+      enableEmergencyMode(`Emergency clinical access: ${justification}`),
+      enablePaymentEmergencyMode(),
+      activateDegradedMode(`Clinical emergency: ${justification}`)
+    ]);
+
+    return true;
+  } catch (error) {
+    console.error('Emergency clinical access enablement failed:', error);
+    return false;
+  }
+};
+
+export const performEmergencyAssessmentDecryption = async (
+  encryptedAssessment: any,
+  assessmentType: 'phq9' | 'gad7',
+  emergencyJustification: string
+): Promise<any> => {
+  try {
+    // Use emergency decryption for critical crisis scenarios
+    const { crisisQueueSecurity } = require('./queue/crisis-queue-security');
+
+    const crisisContext = {
+      crisisLevel: 'critical' as any,
+      crisisType: 'assessment_emergency' as any,
+      timeToIntervention: 0,
+      interventionRequired: true,
+      assessmentScore: null
+    };
+
+    const validationContext = {
+      operation: 'emergency_assessment_access',
+      entityType: 'assessment',
+      emergencyContext: true,
+      therapeuticContext: true,
+      crisisLevel: 'critical'
+    } as any;
+
+    return await crisisQueueSecurity.emergencyQueueDecryption(
+      JSON.stringify(encryptedAssessment),
+      crisisContext,
+      validationContext,
+      100 // 100ms max decryption time for emergency
+    );
+  } catch (error) {
+    console.error('Emergency assessment decryption failed:', error);
+    return {
+      emergencyAccessGranted: false,
+      decryptionTime: 0,
+      error: `Emergency decryption failed: ${error}`
     };
   }
 };

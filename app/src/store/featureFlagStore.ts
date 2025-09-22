@@ -5,6 +5,7 @@
 
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import { 
   P0CloudFeatureFlags, 
   FeatureFlagState,
@@ -23,6 +24,8 @@ import { networkService } from '../services/NetworkService';
 import { crisisPerformanceGuardian as crisisProtectionService } from '../services/cloud/CrisisPerformanceGuardian';
 import { costMonitoringService } from '../services/cloud/CostMonitoring';
 import { cloudMonitoringService } from '../services/cloud/CloudMonitoring';
+import { encryptionService, DataSensitivity } from '../services/security';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 /**
  * Feature Access Result
@@ -146,10 +149,49 @@ interface FeatureFlagStore {
 }
 
 /**
+ * Encrypted storage for feature flag data
+ */
+const encryptedFeatureFlagStorage = {
+  getItem: async (name: string): Promise<string | null> => {
+    try {
+      const encryptedData = await AsyncStorage.getItem(name);
+      if (!encryptedData) return null;
+
+      const decrypted = await encryptionService.decryptData(
+        JSON.parse(encryptedData),
+        DataSensitivity.SYSTEM
+      );
+      return JSON.stringify(decrypted);
+    } catch (error) {
+      console.error('Failed to decrypt feature flag data:', error);
+      return null;
+    }
+  },
+  setItem: async (name: string, value: string): Promise<void> => {
+    try {
+      const data = JSON.parse(value);
+      const encrypted = await encryptionService.encryptData(
+        data,
+        DataSensitivity.SYSTEM
+      );
+      await AsyncStorage.setItem(name, JSON.stringify(encrypted));
+    } catch (error) {
+      console.error('Failed to encrypt feature flag data:', error);
+      throw error;
+    }
+  },
+  removeItem: async (name: string): Promise<void> => {
+    await AsyncStorage.removeItem(name);
+  },
+};
+
+/**
  * Create Feature Flag Store
  */
 export const useFeatureFlagStore = create<FeatureFlagStore>()(
-  subscribeWithSelector((set, get) => ({
+  subscribeWithSelector(
+    persist(
+      (set, get) => ({
     // Initial State
     flags: { ...DEFAULT_FEATURE_FLAGS },
     metadata: { ...FEATURE_FLAG_METADATA },
@@ -852,7 +894,56 @@ export const useFeatureFlagStore = create<FeatureFlagStore>()(
       
       return userPercentile < rolloutPercentage;
     }
-  }))
+      }),
+      {
+        name: 'being-feature-flag-store',
+        storage: createJSONStorage(() => encryptedFeatureFlagStorage),
+        partialize: (state) => ({
+          flags: state.flags,
+          userConsents: state.userConsents,
+          rolloutPercentages: state.rolloutPercentages,
+          userEligibility: state.userEligibility,
+          costStatus: state.costStatus,
+          safetyStatus: state.safetyStatus,
+          healthStatus: state.healthStatus,
+        }),
+        version: 1,
+        migrate: (persistedState: any, version: number) => {
+          // Handle data migration for feature flag safety
+          if (version === 0) {
+            return {
+              ...persistedState,
+              safetyStatus: {
+                crisisResponseTime: 150,
+                hipaaCompliant: true,
+                offlineFallbackReady: true,
+                encryptionValidated: true,
+                emergencyOverrideActive: false,
+                protectedFeaturesCount: 0,
+                lastValidation: new Date().toISOString()
+              },
+              healthStatus: {
+                overall: 'healthy',
+                features: {} as Record<keyof P0CloudFeatureFlags, 'healthy' | 'degraded' | 'disabled'>,
+                crisisResponseOk: true,
+                costWithinLimits: true,
+                complianceOk: true,
+                lastCheck: new Date().toISOString()
+              },
+            };
+          }
+          return persistedState;
+        },
+        onRehydrateStorage: () => (state) => {
+          if (state) {
+            console.log('Feature flag store rehydrated successfully');
+            // Refresh metrics on rehydration
+            state.refreshMetrics?.();
+          }
+        },
+      }
+    )
+  )
 );
 
 /**

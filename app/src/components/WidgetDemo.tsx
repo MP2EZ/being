@@ -365,8 +365,10 @@ export const WidgetDemo: React.FC = () => {
         </View>
       </FeatureGateWrapper>
 
-        <TouchableOpacity 
-          style={[styles.deepLinkButton, styles.crisisButton]} 
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Crisis Intervention</Text>
+        <TouchableOpacity
+          style={[styles.deepLinkButton, styles.crisisButton]}
           onPress={() => testDeepLink('being://crisis', 'Crisis Intervention')}
         >
           <Text style={styles.buttonText}>Test: Crisis Intervention</Text>

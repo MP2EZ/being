@@ -1,12 +1,50 @@
 /**
- * Navigation Types for Widget Integration
- * Enhanced navigation types with widget-specific parameters and type safety
+ * Navigation Types - React Navigation v6 with TypeScript
+ *
+ * Type-safe navigation for the Being. MBCT app with strict mode compliance
+ * and crisis intervention route safety.
+ *
+ * CRITICAL: Navigation types must prevent invalid route transitions
+ * during crisis situations and ensure emergency access.
  */
 
+import type { RouteProp } from '@react-navigation/native';
+import type { NativeStackNavigationProp, NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { BottomTabNavigationProp, BottomTabScreenProps } from '@react-navigation/bottom-tabs';
+import type { CompositeNavigationProp, NavigationState, PartialState } from '@react-navigation/native';
+
+import type {
+  UserID,
+  SessionID,
+  ISODateString,
+  CrisisSeverity,
+  DurationMs,
+  DeepReadonly,
+} from './core';
+import type { Assessment, AssessmentID, PHQ9Score, GAD7Score } from './clinical';
 import { CheckInType } from './widget';
 
-// Root Stack Parameter List
+// === ROUTE PARAMETER TYPES ===
+
+/**
+ * Root navigation parameter list
+ */
 export type RootStackParamList = {
+  // Authentication flow
+  Welcome: undefined;
+  Login: undefined;
+  Register: undefined;
+  ForgotPassword: { email?: string };
+
+  // Onboarding flow
+  Onboarding: undefined;
+  OnboardingPersonalization: undefined;
+  OnboardingAssessment: { assessmentType: 'phq9' | 'gad7' };
+  OnboardingComplete: undefined;
+
+  // Main app flow
+  MainTabs: undefined;
+
   // Main app navigation
   Main: {
     screen?: string;
@@ -35,10 +73,50 @@ export type RootStackParamList = {
     migrationContext?: string;
     inviteCode?: string;
   };
-  ForgotPassword: {
-    email?: string;
-  };
   OnboardingIntroduction: undefined;
+
+  // Crisis flow - Emergency access from any screen
+  CrisisButton: {
+    trigger: 'manual' | 'assessment' | 'pattern';
+    severity?: CrisisSeverity;
+    assessmentId?: AssessmentID;
+    score?: PHQ9Score | GAD7Score;
+  };
+  CrisisIntervention: {
+    crisisId: string;
+    severity: CrisisSeverity;
+    trigger: string;
+    fromScreen?: string;
+    emergencyMode?: boolean;
+    timestamp?: string;
+  };
+  EmergencyContacts: {
+    crisisId?: string;
+    urgent?: boolean;
+  };
+  SafetyPlan: {
+    crisisId?: string;
+    mode: 'view' | 'edit' | 'crisis';
+  };
+
+  // Assessment flow
+  AssessmentSelection: undefined;
+  Assessment: {
+    type: 'phq9' | 'gad7';
+    context: 'onboarding' | 'standalone' | 'clinical';
+    sessionId?: SessionID;
+  };
+  AssessmentFlow: {
+    type: 'phq9' | 'gad7';
+    context: 'onboarding' | 'standalone' | 'clinical';
+    resumeSession?: boolean;
+    fromWidget?: boolean;
+    timestamp?: string;
+  };
+  AssessmentResults: {
+    assessmentId: AssessmentID;
+    showCrisisIntervention?: boolean;
+  };
 
   // Check-in flow
   CheckInFlow: {
@@ -49,40 +127,220 @@ export type RootStackParamList = {
     initialScreen?: string;
   };
 
-  // Assessment flow
-  AssessmentFlow: {
-    type: 'phq9' | 'gad7';
-    context: 'onboarding' | 'standalone' | 'clinical';
-    resumeSession?: boolean;
-    fromWidget?: boolean;
-    timestamp?: string;
-  };
-
-  // Crisis intervention
-  CrisisIntervention: {
-    trigger: CrisisTriggerInfo;
-    fromScreen?: string;
-    emergencyMode?: boolean;
-    timestamp?: string;
-  };
-
-  // Settings and other screens
+  // Standalone screens
   Settings: undefined;
   Profile: undefined;
   Privacy: undefined;
+  Support: undefined;
   About: undefined;
+
+  // Modal screens
+  CrisisModal: {
+    visible: boolean;
+    severity: CrisisSeverity;
+    crisisId: string;
+  };
+  AssessmentModal: {
+    assessmentId: AssessmentID;
+    readonly: boolean;
+  };
 };
+
+/**
+ * Main tab navigation parameter list
+ */
+export type MainTabParamList = {
+  Home: undefined;
+  CheckIn: {
+    type?: 'morning' | 'midday' | 'evening';
+    autoStart?: boolean;
+  };
+  Practice: {
+    sessionType?: 'breathing' | 'body_scan' | 'mindful_movement';
+    duration?: DurationMs;
+  };
+  Progress: {
+    timeframe?: 'week' | 'month' | 'quarter';
+    showDetails?: boolean;
+  };
+  Resources: {
+    category?: 'crisis' | 'therapeutic' | 'educational';
+    searchQuery?: string;
+  };
+};
+
+/**
+ * Check-in flow parameter list
+ */
+export type CheckInStackParamList = {
+  CheckInHome: undefined;
+  CheckInFlow: {
+    type: 'morning' | 'midday' | 'evening';
+    step?: number;
+    sessionId?: SessionID;
+  };
+  CheckInComplete: {
+    checkInId: string;
+    type: 'morning' | 'midday' | 'evening';
+    showSummary?: boolean;
+  };
+};
+
+/**
+ * Practice flow parameter list
+ */
+export type PracticeStackParamList = {
+  PracticeHome: undefined;
+  BreathingExercise: {
+    duration: DurationMs;
+    variant?: 'basic' | 'guided' | 'advanced';
+    sessionId?: SessionID;
+  };
+  BodyScan: {
+    duration: DurationMs;
+    guided?: boolean;
+    sessionId?: SessionID;
+  };
+  MindfulMovement: {
+    type: 'gentle' | 'walking' | 'stretching';
+    duration: DurationMs;
+    sessionId?: SessionID;
+  };
+  PracticeComplete: {
+    practiceId: string;
+    type: string;
+    duration: DurationMs;
+    quality?: number;
+  };
+};
+
+/**
+ * Settings flow parameter list
+ */
+export type SettingsStackParamList = {
+  SettingsHome: undefined;
+  Preferences: undefined;
+  Notifications: undefined;
+  Privacy: undefined;
+  Security: undefined;
+  DataExport: undefined;
+  AccountManagement: undefined;
+  CrisisPlanSetup: {
+    mode: 'create' | 'edit';
+    planId?: string;
+  };
+  EmergencyContactsSetup: undefined;
+};
+
+// === NAVIGATION PROP TYPES ===
+
+/**
+ * Root stack navigation prop
+ */
+export type RootStackNavigationProp = NativeStackNavigationProp<RootStackParamList>;
+
+/**
+ * Main tab navigation prop
+ */
+export type MainTabNavigationProp = BottomTabNavigationProp<MainTabParamList>;
+
+/**
+ * Check-in stack navigation prop
+ */
+export type CheckInStackNavigationProp = NativeStackNavigationProp<CheckInStackParamList>;
+
+/**
+ * Practice stack navigation prop
+ */
+export type PracticeStackNavigationProp = NativeStackNavigationProp<PracticeStackParamList>;
+
+/**
+ * Settings stack navigation prop
+ */
+export type SettingsStackNavigationProp = NativeStackNavigationProp<SettingsStackParamList>;
+
+/**
+ * Composite navigation prop for screens that need access to multiple navigators
+ */
+export type CompositeNavigationProps = CompositeNavigationProp<
+  MainTabNavigationProp,
+  RootStackNavigationProp
+>;
+
+// === SCREEN PROP TYPES ===
+
+/**
+ * Root stack screen props
+ */
+export type RootStackScreenProps<T extends keyof RootStackParamList> =
+  NativeStackScreenProps<RootStackParamList, T>;
+
+/**
+ * Main tab screen props
+ */
+export type MainTabScreenProps<T extends keyof MainTabParamList> =
+  BottomTabScreenProps<MainTabParamList, T>;
+
+/**
+ * Check-in stack screen props
+ */
+export type CheckInStackScreenProps<T extends keyof CheckInStackParamList> =
+  NativeStackScreenProps<CheckInStackParamList, T>;
+
+/**
+ * Practice stack screen props
+ */
+export type PracticeStackScreenProps<T extends keyof PracticeStackParamList> =
+  NativeStackScreenProps<PracticeStackParamList, T>;
+
+/**
+ * Settings stack screen props
+ */
+export type SettingsStackScreenProps<T extends keyof SettingsStackParamList> =
+  NativeStackScreenProps<SettingsStackParamList, T>;
+
+// === ROUTE PROP TYPES ===
+
+/**
+ * Root stack route prop
+ */
+export type RootStackRouteProp<T extends keyof RootStackParamList> =
+  RouteProp<RootStackParamList, T>;
+
+/**
+ * Main tab route prop
+ */
+export type MainTabRouteProp<T extends keyof MainTabParamList> =
+  RouteProp<MainTabParamList, T>;
+
+/**
+ * Check-in stack route prop
+ */
+export type CheckInStackRouteProp<T extends keyof CheckInStackParamList> =
+  RouteProp<CheckInStackParamList, T>;
+
+/**
+ * Practice stack route prop
+ */
+export type PracticeStackRouteProp<T extends keyof PracticeStackParamList> =
+  RouteProp<PracticeStackParamList, T>;
+
+/**
+ * Settings stack route prop
+ */
+export type SettingsStackRouteProp<T extends keyof SettingsStackParamList> =
+  RouteProp<SettingsStackParamList, T>;
 
 // Crisis trigger information
 export interface CrisisTriggerInfo {
-  type: 'automatic' | 'manual' | 'assessment';
-  reason: string;
-  assessmentScore?: number;
-  assessmentType?: 'phq9' | 'gad7';
-  metadata?: {
-    widgetAccess?: boolean;
-    emergencyContact?: boolean;
-    immediateIntervention?: boolean;
+  readonly type: 'automatic' | 'manual' | 'assessment';
+  readonly reason: string;
+  readonly assessmentScore?: number;
+  readonly assessmentType?: 'phq9' | 'gad7';
+  readonly metadata?: {
+    readonly widgetAccess?: boolean;
+    readonly emergencyContact?: boolean;
+    readonly immediateIntervention?: boolean;
   };
 }
 
@@ -220,4 +478,101 @@ export function isAuthNavigation(params: any): params is AuthNavigationParams {
 export function requiresCrisisPerformance(params: any): boolean {
   return params?.emergencyMode === true ||
          params?.performanceRequirements?.crisisResponseTime < 200;
+}
+
+// === TYPE GUARDS ===
+
+/**
+ * Check if a route is a crisis route
+ */
+export const isCrisisRoute = (routeName: keyof RootStackParamList): boolean => {
+  const crisisRoutes: readonly (keyof RootStackParamList)[] = [
+    'CrisisButton',
+    'CrisisIntervention',
+    'EmergencyContacts',
+    'SafetyPlan',
+    'CrisisModal',
+  ];
+  return crisisRoutes.includes(routeName);
+};
+
+/**
+ * Check if a route requires authentication
+ */
+export const requiresAuthentication = (routeName: keyof RootStackParamList): boolean => {
+  const publicRoutes: readonly (keyof RootStackParamList)[] = [
+    'Welcome',
+    'Login',
+    'Register',
+    'ForgotPassword',
+  ];
+  return !publicRoutes.includes(routeName);
+};
+
+/**
+ * Check if a route is accessible during crisis
+ */
+export const isAccessibleDuringCrisis = (routeName: keyof RootStackParamList): boolean => {
+  const allowedRoutes: readonly (keyof RootStackParamList)[] = [
+    'CrisisButton',
+    'CrisisIntervention',
+    'EmergencyContacts',
+    'SafetyPlan',
+    'CrisisModal',
+    'Settings', // For emergency contact editing
+    'Support', // For additional resources
+  ];
+  return allowedRoutes.includes(routeName);
+};
+
+// === CONSTANTS ===
+
+/**
+ * Navigation constants
+ */
+export const NAVIGATION_CONSTANTS = {
+  ANIMATION: {
+    DURATION_SHORT: 200 as DurationMs,
+    DURATION_MEDIUM: 300 as DurationMs,
+    DURATION_LONG: 500 as DurationMs,
+    CRISIS_TRANSITION_DURATION: 100 as DurationMs, // Fast for emergency
+  },
+
+  PERFORMANCE: {
+    MAX_TRANSITION_TIME: 500 as DurationMs,
+    CRISIS_MAX_RESPONSE_TIME: 200 as DurationMs,
+    MEMORY_WARNING_THRESHOLD: 50 * 1024 * 1024, // 50MB
+  },
+
+  CRISIS: {
+    EMERGENCY_ROUTES: [
+      'CrisisButton',
+      'CrisisIntervention',
+      'EmergencyContacts',
+      'SafetyPlan',
+    ] as const,
+
+    ALLOWED_DURING_CRISIS: [
+      'CrisisButton',
+      'CrisisIntervention',
+      'EmergencyContacts',
+      'SafetyPlan',
+      'CrisisModal',
+      'Settings',
+      'Support',
+    ] as const,
+  },
+
+  STACK_LIMITS: {
+    MAX_STACK_DEPTH: 10,
+    CRISIS_STACK_LIMIT: 3, // Keep navigation simple during crisis
+  },
+} as const;
+
+// === DECLARATION MERGING ===
+
+declare global {
+  namespace ReactNavigation {
+    interface RootParamList extends RootStackParamList {}
+  }
 }

@@ -33,7 +33,7 @@ import {
   WebhookEvent
 } from '../types/payment';
 import { AuthSession, SessionTokens, SessionSecurity } from '../types/auth-session';
-import { UserProfile, CheckIn } from '../types';
+import { UserProfile, CheckIn } from '../types.ts';
 import { DataSensitivity } from '../types/security';
 import { quickValidation as validateCloudTypes } from './cloud-types-validation';
 

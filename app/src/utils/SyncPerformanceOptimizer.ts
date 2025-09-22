@@ -52,7 +52,7 @@ class SyncPerformanceOptimizer {
     enableMemoryOptimization: true,
     enableNetworkOptimization: true,
     enableBatteryOptimization: true,
-    debugMode: __DEV__
+    debugMode: process.env.NODE_ENV === 'development'
   };
 
   private componentMetrics = new Map<string, ComponentPerformanceMetrics>();

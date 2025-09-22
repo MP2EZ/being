@@ -23,7 +23,7 @@ import {
   DataIntegrityResult,
   ClinicalSafetyHelpers
 } from '../types/offline';
-import { CheckIn, Assessment, UserProfile } from '../types';
+import { CheckIn, Assessment, UserProfile } from '../types.ts';
 
 /**
  * Unified offline operation options

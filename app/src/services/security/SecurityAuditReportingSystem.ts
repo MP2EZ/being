@@ -303,7 +303,7 @@ export interface CrisisPerformanceAnalysis {
   crisisResponseTime: number; // milliseconds
   therapeuticContinuityScore: number; // 0-100
   performanceDegradation: number; // percentage
-  crisisMode efficiency: CrisisModeEfficiency;
+  crisisModeEfficiency: CrisisModeEfficiency;
 }
 
 export interface CrisisModeEfficiency {
@@ -418,7 +418,7 @@ export interface PhysicalSafeguardsAssessment {
 
 export interface AdministrativeSafeguardsAssessment {
   securityOfficer: ComplianceStatus;
-  workforce training: ComplianceStatus;
+  workforceTraining: ComplianceStatus;
   informationAccessManagement: ComplianceStatus;
   securityAwarenessTraining: ComplianceStatus;
   securityIncidentProcedures: ComplianceStatus;

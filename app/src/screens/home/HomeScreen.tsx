@@ -8,7 +8,7 @@ import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useCheckInStore, useUserStore } from '../../store';
-import { Card, Button, ResumeSessionPrompt } from '../../components/core';
+import { Card, Button, ResumeSessionPrompt, CrisisButton } from '../../components/core';
 import { colorSystem, spacing } from '../../constants/colors';
 import { ResumableSession, SessionProgress } from '../../types/ResumableSession';
 
@@ -171,6 +171,9 @@ const HomeScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Crisis Button - Always accessible in <3 seconds */}
+      <CrisisButton variant="floating" />
+
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Greeting */}
         <View style={styles.header}>
@@ -204,7 +207,7 @@ const HomeScreen: React.FC = () => {
         {/* Quick Actions */}
         <View style={styles.quickActions}>
           <Text style={styles.sectionTitle}>Quick Actions</Text>
-          
+
           <Button
             variant="outline"
             onPress={() => {
@@ -213,15 +216,23 @@ const HomeScreen: React.FC = () => {
           >
             Take Assessment (PHQ-9/GAD-7)
           </Button>
-          
+
           <Button
             variant="outline"
             onPress={() => {
-              // TODO: Navigate to insights
-              console.log('Opening insights');
+              (navigation as any).navigate('BreathingScreen', { theme: currentPeriod });
             }}
           >
-            View Your Insights
+            3-Minute Breathing Exercise
+          </Button>
+
+          <Button
+            variant="outline"
+            onPress={() => {
+              (navigation as any).navigate('ProgressScreen');
+            }}
+          >
+            View Your Progress
           </Button>
         </View>
       </ScrollView>

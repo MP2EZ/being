@@ -1,7 +1,151 @@
 /**
- * Being. Data Models - Exact implementation from TRD v2.0
- * These interfaces must match the prototype data structure precisely
+ * Being. Data Models - Enhanced TypeScript Foundations
+ *
+ * Comprehensive type system with strict mode compliance and clinical safety.
+ * Includes legacy compatibility while adding enhanced type safety.
+ *
+ * CRITICAL: 100% type safety for clinical operations
  */
+
+// === ENHANCED TYPE FOUNDATIONS ===
+
+// Core enhanced types
+export type {
+  // Utility types
+  Brand,
+  DeepReadonly,
+  RequireKeys,
+  OptionalKeys,
+  NonNullable,
+  Exact,
+  StrictPick,
+  StrictOmit,
+  SafeParse,
+
+  // Core branded types
+  UserID,
+  DeviceID,
+  SessionID,
+  ISODateString,
+  UnixTimestamp,
+  EncryptedData,
+  ValidURL,
+  EmailAddress,
+  PhoneNumber,
+  Percentage,
+  DurationMs,
+
+  // Clinical safety types
+  DataSensitivity,
+  HIPAACompliance,
+  CrisisSeverity,
+  RiskLevel,
+
+  // Validation types
+  ValidationError,
+  ValidationResult,
+  TypeGuard,
+  Parser,
+  Validator,
+
+  // Core constants
+  CoreConstants,
+} from './core';
+
+// Enhanced validation and type guards
+export {
+  // Type guards
+  isUserID,
+  isDeviceID,
+  isSessionID,
+  isISODateString,
+  isEmailAddress,
+  isPhoneNumber,
+  isPercentage,
+
+  // Factory functions
+  createUserID,
+  createDeviceID,
+  createSessionID,
+  createISODateString,
+  createUnixTimestamp,
+
+  // Constants
+  CORE_CONSTANTS,
+} from './core';
+
+// Enhanced validation system
+export type {
+  // Validation schemas and parsers are available from validation module
+} from './validation';
+
+export {
+  // Comprehensive validation utilities
+  validateUserID,
+  validateDeviceID,
+  validateAssessment,
+  validatePHQ9ScoreCalculation,
+  validateGAD7ScoreCalculation,
+  validatePHQ9CrisisDetection,
+  validateGAD7CrisisDetection,
+  VALIDATION_CONSTANTS,
+} from './validation';
+
+// Enhanced component props with clinical safety
+export type {
+  // Enhanced base props
+  EnhancedBaseProps,
+  ComponentPerformanceMetrics,
+
+  // Crisis-aware components
+  CrisisButtonProps as EnhancedCrisisButtonProps,
+  EnhancedButtonProps,
+  ValidatedTextInputProps,
+
+  // Therapeutic components
+  TherapeuticBreathingCircleProps,
+  BreathingPerformanceMetrics as TherapeuticBreathingPerformanceMetrics,
+
+  // Enhanced component constants
+  EnhancedComponentConstants,
+} from './component-props-enhanced';
+
+// Enhanced navigation with crisis safety
+export type {
+  // All navigation types with crisis awareness
+  RootStackParamList as EnhancedRootStackParamList,
+  MainTabParamList,
+  CompositeNavigationProps,
+} from './navigation';
+
+export {
+  isCrisisRoute,
+  isAccessibleDuringCrisis,
+  NAVIGATION_CONSTANTS,
+} from './navigation';
+
+// Comprehensive error handling with clinical safety
+export type {
+  ErrorSeverity,
+  ErrorCategory,
+  ErrorRecoveryStrategy,
+  AppError,
+  ClinicalValidationError as EnhancedClinicalValidationError,
+  CrisisDetectionError as EnhancedCrisisDetectionError,
+  ErrorHandlerService,
+  ErrorMetrics,
+} from './error-handling';
+
+export {
+  isClinicalError,
+  isCrisisError,
+  isEmergencyError,
+  createClinicalValidationError,
+  createCrisisDetectionError,
+  ERROR_CONSTANTS,
+} from './error-handling';
+
+// === LEGACY DATA MODELS (Enhanced) ===
 
 export interface UserProfile {
   id: string;

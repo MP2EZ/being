@@ -42,7 +42,7 @@ import {
   NetworkQuality,
   OfflineOperationResult
 } from '../types/offline';
-import { CheckIn, Assessment, UserProfile, CrisisPlan } from '../types';
+import { CheckIn, Assessment, UserProfile, CrisisPlan } from '../types.ts';
 
 /**
  * Sync store interface for Zustand store integration

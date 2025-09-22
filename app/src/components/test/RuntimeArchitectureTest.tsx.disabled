@@ -1,0 +1,430 @@
+/**
+ * Runtime Architecture Test for Being. MBCT App
+ * Real-time validation of React Native New Architecture functionality
+ *
+ * This component performs live runtime detection and validation
+ * to confirm New Architecture is actually working, not just configured.
+ */
+
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, Platform } from 'react-native';
+
+interface RuntimeArchitectureResult {
+  timestamp: string;
+  platform: string;
+  reactNativeVersion: string;
+  expoVersion: string;
+
+  // Architecture Detection
+  fabricDetected: boolean;
+  turboModulesDetected: boolean;
+  hermesDetected: boolean;
+  newArchitectureActive: boolean;
+
+  // Runtime Validation
+  fabricUIManagerExists: boolean;
+  turboModuleProxyExists: boolean;
+  hermesInternalExists: boolean;
+
+  // Performance Indicators
+  renderTimingMs: number;
+  jsEngineType: string;
+
+  // Clinical Compliance
+  meetsClinicalRequirements: boolean;
+  readyForProduction: boolean;
+}
+
+const RuntimeArchitectureTest: React.FC = () => {
+  const [testResult, setTestResult] = useState<RuntimeArchitectureResult | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    performRuntimeArchitectureTest();
+  }, []);
+
+  const performRuntimeArchitectureTest = async (): Promise<void> => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const startTime = performance.now();
+
+      // Basic environment detection
+      const timestamp = new Date().toISOString();
+      const platform = Platform.OS;
+
+      // Get versions
+      let reactNativeVersion = 'unknown';
+      let expoVersion = 'unknown';
+
+      try {
+        reactNativeVersion = require('react-native/package.json').version;
+        expoVersion = require('expo/package.json').version;
+      } catch (e) {
+        console.warn('Could not detect package versions:', e);
+      }
+
+      // Runtime Architecture Detection
+      console.log('🔍 Performing runtime architecture detection...');
+
+      // Fabric Detection
+      const fabricUIManagerExists = !!(global as any)?.nativeFabricUIManager;
+      const fabricDetected = fabricUIManagerExists;
+
+      // TurboModules Detection
+      const turboModuleProxyExists = !!(global as any)?.__turboModuleProxy;
+      const turboModulesDetected = turboModuleProxyExists;
+
+      // Hermes Detection
+      const hermesInternalExists = typeof HermesInternal === 'object' && HermesInternal !== null;
+      const hermesDetected = hermesInternalExists;
+
+      // JS Engine Detection
+      let jsEngineType = 'unknown';
+      if (hermesDetected) {
+        jsEngineType = 'hermes';
+      } else if (typeof global !== 'undefined' && 'nativeLoggingHook' in global) {
+        jsEngineType = 'jsc';
+      } else if (typeof window !== 'undefined' && 'chrome' in window) {
+        jsEngineType = 'v8';
+      }
+
+      // Overall New Architecture Status
+      const newArchitectureActive = fabricDetected || turboModulesDetected;
+
+      // Performance Measurement
+      const renderTimingMs = Math.round(performance.now() - startTime);
+
+      // Clinical Compliance Assessment
+      const meetsClinicalRequirements = newArchitectureActive && hermesDetected && renderTimingMs < 200;
+      const readyForProduction = meetsClinicalRequirements && fabricDetected && turboModulesDetected;
+
+      const result: RuntimeArchitectureResult = {
+        timestamp,
+        platform,
+        reactNativeVersion,
+        expoVersion,
+        fabricDetected,
+        turboModulesDetected,
+        hermesDetected,
+        newArchitectureActive,
+        fabricUIManagerExists,
+        turboModuleProxyExists,
+        hermesInternalExists,
+        renderTimingMs,
+        jsEngineType,
+        meetsClinicalRequirements,
+        readyForProduction
+      };
+
+      // Console logging for verification
+      console.log('🏗️ Being. Runtime Architecture Test Results:');
+      console.log(`   Platform: ${platform}`);
+      console.log(`   React Native: ${reactNativeVersion}`);
+      console.log(`   Expo: ${expoVersion}`);
+      console.log(`   Fabric: ${fabricDetected ? '✅ ACTIVE' : '❌ INACTIVE'}`);
+      console.log(`   TurboModules: ${turboModulesDetected ? '✅ ACTIVE' : '❌ INACTIVE'}`);
+      console.log(`   Hermes: ${hermesDetected ? '✅ ACTIVE' : '❌ INACTIVE'}`);
+      console.log(`   JS Engine: ${jsEngineType.toUpperCase()}`);
+      console.log(`   New Architecture: ${newArchitectureActive ? '✅ CONFIRMED ACTIVE' : '❌ NOT DETECTED'}`);
+      console.log(`   Performance: ${renderTimingMs}ms`);
+      console.log(`   Clinical Ready: ${readyForProduction ? '✅ YES' : '❌ NO'}`);
+
+      setTestResult(result);
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      setError(errorMessage);
+      console.error('Runtime architecture test failed:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.title}>🔍 Runtime Architecture Detection</Text>
+        <Text style={styles.loadingText}>Performing live architecture validation...</Text>
+      </View>
+    );
+  }
+
+  if (error) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.title}>❌ Runtime Test Error</Text>
+        <Text style={styles.errorText}>{error}</Text>
+      </View>
+    );
+  }
+
+  if (!testResult) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.title}>⚠️ No Test Results</Text>
+      </View>
+    );
+  }
+
+  return (
+    <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
+      <Text style={styles.title}>🏗️ Being. Runtime Architecture Verification</Text>
+
+      {/* Overall Status */}
+      <View style={[
+        styles.statusCard,
+        testResult.newArchitectureActive ? styles.successCard : styles.errorCard
+      ]}>
+        <Text style={styles.statusTitle}>
+          {testResult.newArchitectureActive ? '✅ NEW ARCHITECTURE CONFIRMED' : '❌ NEW ARCHITECTURE NOT DETECTED'}
+        </Text>
+        <Text style={styles.statusSubtitle}>
+          Runtime validation: {testResult.newArchitectureActive ? 'PASSED' : 'FAILED'}
+        </Text>
+      </View>
+
+      {/* Clinical Readiness */}
+      <View style={[
+        styles.statusCard,
+        testResult.readyForProduction ? styles.successCard : styles.warningCard
+      ]}>
+        <Text style={styles.statusTitle}>
+          Clinical Production Readiness: {testResult.readyForProduction ? 'READY' : 'NOT READY'}
+        </Text>
+        <Text style={styles.statusSubtitle}>
+          Meets therapeutic performance requirements: {testResult.meetsClinicalRequirements ? 'YES' : 'NO'}
+        </Text>
+      </View>
+
+      {/* Environment Details */}
+      <View style={styles.detailsCard}>
+        <Text style={styles.cardTitle}>Environment Details</Text>
+        <Text style={styles.detailText}>
+          {`Platform: ${testResult.platform}\n`}
+          {`React Native: ${testResult.reactNativeVersion}\n`}
+          {`Expo SDK: ${testResult.expoVersion}\n`}
+          {`JavaScript Engine: ${testResult.jsEngineType.toUpperCase()}\n`}
+          {`Test Timestamp: ${testResult.timestamp}`}
+        </Text>
+      </View>
+
+      {/* Architecture Features */}
+      <View style={styles.detailsCard}>
+        <Text style={styles.cardTitle}>Architecture Features</Text>
+        <View style={styles.featureRow}>
+          <Text style={styles.featureLabel}>Fabric Renderer:</Text>
+          <Text style={[styles.featureValue, testResult.fabricDetected ? styles.success : styles.error]}>
+            {testResult.fabricDetected ? '✅ ACTIVE' : '❌ INACTIVE'}
+          </Text>
+        </View>
+        <View style={styles.featureRow}>
+          <Text style={styles.featureLabel}>TurboModules:</Text>
+          <Text style={[styles.featureValue, testResult.turboModulesDetected ? styles.success : styles.error]}>
+            {testResult.turboModulesDetected ? '✅ ACTIVE' : '❌ INACTIVE'}
+          </Text>
+        </View>
+        <View style={styles.featureRow}>
+          <Text style={styles.featureLabel}>Hermes Engine:</Text>
+          <Text style={[styles.featureValue, testResult.hermesDetected ? styles.success : styles.error]}>
+            {testResult.hermesDetected ? '✅ ACTIVE' : '❌ INACTIVE'}
+          </Text>
+        </View>
+      </View>
+
+      {/* Runtime Validation */}
+      <View style={styles.detailsCard}>
+        <Text style={styles.cardTitle}>Runtime Object Detection</Text>
+        <View style={styles.featureRow}>
+          <Text style={styles.featureLabel}>global.nativeFabricUIManager:</Text>
+          <Text style={[styles.featureValue, testResult.fabricUIManagerExists ? styles.success : styles.error]}>
+            {testResult.fabricUIManagerExists ? '✅ EXISTS' : '❌ MISSING'}
+          </Text>
+        </View>
+        <View style={styles.featureRow}>
+          <Text style={styles.featureLabel}>global.__turboModuleProxy:</Text>
+          <Text style={[styles.featureValue, testResult.turboModuleProxyExists ? styles.success : styles.error]}>
+            {testResult.turboModuleProxyExists ? '✅ EXISTS' : '❌ MISSING'}
+          </Text>
+        </View>
+        <View style={styles.featureRow}>
+          <Text style={styles.featureLabel}>HermesInternal:</Text>
+          <Text style={[styles.featureValue, testResult.hermesInternalExists ? styles.success : styles.error]}>
+            {testResult.hermesInternalExists ? '✅ EXISTS' : '❌ MISSING'}
+          </Text>
+        </View>
+      </View>
+
+      {/* Performance Metrics */}
+      <View style={styles.detailsCard}>
+        <Text style={styles.cardTitle}>Clinical Performance</Text>
+        <View style={styles.featureRow}>
+          <Text style={styles.featureLabel}>Detection Time:</Text>
+          <Text style={[
+            styles.featureValue,
+            testResult.renderTimingMs < 200 ? styles.success : styles.warning
+          ]}>
+            {testResult.renderTimingMs}ms {testResult.renderTimingMs < 200 ? '(Good)' : '(Slow)'}
+          </Text>
+        </View>
+        <View style={styles.featureRow}>
+          <Text style={styles.featureLabel}>Crisis Response Ready:</Text>
+          <Text style={[styles.featureValue, testResult.meetsClinicalRequirements ? styles.success : styles.error]}>
+            {testResult.meetsClinicalRequirements ? '✅ YES' : '❌ NO'}
+          </Text>
+        </View>
+      </View>
+
+      {/* Next Steps */}
+      {testResult.newArchitectureActive ? (
+        <View style={[styles.statusCard, styles.successCard]}>
+          <Text style={styles.statusTitle}>🎉 Phase 4 Verification: COMPLETE</Text>
+          <Text style={styles.statusSubtitle}>
+            New Architecture is confirmed active in Being. MBCT app.
+            Ready for clinical performance testing and accessibility validation.
+          </Text>
+        </View>
+      ) : (
+        <View style={[styles.statusCard, styles.errorCard]}>
+          <Text style={styles.statusTitle}>⚠️ Phase 4 Verification: FAILED</Text>
+          <Text style={styles.statusSubtitle}>
+            New Architecture not detected. Check configuration and rebuild.
+          </Text>
+        </View>
+      )}
+
+      <Text style={styles.footnote}>
+        This runtime test confirms React Native New Architecture is functionally active,
+        not just configured. All tests performed against live Being. MBCT app instance.
+      </Text>
+    </ScrollView>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
+  },
+  scrollContent: {
+    padding: 20,
+    paddingBottom: 40,
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    color: '#333',
+    marginBottom: 20,
+  },
+  loadingText: {
+    fontSize: 16,
+    textAlign: 'center',
+    color: '#666',
+    fontStyle: 'italic',
+  },
+  errorText: {
+    fontSize: 14,
+    color: '#d32f2f',
+    textAlign: 'center',
+    backgroundColor: '#ffebee',
+    padding: 15,
+    borderRadius: 8,
+    marginTop: 10,
+  },
+  statusCard: {
+    padding: 20,
+    borderRadius: 12,
+    marginBottom: 15,
+    alignItems: 'center',
+  },
+  successCard: {
+    backgroundColor: '#d4edda',
+    borderColor: '#c3e6cb',
+    borderWidth: 2,
+  },
+  errorCard: {
+    backgroundColor: '#f8d7da',
+    borderColor: '#f5c6cb',
+    borderWidth: 2,
+  },
+  warningCard: {
+    backgroundColor: '#fff3cd',
+    borderColor: '#ffeaa7',
+    borderWidth: 2,
+  },
+  statusTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+    textAlign: 'center',
+    marginBottom: 5,
+  },
+  statusSubtitle: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+  },
+  detailsCard: {
+    backgroundColor: '#fff',
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 10,
+  },
+  detailText: {
+    fontSize: 13,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    color: '#666',
+    lineHeight: 18,
+  },
+  featureRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  featureLabel: {
+    fontSize: 14,
+    color: '#333',
+    flex: 1,
+  },
+  featureValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    flex: 1,
+    textAlign: 'right',
+  },
+  success: {
+    color: '#2e7d32',
+  },
+  error: {
+    color: '#d32f2f',
+  },
+  warning: {
+    color: '#f57c00',
+  },
+  footnote: {
+    fontSize: 12,
+    color: '#888',
+    textAlign: 'center',
+    fontStyle: 'italic',
+    lineHeight: 16,
+    marginTop: 20,
+    paddingHorizontal: 20,
+  },
+});
+
+export default RuntimeArchitectureTest;

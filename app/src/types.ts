@@ -221,3 +221,100 @@ export type ExportFormat = 'pdf' | 'csv';
 export type CheckInType = 'morning' | 'midday' | 'evening';
 export type AssessmentType = 'phq9' | 'gad7';
 export type SeverityLevel = 'minimal' | 'mild' | 'moderate' | 'severe';
+
+// Onboarding Types
+export interface OnboardingData {
+  hasCompletedWelcome: boolean;
+  hasAcceptedConsent: boolean;
+  emergencyContacts: OnboardingEmergencyContact[];
+  baselineAssessments: {
+    phq9?: Assessment;
+    gad7?: Assessment;
+    completed: boolean;
+  };
+  therapeuticPreferences: TherapeuticPreferences;
+  mbctIntroduction: MBCTIntroductionData;
+  completedAt?: string;
+}
+
+export interface OnboardingEmergencyContact {
+  id?: string;
+  name: string;
+  relationship: string;
+  phone: string;
+  isPrimary: boolean;
+}
+
+export interface TherapeuticPreferences {
+  timeOfDay: string[]; // ['morning', 'midday', 'evening']
+  exerciseDifficulty: 'gentle' | 'moderate' | 'challenging';
+  crisisSensitivity: 'high' | 'medium' | 'low';
+  accessibilityNeeds: string[];
+  notifications: {
+    enabled: boolean;
+    frequency: 'daily' | 'custom' | 'minimal';
+  };
+}
+
+export interface MBCTIntroductionData {
+  hasCompletedBreathing: boolean;
+  hasCompletedBodyScan: boolean;
+  therapeuticGoals: string[];
+  practicePreferences: {
+    guidedVoice: boolean;
+    backgroundSounds: boolean;
+    hapticFeedback: boolean;
+  };
+}
+
+export interface OnboardingStep {
+  id: string;
+  title: string;
+  subtitle?: string;
+  isRequired: boolean;
+  estimatedTime: number; // in minutes
+  therapeuticFocus: string;
+  clinicalSafety?: boolean;
+  completed: boolean;
+}
+
+export interface OnboardingProgress {
+  currentStep: number;
+  totalSteps: number;
+  completedSteps: string[];
+  skippedSteps: string[];
+  startedAt: string;
+  lastActiveAt: string;
+}
+
+// Crisis Safety Types for Onboarding
+export interface OnboardingCrisisContext {
+  isOnboarding: true;
+  stepId: string;
+  assessmentType?: 'phq9' | 'gad7';
+  hasEmergencyContacts: boolean;
+  userConsentLevel: 'basic' | 'full';
+}
+
+// Breathing Practice Types
+export interface BreathingPracticePhase {
+  name: string;
+  duration: number; // in seconds
+  instruction: string;
+  description: string;
+  breathingPattern?: {
+    inhale: number;
+    hold?: number;
+    exhale: number;
+    pause?: number;
+  };
+}
+
+export interface BreathingPracticeState {
+  phase: 'intro' | 'practicing' | 'paused' | 'complete';
+  currentPhaseIndex: number;
+  timeRemaining: number;
+  totalElapsed: number;
+  completedAt?: string;
+  userReflections?: string[];
+}

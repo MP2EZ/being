@@ -4,8 +4,12 @@
  */
 
 import { create } from 'zustand';
-import { Assessment, AssessmentConfig } from '../types';
+import { subscribeWithSelector } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import { Assessment, AssessmentConfig } from '../types.ts';
 import { dataStore } from '../services/storage/SecureDataStore';
+import { encryptionService, DataSensitivity } from '../services/security';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { networkService } from '../services/NetworkService';
 import {
   validateAssessment,
@@ -18,6 +22,7 @@ import {
 } from '../utils/validation';
 import { Alert, Linking } from 'react-native';
 import CrisisResponseMonitor from '../services/CrisisResponseMonitor';
+import crisisDetectionService from '../services/CrisisDetectionService';
 import {
   PHQ9Answers,
   GAD7Answers,
@@ -118,7 +123,47 @@ const RESPONSE_OPTIONS = [
   });
 });
 
-export const useAssessmentStore = create<AssessmentState>((set, get) => ({
+/**
+ * Encrypted storage for clinical assessment data
+ */
+const encryptedAssessmentStorage = {
+  getItem: async (name: string): Promise<string | null> => {
+    try {
+      const encryptedData = await AsyncStorage.getItem(name);
+      if (!encryptedData) return null;
+
+      const decrypted = await encryptionService.decryptData(
+        JSON.parse(encryptedData),
+        DataSensitivity.CLINICAL
+      );
+      return JSON.stringify(decrypted);
+    } catch (error) {
+      console.error('Failed to decrypt assessment data:', error);
+      return null;
+    }
+  },
+  setItem: async (name: string, value: string): Promise<void> => {
+    try {
+      const data = JSON.parse(value);
+      const encrypted = await encryptionService.encryptData(
+        data,
+        DataSensitivity.CLINICAL
+      );
+      await AsyncStorage.setItem(name, JSON.stringify(encrypted));
+    } catch (error) {
+      console.error('Failed to encrypt assessment data:', error);
+      throw error;
+    }
+  },
+  removeItem: async (name: string): Promise<void> => {
+    await AsyncStorage.removeItem(name);
+  },
+};
+
+export const useAssessmentStore = create<AssessmentState>()(
+  subscribeWithSelector(
+    persist(
+      (set, get) => ({
   assessments: [],
   currentAssessment: null,
   isLoading: false,
@@ -159,8 +204,8 @@ export const useAssessmentStore = create<AssessmentState>((set, get) => ({
     });
   },
 
-  // Answer current question and advance with real-time crisis detection
-  answerQuestion: (answer) => {
+  // Answer current question and advance with enhanced real-time crisis detection
+  answerQuestion: async (answer) => {
     const { currentAssessment, triggerRealTimeCrisisIntervention } = get();
     if (!currentAssessment) {
       set({ error: 'No active assessment' });
@@ -177,33 +222,62 @@ export const useAssessmentStore = create<AssessmentState>((set, get) => ({
     const newAnswers = [...answers];
     newAnswers[currentQuestion] = answer;
 
-    // IMMEDIATE CRISIS CHECK for PHQ-9 Question 9 (suicidal ideation)
-    if (config.type === 'phq9' && currentQuestion === 8 && answer >= 1) {
-      console.log('🚨 CRISIS DETECTED: PHQ-9 Question 9 suicidal ideation response');
-      set({ crisisDetected: true });
-      triggerRealTimeCrisisIntervention('phq9', currentQuestion, answer);
-    }
+    try {
+      // Enhanced crisis detection using CrisisDetectionService
+      const assessmentId = createAssessmentID(config.type);
+      const crisisResult = await crisisDetectionService.detectCrisis(
+        config.type,
+        newAnswers,
+        currentQuestion,
+        assessmentId
+      );
 
-    // Real-time score monitoring for crisis thresholds
-    if (currentQuestion >= 2) { // Only check after enough questions answered
-      const currentScore = newAnswers.slice(0, currentQuestion + 1).reduce((sum, a) => sum + (a || 0), 0);
+      // Handle crisis detection results
+      if (crisisResult.isCrisis) {
+        console.log(`🚨 CRISIS DETECTED: ${config.type} - ${crisisResult.trigger}, severity: ${crisisResult.severity}`);
+        set({ crisisDetected: true });
 
-      if (config.type === 'phq9') {
-        // Extrapolate full score to detect potential crisis early
-        const projectedScore = Math.round((currentScore / (currentQuestion + 1)) * 9);
-        if (projectedScore >= 20) {
-          console.log('🚨 CRISIS DETECTED: PHQ-9 severe depression threshold');
-          set({ crisisDetected: true });
-          triggerRealTimeCrisisIntervention('phq9', currentQuestion, answer);
+        // The CrisisDetectionService will handle immediate intervention
+        // We also keep the legacy method for backwards compatibility
+        triggerRealTimeCrisisIntervention(config.type, currentQuestion, answer);
+      }
+
+      // Legacy crisis detection (for backup/validation)
+      // IMMEDIATE CRISIS CHECK for PHQ-9 Question 9 (suicidal ideation)
+      if (config.type === 'phq9' && currentQuestion === 8 && answer >= 1) {
+        console.log('🚨 LEGACY CRISIS DETECTED: PHQ-9 Question 9 suicidal ideation response');
+        set({ crisisDetected: true });
+      }
+
+      // Legacy real-time score monitoring for crisis thresholds
+      if (currentQuestion >= 2) { // Only check after enough questions answered
+        const currentScore = newAnswers.slice(0, currentQuestion + 1).reduce((sum, a) => sum + (a || 0), 0);
+
+        if (config.type === 'phq9') {
+          // Extrapolate full score to detect potential crisis early
+          const projectedScore = Math.round((currentScore / (currentQuestion + 1)) * 9);
+          if (projectedScore >= 20) {
+            console.log('🚨 LEGACY CRISIS DETECTED: PHQ-9 severe depression threshold');
+            set({ crisisDetected: true });
+          }
+        } else if (config.type === 'gad7') {
+          // Extrapolate full score for GAD-7
+          const projectedScore = Math.round((currentScore / (currentQuestion + 1)) * 7);
+          if (projectedScore >= 15) {
+            console.log('🚨 LEGACY CRISIS DETECTED: GAD-7 severe anxiety threshold');
+            set({ crisisDetected: true });
+          }
         }
-      } else if (config.type === 'gad7') {
-        // Extrapolate full score for GAD-7
-        const projectedScore = Math.round((currentScore / (currentQuestion + 1)) * 7);
-        if (projectedScore >= 15) {
-          console.log('🚨 CRISIS DETECTED: GAD-7 severe anxiety threshold');
-          set({ crisisDetected: true });
-          triggerRealTimeCrisisIntervention('gad7', currentQuestion, answer);
-        }
+      }
+
+    } catch (error) {
+      console.error('Enhanced crisis detection failed, falling back to legacy:', error);
+
+      // Fallback to legacy crisis detection
+      if (config.type === 'phq9' && currentQuestion === 8 && answer >= 1) {
+        console.log('🚨 FALLBACK CRISIS DETECTED: PHQ-9 Question 9 suicidal ideation');
+        set({ crisisDetected: true });
+        triggerRealTimeCrisisIntervention('phq9', currentQuestion, answer);
       }
     }
 
@@ -516,4 +590,41 @@ export const useAssessmentStore = create<AssessmentState>((set, get) => ({
       );
     }
   }
-}));
+      }),
+      {
+        name: 'being-assessment-store',
+        storage: createJSONStorage(() => encryptedAssessmentStorage),
+        partialize: (state) => ({
+          assessments: state.assessments,
+          crisisDetected: state.crisisDetected,
+        }),
+        version: 1,
+        migrate: (persistedState: any, version: number) => {
+          // Handle data migration for clinical safety
+          if (version === 0) {
+            return {
+              ...persistedState,
+              crisisDetected: false,
+            };
+          }
+          return persistedState;
+        },
+        onRehydrateStorage: () => (state) => {
+          if (state) {
+            console.log('Assessment store rehydrated successfully');
+            // Validate clinical data integrity on rehydration
+            if (state.assessments) {
+              state.assessments.forEach((assessment, index) => {
+                try {
+                  validateAssessment(assessment);
+                } catch (error) {
+                  console.error(`Assessment ${index} failed validation on rehydration:`, error);
+                }
+              });
+            }
+          }
+        },
+      }
+    )
+  )
+);

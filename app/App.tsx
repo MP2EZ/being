@@ -1,186 +1,22 @@
 /**
- * Being. MBCT App - Production App with New Architecture Verification
- * React 19.1.0 + React Native 0.81.4 + Expo SDK 54
- * Phase 4: New Architecture Verification in Production App
+ * Being. MBCT App - MINIMAL TEST VERSION (Template T2)
+ * Testing for property descriptor conflicts
  */
 
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import NewArchitectureTest from './src/components/test/NewArchitectureTest';
-import RuntimeArchitectureTest from './src/components/test/RuntimeArchitectureTest';
-import EnhancedArchitectureTest from './src/components/test/EnhancedArchitectureTest';
-import RootNavigator from './src/navigation/RootNavigator';
-import {
-  detectFabricRenderer,
-  detectTurboModules,
-  detectHermesEngine
-} from './src/utils/architecture-detection';
-
-type AppMode = 'production' | 'architecture-test' | 'runtime-test' | 'enhanced-test';
+import React from 'react';
+import { View, Text, StyleSheet } from 'react-native';
 
 export default function App() {
-  console.log('🚀 App.tsx: Starting Being. app with New Architecture');
-  const [appMode, setAppMode] = useState<AppMode>('production');
-  const [architectureStatus, setArchitectureStatus] = useState({
-    fabric: false,
-    turboModules: false,
-    hermes: false,
-    newArchDetected: false
-  });
+  console.log('🧪 MINIMAL APP: Testing for property descriptor conflicts');
 
-  useEffect(() => {
-    // Detect architecture on app start
-    const fabric = detectFabricRenderer();
-    const turboModules = detectTurboModules();
-    const hermes = detectHermesEngine();
-    const newArchDetected = fabric || turboModules;
-
-    setArchitectureStatus({
-      fabric,
-      turboModules,
-      hermes,
-      newArchDetected
-    });
-
-    console.log('🏗️ Being. MBCT App - Architecture Detection:');
-    console.log(`  Fabric Renderer: ${fabric ? '✅ Enabled' : '❌ Disabled'}`);
-    console.log(`  TurboModules: ${turboModules ? '✅ Enabled' : '❌ Disabled'}`);
-    console.log(`  Hermes Engine: ${hermes ? '✅ Active' : '❌ Inactive'}`);
-    console.log(`  New Architecture: ${newArchDetected ? '✅ DETECTED' : '❌ NOT DETECTED'}`);
-  }, []);
-
-  if (appMode === 'runtime-test') {
-    return (
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Being. MBCT App</Text>
-          <Text style={styles.subtitle}>Phase 4: Runtime Architecture Verification</Text>
-
-          <View style={[
-            styles.statusBadge,
-            architectureStatus.newArchDetected ? styles.successBadge : styles.errorBadge
-          ]}>
-            <Text style={styles.statusText}>
-              {architectureStatus.newArchDetected ? '✅ New Architecture Detected' : '❌ Legacy Architecture'}
-            </Text>
-          </View>
-
-          <View style={styles.buttonRow}>
-            <TouchableOpacity
-              style={[styles.switchButton, styles.smallButton]}
-              onPress={() => setAppMode('enhanced-test')}
-            >
-              <Text style={styles.switchButtonText}>Enhanced</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.switchButton, styles.smallButton]}
-              onPress={() => setAppMode('architecture-test')}
-            >
-              <Text style={styles.switchButtonText}>Full Test</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.switchButton, styles.smallButton]}
-              onPress={() => setAppMode('production')}
-            >
-              <Text style={styles.switchButtonText}>Being. App</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        <RuntimeArchitectureTest />
-      </View>
-    );
-  }
-
-  if (appMode === 'enhanced-test') {
-    return (
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Being. MBCT App</Text>
-          <Text style={styles.subtitle}>Enhanced Clinical Performance Validation</Text>
-
-          <View style={styles.buttonRow}>
-            <TouchableOpacity
-              style={[styles.switchButton, styles.smallButton]}
-              onPress={() => setAppMode('runtime-test')}
-            >
-              <Text style={styles.switchButtonText}>Runtime</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.switchButton, styles.smallButton]}
-              onPress={() => setAppMode('architecture-test')}
-            >
-              <Text style={styles.switchButtonText}>Full Test</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.switchButton, styles.smallButton]}
-              onPress={() => setAppMode('production')}
-            >
-              <Text style={styles.switchButtonText}>Being. App</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        <EnhancedArchitectureTest />
-      </View>
-    );
-  }
-
-  if (appMode === 'architecture-test') {
-    return (
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Being. MBCT App</Text>
-          <Text style={styles.subtitle}>Complete Architecture Analysis</Text>
-
-          <View style={styles.buttonRow}>
-            <TouchableOpacity
-              style={[styles.switchButton, styles.smallButton]}
-              onPress={() => setAppMode('enhanced-test')}
-            >
-              <Text style={styles.switchButtonText}>Enhanced</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.switchButton, styles.smallButton]}
-              onPress={() => setAppMode('runtime-test')}
-            >
-              <Text style={styles.switchButtonText}>Runtime Test</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.switchButton, styles.smallButton]}
-              onPress={() => setAppMode('production')}
-            >
-              <Text style={styles.switchButtonText}>Being. App</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        <NewArchitectureTest />
-      </View>
-    );
-  }
-
-  console.log('🏁 App.tsx: Rendering production mode with RootNavigator');
   return (
     <View style={styles.container}>
-      <View style={styles.productionHeader}>
-        <TouchableOpacity
-          style={styles.testButton}
-          onPress={() => setAppMode('enhanced-test')}
-        >
-          <Text style={styles.testButtonText}>
-            {architectureStatus.newArchDetected ? '🔬 Enhanced ✅' : '🔬 Enhanced ❌'}
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      <RootNavigator />
+      <Text style={styles.title}>Being. MBCT App</Text>
+      <Text style={styles.subtitle}>Minimal Test - Template T2</Text>
+      <Text style={styles.text}>
+        Testing basic React Native components only.
+        No navigation, no stores, no complex dependencies.
+      </Text>
     </View>
   );
 }

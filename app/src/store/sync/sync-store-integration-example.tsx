@@ -10,6 +10,7 @@
  */
 
 import React, { useEffect, useCallback } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, Platform } from 'react-native';
 import {
   useEnhancedSync,
   useCrisisSafeSync,
@@ -511,84 +512,123 @@ export const SyncIntegrationExample: React.FC = () => {
   }, [syncIntegration]);
 
   return (
-    <div className="sync-integration-example">
-      <h2>Sync Store Integration Status</h2>
+    <ScrollView style={{ flex: 1, padding: 16 }}>
+      <Text style={{ fontSize: 24, fontWeight: 'bold', marginBottom: 16 }}>
+        Sync Store Integration Status
+      </Text>
 
       {/* Sync Status */}
-      <div className="sync-status">
-        <p>Status: {syncIntegration.syncStatus}</p>
-        <p>Online: {syncIntegration.isOnline ? 'Yes' : 'No'}</p>
-        <p>Progress: {Math.round(syncIntegration.syncProgress * 100)}%</p>
-        <p>Subscription: {syncIntegration.currentTier}</p>
-      </div>
+      <View style={{ marginBottom: 16 }}>
+        <Text>Status: {syncIntegration.syncStatus}</Text>
+        <Text>Online: {syncIntegration.isOnline ? 'Yes' : 'No'}</Text>
+        <Text>Progress: {Math.round(syncIntegration.syncProgress * 100)}%</Text>
+        <Text>Subscription: {syncIntegration.currentTier}</Text>
+      </View>
 
       {/* Crisis State */}
       {syncIntegration.isCrisisMode && (
-        <div className="crisis-alert">
-          <p>Crisis Mode Active: {syncIntegration.crisisLevel}</p>
-          <button onClick={() => syncIntegration.handleCrisisStateChange('none')}>
-            Resolve Crisis
-          </button>
-        </div>
+        <View style={{ backgroundColor: '#fee', padding: 12, marginBottom: 16, borderRadius: 8 }}>
+          <Text>Crisis Mode Active: {syncIntegration.crisisLevel}</Text>
+          <TouchableOpacity
+            onPress={() => syncIntegration.handleCrisisStateChange('none')}
+            style={{ backgroundColor: '#dc3545', padding: 8, borderRadius: 4, marginTop: 8 }}
+          >
+            <Text style={{ color: 'white' }}>Resolve Crisis</Text>
+          </TouchableOpacity>
+        </View>
       )}
 
       {/* Connected Devices */}
-      <div className="connected-devices">
-        <h3>Connected Devices ({syncIntegration.connectedDevices.length})</h3>
+      <View style={{ marginBottom: 16 }}>
+        <Text style={{ fontSize: 18, fontWeight: '600', marginBottom: 8 }}>
+          Connected Devices ({syncIntegration.connectedDevices.length})
+        </Text>
         {syncIntegration.connectedDevices.map(device => (
-          <div key={device.deviceId} className="device">
-            <p>{device.deviceName} ({device.deviceType})</p>
-            <p>Active: {device.isActive ? 'Yes' : 'No'}</p>
-          </div>
+          <View key={device.deviceId} style={{ padding: 8, borderWidth: 1, borderColor: '#ddd', marginBottom: 4 }}>
+            <Text>{device.deviceName} ({device.deviceType})</Text>
+            <Text>Active: {device.isActive ? 'Yes' : 'No'}</Text>
+          </View>
         ))}
-      </div>
+      </View>
 
       {/* Active Conflicts */}
       {syncIntegration.activeConflicts.length > 0 && (
-        <div className="active-conflicts">
-          <h3>Active Conflicts ({syncIntegration.activeConflicts.length})</h3>
+        <View style={{ marginBottom: 16 }}>
+          <Text style={{ fontSize: 18, fontWeight: '600', marginBottom: 8 }}>
+            Active Conflicts ({syncIntegration.activeConflicts.length})
+          </Text>
           {syncIntegration.criticalConflicts.map(conflict => (
-            <div key={conflict.id} className="conflict critical">
-              <p>Type: {conflict.conflictType}</p>
-              <p>Impact: {conflict.therapeuticImpact.level}</p>
-              <p>State: {conflict.resolutionState}</p>
-            </div>
+            <View key={conflict.id} style={{ backgroundColor: '#ffe6e6', padding: 12, marginBottom: 8, borderRadius: 8, borderLeftWidth: 4, borderLeftColor: '#dc3545' }}>
+              <Text>Type: {conflict.conflictType}</Text>
+              <Text>Impact: {conflict.therapeuticImpact.level}</Text>
+              <Text>State: {conflict.resolutionState}</Text>
+            </View>
           ))}
-        </div>
+        </View>
       )}
 
       {/* Performance Metrics */}
-      <div className="performance-metrics">
-        <h3>Performance</h3>
-        <p>Sync Latency: {syncIntegration.performanceMetrics.syncLatency}ms</p>
-        <p>Crisis Response: {syncIntegration.performanceMetrics.crisisResponseTime}ms</p>
-        <p>Violations: {syncIntegration.hasPerformanceViolations ? 'Yes' : 'No'}</p>
-      </div>
+      <View style={{ marginBottom: 16 }}>
+        <Text style={{ fontSize: 18, fontWeight: '600', marginBottom: 8 }}>Performance</Text>
+        <Text>Sync Latency: {syncIntegration.performanceMetrics.syncLatency}ms</Text>
+        <Text>Crisis Response: {syncIntegration.performanceMetrics.crisisResponseTime}ms</Text>
+        <Text>Violations: {syncIntegration.hasPerformanceViolations ? 'Yes' : 'No'}</Text>
+      </View>
 
       {/* Family Sharing */}
       {syncIntegration.familySharingEnabled && (
-        <div className="family-sharing">
-          <h3>Family Sharing</h3>
-          <p>Members: {syncIntegration.familyMembers.length}</p>
-        </div>
+        <View style={{ marginBottom: 16 }}>
+          <Text style={{ fontSize: 18, fontWeight: '600', marginBottom: 8 }}>Family Sharing</Text>
+          <Text>Members: {syncIntegration.familyMembers.length}</Text>
+        </View>
       )}
 
       {/* Actions */}
-      <div className="actions">
-        <button onClick={handleCrisisButtonPress}>
-          Trigger Crisis
-        </button>
-        <button onClick={handleDeviceHandoff} disabled={syncIntegration.connectedDevices.length === 0}>
-          Handoff Session
-        </button>
-        <button onClick={syncIntegration.forceSync}>
-          Force Sync
-        </button>
-        <button onClick={syncIntegration.monitorSyncPerformance}>
-          Check Performance
-        </button>
-      </div>
-    </div>
+      <View style={{ marginBottom: 16 }}>
+        <TouchableOpacity
+          onPress={handleCrisisButtonPress}
+          style={{ backgroundColor: '#dc3545', padding: 12, borderRadius: 8, marginBottom: 8 }}
+        >
+          <Text style={{ color: 'white', textAlign: 'center', fontWeight: '600' }}>
+            Trigger Crisis
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={handleDeviceHandoff}
+          disabled={syncIntegration.connectedDevices.length === 0}
+          style={{
+            backgroundColor: syncIntegration.connectedDevices.length === 0 ? '#6c757d' : '#007bff',
+            padding: 12,
+            borderRadius: 8,
+            marginBottom: 8,
+            opacity: syncIntegration.connectedDevices.length === 0 ? 0.6 : 1
+          }}
+        >
+          <Text style={{ color: 'white', textAlign: 'center', fontWeight: '600' }}>
+            Handoff Session
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={syncIntegration.forceSync}
+          style={{ backgroundColor: '#28a745', padding: 12, borderRadius: 8, marginBottom: 8 }}
+        >
+          <Text style={{ color: 'white', textAlign: 'center', fontWeight: '600' }}>
+            Force Sync
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={syncIntegration.monitorSyncPerformance}
+          style={{ backgroundColor: '#17a2b8', padding: 12, borderRadius: 8, marginBottom: 8 }}
+        >
+          <Text style={{ color: 'white', textAlign: 'center', fontWeight: '600' }}>
+            Check Performance
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </ScrollView>
   );
 };
 

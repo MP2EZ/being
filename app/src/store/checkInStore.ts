@@ -6,13 +6,29 @@
  */
 
 import { create } from 'zustand';
-import { CheckIn } from '../types';
+import { subscribeWithSelector } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import { CheckIn } from '../types.ts';
 import { dataStore } from '../services/storage/SecureDataStore';
 import { networkService } from '../services/NetworkService';
 import { resumableSessionService } from '../services/ResumableSessionService';
 import { offlineQueueService as enhancedOfflineQueueService } from '../services/OfflineQueueService';
 import { ResumableSession, SessionProgress } from '../types/ResumableSession';
 import { validateCheckInData, ValidationError, sanitizeTextInput, sanitizeArrayInput } from '../utils/validation';
+import {
+  ValidatedTherapeuticCheckIn,
+  ClinicalValidationState,
+  TherapeuticTimingValidation,
+  ClinicalCalculationCertified,
+  TherapeuticTimingCertified
+} from '../types/clinical-type-safety';
+import {
+  createClinicalValidationState,
+  createClinicalCalculationCertified,
+  createTherapeuticTimingCertified,
+  validateClinicalData,
+  validateTherapeuticTiming
+} from '../utils/clinical-type-guards';
 import { withSync } from './mixins/syncMixin';
 import {
   SyncOperationType,
@@ -21,6 +37,9 @@ import {
   ClinicalValidationResult
 } from '../types/sync';
 import { OfflinePriority } from '../types/offline';
+import { createSafeStore } from '../utils/SafeImports';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { encryptionService, DataSensitivity } from '../services/security';
 
 /**
  * Helper function to calculate total steps for each check-in type
@@ -100,14 +119,21 @@ interface CheckInState {
   isLoading: boolean;
   error: string | null;
   hasPartialSession: boolean;
-  
+
   // Enhanced session state
   currentSession: ResumableSession | null;
   sessionProgress: SessionProgress | null;
-  
+
   // Widget integration state
   widgetDataNeedsUpdate: boolean;
   lastWidgetUpdateTime: string | null;
+
+  // Clinical validation state
+  clinicalValidationEnabled: boolean;
+  strictTimingEnabled: boolean;
+  clinicalCalculator: ClinicalCalculationCertified | null;
+  timingValidator: TherapeuticTimingCertified | null;
+  validationErrors: string[];
   
   // Actions
   loadCheckIns: () => Promise<void>;
@@ -141,6 +167,14 @@ interface CheckInState {
   markWidgetUpdateNeeded: () => void;
   markWidgetUpdated: () => void;
   getWidgetUpdateStatus: () => { needsUpdate: boolean; lastUpdate: string | null };
+
+  // Clinical validation methods
+  enableClinicalValidation: () => void;
+  disableClinicalValidation: () => void;
+  enableStrictTiming: () => void;
+  disableStrictTiming: () => void;
+  validateCheckInClinically: (checkIn: Partial<CheckIn>) => Promise<ValidatedTherapeuticCheckIn | null>;
+  getClinicalValidationStatus: () => { enabled: boolean; errors: string[] };
 }
 
 /**
@@ -195,10 +229,49 @@ const validateCheckInSyncData = (data: SyncableData): ClinicalValidationResult =
   return result;
 };
 
+/**
+ * Encrypted storage for clinical check-in data
+ */
+const encryptedStorage = {
+  getItem: async (name: string): Promise<string | null> => {
+    try {
+      const encryptedData = await AsyncStorage.getItem(name);
+      if (!encryptedData) return null;
+
+      const decrypted = await encryptionService.decryptData(
+        JSON.parse(encryptedData),
+        DataSensitivity.CLINICAL
+      );
+      return JSON.stringify(decrypted);
+    } catch (error) {
+      console.error('Failed to decrypt check-in data:', error);
+      return null;
+    }
+  },
+  setItem: async (name: string, value: string): Promise<void> => {
+    try {
+      const data = JSON.parse(value);
+      const encrypted = await encryptionService.encryptData(
+        data,
+        DataSensitivity.CLINICAL
+      );
+      await AsyncStorage.setItem(name, JSON.stringify(encrypted));
+    } catch (error) {
+      console.error('Failed to encrypt check-in data:', error);
+      throw error;
+    }
+  },
+  removeItem: async (name: string): Promise<void> => {
+    await AsyncStorage.removeItem(name);
+  },
+};
+
 export const useCheckInStore = create(
-  withSync(
-    SyncEntityType.CHECK_IN,
-    (set, get) => ({
+  subscribeWithSelector(
+    persist(
+      withSync(
+        SyncEntityType.CHECK_IN,
+        (set, get) => ({
   checkIns: [],
   currentCheckIn: null,
   todaysCheckIns: [],
@@ -213,6 +286,13 @@ export const useCheckInStore = create(
   // Widget integration state
   widgetDataNeedsUpdate: false,
   lastWidgetUpdateTime: null,
+
+  // Clinical validation state
+  clinicalValidationEnabled: false,
+  strictTimingEnabled: false,
+  clinicalCalculator: null,
+  timingValidator: null,
+  validationErrors: [],
 
   // Load all check-ins from AsyncStorage
   loadCheckIns: async () => {
@@ -482,6 +562,14 @@ export const useCheckInStore = create(
           ? [...todaysCheckIns, completedCheckIn]
           : todaysCheckIns;
         set({ checkIns: updatedCheckIns, todaysCheckIns: updatedTodaysCheckIns });
+      }
+
+      // Emit reactive event for check-in completion
+      try {
+        const { reactiveStateManagerUtils } = await import('./reactiveStateManager');
+        await reactiveStateManagerUtils.emitCheckInCompleted(completedCheckIn);
+      } catch (error) {
+        console.error('Failed to emit check-in completion event:', error);
       }
     } catch (error) {
       console.error('Failed to save check-in:', error);
@@ -891,8 +979,224 @@ export const useCheckInStore = create(
       needsUpdate: widgetDataNeedsUpdate,
       lastUpdate: lastWidgetUpdateTime
     };
+  },
+
+  // Clinical validation methods
+  enableClinicalValidation: () => {
+    try {
+      const clinicalCalculator = createClinicalCalculationCertified();
+      set({
+        clinicalValidationEnabled: true,
+        clinicalCalculator,
+        validationErrors: [],
+        error: null
+      });
+      console.log('Clinical validation enabled for check-ins');
+    } catch (error) {
+      console.error('Failed to enable clinical validation:', error);
+      set({
+        error: error instanceof Error ? error.message : 'Failed to enable clinical validation'
+      });
+    }
+  },
+
+  disableClinicalValidation: () => {
+    set({
+      clinicalValidationEnabled: false,
+      clinicalCalculator: null,
+      validationErrors: [],
+      error: null
+    });
+    console.log('Clinical validation disabled for check-ins');
+  },
+
+  enableStrictTiming: () => {
+    try {
+      const timingValidator = createTherapeuticTimingCertified();
+      set({
+        strictTimingEnabled: true,
+        timingValidator,
+        validationErrors: [],
+        error: null
+      });
+      console.log('Strict timing validation enabled for check-ins');
+    } catch (error) {
+      console.error('Failed to enable strict timing:', error);
+      set({
+        error: error instanceof Error ? error.message : 'Failed to enable strict timing'
+      });
+    }
+  },
+
+  disableStrictTiming: () => {
+    set({
+      strictTimingEnabled: false,
+      timingValidator: null,
+      validationErrors: [],
+      error: null
+    });
+    console.log('Strict timing validation disabled for check-ins');
+  },
+
+  validateCheckInClinically: async (checkIn: Partial<CheckIn>): Promise<ValidatedTherapeuticCheckIn | null> => {
+    const { clinicalValidationEnabled, clinicalCalculator, timingValidator } = get();
+
+    if (!clinicalValidationEnabled || !clinicalCalculator) {
+      console.warn('Clinical validation not enabled');
+      return null;
+    }
+
+    try {
+      // Create clinical validation state
+      const validationState = createClinicalValidationState('check-in-store-v1.0');
+
+      // Create timing validation if available
+      let timingValidation: TherapeuticTimingValidation | undefined;
+      if (timingValidator && checkIn.startedAt) {
+        const startTime = new Date(checkIn.startedAt).getTime();
+        const currentTime = Date.now();
+        const duration = currentTime - startTime;
+
+        timingValidation = {
+          sessionStarted: checkIn.startedAt as any,
+          expectedDuration: timingValidator.validateTotalSession(180000),
+          actualDuration: duration,
+          withinTherapeuticWindow: Math.abs(duration - 180000) <= 60000,
+          timingAccuracy: duration <= 120000 ? 'precise' :
+                         duration <= 240000 ? 'acceptable' : 'concerning'
+        };
+      }
+
+      // Validate check-in data structure
+      if (!checkIn.type || !['morning', 'midday', 'evening'].includes(checkIn.type)) {
+        throw new Error('Invalid check-in type for clinical validation');
+      }
+
+      // Create validated therapeutic check-in
+      const validatedCheckIn: ValidatedTherapeuticCheckIn = {
+        id: checkIn.id as any,
+        context: checkIn.type as any,
+        startTime: (checkIn.startedAt || new Date().toISOString()) as any,
+        completionTime: checkIn.completedAt as any,
+        status: checkIn.completed ? 'completed' : 'in_progress',
+        mood: checkIn.data?.mood ? {
+          scale: Math.min(10, Math.max(1, checkIn.data.mood.value || 5)) as any,
+          timestamp: new Date().toISOString() as any,
+          intensity: 'moderate',
+          context: checkIn.type as any,
+          validatedAt: new Date().toISOString() as any,
+          clinicallyRelevant: (checkIn.data.mood.value || 5) <= 4 || (checkIn.data.mood.value || 5) >= 8
+        } : {
+          scale: 5 as any,
+          timestamp: new Date().toISOString() as any,
+          intensity: 'moderate',
+          context: checkIn.type as any,
+          validatedAt: new Date().toISOString() as any,
+          clinicallyRelevant: false
+        },
+        breathingCompleted: checkIn.data?.breathingCompleted || false,
+        exercises: [],
+        notes: checkIn.data?.intention || checkIn.data?.dayHighlight || '',
+        validationStatus: 'valid',
+        validationState,
+        timingValidation: timingValidation || {
+          sessionStarted: (checkIn.startedAt || new Date().toISOString()) as any,
+          expectedDuration: 180000 as any,
+          actualDuration: 0,
+          withinTherapeuticWindow: true,
+          timingAccuracy: 'acceptable'
+        }
+      };
+
+      // Validate the complete structure
+      const clinicallyValidated = validateClinicalData(validatedCheckIn, clinicalCalculator);
+      const therapeuticallyTimed = timingValidator ?
+        validateTherapeuticTiming(clinicallyValidated, timingValidator) :
+        clinicallyValidated;
+
+      set({ validationErrors: [], error: null });
+      console.log('Check-in validated clinically:', {
+        type: checkIn.type,
+        clinicallyRelevant: validatedCheckIn.mood.clinicallyRelevant,
+        timingAccuracy: validatedCheckIn.timingValidation.timingAccuracy
+      });
+
+      return therapeuticallyTimed as ValidatedTherapeuticCheckIn;
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Clinical validation failed';
+      console.error('Clinical validation error:', error);
+
+      set({
+        validationErrors: [errorMessage],
+        error: `Clinical validation failed: ${errorMessage}`
+      });
+
+      return null;
+    }
+  },
+
+  getClinicalValidationStatus: () => {
+    const { clinicalValidationEnabled, validationErrors } = get();
+    return {
+      enabled: clinicalValidationEnabled,
+      errors: validationErrors
+    };
   }
-    }),
-    validateCheckInSyncData
+        }),
+        validateCheckInSyncData
+      ),
+      {
+        name: 'being-checkin-store',
+        storage: createJSONStorage(() => encryptedStorage),
+        partialize: (state) => ({
+          checkIns: state.checkIns,
+          todaysCheckIns: state.todaysCheckIns,
+          sessionProgress: state.sessionProgress,
+          widgetDataNeedsUpdate: state.widgetDataNeedsUpdate,
+          lastWidgetUpdateTime: state.lastWidgetUpdateTime,
+        }),
+        version: 1,
+        migrate: (persistedState: any, version: number) => {
+          // Handle data migration for clinical safety
+          if (version === 0) {
+            return {
+              ...persistedState,
+              sessionProgress: null,
+              widgetDataNeedsUpdate: false,
+              lastWidgetUpdateTime: null,
+            };
+          }
+          return persistedState;
+        },
+        onRehydrateStorage: () => (state) => {
+          if (state) {
+            console.log('Check-in store rehydrated successfully');
+
+            // Trigger reactive updates on rehydration
+            setTimeout(() => {
+              try {
+                const { reactiveStateManagerUtils } = require('./reactiveStateManager');
+
+                // Emit events for completed check-ins
+                if (state.todaysCheckIns) {
+                  const completedToday = state.todaysCheckIns.filter(c => c.completedAt && !c.skipped);
+                  completedToday.forEach(checkIn => {
+                    reactiveStateManagerUtils.emitCheckInCompleted(checkIn);
+                  });
+                }
+
+                // Mark widget update if needed
+                if (state.markWidgetUpdateNeeded) {
+                  state.markWidgetUpdateNeeded();
+                }
+              } catch (error) {
+                console.error('Failed to emit reactive events on rehydration:', error);
+              }
+            }, 1000);
+          }
+        },
+      }
+    )
   )
 );

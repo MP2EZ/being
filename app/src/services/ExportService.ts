@@ -7,7 +7,7 @@ import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import * as Print from 'expo-print';
 import { dataStore } from './storage/SecureDataStore';
-import type { CheckIn, Assessment } from '../types';
+import type { CheckIn, Assessment } from '../types.ts';
 
 export interface ExportOptions {
   format: 'pdf' | 'csv';

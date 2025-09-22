@@ -116,7 +116,7 @@ export const CrisisSyncRequestSchema = z.object({
   emergencyBypass: z.object({
     subscriptionOverride: z.boolean().default(true),
     quotaOverride: z.boolean().default(true),
-    rateLimit Override: z.boolean().default(true),
+    rateLimitOverride: z.boolean().default(true),
     priorityEscalation: z.boolean().default(true)
   }),
 

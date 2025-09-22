@@ -3,7 +3,7 @@
  * Critical: Never modify scoring algorithms without clinical approval
  */
 
-import { CheckIn, Assessment, UserProfile } from '../types';
+import { CheckIn, Assessment, UserProfile } from '../types.ts';
 import {
   PHQ9Answers,
   GAD7Answers,

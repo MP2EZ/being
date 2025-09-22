@@ -1,6 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import RNSlider from '@react-native-community/slider';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useTheme } from '../../hooks/useTheme';
 
 interface SliderProps {
@@ -26,7 +25,35 @@ export const Slider: React.FC<SliderProps> = ({
 }) => {
   const { colorSystem } = useTheme();
   const accentColor = theme ? colorSystem.themes[theme].primary : colorSystem.status.info;
-  
+
+  // Simple button-based approach for therapeutic reliability
+  const renderValueButtons = () => {
+    const buttons = [];
+    for (let i = min; i <= max; i++) {
+      buttons.push(
+        <TouchableOpacity
+          key={i}
+          style={[
+            styles.valueButton,
+            value === i && { backgroundColor: accentColor },
+          ]}
+          onPress={() => onChange(i)}
+          accessibilityLabel={`${label} value ${i}`}
+          accessibilityRole="button"
+        >
+          <Text
+            style={[
+              styles.buttonText,
+              value === i && { color: colorSystem.base.white },
+            ]}
+          >
+            {i}
+          </Text>
+        </TouchableOpacity>
+      );
+    }
+    return buttons;
+  };
 
   return (
     <View style={[styles.container, style]}>
@@ -36,18 +63,8 @@ export const Slider: React.FC<SliderProps> = ({
           {value}
         </Text>
       </View>
-      <View style={styles.sliderContainer}>
-        <RNSlider
-          style={styles.slider}
-          minimumValue={min}
-          maximumValue={max}
-          value={value}
-          onValueChange={onChange}
-          minimumTrackTintColor={accentColor}
-          maximumTrackTintColor={colorSystem.gray[300]}
-          thumbTintColor={colorSystem.base.white}
-          step={1}
-        />
+      <View style={styles.buttonsContainer}>
+        {renderValueButtons()}
       </View>
     </View>
   );
@@ -70,11 +87,27 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
   },
-  sliderContainer: {
-    paddingHorizontal: 0,
+  buttonsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    paddingHorizontal: 4,
   },
-  slider: {
-    width: '100%',
+  valueButton: {
+    width: 40,
     height: 40,
+    borderRadius: 20,
+    backgroundColor: '#f5f5f5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginHorizontal: 2,
+    marginVertical: 4,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  buttonText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#333',
   },
 });

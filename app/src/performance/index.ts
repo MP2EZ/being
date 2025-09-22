@@ -221,6 +221,60 @@ export const useUnifiedPerformanceSystem = () => {
 };
 
 // ============================================================================
+// THERAPEUTIC PERFORMANCE SYSTEM EXPORTS
+// ============================================================================
+
+// Core therapeutic performance system
+export {
+  therapeuticPerformanceSystem,
+  useTherapeuticPerformance,
+  useBreathingPerformanceMonitor,
+  useCrisisPerformanceMonitor,
+  useNavigationPerformanceMonitor,
+  type TherapeuticPerformanceMetrics,
+  type PerformanceRegression,
+  type RealTimePerformanceData,
+  type PerformanceContext,
+} from '../utils/TherapeuticPerformanceSystem';
+
+// Performance regression detection
+export {
+  performanceRegressionDetector,
+  usePerformanceRegressionDetection,
+  type PerformanceBaseline,
+  type RegressionAnalysis,
+  type MetricTrend,
+  type PerformanceBenchmark,
+} from '../utils/PerformanceRegressionDetector';
+
+// Performance testing suite
+export {
+  performanceTestSuite,
+  THERAPEUTIC_SCENARIOS,
+  type PerformanceTestCase,
+  type PerformanceTestResult,
+  type PerformanceTestSuiteResult,
+  type TherapeuticScenario,
+} from '../utils/PerformanceTestSuite';
+
+// Comprehensive performance hooks
+export {
+  usePerformanceMonitoring,
+  useComponentPerformance,
+  useCrisisButtonPerformance,
+  useBreathingAnimationPerformance,
+  useNavigationPerformance,
+  useMemoryPerformance,
+  useTherapeuticSessionPerformance,
+  usePerformanceRegressions,
+  usePerformanceTesting,
+} from '../utils/PerformanceHooks';
+
+// Legacy performance utilities
+export { performanceMonitor, usePerformanceTracking } from '../utils/PerformanceMonitor';
+export { syncPerformanceOptimizer, useSyncPerformanceOptimization } from '../utils/SyncPerformanceOptimizer';
+
+// ============================================================================
 // PERFORMANCE OPTIMIZATION UTILITIES
 // ============================================================================
 
@@ -257,7 +311,92 @@ export const createPerformanceConfig = (options: {
 };
 
 /**
- * Performance system initialization helper
+ * Therapeutic Performance System initialization helper
+ */
+export const initializeTherapeuticPerformanceSystem = async (config: {
+  subscriptionTier?: 'trial' | 'basic' | 'premium';
+  deviceInfo?: any;
+  enableMonitoring?: boolean;
+  enableRegressionDetection?: boolean;
+  enableTesting?: boolean;
+  appVersion?: string;
+  environment?: 'development' | 'staging' | 'production';
+}) => {
+  console.log('🏥 Initializing Therapeutic Performance System...');
+
+  const {
+    subscriptionTier = 'trial',
+    enableMonitoring = true,
+    enableRegressionDetection = true,
+    enableTesting = false,
+    appVersion = '1.0.0',
+    environment = 'development',
+  } = config;
+
+  try {
+    // Initialize core therapeutic performance system
+    await therapeuticPerformanceSystem.initialize();
+    console.log('✅ Core therapeutic performance system initialized');
+
+    // Initialize regression detection if enabled
+    if (enableRegressionDetection) {
+      await performanceRegressionDetector.initialize();
+      console.log('✅ Performance regression detection initialized');
+    }
+
+    // Initialize testing suite if enabled
+    if (enableTesting) {
+      await performanceTestSuite.initialize();
+      console.log('✅ Performance testing suite initialized');
+    }
+
+    // Start monitoring if enabled
+    if (enableMonitoring) {
+      therapeuticPerformanceSystem.startRealTimeMonitoring();
+      console.log('✅ Real-time monitoring started');
+    }
+
+    // Record initial baseline for regression detection
+    if (enableRegressionDetection) {
+      const initialStatus = therapeuticPerformanceSystem.getTherapeuticStatus();
+      await performanceRegressionDetector.recordBaseline(
+        initialStatus.scores,
+        appVersion,
+        environment
+      );
+      console.log(`✅ Performance baseline recorded for ${appVersion}`);
+    }
+
+    // Generate initial health assessment
+    const healthStatus = therapeuticPerformanceSystem.getTherapeuticStatus();
+    const recommendations = therapeuticPerformanceSystem.getTherapeuticRecommendations();
+
+    console.log('🏥 Therapeutic Performance System initialized successfully');
+
+    return {
+      success: true,
+      healthStatus,
+      recommendations,
+      config: createPerformanceConfig({
+        subscriptionTier,
+        deviceType: config.deviceInfo?.deviceType || 'mobile',
+        networkQuality: config.deviceInfo?.performance?.connectionQuality || 'good',
+        memoryConstraints: config.deviceInfo?.deviceType === 'mobile',
+        crisisModeEnabled: true,
+      }),
+    };
+
+  } catch (error) {
+    console.error('❌ Therapeutic performance system initialization failed:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+};
+
+/**
+ * Legacy performance system initialization helper (maintained for compatibility)
  */
 export const initializePerformanceSystem = async (config: {
   subscriptionTier: 'trial' | 'basic' | 'premium';
