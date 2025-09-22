@@ -11,37 +11,20 @@ import { useUserStore } from '../../store';
 import { colorSystem, spacing } from '../../constants/colors';
 
 export const OnboardingPlaceholder: React.FC = () => {
-  const { signUp, updateProfile } = useUserStore();
+  console.log('🎯 OnboardingPlaceholder: Rendering onboarding screen');
+  // Temporarily bypass userStore to debug UI
+  // const { signUp, updateProfile } = useUserStore();
 
   const handleSkipOnboarding = async () => {
-    try {
-      console.log('Creating user...');
-      // Create a temporary user to bypass onboarding for testing
-      const authResult = await signUp('test@example.com', 'tempPassword123');
-
-      if (authResult === 'success') {
-        // Update profile with onboarding data
-        await updateProfile({
-          values: ['Kindness', 'Growth', 'Peace'], // Default values for testing
-          onboardingCompleted: true,
-          notifications: {
-            enabled: true,
-            morning: '08:00',
-            midday: '13:00',
-            evening: '20:00'
-          },
-          preferences: {
-            haptics: true,
-            theme: 'auto'
-          }
-        });
-        console.log('User created and profile updated successfully');
-      } else {
-        throw new Error(`Sign up failed with result: ${authResult}`);
-      }
-    } catch (error) {
-      console.error('Failed to create user:', error);
-    }
+    console.log('🚧 Skip onboarding temporarily disabled for debugging');
+    // try {
+    //   console.log('Creating user...');
+    //   // Create a temporary user to bypass onboarding for testing
+    //   const authResult = await signUp('test@example.com', 'tempPassword123');
+    //   // ... rest of auth logic
+    // } catch (error) {
+    //   console.error('Failed to create user:', error);
+    // }
   };
 
   return (
@@ -70,8 +53,8 @@ export const OnboardingPlaceholder: React.FC = () => {
         
         <Button
           onPress={() => {
-            // Force bypass for testing
-            updateProfile({ onboardingCompleted: true });
+            console.log('🚧 Force skip temporarily disabled for debugging');
+            // updateProfile({ onboardingCompleted: true });
           }}
           variant="outline"
           style={[styles.button, { marginTop: spacing.md }]}

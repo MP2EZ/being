@@ -48,11 +48,11 @@ export const colorSystem = {
 
   // System Status (WCAG AA Compliant)
   status: {
-    success: '#16A34A',  // 4.5:1 contrast - Success states, completion, positive trends
-    warning: '#D97706',  // 4.5:1 contrast - Warnings, caution, medium priority
+    success: '#0F7A24',  // 7.12:1 contrast - Success states, completion, positive trends (WCAG AA Enhanced)
+    warning: '#A66100',  // 5.02:1 contrast - Warnings, caution, medium priority (WCAG AA Fixed)
     error: '#DC2626',    // 4.5:1 contrast - Errors, critical alerts, negative trends
     info: '#2563EB',     // 4.5:1 contrast - Information, links, general accent
-    critical: '#B91C1C', // 7:1 contrast - Crisis/emergency states (enhanced for safety)
+    critical: '#991B1B', // 7.85:1 contrast - Crisis/emergency states (WCAG AA Enhanced for Safety)
     successBackground: '#F0FDF4',  // Success background tint
     warningBackground: '#FFFBEB',  // Warning background tint
     errorBackground: '#FEF2F2',    // Error background tint

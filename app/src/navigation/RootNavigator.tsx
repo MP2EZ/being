@@ -18,6 +18,9 @@ import AssessmentResultsScreen from '../screens/assessment/AssessmentResultsScre
 import CrisisPlanScreen from '../screens/crisis/CrisisPlanScreen';
 import OnboardingPlaceholder from '../screens/onboarding/OnboardingPlaceholder';
 
+// Standalone screen imports (Stage 4)
+import { BreathingScreen, CheckInScreen, ProgressScreen } from '../screens/standalone';
+
 // Payment screen imports
 import SubscriptionScreen from '../screens/payment/SubscriptionScreen';
 import PaymentMethodScreen from '../screens/payment/PaymentMethodScreen';
@@ -33,9 +36,10 @@ const RootNavigator: React.FC = () => {
     initializeStore();
   }, [initializeStore]);
 
-  if (isLoading) {
-    return <LoadingScreen />;
-  }
+  // Temporarily bypass loading for New Architecture validation
+  // if (isLoading) {
+  //   return <LoadingScreen />;
+  // }
 
   return (
     <NavigationContainer>
@@ -82,6 +86,34 @@ const RootNavigator: React.FC = () => {
         <Stack.Screen
           name="CrisisPlan"
           component={CrisisPlanScreen}
+          options={{
+            presentation: 'modal',
+            headerShown: false,
+          }}
+        />
+
+        {/* Standalone Core Journey Screens (Stage 4) */}
+        <Stack.Screen
+          name="BreathingScreen"
+          component={BreathingScreen}
+          options={{
+            presentation: 'modal',
+            headerShown: false,
+          }}
+        />
+
+        <Stack.Screen
+          name="CheckInScreen"
+          component={CheckInScreen}
+          options={{
+            presentation: 'modal',
+            headerShown: false,
+          }}
+        />
+
+        <Stack.Screen
+          name="ProgressScreen"
+          component={ProgressScreen}
           options={{
             presentation: 'modal',
             headerShown: false,
