@@ -8,6 +8,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { BaseError } from './src/types/core';
 import { getTimeOfDayTheme } from './src/utils/timeHelpers';
 import { sanitizeTextInput } from './src/utils/validation';
+import { Typography } from './src/components/core/Typography';
 
 export default function App() {
   console.log('🧪 MINIMAL APP: Testing for property descriptor conflicts');
