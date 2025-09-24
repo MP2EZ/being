@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import { View, Text, Pressable, StyleSheet, Alert } from 'react-native';
 
 interface CrisisButtonProps {
   onPress?: () => void;
@@ -22,16 +22,24 @@ export const CrisisButton: React.FC<CrisisButtonProps> = ({ onPress }) => {
   };
 
   return (
-    <TouchableOpacity
-      style={styles.button}
+    <Pressable
+      style={({ pressed }) => [
+        styles.button,
+        pressed && styles.buttonPressed
+      ]}
       onPress={handleCrisisPress}
       accessible={true}
       accessibilityLabel="Crisis support button"
       accessibilityHint="Provides immediate access to crisis support resources"
+      accessibilityRole="button"
+      android_ripple={{
+        color: '#FFFFFF40',
+        borderless: false
+      }}
     >
       <Text style={styles.buttonText}>Crisis Support</Text>
       <Text style={styles.buttonSubtext}>Tap for immediate help</Text>
-    </TouchableOpacity>
+    </Pressable>
   );
 };
 
@@ -49,6 +57,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 5,
+  },
+  buttonPressed: {
+    opacity: 0.85,
+    transform: [{ scale: 0.98 }],
+    backgroundColor: '#991B1B',
   },
   buttonText: {
     color: '#FFFFFF',

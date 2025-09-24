@@ -1492,3 +1492,627 @@ export type {
   CRISIS_RESPONSE_TIMES,
   SYNC_STATUS_COLORS
 } from './cross-device-sync-ui';
+
+// === PAYMENT ENHANCEMENT TYPES (PHASE 4.2A) ===
+
+// Enhanced Pressable types for payment component migration
+export type {
+  // Core Payment Pressable Types
+  PaymentPressableVariant,
+  PaymentCrisisSafetyLevel,
+  PaymentDataSensitivity,
+  PaymentPressableProps,
+  PaymentMethodPressableProps,
+  SubscriptionTierPressableProps,
+  CrisisPaymentOverridePressableProps,
+  PaymentAnxietyInterventionPressableProps,
+  PaymentPressableState,
+  PaymentAnxietyDetection,
+  PaymentPressablePerformanceMetrics,
+  PaymentMethodStyleFunction,
+  SubscriptionTierStyleFunction,
+  CrisisOverrideStyleFunction,
+  PaymentSafeRippleConfig,
+  TherapeuticPaymentRipple
+} from './payment-pressable-enhanced';
+
+// Enhanced interaction types for migrated payment components
+export type {
+  // Component Interaction Types
+  PaymentMethodScreenInteractions,
+  PaymentAnxietyDetectionInteractions,
+  PaymentSettingsScreenInteractions,
+
+  // Validation Types
+  PaymentMethodSelectionValidation,
+  PaymentMethodFormValidation,
+  PciComplianceValidation,
+  TherapeuticBreathingValidation,
+  TherapeuticSubscriptionImpact,
+
+  // Action and Performance Types
+  PaymentMethodAction,
+  PaymentInteractionPerformanceMetrics,
+  PaymentInteractionError,
+  PaymentInteractionRecoveryStrategy
+} from './payment-interaction-enhanced';
+
+// Enhanced crisis detection types for payment anxiety algorithms
+export type {
+  // Core Anxiety Detection Types
+  PaymentAnxietySeverity,
+  FinancialStressIndicators,
+  PaymentAnxietyAlgorithmConfig,
+  PaymentAnxietyDetectionState,
+  PaymentAnxietyRiskFactors,
+  PaymentAnxietyInterventionStatus,
+
+  // Event and Intervention Types
+  PaymentAnxietyEvent,
+  PaymentAnxietyEventType,
+  PaymentAnxietyIntervention,
+  PaymentAnxietyInterventionType,
+
+  // Performance and Validation Types
+  PaymentAnxietyPerformanceMetrics,
+  PaymentAnxietyAlgorithmValidation
+} from './payment-crisis-detection-enhanced';
+
+// Enhanced HIPAA compliance types for financial + mental health data intersection
+export type {
+  // Data Classification and Compliance
+  PaymentHIPAADataClassification,
+  PaymentHIPAAComplianceLevel,
+  PaymentHIPAADataPermissions,
+  PaymentRelatedPHI,
+  FinancialMentalHealthData,
+
+  // Consent and Authorization
+  PaymentMentalHealthConsent,
+  EmergencyPaymentOverrideAuthorization,
+
+  // Audit and Monitoring
+  PaymentHIPAAAuditEntry,
+  PaymentHIPAAComplianceMonitor,
+  PaymentHIPAAViolation,
+  PaymentHIPAAViolationType,
+  PaymentHIPAAWarning,
+  PaymentHIPAARecommendation
+} from './payment-hipaa-compliance-enhanced';
+
+// Enhanced payment Pressable factory functions and validators
+export {
+  // Type Guards
+  isPaymentPressableProps,
+  isPaymentMethodPressableProps,
+  isCrisisOverridePressableProps,
+  validatePaymentCrisisCompliance,
+  validatePaymentHIPAACompliance,
+
+  // Factory Functions
+  createPaymentMethodPressableProps,
+  createCrisisPaymentOverridePressableProps,
+
+  // Constants
+  PAYMENT_PRESSABLE_CONSTANTS
+} from './payment-pressable-enhanced';
+
+export {
+  // Interaction Type Guards
+  isPaymentMethodSelectionValidation,
+  isPciComplianceValidation,
+  isTherapeuticSubscriptionImpact,
+  isPaymentInteractionError,
+
+  // Factory Functions
+  createPaymentMethodSelectionProps,
+  createCrisisPaymentSupportProps,
+
+  // Constants
+  PAYMENT_INTERACTION_CONSTANTS
+} from './payment-interaction-enhanced';
+
+export {
+  // Crisis Detection Type Guards
+  isPaymentAnxietySeverity,
+  isFinancialStressIndicators,
+  isPaymentAnxietyEvent,
+  isPaymentAnxietyIntervention,
+
+  // Validation Functions
+  validateAnxietyCrisisTiming,
+  validateTherapeuticAccuracy,
+
+  // Factory Functions
+  createPaymentAnxietyDetectionConfig,
+  createFinancialStressIndicators,
+
+  // Constants
+  PAYMENT_ANXIETY_CONSTANTS
+} from './payment-crisis-detection-enhanced';
+
+export {
+  // HIPAA Compliance Type Guards
+  isPaymentHIPAADataClassification,
+  isPaymentMentalHealthConsent,
+  isPaymentHIPAAAuditEntry,
+
+  // Validation Functions
+  validatePaymentMentalHealthHIPAACompliance,
+  validateEmergencyOverrideAuthorization,
+
+  // Factory Functions
+  createFinancialMentalHealthData,
+  createEmergencyPaymentOverrideAuthorization,
+
+  // Constants
+  PAYMENT_HIPAA_CONSTANTS
+} from './payment-hipaa-compliance-enhanced';
+
+// === CLINICAL TYPE SAFETY SYSTEM (PHASE 4.2B) ===
+
+// Core clinical component type safety with crisis response timing validation
+export type {
+  // Crisis Response Timing Types (<200ms enforcement)
+  CrisisResponseTiming,
+  CrisisResponseTimingConstraints,
+  CrisisResponseTimingValidation,
+  CrisisResponsePerformanceMetrics,
+  EmergencyResponseTiming,
+
+  // Clinical Accuracy Types (100% accuracy requirement)
+  ClinicalAccuracyValidation,
+  ClinicalAccuracyMetrics,
+  AssessmentAccuracyValidation,
+  PHQ9AccuracyValidation,
+  GAD7AccuracyValidation,
+  ClinicalCalculationValidation,
+
+  // MBCT Compliance Types
+  MBCTComplianceValidation,
+  MBCTTherapeuticValidation,
+  MBCTInteractionValidation,
+  TherapeuticTimingValidation,
+  MindfulnessValidation,
+
+  // Emergency Protocol Types
+  EmergencyProtocolValidation,
+  EmergencyContactValidation,
+  HotlineIntegrationValidation,
+  CrisisDetectionValidation,
+  SafetyProtocolValidation,
+
+  // Accessibility Compliance Types (WCAG AA enforcement)
+  AccessibilityComplianceValidation,
+  WCAGAAValidation,
+  AccessibilityPerformanceValidation,
+  InclusiveDesignValidation,
+  CrisisAccessibilityValidation
+} from './clinical-component-types';
+
+// Enhanced clinical assessment types with strict validation
+export type {
+  // PHQ-9 Assessment Types
+  PHQ9Question,
+  PHQ9Response,
+  PHQ9Score,
+  PHQ9Severity,
+  PHQ9ScoreRange,
+  PHQ9CrisisThreshold,
+  PHQ9ValidationResult,
+
+  // GAD-7 Assessment Types
+  GAD7Question,
+  GAD7Response,
+  GAD7Score,
+  GAD7Severity,
+  GAD7ScoreRange,
+  GAD7CrisisThreshold,
+  GAD7ValidationResult,
+
+  // Assessment Processing Types
+  AssessmentProcessor,
+  AssessmentValidator,
+  ClinicalCalculationEngine,
+  AssessmentResultProcessor,
+  CrisisDetectionProcessor,
+
+  // Assessment Performance Metrics
+  AssessmentPerformanceMetrics,
+  CalculationPerformanceMetrics,
+  ValidationPerformanceMetrics
+} from './enhanced-clinical-assessment-types';
+
+// MBCT therapeutic interaction types
+export type {
+  // Core MBCT Types
+  MBCTTherapeuticInteraction,
+  MBCTInteractionType,
+  MBCTComplianceLevel,
+  MBCTValidationResult,
+
+  // Mindfulness Practice Types
+  MindfulnessPractice,
+  MindfulnessPracticeType,
+  MindfulnessValidation,
+  BreathingExerciseValidation,
+
+  // Cognitive Therapy Types
+  CognitiveTherapyInteraction,
+  CognitiveTherapyValidation,
+  ThoughtPatternAnalysis,
+  CognitiveRestructuring,
+
+  // Therapeutic Timing Types
+  TherapeuticTiming,
+  TherapeuticTimingValidation,
+  BreathingTimingValidation,
+  SessionTimingValidation,
+
+  // Integration Types
+  MBCTIntegrationValidation,
+  TherapeuticDataIntegration,
+  MBCTComplianceMonitor
+} from './mbct-therapeutic-interaction-types';
+
+// Emergency protocol safety types with zero false negative tolerance
+export type {
+  // Crisis Detection System
+  CrisisDetectionSystem,
+  CrisisDetectionResult,
+  CrisisDetectionMetrics,
+  FalseNegativeValidation,
+  CrisisDetectionPerformance,
+
+  // Emergency Response Types
+  EmergencyResponse,
+  EmergencyResponseType,
+  EmergencyResponseTiming,
+  EmergencyContactSystem,
+  EmergencyProtocol,
+
+  // Hotline Integration Types
+  HotlineIntegration,
+  HotlineValidation,
+  HotlineContactValidation,
+  EmergencyCallValidation,
+
+  // Safety Protocol Types
+  SafetyProtocol,
+  SafetyProtocolValidation,
+  SafetyMeasureValidation,
+  EmergencyDataAccess,
+
+  // Emergency Performance Types
+  EmergencyPerformanceMetrics,
+  EmergencyResponseMetrics,
+  CrisisTimingMetrics
+} from './emergency-protocol-safety-types';
+
+// WCAG accessibility compliance types with enhanced crisis requirements
+export type {
+  // Core WCAG Types
+  WCAGComplianceLevel,
+  WCAGValidationResult,
+  WCAGAACompliance,
+  AccessibilityStandard,
+  AccessibilityValidation,
+
+  // Crisis Accessibility Types
+  CrisisAccessibilityRequirements,
+  CrisisUIValidation,
+  EmergencyAccessibilityValidation,
+  CrisisNavigationValidation,
+
+  // Enhanced Accessibility Types
+  ContrastValidation,
+  SizeValidation,
+  FocusValidation,
+  ScreenReaderValidation,
+  KeyboardNavigationValidation,
+
+  // Accessibility Performance Types
+  AccessibilityPerformanceValidation,
+  AccessibilityMetrics,
+  AccessibilityComplianceMetrics,
+
+  // Inclusive Design Types
+  InclusiveDesignValidation,
+  CognitiveAccessibilityValidation,
+  MotorAccessibilityValidation,
+  VisualAccessibilityValidation,
+  AuditoryAccessibilityValidation
+} from './wcag-accessibility-compliance-types';
+
+// Comprehensive clinical component validation system
+export type {
+  // Master Clinical Validation Types
+  ClinicalComponentValidation,
+  ClinicalComponentConfig,
+  ClinicalValidationHierarchy,
+  ClinicalValidationResult,
+  ClinicalValidationSummary,
+
+  // Component Specific Validations
+  OnboardingCrisisButtonValidation,
+  OnboardingCrisisAlertValidation,
+  ClinicalCarouselValidation,
+  PHQAssessmentPreviewValidation,
+  ClinicalPaneValidation,
+
+  // Production Readiness Types
+  ProductionReadinessValidation,
+  ClinicalProductionConfig,
+  ClinicalDeploymentValidation,
+  ClinicalPerformanceValidation,
+
+  // Integration Validation Types
+  ClinicalIntegrationValidation,
+  ClinicalStoreIntegration,
+  ClinicalNavigationIntegration,
+  ClinicalErrorHandlingIntegration,
+
+  // Master Validation System
+  ClinicalMasterValidator,
+  ClinicalValidationEngine,
+  ClinicalComplianceEngine,
+  ClinicalSafetyValidator
+} from './comprehensive-clinical-component-types';
+
+// Clinical type safety validation utilities and constants
+export {
+  // Type Guards
+  isCrisisResponseTiming,
+  isClinicalAccuracyValidation,
+  isMBCTCompliant,
+  isEmergencyProtocolValid,
+  isWCAGAACompliant,
+
+  // Validation Functions
+  validateCrisisResponseTiming,
+  validateClinicalAccuracy,
+  validateMBCTCompliance,
+  validateEmergencyProtocol,
+  validateAccessibilityCompliance,
+
+  // Factory Functions
+  createCrisisResponseConfig,
+  createClinicalAccuracyValidator,
+  createMBCTValidator,
+  createEmergencyProtocolValidator,
+  createAccessibilityValidator,
+
+  // Constants
+  CLINICAL_TYPE_SAFETY_CONSTANTS,
+  CRISIS_RESPONSE_CONSTANTS,
+  CLINICAL_ACCURACY_CONSTANTS,
+  MBCT_COMPLIANCE_CONSTANTS,
+  EMERGENCY_PROTOCOL_CONSTANTS,
+  ACCESSIBILITY_COMPLIANCE_CONSTANTS
+} from './comprehensive-clinical-component-types';
+
+// === NEW ARCHITECTURE ENHANCED TYPES ===
+
+// New Architecture enhancements for React Native Pressable migration
+export type * from './new-architecture-enhanced';
+export type * from './new-architecture-types';
+
+// Enhanced type utilities for Button components
+export {
+  // Enhanced type guards for Button components
+  isTherapeuticStyleFunction,
+  isCrisisOptimized,
+  validatePerformanceConfig,
+  createCrisisButtonConfig,
+  createTherapeuticAnimation,
+
+  // Enhanced constants
+  NEW_ARCHITECTURE_CONSTANTS
+} from './new-architecture-enhanced';
+
+// === PERFORMANCE MONITORING SYSTEM TYPES (PHASE 4.3B) ===
+
+// Core performance monitoring types with healthcare compliance
+export type {
+  // Core Performance Monitoring Types
+  PerformanceSLA,
+  CrisisResponseTime,
+  TherapeuticTimingAccuracy,
+  PerformanceOverhead,
+  MemoryUsage,
+  FrameRate,
+
+  // Performance Monitoring Coordinator Types
+  PerformanceMonitoringPriority,
+  PerformanceMetricCategory,
+  PerformanceAlertLevel,
+  PerformanceMetric,
+  PerformanceMonitoringSession,
+  PerformanceAlert,
+  SLAViolation,
+
+  // Healthcare Compliance Monitor Types
+  HealthcareComplianceMonitor,
+  ComplianceViolation,
+  ComplianceRecommendation,
+
+  // Real-Time Analytics Engine Types
+  RealTimeAnalyticsConfig,
+  RealTimeAnalyticsEngine,
+  AnalyticsProcessingResult,
+
+  // Observer/Decorator/Strategy Pattern Types
+  PerformanceObserver,
+  HealthcareContext,
+  PerformanceDecorator,
+  HealthcareCompliantComponent,
+  ComplianceValidationResult,
+  PerformanceMonitoringStrategy,
+
+  // TurboStore Manager Integration Types
+  TurboStorePerformanceMetrics,
+  TurboModuleMonitor,
+  TurboStoreOperation,
+  TurboStorePerformanceReport,
+
+  // Migration Validation Types
+  MigrationPerformanceBaseline,
+  MigrationValidationResult,
+  MigrationBenefitsValidator,
+  PerformanceRegression,
+  MigrationComprehensiveReport,
+
+  // Constants and Type System
+  PerformanceMonitoringTypes
+} from './performance-monitoring-types';
+
+// TurboModule performance integration types with Phase 4.3A compatibility
+export type {
+  // TurboModule Core Types
+  TurboModuleCallLatency,
+  TurboModuleMemoryFootprint,
+  TurboModuleOperationType,
+  TurboModulePerformanceTier,
+
+  // TurboStore Manager Integration Types
+  TurboStoreOperation,
+  TurboStorePerformanceMetrics,
+  TurboStoreHealthStatus,
+  TurboStoreIssue,
+  TurboStoreSLAViolation,
+
+  // AsyncStorage TurboModule Types
+  AsyncStorageTurboModuleOperation,
+  AsyncStoragePerformanceMonitor,
+  AsyncStoragePerformanceReport,
+
+  // Calculation TurboModule Types
+  ClinicalCalculationType,
+  CalculationTurboModuleOperation,
+  CalculationPerformanceValidator,
+  CalculationValidationResult,
+  CalculationIssue,
+  CalculationPerformanceReport,
+
+  // Crisis-First Optimization Types
+  CrisisOptimizationStrategy,
+  CrisisOptimizationMethod,
+  CrisisOptimizationResult,
+  OptimizationRegressionTest,
+
+  // TurboModule Monitoring Dashboard Types
+  TurboModuleMonitoringDashboard,
+  TurboModuleMonitoringEntry,
+
+  // Constants and Type System
+  TurboModulePerformanceTypes
+} from './turbo-module-performance-types';
+
+// Comprehensive monitoring implementation types
+export type {
+  // Monitoring Coordinator Implementation Types
+  PerformanceMonitoringCoordinator,
+  MonitoringCoordinatorConfig,
+  MonitoringStorageConfig,
+  MonitoringIntegrationConfig,
+
+  // Performance Monitor Implementations
+  PerformanceMonitor,
+  PerformanceMonitorConfig,
+  AlertThresholds,
+  HealthcareRequirements,
+  RetentionPolicy,
+  ValidationRules,
+  ValidationRule,
+
+  // Specialized Monitor Implementations
+  CrisisResponseMonitor,
+  TherapeuticPerformanceMonitor,
+  ClinicalAccuracyMonitor,
+  MemoryPerformanceMonitor,
+
+  // Alert Management Types
+  AlertManager,
+  AlertEscalationRule,
+  AlertDestination,
+  EscalationCondition,
+  NotificationChannel,
+  NotificationChannelConfig,
+
+  // SLA Management Types
+  SLAManager,
+  SLADefinition,
+  SLAEvaluationResult,
+  SLAComplianceRecord,
+
+  // Healthcare Compliance Types
+  HealthcareComplianceResult,
+  HealthcareComplianceStatus,
+  ComplianceViolation,
+  ComplianceRecommendation,
+
+  // Reporting and Analytics Types
+  PerformanceReport,
+  PerformanceReportMetrics,
+  HealthcareMetrics,
+  TimeWindow,
+  RiskAssessment,
+  ImprovementArea,
+  ActionItem,
+
+  // Utility Types
+  RiskFactor,
+  MitigationStrategy,
+  RetryPolicy,
+  RateLimit,
+  EncryptionConfig,
+  MonitoringDashboardData,
+  SystemHealth,
+  PerformanceSummary,
+  AlertSummary,
+  SLAStatus,
+  SystemIssue,
+
+  // Type System Collection
+  MonitoringImplementationTypes
+} from './monitoring-implementation-types';
+
+// Performance monitoring type guards and factory functions
+export {
+  // Core Type Guards
+  isCrisisResponseTime,
+  isTherapeuticTimingAccuracy,
+  isPerformanceOverhead,
+  isHealthcareContext,
+  isPerformanceMetric,
+
+  // Factory Functions
+  createCrisisResponseTime,
+  createTherapeuticTimingAccuracy,
+  createPerformanceOverhead,
+  createHealthcareContext,
+
+  // Performance Monitoring Constants
+  PERFORMANCE_MONITORING_CONSTANTS,
+  HEALTHCARE_COMPLIANCE_LEVELS,
+  PERFORMANCE_PRIORITIES
+} from './performance-monitoring-types';
+
+// TurboModule performance type guards and factory functions
+export {
+  // TurboModule Type Guards
+  isTurboModuleCallLatency,
+  isTurboStoreOperation,
+  isCalculationTurboModuleOperation,
+  isTurboModuleHealthcareCompliant,
+
+  // TurboModule Factory Functions
+  createTurboModuleCallLatency,
+  createTurboStoreOperation,
+  createCalculationTurboModuleOperation,
+
+  // TurboModule Performance Constants
+  TURBO_MODULE_PERFORMANCE_CONSTANTS,
+  TURBO_MODULE_OPERATION_PRIORITIES,
+  TURBO_MODULE_HEALTHCARE_COMPLIANCE
+} from './turbo-module-performance-types';

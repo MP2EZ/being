@@ -1,28 +1,151 @@
 /**
- * Being. MBCT App - MINIMAL TEST VERSION (Template T2)
- * Testing for property descriptor conflicts
+ * Being. MBCT App - TESTING: STEP 5 - NAVIGATION COMPONENTS
+ * Testing NavigationContainer and Stack for property descriptor compatibility
  */
 
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { NavigationContainer } from '@react-navigation/native';
+import { createStackNavigator } from '@react-navigation/stack';
 import { BaseError } from './src/types/core';
 import { getTimeOfDayTheme } from './src/utils/timeHelpers';
 import { sanitizeTextInput } from './src/utils/validation';
 import { Typography } from './src/components/core/Typography';
-import { Button } from './src/components/core/Button';
+import { NewArchButton } from './src/components/core/NewArchButton';
+import { Slider } from './src/components/core/Slider';
+import { ThemeProvider } from './src/contexts/ThemeContext';
+import { useSimpleUserStore } from './src/store/simpleUserStore';
+import { PHQAssessmentPreview } from './src/components/clinical/components/PHQAssessmentPreview';
 
-export default function App() {
-  console.log('🧪 MINIMAL APP: Testing for property descriptor conflicts');
+const Stack = createStackNavigator();
+
+function HomeScreen({ navigation }: any) {
+  const [testCounter, setTestCounter] = useState(0);
+  const [moodValue, setMoodValue] = useState(5);
+
+  // Test store integration
+  const { user, isLoading, initializeUser, updateUser } = useSimpleUserStore();
+
+  // Test the imported utilities
+  const currentTheme = getTimeOfDayTheme();
+  const testInput = sanitizeTextInput("test input");
+
+  // Initialize user on mount
+  React.useEffect(() => {
+    initializeUser();
+  }, [initializeUser]);
+
+  // Mock clinical data for testing
+  const mockAssessmentData = {
+    score: 8,
+    maxScore: 27,
+    severity: 'Mild' as const,
+    assessmentType: 'PHQ-9' as const,
+    interpretation: 'Mild depression symptoms detected. Continue monitoring and consider therapeutic support.',
+  };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Being. MBCT App</Text>
-      <Text style={styles.subtitle}>Minimal Test - Template T2</Text>
-      <Text style={styles.statusText}>
-        Testing basic React Native components only.
-        No navigation, no stores, no complex dependencies.
-      </Text>
-    </View>
+    <SafeAreaView style={styles.container}>
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
+        <Typography variant="h2">Being. MBCT App - Debugging</Typography>
+        <Typography variant="body">Step 6: Testing Clinical Components</Typography>
+        <Typography variant="caption">Status: PHQAssessmentPreview with New Architecture...</Typography>
+
+        <PHQAssessmentPreview
+          data={mockAssessmentData}
+          title="Depression Assessment (PHQ-9)"
+          subtitle="Clinical validation test"
+        />
+
+        <NewArchButton
+          variant="primary"
+          onPress={() => setTestCounter(prev => prev + 1)}
+          accessibilityLabel="Test button for New Architecture compatibility"
+        >
+          Test Button - Pressed {testCounter} times
+        </NewArchButton>
+
+        <Slider
+          label="Current Mood"
+          value={moodValue}
+          onChange={setMoodValue}
+          min={1}
+          max={10}
+        />
+
+        <NewArchButton
+          variant="secondary"
+          onPress={() => navigation.navigate('Test')}
+          accessibilityLabel="Navigate to test screen"
+        >
+          Go to Test Screen
+        </NewArchButton>
+
+        <NewArchButton
+          variant="primary"
+          onPress={() => updateUser({ name: `User ${Date.now().toString().slice(-4)}` })}
+          accessibilityLabel="Update user name"
+        >
+          Update User Name
+        </NewArchButton>
+
+        <Text style={styles.status}>User: {isLoading ? 'Loading...' : user?.name || 'No User'}</Text>
+        <Text style={styles.status}>Onboarding: {user?.completedOnboarding ? 'Complete' : 'Pending'}</Text>
+        <Text style={styles.status}>Mood: {moodValue}/10</Text>
+        <Text style={styles.status}>Theme: {currentTheme}</Text>
+        <Text style={styles.status}>Test input: {testInput}</Text>
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+function TestScreen({ navigation }: any) {
+  return (
+    <SafeAreaView style={styles.container}>
+      <View style={styles.content}>
+        <Typography variant="h2">Test Screen</Typography>
+        <Typography variant="body">Navigation test successful!</Typography>
+
+        <NewArchButton
+          variant="primary"
+          onPress={() => navigation.goBack()}
+          accessibilityLabel="Go back to home screen"
+        >
+          Go Back
+        </NewArchButton>
+      </View>
+    </SafeAreaView>
+  );
+}
+
+export default function App() {
+  return (
+    <SafeAreaProvider>
+      <ThemeProvider>
+        <NavigationContainer>
+          <Stack.Navigator
+            initialRouteName="Home"
+            screenOptions={{
+              headerStyle: { backgroundColor: '#4A7C59' },
+              headerTintColor: '#fff',
+              headerTitleStyle: { fontWeight: 'bold' },
+            }}
+          >
+            <Stack.Screen
+              name="Home"
+              component={HomeScreen}
+              options={{ title: 'Being. MBCT Debug' }}
+            />
+            <Stack.Screen
+              name="Test"
+              component={TestScreen}
+              options={{ title: 'Test Screen' }}
+            />
+          </Stack.Navigator>
+        </NavigationContainer>
+      </ThemeProvider>
+    </SafeAreaProvider>
   );
 }
 
@@ -31,81 +154,29 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f5f5f5',
   },
-  header: {
+  scrollView: {
+    flex: 1,
+  },
+  content: {
     padding: 20,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    alignItems: 'center',
+    gap: 20,
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
+    color: '#4A7C59',
     textAlign: 'center',
-    color: '#333',
-    marginBottom: 5,
   },
   subtitle: {
     fontSize: 16,
-    textAlign: 'center',
     color: '#666',
-    marginBottom: 15,
+    textAlign: 'center',
   },
-  statusBadge: {
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 15,
-    alignItems: 'center',
-  },
-  successBadge: {
-    backgroundColor: '#d4edda',
-    borderColor: '#c3e6cb',
-    borderWidth: 1,
-  },
-  errorBadge: {
-    backgroundColor: '#f8d7da',
-    borderColor: '#f5c6cb',
-    borderWidth: 1,
-  },
-  statusText: {
-    fontSize: 16,
-    fontWeight: '600',
+  status: {
+    fontSize: 14,
     color: '#333',
-  },
-  buttonRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  switchButton: {
-    backgroundColor: '#4A7C59',
-    padding: 15,
-    borderRadius: 10,
-    alignItems: 'center',
-    flex: 1,
-  },
-  smallButton: {
-    padding: 12,
-  },
-  switchButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  productionHeader: {
-    position: 'absolute',
-    top: 60,
-    right: 15,
-    zIndex: 1000,
-  },
-  testButton: {
-    backgroundColor: 'rgba(0,0,0,0.8)',
-    padding: 8,
-    borderRadius: 20,
-    minWidth: 120,
-    alignItems: 'center',
-  },
-  testButtonText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '500',
+    textAlign: 'center',
+    fontStyle: 'italic',
   },
 });

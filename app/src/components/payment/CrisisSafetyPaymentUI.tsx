@@ -16,7 +16,6 @@ import {
   Text,
   StyleSheet,
   Animated,
-  TouchableOpacity,
   Alert,
   Linking,
   AccessibilityInfo,

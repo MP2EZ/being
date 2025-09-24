@@ -16,7 +16,7 @@
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
-  TouchableOpacity,
+  Pressable,
   Text,
   StyleSheet,
   View,
@@ -167,12 +167,7 @@ export const OnboardingCrisisButton: React.FC<OnboardingCrisisButtonProps> = Rea
       const step = currentStep || getCurrentStep() || 'welcome';
 
       // IMMEDIATE CRISIS FEEDBACK
-      // Haptic feedback for crisis action
-      if (Platform.OS === 'ios') {
-        Vibration.vibrate([0, 250, 100, 250]); // Strong haptic pattern
-      } else {
-        Vibration.vibrate(500); // Android strong vibration
-      }
+      // Haptic feedback now handled in onPressIn for immediate response
 
       // ACCESSIBILITY: Immediate voice announcement
       const urgentAnnouncement = urgencyLevel === 'emergency'
@@ -514,11 +509,17 @@ export const OnboardingCrisisButton: React.FC<OnboardingCrisisButtonProps> = Rea
           }
         ]}
       >
-        <TouchableOpacity
-          style={[...getButtonStyle(), style]}
+        <Pressable
           onPress={handleCrisisActivation}
           onLongPress={handleLongPress}
-          activeOpacity={0.8}
+          onPressIn={() => {
+            // CRITICAL: Crisis feedback MUST remain <100ms
+            if (Platform.OS === 'ios') {
+              Vibration.vibrate([0, 250, 100, 250]); // Strong haptic pattern
+            } else {
+              Vibration.vibrate(500); // Android strong vibration
+            }
+          }}
           disabled={isLoading}
           accessible={true}
           accessibilityRole="button"
@@ -533,6 +534,12 @@ export const OnboardingCrisisButton: React.FC<OnboardingCrisisButtonProps> = Rea
             (isInCrisis || urgencyLevel === 'emergency') ? 'assertive' : 'polite'
           }
           testID="onboarding-crisis-button-floating"
+          style={({ pressed }) => [
+            ...getButtonStyle(),
+            pressed && { opacity: 0.8 },
+            style
+          ]}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
           <Text
             style={getTextStyles()}
@@ -556,17 +563,23 @@ export const OnboardingCrisisButton: React.FC<OnboardingCrisisButtonProps> = Rea
           >
             {isInCrisis ? 'ACTIVE' : urgencyLevel === 'emergency' ? 'URGENT' : 'CRISIS'}
           </Text>
-        </TouchableOpacity>
+        </Pressable>
       </Animated.View>
     );
   }
 
   return (
-    <TouchableOpacity
-      style={[...getButtonStyle(), style]}
+    <Pressable
       onPress={handleCrisisActivation}
       onLongPress={handleLongPress}
-      activeOpacity={0.8}
+      onPressIn={() => {
+        // CRITICAL: Crisis feedback MUST remain <100ms
+        if (Platform.OS === 'ios') {
+          Vibration.vibrate([0, 250, 100, 250]); // Strong haptic pattern
+        } else {
+          Vibration.vibrate(500); // Android strong vibration
+        }
+      }}
       disabled={isLoading}
       accessible={true}
       accessibilityRole="button"
@@ -574,6 +587,12 @@ export const OnboardingCrisisButton: React.FC<OnboardingCrisisButtonProps> = Rea
       accessibilityHint={getAccessibilityHint()}
       accessibilityState={{ disabled: isLoading, selected: isInCrisis }}
       testID="onboarding-crisis-button-embedded"
+      style={({ pressed }) => [
+        ...getButtonStyle(),
+        pressed && { opacity: 0.8 },
+        style
+      ]}
+      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
     >
       <Text
         style={getTextStyles()}
@@ -586,7 +605,7 @@ export const OnboardingCrisisButton: React.FC<OnboardingCrisisButtonProps> = Rea
          urgencyLevel === 'emergency' ? 'Emergency Support' :
          'Crisis Support'}
       </Text>
-    </TouchableOpacity>
+    </Pressable>
   );
 });
 

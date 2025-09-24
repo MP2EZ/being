@@ -16,7 +16,7 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
+  Pressable,
   Switch,
   Slider,
   Alert,
@@ -67,7 +67,7 @@ const AccessibleSettingItem: React.FC<AccessibleSettingItemProps> = React.memo((
   step = 1,
   dangerous = false
 }) => {
-  const itemRef = useRef<TouchableOpacity>(null);
+  const itemRef = useRef<Pressable>(null);
   const [isFocused, setIsFocused] = useState(false);
 
   const {
@@ -298,20 +298,21 @@ const AccessibleSettingItem: React.FC<AccessibleSettingItemProps> = React.memo((
 
   return (
     <Animated.View style={[styles.settingContainer, animatedStyle]}>
-      <TouchableOpacity
+      <Pressable
         ref={itemRef}
-        style={[
+        style={({ pressed }) => [
           styles.settingItem,
           itemSize,
           {
             borderWidth: isFocused ? 3 : dangerous ? 2 : 1,
             borderColor: isFocused ? '#007AFF' : dangerous ? '#EF4444' : '#E5E7EB',
+            opacity: pressed ? 0.8 : 1,
+            backgroundColor: pressed ? 'rgba(0,0,0,0.05)' : '#FFFFFF',
           }
         ]}
         onPress={type === 'button' || type === 'link' ? () => handleInteraction() : undefined}
         onFocus={handleFocus}
         onBlur={handleBlur}
-        activeOpacity={0.8}
         disabled={type === 'switch' || type === 'slider'}
         accessible={true}
         accessibilityRole={type === 'switch' ? 'switch' : type === 'slider' ? 'adjustable' : 'button'}
@@ -374,7 +375,7 @@ const AccessibleSettingItem: React.FC<AccessibleSettingItemProps> = React.memo((
             {renderControl()}
           </View>
         </View>
-      </TouchableOpacity>
+      </Pressable>
     </Animated.View>
   );
 });

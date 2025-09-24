@@ -1,5 +1,5 @@
 import React, { memo, useCallback, useMemo, useEffect } from 'react';
-import { View, StyleSheet, TouchableOpacity, ViewStyle } from 'react-native';
+import { View, StyleSheet, Pressable, ViewStyle } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   withSpring,
@@ -136,13 +136,20 @@ export const Card: React.FC<CardProps> = ({
   if (clickable && onPress) {
     return (
       <Animated.View style={[styles.card, baseCardStyle, animatedStyle, style]}>
-        <TouchableOpacity
-          style={styles.touchableContent}
+        <Pressable
+          style={({ pressed }) => [
+            styles.touchableContent,
+            pressed && styles.touchableContentPressed
+          ]}
           onPress={handlePress}
-          activeOpacity={0.9} // Slightly higher opacity for therapeutic feel
+          accessibilityRole="button"
+          android_ripple={{
+            color: '#00000010',
+            borderless: false
+          }}
         >
           {children}
-        </TouchableOpacity>
+        </Pressable>
       </Animated.View>
     );
   }
@@ -174,5 +181,8 @@ const styles = StyleSheet.create({
     // Ensure touchable area covers entire card
     flex: 1,
     minHeight: 44, // WCAG AA compliant touch target
+  },
+  touchableContentPressed: {
+    opacity: 0.9,
   },
 });

@@ -9,7 +9,7 @@
  */
 
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Button } from '../../components/core';
@@ -364,33 +364,39 @@ export const TypeSafePHQ9Screen: React.FC = () => {
       const isSelected = currentAnswer === option.value;
 
       return (
-        <TouchableOpacity
+        <Button
           key={option.value}
+          variant={isSelected ? "primary" : "outline"}
+          onPress={() => handleAnswerSelect(assessmentState.currentQuestion, option.value)}
           style={[
             styles.answerOption,
             isSelected && styles.answerOptionSelected
           ]}
-          onPress={() => handleAnswerSelect(assessmentState.currentQuestion, option.value)}
-          activeOpacity={0.7}
+          accessibilityLabel={`${option.text}, option ${option.value + 1} of 4`}
+          accessibilityHint={isSelected ? "Selected answer option" : "Tap to select this answer"}
+          fullWidth={true}
+          haptic={true}
         >
-          <View style={[
-            styles.answerRadio,
-            isSelected && styles.answerRadioSelected
-          ]}>
-            {isSelected && <View style={styles.answerRadioInner} />}
-          </View>
-          <View style={styles.answerTextContainer}>
-            <Text style={[
-              styles.answerText,
-              isSelected && styles.answerTextSelected
+          <View style={styles.answerContent}>
+            <View style={[
+              styles.answerRadio,
+              isSelected && styles.answerRadioSelected
             ]}>
-              {option.text}
-            </Text>
-            <Text style={styles.answerDescription}>
-              {option.clinicalDescription}
-            </Text>
+              {isSelected && <View style={styles.answerRadioInner} />}
+            </View>
+            <View style={styles.answerTextContainer}>
+              <Text style={[
+                styles.answerText,
+                isSelected && styles.answerTextSelected
+              ]}>
+                {option.text}
+              </Text>
+              <Text style={styles.answerDescription}>
+                {option.clinicalDescription}
+              </Text>
+            </View>
           </View>
-        </TouchableOpacity>
+        </Button>
       );
     });
   };
@@ -551,6 +557,11 @@ const styles = StyleSheet.create({
   answerOptionSelected: {
     borderColor: colorSystem.status.warning,
     backgroundColor: colorSystem.status.warningBackground,
+  },
+  answerContent: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    width: '100%',
   },
   answerRadio: {
     width: 20,

@@ -15,7 +15,7 @@ import {
   Text,
   StyleSheet,
   Alert,
-  TouchableOpacity,
+  Pressable,
   ScrollView,
   AccessibilityInfo,
   Vibration,
@@ -563,12 +563,8 @@ export const OnboardingCrisisAlert: React.FC<OnboardingCrisisAlertProps> = ({
               </Typography>
 
               {crisisResources.map((resource) => (
-                <TouchableOpacity
+                <Pressable
                   key={resource.id}
-                  style={[
-                    styles.resourceItem,
-                    resource.urgency === 'immediate' && styles.immediateResource
-                  ]}
                   onPress={() => {
                     if (resource.action === 'call') {
                       if (resource.value === '988') {
@@ -580,9 +576,23 @@ export const OnboardingCrisisAlert: React.FC<OnboardingCrisisAlertProps> = ({
                       executeCrisisAction('textCrisisLine');
                     }
                   }}
+                  onPressIn={() => {
+                    // CRITICAL: Crisis feedback MUST remain <100ms for emergency response
+                    if (resource.urgency === 'immediate') {
+                      Vibration.vibrate([0, 250, 100, 250]); // Strong haptic for emergency
+                    } else {
+                      Vibration.vibrate(250); // Standard haptic for support
+                    }
+                  }}
                   accessible={true}
                   accessibilityLabel={`${resource.name}: ${resource.description}`}
                   accessibilityRole="button"
+                  style={({ pressed }) => [
+                    styles.resourceItem,
+                    resource.urgency === 'immediate' && styles.immediateResource,
+                    pressed && { opacity: 0.8 }
+                  ]}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
                   <View style={styles.resourceInfo}>
                     <Typography
@@ -604,7 +614,7 @@ export const OnboardingCrisisAlert: React.FC<OnboardingCrisisAlertProps> = ({
                       Available: {resource.available}
                     </Typography>
                   </View>
-                </TouchableOpacity>
+                </Pressable>
               ))}
 
               <Button

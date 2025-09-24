@@ -3,8 +3,8 @@
  * Reusable grid with emoji support and theme awareness
  */
 
-import React, { useCallback, useMemo } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, FlatList, AccessibilityInfo } from 'react-native';
+import React, { useCallback, useMemo, useState } from 'react';
+import { View, Text, Pressable, StyleSheet, FlatList, AccessibilityInfo } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -16,6 +16,7 @@ import Animated, {
 import { colorSystem, spacing, borderRadius } from '../../constants/colors';
 import { useCommonHaptics } from '../../hooks/useHaptics';
 import { useTherapeuticAccessibility } from '../accessibility/TherapeuticAccessibilityProvider';
+import { AccessibleCrisisButton } from '../accessibility/AccessibleCrisisButton';
 
 interface EmotionGridProps {
   selected: string[];
@@ -45,6 +46,21 @@ const EMOTIONS: Emotion[] = [
   { id: 'hopeful', label: 'Hopeful' },
   { id: 'content', label: 'Content' },
   { id: 'stressed', label: 'Stressed' },
+];
+
+// Crisis-indicating emotions that may require intervention
+const CRISIS_EMOTIONS = [
+  'suicidal', 'hopeless', 'overwhelmed', 'desperate', 'empty', 'numb', 'worthless'
+];
+
+// High-concern emotions that warrant additional support
+const HIGH_CONCERN_EMOTIONS = [
+  'anxious', 'stressed', 'frustrated', 'sad', 'confused'
+];
+
+// Positive emotions that deserve celebration in depression support
+const POSITIVE_EMOTIONS = [
+  'happy', 'calm', 'grateful', 'hopeful', 'content', 'excited'
 ];
 
 // Animated emotion item component for therapeutic interactions
@@ -95,22 +111,22 @@ const AnimatedEmotionItem: React.FC<{
         }
       ]}
     >
-      <TouchableOpacity
-        style={[
+      <Pressable
+        style={({ pressed }) => [
           styles.emotionItem,
           {
             backgroundColor: isSelected ? themeColors.background : colorSystem.gray[100],
             borderColor: isSelected ? themeColors.primary : colorSystem.gray[200],
             borderWidth: isSelected ? 2 : 1,
             minHeight: anxietyAware ? 80 : 72, // Larger touch targets for anxiety
+            opacity: pressed ? 0.8 : 1,
           }
         ]}
         onPress={handlePress}
-        activeOpacity={0.8}
         accessibilityRole="button"
         accessibilityState={{ selected: isSelected }}
         accessibilityLabel={`${emotion.label} emotion ${isSelected ? 'selected' : 'not selected'}`}
-        accessibilityHint={`Double tap to ${isSelected ? 'deselect' : 'select'} ${emotion.label}. ${multiSelect ? 'You can select multiple emotions.' : 'This will replace your current selection.'}`}
+        accessibilityHint={`Double tap to ${isSelected ? 'deselect' : 'select'} ${emotion.label}.`}
       >
         <Text
           style={[
@@ -124,7 +140,7 @@ const AnimatedEmotionItem: React.FC<{
         >
           {emotion.label}
         </Text>
-      </TouchableOpacity>
+      </Pressable>
     </Animated.View>
   );
 });
@@ -139,18 +155,54 @@ export const EmotionGrid: React.FC<EmotionGridProps> = ({
   mindfulPacing = false
 }) => {
   const { onSelect } = useCommonHaptics();
+  const [crisisDetected, setCrisisDetected] = useState(false);
+  const [showCrisisSupport, setShowCrisisSupport] = useState(false);
 
   // Therapeutic Accessibility Context
   const {
     anxietyAdaptationsEnabled,
     depressionSupportMode,
+    crisisEmergencyMode,
     isScreenReaderEnabled,
     announceForTherapy,
     provideTharapeuticFeedback,
+    activateEmergencyCrisisAccess,
+    announceEmergencyInstructions,
   } = useTherapeuticAccessibility();
 
   // Memoized theme colors for performance
   const themeColors = useMemo(() => colorSystem.themes[theme], [theme]);
+
+  // Crisis detection for concerning emotion selections
+  const handleCrisisDetection = useCallback(async (emotionId: string) => {
+    // Check for direct crisis indicators
+    if (CRISIS_EMOTIONS.includes(emotionId)) {
+      setCrisisDetected(true);
+      setShowCrisisSupport(true);
+
+      await activateEmergencyCrisisAccess('emotion_selection_crisis');
+      await announceEmergencyInstructions(
+        `Crisis support activated. You selected ${emotionId} which indicates you may need immediate help. Professional support is available now.`
+      );
+      return true;
+    }
+
+    // Check for patterns of high-concern emotions
+    const concerningCount = selected.filter(emotion =>
+      HIGH_CONCERN_EMOTIONS.includes(emotion) || CRISIS_EMOTIONS.includes(emotion)
+    ).length;
+
+    if (concerningCount >= 3 && !crisisDetected) {
+      setShowCrisisSupport(true);
+      await announceForTherapy(
+        'I notice you\'re experiencing several challenging emotions. Crisis support is available if you need immediate help.',
+        'assertive'
+      );
+      return false; // Not immediate crisis, but increased support
+    }
+
+    return false;
+  }, [selected, crisisDetected, activateEmergencyCrisisAccess, announceEmergencyInstructions, announceForTherapy]);
 
   // Enhanced emotion selection with therapeutic feedback
   const announceEmotionSelection = useCallback(async (emotionId: string, isSelected: boolean) => {
@@ -193,14 +245,25 @@ export const EmotionGrid: React.FC<EmotionGridProps> = ({
       await new Promise(resolve => setTimeout(resolve, anxietyAdaptationsEnabled ? 150 : 100));
     }
 
-    // Therapeutic haptic feedback
-    const shouldUseHaptic = !anxietyAware && !anxietyAdaptationsEnabled;
+    // Determine selection state
+    const wasSelected = selected.includes(emotionId);
+
+    // PRIORITY: Crisis detection for new selections
+    if (!wasSelected) {
+      const isCrisis = await handleCrisisDetection(emotionId);
+      if (isCrisis) {
+        // Crisis detected - do not proceed with normal selection
+        // Crisis intervention will handle the flow
+        return;
+      }
+    }
+
+    // Therapeutic haptic feedback (gentler for crisis/anxiety states)
+    const shouldUseHaptic = !anxietyAware && !anxietyAdaptationsEnabled && !crisisDetected;
     if (shouldUseHaptic) {
       await onSelect();
     }
 
-    // Determine selection state
-    const wasSelected = selected.includes(emotionId);
     let newSelected: string[];
 
     if (multiSelect) {
@@ -211,16 +274,22 @@ export const EmotionGrid: React.FC<EmotionGridProps> = ({
       newSelected = wasSelected ? [] : [emotionId];
     }
 
-    // Announce selection with therapeutic context
+    // Announce selection with enhanced therapeutic context
     await announceEmotionSelection(emotionId, !wasSelected);
 
-    // Provide therapeutic feedback for meaningful emotions
-    if (!wasSelected && depressionSupportMode) {
-      const positiveMoods = ['happy', 'calm', 'grateful', 'hopeful', 'content'];
-      if (positiveMoods.includes(emotionId)) {
+    // Enhanced therapeutic feedback based on emotion type
+    if (!wasSelected) {
+      if (depressionSupportMode && POSITIVE_EMOTIONS.includes(emotionId)) {
         setTimeout(() => {
           provideTharapeuticFeedback('celebrating');
         }, 500);
+      } else if (HIGH_CONCERN_EMOTIONS.includes(emotionId)) {
+        setTimeout(async () => {
+          await announceForTherapy(
+            'Experiencing difficult emotions is part of being human. You\'re being honest about your feelings, which takes courage.',
+            'polite'
+          );
+        }, 1000);
       }
     }
 
@@ -230,12 +299,15 @@ export const EmotionGrid: React.FC<EmotionGridProps> = ({
     anxietyAware,
     anxietyAdaptationsEnabled,
     depressionSupportMode,
+    crisisDetected,
     onSelect,
     multiSelect,
     selected,
     onSelectionChange,
+    handleCrisisDetection,
     announceEmotionSelection,
-    provideTharapeuticFeedback
+    provideTharapeuticFeedback,
+    announceForTherapy
   ]);
 
   const renderEmotion = useCallback(({ item }: { item: Emotion }) => {
@@ -258,9 +330,50 @@ export const EmotionGrid: React.FC<EmotionGridProps> = ({
       style={styles.container}
       accessible={true}
       accessibilityRole="group"
-      accessibilityLabel={`Emotion selection grid with ${EMOTIONS.length} emotions`}
-      accessibilityHint={multiSelect ? 'Select one or more emotions that describe how you\'re feeling' : 'Select one emotion that best describes how you\'re feeling'}
+      accessibilityLabel={`Emotion selection grid with ${EMOTIONS.length} emotions${crisisDetected ? ' - Crisis support active' : ''}`}
+      accessibilityHint={
+        crisisDetected
+          ? 'Crisis support is now available. Professional help is immediately accessible.'
+          : multiSelect
+            ? 'Select one or more emotions that describe how you\'re feeling. Say "emergency help" if you need crisis support.'
+            : 'Select one emotion that best describes how you\'re feeling. Say "emergency help" if you need crisis support.'
+      }
     >
+      {/* Crisis Support Button - Conditionally Displayed */}
+      {(showCrisisSupport || crisisEmergencyMode) && (
+        <View style={styles.crisisContainer}>
+          <AccessibleCrisisButton
+            variant="embedded"
+            emergencyMode={crisisDetected}
+            anxietyAdaptations={anxietyAdaptationsEnabled}
+            traumaInformed={true}
+            voiceActivated={true}
+            size={crisisDetected ? 'emergency' : 'large'}
+            style={styles.crisisButton}
+            onCrisisStart={() => {
+              // Additional crisis handling if needed
+              console.log('Crisis support activated from EmotionGrid');
+            }}
+          />
+          <Text
+            style={[
+              styles.crisisText,
+              crisisDetected && styles.emergencyCrisisText
+            ]}
+            accessible={true}
+            accessibilityRole="text"
+            accessibilityLiveRegion="assertive"
+            allowFontScaling={true}
+            maxFontSizeMultiplier={1.5}
+          >
+            {crisisDetected
+              ? '🚨 Crisis support is active. Professional help is available now.'
+              : '💙 Need extra support? Crisis counselors are available 24/7.'
+            }
+          </Text>
+        </View>
+      )}
+
       <FlatList
         data={EMOTIONS}
         renderItem={renderEmotion}
@@ -273,6 +386,27 @@ export const EmotionGrid: React.FC<EmotionGridProps> = ({
         accessible={false} // Let individual items be accessible instead
         accessibilityElementsHidden={false}
       />
+
+      {/* Therapeutic Instructions for Screen Readers */}
+      {isScreenReaderEnabled && (
+        <View style={styles.instructionsContainer}>
+          <Text
+            style={styles.hiddenInstructions}
+            accessible={true}
+            accessibilityLiveRegion="polite"
+            accessibilityHint="Additional guidance for emotion selection"
+            allowFontScaling={true}
+            maxFontSizeMultiplier={1.3}
+          >
+            {anxietyAdaptationsEnabled
+              ? 'Take your time selecting emotions. There\'s no pressure to choose quickly. Voice commands available: "emergency help" for crisis support.'
+              : depressionSupportMode
+                ? 'You\'re taking a positive step by identifying your emotions. Every feeling is valid and deserves acknowledgment.'
+                : 'Select emotions that match how you\'re feeling. Voice commands: "emergency help" for immediate crisis support.'
+            }
+          </Text>
+        </View>
+      )}
     </View>
   );
 };
@@ -281,6 +415,46 @@ const styles = StyleSheet.create({
   container: {
     marginVertical: spacing.sm,
   },
+  // Crisis Support Styles
+  crisisContainer: {
+    backgroundColor: colorSystem.status.errorBackground,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    borderRadius: borderRadius.medium,
+    borderLeftWidth: 4,
+    borderLeftColor: colorSystem.status.error,
+    alignItems: 'center',
+  },
+  crisisButton: {
+    marginBottom: spacing.sm,
+  },
+  crisisText: {
+    fontSize: 14,
+    color: colorSystem.status.error,
+    textAlign: 'center',
+    lineHeight: 20,
+    fontWeight: '500',
+  },
+  emergencyCrisisText: {
+    fontSize: 16,
+    color: colorSystem.status.critical,
+    fontWeight: '700',
+  },
+  // Accessibility Instructions
+  instructionsContainer: {
+    marginTop: spacing.sm,
+    padding: spacing.sm,
+    backgroundColor: colorSystem.gray[50],
+    borderRadius: borderRadius.small,
+  },
+  hiddenInstructions: {
+    fontSize: 13,
+    color: colorSystem.gray[700],
+    lineHeight: 18,
+    textAlign: 'center',
+    fontStyle: 'italic',
+  },
+  // Grid Styles
   grid: {
     paddingVertical: spacing.xs,
   },

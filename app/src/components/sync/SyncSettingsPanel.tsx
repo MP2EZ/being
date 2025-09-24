@@ -10,13 +10,13 @@
  * - Crisis safety: Emergency access always preserved
  */
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
   ScrollView,
   Switch,
-  TouchableOpacity,
+  Pressable,
   StyleSheet,
   Alert,
   Modal,
@@ -304,9 +304,9 @@ export const SyncSettingsPanel: React.FC<SyncSettingsPanelProps> = React.memo(({
       </View>
       <View style={styles.selectionContainer}>
         {options.map(option => (
-          <TouchableOpacity
+          <Pressable
             key={option.value}
-            style={[
+            style={({ pressed }) => [
               styles.selectionOption,
               {
                 backgroundColor: selectedValue === option.value
@@ -315,7 +315,8 @@ export const SyncSettingsPanel: React.FC<SyncSettingsPanelProps> = React.memo(({
                 borderColor: selectedValue === option.value
                   ? colorSystem.status.info
                   : colorSystem.gray[300]
-              }
+              },
+              pressed && { opacity: 0.8, transform: [{ scale: 0.96 }] }
             ]}
             onPress={() => onSelect(option.value)}
           >
@@ -329,7 +330,7 @@ export const SyncSettingsPanel: React.FC<SyncSettingsPanelProps> = React.memo(({
             ]}>
               {option.label}
             </Text>
-          </TouchableOpacity>
+          </Pressable>
         ))}
       </View>
     </View>
@@ -559,14 +560,17 @@ export const SyncSettingsPanel: React.FC<SyncSettingsPanelProps> = React.memo(({
         ), '🚨')}
 
         {/* Advanced Settings */}
-        <TouchableOpacity
-          style={styles.advancedToggle}
+        <Pressable
+          style={({ pressed }) => [
+            styles.advancedToggle,
+            pressed && { opacity: 0.8, transform: [{ scale: 0.96 }] }
+          ]}
           onPress={() => setShowAdvanced(!showAdvanced)}
         >
           <Text style={[styles.advancedToggleText, { color: colorSystem.status.info }]}>
             {showAdvanced ? '▼' : '▶'} Advanced Settings
           </Text>
-        </TouchableOpacity>
+        </Pressable>
 
         {showAdvanced && renderSection('Advanced', (
           <>
@@ -631,15 +635,26 @@ export const SyncSettingsPanel: React.FC<SyncSettingsPanelProps> = React.memo(({
       >
         <SafeAreaView style={styles.fullScreen}>
           <View style={styles.modalHeader}>
-            <TouchableOpacity onPress={onClose}>
+            <Pressable 
+              onPress={onClose}
+              style={({ pressed }) => [
+                pressed && { opacity: 0.8, transform: [{ scale: 0.96 }] }
+              ]}
+            >
               <Text style={[styles.modalCloseButton, { color: colorSystem.status.info }]}>
                 {hasChanges ? 'Cancel' : 'Done'}
               </Text>
-            </TouchableOpacity>
+            </Pressable>
             <Text style={[styles.modalTitle, { color: colorSystem.accessibility.text.primary }]}>
               Sync Settings
             </Text>
-            <TouchableOpacity onPress={handleSave} disabled={!hasChanges}>
+            <Pressable 
+              onPress={handleSave} 
+              disabled={!hasChanges}
+              style={({ pressed }) => [
+                pressed && !hasChanges && { opacity: 0.8, transform: [{ scale: 0.96 }] }
+              ]}
+            >
               <Text style={[
                 styles.modalSaveButton,
                 {
@@ -648,7 +663,7 @@ export const SyncSettingsPanel: React.FC<SyncSettingsPanelProps> = React.memo(({
               ]}>
                 Save
               </Text>
-            </TouchableOpacity>
+            </Pressable>
           </View>
           {content}
         </SafeAreaView>

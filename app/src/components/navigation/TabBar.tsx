@@ -10,7 +10,7 @@
  */
 
 import React, { useCallback, useMemo, useEffect } from 'react';
-import { View, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import { View, Pressable, StyleSheet, Platform } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -133,19 +133,23 @@ const AnimatedTabItem: React.FC<{
   const minTouchTarget = anxietyAware ? 54 : 44; // WCAG AA+ for anxiety
 
   return (
-    <TouchableOpacity
-      style={[
+    <Pressable
+      style={({ pressed }) => [
         styles.tabItem,
         {
           minHeight: minTouchTarget,
           minWidth: minTouchTarget,
-        }
+        },
+        pressed && styles.tabItemPressed
       ]}
       onPress={handlePress}
-      activeOpacity={0.7}
       accessibilityRole="tab"
       accessibilityState={{ selected: isActive }}
       accessibilityLabel={tab.accessibilityLabel || `${tab.label} tab`}
+      android_ripple={{
+        color: '#00000020',
+        borderless: false
+      }}
     >
       <Animated.View style={[styles.tabContent, animatedStyle]}>
         <Animated.Text
@@ -175,7 +179,7 @@ const AnimatedTabItem: React.FC<{
           {tab.label}
         </Typography>
       </Animated.View>
-    </TouchableOpacity>
+    </Pressable>
   );
 });
 
@@ -220,20 +224,24 @@ const CrisisAccessButton: React.FC<{
 
   return (
     <Animated.View style={[styles.crisisButton, pulseStyle]}>
-      <TouchableOpacity
-        style={[
+      <Pressable
+        style={({ pressed }) => [
           styles.crisisButtonContent,
           {
             backgroundColor: themeColors.crisis || colorSystem.status.critical,
             minHeight: anxietyAware ? 54 : 48,
             minWidth: anxietyAware ? 54 : 48,
-          }
+          },
+          pressed && styles.crisisButtonPressed
         ]}
         onPress={onPress}
-        activeOpacity={0.8}
         accessibilityRole="button"
         accessibilityLabel="Emergency crisis support - tap for immediate help"
         accessibilityHint="Opens crisis intervention and support resources"
+        android_ripple={{
+          color: '#ffffff40',
+          borderless: false
+        }}
       >
         <Typography
           variant="crisis"
@@ -242,7 +250,7 @@ const CrisisAccessButton: React.FC<{
         >
           🆘
         </Typography>
-      </TouchableOpacity>
+      </Pressable>
     </Animated.View>
   );
 });
@@ -338,6 +346,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: spacing.xs,
   },
+  tabItemPressed: {
+    opacity: 0.7,
+    transform: [{ scale: 0.98 }],
+  },
   tabContent: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -368,6 +380,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 6,
     elevation: 6,
+  },
+  crisisButtonPressed: {
+    opacity: 0.9,
+    transform: [{ scale: 0.95 }],
   },
   crisisButtonText: {
     fontSize: 20,

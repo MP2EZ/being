@@ -9,7 +9,7 @@ import {
   Text, 
   StyleSheet, 
   ScrollView, 
-  TouchableOpacity,
+  Pressable,
   Alert,
   RefreshControl 
 } from 'react-native';
@@ -163,19 +163,27 @@ export const FeatureFlagDashboard: React.FC<FeatureFlagDashboardProps> = ({
         <View style={styles.emergencySection}>
           <Text style={styles.sectionTitle}>Emergency Controls</Text>
           <View style={styles.emergencyControls}>
-            <TouchableOpacity 
-              style={[styles.emergencyButton, styles.shutdownButton]}
+            <Pressable 
+              style={({ pressed }) => [
+                styles.emergencyButton, 
+                styles.shutdownButton,
+                pressed && { backgroundColor: '#b91c1c', transform: [{ scale: 0.98 }] }
+              ]}
               onPress={handleEmergencyShutdown}
             >
               <Text style={styles.emergencyButtonText}>🚨 Emergency Shutdown</Text>
-            </TouchableOpacity>
+            </Pressable>
             
-            <TouchableOpacity 
-              style={[styles.emergencyButton, styles.offlineButton]}
+            <Pressable 
+              style={({ pressed }) => [
+                styles.emergencyButton, 
+                styles.offlineButton,
+                pressed && { backgroundColor: '#581c0c', transform: [{ scale: 0.98 }] }
+              ]}
               onPress={emergency.emergencyEnableOffline}
             >
               <Text style={styles.emergencyButtonText}>📱 Force Offline Mode</Text>
-            </TouchableOpacity>
+            </Pressable>
           </View>
           
           {emergency.emergencyActive && (
@@ -190,15 +198,18 @@ export const FeatureFlagDashboard: React.FC<FeatureFlagDashboardProps> = ({
 
       {/* Cost Overview */}
       <View style={styles.costSection}>
-        <TouchableOpacity 
-          style={styles.sectionHeader}
+        <Pressable 
+          style={({ pressed }) => [
+            styles.sectionHeader,
+            pressed && { backgroundColor: '#f8f9fa' }
+          ]}
           onPress={() => setShowCostDetails(!showCostDetails)}
         >
           <Text style={styles.sectionTitle}>Cost Overview</Text>
           <Text style={styles.expandIcon}>
             {showCostDetails ? '▼' : '▶'}
           </Text>
-        </TouchableOpacity>
+        </Pressable>
         
         <View style={styles.costSummary}>
           <Text style={styles.costText}>
@@ -224,11 +235,15 @@ export const FeatureFlagDashboard: React.FC<FeatureFlagDashboardProps> = ({
       <View style={styles.categoryFilter}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           {categories.map(category => (
-            <TouchableOpacity
+            <Pressable
               key={category.id}
-              style={[
+              style={({ pressed }) => [
                 styles.categoryButton,
-                selectedCategory === category.id && styles.categoryButtonActive
+                selectedCategory === category.id && styles.categoryButtonActive,
+                pressed && { 
+                  backgroundColor: selectedCategory === category.id ? '#2563eb' : '#f3f4f6',
+                  transform: [{ scale: 0.98 }]
+                }
               ]}
               onPress={() => setSelectedCategory(category.id)}
             >
@@ -238,7 +253,7 @@ export const FeatureFlagDashboard: React.FC<FeatureFlagDashboardProps> = ({
               ]}>
                 {category.name} ({category.count})
               </Text>
-            </TouchableOpacity>
+            </Pressable>
           ))}
         </ScrollView>
       </View>

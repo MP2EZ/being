@@ -6,7 +6,7 @@
  */
 
 import React, { Component, ReactNode, ErrorInfo } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { createSafeContext } from '../utils/SafeImports';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -502,9 +502,15 @@ export const DefaultErrorFallback: React.FC<{
       <Text style={styles.message}>{error.message}</Text>
       <Text style={styles.impact}>{error.therapeuticImpact}</Text>
 
-      <TouchableOpacity style={styles.retryButton} onPress={onRetry}>
+      <Pressable 
+        style={({ pressed }) => [
+          styles.retryButton,
+          pressed && { opacity: 0.8 }
+        ]} 
+        onPress={onRetry}
+      >
         <Text style={styles.retryText}>Try Again</Text>
-      </TouchableOpacity>
+      </Pressable>
     </View>
   </View>
 );

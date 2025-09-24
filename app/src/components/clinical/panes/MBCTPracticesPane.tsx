@@ -10,7 +10,8 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity
+  Pressable,
+  Vibration
 } from 'react-native';
 
 import { ClinicalPaneProps, ChartData } from '../types';
@@ -86,17 +87,26 @@ const MBCTPracticesPane: React.FC<ClinicalPaneProps> = memo(({ data, isActive })
 
       {/* Call to Action */}
       {data.content.callToAction && (
-        <TouchableOpacity
-          style={styles.ctaButton}
+        <Pressable
+          onPressIn={() => {
+            // MBCT: Medium haptic feedback for mindfulness program engagement
+            // Provides grounding tactile feedback for therapeutic commitment
+            Vibration.vibrate(150); // Medium feedback for MBCT program engagement
+          }}
           accessible={true}
           accessibilityRole="button"
           accessibilityLabel={data.content.callToAction.text}
           accessibilityHint="Begin the 8-week MBCT program"
+          style={({ pressed }) => [
+            styles.ctaButton,
+            pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] }
+          ]}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
           <Text style={styles.ctaButtonText}>
             {data.content.callToAction.text}
           </Text>
-        </TouchableOpacity>
+        </Pressable>
       )}
     </View>
   );

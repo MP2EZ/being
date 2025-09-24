@@ -25,7 +25,7 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
+  Pressable,
   Animated,
   Alert,
   Linking,
@@ -329,51 +329,71 @@ export const PaymentAnxietyDetection: React.FC<PaymentAnxietyDetectionProps> = (
 
         <View style={styles.supportActions}>
           {actions.includes('Call 988') && (
-            <TouchableOpacity
-              style={[styles.supportButton, styles.crisisButton]}
+            <Pressable
+              style={({ pressed }) => [
+                styles.supportButton,
+                styles.crisisButton,
+                pressed && { opacity: 0.8 }
+              ]}
               onPress={() => Linking.openURL('tel:988')}
             >
               <Text style={styles.crisisButtonText}>Call 988</Text>
-            </TouchableOpacity>
+            </Pressable>
           )}
 
           {actions.includes('Crisis Mode') && (
-            <TouchableOpacity
-              style={[styles.supportButton, styles.crisisButton]}
+            <Pressable
+              style={({ pressed }) => [
+                styles.supportButton,
+                styles.crisisButton,
+                pressed && { opacity: 0.8 }
+              ]}
               onPress={handleCrisisEscalation}
             >
               <Text style={styles.crisisButtonText}>Crisis Mode</Text>
-            </TouchableOpacity>
+            </Pressable>
           )}
 
           {actions.includes('Start Breathing') && (
-            <TouchableOpacity
-              style={[styles.supportButton, styles.primaryButton]}
+            <Pressable
+              style={({ pressed }) => [
+                styles.supportButton,
+                styles.primaryButton,
+                pressed && { opacity: 0.8 }
+              ]}
               onPress={handleBreathingExercise}
             >
               <Text style={styles.primaryButtonText}>Start Breathing</Text>
-            </TouchableOpacity>
+            </Pressable>
           )}
 
           {actions.includes('Get Support') && (
-            <TouchableOpacity
-              style={[styles.supportButton, styles.secondaryButton]}
+            <Pressable
+              style={({ pressed }) => [
+                styles.supportButton,
+                styles.secondaryButton,
+                pressed && { opacity: 0.8 }
+              ]}
               onPress={handleCrisisEscalation}
             >
               <Text style={styles.secondaryButtonText}>Get Support</Text>
-            </TouchableOpacity>
+            </Pressable>
           )}
 
           {(actions.includes('Continue') || actions.includes('Skip') || actions.includes('Dismiss')) && (
-            <TouchableOpacity
-              style={[styles.supportButton, styles.dismissButton]}
+            <Pressable
+              style={({ pressed }) => [
+                styles.supportButton,
+                styles.dismissButton,
+                pressed && { opacity: 0.8 }
+              ]}
               onPress={handleDismissSupport}
             >
               <Text style={styles.dismissButtonText}>
                 {actions.includes('Continue') ? 'Continue' :
                  actions.includes('Skip') ? 'Skip' : 'Dismiss'}
               </Text>
-            </TouchableOpacity>
+            </Pressable>
           )}
         </View>
       </View>
@@ -399,12 +419,15 @@ export const PaymentAnxietyDetection: React.FC<PaymentAnxietyDetectionProps> = (
       {showSupport && <SupportMessage />}
 
       {breathingActive && (
-        <TouchableOpacity
-          style={styles.stopBreathingButton}
+        <Pressable
+          style={({ pressed }) => [
+            styles.stopBreathingButton,
+            pressed && { opacity: 0.8 }
+          ]}
           onPress={handleStopBreathing}
         >
           <Text style={styles.stopBreathingText}>Stop Breathing Exercise</Text>
-        </TouchableOpacity>
+        </Pressable>
       )}
     </Animated.View>
   );

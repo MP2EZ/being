@@ -12,9 +12,10 @@ import {
   StyleSheet,
   Dimensions,
   ScrollView,
-  TouchableOpacity,
+  Pressable,
   Text,
-  AccessibilityInfo
+  AccessibilityInfo,
+  Vibration
 } from 'react-native';
 
 import { ClinicalCarouselProps } from './types';
@@ -121,27 +122,45 @@ const ClinicalCarousel: React.FC<ClinicalCarouselProps> = memo(({
       {/* Navigation Buttons */}
       {showNavigation && (
         <>
-          <TouchableOpacity
-            style={[styles.navButton, styles.prevButton]}
+          <Pressable
             onPress={() => handleNavigationPress('prev')}
+            onPressIn={() => {
+              // Therapeutic navigation feedback
+              Vibration.vibrate(100); // Light haptic for navigation
+            }}
             accessible={true}
             accessibilityRole="button"
             accessibilityLabel="Previous clinical pane"
             accessibilityHint="Navigate to the previous clinical information slide"
+            style={({ pressed }) => [
+              styles.navButton,
+              styles.prevButton,
+              pressed && { opacity: 0.7 }
+            ]}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
             <Text style={styles.navButtonText}>‹</Text>
-          </TouchableOpacity>
+          </Pressable>
 
-          <TouchableOpacity
-            style={[styles.navButton, styles.nextButton]}
+          <Pressable
             onPress={() => handleNavigationPress('next')}
+            onPressIn={() => {
+              // Therapeutic navigation feedback
+              Vibration.vibrate(100); // Light haptic for navigation
+            }}
             accessible={true}
             accessibilityRole="button"
             accessibilityLabel="Next clinical pane"
             accessibilityHint="Navigate to the next clinical information slide"
+            style={({ pressed }) => [
+              styles.navButton,
+              styles.nextButton,
+              pressed && { opacity: 0.7 }
+            ]}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
             <Text style={styles.navButtonText}>›</Text>
-          </TouchableOpacity>
+          </Pressable>
         </>
       )}
 
@@ -178,18 +197,24 @@ const ClinicalCarousel: React.FC<ClinicalCarouselProps> = memo(({
           accessibilityLabel="Clinical carousel navigation"
         >
           {data.map((_, index) => (
-            <TouchableOpacity
+            <Pressable
               key={index}
-              style={[
-                styles.indicator,
-                index === currentSlide && styles.activeIndicator
-              ]}
               onPress={() => handleIndicatorPress(index)}
+              onPressIn={() => {
+                // Therapeutic indicator feedback
+                Vibration.vibrate(50); // Very light haptic for indicator selection
+              }}
               accessible={true}
               accessibilityRole="tab"
               accessibilityLabel={data[index].title}
               accessibilityState={{ selected: index === currentSlide }}
               accessibilityHint={`Navigate to ${data[index].title} slide`}
+              style={({ pressed }) => [
+                styles.indicator,
+                index === currentSlide && styles.activeIndicator,
+                pressed && { opacity: 0.7 }
+              ]}
+              hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
             />
           ))}
         </View>

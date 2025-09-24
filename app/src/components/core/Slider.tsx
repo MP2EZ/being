@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { useTheme } from '../../hooks/useTheme';
 
 interface SliderProps {
@@ -31,11 +31,12 @@ export const Slider: React.FC<SliderProps> = ({
     const buttons = [];
     for (let i = min; i <= max; i++) {
       buttons.push(
-        <TouchableOpacity
+        <Pressable
           key={i}
-          style={[
+          style={({ pressed }) => [
             styles.valueButton,
             value === i && { backgroundColor: accentColor },
+            pressed && { opacity: 0.8 },
           ]}
           onPress={() => onChange(i)}
           accessibilityLabel={`${label} value ${i}`}
@@ -49,7 +50,7 @@ export const Slider: React.FC<SliderProps> = ({
           >
             {i}
           </Text>
-        </TouchableOpacity>
+        </Pressable>
       );
     }
     return buttons;

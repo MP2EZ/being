@@ -4,7 +4,6 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
   Pressable,
   Dimensions,
   Platform
@@ -43,7 +42,7 @@ const AccessibleExerciseCard: React.FC<ExerciseCardProps> = React.memo(({
   onPress,
   index
 }) => {
-  const cardRef = useRef<TouchableOpacity>(null);
+  const cardRef = useRef<Pressable>(null);
   const [isPressed, setIsPressed] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
 
@@ -148,20 +147,21 @@ const AccessibleExerciseCard: React.FC<ExerciseCardProps> = React.memo(({
 
   return (
     <Animated.View style={[styles.exerciseCardContainer, animatedStyle]}>
-      <TouchableOpacity
+      <Pressable
         ref={cardRef}
-        style={[
+        style={({ pressed }) => [
           styles.exerciseCard,
           cardSize,
           {
             borderWidth: isFocused ? 3 : 1,
             borderColor: isFocused ? '#007AFF' : '#E5E7EB',
+            opacity: pressed ? 0.8 : 1,
+            backgroundColor: pressed ? 'rgba(0,0,0,0.05)' : '#FFFFFF',
           }
         ]}
         onPress={handlePress}
         onFocus={handleFocus}
         onBlur={handleBlur}
-        activeOpacity={0.8}
         accessible={true}
         accessibilityRole="button"
         accessibilityLabel={accessibilityLabel}
@@ -247,7 +247,7 @@ const AccessibleExerciseCard: React.FC<ExerciseCardProps> = React.memo(({
             ✨ You're taking positive steps for your mental health
           </Text>
         )}
-      </TouchableOpacity>
+      </Pressable>
     </Animated.View>
   );
 });

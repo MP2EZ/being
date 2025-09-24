@@ -26,7 +26,7 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
+  Pressable,
   Alert,
   Linking,
   KeyboardAvoidingView,
@@ -468,11 +468,12 @@ const PaymentMethodScreen: React.FC = () => {
       <View style={styles.existingMethods}>
         <Text style={styles.sectionTitle}>Your Saved Payment Methods</Text>
         {paymentMethods.map((method) => (
-          <TouchableOpacity
+          <Pressable
             key={method.paymentMethodId}
-            style={[
+            style={({ pressed }) => [
               styles.paymentMethodCard,
-              selectedPaymentMethod === method.paymentMethodId && styles.selectedMethod
+              selectedPaymentMethod === method.paymentMethodId && styles.selectedMethod,
+              pressed && { opacity: 0.8 }
             ]}
             onPress={() => setSelectedPaymentMethod(method.paymentMethodId)}
             accessible={true}
@@ -492,7 +493,7 @@ const PaymentMethodScreen: React.FC = () => {
                 <Text style={styles.selectedText}>✓</Text>
               </View>
             )}
-          </TouchableOpacity>
+          </Pressable>
         ))}
       </View>
     );
@@ -617,15 +618,18 @@ const PaymentMethodScreen: React.FC = () => {
             <Text style={styles.crisisText}>
               Crisis Support Always Free • Call 988 Anytime
             </Text>
-            <TouchableOpacity
+            <Pressable
               onPress={() => Linking.openURL('tel:988')}
-              style={styles.crisisCall}
+              style={({ pressed }) => [
+                styles.crisisCall,
+                pressed && { opacity: 0.8 }
+              ]}
               accessible={true}
               accessibilityRole="button"
               accessibilityLabel="Call 988 crisis hotline"
             >
               <Text style={styles.crisisCallText}>Call Now</Text>
-            </TouchableOpacity>
+            </Pressable>
           </View>
 
           {/* Payment Anxiety Support */}

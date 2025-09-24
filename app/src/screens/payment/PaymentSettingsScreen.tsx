@@ -26,7 +26,7 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
+  Pressable,
   Alert,
   Switch,
   Linking,
@@ -355,18 +355,24 @@ const PaymentSettingsScreen: React.FC = () => {
         </Text>
 
         <View style={styles.supportOptions}>
-          <TouchableOpacity
-            style={styles.supportOption}
+          <Pressable
+            style={({ pressed }) => [
+              styles.supportOption,
+              pressed && { opacity: 0.8 }
+            ]}
             onPress={() => enableCrisisMode('financial_hardship')}
           >
             <Text style={styles.supportOptionTitle}>🆓 Activate Crisis Support Mode</Text>
             <Text style={styles.supportOptionText}>
               Full therapeutic access during financial hardship
             </Text>
-          </TouchableOpacity>
+          </Pressable>
 
-          <TouchableOpacity
-            style={styles.supportOption}
+          <Pressable
+            style={({ pressed }) => [
+              styles.supportOption,
+              pressed && { opacity: 0.8 }
+            ]}
             onPress={() => {
               Alert.alert(
                 'Pause Subscription',
@@ -382,10 +388,13 @@ const PaymentSettingsScreen: React.FC = () => {
             <Text style={styles.supportOptionText}>
               Pause billing while keeping crisis support and basic tools
             </Text>
-          </TouchableOpacity>
+          </Pressable>
 
-          <TouchableOpacity
-            style={styles.supportOption}
+          <Pressable
+            style={({ pressed }) => [
+              styles.supportOption,
+              pressed && { opacity: 0.8 }
+            ]}
             onPress={() => {
               Linking.openURL('mailto:support@being.app?subject=Financial Assistance Request');
             }}
@@ -394,7 +403,7 @@ const PaymentSettingsScreen: React.FC = () => {
             <Text style={styles.supportOptionText}>
               Contact us about sliding scale or hardship options
             </Text>
-          </TouchableOpacity>
+          </Pressable>
         </View>
 
         <Button
@@ -435,12 +444,15 @@ const PaymentSettingsScreen: React.FC = () => {
           </Button>
         </View>
 
-        <TouchableOpacity
-          style={styles.keepSubscription}
+        <Pressable
+          style={({ pressed }) => [
+            styles.keepSubscription,
+            pressed && { opacity: 0.8 }
+          ]}
           onPress={() => setShowCancellationFlow(false)}
         >
           <Text style={styles.keepSubscriptionText}>Actually, I'll keep my subscription</Text>
-        </TouchableOpacity>
+        </Pressable>
       </View>
     );
   };
@@ -531,11 +543,12 @@ const PaymentSettingsScreen: React.FC = () => {
       <Text style={styles.sectionTitle}>Subscription Options</Text>
 
       {SUBSCRIPTION_OPTIONS.map((option) => (
-        <TouchableOpacity
+        <Pressable
           key={option.id}
-          style={[
+          style={({ pressed }) => [
             styles.changeOption,
-            option.impact === 'caution' && styles.cautionOption
+            option.impact === 'caution' && styles.cautionOption,
+            pressed && { opacity: 0.8 }
           ]}
           onPress={() => handleSubscriptionChange(option)}
           disabled={isProcessingChange}
@@ -548,7 +561,7 @@ const PaymentSettingsScreen: React.FC = () => {
             <Text style={styles.optionDescription}>{option.description}</Text>
           </View>
           <Text style={styles.optionArrow}>→</Text>
-        </TouchableOpacity>
+        </Pressable>
       ))}
     </Card>
   );

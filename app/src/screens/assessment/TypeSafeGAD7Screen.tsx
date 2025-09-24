@@ -3,19 +3,20 @@
  *
  * This component implements GAD-7 anxiety assessment with compile-time type safety
  * and 100% accuracy guarantees for clinical calculations and crisis detection.
+ * Parallels PHQ-9 type safety patterns with GAD-7 specific requirements.
  *
  * CRITICAL: All scoring and crisis detection is handled by certified clinical
- * calculation services. No direct manipulation of clinical data allowed.
+ * calculation services with real-time validation and therapeutic timing.
  */
 
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Button } from '../../components/core';
 import { colorSystem, spacing, borderRadius } from '../../constants/colors';
 
-import {
+import type {
   GAD7Answers,
   GAD7Answer,
   GAD7Score,
@@ -24,18 +25,52 @@ import {
   createISODateString
 } from '../../types/clinical';
 
-import {
+import type {
   ValidatedGAD7Score,
   ValidatedSeverity,
   CrisisDetected,
-  ClinicallyValidatedProps,
-  ValidatedAssessmentQuestionProps,
-  ClinicalValidationState,
+  ClinicalCalculationCertified,
+  TherapeuticTimingCertified,
   ClinicalTypeValidationError
 } from '../../types/clinical-type-safety';
 
-import { clinicalCalculator } from '../../services/clinical/ClinicalCalculationService';
-import { therapeuticTimer } from '../../services/clinical/TherapeuticTimingService';
+import type {
+  StrictGAD7Answer,
+  StrictGAD7Answers,
+  ExactGAD7Score,
+  GAD7CrisisScore,
+  TypeSafeAssessmentState,
+  CrisisDetectionResult,
+  CrisisType,
+  AssessmentQuestionDisplayProps,
+  AssessmentOptionProps,
+  AssessmentNavigationProps,
+  ASSESSMENT_TYPE_CONSTANTS
+} from '../../types/enhanced-assessment-types';
+
+import type {
+  AssessmentButtonProps,
+  AnswerOptionButtonProps,
+  AssessmentNavigationButtonProps,
+  createAssessmentButtonProps,
+  THERAPEUTIC_BUTTON_CONSTANTS
+} from '../../types/enhanced-button-types';
+
+import { useTypeSafeAssessmentHandler } from '../../hooks/useTypeSafeAssessmentHandler';
+import { enhancedClinicalCalculator } from '../../services/TypeSafeClinicalCalculationService';
+
+// === ROUTE PARAMS ===
+
+type GAD7ScreenParams = {
+  TypeSafeGAD7Screen: {
+    context?: 'onboarding' | 'standalone' | 'clinical';
+    returnTo?: string;
+  };
+};
+
+type GAD7ScreenRouteProp = RouteProp<GAD7ScreenParams, 'TypeSafeGAD7Screen'>;
+
+// === GAD-7 CLINICAL DATA ===
 
 /**
  * GAD-7 Question Data - EXACT clinical wording required
@@ -44,8 +79,8 @@ import { therapeuticTimer } from '../../services/clinical/TherapeuticTimingServi
 const GAD7_QUESTIONS = [
   {
     id: 1,
-    text: "Feeling nervous, anxious, or on edge",
-    clinicalWording: "Over the last 2 weeks, how often have you been bothered by feeling nervous, anxious, or on edge?"
+    text: "Feeling nervous, anxious or on edge",
+    clinicalWording: "Over the last 2 weeks, how often have you been bothered by feeling nervous, anxious or on edge?"
   },
   {
     id: 2,
@@ -64,8 +99,8 @@ const GAD7_QUESTIONS = [
   },
   {
     id: 5,
-    text: "Being so restless that it's hard to sit still",
-    clinicalWording: "Over the last 2 weeks, how often have you been bothered by being so restless that it's hard to sit still?"
+    text: "Being so restless that it is hard to sit still",
+    clinicalWording: "Over the last 2 weeks, how often have you been bothered by being so restless that it is hard to sit still?"
   },
   {
     id: 6,
@@ -83,323 +118,139 @@ const GAD7_QUESTIONS = [
  * GAD-7 Response Options - EXACT clinical wording required
  */
 const GAD7_RESPONSE_OPTIONS = [
-  { value: 0 as GAD7Answer, text: "Not at all", clinicalDescription: "0 days", anxietyLevel: "None" },
-  { value: 1 as GAD7Answer, text: "Several days", clinicalDescription: "1-6 days", anxietyLevel: "Mild" },
-  { value: 2 as GAD7Answer, text: "More than half the days", clinicalDescription: "7-10 days", anxietyLevel: "Moderate" },
-  { value: 3 as GAD7Answer, text: "Nearly every day", clinicalDescription: "11-14 days", anxietyLevel: "Severe" }
+  { value: 0 as StrictGAD7Answer, text: "Not at all", clinicalDescription: "0 days" },
+  { value: 1 as StrictGAD7Answer, text: "Several days", clinicalDescription: "1-6 days" },
+  { value: 2 as StrictGAD7Answer, text: "More than half the days", clinicalDescription: "7-10 days" },
+  { value: 3 as StrictGAD7Answer, text: "Nearly every day", clinicalDescription: "11-14 days" }
 ] as const;
 
-/**
- * Type-Safe GAD-7 Assessment State
- */
-interface GAD7AssessmentState {
-  answers: (GAD7Answer | null)[];
-  currentQuestion: number;
-  startTime: number;
-  lastAnswerTime: number;
-  validationState: ClinicalValidationState | null;
-  score: ValidatedGAD7Score | null;
-  severity: ValidatedSeverity<'gad7'> | null;
-  crisisDetected: CrisisDetected | false;
-}
+// === MAIN COMPONENT ===
 
-/**
- * Anxiety Crisis Detection Result Interface
- */
-interface AnxietyCrisisDetectionResult {
-  requiresIntervention: boolean;
-  crisisType: 'score_threshold' | null;
-  score: ValidatedGAD7Score;
-  severity: ValidatedSeverity<'gad7'>;
-  recommendations: string[];
-  anxietyPatterns: string[];
-}
-
-/**
- * Type-Safe GAD-7 Assessment Component
- */
 export const TypeSafeGAD7Screen: React.FC = () => {
   const navigation = useNavigation();
-  const startTime = useMemo(() => Date.now(), []);
+  const route = useRoute<GAD7ScreenRouteProp>();
+  const { context = 'standalone', returnTo } = route.params || {};
 
-  const [assessmentState, setAssessmentState] = useState<GAD7AssessmentState>({
-    answers: new Array(7).fill(null),
-    currentQuestion: 0,
-    startTime,
-    lastAnswerTime: startTime,
-    validationState: null,
-    score: null,
-    severity: null,
-    crisisDetected: false
+  // === TYPE-SAFE ASSESSMENT HANDLER ===
+
+  const assessmentHandler = useTypeSafeAssessmentHandler<'gad7'>({
+    assessmentType: 'gad7',
+    context,
+    calculator: enhancedClinicalCalculator,
+    
+    onCrisisDetected: useCallback((crisis: CrisisDetected, type: CrisisType<'gad7'>) => {
+      console.log('🚨 GAD-7 Crisis detected:', { crisis, type });
+      
+      // Show crisis intervention alert
+      Alert.alert(
+        'High Anxiety Levels Detected',
+        'Your responses indicate significant anxiety symptoms. Professional support is recommended.',
+        [
+          {
+            text: 'Get Support Now',
+            onPress: () => navigation.navigate('CrisisInterventionScreen' as never, {
+              source: 'assessment',
+              assessmentType: 'gad7',
+              emergencyLevel: 'high'
+            } as never)
+          },
+          {
+            text: 'Continue Assessment',
+            style: 'cancel'
+          }
+        ],
+        { cancelable: true }
+      );
+    }, [navigation]),
+
+    onComplete: useCallback((result: CrisisDetectionResult<'gad7'>) => {
+      console.log('GAD-7 Assessment completed:', result);
+      
+      navigation.navigate('AssessmentResults' as never, {
+        type: 'gad7',
+        score: result.score,
+        severity: result.severity,
+        crisisDetected: result.requiresIntervention,
+        crisisType: result.crisisType,
+        recommendations: result.recommendations,
+        context,
+        returnTo,
+        validatedAt: result.validatedAt
+      } as never);
+    }, [navigation, context, returnTo]),
+
+    onError: useCallback((error: ClinicalTypeValidationError) => {
+      console.error('GAD-7 Clinical validation error:', error);
+      
+      Alert.alert(
+        'Assessment Error',
+        `A validation error occurred: ${error.message}. Please contact support if this continues.`,
+        [{ text: 'OK' }]
+      );
+    }, [])
   });
 
-  /**
-   * Type-Safe Answer Handler with Real-Time Validation
-   */
-  const handleAnswerSelect = useCallback((questionIndex: number, answer: GAD7Answer) => {
-    const answerTime = Date.now();
-    const responseTime = answerTime - assessmentState.lastAnswerTime;
+  // === DESTRUCTURE HANDLER ===
 
-    // Validate response time for quality assurance
-    try {
-      therapeuticTimer.validateCrisisResponse(responseTime);
-    } catch (error) {
-      // Log slow response but don't block assessment
-      console.warn('Slow response time detected:', responseTime, 'ms');
-    }
+  const {
+    assessmentState,
+    currentQuestion,
+    progress,
+    canProceed,
+    handleAnswerSelect,
+    handleNext,
+    handleBack,
+    handleExit,
+    crisisDetected,
+    averageResponseTime,
+    therapeuticCompliance,
+    validationErrors
+  } = assessmentHandler;
 
-    setAssessmentState(prevState => {
-      const newAnswers = [...prevState.answers];
-      newAnswers[questionIndex] = answer;
+  // === DERIVED STATE ===
 
-      return {
-        ...prevState,
-        answers: newAnswers,
-        lastAnswerTime: answerTime,
-        // Reset calculations - will be recalculated if assessment is complete
-        score: null,
-        severity: null,
-        crisisDetected: false,
-        validationState: null
-      };
-    });
-  }, [assessmentState.lastAnswerTime]);
+  const currentQuestionData = GAD7_QUESTIONS[currentQuestion];
+  const currentAnswer = assessmentState.answers[currentQuestion];
+  const isLastQuestion = currentQuestion === GAD7_QUESTIONS.length - 1;
 
-  /**
-   * Analyze Anxiety Patterns from Responses
-   */
-  const analyzeAnxietyPatterns = useCallback((answers: GAD7Answers): string[] => {
-    const patterns: string[] = [];
+  // === ANSWER OPTION RENDERING ===
 
-    // Check for specific anxiety pattern indicators
-    if (answers[0] >= 2 || answers[1] >= 2) { // Nervous/anxious or can't stop worrying
-      patterns.push('Persistent worry and nervousness');
-    }
-
-    if (answers[2] >= 2) { // Worrying too much about different things
-      patterns.push('Generalized excessive worry');
-    }
-
-    if (answers[3] >= 2 || answers[4] >= 2) { // Trouble relaxing or restlessness
-      patterns.push('Physical tension and restlessness');
-    }
-
-    if (answers[5] >= 2) { // Easily annoyed or irritable
-      patterns.push('Irritability and mood changes');
-    }
-
-    if (answers[6] >= 2) { // Feeling afraid something awful might happen
-      patterns.push('Anticipatory anxiety and catastrophic thinking');
-    }
-
-    // Check for severe anxiety across multiple domains
-    const severeAnswers = answers.filter(a => a === 3).length;
-    if (severeAnswers >= 4) {
-      patterns.push('Severe anxiety affecting multiple life areas');
-    }
-
-    return patterns;
-  }, []);
-
-  /**
-   * Type-Safe Assessment Completion with Clinical Validation
-   */
-  const handleCompleteAssessment = useCallback(async (): Promise<AnxietyCrisisDetectionResult | null> => {
-    try {
-      // Validate all questions are answered
-      const completedAnswers = assessmentState.answers;
-      if (completedAnswers.some(answer => answer === null)) {
-        Alert.alert('Incomplete Assessment', 'Please answer all questions to complete the assessment.');
-        return null;
-      }
-
-      // Convert to validated GAD7Answers type
-      const validatedAnswers = completedAnswers as GAD7Answers;
-
-      // Calculate score with 100% accuracy guarantee
-      const score = clinicalCalculator.calculateGAD7Score(validatedAnswers);
-      const severity = clinicalCalculator.determineGAD7Severity(score);
-      const crisisFromScore = clinicalCalculator.detectGAD7Crisis(score);
-
-      // Analyze anxiety patterns
-      const anxietyPatterns = analyzeAnxietyPatterns(validatedAnswers);
-
-      // Determine overall crisis status
-      const requiresIntervention = crisisFromScore !== false;
-      const crisisType: AnxietyCrisisDetectionResult['crisisType'] = crisisFromScore !== false ? 'score_threshold' : null;
-
-      // Generate clinical recommendations
-      const recommendations = generateAnxietyRecommendations(score, severity, crisisType, anxietyPatterns);
-
-      // Update state with validated results
-      const validationState: ClinicalValidationState = {
-        isValidated: true,
-        validatedAt: createISODateString(),
-        validator: 'TypeSafeGAD7Screen-v1.0',
-        errors: [],
-        warnings: []
-      };
-
-      setAssessmentState(prevState => ({
-        ...prevState,
-        score,
-        severity,
-        crisisDetected: crisisFromScore || false,
-        validationState
-      }));
-
-      return {
-        requiresIntervention,
-        crisisType,
-        score,
-        severity,
-        recommendations,
-        anxietyPatterns
-      };
-
-    } catch (error) {
-      if (error instanceof ClinicalTypeValidationError) {
-        Alert.alert(
-          'Clinical Validation Error',
-          `Assessment validation failed: ${error.message}. Please contact support.`,
-          [{ text: 'OK' }]
-        );
-      } else {
-        Alert.alert(
-          'Assessment Error',
-          'An error occurred while processing your assessment. Please try again.',
-          [{ text: 'OK' }]
-        );
-      }
-      console.error('GAD-7 assessment error:', error);
-      return null;
-    }
-  }, [assessmentState.answers, analyzeAnxietyPatterns]);
-
-  /**
-   * Generate Clinical Recommendations Based on Results
-   */
-  const generateAnxietyRecommendations = (
-    score: ValidatedGAD7Score,
-    severity: ValidatedSeverity<'gad7'>,
-    crisisType: AnxietyCrisisDetectionResult['crisisType'],
-    anxietyPatterns: string[]
-  ): string[] => {
-    const recommendations: string[] = [];
-
-    // Crisis-specific recommendations
-    if (crisisType === 'score_threshold') {
-      recommendations.push('Your anxiety symptoms indicate severe anxiety disorder');
-      recommendations.push('Professional mental health support is strongly recommended');
-      recommendations.push('Consider contacting your healthcare provider promptly');
-    }
-
-    // Severity-based recommendations
-    switch (severity) {
-      case 'minimal':
-        recommendations.push('Continue practicing mindfulness and self-care');
-        recommendations.push('Regular breathing exercises may be beneficial');
-        break;
-      case 'mild':
-        recommendations.push('Consider discussing with your healthcare provider if symptoms persist');
-        recommendations.push('Breathing exercises and mindfulness can help manage symptoms');
-        break;
-      case 'moderate':
-        recommendations.push('Professional support could be beneficial');
-        recommendations.push('Consider cognitive behavioral therapy (CBT) for anxiety');
-        break;
-      case 'severe':
-        recommendations.push('Immediate professional support recommended');
-        recommendations.push('Consider both therapy and medication evaluation');
-        break;
-    }
-
-    // Pattern-specific recommendations
-    if (anxietyPatterns.includes('Physical tension and restlessness')) {
-      recommendations.push('Progressive muscle relaxation exercises may help');
-    }
-
-    if (anxietyPatterns.includes('Persistent worry and nervousness')) {
-      recommendations.push('Worry time technique and mindfulness meditation recommended');
-    }
-
-    if (anxietyPatterns.includes('Anticipatory anxiety and catastrophic thinking')) {
-      recommendations.push('Cognitive restructuring techniques may be particularly helpful');
-    }
-
-    return recommendations;
-  };
-
-  /**
-   * Navigation to Next Question or Results
-   */
-  const handleNext = useCallback(() => {
-    if (assessmentState.currentQuestion < GAD7_QUESTIONS.length - 1) {
-      setAssessmentState(prev => ({
-        ...prev,
-        currentQuestion: prev.currentQuestion + 1
-      }));
-    } else {
-      // Complete assessment
-      handleCompleteAssessment().then(result => {
-        if (result) {
-          navigation.navigate('AssessmentResults', {
-            type: 'gad7',
-            score: result.score,
-            severity: result.severity,
-            crisisDetected: result.requiresIntervention,
-            crisisType: result.crisisType,
-            recommendations: result.recommendations,
-            anxietyPatterns: result.anxietyPatterns,
-            validatedAt: createISODateString()
-          });
-        }
-      });
-    }
-  }, [assessmentState.currentQuestion, handleCompleteAssessment, navigation]);
-
-  /**
-   * Navigation to Previous Question
-   */
-  const handleBack = useCallback(() => {
-    if (assessmentState.currentQuestion > 0) {
-      setAssessmentState(prev => ({
-        ...prev,
-        currentQuestion: prev.currentQuestion - 1
-      }));
-    } else {
-      navigation.goBack();
-    }
-  }, [assessmentState.currentQuestion, navigation]);
-
-  /**
-   * Current Question Data
-   */
-  const currentQuestion = GAD7_QUESTIONS[assessmentState.currentQuestion];
-  const currentAnswer = assessmentState.answers[assessmentState.currentQuestion];
-  const isLastQuestion = assessmentState.currentQuestion === GAD7_QUESTIONS.length - 1;
-
-  /**
-   * Progress Calculation
-   */
-  const progress = ((assessmentState.currentQuestion + 1) / GAD7_QUESTIONS.length) * 100;
-
-  /**
-   * Render Answer Options with Anxiety Level Indicators
-   */
-  const renderAnswerOptions = () => {
+  const renderAnswerOptions = useCallback(() => {
     return GAD7_RESPONSE_OPTIONS.map((option) => {
       const isSelected = currentAnswer === option.value;
 
+      const buttonProps: AnswerOptionButtonProps<'gad7'> = {
+        assessmentType: 'gad7',
+        questionIndex: currentQuestion,
+        optionValue: option.value,
+        optionText: option.text,
+        optionDescription: option.clinicalDescription,
+        isSelected,
+        isCriticalQuestion: false, // GAD-7 has no equivalent to PHQ-9 Q9
+        onSelect: () => handleAnswerSelect(currentQuestion, option.value),
+        accessibilityLabel: `${option.text}, option ${option.value + 1} of 4`,
+        accessibilityHint: isSelected ? "Selected answer option" : "Tap to select this answer",
+        hapticEnabled: true,
+        responseTime: averageResponseTime,
+      };
+
       return (
-        <TouchableOpacity
+        <Pressable
           key={option.value}
-          style={[
+          style={({ pressed }) => [
             styles.answerOption,
-            isSelected && styles.answerOptionSelected
+            isSelected && styles.answerOptionSelected,
+            crisisDetected && styles.answerOptionCrisis,
+            pressed && styles.answerOptionPressed
           ]}
-          onPress={() => handleAnswerSelect(assessmentState.currentQuestion, option.value)}
-          activeOpacity={0.7}
+          onPress={buttonProps.onSelect}
+          accessibilityLabel={buttonProps.accessibilityLabel}
+          accessibilityHint={buttonProps.accessibilityHint}
+          accessibilityRole="button"
+          android_ripple={{
+            color: '#00000020',
+            borderless: false
+          }}
         >
           <View style={[
             styles.answerRadio,
@@ -414,36 +265,117 @@ export const TypeSafeGAD7Screen: React.FC = () => {
             ]}>
               {option.text}
             </Text>
-            <View style={styles.answerMetadata}>
-              <Text style={styles.answerDescription}>
-                {option.clinicalDescription}
-              </Text>
-              <Text style={[
-                styles.anxietyLevel,
-                {
-                  color: option.value === 0 ? colorSystem.status.success :
-                        option.value === 1 ? colorSystem.status.info :
-                        option.value === 2 ? colorSystem.status.warning :
-                        colorSystem.status.error
-                }
-              ]}>
-                {option.anxietyLevel} anxiety
-              </Text>
-            </View>
+            <Text style={styles.answerDescription}>
+              {option.clinicalDescription}
+            </Text>
           </View>
-        </TouchableOpacity>
+        </Pressable>
       );
     });
+  }, [currentQuestion, currentAnswer, handleAnswerSelect, crisisDetected, averageResponseTime]);
+
+  // === NAVIGATION PROPS ===
+
+  const navigationProps: AssessmentNavigationButtonProps = {
+    navigationType: isLastQuestion ? 'complete' : 'next',
+    assessmentComplete: assessmentState.isComplete,
+    currentAnswerValid: canProceed,
+    isLastQuestion,
+    onPress: handleNext,
+    crisisDetected: crisisDetected !== false,
+    disabled: !canProceed,
+    children: isLastQuestion ? 'Complete Assessment' : 'Continue',
+    accessibilityLabel: isLastQuestion ? 'Complete GAD-7 assessment' : 'Continue to next question',
   };
+
+  // === CRISIS ALERT COMPONENT ===
+
+  const CrisisAlert = () => {
+    if (crisisDetected === false) return null;
+
+    return (
+      <View style={styles.crisisAlert}>
+        <Text style={styles.crisisAlertText}>
+          🚨 High anxiety levels detected - Support resources available
+        </Text>
+        <Button
+          variant="crisis"
+          emergency={true}
+          onPress={() => navigation.navigate('CrisisInterventionScreen' as never, {
+            source: 'assessment',
+            assessmentType: 'gad7',
+            emergencyLevel: 'high'
+          } as never)}
+          style={styles.crisisAlertButton}
+        >
+          Get Support
+        </Button>
+      </View>
+    );
+  };
+
+  // === VALIDATION ERRORS DISPLAY ===
+
+  const ValidationErrors = () => {
+    if (validationErrors.length === 0) return null;
+
+    return (
+      <View style={styles.validationErrorContainer}>
+        <Text style={styles.validationErrorTitle}>⚠️ Validation Issues</Text>
+        {validationErrors.map((error, index) => (
+          <Text key={index} style={styles.validationErrorText}>{error}</Text>
+        ))}
+      </View>
+    );
+  };
+
+  // === PERFORMANCE METRICS (DEBUG) ===
+
+  const PerformanceMetrics = () => {
+    if (__DEV__ && currentQuestion > 0) {
+      return (
+        <View style={styles.debugMetrics}>
+          <Text style={styles.debugText}>
+            Avg Response: {averageResponseTime.toFixed(0)}ms | 
+            Compliant: {therapeuticCompliance ? '✅' : '❌'} |
+            Questions: {currentQuestion + 1}/{GAD7_QUESTIONS.length}
+          </Text>
+        </View>
+      );
+    }
+    return null;
+  };
+
+  // === RENDER ===
 
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         <View style={styles.content}>
+          {/* Header */}
+          <View style={styles.header}>
+            <Button
+              variant="outline"
+              onPress={handleExit}
+              style={styles.exitButton}
+              accessibilityLabel="Exit GAD-7 assessment"
+              accessibilityHint="Exits the assessment and returns to previous screen"
+            >
+              ✕
+            </Button>
+
+            <View style={styles.headerCenter}>
+              <Text style={styles.assessmentTitle}>GAD-7 Anxiety Assessment</Text>
+              <Text style={styles.assessmentSubtitle}>
+                This questionnaire helps assess symptoms of anxiety over the past 2 weeks.
+              </Text>
+            </View>
+          </View>
+
           {/* Progress Indicator */}
           <View style={styles.progressContainer}>
             <Text style={styles.progressText}>
-              Question {assessmentState.currentQuestion + 1} of {GAD7_QUESTIONS.length}
+              Question {currentQuestion + 1} of {GAD7_QUESTIONS.length}
             </Text>
             <View style={styles.progressBar}>
               <View
@@ -451,25 +383,28 @@ export const TypeSafeGAD7Screen: React.FC = () => {
                   styles.progressFill,
                   {
                     width: `${progress}%`,
-                    backgroundColor: colorSystem.status.info
+                    backgroundColor: crisisDetected !== false 
+                      ? colorSystem.status.critical 
+                      : colorSystem.status.info
                   }
                 ]}
               />
             </View>
           </View>
 
-          {/* Assessment Header */}
-          <View style={styles.header}>
-            <Text style={styles.assessmentTitle}>GAD-7 Anxiety Assessment</Text>
-            <Text style={styles.assessmentSubtitle}>
-              This questionnaire helps assess symptoms of anxiety over the past 2 weeks.
-            </Text>
-          </View>
+          {/* Crisis Alert */}
+          <CrisisAlert />
+
+          {/* Validation Errors */}
+          <ValidationErrors />
+
+          {/* Performance Metrics (Debug) */}
+          <PerformanceMetrics />
 
           {/* Question */}
           <View style={styles.questionContainer}>
             <Text style={styles.questionText}>
-              {currentQuestion.clinicalWording}
+              {currentQuestionData.clinicalWording}
             </Text>
           </View>
 
@@ -481,8 +416,16 @@ export const TypeSafeGAD7Screen: React.FC = () => {
           {/* Clinical Note */}
           <View style={styles.clinicalNote}>
             <Text style={styles.clinicalNoteText}>
-              💡 Think about how often anxiety has affected your daily activities
-              and overall well-being over the past 2 weeks.
+              💡 Please answer honestly based on how you've been feeling over the past 2 weeks.
+              Your responses help us provide better support for managing anxiety.
+            </Text>
+          </View>
+
+          {/* GAD-7 Specific Information */}
+          <View style={styles.gad7Info}>
+            <Text style={styles.gad7InfoText}>
+              ℹ️ The GAD-7 is a validated tool for measuring generalized anxiety disorder symptoms.
+              Higher scores indicate more severe anxiety symptoms requiring professional evaluation.
             </Text>
           </View>
         </View>
@@ -493,28 +436,35 @@ export const TypeSafeGAD7Screen: React.FC = () => {
         <Button
           variant="outline"
           onPress={handleBack}
+          disabled={currentQuestion === 0}
+          style={styles.backButton}
+          accessibilityLabel="Go to previous question"
         >
-          {assessmentState.currentQuestion === 0 ? 'Cancel' : 'Back'}
+          {currentQuestion === 0 ? 'Cancel' : 'Back'}
         </Button>
 
         <Button
-          onPress={handleNext}
-          disabled={currentAnswer === null}
+          onPress={navigationProps.onPress}
+          disabled={!navigationProps.currentAnswerValid}
+          loading={assessmentState.isComplete}
           style={[
             styles.nextButton,
             {
-              backgroundColor: currentAnswer !== null
-                ? colorSystem.status.info
+              backgroundColor: navigationProps.currentAnswerValid
+                ? (crisisDetected !== false ? colorSystem.status.critical : colorSystem.status.info)
                 : colorSystem.gray[300]
             }
           ]}
+          accessibilityLabel={navigationProps.accessibilityLabel}
         >
-          {isLastQuestion ? 'Complete Assessment' : 'Continue'}
+          {navigationProps.children}
         </Button>
       </View>
     </SafeAreaView>
   );
 };
+
+// === STYLES ===
 
 const styles = StyleSheet.create({
   container: {
@@ -528,8 +478,35 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.xl,
   },
-  progressContainer: {
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingTop: spacing.md,
+    marginBottom: spacing.lg,
+  },
+  exitButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+  },
+  headerCenter: {
+    flex: 1,
+    alignItems: 'center',
+    marginLeft: -32, // Compensate for exit button
+  },
+  assessmentTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: colorSystem.base.black,
+    marginBottom: spacing.xs,
+  },
+  assessmentSubtitle: {
+    fontSize: 14,
+    color: colorSystem.gray[600],
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  progressContainer: {
     marginBottom: spacing.lg,
   },
   progressText: {
@@ -547,26 +524,59 @@ const styles = StyleSheet.create({
     height: '100%',
     borderRadius: 2,
   },
-  header: {
-    marginBottom: spacing.xl,
+  crisisAlert: {
+    backgroundColor: colorSystem.status.criticalBackground,
+    padding: spacing.md,
+    borderRadius: borderRadius.medium,
+    borderLeftWidth: 4,
+    borderLeftColor: colorSystem.status.critical,
+    marginBottom: spacing.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  assessmentTitle: {
-    fontSize: 24,
+  crisisAlertText: {
+    flex: 1,
+    fontSize: 14,
+    color: colorSystem.status.critical,
+    fontWeight: '500',
+  },
+  crisisAlertButton: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  validationErrorContainer: {
+    backgroundColor: colorSystem.status.warningBackground,
+    padding: spacing.md,
+    borderRadius: borderRadius.medium,
+    marginBottom: spacing.md,
+  },
+  validationErrorTitle: {
+    fontSize: 14,
     fontWeight: '600',
-    color: colorSystem.base.black,
-    marginBottom: spacing.sm,
-    textAlign: 'center',
+    color: colorSystem.status.warning,
+    marginBottom: spacing.xs,
   },
-  assessmentSubtitle: {
-    fontSize: 16,
+  validationErrorText: {
+    fontSize: 12,
+    color: colorSystem.status.warning,
+    lineHeight: 16,
+  },
+  debugMetrics: {
+    backgroundColor: colorSystem.gray[100],
+    padding: spacing.sm,
+    borderRadius: borderRadius.small,
+    marginBottom: spacing.md,
+  },
+  debugText: {
+    fontSize: 10,
     color: colorSystem.gray[600],
-    lineHeight: 22,
-    textAlign: 'center',
+    fontFamily: 'monospace',
   },
   questionContainer: {
     marginBottom: spacing.lg,
     padding: spacing.lg,
-    backgroundColor: colorSystem.status.infoBackground,
+    backgroundColor: colorSystem.gray[50],
     borderRadius: borderRadius.medium,
   },
   questionText: {
@@ -592,6 +602,15 @@ const styles = StyleSheet.create({
   answerOptionSelected: {
     borderColor: colorSystem.status.info,
     backgroundColor: colorSystem.status.infoBackground,
+  },
+  answerOptionCrisis: {
+    borderColor: colorSystem.status.critical,
+    backgroundColor: colorSystem.status.criticalBackground,
+  },
+  answerOptionPressed: {
+    opacity: 0.8,
+    transform: [{ scale: 0.99 }],
+    backgroundColor: colorSystem.gray[50],
   },
   answerRadio: {
     width: 20,
@@ -626,26 +645,16 @@ const styles = StyleSheet.create({
   answerTextSelected: {
     fontWeight: '500',
   },
-  answerMetadata: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
   answerDescription: {
     fontSize: 12,
     color: colorSystem.gray[600],
     fontStyle: 'italic',
   },
-  anxietyLevel: {
-    fontSize: 11,
-    fontWeight: '500',
-    textTransform: 'uppercase',
-  },
   clinicalNote: {
     backgroundColor: colorSystem.status.infoBackground,
     padding: spacing.md,
     borderRadius: borderRadius.medium,
-    marginTop: spacing.md,
+    marginBottom: spacing.md,
   },
   clinicalNoteText: {
     fontSize: 14,
@@ -653,6 +662,17 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     textAlign: 'center',
     fontStyle: 'italic',
+  },
+  gad7Info: {
+    backgroundColor: colorSystem.gray[100],
+    padding: spacing.md,
+    borderRadius: borderRadius.medium,
+  },
+  gad7InfoText: {
+    fontSize: 13,
+    color: colorSystem.gray[700],
+    lineHeight: 18,
+    textAlign: 'center',
   },
   navigation: {
     flexDirection: 'row',
@@ -662,6 +682,10 @@ const styles = StyleSheet.create({
     backgroundColor: colorSystem.base.white,
     borderTopWidth: 1,
     borderTopColor: colorSystem.gray[200],
+  },
+  backButton: {
+    flex: 0,
+    minWidth: 80,
   },
   nextButton: {
     flex: 1,

@@ -10,7 +10,7 @@
  */
 
 import React, { useCallback, useMemo, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
+import { View, Text, Pressable, StyleSheet, Dimensions } from 'react-native';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -181,14 +181,21 @@ const AnimatedMoodItem: React.FC<{
           containerStyle
         ]}
       >
-        <TouchableOpacity
-          style={styles.moodTouchable}
+        <Pressable
+          style={({ pressed }) => [
+            styles.moodTouchable,
+            pressed && styles.moodTouchablePressed
+          ]}
           onPress={handlePress}
-          activeOpacity={0.8}
           accessibilityRole="button"
           accessibilityLabel={`${mood.label} mood, ${mood.value} out of 5`}
           accessibilityState={{ selected: isSelected }}
           accessibilityHint={`Select ${mood.label} mood level`}
+          android_ripple={{
+            color: '#ffffff30',
+            borderless: true,
+            radius: 40
+          }}
         >
           <Text style={[styles.moodEmoji, { fontSize: sizeConfig.fontSize }]}>
             {mood.emoji}
@@ -205,7 +212,7 @@ const AnimatedMoodItem: React.FC<{
           >
             {mood.label}
           </Text>
-        </TouchableOpacity>
+        </Pressable>
       </Animated.View>
     </Animated.View>
   );
@@ -290,6 +297,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: spacing.xs,
+  },
+  moodTouchablePressed: {
+    opacity: 0.8,
+    transform: [{ scale: 0.95 }],
   },
   moodEmoji: {
     marginBottom: spacing.xs / 2,

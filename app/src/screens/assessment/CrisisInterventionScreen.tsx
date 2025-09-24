@@ -5,7 +5,7 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Linking, Vibration } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Alert, Linking, Vibration, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Button } from '../../components/core/Button';
@@ -325,13 +325,17 @@ export const CrisisInterventionScreen: React.FC = () => {
         <View style={styles.content}>
           {/* Header */}
           <View style={styles.header}>
-            <TouchableOpacity
+            <Pressable
               onPress={() => returnTo ? navigation.navigate(returnTo as never) : navigation.goBack()}
-              style={styles.backButton}
+              style={({ pressed }) => [
+                styles.backButton,
+                { opacity: pressed ? 0.7 : 1.0 }
+              ]}
               accessibilityLabel="Go back"
+              accessibilityRole="button"
             >
               <Text style={styles.backButtonText}>← Back</Text>
-            </TouchableOpacity>
+            </Pressable>
 
             <Text style={styles.title}>Crisis Support</Text>
           </View>
@@ -350,13 +354,17 @@ export const CrisisInterventionScreen: React.FC = () => {
               { key: 'resources', label: 'All Resources' },
               { key: 'safety-plan', label: 'Safety Plan' }
             ].map(section => (
-              <TouchableOpacity
+              <Pressable
                 key={section.key}
-                style={[
+                style={({ pressed }) => [
                   styles.sectionButton,
-                  activeSection === section.key && styles.sectionButtonActive
+                  activeSection === section.key && styles.sectionButtonActive,
+                  { opacity: pressed ? 0.7 : 1.0 }
                 ]}
                 onPress={() => setActiveSection(section.key as any)}
+                accessibilityLabel={section.label}
+                accessibilityRole="button"
+                accessibilityState={{ selected: activeSection === section.key }}
               >
                 <Text style={[
                   styles.sectionButtonText,
@@ -364,7 +372,7 @@ export const CrisisInterventionScreen: React.FC = () => {
                 ]}>
                   {section.label}
                 </Text>
-              </TouchableOpacity>
+              </Pressable>
             ))}
           </View>
 

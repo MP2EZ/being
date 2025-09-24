@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, FlatList } from 'react-native';
+import { View, Text, Pressable, StyleSheet, FlatList } from 'react-native';
 import { useTheme } from '../../hooks/useTheme';
 import { borderRadius } from '../../constants/colors';
 
@@ -34,16 +34,16 @@ export const MultiSelect: React.FC<MultiSelectProps> = ({
     const isSelected = selected.includes(item);
     
     return (
-      <TouchableOpacity
-        style={[
+      <Pressable
+        style={({ pressed }) => [
           styles.item,
           {
             backgroundColor: isSelected ? accentColor : colorSystem.gray[200],
             marginHorizontal: 4,
+            opacity: pressed ? 0.8 : 1,
           }
         ]}
         onPress={() => handleItemPress(item)}
-        activeOpacity={0.8}
       >
         <Text
           style={[
@@ -55,7 +55,7 @@ export const MultiSelect: React.FC<MultiSelectProps> = ({
         >
           {item}
         </Text>
-      </TouchableOpacity>
+      </Pressable>
     );
   };
 

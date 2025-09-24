@@ -4,7 +4,7 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
+  Pressable,
   Switch,
   TextInput,
   Alert,
@@ -41,7 +41,7 @@ const AccessiblePreferenceItem: React.FC<AccessiblePreferenceItemProps> = React.
   category,
   index
 }) => {
-  const itemRef = useRef<TouchableOpacity>(null);
+  const itemRef = useRef<Pressable>(null);
   const [isFocused, setIsFocused] = useState(false);
 
   const {
@@ -131,20 +131,21 @@ const AccessiblePreferenceItem: React.FC<AccessiblePreferenceItemProps> = React.
 
   return (
     <Animated.View style={[styles.preferenceContainer, animatedStyle]}>
-      <TouchableOpacity
+      <Pressable
         ref={itemRef}
-        style={[
+        style={({ pressed }) => [
           styles.preferenceItem,
           itemSize,
           {
             borderWidth: isFocused ? 3 : 1,
             borderColor: isFocused ? '#007AFF' : '#E5E7EB',
+            opacity: pressed ? 0.8 : 1,
+            backgroundColor: pressed ? 'rgba(0,0,0,0.05)' : '#FFFFFF',
           }
         ]}
         onPress={() => handleToggle(!value)}
         onFocus={handleFocus}
         onBlur={handleBlur}
-        activeOpacity={0.8}
         accessible={true}
         accessibilityRole="switch"
         accessibilityLabel={accessibilityLabel}
@@ -225,7 +226,7 @@ const AccessiblePreferenceItem: React.FC<AccessiblePreferenceItemProps> = React.
             </View>
           )}
         </View>
-      </TouchableOpacity>
+      </Pressable>
     </Animated.View>
   );
 });

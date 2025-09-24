@@ -7,7 +7,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import {
   View,
   Text,
-  TouchableOpacity,
+  Pressable,
   Animated,
   StyleSheet,
   ActivityIndicator
@@ -323,8 +323,12 @@ export const SyncStatusIndicator: React.FC<SyncStatusIndicatorProps> = React.mem
 
   if (compact) {
     return (
-      <TouchableOpacity
-        style={[styles.compactContainer, { borderColor: statusColor }]}
+      <Pressable
+        style={({ pressed }) => [
+          styles.compactContainer,
+          { borderColor: statusColor },
+          pressed && { opacity: 0.8, transform: [{ scale: 0.96 }] }
+        ]}
         onPress={handlePress}
         disabled={!onPress && !onConflictPress}
       >
@@ -347,13 +351,16 @@ export const SyncStatusIndicator: React.FC<SyncStatusIndicatorProps> = React.mem
             <Text style={styles.conflictBadgeText}>{conflictData.conflicts.length}</Text>
           </View>
         )}
-      </TouchableOpacity>
+      </Pressable>
     );
   }
 
   return (
-    <TouchableOpacity
-      style={styles.container}
+    <Pressable
+      style={({ pressed }) => [
+        styles.container,
+        pressed && { opacity: 0.95, transform: [{ scale: 0.98 }] }
+      ]}
       onPress={handlePress}
       disabled={!onPress && !onConflictPress}
     >
@@ -454,7 +461,7 @@ export const SyncStatusIndicator: React.FC<SyncStatusIndicatorProps> = React.mem
           </View>
         </View>
       )}
-    </TouchableOpacity>
+    </Pressable>
   );
 }, (prevProps, nextProps) => {
   // Custom comparison for React.memo optimization

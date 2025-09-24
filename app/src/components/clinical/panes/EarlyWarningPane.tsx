@@ -10,7 +10,8 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity
+  Pressable,
+  Vibration
 } from 'react-native';
 
 import { ClinicalPaneProps, TimelineData } from '../types';
@@ -97,17 +98,26 @@ const EarlyWarningPane: React.FC<ClinicalPaneProps> = memo(({ data, isActive }) 
 
       {/* Call to Action */}
       {data.content.callToAction && (
-        <TouchableOpacity
-          style={styles.ctaButton}
+        <Pressable
+          onPressIn={() => {
+            // THERAPEUTIC: Medium haptic feedback for therapeutic action buttons
+            // Reinforces engagement with pattern insights
+            Vibration.vibrate(150); // Medium feedback for therapeutic engagement
+          }}
           accessible={true}
           accessibilityRole="button"
           accessibilityLabel={data.content.callToAction.text}
           accessibilityHint="View detailed pattern analysis and recommendations"
+          style={({ pressed }) => [
+            styles.ctaButton,
+            pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] }
+          ]}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
           <Text style={styles.ctaButtonText}>
             {data.content.callToAction.text}
           </Text>
-        </TouchableOpacity>
+        </Pressable>
       )}
     </View>
   );

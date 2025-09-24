@@ -10,7 +10,8 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity
+  Pressable,
+  Vibration
 } from 'react-native';
 
 import { AssessmentPreviewProps, AssessmentQuestion } from '../types';
@@ -38,16 +39,23 @@ const PHQAssessmentPreview: React.FC<AssessmentPreviewProps> = memo(({
   ];
 
   const renderQuestionOption = (option: string, index: number, selectedIndex: number) => (
-    <TouchableOpacity
+    <Pressable
       key={index}
-      style={[
-        styles.questionOption,
-        index === selectedIndex && styles.selectedOption
-      ]}
+      onPressIn={() => {
+        // CLINICAL: Light haptic feedback for assessment option selection
+        // Maintains therapeutic engagement without overwhelming
+        Vibration.vibrate(50); // Very light feedback for clinical accuracy
+      }}
       accessible={true}
       accessibilityRole="radio"
       accessibilityState={{ checked: index === selectedIndex }}
       accessibilityLabel={option}
+      style={({ pressed }) => [
+        styles.questionOption,
+        index === selectedIndex && styles.selectedOption,
+        pressed && { opacity: 0.8 }
+      ]}
+      hitSlop={{ top: 5, bottom: 5, left: 5, right: 5 }}
     >
       <Text
         style={[
@@ -57,7 +65,7 @@ const PHQAssessmentPreview: React.FC<AssessmentPreviewProps> = memo(({
       >
         {option}
       </Text>
-    </TouchableOpacity>
+    </Pressable>
   );
 
   const renderQuestion = (question: AssessmentQuestion) => (

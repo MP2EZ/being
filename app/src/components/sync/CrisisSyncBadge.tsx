@@ -10,11 +10,11 @@
  * - Performance: <100ms response to crisis state changes
  */
 
-import React, { useEffect, useMemo, useCallback } from 'react';
+import React, { useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
+  Pressable,
   StyleSheet,
   Animated,
   AccessibilityInfo,
@@ -324,8 +324,11 @@ export const CrisisSyncBadge: React.FC<CrisisSyncBadgeProps> = React.memo(({
         placementStyles
       ]}
     >
-      <TouchableOpacity
-        style={styles.touchable}
+      <Pressable
+        style={({ pressed }) => [
+          styles.touchable,
+          pressed && { opacity: 0.8, transform: [{ scale: 0.96 }] }
+        ]}
         onPress={handlePress}
         disabled={!onPress}
         accessible={true}
@@ -403,7 +406,7 @@ export const CrisisSyncBadge: React.FC<CrisisSyncBadgeProps> = React.memo(({
             ))}
           </View>
         )}
-      </TouchableOpacity>
+      </Pressable>
     </Animated.View>
   );
 });

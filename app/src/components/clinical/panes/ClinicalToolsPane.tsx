@@ -10,7 +10,8 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity
+  Pressable,
+  Vibration
 } from 'react-native';
 
 import { ClinicalPaneProps, AssessmentData } from '../types';
@@ -75,17 +76,26 @@ const ClinicalToolsPane: React.FC<ClinicalPaneProps> = memo(({ data, isActive })
 
       {/* Call to Action */}
       {data.content.callToAction && (
-        <TouchableOpacity
-          style={styles.ctaButton}
+        <Pressable
+          onPressIn={() => {
+            // CLINICAL: Medium haptic feedback for assessment tool interaction
+            // Provides reassuring feedback for clinical tool engagement
+            Vibration.vibrate(150); // Medium feedback for clinical assessment tools
+          }}
           accessible={true}
           accessibilityRole="button"
           accessibilityLabel={data.content.callToAction.text}
           accessibilityHint="Start a demo of the clinical assessment tools"
+          style={({ pressed }) => [
+            styles.ctaButton,
+            pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] }
+          ]}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
           <Text style={styles.ctaButtonText}>
             {data.content.callToAction.text}
           </Text>
-        </TouchableOpacity>
+        </Pressable>
       )}
     </View>
   );

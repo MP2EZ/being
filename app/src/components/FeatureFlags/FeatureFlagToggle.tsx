@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Alert } from 'react-native';
 import { Switch } from 'react-native';
 import { 
   useCostAwareFeature, 
@@ -172,10 +172,11 @@ export const FeatureFlagToggle: React.FC<FeatureFlagToggleProps> = ({
   }
 
   return (
-    <TouchableOpacity 
-      style={[
+    <Pressable 
+      style={({ pressed }) => [
         styles.container,
-        variant === 'detailed' && styles.detailedContainer
+        variant === 'detailed' && styles.detailedContainer,
+        pressed && { backgroundColor: '#f8f9fa', transform: [{ scale: 0.998 }] }
       ]}
       onPress={() => handleToggle(!costFeature.enabled)}
       disabled={isUpdating || costFeature.loading}
@@ -262,14 +263,17 @@ export const FeatureFlagToggle: React.FC<FeatureFlagToggleProps> = ({
                   : '⚠️ Requires data consent'}
               </Text>
               {!costFeature.hasConsent && (
-                <TouchableOpacity 
-                  style={styles.consentButton}
+                <Pressable 
+                  style={({ pressed }) => [
+                    styles.consentButton,
+                    pressed && { backgroundColor: '#2563eb', transform: [{ scale: 0.98 }] }
+                  ]}
                   onPress={() => costFeature.updateConsent(true)}
                 >
                   <Text style={styles.consentButtonText}>
                     Grant Consent
                   </Text>
-                </TouchableOpacity>
+                </Pressable>
               )}
             </View>
           )}
@@ -291,7 +295,7 @@ export const FeatureFlagToggle: React.FC<FeatureFlagToggleProps> = ({
           </Text>
         </View>
       )}
-    </TouchableOpacity>
+    </Pressable>
   );
 };
 
