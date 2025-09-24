@@ -6,7 +6,7 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Crypto from 'expo-crypto';
-import { enhancedOfflineQueueService } from './EnhancedOfflineQueueService';
+import { offlineQueueService as enhancedOfflineQueueService } from './OfflineQueueService';
 import { networkAwareService } from './NetworkAwareService';
 import { assetCacheService } from './AssetCacheService';
 import { resumableSessionService } from './ResumableSessionService';
@@ -42,7 +42,7 @@ import {
   NetworkQuality,
   OfflineOperationResult
 } from '../types/offline';
-import { CheckIn, Assessment, UserProfile, CrisisPlan } from '../types';
+import { CheckIn, Assessment, UserProfile, CrisisPlan } from '../types.ts';
 
 /**
  * Sync store interface for Zustand store integration
@@ -65,10 +65,10 @@ export interface SyncCapableStore {
  * Enhanced sync orchestration service with clinical safety
  */
 class SyncOrchestrationService {
-  private readonly SYNC_STATE_KEY = '@fullmind_sync_state';
-  private readonly SYNC_CONFIG_KEY = '@fullmind_sync_config';
-  private readonly SYNC_AUDIT_KEY = '@fullmind_sync_audit';
-  private readonly SYNC_PERFORMANCE_KEY = '@fullmind_sync_performance';
+  private readonly SYNC_STATE_KEY = 'being_sync_state';
+  private readonly SYNC_CONFIG_KEY = 'being_sync_config';
+  private readonly SYNC_AUDIT_KEY = 'being_sync_audit';
+  private readonly SYNC_PERFORMANCE_KEY = 'being_sync_performance';
   
   // Service state
   private isInitialized = false;
@@ -706,10 +706,10 @@ class SyncOrchestrationService {
   private async getDeviceId(): Promise<string> {
     // This would typically use a device-specific identifier
     // For now, generate a stable identifier based on stored data
-    let deviceId = await AsyncStorage.getItem('@fullmind_device_id');
+    let deviceId = await AsyncStorage.getItem('being_device_id');
     if (!deviceId) {
       deviceId = Crypto.randomUUID();
-      await AsyncStorage.setItem('@fullmind_device_id', deviceId);
+      await AsyncStorage.setItem('being_device_id', deviceId);
     }
     return deviceId;
   }

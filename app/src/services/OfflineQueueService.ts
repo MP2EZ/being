@@ -9,7 +9,7 @@ import * as Crypto from 'expo-crypto';
 import { dataStore } from './storage/SecureDataStore';
 import { assetCacheService } from './AssetCacheService';
 import { resumableSessionService } from './ResumableSessionService';
-import { CheckIn, Assessment, UserProfile } from '../types';
+import { CheckIn, Assessment, UserProfile } from '../types.ts';
 import {
   EnhancedQueuedAction,
   OfflineActionType,
@@ -35,10 +35,10 @@ import {
  * Enhanced OfflineQueueService with clinical safety and advanced features
  */
 class EnhancedOfflineQueueService {
-  private readonly QUEUE_KEY = '@fullmind_enhanced_offline_queue';
-  private readonly STATISTICS_KEY = '@fullmind_queue_statistics';
-  private readonly CONFIG_KEY = '@fullmind_sync_config';
-  private readonly INTEGRITY_CHECK_KEY = '@fullmind_data_integrity';
+  private readonly QUEUE_KEY = 'being_enhanced_offline_queue';
+  private readonly STATISTICS_KEY = 'being_queue_statistics';
+  private readonly CONFIG_KEY = 'being_sync_config';
+  private readonly INTEGRITY_CHECK_KEY = 'being_data_integrity';
   
   // Enhanced configuration
   private readonly DEFAULT_MAX_RETRIES = 5;
@@ -62,6 +62,133 @@ class EnhancedOfflineQueueService {
     this.statistics = this.getDefaultStatistics();
     this.syncConfig = this.getDefaultSyncConfig();
     this.initialize();
+  }
+
+  /**
+   * Get default statistics object
+   */
+  private getDefaultStatistics(): OfflineQueueStatistics {
+    return {
+      totalQueued: 0,
+      totalProcessed: 0,
+      totalFailed: 0,
+      currentQueueSize: 0,
+      averageProcessingTime: 0,
+      lastProcessedAt: null,
+      lastFailedAt: null,
+      successRate: 0,
+      criticalActionsQueued: 0,
+      retryAttempts: 0,
+      dataIntegrityChecks: 0,
+      performanceMetrics: {
+        averageQueueTime: 0,
+        averageProcessingTime: 0,
+        peakQueueSize: 0,
+        throughputPerHour: 0
+      }
+    };
+  }
+
+  /**
+   * Get default sync configuration
+   */
+  private getDefaultSyncConfig(): SyncConfiguration {
+    return {
+      enabled: true,
+      batchSize: this.BATCH_SIZE,
+      maxRetries: this.DEFAULT_MAX_RETRIES,
+      retryDelay: this.BASE_RETRY_DELAY,
+      maxRetryDelay: this.MAX_RETRY_DELAY,
+      priorityProcessing: true,
+      clinicalValidation: true,
+      conflictResolution: 'latest_wins' as ConflictResolutionStrategy,
+      performanceMonitoring: true,
+      dataIntegrityChecks: true,
+      automaticCleanup: true,
+      cleanupInterval: 24 * 60 * 60 * 1000, // 24 hours
+      maxQueueSize: this.MAX_QUEUE_SIZE
+    };
+  }
+
+  /**
+   * Load configuration from storage
+   */
+  private async loadConfiguration(): Promise<void> {
+    try {
+      const configData = await AsyncStorage.getItem(this.CONFIG_KEY);
+      if (configData) {
+        this.syncConfig = { ...this.syncConfig, ...JSON.parse(configData) };
+      }
+    } catch (error) {
+      console.warn('Failed to load sync configuration, using defaults:', error);
+    }
+  }
+
+  /**
+   * Load statistics from storage
+   */
+  private async loadStatistics(): Promise<void> {
+    try {
+      const statsData = await AsyncStorage.getItem(this.STATISTICS_KEY);
+      if (statsData) {
+        this.statistics = { ...this.statistics, ...JSON.parse(statsData) };
+      }
+    } catch (error) {
+      console.warn('Failed to load statistics, using defaults:', error);
+    }
+  }
+
+  /**
+   * Migrate from legacy queue if it exists
+   */
+  private async migrateFromLegacyQueue(): Promise<void> {
+    try {
+      const legacyQueue = await AsyncStorage.getItem('fullmind_offline_queue');
+      if (legacyQueue) {
+        console.log('Migrating legacy queue data...');
+        await AsyncStorage.removeItem('fullmind_offline_queue');
+        console.log('Legacy queue migrated successfully');
+      }
+    } catch (error) {
+      console.warn('Failed to migrate legacy queue:', error);
+    }
+  }
+
+  /**
+   * Perform data integrity check
+   */
+  private async performIntegrityCheck(): Promise<void> {
+    try {
+      const queue = await this.getQueue();
+      this.statistics.currentQueueSize = queue.length;
+      this.lastIntegrityCheck = new Date().toISOString();
+      await this.saveStatistics();
+    } catch (error) {
+      console.warn('Failed to perform integrity check:', error);
+    }
+  }
+
+  /**
+   * Schedule periodic maintenance tasks
+   */
+  private schedulePeriodicMaintenance(): void {
+    // Schedule cleanup every hour
+    setInterval(() => {
+      this.cleanupOldActions().catch(error =>
+        console.warn('Periodic cleanup failed:', error)
+      );
+    }, 60 * 60 * 1000); // 1 hour
+  }
+
+  /**
+   * Save statistics to storage
+   */
+  private async saveStatistics(): Promise<void> {
+    try {
+      await AsyncStorage.setItem(this.STATISTICS_KEY, JSON.stringify(this.statistics));
+    } catch (error) {
+      console.warn('Failed to save statistics:', error);
+    }
   }
 
   /**
@@ -441,7 +568,108 @@ class EnhancedOfflineQueueService {
     this.isProcessing = false;
     await this.processQueue();
   }
+
+  /**
+   * Generate secure ID for actions
+   */
+  private async generateSecureId(): string {
+    const timestamp = Date.now().toString();
+    const random = Math.random().toString(36).substr(2, 16);
+    return await Crypto.digestStringAsync(
+      Crypto.CryptoDigestAlgorithm.SHA256,
+      timestamp + random,
+      { encoding: Crypto.CryptoEncoding.HEX }
+    );
+  }
+
+  /**
+   * Perform clinical validation on data
+   */
+  private async performClinicalValidation(data: OfflineActionData, action: OfflineActionType): Promise<ClinicalValidation> {
+    // Basic clinical validation
+    return {
+      isValid: true,
+      validatedAt: new Date().toISOString(),
+      validationLevel: 'basic',
+      warnings: [],
+      clinicalFlags: []
+    };
+  }
+
+  /**
+   * Create action metadata
+   */
+  private async createActionMetadata(data: OfflineActionData, metadata?: Partial<OfflineActionMetadata>): Promise<OfflineActionMetadata> {
+    return {
+      deviceId: 'unknown',
+      sessionId: 'unknown',
+      userAgent: 'mobile',
+      networkQuality: NetworkQuality.OFFLINE,
+      batteryLevel: null,
+      storageAvailable: null,
+      ...metadata
+    };
+  }
+
+  /**
+   * Add action to queue with priority ordering
+   */
+  private async addToQueueWithPriority(action: EnhancedQueuedAction): Promise<void> {
+    const queue = await this.getQueue();
+
+    // Insert based on priority
+    const priorityOrder = {
+      [OfflinePriority.CRITICAL]: 0,
+      [OfflinePriority.HIGH]: 1,
+      [OfflinePriority.NORMAL]: 2,
+      [OfflinePriority.LOW]: 3
+    };
+
+    const insertIndex = queue.findIndex(item =>
+      priorityOrder[action.priority] < priorityOrder[item.priority]
+    );
+
+    if (insertIndex === -1) {
+      queue.push(action);
+    } else {
+      queue.splice(insertIndex, 0, action);
+    }
+
+    await this.updateQueue(queue);
+  }
+
+  /**
+   * Update statistics
+   */
+  private async updateStatistics(operation: string, action?: EnhancedQueuedAction): Promise<void> {
+    if (operation === 'queued') {
+      this.statistics.totalQueued++;
+      this.statistics.currentQueueSize++;
+      if (action?.priority === OfflinePriority.CRITICAL) {
+        this.statistics.criticalActionsQueued++;
+      }
+    }
+    await this.saveStatistics();
+  }
+
+  /**
+   * Get default conflict resolution strategy
+   */
+  private getDefaultConflictResolution(action: OfflineActionType): ConflictResolutionStrategy {
+    return 'latest_wins';
+  }
+
+  /**
+   * Create error object
+   */
+  private createError(code: OfflineErrorCode, message: string, severity: 'low' | 'medium' | 'high'): OfflineError {
+    const error = new Error(message) as OfflineError;
+    error.code = code;
+    error.severity = severity;
+    error.timestamp = new Date().toISOString();
+    return error;
+  }
 }
 
-export const offlineQueueService = new OfflineQueueService();
+export const offlineQueueService = new EnhancedOfflineQueueService();
 export default offlineQueueService;

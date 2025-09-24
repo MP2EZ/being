@@ -1,65 +1,68 @@
 /**
- * FullMind MBCT App - Main Entry Point
- * Clinical-grade mindfulness-based cognitive therapy application
- * PERFORMANCE OPTIMIZED for <3 second cold start
+ * New Architecture Test App
+ * React 19.1.0 + React Native 0.81.4 + Expo SDK 54
+ * Testing: Fabric & TurboModules (New Architecture)
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
+import { View, Text, StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { AppState } from 'react-native';
-import RootNavigator from './src/navigation/RootNavigator';
-import { LoadingScreen } from './src/components/core';
+import { SimpleThemeProvider } from './src/contexts/SimpleThemeContext';
+import MinimalRootNavigator from './src/navigation/MinimalRootNavigator';
 
 export default function App() {
-  const [isAppReady, setIsAppReady] = useState(false);
-
   useEffect(() => {
-    // PERFORMANCE: Minimal initialization for fastest launch
-    const initializeApp = async () => {
+    console.log('🏗️ New Architecture Test App: Starting runtime detection...');
+
+    // Quick runtime test in useEffect
+    const testArchitecture = () => {
       try {
-        // Pre-load critical data only
-        // Other data loads happen in background after UI is ready
-        
-        // Mark app as ready for immediate UI render
-        setIsAppReady(true);
-        
-        // Background initialization - don't block launch
-        Promise.resolve().then(() => {
-          // Any heavy initialization goes here after UI is shown
-          console.log('Background initialization started');
-        });
-        
+        // Test Fabric Renderer
+        const hasFabric = !!(global as any)?.nativeFabricUIManager;
+        console.log(`🔍 Fabric Renderer: ${hasFabric ? '✅ DETECTED' : '❌ NOT FOUND'}`);
+
+        // Test TurboModules
+        const hasTurboModules = !!(global as any)?.__turboModuleProxy;
+        console.log(`🔍 TurboModules: ${hasTurboModules ? '✅ DETECTED' : '❌ NOT FOUND'}`);
+
+        // Test Hermes
+        const hasHermes = typeof (global as any).HermesInternal === 'object' && (global as any).HermesInternal !== null;
+        console.log(`🔍 Hermes Engine: ${hasHermes ? '✅ ACTIVE' : '❌ INACTIVE'}`);
+
+        // Overall status
+        const newArchEnabled = hasFabric || hasTurboModules;
+        console.log(`\n🎯 NEW ARCHITECTURE STATUS: ${newArchEnabled ? '✅ ENABLED' : '❌ DISABLED'}`);
+
+        if (newArchEnabled) {
+          console.log('🎉 SUCCESS: Being. MBCT app is running on New Architecture!');
+          console.log('📋 Phase 4 Task 1: New Architecture verification PASSED');
+        } else {
+          console.log('⚠️ WARNING: New Architecture not detected - still using Legacy Architecture');
+          console.log('❌ Phase 4 Task 1: New Architecture verification FAILED');
+        }
+
+        return { hasFabric, hasTurboModules, hasHermes, newArchEnabled };
       } catch (error) {
-        console.error('App initialization failed:', error);
-        // Still show UI - graceful degradation
-        setIsAppReady(true);
+        console.log('❌ Architecture detection error:', error);
+        return { hasFabric: false, hasTurboModules: false, hasHermes: false, newArchEnabled: false };
       }
     };
 
-    initializeApp();
+    // Run test after a small delay to ensure runtime is initialized
+    const timeoutId = setTimeout(() => {
+      testArchitecture();
+    }, 100);
 
-    // Handle app state changes for performance monitoring
-    const handleAppStateChange = (nextAppState: any) => {
-      if (nextAppState === 'active') {
-        // App became active - could trigger performance checks
-        console.log('App became active');
-      }
-    };
-
-    const subscription = AppState.addEventListener('change', handleAppStateChange);
-    return () => subscription?.remove();
+    return () => clearTimeout(timeoutId);
   }, []);
-
-  // PERFORMANCE: Show loading screen only briefly during critical initialization
-  if (!isAppReady) {
-    return <LoadingScreen />;
-  }
 
   return (
     <SafeAreaProvider>
-      <RootNavigator />
-      <StatusBar style="dark" />
+      <SimpleThemeProvider>
+        <StatusBar style="auto" />
+        <MinimalRootNavigator />
+      </SimpleThemeProvider>
     </SafeAreaProvider>
   );
 }

@@ -1,6 +1,11 @@
 /**
  * AccessibleAlert - Screen reader friendly alert replacement
  * CRITICAL: Used for life-safety crisis interventions
+ * 
+ * ✅ PRESSABLE MIGRATION: TouchableOpacity → Pressable with New Architecture optimization
+ * - Enhanced android_ripple for emergency alert buttons
+ * - Improved accessibility for crisis-critical interactions
+ * - Optimized touch targets for life-safety features
  */
 
 import React, { useEffect, useRef } from 'react';
@@ -8,7 +13,7 @@ import {
   View,
   Text,
   Modal,
-  TouchableOpacity,
+  Pressable,
   StyleSheet,
   AccessibilityInfo,
 } from 'react-native';
@@ -130,12 +135,13 @@ export const AccessibleAlert: React.FC<AccessibleAlertProps> = ({
 
             <View style={styles.buttonContainer}>
               {buttons.map((button, index) => (
-                <TouchableOpacity
+                <Pressable
                   key={index}
-                  style={[
+                  style={({ pressed }) => [
                     styles.button,
                     getButtonStyle(button.style || 'default'),
                     buttons.length === 1 && styles.singleButton,
+                    pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] }
                   ]}
                   onPress={button.onPress}
                   accessible={true}
@@ -149,6 +155,12 @@ export const AccessibleAlert: React.FC<AccessibleAlertProps> = ({
                       ? 'Calls emergency hotline immediately'
                       : undefined
                   }
+                  android_ripple={{
+                    color: button.style === 'emergency' ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 0, 0, 0.1)',
+                    borderless: false,
+                    radius: 150
+                  }}
+                  hitSlop={{ top: 12, left: 12, bottom: 12, right: 12 }}
                 >
                   <Text 
                     style={[
@@ -159,7 +171,7 @@ export const AccessibleAlert: React.FC<AccessibleAlertProps> = ({
                   >
                     {button.text}
                   </Text>
-                </TouchableOpacity>
+                </Pressable>
               ))}
             </View>
           </View>

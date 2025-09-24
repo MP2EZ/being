@@ -16,7 +16,7 @@ import {
   ClinicalCalculations,
 } from './clinical';
 
-import { CheckIn, UserProfile, CrisisPlan } from '../types';
+import { CheckIn, UserProfile, CrisisPlan } from '../types.ts';
 import { DataSensitivity } from './security';
 
 // Advanced Features Integration

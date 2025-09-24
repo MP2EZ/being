@@ -11,7 +11,7 @@ import Animated, {
   withTiming,
   interpolate,
   Easing,
-} from 'react-native-reanimated';
+} from '../../utils/ReanimatedMock';
 import { colorSystem, spacing } from '../../constants/colors';
 
 interface StepsIndicatorProps {

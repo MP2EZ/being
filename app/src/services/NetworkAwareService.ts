@@ -5,7 +5,7 @@
  */
 
 import NetInfo, { NetInfoState, NetInfoSubscription } from '@react-native-community/netinfo';
-import { enhancedOfflineQueueService } from './EnhancedOfflineQueueService';
+import { offlineQueueService as enhancedOfflineQueueService } from './OfflineQueueService';
 import { assetCacheService } from './AssetCacheService';
 import { resumableSessionService } from './ResumableSessionService';
 import {

@@ -114,7 +114,7 @@ class WidgetTestingUtilsImpl implements WidgetTestingUtils {
         }),
         getAppGroupData: jest.fn().mockImplementation(async (key: string) => {
           mockLog.push(`iOS: getAppGroupData called with key=${key}`);
-          return Promise.resolve(key === 'fullmind_widget_data' ? JSON.stringify(this.createMockWidgetData()) : null);
+          return Promise.resolve(key === 'being_widget_data' ? JSON.stringify(this.createMockWidgetData()) : null);
         })
       },
       android: {
@@ -142,7 +142,7 @@ class WidgetTestingUtilsImpl implements WidgetTestingUtils {
    * Simulate deep link URLs for testing
    */
   simulateDeepLink = (type: CheckInType, resume: boolean = false): string => {
-    const baseUrl = 'fullmind://checkin';
+    const baseUrl = 'being://checkin';
     const params = new URLSearchParams({
       resume: resume.toString(),
       timestamp: new Date().toISOString(),
@@ -162,7 +162,7 @@ class WidgetTestingUtilsImpl implements WidgetTestingUtils {
       source: 'test_widget'
     });
     
-    return `fullmind://crisis?${params.toString()}`;
+    return `being://crisis?${params.toString()}`;
   };
 
   /**
@@ -385,7 +385,7 @@ export class WidgetTestAssertions {
     try {
       const urlObj = new URL(url);
       
-      if (urlObj.protocol !== 'fullmind:') {
+      if (urlObj.protocol !== 'being:') {
         throw new Error(`Invalid protocol: ${urlObj.protocol}`);
       }
       
@@ -545,7 +545,7 @@ export class WidgetTestScenarios {
       },
       {
         name: 'Invalid check-in type',
-        url: 'fullmind://checkin/invalid?resume=false',
+        url: 'being://checkin/invalid?resume=false',
         shouldBeValid: false
       },
       {

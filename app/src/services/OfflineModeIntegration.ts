@@ -7,12 +7,11 @@
 import NetInfo, { NetInfoState } from '@react-native-community/netinfo';
 import { AppState, AppStateStatus } from 'react-native';
 import { assetCacheService, AssetPriority, AssetType } from './AssetCacheService';
-import { offlineQueueService } from './OfflineQueueService';
 import { resumableSessionService } from './ResumableSessionService';
 import { widgetDataService } from './WidgetDataService';
 import { offlineIntegrationService } from './OfflineIntegrationService';
 import { networkAwareService } from './NetworkAwareService';
-import { enhancedOfflineQueueService } from './EnhancedOfflineQueueService';
+import { offlineQueueService as enhancedOfflineQueueService } from './OfflineQueueService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   OfflineActionType,
@@ -54,8 +53,8 @@ interface SyncStrategy {
 }
 
 class OfflineModeIntegrationService {
-  private readonly STATUS_KEY = '@fullmind_offline_status';
-  private readonly SYNC_LOG_KEY = '@fullmind_sync_log';
+  private readonly STATUS_KEY = 'being_offline_status';
+  private readonly SYNC_LOG_KEY = 'being_sync_log';
   
   private isInitialized = false;
   private currentNetworkState: NetInfoState | null = null;
@@ -584,7 +583,7 @@ class OfflineModeIntegrationService {
       checks.criticalAssets = cacheStats.criticalAssetsLoaded;
       
       // Check data store
-      const testKey = '@fullmind_offline_test';
+      const testKey = 'being_offline_test';
       await AsyncStorage.setItem(testKey, 'test');
       const testValue = await AsyncStorage.getItem(testKey);
       checks.dataStore = testValue === 'test';

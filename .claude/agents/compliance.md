@@ -1,7 +1,6 @@
 ---
 name: compliance
 description: Ensures regulatory compliance, privacy protection, and legal adherence for mental health data handling, user rights, and healthcare app requirements. USE PROACTIVELY for HIPAA compliance, privacy law, data protection, healthcare regulations, and legal compliance.
-tools: Read, Write, Edit, Bash, Glob, Grep
 model: opus
 color: blue
 ---
@@ -234,7 +233,7 @@ Therapeutic Integration Requirements:
 - If user rights implementation complex: Collaborate with security for technical feasibility
 - If regulatory interpretation disputed: Escalate to legal review with documented analysis
 
-## FullMind Project Context
+## Being. Project Context
 
 ### Codebase Knowledge
 - **Data Store**: `/src/services/storage/DataStore.ts` for data persistence and management

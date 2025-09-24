@@ -1,10 +1,10 @@
-# FullMind MBCT - Clinical-Grade Mental Health App
+# Being. - Clinical-Grade Mental Health App
 
 > **Evidence-based mindfulness and cognitive therapy practices for mental wellness**
 
-[![App Store Ready](https://img.shields.io/badge/App%20Store-95%25%20Ready-green.svg)](https://github.com/fullmind-mbct)
-[![Clinical Accuracy](https://img.shields.io/badge/Clinical%20Accuracy-100%25%20Validated-brightgreen.svg)](./docs/clinical-validation.md)
-[![HIPAA Ready](https://img.shields.io/badge/HIPAA-Compliance%20Ready-blue.svg)](./app/ENCRYPTION_IMPLEMENTATION.md)
+[![App Store Ready](https://img.shields.io/badge/App%20Store-95%25%20Ready-green.svg)](https://github.com/being-mbct)
+[![Clinical Accuracy](https://img.shields.io/badge/Clinical%20Accuracy-100%25%20Validated-brightgreen.svg)](./docs/clinical/)
+[![HIPAA Ready](https://img.shields.io/badge/HIPAA-Compliance%20Ready-blue.svg)](./docs/security/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Strict%20Mode-blue.svg)](./app/tsconfig.json)
 [![Testing](https://img.shields.io/badge/Tests-Clinical%20Grade-green.svg)](./app/__tests__)
 
@@ -12,7 +12,7 @@
 
 ## 🎯 **Current Status: Production-Ready Mental Health Platform**
 
-**FullMind** is a **clinical-grade React Native app** delivering evidence-based **Mindfulness-Based Cognitive Therapy (MBCT)** practices. After comprehensive multi-agent development and validation, the app is **95% ready for app store deployment**.
+**Being.** is a **clinical-grade React Native app** delivering evidence-based **Mindfulness-Based Cognitive Therapy (MBCT)** practices. After comprehensive multi-agent development and validation, the app is **95% ready for app store deployment**.
 
 ### **🚀 Ready for Launch (8-Week Timeline)**
 - ✅ **Clinical Accuracy**: PHQ-9/GAD-7 assessments with 100% scoring precision
@@ -139,7 +139,7 @@ app/
 │   ├── clinical/           # PHQ-9/GAD-7 accuracy tests
 │   ├── security/           # Encryption and privacy tests
 │   └── performance/        # Therapeutic timing validation
-└── docs/                   # Documentation and compliance guides
+└── docs/                   # App-specific documentation (see /docs/ for project docs)
 ```
 
 ---
@@ -180,6 +180,23 @@ app/
 - **Data Rights Management**: Export, deletion, and portability capabilities ready
 - **Privacy by Design**: Local-first architecture with optional cloud sync preparation
 - **Regulatory Documentation**: Complete security and compliance documentation
+
+---
+
+## 📚 **Documentation**
+
+### **Documentation Structure**
+- **`/docs/`** - Project-wide documentation (legal, brand guidelines)
+- **`/docs/`** - Technical documentation (product, clinical, architecture, security)
+- **`/website/docs/`** - Website documentation (implementation, reports)
+- **`/scripts/`** - Cross-module operational scripts
+
+### **Key Documentation**
+- [Documentation Placement Guide](docs/DOCUMENTATION_GUIDE.md) - Rules for organizing docs
+- [Product Requirements](app/docs/product/) - PRD, TRD, DRD, roadmaps
+- [Clinical Documentation](app/docs/clinical/) - MBCT compliance, safety protocols
+- [Architecture & Security](app/docs/architecture/) - System design, data protection
+- [Legal & Compliance](docs/legal/) - Privacy policy, HIPAA, GDPR
 
 ---
 
@@ -225,7 +242,7 @@ app/
 
 ## 🎯 **Mission Statement**
 
-**FullMind delivers evidence-based mindfulness and cognitive therapy practices through clinical-grade mobile technology, empowering individuals to develop sustainable mental wellness skills while ensuring complete safety and privacy for those in their most vulnerable moments.**
+**Being. delivers evidence-based mindfulness and cognitive therapy practices through clinical-grade mobile technology, empowering individuals to develop sustainable mental wellness skills while ensuring complete safety and privacy for those in their most vulnerable moments.**
 
 ---
 

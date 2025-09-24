@@ -14,11 +14,11 @@ import {
 
 export class DataStore {
   private readonly KEYS = {
-    USER: '@fullmind_user',
-    CHECKINS: '@fullmind_checkins',
-    ASSESSMENTS: '@fullmind_assessments',
-    CRISIS_PLAN: '@fullmind_crisis',
-    PARTIAL_SESSIONS: '@fullmind_partial_sessions'
+    USER: 'being_user',
+    CHECKINS: 'being_checkins',
+    ASSESSMENTS: 'being_assessments',
+    CRISIS_PLAN: 'being_crisis',
+    PARTIAL_SESSIONS: 'being_partial_sessions'
   };
 
   // Clinical Data Validation Rules

@@ -6,7 +6,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { networkService } from '../services/NetworkService';
 import { offlineQueueService } from '../services/OfflineQueueService';
-import { NetworkState } from '../types';
+import { NetworkState } from '../types.ts';
 
 interface UseNetworkReturn {
   // Network state

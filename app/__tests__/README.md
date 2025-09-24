@@ -1,8 +1,8 @@
-# FullMind Widget Integration Test Suite
+# Being. Widget Integration Test Suite
 
 ## Overview
 
-This comprehensive test suite validates the clinical-grade widget implementation for the FullMind MBCT app. The tests ensure privacy compliance, performance requirements, accessibility standards, and reliable functionality for mental health users.
+This comprehensive test suite validates the clinical-grade widget implementation for the Being. MBCT app. The tests ensure privacy compliance, performance requirements, accessibility standards, and reliable functionality for mental health users.
 
 ## Test Categories
 

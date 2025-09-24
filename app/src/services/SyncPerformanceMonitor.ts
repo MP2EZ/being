@@ -74,9 +74,9 @@ interface PerformanceSession {
  * Sync performance monitoring service
  */
 class SyncPerformanceMonitor {
-  private readonly METRICS_KEY = '@fullmind_sync_performance_metrics';
-  private readonly ALERTS_KEY = '@fullmind_sync_performance_alerts';
-  private readonly SESSION_KEY = '@fullmind_sync_performance_sessions';
+  private readonly METRICS_KEY = 'being_sync_performance_metrics';
+  private readonly ALERTS_KEY = 'being_sync_performance_alerts';
+  private readonly SESSION_KEY = 'being_sync_performance_sessions';
   
   // Performance thresholds
   private readonly thresholds: PerformanceThresholds = {

@@ -6,7 +6,7 @@
 import React, { useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
-import { useUserStore } from '../store';
+import { useUserStore } from '../store/userStoreFixed';
 import MainTabNavigator from './MainTabNavigator';
 import { colorSystem } from '../constants/colors';
 import { LoadingScreen } from '../components/core';
@@ -18,18 +18,28 @@ import AssessmentResultsScreen from '../screens/assessment/AssessmentResultsScre
 import CrisisPlanScreen from '../screens/crisis/CrisisPlanScreen';
 import OnboardingPlaceholder from '../screens/onboarding/OnboardingPlaceholder';
 
+// Standalone screen imports (Stage 4)
+import { BreathingScreen, CheckInScreen, ProgressScreen } from '../screens/standalone';
+
+// Payment screen imports
+import SubscriptionScreen from '../screens/payment/SubscriptionScreen';
+import PaymentMethodScreen from '../screens/payment/PaymentMethodScreen';
+import BillingHistoryScreen from '../screens/payment/BillingHistoryScreen';
+import PaymentSettingsScreen from '../screens/payment/PaymentSettingsScreen';
+
 const Stack = createStackNavigator();
 
 const RootNavigator: React.FC = () => {
-  const { user, isLoading, loadUser, isOnboardingComplete } = useUserStore();
+  const { user, isLoading, initializeStore, isOnboardingComplete } = useUserStore();
 
   useEffect(() => {
-    loadUser();
-  }, [loadUser]);
+    initializeStore();
+  }, [initializeStore]);
 
-  if (isLoading) {
-    return <LoadingScreen />;
-  }
+  // Temporarily bypass loading for New Architecture validation
+  // if (isLoading) {
+  //   return <LoadingScreen />;
+  // }
 
   return (
     <NavigationContainer>
@@ -73,10 +83,75 @@ const RootNavigator: React.FC = () => {
           }}
         />
         
-        <Stack.Screen 
-          name="CrisisPlan" 
+        <Stack.Screen
+          name="CrisisPlan"
           component={CrisisPlanScreen}
-          options={{ 
+          options={{
+            presentation: 'modal',
+            headerShown: false,
+          }}
+        />
+
+        {/* Standalone Core Journey Screens (Stage 4) */}
+        <Stack.Screen
+          name="BreathingScreen"
+          component={BreathingScreen}
+          options={{
+            presentation: 'modal',
+            headerShown: false,
+          }}
+        />
+
+        <Stack.Screen
+          name="CheckInScreen"
+          component={CheckInScreen}
+          options={{
+            presentation: 'modal',
+            headerShown: false,
+          }}
+        />
+
+        <Stack.Screen
+          name="ProgressScreen"
+          component={ProgressScreen}
+          options={{
+            presentation: 'modal',
+            headerShown: false,
+          }}
+        />
+
+        {/* Payment Screens */}
+        <Stack.Screen
+          name="SubscriptionScreen"
+          component={SubscriptionScreen}
+          options={{
+            presentation: 'modal',
+            headerShown: false,
+          }}
+        />
+
+        <Stack.Screen
+          name="PaymentMethodScreen"
+          component={PaymentMethodScreen}
+          options={{
+            presentation: 'modal',
+            headerShown: false,
+          }}
+        />
+
+        <Stack.Screen
+          name="BillingHistoryScreen"
+          component={BillingHistoryScreen}
+          options={{
+            presentation: 'modal',
+            headerShown: false,
+          }}
+        />
+
+        <Stack.Screen
+          name="PaymentSettingsScreen"
+          component={PaymentSettingsScreen}
+          options={{
             presentation: 'modal',
             headerShown: false,
           }}

@@ -15,7 +15,7 @@ import {
 } from '../types/widget';
 
 // Native module interface
-interface FullMindWidgetsModule {
+interface BeingWidgetsModule {
   // iOS WidgetKit Methods
   updateWidgetData: (data: string) => Promise<void>;
   reloadWidgets: () => Promise<void>;
@@ -39,7 +39,7 @@ interface FullMindWidgetsModule {
  * Enhanced Native Bridge Implementation
  */
 export class WidgetNativeBridgeService {
-  private nativeModule: FullMindWidgetsModule | null = null;
+  private nativeModule: BeingWidgetsModule | null = null;
   private eventEmitter: NativeEventEmitter | null = null;
   private isInitialized: boolean = false;
   private healthCheckInterval: NodeJS.Timeout | null = null;
@@ -50,8 +50,8 @@ export class WidgetNativeBridgeService {
   
   // Constants
   private readonly HEALTH_CHECK_INTERVAL_MS = 300000; // 5 minutes
-  private readonly WIDGET_DATA_KEY = 'fullmind_widget_data_v2';
-  private readonly BACKUP_DATA_KEY = 'fullmind_widget_backup';
+  private readonly WIDGET_DATA_KEY = 'being_widget_data_v2';
+  private readonly BACKUP_DATA_KEY = 'being_widget_backup';
   
   constructor() {
     this.initializeNativeModule();
@@ -62,14 +62,14 @@ export class WidgetNativeBridgeService {
    */
   private initializeNativeModule(): void {
     try {
-      const nativeModule = NativeModules.FullMindWidgets;
-      
+      const nativeModule = NativeModules.BeingWidgets;
+
       if (!nativeModule) {
-        console.warn('FullMindWidgets native module not available - widget functionality disabled');
+        console.warn('BeingWidgets native module not available - widget functionality disabled');
         return;
       }
 
-      this.nativeModule = nativeModule as FullMindWidgetsModule;
+      this.nativeModule = nativeModule as BeingWidgetsModule;
       this.eventEmitter = new NativeEventEmitter(nativeModule);
       
       // Register for deep link events

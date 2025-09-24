@@ -1,7 +1,6 @@
 ---
 name: crisis
 description: Validates crisis intervention protocols, safety detection mechanisms, and emergency response workflows for mental health crisis situations. USE PROACTIVELY for crisis intervention, safety protocols, PHQ-9/GAD-7 crisis thresholds, emergency response, and suicide risk assessment.
-tools: Read, Write, Edit, Bash, Glob, Grep
 model: opus
 color: red
 ---
@@ -233,7 +232,7 @@ Therapeutic Integration Requirements:
 - If therapeutic relationship damaged: Provide recovery protocols and professional referral options
 - If emergency resources unavailable: Activate backup systems and alternative intervention paths
 
-## FullMind Project Context
+## Being. Project Context
 
 ### Codebase Knowledge
 - **Assessment Store**: `/src/store/assessmentStore.ts` with crisis detection logic

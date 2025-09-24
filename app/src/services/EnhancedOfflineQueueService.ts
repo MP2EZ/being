@@ -9,7 +9,7 @@ import * as Crypto from 'expo-crypto';
 import { dataStore } from './storage/SecureDataStore';
 import { assetCacheService } from './AssetCacheService';
 import { resumableSessionService } from './ResumableSessionService';
-import { CheckIn, Assessment, UserProfile } from '../types';
+import { CheckIn, Assessment, UserProfile } from '../types.ts';
 import {
   EnhancedQueuedAction,
   OfflineActionType,
@@ -36,10 +36,10 @@ import {
  * Enhanced OfflineQueueService with clinical safety and advanced features
  */
 class EnhancedOfflineQueueService {
-  private readonly QUEUE_KEY = '@fullmind_enhanced_offline_queue';
-  private readonly STATISTICS_KEY = '@fullmind_queue_statistics';
-  private readonly CONFIG_KEY = '@fullmind_sync_config';
-  private readonly INTEGRITY_CHECK_KEY = '@fullmind_data_integrity';
+  private readonly QUEUE_KEY = 'being_enhanced_offline_queue';
+  private readonly STATISTICS_KEY = 'being_queue_statistics';
+  private readonly CONFIG_KEY = 'being_sync_config';
+  private readonly INTEGRITY_CHECK_KEY = 'being_data_integrity';
   
   // Enhanced configuration
   private readonly DEFAULT_MAX_RETRIES = 5;
@@ -916,7 +916,7 @@ class EnhancedOfflineQueueService {
    */
   private async migrateFromLegacyQueue(): Promise<void> {
     try {
-      const legacyQueue = await AsyncStorage.getItem('@fullmind_offline_queue');
+      const legacyQueue = await AsyncStorage.getItem('being_offline_queue');
       if (legacyQueue) {
         const legacyActions = JSON.parse(legacyQueue);
         console.log(`Migrating ${legacyActions.length} actions from legacy queue`);
@@ -941,7 +941,7 @@ class EnhancedOfflineQueueService {
         }
         
         // Remove legacy queue
-        await AsyncStorage.removeItem('@fullmind_offline_queue');
+        await AsyncStorage.removeItem('being_offline_queue');
         console.log('Legacy queue migration completed');
       }
     } catch (error) {

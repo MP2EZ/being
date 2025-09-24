@@ -6,7 +6,7 @@
 import { syncOrchestrationService } from '../../services/SyncOrchestrationService';
 import { syncInitializationService } from '../../services/SyncInitializationService';
 import { syncPerformanceMonitor } from '../../services/SyncPerformanceMonitor';
-import { enhancedOfflineQueueService } from '../../services/EnhancedOfflineQueueService';
+import { offlineQueueService as enhancedOfflineQueueService } from '../../services/OfflineQueueService';
 import { networkAwareService } from '../../services/NetworkAwareService';
 import { createSyncMixin, withSync } from '../../store/mixins/syncMixin';
 import {

@@ -1,110 +1,517 @@
 /**
- * Widget Demo Component
- * Demonstrates widget integration and testing for FullMind MBCT app
- * For development and testing purposes only
+ * Widget Demo Component - Enhanced with Subscription Integration
+ *
+ * Demonstrates widget integration with subscription-aware features:
+ * - Feature gates for premium widget functionality
+ * - Crisis-safe widget access during emergencies
+ * - Trial-aware widget features
+ * - Subscription-based widget configurations
+ *
+ * CLINICAL REQUIREMENTS:
+ * - Quick morning check-in always accessible for crisis safety
+ * - Premium widgets require appropriate subscription tier
+ * - Crisis mode overrides subscription restrictions
+ *
+ * PERFORMANCE REQUIREMENTS:
+ * - Widget feature access checks <50ms
+ * - Crisis widget functionality <200ms
+ * - Subscription state updates without widget interruption
+ * 
+ * ✅ PRESSABLE MIGRATION: TouchableOpacity → Pressable with New Architecture optimization
+ * - Enhanced android_ripple for demo interface buttons
+ * - Improved accessibility labeling for demo actions
+ * - Optimized touch targets for better demo UX
  */
 
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, Alert, StyleSheet, ScrollView } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { View, Text, Pressable, Alert, StyleSheet, ScrollView } from 'react-native';
 import { WidgetDataService } from '../services/WidgetDataService';
 import { useWidgetIntegration } from '../hooks/useWidgetIntegration';
+import {
+  FeatureGateWrapper,
+  FEATURE_GATES,
+  useFeatureGate
+} from './subscription/FeatureGateWrapper';
+import {
+  usePaymentStatus,
+  useCrisisPaymentSafety,
+  useTrialManagement
+} from '../store';
 
 export const WidgetDemo: React.FC = () => {
   const { updateWidgetData, handleDeepLink } = useWidgetIntegration();
+
+  // Component state
   const [lastUpdate, setLastUpdate] = useState<string>('Never');
   const [isUpdating, setIsUpdating] = useState(false);
+  const [performanceMetrics, setPerformanceMetrics] = useState<any>({});
+
+  // Store hooks for subscription integration
+  const paymentStatus = usePaymentStatus();
+  const crisisSafety = useCrisisPaymentSafety();
+  const trialManagement = useTrialManagement();
+
+  // Feature access hooks
+  const cloudSyncAccess = useFeatureGate(FEATURE_GATES.CLOUD_SYNC);
+  const premiumContentAccess = useFeatureGate(FEATURE_GATES.PREMIUM_CONTENT);
+  const advancedInsightsAccess = useFeatureGate(FEATURE_GATES.ADVANCED_INSIGHTS);
 
   const widgetService = new WidgetDataService();
 
-  const handleUpdateWidget = async () => {
+  /**
+   * Enhanced widget update with subscription-aware features
+   */
+  const handleUpdateWidget = useCallback(async () => {
+    const startTime = Date.now();
     setIsUpdating(true);
+
     try {
+      // Basic widget update (always available)
       await updateWidgetData();
       setLastUpdate(new Date().toLocaleTimeString());
-      Alert.alert('Success', 'Widget data updated successfully');
+
+      // Track performance
+      const updateTime = Date.now() - startTime;
+      setPerformanceMetrics(prev => ({
+        ...prev,
+        lastWidgetUpdateTime: updateTime,
+        successfulUpdates: (prev.successfulUpdates || 0) + 1
+      }));
+
+      // Show subscription-aware success message
+      const message = crisisSafety.crisisMode
+        ? 'Widget updated - Crisis mode ensures all features remain accessible'
+        : cloudSyncAccess.granted
+        ? 'Widget updated and synced to cloud'
+        : 'Widget updated locally';
+
+      Alert.alert('Widget Updated', message);
+
     } catch (error) {
-      Alert.alert('Error', `Widget update failed: ${error}`);
+      console.error('Widget update failed:', error);
+
+      // Crisis-safe error handling
+      if (crisisSafety.crisisMode) {
+        Alert.alert(
+          'Update Issue',
+          'Widget update encountered an issue, but all therapeutic features remain accessible for your safety.',
+          [{ text: 'OK' }]
+        );
+      } else {
+        Alert.alert('Error', `Widget update failed: ${error}`);
+      }
     } finally {
       setIsUpdating(false);
     }
-  };
+  }, [updateWidgetData, crisisSafety.crisisMode, cloudSyncAccess.granted]);
 
-  const testDeepLink = async (url: string, description: string) => {
+  /**
+   * Subscription-aware deep link testing
+   */
+  const testDeepLink = useCallback(async (url: string, description: string) => {
+    const startTime = Date.now();
+
     try {
       await handleDeepLink(url);
-      Alert.alert('Deep Link Test', `${description} - Navigation triggered`);
+
+      const responseTime = Date.now() - startTime;
+      setPerformanceMetrics(prev => ({
+        ...prev,
+        lastDeepLinkTime: responseTime
+      }));
+
+      Alert.alert('Deep Link Test', `${description} - Navigation triggered (${responseTime}ms)`);
     } catch (error) {
       Alert.alert('Error', `Deep link test failed: ${error}`);
     }
-  };
+  }, [handleDeepLink]);
 
-  const generateSampleData = async () => {
+  /**
+   * Premium widget data generation
+   */
+  const generateSampleData = useCallback(async () => {
     try {
       const sampleData = await widgetService.generateWidgetData();
-      Alert.alert('Sample Data', JSON.stringify(sampleData, null, 2));
+
+      // Add subscription-specific enhancements
+      const enhancedData = {
+        ...sampleData,
+        subscriptionTier: paymentStatus.subscriptionTier,
+        trialActive: trialManagement.trialActive,
+        crisisMode: crisisSafety.crisisMode,
+        premiumFeatures: premiumContentAccess.granted,
+        cloudSync: cloudSyncAccess.granted
+      };
+
+      Alert.alert(
+        'Sample Widget Data',
+        `Generated for ${paymentStatus.subscriptionTier} tier`,
+        [
+          {
+            text: 'View Details',
+            onPress: () => Alert.alert('Widget Data', JSON.stringify(enhancedData, null, 2))
+          },
+          { text: 'OK', style: 'cancel' }
+        ]
+      );
     } catch (error) {
       Alert.alert('Error', `Failed to generate sample data: ${error}`);
     }
-  };
+  }, [
+    widgetService,
+    paymentStatus.subscriptionTier,
+    trialManagement.trialActive,
+    crisisSafety.crisisMode,
+    premiumContentAccess.granted,
+    cloudSyncAccess.granted
+  ]);
+
+  /**
+   * Test feature access performance
+   */
+  const testFeaturePerformance = useCallback(async () => {
+    const features = [
+      { name: 'Cloud Sync', access: cloudSyncAccess },
+      { name: 'Premium Content', access: premiumContentAccess },
+      { name: 'Advanced Insights', access: advancedInsightsAccess }
+    ];
+
+    const results = features.map(feature => {
+      const startTime = Date.now();
+      const granted = feature.access.granted;
+      const responseTime = Date.now() - startTime;
+
+      return {
+        feature: feature.name,
+        granted,
+        responseTime,
+        meetsTarget: responseTime < 50
+      };
+    });
+
+    const avgResponseTime = results.reduce((sum, r) => sum + r.responseTime, 0) / results.length;
+
+    Alert.alert(
+      'Feature Access Performance',
+      `Average response time: ${avgResponseTime.toFixed(1)}ms\nTarget: <50ms\n\n${results
+        .map(r => `${r.feature}: ${r.responseTime}ms ${r.meetsTarget ? '✓' : '⚠️'}`)
+        .join('\n')}`
+    );
+  }, [cloudSyncAccess, premiumContentAccess, advancedInsightsAccess]);
+
+  // Crisis-safe widget component
+  const CrisisSafeWidget: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
+    <FeatureGateWrapper
+      config={FEATURE_GATES.CRISIS_SUPPORT}
+      renderUpgradePrompt={false}
+    >
+      <View style={styles.crisisWidget}>
+        <Text style={styles.crisisWidgetTitle}>{title}</Text>
+        {children}
+      </View>
+    </FeatureGateWrapper>
+  );
+
+  // Premium widget component
+  const PremiumWidget: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
+    <FeatureGateWrapper
+      config={FEATURE_GATES.PREMIUM_CONTENT}
+      showTrialBenefits={true}
+    >
+      <View style={styles.premiumWidget}>
+        <Text style={styles.premiumWidgetTitle}>{title}</Text>
+        {children}
+      </View>
+    </FeatureGateWrapper>
+  );
 
   return (
     <ScrollView style={styles.container}>
-      <Text style={styles.title}>Widget Integration Demo</Text>
-      <Text style={styles.subtitle}>For Development & Testing</Text>
+      <Text style={styles.title}>Widget Integration Demo - Enhanced</Text>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Widget Data Management</Text>
-        
-        <TouchableOpacity 
-          style={[styles.button, isUpdating && styles.buttonDisabled]} 
+      {/* Subscription Status */}
+      <View style={styles.statusSection}>
+        <Text style={styles.statusTitle}>Current Status</Text>
+        <Text style={styles.statusText}>Tier: {paymentStatus.subscriptionTier}</Text>
+        <Text style={styles.statusText}>
+          Crisis Mode: {crisisSafety.crisisMode ? '🟢 Active' : '🟡 Inactive'}
+        </Text>
+        {trialManagement.trialActive && (
+          <Text style={styles.statusText}>
+            Trial: {trialManagement.daysRemaining} days remaining
+          </Text>
+        )}
+      </View>
+
+      {/* Core Widget Features - Always Available */}
+      <CrisisSafeWidget title="🌅 Morning Check-in Widget">
+        <Pressable
+          style={({ pressed }) => [
+            styles.button, 
+            isUpdating && styles.buttonDisabled,
+            pressed && !isUpdating && { opacity: 0.8, transform: [{ scale: 0.98 }] }
+          ]}
           onPress={handleUpdateWidget}
           disabled={isUpdating}
+          accessible={true}
+          accessibilityRole="button"
+          accessibilityLabel={isUpdating ? "Updating widget" : "Update widget data"}
+          android_ripple={{
+            color: 'rgba(255, 255, 255, 0.2)',
+            borderless: false,
+            radius: 150
+          }}
+          hitSlop={{ top: 8, left: 8, bottom: 8, right: 8 }}
         >
           <Text style={styles.buttonText}>
             {isUpdating ? 'Updating...' : 'Update Widget Data'}
           </Text>
-        </TouchableOpacity>
-
+        </Pressable>
         <Text style={styles.info}>Last Update: {lastUpdate}</Text>
+        <Text style={styles.crisisInfo}>Always accessible for crisis safety</Text>
+      </CrisisSafeWidget>
 
-        <TouchableOpacity 
-          style={styles.button} 
+      {/* Basic Widget Features */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Basic Widget Management</Text>
+
+        <Pressable
+          style={({ pressed }) => [
+            styles.button,
+            pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] }
+          ]}
           onPress={generateSampleData}
+          accessible={true}
+          accessibilityRole="button"
+          accessibilityLabel="Generate sample widget data"
+          android_ripple={{
+            color: 'rgba(255, 255, 255, 0.2)',
+            borderless: false,
+            radius: 150
+          }}
+          hitSlop={{ top: 8, left: 8, bottom: 8, right: 8 }}
         >
-          <Text style={styles.buttonText}>View Sample Widget Data</Text>
-        </TouchableOpacity>
+          <Text style={styles.buttonText}>Generate Sample Data</Text>
+        </Pressable>
+
+        <Pressable
+          style={({ pressed }) => [
+            styles.button,
+            pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] }
+          ]}
+          onPress={testFeaturePerformance}
+          accessible={true}
+          accessibilityRole="button"
+          accessibilityLabel="Test feature performance"
+          android_ripple={{
+            color: 'rgba(255, 255, 255, 0.2)',
+            borderless: false,
+            radius: 150
+          }}
+          hitSlop={{ top: 8, left: 8, bottom: 8, right: 8 }}
+        >
+          <Text style={styles.buttonText}>Test Performance</Text>
+        </Pressable>
+
+        {performanceMetrics.lastWidgetUpdateTime && (
+          <Text style={styles.info}>
+            Last update: {performanceMetrics.lastWidgetUpdateTime}ms
+            {performanceMetrics.lastWidgetUpdateTime < 200 ? ' ✓' : ' ⚠️'}
+          </Text>
+        )}
       </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Deep Link Testing</Text>
-        
-        <TouchableOpacity 
-          style={styles.deepLinkButton} 
-          onPress={() => testDeepLink('fullmind://checkin/morning', 'Morning Check-in')}
+      {/* Cloud Sync Widget - Basic Tier Required */}
+      <FeatureGateWrapper
+        config={FEATURE_GATES.CLOUD_SYNC}
+        showTrialBenefits={true}
+      >
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>☁️ Cloud Sync Widget</Text>
+          <Pressable
+            style={({ pressed }) => [
+              styles.button,
+              pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] }
+            ]}
+            onPress={() => Alert.alert('Cloud Sync', 'Widget data synced across devices')}
+            accessible={true}
+            accessibilityRole="button"
+            accessibilityLabel="Sync widget data to cloud"
+            android_ripple={{
+              color: 'rgba(255, 255, 255, 0.2)',
+              borderless: false,
+              radius: 150
+            }}
+            hitSlop={{ top: 8, left: 8, bottom: 8, right: 8 }}
+          >
+            <Text style={styles.buttonText}>Sync to Cloud</Text>
+          </Pressable>
+          <Text style={styles.info}>Automatically syncs widget configurations and data</Text>
+        </View>
+      </FeatureGateWrapper>
+
+      {/* Premium Widgets - Premium Tier Required */}
+      <PremiumWidget title="📊 Advanced Widget Analytics">
+        <View style={styles.premiumContent}>
+          <Text style={styles.premiumInfo}>
+            • Widget usage patterns and optimization suggestions
+          </Text>
+          <Text style={styles.premiumInfo}>
+            • Therapeutic impact metrics from widget interactions
+          </Text>
+          <Text style={styles.premiumInfo}>
+            • Personalized widget recommendations
+          </Text>
+          <Pressable
+            style={({ pressed }) => [
+              styles.premiumButton,
+              pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] }
+            ]}
+            onPress={() => Alert.alert('Analytics', 'Advanced widget analytics would display here')}
+            accessible={true}
+            accessibilityRole="button"
+            accessibilityLabel="View advanced widget analytics"
+            android_ripple={{
+              color: 'rgba(255, 255, 255, 0.2)',
+              borderless: false,
+              radius: 150
+            }}
+            hitSlop={{ top: 8, left: 8, bottom: 8, right: 8 }}
+          >
+            <Text style={styles.buttonText}>View Analytics</Text>
+          </Pressable>
+        </View>
+      </PremiumWidget>
+
+      {/* Core Deep Link Testing - Crisis Safe */}
+      <CrisisSafeWidget title="🔗 Core Navigation Testing">
+        <Pressable
+          style={({ pressed }) => [
+            styles.deepLinkButton,
+            pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] }
+          ]}
+          onPress={() => testDeepLink('being://checkin/morning', 'Morning Check-in')}
+          accessible={true}
+          accessibilityRole="button"
+          accessibilityLabel="Test morning check-in deep link"
+          android_ripple={{
+            color: 'rgba(255, 255, 255, 0.2)',
+            borderless: false,
+            radius: 150
+          }}
+          hitSlop={{ top: 8, left: 8, bottom: 8, right: 8 }}
         >
           <Text style={styles.buttonText}>Test: Morning Check-in</Text>
-        </TouchableOpacity>
+        </Pressable>
 
-        <TouchableOpacity 
-          style={styles.deepLinkButton} 
-          onPress={() => testDeepLink('fullmind://checkin/midday?resume=true', 'Resume Midday')}
+        <Pressable
+          style={({ pressed }) => [
+            styles.deepLinkButton,
+            pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] }
+          ]}
+          onPress={() => testDeepLink('being://crisis', 'Crisis Support')}
+          accessible={true}
+          accessibilityRole="button"
+          accessibilityLabel="Test crisis support deep link"
+          android_ripple={{
+            color: 'rgba(255, 255, 255, 0.2)',
+            borderless: false,
+            radius: 150
+          }}
+          hitSlop={{ top: 8, left: 8, bottom: 8, right: 8 }}
         >
-          <Text style={styles.buttonText}>Test: Resume Midday Session</Text>
-        </TouchableOpacity>
+          <Text style={styles.buttonText}>Test: Crisis Support</Text>
+        </Pressable>
+      </CrisisSafeWidget>
 
-        <TouchableOpacity 
-          style={styles.deepLinkButton} 
-          onPress={() => testDeepLink('fullmind://checkin/evening', 'Evening Check-in')}
-        >
-          <Text style={styles.buttonText}>Test: Evening Check-in</Text>
-        </TouchableOpacity>
+      {/* Advanced Deep Link Testing - Premium Feature */}
+      <FeatureGateWrapper
+        config={FEATURE_GATES.ADVANCED_INSIGHTS}
+        customUpgradeMessage="Advanced widget deep links provide enhanced navigation and context-aware routing for premium therapeutic content."
+      >
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Advanced Navigation Testing</Text>
 
-        <TouchableOpacity 
-          style={[styles.deepLinkButton, styles.crisisButton]} 
-          onPress={() => testDeepLink('fullmind://crisis', 'Crisis Intervention')}
+          <Pressable
+            style={({ pressed }) => [
+              styles.deepLinkButton,
+              pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] }
+            ]}
+            onPress={() => testDeepLink('being://checkin/midday?resume=true', 'Resume Midday')}
+            accessible={true}
+            accessibilityRole="button"
+            accessibilityLabel="Test resume midday session deep link"
+            android_ripple={{
+              color: 'rgba(255, 255, 255, 0.2)',
+              borderless: false,
+              radius: 150
+            }}
+            hitSlop={{ top: 8, left: 8, bottom: 8, right: 8 }}
+          >
+            <Text style={styles.buttonText}>Test: Resume Midday Session</Text>
+          </Pressable>
+
+          <Pressable
+            style={({ pressed }) => [
+              styles.deepLinkButton,
+              pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] }
+            ]}
+            onPress={() => testDeepLink('being://checkin/evening', 'Evening Check-in')}
+            accessible={true}
+            accessibilityRole="button"
+            accessibilityLabel="Test evening check-in deep link"
+            android_ripple={{
+              color: 'rgba(255, 255, 255, 0.2)',
+              borderless: false,
+              radius: 150
+            }}
+            hitSlop={{ top: 8, left: 8, bottom: 8, right: 8 }}
+          >
+            <Text style={styles.buttonText}>Test: Evening Check-in</Text>
+          </Pressable>
+
+          <Pressable
+            style={({ pressed }) => [
+              styles.deepLinkButton,
+              pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] }
+            ]}
+            onPress={() => testDeepLink('being://insights/trends', 'Advanced Insights')}
+            accessible={true}
+            accessibilityRole="button"
+            accessibilityLabel="Test advanced insights deep link"
+            android_ripple={{
+              color: 'rgba(255, 255, 255, 0.2)',
+              borderless: false,
+              radius: 150
+            }}
+            hitSlop={{ top: 8, left: 8, bottom: 8, right: 8 }}
+          >
+            <Text style={styles.buttonText}>Test: Advanced Insights</Text>
+          </Pressable>
+        </View>
+      </FeatureGateWrapper>
+
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Crisis Intervention</Text>
+        <Pressable
+          style={({ pressed }) => [
+            styles.deepLinkButton, 
+            styles.crisisButton,
+            pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] }
+          ]}
+          onPress={() => testDeepLink('being://crisis', 'Crisis Intervention')}
+          accessible={true}
+          accessibilityRole="button"
+          accessibilityLabel="Test crisis intervention deep link"
+          android_ripple={{
+            color: 'rgba(255, 255, 255, 0.2)',
+            borderless: false,
+            radius: 150
+          }}
+          hitSlop={{ top: 8, left: 8, bottom: 8, right: 8 }}
         >
           <Text style={styles.buttonText}>Test: Crisis Intervention</Text>
-        </TouchableOpacity>
+        </Pressable>
       </View>
 
       <View style={styles.section}>
@@ -134,7 +541,7 @@ export const WidgetDemo: React.FC = () => {
           <Text style={styles.infoTitle}>⚡ Performance</Text>
           <Text style={styles.infoText}>
             • Updates throttled to 1-minute intervals{'\n'}
-            • Memory usage monitored (less than 50MB){'\n'}
+            • Memory usage monitored (&lt;50MB){'\n'}
             • Battery-efficient background processing{'\n'}
             • Intelligent caching with LRU eviction
           </Text>
@@ -292,5 +699,80 @@ const styles = StyleSheet.create({
     marginTop: 16,
     fontStyle: 'italic',
     lineHeight: 18,
+  },
+
+  // Enhanced subscription-aware styles
+  statusSection: {
+    backgroundColor: '#fff',
+    margin: 16,
+    padding: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  statusTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 8,
+  },
+  statusText: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 4,
+  },
+
+  // Crisis-safe widget styles
+  crisisWidget: {
+    backgroundColor: '#e8f5e8',
+    margin: 16,
+    padding: 16,
+    borderRadius: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: '#4CAF50',
+  },
+  crisisWidgetTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#2E7D32',
+    marginBottom: 12,
+  },
+  crisisInfo: {
+    fontSize: 12,
+    color: '#4CAF50',
+    fontWeight: '600',
+    marginTop: 8,
+    fontStyle: 'italic',
+  },
+
+  // Premium widget styles
+  premiumWidget: {
+    backgroundColor: '#fff8e1',
+    margin: 16,
+    padding: 16,
+    borderRadius: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: '#FFB300',
+  },
+  premiumWidgetTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#E65100',
+    marginBottom: 12,
+  },
+  premiumContent: {
+    marginTop: 8,
+  },
+  premiumInfo: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 8,
+    lineHeight: 20,
+  },
+  premiumButton: {
+    backgroundColor: '#FFB300',
+    padding: 12,
+    borderRadius: 6,
+    marginTop: 12,
   },
 });

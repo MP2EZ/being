@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { View, Text, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, Pressable, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import Svg, { Path, Circle, Polygon } from 'react-native-svg';
 import { colorSystem } from '../constants/colors';
@@ -44,18 +44,26 @@ const SOSButton: React.FC = () => {
   };
 
   return (
-    <TouchableOpacity
+    <Pressable
       onPress={handleSOSPress}
-      style={{
-        backgroundColor: colorSystem.status.error,
+      style={({ pressed }) => ({
+        backgroundColor: pressed ? colorSystem.status.criticalHover : colorSystem.status.error,
         paddingHorizontal: 12,
         paddingVertical: 6,
         borderRadius: 8,
         marginRight: 16,
+        opacity: pressed ? 0.9 : 1,
+      })}
+      accessibilityRole="button"
+      accessibilityLabel="SOS Crisis Support"
+      accessibilityHint="Provides immediate access to crisis support and emergency resources"
+      android_ripple={{
+        color: '#ffffff40',
+        borderless: false
       }}
     >
       <Text style={{ color: 'white', fontWeight: '600', fontSize: 12 }}>SOS</Text>
-    </TouchableOpacity>
+    </Pressable>
   );
 };
 
@@ -122,7 +130,7 @@ const MainTabNavigator: React.FC = () => {
         name="Home" 
         component={HomeScreen}
         options={{
-          headerTitle: 'FullMind',
+          headerTitle: 'Being.',
           headerShown: false, // HomeScreen has its own SafeAreaView
           tabBarIcon: ({ focused, color }) => (
             <DiamondIcon color={focused ? colorSystem.themes.morning.primary : color} />

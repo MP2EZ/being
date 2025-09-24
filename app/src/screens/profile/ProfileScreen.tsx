@@ -146,22 +146,59 @@ const ProfileScreen: React.FC = () => {
           />
         </View>
 
+        {/* Subscription & Billing */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Subscription & Billing</Text>
+
+          <Button
+            variant="outline"
+            onPress={() => {
+              (navigation as any).navigate('SubscriptionScreen');
+            }}
+            style={styles.actionButton}
+          >
+            Manage Subscription
+          </Button>
+
+          <Button
+            variant="outline"
+            onPress={() => {
+              (navigation as any).navigate('PaymentSettingsScreen');
+            }}
+            style={styles.actionButton}
+          >
+            Payment Settings
+          </Button>
+
+          <Button
+            variant="outline"
+            onPress={() => {
+              (navigation as any).navigate('BillingHistoryScreen');
+            }}
+            style={styles.actionButton}
+          >
+            Billing History
+          </Button>
+        </View>
+
         {/* Data Management */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Your Data</Text>
-          
+
           <Button
             variant="outline"
             onPress={handleExportData}
+            style={styles.actionButton}
           >
             Export My Data
           </Button>
-          
+
           <Button
             variant="outline"
             onPress={() => {
               (navigation as any).navigate('CrisisPlan');
             }}
+            style={styles.actionButton}
           >
             Crisis Support Plan
           </Button>
@@ -290,6 +327,9 @@ const styles = StyleSheet.create({
     color: colorSystem.gray[600],
     lineHeight: 20,
     marginBottom: spacing.md,
+  },
+  actionButton: {
+    marginBottom: spacing.sm,
   },
 });
 

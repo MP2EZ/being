@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Animated } from 'react-native';
 import { useNetwork } from '../../hooks/useNetwork';
 import { colorSystem, spacing } from '../../constants/colors';
 
@@ -108,11 +108,31 @@ export const NetworkStatusBanner: React.FC<NetworkStatusBannerProps> = ({ style 
         style,
       ]}
     >
-      <TouchableOpacity
-        style={styles.touchable}
+      <Pressable
+        style={({ pressed }) => [
+          styles.touchable,
+          pressed && (isOnline && queueSize > 0) && styles.touchablePressed
+        ]}
         onPress={handleBannerPress}
-        activeOpacity={isOnline && queueSize > 0 ? 0.7 : 1}
         disabled={isOffline || queueSize === 0}
+        accessibilityRole="button"
+        accessibilityLabel={
+          isOffline
+            ? "Network offline status"
+            : queueSize > 0
+              ? `Tap to sync ${queueSize} queued items`
+              : "Network connection status"
+        }
+        accessibilityHint={
+          isOnline && queueSize > 0
+            ? "Tap to process queued data synchronization"
+            : undefined
+        }
+        android_ripple={
+          isOnline && queueSize > 0
+            ? { color: '#ffffff40', borderless: false }
+            : undefined
+        }
       >
         <View style={styles.content}>
           <View style={styles.leftContent}>
@@ -135,7 +155,7 @@ export const NetworkStatusBanner: React.FC<NetworkStatusBannerProps> = ({ style 
             </View>
           )}
         </View>
-      </TouchableOpacity>
+      </Pressable>
     </Animated.View>
   );
 };
@@ -152,6 +172,9 @@ const styles = StyleSheet.create({
   },
   touchable: {
     flex: 1,
+  },
+  touchablePressed: {
+    opacity: 0.8,
   },
   content: {
     flexDirection: 'row',

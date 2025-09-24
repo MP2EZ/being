@@ -1,0 +1,16 @@
+{
+  "ios": {
+    "modules": {
+      "react-native-reanimated": false,
+      "react-native-worklets": false,
+      "react-native-worklets-core": false
+    }
+  },
+  "android": {
+    "modules": {
+      "react-native-reanimated": false,
+      "react-native-worklets": false,
+      "react-native-worklets-core": false
+    }
+  }
+}

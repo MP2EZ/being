@@ -4,15 +4,15 @@
  */
 
 import React, { useState } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  ScrollView, 
-  TouchableOpacity, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Pressable,
   Linking,
   Alert,
-  Platform 
+  Platform
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -67,14 +67,31 @@ const CrisisPlanScreen: React.FC = () => {
     color: string;
     urgent?: boolean;
   }> = ({ title, subtitle, onPress, color, urgent = false }) => (
-    <TouchableOpacity
-      style={[
+    <Pressable
+      style={({ pressed }) => [
         styles.crisisButton,
         { backgroundColor: color },
-        urgent && styles.urgentButton
+        urgent && styles.urgentButton,
+        {
+          // Crisis-optimized pressed state with <200ms response
+          opacity: pressed ? 0.8 : 1.0,
+          transform: pressed ? [{ scale: 0.98 }] : [{ scale: 1.0 }]
+        }
       ]}
       onPress={onPress}
-      activeOpacity={0.8}
+      // Crisis-optimized android ripple for emergency response
+      android_ripple={{
+        color: urgent ? 'rgba(255, 255, 255, 0.4)' : 'rgba(255, 255, 255, 0.3)',
+        borderless: false,
+        radius: 200,
+        foreground: false
+      }}
+      // Enhanced hit area for crisis accessibility (WCAG AAA)
+      hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
+      accessible={true}
+      accessibilityRole="button"
+      accessibilityLabel={`${urgent ? 'URGENT: ' : ''}${title} - ${subtitle}`}
+      accessibilityHint={`Double tap to ${title.toLowerCase().includes('988') ? 'call 988 crisis hotline' : 'call emergency services'} immediately`}
     >
       <Text style={[styles.crisisButtonTitle, urgent && styles.urgentButtonTitle]}>
         {title}
@@ -82,7 +99,7 @@ const CrisisPlanScreen: React.FC = () => {
       <Text style={[styles.crisisButtonSubtitle, urgent && styles.urgentButtonSubtitle]}>
         {subtitle}
       </Text>
-    </TouchableOpacity>
+    </Pressable>
   );
 
   const CopingStrategy: React.FC<{ title: string; description: string }> = ({

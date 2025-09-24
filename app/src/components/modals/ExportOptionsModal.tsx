@@ -1,6 +1,11 @@
 /**
  * ExportOptionsModal - Advanced export options for PDF and CSV generation
  * Allows users to select format, date range, and data types to include
+ * 
+ * ✅ PRESSABLE MIGRATION: TouchableOpacity → Pressable with New Architecture optimization
+ * - Enhanced android_ripple for export option selections
+ * - Improved accessibility for export configuration
+ * - Optimized touch targets for export modal interactions
  */
 
 import React, { useState } from 'react';
@@ -9,7 +14,7 @@ import {
   Text,
   StyleSheet,
   Modal,
-  TouchableOpacity,
+  Pressable,
   ScrollView,
   Alert,
   Switch
@@ -157,13 +162,22 @@ export const ExportOptionsModal: React.FC<ExportOptionsModalProps> = ({
     description: string;
     icon: string;
   }> = ({ formatType, title, description, icon }) => (
-    <TouchableOpacity
-      style={[
+    <Pressable
+      style={({ pressed }) => [
         styles.formatButton,
-        format === formatType && styles.formatButtonSelected
+        format === formatType && styles.formatButtonSelected,
+        pressed && { opacity: 0.7, transform: [{ scale: 0.98 }] }
       ]}
       onPress={() => handleFormatSelect(formatType)}
-      activeOpacity={0.7}
+      accessible={true}
+      accessibilityRole="button"
+      accessibilityLabel={`Select ${title} format for export`}
+      android_ripple={{
+        color: 'rgba(0, 0, 0, 0.1)',
+        borderless: false,
+        radius: 150
+      }}
+      hitSlop={{ top: 8, left: 8, bottom: 8, right: 8 }}
     >
       <View style={styles.formatIcon}>
         <Text style={styles.formatIconText}>{icon}</Text>
@@ -182,20 +196,29 @@ export const ExportOptionsModal: React.FC<ExportOptionsModalProps> = ({
           {description}
         </Text>
       </View>
-    </TouchableOpacity>
+    </Pressable>
   );
 
   const DateRangeButton: React.FC<{
     range: typeof dateRange;
     label: string;
   }> = ({ range, label }) => (
-    <TouchableOpacity
-      style={[
+    <Pressable
+      style={({ pressed }) => [
         styles.dateRangeButton,
-        dateRange === range && styles.dateRangeButtonSelected
+        dateRange === range && styles.dateRangeButtonSelected,
+        pressed && { opacity: 0.7, transform: [{ scale: 0.98 }] }
       ]}
       onPress={() => handleDateRangeSelect(range)}
-      activeOpacity={0.7}
+      accessible={true}
+      accessibilityRole="button"
+      accessibilityLabel={`Select ${label} date range`}
+      android_ripple={{
+        color: 'rgba(0, 0, 0, 0.1)',
+        borderless: false,
+        radius: 100
+      }}
+      hitSlop={{ top: 8, left: 8, bottom: 8, right: 8 }}
     >
       <Text style={[
         styles.dateRangeText,
@@ -203,7 +226,7 @@ export const ExportOptionsModal: React.FC<ExportOptionsModalProps> = ({
       ]}>
         {label}
       </Text>
-    </TouchableOpacity>
+    </Pressable>
   );
 
   const ToggleOption: React.FC<{
@@ -238,12 +261,24 @@ export const ExportOptionsModal: React.FC<ExportOptionsModalProps> = ({
     >
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.cancelButton}
+          <Pressable
+            style={({ pressed }) => [
+              styles.cancelButton,
+              pressed && { opacity: 0.7, transform: [{ scale: 0.95 }] }
+            ]}
             onPress={handleModalClose}
+            accessible={true}
+            accessibilityRole="button"
+            accessibilityLabel="Cancel export"
+            android_ripple={{
+              color: 'rgba(0, 0, 0, 0.1)',
+              borderless: true,
+              radius: 100
+            }}
+            hitSlop={{ top: 12, left: 12, bottom: 12, right: 12 }}
           >
             <Text style={styles.cancelText}>Cancel</Text>
-          </TouchableOpacity>
+          </Pressable>
           <Text style={styles.title}>Export Options</Text>
           <View style={styles.placeholder} />
         </View>

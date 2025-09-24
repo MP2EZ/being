@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '../../components/core';
 import { useAssessmentStore } from '../../store';
@@ -46,14 +46,24 @@ export const AssessmentQuestionScreen: React.FC<AssessmentQuestionScreenProps> =
     const isSelected = selectedAnswer === option.value;
     
     return (
-      <TouchableOpacity
+      <Pressable
         key={option.value}
-        style={[
+        style={({ pressed }) => [
           styles.answerOption,
-          isSelected && styles.answerOptionSelected
+          isSelected && styles.answerOptionSelected,
+          pressed && { opacity: 0.8, transform: [{ scale: 0.99 }] }
         ]}
         onPress={() => onAnswerSelect(option.value)}
-        activeOpacity={0.7}
+        accessible={true}
+        accessibilityRole="radio"
+        accessibilityLabel={`${option.text} - ${assessmentType === 'phq9' ? 'PHQ-9' : 'GAD-7'} option ${option.value}`}
+        accessibilityState={{ selected: isSelected }}
+        android_ripple={{
+          color: 'rgba(0, 0, 0, 0.1)',
+          borderless: false,
+          radius: 200
+        }}
+        hitSlop={{ top: 8, left: 8, bottom: 8, right: 8 }}
       >
         <View style={[
           styles.answerRadio,
@@ -67,7 +77,7 @@ export const AssessmentQuestionScreen: React.FC<AssessmentQuestionScreenProps> =
         ]}>
           {option.text}
         </Text>
-      </TouchableOpacity>
+      </Pressable>
     );
   };
 

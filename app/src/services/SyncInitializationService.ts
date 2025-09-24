@@ -4,7 +4,7 @@
  */
 
 import { syncOrchestrationService } from './SyncOrchestrationService';
-import { enhancedOfflineQueueService } from './EnhancedOfflineQueueService';
+import { offlineQueueService as enhancedOfflineQueueService } from './OfflineQueueService';
 import { networkAwareService } from './NetworkAwareService';
 import { assetCacheService } from './AssetCacheService';
 import { resumableSessionService } from './ResumableSessionService';
@@ -12,6 +12,7 @@ import { syncPerformanceMonitor } from './SyncPerformanceMonitor';
 import { offlineIntegrationService } from './OfflineIntegrationService';
 import { SyncEntityType, AppSyncState, SyncStatus } from '../types/sync';
 import { NetworkQuality, OfflineServiceHealth } from '../types/offline';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 /**
  * Initialization status for each service
@@ -57,8 +58,8 @@ interface InitializationConfig {
  * Service initialization manager for the sync system
  */
 class SyncInitializationService {
-  private readonly SERVICE_STATUS_KEY = '@fullmind_sync_service_status';
-  private readonly INIT_CONFIG_KEY = '@fullmind_sync_init_config';
+  private readonly SERVICE_STATUS_KEY = 'being_sync_service_status';
+  private readonly INIT_CONFIG_KEY = 'being_sync_init_config';
   
   // Service dependencies (initialization order)
   private readonly serviceDependencies = new Map<string, string[]>([
@@ -425,7 +426,7 @@ class SyncInitializationService {
    */
   private async loadPersistedConfig(): Promise<void> {
     try {
-      const configData = await asyncStorage.getItem(this.INIT_CONFIG_KEY);
+      const configData = await AsyncStorage.getItem(this.INIT_CONFIG_KEY);
       if (configData) {
         const persistedConfig = JSON.parse(configData);
         this.config = { ...this.config, ...persistedConfig };
@@ -612,8 +613,6 @@ class SyncInitializationService {
   }
 }
 
-// Import AsyncStorage at the top if not already imported
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Export singleton instance
 export const syncInitializationService = new SyncInitializationService();

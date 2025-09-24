@@ -140,11 +140,11 @@ export type MaybeEncrypted<T, S extends DataSensitivity> =
     : EncryptedData<T>;
 
 // Storage Key Types - Template Literals for Type Safety
-export type StorageKey = 
-  | `@fullmind_encrypted_${'user' | 'assessments' | 'checkins' | 'crisis_plan'}_${string}`
-  | `@fullmind_system_${'preferences' | 'notifications'}_${string}`;
+export type StorageKey =
+  | `being_encrypted_${'user' | 'assessments' | 'checkins' | 'crisis_plan'}_${string}`
+  | `being_system_${'preferences' | 'notifications'}_${string}`;
 
-export type SecureStorageKey = `@fullmind_secure_${'master_key' | 'clinical_key' | 'personal_key'}_v${number}`;
+export type SecureStorageKey = `being_secure_${'master_key' | 'clinical_key' | 'personal_key'}_v${number}`;
 
 // Error Types for Security Operations
 export class EncryptionError extends Error {
@@ -259,9 +259,9 @@ export const createStorageKey = (
   type: string,
   suffix?: string
 ): StorageKey => {
-  const key = suffix 
-    ? `@fullmind_${category}_${type}_${suffix}`
-    : `@fullmind_${category}_${type}`;
+  const key = suffix
+    ? `being_${category}_${type}_${suffix}`
+    : `being_${category}_${type}`;
   return key as StorageKey;
 };
 

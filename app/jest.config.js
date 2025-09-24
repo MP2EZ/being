@@ -1,13 +1,11 @@
 /**
- * Jest Configuration for FullMind MBCT App
+ * Jest Configuration for Being. MBCT App
  * Critical: Prioritizes clinical accuracy testing
  */
 
 module.exports = {
   preset: 'react-native',
   setupFilesAfterEnv: ['<rootDir>/__tests__/setup/jest.setup.js'],
-  
-  // Use node environment for most tests, jsdom only where needed
   testEnvironment: 'node',
   
   // Test organization
@@ -36,7 +34,22 @@ module.exports = {
     'src/store/assessmentStore.ts',
     'src/services/storage/DataStore.ts',
     'src/services/storage/SecureDataStore.ts',
-    'src/services/security/EncryptionService.ts'
+    'src/services/security/EncryptionService.ts',
+    // Enhanced security files requiring high coverage
+    'src/services/security/ComprehensiveSecurityValidator.ts',
+    'src/services/security/AdvancedThreatDetectionSystem.ts',
+    'src/services/security/SecurityAuditReportingSystem.ts',
+    'src/services/security/PaymentSecurityService.ts',
+    // Payment sync resilience files requiring high coverage
+    'src/services/cloud/PaymentSyncResilienceAPI.ts',
+    'src/services/cloud/PaymentSyncConflictResolution.ts',
+    'src/services/cloud/PaymentSyncPerformanceOptimizer.ts',
+    'src/services/cloud/PaymentSyncResilienceOrchestrator.ts',
+    // Cross-device sync files requiring high coverage
+    'src/services/cloud/CrossDeviceSyncAPI.ts',
+    'src/services/cloud/DeviceManagementAPI.ts',
+    'src/components/sync/SyncStatusIndicator.tsx',
+    'src/components/sync/CrisisSyncBadge.tsx'
   ],
   
   coverageThreshold: {
@@ -58,22 +71,80 @@ module.exports = {
       functions: 95,
       lines: 95,
       statements: 95
+    },
+    // Enhanced security coverage requirements
+    'src/services/security/ComprehensiveSecurityValidator.ts': {
+      branches: 90,
+      functions: 90,
+      lines: 90,
+      statements: 90
+    },
+    'src/services/security/AdvancedThreatDetectionSystem.ts': {
+      branches: 85,
+      functions: 85,
+      lines: 85,
+      statements: 85
+    },
+    'src/services/security/SecurityAuditReportingSystem.ts': {
+      branches: 85,
+      functions: 85,
+      lines: 85,
+      statements: 85
+    },
+    // Payment sync resilience coverage requirements
+    'src/services/cloud/PaymentSyncResilienceAPI.ts': {
+      branches: 95,
+      functions: 95,
+      lines: 95,
+      statements: 95
+    },
+    'src/services/cloud/PaymentSyncConflictResolution.ts': {
+      branches: 90,
+      functions: 90,
+      lines: 90,
+      statements: 90
+    },
+    'src/services/cloud/PaymentSyncPerformanceOptimizer.ts': {
+      branches: 85,
+      functions: 85,
+      lines: 85,
+      statements: 85
+    },
+    // Cross-device sync coverage requirements
+    'src/services/cloud/CrossDeviceSyncAPI.ts': {
+      branches: 95,
+      functions: 95,
+      lines: 95,
+      statements: 95
+    },
+    'src/services/cloud/DeviceManagementAPI.ts': {
+      branches: 90,
+      functions: 90,
+      lines: 90,
+      statements: 90
+    },
+    'src/components/sync/SyncStatusIndicator.tsx': {
+      branches: 90,
+      functions: 90,
+      lines: 90,
+      statements: 90
+    },
+    'src/components/sync/CrisisSyncBadge.tsx': {
+      branches: 95,
+      functions: 95,
+      lines: 95,
+      statements: 95
     }
   },
   
   // Mock configuration
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
-    // Fix module imports for expo modules
-    '^expo-crypto$': '<rootDir>/__tests__/mocks/expo-crypto.js',
-    '^expo-secure-store$': '<rootDir>/__tests__/mocks/expo-secure-store.js',
-    '^expo-calendar$': '<rootDir>/__tests__/mocks/expo-calendar.js',
-    '^expo-sqlite$': '<rootDir>/__tests__/mocks/expo-sqlite.js',
   },
   
   // Clinical testing timeout (assessments can take time)
-  // Integration tests may need extended timeout for comprehensive validation
-  testTimeout: 20000,
+  // Security tests may need extended timeout for comprehensive validation
+  testTimeout: 30000,
   
   // Performance and reliability
   maxWorkers: '50%',
@@ -91,7 +162,7 @@ module.exports = {
   
   // Transform ignore patterns for React Native and Expo modules
   transformIgnorePatterns: [
-    'node_modules/(?!(react-native|@react-native|expo|@expo|expo-.*|react-navigation|@react-navigation|react-native-.*)/)'
+    'node_modules/(?!(react-native|@react-native|expo|@expo|react-navigation|@react-navigation|expo-crypto|expo-secure-store)/)'
   ],
   
   // Custom test environments for different test types
@@ -99,52 +170,46 @@ module.exports = {
     {
       displayName: 'Clinical Accuracy Tests',
       testMatch: ['<rootDir>/__tests__/clinical/**/*.test.{ts,tsx}'],
-      testEnvironment: 'node',
-      preset: 'react-native',
-      setupFilesAfterEnv: ['<rootDir>/__tests__/setup/jest.setup.js'],
-      transformIgnorePatterns: [
-        'node_modules/(?!(react-native|@react-native|expo|@expo|expo-.*|react-navigation|@react-navigation|react-native-.*)/)'
-      ],
+      testEnvironment: 'react-native'
     },
     {
       displayName: 'Unit Tests',
-      testMatch: ['<rootDir>/__tests__/unit/**/*.test.{ts,tsx}'],
-      testEnvironment: 'node',
-      preset: 'react-native',
-      setupFilesAfterEnv: ['<rootDir>/__tests__/setup/jest.setup.js'],
-      transformIgnorePatterns: [
-        'node_modules/(?!(react-native|@react-native|expo|@expo|expo-.*|react-navigation|@react-navigation|react-native-.*)/)'
-      ],
+      testMatch: ['<rootDir>/__tests__/unit/**/*.test.{ts,tsx}']
     },
     {
-      displayName: 'Integration Tests', 
-      testMatch: ['<rootDir>/__tests__/integration/**/*.test.{ts,tsx}'],
-      testEnvironment: 'node',
-      preset: 'react-native',
-      setupFilesAfterEnv: ['<rootDir>/__tests__/setup/jest.setup.js'],
-      transformIgnorePatterns: [
-        'node_modules/(?!(react-native|@react-native|expo|@expo|expo-.*|react-navigation|@react-navigation|react-native-.*)/)'
-      ],
-    },
-    {
-      displayName: 'Performance Tests',
-      testMatch: ['<rootDir>/__tests__/performance/**/*.test.{ts,tsx}'],
-      testEnvironment: 'node',
-      preset: 'react-native',
-      setupFilesAfterEnv: ['<rootDir>/__tests__/setup/jest.setup.js'],
-      transformIgnorePatterns: [
-        'node_modules/(?!(react-native|@react-native|expo|@expo|expo-.*|react-navigation|@react-navigation|react-native-.*)/)'
-      ],
+      displayName: 'Integration Tests',
+      testMatch: ['<rootDir>/__tests__/integration/**/*.test.{ts,tsx}']
     },
     {
       displayName: 'Security Tests',
-      testMatch: ['<rootDir>/src/services/**/__tests__/**/*.test.{ts,tsx}'],
-      testEnvironment: 'node',
-      preset: 'react-native',
-      setupFilesAfterEnv: ['<rootDir>/__tests__/setup/jest.setup.js'],
-      transformIgnorePatterns: [
-        'node_modules/(?!(react-native|@react-native|expo|@expo|expo-.*|react-navigation|@react-navigation|react-native-.*)/)'
-      ],
+      testMatch: [
+        '<rootDir>/__tests__/security/**/*.test.{ts,tsx}',
+        '<rootDir>/src/services/**/__tests__/**/*.test.{ts,tsx}'
+      ]
+    },
+    {
+      displayName: 'Compliance Tests',
+      testMatch: ['<rootDir>/__tests__/compliance/**/*.test.{ts,tsx}']
+    },
+    {
+      displayName: 'Regression Tests',
+      testMatch: ['<rootDir>/__tests__/regression/**/*.test.{ts,tsx}']
+    },
+    {
+      displayName: 'Payment Sync Resilience Tests',
+      testMatch: ['<rootDir>/__tests__/payment-sync-resilience/**/*.test.{ts,tsx}'],
+      setupFilesAfterEnv: [
+        '<rootDir>/__tests__/setup/jest.setup.js',
+        '<rootDir>/__tests__/payment-sync-resilience/setup/resilience-test-setup.js'
+      ]
+    },
+    {
+      displayName: 'Cross-Device Sync Tests',
+      testMatch: ['<rootDir>/__tests__/cross-device-sync/**/*.test.{ts,tsx}'],
+      setupFilesAfterEnv: [
+        '<rootDir>/__tests__/setup/jest.setup.js',
+        '<rootDir>/__tests__/cross-device-sync/setup/sync-test-setup.js'
+      ]
     }
   ]
 };

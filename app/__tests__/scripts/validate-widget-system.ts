@@ -2,7 +2,7 @@
 
 /**
  * Widget System Validation Script
- * Comprehensive validation of the FullMind widget integration
+ * Comprehensive validation of the Being. widget integration
  * Ensures clinical-grade reliability and compliance
  */
 
@@ -31,7 +31,7 @@ class WidgetSystemValidator {
   private startTime = Date.now();
 
   async validateComplete(): Promise<void> {
-    console.log('🚀 Starting FullMind Widget System Validation...\n');
+    console.log('🚀 Starting Being. Widget System Validation...\n');
 
     try {
       // 1. Validate test infrastructure

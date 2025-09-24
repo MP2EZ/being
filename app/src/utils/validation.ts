@@ -3,7 +3,7 @@
  * Critical: Never modify scoring algorithms without clinical approval
  */
 
-import { CheckIn, Assessment, UserProfile } from '../types';
+import { CheckIn, Assessment, UserProfile } from '../types.ts';
 import {
   PHQ9Answers,
   GAD7Answers,
@@ -18,14 +18,6 @@ import {
   ClinicalValidationError,
   createISODateString
 } from '../types/clinical';
-
-// Crisis thresholds for test compatibility
-export const CRISIS_THRESHOLDS = {
-  PHQ9_SEVERE: CRISIS_THRESHOLD_PHQ9,
-  GAD7_SEVERE: CRISIS_THRESHOLD_GAD7,
-  PHQ9_SUICIDAL_IDEATION_QUESTION: SUICIDAL_IDEATION_QUESTION_INDEX,
-  SUICIDAL_IDEATION_THRESHOLD: SUICIDAL_IDEATION_THRESHOLD,
-} as const;
 
 // Validation errors
 export class ValidationError extends Error {
@@ -189,7 +181,7 @@ export const validateUserProfile = (user: Partial<UserProfile>): void => {
     throw new ValidationError('Valid creation date is required', 'createdAt');
   }
 
-  if (user.values !== undefined && (!Array.isArray(user.values) || user.values.length < 3 || user.values.length > 5)) {
+  if (user.values && (!Array.isArray(user.values) || user.values.length < 3 || user.values.length > 5)) {
     throw new ValidationError('User must select 3-5 values', 'values');
   }
 
@@ -216,6 +208,14 @@ const isValidTimeString = (timeString: string): boolean => {
   const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
   return timeRegex.test(timeString);
 };
+
+// Crisis threshold constants - DO NOT MODIFY WITHOUT CLINICAL APPROVAL
+export const CRISIS_THRESHOLDS = {
+  PHQ9_SEVERE: CRISIS_THRESHOLD_PHQ9,
+  GAD7_SEVERE: CRISIS_THRESHOLD_GAD7,
+  PHQ9_SUICIDAL_IDEATION_QUESTION: SUICIDAL_IDEATION_QUESTION_INDEX,
+  SUICIDAL_IDEATION_THRESHOLD: SUICIDAL_IDEATION_THRESHOLD,
+} as const;
 
 // Type-safe Crisis Detection Functions - DO NOT MODIFY WITHOUT CLINICAL APPROVAL
 export const requiresCrisisIntervention = (assessment: Assessment): boolean => {
@@ -272,7 +272,7 @@ export const isValidGAD7Score = (score: number): score is GAD7Score => {
 
 // Clinical Calculation Functions with Type Safety
 export const calculatePHQ9Score = (answers: PHQ9Answers): PHQ9Score => {
-  const sum = answers.reduce((total, answer) => total + answer, 0 as number);
+  const sum = answers.reduce((total: number, answer: number) => total + answer, 0);
   if (!isValidPHQ9Score(sum)) {
     throw new ClinicalValidationError(
       `Invalid PHQ-9 score calculated: ${sum}`,
@@ -282,11 +282,11 @@ export const calculatePHQ9Score = (answers: PHQ9Answers): PHQ9Score => {
       sum
     );
   }
-  return sum as PHQ9Score;
+  return sum;
 };
 
 export const calculateGAD7Score = (answers: GAD7Answers): GAD7Score => {
-  const sum = answers.reduce((total, answer) => total + answer, 0 as number);
+  const sum = answers.reduce((total: number, answer: number) => total + answer, 0);
   if (!isValidGAD7Score(sum)) {
     throw new ClinicalValidationError(
       `Invalid GAD-7 score calculated: ${sum}`,
@@ -296,7 +296,7 @@ export const calculateGAD7Score = (answers: GAD7Answers): GAD7Score => {
       sum
     );
   }
-  return sum as GAD7Score;
+  return sum;
 };
 
 // ID Validation Functions

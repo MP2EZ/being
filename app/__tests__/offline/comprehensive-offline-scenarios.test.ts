@@ -1,7 +1,7 @@
 /**
  * Comprehensive Offline Scenario Testing
  * Addresses critical gaps identified by crisis and clinician agents
- * Ensures clinical-grade reliability for FullMind MBCT app
+ * Ensures clinical-grade reliability for Being. MBCT app
  * 
  * Critical Requirements Addressed:
  * - Real-time crisis monitoring during partial assessments
@@ -13,7 +13,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { enhancedOfflineQueueService } from '../../src/services/EnhancedOfflineQueueService';
+import { enhancedOfflineQueueService } from '../../services/OfflineQueueService';
 import { networkAwareService } from '../../src/services/NetworkAwareService';
 import { offlineIntegrationService } from '../../src/services/OfflineIntegrationService';
 import { assetCacheService } from '../../src/services/AssetCacheService';

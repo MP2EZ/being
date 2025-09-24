@@ -22,7 +22,7 @@ import Animated, {
   interpolate,
   Easing,
   cancelAnimation,
-} from 'react-native-reanimated';
+} from '../../utils/ReanimatedMock';
 import { colorSystem, spacing } from '../../constants/colors';
 import { Button } from '../core';
 
@@ -226,18 +226,26 @@ export const BreathingCircle: React.FC<BreathingCircleProps> = React.memo(({
       <Text style={styles.subtitle}>
         You've completed your 3-minute breathing exercise
       </Text>
-      
+
       <View style={styles.circleContainer}>
-        <View style={[
+        <Animated.View style={[
           styles.staticCircle,
-          { backgroundColor: themeColors.success }
+          { backgroundColor: themeColors.success },
+          {
+            transform: [{ scale: withSpring(1.1, { damping: 10, stiffness: 100 }) }]
+          }
         ]} />
       </View>
-      
+
+      <Text style={styles.completionMessage}>
+        Taking time for mindful breathing supports your wellbeing
+      </Text>
+
       <Button
         theme={theme}
         variant="success"
         onPress={onComplete}
+        haptic={true}
       >
         Continue
       </Button>
@@ -366,6 +374,14 @@ const styles = StyleSheet.create({
   },
   buttonContainer: {
     marginTop: spacing.lg,
+  },
+  completionMessage: {
+    fontSize: 16,
+    color: colorSystem.gray[600],
+    textAlign: 'center',
+    marginVertical: spacing.lg,
+    lineHeight: 22,
+    fontStyle: 'italic',
   },
 });
 

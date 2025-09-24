@@ -4,7 +4,7 @@
  * Ensures clinical-grade therapeutic appropriateness during offline operation
  */
 
-import { enhancedOfflineQueueService } from '../../src/services/EnhancedOfflineQueueService';
+import { enhancedOfflineQueueService } from '../../services/OfflineQueueService';
 import { networkAwareService } from '../../src/services/NetworkAwareService';
 import { OfflinePriority, NetworkQuality } from '../../src/types/offline';
 

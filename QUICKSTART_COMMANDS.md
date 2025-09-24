@@ -99,19 +99,19 @@ open "FullMind Design Prototype v1.7.html"
 ### 📚 Key Documentation Files
 ```bash
 # Product requirements
-open "documentation/FullMind PRD v1.2.md"
+open "docs/product/FullMind PRD v1.2.md"
 
 # Technical requirements  
-open "documentation/FullMind TRD v2.0.md"
+open "docs/product/FullMind TRD v2.0.md"
 
 # Design requirements
-open "documentation/FullMind DRD v1.3.md"
+open "docs/product/FullMind DRD v1.3.md"
 
 # Implementation status
-open "documentation/FullMind Implementation Status v3.0.md"
+open "docs/product/FullMind Implementation Status v3.0.md"
 
 # Product roadmap
-open "documentation/FullMind Product Roadmap - Prioritized - Based on v1.7.md"
+open "docs/product/FullMind Product Roadmap - Prioritized - Based on v1.7.md"
 ```
 
 ## Development Workflow
@@ -287,15 +287,9 @@ npm run test:mbct-compliance
 ### 🚨 Emergency Access
 - **Crisis Hotline**: 988 (always accessible <3 seconds)
 - **Emergency Commands**: `npm run test:crisis`
-- **Safety Documentation**: `documentation/TESTING_STRATEGY.md`
+- **Safety Documentation**: `docs/clinical/TESTING_STRATEGY.md`
 
 ### 📞 Support
 - **Technical Issues**: Check `app/CHANGELOG.md` for recent fixes
 - **Clinical Questions**: Refer to `.claude/CLAUDE.md` domain authorities
 - **Performance Issues**: Run `npm run performance:all`
-
-### 🎯 Development Focus
-1. **Crisis Risk Prediction** (CURR-AI-001) - Highest priority
-2. **Export PDF/CSV** (CURR-FUNC-002) - Quick win
-3. **3-Minute Breathing Timer** (P1-FUNC-001) - Core MBCT feature
-4. **Dark Mode** (P1-DES-001) - Accessibility improvement

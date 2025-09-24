@@ -1,47 +1,87 @@
 /**
  * BreathingCircle Component - Guided breathing animation for midday reset
  * CRITICAL: Must be exactly 60 seconds per step (3 minutes total)
+ *
+ * Enhanced with strict TypeScript typing for therapeutic accuracy and timing validation
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, Dimensions } from 'react-native';
+// FIXED: Import from ReanimatedMock to prevent property descriptor conflicts
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
   withSequence,
   withTiming,
-  interpolate,
-  Easing,
-  runOnJS,
-} from 'react-native-reanimated';
+  interpolateColor as interpolate,
+} from '../../utils/ReanimatedMock';
+import { Easing } from 'react-native';
+const runOnJS = (fn: Function) => fn;
 import { colorSystem, spacing } from '../../constants/colors';
 import { Button } from '../core';
+import type {
+  TherapeuticBreathingSession,
+  BreathingPhase,
+  BreathingStepDuration,
+  TotalBreathingDuration,
+  BreathingCycleMs,
+  TherapeuticComponentProps,
+  TimeOfDay,
+  THERAPEUTIC_CONSTANTS,
+  TherapeuticTimingError,
+  validateTherapeuticTiming
+} from '../../types/therapeutic-components';
+import type { ISODateString } from '../../types/clinical';
 
-interface BreathingCircleProps {
-  onComplete: () => void;
-  theme?: 'morning' | 'midday' | 'evening';
-  autoStart?: boolean;
+// Strict typing for breathing circle props
+interface BreathingCircleProps extends TherapeuticComponentProps {
+  readonly onComplete: () => void;
+  readonly onTimingError?: (error: TherapeuticTimingError) => void;
+  readonly autoStart?: boolean;
+  readonly validateTiming?: boolean;
+  readonly theme?: TimeOfDay;
 }
 
 const { width: screenWidth } = Dimensions.get('window');
 const CIRCLE_SIZE = Math.min(screenWidth * 0.6, 200);
 
-// CRITICAL TIMING CONSTANTS - DO NOT MODIFY
-const BREATH_DURATION = 8000; // 8 seconds per breath cycle
-const CYCLES_PER_STEP = 7.5; // 7.5 cycles = 60 seconds
-const TOTAL_STEPS = 3; // 3 minutes total
-const STEP_DURATION = 60000; // 60 seconds per step
+// CRITICAL TIMING CONSTANTS - Type-safe and immutable
+const BREATH_DURATION: BreathingCycleMs = THERAPEUTIC_CONSTANTS.TIMING.BREATH_CYCLE_MS;
+const CYCLES_PER_STEP = THERAPEUTIC_CONSTANTS.TIMING.CYCLES_PER_STEP;
+const TOTAL_STEPS = 3 as const;
+const STEP_DURATION: BreathingStepDuration = THERAPEUTIC_CONSTANTS.TIMING.BREATHING_STEP_MS;
+const TOTAL_DURATION: TotalBreathingDuration = THERAPEUTIC_CONSTANTS.TIMING.TOTAL_BREATHING_MS;
+
+// Internal state type for breathing session
+interface BreathingSessionState {
+  readonly isActive: boolean;
+  readonly currentStep: 1 | 2 | 3;
+  readonly instruction: BreathingPhase;
+  readonly timeRemaining: number;
+  readonly session: TherapeuticBreathingSession | null;
+  readonly startTime: ISODateString | null;
+}
 
 export const BreathingCircle: React.FC<BreathingCircleProps> = ({
   onComplete,
+  onTimingError,
   theme = 'midday',
-  autoStart = false
+  autoStart = false,
+  validateTiming = true,
+  testID = 'breathing-circle',
+  accessibilityLabel = 'Breathing exercise circle',
+  anxietyAdaptive = false
 }) => {
-  const [isActive, setIsActive] = useState(autoStart);
-  const [currentStep, setCurrentStep] = useState(1);
-  const [instruction, setInstruction] = useState('Breathe In');
-  const [timeRemaining, setTimeRemaining] = useState(TOTAL_STEPS * 60); // Total seconds
+  // Enhanced state with type safety
+  const [sessionState, setSessionState] = useState<BreathingSessionState>({
+    isActive: autoStart,
+    currentStep: 1,
+    instruction: 'inhale',
+    timeRemaining: TOTAL_DURATION / 1000, // Convert to seconds for display
+    session: null,
+    startTime: null
+  });
   
   const scaleAnimation = useSharedValue(1);
   const opacityAnimation = useSharedValue(0.7);

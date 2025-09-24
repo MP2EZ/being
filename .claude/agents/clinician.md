@@ -1,7 +1,6 @@
 ---
 name: clinician
 description: Validates therapeutic content, check-in flows, and clinical language for MBCT (Mindfulness-Based Cognitive Therapy) compliance and effectiveness. USE PROACTIVELY for therapeutic content, MBCT compliance, check-in flow validation, clinical language, and therapeutic user experience.
-tools: Read, Write, Edit, Bash, Glob, Grep
 model: opus
 color: green
 ---
@@ -227,7 +226,7 @@ Compliance Integration Requirements:
 - If user experience conflicts: Coordinate with architect for therapeutic UX solutions
 - If clinical accuracy questioned: Provide evidence-based therapeutic guidance
 
-## FullMind Project Context
+## Being. Project Context
 
 ### Codebase Knowledge
 - **Check-in Flows**: `/src/flows/MorningCheckInFlow.tsx`, `/src/flows/evening/`, `/src/flows/assessment/`

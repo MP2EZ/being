@@ -1,5 +1,5 @@
 /**
- * Advanced Features Service for FullMind MBCT App
+ * Advanced Features Service for Being. MBCT App
  * 
  * Orchestrates SQLite migration and Calendar integration with clinical-grade
  * safety protocols and comprehensive error handling.

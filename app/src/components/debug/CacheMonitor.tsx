@@ -8,7 +8,7 @@ import {
   View,
   Text,
   ScrollView,
-  TouchableOpacity,
+  Pressable,
   StyleSheet,
   Alert,
   RefreshControl
@@ -126,9 +126,15 @@ export const CacheMonitor: React.FC<CacheMonitorProps> = ({
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Cache Monitor</Text>
-        <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+        <Pressable 
+          onPress={onClose} 
+          style={({ pressed }) => [
+            styles.closeButton,
+            pressed && { backgroundColor: '#f0f0f0', transform: [{ scale: 0.95 }] }
+          ]}
+        >
           <Text style={styles.closeText}>×</Text>
-        </TouchableOpacity>
+        </Pressable>
       </View>
 
       <ScrollView
@@ -218,14 +224,17 @@ export const CacheMonitor: React.FC<CacheMonitorProps> = ({
             </View>
             
             {validation.errors && validation.errors.length > 0 && (
-              <TouchableOpacity 
+              <Pressable 
                 onPress={() => setExpanded(!expanded)}
-                style={styles.expandButton}
+                style={({ pressed }) => [
+                  styles.expandButton,
+                  pressed && { backgroundColor: '#e0e0e0', transform: [{ scale: 0.98 }] }
+                ]}
               >
                 <Text style={styles.expandText}>
                   {expanded ? 'Hide' : 'Show'} Errors ({validation.errors.length})
                 </Text>
-              </TouchableOpacity>
+              </Pressable>
             )}
             
             {expanded && validation.errors && (
@@ -242,19 +251,26 @@ export const CacheMonitor: React.FC<CacheMonitorProps> = ({
         <View style={styles.actionsCard}>
           <Text style={styles.sectionTitle}>Actions</Text>
           
-          <TouchableOpacity 
-            style={styles.actionButton}
+          <Pressable 
+            style={({ pressed }) => [
+              styles.actionButton,
+              pressed && { backgroundColor: '#369a94', transform: [{ scale: 0.98 }] }
+            ]}
             onPress={handleValidateCache}
           >
             <Text style={styles.actionButtonText}>Validate Cache</Text>
-          </TouchableOpacity>
+          </Pressable>
           
-          <TouchableOpacity 
-            style={[styles.actionButton, styles.warningButton]}
+          <Pressable 
+            style={({ pressed }) => [
+              styles.actionButton, 
+              styles.warningButton,
+              pressed && { backgroundColor: '#e68a39', transform: [{ scale: 0.98 }] }
+            ]}
             onPress={handleClearCache}
           >
             <Text style={styles.actionButtonText}>Clear Cache</Text>
-          </TouchableOpacity>
+          </Pressable>
         </View>
 
         {/* Debug Info */}

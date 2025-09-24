@@ -3,7 +3,7 @@
  * Validates HIPAA-compliant encryption functionality
  */
 
-import { encryptionService, DataSensitivity, EncryptionService } from '../security/EncryptionService';
+import { encryptionService, DataSensitivity, EncryptionService } from '../../security/EncryptionService';
 
 // Mock SecureStore and Crypto for testing
 jest.mock('expo-secure-store', () => ({

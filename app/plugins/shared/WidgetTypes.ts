@@ -1,5 +1,5 @@
 /**
- * Shared Widget Types for FullMind MBCT App
+ * Shared Widget Types for Being. MBCT App
  * Type definitions used across React Native, iOS, and Android widget implementations
  */
 
@@ -32,7 +32,7 @@ export type CheckInType = 'morning' | 'midday' | 'evening';
 
 // Deep linking structure
 export interface DeepLinkData {
-  readonly scheme: 'fullmind';
+  readonly scheme: 'being';
   readonly path: string;
   readonly params: Record<string, string>;
 }
@@ -218,7 +218,7 @@ export const WIDGET_CONSTANTS = {
     MAXIMUM: 'maximum',
   } as const,
   
-  DEEP_LINK_SCHEME: 'fullmind',
+  DEEP_LINK_SCHEME: 'being',
   
   WIDGET_FAMILIES: {
     SMALL: 'small',
@@ -276,7 +276,7 @@ export const isDeepLinkData = (data: any): data is DeepLinkData => {
   return (
     typeof data === 'object' &&
     data !== null &&
-    data.scheme === 'fullmind' &&
+    data.scheme === 'being' &&
     typeof data.path === 'string' &&
     typeof data.params === 'object'
   );

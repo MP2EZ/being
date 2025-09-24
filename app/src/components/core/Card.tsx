@@ -1,6 +1,17 @@
-import React from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { memo, useCallback, useMemo, useEffect } from 'react';
+import { View, StyleSheet, Pressable, ViewStyle } from 'react-native';
+// FIXED: Import from ReanimatedMock to prevent property descriptor conflicts
+import Animated, {
+  useAnimatedStyle,
+  withSpring,
+  useSharedValue,
+  withTiming,
+  withSequence,
+  interpolateColor,
+  Easing
+} from '../../utils/ReanimatedMock';
 import { useTheme } from '../../hooks/useTheme';
+import { useThemeColors } from '../../contexts/ThemeContext';
 import { borderRadius, spacing } from '../../constants/colors';
 
 interface CardProps {
@@ -10,6 +21,8 @@ interface CardProps {
   clickable?: boolean;
   onPress?: () => void;
   style?: any;
+  moodResponsive?: boolean; // Enable mood-responsive animations
+  breathingEffect?: boolean; // Enable subtle breathing animation
 }
 
 export const Card: React.FC<CardProps> = ({
@@ -18,9 +31,57 @@ export const Card: React.FC<CardProps> = ({
   theme = null,
   clickable = false,
   onPress,
-  style
+  style,
+  moodResponsive = false,
+  breathingEffect = false
 }) => {
   const { colorSystem } = useTheme();
+
+  // Therapeutic animation values
+  const scaleValue = useSharedValue(1);
+  const opacityValue = useSharedValue(1);
+  const breathingScale = useSharedValue(1);
+  const shadowValue = useSharedValue(0);
+
+  // Time-of-day adaptive entrance animation
+  useEffect(() => {
+    // Gentle entrance animation based on theme
+    const animationDuration = theme === 'evening' ? 800 : theme === 'morning' ? 400 : 600;
+
+    scaleValue.value = withSpring(1, {
+      damping: 12,
+      stiffness: 100,
+      mass: 1
+    });
+
+    opacityValue.value = withTiming(1, {
+      duration: animationDuration,
+      easing: Easing.out(Easing.cubic)
+    });
+
+    shadowValue.value = withTiming(1, {
+      duration: animationDuration * 1.2,
+      easing: Easing.out(Easing.quad)
+    });
+  }, [theme]);
+
+  // Breathing effect for therapeutic calming
+  useEffect(() => {
+    if (breathingEffect) {
+      const breathDuration = theme === 'evening' ? 4000 : 3000; // Slower for evening
+
+      breathingScale.value = withSequence(
+        withTiming(1.01, {
+          duration: breathDuration,
+          easing: Easing.inOut(Easing.sine)
+        }),
+        withTiming(1.0, {
+          duration: breathDuration,
+          easing: Easing.inOut(Easing.sine)
+        })
+      );
+    }
+  }, [breathingEffect, theme]);
   
   const getBackgroundColor = () => {
     if (theme) {
@@ -36,32 +97,68 @@ export const Card: React.FC<CardProps> = ({
     return colorSystem.gray[300];
   };
 
-  const cardStyle = [
-    styles.card,
-    {
-      backgroundColor: getBackgroundColor(),
-      borderColor: getBorderColor(),
-      padding,
-    },
-    style
-  ];
+  // Press handler with therapeutic timing
+  const handlePress = useCallback(() => {
+    if (!onPress) return;
+
+    // Mindful press animation - encourages slower, more intentional interactions
+    scaleValue.value = withSequence(
+      withSpring(0.98, {
+        damping: 15,
+        stiffness: 400,
+        mass: 0.8
+      }),
+      withSpring(1, {
+        damping: 15,
+        stiffness: 400,
+        mass: 0.8
+      })
+    );
+
+    onPress();
+  }, [onPress, scaleValue]);
+
+  // Animated styles for therapeutic UX
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { scale: scaleValue.value * breathingScale.value }
+    ],
+    opacity: opacityValue.value,
+    shadowOpacity: 0.05 * shadowValue.value,
+    elevation: 2 * shadowValue.value,
+  }));
+
+  const baseCardStyle = {
+    backgroundColor: getBackgroundColor(),
+    borderColor: getBorderColor(),
+    padding,
+  };
 
   if (clickable && onPress) {
     return (
-      <TouchableOpacity
-        style={cardStyle}
-        onPress={onPress}
-        activeOpacity={0.8}
-      >
-        {children}
-      </TouchableOpacity>
+      <Animated.View style={[styles.card, baseCardStyle, animatedStyle, style]}>
+        <Pressable
+          style={({ pressed }) => [
+            styles.touchableContent,
+            pressed && styles.touchableContentPressed
+          ]}
+          onPress={handlePress}
+          accessibilityRole="button"
+          android_ripple={{
+            color: '#00000010',
+            borderless: false
+          }}
+        >
+          {children}
+        </Pressable>
+      </Animated.View>
     );
   }
 
   return (
-    <View style={cardStyle}>
+    <Animated.View style={[styles.card, baseCardStyle, animatedStyle, style]}>
       {children}
-    </View>
+    </Animated.View>
   );
 };
 
@@ -70,15 +167,23 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.large,
     borderWidth: 1,
     marginBottom: 16,
-    // iOS shadow
+    // Enhanced therapeutic shadows for depth
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: 3,
     },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
+    shadowOpacity: 0.08, // Slightly more prominent for visual comfort
+    shadowRadius: 6,
     // Android shadow
-    elevation: 2,
+    elevation: 3,
+  },
+  touchableContent: {
+    // Ensure touchable area covers entire card
+    flex: 1,
+    minHeight: 44, // WCAG AA compliant touch target
+  },
+  touchableContentPressed: {
+    opacity: 0.9,
   },
 });

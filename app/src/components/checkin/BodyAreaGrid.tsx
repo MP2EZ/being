@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, FlatList } from 'react-native';
+import { View, Text, Pressable, StyleSheet, FlatList } from 'react-native';
 import { colorSystem, spacing, borderRadius } from '../../constants/colors';
 import { useCommonHaptics } from '../../hooks/useHaptics';
 
@@ -52,17 +52,21 @@ export const BodyAreaGrid: React.FC<BodyAreaGridProps> = ({
     const themeColors = colorSystem.themes[theme];
     
     return (
-      <TouchableOpacity
-        style={[
+      <Pressable
+        style={({ pressed }) => [
           styles.bodyArea,
           {
             backgroundColor: isSelected ? themeColors.background : colorSystem.base.white,
             borderColor: isSelected ? themeColors.primary : colorSystem.gray[300],
             borderWidth: isSelected ? 2 : 1,
+            opacity: pressed ? 0.7 : 1,
           }
         ]}
         onPress={() => handleAreaPress(item)}
-        activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityState={{ selected: isSelected }}
+        accessibilityLabel={`${item} body area ${isSelected ? 'selected' : 'not selected'}`}
+        accessibilityHint={`Double tap to ${isSelected ? 'deselect' : 'select'} ${item}. You can select multiple body areas.`}
       >
         <Text
           style={[
@@ -75,7 +79,7 @@ export const BodyAreaGrid: React.FC<BodyAreaGridProps> = ({
         >
           {item}
         </Text>
-      </TouchableOpacity>
+      </Pressable>
     );
   };
 

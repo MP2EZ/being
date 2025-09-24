@@ -4,18 +4,25 @@
  */
 
 import { create } from 'zustand';
-import { Assessment, AssessmentConfig } from '../types';
+import { subscribeWithSelector } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import { Assessment, AssessmentConfig } from '../types.ts';
 import { dataStore } from '../services/storage/SecureDataStore';
+import { encryptionService, DataSensitivity } from '../services/security';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { networkService } from '../services/NetworkService';
-import { 
-  validateAssessment, 
-  ValidationError, 
+import {
+  validateAssessment,
+  ValidationError,
   requiresCrisisIntervention,
   isValidPHQ9Answers,
   isValidGAD7Answers,
   calculatePHQ9Score,
   calculateGAD7Score
 } from '../utils/validation';
+import { Alert, Linking } from 'react-native';
+import CrisisResponseMonitor from '../services/CrisisResponseMonitor';
+import crisisDetectionService from '../services/CrisisDetectionService';
 import {
   PHQ9Answers,
   GAD7Answers,
@@ -30,13 +37,18 @@ import {
 import { AssessmentStore, CurrentAssessment } from '../types/store';
 
 // Use the enhanced type-safe interface
-interface AssessmentState extends Omit<AssessmentStore, 
-  'calculatePHQ9Score' | 'calculateGAD7Score' | 'getPHQ9Severity' | 'getGAD7Severity' | 
+interface AssessmentState extends Omit<AssessmentStore,
+  'calculatePHQ9Score' | 'calculateGAD7Score' | 'getPHQ9Severity' | 'getGAD7Severity' |
   'requiresCrisisInterventionPHQ9' | 'requiresCrisisInterventionGAD7' | 'hasSuicidalIdeation'
 > {
   // Legacy method signatures for backward compatibility
   calculateScore: (type: 'phq9' | 'gad7', answers: number[]) => number;
   getSeverityLevel: (type: 'phq9' | 'gad7', score: number) => string;
+
+  // Real-time crisis detection state
+  crisisDetected: boolean;
+  setCrisisDetected: (detected: boolean) => void;
+  triggerRealTimeCrisisIntervention: (assessmentType: 'phq9' | 'gad7', questionIndex: number, answer: number) => void;
 }
 
 // Assessment configurations - EXACT clinical wording required
@@ -111,11 +123,54 @@ const RESPONSE_OPTIONS = [
   });
 });
 
-export const useAssessmentStore = create<AssessmentState>((set, get) => ({
+/**
+ * Encrypted storage for clinical assessment data
+ */
+const encryptedAssessmentStorage = {
+  getItem: async (name: string): Promise<string | null> => {
+    try {
+      const encryptedData = await AsyncStorage.getItem(name);
+      if (!encryptedData) return null;
+
+      const decrypted = await encryptionService.decryptData(
+        JSON.parse(encryptedData),
+        DataSensitivity.CLINICAL
+      );
+      return JSON.stringify(decrypted);
+    } catch (error) {
+      console.error('Failed to decrypt assessment data:', error);
+      return null;
+    }
+  },
+  setItem: async (name: string, value: string): Promise<void> => {
+    try {
+      const data = JSON.parse(value);
+      const encrypted = await encryptionService.encryptData(
+        data,
+        DataSensitivity.CLINICAL
+      );
+      await AsyncStorage.setItem(name, JSON.stringify(encrypted));
+    } catch (error) {
+      console.error('Failed to encrypt assessment data:', error);
+      throw error;
+    }
+  },
+  removeItem: async (name: string): Promise<void> => {
+    await AsyncStorage.removeItem(name);
+  },
+};
+
+export const useAssessmentStore = create<AssessmentState>()(
+  subscribeWithSelector(
+    persist(
+      (set, get) => ({
   assessments: [],
   currentAssessment: null,
   isLoading: false,
   error: null,
+
+  // Real-time crisis detection state
+  crisisDetected: false,
 
   // Load all assessments from AsyncStorage
   loadAssessments: async () => {
@@ -149,26 +204,85 @@ export const useAssessmentStore = create<AssessmentState>((set, get) => ({
     });
   },
 
-  // Answer current question and advance
-  answerQuestion: (answer) => {
-    const { currentAssessment } = get();
+  // Answer current question and advance with enhanced real-time crisis detection
+  answerQuestion: async (answer) => {
+    const { currentAssessment, triggerRealTimeCrisisIntervention } = get();
     if (!currentAssessment) {
       set({ error: 'No active assessment' });
       return;
     }
-    
+
     const { config, answers, currentQuestion } = currentAssessment;
-    
+
     if (!config) {
       set({ error: 'Assessment configuration missing' });
       return;
     }
-    
+
     const newAnswers = [...answers];
     newAnswers[currentQuestion] = answer;
-    
+
+    try {
+      // Enhanced crisis detection using CrisisDetectionService
+      const assessmentId = createAssessmentID(config.type);
+      const crisisResult = await crisisDetectionService.detectCrisis(
+        config.type,
+        newAnswers,
+        currentQuestion,
+        assessmentId
+      );
+
+      // Handle crisis detection results
+      if (crisisResult.isCrisis) {
+        console.log(`🚨 CRISIS DETECTED: ${config.type} - ${crisisResult.trigger}, severity: ${crisisResult.severity}`);
+        set({ crisisDetected: true });
+
+        // The CrisisDetectionService will handle immediate intervention
+        // We also keep the legacy method for backwards compatibility
+        triggerRealTimeCrisisIntervention(config.type, currentQuestion, answer);
+      }
+
+      // Legacy crisis detection (for backup/validation)
+      // IMMEDIATE CRISIS CHECK for PHQ-9 Question 9 (suicidal ideation)
+      if (config.type === 'phq9' && currentQuestion === 8 && answer >= 1) {
+        console.log('🚨 LEGACY CRISIS DETECTED: PHQ-9 Question 9 suicidal ideation response');
+        set({ crisisDetected: true });
+      }
+
+      // Legacy real-time score monitoring for crisis thresholds
+      if (currentQuestion >= 2) { // Only check after enough questions answered
+        const currentScore = newAnswers.slice(0, currentQuestion + 1).reduce((sum, a) => sum + (a || 0), 0);
+
+        if (config.type === 'phq9') {
+          // Extrapolate full score to detect potential crisis early
+          const projectedScore = Math.round((currentScore / (currentQuestion + 1)) * 9);
+          if (projectedScore >= 20) {
+            console.log('🚨 LEGACY CRISIS DETECTED: PHQ-9 severe depression threshold');
+            set({ crisisDetected: true });
+          }
+        } else if (config.type === 'gad7') {
+          // Extrapolate full score for GAD-7
+          const projectedScore = Math.round((currentScore / (currentQuestion + 1)) * 7);
+          if (projectedScore >= 15) {
+            console.log('🚨 LEGACY CRISIS DETECTED: GAD-7 severe anxiety threshold');
+            set({ crisisDetected: true });
+          }
+        }
+      }
+
+    } catch (error) {
+      console.error('Enhanced crisis detection failed, falling back to legacy:', error);
+
+      // Fallback to legacy crisis detection
+      if (config.type === 'phq9' && currentQuestion === 8 && answer >= 1) {
+        console.log('🚨 FALLBACK CRISIS DETECTED: PHQ-9 Question 9 suicidal ideation');
+        set({ crisisDetected: true });
+        triggerRealTimeCrisisIntervention('phq9', currentQuestion, answer);
+      }
+    }
+
     const nextQuestion = Math.min(currentQuestion + 1, config.questions.length);
-    
+
     set({
       currentAssessment: {
         ...currentAssessment,
@@ -393,8 +507,124 @@ export const useAssessmentStore = create<AssessmentState>((set, get) => ({
   getCurrentProgress: () => {
     const { currentAssessment } = get();
     if (!currentAssessment?.config) return { current: 0, total: 0 };
-    
+
     const { currentQuestion, config } = currentAssessment;
     return { current: currentQuestion, total: config.questions.length };
+  },
+
+  // Crisis detection methods
+  setCrisisDetected: (detected: boolean) => {
+    set({ crisisDetected: detected });
+  },
+
+  triggerRealTimeCrisisIntervention: async (assessmentType: 'phq9' | 'gad7', questionIndex: number, answer: number) => {
+    const startTime = performance.now();
+
+    try {
+      // Use CrisisResponseMonitor for performance tracking
+      await CrisisResponseMonitor.executeCrisisAction(
+        `real-time-crisis-intervention-${assessmentType}`,
+        async () => {
+          let alertTitle = 'Crisis Support Available';
+          let alertMessage = '';
+
+          if (assessmentType === 'phq9' && questionIndex === 8) {
+            // Specific message for suicidal ideation
+            alertMessage = 'We noticed you might be having difficult thoughts. Immediate support is available.';
+          } else {
+            // General severe score message
+            alertMessage = `Your responses indicate you may benefit from immediate support. Crisis resources are available 24/7.`;
+          }
+
+          // IMMEDIATE crisis intervention - non-blocking
+          setTimeout(() => {
+            Alert.alert(
+              alertTitle,
+              alertMessage,
+              [
+                {
+                  text: 'Call 988 Now',
+                  onPress: async () => {
+                    try {
+                      await Linking.openURL('tel:988');
+                    } catch (error) {
+                      Alert.alert(
+                        'Call 988',
+                        'Please dial 988 directly for immediate crisis support.'
+                      );
+                    }
+                  }
+                },
+                {
+                  text: 'Continue Assessment',
+                  style: 'cancel'
+                },
+                {
+                  text: 'Crisis Resources',
+                  onPress: () => {
+                    Alert.alert(
+                      'Crisis Resources',
+                      '🆘 IMMEDIATE CRISIS SUPPORT:\n\n📞 988 - Suicide & Crisis Lifeline\n📞 911 - Emergency Services\n💬 Text HOME to 741741 - Crisis Text Line\n\nAll available 24/7'
+                    );
+                  }
+                }
+              ],
+              { cancelable: true }
+            );
+          }, 0); // Immediate but non-blocking
+
+          return true;
+        }
+      );
+
+      CrisisResponseMonitor.monitorSyncCrisisAction(
+        `crisis-intervention-${assessmentType}-q${questionIndex}`,
+        startTime
+      );
+    } catch (error) {
+      console.error('Crisis intervention failed:', error);
+      // Fallback alert if monitoring fails
+      Alert.alert(
+        'Crisis Support',
+        'If you need immediate help, please call 988 (Crisis Lifeline) or 911 (Emergency).'
+      );
+    }
   }
-}));
+      }),
+      {
+        name: 'being-assessment-store',
+        storage: createJSONStorage(() => encryptedAssessmentStorage),
+        partialize: (state) => ({
+          assessments: state.assessments,
+          crisisDetected: state.crisisDetected,
+        }),
+        version: 1,
+        migrate: (persistedState: any, version: number) => {
+          // Handle data migration for clinical safety
+          if (version === 0) {
+            return {
+              ...persistedState,
+              crisisDetected: false,
+            };
+          }
+          return persistedState;
+        },
+        onRehydrateStorage: () => (state) => {
+          if (state) {
+            console.log('Assessment store rehydrated successfully');
+            // Validate clinical data integrity on rehydration
+            if (state.assessments) {
+              state.assessments.forEach((assessment, index) => {
+                try {
+                  validateAssessment(assessment);
+                } catch (error) {
+                  console.error(`Assessment ${index} failed validation on rehydration:`, error);
+                }
+              });
+            }
+          }
+        },
+      }
+    )
+  )
+);

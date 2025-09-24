@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { SyncStatusIndicator } from './SyncStatusIndicator';
 import { ConflictResolutionModal } from './ConflictResolutionModal';
 import { SyncEntityType } from '../../types/sync';
@@ -70,9 +70,15 @@ export const HomeSyncStatus: React.FC<HomeSyncStatusProps> = ({
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Sync Status</Text>
-        <TouchableOpacity onPress={handleSyncPress} style={styles.syncButton}>
+        <Pressable 
+          onPress={handleSyncPress} 
+          style={({ pressed }) => [
+            styles.syncButton,
+            pressed && { opacity: 0.8, transform: [{ scale: 0.96 }] }
+          ]}
+        >
           <Text style={styles.syncButtonText}>Sync Now</Text>
-        </TouchableOpacity>
+        </Pressable>
       </View>
       
       <View style={styles.statusList}>

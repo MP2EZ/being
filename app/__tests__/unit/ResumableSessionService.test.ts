@@ -100,7 +100,7 @@ describe('ResumableSessionService Unit Tests', () => {
       expect(mockDataStore.setItem).toHaveBeenCalledTimes(1);
       const [key, storedData] = mockDataStore.setItem.mock.calls[0];
       
-      expect(key).toBe('@fullmind_resumable_session_checkin_morning');
+      expect(key).toBe('being_resumable_session_checkin_morning');
       
       const savedSession = JSON.parse(storedData);
       expect(savedSession).toMatchObject({
@@ -128,7 +128,7 @@ describe('ResumableSessionService Unit Tests', () => {
       });
 
       expect(mockAsyncStorage.setItem).toHaveBeenCalledWith(
-        '@fullmind_session_index',
+        'being_session_index',
         expect.stringContaining('"type":"checkin"')
       );
     });
@@ -167,7 +167,7 @@ describe('ResumableSessionService Unit Tests', () => {
 
       expect(result).toEqual(mockSession);
       expect(mockDataStore.getItem).toHaveBeenCalledWith(
-        '@fullmind_resumable_session_checkin_morning'
+        'being_resumable_session_checkin_morning'
       );
     });
 
@@ -339,7 +339,7 @@ describe('ResumableSessionService Unit Tests', () => {
 
       expect(mockDataStore.removeItem).toHaveBeenCalled();
       expect(mockAsyncStorage.setItem).toHaveBeenCalledWith(
-        '@fullmind_session_index',
+        'being_session_index',
         '[]' // Empty after removal
       );
     });

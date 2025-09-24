@@ -8,43 +8,29 @@ import { View, Text, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '../../components/core';
 import { useUserStore } from '../../store';
-import { UserProfile } from '../../types';
 import { colorSystem, spacing } from '../../constants/colors';
 
 export const OnboardingPlaceholder: React.FC = () => {
-  const { createUser, updateUser } = useUserStore();
+  console.log('🎯 OnboardingPlaceholder: Rendering onboarding screen');
+  // Temporarily bypass userStore to debug UI
+  // const { signUp, updateProfile } = useUserStore();
 
   const handleSkipOnboarding = async () => {
-    try {
-      console.log('Creating user...');
-      // Create a temporary user to bypass onboarding for testing
-      await createUser({
-        values: ['Kindness', 'Growth', 'Peace'],
-        onboardingCompleted: true,
-        privacyPolicyAccepted: true,
-        termsAccepted: true,
-        notifications: {
-          enabled: true,
-          morning: '08:00',
-          midday: '13:00',
-          evening: '20:00'
-        },
-        preferences: {
-          haptics: true,
-          theme: 'system',
-          language: 'en'
-        }
-      });
-      console.log('User created successfully');
-    } catch (error) {
-      console.error('Failed to create user:', error);
-    }
+    console.log('🚧 Skip onboarding temporarily disabled for debugging');
+    // try {
+    //   console.log('Creating user...');
+    //   // Create a temporary user to bypass onboarding for testing
+    //   const authResult = await signUp('test@example.com', 'tempPassword123');
+    //   // ... rest of auth logic
+    // } catch (error) {
+    //   console.error('Failed to create user:', error);
+    // }
   };
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
-        <Text style={styles.title}>Welcome to FullMind</Text>
+        <Text style={styles.title}>Welcome to Being</Text>
         <Text style={styles.subtitle}>
           Mindful awareness for emotional well-being
         </Text>
@@ -67,8 +53,8 @@ export const OnboardingPlaceholder: React.FC = () => {
         
         <Button
           onPress={() => {
-            // Force bypass for testing
-            updateUser({ onboardingCompleted: true });
+            console.log('🚧 Force skip temporarily disabled for debugging');
+            // updateProfile({ onboardingCompleted: true });
           }}
           variant="outline"
           style={[styles.button, { marginTop: spacing.md }]}

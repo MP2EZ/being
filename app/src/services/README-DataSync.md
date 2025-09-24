@@ -1,8 +1,8 @@
-# FullMind Data Synchronization System
+# Being. Data Synchronization System
 
 ## Overview
 
-The FullMind Data Synchronization System provides comprehensive, clinical-grade data synchronization with offline-first capabilities, conflict resolution, and therapeutic safety considerations. This system ensures data integrity and consistency across devices while maintaining the highest standards for mental health data handling.
+The Being. Data Synchronization System provides comprehensive, clinical-grade data synchronization with offline-first capabilities, conflict resolution, and therapeutic safety considerations. This system ensures data integrity and consistency across devices while maintaining the highest standards for mental health data handling.
 
 ## Architecture
 
