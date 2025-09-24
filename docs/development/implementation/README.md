@@ -141,26 +141,26 @@ npm run test:widget-performance # Widget performance validation
 All comprehensive documentation is organized in the central documentation system:
 
 ### Mobile App Documentation
-Located in `/documentation/mobile-app/`:
+Located in `/docs/product/`:
 
-**Implementation Guides** (`/documentation/mobile-app/implementation/`):
+**Implementation Guides** (`/docs/development/implementation/`):
 - `implementation-guide.md` - Advanced features implementation
 - `encryption-implementation.md` - Security and encryption details
 - `widget-bridge-implementation.md` - iOS/Android widget integration
 - `crisis-integration-implementation-summary.md` - Crisis safety systems
 - `production-readiness-validation-report.md` - Production deployment validation
 
-**Performance Documentation** (`/documentation/mobile-app/performance/`):
+**Performance Documentation** (`/docs/development/performance/`):
 - `performance-optimization-guide.md` - Performance optimization strategies
 - `performance-optimization-findings.md` - Performance analysis results
 - `performance-validation-report.md` - Performance benchmark validation
 
-**Development Guides** (`/documentation/mobile-app/guides/`):
+**Development Guides** (`/docs/development/guides/`):
 - `crisis-button-implementation-guide.md` - Crisis button development
 - `typescript-safety-guide.md` - TypeScript clinical safety patterns
 - `widget-accessibility-implementation-guide.md` - Widget accessibility
 
-**Core Documentation** (`/documentation/mobile-app/`):
+**Core Documentation** (`/docs/product/`):
 - `FullMind PRD v2.0.md` - Product Requirements Document
 - `FullMind TRD v2.0.md` - Technical Requirements Document
 - `clinical-testing-implementation.md` - Clinical testing framework
@@ -168,10 +168,10 @@ Located in `/documentation/mobile-app/`:
 - `accessibility-audit-clinical-export.md` - Clinical export accessibility
 
 ### Additional Documentation
-- **Architecture**: `/documentation/architecture/` (system design, ADRs)
-- **Clinical Standards**: `/documentation/clinical/` (MBCT compliance, safety protocols)
-- **Security**: `/documentation/security/` (security analysis, implementation)
-- **Master Index**: `/documentation/MASTER_DOCUMENTATION_INDEX.md`
+- **Architecture**: `/docs/architecture/` (system design, ADRs)
+- **Clinical Standards**: `/docs/clinical/` (MBCT compliance, safety protocols)
+- **Security**: `/docs/security/` (security analysis, implementation)
+- **Master Index**: `/docs/archive/MASTER_DOCUMENTATION_INDEX.md`
 
 ## 🛡️ Security & Compliance
 
@@ -233,9 +233,9 @@ npm run test:ci                       # CI/CD test suite
 - **International**: [findahelpline.com](https://findahelpline.com)
 
 ### Development Support
-- **Documentation**: Complete guides in `/documentation/mobile-app/`
-- **Clinical Standards**: `/documentation/clinical/`
-- **Architecture**: `/documentation/architecture/`
+- **Documentation**: Complete guides in `/docs/product/`
+- **Clinical Standards**: `/docs/clinical/`
+- **Architecture**: `/docs/architecture/`
 
 ---
 

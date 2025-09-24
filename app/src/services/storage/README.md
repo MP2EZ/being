@@ -325,10 +325,10 @@ const CrisisButton = () => (
 
 ## 🔗 Related Documentation
 
-- [Being. TRD v2.0](../../../documentation/mobile-app/Being.%20TRD%20v2.0.md) - Technical requirements
+- [FullMind TRD v2.0](../../../../docs/product/FullMind%20TRD%20v2.0.md) - Technical requirements
 - [DataStore.ts](./DataStore.ts) - Basic storage implementation
 - [EncryptedDataStore.ts](./EncryptedDataStore.ts) - Encrypted storage
-- [Crisis Safety Protocols](../../../documentation/clinical/safety-protocols/) - Safety requirements
+- [Crisis Safety Protocols](../../../../docs/clinical/safety-protocols/) - Safety requirements
 
 ## 📝 Contributing
 

@@ -73,15 +73,19 @@
   Escalation: Single→Being.Template→Global+Domain→Architect
 
   ## Documentation
-  /docs/ → legal\|brand only
-  /app/docs/ → product\|clinical\|architecture\|security
+  /docs/ → technical\|architecture\|clinical\|security\|testing
+  /brand-legal/ → brand\|legal\|compliance
   /scripts/ → cross-module operations
-  Placement: app-specific→/app/docs/ | shared→/docs/ | /documentation/=DEPRECATED
+  /CONTRIBUTING.md → agent protocols\|safety requirements
+  Placement: technical→/docs/ | brand/legal→/brand-legal/ | /app/docs/=DEPRECATED
 
   ## File References
-  Design: Being. Design Library v1.1.tsx\|Being. DRD v1.3.md\|Being. Design Prototype v1.7.html
-  Docs: Being. PRD v1.2.md\|Being. TRD v2.0.md\|Being. User Journey Flows & Persona Analysis.md
-  Roadmap: Being. Product Roadmap - Prioritized - Based on v1.7.md
+  Technical: /docs/architecture.md\|Crisis-Button-Implementation-Guide.md\|TypeScript-Safety-Guide.md
+  Clinical: /docs/clinical/\|/docs/testing/ (PHQ/GAD validation)
+  Security: /docs/security/\|Widget-Crisis-Button-Integration-Summary.md
+  Contributing: /CONTRIBUTING.md (agent protocols\|safety requirements)
+  PM/Roadmap: Notion 25da1108c2088077b24be0238a1ddf37
+  Brand/Legal: /brand-legal/ (archived business docs)
 
   ## Operations
   Branches: main(clinical-validated)\|release(full-review)\|hotfix(crisis-expedited)

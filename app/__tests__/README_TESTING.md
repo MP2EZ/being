@@ -310,6 +310,6 @@ DEBUG=fullmind:* npm test
 ## Resources
 
 - [FullMind Testing Strategy](../TESTING_STRATEGY_COMPREHENSIVE.md)
-- [Clinical Validation Requirements](../documentation/clinical-requirements.md)
-- [Privacy Implementation Guide](../documentation/privacy-implementation.md)
-- [Performance Benchmarks](../documentation/performance-targets.md)
+- [Clinical Validation Requirements](../../docs/clinical/clinical-requirements.md)
+- [Privacy Implementation Guide](../../docs/security/privacy-implementation.md)
+- [Performance Benchmarks](../../docs/architecture/performance-targets.md)

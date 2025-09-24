@@ -13,7 +13,7 @@ Documentation lives with the code it documents.
 
 ❌ NOT: Product specs, clinical docs, architecture, security, operations
 
-### Goes in `/app/docs/`
+### Goes in `/docs/`
 ✅ Product documentation (PRD, TRD, DRD, roadmap)
 ✅ Clinical/therapeutic documentation (MBCT compliance, safety protocols)
 ✅ App architecture and security
@@ -34,14 +34,14 @@ Documentation lives with the code it documents.
 
 ## Quick Decision Tree
 1. **Does it affect BOTH app and website?** → `/docs/`
-2. **Is it about the mobile app?** → `/app/docs/`
+2. **Is it about technical implementation?** → `/docs/`
 3. **Is it about the website?** → `/website/docs/`
 4. **Is it a cross-module script?** → `/scripts/`
 5. **When in doubt** → Put with the code it describes
 
 ## Folder Organization Within Each Module
 
-### `/app/docs/` Structure
+### `/docs/` Structure
 - `/product/` - PRD, TRD, DRD, roadmap
 - `/clinical/` - MBCT compliance, safety protocols, therapeutic standards
 - `/architecture/` - App architecture, data flow, system design
@@ -65,12 +65,12 @@ Documentation lives with the code it documents.
 
 The old `/documentation/` folder has been reorganized following co-location principles:
 
-- **Product docs** moved from `/documentation/mobile-app/` to `/app/docs/product/`
-- **Clinical docs** moved from `/documentation/clinical/` to `/app/docs/clinical/`
-- **Architecture** moved from `/documentation/architecture/` to `/app/docs/architecture/`
-- **Security** moved from `/documentation/security/` to `/app/docs/security/`
+- **Product docs** moved from `/documentation/mobile-app/` to `/docs/product/`
+- **Clinical docs** moved from `/documentation/clinical/` to `/docs/clinical/`
+- **Architecture** moved from `/documentation/architecture/` to `/docs/architecture/`
+- **Security** moved from `/documentation/security/` to `/docs/security/`
 - **Website docs** consolidated from multiple locations to `/website/docs/`
-- **Legal/compliance** moved to `/docs/legal/`
+- **Legal/compliance** moved to `/brand-legal/legal/`
 - **Legacy docs** archived to `/docs/archive/`
 
 ## Maintenance Guidelines

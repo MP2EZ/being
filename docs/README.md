@@ -10,7 +10,7 @@ This folder contains ONLY cross-cutting project documentation that affects both 
 
 ## ⚠️ Most Documentation Lives in Modules
 
-- **App documentation** → `/app/docs/` - Product specs, clinical docs, architecture, security
+- **Technical documentation** → `/docs/` - Product specs, clinical docs, architecture, security
 - **Website documentation** → `/website/docs/` - Implementation guides, performance reports
 - **Cross-module scripts** → `/scripts/` - Project-wide operational scripts
 

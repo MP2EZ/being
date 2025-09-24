@@ -3,8 +3,8 @@
 > **Evidence-based mindfulness and cognitive therapy practices for mental wellness**
 
 [![App Store Ready](https://img.shields.io/badge/App%20Store-95%25%20Ready-green.svg)](https://github.com/being-mbct)
-[![Clinical Accuracy](https://img.shields.io/badge/Clinical%20Accuracy-100%25%20Validated-brightgreen.svg)](./app/docs/clinical/)
-[![HIPAA Ready](https://img.shields.io/badge/HIPAA-Compliance%20Ready-blue.svg)](./app/docs/security/)
+[![Clinical Accuracy](https://img.shields.io/badge/Clinical%20Accuracy-100%25%20Validated-brightgreen.svg)](./docs/clinical/)
+[![HIPAA Ready](https://img.shields.io/badge/HIPAA-Compliance%20Ready-blue.svg)](./docs/security/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Strict%20Mode-blue.svg)](./app/tsconfig.json)
 [![Testing](https://img.shields.io/badge/Tests-Clinical%20Grade-green.svg)](./app/__tests__)
 
@@ -187,7 +187,7 @@ app/
 
 ### **Documentation Structure**
 - **`/docs/`** - Project-wide documentation (legal, brand guidelines)
-- **`/app/docs/`** - Mobile app documentation (product, clinical, architecture, security)
+- **`/docs/`** - Technical documentation (product, clinical, architecture, security)
 - **`/website/docs/`** - Website documentation (implementation, reports)
 - **`/scripts/`** - Cross-module operational scripts
 

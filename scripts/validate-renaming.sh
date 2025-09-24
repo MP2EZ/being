@@ -341,9 +341,9 @@ validate_documentation() {
     # Check critical documents exist
     check
     local critical_docs=(
-        "documentation/mobile-app/Being. TRD v2.0.md"
-        "documentation/mobile-app/Being. PRD v2.0.md"
-        "documentation/mobile-app/Being. Design Library v1.1.tsx"
+        "docs/product/FullMind TRD v2.0.md"
+        "docs/product/FullMind PRD v2.0.md"
+        "docs/design/FullMind Design Library v1.1.tsx"
     )
     
     local missing_docs=0
