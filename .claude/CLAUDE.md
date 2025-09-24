@@ -85,7 +85,7 @@
   Security: /docs/security/\|Widget-Crisis-Button-Integration-Summary.md
   Contributing: /CONTRIBUTING.md (agent protocols\|safety requirements)
   PM/Roadmap: Notion 25da1108c2088077b24be0238a1ddf37
-  Brand/Legal: /brand-legal/ (archived business docs)
+  Brand/Legal: /brand-legal/
 
   ## Operations
   Branches: main(clinical-validated)\|release(full-review)\|hotfix(crisis-expedited)
