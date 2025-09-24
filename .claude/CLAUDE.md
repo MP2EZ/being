@@ -1,7 +1,7 @@
   # FullMind MBCT [requires: ~/.claude/CLAUDE.md]
 
   ## Config
-  v1.7→stores(8wks) | RN/Expo/TS/Zustand
+ RN/Expo/TS/Zustand
 
   ## Symbols
   → sequential | + parallel | () mixed | ? optional | ! required | !! critical | > hierarchy
@@ -16,7 +16,7 @@
 
   Hierarchy: crisis>compliance>clinician>technical
 
-  ## Intern Boundaries [SAFETY]
+  ## Intern Agent Boundaries
   PROHIBIT: clinical\|crisis\|compliance\|PHI\|MBCT\|PHQ-9\|GAD-7\|therapeutic\|AsyncStorage\|security
   ALLOW: formatting\|imports\|scaffolding(non-clinical)\|file-org\|config(non-security)
   ESCALATE: healthcare-terms\|/assessment/\|/crisis/\|/clinical/\|/therapeutic/
@@ -91,3 +91,12 @@
   Branches: main(clinical-validated)\|release(full-review)\|hotfix(crisis-expedited)
   Commands: test:clinical\|validate:accessibility\|perf:breathing\|perf:crisis
   Integration: global-standards + domain-requirements | Domain-veto-power
+
+  ## CHANGELOG
+  Update: merge→main|feat/*|fix/*|BREAKING | Format: [semver]-date | Sections: 🚨Critical|⚡Perf|♿A11y|🛡️Security|✨Features|🐛Fixes
+  Auto: post-merge|post-deploy|critical-fixes | Template: version→summary→changes(git log)→contributors
+
+  ## Docs [STRICT]
+  PROHIBIT: /app/*.md|duplicates|phase-reports|day-reports
+  REQUIRE: /docs/*only|single-source|archive-old|latest-reports-only
+  DELETE: completed-work|old-validations|implementation-summaries(after-merge)
