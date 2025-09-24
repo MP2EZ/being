@@ -15,6 +15,11 @@
  * - Subscription UI updates: <200ms
  * - Crisis feature access: <200ms (maintained)
  * - Trial countdown updates: Real-time
+ * 
+ * ✅ PRESSABLE MIGRATION: TouchableOpacity → Pressable with New Architecture optimization
+ * - Enhanced android_ripple for subscription demo interface
+ * - Improved accessibility labeling for subscription features
+ * - Optimized touch targets for demo interactions
  */
 
 import React, { useState, useCallback, useEffect } from 'react';
@@ -23,7 +28,7 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
+  Pressable,
   Alert
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -306,13 +311,23 @@ const SubscriptionIntegrationDemo: React.FC = () => {
         <View style={styles.navigation}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             {sections.map((section) => (
-              <TouchableOpacity
+              <Pressable
                 key={section.id}
-                style={[
+                style={({ pressed }) => [
                   styles.navButton,
-                  activeSection === section.id && styles.activeNavButton
+                  activeSection === section.id && styles.activeNavButton,
+                  pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] }
                 ]}
                 onPress={() => setActiveSection(section.id)}
+                accessible={true}
+                accessibilityRole="button"
+                accessibilityLabel={`Switch to ${section.title} section`}
+                android_ripple={{
+                  color: 'rgba(0, 0, 0, 0.1)',
+                  borderless: true,
+                  radius: 100
+                }}
+                hitSlop={{ top: 8, left: 8, bottom: 8, right: 8 }}
               >
                 <Text style={[
                   styles.navButtonText,
@@ -320,7 +335,7 @@ const SubscriptionIntegrationDemo: React.FC = () => {
                 ]}>
                   {section.title}
                 </Text>
-              </TouchableOpacity>
+              </Pressable>
             ))}
           </ScrollView>
         </View>

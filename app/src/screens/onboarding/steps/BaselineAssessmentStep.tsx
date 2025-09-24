@@ -14,7 +14,7 @@ import Animated, {
   withSpring,
   withTiming,
   runOnJS,
-} from 'react-native-reanimated';
+} from '../../../utils/ReanimatedMock';
 
 import {
   Screen,

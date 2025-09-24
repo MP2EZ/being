@@ -8,6 +8,11 @@
  * - Trust level indicators (trusted, basic, emergency-only)
  * - Last sync timestamp and sync health per device
  * - Crisis safety: Emergency access never blocked by sync issues
+ * 
+ * ✅ PRESSABLE MIGRATION: TouchableOpacity → Pressable with New Architecture optimization
+ * - Enhanced android_ripple for device management interactions
+ * - Improved accessibility for device trust controls
+ * - Optimized touch targets for sync management features
  */
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
@@ -15,7 +20,7 @@ import {
   View,
   Text,
   FlatList,
-  TouchableOpacity,
+  Pressable,
   StyleSheet,
   Alert,
   Modal,
@@ -355,8 +360,12 @@ export const DeviceManagementScreen: React.FC<DeviceManagementScreenProps> = Rea
             <Text style={[styles.trustLabel, { color: colorSystem.accessibility.text.secondary }]}>
               Trust Level
             </Text>
-            <TouchableOpacity
-              style={[styles.trustBadge, { backgroundColor: `${trustDisplay.color}20`, borderColor: trustDisplay.color }]}
+            <Pressable
+              style={({ pressed }) => [
+                styles.trustBadge, 
+                { backgroundColor: `${trustDisplay.color}20`, borderColor: trustDisplay.color },
+                pressed && { opacity: 0.7, transform: [{ scale: 0.95 }] }
+              ]}
               onPress={() => {
                 // Show trust level options
                 Alert.alert(
@@ -370,11 +379,20 @@ export const DeviceManagementScreen: React.FC<DeviceManagementScreenProps> = Rea
                   ]
                 );
               }}
+              accessible={true}
+              accessibilityRole="button"
+              accessibilityLabel={`Change trust level, currently ${trustDisplay.label}`}
+              android_ripple={{
+                color: 'rgba(0, 0, 0, 0.1)',
+                borderless: false,
+                radius: 100
+              }}
+              hitSlop={{ top: 8, left: 8, bottom: 8, right: 8 }}
             >
               <Text style={[styles.trustText, { color: trustDisplay.color }]}>
                 {trustDisplay.label}
               </Text>
-            </TouchableOpacity>
+            </Pressable>
           </View>
 
           <View style={styles.syncSection}>
@@ -446,11 +464,25 @@ export const DeviceManagementScreen: React.FC<DeviceManagementScreenProps> = Rea
     >
       <SafeAreaView style={styles.modalContainer}>
         <View style={styles.modalHeader}>
-          <TouchableOpacity onPress={() => setShowAddDeviceModal(false)}>
+          <Pressable
+            style={({ pressed }) => [
+              pressed && { opacity: 0.7, transform: [{ scale: 0.95 }] }
+            ]}
+            onPress={() => setShowAddDeviceModal(false)}
+            accessible={true}
+            accessibilityRole="button"
+            accessibilityLabel="Cancel adding device"
+            android_ripple={{
+              color: 'rgba(0, 0, 0, 0.1)',
+              borderless: true,
+              radius: 100
+            }}
+            hitSlop={{ top: 12, left: 12, bottom: 12, right: 12 }}
+          >
             <Text style={[styles.modalCancelButton, { color: colorSystem.status.info }]}>
               Cancel
             </Text>
-          </TouchableOpacity>
+          </Pressable>
           <Text style={[styles.modalTitle, { color: colorSystem.accessibility.text.primary }]}>
             Add Device
           </Text>
@@ -544,18 +576,28 @@ export const DeviceManagementScreen: React.FC<DeviceManagementScreenProps> = Rea
         initialNumToRender={10}
         windowSize={10}
         ListFooterComponent={
-          <TouchableOpacity
-            style={[styles.addDeviceButton, { backgroundColor: colorSystem.status.infoBackground }]}
+          <Pressable
+            style={({ pressed }) => [
+              styles.addDeviceButton, 
+              { backgroundColor: colorSystem.status.infoBackground },
+              pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] }
+            ]}
             onPress={() => setShowAddDeviceModal(true)}
             accessibilityRole="button"
             accessibilityLabel="Add new device"
             accessibilityHint="Opens the device registration flow"
+            android_ripple={{
+              color: 'rgba(0, 0, 0, 0.1)',
+              borderless: false,
+              radius: 200
+            }}
+            hitSlop={{ top: 8, left: 8, bottom: 8, right: 8 }}
           >
             <Text style={[styles.addDeviceIcon, { color: colorSystem.status.info }]}>+</Text>
             <Text style={[styles.addDeviceText, { color: colorSystem.status.info }]}>
               Add New Device
             </Text>
-          </TouchableOpacity>
+          </Pressable>
         }
       />
 
@@ -574,11 +616,25 @@ export const DeviceManagementScreen: React.FC<DeviceManagementScreenProps> = Rea
       >
         <SafeAreaView style={styles.fullScreen}>
           <View style={styles.modalHeader}>
-            <TouchableOpacity onPress={onClose}>
+            <Pressable
+              style={({ pressed }) => [
+                pressed && { opacity: 0.7, transform: [{ scale: 0.95 }] }
+              ]}
+              onPress={onClose}
+              accessible={true}
+              accessibilityRole="button"
+              accessibilityLabel="Done with device management"
+              android_ripple={{
+                color: 'rgba(0, 0, 0, 0.1)',
+                borderless: true,
+                radius: 100
+              }}
+              hitSlop={{ top: 12, left: 12, bottom: 12, right: 12 }}
+            >
               <Text style={[styles.modalCancelButton, { color: colorSystem.status.info }]}>
                 Done
               </Text>
-            </TouchableOpacity>
+            </Pressable>
             <Text style={[styles.modalTitle, { color: colorSystem.accessibility.text.primary }]}>
               Device Management
             </Text>

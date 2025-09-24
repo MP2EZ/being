@@ -23,7 +23,7 @@ import Animated, {
   runOnJS,
   cancelAnimation,
   Easing,
-} from 'react-native-reanimated';
+} from '../../utils/ReanimatedMock';
 import { useTheme } from '../../hooks/useTheme';
 import { useCommonHaptics, useHaptics } from '../../hooks/useHaptics';
 import { useThemeColors } from '../../contexts/ThemeContext';

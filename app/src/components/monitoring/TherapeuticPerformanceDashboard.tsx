@@ -11,10 +11,15 @@
  * - Breathing session 60fps validation
  * - Memory optimization monitoring
  * - TurboModule effectiveness metrics
+ * 
+ * ✅ PRESSABLE MIGRATION: TouchableOpacity → Pressable with New Architecture optimization
+ * - Enhanced android_ripple configuration for monitoring interface
+ * - Improved accessibility with proper labeling for performance data
+ * - Optimized hit areas for better usability in monitoring context
  */
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { View, Text, ScrollView, RefreshControl, Alert } from 'react-native';
+import { View, Text, ScrollView, RefreshControl, Alert, Pressable } from 'react-native';
 import { LineChart, BarChart, PieChart } from 'react-native-chart-kit';
 import Animated, { 
   useSharedValue, 
@@ -22,7 +27,7 @@ import Animated, {
   withTiming, 
   interpolateColor,
   useDerivedValue
-} from 'react-native-reanimated';
+} from '../../utils/ReanimatedMock';
 
 import { enhancedTherapeuticPerformanceMonitor, TherapeuticPerformanceDashboard } from '../../utils/EnhancedTherapeuticPerformanceMonitor';
 import { enhancedClinicalCalculationAccelerator } from '../../services/EnhancedClinicalCalculationAccelerator';
@@ -417,14 +422,27 @@ const TabButton: React.FC<{
   isSelected: boolean;
   onPress: () => void;
 }> = ({ title, isSelected, onPress }) => (
-  <TouchableOpacity
-    style={[styles.tabButton, isSelected && styles.tabButtonSelected]}
+  <Pressable
+    style={({ pressed }) => [
+      styles.tabButton, 
+      isSelected && styles.tabButtonSelected,
+      pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] }
+    ]}
     onPress={onPress}
+    accessible={true}
+    accessibilityRole="button"
+    accessibilityLabel={`${title} tab`}
+    android_ripple={{
+      color: 'rgba(0, 0, 0, 0.1)',
+      borderless: false,
+      radius: 100
+    }}
+    hitSlop={{ top: 8, left: 8, bottom: 8, right: 8 }}
   >
     <Text style={[styles.tabButtonText, isSelected && styles.tabButtonTextSelected]}>
       {title.charAt(0).toUpperCase() + title.slice(1)}
     </Text>
-  </TouchableOpacity>
+  </Pressable>
 );
 
 // Alert card component

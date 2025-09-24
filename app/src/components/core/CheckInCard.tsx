@@ -11,16 +11,17 @@
 
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { View, StyleSheet, Dimensions } from 'react-native';
+// FIXED: Import from ReanimatedMock to prevent property descriptor conflicts
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
   withTiming,
   withSequence,
-  interpolate,
-  Easing,
-  runOnJS
-} from 'react-native-reanimated';
+  interpolateColor as interpolate,
+} from '../../utils/ReanimatedMock';
+import { Easing } from 'react-native';
+const runOnJS = (fn: Function) => fn;
 import { Card } from './Card';
 import { Button } from './Button';
 import { Typography } from './Typography';

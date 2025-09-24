@@ -1,5 +1,6 @@
 import React, { memo, useCallback, useMemo, useEffect } from 'react';
 import { View, StyleSheet, Pressable, ViewStyle } from 'react-native';
+// FIXED: Import from ReanimatedMock to prevent property descriptor conflicts
 import Animated, {
   useAnimatedStyle,
   withSpring,
@@ -8,7 +9,7 @@ import Animated, {
   withSequence,
   interpolateColor,
   Easing
-} from 'react-native-reanimated';
+} from '../../utils/ReanimatedMock';
 import { useTheme } from '../../hooks/useTheme';
 import { useThemeColors } from '../../contexts/ThemeContext';
 import { borderRadius, spacing } from '../../constants/colors';

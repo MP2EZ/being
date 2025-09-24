@@ -14,7 +14,7 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
+  Pressable,
   Linking,
   Alert,
   Platform,
@@ -401,18 +401,35 @@ export const TypeSafeCrisisInterventionScreen: React.FC = () => {
    */
   const renderEmergencyResource = (resource: EmergencyResource) => {
     return (
-      <TouchableOpacity
+      <Pressable
         key={resource.id}
-        style={[
+        style={({ pressed }) => [
           styles.resourceCard,
           {
             borderColor: resource.priority === 'critical'
               ? colorSystem.status.critical
-              : colorSystem.status.error
+              : colorSystem.status.error,
+            // Crisis-optimized pressed state with <200ms response
+            opacity: pressed ? 0.8 : 1.0,
+            transform: pressed ? [{ scale: 0.98 }] : [{ scale: 1.0 }]
           }
         ]}
         onPress={() => handleEmergencyContact(resource)}
-        activeOpacity={0.8}
+        // Crisis-optimized android ripple for emergency response
+        android_ripple={{
+          color: resource.priority === 'critical'
+            ? 'rgba(255, 255, 255, 0.4)'
+            : 'rgba(255, 255, 255, 0.3)',
+          borderless: false,
+          radius: 200,
+          foreground: false
+        }}
+        // Enhanced hit area for crisis accessibility
+        hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
+        accessible={true}
+        accessibilityRole="button"
+        accessibilityLabel={`Emergency contact: ${resource.name} at ${resource.number}`}
+        accessibilityHint={`Double tap to ${resource.type === 'text_line' ? 'text' : 'call'} ${resource.name} for immediate help`}
       >
         <View style={styles.resourceHeader}>
           <Text style={[
@@ -429,7 +446,7 @@ export const TypeSafeCrisisInterventionScreen: React.FC = () => {
         </View>
         <Text style={styles.resourceDescription}>{resource.description}</Text>
         <Text style={styles.resourceAvailability}>{resource.availability}</Text>
-      </TouchableOpacity>
+      </Pressable>
     );
   };
 
@@ -476,27 +493,65 @@ export const TypeSafeCrisisInterventionScreen: React.FC = () => {
           <View style={styles.actionsSection}>
             <Text style={styles.sectionTitle}>Quick Support Actions</Text>
 
-            <TouchableOpacity
-              style={styles.actionCard}
+            <Pressable
+              style={({ pressed }) => [
+                styles.actionCard,
+                {
+                  // Crisis-optimized pressed state for immediate coping
+                  opacity: pressed ? 0.7 : 1.0,
+                  transform: pressed ? [{ scale: 0.98 }] : [{ scale: 1.0 }]
+                }
+              ]}
               onPress={handleSafetyPlan}
-              activeOpacity={0.7}
+              // Crisis-optimized android ripple
+              android_ripple={{
+                color: 'rgba(0, 0, 0, 0.1)',
+                borderless: false,
+                radius: 200,
+                foreground: false
+              }}
+              // Enhanced hit area for crisis accessibility
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              accessible={true}
+              accessibilityRole="button"
+              accessibilityLabel="Immediate Coping Strategies"
+              accessibilityHint="Double tap to access quick techniques to help manage overwhelming feelings right now"
             >
               <Text style={styles.actionTitle}>🧘 Immediate Coping Strategies</Text>
               <Text style={styles.actionDescription}>
                 Quick techniques to help manage overwhelming feelings right now
               </Text>
-            </TouchableOpacity>
+            </Pressable>
 
-            <TouchableOpacity
-              style={styles.actionCard}
+            <Pressable
+              style={({ pressed }) => [
+                styles.actionCard,
+                {
+                  // Crisis-optimized pressed state for professional resources
+                  opacity: pressed ? 0.7 : 1.0,
+                  transform: pressed ? [{ scale: 0.98 }] : [{ scale: 1.0 }]
+                }
+              ]}
               onPress={handleProfessionalResources}
-              activeOpacity={0.7}
+              // Crisis-optimized android ripple
+              android_ripple={{
+                color: 'rgba(0, 0, 0, 0.1)',
+                borderless: false,
+                radius: 200,
+                foreground: false
+              }}
+              // Enhanced hit area for crisis accessibility
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              accessible={true}
+              accessibilityRole="button"
+              accessibilityLabel="Full Crisis Plan"
+              accessibilityHint="Double tap to access complete safety plan and additional resources"
             >
               <Text style={styles.actionTitle}>📋 Full Crisis Plan</Text>
               <Text style={styles.actionDescription}>
                 Complete safety plan and additional resources
               </Text>
-            </TouchableOpacity>
+            </Pressable>
           </View>
 
           {/* Additional Resources */}

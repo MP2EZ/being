@@ -16,10 +16,15 @@
  * - Widget feature access checks <50ms
  * - Crisis widget functionality <200ms
  * - Subscription state updates without widget interruption
+ * 
+ * ✅ PRESSABLE MIGRATION: TouchableOpacity → Pressable with New Architecture optimization
+ * - Enhanced android_ripple for demo interface buttons
+ * - Improved accessibility labeling for demo actions
+ * - Optimized touch targets for better demo UX
  */
 
 import React, { useState, useCallback } from 'react';
-import { View, Text, TouchableOpacity, Alert, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, Pressable, Alert, StyleSheet, ScrollView } from 'react-native';
 import { WidgetDataService } from '../services/WidgetDataService';
 import { useWidgetIntegration } from '../hooks/useWidgetIntegration';
 import {
@@ -240,15 +245,28 @@ export const WidgetDemo: React.FC = () => {
 
       {/* Core Widget Features - Always Available */}
       <CrisisSafeWidget title="🌅 Morning Check-in Widget">
-        <TouchableOpacity
-          style={[styles.button, isUpdating && styles.buttonDisabled]}
+        <Pressable
+          style={({ pressed }) => [
+            styles.button, 
+            isUpdating && styles.buttonDisabled,
+            pressed && !isUpdating && { opacity: 0.8, transform: [{ scale: 0.98 }] }
+          ]}
           onPress={handleUpdateWidget}
           disabled={isUpdating}
+          accessible={true}
+          accessibilityRole="button"
+          accessibilityLabel={isUpdating ? "Updating widget" : "Update widget data"}
+          android_ripple={{
+            color: 'rgba(255, 255, 255, 0.2)',
+            borderless: false,
+            radius: 150
+          }}
+          hitSlop={{ top: 8, left: 8, bottom: 8, right: 8 }}
         >
           <Text style={styles.buttonText}>
             {isUpdating ? 'Updating...' : 'Update Widget Data'}
           </Text>
-        </TouchableOpacity>
+        </Pressable>
         <Text style={styles.info}>Last Update: {lastUpdate}</Text>
         <Text style={styles.crisisInfo}>Always accessible for crisis safety</Text>
       </CrisisSafeWidget>
@@ -257,19 +275,43 @@ export const WidgetDemo: React.FC = () => {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Basic Widget Management</Text>
 
-        <TouchableOpacity
-          style={styles.button}
+        <Pressable
+          style={({ pressed }) => [
+            styles.button,
+            pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] }
+          ]}
           onPress={generateSampleData}
+          accessible={true}
+          accessibilityRole="button"
+          accessibilityLabel="Generate sample widget data"
+          android_ripple={{
+            color: 'rgba(255, 255, 255, 0.2)',
+            borderless: false,
+            radius: 150
+          }}
+          hitSlop={{ top: 8, left: 8, bottom: 8, right: 8 }}
         >
           <Text style={styles.buttonText}>Generate Sample Data</Text>
-        </TouchableOpacity>
+        </Pressable>
 
-        <TouchableOpacity
-          style={styles.button}
+        <Pressable
+          style={({ pressed }) => [
+            styles.button,
+            pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] }
+          ]}
           onPress={testFeaturePerformance}
+          accessible={true}
+          accessibilityRole="button"
+          accessibilityLabel="Test feature performance"
+          android_ripple={{
+            color: 'rgba(255, 255, 255, 0.2)',
+            borderless: false,
+            radius: 150
+          }}
+          hitSlop={{ top: 8, left: 8, bottom: 8, right: 8 }}
         >
           <Text style={styles.buttonText}>Test Performance</Text>
-        </TouchableOpacity>
+        </Pressable>
 
         {performanceMetrics.lastWidgetUpdateTime && (
           <Text style={styles.info}>
@@ -286,12 +328,24 @@ export const WidgetDemo: React.FC = () => {
       >
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>☁️ Cloud Sync Widget</Text>
-          <TouchableOpacity
-            style={styles.button}
+          <Pressable
+            style={({ pressed }) => [
+              styles.button,
+              pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] }
+            ]}
             onPress={() => Alert.alert('Cloud Sync', 'Widget data synced across devices')}
+            accessible={true}
+            accessibilityRole="button"
+            accessibilityLabel="Sync widget data to cloud"
+            android_ripple={{
+              color: 'rgba(255, 255, 255, 0.2)',
+              borderless: false,
+              radius: 150
+            }}
+            hitSlop={{ top: 8, left: 8, bottom: 8, right: 8 }}
           >
             <Text style={styles.buttonText}>Sync to Cloud</Text>
-          </TouchableOpacity>
+          </Pressable>
           <Text style={styles.info}>Automatically syncs widget configurations and data</Text>
         </View>
       </FeatureGateWrapper>
@@ -308,30 +362,66 @@ export const WidgetDemo: React.FC = () => {
           <Text style={styles.premiumInfo}>
             • Personalized widget recommendations
           </Text>
-          <TouchableOpacity
-            style={styles.premiumButton}
+          <Pressable
+            style={({ pressed }) => [
+              styles.premiumButton,
+              pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] }
+            ]}
             onPress={() => Alert.alert('Analytics', 'Advanced widget analytics would display here')}
+            accessible={true}
+            accessibilityRole="button"
+            accessibilityLabel="View advanced widget analytics"
+            android_ripple={{
+              color: 'rgba(255, 255, 255, 0.2)',
+              borderless: false,
+              radius: 150
+            }}
+            hitSlop={{ top: 8, left: 8, bottom: 8, right: 8 }}
           >
             <Text style={styles.buttonText}>View Analytics</Text>
-          </TouchableOpacity>
+          </Pressable>
         </View>
       </PremiumWidget>
 
       {/* Core Deep Link Testing - Crisis Safe */}
       <CrisisSafeWidget title="🔗 Core Navigation Testing">
-        <TouchableOpacity
-          style={styles.deepLinkButton}
+        <Pressable
+          style={({ pressed }) => [
+            styles.deepLinkButton,
+            pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] }
+          ]}
           onPress={() => testDeepLink('being://checkin/morning', 'Morning Check-in')}
+          accessible={true}
+          accessibilityRole="button"
+          accessibilityLabel="Test morning check-in deep link"
+          android_ripple={{
+            color: 'rgba(255, 255, 255, 0.2)',
+            borderless: false,
+            radius: 150
+          }}
+          hitSlop={{ top: 8, left: 8, bottom: 8, right: 8 }}
         >
           <Text style={styles.buttonText}>Test: Morning Check-in</Text>
-        </TouchableOpacity>
+        </Pressable>
 
-        <TouchableOpacity
-          style={styles.deepLinkButton}
+        <Pressable
+          style={({ pressed }) => [
+            styles.deepLinkButton,
+            pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] }
+          ]}
           onPress={() => testDeepLink('being://crisis', 'Crisis Support')}
+          accessible={true}
+          accessibilityRole="button"
+          accessibilityLabel="Test crisis support deep link"
+          android_ripple={{
+            color: 'rgba(255, 255, 255, 0.2)',
+            borderless: false,
+            radius: 150
+          }}
+          hitSlop={{ top: 8, left: 8, bottom: 8, right: 8 }}
         >
           <Text style={styles.buttonText}>Test: Crisis Support</Text>
-        </TouchableOpacity>
+        </Pressable>
       </CrisisSafeWidget>
 
       {/* Advanced Deep Link Testing - Premium Feature */}
@@ -342,37 +432,86 @@ export const WidgetDemo: React.FC = () => {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Advanced Navigation Testing</Text>
 
-          <TouchableOpacity
-            style={styles.deepLinkButton}
+          <Pressable
+            style={({ pressed }) => [
+              styles.deepLinkButton,
+              pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] }
+            ]}
             onPress={() => testDeepLink('being://checkin/midday?resume=true', 'Resume Midday')}
+            accessible={true}
+            accessibilityRole="button"
+            accessibilityLabel="Test resume midday session deep link"
+            android_ripple={{
+              color: 'rgba(255, 255, 255, 0.2)',
+              borderless: false,
+              radius: 150
+            }}
+            hitSlop={{ top: 8, left: 8, bottom: 8, right: 8 }}
           >
             <Text style={styles.buttonText}>Test: Resume Midday Session</Text>
-          </TouchableOpacity>
+          </Pressable>
 
-          <TouchableOpacity
-            style={styles.deepLinkButton}
+          <Pressable
+            style={({ pressed }) => [
+              styles.deepLinkButton,
+              pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] }
+            ]}
             onPress={() => testDeepLink('being://checkin/evening', 'Evening Check-in')}
+            accessible={true}
+            accessibilityRole="button"
+            accessibilityLabel="Test evening check-in deep link"
+            android_ripple={{
+              color: 'rgba(255, 255, 255, 0.2)',
+              borderless: false,
+              radius: 150
+            }}
+            hitSlop={{ top: 8, left: 8, bottom: 8, right: 8 }}
           >
             <Text style={styles.buttonText}>Test: Evening Check-in</Text>
-          </TouchableOpacity>
+          </Pressable>
 
-          <TouchableOpacity
-            style={styles.deepLinkButton}
+          <Pressable
+            style={({ pressed }) => [
+              styles.deepLinkButton,
+              pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] }
+            ]}
             onPress={() => testDeepLink('being://insights/trends', 'Advanced Insights')}
+            accessible={true}
+            accessibilityRole="button"
+            accessibilityLabel="Test advanced insights deep link"
+            android_ripple={{
+              color: 'rgba(255, 255, 255, 0.2)',
+              borderless: false,
+              radius: 150
+            }}
+            hitSlop={{ top: 8, left: 8, bottom: 8, right: 8 }}
           >
             <Text style={styles.buttonText}>Test: Advanced Insights</Text>
-          </TouchableOpacity>
+          </Pressable>
         </View>
       </FeatureGateWrapper>
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Crisis Intervention</Text>
-        <TouchableOpacity
-          style={[styles.deepLinkButton, styles.crisisButton]}
+        <Pressable
+          style={({ pressed }) => [
+            styles.deepLinkButton, 
+            styles.crisisButton,
+            pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] }
+          ]}
           onPress={() => testDeepLink('being://crisis', 'Crisis Intervention')}
+          accessible={true}
+          accessibilityRole="button"
+          accessibilityLabel="Test crisis intervention deep link"
+          android_ripple={{
+            color: 'rgba(255, 255, 255, 0.2)',
+            borderless: false,
+            radius: 150
+          }}
+          hitSlop={{ top: 8, left: 8, bottom: 8, right: 8 }}
         >
           <Text style={styles.buttonText}>Test: Crisis Intervention</Text>
-        </TouchableOpacity>
+        </Pressable>
       </View>
 
       <View style={styles.section}>

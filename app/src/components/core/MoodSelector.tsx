@@ -11,16 +11,17 @@
 
 import React, { useCallback, useMemo, useEffect } from 'react';
 import { View, Text, Pressable, StyleSheet, Dimensions } from 'react-native';
+// FIXED: Import from ReanimatedMock to prevent property descriptor conflicts
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
   withSequence,
   withTiming,
-  interpolate,
-  Easing,
+  interpolateColor as interpolate,
   withRepeat
-} from 'react-native-reanimated';
+} from '../../utils/ReanimatedMock';
+import { Easing } from 'react-native';
 import { useTheme } from '../../hooks/useTheme';
 import { useThemeColors } from '../../contexts/ThemeContext';
 import { useCommonHaptics } from '../../hooks/useHaptics';

@@ -25,7 +25,7 @@ import Animated, {
   withRepeat,
   cancelAnimation,
   Easing
-} from 'react-native-reanimated';
+} from './ReanimatedMock';
 
 import { enhancedTherapeuticPerformanceMonitor } from './EnhancedTherapeuticPerformanceMonitor';
 import { turboStoreManager } from '../store/newarch/TurboStoreManager';

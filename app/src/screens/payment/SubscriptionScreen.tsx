@@ -21,7 +21,7 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
+  Pressable,
   Animated,
   Alert,
   Linking,
@@ -379,16 +379,25 @@ const SubscriptionScreen: React.FC = () => {
     <View style={styles.crisisBanner}>
       <View style={styles.crisisHeader}>
         <Text style={styles.crisisTitle}>Crisis Support Always Free</Text>
-        <TouchableOpacity
+        <Pressable
           onPress={() => Linking.openURL('tel:988')}
-          style={styles.hotlineButton}
+          style={({ pressed }) => [
+            styles.hotlineButton,
+            pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] }
+          ]}
           accessible={true}
           accessibilityRole="button"
           accessibilityLabel="Call 988 crisis hotline immediately"
           accessibilityHint="Double tap to call the crisis support hotline"
+          android_ripple={{
+            color: 'rgba(255, 255, 255, 0.3)',
+            borderless: false,
+            radius: 200
+          }}
+          hitSlop={{ top: 12, left: 12, bottom: 12, right: 12 }}
         >
           <Text style={styles.hotlineText}>988</Text>
-        </TouchableOpacity>
+        </Pressable>
       </View>
       <Text style={styles.crisisMessage}>
         All crisis support tools, emergency contacts, and therapeutic safety features remain freely accessible regardless of subscription status.
@@ -424,12 +433,13 @@ const SubscriptionScreen: React.FC = () => {
     const isCurrentPlan = activeSubscription?.plan?.planId === plan.planId;
 
     return (
-      <TouchableOpacity
-        style={[
+      <Pressable
+        style={({ pressed }) => [
           styles.planCard,
           plan.recommended && styles.recommendedCard,
           isSelected && styles.selectedCard,
-          isCurrentPlan && styles.currentPlanCard
+          isCurrentPlan && styles.currentPlanCard,
+          pressed && { opacity: 0.9, transform: [{ scale: 0.99 }] }
         ]}
         onPress={() => handlePlanSelection(plan)}
         disabled={isProcessingSubscription || isCurrentPlan}
@@ -441,6 +451,12 @@ const SubscriptionScreen: React.FC = () => {
           selected: isSelected,
           disabled: isProcessingSubscription || isCurrentPlan
         }}
+        android_ripple={{
+          color: 'rgba(0, 0, 0, 0.1)',
+          borderless: false,
+          radius: 200
+        }}
+        hitSlop={{ top: 8, left: 8, bottom: 8, right: 8 }}
       >
         {plan.recommended && (
           <View style={styles.recommendedBadge}>
@@ -492,7 +508,7 @@ const SubscriptionScreen: React.FC = () => {
             <Text style={styles.currentBadgeText}>Your Current Plan</Text>
           </View>
         )}
-      </TouchableOpacity>
+      </Pressable>
     );
   };
 

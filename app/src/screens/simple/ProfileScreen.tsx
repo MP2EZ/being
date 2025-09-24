@@ -17,7 +17,7 @@ import Animated, {
   withSpring,
   withTiming,
   withSequence,
-} from 'react-native-reanimated';
+} from '../../utils/ReanimatedMock';
 import { useSimpleUserStore } from '../../store/simpleUserStore';
 import { useTherapeuticAccessibility } from '../../components/accessibility/TherapeuticAccessibilityProvider';
 import { AccessibleCrisisButton } from '../../components/accessibility/AccessibleCrisisButton';

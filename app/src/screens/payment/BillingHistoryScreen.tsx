@@ -26,7 +26,7 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
+  Pressable,
   RefreshControl,
   Alert,
   Linking,
@@ -378,17 +378,24 @@ Crisis Support: Always call 988 for immediate help
         { key: 'trials', label: 'Trials' },
         { key: 'refunds', label: 'Refunds' }
       ].map(filter => (
-        <TouchableOpacity
+        <Pressable
           key={filter.key}
-          style={[
+          style={({ pressed }) => [
             styles.filterButton,
-            selectedFilter === filter.key && styles.activeFilter
+            selectedFilter === filter.key && styles.activeFilter,
+            pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] }
           ]}
           onPress={() => setSelectedFilter(filter.key as any)}
           accessible={true}
           accessibilityRole="button"
           accessibilityLabel={`Filter by ${filter.label}`}
           accessibilityState={{ selected: selectedFilter === filter.key }}
+          android_ripple={{
+            color: 'rgba(0, 0, 0, 0.1)',
+            borderless: false,
+            radius: 100
+          }}
+          hitSlop={{ top: 8, left: 8, bottom: 8, right: 8 }}
         >
           <Text style={[
             styles.filterText,
@@ -396,7 +403,7 @@ Crisis Support: Always call 988 for immediate help
           ]}>
             {filter.label}
           </Text>
-        </TouchableOpacity>
+        </Pressable>
       ))}
     </View>
   );
@@ -424,12 +431,21 @@ Crisis Support: Always call 988 for immediate help
     };
 
     return (
-      <TouchableOpacity
-        style={styles.transactionItem}
+      <Pressable
+        style={({ pressed }) => [
+          styles.transactionItem,
+          pressed && { opacity: 0.9, transform: [{ scale: 0.99 }] }
+        ]}
         onPress={() => handleTransactionTap(transaction)}
         accessible={true}
         accessibilityRole="button"
         accessibilityLabel={`Transaction: ${transaction.description}, amount ${transaction.amount === 0 ? 'free' : `$${(transaction.amount / 100).toFixed(2)}`}, status ${transaction.status}`}
+        android_ripple={{
+          color: 'rgba(0, 0, 0, 0.05)',
+          borderless: false,
+          radius: 200
+        }}
+        hitSlop={{ top: 8, left: 8, bottom: 8, right: 8 }}
       >
         <View style={styles.transactionIcon}>
           <Text style={styles.iconText}>
@@ -468,7 +484,7 @@ Crisis Support: Always call 988 for immediate help
             {transaction.status.charAt(0).toUpperCase() + transaction.status.slice(1)}
           </Text>
         </View>
-      </TouchableOpacity>
+      </Pressable>
     );
   };
 

@@ -1,6 +1,11 @@
 /**
  * ResumeSessionPrompt - Modal/banner component for resuming interrupted sessions
  * Supportive and encouraging messaging for therapeutic continuity
+ * 
+ * ✅ PRESSABLE MIGRATION: TouchableOpacity → Pressable with New Architecture optimization
+ * - Enhanced interaction handling for modal overlays
+ * - Improved accessibility for session continuation prompts
+ * - Optimized touch targets for therapeutic continuity features
  */
 
 import React, { useEffect, useRef } from 'react';
@@ -9,7 +14,7 @@ import {
   Text, 
   StyleSheet, 
   Animated, 
-  TouchableOpacity,
+  Pressable,
   Modal,
   Dimensions,
   Platform 
@@ -230,18 +235,17 @@ export const ResumeSessionPrompt: React.FC<ResumeSessionPromptProps> = ({
       accessible={true}
       accessibilityViewIsModal={true}
     >
-      <TouchableOpacity 
+      <Pressable 
         style={styles.modalOverlay}
-        activeOpacity={1}
         onPress={handleDismiss}
         accessible={false}
       >
         <View style={styles.modalContent}>
-          <TouchableOpacity activeOpacity={1} style={styles.modalTouchableContent}>
+          <Pressable style={styles.modalTouchableContent}>
             {renderContent()}
-          </TouchableOpacity>
+          </Pressable>
         </View>
-      </TouchableOpacity>
+      </Pressable>
     </Modal>
   );
 };

@@ -9,6 +9,11 @@
  * - SyncSettingsPanel configuration
  *
  * Used for development, testing, and component showcase
+ * 
+ * ✅ PRESSABLE MIGRATION: TouchableOpacity → Pressable with New Architecture optimization
+ * - Enhanced interaction handling for demo navigation
+ * - Improved accessibility for component demonstration
+ * - Optimized touch targets for development and testing features
  */
 
 import React, { useState, useCallback } from 'react';
@@ -16,7 +21,7 @@ import {
   View,
   Text,
   ScrollView,
-  TouchableOpacity,
+  Pressable,
   StyleSheet,
   Alert
 } from 'react-native';
@@ -235,11 +240,26 @@ export const SyncComponentsDemo: React.FC<SyncComponentsDemoProps> = ({
           Interactive demonstration of all cross-device sync UI components
         </Text>
         {onClose && (
-          <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+          <Pressable 
+            style={({ pressed }) => [
+              styles.closeButton,
+              pressed && { opacity: 0.7, transform: [{ scale: 0.95 }] }
+            ]} 
+            onPress={onClose}
+            accessible={true}
+            accessibilityRole="button"
+            accessibilityLabel="Close sync components demo"
+            android_ripple={{
+              color: 'rgba(0, 0, 0, 0.1)',
+              borderless: true,
+              radius: 100
+            }}
+            hitSlop={{ top: 12, left: 12, bottom: 12, right: 12 }}
+          >
             <Text style={[styles.closeButtonText, { color: colorSystem.status.info }]}>
               Close Demo
             </Text>
-          </TouchableOpacity>
+          </Pressable>
         )}
       </View>
 

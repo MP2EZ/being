@@ -6,7 +6,7 @@
 import React, { useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
-import { useUserStore } from '../store';
+import { useUserStore } from '../store/userStoreFixed';
 import MainTabNavigator from './MainTabNavigator';
 import { colorSystem } from '../constants/colors';
 import { LoadingScreen } from '../components/core';

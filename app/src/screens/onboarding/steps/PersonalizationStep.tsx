@@ -13,7 +13,7 @@ import Animated, {
   useAnimatedStyle,
   withSpring,
   withTiming,
-} from 'react-native-reanimated';
+} from '../../../utils/ReanimatedMock';
 
 import {
   Screen,

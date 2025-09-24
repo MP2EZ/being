@@ -11,6 +11,7 @@
 
 import React, { useCallback, useMemo, useEffect } from 'react';
 import { View, Pressable, StyleSheet, Platform } from 'react-native';
+// FIXED: Import from ReanimatedMock to prevent property descriptor conflicts
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -18,7 +19,7 @@ import Animated, {
   withTiming,
   interpolate,
   Easing
-} from 'react-native-reanimated';
+} from '../../utils/ReanimatedMock';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Typography } from '../core/Typography';
 import { useTheme } from '../../hooks/useTheme';

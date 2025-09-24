@@ -14,7 +14,7 @@
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
-  TouchableOpacity,
+  Pressable,
   Text,
   StyleSheet,
   Linking,
@@ -25,6 +25,7 @@ import {
   Dimensions,
   View,
 } from 'react-native';
+// FIXED: Import from ReanimatedMock to prevent property descriptor conflicts
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -33,7 +34,7 @@ import Animated, {
   withRepeat,
   withTiming,
   interpolateColor,
-} from 'react-native-reanimated';
+} from '../../utils/ReanimatedMock';
 import { colorSystem, spacing, borderRadius } from '../../constants/colors';
 import { useTherapeuticAccessibility } from './TherapeuticAccessibilityProvider';
 
@@ -73,7 +74,7 @@ export const AccessibleCrisisButton: React.FC<AccessibleCrisisButtonProps> = Rea
   const [voiceListening, setVoiceListening] = useState(false);
 
   // Button reference for accessibility focus
-  const buttonRef = useRef<TouchableOpacity>(null);
+  const buttonRef = useRef<Pressable>(null);
 
   // Therapeutic Accessibility Context
   const {
@@ -373,13 +374,30 @@ export const AccessibleCrisisButton: React.FC<AccessibleCrisisButtonProps> = Rea
           }
         ]}
       >
-        <TouchableOpacity
+        <Pressable
           ref={buttonRef}
-          style={StyleSheet.absoluteFill}
+          style={({ pressed }) => [
+            StyleSheet.absoluteFill,
+            {
+              // Crisis-optimized pressed state with <200ms response
+              opacity: pressed ? 0.8 : 1.0,
+              transform: pressed ? [{ scale: 0.98 }] : [{ scale: 1.0 }]
+            }
+          ]}
           onPress={handleCrisisCall}
           onLongPress={handleLongPress}
-          activeOpacity={0.8}
           disabled={isLoading}
+          // Crisis-optimized android ripple for emergency accessibility
+          android_ripple={{
+            color: emergencyMode || crisisEmergencyMode
+              ? 'rgba(255, 255, 255, 0.5)'
+              : 'rgba(255, 255, 255, 0.3)',
+            borderless: false,
+            radius: buttonSize.width / 2,
+            foreground: false
+          }}
+          // Enhanced hit area for crisis accessibility (WCAG AAA)
+          hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
           accessible={true}
           accessibilityRole="button"
           accessibilityLabel={getAccessibilityLabel()}
@@ -432,7 +450,7 @@ export const AccessibleCrisisButton: React.FC<AccessibleCrisisButtonProps> = Rea
               {emergencyMode || crisisEmergencyMode ? 'URGENT' : 'CRISIS'}
             </Text>
           </View>
-        </TouchableOpacity>
+        </Pressable>
       </Animated.View>
     );
   }
@@ -440,13 +458,30 @@ export const AccessibleCrisisButton: React.FC<AccessibleCrisisButtonProps> = Rea
   // Embedded/Header variants with accessibility
   return (
     <Animated.View style={[...getButtonStyles(), animatedStyle, style]}>
-      <TouchableOpacity
+      <Pressable
         ref={buttonRef}
-        style={StyleSheet.absoluteFill}
+        style={({ pressed }) => [
+          StyleSheet.absoluteFill,
+          {
+            // Crisis-optimized pressed state with <200ms response
+            opacity: pressed ? 0.8 : 1.0,
+            transform: pressed ? [{ scale: 0.98 }] : [{ scale: 1.0 }]
+          }
+        ]}
         onPress={handleCrisisCall}
         onLongPress={handleLongPress}
-        activeOpacity={0.8}
         disabled={isLoading}
+        // Crisis-optimized android ripple for emergency accessibility
+        android_ripple={{
+          color: emergencyMode || crisisEmergencyMode
+            ? 'rgba(255, 255, 255, 0.5)'
+            : 'rgba(255, 255, 255, 0.3)',
+          borderless: false,
+          radius: 200,
+          foreground: false
+        }}
+        // Enhanced hit area for crisis accessibility (WCAG AAA)
+        hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
         accessible={true}
         accessibilityRole="button"
         accessibilityLabel={getAccessibilityLabel()}
@@ -477,7 +512,7 @@ export const AccessibleCrisisButton: React.FC<AccessibleCrisisButtonProps> = Rea
             }
           </Text>
         </View>
-      </TouchableOpacity>
+      </Pressable>
     </Animated.View>
   );
 });

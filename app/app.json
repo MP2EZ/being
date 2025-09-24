@@ -7,7 +7,7 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
-    "description": "Evidence-based mindfulness and cognitive therapy practices for mental wellness. Features daily check-ins, PHQ-9/GAD-7 assessments, and crisis support resources.",
+    "description": "Evidence-based mindfulness and cognitive therapy practices for mental wellness.",
     "primaryColor": "#4A7C59",
     "splash": {
       "image": "./assets/splash-icon.png",
@@ -23,91 +23,23 @@
       "buildNumber": "1",
       "icon": "./assets/icon.png",
       "jsEngine": "hermes",
-      "newArchEnabled": true,
-      "infoPlist": {
-        "NSHealthShareUsageDescription": "Being. integrates with Apple Health to provide comprehensive wellness tracking for your mental health journey.",
-        "NSHealthUpdateUsageDescription": "Being. can save your mindfulness session data to Apple Health to track your wellness progress.",
-        "ITSAppUsesNonExemptEncryption": false,
-        "LSApplicationCategoryType": "public.app-category.healthcare-fitness",
-        "CFBundleURLTypes": [
-          {
-            "CFBundleURLName": "being-deep-linking",
-            "CFBundleURLSchemes": [
-              "being"
-            ]
-          }
-        ]
-      },
-      "config": {
-        "usesNonExemptEncryption": false
-      },
-      "entitlements": {
-        "com.apple.security.application-groups": [
-          "group.com.being.mbct.widgets"
-        ]
-      }
+      "newArchEnabled": true
     },
     "android": {
       "package": "com.being.mbct",
       "versionCode": 1,
       "icon": "./assets/icon.png",
       "jsEngine": "hermes",
-      "newArchEnabled": true,
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
-      },
-      "edgeToEdgeEnabled": true,
-      "permissions": [
-        "android.permission.RECORD_AUDIO",
-        "android.permission.MODIFY_AUDIO_SETTINGS",
-        "android.permission.WAKE_LOCK",
-        "android.permission.RECEIVE_BOOT_COMPLETED",
-        "android.permission.USE_BIOMETRIC",
-        "android.permission.USE_FINGERPRINT"
-      ],
-      "intentFilters": [
-        {
-          "action": "android.intent.action.VIEW",
-          "category": [
-            "android.intent.category.DEFAULT",
-            "android.intent.category.BROWSABLE"
-          ],
-          "data": {
-            "scheme": "being"
-          }
-        }
-      ]
+      "newArchEnabled": true
     },
     "web": {
       "favicon": "./assets/favicon.png",
       "name": "Being. MBCT",
-      "shortName": "Being.",
-      "lang": "en",
-      "scope": "/",
-      "themeColor": "#4A7C59",
-      "description": "Mindfulness-Based Cognitive Therapy for mental wellness"
+      "shortName": "Being."
     },
-    "plugins": [
-      "expo-secure-store",
-      "expo-local-authentication",
-      [
-        "expo-notifications",
-        {
-          "icon": "./assets/notification-icon.png",
-          "color": "#4A7C59",
-          "defaultChannel": "default"
-        }
-      ],
-      "./plugins/expo-being-widgets",
-      "expo-web-browser"
-    ],
+    "plugins": [],
     "extra": {
       "clinicalVersion": "1.0",
-      "privacyPolicyUrl": "https://being.app/privacy",
-      "termsOfServiceUrl": "https://being.app/terms",
-      "supportUrl": "https://being.app/support",
-      "crisisHotline": "988",
       "buildType": "production",
       "eas": {
         "projectId": "75ab182c-82f1-4f22-bd9c-d57358950bc6"

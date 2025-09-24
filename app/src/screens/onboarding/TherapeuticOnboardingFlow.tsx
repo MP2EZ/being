@@ -40,7 +40,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 //   withSpring,
 //   withSequence,
 //   withTiming
-// } from 'react-native-reanimated';
+// } from '../../utils/ReanimatedMock';
 
 // Temporary replacement with standard View
 const Animated = { View };

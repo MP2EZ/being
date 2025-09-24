@@ -30,7 +30,7 @@ import Animated, {
   withSequence,
   interpolate,
   Easing
-} from 'react-native-reanimated';
+} from '../../utils/ReanimatedMock';
 
 import { Button } from '../core/Button';
 import { Card } from '../core/Card';

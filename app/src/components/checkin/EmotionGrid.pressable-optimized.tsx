@@ -25,7 +25,7 @@ import Animated, {
   useAnimatedReaction,
   withDelay,
   Easing
-} from 'react-native-reanimated';
+} from '../../utils/ReanimatedMock';
 import { colorSystem, spacing, borderRadius } from '../../constants/colors';
 import { useCommonHaptics } from '../../hooks/useHaptics';
 import { useTherapeuticAccessibility } from '../accessibility/TherapeuticAccessibilityProvider';

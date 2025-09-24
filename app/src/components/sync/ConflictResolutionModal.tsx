@@ -1,6 +1,10 @@
 /**
  * Conflict Resolution Modal - User interface for resolving data sync conflicts
  * Clinical-grade conflict resolution with therapeutic safety considerations
+ * 
+ * ✅ PRESSABLE MIGRATION: TouchableOpacity → Pressable with New Architecture optimization
+ * - Removed unused TouchableOpacity import (already uses Pressable)
+ * - Maintains New Architecture compatibility for sync operations
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -9,7 +13,6 @@ import {
   Text,
   Modal,
   ScrollView,
-  TouchableOpacity,
   Alert,
   StyleSheet,
   ActivityIndicator,

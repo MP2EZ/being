@@ -12,14 +12,15 @@
 import React, { useEffect, useMemo } from 'react';
 import { View, StyleSheet, StatusBar, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+// FIXED: Import from ReanimatedMock to prevent property descriptor conflicts
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSequence,
   withTiming,
   interpolateColor,
-  Easing
-} from 'react-native-reanimated';
+} from '../../utils/ReanimatedMock';
+import { Easing } from 'react-native';
 // Note: expo-linear-gradient is optional - falls back to solid colors
 let LinearGradient: any = null;
 try {

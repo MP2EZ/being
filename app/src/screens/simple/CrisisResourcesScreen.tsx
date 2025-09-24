@@ -17,7 +17,7 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
+  Pressable,
   Linking,
   Alert,
   Platform,
@@ -33,7 +33,7 @@ import Animated, {
   withSequence,
   withRepeat,
   interpolateColor,
-} from 'react-native-reanimated';
+} from '../../utils/ReanimatedMock';
 import { useTherapeuticAccessibility } from '../../components/accessibility/TherapeuticAccessibilityProvider';
 import { AccessibleCrisisButton } from '../../components/accessibility/AccessibleCrisisButton';
 
@@ -71,7 +71,7 @@ const AccessibleResourceCard: React.FC<AccessibleResourceCardProps> = React.memo
   onPress,
   index
 }) => {
-  const cardRef = useRef<TouchableOpacity>(null);
+  const cardRef = useRef<View>(null);
   const [isPressed, setIsPressed] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
 
@@ -254,20 +254,21 @@ const AccessibleResourceCard: React.FC<AccessibleResourceCardProps> = React.memo
 
   return (
     <Animated.View style={[styles.resourceContainer, animatedStyle]}>
-      <TouchableOpacity
+      <Pressable
         ref={cardRef}
-        style={[
+        style={({ pressed }) => [
           styles.resourceCard,
           cardSize,
           {
             borderWidth: priority === 'emergency' ? 4 : isFocused ? 3 : 2,
             borderColor: isFocused ? '#007AFF' : getPriorityColor(),
+            opacity: pressed ? (priority === 'emergency' ? 0.9 : 0.8) : 1,
+            transform: [{ scale: pressed ? (priority === 'emergency' ? 0.98 : 0.96) : 1 }],
           }
         ]}
         onPress={handlePress}
         onFocus={handleFocus}
         onBlur={handleBlur}
-        activeOpacity={0.8}
         accessible={true}
         accessibilityRole="button"
         accessibilityLabel={getAccessibilityLabel()}
@@ -291,6 +292,17 @@ const AccessibleResourceCard: React.FC<AccessibleResourceCardProps> = React.memo
             label: `Text ${text}`
           }] : []),
         ]}
+        android_ripple={{
+          color: priority === 'emergency' ? 'rgba(255, 0, 0, 0.1)' : 'rgba(0, 0, 0, 0.1)',
+          borderless: false,
+          radius: priority === 'emergency' ? 300 : 200
+        }}
+        hitSlop={{
+          top: priority === 'emergency' ? 16 : 12,
+          left: priority === 'emergency' ? 16 : 12,
+          bottom: priority === 'emergency' ? 16 : 12,
+          right: priority === 'emergency' ? 16 : 12
+        }}
         testID={`crisis-resource-${index}`}
       >
         <View style={styles.resourceContent}>
@@ -421,7 +433,7 @@ const AccessibleResourceCard: React.FC<AccessibleResourceCardProps> = React.memo
             )}
           </View>
         </View>
-      </TouchableOpacity>
+      </Pressable>
     </Animated.View>
   );
 });
@@ -690,13 +702,25 @@ export const CrisisResourcesScreen: React.FC = () => {
         </View>
 
         {/* Quick access to 988 */}
-        <TouchableOpacity
-          style={styles.quickAccessButton}
+        <Pressable
+          style={({ pressed }) => [
+            styles.quickAccessButton,
+            pressed && {
+              opacity: 0.9,
+              transform: [{ scale: 0.98 }],
+            }
+          ]}
           onPress={() => handleResourcePress(crisisResources[0])}
           accessible={true}
           accessibilityRole="button"
           accessibilityLabel="988 Suicide and Crisis Lifeline. Quick dial for immediate crisis support."
           accessibilityHint="Double tap to call 988 immediately for crisis support."
+          android_ripple={{
+            color: 'rgba(255, 255, 255, 0.2)',
+            borderless: false,
+            radius: 400
+          }}
+          hitSlop={{ top: 20, left: 20, bottom: 20, right: 20 }}
           testID="quick-988-button"
         >
           <Text
@@ -707,7 +731,7 @@ export const CrisisResourcesScreen: React.FC = () => {
           >
             📞 Call 988 Now
           </Text>
-        </TouchableOpacity>
+        </Pressable>
       </View>
 
       <ScrollView

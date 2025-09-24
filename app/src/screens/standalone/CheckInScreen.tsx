@@ -7,13 +7,14 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, Alert, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+// FIXED: Import from ReanimatedMock to prevent property descriptor conflicts
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withTiming,
   withSequence,
   Easing,
-} from 'react-native-reanimated';
+} from '../../utils/ReanimatedMock';
 import { Button, CrisisButton, Slider } from '../../components/core';
 import { MultiSelect, TextArea } from '../../components/core';
 import { StepsIndicator } from '../../components/checkin';

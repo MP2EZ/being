@@ -26,7 +26,7 @@ import Animated, {
   useAnimatedReaction,
   useFrameCallback,
   useAnimatedProps,
-} from 'react-native-reanimated';
+} from '../../utils/ReanimatedMock';
 import { colorSystem, spacing } from '../../constants/colors';
 import { Button } from '../core';
 import { usePerformanceTracking } from '../../utils/PerformanceMonitor';

@@ -7,6 +7,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, AppState, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+// FIXED: Import from ReanimatedMock to prevent property descriptor conflicts
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -15,7 +16,7 @@ import Animated, {
   withTiming,
   Easing,
   runOnJS,
-} from 'react-native-reanimated';
+} from '../../utils/ReanimatedMock';
 import { Button, CrisisButton } from '../../components/core';
 import { colorSystem, spacing } from '../../constants/colors';
 import { useThemeColors } from '../../contexts/ThemeContext';

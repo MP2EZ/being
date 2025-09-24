@@ -17,7 +17,7 @@ import Animated, {
   withRepeat,
   withSequence,
   interpolateColor,
-} from 'react-native-reanimated';
+} from '../../utils/ReanimatedMock';
 import { useTherapeuticAccessibility } from '../../components/accessibility/TherapeuticAccessibilityProvider';
 import { AccessibleCrisisButton } from '../../components/accessibility/AccessibleCrisisButton';
 

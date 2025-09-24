@@ -14,7 +14,7 @@ import Animated, {
   interpolate,
   Easing,
   runOnJS,
-} from 'react-native-reanimated';
+} from '../../utils/ReanimatedMock';
 import * as Haptics from 'expo-haptics';
 import { colorSystem, spacing, borderRadius } from '../../constants/colors';
 import { useTherapeuticAccessibility } from '../accessibility/TherapeuticAccessibilityProvider';

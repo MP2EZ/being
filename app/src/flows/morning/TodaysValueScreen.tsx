@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StepsIndicator } from '../../components/checkin';
 import { Button, TextArea } from '../../components/core';
@@ -81,22 +81,33 @@ export const TodaysValueScreen: React.FC<TodaysValueScreenProps> = ({
             const isSelected = selectedValue === value.id;
             
             return (
-              <TouchableOpacity
+              <Pressable
                 key={value.id}
-                style={[
+                style={({ pressed }) => [
                   styles.valueCard,
                   {
-                    backgroundColor: isSelected 
-                      ? colorSystem.themes.morning.background 
+                    backgroundColor: isSelected
+                      ? colorSystem.themes.morning.background
                       : colorSystem.base.white,
-                    borderColor: isSelected 
-                      ? colorSystem.themes.morning.primary 
+                    borderColor: isSelected
+                      ? colorSystem.themes.morning.primary
                       : colorSystem.gray[200],
                     borderWidth: isSelected ? 2 : 1,
+                    opacity: pressed ? 0.8 : 1,
+                    transform: [{ scale: pressed ? 0.98 : 1 }],
                   }
                 ]}
                 onPress={() => handleValueSelect(value.id)}
-                activeOpacity={0.7}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: isSelected }}
+                accessibilityLabel={`${value.label} value ${isSelected ? 'selected' : 'not selected'}`}
+                accessibilityHint={`Double tap to ${isSelected ? 'deselect' : 'select'} ${value.label} as your focus for today. ${value.description}`}
+                android_ripple={{
+                  color: 'rgba(0, 0, 0, 0.1)',
+                  borderless: false,
+                  radius: 200
+                }}
+                hitSlop={{ top: 8, left: 8, bottom: 8, right: 8 }}
               >
                 <Text style={[
                   styles.valueLabel,
@@ -119,7 +130,7 @@ export const TodaysValueScreen: React.FC<TodaysValueScreenProps> = ({
                 ]}>
                   {value.description}
                 </Text>
-              </TouchableOpacity>
+              </Pressable>
             );
           })}
         </View>

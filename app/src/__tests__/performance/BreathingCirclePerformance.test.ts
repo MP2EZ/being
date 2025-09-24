@@ -4,7 +4,8 @@
  */
 
 import { renderHook, act } from '@testing-library/react-native';
-import { useSharedValue, withTiming, withRepeat } from 'react-native-reanimated';
+// FIXED: Import from ReanimatedMock to prevent property descriptor conflicts
+import { useSharedValue, withTiming, withRepeat } from '../../utils/ReanimatedMock';
 
 // Mock performance monitoring
 const mockPerformance = {

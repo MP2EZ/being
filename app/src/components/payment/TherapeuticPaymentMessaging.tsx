@@ -19,7 +19,7 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
+  Pressable,
   Alert,
   Linking,
   AccessibilityInfo,
@@ -372,9 +372,12 @@ export const TherapeuticPaymentMessaging: React.FC<TherapeuticPaymentMessagingPr
         accessibilityLabel="Payment actions"
       >
         {therapeuticMessage.actions.map((action, index) => (
-          <TouchableOpacity
+          <Pressable
             key={index}
-            style={getButtonStyle(action.style)}
+            style={({ pressed }) => [
+              getButtonStyle(action.style),
+              pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] }
+            ]}
             onPress={() => handleAction(action.action)}
             accessible={true}
             accessibilityRole="button"
@@ -384,12 +387,17 @@ export const TherapeuticPaymentMessaging: React.FC<TherapeuticPaymentMessagingPr
               disabled: false,
             }}
             // Enhanced touch targets for crisis buttons
-            hitSlop={action.style === 'crisis' ? { top: 8, bottom: 8, left: 8, right: 8 } : undefined}
+            hitSlop={action.style === 'crisis' ? { top: 12, bottom: 12, left: 12, right: 12 } : { top: 8, bottom: 8, left: 8, right: 8 }}
+            android_ripple={{
+              color: action.style === 'crisis' ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 0, 0, 0.1)',
+              borderless: false,
+              radius: 200
+            }}
           >
             <Text style={getButtonTextStyle(action.style)}>
               {action.text}
             </Text>
-          </TouchableOpacity>
+          </Pressable>
         ))}
       </View>
     </View>

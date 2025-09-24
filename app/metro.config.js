@@ -10,10 +10,18 @@ const config = getDefaultConfig(__dirname);
 // Prevents ENOENT errors from nested node_modules paths
 config.resolver.alias = {
   'expo-web-browser': path.resolve(__dirname, 'node_modules/expo-web-browser'),
+  // Mock react-native-reanimated to prevent property descriptor conflicts
+  'react-native-reanimated': path.resolve(__dirname, 'src/utils/ReanimatedMock.ts'),
 };
 
-// Blacklist nested node_modules to prevent duplicate resolution attempts
-config.resolver.blacklistRE = /.*\/node_modules\/.*\/node_modules\/expo-web-browser\/.*/;
+// Blacklist problematic native modules causing property descriptor conflicts
+config.resolver.blacklistRE = [
+  /.*\/node_modules\/.*\/node_modules\/expo-web-browser\/.*/,
+  // CRITICAL: Completely blacklist reanimated and worklets to prevent New Architecture conflicts
+  /.*\/node_modules\/react-native-reanimated\/.*/,
+  /.*\/node_modules\/react-native-worklets\/.*/,
+  /.*\/node_modules\/react-native-worklets-core\/.*/
+];
 
 // Configure resolver for proper Expo package resolution with New Architecture support
 config.resolver.resolverMainFields = ['react-native', 'browser', 'main'];

@@ -18,7 +18,7 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TouchableOpacity,
+  Pressable,
   AccessibilityInfo,
   Alert,
   Dimensions,
@@ -29,7 +29,7 @@ import Animated, {
   withSpring,
   withTiming,
   interpolateColor,
-} from 'react-native-reanimated';
+} from '../../utils/ReanimatedMock';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '../core';
 import { AssessmentQuestion, AssessmentOption } from '../../types';
@@ -90,7 +90,7 @@ export const AccessibleAssessmentFlow: React.FC<AccessibleAssessmentFlowProps> =
   // References for accessibility focus
   const questionRef = useRef<Text>(null);
   const progressRef = useRef<Text>(null);
-  const firstOptionRef = useRef<TouchableOpacity>(null);
+  const firstOptionRef = useRef<View>(null);
 
   // Therapeutic Accessibility Context
   const {
@@ -390,16 +390,19 @@ export const AccessibleAssessmentFlow: React.FC<AccessibleAssessmentFlowProps> =
     const themeColor = getThemeColor();
 
     return (
-      <TouchableOpacity
+      <Pressable
         ref={index === 0 ? firstOptionRef : undefined}
         key={option.value}
-        style={[
+        style={({ pressed }) => [
           styles.answerOption,
           isSelected && { ...styles.answerOptionSelected, borderColor: themeColor },
           anxietySupport && anxietyAdaptationsEnabled && styles.anxietyAnswerOption,
+          pressed && {
+            opacity: anxietySupport && anxietyAdaptationsEnabled ? 0.9 : 0.8,
+            transform: [{ scale: anxietySupport && anxietyAdaptationsEnabled ? 0.995 : 0.98 }],
+          }
         ]}
         onPress={() => handleAnswerSelect(option.value)}
-        activeOpacity={0.8}
         accessible={true}
         accessibilityRole="radio"
         accessibilityState={{
@@ -408,6 +411,17 @@ export const AccessibleAssessmentFlow: React.FC<AccessibleAssessmentFlowProps> =
         }}
         accessibilityLabel={`${option.text}. ${isSelected ? 'Selected' : 'Not selected'}`}
         accessibilityHint={`Answer option ${index + 1} of ${currentQuestion.options?.length}. Double tap to select.`}
+        android_ripple={{
+          color: 'rgba(0, 0, 0, 0.1)',
+          borderless: false,
+          radius: anxietySupport && anxietyAdaptationsEnabled ? 150 : 200
+        }}
+        hitSlop={{
+          top: anxietySupport && anxietyAdaptationsEnabled ? 12 : 8,
+          left: anxietySupport && anxietyAdaptationsEnabled ? 12 : 8,
+          bottom: anxietySupport && anxietyAdaptationsEnabled ? 12 : 8,
+          right: anxietySupport && anxietyAdaptationsEnabled ? 12 : 8
+        }}
       >
         <View style={[
           styles.answerRadio,
@@ -432,7 +446,7 @@ export const AccessibleAssessmentFlow: React.FC<AccessibleAssessmentFlowProps> =
         >
           {simplifiedLanguage ? option.text.replace(/Not at all/g, 'Never').replace(/Several days/g, 'Sometimes') : option.text}
         </Text>
-      </TouchableOpacity>
+      </Pressable>
     );
   };
 

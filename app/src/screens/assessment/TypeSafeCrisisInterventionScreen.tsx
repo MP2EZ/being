@@ -10,14 +10,14 @@
  */
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  ScrollView, 
-  TouchableOpacity, 
-  Alert, 
-  Linking, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Pressable,
+  Alert,
+  Linking,
   Vibration,
   Platform
 } from 'react-native';
@@ -409,19 +409,25 @@ export const TypeSafeCrisisInterventionScreen: React.FC = () => {
     });
 
     return (
-      <TouchableOpacity
+      <Pressable
         key={resource.id}
-        style={[
+        style={({ pressed }) => [
           styles.resourceCard,
           resource.priority === 'critical' && styles.resourceCardCritical,
-          isProcessingEmergency && styles.resourceCardDisabled
+          isProcessingEmergency && styles.resourceCardDisabled,
+          pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] }
         ]}
         onPress={buttonProps.onPress}
         disabled={isProcessingEmergency}
-        activeOpacity={0.7}
         accessibilityLabel={`${resource.title} - ${resource.action.displayText}`}
         accessibilityHint={`Activates ${resource.action.displayText} for crisis support`}
         accessibilityRole="button"
+        android_ripple={{
+          color: resource.priority === 'critical' ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 0, 0, 0.1)',
+          borderless: false,
+          radius: 200
+        }}
+        hitSlop={{ top: 12, left: 12, bottom: 12, right: 12 }}
       >
         <View style={styles.resourceHeader}>
           <Text style={styles.resourceIcon}>{resource.icon}</Text>
@@ -457,7 +463,7 @@ export const TypeSafeCrisisInterventionScreen: React.FC = () => {
             {resource.action.displayText}
           </Button>
         </View>
-      </TouchableOpacity>
+      </Pressable>
     );
   }, [handleEmergencyAction, isProcessingEmergency]);
 
