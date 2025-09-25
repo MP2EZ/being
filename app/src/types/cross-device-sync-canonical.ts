@@ -865,6 +865,115 @@ export const CROSS_DEVICE_SYNC_CANONICAL_CONSTANTS = {
   }
 } as const;
 
+// === LEGACY COMPONENT INTERFACE ENUMS (For React Component Compatibility) ===
+
+/**
+ * Sync status enumeration for component integration
+ * Maps to SyncState.status values for React component compatibility
+ */
+export enum SyncStatus {
+  IDLE = 'idle',
+  SYNCING = 'syncing',
+  CONFLICT = 'conflict',
+  ERROR = 'error',
+  SUCCESS = 'success',
+  PAUSED = 'paused'
+}
+
+/**
+ * Sync entity types for component filtering
+ * Maps to SyncOperation.operation.entity values
+ */
+export enum SyncEntityType {
+  CHECK_IN = 'check_in',
+  ASSESSMENT = 'assessment',
+  USER_PROFILE = 'user_profile',
+  CRISIS_PLAN = 'crisis_plan',
+  WIDGET_DATA = 'widget_data',
+  SESSION_DATA = 'session_data'
+}
+
+/**
+ * Network quality enum for component display
+ * Maps to DeviceInfo.status.networkQuality values
+ */
+export enum NetworkQuality {
+  POOR = 'poor',
+  FAIR = 'fair',
+  GOOD = 'good',
+  EXCELLENT = 'excellent',
+  OFFLINE = 'offline'
+}
+
+/**
+ * App sync state interface for component integration
+ * Simplified interface matching React component needs
+ */
+export interface AppSyncState {
+  globalStatus: SyncStatus;
+  lastGlobalSync?: string;
+  storeStatuses: StoreSyncStatus[];
+  conflicts?: SyncConflict[];
+}
+
+/**
+ * Store sync status for individual entity types
+ */
+export interface StoreSyncStatus {
+  storeType: SyncEntityType;
+  status: SyncStatus;
+  lastSync?: string;
+  syncProgress?: SyncProgress;
+  pendingOperations?: number;
+  conflicts?: SyncConflict[];
+  errors?: string[];
+}
+
+/**
+ * Sync progress information for UI display
+ */
+export interface SyncProgress {
+  percentage: number;
+  completed: number;
+  total: number;
+  currentOperation?: string;
+}
+
+/**
+ * Conflict type enumeration for component handling
+ */
+export enum ConflictType {
+  DATA_CONFLICT = 'data_conflict',
+  VERSION_CONFLICT = 'version_conflict',
+  DELETE_CONFLICT = 'delete_conflict',
+  CLINICAL_CONFLICT = 'clinical_conflict',
+  CRISIS_CONFLICT = 'crisis_conflict'
+}
+
+/**
+ * Conflict resolution strategies for components
+ */
+export enum ConflictResolutionStrategy {
+  MANUAL = 'manual',
+  AUTOMATIC_MERGE = 'automatic_merge',
+  PREFER_LOCAL = 'prefer_local',
+  PREFER_REMOTE = 'prefer_remote',
+  CLINICAL_PRIORITY = 'clinical_priority',
+  CRISIS_PRIORITY = 'crisis_priority'
+}
+
+/**
+ * Conflict resolution result for UI feedback
+ */
+export interface ConflictResolution {
+  conflictId: string;
+  strategy: ConflictResolutionStrategy;
+  resolvedAt: string;
+  resolvedBy: string;
+  mergedData?: unknown;
+  manualIntervention?: boolean;
+}
+
 // === EXPORTS ===
 
 export default {

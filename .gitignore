@@ -61,3 +61,169 @@ _sandbox/
 
 # Backup files
 *.backup
+*.bak
+*.orig
+
+# Cleanup Prevention Patterns (Added Phase 8G)
+# ==============================================
+
+# Cleanup Artifact Directories
+.temp_delete/
+.to_delete/
+.temp_*/
+.cleanup/
+.consolidated/
+.migration/
+
+# Phase Reports and Documentation Bloat
+PHASE_*.md
+PHASE_*.json
+*_PHASE_*.md
+*_PHASE_*.json
+*-PHASE-*.md
+*-PHASE-*.json
+*_COMPLETION_REPORT.md
+*_VALIDATION_REPORT.md
+*_ANALYSIS_REPORT.md
+*_QUALITY_REVIEW.md
+*_MIGRATION_REPORT.md
+*_CONSOLIDATION_*.md
+*_ARCHITECTURE.md
+*_BASELINE_REPORT.md
+*_COMPLIANCE_*.md
+*IMMEDIATE_CLEANUP_*.md
+
+# Temporary Documentation
+*-TEMP.md
+*-BACKUP.md
+*_temp.md
+*_backup.md
+*.temp.md
+*.backup.md
+*-draft.md
+*-working.md
+
+# Performance and Validation Artifacts
+*performance-report*
+*baseline-report*
+*performance-baseline*
+*performance-checkpoint*
+*performance-validation*
+*-performance-*.json
+*-baseline-*.json
+*-validation-*.json
+*clinical-performance*
+*crisis-performance*
+comprehensive-performance-baseline-report.md
+
+# Cleanup and Migration Scripts
+cleanup-*.js
+cleanup-*.py
+cleanup-*.sh
+cleanup_*.js
+cleanup_*.py
+cleanup_*.sh
+migrate-*.js
+migrate-*.py
+migrate-*.sh
+migration-*.js
+migration-*.py
+migration-*.sh
+validate-*.js
+validate-*.py
+validate_*.js
+validate_*.py
+verify-*.js
+verify-*.py
+check-*.js
+check-*.py
+execute-*.js
+execute-*.py
+batch_*.py
+final_*.py
+
+# Temporary Scripts and Executables
+*.cleanup
+*.temp.js
+*.temp.py
+*.temp.sh
+*-temp.js
+*-temp.py
+*-temp.sh
+temp-*.js
+temp-*.py
+temp-*.sh
+
+# Validation and Testing Artifacts
+validation-report*.json
+validation-*.json
+health-check*.json
+integration-*.json
+phase-*-*.json
+*-validation-report.json
+*-health-check.json
+*-integration-test.json
+*-integration-report.json
+*clinical-pattern-validation*
+
+# Cleanup Logs and Tracking
+cleanup-log.txt
+cleanup.log
+migration.log
+validation.log
+*-cleanup.log
+*-migration.log
+*-validation.log
+*.cleanup.log
+*.migration.log
+*.validation.log
+
+# Agent and Orchestration Artifacts
+*AGENT_*.md
+*_AGENT_*.md
+*COORDINATION*.md
+*ORCHESTRATION*.md
+*monitoring-hub*
+*deployment-orchestrator*
+*emergency-response*
+
+# Backup Configuration Files
+*.config.backup
+*.json.backup
+*.ts.backup
+*.tsx.backup
+*package.json.backup
+*tsconfig.json.backup
+
+# Temporary Type System Files
+*canonical.ts
+*-canonical.ts
+*_canonical.ts
+*.canonical.ts
+index-canonical.ts
+api-canonical.ts
+component-props-canonical.ts
+cross-device-sync-canonical.ts
+payment-canonical.ts
+authentication-canonical.ts
+
+# Success/Status Tracking Files
+*.success.json
+*-success.json
+*_success.json
+.phase-*-success.json
+.phase-*-group-*-success.json
+
+# Corrupted or Temporary Backups
+*.corrupted
+*.temp_backup/
+.temp_*_backup/
+*_types_backup/
+
+# Development Monitoring Scripts
+*-monitor.js
+*-monitor.py
+*_monitor.js
+*_monitor.py
+monitoring-*.js
+monitoring-*.py

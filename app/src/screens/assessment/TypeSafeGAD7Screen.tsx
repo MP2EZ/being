@@ -23,7 +23,7 @@ import type {
   GAD7Severity,
   ISODateString,
   createISODateString
-} from '../../types/clinical';
+} from '../../types/crisis-safety';
 
 import type {
   ValidatedGAD7Score,
@@ -32,7 +32,7 @@ import type {
   ClinicalCalculationCertified,
   TherapeuticTimingCertified,
   ClinicalTypeValidationError
-} from '../../types/clinical-type-safety';
+} from '../../types/crisis-safety';
 
 import type {
   StrictGAD7Answer,
@@ -46,7 +46,7 @@ import type {
   AssessmentOptionProps,
   AssessmentNavigationProps,
   ASSESSMENT_TYPE_CONSTANTS
-} from '../../types/enhanced-assessment-types';
+} from '../../types/crisis-safety';
 
 import type {
   EnhancedButtonProps as AssessmentButtonProps,

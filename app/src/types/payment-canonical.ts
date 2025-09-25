@@ -43,7 +43,7 @@ export type CurrencyCode = string & { readonly __brand: 'CurrencyCode' };
 /**
  * Branded type for subscription tiers with therapeutic validation
  */
-export type SubscriptionTier = ('free' | 'basic' | 'premium' | 'lifetime') & { readonly __brand: 'SubscriptionTier' };
+export type SubscriptionTier = ('free' | 'basic' | 'premium' | 'lifetime' | 'trial' | 'grace_period') & { readonly __brand: 'SubscriptionTier' };
 
 /**
  * Branded type for payment anxiety severity levels

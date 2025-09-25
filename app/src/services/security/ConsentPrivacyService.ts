@@ -10,7 +10,7 @@
  * - Dynamic privacy controls with user empowerment
  */
 
-import { EnhancedAuthSession, AUTHENTICATION_CANONICAL_CONSTANTS } from '../../types/authentication-canonical';
+import { EnhancedAuthSession, AUTHENTICATION_CANONICAL_CONSTANTS, AUTH_CONSTANTS } from '../../types/authentication-canonical';
 import { encryptionService, DataSensitivity } from './EncryptionService';
 import { securityControlsService } from './SecurityControlsService';
 import * as SecureStore from 'expo-secure-store';

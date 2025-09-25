@@ -7,7 +7,7 @@ import React, { useState } from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { SyncStatusIndicator } from './SyncStatusIndicator';
 import { ConflictResolutionModal } from './ConflictResolutionModal';
-import { SyncEntityType } from '../../types/sync';
+import { SyncEntityType } from '../../types/cross-device-sync-canonical';
 import { colors } from '../../constants/colors';
 
 interface HomeSyncStatusProps {

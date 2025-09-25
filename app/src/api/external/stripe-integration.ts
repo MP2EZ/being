@@ -14,7 +14,7 @@ import {
   CrisisResponseTime,
   TherapeuticContinuity,
   EmergencyAccessControl,
-} from '../../types/webhooks/crisis-safety-types';
+} from '../../types/crisis-safety';
 import { CrisisSafeAPIResponse } from '../webhooks/webhook-processor-api';
 
 /**

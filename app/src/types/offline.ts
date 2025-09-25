@@ -155,6 +155,55 @@ export interface SessionProgress {
 }
 
 /**
+ * Resumable Session for interrupted workflows
+ * Handles session state persistence across app interruptions
+ */
+export interface ResumableSession {
+  sessionId: string;
+  sessionType: 'assessment' | 'checkin' | 'breathing' | 'crisis' | 'onboarding';
+  progress: SessionProgress;
+  data: Record<string, any>;
+  metadata: {
+    version: string;
+    created: string;
+    lastModified: string;
+    expiresAt: string;
+  };
+  isValid: boolean;
+  requiresValidation: boolean;
+}
+
+/**
+ * Session validation result
+ */
+export interface SessionValidationResult {
+  valid: boolean;
+  session: ResumableSession | null;
+  requiresReAuthentication: boolean;
+  errors?: string[];
+}
+
+/**
+ * Session storage keys for organizing session data
+ */
+export interface SessionStorageKeys {
+  ACTIVE_SESSION: 'active_session';
+  SESSION_DATA: 'session_data_';
+  SESSION_METADATA: 'session_metadata_';
+  SESSION_VALIDATION: 'session_validation_';
+}
+
+/**
+ * Session management constants
+ */
+export const SESSION_CONSTANTS = {
+  DEFAULT_EXPIRY_HOURS: 24,
+  MAX_SESSION_DATA_SIZE: 1024 * 1024, // 1MB
+  VALIDATION_INTERVAL_MS: 5 * 60 * 1000, // 5 minutes
+  AUTO_CLEANUP_INTERVAL_MS: 60 * 60 * 1000, // 1 hour
+} as const;
+
+/**
  * User preferences for offline handling
  */
 export interface UserPreferences {

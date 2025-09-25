@@ -63,7 +63,7 @@ import type {
   ClinicalValidationResult,
   ClinicalMasterValidator,
   ProductionReadinessValidation
-} from '../comprehensive-clinical-component-types';
+} from '../crisis-safety';
 
 /**
  * PHASE 4.2B Clinical Type Safety Validation Suite

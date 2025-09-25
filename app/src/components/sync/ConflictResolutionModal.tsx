@@ -22,11 +22,11 @@ import { Card, Button } from '../core';
 import { syncOrchestrationService } from '../../services/SyncOrchestrationService';
 import {
   SyncConflict,
-  ConflictType,
   SyncEntityType,
-  ConflictResolution
-} from '../../types/sync';
-import { ConflictResolutionStrategy } from '../../types/offline';
+  ConflictType,
+  ConflictResolution,
+  ConflictResolutionStrategy
+} from '../../types/cross-device-sync-canonical';
 import { colors } from '../../constants/colors';
 import { CheckIn, Assessment, UserProfile } from '../../types';
 

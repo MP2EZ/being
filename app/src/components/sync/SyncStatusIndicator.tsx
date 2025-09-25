@@ -17,17 +17,14 @@ import { networkAwareService } from '../../services/NetworkAwareService';
 import {
   SyncState,
   SyncOperation,
-  SyncConflict as CanonicalSyncConflict
-} from '../../types/cross-device-sync-canonical';
-import {
+  SyncConflict,
   SyncStatus,
   AppSyncState,
   SyncEntityType,
   StoreSyncStatus,
   SyncProgress,
-  SyncConflict
-} from '../../types/sync';
-import { NetworkQuality } from '../../types/offline';
+  NetworkQuality
+} from '../../types/cross-device-sync-canonical';
 import { colors } from '../../constants/colors';
 
 interface SyncStatusIndicatorProps {
