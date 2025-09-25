@@ -8,10 +8,9 @@
   ### Domain Authorities
   | Agent | Pri | Function | Triggers | Override |
   |-------|-----|----------|----------|----------|
-  | crisis | !! | safety\|988\|emergency | PHQ≥20\|GAD≥15\|button\|risk | ALL |
-  | compliance | ! | HIPAA\|privacy\|regulatory | data\|encrypt\|consent\|network | technical |
-  | clinician | ! | MBCT\|therapeutic\|clinical | PHQ/GAD\|exercises\|mood | UX |
-  | accessibility | - | WCAG-AA\|cognitive\|stress | all-UI\|crisis\|assessments | - |
+  | crisis | !! | safety protocols\|988\|emergency response\|intervention workflows | PHQ≥20\|GAD≥15\|button\|risk | ALL |
+  | compliance | ! | HIPAA compliance\|privacy law\|regulatory validation\|legal requirements | data\|encrypt\|consent\|network | technical |
+  | clinician | ! | MBCT validation\|therapeutic content\|clinical accuracy\|PHQ/GAD scoring | PHQ/GAD\|exercises\|mood | UX |
 
   Hierarchy: crisis>compliance>clinician>technical
 
@@ -77,21 +76,16 @@
   user→profile\|prefs | checkIn→mood[encrypted] | assessment→PHQ/GAD[!!] | crisis→contacts[!!]
 
   ## Documentation
-  
-  ### Placement
-  Place: (technical,brand/legal,clinical)→/docs/(subfolder)|/app/docs/=DEPRECATED
-  PROHIBIT: /app/*.md|duplicates|phase-reports|day-reports
-  REQUIRE: /docs/*only|single-source|archive-old|latest-reports-only
-  DELETE: completed-work|old-validations|implementation-summaries(after-merge)
 
-  ## File References
-  Technical: /docs/architecture.md\|Crisis-Button-Implementation-Guide.md\|TypeScript-Safety-Guide.md
-  Clinical: /docs/clinical/\|/docs/testing/ (PHQ/GAD validation)
-  Security: /docs/security/\|Widget-Crisis-Button-Integration-Summary.md
-  Contributing: /CONTRIBUTING.md (agent protocols\|safety requirements)
-  PM/Roadmap: Notion 25da1108c2088077b24be0238a1ddf37
-  Brand/Legal: /docs/brand-legal/
-  Scripts: /scripts/
+  ### Structure & Key Files
+  Docs: /docs/{technical,clinical,security,brand-legal}/ | /scripts/
+  Guides: Crisis-Button-Implementation-Guide.md | TypeScript-Safety-Guide.md | Widget-Crisis-Button-Integration-Summary.md
+  Agent Protocols: /CONTRIBUTING.md (safety requirements | handoff protocols)
+  PM: Notion 25da1108c2088077b24be0238a1ddf37
+
+  ### Policies
+  PROHIBIT: /app/*.md | duplicates | phase-reports
+  DELETE: completed-work | old-validations (after-merge)
 
   ## Operations
   Branches: main(clinical-validated)\|release(full-review)\|hotfix(crisis-expedited)
@@ -99,5 +93,5 @@
   Integration: global-standards + domain-requirements | Domain-veto-power
 
   ## CHANGELOG
-  Update: merge→main|feat/*|fix/*|BREAKING | Format: [semver]-date | Sections: 🚨Critical|⚡Perf|♿A11y|🛡️Security|✨Features|🐛Fixes
+  Update: merge→main|feat/*|fix/*|BREAKING | Format: [semver]-date | Sections: Critical|Performance|Accessibility|Security|Features|Fixes
   Auto: post-merge|post-deploy|critical-fixes | Template: version→summary→changes(git log)→contributors

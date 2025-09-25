@@ -9,9 +9,9 @@ import mockAsyncStorage from '@react-native-async-storage/async-storage/jest/asy
 // Mock AsyncStorage for consistent test environment
 jest.mock('@react-native-async-storage/async-storage', () => mockAsyncStorage);
 
-// Mock React Native modules
-jest.mock('react-native/Libraries/EventEmitter/NativeEventEmitter');
-jest.mock('react-native/Libraries/Animated/NativeAnimatedHelper');
+// Mock React Native modules - using virtual mocks to avoid path issues
+jest.mock('react-native/Libraries/EventEmitter/NativeEventEmitter', () => ({}), { virtual: true });
+jest.mock('react-native/Libraries/Animated/NativeAnimatedHelper', () => ({}), { virtual: true });
 
 // Mock Expo modules
 jest.mock('expo-haptics', () => ({
@@ -53,6 +53,25 @@ jest.mock('expo-secure-store', () => ({
   isAvailableAsync: jest.fn().mockResolvedValue(true),
 }));
 
+// Mock expo-local-authentication for biometric tests
+jest.mock('expo-local-authentication', () => ({
+  hasHardwareAsync: jest.fn().mockResolvedValue(true),
+  supportedAuthenticationTypesAsync: jest.fn().mockResolvedValue([1, 2]), // fingerprint and face
+  isEnrolledAsync: jest.fn().mockResolvedValue(true),
+  authenticateAsync: jest.fn().mockResolvedValue({ success: true }),
+  AuthenticationType: {
+    FINGERPRINT: 1,
+    FACIAL_RECOGNITION: 2,
+    IRIS: 3,
+  },
+  SecurityLevel: {
+    NONE: 0,
+    SECRET: 1,
+    BIOMETRIC_WEAK: 2,
+    BIOMETRIC_STRONG: 3,
+  },
+}));
+
 // Mock React Navigation
 jest.mock('@react-navigation/native', () => ({
   useNavigation: () => ({
@@ -74,6 +93,21 @@ jest.mock('@react-navigation/native', () => ({
 jest.mock('react-native/Libraries/Linking/Linking', () => ({
   canOpenURL: jest.fn().mockResolvedValue(true),
   openURL: jest.fn().mockResolvedValue(true),
+}));
+
+// Mock NetInfo for network status tests
+jest.mock('@react-native-community/netinfo', () => ({
+  fetch: jest.fn().mockResolvedValue({
+    type: 'wifi',
+    isConnected: true,
+    isInternetReachable: true,
+  }),
+  addEventListener: jest.fn(() => jest.fn()),
+  useNetInfo: () => ({
+    type: 'wifi',
+    isConnected: true,
+    isInternetReachable: true,
+  }),
 }));
 
 // Global test utilities

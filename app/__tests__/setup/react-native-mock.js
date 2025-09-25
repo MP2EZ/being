@@ -69,22 +69,8 @@ jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 44, bottom: 34, left: 0, right: 0 }),
 }));
 
-// Mock Reanimated for animation testing
-jest.mock('react-native-reanimated', () => {
-  const Reanimated = require('react-native-reanimated/mock');
-  
-  // Add custom mock for breathing circle animation
-  Reanimated.default.createAnimatedComponent = jest.fn();
-  Reanimated.default.useSharedValue = jest.fn(() => ({
-    value: 0,
-  }));
-  Reanimated.default.useAnimatedStyle = jest.fn(() => ({}));
-  Reanimated.default.withTiming = jest.fn((value) => value);
-  Reanimated.default.withRepeat = jest.fn((value) => value);
-  Reanimated.default.withSequence = jest.fn((...values) => values[0]);
-  
-  return Reanimated;
-});
+// NOTE: react-native-reanimated mocking removed to avoid dependency issues
+// Individual test files can mock reanimated as needed
 
 // Mock gesture handler
 jest.mock('react-native-gesture-handler', () => {
@@ -102,7 +88,10 @@ jest.mock('react-native-gesture-handler', () => {
 });
 
 // Mock slider component for assessment tests
-jest.mock('@react-native-community/slider', () => 'Slider');
+jest.mock('@react-native-community/slider', () => {
+  const React = require('react');
+  return React.forwardRef(() => null);
+}, { virtual: true });
 
 // Mock SVG for icon tests
 jest.mock('react-native-svg', () => ({
@@ -110,6 +99,6 @@ jest.mock('react-native-svg', () => ({
   Circle: 'Circle',
   Path: 'Path',
   G: 'G',
-}));
+}), { virtual: true });
 
 console.log('React Native mocks initialized for testing environment');
