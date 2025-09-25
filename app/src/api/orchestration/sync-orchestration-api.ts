@@ -10,9 +10,8 @@
  */
 
 import { z } from 'zod';
-import type { SubscriptionTier } from '../../types/subscription';
-import type { SyncPriority } from '../sync/payment-sync-context-api';
-import type { ConflictType, TherapeuticImpact } from '../../store/sync/conflict-resolution-store';
+import type { SubscriptionTier } from "../../types/payment-canonical";
+import type { SyncPriorityLevel as SyncPriority, SyncConflict } from '../../types/cross-device-sync-canonical';
 
 /**
  * Priority Queue Configuration Schema
@@ -645,7 +644,7 @@ export class SyncOrchestrationAPI {
     const response = await fetch(url, {
       method,
       headers,
-      body: data ? JSON.stringify(data) : undefined,
+      body: data ? JSON.stringify(data) : null,
       signal: AbortSignal.timeout(this.defaultTimeout)
     });
 

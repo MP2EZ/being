@@ -1,0 +1,449 @@
+{
+  "timestamp": "2025-09-25T17:43:23.641Z",
+  "phase": "5F",
+  "validationType": "performance",
+  "requirements": {
+    "crisisResponseMs": 200,
+    "assessmentLoadingMs": 500,
+    "appLaunchMs": 2000,
+    "checkInFlowMs": 500,
+    "breathingExerciseFps": 60
+  },
+  "tests": [
+    {
+      "name": "Crisis Response Time",
+      "requirement": "<200ms",
+      "measured": "0.00ms avg, 0.07ms max",
+      "passed": true,
+      "critical": true,
+      "details": {
+        "iterations": 50,
+        "averageMs": 0.002329219999999985,
+        "maxMs": 0.06595800000000018,
+        "minMs": 0.00045800000000006946,
+        "consistencyScore": 99.96725
+      }
+    },
+    {
+      "name": "Assessment Loading Performance",
+      "requirement": "<500ms",
+      "measured": "0.00ms average",
+      "passed": true,
+      "critical": true,
+      "details": [
+        {
+          "assessmentType": "phq9",
+          "averageMs": 0.0010467200000001497,
+          "maxMs": 0.012666000000001176,
+          "passed": true
+        },
+        {
+          "assessmentType": "gad7",
+          "averageMs": 0.0004616399999999743,
+          "maxMs": 0.0017920000000000158,
+          "passed": true
+        }
+      ]
+    },
+    {
+      "name": "App Launch Time",
+      "requirement": "<2s cold start",
+      "measured": "0.00s average",
+      "passed": true,
+      "critical": true,
+      "details": {
+        "iterations": 10,
+        "averageMs": 0.0064831999999997334,
+        "maxMs": 0.03333300000000072,
+        "simulations": [
+          {
+            "iteration": 1,
+            "storeInitMs": 677.3442982876938,
+            "componentMountMs": 165.5938697872062,
+            "dataLoadMs": 397.26572388944976,
+            "totalMs": 0.020708999999998312
+          },
+          {
+            "iteration": 2,
+            "storeInitMs": 701.1477605863553,
+            "componentMountMs": 168.54794740147202,
+            "dataLoadMs": 427.5308101804298,
+            "totalMs": 0.0015000000000000568
+          },
+          {
+            "iteration": 3,
+            "storeInitMs": 739.1961670677246,
+            "componentMountMs": 154.47877404191436,
+            "dataLoadMs": 346.50583999076593,
+            "totalMs": 0.0012080000000000979
+          },
+          {
+            "iteration": 4,
+            "storeInitMs": 548.7457424135682,
+            "componentMountMs": 101.99770198771883,
+            "dataLoadMs": 414.39076265651323,
+            "totalMs": 0.0011250000000000426
+          },
+          {
+            "iteration": 5,
+            "storeInitMs": 673.6919432990549,
+            "componentMountMs": 207.54796111560103,
+            "dataLoadMs": 395.696629751536,
+            "totalMs": 0.0024159999999984194
+          },
+          {
+            "iteration": 6,
+            "storeInitMs": 456.05674732249395,
+            "componentMountMs": 101.02136164089906,
+            "dataLoadMs": 331.28578386358146,
+            "totalMs": 0.0011250000000000426
+          },
+          {
+            "iteration": 7,
+            "storeInitMs": 763.2479815843009,
+            "componentMountMs": 145.91313220023224,
+            "dataLoadMs": 436.3081427802732,
+            "totalMs": 0.001082999999999501
+          },
+          {
+            "iteration": 8,
+            "storeInitMs": 584.6220489619601,
+            "componentMountMs": 143.50313583282517,
+            "dataLoadMs": 482.612458722943,
+            "totalMs": 0.0012080000000000979
+          },
+          {
+            "iteration": 9,
+            "storeInitMs": 654.2494830067048,
+            "componentMountMs": 130.8501129619327,
+            "dataLoadMs": 315.13134980576893,
+            "totalMs": 0.0011250000000000426
+          },
+          {
+            "iteration": 10,
+            "storeInitMs": 629.3041897548467,
+            "componentMountMs": 152.80747564564098,
+            "dataLoadMs": 293.67707187653247,
+            "totalMs": 0.03333300000000072
+          }
+        ]
+      }
+    },
+    {
+      "name": "Check-in Flow Performance",
+      "requirement": "<500ms",
+      "measured": "0.00ms average",
+      "passed": true,
+      "critical": true,
+      "details": {
+        "iterations": 20,
+        "averageMs": 0.0019751000000002073,
+        "maxMs": 0.013334000000000401,
+        "stepBreakdown": {
+          "mood_selection": 0.0007666000000000395,
+          "energy_level": 0.00028120000000022574,
+          "sleep_quality": 0.000439649999999947,
+          "anxiety_level": 0.00023964999999988025,
+          "data_save": 0.0002480000000001148
+        }
+      }
+    },
+    {
+      "name": "Breathing Exercise Performance",
+      "requirement": "60fps (16.67ms per frame)",
+      "measured": "0.00ms avg, 100.0% consistency",
+      "passed": true,
+      "critical": true,
+      "details": {
+        "totalFrames": 180,
+        "averageFrameMs": 0.0005585611111111098,
+        "maxFrameMs": 0.02704199999999979,
+        "targetFrameMs": 16.666666666666668,
+        "frameRateConsistency": 100,
+        "framesUnderTarget": 180
+      }
+    },
+    {
+      "name": "Store Consolidation Impact",
+      "requirement": "≥20% file reduction, ≥15% memory improvement",
+      "measured": "44.4% files, 46.7% memory",
+      "passed": true,
+      "critical": false,
+      "details": {
+        "before": {
+          "fileCount": 45,
+          "totalLinesOfCode": 12000,
+          "memoryFootprint": 112.5,
+          "subscriptionOverhead": 13.5
+        },
+        "after": {
+          "fileCount": 25,
+          "totalLinesOfCode": 8500,
+          "memoryFootprint": 60,
+          "subscriptionOverhead": 6.25
+        },
+        "improvements": {
+          "fileReduction": 44.44444444444444,
+          "codeReduction": 29.166666666666668,
+          "memoryImprovement": 46.666666666666664,
+          "subscriptionEfficiency": 53.70370370370371
+        }
+      }
+    },
+    {
+      "name": "Memory Usage Validation",
+      "requirement": "No memory leaks, <105MB total usage",
+      "measured": "109.4MB total",
+      "passed": false,
+      "critical": true,
+      "details": {
+        "individualTests": [
+          {
+            "name": "Store Initialization",
+            "memoryUsageMB": 34.78902793470509,
+            "threshold": 50,
+            "passed": true
+          },
+          {
+            "name": "Assessment Data Loading",
+            "memoryUsageMB": 36.566088679812744,
+            "threshold": 30,
+            "passed": false
+          },
+          {
+            "name": "Crisis Detection Memory Spike",
+            "memoryUsageMB": 38.04137787880885,
+            "threshold": 25,
+            "passed": false
+          }
+        ],
+        "totalUsageMB": 109.39649449332668,
+        "memoryEfficiencyScore": -4.187137612692081
+      }
+    },
+    {
+      "name": "Bundle Size Optimization",
+      "requirement": "≥10% size reduction, <8MB total",
+      "measured": "15.3% reduction, 7.0MB total",
+      "passed": true,
+      "critical": false,
+      "details": {
+        "before": {
+          "totalSizeKB": 8500,
+          "storeModulesKB": 2800,
+          "duplicatedCodeKB": 450
+        },
+        "after": {
+          "totalSizeKB": 7200,
+          "storeModulesKB": 2100,
+          "duplicatedCodeKB": 120
+        },
+        "sizeReductionPercent": 15.294117647058824,
+        "duplicatedCodeReductionPercent": 73.33333333333333
+      }
+    },
+    {
+      "name": "React Native Performance",
+      "requirement": "All RN performance thresholds met",
+      "measured": "33.3% tests passed",
+      "passed": false,
+      "critical": true,
+      "details": {
+        "individualTests": [
+          {
+            "name": "Component Re-render Optimization",
+            "rerendersPerSecond": 33.90223155092681,
+            "threshold": 30,
+            "passed": false
+          },
+          {
+            "name": "State Subscription Efficiency",
+            "subscriptionLatencyMs": 32.07515965081397,
+            "threshold": 50,
+            "passed": true
+          },
+          {
+            "name": "Navigation Performance",
+            "transitionTimeMs": 320.0079099878389,
+            "threshold": 300,
+            "passed": false
+          }
+        ],
+        "overallScore": 33.33333333333333
+      }
+    },
+    {
+      "name": "Zustand Subscription Performance",
+      "requirement": "All subscription performance thresholds met",
+      "measured": "66.7% tests passed",
+      "passed": false,
+      "critical": false,
+      "details": {
+        "individualTests": [
+          {
+            "name": "Subscription Creation",
+            "timeMs": 4.4338959000000004,
+            "threshold": 100,
+            "passed": true
+          },
+          {
+            "name": "Update Propagation",
+            "timeMs": 21.4649875,
+            "threshold": 50,
+            "passed": true
+          },
+          {
+            "name": "Subscription Cleanup",
+            "efficiencyPercent": 91,
+            "threshold": 95,
+            "passed": false
+          }
+        ],
+        "overallScore": 66.66666666666666
+      }
+    },
+    {
+      "name": "Resource Utilization Analysis",
+      "requirement": "≥75% resource efficiency",
+      "measured": "60.0% efficiency",
+      "passed": false,
+      "critical": false,
+      "details": {
+        "cpuUsage": {
+          "averageUsagePercent": 12.885367432846374,
+          "maxUsagePercent": 17.57188121085152,
+          "operationBreakdown": [
+            {
+              "name": "Crisis Detection",
+              "cpuPercent": 16.03130922827442
+            },
+            {
+              "name": "Assessment Calculation",
+              "cpuPercent": 12.631590031118037
+            },
+            {
+              "name": "Data Encryption",
+              "cpuPercent": 17.57188121085152
+            },
+            {
+              "name": "State Updates",
+              "cpuPercent": 5.306689261141523
+            }
+          ],
+          "efficiencyScore": 74.22926513430725
+        },
+        "memoryUsage": {
+          "baselineUsageMB": 57.341510399284054,
+          "peakUsageMB": 98.84794179745471,
+          "averageUsageMB": 77.45386042563922,
+          "memoryLeaksDetected": 0,
+          "efficiencyScore": 45.09227914872156
+        },
+        "batteryImpact": {
+          "backgroundCPUPercent": 1.2056883960010663,
+          "networkRequestsPerMinute": 6.801641296766648,
+          "screenWakeUps": 12.610652626028134,
+          "encryptionOverheadPercent": 2.11633699565215,
+          "efficiencyScore": 51.14749584216716
+        },
+        "storageIO": {
+          "averageLatencyMs": 47.874645245026755,
+          "maxLatencyMs": 104.60010260491431,
+          "totalOperations": 50,
+          "operationBreakdown": {
+            "read": {
+              "count": 10,
+              "averageLatency": 31.16883400134784
+            },
+            "write": {
+              "count": 15,
+              "averageLatency": 44.234915316111824
+            },
+            "encrypt": {
+              "count": 13,
+              "averageLatency": 62.06543777704259
+            },
+            "decrypt": {
+              "count": 12,
+              "averageLatency": 50.9724584495523
+            }
+          },
+          "efficiencyScore": 76.06267737748662
+        }
+      }
+    },
+    {
+      "name": "Cross-Platform Performance",
+      "requirement": "iOS/Android parity within 20%",
+      "measured": "104.6% max difference",
+      "passed": false,
+      "critical": true,
+      "details": {
+        "platforms": [
+          {
+            "platform": "ios",
+            "crisisResponseMs": 182.71101118564832,
+            "assessmentLoadMs": 322.7672036109036,
+            "navigationMs": 264.0993338887613,
+            "memoryUsageMB": 74.66990303774641,
+            "frameDropPercent": 2.5519714453344324
+          },
+          {
+            "platform": "android",
+            "crisisResponseMs": 227.11586106039292,
+            "assessmentLoadMs": 436.32627605313036,
+            "navigationMs": 299.35520056640473,
+            "memoryUsageMB": 66.51163975547306,
+            "frameDropPercent": 5.222441260903326
+          }
+        ],
+        "parityAnalysis": {
+          "maxDifferencePercent": 104.64340502128668,
+          "withinTolerance": false,
+          "detailedDifferences": {
+            "crisisResponseMs": 24.3033244611765,
+            "assessmentLoadMs": 35.18296505091094,
+            "navigationMs": 13.349472018166173,
+            "memoryUsageMB": 12.265918134430045,
+            "frameDropPercent": 104.64340502128668
+          }
+        }
+      }
+    },
+    {
+      "name": "Performance Monitoring Validation",
+      "requirement": "All monitoring systems functional",
+      "measured": "100.0% systems operational",
+      "passed": true,
+      "critical": false,
+      "details": {
+        "individualTests": [
+          {
+            "name": "Performance Metric Collection",
+            "metricsCollected": 16,
+            "threshold": 15,
+            "passed": true
+          },
+          {
+            "name": "Performance Alerting",
+            "alertLatencyMs": 350,
+            "threshold": 1000,
+            "passed": true
+          },
+          {
+            "name": "Performance Data Retention",
+            "retentionDays": 30,
+            "threshold": 30,
+            "passed": true
+          }
+        ],
+        "overallScore": 100
+      }
+    }
+  ],
+  "performanceMetrics": {},
+  "overallStatus": "FAIL",
+  "performanceScore": 62,
+  "generatedAt": "2025-09-25T17:43:24.119Z",
+  "version": "5F.1.0"
+}

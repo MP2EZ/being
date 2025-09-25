@@ -3445,6 +3445,15 @@ export const paymentSelectors = {
     queueSize: Array.from(state._stateUpdateQueue?.values() || [])
       .filter(update => !update.processed).length,
     lastUpdateTime: state._webhookMetrics.lastEventProcessed
+  }),
+
+  // Crisis access detection - critical for crisis components
+  getCrisisAccess: (state: PaymentStoreState) => ({
+    crisisMode: state.crisisMode,
+    crisisTools: state.featureAccess?.crisisTools || false,
+    emergencyContacts: state.featureAccess?.emergencyContacts || false,
+    hotlineAccess: state.featureAccess?.hotlineAccess || false,
+    hasAnyAccess: state.crisisMode || state.featureAccess?.crisisTools || false
   })
 };
 

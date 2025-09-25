@@ -12,7 +12,7 @@
 import { renderHook, act } from '@testing-library/react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { usePaymentSyncResilienceStore } from '../paymentSyncResilienceStore';
-import { PaymentState, CrisisPaymentOverride } from '../../types/payment';
+import { PaymentStoreState as PaymentState, CrisisPaymentOverride } from '../../types/payment-canonical';
 
 // Mock dependencies
 jest.mock('@react-native-async-storage/async-storage', () => ({

@@ -91,10 +91,10 @@ export {
   VALIDATION_CONSTANTS,
 } from './validation';
 
-// Enhanced component props with clinical safety
+// Enhanced component props with clinical safety (consolidated)
 export type {
   // Enhanced base props
-  EnhancedBaseProps,
+  BaseComponentProps as EnhancedBaseProps,
   ComponentPerformanceMetrics,
 
   // Crisis-aware components
@@ -104,11 +104,11 @@ export type {
 
   // Therapeutic components
   TherapeuticBreathingCircleProps,
-  BreathingPerformanceMetrics as TherapeuticBreathingPerformanceMetrics,
+  ComponentPerformanceMetrics as TherapeuticBreathingPerformanceMetrics,
 
   // Enhanced component constants
-  EnhancedComponentConstants,
-} from './component-props-enhanced';
+  COMPONENT_PROPS_CANONICAL_CONSTANTS as EnhancedComponentConstants,
+} from './component-props-canonical';
 
 // Enhanced navigation with crisis safety
 export type {
@@ -773,7 +773,7 @@ export type {
 
   // Validation Schemas
   PaymentSchemas
-} from './payment';
+} from './payment-canonical';
 
 // Import comprehensive subscription types for Day 17 Phase 4 TypeScript integration
 export type {
@@ -817,7 +817,7 @@ export type {
   isFeatureAccessResult,
   isTrialState,
   isSubscriptionError
-} from './subscription';
+} from './payment-canonical';
 
 // Import enhanced subscription store types
 export type {
@@ -846,7 +846,7 @@ export type {
 
   // Type Guards
   isEnhancedSubscriptionStore
-} from './subscription-store';
+} from './payment-canonical';
 
 // Import subscription hook types
 export type {
@@ -882,7 +882,7 @@ export type {
   // Hook Type Guards
   isUseSubscriptionReturn,
   isUseFeatureGateReturn
-} from './subscription-hooks';
+} from './payment-canonical';
 
 // Import subscription component types
 export type {
@@ -915,7 +915,7 @@ export type {
   SubscriptionTheme,
   SubscriptionAnimations,
   SubscriptionAccessibility
-} from './subscription-components';
+} from './payment-canonical';
 
 // Import comprehensive webhook types for Day 18 integration
 export type {
@@ -1517,7 +1517,7 @@ export type {
   CrisisOverrideStyleFunction,
   PaymentSafeRippleConfig,
   TherapeuticPaymentRipple
-} from './payment-pressable-enhanced';
+} from './payment-canonical';
 
 // Enhanced interaction types for migrated payment components
 export type {
@@ -1538,7 +1538,7 @@ export type {
   PaymentInteractionPerformanceMetrics,
   PaymentInteractionError,
   PaymentInteractionRecoveryStrategy
-} from './payment-interaction-enhanced';
+} from './payment-canonical';
 
 // Enhanced crisis detection types for payment anxiety algorithms
 export type {
@@ -1559,7 +1559,7 @@ export type {
   // Performance and Validation Types
   PaymentAnxietyPerformanceMetrics,
   PaymentAnxietyAlgorithmValidation
-} from './payment-crisis-detection-enhanced';
+} from './payment-canonical';
 
 // Enhanced HIPAA compliance types for financial + mental health data intersection
 export type {
@@ -1581,7 +1581,7 @@ export type {
   PaymentHIPAAViolationType,
   PaymentHIPAAWarning,
   PaymentHIPAARecommendation
-} from './payment-hipaa-compliance-enhanced';
+} from './payment-canonical';
 
 // Enhanced payment Pressable factory functions and validators
 export {

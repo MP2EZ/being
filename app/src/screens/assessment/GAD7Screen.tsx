@@ -9,7 +9,7 @@ import { View, Text, StyleSheet, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Button } from '../../components/core/Button';
-import { useAssessmentStore } from '../../store/assessmentStore';
+import { useAssessmentStore } from '../../store';
 import { colorSystem, spacing, borderRadius } from '../../constants/colors';
 import { AssessmentQuestion, AssessmentOption } from '../../types';
 import { CRISIS_THRESHOLDS } from '../../utils/validation';

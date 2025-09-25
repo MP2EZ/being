@@ -13,7 +13,12 @@ import type {
   SubscriptionTier,
   SubscriptionState,
   SubscriptionError
-} from '../../types/subscription';
+} from "../../types/payment-canonical";
+import type {
+  SyncOperation,
+  SyncState,
+  SyncPriorityLevel
+} from '../../types/cross-device-sync-canonical';
 import type {
   SyncableData,
   SyncMetadata,
@@ -442,7 +447,7 @@ export class PaymentSyncContextAPI {
     const response = await fetch(url, {
       method,
       headers,
-      body: data ? JSON.stringify(data) : undefined,
+      body: data ? JSON.stringify(data) : null,
       signal: AbortSignal.timeout(this.defaultTimeout)
     });
 

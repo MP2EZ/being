@@ -26,7 +26,7 @@ import type {
   PriorityQueueOperation,
   PriorityLevel,
 } from '../../types/sync/sync-priority-queue';
-import type { SubscriptionTier } from '../../types/subscription';
+import type { SubscriptionTier } from '../../types/payment-canonical';
 
 /**
  * Crisis Level Enum with Escalation Thresholds

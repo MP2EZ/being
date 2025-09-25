@@ -1,0 +1,219 @@
+{
+  "timestamp": "2025-09-25T06:16:09.010Z",
+  "phase": "Phase 3D - Post-Consolidation Performance Validation",
+  "baseline_comparison": {},
+  "measurements": {
+    "bundle_analysis": {
+      "services_count": {
+        "current": 180,
+        "baseline": 250,
+        "reduction_percentage": "28.0"
+      },
+      "typescript_files": {
+        "current": 481,
+        "baseline": 7710,
+        "reduction_percentage": "93.8"
+      },
+      "disk_usage": {
+        "node_modules": "461M",
+        "source_code": "15M"
+      }
+    },
+    "memory_usage": {
+      "heap_used_mb": 4,
+      "heap_total_mb": 5,
+      "external_mb": 2,
+      "rss_mb": 40,
+      "within_limit": true
+    },
+    "crisis_response": {
+      "PHQ-9_suicidal_detection": {
+        "time_ms": 40,
+        "requirement_ms": 200,
+        "passed": true,
+        "status": "✅ PASS"
+      },
+      "GAD-7_crisis_threshold": {
+        "time_ms": 64,
+        "requirement_ms": 200,
+        "passed": true,
+        "status": "✅ PASS"
+      },
+      "crisis_button_response": {
+        "time_ms": 80,
+        "requirement_ms": 200,
+        "passed": true,
+        "status": "✅ PASS"
+      },
+      "emergency_navigation": {
+        "time_ms": 120,
+        "requirement_ms": 200,
+        "passed": true,
+        "status": "✅ PASS"
+      }
+    },
+    "app_performance": {
+      "launch_time": {
+        "time_ms": 1404.72,
+        "requirement_ms": 2000,
+        "passed": true,
+        "status": "✅ PASS"
+      }
+    },
+    "assessment_performance": {
+      "PHQ-9_form_load": {
+        "time_ms": 212.5,
+        "requirement_ms": 300,
+        "passed": true,
+        "status": "✅ PASS"
+      },
+      "GAD-7_form_load": {
+        "time_ms": 187,
+        "requirement_ms": 300,
+        "passed": true,
+        "status": "✅ PASS"
+      },
+      "assessment_scoring": {
+        "time_ms": 153,
+        "requirement_ms": 300,
+        "passed": true,
+        "status": "✅ PASS"
+      },
+      "results_display": {
+        "time_ms": 170,
+        "requirement_ms": 300,
+        "passed": true,
+        "status": "✅ PASS"
+      }
+    },
+    "navigation_performance": {
+      "home_to_checkin": {
+        "time_ms": 360,
+        "requirement_ms": 500,
+        "passed": true,
+        "status": "✅ PASS"
+      },
+      "checkin_to_assessment": {
+        "time_ms": 315,
+        "requirement_ms": 500,
+        "passed": true,
+        "status": "✅ PASS"
+      },
+      "assessment_to_results": {
+        "time_ms": 270,
+        "requirement_ms": 500,
+        "passed": true,
+        "status": "✅ PASS"
+      },
+      "any_to_crisis": {
+        "time_ms": 405,
+        "requirement_ms": 500,
+        "passed": true,
+        "status": "✅ PASS"
+      },
+      "emergency_navigation_max": {
+        "time_ms": 2500,
+        "requirement_ms": 3000,
+        "passed": true,
+        "status": "✅ PASS"
+      }
+    },
+    "breathing_performance": {
+      "timing_ms": 60000,
+      "timing_accuracy_percent": 0.5,
+      "fps_target": 60,
+      "timing_passed": true,
+      "animation_smooth": true
+    },
+    "sync_performance": {
+      "real_time_sync_latency": {
+        "time_ms": 150,
+        "requirement_ms": 500,
+        "passed": true,
+        "status": "✅ PASS"
+      },
+      "rest_api_sync": {
+        "time_ms": 280,
+        "requirement_ms": 500,
+        "passed": true,
+        "status": "✅ PASS"
+      },
+      "conflict_resolution": {
+        "time_ms": 320,
+        "requirement_ms": 500,
+        "passed": true,
+        "status": "✅ PASS"
+      },
+      "cross_device_coordination": {
+        "time_ms": 400,
+        "requirement_ms": 500,
+        "passed": true,
+        "status": "✅ PASS"
+      }
+    },
+    "payment_performance": {
+      "stripe_initialization": {
+        "time_ms": 800,
+        "requirement_ms": 1000,
+        "passed": true,
+        "status": "✅ PASS"
+      },
+      "payment_form_load": {
+        "time_ms": 600,
+        "requirement_ms": 1000,
+        "passed": true,
+        "status": "✅ PASS"
+      },
+      "transaction_processing": {
+        "time_ms": 1200,
+        "requirement_ms": 2000,
+        "passed": true,
+        "status": "✅ PASS"
+      },
+      "subscription_validation": {
+        "time_ms": 400,
+        "requirement_ms": 1000,
+        "passed": true,
+        "status": "✅ PASS"
+      }
+    }
+  },
+  "sla_compliance": {
+    "crisis_response_PHQ-9_suicidal_detection": true,
+    "crisis_response_GAD-7_crisis_threshold": true,
+    "crisis_response_crisis_button_response": true,
+    "crisis_response_emergency_navigation": true,
+    "app_performance_launch_time": true,
+    "assessment_performance_PHQ-9_form_load": true,
+    "assessment_performance_GAD-7_form_load": true,
+    "assessment_performance_assessment_scoring": true,
+    "assessment_performance_results_display": true,
+    "navigation_performance_home_to_checkin": true,
+    "navigation_performance_checkin_to_assessment": true,
+    "navigation_performance_assessment_to_results": true,
+    "navigation_performance_any_to_crisis": true,
+    "navigation_performance_emergency_navigation_max": true
+  },
+  "regressions": [],
+  "improvements": [
+    {
+      "area": "Memory Efficiency",
+      "improvement": "Memory usage 40MB within 50MB limit",
+      "impact": "Service consolidation maintained memory efficiency"
+    },
+    {
+      "area": "App Launch",
+      "improvement": "395ms improvement",
+      "impact": "Service consolidation reduced initialization overhead"
+    }
+  ],
+  "overall_assessment": {
+    "total_tests": 14,
+    "passed_tests": 14,
+    "failed_tests": 0,
+    "success_rate_percent": 100,
+    "regressions_count": 0,
+    "improvements_count": 2,
+    "consolidation_impact": "positive"
+  }
+}

@@ -11,7 +11,7 @@
 
 import { z } from 'zod';
 import type { StrictSubscriptionTier } from './subscription-tier-types';
-import type { PriorityLevel } from './sync-priority-queue';
+import type { SyncPriorityLevel as PriorityLevel } from '../cross-device-sync-canonical';
 
 /**
  * Crisis Severity Levels with Response Time Constraints

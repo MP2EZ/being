@@ -10,7 +10,7 @@ import { useNavigation, RouteProp, useRoute } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button } from '../../components/core/Button';
 import { colorSystem, spacing, borderRadius } from '../../constants/colors';
-import { useAssessmentStore } from '../../store/assessmentStore';
+import { useAssessmentStore } from '../../store';
 import { CRISIS_THRESHOLDS, requiresCrisisIntervention } from '../../utils/validation';
 
 type AssessmentResultsParams = {

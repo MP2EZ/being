@@ -16,7 +16,7 @@
 
 import { z } from 'zod';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { SubscriptionTier } from '../../types/subscription';
+import type { SubscriptionTier } from "../../types/payment-canonical";
 import type { OfflineOperation } from './offline-payment-queue-api';
 
 /**

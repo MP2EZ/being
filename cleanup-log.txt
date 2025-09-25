@@ -1,0 +1,23 @@
+FullMind Repository Cleanup Report
+========================================
+
+Files identified for cleanup:
+
+LOG FILES:
+- /Users/max/Development/active/fullmind/website/being-website/node_modules/nwsapi/dist/lint.log (0 bytes)
+
+TEMPORARY FILES (~):
+- /Users/max/Development/active/fullmind/website/being-website/node_modules/metaviewport-parser/test.js~ (3,373 bytes)
+- /Users/max/Development/active/fullmind/website/being-website/node_modules/metaviewport-parser/package.json~ (280 bytes)
+- /Users/max/Development/active/fullmind/website/being-website/node_modules/metaviewport-parser/README.md~ (285 bytes)
+- /Users/max/Development/active/fullmind/app/node_modules/nested-error-stacks/README.md~ (0 bytes)
+
+SUMMARY:
+- .DS_Store files: 0 found
+- *.log files: 1 found (0 bytes)
+- Temporary files (~): 4 found (3,938 bytes)
+- Total files: 5
+- Total space that could be recovered: 3,938 bytes (3.8 KB)
+
+NOTE: These files are located within node_modules directories, which are typically regenerated during npm install.
+Recommendation: Run 'npm ci' or 'npm install' to clean and regenerate node_modules instead of manual deletion.

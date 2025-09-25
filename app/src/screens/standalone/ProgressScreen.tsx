@@ -11,7 +11,7 @@ import { LineChart, BarChart } from 'react-native-chart-kit';
 import { Button, CrisisButton } from '../../components/core';
 import { colorSystem, spacing } from '../../constants/colors';
 import { useCheckInStore } from '../../store';
-import { useAssessmentStore } from '../../store/assessmentStore';
+import { useAssessmentStore } from '../../store';
 import { CheckIn } from '../../types';
 import { AssessmentResult } from '../../types/assessments';
 

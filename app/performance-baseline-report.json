@@ -1,0 +1,83 @@
+{
+  "timestamp": "2025-09-24T22:40:11.926Z",
+  "phase": "Phase 0 - Pre-Cleanup Baseline",
+  "measurements": {
+    "bundle_analysis": {
+      "typescript_files": {
+        "src_directory": 671,
+        "total_project": 7710
+      },
+      "dependencies": {
+        "production": 37,
+        "development": 18,
+        "total": 55
+      },
+      "disk_usage": {
+        "node_modules": "461M",
+        "source_code": "15M"
+      },
+      "architecture_debt": {
+        "service_files": 45,
+        "store_files": 54,
+        "npm_scripts": 152
+      }
+    },
+    "build_performance": {
+      "typescript_compilation": "Failed - likely type errors",
+      "error": "Command failed: npx tsc --noEmit"
+    },
+    "memory_baseline": {
+      "node_heap_used": "5MB",
+      "node_heap_total": "6MB",
+      "node_external": "2MB",
+      "node_rss": "36MB",
+      "target_mobile_limit": "50MB",
+      "current_status": "Within target"
+    },
+    "critical_components": {
+      "crisis_safety": 54,
+      "clinical_assessment": 21,
+      "therapeutic_animations": 13,
+      "state_management": 54
+    },
+    "test_coverage": {
+      "performance_tests": 20,
+      "crisis_tests": 23,
+      "clinical_tests": 12
+    },
+    "repository": {
+      "git_history": "0B",
+      "total_repository": "1.4G",
+      "status": "Pre-cleanup - expecting 2.3GB total"
+    }
+  },
+  "critical_requirements": {
+    "crisis_response_time": "<200ms",
+    "app_launch_time": "<2s",
+    "assessment_transitions": "<300ms",
+    "check_in_flow": "<500ms",
+    "breathing_animation": "60fps",
+    "memory_limit": "50MB"
+  },
+  "assessment": {
+    "readiness_score": 80,
+    "critical_issues": [
+      "Excessive TypeScript file count indicates high technical debt"
+    ],
+    "performance_risks": [],
+    "cleanup_recommendations": [
+      "Consolidate duplicate services (80+ → targeted reduction)",
+      "Reduce npm scripts from 217 to 30 essential scripts",
+      "Merge 4 parallel store architectures into unified Zustand pattern",
+      "Implement performance monitoring checkpoints during cleanup",
+      "Establish automated performance regression testing"
+    ]
+  },
+  "cleanup_targets": {
+    "npm_scripts": "217 → 30",
+    "typescript_files": "7710 → optimized",
+    "duplicate_services": "80+ → consolidated",
+    "store_architectures": "4 → 1 (Zustand)",
+    "repository_size": "2.3GB → reduced"
+  }
+}

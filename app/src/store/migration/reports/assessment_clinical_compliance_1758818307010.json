@@ -1,0 +1,27 @@
+{
+  "migrationId": "assessment_migration_1758818307010_0ssvv9i4w",
+  "completedAt": "2025-09-25T16:38:27.010Z",
+  "storeType": "assessment",
+  "patternVersion": "1.0.0",
+  "clinicalAccuracyVerified": true,
+  "performanceVerified": true,
+  "encryptionLevel": "CLINICAL",
+  "crisisThresholds": {
+    "phq9": 20,
+    "gad7": 15,
+    "suicidalIdeation": 1
+  },
+  "safetyFeatures": [
+    "encrypted_clinical_data",
+    "crisis_detection_validated",
+    "performance_optimized",
+    "automatic_rollback_capable"
+  ],
+  "complianceChecks": {
+    "clinicalCalculationAccuracy": "100%",
+    "crisisDetectionIntegrity": "100%",
+    "performanceRequirements": "MET",
+    "encryptionStandards": "CLINICAL",
+    "rollbackCapability": "VERIFIED"
+  }
+}

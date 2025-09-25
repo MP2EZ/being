@@ -11,7 +11,8 @@
 
 import { z } from 'zod';
 import type { SubscriptionTier, TrialState } from '../subscription';
-import type { ClinicalImpactLevel, SyncStatus, SyncEntityType } from '../sync';
+import type { SyncState, SyncOperation } from '../cross-device-sync-canonical';
+import type { ClinicalImpactLevel } from '../sync';
 
 /**
  * Core Sync Priority System - 10-level priority queue

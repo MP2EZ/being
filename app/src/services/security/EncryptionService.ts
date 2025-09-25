@@ -41,16 +41,19 @@ export interface EncryptionMetadata {
  * Classification of data sensitivity levels for mental health app
  */
 export enum DataSensitivity {
+  // Critical sensitivity - requires encryption + audit logging + emergency access
+  CRISIS = 'crisis', // Crisis intervention data, emergency contacts, safety plans, 988 access
+
   // Highest sensitivity - requires encryption + audit logging
   CLINICAL = 'clinical', // PHQ-9/GAD-7 answers, suicidal ideation
-  
+
   // High sensitivity - requires encryption
   PERSONAL = 'personal', // Check-in emotional data, crisis plans
-  
+
   // Moderate sensitivity - encryption recommended
   THERAPEUTIC = 'therapeutic', // User values, preferences, patterns
-  
-  // Low sensitivity - minimal protection needed  
+
+  // Low sensitivity - minimal protection needed
   SYSTEM = 'system' // App settings, notification preferences
 }
 
@@ -64,17 +67,20 @@ export class EncryptionService {
 
   // SecureStore keys for different encryption keys
   private readonly MASTER_KEY = 'being_master_key_v1';
+  private readonly CRISIS_KEY = 'being_crisis_key_v1';
   private readonly CLINICAL_KEY = 'being_clinical_key_v1';
   private readonly PERSONAL_KEY = 'being_personal_key_v1';
   private readonly KEY_ROTATION_DATE = 'being_key_rotation_date';
 
   // Development mode fallback keys (AsyncStorage)
   private readonly DEV_MASTER_KEY = 'being_dev_master_key_v1';
+  private readonly DEV_CRISIS_KEY = 'being_dev_crisis_key_v1';
   private readonly DEV_CLINICAL_KEY = 'being_dev_clinical_key_v1';
   private readonly DEV_PERSONAL_KEY = 'being_dev_personal_key_v1';
   private readonly DEV_KEY_ROTATION_DATE = 'being_dev_key_rotation_date';
 
-  // Key rotation policies: different for clinical vs personal data
+  // Key rotation policies: different for crisis vs clinical vs personal data
+  private readonly CRISIS_KEY_ROTATION_DAYS = 30; // Most frequent - crisis data
   private readonly CLINICAL_KEY_ROTATION_DAYS = 90;
   private readonly PERSONAL_KEY_ROTATION_DAYS = 180;
 
@@ -178,8 +184,8 @@ export class EncryptionService {
         timestamp: new Date().toISOString()
       };
 
-      // Log encryption event for clinical data (audit trail)
-      if (sensitivity === DataSensitivity.CLINICAL) {
+      // Log encryption event for crisis and clinical data (audit trail)
+      if (sensitivity === DataSensitivity.CRISIS || sensitivity === DataSensitivity.CLINICAL) {
         await this.logEncryptionEvent('encrypt', sensitivity, metadata);
       }
 
@@ -212,8 +218,8 @@ export class EncryptionService {
       // Decrypt the data
       const decryptedData = await this.performDecryption(encryptedData, key, iv);
       
-      // Log decryption event for clinical data (audit trail)
-      if (sensitivity === DataSensitivity.CLINICAL) {
+      // Log decryption event for crisis and clinical data (audit trail)
+      if (sensitivity === DataSensitivity.CRISIS || sensitivity === DataSensitivity.CLINICAL) {
         await this.logEncryptionEvent('decrypt', sensitivity, metadata);
       }
 
@@ -233,6 +239,7 @@ export class EncryptionService {
       // Delete production keys
       const productionDeletions = [
         SecureStore.deleteItemAsync(this.MASTER_KEY),
+        SecureStore.deleteItemAsync(this.CRISIS_KEY),
         SecureStore.deleteItemAsync(this.CLINICAL_KEY),
         SecureStore.deleteItemAsync(this.PERSONAL_KEY),
         SecureStore.deleteItemAsync(this.KEY_ROTATION_DATE)
@@ -241,6 +248,7 @@ export class EncryptionService {
       // Delete development keys
       const developmentDeletions = [
         AsyncStorage.removeItem(this.DEV_MASTER_KEY),
+        AsyncStorage.removeItem(this.DEV_CRISIS_KEY),
         AsyncStorage.removeItem(this.DEV_CLINICAL_KEY),
         AsyncStorage.removeItem(this.DEV_PERSONAL_KEY),
         AsyncStorage.removeItem(this.DEV_KEY_ROTATION_DATE)
@@ -584,6 +592,10 @@ export class EncryptionService {
       let devKeyName: string;
 
       switch (sensitivity) {
+        case DataSensitivity.CRISIS:
+          keyName = this.CRISIS_KEY;
+          devKeyName = this.DEV_CRISIS_KEY;
+          break;
         case DataSensitivity.CLINICAL:
           keyName = this.CLINICAL_KEY;
           devKeyName = this.DEV_CLINICAL_KEY;

@@ -10,9 +10,14 @@
  */
 
 import { z } from 'zod';
+import type { 
+  SyncPriorityLevel as PriorityLevel,
+  CrisisSyncCoordination,
+  CrossDeviceSyncConfig,
+  DeviceInfo 
+} from '../cross-device-sync-canonical';
 import type { StrictSubscriptionTier } from '../sync/subscription-tier-types';
 import type { CrisisSeverity } from '../sync/crisis-safety-types';
-import type { PriorityLevel } from '../sync/sync-priority-queue';
 
 /**
  * Device Type and Capabilities

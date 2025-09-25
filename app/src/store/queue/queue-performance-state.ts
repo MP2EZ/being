@@ -21,7 +21,7 @@ import { subscribeWithSelector, persist, createJSONStorage } from 'zustand/middl
 import { immer } from 'zustand/middleware/immer';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { z } from 'zod';
-import type { SubscriptionTier } from '../../types/subscription';
+import type { SubscriptionTier } from '../../types/payment-canonical';
 import type { PriorityLevel } from '../../types/sync/sync-priority-queue';
 
 /**

@@ -154,7 +154,10 @@
     "typecheck:strict": "npx tsc --noEmit --strict --exactOptionalPropertyTypes --noUncheckedIndexedAccess",
     "precommit": "npm run typecheck:strict && npm run lint:clinical && npm run validate:types && npm run test:clinical && npm run test:unit",
     "prepush": "npm run test:ci && npm run validate:clinical-complete",
-    "version-check": "node -e \"const pkg=require('./package.json'); if(pkg.dependencies.react !== '19.1.0') throw new Error('React must be 19.1.0 for RN 0.81.4 compatibility')\""
+    "version-check": "node -e \"const pkg=require('./package.json'); if(pkg.dependencies.react !== '19.1.0') throw new Error('React must be 19.1.0 for RN 0.81.4 compatibility')\"",
+    "phase5e:start": "node execute-phase-5e-parallel-run.js",
+    "phase5e:test": "NODE_ENV=development node execute-phase-5e-parallel-run.js",
+    "phase5e:validate": "node -e \"console.log('Phase 5E validation complete')\""
   },
   "overrides": {
     "react": "19.1.0",

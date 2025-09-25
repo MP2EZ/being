@@ -11,15 +11,18 @@ import {
   CloudClientConfig,
   TypeSafeFeatureFlags,
   EncryptableEntity,
-  AuthSession,
   BiometricAuthData,
   UserMigration,
   ClientSDKResult,
   isCloudClientConfig,
-  isAuthSession,
   isEncryptableEntity,
   CLOUD_CLIENT_CONSTANTS
 } from '../types/cloud-client';
+import {
+  EnhancedAuthSession,
+  isEnhancedAuthSession,
+  AUTHENTICATION_CANONICAL_CONSTANTS
+} from '../types/authentication-canonical';
 
 import {
   EncryptedEntity,
@@ -429,9 +432,9 @@ export class CloudTypesValidator {
    * Validate authentication types
    */
   private async validateAuthenticationTypes(): Promise<void> {
-    // Test AuthSession validation
-    this.check('AuthSession validation', () => {
-      const session: AuthSession = {
+    // Test EnhancedAuthSession validation
+    this.check('EnhancedAuthSession validation', () => {
+      const session: EnhancedAuthSession = {
         id: 'session-id',
         userId: 'user-id',
         deviceId: 'device-id',
@@ -519,7 +522,7 @@ export class CloudTypesValidator {
         }
       };
 
-      return isAuthSession(session);
+      return isEnhancedAuthSession(session);
     });
 
     // Test BiometricAuthData validation

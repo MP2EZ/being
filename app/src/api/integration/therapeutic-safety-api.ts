@@ -10,7 +10,7 @@
  */
 
 import { z } from 'zod';
-import type { SubscriptionTier } from '../../types/subscription';
+import type { SubscriptionTier } from "../../types/payment-canonical";
 
 /**
  * Therapeutic Safety Configuration Schema
@@ -752,7 +752,7 @@ export class TherapeuticSafetyAPI {
     const response = await fetch(url, {
       method,
       headers,
-      body: data ? JSON.stringify(data) : undefined,
+      body: data ? JSON.stringify(data) : null,
       signal: AbortSignal.timeout(this.defaultTimeout)
     });
 

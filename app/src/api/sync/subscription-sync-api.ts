@@ -9,8 +9,8 @@
  */
 
 import { z } from 'zod';
-import type { SubscriptionTier, SubscriptionState } from '../../types/subscription';
-import type { SyncPriority } from './payment-sync-context-api';
+import type { SubscriptionTier, SubscriptionState } from "../../types/payment-canonical";
+import type { SyncPriorityLevel as SyncPriority } from '../../types/cross-device-sync-canonical';
 
 /**
  * Tier-Based Sync Policy Configuration
@@ -485,7 +485,7 @@ export class SubscriptionSyncAPI {
     const response = await fetch(url, {
       method,
       headers,
-      body: data ? JSON.stringify(data) : undefined,
+      body: data ? JSON.stringify(data) : null,
       signal: AbortSignal.timeout(this.defaultTimeout)
     });
 

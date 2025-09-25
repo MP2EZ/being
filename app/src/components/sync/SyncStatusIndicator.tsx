@@ -15,6 +15,11 @@ import {
 import { syncOrchestrationService } from '../../services/SyncOrchestrationService';
 import { networkAwareService } from '../../services/NetworkAwareService';
 import {
+  SyncState,
+  SyncOperation,
+  SyncConflict as CanonicalSyncConflict
+} from '../../types/cross-device-sync-canonical';
+import {
   SyncStatus,
   AppSyncState,
   SyncEntityType,

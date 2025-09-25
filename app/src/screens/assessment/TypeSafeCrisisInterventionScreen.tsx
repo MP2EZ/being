@@ -43,11 +43,14 @@ import type {
 } from '../types/enhanced-assessment-types';
 
 import type {
-  CrisisOptimizedButtonProps,
-  CrisisButtonVariant,
-  createCrisisButtonProps,
-  THERAPEUTIC_BUTTON_CONSTANTS
-} from '../types/enhanced-button-types';
+  CrisisButtonProps as CrisisOptimizedButtonProps,
+  ButtonVariant as CrisisButtonVariant,
+  createDefaultCrisisPerformanceConfig as createCrisisButtonProps,
+  COMPONENT_PROPS_CANONICAL_CONSTANTS
+} from '../../types/component-props-canonical';
+
+// Maintain THERAPEUTIC_BUTTON_CONSTANTS for backward compatibility
+const THERAPEUTIC_BUTTON_CONSTANTS = COMPONENT_PROPS_CANONICAL_CONSTANTS;
 
 import type { ISODateString, createISODateString } from '../types/clinical';
 

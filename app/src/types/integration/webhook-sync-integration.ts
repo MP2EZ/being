@@ -11,8 +11,12 @@
 
 import { z } from 'zod';
 import type { WebhookEvent, WebhookEventType } from '../webhook';
+import type { 
+  SyncPriorityLevel as PriorityLevel,
+  CrisisSyncCoordination,
+  SyncOperation 
+} from '../cross-device-sync-canonical';
 import type { StrictSubscriptionTier } from '../sync/subscription-tier-types';
-import type { PriorityLevel } from '../sync/sync-priority-queue';
 import type { CrisisSeverity } from '../sync/crisis-safety-types';
 
 /**

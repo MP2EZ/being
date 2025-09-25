@@ -15,8 +15,8 @@
  */
 
 import { z } from 'zod';
-import type { SyncPriority } from './payment-sync-context-api';
-import type { SubscriptionTier } from '../../types/subscription';
+import type { SyncPriorityLevel as SyncPriority } from '../../types/cross-device-sync-canonical';
+import type { SubscriptionTier } from "../../types/payment-canonical";
 
 /**
  * Queue Operation Types
@@ -421,7 +421,7 @@ export class PriorityQueueAPI {
     const response = await fetch(url, {
       method,
       headers,
-      body: data ? JSON.stringify(data) : undefined,
+      body: data ? JSON.stringify(data) : null,
       signal: AbortSignal.timeout(this.defaultTimeout)
     });
 

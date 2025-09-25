@@ -51,7 +51,7 @@ export const AccessiblePaymentAnnouncements: React.FC<AccessiblePaymentAnnouncem
 
   const store = usePaymentStore();
   const syncStatus = paymentSelectors.getSyncStatus(store);
-  const paymentError = paymentSelectors.getPaymentError(store);
+  const paymentError = paymentSelectors.getPaymentErrorForUser(store);
   const crisisAccess = paymentSelectors.getCrisisAccess(store);
 
   // Check screen reader availability
@@ -392,7 +392,7 @@ export const HapticPaymentFeedback: React.FC<HapticPaymentFeedbackProps> = ({
 
   const store = usePaymentStore();
   const syncStatus = paymentSelectors.getSyncStatus(store);
-  const paymentError = paymentSelectors.getPaymentError(store);
+  const paymentError = paymentSelectors.getPaymentErrorForUser(store);
   const crisisAccess = paymentSelectors.getCrisisAccess(store);
 
   // Trigger haptic feedback based on status changes

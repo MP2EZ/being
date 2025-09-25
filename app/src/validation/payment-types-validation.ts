@@ -17,8 +17,8 @@
 import { z } from 'zod';
 import {
   PaymentSchemas,
-  PaymentConfig,
-  PaymentState,
+  PaymentEnvironmentConfig as PaymentConfig,
+  PaymentStoreState as PaymentState,
   PaymentActions,
   PaymentError,
   PaymentMethodData,
@@ -31,8 +31,8 @@ import {
   CustomerData,
   CustomerResult,
   WebhookEvent
-} from '../types/payment';
-import { AuthSession, SessionTokens, SessionSecurity } from '../types/auth-session';
+} from '../types/payment-canonical';
+import { EnhancedAuthSession, AUTHENTICATION_CANONICAL_CONSTANTS } from '../types/authentication-canonical';
 import { UserProfile, CheckIn } from '../types.ts';
 import { DataSensitivity } from '../types/security';
 import { quickValidation as validateCloudTypes } from './cloud-types-validation';

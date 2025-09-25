@@ -10,7 +10,7 @@
  */
 
 import { z } from 'zod';
-import type { SubscriptionTier } from '../../types/subscription';
+import type { SubscriptionTier } from '../../types/payment-canonical';
 import type { SyncState, ConflictResolutionState, CrossDeviceSyncState } from '../../store/sync/enhanced-sync-store';
 
 /**
@@ -728,7 +728,7 @@ export class EnhancedStoreAPI {
     const response = await fetch(url, {
       method,
       headers,
-      body: data ? JSON.stringify(data) : undefined,
+      body: data ? JSON.stringify(data) : null,
       signal: AbortSignal.timeout(this.defaultTimeout)
     });
 

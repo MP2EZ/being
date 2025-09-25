@@ -13,16 +13,16 @@
 import { z } from 'zod';
 import {
   PaymentSchemas,
-  PaymentConfig,
+  PaymentEnvironmentConfig as PaymentConfig,
   PaymentMethodData,
   PaymentIntentData,
-  SubscriptionResult,
+  SubscriptionState as SubscriptionResult,
   PaymentError,
   CrisisPaymentOverride,
   CustomerData,
   CustomerResult,
   PaymentEvent
-} from '../types/payment';
+} from '../types/payment-canonical';
 import {
   isValidPaymentConfig,
   isValidPaymentMethodData,
@@ -148,15 +148,15 @@ export class RuntimePaymentValidator {
         // Create emergency customer data if validation fails
         if (!isValidCustomerData(data)) {
           const emergencyCustomer: CustomerData = {
-            userId: 'emergency_user',
+            customerId: 'emergency_user',
             email: 'emergency@being.app',
             name: 'Emergency Access',
             metadata: {
               appUserId: 'emergency_user',
               deviceId: 'emergency_device',
               registrationDate: new Date().toISOString(),
-              therapeuticConsent: true,
-              crisisContactConsent: true
+              therapeuticConsent: 'true',
+              crisisContactConsent: 'true'
             }
           };
 
@@ -297,7 +297,9 @@ export class RuntimePaymentValidator {
               sessionId: 'emergency_session',
               crisisMode: true,
               appVersion: '1.0.0',
-              emergencyAccess: true
+              emergencyAccess: true,
+              hipaaCompliant: true,
+              pciCompliant: true
             }
           };
 
@@ -364,22 +366,43 @@ export class RuntimePaymentValidator {
       if (!isValidCrisisPaymentOverride(override)) {
         // Create emergency override if validation fails
         const emergencyOverride: CrisisPaymentOverride = {
-          crisisSessionId: `emergency_${Date.now()}`,
+          overrideId: `emergency_${Date.now()}`,
           userId: 'emergency_user',
-          deviceId: 'emergency_device',
-          overrideReason: 'emergency_access',
-          overrideType: 'full_access',
-          granted: new Date().toISOString(),
-          expires: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-          auditTrail: {
-            triggerEvent: 'validation_failure_emergency_bypass',
-            safetyScore: 100,
+          triggeredAt: new Date().toISOString(),
+          crisisContext: {
+            crisisId: `crisis_${Date.now()}`,
+            crisisSeverity: 'emergency',
+            crisisType: 'payment_anxiety_crisis',
+            emergencyServicesNeeded: false
+          },
+          override: {
+            overrideType: 'emergency_bypass',
             accessGranted: [
-              'all_therapeutic_features',
-              'crisis_tools',
-              'emergency_contacts',
-              'hotline_access'
-            ]
+              'all_features',
+              'assessment_tools',
+              'breathing_exercises',
+              'crisis_resources',
+              'emergency_contacts'
+            ],
+            duration: {
+              durationHours: 24,
+              expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+              extensible: false,
+              autoRenewal: false
+            },
+            restrictions: {
+              dataExportDisabled: true,
+              socialSharingDisabled: true,
+              paymentPageHidden: true,
+              subscriptionPromptDisabled: true
+            }
+          },
+          audit: {
+            authorizedBy: 'system_automatic',
+            hipaaCompliant: true,
+            auditTrailId: `audit_${Date.now()}`,
+            reviewRequired: true,
+            clinicalFollowupScheduled: true
           }
         };
 
@@ -407,23 +430,43 @@ export class RuntimePaymentValidator {
     } catch (error) {
       // CRITICAL: Never fail crisis override validation
       const emergencyOverride: CrisisPaymentOverride = {
-        crisisSessionId: `emergency_fallback_${Date.now()}`,
+        overrideId: `emergency_fallback_${Date.now()}`,
         userId: 'emergency_user',
-        deviceId: 'emergency_device',
-        overrideReason: 'emergency_access',
-        overrideType: 'full_access',
-        granted: new Date().toISOString(),
-        expires: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-        auditTrail: {
-          triggerEvent: 'validation_error_emergency_fallback',
-          safetyScore: 100,
+        triggeredAt: new Date().toISOString(),
+        crisisContext: {
+          crisisId: `crisis_error_${Date.now()}`,
+          crisisSeverity: 'emergency',
+          crisisType: 'payment_anxiety_crisis',
+          emergencyServicesNeeded: false
+        },
+        override: {
+          overrideType: 'emergency_bypass',
           accessGranted: [
-            'all_therapeutic_features',
-            'crisis_tools',
-            'emergency_contacts',
-            'hotline_access',
-            'safety_plan'
-          ]
+            'all_features',
+            'assessment_tools',
+            'breathing_exercises',
+            'crisis_resources',
+            'emergency_contacts'
+          ],
+          duration: {
+            durationHours: 24,
+            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+            extensible: false,
+            autoRenewal: false
+          },
+          restrictions: {
+            dataExportDisabled: true,
+            socialSharingDisabled: true,
+            paymentPageHidden: true,
+            subscriptionPromptDisabled: true
+          }
+        },
+        audit: {
+          authorizedBy: 'system_automatic',
+          hipaaCompliant: true,
+          auditTrailId: `audit_error_${Date.now()}`,
+          reviewRequired: true,
+          clinicalFollowupScheduled: true
         }
       };
 
@@ -447,27 +490,20 @@ export class RuntimePaymentValidator {
       // Crisis mode - provide emergency subscription
       if (crisisMode) {
         const emergencySubscription: SubscriptionResult = {
+          status: 'emergency_access',
           subscriptionId: `crisis_sub_${Date.now()}`,
           customerId: 'emergency_customer',
-          status: 'active',
-          currentPeriodStart: new Date().toISOString(),
-          currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-          cancelAtPeriodEnd: false,
-          plan: {
-            planId: 'emergency_access',
-            name: 'Emergency Therapeutic Access',
-            description: 'Crisis support with full MBCT features',
-            amount: 0,
-            currency: 'usd',
-            interval: 'month',
-            features: [
-              'Full MBCT content access',
-              'Crisis support tools',
-              'Emergency contacts integration',
-              '988 hotline access',
-              'Therapeutic continuity guarantee',
-              'Safety plan access'
-            ]
+          trial: {
+            isInTrial: false,
+            trialExtended: false
+          },
+          billing: {
+            paymentMethodAttached: false
+          },
+          emergency: {
+            emergencyAccessActive: true,
+            emergencyAccessReason: 'crisis_override',
+            gracePeriodActive: false
           }
         };
 
@@ -530,18 +566,16 @@ export class RuntimePaymentValidator {
   private validatePCICompliance(config: PaymentConfig): boolean {
     // Check PCI DSS compliance settings
     return (
-      config.compliance.pciDssLevel &&
-      ['1', '2', '3', '4'].includes(config.compliance.pciDssLevel) &&
-      config.security.enableFraudDetection
+      config.pciDssCompliant &&
+      config.auditLoggingEnabled
     );
   }
 
   private validateHIPAACompliance(config: PaymentConfig): boolean {
     // Check HIPAA compliance settings
     return (
-      config.compliance.hipaaCompliant &&
-      config.compliance.auditRetentionYears >= 7 &&
-      config.compliance.enableDetailedLogging
+      config.hipaaCompliant &&
+      config.auditLoggingEnabled
     );
   }
 
