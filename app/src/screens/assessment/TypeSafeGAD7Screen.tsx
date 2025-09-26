@@ -23,7 +23,7 @@ import type {
   GAD7Severity,
   ISODateString,
   createISODateString
-} from '../../types/clinical';
+} from '../../types/crisis-safety';
 
 import type {
   ValidatedGAD7Score,
@@ -32,7 +32,7 @@ import type {
   ClinicalCalculationCertified,
   TherapeuticTimingCertified,
   ClinicalTypeValidationError
-} from '../../types/clinical-type-safety';
+} from '../../types/crisis-safety';
 
 import type {
   StrictGAD7Answer,
@@ -46,15 +46,18 @@ import type {
   AssessmentOptionProps,
   AssessmentNavigationProps,
   ASSESSMENT_TYPE_CONSTANTS
-} from '../../types/enhanced-assessment-types';
+} from '../../types/crisis-safety';
 
 import type {
-  AssessmentButtonProps,
-  AnswerOptionButtonProps,
-  AssessmentNavigationButtonProps,
-  createAssessmentButtonProps,
-  THERAPEUTIC_BUTTON_CONSTANTS
-} from '../../types/enhanced-button-types';
+  EnhancedButtonProps as AssessmentButtonProps,
+  EnhancedButtonProps as AnswerOptionButtonProps,
+  EnhancedButtonProps as AssessmentNavigationButtonProps,
+  createDefaultCrisisPerformanceConfig as createAssessmentButtonProps,
+  COMPONENT_PROPS_CANONICAL_CONSTANTS
+} from '../../types/component-props-canonical';
+
+// Maintain THERAPEUTIC_BUTTON_CONSTANTS for backward compatibility
+const THERAPEUTIC_BUTTON_CONSTANTS = COMPONENT_PROPS_CANONICAL_CONSTANTS;
 
 import { useTypeSafeAssessmentHandler } from '../../hooks/useTypeSafeAssessmentHandler';
 import { enhancedClinicalCalculator } from '../../services/TypeSafeClinicalCalculationService';

@@ -18,9 +18,9 @@ import { useNavigation } from '@react-navigation/native';
 import { colorSystem } from '../../constants/colors';
 import { Button } from './Button';
 
-// Import enhanced type definitions
+// Import consolidated crisis safety types
 import type {
-  EnhancedCrisisButtonProps,
+  CrisisButtonProps,
   CrisisCallContext,
   CrisisCallResult,
   CrisisError,
@@ -30,7 +30,7 @@ import type {
   ResponseTimeMs,
   CrisisUrgencyLevel,
   PerformanceViolation,
-} from '../../types/crisis-button-enhanced';
+} from '../../types/crisis-safety';
 
 import {
   createCrisisPhoneNumber,
@@ -40,7 +40,7 @@ import {
   createCrisisMonitoringCallbacks,
   validateCrisisPerformanceConfig,
   CRISIS_BUTTON_CONSTANTS,
-} from '../../types/crisis-button-enhanced';
+} from '../../types/crisis-safety';
 
 /**
  * Enhanced CrisisButton with Comprehensive Type Safety

@@ -17,8 +17,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { z } from 'zod';
 import { encryptionService } from '../../services/security/EncryptionService';
 import { stateSynchronizationService } from '../../services/state/StateSynchronization';
-import type { SubscriptionTier, SubscriptionState } from '../../types/subscription';
-import type { PaymentState } from '../../types/payment';
+import type { SubscriptionTier, SubscriptionState, PaymentStoreState as PaymentState } from '../../types/payment-canonical';
 
 /**
  * Sync State Schema with Crisis Safety Integration

@@ -22,8 +22,7 @@ import { createJSONStorage, persist, subscribeWithSelector } from 'zustand/middl
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import { encryptionService } from '../services/security/EncryptionService';
-import { PaymentState, PaymentError, CrisisPaymentOverride } from '../types/payment';
-import { SubscriptionTier, SubscriptionState } from '../types/subscription';
+import { PaymentStoreState as PaymentState, PaymentError, CrisisPaymentOverride, SubscriptionTier, SubscriptionState } from '../types/payment-canonical';
 
 // ============================================================================
 // 1. STATE RECOVERY PATTERNS

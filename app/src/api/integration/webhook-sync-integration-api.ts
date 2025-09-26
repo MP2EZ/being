@@ -10,7 +10,7 @@
 
 import { z } from 'zod';
 import type { SyncPriority } from '../sync/payment-sync-context-api';
-import type { SubscriptionTier } from '../../types/subscription';
+import type { SubscriptionTier } from "../../types/payment-canonical";
 
 /**
  * Webhook Event Types for Sync Integration
@@ -553,7 +553,7 @@ export class WebhookSyncIntegrationAPI {
     const response = await fetch(url, {
       method,
       headers,
-      body: data ? JSON.stringify(data) : undefined,
+      body: data ? JSON.stringify(data) : null,
       signal: AbortSignal.timeout(this.defaultTimeout)
     });
 

@@ -1,33 +1,57 @@
 {
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "_description": "Being MBCT App - Clinical Grade TypeScript Configuration",
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
     "strict": true,
+    "exactOptionalPropertyTypes": true,
+    "noUncheckedIndexedAccess": true,
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
-    "noUncheckedIndexedAccess": true,
-    "exactOptionalPropertyTypes": true,
     "noImplicitOverride": true,
     "noPropertyAccessFromIndexSignature": true,
-    "noImplicitAny": true,
-    "strictNullChecks": true,
-    "strictFunctionTypes": true,
-    "strictBindCallApply": true,
-    "strictPropertyInitialization": true,
-    "noImplicitThis": true,
     "useUnknownInCatchVariables": true,
     "allowUnreachableCode": false,
     "allowUnusedLabels": false,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    "incremental": true,
+    "tsBuildInfoFile": "./.tsbuildinfo",
+    "composite": false,
+    "verbatimModuleSyntax": false,
+    "isolatedModules": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@/components/*": ["src/components/*"],
+      "@/screens/*": ["src/screens/*"],
+      "@/services/*": ["src/services/*"],
+      "@/store/*": ["src/store/*"],
+      "@/types/*": ["src/types/*"],
+      "@/utils/*": ["src/utils/*"],
+      "@/api/*": ["src/api/*"],
+      "@/validation/*": ["src/validation/*"]
+    }
   },
   "include": [
     "src/**/*",
     "index.ts",
-    "App.tsx"
+    "App.tsx",
+    "global.d.ts"
   ],
   "exclude": [
     "node_modules",
     "**/*.test.ts",
     "**/*.test.tsx",
-    "src/mocks/reanimated-temp.ts"
-  ]
+    "**/*.spec.ts",
+    "**/*.spec.tsx",
+    "src/mocks/reanimated-temp.ts",
+    "coverage",
+    "dist",
+    "build",
+    ".expo",
+    ".tsbuildinfo"
+  ],
+  "ts-node": {
+    "esm": true
+  }
 }

@@ -24,7 +24,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { OfflinePaymentQueueAPI, type OfflineOperation } from '../offline/offline-payment-queue-api';
 import { QueueSyncCoordinatorAPI } from '../offline/queue-sync-coordinator-api';
 import { SubscriptionOfflinePolicyAPI } from '../offline/subscription-offline-policy-api';
-import type { SubscriptionTier } from '../../types/subscription';
+import type { SubscriptionTier } from "../../types/payment-canonical";
 
 /**
  * Payment Queue Operation Schema

@@ -1,0 +1,35 @@
+{
+  "timestamp": "2025-09-25T17:19:22.488Z",
+  "phase": "5F",
+  "agent": "test",
+  "validationTimeMs": 11,
+  "overallPassed": true,
+  "clinicalAccuracy": 100,
+  "results": {
+    "phq9": {
+      "passed": 28,
+      "failed": 0,
+      "errors": []
+    },
+    "gad7": {
+      "passed": 21,
+      "failed": 0,
+      "errors": []
+    },
+    "crisis": {
+      "passed": 63,
+      "failed": 0,
+      "errors": []
+    },
+    "performance": {
+      "passed": 2,
+      "failed": 0,
+      "errors": []
+    }
+  },
+  "summary": {
+    "totalTests": 114,
+    "totalPassed": 114,
+    "totalFailed": 0
+  }
+}

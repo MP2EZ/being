@@ -200,4 +200,663 @@ export const useEnhancedAssessmentStore = create<EnhancedAssessmentStore>()(
               'phq9',
               async () => {
                 // Check cache first for performance
-                const cacheKey = `phq9_${answers.join('_')}`;\n                const cached = get().calculationCache.get(cacheKey);\n                \n                if (cached && (Date.now() - cached.calculatedAt) < 5 * 60 * 1000) {\n                  return cached.score;\n                }\n\n                // TurboModule calculation if available, fallback to JavaScript\n                let score: PHQ9Score;\n                if (turboStoreManager.calculationTurbo) {\n                  score = await turboStoreManager.calculatePHQ9ScoreTurbo(answers);\n                } else {\n                  // Validated JavaScript fallback with 100% accuracy guarantee\n                  score = answers.reduce((sum, answer) => sum + answer, 0) as PHQ9Score;\n                }\n\n                // Cache the calculation\n                get().calculationCache.set(cacheKey, { score, calculatedAt: Date.now() });\n                \n                return score;\n              }\n            );\n\n            const calculationTime = performance.now() - startTime;\n\n            if (result.success) {\n              const score = result.data;\n              \n              // Immediate crisis detection for suicidal ideation (Q9)\n              const hasSuicidalIdeation = answers.length >= 9 && answers[8] >= 1;\n              const isCrisisScore = score >= 20;\n              const isCrisisLevel = hasSuicidalIdeation || isCrisisScore;\n\n              // Trigger crisis response if detected\n              if (isCrisisLevel) {\n                const crisisStore = useEnhancedCrisisStore.getState();\n                // Fire and forget - don't wait for crisis response to complete calculation\n                crisisStore.triggerCrisisResponseOptimized().catch(error => {\n                  console.error('Crisis response failed during PHQ-9 calculation:', error);\n                });\n              }\n\n              // Update session metrics\n              const { sessionMetrics } = get();\n              const updatedMetrics: AssessmentSessionMetrics = {\n                totalCalculations: sessionMetrics.totalCalculations + 1,\n                averageCalculationTime: (sessionMetrics.averageCalculationTime * sessionMetrics.totalCalculations + calculationTime) / (sessionMetrics.totalCalculations + 1),\n                accuracyRate: 100, // Always 100% with validation\n                fastestCalculation: Math.min(sessionMetrics.fastestCalculation, calculationTime),\n                slowestCalculation: Math.max(sessionMetrics.slowestCalculation, calculationTime),\n                crisisDetections: isCrisisLevel ? sessionMetrics.crisisDetections + 1 : sessionMetrics.crisisDetections,\n                lastCalculationTime: calculationTime\n              };\n\n              set(state => ({\n                ...state,\n                isCalculating: false,\n                sessionMetrics: updatedMetrics\n              }));\n\n              // Complete monitoring\n              enhancedTherapeuticPerformanceMonitor.completeTherapeuticMonitoring(calculationId);\n\n              return {\n                score,\n                calculationTime,\n                isCrisisLevel,\n                hasSuicidalIdeation,\n                therapeuticAccuracy: 'optimal',\n                validationPassed: true\n              };\n            } else {\n              throw new Error(`PHQ-9 calculation failed: ${result.latency}ms exceeded 50ms SLA`);\n            }\n\n          } catch (error) {\n            const errorTime = performance.now() - startTime;\n            console.error(`PHQ-9 calculation failed after ${errorTime.toFixed(2)}ms:`, error);\n\n            set(state => ({ ...state, isCalculating: false }));\n\n            // Clinical safety: ensure calculation never fails\n            const fallbackScore = answers.reduce((sum, answer) => sum + answer, 0) as PHQ9Score;\n            \n            console.warn(`Using fallback PHQ-9 calculation: ${fallbackScore}`);\n            return {\n              score: fallbackScore,\n              calculationTime: errorTime,\n              isCrisisLevel: fallbackScore >= 20 || answers[8] >= 1,\n              hasSuicidalIdeation: answers[8] >= 1,\n              therapeuticAccuracy: 'fallback',\n              validationPassed: false\n            };\n          }\n        },\n\n        /**\n         * Enhanced GAD-7 calculation with TurboModule acceleration and 100% accuracy\n         */\n        calculateGAD7ScoreEnhanced: async (answers: GAD7Answers): Promise<AssessmentCalculationResult> => {\n          const calculationId = `gad7_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;\n          const startTime = performance.now();\n\n          set(state => ({ ...state, isCalculating: true }));\n\n          try {\n            enhancedTherapeuticPerformanceMonitor.startTherapeuticMonitoring(calculationId, 'assessment');\n\n            // Immediate clinical validation\n            if (!isValidGAD7Answers(answers)) {\n              throw new ClinicalValidationError(\n                'Invalid GAD-7 answers provided',\n                'gad7',\n                'answers',\n                'array of 7 numbers (0-3)',\n                answers\n              );\n            }\n\n            const result = await enhancedTherapeuticPerformanceMonitor.monitorAssessmentCalculation(\n              calculationId,\n              'gad7',\n              async () => {\n                // Check cache first\n                const cacheKey = `gad7_${answers.join('_')}`;\n                const cached = get().calculationCache.get(cacheKey);\n                \n                if (cached && (Date.now() - cached.calculatedAt) < 5 * 60 * 1000) {\n                  return cached.score;\n                }\n\n                // TurboModule calculation if available\n                let score: GAD7Score;\n                if (turboStoreManager.calculationTurbo) {\n                  score = await turboStoreManager.calculationTurbo.calculateGAD7(answers);\n                } else {\n                  // Validated JavaScript fallback\n                  score = answers.reduce((sum, answer) => sum + answer, 0) as GAD7Score;\n                }\n\n                // Cache the calculation\n                get().calculationCache.set(cacheKey, { score, calculatedAt: Date.now() });\n                \n                return score;\n              }\n            );\n\n            const calculationTime = performance.now() - startTime;\n\n            if (result.success) {\n              const score = result.data;\n              const isCrisisLevel = score >= 15;\n\n              // Trigger crisis response if detected\n              if (isCrisisLevel) {\n                const crisisStore = useEnhancedCrisisStore.getState();\n                crisisStore.triggerCrisisResponseOptimized().catch(error => {\n                  console.error('Crisis response failed during GAD-7 calculation:', error);\n                });\n              }\n\n              // Update session metrics\n              const { sessionMetrics } = get();\n              const updatedMetrics: AssessmentSessionMetrics = {\n                totalCalculations: sessionMetrics.totalCalculations + 1,\n                averageCalculationTime: (sessionMetrics.averageCalculationTime * sessionMetrics.totalCalculations + calculationTime) / (sessionMetrics.totalCalculations + 1),\n                accuracyRate: 100,\n                fastestCalculation: Math.min(sessionMetrics.fastestCalculation, calculationTime),\n                slowestCalculation: Math.max(sessionMetrics.slowestCalculation, calculationTime),\n                crisisDetections: isCrisisLevel ? sessionMetrics.crisisDetections + 1 : sessionMetrics.crisisDetections,\n                lastCalculationTime: calculationTime\n              };\n\n              set(state => ({\n                ...state,\n                isCalculating: false,\n                sessionMetrics: updatedMetrics\n              }));\n\n              enhancedTherapeuticPerformanceMonitor.completeTherapeuticMonitoring(calculationId);\n\n              return {\n                score,\n                calculationTime,\n                isCrisisLevel,\n                therapeuticAccuracy: 'optimal',\n                validationPassed: true\n              };\n            } else {\n              throw new Error(`GAD-7 calculation failed: ${result.latency}ms exceeded 50ms SLA`);\n            }\n\n          } catch (error) {\n            const errorTime = performance.now() - startTime;\n            console.error(`GAD-7 calculation failed after ${errorTime.toFixed(2)}ms:`, error);\n\n            set(state => ({ ...state, isCalculating: false }));\n\n            // Clinical safety fallback\n            const fallbackScore = answers.reduce((sum, answer) => sum + answer, 0) as GAD7Score;\n            \n            console.warn(`Using fallback GAD-7 calculation: ${fallbackScore}`);\n            return {\n              score: fallbackScore,\n              calculationTime: errorTime,\n              isCrisisLevel: fallbackScore >= 15,\n              therapeuticAccuracy: 'fallback',\n              validationPassed: false\n            };\n          }\n        },\n\n        /**\n         * Real-time crisis detection during assessment with enhanced accuracy\n         */\n        detectCrisisRealTimeEnhanced: async (\n          assessmentType: 'phq9' | 'gad7',\n          currentAnswers: number[],\n          questionIndex: number\n        ): Promise<RealTimeCrisisDetection> => {\n          const startTime = performance.now();\n\n          try {\n            // Use performance hierarchy for crisis detection\n            const result = await performanceHierarchy.enforcePerformanceHierarchy(\n              'realtime-crisis-detection',\n              'assessment',\n              async () => {\n                // Immediate suicidal ideation detection for PHQ-9 Q9\n                if (assessmentType === 'phq9' && questionIndex === 8 && currentAnswers[8] >= 1) {\n                  return {\n                    isCrisis: true,\n                    severity: 'critical' as const,\n                    trigger: 'suicidal_ideation' as const,\n                    responseRequired: true,\n                    confidenceLevel: 100,\n                    immediate: true\n                  };\n                }\n\n                // Projected score analysis for early intervention\n                const currentScore = currentAnswers.slice(0, questionIndex + 1)\n                  .reduce((sum, answer) => sum + (answer || 0), 0);\n\n                const questionsRemaining = (assessmentType === 'phq9' ? 9 : 7) - (questionIndex + 1);\n                const projectedScore = Math.round(\n                  (currentScore / (questionIndex + 1)) *\n                  (assessmentType === 'phq9' ? 9 : 7)\n                );\n\n                // Enhanced pattern detection\n                const recentAnswers = currentAnswers.slice(Math.max(0, questionIndex - 2), questionIndex + 1);\n                const averageRecentScore = recentAnswers.reduce((sum, ans) => sum + (ans || 0), 0) / recentAnswers.length;\n                \n                const thresholds = { phq9: 20, gad7: 15 };\n                const threshold = thresholds[assessmentType];\n                \n                // Crisis detection logic\n                const isCrisisByProjection = projectedScore >= threshold;\n                const isCrisisByPattern = averageRecentScore >= 2.5 && questionsRemaining <= 2;\n                const isCrisisByCurrentScore = currentScore >= threshold * 0.7; // 70% of threshold\n                \n                const isCrisis = isCrisisByProjection || isCrisisByPattern || isCrisisByCurrentScore;\n                \n                // Determine trigger and confidence\n                let trigger: RealTimeCrisisDetection['trigger'];\n                let confidenceLevel: number;\n                \n                if (isCrisisByProjection) {\n                  trigger = 'projected_score';\n                  confidenceLevel = Math.min(95, 70 + (projectedScore - threshold) * 5);\n                } else if (isCrisisByPattern) {\n                  trigger = 'pattern_detection';\n                  confidenceLevel = Math.min(85, 60 + averageRecentScore * 10);\n                } else if (isCrisisByCurrentScore) {\n                  trigger = 'current_score';\n                  confidenceLevel = Math.min(80, 50 + (currentScore / threshold) * 30);\n                } else {\n                  trigger = 'current_score';\n                  confidenceLevel = 0;\n                }\n                \n                // Severity assessment\n                let severity: RealTimeCrisisDetection['severity'];\n                if (projectedScore >= threshold * 1.3) {\n                  severity = 'critical';\n                } else if (projectedScore >= threshold * 1.1) {\n                  severity = 'severe';\n                } else if (projectedScore >= threshold) {\n                  severity = 'moderate';\n                } else if (projectedScore >= threshold * 0.8) {\n                  severity = 'mild';\n                } else {\n                  severity = 'none';\n                }\n\n                return {\n                  isCrisis,\n                  severity,\n                  trigger,\n                  responseRequired: isCrisis && confidenceLevel >= 70,\n                  projectedScore,\n                  currentScore,\n                  confidenceLevel,\n                  immediate: false\n                };\n              }\n            );\n\n            const responseTime = performance.now() - startTime;\n\n            if (result.success) {\n              const detectionResult: RealTimeCrisisDetection = {\n                ...result.data,\n                responseTime,\n                detectedAt: Date.now()\n              };\n\n              // Immediate crisis trigger if high confidence detection\n              if (result.data.immediate || (result.data.responseRequired && result.data.confidenceLevel >= 85)) {\n                const crisisStore = useEnhancedCrisisStore.getState();\n                await crisisStore.detectCrisisRealTimeEnhanced(assessmentType, currentAnswers, questionIndex);\n              }\n\n              return detectionResult;\n            }\n\n            throw new Error('Real-time crisis detection failed');\n\n          } catch (error) {\n            const errorTime = performance.now() - startTime;\n            console.error(`Real-time crisis detection failed after ${errorTime.toFixed(2)}ms:`, error);\n\n            // Safety fallback\n            return {\n              isCrisis: false,\n              severity: 'none',\n              trigger: 'current_score',\n              responseRequired: false,\n              responseTime: errorTime,\n              detectedAt: Date.now(),\n              confidenceLevel: 0\n            };\n          }\n        },\n\n        /**\n         * Real-time answer validation during assessment\n         */\n        validateAnswersRealTime: async (\n          assessmentType: 'phq9' | 'gad7',\n          answers: number[],\n          questionIndex: number\n        ): Promise<ClinicalValidationResult> => {\n          const startTime = performance.now();\n\n          try {\n            const errors: string[] = [];\n            const warnings: string[] = [];\n            \n            // Validate current answer\n            const currentAnswer = answers[questionIndex];\n            if (currentAnswer === undefined || currentAnswer === null) {\n              errors.push(`Question ${questionIndex + 1}: Answer is required`);\n            } else if (!Number.isInteger(currentAnswer) || currentAnswer < 0 || currentAnswer > 3) {\n              errors.push(`Question ${questionIndex + 1}: Answer must be between 0 and 3`);\n            }\n            \n            // Validate previous answers\n            for (let i = 0; i < questionIndex; i++) {\n              const answer = answers[i];\n              if (answer === undefined || answer === null) {\n                errors.push(`Question ${i + 1}: Missing answer`);\n              } else if (!Number.isInteger(answer) || answer < 0 || answer > 3) {\n                errors.push(`Question ${i + 1}: Invalid answer range`);\n              }\n            }\n            \n            // Pattern warnings\n            if (questionIndex >= 2) {\n              const recentAnswers = answers.slice(questionIndex - 2, questionIndex + 1);\n              const allSame = recentAnswers.every(ans => ans === recentAnswers[0]);\n              const allMax = recentAnswers.every(ans => ans === 3);\n              \n              if (allSame && recentAnswers[0] !== undefined) {\n                warnings.push('Consider varying responses if they accurately reflect your experience');\n              }\n              \n              if (allMax) {\n                warnings.push('High severity responses detected - crisis support available');\n              }\n            }\n\n            const validationTime = performance.now() - startTime;\n            const isValid = errors.length === 0;\n            const accuracy = isValid ? 100 : Math.max(0, 100 - (errors.length * 20));\n\n            return {\n              isValid,\n              accuracy,\n              validationTime,\n              errors,\n              warnings\n            };\n\n          } catch (error) {\n            const validationTime = performance.now() - startTime;\n            console.error('Real-time validation failed:', error);\n            \n            return {\n              isValid: false,\n              accuracy: 0,\n              validationTime,\n              errors: [`Validation error: ${error.message}`],\n              warnings: []\n            };\n          }\n        },\n\n        /**\n         * Save assessment with optimized persistence and clinical validation\n         */\n        saveAssessmentOptimized: async (assessment: Assessment) => {\n          const startTime = performance.now();\n\n          try {\n            // Clinical validation\n            const validationResult = await get().validateAssessmentClinically(assessment);\n            \n            if (!validationResult.isValid) {\n              throw new Error(`Assessment validation failed: ${validationResult.errors.join(', ')}`);\n            }\n\n            // Enhanced assessment with validation results\n            const enhancedAssessment: Assessment = {\n              ...assessment,\n              validationResults: validationResult\n            };\n\n            // Parallel validation and persistence using TurboStoreManager\n            const [persistResult] = await Promise.all([\n              turboStoreManager.persistStoreState(\n                'assessment-history',\n                [...get().assessmentHistory, enhancedAssessment],\n                DataSensitivity.CLINICAL\n              )\n            ]);\n\n            const duration = performance.now() - startTime;\n\n            if (duration > 200) {\n              console.warn(`Assessment save exceeded 200ms: ${duration.toFixed(2)}ms`);\n            }\n\n            // Update store state\n            set(state => ({\n              ...state,\n              currentAssessment: enhancedAssessment,\n              assessmentHistory: [...state.assessmentHistory, enhancedAssessment]\n            }));\n\n            console.log(`✅ Assessment saved: ${duration.toFixed(2)}ms`);\n\n          } catch (error) {\n            const duration = performance.now() - startTime;\n            console.error(`Assessment save failed after ${duration.toFixed(2)}ms:`, error);\n            throw error;\n          }\n        },\n\n        /**\n         * Clinical validation of complete assessment\n         */\n        validateAssessmentClinically: async (assessment: Assessment): Promise<ClinicalValidationResult> => {\n          const startTime = performance.now();\n          const errors: string[] = [];\n          const warnings: string[] = [];\n\n          try {\n            // Validate assessment structure\n            if (!assessment.id || !assessment.type || !assessment.answers || !assessment.score) {\n              errors.push('Assessment missing required fields');\n            }\n\n            // Validate answers based on type\n            if (assessment.type === 'phq9') {\n              if (!isValidPHQ9Answers(assessment.answers)) {\n                errors.push('Invalid PHQ-9 answers format');\n              } else {\n                // Validate score calculation\n                const expectedScore = (assessment.answers as PHQ9Answers).reduce((sum, ans) => sum + ans, 0);\n                if (assessment.score !== expectedScore) {\n                  errors.push(`PHQ-9 score mismatch: expected ${expectedScore}, got ${assessment.score}`);\n                }\n                \n                // Validate suicidal ideation detection\n                const hasQ9Response = (assessment.answers as PHQ9Answers)[8] >= 1;\n                if (hasQ9Response && !assessment.hasSuicidalIdeation) {\n                  errors.push('Suicidal ideation not detected when Q9 response >= 1');\n                }\n              }\n            } else if (assessment.type === 'gad7') {\n              if (!isValidGAD7Answers(assessment.answers)) {\n                errors.push('Invalid GAD-7 answers format');\n              } else {\n                const expectedScore = (assessment.answers as GAD7Answers).reduce((sum, ans) => sum + ans, 0);\n                if (assessment.score !== expectedScore) {\n                  errors.push(`GAD-7 score mismatch: expected ${expectedScore}, got ${assessment.score}`);\n                }\n              }\n            }\n\n            // Validate crisis level determination\n            const crisisThresholds = { phq9: 20, gad7: 15 };\n            const expectedCrisisLevel = assessment.score >= crisisThresholds[assessment.type] || \n                                     (assessment.type === 'phq9' && assessment.hasSuicidalIdeation);\n            \n            if (assessment.isCrisisLevel !== expectedCrisisLevel) {\n              errors.push('Crisis level determination incorrect');\n            }\n\n            // Performance warnings\n            if (assessment.calculationTime > 50) {\n              warnings.push(`Calculation time exceeded target: ${assessment.calculationTime.toFixed(2)}ms`);\n            }\n\n            const validationTime = performance.now() - startTime;\n            const isValid = errors.length === 0;\n            const accuracy = isValid ? 100 : Math.max(0, 100 - (errors.length * 25));\n\n            return {\n              isValid,\n              accuracy,\n              validationTime,\n              errors,\n              warnings\n            };\n\n          } catch (error) {\n            const validationTime = performance.now() - startTime;\n            return {\n              isValid: false,\n              accuracy: 0,\n              validationTime,\n              errors: [`Clinical validation error: ${error.message}`],\n              warnings: []\n            };\n          }\n        },\n\n        /**\n         * Get assessment session performance metrics\n         */\n        getSessionMetrics: () => {\n          return get().sessionMetrics;\n        },\n\n        /**\n         * Clear calculation cache for memory management\n         */\n        clearCalculationCache: () => {\n          set(state => ({\n            ...state,\n            calculationCache: new Map()\n          }));\n        },\n\n        /**\n         * Preload assessment optimizations\n         */\n        preloadAssessmentOptimizations: async () => {\n          try {\n            await turboStoreManager.optimizeForTherapeuticSession('assessment', 600000); // 10 minutes\n            console.log('✅ Assessment optimizations preloaded');\n          } catch (error) {\n            console.warn('Assessment optimization preloading failed:', error);\n          }\n        }\n      }),\n      {\n        name: 'enhanced-assessment-store',\n        storage: {\n          getItem: async (name: string) => {\n            return turboStoreManager.hydrateStoreState(name, null);\n          },\n          setItem: async (name: string, value: any) => {\n            await turboStoreManager.persistStoreState(\n              name,\n              value,\n              DataSensitivity.CLINICAL\n            );\n          },\n          removeItem: async (name: string) => {\n            console.log(`Removing ${name} from storage`);\n          }\n        },\n        partialize: (state) => ({\n          currentAssessment: state.currentAssessment,\n          assessmentHistory: state.assessmentHistory,\n          sessionMetrics: state.sessionMetrics\n        })\n      }\n    )\n  )\n);\n\n// Initialize assessment optimizations\nuseEnhancedAssessmentStore.getState().preloadAssessmentOptimizations();\n\n// Export types\nexport type {\n  PHQ9Answers,\n  GAD7Answers,\n  PHQ9Score,\n  GAD7Score,\n  Assessment,\n  ClinicalValidationResult,\n  AssessmentCalculationResult,\n  RealTimeCrisisDetection,\n  AssessmentSessionMetrics,\n  EnhancedAssessmentStore\n};\n\n// Export validation functions\nexport {\n  isValidPHQ9Answers,\n  isValidGAD7Answers,\n  ClinicalValidationError\n};\n\n// React hook for easier component integration\nexport const useEnhancedAssessment = () => {\n  const store = useEnhancedAssessmentStore();\n  \n  return {\n    // State\n    currentAssessment: store.currentAssessment,\n    assessmentHistory: store.assessmentHistory,\n    isCalculating: store.isCalculating,\n    sessionMetrics: store.sessionMetrics,\n    \n    // Calculations\n    calculatePHQ9: store.calculatePHQ9ScoreEnhanced,\n    calculateGAD7: store.calculateGAD7ScoreEnhanced,\n    \n    // Validation\n    validateAnswers: store.validateAnswersRealTime,\n    validateAssessment: store.validateAssessmentClinically,\n    \n    // Crisis detection\n    detectCrisis: store.detectCrisisRealTimeEnhanced,\n    \n    // Management\n    saveAssessment: store.saveAssessmentOptimized,\n    \n    // Utilities\n    getMetrics: store.getSessionMetrics,\n    clearCache: store.clearCalculationCache,\n    preloadOptimizations: store.preloadAssessmentOptimizations\n  };\n};
+                const cacheKey = `phq9_${answers.join('_')}`;
+                const cached = get().calculationCache.get(cacheKey);
+
+                if (cached && (Date.now() - cached.calculatedAt) < 5 * 60 * 1000) {
+                  return cached.score;
+                }
+
+                // TurboModule calculation if available, fallback to JavaScript
+                let score: PHQ9Score;
+                if (turboStoreManager.calculationTurbo) {
+                  score = await turboStoreManager.calculatePHQ9ScoreTurbo(answers);
+                } else {
+                  // Validated JavaScript fallback with 100% accuracy guarantee
+                  score = answers.reduce((sum, answer) => sum + answer, 0) as PHQ9Score;
+                }
+
+                // Cache the calculation
+                get().calculationCache.set(cacheKey, { score, calculatedAt: Date.now() });
+                return score;
+              }
+            );
+
+            const calculationTime = performance.now() - startTime;
+
+            if (result.success) {
+              const score = result.data;
+              
+              // Immediate crisis detection for suicidal ideation (Q9)
+              const hasSuicidalIdeation = answers.length >= 9 && answers[8] >= 1;
+              const isCrisisScore = score >= 20;
+              const isCrisisLevel = hasSuicidalIdeation || isCrisisScore;
+
+              // Trigger crisis response if detected
+              if (isCrisisLevel) {
+                const crisisStore = useEnhancedCrisisStore.getState();
+                // Fire and forget - don't wait for crisis response to complete calculation
+                crisisStore.triggerCrisisResponseOptimized().catch(error => {
+                  console.error('Crisis response failed during PHQ-9 calculation:', error);
+                });
+              }
+
+              // Update session metrics
+              const { sessionMetrics } = get();
+              const updatedMetrics: AssessmentSessionMetrics = {
+                totalCalculations: sessionMetrics.totalCalculations + 1,
+                averageCalculationTime: (sessionMetrics.averageCalculationTime * sessionMetrics.totalCalculations + calculationTime) / (sessionMetrics.totalCalculations + 1),
+                accuracyRate: 100, // Always 100% with validation
+                fastestCalculation: Math.min(sessionMetrics.fastestCalculation, calculationTime),
+                slowestCalculation: Math.max(sessionMetrics.slowestCalculation, calculationTime),
+                crisisDetections: isCrisisLevel ? sessionMetrics.crisisDetections + 1 : sessionMetrics.crisisDetections,
+                lastCalculationTime: calculationTime
+              };
+
+              set(state => ({
+                ...state,
+                isCalculating: false,
+                sessionMetrics: updatedMetrics
+              }));
+
+              // Complete monitoring
+              enhancedTherapeuticPerformanceMonitor.completeTherapeuticMonitoring(calculationId);
+
+              return {
+                score,
+                calculationTime,
+                isCrisisLevel,
+                hasSuicidalIdeation,
+                therapeuticAccuracy: 'optimal',
+                validationPassed: true
+              };
+            } else {
+              throw new Error(`PHQ-9 calculation failed: ${result.latency}ms exceeded 50ms SLA`);
+            }
+
+          } catch (error) {
+            const errorTime = performance.now() - startTime;
+            console.error(`PHQ-9 calculation failed after ${errorTime.toFixed(2)}ms:`, error);
+
+            set(state => ({ ...state, isCalculating: false }));
+
+            // Clinical safety: ensure calculation never fails
+            const fallbackScore = answers.reduce((sum, answer) => sum + answer, 0) as PHQ9Score;
+            
+            console.warn(`Using fallback PHQ-9 calculation: ${fallbackScore}`);
+            return {
+              score: fallbackScore,
+              calculationTime: errorTime,
+              isCrisisLevel: fallbackScore >= 20 || answers[8] >= 1,
+              hasSuicidalIdeation: answers[8] >= 1,
+              therapeuticAccuracy: 'fallback',
+              validationPassed: false
+            };
+          }
+        },
+
+        /**
+         * Enhanced GAD-7 calculation with TurboModule acceleration and 100% accuracy
+         */
+        calculateGAD7ScoreEnhanced: async (answers: GAD7Answers): Promise<AssessmentCalculationResult> => {
+          const calculationId = `gad7_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+          const startTime = performance.now();
+
+          set(state => ({ ...state, isCalculating: true }));
+
+          try {
+            enhancedTherapeuticPerformanceMonitor.startTherapeuticMonitoring(calculationId, 'assessment');
+
+            // Immediate clinical validation
+            if (!isValidGAD7Answers(answers)) {
+              throw new ClinicalValidationError(
+                'Invalid GAD-7 answers provided',
+                'gad7',
+                'answers',
+                'array of 7 numbers (0-3)',
+                answers
+              );
+            }
+
+            const result = await enhancedTherapeuticPerformanceMonitor.monitorAssessmentCalculation(
+              calculationId,
+              'gad7',
+              async () => {
+                // Check cache first
+                const cacheKey = `gad7_${answers.join('_')}`;
+                const cached = get().calculationCache.get(cacheKey);
+                
+                if (cached && (Date.now() - cached.calculatedAt) < 5 * 60 * 1000) {
+                  return cached.score;
+                }
+
+                // TurboModule calculation if available
+                let score: GAD7Score;
+                if (turboStoreManager.calculationTurbo) {
+                  score = await turboStoreManager.calculationTurbo.calculateGAD7(answers);
+                } else {
+                  // Validated JavaScript fallback
+                  score = answers.reduce((sum, answer) => sum + answer, 0) as GAD7Score;
+                }
+
+                // Cache the calculation
+                get().calculationCache.set(cacheKey, { score, calculatedAt: Date.now() });
+                
+                return score;
+              }
+            );
+
+            const calculationTime = performance.now() - startTime;
+
+            if (result.success) {
+              const score = result.data;
+              const isCrisisLevel = score >= 15;
+
+              // Trigger crisis response if detected
+              if (isCrisisLevel) {
+                const crisisStore = useEnhancedCrisisStore.getState();
+                crisisStore.triggerCrisisResponseOptimized().catch(error => {
+                  console.error('Crisis response failed during GAD-7 calculation:', error);
+                });
+              }
+
+              // Update session metrics
+              const { sessionMetrics } = get();
+              const updatedMetrics: AssessmentSessionMetrics = {
+                totalCalculations: sessionMetrics.totalCalculations + 1,
+                averageCalculationTime: (sessionMetrics.averageCalculationTime * sessionMetrics.totalCalculations + calculationTime) / (sessionMetrics.totalCalculations + 1),
+                accuracyRate: 100,
+                fastestCalculation: Math.min(sessionMetrics.fastestCalculation, calculationTime),
+                slowestCalculation: Math.max(sessionMetrics.slowestCalculation, calculationTime),
+                crisisDetections: isCrisisLevel ? sessionMetrics.crisisDetections + 1 : sessionMetrics.crisisDetections,
+                lastCalculationTime: calculationTime
+              };
+
+              set(state => ({
+                ...state,
+                isCalculating: false,
+                sessionMetrics: updatedMetrics
+              }));
+
+              enhancedTherapeuticPerformanceMonitor.completeTherapeuticMonitoring(calculationId);
+
+              return {
+                score,
+                calculationTime,
+                isCrisisLevel,
+                therapeuticAccuracy: 'optimal',
+                validationPassed: true
+              };
+            } else {
+              throw new Error(`GAD-7 calculation failed: ${result.latency}ms exceeded 50ms SLA`);
+            }
+
+          } catch (error) {
+            const errorTime = performance.now() - startTime;
+            console.error(`GAD-7 calculation failed after ${errorTime.toFixed(2)}ms:`, error);
+
+            set(state => ({ ...state, isCalculating: false }));
+
+            // Clinical safety fallback
+            const fallbackScore = answers.reduce((sum, answer) => sum + answer, 0) as GAD7Score;
+            
+            console.warn(`Using fallback GAD-7 calculation: ${fallbackScore}`);
+            return {
+              score: fallbackScore,
+              calculationTime: errorTime,
+              isCrisisLevel: fallbackScore >= 15,
+              therapeuticAccuracy: 'fallback',
+              validationPassed: false
+            };
+          }
+        },
+
+        /**
+         * Real-time crisis detection during assessment with enhanced accuracy
+         */
+        detectCrisisRealTimeEnhanced: async (
+          assessmentType: 'phq9' | 'gad7',
+          currentAnswers: number[],
+          questionIndex: number
+        ): Promise<RealTimeCrisisDetection> => {
+          const startTime = performance.now();
+
+          try {
+            // Use performance hierarchy for crisis detection
+            const result = await performanceHierarchy.enforcePerformanceHierarchy(
+              'realtime-crisis-detection',
+              'assessment',
+              async () => {
+                // Immediate suicidal ideation detection for PHQ-9 Q9
+                if (assessmentType === 'phq9' && questionIndex === 8 && currentAnswers[8] >= 1) {
+                  return {
+                    isCrisis: true,
+                    severity: 'critical' as const,
+                    trigger: 'suicidal_ideation' as const,
+                    responseRequired: true,
+                    confidenceLevel: 100,
+                    immediate: true
+                  };
+                }
+
+                // Projected score analysis for early intervention
+                const currentScore = currentAnswers.slice(0, questionIndex + 1)
+                  .reduce((sum, answer) => sum + (answer || 0), 0);
+
+                const questionsRemaining = (assessmentType === 'phq9' ? 9 : 7) - (questionIndex + 1);
+                const projectedScore = Math.round(
+                  (currentScore / (questionIndex + 1)) *
+                  (assessmentType === 'phq9' ? 9 : 7)
+                );
+
+                // Enhanced pattern detection
+                const recentAnswers = currentAnswers.slice(Math.max(0, questionIndex - 2), questionIndex + 1);
+                const averageRecentScore = recentAnswers.reduce((sum, ans) => sum + (ans || 0), 0) / recentAnswers.length;
+                
+                const thresholds = { phq9: 20, gad7: 15 };
+                const threshold = thresholds[assessmentType];
+                
+                // Crisis detection logic
+                const isCrisisByProjection = projectedScore >= threshold;
+                const isCrisisByPattern = averageRecentScore >= 2.5 && questionsRemaining <= 2;
+                const isCrisisByCurrentScore = currentScore >= threshold * 0.7; // 70% of threshold
+                
+                const isCrisis = isCrisisByProjection || isCrisisByPattern || isCrisisByCurrentScore;
+                
+                // Determine trigger and confidence
+                let trigger: RealTimeCrisisDetection['trigger'];
+                let confidenceLevel: number;
+                
+                if (isCrisisByProjection) {
+                  trigger = 'projected_score';
+                  confidenceLevel = Math.min(95, 70 + (projectedScore - threshold) * 5);
+                } else if (isCrisisByPattern) {
+                  trigger = 'pattern_detection';
+                  confidenceLevel = Math.min(85, 60 + averageRecentScore * 10);
+                } else if (isCrisisByCurrentScore) {
+                  trigger = 'current_score';
+                  confidenceLevel = Math.min(80, 50 + (currentScore / threshold) * 30);
+                } else {
+                  trigger = 'current_score';
+                  confidenceLevel = 0;
+                }
+                
+                // Severity assessment
+                let severity: RealTimeCrisisDetection['severity'];
+                if (projectedScore >= threshold * 1.3) {
+                  severity = 'critical';
+                } else if (projectedScore >= threshold * 1.1) {
+                  severity = 'severe';
+                } else if (projectedScore >= threshold) {
+                  severity = 'moderate';
+                } else if (projectedScore >= threshold * 0.8) {
+                  severity = 'mild';
+                } else {
+                  severity = 'none';
+                }
+
+                return {
+                  isCrisis,
+                  severity,
+                  trigger,
+                  responseRequired: isCrisis && confidenceLevel >= 70,
+                  projectedScore,
+                  currentScore,
+                  confidenceLevel,
+                  immediate: false
+                };
+              }
+            );
+
+            const responseTime = performance.now() - startTime;
+
+            if (result.success) {
+              const detectionResult: RealTimeCrisisDetection = {
+                ...result.data,
+                responseTime,
+                detectedAt: Date.now()
+              };
+
+              // Immediate crisis trigger if high confidence detection
+              if (result.data.immediate || (result.data.responseRequired && result.data.confidenceLevel >= 85)) {
+                const crisisStore = useEnhancedCrisisStore.getState();
+                await crisisStore.detectCrisisRealTimeEnhanced(assessmentType, currentAnswers, questionIndex);
+              }
+
+              return detectionResult;
+            }
+
+            throw new Error('Real-time crisis detection failed');
+
+          } catch (error) {
+            const errorTime = performance.now() - startTime;
+            console.error(`Real-time crisis detection failed after ${errorTime.toFixed(2)}ms:`, error);
+
+            // Safety fallback
+            return {
+              isCrisis: false,
+              severity: 'none',
+              trigger: 'current_score',
+              responseRequired: false,
+              responseTime: errorTime,
+              detectedAt: Date.now(),
+              confidenceLevel: 0
+            };
+          }
+        },
+
+        /**
+         * Real-time answer validation during assessment
+         */
+        validateAnswersRealTime: async (
+          assessmentType: 'phq9' | 'gad7',
+          answers: number[],
+          questionIndex: number
+        ): Promise<ClinicalValidationResult> => {
+          const startTime = performance.now();
+
+          try {
+            const errors: string[] = [];
+            const warnings: string[] = [];
+            
+            // Validate current answer
+            const currentAnswer = answers[questionIndex];
+            if (currentAnswer === undefined || currentAnswer === null) {
+              errors.push(`Question ${questionIndex + 1}: Answer is required`);
+            } else if (!Number.isInteger(currentAnswer) || currentAnswer < 0 || currentAnswer > 3) {
+              errors.push(`Question ${questionIndex + 1}: Answer must be between 0 and 3`);
+            }
+            
+            // Validate previous answers
+            for (let i = 0; i < questionIndex; i++) {
+              const answer = answers[i];
+              if (answer === undefined || answer === null) {
+                errors.push(`Question ${i + 1}: Missing answer`);
+              } else if (!Number.isInteger(answer) || answer < 0 || answer > 3) {
+                errors.push(`Question ${i + 1}: Invalid answer range`);
+              }
+            }
+            
+            // Pattern warnings
+            if (questionIndex >= 2) {
+              const recentAnswers = answers.slice(questionIndex - 2, questionIndex + 1);
+              const allSame = recentAnswers.every(ans => ans === recentAnswers[0]);
+              const allMax = recentAnswers.every(ans => ans === 3);
+              
+              if (allSame && recentAnswers[0] !== undefined) {
+                warnings.push('Consider varying responses if they accurately reflect your experience');
+              }
+              
+              if (allMax) {
+                warnings.push('High severity responses detected - crisis support available');
+              }
+            }
+
+            const validationTime = performance.now() - startTime;
+            const isValid = errors.length === 0;
+            const accuracy = isValid ? 100 : Math.max(0, 100 - (errors.length * 20));
+
+            return {
+              isValid,
+              accuracy,
+              validationTime,
+              errors,
+              warnings
+            };
+
+          } catch (error) {
+            const validationTime = performance.now() - startTime;
+            console.error('Real-time validation failed:', error);
+            
+            return {
+              isValid: false,
+              accuracy: 0,
+              validationTime,
+              errors: [`Validation error: ${error.message}`],
+              warnings: []
+            };
+          }
+        },
+
+        /**
+         * Save assessment with optimized persistence and clinical validation
+         */
+        saveAssessmentOptimized: async (assessment: Assessment) => {
+          const startTime = performance.now();
+
+          try {
+            // Clinical validation
+            const validationResult = await get().validateAssessmentClinically(assessment);
+            
+            if (!validationResult.isValid) {
+              throw new Error(`Assessment validation failed: ${validationResult.errors.join(', ')}`);
+            }
+
+            // Enhanced assessment with validation results
+            const enhancedAssessment: Assessment = {
+              ...assessment,
+              validationResults: validationResult
+            };
+
+            // Parallel validation and persistence using TurboStoreManager
+            const [persistResult] = await Promise.all([
+              turboStoreManager.persistStoreState(
+                'assessment-history',
+                [...get().assessmentHistory, enhancedAssessment],
+                DataSensitivity.CLINICAL
+              )
+            ]);
+
+            const duration = performance.now() - startTime;
+
+            if (duration > 200) {
+              console.warn(`Assessment save exceeded 200ms: ${duration.toFixed(2)}ms`);
+            }
+
+            // Update store state
+            set(state => ({
+              ...state,
+              currentAssessment: enhancedAssessment,
+              assessmentHistory: [...state.assessmentHistory, enhancedAssessment]
+            }));
+
+            console.log(`✅ Assessment saved: ${duration.toFixed(2)}ms`);
+
+          } catch (error) {
+            const duration = performance.now() - startTime;
+            console.error(`Assessment save failed after ${duration.toFixed(2)}ms:`, error);
+            throw error;
+          }
+        },
+
+        /**
+         * Clinical validation of complete assessment
+         */
+        validateAssessmentClinically: async (assessment: Assessment): Promise<ClinicalValidationResult> => {
+          const startTime = performance.now();
+          const errors: string[] = [];
+          const warnings: string[] = [];
+
+          try {
+            // Validate assessment structure
+            if (!assessment.id || !assessment.type || !assessment.answers || !assessment.score) {
+              errors.push('Assessment missing required fields');
+            }
+
+            // Validate answers based on type
+            if (assessment.type === 'phq9') {
+              if (!isValidPHQ9Answers(assessment.answers)) {
+                errors.push('Invalid PHQ-9 answers format');
+              } else {
+                // Validate score calculation
+                const expectedScore = (assessment.answers as PHQ9Answers).reduce((sum, ans) => sum + ans, 0);
+                if (assessment.score !== expectedScore) {
+                  errors.push(`PHQ-9 score mismatch: expected ${expectedScore}, got ${assessment.score}`);
+                }
+                
+                // Validate suicidal ideation detection
+                const hasQ9Response = (assessment.answers as PHQ9Answers)[8] >= 1;
+                if (hasQ9Response && !assessment.hasSuicidalIdeation) {
+                  errors.push('Suicidal ideation not detected when Q9 response >= 1');
+                }
+              }
+            } else if (assessment.type === 'gad7') {
+              if (!isValidGAD7Answers(assessment.answers)) {
+                errors.push('Invalid GAD-7 answers format');
+              } else {
+                const expectedScore = (assessment.answers as GAD7Answers).reduce((sum, ans) => sum + ans, 0);
+                if (assessment.score !== expectedScore) {
+                  errors.push(`GAD-7 score mismatch: expected ${expectedScore}, got ${assessment.score}`);
+                }
+              }
+            }
+
+            // Validate crisis level determination
+            const crisisThresholds = { phq9: 20, gad7: 15 };
+            const expectedCrisisLevel = assessment.score >= crisisThresholds[assessment.type] || 
+                                     (assessment.type === 'phq9' && assessment.hasSuicidalIdeation);
+            
+            if (assessment.isCrisisLevel !== expectedCrisisLevel) {
+              errors.push('Crisis level determination incorrect');
+            }
+
+            // Performance warnings
+            if (assessment.calculationTime > 50) {
+              warnings.push(`Calculation time exceeded target: ${assessment.calculationTime.toFixed(2)}ms`);
+            }
+
+            const validationTime = performance.now() - startTime;
+            const isValid = errors.length === 0;
+            const accuracy = isValid ? 100 : Math.max(0, 100 - (errors.length * 25));
+
+            return {
+              isValid,
+              accuracy,
+              validationTime,
+              errors,
+              warnings
+            };
+
+          } catch (error) {
+            const validationTime = performance.now() - startTime;
+            return {
+              isValid: false,
+              accuracy: 0,
+              validationTime,
+              errors: [`Clinical validation error: ${error.message}`],
+              warnings: []
+            };
+          }
+        },
+
+        /**
+         * Get assessment session performance metrics
+         */
+        getSessionMetrics: () => {
+          return get().sessionMetrics;
+        },
+
+        /**
+         * Clear calculation cache for memory management
+         */
+        clearCalculationCache: () => {
+          set(state => ({
+            ...state,
+            calculationCache: new Map()
+          }));
+        },
+
+        /**
+         * Preload assessment optimizations
+         */
+        preloadAssessmentOptimizations: async () => {
+          try {
+            await turboStoreManager.optimizeForTherapeuticSession('assessment', 600000); // 10 minutes
+            console.log('✅ Assessment optimizations preloaded');
+          } catch (error) {
+            console.warn('Assessment optimization preloading failed:', error);
+          }
+        }
+      }),
+      {
+        name: 'enhanced-assessment-store',
+        storage: {
+          getItem: async (name: string) => {
+            return turboStoreManager.hydrateStoreState(name, null);
+          },
+          setItem: async (name: string, value: any) => {
+            await turboStoreManager.persistStoreState(
+              name,
+              value,
+              DataSensitivity.CLINICAL
+            );
+          },
+          removeItem: async (name: string) => {
+            console.log(`Removing ${name} from storage`);
+          }
+        },
+        partialize: (state) => ({
+          currentAssessment: state.currentAssessment,
+          assessmentHistory: state.assessmentHistory,
+          sessionMetrics: state.sessionMetrics
+        })
+      }
+    )
+  )
+);
+
+// Initialize assessment optimizations
+useEnhancedAssessmentStore.getState().preloadAssessmentOptimizations();
+
+// Export types
+export type {
+  PHQ9Answers,
+  GAD7Answers,
+  PHQ9Score,
+  GAD7Score,
+  Assessment,
+  ClinicalValidationResult,
+  AssessmentCalculationResult,
+  RealTimeCrisisDetection,
+  AssessmentSessionMetrics,
+  EnhancedAssessmentStore
+};
+
+// Export validation functions
+export {
+  isValidPHQ9Answers,
+  isValidGAD7Answers,
+  ClinicalValidationError
+};
+
+// React hook for easier component integration
+export const useEnhancedAssessment = () => {
+  const store = useEnhancedAssessmentStore();
+  
+  return {
+    // State
+    currentAssessment: store.currentAssessment,
+    assessmentHistory: store.assessmentHistory,
+    isCalculating: store.isCalculating,
+    sessionMetrics: store.sessionMetrics,
+    
+    // Calculations
+    calculatePHQ9: store.calculatePHQ9ScoreEnhanced,
+    calculateGAD7: store.calculateGAD7ScoreEnhanced,
+    
+    // Validation
+    validateAnswers: store.validateAnswersRealTime,
+    validateAssessment: store.validateAssessmentClinically,
+    
+    // Crisis detection
+    detectCrisis: store.detectCrisisRealTimeEnhanced,
+    
+    // Management
+    saveAssessment: store.saveAssessmentOptimized,
+    
+    // Utilities
+    getMetrics: store.getSessionMetrics,
+    clearCache: store.clearCalculationCache,
+    preloadOptimizations: store.preloadAssessmentOptimizations
+  };
+};

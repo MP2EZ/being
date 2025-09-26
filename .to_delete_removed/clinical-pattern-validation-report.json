@@ -1,0 +1,360 @@
+{
+  "timestamp": "2025-09-25T16:18:42.453Z",
+  "passed": true,
+  "accuracyPercentage": 100,
+  "phq9Accuracy": 100,
+  "gad7Accuracy": 100,
+  "totalTests": 50,
+  "passedTests": 50,
+  "criticalFailures": 0,
+  "results": [
+    {
+      "type": "PHQ-9",
+      "description": "No depression",
+      "passed": true,
+      "details": {
+        "score": {
+          "expected": 0,
+          "actual": 0,
+          "valid": true
+        },
+        "severity": {
+          "expected": "minimal",
+          "actual": "minimal",
+          "valid": true
+        },
+        "crisis": {
+          "expected": false,
+          "actual": false,
+          "valid": true
+        },
+        "suicidal": {
+          "expected": false,
+          "actual": false,
+          "valid": true
+        }
+      }
+    },
+    {
+      "type": "PHQ-9",
+      "description": "Minimal depression",
+      "passed": true,
+      "details": {
+        "score": {
+          "expected": 3,
+          "actual": 3,
+          "valid": true
+        },
+        "severity": {
+          "expected": "minimal",
+          "actual": "minimal",
+          "valid": true
+        },
+        "crisis": {
+          "expected": false,
+          "actual": false,
+          "valid": true
+        },
+        "suicidal": {
+          "expected": false,
+          "actual": false,
+          "valid": true
+        }
+      }
+    },
+    {
+      "type": "PHQ-9",
+      "description": "Mild depression",
+      "passed": true,
+      "details": {
+        "score": {
+          "expected": 6,
+          "actual": 6,
+          "valid": true
+        },
+        "severity": {
+          "expected": "mild",
+          "actual": "mild",
+          "valid": true
+        },
+        "crisis": {
+          "expected": false,
+          "actual": false,
+          "valid": true
+        },
+        "suicidal": {
+          "expected": false,
+          "actual": false,
+          "valid": true
+        }
+      }
+    },
+    {
+      "type": "PHQ-9",
+      "description": "Moderate depression",
+      "passed": true,
+      "details": {
+        "score": {
+          "expected": 10,
+          "actual": 10,
+          "valid": true
+        },
+        "severity": {
+          "expected": "moderate",
+          "actual": "moderate",
+          "valid": true
+        },
+        "crisis": {
+          "expected": false,
+          "actual": false,
+          "valid": true
+        },
+        "suicidal": {
+          "expected": false,
+          "actual": false,
+          "valid": true
+        }
+      }
+    },
+    {
+      "type": "PHQ-9",
+      "description": "Moderately severe depression",
+      "passed": true,
+      "details": {
+        "score": {
+          "expected": 15,
+          "actual": 15,
+          "valid": true
+        },
+        "severity": {
+          "expected": "moderately severe",
+          "actual": "moderately severe",
+          "valid": true
+        },
+        "crisis": {
+          "expected": false,
+          "actual": false,
+          "valid": true
+        },
+        "suicidal": {
+          "expected": false,
+          "actual": false,
+          "valid": true
+        }
+      }
+    },
+    {
+      "type": "PHQ-9",
+      "description": "Severe depression - CRISIS THRESHOLD",
+      "passed": true,
+      "details": {
+        "score": {
+          "expected": 20,
+          "actual": 20,
+          "valid": true
+        },
+        "severity": {
+          "expected": "severe",
+          "actual": "severe",
+          "valid": true
+        },
+        "crisis": {
+          "expected": true,
+          "actual": true,
+          "valid": true
+        },
+        "suicidal": {
+          "expected": false,
+          "actual": false,
+          "valid": true
+        }
+      }
+    },
+    {
+      "type": "PHQ-9",
+      "description": "CRITICAL: Suicidal ideation with mild depression",
+      "passed": true,
+      "details": {
+        "score": {
+          "expected": 9,
+          "actual": 9,
+          "valid": true
+        },
+        "severity": {
+          "expected": "mild",
+          "actual": "mild",
+          "valid": true
+        },
+        "crisis": {
+          "expected": true,
+          "actual": true,
+          "valid": true
+        },
+        "suicidal": {
+          "expected": true,
+          "actual": true,
+          "valid": true
+        }
+      }
+    },
+    {
+      "type": "PHQ-9",
+      "description": "Maximum severity with suicidal ideation",
+      "passed": true,
+      "details": {
+        "score": {
+          "expected": 27,
+          "actual": 27,
+          "valid": true
+        },
+        "severity": {
+          "expected": "severe",
+          "actual": "severe",
+          "valid": true
+        },
+        "crisis": {
+          "expected": true,
+          "actual": true,
+          "valid": true
+        },
+        "suicidal": {
+          "expected": true,
+          "actual": true,
+          "valid": true
+        }
+      }
+    },
+    {
+      "type": "GAD-7",
+      "description": "No anxiety",
+      "passed": true,
+      "details": {
+        "score": {
+          "expected": 0,
+          "actual": 0,
+          "valid": true
+        },
+        "severity": {
+          "expected": "minimal",
+          "actual": "minimal",
+          "valid": true
+        },
+        "crisis": {
+          "expected": false,
+          "actual": false,
+          "valid": true
+        }
+      }
+    },
+    {
+      "type": "GAD-7",
+      "description": "Minimal anxiety",
+      "passed": true,
+      "details": {
+        "score": {
+          "expected": 3,
+          "actual": 3,
+          "valid": true
+        },
+        "severity": {
+          "expected": "minimal",
+          "actual": "minimal",
+          "valid": true
+        },
+        "crisis": {
+          "expected": false,
+          "actual": false,
+          "valid": true
+        }
+      }
+    },
+    {
+      "type": "GAD-7",
+      "description": "Mild anxiety",
+      "passed": true,
+      "details": {
+        "score": {
+          "expected": 6,
+          "actual": 6,
+          "valid": true
+        },
+        "severity": {
+          "expected": "mild",
+          "actual": "mild",
+          "valid": true
+        },
+        "crisis": {
+          "expected": false,
+          "actual": false,
+          "valid": true
+        }
+      }
+    },
+    {
+      "type": "GAD-7",
+      "description": "Moderate anxiety",
+      "passed": true,
+      "details": {
+        "score": {
+          "expected": 10,
+          "actual": 10,
+          "valid": true
+        },
+        "severity": {
+          "expected": "moderate",
+          "actual": "moderate",
+          "valid": true
+        },
+        "crisis": {
+          "expected": false,
+          "actual": false,
+          "valid": true
+        }
+      }
+    },
+    {
+      "type": "GAD-7",
+      "description": "Severe anxiety - CRISIS THRESHOLD",
+      "passed": true,
+      "details": {
+        "score": {
+          "expected": 15,
+          "actual": 15,
+          "valid": true
+        },
+        "severity": {
+          "expected": "severe",
+          "actual": "severe",
+          "valid": true
+        },
+        "crisis": {
+          "expected": true,
+          "actual": true,
+          "valid": true
+        }
+      }
+    },
+    {
+      "type": "GAD-7",
+      "description": "Maximum anxiety severity",
+      "passed": true,
+      "details": {
+        "score": {
+          "expected": 21,
+          "actual": 21,
+          "valid": true
+        },
+        "severity": {
+          "expected": "severe",
+          "actual": "severe",
+          "valid": true
+        },
+        "crisis": {
+          "expected": true,
+          "actual": true,
+          "valid": true
+        }
+      }
+    }
+  ]
+}

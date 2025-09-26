@@ -35,21 +35,24 @@ import type {
   ValidatedCrisisResponse,
   TherapeuticTimingCertified,
   ClinicalTypeValidationError
-} from '../types/clinical-type-safety';
+} from '../../types/crisis-safety';
 
 import type {
   CrisisDetectionResult,
   CrisisType
-} from '../types/enhanced-assessment-types';
+} from '../../types/crisis-safety';
 
 import type {
-  CrisisOptimizedButtonProps,
-  CrisisButtonVariant,
-  createCrisisButtonProps,
-  THERAPEUTIC_BUTTON_CONSTANTS
-} from '../types/enhanced-button-types';
+  CrisisButtonProps as CrisisOptimizedButtonProps,
+  ButtonVariant as CrisisButtonVariant,
+  createDefaultCrisisPerformanceConfig as createCrisisButtonProps,
+  COMPONENT_PROPS_CANONICAL_CONSTANTS
+} from '../../types/component-props-canonical';
 
-import type { ISODateString, createISODateString } from '../types/clinical';
+// Maintain THERAPEUTIC_BUTTON_CONSTANTS for backward compatibility
+const THERAPEUTIC_BUTTON_CONSTANTS = COMPONENT_PROPS_CANONICAL_CONSTANTS;
+
+import type { ISODateString, createISODateString } from '../../types/crisis-safety';
 
 // === ROUTE PARAMS ===
 

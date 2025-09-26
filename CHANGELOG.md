@@ -2,6 +2,42 @@
 
 All notable changes to the FullMind MBCT project are documented here.
 
+## [2.0.1] - 2025-09-24 - **DOCUMENTATION CLEANUP MILESTONE**
+
+### 📚 **MAJOR: Documentation Consolidation & Automation**
+Massive cleanup of duplicate and outdated documentation files, reducing maintenance overhead while establishing clear documentation governance.
+
+---
+
+## 🗑️ **CLEANUP ACHIEVEMENTS**
+
+### **File Reduction (292 files deleted)**
+- **REMOVED**: All 109 .md files from `/app` directory - separated code from docs
+- **DELETED**: Entire `/docs/archive` directory (51 files) - historical artifacts
+- **ELIMINATED**: All ADRs, testing reports, security validation reports (57+ files)
+- **AGGRESSIVELY CLEANED**: `/docs/development/implementation` from 58 → 9 files
+- **CLEANED**: `/website/docs` completely of app-related documentation
+- **REMOVED**: All accessibility audit duplicates, performance benchmarks, completed summaries
+- **DELETED**: Empty directories and redundant folder structures
+- **MAINTAINED**: Only essential guides, current architecture, clinical compliance, and security policies
+
+### **Documentation Governance**
+- **ESTABLISHED**: Strict rules prohibiting .md files in code directories
+- **AUTOMATED**: CHANGELOG.md update triggers for releases and critical fixes
+- **ENFORCED**: Single-source-of-truth principle for all documentation
+- **STREAMLINED**: Clear documentation hierarchy and maintenance workflows
+
+---
+
+## ⚡ **IMPACT SUMMARY**
+
+**Before**: 405 markdown files across scattered directories
+**After**: 113 focused, essential documentation files (72% reduction)
+**Developer Experience**: Dramatically reduced documentation noise and confusion
+**Maintenance**: Automated CHANGELOG updates prevent documentation drift
+
+---
+
 ## [2.0.0-p0-cloud] - 2025-09-16 - **P0-CLOUD CROSS-DEVICE SYNC MILESTONE**
 
 ### 🚀 **MAJOR: Production-Ready Cross-Device Synchronization**

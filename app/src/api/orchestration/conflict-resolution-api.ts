@@ -10,8 +10,9 @@
  */
 
 import { z } from 'zod';
-import type { ConflictType, TherapeuticImpact, ConflictResolutionStrategy } from '../../store/sync/conflict-resolution-store';
-import type { SubscriptionTier } from '../../types/subscription';
+import type { SyncConflict } from '../../types/cross-device-sync-canonical';
+import type { ConflictResolutionStrategy } from '../../types/sync';
+import type { SubscriptionTier } from "../../types/payment-canonical";
 
 /**
  * Therapeutic Conflict Schema
@@ -658,7 +659,7 @@ export class ConflictResolutionAPI {
     const response = await fetch(url, {
       method,
       headers,
-      body: data ? JSON.stringify(data) : undefined,
+      body: data ? JSON.stringify(data) : null,
       signal: AbortSignal.timeout(this.defaultTimeout)
     });
 

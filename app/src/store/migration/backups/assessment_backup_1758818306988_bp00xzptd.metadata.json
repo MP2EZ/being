@@ -1,0 +1,10 @@
+{
+  "backupId": "assessment_backup_1758818306988_bp00xzptd",
+  "createdAt": "2025-09-25T16:38:26.989Z",
+  "storeType": "assessment",
+  "encryptionLevel": "CLINICAL",
+  "originalFileSize": 36522,
+  "migrationVersion": "1.0.0",
+  "clinicalAccuracyVerified": true,
+  "safetyChecksCompleted": true
+}

@@ -22,7 +22,7 @@
 import { z } from 'zod';
 import NetInfo, { NetInfoState } from '@react-native-community/netinfo';
 import { OfflinePaymentQueueAPI, type OfflineOperation } from './offline-payment-queue-api';
-import type { SubscriptionTier } from '../../types/subscription';
+import type { SubscriptionTier } from "../../types/payment-canonical";
 
 /**
  * Sync Status and Coordination Types

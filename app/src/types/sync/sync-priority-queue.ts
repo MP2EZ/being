@@ -11,7 +11,7 @@
 
 import { z } from 'zod';
 import type { StrictSubscriptionTier } from './subscription-tier-types';
-import type { SyncEntityType, SyncOperationType } from '../sync';
+import type { SyncOperation, SyncPriorityLevel } from '../cross-device-sync-canonical';
 
 /**
  * Priority Level Enum - 10-level priority system

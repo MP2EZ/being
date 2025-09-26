@@ -25,8 +25,7 @@ import type {
   PriorityQueueOperation,
   PriorityLevel,
 } from '../../types/sync/sync-priority-queue';
-import type { SubscriptionTier } from '../../types/subscription';
-import type { PaymentState } from '../../types/payment';
+import type { SubscriptionTier, PaymentStoreState as PaymentState } from '../../types/payment-canonical';
 
 /**
  * Payment-Aware Queue Operation

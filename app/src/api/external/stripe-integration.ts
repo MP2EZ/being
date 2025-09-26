@@ -14,7 +14,7 @@ import {
   CrisisResponseTime,
   TherapeuticContinuity,
   EmergencyAccessControl,
-} from '../../types/webhooks/crisis-safety-types';
+} from '../../types/crisis-safety';
 import { CrisisSafeAPIResponse } from '../webhooks/webhook-processor-api';
 
 /**
@@ -258,7 +258,9 @@ export class StripeIntegrationAPI {
       // 1. Crisis-sensitive payment setup
       const paymentData = await this.buildPaymentData(request, {
         maxTime: 50,
-        anxietyReduction: request.crisisContext?.preventFailureAnxiety,
+        ...(request.crisisContext?.preventFailureAnxiety !== undefined && {
+          anxietyReduction: request.crisisContext.preventFailureAnxiety
+        }),
       });
 
       // 2. Therapeutic continuity safeguards
@@ -276,7 +278,9 @@ export class StripeIntegrationAPI {
         {
           maxTime: maxResponseTime - 150,
           crisisMode: crisisLevel !== 'none',
-          emergencyMode: request.crisisContext?.emergencyPayment,
+          ...(request.crisisContext?.emergencyPayment !== undefined && {
+            emergencyMode: request.crisisContext.emergencyPayment
+          }),
         }
       );
 
@@ -418,8 +422,9 @@ export class StripeIntegrationAPI {
       };
 
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       throw new StripeEmergencyError(
-        `Emergency override failed: ${error.message}`,
+        `Emergency override failed: ${errorMessage}`,
         'EMERGENCY_OVERRIDE_FAILED',
         userId,
         overrideData.crisisLevel
@@ -549,7 +554,12 @@ export class StripeIntegrationAPI {
         'GET',
         `/v1/subscriptions/${subscriptionId}`,
         {},
-        { maxTime: maxResponseTime - 100, emergencyMode: options.emergencyMode }
+        {
+          maxTime: maxResponseTime - 100,
+          ...(options.emergencyMode !== undefined && {
+            emergencyMode: options.emergencyMode
+          })
+        }
       );
 
       // Enrich with therapeutic context
@@ -734,20 +744,29 @@ export class StripeIntegrationAPI {
       anxietyMitigationApplied: this.config.therapeuticSettings.anxietyReductionMode,
     };
 
-    return {
+    const result: StripeSubscriptionResult = {
       subscriptionId: stripeSubscription.id,
       status: stripeSubscription.status,
       currentPeriodStart: stripeSubscription.current_period_start * 1000,
       currentPeriodEnd: stripeSubscription.current_period_end * 1000,
-      trialEnd: stripeSubscription.trial_end ? stripeSubscription.trial_end * 1000 : undefined,
-      latestInvoice: stripeSubscription.latest_invoice ? {
+      therapeuticContext,
+    };
+
+    // Add optional properties only if they exist
+    if (stripeSubscription.trial_end) {
+      result.trialEnd = stripeSubscription.trial_end * 1000;
+    }
+
+    if (stripeSubscription.latest_invoice) {
+      result.latestInvoice = {
         id: stripeSubscription.latest_invoice.id,
         status: stripeSubscription.latest_invoice.status,
         paymentIntentId: stripeSubscription.latest_invoice.payment_intent,
         paymentIntentClientSecret: stripeSubscription.latest_invoice.payment_intent_client_secret,
-      } : undefined,
-      therapeuticContext,
-    };
+      };
+    }
+
+    return result;
   }
 
   private async processPaymentResult(

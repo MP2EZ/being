@@ -9,7 +9,7 @@
  * - Enhanced security monitoring and audit logging
  */
 
-import { AuthSession, SessionSecurity, SessionTokens, AUTH_CONSTANTS } from '../../types/auth-session';
+import { EnhancedAuthSession, AUTHENTICATION_CANONICAL_CONSTANTS } from '../../types/authentication-canonical';
 import { encryptionService, DataSensitivity } from './EncryptionService';
 import { securityControlsService } from './SecurityControlsService';
 import { featureFlagService, isEmergencyMode } from './FeatureFlags';
@@ -51,7 +51,7 @@ export interface SessionActivity {
 
 export interface SessionValidationResult {
   valid: boolean;
-  session: AuthSession | null;
+  session: EnhancedAuthSession | null;
   requiresReAuthentication: boolean;
   reason: string;
   securityFlags: string[];
@@ -76,7 +76,7 @@ export interface EmergencySessionConfig {
  */
 export class SessionSecurityService {
   private static instance: SessionSecurityService;
-  private currentSession: AuthSession | null = null;
+  private currentSession: EnhancedAuthSession | null = null;
   private sessionActivities: SessionActivity[] = [];
   private idleTimer: NodeJS.Timeout | null = null;
   private sessionTimer: NodeJS.Timeout | null = null;
@@ -157,10 +157,10 @@ export class SessionSecurityService {
    */
   async createSession(
     userId: string,
-    authMethod: SessionSecurity['authMethod'],
+    authMethod: 'anonymous' | 'biometric' | 'password' | 'emergency',
     deviceId: string,
     emergencyMode: boolean = false
-  ): Promise<AuthSession> {
+  ): Promise<EnhancedAuthSession> {
     const startTime = Date.now();
 
     try {
@@ -170,54 +170,102 @@ export class SessionSecurityService {
       const accessToken = await this.generateAccessToken(userId, sessionId, emergencyMode);
       const refreshToken = await this.generateRefreshToken(userId, sessionId);
 
-      // Calculate session expiration based on type
-      const sessionType = emergencyMode ? 'emergency' : 'authenticated';
+      // Calculate session expiration based on type - using canonical 15-minute expiry
       const timeoutMinutes = emergencyMode
-        ? this.emergencyConfig.maxDurationMinutes
-        : this.config.sessionTimeoutMinutes;
+        ? AUTHENTICATION_CANONICAL_CONSTANTS.TOKEN_EXPIRY.CRISIS_BYPASS_MINUTES
+        : AUTHENTICATION_CANONICAL_CONSTANTS.TOKEN_EXPIRY.ACCESS_TOKEN_MINUTES;
 
       const now = new Date();
       const expiresAt = new Date(now.getTime() + timeoutMinutes * 60 * 1000);
 
-      // Create session security context
-      const security: SessionSecurity = {
-        authMethod,
-        mfaEnabled: false, // TODO: Implement MFA
-        mfaVerified: false,
-        biometricVerified: authMethod === 'biometric',
-        deviceTrusted: await this.isDeviceTrusted(deviceId),
-        riskScore: await this.calculateRiskScore(userId, deviceId, authMethod),
-        securityFlags: []
-      };
-
-      // Create session tokens
-      const tokens: SessionTokens = {
-        accessToken,
-        refreshToken,
-        deviceToken,
-        emergencyToken: emergencyMode ? await this.generateEmergencyToken(userId, sessionId) : undefined,
-        tokenType: 'Bearer',
-        expiresIn: timeoutMinutes * 60,
-        scope: emergencyMode ? this.emergencyConfig.allowedOperations : ['full_access'],
-        issuedAt: now.toISOString(),
-        issuer: 'being-app',
-        audience: 'being-users'
-      };
-
-      // Create the session
-      const session: AuthSession = {
-        id: sessionId,
+      // Create the session using canonical structure
+      const session: EnhancedAuthSession = {
+        // Session identification
+        sessionId,
         userId,
         deviceId,
-        sessionType,
-        createdAt: now.toISOString(),
-        expiresAt: expiresAt.toISOString(),
-        lastActivity: now.toISOString(),
-        tokens,
-        security,
-        device: await this.getDeviceInfo(deviceId),
-        permissions: await this.getSessionPermissions(userId, emergencyMode),
-        compliance: await this.getComplianceInfo(userId)
+
+        // Session metadata
+        metadata: {
+          createdAt: now.toISOString(),
+          lastActivity: now.toISOString(),
+          expiresAt: expiresAt.toISOString(),
+          refreshedAt: now.toISOString(),
+
+          // Session context
+          userAgent: 'FullMind-App/1.0',
+          platform: 'ios', // TODO: Get actual platform
+          appVersion: '1.0.0',
+          ipAddress: '127.0.0.1', // TODO: Get actual IP
+          geolocation: {
+            country: 'US',
+            region: 'Unknown',
+            city: 'Unknown'
+          }
+        },
+
+        // Authentication context
+        authentication: {
+          method: authMethod === 'biometric' ? 'biometric' : 
+                  authMethod === 'emergency' ? 'emergency_bypass' :
+                  authMethod === 'password' ? 'email_password' : 'anonymous',
+          authenticatedAt: now.toISOString(),
+          mfaCompleted: false,
+          biometricUsed: authMethod === 'biometric',
+          emergencyBypassUsed: emergencyMode,
+
+          // Token information (IMMUTABLE 15-minute expiry)
+          tokens: {
+            accessToken,
+            accessTokenExpiresAt: expiresAt.toISOString(),
+            refreshToken,
+            refreshTokenExpiresAt: new Date(now.getTime() + AUTHENTICATION_CANONICAL_CONSTANTS.TOKEN_EXPIRY.REFRESH_TOKEN_DAYS * 24 * 60 * 60 * 1000).toISOString(),
+            tokenType: 'Bearer'
+          }
+        },
+
+        // Session security
+        security: {
+          // Device trust
+          deviceTrusted: await this.isDeviceTrusted(deviceId),
+          deviceFingerprint: deviceToken,
+          securityLevel: emergencyMode ? 'critical' : 'high',
+
+          // Risk assessment
+          riskScore: await this.calculateRiskScore(userId, deviceId, authMethod),
+          riskFactors: emergencyMode ? ['emergency_bypass'] : [],
+
+          // Encryption and privacy (IMMUTABLE HIPAA requirements)
+          encrypted: true,
+          hipaaCompliant: true,
+          piiMinimized: true
+        },
+
+        // Crisis and clinical context (IMMUTABLE)
+        clinical: {
+          crisisMode: emergencyMode,
+          emergencyAccess: emergencyMode,
+          clinicalOverride: false,
+          therapeuticSessionActive: false,
+
+          // Clinical data access permissions
+          dataAccess: {
+            fullAccess: !emergencyMode,
+            assessmentAccess: true,
+            checkInAccess: true,
+            crisisPlanAccess: true,
+            therapeuticDataAccess: !emergencyMode
+          }
+        },
+
+        // Session performance
+        performance: {
+          authenticationTime: Date.now() - startTime,
+          sessionEstablishmentTime: 0,
+          lastRequestLatency: 0,
+          requestCount: 0,
+          errorCount: 0
+        }
       };
 
       // Store session securely
@@ -288,7 +336,7 @@ export class SessionSecurityService {
 
       // Check session expiration
       const now = new Date();
-      const expiresAt = new Date(this.currentSession.expiresAt);
+      const expiresAt = new Date(this.currentSession.metadata.expiresAt);
       if (now >= expiresAt) {
         securityFlags.push('session_expired');
         await this.invalidateSession('session_expired');
@@ -307,7 +355,7 @@ export class SessionSecurityService {
 
       // Check idle timeout
       const idleTimeout = this.config.idleTimeoutMinutes * 60 * 1000;
-      const lastActivity = new Date(this.currentSession.lastActivity);
+      const lastActivity = new Date(this.currentSession.metadata.lastActivity);
       if (now.getTime() - lastActivity.getTime() > idleTimeout) {
         securityFlags.push('idle_timeout');
         this.isIdle = true;
@@ -401,7 +449,7 @@ export class SessionSecurityService {
   /**
    * Create emergency session for crisis situations
    */
-  async createEmergencySession(userId: string, deviceId: string, crisisType: string): Promise<AuthSession> {
+  async createEmergencySession(userId: string, deviceId: string, crisisType: string): Promise<EnhancedAuthSession> {
     try {
       // Check if emergency mode is enabled
       if (!this.emergencyConfig.enabled) {
@@ -583,7 +631,10 @@ export class SessionSecurityService {
     if (this.currentSession) {
       this.currentSession = {
         ...this.currentSession,
-        lastActivity: new Date().toISOString()
+        metadata: {
+          ...this.currentSession.metadata,
+          lastActivity: new Date().toISOString()
+        }
       };
 
       await this.storeSession(this.currentSession);
@@ -817,22 +868,22 @@ export class SessionSecurityService {
     return {
       hipaaCompliant: true,
       consentGiven: true,
-      consentVersion: AUTH_CONSTANTS.COMPLIANCE.CONSENT_VERSION_CURRENT,
+      consentVersion: 'v1.0',
       consentTimestamp: new Date().toISOString(),
       dataProcessingAgreement: true,
       auditingEnabled: true,
       retentionPolicyAccepted: true,
-      privacyPolicyVersion: AUTH_CONSTANTS.COMPLIANCE.PRIVACY_POLICY_VERSION_CURRENT,
+      privacyPolicyVersion: 'v1.0',
       complianceFlags: []
     };
   }
 
-  private setupSessionTimers(session: AuthSession): void {
+  private setupSessionTimers(session: EnhancedAuthSession): void {
     // Clear existing timers
     this.clearSessionTimers();
 
     // Set session timeout
-    const expiresAt = new Date(session.expiresAt);
+    const expiresAt = new Date(session.metadata.expiresAt);
     const timeUntilExpiry = expiresAt.getTime() - Date.now();
 
     if (timeUntilExpiry > 0) {
@@ -879,7 +930,7 @@ export class SessionSecurityService {
   /**
    * Get current session
    */
-  getCurrentSession(): AuthSession | null {
+  getCurrentSession(): EnhancedAuthSession | null {
     return this.currentSession;
   }
 

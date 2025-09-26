@@ -9,13 +9,23 @@
  */
 
 import {
-  // Core Types
+  // Core Types from consolidated crisis-safety.ts
+  PHQ9Score,
+  GAD7Score,
+  PHQ9Severity,
+  GAD7Severity,
+  Assessment,
+  CRISIS_THRESHOLD_PHQ9,
+  CRISIS_THRESHOLD_GAD7,
+  CrisisDetectionFunction,
+  CrisisAlert,
+  // Performance validation types
   CrisisResponseTimingConstraints,
   CrisisResponseMetrics,
   isCrisisResponseValid,
   isAccessibilityCompliant,
-  isClinicallyAccurate,
-} from '../clinical-component-types';
+  isClinicallyAccurate
+} from '../crisis-safety';
 
 import {
   // Assessment Types
@@ -56,7 +66,7 @@ import {
   isMasterClinicalComponentValid,
   isClinicallyReady,
   isProductionReady,
-} from '../comprehensive-clinical-component-types';
+} from '../crisis-safety';
 
 describe('Clinical Type Safety Validation', () => {
   describe('Crisis Response Timing Validation', () => {

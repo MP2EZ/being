@@ -6,11 +6,17 @@
 import * as Crypto from 'expo-crypto';
 import { syncOrchestrationService, SyncCapableStore } from '../../services/SyncOrchestrationService';
 import {
-  SyncStatus,
+  SyncState,
   SyncOperation,
+  SyncConflict,
+  SyncPerformanceMetrics,
+  DeviceInfo,
+  CROSS_DEVICE_SYNC_CANONICAL_CONSTANTS
+} from '../../types/cross-device-sync-canonical';
+import {
+  SyncStatus,
   SyncOperationType,
   SyncEntityType,
-  SyncConflict,
   ConflictType,
   ConflictResolution,
   ConflictResolutionStrategy,
@@ -31,9 +37,9 @@ import { validateCheckInData, validateAssessment } from '../../utils/validation'
 import { calculatePHQ9Score, calculateGAD7Score, requiresCrisisIntervention } from '../../types/clinical';
 
 /**
- * Sync state interface for Zustand stores
+ * Store sync state interface for Zustand stores
  */
-interface SyncState {
+interface StoreSyncState {
   _syncStatus: StoreSyncStatus;
   _syncMetadata: Map<string, SyncMetadata>;
   _pendingOperations: SyncOperation[];
@@ -44,7 +50,7 @@ interface SyncState {
 /**
  * Sync actions interface for Zustand stores
  */
-interface SyncActions {
+interface StoreSyncActions {
   // Core sync operations
   _prepareSyncOperation: (operation: SyncOperationType, data: SyncableData, options?: SyncOperationOptions) => SyncOperation;
   _applySyncResult: (operation: SyncOperation, result: OfflineOperationResult) => Promise<void>;
@@ -91,7 +97,7 @@ interface SyncOperationOptions {
 export function createSyncMixin<T extends Record<string, unknown>>(
   entityType: SyncEntityType,
   validateEntityData?: (data: SyncableData) => ClinicalValidationResult
-): (set: any, get: any) => SyncState & SyncActions {
+): (set: any, get: any) => StoreSyncState & StoreSyncActions {
   
   return (set, get) => {
     // Initialize sync state
@@ -105,7 +111,7 @@ export function createSyncMixin<T extends Record<string, unknown>>(
       networkQuality: NetworkQuality.OFFLINE
     };
 
-    const syncState: SyncState = {
+    const syncState: StoreSyncState = {
       _syncStatus: initialSyncStatus,
       _syncMetadata: new Map(),
       _pendingOperations: [],
@@ -113,7 +119,7 @@ export function createSyncMixin<T extends Record<string, unknown>>(
       _conflictHistory: []
     };
 
-    const syncActions: SyncActions = {
+    const syncActions: StoreSyncActions = {
       /**
        * Prepare sync operation for queue
        */
@@ -656,7 +662,7 @@ export function withSync<T extends Record<string, unknown>>(
     const baseStore = storeDefinition(set, get);
     
     // Register store with sync orchestration service
-    const store = { ...baseStore, ...syncMixin } as T & SyncState & SyncActions;
+    const store = { ...baseStore, ...syncMixin } as T & StoreSyncState & StoreSyncActions;
     
     // Register with sync orchestration service after initialization
     setTimeout(() => {

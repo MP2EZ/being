@@ -618,7 +618,7 @@ export class CrisisSyncAPI {
     const response = await fetch(url, {
       method,
       headers,
-      body: data ? JSON.stringify(data) : undefined,
+      body: data ? JSON.stringify(data) : null,
       signal: AbortSignal.timeout(this.emergencyTimeout)
     });
 

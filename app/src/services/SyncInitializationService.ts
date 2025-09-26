@@ -10,6 +10,7 @@ import { assetCacheService } from './AssetCacheService';
 import { resumableSessionService } from './ResumableSessionService';
 import { syncPerformanceMonitor } from './SyncPerformanceMonitor';
 import { offlineIntegrationService } from './OfflineIntegrationService';
+import { SyncState, SyncOperation, SyncPerformanceMetrics } from '../types/cross-device-sync-canonical';
 import { SyncEntityType, AppSyncState, SyncStatus } from '../types/sync';
 import { NetworkQuality, OfflineServiceHealth } from '../types/offline';
 import AsyncStorage from '@react-native-async-storage/async-storage';

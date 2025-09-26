@@ -5,13 +5,13 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Crypto from 'expo-crypto';
-import { 
-  ResumableSession, 
-  SessionProgress, 
+import {
+  ResumableSession,
+  SessionProgress,
   SessionValidationResult,
   SESSION_CONSTANTS,
   SessionStorageKeys
-} from '../types/ResumableSession';
+} from '../types/offline';
 import { dataStore } from './storage/SecureDataStore';
 
 class ResumableSessionServiceImpl {

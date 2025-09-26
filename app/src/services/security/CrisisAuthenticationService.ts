@@ -10,7 +10,7 @@
  * - Performance optimized for <200ms crisis response
  */
 
-import { AuthSession, AUTH_CONSTANTS } from '../../types/auth-session';
+import { EnhancedAuthSession, CrisisAuthenticationConfig, AUTHENTICATION_CANONICAL_CONSTANTS } from '../../types/authentication-canonical';
 import { encryptionService, DataSensitivity } from './EncryptionService';
 import { securityControlsService } from './SecurityControlsService';
 import { sessionSecurityService } from './SessionSecurityService';
