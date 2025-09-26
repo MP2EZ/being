@@ -14,13 +14,7 @@ const config = getDefaultConfig(__dirname);
 // CLINICAL PERFORMANCE OPTIMIZATION
 // ========================================
 
-// Crisis intervention performance: <200ms compilation impact
-config.cacheStores = [
-  {
-    name: 'filesystem-cache',
-    get: require('@expo/metro-config/src/stores/FileStore'),
-  }
-];
+// Crisis intervention performance: <200ms compilation impact (using Metro's default cache)
 
 // Therapeutic content optimization (60fps breathing exercises)
 config.transformer.getTransformOptions = async () => ({
@@ -42,7 +36,7 @@ config.transformer.hermesCommand = path.resolve(
 
 // New Architecture: TurboModules and Fabric support
 config.transformer.unstable_allowRequireContext = true;
-config.transformer.babelTransformerPath = require.resolve('metro-react-native-babel-transformer');
+config.transformer.babelTransformerPath = require.resolve('metro-babel-transformer');
 
 // ========================================
 // DEPENDENCY RESOLUTION OPTIMIZATION
