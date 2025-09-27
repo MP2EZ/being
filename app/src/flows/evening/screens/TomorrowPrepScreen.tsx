@@ -10,7 +10,6 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
 import { colorSystem, spacing, typography, borderRadius } from '../../../constants/colors';
 import { OverflowSupport, SafetyButton } from '../../shared/components';
 
@@ -20,6 +19,11 @@ interface IntentionOption {
   selected: boolean;
 }
 
+interface TomorrowPrepScreenProps {
+  onComplete: (sessionData: any) => void;
+  onExit: () => void;
+}
+
 const INTENTION_OPTIONS: IntentionOption[] = [
   { id: 'rest', text: 'I will rest well tonight', selected: false },
   { id: 'gentle', text: 'I will be gentle with myself', selected: false },
@@ -27,8 +31,10 @@ const INTENTION_OPTIONS: IntentionOption[] = [
   { id: 'trust', text: 'I trust my ability to handle what comes', selected: false },
 ];
 
-const TomorrowPrepScreen: React.FC = () => {
-  const navigation = useNavigation();
+const TomorrowPrepScreen: React.FC<TomorrowPrepScreenProps> = ({
+  onComplete,
+  onExit
+}) => {
   const [reminder, setReminder] = useState('');
   const [intentions, setIntentions] = useState<IntentionOption[]>(INTENTION_OPTIONS);
   const [showOverflowSupport, setShowOverflowSupport] = useState(false);
@@ -46,10 +52,22 @@ const TomorrowPrepScreen: React.FC = () => {
 
   const handleComplete = () => {
     setHasCompleted(true);
-    // Navigate back to home or show completion state
+
+    // Collect session data
+    const sessionData = {
+      reminder: reminder.trim(),
+      selectedIntentions: selectedIntentions.map(i => ({
+        id: i.id,
+        text: i.text
+      })),
+      completedAt: Date.now(),
+      screenName: 'TomorrowPrep'
+    };
+
+    // Show completion message for 3 seconds, then complete the flow
     setTimeout(() => {
-      navigation.goBack();
-    }, 3000); // Show completion message for 3 seconds
+      onComplete(sessionData);
+    }, 3000);
   };
 
   const selectedIntentions = intentions.filter(i => i.selected);
