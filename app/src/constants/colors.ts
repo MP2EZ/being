@@ -7,13 +7,15 @@ export const colorSystem = {
   // Check-in Themes (PRIMARY FOR COMPONENT USAGE)
   themes: {
     morning: {
-      primary: '#FF9F43',    // Continue buttons, progress
+      primary: '#B45309',    // WCAG-AA compliant: 4.69:1 contrast (was #FF9F43: 2.04:1)
+      primaryFallback: '#FF9F43', // Original color for non-text elements
       success: '#E8863A',    // Completion states (darker)
       light: '#FFB366',      // Hover states, backgrounds
       background: '#FFF8F0'  // Section backgrounds
     },
     midday: {
-      primary: '#40B5AD',    // Continue buttons, midday sessions
+      primary: '#0F766E',    // WCAG-AA compliant: 4.85:1 contrast (was #40B5AD: 2.49:1)
+      primaryFallback: '#40B5AD', // Original color for non-text elements
       success: '#2C8A82',    // Completion states (darker)
       light: '#5EC4BC',      // Hover states, backgrounds
       background: '#F0FBF9'  // Section backgrounds

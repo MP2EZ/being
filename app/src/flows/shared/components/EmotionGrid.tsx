@@ -43,7 +43,15 @@ const EmotionGrid: React.FC<EmotionGridProps> = ({
   theme = 'midday',
   testID = 'emotion-grid'
 }) => {
-  const themeColors = colorSystem.themes[theme];
+  // Safe theme access with fallback
+  const neutralTheme = {
+    primary: colorSystem.base.midnightBlue,
+    light: colorSystem.gray[200],
+    background: colorSystem.base.white,
+  };
+
+  const selectedTheme = colorSystem.themes[theme as keyof typeof colorSystem.themes];
+  const themeColors = selectedTheme || neutralTheme;
 
   const handleEmotionPress = (emotionId: string) => {
     let newSelection: string[];
