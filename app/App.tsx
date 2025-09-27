@@ -9,7 +9,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { SimpleThemeProvider } from './src/contexts/SimpleThemeContext';
-import MinimalRootNavigator from './src/navigation/MinimalRootNavigator';
+import CleanRootNavigator from './src/navigation/CleanRootNavigator';
 
 export default function App() {
   useEffect(() => {
@@ -61,7 +61,7 @@ export default function App() {
     <SafeAreaProvider>
       <SimpleThemeProvider>
         <StatusBar style="auto" />
-        <MinimalRootNavigator />
+        <CleanRootNavigator />
       </SimpleThemeProvider>
     </SafeAreaProvider>
   );
