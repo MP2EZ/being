@@ -10,7 +10,7 @@ import { View, Text } from 'react-native';
 import Svg, { Path, Circle } from 'react-native-svg';
 import { colorSystem, spacing } from '../constants/colors';
 import CleanHomeScreen from '../screens/home/CleanHomeScreen';
-// import ExercisesScreen from '../screens/ExercisesScreen';
+import ExercisesScreen from '../screens/ExercisesScreen.simple';
 
 const Tab = createBottomTabNavigator();
 
@@ -149,14 +149,10 @@ const CleanTabNavigator: React.FC = () => {
 
       <Tab.Screen
         name="Exercises"
-        children={() => (
-          <PlaceholderScreen
-            name="Exercises"
-            description="Guided exercises and assessments for mindful self-reflection and awareness."
-          />
-        )}
+        component={ExercisesScreen}
         options={{
           headerTitle: 'Exercises',
+          headerShown: false, // ExercisesScreen has its own SafeAreaView
           tabBarIcon: ({ focused, color }) => (
             <StarIcon
               color={focused ? '#FF9F43' : '#1C1C1C'} // DRD morning-primary : soft-black
