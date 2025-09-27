@@ -112,12 +112,25 @@ const EveningFlowNavigator: React.FC<EveningFlowNavigatorProps> = ({
       
       <Stack.Screen
         name="TomorrowPrep"
-        component={TomorrowPrepScreen}
         options={{
           title: 'Prepare for Rest',
           headerTitle: 'Prepare for Tomorrow', // Sleep transition focus
         }}
-      />
+      >
+        {({ navigation, route }) => (
+          <TomorrowPrepScreen
+            onComplete={(sessionData) => {
+              // Pass any session data and complete the entire evening flow
+              onComplete({
+                flowType: 'evening',
+                completedAt: Date.now(),
+                sessionData
+              });
+            }}
+            onExit={onExit}
+          />
+        )}
+      </Stack.Screen>
     </Stack.Navigator>
   );
 };
