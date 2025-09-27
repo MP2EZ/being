@@ -1,14 +1,21 @@
 /**
  * Clean Home Screen - Fresh start implementation
  * Shows three DRD-compliant check-in cards without crypto dependencies
+ * Integrated with MBCT flow navigation
  */
 
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import type { StackNavigationProp } from '@react-navigation/stack';
 import { colorSystem, spacing } from '../../constants/colors';
+import type { RootStackParamList } from '../../navigation/CleanRootNavigator';
+
+type CleanHomeScreenNavigationProp = StackNavigationProp<RootStackParamList>;
 
 const CleanHomeScreen: React.FC = () => {
+  const navigation = useNavigation<CleanHomeScreenNavigationProp>();
   const currentHour = new Date().getHours();
 
   const getGreeting = () => {
@@ -25,6 +32,25 @@ const CleanHomeScreen: React.FC = () => {
 
   const currentPeriod = getCurrentPeriod();
 
+  const handleCheckInPress = (type: 'morning' | 'midday' | 'evening') => {
+    console.log(`🎯 ${type} check-in pressed`);
+
+    switch (type) {
+      case 'morning':
+        // Navigate to Morning Flow (6-screen body scan & awareness)
+        navigation.navigate('MorningFlow');
+        break;
+      case 'midday':
+        // Navigate to MBCT 3-Minute Breathing Space
+        navigation.navigate('MiddayFlow');
+        break;
+      case 'evening':
+        // Navigate to Evening Flow (4-screen reflection & preparation)
+        navigation.navigate('EveningFlow');
+        break;
+    }
+  };
+
   const CheckInCard: React.FC<{
     type: 'morning' | 'midday' | 'evening';
     title: string;
@@ -33,6 +59,7 @@ const CleanHomeScreen: React.FC = () => {
   }> = ({ type, title, description, duration }) => {
     const isCurrent = type === currentPeriod;
     const themeColors = colorSystem.themes[type];
+    const isImplemented = true; // All flows are now implemented
 
     return (
       <Pressable
@@ -42,16 +69,18 @@ const CleanHomeScreen: React.FC = () => {
             backgroundColor: themeColors.background,
             borderColor: isCurrent ? themeColors.primary : colorSystem.gray[200],
             borderWidth: isCurrent ? 2 : 1,
-            opacity: pressed ? 0.9 : 1,
+            opacity: pressed ? 0.9 : (!isImplemented ? 0.6 : 1),
           }
         ]}
-        onPress={() => {
-          console.log(`🎯 ${type} check-in pressed - Future: Navigate to ${type} flow`);
-          // TODO: Navigate to check-in flow
-        }}
+        onPress={() => handleCheckInPress(type)}
+        disabled={!isImplemented}
         accessibilityRole="button"
         accessibilityLabel={`${title} check-in`}
-        accessibilityHint={`Start your ${type} mindfulness check-in, estimated ${duration}`}
+        accessibilityHint={isImplemented 
+          ? `Start your ${type} mindfulness check-in, estimated ${duration}`
+          : `${title} check-in coming soon`
+        }
+        accessibilityState={{ disabled: !isImplemented }}
       >
         <View style={styles.cardHeader}>
           <Text style={[
@@ -67,10 +96,14 @@ const CleanHomeScreen: React.FC = () => {
 
         <View style={[
           styles.startButton,
-          { backgroundColor: themeColors.primary }
+          { 
+            backgroundColor: isImplemented 
+              ? themeColors.primary 
+              : colorSystem.gray[400] 
+          }
         ]}>
           <Text style={styles.startButtonText}>
-            Start Check-in
+            {isImplemented ? 'Start Check-in' : 'Coming Soon'}
           </Text>
         </View>
       </Pressable>
