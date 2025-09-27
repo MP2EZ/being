@@ -19,7 +19,7 @@ import {
   Modal 
 } from 'react-native';
 import { colorSystem, spacing, borderRadius, typography } from '../../../constants/colors';
-import { SafetyButton } from './';
+import SafetyButton from './SafetyButton';
 
 interface OverflowSupportProps {
   visible: boolean;

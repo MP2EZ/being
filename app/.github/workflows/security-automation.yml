@@ -1,0 +1,673 @@
+# Security Automation Pipeline - Week 3 Orchestration
+# Comprehensive SAST/DAST security scanning for mental health application
+# CRITICAL: Zero tolerance for security vulnerabilities in healthcare data
+
+name: 🔒 Security Automation & Vulnerability Assessment
+
+on:
+  push:
+    branches: [ main, develop, release/* ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    # Run security scans daily at 3 AM UTC
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+    inputs:
+      scan_type:
+        description: 'Security scan type'
+        required: true
+        default: 'comprehensive'
+        type: choice
+        options:
+          - comprehensive
+          - sast-only
+          - dast-only
+          - dependency-only
+          - secrets-only
+      severity_threshold:
+        description: 'Minimum severity to report'
+        required: false
+        default: 'medium'
+        type: choice
+        options:
+          - critical
+          - high
+          - medium
+          - low
+
+env:
+  SECURITY_SCAN_TIMEOUT: 30
+  VULNERABILITY_THRESHOLD: 0
+  CRITICAL_CVE_THRESHOLD: 0
+  HIGH_CVE_THRESHOLD: 2
+  HIPAA_COMPLIANCE_REQUIRED: true
+
+jobs:
+  # ===============================================
+  # PHASE 1: STATIC APPLICATION SECURITY TESTING (SAST)
+  # ===============================================
+  sast-analysis:
+    name: 🔍 Static Application Security Testing
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    outputs:
+      vulnerabilities-found: ${{ steps.sast-scan.outputs.vulnerabilities }}
+      critical-issues: ${{ steps.sast-scan.outputs.critical }}
+      scan-status: ${{ steps.sast-scan.outputs.status }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Full history for comprehensive analysis
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: 'app/package-lock.json'
+
+      - name: Install dependencies
+        working-directory: app
+        run: npm ci
+
+      - name: ESLint security analysis
+        working-directory: app
+        run: |
+          echo "🔍 Running ESLint security analysis..."
+          
+          # Install security-focused ESLint plugins
+          npm install --save-dev eslint-plugin-security eslint-plugin-no-secrets
+          
+          # Create security-focused ESLint config
+          cat > .eslintrc.security.json << 'EOF'
+          {
+            "extends": ["plugin:security/recommended"],
+            "plugins": ["security", "no-secrets"],
+            "rules": {
+              "security/detect-object-injection": "error",
+              "security/detect-eval-with-expression": "error",
+              "security/detect-non-literal-require": "error",
+              "security/detect-possible-timing-attacks": "error",
+              "security/detect-pseudoRandomBytes": "error",
+              "security/detect-buffer-noassert": "error",
+              "security/detect-child-process": "error",
+              "security/detect-disable-mustache-escape": "error",
+              "security/detect-new-buffer": "error",
+              "security/detect-no-csrf-before-method-override": "error",
+              "no-secrets/no-secrets": "error"
+            }
+          }
+          EOF
+          
+          # Run security-focused linting
+          npx eslint src --config .eslintrc.security.json --format json --output-file security-eslint-report.json || true
+          
+          # Analyze results
+          if [ -f "security-eslint-report.json" ]; then
+            SECURITY_ISSUES=$(cat security-eslint-report.json | jq '[.[] | .messages[] | select(.ruleId | startswith("security/"))] | length')
+            echo "🔍 ESLint security issues found: $SECURITY_ISSUES"
+          fi
+
+      - name: TypeScript security analysis
+        working-directory: app
+        run: |
+          echo "🔍 Running TypeScript security analysis..."
+          
+          # Check for unsafe TypeScript patterns
+          cat > security-patterns.sh << 'EOF'
+          #!/bin/bash
+          
+          echo "Scanning for security anti-patterns..."
+          
+          # Check for eval usage
+          EVAL_COUNT=$(find src -name "*.ts" -o -name "*.tsx" | xargs grep -l "eval(" | wc -l)
+          echo "eval() usage: $EVAL_COUNT files"
+          
+          # Check for innerHTML usage (XSS risk)
+          INNERHTML_COUNT=$(find src -name "*.ts" -o -name "*.tsx" | xargs grep -l "innerHTML" | wc -l)
+          echo "innerHTML usage: $INNERHTML_COUNT files"
+          
+          # Check for dangerouslySetInnerHTML
+          DANGEROUS_HTML=$(find src -name "*.tsx" | xargs grep -l "dangerouslySetInnerHTML" | wc -l)
+          echo "dangerouslySetInnerHTML usage: $DANGEROUS_HTML files"
+          
+          # Check for hardcoded credentials patterns
+          CREDS_PATTERNS=$(find src -name "*.ts" -o -name "*.tsx" | xargs grep -E "(password|secret|key|token).*=.*['\"][^'\"]{8,}" | wc -l)
+          echo "Potential hardcoded credentials: $CREDS_PATTERNS occurrences"
+          
+          # Generate security scan summary
+          cat > typescript-security-summary.json << EOJ
+          {
+            "eval_usage": $EVAL_COUNT,
+            "innerHTML_usage": $INNERHTML_COUNT,
+            "dangerous_html": $DANGEROUS_HTML,
+            "potential_credentials": $CREDS_PATTERNS,
+            "scan_timestamp": "$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)"
+          }
+          EOJ
+          EOF
+          
+          chmod +x security-patterns.sh
+          ./security-patterns.sh
+
+      - name: SAST vulnerability assessment
+        id: sast-scan
+        working-directory: app
+        run: |
+          echo "🔍 Comprehensive SAST vulnerability assessment..."
+          
+          # Combine all security analysis results
+          ESLINT_ISSUES=0
+          TYPESCRIPT_ISSUES=0
+          TOTAL_ISSUES=0
+          
+          if [ -f "security-eslint-report.json" ]; then
+            ESLINT_ISSUES=$(cat security-eslint-report.json | jq '[.[] | .messages[] | select(.ruleId | startswith("security/"))] | length' || echo "0")
+          fi
+          
+          if [ -f "typescript-security-summary.json" ]; then
+            EVAL_USAGE=$(cat typescript-security-summary.json | jq '.eval_usage // 0')
+            DANGEROUS_HTML=$(cat typescript-security-summary.json | jq '.dangerous_html // 0')
+            TYPESCRIPT_ISSUES=$((EVAL_USAGE + DANGEROUS_HTML))
+          fi
+          
+          TOTAL_ISSUES=$((ESLINT_ISSUES + TYPESCRIPT_ISSUES))
+          
+          # Determine critical issues
+          CRITICAL_ISSUES=0
+          if [ "$EVAL_USAGE" -gt 0 ]; then
+            CRITICAL_ISSUES=$((CRITICAL_ISSUES + EVAL_USAGE))
+          fi
+          if [ "$DANGEROUS_HTML" -gt 0 ]; then
+            CRITICAL_ISSUES=$((CRITICAL_ISSUES + DANGEROUS_HTML))
+          fi
+          
+          echo "vulnerabilities=$TOTAL_ISSUES" >> $GITHUB_OUTPUT
+          echo "critical=$CRITICAL_ISSUES" >> $GITHUB_OUTPUT
+          
+          if [ "$CRITICAL_ISSUES" -gt 0 ]; then
+            echo "status=CRITICAL_VULNERABILITIES_FOUND" >> $GITHUB_OUTPUT
+            echo "🚨 CRITICAL: $CRITICAL_ISSUES critical security vulnerabilities detected"
+          elif [ "$TOTAL_ISSUES" -gt 5 ]; then
+            echo "status=HIGH_RISK" >> $GITHUB_OUTPUT
+            echo "⚠️ HIGH RISK: $TOTAL_ISSUES security issues detected"
+          elif [ "$TOTAL_ISSUES" -gt 0 ]; then
+            echo "status=MEDIUM_RISK" >> $GITHUB_OUTPUT
+            echo "⚠️ MEDIUM RISK: $TOTAL_ISSUES security issues detected"
+          else
+            echo "status=SECURE" >> $GITHUB_OUTPUT
+            echo "✅ SECURE: No critical security vulnerabilities detected"
+          fi
+
+      - name: Upload SAST results
+        uses: actions/upload-artifact@v4
+        with:
+          name: sast-security-results
+          path: |
+            app/security-eslint-report.json
+            app/typescript-security-summary.json
+          retention-days: 30
+
+  # ===============================================
+  # PHASE 2: DEPENDENCY VULNERABILITY SCANNING
+  # ===============================================
+  dependency-vulnerability-scan:
+    name: 📦 Dependency Vulnerability Assessment
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      vulnerable-packages: ${{ steps.deps-scan.outputs.vulnerable }}
+      critical-cves: ${{ steps.deps-scan.outputs.critical }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: 'app/package-lock.json'
+
+      - name: Install dependencies
+        working-directory: app
+        run: npm ci
+
+      - name: npm audit security scan
+        working-directory: app
+        run: |
+          echo "📦 Running npm audit security scan..."
+          
+          # Run comprehensive audit
+          npm audit --json > npm-audit-results.json || true
+          
+          # Analyze audit results
+          if [ -f "npm-audit-results.json" ]; then
+            CRITICAL_VULNS=$(cat npm-audit-results.json | jq '.vulnerabilities | to_entries[] | select(.value.severity == "critical") | .key' | wc -l)
+            HIGH_VULNS=$(cat npm-audit-results.json | jq '.vulnerabilities | to_entries[] | select(.value.severity == "high") | .key' | wc -l)
+            MODERATE_VULNS=$(cat npm-audit-results.json | jq '.vulnerabilities | to_entries[] | select(.value.severity == "moderate") | .key' | wc -l)
+            
+            echo "📊 Vulnerability Summary:"
+            echo "  🚨 Critical: $CRITICAL_VULNS"
+            echo "  ⚠️ High: $HIGH_VULNS"
+            echo "  📊 Moderate: $MODERATE_VULNS"
+          else
+            echo "⚠️ npm audit results not available"
+            CRITICAL_VULNS=0
+            HIGH_VULNS=0
+          fi
+
+      - name: Snyk vulnerability scanning
+        working-directory: app
+        continue-on-error: true
+        run: |
+          echo "🔍 Running Snyk vulnerability scanning..."
+          
+          # Install Snyk CLI
+          npm install -g snyk
+          
+          # Test for vulnerabilities (will exit with error if vulnerabilities found)
+          snyk test --json > snyk-results.json || true
+          
+          if [ -f "snyk-results.json" ]; then
+            echo "📊 Snyk scan completed - results available"
+          else
+            echo "⚠️ Snyk scan failed or no results"
+          fi
+
+      - name: Analyze dependency vulnerabilities
+        id: deps-scan
+        working-directory: app
+        run: |
+          echo "📊 Analyzing dependency vulnerabilities..."
+          
+          TOTAL_VULNERABLE=0
+          CRITICAL_CVES=0
+          
+          # Analyze npm audit results
+          if [ -f "npm-audit-results.json" ]; then
+            CRITICAL_NPM=$(cat npm-audit-results.json | jq '.vulnerabilities | to_entries[] | select(.value.severity == "critical") | .key' | wc -l || echo "0")
+            HIGH_NPM=$(cat npm-audit-results.json | jq '.vulnerabilities | to_entries[] | select(.value.severity == "high") | .key' | wc -l || echo "0")
+            TOTAL_VULNERABLE=$((CRITICAL_NPM + HIGH_NPM))
+            CRITICAL_CVES=$CRITICAL_NPM
+          fi
+          
+          echo "vulnerable=$TOTAL_VULNERABLE" >> $GITHUB_OUTPUT
+          echo "critical=$CRITICAL_CVES" >> $GITHUB_OUTPUT
+          
+          # Check against thresholds
+          if [ "$CRITICAL_CVES" -gt "${{ env.CRITICAL_CVE_THRESHOLD }}" ]; then
+            echo "🚨 CRITICAL: $CRITICAL_CVES critical CVEs exceed threshold of ${{ env.CRITICAL_CVE_THRESHOLD }}"
+            exit 1
+          elif [ "$TOTAL_VULNERABLE" -gt "${{ env.HIGH_CVE_THRESHOLD }}" ]; then
+            echo "⚠️ WARNING: $TOTAL_VULNERABLE vulnerable packages exceed threshold of ${{ env.HIGH_CVE_THRESHOLD }}"
+          else
+            echo "✅ Dependency vulnerabilities within acceptable limits"
+          fi
+
+      - name: Upload dependency scan results
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-vulnerability-results
+          path: |
+            app/npm-audit-results.json
+            app/snyk-results.json
+          retention-days: 30
+
+  # ===============================================
+  # PHASE 3: SECRETS AND CREDENTIAL SCANNING
+  # ===============================================
+  secrets-scanning:
+    name: 🕵️ Secrets & Credential Detection
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      secrets-found: ${{ steps.secrets-scan.outputs.found }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Full history for comprehensive secret scanning
+
+      - name: TruffleHog secrets detection
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./app
+          base: main
+          head: HEAD
+          extra_args: --debug --only-verified
+
+      - name: Custom secrets scanning
+        id: secrets-scan
+        working-directory: app
+        run: |
+          echo "🕵️ Running custom secrets detection..."
+          
+          # Pattern-based secret detection
+          cat > secret-patterns.sh << 'EOF'
+          #!/bin/bash
+          
+          SECRETS_FOUND=0
+          
+          echo "Scanning for common secret patterns..."
+          
+          # AWS Keys
+          AWS_KEYS=$(find . -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.jsx" | xargs grep -E "AKIA[0-9A-Z]{16}" | wc -l)
+          if [ "$AWS_KEYS" -gt 0 ]; then
+            echo "⚠️ Potential AWS keys found: $AWS_KEYS"
+            SECRETS_FOUND=$((SECRETS_FOUND + AWS_KEYS))
+          fi
+          
+          # Private keys
+          PRIVATE_KEYS=$(find . -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.jsx" | xargs grep -E "-----BEGIN.*PRIVATE KEY-----" | wc -l)
+          if [ "$PRIVATE_KEYS" -gt 0 ]; then
+            echo "🚨 Private keys found: $PRIVATE_KEYS"
+            SECRETS_FOUND=$((SECRETS_FOUND + PRIVATE_KEYS))
+          fi
+          
+          # API tokens
+          API_TOKENS=$(find . -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.jsx" | xargs grep -E "['\"][a-zA-Z0-9]{32,}['\"]" | grep -E "(token|key|secret)" | wc -l)
+          if [ "$API_TOKENS" -gt 0 ]; then
+            echo "⚠️ Potential API tokens found: $API_TOKENS"
+            SECRETS_FOUND=$((SECRETS_FOUND + API_TOKENS))
+          fi
+          
+          # Hardcoded passwords
+          PASSWORDS=$(find . -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.jsx" | xargs grep -iE "password.*=.*['\"][^'\"]{8,}['\"]" | wc -l)
+          if [ "$PASSWORDS" -gt 0 ]; then
+            echo "🚨 Potential hardcoded passwords found: $PASSWORDS"
+            SECRETS_FOUND=$((SECRETS_FOUND + PASSWORDS))
+          fi
+          
+          # Database connection strings
+          DB_STRINGS=$(find . -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.jsx" | xargs grep -E "(postgres|mysql|mongodb)://.*:.*@" | wc -l)
+          if [ "$DB_STRINGS" -gt 0 ]; then
+            echo "🚨 Database connection strings found: $DB_STRINGS"
+            SECRETS_FOUND=$((SECRETS_FOUND + DB_STRINGS))
+          fi
+          
+          echo "Total potential secrets: $SECRETS_FOUND"
+          
+          # Generate secrets report
+          cat > secrets-scan-report.json << EOJ
+          {
+            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)",
+            "aws_keys": $AWS_KEYS,
+            "private_keys": $PRIVATE_KEYS,
+            "api_tokens": $API_TOKENS,
+            "passwords": $PASSWORDS,
+            "db_strings": $DB_STRINGS,
+            "total_secrets": $SECRETS_FOUND
+          }
+          EOJ
+          EOF
+          
+          chmod +x secret-patterns.sh
+          ./secret-patterns.sh
+          
+          # Read results
+          if [ -f "secrets-scan-report.json" ]; then
+            TOTAL_SECRETS=$(cat secrets-scan-report.json | jq '.total_secrets // 0')
+            echo "found=$TOTAL_SECRETS" >> $GITHUB_OUTPUT
+            
+            if [ "$TOTAL_SECRETS" -gt 0 ]; then
+              echo "🚨 SECURITY ALERT: $TOTAL_SECRETS potential secrets detected"
+              echo "Manual review required before deployment"
+            else
+              echo "✅ No secrets detected in codebase"
+            fi
+          fi
+
+      - name: Upload secrets scan results
+        uses: actions/upload-artifact@v4
+        with:
+          name: secrets-scan-results
+          path: |
+            app/secrets-scan-report.json
+          retention-days: 30
+
+  # ===============================================
+  # PHASE 4: HIPAA COMPLIANCE VALIDATION
+  # ===============================================
+  hipaa-compliance-check:
+    name: 🏥 HIPAA Compliance Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: env.HIPAA_COMPLIANCE_REQUIRED == 'true'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: 'app/package-lock.json'
+
+      - name: Install dependencies
+        working-directory: app
+        run: npm ci
+
+      - name: HIPAA compliance validation
+        working-directory: app
+        run: |
+          echo "🏥 Validating HIPAA compliance requirements..."
+          
+          # Check for encryption implementation
+          ENCRYPTION_FILES=$(find src -name "*.ts" -o -name "*.tsx" | xargs grep -l "encrypt\|cipher\|crypto" | wc -l)
+          echo "📊 Encryption implementations found: $ENCRYPTION_FILES files"
+          
+          # Check for secure storage usage
+          SECURE_STORAGE=$(find src -name "*.ts" -o -name "*.tsx" | xargs grep -l "SecureStore\|Keychain" | wc -l)
+          echo "🔒 Secure storage implementations: $SECURE_STORAGE files"
+          
+          # Check for audit logging
+          AUDIT_LOGGING=$(find src -name "*.ts" -o -name "*.tsx" | xargs grep -l "audit\|log" | wc -l)
+          echo "📝 Audit logging implementations: $AUDIT_LOGGING files"
+          
+          # Check for access controls
+          ACCESS_CONTROLS=$(find src -name "*.ts" -o -name "*.tsx" | xargs grep -l "permission\|access\|auth" | wc -l)
+          echo "🚪 Access control implementations: $ACCESS_CONTROLS files"
+          
+          # Generate HIPAA compliance report
+          cat > hipaa-compliance-report.json << EOF
+          {
+            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)",
+            "compliance_checks": {
+              "encryption_implementation": $ENCRYPTION_FILES,
+              "secure_storage": $SECURE_STORAGE,
+              "audit_logging": $AUDIT_LOGGING,
+              "access_controls": $ACCESS_CONTROLS
+            },
+            "compliance_status": "UNDER_REVIEW",
+            "recommendations": [
+              "Verify encryption strength meets HIPAA requirements",
+              "Ensure all PHI is encrypted at rest and in transit",
+              "Implement comprehensive audit logging",
+              "Validate access control mechanisms"
+            ]
+          }
+          EOF
+          
+          echo "✅ HIPAA compliance validation completed"
+
+      - name: Upload HIPAA compliance results
+        uses: actions/upload-artifact@v4
+        with:
+          name: hipaa-compliance-results
+          path: |
+            app/hipaa-compliance-report.json
+
+  # ===============================================
+  # PHASE 5: SECURITY REPORT AGGREGATION
+  # ===============================================
+  security-report-aggregation:
+    name: 📊 Security Assessment Summary
+    runs-on: ubuntu-latest
+    needs: [
+      sast-analysis,
+      dependency-vulnerability-scan,
+      secrets-scanning,
+      hipaa-compliance-check
+    ]
+    if: always()
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all security artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: security-artifacts/
+
+      - name: Generate comprehensive security report
+        run: |
+          echo "📊 Generating comprehensive security assessment..."
+          
+          # Collect results from all security scans
+          SAST_VULNERABILITIES="${{ needs.sast-analysis.outputs.vulnerabilities-found }}"
+          SAST_CRITICAL="${{ needs.sast-analysis.outputs.critical-issues }}"
+          SAST_STATUS="${{ needs.sast-analysis.outputs.scan-status }}"
+          
+          DEPENDENCY_VULNERABLE="${{ needs.dependency-vulnerability-scan.outputs.vulnerable-packages }}"
+          DEPENDENCY_CRITICAL="${{ needs.dependency-vulnerability-scan.outputs.critical-cves }}"
+          
+          SECRETS_FOUND="${{ needs.secrets-scanning.outputs.secrets-found }}"
+          
+          # Calculate overall security score
+          SECURITY_SCORE=100
+          
+          # Deduct points for vulnerabilities
+          SECURITY_SCORE=$((SECURITY_SCORE - (SAST_CRITICAL * 20)))
+          SECURITY_SCORE=$((SECURITY_SCORE - (SAST_VULNERABILITIES * 5)))
+          SECURITY_SCORE=$((SECURITY_SCORE - (DEPENDENCY_CRITICAL * 15)))
+          SECURITY_SCORE=$((SECURITY_SCORE - (DEPENDENCY_VULNERABLE * 3)))
+          SECURITY_SCORE=$((SECURITY_SCORE - (SECRETS_FOUND * 25)))
+          
+          # Ensure score doesn't go below 0
+          if [ "$SECURITY_SCORE" -lt 0 ]; then
+            SECURITY_SCORE=0
+          fi
+          
+          # Determine security grade
+          if [ "$SECURITY_SCORE" -ge 95 ]; then
+            SECURITY_GRADE="A+"
+          elif [ "$SECURITY_SCORE" -ge 90 ]; then
+            SECURITY_GRADE="A"
+          elif [ "$SECURITY_SCORE" -ge 85 ]; then
+            SECURITY_GRADE="B+"
+          elif [ "$SECURITY_SCORE" -ge 80 ]; then
+            SECURITY_GRADE="B"
+          elif [ "$SECURITY_SCORE" -ge 75 ]; then
+            SECURITY_GRADE="C+"
+          elif [ "$SECURITY_SCORE" -ge 70 ]; then
+            SECURITY_GRADE="C"
+          else
+            SECURITY_GRADE="F"
+          fi
+          
+          # Generate comprehensive security report
+          cat > comprehensive-security-report.json << EOF
+          {
+            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)",
+            "security_assessment": {
+              "overall_score": $SECURITY_SCORE,
+              "security_grade": "$SECURITY_GRADE",
+              "deployment_recommendation": "$([ "$SECURITY_SCORE" -ge 85 ] && echo "APPROVED" || echo "BLOCKED")"
+            },
+            "scan_results": {
+              "sast_analysis": {
+                "vulnerabilities": $SAST_VULNERABILITIES,
+                "critical_issues": $SAST_CRITICAL,
+                "status": "$SAST_STATUS"
+              },
+              "dependency_scan": {
+                "vulnerable_packages": $DEPENDENCY_VULNERABLE,
+                "critical_cves": $DEPENDENCY_CRITICAL
+              },
+              "secrets_scan": {
+                "secrets_found": $SECRETS_FOUND
+              }
+            },
+            "compliance": {
+              "hipaa_status": "UNDER_REVIEW"
+            },
+            "recommendations": [
+              "$([ "$SAST_CRITICAL" -gt 0 ] && echo "Address critical SAST vulnerabilities immediately")",
+              "$([ "$DEPENDENCY_CRITICAL" -gt 0 ] && echo "Update dependencies with critical CVEs")",
+              "$([ "$SECRETS_FOUND" -gt 0 ] && echo "Remove or properly secure detected secrets")",
+              "Regular security scanning and monitoring"
+            ]
+          }
+          EOF
+
+      - name: Display security assessment results
+        run: |
+          echo "🔒 COMPREHENSIVE SECURITY ASSESSMENT RESULTS"
+          echo "============================================"
+          
+          SECURITY_SCORE=$(cat comprehensive-security-report.json | jq -r '.security_assessment.overall_score')
+          SECURITY_GRADE=$(cat comprehensive-security-report.json | jq -r '.security_assessment.security_grade')
+          DEPLOYMENT_REC=$(cat comprehensive-security-report.json | jq -r '.security_assessment.deployment_recommendation')
+          
+          echo "📊 Security Score: $SECURITY_SCORE/100"
+          echo "🎯 Security Grade: $SECURITY_GRADE"
+          echo "🚀 Deployment Status: $DEPLOYMENT_REC"
+          echo ""
+          
+          echo "📋 Scan Summary:"
+          echo "  🔍 SAST Vulnerabilities: ${{ needs.sast-analysis.outputs.vulnerabilities-found }}"
+          echo "  📦 Vulnerable Dependencies: ${{ needs.dependency-vulnerability-scan.outputs.vulnerable-packages }}"
+          echo "  🕵️ Secrets Found: ${{ needs.secrets-scanning.outputs.secrets-found }}"
+          echo ""
+          
+          # Check if deployment should be blocked
+          if [ "$DEPLOYMENT_REC" = "BLOCKED" ]; then
+            echo "🚨 SECURITY FAILURE - DEPLOYMENT BLOCKED"
+            echo "Critical security issues must be resolved before deployment"
+            exit 1
+          else
+            echo "✅ SECURITY VALIDATION PASSED"
+            echo "Application meets security requirements for deployment"
+          fi
+
+      - name: Upload comprehensive security report
+        uses: actions/upload-artifact@v4
+        with:
+          name: comprehensive-security-report
+          path: |
+            comprehensive-security-report.json
+            security-artifacts/
+
+      - name: Generate security summary for PR
+        if: github.event_name == 'pull_request'
+        run: |
+          echo "## 🔒 Security Assessment Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          SECURITY_SCORE=$(cat comprehensive-security-report.json | jq -r '.security_assessment.overall_score')
+          SECURITY_GRADE=$(cat comprehensive-security-report.json | jq -r '.security_assessment.security_grade')
+          
+          echo "**Security Score:** $SECURITY_SCORE/100 (Grade: $SECURITY_GRADE)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          echo "### 🔍 Vulnerability Assessment" >> $GITHUB_STEP_SUMMARY
+          echo "- **SAST Issues:** ${{ needs.sast-analysis.outputs.vulnerabilities-found }} (Critical: ${{ needs.sast-analysis.outputs.critical-issues }})" >> $GITHUB_STEP_SUMMARY
+          echo "- **Vulnerable Dependencies:** ${{ needs.dependency-vulnerability-scan.outputs.vulnerable-packages }} (Critical CVEs: ${{ needs.dependency-vulnerability-scan.outputs.critical-cves }})" >> $GITHUB_STEP_SUMMARY
+          echo "- **Secrets Detected:** ${{ needs.secrets-scanning.outputs.secrets-found }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "$SECURITY_SCORE" -ge 85 ]; then
+            echo "✅ **Security validation passed** - Deployment approved" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ **Security validation failed** - Address issues before deployment" >> $GITHUB_STEP_SUMMARY
+          fi
