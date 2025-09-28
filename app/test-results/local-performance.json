@@ -1,10 +1,62 @@
 {
-  "timestamp": "2025-09-28T07:49:49.106Z",
-  "totalDuration": 1536,
-  "totalTests": 0,
-  "categories": {},
+  "timestamp": "2025-09-28T08:17:08.865Z",
+  "totalDuration": 959,
+  "totalTests": 20,
+  "categories": {
+    "unit": {
+      "count": 20,
+      "totalDuration": 672,
+      "slowCount": 0,
+      "averageDuration": 33.6
+    }
+  },
   "slowTests": [],
-  "crisisTests": [],
+  "crisisTests": [
+    {
+      "testName": "Assessment Store - Clinical Validation PHQ-9 Clinical Accuracy correctly identifies crisis threshold at PHQ-9 ≥20",
+      "testPath": "/src/flows/assessment/stores/__tests__/assessmentStore.test.ts",
+      "duration": 23,
+      "category": "unit",
+      "threshold": 1000,
+      "isSlowTest": false,
+      "isCrisisTest": true,
+      "status": "passed",
+      "timestamp": "2025-09-28T08:17:08.724Z"
+    },
+    {
+      "testName": "Assessment Store - Clinical Validation GAD-7 Clinical Accuracy correctly identifies crisis threshold at GAD-7 ≥15",
+      "testPath": "/src/flows/assessment/stores/__tests__/assessmentStore.test.ts",
+      "duration": 29,
+      "category": "unit",
+      "threshold": 1000,
+      "isSlowTest": false,
+      "isCrisisTest": true,
+      "status": "passed",
+      "timestamp": "2025-09-28T08:17:08.724Z"
+    },
+    {
+      "testName": "Assessment Store - Clinical Validation Crisis Detection Performance triggers crisis intervention within 200ms",
+      "testPath": "/src/flows/assessment/stores/__tests__/assessmentStore.test.ts",
+      "duration": 6,
+      "category": "unit",
+      "threshold": 1000,
+      "isSlowTest": false,
+      "isCrisisTest": true,
+      "status": "passed",
+      "timestamp": "2025-09-28T08:17:08.724Z"
+    },
+    {
+      "testName": "Assessment Store - Clinical Validation Crisis Detection Performance provides immediate 988 access on crisis detection",
+      "testPath": "/src/flows/assessment/stores/__tests__/assessmentStore.test.ts",
+      "duration": 8,
+      "category": "unit",
+      "threshold": 1000,
+      "isSlowTest": false,
+      "isCrisisTest": true,
+      "status": "failed",
+      "timestamp": "2025-09-28T08:17:08.725Z"
+    }
+  ],
   "performanceIssues": [],
   "recommendations": []
 }

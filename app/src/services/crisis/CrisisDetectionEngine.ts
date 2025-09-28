@@ -40,19 +40,19 @@ import type {
  */
 export const CLINICAL_CRISIS_THRESHOLDS = {
   /** PHQ-9 Severe Depression Score */
-  readonly PHQ9_CRISIS_SCORE: 20,
+  PHQ9_CRISIS_SCORE: 20,
   /** GAD-7 Severe Anxiety Score */
-  readonly GAD7_CRISIS_SCORE: 15,
+  GAD7_CRISIS_SCORE: 15,
   /** PHQ-9 Suicidal Ideation Question */
-  readonly PHQ9_SUICIDAL_QUESTION_ID: 'phq9_9',
+  PHQ9_SUICIDAL_QUESTION_ID: 'phq9_9',
   /** Any suicidal ideation response triggers crisis */
-  readonly SUICIDAL_IDEATION_THRESHOLD: 0,
+  SUICIDAL_IDEATION_THRESHOLD: 0,
   /** Maximum crisis detection time (ms) */
-  readonly MAX_DETECTION_TIME_MS: 200,
+  MAX_DETECTION_TIME_MS: 200,
   /** Maximum intervention display time (ms) */
-  readonly MAX_INTERVENTION_TIME_MS: 3000,
+  MAX_INTERVENTION_TIME_MS: 3000,
   /** Minimum intervention duration before dismissal */
-  readonly MIN_INTERVENTION_DURATION_MS: 30000,
+  MIN_INTERVENTION_DURATION_MS: 30000,
 } as const;
 
 /**

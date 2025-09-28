@@ -39,12 +39,12 @@ import { Platform } from 'react-native';
  */
 export const NETWORK_CONFIG = {
   /** API base URLs */
-  readonly PRODUCTION_API_URL: 'https://api.being-mental-health.com',
-  readonly STAGING_API_URL: 'https://staging-api.being-mental-health.com',
-  readonly DEVELOPMENT_API_URL: 'https://dev-api.being-mental-health.com',
+  PRODUCTION_API_URL: 'https://api.being-mental-health.com',
+  STAGING_API_URL: 'https://staging-api.being-mental-health.com',
+  DEVELOPMENT_API_URL: 'https://dev-api.being-mental-health.com',
   
   /** Security headers */
-  readonly REQUIRED_SECURITY_HEADERS: [
+  REQUIRED_SECURITY_HEADERS: [
     'X-Content-Type-Options',
     'X-Frame-Options', 
     'X-XSS-Protection',
@@ -53,15 +53,15 @@ export const NETWORK_CONFIG = {
   ] as const,
   
   /** TLS configuration */
-  readonly MIN_TLS_VERSION: '1.3',
-  readonly CIPHER_SUITES: [
+  MIN_TLS_VERSION: '1.3',
+  CIPHER_SUITES: [
     'TLS_AES_256_GCM_SHA384',
     'TLS_CHACHA20_POLY1305_SHA256',
     'TLS_AES_128_GCM_SHA256'
   ] as const,
   
   /** Certificate pinning */
-  readonly CERTIFICATE_PINS: {
+  CERTIFICATE_PINS: {
     'api.being-mental-health.com': [
       'sha256/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=', // Primary cert
       'sha256/BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB='  // Backup cert
@@ -69,7 +69,7 @@ export const NETWORK_CONFIG = {
   },
   
   /** Rate limiting */
-  readonly RATE_LIMITS: {
+  RATE_LIMITS: {
     standard: { requests: 100, windowMs: 60000 },      // 100 req/min
     crisis: { requests: 1000, windowMs: 60000 },       // 1000 req/min
     assessment: { requests: 50, windowMs: 60000 },     // 50 req/min
@@ -77,7 +77,7 @@ export const NETWORK_CONFIG = {
   },
   
   /** Performance thresholds */
-  readonly PERFORMANCE_THRESHOLDS: {
+  PERFORMANCE_THRESHOLDS: {
     standard_api_ms: 1000,
     crisis_api_ms: 200,
     assessment_upload_ms: 500,
@@ -85,7 +85,7 @@ export const NETWORK_CONFIG = {
   },
   
   /** Retry configuration */
-  readonly RETRY_CONFIG: {
+  RETRY_CONFIG: {
     maxRetries: 3,
     baseDelayMs: 1000,
     maxDelayMs: 10000,
@@ -93,12 +93,12 @@ export const NETWORK_CONFIG = {
   },
   
   /** Request timeout */
-  readonly REQUEST_TIMEOUT_MS: 30000, // 30 seconds
+  REQUEST_TIMEOUT_MS: 30000, // 30 seconds
   
   /** Security validation */
-  readonly SIGNATURE_ALGORITHM: 'HMAC-SHA256',
-  readonly NONCE_LENGTH: 32,
-  readonly TIMESTAMP_TOLERANCE_MS: 300000 // 5 minutes
+  SIGNATURE_ALGORITHM: 'HMAC-SHA256',
+  NONCE_LENGTH: 32,
+  TIMESTAMP_TOLERANCE_MS: 300000 // 5 minutes
 } as const;
 
 /**

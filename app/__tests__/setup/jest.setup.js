@@ -135,21 +135,102 @@ global.testUtils = {
 // Mock React Native modules for testing
 jest.mock('react-native', () => {
   const RN = jest.requireActual('react-native');
+
+  // Explicitly include only safe, non-deprecated React Native modules
   return {
-    ...RN,
+    // Core UI Components (SAFE)
+    View: RN.View,
+    Text: RN.Text,
+    ScrollView: RN.ScrollView,
+    FlatList: RN.FlatList,
+    SectionList: RN.SectionList,
+    TouchableOpacity: RN.TouchableOpacity,
+    TouchableHighlight: RN.TouchableHighlight,
+    TouchableWithoutFeedback: RN.TouchableWithoutFeedback,
+    Pressable: RN.Pressable,
+    Image: RN.Image,
+    ImageBackground: RN.ImageBackground,
+    TextInput: RN.TextInput,
+    Switch: RN.Switch,
+    ActivityIndicator: RN.ActivityIndicator,
+    Modal: RN.Modal,
+    StatusBar: RN.StatusBar,
+
+    // Layout & Styling (SAFE)
+    StyleSheet: RN.StyleSheet,
+
+    // Platform & Utilities (SAFE)
     Platform: {
       OS: 'ios',
-      select: jest.fn(obj => obj.ios)
+      select: jest.fn(obj => obj.ios || obj.default),
+      Version: 15
     },
     Dimensions: {
-      get: jest.fn(() => ({ width: 375, height: 812 }))
+      get: jest.fn(() => ({ width: 375, height: 812 })),
+      set: jest.fn(),
+      addEventListener: jest.fn(),
+      removeEventListener: jest.fn()
     },
+
+    // Interaction APIs (SAFE)
     Alert: {
-      alert: jest.fn()
+      alert: jest.fn(),
+      prompt: jest.fn()
     },
     Linking: {
-      openURL: jest.fn(() => Promise.resolve())
-    }
+      openURL: jest.fn(() => Promise.resolve()),
+      canOpenURL: jest.fn(() => Promise.resolve(true)),
+      getInitialURL: jest.fn(() => Promise.resolve(null))
+    },
+
+    // Animation (SAFE)
+    Animated: RN.Animated,
+    Easing: RN.Easing,
+
+    // Keyboard (SAFE)
+    Keyboard: {
+      addListener: jest.fn(() => ({ remove: jest.fn() })),
+      removeListener: jest.fn(),
+      removeAllListeners: jest.fn(),
+      dismiss: jest.fn()
+    },
+
+    // App State (SAFE)
+    AppState: {
+      currentState: 'active',
+      addEventListener: jest.fn(() => ({ remove: jest.fn() })),
+      removeEventListener: jest.fn()
+    },
+
+    // BackHandler (SAFE - Android)
+    BackHandler: {
+      addEventListener: jest.fn(() => ({ remove: jest.fn() })),
+      removeEventListener: jest.fn(),
+      exitApp: jest.fn()
+    },
+
+    // Vibration (SAFE)
+    Vibration: {
+      vibrate: jest.fn(),
+      cancel: jest.fn()
+    },
+
+    // PanResponder (SAFE)
+    PanResponder: RN.PanResponder,
+
+    // Note: Explicitly EXCLUDING deprecated modules:
+    // ❌ DevMenu (causes TurboModule error)
+    // ❌ ProgressBarAndroid (deprecated)
+    // ❌ SafeAreaView (use react-native-safe-area-context)
+    // ❌ Clipboard (moved to @react-native-clipboard/clipboard)
+    // ❌ DatePickerIOS (deprecated)
+    // ❌ ImagePickerIOS (deprecated)
+    // ❌ ImageStore (deprecated)
+    // ❌ NetInfo (moved to @react-native-netinfo/netinfo)
+    // ❌ TimePickerAndroid (deprecated)
+    // ❌ ToastAndroid (use proper toast library)
+    // ❌ ToolbarAndroid (deprecated)
+    // ❌ ViewPagerAndroid (deprecated)
   };
 });
 

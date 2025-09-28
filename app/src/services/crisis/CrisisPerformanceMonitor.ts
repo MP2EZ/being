@@ -38,27 +38,27 @@ import type {
  */
 export const PERFORMANCE_REQUIREMENTS = {
   /** CRITICAL: Crisis detection time limit (ms) */
-  readonly CRISIS_DETECTION_MAX_MS: 200,
+  CRISIS_DETECTION_MAX_MS: 200,
   /** CRITICAL: Suicidal ideation detection time limit (ms) */
-  readonly SUICIDAL_IDEATION_DETECTION_MAX_MS: 50,
+  SUICIDAL_IDEATION_DETECTION_MAX_MS: 50,
   /** CRITICAL: Crisis intervention display time limit (ms) */
-  readonly CRISIS_INTERVENTION_MAX_MS: 3000,
+  CRISIS_INTERVENTION_MAX_MS: 3000,
   /** CRITICAL: 988 access time limit (ms) */
-  readonly EMERGENCY_ACCESS_MAX_MS: 1000,
+  EMERGENCY_ACCESS_MAX_MS: 1000,
   /** CRITICAL: System availability requirement */
-  readonly SYSTEM_AVAILABILITY_MIN_PERCENT: 99.9,
+  SYSTEM_AVAILABILITY_MIN_PERCENT: 99.9,
   /** CRITICAL: Clinical accuracy requirement */
-  readonly CLINICAL_ACCURACY_MIN_PERCENT: 100,
+  CLINICAL_ACCURACY_MIN_PERCENT: 100,
   /** CRITICAL: False negative tolerance (ZERO for safety) */
-  readonly FALSE_NEGATIVE_MAX_RATE: 0.0,
+  FALSE_NEGATIVE_MAX_RATE: 0.0,
   /** WARNING: Performance degradation threshold */
-  readonly PERFORMANCE_WARNING_THRESHOLD_MS: 150,
+  PERFORMANCE_WARNING_THRESHOLD_MS: 150,
   /** ERROR: Critical performance failure threshold */
-  readonly PERFORMANCE_CRITICAL_THRESHOLD_MS: 500,
+  PERFORMANCE_CRITICAL_THRESHOLD_MS: 500,
   /** Monitoring interval (ms) */
-  readonly MONITORING_INTERVAL_MS: 5000,
+  MONITORING_INTERVAL_MS: 5000,
   /** Performance data retention (30 days) */
-  readonly PERFORMANCE_RETENTION_MS: 30 * 24 * 60 * 60 * 1000
+  PERFORMANCE_RETENTION_MS: 30 * 24 * 60 * 60 * 1000
 } as const;
 
 /**

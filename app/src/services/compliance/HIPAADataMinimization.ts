@@ -45,7 +45,7 @@ import type {
  */
 export const DATA_MINIMIZATION_CONFIG = {
   /** Purpose limitation enforcement */
-  readonly PURPOSE_ENFORCEMENT: {
+  PURPOSE_ENFORCEMENT: {
     /** Strict purpose validation required */
     STRICT_VALIDATION: true,
     /** Maximum purposes per access request */
@@ -56,7 +56,7 @@ export const DATA_MINIMIZATION_CONFIG = {
     PURPOSE_REVIEW_FREQUENCY_DAYS: 30
   },
   /** Data collection limits */
-  readonly COLLECTION_LIMITS: {
+  COLLECTION_LIMITS: {
     /** Only collect data necessary for stated purpose */
     NECESSARY_ONLY: true,
     /** Pre-validate collection necessity */
@@ -67,7 +67,7 @@ export const DATA_MINIMIZATION_CONFIG = {
     REQUIRE_SENSITIVE_JUSTIFICATION: true
   },
   /** Access controls */
-  readonly ACCESS_CONTROLS: {
+  ACCESS_CONTROLS: {
     /** Role-based access enforcement */
     ROLE_BASED_ACCESS: true,
     /** Minimum necessary per role */
@@ -78,7 +78,7 @@ export const DATA_MINIMIZATION_CONFIG = {
     DEFAULT_ACCESS_DURATION_HOURS: 24
   },
   /** Data lifecycle management */
-  readonly LIFECYCLE_MANAGEMENT: {
+  LIFECYCLE_MANAGEMENT: {
     /** Automated retention enforcement */
     AUTOMATED_RETENTION: true,
     /** Proactive deletion scheduling */

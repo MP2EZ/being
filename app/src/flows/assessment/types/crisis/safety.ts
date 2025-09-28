@@ -13,17 +13,17 @@ import { AssessmentType, PHQ9Result, GAD7Result, AssessmentAnswer } from '../ind
  */
 export const CRISIS_SAFETY_THRESHOLDS = {
   /** PHQ-9 Crisis Score Threshold - Severe Depression */
-  readonly PHQ9_CRISIS_SCORE: 20,
+  PHQ9_CRISIS_SCORE: 20,
   /** GAD-7 Crisis Score Threshold - Severe Anxiety */
-  readonly GAD7_CRISIS_SCORE: 15,
+  GAD7_CRISIS_SCORE: 15,
   /** PHQ-9 Suicidal Ideation Question ID */
-  readonly PHQ9_SUICIDAL_QUESTION_ID: 'phq9_9',
+  PHQ9_SUICIDAL_QUESTION_ID: 'phq9_9',
   /** Any non-zero response to suicidal ideation triggers crisis */
-  readonly SUICIDAL_IDEATION_THRESHOLD: 0,
+  SUICIDAL_IDEATION_THRESHOLD: 0,
   /** Maximum response time for crisis intervention (ms) */
-  readonly MAX_CRISIS_RESPONSE_TIME_MS: 200,
+  MAX_CRISIS_RESPONSE_TIME_MS: 200,
   /** Minimum intervention duration before dismissal allowed (ms) */
-  readonly MIN_INTERVENTION_DURATION_MS: 30000, // 30 seconds
+  MIN_INTERVENTION_DURATION_MS: 30000, // 30 seconds
 } as const;
 
 /**

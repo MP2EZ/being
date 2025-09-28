@@ -44,14 +44,14 @@ import * as FileSystem from 'expo-file-system';
  */
 export const INCIDENT_RESPONSE_CONFIG = {
   /** Response time thresholds */
-  readonly DETECTION_THRESHOLD_MS: 30000,        // 30 seconds
-  readonly CONTAINMENT_THRESHOLD_MS: 300000,     // 5 minutes
-  readonly PROFESSIONAL_NOTIFICATION_MS: 900000, // 15 minutes
-  readonly PATIENT_NOTIFICATION_MS: 86400000,    // 24 hours
-  readonly REGULATORY_NOTIFICATION_MS: 5184000000, // 60 days
+  DETECTION_THRESHOLD_MS: 30000,        // 30 seconds
+  CONTAINMENT_THRESHOLD_MS: 300000,     // 5 minutes
+  PROFESSIONAL_NOTIFICATION_MS: 900000, // 15 minutes
+  PATIENT_NOTIFICATION_MS: 86400000,    // 24 hours
+  REGULATORY_NOTIFICATION_MS: 5184000000, // 60 days
   
   /** Incident severity levels */
-  readonly SEVERITY_LEVELS: {
+  SEVERITY_LEVELS: {
     low: { priority: 4, escalation_time: 3600000, auto_contain: false },      // 1 hour
     medium: { priority: 3, escalation_time: 1800000, auto_contain: true },    // 30 minutes
     high: { priority: 2, escalation_time: 300000, auto_contain: true },       // 5 minutes
@@ -60,7 +60,7 @@ export const INCIDENT_RESPONSE_CONFIG = {
   } as const,
   
   /** Data sensitivity impact */
-  readonly DATA_SENSITIVITY_IMPACT: {
+  DATA_SENSITIVITY_IMPACT: {
     crisis_responses: 'emergency',        // Suicidal ideation, crisis episodes
     assessment_data: 'critical',          // PHQ-9/GAD-7 responses
     therapeutic_notes: 'high',            // Professional notes, treatment plans
@@ -69,7 +69,7 @@ export const INCIDENT_RESPONSE_CONFIG = {
   } as const,
   
   /** Notification requirements */
-  readonly NOTIFICATION_REQUIREMENTS: {
+  NOTIFICATION_REQUIREMENTS: {
     crisis_data: ['immediate_professional', 'emergency_contact', 'legal_team'],
     assessment_data: ['professional_team', 'compliance_officer', 'legal_team'],
     bulk_data: ['all_stakeholders', 'regulatory_authorities', 'media_relations'],
@@ -77,7 +77,7 @@ export const INCIDENT_RESPONSE_CONFIG = {
   } as const,
   
   /** Legal reporting thresholds */
-  readonly LEGAL_REPORTING_THRESHOLDS: {
+  LEGAL_REPORTING_THRESHOLDS: {
     hipaa_breach: 500,              // 500+ individuals requires media notification
     state_authority: 100,           // 100+ individuals requires state notification
     law_enforcement: 1000,          // 1000+ individuals requires FBI notification
@@ -85,7 +85,7 @@ export const INCIDENT_RESPONSE_CONFIG = {
   } as const,
   
   /** Containment procedures */
-  readonly CONTAINMENT_PROCEDURES: {
+  CONTAINMENT_PROCEDURES: {
     immediate: ['isolate_affected_systems', 'revoke_access_tokens', 'enable_enhanced_monitoring'],
     short_term: ['patch_vulnerabilities', 'reset_credentials', 'update_security_policies'],
     long_term: ['forensic_analysis', 'system_hardening', 'policy_updates', 'staff_training']

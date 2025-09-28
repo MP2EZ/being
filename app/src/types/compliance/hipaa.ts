@@ -400,15 +400,15 @@ export interface ConsentManagementService {
  */
 export interface CompliancePerformanceConstraints {
   /** Maximum time for consent validation (ms) */
-  readonly MAX_CONSENT_VALIDATION_TIME: 5;
+  MAX_CONSENT_VALIDATION_TIME: 5;
   /** Maximum time for PHI access control check (ms) */
-  readonly MAX_ACCESS_CONTROL_TIME: 20;
+  MAX_ACCESS_CONTROL_TIME: 20;
   /** Maximum time for audit log write (ms) - non-blocking */
-  readonly MAX_AUDIT_LOG_TIME: 10;
+  MAX_AUDIT_LOG_TIME: 10;
   /** Maximum time for encryption operation (ms) */
-  readonly MAX_ENCRYPTION_TIME: 50;
+  MAX_ENCRYPTION_TIME: 50;
   /** Maximum time for compliance validation (ms) */
-  readonly MAX_COMPLIANCE_CHECK_TIME: 30;
+  MAX_COMPLIANCE_CHECK_TIME: 30;
 }
 
 /**

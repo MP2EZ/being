@@ -103,6 +103,7 @@ export const typography = {
   headline3: { size: 22, weight: '600' as const, spacing: 0 },
   bodyLarge: { size: 18, weight: '400' as const, spacing: 0.2, lineHeight: 1.5 },
   bodyRegular: { size: 16, weight: '400' as const, spacing: 0.1, lineHeight: 1.5 },
+  bodySmall: { size: 14, weight: '400' as const, spacing: 0.1, lineHeight: 1.4 },
   caption: { size: 14, weight: '400' as const, spacing: 0.2 },
   micro: { size: 12, weight: '500' as const, spacing: 0.3 }
 };

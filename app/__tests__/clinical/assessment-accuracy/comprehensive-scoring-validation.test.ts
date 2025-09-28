@@ -28,7 +28,7 @@ import {
 } from '../../../src/flows/assessment/types/index';
 
 // Performance monitoring for crisis detection
-import { performance } from 'react-native-performance';
+// Using global performance API (set up in test environment)
 
 // Mock secure storage for testing
 jest.mock('expo-secure-store', () => ({
@@ -56,13 +56,13 @@ describe('COMPREHENSIVE CLINICAL SCORING VALIDATION - ALL 48 COMBINATIONS', () =
   let store: ReturnType<typeof useAssessmentStore>;
 
   beforeEach(async () => {
-    // Reset store to clean state
+    // Reset store to clean state using getState() for direct access
     store = useAssessmentStore.getState();
     store.resetAssessment();
-    
+
     // Clear any existing data
     await store.clearHistory();
-    
+
     // Enable auto-save for realistic testing
     store.enableAutoSave();
   });
@@ -140,21 +140,21 @@ describe('COMPREHENSIVE CLINICAL SCORING VALIDATION - ALL 48 COMBINATIONS', () =
         const completionTime = performance.now() - startTime;
 
         // Validate results
-        const result = store.currentResult as PHQ9Result;
-        expect(result).toBeTruthy();
-        expect(result.totalScore).toBe(score);
+        const assessmentResult = store.currentResult as PHQ9Result;
+        expect(assessmentResult).toBeTruthy();
+        expect(assessmentResult.totalScore).toBe(score);
         
         // Validate severity mapping
         if (score >= 0 && score <= 4) {
-          expect(result.severity).toBe('minimal');
+          expect(assessmentResult.severity).toBe('minimal');
         } else if (score >= 5 && score <= 9) {
-          expect(result.severity).toBe('mild');
+          expect(assessmentResult.severity).toBe('mild');
         } else if (score >= 10 && score <= 14) {
-          expect(result.severity).toBe('moderate');
+          expect(assessmentResult.severity).toBe('moderate');
         } else if (score >= 15 && score <= 19) {
-          expect(result.severity).toBe('moderately_severe');
+          expect(assessmentResult.severity).toBe('moderately_severe');
         } else if (score >= 20 && score <= 27) {
-          expect(result.severity).toBe('severe');
+          expect(assessmentResult.severity).toBe('severe');
         }
 
         // Crisis detection validation
@@ -428,13 +428,13 @@ describe('COMPREHENSIVE CLINICAL SCORING VALIDATION - ALL 48 COMBINATIONS', () =
         // Generate answers for target score
         if (scenario.type === 'phq9') {
           // Distribute score across 9 questions
-          const answers = this.distributeScore(scenario.score, 9);
+          const answers = distributeScore(scenario.score, 9);
           for (let i = 0; i < 9; i++) {
             await store.answerQuestion(`phq9_${i + 1}`, answers[i]);
           }
         } else {
           // Distribute score across 7 questions
-          const answers = this.distributeScore(scenario.score, 7);
+          const answers = distributeScore(scenario.score, 7);
           for (let i = 0; i < 7; i++) {
             await store.answerQuestion(`gad7_${i + 1}`, answers[i]);
           }
@@ -452,21 +452,21 @@ describe('COMPREHENSIVE CLINICAL SCORING VALIDATION - ALL 48 COMBINATIONS', () =
       }
     });
 
-    /**
-     * Helper method to distribute score across questions
-     */
-    distributeScore(targetScore: number, questionCount: number): AssessmentResponse[] {
-      const answers: AssessmentResponse[] = new Array(questionCount).fill(0);
-      let remainingScore = targetScore;
-      
-      for (let i = 0; i < questionCount && remainingScore > 0; i++) {
-        const maxForQuestion = Math.min(remainingScore, 3);
-        answers[i] = maxForQuestion as AssessmentResponse;
-        remainingScore -= maxForQuestion;
-      }
-      
-      return answers;
+  /**
+   * Helper function to distribute score across questions
+   */
+  function distributeScore(targetScore: number, questionCount: number): AssessmentResponse[] {
+    const answers: AssessmentResponse[] = new Array(questionCount).fill(0);
+    let remainingScore = targetScore;
+
+    for (let i = 0; i < questionCount && remainingScore > 0; i++) {
+      const maxForQuestion = Math.min(remainingScore, 3);
+      answers[i] = maxForQuestion as AssessmentResponse;
+      remainingScore -= maxForQuestion;
     }
+
+    return answers;
+  }
   });
 
   describe('CLINICAL VALIDATION EDGE CASES', () => {

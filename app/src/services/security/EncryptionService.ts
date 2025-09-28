@@ -37,27 +37,27 @@ import { Platform } from 'react-native';
  */
 export const ENCRYPTION_CONFIG = {
   /** AES-256-GCM encryption algorithm */
-  readonly ALGORITHM: 'AES-GCM' as const,
+  ALGORITHM: 'AES-GCM' as const,
   /** 256-bit key length */
-  readonly KEY_LENGTH: 32,
+  KEY_LENGTH: 32,
   /** 96-bit IV length for GCM */
-  readonly IV_LENGTH: 12,
+  IV_LENGTH: 12,
   /** 128-bit authentication tag length */
-  readonly TAG_LENGTH: 16,
+  TAG_LENGTH: 16,
   /** Salt length for key derivation */
-  readonly SALT_LENGTH: 32,
+  SALT_LENGTH: 32,
   /** PBKDF2 iterations (100,000) */
   readonly PBKDF2_ITERATIONS: 100000,
   /** Key rotation interval (30 days) */
-  readonly KEY_ROTATION_INTERVAL_MS: 30 * 24 * 60 * 60 * 1000,
+  KEY_ROTATION_INTERVAL_MS: 30 * 24 * 60 * 60 * 1000,
   /** Master key identifier */
-  readonly MASTER_KEY_ID: 'mental_health_master_key',
+  MASTER_KEY_ID: 'mental_health_master_key',
   /** Crisis data key prefix */
-  readonly CRISIS_KEY_PREFIX: 'crisis_key_',
+  CRISIS_KEY_PREFIX: 'crisis_key_',
   /** Assessment data key prefix */
-  readonly ASSESSMENT_KEY_PREFIX: 'assessment_key_',
+  ASSESSMENT_KEY_PREFIX: 'assessment_key_',
   /** Performance monitoring threshold */
-  readonly PERFORMANCE_THRESHOLD_MS: 200
+  PERFORMANCE_THRESHOLD_MS: 200
 } as const;
 
 /**

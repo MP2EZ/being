@@ -249,7 +249,7 @@ export interface CrisisSafetyConstraints {
   /** GAD-7 crisis threshold (≥15) - MUST NOT be modified */
   readonly GAD7_CRISIS_THRESHOLD: 15;
   /** Maximum response time for crisis intervention (ms) */
-  readonly MAX_CRISIS_RESPONSE_TIME_MS: 200;
+  MAX_CRISIS_RESPONSE_TIME_MS: 200;
   /** PHQ-9 Question 9 ID for suicidal ideation */
   readonly PHQ9_SUICIDAL_QUESTION_ID: 'phq9_9';
 }
@@ -260,11 +260,11 @@ export interface CrisisSafetyConstraints {
 
 export interface AssessmentPerformanceConstraints {
   /** Maximum render time for question components (ms) */
-  readonly MAX_QUESTION_RENDER_TIME_MS: 100;
+  MAX_QUESTION_RENDER_TIME_MS: 100;
   /** Maximum response time for answer selection (ms) */
-  readonly MAX_ANSWER_RESPONSE_TIME_MS: 50;
+  MAX_ANSWER_RESPONSE_TIME_MS: 50;
   /** Maximum time to display crisis intervention (ms) */
-  readonly MAX_CRISIS_DISPLAY_TIME_MS: 200;
+  MAX_CRISIS_DISPLAY_TIME_MS: 200;
   /** Required frame rate for animations */
-  readonly REQUIRED_ANIMATION_FPS: 60;
+  REQUIRED_ANIMATION_FPS: 60;
 }

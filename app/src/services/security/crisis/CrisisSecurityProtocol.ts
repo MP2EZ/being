@@ -42,13 +42,13 @@ import * as LocalAuthentication from 'expo-local-authentication';
  */
 export const CRISIS_SECURITY_CONFIG = {
   /** Performance thresholds for crisis scenarios */
-  readonly EMERGENCY_ACCESS_THRESHOLD_MS: 200,
-  readonly CRISIS_DETECTION_THRESHOLD_MS: 100,
-  readonly PROFESSIONAL_OVERRIDE_THRESHOLD_MS: 300,
-  readonly AUDIT_LOGGING_THRESHOLD_MS: 50,
+  EMERGENCY_ACCESS_THRESHOLD_MS: 200,
+  CRISIS_DETECTION_THRESHOLD_MS: 100,
+  PROFESSIONAL_OVERRIDE_THRESHOLD_MS: 300,
+  AUDIT_LOGGING_THRESHOLD_MS: 50,
   
   /** Security levels */
-  readonly SECURITY_LEVELS: {
+  SECURITY_LEVELS: {
     emergency_override: 0,    // No authentication, immediate access
     crisis_detection: 1,      // Automated security, system-driven
     crisis_intervention: 2,   // User authentication required
@@ -57,7 +57,7 @@ export const CRISIS_SECURITY_CONFIG = {
   } as const,
   
   /** Encryption requirements */
-  readonly CRISIS_ENCRYPTION: {
+  CRISIS_ENCRYPTION: {
     suicidal_ideation: 'triple_encryption',     // PHQ-9 Q9 responses
     crisis_episodes: 'double_encryption',      // Crisis intervention data
     professional_notes: 'enhanced_encryption', // Professional assessments
@@ -66,7 +66,7 @@ export const CRISIS_SECURITY_CONFIG = {
   } as const,
   
   /** Access control timeouts */
-  readonly ACCESS_TIMEOUTS: {
+  ACCESS_TIMEOUTS: {
     emergency_session_ms: 3600000,      // 1 hour emergency access
     crisis_intervention_ms: 1800000,    // 30 minutes crisis session
     professional_review_ms: 7200000,    // 2 hours professional access
@@ -74,7 +74,7 @@ export const CRISIS_SECURITY_CONFIG = {
   },
   
   /** Monitoring thresholds */
-  readonly MONITORING_THRESHOLDS: {
+  MONITORING_THRESHOLDS: {
     max_failed_attempts: 3,
     suspicious_activity_threshold: 5,
     emergency_override_limit: 2,
@@ -82,7 +82,7 @@ export const CRISIS_SECURITY_CONFIG = {
   },
   
   /** Crisis data isolation */
-  readonly ISOLATION_PROTOCOLS: {
+  ISOLATION_PROTOCOLS: {
     crisis_data_ttl_ms: 2592000000,     // 30 days crisis data retention
     emergency_data_ttl_ms: 86400000,    // 24 hours emergency data
     professional_data_ttl_ms: 7776000000, // 90 days professional data
