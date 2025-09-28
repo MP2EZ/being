@@ -267,8 +267,11 @@ interface BreachIncident {
   status: 'investigating' | 'contained' | 'resolved';
 }
 
-// Component props interface (currently no props but prepared for future)
-interface OnboardingScreenProps {}
+// Component props interface for embedded mode support
+interface OnboardingScreenProps {
+  onComplete?: () => void;
+  isEmbedded?: boolean;
+}
 
 // Crisis detection result interface
 interface CrisisDetectionResult {
@@ -280,7 +283,7 @@ interface CrisisDetectionResult {
   auditRequired: boolean;
 }
 
-const OnboardingScreen: React.FC<OnboardingScreenProps> = () => {
+const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbedded = false }) => {
   // Primary state (following ExercisesScreen pattern)
   const [currentScreen, setCurrentScreen] = useState<Screen>('welcome');
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -1018,7 +1021,13 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = () => {
         // Accessibility: Announce completion
         announceToScreenReader(screenTransitions.celebration);
 
-        Alert.alert('Welcome to Being.', 'Your mindful journey begins now.');
+        if (isEmbedded && onComplete) {
+          // Call completion handler for embedded mode
+          onComplete();
+        } else {
+          // Show alert for standalone mode
+          Alert.alert('Welcome to Being.', 'Your mindful journey begins now.');
+        }
         break;
     }
   };
