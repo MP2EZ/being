@@ -11,6 +11,7 @@ import Svg, { Path, Circle } from 'react-native-svg';
 import { colorSystem, spacing } from '../constants/colors';
 import CleanHomeScreen from '../screens/home/CleanHomeScreen';
 import ExercisesScreen from '../screens/ExercisesScreen.simple';
+import OnboardingScreen from '../screens/OnboardingScreen.simple';
 
 const Tab = createBottomTabNavigator();
 
@@ -169,6 +170,23 @@ const CleanTabNavigator: React.FC = () => {
           tabBarIcon: ({ focused, color }) => (
             <TriangleIcon
               color={focused ? '#4A7C59' : '#1C1C1C'} // DRD evening-primary : soft-black
+            />
+          ),
+        }}
+      />
+
+      <Tab.Screen
+        name="Onboarding"
+        component={OnboardingScreen}
+        options={{
+          headerTitle: 'Onboarding',
+          headerShown: false, // OnboardingScreen has its own SafeAreaView
+          tabBarIcon: ({ focused, color }) => (
+            <Circle
+              cx="12"
+              cy="12"
+              r="8"
+              fill={focused ? '#FF9F43' : '#1C1C1C'} // DRD morning-primary : soft-black
             />
           ),
         }}

@@ -908,8 +908,9 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = () => {
         break;
       case 'phq9':
         // Validate PHQ-9 completion before proceeding
-        if (phq9Answers.length !== PHQ9_QUESTIONS.length) {
-          logStateChange('navigateNext:phq9:incomplete', { answersCount: phq9Answers.length });
+        // Note: Check current question index instead of answers length to avoid async state issues
+        if (currentQuestionIndex < PHQ9_QUESTIONS.length - 1) {
+          logStateChange('navigateNext:phq9:incomplete', { answersCount: phq9Answers.length, currentQuestionIndex });
 
           // Accessibility: Announce validation error
           const remaining = PHQ9_QUESTIONS.length - phq9Answers.length;
@@ -931,8 +932,9 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = () => {
 
       case 'gad7':
         // Validate GAD-7 completion before proceeding
-        if (gad7Answers.length !== GAD7_QUESTIONS.length) {
-          logStateChange('navigateNext:gad7:incomplete', { answersCount: gad7Answers.length });
+        // Note: Check current question index instead of answers length to avoid async state issues
+        if (currentQuestionIndex < GAD7_QUESTIONS.length - 1) {
+          logStateChange('navigateNext:gad7:incomplete', { answersCount: gad7Answers.length, currentQuestionIndex });
 
           // Accessibility: Announce validation error
           const remaining = GAD7_QUESTIONS.length - gad7Answers.length;
