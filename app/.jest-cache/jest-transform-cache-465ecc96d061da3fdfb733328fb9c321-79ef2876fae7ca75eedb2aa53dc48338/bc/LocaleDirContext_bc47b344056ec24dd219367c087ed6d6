@@ -1,0 +1,12 @@
+10ce26a21a4171d4a3345ad622d94d12
+"use strict";
+
+var _interopRequireWildcard = require("@babel/runtime/helpers/interopRequireWildcard").default;
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.LocaleDirContext = void 0;
+var React = _interopRequireWildcard(require("react"));
+var LocaleDirContext = exports.LocaleDirContext = React.createContext('ltr');
+LocaleDirContext.displayName = 'LocaleDirContext';
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJuYW1lcyI6WyJSZWFjdCIsIl9pbnRlcm9wUmVxdWlyZVdpbGRjYXJkIiwicmVxdWlyZSIsIkxvY2FsZURpckNvbnRleHQiLCJleHBvcnRzIiwiY3JlYXRlQ29udGV4dCIsImRpc3BsYXlOYW1lIl0sInNvdXJjZXMiOlsiLi4vLi4vc3JjL0xvY2FsZURpckNvbnRleHQudHN4Il0sInNvdXJjZXNDb250ZW50IjpbbnVsbF0sIm1hcHBpbmdzIjoiOzs7Ozs7O0FBQUEsSUFBQUEsS0FBQSxHQUFBQyx1QkFBQSxDQUFBQyxPQUFBO0FBSU8sSUFBTUMsZ0JBQWdCLEdBQUFDLE9BQUEsQ0FBQUQsZ0JBQUEsR0FBR0gsS0FBSyxDQUFDSyxhQUFhLENBQWtCLEtBQUssQ0FBQztBQUUzRUYsZ0JBQWdCLENBQUNHLFdBQVcsR0FBRyxrQkFBa0IiLCJpZ25vcmVMaXN0IjpbXX0=

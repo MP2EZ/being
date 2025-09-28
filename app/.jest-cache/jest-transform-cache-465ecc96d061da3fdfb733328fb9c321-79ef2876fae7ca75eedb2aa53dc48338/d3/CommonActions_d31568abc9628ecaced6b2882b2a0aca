@@ -1,0 +1,101 @@
+c94acdd2b2cd190f3ad6148461cbdc8a
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.goBack = goBack;
+exports.navigate = navigate;
+exports.navigateDeprecated = navigateDeprecated;
+exports.preload = preload;
+exports.replaceParams = replaceParams;
+exports.reset = reset;
+exports.setParams = setParams;
+function goBack() {
+  return {
+    type: 'GO_BACK'
+  };
+}
+function navigate() {
+  for (var _len = arguments.length, args = new Array(_len), _key = 0; _key < _len; _key++) {
+    args[_key] = arguments[_key];
+  }
+  if (typeof args[0] === 'string') {
+    var name = args[0],
+      params = args[1],
+      options = args[2];
+    if (typeof options === 'boolean') {
+      console.warn(`Passing a boolean as the third argument to 'navigate' is deprecated. Pass '{ merge: true }' instead.`);
+    }
+    return {
+      type: 'NAVIGATE',
+      payload: {
+        name: name,
+        params: params,
+        merge: typeof options === 'boolean' ? options : options == null ? void 0 : options.merge,
+        pop: options == null ? void 0 : options.pop
+      }
+    };
+  } else {
+    var payload = args[0] || {};
+    if (!('name' in payload)) {
+      throw new Error('You need to specify a name when calling navigate with an object as the argument. See https://reactnavigation.org/docs/navigation-actions#navigate for usage.');
+    }
+    return {
+      type: 'NAVIGATE',
+      payload: payload
+    };
+  }
+}
+function navigateDeprecated() {
+  if (typeof (arguments.length <= 0 ? undefined : arguments[0]) === 'string') {
+    return {
+      type: 'NAVIGATE_DEPRECATED',
+      payload: {
+        name: arguments.length <= 0 ? undefined : arguments[0],
+        params: arguments.length <= 1 ? undefined : arguments[1]
+      }
+    };
+  } else {
+    var payload = (arguments.length <= 0 ? undefined : arguments[0]) || {};
+    if (!('name' in payload)) {
+      throw new Error('You need to specify a name when calling navigateDeprecated with an object as the argument. See https://reactnavigation.org/docs/navigation-actions#navigatelegacy for usage.');
+    }
+    return {
+      type: 'NAVIGATE_DEPRECATED',
+      payload: payload
+    };
+  }
+}
+function reset(state) {
+  return {
+    type: 'RESET',
+    payload: state
+  };
+}
+function setParams(params) {
+  return {
+    type: 'SET_PARAMS',
+    payload: {
+      params: params
+    }
+  };
+}
+function replaceParams(params) {
+  return {
+    type: 'REPLACE_PARAMS',
+    payload: {
+      params: params
+    }
+  };
+}
+function preload(name, params) {
+  return {
+    type: 'PRELOAD',
+    payload: {
+      name: name,
+      params: params
+    }
+  };
+}
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJuYW1lcyI6WyJnb0JhY2siLCJ0eXBlIiwibmF2aWdhdGUiLCJfbGVuIiwiYXJndW1lbnRzIiwibGVuZ3RoIiwiYXJncyIsIkFycmF5IiwiX2tleSIsIm5hbWUiLCJwYXJhbXMiLCJvcHRpb25zIiwiY29uc29sZSIsIndhcm4iLCJwYXlsb2FkIiwibWVyZ2UiLCJwb3AiLCJFcnJvciIsIm5hdmlnYXRlRGVwcmVjYXRlZCIsInVuZGVmaW5lZCIsInJlc2V0Iiwic3RhdGUiLCJzZXRQYXJhbXMiLCJyZXBsYWNlUGFyYW1zIiwicHJlbG9hZCJdLCJzb3VyY2VzIjpbIi4uLy4uL3NyYy9Db21tb25BY3Rpb25zLnRzeCJdLCJzb3VyY2VzQ29udGVudCI6W251bGxdLCJtYXBwaW5ncyI6Ijs7Ozs7Ozs7Ozs7O0FBK0VPLFNBQVNBLE1BQU1BLENBQUEsRUFBVztFQUMvQixPQUFPO0lBQUVDLElBQUksRUFBRTtFQUFVLENBQUM7QUFDNUI7QUFtQk8sU0FBU0MsUUFBUUEsQ0FBQSxFQUF1QjtFQUFBLFNBQUFDLElBQUEsR0FBQUMsU0FBQSxDQUFBQyxNQUFBLEVBQW5CQyxJQUFTLE9BQUFDLEtBQUEsQ0FBQUosSUFBQSxHQUFBSyxJQUFBLE1BQUFBLElBQUEsR0FBQUwsSUFBQSxFQUFBSyxJQUFBO0lBQVRGLElBQVMsQ0FBQUUsSUFBQSxJQUFBSixTQUFBLENBQUFJLElBQUE7RUFBQTtFQUNuQyxJQUFJLE9BQU9GLElBQUksQ0FBQyxDQUFDLENBQUMsS0FBSyxRQUFRLEVBQUU7SUFDL0IsSUFBT0csSUFBSSxHQUFxQkgsSUFBSTtNQUF2QkksTUFBTSxHQUFhSixJQUFJO01BQWZLLE9BQU8sR0FBSUwsSUFBSTtJQUVwQyxJQUFJLE9BQU9LLE9BQU8sS0FBSyxTQUFTLEVBQUU7TUFDaENDLE9BQU8sQ0FBQ0MsSUFBSSxDQUNWLHNHQUNGLENBQUM7SUFDSDtJQUVBLE9BQU87TUFDTFosSUFBSSxFQUFFLFVBQVU7TUFDaEJhLE9BQU8sRUFBRTtRQUNQTCxJQUFJLEVBQUpBLElBQUk7UUFDSkMsTUFBTSxFQUFOQSxNQUFNO1FBQ05LLEtBQUssRUFBRSxPQUFPSixPQUFPLEtBQUssU0FBUyxHQUFHQSxPQUFPLEdBQUdBLE9BQU8sb0JBQVBBLE9BQU8sQ0FBRUksS0FBSztRQUM5REMsR0FBRyxFQUFFTCxPQUFPLG9CQUFQQSxPQUFPLENBQUVLO01BQ2hCO0lBQ0YsQ0FBQztFQUNILENBQUMsTUFBTTtJQUNMLElBQU1GLE9BQU8sR0FBR1IsSUFBSSxDQUFDLENBQUMsQ0FBQyxJQUFJLENBQUMsQ0FBQztJQUU3QixJQUFJLEVBQUUsTUFBTSxJQUFJUSxPQUFPLENBQUMsRUFBRTtNQUN4QixNQUFNLElBQUlHLEtBQUssQ0FDYiw4SkFDRixDQUFDO0lBQ0g7SUFFQSxPQUFPO01BQUVoQixJQUFJLEVBQUUsVUFBVTtNQUFFYSxPQUFBLEVBQUFBO0lBQVEsQ0FBQztFQUN0QztBQUNGO0FBRU8sU0FBU0ksa0JBQWtCQSxDQUFBLEVBS3hCO0VBQ1IsSUFBSSxRQUFBZCxTQUFBLENBQUFDLE1BQUEsUUFBQWMsU0FBQSxHQUFBZixTQUFBLElBQWMsS0FBSyxRQUFRLEVBQUU7SUFDL0IsT0FBTztNQUNMSCxJQUFJLEVBQUUscUJBQXFCO01BQzNCYSxPQUFPLEVBQUU7UUFBRUwsSUFBSSxFQUFBTCxTQUFBLENBQUFDLE1BQUEsUUFBQWMsU0FBQSxHQUFBZixTQUFBLEdBQVM7UUFBRU0sTUFBTSxFQUFBTixTQUFBLENBQUFDLE1BQUEsUUFBQWMsU0FBQSxHQUFBZixTQUFBO01BQVU7SUFDNUMsQ0FBQztFQUNILENBQUMsTUFBTTtJQUNMLElBQU1VLE9BQU8sR0FBRyxDQUFBVixTQUFBLENBQUFDLE1BQUEsUUFBQWMsU0FBQSxHQUFBZixTQUFBLFFBQVcsQ0FBQyxDQUFDO0lBRTdCLElBQUksRUFBRSxNQUFNLElBQUlVLE9BQU8sQ0FBQyxFQUFFO01BQ3hCLE1BQU0sSUFBSUcsS0FBSyxDQUNiLDhLQUNGLENBQUM7SUFDSDtJQUVBLE9BQU87TUFBRWhCLElBQUksRUFBRSxxQkFBcUI7TUFBRWEsT0FBQSxFQUFBQTtJQUFRLENBQUM7RUFDakQ7QUFDRjtBQUVPLFNBQVNNLEtBQUtBLENBQUNDLEtBQTZCLEVBQUU7RUFDbkQsT0FBTztJQUFFcEIsSUFBSSxFQUFFLE9BQU87SUFBRWEsT0FBTyxFQUFFTztFQUFNLENBQUM7QUFDMUM7QUFFTyxTQUFTQyxTQUFTQSxDQUFDWixNQUFjLEVBQUU7RUFDeEMsT0FBTztJQUNMVCxJQUFJLEVBQUUsWUFBWTtJQUNsQmEsT0FBTyxFQUFFO01BQUVKLE1BQUEsRUFBQUE7SUFBTztFQUNwQixDQUFDO0FBQ0g7QUFFTyxTQUFTYSxhQUFhQSxDQUFDYixNQUFjLEVBQUU7RUFDNUMsT0FBTztJQUNMVCxJQUFJLEVBQUUsZ0JBQWdCO0lBQ3RCYSxPQUFPLEVBQUU7TUFBRUosTUFBQSxFQUFBQTtJQUFPO0VBQ3BCLENBQUM7QUFDSDtBQUVPLFNBQVNjLE9BQU9BLENBQUNmLElBQVksRUFBRUMsTUFBZSxFQUFFO0VBQ3JELE9BQU87SUFDTFQsSUFBSSxFQUFFLFNBQVM7SUFDZmEsT0FBTyxFQUFFO01BQUVMLElBQUksRUFBSkEsSUFBSTtNQUFFQyxNQUFBLEVBQUFBO0lBQU87RUFDMUIsQ0FBQztBQUNIIiwiaWdub3JlTGlzdCI6W119

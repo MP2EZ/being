@@ -1,0 +1,18 @@
+5cb8a0d2534aa6c3e534f8627bc6d6c5
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.findFocusedRoute = findFocusedRoute;
+function findFocusedRoute(state) {
+  var _current2, _current$index3, _current3;
+  var current = state;
+  while (((_current = current) == null ? void 0 : _current.routes[(_current$index = current.index) != null ? _current$index : 0].state) != null) {
+    var _current, _current$index, _current$index2;
+    current = current.routes[(_current$index2 = current.index) != null ? _current$index2 : 0].state;
+  }
+  var route = (_current2 = current) == null ? void 0 : _current2.routes[(_current$index3 = (_current3 = current) == null ? void 0 : _current3.index) != null ? _current$index3 : 0];
+  return route;
+}
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJuYW1lcyI6WyJmaW5kRm9jdXNlZFJvdXRlIiwic3RhdGUiLCJfY3VycmVudDIiLCJfY3VycmVudCRpbmRleDMiLCJfY3VycmVudDMiLCJjdXJyZW50IiwiX2N1cnJlbnQiLCJyb3V0ZXMiLCJfY3VycmVudCRpbmRleCIsImluZGV4IiwiX2N1cnJlbnQkaW5kZXgyIiwicm91dGUiXSwic291cmNlcyI6WyIuLi8uLi9zcmMvZmluZEZvY3VzZWRSb3V0ZS50c3giXSwic291cmNlc0NvbnRlbnQiOltudWxsXSwibWFwcGluZ3MiOiI7Ozs7OztBQVdPLFNBQVNBLGdCQUFnQkEsQ0FBQ0MsS0FBbUIsRUFBVTtFQUFBLElBQUFDLFNBQUEsRUFBQUMsZUFBQSxFQUFBQyxTQUFBO0VBQzVELElBQUlDLE9BQWlDLEdBQUdKLEtBQUs7RUFFN0MsT0FBTyxFQUFBSyxRQUFBLEdBQUFELE9BQU8scUJBQVBDLFFBQUEsQ0FBU0MsTUFBTSxFQUFBQyxjQUFBLEdBQUNILE9BQU8sQ0FBQ0ksS0FBSyxZQUFBRCxjQUFBLEdBQUksQ0FBQyxDQUFDLENBQUNQLEtBQUssS0FBSSxJQUFJLEVBQUU7SUFBQSxJQUFBSyxRQUFBLEVBQUFFLGNBQUEsRUFBQUUsZUFBQTtJQUN4REwsT0FBTyxHQUFHQSxPQUFPLENBQUNFLE1BQU0sRUFBQUcsZUFBQSxHQUFDTCxPQUFPLENBQUNJLEtBQUssWUFBQUMsZUFBQSxHQUFJLENBQUMsQ0FBQyxDQUFDVCxLQUFLO0VBQ3BEO0VBRUEsSUFBTVUsS0FBSyxJQUFBVCxTQUFBLEdBQUdHLE9BQU8scUJBQVBILFNBQUEsQ0FBU0ssTUFBTSxFQUFBSixlQUFBLElBQUFDLFNBQUEsR0FBQ0MsT0FBTyxxQkFBUEQsU0FBQSxDQUFTSyxLQUFLLFlBQUFOLGVBQUEsR0FBSSxDQUFDLENBQUM7RUFFbEQsT0FBT1EsS0FBSztBQUNkIiwiaWdub3JlTGlzdCI6W119

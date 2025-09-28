@@ -1,0 +1,145 @@
+723e047c4fb68824f47a91cd1b2729f1
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+var _exportNames = {
+  createStaticNavigation: true,
+  Link: true,
+  LinkingContext: true,
+  LocaleDirContext: true,
+  NavigationContainer: true,
+  ServerContainer: true,
+  DarkTheme: true,
+  DefaultTheme: true,
+  UNSTABLE_UnhandledLinkingContext: true,
+  useLinkBuilder: true,
+  useLinkProps: true,
+  useLinkTo: true,
+  useLocale: true,
+  useScrollToTop: true
+};
+Object.defineProperty(exports, "DarkTheme", {
+  enumerable: true,
+  get: function get() {
+    return _DarkTheme.DarkTheme;
+  }
+});
+Object.defineProperty(exports, "DefaultTheme", {
+  enumerable: true,
+  get: function get() {
+    return _DefaultTheme.DefaultTheme;
+  }
+});
+Object.defineProperty(exports, "Link", {
+  enumerable: true,
+  get: function get() {
+    return _Link.Link;
+  }
+});
+Object.defineProperty(exports, "LinkingContext", {
+  enumerable: true,
+  get: function get() {
+    return _LinkingContext.LinkingContext;
+  }
+});
+Object.defineProperty(exports, "LocaleDirContext", {
+  enumerable: true,
+  get: function get() {
+    return _LocaleDirContext.LocaleDirContext;
+  }
+});
+Object.defineProperty(exports, "NavigationContainer", {
+  enumerable: true,
+  get: function get() {
+    return _NavigationContainer.NavigationContainer;
+  }
+});
+Object.defineProperty(exports, "ServerContainer", {
+  enumerable: true,
+  get: function get() {
+    return _ServerContainer.ServerContainer;
+  }
+});
+Object.defineProperty(exports, "UNSTABLE_UnhandledLinkingContext", {
+  enumerable: true,
+  get: function get() {
+    return _UnhandledLinkingContext.UnhandledLinkingContext;
+  }
+});
+Object.defineProperty(exports, "createStaticNavigation", {
+  enumerable: true,
+  get: function get() {
+    return _createStaticNavigation.createStaticNavigation;
+  }
+});
+Object.defineProperty(exports, "useLinkBuilder", {
+  enumerable: true,
+  get: function get() {
+    return _useLinkBuilder.useLinkBuilder;
+  }
+});
+Object.defineProperty(exports, "useLinkProps", {
+  enumerable: true,
+  get: function get() {
+    return _useLinkProps.useLinkProps;
+  }
+});
+Object.defineProperty(exports, "useLinkTo", {
+  enumerable: true,
+  get: function get() {
+    return _useLinkTo.useLinkTo;
+  }
+});
+Object.defineProperty(exports, "useLocale", {
+  enumerable: true,
+  get: function get() {
+    return _useLocale.useLocale;
+  }
+});
+Object.defineProperty(exports, "useScrollToTop", {
+  enumerable: true,
+  get: function get() {
+    return _useScrollToTop.useScrollToTop;
+  }
+});
+var _createStaticNavigation = require("./createStaticNavigation.js");
+var _Link = require("./Link.js");
+var _LinkingContext = require("./LinkingContext.js");
+var _LocaleDirContext = require("./LocaleDirContext.js");
+var _NavigationContainer = require("./NavigationContainer.js");
+var _ServerContainer = require("./ServerContainer.js");
+var _DarkTheme = require("./theming/DarkTheme.js");
+var _DefaultTheme = require("./theming/DefaultTheme.js");
+var _types = require("./types.js");
+Object.keys(_types).forEach(function (key) {
+  if (key === "default" || key === "__esModule") return;
+  if (Object.prototype.hasOwnProperty.call(_exportNames, key)) return;
+  if (key in exports && exports[key] === _types[key]) return;
+  Object.defineProperty(exports, key, {
+    enumerable: true,
+    get: function get() {
+      return _types[key];
+    }
+  });
+});
+var _UnhandledLinkingContext = require("./UnhandledLinkingContext.js");
+var _useLinkBuilder = require("./useLinkBuilder.js");
+var _useLinkProps = require("./useLinkProps.js");
+var _useLinkTo = require("./useLinkTo.js");
+var _useLocale = require("./useLocale.js");
+var _useScrollToTop = require("./useScrollToTop.js");
+var _core = require("@react-navigation/core");
+Object.keys(_core).forEach(function (key) {
+  if (key === "default" || key === "__esModule") return;
+  if (Object.prototype.hasOwnProperty.call(_exportNames, key)) return;
+  if (key in exports && exports[key] === _core[key]) return;
+  Object.defineProperty(exports, key, {
+    enumerable: true,
+    get: function get() {
+      return _core[key];
+    }
+  });
+});
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJuYW1lcyI6WyJfY3JlYXRlU3RhdGljTmF2aWdhdGlvbiIsInJlcXVpcmUiLCJfTGluayIsIl9MaW5raW5nQ29udGV4dCIsIl9Mb2NhbGVEaXJDb250ZXh0IiwiX05hdmlnYXRpb25Db250YWluZXIiLCJfU2VydmVyQ29udGFpbmVyIiwiX0RhcmtUaGVtZSIsIl9EZWZhdWx0VGhlbWUiLCJfdHlwZXMiLCJPYmplY3QiLCJrZXlzIiwiZm9yRWFjaCIsImtleSIsInByb3RvdHlwZSIsImhhc093blByb3BlcnR5IiwiY2FsbCIsIl9leHBvcnROYW1lcyIsImV4cG9ydHMiLCJkZWZpbmVQcm9wZXJ0eSIsImVudW1lcmFibGUiLCJnZXQiLCJfVW5oYW5kbGVkTGlua2luZ0NvbnRleHQiLCJfdXNlTGlua0J1aWxkZXIiLCJfdXNlTGlua1Byb3BzIiwiX3VzZUxpbmtUbyIsIl91c2VMb2NhbGUiLCJfdXNlU2Nyb2xsVG9Ub3AiLCJfY29yZSJdLCJzb3VyY2VzIjpbIi4uLy4uL3NyYy9pbmRleC50c3giXSwic291cmNlc0NvbnRlbnQiOltudWxsXSwibWFwcGluZ3MiOiI7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7OztBQUFBLElBQUFBLHVCQUFBLEdBQUFDLE9BQUE7QUFDQSxJQUFBQyxLQUFBLEdBQUFELE9BQUE7QUFDQSxJQUFBRSxlQUFBLEdBQUFGLE9BQUE7QUFDQSxJQUFBRyxpQkFBQSxHQUFBSCxPQUFBO0FBQ0EsSUFBQUksb0JBQUEsR0FBQUosT0FBQTtBQUNBLElBQUFLLGdCQUFBLEdBQUFMLE9BQUE7QUFDQSxJQUFBTSxVQUFBLEdBQUFOLE9BQUE7QUFDQSxJQUFBTyxhQUFBLEdBQUFQLE9BQUE7QUFDQSxJQUFBUSxNQUFBLEdBQUFSLE9BQUE7QUFBQVMsTUFBQSxDQUFBQyxJQUFBLENBQUFGLE1BQUEsRUFBQUcsT0FBQSxXQUFBQyxHQUFBO0VBQUEsSUFBQUEsR0FBQSxrQkFBQUEsR0FBQTtFQUFBLElBQUFILE1BQUEsQ0FBQUksU0FBQSxDQUFBQyxjQUFBLENBQUFDLElBQUEsQ0FBQUMsWUFBQSxFQUFBSixHQUFBO0VBQUEsSUFBQUEsR0FBQSxJQUFBSyxPQUFBLElBQUFBLE9BQUEsQ0FBQUwsR0FBQSxNQUFBSixNQUFBLENBQUFJLEdBQUE7RUFBQUgsTUFBQSxDQUFBUyxjQUFBLENBQUFELE9BQUEsRUFBQUwsR0FBQTtJQUFBTyxVQUFBO0lBQUFDLEdBQUEsV0FBQUEsSUFBQTtNQUFBLE9BQUFaLE1BQUEsQ0FBQUksR0FBQTtJQUFBO0VBQUE7QUFBQTtBQUNBLElBQUFTLHdCQUFBLEdBQUFyQixPQUFBO0FBQ0EsSUFBQXNCLGVBQUEsR0FBQXRCLE9BQUE7QUFDQSxJQUFBdUIsYUFBQSxHQUFBdkIsT0FBQTtBQUNBLElBQUF3QixVQUFBLEdBQUF4QixPQUFBO0FBQ0EsSUFBQXlCLFVBQUEsR0FBQXpCLE9BQUE7QUFDQSxJQUFBMEIsZUFBQSxHQUFBMUIsT0FBQTtBQUNBLElBQUEyQixLQUFBLEdBQUEzQixPQUFBO0FBQUFTLE1BQUEsQ0FBQUMsSUFBQSxDQUFBaUIsS0FBQSxFQUFBaEIsT0FBQSxXQUFBQyxHQUFBO0VBQUEsSUFBQUEsR0FBQSxrQkFBQUEsR0FBQTtFQUFBLElBQUFILE1BQUEsQ0FBQUksU0FBQSxDQUFBQyxjQUFBLENBQUFDLElBQUEsQ0FBQUMsWUFBQSxFQUFBSixHQUFBO0VBQUEsSUFBQUEsR0FBQSxJQUFBSyxPQUFBLElBQUFBLE9BQUEsQ0FBQUwsR0FBQSxNQUFBZSxLQUFBLENBQUFmLEdBQUE7RUFBQUgsTUFBQSxDQUFBUyxjQUFBLENBQUFELE9BQUEsRUFBQUwsR0FBQTtJQUFBTyxVQUFBO0lBQUFDLEdBQUEsV0FBQUEsSUFBQTtNQUFBLE9BQUFPLEtBQUEsQ0FBQWYsR0FBQTtJQUFBO0VBQUE7QUFBQSIsImlnbm9yZUxpc3QiOltdfQ==

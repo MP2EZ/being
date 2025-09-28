@@ -1,0 +1,1 @@
+{"version":3,"names":["React","_interopRequireWildcard","require","CurrentRenderContext","exports","createContext","undefined"],"sources":["../../src/CurrentRenderContext.tsx"],"sourcesContent":[null],"mappings":";;;;;;;AAAA,IAAAA,KAAA,GAAAC,uBAAA,CAAAC,OAAA;AAMO,IAAMC,oBAAoB,GAAAC,OAAA,CAAAD,oBAAA,GAAGH,KAAK,CAACK,aAAa,CAErDC,SAAS,CAAC","ignoreList":[]}

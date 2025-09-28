@@ -1,0 +1,12 @@
+22de49c2354beb858a9f1d5e255f83d7
+"use strict";
+
+var _interopRequireWildcard = require("@babel/runtime/helpers/interopRequireWildcard").default;
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.ThemeContext = void 0;
+var React = _interopRequireWildcard(require("react"));
+var ThemeContext = exports.ThemeContext = React.createContext(undefined);
+ThemeContext.displayName = 'ThemeContext';
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJuYW1lcyI6WyJSZWFjdCIsIl9pbnRlcm9wUmVxdWlyZVdpbGRjYXJkIiwicmVxdWlyZSIsIlRoZW1lQ29udGV4dCIsImV4cG9ydHMiLCJjcmVhdGVDb250ZXh0IiwidW5kZWZpbmVkIiwiZGlzcGxheU5hbWUiXSwic291cmNlcyI6WyIuLi8uLi8uLi9zcmMvdGhlbWluZy9UaGVtZUNvbnRleHQudHN4Il0sInNvdXJjZXNDb250ZW50IjpbbnVsbF0sIm1hcHBpbmdzIjoiOzs7Ozs7O0FBQUEsSUFBQUEsS0FBQSxHQUFBQyx1QkFBQSxDQUFBQyxPQUFBO0FBRU8sSUFBTUMsWUFBWSxHQUFBQyxPQUFBLENBQUFELFlBQUEsR0FBR0gsS0FBSyxDQUFDSyxhQUFhLENBRTdDQyxTQUFTLENBQUM7QUFFWkgsWUFBWSxDQUFDSSxXQUFXLEdBQUcsY0FBYyIsImlnbm9yZUxpc3QiOltdfQ==

@@ -1,0 +1,16 @@
+6d59d9d428f0a86d0f35ef5e87719814
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.getFocusedRouteNameFromRoute = getFocusedRouteNameFromRoute;
+var _useRouteCache = require("./useRouteCache.js");
+function getFocusedRouteNameFromRoute(route) {
+  var _route$CHILD_STATE, _state$index;
+  var state = (_route$CHILD_STATE = route[_useRouteCache.CHILD_STATE]) != null ? _route$CHILD_STATE : route.state;
+  var params = route.params;
+  var routeName = state ? state.routes[(_state$index = state.index) != null ? _state$index : typeof state.type === 'string' && state.type !== 'stack' ? 0 : state.routes.length - 1].name : typeof (params == null ? void 0 : params.screen) === 'string' ? params.screen : undefined;
+  return routeName;
+}
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJuYW1lcyI6WyJfdXNlUm91dGVDYWNoZSIsInJlcXVpcmUiLCJnZXRGb2N1c2VkUm91dGVOYW1lRnJvbVJvdXRlIiwicm91dGUiLCJfcm91dGUkQ0hJTERfU1RBVEUiLCJfc3RhdGUkaW5kZXgiLCJzdGF0ZSIsIkNISUxEX1NUQVRFIiwicGFyYW1zIiwicm91dGVOYW1lIiwicm91dGVzIiwiaW5kZXgiLCJ0eXBlIiwibGVuZ3RoIiwibmFtZSIsInNjcmVlbiIsInVuZGVmaW5lZCJdLCJzb3VyY2VzIjpbIi4uLy4uL3NyYy9nZXRGb2N1c2VkUm91dGVOYW1lRnJvbVJvdXRlLnRzeCJdLCJzb3VyY2VzQ29udGVudCI6W251bGxdLCJtYXBwaW5ncyI6Ijs7Ozs7O0FBRUEsSUFBQUEsY0FBQSxHQUFBQyxPQUFBO0FBRU8sU0FBU0MsNEJBQTRCQSxDQUMxQ0MsS0FBNkIsRUFDVDtFQUFBLElBQUFDLGtCQUFBLEVBQUFDLFlBQUE7RUFFcEIsSUFBTUMsS0FBSyxJQUFBRixrQkFBQSxHQUFHRCxLQUFLLENBQUNJLDBCQUFXLENBQUMsWUFBQUgsa0JBQUEsR0FBSUQsS0FBSyxDQUFDRyxLQUFLO0VBQy9DLElBQU1FLE1BQU0sR0FBR0wsS0FBSyxDQUFDSyxNQUEwQztFQUUvRCxJQUFNQyxTQUFTLEdBQUdILEtBQUssR0FFbkJBLEtBQUssQ0FBQ0ksTUFBTSxFQUFBTCxZQUFBLEdBR1ZDLEtBQUssQ0FBQ0ssS0FBSyxZQUFBTixZQUFBLEdBQ1IsT0FBT0MsS0FBSyxDQUFDTSxJQUFJLEtBQUssUUFBUSxJQUFJTixLQUFLLENBQUNNLElBQUksS0FBSyxPQUFPLEdBQ3JELENBQUMsR0FDRE4sS0FBSyxDQUFDSSxNQUFNLENBQUNHLE1BQU0sR0FBRyxDQUFDLENBQzlCLENBQUNDLElBQUksR0FFTixRQUFPTixNQUFNLG9CQUFOQSxNQUFNLENBQUVPLE1BQU0sTUFBSyxRQUFRLEdBQ2hDUCxNQUFNLENBQUNPLE1BQU0sR0FDYkMsU0FBUztFQUVmLE9BQU9QLFNBQVM7QUFDbEIiLCJpZ25vcmVMaXN0IjpbXX0=

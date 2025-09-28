@@ -1,0 +1,19 @@
+c7024fa6403f9f65aced726de52de353
+"use strict";
+
+var _interopRequireWildcard = require("@babel/runtime/helpers/interopRequireWildcard").default;
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.useScheduleUpdate = useScheduleUpdate;
+var React = _interopRequireWildcard(require("react"));
+var _NavigationBuilderContext = require("./NavigationBuilderContext.js");
+var _useClientLayoutEffect = require("./useClientLayoutEffect.js");
+function useScheduleUpdate(callback) {
+  var _React$useContext = React.useContext(_NavigationBuilderContext.NavigationBuilderContext),
+    scheduleUpdate = _React$useContext.scheduleUpdate,
+    flushUpdates = _React$useContext.flushUpdates;
+  scheduleUpdate(callback);
+  (0, _useClientLayoutEffect.useClientLayoutEffect)(flushUpdates);
+}
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJuYW1lcyI6WyJSZWFjdCIsIl9pbnRlcm9wUmVxdWlyZVdpbGRjYXJkIiwicmVxdWlyZSIsIl9OYXZpZ2F0aW9uQnVpbGRlckNvbnRleHQiLCJfdXNlQ2xpZW50TGF5b3V0RWZmZWN0IiwidXNlU2NoZWR1bGVVcGRhdGUiLCJjYWxsYmFjayIsIl9SZWFjdCR1c2VDb250ZXh0IiwidXNlQ29udGV4dCIsIk5hdmlnYXRpb25CdWlsZGVyQ29udGV4dCIsInNjaGVkdWxlVXBkYXRlIiwiZmx1c2hVcGRhdGVzIiwidXNlQ2xpZW50TGF5b3V0RWZmZWN0Il0sInNvdXJjZXMiOlsiLi4vLi4vc3JjL3VzZVNjaGVkdWxlVXBkYXRlLnRzeCJdLCJzb3VyY2VzQ29udGVudCI6W251bGxdLCJtYXBwaW5ncyI6Ijs7Ozs7OztBQUFBLElBQUFBLEtBQUEsR0FBQUMsdUJBQUEsQ0FBQUMsT0FBQTtBQUVBLElBQUFDLHlCQUFBLEdBQUFELE9BQUE7QUFDQSxJQUFBRSxzQkFBQSxHQUFBRixPQUFBO0FBU08sU0FBU0csaUJBQWlCQSxDQUFDQyxRQUFvQixFQUFFO0VBQ3RELElBQUFDLGlCQUFBLEdBQXlDUCxLQUFLLENBQUNRLFVBQVUsQ0FDdkRDLGtEQUNGLENBQUM7SUFGT0MsY0FBYyxHQUFBSCxpQkFBQSxDQUFkRyxjQUFjO0lBQUVDLFlBQUEsR0FBQUosaUJBQUEsQ0FBQUksWUFBQTtFQU14QkQsY0FBYyxDQUFDSixRQUFRLENBQUM7RUFFeEIsSUFBQU0sNENBQXFCLEVBQUNELFlBQVksQ0FBQztBQUNyQyIsImlnbm9yZUxpc3QiOltdfQ==

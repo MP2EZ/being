@@ -1,0 +1,53 @@
+0aaee6cf8d7aa0e082dd3be5cf5e4778
+"use strict";
+
+var _interopRequireWildcard = require("@babel/runtime/helpers/interopRequireWildcard").default;
+var _interopRequireDefault = require("@babel/runtime/helpers/interopRequireDefault").default;
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.useThenable = useThenable;
+var _asyncToGenerator2 = _interopRequireDefault(require("@babel/runtime/helpers/asyncToGenerator"));
+var _slicedToArray2 = _interopRequireDefault(require("@babel/runtime/helpers/slicedToArray"));
+var React = _interopRequireWildcard(require("react"));
+function useThenable(create) {
+  var _React$useState = React.useState(create),
+    _React$useState2 = (0, _slicedToArray2.default)(_React$useState, 1),
+    promise = _React$useState2[0];
+  var initialState = [false, undefined];
+  promise.then(function (result) {
+    initialState = [true, result];
+  });
+  var _React$useState3 = React.useState(initialState),
+    _React$useState4 = (0, _slicedToArray2.default)(_React$useState3, 2),
+    state = _React$useState4[0],
+    setState = _React$useState4[1];
+  var _state = (0, _slicedToArray2.default)(state, 1),
+    resolved = _state[0];
+  React.useEffect(function () {
+    var cancelled = false;
+    var resolve = function () {
+      var _ref = (0, _asyncToGenerator2.default)(function* () {
+        var result;
+        try {
+          result = yield promise;
+        } finally {
+          if (!cancelled) {
+            setState([true, result]);
+          }
+        }
+      });
+      return function resolve() {
+        return _ref.apply(this, arguments);
+      };
+    }();
+    if (!resolved) {
+      resolve();
+    }
+    return function () {
+      cancelled = true;
+    };
+  }, [promise, resolved]);
+  return state;
+}
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJuYW1lcyI6WyJSZWFjdCIsIl9pbnRlcm9wUmVxdWlyZVdpbGRjYXJkIiwicmVxdWlyZSIsInVzZVRoZW5hYmxlIiwiY3JlYXRlIiwiX1JlYWN0JHVzZVN0YXRlIiwidXNlU3RhdGUiLCJfUmVhY3QkdXNlU3RhdGUyIiwiX3NsaWNlZFRvQXJyYXkyIiwiZGVmYXVsdCIsInByb21pc2UiLCJpbml0aWFsU3RhdGUiLCJ1bmRlZmluZWQiLCJ0aGVuIiwicmVzdWx0IiwiX1JlYWN0JHVzZVN0YXRlMyIsIl9SZWFjdCR1c2VTdGF0ZTQiLCJzdGF0ZSIsInNldFN0YXRlIiwiX3N0YXRlIiwicmVzb2x2ZWQiLCJ1c2VFZmZlY3QiLCJjYW5jZWxsZWQiLCJyZXNvbHZlIiwiX3JlZiIsIl9hc3luY1RvR2VuZXJhdG9yMiIsImFwcGx5IiwiYXJndW1lbnRzIl0sInNvdXJjZXMiOlsiLi4vLi4vc3JjL3VzZVRoZW5hYmxlLnRzeCJdLCJzb3VyY2VzQ29udGVudCI6W251bGxdLCJtYXBwaW5ncyI6Ijs7Ozs7Ozs7OztBQUFBLElBQUFBLEtBQUEsR0FBQUMsdUJBQUEsQ0FBQUMsT0FBQTtBQUVPLFNBQVNDLFdBQVdBLENBQUlDLE1BQTRCLEVBQUU7RUFDM0QsSUFBQUMsZUFBQSxHQUFrQkwsS0FBSyxDQUFDTSxRQUFRLENBQUNGLE1BQU0sQ0FBQztJQUFBRyxnQkFBQSxPQUFBQyxlQUFBLENBQUFDLE9BQUEsRUFBQUosZUFBQTtJQUFqQ0ssT0FBTyxHQUFBSCxnQkFBQTtFQUVkLElBQUlJLFlBQXNDLEdBQUcsQ0FBQyxLQUFLLEVBQUVDLFNBQVMsQ0FBQztFQUkvREYsT0FBTyxDQUFDRyxJQUFJLENBQUUsVUFBQUMsTUFBTSxFQUFLO0lBQ3ZCSCxZQUFZLEdBQUcsQ0FBQyxJQUFJLEVBQUVHLE1BQU0sQ0FBQztFQUMvQixDQUFDLENBQUM7RUFFRixJQUFBQyxnQkFBQSxHQUEwQmYsS0FBSyxDQUFDTSxRQUFRLENBQUNLLFlBQVksQ0FBQztJQUFBSyxnQkFBQSxPQUFBUixlQUFBLENBQUFDLE9BQUEsRUFBQU0sZ0JBQUE7SUFBL0NFLEtBQUssR0FBQUQsZ0JBQUE7SUFBRUUsUUFBUSxHQUFBRixnQkFBQTtFQUN0QixJQUFBRyxNQUFBLE9BQUFYLGVBQUEsQ0FBQUMsT0FBQSxFQUFtQlEsS0FBSztJQUFqQkcsUUFBUSxHQUFBRCxNQUFBO0VBRWZuQixLQUFLLENBQUNxQixTQUFTLENBQUMsWUFBTTtJQUNwQixJQUFJQyxTQUFTLEdBQUcsS0FBSztJQUVyQixJQUFNQyxPQUFPO01BQUEsSUFBQUMsSUFBQSxPQUFBQyxrQkFBQSxDQUFBaEIsT0FBQSxFQUFHLGFBQVk7UUFDMUIsSUFBSUssTUFBTTtRQUVWLElBQUk7VUFDRkEsTUFBTSxTQUFTSixPQUFPO1FBQ3hCLENBQUMsU0FBUztVQUNSLElBQUksQ0FBQ1ksU0FBUyxFQUFFO1lBQ2RKLFFBQVEsQ0FBQyxDQUFDLElBQUksRUFBRUosTUFBTSxDQUFDLENBQUM7VUFDMUI7UUFDRjtNQUNGLENBQUM7TUFBQSxnQkFWS1MsT0FBT0EsQ0FBQTtRQUFBLE9BQUFDLElBQUEsQ0FBQUUsS0FBQSxPQUFBQyxTQUFBO01BQUE7SUFBQSxHQVVaO0lBRUQsSUFBSSxDQUFDUCxRQUFRLEVBQUU7TUFDYkcsT0FBTyxDQUFDLENBQUM7SUFDWDtJQUVBLE9BQU8sWUFBTTtNQUNYRCxTQUFTLEdBQUcsSUFBSTtJQUNsQixDQUFDO0VBQ0gsQ0FBQyxFQUFFLENBQUNaLE9BQU8sRUFBRVUsUUFBUSxDQUFDLENBQUM7RUFFdkIsT0FBT0gsS0FBSztBQUNkIiwiaWdub3JlTGlzdCI6W119

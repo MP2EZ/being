@@ -1,0 +1,34 @@
+25b743027816526b44a97c7f43627fc0
+"use strict";
+
+var _interopRequireWildcard = require("@babel/runtime/helpers/interopRequireWildcard").default;
+var _interopRequireDefault = require("@babel/runtime/helpers/interopRequireDefault").default;
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.useRegisterNavigator = useRegisterNavigator;
+var _slicedToArray2 = _interopRequireDefault(require("@babel/runtime/helpers/slicedToArray"));
+var _nonSecure = require("nanoid/non-secure");
+var React = _interopRequireWildcard(require("react"));
+var _EnsureSingleNavigator = require("./EnsureSingleNavigator.js");
+function useRegisterNavigator() {
+  var _React$useState = React.useState(function () {
+      return (0, _nonSecure.nanoid)();
+    }),
+    _React$useState2 = (0, _slicedToArray2.default)(_React$useState, 1),
+    key = _React$useState2[0];
+  var container = React.useContext(_EnsureSingleNavigator.SingleNavigatorContext);
+  if (container === undefined) {
+    throw new Error("Couldn't register the navigator. Have you wrapped your app with 'NavigationContainer'?\n\nThis can also happen if there are multiple copies of '@react-navigation' packages installed.");
+  }
+  React.useEffect(function () {
+    var register = container.register,
+      unregister = container.unregister;
+    register(key);
+    return function () {
+      return unregister(key);
+    };
+  }, [container, key]);
+  return key;
+}
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJuYW1lcyI6WyJfbm9uU2VjdXJlIiwicmVxdWlyZSIsIlJlYWN0IiwiX2ludGVyb3BSZXF1aXJlV2lsZGNhcmQiLCJfRW5zdXJlU2luZ2xlTmF2aWdhdG9yIiwidXNlUmVnaXN0ZXJOYXZpZ2F0b3IiLCJfUmVhY3QkdXNlU3RhdGUiLCJ1c2VTdGF0ZSIsIm5hbm9pZCIsIl9SZWFjdCR1c2VTdGF0ZTIiLCJfc2xpY2VkVG9BcnJheTIiLCJkZWZhdWx0Iiwia2V5IiwiY29udGFpbmVyIiwidXNlQ29udGV4dCIsIlNpbmdsZU5hdmlnYXRvckNvbnRleHQiLCJ1bmRlZmluZWQiLCJFcnJvciIsInVzZUVmZmVjdCIsInJlZ2lzdGVyIiwidW5yZWdpc3RlciJdLCJzb3VyY2VzIjpbIi4uLy4uL3NyYy91c2VSZWdpc3Rlck5hdmlnYXRvci50c3giXSwic291cmNlc0NvbnRlbnQiOltudWxsXSwibWFwcGluZ3MiOiI7Ozs7Ozs7OztBQUFBLElBQUFBLFVBQUEsR0FBQUMsT0FBQTtBQUNBLElBQUFDLEtBQUEsR0FBQUMsdUJBQUEsQ0FBQUYsT0FBQTtBQUVBLElBQUFHLHNCQUFBLEdBQUFILE9BQUE7QUFNTyxTQUFTSSxvQkFBb0JBLENBQUEsRUFBRztFQUNyQyxJQUFBQyxlQUFBLEdBQWNKLEtBQUssQ0FBQ0ssUUFBUSxDQUFDO01BQUEsT0FBTSxJQUFBQyxpQkFBTSxFQUFDLENBQUM7SUFBQSxFQUFDO0lBQUFDLGdCQUFBLE9BQUFDLGVBQUEsQ0FBQUMsT0FBQSxFQUFBTCxlQUFBO0lBQXJDTSxHQUFHLEdBQUFILGdCQUFBO0VBQ1YsSUFBTUksU0FBUyxHQUFHWCxLQUFLLENBQUNZLFVBQVUsQ0FBQ0MsNkNBQXNCLENBQUM7RUFFMUQsSUFBSUYsU0FBUyxLQUFLRyxTQUFTLEVBQUU7SUFDM0IsTUFBTSxJQUFJQyxLQUFLLENBQ2Isd0xBQ0YsQ0FBQztFQUNIO0VBRUFmLEtBQUssQ0FBQ2dCLFNBQVMsQ0FBQyxZQUFNO0lBQ3BCLElBQVFDLFFBQVEsR0FBaUJOLFNBQVMsQ0FBbENNLFFBQVE7TUFBRUMsVUFBQSxHQUFlUCxTQUFTLENBQXhCTyxVQUFBO0lBRWxCRCxRQUFRLENBQUNQLEdBQUcsQ0FBQztJQUViLE9BQU87TUFBQSxPQUFNUSxVQUFVLENBQUNSLEdBQUcsQ0FBQztJQUFBO0VBQzlCLENBQUMsRUFBRSxDQUFDQyxTQUFTLEVBQUVELEdBQUcsQ0FBQyxDQUFDO0VBRXBCLE9BQU9BLEdBQUc7QUFDWiIsImlnbm9yZUxpc3QiOltdfQ==

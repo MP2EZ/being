@@ -61,9 +61,8 @@ describe('Assessment Store - Clinical Validation', () => {
   });
 
   afterEach(() => {
-    // Clear any pending timeouts
-    jest.runOnlyPendingTimers();
-    jest.useRealTimers();
+    // Clean up after each test - no timer management needed
+    // Timer cleanup only needed when jest.useFakeTimers() is used
   });
 
   describe('PHQ-9 Clinical Accuracy', () => {
@@ -404,6 +403,7 @@ describe('Assessment Store - Clinical Validation', () => {
     });
 
     afterEach(() => {
+      // Clean up fake timers when used in this describe block
       jest.runOnlyPendingTimers();
       jest.useRealTimers();
     });

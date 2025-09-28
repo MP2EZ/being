@@ -1,0 +1,10 @@
+4d0222a80eaabc9e5d3753c75738586d
+"use strict";
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.Screen = Screen;
+function Screen(_) {
+  return null;
+}
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJuYW1lcyI6WyJTY3JlZW4iLCJfIl0sInNvdXJjZXMiOlsiLi4vLi4vc3JjL1NjcmVlbi50c3giXSwic291cmNlc0NvbnRlbnQiOltudWxsXSwibWFwcGluZ3MiOiI7Ozs7O0FBT08sU0FBU0EsTUFBTUEsQ0FRcEJDLENBT0MsRUFDRDtFQUVBLE9BQU8sSUFBSTtBQUNiIiwiaWdub3JlTGlzdCI6W119

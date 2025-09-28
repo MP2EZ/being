@@ -1,0 +1,21 @@
+56e8eb48151f237df65b0958e7b16679
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.DarkTheme = void 0;
+var _fonts = require("./fonts.js");
+var DarkTheme = exports.DarkTheme = {
+  dark: true,
+  colors: {
+    primary: 'rgb(10, 132, 255)',
+    background: 'rgb(1, 1, 1)',
+    card: 'rgb(18, 18, 18)',
+    text: 'rgb(229, 229, 231)',
+    border: 'rgb(39, 39, 41)',
+    notification: 'rgb(255, 69, 58)'
+  },
+  fonts: _fonts.fonts
+};
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJuYW1lcyI6WyJfZm9udHMiLCJyZXF1aXJlIiwiRGFya1RoZW1lIiwiZXhwb3J0cyIsImRhcmsiLCJjb2xvcnMiLCJwcmltYXJ5IiwiYmFja2dyb3VuZCIsImNhcmQiLCJ0ZXh0IiwiYm9yZGVyIiwibm90aWZpY2F0aW9uIiwiZm9udHMiXSwic291cmNlcyI6WyIuLi8uLi8uLi9zcmMvdGhlbWluZy9EYXJrVGhlbWUudHN4Il0sInNvdXJjZXNDb250ZW50IjpbbnVsbF0sIm1hcHBpbmdzIjoiOzs7Ozs7QUFDQSxJQUFBQSxNQUFBLEdBQUFDLE9BQUE7QUFFTyxJQUFNQyxTQUFnQixHQUFBQyxPQUFBLENBQUFELFNBQUEsR0FBRztFQUM5QkUsSUFBSSxFQUFFLElBQUk7RUFDVkMsTUFBTSxFQUFFO0lBQ05DLE9BQU8sRUFBRSxtQkFBbUI7SUFDNUJDLFVBQVUsRUFBRSxjQUFjO0lBQzFCQyxJQUFJLEVBQUUsaUJBQWlCO0lBQ3ZCQyxJQUFJLEVBQUUsb0JBQW9CO0lBQzFCQyxNQUFNLEVBQUUsaUJBQWlCO0lBQ3pCQyxZQUFZLEVBQUU7RUFDaEIsQ0FBQztFQUNEQyxLQUFBLEVBQUFBO0FBQ0YsQ0FBQyIsImlnbm9yZUxpc3QiOltdfQ==
