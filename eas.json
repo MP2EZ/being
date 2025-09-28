@@ -23,6 +23,24 @@
         "NEW_ARCHITECTURE": "true"
       }
     },
+    "preview": {
+      "extends": "production",
+      "distribution": "internal",
+      "env": {
+        "BUILD_TYPE": "preview",
+        "CLINICAL_VALIDATION": "true",
+        "HEALTHCARE_COMPLIANCE_MONITORING": "true",
+        "PERFORMANCE_MONITORING": "true",
+        "NEW_ARCHITECTURE": "true",
+        "CRISIS_MONITORING": "true",
+        "EXPO_PUBLIC_API_URL": "https://api-staging.being.app",
+        "EXPO_PUBLIC_SUPABASE_URL": "$SUPABASE_URL_STAGING"
+      },
+      "cache": {
+        "disabled": false,
+        "cacheDefaultPaths": true
+      }
+    },
     "staging": {
       "extends": "production",
       "distribution": "internal",
@@ -104,6 +122,18 @@
         "serviceAccountKeyPath": "./android-service-account.json",
         "track": "production",
         "releaseStatus": "completed"
+      }
+    },
+    "preview": {
+      "ios": {
+        "appId": "com.being.mbct",
+        "ascAppId": "PLACEHOLDER_APP_ID",
+        "appleTeamId": "PLACEHOLDER_TEAM_ID"
+      },
+      "android": {
+        "serviceAccountKeyPath": "./android-service-account.json",
+        "track": "internal",
+        "releaseStatus": "draft"
       }
     },
     "staging": {

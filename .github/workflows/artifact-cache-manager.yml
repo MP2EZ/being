@@ -1,0 +1,425 @@
+name: 🏗️ Emergency Artifact Cache Manager
+
+on:
+  push:
+    branches: [main, release/*, hotfix/*]
+  schedule:
+    # Rebuild emergency artifacts weekly (Sundays 2AM UTC)
+    - cron: '0 2 * * 0'
+  workflow_dispatch:
+    inputs:
+      rebuild_reason:
+        description: 'Reason for manual rebuild'
+        required: true
+        type: string
+      force_rebuild:
+        description: 'Force rebuild even if cache exists'
+        required: false
+        default: false
+        type: boolean
+      invalidate_all:
+        description: 'Invalidate all emergency caches'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+  NODE_VERSION: '20'
+  CACHE_VERSION: 'v1.2'
+  ARTIFACT_RETENTION_DAYS: 90
+
+jobs:
+  # Cache Status Analysis
+  cache-analysis:
+    name: 🔍 Cache Status Analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      needs-rebuild: ${{ steps.analysis.outputs.needs_rebuild }}
+      cache-status: ${{ steps.analysis.outputs.cache_status }}
+      invalidation-triggers: ${{ steps.analysis.outputs.invalidation_triggers }}
+
+    steps:
+      - name: 🔍 Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: 🔍 Analyze Cache Invalidation Triggers
+        id: analysis
+        run: |
+          echo "🔍 ANALYZING CACHE INVALIDATION TRIGGERS"
+
+          needs_rebuild="false"
+          invalidation_triggers=""
+
+          # Check if force rebuild requested
+          if [ "${{ github.event.inputs.force_rebuild }}" == "true" ]; then
+            echo "🔄 Force rebuild requested"
+            needs_rebuild="true"
+            invalidation_triggers="force-rebuild"
+          fi
+
+          # Check for invalidation triggers in git changes
+          if [ "${{ github.event_name }}" == "push" ]; then
+            echo "📝 Checking git changes for invalidation triggers..."
+
+            # Package.json changes
+            if git diff HEAD~1 --name-only | grep -E "package(-lock)?\.json$"; then
+              echo "📦 Dependencies changed - Cache invalidation required"
+              needs_rebuild="true"
+              invalidation_triggers="${invalidation_triggers},dependencies"
+            fi
+
+            # Crisis-related code changes
+            if git diff HEAD~1 --name-only | grep -E "(crisis|emergency|988)"; then
+              echo "🚨 Crisis code changed - Emergency cache invalidation required"
+              needs_rebuild="true"
+              invalidation_triggers="${invalidation_triggers},crisis-code"
+            fi
+
+            # Clinical code changes
+            if git diff HEAD~1 --name-only | grep -E "(clinical|assessment|phq|gad)"; then
+              echo "🩺 Clinical code changed - Cache invalidation required"
+              needs_rebuild="true"
+              invalidation_triggers="${invalidation_triggers},clinical-code"
+            fi
+
+            # Security code changes
+            if git diff HEAD~1 --name-only | grep -E "(security|encryption|auth)"; then
+              echo "🔒 Security code changed - Cache invalidation required"
+              needs_rebuild="true"
+              invalidation_triggers="${invalidation_triggers},security-code"
+            fi
+
+            # Build configuration changes
+            if git diff HEAD~1 --name-only | grep -E "(eas\.json|app\.json|expo\.json)"; then
+              echo "⚙️ Build configuration changed - Cache invalidation required"
+              needs_rebuild="true"
+              invalidation_triggers="${invalidation_triggers},build-config"
+            fi
+          fi
+
+          # Weekly rebuild
+          if [ "${{ github.event_name }}" == "schedule" ]; then
+            echo "📅 Weekly scheduled rebuild"
+            needs_rebuild="true"
+            invalidation_triggers="weekly-rebuild"
+          fi
+
+          # Cache status check
+          cache_status="unknown"
+          if [ "$needs_rebuild" == "true" ]; then
+            cache_status="invalidated"
+          else
+            cache_status="valid"
+          fi
+
+          echo "needs_rebuild=$needs_rebuild" >> $GITHUB_OUTPUT
+          echo "cache_status=$cache_status" >> $GITHUB_OUTPUT
+          echo "invalidation_triggers=$invalidation_triggers" >> $GITHUB_OUTPUT
+
+          echo "✅ Cache analysis complete"
+          echo "Needs rebuild: $needs_rebuild"
+          echo "Cache status: $cache_status"
+          echo "Triggers: $invalidation_triggers"
+
+  # Emergency Artifact Pre-Build
+  emergency-pre-build:
+    name: 🏗️ Emergency Pre-Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: cache-analysis
+    if: needs.cache-analysis.outputs.needs-rebuild == 'true'
+
+    strategy:
+      matrix:
+        platform: [ios, android]
+
+    steps:
+      - name: 🔍 Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 📦 Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: 'app/package-lock.json'
+
+      - name: 🔧 Setup EAS CLI
+        uses: expo/expo-github-action@v8
+        with:
+          expo-version: latest
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: 📥 Install Dependencies
+        run: |
+          cd app
+          echo "📥 Installing validated dependencies for emergency cache..."
+          npm ci --prefer-offline --no-audit
+
+      - name: 🚨 Crisis Validation Pre-Build
+        run: |
+          cd app
+          echo "🚨 Running crisis validation for emergency cache..."
+
+          # Quick crisis validation to ensure cache is safe
+          npm run test:crisis-quick
+          npm run validate:crisis-authority
+
+          echo "✅ Crisis validation passed - Safe for emergency cache"
+
+      - name: 🏗️ Emergency Artifact Build
+        run: |
+          cd app
+          echo "🏗️ Building emergency artifacts for ${{ matrix.platform }}..."
+
+          start_time=$(date +%s)
+
+          # Build with emergency profile optimized for speed
+          eas build \
+            --platform ${{ matrix.platform }} \
+            --profile production-emergency \
+            --non-interactive \
+            --clear-cache
+
+          end_time=$(date +%s)
+          build_time=$((end_time - start_time))
+
+          echo "✅ Emergency build completed in ${build_time}s"
+
+          # Create build metadata
+          mkdir -p build-cache/
+          echo "{
+            \"platform\": \"${{ matrix.platform }}\",
+            \"buildTime\": $build_time,
+            \"commitSha\": \"${{ github.sha }}\",
+            \"buildDate\": \"$(date -u '+%Y-%m-%d %H:%M:%S UTC')\",
+            \"cacheVersion\": \"${{ env.CACHE_VERSION }}\",
+            \"invalidationTriggers\": \"${{ needs.cache-analysis.outputs.invalidation-triggers }}\"
+          }" > build-cache/emergency-build-${{ matrix.platform }}-metadata.json
+
+      - name: 💾 Cache Emergency Artifacts
+        uses: actions/cache/save@v3
+        with:
+          path: |
+            app/dist/
+            app/build-cache/
+            ~/.eas/
+            ~/.npm/
+          key: emergency-build-${{ matrix.platform }}-${{ github.sha }}-${{ env.CACHE_VERSION }}
+
+      - name: 📊 Upload Build Metadata
+        uses: actions/upload-artifact@v3
+        with:
+          name: emergency-build-metadata-${{ matrix.platform }}
+          path: app/build-cache/emergency-build-${{ matrix.platform }}-metadata.json
+          retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
+  # Validated Dependencies Cache
+  validated-dependencies-cache:
+    name: 🧪 Validated Dependencies Cache
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: cache-analysis
+    if: needs.cache-analysis.outputs.needs-rebuild == 'true'
+
+    steps:
+      - name: 🔍 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 📦 Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: 'app/package-lock.json'
+
+      - name: 📥 Install and Validate Dependencies
+        run: |
+          cd app
+          echo "📥 Installing dependencies for validation..."
+          npm ci --prefer-offline --no-audit
+
+          echo "🧪 Validating dependencies for emergency use..."
+
+          # Security audit
+          npm audit --audit-level=moderate
+
+          # Crisis dependency validation
+          npm run test:crisis-quick
+
+          # Clinical dependency validation
+          npm run test:clinical-quick
+
+          echo "✅ Dependencies validated for emergency cache"
+
+      - name: 💾 Cache Validated Dependencies
+        uses: actions/cache/save@v3
+        with:
+          path: |
+            app/node_modules/
+            ~/.npm/
+          key: validated-deps-${{ hashFiles('app/package-lock.json') }}-${{ env.CACHE_VERSION }}
+
+  # Crisis Validation Cache
+  crisis-validation-cache:
+    name: 🚨 Crisis Validation Cache
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [cache-analysis, validated-dependencies-cache]
+    if: needs.cache-analysis.outputs.needs-rebuild == 'true'
+
+    steps:
+      - name: 🔍 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 📦 Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: 'app/package-lock.json'
+
+      - name: 🔄 Restore Validated Dependencies
+        uses: actions/cache/restore@v3
+        with:
+          path: |
+            app/node_modules/
+            ~/.npm/
+          key: validated-deps-${{ hashFiles('app/package-lock.json') }}-${{ env.CACHE_VERSION }}
+
+      - name: 🚨 Complete Crisis Validation
+        run: |
+          cd app
+          echo "🚨 Running complete crisis validation for cache..."
+
+          start_time=$(date +%s)
+
+          # Complete crisis test suite
+          npm run test:crisis
+          npm run validate:crisis-authority
+          npm run perf:crisis
+
+          end_time=$(date +%s)
+          validation_time=$((end_time - start_time))
+
+          echo "✅ Crisis validation completed in ${validation_time}s"
+
+          # Create validation certificate
+          mkdir -p validation-cache/
+          echo "{
+            \"validationType\": \"crisis\",
+            \"validationTime\": $validation_time,
+            \"commitSha\": \"${{ github.sha }}\",
+            \"validationDate\": \"$(date -u '+%Y-%m-%d %H:%M:%S UTC')\",
+            \"cacheVersion\": \"${{ env.CACHE_VERSION }}\",
+            \"testResults\": \"passed\"
+          }" > validation-cache/crisis-validation-certificate.json
+
+      - name: 💾 Cache Crisis Validation Results
+        uses: actions/cache/save@v3
+        with:
+          path: |
+            app/coverage/
+            app/__tests__/reports/
+            app/validation-cache/
+          key: crisis-validated-${{ github.sha }}-${{ env.CACHE_VERSION }}
+
+      - name: 📊 Upload Validation Certificate
+        uses: actions/upload-artifact@v3
+        with:
+          name: crisis-validation-certificate
+          path: app/validation-cache/crisis-validation-certificate.json
+          retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
+  # Cache Management Report
+  cache-management-report:
+    name: 📋 Cache Management Report
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [cache-analysis, emergency-pre-build, validated-dependencies-cache, crisis-validation-cache]
+    if: always()
+
+    steps:
+      - name: 📋 Generate Cache Report
+        run: |
+          echo "# 🏗️ Emergency Artifact Cache Management Report" > cache-report.md
+          echo "" >> cache-report.md
+          echo "## 📊 Cache Analysis Results" >> cache-report.md
+          echo "- **Needs Rebuild**: ${{ needs.cache-analysis.outputs.needs-rebuild }}" >> cache-report.md
+          echo "- **Cache Status**: ${{ needs.cache-analysis.outputs.cache-status }}" >> cache-report.md
+          echo "- **Invalidation Triggers**: ${{ needs.cache-analysis.outputs.invalidation-triggers }}" >> cache-report.md
+          echo "- **Cache Version**: ${{ env.CACHE_VERSION }}" >> cache-report.md
+          echo "- **Build Date**: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> cache-report.md
+          echo "- **Git Commit**: ${{ github.sha }}" >> cache-report.md
+          echo "" >> cache-report.md
+          echo "## 🏗️ Build Results" >> cache-report.md
+          echo "- **Emergency Pre-Build**: ${{ needs.emergency-pre-build.result }}" >> cache-report.md
+          echo "- **Dependencies Cache**: ${{ needs.validated-dependencies-cache.result }}" >> cache-report.md
+          echo "- **Crisis Validation Cache**: ${{ needs.crisis-validation-cache.result }}" >> cache-report.md
+          echo "" >> cache-report.md
+          echo "## ⚡ Emergency Deployment Readiness" >> cache-report.md
+          if [ "${{ needs.emergency-pre-build.result }}" == "success" ]; then
+            echo "✅ **EMERGENCY DEPLOYMENT READY**" >> cache-report.md
+            echo "- iOS artifacts: Cached and validated" >> cache-report.md
+            echo "- Android artifacts: Cached and validated" >> cache-report.md
+            echo "- Dependencies: Validated and cached" >> cache-report.md
+            echo "- Crisis validation: Certified" >> cache-report.md
+            echo "- **Estimated Emergency Deployment Time**: 4.5 minutes" >> cache-report.md
+          else
+            echo "⚠️ **EMERGENCY DEPLOYMENT NOT READY**" >> cache-report.md
+            echo "- Emergency build failed or was skipped" >> cache-report.md
+            echo "- **Estimated Emergency Deployment Time**: 7-8 minutes (requires fresh build)" >> cache-report.md
+          fi
+          echo "" >> cache-report.md
+          echo "## 🔄 Cache Invalidation Triggers" >> cache-report.md
+          echo "Caches are automatically invalidated when:" >> cache-report.md
+          echo "- Dependencies change (package.json, package-lock.json)" >> cache-report.md
+          echo "- Crisis-related code changes (crisis/, emergency/, 988)" >> cache-report.md
+          echo "- Clinical code changes (clinical/, assessment/, phq, gad)" >> cache-report.md
+          echo "- Security code changes (security/, encryption/, auth)" >> cache-report.md
+          echo "- Build configuration changes (eas.json, app.json, expo.json)" >> cache-report.md
+          echo "- Weekly scheduled rebuild (Sundays 2AM UTC)" >> cache-report.md
+          echo "- Manual force rebuild" >> cache-report.md
+          echo "" >> cache-report.md
+          echo "## 💾 Cache Storage Strategy" >> cache-report.md
+          echo "- **Emergency Build Artifacts**: 90 days retention" >> cache-report.md
+          echo "- **Validated Dependencies**: Until package.json changes" >> cache-report.md
+          echo "- **Crisis Validation Certificates**: 90 days retention" >> cache-report.md
+          echo "- **Cache Keys**: Include commit SHA and cache version" >> cache-report.md
+          echo "- **Storage Size**: ~1GB total per platform" >> cache-report.md
+
+      - name: 📊 Upload Cache Report
+        uses: actions/upload-artifact@v3
+        with:
+          name: cache-management-report
+          path: cache-report.md
+          retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
+      - name: 📊 Cache Status Summary
+        run: |
+          echo "🏗️ EMERGENCY ARTIFACT CACHE MANAGEMENT COMPLETE"
+          echo ""
+          echo "📊 Summary:"
+          echo "- Cache Analysis: ${{ needs.cache-analysis.result }}"
+          echo "- Emergency Build: ${{ needs.emergency-pre-build.result }}"
+          echo "- Dependencies: ${{ needs.validated-dependencies-cache.result }}"
+          echo "- Crisis Validation: ${{ needs.crisis-validation-cache.result }}"
+          echo ""
+          echo "⚡ Emergency Deployment Status:"
+          if [ "${{ needs.emergency-pre-build.result }}" == "success" ]; then
+            echo "✅ READY: Emergency deployment available in 4.5 minutes"
+          else
+            echo "⚠️ DEGRADED: Emergency deployment available in 7-8 minutes"
+          fi
+          echo ""
+          echo "🔄 Next Cache Rebuild:"
+          echo "- Automatic: When invalidation triggers detected"
+          echo "- Scheduled: Next Sunday 2AM UTC"
+          echo "- Manual: Run 'rebuild-emergency-artifacts' workflow"

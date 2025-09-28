@@ -1,0 +1,493 @@
+name: 🚀 Deploy - Standard Production Deployment
+
+on:
+  push:
+    branches: [main, release/*]
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      deployment_type:
+        description: 'Deployment Type'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - 'staging'
+          - 'production'
+      user_percentage:
+        description: 'User Rollout Percentage (1-100)'
+        required: false
+        default: '10'
+        type: string
+      skip_healthcare_validation:
+        description: 'Skip Healthcare Validation (DANGEROUS - Use only for hotfixes)'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+  NODE_VERSION: '20'
+  HEALTHCARE_COMPLIANCE: 'true'
+  NEW_ARCHITECTURE: 'true'
+  CLINICAL_VALIDATION: 'true'
+
+jobs:
+  # Healthcare Validation Gate - REQUIRED for all deployments
+  healthcare-validation-gate:
+    name: 🏥 Healthcare Validation Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      crisis-validated: ${{ steps.crisis-gate.outputs.validated }}
+      clinical-validated: ${{ steps.clinical-gate.outputs.validated }}
+      compliance-validated: ${{ steps.compliance-gate.outputs.validated }}
+      deployment-approved: ${{ steps.final-gate.outputs.approved }}
+
+    steps:
+      - name: 🔍 Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: 📦 Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: 'app/package-lock.json'
+
+      - name: 📥 Install Dependencies
+        run: |
+          cd app
+          npm ci --prefer-offline --no-audit
+
+      - name: 🚨 Crisis Authority Gate
+        id: crisis-gate
+        run: |
+          cd app
+          echo "🚨 HEALTHCARE GATE: Crisis Authority Validation"
+          
+          if [ "${{ github.event.inputs.skip_healthcare_validation }}" == "true" ]; then
+            echo "⚠️ WARNING: Healthcare validation skipped - EMERGENCY MODE"
+            echo "validated=skipped" >> $GITHUB_OUTPUT
+          else
+            echo "🚨 Validating Crisis Response Systems..."
+            npm run validate:crisis-authority
+            npm run test:crisis -- --ci --testNamePattern="Crisis.*Response.*Time" --testTimeout=10000
+            echo "validated=true" >> $GITHUB_OUTPUT
+            echo "✅ Crisis Authority: VALIDATED"
+          fi
+
+      - name: 🩺 Clinical Authority Gate
+        id: clinical-gate
+        run: |
+          cd app
+          echo "🩺 HEALTHCARE GATE: Clinical Authority Validation"
+          
+          if [ "${{ github.event.inputs.skip_healthcare_validation }}" == "true" ]; then
+            echo "⚠️ WARNING: Healthcare validation skipped - EMERGENCY MODE"
+            echo "validated=skipped" >> $GITHUB_OUTPUT
+          else
+            echo "🩺 Validating Clinical Accuracy Systems..."
+            npm run validate:clinical-authority
+            npm run test:clinical -- --ci --testNamePattern="PHQ.*GAD.*Accuracy" --testTimeout=15000
+            echo "validated=true" >> $GITHUB_OUTPUT
+            echo "✅ Clinical Authority: VALIDATED"
+          fi
+
+      - name: 🔒 Compliance Authority Gate
+        id: compliance-gate
+        run: |
+          cd app
+          echo "🔒 HEALTHCARE GATE: Compliance Authority Validation"
+          
+          if [ "${{ github.event.inputs.skip_healthcare_validation }}" == "true" ]; then
+            echo "⚠️ WARNING: Healthcare validation skipped - EMERGENCY MODE"
+            echo "validated=skipped" >> $GITHUB_OUTPUT
+          else
+            echo "🔒 Validating HIPAA & Data Privacy..."
+            npm run validate:compliance-authority
+            npm run test:security -- --ci --testNamePattern="HIPAA.*Compliance" --testTimeout=10000
+            echo "validated=true" >> $GITHUB_OUTPUT
+            echo "✅ Compliance Authority: VALIDATED"
+          fi
+
+      - name: 🏥 Final Healthcare Gate Decision
+        id: final-gate
+        run: |
+          crisis="${{ steps.crisis-gate.outputs.validated }}"
+          clinical="${{ steps.clinical-gate.outputs.validated }}"
+          compliance="${{ steps.compliance-gate.outputs.validated }}"
+          
+          echo "🏥 Healthcare Gate Summary:"
+          echo "Crisis: $crisis"
+          echo "Clinical: $clinical" 
+          echo "Compliance: $compliance"
+          
+          if [ "$crisis" == "true" ] && [ "$clinical" == "true" ] && [ "$compliance" == "true" ]; then
+            echo "✅ HEALTHCARE DEPLOYMENT APPROVED"
+            echo "approved=true" >> $GITHUB_OUTPUT
+          elif [ "$crisis" == "skipped" ] || [ "$clinical" == "skipped" ] || [ "$compliance" == "skipped" ]; then
+            echo "⚠️ EMERGENCY DEPLOYMENT APPROVED (Healthcare validation skipped)"
+            echo "approved=emergency" >> $GITHUB_OUTPUT
+          else
+            echo "❌ HEALTHCARE DEPLOYMENT BLOCKED"
+            echo "approved=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+      - name: 📊 Upload Healthcare Gate Report
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: healthcare-gate-report
+          path: |
+            app/coverage/
+            app/__tests__/reports/
+          retention-days: 90
+
+  # Pre-Build Validation
+  pre-build-validation:
+    name: 🔍 Pre-Build Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: healthcare-validation-gate
+    if: needs.healthcare-validation-gate.outputs.deployment-approved == 'true' || needs.healthcare-validation-gate.outputs.deployment-approved == 'emergency'
+
+    steps:
+      - name: 🔍 Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 📦 Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: 'app/package-lock.json'
+
+      - name: 📥 Install Dependencies
+        run: |
+          cd app
+          npm ci --prefer-offline --no-audit
+
+      - name: 🏥 Production Readiness Validation
+        run: |
+          cd app
+          echo "🏥 Validating production readiness..."
+          npm run validate:production-readiness
+          echo "✅ Production readiness validated"
+
+      - name: 🚀 New Architecture Pre-Build Check
+        run: |
+          cd app
+          echo "🚀 Validating New Architecture configuration..."
+          npm run perf:new-arch-quick
+          echo "✅ New Architecture validated for production build"
+
+      - name: 🔐 Security Pre-Build Validation
+        run: |
+          cd app
+          echo "🔐 Security validation before build..."
+          npm run validate:security-critical
+          npm audit --audit-level=moderate
+          echo "✅ Security validation passed"
+
+      - name: ♿ Accessibility Pre-Build Validation
+        run: |
+          cd app
+          echo "♿ Accessibility validation before build..."
+          npm run validate:accessibility
+          echo "✅ Accessibility validation passed"
+
+  # Production Build & Deployment
+  production-build:
+    name: 🏗️ Production Build & Deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    needs: [healthcare-validation-gate, pre-build-validation]
+    if: success()
+
+    strategy:
+      matrix:
+        platform: [ios, android]
+
+    steps:
+      - name: 🔍 Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 📦 Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: 'app/package-lock.json'
+
+      - name: 🔧 Setup EAS CLI
+        uses: expo/expo-github-action@v8
+        with:
+          expo-version: latest
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: 📥 Install Dependencies
+        run: |
+          cd app
+          npm ci --prefer-offline --no-audit
+
+      - name: 🏥 Final Healthcare Validation Before Build
+        run: |
+          cd app
+          echo "🏥 Final healthcare validation before build..."
+          
+          if [ "${{ needs.healthcare-validation-gate.outputs.deployment-approved }}" == "emergency" ]; then
+            echo "⚠️ EMERGENCY BUILD - Healthcare validation was skipped"
+          else
+            echo "✅ Healthcare compliance validated - proceeding with build"
+          fi
+
+      - name: 🏗️ Build Application
+        run: |
+          cd app
+          if [ "${{ github.event.inputs.deployment_type }}" == "staging" ]; then
+            echo "🧪 Building for staging environment..."
+            eas build --platform ${{ matrix.platform }} --profile staging --non-interactive
+          else
+            echo "🚀 Building for production environment..."
+            eas build --platform ${{ matrix.platform }} --profile production --non-interactive
+          fi
+
+      - name: 📊 Upload Build Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-artifacts-${{ matrix.platform }}
+          path: |
+            app/dist/
+            app/build-logs/
+          retention-days: 90
+
+  # Deployment to Cloud Infrastructure
+  cloud-deployment:
+    name: ☁️ Cloud Infrastructure Deployment
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: production-build
+    if: success()
+
+    steps:
+      - name: 🔍 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 📦 Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: 'app/package-lock.json'
+
+      - name: 📥 Install Dependencies
+        run: |
+          cd app
+          npm ci --prefer-offline --no-audit
+
+      - name: ☁️ Deploy to Supabase Cloud
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
+        run: |
+          cd app
+          echo "☁️ Deploying to Supabase cloud infrastructure..."
+          npm run deploy:supabase-cloud
+          echo "✅ Cloud infrastructure deployment completed"
+
+      - name: 🗄️ Database Migration Validation
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          cd app
+          echo "🗄️ Validating database migrations..."
+          npm run db:migrate:validate
+          echo "✅ Database migrations validated"
+
+      - name: 🔐 Cloud Security Validation
+        run: |
+          cd app
+          echo "🔐 Validating cloud security configuration..."
+          npm run validate:cloud-security
+          echo "✅ Cloud security validated"
+
+  # App Store Submission (Production Only)
+  app-store-submission:
+    name: 🏪 App Store Submission
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [production-build, cloud-deployment]
+    if: |
+      success() &&
+      ((startsWith(github.ref, 'refs/tags/v')) ||
+       (github.event.inputs.deployment_type == 'production'))
+
+    strategy:
+      matrix:
+        platform: [ios, android]
+
+    steps:
+      - name: 🔍 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 🔧 Setup EAS CLI
+        uses: expo/expo-github-action@v8
+        with:
+          expo-version: latest
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: 🏪 Submit to App Store
+        run: |
+          cd app
+          echo "🏪 Submitting to ${{ matrix.platform }} app store..."
+          if [ "${{ matrix.platform }}" == "ios" ]; then
+            echo "🍎 iOS App Store submission..."
+            eas submit --platform ios --profile production --non-interactive
+          else
+            echo "🤖 Google Play Store submission..."
+            eas submit --platform android --profile production --non-interactive
+          fi
+
+      - name: 📊 App Store Submission Report
+        run: |
+          echo "🏪 App Store Submission Summary:" > app-store-report-${{ matrix.platform }}.md
+          echo "- Platform: ${{ matrix.platform }}" >> app-store-report-${{ matrix.platform }}.md
+          echo "- Submission Time: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> app-store-report-${{ matrix.platform }}.md
+          echo "- Healthcare Validation: ${{ needs.healthcare-validation-gate.outputs.deployment-approved }}" >> app-store-report-${{ matrix.platform }}.md
+
+      - name: 📊 Upload App Store Report
+        uses: actions/upload-artifact@v3
+        with:
+          name: app-store-report-${{ matrix.platform }}
+          path: app-store-report-${{ matrix.platform }}.md
+          retention-days: 365
+
+  # Post-Deployment Validation
+  post-deployment-validation:
+    name: ✅ Post-Deployment Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: [healthcare-validation-gate, production-build, cloud-deployment]
+    if: success()
+
+    steps:
+      - name: 🔍 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 📦 Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: 'app/package-lock.json'
+
+      - name: 📥 Install Dependencies
+        run: |
+          cd app
+          npm ci --prefer-offline --no-audit
+
+      - name: 🏥 Post-Deployment Healthcare Validation
+        run: |
+          cd app
+          echo "🏥 Validating healthcare services post-deployment..."
+          npm run test:crisis -- --testNamePattern="Crisis.*Integration" --ci
+          npm run test:clinical -- --testNamePattern="Clinical.*Integration" --ci
+          echo "✅ Healthcare services validated post-deployment"
+
+      - name: 🚀 New Architecture Benefits Validation
+        run: |
+          cd app
+          echo "🚀 Validating New Architecture benefits post-deployment..."
+          npm run test:new-arch-comprehensive -- --ci
+          echo "✅ New Architecture benefits confirmed"
+
+      - name: 🔐 Security & Compliance Post-Deployment Check
+        run: |
+          cd app
+          echo "🔐 Post-deployment security & compliance check..."
+          npm run validate:post-deployment-security
+          echo "✅ Security & compliance validated post-deployment"
+
+      - name: 📊 Performance Metrics Validation
+        run: |
+          cd app
+          echo "📊 Validating performance metrics..."
+          npm run perf:validate-post-deployment
+          echo "✅ Performance metrics validated"
+
+  # Deployment Report Generation
+  deployment-report:
+    name: 📋 Deployment Report
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [healthcare-validation-gate, production-build, cloud-deployment, post-deployment-validation]
+    if: always()
+
+    steps:
+      - name: 🔍 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 📋 Generate Deployment Report
+        run: |
+          echo "# 🚀 Standard Deployment Report - FullMind MBCT" > deployment-report.md
+          echo "" >> deployment-report.md
+          echo "## Deployment Summary" >> deployment-report.md
+          echo "- **Deployment Type**: ${{ github.event.inputs.deployment_type || 'production' }}" >> deployment-report.md
+          echo "- **Deployment Time**: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> deployment-report.md
+          echo "- **Git Commit**: ${{ github.sha }}" >> deployment-report.md
+          echo "- **Healthcare Validation**: ${{ needs.healthcare-validation-gate.outputs.deployment-approved }}" >> deployment-report.md
+          echo "" >> deployment-report.md
+          echo "## Healthcare Authority Validation" >> deployment-report.md
+          echo "- **Crisis Authority**: ${{ needs.healthcare-validation-gate.outputs.crisis-validated }}" >> deployment-report.md
+          echo "- **Clinical Authority**: ${{ needs.healthcare-validation-gate.outputs.clinical-validated }}" >> deployment-report.md
+          echo "- **Compliance Authority**: ${{ needs.healthcare-validation-gate.outputs.compliance-validated }}" >> deployment-report.md
+          echo "" >> deployment-report.md
+          echo "## Deployment Results" >> deployment-report.md
+          echo "- **Production Build**: ${{ needs.production-build.result }}" >> deployment-report.md
+          echo "- **Cloud Deployment**: ${{ needs.cloud-deployment.result }}" >> deployment-report.md
+          echo "- **Post-Deployment Validation**: ${{ needs.post-deployment-validation.result }}" >> deployment-report.md
+          echo "" >> deployment-report.md
+          echo "## Healthcare Compliance Status" >> deployment-report.md
+          if [ "${{ needs.healthcare-validation-gate.outputs.deployment-approved }}" == "true" ]; then
+            echo "✅ **HEALTHCARE COMPLIANCE**: FULLY VALIDATED" >> deployment-report.md
+            echo "✅ **CRISIS SYSTEMS**: OPERATIONAL" >> deployment-report.md
+            echo "✅ **CLINICAL ACCURACY**: VALIDATED" >> deployment-report.md
+            echo "✅ **HIPAA COMPLIANCE**: VALIDATED" >> deployment-report.md
+          elif [ "${{ needs.healthcare-validation-gate.outputs.deployment-approved }}" == "emergency" ]; then
+            echo "⚠️ **HEALTHCARE COMPLIANCE**: EMERGENCY DEPLOYMENT" >> deployment-report.md
+            echo "⚠️ **VALIDATION SKIPPED**: Healthcare validation bypassed" >> deployment-report.md
+          else
+            echo "❌ **HEALTHCARE COMPLIANCE**: FAILED" >> deployment-report.md
+          fi
+
+      - name: 📊 Upload Deployment Report
+        uses: actions/upload-artifact@v3
+        with:
+          name: standard-deployment-report
+          path: deployment-report.md
+          retention-days: 365
+
+      - name: 🎉 Deployment Success Notification
+        if: success()
+        run: |
+          echo "🎉 STANDARD DEPLOYMENT SUCCESSFUL! 🎉"
+          echo ""
+          echo "🚀 FullMind MBCT Healthcare Application"
+          echo "✅ Healthcare Validation: ${{ needs.healthcare-validation-gate.outputs.deployment-approved }}"
+          echo "✅ Build Status: ${{ needs.production-build.result }}"
+          echo "✅ Cloud Deployment: ${{ needs.cloud-deployment.result }}"
+          echo "✅ Post-Deployment Validation: ${{ needs.post-deployment-validation.result }}"
+          echo ""
+          echo "🏥 Healthcare Systems: OPERATIONAL"
+          echo "📊 Monitoring: ACTIVE (See monitoring workflow)"
+          echo "🚨 Emergency Rollback: Available (See emergency-deploy workflow)"

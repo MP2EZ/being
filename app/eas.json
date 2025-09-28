@@ -32,16 +32,16 @@
       "env": {
         "EXPO_PUBLIC_ENV": "preview",
         "EXPO_PUBLIC_CRISIS_HOTLINE": "988",
-        "EXPO_PUBLIC_API_URL": "https://api-staging.being.app",
-        "EXPO_PUBLIC_SENTRY_DSN": "$SENTRY_DSN_STAGING",
+        "EXPO_PUBLIC_API_URL": "http://localhost:3000",
+        "EXPO_PUBLIC_SENTRY_DSN": "https://fake-dsn@sentry.io/preview",
         "EXPO_PUBLIC_ANALYTICS_ENABLED": "true",
         "EXPO_PUBLIC_CRASH_REPORTING": "true",
         "EXPO_PUBLIC_FEATURE_FLAGS": "beta_features:true,performance_monitoring:true,cloud_sync:false",
-        "EXPO_PUBLIC_PRIVACY_POLICY_URL": "https://staging.being.app/privacy",
-        "EXPO_PUBLIC_TERMS_URL": "https://staging.being.app/terms",
-        "EXPO_PUBLIC_SUPPORT_URL": "https://staging.being.app/support",
-        "EXPO_PUBLIC_SUPABASE_URL": "$SUPABASE_URL_STAGING",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "$SUPABASE_ANON_KEY_STAGING",
+        "EXPO_PUBLIC_PRIVACY_POLICY_URL": "http://localhost:3000/privacy",
+        "EXPO_PUBLIC_TERMS_URL": "http://localhost:3000/terms",
+        "EXPO_PUBLIC_SUPPORT_URL": "http://localhost:3000/support",
+        "EXPO_PUBLIC_SUPABASE_URL": "$SUPABASE_URL_DEV",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "$SUPABASE_ANON_KEY_DEV",
         "EXPO_PUBLIC_CLOUD_FEATURES_ENABLED": "false"
       },
       "ios": {

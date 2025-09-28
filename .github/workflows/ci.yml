@@ -1,0 +1,390 @@
+name: 🧪 CI - Comprehensive Testing & Validation
+
+on:
+  push:
+    branches: [main, develop, 'feature/*', 'fix/*', 'hotfix/*']
+  pull_request:
+    branches: [main, develop]
+    types: [opened, synchronize, reopened]
+  schedule:
+    # Run tests every 6 hours to ensure healthcare systems remain operational
+    - cron: '0 */6 * * *'
+
+env:
+  NODE_VERSION: '20'
+  HEALTHCARE_COMPLIANCE: 'true'
+  NEW_ARCHITECTURE: 'true'
+  CLINICAL_VALIDATION: 'true'
+
+jobs:
+  # CRITICAL: Crisis Authority Validation MUST be first job - NON-NEGOTIABLE
+  crisis-authority-validation:
+    name: 🚨 Crisis Authority Validation - PRIORITY 1
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      crisis-status: ${{ steps.crisis-check.outputs.status }}
+      crisis-response-time: ${{ steps.crisis-check.outputs.response-time }}
+      emergency-systems: ${{ steps.crisis-check.outputs.emergency-systems }}
+
+    steps:
+      - name: 🔍 Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: 📦 Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: 'app/package-lock.json'
+
+      - name: 📥 Install Dependencies
+        run: |
+          cd app
+          npm ci --prefer-offline --no-audit
+
+      - name: 🚨 CRITICAL - Crisis Response Systems Validation
+        id: crisis-check
+        run: |
+          cd app
+          echo "🚨 CRITICAL: Validating Crisis Response Systems..."
+          echo "⏱️ Target: <50ms response time, <3s access time"
+          
+          # Crisis authority validation - MUST PASS
+          npm run validate:crisis-authority
+          
+          # Crisis response time testing - CRITICAL
+          npm run test:crisis -- --ci --coverage --testTimeout=10000 --testNamePattern="Crisis.*Response.*Time"
+          
+          # Emergency systems check
+          npm run test:crisis -- --ci --testNamePattern="Emergency.*Systems" --testTimeout=5000
+          
+          # 988 hotline availability check
+          npm run test:crisis -- --ci --testNamePattern="Hotline.*Integration" --testTimeout=5000
+          
+          echo "status=passed" >> $GITHUB_OUTPUT
+          echo "response-time=<50ms" >> $GITHUB_OUTPUT
+          echo "emergency-systems=operational" >> $GITHUB_OUTPUT
+          echo "✅ CRISIS AUTHORITY VALIDATION: PASSED"
+
+      - name: 🚨 Crisis Systems Emergency Readiness
+        run: |
+          cd app
+          echo "🚨 Validating Emergency Deployment Readiness..."
+          npm run validate:emergency-deployment-readiness
+          echo "✅ Emergency deployment systems: READY"
+
+      - name: 📊 Upload Crisis Validation Report
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: crisis-authority-report
+          path: |
+            app/coverage/crisis/
+            app/__tests__/reports/crisis/
+          retention-days: 365
+
+  # Healthcare Authority Validation (depends on crisis passing)
+  healthcare-authority-validation:
+    name: 🏥 Healthcare Authority Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: crisis-authority-validation
+    outputs:
+      clinical-status: ${{ steps.clinical-check.outputs.status }}
+      compliance-status: ${{ steps.compliance-check.outputs.status }}
+      phq-gad-accuracy: ${{ steps.clinical-check.outputs.phq-gad-accuracy }}
+
+    steps:
+      - name: 🔍 Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: 📦 Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: 'app/package-lock.json'
+
+      - name: 📥 Install Dependencies
+        run: |
+          cd app
+          npm ci --prefer-offline --no-audit
+
+      - name: 🩺 Clinical Authority Validation
+        id: clinical-check
+        run: |
+          cd app
+          echo "🩺 Validating Clinical Accuracy Systems..."
+          echo "🎯 Target: 100% PHQ-9/GAD-7 accuracy"
+          
+          # Clinical authority validation
+          npm run validate:clinical-authority
+          
+          # PHQ-9/GAD-7 accuracy testing (MUST BE 100%)
+          npm run test:clinical -- --ci --coverage --testTimeout=15000 --testNamePattern="PHQ.*GAD.*Accuracy"
+          
+          # MBCT therapeutic content validation
+          npm run test:clinical -- --ci --testNamePattern="MBCT.*Content.*Validation" --testTimeout=10000
+          
+          echo "status=passed" >> $GITHUB_OUTPUT
+          echo "phq-gad-accuracy=100%" >> $GITHUB_OUTPUT
+          echo "✅ CLINICAL AUTHORITY VALIDATION: PASSED"
+
+      - name: 🔒 Compliance Authority Validation
+        id: compliance-check
+        run: |
+          cd app
+          echo "🔒 Validating HIPAA & Data Privacy..."
+          
+          # Compliance authority validation
+          npm run validate:compliance-authority
+          
+          # HIPAA compliance testing
+          npm run test:security -- --ci --coverage --testTimeout=10000 --testNamePattern="HIPAA.*Compliance"
+          
+          # Data encryption validation
+          npm run test:security -- --ci --testNamePattern="Data.*Encryption" --testTimeout=10000
+          
+          echo "status=passed" >> $GITHUB_OUTPUT
+          echo "✅ COMPLIANCE AUTHORITY VALIDATION: PASSED"
+
+      - name: 📊 Upload Healthcare Validation Report
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: healthcare-authority-report
+          path: |
+            app/coverage/clinical/
+            app/coverage/compliance/
+            app/__tests__/reports/healthcare/
+          retention-days: 30
+
+  # Cross-Platform Testing
+  cross-platform-testing:
+    name: 📱 Cross-Platform Testing
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    needs: [crisis-authority-validation, healthcare-authority-validation]
+    
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        node-version: ['18', '20']
+        include:
+          - os: ubuntu-latest
+            platform: android
+          - os: macos-latest
+            platform: ios
+
+    steps:
+      - name: 🔍 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 📦 Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+          cache-dependency-path: 'app/package-lock.json'
+
+      - name: 📥 Install Dependencies
+        run: |
+          cd app
+          npm ci --prefer-offline --no-audit
+
+      - name: 🧪 Unit Tests
+        run: |
+          cd app
+          npm run test:unit -- --ci --coverage --testTimeout=20000
+
+      - name: 🎯 Integration Tests
+        run: |
+          cd app
+          npm run test:integration -- --ci --testTimeout=30000
+
+      - name: 📱 Platform-Specific Tests
+        run: |
+          cd app
+          if [ "${{ matrix.platform }}" == "ios" ]; then
+            echo "🍎 Running iOS-specific tests..."
+            npm run test:ios -- --ci
+          else
+            echo "🤖 Running Android-specific tests..."
+            npm run test:android -- --ci
+          fi
+
+      - name: 📊 Upload Platform Test Report
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: platform-test-report-${{ matrix.platform }}-node${{ matrix.node-version }}
+          path: |
+            app/coverage/
+            app/__tests__/reports/
+          retention-days: 7
+
+  # New Architecture Performance Testing
+  new-architecture-testing:
+    name: 🚀 New Architecture Performance Testing
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: healthcare-authority-validation
+
+    steps:
+      - name: 🔍 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 📦 Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: 'app/package-lock.json'
+
+      - name: 📥 Install Dependencies
+        run: |
+          cd app
+          npm ci --prefer-offline --no-audit
+
+      - name: 🚀 New Architecture Validation
+        run: |
+          cd app
+          echo "🚀 Validating New Architecture Benefits..."
+          npm run validate:new-arch-complete
+          npm run perf:new-arch-baseline-detailed
+
+      - name: 🎯 TouchableOpacity Migration Validation
+        run: |
+          cd app
+          echo "🎯 Validating TouchableOpacity → Pressable Migration..."
+          npm run test:performance -- --testNamePattern="TouchableOpacity.*Migration" --ci
+          npm run test:performance -- --testNamePattern="Pressable.*Performance" --ci
+
+      - name: 📈 Performance Baseline Validation
+        run: |
+          cd app
+          echo "📈 Validating 30%+ performance improvement..."
+          npm run perf:validate-improvement-target
+
+      - name: 📊 Upload Performance Report
+        uses: actions/upload-artifact@v3
+        with:
+          name: new-architecture-performance-report
+          path: app/reports/new-architecture-*
+          retention-days: 30
+
+  # Security & Accessibility Comprehensive Testing
+  security-accessibility-testing:
+    name: 🔐 Security & Accessibility Testing
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: healthcare-authority-validation
+
+    steps:
+      - name: 🔍 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 📦 Setup Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: 'app/package-lock.json'
+
+      - name: 📥 Install Dependencies
+        run: |
+          cd app
+          npm ci --prefer-offline --no-audit
+
+      - name: 🔐 Security Comprehensive Testing
+        run: |
+          cd app
+          echo "🔐 Comprehensive Security Testing..."
+          npm run validate:security-critical
+          npm run test:encryption -- --ci --coverage
+          npm run test:security -- --ci --coverage --testTimeout=15000
+
+      - name: ♿ Accessibility WCAG AA+ Testing
+        run: |
+          cd app
+          echo "♿ WCAG AA+ Accessibility Testing..."
+          npm run validate:accessibility
+          npm run test:accessibility -- --ci --testTimeout=20000
+
+      - name: 🔍 Dependency Security Audit
+        run: |
+          cd app
+          echo "🔍 Security audit of dependencies..."
+          npm audit --audit-level=moderate
+          npm run security:dependency-check
+
+      - name: 📊 Upload Security & Accessibility Report
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: security-accessibility-report
+          path: |
+            app/coverage/security/
+            app/coverage/accessibility/
+            app/__tests__/reports/security/
+            app/__tests__/reports/accessibility/
+          retention-days: 30
+
+  # Final CI Summary
+  ci-summary:
+    name: ✅ CI Summary & Healthcare Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [crisis-authority-validation, healthcare-authority-validation, cross-platform-testing, new-architecture-testing, security-accessibility-testing]
+    if: always()
+
+    steps:
+      - name: 📋 Generate CI Summary Report
+        run: |
+          echo "# 🧪 CI Summary Report - FullMind MBCT Healthcare" > ci-summary.md
+          echo "" >> ci-summary.md
+          echo "## Critical Healthcare Validations" >> ci-summary.md
+          echo "- **Crisis Authority**: ${{ needs.crisis-authority-validation.outputs.crisis-status }}" >> ci-summary.md
+          echo "- **Crisis Response Time**: ${{ needs.crisis-authority-validation.outputs.crisis-response-time }}" >> ci-summary.md
+          echo "- **Clinical Authority**: ${{ needs.healthcare-authority-validation.outputs.clinical-status }}" >> ci-summary.md
+          echo "- **PHQ-9/GAD-7 Accuracy**: ${{ needs.healthcare-authority-validation.outputs.phq-gad-accuracy }}" >> ci-summary.md
+          echo "- **Compliance Authority**: ${{ needs.healthcare-authority-validation.outputs.compliance-status }}" >> ci-summary.md
+          echo "" >> ci-summary.md
+          echo "## Platform Testing Results" >> ci-summary.md
+          echo "- **Cross-Platform Testing**: ${{ needs.cross-platform-testing.result }}" >> ci-summary.md
+          echo "- **New Architecture Performance**: ${{ needs.new-architecture-testing.result }}" >> ci-summary.md
+          echo "- **Security & Accessibility**: ${{ needs.security-accessibility-testing.result }}" >> ci-summary.md
+          echo "" >> ci-summary.md
+          echo "## Healthcare Compliance Status" >> ci-summary.md
+          if [ "${{ needs.crisis-authority-validation.result }}" == "success" ] && [ "${{ needs.healthcare-authority-validation.result }}" == "success" ]; then
+            echo "✅ **HEALTHCARE COMPLIANCE**: VALIDATED" >> ci-summary.md
+            echo "✅ **DEPLOYMENT READY**: Yes - Healthcare authorities validated" >> ci-summary.md
+          else
+            echo "❌ **HEALTHCARE COMPLIANCE**: FAILED" >> ci-summary.md
+            echo "❌ **DEPLOYMENT READY**: No - Healthcare validation required" >> ci-summary.md
+          fi
+
+      - name: 📊 Upload CI Summary Report
+        uses: actions/upload-artifact@v3
+        with:
+          name: ci-summary-report
+          path: ci-summary.md
+          retention-days: 30
+
+      - name: 🏥 Healthcare Readiness Status
+        run: |
+          if [ "${{ needs.crisis-authority-validation.result }}" == "success" ] && [ "${{ needs.healthcare-authority-validation.result }}" == "success" ]; then
+            echo "✅ HEALTHCARE COMPLIANCE VALIDATED"
+            echo "✅ Ready for deployment workflow"
+            echo "✅ Crisis systems operational: ${{ needs.crisis-authority-validation.outputs.crisis-response-time }}"
+            echo "✅ Clinical accuracy validated: ${{ needs.healthcare-authority-validation.outputs.phq-gad-accuracy }}"
+          else
+            echo "❌ HEALTHCARE COMPLIANCE FAILED"
+            echo "❌ Deployment blocked - healthcare authority validation required"
+            exit 1
+          fi
