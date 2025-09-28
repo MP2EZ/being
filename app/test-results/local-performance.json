@@ -1,13 +1,13 @@
 {
-  "timestamp": "2025-09-28T17:55:11.561Z",
-  "totalDuration": 528,
+  "timestamp": "2025-09-28T18:29:22.013Z",
+  "totalDuration": 349,
   "totalTests": 38,
   "categories": {
     "crisis": {
       "count": 38,
-      "totalDuration": 96,
+      "totalDuration": 103,
       "slowCount": 0,
-      "averageDuration": 2.526315789473684
+      "averageDuration": 2.710526315789474
     }
   },
   "slowTests": [],
@@ -15,13 +15,13 @@
     {
       "testName": "Crisis Safety Testing Automation 🚨 Crisis Detection Accuracy (100% Precision Required) crisis detection for Severe depression, no anxiety (PHQ-9: 20, GAD-7: 0)",
       "testPath": "/__tests__/crisis-safety/crisis-safety-automation.test.ts",
-      "duration": 6,
+      "duration": 7,
       "category": "crisis",
       "threshold": 3000,
       "isSlowTest": false,
       "isCrisisTest": true,
       "status": "passed",
-      "timestamp": "2025-09-28T17:55:11.560Z"
+      "timestamp": "2025-09-28T18:29:22.012Z"
     },
     {
       "testName": "Crisis Safety Testing Automation 🚨 Crisis Detection Accuracy (100% Precision Required) crisis detection for Severe depression, mild anxiety (PHQ-9: 20, GAD-7: 7)",
@@ -32,32 +32,10 @@
       "isSlowTest": false,
       "isCrisisTest": true,
       "status": "passed",
-      "timestamp": "2025-09-28T17:55:11.560Z"
+      "timestamp": "2025-09-28T18:29:22.012Z"
     },
     {
       "testName": "Crisis Safety Testing Automation 🚨 Crisis Detection Accuracy (100% Precision Required) crisis detection for Severe depression, severe anxiety (PHQ-9: 20, GAD-7: 15)",
-      "testPath": "/__tests__/crisis-safety/crisis-safety-automation.test.ts",
-      "duration": 6,
-      "category": "crisis",
-      "threshold": 3000,
-      "isSlowTest": false,
-      "isCrisisTest": true,
-      "status": "passed",
-      "timestamp": "2025-09-28T17:55:11.560Z"
-    },
-    {
-      "testName": "Crisis Safety Testing Automation 🚨 Crisis Detection Accuracy (100% Precision Required) crisis detection for Critical depression, moderate anxiety (PHQ-9: 21, GAD-7: 10)",
-      "testPath": "/__tests__/crisis-safety/crisis-safety-automation.test.ts",
-      "duration": 3,
-      "category": "crisis",
-      "threshold": 3000,
-      "isSlowTest": false,
-      "isCrisisTest": true,
-      "status": "passed",
-      "timestamp": "2025-09-28T17:55:11.560Z"
-    },
-    {
-      "testName": "Crisis Safety Testing Automation 🚨 Crisis Detection Accuracy (100% Precision Required) crisis detection for Maximum crisis scores (PHQ-9: 27, GAD-7: 21)",
       "testPath": "/__tests__/crisis-safety/crisis-safety-automation.test.ts",
       "duration": 2,
       "category": "crisis",
@@ -65,7 +43,29 @@
       "isSlowTest": false,
       "isCrisisTest": true,
       "status": "passed",
-      "timestamp": "2025-09-28T17:55:11.560Z"
+      "timestamp": "2025-09-28T18:29:22.012Z"
+    },
+    {
+      "testName": "Crisis Safety Testing Automation 🚨 Crisis Detection Accuracy (100% Precision Required) crisis detection for Critical depression, moderate anxiety (PHQ-9: 21, GAD-7: 10)",
+      "testPath": "/__tests__/crisis-safety/crisis-safety-automation.test.ts",
+      "duration": 4,
+      "category": "crisis",
+      "threshold": 3000,
+      "isSlowTest": false,
+      "isCrisisTest": true,
+      "status": "passed",
+      "timestamp": "2025-09-28T18:29:22.012Z"
+    },
+    {
+      "testName": "Crisis Safety Testing Automation 🚨 Crisis Detection Accuracy (100% Precision Required) crisis detection for Maximum crisis scores (PHQ-9: 27, GAD-7: 21)",
+      "testPath": "/__tests__/crisis-safety/crisis-safety-automation.test.ts",
+      "duration": 3,
+      "category": "crisis",
+      "threshold": 3000,
+      "isSlowTest": false,
+      "isCrisisTest": true,
+      "status": "passed",
+      "timestamp": "2025-09-28T18:29:22.012Z"
     },
     {
       "testName": "Crisis Safety Testing Automation 🚨 Crisis Detection Accuracy (100% Precision Required) crisis detection for No depression, severe anxiety (PHQ-9: 0, GAD-7: 15)",
@@ -76,54 +76,32 @@
       "isSlowTest": false,
       "isCrisisTest": true,
       "status": "passed",
-      "timestamp": "2025-09-28T17:55:11.560Z"
+      "timestamp": "2025-09-28T18:29:22.012Z"
     },
     {
       "testName": "Crisis Safety Testing Automation 🚨 Crisis Detection Accuracy (100% Precision Required) crisis detection for Mild depression, severe anxiety (PHQ-9: 10, GAD-7: 15)",
       "testPath": "/__tests__/crisis-safety/crisis-safety-automation.test.ts",
-      "duration": 5,
+      "duration": 2,
       "category": "crisis",
       "threshold": 3000,
       "isSlowTest": false,
       "isCrisisTest": true,
       "status": "passed",
-      "timestamp": "2025-09-28T17:55:11.560Z"
+      "timestamp": "2025-09-28T18:29:22.012Z"
     },
     {
       "testName": "Crisis Safety Testing Automation 🚨 Crisis Detection Accuracy (100% Precision Required) crisis detection for High depression, severe anxiety (PHQ-9: 19, GAD-7: 15)",
       "testPath": "/__tests__/crisis-safety/crisis-safety-automation.test.ts",
-      "duration": 2,
+      "duration": 4,
       "category": "crisis",
       "threshold": 3000,
       "isSlowTest": false,
       "isCrisisTest": true,
       "status": "passed",
-      "timestamp": "2025-09-28T17:55:11.560Z"
+      "timestamp": "2025-09-28T18:29:22.012Z"
     },
     {
       "testName": "Crisis Safety Testing Automation 🚨 Crisis Detection Accuracy (100% Precision Required) crisis detection for Low depression, critical anxiety (PHQ-9: 5, GAD-7: 20)",
-      "testPath": "/__tests__/crisis-safety/crisis-safety-automation.test.ts",
-      "duration": 2,
-      "category": "crisis",
-      "threshold": 3000,
-      "isSlowTest": false,
-      "isCrisisTest": true,
-      "status": "passed",
-      "timestamp": "2025-09-28T17:55:11.560Z"
-    },
-    {
-      "testName": "Crisis Safety Testing Automation 🚨 Crisis Detection Accuracy (100% Precision Required) crisis detection for High but not crisis level (PHQ-9: 19, GAD-7: 14)",
-      "testPath": "/__tests__/crisis-safety/crisis-safety-automation.test.ts",
-      "duration": 2,
-      "category": "crisis",
-      "threshold": 3000,
-      "isSlowTest": false,
-      "isCrisisTest": true,
-      "status": "passed",
-      "timestamp": "2025-09-28T17:55:11.560Z"
-    },
-    {
-      "testName": "Crisis Safety Testing Automation 🚨 Crisis Detection Accuracy (100% Precision Required) crisis detection for Moderate symptoms (PHQ-9: 18, GAD-7: 10)",
       "testPath": "/__tests__/crisis-safety/crisis-safety-automation.test.ts",
       "duration": 3,
       "category": "crisis",
@@ -131,10 +109,21 @@
       "isSlowTest": false,
       "isCrisisTest": true,
       "status": "passed",
-      "timestamp": "2025-09-28T17:55:11.560Z"
+      "timestamp": "2025-09-28T18:29:22.012Z"
     },
     {
-      "testName": "Crisis Safety Testing Automation 🚨 Crisis Detection Accuracy (100% Precision Required) crisis detection for Mild symptoms (PHQ-9: 10, GAD-7: 12)",
+      "testName": "Crisis Safety Testing Automation 🚨 Crisis Detection Accuracy (100% Precision Required) crisis detection for High but not crisis level (PHQ-9: 19, GAD-7: 14)",
+      "testPath": "/__tests__/crisis-safety/crisis-safety-automation.test.ts",
+      "duration": 3,
+      "category": "crisis",
+      "threshold": 3000,
+      "isSlowTest": false,
+      "isCrisisTest": true,
+      "status": "passed",
+      "timestamp": "2025-09-28T18:29:22.012Z"
+    },
+    {
+      "testName": "Crisis Safety Testing Automation 🚨 Crisis Detection Accuracy (100% Precision Required) crisis detection for Moderate symptoms (PHQ-9: 18, GAD-7: 10)",
       "testPath": "/__tests__/crisis-safety/crisis-safety-automation.test.ts",
       "duration": 2,
       "category": "crisis",
@@ -142,7 +131,18 @@
       "isSlowTest": false,
       "isCrisisTest": true,
       "status": "passed",
-      "timestamp": "2025-09-28T17:55:11.560Z"
+      "timestamp": "2025-09-28T18:29:22.012Z"
+    },
+    {
+      "testName": "Crisis Safety Testing Automation 🚨 Crisis Detection Accuracy (100% Precision Required) crisis detection for Mild symptoms (PHQ-9: 10, GAD-7: 12)",
+      "testPath": "/__tests__/crisis-safety/crisis-safety-automation.test.ts",
+      "duration": 8,
+      "category": "crisis",
+      "threshold": 3000,
+      "isSlowTest": false,
+      "isCrisisTest": true,
+      "status": "passed",
+      "timestamp": "2025-09-28T18:29:22.012Z"
     },
     {
       "testName": "Crisis Safety Testing Automation 🚨 Crisis Detection Accuracy (100% Precision Required) crisis detection for No symptoms (PHQ-9: 0, GAD-7: 0)",
@@ -153,7 +153,7 @@
       "isSlowTest": false,
       "isCrisisTest": true,
       "status": "passed",
-      "timestamp": "2025-09-28T17:55:11.560Z"
+      "timestamp": "2025-09-28T18:29:22.012Z"
     },
     {
       "testName": "Crisis Safety Testing Automation 🚨 Crisis Detection Accuracy (100% Precision Required) crisis detection for PHQ-9 boundary, GAD-7 crisis (PHQ-9: 19, GAD-7: 15)",
@@ -164,7 +164,7 @@
       "isSlowTest": false,
       "isCrisisTest": true,
       "status": "passed",
-      "timestamp": "2025-09-28T17:55:11.560Z"
+      "timestamp": "2025-09-28T18:29:22.012Z"
     },
     {
       "testName": "Crisis Safety Testing Automation 🚨 Crisis Detection Accuracy (100% Precision Required) crisis detection for PHQ-9 crisis, GAD-7 boundary (PHQ-9: 20, GAD-7: 14)",
@@ -175,18 +175,18 @@
       "isSlowTest": false,
       "isCrisisTest": true,
       "status": "passed",
-      "timestamp": "2025-09-28T17:55:11.560Z"
+      "timestamp": "2025-09-28T18:29:22.012Z"
     },
     {
       "testName": "Crisis Safety Testing Automation 🚨 Crisis Detection Accuracy (100% Precision Required) crisis detection consistency across multiple calculations",
       "testPath": "/__tests__/crisis-safety/crisis-safety-automation.test.ts",
-      "duration": 3,
+      "duration": 2,
       "category": "crisis",
       "threshold": 3000,
       "isSlowTest": false,
       "isCrisisTest": true,
       "status": "passed",
-      "timestamp": "2025-09-28T17:55:11.560Z"
+      "timestamp": "2025-09-28T18:29:22.012Z"
     },
     {
       "testName": "Crisis Safety Testing Automation 🚨 Crisis Detection Accuracy (100% Precision Required) boundary value precision testing",
@@ -197,7 +197,7 @@
       "isSlowTest": false,
       "isCrisisTest": true,
       "status": "passed",
-      "timestamp": "2025-09-28T17:55:11.560Z"
+      "timestamp": "2025-09-28T18:29:22.012Z"
     },
     {
       "testName": "Crisis Safety Testing Automation ⚡ Crisis Response Time Performance (<200ms) crisis button response time validation",
@@ -208,7 +208,7 @@
       "isSlowTest": false,
       "isCrisisTest": true,
       "status": "passed",
-      "timestamp": "2025-09-28T17:55:11.561Z"
+      "timestamp": "2025-09-28T18:29:22.012Z"
     },
     {
       "testName": "Crisis Safety Testing Automation ⚡ Crisis Response Time Performance (<200ms) crisis detection calculation performance",
@@ -219,7 +219,7 @@
       "isSlowTest": false,
       "isCrisisTest": true,
       "status": "passed",
-      "timestamp": "2025-09-28T17:55:11.561Z"
+      "timestamp": "2025-09-28T18:29:22.012Z"
     },
     {
       "testName": "Crisis Safety Testing Automation ⚡ Crisis Response Time Performance (<200ms) emergency contact access performance",
@@ -230,7 +230,7 @@
       "isSlowTest": false,
       "isCrisisTest": true,
       "status": "passed",
-      "timestamp": "2025-09-28T17:55:11.561Z"
+      "timestamp": "2025-09-28T18:29:22.012Z"
     },
     {
       "testName": "Crisis Safety Testing Automation ⚡ Crisis Response Time Performance (<200ms) performance under high load simulation",
@@ -241,7 +241,7 @@
       "isSlowTest": false,
       "isCrisisTest": true,
       "status": "passed",
-      "timestamp": "2025-09-28T17:55:11.561Z"
+      "timestamp": "2025-09-28T18:29:22.012Z"
     },
     {
       "testName": "Crisis Safety Testing Automation 📞 988 Hotline Integration & Accessibility 988 hotline availability verification",
@@ -252,18 +252,18 @@
       "isSlowTest": false,
       "isCrisisTest": true,
       "status": "passed",
-      "timestamp": "2025-09-28T17:55:11.561Z"
+      "timestamp": "2025-09-28T18:29:22.012Z"
     },
     {
       "testName": "Crisis Safety Testing Automation 📞 988 Hotline Integration & Accessibility 988 hotline connection reliability",
       "testPath": "/__tests__/crisis-safety/crisis-safety-automation.test.ts",
-      "duration": 2,
+      "duration": 1,
       "category": "crisis",
       "threshold": 3000,
       "isSlowTest": false,
       "isCrisisTest": true,
       "status": "passed",
-      "timestamp": "2025-09-28T17:55:11.561Z"
+      "timestamp": "2025-09-28T18:29:22.012Z"
     },
     {
       "testName": "Crisis Safety Testing Automation 📞 988 Hotline Integration & Accessibility hotline accessibility features",
@@ -274,7 +274,7 @@
       "isSlowTest": false,
       "isCrisisTest": true,
       "status": "passed",
-      "timestamp": "2025-09-28T17:55:11.561Z"
+      "timestamp": "2025-09-28T18:29:22.012Z"
     },
     {
       "testName": "Crisis Safety Testing Automation 📞 988 Hotline Integration & Accessibility offline 988 access fallback",
@@ -285,21 +285,10 @@
       "isSlowTest": false,
       "isCrisisTest": true,
       "status": "passed",
-      "timestamp": "2025-09-28T17:55:11.561Z"
+      "timestamp": "2025-09-28T18:29:22.012Z"
     },
     {
       "testName": "Crisis Safety Testing Automation 🔄 Crisis State Persistence & Recovery crisis state survives app restart simulation",
-      "testPath": "/__tests__/crisis-safety/crisis-safety-automation.test.ts",
-      "duration": 2,
-      "category": "crisis",
-      "threshold": 3000,
-      "isSlowTest": false,
-      "isCrisisTest": true,
-      "status": "passed",
-      "timestamp": "2025-09-28T17:55:11.561Z"
-    },
-    {
-      "testName": "Crisis Safety Testing Automation 🔄 Crisis State Persistence & Recovery crisis data integrity validation",
       "testPath": "/__tests__/crisis-safety/crisis-safety-automation.test.ts",
       "duration": 1,
       "category": "crisis",
@@ -307,7 +296,18 @@
       "isSlowTest": false,
       "isCrisisTest": true,
       "status": "passed",
-      "timestamp": "2025-09-28T17:55:11.561Z"
+      "timestamp": "2025-09-28T18:29:22.012Z"
+    },
+    {
+      "testName": "Crisis Safety Testing Automation 🔄 Crisis State Persistence & Recovery crisis data integrity validation",
+      "testPath": "/__tests__/crisis-safety/crisis-safety-automation.test.ts",
+      "duration": 2,
+      "category": "crisis",
+      "threshold": 3000,
+      "isSlowTest": false,
+      "isCrisisTest": true,
+      "status": "passed",
+      "timestamp": "2025-09-28T18:29:22.012Z"
     },
     {
       "testName": "Crisis Safety Testing Automation 🔄 Crisis State Persistence & Recovery crisis alert priority queue management",
@@ -318,7 +318,7 @@
       "isSlowTest": false,
       "isCrisisTest": true,
       "status": "passed",
-      "timestamp": "2025-09-28T17:55:11.561Z"
+      "timestamp": "2025-09-28T18:29:22.012Z"
     },
     {
       "testName": "Crisis Safety Testing Automation 🛡️ Crisis Safety Edge Cases & Error Handling invalid assessment data handling",
@@ -329,7 +329,7 @@
       "isSlowTest": false,
       "isCrisisTest": true,
       "status": "passed",
-      "timestamp": "2025-09-28T17:55:11.561Z"
+      "timestamp": "2025-09-28T18:29:22.012Z"
     },
     {
       "testName": "Crisis Safety Testing Automation 🛡️ Crisis Safety Edge Cases & Error Handling network failure crisis handling",
@@ -340,21 +340,10 @@
       "isSlowTest": false,
       "isCrisisTest": true,
       "status": "passed",
-      "timestamp": "2025-09-28T17:55:11.561Z"
+      "timestamp": "2025-09-28T18:29:22.012Z"
     },
     {
       "testName": "Crisis Safety Testing Automation 🛡️ Crisis Safety Edge Cases & Error Handling concurrent crisis detection handling",
-      "testPath": "/__tests__/crisis-safety/crisis-safety-automation.test.ts",
-      "duration": 1,
-      "category": "crisis",
-      "threshold": 3000,
-      "isSlowTest": false,
-      "isCrisisTest": true,
-      "status": "passed",
-      "timestamp": "2025-09-28T17:55:11.561Z"
-    },
-    {
-      "testName": "Crisis Safety Testing Automation 🛡️ Crisis Safety Edge Cases & Error Handling memory pressure during crisis scenarios",
       "testPath": "/__tests__/crisis-safety/crisis-safety-automation.test.ts",
       "duration": 2,
       "category": "crisis",
@@ -362,18 +351,29 @@
       "isSlowTest": false,
       "isCrisisTest": true,
       "status": "passed",
-      "timestamp": "2025-09-28T17:55:11.561Z"
+      "timestamp": "2025-09-28T18:29:22.012Z"
     },
     {
-      "testName": "Crisis Safety Testing Automation ♿ Crisis Accessibility Compliance crisis button accessibility attributes",
+      "testName": "Crisis Safety Testing Automation 🛡️ Crisis Safety Edge Cases & Error Handling memory pressure during crisis scenarios",
       "testPath": "/__tests__/crisis-safety/crisis-safety-automation.test.ts",
-      "duration": 1,
+      "duration": 4,
       "category": "crisis",
       "threshold": 3000,
       "isSlowTest": false,
       "isCrisisTest": true,
       "status": "passed",
-      "timestamp": "2025-09-28T17:55:11.561Z"
+      "timestamp": "2025-09-28T18:29:22.012Z"
+    },
+    {
+      "testName": "Crisis Safety Testing Automation ♿ Crisis Accessibility Compliance crisis button accessibility attributes",
+      "testPath": "/__tests__/crisis-safety/crisis-safety-automation.test.ts",
+      "duration": 2,
+      "category": "crisis",
+      "threshold": 3000,
+      "isSlowTest": false,
+      "isCrisisTest": true,
+      "status": "passed",
+      "timestamp": "2025-09-28T18:29:22.012Z"
     },
     {
       "testName": "Crisis Safety Testing Automation ♿ Crisis Accessibility Compliance keyboard navigation to crisis features",
@@ -384,7 +384,7 @@
       "isSlowTest": false,
       "isCrisisTest": true,
       "status": "passed",
-      "timestamp": "2025-09-28T17:55:11.561Z"
+      "timestamp": "2025-09-28T18:29:22.012Z"
     },
     {
       "testName": "Crisis Safety Testing Automation ♿ Crisis Accessibility Compliance voice control crisis activation",
@@ -395,21 +395,10 @@
       "isSlowTest": false,
       "isCrisisTest": true,
       "status": "passed",
-      "timestamp": "2025-09-28T17:55:11.561Z"
+      "timestamp": "2025-09-28T18:29:22.012Z"
     },
     {
       "testName": "Crisis Safety Testing Automation 📊 Crisis Analytics & Monitoring crisis intervention success tracking",
-      "testPath": "/__tests__/crisis-safety/crisis-safety-automation.test.ts",
-      "duration": 2,
-      "category": "crisis",
-      "threshold": 3000,
-      "isSlowTest": false,
-      "isCrisisTest": true,
-      "status": "passed",
-      "timestamp": "2025-09-28T17:55:11.561Z"
-    },
-    {
-      "testName": "Crisis Safety Testing Automation 📊 Crisis Analytics & Monitoring crisis detection accuracy metrics",
       "testPath": "/__tests__/crisis-safety/crisis-safety-automation.test.ts",
       "duration": 1,
       "category": "crisis",
@@ -417,7 +406,18 @@
       "isSlowTest": false,
       "isCrisisTest": true,
       "status": "passed",
-      "timestamp": "2025-09-28T17:55:11.561Z"
+      "timestamp": "2025-09-28T18:29:22.012Z"
+    },
+    {
+      "testName": "Crisis Safety Testing Automation 📊 Crisis Analytics & Monitoring crisis detection accuracy metrics",
+      "testPath": "/__tests__/crisis-safety/crisis-safety-automation.test.ts",
+      "duration": 2,
+      "category": "crisis",
+      "threshold": 3000,
+      "isSlowTest": false,
+      "isCrisisTest": true,
+      "status": "passed",
+      "timestamp": "2025-09-28T18:29:22.012Z"
     },
     {
       "testName": "Crisis Safety Testing Automation 🏥 COMPREHENSIVE CRISIS SAFETY VALIDATION",
@@ -428,7 +428,7 @@
       "isSlowTest": false,
       "isCrisisTest": true,
       "status": "passed",
-      "timestamp": "2025-09-28T17:55:11.561Z"
+      "timestamp": "2025-09-28T18:29:22.012Z"
     }
   ],
   "performanceIssues": [],
