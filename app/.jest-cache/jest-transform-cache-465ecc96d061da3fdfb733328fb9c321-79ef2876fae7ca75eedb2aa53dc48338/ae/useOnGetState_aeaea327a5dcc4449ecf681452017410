@@ -1,0 +1,43 @@
+2aca0602a99374dff57ba3e57b535d2a
+"use strict";
+
+var _interopRequireWildcard = require("@babel/runtime/helpers/interopRequireWildcard").default;
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.useOnGetState = useOnGetState;
+var React = _interopRequireWildcard(require("react"));
+var _isArrayEqual = require("./isArrayEqual.js");
+var _NavigationBuilderContext = require("./NavigationBuilderContext.js");
+var _NavigationRouteContext = require("./NavigationRouteContext.js");
+function useOnGetState(_ref) {
+  var getState = _ref.getState,
+    getStateListeners = _ref.getStateListeners;
+  var _React$useContext = React.useContext(_NavigationBuilderContext.NavigationBuilderContext),
+    addKeyedListener = _React$useContext.addKeyedListener;
+  var route = React.useContext(_NavigationRouteContext.NavigationRouteContext);
+  var key = route ? route.key : 'root';
+  var getRehydratedState = React.useCallback(function () {
+    var state = getState();
+    var routes = state.routes.map(function (route) {
+      var _getStateListeners$ro;
+      var childState = (_getStateListeners$ro = getStateListeners[route.key]) == null ? void 0 : _getStateListeners$ro.call(getStateListeners);
+      if (route.state === childState) {
+        return route;
+      }
+      return Object.assign({}, route, {
+        state: childState
+      });
+    });
+    if ((0, _isArrayEqual.isArrayEqual)(state.routes, routes)) {
+      return state;
+    }
+    return Object.assign({}, state, {
+      routes: routes
+    });
+  }, [getState, getStateListeners]);
+  React.useEffect(function () {
+    return addKeyedListener == null ? void 0 : addKeyedListener('getState', key, getRehydratedState);
+  }, [addKeyedListener, getRehydratedState, key]);
+}
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJuYW1lcyI6WyJSZWFjdCIsIl9pbnRlcm9wUmVxdWlyZVdpbGRjYXJkIiwicmVxdWlyZSIsIl9pc0FycmF5RXF1YWwiLCJfTmF2aWdhdGlvbkJ1aWxkZXJDb250ZXh0IiwiX05hdmlnYXRpb25Sb3V0ZUNvbnRleHQiLCJ1c2VPbkdldFN0YXRlIiwiX3JlZiIsImdldFN0YXRlIiwiZ2V0U3RhdGVMaXN0ZW5lcnMiLCJfUmVhY3QkdXNlQ29udGV4dCIsInVzZUNvbnRleHQiLCJOYXZpZ2F0aW9uQnVpbGRlckNvbnRleHQiLCJhZGRLZXllZExpc3RlbmVyIiwicm91dGUiLCJOYXZpZ2F0aW9uUm91dGVDb250ZXh0Iiwia2V5IiwiZ2V0UmVoeWRyYXRlZFN0YXRlIiwidXNlQ2FsbGJhY2siLCJzdGF0ZSIsInJvdXRlcyIsIm1hcCIsIl9nZXRTdGF0ZUxpc3RlbmVycyRybyIsImNoaWxkU3RhdGUiLCJjYWxsIiwiT2JqZWN0IiwiYXNzaWduIiwiaXNBcnJheUVxdWFsIiwidXNlRWZmZWN0Il0sInNvdXJjZXMiOlsiLi4vLi4vc3JjL3VzZU9uR2V0U3RhdGUudHN4Il0sInNvdXJjZXNDb250ZW50IjpbbnVsbF0sIm1hcHBpbmdzIjoiOzs7Ozs7O0FBQ0EsSUFBQUEsS0FBQSxHQUFBQyx1QkFBQSxDQUFBQyxPQUFBO0FBRUEsSUFBQUMsYUFBQSxHQUFBRCxPQUFBO0FBQ0EsSUFBQUUseUJBQUEsR0FBQUYsT0FBQTtBQUlBLElBQUFHLHVCQUFBLEdBQUFILE9BQUE7QUFPTyxTQUFTSSxhQUFhQSxDQUFBQyxJQUFBLEVBQTJDO0VBQUEsSUFBeENDLFFBQVEsR0FBQUQsSUFBQSxDQUFSQyxRQUFRO0lBQUVDLGlCQUFBLEdBQUFGLElBQUEsQ0FBQUUsaUJBQUE7RUFDeEMsSUFBQUMsaUJBQUEsR0FBNkJWLEtBQUssQ0FBQ1csVUFBVSxDQUFDQyxrREFBd0IsQ0FBQztJQUEvREMsZ0JBQUEsR0FBQUgsaUJBQUEsQ0FBQUcsZ0JBQUE7RUFDUixJQUFNQyxLQUFLLEdBQUdkLEtBQUssQ0FBQ1csVUFBVSxDQUFDSSw4Q0FBc0IsQ0FBQztFQUN0RCxJQUFNQyxHQUFHLEdBQUdGLEtBQUssR0FBR0EsS0FBSyxDQUFDRSxHQUFHLEdBQUcsTUFBTTtFQUV0QyxJQUFNQyxrQkFBa0IsR0FBR2pCLEtBQUssQ0FBQ2tCLFdBQVcsQ0FBQyxZQUFNO0lBQ2pELElBQU1DLEtBQUssR0FBR1gsUUFBUSxDQUFDLENBQUM7SUFHeEIsSUFBTVksTUFBTSxHQUFHRCxLQUFLLENBQUNDLE1BQU0sQ0FBQ0MsR0FBRyxDQUFFLFVBQUFQLEtBQUssRUFBSztNQUFBLElBQUFRLHFCQUFBO01BQ3pDLElBQU1DLFVBQVUsSUFBQUQscUJBQUEsR0FBR2IsaUJBQWlCLENBQUNLLEtBQUssQ0FBQ0UsR0FBRyxDQUFDLHFCQUE1Qk0scUJBQUEsQ0FBQUUsSUFBQSxDQUFBZixpQkFBK0IsQ0FBQztNQUVuRCxJQUFJSyxLQUFLLENBQUNLLEtBQUssS0FBS0ksVUFBVSxFQUFFO1FBQzlCLE9BQU9ULEtBQUs7TUFDZDtNQUVBLE9BQUFXLE1BQUEsQ0FBQUMsTUFBQSxLQUFZWixLQUFLO1FBQUVLLEtBQUssRUFBRUk7TUFBQTtJQUM1QixDQUFDLENBQUM7SUFFRixJQUFJLElBQUFJLDBCQUFZLEVBQUNSLEtBQUssQ0FBQ0MsTUFBTSxFQUFFQSxNQUFNLENBQUMsRUFBRTtNQUN0QyxPQUFPRCxLQUFLO0lBQ2Q7SUFFQSxPQUFBTSxNQUFBLENBQUFDLE1BQUEsS0FBWVAsS0FBSztNQUFFQyxNQUFBLEVBQUFBO0lBQUE7RUFDckIsQ0FBQyxFQUFFLENBQUNaLFFBQVEsRUFBRUMsaUJBQWlCLENBQUMsQ0FBQztFQUVqQ1QsS0FBSyxDQUFDNEIsU0FBUyxDQUFDLFlBQU07SUFDcEIsT0FBT2YsZ0JBQWdCLG9CQUFoQkEsZ0JBQWdCLENBQUcsVUFBVSxFQUFFRyxHQUFHLEVBQUVDLGtCQUFrQixDQUFDO0VBQ2hFLENBQUMsRUFBRSxDQUFDSixnQkFBZ0IsRUFBRUksa0JBQWtCLEVBQUVELEdBQUcsQ0FBQyxDQUFDO0FBQ2pEIiwiaWdub3JlTGlzdCI6W119

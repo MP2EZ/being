@@ -42,7 +42,7 @@ import type {
  */
 export const HIPAA_COMPLIANCE_CONFIG = {
   /** Data retention periods per HIPAA requirements */
-  readonly DATA_RETENTION: {
+  DATA_RETENTION: {
     /** Mental health records retention (6 years minimum) */
     CLINICAL_RECORDS_YEARS: 6,
     /** Assessment data retention (6 years) */
@@ -55,7 +55,7 @@ export const HIPAA_COMPLIANCE_CONFIG = {
     CONSENT_RECORDS_INDEFINITE: true
   },
   /** Encryption requirements per Security Rule */
-  readonly ENCRYPTION: {
+  ENCRYPTION: {
     /** Minimum encryption algorithm */
     ALGORITHM: 'AES-256',
     /** Key rotation frequency (days) */
@@ -66,7 +66,7 @@ export const HIPAA_COMPLIANCE_CONFIG = {
     REST_ENCRYPTION_REQUIRED: true
   },
   /** Access control requirements */
-  readonly ACCESS_CONTROL: {
+  ACCESS_CONTROL: {
     /** Session timeout (minutes) */
     SESSION_TIMEOUT_MINUTES: 15,
     /** Failed login attempt limit */
@@ -77,7 +77,7 @@ export const HIPAA_COMPLIANCE_CONFIG = {
     AUTO_LOGOUT_ON_BACKGROUND: true
   },
   /** Audit requirements */
-  readonly AUDIT: {
+  AUDIT: {
     /** Audit all PHI access */
     AUDIT_ALL_PHI_ACCESS: true,
     /** Audit log integrity verification */
@@ -88,7 +88,7 @@ export const HIPAA_COMPLIANCE_CONFIG = {
     BACKUP_FREQUENCY_HOURS: 24
   },
   /** Breach notification timeframes */
-  readonly BREACH_NOTIFICATION: {
+  BREACH_NOTIFICATION: {
     /** Discovery to notification (hours) */
     DISCOVERY_TO_NOTIFICATION_HOURS: 60,
     /** Notification to individuals (days) */

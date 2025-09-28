@@ -38,15 +38,15 @@ import type {
  */
 export const WORKFLOW_CONFIG = {
   /** Maximum workflow initiation time (ms) */
-  readonly MAX_WORKFLOW_INITIATION_MS: 200,
+  MAX_WORKFLOW_INITIATION_MS: 200,
   /** Maximum resource access time (ms) */
-  readonly MAX_RESOURCE_ACCESS_MS: 3000,
+  MAX_RESOURCE_ACCESS_MS: 3000,
   /** Emergency workflow timeout (ms) */
-  readonly EMERGENCY_WORKFLOW_TIMEOUT_MS: 10000,
+  EMERGENCY_WORKFLOW_TIMEOUT_MS: 10000,
   /** Professional referral deadline (ms) */
-  readonly PROFESSIONAL_REFERRAL_DEADLINE_MS: 24 * 60 * 60 * 1000,
+  PROFESSIONAL_REFERRAL_DEADLINE_MS: 24 * 60 * 60 * 1000,
   /** Follow-up contact timeframes (ms) */
-  readonly FOLLOWUP_TIMEFRAMES: {
+  FOLLOWUP_TIMEFRAMES: {
     emergency: 2 * 60 * 60 * 1000,      // 2 hours
     critical: 6 * 60 * 60 * 1000,       // 6 hours
     high: 24 * 60 * 60 * 1000,          // 24 hours

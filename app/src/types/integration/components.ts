@@ -2,6 +2,34 @@
  * Component Integration Types - Type-Safe React Native Components
  * Comprehensive prop interfaces for all crisis, compliance, and security components
  * 
+ * EXPORT ORGANIZATION:
+ * 
+ * BASE TYPES (Lines 51-187):
+ * - BaseComponentProps: Foundation for all components
+ * - ComponentTheme: Theming system with crisis/accessibility modes
+ * - ComponentColorPalette: Complete color system with crisis colors
+ * - ComponentTypography: Font and text styling system
+ * - ComponentSpacing: Consistent spacing scale
+ * - ComponentAnimations: Animation settings with crisis overrides
+ * - ComponentAccessibility: WCAG compliance settings
+ * 
+ * CONTEXT TYPES (Lines 238-297):
+ * - CrisisComponentContext: Crisis-aware component state
+ * - HIPAAComponentContext: HIPAA compliance requirements
+ * - SecurityComponentContext: Security and authentication context
+ * 
+ * COMPONENT PROPS (Lines 299-458):
+ * - CrisisButtonProps: Emergency contact and crisis intervention
+ * - AssessmentComponentProps: PHQ-9/GAD-7 assessment components
+ * - ConsentManagementProps: HIPAA consent handling
+ * - SecurityAuthProps: Authentication and biometric security
+ * - MonitoringComponentProps: Performance and compliance monitoring
+ * - PerformanceConstrainedProps: Performance-critical components
+ * 
+ * UTILITIES (Lines 459-523):
+ * - Type guards for runtime component type checking
+ * - Default settings and performance constraints
+ * 
  * INTEGRATION REQUIREMENTS:
  * - Type-safe component props with strict validation
  * - Performance-constrained render cycles (<16ms for 60fps)
@@ -334,6 +362,161 @@ export interface CrisisButtonProps extends BaseComponentProps {
     pulseAnimation: boolean;
     reduceMotion: boolean;
   };
+}
+
+/**
+ * Assessment Component Props
+ */
+export interface AssessmentComponentProps extends BaseComponentProps {
+  /** Assessment type (PHQ-9, GAD-7) */
+  assessmentType: AssessmentType;
+  /** Assessment progress */
+  progress?: AssessmentProgress;
+  /** Crisis detection enabled */
+  crisisDetectionEnabled: boolean;
+  /** Assessment completion handler */
+  onComplete: (result: PHQ9Result | GAD7Result) => Promise<void>;
+  /** Assessment progress handler */
+  onProgress?: (progress: AssessmentProgress) => void;
+  /** Crisis detection handler */
+  onCrisisDetected?: (detection: CrisisDetection) => void;
+  /** Performance constraints */
+  performanceConstraints: {
+    maxResponseTimeMs: number;
+    maxMemoryUsageMB: number;
+  };
+}
+
+/**
+ * Consent Management Component Props
+ */
+export interface ConsentManagementProps extends BaseComponentProps {
+  /** Required consent types */
+  requiredConsents: ConsentStatus[];
+  /** Current consent state */
+  currentConsents?: HIPAAConsent[];
+  /** PHI data types requiring consent */
+  phiTypes: PHIClassification[];
+  /** Data processing purposes */
+  processingPurposes: DataProcessingPurpose[];
+  /** Consent update handler */
+  onConsentUpdate: (consent: HIPAAConsent) => Promise<void>;
+  /** Consent validation handler */
+  onConsentValidation?: (isValid: boolean) => void;
+  /** Emergency disclosure override */
+  emergencyDisclosureEnabled?: boolean;
+}
+
+/**
+ * Security Authentication Component Props
+ */
+export interface SecurityAuthProps extends BaseComponentProps {
+  /** Required authentication strength */
+  requiredStrength: AuthFactorStrength;
+  /** Biometric authentication required */
+  biometricRequired: boolean;
+  /** Available biometric types */
+  availableBiometrics: BiometricType[];
+  /** Current authentication session */
+  currentSession?: AuthenticationSession;
+  /** Authentication handler */
+  onAuthenticate: (session: AuthenticationSession) => Promise<void>;
+  /** Authentication failure handler */
+  onAuthenticationFailure?: (error: Error) => void;
+  /** Security event handler */
+  onSecurityEvent?: (event: SecurityEvent) => void;
+  /** Session timeout settings */
+  sessionTimeout: {
+    warningMinutes: number;
+    maxMinutes: number;
+  };
+}
+
+/**
+ * Monitoring Component Props
+ */
+export interface MonitoringComponentProps extends BaseComponentProps {
+  /** Monitoring type */
+  monitoringType: 'performance' | 'security' | 'compliance' | 'crisis';
+  /** Monitoring level */
+  level: 'basic' | 'enhanced' | 'real_time';
+  /** Metrics to monitor */
+  metrics: string[];
+  /** Alert thresholds */
+  thresholds: {
+    warning: number;
+    critical: number;
+    emergency: number;
+  };
+  /** Monitoring data handler */
+  onMetricUpdate: (metric: string, value: number) => void;
+  /** Alert handler */
+  onAlert?: (severity: string, message: string) => void;
+  /** Real-time updates enabled */
+  realTimeUpdates: boolean;
+}
+
+/**
+ * Performance Constrained Component Props
+ */
+export interface PerformanceConstrainedProps extends BaseComponentProps {
+  /** Maximum render time in milliseconds */
+  maxRenderTimeMs: number;
+  /** Maximum memory usage in MB */
+  maxMemoryUsageMB: number;
+  /** Performance monitoring enabled */
+  performanceMonitoringEnabled: boolean;
+  /** Performance violation handler */
+  onPerformanceViolation?: (violation: {
+    type: 'render_time' | 'memory' | 'fps';
+    actualValue: number;
+    threshold: number;
+  }) => void;
+  /** Crisis mode performance overrides */
+  crisisModeOverrides?: {
+    maxRenderTimeMs: number;
+    maxMemoryUsageMB: number;
+    reducedAnimations: boolean;
+  };
+}
+
+/**
+ * Component Type Guards and Utilities
+ */
+
+/**
+ * Check if component is crisis-aware
+ */
+export function isCrisisComponent(props: BaseComponentProps): props is BaseComponentProps & {
+  crisisContext: CrisisComponentContext;
+} {
+  return props.crisisContext !== undefined;
+}
+
+/**
+ * Check if component is security-aware
+ */
+export function isSecureComponent(props: BaseComponentProps): props is BaseComponentProps & {
+  securityContext: SecurityComponentContext;
+} {
+  return props.securityContext !== undefined;
+}
+
+/**
+ * Check if component is HIPAA compliant
+ */
+export function isCompliantComponent(props: BaseComponentProps): props is BaseComponentProps & {
+  hipaaContext: HIPAAComponentContext;
+} {
+  return props.hipaaContext !== undefined;
+}
+
+/**
+ * Check if component has performance constraints
+ */
+export function isPerformanceConstrained(props: any): props is PerformanceConstrainedProps {
+  return props.maxRenderTimeMs !== undefined &&
+         props.maxMemoryUsageMB !== undefined;
 }
 
 /**

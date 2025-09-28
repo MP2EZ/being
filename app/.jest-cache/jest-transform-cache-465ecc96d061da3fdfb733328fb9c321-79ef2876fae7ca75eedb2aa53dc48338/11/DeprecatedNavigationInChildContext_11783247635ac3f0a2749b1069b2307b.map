@@ -1,0 +1,1 @@
+{"version":3,"names":["React","_interopRequireWildcard","require","DeprecatedNavigationInChildContext","exports","createContext"],"sources":["../../src/DeprecatedNavigationInChildContext.tsx"],"sourcesContent":[null],"mappings":";;;;;;;AAAA,IAAAA,KAAA,GAAAC,uBAAA,CAAAC,OAAA;AAKO,IAAMC,kCAAkC,GAAAC,OAAA,CAAAD,kCAAA,GAAGH,KAAK,CAACK,aAAa,CAAC,KAAK,CAAC","ignoreList":[]}

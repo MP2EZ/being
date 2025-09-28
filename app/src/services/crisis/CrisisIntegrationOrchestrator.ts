@@ -25,7 +25,7 @@
 
 import React from 'react';
 import { Alert, Linking } from 'react-native';
-import { useAssessmentStore } from '../flows/assessment/stores/assessmentStore';
+import { useAssessmentStore } from '../../flows/assessment/stores/assessmentStore';
 import CrisisDetectionEngine from './CrisisDetectionEngine';
 import SuicidalIdeationProtocol from './SuicidalIdeationProtocol';
 import CrisisInterventionWorkflow from './CrisisInterventionWorkflow';
@@ -46,15 +46,15 @@ import type {
  */
 export const INTEGRATION_CONFIG = {
   /** Real-time monitoring interval (ms) */
-  readonly REALTIME_MONITORING_INTERVAL_MS: 100,
+  REALTIME_MONITORING_INTERVAL_MS: 100,
   /** Crisis detection debounce (ms) */
-  readonly CRISIS_DETECTION_DEBOUNCE_MS: 50,
+  CRISIS_DETECTION_DEBOUNCE_MS: 50,
   /** Assessment continuation delay after crisis (ms) */
-  readonly ASSESSMENT_CONTINUATION_DELAY_MS: 5000,
+  ASSESSMENT_CONTINUATION_DELAY_MS: 5000,
   /** Crisis UI overlay timeout (ms) */
-  readonly CRISIS_UI_TIMEOUT_MS: 30000,
+  CRISIS_UI_TIMEOUT_MS: 30000,
   /** Integration health check interval (ms) */
-  readonly HEALTH_CHECK_INTERVAL_MS: 10000
+  HEALTH_CHECK_INTERVAL_MS: 10000
 } as const;
 
 /**

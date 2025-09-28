@@ -41,31 +41,31 @@ import EncryptionService, {
  */
 export const SECURE_STORAGE_CONFIG = {
   /** Storage tier prefixes */
-  readonly CRISIS_PREFIX: 'crisis_secure_',
-  readonly ASSESSMENT_PREFIX: 'assessment_secure_',
-  readonly INTERVENTION_PREFIX: 'intervention_secure_',
-  readonly PERFORMANCE_PREFIX: 'performance_',
-  readonly GENERAL_PREFIX: 'general_',
+  CRISIS_PREFIX: 'crisis_secure_',
+  ASSESSMENT_PREFIX: 'assessment_secure_',
+  INTERVENTION_PREFIX: 'intervention_secure_',
+  PERFORMANCE_PREFIX: 'performance_',
+  GENERAL_PREFIX: 'general_',
   
   /** Storage limits */
-  readonly MAX_SECURE_STORE_SIZE: 2048, // 2KB limit for SecureStore
-  readonly MAX_ASYNC_STORAGE_SIZE: 6 * 1024 * 1024, // 6MB limit
-  readonly BULK_OPERATION_LIMIT: 100,
+  MAX_SECURE_STORE_SIZE: 2048, // 2KB limit for SecureStore
+  MAX_ASYNC_STORAGE_SIZE: 6 * 1024 * 1024, // 6MB limit
+  BULK_OPERATION_LIMIT: 100,
   
   /** Performance thresholds */
-  readonly CRISIS_ACCESS_THRESHOLD_MS: 200,
-  readonly ASSESSMENT_ACCESS_THRESHOLD_MS: 300,
-  readonly BULK_OPERATION_THRESHOLD_MS: 500,
+  CRISIS_ACCESS_THRESHOLD_MS: 200,
+  ASSESSMENT_ACCESS_THRESHOLD_MS: 300,
+  BULK_OPERATION_THRESHOLD_MS: 500,
   
   /** Cleanup configuration */
-  readonly AUTO_CLEANUP_INTERVAL_MS: 24 * 60 * 60 * 1000, // Daily
-  readonly TEMP_DATA_EXPIRY_MS: 60 * 60 * 1000, // 1 hour
-  readonly CACHE_EXPIRY_MS: 30 * 60 * 1000, // 30 minutes
+  AUTO_CLEANUP_INTERVAL_MS: 24 * 60 * 60 * 1000, // Daily
+  TEMP_DATA_EXPIRY_MS: 60 * 60 * 1000, // 1 hour
+  CACHE_EXPIRY_MS: 30 * 60 * 1000, // 30 minutes
   
   /** Audit configuration */
-  readonly AUDIT_LOG_PREFIX: 'audit_log_',
-  readonly MAX_AUDIT_ENTRIES: 10000,
-  readonly AUDIT_ROTATION_DAYS: 90
+  AUDIT_LOG_PREFIX: 'audit_log_',
+  MAX_AUDIT_ENTRIES: 10000,
+  AUDIT_ROTATION_DAYS: 90
 } as const;
 
 /**

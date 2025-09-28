@@ -365,7 +365,7 @@ export class AccessibilityPerformanceMonitor {
 
   // Public API methods
   getLatestMetrics(): AccessibilityPerformanceMetrics | null {
-    return this.metrics.length > 0 ? this.metrics[this.metrics.length - 1] : null;
+    return this.metrics.length > 0 ? this.metrics[this.metrics.length - 1]! : null;
   }
 
   getAverageMetrics(periods: number = 10): Partial<AccessibilityPerformanceMetrics> | null {

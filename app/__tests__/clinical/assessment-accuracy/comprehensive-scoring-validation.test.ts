@@ -28,7 +28,7 @@ import {
 } from '../../../src/flows/assessment/types/index';
 
 // Performance monitoring for crisis detection
-import { performance } from 'react-native-performance';
+// Using global performance API (set up in test environment)
 
 // Mock secure storage for testing
 jest.mock('expo-secure-store', () => ({
@@ -52,17 +52,33 @@ jest.mock('react-native', () => ({
   },
 }));
 
+/**
+ * Helper function to distribute score across questions
+ */
+function distributeScore(targetScore: number, questionCount: number): AssessmentResponse[] {
+  const answers: AssessmentResponse[] = new Array(questionCount).fill(0);
+  let remainingScore = targetScore;
+
+  for (let i = 0; i < questionCount && remainingScore > 0; i++) {
+    const maxForQuestion = Math.min(remainingScore, 3);
+    answers[i] = maxForQuestion as AssessmentResponse;
+    remainingScore -= maxForQuestion;
+  }
+
+  return answers;
+}
+
 describe('COMPREHENSIVE CLINICAL SCORING VALIDATION - ALL 48 COMBINATIONS', () => {
   let store: ReturnType<typeof useAssessmentStore>;
 
   beforeEach(async () => {
-    // Reset store to clean state
+    // Reset store to clean state using getState() for direct access
     store = useAssessmentStore.getState();
     store.resetAssessment();
-    
+
     // Clear any existing data
     await store.clearHistory();
-    
+
     // Enable auto-save for realistic testing
     store.enableAutoSave();
   });
@@ -122,44 +138,53 @@ describe('COMPREHENSIVE CLINICAL SCORING VALIDATION - ALL 48 COMBINATIONS', () =
 
         const answers = combinations[0];
         
-        // Start assessment
+        // Start assessment and wait for completion
         await store.startAssessment('phq9', 'clinical_validation');
-        expect(store.currentSession).toBeTruthy();
-        expect(store.currentSession?.type).toBe('phq9');
+
+        // Wait for any pending state updates
+        await new Promise(resolve => setTimeout(resolve, 10));
+
+        // Get updated store state after async operation
+        const updatedStore = useAssessmentStore.getState();
+        expect(updatedStore.currentSession).toBeTruthy();
+        expect(updatedStore.currentSession?.type).toBe('phq9');
 
         // Performance monitoring start
         const startTime = performance.now();
 
         // Answer all questions
         for (let i = 0; i < PHQ9_QUESTIONS.length; i++) {
-          await store.answerQuestion(PHQ9_QUESTIONS[i], answers[i]);
+          await updatedStore.answerQuestion(PHQ9_QUESTIONS[i], answers[i]);
         }
 
         // Complete assessment with timing validation
-        await store.completeAssessment();
+        await updatedStore.completeAssessment();
         const completionTime = performance.now() - startTime;
 
+        // Get final updated store state
+        const finalStore = useAssessmentStore.getState();
+
         // Validate results
-        const result = store.currentResult as PHQ9Result;
-        expect(result).toBeTruthy();
-        expect(result.totalScore).toBe(score);
+        const assessmentResult = finalStore.currentResult as PHQ9Result;
+        expect(assessmentResult).toBeTruthy();
+        expect(assessmentResult.totalScore).toBe(score);
         
         // Validate severity mapping
         if (score >= 0 && score <= 4) {
-          expect(result.severity).toBe('minimal');
+          expect(assessmentResult.severity).toBe('minimal');
         } else if (score >= 5 && score <= 9) {
-          expect(result.severity).toBe('mild');
+          expect(assessmentResult.severity).toBe('mild');
         } else if (score >= 10 && score <= 14) {
-          expect(result.severity).toBe('moderate');
+          expect(assessmentResult.severity).toBe('moderate');
         } else if (score >= 15 && score <= 19) {
-          expect(result.severity).toBe('moderately_severe');
+          expect(assessmentResult.severity).toBe('moderately_severe');
         } else if (score >= 20 && score <= 27) {
-          expect(result.severity).toBe('severe');
+          expect(assessmentResult.severity).toBe('severe');
         }
 
         // Crisis detection validation
         const expectCrisis = score >= CRISIS_THRESHOLDS.PHQ9_CRISIS_SCORE;
-        expect(result.isCrisis).toBe(expectCrisis);
+        expect(assessmentResult.isCrisis).toBe(expectCrisis);
 
         if (expectCrisis) {
           expect(store.crisisDetection).toBeTruthy();
@@ -172,23 +197,23 @@ describe('COMPREHENSIVE CLINICAL SCORING VALIDATION - ALL 48 COMBINATIONS', () =
 
         // Suicidal ideation detection (Question 9)
         const suicidalResponse = answers[8]; // PHQ9_9 is index 8
-        expect(result.suicidalIdeation).toBe(suicidalResponse > 0);
+        expect(assessmentResult.suicidalIdeation).toBe(suicidalResponse > 0);
         
         if (suicidalResponse > 0) {
-          expect(result.isCrisis).toBe(true); // Should trigger crisis regardless of total score
+          expect(assessmentResult.isCrisis).toBe(true); // Should trigger crisis regardless of total score
           expect(store.crisisDetection).toBeTruthy();
         }
 
         // Validate answer persistence
-        expect(result.answers).toHaveLength(9);
-        result.answers.forEach((answer, index) => {
+        expect(assessmentResult.answers).toHaveLength(9);
+        assessmentResult.answers.forEach((answer, index) => {
           expect(answer.questionId).toBe(PHQ9_QUESTIONS[index]);
           expect(answer.response).toBe(answers[index]);
           expect(answer.timestamp).toBeGreaterThan(0);
         });
 
         // Validate clinical compliance
-        expect(result.completedAt).toBeGreaterThan(0);
+        expect(assessmentResult.completedAt).toBeGreaterThan(0);
         expect(store.completedAssessments).toHaveLength(1);
       });
     }
@@ -209,6 +234,7 @@ describe('COMPREHENSIVE CLINICAL SCORING VALIDATION - ALL 48 COMBINATIONS', () =
         store.resetAssessment();
         
         await store.startAssessment('phq9', 'suicidal_ideation_test');
+        await new Promise(resolve => setTimeout(resolve, 10));
         
         // Generate answers that sum to target score, with specific Q9 response
         const answers: AssessmentResponse[] = new Array(9).fill(0);
@@ -295,10 +321,16 @@ describe('COMPREHENSIVE CLINICAL SCORING VALIDATION - ALL 48 COMBINATIONS', () =
 
         const answers = combinations[0];
         
-        // Start assessment
+        // Start assessment and wait for completion
         await store.startAssessment('gad7', 'clinical_validation');
-        expect(store.currentSession).toBeTruthy();
-        expect(store.currentSession?.type).toBe('gad7');
+
+        // Wait for any pending state updates
+        await new Promise(resolve => setTimeout(resolve, 10));
+
+        // Get updated store state after async operation
+        const updatedStore = useAssessmentStore.getState();
+        expect(updatedStore.currentSession).toBeTruthy();
+        expect(updatedStore.currentSession?.type).toBe('gad7');
 
         const startTime = performance.now();
 
@@ -360,6 +392,7 @@ describe('COMPREHENSIVE CLINICAL SCORING VALIDATION - ALL 48 COMBINATIONS', () =
       
       // PHQ-9 with crisis score
       await store.startAssessment('phq9', 'crisis_integration_test');
+      await new Promise(resolve => setTimeout(resolve, 10));
       
       // Generate crisis-level responses (score 25)
       const phqCrisisAnswers: AssessmentResponse[] = [3, 3, 3, 3, 3, 3, 3, 3, 1];
@@ -382,6 +415,7 @@ describe('COMPREHENSIVE CLINICAL SCORING VALIDATION - ALL 48 COMBINATIONS', () =
       
       // GAD-7 with crisis score
       await store.startAssessment('gad7', 'crisis_integration_test');
+      await new Promise(resolve => setTimeout(resolve, 10));
       
       // Generate crisis-level responses (score 18)
       const gadCrisisAnswers: AssessmentResponse[] = [3, 3, 3, 3, 3, 3, 0];
@@ -422,19 +456,20 @@ describe('COMPREHENSIVE CLINICAL SCORING VALIDATION - ALL 48 COMBINATIONS', () =
         store.resetAssessment();
         
         await store.startAssessment(scenario.type, 'crisis_timing_test');
+        await new Promise(resolve => setTimeout(resolve, 10));
         
         const startTime = performance.now();
         
         // Generate answers for target score
         if (scenario.type === 'phq9') {
           // Distribute score across 9 questions
-          const answers = this.distributeScore(scenario.score, 9);
+          const answers = distributeScore(scenario.score, 9);
           for (let i = 0; i < 9; i++) {
             await store.answerQuestion(`phq9_${i + 1}`, answers[i]);
           }
         } else {
           // Distribute score across 7 questions
-          const answers = this.distributeScore(scenario.score, 7);
+          const answers = distributeScore(scenario.score, 7);
           for (let i = 0; i < 7; i++) {
             await store.answerQuestion(`gad7_${i + 1}`, answers[i]);
           }
@@ -452,21 +487,7 @@ describe('COMPREHENSIVE CLINICAL SCORING VALIDATION - ALL 48 COMBINATIONS', () =
       }
     });
 
-    /**
-     * Helper method to distribute score across questions
-     */
-    distributeScore(targetScore: number, questionCount: number): AssessmentResponse[] {
-      const answers: AssessmentResponse[] = new Array(questionCount).fill(0);
-      let remainingScore = targetScore;
-      
-      for (let i = 0; i < questionCount && remainingScore > 0; i++) {
-        const maxForQuestion = Math.min(remainingScore, 3);
-        answers[i] = maxForQuestion as AssessmentResponse;
-        remainingScore -= maxForQuestion;
-      }
-      
-      return answers;
-    }
+  // distributeScore function is now defined globally above
   });
 
   describe('CLINICAL VALIDATION EDGE CASES', () => {
@@ -482,9 +503,10 @@ describe('COMPREHENSIVE CLINICAL SCORING VALIDATION - ALL 48 COMBINATIONS', () =
         store.resetAssessment();
         
         await store.startAssessment(test.type, 'boundary_test');
+        await new Promise(resolve => setTimeout(resolve, 10));
         
         const questionCount = test.type === 'phq9' ? 9 : 7;
-        const answers = this.distributeScore(test.score, questionCount);
+        const answers = distributeScore(test.score, questionCount);
         
         for (let i = 0; i < questionCount; i++) {
           await store.answerQuestion(`${test.type}_${i + 1}`, answers[i]);
@@ -506,6 +528,7 @@ describe('COMPREHENSIVE CLINICAL SCORING VALIDATION - ALL 48 COMBINATIONS', () =
 
     it('Data integrity: Answer validation and persistence', async () => {
       await store.startAssessment('phq9', 'integrity_test');
+      await new Promise(resolve => setTimeout(resolve, 10));
       
       // Test invalid responses (should be rejected)
       const invalidResponses = [-1, 4, 5, 10, 'invalid'] as any[];

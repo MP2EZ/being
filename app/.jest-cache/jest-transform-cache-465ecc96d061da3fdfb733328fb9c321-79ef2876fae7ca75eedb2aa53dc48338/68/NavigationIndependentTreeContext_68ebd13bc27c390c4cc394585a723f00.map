@@ -1,0 +1,1 @@
+{"version":3,"names":["React","_interopRequireWildcard","require","NavigationIndependentTreeContext","exports","createContext"],"sources":["../../src/NavigationIndependentTreeContext.tsx"],"sourcesContent":[null],"mappings":";;;;;;;AAAA,IAAAA,KAAA,GAAAC,uBAAA,CAAAC,OAAA;AAKO,IAAMC,gCAAgC,GAAAC,OAAA,CAAAD,gCAAA,GAAGH,KAAK,CAACK,aAAa,CAAC,KAAK,CAAC","ignoreList":[]}

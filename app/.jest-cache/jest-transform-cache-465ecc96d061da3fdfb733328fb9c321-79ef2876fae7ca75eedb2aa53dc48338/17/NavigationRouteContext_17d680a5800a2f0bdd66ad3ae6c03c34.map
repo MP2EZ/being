@@ -1,0 +1,1 @@
+{"version":3,"names":["React","_interopRequireWildcard","require","NavigationRouteContext","exports","createContext","undefined"],"sources":["../../src/NavigationRouteContext.tsx"],"sourcesContent":[null],"mappings":";;;;;;;AACA,IAAAA,KAAA,GAAAC,uBAAA,CAAAC,OAAA;AAKO,IAAMC,sBAAsB,GAAAC,OAAA,CAAAD,sBAAA,GAAGH,KAAK,CAACK,aAAa,CAEvDC,SAAS,CAAC","ignoreList":[]}

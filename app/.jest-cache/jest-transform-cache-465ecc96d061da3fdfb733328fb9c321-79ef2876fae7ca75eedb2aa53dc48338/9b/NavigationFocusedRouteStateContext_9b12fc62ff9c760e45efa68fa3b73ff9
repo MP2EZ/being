@@ -1,0 +1,11 @@
+97fe4fb5026687d7c56bb5b3c212a34e
+"use strict";
+
+var _interopRequireWildcard = require("@babel/runtime/helpers/interopRequireWildcard").default;
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.NavigationFocusedRouteStateContext = void 0;
+var React = _interopRequireWildcard(require("react"));
+var NavigationFocusedRouteStateContext = exports.NavigationFocusedRouteStateContext = React.createContext(undefined);
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJuYW1lcyI6WyJSZWFjdCIsIl9pbnRlcm9wUmVxdWlyZVdpbGRjYXJkIiwicmVxdWlyZSIsIk5hdmlnYXRpb25Gb2N1c2VkUm91dGVTdGF0ZUNvbnRleHQiLCJleHBvcnRzIiwiY3JlYXRlQ29udGV4dCIsInVuZGVmaW5lZCJdLCJzb3VyY2VzIjpbIi4uLy4uL3NyYy9OYXZpZ2F0aW9uRm9jdXNlZFJvdXRlU3RhdGVDb250ZXh0LnRzeCJdLCJzb3VyY2VzQ29udGVudCI6W251bGxdLCJtYXBwaW5ncyI6Ijs7Ozs7OztBQUFBLElBQUFBLEtBQUEsR0FBQUMsdUJBQUEsQ0FBQUMsT0FBQTtBQWlCTyxJQUFNQyxrQ0FBa0MsR0FBQUMsT0FBQSxDQUFBRCxrQ0FBQSxHQUFHSCxLQUFLLENBQUNLLGFBQWEsQ0FFbkVDLFNBQVMsQ0FBQyIsImlnbm9yZUxpc3QiOltdfQ==

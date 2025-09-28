@@ -1,0 +1,296 @@
+9a309bd52bb926c646ca07da665f5d59
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+var _exportNames = {
+  BaseNavigationContainer: true,
+  createNavigationContainerRef: true,
+  createNavigatorFactory: true,
+  CurrentRenderContext: true,
+  findFocusedRoute: true,
+  getActionFromState: true,
+  getFocusedRouteNameFromRoute: true,
+  getPathFromState: true,
+  getStateFromPath: true,
+  NavigationContainerRefContext: true,
+  NavigationContext: true,
+  NavigationHelpersContext: true,
+  NavigationIndependentTree: true,
+  NavigationRouteContext: true,
+  PreventRemoveContext: true,
+  PreventRemoveProvider: true,
+  createComponentForStaticNavigation: true,
+  createPathConfigForStaticNavigation: true,
+  ThemeContext: true,
+  ThemeProvider: true,
+  useTheme: true,
+  useFocusEffect: true,
+  useIsFocused: true,
+  useNavigation: true,
+  useNavigationBuilder: true,
+  useNavigationContainerRef: true,
+  useNavigationIndependentTree: true,
+  useNavigationState: true,
+  usePreventRemove: true,
+  usePreventRemoveContext: true,
+  useRoute: true,
+  useStateForPath: true,
+  validatePathConfig: true
+};
+Object.defineProperty(exports, "BaseNavigationContainer", {
+  enumerable: true,
+  get: function get() {
+    return _BaseNavigationContainer.BaseNavigationContainer;
+  }
+});
+Object.defineProperty(exports, "CurrentRenderContext", {
+  enumerable: true,
+  get: function get() {
+    return _CurrentRenderContext.CurrentRenderContext;
+  }
+});
+Object.defineProperty(exports, "NavigationContainerRefContext", {
+  enumerable: true,
+  get: function get() {
+    return _NavigationContainerRefContext.NavigationContainerRefContext;
+  }
+});
+Object.defineProperty(exports, "NavigationContext", {
+  enumerable: true,
+  get: function get() {
+    return _NavigationContext.NavigationContext;
+  }
+});
+Object.defineProperty(exports, "NavigationHelpersContext", {
+  enumerable: true,
+  get: function get() {
+    return _NavigationHelpersContext.NavigationHelpersContext;
+  }
+});
+Object.defineProperty(exports, "NavigationIndependentTree", {
+  enumerable: true,
+  get: function get() {
+    return _NavigationIndependentTree.NavigationIndependentTree;
+  }
+});
+Object.defineProperty(exports, "NavigationRouteContext", {
+  enumerable: true,
+  get: function get() {
+    return _NavigationRouteContext.NavigationRouteContext;
+  }
+});
+Object.defineProperty(exports, "PreventRemoveContext", {
+  enumerable: true,
+  get: function get() {
+    return _PreventRemoveContext.PreventRemoveContext;
+  }
+});
+Object.defineProperty(exports, "PreventRemoveProvider", {
+  enumerable: true,
+  get: function get() {
+    return _PreventRemoveProvider.PreventRemoveProvider;
+  }
+});
+Object.defineProperty(exports, "ThemeContext", {
+  enumerable: true,
+  get: function get() {
+    return _ThemeContext.ThemeContext;
+  }
+});
+Object.defineProperty(exports, "ThemeProvider", {
+  enumerable: true,
+  get: function get() {
+    return _ThemeProvider.ThemeProvider;
+  }
+});
+Object.defineProperty(exports, "createComponentForStaticNavigation", {
+  enumerable: true,
+  get: function get() {
+    return _StaticNavigation.createComponentForStaticNavigation;
+  }
+});
+Object.defineProperty(exports, "createNavigationContainerRef", {
+  enumerable: true,
+  get: function get() {
+    return _createNavigationContainerRef.createNavigationContainerRef;
+  }
+});
+Object.defineProperty(exports, "createNavigatorFactory", {
+  enumerable: true,
+  get: function get() {
+    return _createNavigatorFactory.createNavigatorFactory;
+  }
+});
+Object.defineProperty(exports, "createPathConfigForStaticNavigation", {
+  enumerable: true,
+  get: function get() {
+    return _StaticNavigation.createPathConfigForStaticNavigation;
+  }
+});
+Object.defineProperty(exports, "findFocusedRoute", {
+  enumerable: true,
+  get: function get() {
+    return _findFocusedRoute.findFocusedRoute;
+  }
+});
+Object.defineProperty(exports, "getActionFromState", {
+  enumerable: true,
+  get: function get() {
+    return _getActionFromState.getActionFromState;
+  }
+});
+Object.defineProperty(exports, "getFocusedRouteNameFromRoute", {
+  enumerable: true,
+  get: function get() {
+    return _getFocusedRouteNameFromRoute.getFocusedRouteNameFromRoute;
+  }
+});
+Object.defineProperty(exports, "getPathFromState", {
+  enumerable: true,
+  get: function get() {
+    return _getPathFromState.getPathFromState;
+  }
+});
+Object.defineProperty(exports, "getStateFromPath", {
+  enumerable: true,
+  get: function get() {
+    return _getStateFromPath.getStateFromPath;
+  }
+});
+Object.defineProperty(exports, "useFocusEffect", {
+  enumerable: true,
+  get: function get() {
+    return _useFocusEffect.useFocusEffect;
+  }
+});
+Object.defineProperty(exports, "useIsFocused", {
+  enumerable: true,
+  get: function get() {
+    return _useIsFocused.useIsFocused;
+  }
+});
+Object.defineProperty(exports, "useNavigation", {
+  enumerable: true,
+  get: function get() {
+    return _useNavigation.useNavigation;
+  }
+});
+Object.defineProperty(exports, "useNavigationBuilder", {
+  enumerable: true,
+  get: function get() {
+    return _useNavigationBuilder.useNavigationBuilder;
+  }
+});
+Object.defineProperty(exports, "useNavigationContainerRef", {
+  enumerable: true,
+  get: function get() {
+    return _useNavigationContainerRef.useNavigationContainerRef;
+  }
+});
+Object.defineProperty(exports, "useNavigationIndependentTree", {
+  enumerable: true,
+  get: function get() {
+    return _useNavigationIndependentTree.useNavigationIndependentTree;
+  }
+});
+Object.defineProperty(exports, "useNavigationState", {
+  enumerable: true,
+  get: function get() {
+    return _useNavigationState.useNavigationState;
+  }
+});
+Object.defineProperty(exports, "usePreventRemove", {
+  enumerable: true,
+  get: function get() {
+    return _usePreventRemove.usePreventRemove;
+  }
+});
+Object.defineProperty(exports, "usePreventRemoveContext", {
+  enumerable: true,
+  get: function get() {
+    return _usePreventRemoveContext.usePreventRemoveContext;
+  }
+});
+Object.defineProperty(exports, "useRoute", {
+  enumerable: true,
+  get: function get() {
+    return _useRoute.useRoute;
+  }
+});
+Object.defineProperty(exports, "useStateForPath", {
+  enumerable: true,
+  get: function get() {
+    return _useStateForPath.useStateForPath;
+  }
+});
+Object.defineProperty(exports, "useTheme", {
+  enumerable: true,
+  get: function get() {
+    return _useTheme.useTheme;
+  }
+});
+Object.defineProperty(exports, "validatePathConfig", {
+  enumerable: true,
+  get: function get() {
+    return _validatePathConfig.validatePathConfig;
+  }
+});
+var _BaseNavigationContainer = require("./BaseNavigationContainer.js");
+var _createNavigationContainerRef = require("./createNavigationContainerRef.js");
+var _createNavigatorFactory = require("./createNavigatorFactory.js");
+var _CurrentRenderContext = require("./CurrentRenderContext.js");
+var _findFocusedRoute = require("./findFocusedRoute.js");
+var _getActionFromState = require("./getActionFromState.js");
+var _getFocusedRouteNameFromRoute = require("./getFocusedRouteNameFromRoute.js");
+var _getPathFromState = require("./getPathFromState.js");
+var _getStateFromPath = require("./getStateFromPath.js");
+var _NavigationContainerRefContext = require("./NavigationContainerRefContext.js");
+var _NavigationContext = require("./NavigationContext.js");
+var _NavigationHelpersContext = require("./NavigationHelpersContext.js");
+var _NavigationIndependentTree = require("./NavigationIndependentTree.js");
+var _NavigationRouteContext = require("./NavigationRouteContext.js");
+var _PreventRemoveContext = require("./PreventRemoveContext.js");
+var _PreventRemoveProvider = require("./PreventRemoveProvider.js");
+var _StaticNavigation = require("./StaticNavigation.js");
+var _ThemeContext = require("./theming/ThemeContext.js");
+var _ThemeProvider = require("./theming/ThemeProvider.js");
+var _useTheme = require("./theming/useTheme.js");
+var _types = require("./types.js");
+Object.keys(_types).forEach(function (key) {
+  if (key === "default" || key === "__esModule") return;
+  if (Object.prototype.hasOwnProperty.call(_exportNames, key)) return;
+  if (key in exports && exports[key] === _types[key]) return;
+  Object.defineProperty(exports, key, {
+    enumerable: true,
+    get: function get() {
+      return _types[key];
+    }
+  });
+});
+var _useFocusEffect = require("./useFocusEffect.js");
+var _useIsFocused = require("./useIsFocused.js");
+var _useNavigation = require("./useNavigation.js");
+var _useNavigationBuilder = require("./useNavigationBuilder.js");
+var _useNavigationContainerRef = require("./useNavigationContainerRef.js");
+var _useNavigationIndependentTree = require("./useNavigationIndependentTree.js");
+var _useNavigationState = require("./useNavigationState.js");
+var _usePreventRemove = require("./usePreventRemove.js");
+var _usePreventRemoveContext = require("./usePreventRemoveContext.js");
+var _useRoute = require("./useRoute.js");
+var _useStateForPath = require("./useStateForPath.js");
+var _validatePathConfig = require("./validatePathConfig.js");
+var _routers = require("@react-navigation/routers");
+Object.keys(_routers).forEach(function (key) {
+  if (key === "default" || key === "__esModule") return;
+  if (Object.prototype.hasOwnProperty.call(_exportNames, key)) return;
+  if (key in exports && exports[key] === _routers[key]) return;
+  Object.defineProperty(exports, key, {
+    enumerable: true,
+    get: function get() {
+      return _routers[key];
+    }
+  });
+});
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJuYW1lcyI6WyJfQmFzZU5hdmlnYXRpb25Db250YWluZXIiLCJyZXF1aXJlIiwiX2NyZWF0ZU5hdmlnYXRpb25Db250YWluZXJSZWYiLCJfY3JlYXRlTmF2aWdhdG9yRmFjdG9yeSIsIl9DdXJyZW50UmVuZGVyQ29udGV4dCIsIl9maW5kRm9jdXNlZFJvdXRlIiwiX2dldEFjdGlvbkZyb21TdGF0ZSIsIl9nZXRGb2N1c2VkUm91dGVOYW1lRnJvbVJvdXRlIiwiX2dldFBhdGhGcm9tU3RhdGUiLCJfZ2V0U3RhdGVGcm9tUGF0aCIsIl9OYXZpZ2F0aW9uQ29udGFpbmVyUmVmQ29udGV4dCIsIl9OYXZpZ2F0aW9uQ29udGV4dCIsIl9OYXZpZ2F0aW9uSGVscGVyc0NvbnRleHQiLCJfTmF2aWdhdGlvbkluZGVwZW5kZW50VHJlZSIsIl9OYXZpZ2F0aW9uUm91dGVDb250ZXh0IiwiX1ByZXZlbnRSZW1vdmVDb250ZXh0IiwiX1ByZXZlbnRSZW1vdmVQcm92aWRlciIsIl9TdGF0aWNOYXZpZ2F0aW9uIiwiX1RoZW1lQ29udGV4dCIsIl9UaGVtZVByb3ZpZGVyIiwiX3VzZVRoZW1lIiwiX3R5cGVzIiwiT2JqZWN0Iiwia2V5cyIsImZvckVhY2giLCJrZXkiLCJwcm90b3R5cGUiLCJoYXNPd25Qcm9wZXJ0eSIsImNhbGwiLCJfZXhwb3J0TmFtZXMiLCJleHBvcnRzIiwiZGVmaW5lUHJvcGVydHkiLCJlbnVtZXJhYmxlIiwiZ2V0IiwiX3VzZUZvY3VzRWZmZWN0IiwiX3VzZUlzRm9jdXNlZCIsIl91c2VOYXZpZ2F0aW9uIiwiX3VzZU5hdmlnYXRpb25CdWlsZGVyIiwiX3VzZU5hdmlnYXRpb25Db250YWluZXJSZWYiLCJfdXNlTmF2aWdhdGlvbkluZGVwZW5kZW50VHJlZSIsIl91c2VOYXZpZ2F0aW9uU3RhdGUiLCJfdXNlUHJldmVudFJlbW92ZSIsIl91c2VQcmV2ZW50UmVtb3ZlQ29udGV4dCIsIl91c2VSb3V0ZSIsIl91c2VTdGF0ZUZvclBhdGgiLCJfdmFsaWRhdGVQYXRoQ29uZmlnIiwiX3JvdXRlcnMiXSwic291cmNlcyI6WyIuLi8uLi9zcmMvaW5kZXgudHN4Il0sInNvdXJjZXNDb250ZW50IjpbbnVsbF0sIm1hcHBpbmdzIjoiOzs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7Ozs7O0FBQUEsSUFBQUEsd0JBQUEsR0FBQUMsT0FBQTtBQUNBLElBQUFDLDZCQUFBLEdBQUFELE9BQUE7QUFDQSxJQUFBRSx1QkFBQSxHQUFBRixPQUFBO0FBQ0EsSUFBQUcscUJBQUEsR0FBQUgsT0FBQTtBQUNBLElBQUFJLGlCQUFBLEdBQUFKLE9BQUE7QUFDQSxJQUFBSyxtQkFBQSxHQUFBTCxPQUFBO0FBQ0EsSUFBQU0sNkJBQUEsR0FBQU4sT0FBQTtBQUNBLElBQUFPLGlCQUFBLEdBQUFQLE9BQUE7QUFDQSxJQUFBUSxpQkFBQSxHQUFBUixPQUFBO0FBQ0EsSUFBQVMsOEJBQUEsR0FBQVQsT0FBQTtBQUNBLElBQUFVLGtCQUFBLEdBQUFWLE9BQUE7QUFDQSxJQUFBVyx5QkFBQSxHQUFBWCxPQUFBO0FBQ0EsSUFBQVksMEJBQUEsR0FBQVosT0FBQTtBQUNBLElBQUFhLHVCQUFBLEdBQUFiLE9BQUE7QUFDQSxJQUFBYyxxQkFBQSxHQUFBZCxPQUFBO0FBQ0EsSUFBQWUsc0JBQUEsR0FBQWYsT0FBQTtBQUNBLElBQUFnQixpQkFBQSxHQUFBaEIsT0FBQTtBQVVBLElBQUFpQixhQUFBLEdBQUFqQixPQUFBO0FBQ0EsSUFBQWtCLGNBQUEsR0FBQWxCLE9BQUE7QUFDQSxJQUFBbUIsU0FBQSxHQUFBbkIsT0FBQTtBQUNBLElBQUFvQixNQUFBLEdBQUFwQixPQUFBO0FBQUFxQixNQUFBLENBQUFDLElBQUEsQ0FBQUYsTUFBQSxFQUFBRyxPQUFBLFdBQUFDLEdBQUE7RUFBQSxJQUFBQSxHQUFBLGtCQUFBQSxHQUFBO0VBQUEsSUFBQUgsTUFBQSxDQUFBSSxTQUFBLENBQUFDLGNBQUEsQ0FBQUMsSUFBQSxDQUFBQyxZQUFBLEVBQUFKLEdBQUE7RUFBQSxJQUFBQSxHQUFBLElBQUFLLE9BQUEsSUFBQUEsT0FBQSxDQUFBTCxHQUFBLE1BQUFKLE1BQUEsQ0FBQUksR0FBQTtFQUFBSCxNQUFBLENBQUFTLGNBQUEsQ0FBQUQsT0FBQSxFQUFBTCxHQUFBO0lBQUFPLFVBQUE7SUFBQUMsR0FBQSxXQUFBQSxJQUFBO01BQUEsT0FBQVosTUFBQSxDQUFBSSxHQUFBO0lBQUE7RUFBQTtBQUFBO0FBQ0EsSUFBQVMsZUFBQSxHQUFBakMsT0FBQTtBQUNBLElBQUFrQyxhQUFBLEdBQUFsQyxPQUFBO0FBQ0EsSUFBQW1DLGNBQUEsR0FBQW5DLE9BQUE7QUFDQSxJQUFBb0MscUJBQUEsR0FBQXBDLE9BQUE7QUFDQSxJQUFBcUMsMEJBQUEsR0FBQXJDLE9BQUE7QUFDQSxJQUFBc0MsNkJBQUEsR0FBQXRDLE9BQUE7QUFDQSxJQUFBdUMsbUJBQUEsR0FBQXZDLE9BQUE7QUFDQSxJQUFBd0MsaUJBQUEsR0FBQXhDLE9BQUE7QUFDQSxJQUFBeUMsd0JBQUEsR0FBQXpDLE9BQUE7QUFDQSxJQUFBMEMsU0FBQSxHQUFBMUMsT0FBQTtBQUNBLElBQUEyQyxnQkFBQSxHQUFBM0MsT0FBQTtBQUNBLElBQUE0QyxtQkFBQSxHQUFBNUMsT0FBQTtBQUNBLElBQUE2QyxRQUFBLEdBQUE3QyxPQUFBO0FBQUFxQixNQUFBLENBQUFDLElBQUEsQ0FBQXVCLFFBQUEsRUFBQXRCLE9BQUEsV0FBQUMsR0FBQTtFQUFBLElBQUFBLEdBQUEsa0JBQUFBLEdBQUE7RUFBQSxJQUFBSCxNQUFBLENBQUFJLFNBQUEsQ0FBQUMsY0FBQSxDQUFBQyxJQUFBLENBQUFDLFlBQUEsRUFBQUosR0FBQTtFQUFBLElBQUFBLEdBQUEsSUFBQUssT0FBQSxJQUFBQSxPQUFBLENBQUFMLEdBQUEsTUFBQXFCLFFBQUEsQ0FBQXJCLEdBQUE7RUFBQUgsTUFBQSxDQUFBUyxjQUFBLENBQUFELE9BQUEsRUFBQUwsR0FBQTtJQUFBTyxVQUFBO0lBQUFDLEdBQUEsV0FBQUEsSUFBQTtNQUFBLE9BQUFhLFFBQUEsQ0FBQXJCLEdBQUE7SUFBQTtFQUFBO0FBQUEiLCJpZ25vcmVMaXN0IjpbXX0=

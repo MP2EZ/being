@@ -37,17 +37,17 @@ import type {
  */
 export const SUICIDAL_IDEATION_CONFIG = {
   /** PHQ-9 Question 9 ID */
-  readonly QUESTION_ID: 'phq9_9',
+  QUESTION_ID: 'phq9_9',
   /** Any response above this triggers crisis */
-  readonly TRIGGER_THRESHOLD: 0,
+  TRIGGER_THRESHOLD: 0,
   /** Maximum detection time (ms) */
-  readonly MAX_DETECTION_TIME_MS: 50,
+  MAX_DETECTION_TIME_MS: 50,
   /** Maximum intervention display time (ms) */
-  readonly MAX_INTERVENTION_TIME_MS: 200,
+  MAX_INTERVENTION_TIME_MS: 200,
   /** Minimum intervention duration before any dismissal option */
-  readonly MIN_INTERVENTION_DURATION_MS: 60000, // 60 seconds
+  MIN_INTERVENTION_DURATION_MS: 60000, // 60 seconds
   /** Follow-up requirement duration (24 hours) */
-  readonly MANDATORY_FOLLOWUP_DURATION_MS: 24 * 60 * 60 * 1000,
+  MANDATORY_FOLLOWUP_DURATION_MS: 24 * 60 * 60 * 1000,
 } as const;
 
 /**

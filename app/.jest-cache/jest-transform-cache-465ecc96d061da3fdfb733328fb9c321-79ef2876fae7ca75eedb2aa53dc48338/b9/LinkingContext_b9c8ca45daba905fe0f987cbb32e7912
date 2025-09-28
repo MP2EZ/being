@@ -1,0 +1,17 @@
+cc5986809fcc575dce9bd79fac4cc6b5
+"use strict";
+
+var _interopRequireWildcard = require("@babel/runtime/helpers/interopRequireWildcard").default;
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.LinkingContext = void 0;
+var React = _interopRequireWildcard(require("react"));
+var MISSING_CONTEXT_ERROR = "Couldn't find a LinkingContext context.";
+var LinkingContext = exports.LinkingContext = React.createContext({
+  get options() {
+    throw new Error(MISSING_CONTEXT_ERROR);
+  }
+});
+LinkingContext.displayName = 'LinkingContext';
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJuYW1lcyI6WyJSZWFjdCIsIl9pbnRlcm9wUmVxdWlyZVdpbGRjYXJkIiwicmVxdWlyZSIsIk1JU1NJTkdfQ09OVEVYVF9FUlJPUiIsIkxpbmtpbmdDb250ZXh0IiwiZXhwb3J0cyIsImNyZWF0ZUNvbnRleHQiLCJvcHRpb25zIiwiRXJyb3IiLCJkaXNwbGF5TmFtZSJdLCJzb3VyY2VzIjpbIi4uLy4uL3NyYy9MaW5raW5nQ29udGV4dC50c3giXSwic291cmNlc0NvbnRlbnQiOltudWxsXSwibWFwcGluZ3MiOiI7Ozs7Ozs7QUFDQSxJQUFBQSxLQUFBLEdBQUFDLHVCQUFBLENBQUFDLE9BQUE7QUFJQSxJQUFNQyxxQkFBcUIsR0FBRyx5Q0FBeUM7QUFFaEUsSUFBTUMsY0FBYyxHQUFBQyxPQUFBLENBQUFELGNBQUEsR0FBR0osS0FBSyxDQUFDTSxhQUFhLENBRTlDO0VBQ0QsSUFBSUMsT0FBT0EsQ0FBQSxFQUFRO0lBQ2pCLE1BQU0sSUFBSUMsS0FBSyxDQUFDTCxxQkFBcUIsQ0FBQztFQUN4QztBQUNGLENBQUMsQ0FBQztBQUVGQyxjQUFjLENBQUNLLFdBQVcsR0FBRyxnQkFBZ0IiLCJpZ25vcmVMaXN0IjpbXX0=

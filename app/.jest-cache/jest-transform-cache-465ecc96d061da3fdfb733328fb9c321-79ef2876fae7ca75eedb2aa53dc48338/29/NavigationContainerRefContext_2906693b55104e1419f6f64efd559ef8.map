@@ -1,0 +1,1 @@
+{"version":3,"names":["React","_interopRequireWildcard","require","NavigationContainerRefContext","exports","createContext","undefined"],"sources":["../../src/NavigationContainerRefContext.tsx"],"sourcesContent":[null],"mappings":";;;;;;;AACA,IAAAA,KAAA,GAAAC,uBAAA,CAAAC,OAAA;AAOO,IAAMC,6BAA6B,GAAAC,OAAA,CAAAD,6BAAA,GAAGH,KAAK,CAACK,aAAa,CAE9DC,SAAS,CAAC","ignoreList":[]}

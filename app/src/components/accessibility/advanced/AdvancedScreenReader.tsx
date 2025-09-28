@@ -328,14 +328,14 @@ export const AdvancedScreenReaderProvider: React.FC<AdvancedScreenReaderProvider
   const announceTherapeutic = useCallback((message: string, mood?: string) => {
     const currentHour = new Date().getHours();
     const timeOfDay = currentHour < 12 ? 'morning' : currentHour < 17 ? 'midday' : 'evening';
-    
+
     announce({
       message,
       type: 'therapeutic',
       priority: 'medium',
       gentleMode: true,
       therapeuticContext: {
-        mood,
+        ...(mood !== undefined && { mood }),
         timeOfDay,
       },
     });

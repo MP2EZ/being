@@ -40,19 +40,19 @@ import type {
  */
 export const CRISIS_DATA_CONFIG = {
   /** Data retention period (7 years for clinical records) */
-  readonly RETENTION_PERIOD_MS: 7 * 365 * 24 * 60 * 60 * 1000,
+  RETENTION_PERIOD_MS: 7 * 365 * 24 * 60 * 60 * 1000,
   /** Backup frequency (daily) */
-  readonly BACKUP_FREQUENCY_MS: 24 * 60 * 60 * 1000,
+  BACKUP_FREQUENCY_MS: 24 * 60 * 60 * 1000,
   /** Audit log rotation (monthly) */
-  readonly AUDIT_ROTATION_MS: 30 * 24 * 60 * 60 * 1000,
+  AUDIT_ROTATION_MS: 30 * 24 * 60 * 60 * 1000,
   /** Maximum data package size (5MB) */
-  readonly MAX_DATA_PACKAGE_SIZE: 5 * 1024 * 1024,
+  MAX_DATA_PACKAGE_SIZE: 5 * 1024 * 1024,
   /** Compression threshold (1MB) */
-  readonly COMPRESSION_THRESHOLD: 1024 * 1024,
+  COMPRESSION_THRESHOLD: 1024 * 1024,
   /** Storage encryption key prefix */
-  readonly ENCRYPTION_KEY_PREFIX: 'crisis_secure_',
+  ENCRYPTION_KEY_PREFIX: 'crisis_secure_',
   /** Audit trail key prefix */
-  readonly AUDIT_KEY_PREFIX: 'crisis_audit_'
+  AUDIT_KEY_PREFIX: 'crisis_audit_'
 } as const;
 
 /**

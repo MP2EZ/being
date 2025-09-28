@@ -609,17 +609,17 @@ export interface SecurityAction {
  */
 export interface SecurityPerformanceConstraints {
   /** Maximum encryption time (ms) */
-  readonly MAX_ENCRYPTION_TIME: 50;
+  MAX_ENCRYPTION_TIME: 50;
   /** Maximum authentication time (ms) */
-  readonly MAX_AUTH_TIME: 100;
+  MAX_AUTH_TIME: 100;
   /** Maximum biometric auth time (ms) */
-  readonly MAX_BIOMETRIC_AUTH_TIME: 200;
+  MAX_BIOMETRIC_AUTH_TIME: 200;
   /** Maximum key derivation time (ms) */
-  readonly MAX_KEY_DERIVATION_TIME: 500;
+  MAX_KEY_DERIVATION_TIME: 500;
   /** Maximum security monitoring impact (ms) */
-  readonly MAX_MONITORING_IMPACT: 5;
+  MAX_MONITORING_IMPACT: 5;
   /** Maximum risk assessment time (ms) */
-  readonly MAX_RISK_ASSESSMENT_TIME: 30;
+  MAX_RISK_ASSESSMENT_TIME: 30;
 }
 
 /**

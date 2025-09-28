@@ -1,0 +1,66 @@
+2f46e41da58432d3ab258de1e3c1a2c1
+"use strict";
+
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.fonts = void 0;
+var _reactNative = require("react-native");
+var WEB_FONT_STACK = 'system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"';
+var fonts = exports.fonts = _reactNative.Platform.select({
+  web: {
+    regular: {
+      fontFamily: WEB_FONT_STACK,
+      fontWeight: '400'
+    },
+    medium: {
+      fontFamily: WEB_FONT_STACK,
+      fontWeight: '500'
+    },
+    bold: {
+      fontFamily: WEB_FONT_STACK,
+      fontWeight: '600'
+    },
+    heavy: {
+      fontFamily: WEB_FONT_STACK,
+      fontWeight: '700'
+    }
+  },
+  ios: {
+    regular: {
+      fontFamily: 'System',
+      fontWeight: '400'
+    },
+    medium: {
+      fontFamily: 'System',
+      fontWeight: '500'
+    },
+    bold: {
+      fontFamily: 'System',
+      fontWeight: '600'
+    },
+    heavy: {
+      fontFamily: 'System',
+      fontWeight: '700'
+    }
+  },
+  default: {
+    regular: {
+      fontFamily: 'sans-serif',
+      fontWeight: 'normal'
+    },
+    medium: {
+      fontFamily: 'sans-serif-medium',
+      fontWeight: 'normal'
+    },
+    bold: {
+      fontFamily: 'sans-serif',
+      fontWeight: '600'
+    },
+    heavy: {
+      fontFamily: 'sans-serif',
+      fontWeight: '700'
+    }
+  }
+});
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJuYW1lcyI6WyJfcmVhY3ROYXRpdmUiLCJyZXF1aXJlIiwiV0VCX0ZPTlRfU1RBQ0siLCJmb250cyIsImV4cG9ydHMiLCJQbGF0Zm9ybSIsInNlbGVjdCIsIndlYiIsInJlZ3VsYXIiLCJmb250RmFtaWx5IiwiZm9udFdlaWdodCIsIm1lZGl1bSIsImJvbGQiLCJoZWF2eSIsImlvcyIsImRlZmF1bHQiXSwic291cmNlcyI6WyIuLi8uLi8uLi9zcmMvdGhlbWluZy9mb250cy50c3giXSwic291cmNlc0NvbnRlbnQiOltudWxsXSwibWFwcGluZ3MiOiI7Ozs7OztBQUFBLElBQUFBLFlBQUEsR0FBQUMsT0FBQTtBQUlBLElBQU1DLGNBQWMsR0FDbEIsdUhBQXVIO0FBRWxILElBQU1DLEtBQUssR0FBQUMsT0FBQSxDQUFBRCxLQUFBLEdBQUdFLHFCQUFRLENBQUNDLE1BQU0sQ0FBQztFQUNuQ0MsR0FBRyxFQUFFO0lBQ0hDLE9BQU8sRUFBRTtNQUNQQyxVQUFVLEVBQUVQLGNBQWM7TUFDMUJRLFVBQVUsRUFBRTtJQUNkLENBQUM7SUFDREMsTUFBTSxFQUFFO01BQ05GLFVBQVUsRUFBRVAsY0FBYztNQUMxQlEsVUFBVSxFQUFFO0lBQ2QsQ0FBQztJQUNERSxJQUFJLEVBQUU7TUFDSkgsVUFBVSxFQUFFUCxjQUFjO01BQzFCUSxVQUFVLEVBQUU7SUFDZCxDQUFDO0lBQ0RHLEtBQUssRUFBRTtNQUNMSixVQUFVLEVBQUVQLGNBQWM7TUFDMUJRLFVBQVUsRUFBRTtJQUNkO0VBQ0YsQ0FBQztFQUNESSxHQUFHLEVBQUU7SUFDSE4sT0FBTyxFQUFFO01BQ1BDLFVBQVUsRUFBRSxRQUFRO01BQ3BCQyxVQUFVLEVBQUU7SUFDZCxDQUFDO0lBQ0RDLE1BQU0sRUFBRTtNQUNORixVQUFVLEVBQUUsUUFBUTtNQUNwQkMsVUFBVSxFQUFFO0lBQ2QsQ0FBQztJQUNERSxJQUFJLEVBQUU7TUFDSkgsVUFBVSxFQUFFLFFBQVE7TUFDcEJDLFVBQVUsRUFBRTtJQUNkLENBQUM7SUFDREcsS0FBSyxFQUFFO01BQ0xKLFVBQVUsRUFBRSxRQUFRO01BQ3BCQyxVQUFVLEVBQUU7SUFDZDtFQUNGLENBQUM7RUFDREssT0FBTyxFQUFFO0lBQ1BQLE9BQU8sRUFBRTtNQUNQQyxVQUFVLEVBQUUsWUFBWTtNQUN4QkMsVUFBVSxFQUFFO0lBQ2QsQ0FBQztJQUNEQyxNQUFNLEVBQUU7TUFDTkYsVUFBVSxFQUFFLG1CQUFtQjtNQUMvQkMsVUFBVSxFQUFFO0lBQ2QsQ0FBQztJQUNERSxJQUFJLEVBQUU7TUFDSkgsVUFBVSxFQUFFLFlBQVk7TUFDeEJDLFVBQVUsRUFBRTtJQUNkLENBQUM7SUFDREcsS0FBSyxFQUFFO01BQ0xKLFVBQVUsRUFBRSxZQUFZO01BQ3hCQyxVQUFVLEVBQUU7SUFDZDtFQUNGO0FBQ0YsQ0FBbUQsQ0FBQyIsImlnbm9yZUxpc3QiOltdfQ==

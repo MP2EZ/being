@@ -1,0 +1,27 @@
+342ca9d033496d3da8d2c9568add1b92
+"use strict";
+
+var _interopRequireWildcard = require("@babel/runtime/helpers/interopRequireWildcard").default;
+Object.defineProperty(exports, "__esModule", {
+  value: true
+});
+exports.useKeyedChildListeners = useKeyedChildListeners;
+var React = _interopRequireWildcard(require("react"));
+function useKeyedChildListeners() {
+  var _React$useRef = React.useRef(Object.assign(Object.create(null), {
+      getState: {},
+      beforeRemove: {}
+    })),
+    keyedListeners = _React$useRef.current;
+  var addKeyedListener = React.useCallback(function (type, key, listener) {
+    keyedListeners[type][key] = listener;
+    return function () {
+      keyedListeners[type][key] = undefined;
+    };
+  }, [keyedListeners]);
+  return {
+    keyedListeners: keyedListeners,
+    addKeyedListener: addKeyedListener
+  };
+}
+//# sourceMappingURL=data:application/json;charset=utf-8;base64,eyJ2ZXJzaW9uIjozLCJuYW1lcyI6WyJSZWFjdCIsIl9pbnRlcm9wUmVxdWlyZVdpbGRjYXJkIiwicmVxdWlyZSIsInVzZUtleWVkQ2hpbGRMaXN0ZW5lcnMiLCJfUmVhY3QkdXNlUmVmIiwidXNlUmVmIiwiT2JqZWN0IiwiYXNzaWduIiwiY3JlYXRlIiwiZ2V0U3RhdGUiLCJiZWZvcmVSZW1vdmUiLCJrZXllZExpc3RlbmVycyIsImN1cnJlbnQiLCJhZGRLZXllZExpc3RlbmVyIiwidXNlQ2FsbGJhY2siLCJ0eXBlIiwia2V5IiwibGlzdGVuZXIiLCJ1bmRlZmluZWQiXSwic291cmNlcyI6WyIuLi8uLi9zcmMvdXNlS2V5ZWRDaGlsZExpc3RlbmVycy50c3giXSwic291cmNlc0NvbnRlbnQiOltudWxsXSwibWFwcGluZ3MiOiI7Ozs7Ozs7QUFBQSxJQUFBQSxLQUFBLEdBQUFDLHVCQUFBLENBQUFDLE9BQUE7QUFPTyxTQUFTQyxzQkFBc0JBLENBQUEsRUFBRztFQUN2QyxJQUFBQyxhQUFBLEdBQW9DSixLQUFLLENBQUNLLE1BQU0sQ0FNOUNDLE1BQU0sQ0FBQ0MsTUFBTSxDQUFDRCxNQUFNLENBQUNFLE1BQU0sQ0FBQyxJQUFJLENBQUMsRUFBRTtNQUNqQ0MsUUFBUSxFQUFFLENBQUMsQ0FBQztNQUNaQyxZQUFZLEVBQUUsQ0FBQztJQUNqQixDQUFDLENBQ0gsQ0FBQztJQVZnQkMsY0FBQSxHQUFBUCxhQUFBLENBQVRRLE9BQU87RUFZZixJQUFNQyxnQkFBZ0IsR0FBR2IsS0FBSyxDQUFDYyxXQUFXLENBQ3hDLFVBQ0VDLElBQU8sRUFDUEMsR0FBVyxFQUNYQyxRQUE2QixFQUMxQjtJQUVITixjQUFjLENBQUNJLElBQUksQ0FBQyxDQUFDQyxHQUFHLENBQUMsR0FBR0MsUUFBUTtJQUVwQyxPQUFPLFlBQU07TUFFWE4sY0FBYyxDQUFDSSxJQUFJLENBQUMsQ0FBQ0MsR0FBRyxDQUFDLEdBQUdFLFNBQVM7SUFDdkMsQ0FBQztFQUNILENBQUMsRUFDRCxDQUFDUCxjQUFjLENBQ2pCLENBQUM7RUFFRCxPQUFPO0lBQ0xBLGNBQWMsRUFBZEEsY0FBYztJQUNkRSxnQkFBQSxFQUFBQTtFQUNGLENBQUM7QUFDSCIsImlnbm9yZUxpc3QiOltdfQ==

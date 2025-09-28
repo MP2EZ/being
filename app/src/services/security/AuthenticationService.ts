@@ -40,29 +40,29 @@ import SecureStorageService from './SecureStorageService';
  */
 export const AUTH_CONFIG = {
   /** JWT token expiration (15 minutes) */
-  readonly ACCESS_TOKEN_EXPIRY_MS: 15 * 60 * 1000,
+  ACCESS_TOKEN_EXPIRY_MS: 15 * 60 * 1000,
   /** Refresh token expiration (7 days) */
-  readonly REFRESH_TOKEN_EXPIRY_MS: 7 * 24 * 60 * 60 * 1000,
+  REFRESH_TOKEN_EXPIRY_MS: 7 * 24 * 60 * 60 * 1000,
   /** Session timeout warning (2 minutes before expiry) */
-  readonly SESSION_WARNING_MS: 2 * 60 * 1000,
+  SESSION_WARNING_MS: 2 * 60 * 1000,
   /** Crisis access timeout (1 hour) */
-  readonly CRISIS_ACCESS_EXPIRY_MS: 60 * 60 * 1000,
+  CRISIS_ACCESS_EXPIRY_MS: 60 * 60 * 1000,
   /** Authentication attempt limit */
-  readonly MAX_AUTH_ATTEMPTS: 5,
+  MAX_AUTH_ATTEMPTS: 5,
   /** Rate limiting window (15 minutes) */
-  readonly RATE_LIMIT_WINDOW_MS: 15 * 60 * 1000,
+  RATE_LIMIT_WINDOW_MS: 15 * 60 * 1000,
   /** Biometric prompt retry limit */
-  readonly BIOMETRIC_RETRY_LIMIT: 3,
+  BIOMETRIC_RETRY_LIMIT: 3,
   /** Performance thresholds */
-  readonly STANDARD_AUTH_THRESHOLD_MS: 500,
-  readonly CRISIS_AUTH_THRESHOLD_MS: 200,
-  readonly SESSION_CHECK_THRESHOLD_MS: 100,
+  STANDARD_AUTH_THRESHOLD_MS: 500,
+  CRISIS_AUTH_THRESHOLD_MS: 200,
+  SESSION_CHECK_THRESHOLD_MS: 100,
   /** Security keys */
-  readonly ACCESS_TOKEN_KEY: 'auth_access_token',
-  readonly REFRESH_TOKEN_KEY: 'auth_refresh_token',
-  readonly USER_SESSION_KEY: 'auth_user_session',
-  readonly DEVICE_ID_KEY: 'auth_device_id',
-  readonly AUTH_ATTEMPTS_KEY: 'auth_attempts'
+  ACCESS_TOKEN_KEY: 'auth_access_token',
+  REFRESH_TOKEN_KEY: 'auth_refresh_token',
+  USER_SESSION_KEY: 'auth_user_session',
+  DEVICE_ID_KEY: 'auth_device_id',
+  AUTH_ATTEMPTS_KEY: 'auth_attempts'
 } as const;
 
 /**

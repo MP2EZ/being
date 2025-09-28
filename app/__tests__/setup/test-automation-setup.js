@@ -57,7 +57,17 @@ jest.mock('react-native', () => {
       select: jest.fn((obj) => obj.ios || obj.default)
     },
     Alert: {
-      alert: jest.fn(),
+      alert: jest.fn((title, message, buttons, options) => {
+        // Simulate immediate alert response for testing
+        if (buttons && buttons.length > 0) {
+          // Auto-trigger first button for predictable test behavior
+          setTimeout(() => {
+            if (buttons[0].onPress) {
+              buttons[0].onPress();
+            }
+          }, 0);
+        }
+      }),
       prompt: jest.fn()
     },
     Linking: {
@@ -337,10 +347,34 @@ process.on('unhandledRejection', (reason, promise) => {
   testMetrics.testsFailed++;
 });
 
+/**
+ * DUAL EXPORT PATTERN EXPLANATION:
+ * 
+ * This module exports utilities using both original and legacy naming conventions
+ * to maintain compatibility during the MAINT-11 test infrastructure transition.
+ * 
+ * DUAL EXPORTS:
+ * - performanceMonitor / PERFORMANCE_MONITOR: Performance tracking utilities
+ * - safetyValidator / SAFETY_VALIDATOR: Crisis and safety validation functions
+ * 
+ * PURPOSE:
+ * - Legacy test files may import using PERFORMANCE_MONITOR
+ * - New test files should prefer performanceMonitor
+ * - Both reference the same underlying object for consistency
+ * 
+ * MIGRATION PATH:
+ * 1. All functionality preserved during transition
+ * 2. New tests use camelCase naming (performanceMonitor)
+ * 3. Legacy SCREAMING_CASE exports maintained for compatibility
+ * 4. Future cleanup will remove legacy exports after full migration
+ */
+
 // Export utilities for use in tests
 module.exports = {
   performanceMonitor,
+  PERFORMANCE_MONITOR: performanceMonitor, // Legacy compatibility export
   safetyValidator,
+  SAFETY_VALIDATOR: safetyValidator, // Legacy compatibility export
   performanceBaselines,
   testMetrics
 };

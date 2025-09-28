@@ -164,8 +164,7 @@ export type {
   ConsentManagementProps,
   SecurityAuthProps,
   MonitoringComponentProps,
-  PerformanceConstrainedProps,
-  ErrorBoundaryProps
+  PerformanceConstrainedProps
 } from './integration/components';
 
 // Component Utilities

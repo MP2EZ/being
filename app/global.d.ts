@@ -25,4 +25,64 @@ declare module '*.json' {
   export default value;
 }
 
+// Performance API augmentation for memory monitoring
+declare global {
+  interface Performance {
+    memory?: {
+      usedJSHeapSize: number;
+      totalJSHeapSize: number;
+      jsHeapSizeLimit: number;
+    };
+  }
+}
+
+// Typography interface augmentation for missing bodySmall
+declare module '@/styles/typography' {
+  interface TypographyStyles {
+    headline1: {
+      size: number;
+      weight: string;
+      spacing: number;
+    };
+    headline2: {
+      size: number;
+      weight: string;
+      spacing: number;
+    };
+    headline3: {
+      size: number;
+      weight: string;
+      spacing: number;
+    };
+    bodyLarge: {
+      size: number;
+      weight: string;
+      spacing: number;
+      lineHeight: number;
+    };
+    bodyRegular: {
+      size: number;
+      weight: string;
+      spacing: number;
+      lineHeight: number;
+    };
+    bodySmall: {
+      size: number;
+      weight: string;
+      spacing: number;
+      lineHeight: number;
+    };
+    caption: {
+      size: number;
+      weight: string;
+      spacing: number;
+    };
+    micro: {
+      size: number;
+      weight: string;
+      spacing: number;
+    };
+  }
+}
+
 export {};
