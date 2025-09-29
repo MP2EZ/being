@@ -1,11 +1,11 @@
 /**
-import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * Clean Home Screen - Fresh start implementation
  * Shows three DRD-compliant check-in cards without crypto dependencies
  * Integrated with MBCT flow navigation
  */
 
 import React from 'react';
+import { logSecurity, logPerformance, logError, LogCategory } from '../../services/logging';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';

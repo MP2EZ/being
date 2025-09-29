@@ -11,8 +11,8 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
-  SafeAreaView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import OnboardingScreen from './OnboardingScreen.simple';
 
 // Hardcoded colors - no dynamic theme system
