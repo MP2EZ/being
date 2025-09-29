@@ -31,6 +31,8 @@
 import * as Crypto from 'expo-crypto';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
+import AesCrypto from 'react-native-aes-crypto';
+import { v4 as uuidv4 } from 'uuid';
 
 /**
  * ENCRYPTION CONFIGURATION
@@ -47,7 +49,7 @@ export const ENCRYPTION_CONFIG = {
   /** Salt length for key derivation */
   SALT_LENGTH: 32,
   /** PBKDF2 iterations (100,000) */
-  readonly PBKDF2_ITERATIONS: 100000,
+  PBKDF2_ITERATIONS: 100000,
   /** Key rotation interval (30 days) */
   KEY_ROTATION_INTERVAL_MS: 30 * 24 * 60 * 60 * 1000,
   /** Master key identifier */
@@ -169,6 +171,12 @@ export class EncryptionService {
 
       // Initialize key rotation
       await this.checkKeyRotationRequirements();
+
+      // Run legacy data migration
+      const migrationResult = await this.migrateLegacyEncryptedData();
+      if (migrationResult.warnings.length > 0) {
+        console.warn('⚠️  Migration warnings:', migrationResult.warnings);
+      }
 
       this.masterKeyInitialized = true;
 
@@ -638,27 +646,30 @@ export class EncryptionService {
         };
 
       } else {
-        // React Native implementation using Expo Crypto
-        // Note: This is a simplified implementation
-        // In production, would use react-native-crypto or similar
-        
-        const combinedData = new Uint8Array(data.byteLength + iv.byteLength);
-        combinedData.set(new Uint8Array(data), 0);
-        combinedData.set(new Uint8Array(iv), data.byteLength);
+        // React Native implementation using react-native-aes-crypto
+        const keyB64 = this.arrayBufferToBase64(key);
+        const ivB64 = this.arrayBufferToBase64(iv);
+        const dataB64 = this.arrayBufferToBase64(data);
 
-        const digest = await Crypto.digestStringAsync(
-          Crypto.CryptoDigestAlgorithm.SHA256,
-          this.arrayBufferToBase64(combinedData.buffer),
-          { encoding: Crypto.CryptoEncoding.BASE64 }
+        // AES-256-GCM encryption with authentication
+        const encryptedResult = await AesCrypto.encrypt(
+          dataB64,
+          keyB64,
+          ivB64,
+          'aes-256-gcm'
         );
 
-        // This is a placeholder - would need proper AES-GCM implementation
-        const encryptedData = new TextEncoder().encode(digest);
-        const tag = await this.generateSecureRandomBytes(ENCRYPTION_CONFIG.TAG_LENGTH);
+        // Parse the result which contains both ciphertext and auth tag
+        // react-native-aes-crypto returns: "ciphertext:authTag" format
+        const [ciphertext, authTag] = encryptedResult.split(':');
+
+        if (!ciphertext || !authTag) {
+          throw new Error('Invalid encryption result format');
+        }
 
         return {
-          ciphertext: encryptedData.buffer,
-          tag: tag
+          ciphertext: this.base64ToArrayBuffer(ciphertext),
+          tag: this.base64ToArrayBuffer(authTag)
         };
       }
 
@@ -703,13 +714,24 @@ export class EncryptionService {
         return decryptedResult;
 
       } else {
-        // React Native implementation
-        // This is a placeholder - would need proper AES-GCM implementation
-        
-        const decryptedString = new TextDecoder().decode(ciphertext);
-        // Would need to reverse the encryption process
-        
-        return new TextEncoder().encode('decrypted_placeholder').buffer;
+        // React Native implementation using react-native-aes-crypto
+        const keyB64 = this.arrayBufferToBase64(key);
+        const ivB64 = this.arrayBufferToBase64(iv);
+        const ciphertextB64 = this.arrayBufferToBase64(ciphertext);
+        const tagB64 = this.arrayBufferToBase64(tag);
+
+        // Combine ciphertext and auth tag for decryption
+        const encryptedData = `${ciphertextB64}:${tagB64}`;
+
+        // AES-256-GCM decryption with authentication verification
+        const decryptedB64 = await AesCrypto.decrypt(
+          encryptedData,
+          keyB64,
+          ivB64,
+          'aes-256-gcm'
+        );
+
+        return this.base64ToArrayBuffer(decryptedB64);
       }
 
     } catch (error) {
@@ -749,29 +771,141 @@ export class EncryptionService {
         return derivedBits;
 
       } else {
-        // React Native implementation
-        // Would use react-native-crypto or similar library
-        
-        // Placeholder implementation
-        const combinedData = new Uint8Array(password.byteLength + salt.byteLength);
-        combinedData.set(new Uint8Array(password), 0);
-        combinedData.set(new Uint8Array(salt), password.byteLength);
+        // React Native implementation using react-native-aes-crypto
+        const passwordB64 = this.arrayBufferToBase64(password);
+        const saltB64 = this.arrayBufferToBase64(salt);
 
-        const digest = await Crypto.digestStringAsync(
-          Crypto.CryptoDigestAlgorithm.SHA256,
-          this.arrayBufferToBase64(combinedData.buffer),
-          { encoding: Crypto.CryptoEncoding.BASE64 }
+        // PBKDF2 with specified iterations and key length
+        const derivedKeyB64 = await AesCrypto.pbkdf2(
+          passwordB64,
+          saltB64,
+          iterations,
+          keyLength * 8 // Convert bytes to bits
         );
 
-        const derivedKey = this.base64ToArrayBuffer(digest);
-        
-        // Truncate to desired length
-        return derivedKey.slice(0, keyLength);
+        return this.base64ToArrayBuffer(derivedKeyB64);
       }
 
     } catch (error) {
       console.error('🚨 PBKDF2 KEY DERIVATION ERROR:', error);
       throw error;
+    }
+  }
+
+  /**
+   * LEGACY DATA MIGRATION
+   * Handles migration from broken encryption to secure implementation
+   */
+  public async migrateLegacyEncryptedData(): Promise<{
+    migrationRequired: boolean;
+    migrationCompleted: boolean;
+    legacyDataDetected: string[];
+    warnings: string[];
+  }> {
+    try {
+      console.log('🔄 Checking for legacy encrypted data...');
+
+      const migrationStatus = {
+        migrationRequired: false,
+        migrationCompleted: false,
+        legacyDataDetected: [] as string[],
+        warnings: [] as string[]
+      };
+
+      // Check if migration already completed
+      const migrationFlag = await SecureStore.getItemAsync('@being/encryption_migration_v2');
+      if (migrationFlag === 'completed') {
+        migrationStatus.migrationCompleted = true;
+        console.log('✅ Encryption migration already completed');
+        return migrationStatus;
+      }
+
+      // Check for legacy encrypted data patterns
+      const legacyKeys = [
+        '@being/assessment_data',
+        '@being/crisis_data',
+        '@being/user_data',
+        '@being/encrypted_backup'
+      ];
+
+      for (const key of legacyKeys) {
+        try {
+          const legacyData = await SecureStore.getItemAsync(key);
+          if (legacyData) {
+            // Check if this looks like legacy SHA-256 hash (64 hex characters)
+            if (/^[a-f0-9]{64}$/i.test(legacyData)) {
+              migrationStatus.legacyDataDetected.push(key);
+              migrationStatus.migrationRequired = true;
+              migrationStatus.warnings.push(
+                `Legacy data at ${key} cannot be recovered - was only hashed, not encrypted`
+              );
+            }
+          }
+        } catch (error) {
+          console.warn(`Unable to check legacy data at ${key}:`, error);
+        }
+      }
+
+      if (migrationStatus.migrationRequired) {
+        console.warn('⚠️  Legacy encrypted data detected - migration required');
+
+        // Since legacy data was only hashed (not encrypted), we can't recover it
+        // We'll need to clear it and let users re-enter their data
+        for (const key of migrationStatus.legacyDataDetected) {
+          try {
+            await SecureStore.deleteItemAsync(key);
+            console.log(`🗑️  Cleared unrecoverable legacy data: ${key}`);
+          } catch (error) {
+            console.error(`Failed to clear legacy data ${key}:`, error);
+          }
+        }
+
+        // Mark migration as completed
+        await SecureStore.setItemAsync('@being/encryption_migration_v2', 'completed');
+        migrationStatus.migrationCompleted = true;
+
+        console.log('✅ Legacy data migration completed');
+      } else {
+        // No legacy data found, mark as completed
+        await SecureStore.setItemAsync('@being/encryption_migration_v2', 'completed');
+        migrationStatus.migrationCompleted = true;
+        console.log('✅ No legacy data found - migration not required');
+      }
+
+      return migrationStatus;
+
+    } catch (error) {
+      console.error('🚨 LEGACY DATA MIGRATION ERROR:', error);
+      throw new Error(`Migration failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * DEVICE ID GENERATION
+   * Secure device identification for anonymous authentication
+   */
+  public async generateSecureDeviceId(): Promise<string> {
+    try {
+      // Check if device ID already exists
+      const existingDeviceId = await SecureStore.getItemAsync('@being/device_id');
+
+      if (existingDeviceId) {
+        console.log('🔑 Device ID found');
+        return existingDeviceId;
+      }
+
+      // Generate cryptographically secure UUIDv4
+      const deviceId = uuidv4();
+
+      // Store securely
+      await SecureStore.setItemAsync('@being/device_id', deviceId);
+
+      console.log('🔑 New device ID generated');
+      return deviceId;
+
+    } catch (error) {
+      console.error('🚨 DEVICE ID GENERATION ERROR:', error);
+      throw new Error(`Device ID generation failed: ${error.message}`);
     }
   }
 
