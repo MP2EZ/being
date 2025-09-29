@@ -1,4 +1,5 @@
 /**
+import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * DRD-FLOW-005 Assessment Store - Production-Ready Implementation
  * Clinical accuracy validated and regulatory compliant
  * Designed for reusability in DRD-FLOW-001 onboarding
@@ -83,7 +84,7 @@ class EncryptedAssessmentStorage {
       // Audit trail for clinical compliance
       await this.logAccess('SAVE', Object.keys(data).length);
     } catch (error) {
-      console.error('Assessment storage save failed:', error);
+      logError('Assessment storage save failed:', error);
       throw new Error('Failed to save assessment data securely');
     }
   }
@@ -97,7 +98,7 @@ class EncryptedAssessmentStorage {
       await this.logAccess('LOAD', Object.keys(data).length);
       return data;
     } catch (error) {
-      console.error('Assessment storage load failed:', error);
+      logError('Assessment storage load failed:', error);
       return null;
     }
   }
@@ -107,7 +108,7 @@ class EncryptedAssessmentStorage {
       await SecureStore.deleteItemAsync(this.STORAGE_KEY);
       await this.logAccess('CLEAR', 0);
     } catch (error) {
-      console.error('Assessment storage clear failed:', error);
+      logError('Assessment storage clear failed:', error);
     }
   }
 
@@ -131,7 +132,7 @@ class EncryptedAssessmentStorage {
       
       await AsyncStorage.setItem(this.AUDIT_KEY, JSON.stringify(auditTrail));
     } catch (error) {
-      console.error('Audit logging failed:', error);
+      logError('Audit logging failed:', error);
     }
   }
 }
@@ -260,12 +261,12 @@ class CrisisDetectionService {
       // Validate response time (must be <200ms)
       const responseTime = Date.now() - startTime;
       if (responseTime >= 200) {
-        console.warn(`Crisis detection exceeded 200ms: ${responseTime}ms`);
+        logSecurity(`Crisis detection exceeded 200ms: ${responseTime}ms`);
       }
 
       return detection;
     } catch (error) {
-      console.error('Crisis detection failed:', error);
+      logError('Crisis detection failed:', error);
       return null;
     }
   }
@@ -299,7 +300,7 @@ class CrisisDetectionService {
       // Log crisis intervention for clinical records
       await this.logCrisisIntervention(detection);
     } catch (error) {
-      console.error('Emergency response failed:', error);
+      logError('Emergency response failed:', error);
       // Fallback: Direct 988 call
       Linking.openURL('tel:988');
     }
@@ -319,7 +320,7 @@ class CrisisDetectionService {
         JSON.stringify(interventionLog)
       );
     } catch (error) {
-      console.error('Crisis intervention logging failed:', error);
+      logError('Crisis intervention logging failed:', error);
     }
   }
 }
@@ -594,7 +595,7 @@ export const useAssessmentStore = create<AssessmentStore>()(
 
             return true;
           } catch (error) {
-            console.error('Session recovery failed:', error);
+            logError('Session recovery failed:', error);
             return false;
           }
         },
@@ -643,7 +644,7 @@ export const useAssessmentStore = create<AssessmentStore>()(
             await EncryptedAssessmentStorage.save(dataToSave);
             set({ lastSavedAt: Date.now(), lastSyncAt: Date.now() });
           } catch (error) {
-            console.error('Save progress failed:', error);
+            logError('Save progress failed:', error);
             set({ error: 'Failed to save assessment progress' });
           }
         },
@@ -711,14 +712,14 @@ export const useAssessmentStore = create<AssessmentStore>()(
             try {
               await EncryptedAssessmentStorage.save(JSON.parse(value));
             } catch (error) {
-              console.error('Encrypted storage setItem failed:', error);
+              logError('Encrypted storage setItem failed:', error);
             }
           },
           removeItem: async (name: string) => {
             try {
               await EncryptedAssessmentStorage.clear();
             } catch (error) {
-              console.error('Encrypted storage removeItem failed:', error);
+              logError('Encrypted storage removeItem failed:', error);
             }
           }
         })),
@@ -753,7 +754,7 @@ useAssessmentStore.subscribe(
         try {
           await useAssessmentStore.getState().saveProgress();
         } catch (error) {
-          console.error('Auto-save failed:', error);
+          logError('Auto-save failed:', error);
         }
       }, 1000);
     }

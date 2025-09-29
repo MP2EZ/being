@@ -1,4 +1,5 @@
 /**
+import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * Evening Flow Navigator
  * CRITICAL CLINICAL SAFETY IMPLEMENTATION:
  * - Crisis button always present in headers
@@ -47,7 +48,7 @@ const EveningFlowNavigator: React.FC<EveningFlowNavigatorProps> = ({
 }) => {
   const handleCrisisSupport = () => {
     // TODO: Navigate to crisis support resources
-    console.log('Crisis support accessed from evening flow');
+    logPerformance('Crisis support accessed from evening flow');
   };
 
   return (

@@ -1,4 +1,5 @@
 /**
+import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * Enhanced Assessment Question Component - Comprehensive Integration
  * 
  * INTEGRATIONS:
@@ -111,7 +112,7 @@ const mockCrisisEngine = {
     
     if (data.questionId === 'phq9_9' && data.response > 0) {
       const detectionTime = performance.now() - startTime;
-      console.log(`🚨 Crisis detection time: ${detectionTime}ms`);
+      logPerformance(`🚨 Crisis detection time: ${detectionTime}ms`);
       
       return {
         isTriggered: true,
@@ -157,7 +158,7 @@ const mockEncryptionService = {
     await new Promise(resolve => setTimeout(resolve, 10));
     
     const encryptionTime = performance.now() - encryptionStart;
-    console.log(`🔒 Encryption time: ${encryptionTime}ms`);
+    logPerformance(`🔒 Encryption time: ${encryptionTime}ms`);
     
     return {
       success: true,
@@ -170,17 +171,17 @@ const mockEncryptionService = {
 
 const mockAuditLogger = {
   logHighRiskAccess: (data: any) => {
-    console.log('🔍 High-risk question access logged:', data);
+    logPerformance('🔍 High-risk question access logged:', data);
   },
   logAssessmentResponse: async (data: any) => {
-    console.log('📋 Assessment response logged:', data);
+    logPerformance('📋 Assessment response logged:', data);
     return { auditId: `audit_${Date.now()}` };
   }
 };
 
 const mockPerformanceMonitor = {
-  startMeasurement: (name: string) => console.log(`📊 Started measuring: ${name}`),
-  endMeasurement: (name: string) => console.log(`📊 Ended measuring: ${name}`)
+  startMeasurement: (name: string) => logPerformance(`📊 Started measuring: ${name}`),
+  endMeasurement: (name: string) => logPerformance(`📊 Ended measuring: ${name}`)
 };
 
 const EnhancedAssessmentQuestion: React.FC<EnhancedAssessmentQuestionProps> = ({
@@ -333,11 +334,11 @@ const EnhancedAssessmentQuestion: React.FC<EnhancedAssessmentQuestionProps> = ({
 
       // Validate performance requirements
       if (totalResponseTime > 300) {
-        console.warn(`⚠️ Assessment response time: ${totalResponseTime}ms (target: <300ms)`);
+        logSecurity(`⚠️ Assessment response time: ${totalResponseTime}ms (target: <300ms)`);
       }
 
       if (crisisDetection && crisisCheckTime > 200) {
-        console.error(`🚨 Crisis detection time: ${crisisCheckTime}ms (target: <200ms)`);
+        logError(`🚨 Crisis detection time: ${crisisCheckTime}ms (target: <200ms)`);
       }
 
       // 6. Create comprehensive metadata
@@ -363,7 +364,7 @@ const EnhancedAssessmentQuestion: React.FC<EnhancedAssessmentQuestionProps> = ({
       );
 
     } catch (error) {
-      console.error('Enhanced assessment response error:', error);
+      logError('Enhanced assessment response error:', error);
       setEncryptionStatus('error');
       onError?.(error as Error);
       

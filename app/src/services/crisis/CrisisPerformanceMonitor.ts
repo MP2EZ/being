@@ -1,4 +1,5 @@
 /**
+import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * CRISIS PERFORMANCE MONITORING - DRD-FLOW-005 Quality Assurance
  *
  * CRITICAL PERFORMANCE REQUIREMENTS:
@@ -249,7 +250,7 @@ export class CrisisPerformanceMonitor {
       this.performSystemHealthCheck();
     }, PERFORMANCE_REQUIREMENTS.MONITORING_INTERVAL_MS);
 
-    console.log('🔍 Crisis Performance Monitoring Started');
+    logPerformance('🔍 Crisis Performance Monitoring Started');
   }
 
   /**
@@ -263,7 +264,7 @@ export class CrisisPerformanceMonitor {
       this.monitoringInterval = undefined;
     }
 
-    console.log('⏹️ Crisis Performance Monitoring Stopped');
+    logPerformance('⏹️ Crisis Performance Monitoring Stopped');
   }
 
   /**
@@ -338,7 +339,7 @@ export class CrisisPerformanceMonitor {
       }
 
     } catch (error) {
-      console.error('🚨 PERFORMANCE RECORDING ERROR:', error);
+      logError('🚨 PERFORMANCE RECORDING ERROR:', error);
     }
   }
 
@@ -383,7 +384,7 @@ export class CrisisPerformanceMonitor {
       }
 
     } catch (error) {
-      console.error('🚨 SUICIDAL IDEATION PERFORMANCE ERROR:', error);
+      logError('🚨 SUICIDAL IDEATION PERFORMANCE ERROR:', error);
     }
   }
 
@@ -450,7 +451,7 @@ export class CrisisPerformanceMonitor {
       }
 
     } catch (error) {
-      console.error('🚨 INTERVENTION PERFORMANCE ERROR:', error);
+      logError('🚨 INTERVENTION PERFORMANCE ERROR:', error);
     }
   }
 
@@ -506,7 +507,7 @@ export class CrisisPerformanceMonitor {
       }
 
     } catch (error) {
-      console.error('🚨 SYSTEM RELIABILITY RECORDING ERROR:', error);
+      logError('🚨 SYSTEM RELIABILITY RECORDING ERROR:', error);
     }
   }
 
@@ -566,7 +567,7 @@ export class CrisisPerformanceMonitor {
       return report;
 
     } catch (error) {
-      console.error('🚨 PERFORMANCE REPORT GENERATION ERROR:', error);
+      logError('🚨 PERFORMANCE REPORT GENERATION ERROR:', error);
       throw error;
     }
   }
@@ -604,7 +605,7 @@ export class CrisisPerformanceMonitor {
       });
 
     } catch (error) {
-      console.error('🚨 HEALTH CHECK ERROR:', error);
+      logError('🚨 HEALTH CHECK ERROR:', error);
     }
   }
 
@@ -631,7 +632,7 @@ export class CrisisPerformanceMonitor {
       await this.cleanupOldMetrics();
 
     } catch (error) {
-      console.error('🚨 METRIC RECORDING ERROR:', error);
+      logError('🚨 METRIC RECORDING ERROR:', error);
     }
   }
 
@@ -964,7 +965,7 @@ export class CrisisPerformanceMonitor {
         JSON.stringify(metric)
       );
     } catch (error) {
-      console.error('Failed to store performance metric:', error);
+      logError('Failed to store performance metric:', error);
     }
   }
 
@@ -976,7 +977,7 @@ export class CrisisPerformanceMonitor {
         JSON.stringify(alert)
       );
     } catch (error) {
-      console.error('Failed to store performance alert:', error);
+      logError('Failed to store performance alert:', error);
     }
   }
 
@@ -987,13 +988,13 @@ export class CrisisPerformanceMonitor {
         JSON.stringify(report)
       );
     } catch (error) {
-      console.error('Failed to store performance report:', error);
+      logError('Failed to store performance report:', error);
     }
   }
 
   private async escalateEmergencyAlert(alert: PerformanceAlert): Promise<void> {
     // Implementation would notify system administrators
-    console.error('🚨 EMERGENCY ALERT ESCALATED:', alert.message);
+    logError('🚨 EMERGENCY ALERT ESCALATED:', alert.message);
   }
 
   private async cleanupOldMetrics(): Promise<void> {

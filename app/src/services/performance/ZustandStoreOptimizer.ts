@@ -1,4 +1,5 @@
 /**
+import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * Zustand Store Performance Optimizer for Large Datasets
  *
  * TARGET: <50ms for store operations, efficient memory usage for large datasets
@@ -255,7 +256,7 @@ class StorePartitionManager {
       this.keyToPartition.set(key, partitionId);
     });
 
-    console.log(`📦 Created partition: ${partitionId} with ${keys.length} keys`);
+    logPerformance(`📦 Created partition: ${partitionId} with ${keys.length} keys`);
   }
 
   /**
@@ -275,7 +276,7 @@ class StorePartitionManager {
       partition.loadTime = performance.now() - startTime;
       partition.lastAccessed = Date.now();
 
-      console.log(`✅ Loaded partition: ${partitionId} in ${partition.loadTime.toFixed(2)}ms`);
+      logPerformance(`✅ Loaded partition: ${partitionId} in ${partition.loadTime.toFixed(2)}ms`);
 
       DeviceEventEmitter.emit('partition_loaded', {
         partitionId,
@@ -284,7 +285,7 @@ class StorePartitionManager {
       });
 
     } catch (error) {
-      console.error(`Failed to load partition: ${partitionId}`, error);
+      logError(`Failed to load partition: ${partitionId}`, error);
     }
   }
 
@@ -424,13 +425,13 @@ class BatchOperationProcessor {
       try {
         operation();
       } catch (error) {
-        console.error(`Batch operation failed (${priority}):`, error);
+        logError(`Batch operation failed (${priority}):`, error);
       }
     });
 
     const batchTime = performance.now() - startTime;
 
-    console.log(`📦 Processed ${operations.length} operations in ${batchTime.toFixed(2)}ms`);
+    logPerformance(`📦 Processed ${operations.length} operations in ${batchTime.toFixed(2)}ms`);
 
     DeviceEventEmitter.emit('batch_operations_processed', {
       operationCount: operations.length,
@@ -506,7 +507,7 @@ export class ZustandStoreOptimizer {
   static initialize(): void {
     if (this.isInitialized) return;
 
-    console.log('🏪 Initializing Zustand store optimizer...');
+    logPerformance('🏪 Initializing Zustand store optimizer...');
 
     // Setup default partitions for assessment data
     this.setupDefaultPartitions();
@@ -515,7 +516,7 @@ export class ZustandStoreOptimizer {
     this.setupPerformanceMonitoring();
 
     this.isInitialized = true;
-    console.log('✅ Zustand store optimizer initialized');
+    logPerformance('✅ Zustand store optimizer initialized');
   }
 
   /**
@@ -580,11 +581,11 @@ export class ZustandStoreOptimizer {
 
     // Alert on performance issues
     if (cacheStats.hitRate < 70) {
-      console.warn(`⚠️ Low cache hit rate: ${cacheStats.hitRate.toFixed(2)}%`);
+      logSecurity(`⚠️ Low cache hit rate: ${cacheStats.hitRate.toFixed(2)}%`);
     }
 
     if (partitionStats.averageLoadTime > 100) {
-      console.warn(`⚠️ Slow partition loading: ${partitionStats.averageLoadTime.toFixed(2)}ms`);
+      logSecurity(`⚠️ Slow partition loading: ${partitionStats.averageLoadTime.toFixed(2)}ms`);
     }
   }
 
@@ -647,12 +648,12 @@ export class ZustandStoreOptimizer {
 
           // Check performance threshold
           if (executionTime > this.config.maxOperationTime) {
-            console.warn(`⚠️ Slow store operation: ${operationName} took ${executionTime.toFixed(2)}ms`);
+            logSecurity(`⚠️ Slow store operation: ${operationName} took ${executionTime.toFixed(2)}ms`);
           }
 
           resolve(result);
         } catch (error) {
-          console.error(`Store operation failed: ${operationName}`, error);
+          logError(`Store operation failed: ${operationName}`, error);
           reject(error);
         }
       };
@@ -845,7 +846,7 @@ export class ZustandStoreOptimizer {
       this.selectorCache = new SelectorCache(config.maxCacheSize);
     }
 
-    console.log('Zustand store optimizer configured:', this.config);
+    logPerformance('Zustand store optimizer configured:', this.config);
   }
 
   /**
@@ -857,7 +858,7 @@ export class ZustandStoreOptimizer {
     this.partitionManager.clear();
     this.batchProcessor.clear();
     this.isInitialized = false;
-    console.log('Zustand store optimizer reset');
+    logPerformance('Zustand store optimizer reset');
   }
 }
 

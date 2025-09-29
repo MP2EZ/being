@@ -1,4 +1,5 @@
 /**
+import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * PRODUCTION-SAFE LOGGING SERVICE - HIPAA Compliant
  *
  * SECURITY REQUIREMENTS:
@@ -334,7 +335,7 @@ export class ProductionLogger {
     // Production: Only critical errors to console
     if (this.environment === 'production') {
       if (entry.level === 'ERROR') {
-        console.error(`[${entry.category}] ${entry.message}`);
+        logError(`[${entry.category}] ${entry.message}`);
       }
       return;
     }
@@ -344,16 +345,16 @@ export class ProductionLogger {
       const prefix = this.getLogPrefix(entry);
 
       if (entry.context) {
-        console.log(prefix, entry.context);
+        logPerformance(prefix, entry.context);
       } else {
-        console.log(prefix);
+        logPerformance(prefix);
       }
       return;
     }
 
     // Test: Minimal output
     if (entry.level === 'ERROR') {
-      console.error(`[TEST][${entry.category}] ${entry.message}`);
+      logError(`[TEST][${entry.category}] ${entry.message}`);
     }
   }
 
@@ -436,7 +437,7 @@ export class ProductionLogger {
    * EMERGENCY SHUTDOWN
    */
   emergencyShutdown(reason: string): void {
-    console.error(`🚨 EMERGENCY LOGGER SHUTDOWN: ${reason}`);
+    logError(`🚨 EMERGENCY LOGGER SHUTDOWN: ${reason}`);
     this.auditTrail.length = 0;
   }
 }

@@ -1,4 +1,5 @@
 /**
+import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * Assessment Integration Example - Comprehensive System Demonstration
  * 
  * DEMONSTRATES COMPLETE INTEGRATION:
@@ -95,7 +96,7 @@ const AssessmentIntegrationExample: React.FC = () => {
       // Simulate crisis detection for demonstration
       setTimeout(() => {
         performance.recordCrisisDetection(150); // Good performance
-        console.log('🚨 Demo: Crisis detection simulated');
+        logPerformance('🚨 Demo: Crisis detection simulated');
       }, 3000);
     }
   }, [demoSettings.simulateCrisis, isRunning, performance]);
@@ -105,20 +106,20 @@ const AssessmentIntegrationExample: React.FC = () => {
       // Simulate performance issues for demonstration
       setTimeout(() => {
         performance.recordCrisisDetection(250); // Poor performance
-        console.warn('⚠️ Demo: Performance issue simulated');
+        logSecurity('⚠️ Demo: Performance issue simulated');
       }, 5000);
     }
   }, [demoSettings.simulateErrors, isRunning, performance]);
 
   // Handle assessment completion
   const handleAssessmentComplete = useCallback((result: PHQ9Result | GAD7Result) => {
-    console.log('✅ Assessment completed:', result);
+    logPerformance('✅ Assessment completed:', result);
     setResults(prev => [...prev, result]);
     setIsRunning(false);
 
     // Generate performance report
     const report = performance.getPerformanceReport();
-    console.log('📊 Final Performance Report:', report);
+    logPerformance('📊 Final Performance Report:', report);
 
     Alert.alert(
       '✅ Assessment Complete',
@@ -129,14 +130,14 @@ const AssessmentIntegrationExample: React.FC = () => {
 
   // Handle assessment cancellation
   const handleAssessmentCancel = useCallback(() => {
-    console.log('❌ Assessment cancelled');
+    logPerformance('❌ Assessment cancelled');
     setIsRunning(false);
     performance.resetMetrics();
   }, [performance]);
 
   // Start assessment demo
   const startAssessmentDemo = useCallback(() => {
-    console.log('🚀 Starting assessment integration demo');
+    logPerformance('🚀 Starting assessment integration demo');
     setIsRunning(true);
     performance.resetMetrics();
     

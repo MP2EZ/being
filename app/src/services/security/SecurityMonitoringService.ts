@@ -1,4 +1,5 @@
 /**
+import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * SECURITY MONITORING SERVICE - DRD-FLOW-005 Security Implementation
  *
  * COMPREHENSIVE SECURITY MONITORING FOR MENTAL HEALTH APPLICATION:
@@ -327,7 +328,7 @@ export class SecurityMonitoringService {
     const startTime = performance.now();
 
     try {
-      console.log('🔍 Initializing Security Monitoring Service...');
+      logPerformance('🔍 Initializing Security Monitoring Service...');
 
       // Initialize all security services
       await this.encryptionService.initialize();
@@ -348,7 +349,7 @@ export class SecurityMonitoringService {
       this.initialized = true;
 
       const initializationTime = performance.now() - startTime;
-      console.log(`✅ Security Monitoring Service initialized (${initializationTime.toFixed(2)}ms)`);
+      logPerformance(`✅ Security Monitoring Service initialized (${initializationTime.toFixed(2)}ms)`);
 
       // Log successful initialization
       await this.logIncidentEvent({
@@ -372,7 +373,7 @@ export class SecurityMonitoringService {
       });
 
     } catch (error) {
-      console.error('🚨 SECURITY MONITORING INITIALIZATION ERROR:', error);
+      logError('🚨 SECURITY MONITORING INITIALIZATION ERROR:', error);
       throw new Error(`Security monitoring initialization failed: ${error.message}`);
     }
   }
@@ -386,7 +387,7 @@ export class SecurityMonitoringService {
     const assessmentId = await this.generateAssessmentId();
 
     try {
-      console.log('🔍 Performing comprehensive vulnerability assessment...');
+      logPerformance('🔍 Performing comprehensive vulnerability assessment...');
 
       if (!this.initialized) {
         throw new Error('Security monitoring service not initialized');
@@ -446,19 +447,19 @@ export class SecurityMonitoringService {
 
       // Validate scan performance
       if (scanDuration > MONITORING_CONFIG.SCAN_DURATION_THRESHOLD_MS) {
-        console.warn(`⚠️  Vulnerability scan slow: ${scanDuration.toFixed(2)}ms > ${MONITORING_CONFIG.SCAN_DURATION_THRESHOLD_MS}ms`);
+        logSecurity(`⚠️  Vulnerability scan slow: ${scanDuration.toFixed(2)}ms > ${MONITORING_CONFIG.SCAN_DURATION_THRESHOLD_MS}ms`);
       }
 
       // Store assessment for historical tracking
       await this.storeAssessmentResults(assessment);
 
-      console.log(`🔍 Vulnerability assessment completed (${scanDuration.toFixed(2)}ms, ${vulnerabilities.length} vulnerabilities found)`);
+      logPerformance(`🔍 Vulnerability assessment completed (${scanDuration.toFixed(2)}ms, ${vulnerabilities.length} vulnerabilities found)`);
 
       return assessment;
 
     } catch (error) {
       const scanDuration = performance.now() - startTime;
-      console.error('🚨 VULNERABILITY ASSESSMENT ERROR:', error);
+      logError('🚨 VULNERABILITY ASSESSMENT ERROR:', error);
 
       // Return failed assessment
       return {
@@ -489,7 +490,7 @@ export class SecurityMonitoringService {
     const startTime = performance.now();
 
     try {
-      console.log('🔍 Performing threat detection analysis...');
+      logPerformance('🔍 Performing threat detection analysis...');
 
       if (!this.initialized) {
         throw new Error('Security monitoring service not initialized');
@@ -531,15 +532,15 @@ export class SecurityMonitoringService {
 
       // Validate detection performance
       if (detectionTime > MONITORING_CONFIG.DETECTION_LATENCY_THRESHOLD_MS) {
-        console.warn(`⚠️  Threat detection slow: ${detectionTime.toFixed(2)}ms > ${MONITORING_CONFIG.DETECTION_LATENCY_THRESHOLD_MS}ms`);
+        logSecurity(`⚠️  Threat detection slow: ${detectionTime.toFixed(2)}ms > ${MONITORING_CONFIG.DETECTION_LATENCY_THRESHOLD_MS}ms`);
       }
 
-      console.log(`🔍 Threat detection completed (${detectionTime.toFixed(2)}ms, ${threats.length} threats detected)`);
+      logPerformance(`🔍 Threat detection completed (${detectionTime.toFixed(2)}ms, ${threats.length} threats detected)`);
 
       return threats;
 
     } catch (error) {
-      console.error('🚨 THREAT DETECTION ERROR:', error);
+      logError('🚨 THREAT DETECTION ERROR:', error);
       return [];
     }
   }
@@ -552,7 +553,7 @@ export class SecurityMonitoringService {
     const startTime = performance.now();
 
     try {
-      console.log('🚨 Performing incident detection...');
+      logPerformance('🚨 Performing incident detection...');
 
       if (!this.initialized) {
         throw new Error('Security monitoring service not initialized');
@@ -594,12 +595,12 @@ export class SecurityMonitoringService {
 
       const detectionTime = performance.now() - startTime;
 
-      console.log(`🚨 Incident detection completed (${detectionTime.toFixed(2)}ms, ${incidents.length} incidents detected)`);
+      logPerformance(`🚨 Incident detection completed (${detectionTime.toFixed(2)}ms, ${incidents.length} incidents detected)`);
 
       return incidents;
 
     } catch (error) {
-      console.error('🚨 INCIDENT DETECTION ERROR:', error);
+      logError('🚨 INCIDENT DETECTION ERROR:', error);
       return [];
     }
   }
@@ -612,7 +613,7 @@ export class SecurityMonitoringService {
     const startTime = performance.now();
 
     try {
-      console.log('📋 Performing compliance check...');
+      logPerformance('📋 Performing compliance check...');
 
       if (!this.initialized) {
         throw new Error('Security monitoring service not initialized');
@@ -646,7 +647,7 @@ export class SecurityMonitoringService {
 
       // Validate compliance check performance
       if (checkTime > MONITORING_CONFIG.COMPLIANCE_CHECK_THRESHOLD_MS) {
-        console.warn(`⚠️  Compliance check slow: ${checkTime.toFixed(2)}ms > ${MONITORING_CONFIG.COMPLIANCE_CHECK_THRESHOLD_MS}ms`);
+        logSecurity(`⚠️  Compliance check slow: ${checkTime.toFixed(2)}ms > ${MONITORING_CONFIG.COMPLIANCE_CHECK_THRESHOLD_MS}ms`);
       }
 
       // Log compliance violations
@@ -672,12 +673,12 @@ export class SecurityMonitoringService {
         });
       }
 
-      console.log(`📋 Compliance check completed (${checkTime.toFixed(2)}ms, overall score: ${overallScore.toFixed(1)}%)`);
+      logPerformance(`📋 Compliance check completed (${checkTime.toFixed(2)}ms, overall score: ${overallScore.toFixed(1)}%)`);
 
       return complianceStatus;
 
     } catch (error) {
-      console.error('🚨 COMPLIANCE CHECK ERROR:', error);
+      logError('🚨 COMPLIANCE CHECK ERROR:', error);
       
       // Return failed compliance status
       return {
@@ -696,10 +697,10 @@ export class SecurityMonitoringService {
    */
   public async startContinuousMonitoring(): Promise<void> {
     try {
-      console.log('🔄 Starting continuous security monitoring...');
+      logPerformance('🔄 Starting continuous security monitoring...');
 
       if (this.monitoringActive) {
-        console.log('⚠️  Monitoring already active');
+        logPerformance('⚠️  Monitoring already active');
         return;
       }
 
@@ -710,7 +711,7 @@ export class SecurityMonitoringService {
         try {
           await this.performRealTimeMonitoring();
         } catch (error) {
-          console.error('🚨 REAL-TIME MONITORING ERROR:', error);
+          logError('🚨 REAL-TIME MONITORING ERROR:', error);
         }
       }, MONITORING_CONFIG.REAL_TIME_MONITORING_MS);
 
@@ -719,7 +720,7 @@ export class SecurityMonitoringService {
         try {
           await this.performVulnerabilityAssessment();
         } catch (error) {
-          console.error('🚨 VULNERABILITY SCAN ERROR:', error);
+          logError('🚨 VULNERABILITY SCAN ERROR:', error);
         }
       }, MONITORING_CONFIG.VULNERABILITY_SCAN_MS);
 
@@ -728,7 +729,7 @@ export class SecurityMonitoringService {
         try {
           await this.performComplianceCheck();
         } catch (error) {
-          console.error('🚨 COMPLIANCE CHECK ERROR:', error);
+          logError('🚨 COMPLIANCE CHECK ERROR:', error);
         }
       }, MONITORING_CONFIG.COMPLIANCE_CHECK_MS);
 
@@ -737,14 +738,14 @@ export class SecurityMonitoringService {
         try {
           await this.performThreatDetection();
         } catch (error) {
-          console.error('🚨 THREAT ANALYSIS ERROR:', error);
+          logError('🚨 THREAT ANALYSIS ERROR:', error);
         }
       }, MONITORING_CONFIG.THREAT_ANALYSIS_MS);
 
-      console.log('✅ Continuous security monitoring started');
+      logPerformance('✅ Continuous security monitoring started');
 
     } catch (error) {
-      console.error('🚨 CONTINUOUS MONITORING START ERROR:', error);
+      logError('🚨 CONTINUOUS MONITORING START ERROR:', error);
       throw error;
     }
   }
@@ -774,7 +775,7 @@ export class SecurityMonitoringService {
       vulnerabilities.push(...dependencyVulns);
 
     } catch (error) {
-      console.error('🚨 APPLICATION SECURITY ASSESSMENT ERROR:', error);
+      logError('🚨 APPLICATION SECURITY ASSESSMENT ERROR:', error);
     }
 
     return vulnerabilities;
@@ -831,7 +832,7 @@ export class SecurityMonitoringService {
       }
 
     } catch (error) {
-      console.error('🚨 DATA SECURITY ASSESSMENT ERROR:', error);
+      logError('🚨 DATA SECURITY ASSESSMENT ERROR:', error);
     }
 
     return vulnerabilities;
@@ -885,7 +886,7 @@ export class SecurityMonitoringService {
       }
 
     } catch (error) {
-      console.error('🚨 NETWORK SECURITY ASSESSMENT ERROR:', error);
+      logError('🚨 NETWORK SECURITY ASSESSMENT ERROR:', error);
     }
 
     return vulnerabilities;
@@ -939,7 +940,7 @@ export class SecurityMonitoringService {
       }
 
     } catch (error) {
-      console.error('🚨 AUTHENTICATION SECURITY ASSESSMENT ERROR:', error);
+      logError('🚨 AUTHENTICATION SECURITY ASSESSMENT ERROR:', error);
     }
 
     return vulnerabilities;
@@ -993,7 +994,7 @@ export class SecurityMonitoringService {
       }
 
     } catch (error) {
-      console.error('🚨 CRISIS SECURITY ASSESSMENT ERROR:', error);
+      logError('🚨 CRISIS SECURITY ASSESSMENT ERROR:', error);
     }
 
     return vulnerabilities;
@@ -1030,7 +1031,7 @@ export class SecurityMonitoringService {
       });
 
     } catch (error) {
-      console.error('🚨 COMPONENT VULNERABILITY CHECK ERROR:', error);
+      logError('🚨 COMPONENT VULNERABILITY CHECK ERROR:', error);
     }
 
     return vulnerabilities;
@@ -1062,7 +1063,7 @@ export class SecurityMonitoringService {
       }
 
     } catch (error) {
-      console.error('🚨 SECURE CONFIGURATION CHECK ERROR:', error);
+      logError('🚨 SECURE CONFIGURATION CHECK ERROR:', error);
     }
 
     return vulnerabilities;
@@ -1094,7 +1095,7 @@ export class SecurityMonitoringService {
       });
 
     } catch (error) {
-      console.error('🚨 CODE QUALITY CHECK ERROR:', error);
+      logError('🚨 CODE QUALITY CHECK ERROR:', error);
     }
 
     return vulnerabilities;
@@ -1126,7 +1127,7 @@ export class SecurityMonitoringService {
       });
 
     } catch (error) {
-      console.error('🚨 DEPENDENCY VULNERABILITY CHECK ERROR:', error);
+      logError('🚨 DEPENDENCY VULNERABILITY CHECK ERROR:', error);
     }
 
     return vulnerabilities;
@@ -1144,7 +1145,7 @@ export class SecurityMonitoringService {
       // For now, return empty array
 
     } catch (error) {
-      console.error('🚨 BEHAVIORAL THREAT DETECTION ERROR:', error);
+      logError('🚨 BEHAVIORAL THREAT DETECTION ERROR:', error);
     }
 
     return threats;
@@ -1158,7 +1159,7 @@ export class SecurityMonitoringService {
       // For now, return empty array
 
     } catch (error) {
-      console.error('🚨 ANOMALY DETECTION ERROR:', error);
+      logError('🚨 ANOMALY DETECTION ERROR:', error);
     }
 
     return threats;
@@ -1172,7 +1173,7 @@ export class SecurityMonitoringService {
       // For now, return empty array
 
     } catch (error) {
-      console.error('🚨 SIGNATURE THREAT DETECTION ERROR:', error);
+      logError('🚨 SIGNATURE THREAT DETECTION ERROR:', error);
     }
 
     return threats;
@@ -1186,7 +1187,7 @@ export class SecurityMonitoringService {
       // For now, return empty array
 
     } catch (error) {
-      console.error('🚨 ML THREAT DETECTION ERROR:', error);
+      logError('🚨 ML THREAT DETECTION ERROR:', error);
     }
 
     return threats;
@@ -1204,7 +1205,7 @@ export class SecurityMonitoringService {
       // For now, return empty array
 
     } catch (error) {
-      console.error('🚨 SECURITY BREACH DETECTION ERROR:', error);
+      logError('🚨 SECURITY BREACH DETECTION ERROR:', error);
     }
 
     return incidents;
@@ -1218,7 +1219,7 @@ export class SecurityMonitoringService {
       // For now, return empty array
 
     } catch (error) {
-      console.error('🚨 DATA LEAK DETECTION ERROR:', error);
+      logError('🚨 DATA LEAK DETECTION ERROR:', error);
     }
 
     return incidents;
@@ -1254,7 +1255,7 @@ export class SecurityMonitoringService {
       }
 
     } catch (error) {
-      console.error('🚨 AUTHENTICATION FAILURE DETECTION ERROR:', error);
+      logError('🚨 AUTHENTICATION FAILURE DETECTION ERROR:', error);
     }
 
     return incidents;
@@ -1268,7 +1269,7 @@ export class SecurityMonitoringService {
       // For now, return empty array
 
     } catch (error) {
-      console.error('🚨 MALWARE DETECTION ERROR:', error);
+      logError('🚨 MALWARE DETECTION ERROR:', error);
     }
 
     return incidents;
@@ -1304,7 +1305,7 @@ export class SecurityMonitoringService {
       }
 
     } catch (error) {
-      console.error('🚨 COMPLIANCE VIOLATION DETECTION ERROR:', error);
+      logError('🚨 COMPLIANCE VIOLATION DETECTION ERROR:', error);
     }
 
     return incidents;
@@ -1352,7 +1353,7 @@ export class SecurityMonitoringService {
       };
 
     } catch (error) {
-      console.error('🚨 HIPAA COMPLIANCE CHECK ERROR:', error);
+      logError('🚨 HIPAA COMPLIANCE CHECK ERROR:', error);
       return {
         score: 0,
         status: 'non_compliant',
@@ -1398,7 +1399,7 @@ export class SecurityMonitoringService {
       };
 
     } catch (error) {
-      console.error('🚨 DATA PROTECTION COMPLIANCE CHECK ERROR:', error);
+      logError('🚨 DATA PROTECTION COMPLIANCE CHECK ERROR:', error);
       return {
         score: 0,
         encryptionCompliance: false,
@@ -1442,7 +1443,7 @@ export class SecurityMonitoringService {
       };
 
     } catch (error) {
-      console.error('🚨 CLINICAL COMPLIANCE CHECK ERROR:', error);
+      logError('🚨 CLINICAL COMPLIANCE CHECK ERROR:', error);
       return {
         score: 0,
         crisisProtocolCompliance: false,
@@ -1557,7 +1558,7 @@ export class SecurityMonitoringService {
       }
 
     } catch (error) {
-      console.error('🚨 RECOMMENDATION GENERATION ERROR:', error);
+      logError('🚨 RECOMMENDATION GENERATION ERROR:', error);
     }
 
     return recommendations;
@@ -1565,7 +1566,7 @@ export class SecurityMonitoringService {
 
   private async triggerAutomatedThreatResponse(threat: ThreatDetectionResult): Promise<void> {
     try {
-      console.log(`🚨 Triggering automated response for threat: ${threat.detectionId}`);
+      logPerformance(`🚨 Triggering automated response for threat: ${threat.detectionId}`);
 
       // Implement automated response based on threat type
       switch (threat.threatType) {
@@ -1583,49 +1584,49 @@ export class SecurityMonitoringService {
       }
 
     } catch (error) {
-      console.error('🚨 AUTOMATED THREAT RESPONSE ERROR:', error);
+      logError('🚨 AUTOMATED THREAT RESPONSE ERROR:', error);
     }
   }
 
   private async blockUnauthorizedAccess(threat: ThreatDetectionResult): Promise<void> {
     try {
       // Implementation would block unauthorized access
-      console.log(`🔒 Blocking unauthorized access: ${threat.detectionId}`);
+      logPerformance(`🔒 Blocking unauthorized access: ${threat.detectionId}`);
     } catch (error) {
-      console.error('🚨 BLOCK UNAUTHORIZED ACCESS ERROR:', error);
+      logError('🚨 BLOCK UNAUTHORIZED ACCESS ERROR:', error);
     }
   }
 
   private async preventDataExfiltration(threat: ThreatDetectionResult): Promise<void> {
     try {
       // Implementation would prevent data exfiltration
-      console.log(`🛡️  Preventing data exfiltration: ${threat.detectionId}`);
+      logPerformance(`🛡️  Preventing data exfiltration: ${threat.detectionId}`);
     } catch (error) {
-      console.error('🚨 PREVENT DATA EXFILTRATION ERROR:', error);
+      logError('🚨 PREVENT DATA EXFILTRATION ERROR:', error);
     }
   }
 
   private async quarantineMalware(threat: ThreatDetectionResult): Promise<void> {
     try {
       // Implementation would quarantine malware
-      console.log(`🦠 Quarantining malware: ${threat.detectionId}`);
+      logPerformance(`🦠 Quarantining malware: ${threat.detectionId}`);
     } catch (error) {
-      console.error('🚨 QUARANTINE MALWARE ERROR:', error);
+      logError('🚨 QUARANTINE MALWARE ERROR:', error);
     }
   }
 
   private async defaultThreatResponse(threat: ThreatDetectionResult): Promise<void> {
     try {
       // Default threat response
-      console.log(`⚠️  Default threat response: ${threat.detectionId}`);
+      logPerformance(`⚠️  Default threat response: ${threat.detectionId}`);
     } catch (error) {
-      console.error('🚨 DEFAULT THREAT RESPONSE ERROR:', error);
+      logError('🚨 DEFAULT THREAT RESPONSE ERROR:', error);
     }
   }
 
   private async processIncident(incident: IncidentDetectionEvent): Promise<void> {
     try {
-      console.log(`🚨 Processing incident: ${incident.incidentId}`);
+      logPerformance(`🚨 Processing incident: ${incident.incidentId}`);
 
       // Execute automatic response actions
       for (const action of incident.responseActions) {
@@ -1641,7 +1642,7 @@ export class SecurityMonitoringService {
       incident.containmentStatus = incident.automaticResponse ? 'contained' : 'in_progress';
 
     } catch (error) {
-      console.error('🚨 INCIDENT PROCESSING ERROR:', error);
+      logError('🚨 INCIDENT PROCESSING ERROR:', error);
     }
   }
 
@@ -1658,19 +1659,19 @@ export class SecurityMonitoringService {
           // Trigger compliance review
           break;
         default:
-          console.log(`📝 Response action logged: ${action}`);
+          logPerformance(`📝 Response action logged: ${action}`);
       }
     } catch (error) {
-      console.error('🚨 RESPONSE ACTION EXECUTION ERROR:', error);
+      logError('🚨 RESPONSE ACTION EXECUTION ERROR:', error);
     }
   }
 
   private async escalateIncident(incident: IncidentDetectionEvent): Promise<void> {
     try {
-      console.log(`🚨 Escalating incident: ${incident.incidentId}`);
+      logPerformance(`🚨 Escalating incident: ${incident.incidentId}`);
       // Implementation would escalate to security team
     } catch (error) {
-      console.error('🚨 INCIDENT ESCALATION ERROR:', error);
+      logError('🚨 INCIDENT ESCALATION ERROR:', error);
     }
   }
 
@@ -1681,7 +1682,7 @@ export class SecurityMonitoringService {
       await this.detectActiveThreats();
       await this.updateSecurityMetrics();
     } catch (error) {
-      console.error('🚨 REAL-TIME MONITORING ERROR:', error);
+      logError('🚨 REAL-TIME MONITORING ERROR:', error);
     }
   }
 
@@ -1694,7 +1695,7 @@ export class SecurityMonitoringService {
       // Update system health metrics
       this.securityMetrics.timestamp = Date.now();
     } catch (error) {
-      console.error('🚨 SYSTEM HEALTH CHECK ERROR:', error);
+      logError('🚨 SYSTEM HEALTH CHECK ERROR:', error);
     }
   }
 
@@ -1703,7 +1704,7 @@ export class SecurityMonitoringService {
       // Detect active threats in real-time
       // Implementation would be lightweight for real-time operation
     } catch (error) {
-      console.error('🚨 ACTIVE THREAT DETECTION ERROR:', error);
+      logError('🚨 ACTIVE THREAT DETECTION ERROR:', error);
     }
   }
 
@@ -1718,7 +1719,7 @@ export class SecurityMonitoringService {
       
       this.securityMetrics.overallSecurityScore = (vulnerabilityScore + complianceScore) / 2;
     } catch (error) {
-      console.error('🚨 SECURITY METRICS UPDATE ERROR:', error);
+      logError('🚨 SECURITY METRICS UPDATE ERROR:', error);
     }
   }
 
@@ -1787,7 +1788,7 @@ export class SecurityMonitoringService {
         'performance_tier'
       );
     } catch (error) {
-      console.error('🚨 ASSESSMENT STORAGE ERROR:', error);
+      logError('🚨 ASSESSMENT STORAGE ERROR:', error);
     }
   }
 
@@ -1808,7 +1809,7 @@ export class SecurityMonitoringService {
         );
       }
     } catch (error) {
-      console.error('🚨 INCIDENT LOGGING ERROR:', error);
+      logError('🚨 INCIDENT LOGGING ERROR:', error);
     }
   }
 
@@ -1898,7 +1899,7 @@ export class SecurityMonitoringService {
 
   public async stopContinuousMonitoring(): Promise<void> {
     try {
-      console.log('🛑 Stopping continuous security monitoring...');
+      logPerformance('🛑 Stopping continuous security monitoring...');
 
       this.monitoringActive = false;
 
@@ -1923,17 +1924,17 @@ export class SecurityMonitoringService {
         this.threatAnalysisTimer = null;
       }
 
-      console.log('✅ Continuous security monitoring stopped');
+      logPerformance('✅ Continuous security monitoring stopped');
 
     } catch (error) {
-      console.error('🚨 STOP MONITORING ERROR:', error);
+      logError('🚨 STOP MONITORING ERROR:', error);
       throw error;
     }
   }
 
   public async destroy(): Promise<void> {
     try {
-      console.log('🗑️  Destroying security monitoring service...');
+      logPerformance('🗑️  Destroying security monitoring service...');
 
       // Stop monitoring
       await this.stopContinuousMonitoring();
@@ -1947,10 +1948,10 @@ export class SecurityMonitoringService {
 
       this.initialized = false;
 
-      console.log('✅ Security monitoring service destroyed');
+      logPerformance('✅ Security monitoring service destroyed');
 
     } catch (error) {
-      console.error('🚨 SECURITY MONITORING DESTRUCTION ERROR:', error);
+      logError('🚨 SECURITY MONITORING DESTRUCTION ERROR:', error);
       throw error;
     }
   }

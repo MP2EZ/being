@@ -1,4 +1,5 @@
 /**
+import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * Supabase Service - Anonymous Cloud Storage for Encrypted Backups
  *
  * LEGAL COMPLIANCE:
@@ -150,10 +151,10 @@ class SupabaseService {
       await this.loadOfflineQueue();
 
       this.isInitialized = true;
-      console.log('[SupabaseService] Initialized with user ID:', this.userId);
+      logPerformance('[SupabaseService] Initialized with user ID:', this.userId);
 
     } catch (error) {
-      console.error('[SupabaseService] Initialization failed:', error);
+      logError('[SupabaseService] Initialization failed:', error);
       throw error;
     }
   }
@@ -204,7 +205,7 @@ class SupabaseService {
       await AsyncStorage.setItem(STORAGE_KEYS.DEVICE_ID, this.deviceIdHash);
 
     } catch (error) {
-      console.error('[SupabaseService] Failed to ensure anonymous user:', error);
+      logError('[SupabaseService] Failed to ensure anonymous user:', error);
       throw error;
     }
   }
@@ -308,7 +309,7 @@ class SupabaseService {
 
       } catch (error) {
         lastError = error as Error;
-        console.warn(`[SupabaseService] ${operationName} attempt ${attempt} failed:`, error);
+        logSecurity(`[SupabaseService] ${operationName} attempt ${attempt} failed:`, error);
 
         if (attempt < this.config.retryAttempts) {
           await this.sleep(this.config.retryDelayMs * attempt);
@@ -332,7 +333,7 @@ class SupabaseService {
    */
   async saveBackup(encryptedData: string, checksum: string, version: number = 1): Promise<boolean> {
     if (!this.isInitialized || !this.client || !this.userId) {
-      console.warn('[SupabaseService] Not initialized, queuing backup for later');
+      logSecurity('[SupabaseService] Not initialized, queuing backup for later');
       this.queueOfflineOperation('saveBackup', { encryptedData, checksum, version });
       return false;
     }
@@ -349,7 +350,7 @@ class SupabaseService {
     }, 'saveBackup');
 
     if (!result.success) {
-      console.error('[SupabaseService] Backup failed:', result.error);
+      logError('[SupabaseService] Backup failed:', result.error);
       this.queueOfflineOperation('saveBackup', { encryptedData, checksum, version });
       return false;
     }
@@ -364,7 +365,7 @@ class SupabaseService {
    */
   async getBackup(): Promise<EncryptedBackup | null> {
     if (!this.isInitialized || !this.client || !this.userId) {
-      console.warn('[SupabaseService] Not initialized, cannot retrieve backup');
+      logSecurity('[SupabaseService] Not initialized, cannot retrieve backup');
       return null;
     }
 
@@ -382,7 +383,7 @@ class SupabaseService {
     }, 'getBackup');
 
     if (!result.success) {
-      console.error('[SupabaseService] Get backup failed:', result.error);
+      logError('[SupabaseService] Get backup failed:', result.error);
       return null;
     }
 
@@ -397,7 +398,7 @@ class SupabaseService {
     properties: Record<string, any> = {}
   ): Promise<void> {
     if (!this.userId) {
-      console.warn('[SupabaseService] Cannot track event without user ID');
+      logSecurity('[SupabaseService] Cannot track event without user ID');
       return;
     }
 
@@ -483,7 +484,7 @@ class SupabaseService {
     }, 'flushAnalytics');
 
     if (!result.success) {
-      console.error('[SupabaseService] Analytics flush failed:', result.error);
+      logError('[SupabaseService] Analytics flush failed:', result.error);
       // Put events back in queue (with size limit)
       this.analyticsQueue = eventsToFlush.concat(this.analyticsQueue)
         .slice(0, this.config.offlineQueueSize);
@@ -529,7 +530,7 @@ class SupabaseService {
         this.offlineQueue = JSON.parse(queueData);
       }
     } catch (error) {
-      console.warn('[SupabaseService] Failed to load offline queue:', error);
+      logSecurity('[SupabaseService] Failed to load offline queue:', error);
       this.offlineQueue = [];
     }
   }
@@ -540,7 +541,7 @@ class SupabaseService {
   async processOfflineQueue(): Promise<void> {
     if (this.offlineQueue.length === 0 || !this.isInitialized) return;
 
-    console.log(`[SupabaseService] Processing ${this.offlineQueue.length} offline operations`);
+    logPerformance(`[SupabaseService] Processing ${this.offlineQueue.length} offline operations`);
 
     const processedOperations: number[] = [];
 
@@ -555,11 +556,11 @@ class SupabaseService {
             break;
 
           default:
-            console.warn(`[SupabaseService] Unknown offline operation: ${operation}`);
+            logSecurity(`[SupabaseService] Unknown offline operation: ${operation}`);
             processedOperations.push(i); // Remove unknown operations
         }
       } catch (error) {
-        console.error(`[SupabaseService] Failed to process offline operation ${operation}:`, error);
+        logError(`[SupabaseService] Failed to process offline operation ${operation}:`, error);
       }
     }
 

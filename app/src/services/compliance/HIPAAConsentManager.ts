@@ -1,4 +1,5 @@
 /**
+import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * HIPAA CONSENT MANAGER - DRD-FLOW-005 Assessment System
  *
  * COMPREHENSIVE CONSENT MANAGEMENT:
@@ -292,7 +293,7 @@ export class HIPAAConsentManager {
       };
 
     } catch (error) {
-      console.error('🚨 CONSENT VALIDATION ERROR:', error);
+      logError('🚨 CONSENT VALIDATION ERROR:', error);
       return {
         valid: false,
         status: 'not_found',
@@ -347,7 +348,7 @@ export class HIPAAConsentManager {
       return workflowId;
 
     } catch (error) {
-      console.error('🚨 CONSENT COLLECTION INITIATION ERROR:', error);
+      logError('🚨 CONSENT COLLECTION INITIATION ERROR:', error);
       throw new Error(`Failed to initiate consent collection: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
@@ -403,7 +404,7 @@ export class HIPAAConsentManager {
       }
 
     } catch (error) {
-      console.error(`🚨 WORKFLOW STEP ERROR (${step}):`, error);
+      logError(`🚨 WORKFLOW STEP ERROR (${step}):`, error);
       return {
         completed: false,
         error: error instanceof Error ? error.message : 'Unknown error'
@@ -675,7 +676,7 @@ export class HIPAAConsentManager {
       };
 
     } catch (error) {
-      console.error('🚨 CONSENT STORAGE ERROR:', error);
+      logError('🚨 CONSENT STORAGE ERROR:', error);
       workflow.status = 'failed';
       
       return {
@@ -769,7 +770,7 @@ export class HIPAAConsentManager {
       };
 
     } catch (error) {
-      console.error('🚨 CONSENT REVOCATION ERROR:', error);
+      logError('🚨 CONSENT REVOCATION ERROR:', error);
       return {
         success: false,
         revocationId: '',
@@ -817,7 +818,7 @@ export class HIPAAConsentManager {
       return consent;
 
     } catch (error) {
-      console.error('🚨 CONSENT LOADING ERROR:', error);
+      logError('🚨 CONSENT LOADING ERROR:', error);
       return null;
     }
   }
@@ -1097,7 +1098,7 @@ You can customize these choices or change them anytime in your settings.
       
       return false;
     } catch (error) {
-      console.error('🚨 SIGNATURE VALIDATION ERROR:', error);
+      logError('🚨 SIGNATURE VALIDATION ERROR:', error);
       return false;
     }
   }
@@ -1263,7 +1264,7 @@ You can customize these choices or change them anytime in your settings.
       };
 
     } catch (error) {
-      console.error('🚨 CONSENT STATUS ERROR:', error);
+      logError('🚨 CONSENT STATUS ERROR:', error);
       return {
         hasValidConsent: false,
         consentVersion: '',

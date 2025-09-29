@@ -1,4 +1,5 @@
 /**
+import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * Crisis Error Boundary - Safety-First Error Handling
  * 
  * CRITICAL SAFETY FEATURES:
@@ -177,7 +178,7 @@ export class CrisisErrorBoundary extends Component<
       };
 
       // Log to secure audit system (mock implementation)
-      console.error('🚨 Crisis Error Boundary:', sanitizedError);
+      logError('🚨 Crisis Error Boundary:', sanitizedError);
 
       // Report to error tracking service (in production)
       // ErrorTrackingService.reportError(sanitizedError);
@@ -192,7 +193,7 @@ export class CrisisErrorBoundary extends Component<
       }
 
     } catch (reportingError) {
-      console.error('Error reporting failed:', reportingError);
+      logError('Error reporting failed:', reportingError);
     }
   }
 
@@ -205,7 +206,7 @@ export class CrisisErrorBoundary extends Component<
     }
 
     const newRetryCount = this.state.retryCount + 1;
-    console.log(`🔄 Attempting recovery (attempt ${newRetryCount}/3)`);
+    logPerformance(`🔄 Attempting recovery (attempt ${newRetryCount}/3)`);
 
     this.setState({
       hasError: false,
@@ -255,7 +256,7 @@ export class CrisisErrorBoundary extends Component<
           text: 'Send Report',
           onPress: () => {
             // In production, this would open support form or email
-            console.log('📧 Support report requested');
+            logPerformance('📧 Support report requested');
           },
         },
         { text: 'Cancel', style: 'cancel' },

@@ -1,4 +1,5 @@
 /**
+import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * Accessibility Performance Optimization
  * 
  * PERFORMANCE SPECIFICATIONS:
@@ -149,7 +150,7 @@ export class AccessibilityPerformanceMonitor {
       this.collectMetrics();
     }, 5000);
 
-    console.log('🚀 Accessibility performance monitoring started');
+    logPerformance('🚀 Accessibility performance monitoring started');
   }
 
   stopMonitoring(): void {
@@ -162,7 +163,7 @@ export class AccessibilityPerformanceMonitor {
       this.intervalId = null;
     }
 
-    console.log('⏹️ Accessibility performance monitoring stopped');
+    logPerformance('⏹️ Accessibility performance monitoring stopped');
   }
 
   private async collectMetrics(): Promise<void> {
@@ -191,11 +192,11 @@ export class AccessibilityPerformanceMonitor {
 
       const collectionTime = performance.now() - startTime;
       if (collectionTime > 20) {
-        console.warn(`⚠️ Performance collection took ${collectionTime}ms (target: <20ms)`);
+        logSecurity(`⚠️ Performance collection took ${collectionTime}ms (target: <20ms)`);
       }
 
     } catch (error) {
-      console.error('Failed to collect accessibility performance metrics:', error);
+      logError('Failed to collect accessibility performance metrics:', error);
     }
   }
 
@@ -296,7 +297,7 @@ export class AccessibilityPerformanceMonitor {
     }
 
     if (issues.length > 0) {
-      console.log(`🔧 Auto-optimization applied for: ${issues.join(', ')}`);
+      logPerformance(`🔧 Auto-optimization applied for: ${issues.join(', ')}`);
     }
   }
 
@@ -357,7 +358,7 @@ export class AccessibilityPerformanceMonitor {
 
   private async applyOptimization(optimization: PerformanceOptimization): Promise<void> {
     // In a real implementation, this would apply the specific optimization
-    console.log(`🔧 Applying optimization: ${optimization.description}`);
+    logPerformance(`🔧 Applying optimization: ${optimization.description}`);
     
     // Simulate optimization application time
     await new Promise(resolve => setTimeout(resolve, 5));

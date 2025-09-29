@@ -1,4 +1,5 @@
 /**
+import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * Cloud Backup Service - Encrypted Data Backup to Supabase
  *
  * PRIVACY-FIRST DESIGN:
@@ -124,10 +125,10 @@ class CloudBackupService {
       this.setupAppStateListener();
 
       this.isInitialized = true;
-      console.log('[CloudBackupService] Initialized');
+      logPerformance('[CloudBackupService] Initialized');
 
     } catch (error) {
-      console.error('[CloudBackupService] Initialization failed:', error);
+      logError('[CloudBackupService] Initialization failed:', error);
       throw error;
     }
   }
@@ -137,7 +138,7 @@ class CloudBackupService {
    */
   async createBackup(): Promise<BackupResult> {
     if (!this.isInitialized) {
-      console.warn('[CloudBackupService] Not initialized');
+      logSecurity('[CloudBackupService] Not initialized');
       return { success: false, error: 'Service not initialized' };
     }
 
@@ -150,7 +151,7 @@ class CloudBackupService {
       // Check if data has changed since last backup
       const dataHash = await this.calculateDataHash(backupData);
       if (dataHash === this.lastBackupHash) {
-        console.log('[CloudBackupService] No changes detected, skipping backup');
+        logPerformance('[CloudBackupService] No changes detected, skipping backup');
         return { success: true, timestamp: Date.now() };
       }
 
@@ -207,7 +208,7 @@ class CloudBackupService {
       });
 
       const duration = Date.now() - startTime;
-      console.log(`[CloudBackupService] Backup completed in ${duration}ms, size: ${Math.round(finalSize / 1024)}KB`);
+      logPerformance(`[CloudBackupService] Backup completed in ${duration}ms, size: ${Math.round(finalSize / 1024)}KB`);
 
       return {
         success: true,
@@ -216,7 +217,7 @@ class CloudBackupService {
       };
 
     } catch (error) {
-      console.error('[CloudBackupService] Backup failed:', error);
+      logError('[CloudBackupService] Backup failed:', error);
 
       // Track failure
       await supabaseService.trackEvent('backup_failed', {
@@ -236,7 +237,7 @@ class CloudBackupService {
    */
   async restoreFromBackup(): Promise<RestoreResult> {
     if (!this.isInitialized) {
-      console.warn('[CloudBackupService] Not initialized');
+      logSecurity('[CloudBackupService] Not initialized');
       return { success: false, restoredStores: [], errors: ['Service not initialized'] };
     }
 
@@ -303,7 +304,7 @@ class CloudBackupService {
       });
 
       const duration = Date.now() - startTime;
-      console.log(`[CloudBackupService] Restore completed in ${duration}ms, restored: ${restoredStores.join(', ')}`);
+      logPerformance(`[CloudBackupService] Restore completed in ${duration}ms, restored: ${restoredStores.join(', ')}`);
 
       return {
         success: errors.length === 0,
@@ -313,7 +314,7 @@ class CloudBackupService {
       };
 
     } catch (error) {
-      console.error('[CloudBackupService] Restore failed:', error);
+      logError('[CloudBackupService] Restore failed:', error);
 
       // Track failure
       await supabaseService.trackEvent('backup_restore_failed', {
@@ -337,7 +338,7 @@ class CloudBackupService {
       const backup = await supabaseService.getBackup();
       return backup !== null;
     } catch (error) {
-      console.error('[CloudBackupService] Failed to check for backup:', error);
+      logError('[CloudBackupService] Failed to check for backup:', error);
       return false;
     }
   }
@@ -375,7 +376,7 @@ class CloudBackupService {
       };
 
     } catch (error) {
-      console.error('[CloudBackupService] Failed to get backup status:', error);
+      logError('[CloudBackupService] Failed to get backup status:', error);
       return {
         hasLocalData: false,
         hasCloudBackup: false,
@@ -505,7 +506,7 @@ class CloudBackupService {
         this.config = { ...this.config, ...savedConfig };
       }
     } catch (error) {
-      console.warn('[CloudBackupService] Failed to load config, using defaults');
+      logSecurity('[CloudBackupService] Failed to load config, using defaults');
     }
   }
 
@@ -516,7 +517,7 @@ class CloudBackupService {
     try {
       await AsyncStorage.setItem(STORAGE_KEYS.BACKUP_CONFIG, JSON.stringify(this.config));
     } catch (error) {
-      console.warn('[CloudBackupService] Failed to save config:', error);
+      logSecurity('[CloudBackupService] Failed to save config:', error);
     }
   }
 

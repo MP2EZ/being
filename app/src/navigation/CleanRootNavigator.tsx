@@ -1,4 +1,5 @@
 /**
+import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * Clean Root Navigator - Fresh start navigation
  * No crypto dependencies, minimal implementation
  * Includes MBCT flow modal presentations
@@ -23,17 +24,17 @@ const Stack = createStackNavigator<RootStackParamList>();
 
 const CleanRootNavigator: React.FC = () => {
   const handleMorningFlowComplete = (sessionData: any) => {
-    console.log('🌅 Morning flow completed:', sessionData);
+    logPerformance('🌅 Morning flow completed:', sessionData);
     // TODO: Store session data to analytics/state
   };
 
   const handleMiddayFlowComplete = (sessionData: any) => {
-    console.log('🧘 Midday flow completed:', sessionData);
+    logPerformance('🧘 Midday flow completed:', sessionData);
     // TODO: Store session data to analytics/state
   };
 
   const handleEveningFlowComplete = (sessionData: any) => {
-    console.log('🌙 Evening flow completed:', sessionData);
+    logPerformance('🌙 Evening flow completed:', sessionData);
     // TODO: Store session data to analytics/state
   };
 

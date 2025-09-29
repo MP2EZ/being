@@ -1,4 +1,5 @@
 /**
+import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * Clean Home Screen - Fresh start implementation
  * Shows three DRD-compliant check-in cards without crypto dependencies
  * Integrated with MBCT flow navigation
@@ -33,7 +34,7 @@ const CleanHomeScreen: React.FC = () => {
   const currentPeriod = getCurrentPeriod();
 
   const handleCheckInPress = (type: 'morning' | 'midday' | 'evening') => {
-    console.log(`🎯 ${type} check-in pressed`);
+    logPerformance(`🎯 ${type} check-in pressed`);
 
     switch (type) {
       case 'morning':

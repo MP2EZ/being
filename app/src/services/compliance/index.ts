@@ -145,7 +145,7 @@ export class HIPAAComplianceService {
       };
 
     } catch (error) {
-      console.error('🚨 ASSESSMENT COMPLIANCE VALIDATION ERROR:', error);
+      logError('🚨 ASSESSMENT COMPLIANCE VALIDATION ERROR:', error);
       
       return {
         canProceed: false,
@@ -197,7 +197,7 @@ export class HIPAAComplianceService {
       };
 
     } catch (error) {
-      console.error('🚨 CRISIS INTERVENTION COMPLIANCE ERROR:', error);
+      logError('🚨 CRISIS INTERVENTION COMPLIANCE ERROR:', error);
       
       return {
         canIntervene: false,
@@ -248,7 +248,7 @@ export class HIPAAComplianceService {
       };
 
     } catch (error) {
-      console.error('🚨 CONSENT COLLECTION ERROR:', error);
+      logError('🚨 CONSENT COLLECTION ERROR:', error);
       throw error;
     }
   }
@@ -282,7 +282,7 @@ export class HIPAAComplianceService {
       };
 
     } catch (error) {
-      console.error('🚨 CONSENT VALIDATION ERROR:', error);
+      logError('🚨 CONSENT VALIDATION ERROR:', error);
       
       return {
         valid: false,
@@ -346,7 +346,7 @@ export class HIPAAComplianceService {
       };
 
     } catch (error) {
-      console.error('🚨 DATA ACCESS VALIDATION ERROR:', error);
+      logError('🚨 DATA ACCESS VALIDATION ERROR:', error);
       
       return {
         approved: false,
@@ -401,7 +401,7 @@ export class HIPAAComplianceService {
       };
 
     } catch (error) {
-      console.error('🚨 BREACH REPORTING ERROR:', error);
+      logError('🚨 BREACH REPORTING ERROR:', error);
       
       return {
         breachReported: false,
@@ -452,7 +452,7 @@ export class HIPAAComplianceService {
       };
 
     } catch (error) {
-      console.error('🚨 COMPLIANCE STATUS ERROR:', error);
+      logError('🚨 COMPLIANCE STATUS ERROR:', error);
       
       return {
         overallStatus: 'critical',
@@ -542,7 +542,7 @@ export class HIPAAComplianceService {
       };
 
     } catch (error) {
-      console.error('🚨 COMPLIANCE AUDIT ERROR:', error);
+      logError('🚨 COMPLIANCE AUDIT ERROR:', error);
       
       const auditId = `audit_error_${Date.now()}`;
       return {
@@ -591,7 +591,7 @@ export class HIPAAComplianceService {
       };
 
     } catch (error) {
-      console.error('🚨 QUICK COMPLIANCE CHECK ERROR:', error);
+      logError('🚨 QUICK COMPLIANCE CHECK ERROR:', error);
       
       return {
         canProceed: false,

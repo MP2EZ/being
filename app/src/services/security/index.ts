@@ -142,28 +142,28 @@ export class SecurityOrchestrator {
     const startTime = performance.now();
 
     try {
-      console.log('🔐 Initializing Comprehensive Security Architecture...');
+      logPerformance('🔐 Initializing Comprehensive Security Architecture...');
 
       // Initialize core security services in dependency order
-      console.log('🔑 Initializing Encryption Service...');
+      logPerformance('🔑 Initializing Encryption Service...');
       await this.encryptionService.initialize();
 
-      console.log('🚪 Initializing Authentication Service...');
+      logPerformance('🚪 Initializing Authentication Service...');
       await this.authenticationService.initialize();
 
-      console.log('💾 Initializing Secure Storage Service...');
+      logPerformance('💾 Initializing Secure Storage Service...');
       await this.secureStorage.initialize();
 
-      console.log('🌐 Initializing Network Security Service...');
+      logPerformance('🌐 Initializing Network Security Service...');
       await this.networkSecurity.initialize();
 
-      console.log('🚨 Initializing Crisis Security Protocol...');
+      logPerformance('🚨 Initializing Crisis Security Protocol...');
       await this.crisisSecurityProtocol.initialize();
 
-      console.log('🔍 Initializing Security Monitoring Service...');
+      logPerformance('🔍 Initializing Security Monitoring Service...');
       await this.securityMonitoring.initialize();
 
-      console.log('🚨 Initializing Incident Response Service...');
+      logPerformance('🚨 Initializing Incident Response Service...');
       await this.incidentResponse.initialize();
 
       // Verify all services are operational
@@ -175,7 +175,7 @@ export class SecurityOrchestrator {
       this.initialized = true;
 
       const initializationTime = performance.now() - startTime;
-      console.log(`✅ Security Architecture Initialized Successfully (${initializationTime.toFixed(2)}ms)`);
+      logPerformance(`✅ Security Architecture Initialized Successfully (${initializationTime.toFixed(2)}ms)`);
 
       // Log successful initialization through incident response
       await this.incidentResponse.detectAndRespondToIncident(
@@ -198,7 +198,7 @@ export class SecurityOrchestrator {
       );
 
     } catch (error) {
-      console.error('🚨 SECURITY ARCHITECTURE INITIALIZATION ERROR:', error);
+      logError('🚨 SECURITY ARCHITECTURE INITIALIZATION ERROR:', error);
       throw new Error(`Security architecture initialization failed: ${error.message}`);
     }
   }
@@ -218,7 +218,7 @@ export class SecurityOrchestrator {
     protectionLevel: string;
   }> {
     try {
-      console.log(`🚨 Protecting crisis data for episode: ${crisisEpisodeId}`);
+      logPerformance(`🚨 Protecting crisis data for episode: ${crisisEpisodeId}`);
 
       // 1. Apply crisis-specific encryption
       const encryptedData = await this.encryptionService.encryptCrisisData(
@@ -244,7 +244,7 @@ export class SecurityOrchestrator {
       // 4. Start crisis security monitoring
       await this.crisisSecurityProtocol.startCrisisSecurityMonitoring(crisisEpisodeId);
 
-      console.log(`🔒 Crisis data protected (episode: ${crisisEpisodeId})`);
+      logPerformance(`🔒 Crisis data protected (episode: ${crisisEpisodeId})`);
 
       return {
         encrypted: true,
@@ -254,7 +254,7 @@ export class SecurityOrchestrator {
       };
 
     } catch (error) {
-      console.error('🚨 CRISIS DATA PROTECTION ERROR:', error);
+      logError('🚨 CRISIS DATA PROTECTION ERROR:', error);
 
       // Log security incident
       await this.incidentResponse.detectAndRespondToIncident(
@@ -301,7 +301,7 @@ export class SecurityOrchestrator {
     riskLevel: string;
   }> {
     try {
-      console.log(`📋 Protecting ${assessmentData.type} assessment data: ${assessmentId}`);
+      logPerformance(`📋 Protecting ${assessmentData.type} assessment data: ${assessmentId}`);
 
       // 1. Encrypt assessment data with appropriate security level
       const encryptedData = await this.encryptionService.encryptAssessmentData(
@@ -334,7 +334,7 @@ export class SecurityOrchestrator {
       // 4. Perform compliance check
       const complianceStatus = await this.securityMonitoring.performComplianceCheck();
 
-      console.log(`📋 Assessment data protected (${assessmentData.type}, risk: ${riskLevel})`);
+      logPerformance(`📋 Assessment data protected (${assessmentData.type}, risk: ${riskLevel})`);
 
       return {
         encrypted: true,
@@ -344,7 +344,7 @@ export class SecurityOrchestrator {
       };
 
     } catch (error) {
-      console.error('🚨 ASSESSMENT DATA PROTECTION ERROR:', error);
+      logError('🚨 ASSESSMENT DATA PROTECTION ERROR:', error);
 
       // Log security incident
       await this.incidentResponse.detectAndRespondToIncident(
@@ -386,7 +386,7 @@ export class SecurityOrchestrator {
     const startTime = performance.now();
 
     try {
-      console.log('🚨 Emergency access requested');
+      logPerformance('🚨 Emergency access requested');
 
       // Grant emergency access through crisis security protocol
       const accessContext = await this.crisisSecurityProtocol.grantEmergencyAccess({
@@ -403,7 +403,7 @@ export class SecurityOrchestrator {
 
       const accessTime = performance.now() - startTime;
 
-      console.log(`🚨 Emergency access granted (${accessTime.toFixed(2)}ms)`);
+      logPerformance(`🚨 Emergency access granted (${accessTime.toFixed(2)}ms)`);
 
       return {
         accessGranted: accessContext.auditTrail.accessGranted && authResult.success,
@@ -414,7 +414,7 @@ export class SecurityOrchestrator {
 
     } catch (error) {
       const accessTime = performance.now() - startTime;
-      console.error('🚨 EMERGENCY ACCESS ERROR:', error);
+      logError('🚨 EMERGENCY ACCESS ERROR:', error);
 
       // Log failed emergency access
       await this.incidentResponse.detectAndRespondToIncident(
@@ -462,7 +462,7 @@ export class SecurityOrchestrator {
     recommendations: string[];
   }> {
     try {
-      console.log('🔍 Performing comprehensive security health check...');
+      logPerformance('🔍 Performing comprehensive security health check...');
 
       // Get status from all security services
       const encryptionStatus = await this.encryptionService.getEncryptionStatus();
@@ -512,7 +512,7 @@ export class SecurityOrchestrator {
       if (incidentScore < 90) recommendations.push('Improve incident response procedures');
       if (complianceScore < 95) recommendations.push('Address compliance violations');
 
-      console.log(`🔍 Security health check completed (overall score: ${overallScore.toFixed(1)}%)`);
+      logPerformance(`🔍 Security health check completed (overall score: ${overallScore.toFixed(1)}%)`);
 
       return {
         overallScore,
@@ -552,7 +552,7 @@ export class SecurityOrchestrator {
       };
 
     } catch (error) {
-      console.error('🚨 SECURITY HEALTH CHECK ERROR:', error);
+      logError('🚨 SECURITY HEALTH CHECK ERROR:', error);
       return {
         overallScore: 0,
         encryption: { status: 'error', score: 0 },
@@ -574,12 +574,12 @@ export class SecurityOrchestrator {
    */
   public async performVulnerabilityAssessment(): Promise<VulnerabilityAssessment> {
     try {
-      console.log('🔍 Performing comprehensive vulnerability assessment...');
+      logPerformance('🔍 Performing comprehensive vulnerability assessment...');
 
       return await this.securityMonitoring.performVulnerabilityAssessment();
 
     } catch (error) {
-      console.error('🚨 VULNERABILITY ASSESSMENT ERROR:', error);
+      logError('🚨 VULNERABILITY ASSESSMENT ERROR:', error);
       throw error;
     }
   }
@@ -595,7 +595,7 @@ export class SecurityOrchestrator {
     affectedSystems: any
   ): Promise<string> {
     try {
-      console.log(`🚨 Coordinating security incident response: ${incidentType}`);
+      logPerformance(`🚨 Coordinating security incident response: ${incidentType}`);
 
       // Initiate incident response
       const incidentId = await this.incidentResponse.detectAndRespondToIncident(
@@ -618,12 +618,12 @@ export class SecurityOrchestrator {
         );
       }
 
-      console.log(`🚨 Security incident response coordinated: ${incidentId}`);
+      logPerformance(`🚨 Security incident response coordinated: ${incidentId}`);
 
       return incidentId;
 
     } catch (error) {
-      console.error('🚨 INCIDENT RESPONSE COORDINATION ERROR:', error);
+      logError('🚨 INCIDENT RESPONSE COORDINATION ERROR:', error);
       throw error;
     }
   }
@@ -634,7 +634,7 @@ export class SecurityOrchestrator {
 
   private async verifySecurityServices(): Promise<void> {
     try {
-      console.log('🔍 Verifying all security services...');
+      logPerformance('🔍 Verifying all security services...');
 
       // Verify each service is properly initialized
       const services = [
@@ -653,10 +653,10 @@ export class SecurityOrchestrator {
         }
       }
 
-      console.log('✅ All security services verified');
+      logPerformance('✅ All security services verified');
 
     } catch (error) {
-      console.error('🚨 SECURITY SERVICE VERIFICATION ERROR:', error);
+      logError('🚨 SECURITY SERVICE VERIFICATION ERROR:', error);
       throw error;
     }
   }
@@ -703,7 +703,7 @@ export class SecurityOrchestrator {
    */
   public async destroySecurityArchitecture(): Promise<void> {
     try {
-      console.log('🗑️  Destroying Security Architecture...');
+      logPerformance('🗑️  Destroying Security Architecture...');
 
       // Destroy services in reverse dependency order
       await this.incidentResponse.destroy();
@@ -716,10 +716,10 @@ export class SecurityOrchestrator {
 
       this.initialized = false;
 
-      console.log('✅ Security Architecture destroyed');
+      logPerformance('✅ Security Architecture destroyed');
 
     } catch (error) {
-      console.error('🚨 SECURITY ARCHITECTURE DESTRUCTION ERROR:', error);
+      logError('🚨 SECURITY ARCHITECTURE DESTRUCTION ERROR:', error);
       throw error;
     }
   }

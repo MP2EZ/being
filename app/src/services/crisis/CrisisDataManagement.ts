@@ -1,4 +1,5 @@
 /**
+import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * CRISIS DATA MANAGEMENT - DRD-FLOW-005 Data Capture & Storage
  *
  * COMPREHENSIVE CRISIS DATA REQUIREMENTS:
@@ -373,7 +374,7 @@ export class CrisisDataManagement {
       return dataPackage.packageId;
 
     } catch (error) {
-      console.error('🚨 CRISIS DATA CAPTURE ERROR:', error);
+      logError('🚨 CRISIS DATA CAPTURE ERROR:', error);
       await this.logDataCaptureError(detection.id, error);
       throw error;
     }
@@ -414,7 +415,7 @@ export class CrisisDataManagement {
       await this.logDataUpdate(packageId, updateType, updateStartTime);
 
     } catch (error) {
-      console.error('🚨 CRISIS DATA UPDATE ERROR:', error);
+      logError('🚨 CRISIS DATA UPDATE ERROR:', error);
       await this.logDataUpdateError(packageId, updateType, error);
       throw error;
     }
@@ -464,7 +465,7 @@ export class CrisisDataManagement {
       await this.updateCrisisData(packageId, 'performance_metric', performanceData);
 
     } catch (error) {
-      console.error('🚨 PERFORMANCE METRICS CAPTURE ERROR:', error);
+      logError('🚨 PERFORMANCE METRICS CAPTURE ERROR:', error);
     }
   }
 
@@ -495,7 +496,7 @@ export class CrisisDataManagement {
       await this.checkFollowUpCompliance(packageId);
 
     } catch (error) {
-      console.error('🚨 FOLLOW-UP RECORDING ERROR:', error);
+      logError('🚨 FOLLOW-UP RECORDING ERROR:', error);
     }
   }
 
@@ -530,7 +531,7 @@ export class CrisisDataManagement {
       await this.storeAuditEvent(packageId, auditEvent);
 
     } catch (error) {
-      console.error('🚨 AUDIT EVENT LOGGING ERROR:', error);
+      logError('🚨 AUDIT EVENT LOGGING ERROR:', error);
     }
   }
 
@@ -728,7 +729,7 @@ export class CrisisDataManagement {
       this.dataPackages.set(dataPackage.packageId, dataPackage);
 
     } catch (error) {
-      console.error('🚨 CRISIS DATA STORAGE ERROR:', error);
+      logError('🚨 CRISIS DATA STORAGE ERROR:', error);
       throw error;
     }
   }
@@ -758,7 +759,7 @@ export class CrisisDataManagement {
       return dataPackage;
 
     } catch (error) {
-      console.error('🚨 CRISIS DATA RETRIEVAL ERROR:', error);
+      logError('🚨 CRISIS DATA RETRIEVAL ERROR:', error);
       return null;
     }
   }
@@ -832,7 +833,7 @@ export class CrisisDataManagement {
       const auditKey = `${CRISIS_DATA_CONFIG.AUDIT_KEY_PREFIX}${packageId}_${Date.now()}`;
       await AsyncStorage.setItem(auditKey, JSON.stringify(auditEvent));
     } catch (error) {
-      console.error('🚨 AUDIT EVENT STORAGE ERROR:', error);
+      logError('🚨 AUDIT EVENT STORAGE ERROR:', error);
     }
   }
 
@@ -866,7 +867,7 @@ export class CrisisDataManagement {
         })
       );
     } catch (logError) {
-      console.error('Failed to log data capture error:', logError);
+      logError('Failed to log data capture error:', logError);
     }
   }
 

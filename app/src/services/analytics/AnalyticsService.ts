@@ -104,7 +104,7 @@ class AnalyticsPrivacyEngine {
 
     for (const pattern of phiPatterns) {
       if (pattern.test(eventString)) {
-        console.warn('⚠️ Privacy violation detected in analytics event');
+        logSecurity('⚠️ Privacy violation detected in analytics event');
         return false;
       }
     }
@@ -293,14 +293,14 @@ class AnalyticsService {
    */
   async initialize(): Promise<void> {
     if (this.initialized) {
-      console.log('📊 AnalyticsService already initialized');
+      logPerformance('📊 AnalyticsService already initialized');
       return;
     }
 
     const startTime = performance.now();
 
     try {
-      console.log('📊 Initializing Analytics Service with Security Integration...');
+      logPerformance('📊 Initializing Analytics Service with Security Integration...');
 
       // Initialize security monitoring for analytics
       await this.initializeSecurityMonitoring();
@@ -317,7 +317,7 @@ class AnalyticsService {
       this.initialized = true;
 
       const initTime = performance.now() - startTime;
-      console.log(`✅ AnalyticsService initialized (${initTime.toFixed(2)}ms)`);
+      logPerformance(`✅ AnalyticsService initialized (${initTime.toFixed(2)}ms)`);
 
       // Log initialization event
       await this.logSecurityEvent('service_initialized', {
@@ -326,7 +326,7 @@ class AnalyticsService {
       });
 
     } catch (error) {
-      console.error('🚨 AnalyticsService initialization failed:', error);
+      logError('🚨 AnalyticsService initialization failed:', error);
       throw new Error(`Analytics service initialization failed: ${error.message}`);
     }
   }
@@ -348,7 +348,7 @@ class AnalyticsService {
       // Additional analytics-specific authentication
       return await this.authService.validateAnalyticsPermissions(authResult.userId);
     } catch (error) {
-      console.error('🔐 Analytics authentication failed:', error);
+      logError('🔐 Analytics authentication failed:', error);
       return false;
     }
   }
@@ -384,7 +384,7 @@ class AnalyticsService {
       const securityMetrics = await this.networkSecurity.getSecurityMetrics();
       return securityMetrics.securityViolations === 0;
     } catch (error) {
-      console.error('🌐 Network security validation failed:', error);
+      logError('🌐 Network security validation failed:', error);
       return false;
     }
   }
@@ -413,10 +413,10 @@ class AnalyticsService {
         action: 'rotate_sessions'
       });
 
-      console.log('🔍 Analytics security monitoring initialized');
+      logPerformance('🔍 Analytics security monitoring initialized');
 
     } catch (error) {
-      console.error('🚨 Security monitoring initialization failed:', error);
+      logError('🚨 Security monitoring initialization failed:', error);
       throw error;
     }
   }
@@ -431,7 +431,7 @@ class AnalyticsService {
         source: 'AnalyticsService'
       });
     } catch (error) {
-      console.error('📝 Security event logging failed:', error);
+      logError('📝 Security event logging failed:', error);
     }
   }
 
@@ -454,7 +454,7 @@ class AnalyticsService {
 
       return true;
     } catch (error) {
-      console.error('🔒 Security validation failed:', error);
+      logError('🔒 Security validation failed:', error);
       return false;
     }
   }
@@ -509,7 +509,7 @@ class AnalyticsService {
       this.currentSessionId = `session_${currentDate}_${randomComponent}`;
       this.lastSessionDate = currentDate;
 
-      console.log(`🔄 Session rotated for ${currentDate}`);
+      logPerformance(`🔄 Session rotated for ${currentDate}`);
       
       await this.logSecurityEvent('session_rotated', {
         date: currentDate,
@@ -563,12 +563,12 @@ class AnalyticsService {
 
       // 5. Validate performance requirements
       if (processingTime > 10) {
-        console.warn(`⚠️ Analytics event processing exceeded 10ms: ${processingTime.toFixed(2)}ms`);
+        logSecurity(`⚠️ Analytics event processing exceeded 10ms: ${processingTime.toFixed(2)}ms`);
       }
 
       // 6. Special handling for crisis events
       if (eventType === 'crisis_intervention_triggered' && processingTime > 200) {
-        console.error(`🚨 Crisis event processing exceeded 200ms: ${processingTime.toFixed(2)}ms`);
+        logError(`🚨 Crisis event processing exceeded 200ms: ${processingTime.toFixed(2)}ms`);
         await this.logSecurityEvent('crisis_performance_violation', {
           processingTime,
           eventType
@@ -576,7 +576,7 @@ class AnalyticsService {
       }
 
     } catch (error) {
-      console.error('📊 Analytics event tracking failed:', error);
+      logError('📊 Analytics event tracking failed:', error);
       await this.logSecurityEvent('event_tracking_failure', {
         eventType,
         error: error.message
@@ -640,7 +640,7 @@ class AnalyticsService {
 
   private async addToQueue(event: AnalyticsEvent): Promise<void> {
     if (this.eventQueue.length >= this.MAX_QUEUE_SIZE) {
-      console.warn('⚠️ Analytics queue full, dropping oldest events');
+      logSecurity('⚠️ Analytics queue full, dropping oldest events');
       this.eventQueue.shift();
     }
 
@@ -661,7 +661,7 @@ class AnalyticsService {
     const startTime = performance.now();
 
     try {
-      console.log('🚨 Processing crisis analytics event with priority');
+      logPerformance('🚨 Processing crisis analytics event with priority');
 
       // Apply additional security validation for crisis events
       const securityValid = await this.performSecurityValidation();
@@ -678,7 +678,7 @@ class AnalyticsService {
       }
 
       const processingTime = performance.now() - startTime;
-      console.log(`🚨 Crisis event processed (${processingTime.toFixed(2)}ms)`);
+      logPerformance(`🚨 Crisis event processed (${processingTime.toFixed(2)}ms)`);
 
       if (processingTime > 200) {
         await this.logSecurityEvent('crisis_performance_violation', {
@@ -688,7 +688,7 @@ class AnalyticsService {
       }
 
     } catch (error) {
-      console.error('🚨 Crisis event processing failed:', error);
+      logError('🚨 Crisis event processing failed:', error);
       await this.logSecurityEvent('crisis_processing_failure', {
         eventType: event.eventType,
         error: error.message
@@ -717,7 +717,7 @@ class AnalyticsService {
     const startTime = performance.now();
 
     try {
-      console.log(`📊 Processing analytics batch (${this.eventQueue.length} events)`);
+      logPerformance(`📊 Processing analytics batch (${this.eventQueue.length} events)`);
 
       // Extract batch for processing
       const batchEvents = this.eventQueue.splice(0, this.BATCH_SIZE);
@@ -742,7 +742,7 @@ class AnalyticsService {
       }
 
       const processingTime = performance.now() - startTime;
-      console.log(`✅ Analytics batch processed (${batchEvents.length} events, ${processingTime.toFixed(2)}ms)`);
+      logPerformance(`✅ Analytics batch processed (${batchEvents.length} events, ${processingTime.toFixed(2)}ms)`);
 
       await this.logSecurityEvent('batch_processed', {
         eventCount: batchEvents.length,
@@ -751,7 +751,7 @@ class AnalyticsService {
       });
 
     } catch (error) {
-      console.error('📊 Batch processing failed:', error);
+      logError('📊 Batch processing failed:', error);
       await this.logSecurityEvent('batch_processing_failure', {
         queueSize: this.eventQueue.length,
         error: error.message
@@ -778,7 +778,7 @@ class AnalyticsService {
       }
     );
 
-    console.log('👁️ Assessment store monitoring started');
+    logPerformance('👁️ Assessment store monitoring started');
   }
 
   private async handleAssessmentCompletion(result: any): Promise<void> {
@@ -811,10 +811,10 @@ class AnalyticsService {
       }
 
       const processingTime = performance.now() - startTime;
-      console.log(`📋 Assessment completion tracked (${processingTime.toFixed(2)}ms)`);
+      logPerformance(`📋 Assessment completion tracked (${processingTime.toFixed(2)}ms)`);
 
     } catch (error) {
-      console.error('📋 Assessment completion tracking failed:', error);
+      logError('📋 Assessment completion tracking failed:', error);
       await this.logSecurityEvent('assessment_tracking_failure', {
         error: error.message
       });
@@ -1002,7 +1002,7 @@ class AnalyticsService {
    * Shutdown analytics service
    */
   async shutdown(): Promise<void> {
-    console.log('📊 Shutting down Analytics Service...');
+    logPerformance('📊 Shutting down Analytics Service...');
 
     try {
       // Flush remaining events
@@ -1020,10 +1020,10 @@ class AnalyticsService {
       this.currentSessionId = null;
       this.lastSessionDate = null;
 
-      console.log('✅ Analytics Service shut down successfully');
+      logPerformance('✅ Analytics Service shut down successfully');
 
     } catch (error) {
-      console.error('🚨 Analytics Service shutdown error:', error);
+      logError('🚨 Analytics Service shutdown error:', error);
       throw error;
     }
   }

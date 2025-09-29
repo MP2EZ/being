@@ -1,4 +1,5 @@
 /**
+import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * Crisis Intervention Accessibility Enhancements
  * 
  * ACCESSIBILITY SPECIFICATIONS:
@@ -189,7 +190,7 @@ export const CrisisAccessibilityProvider: React.FC<CrisisAccessibilityProviderPr
     // Performance monitoring - crisis mode must activate quickly
     const activationTime = performance.now() - startTime;
     if (activationTime > 200) {
-      console.warn(`⚠️ Crisis mode activation took ${activationTime}ms (target: <200ms)`);
+      logSecurity(`⚠️ Crisis mode activation took ${activationTime}ms (target: <200ms)`);
     }
 
     // Audio cue

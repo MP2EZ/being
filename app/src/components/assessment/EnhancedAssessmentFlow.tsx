@@ -1,4 +1,5 @@
 /**
+import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * Enhanced Assessment Flow - Comprehensive Integration Orchestrator
  * 
  * COMPREHENSIVE INTEGRATIONS:
@@ -180,7 +181,7 @@ const EnhancedAssessmentFlow: React.FC<EnhancedAssessmentFlowProps> = ({
           questionStartTime.current = Date.now();
         }
       } catch (error) {
-        console.error('Assessment initialization failed:', error);
+        logError('Assessment initialization failed:', error);
       }
     };
 
@@ -221,7 +222,7 @@ const EnhancedAssessmentFlow: React.FC<EnhancedAssessmentFlowProps> = ({
     const handleAppStateChange = (nextAppState: AppStateStatus) => {
       if (nextAppState === 'background' && flowState === 'questions') {
         // Auto-save progress when app goes to background
-        console.log('📱 Saving assessment progress (app backgrounded)');
+        logPerformance('📱 Saving assessment progress (app backgrounded)');
       }
     };
 
@@ -231,12 +232,12 @@ const EnhancedAssessmentFlow: React.FC<EnhancedAssessmentFlowProps> = ({
 
   // Crisis detection handler
   const handleCrisisDetected = useCallback(async (detection: CrisisDetection) => {
-    console.log('🚨 Crisis detected in assessment flow:', detection);
+    logPerformance('🚨 Crisis detected in assessment flow:', detection);
     setCrisisDetected(detection);
 
     // Performance monitoring for crisis response
     const crisisResponseTime = Date.now() - questionStartTime.current;
-    console.log(`🚨 Crisis response time: ${crisisResponseTime}ms (target: <200ms)`);
+    logPerformance(`🚨 Crisis response time: ${crisisResponseTime}ms (target: <200ms)`);
 
     // Update performance metrics
     setPerformanceMetrics(prev => ({
@@ -280,7 +281,7 @@ const EnhancedAssessmentFlow: React.FC<EnhancedAssessmentFlowProps> = ({
 
       // Validate performance targets
       if (questionResponseTime > 300) {
-        console.warn(`⚠️ Question response time: ${questionResponseTime}ms (target: <300ms)`);
+        logSecurity(`⚠️ Question response time: ${questionResponseTime}ms (target: <300ms)`);
       }
 
       // Store in assessment store
@@ -296,7 +297,7 @@ const EnhancedAssessmentFlow: React.FC<EnhancedAssessmentFlowProps> = ({
       }
 
     } catch (error) {
-      console.error('Enhanced answer handling failed:', error);
+      logError('Enhanced answer handling failed:', error);
       Alert.alert(
         'Response Error',
         'There was an issue saving your response. Crisis support is still available.',
@@ -328,7 +329,7 @@ const EnhancedAssessmentFlow: React.FC<EnhancedAssessmentFlowProps> = ({
         answersEncrypted: answers.size,
       }));
 
-      console.log('📊 Assessment completion metrics:', {
+      logPerformance('📊 Assessment completion metrics:', {
         completionTime,
         totalFlowTime,
         questionsCompleted: questions.length,
@@ -343,7 +344,7 @@ const EnhancedAssessmentFlow: React.FC<EnhancedAssessmentFlowProps> = ({
       }
 
     } catch (error) {
-      console.error('Assessment completion failed:', error);
+      logError('Assessment completion failed:', error);
       Alert.alert(
         'Completion Error',
         'There was an issue completing your assessment. Your responses are safely stored.',
@@ -369,7 +370,7 @@ const EnhancedAssessmentFlow: React.FC<EnhancedAssessmentFlowProps> = ({
 
   // Error handler
   const handleError = useCallback((error: Error) => {
-    console.error('Assessment flow error:', error);
+    logError('Assessment flow error:', error);
     
     // Always maintain crisis access during errors
     Alert.alert(

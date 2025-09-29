@@ -1,4 +1,5 @@
 /**
+import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * COMPREHENSIVE CRISIS DETECTION VALIDATION - DRD-FLOW-005 Testing Suite
  *
  * CRITICAL TESTING REQUIREMENTS:
@@ -315,13 +316,13 @@ describe('Crisis Detection - Clinical Accuracy Validation', () => {
           }
         }
       } else {
-        console.error(`PHQ-9 Detection Mismatch - Score: ${phq9Result.totalScore}, Suicidal: ${phq9Result.suicidalIdeation}, Expected: ${expectedCrisis}, Actual: ${actualCrisis}`);
+        logError(`PHQ-9 Detection Mismatch - Score: ${phq9Result.totalScore}, Suicidal: ${phq9Result.suicidalIdeation}, Expected: ${expectedCrisis}, Actual: ${actualCrisis}`);
       }
     }
 
     const accuracyPercent = (correctDetections / totalTests) * 100;
     expect(accuracyPercent).toBe(100); // MUST be 100% for regulatory compliance
-    console.log(`PHQ-9 Clinical Accuracy: ${accuracyPercent}% (${correctDetections}/${totalTests})`);
+    logPerformance(`PHQ-9 Clinical Accuracy: ${accuracyPercent}% (${correctDetections}/${totalTests})`);
   });
 
   test('GAD-7 Crisis Detection - All Score Combinations (0-21)', async () => {
@@ -352,20 +353,20 @@ describe('Crisis Detection - Clinical Accuracy Validation', () => {
           expect(detection.assessmentType).toBe('gad7');
         }
       } else {
-        console.error(`GAD-7 Detection Mismatch - Score: ${gad7Result.totalScore}, Expected: ${expectedCrisis}, Actual: ${actualCrisis}`);
+        logError(`GAD-7 Detection Mismatch - Score: ${gad7Result.totalScore}, Expected: ${expectedCrisis}, Actual: ${actualCrisis}`);
       }
     }
 
     const accuracyPercent = (correctDetections / totalTests) * 100;
     expect(accuracyPercent).toBe(100); // MUST be 100% for regulatory compliance
-    console.log(`GAD-7 Clinical Accuracy: ${accuracyPercent}% (${correctDetections}/${totalTests})`);
+    logPerformance(`GAD-7 Clinical Accuracy: ${accuracyPercent}% (${correctDetections}/${totalTests})`);
   });
 
   test('High-Risk Scenario Validation', async () => {
     const highRiskScenarios = CrisisTestDataGenerator.generateHighRiskScenarios();
 
     for (const scenario of highRiskScenarios) {
-      console.log(`Testing scenario: ${scenario.description}`);
+      logPerformance(`Testing scenario: ${scenario.description}`);
 
       // Test PHQ-9 detection
       const phq9Detection = await crisisEngine.detectCrisis(
@@ -433,7 +434,7 @@ describe('Crisis Detection - Performance Requirements', () => {
       expect(performanceResult.averageTimeMs).toBeLessThan(TEST_CONFIG.CRISIS_DETECTION_MAX_MS);
       expect(performanceResult.violations).toBe(0);
 
-      console.log(`Crisis Detection Performance: Average ${performanceResult.averageTimeMs.toFixed(2)}ms, Max ${performanceResult.maxTimeMs.toFixed(2)}ms`);
+      logPerformance(`Crisis Detection Performance: Average ${performanceResult.averageTimeMs.toFixed(2)}ms, Max ${performanceResult.maxTimeMs.toFixed(2)}ms`);
     }
   });
 
@@ -458,7 +459,7 @@ describe('Crisis Detection - Performance Requirements', () => {
     expect(performanceResult.averageTimeMs).toBeLessThan(50); // Strict requirement
     expect(performanceResult.violations).toBe(0);
 
-    console.log(`Suicidal Ideation Performance: Average ${performanceResult.averageTimeMs.toFixed(2)}ms, Max ${performanceResult.maxTimeMs.toFixed(2)}ms`);
+    logPerformance(`Suicidal Ideation Performance: Average ${performanceResult.averageTimeMs.toFixed(2)}ms, Max ${performanceResult.maxTimeMs.toFixed(2)}ms`);
   });
 
   test('Crisis Intervention Workflow Performance', async () => {
@@ -507,7 +508,7 @@ describe('Crisis Detection - Performance Requirements', () => {
     });
 
     expect(executionTimeMs).toBeLessThan(3000); // 3 second requirement
-    console.log(`Crisis Intervention Workflow Performance: ${executionTimeMs.toFixed(2)}ms`);
+    logPerformance(`Crisis Intervention Workflow Performance: ${executionTimeMs.toFixed(2)}ms`);
   });
 });
 
@@ -1135,7 +1136,7 @@ describe('Crisis System - Regulatory Compliance', () => {
 
     // REGULATORY REQUIREMENT: Must be 100%
     expect(complianceRate).toBe(100);
-    console.log(`Regulatory Compliance Rate: ${complianceRate}% (${correctDetections}/${totalTests})`);
+    logPerformance(`Regulatory Compliance Rate: ${complianceRate}% (${correctDetections}/${totalTests})`);
   });
 
   test('Performance Compliance (<200ms Detection)', async () => {
@@ -1162,7 +1163,7 @@ describe('Crisis System - Regulatory Compliance', () => {
     // REGULATORY REQUIREMENT: Zero violations
     expect(performanceTests.violations).toBe(0);
     expect(performanceTests.success).toBe(true);
-    console.log(`Performance Compliance: ${performanceTests.violations} violations in 50 tests`);
+    logPerformance(`Performance Compliance: ${performanceTests.violations} violations in 50 tests`);
   });
 
   test('Data Retention and Audit Compliance', async () => {
@@ -1236,7 +1237,7 @@ describe('Crisis System - Stress Testing', () => {
 
     // Memory increase should be reasonable (less than 50MB for 100 operations)
     expect(memoryIncrease).toBeLessThan(50 * 1024 * 1024);
-    console.log(`Memory increase: ${(memoryIncrease / 1024 / 1024).toFixed(2)}MB`);
+    logPerformance(`Memory increase: ${(memoryIncrease / 1024 / 1024).toFixed(2)}MB`);
   });
 });
 

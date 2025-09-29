@@ -1,4 +1,5 @@
 /**
+import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * Cloud Backup Settings Component
  *
  * FEATURES:
@@ -86,7 +87,7 @@ export default function CloudBackupSettings({
         setAnalyticsStatus(status);
         setAnalyticsEnabled(status.initialized);
       } catch (error) {
-        console.error('Failed to get analytics status:', error);
+        logError('Failed to get analytics status:', error);
       }
     };
 
@@ -312,7 +313,7 @@ export default function CloudBackupSettings({
           showDetailed={showAdvanced}
           style={styles.statusIndicator}
           onStatusChange={(status) => {
-            console.log('Overall system status:', status);
+            logPerformance('Overall system status:', status);
           }}
         />
 

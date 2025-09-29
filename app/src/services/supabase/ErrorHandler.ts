@@ -1,4 +1,5 @@
 /**
+import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * Cloud Sync Error Handler
  *
  * COMPREHENSIVE ERROR MANAGEMENT:
@@ -131,7 +132,7 @@ class CloudSyncErrorHandler {
     this.addToHistory(enhancedError);
 
     // Log for development
-    console.warn('[CloudSyncError]', {
+    logSecurity('[CloudSyncError]', {
       id: errorId,
       category,
       severity,
@@ -453,7 +454,7 @@ class CloudSyncErrorHandler {
         this.errorHistory = JSON.parse(historyData);
       }
     } catch (error) {
-      console.warn('Failed to load error history:', error);
+      logSecurity('Failed to load error history:', error);
       this.errorHistory = [];
     }
   }
@@ -468,7 +469,7 @@ class CloudSyncErrorHandler {
         JSON.stringify(this.errorHistory.slice(0, 50)) // Save only recent errors
       );
     } catch (error) {
-      console.warn('Failed to save error history:', error);
+      logSecurity('Failed to save error history:', error);
     }
   }
 
@@ -487,7 +488,7 @@ class CloudSyncErrorHandler {
       };
 
       // Would integrate with analytics service here
-      console.log('[Analytics] Error tracked:', analyticsData);
+      logPerformance('[Analytics] Error tracked:', analyticsData);
 
     } catch (error) {
       // Ignore analytics failures

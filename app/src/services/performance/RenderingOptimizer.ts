@@ -1,4 +1,5 @@
 /**
+import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * React Native Rendering Optimizer for 60fps Assessment Interactions
  *
  * TARGET: Maintain 60fps (16.67ms per frame) during all assessment interactions
@@ -79,7 +80,7 @@ class FrameRateMonitor {
     this.frameCount = 0;
     this.droppedFrameCount = 0;
 
-    console.log('🎬 Starting frame rate monitoring...');
+    logPerformance('🎬 Starting frame rate monitoring...');
     this.scheduleFrameCheck();
   }
 
@@ -162,7 +163,7 @@ class FrameRateMonitor {
    */
   private static validateFramePerformance(metrics: FrameMetrics): void {
     if (metrics.frameRate < 50) {
-      console.warn(`⚠️ Low frame rate detected: ${metrics.frameRate.toFixed(2)}fps`);
+      logSecurity(`⚠️ Low frame rate detected: ${metrics.frameRate.toFixed(2)}fps`);
       DeviceEventEmitter.emit('performance_degradation', {
         type: 'low_fps',
         value: metrics.frameRate,
@@ -171,7 +172,7 @@ class FrameRateMonitor {
     }
 
     if (metrics.droppedFrames > 5) {
-      console.warn(`⚠️ High dropped frame count: ${metrics.droppedFrames}`);
+      logSecurity(`⚠️ High dropped frame count: ${metrics.droppedFrames}`);
       DeviceEventEmitter.emit('performance_degradation', {
         type: 'dropped_frames',
         value: metrics.droppedFrames,
@@ -189,7 +190,7 @@ class FrameRateMonitor {
       cancelAnimationFrame(this.animationFrameId);
       this.animationFrameId = null;
     }
-    console.log('🎬 Frame rate monitoring stopped');
+    logPerformance('🎬 Frame rate monitoring stopped');
   }
 
   /**
@@ -283,7 +284,7 @@ class RenderBatchManager {
         try {
           update();
         } catch (error) {
-          console.error('Batched update failed:', error);
+          logError('Batched update failed:', error);
         }
       });
     });
@@ -356,7 +357,7 @@ class ComponentPerformanceTracker {
 
     // Check for slow renders
     if (renderTime > 16.67) { // Slower than 60fps
-      console.warn(`⚠️ Slow render detected: ${componentName} took ${renderTime.toFixed(2)}ms`);
+      logSecurity(`⚠️ Slow render detected: ${componentName} took ${renderTime.toFixed(2)}ms`);
       DeviceEventEmitter.emit('slow_render_detected', {
         componentName,
         renderTime,
@@ -470,7 +471,7 @@ class AnimationOptimizer {
         DeviceEventEmitter.emit('animation_completed', finalMetrics);
 
         if (!finalMetrics.isSmooth) {
-          console.warn(`⚠️ Choppy animation: ${animationId} (${actualFps.toFixed(2)}fps, ${droppedFrames} dropped)`);
+          logSecurity(`⚠️ Choppy animation: ${animationId} (${actualFps.toFixed(2)}fps, ${droppedFrames} dropped)`);
         }
       }
     };
@@ -582,7 +583,7 @@ export class RenderingOptimizer {
   static initialize(): void {
     if (this.isInitialized) return;
 
-    console.log('🎨 Initializing rendering optimizer...');
+    logPerformance('🎨 Initializing rendering optimizer...');
 
     // Start frame rate monitoring
     FrameRateMonitor.startMonitoring();
@@ -594,7 +595,7 @@ export class RenderingOptimizer {
     this.setupTouchOptimizations();
 
     this.isInitialized = true;
-    console.log('✅ Rendering optimizer initialized');
+    logPerformance('✅ Rendering optimizer initialized');
   }
 
   /**
@@ -627,7 +628,7 @@ export class RenderingOptimizer {
 
     // Temporarily reduce other performance monitoring
     setTimeout(() => {
-      console.log('🚨 Crisis interaction prioritized');
+      logPerformance('🚨 Crisis interaction prioritized');
     }, 0);
   }
 
@@ -683,7 +684,7 @@ export class RenderingOptimizer {
     // Limit animation duration for better performance
     if (animationConfig.duration > 500) {
       animationConfig.duration = 500;
-      console.warn(`Animation duration capped at 500ms for performance: ${animationId}`);
+      logSecurity(`Animation duration capped at 500ms for performance: ${animationId}`);
     }
   }
 
@@ -769,7 +770,7 @@ export class RenderingOptimizer {
    */
   static configure(config: Partial<RenderOptimizationConfig>): void {
     this.config = { ...this.config, ...config };
-    console.log('Rendering optimizer configured:', this.config);
+    logPerformance('Rendering optimizer configured:', this.config);
   }
 
   /**
@@ -780,7 +781,7 @@ export class RenderingOptimizer {
     RenderBatchManager.clearBatch();
     ComponentPerformanceTracker.clear();
     this.isInitialized = false;
-    console.log('Rendering optimizer shutdown');
+    logPerformance('Rendering optimizer shutdown');
   }
 }
 

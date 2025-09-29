@@ -1,4 +1,5 @@
 /**
+import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * Simple Theme Context - New Architecture Compatible
  * Lightweight theming system without SafeImports dependencies
  */
@@ -100,7 +101,7 @@ export const useSimpleTheme = (): SimpleThemeContextValue => {
 
   if (!context) {
     // Fallback to default instead of throwing error for stability
-    console.warn('useSimpleTheme used outside provider, using default');
+    logSecurity('useSimpleTheme used outside provider, using default');
     return defaultValue;
   }
 

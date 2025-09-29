@@ -1,4 +1,5 @@
 /**
+import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * SUICIDAL IDEATION DETECTION PROTOCOL - DRD-FLOW-005
  *
  * CRITICAL SAFETY REQUIREMENTS:
@@ -137,7 +138,7 @@ export class SuicidalIdeationProtocol {
       return detection;
 
     } catch (error) {
-      console.error('🚨 SUICIDAL IDEATION DETECTION ERROR:', error);
+      logError('🚨 SUICIDAL IDEATION DETECTION ERROR:', error);
 
       // FAIL-SAFE: Emergency intervention
       await this.emergencyFailsafeIntervention(questionId, response);
@@ -177,7 +178,7 @@ export class SuicidalIdeationProtocol {
       return intervention;
 
     } catch (error) {
-      console.error('🚨 SUICIDAL IDEATION INTERVENTION ERROR:', error);
+      logError('🚨 SUICIDAL IDEATION INTERVENTION ERROR:', error);
 
       // FAIL-SAFE: Direct emergency call
       await this.emergencyFailsafeIntervention(
@@ -245,7 +246,7 @@ export class SuicidalIdeationProtocol {
       });
 
     } catch (error) {
-      console.error('🚨 SAFETY ACKNOWLEDGMENT ERROR:', error);
+      logError('🚨 SAFETY ACKNOWLEDGMENT ERROR:', error);
       return false;
     }
   }
@@ -453,7 +454,7 @@ export class SuicidalIdeationProtocol {
    */
   private validateDetectionTiming(detection: SuicidalIdeationDetection): void {
     if (detection.detectionResponseTimeMs > SUICIDAL_IDEATION_CONFIG.MAX_DETECTION_TIME_MS) {
-      console.warn(
+      logSecurity(
         `🚨 SUICIDAL IDEATION DETECTION TIME VIOLATION: ${detection.detectionResponseTimeMs}ms (max: ${SUICIDAL_IDEATION_CONFIG.MAX_DETECTION_TIME_MS}ms)`
       );
     }
@@ -478,7 +479,7 @@ export class SuicidalIdeationProtocol {
     questionId: string,
     response: number
   ): Promise<void> {
-    console.error('🚨 EMERGENCY FAILSAFE ACTIVATED - SUICIDAL IDEATION');
+    logError('🚨 EMERGENCY FAILSAFE ACTIVATED - SUICIDAL IDEATION');
 
     Alert.alert(
       '🚨 EMERGENCY CRISIS SUPPORT',
@@ -511,7 +512,7 @@ export class SuicidalIdeationProtocol {
         })
       );
     } catch (error) {
-      console.error('Failed to log emergency failsafe:', error);
+      logError('Failed to log emergency failsafe:', error);
     }
   }
 
@@ -537,7 +538,7 @@ export class SuicidalIdeationProtocol {
         JSON.stringify(followUpSchedule)
       );
     } catch (error) {
-      console.error('Failed to schedule mandatory follow-up:', error);
+      logError('Failed to schedule mandatory follow-up:', error);
     }
   }
 
@@ -563,7 +564,7 @@ export class SuicidalIdeationProtocol {
         JSON.stringify(auditEntry)
       );
     } catch (error) {
-      console.error('Suicidal ideation detection logging failed:', error);
+      logError('Suicidal ideation detection logging failed:', error);
     }
   }
 
@@ -585,7 +586,7 @@ export class SuicidalIdeationProtocol {
         JSON.stringify(auditEntry)
       );
     } catch (error) {
-      console.error('Suicidal ideation intervention logging failed:', error);
+      logError('Suicidal ideation intervention logging failed:', error);
     }
   }
 
@@ -608,7 +609,7 @@ export class SuicidalIdeationProtocol {
         JSON.stringify(auditEntry)
       );
     } catch (error) {
-      console.error('Safety acknowledgment logging failed:', error);
+      logError('Safety acknowledgment logging failed:', error);
     }
   }
 

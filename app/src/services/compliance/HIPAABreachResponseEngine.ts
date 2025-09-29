@@ -1,4 +1,5 @@
 /**
+import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * HIPAA BREACH RESPONSE ENGINE - DRD-FLOW-005 Assessment System
  *
  * COMPREHENSIVE BREACH RESPONSE:
@@ -376,7 +377,7 @@ export class HIPAABreachResponseEngine {
       };
 
     } catch (error) {
-      console.error('🚨 BREACH DETECTION ERROR:', error);
+      logError('🚨 BREACH DETECTION ERROR:', error);
       
       // Err on the side of caution - treat as potential breach
       return {
@@ -452,7 +453,7 @@ export class HIPAABreachResponseEngine {
       };
 
     } catch (error) {
-      console.error('🚨 RISK ASSESSMENT ERROR:', error);
+      logError('🚨 RISK ASSESSMENT ERROR:', error);
       
       return {
         overallRisk: 'critical',
@@ -537,7 +538,7 @@ export class HIPAABreachResponseEngine {
       };
 
     } catch (error) {
-      console.error('🚨 CONTAINMENT ERROR:', error);
+      logError('🚨 CONTAINMENT ERROR:', error);
       
       return {
         containmentStarted: false,
@@ -637,7 +638,7 @@ export class HIPAABreachResponseEngine {
       };
 
     } catch (error) {
-      console.error('🚨 NOTIFICATION MANAGEMENT ERROR:', error);
+      logError('🚨 NOTIFICATION MANAGEMENT ERROR:', error);
       
       return {
         notificationsRequired: this.getEmergencyNotificationRequirements(),
@@ -728,7 +729,7 @@ export class HIPAABreachResponseEngine {
       };
 
     } catch (error) {
-      console.error('🚨 REMEDIATION PLAN ERROR:', error);
+      logError('🚨 REMEDIATION PLAN ERROR:', error);
       
       return {
         planCreated: false,
@@ -1268,7 +1269,7 @@ export class HIPAABreachResponseEngine {
       };
 
     } catch (error) {
-      console.error('🚨 BREACH STATUS ERROR:', error);
+      logError('🚨 BREACH STATUS ERROR:', error);
       return {
         activeIncidents: -1,
         criticalIncidents: -1,
@@ -1312,7 +1313,7 @@ export class HIPAABreachResponseEngine {
       };
 
     } catch (error) {
-      console.error('🚨 BREACH REPORTING ERROR:', error);
+      logError('🚨 BREACH REPORTING ERROR:', error);
       return {
         reported: false,
         nextSteps: ['Contact system administrator for manual breach reporting']

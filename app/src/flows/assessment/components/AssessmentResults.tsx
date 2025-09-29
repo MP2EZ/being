@@ -1,4 +1,5 @@
 /**
+import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * AssessmentResults Component - DRD-FLOW-005
  * 
  * CLINICAL SPECIFICATIONS:
@@ -94,7 +95,7 @@ const AssessmentResults: React.FC<AssessmentResultsProps> = ({
     
     const responseTime = performance.now() - startTime;
     if (responseTime > 50) {
-      console.warn(`🚨 Crisis detection time: ${responseTime}ms (target: <50ms)`);
+      logSecurity(`🚨 Crisis detection time: ${responseTime}ms (target: <50ms)`);
     }
     
     return { isCrisis, crisisType, responseTime };
@@ -221,7 +222,7 @@ const AssessmentResults: React.FC<AssessmentResultsProps> = ({
         
         const alertTime = performance.now() - startTime;
         if (alertTime > 200) {
-          console.warn(`🚨 Crisis alert time: ${alertTime}ms (target: <200ms)`);
+          logSecurity(`🚨 Crisis alert time: ${alertTime}ms (target: <200ms)`);
         }
       }, 100); // Small delay for UI rendering
     }
@@ -234,7 +235,7 @@ const AssessmentResults: React.FC<AssessmentResultsProps> = ({
     
     const responseTime = performance.now() - startTime;
     if (responseTime > 100) {
-      console.warn(`⚠️ Results completion time: ${responseTime}ms (target: <100ms)`);
+      logSecurity(`⚠️ Results completion time: ${responseTime}ms (target: <100ms)`);
     }
   }, [onComplete]);
 

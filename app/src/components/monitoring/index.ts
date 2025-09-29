@@ -1,4 +1,5 @@
 /**
+import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * PRODUCTION MONITORING COMPONENTS
  * Week 4 Phase 2b - Critical Production Infrastructure
  *
@@ -166,9 +167,9 @@ export async function initializeMonitoringComponents(): Promise<void> {
     await monitoringOrchestrator.initialize();
     await resilienceOrchestrator.initialize();
 
-    console.log('✅ Monitoring components initialized successfully');
+    logPerformance('✅ Monitoring components initialized successfully');
   } catch (error) {
-    console.error('🚨 Monitoring components initialization failed:', error);
+    logError('🚨 Monitoring components initialization failed:', error);
     throw error;
   }
 }

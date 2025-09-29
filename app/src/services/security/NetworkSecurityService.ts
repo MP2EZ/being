@@ -230,7 +230,7 @@ export class NetworkSecurityService {
     const startTime = performance.now();
 
     try {
-      console.log('🔒 Initializing Network Security Service...');
+      logPerformance('🔒 Initializing Network Security Service...');
 
       // Initialize dependencies
       await this.encryptionService.initialize();
@@ -251,7 +251,7 @@ export class NetworkSecurityService {
       this.initialized = true;
 
       const initializationTime = performance.now() - startTime;
-      console.log(`✅ Network Security Service initialized (${initializationTime.toFixed(2)}ms)`);
+      logPerformance(`✅ Network Security Service initialized (${initializationTime.toFixed(2)}ms)`);
 
       // Log initialization
       await this.logSecurityEvent({
@@ -266,7 +266,7 @@ export class NetworkSecurityService {
       });
 
     } catch (error) {
-      console.error('🚨 NETWORK SECURITY INITIALIZATION ERROR:', error);
+      logError('🚨 NETWORK SECURITY INITIALIZATION ERROR:', error);
       throw new Error(`Network security initialization failed: ${error.message}`);
     }
   }
@@ -309,7 +309,7 @@ export class NetworkSecurityService {
       // Update metrics
       this.updateSecurityMetrics(true, responseTime);
 
-      console.log(`🔒 Secure request completed (${options.method} ${options.url}, ${responseTime.toFixed(2)}ms)`);
+      logPerformance(`🔒 Secure request completed (${options.method} ${options.url}, ${responseTime.toFixed(2)}ms)`);
 
       return {
         success: true,
@@ -324,7 +324,7 @@ export class NetworkSecurityService {
 
     } catch (error) {
       const responseTime = performance.now() - startTime;
-      console.error('🚨 SECURE REQUEST ERROR:', error);
+      logError('🚨 SECURE REQUEST ERROR:', error);
 
       // Update metrics
       this.updateSecurityMetrics(false, responseTime);
@@ -372,7 +372,7 @@ export class NetworkSecurityService {
     const startTime = performance.now();
 
     try {
-      console.log('🚨 Crisis API request initiated');
+      logPerformance('🚨 Crisis API request initiated');
 
       const options: SecureRequestOptions = {
         method,
@@ -396,7 +396,7 @@ export class NetworkSecurityService {
 
       // Critical: Crisis API must be fast
       if (totalTime > NETWORK_CONFIG.PERFORMANCE_THRESHOLDS.crisis_api_ms) {
-        console.error(`🚨 CRISIS API TOO SLOW: ${totalTime.toFixed(2)}ms > ${NETWORK_CONFIG.PERFORMANCE_THRESHOLDS.crisis_api_ms}ms`);
+        logError(`🚨 CRISIS API TOO SLOW: ${totalTime.toFixed(2)}ms > ${NETWORK_CONFIG.PERFORMANCE_THRESHOLDS.crisis_api_ms}ms`);
         
         await this.logSecurityEvent({
           timestamp: Date.now(),
@@ -410,12 +410,12 @@ export class NetworkSecurityService {
         });
       }
 
-      console.log(`🚨 Crisis API completed (${totalTime.toFixed(2)}ms)`);
+      logPerformance(`🚨 Crisis API completed (${totalTime.toFixed(2)}ms)`);
 
       return response;
 
     } catch (error) {
-      console.error('🚨 CRISIS API REQUEST ERROR:', error);
+      logError('🚨 CRISIS API REQUEST ERROR:', error);
       throw error;
     }
   }
@@ -434,7 +434,7 @@ export class NetworkSecurityService {
     assessmentId: string
   ): Promise<SecureResponse<{ assessmentId: string; uploaded: boolean }>> {
     try {
-      console.log(`📋 Uploading ${assessmentData.type} assessment data`);
+      logPerformance(`📋 Uploading ${assessmentData.type} assessment data`);
 
       // Encrypt assessment data before transmission
       const encryptedData = await this.encryptionService.encryptAssessmentData(
@@ -464,12 +464,12 @@ export class NetworkSecurityService {
 
       const response = await this.secureRequest<{ assessmentId: string; uploaded: boolean }>(options);
 
-      console.log(`📋 Assessment uploaded (${assessmentData.type}, ${response.responseTimeMs.toFixed(2)}ms)`);
+      logPerformance(`📋 Assessment uploaded (${assessmentData.type}, ${response.responseTimeMs.toFixed(2)}ms)`);
 
       return response;
 
     } catch (error) {
-      console.error('🚨 ASSESSMENT UPLOAD ERROR:', error);
+      logError('🚨 ASSESSMENT UPLOAD ERROR:', error);
       throw error;
     }
   }
@@ -485,7 +485,7 @@ export class NetworkSecurityService {
     professionalToken?: string
   ): Promise<SecureResponse<T>> {
     try {
-      console.log('👩‍⚕️ Professional API request');
+      logPerformance('👩‍⚕️ Professional API request');
 
       const options: SecureRequestOptions = {
         method,
@@ -508,12 +508,12 @@ export class NetworkSecurityService {
 
       const response = await this.secureRequest<T>(options);
 
-      console.log(`👩‍⚕️ Professional API completed (${response.responseTimeMs.toFixed(2)}ms)`);
+      logPerformance(`👩‍⚕️ Professional API completed (${response.responseTimeMs.toFixed(2)}ms)`);
 
       return response;
 
     } catch (error) {
-      console.error('🚨 PROFESSIONAL API ERROR:', error);
+      logError('🚨 PROFESSIONAL API ERROR:', error);
       throw error;
     }
   }
@@ -531,7 +531,7 @@ export class NetworkSecurityService {
     }
   ): Promise<SecureResponse<T>> {
     try {
-      console.log(`📦 Bulk ${operation} operation initiated`);
+      logPerformance(`📦 Bulk ${operation} operation initiated`);
 
       const requestOptions: SecureRequestOptions = {
         method: operation === 'download' ? 'GET' : 'POST',
@@ -555,12 +555,12 @@ export class NetworkSecurityService {
 
       const response = await this.secureRequest<T>(requestOptions);
 
-      console.log(`📦 Bulk ${operation} completed (${response.responseTimeMs.toFixed(2)}ms)`);
+      logPerformance(`📦 Bulk ${operation} completed (${response.responseTimeMs.toFixed(2)}ms)`);
 
       return response;
 
     } catch (error) {
-      console.error('🚨 BULK OPERATION ERROR:', error);
+      logError('🚨 BULK OPERATION ERROR:', error);
       throw error;
     }
   }
@@ -635,7 +635,7 @@ export class NetworkSecurityService {
       };
 
     } catch (error) {
-      console.error('🚨 REQUEST PREPARATION ERROR:', error);
+      logError('🚨 REQUEST PREPARATION ERROR:', error);
       throw error;
     }
   }
@@ -711,7 +711,7 @@ export class NetworkSecurityService {
           NETWORK_CONFIG.RETRY_CONFIG.maxDelayMs
         );
 
-        console.log(`⏳ Request failed, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`);
+        logPerformance(`⏳ Request failed, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`);
         
         await new Promise(resolve => setTimeout(resolve, delay));
       }
@@ -775,7 +775,7 @@ export class NetworkSecurityService {
       };
 
     } catch (error) {
-      console.error('🚨 RESPONSE SECURITY VALIDATION ERROR:', error);
+      logError('🚨 RESPONSE SECURITY VALIDATION ERROR:', error);
       return {
         certificateValid: false,
         signatureValid: false,
@@ -797,7 +797,7 @@ export class NetworkSecurityService {
       return signature === expectedSignature;
 
     } catch (error) {
-      console.error('🚨 RESPONSE SIGNATURE VALIDATION ERROR:', error);
+      logError('🚨 RESPONSE SIGNATURE VALIDATION ERROR:', error);
       return false;
     }
   }
@@ -814,7 +814,7 @@ export class NetworkSecurityService {
 
       return !isEncrypted; // If not encrypted, that's still valid for some endpoints
     } catch (error) {
-      console.error('🚨 RESPONSE ENCRYPTION VERIFICATION ERROR:', error);
+      logError('🚨 RESPONSE ENCRYPTION VERIFICATION ERROR:', error);
       return false;
     }
   }
@@ -830,7 +830,7 @@ export class NetworkSecurityService {
       return providedHash === calculatedHash;
 
     } catch (error) {
-      console.error('🚨 RESPONSE INTEGRITY VERIFICATION ERROR:', error);
+      logError('🚨 RESPONSE INTEGRITY VERIFICATION ERROR:', error);
       return false;
     }
   }
@@ -877,7 +877,7 @@ export class NetworkSecurityService {
       if (error.message.includes('Rate limit exceeded')) {
         throw error;
       }
-      console.error('🚨 RATE LIMIT CHECK ERROR:', error);
+      logError('🚨 RATE LIMIT CHECK ERROR:', error);
     }
   }
 
@@ -920,7 +920,7 @@ export class NetworkSecurityService {
         mitigationAction: 'performance_monitoring_alert'
       });
 
-      console.warn(`⚠️  Performance violation: ${category} took ${responseTime.toFixed(2)}ms > ${threshold}ms`);
+      logSecurity(`⚠️  Performance violation: ${category} took ${responseTime.toFixed(2)}ms > ${threshold}ms`);
     }
   }
 
@@ -978,7 +978,7 @@ export class NetworkSecurityService {
       
       return `req_${timestamp}_${random}`;
     } catch (error) {
-      console.error('🚨 REQUEST ID GENERATION ERROR:', error);
+      logError('🚨 REQUEST ID GENERATION ERROR:', error);
       return `req_${Date.now()}_fallback`;
     }
   }
@@ -1010,7 +1010,7 @@ export class NetworkSecurityService {
       return `${signature.substring(0, 32)}_${nonce}`;
 
     } catch (error) {
-      console.error('🚨 REQUEST SIGNATURE ERROR:', error);
+      logError('🚨 REQUEST SIGNATURE ERROR:', error);
       throw error;
     }
   }
@@ -1024,7 +1024,7 @@ export class NetworkSecurityService {
         { encoding: Crypto.CryptoEncoding.HEX }
       );
     } catch (error) {
-      console.error('🚨 RESPONSE SIGNATURE CALCULATION ERROR:', error);
+      logError('🚨 RESPONSE SIGNATURE CALCULATION ERROR:', error);
       return '';
     }
   }
@@ -1038,7 +1038,7 @@ export class NetworkSecurityService {
         { encoding: Crypto.CryptoEncoding.HEX }
       );
     } catch (error) {
-      console.error('🚨 DATA HASH CALCULATION ERROR:', error);
+      logError('🚨 DATA HASH CALCULATION ERROR:', error);
       return '';
     }
   }
@@ -1050,7 +1050,7 @@ export class NetworkSecurityService {
         .map(b => b.toString(16).padStart(2, '0'))
         .join('');
     } catch (error) {
-      console.error('🚨 NONCE GENERATION ERROR:', error);
+      logError('🚨 NONCE GENERATION ERROR:', error);
       return Date.now().toString(36);
     }
   }
@@ -1071,7 +1071,7 @@ export class NetworkSecurityService {
       };
 
     } catch (error) {
-      console.error('🚨 AUTHENTICATION HEADERS ERROR:', error);
+      logError('🚨 AUTHENTICATION HEADERS ERROR:', error);
       return {};
     }
   }
@@ -1144,7 +1144,7 @@ export class NetworkSecurityService {
 
   private async verifyNetworkSecurityCapabilities(): Promise<void> {
     try {
-      console.log('🔍 Verifying network security capabilities...');
+      logPerformance('🔍 Verifying network security capabilities...');
 
       // Check TLS support
       if (Platform.OS !== 'web') {
@@ -1156,25 +1156,25 @@ export class NetworkSecurityService {
         throw new Error('Encryption service not available');
       }
 
-      console.log('✅ Network security capabilities verified');
+      logPerformance('✅ Network security capabilities verified');
 
     } catch (error) {
-      console.error('🚨 NETWORK SECURITY VERIFICATION ERROR:', error);
+      logError('🚨 NETWORK SECURITY VERIFICATION ERROR:', error);
       throw error;
     }
   }
 
   private async setupCertificatePinning(): Promise<void> {
     try {
-      console.log('🔒 Setting up certificate pinning...');
+      logPerformance('🔒 Setting up certificate pinning...');
 
       // Certificate pinning would be implemented here
       // For now, log that it's configured
       
-      console.log('✅ Certificate pinning configured');
+      logPerformance('✅ Certificate pinning configured');
 
     } catch (error) {
-      console.error('🚨 CERTIFICATE PINNING SETUP ERROR:', error);
+      logError('🚨 CERTIFICATE PINNING SETUP ERROR:', error);
       throw error;
     }
   }
@@ -1192,7 +1192,7 @@ export class NetworkSecurityService {
 
   private async validateAPIConnectivity(): Promise<void> {
     try {
-      console.log('🔍 Validating API connectivity...');
+      logPerformance('🔍 Validating API connectivity...');
 
       // Test basic connectivity
       const testResponse = await fetch(`${this.apiBaseUrl}/health`, {
@@ -1206,10 +1206,10 @@ export class NetworkSecurityService {
         throw new Error(`API connectivity test failed: ${testResponse.status}`);
       }
 
-      console.log('✅ API connectivity validated');
+      logPerformance('✅ API connectivity validated');
 
     } catch (error) {
-      console.error('🚨 API CONNECTIVITY VALIDATION ERROR:', error);
+      logError('🚨 API CONNECTIVITY VALIDATION ERROR:', error);
       // Don't throw - allow initialization to continue
     }
   }
@@ -1222,7 +1222,7 @@ export class NetworkSecurityService {
       );
 
       if (recentViolations.length > 10) {
-        console.warn(`⚠️  High security violation rate: ${recentViolations.length} in last 5 minutes`);
+        logSecurity(`⚠️  High security violation rate: ${recentViolations.length} in last 5 minutes`);
       }
 
       // Check active requests for timeouts
@@ -1237,7 +1237,7 @@ export class NetworkSecurityService {
       }
 
     } catch (error) {
-      console.error('🚨 SECURITY HEALTH CHECK ERROR:', error);
+      logError('🚨 SECURITY HEALTH CHECK ERROR:', error);
     }
   }
 
@@ -1263,11 +1263,11 @@ export class NetworkSecurityService {
 
       // Log critical events immediately
       if (event.severity === 'critical' || event.severity === 'high') {
-        console.error(`🚨 SECURITY VIOLATION [${event.severity.toUpperCase()}]: ${event.details}`);
+        logError(`🚨 SECURITY VIOLATION [${event.severity.toUpperCase()}]: ${event.details}`);
       }
 
     } catch (error) {
-      console.error('🚨 SECURITY EVENT LOGGING ERROR:', error);
+      logError('🚨 SECURITY EVENT LOGGING ERROR:', error);
     }
   }
 
@@ -1285,23 +1285,23 @@ export class NetworkSecurityService {
 
   public async abortAllRequests(): Promise<void> {
     try {
-      console.log('🛑 Aborting all active requests...');
+      logPerformance('🛑 Aborting all active requests...');
 
       for (const [requestKey, controller] of this.activeRequests.entries()) {
         controller.abort();
         this.activeRequests.delete(requestKey);
       }
 
-      console.log('✅ All requests aborted');
+      logPerformance('✅ All requests aborted');
 
     } catch (error) {
-      console.error('🚨 REQUEST ABORTION ERROR:', error);
+      logError('🚨 REQUEST ABORTION ERROR:', error);
     }
   }
 
   public async destroy(): Promise<void> {
     try {
-      console.log('🗑️  Destroying network security service...');
+      logPerformance('🗑️  Destroying network security service...');
 
       // Abort all active requests
       await this.abortAllRequests();
@@ -1317,10 +1317,10 @@ export class NetworkSecurityService {
 
       this.initialized = false;
 
-      console.log('✅ Network security service destroyed');
+      logPerformance('✅ Network security service destroyed');
 
     } catch (error) {
-      console.error('🚨 NETWORK SECURITY DESTRUCTION ERROR:', error);
+      logError('🚨 NETWORK SECURITY DESTRUCTION ERROR:', error);
       throw error;
     }
   }

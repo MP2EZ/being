@@ -1,4 +1,5 @@
 /**
+import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * AssessmentQuestion Component - DRD-FLOW-005
  * 
  * CLINICAL SPECIFICATIONS:
@@ -100,7 +101,7 @@ const AssessmentQuestion: React.FC<AssessmentQuestionProps> = ({
     // Performance monitoring for clinical compliance
     const responseTime = performance.now() - startTime;
     if (responseTime > 100) {
-      console.warn(`⚠️ Assessment response time: ${responseTime}ms (target: <100ms)`);
+      logSecurity(`⚠️ Assessment response time: ${responseTime}ms (target: <100ms)`);
     }
   }, [onAnswer]);
 

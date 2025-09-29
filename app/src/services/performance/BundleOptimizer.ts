@@ -1,4 +1,5 @@
 /**
+import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * Bundle Size Optimizer with Code Splitting Strategies
  *
  * TARGET: <2MB initial bundle, <500KB per chunk
@@ -69,7 +70,7 @@ class CodeSplittingRegistry {
    */
   static registerChunk(info: ChunkInfo): void {
     this.chunks.set(info.name, info);
-    console.log(`📦 Registered chunk: ${info.name} (${this.formatSize(info.size)})`);
+    logPerformance(`📦 Registered chunk: ${info.name} (${this.formatSize(info.size)})`);
   }
 
   /**
@@ -123,11 +124,11 @@ class CodeSplittingRegistry {
         dependencies: chunk.dependencies
       });
 
-      console.log(`✅ Loaded chunk: ${chunkName} in ${loadTime.toFixed(2)}ms`);
+      logPerformance(`✅ Loaded chunk: ${chunkName} in ${loadTime.toFixed(2)}ms`);
       return loadedModule;
 
     } catch (error) {
-      console.error(`❌ Failed to load chunk: ${chunkName}`, error);
+      logError(`❌ Failed to load chunk: ${chunkName}`, error);
       this.loadingQueue = this.loadingQueue.filter(name => name !== chunkName);
       throw error;
     }
@@ -141,11 +142,11 @@ class CodeSplittingRegistry {
       .filter(chunk => chunk.isCritical)
       .sort((a, b) => b.loadPriority === 'high' ? 1 : -1);
 
-    console.log(`🚀 Preloading ${criticalChunks.length} critical chunks`);
+    logPerformance(`🚀 Preloading ${criticalChunks.length} critical chunks`);
 
     const preloadPromises = criticalChunks.map(chunk =>
       this.loadChunk(chunk.name).catch(error => {
-        console.error(`Failed to preload critical chunk: ${chunk.name}`, error);
+        logError(`Failed to preload critical chunk: ${chunk.name}`, error);
       })
     );
 
@@ -240,7 +241,7 @@ class AssetOptimizer {
       return optimizedAsset;
 
     } catch (error) {
-      console.error(`Asset optimization failed: ${assetPath}`, error);
+      logError(`Asset optimization failed: ${assetPath}`, error);
       return { uri: assetPath, optimized: false };
     }
   }
@@ -255,13 +256,13 @@ class AssetOptimizer {
           await this.optimizeAsset(path);
           this.preloadedAssets.add(path);
         } catch (error) {
-          console.error(`Failed to preload asset: ${path}`, error);
+          logError(`Failed to preload asset: ${path}`, error);
         }
       }
     });
 
     await Promise.allSettled(preloadPromises);
-    console.log(`✅ Preloaded ${assetPaths.length} critical assets`);
+    logPerformance(`✅ Preloaded ${assetPaths.length} critical assets`);
   }
 
   /**
@@ -314,7 +315,7 @@ export class BundleOptimizer {
   static async initialize(): Promise<void> {
     if (this.isInitialized) return;
 
-    console.log('📦 Initializing bundle optimizer...');
+    logPerformance('📦 Initializing bundle optimizer...');
 
     // Register critical chunks that should never be lazy-loaded
     this.registerCriticalChunks();
@@ -329,7 +330,7 @@ export class BundleOptimizer {
     this.startBundleMonitoring();
 
     this.isInitialized = true;
-    console.log('✅ Bundle optimizer initialized');
+    logPerformance('✅ Bundle optimizer initialized');
   }
 
   /**
@@ -464,7 +465,7 @@ export class BundleOptimizer {
       DeviceEventEmitter.emit('bundle_metrics_collected', metrics);
 
     } catch (error) {
-      console.error('Bundle metrics collection failed:', error);
+      logError('Bundle metrics collection failed:', error);
     }
   }
 
@@ -473,7 +474,7 @@ export class BundleOptimizer {
    */
   private static validateBundleSize(metrics: BundleMetrics): void {
     if (metrics.jsSize > this.config.maxInitialBundleSize) {
-      console.warn(`⚠️ Initial bundle size exceeded: ${this.formatSize(metrics.jsSize)} > ${this.formatSize(this.config.maxInitialBundleSize)}`);
+      logSecurity(`⚠️ Initial bundle size exceeded: ${this.formatSize(metrics.jsSize)} > ${this.formatSize(this.config.maxInitialBundleSize)}`);
 
       DeviceEventEmitter.emit('bundle_size_exceeded', {
         current: metrics.jsSize,
@@ -483,7 +484,7 @@ export class BundleOptimizer {
     }
 
     if (metrics.loadTime > 3000) { // 3 seconds
-      console.warn(`⚠️ Bundle load time exceeded: ${metrics.loadTime}ms`);
+      logSecurity(`⚠️ Bundle load time exceeded: ${metrics.loadTime}ms`);
 
       DeviceEventEmitter.emit('bundle_load_time_exceeded', {
         loadTime: metrics.loadTime,
@@ -519,7 +520,7 @@ export class BundleOptimizer {
 
       return result;
     } catch (error) {
-      console.error(`Optimized chunk load failed: ${chunkName}`, error);
+      logError(`Optimized chunk load failed: ${chunkName}`, error);
 
       DeviceEventEmitter.emit('optimized_chunk_loaded', {
         chunkName,
@@ -614,7 +615,7 @@ export class BundleOptimizer {
    */
   static configure(config: Partial<BundleOptimizationConfig>): void {
     this.config = { ...this.config, ...config };
-    console.log('Bundle optimizer configured:', this.config);
+    logPerformance('Bundle optimizer configured:', this.config);
   }
 
   /**
@@ -625,7 +626,7 @@ export class BundleOptimizer {
     CodeSplittingRegistry.clear();
     AssetOptimizer.clearCache();
     this.isInitialized = false;
-    console.log('Bundle optimizer reset');
+    logPerformance('Bundle optimizer reset');
   }
 }
 

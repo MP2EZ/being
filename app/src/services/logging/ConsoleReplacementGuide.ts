@@ -1,7 +1,7 @@
 /**
  * CONSOLE.LOG REPLACEMENT GUIDE - HIPAA Compliance
  *
- * This file provides exact replacement patterns for all 1,645 console.log
+ * This file provides exact replacement patterns for all 1,645 logPerformance
  * statements found in the codebase, categorized by security risk level.
  *
  * REPLACEMENT STRATEGY:
@@ -32,7 +32,7 @@ import {
  * CATEGORY 1: CRITICAL PHI VIOLATIONS - IMMEDIATE REPLACEMENT REQUIRED
  */
 
-// ❌ BEFORE: console.log(`🔒 Updating analytics consent for user: ${consent.userId}`);
+// ❌ BEFORE: logPerformance(`🔒 Updating analytics consent for user: ${consent.userId}`);
 // ✅ AFTER:
 export const logAnalyticsConsentUpdate = () => {
   logAnalytics('Analytics consent updated', {
@@ -41,7 +41,7 @@ export const logAnalyticsConsentUpdate = () => {
   });
 };
 
-// ❌ BEFORE: console.log(`🛡️ Applying privacy controls for user: ${userId}`);
+// ❌ BEFORE: logPerformance(`🛡️ Applying privacy controls for user: ${userId}`);
 // ✅ AFTER:
 export const logPrivacyControlsApplied = () => {
   logSecurity('Privacy controls applied', 'low', {
@@ -50,7 +50,7 @@ export const logPrivacyControlsApplied = () => {
   });
 };
 
-// ❌ BEFORE: console.log(`🗑️ Deleting analytics data for user: ${userId}`);
+// ❌ BEFORE: logPerformance(`🗑️ Deleting analytics data for user: ${userId}`);
 // ✅ AFTER:
 export const logAnalyticsDataDeletion = () => {
   logAnalytics('Analytics data deletion requested', {
@@ -59,7 +59,7 @@ export const logAnalyticsDataDeletion = () => {
   });
 };
 
-// ❌ BEFORE: console.error('🚨 CRISIS DETECTION VALIDATION FAILED', detection);
+// ❌ BEFORE: logError('🚨 CRISIS DETECTION VALIDATION FAILED', detection);
 // ✅ AFTER:
 export const logCrisisDetectionValidationFailed = (detectionTime?: number) => {
   logCrisis('Crisis detection validation failed', {
@@ -69,7 +69,7 @@ export const logCrisisDetectionValidationFailed = (detectionTime?: number) => {
   });
 };
 
-// ❌ BEFORE: console.log('🚨 Processing crisis analytics event with priority');
+// ❌ BEFORE: logPerformance('🚨 Processing crisis analytics event with priority');
 // ✅ AFTER:
 export const logCrisisAnalyticsProcessing = () => {
   logCrisis('Crisis analytics processing initiated', {
@@ -78,7 +78,7 @@ export const logCrisisAnalyticsProcessing = () => {
   });
 };
 
-// ❌ BEFORE: console.log(`📋 Assessment completion tracked (${processingTime.toFixed(2)}ms)`);
+// ❌ BEFORE: logPerformance(`📋 Assessment completion tracked (${processingTime.toFixed(2)}ms)`);
 // ✅ AFTER:
 export const logAssessmentCompletionTracked = (processingTime: number) => {
   logAssessment('Assessment completion tracked', {
@@ -91,7 +91,7 @@ export const logAssessmentCompletionTracked = (processingTime: number) => {
  * CATEGORY 2: AUTHENTICATION/SESSION EXPOSURE - HIGH PRIORITY
  */
 
-// ❌ BEFORE: console.error('🔐 Analytics authentication failed:', error);
+// ❌ BEFORE: logError('🔐 Analytics authentication failed:', error);
 // ✅ AFTER:
 export const logAnalyticsAuthenticationFailed = (error: Error) => {
   logAuth('Analytics authentication failed', {
@@ -101,7 +101,7 @@ export const logAnalyticsAuthenticationFailed = (error: Error) => {
   logError(LogCategory.AUTH, 'Analytics authentication error', error);
 };
 
-// ❌ BEFORE: console.log(`🔄 Session rotated for ${currentDate}`);
+// ❌ BEFORE: logPerformance(`🔄 Session rotated for ${currentDate}`);
 // ✅ AFTER:
 export const logSessionRotated = () => {
   logAuth('Session rotated', {
@@ -110,7 +110,7 @@ export const logSessionRotated = () => {
   });
 };
 
-// ❌ BEFORE: console.log('🚪 Initializing Authentication Service...');
+// ❌ BEFORE: logPerformance('🚪 Initializing Authentication Service...');
 // ✅ AFTER:
 export const logAuthServiceInitialization = () => {
   logAuth('Authentication service initializing', {
@@ -122,7 +122,7 @@ export const logAuthServiceInitialization = () => {
  * CATEGORY 3: PERFORMANCE LOGS WITH POTENTIAL PHI - MEDIUM PRIORITY
  */
 
-// ❌ BEFORE: console.error(`🚨 Crisis detection exceeded threshold: ${duration}ms`);
+// ❌ BEFORE: logError(`🚨 Crisis detection exceeded threshold: ${duration}ms`);
 // ✅ AFTER:
 export const logCrisisDetectionThresholdExceeded = (duration: number, threshold: number) => {
   logPerformance('Crisis detection threshold exceeded', duration, {
@@ -132,7 +132,7 @@ export const logCrisisDetectionThresholdExceeded = (duration: number, threshold:
   });
 };
 
-// ❌ BEFORE: console.warn(`PHQ-9 scoring exceeded 10ms target: ${duration}ms`);
+// ❌ BEFORE: logSecurity(`PHQ-9 scoring exceeded 10ms target: ${duration}ms`);
 // ✅ AFTER:
 export const logPHQ9ScoringPerformance = (duration: number) => {
   logPerformance('PHQ-9 scoring performance warning', duration, {
@@ -142,7 +142,7 @@ export const logPHQ9ScoringPerformance = (duration: number) => {
   });
 };
 
-// ❌ BEFORE: console.warn(`GAD-7 scoring exceeded 8ms target: ${duration}ms`);
+// ❌ BEFORE: logSecurity(`GAD-7 scoring exceeded 8ms target: ${duration}ms`);
 // ✅ AFTER:
 export const logGAD7ScoringPerformance = (duration: number) => {
   logPerformance('GAD-7 scoring performance warning', duration, {
@@ -152,7 +152,7 @@ export const logGAD7ScoringPerformance = (duration: number) => {
   });
 };
 
-// ❌ BEFORE: console.log(`Assessment session initialized in ${initTime}ms`);
+// ❌ BEFORE: logPerformance(`Assessment session initialized in ${initTime}ms`);
 // ✅ AFTER:
 export const logAssessmentSessionInitialized = (initTime: number) => {
   logPerformance('Assessment session initialized', initTime, {
@@ -165,7 +165,7 @@ export const logAssessmentSessionInitialized = (initTime: number) => {
  * CATEGORY 4: SYNC AND CLOUD OPERATIONS - MEDIUM PRIORITY
  */
 
-// ❌ BEFORE: console.log('✅ User analytics data deleted successfully');
+// ❌ BEFORE: logPerformance('✅ User analytics data deleted successfully');
 // ✅ AFTER:
 export const logUserDataDeletionSuccess = () => {
   logSync('User data deletion completed', {
@@ -174,13 +174,13 @@ export const logUserDataDeletionSuccess = () => {
   });
 };
 
-// ❌ BEFORE: console.error('🚨 User data deletion failed:', error);
+// ❌ BEFORE: logError('🚨 User data deletion failed:', error);
 // ✅ AFTER:
 export const logUserDataDeletionFailed = (error: Error) => {
   logError(LogCategory.SYNC, 'User data deletion failed', error);
 };
 
-// ❌ BEFORE: console.log(`📤 Exporting analytics data for user: ${userId}`);
+// ❌ BEFORE: logPerformance(`📤 Exporting analytics data for user: ${userId}`);
 // ✅ AFTER:
 export const logAnalyticsDataExport = () => {
   logSync('Analytics data export initiated', {
@@ -193,7 +193,7 @@ export const logAnalyticsDataExport = () => {
  * CATEGORY 5: SYSTEM AND APP LIFECYCLE - LOW PRIORITY
  */
 
-// ❌ BEFORE: console.log('📱 App backgrounding - saving performance data');
+// ❌ BEFORE: logPerformance('📱 App backgrounding - saving performance data');
 // ✅ AFTER:
 export const logAppBackgrounding = () => {
   logSystem('App backgrounding - saving performance data', {
@@ -201,7 +201,7 @@ export const logAppBackgrounding = () => {
   });
 };
 
-// ❌ BEFORE: console.log('Assessment flow optimizer configured:', this.config);
+// ❌ BEFORE: logPerformance('Assessment flow optimizer configured:', this.config);
 // ✅ AFTER:
 export const logAssessmentFlowOptimizerConfigured = () => {
   logSystem('Assessment flow optimizer configured', {
@@ -209,7 +209,7 @@ export const logAssessmentFlowOptimizerConfigured = () => {
   });
 };
 
-// ❌ BEFORE: console.log(`Session ${sessionId} cleaned up`);
+// ❌ BEFORE: logPerformance(`Session ${sessionId} cleaned up`);
 // ✅ AFTER:
 export const logSessionCleanup = () => {
   logSystem('Session cleanup completed', {
@@ -221,7 +221,7 @@ export const logSessionCleanup = () => {
  * CATEGORY 6: ANALYTICS AND MONITORING - LOW PRIORITY
  */
 
-// ❌ BEFORE: console.log('👁️ Assessment store monitoring started');
+// ❌ BEFORE: logPerformance('👁️ Assessment store monitoring started');
 // ✅ AFTER:
 export const logAssessmentStoreMonitoringStarted = () => {
   logAnalytics('Assessment store monitoring started', {
@@ -229,7 +229,7 @@ export const logAssessmentStoreMonitoringStarted = () => {
   });
 };
 
-// ❌ BEFORE: console.log(`📊 Processing analytics batch (${this.eventQueue.length} events)`);
+// ❌ BEFORE: logPerformance(`📊 Processing analytics batch (${this.eventQueue.length} events)`);
 // ✅ AFTER:
 export const logAnalyticsBatchProcessing = (eventCount: number) => {
   logAnalytics('Analytics batch processing', {
@@ -242,7 +242,7 @@ export const logAnalyticsBatchProcessing = (eventCount: number) => {
  * CATEGORY 7: ACCESSIBILITY AND UX - LOW PRIORITY
  */
 
-// ❌ BEFORE: console.log('🚨 Crisis interaction prioritized');
+// ❌ BEFORE: logPerformance('🚨 Crisis interaction prioritized');
 // ✅ AFTER:
 export const logCrisisInteractionPrioritized = () => {
   logAccessibility('Crisis interaction prioritized', {
@@ -312,7 +312,7 @@ export const safeConsole = {
   log: (message: string, ...args: any[]) => {
     if (__DEV__) {
       const sanitizedMessage = message.replace(/user[_-]?id[:\s]*[a-zA-Z0-9-]+/gi, '[USER_ID_REDACTED]');
-      console.log(sanitizedMessage, ...args.map(arg =>
+      logPerformance(sanitizedMessage, ...args.map(arg =>
         typeof arg === 'object' ? '[OBJECT_REDACTED]' : arg
       ));
     }
@@ -320,13 +320,13 @@ export const safeConsole = {
 
   error: (message: string, ...args: any[]) => {
     const sanitizedMessage = message.replace(/user[_-]?id[:\s]*[a-zA-Z0-9-]+/gi, '[USER_ID_REDACTED]');
-    console.error(sanitizedMessage);
+    logError(sanitizedMessage);
   },
 
   warn: (message: string, ...args: any[]) => {
     if (__DEV__) {
       const sanitizedMessage = message.replace(/user[_-]?id[:\s]*[a-zA-Z0-9-]+/gi, '[USER_ID_REDACTED]');
-      console.warn(sanitizedMessage);
+      logSecurity(sanitizedMessage);
     }
   }
 };

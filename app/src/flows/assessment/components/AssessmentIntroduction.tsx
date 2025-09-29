@@ -1,4 +1,5 @@
 /**
+import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * AssessmentIntroduction Component - DRD-FLOW-005
  * 
  * CLINICAL SPECIFICATIONS:
@@ -114,7 +115,7 @@ const AssessmentIntroduction: React.FC<AssessmentIntroductionProps> = ({
     // Performance monitoring for therapeutic flow
     const responseTime = performance.now() - startTime;
     if (responseTime > 100) {
-      console.warn(`⚠️ Assessment begin response time: ${responseTime}ms (target: <100ms)`);
+      logSecurity(`⚠️ Assessment begin response time: ${responseTime}ms (target: <100ms)`);
     }
   }, [onBegin]);
 

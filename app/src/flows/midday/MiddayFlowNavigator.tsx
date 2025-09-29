@@ -1,4 +1,5 @@
 /**
+import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * MiddayFlowNavigator - MBCT 3-Minute Breathing Space Navigation
  * 
  * CLINICAL SPECIFICATIONS:
@@ -75,7 +76,7 @@ const MiddayFlowNavigator: React.FC<MiddayFlowNavigatorProps> = ({
   };
 
   const handleSkip = (screenName: string) => {
-    console.log(`🔄 User skipped ${screenName} screen`);
+    logPerformance(`🔄 User skipped ${screenName} screen`);
     // For now, continue to next screen
     // In production, this would track skip behavior
   };

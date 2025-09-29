@@ -1,4 +1,5 @@
 /**
+import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * Crisis Performance Optimizer - Ultra-Fast Crisis Detection
  *
  * TARGET: <50ms crisis detection (enhanced from <200ms)
@@ -127,7 +128,7 @@ class OptimizedScoringService {
 
     // Performance monitoring
     if (duration > 10) {
-      console.warn(`PHQ-9 scoring exceeded 10ms target: ${duration}ms`);
+      logSecurity(`PHQ-9 scoring exceeded 10ms target: ${duration}ms`);
     }
 
     return { score: totalScore, hasSuicidalIdeation: suicidalIdeation };
@@ -160,7 +161,7 @@ class OptimizedScoringService {
 
     // Performance monitoring
     if (duration > 8) {
-      console.warn(`GAD-7 scoring exceeded 8ms target: ${duration}ms`);
+      logSecurity(`GAD-7 scoring exceeded 8ms target: ${duration}ms`);
     }
 
     return totalScore;
@@ -271,7 +272,7 @@ export class CrisisPerformanceOptimizer {
       return detection;
     } catch (error) {
       const totalTime = performance.now() - startTime;
-      console.error('Optimized crisis detection failed:', error);
+      logError('Optimized crisis detection failed:', error);
 
       // Record failed attempt
       this.recordPerformanceMetric({
@@ -324,7 +325,7 @@ export class CrisisPerformanceOptimizer {
       }
 
     } catch (error) {
-      console.error('Optimized emergency response failed:', error);
+      logError('Optimized emergency response failed:', error);
       // Fallback: Direct 988 call
       Linking.openURL('tel:988');
     }
@@ -392,7 +393,7 @@ export class CrisisPerformanceOptimizer {
         AsyncStorage.setItem(logKey, JSON.stringify(interventionLog))
       );
     } catch (error) {
-      console.error('Crisis intervention logging failed:', error);
+      logError('Crisis intervention logging failed:', error);
     }
   }
 
@@ -417,7 +418,7 @@ export class CrisisPerformanceOptimizer {
   private static handlePerformanceAlert(duration: number, operation: string): void {
     this.alertCount++;
 
-    console.error(`🚨 PERFORMANCE ALERT: ${operation} took ${duration}ms (target: <${this.config.alertThresholdMs}ms)`);
+    logError(`🚨 PERFORMANCE ALERT: ${operation} took ${duration}ms (target: <${this.config.alertThresholdMs}ms)`);
 
     // Emit alert for external monitoring
     DeviceEventEmitter.emit('performance_alert', {
@@ -430,7 +431,7 @@ export class CrisisPerformanceOptimizer {
 
     // Critical performance degradation handling
     if (duration > this.config.alertThresholdMs * 2) {
-      console.error(`🚨 CRITICAL PERFORMANCE DEGRADATION: ${operation} is severely slow`);
+      logError(`🚨 CRITICAL PERFORMANCE DEGRADATION: ${operation} is severely slow`);
 
       // Clear caches to free memory
       if (operation === 'crisis_detection') {
@@ -444,7 +445,7 @@ export class CrisisPerformanceOptimizer {
    */
   static configureOptimizations(config: Partial<CrisisOptimizationConfig>): void {
     this.config = { ...this.config, ...config };
-    console.log('Crisis performance optimizer configured:', this.config);
+    logPerformance('Crisis performance optimizer configured:', this.config);
   }
 
   /**
@@ -489,14 +490,14 @@ export class CrisisPerformanceOptimizer {
     this.performanceHistory = [];
     this.alertCount = 0;
     ScoringCache.clear();
-    console.log('Crisis performance tracking reset');
+    logPerformance('Crisis performance tracking reset');
   }
 
   /**
    * Precompute crisis thresholds for even faster lookup
    */
   static precomputeCrisisThresholds(): void {
-    console.log('Precomputing crisis detection lookup tables...');
+    logPerformance('Precomputing crisis detection lookup tables...');
 
     // Verify lookup tables are correct
     const phq9Expected = [20, 21, 22, 23, 24, 25, 26, 27];
@@ -513,7 +514,7 @@ export class CrisisPerformanceOptimizer {
       throw new Error('GAD-7 crisis lookup table mismatch');
     }
 
-    console.log('✅ Crisis detection lookup tables verified and ready');
+    logPerformance('✅ Crisis detection lookup tables verified and ready');
   }
 }
 

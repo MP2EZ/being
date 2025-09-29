@@ -1,4 +1,5 @@
 /**
+import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * AUTHENTICATION SERVICE - DRD-FLOW-005 Security Implementation
  *
  * COMPREHENSIVE AUTHENTICATION FOR MENTAL HEALTH SYSTEM:
@@ -209,7 +210,7 @@ export class AuthenticationService {
     const startTime = performance.now();
 
     try {
-      console.log('🔐 Initializing Authentication Service...');
+      logPerformance('🔐 Initializing Authentication Service...');
 
       // Initialize secure storage
       await this.secureStorage.initialize();
@@ -232,7 +233,7 @@ export class AuthenticationService {
       this.initialized = true;
 
       const initializationTime = performance.now() - startTime;
-      console.log(`✅ Authentication Service initialized (${initializationTime.toFixed(2)}ms)`);
+      logPerformance(`✅ Authentication Service initialized (${initializationTime.toFixed(2)}ms)`);
 
       // Log initialization
       await this.logAuthenticationEvent({
@@ -247,7 +248,7 @@ export class AuthenticationService {
       });
 
     } catch (error) {
-      console.error('🚨 AUTHENTICATION INITIALIZATION ERROR:', error);
+      logError('🚨 AUTHENTICATION INITIALIZATION ERROR:', error);
       throw new Error(`Authentication initialization failed: ${error.message}`);
     }
   }
@@ -308,7 +309,7 @@ export class AuthenticationService {
 
       // Validate authentication performance
       if (authenticationTime > AUTH_CONFIG.STANDARD_AUTH_THRESHOLD_MS) {
-        console.warn(`⚠️  Authentication slow: ${authenticationTime.toFixed(2)}ms > ${AUTH_CONFIG.STANDARD_AUTH_THRESHOLD_MS}ms`);
+        logSecurity(`⚠️  Authentication slow: ${authenticationTime.toFixed(2)}ms > ${AUTH_CONFIG.STANDARD_AUTH_THRESHOLD_MS}ms`);
       }
 
       // Log authentication attempt
@@ -331,7 +332,7 @@ export class AuthenticationService {
 
     } catch (error) {
       const authenticationTime = performance.now() - startTime;
-      console.error('🚨 USER AUTHENTICATION ERROR:', error);
+      logError('🚨 USER AUTHENTICATION ERROR:', error);
 
       const deviceId = await this.getDeviceId();
       await this.recordFailedAttempt(deviceId);
@@ -359,7 +360,7 @@ export class AuthenticationService {
         throw new Error('Authentication service not initialized');
       }
 
-      console.log('🚨 Crisis emergency access requested');
+      logPerformance('🚨 Crisis emergency access requested');
 
       const deviceId = await this.getDeviceId();
 
@@ -392,7 +393,7 @@ export class AuthenticationService {
 
       // Critical: Crisis access must be fast
       if (authenticationTime > AUTH_CONFIG.CRISIS_AUTH_THRESHOLD_MS) {
-        console.error(`🚨 CRISIS ACCESS TOO SLOW: ${authenticationTime.toFixed(2)}ms > ${AUTH_CONFIG.CRISIS_AUTH_THRESHOLD_MS}ms`);
+        logError(`🚨 CRISIS ACCESS TOO SLOW: ${authenticationTime.toFixed(2)}ms > ${AUTH_CONFIG.CRISIS_AUTH_THRESHOLD_MS}ms`);
       }
 
       // Log crisis access
@@ -408,7 +409,7 @@ export class AuthenticationService {
         securityFlags: ['emergency_access', 'crisis_intervention']
       });
 
-      console.log(`🚨 Crisis access granted (${authenticationTime.toFixed(2)}ms)`);
+      logPerformance(`🚨 Crisis access granted (${authenticationTime.toFixed(2)}ms)`);
 
       return {
         success: true,
@@ -420,7 +421,7 @@ export class AuthenticationService {
 
     } catch (error) {
       const authenticationTime = performance.now() - startTime;
-      console.error('🚨 CRISIS ACCESS ERROR:', error);
+      logError('🚨 CRISIS ACCESS ERROR:', error);
 
       // Log failed crisis access
       await this.logAuthenticationEvent({
@@ -507,7 +508,7 @@ export class AuthenticationService {
 
       const authenticationTime = performance.now() - startTime;
 
-      console.log(`👆 Biometric authentication successful (${authenticationTime.toFixed(2)}ms)`);
+      logPerformance(`👆 Biometric authentication successful (${authenticationTime.toFixed(2)}ms)`);
 
       return {
         success: true,
@@ -519,7 +520,7 @@ export class AuthenticationService {
 
     } catch (error) {
       const authenticationTime = performance.now() - startTime;
-      console.error('🚨 BIOMETRIC AUTHENTICATION ERROR:', error);
+      logError('🚨 BIOMETRIC AUTHENTICATION ERROR:', error);
 
       return {
         success: false,
@@ -576,7 +577,7 @@ export class AuthenticationService {
 
       // Validate session check performance
       if (validationTime > AUTH_CONFIG.SESSION_CHECK_THRESHOLD_MS) {
-        console.warn(`⚠️  Session validation slow: ${validationTime.toFixed(2)}ms > ${AUTH_CONFIG.SESSION_CHECK_THRESHOLD_MS}ms`);
+        logSecurity(`⚠️  Session validation slow: ${validationTime.toFixed(2)}ms > ${AUTH_CONFIG.SESSION_CHECK_THRESHOLD_MS}ms`);
       }
 
       // Log session check (only for significant events)
@@ -605,7 +606,7 @@ export class AuthenticationService {
 
     } catch (error) {
       const validationTime = performance.now() - startTime;
-      console.error('🚨 SESSION VALIDATION ERROR:', error);
+      logError('🚨 SESSION VALIDATION ERROR:', error);
 
       return {
         isValid: false,
@@ -672,7 +673,7 @@ export class AuthenticationService {
         operationTimeMs: refreshTime
       });
 
-      console.log(`🔄 Token refreshed (${refreshTime.toFixed(2)}ms)`);
+      logPerformance(`🔄 Token refreshed (${refreshTime.toFixed(2)}ms)`);
 
       return {
         success: true,
@@ -684,7 +685,7 @@ export class AuthenticationService {
 
     } catch (error) {
       const refreshTime = performance.now() - startTime;
-      console.error('🚨 TOKEN REFRESH ERROR:', error);
+      logError('🚨 TOKEN REFRESH ERROR:', error);
 
       // Clear invalid session
       await this.logout();
@@ -743,10 +744,10 @@ export class AuthenticationService {
       // Clear current user
       this.currentUser = null;
 
-      console.log('👋 User logged out successfully');
+      logPerformance('👋 User logged out successfully');
 
     } catch (error) {
-      console.error('🚨 LOGOUT ERROR:', error);
+      logError('🚨 LOGOUT ERROR:', error);
     }
   }
 
@@ -829,10 +830,10 @@ export class AuthenticationService {
       const storedSession = await this.loadStoredSession();
       if (storedSession && Date.now() < storedSession.expiresAt) {
         this.currentUser = storedSession;
-        console.log(`🔄 Session restored for user: ${storedSession.userId}`);
+        logPerformance(`🔄 Session restored for user: ${storedSession.userId}`);
       }
     } catch (error) {
-      console.error('🚨 SESSION RESTORATION ERROR:', error);
+      logError('🚨 SESSION RESTORATION ERROR:', error);
     }
   }
 
@@ -848,7 +849,7 @@ export class AuthenticationService {
           await this.logout();
         }
       } catch (error) {
-        console.error('🚨 SESSION MONITORING ERROR:', error);
+        logError('🚨 SESSION MONITORING ERROR:', error);
       }
     }, 60000); // 1 minute
   }
@@ -863,7 +864,7 @@ export class AuthenticationService {
           try {
             await this.refreshAuthenticationToken();
           } catch (error) {
-            console.error('🚨 AUTOMATIC TOKEN REFRESH ERROR:', error);
+            logError('🚨 AUTOMATIC TOKEN REFRESH ERROR:', error);
           }
         }, refreshTime);
       }
@@ -885,7 +886,7 @@ export class AuthenticationService {
       
       return hasHardware && isEnrolled;
     } catch (error) {
-      console.error('🚨 BIOMETRIC CHECK ERROR:', error);
+      logError('🚨 BIOMETRIC CHECK ERROR:', error);
       return false;
     }
   }
@@ -935,10 +936,10 @@ export class AuthenticationService {
         await SecureStore.setItemAsync(AUTH_CONFIG.DEVICE_ID_KEY, deviceId);
       }
 
-      console.log(`📱 Device ID: ${deviceId.substring(0, 8)}...`);
+      logPerformance(`📱 Device ID: ${deviceId.substring(0, 8)}...`);
 
     } catch (error) {
-      console.error('🚨 DEVICE IDENTIFICATION ERROR:', error);
+      logError('🚨 DEVICE IDENTIFICATION ERROR:', error);
       throw error;
     }
   }
@@ -951,7 +952,7 @@ export class AuthenticationService {
       }
       return deviceId;
     } catch (error) {
-      console.error('🚨 DEVICE ID RETRIEVAL ERROR:', error);
+      logError('🚨 DEVICE ID RETRIEVAL ERROR:', error);
       return 'unknown_device';
     }
   }
@@ -984,7 +985,7 @@ export class AuthenticationService {
       };
 
     } catch (error) {
-      console.error('🚨 RATE LIMIT CHECK ERROR:', error);
+      logError('🚨 RATE LIMIT CHECK ERROR:', error);
       return { allowed: true, attempts: 0 };
     }
   }
@@ -999,7 +1000,7 @@ export class AuthenticationService {
       await SecureStore.setItemAsync(AUTH_CONFIG.AUTH_ATTEMPTS_KEY, attemptsData);
 
     } catch (error) {
-      console.error('🚨 FAILED ATTEMPT RECORDING ERROR:', error);
+      logError('🚨 FAILED ATTEMPT RECORDING ERROR:', error);
     }
   }
 
@@ -1011,7 +1012,7 @@ export class AuthenticationService {
         this.authenticationAttempts = new Map(attemptsArray);
       }
     } catch (error) {
-      console.error('🚨 AUTHENTICATION ATTEMPTS LOADING ERROR:', error);
+      logError('🚨 AUTHENTICATION ATTEMPTS LOADING ERROR:', error);
     }
   }
 
@@ -1059,7 +1060,7 @@ export class AuthenticationService {
       };
 
     } catch (error) {
-      console.error('🚨 TOKEN GENERATION ERROR:', error);
+      logError('🚨 TOKEN GENERATION ERROR:', error);
       throw error;
     }
   }
@@ -1073,7 +1074,7 @@ export class AuthenticationService {
       );
       return digest.substring(0, 32);
     } catch (error) {
-      console.error('🚨 TOKEN SIGNATURE ERROR:', error);
+      logError('🚨 TOKEN SIGNATURE ERROR:', error);
       throw error;
     }
   }
@@ -1088,7 +1089,7 @@ export class AuthenticationService {
       
       return `${timestamp}_${random}`;
     } catch (error) {
-      console.error('🚨 SECURE ID GENERATION ERROR:', error);
+      logError('🚨 SECURE ID GENERATION ERROR:', error);
       throw error;
     }
   }
@@ -1101,7 +1102,7 @@ export class AuthenticationService {
     try {
       await SecureStore.setItemAsync(AUTH_CONFIG.USER_SESSION_KEY, JSON.stringify(user));
     } catch (error) {
-      console.error('🚨 USER SESSION STORAGE ERROR:', error);
+      logError('🚨 USER SESSION STORAGE ERROR:', error);
       throw error;
     }
   }
@@ -1111,7 +1112,7 @@ export class AuthenticationService {
       const sessionData = await SecureStore.getItemAsync(AUTH_CONFIG.USER_SESSION_KEY);
       return sessionData ? JSON.parse(sessionData) : null;
     } catch (error) {
-      console.error('🚨 SESSION LOADING ERROR:', error);
+      logError('🚨 SESSION LOADING ERROR:', error);
       return null;
     }
   }
@@ -1121,7 +1122,7 @@ export class AuthenticationService {
       await SecureStore.setItemAsync(AUTH_CONFIG.ACCESS_TOKEN_KEY, token.accessToken);
       await SecureStore.setItemAsync(AUTH_CONFIG.REFRESH_TOKEN_KEY, JSON.stringify(token));
     } catch (error) {
-      console.error('🚨 TOKEN STORAGE ERROR:', error);
+      logError('🚨 TOKEN STORAGE ERROR:', error);
       throw error;
     }
   }
@@ -1131,7 +1132,7 @@ export class AuthenticationService {
       const tokenData = await SecureStore.getItemAsync(AUTH_CONFIG.REFRESH_TOKEN_KEY);
       return tokenData ? JSON.parse(tokenData) : null;
     } catch (error) {
-      console.error('🚨 TOKEN LOADING ERROR:', error);
+      logError('🚨 TOKEN LOADING ERROR:', error);
       return null;
     }
   }
@@ -1142,7 +1143,7 @@ export class AuthenticationService {
       const userData = await this.secureStorage.retrieveGeneralData('user_context');
       return userData || null;
     } catch (error) {
-      console.error('🚨 USER CONTEXT LOADING ERROR:', error);
+      logError('🚨 USER CONTEXT LOADING ERROR:', error);
       return null;
     }
   }
@@ -1167,7 +1168,7 @@ export class AuthenticationService {
       }
 
     } catch (error) {
-      console.error('🚨 AUTHENTICATION AUDIT LOGGING ERROR:', error);
+      logError('🚨 AUTHENTICATION AUDIT LOGGING ERROR:', error);
     }
   }
 
@@ -1217,7 +1218,7 @@ export class AuthenticationService {
 
   public async destroy(): Promise<void> {
     try {
-      console.log('🗑️  Destroying authentication service...');
+      logPerformance('🗑️  Destroying authentication service...');
 
       // Logout current user
       await this.logout();
@@ -1239,10 +1240,10 @@ export class AuthenticationService {
 
       this.initialized = false;
 
-      console.log('✅ Authentication service destroyed');
+      logPerformance('✅ Authentication service destroyed');
 
     } catch (error) {
-      console.error('🚨 AUTHENTICATION SERVICE DESTRUCTION ERROR:', error);
+      logError('🚨 AUTHENTICATION SERVICE DESTRUCTION ERROR:', error);
       throw error;
     }
   }

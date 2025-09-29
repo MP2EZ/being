@@ -1,4 +1,5 @@
 /**
+import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * SECURE STORAGE SERVICE - DRD-FLOW-005 Security Implementation
  *
  * COMPREHENSIVE SECURE STORAGE FOR MENTAL HEALTH DATA:
@@ -168,7 +169,7 @@ export class SecureStorageService {
     const startTime = performance.now();
 
     try {
-      console.log('🔒 Initializing Secure Storage Service...');
+      logPerformance('🔒 Initializing Secure Storage Service...');
 
       // Initialize encryption service
       await this.encryptionService.initialize();
@@ -185,7 +186,7 @@ export class SecureStorageService {
       this.initialized = true;
 
       const initializationTime = performance.now() - startTime;
-      console.log(`✅ Secure Storage Service initialized (${initializationTime.toFixed(2)}ms)`);
+      logPerformance(`✅ Secure Storage Service initialized (${initializationTime.toFixed(2)}ms)`);
 
       // Log initialization
       await this.logStorageAccess({
@@ -201,7 +202,7 @@ export class SecureStorageService {
       });
 
     } catch (error) {
-      console.error('🚨 SECURE STORAGE INITIALIZATION ERROR:', error);
+      logError('🚨 SECURE STORAGE INITIALIZATION ERROR:', error);
       throw new Error(`Secure storage initialization failed: ${error.message}`);
     }
   }
@@ -261,7 +262,7 @@ export class SecureStorageService {
 
       // Validate crisis performance requirement
       if (operationTime > SECURE_STORAGE_CONFIG.CRISIS_ACCESS_THRESHOLD_MS) {
-        console.warn(`⚠️  Crisis storage slow: ${operationTime.toFixed(2)}ms > ${SECURE_STORAGE_CONFIG.CRISIS_ACCESS_THRESHOLD_MS}ms`);
+        logSecurity(`⚠️  Crisis storage slow: ${operationTime.toFixed(2)}ms > ${SECURE_STORAGE_CONFIG.CRISIS_ACCESS_THRESHOLD_MS}ms`);
       }
 
       // Log access
@@ -278,7 +279,7 @@ export class SecureStorageService {
         securityContext: 'crisis_data_storage'
       });
 
-      console.log(`🚨 Crisis data stored (${operationTime.toFixed(2)}ms, ${metadata.dataSize} bytes)`);
+      logPerformance(`🚨 Crisis data stored (${operationTime.toFixed(2)}ms, ${metadata.dataSize} bytes)`);
 
       return {
         success: true,
@@ -291,7 +292,7 @@ export class SecureStorageService {
 
     } catch (error) {
       const operationTime = performance.now() - startTime;
-      console.error('🚨 CRISIS DATA STORAGE ERROR:', error);
+      logError('🚨 CRISIS DATA STORAGE ERROR:', error);
 
       // Log failure
       await this.logStorageAccess({
@@ -378,7 +379,7 @@ export class SecureStorageService {
 
       // Validate assessment performance requirement
       if (operationTime > SECURE_STORAGE_CONFIG.ASSESSMENT_ACCESS_THRESHOLD_MS) {
-        console.warn(`⚠️  Assessment storage slow: ${operationTime.toFixed(2)}ms > ${SECURE_STORAGE_CONFIG.ASSESSMENT_ACCESS_THRESHOLD_MS}ms`);
+        logSecurity(`⚠️  Assessment storage slow: ${operationTime.toFixed(2)}ms > ${SECURE_STORAGE_CONFIG.ASSESSMENT_ACCESS_THRESHOLD_MS}ms`);
       }
 
       // Log access
@@ -395,7 +396,7 @@ export class SecureStorageService {
         securityContext: 'assessment_data_storage'
       });
 
-      console.log(`📋 Assessment data stored (${assessmentData.type}, ${operationTime.toFixed(2)}ms)`);
+      logPerformance(`📋 Assessment data stored (${assessmentData.type}, ${operationTime.toFixed(2)}ms)`);
 
       return {
         success: true,
@@ -408,7 +409,7 @@ export class SecureStorageService {
 
     } catch (error) {
       const operationTime = performance.now() - startTime;
-      console.error('🚨 ASSESSMENT DATA STORAGE ERROR:', error);
+      logError('🚨 ASSESSMENT DATA STORAGE ERROR:', error);
 
       // Log failure
       await this.logStorageAccess({
@@ -476,7 +477,7 @@ export class SecureStorageService {
 
       // Critical: Crisis data access must be fast
       if (operationTime > SECURE_STORAGE_CONFIG.CRISIS_ACCESS_THRESHOLD_MS) {
-        console.error(`🚨 CRISIS DATA ACCESS TOO SLOW: ${operationTime.toFixed(2)}ms > ${SECURE_STORAGE_CONFIG.CRISIS_ACCESS_THRESHOLD_MS}ms`);
+        logError(`🚨 CRISIS DATA ACCESS TOO SLOW: ${operationTime.toFixed(2)}ms > ${SECURE_STORAGE_CONFIG.CRISIS_ACCESS_THRESHOLD_MS}ms`);
       }
 
       // Log access
@@ -493,7 +494,7 @@ export class SecureStorageService {
         securityContext: 'crisis_data_retrieval'
       });
 
-      console.log(`🚨 Crisis data retrieved (${operationTime.toFixed(2)}ms)`);
+      logPerformance(`🚨 Crisis data retrieved (${operationTime.toFixed(2)}ms)`);
 
       return {
         data: decryptedData,
@@ -513,7 +514,7 @@ export class SecureStorageService {
 
     } catch (error) {
       const operationTime = performance.now() - startTime;
-      console.error('🚨 CRISIS DATA RETRIEVAL ERROR:', error);
+      logError('🚨 CRISIS DATA RETRIEVAL ERROR:', error);
 
       // Log failure
       await this.logStorageAccess({
@@ -584,7 +585,7 @@ export class SecureStorageService {
         securityContext: 'assessment_data_retrieval'
       });
 
-      console.log(`📋 Assessment data retrieved (${operationTime.toFixed(2)}ms)`);
+      logPerformance(`📋 Assessment data retrieved (${operationTime.toFixed(2)}ms)`);
 
       return {
         data: decryptedData,
@@ -604,7 +605,7 @@ export class SecureStorageService {
 
     } catch (error) {
       const operationTime = performance.now() - startTime;
-      console.error('🚨 ASSESSMENT DATA RETRIEVAL ERROR:', error);
+      logError('🚨 ASSESSMENT DATA RETRIEVAL ERROR:', error);
 
       // Log failure
       await this.logStorageAccess({
@@ -724,7 +725,7 @@ export class SecureStorageService {
 
       // Validate bulk operation performance
       if (totalOperationTime > SECURE_STORAGE_CONFIG.BULK_OPERATION_THRESHOLD_MS) {
-        console.warn(`⚠️  Bulk operation slow: ${totalOperationTime.toFixed(2)}ms > ${SECURE_STORAGE_CONFIG.BULK_OPERATION_THRESHOLD_MS}ms`);
+        logSecurity(`⚠️  Bulk operation slow: ${totalOperationTime.toFixed(2)}ms > ${SECURE_STORAGE_CONFIG.BULK_OPERATION_THRESHOLD_MS}ms`);
       }
 
       // Log bulk operation
@@ -741,13 +742,13 @@ export class SecureStorageService {
         securityContext: 'bulk_storage_operation'
       });
 
-      console.log(`📦 Bulk ${operation.operationType} completed (${operation.items.length} items, ${totalOperationTime.toFixed(2)}ms)`);
+      logPerformance(`📦 Bulk ${operation.operationType} completed (${operation.items.length} items, ${totalOperationTime.toFixed(2)}ms)`);
 
       return results;
 
     } catch (error) {
       const operationTime = performance.now() - startTime;
-      console.error('🚨 BULK OPERATION ERROR:', error);
+      logError('🚨 BULK OPERATION ERROR:', error);
 
       // Log failure
       await this.logStorageAccess({
@@ -839,7 +840,7 @@ export class SecureStorageService {
       }
 
     } catch (error) {
-      console.error('🚨 GENERAL DATA RETRIEVAL ERROR:', error);
+      logError('🚨 GENERAL DATA RETRIEVAL ERROR:', error);
       return null;
     }
   }
@@ -917,7 +918,7 @@ export class SecureStorageService {
         securityContext: 'secure_data_deletion'
       });
 
-      console.log(`🗑️  Data deleted (${deletedKey || 'not found'}, ${operationTime.toFixed(2)}ms)`);
+      logPerformance(`🗑️  Data deleted (${deletedKey || 'not found'}, ${operationTime.toFixed(2)}ms)`);
 
       return {
         success: deletedKey !== null,
@@ -929,7 +930,7 @@ export class SecureStorageService {
 
     } catch (error) {
       const operationTime = performance.now() - startTime;
-      console.error('🚨 SECURE DATA DELETION ERROR:', error);
+      logError('🚨 SECURE DATA DELETION ERROR:', error);
 
       return {
         success: false,
@@ -951,14 +952,14 @@ export class SecureStorageService {
       try {
         await this.performScheduledCleanup();
       } catch (error) {
-        console.error('🚨 SCHEDULED CLEANUP ERROR:', error);
+        logError('🚨 SCHEDULED CLEANUP ERROR:', error);
       }
     }, SECURE_STORAGE_CONFIG.AUTO_CLEANUP_INTERVAL_MS);
   }
 
   private async performScheduledCleanup(): Promise<void> {
     try {
-      console.log('🧹 Performing scheduled storage cleanup...');
+      logPerformance('🧹 Performing scheduled storage cleanup...');
 
       let cleanedCount = 0;
       const currentTime = Date.now();
@@ -978,10 +979,10 @@ export class SecureStorageService {
       // Clean up old audit logs
       await this.cleanupAuditLogs();
 
-      console.log(`✅ Cleanup completed (${cleanedCount} items removed)`);
+      logPerformance(`✅ Cleanup completed (${cleanedCount} items removed)`);
 
     } catch (error) {
-      console.error('🚨 CLEANUP ERROR:', error);
+      logError('🚨 CLEANUP ERROR:', error);
     }
   }
 
@@ -997,7 +998,7 @@ export class SecureStorageService {
       }
 
     } catch (error) {
-      console.error('🚨 AUDIT LOG CLEANUP ERROR:', error);
+      logError('🚨 AUDIT LOG CLEANUP ERROR:', error);
     }
   }
 
@@ -1013,11 +1014,11 @@ export class SecureStorageService {
       if (metadataString) {
         const metadataArray: Array<[string, SecureStorageMetadata]> = JSON.parse(metadataString);
         this.metadataCache = new Map(metadataArray);
-        console.log(`📋 Loaded ${this.metadataCache.size} metadata entries`);
+        logPerformance(`📋 Loaded ${this.metadataCache.size} metadata entries`);
       }
 
     } catch (error) {
-      console.error('🚨 METADATA LOADING ERROR:', error);
+      logError('🚨 METADATA LOADING ERROR:', error);
     }
   }
 
@@ -1031,7 +1032,7 @@ export class SecureStorageService {
       await AsyncStorage.setItem('storage_metadata_index', JSON.stringify(metadataArray));
 
     } catch (error) {
-      console.error('🚨 METADATA STORAGE ERROR:', error);
+      logError('🚨 METADATA STORAGE ERROR:', error);
     }
   }
 
@@ -1044,7 +1045,7 @@ export class SecureStorageService {
       await AsyncStorage.setItem('storage_metadata_index', JSON.stringify(metadataArray));
 
     } catch (error) {
-      console.error('🚨 METADATA DELETION ERROR:', error);
+      logError('🚨 METADATA DELETION ERROR:', error);
     }
   }
 
@@ -1071,7 +1072,7 @@ export class SecureStorageService {
 
   private async verifyStorageCapabilities(): Promise<void> {
     try {
-      console.log('🔍 Verifying storage capabilities...');
+      logPerformance('🔍 Verifying storage capabilities...');
 
       // Test SecureStore
       const testKey = 'storage_capability_test';
@@ -1094,10 +1095,10 @@ export class SecureStorageService {
         throw new Error('AsyncStorage capability test failed');
       }
 
-      console.log('✅ Storage capabilities verified');
+      logPerformance('✅ Storage capabilities verified');
 
     } catch (error) {
-      console.error('🚨 STORAGE CAPABILITY VERIFICATION ERROR:', error);
+      logError('🚨 STORAGE CAPABILITY VERIFICATION ERROR:', error);
       throw error;
     }
   }
@@ -1122,7 +1123,7 @@ export class SecureStorageService {
       }
 
     } catch (error) {
-      console.error('🚨 ACCESS LOGGING ERROR:', error);
+      logError('🚨 ACCESS LOGGING ERROR:', error);
     }
   }
 
@@ -1196,14 +1197,14 @@ export class SecureStorageService {
       };
 
     } catch (error) {
-      console.error('🚨 STORAGE EXPORT ERROR:', error);
+      logError('🚨 STORAGE EXPORT ERROR:', error);
       throw error;
     }
   }
 
   public async destroy(): Promise<void> {
     try {
-      console.log('🗑️  Destroying secure storage service...');
+      logPerformance('🗑️  Destroying secure storage service...');
 
       // Clear cleanup timer
       if (this.cleanupTimer) {
@@ -1220,10 +1221,10 @@ export class SecureStorageService {
 
       this.initialized = false;
 
-      console.log('✅ Secure storage service destroyed');
+      logPerformance('✅ Secure storage service destroyed');
 
     } catch (error) {
-      console.error('🚨 SECURE STORAGE DESTRUCTION ERROR:', error);
+      logError('🚨 SECURE STORAGE DESTRUCTION ERROR:', error);
       throw error;
     }
   }

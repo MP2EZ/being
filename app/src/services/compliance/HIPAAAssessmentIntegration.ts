@@ -1,4 +1,5 @@
 /**
+import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * HIPAA ASSESSMENT INTEGRATION - DRD-FLOW-005 Compliance Validation
  *
  * COMPREHENSIVE INTEGRATION VALIDATION:
@@ -274,7 +275,7 @@ export class HIPAAAssessmentIntegration {
       return result;
 
     } catch (error) {
-      console.error('🚨 ASSESSMENT COMPLIANCE VALIDATION ERROR:', error);
+      logError('🚨 ASSESSMENT COMPLIANCE VALIDATION ERROR:', error);
       
       return {
         compliant: false,
@@ -362,7 +363,7 @@ export class HIPAAAssessmentIntegration {
       };
 
     } catch (error) {
-      console.error('🚨 CRISIS DETECTION COMPLIANCE ERROR:', error);
+      logError('🚨 CRISIS DETECTION COMPLIANCE ERROR:', error);
       
       return {
         compliant: false,
@@ -474,7 +475,7 @@ export class HIPAAAssessmentIntegration {
       };
 
     } catch (error) {
-      console.error('🚨 ASSESSMENT RESULT COMPLIANCE ERROR:', error);
+      logError('🚨 ASSESSMENT RESULT COMPLIANCE ERROR:', error);
       
       return {
         storageCompliant: false,
@@ -969,7 +970,7 @@ export class HIPAAAssessmentIntegration {
       // Implementation would use secure audit logging
       
     } catch (error) {
-      console.error('🚨 COMPLIANCE VALIDATION LOGGING ERROR:', error);
+      logError('🚨 COMPLIANCE VALIDATION LOGGING ERROR:', error);
     }
   }
 
@@ -1003,7 +1004,7 @@ export class HIPAAAssessmentIntegration {
       };
 
     } catch (error) {
-      console.error('🚨 QUICK COMPLIANCE CHECK ERROR:', error);
+      logError('🚨 QUICK COMPLIANCE CHECK ERROR:', error);
       
       return {
         canProceed: false,
@@ -1072,7 +1073,7 @@ export class HIPAAAssessmentIntegration {
       };
 
     } catch (error) {
-      console.error('🚨 COMPLIANCE STATUS ERROR:', error);
+      logError('🚨 COMPLIANCE STATUS ERROR:', error);
       
       return {
         overallCompliance: 'critical',

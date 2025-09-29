@@ -41,6 +41,14 @@ export {
   LogCategory
 } from '../logging';
 
+// Re-export crisis monitoring service for safety oversight
+export {
+  crisisMonitoringService,
+  initializeCrisisMonitoring,
+  CrisisMonitoringMetrics,
+  CrisisAlert
+} from './CrisisMonitoringService';
+
 /**
  * MONITORING ORCHESTRATOR - Central Management
  */
@@ -67,11 +75,14 @@ export class MonitoringOrchestrator {
       // Initialize error monitoring
       await errorMonitoringService.initialize();
 
+      // Initialize crisis monitoring (mandatory for safety)
+      await initializeCrisisMonitoring();
+
       this.isInitialized = true;
 
       logSecurity('Monitoring orchestrator initialized', 'low', {
         component: 'monitoring_orchestrator',
-        services: ['error_monitoring'],
+        services: ['error_monitoring', 'crisis_monitoring'],
         status: 'initialized'
       });
 
@@ -87,22 +98,30 @@ export class MonitoringOrchestrator {
   getMonitoringStatus(): {
     isInitialized: boolean;
     errorMonitoring: ReturnType<typeof errorMonitoringService.getMonitoringStatus>;
+    crisisMonitoring: ReturnType<typeof crisisMonitoringService.getMonitoringStatus>;
     healthCheck: 'healthy' | 'degraded' | 'unhealthy';
   } {
     const errorStatus = errorMonitoringService.getMonitoringStatus();
+    const crisisStatus = crisisMonitoringService.getMonitoringStatus();
 
     // Determine overall health
     let healthCheck: 'healthy' | 'degraded' | 'unhealthy' = 'healthy';
 
-    if (!this.isInitialized || !errorStatus.isInitialized) {
+    if (!this.isInitialized || !errorStatus.isInitialized || !crisisStatus.isActive) {
       healthCheck = 'unhealthy';
-    } else if (errorStatus.criticalErrors > 0 || errorStatus.alertsInLastHour > 10) {
+    } else if (
+      errorStatus.criticalErrors > 0 ||
+      errorStatus.alertsInLastHour > 10 ||
+      crisisStatus.criticalAlertCount > 0 ||
+      crisisStatus.metrics.criticalServicesHealth === 'critical'
+    ) {
       healthCheck = 'degraded';
     }
 
     return {
       isInitialized: this.isInitialized,
       errorMonitoring: errorStatus,
+      crisisMonitoring: crisisStatus,
       healthCheck
     };
   }
@@ -113,6 +132,7 @@ export class MonitoringOrchestrator {
   async emergencyShutdown(): Promise<void> {
     try {
       await errorMonitoringService.emergencyShutdown();
+      crisisMonitoringService.stopMonitoring();
 
       this.isInitialized = false;
 

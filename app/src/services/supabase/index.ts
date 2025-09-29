@@ -1,4 +1,5 @@
 /**
+import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * Supabase Services Integration Layer
  *
  * MAIN EXPORT MODULE:
@@ -63,7 +64,7 @@ async function initializeCloudServices(): Promise<void> {
 
   initializationPromise = (async () => {
     try {
-      console.log('[CloudServices] Starting initialization...');
+      logPerformance('[CloudServices] Starting initialization...');
 
       // Initialize services in order
       await supabaseService.initialize();
@@ -73,17 +74,17 @@ async function initializeCloudServices(): Promise<void> {
       setupAppLifecycleHandlers();
 
       isInitialized = true;
-      console.log('[CloudServices] Initialization completed successfully');
+      logPerformance('[CloudServices] Initialization completed successfully');
 
     } catch (error) {
-      console.error('[CloudServices] Initialization failed:', error);
+      logError('[CloudServices] Initialization failed:', error);
 
       // Reset state on failure
       isInitialized = false;
       initializationPromise = null;
 
       // Don't throw - allow app to continue working offline
-      console.warn('[CloudServices] Continuing in offline mode');
+      logSecurity('[CloudServices] Continuing in offline mode');
     }
   })();
 
@@ -100,14 +101,14 @@ function setupAppLifecycleHandlers(): void {
       try {
         await supabaseService.processOfflineQueue();
       } catch (error) {
-        console.warn('[CloudServices] Failed to process offline queue:', error);
+        logSecurity('[CloudServices] Failed to process offline queue:', error);
       }
     } else if (nextAppState === 'background') {
       // App going to background
       try {
         await cloudBackupService.createBackup();
       } catch (error) {
-        console.warn('[CloudServices] Background backup failed:', error);
+        logSecurity('[CloudServices] Background backup failed:', error);
       }
     }
   });
@@ -169,7 +170,7 @@ export async function getCloudSyncStats(): Promise<CloudSyncStats> {
     };
 
   } catch (error) {
-    console.warn('[CloudServices] Failed to get stats:', error);
+    logSecurity('[CloudServices] Failed to get stats:', error);
     return {
       totalBackups: 0,
       totalRestores: 0,
@@ -230,7 +231,7 @@ export async function checkForCloudRestore(): Promise<{
     };
 
   } catch (error) {
-    console.warn('[CloudServices] Failed to check for backup:', error);
+    logSecurity('[CloudServices] Failed to check for backup:', error);
     return {
       hasBackup: false,
       shouldPromptRestore: false,
@@ -279,7 +280,7 @@ export async function configureCloudBackup(config: {
     await initializeCloudServices();
     await cloudBackupService.updateConfig(config);
   } catch (error) {
-    console.warn('[CloudServices] Failed to update config:', error);
+    logSecurity('[CloudServices] Failed to update config:', error);
   }
 }
 
@@ -302,7 +303,7 @@ export async function trackAnalyticsEvent(
 
   } catch (error) {
     // Analytics failures should not affect app functionality
-    console.warn('[CloudServices] Analytics tracking failed:', error);
+    logSecurity('[CloudServices] Analytics tracking failed:', error);
   }
 }
 
@@ -321,7 +322,7 @@ export async function cleanupCloudServices(): Promise<void> {
       initializationPromise = null;
     }
   } catch (error) {
-    console.warn('[CloudServices] Cleanup failed:', error);
+    logSecurity('[CloudServices] Cleanup failed:', error);
   }
 }
 

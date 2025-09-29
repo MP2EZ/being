@@ -1,4 +1,5 @@
 /**
+import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * SafetyButton Component - Crisis Support Access
  *
  * CLINICAL SPECIFICATIONS:
@@ -47,7 +48,7 @@ const SafetyButton: React.FC<SafetyButtonProps> = ({
     // Performance monitoring for clinical safety
     const responseTime = performance.now() - startTime;
     if (responseTime > 200) {
-      console.warn(`🚨 Crisis button response time: ${responseTime}ms (target: <200ms)`);
+      logSecurity(`🚨 Crisis button response time: ${responseTime}ms (target: <200ms)`);
     }
   }, [onPress, variant]);
 

@@ -1,4 +1,5 @@
 /**
+import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * Performance Validation Service - Week 3 Target Validation
  *
  * TARGET VALIDATION:
@@ -75,7 +76,7 @@ class PerformanceStressTester {
   static async stressCrisisDetection(iterations: number = 100): Promise<number[]> {
     const results: number[] = [];
 
-    console.log(`🚨 Running crisis detection stress test (${iterations} iterations)...`);
+    logPerformance(`🚨 Running crisis detection stress test (${iterations} iterations)...`);
 
     for (let i = 0; i < iterations; i++) {
       const startTime = performance.now();
@@ -97,7 +98,7 @@ class PerformanceStressTester {
     const max = Math.max(...results);
     const min = Math.min(...results);
 
-    console.log(`✅ Crisis detection stress test completed: avg=${average.toFixed(2)}ms, min=${min.toFixed(2)}ms, max=${max.toFixed(2)}ms`);
+    logPerformance(`✅ Crisis detection stress test completed: avg=${average.toFixed(2)}ms, min=${min.toFixed(2)}ms, max=${max.toFixed(2)}ms`);
 
     return results;
   }
@@ -109,7 +110,7 @@ class PerformanceStressTester {
     const results: number[] = [];
     const sessionId = 'stress_test_session';
 
-    console.log(`📋 Running assessment flow stress test (${questionCount} questions)...`);
+    logPerformance(`📋 Running assessment flow stress test (${questionCount} questions)...`);
 
     // Initialize optimized session
     AssessmentFlowOptimizer.initializeOptimizedSession(sessionId, 'phq9', []);
@@ -131,7 +132,7 @@ class PerformanceStressTester {
     AssessmentFlowOptimizer.cleanupSession(sessionId);
 
     const average = results.reduce((sum, time) => sum + time, 0) / results.length;
-    console.log(`✅ Assessment flow stress test completed: avg=${average.toFixed(2)}ms per question`);
+    logPerformance(`✅ Assessment flow stress test completed: avg=${average.toFixed(2)}ms per question`);
 
     return results;
   }
@@ -144,7 +145,7 @@ class PerformanceStressTester {
     averageMemory: number;
     memoryLeak: boolean;
   }> {
-    console.log(`💾 Running memory stress test (${duration}ms)...`);
+    logPerformance(`💾 Running memory stress test (${duration}ms)...`);
 
     const startTime = Date.now();
     const memoryReadings: number[] = [];
@@ -186,7 +187,7 @@ class PerformanceStressTester {
           const peakMemory = Math.max(...memoryReadings);
           const averageMemory = memoryReadings.reduce((sum, mem) => sum + mem, 0) / memoryReadings.length;
 
-          console.log(`✅ Memory stress test completed: peak=${peakMemory.toFixed(2)}MB, avg=${averageMemory.toFixed(2)}MB, leak=${memoryLeak}`);
+          logPerformance(`✅ Memory stress test completed: peak=${peakMemory.toFixed(2)}MB, avg=${averageMemory.toFixed(2)}MB, leak=${memoryLeak}`);
 
           resolve({ peakMemory, averageMemory, memoryLeak });
         }
@@ -329,7 +330,7 @@ export class PerformanceValidator {
    */
   static async validatePerformance(): Promise<ValidationReport> {
     const startTime = Date.now();
-    console.log('🎯 Starting comprehensive performance validation...');
+    logPerformance('🎯 Starting comprehensive performance validation...');
 
     const results: ValidationResult[] = [];
 
@@ -359,7 +360,7 @@ export class PerformanceValidator {
       // Generate final report
       const report = this.generateValidationReport(results, Date.now() - startTime);
 
-      console.log(`🎯 Performance validation completed: ${report.status} (${report.overallScore}/100)`);
+      logPerformance(`🎯 Performance validation completed: ${report.status} (${report.overallScore}/100)`);
 
       // Emit validation completed event
       DeviceEventEmitter.emit('performance_validation_completed', report);
@@ -367,7 +368,7 @@ export class PerformanceValidator {
       return report;
 
     } catch (error) {
-      console.error('Performance validation failed:', error);
+      logError('Performance validation failed:', error);
       throw error;
     }
   }
@@ -376,7 +377,7 @@ export class PerformanceValidator {
    * Initialize all performance systems
    */
   private static async initializePerformanceSystems(): Promise<void> {
-    console.log('🚀 Initializing performance systems for validation...');
+    logPerformance('🚀 Initializing performance systems for validation...');
 
     await Promise.all([
       BundleOptimizer.initialize(),
@@ -396,7 +397,7 @@ export class PerformanceValidator {
   private static async validateCrisisDetection(): Promise<ValidationResult[]> {
     const results: ValidationResult[] = [];
 
-    console.log('🚨 Validating crisis detection performance...');
+    logPerformance('🚨 Validating crisis detection performance...');
 
     // Test average response time
     const crisisResults = await PerformanceStressTester.stressCrisisDetection(50);
@@ -424,7 +425,7 @@ export class PerformanceValidator {
   private static async validateAssessmentFlow(): Promise<ValidationResult[]> {
     const results: ValidationResult[] = [];
 
-    console.log('📋 Validating assessment flow performance...');
+    logPerformance('📋 Validating assessment flow performance...');
 
     // Test question response times
     const flowResults = await PerformanceStressTester.stressAssessmentFlow(20);
@@ -454,7 +455,7 @@ export class PerformanceValidator {
   private static async validateMemoryUsage(): Promise<ValidationResult[]> {
     const results: ValidationResult[] = [];
 
-    console.log('💾 Validating memory usage...');
+    logPerformance('💾 Validating memory usage...');
 
     // Run memory stress test
     const memoryResults = await PerformanceStressTester.stressMemoryUsage(15000); // 15 seconds
@@ -473,7 +474,7 @@ export class PerformanceValidator {
 
     // Add memory leak check
     if (memoryResults.memoryLeak) {
-      console.warn('⚠️ Memory leak detected during validation');
+      logSecurity('⚠️ Memory leak detected during validation');
     }
 
     return results;
@@ -485,7 +486,7 @@ export class PerformanceValidator {
   private static async validateRenderingPerformance(): Promise<ValidationResult[]> {
     const results: ValidationResult[] = [];
 
-    console.log('🎨 Validating rendering performance...');
+    logPerformance('🎨 Validating rendering performance...');
 
     // Get current rendering stats
     const renderingStats = RenderingOptimizer.getPerformanceReport();
@@ -512,7 +513,7 @@ export class PerformanceValidator {
   private static async validateBundleOptimization(): Promise<ValidationResult[]> {
     const results: ValidationResult[] = [];
 
-    console.log('📦 Validating bundle optimization...');
+    logPerformance('📦 Validating bundle optimization...');
 
     // Get bundle analysis
     const bundleAnalysis = BundleOptimizer.getBundleAnalysis();
@@ -542,7 +543,7 @@ export class PerformanceValidator {
   private static async validateStorePerformance(): Promise<ValidationResult[]> {
     const results: ValidationResult[] = [];
 
-    console.log('🏪 Validating store performance...');
+    logPerformance('🏪 Validating store performance...');
 
     // Get store performance report
     const storeReport = ZustandStoreOptimizer.getPerformanceReport();
@@ -560,7 +561,7 @@ export class PerformanceValidator {
    * Run stress tests
    */
   private static async runStressTests(): Promise<ValidationResult[]> {
-    console.log('🔥 Running additional stress tests...');
+    logPerformance('🔥 Running additional stress tests...');
 
     const results: ValidationResult[] = [];
 
@@ -717,7 +718,7 @@ export class PerformanceValidator {
    */
   static configure(config: Partial<ValidationConfig>): void {
     this.config = { ...this.config, ...config };
-    console.log('Performance validator configured:', this.config);
+    logPerformance('Performance validator configured:', this.config);
   }
 
   /**
@@ -725,7 +726,7 @@ export class PerformanceValidator {
    */
   static addValidationTarget(target: PerformanceTarget): void {
     this.targets.push(target);
-    console.log(`Added custom validation target: ${target.component}.${target.metric}`);
+    logPerformance(`Added custom validation target: ${target.component}.${target.metric}`);
   }
 }
 

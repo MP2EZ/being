@@ -1,4 +1,5 @@
 /**
+import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * Sensory Accessibility Support
  * 
  * ACCESSIBILITY SPECIFICATIONS:
@@ -251,7 +252,7 @@ export const SensoryAccessibilityProvider: React.FC<SensoryAccessibilityProvider
           reduceMotion: reduceMotion || prev.reduceMotion,
         }));
       } catch (error) {
-        console.warn('Could not check accessibility preferences:', error);
+        logSecurity('Could not check accessibility preferences:', error);
       }
     };
 
@@ -328,7 +329,7 @@ export const SensoryAccessibilityProvider: React.FC<SensoryAccessibilityProvider
     // Check if flash would exceed threshold (simplified check)
     const threshold = thresholds[intensity];
     if (threshold > 3) {
-      console.warn('Flash animation blocked to prevent seizures');
+      logSecurity('Flash animation blocked to prevent seizures');
       return false;
     }
     

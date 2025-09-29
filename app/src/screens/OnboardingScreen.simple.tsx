@@ -1,4 +1,5 @@
 /**
+import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * Simple Onboarding Screen - HIPAA Compliant Implementation
  * 7-screen onboarding flow with comprehensive privacy protection
  * Replicates ExercisesScreen.simple.tsx structure with HIPAA compliance
@@ -332,7 +333,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
         }
       } catch (error) {
         if (__DEV__) {
-          console.warn('[Accessibility] Failed to detect screen reader:', error);
+          logSecurity('[Accessibility] Failed to detect screen reader:', error);
         }
       }
     };
@@ -431,7 +432,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
         () => {
           // Measurement failed, fallback to basic scroll
           if (__DEV__) {
-            console.warn('[Accessibility] Failed to measure element for scroll');
+            logSecurity('[Accessibility] Failed to measure element for scroll');
           }
         }
       );
@@ -558,7 +559,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
 
     // Development logging for compliance monitoring
     if (__DEV__) {
-      console.log(`[HIPAA-Audit] ${eventType}:`, auditEntry);
+      logPerformance(`[HIPAA-Audit] ${eventType}:`, auditEntry);
     }
   };
 
@@ -717,7 +718,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
 
     // In production, this would trigger immediate notification protocols
     if (__DEV__) {
-      console.warn('[HIPAA-Breach] Potential breach detected:', incident);
+      logSecurity('[HIPAA-Breach] Potential breach detected:', incident);
     }
   };
 
@@ -871,7 +872,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
   // Log state changes in development (following ExercisesScreen safety pattern)
   const logStateChange = (action: string, data?: any): void => {
     if (__DEV__) {
-      console.log(`[OnboardingState] ${action}`, data || getStateDebugInfo());
+      logPerformance(`[OnboardingState] ${action}`, data || getStateDebugInfo());
     }
   };
 
@@ -1471,7 +1472,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
 
     const hasErrors = Object.values(isValid).some(v => !v);
     if (hasErrors && __DEV__) {
-      console.warn('[OnboardingState] Validation errors:', isValid);
+      logSecurity('[OnboardingState] Validation errors:', isValid);
     }
 
     return !hasErrors;

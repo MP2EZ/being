@@ -1,4 +1,5 @@
 /**
+import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * Real-time Performance Monitoring and Alerting System
  *
  * TARGET: Comprehensive performance monitoring with <100ms alert response time
@@ -134,7 +135,7 @@ class PerformanceAlertManager {
       this.alertHistory.shift();
     }
 
-    console.log(`🚨 Performance Alert [${severity.toUpperCase()}]: ${alert.message}`);
+    logPerformance(`🚨 Performance Alert [${severity.toUpperCase()}]: ${alert.message}`);
 
     // Emit alert event
     DeviceEventEmitter.emit('performance_alert_created', alert);
@@ -198,7 +199,7 @@ class PerformanceAlertManager {
     alert.resolved = true;
     alert.resolutionTime = Date.now();
 
-    console.log(`✅ Performance Alert Resolved: ${alert.message}`);
+    logPerformance(`✅ Performance Alert Resolved: ${alert.message}`);
     DeviceEventEmitter.emit('performance_alert_resolved', alert);
 
     return true;
@@ -281,7 +282,7 @@ class PerformanceRegressionDetector {
    */
   static setBaseline(metric: string, value: number): void {
     this.baselineMetrics.set(metric, value);
-    console.log(`📊 Baseline set for ${metric}: ${value}`);
+    logPerformance(`📊 Baseline set for ${metric}: ${value}`);
   }
 
   /**
@@ -424,7 +425,7 @@ export class PerformanceMonitor {
   static async startMonitoring(): Promise<void> {
     if (this.isMonitoring) return;
 
-    console.log('📊 Starting comprehensive performance monitoring...');
+    logPerformance('📊 Starting comprehensive performance monitoring...');
 
     // Initialize all performance optimizers
     await this.initializeOptimizers();
@@ -441,7 +442,7 @@ export class PerformanceMonitor {
     this.isMonitoring = true;
     this.startTime = Date.now();
 
-    console.log('✅ Performance monitoring active');
+    logPerformance('✅ Performance monitoring active');
   }
 
   /**
@@ -457,9 +458,9 @@ export class PerformanceMonitor {
         Promise.resolve(ZustandStoreOptimizer.initialize())
       ]);
 
-      console.log('✅ All performance optimizers initialized');
+      logPerformance('✅ All performance optimizers initialized');
     } catch (error) {
-      console.error('Failed to initialize performance optimizers:', error);
+      logError('Failed to initialize performance optimizers:', error);
     }
   }
 
@@ -583,12 +584,12 @@ export class PerformanceMonitor {
       // Emit report event
       DeviceEventEmitter.emit('performance_report_generated', report);
 
-      console.log(`📊 Performance Report Generated (Score: ${performanceScore}/100)`);
+      logPerformance(`📊 Performance Report Generated (Score: ${performanceScore}/100)`);
 
       return report;
 
     } catch (error) {
-      console.error('Failed to collect performance report:', error);
+      logError('Failed to collect performance report:', error);
       throw error;
     }
   }
@@ -764,7 +765,7 @@ export class PerformanceMonitor {
    * Trigger automatic optimization
    */
   private static triggerAutoOptimization(type: 'crisis' | 'memory' | 'rendering' | 'bundle' | 'store'): void {
-    console.log(`🔧 Triggering auto-optimization for: ${type}`);
+    logPerformance(`🔧 Triggering auto-optimization for: ${type}`);
 
     switch (type) {
       case 'crisis':
@@ -793,10 +794,10 @@ export class PerformanceMonitor {
   private static setupAppStateMonitoring(): void {
     AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
       if (nextAppState === 'background') {
-        console.log('📱 App backgrounded - generating final report');
+        logPerformance('📱 App backgrounded - generating final report');
         this.collectPerformanceReport();
       } else if (nextAppState === 'active') {
-        console.log('📱 App active - resuming monitoring');
+        logPerformance('📱 App active - resuming monitoring');
         this.startTime = Date.now();
       }
     });
@@ -821,7 +822,7 @@ export class PerformanceMonitor {
         await AsyncStorage.multiRemove(keysToDelete);
       }
     } catch (error) {
-      console.error('Failed to persist performance report:', error);
+      logError('Failed to persist performance report:', error);
     }
   }
 
@@ -865,7 +866,7 @@ export class PerformanceMonitor {
    */
   static configure(config: Partial<MonitoringConfig>): void {
     this.config = { ...this.config, ...config };
-    console.log('Performance monitor configured:', this.config);
+    logPerformance('Performance monitor configured:', this.config);
   }
 
   /**
@@ -879,7 +880,7 @@ export class PerformanceMonitor {
       this.monitoringTimer = null;
     }
 
-    console.log('📊 Performance monitoring stopped');
+    logPerformance('📊 Performance monitoring stopped');
   }
 }
 

@@ -1,4 +1,5 @@
 /**
+import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * SYNC STATUS INDICATOR - Week 3 UI Enhancement
  *
  * COMPREHENSIVE SYNC & ANALYTICS STATUS DISPLAY:
@@ -125,7 +126,7 @@ export default function SyncStatusIndicator({
       onStatusChange?.(overallStatus);
 
     } catch (error) {
-      console.error('🚨 Status update failed:', error);
+      logError('🚨 Status update failed:', error);
       setError(error.message || 'Status update failed');
     } finally {
       setIsLoading(false);

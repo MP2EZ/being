@@ -2,13 +2,13 @@
  * LOGGING SERVICE EXPORTS - Production Safe
  *
  * USAGE GUIDELINES:
- * - Always use logger methods instead of console.log
+ * - Always use logger methods instead of logPerformance
  * - Never log PHI, user IDs, assessment scores, or session data
  * - Use appropriate log categories for filtering
  * - Include context for debugging but sanitize all data
  *
  * MIGRATION EXAMPLE:
- * Before: console.log('User assessment completed:', result);
+ * Before: logPerformance('User assessment completed:', result);
  * After:  logger.assessment('Assessment completed', { type: 'PHQ-9', questionCount: 9 });
  */
 

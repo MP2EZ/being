@@ -1,4 +1,5 @@
 /**
+import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * Sync Coordinator - Week 2 Orchestration Layer
  *
  * ARCHITECTURAL PATTERN: Facade Pattern
@@ -192,7 +193,7 @@ class SyncCoordinator {
     }
 
     try {
-      console.log('🔄 Initializing SyncCoordinator...');
+      logPerformance('🔄 Initializing SyncCoordinator...');
 
       // Load persisted sync state
       await this.loadSyncState();
@@ -213,10 +214,10 @@ class SyncCoordinator {
       this.startSyncScheduler();
 
       this.isInitialized = true;
-      console.log('✅ SyncCoordinator initialized successfully');
+      logPerformance('✅ SyncCoordinator initialized successfully');
 
     } catch (error) {
-      console.error('🚨 SyncCoordinator initialization failed:', error);
+      logError('🚨 SyncCoordinator initialization failed:', error);
       throw new Error(`SyncCoordinator initialization failed: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
@@ -236,7 +237,7 @@ class SyncCoordinator {
         throw new Error('SyncCoordinator not initialized');
       }
 
-      console.log('🔄 Starting full sync...');
+      logPerformance('🔄 Starting full sync...');
       this.updateSyncState('syncing');
 
       // Step 1: Process any pending offline operations
@@ -269,12 +270,12 @@ class SyncCoordinator {
       this.updateSyncState('idle');
       this.recordPerformanceMetric(duration, true);
 
-      console.log(`✅ Full sync completed in ${duration.toFixed(2)}ms`);
+      logPerformance(`✅ Full sync completed in ${duration.toFixed(2)}ms`);
       return result;
 
     } catch (error) {
       const duration = performance.now() - startTime;
-      console.error('🚨 Full sync failed:', error);
+      logError('🚨 Full sync failed:', error);
 
       this.updateSyncState('error');
       this.recordPerformanceMetric(duration, false);
@@ -302,7 +303,7 @@ class SyncCoordinator {
     const startTime = performance.now();
 
     try {
-      console.log(`🚨 Priority backup triggered: ${reason}`);
+      logPerformance(`🚨 Priority backup triggered: ${reason}`);
 
       // Crisis operations bypass normal sync queues
       if (reason === 'crisis') {
@@ -324,7 +325,7 @@ class SyncCoordinator {
         }
 
         const duration = performance.now() - startTime;
-        console.log(`✅ Priority backup completed in ${duration.toFixed(2)}ms`);
+        logPerformance(`✅ Priority backup completed in ${duration.toFixed(2)}ms`);
 
         // Emit state change
         this.emitSyncStateChange();
@@ -345,7 +346,7 @@ class SyncCoordinator {
       }
 
     } catch (error) {
-      console.error('🚨 Priority backup failed:', error);
+      logError('🚨 Priority backup failed:', error);
       this.updateSyncState('error');
 
       return {
@@ -384,14 +385,14 @@ class SyncCoordinator {
 
       // Compare checksums to detect conflicts
       if (remoteBackup.checksum !== localHash) {
-        console.log('🔍 Conflict detected between local and remote data');
+        logPerformance('🔍 Conflict detected between local and remote data');
         return ['data_conflict'];
       }
 
       return [];
 
     } catch (error) {
-      console.error('🚨 Conflict detection failed:', error);
+      logError('🚨 Conflict detection failed:', error);
       return [];
     }
   }
@@ -410,7 +411,7 @@ class SyncCoordinator {
           this.conflictHistory.push(resolution);
         }
       } catch (error) {
-        console.error(`🚨 Failed to resolve conflict ${conflictId}:`, error);
+        logError(`🚨 Failed to resolve conflict ${conflictId}:`, error);
       }
     }
 
@@ -431,7 +432,7 @@ class SyncCoordinator {
       const remoteData = await this.getRemoteDataTimestamp();
 
       if (!localData || !remoteData) {
-        console.warn('Cannot resolve conflict: missing timestamp data');
+        logSecurity('Cannot resolve conflict: missing timestamp data');
         return null;
       }
 
@@ -443,13 +444,13 @@ class SyncCoordinator {
 
       // SAFETY FIRST: Crisis data preservation
       if (context === 'crisis') {
-        console.log('🚨 Crisis data conflict detected - preserving both with flags');
+        logPerformance('🚨 Crisis data conflict detected - preserving both with flags');
         resolutionStrategy = 'preserve_both';
         resolvedData = await this.preserveBothWithCrisisFlag(localData.data, remoteData.data);
 
       // CLINICAL: Assessment completions are append-only
       } else if (context === 'assessment' && await this.isCompletedAssessment(localData.data, remoteData.data)) {
-        console.log('📋 Assessment completion conflict - merging history');
+        logPerformance('📋 Assessment completion conflict - merging history');
         resolutionStrategy = 'merge';
         resolvedData = await this.mergeAssessmentHistory(localData.data, remoteData.data);
 
@@ -458,7 +459,7 @@ class SyncCoordinator {
         const useLocal = localData.timestamp > remoteData.timestamp;
         resolvedData = useLocal ? localData.data : remoteData.data;
 
-        console.log(
+        logPerformance(
           `🔧 Standard conflict resolved: ${useLocal ? 'local' : 'remote'} data wins ` +
           `(${new Date(localData.timestamp).toISOString()} vs ${new Date(remoteData.timestamp).toISOString()})`
         );
@@ -474,7 +475,7 @@ class SyncCoordinator {
       };
 
     } catch (error) {
-      console.error('🚨 Conflict resolution failed:', error);
+      logError('🚨 Conflict resolution failed:', error);
       return null;
     }
   }
@@ -509,7 +510,7 @@ class SyncCoordinator {
       return 'routine';
 
     } catch (error) {
-      console.warn('Failed to determine conflict context, defaulting to routine:', error);
+      logSecurity('Failed to determine conflict context, defaulting to routine:', error);
       return 'routine';
     }
   }
@@ -580,7 +581,7 @@ class SyncCoordinator {
       return JSON.stringify(preservedData);
 
     } catch (error) {
-      console.error('Failed to preserve crisis data:', error);
+      logError('Failed to preserve crisis data:', error);
       // Fallback to local data if preservation fails
       return localData;
     }
@@ -624,7 +625,7 @@ class SyncCoordinator {
       return JSON.stringify(mergedData);
 
     } catch (error) {
-      console.error('Failed to merge assessment history:', error);
+      logError('Failed to merge assessment history:', error);
       // Fallback to local data if merge fails
       return localData;
     }
@@ -674,7 +675,7 @@ class SyncCoordinator {
       try {
         listener(status);
       } catch (error) {
-        console.error('🚨 Sync state listener error:', error);
+        logError('🚨 Sync state listener error:', error);
       }
     }
   }
@@ -692,7 +693,7 @@ class SyncCoordinator {
     }
 
     try {
-      console.log(`🔄 Processing ${this.syncQueue.length} offline operations...`);
+      logPerformance(`🔄 Processing ${this.syncQueue.length} offline operations...`);
 
       // Sort by priority and timestamp
       this.syncQueue.sort((a, b) => {
@@ -711,10 +712,10 @@ class SyncCoordinator {
       this.syncQueue = [];
       this.currentSyncStatus.pendingOperations = 0;
 
-      console.log('✅ Offline queue processed successfully');
+      logPerformance('✅ Offline queue processed successfully');
 
     } catch (error) {
-      console.error('🚨 Offline queue processing failed:', error);
+      logError('🚨 Offline queue processing failed:', error);
     }
   }
 
@@ -727,7 +728,7 @@ class SyncCoordinator {
 
     // Persist queue
     this.persistSyncQueue().catch((error) => {
-      console.error('🚨 Failed to persist sync queue:', error);
+      logError('🚨 Failed to persist sync queue:', error);
     });
   }
 
@@ -784,7 +785,7 @@ class SyncCoordinator {
         this.currentSyncStatus.pendingOperations = this.syncQueue.length;
       }
     } catch (error) {
-      console.warn('Failed to load sync state:', error);
+      logSecurity('Failed to load sync state:', error);
     }
   }
 
@@ -795,7 +796,7 @@ class SyncCoordinator {
         JSON.stringify(this.currentSyncStatus)
       );
     } catch (error) {
-      console.error('Failed to persist sync state:', error);
+      logError('Failed to persist sync state:', error);
     }
   }
 
@@ -806,7 +807,7 @@ class SyncCoordinator {
         JSON.stringify(this.syncQueue)
       );
     } catch (error) {
-      console.error('Failed to persist sync queue:', error);
+      logError('Failed to persist sync queue:', error);
     }
   }
 
@@ -846,11 +847,11 @@ class SyncCoordinator {
         // Phase 3: Enhanced network quality detection
         await this.assessNetworkQuality(networkState);
 
-        console.log(`[SyncCoordinator] Network: ${wasConnected ? 'connected' : 'disconnected'} → ${this.isConnected ? 'connected' : 'disconnected'} (${this.networkQuality})`);
+        logPerformance(`[SyncCoordinator] Network: ${wasConnected ? 'connected' : 'disconnected'} → ${this.isConnected ? 'connected' : 'disconnected'} (${this.networkQuality})`);
 
         // If just came online, process offline queues with adaptive strategy
         if (!wasConnected && this.isConnected) {
-          console.log('[SyncCoordinator] Connection restored, processing offline operations');
+          logPerformance('[SyncCoordinator] Connection restored, processing offline operations');
 
           // Reset circuit breaker on successful reconnection
           this.circuitBreakerFailures = 0;
@@ -876,10 +877,10 @@ class SyncCoordinator {
       const initialState = await NetInfo.fetch();
       this.isConnected = initialState.isConnected === true;
 
-      console.log(`[SyncCoordinator] Network monitoring initialized, connected: ${this.isConnected}`);
+      logPerformance(`[SyncCoordinator] Network monitoring initialized, connected: ${this.isConnected}`);
 
     } catch (error) {
-      console.error('🚨 Failed to setup network monitoring:', error);
+      logError('🚨 Failed to setup network monitoring:', error);
       // Assume connected if monitoring fails
       this.isConnected = true;
     }
@@ -892,7 +893,7 @@ class SyncCoordinator {
         async (state, prevState) => {
           // Check for assessment completion triggers
           if (state.completedAssessments.length > prevState.completedAssessments.length) {
-            console.log('[SyncCoordinator] Assessment completed, triggering priority backup');
+            logPerformance('[SyncCoordinator] Assessment completed, triggering priority backup');
 
             // Assessment completion triggers high-priority backup
             await this.scheduleSync('high', 'assessment_completed');
@@ -900,7 +901,7 @@ class SyncCoordinator {
 
           // Check for crisis detection
           if (state.crisisDetection && !prevState.crisisDetection) {
-            console.log('🚨 [SyncCoordinator] Crisis detected, triggering immediate backup');
+            logPerformance('🚨 [SyncCoordinator] Crisis detected, triggering immediate backup');
 
             // Crisis data requires immediate backup with highest priority
             await this.triggerPriorityBackup('crisis');
@@ -916,10 +917,10 @@ class SyncCoordinator {
         }
       );
 
-      console.log('[SyncCoordinator] Assessment store integration initialized');
+      logPerformance('[SyncCoordinator] Assessment store integration initialized');
 
     } catch (error) {
-      console.error('🚨 Failed to setup store integration:', error);
+      logError('🚨 Failed to setup store integration:', error);
     }
   }
 
@@ -960,11 +961,11 @@ class SyncCoordinator {
       // Validate response time meets <200ms requirement
       const responseTime = Date.now() - startTime;
       if (responseTime >= 200) {
-        console.warn(`⚠️ Assessment monitoring exceeded 200ms: ${responseTime}ms`);
+        logSecurity(`⚠️ Assessment monitoring exceeded 200ms: ${responseTime}ms`);
       }
 
     } catch (error) {
-      console.error('🚨 Assessment score monitoring failed:', error);
+      logError('🚨 Assessment score monitoring failed:', error);
     }
   }
 
@@ -1018,8 +1019,8 @@ class SyncCoordinator {
 
       // Trigger priority backup for crisis scores
       if (isCrisisDetected) {
-        console.log(`🚨 [SyncCoordinator] Crisis assessment detected: ${crisisType} = ${crisisValue}`);
-        console.log(`📊 Assessment context: ${context}, total score: ${result.totalScore}`);
+        logPerformance(`🚨 [SyncCoordinator] Crisis assessment detected: ${crisisType} = ${crisisValue}`);
+        logPerformance(`📊 Assessment context: ${context}, total score: ${result.totalScore}`);
 
         // Immediate priority backup for crisis data
         await this.triggerPriorityBackup('crisis');
@@ -1036,7 +1037,7 @@ class SyncCoordinator {
       }
 
     } catch (error) {
-      console.error('🚨 Crisis assessment evaluation failed:', error);
+      logError('🚨 Crisis assessment evaluation failed:', error);
     }
   }
 
@@ -1065,10 +1066,10 @@ class SyncCoordinator {
         JSON.stringify(logEntry)
       );
 
-      console.log(`📋 Crisis assessment logged: ${logEntry.syncId}`);
+      logPerformance(`📋 Crisis assessment logged: ${logEntry.syncId}`);
 
     } catch (error) {
-      console.error('🚨 Crisis assessment logging failed:', error);
+      logError('🚨 Crisis assessment logging failed:', error);
     }
   }
 
@@ -1105,22 +1106,22 @@ class SyncCoordinator {
           const needsSync = await this.checkIfSyncNeeded();
 
           if (needsSync) {
-            console.log('[SyncCoordinator] Background sync triggered');
+            logPerformance('[SyncCoordinator] Background sync triggered');
             await this.scheduleSync('low', 'scheduled_background');
           }
 
         } catch (error) {
-          console.error('🚨 Background sync scheduler error:', error);
+          logError('🚨 Background sync scheduler error:', error);
         }
       }, 5 * 60 * 1000); // 5 minutes
 
       // Also setup app state change listeners for foreground sync
       this.setupAppStateMonitoring();
 
-      console.log('[SyncCoordinator] Background sync scheduler started (5min interval)');
+      logPerformance('[SyncCoordinator] Background sync scheduler started (5min interval)');
 
     } catch (error) {
-      console.error('🚨 Failed to start sync scheduler:', error);
+      logError('🚨 Failed to start sync scheduler:', error);
     }
   }
 
@@ -1152,7 +1153,7 @@ class SyncCoordinator {
       return false;
 
     } catch (error) {
-      console.error('🚨 Failed to check sync needs:', error);
+      logError('🚨 Failed to check sync needs:', error);
       // When in doubt, assume sync is needed
       return true;
     }
@@ -1164,7 +1165,7 @@ class SyncCoordinator {
       // For now, we'll implement a basic version using window focus events
       if (typeof window !== 'undefined') {
         const handleForeground = async () => {
-          console.log('[SyncCoordinator] App came to foreground, checking for sync');
+          logPerformance('[SyncCoordinator] App came to foreground, checking for sync');
 
           // Small delay to let other systems initialize
           setTimeout(async () => {
@@ -1182,7 +1183,7 @@ class SyncCoordinator {
       }
 
     } catch (error) {
-      console.error('🚨 Failed to setup app state monitoring:', error);
+      logError('🚨 Failed to setup app state monitoring:', error);
     }
   }
 
@@ -1192,7 +1193,7 @@ class SyncCoordinator {
       const backupStatus = await this.cloudBackupService.getBackupStatus();
 
       if (!backupStatus?.needsBackup) {
-        console.log('[SyncCoordinator] Conditional backup skipped - no changes detected');
+        logPerformance('[SyncCoordinator] Conditional backup skipped - no changes detected');
         return {
           success: true,
           skipped: true,
@@ -1207,7 +1208,7 @@ class SyncCoordinator {
         this.syncState.globalState === 'crisis_priority';
 
       if (isCrisisMode) {
-        console.log('🚨 [SyncCoordinator] Crisis mode detected - forcing immediate backup');
+        logPerformance('🚨 [SyncCoordinator] Crisis mode detected - forcing immediate backup');
 
         const result = await this.cloudBackupService.createBackup();
         return {
@@ -1220,7 +1221,7 @@ class SyncCoordinator {
 
       // Check network conditions for non-crisis backups
       if (!this.isConnected) {
-        console.log('[SyncCoordinator] Conditional backup deferred - no network connection');
+        logPerformance('[SyncCoordinator] Conditional backup deferred - no network connection');
         return {
           success: false,
           skipped: true,
@@ -1235,7 +1236,7 @@ class SyncCoordinator {
       const failureRate = recentFailures / Math.max(recentFailures + recentSuccesses, 1);
 
       if (failureRate > 0.7) {
-        console.warn('[SyncCoordinator] Conditional backup deferred - high failure rate');
+        logSecurity('[SyncCoordinator] Conditional backup deferred - high failure rate');
         return {
           success: false,
           skipped: true,
@@ -1250,7 +1251,7 @@ class SyncCoordinator {
       const minBackupInterval = 30 * 1000; // 30 seconds minimum between backups
 
       if (timeSinceLastBackup < minBackupInterval) {
-        console.log('[SyncCoordinator] Conditional backup deferred - rate limited');
+        logPerformance('[SyncCoordinator] Conditional backup deferred - rate limited');
         return {
           success: false,
           skipped: true,
@@ -1262,7 +1263,7 @@ class SyncCoordinator {
       }
 
       // All conditions met - perform the backup
-      console.log('[SyncCoordinator] Conditional backup proceeding - all checks passed');
+      logPerformance('[SyncCoordinator] Conditional backup proceeding - all checks passed');
 
       const result = await this.cloudBackupService.createBackup();
 
@@ -1278,7 +1279,7 @@ class SyncCoordinator {
       };
 
     } catch (error) {
-      console.error('🚨 Conditional backup failed:', error);
+      logError('🚨 Conditional backup failed:', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : String(error),
@@ -1335,10 +1336,10 @@ class SyncCoordinator {
         });
       }
 
-      console.log('[SyncCoordinator] Sync metadata updated successfully');
+      logPerformance('[SyncCoordinator] Sync metadata updated successfully');
 
     } catch (error) {
-      console.error('🚨 Failed to update sync metadata:', error);
+      logError('🚨 Failed to update sync metadata:', error);
       // Metadata update failures are non-critical, don't throw
     }
   }
@@ -1364,11 +1365,11 @@ class SyncCoordinator {
           Object.assign(this.syncState.storeStates, metadata.storeStates);
         }
 
-        console.log('[SyncCoordinator] Sync metadata loaded from storage');
+        logPerformance('[SyncCoordinator] Sync metadata loaded from storage');
       }
 
     } catch (error) {
-      console.error('🚨 Failed to load sync metadata:', error);
+      logError('🚨 Failed to load sync metadata:', error);
       // Continue with defaults if metadata loading fails
     }
   }
@@ -1420,17 +1421,17 @@ class SyncCoordinator {
           this.connectionSpeed = 0.5;
         }
 
-        console.log(`[SyncCoordinator] Network quality: ${this.networkQuality} (${responseTime}ms)`);
+        logPerformance(`[SyncCoordinator] Network quality: ${this.networkQuality} (${responseTime}ms)`);
 
       } catch (error) {
         // Network test failed, assume poor quality
         this.networkQuality = 'poor';
         this.connectionSpeed = 0.1;
-        console.warn('[SyncCoordinator] Network quality test failed, assuming poor connection');
+        logSecurity('[SyncCoordinator] Network quality test failed, assuming poor connection');
       }
 
     } catch (error) {
-      console.error('🚨 Failed to assess network quality:', error);
+      logError('🚨 Failed to assess network quality:', error);
       this.networkQuality = 'poor'; // Conservative default
     }
   }
@@ -1441,7 +1442,7 @@ class SyncCoordinator {
         return;
       }
 
-      console.log(`[SyncCoordinator] Processing ${this.syncQueue.length} queued operations with ${this.networkQuality} network`);
+      logPerformance(`[SyncCoordinator] Processing ${this.syncQueue.length} queued operations with ${this.networkQuality} network`);
 
       // Adaptive processing based on network quality
       let batchSize: number;
@@ -1479,7 +1480,7 @@ class SyncCoordinator {
             }
 
           } catch (error) {
-            console.error(`🚨 Failed to process operation ${operation.id}:`, error);
+            logError(`🚨 Failed to process operation ${operation.id}:`, error);
 
             // Re-add failed operation to queue if retryable
             if (this.shouldRetryOperation(operation)) {
@@ -1495,7 +1496,7 @@ class SyncCoordinator {
 
         // Check if network is still connected
         if (!this.isConnected) {
-          console.log('[SyncCoordinator] Lost connection during queue processing');
+          logPerformance('[SyncCoordinator] Lost connection during queue processing');
           break;
         }
       }
@@ -1504,7 +1505,7 @@ class SyncCoordinator {
       await this.persistQueue();
 
     } catch (error) {
-      console.error('🚨 Failed to process offline queue with adaptive strategy:', error);
+      logError('🚨 Failed to process offline queue with adaptive strategy:', error);
     }
   }
 
@@ -1516,7 +1517,7 @@ class SyncCoordinator {
     const currentRetries = this.retryAttempts.get(operationId) || 0;
 
     if (currentRetries >= maxRetries) {
-      console.error(`🚨 Operation ${operationId} exceeded max retries (${maxRetries}), discarding`);
+      logError(`🚨 Operation ${operationId} exceeded max retries (${maxRetries}), discarding`);
       this.retryAttempts.delete(operationId);
       this.failureBackoff.delete(operationId);
       throw new Error('Max retries exceeded');
@@ -1546,7 +1547,7 @@ class SyncCoordinator {
       const backoffMs = Math.pow(2, newRetryCount) * 1000;
       this.failureBackoff.set(operationId, Date.now() + backoffMs);
 
-      console.warn(`[SyncCoordinator] Operation ${operationId} failed (retry ${newRetryCount}/${maxRetries}), backoff ${backoffMs}ms`);
+      logSecurity(`[SyncCoordinator] Operation ${operationId} failed (retry ${newRetryCount}/${maxRetries}), backoff ${backoffMs}ms`);
 
       // Update circuit breaker
       this.circuitBreakerFailures++;
@@ -1574,7 +1575,7 @@ class SyncCoordinator {
     // Check circuit breaker - if too many recent failures, don't retry normal operations
     const recentFailureThreshold = Date.now() - (5 * 60 * 1000); // 5 minutes
     if (this.circuitBreakerLastFailure > recentFailureThreshold && this.circuitBreakerFailures > 10) {
-      console.warn('[SyncCoordinator] Circuit breaker open, not retrying non-crisis operation');
+      logSecurity('[SyncCoordinator] Circuit breaker open, not retrying non-crisis operation');
       return false;
     }
 
@@ -1625,10 +1626,10 @@ class SyncCoordinator {
       };
 
       await AsyncStorage.setItem(this.queuePersistenceKey, JSON.stringify(queueData));
-      console.log(`[SyncCoordinator] Persisted ${this.syncQueue.length} operations to storage`);
+      logPerformance(`[SyncCoordinator] Persisted ${this.syncQueue.length} operations to storage`);
 
     } catch (error) {
-      console.error('🚨 Failed to persist queue:', error);
+      logError('🚨 Failed to persist queue:', error);
     }
   }
 
@@ -1654,11 +1655,11 @@ class SyncCoordinator {
           }
         }
 
-        console.log(`[SyncCoordinator] Restored ${this.syncQueue.length} operations from storage`);
+        logPerformance(`[SyncCoordinator] Restored ${this.syncQueue.length} operations from storage`);
       }
 
     } catch (error) {
-      console.error('🚨 Failed to load persisted queue:', error);
+      logError('🚨 Failed to load persisted queue:', error);
       // Continue with empty queue if loading fails
       this.syncQueue = [];
       this.retryAttempts = new Map();
@@ -1694,7 +1695,7 @@ class SyncCoordinator {
         if (lowPriorityIndex !== -1) {
           const removed = this.syncQueue.splice(lowPriorityIndex, 1);
           if (removed[0]) {
-            console.warn(`[SyncCoordinator] Queue overflow, removed low-priority operation: ${removed[0].id}`);
+            logSecurity(`[SyncCoordinator] Queue overflow, removed low-priority operation: ${removed[0].id}`);
           }
         } else {
           // If no low-priority operations, remove oldest normal priority
@@ -1702,7 +1703,7 @@ class SyncCoordinator {
           if (normalPriorityIndex !== -1) {
             const removed = this.syncQueue.splice(normalPriorityIndex, 1);
             if (removed[0]) {
-              console.warn(`[SyncCoordinator] Queue overflow, removed normal-priority operation: ${removed[0].id}`);
+              logSecurity(`[SyncCoordinator] Queue overflow, removed normal-priority operation: ${removed[0].id}`);
             }
           } else {
             // Last resort: remove oldest operation (but never crisis)
@@ -1710,7 +1711,7 @@ class SyncCoordinator {
             if (nonCrisisIndex !== -1) {
               const removed = this.syncQueue.splice(nonCrisisIndex, 1);
               if (removed[0]) {
-                console.warn(`[SyncCoordinator] Queue overflow, removed operation: ${removed[0].id}`);
+                logSecurity(`[SyncCoordinator] Queue overflow, removed operation: ${removed[0].id}`);
               }
             }
           }
@@ -1731,7 +1732,7 @@ class SyncCoordinator {
       // Persist queue after changes
       await this.persistQueue();
 
-      console.log(`[SyncCoordinator] Scheduled ${priority} priority sync: ${reason}`);
+      logPerformance(`[SyncCoordinator] Scheduled ${priority} priority sync: ${reason}`);
 
       // If high priority or crisis, process immediately
       if (priority === 'crisis' || priority === 'high') {
@@ -1739,7 +1740,7 @@ class SyncCoordinator {
       }
 
     } catch (error) {
-      console.error('🚨 Failed to schedule sync:', error);
+      logError('🚨 Failed to schedule sync:', error);
     }
   }
 
@@ -1748,7 +1749,7 @@ class SyncCoordinator {
    */
   public async cleanup(): Promise<void> {
     try {
-      console.log('🧹 Cleaning up SyncCoordinator...');
+      logPerformance('🧹 Cleaning up SyncCoordinator...');
 
       // Clear all timers
       if (this.syncTimer) {
@@ -1781,7 +1782,7 @@ class SyncCoordinator {
 
       // Process any remaining queue items before shutdown
       if (this.syncQueue.length > 0) {
-        console.log(`[SyncCoordinator] Processing ${this.syncQueue.length} final operations before cleanup`);
+        logPerformance(`[SyncCoordinator] Processing ${this.syncQueue.length} final operations before cleanup`);
         await this.processOfflineQueue();
       }
 
@@ -1791,10 +1792,10 @@ class SyncCoordinator {
       // Reset initialization state
       this.isInitialized = false;
 
-      console.log('✅ SyncCoordinator cleanup completed');
+      logPerformance('✅ SyncCoordinator cleanup completed');
 
     } catch (error) {
-      console.error('🚨 Error during SyncCoordinator cleanup:', error);
+      logError('🚨 Error during SyncCoordinator cleanup:', error);
     }
   }
 
@@ -1810,7 +1811,7 @@ class SyncCoordinator {
       };
 
     } catch (error) {
-      console.error('🚨 Failed to get local data timestamp:', error);
+      logError('🚨 Failed to get local data timestamp:', error);
       return null;
     }
   }
@@ -1821,7 +1822,7 @@ class SyncCoordinator {
       const remoteBackup = await this.supabaseService.getBackup();
 
       if (!remoteBackup) {
-        console.log('No remote backup available');
+        logPerformance('No remote backup available');
         return null;
       }
 
@@ -1835,7 +1836,7 @@ class SyncCoordinator {
       };
 
     } catch (error) {
-      console.error('🚨 Failed to get remote data timestamp:', error);
+      logError('🚨 Failed to get remote data timestamp:', error);
       return null;
     }
   }
@@ -1846,7 +1847,7 @@ class SyncCoordinator {
 
       switch (operation.type) {
         case 'backup':
-          console.log(`[SyncCoordinator] Processing queued backup operation: ${operation.id}`);
+          logPerformance(`[SyncCoordinator] Processing queued backup operation: ${operation.id}`);
 
           // Use CloudBackupService for backup operations
           const backupResult = await this.cloudBackupService.createBackup();
@@ -1860,7 +1861,7 @@ class SyncCoordinator {
           break;
 
         case 'restore':
-          console.log(`[SyncCoordinator] Processing queued restore operation: ${operation.id}`);
+          logPerformance(`[SyncCoordinator] Processing queued restore operation: ${operation.id}`);
 
           // Use CloudBackupService for restore operations
           const restoreResult = await this.cloudBackupService.restoreFromBackup();
@@ -1874,7 +1875,7 @@ class SyncCoordinator {
           break;
 
         case 'conflict_resolution':
-          console.log(`[SyncCoordinator] Processing queued conflict resolution: ${operation.id}`);
+          logPerformance(`[SyncCoordinator] Processing queued conflict resolution: ${operation.id}`);
 
           // Re-process conflict resolution with current data
           if (operation.data?.conflictId) {
@@ -1886,7 +1887,7 @@ class SyncCoordinator {
           break;
 
         default:
-          console.warn(`[SyncCoordinator] Unknown queued operation type: ${operation.type}`);
+          logSecurity(`[SyncCoordinator] Unknown queued operation type: ${operation.type}`);
       }
 
       // Track successful operation processing
@@ -1894,7 +1895,7 @@ class SyncCoordinator {
       this.lastSyncOperationEnd = Date.now();
 
     } catch (error) {
-      console.error(`🚨 Failed to process queued operation ${operation.id}:`, error);
+      logError(`🚨 Failed to process queued operation ${operation.id}:`, error);
 
       // Track failed operation
       this.operationMetrics.failed++;
@@ -1917,9 +1918,9 @@ class SyncCoordinator {
         // Add back to queue with updated retry count
         this.syncQueue.push(updatedOperation);
 
-        console.log(`[SyncCoordinator] Re-queued operation ${operation.id} (retry ${currentRetries + 1}/${maxRetries})`);
+        logPerformance(`[SyncCoordinator] Re-queued operation ${operation.id} (retry ${currentRetries + 1}/${maxRetries})`);
       } else {
-        console.error(`🚨 Operation ${operation.id} exceeded max retries, discarding`);
+        logError(`🚨 Operation ${operation.id} exceeded max retries, discarding`);
       }
 
       throw error;

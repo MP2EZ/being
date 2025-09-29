@@ -46,7 +46,7 @@ export class PerformanceSystem {
    */
   private static async performInitialization(): Promise<void> {
     try {
-      console.log('🚀 Initializing Week 3 Performance Optimization System...');
+      logPerformance('🚀 Initializing Week 3 Performance Optimization System...');
 
       // Initialize all performance optimizers in parallel
       await Promise.all([
@@ -97,20 +97,20 @@ export class PerformanceSystem {
       });
 
       this.isInitialized = true;
-      console.log('✅ Week 3 Performance Optimization System initialized successfully');
+      logPerformance('✅ Week 3 Performance Optimization System initialized successfully');
 
       // Run initial performance validation
       setTimeout(async () => {
         try {
           const validationReport = await PerformanceValidator.validatePerformance();
-          console.log(`🎯 Initial performance validation: ${validationReport.status} (Score: ${validationReport.overallScore}/100)`);
+          logPerformance(`🎯 Initial performance validation: ${validationReport.status} (Score: ${validationReport.overallScore}/100)`);
         } catch (error) {
-          console.error('Initial performance validation failed:', error);
+          logError('Initial performance validation failed:', error);
         }
       }, 5000); // Wait 5 seconds for systems to stabilize
 
     } catch (error) {
-      console.error('Failed to initialize Week 3 Performance System:', error);
+      logError('Failed to initialize Week 3 Performance System:', error);
       this.initializationPromise = null;
       throw error;
     }
@@ -154,7 +154,7 @@ export class PerformanceSystem {
       throw new Error('Performance system not initialized');
     }
 
-    console.log('🔧 Running comprehensive performance optimization...');
+    logPerformance('🔧 Running comprehensive performance optimization...');
 
     // Trigger optimization in all components
     try {
@@ -174,9 +174,9 @@ export class PerformanceSystem {
       // Crisis detection precomputation
       CrisisPerformanceOptimizer.precomputeCrisisThresholds();
 
-      console.log('✅ Comprehensive performance optimization completed');
+      logPerformance('✅ Comprehensive performance optimization completed');
     } catch (error) {
-      console.error('Performance optimization failed:', error);
+      logError('Performance optimization failed:', error);
       throw error;
     }
   }
@@ -257,7 +257,7 @@ export class PerformanceSystem {
   static shutdown(): void {
     if (!this.isInitialized) return;
 
-    console.log('🛑 Shutting down Week 3 Performance System...');
+    logPerformance('🛑 Shutting down Week 3 Performance System...');
 
     try {
       PerformanceMonitor.stopMonitoring();
@@ -271,9 +271,9 @@ export class PerformanceSystem {
       this.isInitialized = false;
       this.initializationPromise = null;
 
-      console.log('✅ Week 3 Performance System shutdown completed');
+      logPerformance('✅ Week 3 Performance System shutdown completed');
     } catch (error) {
-      console.error('Performance system shutdown failed:', error);
+      logError('Performance system shutdown failed:', error);
     }
   }
 }

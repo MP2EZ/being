@@ -1,4 +1,5 @@
 /**
+import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * HIPAA COMPLIANCE ENGINE - DRD-FLOW-005 Assessment System
  *
  * COMPREHENSIVE HIPAA COMPLIANCE:
@@ -485,7 +486,7 @@ export class HIPAAComplianceEngine {
       };
 
     } catch (error) {
-      console.error('🚨 HIPAA VALIDATION ERROR:', error);
+      logError('🚨 HIPAA VALIDATION ERROR:', error);
       violations.push(`Validation system error: ${error instanceof Error ? error.message : 'Unknown error'}`);
       
       return {
@@ -554,7 +555,7 @@ export class HIPAAComplianceEngine {
       return consentId;
 
     } catch (error) {
-      console.error('🚨 CONSENT OBTAINING ERROR:', error);
+      logError('🚨 CONSENT OBTAINING ERROR:', error);
       throw new Error(`Failed to obtain user consent: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
@@ -602,7 +603,7 @@ export class HIPAAComplianceEngine {
       }
 
     } catch (error) {
-      console.error('🚨 CONSENT VALIDATION ERROR:', error);
+      logError('🚨 CONSENT VALIDATION ERROR:', error);
       return false;
     }
   }
@@ -668,7 +669,7 @@ export class HIPAAComplianceEngine {
       });
 
     } catch (error) {
-      console.error('🚨 CONSENT REVOCATION ERROR:', error);
+      logError('🚨 CONSENT REVOCATION ERROR:', error);
       throw error;
     }
   }
@@ -725,7 +726,7 @@ export class HIPAAComplianceEngine {
       };
 
     } catch (error) {
-      console.error('🚨 SESSION VALIDATION ERROR:', error);
+      logError('🚨 SESSION VALIDATION ERROR:', error);
       violations.push('Session validation system error');
       return { valid: false, securityLevel: 'low', violations };
     }
@@ -755,7 +756,7 @@ export class HIPAAComplianceEngine {
       return encryptionKey.length >= 32; // Minimum for AES-256
 
     } catch (error) {
-      console.error('🚨 ENCRYPTION VALIDATION ERROR:', error);
+      logError('🚨 ENCRYPTION VALIDATION ERROR:', error);
       return false;
     }
   }
@@ -797,7 +798,7 @@ export class HIPAAComplianceEngine {
       }
 
     } catch (error) {
-      console.error('🚨 AUDIT LOGGING ERROR:', error);
+      logError('🚨 AUDIT LOGGING ERROR:', error);
       // Compliance audit logging failure is critical
       throw new Error('HIPAA audit logging failed - system integrity compromised');
     }
@@ -855,7 +856,7 @@ export class HIPAAComplianceEngine {
       );
 
     } catch (error) {
-      console.error('🚨 COMPLIANCE VIOLATION HANDLING ERROR:', error);
+      logError('🚨 COMPLIANCE VIOLATION HANDLING ERROR:', error);
     }
   }
 
@@ -902,7 +903,7 @@ export class HIPAAComplianceEngine {
       });
 
     } catch (error) {
-      console.error('🚨 BREACH INITIATION ERROR:', error);
+      logError('🚨 BREACH INITIATION ERROR:', error);
       throw error;
     }
   }
@@ -948,7 +949,7 @@ export class HIPAAComplianceEngine {
       });
 
     } catch (error) {
-      console.error('🚨 DATA DELETION ERROR:', error);
+      logError('🚨 DATA DELETION ERROR:', error);
       throw error;
     }
   }
@@ -1135,7 +1136,7 @@ export class HIPAAComplianceEngine {
       
       return consentData ? JSON.parse(consentData) : null;
     } catch (error) {
-      console.error('🚨 CONSENT LOADING ERROR:', error);
+      logError('🚨 CONSENT LOADING ERROR:', error);
       return null;
     }
   }
@@ -1145,7 +1146,7 @@ export class HIPAAComplianceEngine {
       const sessionData = await AsyncStorage.getItem(`session_${sessionId}`);
       return sessionData ? JSON.parse(sessionData) : null;
     } catch (error) {
-      console.error('🚨 SESSION LOADING ERROR:', error);
+      logError('🚨 SESSION LOADING ERROR:', error);
       return null;
     }
   }
@@ -1173,7 +1174,7 @@ export class HIPAAComplianceEngine {
       }
 
     } catch (error) {
-      console.error(`🚨 PHI DELETION ERROR for ${dataType}:`, error);
+      logError(`🚨 PHI DELETION ERROR for ${dataType}:`, error);
       throw error;
     }
   }
@@ -1246,7 +1247,7 @@ export class HIPAAComplianceEngine {
       };
 
     } catch (error) {
-      console.error('🚨 COMPLIANCE STATUS ERROR:', error);
+      logError('🚨 COMPLIANCE STATUS ERROR:', error);
       return {
         overall: 'critical_issues',
         privacyRule: false,
@@ -1284,7 +1285,7 @@ export class HIPAAComplianceEngine {
             classifications[dataType] = phiElement.classification;
           }
         } catch (error) {
-          console.error(`Failed to export ${dataType}:`, error);
+          logError(`Failed to export ${dataType}:`, error);
         }
       }
 
@@ -1319,7 +1320,7 @@ export class HIPAAComplianceEngine {
       };
 
     } catch (error) {
-      console.error('🚨 PHI EXPORT ERROR:', error);
+      logError('🚨 PHI EXPORT ERROR:', error);
       throw error;
     }
   }

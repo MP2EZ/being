@@ -22,6 +22,14 @@
 import { Alert, Linking } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
+
+// Import secure logging
+import {
+  logCrisis,
+  logError,
+  logSecurity,
+  LogCategory
+} from '../logging';
 import type {
   PHQ9Result,
   GAD7Result,
@@ -122,7 +130,11 @@ export class CrisisDetectionEngine {
       // Validate detection meets safety requirements
       const isValid = this.validateCrisisDetection(detection);
       if (!isValid) {
-        console.error('🚨 CRISIS DETECTION VALIDATION FAILED', detection);
+        logCrisis('Crisis detection validation failed', {
+          detectionTime: detection.detectionResponseTimeMs,
+          severity: detection.severityLevel as any,
+          interventionType: 'display'
+        });
         // Fail-safe: Still trigger intervention for user safety
       }
 
@@ -135,7 +147,7 @@ export class CrisisDetectionEngine {
       return detection;
 
     } catch (error) {
-      console.error('🚨 CRISIS DETECTION ENGINE ERROR:', error);
+      logError(LogCategory.CRISIS, 'Crisis detection engine error', error);
 
       // FAIL-SAFE: Create emergency detection for any system error
       const emergencyDetection = this.createEmergencyFailsafe(
@@ -182,7 +194,7 @@ export class CrisisDetectionEngine {
       return intervention;
 
     } catch (error) {
-      console.error('🚨 CRISIS INTERVENTION ERROR:', error);
+      logError(LogCategory.CRISIS, 'Crisis intervention error', error);
 
       // FAIL-SAFE: Direct 988 call
       this.emergencyFailsafeIntervention();
@@ -242,7 +254,7 @@ export class CrisisDetectionEngine {
       return detection;
 
     } catch (error) {
-      console.error('🚨 SUICIDAL IDEATION DETECTION ERROR:', error);
+      logError(LogCategory.CRISIS, 'Suicidal ideation detection error', error);
 
       // FAIL-SAFE: Emergency intervention
       this.emergencyFailsafeIntervention();
@@ -282,7 +294,7 @@ export class CrisisDetectionEngine {
       this.recordPerformanceMetric('data_capture_complete', performance.now());
 
     } catch (error) {
-      console.error('🚨 CRISIS DATA CAPTURE ERROR:', error);
+      logError(LogCategory.CRISIS, 'Crisis data capture error', error);
       // Continue - don't fail intervention for data capture errors
     }
   }
@@ -325,7 +337,7 @@ export class CrisisDetectionEngine {
           break;
       }
     } catch (error) {
-      console.error('🚨 CRISIS INTERVENTION DISPLAY ERROR:', error);
+      logError(LogCategory.CRISIS, 'Crisis intervention display error', error);
       // Fail-safe: Basic emergency alert
       this.emergencyFailsafeIntervention();
     }
@@ -697,7 +709,7 @@ export class CrisisDetectionEngine {
         JSON.stringify(logEntry)
       );
     } catch (error) {
-      console.error('Crisis detection logging failed:', error);
+      logError(LogCategory.CRISIS, 'Crisis detection logging failed', error);
     }
   }
 
@@ -715,7 +727,7 @@ export class CrisisDetectionEngine {
         JSON.stringify(logEntry)
       );
     } catch (error) {
-      console.error('Crisis intervention logging failed:', error);
+      logError(LogCategory.CRISIS, 'Crisis intervention logging failed', error);
     }
   }
 
@@ -727,7 +739,7 @@ export class CrisisDetectionEngine {
         encrypted
       );
     } catch (error) {
-      console.error('Crisis data storage failed:', error);
+      logError(LogCategory.CRISIS, 'Crisis data storage failed', error);
     }
   }
 

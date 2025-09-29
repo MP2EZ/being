@@ -1,4 +1,5 @@
 /**
+import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * Basic Assessment Store Session Creation Test
  * CRITICAL CLINICAL SAFETY VALIDATION
  *
@@ -35,9 +36,9 @@ describe('Assessment Store - Basic Session Creation', () => {
     expect(updatedStore.currentSession?.context).toBe('clinical_validation');
     expect(updatedStore.currentSession?.id).toBeDefined();
 
-    console.log('✅ CLINICAL SAFETY VERIFIED: currentSession created successfully');
-    console.log('Session ID:', updatedStore.currentSession?.id);
-    console.log('Session Type:', updatedStore.currentSession?.type);
+    logPerformance('✅ CLINICAL SAFETY VERIFIED: currentSession created successfully');
+    logPerformance('Session ID:', updatedStore.currentSession?.id);
+    logPerformance('Session Type:', updatedStore.currentSession?.type);
   });
 
   it('CRITICAL: startAssessment works for GAD-7', async () => {
@@ -52,7 +53,7 @@ describe('Assessment Store - Basic Session Creation', () => {
     expect(updatedStore.currentSession).toBeTruthy();
     expect(updatedStore.currentSession?.type).toBe('gad7');
 
-    console.log('✅ GAD-7 SESSION CREATED: Crisis detection pathway enabled');
+    logPerformance('✅ GAD-7 SESSION CREATED: Crisis detection pathway enabled');
   });
 
   it('CRITICAL: Can answer questions after session creation', async () => {
@@ -71,7 +72,7 @@ describe('Assessment Store - Basic Session Creation', () => {
     expect(updatedStore.answers[0].questionId).toBe('phq9_1');
     expect(updatedStore.answers[0].response).toBe(2);
 
-    console.log('✅ THERAPEUTIC FLOW VERIFIED: Assessment answers recorded');
+    logPerformance('✅ THERAPEUTIC FLOW VERIFIED: Assessment answers recorded');
   });
 
   it('CRITICAL: Suicidal ideation detection triggers immediately', async () => {
@@ -101,12 +102,12 @@ describe('Assessment Store - Basic Session Creation', () => {
     expect(updatedStore.crisisDetection?.triggerType).toBe('phq9_suicidal');
     expect(updatedStore.crisisIntervention).toBeTruthy();
 
-    console.log('🚨 CRISIS DETECTION VERIFIED: Suicidal ideation pathway active');
-    console.log('🚨 CRISIS INTERVENTION STATE:', updatedStore.crisisIntervention);
+    logPerformance('🚨 CRISIS DETECTION VERIFIED: Suicidal ideation pathway active');
+    logPerformance('🚨 CRISIS INTERVENTION STATE:', updatedStore.crisisIntervention);
 
-    console.log('Alert.alert called:', mockAlert.mock.calls.length, 'times');
+    logPerformance('Alert.alert called:', mockAlert.mock.calls.length, 'times');
     if (mockAlert.mock.calls.length > 0) {
-      console.log('Alert call details:', mockAlert.mock.calls[0]);
+      logPerformance('Alert call details:', mockAlert.mock.calls[0]);
     }
   });
 });

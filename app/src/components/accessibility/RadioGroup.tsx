@@ -1,4 +1,5 @@
 /**
+import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * RadioGroup Component - WCAG AA Compliant
  * 
  * ACCESSIBILITY SPECIFICATIONS:
@@ -152,7 +153,7 @@ const RadioGroup: React.FC<RadioGroupProps> = ({
     // Performance monitoring for clinical contexts
     const responseTime = performance.now() - startTime;
     if (clinicalContext !== 'general' && responseTime > 100) {
-      console.warn(`⚠️ Radio selection response time: ${responseTime}ms (target: <100ms for clinical)`);
+      logSecurity(`⚠️ Radio selection response time: ${responseTime}ms (target: <100ms for clinical)`);
     }
   }, [disabled, options, onValueChange, showScores, clinicalContext]);
 

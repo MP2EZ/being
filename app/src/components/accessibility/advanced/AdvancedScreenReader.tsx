@@ -1,4 +1,5 @@
 /**
+import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * Advanced Screen Reader Support - Enhanced ARIA and Announcements
  * 
  * ACCESSIBILITY SPECIFICATIONS:
@@ -114,7 +115,7 @@ export const AdvancedScreenReaderProvider: React.FC<AdvancedScreenReaderProvider
         const enabled = await AccessibilityInfo.isScreenReaderEnabled();
         setIsScreenReaderEnabled(enabled);
       } catch (error) {
-        console.warn('Could not check screen reader status:', error);
+        logSecurity('Could not check screen reader status:', error);
       }
     };
 
@@ -148,7 +149,7 @@ export const AdvancedScreenReaderProvider: React.FC<AdvancedScreenReaderProvider
         const reduceMotion = await AccessibilityInfo.isReduceMotionEnabled();
         setIsReducedMotionState(reduceMotion || false);
       } catch (error) {
-        console.warn('Could not check reduced motion preference:', error);
+        logSecurity('Could not check reduced motion preference:', error);
       }
     };
 
@@ -275,14 +276,14 @@ export const AdvancedScreenReaderProvider: React.FC<AdvancedScreenReaderProvider
         therapeuticContextRef.current = { ...therapeuticContext };
       }
     } catch (error) {
-      console.warn('Failed to announce message:', error);
+      logSecurity('Failed to announce message:', error);
       
       // Try fallback message if provided
       if (fallbackMessage) {
         try {
           await AccessibilityInfo.announceForAccessibility(fallbackMessage);
         } catch (fallbackError) {
-          console.warn('Failed to announce fallback message:', fallbackError);
+          logSecurity('Failed to announce fallback message:', fallbackError);
         }
       }
     }

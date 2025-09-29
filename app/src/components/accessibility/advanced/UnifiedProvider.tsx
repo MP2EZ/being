@@ -1,4 +1,5 @@
 /**
+import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * Unified Advanced Accessibility Provider
  * 
  * INTEGRATION SPECIFICATIONS:
@@ -140,22 +141,22 @@ export const AdvancedAccessibilityProvider: React.FC<AdvancedAccessibilityProvid
           setCrisisReady(crisisCheck.ready);
           
           if (!crisisCheck.ready) {
-            console.warn('⚠️ Crisis accessibility not ready:', crisisCheck.issues);
+            logSecurity('⚠️ Crisis accessibility not ready:', crisisCheck.issues);
           }
         }
 
         setIsInitialized(true);
         
         const initTime = performance.now() - startTime;
-        console.log(`🌟 Advanced accessibility initialized in ${initTime}ms`);
+        logPerformance(`🌟 Advanced accessibility initialized in ${initTime}ms`);
         
         // Ensure initialization doesn't impact crisis response time
         if (initTime > 100) {
-          console.warn(`⚠️ Accessibility initialization took ${initTime}ms (target: <100ms)`);
+          logSecurity(`⚠️ Accessibility initialization took ${initTime}ms (target: <100ms)`);
         }
         
       } catch (error) {
-        console.error('Failed to initialize advanced accessibility:', error);
+        logError('Failed to initialize advanced accessibility:', error);
         setIsInitialized(true); // Allow app to continue
       }
     };
@@ -193,9 +194,9 @@ export const AdvancedAccessibilityProvider: React.FC<AdvancedAccessibilityProvid
         config.enableCrisisAccessibility && 'Crisis',
       ].filter(Boolean);
 
-      console.log(`🔍 Advanced Accessibility Features: ${features.join(', ')}`);
-      console.log(`🎯 Crisis Ready: ${crisisReady ? 'Yes' : 'No'}`);
-      console.log(`🧘 Therapeutic Mode: ${config.therapeuticMode ? 'Enabled' : 'Disabled'}`);
+      logPerformance(`🔍 Advanced Accessibility Features: ${features.join(', ')}`);
+      logPerformance(`🎯 Crisis Ready: ${crisisReady ? 'Yes' : 'No'}`);
+      logPerformance(`🧘 Therapeutic Mode: ${config.therapeuticMode ? 'Enabled' : 'Disabled'}`);
     }
   }, [isInitialized, config, crisisReady]);
 

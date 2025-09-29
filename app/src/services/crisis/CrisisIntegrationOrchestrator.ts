@@ -1,4 +1,5 @@
 /**
+import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * CRISIS INTEGRATION ORCHESTRATOR - DRD-FLOW-005 Assessment Flow Integration
  *
  * COMPREHENSIVE INTEGRATION POINTS:
@@ -148,7 +149,7 @@ export class CrisisIntegrationOrchestrator {
    */
   public async initializeCrisisIntegration(): Promise<void> {
     try {
-      console.log('🔄 Initializing Crisis Integration Orchestrator...');
+      logPerformance('🔄 Initializing Crisis Integration Orchestrator...');
 
       // Start performance monitoring
       CrisisPerformanceMonitor.startMonitoring();
@@ -167,10 +168,10 @@ export class CrisisIntegrationOrchestrator {
       this.integrationStatus.monitoringEnabled = true;
       this.integrationStatus.lastHealthCheck = Date.now();
 
-      console.log('✅ Crisis Integration Orchestrator Initialized');
+      logPerformance('✅ Crisis Integration Orchestrator Initialized');
 
     } catch (error) {
-      console.error('🚨 CRISIS INTEGRATION INITIALIZATION ERROR:', error);
+      logError('🚨 CRISIS INTEGRATION INITIALIZATION ERROR:', error);
       this.recordIntegrationError('initialization_failed', error);
       throw error;
     }
@@ -195,10 +196,10 @@ export class CrisisIntegrationOrchestrator {
         }
       );
 
-      console.log('✅ Assessment Store Integration Initialized');
+      logPerformance('✅ Assessment Store Integration Initialized');
 
     } catch (error) {
-      console.error('🚨 ASSESSMENT STORE INTEGRATION ERROR:', error);
+      logError('🚨 ASSESSMENT STORE INTEGRATION ERROR:', error);
       throw error;
     }
   }
@@ -257,7 +258,7 @@ export class CrisisIntegrationOrchestrator {
       });
 
     } catch (error) {
-      console.error('🚨 ASSESSMENT RESPONSE MONITORING ERROR:', error);
+      logError('🚨 ASSESSMENT RESPONSE MONITORING ERROR:', error);
       this.recordIntegrationError('response_monitoring_failed', error);
     }
   }
@@ -278,7 +279,7 @@ export class CrisisIntegrationOrchestrator {
       // Get assessment context
       const context = this.activeAssessments.get(assessmentId);
       if (!context) {
-        console.warn(`Assessment context not found for completion: ${assessmentId}`);
+        logSecurity(`Assessment context not found for completion: ${assessmentId}`);
       }
 
       // Perform comprehensive crisis detection
@@ -315,7 +316,7 @@ export class CrisisIntegrationOrchestrator {
       return detection;
 
     } catch (error) {
-      console.error('🚨 ASSESSMENT COMPLETION INTEGRATION ERROR:', error);
+      logError('🚨 ASSESSMENT COMPLETION INTEGRATION ERROR:', error);
       this.recordIntegrationError('completion_integration_failed', error);
       return null;
     }
@@ -360,7 +361,7 @@ export class CrisisIntegrationOrchestrator {
       });
 
     } catch (error) {
-      console.error('🚨 CRISIS INTERVENTION UI INTEGRATION ERROR:', error);
+      logError('🚨 CRISIS INTERVENTION UI INTEGRATION ERROR:', error);
       this.recordIntegrationError('intervention_ui_integration_failed', error);
     }
   }
@@ -378,7 +379,7 @@ export class CrisisIntegrationOrchestrator {
       // Get assessment context
       const context = this.activeAssessments.get(assessmentId);
       if (!context) {
-        console.warn(`Assessment context not found for crisis resolution: ${assessmentId}`);
+        logSecurity(`Assessment context not found for crisis resolution: ${assessmentId}`);
         return;
       }
 
@@ -407,7 +408,7 @@ export class CrisisIntegrationOrchestrator {
       });
 
     } catch (error) {
-      console.error('🚨 CRISIS RESOLUTION INTEGRATION ERROR:', error);
+      logError('🚨 CRISIS RESOLUTION INTEGRATION ERROR:', error);
       this.recordIntegrationError('crisis_resolution_failed', error);
     }
   }
@@ -451,7 +452,7 @@ export class CrisisIntegrationOrchestrator {
       }
 
     } catch (error) {
-      console.error('🚨 SUICIDAL IDEATION DETECTION ERROR:', error);
+      logError('🚨 SUICIDAL IDEATION DETECTION ERROR:', error);
       this.recordIntegrationError('suicidal_ideation_detection_failed', error);
     }
   }
@@ -474,7 +475,7 @@ export class CrisisIntegrationOrchestrator {
       }
 
     } catch (error) {
-      console.error('🚨 PROGRESSIVE CRISIS EVALUATION ERROR:', error);
+      logError('🚨 PROGRESSIVE CRISIS EVALUATION ERROR:', error);
     }
   }
 
@@ -484,7 +485,7 @@ export class CrisisIntegrationOrchestrator {
   ): Promise<void> {
     // Provide early warning without full intervention
     // Implementation would show supportive messaging and prepare resources
-    console.log(`🔶 Emerging crisis risk detected: ${riskType} for assessment ${context.assessmentId}`);
+    logPerformance(`🔶 Emerging crisis risk detected: ${riskType} for assessment ${context.assessmentId}`);
   }
 
   /**
@@ -583,7 +584,7 @@ export class CrisisIntegrationOrchestrator {
       );
 
     } catch (error) {
-      console.error('🚨 CRISIS DATA CAPTURE ERROR:', error);
+      logError('🚨 CRISIS DATA CAPTURE ERROR:', error);
     }
   }
 
@@ -596,7 +597,7 @@ export class CrisisIntegrationOrchestrator {
   ): Promise<void> {
     // Integration with React Native navigation and UI
     // Implementation would overlay crisis intervention UI
-    console.log('🚨 Displaying Crisis Intervention Overlay');
+    logPerformance('🚨 Displaying Crisis Intervention Overlay');
   }
 
   private async setupCrisisNavigation(
@@ -605,13 +606,13 @@ export class CrisisIntegrationOrchestrator {
   ): Promise<void> {
     // Setup navigation to crisis intervention screens
     // Implementation would configure navigation stack
-    console.log('🔄 Setting up Crisis Navigation');
+    logPerformance('🔄 Setting up Crisis Navigation');
   }
 
   private async handleAssessmentContinuation(context: CrisisAssessmentContext): Promise<void> {
     // Allow assessment to continue after crisis resolution
     setTimeout(() => {
-      console.log('✅ Assessment continuation allowed');
+      logPerformance('✅ Assessment continuation allowed');
       // Implementation would enable assessment UI
     }, INTEGRATION_CONFIG.ASSESSMENT_CONTINUATION_DELAY_MS);
   }
@@ -622,7 +623,7 @@ export class CrisisIntegrationOrchestrator {
     context.terminatedAt = Date.now();
     context.terminationReason = 'crisis_intervention_required';
 
-    console.log('⏹️ Assessment terminated due to crisis');
+    logPerformance('⏹️ Assessment terminated due to crisis');
   }
 
   private async scheduleFollowUp(
@@ -633,7 +634,7 @@ export class CrisisIntegrationOrchestrator {
     const followUpUrgency = this.determineFollowUpUrgency(resolutionType);
 
     // Implementation would schedule follow-up
-    console.log(`📅 Follow-up scheduled with urgency: ${followUpUrgency}`);
+    logPerformance(`📅 Follow-up scheduled with urgency: ${followUpUrgency}`);
   }
 
   /**
@@ -664,16 +665,16 @@ export class CrisisIntegrationOrchestrator {
 
       if (healthyComponents < totalComponents * 0.8) {
         this.integrationStatus.performanceStatus = 'critical';
-        console.error('🚨 CRISIS INTEGRATION SYSTEM HEALTH CRITICAL');
+        logError('🚨 CRISIS INTEGRATION SYSTEM HEALTH CRITICAL');
       } else if (healthyComponents < totalComponents) {
         this.integrationStatus.performanceStatus = 'degraded';
-        console.warn('⚠️ Crisis Integration System Health Degraded');
+        logSecurity('⚠️ Crisis Integration System Health Degraded');
       } else {
         this.integrationStatus.performanceStatus = 'optimal';
       }
 
     } catch (error) {
-      console.error('🚨 INTEGRATION HEALTH CHECK ERROR:', error);
+      logError('🚨 INTEGRATION HEALTH CHECK ERROR:', error);
       this.recordIntegrationError('health_check_failed', error);
     }
   }
@@ -710,11 +711,11 @@ export class CrisisIntegrationOrchestrator {
         try {
           await listener(eventData);
         } catch (error) {
-          console.error(`Event listener error for ${eventData.eventType}:`, error);
+          logError(`Event listener error for ${eventData.eventType}:`, error);
         }
       }
     } catch (error) {
-      console.error('🚨 EVENT EMISSION ERROR:', error);
+      logError('🚨 EVENT EMISSION ERROR:', error);
     }
   }
 
@@ -861,7 +862,7 @@ export class CrisisIntegrationOrchestrator {
       }
 
     } catch (error) {
-      console.error('🚨 ASSESSMENT STORE CHANGE HANDLING ERROR:', error);
+      logError('🚨 ASSESSMENT STORE CHANGE HANDLING ERROR:', error);
       this.recordIntegrationError('store_change_handling_failed', error);
     }
   }
@@ -887,7 +888,7 @@ export class CrisisIntegrationOrchestrator {
 
     CrisisPerformanceMonitor.stopMonitoring();
 
-    console.log('⏹️ Crisis Integration Orchestrator Shutdown');
+    logPerformance('⏹️ Crisis Integration Orchestrator Shutdown');
   }
 
   public getIntegrationErrors(): string[] {

@@ -1,4 +1,5 @@
 /**
+import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * CRISIS SECURITY PROTOCOL - DRD-FLOW-005 Security Implementation
  *
  * COMPREHENSIVE CRISIS DATA SECURITY:
@@ -214,7 +215,7 @@ export class CrisisSecurityProtocol {
     const startTime = performance.now();
 
     try {
-      console.log('🚨 Initializing Crisis Security Protocol...');
+      logPerformance('🚨 Initializing Crisis Security Protocol...');
 
       // Initialize all security services
       await this.encryptionService.initialize();
@@ -237,7 +238,7 @@ export class CrisisSecurityProtocol {
       this.initialized = true;
 
       const initializationTime = performance.now() - startTime;
-      console.log(`✅ Crisis Security Protocol initialized (${initializationTime.toFixed(2)}ms)`);
+      logPerformance(`✅ Crisis Security Protocol initialized (${initializationTime.toFixed(2)}ms)`);
 
       // Log initialization
       await this.logCrisisSecurityEvent({
@@ -274,7 +275,7 @@ export class CrisisSecurityProtocol {
       });
 
     } catch (error) {
-      console.error('🚨 CRISIS SECURITY INITIALIZATION ERROR:', error);
+      logError('🚨 CRISIS SECURITY INITIALIZATION ERROR:', error);
       throw new Error(`Crisis security initialization failed: ${error.message}`);
     }
   }
@@ -289,7 +290,7 @@ export class CrisisSecurityProtocol {
     const startTime = performance.now();
 
     try {
-      console.log('🚨 Emergency access requested');
+      logPerformance('🚨 Emergency access requested');
 
       if (!this.initialized) {
         throw new Error('Crisis security protocol not initialized');
@@ -341,7 +342,7 @@ export class CrisisSecurityProtocol {
 
       // Validate emergency access performance
       if (accessTime > CRISIS_SECURITY_CONFIG.EMERGENCY_ACCESS_THRESHOLD_MS) {
-        console.error(`🚨 EMERGENCY ACCESS TOO SLOW: ${accessTime.toFixed(2)}ms > ${CRISIS_SECURITY_CONFIG.EMERGENCY_ACCESS_THRESHOLD_MS}ms`);
+        logError(`🚨 EMERGENCY ACCESS TOO SLOW: ${accessTime.toFixed(2)}ms > ${CRISIS_SECURITY_CONFIG.EMERGENCY_ACCESS_THRESHOLD_MS}ms`);
         
         await this.logCrisisSecurityEvent({
           violationId: await this.generateViolationId(),
@@ -381,13 +382,13 @@ export class CrisisSecurityProtocol {
         }
       });
 
-      console.log(`🚨 Emergency access granted (${accessTime.toFixed(2)}ms, expires in ${CRISIS_SECURITY_CONFIG.ACCESS_TIMEOUTS.emergency_session_ms / 60000} minutes)`);
+      logPerformance(`🚨 Emergency access granted (${accessTime.toFixed(2)}ms, expires in ${CRISIS_SECURITY_CONFIG.ACCESS_TIMEOUTS.emergency_session_ms / 60000} minutes)`);
 
       return accessContext;
 
     } catch (error) {
       const accessTime = performance.now() - startTime;
-      console.error('🚨 EMERGENCY ACCESS ERROR:', error);
+      logError('🚨 EMERGENCY ACCESS ERROR:', error);
 
       // Log failed emergency access
       await this.logCrisisSecurityEvent({
@@ -443,7 +444,7 @@ export class CrisisSecurityProtocol {
         throw new Error('Crisis security protocol not initialized');
       }
 
-      console.log(`🔒 Applying crisis data protection (level: ${protectionLevel})`);
+      logPerformance(`🔒 Applying crisis data protection (level: ${protectionLevel})`);
 
       const encryptionApplied: string[] = [];
       const accessControlsSet: string[] = [];
@@ -499,7 +500,7 @@ export class CrisisSecurityProtocol {
 
       const protectionTime = performance.now() - startTime;
 
-      console.log(`🔒 Crisis data protection applied (${protectionTime.toFixed(2)}ms)`);
+      logPerformance(`🔒 Crisis data protection applied (${protectionTime.toFixed(2)}ms)`);
 
       return {
         protected: true,
@@ -513,7 +514,7 @@ export class CrisisSecurityProtocol {
 
     } catch (error) {
       const protectionTime = performance.now() - startTime;
-      console.error('🚨 CRISIS DATA PROTECTION ERROR:', error);
+      logError('🚨 CRISIS DATA PROTECTION ERROR:', error);
 
       return {
         protected: false,
@@ -544,7 +545,7 @@ export class CrisisSecurityProtocol {
     const startTime = performance.now();
 
     try {
-      console.log('👩‍⚕️ Validating professional access to crisis data');
+      logPerformance('👩‍⚕️ Validating professional access to crisis data');
 
       if (!this.initialized) {
         throw new Error('Crisis security protocol not initialized');
@@ -591,7 +592,7 @@ export class CrisisSecurityProtocol {
 
       // Validate professional access performance
       if (validationTime > CRISIS_SECURITY_CONFIG.PROFESSIONAL_OVERRIDE_THRESHOLD_MS) {
-        console.warn(`⚠️  Professional access validation slow: ${validationTime.toFixed(2)}ms > ${CRISIS_SECURITY_CONFIG.PROFESSIONAL_OVERRIDE_THRESHOLD_MS}ms`);
+        logSecurity(`⚠️  Professional access validation slow: ${validationTime.toFixed(2)}ms > ${CRISIS_SECURITY_CONFIG.PROFESSIONAL_OVERRIDE_THRESHOLD_MS}ms`);
       }
 
       // Log professional access
@@ -614,13 +615,13 @@ export class CrisisSecurityProtocol {
         }
       });
 
-      console.log(`👩‍⚕️ Professional access validated (${validationTime.toFixed(2)}ms)`);
+      logPerformance(`👩‍⚕️ Professional access validated (${validationTime.toFixed(2)}ms)`);
 
       return accessContext;
 
     } catch (error) {
       const validationTime = performance.now() - startTime;
-      console.error('🚨 PROFESSIONAL ACCESS VALIDATION ERROR:', error);
+      logError('🚨 PROFESSIONAL ACCESS VALIDATION ERROR:', error);
 
       // Log failed professional access
       await this.logCrisisSecurityEvent({
@@ -667,7 +668,7 @@ export class CrisisSecurityProtocol {
    */
   public async startCrisisSecurityMonitoring(crisisEpisodeId: string): Promise<void> {
     try {
-      console.log(`🔍 Starting crisis security monitoring for episode: ${crisisEpisodeId}`);
+      logPerformance(`🔍 Starting crisis security monitoring for episode: ${crisisEpisodeId}`);
 
       if (!this.initialized) {
         throw new Error('Crisis security protocol not initialized');
@@ -688,10 +689,10 @@ export class CrisisSecurityProtocol {
       // Monitor network security
       await this.monitorNetworkSecurity(crisisEpisodeId);
 
-      console.log(`✅ Crisis security monitoring active for episode: ${crisisEpisodeId}`);
+      logPerformance(`✅ Crisis security monitoring active for episode: ${crisisEpisodeId}`);
 
     } catch (error) {
-      console.error('🚨 CRISIS SECURITY MONITORING ERROR:', error);
+      logError('🚨 CRISIS SECURITY MONITORING ERROR:', error);
       throw error;
     }
   }
@@ -706,7 +707,7 @@ export class CrisisSecurityProtocol {
     violationDetails: any
   ): Promise<void> {
     try {
-      console.log(`🚨 Security violation detected: ${violationType} for episode: ${crisisEpisodeId}`);
+      logPerformance(`🚨 Security violation detected: ${violationType} for episode: ${crisisEpisodeId}`);
 
       const violation: CrisisSecurityViolation = {
         violationId: await this.generateViolationId(),
@@ -741,10 +742,10 @@ export class CrisisSecurityProtocol {
         await this.escalateSecurityViolation(violation);
       }
 
-      console.log(`🚨 Security violation processed: ${violation.violationId}`);
+      logPerformance(`🚨 Security violation processed: ${violation.violationId}`);
 
     } catch (error) {
-      console.error('🚨 SECURITY VIOLATION DETECTION ERROR:', error);
+      logError('🚨 SECURITY VIOLATION DETECTION ERROR:', error);
     }
   }
 
@@ -769,7 +770,7 @@ export class CrisisSecurityProtocol {
       );
 
     } catch (error) {
-      console.error('🚨 ENHANCED ENCRYPTION ERROR:', error);
+      logError('🚨 ENHANCED ENCRYPTION ERROR:', error);
       throw error;
     }
   }
@@ -791,7 +792,7 @@ export class CrisisSecurityProtocol {
       );
 
     } catch (error) {
-      console.error('🚨 PROFESSIONAL ENCRYPTION ERROR:', error);
+      logError('🚨 PROFESSIONAL ENCRYPTION ERROR:', error);
       throw error;
     }
   }
@@ -813,7 +814,7 @@ export class CrisisSecurityProtocol {
       );
 
     } catch (error) {
-      console.error('🚨 IMMUTABLE ENCRYPTION ERROR:', error);
+      logError('🚨 IMMUTABLE ENCRYPTION ERROR:', error);
       throw error;
     }
   }
@@ -845,7 +846,7 @@ export class CrisisSecurityProtocol {
       );
 
     } catch (error) {
-      console.error('🚨 ACCESS CONTROL APPLICATION ERROR:', error);
+      logError('🚨 ACCESS CONTROL APPLICATION ERROR:', error);
       throw error;
     }
   }
@@ -881,7 +882,7 @@ export class CrisisSecurityProtocol {
 
   private async initializeCrisisMonitoring(): Promise<void> {
     try {
-      console.log('🔍 Initializing crisis security monitoring...');
+      logPerformance('🔍 Initializing crisis security monitoring...');
 
       // Setup monitoring intervals
       setInterval(() => {
@@ -896,10 +897,10 @@ export class CrisisSecurityProtocol {
         this.checkSuspiciousActivity();
       }, 120000); // Every 2 minutes
 
-      console.log('✅ Crisis security monitoring initialized');
+      logPerformance('✅ Crisis security monitoring initialized');
 
     } catch (error) {
-      console.error('🚨 CRISIS MONITORING INITIALIZATION ERROR:', error);
+      logError('🚨 CRISIS MONITORING INITIALIZATION ERROR:', error);
       throw error;
     }
   }
@@ -926,7 +927,7 @@ export class CrisisSecurityProtocol {
       );
 
     } catch (error) {
-      console.error('🚨 CRISIS DATA MONITORING ERROR:', error);
+      logError('🚨 CRISIS DATA MONITORING ERROR:', error);
       throw error;
     }
   }
@@ -941,22 +942,22 @@ export class CrisisSecurityProtocol {
 
   private async monitorDataAccessPatterns(crisisEpisodeId: string): Promise<void> {
     // Implementation would monitor actual data access patterns
-    console.log(`🔍 Monitoring data access patterns for: ${crisisEpisodeId}`);
+    logPerformance(`🔍 Monitoring data access patterns for: ${crisisEpisodeId}`);
   }
 
   private async monitorAuthenticationEvents(crisisEpisodeId: string): Promise<void> {
     // Implementation would monitor authentication events
-    console.log(`🔍 Monitoring authentication events for: ${crisisEpisodeId}`);
+    logPerformance(`🔍 Monitoring authentication events for: ${crisisEpisodeId}`);
   }
 
   private async monitorEncryptionIntegrity(crisisEpisodeId: string): Promise<void> {
     // Implementation would monitor encryption integrity
-    console.log(`🔍 Monitoring encryption integrity for: ${crisisEpisodeId}`);
+    logPerformance(`🔍 Monitoring encryption integrity for: ${crisisEpisodeId}`);
   }
 
   private async monitorNetworkSecurity(crisisEpisodeId: string): Promise<void> {
     // Implementation would monitor network security
-    console.log(`🔍 Monitoring network security for: ${crisisEpisodeId}`);
+    logPerformance(`🔍 Monitoring network security for: ${crisisEpisodeId}`);
   }
 
   /**
@@ -990,7 +991,7 @@ export class CrisisSecurityProtocol {
       );
 
     } catch (error) {
-      console.error('🚨 AUDIT TRAIL CREATION ERROR:', error);
+      logError('🚨 AUDIT TRAIL CREATION ERROR:', error);
       throw error;
     }
   }
@@ -1018,7 +1019,7 @@ export class CrisisSecurityProtocol {
 
   private async verifyEmergencyAccessProtocols(): Promise<void> {
     try {
-      console.log('🔍 Verifying emergency access protocols...');
+      logPerformance('🔍 Verifying emergency access protocols...');
 
       // Test emergency access speed
       const testStart = performance.now();
@@ -1029,40 +1030,40 @@ export class CrisisSecurityProtocol {
         throw new Error(`Emergency access too slow: ${testTime}ms`);
       }
 
-      console.log('✅ Emergency access protocols verified');
+      logPerformance('✅ Emergency access protocols verified');
 
     } catch (error) {
-      console.error('🚨 EMERGENCY ACCESS VERIFICATION ERROR:', error);
+      logError('🚨 EMERGENCY ACCESS VERIFICATION ERROR:', error);
       throw error;
     }
   }
 
   private async setupProfessionalAccessValidation(): Promise<void> {
     try {
-      console.log('🔍 Setting up professional access validation...');
+      logPerformance('🔍 Setting up professional access validation...');
 
       // Initialize professional credentials cache
       this.professionalAccess.clear();
 
-      console.log('✅ Professional access validation setup complete');
+      logPerformance('✅ Professional access validation setup complete');
 
     } catch (error) {
-      console.error('🚨 PROFESSIONAL ACCESS SETUP ERROR:', error);
+      logError('🚨 PROFESSIONAL ACCESS SETUP ERROR:', error);
       throw error;
     }
   }
 
   private async initializeCrisisDataIsolation(): Promise<void> {
     try {
-      console.log('🔍 Initializing crisis data isolation...');
+      logPerformance('🔍 Initializing crisis data isolation...');
 
       // Setup data isolation protocols
       // Implementation would set up proper data isolation
 
-      console.log('✅ Crisis data isolation initialized');
+      logPerformance('✅ Crisis data isolation initialized');
 
     } catch (error) {
-      console.error('🚨 CRISIS DATA ISOLATION ERROR:', error);
+      logError('🚨 CRISIS DATA ISOLATION ERROR:', error);
       throw error;
     }
   }
@@ -1085,7 +1086,7 @@ export class CrisisSecurityProtocol {
       }
 
     } catch (error) {
-      console.error('🚨 EMERGENCY CREDENTIALS VALIDATION ERROR:', error);
+      logError('🚨 EMERGENCY CREDENTIALS VALIDATION ERROR:', error);
       throw error;
     }
   }
@@ -1110,7 +1111,7 @@ export class CrisisSecurityProtocol {
       // In a real implementation, would validate against professional database
 
     } catch (error) {
-      console.error('🚨 PROFESSIONAL CREDENTIALS VALIDATION ERROR:', error);
+      logError('🚨 PROFESSIONAL CREDENTIALS VALIDATION ERROR:', error);
       throw error;
     }
   }
@@ -1127,7 +1128,7 @@ export class CrisisSecurityProtocol {
       }
 
     } catch (error) {
-      console.error('🚨 EMERGENCY OVERRIDE LIMIT CHECK ERROR:', error);
+      logError('🚨 EMERGENCY OVERRIDE LIMIT CHECK ERROR:', error);
       throw error;
     }
   }
@@ -1140,10 +1141,10 @@ export class CrisisSecurityProtocol {
       // In a real implementation, would check professional permissions against database
       // For now, allow all authenticated professionals
       
-      console.log(`🔍 Checking professional permissions for ${professionalId} accessing ${crisisEpisodeId}`);
+      logPerformance(`🔍 Checking professional permissions for ${professionalId} accessing ${crisisEpisodeId}`);
 
     } catch (error) {
-      console.error('🚨 PROFESSIONAL PERMISSIONS CHECK ERROR:', error);
+      logError('🚨 PROFESSIONAL PERMISSIONS CHECK ERROR:', error);
       throw error;
     }
   }
@@ -1209,7 +1210,7 @@ export class CrisisSecurityProtocol {
       }
 
     } catch (error) {
-      console.error('🚨 VIOLATION ASSESSMENT ERROR:', error);
+      logError('🚨 VIOLATION ASSESSMENT ERROR:', error);
     }
   }
 
@@ -1230,18 +1231,18 @@ export class CrisisSecurityProtocol {
             await this.alertProfessionals(violation);
             break;
           default:
-            console.log(`📝 Mitigation action logged: ${action}`);
+            logPerformance(`📝 Mitigation action logged: ${action}`);
         }
       }
 
     } catch (error) {
-      console.error('🚨 IMMEDIATE MITIGATION ERROR:', error);
+      logError('🚨 IMMEDIATE MITIGATION ERROR:', error);
     }
   }
 
   private async escalateSecurityViolation(violation: CrisisSecurityViolation): Promise<void> {
     try {
-      console.log(`🚨 Escalating security violation: ${violation.violationId}`);
+      logPerformance(`🚨 Escalating security violation: ${violation.violationId}`);
 
       // In a real implementation, would escalate to security team
       // For now, log the escalation
@@ -1249,7 +1250,7 @@ export class CrisisSecurityProtocol {
       violation.mitigationActions.push('violation_escalated');
 
     } catch (error) {
-      console.error('🚨 SECURITY VIOLATION ESCALATION ERROR:', error);
+      logError('🚨 SECURITY VIOLATION ESCALATION ERROR:', error);
     }
   }
 
@@ -1259,7 +1260,7 @@ export class CrisisSecurityProtocol {
 
   private async performImmediateLockdown(crisisEpisodeId?: string): Promise<void> {
     try {
-      console.log(`🔒 Performing immediate lockdown for crisis episode: ${crisisEpisodeId}`);
+      logPerformance(`🔒 Performing immediate lockdown for crisis episode: ${crisisEpisodeId}`);
 
       // Lock down all access to the crisis episode
       if (crisisEpisodeId) {
@@ -1272,25 +1273,25 @@ export class CrisisSecurityProtocol {
       }
 
     } catch (error) {
-      console.error('🚨 IMMEDIATE LOCKDOWN ERROR:', error);
+      logError('🚨 IMMEDIATE LOCKDOWN ERROR:', error);
     }
   }
 
   private async enableEnhancedMonitoring(crisisEpisodeId?: string): Promise<void> {
     try {
-      console.log(`🔍 Enabling enhanced monitoring for crisis episode: ${crisisEpisodeId}`);
+      logPerformance(`🔍 Enabling enhanced monitoring for crisis episode: ${crisisEpisodeId}`);
 
       // Implementation would enable enhanced monitoring
       this.monitoringActive = true;
 
     } catch (error) {
-      console.error('🚨 ENHANCED MONITORING ERROR:', error);
+      logError('🚨 ENHANCED MONITORING ERROR:', error);
     }
   }
 
   private async reviewActiveAccess(crisisEpisodeId?: string): Promise<void> {
     try {
-      console.log(`👀 Reviewing active access for crisis episode: ${crisisEpisodeId}`);
+      logPerformance(`👀 Reviewing active access for crisis episode: ${crisisEpisodeId}`);
 
       // Review and validate all active access
       for (const [accessId, context] of this.activeCrisisAccess.entries()) {
@@ -1300,19 +1301,19 @@ export class CrisisSecurityProtocol {
       }
 
     } catch (error) {
-      console.error('🚨 ACCESS REVIEW ERROR:', error);
+      logError('🚨 ACCESS REVIEW ERROR:', error);
     }
   }
 
   private async alertProfessionals(violation: CrisisSecurityViolation): Promise<void> {
     try {
-      console.log(`🚨 Alerting professionals about security violation: ${violation.violationId}`);
+      logPerformance(`🚨 Alerting professionals about security violation: ${violation.violationId}`);
 
       // In a real implementation, would alert relevant professionals
       // For now, log the alert
 
     } catch (error) {
-      console.error('🚨 PROFESSIONAL ALERT ERROR:', error);
+      logError('🚨 PROFESSIONAL ALERT ERROR:', error);
     }
   }
 
@@ -1391,7 +1392,7 @@ export class CrisisSecurityProtocol {
       await this.validateEncryptionIntegrity();
 
     } catch (error) {
-      console.error('🚨 SECURITY HEALTH CHECK ERROR:', error);
+      logError('🚨 SECURITY HEALTH CHECK ERROR:', error);
     }
   }
 
@@ -1408,7 +1409,7 @@ export class CrisisSecurityProtocol {
       }
 
     } catch (error) {
-      console.error('🚨 ACCESS CLEANUP ERROR:', error);
+      logError('🚨 ACCESS CLEANUP ERROR:', error);
     }
   }
 
@@ -1428,7 +1429,7 @@ export class CrisisSecurityProtocol {
       }
 
     } catch (error) {
-      console.error('🚨 SUSPICIOUS ACTIVITY CHECK ERROR:', error);
+      logError('🚨 SUSPICIOUS ACTIVITY CHECK ERROR:', error);
     }
   }
 
@@ -1446,7 +1447,7 @@ export class CrisisSecurityProtocol {
       }
 
     } catch (error) {
-      console.error('🚨 ENCRYPTION INTEGRITY VALIDATION ERROR:', error);
+      logError('🚨 ENCRYPTION INTEGRITY VALIDATION ERROR:', error);
     }
   }
 
@@ -1469,7 +1470,7 @@ export class CrisisSecurityProtocol {
       }
 
     } catch (error) {
-      console.error('🚨 CRISIS SECURITY EVENT LOGGING ERROR:', error);
+      logError('🚨 CRISIS SECURITY EVENT LOGGING ERROR:', error);
     }
   }
 
@@ -1516,7 +1517,7 @@ export class CrisisSecurityProtocol {
 
   public async destroy(): Promise<void> {
     try {
-      console.log('🗑️  Destroying crisis security protocol...');
+      logPerformance('🗑️  Destroying crisis security protocol...');
 
       // Clear all active access
       this.activeCrisisAccess.clear();
@@ -1531,10 +1532,10 @@ export class CrisisSecurityProtocol {
 
       this.initialized = false;
 
-      console.log('✅ Crisis security protocol destroyed');
+      logPerformance('✅ Crisis security protocol destroyed');
 
     } catch (error) {
-      console.error('🚨 CRISIS SECURITY DESTRUCTION ERROR:', error);
+      logError('🚨 CRISIS SECURITY DESTRUCTION ERROR:', error);
       throw error;
     }
   }

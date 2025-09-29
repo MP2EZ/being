@@ -1,4 +1,5 @@
 /**
+import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * CRISIS INTERVENTION WORKFLOW SPECIFICATIONS - DRD-FLOW-005
  *
  * COMPREHENSIVE CRISIS RESPONSE ORCHESTRATION:
@@ -146,7 +147,7 @@ export class CrisisInterventionWorkflow {
       return context;
 
     } catch (error) {
-      console.error('🚨 CRISIS WORKFLOW INITIATION ERROR:', error);
+      logError('🚨 CRISIS WORKFLOW INITIATION ERROR:', error);
 
       // FAIL-SAFE: Emergency workflow
       await this.executeEmergencyFailsafe(detection);
@@ -178,7 +179,7 @@ export class CrisisInterventionWorkflow {
       await this.completeWorkflow(context);
 
     } catch (error) {
-      console.error('🚨 WORKFLOW EXECUTION ERROR:', error);
+      logError('🚨 WORKFLOW EXECUTION ERROR:', error);
       await this.handleWorkflowFailure(context, error);
     }
   }
@@ -210,7 +211,7 @@ export class CrisisInterventionWorkflow {
       this.recordStepMetrics(step.name, stepStartTime);
 
     } catch (error) {
-      console.error(`🚨 WORKFLOW STEP ERROR (${step.name}):`, error);
+      logError(`🚨 WORKFLOW STEP ERROR (${step.name}):`, error);
 
       // Execute step failsafe if available
       if (step.failsafe) {
@@ -440,7 +441,7 @@ export class CrisisInterventionWorkflow {
         await this.scheduleFollowUp(context, step.id);
         break;
       default:
-        console.warn(`Unknown workflow step: ${step.id}`);
+        logSecurity(`Unknown workflow step: ${step.id}`);
     }
   }
 
@@ -672,7 +673,7 @@ export class CrisisInterventionWorkflow {
     context: CrisisInterventionContext,
     error: any
   ): Promise<void> {
-    console.error('🚨 WORKFLOW FAILURE:', error);
+    logError('🚨 WORKFLOW FAILURE:', error);
 
     // Log failure
     await this.logWorkflowFailure(context, error);
@@ -720,7 +721,7 @@ export class CrisisInterventionWorkflow {
    * FAIL-SAFE IMPLEMENTATIONS
    */
   private async executeEmergencyFailsafe(detection: CrisisDetection): Promise<void> {
-    console.error('🚨 EXECUTING EMERGENCY FAILSAFE');
+    logError('🚨 EXECUTING EMERGENCY FAILSAFE');
 
     Alert.alert(
       '🚨 EMERGENCY SUPPORT',
@@ -812,7 +813,7 @@ export class CrisisInterventionWorkflow {
         JSON.stringify(logEntry)
       );
     } catch (error) {
-      console.error('Workflow completion logging failed:', error);
+      logError('Workflow completion logging failed:', error);
     }
   }
 
@@ -834,7 +835,7 @@ export class CrisisInterventionWorkflow {
         JSON.stringify(logEntry)
       );
     } catch (logError) {
-      console.error('Workflow failure logging failed:', logError);
+      logError('Workflow failure logging failed:', logError);
     }
   }
 

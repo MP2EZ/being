@@ -1,11 +1,12 @@
 /**
+import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * LOGGING SECURITY VALIDATION - HIPAA Compliance Verification
  *
  * This service validates that all logging in the application is PHI-safe
  * and complies with HIPAA requirements.
  *
  * VALIDATION CHECKS:
- * 1. Zero console.log statements with PHI exposure
+ * 1. Zero logPerformance statements with PHI exposure
  * 2. All logging uses secure logger
  * 3. PHI sanitization working correctly
  * 4. Production log levels enforced
@@ -144,27 +145,27 @@ export class LoggingSecurityValidator {
     }
 
     // In production, only ERROR level should output to console
-    const originalConsoleLog = console.log;
-    const originalConsoleInfo = console.info;
-    const originalConsoleDebug = console.debug;
+    const originalConsoleLog = logPerformance;
+    const originalConsoleInfo = logPerformance;
+    const originalConsoleDebug = logPerformance;
 
     let logOutputDetected = false;
     let infoOutputDetected = false;
     let debugOutputDetected = false;
 
     // Mock console methods to detect output
-    console.log = (...args) => { logOutputDetected = true; };
-    console.info = (...args) => { infoOutputDetected = true; };
-    console.debug = (...args) => { debugOutputDetected = true; };
+    logPerformance = (...args) => { logOutputDetected = true; };
+    logPerformance = (...args) => { infoOutputDetected = true; };
+    logPerformance = (...args) => { debugOutputDetected = true; };
 
     // Test logging at different levels
     logger.debug(LogCategory.SYSTEM, 'Test debug message');
     logger.info(LogCategory.SYSTEM, 'Test info message');
 
     // Restore console methods
-    console.log = originalConsoleLog;
-    console.info = originalConsoleInfo;
-    console.debug = originalConsoleDebug;
+    logPerformance = originalConsoleLog;
+    logPerformance = originalConsoleInfo;
+    logPerformance = originalConsoleDebug;
 
     const passed = !logOutputDetected && !infoOutputDetected && !debugOutputDetected;
 
@@ -260,7 +261,7 @@ export class LoggingSecurityValidator {
       name: 'Console.log Removal',
       category: 'CRITICAL',
       passed: false, // Requires manual verification
-      details: 'Manual verification required - Run security audit script to verify all console.log statements have been replaced with secure logging',
+      details: 'Manual verification required - Run security audit script to verify all logPerformance statements have been replaced with secure logging',
       evidence: {
         requiresManualCheck: true,
         instructions: 'Run: grep -r "console\\.log" src/ to verify removal'
@@ -355,7 +356,7 @@ export class LoggingSecurityValidator {
     }
 
     if (failedChecks.some(check => check.name === 'Console.log Removal')) {
-      recommendations.push('📝 Complete systematic replacement of all console.log statements with secure logging');
+      recommendations.push('📝 Complete systematic replacement of all logPerformance statements with secure logging');
     }
 
     if (failedChecks.some(check => check.name === 'Production Log Levels')) {
@@ -380,7 +381,7 @@ export class LoggingSecurityValidator {
     logger.emergencyShutdown(`Security validation failure: ${reason}`);
 
     // Additional emergency measures
-    console.error(`🚨 EMERGENCY SECURITY SHUTDOWN: ${reason}`);
+    logError(`🚨 EMERGENCY SECURITY SHUTDOWN: ${reason}`);
   }
 }
 

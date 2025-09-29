@@ -1,4 +1,5 @@
 /**
+import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * Accessibility Testing Automation Framework
  * 
  * ACCESSIBILITY SPECIFICATIONS:
@@ -209,7 +210,7 @@ export class AccessibilityTester {
     
     // Log performance
     const totalTime = performance.now() - startTime;
-    console.log(`🔍 Accessibility audit completed in ${totalTime}ms`);
+    logPerformance(`🔍 Accessibility audit completed in ${totalTime}ms`);
     
     return report;
   }
@@ -754,7 +755,7 @@ export const AccessibilityTestingPanel: React.FC<AccessibilityTestingPanelProps>
       const newReport = await tester.runAccessibilityAudit();
       setReport(newReport);
     } catch (error) {
-      console.error('Accessibility testing failed:', error);
+      logError('Accessibility testing failed:', error);
     } finally {
       setIsRunning(false);
     }
