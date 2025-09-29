@@ -26,6 +26,16 @@
 // Core Analytics Service
 export { default as AnalyticsService } from './AnalyticsService';
 
+// Import secure logging
+import {
+  logger,
+  logAnalytics,
+  logSecurity,
+  logError,
+  logSync,
+  LogCategory
+} from '../logging';
+
 // Analytics Privacy Engine (internal component of AnalyticsService)
 // Note: AnalyticsPrivacyEngine is not exported as it's internal to AnalyticsService
 
@@ -168,7 +178,9 @@ export class AnalyticsOrchestrator {
    */
   async initializeAnalytics(config?: Partial<AnalyticsConfiguration>): Promise<void> {
     try {
-      console.log('🎯 Initializing Analytics Orchestrator...');
+      logAnalytics('Analytics Orchestrator initializing', {
+        category: 'initialization'
+      });
 
       // Initialize core analytics service
       await this.analyticsService.initialize();
@@ -178,10 +190,13 @@ export class AnalyticsOrchestrator {
         await this.applyConfiguration(config);
       }
 
-      console.log('✅ Analytics Orchestrator initialized successfully');
+      logAnalytics('Analytics Orchestrator initialized successfully', {
+        category: 'initialization',
+        result: 'success'
+      });
 
     } catch (error) {
-      console.error('🚨 Analytics Orchestrator initialization failed:', error);
+      logError(LogCategory.ANALYTICS, 'Analytics Orchestrator initialization failed', error);
       throw new Error(`Analytics orchestrator initialization failed: ${error.message}`);
     }
   }
@@ -257,15 +272,20 @@ export class AnalyticsOrchestrator {
    */
   async updateAnalyticsConsent(consent: AnalyticsConsent): Promise<void> {
     try {
-      console.log(`🔒 Updating analytics consent for user: ${consent.userId}`);
+      logAnalytics('Analytics consent update requested', {
+        category: 'consent'
+      });
       
       // Store consent securely
       // Implementation would integrate with secure storage and consent management
       
-      console.log('✅ Analytics consent updated successfully');
+      logAnalytics('Analytics consent updated successfully', {
+        category: 'consent',
+        result: 'success'
+      });
 
     } catch (error) {
-      console.error('🚨 Analytics consent update failed:', error);
+      logError(LogCategory.ANALYTICS, 'Analytics consent update failed', error);
       throw error;
     }
   }
@@ -275,14 +295,21 @@ export class AnalyticsOrchestrator {
    */
   async applyPrivacyControls(userId: string, controls: AnalyticsPrivacyControls): Promise<void> {
     try {
-      console.log(`🛡️ Applying privacy controls for user: ${userId}`);
+      logSecurity('Privacy controls application requested', 'low', {
+        component: 'analytics',
+        action: 'privacy_update'
+      });
 
       // Implementation would configure analytics based on user preferences
       
-      console.log('✅ Privacy controls applied successfully');
+      logSecurity('Privacy controls applied successfully', 'low', {
+        component: 'analytics',
+        action: 'privacy_update',
+        result: 'success'
+      });
 
     } catch (error) {
-      console.error('🚨 Privacy controls application failed:', error);
+      logError(LogCategory.SECURITY, 'Privacy controls application failed', error);
       throw error;
     }
   }
@@ -292,14 +319,20 @@ export class AnalyticsOrchestrator {
    */
   async deleteUserAnalyticsData(userId: string): Promise<void> {
     try {
-      console.log(`🗑️ Deleting analytics data for user: ${userId}`);
+      logSync('Analytics data deletion requested', {
+        direction: 'upload',
+        result: 'success'
+      });
 
       // Implementation would securely delete all analytics data for the user
       
-      console.log('✅ User analytics data deleted successfully');
+      logSync('User analytics data deleted successfully', {
+        direction: 'upload',
+        result: 'success'
+      });
 
     } catch (error) {
-      console.error('🚨 User data deletion failed:', error);
+      logError(LogCategory.SYNC, 'User data deletion failed', error);
       throw error;
     }
   }
@@ -309,7 +342,10 @@ export class AnalyticsOrchestrator {
    */
   async exportUserAnalyticsData(userId: string): Promise<any> {
     try {
-      console.log(`📤 Exporting analytics data for user: ${userId}`);
+      logSync('Analytics data export requested', {
+        direction: 'download',
+        result: 'success'
+      });
 
       // Implementation would compile and return user's analytics data
       return {
@@ -319,7 +355,7 @@ export class AnalyticsOrchestrator {
       };
 
     } catch (error) {
-      console.error('🚨 User data export failed:', error);
+      logError(LogCategory.SYNC, 'User data export failed', error);
       throw error;
     }
   }
@@ -333,7 +369,10 @@ export class AnalyticsOrchestrator {
     recommendations: string[];
   }> {
     try {
-      console.log('🔍 Performing analytics security audit...');
+      logSecurity('Analytics security audit initiated', 'medium', {
+        component: 'analytics',
+        action: 'audit'
+      });
 
       // Implementation would perform comprehensive security audit
       
@@ -344,7 +383,7 @@ export class AnalyticsOrchestrator {
       };
 
     } catch (error) {
-      console.error('🚨 Security audit failed:', error);
+      logError(LogCategory.SECURITY, 'Analytics security audit failed', error);
       throw error;
     }
   }
@@ -354,7 +393,10 @@ export class AnalyticsOrchestrator {
    */
   async emergencyShutdown(reason: string): Promise<void> {
     try {
-      console.log(`🚨 Emergency analytics shutdown initiated: ${reason}`);
+      logSecurity('Emergency analytics shutdown initiated', 'critical', {
+        component: 'analytics',
+        action: 'emergency_shutdown'
+      });
 
       // Flush any pending events
       await this.analyticsService.flush();
@@ -362,17 +404,23 @@ export class AnalyticsOrchestrator {
       // Shutdown analytics service
       await this.analyticsService.shutdown();
 
-      console.log('✅ Emergency analytics shutdown completed');
+      logSecurity('Emergency analytics shutdown completed', 'critical', {
+        component: 'analytics',
+        action: 'emergency_shutdown',
+        result: 'success'
+      });
 
     } catch (error) {
-      console.error('🚨 Emergency shutdown failed:', error);
+      logError(LogCategory.SECURITY, 'Emergency analytics shutdown failed', error);
       throw error;
     }
   }
 
   // Private utility methods
   private async applyConfiguration(config: Partial<AnalyticsConfiguration>): Promise<void> {
-    console.log('⚙️ Applying analytics configuration...');
+    logAnalytics('Applying analytics configuration', {
+      category: 'configuration'
+    });
     // Implementation would apply configuration to analytics service
   }
 
@@ -381,14 +429,18 @@ export class AnalyticsOrchestrator {
    */
   async destroy(): Promise<void> {
     try {
-      console.log('🗑️ Destroying Analytics Orchestrator...');
+      logAnalytics('Destroying Analytics Orchestrator', {
+        category: 'cleanup'
+      });
 
       await this.analyticsService.shutdown();
 
-      console.log('✅ Analytics Orchestrator destroyed');
+      logAnalytics('Analytics Orchestrator destroyed', {
+        category: 'cleanup'
+      });
 
     } catch (error) {
-      console.error('🚨 Analytics Orchestrator destruction error:', error);
+      logError(LogCategory.ANALYTICS, 'Analytics Orchestrator destruction failed', error);
       throw error;
     }
   }
