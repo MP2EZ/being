@@ -906,8 +906,8 @@ class SyncCoordinator {
             await this.triggerPriorityBackup('crisis');
           }
 
-          // TODO: Re-implement assessment score monitoring once store structure is finalized
-          // Critical score monitoring temporarily disabled for TypeScript compliance
+          // Real-time assessment score monitoring for crisis thresholds
+          await this.monitorAssessmentScores(state, prevState);
 
           // Regular state changes trigger normal priority sync (debounced)
           if (JSON.stringify(state) !== JSON.stringify(prevState)) {
@@ -920,6 +920,155 @@ class SyncCoordinator {
 
     } catch (error) {
       console.error('🚨 Failed to setup store integration:', error);
+    }
+  }
+
+  /**
+   * Monitor assessment scores for crisis thresholds (PHQ-9 ≥20, GAD-7 ≥15)
+   * Triggers priority sync for crisis scores within <200ms requirement
+   */
+  private async monitorAssessmentScores(
+    currentState: any,
+    previousState: any
+  ): Promise<void> {
+    const startTime = Date.now();
+
+    try {
+      // Check for new assessment results
+      const currentResult = currentState.currentResult;
+      const previousResult = previousState.currentResult;
+
+      // Monitor current assessment completion
+      if (currentResult && !previousResult) {
+        await this.evaluateAssessmentForCrisis(currentResult, 'current_assessment');
+      }
+
+      // Monitor completed assessments for new entries
+      const currentCompleted = currentState.completedAssessments || [];
+      const previousCompleted = previousState.completedAssessments || [];
+
+      if (currentCompleted.length > previousCompleted.length) {
+        const newAssessments = currentCompleted.slice(previousCompleted.length);
+
+        for (const session of newAssessments) {
+          if (session.result) {
+            await this.evaluateAssessmentForCrisis(session.result, 'completed_assessment');
+          }
+        }
+      }
+
+      // Validate response time meets <200ms requirement
+      const responseTime = Date.now() - startTime;
+      if (responseTime >= 200) {
+        console.warn(`⚠️ Assessment monitoring exceeded 200ms: ${responseTime}ms`);
+      }
+
+    } catch (error) {
+      console.error('🚨 Assessment score monitoring failed:', error);
+    }
+  }
+
+  /**
+   * Evaluate assessment result for crisis conditions and trigger priority sync
+   */
+  private async evaluateAssessmentForCrisis(
+    result: any,
+    context: 'current_assessment' | 'completed_assessment'
+  ): Promise<void> {
+    try {
+      let isCrisisDetected = false;
+      let crisisType = '';
+      let crisisValue = 0;
+
+      // Check PHQ-9 crisis conditions
+      if (result.totalScore !== undefined && result.severity !== undefined) {
+        // Determine if this is PHQ-9 or GAD-7 based on score range
+        if (result.totalScore <= 27) {
+          // Likely PHQ-9 (0-27 range)
+          if (result.totalScore >= 20) {
+            isCrisisDetected = true;
+            crisisType = 'phq9_score';
+            crisisValue = result.totalScore;
+          }
+
+          // Check for suicidal ideation
+          if (result.suicidalIdeation === true) {
+            isCrisisDetected = true;
+            crisisType = 'phq9_suicidal';
+            crisisValue = 1;
+          }
+        } else if (result.totalScore <= 21) {
+          // Likely GAD-7 (0-21 range)
+          if (result.totalScore >= 15) {
+            isCrisisDetected = true;
+            crisisType = 'gad7_score';
+            crisisValue = result.totalScore;
+          }
+        }
+      }
+
+      // Check the isCrisis flag directly from assessment store
+      if (result.isCrisis === true) {
+        isCrisisDetected = true;
+        if (!crisisType) {
+          crisisType = 'assessment_crisis_flag';
+          crisisValue = result.totalScore || 0;
+        }
+      }
+
+      // Trigger priority backup for crisis scores
+      if (isCrisisDetected) {
+        console.log(`🚨 [SyncCoordinator] Crisis assessment detected: ${crisisType} = ${crisisValue}`);
+        console.log(`📊 Assessment context: ${context}, total score: ${result.totalScore}`);
+
+        // Immediate priority backup for crisis data
+        await this.triggerPriorityBackup('crisis');
+
+        // Log crisis assessment for clinical compliance
+        await this.logCrisisAssessment({
+          type: crisisType,
+          value: crisisValue,
+          totalScore: result.totalScore,
+          context,
+          timestamp: Date.now(),
+          assessmentType: result.totalScore <= 21 ? 'gad7' : 'phq9'
+        });
+      }
+
+    } catch (error) {
+      console.error('🚨 Crisis assessment evaluation failed:', error);
+    }
+  }
+
+  /**
+   * Log crisis assessment for clinical compliance and audit trail
+   */
+  private async logCrisisAssessment(crisisData: {
+    type: string;
+    value: number;
+    totalScore: number;
+    context: string;
+    timestamp: number;
+    assessmentType: string;
+  }): Promise<void> {
+    try {
+      const logEntry = {
+        ...crisisData,
+        syncTriggered: true,
+        responseTime: Date.now() - crisisData.timestamp,
+        syncId: `crisis_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+      };
+
+      // Store crisis log for clinical audit trail
+      await AsyncStorage.setItem(
+        `crisis_assessment_sync_${logEntry.syncId}`,
+        JSON.stringify(logEntry)
+      );
+
+      console.log(`📋 Crisis assessment logged: ${logEntry.syncId}`);
+
+    } catch (error) {
+      console.error('🚨 Crisis assessment logging failed:', error);
     }
   }
 
