@@ -141,6 +141,9 @@ class SyncCoordinator {
 
   // Network state
   private isConnected: boolean = true;
+  private networkQuality: 'excellent' | 'good' | 'poor' | 'offline' = 'excellent';
+  private connectionSpeed: number = 0; // Mbps estimate
+  private lastConnectionTest: number = 0;
 
   // Service references
   private cloudBackupService: typeof cloudBackupService;
@@ -155,6 +158,14 @@ class SyncCoordinator {
   private networkUnsubscribe: (() => void) | null = null;
   private storeUnsubscribe: (() => void) | null = null;
   private appStateCleanup: (() => void) | null = null;
+
+  // Phase 3: Enhanced resilience
+  private retryAttempts: Map<string, number> = new Map();
+  private failureBackoff: Map<string, number> = new Map();
+  private queuePersistenceKey = '@being/sync_coordinator/queue_v2';
+  private maxQueueSize = 1000;
+  private circuitBreakerFailures = 0;
+  private circuitBreakerLastFailure = 0;
 
   private constructor() {
     this.cloudBackupService = cloudBackupService;
@@ -188,6 +199,9 @@ class SyncCoordinator {
 
       // Load sync metadata
       await this.loadSyncMetadata();
+
+      // Phase 3: Load persisted queue
+      await this.loadPersistedQueue();
 
       // Setup network monitoring
       await this.setupNetworkMonitoring();
@@ -824,27 +838,32 @@ class SyncCoordinator {
   // Placeholder methods for integration
   private async setupNetworkMonitoring(): Promise<void> {
     try {
-      // Subscribe to network state changes
+      // Subscribe to network state changes with enhanced monitoring
       this.networkUnsubscribe = NetInfo.addEventListener(async (networkState) => {
         const wasConnected = this.isConnected;
         this.isConnected = networkState.isConnected === true;
 
-        console.log(`[SyncCoordinator] Network state changed: ${wasConnected ? 'connected' : 'disconnected'} → ${this.isConnected ? 'connected' : 'disconnected'}`);
+        // Phase 3: Enhanced network quality detection
+        await this.assessNetworkQuality(networkState);
 
-        // If just came online, process offline queues
+        console.log(`[SyncCoordinator] Network: ${wasConnected ? 'connected' : 'disconnected'} → ${this.isConnected ? 'connected' : 'disconnected'} (${this.networkQuality})`);
+
+        // If just came online, process offline queues with adaptive strategy
         if (!wasConnected && this.isConnected) {
           console.log('[SyncCoordinator] Connection restored, processing offline operations');
 
-          // Process SyncCoordinator queue first (higher priority)
-          if (this.syncQueue.length > 0) {
-            await this.processOfflineQueue();
-          }
+          // Reset circuit breaker on successful reconnection
+          this.circuitBreakerFailures = 0;
+
+          // Process with network-adaptive strategy
+          await this.processOfflineQueueWithAdaptiveStrategy();
 
           // Let SupabaseService process its own queue
           await this.supabaseService.processOfflineQueue();
 
-          // Trigger a full sync check for any new changes
-          await this.scheduleSync('normal', 'network_restored');
+          // Trigger sync based on network quality
+          const priority = this.networkQuality === 'excellent' ? 'normal' : 'low';
+          await this.scheduleSync(priority, 'network_restored');
         }
 
         // Update sync state based on connectivity
@@ -1206,6 +1225,299 @@ class SyncCoordinator {
   }
 
   /**
+   * PHASE 3: ENHANCED NETWORK RESILIENCE
+   */
+  private async assessNetworkQuality(networkState: any): Promise<void> {
+    try {
+      if (!this.isConnected) {
+        this.networkQuality = 'offline';
+        this.connectionSpeed = 0;
+        return;
+      }
+
+      // Quick connection test every 30 seconds max
+      const now = Date.now();
+      if (now - this.lastConnectionTest < 30000) {
+        return; // Skip frequent tests
+      }
+
+      this.lastConnectionTest = now;
+
+      // Test connection speed with small payload
+      const startTime = performance.now();
+
+      try {
+        // Simple ping test to Supabase
+        const testStart = Date.now();
+        await fetch('https://httpbin.org/get', {
+          method: 'GET',
+          cache: 'no-cache',
+          signal: AbortSignal.timeout(5000), // 5 second timeout
+        });
+        const responseTime = Date.now() - testStart;
+
+        // Estimate quality based on response time
+        if (responseTime < 200) {
+          this.networkQuality = 'excellent';
+          this.connectionSpeed = 10; // Estimate fast connection
+        } else if (responseTime < 500) {
+          this.networkQuality = 'good';
+          this.connectionSpeed = 5;
+        } else if (responseTime < 2000) {
+          this.networkQuality = 'poor';
+          this.connectionSpeed = 1;
+        } else {
+          this.networkQuality = 'poor';
+          this.connectionSpeed = 0.5;
+        }
+
+        console.log(`[SyncCoordinator] Network quality: ${this.networkQuality} (${responseTime}ms)`);
+
+      } catch (error) {
+        // Network test failed, assume poor quality
+        this.networkQuality = 'poor';
+        this.connectionSpeed = 0.1;
+        console.warn('[SyncCoordinator] Network quality test failed, assuming poor connection');
+      }
+
+    } catch (error) {
+      console.error('🚨 Failed to assess network quality:', error);
+      this.networkQuality = 'poor'; // Conservative default
+    }
+  }
+
+  private async processOfflineQueueWithAdaptiveStrategy(): Promise<void> {
+    try {
+      if (this.syncQueue.length === 0) {
+        return;
+      }
+
+      console.log(`[SyncCoordinator] Processing ${this.syncQueue.length} queued operations with ${this.networkQuality} network`);
+
+      // Adaptive processing based on network quality
+      let batchSize: number;
+      let delayBetweenOperations: number;
+
+      switch (this.networkQuality) {
+        case 'excellent':
+          batchSize = 10;
+          delayBetweenOperations = 100; // 100ms
+          break;
+        case 'good':
+          batchSize = 5;
+          delayBetweenOperations = 500; // 500ms
+          break;
+        case 'poor':
+          batchSize = 1;
+          delayBetweenOperations = 2000; // 2s
+          break;
+        default:
+          batchSize = 1;
+          delayBetweenOperations = 5000; // 5s
+      }
+
+      // Process queue in adaptive batches
+      while (this.syncQueue.length > 0 && this.isConnected) {
+        const batch = this.syncQueue.splice(0, batchSize);
+
+        for (const operation of batch) {
+          try {
+            await this.processQueuedOperationWithRetry(operation);
+
+            // Delay between operations to avoid overwhelming poor connections
+            if (delayBetweenOperations > 0) {
+              await new Promise(resolve => setTimeout(resolve, delayBetweenOperations));
+            }
+
+          } catch (error) {
+            console.error(`🚨 Failed to process operation ${operation.id}:`, error);
+
+            // Re-add failed operation to queue if retryable
+            if (this.shouldRetryOperation(operation)) {
+              this.syncQueue.unshift(operation); // Add back to front
+            }
+
+            // Break batch processing on failure for poor connections
+            if (this.networkQuality === 'poor') {
+              break;
+            }
+          }
+        }
+
+        // Check if network is still connected
+        if (!this.isConnected) {
+          console.log('[SyncCoordinator] Lost connection during queue processing');
+          break;
+        }
+      }
+
+      // Persist remaining queue
+      await this.persistQueue();
+
+    } catch (error) {
+      console.error('🚨 Failed to process offline queue with adaptive strategy:', error);
+    }
+  }
+
+  private async processQueuedOperationWithRetry(operation: SyncOperation): Promise<void> {
+    const maxRetries = operation.priority === 'crisis' ? 5 : 3;
+    const operationId = operation.id;
+
+    // Check current retry count
+    const currentRetries = this.retryAttempts.get(operationId) || 0;
+
+    if (currentRetries >= maxRetries) {
+      console.error(`🚨 Operation ${operationId} exceeded max retries (${maxRetries}), discarding`);
+      this.retryAttempts.delete(operationId);
+      this.failureBackoff.delete(operationId);
+      throw new Error('Max retries exceeded');
+    }
+
+    // Check if we're in backoff period
+    const backoffUntil = this.failureBackoff.get(operationId) || 0;
+    if (Date.now() < backoffUntil) {
+      // Still in backoff, re-queue for later
+      throw new Error('Operation in backoff period');
+    }
+
+    try {
+      // Try to process the operation
+      await this.processQueuedOperation(operation);
+
+      // Success - clear retry tracking
+      this.retryAttempts.delete(operationId);
+      this.failureBackoff.delete(operationId);
+
+    } catch (error) {
+      // Failure - increment retry count and set backoff
+      const newRetryCount = currentRetries + 1;
+      this.retryAttempts.set(operationId, newRetryCount);
+
+      // Exponential backoff: 2^retries * 1000ms (1s, 2s, 4s, 8s, 16s)
+      const backoffMs = Math.pow(2, newRetryCount) * 1000;
+      this.failureBackoff.set(operationId, Date.now() + backoffMs);
+
+      console.warn(`[SyncCoordinator] Operation ${operationId} failed (retry ${newRetryCount}/${maxRetries}), backoff ${backoffMs}ms`);
+
+      // Update circuit breaker
+      this.circuitBreakerFailures++;
+      this.circuitBreakerLastFailure = Date.now();
+
+      throw error;
+    }
+  }
+
+  private shouldRetryOperation(operation: SyncOperation): boolean {
+    const operationId = operation.id;
+    const currentRetries = this.retryAttempts.get(operationId) || 0;
+    const maxRetries = operation.priority === 'crisis' ? 5 : 3;
+
+    // Don't retry if already at max
+    if (currentRetries >= maxRetries) {
+      return false;
+    }
+
+    // Always retry crisis operations
+    if (operation.priority === 'crisis') {
+      return true;
+    }
+
+    // Check circuit breaker - if too many recent failures, don't retry normal operations
+    const recentFailureThreshold = Date.now() - (5 * 60 * 1000); // 5 minutes
+    if (this.circuitBreakerLastFailure > recentFailureThreshold && this.circuitBreakerFailures > 10) {
+      console.warn('[SyncCoordinator] Circuit breaker open, not retrying non-crisis operation');
+      return false;
+    }
+
+    return true;
+  }
+
+  private deduplicateQueue(): void {
+    // Remove duplicate operations (keep highest priority version)
+    const seenOperations = new Map<string, number>();
+
+    for (let i = this.syncQueue.length - 1; i >= 0; i--) {
+      const operation = this.syncQueue[i];
+      if (!operation) continue; // Skip if operation is undefined
+
+      const operationKey = `${operation.type}_${operation.metadata.storeType}`;
+
+      const existingIndex = seenOperations.get(operationKey);
+
+      if (existingIndex !== undefined) {
+        // Found duplicate - keep the higher priority operation
+        const existing = this.syncQueue[existingIndex];
+        if (!existing) continue; // Skip if existing is undefined
+
+        const priorityOrder = { crisis: 0, high: 1, normal: 2, low: 3 };
+
+        if (priorityOrder[operation.priority] < priorityOrder[existing.priority]) {
+          // Current operation has higher priority, remove the existing one
+          this.syncQueue.splice(existingIndex, 1);
+          seenOperations.set(operationKey, i > existingIndex ? i - 1 : i);
+        } else {
+          // Existing operation has higher or equal priority, remove current one
+          this.syncQueue.splice(i, 1);
+        }
+      } else {
+        // First time seeing this operation type
+        seenOperations.set(operationKey, i);
+      }
+    }
+  }
+
+  private async persistQueue(): Promise<void> {
+    try {
+      const queueData = {
+        operations: this.syncQueue,
+        timestamp: Date.now(),
+        retryAttempts: Array.from(this.retryAttempts.entries()),
+        failureBackoff: Array.from(this.failureBackoff.entries()),
+      };
+
+      await AsyncStorage.setItem(this.queuePersistenceKey, JSON.stringify(queueData));
+      console.log(`[SyncCoordinator] Persisted ${this.syncQueue.length} operations to storage`);
+
+    } catch (error) {
+      console.error('🚨 Failed to persist queue:', error);
+    }
+  }
+
+  private async loadPersistedQueue(): Promise<void> {
+    try {
+      const queueDataString = await AsyncStorage.getItem(this.queuePersistenceKey);
+
+      if (queueDataString) {
+        const queueData = JSON.parse(queueDataString);
+
+        // Restore queue operations
+        this.syncQueue = queueData.operations || [];
+
+        // Restore retry tracking
+        this.retryAttempts = new Map(queueData.retryAttempts || []);
+        this.failureBackoff = new Map(queueData.failureBackoff || []);
+
+        // Clean up expired backoffs
+        const now = Date.now();
+        for (const [operationId, backoffUntil] of this.failureBackoff.entries()) {
+          if (now > backoffUntil) {
+            this.failureBackoff.delete(operationId);
+          }
+        }
+
+        console.log(`[SyncCoordinator] Restored ${this.syncQueue.length} operations from storage`);
+      }
+
+    } catch (error) {
+      console.error('🚨 Failed to load persisted queue:', error);
+      // Continue with empty queue if loading fails
+      this.syncQueue = [];
+      this.retryAttempts = new Map();
+      this.failureBackoff = new Map();
+    }
+  }
+
+  /**
    * SYNC SCHEDULING
    */
   private async scheduleSync(priority: SyncPriority, reason: string): Promise<void> {
@@ -1226,13 +1538,49 @@ class SyncCoordinator {
         },
       };
 
+      // Phase 3: Enhanced queue management with overflow protection
+      if (this.syncQueue.length >= this.maxQueueSize) {
+        // Remove oldest low-priority operations to make space
+        const lowPriorityIndex = this.syncQueue.findIndex(op => op.priority === 'low');
+        if (lowPriorityIndex !== -1) {
+          const removed = this.syncQueue.splice(lowPriorityIndex, 1);
+          if (removed[0]) {
+            console.warn(`[SyncCoordinator] Queue overflow, removed low-priority operation: ${removed[0].id}`);
+          }
+        } else {
+          // If no low-priority operations, remove oldest normal priority
+          const normalPriorityIndex = this.syncQueue.findIndex(op => op.priority === 'normal');
+          if (normalPriorityIndex !== -1) {
+            const removed = this.syncQueue.splice(normalPriorityIndex, 1);
+            if (removed[0]) {
+              console.warn(`[SyncCoordinator] Queue overflow, removed normal-priority operation: ${removed[0].id}`);
+            }
+          } else {
+            // Last resort: remove oldest operation (but never crisis)
+            const nonCrisisIndex = this.syncQueue.findIndex(op => op.priority !== 'crisis');
+            if (nonCrisisIndex !== -1) {
+              const removed = this.syncQueue.splice(nonCrisisIndex, 1);
+              if (removed[0]) {
+                console.warn(`[SyncCoordinator] Queue overflow, removed operation: ${removed[0].id}`);
+              }
+            }
+          }
+        }
+      }
+
       this.syncQueue.push(operation);
+
+      // Enhanced queue sorting with deduplication
+      this.deduplicateQueue();
 
       // Sort queue by priority (crisis > high > normal > low)
       this.syncQueue.sort((a, b) => {
         const priorityOrder = { crisis: 0, high: 1, normal: 2, low: 3 };
         return priorityOrder[a.priority] - priorityOrder[b.priority];
       });
+
+      // Persist queue after changes
+      await this.persistQueue();
 
       console.log(`[SyncCoordinator] Scheduled ${priority} priority sync: ${reason}`);
 
