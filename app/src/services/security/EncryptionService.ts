@@ -1,5 +1,4 @@
 /**
-import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * ENCRYPTION SERVICE - DRD-FLOW-005 Security Implementation
  *
  * COMPREHENSIVE ENCRYPTION FOR MENTAL HEALTH DATA:
@@ -29,6 +28,8 @@ import { logSecurity, logPerformance, logError, LogCategory } from '../services/
  * - Bulk operations: <200ms for data export
  */
 
+
+import { logSecurity, logPerformance, logError, LogCategory } from '../logging';
 import * as Crypto from 'expo-crypto';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';

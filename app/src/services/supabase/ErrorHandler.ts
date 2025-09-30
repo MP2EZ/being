@@ -1,5 +1,4 @@
 /**
-import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * Cloud Sync Error Handler
  *
  * COMPREHENSIVE ERROR MANAGEMENT:
@@ -22,6 +21,8 @@ import { logSecurity, logPerformance, logError, LogCategory } from '../services/
  * - User-guided recovery
  */
 
+
+import { logSecurity, logPerformance, logError, LogCategory } from '../logging';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Error categories

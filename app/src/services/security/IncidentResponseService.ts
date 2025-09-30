@@ -1,5 +1,4 @@
 /**
-import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * INCIDENT RESPONSE SERVICE - DRD-FLOW-005 Security Implementation
  *
  * COMPREHENSIVE INCIDENT RESPONSE FOR MENTAL HEALTH DATA BREACHES:
@@ -31,6 +30,8 @@ import { logSecurity, logPerformance, logError, LogCategory } from '../services/
  * - Regulatory reporting: Within legal timeframes
  */
 
+
+import { logSecurity, logPerformance, logError, LogCategory } from '../logging';
 import EncryptionService from './EncryptionService';
 import AuthenticationService from './AuthenticationService';
 import SecureStorageService from './SecureStorageService';

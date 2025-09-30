@@ -1,5 +1,4 @@
 /**
-import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * Evening Flow Navigator
  * CRITICAL CLINICAL SAFETY IMPLEMENTATION:
  * - Crisis button always present in headers
@@ -8,6 +7,8 @@ import { logSecurity, logPerformance, logError, LogCategory } from '../services/
  * - Safety-first navigation approach
  */
 
+
+import { logSecurity, logPerformance, logError, LogCategory } from '../../services/logging';
 import React from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 import { View, Pressable, Text, StyleSheet } from 'react-native';

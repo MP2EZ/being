@@ -1,5 +1,4 @@
 /**
-import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * Enhanced Assessment Question Component - Comprehensive Integration
  * 
  * INTEGRATIONS:
@@ -17,6 +16,8 @@ import { logSecurity, logPerformance, logError, LogCategory } from '../services/
  * - WCAG AA accessibility compliance
  */
 
+
+import { logSecurity, logPerformance, logError, LogCategory } from '../../services/logging';
 import React, { useCallback, useMemo, useEffect, useState, useRef } from 'react';
 import {
   View,

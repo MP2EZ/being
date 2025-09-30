@@ -1,5 +1,4 @@
 /**
-import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * Sensory Accessibility Support
  * 
  * ACCESSIBILITY SPECIFICATIONS:
@@ -13,6 +12,8 @@ import { logSecurity, logPerformance, logError, LogCategory } from '../services/
  * - Multi-sensory feedback integration
  */
 
+
+import { logSecurity, logPerformance, logError, LogCategory } from '../../../services/logging';
 import React, { useCallback, useEffect, useState, createContext, useContext, useRef } from 'react';
 import {
   View,

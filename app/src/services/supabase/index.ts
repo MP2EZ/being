@@ -1,5 +1,4 @@
 /**
-import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * Supabase Services Integration Layer
  *
  * MAIN EXPORT MODULE:
@@ -21,6 +20,8 @@ import { logSecurity, logPerformance, logError, LogCategory } from '../services/
  * - Minimal performance impact on crisis detection
  */
 
+
+import { logSecurity, logPerformance, logError, LogCategory } from '../logging';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppState } from 'react-native';
 

@@ -1,5 +1,4 @@
 /**
-import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * Assessment Flow Performance Optimizer
  *
  * TARGET: <200ms per question response (enhanced from <300ms)
@@ -17,6 +16,8 @@ import { logSecurity, logPerformance, logError, LogCategory } from '../services/
  * - Session recovery optimization
  */
 
+
+import { logSecurity, logPerformance, logError, LogCategory } from '../logging';
 import { DeviceEventEmitter } from 'react-native';
 import {
   AssessmentType,

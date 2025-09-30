@@ -1,5 +1,4 @@
 /**
-import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * Advanced Screen Reader Support - Enhanced ARIA and Announcements
  * 
  * ACCESSIBILITY SPECIFICATIONS:
@@ -11,6 +10,8 @@ import { logSecurity, logPerformance, logError, LogCategory } from '../services/
  * - Multi-modal feedback integration
  */
 
+
+import { logSecurity, logPerformance, logError, LogCategory } from '../../../services/logging';
 import React, { useCallback, useEffect, useRef, useState, createContext, useContext } from 'react';
 import {
   View,

@@ -1,5 +1,4 @@
 /**
-import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * RadioGroup Component - WCAG AA Compliant
  * 
  * ACCESSIBILITY SPECIFICATIONS:
@@ -11,6 +10,8 @@ import { logSecurity, logPerformance, logError, LogCategory } from '../services/
  * - Support for clinical assessment contexts (PHQ-9/GAD-7)
  */
 
+
+import { logSecurity, logPerformance, logError, LogCategory } from '../../services/logging';
 import React, { useCallback, useMemo, useRef, useState, useEffect } from 'react';
 import {
   View,

@@ -1,5 +1,4 @@
 /**
-import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * Supabase Service - Anonymous Cloud Storage for Encrypted Backups
  *
  * LEGAL COMPLIANCE:
@@ -19,6 +18,8 @@ import { logSecurity, logPerformance, logError, LogCategory } from '../services/
  * - Configurable retry strategy
  */
 
+
+import { logSecurity, logPerformance, logError, LogCategory } from '../logging';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import * as Crypto from 'expo-crypto';
 import { AppState } from 'react-native';

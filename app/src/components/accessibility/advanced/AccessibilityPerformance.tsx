@@ -1,5 +1,4 @@
 /**
-import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * Accessibility Performance Optimization
  * 
  * PERFORMANCE SPECIFICATIONS:
@@ -11,6 +10,8 @@ import { logSecurity, logPerformance, logError, LogCategory } from '../services/
  * - Real-time monitoring with automatic optimization
  */
 
+
+import { logSecurity, logPerformance, logError, LogCategory } from '../../../services/logging';
 import React, { useCallback, useEffect, useState, useRef } from 'react';
 import { 
   View, 

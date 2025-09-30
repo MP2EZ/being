@@ -1,5 +1,4 @@
 /**
-import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * HIPAA ASSESSMENT INTEGRATION - DRD-FLOW-005 Compliance Validation
  *
  * COMPREHENSIVE INTEGRATION VALIDATION:
@@ -26,6 +25,8 @@ import { logSecurity, logPerformance, logError, LogCategory } from '../services/
  * - HIPAA Breach Response Engine
  */
 
+
+import { logSecurity, logPerformance, logError, LogCategory } from '../logging';
 import HIPAAComplianceEngine, { PHIClassification } from './HIPAAComplianceEngine';
 import HIPAAConsentManager from './HIPAAConsentManager';
 import HIPAADataMinimizationEngine, { DataPurpose, UserRole } from './HIPAADataMinimization';

@@ -1,5 +1,4 @@
 /**
-import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * CRISIS INTERVENTION WORKFLOW SPECIFICATIONS - DRD-FLOW-005
  *
  * COMPREHENSIVE CRISIS RESPONSE ORCHESTRATION:
@@ -22,6 +21,8 @@ import { logSecurity, logPerformance, logError, LogCategory } from '../services/
  * - Follow-up contact: Within specified timeframes
  */
 
+
+import { logSecurity, logPerformance, logError, LogCategory } from '../logging';
 import { Alert, Linking } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';

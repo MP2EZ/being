@@ -1,5 +1,4 @@
 /**
-import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * Memory Management Optimizer for Extended Assessment Sessions
  *
  * TARGET: <150MB memory usage during extended sessions
@@ -17,6 +16,8 @@ import { logSecurity, logPerformance, logError, LogCategory } from '../services/
  * - Real-time memory monitoring
  */
 
+
+import { logSecurity, logPerformance, logError, LogCategory } from '../logging';
 import { Alert, DeviceEventEmitter, AppState, AppStateStatus } from 'react-native';
 
 interface MemoryMetrics {

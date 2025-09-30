@@ -1,10 +1,10 @@
 /**
-import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * Simple Theme Context - New Architecture Compatible
  * Lightweight theming system without SafeImports dependencies
  */
 
 import React, { createContext, useContext, ReactNode } from 'react';
+import { logSecurity } from '../services/logging';
 
 /**
  * Theme configuration

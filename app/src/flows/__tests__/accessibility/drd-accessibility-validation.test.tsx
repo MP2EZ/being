@@ -1,5 +1,4 @@
 /**
-import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * DRD Check-in Flows Accessibility Validation Suite
  *
  * CRITICAL ACCESSIBILITY REQUIREMENTS:
@@ -11,6 +10,8 @@ import { logSecurity, logPerformance, logError, LogCategory } from '../services/
  * - Audio announcements for breathing exercises
  */
 
+
+import { logSecurity, logPerformance, logError, LogCategory } from '../../../services/logging';
 import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
 import { AccessibilityInfo } from 'react-native';

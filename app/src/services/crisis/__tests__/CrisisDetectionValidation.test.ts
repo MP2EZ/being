@@ -1,5 +1,4 @@
 /**
-import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * COMPREHENSIVE CRISIS DETECTION VALIDATION - DRD-FLOW-005 Testing Suite
  *
  * CRITICAL TESTING REQUIREMENTS:
@@ -23,6 +22,8 @@ import { logSecurity, logPerformance, logError, LogCategory } from '../services/
  * 8. Stress Tests (High load scenarios)
  */
 
+
+import { logSecurity, logPerformance, logError, LogCategory } from '../../logging';
 import { describe, test, expect, beforeEach, afterEach, jest } from '@jest/globals';
 import CrisisDetectionEngine from '../CrisisDetectionEngine';
 import SuicidalIdeationProtocol from '../SuicidalIdeationProtocol';

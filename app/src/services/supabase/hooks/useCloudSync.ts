@@ -1,5 +1,4 @@
 /**
-import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * Cloud Sync React Hook
  *
  * INTEGRATION LAYER:
@@ -19,6 +18,8 @@ import { logSecurity, logPerformance, logError, LogCategory } from '../services/
  * - Background sync monitoring
  */
 
+
+import { logSecurity, logPerformance, logError, LogCategory } from '../../logging';
 import { useState, useEffect, useCallback } from 'react';
 import CloudServices, { CloudSyncStatus, CloudSyncStats } from '../index';
 

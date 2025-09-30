@@ -1,5 +1,4 @@
 /**
-import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * Assessment Integration Example - Comprehensive System Demonstration
  * 
  * DEMONSTRATES COMPLETE INTEGRATION:
@@ -16,6 +15,8 @@ import { logSecurity, logPerformance, logError, LogCategory } from '../services/
  * to create a production-ready, safety-first assessment experience.
  */
 
+
+import { logSecurity, logPerformance, logError, LogCategory } from '../../services/logging';
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import {
   View,

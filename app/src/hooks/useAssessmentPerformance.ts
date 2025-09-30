@@ -1,5 +1,4 @@
 /**
-import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * Assessment Performance Hook - Week 3 Enhanced Performance Monitoring
  *
  * ENHANCED PERFORMANCE TARGETS (Week 3):
@@ -17,6 +16,8 @@ import { logSecurity, logPerformance, logError, LogCategory } from '../services/
  * - Comprehensive performance optimization integration
  */
 
+
+import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { Alert, AppState, AppStateStatus } from 'react-native';
 

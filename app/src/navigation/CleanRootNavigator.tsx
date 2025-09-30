@@ -1,11 +1,11 @@
 /**
-import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * Clean Root Navigator - Fresh start navigation
  * No crypto dependencies, minimal implementation
  * Includes MBCT flow modal presentations
  */
 
 import React from 'react';
+import { logPerformance } from '../services/logging';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import CleanTabNavigator from './CleanTabNavigator';

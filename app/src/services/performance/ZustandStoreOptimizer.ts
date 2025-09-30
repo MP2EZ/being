@@ -1,5 +1,4 @@
 /**
-import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * Zustand Store Performance Optimizer for Large Datasets
  *
  * TARGET: <50ms for store operations, efficient memory usage for large datasets
@@ -17,6 +16,8 @@ import { logSecurity, logPerformance, logError, LogCategory } from '../services/
  * - Real-time performance monitoring
  */
 
+
+import { logSecurity, logPerformance, logError, LogCategory } from '../logging';
 import { DeviceEventEmitter } from 'react-native';
 import { subscribeWithSelector } from 'zustand/middleware';
 

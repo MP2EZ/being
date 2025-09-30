@@ -1,5 +1,4 @@
 /**
-import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * CRISIS SECURITY PROTOCOL - DRD-FLOW-005 Security Implementation
  *
  * COMPREHENSIVE CRISIS DATA SECURITY:
@@ -31,6 +30,8 @@ import { logSecurity, logPerformance, logError, LogCategory } from '../services/
  * - Level 4: Legal/audit security (immutable)
  */
 
+
+import { logSecurity, logPerformance, logError, LogCategory } from '../../logging';
 import EncryptionService from '../EncryptionService';
 import AuthenticationService from '../AuthenticationService';
 import SecureStorageService from '../SecureStorageService';

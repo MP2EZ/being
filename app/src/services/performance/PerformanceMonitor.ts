@@ -1,5 +1,4 @@
 /**
-import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * Real-time Performance Monitoring and Alerting System
  *
  * TARGET: Comprehensive performance monitoring with <100ms alert response time
@@ -17,6 +16,8 @@ import { logSecurity, logPerformance, logError, LogCategory } from '../services/
  * - Real-time performance SLA compliance
  */
 
+
+import { logSecurity, logPerformance, logError, LogCategory } from '../logging';
 import { Alert, DeviceEventEmitter, AppState, AppStateStatus } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 

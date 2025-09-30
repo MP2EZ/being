@@ -1,5 +1,4 @@
 /**
-import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * SECURE STORAGE SERVICE - DRD-FLOW-005 Security Implementation
  *
  * COMPREHENSIVE SECURE STORAGE FOR MENTAL HEALTH DATA:
@@ -29,6 +28,8 @@ import { logSecurity, logPerformance, logError, LogCategory } from '../services/
  * - Emergency data access protocols
  */
 
+
+import { logSecurity, logPerformance, logError, LogCategory } from '../logging';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import * as FileSystem from 'expo-file-system';

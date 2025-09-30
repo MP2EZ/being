@@ -1,5 +1,4 @@
 /**
-import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * PRODUCTION-SAFE LOGGING SERVICE - HIPAA Compliant
  *
  * SECURITY REQUIREMENTS:
@@ -16,6 +15,7 @@ import { logSecurity, logPerformance, logError, LogCategory } from '../services/
  * - Automated PII detection and removal
  * - GDPR/HIPAA deletion support
  */
+
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
@@ -335,7 +335,7 @@ export class ProductionLogger {
     // Production: Only critical errors to console
     if (this.environment === 'production') {
       if (entry.level === 'ERROR') {
-        logError(`[${entry.category}] ${entry.message}`);
+        console.error(`[${entry.category}] ${entry.message}`);
       }
       return;
     }
@@ -345,16 +345,16 @@ export class ProductionLogger {
       const prefix = this.getLogPrefix(entry);
 
       if (entry.context) {
-        logPerformance(prefix, entry.context);
+        console.log(prefix, entry.context);
       } else {
-        logPerformance(prefix);
+        console.log(prefix);
       }
       return;
     }
 
     // Test: Minimal output
     if (entry.level === 'ERROR') {
-      logError(`[TEST][${entry.category}] ${entry.message}`);
+      console.error(`[TEST][${entry.category}] ${entry.message}`);
     }
   }
 
@@ -437,7 +437,7 @@ export class ProductionLogger {
    * EMERGENCY SHUTDOWN
    */
   emergencyShutdown(reason: string): void {
-    logError(`🚨 EMERGENCY LOGGER SHUTDOWN: ${reason}`);
+    console.error(`🚨 EMERGENCY LOGGER SHUTDOWN: ${reason}`);
     this.auditTrail.length = 0;
   }
 }
@@ -460,8 +460,3 @@ interface LogEntry {
  * SINGLETON INSTANCE EXPORT
  */
 export const logger = ProductionLogger.getInstance();
-
-/**
- * CONVENIENCE EXPORTS
- */
-export { LogCategory } from './ProductionLogger';

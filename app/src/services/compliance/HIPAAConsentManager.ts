@@ -1,5 +1,4 @@
 /**
-import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * HIPAA CONSENT MANAGER - DRD-FLOW-005 Assessment System
  *
  * COMPREHENSIVE CONSENT MANAGEMENT:
@@ -25,6 +24,8 @@ import { logSecurity, logPerformance, logError, LogCategory } from '../services/
  * - Crisis intervention legal requirements
  */
 
+
+import { logSecurity, logPerformance, logError, LogCategory } from '../logging';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import * as LocalAuthentication from 'expo-local-authentication';

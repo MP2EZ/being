@@ -1,5 +1,4 @@
 /**
-import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * Cloud Backup Service - Encrypted Data Backup to Supabase
  *
  * PRIVACY-FIRST DESIGN:
@@ -27,6 +26,8 @@ import { logSecurity, logPerformance, logError, LogCategory } from '../services/
  * - Background processing
  */
 
+
+import { logSecurity, logPerformance, logError, LogCategory } from '../logging';
 import * as Crypto from 'expo-crypto';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppState } from 'react-native';

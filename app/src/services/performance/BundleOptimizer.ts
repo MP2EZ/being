@@ -1,5 +1,4 @@
 /**
-import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * Bundle Size Optimizer with Code Splitting Strategies
  *
  * TARGET: <2MB initial bundle, <500KB per chunk
@@ -17,6 +16,8 @@ import { logSecurity, logPerformance, logError, LogCategory } from '../services/
  * - Progressive loading with fallbacks
  */
 
+
+import { logSecurity, logPerformance, logError, LogCategory } from '../logging';
 import { DeviceEventEmitter } from 'react-native';
 
 interface BundleMetrics {

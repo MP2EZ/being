@@ -1,5 +1,4 @@
 /**
-import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * SYNC STATUS INDICATOR - Week 3 UI Enhancement
  *
  * COMPREHENSIVE SYNC & ANALYTICS STATUS DISPLAY:
@@ -23,6 +22,8 @@ import { logSecurity, logPerformance, logError, LogCategory } from '../services/
  * - Optimistic UI updates for better responsiveness
  */
 
+
+import { logSecurity, logPerformance, logError, LogCategory } from '../../services/logging';
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,

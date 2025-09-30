@@ -1,5 +1,4 @@
 /**
-import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * Sync Coordinator - Week 2 Orchestration Layer
  *
  * ARCHITECTURAL PATTERN: Facade Pattern
@@ -27,6 +26,8 @@ import { logSecurity, logPerformance, logError, LogCategory } from '../services/
  * - Conflict resolution: <500ms (local computation)
  */
 
+
+import { logSecurity, logPerformance, logError, LogCategory } from '../logging';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 

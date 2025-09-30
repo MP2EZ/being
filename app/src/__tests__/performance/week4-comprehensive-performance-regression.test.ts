@@ -1,5 +1,4 @@
 /**
-import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * WEEK 4 COMPREHENSIVE PERFORMANCE REGRESSION TEST SUITE
  * 
  * MISSION: Automated performance validation before production deployment
@@ -20,6 +19,8 @@ import { logSecurity, logPerformance, logError, LogCategory } from '../services/
  * - Week 4: Production logging infrastructure (just implemented)
  */
 
+
+import { logSecurity, logPerformance, logError, LogCategory } from '../../services/logging';
 import { performance } from 'perf_hooks';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 

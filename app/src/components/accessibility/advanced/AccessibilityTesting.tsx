@@ -1,5 +1,4 @@
 /**
-import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * Accessibility Testing Automation Framework
  * 
  * ACCESSIBILITY SPECIFICATIONS:
@@ -13,6 +12,8 @@ import { logSecurity, logPerformance, logError, LogCategory } from '../services/
  * - Accessibility metrics reporting and analytics
  */
 
+
+import { logSecurity, logPerformance, logError, LogCategory } from '../../../services/logging';
 import React, { useCallback, useEffect, useState, useRef } from 'react';
 import {
   View,

@@ -1,5 +1,4 @@
 /**
-import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * SUICIDAL IDEATION DETECTION PROTOCOL - DRD-FLOW-005
  *
  * CRITICAL SAFETY REQUIREMENTS:
@@ -24,6 +23,8 @@ import { logSecurity, logPerformance, logError, LogCategory } from '../services/
  * - 3: Nearly every day → CRISIS
  */
 
+
+import { logSecurity, logPerformance, logError, LogCategory } from '../logging';
 import { Alert, Linking } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';

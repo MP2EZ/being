@@ -1,5 +1,4 @@
 /**
-import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * CRISIS DATA MANAGEMENT - DRD-FLOW-005 Data Capture & Storage
  *
  * COMPREHENSIVE CRISIS DATA REQUIREMENTS:
@@ -25,6 +24,8 @@ import { logSecurity, logPerformance, logError, LogCategory } from '../services/
  * - Data export for clinical/legal review
  */
 
+
+import { logSecurity, logPerformance, logError, LogCategory } from '../logging';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import * as FileSystem from 'expo-file-system';

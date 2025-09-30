@@ -1,5 +1,4 @@
 /**
-import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * AssessmentResults Component - DRD-FLOW-005
  * 
  * CLINICAL SPECIFICATIONS:
@@ -13,6 +12,8 @@ import { logSecurity, logPerformance, logError, LogCategory } from '../services/
  * - Visible focus indicators meeting WCAG contrast requirements
  */
 
+
+import { logSecurity, logPerformance, logError, LogCategory } from '../../../services/logging';
 import React, { useCallback, useMemo, useEffect } from 'react';
 import {
   View,

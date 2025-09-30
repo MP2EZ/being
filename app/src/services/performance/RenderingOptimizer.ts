@@ -1,5 +1,4 @@
 /**
-import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * React Native Rendering Optimizer for 60fps Assessment Interactions
  *
  * TARGET: Maintain 60fps (16.67ms per frame) during all assessment interactions
@@ -17,6 +16,8 @@ import { logSecurity, logPerformance, logError, LogCategory } from '../services/
  * - Accessibility performance maintenance
  */
 
+
+import { logSecurity, logPerformance, logError, LogCategory } from '../logging';
 import { DeviceEventEmitter, InteractionManager, Animated, LayoutAnimation } from 'react-native';
 import { unstable_batchedUpdates } from 'react-native';
 

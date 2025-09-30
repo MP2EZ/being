@@ -1,5 +1,4 @@
 /**
-import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * HIPAA BREACH RESPONSE ENGINE - DRD-FLOW-005 Assessment System
  *
  * COMPREHENSIVE BREACH RESPONSE:
@@ -25,6 +24,8 @@ import { logSecurity, logPerformance, logError, LogCategory } from '../services/
  * - Crisis intervention legal requirements during breaches
  */
 
+
+import { logSecurity, logPerformance, logError, LogCategory } from '../logging';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import { Alert, Linking } from 'react-native';

@@ -1,5 +1,4 @@
 /**
-import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * SafetyButton Component - Crisis Support Access
  *
  * CLINICAL SPECIFICATIONS:
@@ -11,6 +10,8 @@ import { logSecurity, logPerformance, logError, LogCategory } from '../services/
  * - Emergency response protocol
  */
 
+
+import { logSecurity, logPerformance, logError, LogCategory } from '../../../services/logging';
 import React, { useCallback } from 'react';
 import { Pressable, Text, StyleSheet, Linking, Alert } from 'react-native';
 import { colorSystem, spacing, typography } from '../../../constants/colors';

@@ -1,5 +1,4 @@
 /**
-import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * Performance Validation Service - Week 3 Target Validation
  *
  * TARGET VALIDATION:
@@ -18,6 +17,8 @@ import { logSecurity, logPerformance, logError, LogCategory } from '../services/
  * - Clinical safety performance validation
  */
 
+
+import { logSecurity, logPerformance, logError, LogCategory } from '../logging';
 import { DeviceEventEmitter } from 'react-native';
 import { CrisisPerformanceOptimizer } from './CrisisPerformanceOptimizer';
 import { AssessmentFlowOptimizer } from './AssessmentFlowOptimizer';

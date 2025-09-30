@@ -1,5 +1,4 @@
 /**
-import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * LOGGING SECURITY VALIDATION - HIPAA Compliance Verification
  *
  * This service validates that all logging in the application is PHI-safe
@@ -12,6 +11,7 @@ import { logSecurity, logPerformance, logError, LogCategory } from '../services/
  * 4. Production log levels enforced
  * 5. Audit trail functionality
  */
+
 
 import { Platform } from 'react-native';
 import { logger, LogCategory } from './ProductionLogger';
@@ -145,27 +145,27 @@ export class LoggingSecurityValidator {
     }
 
     // In production, only ERROR level should output to console
-    const originalConsoleLog = logPerformance;
-    const originalConsoleInfo = logPerformance;
-    const originalConsoleDebug = logPerformance;
+    const originalConsoleLog = console.log;
+    const originalConsoleInfo = console.info;
+    const originalConsoleDebug = console.debug;
 
     let logOutputDetected = false;
     let infoOutputDetected = false;
     let debugOutputDetected = false;
 
     // Mock console methods to detect output
-    logPerformance = (...args) => { logOutputDetected = true; };
-    logPerformance = (...args) => { infoOutputDetected = true; };
-    logPerformance = (...args) => { debugOutputDetected = true; };
+    console.log = (...args) => { logOutputDetected = true; };
+    console.info = (...args) => { infoOutputDetected = true; };
+    console.debug = (...args) => { debugOutputDetected = true; };
 
     // Test logging at different levels
     logger.debug(LogCategory.SYSTEM, 'Test debug message');
     logger.info(LogCategory.SYSTEM, 'Test info message');
 
     // Restore console methods
-    logPerformance = originalConsoleLog;
-    logPerformance = originalConsoleInfo;
-    logPerformance = originalConsoleDebug;
+    console.log = originalConsoleLog;
+    console.info = originalConsoleInfo;
+    console.debug = originalConsoleDebug;
 
     const passed = !logOutputDetected && !infoOutputDetected && !debugOutputDetected;
 
@@ -381,7 +381,7 @@ export class LoggingSecurityValidator {
     logger.emergencyShutdown(`Security validation failure: ${reason}`);
 
     // Additional emergency measures
-    logError(`🚨 EMERGENCY SECURITY SHUTDOWN: ${reason}`);
+    console.error(`🚨 EMERGENCY SECURITY SHUTDOWN: ${reason}`);
   }
 }
 

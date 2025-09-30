@@ -1,5 +1,4 @@
 /**
-import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * Cloud Backup Settings Component
  *
  * FEATURES:
@@ -21,6 +20,8 @@ import { logSecurity, logPerformance, logError, LogCategory } from '../services/
  * - Optimistic updates
  */
 
+
+import { logSecurity, logPerformance, logError, LogCategory } from '../../services/logging';
 import React, { useState, useEffect } from 'react';
 import {
   View,

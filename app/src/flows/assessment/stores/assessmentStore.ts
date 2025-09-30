@@ -1,5 +1,4 @@
 /**
-import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * DRD-FLOW-005 Assessment Store - Production-Ready Implementation
  * Clinical accuracy validated and regulatory compliant
  * Designed for reusability in DRD-FLOW-001 onboarding
@@ -19,6 +18,8 @@ import { logSecurity, logPerformance, logError, LogCategory } from '../services/
  * - Audit trail for clinical compliance
  */
 
+
+import { logSecurity, logPerformance, logError, LogCategory } from '../../../services/logging';
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
 import { persist, createJSONStorage } from 'zustand/middleware';

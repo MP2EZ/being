@@ -1,5 +1,4 @@
 /**
-import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * CRISIS PERFORMANCE MONITORING - DRD-FLOW-005 Quality Assurance
  *
  * CRITICAL PERFORMANCE REQUIREMENTS:
@@ -25,6 +24,8 @@ import { logSecurity, logPerformance, logError, LogCategory } from '../services/
  * - Performance trend analysis and optimization
  */
 
+
+import { logSecurity, logPerformance, logError, LogCategory } from '../logging';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import type {

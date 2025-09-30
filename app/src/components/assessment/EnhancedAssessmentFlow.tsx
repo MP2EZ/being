@@ -1,5 +1,4 @@
 /**
-import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * Enhanced Assessment Flow - Comprehensive Integration Orchestrator
  * 
  * COMPREHENSIVE INTEGRATIONS:
@@ -19,6 +18,8 @@ import { logSecurity, logPerformance, logError, LogCategory } from '../services/
  * - Smooth 60fps throughout flow
  */
 
+
+import { logSecurity, logPerformance, logError, LogCategory } from '../../services/logging';
 import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import {
   View,

@@ -1,5 +1,4 @@
 /**
-import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * CRISIS INTEGRATION ORCHESTRATOR - DRD-FLOW-005 Assessment Flow Integration
  *
  * COMPREHENSIVE INTEGRATION POINTS:
@@ -24,6 +23,8 @@ import { logSecurity, logPerformance, logError, LogCategory } from '../services/
  * - Navigation: Crisis flow routing and safety protocols
  */
 
+
+import { logSecurity, logPerformance, logError, LogCategory } from '../logging';
 import React from 'react';
 import { Alert, Linking } from 'react-native';
 import { useAssessmentStore } from '../../flows/assessment/stores/assessmentStore';

@@ -1,5 +1,4 @@
 /**
-import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * Simple Onboarding Screen - HIPAA Compliant Implementation
  * 7-screen onboarding flow with comprehensive privacy protection
  * Replicates ExercisesScreen.simple.tsx structure with HIPAA compliance
@@ -15,6 +14,8 @@ import { logSecurity, logPerformance, logError, LogCategory } from '../services/
  * - Breach notification protocols
  */
 
+
+import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
 import React, { useState, useRef, useEffect } from 'react';
 import {
   View,

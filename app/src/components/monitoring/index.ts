@@ -1,5 +1,4 @@
 /**
-import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * PRODUCTION MONITORING COMPONENTS
  * Week 4 Phase 2b - Critical Production Infrastructure
  *
@@ -21,6 +20,8 @@ import { logSecurity, logPerformance, logError, LogCategory } from '../services/
  * import { ProductionDashboard, MonitoringWidget } from '@/components/monitoring';
  */
 
+
+import { logSecurity, logPerformance, logError, LogCategory } from '../../services/logging';
 // Main Production Dashboard
 export { ProductionDashboard } from './ProductionDashboard';
 

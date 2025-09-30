@@ -1,5 +1,4 @@
 /**
-import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * Unified Advanced Accessibility Provider
  * 
  * INTEGRATION SPECIFICATIONS:
@@ -10,6 +9,8 @@ import { logSecurity, logPerformance, logError, LogCategory } from '../services/
  * - Provides crisis-ready accessibility with <200ms response guarantee
  */
 
+
+import { logSecurity, logPerformance, logError, LogCategory } from '../../../services/logging';
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, StyleSheet } from 'react-native';
 

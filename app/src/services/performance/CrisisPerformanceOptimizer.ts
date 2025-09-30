@@ -1,5 +1,4 @@
 /**
-import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * Crisis Performance Optimizer - Ultra-Fast Crisis Detection
  *
  * TARGET: <50ms crisis detection (enhanced from <200ms)
@@ -16,6 +15,8 @@ import { logSecurity, logPerformance, logError, LogCategory } from '../services/
  * - Emergency response optimization
  */
 
+
+import { logSecurity, logPerformance, logError, LogCategory } from '../logging';
 import { Alert, Linking, DeviceEventEmitter } from 'react-native';
 import {
   AssessmentType,

@@ -1,5 +1,4 @@
 /**
-import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * SECURITY MONITORING SERVICE - DRD-FLOW-005 Security Implementation
  *
  * COMPREHENSIVE SECURITY MONITORING FOR MENTAL HEALTH APPLICATION:
@@ -30,6 +29,8 @@ import { logSecurity, logPerformance, logError, LogCategory } from '../services/
  * - Compliance reporting: <10 seconds for status generation
  */
 
+
+import { logSecurity, logPerformance, logError, LogCategory } from '../logging';
 import EncryptionService from './EncryptionService';
 import AuthenticationService from './AuthenticationService';
 import SecureStorageService from './SecureStorageService';

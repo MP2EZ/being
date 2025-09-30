@@ -1,5 +1,4 @@
 /**
-import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * Crisis Intervention Accessibility Enhancements
  * 
  * ACCESSIBILITY SPECIFICATIONS:
@@ -13,6 +12,8 @@ import { logSecurity, logPerformance, logError, LogCategory } from '../services/
  * - Multi-modal crisis support (audio, visual, haptic)
  */
 
+
+import { logSecurity, logPerformance, logError, LogCategory } from '../../../services/logging';
 import React, { useCallback, useEffect, useState, createContext, useContext, useRef } from 'react';
 import {
   View,

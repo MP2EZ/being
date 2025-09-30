@@ -1,5 +1,4 @@
 /**
-import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * Crisis Error Boundary - Safety-First Error Handling
  * 
  * CRITICAL SAFETY FEATURES:
@@ -18,6 +17,8 @@ import { logSecurity, logPerformance, logError, LogCategory } from '../services/
  * - Memory pressure situations
  */
 
+
+import { logSecurity, logPerformance, logError, LogCategory } from '../../services/logging';
 import React, { Component, ReactNode, ErrorInfo } from 'react';
 import {
   View,

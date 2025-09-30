@@ -1,5 +1,4 @@
 /**
-import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * MiddayFlowNavigator - MBCT 3-Minute Breathing Space Navigation
  * 
  * CLINICAL SPECIFICATIONS:
@@ -11,6 +10,8 @@ import { logSecurity, logPerformance, logError, LogCategory } from '../services/
  * - Data collection and completion tracking
  */
 
+
+import { logSecurity, logPerformance, logError, LogCategory } from '../../services/logging';
 import React, { useState } from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 import { Alert, Pressable, Text } from 'react-native';

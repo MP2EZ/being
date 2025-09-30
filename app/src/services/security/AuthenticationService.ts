@@ -1,5 +1,4 @@
 /**
-import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * AUTHENTICATION SERVICE - DRD-FLOW-005 Security Implementation
  *
  * COMPREHENSIVE AUTHENTICATION FOR MENTAL HEALTH SYSTEM:
@@ -30,6 +29,8 @@ import { logSecurity, logPerformance, logError, LogCategory } from '../services/
  * - Token refresh: <300ms for background renewal
  */
 
+
+import { logSecurity, logPerformance, logError, LogCategory } from '../logging';
 import * as SecureStore from 'expo-secure-store';
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as Crypto from 'expo-crypto';

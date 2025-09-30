@@ -1,5 +1,4 @@
 /**
-import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
  * Basic Assessment Store Session Creation Test
  * CRITICAL CLINICAL SAFETY VALIDATION
  *
@@ -7,6 +6,8 @@ import { logSecurity, logPerformance, logError, LogCategory } from '../services/
  * is actually resolved and startAssessment() works correctly.
  */
 
+
+import { logSecurity, logPerformance, logError, LogCategory } from '../../../../services/logging';
 import { useAssessmentStore } from '../assessmentStore';
 
 describe('Assessment Store - Basic Session Creation', () => {
