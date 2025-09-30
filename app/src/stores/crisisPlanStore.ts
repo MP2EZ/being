@@ -23,6 +23,7 @@
 import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
 import { logPerformance, logSecurity, logError, LogCategory } from '../services/logging';
+import { crisisAnalyticsService } from '../services/crisis/CrisisAnalyticsService';
 
 /**
  * CRISIS PLAN DATA TYPES
@@ -264,6 +265,9 @@ export const useCrisisPlanStore = create<CrisisPlanStore>((set, get) => ({
 
       set({ crisisPlan, isLoading: false });
 
+      // Track analytics
+      await crisisAnalyticsService.trackEvent('crisis_plan_created');
+
       logSecurity('Crisis plan created', {
         planId: crisisPlan.id,
         consentGiven: userConsent
@@ -311,6 +315,9 @@ export const useCrisisPlanStore = create<CrisisPlanStore>((set, get) => ({
       await SecureStore.deleteItemAsync(SECURE_STORAGE_KEY);
       set({ crisisPlan: null });
 
+      // Track analytics
+      await crisisAnalyticsService.trackEvent('crisis_plan_deleted');
+
       logSecurity('Crisis plan deleted', {}, LogCategory.Crisis);
     } catch (error) {
       logError('Failed to delete crisis plan', { error }, LogCategory.Crisis);
@@ -334,6 +341,9 @@ export const useCrisisPlanStore = create<CrisisPlanStore>((set, get) => ({
         warningSignsTriggers: [...crisisPlan.warningSignsTriggers, sign]
       });
     }
+
+    // Track analytics
+    await crisisAnalyticsService.trackEvent('warning_sign_added');
   },
 
   /**
@@ -367,6 +377,9 @@ export const useCrisisPlanStore = create<CrisisPlanStore>((set, get) => ({
         { strategy, timesUsed: 0 }
       ]
     });
+
+    // Track analytics
+    await crisisAnalyticsService.trackEvent('coping_strategy_added');
   },
 
   /**
@@ -407,6 +420,9 @@ export const useCrisisPlanStore = create<CrisisPlanStore>((set, get) => ({
       timesUsed: (updated[index].timesUsed || 0) + 1
     };
     await updateCrisisPlan({ copingStrategies: updated });
+
+    // Track analytics
+    await crisisAnalyticsService.trackEvent('coping_strategy_used');
   },
 
   /**
@@ -422,6 +438,9 @@ export const useCrisisPlanStore = create<CrisisPlanStore>((set, get) => ({
         { ...contact, id: generateId() }
       ]
     });
+
+    // Track analytics
+    await crisisAnalyticsService.trackEvent('contact_added');
   },
 
   /**
@@ -500,6 +519,9 @@ export const useCrisisPlanStore = create<CrisisPlanStore>((set, get) => ({
     await updateCrisisPlan({
       reasonsForLiving: [...crisisPlan.reasonsForLiving, reason]
     });
+
+    // Track analytics
+    await crisisAnalyticsService.trackEvent('reason_for_living_added');
   },
 
   /**
@@ -666,6 +688,9 @@ export const useCrisisPlanStore = create<CrisisPlanStore>((set, get) => ({
       `Created: ${new Date(crisisPlan.createdAt).toLocaleDateString()}`,
       `Last Updated: ${new Date(crisisPlan.updatedAt).toLocaleDateString()}`
     ];
+
+    // Track analytics
+    await crisisAnalyticsService.trackEvent('crisis_plan_exported');
 
     return lines.join('\n');
   }

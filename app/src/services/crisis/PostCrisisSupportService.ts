@@ -22,6 +22,7 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { logPerformance, logSecurity, logError, LogCategory } from '../logging';
+import { crisisAnalyticsService } from './CrisisAnalyticsService';
 
 export interface PostCrisisSupport {
   id: string;
@@ -110,6 +111,9 @@ class PostCrisisSupportService {
     try {
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(support));
 
+      // Track analytics
+      await crisisAnalyticsService.trackEvent('post_crisis_support_activated');
+
       logSecurity('7-day post-crisis support activated', {
         supportId: support.id,
         crisisType,
@@ -142,6 +146,9 @@ class PostCrisisSupportService {
     });
 
     await this.saveSupport();
+
+    // Track analytics
+    await crisisAnalyticsService.trackEvent('check_in_completed');
 
     logPerformance('Post-crisis check-in completed', {
       supportId: this.currentSupport.id,
@@ -190,6 +197,9 @@ class PostCrisisSupportService {
     this.currentSupport.isActive = false;
     await this.saveSupport();
 
+    // Track analytics
+    await crisisAnalyticsService.trackEvent('support_opted_out');
+
     logSecurity('User opted out of post-crisis support', {
       supportId: this.currentSupport.id,
       daysActive: this.getDaysActive()
@@ -207,6 +217,11 @@ class PostCrisisSupportService {
     this.currentSupport.isActive = false;
     this.currentSupport.completedSuccessfully = wasSuccessful;
     await this.saveSupport();
+
+    // Track analytics
+    if (wasSuccessful) {
+      await crisisAnalyticsService.trackEvent('support_completed_successfully');
+    }
 
     logPerformance('Post-crisis support completed', {
       supportId,
