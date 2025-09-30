@@ -1,7 +1,7 @@
 ---
 name: compliance
 description: Ensures regulatory compliance, privacy protection, and legal adherence for mental health data handling, user rights, and healthcare app requirements. USE PROACTIVELY for HIPAA compliance, privacy law, data protection, healthcare regulations, and legal compliance.
-model: opus
+model: sonnet
 color: blue
 ---
 

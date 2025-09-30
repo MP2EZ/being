@@ -45,12 +45,19 @@ import type {
 /**
  * CLINICAL CRISIS THRESHOLDS - IMMUTABLE
  * These values MUST NOT be modified - clinically validated
+ *
+ * DUAL-THRESHOLD SYSTEM (Clinical Validation: 2025-01-27):
+ * - PHQ-9 ≥15: Moderately severe depression - support recommended (23% have suicidal ideation)
+ * - PHQ-9 ≥20: Severe depression - immediate intervention required
+ * - GAD-7 ≥15: Severe anxiety - immediate intervention required
  */
 export const CLINICAL_CRISIS_THRESHOLDS = {
-  /** PHQ-9 Severe Depression Score */
-  PHQ9_CRISIS_SCORE: 20,
-  /** GAD-7 Severe Anxiety Score */
-  GAD7_CRISIS_SCORE: 15,
+  /** PHQ-9 Moderately Severe Depression Score - Support Recommended */
+  PHQ9_MODERATE_SEVERE_THRESHOLD: 15,
+  /** PHQ-9 Severe Depression Score - Immediate Intervention */
+  PHQ9_SEVERE_THRESHOLD: 20,
+  /** GAD-7 Severe Anxiety Score - Immediate Intervention */
+  GAD7_SEVERE_THRESHOLD: 15,
   /** PHQ-9 Suicidal Ideation Question */
   PHQ9_SUICIDAL_QUESTION_ID: 'phq9_9',
   /** Any suicidal ideation response triggers crisis */
@@ -66,6 +73,12 @@ export const CLINICAL_CRISIS_THRESHOLDS = {
 /**
  * CRISIS SEVERITY MATRIX
  * Clinical decision tree for crisis intervention level
+ *
+ * SEVERITY LEVELS:
+ * - moderate: PHQ-9 15-19 (support recommended, non-urgent intervention)
+ * - high: PHQ-9 ≥20 OR GAD-7 ≥15 (immediate intervention)
+ * - critical: Suicidal ideation present (PHQ-9 Q9 >0, score <20)
+ * - emergency: Suicidal ideation + severe score (PHQ-9 Q9 >0, score ≥20)
  */
 const CRISIS_SEVERITY_MATRIX = {
   phq9: {
@@ -74,11 +87,11 @@ const CRISIS_SEVERITY_MATRIX = {
       high_score: 'emergency'     // Q9 >0, score ≥20
     },
     severe_score: 'high',         // Score ≥20, no suicidal ideation
-    moderate_severe: 'moderate'   // Score 15-19
+    moderate_severe: 'moderate'   // Score 15-19, support recommended
   },
   gad7: {
-    severe_score: 'high',         // Score ≥15
-    moderate_score: 'moderate'    // Score 10-14
+    severe_score: 'high',         // Score ≥15, immediate intervention
+    moderate_score: 'moderate'    // Score 10-14 (future: support recommended)
   }
 } as const;
 
@@ -346,7 +359,7 @@ export class CrisisDetectionEngine {
   private async displayEmergencyCrisisAlert(detection: CrisisDetection): Promise<void> {
     Alert.alert(
       '🚨 IMMEDIATE CRISIS SUPPORT',
-      'Your responses indicate you may be in immediate danger. Crisis support is available 24/7. You are not alone.',
+      'You\'re going through something very difficult right now. Crisis support is available immediately, 24/7. Reaching out is a sign of strength. You are not alone, and help is here.',
       [
         {
           text: 'Call 988 Now',
@@ -365,7 +378,7 @@ export class CrisisDetectionEngine {
           style: 'destructive'
         },
         {
-          text: 'Crisis Text',
+          text: 'Text HOME to 741741',
           onPress: () => {
             this.recordCrisisAction(detection.id, 'contacted_support');
             Linking.openURL('sms:741741');
@@ -380,10 +393,10 @@ export class CrisisDetectionEngine {
   private async displayHighCrisisAlert(detection: CrisisDetection): Promise<void> {
     Alert.alert(
       '🚨 Crisis Support Available',
-      'Your responses suggest you may benefit from immediate professional support. Help is available 24/7.',
+      'What you\'re feeling is real, and support is here. Professional help can make a difference. You deserve to feel better.',
       [
         {
-          text: 'Call 988 (Crisis Line)',
+          text: 'Call 988 Now',
           onPress: () => {
             this.recordCrisisAction(detection.id, 'contacted_988');
             Linking.openURL('tel:988');
@@ -391,7 +404,7 @@ export class CrisisDetectionEngine {
           style: 'default'
         },
         {
-          text: 'Text Crisis Support',
+          text: 'Text HOME to 741741',
           onPress: () => {
             this.recordCrisisAction(detection.id, 'contacted_support');
             Linking.openURL('sms:741741');
@@ -414,10 +427,10 @@ export class CrisisDetectionEngine {
   private async displayModerateCrisisAlert(detection: CrisisDetection): Promise<void> {
     Alert.alert(
       'Support Available',
-      'Your assessment indicates you may benefit from professional support. Would you like to explore available resources?',
+      'Your responses suggest you may be going through a difficult time. Professional support can help. You don\'t have to face this alone.',
       [
         {
-          text: 'Call 988',
+          text: 'Call 988 (24/7 Support)',
           onPress: () => {
             this.recordCrisisAction(detection.id, 'contacted_988');
             Linking.openURL('tel:988');
@@ -428,7 +441,7 @@ export class CrisisDetectionEngine {
           text: 'View Resources',
           onPress: () => {
             this.recordCrisisAction(detection.id, 'viewed_resources');
-            // Navigate to resources
+            // Navigate to crisis resources screen
           },
           style: 'default'
         },
@@ -462,22 +475,28 @@ export class CrisisDetectionEngine {
       if (result.suicidalIdeation) {
         triggers.push('phq9_suicidal_ideation');
         primaryTrigger = 'phq9_suicidal_ideation';
-        severityLevel = result.totalScore >= CLINICAL_CRISIS_THRESHOLDS.PHQ9_CRISIS_SCORE
+        severityLevel = result.totalScore >= CLINICAL_CRISIS_THRESHOLDS.PHQ9_SEVERE_THRESHOLD
           ? 'emergency'
           : 'critical';
       }
 
-      if (result.totalScore >= CLINICAL_CRISIS_THRESHOLDS.PHQ9_CRISIS_SCORE) {
+      if (result.totalScore >= CLINICAL_CRISIS_THRESHOLDS.PHQ9_SEVERE_THRESHOLD) {
         triggers.push('phq9_severe_score');
         if (!primaryTrigger) {
           primaryTrigger = 'phq9_severe_score';
           severityLevel = 'high';
         }
+      } else if (result.totalScore >= CLINICAL_CRISIS_THRESHOLDS.PHQ9_MODERATE_SEVERE_THRESHOLD) {
+        triggers.push('phq9_moderate_severe_score');
+        if (!primaryTrigger) {
+          primaryTrigger = 'phq9_moderate_severe_score';
+          severityLevel = 'moderate';
+        }
       }
     }
     // GAD-7 Crisis Analysis
     else {
-      if (result.totalScore >= CLINICAL_CRISIS_THRESHOLDS.GAD7_CRISIS_SCORE) {
+      if (result.totalScore >= CLINICAL_CRISIS_THRESHOLDS.GAD7_SEVERE_THRESHOLD) {
         triggers.push('gad7_severe_score');
         primaryTrigger = 'gad7_severe_score';
         severityLevel = 'high';
@@ -542,12 +561,17 @@ export class CrisisDetectionEngine {
 
     // Validate trigger conditions match thresholds
     if (detection.primaryTrigger === 'phq9_severe_score' &&
-        detection.triggerValue < CLINICAL_CRISIS_THRESHOLDS.PHQ9_CRISIS_SCORE) {
+        detection.triggerValue < CLINICAL_CRISIS_THRESHOLDS.PHQ9_SEVERE_THRESHOLD) {
+      return false;
+    }
+
+    if (detection.primaryTrigger === 'phq9_moderate_severe_score' &&
+        detection.triggerValue < CLINICAL_CRISIS_THRESHOLDS.PHQ9_MODERATE_SEVERE_THRESHOLD) {
       return false;
     }
 
     if (detection.primaryTrigger === 'gad7_severe_score' &&
-        detection.triggerValue < CLINICAL_CRISIS_THRESHOLDS.GAD7_CRISIS_SCORE) {
+        detection.triggerValue < CLINICAL_CRISIS_THRESHOLDS.GAD7_SEVERE_THRESHOLD) {
       return false;
     }
 
@@ -748,8 +772,8 @@ export class CrisisDetectionEngine {
     return [
       `Crisis detection initiated: ${new Date().toISOString()}`,
       `Detection ID: ${detectionId}`,
-      `Engine version: DRD-FLOW-005`,
-      `Clinical thresholds validated: PHQ-9≥20, GAD-7≥15, PHQ-9-Q9>0`
+      `Engine version: DRD-FLOW-005-v2 (Dual-Threshold)`,
+      `Clinical thresholds validated: PHQ-9≥15 (moderate), PHQ-9≥20 (severe), GAD-7≥15, PHQ-9-Q9>0`
     ];
   }
 }

@@ -72,19 +72,40 @@ FullMind is a mental health and mindfulness application that provides:
 - Reverse engineering, decompiling, or attempting to extract source code
 - Using assessment tools for purposes other than personal mental health support
 
-### 3.2 Crisis Situations
+### 3.2 Crisis Situations and Crisis Detection Feature
+
+**Crisis Support Disclaimer**:
+
+FullMind provides crisis resources and referrals but **does not provide crisis counseling or emergency services**. In a life-threatening emergency, **call 911 or go to your nearest emergency room immediately**.
+
+Crisis detection based on standardized assessments (PHQ-9, GAD-7) is **not a substitute for professional mental health evaluation**. By using crisis detection features, you acknowledge that FullMind is a wellness tool that supports your mental health journey but **does not replace professional care**.
+
+**Crisis Detection Feature**:
+- FullMind automatically detects potential crisis situations based on assessment scores (PHQ-9≥15, GAD-7≥15)
+- Detection triggers resource recommendations and professional support referrals
+- **Automated detection may not capture all crisis situations** and may produce false positives
+- Crisis detection is a support tool, not a diagnostic or treatment service
+- You are responsible for seeking appropriate professional help when needed
 
 **Emergency Protocol Understanding**:
 - FullMind's crisis features are support tools, not emergency services
-- Call 988 (Suicide & Crisis Lifeline) or emergency services for immediate help
+- **Call 988 (Suicide & Crisis Lifeline) or emergency services for immediate help**
 - The App may detect crisis-level scores but cannot provide immediate human intervention
 - Your safety plan is a self-guided tool requiring your active participation
+- FullMind refers you to external crisis services (988, 741741) but does not operate these services
 
 **User Responsibility for Safety**:
 - Seek professional help for persistent or severe mental health symptoms
 - Update crisis plan and emergency contacts to ensure accuracy
 - Use crisis detection features as intended (honest assessment responses)
 - Understand the limitations of automated crisis support
+- **Do not rely solely on FullMind** for crisis intervention or suicide prevention
+
+**Emergency Contact Information**:
+- **988 Suicide & Crisis Lifeline**: Call or text 988 (24/7, free, confidential)
+- **Crisis Text Line**: Text HOME to 741741 (24/7, free, confidential)
+- **Emergency Services**: Call 911 for life-threatening emergencies
+- **SAMHSA National Helpline**: 1-800-662-4357 (treatment referral, 24/7)
 
 ### 3.3 Data and Privacy
 

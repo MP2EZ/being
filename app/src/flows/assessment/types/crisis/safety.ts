@@ -1,8 +1,13 @@
 /**
  * Crisis Intervention Types - Enhanced Safety Constraints
  * Comprehensive type definitions for crisis detection and intervention
- * CRITICAL SAFETY: PHQ≥20, GAD≥15, PHQ-9 Question 9 >0 triggers
+ * CRITICAL SAFETY: PHQ≥15 (moderate), PHQ≥20 (severe), GAD≥15, PHQ-9 Q9 >0 triggers
  * Response time requirement: <200ms
+ *
+ * DUAL-THRESHOLD SYSTEM (Updated 2025-01-27):
+ * - PHQ-9 ≥15: Moderately severe depression - support recommended (23% have suicidal ideation)
+ * - PHQ-9 ≥20: Severe depression - immediate intervention required
+ * - GAD-7 ≥15: Severe anxiety - immediate intervention required
  */
 
 import { AssessmentType, PHQ9Result, GAD7Result, AssessmentAnswer } from '../index';
@@ -12,10 +17,12 @@ import { AssessmentType, PHQ9Result, GAD7Result, AssessmentAnswer } from '../ind
  * These values MUST NOT be modified as they represent clinical standards
  */
 export const CRISIS_SAFETY_THRESHOLDS = {
-  /** PHQ-9 Crisis Score Threshold - Severe Depression */
-  PHQ9_CRISIS_SCORE: 20,
-  /** GAD-7 Crisis Score Threshold - Severe Anxiety */
-  GAD7_CRISIS_SCORE: 15,
+  /** PHQ-9 Moderately Severe Depression Score - Support Recommended */
+  PHQ9_MODERATE_SEVERE_THRESHOLD: 15,
+  /** PHQ-9 Severe Depression Score - Immediate Intervention */
+  PHQ9_SEVERE_THRESHOLD: 20,
+  /** GAD-7 Severe Anxiety Score - Immediate Intervention */
+  GAD7_SEVERE_THRESHOLD: 15,
   /** PHQ-9 Suicidal Ideation Question ID */
   PHQ9_SUICIDAL_QUESTION_ID: 'phq9_9',
   /** Any non-zero response to suicidal ideation triggers crisis */
@@ -30,13 +37,14 @@ export const CRISIS_SAFETY_THRESHOLDS = {
  * Crisis Trigger Types
  * Comprehensive enumeration of all crisis trigger conditions
  */
-export type CrisisTriggerType = 
-  | 'phq9_severe_score'      // PHQ-9 score ≥20
-  | 'phq9_suicidal_ideation' // PHQ-9 Question 9 response >0
-  | 'gad7_severe_score'      // GAD-7 score ≥15
-  | 'combined_high_risk'     // Both PHQ-9 and GAD-7 high scores
-  | 'manual_override'        // Clinician or system override
-  | 'safety_plan_triggered'; // User-initiated safety plan
+export type CrisisTriggerType =
+  | 'phq9_moderate_severe_score' // PHQ-9 score ≥15 (support recommended)
+  | 'phq9_severe_score'          // PHQ-9 score ≥20 (immediate intervention)
+  | 'phq9_suicidal_ideation'     // PHQ-9 Question 9 response >0
+  | 'gad7_severe_score'          // GAD-7 score ≥15
+  | 'combined_high_risk'         // Both PHQ-9 and GAD-7 high scores
+  | 'manual_override'            // Clinician or system override
+  | 'safety_plan_triggered';     // User-initiated safety plan
 
 /**
  * Crisis Severity Levels

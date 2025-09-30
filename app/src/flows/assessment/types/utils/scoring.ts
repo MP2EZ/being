@@ -399,10 +399,10 @@ export function isGAD7ScoringResult(
 }
 
 export function isCrisisScore(
-  score: number, 
+  score: number,
   type: AssessmentType
 ): boolean {
-  return type === 'phq9' ? score >= 20 : score >= 15;
+  return type === 'phq9' ? score >= 15 : score >= 15;
 }
 
 export function isValidAssessmentScore(
@@ -428,7 +428,7 @@ export const PHQ9_SCORING_CONFIG: PHQ9ScoringConfig = {
     moderately_severe: [15, 19],
     severe: [20, 27]
   },
-  crisisThreshold: 20,
+  crisisThreshold: 15, // Updated 2025-01-27: Moderately severe depression (≥15) triggers crisis support
   suicidalIdeationQuestionId: 'phq9_9'
 } as const;
 

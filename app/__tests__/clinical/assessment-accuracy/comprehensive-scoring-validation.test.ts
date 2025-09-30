@@ -11,7 +11,7 @@
  * REGULATORY COMPLIANCE:
  * - HIPAA-compliant scoring with audit trails
  * - Encrypted storage validation during testing
- * - Clinical threshold validation (PHQ≥20, GAD≥15)
+ * - Clinical threshold validation (PHQ≥15 moderate, PHQ≥20 severe, GAD≥15)
  * - Therapeutic response time verification
  * 
  * Week 2 Orchestration Plan - Crisis-Critical Testing Component
@@ -187,10 +187,10 @@ describe('COMPREHENSIVE CLINICAL SCORING VALIDATION - ALL 48 COMBINATIONS', () =
         expect(assessmentResult.isCrisis).toBe(expectCrisis);
 
         if (expectCrisis) {
-          expect(store.crisisDetection).toBeTruthy();
-          expect(store.crisisDetection?.triggerType).toBe('phq9_score');
-          expect(store.crisisDetection?.triggerValue).toBe(score);
-          
+          expect(finalStore.crisisDetection).toBeTruthy();
+          expect(finalStore.crisisDetection?.triggerType).toBe('phq9_score');
+          expect(finalStore.crisisDetection?.triggerValue).toBe(score);
+
           // Crisis detection timing requirement (<200ms)
           expect(completionTime).toBeLessThan(200);
         }
@@ -198,10 +198,10 @@ describe('COMPREHENSIVE CLINICAL SCORING VALIDATION - ALL 48 COMBINATIONS', () =
         // Suicidal ideation detection (Question 9)
         const suicidalResponse = answers[8]; // PHQ9_9 is index 8
         expect(assessmentResult.suicidalIdeation).toBe(suicidalResponse > 0);
-        
+
         if (suicidalResponse > 0) {
           expect(assessmentResult.isCrisis).toBe(true); // Should trigger crisis regardless of total score
-          expect(store.crisisDetection).toBeTruthy();
+          expect(finalStore.crisisDetection).toBeTruthy();
         }
 
         // Validate answer persistence
@@ -214,7 +214,7 @@ describe('COMPREHENSIVE CLINICAL SCORING VALIDATION - ALL 48 COMBINATIONS', () =
 
         // Validate clinical compliance
         expect(assessmentResult.completedAt).toBeGreaterThan(0);
-        expect(store.completedAssessments).toHaveLength(1);
+        expect(finalStore.completedAssessments).toHaveLength(1);
       });
     }
 
@@ -336,17 +336,20 @@ describe('COMPREHENSIVE CLINICAL SCORING VALIDATION - ALL 48 COMBINATIONS', () =
 
         // Answer all questions
         for (let i = 0; i < GAD7_QUESTIONS.length; i++) {
-          await store.answerQuestion(GAD7_QUESTIONS[i], answers[i]);
+          await updatedStore.answerQuestion(GAD7_QUESTIONS[i], answers[i]);
         }
 
-        await store.completeAssessment();
+        await updatedStore.completeAssessment();
         const completionTime = performance.now() - startTime;
 
+        // Get final updated store state
+        const finalStore = useAssessmentStore.getState();
+
         // Validate results
-        const result = store.currentResult as GAD7Result;
+        const result = finalStore.currentResult as GAD7Result;
         expect(result).toBeTruthy();
         expect(result.totalScore).toBe(score);
-        
+
         // Validate severity mapping
         if (score >= 0 && score <= 4) {
           expect(result.severity).toBe('minimal');
@@ -363,10 +366,10 @@ describe('COMPREHENSIVE CLINICAL SCORING VALIDATION - ALL 48 COMBINATIONS', () =
         expect(result.isCrisis).toBe(expectCrisis);
 
         if (expectCrisis) {
-          expect(store.crisisDetection).toBeTruthy();
-          expect(store.crisisDetection?.triggerType).toBe('gad7_score');
-          expect(store.crisisDetection?.triggerValue).toBe(score);
-          
+          expect(finalStore.crisisDetection).toBeTruthy();
+          expect(finalStore.crisisDetection?.triggerType).toBe('gad7_score');
+          expect(finalStore.crisisDetection?.triggerValue).toBe(score);
+
           // Crisis detection timing requirement (<200ms)
           expect(completionTime).toBeLessThan(200);
         }
@@ -381,7 +384,7 @@ describe('COMPREHENSIVE CLINICAL SCORING VALIDATION - ALL 48 COMBINATIONS', () =
 
         // Validate clinical compliance
         expect(result.completedAt).toBeGreaterThan(0);
-        expect(store.completedAssessments).toHaveLength(1);
+        expect(finalStore.completedAssessments).toHaveLength(1);
       });
     }
   });

@@ -1,7 +1,7 @@
 ---
 name: clinician
 description: Validates therapeutic content, check-in flows, and clinical language for MBCT (Mindfulness-Based Cognitive Therapy) compliance and effectiveness. USE PROACTIVELY for therapeutic content, MBCT compliance, check-in flow validation, clinical language, and therapeutic user experience.
-model: opus
+model: sonnet
 color: green
 ---
 

@@ -2,14 +2,16 @@
  * DRD-FLOW-005 Assessment Store - Production-Ready Implementation
  * Clinical accuracy validated and regulatory compliant
  * Designed for reusability in DRD-FLOW-001 onboarding
- * 
- * CLINICAL REQUIREMENTS:
- * - PHQ-9: 27 possible scores (0-27), crisis threshold ≥20
+ *
+ * CLINICAL REQUIREMENTS (Updated 2025-01-27 - Dual-Threshold System):
+ * - PHQ-9: 27 possible scores (0-27)
+ *   - Crisis threshold ≥15 (moderately severe - support recommended)
+ *   - Severe threshold ≥20 (immediate intervention)
  * - GAD-7: 21 possible scores (0-21), crisis threshold ≥15
  * - Suicidal ideation detection (PHQ-9 question 9 > 0)
  * - Crisis intervention trigger time <200ms
  * - 100% scoring accuracy (regulatory requirement)
- * 
+ *
  * SAFETY PROTOCOLS:
  * - Encrypted storage with CLINICAL sensitivity level
  * - Auto-save every answer with persistence

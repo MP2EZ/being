@@ -3,7 +3,7 @@
  * Comprehensive automated testing for crisis intervention and safety systems
  * 
  * CRITICAL SAFETY REQUIREMENTS:
- * - Crisis detection accuracy: 100% precision required (PHQ-9≥20, GAD-7≥15)
+ * - Crisis detection accuracy: 100% precision required (PHQ-9≥15 moderate, ≥20 severe, GAD-7≥15)
  * - Crisis response time: <200ms maximum for life-saving features
  * - 988 hotline accessibility: Must work in all scenarios (offline, network issues)
  * - Emergency contact integration: Reliable access to support systems
@@ -21,28 +21,34 @@ import { PERFORMANCE_MONITOR, SAFETY_VALIDATOR } from '../setup/test-automation-
 
 // Crisis detection test data - All 27 PHQ-9 + 21 GAD-7 combinations
 const CRISIS_TEST_SCENARIOS = [
-  // Critical PHQ-9 scores (≥20) with various GAD-7 scores
+  // Moderate PHQ-9 scores (≥15) - NEW: Support recommended
+  { phq9: 15, gad7: 0, expectedCrisis: true, scenario: 'Moderately severe depression, no anxiety' },
+  { phq9: 16, gad7: 5, expectedCrisis: true, scenario: 'Moderately severe depression, mild anxiety' },
+  { phq9: 19, gad7: 10, expectedCrisis: true, scenario: 'High depression (below severe), moderate anxiety' },
+
+  // Severe PHQ-9 scores (≥20) with various GAD-7 scores
   { phq9: 20, gad7: 0, expectedCrisis: true, scenario: 'Severe depression, no anxiety' },
   { phq9: 20, gad7: 7, expectedCrisis: true, scenario: 'Severe depression, mild anxiety' },
   { phq9: 20, gad7: 15, expectedCrisis: true, scenario: 'Severe depression, severe anxiety' },
   { phq9: 21, gad7: 10, expectedCrisis: true, scenario: 'Critical depression, moderate anxiety' },
   { phq9: 27, gad7: 21, expectedCrisis: true, scenario: 'Maximum crisis scores' },
-  
+
   // Critical GAD-7 scores (≥15) with various PHQ-9 scores
   { phq9: 0, gad7: 15, expectedCrisis: true, scenario: 'No depression, severe anxiety' },
   { phq9: 10, gad7: 15, expectedCrisis: true, scenario: 'Mild depression, severe anxiety' },
   { phq9: 19, gad7: 15, expectedCrisis: true, scenario: 'High depression, severe anxiety' },
   { phq9: 5, gad7: 20, expectedCrisis: true, scenario: 'Low depression, critical anxiety' },
-  
+
   // Boundary testing - just below crisis thresholds
-  { phq9: 19, gad7: 14, expectedCrisis: false, scenario: 'High but not crisis level' },
-  { phq9: 18, gad7: 10, expectedCrisis: false, scenario: 'Moderate symptoms' },
+  { phq9: 14, gad7: 14, expectedCrisis: false, scenario: 'High but not crisis level' },
+  { phq9: 10, gad7: 10, expectedCrisis: false, scenario: 'Moderate symptoms' },
   { phq9: 10, gad7: 12, expectedCrisis: false, scenario: 'Mild symptoms' },
   { phq9: 0, gad7: 0, expectedCrisis: false, scenario: 'No symptoms' },
-  
-  // Edge cases
-  { phq9: 19, gad7: 15, expectedCrisis: true, scenario: 'PHQ-9 boundary, GAD-7 crisis' },
-  { phq9: 20, gad7: 14, expectedCrisis: true, scenario: 'PHQ-9 crisis, GAD-7 boundary' }
+
+  // Edge cases - threshold boundaries
+  { phq9: 15, gad7: 14, expectedCrisis: true, scenario: 'PHQ-9 moderate threshold, GAD-7 boundary' },
+  { phq9: 14, gad7: 15, expectedCrisis: true, scenario: 'PHQ-9 boundary, GAD-7 crisis' },
+  { phq9: 20, gad7: 14, expectedCrisis: true, scenario: 'PHQ-9 severe threshold, GAD-7 boundary' }
 ];
 
 // Mock crisis intervention services for testing
@@ -77,11 +83,11 @@ const mockClinicalCalculationService = {
   },
   
   detectCrisisLevel: (phq9Score: number, gad7Score: number): boolean => {
-    return phq9Score >= 20 || gad7Score >= 15;
+    return phq9Score >= 15 || gad7Score >= 15;  // Updated 2025-01-27: PHQ-9≥15
   },
-  
+
   generateRecommendations: (phq9Score: number, gad7Score: number) => {
-    const isCrisis = phq9Score >= 20 || gad7Score >= 15;
+    const isCrisis = phq9Score >= 15 || gad7Score >= 15;  // Updated 2025-01-27: PHQ-9≥15
     
     if (isCrisis) {
       return {
