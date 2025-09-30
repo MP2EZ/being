@@ -11,9 +11,9 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
-  SafeAreaView,
   Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 // Hardcoded colors - no dynamic theme system
 const colors = {
