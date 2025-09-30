@@ -251,12 +251,7 @@ export default function CrisisResourcesScreen() {
    */
   const handleNavigateToCrisisPlan = () => {
     logPerformance('Navigating to Crisis Plan from Resources', {}, LogCategory.Crisis);
-    // TODO: Navigate to Crisis Plan screen once implemented
-    Alert.alert(
-      'Crisis Plan',
-      'Create a personalized safety plan to help during difficult moments.',
-      [{ text: 'Coming Soon', style: 'default' }]
-    );
+    navigation.navigate('CrisisPlan');
   };
 
   const priorityResources = getPriorityCrisisResources();
