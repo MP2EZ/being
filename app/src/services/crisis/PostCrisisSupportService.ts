@@ -14,12 +14,13 @@
  * - Auto-deactivation after 7 days
  *
  * COMPLIANCE:
- * - No PHI stored (only timestamps and flags)
+ * - Check-in notes may contain PHI - stored in SecureStore
  * - User can opt-out at any time
- * - Encrypted local storage
+ * - Hardware-encrypted local storage (SecureStore)
  * - No external notifications without consent
  */
 
+import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { logPerformance, logSecurity, logError, LogCategory } from '../logging';
 import { crisisAnalyticsService } from './CrisisAnalyticsService';
@@ -50,7 +51,7 @@ export interface PostCrisisSupport {
   completedSuccessfully: boolean;
 }
 
-const STORAGE_KEY = '@post_crisis_support_v1';
+const STORAGE_KEY = 'post_crisis_support_secure_v2';
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
 /**
@@ -62,10 +63,31 @@ class PostCrisisSupportService {
 
   /**
    * Initialize service and load active support
+   * Includes migration from AsyncStorage v1 to SecureStore v2
    */
   async initialize(): Promise<void> {
     try {
-      const data = await AsyncStorage.getItem(STORAGE_KEY);
+      // Try new SecureStore key first
+      let data = await SecureStore.getItemAsync(STORAGE_KEY);
+
+      // If not found, try migrating from old AsyncStorage key
+      if (!data) {
+        const oldKey = '@post_crisis_support_v1';
+        const oldData = await AsyncStorage.getItem(oldKey);
+
+        if (oldData) {
+          logSecurity('Migrating post-crisis support from AsyncStorage to SecureStore', {}, LogCategory.Crisis);
+
+          // Migrate to SecureStore
+          await SecureStore.setItemAsync(STORAGE_KEY, oldData);
+
+          // Delete old unencrypted data
+          await AsyncStorage.removeItem(oldKey);
+
+          data = oldData;
+          logSecurity('Post-crisis support migration complete', {}, LogCategory.Crisis);
+        }
+      }
 
       if (data) {
         const support = JSON.parse(data) as PostCrisisSupport;
@@ -109,7 +131,7 @@ class PostCrisisSupportService {
     this.currentSupport = support;
 
     try {
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(support));
+      await SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify(support));
 
       // Track analytics
       await crisisAnalyticsService.trackEvent('post_crisis_support_activated');
@@ -307,7 +329,7 @@ class PostCrisisSupportService {
     if (!this.currentSupport) return;
 
     try {
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(this.currentSupport));
+      await SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify(this.currentSupport));
     } catch (error) {
       logError('Failed to save post-crisis support', { error }, LogCategory.Crisis);
     }

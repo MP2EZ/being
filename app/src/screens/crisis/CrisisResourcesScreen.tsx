@@ -42,6 +42,25 @@ import type { RootStackParamList } from '../../navigation/CleanRootNavigator';
 type CrisisResourcesScreenNavigationProp = StackNavigationProp<RootStackParamList, 'CrisisResources'>;
 type CrisisResourcesScreenRouteProp = RouteProp<RootStackParamList, 'CrisisResources'>;
 
+/**
+ * Validate URL protocol to prevent malicious URLs
+ * @param url - URL to validate
+ * @param allowedProtocols - Array of allowed protocols (e.g., ['tel', 'sms', 'http', 'https'])
+ * @returns True if URL is safe, false otherwise
+ */
+const validateUrlProtocol = (url: string, allowedProtocols: string[]): boolean => {
+  const trimmed = url.trim().toLowerCase();
+
+  // Check if URL starts with an allowed protocol
+  const isValid = allowedProtocols.some(protocol => trimmed.startsWith(`${protocol}:`));
+
+  if (!isValid) {
+    logError('Invalid URL protocol detected', { url: trimmed }, LogCategory.Crisis);
+  }
+
+  return isValid;
+};
+
 interface ResourceCardProps {
   resource: CrisisResource;
   onPress: () => void;
@@ -69,11 +88,24 @@ const ResourceCard: React.FC<ResourceCardProps> = ({ resource, onPress }) => {
   const handleSecondaryAction = () => {
     if (resource.textNumber) {
       const smsUrl = `sms:${resource.textNumber}${resource.textMessage ? `&body=${resource.textMessage}` : ''}`;
+
+      // Validate SMS protocol
+      if (!validateUrlProtocol(smsUrl, ['sms'])) {
+        Alert.alert('Error', 'Invalid SMS URL. Please contact support.');
+        return;
+      }
+
       Linking.openURL(smsUrl).catch(error => {
         logError('Failed to open SMS', { error }, LogCategory.Crisis);
         Alert.alert('Error', 'Unable to open messaging app');
       });
     } else if (resource.website) {
+      // Validate HTTP/HTTPS protocol
+      if (!validateUrlProtocol(resource.website, ['http', 'https'])) {
+        Alert.alert('Error', 'Invalid website URL. Please contact support.');
+        return;
+      }
+
       Linking.openURL(resource.website).catch(error => {
         logError('Failed to open website', { error }, LogCategory.Crisis);
         Alert.alert('Error', 'Unable to open website');
@@ -216,6 +248,16 @@ export default function CrisisResourcesScreen() {
 
     const phoneUrl = `tel:${resource.phone}`;
 
+    // Validate tel: protocol
+    if (!validateUrlProtocol(phoneUrl, ['tel'])) {
+      Alert.alert(
+        'Invalid Phone Number',
+        'The phone number format is invalid. Please contact support.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
     logSecurity('Crisis resource contact initiated', {
       resourceId: resource.id,
       resourceName: resource.name,
@@ -297,6 +339,11 @@ export default function CrisisResourcesScreen() {
                       logSecurity('911 emergency call initiated', {}, LogCategory.Crisis);
                       Linking.openURL('tel:911').catch(error => {
                         logError('Failed to call 911', { error }, LogCategory.Crisis);
+                        Alert.alert(
+                          'Call Failed',
+                          'Unable to initiate 911 call. Please dial 911 manually on your phone.',
+                          [{ text: 'OK' }]
+                        );
                       });
                     }
                   }

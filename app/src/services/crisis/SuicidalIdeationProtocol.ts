@@ -26,7 +26,6 @@
 
 import { logSecurity, logPerformance, logError, LogCategory } from '../logging';
 import { Alert, Linking } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import type {
   CrisisDetection,
@@ -502,7 +501,8 @@ export class SuicidalIdeationProtocol {
 
     // Log emergency failsafe activation
     try {
-      await AsyncStorage.setItem(
+      // Use SecureStore for failsafe logs (response contains PHI - suicide ideation answer)
+      await SecureStore.setItemAsync(
         `emergency_failsafe_${Date.now()}`,
         JSON.stringify({
           type: 'suicidal_ideation_failsafe',

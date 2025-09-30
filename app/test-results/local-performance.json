@@ -1,0 +1,194 @@
+{
+  "timestamp": "2025-09-30T06:22:55.511Z",
+  "totalDuration": 821,
+  "totalTests": 16,
+  "categories": {
+    "crisis": {
+      "count": 16,
+      "totalDuration": 72,
+      "slowCount": 0,
+      "averageDuration": 4.5
+    }
+  },
+  "slowTests": [],
+  "crisisTests": [
+    {
+      "testName": "CRISIS FEATURES PERFORMANCE BASELINE - PHASE 3 📞 CRISIS RESOURCE LOAD PERFORMANCE should load all crisis resources within <200ms target",
+      "testPath": "/__tests__/performance/crisis-performance-baseline.test.ts",
+      "duration": 4,
+      "category": "crisis",
+      "threshold": 3000,
+      "isSlowTest": false,
+      "isCrisisTest": true,
+      "status": "passed",
+      "timestamp": "2025-09-30T06:22:55.510Z"
+    },
+    {
+      "testName": "CRISIS FEATURES PERFORMANCE BASELINE - PHASE 3 📞 CRISIS RESOURCE LOAD PERFORMANCE should retrieve individual crisis resource within <10ms",
+      "testPath": "/__tests__/performance/crisis-performance-baseline.test.ts",
+      "duration": 15,
+      "category": "crisis",
+      "threshold": 3000,
+      "isSlowTest": false,
+      "isCrisisTest": true,
+      "status": "passed",
+      "timestamp": "2025-09-30T06:22:55.510Z"
+    },
+    {
+      "testName": "CRISIS FEATURES PERFORMANCE BASELINE - PHASE 3 📞 CRISIS RESOURCE LOAD PERFORMANCE should measure memory footprint of crisis resources",
+      "testPath": "/__tests__/performance/crisis-performance-baseline.test.ts",
+      "duration": 0,
+      "category": "crisis",
+      "threshold": 3000,
+      "isSlowTest": false,
+      "isCrisisTest": true,
+      "status": "passed",
+      "timestamp": "2025-09-30T06:22:55.510Z"
+    },
+    {
+      "testName": "CRISIS FEATURES PERFORMANCE BASELINE - PHASE 3 🛡️ CRISIS PLAN PERFORMANCE should create crisis plan within <500ms target",
+      "testPath": "/__tests__/performance/crisis-performance-baseline.test.ts",
+      "duration": 2,
+      "category": "crisis",
+      "threshold": 3000,
+      "isSlowTest": false,
+      "isCrisisTest": true,
+      "status": "failed",
+      "timestamp": "2025-09-30T06:22:55.510Z"
+    },
+    {
+      "testName": "CRISIS FEATURES PERFORMANCE BASELINE - PHASE 3 🛡️ CRISIS PLAN PERFORMANCE should save crisis plan within <100ms target",
+      "testPath": "/__tests__/performance/crisis-performance-baseline.test.ts",
+      "duration": 2,
+      "category": "crisis",
+      "threshold": 3000,
+      "isSlowTest": false,
+      "isCrisisTest": true,
+      "status": "passed",
+      "timestamp": "2025-09-30T06:22:55.510Z"
+    },
+    {
+      "testName": "CRISIS FEATURES PERFORMANCE BASELINE - PHASE 3 🛡️ CRISIS PLAN PERFORMANCE should load crisis plan within <100ms target",
+      "testPath": "/__tests__/performance/crisis-performance-baseline.test.ts",
+      "duration": 1,
+      "category": "crisis",
+      "threshold": 3000,
+      "isSlowTest": false,
+      "isCrisisTest": true,
+      "status": "passed",
+      "timestamp": "2025-09-30T06:22:55.510Z"
+    },
+    {
+      "testName": "CRISIS FEATURES PERFORMANCE BASELINE - PHASE 3 🛡️ CRISIS PLAN PERFORMANCE should export crisis plan within <500ms target",
+      "testPath": "/__tests__/performance/crisis-performance-baseline.test.ts",
+      "duration": 10,
+      "category": "crisis",
+      "threshold": 3000,
+      "isSlowTest": false,
+      "isCrisisTest": true,
+      "status": "passed",
+      "timestamp": "2025-09-30T06:22:55.510Z"
+    },
+    {
+      "testName": "CRISIS FEATURES PERFORMANCE BASELINE - PHASE 3 📅 POST-CRISIS SUPPORT PERFORMANCE should activate support within <200ms target",
+      "testPath": "/__tests__/performance/crisis-performance-baseline.test.ts",
+      "duration": 6,
+      "category": "crisis",
+      "threshold": 3000,
+      "isSlowTest": false,
+      "isCrisisTest": true,
+      "status": "passed",
+      "timestamp": "2025-09-30T06:22:55.510Z"
+    },
+    {
+      "testName": "CRISIS FEATURES PERFORMANCE BASELINE - PHASE 3 📅 POST-CRISIS SUPPORT PERFORMANCE should record check-in within <100ms target",
+      "testPath": "/__tests__/performance/crisis-performance-baseline.test.ts",
+      "duration": 4,
+      "category": "crisis",
+      "threshold": 3000,
+      "isSlowTest": false,
+      "isCrisisTest": true,
+      "status": "passed",
+      "timestamp": "2025-09-30T06:22:55.510Z"
+    },
+    {
+      "testName": "CRISIS FEATURES PERFORMANCE BASELINE - PHASE 3 📅 POST-CRISIS SUPPORT PERFORMANCE should retrieve supportive messages within <10ms",
+      "testPath": "/__tests__/performance/crisis-performance-baseline.test.ts",
+      "duration": 17,
+      "category": "crisis",
+      "threshold": 3000,
+      "isSlowTest": false,
+      "isCrisisTest": true,
+      "status": "passed",
+      "timestamp": "2025-09-30T06:22:55.510Z"
+    },
+    {
+      "testName": "CRISIS FEATURES PERFORMANCE BASELINE - PHASE 3 ⚡ CONCURRENT OPERATIONS PERFORMANCE should handle concurrent crisis plan operations efficiently",
+      "testPath": "/__tests__/performance/crisis-performance-baseline.test.ts",
+      "duration": 2,
+      "category": "crisis",
+      "threshold": 3000,
+      "isSlowTest": false,
+      "isCrisisTest": true,
+      "status": "failed",
+      "timestamp": "2025-09-30T06:22:55.510Z"
+    },
+    {
+      "testName": "CRISIS FEATURES PERFORMANCE BASELINE - PHASE 3 ⚡ CONCURRENT OPERATIONS PERFORMANCE should handle rapid sequential operations without degradation",
+      "testPath": "/__tests__/performance/crisis-performance-baseline.test.ts",
+      "duration": 1,
+      "category": "crisis",
+      "threshold": 3000,
+      "isSlowTest": false,
+      "isCrisisTest": true,
+      "status": "passed",
+      "timestamp": "2025-09-30T06:22:55.510Z"
+    },
+    {
+      "testName": "CRISIS FEATURES PERFORMANCE BASELINE - PHASE 3 💾 STORAGE PERFORMANCE should measure SecureStore write performance",
+      "testPath": "/__tests__/performance/crisis-performance-baseline.test.ts",
+      "duration": 3,
+      "category": "crisis",
+      "threshold": 3000,
+      "isSlowTest": false,
+      "isCrisisTest": true,
+      "status": "passed",
+      "timestamp": "2025-09-30T06:22:55.510Z"
+    },
+    {
+      "testName": "CRISIS FEATURES PERFORMANCE BASELINE - PHASE 3 💾 STORAGE PERFORMANCE should measure AsyncStorage write performance",
+      "testPath": "/__tests__/performance/crisis-performance-baseline.test.ts",
+      "duration": 1,
+      "category": "crisis",
+      "threshold": 3000,
+      "isSlowTest": false,
+      "isCrisisTest": true,
+      "status": "passed",
+      "timestamp": "2025-09-30T06:22:55.510Z"
+    },
+    {
+      "testName": "CRISIS FEATURES PERFORMANCE BASELINE - PHASE 3 📊 MEMORY USAGE ANALYSIS should measure crisis plan memory footprint",
+      "testPath": "/__tests__/performance/crisis-performance-baseline.test.ts",
+      "duration": 2,
+      "category": "crisis",
+      "threshold": 3000,
+      "isSlowTest": false,
+      "isCrisisTest": true,
+      "status": "passed",
+      "timestamp": "2025-09-30T06:22:55.510Z"
+    },
+    {
+      "testName": "CRISIS FEATURES PERFORMANCE BASELINE - PHASE 3 📊 MEMORY USAGE ANALYSIS should measure post-crisis support memory footprint",
+      "testPath": "/__tests__/performance/crisis-performance-baseline.test.ts",
+      "duration": 2,
+      "category": "crisis",
+      "threshold": 3000,
+      "isSlowTest": false,
+      "isCrisisTest": true,
+      "status": "passed",
+      "timestamp": "2025-09-30T06:22:55.510Z"
+    }
+  ],
+  "performanceIssues": [],
+  "recommendations": []
+}

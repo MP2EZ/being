@@ -29,7 +29,7 @@ export interface CrisisMetricsDashboard {
     crisisPlanActive: boolean;
     postCrisisSupportActive: boolean;
     totalResourceAccess: number;
-    overall Engagement: 'high' | 'medium' | 'low';
+    overallEngagement: 'high' | 'medium' | 'low';
   };
 
   // Detailed metrics

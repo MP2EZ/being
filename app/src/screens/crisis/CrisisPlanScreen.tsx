@@ -69,6 +69,94 @@ export default function CrisisPlanScreen() {
   const [contactPhone, setContactPhone] = useState('');
   const [contactRelation, setContactRelation] = useState('');
 
+  // Input validation constants
+  const MAX_INPUT_LENGTH = 500;
+  const MAX_ITEMS_PER_CATEGORY = 20;
+
+  /**
+   * Validate and sanitize text input
+   * @param input - Raw text input
+   * @returns Sanitized input or null if invalid
+   */
+  const validateAndSanitizeInput = (input: string): string | null => {
+    const trimmed = input.trim();
+
+    // Check if empty
+    if (!trimmed) {
+      return null;
+    }
+
+    // Check length
+    if (trimmed.length > MAX_INPUT_LENGTH) {
+      Alert.alert(
+        'Input Too Long',
+        `Please keep your input under ${MAX_INPUT_LENGTH} characters.`
+      );
+      return null;
+    }
+
+    // Sanitize HTML/special characters
+    const sanitized = trimmed
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#x27;');
+
+    return sanitized;
+  };
+
+  /**
+   * Check if category has reached item limit
+   */
+  const checkItemLimit = (category: string, currentCount: number): boolean => {
+    if (currentCount >= MAX_ITEMS_PER_CATEGORY) {
+      Alert.alert(
+        'Limit Reached',
+        `You've reached the maximum of ${MAX_ITEMS_PER_CATEGORY} items for ${category}.`
+      );
+      return false;
+    }
+    return true;
+  };
+
+  /**
+   * Validate phone number format
+   * @param phone - Phone number to validate
+   * @returns True if valid or empty, false if invalid
+   */
+  const validatePhoneNumber = (phone: string): boolean => {
+    const trimmed = phone.trim();
+
+    // Empty is valid (optional field)
+    if (!trimmed) {
+      return true;
+    }
+
+    // Basic phone validation: digits, spaces, dashes, parentheses, plus
+    // Supports: +1-234-567-8900, (234) 567-8900, 234-567-8900, etc.
+    const phoneRegex = /^[\d\s\-\(\)\+]+$/;
+
+    if (!phoneRegex.test(trimmed)) {
+      Alert.alert(
+        'Invalid Phone Number',
+        'Phone number can only contain digits, spaces, dashes, parentheses, and plus sign.'
+      );
+      return false;
+    }
+
+    // Check if it has at least 10 digits (US minimum)
+    const digitCount = trimmed.replace(/\D/g, '').length;
+    if (digitCount > 0 && digitCount < 10) {
+      Alert.alert(
+        'Invalid Phone Number',
+        'Phone number must have at least 10 digits.'
+      );
+      return false;
+    }
+
+    return true;
+  };
+
   useEffect(() => {
     loadCrisisPlan();
   }, []);
@@ -107,18 +195,29 @@ export default function CrisisPlanScreen() {
    * Handle adding item to current step
    */
   const handleAddItem = async () => {
-    if (!inputValue.trim()) return;
+    // Validate and sanitize input
+    const sanitizedInput = validateAndSanitizeInput(inputValue);
+    if (!sanitizedInput) return;
 
     try {
       switch (currentStep) {
         case 'warning_signs':
-          await addWarningSign(inputValue.trim(), 'personal');
+          if (!checkItemLimit('warning signs', crisisPlan?.personalizedContent.personalWarningSigns.length || 0)) {
+            return;
+          }
+          await addWarningSign(sanitizedInput, 'personal');
           break;
         case 'coping':
-          await addCopingStrategy(inputValue.trim());
+          if (!checkItemLimit('coping strategies', crisisPlan?.copingStrategies.length || 0)) {
+            return;
+          }
+          await addCopingStrategy(sanitizedInput);
           break;
         case 'reasons':
-          await addReasonForLiving(inputValue.trim());
+          if (!checkItemLimit('reasons for living', crisisPlan?.reasonsForLiving.length || 0)) {
+            return;
+          }
+          await addReasonForLiving(sanitizedInput);
           break;
       }
 
@@ -133,15 +232,32 @@ export default function CrisisPlanScreen() {
    * Handle adding contact
    */
   const handleAddContact = async () => {
-    if (!contactName.trim()) {
+    // Validate and sanitize contact name
+    const sanitizedName = validateAndSanitizeInput(contactName);
+    if (!sanitizedName) {
       Alert.alert('Name Required', 'Please enter a contact name.');
       return;
     }
 
+    // Check contact limit
+    if (!checkItemLimit('contacts', crisisPlan?.personalContacts.length || 0)) {
+      return;
+    }
+
+    // Validate phone number
+    if (!validatePhoneNumber(contactPhone)) {
+      return;
+    }
+
+    // Sanitize optional fields
+    const sanitizedRelation = contactRelation.trim()
+      ? validateAndSanitizeInput(contactRelation) || 'Friend'
+      : 'Friend';
+
     try {
       await addPersonalContact({
-        name: contactName.trim(),
-        relationship: contactRelation.trim() || 'Friend',
+        name: sanitizedName,
+        relationship: sanitizedRelation,
         phone: contactPhone.trim(),
         notes: ''
       });

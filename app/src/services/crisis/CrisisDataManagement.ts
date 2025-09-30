@@ -26,7 +26,6 @@
 
 
 import { logSecurity, logPerformance, logError, LogCategory } from '../logging';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import * as FileSystem from 'expo-file-system';
 import type {
@@ -720,11 +719,8 @@ export class CrisisDataManagement {
     try {
       const storageKey = `${CRISIS_DATA_CONFIG.ENCRYPTION_KEY_PREFIX}${dataPackage.packageId}`;
 
-      if (dataPackage.encrypted) {
-        await SecureStore.setItemAsync(storageKey, JSON.stringify(dataPackage));
-      } else {
-        await AsyncStorage.setItem(storageKey, JSON.stringify(dataPackage));
-      }
+      // Always use SecureStore for crisis data (contains PHI)
+      await SecureStore.setItemAsync(storageKey, JSON.stringify(dataPackage));
 
       // Store in memory cache
       this.dataPackages.set(dataPackage.packageId, dataPackage);
@@ -743,10 +739,9 @@ export class CrisisDataManagement {
         return cached;
       }
 
-      // Retrieve from storage
+      // Retrieve from storage (always SecureStore for PHI protection)
       const storageKey = `${CRISIS_DATA_CONFIG.ENCRYPTION_KEY_PREFIX}${packageId}`;
-      const storedData = await SecureStore.getItemAsync(storageKey) ||
-                        await AsyncStorage.getItem(storageKey);
+      const storedData = await SecureStore.getItemAsync(storageKey);
 
       if (!storedData) {
         return null;
@@ -832,7 +827,8 @@ export class CrisisDataManagement {
   private async storeAuditEvent(packageId: string, auditEvent: any): Promise<void> {
     try {
       const auditKey = `${CRISIS_DATA_CONFIG.AUDIT_KEY_PREFIX}${packageId}_${Date.now()}`;
-      await AsyncStorage.setItem(auditKey, JSON.stringify(auditEvent));
+      // Use SecureStore for audit events (may contain PHI context)
+      await SecureStore.setItemAsync(auditKey, JSON.stringify(auditEvent));
     } catch (error) {
       logError('🚨 AUDIT EVENT STORAGE ERROR:', error);
     }
@@ -858,7 +854,8 @@ export class CrisisDataManagement {
 
   private async logDataCaptureError(crisisId: string, error: any): Promise<void> {
     try {
-      await AsyncStorage.setItem(
+      // Use SecureStore for error logs (crisisId may link to PHI)
+      await SecureStore.setItemAsync(
         `crisis_data_error_${Date.now()}`,
         JSON.stringify({
           crisisId,

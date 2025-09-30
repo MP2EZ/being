@@ -280,31 +280,42 @@ export const useCrisisPlanStore = create<CrisisPlanStore>((set, get) => ({
 
   /**
    * Update crisis plan
+   * Uses functional update pattern to prevent race conditions
    */
   updateCrisisPlan: async (updates: Partial<PersonalizedCrisisPlan>) => {
-    const { crisisPlan, autoSaveEnabled } = get();
+    return new Promise<void>((resolve) => {
+      const autoSaveEnabled = get().autoSaveEnabled;
 
-    if (!crisisPlan) {
-      set({ error: 'No crisis plan to update' });
-      return;
-    }
+      // Atomic state update using functional pattern
+      set((state) => {
+        if (!state.crisisPlan) {
+          return { error: 'No crisis plan to update' };
+        }
 
-    const updatedPlan: PersonalizedCrisisPlan = {
-      ...crisisPlan,
-      ...updates,
-      updatedAt: Date.now(),
-      version: crisisPlan.version + 1
-    };
+        const updatedPlan: PersonalizedCrisisPlan = {
+          ...state.crisisPlan,
+          ...updates,
+          updatedAt: Date.now(),
+          version: state.crisisPlan.version + 1
+        };
 
-    set({ crisisPlan: updatedPlan });
+        return { crisisPlan: updatedPlan };
+      });
 
-    if (autoSaveEnabled) {
-      try {
-        await SecureStore.setItemAsync(SECURE_STORAGE_KEY, JSON.stringify(updatedPlan));
-      } catch (error) {
-        logError('Failed to auto-save crisis plan', { error }, LogCategory.Crisis);
+      // Auto-save after atomic update
+      const updatedPlan = get().crisisPlan;
+
+      if (autoSaveEnabled && updatedPlan) {
+        SecureStore.setItemAsync(SECURE_STORAGE_KEY, JSON.stringify(updatedPlan))
+          .then(() => resolve())
+          .catch(error => {
+            logError('Failed to auto-save crisis plan', { error }, LogCategory.Crisis);
+            resolve();
+          });
+      } else {
+        resolve();
       }
-    }
+    });
   },
 
   /**

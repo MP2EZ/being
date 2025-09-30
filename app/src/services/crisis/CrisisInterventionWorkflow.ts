@@ -24,7 +24,6 @@
 
 import { logSecurity, logPerformance, logError, LogCategory } from '../logging';
 import { Alert, Linking } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import type {
   CrisisDetection,
@@ -831,7 +830,8 @@ export class CrisisInterventionWorkflow {
         source: 'CrisisInterventionWorkflow'
       };
 
-      await AsyncStorage.setItem(
+      // Use SecureStore for workflow failure logs (context contains intervention PHI)
+      await SecureStore.setItemAsync(
         `workflow_failure_${context.intervention.interventionId}`,
         JSON.stringify(logEntry)
       );

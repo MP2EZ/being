@@ -20,7 +20,6 @@
  */
 
 import { Alert, Linking } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 
 // Import secure logging
@@ -728,7 +727,8 @@ export class CrisisDetectionEngine {
         source: 'CrisisDetectionEngine'
       };
 
-      await AsyncStorage.setItem(
+      // Use SecureStore for PHI protection (detection may contain assessment answers)
+      await SecureStore.setItemAsync(
         `crisis_detection_${detection.id}`,
         JSON.stringify(logEntry)
       );
@@ -746,7 +746,8 @@ export class CrisisDetectionEngine {
         source: 'CrisisDetectionEngine'
       };
 
-      await AsyncStorage.setItem(
+      // Use SecureStore for PHI protection (intervention may contain crisis context)
+      await SecureStore.setItemAsync(
         `crisis_intervention_${intervention.interventionId}`,
         JSON.stringify(logEntry)
       );
