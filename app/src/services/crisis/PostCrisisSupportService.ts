@@ -102,7 +102,7 @@ class PostCrisisSupportService {
 
       logInfo('Post-crisis support service initialized', LogCategory.Crisis);
     } catch (error) {
-      logError('Failed to initialize post-crisis support service', { error }, LogCategory.Crisis);
+      logError(LogCategory.Crisis, 'Failed to initialize post-crisis support service', error as Error);
     }
   }
 
@@ -142,7 +142,7 @@ class PostCrisisSupportService {
         crisisScore
       }, LogCategory.Crisis);
     } catch (error) {
-      logError('Failed to save post-crisis support', { error }, LogCategory.Crisis);
+      logError(LogCategory.Crisis, 'Failed to save post-crisis support', error as Error);
     }
 
     return support;
@@ -331,7 +331,7 @@ class PostCrisisSupportService {
     try {
       await SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify(this.currentSupport));
     } catch (error) {
-      logError('Failed to save post-crisis support', { error }, LogCategory.Crisis);
+      logError(LogCategory.Crisis, 'Failed to save post-crisis support', error as Error);
     }
   }
 }

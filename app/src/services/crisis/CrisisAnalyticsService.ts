@@ -155,7 +155,7 @@ class CrisisAnalyticsService {
       }, LogCategory.Crisis);
 
     } catch (error) {
-      logError('Failed to initialize crisis analytics service', { error }, LogCategory.Crisis);
+      logError(LogCategory.Crisis, 'Failed to initialize crisis analytics service', error as Error);
     }
   }
 
@@ -188,7 +188,7 @@ class CrisisAnalyticsService {
       await this.saveEvents();
 
     } catch (error) {
-      logError('Failed to track crisis analytics event', { error, eventType }, LogCategory.Crisis);
+      logError(LogCategory.Crisis, 'Failed to track crisis analytics event', error as Error);
     }
   }
 
@@ -354,7 +354,7 @@ Not Helpful: ${summary.effectivenessRatings.notHelpful}
 
       logInfo('Crisis analytics data cleared', LogCategory.Crisis);
     } catch (error) {
-      logError('Failed to clear crisis analytics data', { error }, LogCategory.Crisis);
+      logError(LogCategory.Crisis, 'Failed to clear crisis analytics data', error as Error);
     }
   }
 
@@ -463,7 +463,7 @@ Not Helpful: ${summary.effectivenessRatings.notHelpful}
         lastUpdated: Date.now()
       }));
     } catch (error) {
-      logError('Failed to save crisis analytics events', { error }, LogCategory.Crisis);
+      logError(LogCategory.Crisis, 'Failed to save crisis analytics events', error as Error);
     }
   }
 
