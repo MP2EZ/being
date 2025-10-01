@@ -93,7 +93,7 @@ class IAPServiceClass {
       await InAppPurchases.connectAsync();
 
       // Set purchase listener
-      InAppPurchases.setPurchaseListener(this.handlePurchase);
+      InAppPurchases.setPurchaseListener((result) => this.handlePurchase(result));
 
       // Fetch available products
       const productIds = getPlatformProductIds();
@@ -128,14 +128,14 @@ class IAPServiceClass {
     } catch (error) {
       console.error('[IAP] Disconnect failed:', error);
     }
-  },
+  }
 
   /**
    * Get available products
    */
   getProducts(): InAppPurchases.IAPItemDetails[] {
     return this.products;
-  },
+  }
 
   /**
    * Get product by interval
@@ -143,7 +143,7 @@ class IAPServiceClass {
   getProduct(interval: SubscriptionInterval): InAppPurchases.IAPItemDetails | undefined {
     const productId = getProductId(interval);
     return this.products.find(p => p.productId === productId);
-  },
+  }
 
   /**
    * Purchase subscription
@@ -161,17 +161,18 @@ class IAPServiceClass {
       console.log('[IAP] Purchasing subscription:', { interval, productId });
 
       // Initiate purchase
-      const result = await InAppPurchases.purchaseItemAsync(productId);
+      await InAppPurchases.purchaseItemAsync(productId);
 
       const purchaseTime = performance.now() - startTime;
       console.log(`[IAP] Purchase completed in ${purchaseTime}ms`);
 
-      return result;
+      // Purchase result will come via handlePurchase listener
+      return null;
     } catch (error) {
       console.error('[IAP] Purchase failed:', error);
       throw error;
     }
-  },
+  }
 
   /**
    * Restore purchases
@@ -194,7 +195,7 @@ class IAPServiceClass {
       console.error('[IAP] Restore purchases failed:', error);
       throw error;
     }
-  },
+  }
 
   /**
    * Finish transaction
@@ -208,17 +209,17 @@ class IAPServiceClass {
       console.error('[IAP] Failed to finish transaction:', error);
       throw error;
     }
-  },
+  }
 
   /**
    * Handle purchase event
    * Called automatically when purchase completes
    */
-  private handlePurchase = ({ responseCode, results, errorCode }: InAppPurchases.InAppPurchaseState) => {
-    console.log('[IAP] Purchase event:', { responseCode, errorCode });
+  private handlePurchase = (result: InAppPurchases.IAPQueryResponse<InAppPurchases.InAppPurchase>) => {
+    console.log('[IAP] Purchase event:', { responseCode: result.responseCode });
 
-    if (responseCode === InAppPurchases.IAPResponseCode.OK) {
-      results?.forEach(purchase => {
+    if (result.responseCode === InAppPurchases.IAPResponseCode.OK) {
+      result.results?.forEach((purchase: InAppPurchases.InAppPurchase) => {
         console.log('[IAP] Purchase received:', {
           productId: purchase.productId,
           orderId: purchase.orderId
@@ -228,10 +229,10 @@ class IAPServiceClass {
         // TODO: Update subscription store
         // TODO: Finish transaction after verification
       });
-    } else if (responseCode === InAppPurchases.IAPResponseCode.USER_CANCELED) {
+    } else if (result.responseCode === InAppPurchases.IAPResponseCode.USER_CANCELED) {
       console.log('[IAP] Purchase cancelled by user');
     } else {
-      console.error('[IAP] Purchase error:', { responseCode, errorCode });
+      console.error('[IAP] Purchase error:', { responseCode: result.responseCode });
     }
   };
 
@@ -266,14 +267,14 @@ class IAPServiceClass {
         error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
-  },
+  }
 
   /**
    * Check if IAP is available on this platform
    */
   isAvailable(): boolean {
     return Platform.OS === 'ios' || Platform.OS === 'android';
-  },
+  }
 
   /**
    * Get platform name
@@ -314,4 +315,4 @@ export function useIAPService() {
 }
 
 // Import React for hook
-import React from 'react';
+import * as React from 'react';
