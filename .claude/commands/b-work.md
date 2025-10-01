@@ -62,7 +62,79 @@ page_id: [page_id from Step 1.1]
 
 ---
 
-## Phase 2: Classify Template
+## Phase 2: Create Git Branch
+
+### Step 2.1: Check Current Branch
+
+```
+mcp__git__git_status
+repo_path: "/Users/max/Development/active/fullmind"
+```
+
+Report current branch for user awareness.
+
+---
+
+### Step 2.2: Determine Branch Naming
+
+**Branch prefix** (based on Type from Notion):
+- FEAT → `feat/`
+- DEBUG → `fix/`
+- INFRA → `chore/`
+- MAINT → `chore/`
+- AGENT → `chore/`
+
+**Exception**: If classified as **B-HOTFIX** → use `hotfix/` prefix regardless of Type
+
+**Branch name format**: `[prefix][work-item-id]-[slugified-name]`
+
+Example: `feat/WI-123-add-crisis-detection`
+
+**Slugify name rules**:
+- Convert to lowercase
+- Replace spaces with hyphens
+- Remove special characters (keep only alphanumeric and hyphens)
+- Limit slugified portion to ~40 chars for readability
+
+---
+
+### Step 2.3: Create and Checkout Branch
+
+```
+mcp__git__git_create_branch
+repo_path: "/Users/max/Development/active/fullmind"
+branch_name: "[prefix][work-item-id]-[slugified-name]"
+base_branch: "development"
+```
+
+**Then immediately checkout**:
+```
+mcp__git__git_checkout
+repo_path: "/Users/max/Development/active/fullmind"
+branch_name: "[prefix][work-item-id]-[slugified-name]"
+```
+
+**Error handling**:
+- If branch already exists: Report and ask user to either:
+  1. Continue on existing branch
+  2. Delete and recreate (if safe)
+  3. Create with alternate name (append `-v2`, `-v3`, etc.)
+- If git error: Report error details and suggest manual resolution
+
+---
+
+### Step 2.4: Confirm Branch Creation
+
+Display:
+```
+🌿 Branch created: [branch-name]
+   Base: development
+   Type: [TYPE] → [prefix]/
+```
+
+---
+
+## Phase 3: Classify Template
 
 **HIGH Confidence (95%+)** - Auto-proceed:
 
@@ -97,7 +169,7 @@ page_id: [page_id from Step 1.1]
 
 ---
 
-## Phase 3: Display Classification
+## Phase 4: Display Classification
 
 **HIGH confidence**:
 ```
@@ -119,78 +191,6 @@ Proceed? (y/n)
 ```
 🤔 Unable to confidently classify
 Choose template: 1) B-DEV, 2) B-CRISIS, 3) B-DEBUG
-```
-
----
-
-## Phase 4: Create Git Branch
-
-### Step 4.1: Check Current Branch
-
-```
-mcp__git__git_status
-repo_path: "/Users/max/Development/active/fullmind"
-```
-
-Report current branch for user awareness.
-
----
-
-### Step 4.2: Determine Branch Naming
-
-**Branch prefix** (based on Type from Notion):
-- FEAT → `feat/`
-- DEBUG → `fix/`
-- INFRA → `chore/`
-- MAINT → `chore/`
-- AGENT → `chore/`
-
-**Exception**: If classified as **B-HOTFIX** → use `hotfix/` prefix regardless of Type
-
-**Branch name format**: `[prefix][work-item-id]-[slugified-name]`
-
-Example: `feat/WI-123-add-crisis-detection`
-
-**Slugify name rules**:
-- Convert to lowercase
-- Replace spaces with hyphens
-- Remove special characters (keep only alphanumeric and hyphens)
-- Limit slugified portion to ~40 chars for readability
-
----
-
-### Step 4.3: Create and Checkout Branch
-
-```
-mcp__git__git_create_branch
-repo_path: "/Users/max/Development/active/fullmind"
-branch_name: "[prefix][work-item-id]-[slugified-name]"
-base_branch: "development"
-```
-
-**Then immediately checkout**:
-```
-mcp__git__git_checkout
-repo_path: "/Users/max/Development/active/fullmind"
-branch_name: "[prefix][work-item-id]-[slugified-name]"
-```
-
-**Error handling**:
-- If branch already exists: Report and ask user to either:
-  1. Continue on existing branch
-  2. Delete and recreate (if safe)
-  3. Create with alternate name (append `-v2`, `-v3`, etc.)
-- If git error: Report error details and suggest manual resolution
-
----
-
-### Step 4.4: Confirm Branch Creation
-
-Display:
-```
-🌿 Branch created: [branch-name]
-   Base: development
-   Type: [TYPE] → [prefix]/
 ```
 
 ---
@@ -225,9 +225,80 @@ Execute exactly as documented.
 
 ---
 
-## Phase 6: Update Notion
+## Phase 6: Commit Changes
 
-### Step 6.1: Update Status
+### Step 6.1: Review Changes
+
+```
+mcp__git__git_status
+repo_path: "/Users/max/Development/active/fullmind"
+```
+
+Display summary of changed files for user awareness.
+
+---
+
+### Step 6.2: Stage All Changes
+
+```
+mcp__git__git_add
+repo_path: "/Users/max/Development/active/fullmind"
+files: ["."]
+```
+
+---
+
+### Step 6.3: Create Commit
+
+**Commit message format**: `[type]: [work-item-id] [brief description]`
+
+**Type mapping** (based on Type from Notion):
+- FEAT → `feat:`
+- DEBUG → `fix:`
+- INFRA → `chore:`
+- MAINT → `chore:`
+- AGENT → `chore:`
+
+**Exception**: If classified as **B-HOTFIX** → use `fix:` prefix with `[HOTFIX]` tag
+
+**Examples**:
+- `feat: WI-123 Add crisis detection with PHQ≥20 threshold`
+- `fix: WI-124 Resolve breathing timer sync issue`
+- `chore: WI-125 Update TypeScript configuration`
+- `fix: [HOTFIX] WI-126 Emergency fix for 988 button crash`
+
+```
+mcp__git__git_commit
+repo_path: "/Users/max/Development/active/fullmind"
+message: "[type]: [work-item-id] [brief description]
+
+[Optional detailed explanation if needed]
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>"
+```
+
+**Error handling**:
+- If no changes to commit: Report "No changes to commit" and skip to Phase 7
+- If commit fails: Report error and ask user to resolve before continuing
+
+---
+
+### Step 6.4: Confirm Commit
+
+Display:
+```
+✅ Changes committed
+   Message: [commit message first line]
+   Files: [count] files changed
+```
+
+---
+
+## Phase 7: Update Notion
+
+### Step 7.1: Update Status
 
 ```
 mcp__notionApi__API-patch-page
@@ -241,7 +312,7 @@ properties: {
 }
 ```
 
-### Step 6.2: Add Completion Comment
+### Step 7.2: Add Completion Comment
 
 ```
 mcp__notionApi__API-create-a-comment
@@ -255,7 +326,7 @@ rich_text: [
 ]
 ```
 
-### Step 6.3: Report Completion
+### Step 7.3: Report Completion
 
 ```
 ✅ $ARGUMENTS complete

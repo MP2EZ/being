@@ -28,8 +28,8 @@
 - No false negatives on thresholds
 
 **Examples**:
-- "Update crisis button behavior" → (crisis+compliance) plan → main (<200ms) → (crisis+compliance+accessibility) validate
-- "PHQ-9 threshold from ≥20 to ≥15" → (crisis+compliance) → main → (crisis+compliance+accessibility) → deploy
+- "Update crisis button behavior" → (crisis+compliance) plan → main (<200ms) → (crisis+compliance+accessibility)-validate
+- "PHQ-9 threshold from ≥20 to ≥15" → (crisis+compliance) → main → (crisis+compliance+accessibility)-validate → deploy
 
 ---
 
@@ -63,17 +63,17 @@ crisis-assess → main[rapid] → crisis-validate → deploy-immediately
 Analyze work type, then route to appropriate path:
 
 1. Therapeutic content (MBCT exercises, mindfulness, guided practices)?
-   → clinician-review → main → clinician-validate + accessibility-validate + [performance-validate if 60fps required]
+   → clinician-review → main → (clinician+accessibility)-validate + [performance-validate if 60fps required]
    Examples: New breathing exercise, body scan, check-in flow updates
    Note: Performance required for animations (60fps), accessibility required for all therapeutic UI
 
 2. Assessment features (PHQ-9/GAD-7 scoring, UI, calculations)?
-   → clinician-review → main → clinician-validate (DSM-5) + crisis-validate (thresholds) + accessibility-validate (UI)
+   → clinician-review → main → (clinician(DSM-5)+crisis(thresholds)+accessibility(UI))-validate
    Examples: Add GAD-7 follow-up questions, update severity labels
    Note: Clinician validates clinical accuracy, crisis validates thresholds, accessibility validates UI
 
 3. Privacy/PHI features (data export, payment, HIPAA compliance)?
-   → (compliance+security)-review → main → compliance-validate + security-validate
+   → (compliance+security)-review → main → (compliance+security)-validate
    Examples: Export user data, subscription flow, data retention
    Note: Compliance validates HIPAA/legal requirements, security validates encryption/secure storage
 
@@ -89,16 +89,16 @@ Analyze work type, then route to appropriate path:
 **Examples by path**:
 
 *Therapeutic path*:
-- "Add gratitude exercise" → clinician-review (MBCT?) → main → clinician-validate + accessibility-validate
-- "Breathing with animation" → clinician → architect (60fps) → main → clinician-validate + accessibility-validate + performance-validate (60fps)
+- "Add gratitude exercise" → clinician-review (MBCT?) → main → (clinician+accessibility)-validate
+- "Breathing with animation" → clinician → architect (60fps) → main → (clinician+accessibility+performance(60fps))-validate 
 
 *Assessment path*:
 - "Update PHQ-9 severity labels" → clinician (DSM-5 correct?) → main → clinician-validate + crisis-validate (thresholds) + accessibility-validate
 - "Add GAD-7 trend display" → clinician-review → main → clinician-validate + crisis-validate + accessibility-validate
 
 *Privacy path*:
-- "Export journal for therapist" → (compliance+security) (PHI? HIPAA?) → main (encrypt) → compliance-validate + security-validate
-- "Subscription flow" → (compliance+security) → main → compliance-validate (PCI+HIPAA) + security-validate (encryption)
+- "Export journal for therapist" → (compliance(PHI? HIPAA?)+security) → main (encrypt) → (compliance+security)-validate
+- "Subscription flow" → (compliance+security) → main → (compliance(PCI+HIPAA)+security(encryption))-validate
 
 *General path*:
 - "Progress insights chart" → main → clinician-review (therapeutic presentation?)
@@ -123,13 +123,13 @@ Is root cause clear?
 
 Domain validation phase (after fix):
 Bug affected therapeutic content/UX?
-  → clinician validates fix
+  → clinician-validate fix
 
 Bug affected assessment features?
-  → clinician + crisis validate
+  → (clinician+crisis)-validate
 
 Bug affected privacy/data handling?
-  → compliance validates
+  → compliance-validate
 
 General bug?
   → Optional domain check
@@ -138,7 +138,7 @@ General bug?
 **Examples**:
 
 *With investigation*:
-- "Breathing animation stutters" → performance-investigate → main (fix) → clinician-validate (still therapeutic?) + performance-validate (60fps?)
+- "Breathing animation stutters" → performance-investigate → main (fix) → (clinician(still therapeutic?)+performance(60fps?))-validate
 - "Mood data sometimes lost" → state-investigate → main (fix) → compliance-check (data integrity?)
 
 *Without investigation (root cause clear)*:
@@ -146,7 +146,7 @@ General bug?
 - "Text alignment broken on small screens" → main (fix layout) → accessibility-validate
 
 *Assessment bugs*:
-- "GAD-7 score off by 1" → main (fix calculation) → clinician-validate (DSM-5?) + crisis-validate (thresholds?)
+- "GAD-7 score off by 1" → main (fix calculation) → (clinician(DSM-5?)+crisis(thresholds?))-validate
 - "PHQ-9 questions in wrong order" → main (reorder) → clinician-validate
 
 **Difference from B-HOTFIX**:
