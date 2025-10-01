@@ -246,6 +246,15 @@ export class ProductionLogger {
    * PHI SANITIZATION ENGINE
    */
   private sanitizeString(input: string): string {
+    // Handle non-string inputs gracefully
+    if (typeof input !== 'string') {
+      if (input === null || input === undefined) {
+        return String(input);
+      }
+      // Convert to string for other types
+      input = String(input);
+    }
+
     let sanitized = input;
 
     // Apply all PHI patterns
