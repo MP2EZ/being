@@ -142,10 +142,17 @@ export const ASSESSMENT_RESPONSE_LABELS = {
   3: "Nearly every day"
 } as const;
 
-// Crisis Thresholds (Clinically Validated)
+// Crisis Thresholds (Clinically Validated - Updated 2025-01-27)
+// DUAL-THRESHOLD SYSTEM:
+// - PHQ-9 ≥15: Moderately severe depression (support recommended)
+// - PHQ-9 ≥20: Severe depression (immediate intervention)
+// - GAD-7 ≥15: Severe anxiety (immediate intervention)
 export const CRISIS_THRESHOLDS = {
-  PHQ9_CRISIS_SCORE: 20,
+  PHQ9_MODERATE_SEVERE_THRESHOLD: 15,
+  PHQ9_SEVERE_THRESHOLD: 20,
+  PHQ9_CRISIS_SCORE: 15, // Primary crisis threshold (support recommended)
   GAD7_CRISIS_SCORE: 15,
+  GAD7_SEVERE_THRESHOLD: 15,
   PHQ9_SUICIDAL_QUESTION_ID: 'phq9_9', // Question 9: Suicidal ideation
 } as const;
 

@@ -180,12 +180,12 @@ function generateAssessmentLoad(count: number, crisisPercentage: number = 0.1) {
     
     let totalScore: number;
     if (isCrisis) {
-      totalScore = assessmentType === 'phq9' ? 
-        Math.floor(Math.random() * 8) + 20 : // PHQ-9: 20-27
+      totalScore = assessmentType === 'phq9' ?
+        Math.floor(Math.random() * 13) + 15 : // PHQ-9: 15-27 (Updated 2025-01-27)
         Math.floor(Math.random() * 7) + 15;  // GAD-7: 15-21
     } else {
-      totalScore = assessmentType === 'phq9' ? 
-        Math.floor(Math.random() * 20) : // PHQ-9: 0-19
+      totalScore = assessmentType === 'phq9' ?
+        Math.floor(Math.random() * 15) : // PHQ-9: 0-14 (Updated 2025-01-27)
         Math.floor(Math.random() * 15);  // GAD-7: 0-14
     }
 

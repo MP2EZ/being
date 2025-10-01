@@ -65,7 +65,7 @@ class CrisisTestDataGenerator {
       combinations.push({
         totalScore: score,
         severity: this.getPHQ9Severity(score),
-        isCrisis: score >= 20,
+        isCrisis: score >= 15, // Updated 2025-01-27: PHQ-9≥15 triggers crisis
         suicidalIdeation: false,
         completedAt: Date.now(),
         answers: this.generatePHQ9Answers(score, false)
@@ -130,7 +130,25 @@ class CrisisTestDataGenerator {
         }
       },
       {
-        description: 'Borderline crisis scores',
+        description: 'Moderate crisis threshold (PHQ-9≥15)',
+        phq9: {
+          totalScore: 15,
+          severity: 'moderately_severe',
+          isCrisis: true,
+          suicidalIdeation: false,
+          completedAt: Date.now(),
+          answers: this.generatePHQ9Answers(15, false)
+        },
+        gad7: {
+          totalScore: 15,
+          severity: 'severe',
+          isCrisis: true,
+          completedAt: Date.now(),
+          answers: this.generateGAD7Answers(15)
+        }
+      },
+      {
+        description: 'Severe crisis threshold (PHQ-9≥20)',
         phq9: {
           totalScore: 20,
           severity: 'severe',

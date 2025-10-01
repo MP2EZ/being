@@ -12,12 +12,19 @@ import CleanTabNavigator from './CleanTabNavigator';
 import MorningFlowNavigator from '../flows/morning/MorningFlowNavigator';
 import MiddayFlowNavigator from '../flows/midday/MiddayFlowNavigator';
 import EveningFlowNavigator from '../flows/evening/EveningFlowNavigator';
+import CrisisResourcesScreen from '../screens/crisis/CrisisResourcesScreen';
+import CrisisPlanScreen from '../screens/crisis/CrisisPlanScreen';
 
 export type RootStackParamList = {
   Main: undefined;
   MorningFlow: undefined;
   MiddayFlow: undefined;
   EveningFlow: undefined;
+  CrisisResources: {
+    severityLevel?: 'moderate' | 'high' | 'emergency';
+    source?: 'assessment' | 'direct' | 'crisis_button';
+  } | undefined;
+  CrisisPlan: undefined;
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -105,6 +112,28 @@ const CleanRootNavigator: React.FC = () => {
               />
             )}
           </Stack.Screen>
+
+          {/* Crisis Resources Screen */}
+          <Stack.Screen
+            name="CrisisResources"
+            component={CrisisResourcesScreen}
+            options={{
+              title: 'Crisis Support',
+              presentation: 'modal',
+              gestureEnabled: true
+            }}
+          />
+
+          {/* Crisis Plan Screen */}
+          <Stack.Screen
+            name="CrisisPlan"
+            component={CrisisPlanScreen}
+            options={{
+              title: 'Safety Plan',
+              presentation: 'modal',
+              gestureEnabled: true
+            }}
+          />
         </Stack.Group>
       </Stack.Navigator>
     </NavigationContainer>

@@ -56,14 +56,14 @@ describe('CLINICAL VALIDATION SUMMARY - CONDITIONAL APPROVAL', () => {
 
   describe('✅ CLINICAL REQUIREMENT VALIDATION', () => {
     it('Assessment accuracy: Critical boundary scores are correctly calculated', async () => {
-      // Test critical PHQ-9 boundary (crisis threshold = 20)
+      // Test critical PHQ-9 boundary (crisis threshold = 15, severe = 20)
       await store.startAssessment('phq9', 'clinical_accuracy_boundary_test');
       await new Promise(resolve => setTimeout(resolve, 10));
 
       const updatedStore = useAssessmentStore.getState();
       
       // Generate score exactly at crisis threshold
-      const crisisAnswers = [3, 3, 3, 3, 2, 2, 2, 2, 0]; // Total = 20
+      const crisisAnswers = [2, 2, 2, 2, 2, 2, 2, 1, 0]; // Total = 15 (moderate threshold)
       
       for (let i = 0; i < crisisAnswers.length; i++) {
         await updatedStore.answerQuestion(`phq9_${i + 1}`, crisisAnswers[i]);
@@ -74,11 +74,11 @@ describe('CLINICAL VALIDATION SUMMARY - CONDITIONAL APPROVAL', () => {
 
       const result = finalStore.currentResult as PHQ9Result;
       expect(result).toBeTruthy();
-      expect(result.totalScore).toBe(20);
-      expect(result.severity).toBe('severe');
+      expect(result.totalScore).toBe(15);
+      expect(result.severity).toBe('moderately_severe');
       expect(result.isCrisis).toBe(true);
 
-      console.log('✅ PHQ-9 Crisis Boundary (Score 20): Correctly identified as severe/crisis');
+      console.log('✅ PHQ-9 Crisis Boundary (Score 15): Correctly identified as moderately_severe/crisis');
     });
 
     it('Therapeutic timing: Crisis detection meets <200ms requirement', async () => {

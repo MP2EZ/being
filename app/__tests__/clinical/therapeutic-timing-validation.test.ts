@@ -134,7 +134,8 @@ describe('THERAPEUTIC TIMING VALIDATION', () => {
         }
 
         await store.completeAssessment();
-        expect(store.crisisDetection).toBeTruthy();
+        const finalStore = useAssessmentStore.getState();
+        expect(finalStore.crisisDetection).toBeTruthy();
       }
     });
 
@@ -161,9 +162,10 @@ describe('THERAPEUTIC TIMING VALIDATION', () => {
 
       // Assessment should complete in reasonable time to not disrupt therapy
       expect(assessmentEndTime - assessmentStartTime).toBeLessThan(30000); // 30 seconds max
-      
+
       // Validate assessment was recorded with timing context
-      const result = store.currentResult;
+      const finalStore = useAssessmentStore.getState();
+      const result = finalStore.currentResult;
       expect(result).toBeTruthy();
       expect(result?.completedAt).toBeGreaterThan(breathingStartTime);
     });
@@ -200,8 +202,9 @@ describe('THERAPEUTIC TIMING VALIDATION', () => {
           if (i === 8 && crisisAnswers[i] > 0) {
             const crisisDetectionTime = performance.now() - crisisStartTime;
             expect(crisisDetectionTime).toBeLessThan(200);
-            expect(store.crisisDetection).toBeTruthy();
-            expect(store.crisisDetection?.triggerType).toBe('phq9_suicidal');
+            const updatedStore = useAssessmentStore.getState();
+            expect(updatedStore.crisisDetection).toBeTruthy();
+            expect(updatedStore.crisisDetection?.triggerType).toBe('phq9_suicidal');
             break;
           }
         }
@@ -209,7 +212,8 @@ describe('THERAPEUTIC TIMING VALIDATION', () => {
         await store.completeAssessment();
 
         // Crisis detection should work regardless of therapeutic activity
-        expect(store.crisisDetection).toBeTruthy();
+        const completedStore = useAssessmentStore.getState();
+        expect(completedStore.crisisDetection).toBeTruthy();
         console.log(`Crisis detection during ${activity}: ${(performance.now() - crisisStartTime).toFixed(2)}ms`);
       }
     });
@@ -240,7 +244,8 @@ describe('THERAPEUTIC TIMING VALIDATION', () => {
       await store.completeAssessment();
       const totalTime = performance.now() - pauseTime;
 
-      const result = store.currentResult;
+      const finalStore = useAssessmentStore.getState();
+      const result = finalStore.currentResult;
       expect(result).toBeTruthy();
       expect(result?.totalScore).toBe(11); // 4*2 + 3*1 = 11
       
@@ -285,7 +290,8 @@ describe('THERAPEUTIC TIMING VALIDATION', () => {
         await store.completeAssessment();
         const responseTime = performance.now() - responseStartTime;
 
-        const result = store.currentResult;
+        const finalStore = useAssessmentStore.getState();
+        const result = finalStore.currentResult;
         expect(result).toBeTruthy();
         expect(result?.totalScore).toBe(test.score);
         expect(result?.severity).toBe(test.severity);
@@ -294,7 +300,7 @@ describe('THERAPEUTIC TIMING VALIDATION', () => {
         if (test.severity === 'severe') {
           // Crisis cases should be immediate
           expect(responseTime).toBeLessThan(test.expectedResponseTime);
-          expect(store.crisisDetection).toBeTruthy();
+          expect(finalStore.crisisDetection).toBeTruthy();
         } else {
           // Non-crisis cases should allow for therapeutic consideration
           expect(responseTime).toBeLessThan(test.expectedResponseTime * 2); // Allow flexibility
@@ -319,12 +325,13 @@ describe('THERAPEUTIC TIMING VALIDATION', () => {
 
       await store.completeAssessment();
 
-      const result = store.currentResult;
+      const finalStore = useAssessmentStore.getState();
+      const result = finalStore.currentResult;
       expect(result).toBeTruthy();
       expect(result?.severity).toBe('moderate');
 
       // Get assessment history for therapeutic timing decisions
-      const history = store.getAssessmentHistory('phq9');
+      const history = finalStore.getAssessmentHistory('phq9');
       expect(history).toHaveLength(1);
       expect(history[0].result?.totalScore).toBe(11);
 

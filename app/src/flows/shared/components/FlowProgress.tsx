@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { colorSystem, spacing, typography } from '../../../constants/colors';
+import { getTheme, spacing, typography } from '../../../constants/colors';
 
 interface FlowProgressProps {
   currentStep: number;
@@ -20,7 +20,7 @@ const FlowProgress: React.FC<FlowProgressProps> = ({
   flowType,
   stepTitles = [],
 }) => {
-  const themeColors = colorSystem.themes[flowType];
+  const themeColors = getTheme(flowType);
 
   return (
     <View style={styles.container}>

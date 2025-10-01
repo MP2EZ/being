@@ -3,7 +3,7 @@
  * DRD-FLOW-005 Implementation Verification
  * 
  * CLINICAL REQUIREMENTS VALIDATION:
- * ✓ PHQ-9: 27 possible scores (0-27), crisis threshold ≥20
+ * ✓ PHQ-9: 27 possible scores (0-27), crisis threshold ≥15 (moderate), ≥20 (severe)
  * ✓ GAD-7: 21 possible scores (0-21), crisis threshold ≥15
  * ✓ Suicidal ideation detection (PHQ-9 question 9 > 0)
  * ✓ Crisis intervention trigger time <200ms
@@ -99,17 +99,17 @@ describe('Assessment Store - Clinical Validation', () => {
       }
     });
 
-    it('correctly identifies crisis threshold at PHQ-9 ≥20', async () => {
+    it('correctly identifies crisis threshold at PHQ-9 ≥15', async () => {
       const { result } = renderHook(() => useAssessmentStore());
 
       await act(async () => {
         await result.current.startAssessment('phq9');
       });
 
-      // Test score 19 (below threshold)
-      const answers19 = generatePHQ9Answers(19);
+      // Test score 14 (below threshold) - Updated 2025-01-27
+      const answers14 = generatePHQ9Answers(14);
       await act(async () => {
-        for (const answer of answers19) {
+        for (const answer of answers14) {
           await result.current.answerQuestion(answer.questionId, answer.response);
         }
         await result.current.completeAssessment();
@@ -118,7 +118,7 @@ describe('Assessment Store - Clinical Validation', () => {
       expect(result.current.currentResult!.isCrisis).toBe(false);
       expect(result.current.crisisDetection).toBeNull();
 
-      // Reset and test score 20 (at threshold)
+      // Reset and test score 15 (at moderate threshold) - NEW
       act(() => {
         result.current.resetAssessment();
       });
@@ -127,9 +127,9 @@ describe('Assessment Store - Clinical Validation', () => {
         await result.current.startAssessment('phq9');
       });
 
-      const answers20 = generatePHQ9Answers(20);
+      const answers15 = generatePHQ9Answers(15);
       await act(async () => {
-        for (const answer of answers20) {
+        for (const answer of answers15) {
           await result.current.answerQuestion(answer.questionId, answer.response);
         }
         await result.current.completeAssessment();

@@ -11,7 +11,7 @@
  * - Performance validation across all sync layers
  *
  * SAFETY-CRITICAL SYNC VALIDATION:
- * - Crisis score sync priority (PHQ-9 ≥20, GAD-7 ≥15, suicidal ideation)
+ * - Crisis score sync priority (PHQ-9 ≥15, GAD-7 ≥15, suicidal ideation)
  * - Data integrity during sync conflicts and failures
  * - HIPAA compliance during cloud sync operations
  * - Network failure recovery and offline queue processing
@@ -147,7 +147,7 @@ describe('🔄 SYNC COORDINATOR INTEGRATION TESTING', () => {
   });
 
   describe('🚨 CRISIS ASSESSMENT SYNC PRIORITY', () => {
-    it('should trigger immediate crisis sync for PHQ-9 ≥20', async () => {
+    it('should trigger immediate crisis sync for PHQ-9 ≥15', async () => {
       const startTime = Date.now();
 
       // Simulate crisis assessment completion
