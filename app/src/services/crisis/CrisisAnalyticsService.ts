@@ -23,7 +23,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { logPerformance, logError, LogCategory } from '../logging';
+import { logPerformance, logError, logDebug, LogCategory } from '../logging';
 
 /**
  * CRISIS ANALYTICS EVENT TYPES
@@ -152,10 +152,10 @@ class CrisisAnalyticsService {
       this.isInitialized = true;
       logPerformance('Crisis analytics service initialized', {
         eventCount: this.events.length
-      }, LogCategory.Crisis);
+      }, LogCategory.CRISIS);
 
     } catch (error) {
-      logError(LogCategory.Crisis, 'Failed to initialize crisis analytics service', error as Error);
+      logError(LogCategory.CRISIS, 'Failed to initialize crisis analytics service', error as Error);
     }
   }
 
@@ -188,7 +188,7 @@ class CrisisAnalyticsService {
       await this.saveEvents();
 
     } catch (error) {
-      logError(LogCategory.Crisis, 'Failed to track crisis analytics event', error as Error);
+      logError(LogCategory.CRISIS, 'Failed to track crisis analytics event', error as Error);
     }
   }
 
@@ -352,9 +352,9 @@ Not Helpful: ${summary.effectivenessRatings.notHelpful}
       this.events = [];
       await AsyncStorage.removeItem(STORAGE_KEY);
 
-      logDebug(LogCategory.Crisis, 'Crisis analytics data cleared');
+      logDebug(LogCategory.CRISIS, 'Crisis analytics data cleared');
     } catch (error) {
-      logError(LogCategory.Crisis, 'Failed to clear crisis analytics data', error as Error);
+      logError(LogCategory.CRISIS, 'Failed to clear crisis analytics data', error as Error);
     }
   }
 
@@ -463,7 +463,7 @@ Not Helpful: ${summary.effectivenessRatings.notHelpful}
         lastUpdated: Date.now()
       }));
     } catch (error) {
-      logError(LogCategory.Crisis, 'Failed to save crisis analytics events', error as Error);
+      logError(LogCategory.CRISIS, 'Failed to save crisis analytics events', error as Error);
     }
   }
 
@@ -477,7 +477,7 @@ Not Helpful: ${summary.effectivenessRatings.notHelpful}
       await this.saveEvents();
       logPerformance(`Cleaned ${initialCount - this.events.length} old analytics events`, {
         remaining: this.events.length
-      }, LogCategory.Crisis);
+      }, LogCategory.CRISIS);
     }
   }
 }

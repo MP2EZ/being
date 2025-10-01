@@ -20,7 +20,7 @@
 
 import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { logInfo, logError, LogCategory } from '../logging';
+import { logError, logDebug, LogCategory } from '../logging';
 
 /**
  * Migration result tracking
@@ -47,7 +47,7 @@ export async function migrateCrisisDataToSecureStore(): Promise<MigrationResult>
   };
 
   try {
-    logDebug(LogCategory.Crisis, 'Starting crisis data migration to SecureStore');
+    logDebug(LogCategory.CRISIS, 'Starting crisis data migration to SecureStore');
 
     // Get all AsyncStorage keys
     const allKeys = await AsyncStorage.getAllKeys();
@@ -65,11 +65,11 @@ export async function migrateCrisisDataToSecureStore(): Promise<MigrationResult>
     result.totalKeys = crisisKeys.length;
 
     if (crisisKeys.length === 0) {
-      logDebug(LogCategory.Crisis, 'No crisis data to migrate');
+      logDebug(LogCategory.CRISIS, 'No crisis data to migrate');
       return result;
     }
 
-    logDebug(LogCategory.Crisis, `Found ${crisisKeys.length} crisis data keys to migrate`, { count: crisisKeys.length });
+    logDebug(LogCategory.CRISIS, `Found ${crisisKeys.length} crisis data keys to migrate`, { count: crisisKeys.length });
 
     // Migrate each key
     for (const key of crisisKeys) {
@@ -95,11 +95,11 @@ export async function migrateCrisisDataToSecureStore(): Promise<MigrationResult>
           key,
           error: error instanceof Error ? error.message : String(error)
         });
-        logError(LogCategory.Crisis, `Failed to migrate key: ${key}`, error as Error);
+        logError(LogCategory.CRISIS, `Failed to migrate key: ${key}`, error as Error);
       }
     }
 
-    logDebug(LogCategory.Crisis, 'Crisis data migration complete', {
+    logDebug(LogCategory.CRISIS, 'Crisis data migration complete', {
       total: result.totalKeys,
       migrated: result.migratedKeys,
       failed: result.failedKeys,
@@ -107,7 +107,7 @@ export async function migrateCrisisDataToSecureStore(): Promise<MigrationResult>
     });
 
   } catch (error) {
-    logError(LogCategory.Crisis, 'Crisis data migration failed', error as Error);
+    logError(LogCategory.CRISIS, 'Crisis data migration failed', error as Error);
   }
 
   return result;
@@ -130,7 +130,7 @@ export async function isCrisisMigrationNeeded(): Promise<boolean> {
     );
     return crisisKeys.length > 0;
   } catch (error) {
-    logError(LogCategory.Crisis, 'Failed to check migration status', error as Error);
+    logError(LogCategory.CRISIS, 'Failed to check migration status', error as Error);
     return false;
   }
 }
@@ -161,7 +161,7 @@ export async function getCrisisMigrationStatus(): Promise<{
       migrationNeeded: asyncCrisisKeys.length > 0
     };
   } catch (error) {
-    logError(LogCategory.Crisis, 'Failed to get migration status', error as Error);
+    logError(LogCategory.CRISIS, 'Failed to get migration status', error as Error);
     return {
       asyncStorageKeys: 0,
       secureStoreKeys: -1,

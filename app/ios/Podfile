@@ -28,7 +28,6 @@ target 'Being' do
     ]
   end
 
-  # CRITICAL: Use standard autolinking (reanimated excluded via metro.config.js blacklist)
   config = use_native_modules!(config_command)
 
   use_frameworks! :linkage => podfile_properties['ios.useFrameworks'].to_sym if podfile_properties['ios.useFrameworks']

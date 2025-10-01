@@ -22,7 +22,7 @@
 
 import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { logPerformance, logSecurity, logError, LogCategory } from '../logging';
+import { logPerformance, logSecurity, logError, logDebug, LogCategory } from '../logging';
 import { crisisAnalyticsService } from './CrisisAnalyticsService';
 
 export interface PostCrisisSupport {
@@ -76,7 +76,7 @@ class PostCrisisSupportService {
         const oldData = await AsyncStorage.getItem(oldKey);
 
         if (oldData) {
-          logDebug(LogCategory.Crisis, 'Migrating post-crisis support from AsyncStorage to SecureStore');
+          logDebug(LogCategory.CRISIS, 'Migrating post-crisis support from AsyncStorage to SecureStore');
 
           // Migrate to SecureStore
           await SecureStore.setItemAsync(STORAGE_KEY, oldData);
@@ -85,7 +85,7 @@ class PostCrisisSupportService {
           await AsyncStorage.removeItem(oldKey);
 
           data = oldData;
-          logDebug(LogCategory.Crisis, 'Post-crisis support migration complete');
+          logDebug(LogCategory.CRISIS, 'Post-crisis support migration complete');
         }
       }
 
@@ -100,9 +100,9 @@ class PostCrisisSupportService {
         }
       }
 
-      logDebug(LogCategory.Crisis, 'Post-crisis support service initialized');
+      logDebug(LogCategory.CRISIS, 'Post-crisis support service initialized');
     } catch (error) {
-      logError(LogCategory.Crisis, 'Failed to initialize post-crisis support service', error as Error);
+      logError(LogCategory.CRISIS, 'Failed to initialize post-crisis support service', error as Error);
     }
   }
 
@@ -140,9 +140,9 @@ class PostCrisisSupportService {
         supportId: support.id,
         crisisType,
         crisisScore
-      }, LogCategory.Crisis);
+      }, LogCategory.CRISIS);
     } catch (error) {
-      logError(LogCategory.Crisis, 'Failed to save post-crisis support', error as Error);
+      logError(LogCategory.CRISIS, 'Failed to save post-crisis support', error as Error);
     }
 
     return support;
@@ -176,7 +176,7 @@ class PostCrisisSupportService {
       supportId: this.currentSupport.id,
       day,
       totalCheckIns: this.currentSupport.checkIns.length
-    }, LogCategory.Crisis);
+    }, LogCategory.CRISIS);
   }
 
   /**
@@ -225,7 +225,7 @@ class PostCrisisSupportService {
     logSecurity('User opted out of post-crisis support', {
       supportId: this.currentSupport.id,
       daysActive: this.getDaysActive()
-    }, LogCategory.Crisis);
+    }, LogCategory.CRISIS);
   }
 
   /**
@@ -249,7 +249,7 @@ class PostCrisisSupportService {
       supportId,
       checkInsCompleted: this.currentSupport.checkIns.length,
       successful: wasSuccessful
-    }, LogCategory.Crisis);
+    }, LogCategory.CRISIS);
 
     this.currentSupport = null;
   }
@@ -331,7 +331,7 @@ class PostCrisisSupportService {
     try {
       await SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify(this.currentSupport));
     } catch (error) {
-      logError(LogCategory.Crisis, 'Failed to save post-crisis support', error as Error);
+      logError(LogCategory.CRISIS, 'Failed to save post-crisis support', error as Error);
     }
   }
 }

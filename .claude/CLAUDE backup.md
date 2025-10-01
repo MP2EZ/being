@@ -8,7 +8,7 @@
   ### Domain Authorities
   | Agent | Pri | Function | Triggers | Override |
   |-------|-----|----------|----------|----------|
-  | crisis | !! | safety protocols\|988\|emergency response\|intervention workflows | PHQ≥15\|PHQ≥20\|GAD≥15\|button\|risk | ALL |
+  | crisis | !! | safety protocols\|988\|emergency response\|intervention workflows | PHQ≥20\|GAD≥15\|button\|risk | ALL |
   | compliance | ! | HIPAA compliance\|privacy law\|regulatory validation\|legal requirements | data\|encrypt\|consent\|network | technical |
   | clinician | ! | MBCT validation\|therapeutic content\|clinical accuracy\|PHQ/GAD scoring | PHQ/GAD\|exercises\|mood | UX |
 
@@ -20,28 +20,23 @@
   ESCALATE: healthcare-terms\|/assessment/\|/crisis/\|/clinical/\|/therapeutic/
 
   ### Auto-Triggers
-  CRITICAL: PHQ≥15\|PHQ≥20\|GAD≥15\|crisis-button\|safety-risk\|emergency-features
+  CRITICAL: PHQ≥20\|GAD≥15\|crisis-button\|safety-risk\|emergency-features
   COMPLIANCE: data-encrypt\|storage\|consent\|network\|app-store
   CLINICAL: assessment-content\|MBCT-exercises\|scoring\|therapeutic-language
 
   ### Templates
-  Detailed templates: ./.claude/templates/
+  | ID | When | Flow |
+  |----|------|------|
+  | F1 | Therapeutic/MBCT | clinician→accessibility→react→test→crisis? |
+  | F2 | Crisis/safety |
+  crisis→(clinician+compliance)→architect→(react+typescript+security)→accessibility→test→deploy |
+  | F3 | PHQ-9/GAD-7 | clinician→(typescript+state)→crisis→react→test→accessibility |
+  | F4 | Data/privacy | compliance→(security+api)→architect→(react+state)→test→deploy |
+  | F5 | Exercises/mood |
+  clinician→architect→(react+typescript+state)→accessibility→test→performance→review |
+  | F6 | Safety-bugs | crisis→(compliance+clinician)→architect→[rapid]→test→deploy |
 
-  **Quick Reference**:
-
-  **Being Templates**:
-  B-CRISIS: Crisis/safety → (crisis+compliance)→main→(crisis+compliance+accessibility)
-    - Use for: crisis detection, PHQ/GAD thresholds, 988, safety protocols
-  B-HOTFIX: Emergency bugs → crisis→main[rapid]→crisis-validate→deploy
-    - Use for: urgent safety bugs, <30min rapid response
-  B-DEV: Being development
-    - Use for: features, therapeutic content, assessment UI, privacy features
-    - Paths: therapeutic (clinician), assessment (clinician→crisis), privacy (compliance+security), general
-  B-DEBUG: Being debugging
-    - Use for: non-emergency bugs with Being domain awareness
-    - Domain validation: therapeutic (clinician), assessment (clinician+crisis), privacy (compliance)
-
-  Read ./.claude/templates/being-templates.md when uncertain about pattern details.
+  Non-clinical→Global(T1-T6)
 
   ### Conflicts
   Domain: crisis>compliance>clinician (safety-first)
@@ -54,18 +49,17 @@
   Clinical: Include accuracy requirements + compliance notes
 
   ### Global Integration
-  Domain content (clinical\|crisis\|compliance) → B-CRISIS/B-HOTFIX/B-DEV/B-DEBUG
-  Technical-only → Global T-DEV/T-DEBUG/T-BATCH/T-MIGRATE | Mixed → B-template + domain validation
+  Domain content (clinical\|crisis\|compliance) → F1-F6
+  Technical-only → Global T1-T6 | Mixed → F-template + domain validation
   Escalation: Single→Being.Template→Global+Domain→Architect
 
   ## Product [!!]
   
-  ### Config
+  ## Config
   RN/Expo/TS/Zustand
 
   ### Standards
-  PHQ/GAD: exact-words\|100%-accuracy\|thresholds(PHQ≥15/≥20,GAD≥15)
-    ↳ PHQ≥15=support, PHQ≥20=intervention
+  PHQ/GAD: exact-words\|100%-accuracy\|thresholds(≥20,≥15)
   Crisis: 988\|<3s-access\|auto-trigger | Breathing: 60s×3=180s-exact
   Storage: encrypt\|auto-save\|validate\|offline
 
@@ -97,3 +91,7 @@
   Branches: main(clinical-validated)\|release(full-review)\|hotfix(crisis-expedited)
   Commands: test:clinical\|validate:accessibility\|perf:breathing\|perf:crisis
   Integration: global-standards + domain-requirements | Domain-veto-power
+
+  ## CHANGELOG
+  Update: merge→main|feat/*|fix/*|BREAKING | Format: [semver]-date | Sections: Critical|Performance|Accessibility|Security|Features|Fixes
+  Auto: post-merge|post-deploy|critical-fixes | Template: version→summary→changes(git log)→contributors
