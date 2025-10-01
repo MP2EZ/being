@@ -47,7 +47,7 @@ export async function migrateCrisisDataToSecureStore(): Promise<MigrationResult>
   };
 
   try {
-    logInfo('Starting crisis data migration to SecureStore', LogCategory.Crisis);
+    logDebug(LogCategory.Crisis, 'Starting crisis data migration to SecureStore');
 
     // Get all AsyncStorage keys
     const allKeys = await AsyncStorage.getAllKeys();
@@ -65,11 +65,11 @@ export async function migrateCrisisDataToSecureStore(): Promise<MigrationResult>
     result.totalKeys = crisisKeys.length;
 
     if (crisisKeys.length === 0) {
-      logInfo('No crisis data to migrate', LogCategory.Crisis);
+      logDebug(LogCategory.Crisis, 'No crisis data to migrate');
       return result;
     }
 
-    logInfo(`Found ${crisisKeys.length} crisis data keys to migrate`, LogCategory.Crisis, { count: crisisKeys.length });
+    logDebug(LogCategory.Crisis, `Found ${crisisKeys.length} crisis data keys to migrate`, { count: crisisKeys.length });
 
     // Migrate each key
     for (const key of crisisKeys) {
@@ -99,7 +99,7 @@ export async function migrateCrisisDataToSecureStore(): Promise<MigrationResult>
       }
     }
 
-    logInfo('Crisis data migration complete', LogCategory.Crisis, {
+    logDebug(LogCategory.Crisis, 'Crisis data migration complete', {
       total: result.totalKeys,
       migrated: result.migratedKeys,
       failed: result.failedKeys,

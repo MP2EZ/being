@@ -352,7 +352,7 @@ Not Helpful: ${summary.effectivenessRatings.notHelpful}
       this.events = [];
       await AsyncStorage.removeItem(STORAGE_KEY);
 
-      logInfo('Crisis analytics data cleared', LogCategory.Crisis);
+      logDebug(LogCategory.Crisis, 'Crisis analytics data cleared');
     } catch (error) {
       logError(LogCategory.Crisis, 'Failed to clear crisis analytics data', error as Error);
     }
