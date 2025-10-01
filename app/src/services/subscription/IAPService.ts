@@ -28,6 +28,7 @@ import {
   DEFAULT_SUBSCRIPTION_CONFIG
 } from '../../types/subscription';
 import { Platform } from 'react-native';
+import { supabaseService } from '../supabase/SupabaseService';
 
 /**
  * IAP Product Configuration
@@ -240,26 +241,93 @@ class IAPServiceClass {
    * Verify receipt server-side
    * Sends receipt to Supabase Edge Function for verification
    */
-  async verifyReceipt(receiptData: string, platform: 'apple' | 'google'): Promise<{
+  async verifyReceipt(receiptData: string, platform: 'apple' | 'google', purchaseToken?: string): Promise<{
     valid: boolean;
     subscriptionId?: string;
     expiresDate?: number;
     error?: string;
   }> {
     try {
-      console.log('[IAP] Verifying receipt...');
+      console.log('[IAP] Verifying receipt...', { platform });
 
-      // TODO: Implement server-side receipt verification
-      // Call Supabase Edge Function: /functions/verify-receipt
-      // Edge Function calls Apple/Google verification API
-      // Returns parsed subscription data
+      // Get user ID from Supabase service
+      const status = supabaseService.getStatus();
+      if (!status.userId) {
+        throw new Error('User not authenticated');
+      }
 
-      // For now, return mock response
-      return {
-        valid: true,
-        subscriptionId: 'mock_subscription_id',
-        expiresDate: Date.now() + 30 * 24 * 60 * 60 * 1000 // 30 days
-      };
+      const startTime = performance.now();
+
+      // Call appropriate Edge Function based on platform
+      if (platform === 'apple') {
+        const response = await fetch(
+          `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/verify-apple-receipt`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY}`,
+            },
+            body: JSON.stringify({
+              receiptData,
+              userId: status.userId,
+            }),
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(`Receipt verification failed: ${response.status}`);
+        }
+
+        const result = await response.json();
+        const verifyTime = performance.now() - startTime;
+        console.log(`[IAP] Receipt verified in ${verifyTime}ms`);
+
+        return {
+          valid: result.valid,
+          subscriptionId: result.subscriptionId,
+          expiresDate: result.expiresDate ? new Date(result.expiresDate).getTime() : undefined,
+          error: result.error,
+        };
+      } else if (platform === 'google') {
+        if (!purchaseToken) {
+          throw new Error('Purchase token required for Google verification');
+        }
+
+        const response = await fetch(
+          `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/verify-google-receipt`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY}`,
+            },
+            body: JSON.stringify({
+              packageName: 'com.being.app', // TODO: Make configurable
+              subscriptionId: receiptData, // For Google, this is the product ID
+              purchaseToken,
+              userId: status.userId,
+            }),
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(`Receipt verification failed: ${response.status}`);
+        }
+
+        const result = await response.json();
+        const verifyTime = performance.now() - startTime;
+        console.log(`[IAP] Receipt verified in ${verifyTime}ms`);
+
+        return {
+          valid: result.valid,
+          subscriptionId: result.subscriptionId,
+          expiresDate: result.expiresDate ? new Date(result.expiresDate).getTime() : undefined,
+          error: result.error,
+        };
+      } else {
+        throw new Error('Unsupported platform');
+      }
     } catch (error) {
       console.error('[IAP] Receipt verification failed:', error);
       return {
