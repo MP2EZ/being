@@ -13,7 +13,13 @@ import {
   Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
 import OnboardingScreen from './OnboardingScreen.simple';
+import { RootStackParamList } from '../navigation/CleanRootNavigator';
+import { useSubscriptionStore } from '../stores/subscriptionStore';
+
+type ProfileScreenNavigationProp = StackNavigationProp<RootStackParamList>;
 
 // Hardcoded colors - no dynamic theme system
 const colors = {
@@ -41,6 +47,8 @@ type Screen = 'menu' | 'onboarding' | 'account' | 'privacy' | 'about';
 
 const ProfileScreen: React.FC = () => {
   const [currentScreen, setCurrentScreen] = useState<Screen>('menu');
+  const navigation = useNavigation<ProfileScreenNavigationProp>();
+  const subscriptionStore = useSubscriptionStore();
 
   const handleStartOnboarding = () => {
     setCurrentScreen('onboarding');
@@ -53,6 +61,21 @@ const ProfileScreen: React.FC = () => {
 
   const handleReturnToMenu = () => {
     setCurrentScreen('menu');
+  };
+
+  const handleSubscriptionPress = () => {
+    navigation.navigate('Subscription');
+  };
+
+  const getSubscriptionStatus = () => {
+    if (subscriptionStore.isTrialActive()) {
+      const daysRemaining = subscriptionStore.getTrialDaysRemaining();
+      return `Free Trial - ${daysRemaining} days remaining`;
+    }
+    if (subscriptionStore.isSubscriptionActive()) {
+      return 'Active Subscription';
+    }
+    return 'Start Your Free Trial';
   };
 
   const renderMenu = () => (
@@ -77,6 +100,23 @@ const ProfileScreen: React.FC = () => {
               Complete your initial assessment and configure your therapeutic preferences for a personalized experience.
             </Text>
             <Text style={styles.cardAction}>Start Setup →</Text>
+          </Pressable>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Subscription</Text>
+
+          <Pressable
+            style={styles.profileCard}
+            onPress={handleSubscriptionPress}
+          >
+            <Text style={styles.cardTitle}>{getSubscriptionStatus()}</Text>
+            <Text style={styles.cardDescription}>
+              Unlock all therapeutic exercises, progress insights, and personalized guidance with a subscription. Try free for 28 days.
+            </Text>
+            <Text style={styles.cardAction}>
+              {subscriptionStore.isSubscriptionActive() ? 'Manage Subscription →' : 'Start Free Trial →'}
+            </Text>
           </Pressable>
         </View>
 

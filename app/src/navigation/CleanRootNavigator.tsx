@@ -14,6 +14,8 @@ import MiddayFlowNavigator from '../flows/midday/MiddayFlowNavigator';
 import EveningFlowNavigator from '../flows/evening/EveningFlowNavigator';
 import CrisisResourcesScreen from '../screens/crisis/CrisisResourcesScreen';
 import CrisisPlanScreen from '../screens/crisis/CrisisPlanScreen';
+import PurchaseOptionsScreen from '../components/subscription/PurchaseOptionsScreen';
+import SubscriptionStatusCard from '../components/subscription/SubscriptionStatusCard';
 
 export type RootStackParamList = {
   Main: undefined;
@@ -25,6 +27,8 @@ export type RootStackParamList = {
     source?: 'assessment' | 'direct' | 'crisis_button';
   } | undefined;
   CrisisPlan: undefined;
+  Subscription: undefined;
+  SubscriptionStatus: undefined;
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -130,6 +134,27 @@ const CleanRootNavigator: React.FC = () => {
             component={CrisisPlanScreen}
             options={{
               title: 'Safety Plan',
+              presentation: 'modal',
+              gestureEnabled: true
+            }}
+          />
+
+          {/* Subscription Screens */}
+          <Stack.Screen
+            name="Subscription"
+            component={PurchaseOptionsScreen}
+            options={{
+              title: 'Subscription',
+              presentation: 'modal',
+              gestureEnabled: true
+            }}
+          />
+
+          <Stack.Screen
+            name="SubscriptionStatus"
+            component={SubscriptionStatusCard}
+            options={{
+              title: 'Subscription Status',
               presentation: 'modal',
               gestureEnabled: true
             }}

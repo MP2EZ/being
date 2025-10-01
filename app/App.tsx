@@ -10,6 +10,8 @@ import { SimpleThemeProvider } from './src/contexts/SimpleThemeContext';
 import CleanRootNavigator from './src/navigation/CleanRootNavigator';
 import { postCrisisSupportService } from './src/services/crisis/PostCrisisSupportService';
 import { migrateCrisisDataToSecureStore } from './src/services/crisis/CrisisDataMigration';
+import { IAPService } from './src/services/subscription/IAPService';
+import { useSubscriptionStore } from './src/stores/subscriptionStore';
 
 export default function App() {
   const [isInitialized, setIsInitialized] = useState(false);
@@ -27,6 +29,20 @@ export default function App() {
 
         if (migrationResult.migratedKeys > 0) {
           console.log(`[App] Crisis data migration completed: ${migrationResult.migratedKeys}/${migrationResult.totalKeys} keys migrated`);
+        }
+
+        // Initialize subscription system
+        console.log('[App] Initializing subscription system...');
+
+        // Load subscription from storage
+        await useSubscriptionStore.getState().loadSubscription();
+
+        // Initialize IAP service (if available)
+        if (IAPService.isAvailable()) {
+          await IAPService.initialize();
+          console.log('[App] IAP service initialized');
+        } else {
+          console.log('[App] IAP not available on this platform');
         }
 
         setIsInitialized(true);

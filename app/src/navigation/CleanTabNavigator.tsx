@@ -12,6 +12,12 @@ import { colorSystem, spacing } from '../constants/colors';
 import CleanHomeScreen from '../screens/home/CleanHomeScreen';
 import ExercisesScreen from '../screens/ExercisesScreen.simple';
 import ProfileScreen from '../screens/ProfileScreen.simple';
+import FeatureGate from '../components/subscription/FeatureGate';
+import { useNavigation } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
+import type { RootStackParamList } from './CleanRootNavigator';
+
+type NavigationProp = StackNavigationProp<RootStackParamList>;
 
 const Tab = createBottomTabNavigator();
 
@@ -73,12 +79,21 @@ const PlaceholderScreen: React.FC<{ name: string; description: string }> = ({ na
 // Create proper component references to avoid inline functions
 // ExercisesScreen now imported from separate file
 
-const InsightsScreen = () => (
-  <PlaceholderScreen
-    name="Your Insights"
-    description="Track your progress, view patterns, and understand your mindfulness journey over time."
-  />
-);
+const InsightsScreen = () => {
+  const navigation = useNavigation<NavigationProp>();
+
+  return (
+    <FeatureGate
+      feature="progressInsights"
+      onUpgrade={() => navigation.navigate('Subscription')}
+    >
+      <PlaceholderScreen
+        name="Your Insights"
+        description="Track your progress, view patterns, and understand your mindfulness journey over time."
+      />
+    </FeatureGate>
+  );
+};
 
 // ProfileScreen now imported from separate file
 
