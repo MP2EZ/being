@@ -274,6 +274,15 @@ export class ProductionLogger {
       return obj.map(item => this.sanitizeObject(item));
     }
 
+    // Handle Error objects specially (they have non-enumerable properties)
+    if (obj instanceof Error) {
+      return {
+        name: obj.name,
+        message: this.sanitizeString(obj.message),
+        stack: obj.stack ? this.sanitizeString(obj.stack) : undefined
+      };
+    }
+
     if (obj && typeof obj === 'object') {
       const sanitized: any = {};
 
