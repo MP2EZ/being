@@ -21,9 +21,22 @@
  */
 
 
-import { logSecurity, logPerformance, logError, LogCategory } from '../../services/logging';
-// Main Production Dashboard
-export { ProductionDashboard } from './ProductionDashboard';
+import {
+  logSecurity,
+  logPerformance,
+  logError,
+  LogCategory
+} from '../../services/logging';
+
+import {
+  monitoringOrchestrator,
+  errorMonitoringService,
+  trackError,
+  trackCrisisError,
+  trackAuthError,
+  trackSyncError
+} from '../../services/monitoring';
+import ProductionDashboard from './ProductionDashboard';
 
 // Re-export monitoring services for integration
 export {
@@ -33,7 +46,10 @@ export {
   trackCrisisError,
   trackAuthError,
   trackSyncError
-} from '../../services/monitoring';
+};
+
+// Main Production Dashboard export
+export { ProductionDashboard };
 
 // Re-export resilience services for dashboard integration
 export {
@@ -99,20 +115,31 @@ export const MonitoringWidget: React.FC<MonitoringWidgetProps> = ({
     return systemHealth.charAt(0).toUpperCase() + systemHealth.slice(1);
   };
 
-  return (
-    <TouchableOpacity
-      style={[styles.widget, { borderColor: getStatusColor() }]}
-      onPress={onPress}
-      activeOpacity={0.7}
-    >
-      <View style={styles.widgetContent}>
-        <View style={[styles.statusIndicator, { backgroundColor: getStatusColor() }]} />
-        <Text style={styles.statusText}>{getStatusText()}</Text>
-      </View>
-      {criticalFailures > 0 && (
-        <Text style={styles.criticalAlert}>🚨</Text>
-      )}
-    </TouchableOpacity>
+  return React.createElement(
+    TouchableOpacity,
+    {
+      style: [styles.widget, { borderColor: getStatusColor() }],
+      onPress: onPress,
+      activeOpacity: 0.7
+    },
+    React.createElement(
+      View,
+      { style: styles.widgetContent },
+      React.createElement(
+        View,
+        { style: [styles.statusIndicator, { backgroundColor: getStatusColor() }] }
+      ),
+      React.createElement(
+        Text,
+        { style: styles.statusText },
+        getStatusText()
+      )
+    ),
+    criticalFailures > 0 && React.createElement(
+      Text,
+      { style: styles.criticalAlert },
+      '🚨'
+    )
   );
 };
 
@@ -168,9 +195,9 @@ export async function initializeMonitoringComponents(): Promise<void> {
     await monitoringOrchestrator.initialize();
     await resilienceOrchestrator.initialize();
 
-    logPerformance('✅ Monitoring components initialized successfully');
+    logPerformance('Monitoring components initialized', 10);
   } catch (error) {
-    logError('🚨 Monitoring components initialization failed:', error);
+    logError(LogCategory.SYSTEM, 'Monitoring components initialization failed', error instanceof Error ? error : undefined);
     throw error;
   }
 }
@@ -190,8 +217,10 @@ export function getMonitoringComponentsHealth(): {
     let monitoring: 'healthy' | 'degraded' | 'unhealthy' = 'healthy';
     if (!monitoringStatus.isInitialized) {
       monitoring = 'unhealthy';
+      logError(LogCategory.SYSTEM, 'Monitoring initialization issue');
     } else if (monitoringStatus.errorMonitoring.criticalErrors > 0) {
       monitoring = 'degraded';
+      logError(LogCategory.SYSTEM, 'Critical errors detected');
     }
 
     const resilience = resilienceStatus.systemHealth.overall;
@@ -199,13 +228,16 @@ export function getMonitoringComponentsHealth(): {
     let overall: 'healthy' | 'degraded' | 'critical' = 'healthy';
     if (monitoring === 'unhealthy' || resilience === 'critical') {
       overall = 'critical';
+      logError(LogCategory.SYSTEM, 'System health critical');
     } else if (monitoring === 'degraded' || resilience === 'degraded') {
       overall = 'degraded';
+      logError(LogCategory.SYSTEM, 'System health degraded');
     }
 
     return { monitoring, resilience, overall };
 
   } catch (error) {
+    logError(LogCategory.SYSTEM, 'Health check failure', error instanceof Error ? error : undefined);
     return {
       monitoring: 'unhealthy',
       resilience: 'critical',

@@ -11,7 +11,7 @@
  */
 
 
-import { logSecurity, logPerformance, logError, LogCategory } from '../../../services/logging';
+import { logSecurity, logPerformance, logError, logDebug, LogCategory } from '../../../services/logging';
 import React, { useCallback, useEffect, useState, useRef } from 'react';
 import { 
   View, 
@@ -145,26 +145,26 @@ export class AccessibilityPerformanceMonitor {
     if (this.monitoring) return;
 
     this.monitoring = true;
-    
+
     // Monitor performance every 5 seconds
     this.intervalId = setInterval(() => {
       this.collectMetrics();
     }, 5000);
 
-    logPerformance('🚀 Accessibility performance monitoring started');
+    logDebug(LogCategory.ACCESSIBILITY, '🚀 Accessibility performance monitoring started');
   }
 
   stopMonitoring(): void {
     if (!this.monitoring) return;
 
     this.monitoring = false;
-    
+
     if (this.intervalId) {
       clearInterval(this.intervalId);
       this.intervalId = null;
     }
 
-    logPerformance('⏹️ Accessibility performance monitoring stopped');
+    logDebug(LogCategory.ACCESSIBILITY, '⏹️ Accessibility performance monitoring stopped');
   }
 
   private async collectMetrics(): Promise<void> {
@@ -193,11 +193,11 @@ export class AccessibilityPerformanceMonitor {
 
       const collectionTime = performance.now() - startTime;
       if (collectionTime > 20) {
-        logSecurity(`⚠️ Performance collection took ${collectionTime}ms (target: <20ms)`);
+        logSecurity(`⚠️ Performance collection took ${collectionTime}ms (target: <20ms)`, 'low');
       }
 
     } catch (error) {
-      logError('Failed to collect accessibility performance metrics:', error);
+      logError(LogCategory.ACCESSIBILITY, 'Failed to collect accessibility performance metrics', error instanceof Error ? error : undefined);
     }
   }
 
@@ -298,7 +298,11 @@ export class AccessibilityPerformanceMonitor {
     }
 
     if (issues.length > 0) {
-      logPerformance(`🔧 Auto-optimization applied for: ${issues.join(', ')}`);
+      const duration = performance.now();
+      logPerformance(`Auto-optimization applied for: ${issues.join(', ')}`, duration, {
+        category: 'computation',
+        threshold: 100
+      });
     }
   }
 
@@ -359,10 +363,15 @@ export class AccessibilityPerformanceMonitor {
 
   private async applyOptimization(optimization: PerformanceOptimization): Promise<void> {
     // In a real implementation, this would apply the specific optimization
-    logPerformance(`🔧 Applying optimization: ${optimization.description}`);
-    
+    const startTime = performance.now();
+
     // Simulate optimization application time
     await new Promise(resolve => setTimeout(resolve, 5));
+
+    const duration = performance.now() - startTime;
+    logPerformance(`Applying optimization: ${optimization.description}`, duration, {
+      category: 'computation'
+    });
   }
 
   // Public API methods
@@ -469,21 +478,23 @@ export const PerformanceMonitorUI: React.FC<PerformanceMonitorProps> = ({
 }) => {
   const [metrics, setMetrics] = useState<AccessibilityPerformanceMetrics | null>(null);
   const [isOptimal, setIsOptimal] = useState(true);
-  const intervalRef = useRef<NodeJS.Timeout>();
+  const intervalRef = useRef<NodeJS.Timeout | undefined>(undefined);
+
+  const updateMetrics = useCallback(() => {
+    setMetrics(monitor.getLatestMetrics());
+    setIsOptimal(monitor.isPerformanceOptimal());
+  }, [monitor]);
 
   useEffect(() => {
     // Update UI every 2 seconds
-    intervalRef.current = setInterval(() => {
-      setMetrics(monitor.getLatestMetrics());
-      setIsOptimal(monitor.isPerformanceOptimal());
-    }, 2000);
+    intervalRef.current = setInterval(updateMetrics, 2000);
 
     return () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
       }
     };
-  }, [monitor]);
+  }, [updateMetrics]);
 
   if (!showAdvanced && !__DEV__) {
     return null; // Hide in production unless explicitly shown

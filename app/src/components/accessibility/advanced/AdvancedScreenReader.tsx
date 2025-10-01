@@ -11,7 +11,7 @@
  */
 
 
-import { logSecurity, logPerformance, logError, LogCategory } from '../../../services/logging';
+import { logSecurity, logPerformance, logError, logDebug, LogCategory } from '../../../services/logging';
 import React, { useCallback, useEffect, useRef, useState, createContext, useContext } from 'react';
 import {
   View,
@@ -116,12 +116,16 @@ export const AdvancedScreenReaderProvider: React.FC<AdvancedScreenReaderProvider
         const enabled = await AccessibilityInfo.isScreenReaderEnabled();
         setIsScreenReaderEnabled(enabled);
       } catch (error) {
-        logSecurity('Could not check screen reader status:', error);
+        logSecurity('Could not check screen reader status', 'low', {
+          component: 'AdvancedScreenReader',
+          action: 'checkStatus',
+          result: 'failure'
+        });
       }
     };
 
     checkScreenReader();
-    
+
     const listener = AccessibilityInfo.addEventListener(
       'screenReaderChanged',
       (enabled: boolean) => {
@@ -141,6 +145,7 @@ export const AdvancedScreenReaderProvider: React.FC<AdvancedScreenReaderProvider
     );
 
     return () => listener?.remove();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [therapeuticMode]);
 
   // Check for reduced motion preference
@@ -150,7 +155,11 @@ export const AdvancedScreenReaderProvider: React.FC<AdvancedScreenReaderProvider
         const reduceMotion = await AccessibilityInfo.isReduceMotionEnabled();
         setIsReducedMotionState(reduceMotion || false);
       } catch (error) {
-        logSecurity('Could not check reduced motion preference:', error);
+        logSecurity('Could not check reduced motion preference', 'low', {
+          component: 'AdvancedScreenReader',
+          action: 'checkReducedMotion',
+          result: 'failure'
+        });
       }
     };
 
@@ -172,22 +181,25 @@ export const AdvancedScreenReaderProvider: React.FC<AdvancedScreenReaderProvider
 
     const processQueue = async () => {
       processingRef.current = true;
-      
+
       while (announcementQueue.length > 0) {
         const announcement = announcementQueue[0];
+        if (!announcement) break;
+
         await processAnnouncement(announcement);
         setAnnouncementQueue(prev => prev.slice(1));
-        
+
         // Delay between announcements to prevent overwhelming
         if (announcementQueue.length > 1) {
           await new Promise(resolve => setTimeout(resolve, announcement.delay || 500));
         }
       }
-      
+
       processingRef.current = false;
     };
 
     processQueue();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [announcementQueue]);
 
   // Process individual announcement with therapeutic considerations
@@ -277,14 +289,22 @@ export const AdvancedScreenReaderProvider: React.FC<AdvancedScreenReaderProvider
         therapeuticContextRef.current = { ...therapeuticContext };
       }
     } catch (error) {
-      logSecurity('Failed to announce message:', error);
-      
+      logSecurity('Failed to announce message', 'low', {
+        component: 'AdvancedScreenReader',
+        action: 'announce',
+        result: 'failure'
+      });
+
       // Try fallback message if provided
       if (fallbackMessage) {
         try {
           await AccessibilityInfo.announceForAccessibility(fallbackMessage);
         } catch (fallbackError) {
-          logSecurity('Failed to announce fallback message:', fallbackError);
+          logSecurity('Failed to announce fallback message', 'low', {
+            component: 'AdvancedScreenReader',
+            action: 'announceFallback',
+            result: 'failure'
+          });
         }
       }
     }
@@ -382,7 +402,7 @@ export const AdvancedScreenReaderProvider: React.FC<AdvancedScreenReaderProvider
 // Live region component for dynamic content
 interface LiveRegionProps {
   children: React.ReactNode;
-  politeness?: 'off' | 'polite' | 'assertive';
+  politeness?: 'none' | 'polite' | 'assertive';
   atomic?: boolean;
   relevant?: 'additions' | 'removals' | 'text' | 'all';
   label?: string;
@@ -406,6 +426,7 @@ export const LiveRegion: React.FC<LiveRegionProps> = ({
       setCurrentRegion(label);
       return () => setCurrentRegion(null);
     }
+    return undefined;
   }, [label, setCurrentRegion]);
 
   return (

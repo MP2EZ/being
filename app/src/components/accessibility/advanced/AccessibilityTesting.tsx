@@ -13,7 +13,7 @@
  */
 
 
-import { logSecurity, logPerformance, logError, LogCategory } from '../../../services/logging';
+import { logSecurity, logPerformance, logError, logDebug, LogCategory } from '../../../services/logging';
 import React, { useCallback, useEffect, useState, useRef } from 'react';
 import {
   View,
@@ -208,11 +208,14 @@ export class AccessibilityTester {
     };
 
     this.testHistory.push(report);
-    
+
     // Log performance
     const totalTime = performance.now() - startTime;
-    logPerformance(`🔍 Accessibility audit completed in ${totalTime}ms`);
-    
+    logPerformance('Accessibility audit completed', totalTime, {
+      category: 'computation',
+      threshold: 1000
+    });
+
     return report;
   }
 
@@ -221,39 +224,34 @@ export class AccessibilityTester {
     testType: AccessibilityTestType,
     component?: React.ComponentType
   ): Promise<AccessibilityTestResult> {
-    const startTime = performance.now();
-    const issues: AccessibilityIssue[] = [];
-    let score = 100;
-    let wcagLevel: AccessibilityTestResult['wcagLevel'] = 'AAA';
-
     switch (testType) {
       case 'wcag_compliance':
-        return await this.testWCAGCompliance(component);
+        return await this.testWCAGCompliance();
       case 'crisis_accessibility':
-        return await this.testCrisisAccessibility(component);
+        return await this.testCrisisAccessibility();
       case 'screen_reader':
-        return await this.testScreenReaderCompatibility(component);
+        return await this.testScreenReaderCompatibility();
       case 'focus_management':
-        return await this.testFocusManagement(component);
+        return await this.testFocusManagement();
       case 'color_contrast':
-        return await this.testColorContrast(component);
+        return await this.testColorContrast();
       case 'touch_targets':
-        return await this.testTouchTargets(component);
+        return await this.testTouchTargets();
       case 'performance':
-        return await this.testPerformanceImpact(component);
+        return await this.testPerformanceImpact();
       case 'cognitive_load':
-        return await this.testCognitiveAccessibility(component);
+        return await this.testCognitiveAccessibility();
       case 'motor_accessibility':
-        return await this.testMotorAccessibility(component);
+        return await this.testMotorAccessibility();
       case 'sensory_support':
-        return await this.testSensoryAccessibility(component);
+        return await this.testSensoryAccessibility();
       default:
         throw new Error(`Unknown test type: ${testType}`);
     }
   }
 
   // WCAG compliance testing
-  private async testWCAGCompliance(component?: React.ComponentType): Promise<AccessibilityTestResult> {
+  private async testWCAGCompliance(): Promise<AccessibilityTestResult> {
     const issues: AccessibilityIssue[] = [];
     let score = 100;
 
@@ -290,7 +288,7 @@ export class AccessibilityTester {
   }
 
   // Crisis accessibility testing (critical for mental health apps)
-  private async testCrisisAccessibility(component?: React.ComponentType): Promise<AccessibilityTestResult> {
+  private async testCrisisAccessibility(): Promise<AccessibilityTestResult> {
     const startTime = performance.now();
     const issues: AccessibilityIssue[] = [];
     let score = 100;
@@ -356,7 +354,7 @@ export class AccessibilityTester {
   }
 
   // Screen reader compatibility testing
-  private async testScreenReaderCompatibility(component?: React.ComponentType): Promise<AccessibilityTestResult> {
+  private async testScreenReaderCompatibility(): Promise<AccessibilityTestResult> {
     const issues: AccessibilityIssue[] = [];
     let score = 100;
 
@@ -431,7 +429,7 @@ export class AccessibilityTester {
   }
 
   // Performance impact testing for accessibility features
-  private async testPerformanceImpact(component?: React.ComponentType): Promise<AccessibilityTestResult> {
+  private async testPerformanceImpact(): Promise<AccessibilityTestResult> {
     const issues: AccessibilityIssue[] = [];
     let score = 100;
 
@@ -756,7 +754,7 @@ export const AccessibilityTestingPanel: React.FC<AccessibilityTestingPanelProps>
       const newReport = await tester.runAccessibilityAudit();
       setReport(newReport);
     } catch (error) {
-      logError('Accessibility testing failed:', error);
+      logError(LogCategory.ACCESSIBILITY, 'Accessibility testing failed', error instanceof Error ? error : undefined);
     } finally {
       setIsRunning(false);
     }
