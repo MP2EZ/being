@@ -20,7 +20,7 @@
 
 import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { logSecurity, logError, LogCategory } from '../logging';
+import { logInfo, logError, LogCategory } from '../logging';
 
 /**
  * Migration result tracking
@@ -47,7 +47,7 @@ export async function migrateCrisisDataToSecureStore(): Promise<MigrationResult>
   };
 
   try {
-    logSecurity('Starting crisis data migration to SecureStore', {}, LogCategory.Crisis);
+    logInfo('Starting crisis data migration to SecureStore', LogCategory.Crisis);
 
     // Get all AsyncStorage keys
     const allKeys = await AsyncStorage.getAllKeys();
@@ -65,11 +65,11 @@ export async function migrateCrisisDataToSecureStore(): Promise<MigrationResult>
     result.totalKeys = crisisKeys.length;
 
     if (crisisKeys.length === 0) {
-      logSecurity('No crisis data to migrate', {}, LogCategory.Crisis);
+      logInfo('No crisis data to migrate', LogCategory.Crisis);
       return result;
     }
 
-    logSecurity(`Found ${crisisKeys.length} crisis data keys to migrate`, { count: crisisKeys.length }, LogCategory.Crisis);
+    logInfo(`Found ${crisisKeys.length} crisis data keys to migrate`, LogCategory.Crisis, { count: crisisKeys.length });
 
     // Migrate each key
     for (const key of crisisKeys) {
@@ -99,12 +99,12 @@ export async function migrateCrisisDataToSecureStore(): Promise<MigrationResult>
       }
     }
 
-    logSecurity('Crisis data migration complete', {
+    logInfo('Crisis data migration complete', LogCategory.Crisis, {
       total: result.totalKeys,
       migrated: result.migratedKeys,
       failed: result.failedKeys,
       skipped: result.skippedKeys
-    }, LogCategory.Crisis);
+    });
 
   } catch (error) {
     logError('Crisis data migration failed', { error }, LogCategory.Crisis);

@@ -76,7 +76,7 @@ class PostCrisisSupportService {
         const oldData = await AsyncStorage.getItem(oldKey);
 
         if (oldData) {
-          logSecurity('Migrating post-crisis support from AsyncStorage to SecureStore', {}, LogCategory.Crisis);
+          logInfo('Migrating post-crisis support from AsyncStorage to SecureStore', LogCategory.Crisis);
 
           // Migrate to SecureStore
           await SecureStore.setItemAsync(STORAGE_KEY, oldData);
@@ -85,7 +85,7 @@ class PostCrisisSupportService {
           await AsyncStorage.removeItem(oldKey);
 
           data = oldData;
-          logSecurity('Post-crisis support migration complete', {}, LogCategory.Crisis);
+          logInfo('Post-crisis support migration complete', LogCategory.Crisis);
         }
       }
 
@@ -100,7 +100,7 @@ class PostCrisisSupportService {
         }
       }
 
-      logPerformance('Post-crisis support service initialized', {}, LogCategory.Crisis);
+      logInfo('Post-crisis support service initialized', LogCategory.Crisis);
     } catch (error) {
       logError('Failed to initialize post-crisis support service', { error }, LogCategory.Crisis);
     }
