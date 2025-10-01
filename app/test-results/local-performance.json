@@ -1,192 +1,181 @@
 {
-  "timestamp": "2025-09-30T06:22:55.511Z",
-  "totalDuration": 821,
-  "totalTests": 16,
+  "timestamp": "2025-10-01T22:39:46.887Z",
+  "totalDuration": 595,
+  "totalTests": 22,
   "categories": {
-    "crisis": {
-      "count": 16,
-      "totalDuration": 72,
+    "unit": {
+      "count": 22,
+      "totalDuration": 161,
       "slowCount": 0,
-      "averageDuration": 4.5
+      "averageDuration": 7.318181818181818
     }
   },
   "slowTests": [],
   "crisisTests": [
     {
-      "testName": "CRISIS FEATURES PERFORMANCE BASELINE - PHASE 3 📞 CRISIS RESOURCE LOAD PERFORMANCE should load all crisis resources within <200ms target",
-      "testPath": "/__tests__/performance/crisis-performance-baseline.test.ts",
-      "duration": 4,
-      "category": "crisis",
-      "threshold": 3000,
+      "testName": "Subscription Store - Crisis Access Guarantee CRITICAL: Crisis access ALWAYS returns true regardless of subscription",
+      "testPath": "/src/stores/__tests__/subscriptionStore.test.ts",
+      "duration": 8,
+      "category": "unit",
+      "threshold": 1000,
       "isSlowTest": false,
       "isCrisisTest": true,
       "status": "passed",
-      "timestamp": "2025-09-30T06:22:55.510Z"
+      "timestamp": "2025-10-01T22:39:46.652Z"
     },
     {
-      "testName": "CRISIS FEATURES PERFORMANCE BASELINE - PHASE 3 📞 CRISIS RESOURCE LOAD PERFORMANCE should retrieve individual crisis resource within <10ms",
-      "testPath": "/__tests__/performance/crisis-performance-baseline.test.ts",
+      "testName": "Subscription Store - Crisis Access Guarantee CRITICAL: Crisis access returns true even with expired subscription",
+      "testPath": "/src/stores/__tests__/subscriptionStore.test.ts",
       "duration": 15,
-      "category": "crisis",
-      "threshold": 3000,
+      "category": "unit",
+      "threshold": 1000,
       "isSlowTest": false,
       "isCrisisTest": true,
       "status": "passed",
-      "timestamp": "2025-09-30T06:22:55.510Z"
+      "timestamp": "2025-10-01T22:39:46.652Z"
     },
     {
-      "testName": "CRISIS FEATURES PERFORMANCE BASELINE - PHASE 3 📞 CRISIS RESOURCE LOAD PERFORMANCE should measure memory footprint of crisis resources",
-      "testPath": "/__tests__/performance/crisis-performance-baseline.test.ts",
-      "duration": 0,
-      "category": "crisis",
-      "threshold": 3000,
-      "isSlowTest": false,
-      "isCrisisTest": true,
-      "status": "passed",
-      "timestamp": "2025-09-30T06:22:55.510Z"
-    },
-    {
-      "testName": "CRISIS FEATURES PERFORMANCE BASELINE - PHASE 3 🛡️ CRISIS PLAN PERFORMANCE should create crisis plan within <500ms target",
-      "testPath": "/__tests__/performance/crisis-performance-baseline.test.ts",
+      "testName": "Subscription Store - Crisis Access Guarantee CRITICAL: getCrisisAccessStatus() type is hardcoded to return true",
+      "testPath": "/src/stores/__tests__/subscriptionStore.test.ts",
       "duration": 2,
-      "category": "crisis",
-      "threshold": 3000,
+      "category": "unit",
+      "threshold": 1000,
       "isSlowTest": false,
       "isCrisisTest": true,
-      "status": "failed",
-      "timestamp": "2025-09-30T06:22:55.510Z"
+      "status": "passed",
+      "timestamp": "2025-10-01T22:39:46.652Z"
     },
     {
-      "testName": "CRISIS FEATURES PERFORMANCE BASELINE - PHASE 3 🛡️ CRISIS PLAN PERFORMANCE should save crisis plan within <100ms target",
-      "testPath": "/__tests__/performance/crisis-performance-baseline.test.ts",
+      "testName": "Subscription Store - Feature Access Trial status grants access to non-crisis features",
+      "testPath": "/src/stores/__tests__/subscriptionStore.test.ts",
+      "duration": 12,
+      "category": "unit",
+      "threshold": 1000,
+      "isSlowTest": false,
+      "isCrisisTest": true,
+      "status": "passed",
+      "timestamp": "2025-10-01T22:39:46.652Z"
+    },
+    {
+      "testName": "Subscription Store - Feature Access Active status grants access to non-crisis features",
+      "testPath": "/src/stores/__tests__/subscriptionStore.test.ts",
+      "duration": 12,
+      "category": "unit",
+      "threshold": 1000,
+      "isSlowTest": false,
+      "isCrisisTest": true,
+      "status": "passed",
+      "timestamp": "2025-10-01T22:39:46.652Z"
+    },
+    {
+      "testName": "Subscription Store - Feature Access Expired status blocks non-crisis features but allows crisis features",
+      "testPath": "/src/stores/__tests__/subscriptionStore.test.ts",
+      "duration": 13,
+      "category": "unit",
+      "threshold": 1000,
+      "isSlowTest": false,
+      "isCrisisTest": true,
+      "status": "passed",
+      "timestamp": "2025-10-01T22:39:46.652Z"
+    },
+    {
+      "testName": "Subscription Store - Feature Access Grace period continues access to non-crisis features",
+      "testPath": "/src/stores/__tests__/subscriptionStore.test.ts",
+      "duration": 12,
+      "category": "unit",
+      "threshold": 1000,
+      "isSlowTest": false,
+      "isCrisisTest": true,
+      "status": "passed",
+      "timestamp": "2025-10-01T22:39:46.652Z"
+    },
+    {
+      "testName": "Subscription Store - Performance PERFORMANCE: Crisis access check is instant (0 lookups)",
+      "testPath": "/src/stores/__tests__/subscriptionStore.test.ts",
       "duration": 2,
-      "category": "crisis",
-      "threshold": 3000,
+      "category": "unit",
+      "threshold": 1000,
       "isSlowTest": false,
       "isCrisisTest": true,
       "status": "passed",
-      "timestamp": "2025-09-30T06:22:55.510Z"
+      "timestamp": "2025-10-01T22:39:46.652Z"
     },
     {
-      "testName": "CRISIS FEATURES PERFORMANCE BASELINE - PHASE 3 🛡️ CRISIS PLAN PERFORMANCE should load crisis plan within <100ms target",
-      "testPath": "/__tests__/performance/crisis-performance-baseline.test.ts",
-      "duration": 1,
-      "category": "crisis",
-      "threshold": 3000,
+      "testName": "FeatureGate - Crisis Access Guarantee CRITICAL: Crisis features ALWAYS render regardless of subscription",
+      "testPath": "/src/components/subscription/__tests__/FeatureGate.test.tsx",
+      "duration": 12,
+      "category": "unit",
+      "threshold": 1000,
       "isSlowTest": false,
       "isCrisisTest": true,
       "status": "passed",
-      "timestamp": "2025-09-30T06:22:55.510Z"
+      "timestamp": "2025-10-01T22:39:46.762Z"
     },
     {
-      "testName": "CRISIS FEATURES PERFORMANCE BASELINE - PHASE 3 🛡️ CRISIS PLAN PERFORMANCE should export crisis plan within <500ms target",
-      "testPath": "/__tests__/performance/crisis-performance-baseline.test.ts",
-      "duration": 10,
-      "category": "crisis",
-      "threshold": 3000,
-      "isSlowTest": false,
-      "isCrisisTest": true,
-      "status": "passed",
-      "timestamp": "2025-09-30T06:22:55.510Z"
-    },
-    {
-      "testName": "CRISIS FEATURES PERFORMANCE BASELINE - PHASE 3 📅 POST-CRISIS SUPPORT PERFORMANCE should activate support within <200ms target",
-      "testPath": "/__tests__/performance/crisis-performance-baseline.test.ts",
-      "duration": 6,
-      "category": "crisis",
-      "threshold": 3000,
-      "isSlowTest": false,
-      "isCrisisTest": true,
-      "status": "passed",
-      "timestamp": "2025-09-30T06:22:55.510Z"
-    },
-    {
-      "testName": "CRISIS FEATURES PERFORMANCE BASELINE - PHASE 3 📅 POST-CRISIS SUPPORT PERFORMANCE should record check-in within <100ms target",
-      "testPath": "/__tests__/performance/crisis-performance-baseline.test.ts",
-      "duration": 4,
-      "category": "crisis",
-      "threshold": 3000,
-      "isSlowTest": false,
-      "isCrisisTest": true,
-      "status": "passed",
-      "timestamp": "2025-09-30T06:22:55.510Z"
-    },
-    {
-      "testName": "CRISIS FEATURES PERFORMANCE BASELINE - PHASE 3 📅 POST-CRISIS SUPPORT PERFORMANCE should retrieve supportive messages within <10ms",
-      "testPath": "/__tests__/performance/crisis-performance-baseline.test.ts",
-      "duration": 17,
-      "category": "crisis",
-      "threshold": 3000,
-      "isSlowTest": false,
-      "isCrisisTest": true,
-      "status": "passed",
-      "timestamp": "2025-09-30T06:22:55.510Z"
-    },
-    {
-      "testName": "CRISIS FEATURES PERFORMANCE BASELINE - PHASE 3 ⚡ CONCURRENT OPERATIONS PERFORMANCE should handle concurrent crisis plan operations efficiently",
-      "testPath": "/__tests__/performance/crisis-performance-baseline.test.ts",
+      "testName": "FeatureGate - Crisis Access Guarantee CRITICAL: Crisis features render even with expired subscription",
+      "testPath": "/src/components/subscription/__tests__/FeatureGate.test.tsx",
       "duration": 2,
-      "category": "crisis",
-      "threshold": 3000,
-      "isSlowTest": false,
-      "isCrisisTest": true,
-      "status": "failed",
-      "timestamp": "2025-09-30T06:22:55.510Z"
-    },
-    {
-      "testName": "CRISIS FEATURES PERFORMANCE BASELINE - PHASE 3 ⚡ CONCURRENT OPERATIONS PERFORMANCE should handle rapid sequential operations without degradation",
-      "testPath": "/__tests__/performance/crisis-performance-baseline.test.ts",
-      "duration": 1,
-      "category": "crisis",
-      "threshold": 3000,
+      "category": "unit",
+      "threshold": 1000,
       "isSlowTest": false,
       "isCrisisTest": true,
       "status": "passed",
-      "timestamp": "2025-09-30T06:22:55.510Z"
+      "timestamp": "2025-10-01T22:39:46.762Z"
     },
     {
-      "testName": "CRISIS FEATURES PERFORMANCE BASELINE - PHASE 3 💾 STORAGE PERFORMANCE should measure SecureStore write performance",
-      "testPath": "/__tests__/performance/crisis-performance-baseline.test.ts",
+      "testName": "FeatureGate - Crisis Access Guarantee CRITICAL: All crisis features bypass gating logic",
+      "testPath": "/src/components/subscription/__tests__/FeatureGate.test.tsx",
+      "duration": 5,
+      "category": "unit",
+      "threshold": 1000,
+      "isSlowTest": false,
+      "isCrisisTest": true,
+      "status": "passed",
+      "timestamp": "2025-10-01T22:39:46.762Z"
+    },
+    {
+      "testName": "FeatureGate - Non-Crisis Feature Gating Non-crisis features render with active subscription",
+      "testPath": "/src/components/subscription/__tests__/FeatureGate.test.tsx",
+      "duration": 2,
+      "category": "unit",
+      "threshold": 1000,
+      "isSlowTest": false,
+      "isCrisisTest": true,
+      "status": "passed",
+      "timestamp": "2025-10-01T22:39:46.762Z"
+    },
+    {
+      "testName": "FeatureGate - Non-Crisis Feature Gating Non-crisis features show upgrade prompt without subscription",
+      "testPath": "/src/components/subscription/__tests__/FeatureGate.test.tsx",
+      "duration": 7,
+      "category": "unit",
+      "threshold": 1000,
+      "isSlowTest": false,
+      "isCrisisTest": true,
+      "status": "passed",
+      "timestamp": "2025-10-01T22:39:46.762Z"
+    },
+    {
+      "testName": "FeatureGate - Non-Crisis Feature Gating Non-crisis features render custom fallback when provided",
+      "testPath": "/src/components/subscription/__tests__/FeatureGate.test.tsx",
       "duration": 3,
-      "category": "crisis",
-      "threshold": 3000,
+      "category": "unit",
+      "threshold": 1000,
       "isSlowTest": false,
       "isCrisisTest": true,
       "status": "passed",
-      "timestamp": "2025-09-30T06:22:55.510Z"
+      "timestamp": "2025-10-01T22:39:46.762Z"
     },
     {
-      "testName": "CRISIS FEATURES PERFORMANCE BASELINE - PHASE 3 💾 STORAGE PERFORMANCE should measure AsyncStorage write performance",
-      "testPath": "/__tests__/performance/crisis-performance-baseline.test.ts",
-      "duration": 1,
-      "category": "crisis",
-      "threshold": 3000,
-      "isSlowTest": false,
-      "isCrisisTest": true,
-      "status": "passed",
-      "timestamp": "2025-09-30T06:22:55.510Z"
-    },
-    {
-      "testName": "CRISIS FEATURES PERFORMANCE BASELINE - PHASE 3 📊 MEMORY USAGE ANALYSIS should measure crisis plan memory footprint",
-      "testPath": "/__tests__/performance/crisis-performance-baseline.test.ts",
+      "testName": "FeatureGate - Non-Crisis Feature Gating Non-crisis features render nothing when showUpgradePrompt=false",
+      "testPath": "/src/components/subscription/__tests__/FeatureGate.test.tsx",
       "duration": 2,
-      "category": "crisis",
-      "threshold": 3000,
+      "category": "unit",
+      "threshold": 1000,
       "isSlowTest": false,
       "isCrisisTest": true,
       "status": "passed",
-      "timestamp": "2025-09-30T06:22:55.510Z"
-    },
-    {
-      "testName": "CRISIS FEATURES PERFORMANCE BASELINE - PHASE 3 📊 MEMORY USAGE ANALYSIS should measure post-crisis support memory footprint",
-      "testPath": "/__tests__/performance/crisis-performance-baseline.test.ts",
-      "duration": 2,
-      "category": "crisis",
-      "threshold": 3000,
-      "isSlowTest": false,
-      "isCrisisTest": true,
-      "status": "passed",
-      "timestamp": "2025-09-30T06:22:55.510Z"
+      "timestamp": "2025-10-01T22:39:46.762Z"
     }
   ],
   "performanceIssues": [],

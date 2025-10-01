@@ -15,6 +15,7 @@
 
 import { useSubscriptionStore } from '../subscriptionStore';
 import * as SecureStore from 'expo-secure-store';
+import { calculateFeatureAccess } from '../../types/subscription';
 
 // Mock SecureStore
 jest.mock('expo-secure-store');
@@ -144,7 +145,6 @@ describe('Subscription Store - Feature Access', () => {
     });
 
     // Calculate feature access
-    const { calculateFeatureAccess } = await import('../../types/subscription');
     const featureAccess = calculateFeatureAccess('trial');
     useSubscriptionStore.setState({ featureAccess });
 
@@ -188,7 +188,6 @@ describe('Subscription Store - Feature Access', () => {
       },
     });
 
-    const { calculateFeatureAccess } = await import('../../types/subscription');
     const featureAccess = calculateFeatureAccess('active');
     useSubscriptionStore.setState({ featureAccess });
 
@@ -230,7 +229,6 @@ describe('Subscription Store - Feature Access', () => {
       },
     });
 
-    const { calculateFeatureAccess } = await import('../../types/subscription');
     const featureAccess = calculateFeatureAccess('expired');
     useSubscriptionStore.setState({ featureAccess });
 
@@ -278,7 +276,6 @@ describe('Subscription Store - Feature Access', () => {
       },
     });
 
-    const { calculateFeatureAccess } = await import('../../types/subscription');
     const featureAccess = calculateFeatureAccess('grace');
     useSubscriptionStore.setState({ featureAccess });
 
@@ -393,7 +390,6 @@ describe('Subscription Store - Performance', () => {
       },
     });
 
-    const { calculateFeatureAccess } = await import('../../types/subscription');
     const featureAccess = calculateFeatureAccess('active');
     useSubscriptionStore.setState({ featureAccess });
 

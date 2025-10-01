@@ -19,6 +19,7 @@ import { IAPService } from '../IAPService';
 import * as InAppPurchases from 'expo-in-app-purchases';
 import * as SecureStore from 'expo-secure-store';
 import { supabaseService } from '../../supabase/SupabaseService';
+import { calculateFeatureAccess } from '../../../types/subscription';
 
 // Mock dependencies
 jest.mock('expo-in-app-purchases');
@@ -108,7 +109,6 @@ describe('Subscription Integration - Full Lifecycle', () => {
     console.log('✅ STEP 3: Crisis access verified during trial');
 
     // Step 4: Verify non-crisis feature access during trial
-    const { calculateFeatureAccess } = await import('../../../types/subscription');
     const trialFeatureAccess = calculateFeatureAccess('trial');
     useSubscriptionStore.setState({ featureAccess: trialFeatureAccess });
     await new Promise(resolve => setTimeout(resolve, 10));
@@ -382,7 +382,6 @@ describe('Subscription Integration - Full Lifecycle', () => {
     console.log('✅ STEP 2: Receipt verified');
 
     // Update store with restored subscription
-    const { calculateFeatureAccess } = await import('../../../types/subscription');
     const activeFeatureAccess = calculateFeatureAccess('active');
 
     useSubscriptionStore.setState({
