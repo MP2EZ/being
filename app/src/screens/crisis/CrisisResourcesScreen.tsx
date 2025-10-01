@@ -427,7 +427,7 @@ export default function CrisisResourcesScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colorSystem.background.primary
+    backgroundColor: colorSystem.base.white
   },
   scrollView: {
     flex: 1

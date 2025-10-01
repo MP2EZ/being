@@ -10,7 +10,7 @@ import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
-import { colorSystem, spacing } from '../../constants/colors';
+import { colorSystem, getTheme, spacing } from '../../constants/colors';
 import type { RootStackParamList } from '../../navigation/CleanRootNavigator';
 
 type CleanHomeScreenNavigationProp = StackNavigationProp<RootStackParamList>;
@@ -25,7 +25,7 @@ const CleanHomeScreen: React.FC = () => {
     return 'Good evening';
   };
 
-  const getCurrentPeriod = () => {
+  const getCurrentPeriod = (): 'morning' | 'midday' | 'evening' => {
     if (currentHour < 12) return 'morning';
     if (currentHour < 17) return 'midday';
     return 'evening';
@@ -59,7 +59,7 @@ const CleanHomeScreen: React.FC = () => {
     duration: string;
   }> = ({ type, title, description, duration }) => {
     const isCurrent = type === currentPeriod;
-    const themeColors = colorSystem.themes[type];
+    const themeColors = getTheme(type);
     const isImplemented = true; // All flows are now implemented
 
     return (
@@ -151,7 +151,7 @@ const CleanHomeScreen: React.FC = () => {
         <View style={styles.currentPeriodSection}>
           <Text style={styles.currentPeriodText}>
             Current period: <Text style={{
-              color: colorSystem.themes[currentPeriod].primary,
+              color: getTheme(currentPeriod).primary,
               fontWeight: '600'
             }}>{currentPeriod}</Text>
           </Text>

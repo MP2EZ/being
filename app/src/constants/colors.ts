@@ -3,30 +3,50 @@
  * React Native optimized version
  */
 
+// Define theme objects first
+const morningTheme = {
+  primary: '#B45309',    // WCAG-AA compliant: 4.69:1 contrast (was #FF9F43: 2.04:1)
+  primaryFallback: '#FF9F43', // Original color for non-text elements
+  success: '#E8863A',    // Completion states (darker)
+  light: '#FFB366',      // Hover states, backgrounds
+  background: '#FFF8F0'  // Section backgrounds
+};
+
+const middayTheme = {
+  primary: '#0F766E',    // WCAG-AA compliant: 4.85:1 contrast (was #40B5AD: 2.49:1)
+  primaryFallback: '#40B5AD', // Original color for non-text elements
+  success: '#2C8A82',    // Completion states (darker)
+  light: '#5EC4BC',      // Hover states, backgrounds
+  background: '#F0FBF9'  // Section backgrounds
+};
+
+const eveningTheme = {
+  primary: '#4A7C59',    // Continue buttons, reflection progress
+  success: '#2D5016',    // Reflection completion (much darker)
+  light: '#6B9B78',      // Hover states, backgrounds
+  background: '#F0F8F4'  // Section backgrounds
+};
+
+// Create themes object with Proxy for safe access
+const themesHandler: ProxyHandler<any> = {
+  get(target, prop) {
+    if (prop in target) {
+      return target[prop];
+    }
+    console.warn(`[Theme Warning] Attempted to access undefined theme: ${String(prop)}, falling back to morning`);
+    return target.morning;
+  }
+};
+
+const themesProxy = new Proxy({
+  morning: morningTheme,
+  midday: middayTheme,
+  evening: eveningTheme
+}, themesHandler);
+
 export const colorSystem = {
   // Check-in Themes (PRIMARY FOR COMPONENT USAGE)
-  themes: {
-    morning: {
-      primary: '#B45309',    // WCAG-AA compliant: 4.69:1 contrast (was #FF9F43: 2.04:1)
-      primaryFallback: '#FF9F43', // Original color for non-text elements
-      success: '#E8863A',    // Completion states (darker)
-      light: '#FFB366',      // Hover states, backgrounds
-      background: '#FFF8F0'  // Section backgrounds
-    },
-    midday: {
-      primary: '#0F766E',    // WCAG-AA compliant: 4.85:1 contrast (was #40B5AD: 2.49:1)
-      primaryFallback: '#40B5AD', // Original color for non-text elements
-      success: '#2C8A82',    // Completion states (darker)
-      light: '#5EC4BC',      // Hover states, backgrounds
-      background: '#F0FBF9'  // Section backgrounds
-    },
-    evening: {
-      primary: '#4A7C59',    // Continue buttons, reflection progress
-      success: '#2D5016',    // Reflection completion (much darker)
-      light: '#6B9B78',      // Hover states, backgrounds  
-      background: '#F0F8F4'  // Section backgrounds
-    }
-  },
+  themes: themesProxy,
 
   // Base System Colors
   base: {
@@ -106,6 +126,25 @@ export const typography = {
   bodySmall: { size: 14, weight: '400' as const, spacing: 0.1, lineHeight: 1.4 },
   caption: { size: 14, weight: '400' as const, spacing: 0.2 },
   micro: { size: 12, weight: '500' as const, spacing: 0.3 }
+};
+
+// Safe theme getter with fallback protection
+export const getTheme = (
+  themeKey: 'morning' | 'midday' | 'evening' | undefined
+): typeof colorSystem.themes.morning => {
+  if (!themeKey) {
+    console.warn(`[getTheme] Invalid theme key: ${themeKey}, falling back to morning theme`);
+    return colorSystem.themes.morning;
+  }
+
+  const theme = colorSystem.themes[themeKey];
+
+  if (!theme || !theme.primary) {
+    console.warn(`[getTheme] Theme ${themeKey} is invalid or missing .primary, falling back to morning`);
+    return colorSystem.themes.morning;
+  }
+
+  return theme;
 };
 
 // Export as 'colors' for backward compatibility
