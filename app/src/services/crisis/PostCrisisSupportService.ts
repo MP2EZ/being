@@ -172,11 +172,11 @@ class PostCrisisSupportService {
     // Track analytics
     await crisisAnalyticsService.trackEvent('check_in_completed');
 
-    logPerformance('Post-crisis check-in completed', {
+    logDebug(LogCategory.CRISIS, 'Post-crisis check-in completed', {
       supportId: this.currentSupport.id,
       day,
       totalCheckIns: this.currentSupport.checkIns.length
-    }, LogCategory.CRISIS);
+    });
   }
 
   /**
@@ -245,11 +245,11 @@ class PostCrisisSupportService {
       await crisisAnalyticsService.trackEvent('support_completed_successfully');
     }
 
-    logPerformance('Post-crisis support completed', {
+    logDebug(LogCategory.CRISIS, 'Post-crisis support completed', {
       supportId,
       checkInsCompleted: this.currentSupport.checkIns.length,
       successful: wasSuccessful
-    }, LogCategory.CRISIS);
+    });
 
     this.currentSupport = null;
   }

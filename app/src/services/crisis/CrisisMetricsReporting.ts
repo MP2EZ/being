@@ -113,9 +113,7 @@ class CrisisMetricsReporting {
         generatedAt: Date.now()
       };
 
-      logPerformance('Crisis metrics dashboard generated', {
-        generationTime: performance.now() - performanceStart
-      }, LogCategory.CRISIS);
+      logPerformance('Crisis metrics dashboard generated', performance.now() - performanceStart);
 
       return dashboard;
 

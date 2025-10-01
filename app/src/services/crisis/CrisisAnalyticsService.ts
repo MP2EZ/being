@@ -150,9 +150,9 @@ class CrisisAnalyticsService {
       }
 
       this.isInitialized = true;
-      logPerformance('Crisis analytics service initialized', {
+      logDebug(LogCategory.CRISIS, 'Crisis analytics service initialized', {
         eventCount: this.events.length
-      }, LogCategory.CRISIS);
+      });
 
     } catch (error) {
       logError(LogCategory.CRISIS, 'Failed to initialize crisis analytics service', error as Error);
@@ -475,9 +475,9 @@ Not Helpful: ${summary.effectivenessRatings.notHelpful}
 
     if (this.events.length < initialCount) {
       await this.saveEvents();
-      logPerformance(`Cleaned ${initialCount - this.events.length} old analytics events`, {
+      logDebug(LogCategory.CRISIS, `Cleaned ${initialCount - this.events.length} old analytics events`, {
         remaining: this.events.length
-      }, LogCategory.CRISIS);
+      });
     }
   }
 }
