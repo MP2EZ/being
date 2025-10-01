@@ -1,0 +1,32 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "lib": ["deno.ns", "deno.unstable", "esnext"],
+    "jsx": "react-jsx",
+    "jsxImportSource": "https://esm.sh/react@18.2.0"
+  },
+  "imports": {
+    "supabase": "https://esm.sh/@supabase/supabase-js@2.39.3",
+    "std/": "https://deno.land/std@0.177.0/"
+  },
+  "tasks": {
+    "serve:verify-apple": "deno run --allow-net --allow-env --allow-read verify-apple-receipt/index.ts",
+    "serve:verify-google": "deno run --allow-net --allow-env --allow-read verify-google-receipt/index.ts",
+    "serve:webhook": "deno run --allow-net --allow-env --allow-read subscription-webhook/index.ts",
+    "serve:automation": "deno run --allow-net --allow-env --allow-read grace-period-automation/index.ts"
+  },
+  "fmt": {
+    "options": {
+      "useTabs": false,
+      "lineWidth": 100,
+      "indentWidth": 2,
+      "singleQuote": true
+    }
+  },
+  "lint": {
+    "rules": {
+      "tags": ["recommended"],
+      "exclude": ["no-unused-vars"]
+    }
+  }
+}

@@ -301,15 +301,391 @@ COMMENT ON COLUMN encrypted_backups.checksum IS 'SHA256 checksum for integrity v
 COMMENT ON COLUMN analytics_events.properties IS 'Anonymous event metadata. No scores or PHI allowed.';
 
 -- =====================================================
--- SCHEMA COMPLETE
+-- 11. SUBSCRIPTION TABLES (TREAT AS PHI)
+-- =====================================================
+
+-- COMPLIANCE NOTE:
+-- Subscription metadata is treated as PHI because it correlates with mental health data.
+-- A user's subscription status + encrypted health data = PHI correlation.
+-- Therefore, same security standards as encrypted_backups apply.
+
+CREATE TABLE IF NOT EXISTS subscriptions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+
+  -- Platform Information
+  platform TEXT NOT NULL CHECK (platform IN ('apple', 'google', 'none')),
+  platform_subscription_id TEXT, -- Opaque Apple/Google subscription ID
+  platform_customer_id TEXT,     -- Apple/Google customer ID (if available)
+
+  -- Subscription Details
+  status TEXT NOT NULL CHECK (status IN ('trial', 'active', 'grace', 'expired', 'crisis_only')),
+  tier TEXT NOT NULL DEFAULT 'standard' CHECK (tier IN ('standard')),
+  interval TEXT NOT NULL CHECK (interval IN ('monthly', 'yearly')),
+
+  -- Pricing (display only, NOT authoritative)
+  price_usd DECIMAL(10, 2),
+  currency TEXT DEFAULT 'USD',
+
+  -- Timing
+  trial_start_date TIMESTAMPTZ,
+  trial_end_date TIMESTAMPTZ,
+  subscription_start_date TIMESTAMPTZ,
+  subscription_end_date TIMESTAMPTZ,
+  grace_period_end TIMESTAMPTZ,
+
+  -- Receipt Verification
+  last_receipt_verified TIMESTAMPTZ,
+  receipt_data_encrypted TEXT, -- Encrypted receipt for re-verification
+
+  -- Payment History (minimal)
+  last_payment_date TIMESTAMPTZ,
+  payment_failure_count INTEGER DEFAULT 0,
+
+  -- Feature Access (crisis ALWAYS true)
+  crisis_access_enabled BOOLEAN DEFAULT TRUE NOT NULL CHECK (crisis_access_enabled = TRUE),
+
+  -- Timestamps
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+
+  -- Constraints
+  CONSTRAINT one_subscription_per_user UNIQUE(user_id),
+  CONSTRAINT trial_dates_valid CHECK (
+    (trial_start_date IS NULL AND trial_end_date IS NULL) OR
+    (trial_start_date IS NOT NULL AND trial_end_date IS NOT NULL AND trial_end_date > trial_start_date)
+  ),
+  CONSTRAINT subscription_dates_valid CHECK (
+    (subscription_start_date IS NULL AND subscription_end_date IS NULL) OR
+    (subscription_start_date IS NOT NULL AND subscription_end_date IS NOT NULL AND subscription_end_date > subscription_start_date)
+  ),
+  CONSTRAINT payment_failure_count_positive CHECK (payment_failure_count >= 0)
+);
+
+-- Indexes for performance
+CREATE INDEX IF NOT EXISTS idx_subscriptions_user_id ON subscriptions(user_id);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_platform ON subscriptions(platform);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_status ON subscriptions(status);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_platform_subscription_id ON subscriptions(platform_subscription_id);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_trial_end_date ON subscriptions(trial_end_date) WHERE status = 'trial';
+CREATE INDEX IF NOT EXISTS idx_subscriptions_grace_period_end ON subscriptions(grace_period_end) WHERE status = 'grace';
+CREATE INDEX IF NOT EXISTS idx_subscriptions_updated_at ON subscriptions(updated_at);
+
+-- =====================================================
+-- 12. SUBSCRIPTION EVENTS (AUDIT LOGGING)
+-- =====================================================
+
+CREATE TABLE IF NOT EXISTS subscription_events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  subscription_id UUID REFERENCES subscriptions(id) ON DELETE SET NULL,
+
+  -- Event information
+  event_type TEXT NOT NULL CHECK (event_type IN (
+    'trial_started',
+    'trial_ending_soon',
+    'trial_ended',
+    'subscription_started',
+    'subscription_renewed',
+    'subscription_cancelled',
+    'payment_failed',
+    'grace_period_started',
+    'grace_period_ending',
+    'subscription_expired',
+    'subscription_restored',
+    'receipt_verification_failed'
+  )),
+
+  -- Event metadata (JSONB for flexibility)
+  metadata JSONB DEFAULT '{}',
+
+  -- Timestamp
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+
+  -- Constraints
+  CONSTRAINT metadata_size CHECK (pg_column_size(metadata) <= 2048) -- 2KB limit
+);
+
+-- Indexes for audit queries
+CREATE INDEX IF NOT EXISTS idx_subscription_events_user_id ON subscription_events(user_id);
+CREATE INDEX IF NOT EXISTS idx_subscription_events_subscription_id ON subscription_events(subscription_id);
+CREATE INDEX IF NOT EXISTS idx_subscription_events_event_type ON subscription_events(event_type);
+CREATE INDEX IF NOT EXISTS idx_subscription_events_created_at ON subscription_events(created_at);
+
+-- =====================================================
+-- 13. ROW LEVEL SECURITY (SUBSCRIPTIONS)
+-- =====================================================
+
+-- Enable RLS on subscription tables
+ALTER TABLE subscriptions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE subscription_events ENABLE ROW LEVEL SECURITY;
+
+-- Users can only access their own subscription
+CREATE POLICY "Users can only access own subscription"
+  ON subscriptions
+  FOR ALL
+  USING (user_id = (
+    SELECT id FROM users
+    WHERE device_id = current_setting('app.device_id', true)
+  ));
+
+-- Users can only access their own subscription events
+CREATE POLICY "Users can only access own subscription events"
+  ON subscription_events
+  FOR ALL
+  USING (user_id = (
+    SELECT id FROM users
+    WHERE device_id = current_setting('app.device_id', true)
+  ));
+
+-- =====================================================
+-- 14. SUBSCRIPTION FUNCTIONS
+-- =====================================================
+
+-- Function to update subscription updated_at timestamp
+CREATE OR REPLACE FUNCTION update_subscription_timestamp()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$;
+
+-- Trigger to automatically update updated_at
+CREATE TRIGGER update_subscription_timestamp_trigger
+  BEFORE UPDATE ON subscriptions
+  FOR EACH ROW
+  EXECUTE FUNCTION update_subscription_timestamp();
+
+-- Function to log subscription events
+CREATE OR REPLACE FUNCTION log_subscription_event(
+  p_user_id UUID,
+  p_subscription_id UUID,
+  p_event_type TEXT,
+  p_metadata JSONB DEFAULT '{}'
+)
+RETURNS UUID
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  event_uuid UUID;
+BEGIN
+  INSERT INTO subscription_events (user_id, subscription_id, event_type, metadata)
+  VALUES (p_user_id, p_subscription_id, p_event_type, p_metadata)
+  RETURNING id INTO event_uuid;
+
+  RETURN event_uuid;
+END;
+$$;
+
+-- Function to check for expiring trials (for daily cron job)
+CREATE OR REPLACE FUNCTION get_expiring_trials(days_until_expiry INTEGER DEFAULT 3)
+RETURNS TABLE (
+  user_id UUID,
+  trial_end_date TIMESTAMPTZ,
+  days_remaining INTEGER
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  RETURN QUERY
+  SELECT
+    s.user_id,
+    s.trial_end_date,
+    EXTRACT(DAY FROM (s.trial_end_date - NOW()))::INTEGER as days_remaining
+  FROM subscriptions s
+  WHERE s.status = 'trial'
+    AND s.trial_end_date IS NOT NULL
+    AND s.trial_end_date > NOW()
+    AND s.trial_end_date <= NOW() + (days_until_expiry || ' days')::INTERVAL
+  ORDER BY s.trial_end_date ASC;
+END;
+$$;
+
+-- Function to check for expiring grace periods (for daily cron job)
+CREATE OR REPLACE FUNCTION get_expiring_grace_periods(days_until_expiry INTEGER DEFAULT 2)
+RETURNS TABLE (
+  user_id UUID,
+  grace_period_end TIMESTAMPTZ,
+  days_remaining INTEGER
+)
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  RETURN QUERY
+  SELECT
+    s.user_id,
+    s.grace_period_end,
+    EXTRACT(DAY FROM (s.grace_period_end - NOW()))::INTEGER as days_remaining
+  FROM subscriptions s
+  WHERE s.status = 'grace'
+    AND s.grace_period_end IS NOT NULL
+    AND s.grace_period_end > NOW()
+    AND s.grace_period_end <= NOW() + (days_until_expiry || ' days')::INTERVAL
+  ORDER BY s.grace_period_end ASC;
+END;
+$$;
+
+-- Function to expire trials automatically (for daily cron job)
+CREATE OR REPLACE FUNCTION expire_old_trials()
+RETURNS INTEGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  updated_count INTEGER;
+BEGIN
+  WITH updated_subscriptions AS (
+    UPDATE subscriptions
+    SET
+      status = 'expired',
+      updated_at = NOW()
+    WHERE status = 'trial'
+      AND trial_end_date IS NOT NULL
+      AND trial_end_date <= NOW()
+    RETURNING id, user_id
+  )
+  SELECT COUNT(*) INTO updated_count FROM updated_subscriptions;
+
+  -- Log events for expired trials
+  INSERT INTO subscription_events (user_id, subscription_id, event_type, metadata)
+  SELECT
+    us.user_id,
+    us.id,
+    'trial_ended',
+    jsonb_build_object('expired_at', NOW())
+  FROM (
+    UPDATE subscriptions
+    SET status = 'expired', updated_at = NOW()
+    WHERE status = 'trial'
+      AND trial_end_date IS NOT NULL
+      AND trial_end_date <= NOW()
+    RETURNING id, user_id
+  ) us;
+
+  RETURN updated_count;
+END;
+$$;
+
+-- Function to expire grace periods automatically (for daily cron job)
+CREATE OR REPLACE FUNCTION expire_grace_periods()
+RETURNS INTEGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  updated_count INTEGER;
+BEGIN
+  WITH updated_subscriptions AS (
+    UPDATE subscriptions
+    SET
+      status = 'expired',
+      updated_at = NOW()
+    WHERE status = 'grace'
+      AND grace_period_end IS NOT NULL
+      AND grace_period_end <= NOW()
+    RETURNING id, user_id
+  )
+  SELECT COUNT(*) INTO updated_count FROM updated_subscriptions;
+
+  -- Log events for expired grace periods
+  INSERT INTO subscription_events (user_id, subscription_id, event_type, metadata)
+  SELECT
+    us.user_id,
+    us.id,
+    'subscription_expired',
+    jsonb_build_object('expired_at', NOW(), 'previous_status', 'grace')
+  FROM (
+    UPDATE subscriptions
+    SET status = 'expired', updated_at = NOW()
+    WHERE status = 'grace'
+      AND grace_period_end IS NOT NULL
+      AND grace_period_end <= NOW()
+    RETURNING id, user_id
+  ) us;
+
+  RETURN updated_count;
+END;
+$$;
+
+-- =====================================================
+-- 15. SUBSCRIPTION MONITORING VIEWS
+-- =====================================================
+
+-- View for subscription metrics
+CREATE VIEW IF NOT EXISTS subscription_metrics AS
+SELECT
+  COUNT(*) as total_subscriptions,
+  COUNT(*) FILTER (WHERE status = 'trial') as trial_count,
+  COUNT(*) FILTER (WHERE status = 'active') as active_count,
+  COUNT(*) FILTER (WHERE status = 'grace') as grace_count,
+  COUNT(*) FILTER (WHERE status = 'expired') as expired_count,
+  COUNT(*) FILTER (WHERE status = 'crisis_only') as crisis_only_count,
+  COUNT(*) FILTER (WHERE platform = 'apple') as apple_count,
+  COUNT(*) FILTER (WHERE platform = 'google') as google_count,
+  COUNT(*) FILTER (WHERE interval = 'monthly') as monthly_count,
+  COUNT(*) FILTER (WHERE interval = 'yearly') as yearly_count,
+  AVG(payment_failure_count) FILTER (WHERE status = 'grace') as avg_payment_failures
+FROM subscriptions;
+
+-- View for subscription events summary
+CREATE VIEW IF NOT EXISTS subscription_events_summary AS
+SELECT
+  event_type,
+  COUNT(*) as event_count,
+  COUNT(DISTINCT user_id) as unique_users,
+  DATE_TRUNC('day', created_at) as event_date
+FROM subscription_events
+WHERE created_at > NOW() - INTERVAL '30 days'
+GROUP BY event_type, DATE_TRUNC('day', created_at)
+ORDER BY event_date DESC, event_count DESC;
+
+-- =====================================================
+-- 16. GRANTS AND PERMISSIONS (SUBSCRIPTIONS)
+-- =====================================================
+
+-- Grant necessary permissions to authenticated role
+GRANT SELECT, INSERT, UPDATE ON subscriptions TO authenticated;
+GRANT SELECT, INSERT ON subscription_events TO authenticated;
+
+-- Grant usage on sequences
+GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO authenticated;
+
+-- Grant execute on subscription functions
+GRANT EXECUTE ON FUNCTION log_subscription_event(UUID, UUID, TEXT, JSONB) TO authenticated;
+GRANT EXECUTE ON FUNCTION get_expiring_trials(INTEGER) TO authenticated;
+GRANT EXECUTE ON FUNCTION get_expiring_grace_periods(INTEGER) TO authenticated;
+
+-- =====================================================
+-- 17. COMMENTS (SUBSCRIPTIONS)
+-- =====================================================
+
+COMMENT ON TABLE subscriptions IS 'Subscription metadata (treated as PHI due to correlation with mental health data). IAP-only (Apple/Google).';
+COMMENT ON TABLE subscription_events IS 'Audit log for subscription lifecycle events.';
+
+COMMENT ON COLUMN subscriptions.platform_subscription_id IS 'Opaque reference to Apple/Google subscription. No payment data stored.';
+COMMENT ON COLUMN subscriptions.receipt_data_encrypted IS 'Encrypted receipt for server-side re-verification via Edge Functions.';
+COMMENT ON COLUMN subscriptions.crisis_access_enabled IS 'ALWAYS TRUE - crisis features never gated by subscription (legal requirement).';
+
+-- =====================================================
+-- SCHEMA COMPLETE (WITH SUBSCRIPTIONS)
 -- =====================================================
 
 -- This schema provides:
 -- ✅ Anonymous user management
 -- ✅ Encrypted backup storage
 -- ✅ Privacy-preserving analytics
+-- ✅ IAP subscription management (Apple/Google)
+-- ✅ Subscription audit logging
+-- ✅ Grace period automation
+-- ✅ Crisis access guarantee (always accessible)
 -- ✅ Free tier monitoring
 -- ✅ Data retention policies
 -- ✅ Performance optimization
 -- ✅ Row Level Security
--- ✅ HIPAA compliance (no PHI storage)
+-- ✅ HIPAA compliance (subscription metadata treated as PHI)
