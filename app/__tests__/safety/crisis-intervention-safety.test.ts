@@ -302,18 +302,18 @@ describe('CRISIS INTERVENTION SAFETY TESTING SUITE', () => {
     });
 
     /**
-     * Helper method to distribute score across questions
+     * Helper function to distribute score across questions
      */
-    distributeScore(targetScore: number, questionCount: number): AssessmentResponse[] {
+    function distributeScore(targetScore: number, questionCount: number): AssessmentResponse[] {
       const answers: AssessmentResponse[] = new Array(questionCount).fill(0);
       let remainingScore = targetScore;
-      
+
       for (let i = 0; i < questionCount && remainingScore > 0; i++) {
         const maxForQuestion = Math.min(remainingScore, 3);
         answers[i] = maxForQuestion as AssessmentResponse;
         remainingScore -= maxForQuestion;
       }
-      
+
       return answers;
     }
   });

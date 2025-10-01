@@ -12,6 +12,7 @@
     "test:coverage": "jest --coverage",
     "test:ci": "jest --coverage --ci --watchAll=false",
     "test:clinical": "jest --testPathPattern=clinical --verbose",
+    "test:crisis-detection": "NODE_OPTIONS='--max-old-space-size=8192' jest src/services/crisis/__tests__/CrisisDetectionValidation.test.ts --verbose --testTimeout=60000",
     "test:unit": "jest --testPathPattern=unit",
     "test:integration": "jest --testPathPattern=integration --verbose --testTimeout=30000",
     "test:performance": "jest --testPathPattern=performance --verbose",
