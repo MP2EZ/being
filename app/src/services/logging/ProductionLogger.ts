@@ -363,7 +363,8 @@ export class ProductionLogger {
       const prefix = this.getLogPrefix(entry);
 
       if (entry.context) {
-        console.log(prefix, entry.context);
+        // Stringify context to avoid [object Object] in console
+        console.log(prefix, JSON.stringify(entry.context, null, 2));
       } else {
         console.log(prefix);
       }
