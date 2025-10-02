@@ -39,6 +39,7 @@ import {
   DEFAULT_SUBSCRIPTION_CONFIG,
   CRISIS_FEATURES
 } from '../types/subscription';
+import AuthenticationService from '../services/security/AuthenticationService';
 
 const STORAGE_KEY = 'subscription_metadata_v1';
 const SECURE_STORAGE_KEY = 'subscription_secure_v1';
@@ -48,6 +49,19 @@ const SECURE_STORAGE_KEY = 'subscription_secure_v1';
  */
 function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+}
+
+/**
+ * Get current user ID from auth service
+ * Falls back to anonymous user if not authenticated
+ */
+function getCurrentUserId(): string {
+  const authUser = AuthenticationService.getCurrentUser();
+  if (authUser?.userId) {
+    return authUser.userId;
+  }
+  // Fallback to anonymous user for trials/unauthenticated access
+  return `anonymous_${Date.now()}`;
 }
 
 /**
@@ -164,8 +178,8 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
     set({ isLoading: true, error: null });
 
     try {
-      // TODO: Get userId from auth store (for now, use placeholder)
-      const userId = 'user_placeholder';
+      // Get current user ID from auth service
+      const userId = getCurrentUserId();
 
       const subscription = createTrialSubscription(userId);
       const featureAccess = calculateFeatureAccess(subscription.status);
@@ -272,7 +286,7 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
       const updatedSubscription: SubscriptionMetadata = {
         ...(subscription || {
           id: generateId(),
-          userId: 'user_placeholder', // TODO: Get from auth
+          userId: getCurrentUserId(),
           crisisAccessEnabled: true,
           createdAt: now,
         }),
