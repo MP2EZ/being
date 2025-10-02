@@ -255,6 +255,35 @@ serve(async (req) => {
 
     console.log('[Google Receipt Verification] Starting verification for user:', userId);
 
+    // MOCK MODE: Handle mock purchase tokens for local development
+    if (purchaseToken.startsWith('mock_token_')) {
+      console.log('[Google Receipt Verification] Mock mode - auto-approving token');
+
+      // Extract interval from subscription ID
+      const interval = subscriptionId.includes('yearly') ? 'yearly' : 'monthly';
+
+      // Generate mock subscription data
+      const now = Date.now();
+      const expiresDate = interval === 'yearly'
+        ? new Date(now + 365 * 24 * 60 * 60 * 1000).toISOString() // 1 year
+        : new Date(now + 30 * 24 * 60 * 60 * 1000).toISOString();  // 1 month
+
+      const mockVerification: VerificationResult = {
+        valid: true,
+        subscriptionId: `mock_sub_${Date.now()}`,
+        productId: subscriptionId,
+        expiresDate,
+        autoRenewEnabled: true,
+      };
+
+      console.log('[Google Receipt Verification] Mock verification successful:', mockVerification.subscriptionId);
+
+      return new Response(
+        JSON.stringify(mockVerification),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Verify with Google Play
     let googleResponse: GoogleSubscriptionResponse;
     try {

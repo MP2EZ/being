@@ -259,6 +259,41 @@ serve(async (req) => {
 
     console.log('[Apple Receipt Verification] Starting verification for user:', userId);
 
+    // MOCK MODE: Handle mock receipts for local development
+    if (receiptData.startsWith('mock_receipt_')) {
+      console.log('[Apple Receipt Verification] Mock mode - auto-approving receipt');
+
+      // Extract interval from mock receipt (format: mock_receipt_{interval}_{timestamp})
+      const parts = receiptData.split('_');
+      const interval = parts[2] || 'monthly';
+      const productId = interval === 'yearly'
+        ? 'com.being.subscription.yearly'
+        : 'com.being.subscription.monthly';
+
+      // Generate mock subscription data
+      const now = Date.now();
+      const expiresDate = interval === 'yearly'
+        ? new Date(now + 365 * 24 * 60 * 60 * 1000).toISOString() // 1 year
+        : new Date(now + 30 * 24 * 60 * 60 * 1000).toISOString();  // 1 month
+
+      const mockVerification: VerificationResult = {
+        valid: true,
+        subscriptionId: `mock_sub_${Date.now()}`,
+        productId,
+        expiresDate,
+        isTrialPeriod: false,
+        autoRenewEnabled: true,
+        environment: 'Sandbox',
+      };
+
+      console.log('[Apple Receipt Verification] Mock verification successful:', mockVerification.subscriptionId);
+
+      return new Response(
+        JSON.stringify(mockVerification),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Verify with Apple (try production first)
     let appleResponse: AppleReceiptResponse;
     try {
