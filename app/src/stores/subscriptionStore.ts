@@ -40,8 +40,8 @@ import {
   CRISIS_FEATURES
 } from '../types/subscription';
 
-const STORAGE_KEY = '@subscription_metadata_v1';
-const SECURE_STORAGE_KEY = '@subscription_secure_v1';
+const STORAGE_KEY = 'subscription_metadata_v1';
+const SECURE_STORAGE_KEY = 'subscription_secure_v1';
 
 /**
  * Generate unique ID
@@ -233,18 +233,94 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
     try {
       logger.info('Initiating purchase flow', { interval });
 
-      // TODO: Implement IAP purchase flow
-      // 1. Determine platform (iOS vs Android)
-      // 2. Get product ID for interval
-      // 3. Call platform IAP API
-      // 4. Wait for purchase completion
-      // 5. Verify receipt server-side
-      // 6. Update subscription metadata
+      // Import IAPService dynamically to avoid circular dependency
+      const { IAPService } = await import('../services/subscription/IAPService');
 
-      throw new Error('IAP purchase not yet implemented');
+      // 1. Initiate platform IAP purchase
+      const purchase = await IAPService.purchaseSubscription(interval);
+
+      if (!purchase) {
+        throw new Error('Purchase was cancelled or failed');
+      }
+
+      // 2. Verify receipt server-side
+      const platform = IAPService.getPlatform();
+
+      if (platform === 'none') {
+        throw new Error('IAP not available on this platform');
+      }
+
+      const receiptData = purchase.transactionReceipt || '';
+      const purchaseToken = purchase.purchaseToken;
+
+      logger.info('Verifying receipt', { platform, hasReceipt: !!receiptData });
+
+      const verification = await IAPService.verifyReceipt(
+        receiptData,
+        platform,
+        purchaseToken
+      );
+
+      if (!verification.valid) {
+        throw new Error(verification.error || 'Receipt verification failed');
+      }
+
+      // 3. Update subscription metadata
+      const { subscription } = get();
+      const now = Date.now();
+
+      const updatedSubscription: SubscriptionMetadata = {
+        ...(subscription || {
+          id: generateId(),
+          userId: 'user_placeholder', // TODO: Get from auth
+          crisisAccessEnabled: true,
+          createdAt: now,
+        }),
+        platform,
+        platformSubscriptionId: verification.subscriptionId || purchase.orderId,
+        status: 'active',
+        tier: 'standard',
+        interval,
+        priceUsd: interval === 'yearly' ? 79.99 : 7.99, // Default prices, should come from product
+        currency: 'USD',
+        trialStartDate: null,
+        trialEndDate: null,
+        subscriptionStartDate: now,
+        subscriptionEndDate: verification.expiresDate || null,
+        gracePeriodEnd: null,
+        lastReceiptVerified: now,
+        receiptData,
+        lastPaymentDate: now,
+        paymentFailureCount: 0,
+        updatedAt: now,
+      } as SubscriptionMetadata;
+
+      const featureAccess = calculateFeatureAccess('active');
+
+      // Save to secure storage
+      await SecureStore.setItemAsync(SECURE_STORAGE_KEY, JSON.stringify(updatedSubscription));
+
+      set({
+        subscription: updatedSubscription,
+        featureAccess,
+        isLoading: false
+      });
+
+      // 4. Finish transaction (acknowledge with platform)
+      await IAPService.finishTransaction(purchase);
+
+      // 5. Track event
+      await get().trackSubscriptionEvent('subscription_started', {
+        interval,
+        platform,
+        subscriptionId: verification.subscriptionId
+      });
+
+      logger.info('Purchase completed successfully', { subscriptionId: verification.subscriptionId });
     } catch (error) {
       logger.error('Purchase failed', { error });
       set({ error: 'Purchase failed', isLoading: false });
+      throw error; // Re-throw so UI can handle it
     }
   },
 

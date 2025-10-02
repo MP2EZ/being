@@ -63,56 +63,73 @@ export default function PurchaseOptionsScreen({
 
   // Handle purchase
   const handlePurchase = async () => {
-    if (!isReady || isPurchasing) return;
+    if (isPurchasing) return;
 
     setIsPurchasing(true);
 
     try {
       console.log('[PurchaseOptions] Starting purchase:', selectedInterval);
 
-      // Initiate purchase
-      const purchase = await service.purchaseSubscription(selectedInterval);
+      // Purchase through store (handles IAP, verification, and state update)
+      await subscriptionStore.purchaseSubscription(selectedInterval);
 
-      if (purchase) {
-        // Verify receipt server-side
-        const platform = service.getPlatform();
-        const receiptData = purchase.transactionReceipt || '';
-
-        const verification = await service.verifyReceipt(receiptData, platform);
-
-        if (verification.valid) {
-          // Update subscription store
-          await subscriptionStore.updateSubscriptionStatus('active');
-
-          // Finish transaction
-          await service.finishTransaction(purchase);
-
-          Alert.alert(
-            'Purchase Successful',
-            'Thank you for subscribing! You now have access to all features.',
-            [
-              {
-                text: 'Continue',
-                onPress: () => {
-                  if (onPurchaseComplete) onPurchaseComplete();
-                },
-              },
-            ]
-          );
-        } else {
-          throw new Error(verification.error || 'Receipt verification failed');
-        }
-      }
+      Alert.alert(
+        'Purchase Successful',
+        'Thank you for subscribing! You now have access to all features.',
+        [
+          {
+            text: 'Continue',
+            onPress: () => {
+              if (onPurchaseComplete) onPurchaseComplete();
+            },
+          },
+        ]
+      );
     } catch (error) {
       console.error('[PurchaseOptions] Purchase failed:', error);
 
-      Alert.alert(
-        'Purchase Failed',
-        error instanceof Error ? error.message : 'An error occurred during purchase',
-        [{ text: 'OK' }]
-      );
+      // Don't show alert if user cancelled (not really an error)
+      if (error instanceof Error && error.message.includes('cancelled')) {
+        console.log('[PurchaseOptions] User cancelled purchase');
+      } else {
+        Alert.alert(
+          'Purchase Failed',
+          error instanceof Error ? error.message : 'An error occurred during purchase',
+          [{ text: 'OK' }]
+        );
+      }
     } finally {
       setIsPurchasing(false);
+    }
+  };
+
+  // Handle free trial (no purchase required)
+  const handleFreeTrial = async () => {
+    try {
+      console.log('[PurchaseOptions] Starting free trial');
+
+      await subscriptionStore.createTrial();
+
+      Alert.alert(
+        'Free Trial Started',
+        'Welcome to your 28-day free trial! Enjoy full access to all features.',
+        [
+          {
+            text: 'Start Exploring',
+            onPress: () => {
+              if (onPurchaseComplete) onPurchaseComplete();
+            },
+          },
+        ]
+      );
+    } catch (error) {
+      console.error('[PurchaseOptions] Free trial failed:', error);
+
+      Alert.alert(
+        'Error',
+        'Failed to start free trial. Please try again.',
+        [{ text: 'OK' }]
+      );
     }
   };
 
@@ -138,6 +155,11 @@ export default function PurchaseOptionsScreen({
 
       // Verify each purchase
       const platform = service.getPlatform();
+
+      if (platform === 'none') {
+        throw new Error('IAP not available on this platform');
+      }
+
       let restoredCount = 0;
 
       for (const purchase of purchases) {
@@ -240,7 +262,7 @@ export default function PurchaseOptionsScreen({
           </View>
           <Text style={styles.optionTitle}>Yearly</Text>
           <Text style={styles.optionPrice}>
-            {yearlyProduct?.localizedPrice || SUBSCRIPTION_PRICING.yearly.label}
+            {yearlyProduct?.price || SUBSCRIPTION_PRICING.yearly.label}
           </Text>
           <Text style={styles.optionSavings}>{SUBSCRIPTION_PRICING.yearly.savingsLabel}</Text>
           <Text style={styles.optionDescription}>
@@ -261,7 +283,7 @@ export default function PurchaseOptionsScreen({
         >
           <Text style={styles.optionTitle}>Monthly</Text>
           <Text style={styles.optionPrice}>
-            {monthlyProduct?.localizedPrice || SUBSCRIPTION_PRICING.monthly.label}
+            {monthlyProduct?.price || SUBSCRIPTION_PRICING.monthly.label}
           </Text>
           <Text style={styles.optionDescription}>
             Billed monthly • Cancel anytime
@@ -275,22 +297,44 @@ export default function PurchaseOptionsScreen({
           🎉 Start with a <Text style={styles.trialBold}>28-day free trial</Text>
         </Text>
         <Text style={styles.trialDetails}>
-          Your subscription begins after the trial ends. Cancel anytime during the trial at no charge.
+          No payment required to start your trial. Full access to all features for 28 days.
         </Text>
       </View>
 
-      {/* Purchase Button */}
+      {/* Free Trial Button (No Purchase) */}
+      <TouchableOpacity
+        style={styles.freeTrialButton}
+        onPress={handleFreeTrial}
+        disabled={subscriptionStore.isLoading}
+        accessibilityLabel="Start 28-day free trial without payment"
+        accessibilityRole="button"
+      >
+        {subscriptionStore.isLoading ? (
+          <ActivityIndicator color="#FFFFFF" />
+        ) : (
+          <Text style={styles.freeTrialButtonText}>Start Free Trial (No Payment)</Text>
+        )}
+      </TouchableOpacity>
+
+      {/* Or Divider */}
+      <View style={styles.orDivider}>
+        <View style={styles.dividerLine} />
+        <Text style={styles.dividerText}>OR</Text>
+        <View style={styles.dividerLine} />
+      </View>
+
+      {/* Purchase Button (Paid Subscription) */}
       <TouchableOpacity
         style={[styles.purchaseButton, isPurchasing && styles.purchaseButtonDisabled]}
         onPress={handlePurchase}
         disabled={isPurchasing}
-        accessibilityLabel={`Start free trial with ${selectedInterval} subscription`}
+        accessibilityLabel={`Subscribe now with ${selectedInterval} plan`}
         accessibilityRole="button"
       >
         {isPurchasing ? (
           <ActivityIndicator color="#FFFFFF" />
         ) : (
-          <Text style={styles.purchaseButtonText}>Start Free Trial</Text>
+          <Text style={styles.purchaseButtonText}>Subscribe Now</Text>
         )}
       </TouchableOpacity>
 
@@ -454,6 +498,34 @@ const styles = StyleSheet.create({
     color: '#666666',
     textAlign: 'center',
     lineHeight: 18,
+  },
+  freeTrialButton: {
+    backgroundColor: '#7ED321',
+    borderRadius: 8,
+    padding: 16,
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  freeTrialButtonText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  orDivider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 16,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#E0E0E0',
+  },
+  dividerText: {
+    marginHorizontal: 12,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#999999',
   },
   purchaseButton: {
     backgroundColor: '#4A90E2',

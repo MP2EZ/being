@@ -76,6 +76,7 @@ function getProductId(interval: SubscriptionInterval): string {
 class IAPServiceClass {
   private isInitialized = false;
   private products: InAppPurchases.IAPItemDetails[] = [];
+  private mockMode = __DEV__; // Enable mock purchases in development
 
   /**
    * Initialize IAP service
@@ -148,7 +149,7 @@ class IAPServiceClass {
 
   /**
    * Purchase subscription
-   * Initiates platform IAP flow
+   * Initiates platform IAP flow (or mock flow in development)
    */
   async purchaseSubscription(interval: SubscriptionInterval): Promise<InAppPurchases.InAppPurchase | null> {
     if (!this.isInitialized) {
@@ -159,9 +160,33 @@ class IAPServiceClass {
 
     try {
       const productId = getProductId(interval);
-      console.log('[IAP] Purchasing subscription:', { interval, productId });
+      console.log('[IAP] Purchasing subscription:', { interval, productId, mockMode: this.mockMode });
 
-      // Initiate purchase
+      // MOCK MODE: Simulate purchase flow for development
+      if (this.mockMode) {
+        console.log('[IAP] Mock purchase flow activated');
+
+        // Simulate network delay (1-2 seconds)
+        await new Promise(resolve => setTimeout(resolve, 1500));
+
+        // Generate mock purchase result
+        const mockPurchase: InAppPurchases.InAppPurchase = {
+          acknowledged: false,
+          orderId: `mock_order_${Date.now()}`,
+          productId: productId,
+          purchaseTime: Date.now(),
+          purchaseState: InAppPurchases.InAppPurchaseState.PURCHASED,
+          purchaseToken: `mock_token_${Date.now()}`,
+          transactionReceipt: `mock_receipt_${interval}_${Date.now()}`, // This will be verified server-side
+        };
+
+        const purchaseTime = performance.now() - startTime;
+        console.log(`[IAP] Mock purchase completed in ${purchaseTime}ms`);
+
+        return mockPurchase;
+      }
+
+      // REAL MODE: Use actual IAP
       await InAppPurchases.purchaseItemAsync(productId);
 
       const purchaseTime = performance.now() - startTime;
@@ -239,7 +264,7 @@ class IAPServiceClass {
 
   /**
    * Verify receipt server-side
-   * Sends receipt to Supabase Edge Function for verification
+   * Sends receipt to Supabase Edge Function for verification (or mocks in development)
    */
   async verifyReceipt(receiptData: string, platform: 'apple' | 'google', purchaseToken?: string): Promise<{
     valid: boolean;
@@ -248,7 +273,33 @@ class IAPServiceClass {
     error?: string;
   }> {
     try {
-      console.log('[IAP] Verifying receipt...', { platform });
+      console.log('[IAP] Verifying receipt...', { platform, mockMode: this.mockMode });
+
+      // MOCK MODE: Accept mock receipts
+      if (this.mockMode && receiptData.startsWith('mock_receipt_')) {
+        console.log('[IAP] Mock receipt verification - auto-approving');
+
+        // Simulate network delay
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        // Extract interval from mock receipt (format: mock_receipt_{interval}_{timestamp})
+        const parts = receiptData.split('_');
+        const interval = parts[2] || 'monthly';
+
+        // Generate expiry date (1 year or 1 month from now)
+        const now = Date.now();
+        const expiresDate = interval === 'yearly'
+          ? now + (365 * 24 * 60 * 60 * 1000) // 1 year
+          : now + (30 * 24 * 60 * 60 * 1000);  // 1 month
+
+        console.log('[IAP] Mock receipt verified successfully');
+
+        return {
+          valid: true,
+          subscriptionId: `mock_sub_${Date.now()}`,
+          expiresDate,
+        };
+      }
 
       // Get user ID from Supabase service
       const status = supabaseService.getStatus();
@@ -261,12 +312,12 @@ class IAPServiceClass {
       // Call appropriate Edge Function based on platform
       if (platform === 'apple') {
         const response = await fetch(
-          `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/verify-apple-receipt`,
+          `${process.env['EXPO_PUBLIC_SUPABASE_URL']}/functions/v1/verify-apple-receipt`,
           {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY}`,
+              'Authorization': `Bearer ${process.env['EXPO_PUBLIC_SUPABASE_ANON_KEY']}`,
             },
             body: JSON.stringify({
               receiptData,
@@ -295,12 +346,12 @@ class IAPServiceClass {
         }
 
         const response = await fetch(
-          `${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/verify-google-receipt`,
+          `${process.env['EXPO_PUBLIC_SUPABASE_URL']}/functions/v1/verify-google-receipt`,
           {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY}`,
+              'Authorization': `Bearer ${process.env['EXPO_PUBLIC_SUPABASE_ANON_KEY']}`,
             },
             body: JSON.stringify({
               packageName: 'com.being.app', // TODO: Make configurable
