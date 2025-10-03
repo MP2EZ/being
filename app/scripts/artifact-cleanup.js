@@ -195,7 +195,7 @@ const essentialFiles = [
   'src/services/resilience/CircuitBreakerService.ts',
   'src/services/deployment/DeploymentService.ts',
   'docs/technical/Cloud-Sync-Complete-Implementation.md',
-  'docs/privacy/Week3-Analytics-Privacy-Design.md',
+  'docs/compliance/Week3-Analytics-Privacy-Design.md',
   '__tests__/clinical/clinical-validation-summary.test.ts'
 ];
 

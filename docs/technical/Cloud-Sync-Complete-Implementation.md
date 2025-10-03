@@ -303,7 +303,7 @@ class PerformanceService {
 /docs/
   /technical/
     Cloud-Sync-Complete-Implementation.md (this file)
-  /privacy/
+  /compliance/
     Week3-Analytics-Privacy-Design.md
   /security/
     Production-Logging-Architecture.md
