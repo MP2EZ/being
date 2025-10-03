@@ -227,3 +227,5 @@ authentication-canonical.ts
 *_monitor.py
 monitoring-*.js
 monitoring-*.py
+# Local test results
+app/test-results/local-performance.json
