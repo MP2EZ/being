@@ -3,6 +3,9 @@
 **/.git/
 *.git
 
+# Claude Configuration (symlinked from bare repo root)
+.claude
+
 # OS Files
 .DS_Store
 Thumbs.db
