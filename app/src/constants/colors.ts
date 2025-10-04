@@ -106,6 +106,14 @@ export const colorSystem = {
       tertiary: '#6B7280',  // 4.5:1 contrast on white
       inverse: '#F9FAFB',   // 15.8:1 contrast on dark
     }
+  },
+
+  // Navigation Shape Colors (Design Library v1.1)
+  navigation: {
+    home: '#FF6B9D',       // Triangle - home navigation (pink)
+    checkins: '#2C5282',   // Square - check-ins navigation (blue)
+    exercises: '#FF9F43',  // Star - exercises navigation (orange)
+    insights: '#A8E6CF'    // Circle - insights navigation (green)
   }
 };
 

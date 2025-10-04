@@ -2,12 +2,18 @@
  * Clean Tab Navigator - Fresh start approach
  * Minimal bottom tabs without crypto dependencies
  * DRD-compliant therapeutic design
+ *
+ * Design Library Compliance:
+ * - Navigation colors from colorSystem.navigation
+ * - NavShape components: triangle (home), square (checkins), star (exercises), circle (insights)
+ * - BrainIcon with 60% fill for profile
+ * - Inactive state: colorSystem.gray[500]
  */
 
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { View, Text } from 'react-native';
-import Svg, { Path, Circle } from 'react-native-svg';
+import Svg, { Path, Circle, Rect, ClipPath, Defs, G } from 'react-native-svg';
 import { colorSystem, spacing } from '../constants/colors';
 import CleanHomeScreen from '../screens/home/CleanHomeScreen';
 import ExercisesScreen from '../screens/ExercisesScreen.simple';
@@ -21,10 +27,16 @@ type NavigationProp = StackNavigationProp<RootStackParamList>;
 
 const Tab = createBottomTabNavigator();
 
-// DRD-compliant therapeutic icons with exact colors per spec
-const DiamondIcon: React.FC<{ color: string; size?: number }> = ({ color, size = 24 }) => (
+// Design library navigation shapes - optimized for React Native
+const TriangleIcon: React.FC<{ color: string; size?: number }> = ({ color, size = 24 }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24">
-    <Path d="M12 2 L22 12 L12 22 L2 12 Z" fill={color} />
+    <Path d="M12 2 L22 20 L2 20 Z" fill={color} />
+  </Svg>
+);
+
+const SquareIcon: React.FC<{ color: string; size?: number }> = ({ color, size = 24 }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24">
+    <Rect x="3" y="3" width="18" height="18" rx="3" fill={color} />
   </Svg>
 );
 
@@ -34,18 +46,39 @@ const StarIcon: React.FC<{ color: string; size?: number }> = ({ color, size = 24
   </Svg>
 );
 
-const TriangleIcon: React.FC<{ color: string; size?: number }> = ({ color, size = 24 }) => (
+const CircleIcon: React.FC<{ color: string; size?: number }> = ({ color, size = 24 }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24">
-    <Path d="M12 2 L22 20 L2 20 Z" fill={color} />
+    <Circle cx="12" cy="12" r="10" fill={color} />
   </Svg>
 );
 
-const BrainIcon: React.FC<{ color: string; size?: number }> = ({ color, size = 24 }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24">
-    <Circle cx="12" cy="6" r="4" fill={color} />
-    <Path d="M12 14c-6 0-8 2-8 4v2h16v-2c0-2-2-4-8-4z" fill={color} />
-  </Svg>
-);
+// BrainIcon with 60% fill - from design library
+const BrainIcon: React.FC<{ color: string; size?: number }> = ({ color, size = 24 }) => {
+  const uniqueId = `brain-${Math.random().toString(36).substr(2, 9)}`;
+
+  return (
+    <Svg width={size} height={size} viewBox="0 0 32 32">
+      <Defs>
+        <ClipPath id={uniqueId}>
+          <Path d="M16 4C20 4 24 6 26 10C28 14 26 18 24 20C26 22 28 26 24 28C20 28 16 26 16 28C16 26 12 28 8 28C4 26 6 22 8 20C6 18 4 14 6 10C8 6 12 4 16 4Z" />
+        </ClipPath>
+      </Defs>
+      <Path
+        d="M16 4C20 4 24 6 26 10C28 14 26 18 24 20C26 22 28 26 24 28C20 28 16 26 16 28C16 26 12 28 8 28C4 26 6 22 8 20C6 18 4 14 6 10C8 6 12 4 16 4Z"
+        fill="white"
+        stroke={color}
+        strokeWidth="2"
+      />
+      <G clipPath={`url(#${uniqueId})`}>
+        <Rect x="0" y="12.8" width="32" height="19.2" fill={color} />
+        <Path
+          d="M0 12.8 Q8 10.8 16 12.8 T32 12.8 L32 13.8 Q24 15.8 16 13.8 T0 13.8 Z"
+          fill="white"
+        />
+      </G>
+    </Svg>
+  );
+};
 
 // Placeholder components for other tabs
 const PlaceholderScreen: React.FC<{ name: string; description: string }> = ({ name, description }) => (
@@ -150,9 +183,9 @@ const CleanTabNavigator: React.FC = () => {
         options={{
           headerTitle: 'Being.',
           headerShown: false, // CleanHomeScreen has its own SafeAreaView
-          tabBarIcon: ({ focused, color }) => (
-            <DiamondIcon
-              color={focused ? '#FF9F43' : '#1C1C1C'} // DRD morning-primary : soft-black
+          tabBarIcon: ({ focused }) => (
+            <TriangleIcon
+              color={focused ? colorSystem.navigation.home : colorSystem.gray[500]}
             />
           ),
         }}
@@ -164,9 +197,9 @@ const CleanTabNavigator: React.FC = () => {
         options={{
           headerTitle: 'Exercises',
           headerShown: false, // ExercisesScreen has its own SafeAreaView
-          tabBarIcon: ({ focused, color }) => (
+          tabBarIcon: ({ focused }) => (
             <StarIcon
-              color={focused ? '#FF9F43' : '#1C1C1C'} // DRD morning-primary : soft-black
+              color={focused ? colorSystem.navigation.exercises : colorSystem.gray[500]}
             />
           ),
         }}
@@ -177,9 +210,9 @@ const CleanTabNavigator: React.FC = () => {
         component={InsightsScreen}
         options={{
           headerTitle: 'Insights',
-          tabBarIcon: ({ focused, color }) => (
-            <TriangleIcon
-              color={focused ? '#4A7C59' : '#1C1C1C'} // DRD evening-primary : soft-black
+          tabBarIcon: ({ focused }) => (
+            <CircleIcon
+              color={focused ? colorSystem.navigation.insights : colorSystem.gray[500]}
             />
           ),
         }}
@@ -190,9 +223,9 @@ const CleanTabNavigator: React.FC = () => {
         component={ProfileScreen}
         options={{
           headerTitle: 'Profile',
-          tabBarIcon: ({ focused, color }) => (
+          tabBarIcon: ({ focused }) => (
             <BrainIcon
-              color={focused ? '#1B2951' : '#1C1C1C'} // DRD midnight-blue : soft-black
+              color={focused ? colorSystem.base.midnightBlue : colorSystem.gray[500]}
             />
           ),
         }}
