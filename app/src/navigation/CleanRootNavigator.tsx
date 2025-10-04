@@ -51,7 +51,21 @@ const CleanRootNavigator: React.FC = () => {
 
   return (
     <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Navigator
+        screenOptions={{
+          headerShown: false,
+          headerStyle: {
+            backgroundColor: '#FFFFFF',
+            borderBottomColor: '#E5E7EB',
+            borderBottomWidth: 1,
+          },
+          headerTintColor: '#000000',
+          headerTitleStyle: {
+            fontSize: 18,
+            fontWeight: '600',
+          },
+        }}
+      >
         {/* Main App */}
         <Stack.Screen name="Main" component={CleanTabNavigator} />
 
@@ -60,6 +74,7 @@ const CleanRootNavigator: React.FC = () => {
           <Stack.Screen
             name="MorningFlow"
             options={{
+              headerShown: false, // MorningFlowNavigator has its own header with progress
               gestureEnabled: false, // Prevent swipe to dismiss during session
               animationTypeForReplace: 'push'
             }}
@@ -80,6 +95,7 @@ const CleanRootNavigator: React.FC = () => {
           <Stack.Screen
             name="MiddayFlow"
             options={{
+              headerShown: false, // MiddayFlowNavigator has its own header with progress
               gestureEnabled: false, // Prevent swipe to dismiss during session
               animationTypeForReplace: 'push'
             }}
@@ -100,6 +116,7 @@ const CleanRootNavigator: React.FC = () => {
           <Stack.Screen
             name="EveningFlow"
             options={{
+              headerShown: false, // EveningFlowNavigator has its own header with progress
               gestureEnabled: false, // Prevent swipe to dismiss during session
               animationTypeForReplace: 'push'
             }}
@@ -123,6 +140,7 @@ const CleanRootNavigator: React.FC = () => {
             component={CrisisResourcesScreen}
             options={{
               title: 'Crisis Support',
+              headerShown: true,
               presentation: 'modal',
               gestureEnabled: true
             }}
@@ -134,6 +152,7 @@ const CleanRootNavigator: React.FC = () => {
             component={CrisisPlanScreen}
             options={{
               title: 'Safety Plan',
+              headerShown: true,
               presentation: 'modal',
               gestureEnabled: true
             }}
@@ -145,6 +164,7 @@ const CleanRootNavigator: React.FC = () => {
             component={PurchaseOptionsScreen}
             options={{
               title: 'Subscription',
+              headerShown: true,
               presentation: 'modal',
               gestureEnabled: true
             }}
@@ -155,6 +175,7 @@ const CleanRootNavigator: React.FC = () => {
             component={SubscriptionStatusCard}
             options={{
               title: 'Subscription Status',
+              headerShown: true,
               presentation: 'modal',
               gestureEnabled: true
             }}

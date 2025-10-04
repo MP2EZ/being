@@ -37,8 +37,24 @@ const CrisisHeaderButton: React.FC<{ onPress: () => void }> = ({ onPress }) => (
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel="Access crisis support"
+      accessibilityHint="Opens immediate crisis support resources"
     >
       <Text style={headerStyles.crisisButtonText}>Support</Text>
+    </Pressable>
+  </View>
+);
+
+// Close/Exit Header Component
+const ExitHeaderButton: React.FC<{ onPress: () => void }> = ({ onPress }) => (
+  <View style={headerStyles.exitContainer}>
+    <Pressable
+      style={headerStyles.exitButton}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel="Close evening flow"
+      accessibilityHint="Returns to home screen"
+    >
+      <Text style={headerStyles.exitButtonText}>✕</Text>
     </Pressable>
   </View>
 );
@@ -75,7 +91,9 @@ const EveningFlowNavigator: React.FC<EveningFlowNavigatorProps> = ({
           color: colorSystem.base.black,
         },
         headerTintColor: colorSystem.themes.evening.primary,
-        headerLeft: () => null,
+        headerLeft: () => (
+          <ExitHeaderButton onPress={onExit} />
+        ),
         cardStyle: {
           backgroundColor: colorSystem.themes.evening.background,
         },
@@ -161,6 +179,21 @@ const headerStyles = StyleSheet.create({
     color: colorSystem.base.white,
     fontSize: typography.caption.size,
     fontWeight: '600',
+  },
+  exitContainer: {
+    marginLeft: spacing.md,
+  },
+  exitButton: {
+    padding: spacing.sm,
+    width: 44,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  exitButtonText: {
+    fontSize: 24,
+    color: colorSystem.base.black,
+    fontWeight: '300',
   },
 });
 

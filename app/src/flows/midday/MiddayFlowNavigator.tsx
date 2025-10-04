@@ -173,6 +173,7 @@ const MiddayFlowNavigator: React.FC<MiddayFlowNavigatorProps> = ({
             }}
             accessibilityRole="button"
             accessibilityLabel="Exit session"
+            accessibilityHint="Returns to home screen"
           >
             <Text style={{ color: 'white', fontSize: 12, fontWeight: '600' }}>
               Exit
@@ -190,6 +191,7 @@ const MiddayFlowNavigator: React.FC<MiddayFlowNavigatorProps> = ({
             }}
             accessibilityRole="button"
             accessibilityLabel="Crisis support"
+            accessibilityHint="Opens immediate crisis support resources"
           >
             <Text style={{ color: 'white', fontSize: 12, fontWeight: '600' }}>
               Support

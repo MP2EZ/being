@@ -5,7 +5,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { colorSystem, spacing } from '../../constants/colors';
@@ -79,6 +79,17 @@ const MorningFlowNavigator: React.FC<MorningFlowNavigatorProps> = ({
       </View>
     ),
     headerTitleAlign: 'center' as const,
+    headerLeft: () => (
+      <TouchableOpacity
+        onPress={onExit}
+        style={styles.closeButton}
+        accessibilityLabel="Close morning flow"
+        accessibilityRole="button"
+        accessibilityHint="Returns to home screen"
+      >
+        <Text style={styles.closeButtonText}>✕</Text>
+      </TouchableOpacity>
+    ),
   });
 
   return (
@@ -203,6 +214,19 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colorSystem.gray[600],
     fontWeight: '500',
+  },
+  closeButton: {
+    marginLeft: spacing.md,
+    padding: spacing.sm,
+    width: 44,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  closeButtonText: {
+    fontSize: 24,
+    color: colorSystem.base.black,
+    fontWeight: '300',
   },
 });
 
