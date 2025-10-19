@@ -144,8 +144,8 @@ module.exports = {
     '<rootDir>/__tests__/reporters/quick-reporter.js'
   ] : [
     'default',
-    ['<rootDir>/__tests__/reporters/local-performance-reporter.js', {
-      outputFile: 'test-results/local-performance.json',
+    ['<rootDir>/__tests__/reporters/performance-regression-reporter.js', {
+      outputFile: 'test-results/performance-regression.json',
       includeTimings: true
     }],
     ['<rootDir>/__tests__/reporters/coverage-reporter.js', {
