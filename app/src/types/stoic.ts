@@ -36,6 +36,43 @@ export type CardinalVirtue =
   | 'temperance';  // Self-control, moderation
 
 // ──────────────────────────────────────────────────────────────────────────────
+// STOIC PRINCIPLES (12 Core Practices)
+// ──────────────────────────────────────────────────────────────────────────────
+
+/**
+ * The 12 Stoic Mindfulness Principles
+ *
+ * Organized into 5 categories aligned with Architecture v1.0:
+ * - Foundation (1-3): Core practices for mindful awareness
+ * - Discernment (4-5): Distinguishing what we control
+ * - Regulation (6-7): Managing reactions and reframing
+ * - Practice (8-9): Contemplative exercises
+ * - Ethics (10-12): Virtue and amor fati
+ *
+ * Sources: Marcus Aurelius (Meditations), Epictetus (Enchiridion, Discourses), Seneca (Letters)
+ *
+ * @see /docs/technical/Stoic-Mindfulness-Architecture-v1.0.md
+ */
+export type StoicPrinciple =
+  // Foundation (1-3)
+  | 'attention_to_present'        // Principle 1: Mindful attention (Marcus Aurelius, Meditations 2:1)
+  | 'perception_examination'      // Principle 2: Examine perceptions (Epictetus, Enchiridion 1.5)
+  | 'judgment_suspension'         // Principle 3: Suspend automatic judgments (Epictetus, Discourses 1.1)
+  // Discernment (4-5)
+  | 'dichotomy_of_control'        // Principle 4: What I control vs. what I don't (Epictetus, Enchiridion 1)
+  | 'events_vs_interpretations'   // Principle 5: Events are neutral, interpretations aren't (Epictetus, Enchiridion 5)
+  // Regulation (6-7)
+  | 'pause_before_reaction'       // Principle 6: Pause between stimulus and response (Marcus Aurelius, Meditations 8:47)
+  | 'reframe_adversity'           // Principle 7: Reframe obstacles as opportunities (Marcus Aurelius, Meditations 5:20)
+  // Practice (8-9)
+  | 'contemplation'               // Principle 8: Daily contemplation/reflection (Seneca, Letters 28)
+  | 'view_from_above'             // Principle 9: Cosmic perspective (Marcus Aurelius, Meditations 7:48)
+  // Ethics (10-12)
+  | 'virtue_as_foundation'        // Principle 10: Virtue is the only good (Epictetus, Discourses 1.4)
+  | 'service_to_others'           // Principle 11: We exist to help one another (Marcus Aurelius, Meditations 8:59)
+  | 'amor_fati';                  // Principle 12: Love of fate, embrace necessity (Marcus Aurelius, Meditations 10:6)
+
+// ──────────────────────────────────────────────────────────────────────────────
 // DEVELOPMENTAL STAGES (Practice Progression)
 // ──────────────────────────────────────────────────────────────────────────────
 
