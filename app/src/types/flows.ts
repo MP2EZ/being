@@ -165,3 +165,230 @@ export interface EveningFlowData {
   thoughtPatterns?: ThoughtPatternsData;
   tomorrowPrep?: TomorrowPrepData;
 }
+
+// ──────────────────────────────────────────────────────────────────────────────
+// STOIC MINDFULNESS FLOW TYPES (FEAT-45)
+// ──────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Stoic Mindfulness Flow Data Interfaces
+ * Philosopher-validated (9.5/10 rating) - See Architecture v1.0
+ * @see /docs/technical/Stoic-Mindfulness-Architecture-v1.0.md
+ */
+
+import type { CardinalVirtue, PracticeDomain, VirtueInstance, VirtueChallenge } from './stoic';
+
+// ──────────────────────────────────────────────────────────────────────────────
+// MORNING FLOW TYPES
+// ──────────────────────────────────────────────────────────────────────────────
+
+export interface StoicMorningFlowData {
+  // Stoic practices
+  gratitude?: GratitudeData;
+  intention?: IntentionData;
+  preparation?: PreparationData;       // Premeditatio malorum (with safeguards)
+  principleFocus?: PrincipleFocusData;
+
+  // Retained from MBCT (body awareness)
+  physicalMetrics?: PhysicalMetricsData;
+
+  // Metadata
+  completedAt: Date;
+  timeSpentSeconds: number;
+  flowVersion: string;  // 'stoic_v1'
+}
+
+export interface GratitudeData {
+  items: GratitudeItem[];  // Exactly 3 items
+  timestamp: Date;
+}
+
+export interface GratitudeItem {
+  what: string;
+  impermanenceReflection?: {
+    acknowledged: boolean;
+    awareness?: string;         // "This is impermanent"
+    appreciationShift?: string; // "This makes it precious"
+    presentAction?: string;     // "I'll engage fully"
+  };
+  howItManifestsToday?: string;
+}
+
+export interface IntentionData {
+  virtue: CardinalVirtue;
+  context: PracticeDomain;
+  intentionStatement: string;
+  whatIControl: string;
+  whatIDontControl: string;
+  reserveClause?: string;      // Stoic "fate permitting"
+  principleApplied?: string;
+  timestamp: Date;
+}
+
+export interface PreparationData {
+  obstacles: ObstacleContemplation[];  // MAX 2 (prevents rumination)
+  readinessRating: number;             // 1-10
+  selfCompassionNote: string;          // REQUIRED if obstacles present
+
+  // Safety safeguards
+  timeSpentSeconds: number;      // Flag if >120s
+  optedOut: boolean;
+  optOutReason?: 'anxiety' | 'not_needed_today' | 'prefer_gratitude';
+  anxietyDetected?: boolean;
+
+  timestamp: Date;
+}
+
+export interface ObstacleContemplation {
+  obstacle: string;
+  howICanRespond: string;
+  whatIControl: string;
+  whatIDontControl: string;
+  virtueToApply?: CardinalVirtue;
+}
+
+export interface PrincipleFocusData {
+  principleId: string;
+  briefPrompt: string;         // Short reminder (1-2 sentences)
+  todayApplication: string;
+  timestamp: Date;
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// MIDDAY FLOW TYPES
+// ──────────────────────────────────────────────────────────────────────────────
+
+export interface StoicMiddayFlowData {
+  // Stoic practices
+  currentSituation?: CurrentSituationData;
+  controlCheck?: ControlCheckData;
+  reappraisal?: ReappraisalData;
+  intentionProgress?: IntentionProgressData;
+
+  // Retained from MBCT (60fps breathing)
+  embodiment?: EmbodimentData;
+
+  // Metadata
+  completedAt: Date;
+  timeSpentSeconds: number;
+  flowVersion: string;
+}
+
+export interface CurrentSituationData {
+  situation: string;
+  emotionalState: string;
+  energyLevel: number;  // 1-10
+  timestamp: Date;
+}
+
+export interface ControlCheckData {
+  aspect: string;
+  controlType: 'fully_in_control' | 'can_influence' | 'not_in_control';  // Three-tier
+  whatIControl?: string;
+  whatICannotControl?: string;
+  actionIfControllable?: string;
+  acceptanceIfUncontrollable?: string;
+  timestamp: Date;
+}
+
+export interface ReappraisalData {
+  obstacle: string;
+  virtueOpportunity: string;
+  reframedPerspective: string;
+  principleApplied?: string;
+  timestamp: Date;
+}
+
+export interface IntentionProgressData {
+  morningIntention: string;
+  practiced: boolean;
+  howApplied?: string;
+  adjustment?: string;
+  timestamp: Date;
+}
+
+export interface EmbodimentData {
+  breathingDuration: 60;  // EXACTLY 60 seconds (60fps critical)
+  breathingQuality: number;  // 1-10
+  bodyAwareness: string;
+  timestamp: Date;
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// EVENING FLOW TYPES
+// ──────────────────────────────────────────────────────────────────────────────
+
+export interface StoicEveningFlowData {
+  // Stoic examination (balanced)
+  review?: ReviewData;
+  virtueInstances?: VirtueInstance[];    // Successes
+  virtueChallenges?: VirtueChallenge[];  // Struggles
+  learning?: LearningData;
+  senecaQuestions?: SenecaQuestionsData;
+
+  // Gratitude & preparation
+  gratitude?: GratitudeData;
+  tomorrowIntention?: IntentionData;
+
+  // Optional practices
+  meditation?: MeditationData;
+  selfCompassion?: SelfCompassionData;  // REQUIRED screen
+
+  // Metadata
+  completedAt: Date;
+  timeSpentSeconds: number;
+  flowVersion: string;
+}
+
+export interface ReviewData {
+  morningIntentionPracticed: boolean;
+  dayQualityRating: number;      // Virtue-focused, not outcome-focused
+  virtueMoments: string[];
+  struggleMoments: string[];
+
+  // Seneca's 3 questions
+  whatViceDidIResist?: string;
+  whatHabitDidIImprove?: string;
+  howAmIBetterToday?: string;
+
+  // Under-represented principles
+  intentionOverOutcome?: {
+    situation: string;
+    stayedProcessFocused: boolean;
+    learning: string;
+  };
+  howDidIShowUpForOthers?: string;
+  contributionToCommonGood?: string;
+
+  selfCompassion: string;  // REQUIRED
+  timestamp: Date;
+}
+
+export interface LearningData {
+  reactVsRespondMoments: Array<{
+    situation: string;
+    myResponse: 'reacted' | 'responded' | 'mixed';
+    whatILearned: string;
+    whatIllPractice: string;
+  }>;
+  timestamp: Date;
+}
+
+export interface SenecaQuestionsData {
+  whatViceDidIResist: string;
+  whatHabitDidIImprove: string;
+  howAmIBetterToday: string;
+  timestamp: Date;
+}
+
+export interface SelfCompassionData {
+  reflection: string;  // REQUIRED (prevents harsh Stoicism)
+  timestamp: Date;
+}
+
+export interface MeditationData {
+  practice: 'stoic_reflection' | 'negative_visualization' | 'view_from_above';
+  duration: number;
+  reflection: string;
+  timestamp: Date;
+}
