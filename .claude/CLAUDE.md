@@ -10,19 +10,19 @@
   |-------|-----|----------|----------|----------|
   | crisis | !! | safety protocols\|988\|emergency response\|intervention workflows | PHQ≥15\|PHQ≥20\|GAD≥15\|button\|risk | ALL |
   | compliance | ! | HIPAA compliance\|privacy law\|regulatory validation\|legal requirements | data\|encrypt\|consent\|network | technical |
-  | clinician | ! | MBCT validation\|therapeutic content\|clinical accuracy\|PHQ/GAD scoring | PHQ/GAD\|exercises\|mood | UX |
+  | philosopher | ! | Stoic Mindfulness validation\|philosophical accuracy\|principle integrity\|virtue ethics | Stoic principles\|Marcus Aurelius\|Epictetus\|dichotomy of control\|virtue | UX |
 
-  Hierarchy: crisis>compliance>clinician>technical
+  Hierarchy: crisis>compliance>philosopher>technical
 
   ### Intern Boundaries
-  PROHIBIT: clinical\|crisis\|compliance\|PHI\|MBCT\|PHQ-9\|GAD-7\|therapeutic\|AsyncStorage\|security
-  ALLOW: formatting\|imports\|scaffolding(non-clinical)\|file-org\|config(non-security)
-  ESCALATE: healthcare-terms\|/assessment/\|/crisis/\|/clinical/\|/therapeutic/
+  PROHIBIT: clinical\|crisis\|compliance\|PHI\|PHQ-9\|GAD-7\|Stoic philosophy\|principles\|virtue\|AsyncStorage\|security
+  ALLOW: formatting\|imports\|scaffolding(non-philosophical)\|file-org\|config(non-security)
+  ESCALATE: healthcare-terms\|/assessment/\|/crisis/\|Stoic terminology\|/principles/\|virtue practices
 
   ### Auto-Triggers
   CRITICAL: PHQ≥15\|PHQ≥20\|GAD≥15\|crisis-button\|safety-risk\|emergency-features
   COMPLIANCE: data-encrypt\|storage\|consent\|network\|app-store
-  CLINICAL: assessment-content\|MBCT-exercises\|scoring\|therapeutic-language
+  PHILOSOPHICAL: Stoic principles\|virtue ethics\|Marcus Aurelius\|Epictetus\|dichotomy of control\|educational modules
 
   ### Templates
   Detailed templates: ./.claude/templates/
@@ -35,26 +35,26 @@
   B-HOTFIX: Emergency bugs → crisis→main[rapid]→crisis-validate→deploy
     - Use for: urgent safety bugs, <30min rapid response
   B-DEV: Being development
-    - Use for: features, therapeutic content, assessment UI, privacy features
-    - Paths: therapeutic (clinician), assessment (clinician→crisis), privacy (compliance+security), general
+    - Use for: features, Stoic Mindfulness content, assessment UI, privacy features
+    - Paths: philosophical (philosopher), assessment (philosopher→crisis), privacy (compliance+security), general
   B-DEBUG: Being debugging
     - Use for: non-emergency bugs with Being domain awareness
-    - Domain validation: therapeutic (clinician), assessment (clinician+crisis), privacy (compliance)
+    - Domain validation: philosophical (philosopher), assessment (philosopher+crisis), privacy (compliance)
 
   Read ./.claude/templates/being-templates.md when uncertain about pattern details.
 
   ### Conflicts
-  Domain: crisis>compliance>clinician (safety-first)
+  Domain: crisis>compliance>philosopher (safety-first)
   Technical vs Domain: architect mediates, domain-veto-power
   Performance vs Safety: safety priority, architect finds solution
 
   ### Handoff Requirements
   Domain work: L3-Complex required | Technical-only: L1/L2 acceptable
   Crisis/Safety: Include validation checklist + non-negotiables
-  Clinical: Include accuracy requirements + compliance notes
+  Philosophical: Include accuracy requirements + philosophical integrity notes
 
   ### Global Integration
-  Domain content (clinical\|crisis\|compliance) → B-CRISIS/B-HOTFIX/B-DEV/B-DEBUG
+  Domain content (philosophical\|crisis\|compliance) → B-CRISIS/B-HOTFIX/B-DEV/B-DEBUG
   Technical-only → Global T-DEV/T-DEBUG/T-BATCH/T-MIGRATE | Mixed → B-template + domain validation
   Escalation: Single→Being.Template→Global+Domain→Architect
 
@@ -84,9 +84,9 @@
   ## Documentation
 
   ### Structure & Key Files
-  Docs: /docs/{technical,clinical,security,brand-legal}/ | /scripts/
+  Docs: /docs/{technical,philosophical,security,brand-legal}/ | /scripts/
   Guides: Crisis-Button-Implementation-Guide.md | TypeScript-Safety-Guide.md | Widget-Crisis-Button-Integration-Summary.md
-  Agent Protocols: /CONTRIBUTING.md (safety requirements | handoff protocols)
+  Agent Protocols: /CONTRIBUTING.md (safety requirements | handoff protocols | philosophical validation)
   PM: Notion 25da1108c2088077b24be0238a1ddf37
 
   ### Policies
@@ -94,6 +94,6 @@
   DELETE: completed-work | old-validations (after-merge)
 
   ## Operations
-  Branches: main(clinical-validated)\|release(full-review)\|hotfix(crisis-expedited)
-  Commands: test:clinical\|validate:accessibility\|perf:breathing\|perf:crisis
+  Branches: main(philosopher-validated)\|release(full-review)\|hotfix(crisis-expedited)
+  Commands: validate:philosophy\|validate:accessibility\|perf:breathing\|perf:crisis
   Integration: global-standards + domain-requirements | Domain-veto-power

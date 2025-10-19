@@ -24,7 +24,7 @@ Ensures regulatory compliance, privacy protection, and legal adherence for menta
 - International privacy law compliance (GDPR, CCPA)
 - Clinical data handling and reporting obligations
 - App store health app compliance requirements
-- Does NOT handle therapeutic content (use clinician agent) or crisis protocols (use crisis agent)
+- Does NOT handle Stoic Mindfulness content (use philosopher agent) or crisis protocols (use crisis agent)
 
 ### Core Capabilities
 - HIPAA compliance assessment and validation
@@ -99,7 +99,7 @@ Examples:
 ```
 
 ### Anti-Patterns
-- ❌ Therapeutic content appropriateness: Use **clinician** agent instead
+- ❌ Stoic Mindfulness content appropriateness: Use **philosopher** agent instead
 - ❌ Crisis intervention protocols: Use **crisis** agent instead
 - ❌ Technical security implementation: Use **security** agent instead
 - ❌ General code quality: Use **review** agent instead
@@ -107,18 +107,18 @@ Examples:
 ## Integration Points
 
 ### Works Well With
-- **clinician**: Ensure compliance requirements don't interfere with therapeutic effectiveness while preserving clinical outcomes
+- **philosopher**: Ensure compliance requirements don't interfere with Stoic Mindfulness framework while preserving wellness practice integrity
 - **crisis**: Validate crisis intervention compliance with privacy laws and mandatory reporting requirements
 - **security**: Align legal requirements with technical security implementation and encryption standards
 
 ### Handoff Scenarios
-- Therapeutic appropriateness → Hand off to **clinician** agent
+- Stoic Mindfulness appropriateness → Hand off to **philosopher** agent
 - Crisis intervention → Hand off to **crisis** agent
 - Technical security implementation → Hand off to **security** agent
 - Code quality review → Hand off to **review** agent
 
 ### Multi-Agent Workflows
-1. **Privacy Implementation**: compliance → security → clinician
+1. **Privacy Implementation**: compliance → security → philosopher
 2. **Data Flow Validation**: compliance + security in parallel → review
 3. **Crisis Compliance**: crisis → compliance → security
 
@@ -159,6 +159,6 @@ Examples:
 - **Type**: project
 - **Domain**: healthcare compliance, privacy law, data protection
 - **Complexity**: high
-- **Dependencies**: clinician (therapeutic requirements), crisis (safety protocols), security (technical implementation)
-- **Version**: 1.1
-- **Last Updated**: 2025-01-27
+- **Dependencies**: philosopher (Stoic Mindfulness requirements), crisis (safety protocols), security (technical implementation)
+- **Version**: 1.2
+- **Last Updated**: 2025-10-18

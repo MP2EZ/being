@@ -1,8 +1,35 @@
 # Being Work Item Executor [META-COMMAND]
 
-**WORK_ITEM_ID**: $ARGUMENTS
+**ARGUMENTS**: $ARGUMENTS
+
+**Format**: `[Work Item ID] - [Additional context]`
 
 **Database ID**: 277a1108c20880bda80dce2ec7d8a12e
+
+---
+
+## Phase 0: Parse Arguments
+
+### Step 0.1: Extract Work Item ID and Additional Context
+
+Parse `$ARGUMENTS` to extract two components:
+
+**If $ARGUMENTS contains " - " (space-dash-space)**:
+- **WORK_ITEM_ID**: Everything before " - "
+- **ADDITIONAL_CONTEXT**: Everything after " - "
+
+**If $ARGUMENTS does NOT contain " - "**:
+- **WORK_ITEM_ID**: $ARGUMENTS (entire string)
+- **ADDITIONAL_CONTEXT**: null
+
+**Examples**:
+- Input: `FEAT-42 - Fix navigation issues on iOS`
+  - WORK_ITEM_ID: `FEAT-42`
+  - ADDITIONAL_CONTEXT: `Fix navigation issues on iOS`
+
+- Input: `DEBUG-13`
+  - WORK_ITEM_ID: `DEBUG-13`
+  - ADDITIONAL_CONTEXT: null
 
 ---
 
@@ -18,13 +45,13 @@ database_id: "277a1108c20880bda80dce2ec7d8a12e"
 filter: {
   "property": "Work Item ID",
   "title": {
-    "equals": "$ARGUMENTS"
+    "equals": "[WORK_ITEM_ID from Phase 0]"
   }
 }
 ```
 
 **Error handling**:
-- If no results: Report "Work item $ARGUMENTS not found"
+- If no results: Report "Work item [WORK_ITEM_ID] not found"
 - If multiple results: Report "Multiple items found - contact admin"
 - If query fails: Report error and suggest retry or use direct command
 
@@ -41,7 +68,28 @@ page_id: [page_id from Step 1.1]
 
 ---
 
-### Step 1.3: Parse & Extract Classification Signals
+### Step 1.3: Incorporate Additional Context
+
+**If ADDITIONAL_CONTEXT exists** (from Phase 0):
+
+Display the additional context to inform planning:
+```
+📝 Additional Context: [ADDITIONAL_CONTEXT]
+   This will be considered alongside work item details for planning.
+```
+
+**Actions**:
+- Use ADDITIONAL_CONTEXT to guide template selection
+- Consider context when analyzing classification signals
+- Incorporate into planning decisions in subsequent phases
+
+**If ADDITIONAL_CONTEXT is null**:
+- Skip this step
+- Proceed to Step 1.4 with Notion data only
+
+---
+
+### Step 1.4: Parse & Extract Classification Signals
 
 **Parse fields**:
 - Type (FEAT, DEBUG, INFRA, MAINT, AGENT)
@@ -300,29 +348,38 @@ fi
 
 ## Phase 3: Classify Template
 
+**Classification considers**:
+- Signals from Notion fields (from Step 1.4)
+- ADDITIONAL_CONTEXT (from Phase 0, if provided)
+
 **HIGH Confidence (95%+)** - Auto-proceed:
 
 → **B-CRISIS** if:
 - AGENTS REQUIRED contains: `crisis` AND `compliance`
 - Crisis keywords + threshold patterns (≥15, ≥20)
 - Name mentions: "crisis detection", "PHQ/GAD threshold", "988"
+- ADDITIONAL_CONTEXT mentions crisis/safety/threshold patterns
 
 → **B-HOTFIX** if:
 - Type: DEBUG + Priority: URGENT/CRITICAL
 - Keywords: `broken`, `crash`, `emergency`
 - Context: crisis/assessment/safety features
+- ADDITIONAL_CONTEXT indicates urgency or emergency
 
 → **B-DEV (Assessment)** if:
 - AGENTS REQUIRED: `clinician`
 - Keywords: `PHQ-9`, `GAD-7`, `assessment`
+- ADDITIONAL_CONTEXT mentions assessment features
 
 → **B-DEV (Therapeutic)** if:
 - AGENTS REQUIRED: `clinician`
 - Keywords: `MBCT`, `mindfulness`, `breathing`
+- ADDITIONAL_CONTEXT mentions therapeutic features
 
 → **B-DEV (Privacy)** if:
 - AGENTS REQUIRED: `compliance` AND `security`
 - Keywords: `HIPAA`, `PHI`, `encryption`, `payment`
+- ADDITIONAL_CONTEXT mentions privacy/compliance
 
 **MEDIUM Confidence (80-94%)** - Quick confirmation:
 - Display classification and reason
@@ -337,7 +394,7 @@ fi
 
 **HIGH confidence**:
 ```
-📋 $ARGUMENTS: [Name]
+📋 [WORK_ITEM_ID]: [Name]
 🔍 Classification: [TEMPLATE] [→ PATH] (95%+ confidence)
 Reason: [Brief explanation]
 Proceeding with [TEMPLATE] workflow...
@@ -345,7 +402,7 @@ Proceeding with [TEMPLATE] workflow...
 
 **MEDIUM confidence**:
 ```
-📋 $ARGUMENTS: [Name]
+📋 [WORK_ITEM_ID]: [Name]
 🔍 Classification: [TEMPLATE] (XX% confidence)
 Reason: [Brief explanation]
 Proceed? (y/n)

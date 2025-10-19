@@ -24,7 +24,7 @@ Validates crisis intervention protocols, safety detection mechanisms, and emerge
 - Emergency contact and escalation flows
 - Crisis plan design and validation
 - Risk assessment methodology
-- Does NOT handle general therapeutic content (use clinician agent) or legal compliance (use compliance agent)
+- Does NOT handle Stoic Mindfulness content (use philosopher agent) or legal compliance (use compliance agent)
 
 ### Core Capabilities
 - Clinical assessment scoring validation (PHQ-9/GAD-7)
@@ -98,7 +98,7 @@ Examples:
 ```
 
 ### Anti-Patterns
-- ❌ General therapeutic content review: Use **clinician** agent instead
+- ❌ Stoic Mindfulness content review: Use **philosopher** agent instead
 - ❌ Privacy law compliance: Use **compliance** agent instead
 - ❌ Technical scoring bugs: Use **typescript** or **test** agents
 - ❌ UI/UX general design: Use **accessibility** or **review** agents
@@ -106,20 +106,20 @@ Examples:
 ## Integration Points
 
 ### Works Well With
-- **clinician**: Ensure crisis protocols don't undermine therapeutic relationship while maintaining clinical appropriateness
+- **philosopher**: Ensure crisis protocols don't conflict with Stoic Mindfulness practice while maintaining safety priority
 - **compliance**: Align crisis protocols with legal requirements and mandatory reporting obligations
 - **accessibility**: Make crisis resources accessible to all users including those with disabilities and diverse needs
 
 ### Handoff Scenarios
-- Therapeutic content review → Hand off to **clinician** agent
+- Stoic Mindfulness content review → Hand off to **philosopher** agent
 - Legal compliance questions → Hand off to **compliance** agent
 - Technical implementation bugs → Hand off to **typescript** or **test** agents
 - UI/UX accessibility → Hand off to **accessibility** agent
 
 ### Multi-Agent Workflows
-1. **Crisis System Validation**: crisis + clinician in parallel → compliance → accessibility
+1. **Crisis System Validation**: crisis + philosopher in parallel → compliance → accessibility
 2. **Assessment Implementation**: crisis → typescript → test
-3. **Safety Protocol Update**: crisis → compliance + clinician in parallel
+3. **Safety Protocol Update**: crisis → compliance + philosopher in parallel
 
 ## Output Formats
 
@@ -158,6 +158,6 @@ Examples:
 - **Type**: project
 - **Domain**: crisis intervention, suicide risk assessment, emergency mental health
 - **Complexity**: high
-- **Dependencies**: clinician (therapeutic integration), compliance (legal requirements), accessibility (universal access)
-- **Version**: 1.1
-- **Last Updated**: 2025-01-27
+- **Dependencies**: philosopher (Stoic Mindfulness integration), compliance (legal requirements), accessibility (universal access)
+- **Version**: 1.2
+- **Last Updated**: 2025-10-18
