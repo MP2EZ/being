@@ -3,14 +3,19 @@
  *
  * Foundation types for Stoic Mindfulness architecture.
  * These types align with classical Stoicism (Marcus Aurelius, Epictetus, Seneca)
- * and have been validated by the philosopher agent (9.5/10 rating).
+ * and have been validated by the philosopher agent (9.7/10 rating).
+ *
+ * FEAT-45: 12→5 Principle Consolidation (2025-10-29)
+ * Framework consolidated from 12 principles to 5 integrative principles.
+ * Philosopher verdict: "philosophically elegant, not reductive" (9.7/10, up from 9.5/10).
  *
  * NON-NEGOTIABLES:
  * - Four cardinal virtues ONLY (no modern additions)
  * - Self-compassion REQUIRED in VirtueChallenge (prevents harsh Stoicism)
  * - Classical Stoic alignment maintained
+ * - Prohairesis (moral agency) preserved in Sphere Sovereignty
  *
- * @see /docs/technical/Stoic-Mindfulness-Architecture-v1.0.md
+ * @see /docs/technical/Stoic-Mindfulness-Architecture-v1.0.md (v1.1 LOCKED)
  */
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -36,41 +41,119 @@ export type CardinalVirtue =
   | 'temperance';  // Self-control, moderation
 
 // ──────────────────────────────────────────────────────────────────────────────
-// STOIC PRINCIPLES (12 Core Practices)
+// STOIC PRINCIPLES (5 Integrative Practices)
 // ──────────────────────────────────────────────────────────────────────────────
 
 /**
- * The 12 Stoic Mindfulness Principles
+ * The 5 Stoic Mindfulness Principles (Consolidated Framework)
  *
- * Organized into 5 categories aligned with Architecture v1.0:
- * - Foundation (1-3): Core practices for mindful awareness
- * - Discernment (4-5): Distinguishing what we control
- * - Regulation (6-7): Managing reactions and reframing
- * - Practice (8-9): Contemplative exercises
- * - Ethics (10-12): Virtue and amor fati
+ * FEAT-45: Consolidated from 12 principles to 5 integrative principles.
+ * Philosopher validation: 9.7/10 (2025-10-29) - "philosophically elegant, not reductive"
+ *
+ * These principles represent the core practices of Stoic Mindfulness:
+ * 1. Aware Presence - Present-moment attention across cognitive, metacognitive, somatic dimensions
+ * 2. Radical Acceptance - Amor fati, loving one's fate exactly as it is
+ * 3. Sphere Sovereignty - Prohairesis, moral agency, dichotomy of control
+ * 4. Virtuous Response - Virtue ethics in action (reappraisal, preparation, character cultivation)
+ * 5. Interconnected Living - Relational ethics, oikeiosis, embodied practice
  *
  * Sources: Marcus Aurelius (Meditations), Epictetus (Enchiridion, Discourses), Seneca (Letters)
  *
- * @see /docs/technical/Stoic-Mindfulness-Architecture-v1.0.md
+ * @see /docs/technical/Stoic-Mindfulness-Architecture-v1.0.md (v1.1 LOCKED)
+ * @see /docs/product/stoic-mindfulness/ for detailed principle documentation
  */
 export type StoicPrinciple =
-  // Foundation (1-3)
-  | 'attention_to_present'        // Principle 1: Mindful attention (Marcus Aurelius, Meditations 2:1)
-  | 'perception_examination'      // Principle 2: Examine perceptions (Epictetus, Enchiridion 1.5)
-  | 'judgment_suspension'         // Principle 3: Suspend automatic judgments (Epictetus, Discourses 1.1)
-  // Discernment (4-5)
-  | 'dichotomy_of_control'        // Principle 4: What I control vs. what I don't (Epictetus, Enchiridion 1)
-  | 'events_vs_interpretations'   // Principle 5: Events are neutral, interpretations aren't (Epictetus, Enchiridion 5)
-  // Regulation (6-7)
-  | 'pause_before_reaction'       // Principle 6: Pause between stimulus and response (Marcus Aurelius, Meditations 8:47)
-  | 'reframe_adversity'           // Principle 7: Reframe obstacles as opportunities (Marcus Aurelius, Meditations 5:20)
-  // Practice (8-9)
-  | 'contemplation'               // Principle 8: Daily contemplation/reflection (Seneca, Letters 28)
-  | 'view_from_above'             // Principle 9: Cosmic perspective (Marcus Aurelius, Meditations 7:48)
-  // Ethics (10-12)
-  | 'virtue_as_foundation'        // Principle 10: Virtue is the only good (Epictetus, Discourses 1.4)
-  | 'service_to_others'           // Principle 11: We exist to help one another (Marcus Aurelius, Meditations 8:59)
-  | 'amor_fati';                  // Principle 12: Love of fate, embrace necessity (Marcus Aurelius, Meditations 10:6)
+  | 'aware_presence'         // Principle 1: Present-moment attention (cognitive + metacognitive + somatic)
+  | 'radical_acceptance'     // Principle 2: Amor fati - loving one's fate (Marcus Aurelius, Meditations 10:6)
+  | 'sphere_sovereignty'     // Principle 3: Prohairesis - moral agency, dichotomy of control (Epictetus, Enchiridion 1)
+  | 'virtuous_response'      // Principle 4: Virtue ethics in action - reappraisal, premeditatio, character
+  | 'interconnected_living'; // Principle 5: Oikeiosis - relational ethics, common good, embodied practice
+
+/**
+ * Legacy 12-Principle Framework Mapping
+ *
+ * FEAT-45: Reference for how the 12 legacy principles map to 5 consolidated principles.
+ * Useful for understanding educational content, historical data, and the consolidation rationale.
+ *
+ * This mapping documents the philosophical relationships between legacy and current framework.
+ * See /docs/technical/Stoic-Data-Models.md Section 6 for full migration strategy.
+ *
+ * @example
+ * // Convert legacy principle to new framework
+ * const legacyPrinciple = 'metacognitive_space';
+ * const newPrinciple = LEGACY_PRINCIPLE_MAP[legacyPrinciple]; // 'aware_presence'
+ */
+export const LEGACY_PRINCIPLE_MAP: Record<string, StoicPrinciple> = {
+  // Aware Presence (integrates 3 legacy principles)
+  'present_perception': 'aware_presence',
+  'metacognitive_space': 'aware_presence',
+  'embodied_awareness': 'aware_presence',
+
+  // Radical Acceptance (unchanged)
+  'radical_acceptance': 'radical_acceptance',
+
+  // Sphere Sovereignty (integrates 2 legacy principles)
+  'sphere_sovereignty': 'sphere_sovereignty',
+  'intention_over_outcome': 'sphere_sovereignty',
+
+  // Virtuous Response (integrates 3 legacy principles)
+  'virtuous_reappraisal': 'virtuous_response',
+  'negative_visualization': 'virtuous_response',
+  'character_cultivation': 'virtuous_response',
+
+  // Interconnected Living (integrates 3 legacy principles)
+  'interconnected_action': 'interconnected_living',
+  'relational_presence': 'interconnected_living',
+  'contemplative_praxis': 'interconnected_living',
+} as const;
+
+/**
+ * Principle Metadata - Rich Information for Each Principle
+ *
+ * Provides detailed metadata for UI display, educational modules, and progress tracking.
+ * Each principle includes full name, integration notes, and classical sources.
+ *
+ * @example
+ * const metadata: PrincipleMetadata = {
+ *   id: 'aware_presence',
+ *   name: 'Aware Presence',
+ *   integrates: ['Present Perception', 'Metacognitive Space', 'Embodied Awareness'],
+ *   description: 'Present-moment attention across cognitive, metacognitive, and somatic dimensions',
+ *   classicalSource: 'Marcus Aurelius, Meditations 2:1; Epictetus, Enchiridion 1.5',
+ * };
+ */
+export interface PrincipleMetadata {
+  /**
+   * Principle identifier (matches StoicPrinciple type)
+   */
+  id: StoicPrinciple;
+
+  /**
+   * Display name for UI
+   * @example "Aware Presence"
+   * @example "Sphere Sovereignty"
+   */
+  name: string;
+
+  /**
+   * Legacy principles this integrates (from 12-principle framework)
+   * @example ["Present Perception", "Metacognitive Space", "Embodied Awareness"]
+   * @example ["Radical Acceptance"] (for principles that didn't change)
+   */
+  integrates: string[];
+
+  /**
+   * Brief description of the principle
+   * @example "Present-moment attention across cognitive, metacognitive, and somatic dimensions"
+   */
+  description: string;
+
+  /**
+   * Classical Stoic source citation
+   * @example "Marcus Aurelius, Meditations 2:1; Epictetus, Enchiridion 1.5"
+   */
+  classicalSource: string;
+}
 
 // ──────────────────────────────────────────────────────────────────────────────
 // DEVELOPMENTAL STAGES (Practice Progression)
