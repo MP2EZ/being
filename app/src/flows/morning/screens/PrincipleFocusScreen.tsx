@@ -36,11 +36,11 @@ import {
   StyleSheet,
   Switch,
 } from 'react-native';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { StackScreenProps } from '@react-navigation/stack';
 import type { MorningFlowParamList, PrincipleFocusData } from '../../../types/flows';
 import type { StoicPrinciple } from '../../../types/stoic';
 
-type Props = NativeStackScreenProps<MorningFlowParamList, 'PrincipleFocus'> & {
+type Props = StackScreenProps<MorningFlowParamList, 'PrincipleFocus'> & {
   onSave?: (data: PrincipleFocusData) => void;
 };
 
@@ -122,7 +122,7 @@ const PrincipleFocusScreen: React.FC<Props> = ({ navigation, onSave }) => {
       onSave(principleFocusData);
     }
 
-    navigation.navigate('PhysicalMetrics');
+    navigation.navigate('PhysicalMetrics' as never);
   };
 
   return (
