@@ -27,6 +27,7 @@
 import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
 import { THERAPEUTIC_VALUES, MIN_VALUES_SELECTION, MAX_VALUES_SELECTION } from '../constants/therapeuticValues';
+import { getCurrentUserId } from '../constants/devMode';
 
 const STORAGE_KEY = 'user_values_v1';
 
@@ -78,14 +79,10 @@ export interface ValuesStore {
 }
 
 /**
- * Get current user ID
- * TODO (FEAT-6): Integrate with AuthenticationService when available
+ * NOTE: getCurrentUserId() is now imported from devMode.ts
+ * MVP: Returns 'dev-user-001' for single-user development mode
+ * V2 (FEAT-16): Will integrate with real authentication service
  */
-function getCurrentUserId(): string {
-  // TODO: Get from AuthenticationService.getCurrentUser()
-  // For now, use a placeholder
-  return 'user_placeholder_id';
-}
 
 /**
  * Simple logger

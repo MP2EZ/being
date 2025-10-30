@@ -22,6 +22,7 @@ import AppSettingsScreen from './AppSettingsScreen';
 import AccountSettingsScreen from './AccountSettingsScreen';
 import { RootStackParamList } from '../navigation/CleanRootNavigator';
 import { useSubscriptionStore } from '../stores/subscriptionStore';
+import { isDevMode } from '../constants/devMode';
 
 type ProfileScreenNavigationProp = StackNavigationProp<RootStackParamList>;
 
@@ -82,8 +83,20 @@ const ProfileScreen: React.FC = () => {
     return 'Start Your Free Trial';
   };
 
+  const devMode = isDevMode();
+
   const renderMenu = () => (
     <SafeAreaView style={styles.container}>
+      {devMode && (
+        <View style={styles.devModeBanner}>
+          <Text style={styles.devModeText}>
+            ⚠️ Development Mode - Single User Only
+          </Text>
+          <Text style={styles.devModeSubtext}>
+            Auth features disabled until FEAT-16, FEAT-29, FEAT-58, FEAT-59 ship
+          </Text>
+        </View>
+      )}
       <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
           <Text style={styles.title}>Your Profile</Text>
@@ -555,6 +568,25 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     color: colors.gray600,
     lineHeight: 20,
+  },
+  devModeBanner: {
+    backgroundColor: '#FEF3C7',
+    padding: spacing.md,
+    borderBottomWidth: 2,
+    borderBottomColor: '#F59E0B',
+  },
+  devModeText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#92400E',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  devModeSubtext: {
+    fontSize: 12,
+    fontWeight: '400',
+    color: '#92400E',
+    textAlign: 'center',
   },
 });
 

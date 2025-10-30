@@ -15,6 +15,7 @@
 
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getCurrentUserId } from '../constants/devMode';
 
 const STORAGE_KEY = 'app_settings_v1';
 
@@ -94,12 +95,10 @@ const DEFAULT_SETTINGS: Omit<AppSettings, 'userId' | 'updatedAt'> = {
 };
 
 /**
- * Get current user ID
- * TODO: Integrate with AuthenticationService
+ * NOTE: getCurrentUserId() is now imported from devMode.ts
+ * MVP: Returns 'dev-user-001' for single-user development mode
+ * V2 (FEAT-16): Will integrate with real authentication service
  */
-function getCurrentUserId(): string {
-  return 'user_placeholder_id';
-}
 
 /**
  * Settings Zustand Store

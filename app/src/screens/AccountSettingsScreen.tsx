@@ -35,6 +35,7 @@ import {
   TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { getCurrentUserEmail, getUserCreatedAt, isDevMode } from '../constants/devMode';
 
 // Hardcoded colors - consistent with ProfileScreen
 const colors = {
@@ -66,111 +67,45 @@ const AccountSettingsScreen: React.FC<AccountSettingsScreenProps> = ({ onReturn 
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // TODO: Replace with actual auth service
-  const mockUserEmail = 'user@example.com'; // Placeholder
-  const mockUserCreatedAt = new Date('2025-01-01'); // Placeholder
+  // MVP: Use dev mode utilities for user information
+  // V2 (FEAT-16): Replace with actual auth service
+  const userEmail = getCurrentUserEmail();
+  const userCreatedAt = getUserCreatedAt();
+  const devMode = isDevMode();
 
   const handleChangePassword = () => {
+    // MVP: Disabled until FEAT-16 (authentication) ships
     Alert.alert(
-      'Change Password',
-      'Password change functionality will be integrated with authentication system.',
+      'Feature Not Available',
+      '⚠️ Development Mode\n\nPassword change requires authentication system (FEAT-16). This feature will be available in V2.',
       [{ text: 'OK' }]
     );
-    // TODO: Navigate to password change flow or open auth service
   };
 
   const handleLogout = () => {
+    // MVP: Disabled until FEAT-58 (logout flow) ships
     Alert.alert(
-      'Logout',
-      'Are you sure you want to logout? Your data will remain saved.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Logout',
-          style: 'destructive',
-          onPress: () => {
-            // TODO: Implement actual logout
-            // - Clear auth tokens
-            // - Clear sensitive data from stores
-            // - Navigate to login screen
-            Alert.alert(
-              'Logout (TODO)',
-              'Logout functionality will be integrated with authentication system.',
-              [{ text: 'OK' }]
-            );
-          },
-        },
-      ]
+      'Feature Not Available',
+      '⚠️ Development Mode\n\nLogout requires authentication system (FEAT-16) and logout flow (FEAT-58). This feature will be available in V2.',
+      [{ text: 'OK' }]
     );
   };
 
   const handleExportData = () => {
+    // MVP: Disabled until FEAT-29 (export & sharing) ships
     Alert.alert(
-      'Export Your Data',
-      'This will create a file containing all your therapeutic data (check-ins, values, settings). The file will be encrypted for your privacy.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Export',
-          onPress: () => {
-            // TODO: Implement data export
-            // - Gather all user data (check-ins, values, settings)
-            // - Create encrypted JSON file
-            // - Offer download/share options
-            Alert.alert(
-              'Export Data (TODO)',
-              'Data export functionality will be implemented. This is required for HIPAA compliance (right to access).',
-              [{ text: 'OK' }]
-            );
-          },
-        },
-      ]
+      'Feature Not Available',
+      '⚠️ Development Mode\n\nData export is blocked by FEAT-29 (Export & Sharing). This feature has been validated and will use client-side PDF generation to comply with HIPAA requirements.',
+      [{ text: 'OK' }]
     );
   };
 
   const handleDeleteAccount = () => {
-    if (deleteConfirmText !== 'DELETE') {
-      Alert.alert(
-        'Confirmation Required',
-        'Please type "DELETE" exactly to confirm account deletion.',
-        [{ text: 'OK' }]
-      );
-      return;
-    }
-
+    // MVP: Disabled until FEAT-59 (account deletion with grace period) ships
     Alert.alert(
-      'Permanent Account Deletion',
-      '⚠️ This action is PERMANENT and IRREVERSIBLE.\n\nThe following will be deleted:\n• All check-in responses and therapeutic data\n• Your selected values and preferences\n• All app settings\n• Your account credentials\n\nConsider exporting your data first.\n\nAre you absolutely sure?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete Forever',
-          style: 'destructive',
-          onPress: async () => {
-            setIsDeleting(true);
-            try {
-              // TODO: Implement account deletion
-              // - Delete all user data from databases
-              // - Delete auth credentials
-              // - Comply with app store requirements
-              // - Consider grace period (30 days to recover?)
-              Alert.alert(
-                'Account Deletion (TODO)',
-                'Account deletion functionality will be implemented with:\n\n1. App store compliance validation\n2. Complete data deletion\n3. Optional 30-day grace period\n4. Data export before deletion\n\nRequires compliance agent validation.',
-                [{ text: 'OK', onPress: onReturn }]
-              );
-            } catch (error) {
-              Alert.alert(
-                'Deletion Failed',
-                'Failed to delete account. Please try again or contact support.',
-                [{ text: 'OK' }]
-              );
-            } finally {
-              setIsDeleting(false);
-            }
-          },
-        },
-      ]
+      'Feature Not Available',
+      '⚠️ Development Mode\n\nAccount deletion is blocked by FEAT-59 (Account Deletion with Grace Period). This feature will include:\n\n• 30-day recovery period\n• App store compliance\n• Pre-deletion data export\n• Full HIPAA compliance\n\nThis feature will be available in V2.',
+      [{ text: 'OK' }]
     );
   };
 
@@ -191,16 +126,18 @@ const AccountSettingsScreen: React.FC<AccountSettingsScreenProps> = ({ onReturn 
 
           <View style={styles.infoCard}>
             <Text style={styles.infoCardLabel}>Email</Text>
-            <Text style={styles.infoCardValue}>{mockUserEmail}</Text>
-            <Text style={styles.infoCardNote}>
-              TODO: Load from authentication service
-            </Text>
+            <Text style={styles.infoCardValue}>{userEmail}</Text>
+            {devMode && (
+              <Text style={styles.infoCardNote}>
+                ⚠️ Development Mode - Single user only
+              </Text>
+            )}
           </View>
 
           <View style={styles.infoCard}>
             <Text style={styles.infoCardLabel}>Member Since</Text>
             <Text style={styles.infoCardValue}>
-              {mockUserCreatedAt.toLocaleDateString()}
+              {userCreatedAt.toLocaleDateString()}
             </Text>
           </View>
         </View>
@@ -209,24 +146,24 @@ const AccountSettingsScreen: React.FC<AccountSettingsScreenProps> = ({ onReturn 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Security</Text>
 
-          <Pressable style={styles.actionCard} onPress={handleChangePassword}>
+          <Pressable style={[styles.actionCard, styles.actionCardDisabled]} onPress={handleChangePassword}>
             <View>
               <Text style={styles.actionCardTitle}>Change Password</Text>
               <Text style={styles.actionCardDescription}>
-                Update your account password
+                Update your account password (Requires FEAT-16)
               </Text>
             </View>
-            <Text style={styles.actionCardArrow}>→</Text>
+            <Text style={styles.actionCardArrow}>🔒</Text>
           </Pressable>
 
-          <Pressable style={styles.actionCard} onPress={handleLogout}>
+          <Pressable style={[styles.actionCard, styles.actionCardDisabled]} onPress={handleLogout}>
             <View>
               <Text style={styles.actionCardTitle}>Logout</Text>
               <Text style={styles.actionCardDescription}>
-                Sign out of your account on this device
+                Sign out of your account (Requires FEAT-58)
               </Text>
             </View>
-            <Text style={styles.actionCardArrow}>→</Text>
+            <Text style={styles.actionCardArrow}>🔒</Text>
           </Pressable>
         </View>
 
@@ -234,14 +171,14 @@ const AccountSettingsScreen: React.FC<AccountSettingsScreenProps> = ({ onReturn 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Data Management</Text>
 
-          <Pressable style={styles.actionCard} onPress={handleExportData}>
+          <Pressable style={[styles.actionCard, styles.actionCardDisabled]} onPress={handleExportData}>
             <View>
               <Text style={styles.actionCardTitle}>Export Your Data</Text>
               <Text style={styles.actionCardDescription}>
-                Download a copy of all your therapeutic data (HIPAA compliance)
+                Download all your therapeutic data (Requires FEAT-29)
               </Text>
             </View>
-            <Text style={styles.actionCardArrow}>→</Text>
+            <Text style={styles.actionCardArrow}>🔒</Text>
           </Pressable>
 
           <View style={styles.infoBox}>
@@ -258,39 +195,14 @@ const AccountSettingsScreen: React.FC<AccountSettingsScreenProps> = ({ onReturn 
             ⚠️ Irreversible actions - proceed with caution
           </Text>
 
-          <View style={styles.dangerCard}>
+          <View style={[styles.dangerCard, styles.dangerCardDisabled]}>
             <Text style={styles.dangerCardTitle}>Delete Account</Text>
             <Text style={styles.dangerCardDescription}>
-              Permanently delete your account and all associated data. This action cannot be undone.
+              ⚠️ Feature disabled in MVP - Requires FEAT-59 (Account Deletion with Grace Period)
             </Text>
-
-            <View style={styles.confirmationBox}>
-              <Text style={styles.confirmationLabel}>
-                Type "DELETE" to confirm:
-              </Text>
-              <TextInput
-                style={styles.confirmationInput}
-                value={deleteConfirmText}
-                onChangeText={setDeleteConfirmText}
-                placeholder="DELETE"
-                placeholderTextColor={colors.gray400}
-                autoCapitalize="characters"
-                autoCorrect={false}
-              />
-            </View>
-
-            <Pressable
-              style={[
-                styles.dangerButton,
-                deleteConfirmText !== 'DELETE' && styles.buttonDisabled,
-              ]}
-              onPress={handleDeleteAccount}
-              disabled={deleteConfirmText !== 'DELETE' || isDeleting}
-            >
-              <Text style={styles.dangerButtonText}>
-                {isDeleting ? 'Deleting...' : 'Delete Account Forever'}
-              </Text>
-            </Pressable>
+            <Text style={styles.dangerCardDescription}>
+              V2 will include: 30-day recovery period, app store compliance, pre-deletion data export.
+            </Text>
           </View>
 
           <View style={styles.warningBox}>
@@ -432,6 +344,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.midnightBlue,
   },
+  actionCardDisabled: {
+    opacity: 0.6,
+  },
   dangerCard: {
     backgroundColor: '#FFF5F5',
     borderRadius: 12,
@@ -441,6 +356,12 @@ const styles = StyleSheet.create({
     borderColor: '#FEE2E2',
     borderLeftWidth: 4,
     borderLeftColor: colors.error,
+  },
+  dangerCardDisabled: {
+    opacity: 0.6,
+    backgroundColor: colors.gray100,
+    borderColor: colors.gray300,
+    borderLeftColor: colors.gray400,
   },
   dangerCardTitle: {
     fontSize: 18,
