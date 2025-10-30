@@ -41,8 +41,9 @@ const GratitudeScreen: React.FC<Props> = ({ navigation, onSave }) => {
   const [showEducation, setShowEducation] = useState(false);
   const [stoicGrounding, setStoicGrounding] = useState('');
 
-  // Validate all items filled
-  const allItemsFilled = gratitudeItems.every(item => item.trim().length > 0);
+  // Validate at least 2 of 3 items filled
+  const filledCount = gratitudeItems.filter(item => item.trim().length > 0).length;
+  const allItemsFilled = filledCount >= 2;
 
   const updateGratitudeItem = (index: number, value: string) => {
     const newItems = [...gratitudeItems];
@@ -124,7 +125,7 @@ const GratitudeScreen: React.FC<Props> = ({ navigation, onSave }) => {
             style={styles.input}
             value={item}
             onChangeText={(value) => updateGratitudeItem(index, value)}
-            placeholder="e.g., Morning coffee, time to breathe, a choice..."
+            placeholder={index === 0 ? "e.g., Morning coffee, time to breathe, a choice..." : ""}
             placeholderTextColor="#999"
             testID={`gratitude-input-${index}`}
             accessibilityLabel={`Gratitude item ${index + 1}`}
@@ -162,8 +163,8 @@ const GratitudeScreen: React.FC<Props> = ({ navigation, onSave }) => {
         accessibilityState={{ disabled: !allItemsFilled }}
         accessibilityHint={
           allItemsFilled
-            ? 'All items filled. Ready to continue to next screen'
-            : 'Fill all gratitude items to continue'
+            ? 'At least 2 items filled. Ready to continue to next screen'
+            : 'Fill at least 2 gratitude items to continue'
         }
       >
         <Text style={styles.continueButtonText}>Continue</Text>

@@ -122,7 +122,7 @@ const PrincipleFocusScreen: React.FC<Props> = ({ navigation, onSave }) => {
       onSave(principleFocusData);
     }
 
-    navigation.navigate('PhysicalMetrics' as never);
+    navigation.navigate('PhysicalGrounding' as never);
   };
 
   return (
@@ -173,7 +173,6 @@ const PrincipleFocusScreen: React.FC<Props> = ({ navigation, onSave }) => {
               </Text>
             </View>
             <Text style={styles.principleDescription}>{principle.description}</Text>
-            <Text style={styles.principleIntegrates}>Integrates: {principle.integrates}</Text>
           </TouchableOpacity>
         ))}
       </View>
@@ -314,13 +313,7 @@ const styles = StyleSheet.create({
   principleDescription: {
     fontSize: 14,
     color: '#666',
-    marginBottom: 6,
     lineHeight: 20,
-  },
-  principleIntegrates: {
-    fontSize: 12,
-    color: '#999',
-    fontStyle: 'italic',
   },
   selectedSection: {
     marginTop: 20,
