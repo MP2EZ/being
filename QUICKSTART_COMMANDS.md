@@ -1,8 +1,8 @@
-# FullMind Development Quickstart Commands
+# Being. Development Quickstart Commands
 
 ## App Development
 
-### 🚀 Start the App
+### Start the App
 ```bash
 cd app
 npm start
@@ -10,7 +10,20 @@ npm start
 npx expo start
 ```
 
-### 📱 Run on Device/Simulator
+### Metro Bundler Controls
+
+While Metro is running, use these keyboard shortcuts:
+- Press `c` - Clear Metro bundler console (fastest)
+- Press `r` - Reload app
+- Press `Shift + r` - Reload and clear cache
+- Press `d` - Open developer menu
+
+Clear terminal before starting:
+```bash
+clear && npx expo start
+```
+
+### Run on Device/Simulator
 ```bash
 # iOS Simulator
 npx expo start --ios
@@ -22,7 +35,7 @@ npx expo start --android
 npx expo start --tunnel
 ```
 
-### 🧪 Testing
+### Testing
 
 #### Run All Tests
 ```bash
@@ -35,8 +48,10 @@ npm test
 # Assessment accuracy tests
 npm run test:clinical
 
-# Crisis detection validation  
-npm run test:crisis
+# Crisis detection validation
+npm run test:crisis-detection
+# or for quick crisis tests
+npm run test:crisis-quick
 
 # Accessibility compliance
 npm run test:accessibility
@@ -44,28 +59,211 @@ npm run test:accessibility
 
 #### Performance Testing
 ```bash
-# Haptic feedback performance
-npm run performance:haptic
+# Crisis button performance
+npm run perf:crisis
 
-# Clinical UX timing validation
-npm run performance:clinical
+# Breathing circle performance
+npm run perf:breathing
+
+# Launch performance
+npm run perf:launch
+
+# All performance tests
+npm run perf:all
+
+# Offline performance
+npm run perf:offline
 ```
 
-### 🔍 Code Quality
+#### Offline Testing
+```bash
+# Test offline functionality
+npm run test:offline
+
+# Test offline crisis access
+npm run test:offline-crisis
+```
+
+#### Security Testing
+```bash
+# Static application security testing
+npm run security:sast
+
+# Dependency security scan
+npm run security:deps
+
+# Full security suite
+npm run security:full
+
+# Encryption tests
+npm run test:encryption
+
+# Secure storage tests
+npm run test:secure-storage
+```
+
+### Quick Validation Commands
+
+Fast validation for rapid iteration:
+```bash
+# Quick validation (syntax + critical tests)
+npm run quick:validate
+
+# Quick crisis validation
+npm run quick:crisis
+
+# Quick clinical validation
+npm run quick:clinical
+
+# Quick syntax check
+npm run quick:syntax
+
+# Quick performance check
+npm run quick:perf
+
+# Quick fix (lint + format)
+npm run quick:fix
+
+# Watch mode for quick checks
+npm run quick:watch
+
+# Interactive quick validation
+npm run quick:interactive
+```
+
+### Automation Commands
+
+Automated validation workflows:
+```bash
+# Quick automation (fast checks)
+npm run automation:quick
+
+# Full automation suite
+npm run automation:full
+
+# Performance automation
+npm run automation:performance
+
+# Pre-commit automation
+npm run automation:pre-commit
+
+# Development automation
+npm run automation:dev
+
+# Watch mode automation
+npm run automation:watch
+```
+
+### Dev Testing Commands
+
+Development-focused test runners:
+```bash
+# Smart test runner (only changed files)
+npm run dev:test-smart
+
+# Focused test runner (specific tests)
+npm run dev:test-focused
+
+# Debug test runner
+npm run dev:test-debug
+
+# Fast test runner (minimal output)
+npm run dev:test-fast
+
+# Coverage test runner
+npm run dev:test-coverage
+```
+
+### Platform Testing
+
+Cross-platform validation:
+```bash
+# List available platforms
+npm run platform:list
+
+# Test iOS platform
+npm run platform:ios
+
+# Test Android platform
+npm run platform:android
+
+# Test both platforms
+npm run platform:both
+
+# Setup platform testing
+npm run platform:setup
+
+# Run platforms in parallel
+npm run platform:parallel
+```
+
+### Code Quality
 ```bash
 # Type checking
 npm run typecheck
-# or
-npm run tsc
 
 # Linting
 npm run lint
 
 # Clinical language validation
 npm run lint:clinical
+
+# Lint and fix
+npm run lint:fix
 ```
 
-### 📦 Build & Deploy
+### Local Validation
+
+Pre-commit validation:
+```bash
+# Validate before commit
+npm run local:validate
+
+# Quick crisis check
+npm run local:crisis-check
+
+# Quick clinical check
+npm run local:clinical-check
+```
+
+### Git Hooks Setup
+
+Configure pre-commit and pre-push hooks:
+```bash
+# Setup standard hooks
+npm run hooks:setup
+
+# Setup minimal hooks (fast)
+npm run hooks:setup-minimal
+
+# Setup full hooks (comprehensive)
+npm run hooks:setup-full
+
+# Remove all hooks
+npm run hooks:remove
+
+# Check hook status
+npm run hooks:status
+```
+
+### Reports Generation
+
+Generate validation and performance reports:
+```bash
+# Generate dashboard report
+npm run reports:dashboard
+
+# Generate performance report
+npm run reports:performance
+
+# Generate coverage report
+npm run reports:coverage
+
+# Generate all reports
+npm run reports:all
+```
+
+### Build & Deploy
 ```bash
 # Development build
 npx expo build
@@ -80,43 +278,76 @@ eas build --platform android
 
 ## Website Development
 
-### 🌐 Start Website Prototype
+### Start Website Prototype
 ```bash
 cd website
 # Open in browser:
 open fullmind-website-wireframe.html
 ```
 
-### 📄 View Design Prototype
-```bash
-cd documentation
-# Open in browser:
-open "FullMind Design Prototype v1.7.html"
-```
-
 ## Documentation
 
-### 📚 Key Documentation Files
+### Key Documentation Files
 ```bash
 # Product requirements
-open "docs/product/FullMind PRD v1.2.md"
+open "docs/product/Being. PRD.md"
 
-# Technical requirements  
-open "docs/product/FullMind TRD v2.0.md"
+# Technical requirements
+open "docs/product/Being. TRD.md"
 
 # Design requirements
-open "docs/product/FullMind DRD v1.3.md"
-
-# Implementation status
-open "docs/product/FullMind Implementation Status v3.0.md"
+open "docs/product/Being. DRD.md"
 
 # Product roadmap
-open "docs/product/FullMind Product Roadmap - Prioritized - Based on v1.7.md"
+open "docs/product/Being. Product Roadmap - Prioritized.md"
+
+# Crisis implementation guide
+open "docs/Crisis-Button-Implementation-Guide.md"
+
+# TypeScript safety guide
+open "docs/TypeScript-Safety-Guide.md"
+
+# Stoic Mindfulness framework
+open "docs/product/stoic-mindfulness/INDEX.md"
 ```
+
+## Stoic Mindfulness Validation
+
+### Philosopher Agent Validation
+
+The philosopher agent validates Stoic philosophical accuracy (see `.claude/CLAUDE.md`):
+
+**Auto-triggers on:**
+- Stoic principles (Marcus Aurelius, Epictetus, Seneca)
+- Concepts (dichotomy of control, virtue, prohairesis)
+- Educational modules about Stoic philosophy
+- Principle content changes
+
+**Key Stoic documentation:**
+```bash
+# Framework overview
+open "docs/product/stoic-mindfulness/INDEX.md"
+
+# 5 Core Principles
+open "docs/product/stoic-mindfulness/principles/"
+
+# Technical architecture
+open "docs/technical/Stoic-Mindfulness-Architecture-v1.0.md"
+
+# Daily practice architecture
+open "docs/product/stoic-mindfulness/practice/daily-architecture.md"
+```
+
+**Validation standards:**
+- Philosophical accuracy (classical sources, proper attribution)
+- Virtue ethics (wisdom, courage, justice, temperance)
+- Dichotomy of control (proper framing, not oversimplified)
+- 5 Principles framework coherence
+- Practice architecture alignment
 
 ## Development Workflow
 
-### 🔄 Git Workflow
+### Git Workflow
 ```bash
 # Check status
 git status
@@ -132,18 +363,18 @@ git commit -m "feat: implement new feature"
 git push origin feature/new-feature-name
 ```
 
-### 🆘 Emergency Commands
+### Emergency Commands
 
 #### Crisis Testing
 ```bash
-# Test crisis button response time (<200ms)
-npm run test:crisis-timing
+# Crisis detection (quick)
+npm run test:crisis-quick
 
-# Validate PHQ-9/GAD-7 scoring accuracy
-npm run test:assessment-accuracy
+# Full crisis detection validation
+npm run test:crisis-detection
 
-# Test emergency contact integration
-npm run test:emergency-contacts
+# Emergency crisis safety check
+npm run emergency:crisis-safety-quick
 ```
 
 #### Debug Mode
@@ -157,7 +388,7 @@ EXPO_DEBUG_NETWORK=true npx expo start
 
 ## Environment Setup
 
-### 📋 Prerequisites
+### Prerequisites
 ```bash
 # Install dependencies
 npm install -g expo-cli eas-cli
@@ -167,14 +398,14 @@ expo --version
 eas --version
 ```
 
-### 🔑 Required Environment Variables
+### Required Environment Variables
 ```bash
 # Add to app/.env (not committed)
 OPENAI_API_KEY=your_openai_key
 ANTHROPIC_API_KEY=your_anthropic_key
 ```
 
-### 📱 Device Setup
+### Device Setup
 ```bash
 # Install Expo Go app on device
 # iOS: App Store
@@ -186,14 +417,14 @@ npx expo install expo-dev-client
 
 ## Performance Monitoring
 
-### ⚡ Critical Performance Targets
+### Critical Performance Targets
 - **Crisis Button Response**: <200ms
-- **Assessment Loading**: <300ms  
+- **Assessment Loading**: <300ms
 - **Breathing Circle Animation**: 60fps
 - **Check-in Flow Transitions**: <500ms
 - **App Launch Time**: <2 seconds
 
-### 📊 Monitor Performance
+### Monitor Performance
 ```bash
 # Bundle size analysis
 ANALYZE=true npm run build
@@ -207,7 +438,7 @@ npx expo start --dev-client
 
 ## Troubleshooting
 
-### 🐛 Common Issues
+### Common Issues
 
 #### Clear Cache
 ```bash
@@ -220,6 +451,9 @@ npm start -- --reset-cache
 
 #### Metro Issues
 ```bash
+# Clear Metro bundler console (while running)
+# Press 'c'
+
 # Reset Metro bundler
 npx expo start -c
 
@@ -236,7 +470,7 @@ cd ios && xcodebuild clean && cd ..
 xcrun simctl erase all
 ```
 
-### 🔧 Development Tools
+### Development Tools
 ```bash
 # React Native Debugger
 open "rndebugger://set-debugger-loc?host=localhost&port=8081"
@@ -245,51 +479,69 @@ open "rndebugger://set-debugger-loc?host=localhost&port=8081"
 npx react-native doctor
 ```
 
-## Clinical Validation
+## Clinical & Philosophical Validation
 
-### ✅ Pre-Release Checklist
+### Pre-Release Checklist
 ```bash
 # All tests passing
-npm run test:all
+npm test
 
 # Clinical accuracy validated
 npm run test:clinical
 
 # Crisis protocols tested
-npm run test:crisis
+npm run test:crisis-detection
 
 # Accessibility compliance
 npm run test:accessibility
 
 # Performance targets met
-npm run performance:all
+npm run perf:all
+
+# Philosophical accuracy validated
+# (philosopher agent validates during development)
 ```
 
-### 🏥 Clinical Testing Commands
+### Validation Commands
 ```bash
-# Validate PHQ-9 scoring (all 27 combinations)
-npm run test:phq9-scoring
+# Clinical validation (complete)
+npm run validate:clinical-complete
 
-# Validate GAD-7 scoring (all 21 combinations)  
-npm run test:gad7-scoring
+# Crisis authority validation
+npm run validate:crisis-authority
 
-# Test crisis threshold detection
-npm run test:crisis-thresholds
+# Compliance authority validation
+npm run validate:compliance-authority
 
-# Validate MBCT compliance
-npm run test:mbct-compliance
+# Clinical authority validation
+npm run validate:clinical-authority
+
+# Accessibility validation
+npm run validate:accessibility
+
+# Performance validation
+npm run validate:performance
+
+# Offline crisis validation
+npm run validate:offline-crisis
 ```
 
 ---
 
 ## Quick Reference
 
-### 🚨 Emergency Access
+### Emergency Access
 - **Crisis Hotline**: 988 (always accessible <3 seconds)
-- **Emergency Commands**: `npm run test:crisis`
-- **Safety Documentation**: `docs/clinical/TESTING_STRATEGY.md`
+- **Emergency Commands**: `npm run test:crisis-quick`
+- **Safety Documentation**: `docs/Crisis-Button-Implementation-Guide.md`
 
-### 📞 Support
+### Stoic Framework
+- **Philosopher Agent**: Auto-validates Stoic content (see `.claude/CLAUDE.md`)
+- **5 Principles**: Aware Presence, Radical Acceptance, Sphere Sovereignty, Virtuous Response, Interconnected Living
+- **Framework Docs**: `docs/product/stoic-mindfulness/INDEX.md`
+
+### Support
 - **Technical Issues**: Check `app/CHANGELOG.md` for recent fixes
-- **Clinical Questions**: Refer to `.claude/CLAUDE.md` domain authorities
-- **Performance Issues**: Run `npm run performance:all`
+- **Clinical Questions**: Refer to `.claude/CLAUDE.md` domain authorities (crisis, compliance, philosopher)
+- **Performance Issues**: Run `npm run perf:all`
+- **Quick Validation**: Run `npm run quick:validate`
