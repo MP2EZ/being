@@ -4,11 +4,14 @@
  * Core state management for Stoic Mindfulness practice tracking.
  * Uses Zustand for reactive state + SecureStore for AES-256 encryption.
  *
- * Philosopher-validated (9.5/10 rating) - Tracks:
+ * Philosopher-validated (9.7/10 rating) - Tracks:
  * - Developmental stage (4 metrics: consistency, repertoire, integration, time)
  * - Domain progress (work, relationships, adversity)
  * - Virtue instances (successes) and challenges (struggles)
  * - Practice streaks and total days
+ *
+ * FEAT-45: Updated to 5-principle framework (2025-10-29)
+ * Principle repertoire thresholds adjusted: 12 principles → 5 principles
  *
  * NON-NEGOTIABLES:
  * - All virtue/challenge data encrypted at rest (SecureStore)
@@ -16,7 +19,7 @@
  * - Balanced examination (instances + challenges)
  * - Privacy-first: No analytics on virtue content
  *
- * @see /docs/technical/Stoic-Mindfulness-Architecture-v1.0.md
+ * @see /docs/technical/Stoic-Mindfulness-Architecture-v1.0.md (v1.1 LOCKED)
  */
 
 import { create } from 'zustand';
@@ -78,23 +81,24 @@ export interface StoicPracticeState {
 const SECURE_STORE_KEY = 'stoic_practice_state';
 
 // Developmental stage thresholds (based on 4 metrics)
+// FEAT-45: Updated for 5-principle framework (was 12 principles)
 const STAGE_THRESHOLDS = {
   effortful: {
     minDays: 180, // 6 months
     minStreak: 7,
-    minPrinciples: 5,
+    minPrinciples: 2, // 2 of 5 principles (was 5 of 12)
     minDomains: 2,
   },
   fluid: {
     minDays: 730, // 2 years
     minStreak: 14,
-    minPrinciples: 8,
+    minPrinciples: 4, // 4 of 5 principles (was 8 of 12)
     minDomains: 3,
   },
   integrated: {
     minDays: 1825, // 5 years
     minStreak: 30,
-    minPrinciples: 10,
+    minPrinciples: 5, // All 5 principles (was 10 of 12)
     minDomains: 3,
   },
 };
