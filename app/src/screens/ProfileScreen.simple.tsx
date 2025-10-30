@@ -17,6 +17,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import OnboardingScreen from './OnboardingScreen.simple';
+import ValuesScreen from './ValuesScreen';
+import AppSettingsScreen from './AppSettingsScreen';
+import AccountSettingsScreen from './AccountSettingsScreen';
 import { RootStackParamList } from '../navigation/CleanRootNavigator';
 import { useSubscriptionStore } from '../stores/subscriptionStore';
 
@@ -44,7 +47,7 @@ const spacing = {
   xl: 32,
 };
 
-type Screen = 'menu' | 'onboarding' | 'account' | 'privacy' | 'about' | 'stoicMindfulness';
+type Screen = 'menu' | 'onboarding' | 'values' | 'account' | 'privacy' | 'about' | 'stoicMindfulness';
 
 const ProfileScreen: React.FC = () => {
   const [currentScreen, setCurrentScreen] = useState<Screen>('menu');
@@ -101,6 +104,21 @@ const ProfileScreen: React.FC = () => {
               Complete your initial assessment and configure your therapeutic preferences for a personalized experience.
             </Text>
             <Text style={styles.cardAction}>Start Setup →</Text>
+          </Pressable>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Personalization</Text>
+
+          <Pressable
+            style={styles.profileCard}
+            onPress={() => setCurrentScreen('values')}
+          >
+            <Text style={styles.cardTitle}>Your Therapeutic Values</Text>
+            <Text style={styles.cardDescription}>
+              View and edit the values that guide your life. Select 3-5 values that resonate with you for a personalized Being. experience.
+            </Text>
+            <Text style={styles.cardAction}>Manage Values →</Text>
           </Pressable>
         </View>
 
@@ -373,18 +391,16 @@ const ProfileScreen: React.FC = () => {
     );
   }
 
+  if (currentScreen === 'values') {
+    return <ValuesScreen onReturn={handleReturnToMenu} />;
+  }
+
   if (currentScreen === 'account') {
-    return renderPlaceholder(
-      'Account Settings',
-      'Manage your account details and preferences'
-    );
+    return <AccountSettingsScreen onReturn={handleReturnToMenu} />;
   }
 
   if (currentScreen === 'privacy') {
-    return renderPlaceholder(
-      'Privacy & Data',
-      'Your data privacy and security settings'
-    );
+    return <AppSettingsScreen onReturn={handleReturnToMenu} />;
   }
 
   if (currentScreen === 'about') {

@@ -29,6 +29,7 @@ import {
   Platform,
 } from 'react-native';
 import SafetyButton from '../flows/shared/components/SafetyButton';
+import { useValuesStore } from '../stores/valuesStore';
 
 // WCAG-AA compliant colors with verified contrast ratios
 const colors = {
@@ -286,6 +287,9 @@ interface CrisisDetectionResult {
 }
 
 const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbedded = false }) => {
+  // Stores
+  const valuesStore = useValuesStore();
+
   // Primary state (following ExercisesScreen pattern)
   const [currentScreen, setCurrentScreen] = useState<Screen>('welcome');
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -1019,6 +1023,13 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
       case 'celebration':
         // Complete onboarding with state persistence
         logStateChange('navigateNext:celebration:complete', getStateDebugInfo());
+
+        // Save selected values to valuesStore (FEAT-6 integration)
+        if (selectedValues.length >= 3) {
+          valuesStore.saveValues(selectedValues).catch((error) => {
+            logError('Failed to save therapeutic values from onboarding', LogCategory.STATE, { error });
+          });
+        }
 
         // Accessibility: Announce completion
         announceToScreenReader(screenTransitions.celebration);
