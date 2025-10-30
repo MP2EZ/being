@@ -32,6 +32,7 @@ import {
   ScrollView,
   StyleSheet,
   Modal,
+  Linking,
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { MorningFlowParamList, PreparationData } from '../../../types/flows';
@@ -353,9 +354,12 @@ const PreparationScreen: React.FC<Props> = ({ navigation, onSave }) => {
           </Text>
           <TouchableOpacity
             style={styles.crisisButton}
+            onPress={() => Linking.openURL('tel:988')}
             testID="crisis-resources-button"
+            accessibilityLabel="Call 988 Suicide & Crisis Lifeline"
+            accessibilityRole="button"
           >
-            <Text style={styles.crisisButtonText}>Get Support</Text>
+            <Text style={styles.crisisButtonText}>Call 988</Text>
           </TouchableOpacity>
         </View>
       )}

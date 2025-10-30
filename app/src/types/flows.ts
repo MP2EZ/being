@@ -4,7 +4,9 @@
  */
 
 // Flow Navigation Types
-export type MorningFlowParamList = {
+
+// MBCT Morning Flow (Original - DEPRECATED for FEAT-45)
+export type MBCTMorningFlowParamList = {
   BodyScan: undefined;
   EmotionRecognition: undefined;
   ThoughtObservation: undefined;
@@ -13,17 +15,36 @@ export type MorningFlowParamList = {
   DreamJournal: undefined;
 };
 
-export type MiddayFlowParamList = {
-  Awareness: undefined;
-  Gathering: undefined;
-  Expanding: undefined;
+// Stoic Mindfulness Morning Flow (FEAT-45) - DRD v2.0.0
+export type MorningFlowParamList = {
+  Gratitude: undefined;
+  Intention: undefined;
+  Preparation: undefined;
+  PrincipleFocus: undefined;
+  PhysicalGrounding: undefined;
+  MorningCompletion: undefined;
 };
 
+// Stoic Mindfulness Midday Flow (FEAT-45) - DRD v2.0.0
+export type MiddayFlowParamList = {
+  ControlCheck: undefined;
+  Embodiment: undefined;
+  Reappraisal: undefined;
+  Affirmation: undefined;
+  MiddayCompletion: undefined;
+};
+
+// Stoic Mindfulness Evening Flow (FEAT-45) - DRD v2.0.0
 export type EveningFlowParamList = {
-  DayReview: undefined;
-  PleasantUnpleasant: undefined;
-  ThoughtPatterns: undefined;
-  TomorrowPrep: undefined;
+  VirtueReflection: undefined;
+  SenecaQuestions: undefined;
+  Celebration: undefined;
+  Gratitude: undefined;
+  Tomorrow: undefined;
+  Lessons: undefined;
+  SelfCompassion: undefined;
+  SleepTransition: undefined;
+  EveningCompletion: undefined;
 };
 
 // Common Flow Data Types
@@ -56,10 +77,27 @@ export interface ThoughtData {
   response?: string;
 }
 
-export interface PhysicalMetricsData {
+// MBCT Physical Metrics (Original - DEPRECATED)
+export interface MBCTPhysicalMetricsData {
   energy: number; // 1-10 scale
   sleep: number; // 1-10 scale
   physicalComfort: number; // 1-10 scale (replaces anxiety per clinical safety)
+}
+
+// Stoic Mindfulness Physical Metrics (FEAT-45 - DEPRECATED, use PhysicalGroundingData)
+export interface PhysicalMetricsData {
+  sleepHours: number;       // 0-24 hours
+  exerciseMinutes: number;  // 0-300 minutes
+  mealsCount: number;       // 0-5 meals
+  notes?: string;           // Optional notes
+  timestamp: Date;
+}
+
+// Physical Grounding (DRD v2.0.0 - Mindful body awareness, not data tracking)
+export interface PhysicalGroundingData {
+  method: 'body_scan' | 'breathing';  // User choice
+  bodyAwareness: string;               // What they noticed
+  timestamp: Date;
 }
 
 export interface ValuesData {
@@ -189,17 +227,18 @@ export interface StoicMorningFlowData {
   preparation?: PreparationData;       // Premeditatio malorum (with safeguards)
   principleFocus?: PrincipleFocusData;
 
-  // Retained from MBCT (body awareness)
-  physicalMetrics?: PhysicalMetricsData;
+  // Mindful body awareness (DRD v2.0.0)
+  physicalGrounding?: PhysicalGroundingData;
 
   // Metadata
   completedAt: Date;
   timeSpentSeconds: number;
-  flowVersion: string;  // 'stoic_v1'
+  flowVersion: string;  // 'stoic_v2'
 }
 
 export interface GratitudeData {
-  items: GratitudeItem[];  // Exactly 3 items
+  items: GratitudeItem[];  // 2-3 items
+  stoicGrounding?: string | undefined; // Optional: "What's within your control to appreciate?"
   timestamp: Date;
 }
 
@@ -207,21 +246,14 @@ export interface GratitudeItem {
   what: string;
   impermanenceReflection?: {
     acknowledged: boolean;
-    awareness?: string;         // "This is impermanent"
-    appreciationShift?: string; // "This makes it precious"
-    presentAction?: string;     // "I'll engage fully"
+    awareness: string;
   };
-  howItManifestsToday?: string;
 }
 
 export interface IntentionData {
-  virtue: CardinalVirtue;
-  context: PracticeDomain;
-  intentionStatement: string;
-  whatIControl: string;
-  whatIDontControl: string;
-  reserveClause?: string;      // Stoic "fate permitting"
-  principleApplied?: string;
+  intentionStatement: string;  // "How will I show up today?"
+  whatIControl: string;         // Dichotomy of control grounding
+  virtueAwareness?: string | undefined;     // Optional: integrated virtue recognition
   timestamp: Date;
 }
 
@@ -248,9 +280,9 @@ export interface ObstacleContemplation {
 }
 
 export interface PrincipleFocusData {
-  principleId: string;
-  briefPrompt: string;         // Short reminder (1-2 sentences)
-  todayApplication: string;
+  principleKey: string;              // StoicPrinciple key
+  personalInterpretation?: string | undefined;   // Optional personal application
+  reminderTime?: string | undefined;             // Optional reminder time (HH:MM format)
   timestamp: Date;
 }
 
@@ -284,10 +316,10 @@ export interface CurrentSituationData {
 export interface ControlCheckData {
   aspect: string;
   controlType: 'fully_in_control' | 'can_influence' | 'not_in_control';  // Three-tier
-  whatIControl?: string;
-  whatICannotControl?: string;
-  actionIfControllable?: string;
-  acceptanceIfUncontrollable?: string;
+  whatIControl?: string | undefined;
+  whatICannotControl?: string | undefined;
+  actionIfControllable?: string | undefined;
+  acceptanceIfUncontrollable?: string | undefined;
   timestamp: Date;
 }
 
@@ -295,15 +327,15 @@ export interface ReappraisalData {
   obstacle: string;
   virtueOpportunity: string;
   reframedPerspective: string;
-  principleApplied?: string;
+  principleApplied?: string | undefined;
   timestamp: Date;
 }
 
 export interface IntentionProgressData {
   morningIntention: string;
   practiced: boolean;
-  howApplied?: string;
-  adjustment?: string;
+  howApplied?: string | undefined;
+  adjustment?: string | undefined;
   timestamp: Date;
 }
 
@@ -311,6 +343,13 @@ export interface EmbodimentData {
   breathingDuration: 60;  // EXACTLY 60 seconds (60fps critical)
   breathingQuality: number;  // 1-10
   bodyAwareness: string;
+  timestamp: Date;
+}
+
+export interface AffirmationData {
+  selectedAffirmation?: string | undefined;  // Pre-defined grounded affirmation
+  personalAffirmation?: string | undefined;  // User's own affirmation
+  selfCompassionNote?: string | undefined;   // Optional self-compassion reflection
   timestamp: Date;
 }
 
@@ -381,8 +420,31 @@ export interface SenecaQuestionsData {
   timestamp: Date;
 }
 
+export interface VirtueReflectionData {
+  showedUpWell?: string | undefined;  // Where did I show up well today?
+  growthArea?: string | undefined;    // Where could I grow?
+  timestamp: Date;
+}
+
+export interface CelebrationData {
+  attempts: string[];           // What did you attempt today? (efforts, not outcomes)
+  learningCelebration?: string | undefined; // Optional: What did attempting teach you?
+  timestamp: Date;
+}
+
+export interface TomorrowData {
+  intention?: string | undefined;   // What's your intention for tomorrow?
+  lettingGo?: string | undefined;   // What can you let go of tonight?
+  timestamp: Date;
+}
+
 export interface SelfCompassionData {
   reflection: string;  // REQUIRED (prevents harsh Stoicism)
+  timestamp: Date;
+}
+
+export interface SleepTransitionData {
+  breathingCompleted: boolean;  // Optional tracking of breathing practice completion
   timestamp: Date;
 }
 

@@ -11,6 +11,7 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -100,6 +101,46 @@ const ProfileScreen: React.FC = () => {
               Complete your initial assessment and configure your therapeutic preferences for a personalized experience.
             </Text>
             <Text style={styles.cardAction}>Start Setup →</Text>
+          </Pressable>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Crisis Resources</Text>
+          <Text style={styles.sectionDescription}>
+            If you're experiencing a mental health crisis, immediate help is available.
+          </Text>
+
+          <Pressable
+            style={[styles.profileCard, styles.crisisCard]}
+            onPress={() => Linking.openURL('tel:988')}
+          >
+            <Text style={styles.cardTitle}>🆘 988 Suicide & Crisis Lifeline</Text>
+            <Text style={styles.cardDescription}>
+              24/7 support for people in distress, prevention and crisis resources for you or your loved ones. Call or text 988.
+            </Text>
+            <Text style={styles.crisisAction}>Call 988 →</Text>
+          </Pressable>
+
+          <Pressable
+            style={[styles.profileCard, styles.crisisCard]}
+            onPress={() => Linking.openURL('sms:741741')}
+          >
+            <Text style={styles.cardTitle}>💬 Crisis Text Line</Text>
+            <Text style={styles.cardDescription}>
+              Free, 24/7 support for those in crisis. Text HOME to 741741 to connect with a trained Crisis Counselor.
+            </Text>
+            <Text style={styles.crisisAction}>Text HOME to 741741 →</Text>
+          </Pressable>
+
+          <Pressable
+            style={[styles.profileCard, styles.crisisCard]}
+            onPress={() => Linking.openURL('https://findtreatment.samhsa.gov/')}
+          >
+            <Text style={styles.cardTitle}>🏥 Find Local Treatment</Text>
+            <Text style={styles.cardDescription}>
+              SAMHSA's Treatment Locator helps you find mental health and substance use treatment facilities in your area.
+            </Text>
+            <Text style={styles.crisisAction}>Find Treatment →</Text>
           </Pressable>
         </View>
 
@@ -260,6 +301,13 @@ const styles = StyleSheet.create({
     color: colors.black,
     marginBottom: spacing.md,
   },
+  sectionDescription: {
+    fontSize: 16,
+    fontWeight: '400',
+    color: colors.gray600,
+    lineHeight: 22,
+    marginBottom: spacing.md,
+  },
   profileCard: {
     backgroundColor: colors.gray100,
     borderRadius: 12,
@@ -285,6 +333,17 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
     color: colors.midnightBlue,
+  },
+  crisisCard: {
+    backgroundColor: '#FFF5F5',
+    borderColor: '#FEE2E2',
+    borderLeftWidth: 4,
+    borderLeftColor: '#DC2626',
+  },
+  crisisAction: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#DC2626',
   },
   placeholderContent: {
     backgroundColor: colors.gray100,

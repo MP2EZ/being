@@ -1,8 +1,8 @@
 /**
- * GRATITUDE SCREEN
+ * GRATITUDE SCREEN - DRD v2.0.0
  *
- * Stoic gratitude practice with optional impermanence reflection.
- * Philosopher-validated (9.5/10) - integrates memento mori with gratitude.
+ * Morning gratitude practice with optional Stoic grounding.
+ * MINDFULNESS-FIRST with Stoic wisdom enrichment.
  *
  * Classical Stoic Practice:
  * - Marcus Aurelius: "When you arise in the morning, think of what a precious
@@ -10,16 +10,16 @@
  * - Epictetus: "He is a wise man who does not grieve for the things which he has not,
  *   but rejoices for those which he has" (Enchiridion)
  *
- * Impermanence Pathway (Optional):
- * 1. Acknowledge: "This is impermanent" (memento mori)
- * 2. Awareness: Custom reflection on impermanence
- * 3. Appreciation shift: How impermanence makes it precious
- * 4. Present action: How you'll engage fully today
+ * Philosophy:
+ * - Simple gratitude (mindfulness core)
+ * - Optional Stoic lens: "What's within your control to appreciate?"
+ * - Educational enrichment (collapsible)
+ * - NOT philosophy-heavy impermanence pathway
  *
- * @see /docs/technical/Stoic-Mindfulness-Architecture-v1.0.md
+ * @see /docs/product/Being. DRD.md (DRD-FLOW-002: Morning Flow, Screen 1)
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -36,21 +36,10 @@ type Props = NativeStackScreenProps<MorningFlowParamList, 'Gratitude'> & {
   onSave?: (data: GratitudeData) => void;
 };
 
-interface ImpermanenceState {
-  showPathway: boolean;
-  acknowledged: boolean;
-  awareness: string;
-  appreciationShift: string;
-  presentAction: string;
-}
-
 const GratitudeScreen: React.FC<Props> = ({ navigation, onSave }) => {
   const [gratitudeItems, setGratitudeItems] = useState<string[]>(['', '', '']);
-  const [impermanenceStates, setImpermanenceStates] = useState<ImpermanenceState[]>([
-    { showPathway: false, acknowledged: false, awareness: '', appreciationShift: '', presentAction: '' },
-    { showPathway: false, acknowledged: false, awareness: '', appreciationShift: '', presentAction: '' },
-    { showPathway: false, acknowledged: false, awareness: '', appreciationShift: '', presentAction: '' },
-  ]);
+  const [showEducation, setShowEducation] = useState(false);
+  const [stoicGrounding, setStoicGrounding] = useState('');
 
   // Validate all items filled
   const allItemsFilled = gratitudeItems.every(item => item.trim().length > 0);
@@ -61,49 +50,15 @@ const GratitudeScreen: React.FC<Props> = ({ navigation, onSave }) => {
     setGratitudeItems(newItems);
   };
 
-  const toggleImpermanencePathway = (index: number, show: boolean) => {
-    const newStates = [...impermanenceStates];
-    newStates[index].showPathway = show;
-    setImpermanenceStates(newStates);
-  };
-
-  const updateImpermanenceField = (
-    index: number,
-    field: keyof Omit<ImpermanenceState, 'showPathway'>,
-    value: string | boolean
-  ) => {
-    const newStates = [...impermanenceStates];
-    (newStates[index][field] as any) = value;
-    setImpermanenceStates(newStates);
-  };
-
   const handleContinue = () => {
     // Build gratitude data
-    const items: GratitudeItem[] = gratitudeItems.map((item, index) => {
-      const state = impermanenceStates[index];
-      const gratitudeItem: GratitudeItem = {
-        what: item.trim(),
-      };
-
-      // Add impermanence reflection if opted in
-      if (state.showPathway && state.acknowledged) {
-        gratitudeItem.impermanenceReflection = {
-          acknowledged: true,
-          awareness: state.awareness || undefined,
-          appreciationShift: state.appreciationShift || undefined,
-          presentAction: state.presentAction || undefined,
-        };
-      } else if (state.showPathway) {
-        gratitudeItem.impermanenceReflection = {
-          acknowledged: false,
-        };
-      }
-
-      return gratitudeItem;
-    });
+    const items: GratitudeItem[] = gratitudeItems.map((item) => ({
+      what: item.trim(),
+    }));
 
     const gratitudeData: GratitudeData = {
       items,
+      stoicGrounding: stoicGrounding.trim() || undefined,
       timestamp: new Date(),
     };
 
@@ -131,10 +86,35 @@ const GratitudeScreen: React.FC<Props> = ({ navigation, onSave }) => {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>Morning Gratitude</Text>
-        <Text style={styles.subtitle}>
-          Name 3 things you're grateful for today
+        <Text style={styles.subtitle}>Start with Mindful Awareness</Text>
+        <Text style={styles.helperText}>
+          Name 2-3 things you're grateful for today
         </Text>
       </View>
+
+      {/* Educational Note (Collapsible) */}
+      <TouchableOpacity
+        style={styles.educationToggle}
+        onPress={() => setShowEducation(!showEducation)}
+        testID="education-toggle"
+        accessibilityLabel={showEducation ? "Hide educational note" : "Show educational note"}
+        accessibilityRole="button"
+      >
+        <Text style={styles.educationToggleText}>
+          {showEducation ? '▼' : '▶'} Why Stoic gratitude?
+        </Text>
+      </TouchableOpacity>
+
+      {showEducation && (
+        <View style={styles.educationCard}>
+          <Text style={styles.educationText}>
+            Stoic gratitude focuses on what's within your control to appreciate.
+            Marcus Aurelius practiced morning gratitude as mindful awareness,
+            not forced positivity. It grounds us in the present moment while
+            recognizing what we can influence.
+          </Text>
+        </View>
+      )}
 
       {/* Gratitude Items */}
       {gratitudeItems.map((item, index) => (
@@ -144,123 +124,34 @@ const GratitudeScreen: React.FC<Props> = ({ navigation, onSave }) => {
             style={styles.input}
             value={item}
             onChangeText={(value) => updateGratitudeItem(index, value)}
-            placeholder="What are you grateful for today?"
+            placeholder="e.g., Morning coffee, time to breathe, a choice..."
             placeholderTextColor="#999"
             testID={`gratitude-input-${index}`}
             accessibilityLabel={`Gratitude item ${index + 1}`}
             multiline
           />
-
-          {/* Impermanence Reflection Option */}
-          {item.trim().length > 0 && !impermanenceStates[index].showPathway && (
-            <View style={styles.impermanenceOption}>
-              <Text style={styles.impermanencePrompt}>
-                Reflect on impermanence? (Optional)
-              </Text>
-              <View style={styles.impermanenceButtons}>
-                <TouchableOpacity
-                  style={styles.optionButton}
-                  onPress={() => toggleImpermanencePathway(index, true)}
-                  testID={`impermanence-reflect-${index}`}
-                  accessibilityLabel="Reflect on impermanence"
-                >
-                  <Text style={styles.optionButtonText}>Yes, reflect</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.optionButton, styles.optionButtonSecondary]}
-                  onPress={() => toggleImpermanencePathway(index, false)}
-                  testID={`impermanence-skip-${index}`}
-                  accessibilityLabel="Skip impermanence reflection"
-                >
-                  <Text style={styles.optionButtonTextSecondary}>Skip</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          )}
-
-          {/* Impermanence 3-Step Pathway */}
-          {impermanenceStates[index].showPathway && (
-            <View style={styles.impermanencePathway}>
-              <Text style={styles.pathwayTitle}>Impermanence Reflection</Text>
-
-              {/* Step 1: Acknowledge */}
-              <TouchableOpacity
-                style={styles.checkboxContainer}
-                onPress={() =>
-                  updateImpermanenceField(
-                    index,
-                    'acknowledged',
-                    !impermanenceStates[index].acknowledged
-                  )
-                }
-                testID={`impermanence-acknowledge-${index}`}
-                accessibilityRole="checkbox"
-                accessibilityState={{ checked: impermanenceStates[index].acknowledged }}
-              >
-                <View
-                  style={[
-                    styles.checkbox,
-                    impermanenceStates[index].acknowledged && styles.checkboxChecked,
-                  ]}
-                >
-                  {impermanenceStates[index].acknowledged && (
-                    <Text style={styles.checkmark}>✓</Text>
-                  )}
-                </View>
-                <Text style={styles.checkboxLabel}>This is impermanent</Text>
-              </TouchableOpacity>
-
-              {/* Step 2: Awareness */}
-              <View style={styles.pathwayStep}>
-                <Text style={styles.stepLabel}>How does impermanence show up?</Text>
-                <TextInput
-                  style={styles.pathwayInput}
-                  value={impermanenceStates[index].awareness}
-                  onChangeText={(value) =>
-                    updateImpermanenceField(index, 'awareness', value)
-                  }
-                  placeholder="e.g., Coffee beans are fleeting, moments pass..."
-                  placeholderTextColor="#999"
-                  testID={`impermanence-awareness-${index}`}
-                  multiline
-                />
-              </View>
-
-              {/* Step 3: Appreciation Shift */}
-              <View style={styles.pathwayStep}>
-                <Text style={styles.stepLabel}>This makes it precious because...</Text>
-                <TextInput
-                  style={styles.pathwayInput}
-                  value={impermanenceStates[index].appreciationShift}
-                  onChangeText={(value) =>
-                    updateImpermanenceField(index, 'appreciationShift', value)
-                  }
-                  placeholder="e.g., This makes morning sacred, not routine..."
-                  placeholderTextColor="#999"
-                  testID={`impermanence-appreciation-${index}`}
-                  multiline
-                />
-              </View>
-
-              {/* Step 4: Present Action */}
-              <View style={styles.pathwayStep}>
-                <Text style={styles.stepLabel}>I'll engage fully by...</Text>
-                <TextInput
-                  style={styles.pathwayInput}
-                  value={impermanenceStates[index].presentAction}
-                  onChangeText={(value) =>
-                    updateImpermanenceField(index, 'presentAction', value)
-                  }
-                  placeholder="e.g., I will savor each sip, be fully present..."
-                  placeholderTextColor="#999"
-                  testID={`impermanence-action-${index}`}
-                  multiline
-                />
-              </View>
-            </View>
-          )}
         </View>
       ))}
+
+      {/* Optional Stoic Grounding */}
+      <View style={styles.stoicGroundingSection}>
+        <Text style={styles.stoicGroundingLabel}>
+          Optional: Stoic Lens
+        </Text>
+        <Text style={styles.stoicGroundingHelper}>
+          What's within your control to appreciate today?
+        </Text>
+        <TextInput
+          style={styles.stoicGroundingInput}
+          value={stoicGrounding}
+          onChangeText={setStoicGrounding}
+          placeholder="e.g., My response, my effort, my presence..."
+          placeholderTextColor="#999"
+          testID="stoic-grounding-input"
+          accessibilityLabel="Stoic grounding reflection"
+          multiline
+        />
+      </View>
 
       {/* Continue Button */}
       <TouchableOpacity
@@ -272,11 +163,19 @@ const GratitudeScreen: React.FC<Props> = ({ navigation, onSave }) => {
         accessibilityHint={
           allItemsFilled
             ? 'All items filled. Ready to continue to next screen'
-            : 'Fill all 3 items to continue'
+            : 'Fill all gratitude items to continue'
         }
       >
         <Text style={styles.continueButtonText}>Continue</Text>
       </TouchableOpacity>
+
+      {/* Stoic Quote */}
+      <View style={styles.quoteSection}>
+        <Text style={styles.quoteText}>
+          "When you arise in the morning, think of what a precious privilege it is
+          to be alive." — Marcus Aurelius
+        </Text>
+      </View>
     </ScrollView>
   );
 };
@@ -292,27 +191,57 @@ const styles = StyleSheet.create({
   },
   backButtonText: {
     fontSize: 16,
-    color: '#007AFF',
+    color: '#FF9F43',
   },
   header: {
-    marginBottom: 30,
+    marginBottom: 24,
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
     marginBottom: 8,
+    color: '#333',
   },
   subtitle: {
     fontSize: 16,
     color: '#666',
+    marginBottom: 4,
+  },
+  helperText: {
+    fontSize: 14,
+    color: '#999',
+    fontStyle: 'italic',
+  },
+  educationToggle: {
+    paddingVertical: 12,
+    marginBottom: 16,
+  },
+  educationToggleText: {
+    fontSize: 14,
+    color: '#FF9F43',
+    fontWeight: '500',
+  },
+  educationCard: {
+    padding: 16,
+    backgroundColor: '#FFF8F0',
+    borderRadius: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: '#FF9F43',
+    marginBottom: 24,
+  },
+  educationText: {
+    fontSize: 14,
+    color: '#666',
+    lineHeight: 20,
   },
   itemContainer: {
-    marginBottom: 30,
+    marginBottom: 24,
   },
   itemLabel: {
     fontSize: 16,
     fontWeight: '600',
     marginBottom: 8,
+    color: '#333',
   },
   input: {
     borderWidth: 1,
@@ -320,110 +249,46 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
-    minHeight: 60,
-  },
-  impermanenceOption: {
-    marginTop: 12,
-    padding: 12,
-    backgroundColor: '#f5f5f5',
-    borderRadius: 8,
-  },
-  impermanencePrompt: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 8,
-  },
-  impermanenceButtons: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  optionButton: {
-    flex: 1,
-    padding: 10,
-    backgroundColor: '#007AFF',
-    borderRadius: 6,
-    alignItems: 'center',
-  },
-  optionButtonSecondary: {
     backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#ddd',
+    minHeight: 60,
+    textAlignVertical: 'top',
   },
-  optionButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  optionButtonTextSecondary: {
-    color: '#666',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  impermanencePathway: {
-    marginTop: 12,
+  stoicGroundingSection: {
+    marginTop: 8,
+    marginBottom: 24,
     padding: 16,
-    backgroundColor: '#f9f9f9',
+    backgroundColor: '#F9F9F9',
     borderRadius: 8,
-    borderLeftWidth: 4,
-    borderLeftColor: '#007AFF',
   },
-  pathwayTitle: {
+  stoicGroundingLabel: {
     fontSize: 16,
     fontWeight: '600',
-    marginBottom: 16,
+    marginBottom: 4,
+    color: '#666',
   },
-  checkboxContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  checkbox: {
-    width: 24,
-    height: 24,
-    borderWidth: 2,
-    borderColor: '#007AFF',
-    borderRadius: 4,
-    marginRight: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  checkboxChecked: {
-    backgroundColor: '#007AFF',
-  },
-  checkmark: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  checkboxLabel: {
-    fontSize: 15,
+  stoicGroundingHelper: {
+    fontSize: 14,
+    color: '#999',
+    marginBottom: 12,
     fontStyle: 'italic',
   },
-  pathwayStep: {
-    marginBottom: 16,
-  },
-  stepLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    marginBottom: 6,
-    color: '#333',
-  },
-  pathwayInput: {
+  stoicGroundingInput: {
     borderWidth: 1,
     borderColor: '#ddd',
-    borderRadius: 6,
-    padding: 10,
-    fontSize: 14,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
     backgroundColor: '#fff',
-    minHeight: 50,
+    minHeight: 60,
+    textAlignVertical: 'top',
   },
   continueButton: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#FF9F43',
     padding: 16,
     borderRadius: 8,
     alignItems: 'center',
-    marginTop: 20,
-    marginBottom: 40,
+    marginTop: 12,
+    marginBottom: 24,
   },
   continueButtonDisabled: {
     backgroundColor: '#ccc',
@@ -432,6 +297,20 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 18,
     fontWeight: '600',
+  },
+  quoteSection: {
+    padding: 16,
+    backgroundColor: '#f9f9f9',
+    borderRadius: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: '#FF9F43',
+    marginBottom: 40,
+  },
+  quoteText: {
+    fontSize: 14,
+    fontStyle: 'italic',
+    color: '#666',
+    lineHeight: 20,
   },
 });
 

@@ -1,15 +1,15 @@
 /**
- * Morning Flow Export Index
- * Clean imports for DRD morning check-in flow
+ * Morning Flow Export Index - DRD v2.0.0
+ * Clean imports for Stoic Mindfulness morning flow
  */
 
 // Navigator
 export { default as MorningFlowNavigator } from './MorningFlowNavigator';
 
-// Screens
-export { default as BodyScanScreen } from './screens/BodyScanScreen';
-export { default as EmotionRecognitionScreen } from './screens/EmotionRecognitionScreen';
-export { default as ThoughtObservationScreen } from './screens/ThoughtObservationScreen';
-export { default as PhysicalMetricsScreen } from './screens/PhysicalMetricsScreen';
-export { default as ValuesIntentionScreen } from './screens/ValuesIntentionScreen';
-export { default as DreamJournalScreen } from './screens/DreamJournalScreen';
+// DRD v2.0.0 Screens
+export { default as GratitudeScreen } from './screens/GratitudeScreen';
+export { default as IntentionScreen } from './screens/IntentionScreen';
+export { default as ProtectedPreparationScreen } from './screens/ProtectedPreparationScreen';
+export { default as PrincipleFocusScreen } from './screens/PrincipleFocusScreen';
+export { default as PhysicalGroundingScreen } from './screens/PhysicalGroundingScreen';
+export { default as MorningCompletionScreen } from './screens/MorningCompletionScreen';

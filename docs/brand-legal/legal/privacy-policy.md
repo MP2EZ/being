@@ -5,7 +5,7 @@
 
 ## 1. Introduction
 
-FullMind is a mental health and mindfulness application designed to support your wellbeing through Mindfulness-Based Cognitive Therapy (MBCT) practices, mood tracking, and mental health assessments. We are committed to protecting your privacy and handling your personal health information with the highest level of security and care.
+FullMind is a mental health and mindfulness application designed to support your wellbeing through Stoic Mindfulness practices (including virtue development, gratitude exercises, and philosophical reflection), mood tracking, and mental health assessments. We are committed to protecting your privacy and handling your personal health information with the highest level of security and care.
 
 This Privacy Policy explains how we collect, use, store, and protect your information when you use the FullMind mobile application ("App"). By using our App, you agree to the collection and use of information in accordance with this policy.
 
@@ -44,11 +44,14 @@ We collect responses and scores from standardized mental health assessments:
 - Reflection entries (optional text input)
 - Timestamps for therapeutic progress tracking
 
-**MBCT Practice Data**:
-- Mindfulness session completion records
-- Breathing exercise participation and duration
-- Progress through guided therapeutic content
-- **Purpose**: Supporting your mindfulness practice and therapeutic progress
+**Stoic Mindfulness Practice Data**:
+- Virtue practice tracking (instances of wisdom, courage, justice, temperance)
+- Personal reflections on virtue challenges and growth
+- Gratitude exercises and philosophical reflection entries
+- Stoic principle application in daily life (dichotomy of control, premeditatio malorum)
+- Morning/midday/evening practice session completion
+- Progress through Stoic educational content
+- **Purpose**: Supporting your philosophical practice and personal development
 
 ### 2.3 Crisis Safety Information
 
@@ -94,7 +97,7 @@ We collect responses and scores from standardized mental health assessments:
 **Mental Health Monitoring**:
 - Calculating assessment scores with 100% clinical accuracy
 - Tracking your mood patterns and therapeutic progress
-- Providing personalized MBCT content based on your needs
+- Providing personalized Stoic Mindfulness content based on your needs
 - Identifying when additional support may be beneficial
 
 **Crisis Intervention**:

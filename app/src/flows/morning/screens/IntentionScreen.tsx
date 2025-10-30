@@ -1,22 +1,22 @@
 /**
- * INTENTION SCREEN
+ * INTENTION SCREEN - DRD v2.0.0
  *
- * Stoic morning intention with virtue practice and dichotomy of control.
- * Philosopher-validated (9.5/10) - integrates cardinal virtues + control distinction.
+ * Morning intention with mindful awareness and optional Stoic wisdom.
+ * MINDFULNESS-FIRST: "How do you want to show up today?"
  *
  * Classical Stoic Framework:
  * - Marcus Aurelius: "At dawn, when you have trouble getting out of bed, tell yourself:
  *   'I have to go to work—as a human being.'" (Meditations 5:1)
  * - Epictetus: "Some things are in our control and others not." (Enchiridion 1)
  *
- * Core Components:
- * 1. Cardinal Virtue Selection (wisdom, courage, justice, temperance)
- * 2. Practice Domain (work, relationships, adversity)
- * 3. Intention Statement (specific, actionable)
- * 4. Dichotomy of Control (what I control vs. what I don't)
- * 5. Optional Reserve Clause (Stoic "fate permitting")
+ * Philosophy:
+ * - Virtues are integrated, not modular (philosopher-validated critique)
+ * - You don't "pick courage for work" - you show up fully, integrating ALL virtues
+ * - Mindfulness question first: "How will I show up?"
+ * - Optional virtue awareness: recognize where virtue is alive in your intention
+ * - Dichotomy of control: grounding in what you can influence
  *
- * @see /docs/technical/Stoic-Mindfulness-Architecture-v1.0.md
+ * @see /docs/product/Being. DRD.md (DRD-FLOW-002: Morning Flow, Screen 2)
  */
 
 import React, { useState } from 'react';
@@ -30,68 +30,21 @@ import {
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { MorningFlowParamList, IntentionData } from '../../../types/flows';
-import type { CardinalVirtue, PracticeDomain } from '../../../types/stoic';
 
 type Props = NativeStackScreenProps<MorningFlowParamList, 'Intention'> & {
   onSave?: (data: IntentionData) => void;
 };
 
-const VIRTUES: Array<{ key: CardinalVirtue; label: string; description: string }> = [
-  {
-    key: 'wisdom',
-    label: 'Wisdom',
-    description: 'Practical wisdom, good judgment',
-  },
-  {
-    key: 'courage',
-    label: 'Courage',
-    description: 'Fortitude, facing fear',
-  },
-  {
-    key: 'justice',
-    label: 'Justice',
-    description: 'Fairness, treating others well',
-  },
-  {
-    key: 'temperance',
-    label: 'Temperance',
-    description: 'Self-control, moderation',
-  },
-];
-
-const DOMAINS: Array<{ key: PracticeDomain; label: string; description: string }> = [
-  {
-    key: 'work',
-    label: 'Work',
-    description: 'Professional life',
-  },
-  {
-    key: 'relationships',
-    label: 'Relationships',
-    description: 'Personal connections',
-  },
-  {
-    key: 'adversity',
-    label: 'Adversity',
-    description: 'Challenges, setbacks',
-  },
-];
-
 const IntentionScreen: React.FC<Props> = ({ navigation, onSave }) => {
-  const [selectedVirtue, setSelectedVirtue] = useState<CardinalVirtue | null>(null);
-  const [selectedDomain, setSelectedDomain] = useState<PracticeDomain | null>(null);
   const [intentionStatement, setIntentionStatement] = useState('');
   const [whatIControl, setWhatIControl] = useState('');
-  const [whatIDontControl, setWhatIDontControl] = useState('');
-  const [reserveClause, setReserveClause] = useState('');
+  const [virtueAwareness, setVirtueAwareness] = useState('');
+  const [showEducation, setShowEducation] = useState(false);
 
-  // Validation: All required fields filled
+  // Validation: Core fields only (mindfulness-first)
   const isValid =
-    selectedVirtue !== null &&
-    selectedDomain !== null &&
     intentionStatement.trim().length > 0 &&
-    whatIControl.trim().length > 0 &&
-    whatIDontControl.trim().length > 0;
+    whatIControl.trim().length > 0;
 
   const handleContinue = () => {
     if (!isValid) {
@@ -99,12 +52,9 @@ const IntentionScreen: React.FC<Props> = ({ navigation, onSave }) => {
     }
 
     const intentionData: IntentionData = {
-      virtue: selectedVirtue!,
-      context: selectedDomain!,
       intentionStatement: intentionStatement.trim(),
       whatIControl: whatIControl.trim(),
-      whatIDontControl: whatIDontControl.trim(),
-      reserveClause: reserveClause.trim() || undefined,
+      virtueAwareness: virtueAwareness.trim() || undefined,
       timestamp: new Date(),
     };
 
@@ -129,156 +79,92 @@ const IntentionScreen: React.FC<Props> = ({ navigation, onSave }) => {
 
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Morning Intention</Text>
-        <Text style={styles.subtitle}>
-          Set your virtue practice for today
+        <Text style={styles.title}>Daily Intention</Text>
+        <Text style={styles.subtitle}>How Will You Show Up Today?</Text>
+        <Text style={styles.helperText}>
+          Notice your current state, then set your intention
         </Text>
       </View>
 
-      {/* Virtue Selection */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Which virtue will you practice?</Text>
-        <View style={styles.optionsGrid}>
-          {VIRTUES.map((virtue) => (
-            <TouchableOpacity
-              key={virtue.key}
-              style={[
-                styles.optionCard,
-                selectedVirtue === virtue.key && styles.optionCardSelected,
-              ]}
-              onPress={() => setSelectedVirtue(virtue.key)}
-              testID={`virtue-${virtue.key}`}
-              accessibilityLabel={`Select ${virtue.label} as your virtue`}
-              accessibilityRole="button"
-            >
-              <Text
-                style={[
-                  styles.optionLabel,
-                  selectedVirtue === virtue.key && styles.optionLabelSelected,
-                ]}
-              >
-                {virtue.label}
-              </Text>
-              <Text
-                style={[
-                  styles.optionDescription,
-                  selectedVirtue === virtue.key && styles.optionDescriptionSelected,
-                ]}
-              >
-                {virtue.description}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
+      {/* Educational Note (Collapsible) */}
+      <TouchableOpacity
+        style={styles.educationToggle}
+        onPress={() => setShowEducation(!showEducation)}
+        testID="education-toggle"
+        accessibilityLabel={showEducation ? "Hide educational note" : "Show educational note"}
+        accessibilityRole="button"
+      >
+        <Text style={styles.educationToggleText}>
+          {showEducation ? '▼' : '▶'} Stoic wisdom on intentions
+        </Text>
+      </TouchableOpacity>
 
-      {/* Domain Selection */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Where will you apply it?</Text>
-        <View style={styles.optionsGrid}>
-          {DOMAINS.map((domain) => (
-            <TouchableOpacity
-              key={domain.key}
-              style={[
-                styles.optionCard,
-                selectedDomain === domain.key && styles.optionCardSelected,
-              ]}
-              onPress={() => setSelectedDomain(domain.key)}
-              testID={`domain-${domain.key}`}
-              accessibilityLabel={`Select ${domain.label} as your practice domain`}
-              accessibilityRole="button"
-            >
-              <Text
-                style={[
-                  styles.optionLabel,
-                  selectedDomain === domain.key && styles.optionLabelSelected,
-                ]}
-              >
-                {domain.label}
-              </Text>
-              <Text
-                style={[
-                  styles.optionDescription,
-                  selectedDomain === domain.key && styles.optionDescriptionSelected,
-                ]}
-              >
-                {domain.description}
-              </Text>
-            </TouchableOpacity>
-          ))}
+      {showEducation && (
+        <View style={styles.educationCard}>
+          <Text style={styles.educationText}>
+            Stoic intentions focus on HOW you show up, not outcomes. Marcus Aurelius
+            reminds us: "I have to go to work—as a human being." The virtues (wisdom,
+            courage, justice, temperance) aren't separate modules to pick from - they're
+            integrated aspects of showing up well in any situation.
+          </Text>
         </View>
-      </View>
+      )}
 
       {/* Intention Statement */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>What is your intention?</Text>
-        <Text style={styles.helperText}>
-          Be specific: What will you actually do?
+      <View style={styles.fieldSection}>
+        <Text style={styles.fieldLabel}>Today I will...</Text>
+        <Text style={styles.fieldHelper}>
+          How do you want to show up? (Not outcome-focused)
         </Text>
         <TextInput
-          style={styles.input}
+          style={styles.textInput}
           value={intentionStatement}
           onChangeText={setIntentionStatement}
-          placeholder="e.g., Pause before reacting to criticism"
+          placeholder="e.g., Practice patience, listen deeply, stay present..."
           placeholderTextColor="#999"
-          testID="intention-statement"
-          accessibilityLabel="Enter your intention statement"
+          testID="intention-input"
+          accessibilityLabel="Daily intention statement"
           multiline
         />
       </View>
 
       {/* Dichotomy of Control */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Dichotomy of Control</Text>
-        <Text style={styles.helperText}>
-          What is within your control today?
-        </Text>
-
-        {/* What I Control */}
-        <View style={styles.dichotomyField}>
-          <Text style={styles.fieldLabel}>What I control:</Text>
-          <TextInput
-            style={styles.input}
-            value={whatIControl}
-            onChangeText={setWhatIControl}
-            placeholder="e.g., My response, my tone, my words"
-            placeholderTextColor="#999"
-            testID="what-i-control"
-            accessibilityLabel="What is within your control"
-            multiline
-          />
-        </View>
-
-        {/* What I Don't Control */}
-        <View style={styles.dichotomyField}>
-          <Text style={styles.fieldLabel}>What I don't control:</Text>
-          <TextInput
-            style={styles.input}
-            value={whatIDontControl}
-            onChangeText={setWhatIDontControl}
-            placeholder="e.g., Others' reactions, outcomes, circumstances"
-            placeholderTextColor="#999"
-            testID="what-i-dont-control"
-            accessibilityLabel="What is outside your control"
-            multiline
-          />
-        </View>
-      </View>
-
-      {/* Reserve Clause (Optional) */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Reserve Clause (Optional)</Text>
-        <Text style={styles.helperText}>
-          Stoic "fate permitting" - acknowledging uncertainty
+      <View style={styles.fieldSection}>
+        <Text style={styles.fieldLabel}>What's in your control?</Text>
+        <Text style={styles.fieldHelper}>
+          Ground yourself in what you can actually influence today
         </Text>
         <TextInput
-          style={styles.input}
-          value={reserveClause}
-          onChangeText={setReserveClause}
-          placeholder="e.g., ...if circumstances allow, ...fate permitting"
+          style={styles.textInput}
+          value={whatIControl}
+          onChangeText={setWhatIControl}
+          placeholder="e.g., My effort, my response, my attitude, my preparation..."
           placeholderTextColor="#999"
-          testID="reserve-clause"
-          accessibilityLabel="Optional reserve clause"
+          testID="control-input"
+          accessibilityLabel="What you control today"
+          multiline
+        />
+      </View>
+
+      {/* Optional Virtue Awareness */}
+      <View style={styles.virtueAwarenessSection}>
+        <Text style={styles.virtueAwarenessLabel}>
+          Optional: Virtue Awareness
+        </Text>
+        <Text style={styles.virtueAwarenessHelper}>
+          Where do you notice virtue alive in your intention?
+        </Text>
+        <Text style={styles.virtueHint}>
+          (Wisdom, Courage, Justice, Temperance - integrated, not separate)
+        </Text>
+        <TextInput
+          style={styles.textInput}
+          value={virtueAwareness}
+          onChangeText={setVirtueAwareness}
+          placeholder="e.g., Patience involves temperance and wisdom together..."
+          placeholderTextColor="#999"
+          testID="virtue-awareness-input"
+          accessibilityLabel="Virtue awareness reflection"
           multiline
         />
       </View>
@@ -292,12 +178,20 @@ const IntentionScreen: React.FC<Props> = ({ navigation, onSave }) => {
         accessibilityState={{ disabled: !isValid }}
         accessibilityHint={
           isValid
-            ? 'All required fields filled. Ready to continue'
-            : 'Fill all required fields to continue'
+            ? 'Intention and control fields filled. Ready to continue'
+            : 'Fill intention and control fields to continue'
         }
       >
         <Text style={styles.continueButtonText}>Continue</Text>
       </TouchableOpacity>
+
+      {/* Stoic Quote */}
+      <View style={styles.quoteSection}>
+        <Text style={styles.quoteText}>
+          "At dawn, when you have trouble getting out of bed, tell yourself:
+          'I have to go to work—as a human being.'" — Marcus Aurelius
+        </Text>
+      </View>
     </ScrollView>
   );
 };
@@ -313,92 +207,104 @@ const styles = StyleSheet.create({
   },
   backButtonText: {
     fontSize: 16,
-    color: '#007AFF',
+    color: '#FF9F43',
   },
   header: {
-    marginBottom: 30,
+    marginBottom: 24,
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
     marginBottom: 8,
+    color: '#333',
   },
   subtitle: {
     fontSize: 16,
     color: '#666',
-  },
-  section: {
-    marginBottom: 30,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 8,
+    marginBottom: 4,
   },
   helperText: {
     fontSize: 14,
-    color: '#666',
-    marginBottom: 12,
+    color: '#999',
+    fontStyle: 'italic',
   },
-  optionsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
+  educationToggle: {
+    paddingVertical: 12,
+    marginBottom: 16,
   },
-  optionCard: {
-    flex: 1,
-    minWidth: '45%',
+  educationToggleText: {
+    fontSize: 14,
+    color: '#FF9F43',
+    fontWeight: '500',
+  },
+  educationCard: {
     padding: 16,
-    borderWidth: 2,
-    borderColor: '#ddd',
+    backgroundColor: '#FFF8F0',
     borderRadius: 8,
-    backgroundColor: '#fff',
+    borderLeftWidth: 4,
+    borderLeftColor: '#FF9F43',
+    marginBottom: 24,
   },
-  optionCardSelected: {
-    borderColor: '#007AFF',
-    backgroundColor: '#E3F2FD',
+  educationText: {
+    fontSize: 14,
+    color: '#666',
+    lineHeight: 20,
   },
-  optionLabel: {
-    fontSize: 16,
+  fieldSection: {
+    marginBottom: 24,
+  },
+  fieldLabel: {
+    fontSize: 18,
     fontWeight: '600',
     marginBottom: 4,
     color: '#333',
   },
-  optionLabelSelected: {
-    color: '#007AFF',
-  },
-  optionDescription: {
-    fontSize: 13,
+  fieldHelper: {
+    fontSize: 14,
     color: '#666',
+    marginBottom: 12,
   },
-  optionDescriptionSelected: {
-    color: '#0056B3',
-  },
-  input: {
+  textInput: {
     borderWidth: 1,
     borderColor: '#ddd',
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
-    minHeight: 60,
     backgroundColor: '#fff',
+    minHeight: 80,
+    textAlignVertical: 'top',
   },
-  dichotomyField: {
-    marginBottom: 16,
+  virtueAwarenessSection: {
+    marginTop: 8,
+    marginBottom: 24,
+    padding: 16,
+    backgroundColor: '#F9F9F9',
+    borderRadius: 8,
   },
-  fieldLabel: {
-    fontSize: 15,
-    fontWeight: '500',
-    marginBottom: 8,
-    color: '#333',
+  virtueAwarenessLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 4,
+    color: '#666',
+  },
+  virtueAwarenessHelper: {
+    fontSize: 14,
+    color: '#999',
+    marginBottom: 4,
+    fontStyle: 'italic',
+  },
+  virtueHint: {
+    fontSize: 12,
+    color: '#999',
+    marginBottom: 12,
   },
   continueButton: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#FF9F43',
     padding: 16,
     borderRadius: 8,
     alignItems: 'center',
-    marginTop: 20,
-    marginBottom: 40,
+    marginTop: 12,
+    marginBottom: 24,
   },
   continueButtonDisabled: {
     backgroundColor: '#ccc',
@@ -407,6 +313,20 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 18,
     fontWeight: '600',
+  },
+  quoteSection: {
+    padding: 16,
+    backgroundColor: '#f9f9f9',
+    borderRadius: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: '#FF9F43',
+    marginBottom: 40,
+  },
+  quoteText: {
+    fontSize: 14,
+    fontStyle: 'italic',
+    color: '#666',
+    lineHeight: 20,
   },
 });
 
