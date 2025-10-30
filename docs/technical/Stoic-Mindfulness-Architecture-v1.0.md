@@ -48,7 +48,7 @@ Being is pivoting from **MBCT-based mindfulness** to **Stoic Mindfulness**, a ph
 ### 1.2 Key Architectural Decisions
 
 **Philosophical Framework**:
-- **5 Stoic Mindfulness Principles**: Aware Presence, Radical Acceptance, Sphere Sovereignty, Virtuous Response, Interconnected Living
+- **5 Stoic Mindfulness Principles**: Aware Presence, Radical Acceptance, Sphere Sovereignty (Prohairesis), Virtuous Response, Interconnected Living
 - **4 Cardinal Virtues** (wisdom, courage, justice, temperance) - no modern additions
 - **4 Developmental Stages** (fragmented → effortful → fluid → integrated)
 - **Practice Domains** (work, relationships, adversity)
