@@ -28,9 +28,12 @@ import {
   TouchableOpacity,
   ScrollView,
   StyleSheet,
+  Linking,
+  Alert,
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { MiddayFlowParamList, ReappraisalData } from '../../../types/flows';
+import CollapsibleCrisisButton from '../../shared/components/CollapsibleCrisisButton';
 
 type Props = NativeStackScreenProps<MiddayFlowParamList, 'Reappraisal'> & {
   onSave?: (data: ReappraisalData) => void;
@@ -67,8 +70,14 @@ const ReappraisalScreen: React.FC<Props> = ({ navigation, onSave }) => {
     navigation.navigate('Affirmation');
   };
 
+  const handleCrisisButtonPress = () => {
+    // Direct 988 crisis line access - handled by CollapsibleCrisisButton
+    // Additional logging or analytics can be added here if needed
+  };
+
   return (
-    <ScrollView style={styles.container} testID="reappraisal-screen">
+    <View style={styles.screenContainer}>
+      <ScrollView style={styles.container} testID="reappraisal-screen">
       {/* Back Button */}
       <TouchableOpacity
         style={styles.backButton}
@@ -178,11 +187,23 @@ const ReappraisalScreen: React.FC<Props> = ({ navigation, onSave }) => {
           haven't been." — Marcus Aurelius
         </Text>
       </View>
-    </ScrollView>
+      </ScrollView>
+
+      {/* Floating Crisis Button - Fixed at upper right, 1/6 from top */}
+      <CollapsibleCrisisButton
+        onPress={handleCrisisButtonPress}
+        position="right"
+        testID="reappraisal-crisis-chevron"
+      />
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
+  screenContainer: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
   container: {
     flex: 1,
     backgroundColor: '#fff',

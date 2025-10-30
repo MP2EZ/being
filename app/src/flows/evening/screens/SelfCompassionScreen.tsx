@@ -35,6 +35,7 @@ import {
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import type { EveningFlowParamList, SelfCompassionData } from '../../../types/flows';
+import CollapsibleCrisisButton from '../../shared/components/CollapsibleCrisisButton';
 
 type SelfCompassionScreenNavigationProp = NativeStackNavigationProp<
   EveningFlowParamList,
@@ -74,8 +75,13 @@ const SelfCompassionScreen: React.FC<Props> = ({ navigation, onSave }) => {
     navigation.navigate('SleepTransition');
   };
 
+  const handleCrisisButtonPress = () => {
+    // Direct 988 crisis line access - handled by CollapsibleCrisisButton
+  };
+
   return (
-    <ScrollView style={styles.container}>
+    <View style={styles.screenContainer}>
+      <ScrollView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity
           testID="back-button"
@@ -161,7 +167,7 @@ const SelfCompassionScreen: React.FC<Props> = ({ navigation, onSave }) => {
         </Text>
       </View>
 
-      {/* Complete Button */}
+      {/* Continue Button */}
       <TouchableOpacity
         onPress={handleComplete}
         style={[
@@ -169,16 +175,28 @@ const SelfCompassionScreen: React.FC<Props> = ({ navigation, onSave }) => {
           !reflection.trim() && styles.completeButtonDisabled,
         ]}
         disabled={!reflection.trim()}
-        accessibilityLabel="Complete evening reflection"
+        accessibilityLabel="Continue to next screen"
         accessibilityRole="button"
       >
-        <Text style={styles.completeButtonText}>Complete Evening Reflection</Text>
+        <Text style={styles.completeButtonText}>Continue</Text>
       </TouchableOpacity>
-    </ScrollView>
+      </ScrollView>
+
+      {/* Floating Crisis Button - Fixed at upper right, 1/6 from top */}
+      <CollapsibleCrisisButton
+        onPress={handleCrisisButtonPress}
+        position="right"
+        testID="self-compassion-crisis-chevron"
+      />
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
+  screenContainer: {
+    flex: 1,
+    backgroundColor: '#FAF9F6',
+  },
   container: {
     flex: 1,
     backgroundColor: '#FAF9F6',

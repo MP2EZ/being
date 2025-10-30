@@ -74,21 +74,6 @@ const ProgressIndicator: React.FC<{ currentStep: number; totalSteps: number }> =
   );
 };
 
-// Crisis Support Header Component
-const CrisisHeaderButton: React.FC<{ onPress: () => void }> = ({ onPress }) => (
-  <View style={headerStyles.crisisContainer}>
-    <Pressable
-      style={headerStyles.crisisButton}
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel="Access crisis support"
-      accessibilityHint="Opens immediate crisis support resources"
-    >
-      <Text style={headerStyles.crisisButtonText}>Support</Text>
-    </Pressable>
-  </View>
-);
-
 // Close/Exit Header Component
 const ExitHeaderButton: React.FC<{ onPress: () => void }> = ({ onPress }) => (
   <View style={headerStyles.exitContainer}>
@@ -122,12 +107,7 @@ const EveningFlowNavigator: React.FC<EveningFlowNavigatorProps> = ({
   onExit
 }) => {
   const [currentStep, setCurrentStep] = useState(1);
-  const totalSteps = SCREEN_ORDER.length;
-
-  const handleCrisisSupport = () => {
-    // TODO: Navigate to crisis support resources
-    logPerformance('Crisis support accessed from evening flow');
-  };
+  const totalSteps = SCREEN_ORDER.length - 1; // Exclude EveningCompletion from count
 
   // Custom header with progress
   const getHeaderOptions = (routeName: keyof EveningFlowParamList, title: string) => ({
@@ -139,6 +119,15 @@ const EveningFlowNavigator: React.FC<EveningFlowNavigatorProps> = ({
     ),
     headerTitleAlign: 'center' as const,
   });
+
+  // Wrapper for EveningCompletionScreen to pass onComplete callback
+  const EveningCompletionScreenWrapper = ({ navigation, route }: any) => (
+    <EveningCompletionScreen
+      navigation={navigation}
+      route={route}
+      onComplete={onComplete}
+    />
+  );
 
   return (
     <Stack.Navigator
@@ -164,10 +153,6 @@ const EveningFlowNavigator: React.FC<EveningFlowNavigatorProps> = ({
         cardStyle: {
           backgroundColor: colorSystem.themes.evening.background,
         },
-        // CRITICAL: Crisis button always present
-        headerRight: () => (
-          <CrisisHeaderButton onPress={handleCrisisSupport} />
-        ),
         // Modal presentation styling
         presentation: 'modal',
         gestureEnabled: true,
@@ -250,7 +235,7 @@ const EveningFlowNavigator: React.FC<EveningFlowNavigatorProps> = ({
 
       <Stack.Screen
         name="EveningCompletion"
-        component={EveningCompletionScreen}
+        component={EveningCompletionScreenWrapper}
         options={getHeaderOptions('EveningCompletion', 'Evening Practice Complete')}
       />
     </Stack.Navigator>
@@ -291,30 +276,6 @@ const styles = StyleSheet.create({
 });
 
 const headerStyles = StyleSheet.create({
-  crisisContainer: {
-    marginRight: spacing.md,
-  },
-  crisisButton: {
-    backgroundColor: colorSystem.status.critical,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: 6,
-    minWidth: 60,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 3,
-  },
-  crisisButtonText: {
-    color: colorSystem.base.white,
-    fontSize: typography.caption.size,
-    fontWeight: '600',
-  },
   exitContainer: {
     marginLeft: spacing.md,
   },
