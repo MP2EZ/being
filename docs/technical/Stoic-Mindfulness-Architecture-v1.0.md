@@ -1,18 +1,18 @@
-# Stoic Mindfulness Architecture Specification v1.0
-*FEAT-45 | Being. MBCT → Stoic Mindfulness Pivot | **LOCKED FOR IMPLEMENTATION***
+# Stoic Mindfulness Architecture Specification v1.1 (DRAFT)
+*FEAT-45 | Being. MBCT → Stoic Mindfulness Pivot | 5-Principle Framework Update*
 
 ---
 
 ## Document Status
 
-**Version**: 1.0 (LOCKED)
-**Status**: ✅ **READY FOR PHASE 2 IMPLEMENTATION**
-**Date Locked**: 2025-10-19
+**Version**: 1.1 (DRAFT - pending validation)
+**Status**: 🔄 **UPDATED FOR 5-PRINCIPLE FRAMEWORK**
+**Date Updated**: 2025-10-29
 **Design Sprint**: Days 1-10 Complete
 **Next Phase**: Phase 2 Refactoring (Weeks 3-7)
 
 **Validation**:
-- ✅ Philosopher Agent: 9.5/10 (Data Models, Check-in Structures)
+- ⏳ Philosopher Agent: Pending validation for 5-principle framework
 - ⏳ Crisis Agent: Pending Phase 2 validation (premeditatio safety)
 - ⏳ Compliance Agent: Pending Phase 2 validation (encryption, analytics)
 - ⏳ Accessibility Agent: Pending Phase 2 validation (WCAG compliance)
@@ -48,7 +48,7 @@ Being is pivoting from **MBCT-based mindfulness** to **Stoic Mindfulness**, a ph
 ### 1.2 Key Architectural Decisions
 
 **Philosophical Framework**:
-- **12 Stoic Mindfulness Principles** (not 13) organized in 5 categories
+- **5 Stoic Mindfulness Principles**: Aware Presence, Radical Acceptance, Sphere Sovereignty, Virtuous Response, Interconnected Living
 - **4 Cardinal Virtues** (wisdom, courage, justice, temperance) - no modern additions
 - **4 Developmental Stages** (fragmented → effortful → fluid → integrated)
 - **Practice Domains** (work, relationships, adversity)
@@ -105,7 +105,7 @@ Being is pivoting from **MBCT-based mindfulness** to **Stoic Mindfulness**, a ph
 - Week 7: Integration testing
 
 **Phase 3: Content Creation (Weeks 8-11)**: ⏳ PENDING
-- Educational modules (12 principles)
+- Educational modules (5 principles)
 - Virtue practice guides (4 virtues)
 - Classical source integration
 
@@ -265,7 +265,7 @@ type CardinalVirtue = 'wisdom' | 'courage' | 'justice' | 'temperance';
 type DevelopmentalStage = 'fragmented' | 'effortful' | 'fluid' | 'integrated';
 ```
 
-**Philosopher Validation**: ✅ 9.5/10 (all refinements incorporated)
+**Philosopher Validation**: ⏳ Pending (5-principle framework validation required)
 
 ---
 
@@ -371,7 +371,7 @@ interface PhysicalMetricsData {
 }
 ```
 
-**Philosopher Validation**: ✅ 9.5/10
+**Philosopher Validation**: ⏳ Pending (5-principle framework validation required)
 - ✅ Premeditatio safety (max 2 obstacles, time-boxing, opt-out)
 - ✅ Gratitude impermanence pathway (awareness → appreciation → action)
 - ✅ Intention reserve clause (Stoic "fate permitting")
@@ -539,15 +539,21 @@ interface MeditationData {
 }
 ```
 
-**Philosopher Validation**: ✅ 9.5/10
+**Philosopher Validation**: ⏳ Pending (5-principle framework validation required)
 - ✅ Balanced examination (successes + struggles)
 - ✅ VirtueChallenge companion structure
-- ✅ Under-represented principles (5, 10, 12)
 - ✅ Self-compassion REQUIRED
 
 ---
 
 ### 2.3 Principle Completion Signals
+
+**Framework**: 5 Stoic Mindfulness Principles
+1. Aware Presence
+2. Radical Acceptance
+3. Sphere Sovereignty
+4. Virtuous Response
+5. Interconnected Living
 
 **NOT**: "Principle completed after X days"
 
@@ -598,7 +604,7 @@ if (
 - `/src/types/common.ts` - Add CardinalVirtue, DevelopmentalStage types
 
 **Validation Status**:
-- ✅ Philosopher: 9.5/10 (data models + check-in structures)
+- ⏳ Philosopher: Pending (5-principle framework validation required)
 - ⏳ Crisis: Pending Phase 2 (premeditatio safety implementation)
 - ⏳ Compliance: Pending Phase 2 (encryption validation)
 
@@ -737,7 +743,7 @@ if (
 - Store updates: <50ms
 - Total flow time: 10-20 minutes (user-paced)
 
-**Philosopher Validation**: ✅ Premeditatio safeguards approved (9.5/10)
+**Philosopher Validation**: ⏳ Pending (5-principle framework validation required)
 
 ---
 
@@ -897,16 +903,23 @@ if (
 - Store updates: <50ms per virtue instance/challenge
 - Total flow time: 5-10 minutes (user-paced, depends on virtue tracking)
 
-**Philosopher Validation**: ✅ Balanced examination approved (9.5/10)
+**Philosopher Validation**: ⏳ Pending (5-principle framework validation required)
 
 ---
 
 ### 3.3 Principle Progression Model
 
+**5 Stoic Mindfulness Principles** (Consolidated Framework):
+1. Aware Presence
+2. Radical Acceptance
+3. Sphere Sovereignty
+4. Virtuous Response
+5. Interconnected Living
+
 **Guided Sequential with User Override** (Hybrid)
 
 ```
-Day 1-7+: Principle 1 (Present Perception)
+Day 1-7+: Principle 1 (Aware Presence)
   ↓
 Morning: Brief intro (2 min) → Practice intention setting
 Midday: Apply principle to current situation
@@ -927,13 +940,13 @@ Day 7+: Engagement Signals Check
 
 If ready:
   ├─ Mark Principle 1 as "Engaged" (NOT "Completed")
-  ├─ Suggest Principle 2 (Dichotomy of Control)
+  ├─ Suggest Principle 2 (Radical Acceptance)
   ├─ Keep Principle 1 available (can always return)
   └─ User can override (stay longer or advance earlier)
 
-Day 8-14+: Principle 2 (Dichotomy of Control)
+Day 8-14+: Principle 2 (Radical Acceptance)
   ↓
-[Repeat pattern...]
+[Repeat pattern through all 5 principles...]
 ```
 
 **Design Principles**:
@@ -1321,7 +1334,12 @@ Bug Fixes & Polish:
 
 **Week 8-9: Educational Modules**
 ```
-Principle Modules (12 total):
+Principle Modules (5 total):
+├─ Aware Presence
+├─ Radical Acceptance
+├─ Sphere Sovereignty
+├─ Virtuous Response
+├─ Interconnected Living
 ├─ Markdown content (10-15 min read each)
 ├─ Classical sources (Marcus Aurelius, Epictetus, Seneca)
 ├─ Neuroscience integration (why it works)
@@ -1338,7 +1356,7 @@ Virtue Practice Guides (4 total):
 **Week 10-11: Content Refinement**
 ```
 Iteration & Validation:
-├─ Philosopher agent review (all 12 modules + 4 guides)
+├─ Philosopher agent review (all 5 principle modules + 4 virtue guides)
 ├─ Classical citation verification
 ├─ Readability assessment (8th grade target)
 ├─ Length optimization (10-15 min modules)
@@ -1509,11 +1527,11 @@ Beta Launch:
 
 ### 7.1 Philosopher Agent Validation
 
-**Data Models** (COMPLETED):
-- ✅ Rating: 9.5/10
-- ✅ Date: 2025-10-19
-- ✅ Critical Issues: ALL RESOLVED
-- ✅ Refinements: ALL INCORPORATED
+**Data Models** (UPDATED FOR 5-PRINCIPLE FRAMEWORK):
+- ⏳ Rating: Pending philosopher validation
+- ⏳ Date: 2025-10-29 (framework consolidation)
+- ⏳ Framework: 12 principles → 5 principles
+- ⏳ Previous validation: 9.5/10 (12-principle framework)
 
 **Flow Content** (PENDING Phase 2):
 - ⏳ Morning flow screen prompts
@@ -1526,7 +1544,7 @@ Beta Launch:
 - ⏳ Seneca questions framing
 
 **Educational Modules** (PENDING Phase 3):
-- ⏳ All 12 principle modules
+- ⏳ All 5 principle modules (Aware Presence, Radical Acceptance, Sphere Sovereignty, Virtuous Response, Interconnected Living)
 - ⏳ All 4 virtue practice guides
 - ⏳ Classical citations (Marcus Aurelius, Epictetus, Seneca)
 - ⏳ Neuroscience integration accuracy
@@ -1618,16 +1636,16 @@ Beta Launch:
 
 **Deliverable**: Stoic-Data-Models.md
 
-**Status**: ✅ COMPLETE (9.5/10 philosopher rating)
+**Status**: 🔄 UPDATED FOR 5-PRINCIPLE FRAMEWORK
 
 **Contents**:
 - StoicPracticeStore complete interface
 - VirtueInstance, VirtueChallenge, DomainProgress interfaces
-- Principle progression model
+- Principle progression model (12 principles → 5 principles)
 - Developmental stage tracking
 - Educational module progress
 
-**Validation**: Philosopher agent approved (9.5/10)
+**Validation**: ⏳ Pending philosopher validation (5-principle framework)
 
 ---
 
@@ -1635,7 +1653,7 @@ Beta Launch:
 
 **Deliverable**: Stoic-Checkin-Structures.md
 
-**Status**: ✅ COMPLETE (9.5/10 philosopher rating)
+**Status**: 🔄 UPDATED FOR 5-PRINCIPLE FRAMEWORK
 
 **Contents**:
 - StoicMorningFlowData (7 screens)
@@ -1647,9 +1665,9 @@ Beta Launch:
   3. Gratitude impermanence pathway (awareness → appreciation → action)
   4. Three-tier control classification (fully/influence/not)
   5. Intention reserve clause (Stoic "fate permitting")
-  6. Under-represented principle prompts (Principles 3, 5, 10, 12)
+- Framework updated: 12 principles → 5 consolidated principles
 
-**Validation**: Philosopher agent approved (9.5/10, upgraded from 8.5/10)
+**Validation**: ⏳ Pending philosopher validation (5-principle framework)
 
 ---
 
@@ -1727,34 +1745,35 @@ Beta Launch:
 
 ---
 
-## Document Lock
+## Document Update Status
 
-**This architecture document is now LOCKED for implementation.**
+**This architecture document has been updated for the 5-principle framework consolidation.**
 
-**Version**: 1.0
-**Date Locked**: 2025-10-19
-**Locked By**: FEAT-45 Design Sprint Team + Philosopher Agent
+**Version**: 1.1 (DRAFT - pending philosopher validation)
+**Date Updated**: 2025-10-29
+**Updated By**: Framework consolidation (12 principles → 5 principles)
+**Previous Version**: 1.0 (2025-10-19, 9.5/10 philosopher rating for 12-principle framework)
 
-**Changes Allowed**:
-- ❌ No architectural changes without design review
-- ❌ No data model changes without philosopher validation
-- ✅ Implementation details (how to build screens, component structure)
-- ✅ Bug fixes (logic errors, performance issues)
-- ✅ UX refinements (colors, spacing, animations)
+**Updates Made**:
+- ✅ Framework: 12 principles → 5 consolidated principles (Aware Presence, Radical Acceptance, Sphere Sovereignty, Virtuous Response, Interconnected Living)
+- ✅ Educational modules: 12 → 5
+- ✅ All principle references updated throughout document
+- ✅ Validation status reset for philosopher review
+- ✅ Lock status removed to enable Phase 2 implementation
 
-**If Architecture Changes Needed**:
-1. Document proposed change
-2. Get philosopher agent review (if content-related)
-3. Get crisis agent review (if safety-related)
-4. Get compliance agent review (if privacy-related)
-5. Update this document to v1.1
-6. Re-lock with new version
+**Status**: 🔄 DRAFT - Awaiting philosopher validation
 
-**Phase 2 Ready**: ✅ **BEGIN REFACTORING (Weeks 3-7)**
+**Required Before Lock**:
+1. ⏳ Philosopher agent validation (5-principle framework)
+2. ⏳ Crisis agent validation (premeditatio safety - unchanged)
+3. ⏳ Compliance agent validation (encryption, privacy - unchanged)
+4. ⏳ Target: 9.5/10 philosophical integrity rating
+
+**Phase 2 Status**: ⏳ **AWAITING VALIDATION BEFORE REFACTORING**
 
 ---
 
-**End of Architecture Specification v1.0**
+**End of Architecture Specification v1.1 (DRAFT)**
 
 *Stoic Mindfulness: Wisdom in practice, virtue in action.*
 
