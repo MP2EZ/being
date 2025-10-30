@@ -75,7 +75,7 @@ const MorningFlowNavigator: React.FC<MorningFlowNavigatorProps> = ({
   onExit
 }) => {
   const [currentStep, setCurrentStep] = useState(1);
-  const totalSteps = SCREEN_ORDER.length;
+  const totalSteps = SCREEN_ORDER.length - 1; // Exclude MorningCompletion from count
 
   // Custom header with progress
   const getHeaderOptions = (routeName: keyof MorningFlowParamList, title: string) => ({

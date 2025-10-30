@@ -35,15 +35,16 @@ import {
   ScrollView,
   StyleSheet,
 } from 'react-native';
+import Slider from '@react-native-community/slider';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { MiddayFlowParamList, EmbodimentData } from '../../../types/flows';
 import BreathingCircle from '../../shared/components/BreathingCircle';
+import CollapsibleCrisisButton from '../../shared/components/CollapsibleCrisisButton';
 
 type Props = NativeStackScreenProps<MiddayFlowParamList, 'Embodiment'> & {
   onSave?: (data: EmbodimentData) => void;
 };
 
-const QUALITY_LEVELS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 const BREATHING_DURATION = 60; // EXACTLY 60 seconds
 
 const EmbodimentScreen: React.FC<Props> = ({ navigation, onSave }) => {
@@ -99,8 +100,13 @@ const EmbodimentScreen: React.FC<Props> = ({ navigation, onSave }) => {
     navigation.navigate('Reappraisal');
   };
 
+  const handleCrisisButtonPress = () => {
+    // Direct 988 crisis line access - handled by CollapsibleCrisisButton
+  };
+
   return (
-    <ScrollView style={styles.container} testID="embodiment-screen">
+    <View style={styles.screenContainer}>
+      <ScrollView style={styles.container} testID="embodiment-screen">
       {/* Back Button */}
       <TouchableOpacity
         style={styles.backButton}
@@ -166,35 +172,27 @@ const EmbodimentScreen: React.FC<Props> = ({ navigation, onSave }) => {
             <Text style={styles.fieldHelper}>
               How would you rate this breathing practice? (1 = difficult, 10 = effortless)
             </Text>
-            <View
-              style={styles.qualityGrid}
-              testID="quality-rating"
-              accessibilityLabel={`Breathing quality: ${breathingQuality} out of 10`}
-            >
-              {QUALITY_LEVELS.map((level) => (
-                <TouchableOpacity
-                  key={level}
-                  style={[
-                    styles.qualityButton,
-                    breathingQuality === level && styles.qualityButtonSelected,
-                  ]}
-                  onPress={() => setBreathingQuality(level)}
-                  testID={`quality-${level}`}
-                  accessibilityLabel={`Set quality to ${level}`}
-                  accessibilityState={{ selected: breathingQuality === level }}
-                >
-                  <Text
-                    style={[
-                      styles.qualityButtonText,
-                      breathingQuality === level && styles.qualityButtonTextSelected,
-                    ]}
-                  >
-                    {level}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+            <View style={styles.sliderContainer}>
+              <View style={styles.sliderLabels}>
+                <Text style={styles.sliderLabelText}>Difficult</Text>
+                <Text style={styles.sliderLabelText}>Effortless</Text>
+              </View>
+              <Slider
+                style={styles.slider}
+                minimumValue={1}
+                maximumValue={10}
+                step={1}
+                value={breathingQuality}
+                onValueChange={setBreathingQuality}
+                minimumTrackTintColor="#40B5AD"
+                maximumTrackTintColor="#ddd"
+                thumbTintColor="#40B5AD"
+                testID="quality-slider"
+                accessibilityLabel={`Breathing quality: ${breathingQuality} out of 10`}
+                accessibilityValue={{ min: 1, max: 10, now: breathingQuality }}
+              />
+              <Text style={styles.qualityDisplay}>Quality: {breathingQuality}/10</Text>
             </View>
-            <Text style={styles.qualityDisplay}>Quality: {breathingQuality}/10</Text>
           </View>
 
           {/* Body Awareness Input */}
@@ -234,11 +232,23 @@ const EmbodimentScreen: React.FC<Props> = ({ navigation, onSave }) => {
           </View>
         </View>
       )}
-    </ScrollView>
+      </ScrollView>
+
+      {/* Floating Crisis Button - Fixed at upper right, 1/6 from top */}
+      <CollapsibleCrisisButton
+        onPress={handleCrisisButtonPress}
+        position="right"
+        testID="embodiment-crisis-chevron"
+      />
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
+  screenContainer: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
   container: {
     flex: 1,
     backgroundColor: '#fff',
@@ -345,38 +355,28 @@ const styles = StyleSheet.create({
     color: '#666',
     marginBottom: 12,
   },
-  qualityGrid: {
+  sliderContainer: {
+    paddingVertical: 8,
+  },
+  sliderLabels: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 12,
+    justifyContent: 'space-between',
+    marginBottom: 8,
   },
-  qualityButton: {
-    width: 50,
-    height: 50,
-    borderWidth: 2,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#fff',
-  },
-  qualityButtonSelected: {
-    borderColor: '#40B5AD',
-    backgroundColor: '#e0f5f4',
-  },
-  qualityButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
+  sliderLabelText: {
+    fontSize: 12,
     color: '#666',
+    fontStyle: 'italic',
   },
-  qualityButtonTextSelected: {
-    color: '#40B5AD',
+  slider: {
+    width: '100%',
+    height: 40,
   },
   qualityDisplay: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '600',
-    color: '#333',
+    color: '#40B5AD',
+    textAlign: 'center',
     marginTop: 8,
   },
   textInput: {

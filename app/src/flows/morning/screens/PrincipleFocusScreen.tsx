@@ -122,7 +122,7 @@ const PrincipleFocusScreen: React.FC<Props> = ({ navigation, onSave }) => {
       onSave(principleFocusData);
     }
 
-    navigation.navigate('PhysicalMetrics' as never);
+    navigation.navigate('PhysicalGrounding');
   };
 
   return (

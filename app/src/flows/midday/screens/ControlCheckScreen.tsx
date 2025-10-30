@@ -29,9 +29,12 @@ import {
   TouchableOpacity,
   ScrollView,
   StyleSheet,
+  Linking,
+  Alert,
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { MiddayFlowParamList, ControlCheckData } from '../../../types/flows';
+import CollapsibleCrisisButton from '../../shared/components/CollapsibleCrisisButton';
 
 type Props = NativeStackScreenProps<MiddayFlowParamList, 'ControlCheck'> & {
   onSave?: (data: ControlCheckData) => void;
@@ -105,8 +108,14 @@ const ControlCheckScreen: React.FC<Props> = ({ navigation, onSave }) => {
     setAcceptanceIfUncontrollable('');
   };
 
+  const handleCrisisButtonPress = () => {
+    // Direct 988 crisis line access - handled by CollapsibleCrisisButton
+    // Additional logging or analytics can be added here if needed
+  };
+
   return (
-    <ScrollView style={styles.container} testID="control-check-screen">
+    <View style={styles.screenContainer}>
+      <ScrollView style={styles.container} testID="control-check-screen">
       {/* Back Button */}
       <TouchableOpacity
         style={styles.backButton}
@@ -355,11 +364,23 @@ const ControlCheckScreen: React.FC<Props> = ({ navigation, onSave }) => {
           — Epictetus
         </Text>
       </View>
-    </ScrollView>
+      </ScrollView>
+
+      {/* Floating Crisis Button - Fixed at upper right, 1/6 from top */}
+      <CollapsibleCrisisButton
+        onPress={handleCrisisButtonPress}
+        position="right"
+        testID="control-check-crisis-chevron"
+      />
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
+  screenContainer: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
   container: {
     flex: 1,
     backgroundColor: '#fff',

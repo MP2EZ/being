@@ -21,7 +21,7 @@
  * @see /docs/technical/Stoic-Mindfulness-Architecture-v1.0.md
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import {
   View,
   Text,
@@ -33,7 +33,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { MiddayFlowParamList, StoicMiddayFlowData } from '../../../types/flows';
 
 type Props = NativeStackScreenProps<MiddayFlowParamList, 'MiddayCompletion'> & {
-  onSave?: (data: StoicMiddayFlowData) => void;
+  onComplete?: () => void;
 };
 
 const COMPLETED_PRACTICES = [
@@ -44,27 +44,23 @@ const COMPLETED_PRACTICES = [
   { icon: '🫁', name: 'Embodiment', description: 'Connected breath and body' },
 ];
 
-const MiddayCompletionScreen: React.FC<Props> = ({ navigation, onSave }) => {
-  const [startTime] = useState(Date.now());
+const MiddayCompletionScreen: React.FC<Props> = ({ navigation, onComplete }) => {
+  // Auto-complete after 2 seconds
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (onComplete) {
+        onComplete();
+      }
+    }, 2000);
+
+    return () => clearTimeout(timer);
+  }, [onComplete]);
 
   const handleContinue = () => {
-    const endTime = Date.now();
-    const timeSpentSeconds = Math.floor((endTime - startTime) / 1000);
-
-    const middayFlowData: StoicMiddayFlowData = {
-      // All individual screen data would be passed from state management
-      // For now, we save metadata
-      completedAt: new Date(),
-      timeSpentSeconds,
-      flowVersion: '1.0', // Architecture v1.0
-    };
-
-    if (onSave) {
-      onSave(middayFlowData);
+    // Allow manual completion before 2-second timer
+    if (onComplete) {
+      onComplete();
     }
-
-    // Navigate to home
-    navigation.navigate('CurrentSituation' as any); // Placeholder - should go home
   };
 
   return (

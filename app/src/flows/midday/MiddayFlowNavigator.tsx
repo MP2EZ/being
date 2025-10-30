@@ -19,8 +19,8 @@
 import { logSecurity, logPerformance, logError, LogCategory } from '../../services/logging';
 import React, { useState } from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
-import { Alert, Pressable, Text } from 'react-native';
-import { colorSystem } from '../../constants/colors';
+import { View, Pressable, Text, StyleSheet } from 'react-native';
+import { colorSystem, spacing } from '../../constants/colors';
 import ControlCheckScreen from './screens/ControlCheckScreen';
 import EmbodimentScreen from './screens/EmbodimentScreen';
 import ReappraisalScreen from './screens/ReappraisalScreen';
@@ -43,6 +43,42 @@ interface MiddayFlowNavigatorProps {
 
 const Stack = createStackNavigator<MiddayFlowParamList>();
 
+// Progress indicator component (consistent with Evening/Morning)
+const ProgressIndicator: React.FC<{ currentStep: number; totalSteps: number }> = ({
+  currentStep,
+  totalSteps
+}) => {
+  const progress = (currentStep / totalSteps) * 100;
+
+  return (
+    <View style={styles.progressContainer}>
+      <View style={styles.progressBar}>
+        <View
+          style={[
+            styles.progressFill,
+            {
+              width: `${progress}%`,
+              backgroundColor: colorSystem.themes.midday.primary
+            }
+          ]}
+        />
+      </View>
+      <Text style={styles.progressText}>
+        {currentStep} of {totalSteps}
+      </Text>
+    </View>
+  );
+};
+
+// Screen order mapping for progress calculation (DRD v2.0.0)
+const SCREEN_ORDER: (keyof MiddayFlowParamList)[] = [
+  'ControlCheck',
+  'Embodiment',
+  'Reappraisal',
+  'Affirmation',
+  'MiddayCompletion'
+];
+
 const MiddayFlowNavigator: React.FC<MiddayFlowNavigatorProps> = ({
   onComplete,
   onExit
@@ -57,23 +93,19 @@ const MiddayFlowNavigator: React.FC<MiddayFlowNavigatorProps> = ({
     startTime: Date.now()
   });
 
-  const handleSafetyPress = () => {
-    Alert.alert(
-      'Support Available',
-      'If you need immediate support, please contact:\n\n• Crisis Text Line: Text HOME to 741741\n• National Suicide Prevention Lifeline: 988\n• Emergency Services: 911',
-      [
-        {
-          text: 'Continue Session',
-          style: 'cancel'
-        },
-        {
-          text: 'Exit to Safety',
-          style: 'destructive',
-          onPress: onExit
-        }
-      ]
-    );
-  };
+  const [currentStep, setCurrentStep] = useState(1);
+  const totalSteps = SCREEN_ORDER.length - 1; // 4 steps (exclude MiddayCompletion)
+
+  // Custom header with progress
+  const getHeaderOptions = (routeName: keyof MiddayFlowParamList, title: string) => ({
+    headerTitle: () => (
+      <View style={styles.headerContainer}>
+        <Text style={styles.headerTitle}>{title}</Text>
+        <ProgressIndicator currentStep={currentStep} totalSteps={totalSteps} />
+      </View>
+    ),
+    headerTitleAlign: 'center' as const,
+  });
 
   // Screen wrappers with data persistence
   const ControlCheckScreenWrapper = ({ navigation }: any) => (
@@ -165,99 +197,121 @@ const MiddayFlowNavigator: React.FC<MiddayFlowNavigatorProps> = ({
           backgroundColor: colorSystem.themes.midday.background,
           borderBottomColor: colorSystem.themes.midday.primary,
           borderBottomWidth: 1,
-        },
-        headerTitleStyle: {
-          fontSize: 18,
-          fontWeight: '600',
-          color: colorSystem.base.black,
+          height: 100, // Increased height for progress indicator
         },
         headerTintColor: colorSystem.themes.midday.primary,
         headerLeft: () => (
           <Pressable
             onPress={onExit}
-            style={{
-              marginLeft: 16,
-              padding: 8,
-              borderRadius: 8,
-              backgroundColor: colorSystem.themes.midday.primary,
-            }}
+            style={styles.closeButton}
             accessibilityRole="button"
-            accessibilityLabel="Exit session"
+            accessibilityLabel="Close midday flow"
             accessibilityHint="Returns to home screen"
           >
-            <Text style={{ color: 'white', fontSize: 12, fontWeight: '600' }}>
-              Exit
-            </Text>
+            <Text style={styles.closeButtonText}>✕</Text>
           </Pressable>
         ),
-        headerRight: () => (
-          <Pressable
-            onPress={handleSafetyPress}
-            style={{
-              marginRight: 16,
-              padding: 8,
-              borderRadius: 8,
-              backgroundColor: colorSystem.status.critical,
-            }}
-            accessibilityRole="button"
-            accessibilityLabel="Crisis support"
-            accessibilityHint="Opens immediate crisis support resources"
-          >
-            <Text style={{ color: 'white', fontSize: 12, fontWeight: '600' }}>
-              Support
-            </Text>
-          </Pressable>
-        ),
+      }}
+      screenListeners={{
+        state: (e) => {
+          // Update progress based on current screen
+          const state = e.data.state;
+          if (state) {
+            const currentRouteName = state.routes[state.index]?.name;
+            const stepIndex = SCREEN_ORDER.indexOf(currentRouteName as keyof MiddayFlowParamList);
+            if (stepIndex !== -1) {
+              setCurrentStep(stepIndex + 1);
+            }
+          }
+        },
       }}
       initialRouteName="ControlCheck"
     >
       <Stack.Screen
         name="ControlCheck"
         component={ControlCheckScreenWrapper}
-        options={{
-          title: 'Pause & Center',
-          animationTypeForReplace: 'push',
-        }}
+        options={getHeaderOptions('ControlCheck', 'Pause & Center')}
       />
 
       <Stack.Screen
         name="Embodiment"
         component={EmbodimentScreenWrapper}
-        options={{
-          title: 'Ground in Your Body',
-          animationTypeForReplace: 'push',
-        }}
+        options={getHeaderOptions('Embodiment', 'Ground in Your Body')}
       />
 
       <Stack.Screen
         name="Reappraisal"
         component={ReappraisalScreenWrapper}
-        options={{
-          title: 'Reframe with Wisdom',
-          animationTypeForReplace: 'push',
-        }}
+        options={getHeaderOptions('Reappraisal', 'Reframe with Wisdom')}
       />
 
       <Stack.Screen
         name="Affirmation"
         component={AffirmationScreenWrapper}
-        options={{
-          title: 'Self-Compassion',
-          animationTypeForReplace: 'push',
-        }}
+        options={getHeaderOptions('Affirmation', 'Self-Compassion')}
       />
 
       <Stack.Screen
         name="MiddayCompletion"
         component={MiddayCompletionScreenWrapper}
         options={{
-          title: 'Complete',
+          ...getHeaderOptions('MiddayCompletion', 'Complete'),
           headerLeft: () => null, // Remove exit button on completion
-          animationTypeForReplace: 'push',
         }}
       />
     </Stack.Navigator>
   );
 };
+
+const styles = StyleSheet.create({
+  // Header container and title
+  headerContainer: {
+    alignItems: 'center',
+    width: '100%',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colorSystem.base.black,
+    marginBottom: spacing.xs,
+  },
+
+  // Progress indicator styles
+  progressContainer: {
+    alignItems: 'center',
+    width: '100%',
+  },
+  progressBar: {
+    width: 120,
+    height: 4,
+    backgroundColor: colorSystem.gray[200],
+    borderRadius: 2,
+    marginBottom: 4,
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 2,
+  },
+  progressText: {
+    fontSize: 12,
+    color: colorSystem.gray[600],
+    fontWeight: '500',
+  },
+
+  // Exit button (consistent with Evening/Morning)
+  closeButton: {
+    marginLeft: spacing.md,
+    padding: spacing.sm,
+    width: 44,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  closeButtonText: {
+    fontSize: 24,
+    color: colorSystem.base.black,
+    fontWeight: '300',
+  },
+});
 
 export default MiddayFlowNavigator;

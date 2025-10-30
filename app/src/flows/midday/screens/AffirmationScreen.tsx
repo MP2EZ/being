@@ -34,6 +34,7 @@ import {
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { MiddayFlowParamList, AffirmationData } from '../../../types/flows';
+import CollapsibleCrisisButton from '../../shared/components/CollapsibleCrisisButton';
 
 type Props = NativeStackScreenProps<MiddayFlowParamList, 'Affirmation'> & {
   onSave?: (data: AffirmationData) => void;
@@ -69,6 +70,7 @@ const AFFIRMATIONS = [
 
 const AffirmationScreen: React.FC<Props> = ({ navigation, onSave }) => {
   const [selectedAffirmation, setSelectedAffirmation] = useState<string | null>(null);
+  const [expandedAffirmation, setExpandedAffirmation] = useState<string | null>(null);
   const [selfCompassionNote, setSelfCompassionNote] = useState('');
   const [personalAffirmation, setPersonalAffirmation] = useState('');
 
@@ -94,8 +96,13 @@ const AffirmationScreen: React.FC<Props> = ({ navigation, onSave }) => {
     navigation.navigate('MiddayCompletion');
   };
 
+  const handleCrisisButtonPress = () => {
+    // Direct 988 crisis line access - handled by CollapsibleCrisisButton
+  };
+
   return (
-    <ScrollView style={styles.container} testID="affirmation-screen">
+    <View style={styles.screenContainer}>
+      <ScrollView style={styles.container} testID="affirmation-screen">
       {/* Back Button */}
       <TouchableOpacity
         style={styles.backButton}
@@ -140,33 +147,52 @@ const AffirmationScreen: React.FC<Props> = ({ navigation, onSave }) => {
           Select an affirmation that resonates (based on what you control)
         </Text>
         <View style={styles.affirmationList}>
-          {AFFIRMATIONS.map((affirmation) => (
-            <TouchableOpacity
-              key={affirmation.id}
-              style={[
-                styles.affirmationCard,
-                selectedAffirmation === affirmation.id && styles.affirmationCardSelected,
-              ]}
-              onPress={() => setSelectedAffirmation(affirmation.id)}
-              testID={`affirmation-${affirmation.id}`}
-              accessibilityLabel={affirmation.text}
-              accessibilityHint={affirmation.description}
-              accessibilityRole="button"
-              accessibilityState={{ selected: selectedAffirmation === affirmation.id }}
-            >
-              <Text
-                style={[
-                  styles.affirmationText,
-                  selectedAffirmation === affirmation.id && styles.affirmationTextSelected,
-                ]}
-              >
-                {affirmation.text}
-              </Text>
-              <Text style={styles.affirmationDescription}>
-                {affirmation.description}
-              </Text>
-            </TouchableOpacity>
-          ))}
+          {AFFIRMATIONS.map((affirmation) => {
+            const isExpanded = expandedAffirmation === affirmation.id;
+            const isSelected = selectedAffirmation === affirmation.id;
+
+            return (
+              <View key={affirmation.id}>
+                <TouchableOpacity
+                  style={[
+                    styles.affirmationCard,
+                    isSelected && styles.affirmationCardSelected,
+                  ]}
+                  onPress={() => {
+                    setSelectedAffirmation(affirmation.id);
+                    setExpandedAffirmation(isExpanded ? null : affirmation.id);
+                  }}
+                  testID={`affirmation-${affirmation.id}`}
+                  accessibilityLabel={affirmation.text}
+                  accessibilityHint={isExpanded ? affirmation.description : 'Tap to expand description'}
+                  accessibilityRole="button"
+                  accessibilityState={{
+                    selected: isSelected,
+                    expanded: isExpanded
+                  }}
+                >
+                  <View style={styles.affirmationHeader}>
+                    <Text
+                      style={[
+                        styles.affirmationText,
+                        isSelected && styles.affirmationTextSelected,
+                      ]}
+                    >
+                      {affirmation.text}
+                    </Text>
+                    <Text style={styles.expandIndicator}>
+                      {isExpanded ? '▼' : '▶'}
+                    </Text>
+                  </View>
+                  {isExpanded && (
+                    <Text style={styles.affirmationDescription}>
+                      {affirmation.description}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            );
+          })}
         </View>
       </View>
 
@@ -205,11 +231,23 @@ const AffirmationScreen: React.FC<Props> = ({ navigation, onSave }) => {
           "You have power over your mind—not outside events. Realize this, and you will find strength." — Marcus Aurelius
         </Text>
       </View>
-    </ScrollView>
+      </ScrollView>
+
+      {/* Floating Crisis Button - Fixed at upper right, 1/6 from top */}
+      <CollapsibleCrisisButton
+        onPress={handleCrisisButtonPress}
+        position="right"
+        testID="affirmation-crisis-chevron"
+      />
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
+  screenContainer: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
   container: {
     flex: 1,
     backgroundColor: '#fff',
@@ -279,18 +317,32 @@ const styles = StyleSheet.create({
     borderColor: '#40B5AD',
     backgroundColor: '#e0f5f4',
   },
+  affirmationHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   affirmationText: {
     fontSize: 16,
     fontWeight: '600',
-    marginBottom: 4,
     color: '#333',
+    flex: 1,
   },
   affirmationTextSelected: {
     color: '#40B5AD',
   },
+  expandIndicator: {
+    fontSize: 14,
+    color: '#40B5AD',
+    marginLeft: 8,
+  },
   affirmationDescription: {
     fontSize: 14,
     color: '#666',
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
   },
   continueButton: {
     backgroundColor: '#40B5AD',
