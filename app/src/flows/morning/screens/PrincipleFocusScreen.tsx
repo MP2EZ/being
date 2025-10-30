@@ -2,7 +2,10 @@
  * PRINCIPLE FOCUS SCREEN
  *
  * Daily Stoic principle selection for focused practice.
- * Philosopher-validated (9.5/10) - aligns with Architecture v1.0.
+ * Philosopher-validated (9.7/10) - aligns with Architecture v1.1 (LOCKED).
+ *
+ * FEAT-45: Migrated to 5-principle framework (2025-10-29)
+ * Philosopher verdict: "philosophically elegant, not reductive"
  *
  * Classical Stoic Practice:
  * - Marcus Aurelius: "Begin the morning by saying to thyself, I shall meet with the
@@ -12,14 +15,15 @@
  * - Seneca: "Begin at once to live, and count each separate day as a separate life."
  *   (Letters 101) - Daily renewal through principle focus
  *
- * 12 Stoic Principles (Foundation→Ethics):
- * 1-3: Foundation (attention, perception, judgment)
- * 4-5: Discernment (control, interpretations)
- * 6-7: Regulation (pause, reframe)
- * 8-9: Practice (contemplation, cosmic view)
- * 10-12: Ethics (virtue, service, amor fati)
+ * 5 Stoic Mindfulness Principles (Consolidated Framework):
+ * 1. Aware Presence - Present-moment attention (cognitive + metacognitive + somatic)
+ * 2. Radical Acceptance - Amor fati, loving one's fate
+ * 3. Sphere Sovereignty - Prohairesis, moral agency, dichotomy of control
+ * 4. Virtuous Response - Virtue ethics in action (reappraisal + premeditatio + character)
+ * 5. Interconnected Living - Relational ethics, oikeiosis, common good
  *
- * @see /docs/technical/Stoic-Mindfulness-Architecture-v1.0.md
+ * @see /docs/technical/Stoic-Mindfulness-Architecture-v1.0.md (v1.1 LOCKED)
+ * @see /docs/product/stoic-mindfulness/principles/ for detailed principle documentation
  */
 
 import React, { useState } from 'react';
@@ -44,103 +48,55 @@ interface PrincipleInfo {
   key: StoicPrinciple;
   title: string;
   description: string;
+  integrates: string; // Which legacy principles this consolidates
   source: string;
-  category: string;
 }
 
+/**
+ * 5 Stoic Mindfulness Principles (Philosopher-Validated 9.7/10)
+ *
+ * FEAT-45: Consolidated from 12 principles to 5 integrative principles.
+ * Each principle now integrates multiple legacy practices into a cohesive whole.
+ *
+ * @see /docs/product/stoic-mindfulness/principles/ for full documentation
+ */
 const PRINCIPLES: PrincipleInfo[] = [
-  // Foundation (1-3)
   {
-    key: 'attention_to_present',
-    title: 'Attention to Present',
-    description: 'Some things are in our control and others not',
-    source: 'Epictetus, Enchiridion 1',
-    category: 'Foundation',
+    key: 'aware_presence',
+    title: 'Aware Presence',
+    description: 'Be fully here now, observing thoughts as mental events rather than truth, and feeling what\'s happening in your body.',
+    integrates: 'Present Perception + Metacognitive Space + Embodied Awareness',
+    source: 'Marcus Aurelius, Meditations 2:1',
   },
   {
-    key: 'perception_examination',
-    title: 'Examine Perceptions',
-    description: 'Test your impressions before accepting them',
-    source: 'Epictetus, Enchiridion 1.5',
-    category: 'Foundation',
-  },
-  {
-    key: 'judgment_suspension',
-    title: 'Suspend Judgment',
-    description: 'Pause automatic judgments, examine assumptions',
-    source: 'Epictetus, Discourses 1.1',
-    category: 'Foundation',
-  },
-  // Discernment (4-5)
-  {
-    key: 'dichotomy_of_control',
-    title: 'Dichotomy of Control',
-    description: 'Some things are in our control and others not',
-    source: 'Epictetus, Enchiridion 1',
-    category: 'Discernment',
-  },
-  {
-    key: 'events_vs_interpretations',
-    title: 'Events vs. Interpretations',
-    description: 'It is not things that disturb us, but our judgments about them',
-    source: 'Epictetus, Enchiridion 5',
-    category: 'Discernment',
-  },
-  // Regulation (6-7)
-  {
-    key: 'pause_before_reaction',
-    title: 'Pause Before Reaction',
-    description: 'Between stimulus and response there is a space',
-    source: 'Marcus Aurelius, Meditations 8:47',
-    category: 'Regulation',
-  },
-  {
-    key: 'reframe_adversity',
-    title: 'Reframe Adversity',
-    description: 'The impediment to action advances action',
-    source: 'Marcus Aurelius, Meditations 5:20',
-    category: 'Regulation',
-  },
-  // Practice (8-9)
-  {
-    key: 'contemplation',
-    title: 'Daily Contemplation',
-    description: 'Reserve time for yourself each day',
-    source: 'Seneca, Letters 28',
-    category: 'Practice',
-  },
-  {
-    key: 'view_from_above',
-    title: 'View from Above',
-    description: 'See yourself from the cosmos looking down',
-    source: 'Marcus Aurelius, Meditations 7:48',
-    category: 'Practice',
-  },
-  // Ethics (10-12)
-  {
-    key: 'virtue_as_foundation',
-    title: 'Virtue as Foundation',
-    description: 'Virtue is the only true good',
-    source: 'Epictetus, Discourses 1.4',
-    category: 'Ethics',
-  },
-  {
-    key: 'service_to_others',
-    title: 'Service to Others',
-    description: 'We are made for cooperation, like feet, like hands',
-    source: 'Marcus Aurelius, Meditations 8:59',
-    category: 'Ethics',
-  },
-  {
-    key: 'amor_fati',
-    title: 'Amor Fati',
-    description: 'Love your fate, embrace necessity',
+    key: 'radical_acceptance',
+    title: 'Radical Acceptance',
+    description: 'This is what\'s happening right now. I may not like it, prefer it, or want it, but it is the reality I face. What do I do from here?',
+    integrates: 'Amor Fati (standalone principle)',
     source: 'Marcus Aurelius, Meditations 10:6',
-    category: 'Ethics',
+  },
+  {
+    key: 'sphere_sovereignty',
+    title: 'Sphere Sovereignty',
+    description: 'Distinguish what you control (your intentions, judgments, character, responses) from what you don\'t (outcomes, others\' choices, externals). Focus energy only within your sphere.',
+    integrates: 'Dichotomy of Control + Intention Over Outcome',
+    source: 'Epictetus, Enchiridion 1',
+  },
+  {
+    key: 'virtuous_response',
+    title: 'Virtuous Response',
+    description: 'In every situation, ask "What does wisdom, courage, justice, or temperance require here?" View obstacles as opportunities for practicing virtue.',
+    integrates: 'Virtuous Reappraisal + Negative Visualization + Character Cultivation',
+    source: 'Marcus Aurelius, Meditations 5:20',
+  },
+  {
+    key: 'interconnected_living',
+    title: 'Interconnected Living',
+    description: 'Bring full presence to others. Recognize that we\'re all members of one human community. Act for the common good, not just personal benefit.',
+    integrates: 'Relational Presence + Interconnected Action + Contemplative Praxis',
+    source: 'Marcus Aurelius, Meditations 8:59',
   },
 ];
-
-const CATEGORIES = ['Foundation', 'Discernment', 'Regulation', 'Practice', 'Ethics'];
 
 const PrincipleFocusScreen: React.FC<Props> = ({ navigation, onSave }) => {
   const [selectedPrinciple, setSelectedPrinciple] = useState<StoicPrinciple | null>(null);
@@ -189,39 +145,38 @@ const PrincipleFocusScreen: React.FC<Props> = ({ navigation, onSave }) => {
         </Text>
       </View>
 
-      {/* Principles by Category */}
-      {CATEGORIES.map((category) => {
-        const categoryPrinciples = PRINCIPLES.filter(p => p.category === category);
-        return (
-          <View key={category} style={styles.categorySection}>
-            <Text style={styles.categoryTitle}>{category}</Text>
-            {categoryPrinciples.map((principle) => (
-              <TouchableOpacity
-                key={principle.key}
+      {/* Principles List (Flat - Option A) */}
+      <View style={styles.principlesSection}>
+        <Text style={styles.principlesHeader}>Choose a Principle to Focus On Today</Text>
+        {PRINCIPLES.map((principle, index) => (
+          <TouchableOpacity
+            key={principle.key}
+            style={[
+              styles.principleCard,
+              selectedPrinciple === principle.key && styles.principleCardSelected,
+            ]}
+            onPress={() => setSelectedPrinciple(principle.key)}
+            testID={`principle-${principle.key}`}
+            accessibilityLabel={`Select ${principle.title}`}
+            accessibilityRole="button"
+            accessibilityState={{ selected: selectedPrinciple === principle.key }}
+          >
+            <View style={styles.principleHeader}>
+              <Text style={styles.principleNumber}>{index + 1}</Text>
+              <Text
                 style={[
-                  styles.principleCard,
-                  selectedPrinciple === principle.key && styles.principleCardSelected,
+                  styles.principleTitle,
+                  selectedPrinciple === principle.key && styles.principleTitleSelected,
                 ]}
-                onPress={() => setSelectedPrinciple(principle.key)}
-                testID={`principle-${principle.key}`}
-                accessibilityLabel={`Select ${principle.title}`}
-                accessibilityRole="button"
-                accessibilityState={{ selected: selectedPrinciple === principle.key }}
               >
-                <Text
-                  style={[
-                    styles.principleTitle,
-                    selectedPrinciple === principle.key && styles.principleTitleSelected,
-                  ]}
-                >
-                  {principle.title}
-                </Text>
-                <Text style={styles.principleDescription}>{principle.description}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        );
-      })}
+                {principle.title}
+              </Text>
+            </View>
+            <Text style={styles.principleDescription}>{principle.description}</Text>
+            <Text style={styles.principleIntegrates}>Integrates: {principle.integrates}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
 
       {/* Selected Principle Details */}
       {selectedPrincipleInfo && (
@@ -314,13 +269,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#666',
   },
-  categorySection: {
+  principlesSection: {
     marginBottom: 24,
   },
-  categoryTitle: {
+  principlesHeader: {
     fontSize: 18,
     fontWeight: '600',
-    marginBottom: 12,
+    marginBottom: 16,
     color: '#333',
   },
   principleCard: {
@@ -335,11 +290,23 @@ const styles = StyleSheet.create({
     borderColor: '#007AFF',
     backgroundColor: '#E3F2FD',
   },
+  principleHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  principleNumber: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#007AFF',
+    marginRight: 12,
+    width: 28,
+  },
   principleTitle: {
     fontSize: 16,
     fontWeight: '600',
-    marginBottom: 4,
     color: '#333',
+    flex: 1,
   },
   principleTitleSelected: {
     color: '#007AFF',
@@ -347,6 +314,13 @@ const styles = StyleSheet.create({
   principleDescription: {
     fontSize: 14,
     color: '#666',
+    marginBottom: 6,
+    lineHeight: 20,
+  },
+  principleIntegrates: {
+    fontSize: 12,
+    color: '#999',
+    fontStyle: 'italic',
   },
   selectedSection: {
     marginTop: 20,
