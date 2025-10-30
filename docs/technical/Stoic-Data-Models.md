@@ -489,7 +489,181 @@ interface DataRetentionPolicy {
 
 ---
 
-## Appendix: 12 Principles Structure
+## 6. Framework Consolidation: 12→5 Principles
+
+**Status**: ✅ Approved by Philosopher Agent (9.7/10, 2025-10-29)
+**Migration Date**: 2025-10-29 (FEAT-45)
+**Architecture**: v1.1 (LOCKED)
+
+### Overview
+
+The Stoic Mindfulness framework has been consolidated from **12 principles** to **5 integrative principles**. This consolidation maintains complete philosophical integrity while reducing cognitive load and improving learner accessibility.
+
+**Philosopher Verdict**: *"The 5-principle framework is philosophically elegant, not reductive. It consolidates without compromising classical accuracy."* (9.7/10 rating, up from 9.5/10 for 12-principle framework)
+
+### Consolidation Mapping Table
+
+| New Principle | ID | Integrates Legacy Principles | Rationale |
+|---------------|----|-----------------------------|-----------|
+| **Aware Presence** | `aware_presence` | 1. Present Perception<br>2. Metacognitive Space<br>7. Embodied Awareness | These three principles share a common focus on **present-moment attention** across cognitive, metacognitive, and somatic dimensions. They represent different facets of the same core capacity: being fully present. |
+| **Radical Acceptance** | `radical_acceptance` | 3. Radical Acceptance | This principle stands alone as the cornerstone of **amor fati**—loving one's fate exactly as it is. No consolidation needed; preserved intact. |
+| **Sphere Sovereignty** | `sphere_sovereignty` | 4. Sphere Sovereignty<br>5. Intention Over Outcome | Both principles address Epictetus's dichotomy of control. Sovereignty defines the boundary of **prohairesis** (moral agency); Intention Over Outcome applies this distinction to goal-directed action. They form one integrated practice. |
+| **Virtuous Response** | `virtuous_response` | 6. Virtuous Reappraisal<br>8. Negative Visualization with Compassion<br>11. Character Cultivation | These three principles all address **virtue ethics in action**: reappraising situations through virtue, preparing for challenges virtuously (premeditatio), and building virtuous character over time. |
+| **Interconnected Living** | `interconnected_living` | 10. Interconnected Action<br>12. Relational Presence<br>9. Contemplative Praxis | These principles share a focus on **relational ethics and embodied practice**: acting for the common good (οἰκείωσις/oikeiosis), being present in relationships, and integrating practice into daily life. |
+
+### Data Model Migration Strategy
+
+#### Type System Changes
+
+**BREAKING CHANGE**: The `StoicPrinciple` type enum will change from 12 values to 5 values.
+
+**Before (12 principles)**:
+```typescript
+type StoicPrinciple =
+  | 'present_perception'
+  | 'metacognitive_space'
+  | 'radical_acceptance'
+  | 'sphere_sovereignty'
+  | 'intention_over_outcome'
+  | 'virtuous_reappraisal'
+  | 'embodied_awareness'
+  | 'negative_visualization'
+  | 'contemplative_praxis'
+  | 'interconnected_action'
+  | 'character_cultivation'
+  | 'relational_presence';
+```
+
+**After (5 principles)**:
+```typescript
+type StoicPrinciple =
+  | 'aware_presence'
+  | 'radical_acceptance'
+  | 'sphere_sovereignty'
+  | 'virtuous_response'
+  | 'interconnected_living';
+```
+
+#### Legacy Data Handling
+
+**User Data Status**: ✅ No migration needed (0 users, clean slate)
+
+**If there were existing users**, the migration strategy would be:
+
+```typescript
+// Legacy principle mapping (for reference)
+const LEGACY_PRINCIPLE_MAP: Record<string, StoicPrinciple> = {
+  // Aware Presence
+  'present_perception': 'aware_presence',
+  'metacognitive_space': 'aware_presence',
+  'embodied_awareness': 'aware_presence',
+
+  // Radical Acceptance (unchanged)
+  'radical_acceptance': 'radical_acceptance',
+
+  // Sphere Sovereignty
+  'sphere_sovereignty': 'sphere_sovereignty',
+  'intention_over_outcome': 'sphere_sovereignty',
+
+  // Virtuous Response
+  'virtuous_reappraisal': 'virtuous_response',
+  'negative_visualization': 'virtuous_response',
+  'character_cultivation': 'virtuous_response',
+
+  // Interconnected Living
+  'interconnected_action': 'interconnected_living',
+  'relational_presence': 'interconnected_living',
+  'contemplative_praxis': 'interconnected_living',
+};
+```
+
+#### PrincipleProgress Updates
+
+The `PrincipleProgress` interface will be updated to:
+
+1. **Remove** `category: PrincipleCategory` (no categories in 5-principle flat structure)
+2. **Update** `principle_id` to use new 5-principle IDs
+3. **Add** `integration_notes: string` to capture which legacy aspects user is working with
+
+Example:
+```typescript
+interface PrincipleProgress {
+  principle_id: StoicPrinciple;           // Now uses 5-principle enum
+  principle_name: string;                 // e.g., "Aware Presence"
+
+  // Integration tracking (which legacy aspects are active)
+  integration_notes?: string;             // e.g., "Focusing on embodied awareness this week"
+
+  // ... rest unchanged
+}
+```
+
+### Developmental Stage Algorithm Updates
+
+The stage assessment algorithm will be updated to reflect **5 principles instead of 12**:
+
+**Before**:
+```typescript
+principles_completed.length >= 12  // All 12 principles (INTEGRATED)
+principles_completed.length >= 9   // 9 of 12 principles (FLUID)
+principles_completed.length >= 5   // 5 of 12 principles (EFFORTFUL)
+```
+
+**After**:
+```typescript
+principles_completed.length >= 5   // All 5 principles (INTEGRATED)
+principles_completed.length >= 4   // 4 of 5 principles (FLUID)
+principles_completed.length >= 2   // 2 of 5 principles (EFFORTFUL)
+```
+
+### UI Updates Required
+
+1. **PrincipleFocusScreen** (`/app/src/flows/morning/screens/PrincipleFocusScreen.tsx`):
+   - Replace PRINCIPLES array (12 items → 5 items)
+   - Update progress indicators ("1 of 5" instead of "1 of 12")
+
+2. **Educational Modules**:
+   - 12 modules → 5 modules (with integration explanations)
+
+3. **Progress Displays**:
+   - All "X of 12" → "X of 5"
+   - Remove category filters (foundation/discernment/regulation/practice/ethics)
+
+### Philosophical Integrity Preserved
+
+**Philosopher Agent Validation** (9.7/10):
+
+✅ **All 8 non-negotiables satisfied**:
+1. Classical accuracy (Epictetus, Marcus Aurelius, Seneca)
+2. Four cardinal virtues only (no modern additions)
+3. Dichotomy of control properly framed (prohairesis emphasized)
+4. Virtue ethics central (character development is primary goal)
+5. Prohairesis preserved (user exercises moral agency)
+6. Preferred indifferents correct (externals preferred but not essential)
+7. No pop-philosophy (authentic Stoicism)
+8. Clinical safety (practices safe for vulnerable users)
+
+**Key Improvements**:
+- **Reduced cognitive load**: 5 principles easier to internalize than 12
+- **Improved integration**: Consolidation highlights natural relationships between practices
+- **Enhanced clarity**: Each principle now has distinct scope (less overlap)
+- **Maintained depth**: No philosophical content lost—only reorganized
+
+### Implementation Timeline
+
+- ✅ **Phase 0**: Pre-migration git commit (rollback point) - commit b3e8b93
+- ✅ **Phase 1**: Agent config + architecture updates - commits 19d3b83, d0ed5a7, 731d35e, 357d447
+- 🔄 **Phase 2**: Documentation updates (this file + 23 others)
+- ⏳ **Phase 3**: Type system updates (`/app/src/types/stoic.ts`)
+- ⏳ **Phase 4**: UI component updates (PrincipleFocusScreen, progress indicators)
+- ⏳ **Phase 5**: Store and state management updates
+- ⏳ **Phase 6**: Documentation sweep
+- ⏳ **Phase 7**: Testing and validation
+- ⏳ **Phase 8**: Create follow-up work items (3-phase progression UI)
+
+---
+
+## Appendix A: Legacy 12 Principles Structure
 
 For reference - the full principle organization from framework:
 
