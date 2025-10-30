@@ -1,0 +1,40 @@
+{
+  "timestamp": "2025-10-20T02:36:03.184Z",
+  "summary": {
+    "total_tests": 25,
+    "passed_tests": 25,
+    "failed_tests": 0,
+    "total_duration_ms": 387,
+    "test_files": 1
+  },
+  "performance_metrics": {
+    "/__tests__/unit/premeditation-safety-service.test.ts": {
+      "duration": 380.18995799999993,
+      "numPassingTests": 25,
+      "numFailingTests": 0,
+      "perfTests": {}
+    }
+  },
+  "baselines": {
+    "crisis_response_ms": 200,
+    "ui_render_ms": 16.67,
+    "memory_limit_mb": 50,
+    "assessment_calculation_ms": 100,
+    "test_execution_ms": 30000
+  },
+  "thresholds": {
+    "crisis_response_ms": 200,
+    "ui_render_ms": 16.67,
+    "memory_limit_mb": 50,
+    "assessment_calculation_ms": 100,
+    "test_execution_ms": 30000
+  },
+  "regressions": [],
+  "warnings": [],
+  "analysis": {
+    "regression_count": 0,
+    "warning_count": 0,
+    "critical_issues": 0,
+    "high_issues": 0
+  }
+}

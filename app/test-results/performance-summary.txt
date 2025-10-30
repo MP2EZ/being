@@ -1,0 +1,20 @@
+# Performance Regression Analysis Report
+
+Generated: 2025-10-20T02:36:03.184Z
+Total Tests: 25
+Execution Time: 387ms
+
+## Performance Analysis
+
+Regressions Detected: 0
+Warnings: 0
+Critical Issues: 0
+High Severity Issues: 0
+
+## Performance Thresholds
+
+- crisis_response_ms: 200ms
+- ui_render_ms: 16.67ms
+- memory_limit_mb: 50MB
+- assessment_calculation_ms: 100ms
+- test_execution_ms: 30000ms

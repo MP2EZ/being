@@ -1,7 +1,14 @@
 /**
- * Morning Flow Navigator
- * Handles navigation for DRD morning check-in flow with progress tracking
- * Modal presentation from home screen with therapeutic UX
+ * Morning Flow Navigator (Stoic Mindfulness - FEAT-45)
+ * Handles navigation for Stoic morning practice with progress tracking
+ * Modal presentation from home screen with philosophical UX
+ *
+ * Classical Stoic Foundation:
+ * - Marcus Aurelius: Daily morning preparation (Meditations 2:1)
+ * - Epictetus: Begin the day with right principles (Enchiridion 21)
+ * - Seneca: "Begin at once to live" (Letters 101)
+ *
+ * @see /docs/technical/Stoic-Mindfulness-Architecture-v1.0.md
  */
 
 import React, { useState, useEffect } from 'react';
@@ -11,13 +18,13 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { colorSystem, spacing } from '../../constants/colors';
 import { MorningFlowParamList } from '../../types/flows';
 
-// Import screens
-import BodyScanScreen from './screens/BodyScanScreen';
-import EmotionRecognitionScreen from './screens/EmotionRecognitionScreen';
-import ThoughtObservationScreen from './screens/ThoughtObservationScreen';
-import PhysicalMetricsScreen from './screens/PhysicalMetricsScreen';
-import ValuesIntentionScreen from './screens/ValuesIntentionScreen';
-import DreamJournalScreen from './screens/DreamJournalScreen';
+// Import Stoic Mindfulness screens (DRD v2.0.0)
+import GratitudeScreen from './screens/GratitudeScreen';
+import IntentionScreen from './screens/IntentionScreen';
+import ProtectedPreparationScreen from './screens/ProtectedPreparationScreen';
+import PrincipleFocusScreen from './screens/PrincipleFocusScreen';
+import PhysicalGroundingScreen from './screens/PhysicalGroundingScreen';
+import MorningCompletionScreen from './screens/MorningCompletionScreen';
 
 const Stack = createStackNavigator<MorningFlowParamList>();
 
@@ -53,14 +60,14 @@ const ProgressIndicator: React.FC<{ currentStep: number; totalSteps: number }> =
   );
 };
 
-// Screen order mapping for progress calculation
+// Screen order mapping for progress calculation (Stoic Mindfulness Flow - DRD v2.0.0)
 const SCREEN_ORDER: (keyof MorningFlowParamList)[] = [
-  'BodyScan',
-  'EmotionRecognition', 
-  'ThoughtObservation',
-  'PhysicalMetrics',
-  'ValuesIntention',
-  'DreamJournal'
+  'Gratitude',
+  'Intention',
+  'Preparation',
+  'PrincipleFocus',
+  'PhysicalGrounding',
+  'MorningCompletion'
 ];
 
 const MorningFlowNavigator: React.FC<MorningFlowNavigatorProps> = ({
@@ -146,39 +153,39 @@ const MorningFlowNavigator: React.FC<MorningFlowNavigatorProps> = ({
       }}
     >
       <Stack.Screen
-        name="BodyScan"
-        component={BodyScanScreen}
-        options={getHeaderOptions('BodyScan', 'Body Awareness')}
+        name="Gratitude"
+        component={GratitudeScreen}
+        options={getHeaderOptions('Gratitude', 'Gratitude Practice')}
       />
-      
+
       <Stack.Screen
-        name="EmotionRecognition"
-        component={EmotionRecognitionScreen}
-        options={getHeaderOptions('EmotionRecognition', 'Emotional Awareness')}
+        name="Intention"
+        component={IntentionScreen}
+        options={getHeaderOptions('Intention', 'Morning Intention')}
       />
-      
+
       <Stack.Screen
-        name="ThoughtObservation"
-        component={ThoughtObservationScreen}
-        options={getHeaderOptions('ThoughtObservation', 'Thought Awareness')}
+        name="Preparation"
+        component={ProtectedPreparationScreen}
+        options={getHeaderOptions('Preparation', 'Preparation')}
       />
-      
+
       <Stack.Screen
-        name="PhysicalMetrics"
-        component={PhysicalMetricsScreen}
-        options={getHeaderOptions('PhysicalMetrics', 'Physical Wellness')}
+        name="PrincipleFocus"
+        component={PrincipleFocusScreen}
+        options={getHeaderOptions('PrincipleFocus', 'Principle Focus')}
       />
-      
+
       <Stack.Screen
-        name="ValuesIntention"
-        component={ValuesIntentionScreen}
-        options={getHeaderOptions('ValuesIntention', 'Daily Intention')}
+        name="PhysicalGrounding"
+        component={PhysicalGroundingScreen}
+        options={getHeaderOptions('PhysicalGrounding', 'Ground in Your Body')}
       />
-      
+
       <Stack.Screen
-        name="DreamJournal"
-        component={DreamJournalScreen}
-        options={getHeaderOptions('DreamJournal', 'Dream Reflection')}
+        name="MorningCompletion"
+        component={MorningCompletionScreen}
+        options={getHeaderOptions('MorningCompletion', 'Complete')}
       />
     </Stack.Navigator>
   );

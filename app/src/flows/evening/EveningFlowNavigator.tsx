@@ -1,26 +1,44 @@
 /**
- * Evening Flow Navigator
+ * Evening Flow Navigator - DRD v2.0.0
+ * Stoic Mindfulness Evening Practice (8 screens)
+ *
  * CRITICAL CLINICAL SAFETY IMPLEMENTATION:
  * - Crisis button always present in headers
  * - Gentle therapeutic language in titles
  * - Evening-appropriate header styling
  * - Safety-first navigation approach
+ *
+ * Flow (10-15 min adjustable):
+ * 1. VirtueReflection - Mindful reflection
+ * 2. SenecaQuestions - Seneca's 3 questions (OPTIONAL)
+ * 3. Celebration - Celebrate efforts
+ * 4. Gratitude - Gratitude practice
+ * 5. Tomorrow - Intention + letting go
+ * 6. Lessons - React vs Respond (OPTIONAL)
+ * 7. SelfCompassion - Self-compassion (REQUIRED)
+ * 8. SleepTransition - Mindful breathing for sleep
+ * 9. EveningCompletion - Flow summary
+ *
+ * @see /docs/product/Being. DRD.md (DRD-FLOW-004: Evening Flow)
  */
 
-
 import { logSecurity, logPerformance, logError, LogCategory } from '../../services/logging';
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 import { View, Pressable, Text, StyleSheet } from 'react-native';
 import { colorSystem, spacing, typography } from '../../constants/colors';
 import { EveningFlowParamList } from '../../types/flows';
-import { SafetyButton } from '../shared/components';
 
-// Import screens
-import DayReviewScreen from './screens/DayReviewScreen';
-import PleasantUnpleasantScreen from './screens/PleasantUnpleasantScreen';
-import ThoughtPatternsScreen from './screens/ThoughtPatternsScreen';
-import TomorrowPrepScreen from './screens/TomorrowPrepScreen';
+// Import DRD v2.0.0 Stoic Mindfulness screens
+import VirtueReflectionScreen from './screens/VirtueReflectionScreen';
+import SenecaQuestionsScreen from './screens/SenecaQuestionsScreen';
+import CelebrationScreen from './screens/CelebrationScreen';
+import GratitudeScreen from './screens/GratitudeScreen';
+import TomorrowScreen from './screens/TomorrowScreen';
+import LearningScreen from './screens/LearningScreen';
+import SelfCompassionScreen from './screens/SelfCompassionScreen';
+import SleepTransitionScreen from './screens/SleepTransitionScreen';
+import EveningCompletionScreen from './screens/EveningCompletionScreen';
 
 const Stack = createStackNavigator<EveningFlowParamList>();
 
@@ -28,6 +46,33 @@ interface EveningFlowNavigatorProps {
   onComplete: (sessionData: any) => void;
   onExit: () => void;
 }
+
+// Progress indicator component
+const ProgressIndicator: React.FC<{ currentStep: number; totalSteps: number }> = ({
+  currentStep,
+  totalSteps
+}) => {
+  const progress = (currentStep / totalSteps) * 100;
+
+  return (
+    <View style={styles.progressContainer}>
+      <View style={styles.progressBar}>
+        <View
+          style={[
+            styles.progressFill,
+            {
+              width: `${progress}%`,
+              backgroundColor: colorSystem.themes.evening.primary
+            }
+          ]}
+        />
+      </View>
+      <Text style={styles.progressText}>
+        {currentStep} of {totalSteps}
+      </Text>
+    </View>
+  );
+};
 
 // Crisis Support Header Component
 const CrisisHeaderButton: React.FC<{ onPress: () => void }> = ({ onPress }) => (
@@ -59,14 +104,41 @@ const ExitHeaderButton: React.FC<{ onPress: () => void }> = ({ onPress }) => (
   </View>
 );
 
+// Screen order mapping for progress calculation (DRD v2.0.0)
+const SCREEN_ORDER: (keyof EveningFlowParamList)[] = [
+  'VirtueReflection',
+  'SenecaQuestions',
+  'Celebration',
+  'Gratitude',
+  'Tomorrow',
+  'Lessons',
+  'SelfCompassion',
+  'SleepTransition',
+  'EveningCompletion'
+];
+
 const EveningFlowNavigator: React.FC<EveningFlowNavigatorProps> = ({
   onComplete,
   onExit
 }) => {
+  const [currentStep, setCurrentStep] = useState(1);
+  const totalSteps = SCREEN_ORDER.length;
+
   const handleCrisisSupport = () => {
     // TODO: Navigate to crisis support resources
     logPerformance('Crisis support accessed from evening flow');
   };
+
+  // Custom header with progress
+  const getHeaderOptions = (routeName: keyof EveningFlowParamList, title: string) => ({
+    headerTitle: () => (
+      <View style={styles.headerContainer}>
+        <Text style={styles.headerTitle}>{title}</Text>
+        <ProgressIndicator currentStep={currentStep} totalSteps={totalSteps} />
+      </View>
+    ),
+    headerTitleAlign: 'center' as const,
+  });
 
   return (
     <Stack.Navigator
@@ -83,12 +155,7 @@ const EveningFlowNavigator: React.FC<EveningFlowNavigatorProps> = ({
           shadowOpacity: 0.1,
           shadowRadius: 4,
           elevation: 6,
-          height: 100, // Increased height for safety elements
-        },
-        headerTitleStyle: {
-          fontSize: typography.bodyLarge.size,
-          fontWeight: '600',
-          color: colorSystem.base.black,
+          height: 100, // Increased height for progress indicator + safety elements
         },
         headerTintColor: colorSystem.themes.evening.primary,
         headerLeft: () => (
@@ -101,59 +168,127 @@ const EveningFlowNavigator: React.FC<EveningFlowNavigatorProps> = ({
         headerRight: () => (
           <CrisisHeaderButton onPress={handleCrisisSupport} />
         ),
+        // Modal presentation styling
+        presentation: 'modal',
+        gestureEnabled: true,
+        cardStyleInterpolator: ({ current, layouts }) => {
+          return {
+            cardStyle: {
+              transform: [
+                {
+                  translateY: current.progress.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [layouts.screen.height, 0],
+                  }),
+                },
+              ],
+            },
+          };
+        },
+      }}
+      screenListeners={{
+        state: (e) => {
+          // Update progress based on current screen
+          const state = e.data.state;
+          if (state) {
+            const currentRouteName = state.routes[state.index]?.name;
+            const stepIndex = SCREEN_ORDER.indexOf(currentRouteName as keyof EveningFlowParamList);
+            if (stepIndex !== -1) {
+              setCurrentStep(stepIndex + 1);
+            }
+          }
+        },
       }}
     >
       <Stack.Screen
-        name="DayReview"
-        component={DayReviewScreen}
-        options={{
-          title: 'Evening Reflection',
-          headerTitle: 'Gently reflecting on your day', // Therapeutic language
-        }}
+        name="VirtueReflection"
+        component={VirtueReflectionScreen}
+        options={getHeaderOptions('VirtueReflection', 'Mindful Reflection')}
       />
-      
+
       <Stack.Screen
-        name="PleasantUnpleasant"
-        component={PleasantUnpleasantScreen}
-        options={{
-          title: 'Notice Without Judging',
-          headerTitle: 'Notice Without Judging', // Clinical safety language
-        }}
+        name="SenecaQuestions"
+        component={SenecaQuestionsScreen}
+        options={getHeaderOptions('SenecaQuestions', "Seneca's Questions (Optional)")}
       />
-      
+
       <Stack.Screen
-        name="ThoughtPatterns"
-        component={ThoughtPatternsScreen}
-        options={{
-          title: 'Observing Patterns',
-          headerTitle: 'Observing Thought Patterns', // Educational approach
-        }}
+        name="Celebration"
+        component={CelebrationScreen}
+        options={getHeaderOptions('Celebration', 'Celebrate Your Efforts')}
       />
-      
+
       <Stack.Screen
-        name="TomorrowPrep"
-        options={{
-          title: 'Prepare for Rest',
-          headerTitle: 'Prepare for Tomorrow', // Sleep transition focus
-        }}
-      >
-        {({ navigation, route }) => (
-          <TomorrowPrepScreen
-            onComplete={(sessionData) => {
-              // Pass any session data and complete the entire evening flow
-              onComplete({
-                flowType: 'evening',
-                completedAt: Date.now(),
-                sessionData
-              });
-            }}
-            onExit={onExit}
-          />
-        )}
-      </Stack.Screen>
+        name="Gratitude"
+        component={GratitudeScreen}
+        options={getHeaderOptions('Gratitude', 'Gratitude Practice')}
+      />
+
+      <Stack.Screen
+        name="Tomorrow"
+        component={TomorrowScreen}
+        options={getHeaderOptions('Tomorrow', 'Prepare for Tomorrow')}
+      />
+
+      <Stack.Screen
+        name="Lessons"
+        component={LearningScreen}
+        options={getHeaderOptions('Lessons', 'React vs Respond (Optional)')}
+      />
+
+      <Stack.Screen
+        name="SelfCompassion"
+        component={SelfCompassionScreen}
+        options={getHeaderOptions('SelfCompassion', 'Self-Compassion (Required)')}
+      />
+
+      <Stack.Screen
+        name="SleepTransition"
+        component={SleepTransitionScreen}
+        options={getHeaderOptions('SleepTransition', 'Transition to Rest')}
+      />
+
+      <Stack.Screen
+        name="EveningCompletion"
+        component={EveningCompletionScreen}
+        options={getHeaderOptions('EveningCompletion', 'Evening Practice Complete')}
+      />
     </Stack.Navigator>
   );
 };
+
+const styles = StyleSheet.create({
+  headerContainer: {
+    alignItems: 'center',
+    width: '100%',
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colorSystem.base.black,
+    marginBottom: spacing.xs,
+  },
+  progressContainer: {
+    alignItems: 'center',
+    width: '100%',
+  },
+  progressBar: {
+    width: 120,
+    height: 4,
+    backgroundColor: colorSystem.gray[200],
+    borderRadius: 2,
+    marginBottom: 4,
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 2,
+  },
+  progressText: {
+    fontSize: 12,
+    color: colorSystem.gray[600],
+    fontWeight: '500',
+  },
+});
 
 const headerStyles = StyleSheet.create({
   crisisContainer: {

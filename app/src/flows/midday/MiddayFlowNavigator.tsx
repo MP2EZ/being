@@ -1,38 +1,39 @@
 /**
- * MiddayFlowNavigator - MBCT 3-Minute Breathing Space Navigation
- * 
- * CLINICAL SPECIFICATIONS:
+ * MiddayFlowNavigator - Stoic Mindfulness Midday Reset
+ *
+ * DRD v2.0.0 SPECIFICATION (DRD-FLOW-003):
+ * - 4 practices: Control → Embodiment → Reappraisal → Affirmation
+ * - 3-7 minutes flexible duration
+ * - Interrupt-friendly (can pause/resume)
  * - Modal presentation from CleanHomeScreen
- * - 3 screens, 60 seconds each (180 seconds total)
- * - Auto-advance between screens
- * - Safety exit always available
- * - Midday theme throughout
- * - Data collection and completion tracking
+ * - Midday theme throughout (#40B5AD)
+ * - Crisis-accessible (<3s from any screen)
+ *
+ * PHILOSOPHY:
+ * - Mindfulness-first with Stoic wisdom enrichment
+ * - NOT toxic positivity - realistic perspective shift
+ * - Grounded affirmations (capability within control)
+ * - Oikeiôsis framework (self-compassion as foundation)
  */
-
 
 import { logSecurity, logPerformance, logError, LogCategory } from '../../services/logging';
 import React, { useState } from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 import { Alert, Pressable, Text } from 'react-native';
 import { colorSystem } from '../../constants/colors';
-import AwarenessScreen from './screens/AwarenessScreen';
-import GatheringScreen from './screens/GatheringScreen';
-import ExpandingScreen from './screens/ExpandingScreen';
+import ControlCheckScreen from './screens/ControlCheckScreen';
+import EmbodimentScreen from './screens/EmbodimentScreen';
+import ReappraisalScreen from './screens/ReappraisalScreen';
+import AffirmationScreen from './screens/AffirmationScreen';
+import MiddayCompletionScreen from './screens/MiddayCompletionScreen';
 
-// Navigation types
+// Navigation types (DRD v2.0.0 compliant)
 export type MiddayFlowParamList = {
-  Awareness: undefined;
-  Gathering: { awarenessData: { emotions: string[] } };
-  Expanding: { awarenessData: { emotions: string[] } };
-  Complete: { 
-    awarenessData: { emotions: string[] };
-    expandingData: {
-      pleasantEvent: string;
-      challengingEvent: string;
-      selectedNeed: string | null;
-    };
-  };
+  ControlCheck: undefined;
+  Embodiment: undefined;
+  Reappraisal: undefined;
+  Affirmation: undefined;
+  MiddayCompletion: undefined;
 };
 
 interface MiddayFlowNavigatorProps {
@@ -48,12 +49,10 @@ const MiddayFlowNavigator: React.FC<MiddayFlowNavigatorProps> = ({
 }) => {
   const [sessionData, setSessionData] = useState<{
     startTime: number;
-    awarenessData?: { emotions: string[] };
-    expandingData?: {
-      pleasantEvent: string;
-      challengingEvent: string;
-      selectedNeed: string | null;
-    };
+    controlCheckData?: any;
+    embodimentData?: any;
+    reappraisalData?: any;
+    affirmationData?: any;
   }>({
     startTime: Date.now()
   });
@@ -76,74 +75,85 @@ const MiddayFlowNavigator: React.FC<MiddayFlowNavigatorProps> = ({
     );
   };
 
-  const handleSkip = (screenName: string) => {
-    logPerformance(`🔄 User skipped ${screenName} screen`);
-    // For now, continue to next screen
-    // In production, this would track skip behavior
-  };
-
-  const AwarenessScreenWrapper = ({ navigation }: any) => (
-    <AwarenessScreen
-      onComplete={(data) => {
+  // Screen wrappers with data persistence
+  const ControlCheckScreenWrapper = ({ navigation }: any) => (
+    <ControlCheckScreen
+      navigation={navigation}
+      route={{ params: {} } as any}
+      onSave={(data) => {
         const updatedSessionData = {
           ...sessionData,
-          awarenessData: data
+          controlCheckData: data
         };
         setSessionData(updatedSessionData);
-        navigation.navigate('Gathering', { awarenessData: data });
-      }}
-      onSafetyPress={handleSafetyPress}
-      onSkip={() => {
-        handleSkip('Awareness');
-        navigation.navigate('Gathering', { awarenessData: { emotions: [] } });
+        logPerformance('✅ ControlCheck completed');
       }}
     />
   );
 
-  const GatheringScreenWrapper = ({ navigation, route }: any) => (
-    <GatheringScreen
-      onComplete={() => {
-        navigation.navigate('Expanding', { awarenessData: route.params.awarenessData });
-      }}
-      onSafetyPress={handleSafetyPress}
-      onSkip={() => {
-        handleSkip('Gathering');
-        navigation.navigate('Expanding', { awarenessData: route.params.awarenessData });
+  const EmbodimentScreenWrapper = ({ navigation }: any) => (
+    <EmbodimentScreen
+      navigation={navigation}
+      route={{ params: {} } as any}
+      onSave={(data) => {
+        const updatedSessionData = {
+          ...sessionData,
+          embodimentData: data
+        };
+        setSessionData(updatedSessionData);
+        logPerformance('✅ Embodiment completed');
       }}
     />
   );
 
-  const ExpandingScreenWrapper = ({ navigation, route }: any) => (
-    <ExpandingScreen
-      onComplete={(data) => {
-        const finalSessionData = {
+  const ReappraisalScreenWrapper = ({ navigation }: any) => (
+    <ReappraisalScreen
+      navigation={navigation}
+      route={{ params: {} } as any}
+      onSave={(data) => {
+        const updatedSessionData = {
           ...sessionData,
-          expandingData: data,
-          completedAt: Date.now(),
-          duration: Date.now() - sessionData.startTime
+          reappraisalData: data
         };
-        
-        // Complete the session
-        onComplete(finalSessionData);
-      }}
-      onSafetyPress={handleSafetyPress}
-      onSkip={() => {
-        handleSkip('Expanding');
-        const finalSessionData = {
-          ...sessionData,
-          expandingData: {
-            pleasantEvent: '',
-            challengingEvent: '',
-            selectedNeed: null
-          },
-          skipped: true,
-          completedAt: Date.now(),
-          duration: Date.now() - sessionData.startTime
-        };
-        onComplete(finalSessionData);
+        setSessionData(updatedSessionData);
+        logPerformance('✅ Reappraisal completed');
       }}
     />
   );
+
+  const AffirmationScreenWrapper = ({ navigation }: any) => (
+    <AffirmationScreen
+      navigation={navigation}
+      route={{ params: {} } as any}
+      onSave={(data) => {
+        const updatedSessionData = {
+          ...sessionData,
+          affirmationData: data
+        };
+        setSessionData(updatedSessionData);
+        logPerformance('✅ Affirmation completed');
+      }}
+    />
+  );
+
+  const MiddayCompletionScreenWrapper = ({ navigation }: any) => {
+    const finalSessionData = {
+      ...sessionData,
+      completedAt: Date.now(),
+      duration: Date.now() - sessionData.startTime
+    };
+
+    return (
+      <MiddayCompletionScreen
+        navigation={navigation}
+        route={{ params: {} } as any}
+        onComplete={() => {
+          logPerformance('✅ Midday flow completed');
+          onComplete(finalSessionData);
+        }}
+      />
+    );
+  };
 
   return (
     <Stack.Navigator
@@ -169,7 +179,7 @@ const MiddayFlowNavigator: React.FC<MiddayFlowNavigatorProps> = ({
               marginLeft: 16,
               padding: 8,
               borderRadius: 8,
-              backgroundColor: colorSystem.status.critical,
+              backgroundColor: colorSystem.themes.midday.primary,
             }}
             accessibilityRole="button"
             accessibilityLabel="Exit session"
@@ -199,31 +209,50 @@ const MiddayFlowNavigator: React.FC<MiddayFlowNavigatorProps> = ({
           </Pressable>
         ),
       }}
-      initialRouteName="Awareness"
+      initialRouteName="ControlCheck"
     >
       <Stack.Screen
-        name="Awareness"
-        component={AwarenessScreenWrapper}
+        name="ControlCheck"
+        component={ControlCheckScreenWrapper}
         options={{
-          title: 'Step 1: Awareness',
+          title: 'Pause & Center',
           animationTypeForReplace: 'push',
         }}
       />
 
       <Stack.Screen
-        name="Gathering"
-        component={GatheringScreenWrapper}
+        name="Embodiment"
+        component={EmbodimentScreenWrapper}
         options={{
-          title: 'Step 2: Gathering',
+          title: 'Ground in Your Body',
           animationTypeForReplace: 'push',
         }}
       />
 
       <Stack.Screen
-        name="Expanding"
-        component={ExpandingScreenWrapper}
+        name="Reappraisal"
+        component={ReappraisalScreenWrapper}
         options={{
-          title: 'Step 3: Expanding',
+          title: 'Reframe with Wisdom',
+          animationTypeForReplace: 'push',
+        }}
+      />
+
+      <Stack.Screen
+        name="Affirmation"
+        component={AffirmationScreenWrapper}
+        options={{
+          title: 'Self-Compassion',
+          animationTypeForReplace: 'push',
+        }}
+      />
+
+      <Stack.Screen
+        name="MiddayCompletion"
+        component={MiddayCompletionScreenWrapper}
+        options={{
+          title: 'Complete',
+          headerLeft: () => null, // Remove exit button on completion
           animationTypeForReplace: 'push',
         }}
       />
