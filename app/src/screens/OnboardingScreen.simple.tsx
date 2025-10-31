@@ -36,6 +36,7 @@ import { PHQ9_QUESTIONS, GAD7_QUESTIONS } from '../flows/assessment/types/questi
 import type { AssessmentResponse } from '../flows/assessment/types';
 import { RadioGroup } from '../components/accessibility';
 import type { RadioOption } from '../components/accessibility';
+import AppIcon from '../../assets/icon.png';
 
 // WCAG-AA compliant colors with verified contrast ratios
 const colors = {
@@ -1455,7 +1456,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
           accessibilityRole="header"
         >
           <Image
-            source={require('../../assets/icon.png')}
+            source={AppIcon}
             style={styles.welcomeIconImage}
             accessible={true}
             accessibilityLabel="Being logo"
