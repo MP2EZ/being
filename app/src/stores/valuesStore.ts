@@ -1,27 +1,28 @@
 /**
- * VALUES STORE
- * Zustand store for user therapeutic values management
+ * VALUES STORE - DEPRECATED (FEAT-51)
  *
- * THERAPEUTIC CONTEXT:
- * - 15 MBCT-aligned therapeutic values (from onboarding)
- * - Users select 3-5 values during onboarding
- * - Values are viewable and editable in profile
- * - NO gamification, adherence tracking, or shame-inducing metrics
+ * ⚠️ DEPRECATION NOTICE:
+ * This store is deprecated as of FEAT-51 (Virtue Tracking Dashboard).
+ * The therapeutic values system has been replaced by the Stoic Mindfulness framework.
  *
- * SECURITY:
- * - Values are therapeutic preferences → encrypted storage (SecureStore)
- * - PHI classification: 'therapeutic_preference'
- * - No cloud sync (local-only for privacy)
+ * This store is retained for backward compatibility with existing user data,
+ * but no UI exists to interact with it anymore.
  *
- * PERFORMANCE:
- * - Load values: <300ms (target from requirements)
- * - Auto-save on edit with debounce
+ * Migration: None required - existing values remain in SecureStore but are no longer
+ * displayed or editable. New users will use stoicPracticeStore exclusively.
  *
- * TODO (FEAT-6 Open Questions):
- * - [ ] Integration with onboarding: How do values from onboarding get stored here?
- * - [ ] User ID management: How to get current user ID? (check AuthenticationService)
- * - [ ] Optional reflection prompts: Should we implement reflection prompts on edit?
- * - [ ] Alignment ratings: Should we include "current alignment" self-assessment (1-5)?
+ * REPLACED BY:
+ * - /src/stores/stoicPracticeStore.ts - Virtue tracking and practice store
+ * - Tracks VirtueInstance and VirtueChallenge data
+ * - 4 cardinal virtues instead of 15 therapeutic values
+ *
+ * ORIGINAL PURPOSE:
+ * - 15 MBCT-aligned therapeutic values management
+ * - Users selected 3-5 values during onboarding
+ * - Values were viewable and editable in profile
+ * - Encrypted storage via SecureStore
+ *
+ * @deprecated Use stoicPracticeStore instead
  */
 
 import { create } from 'zustand';

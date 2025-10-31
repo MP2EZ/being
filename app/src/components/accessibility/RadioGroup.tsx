@@ -45,6 +45,8 @@ export interface RadioGroupProps {
   clinicalContext?: 'phq9' | 'gad7' | 'general';
   showScores?: boolean;
   theme?: 'morning' | 'midday' | 'evening' | 'neutral';
+  // Visual customization
+  showRadioIndicator?: boolean; // Show visual radio button circle (default: true)
 }
 
 const RadioGroup: React.FC<RadioGroupProps> = ({
@@ -61,6 +63,7 @@ const RadioGroup: React.FC<RadioGroupProps> = ({
   clinicalContext = 'general',
   showScores = false,
   theme = 'neutral',
+  showRadioIndicator = true, // Default true for backward compatibility
 }) => {
   const [focusedIndex, setFocusedIndex] = useState<number>(-1);
   const radioRefs = useRef<(View | null)[]>([]);
@@ -210,32 +213,41 @@ const RadioGroup: React.FC<RadioGroupProps> = ({
         accessible={true}
         importantForAccessibility="yes"
       >
-        <View style={styles.radioOptionContent}>
-          {/* Radio button visual indicator */}
-          <View style={[
-            styles.radioButton,
-            isSelected && [styles.radioButtonSelected, {
-              backgroundColor: themeColors.primary,
-              borderColor: themeColors.primary,
-            }],
-            isFocused && [styles.radioButtonFocused, {
-              borderColor: colorSystem.accessibility.focus.primary,
-            }],
-            isDisabled && styles.radioButtonDisabled,
-            error && styles.radioButtonError,
-          ]}>
-            {isSelected && (
-              <View style={[
-                styles.radioButtonInner,
-                { backgroundColor: colorSystem.base.white }
-              ]} />
-            )}
-          </View>
-          
+        <View style={[
+          styles.radioOptionContent,
+          !showRadioIndicator && styles.radioOptionContentCentered
+        ]}>
+          {/* Radio button visual indicator (optional) */}
+          {showRadioIndicator && (
+            <View style={[
+              styles.radioButton,
+              isSelected && [styles.radioButtonSelected, {
+                backgroundColor: themeColors.primary,
+                borderColor: themeColors.primary,
+              }],
+              isFocused && [styles.radioButtonFocused, {
+                borderColor: colorSystem.accessibility.focus.primary,
+              }],
+              isDisabled && styles.radioButtonDisabled,
+              error && styles.radioButtonError,
+            ]}>
+              {isSelected && (
+                <View style={[
+                  styles.radioButtonInner,
+                  { backgroundColor: colorSystem.base.white }
+                ]} />
+              )}
+            </View>
+          )}
+
           {/* Option content */}
-          <View style={styles.radioContent}>
+          <View style={[
+            styles.radioContent,
+            !showRadioIndicator && styles.radioContentCentered
+          ]}>
             <Text style={[
               styles.radioLabel,
+              !showRadioIndicator && styles.radioLabelCentered,
               isSelected && styles.radioLabelSelected,
               isDisabled && styles.radioLabelDisabled,
             ]}>
@@ -448,6 +460,9 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: spacing.sm,
   },
+  radioOptionContentCentered: {
+    justifyContent: 'center',
+  },
   
   // Radio button visual
   radioButton: {
@@ -485,11 +500,17 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: spacing.xs,
   },
+  radioContentCentered: {
+    alignItems: 'center',
+  },
   radioLabel: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.bodyRegular.weight,
     color: colorSystem.accessibility.text.primary,
     lineHeight: typography.bodyRegular.size * 1.3,
+  },
+  radioLabelCentered: {
+    textAlign: 'center',
   },
   radioLabelSelected: {
     fontWeight: '600',

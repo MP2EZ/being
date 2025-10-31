@@ -27,11 +27,16 @@ import {
   Alert,
   AccessibilityInfo,
   Platform,
+  Image,
 } from 'react-native';
 import SafetyButton from '../flows/shared/components/SafetyButton';
-import { useValuesStore } from '../stores/valuesStore';
 import NotificationTimePicker from '../components/NotificationTimePicker';
 import CollapsibleCrisisButton from '../flows/shared/components/CollapsibleCrisisButton';
+import { PHQ9_QUESTIONS, GAD7_QUESTIONS } from '../flows/assessment/types/questions';
+import type { AssessmentResponse } from '../flows/assessment/types';
+import { RadioGroup } from '../components/accessibility';
+import type { RadioOption } from '../components/accessibility';
+import BrainIcon from '../components/shared/BrainIcon';
 
 // WCAG-AA compliant colors with verified contrast ratios
 const colors = {
@@ -78,31 +83,11 @@ const ACCESSIBILITY = {
   ASSESSMENT_TIMEOUT_MS: 20 * 60 * 1000, // 20 minutes per assessment
 } as const;
 
-// PHQ-9 Questions (Clinically Validated - from ExercisesScreen)
-const PHQ9_QUESTIONS = [
-  { id: 'phq9_1', text: 'Little interest or pleasure in doing things' },
-  { id: 'phq9_2', text: 'Feeling down, depressed, or hopeless' },
-  { id: 'phq9_3', text: 'Trouble falling or staying asleep, or sleeping too much' },
-  { id: 'phq9_4', text: 'Feeling tired or having little energy' },
-  { id: 'phq9_5', text: 'Poor appetite or overeating' },
-  { id: 'phq9_6', text: 'Feeling bad about yourself - or that you are a failure or have let yourself or your family down' },
-  { id: 'phq9_7', text: 'Trouble concentrating on things, such as reading the newspaper or watching television' },
-  { id: 'phq9_8', text: 'Moving or speaking so slowly that other people could have noticed. Or the opposite - being so fidgety or restless that you have been moving around a lot more than usual' },
-  { id: 'phq9_9', text: 'Thoughts that you would be better off dead, or of hurting yourself in some way' },
-];
+// NOTE: PHQ9_QUESTIONS and GAD7_QUESTIONS now imported from shared assessment types
+// This eliminates duplication and ensures clinical accuracy across the app
 
-// GAD-7 Questions (Clinically Validated - from ExercisesScreen)
-const GAD7_QUESTIONS = [
-  { id: 'gad7_1', text: 'Feeling nervous, anxious, or on edge' },
-  { id: 'gad7_2', text: 'Not being able to stop or control worrying' },
-  { id: 'gad7_3', text: 'Worrying too much about different things' },
-  { id: 'gad7_4', text: 'Trouble relaxing' },
-  { id: 'gad7_5', text: 'Being so restless that it is hard to sit still' },
-  { id: 'gad7_6', text: 'Becoming easily annoyed or irritable' },
-  { id: 'gad7_7', text: 'Feeling afraid, as if something awful might happen' },
-];
-
-const RESPONSE_OPTIONS = [
+// Response options in RadioOption format (clinically validated)
+const RESPONSE_OPTIONS: RadioOption[] = [
   { value: 0, label: 'Not at all' },
   { value: 1, label: 'Several days' },
   { value: 2, label: 'More than half the days' },
@@ -129,11 +114,11 @@ const THERAPEUTIC_VALUES: TherapeuticValue[] = [
 ];
 
 // TypeScript strict mode interfaces and types (following ExercisesScreen pattern)
-type Screen = 'welcome' | 'phq9' | 'gad7' | 'values' | 'notifications' | 'privacy' | 'celebration';
+type Screen = 'welcome' | 'phq9' | 'gad7' | 'stoicIntro' | 'notifications' | 'privacy' | 'celebration';
 type AssessmentType = 'phq9' | 'gad7';
 
 // Crisis safety types - exact clinical thresholds
-type AssessmentResponse = 0 | 1 | 2 | 3; // Exact clinical response values
+// NOTE: AssessmentResponse now imported from shared assessment types
 type CrisisThresholdPhq = 20; // PHQ≥20 threshold
 type CrisisThresholdGad = 15; // GAD≥15 threshold
 type Question9Response = 0 | 1 | 2 | 3; // Q9 crisis detection (>0)
@@ -187,10 +172,7 @@ interface Question {
   text: string;
 }
 
-interface ResponseOption {
-  value: AssessmentResponse;
-  label: string;
-}
+// NOTE: ResponseOption interface removed - now using RadioOption from accessibility components
 
 // HIPAA COMPLIANCE INTERFACES
 // Comprehensive consent management - 45 CFR 164.508
@@ -289,15 +271,11 @@ interface CrisisDetectionResult {
 }
 
 const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbedded = false }) => {
-  // Stores
-  const valuesStore = useValuesStore();
-
   // Primary state (following ExercisesScreen pattern)
   const [currentScreen, setCurrentScreen] = useState<Screen>('welcome');
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [phq9Answers, setPhq9Answers] = useState<Answer[]>([]);
   const [gad7Answers, setGad7Answers] = useState<Answer[]>([]);
-  const [selectedValues, setSelectedValues] = useState<string[]>([]);
   const [notificationTimes, setNotificationTimes] = useState<NotificationTime[]>([
     { period: 'morning', time: '09:00', enabled: true, dataMinimization: 'necessary', retentionPeriod: '90_days' },
     { period: 'midday', time: '13:00', enabled: true, dataMinimization: 'necessary', retentionPeriod: '90_days' },
@@ -526,11 +504,6 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
   // State validation helpers (following ExercisesScreen calculateResults pattern)
   const validateAssessmentAnswer = (response: number): response is AssessmentResponse => {
     return response >= 0 && response <= 3 && Number.isInteger(response);
-  };
-
-  const validateValuesSelection = (values: string[]): boolean => {
-    return values.length >= 3 && values.length <= 5 &&
-           values.every(id => THERAPEUTIC_VALUES.some(v => v.id === id));
   };
 
   const validateNotificationTimes = (times: NotificationTime[]): boolean => {
@@ -853,7 +826,6 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
     setCurrentQuestionIndex(0);
     setPhq9Answers([]);
     setGad7Answers([]);
-    setSelectedValues([]);
     setNotificationTimes([
       { period: 'morning', time: '09:00', enabled: true },
       { period: 'midday', time: '13:00', enabled: true },
@@ -870,8 +842,6 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
         currentQuestionIndex,
         phq9AnswersCount: phq9Answers.length,
         gad7AnswersCount: gad7Answers.length,
-        selectedValuesCount: selectedValues.length,
-        selectedValues,
         notificationSettings: notificationTimes.map(n => `${n.period}:${n.enabled}`),
         consentProvided,
         progressPercentage: getProgressPercentage(),
@@ -888,7 +858,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
   };
 
   const getProgressPercentage = (): number => {
-    const screenOrder: Screen[] = ['welcome', 'phq9', 'gad7', 'values', 'notifications', 'privacy', 'celebration'];
+    const screenOrder: Screen[] = ['welcome', 'phq9', 'gad7', 'stoicIntro', 'notifications', 'privacy', 'celebration'];
     const currentIndex = screenOrder.indexOf(currentScreen);
     return Math.round((currentIndex / (screenOrder.length - 1)) * 100);
   };
@@ -900,8 +870,8 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
     const screenTransitions: Record<Screen, string> = {
       'welcome': 'Starting mental health assessment. First, the PHQ-9 depression screening.',
       'phq9': 'PHQ-9 complete. Starting GAD-7 anxiety screening.',
-      'gad7': 'Assessments complete. Now selecting your personal values.',
-      'values': 'Values selected. Setting up notification preferences.',
+      'gad7': 'Assessments complete. Learning about Stoic Mindfulness.',
+      'stoicIntro': 'Introduction complete. Setting up notification preferences.',
       'notifications': 'Notifications configured. Reviewing privacy and consent information.',
       'privacy': 'Setup complete! Welcome to your mindful journey.',
       'celebration': 'Onboarding finished. Redirecting to main application.',
@@ -959,8 +929,8 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
           );
           return;
         }
-        setCurrentScreen('values');
-        logStateChange('navigateNext:gad7->values');
+        setCurrentScreen('stoicIntro');
+        logStateChange('navigateNext:gad7->stoicIntro');
 
         // Accessibility: Announce transition
         announceToScreenReader(screenTransitions.gad7);
@@ -968,24 +938,13 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
         setTimeout(() => manageFocus('primary-button', primaryButtonRef), 500);
         break;
 
-      case 'values':
-        // Validate values selection (3-5 required)
-        if (!validateValuesSelection(selectedValues)) {
-          logStateChange('navigateNext:values:invalid', { selectedCount: selectedValues.length });
-
-          // Accessibility: Announce validation error with guidance
-          const needed = Math.max(0, 3 - selectedValues.length);
-          const errorMessage = selectedValues.length === 0
-            ? 'Please select at least 3 values that resonate with you.'
-            : `Please select ${needed} more value${needed > 1 ? 's' : ''} to continue. Choose values that feel meaningful to you.`;
-          announceToScreenReader(errorMessage, 'assertive');
-          return;
-        }
+      case 'stoicIntro':
+        // No validation needed - educational screen only
         setCurrentScreen('notifications');
-        logStateChange('navigateNext:values->notifications');
+        logStateChange('navigateNext:stoicIntro->notifications');
 
         // Accessibility: Announce transition
-        announceToScreenReader(screenTransitions.values);
+        announceToScreenReader(screenTransitions.stoicIntro);
         announceProgress();
         break;
 
@@ -1030,13 +989,6 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
         // Complete onboarding with state persistence
         logStateChange('navigateNext:celebration:complete', getStateDebugInfo());
 
-        // Save selected values to valuesStore (FEAT-6 integration)
-        if (selectedValues.length >= 3) {
-          valuesStore.saveValues(selectedValues).catch((error) => {
-            logError('Failed to save therapeutic values from onboarding', LogCategory.STATE, { error });
-          });
-        }
-
         // Accessibility: Announce completion
         announceToScreenReader(screenTransitions.celebration);
 
@@ -1068,14 +1020,14 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
         setCurrentQuestionIndex(PHQ9_QUESTIONS.length - 1); // Return to last PHQ-9 question
         logStateChange('navigateBack:gad7->phq9');
         break;
-      case 'values':
+      case 'stoicIntro':
         setCurrentScreen('gad7');
         setCurrentQuestionIndex(GAD7_QUESTIONS.length - 1); // Return to last GAD-7 question
-        logStateChange('navigateBack:values->gad7');
+        logStateChange('navigateBack:stoicIntro->gad7');
         break;
       case 'notifications':
-        setCurrentScreen('values');
-        logStateChange('navigateBack:notifications->values');
+        setCurrentScreen('stoicIntro');
+        logStateChange('navigateBack:notifications->stoicIntro');
         break;
       case 'privacy':
         setCurrentScreen('notifications');
@@ -1225,82 +1177,6 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
       }
 
       navigateNext();
-    }
-  };
-
-  const handleValueToggle = (valueId: string): void => {
-    // Validate value ID
-    if (!THERAPEUTIC_VALUES.some(v => v.id === valueId)) {
-      logStateChange('handleValueToggle:invalid', { valueId });
-
-      // HIPAA: Log invalid therapeutic preference attempt
-      logAuditEvent(
-        'phi_access',
-        'therapeutic_preference',
-        `Invalid therapeutic value attempted: ${valueId}`,
-        'onboarding_screen',
-        'low',
-        'failure',
-        'Invalid value ID'
-      );
-      return;
-    }
-
-    logStateChange('handleValueToggle', { valueId, currentCount: selectedValues.length });
-
-    if (selectedValues.includes(valueId)) {
-      // Remove value (but enforce minimum of 3)
-      if (selectedValues.length > 3) {
-        const updatedValues = selectedValues.filter(id => id !== valueId);
-        setSelectedValues(updatedValues);
-        logStateChange('handleValueToggle:removed', { valueId, newCount: updatedValues.length });
-
-        // HIPAA: Log therapeutic preference modification
-        logAuditEvent(
-          'phi_modification',
-          'therapeutic_preference',
-          `Therapeutic value removed: ${valueId}`,
-          'onboarding_screen',
-          'low',
-          'success'
-        );
-      } else {
-        logStateChange('handleValueToggle:min_limit_reached', { valueId, currentCount: selectedValues.length });
-      }
-    } else if (selectedValues.length < 5) {
-      // Add value (enforce maximum of 5)
-      const updatedValues = [...selectedValues, valueId];
-      setSelectedValues(updatedValues);
-      logStateChange('handleValueToggle:added', { valueId, newCount: updatedValues.length });
-
-      // HIPAA: Log therapeutic preference creation
-      logAuditEvent(
-        'phi_creation',
-        'therapeutic_preference',
-        `Therapeutic value added: ${valueId}`,
-        'onboarding_screen',
-        'low',
-        'success'
-      );
-
-      // HIPAA: Data minimization validation
-      const valueData = THERAPEUTIC_VALUES.find(v => v.id === valueId);
-      if (valueData) {
-        const minimizationStatus = validateDataMinimization('therapeutic_preference', 'treatment', '1_year');
-        if (minimizationStatus === 'excessive') {
-          logAuditEvent(
-            'phi_access',
-            'therapeutic_preference',
-            `Data minimization warning: ${valueId} may be excessive`,
-            'onboarding_screen',
-            'medium',
-            'success',
-            'Data minimization review needed'
-          );
-        }
-      }
-    } else {
-      logStateChange('handleValueToggle:max_limit_reached', { valueId, currentCount: selectedValues.length });
     }
   };
 
@@ -1486,7 +1362,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
     if (!__DEV__) return null;
 
     const complianceScore = calculateComplianceScore();
-    const activePHICount = phq9Answers.length + gad7Answers.length + selectedValues.length;
+    const activePHICount = phq9Answers.length + gad7Answers.length;
 
     return (
       <View style={{ position: 'absolute', bottom: 50, right: 10, backgroundColor: 'rgba(0,0,0,0.9)', padding: 8, borderRadius: 4, maxWidth: 300 }}>
@@ -1494,7 +1370,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
           🏥 HIPAA COMPLIANCE MONITOR
         </Text>
         <Text style={{ color: 'white', fontSize: 9, marginTop: 4 }}>
-          State: {currentScreen} | Q: {currentQuestionIndex} | PHQ: {phq9Answers.length}/9 | GAD: {gad7Answers.length}/7 | Values: {selectedValues.length}/5
+          State: {currentScreen} | Q: {currentQuestionIndex} | PHQ: {phq9Answers.length}/9 | GAD: {gad7Answers.length}/7
         </Text>
         <Text style={{ color: 'white', fontSize: 9, marginTop: 2 }}>
           📊 Compliance: {complianceScore.toFixed(1)}% | 📋 Audits: {auditTrail.length} | 🔒 PHI Records: {activePHICount}
@@ -1521,7 +1397,6 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
       currentQuestionIndex,
       phq9Answers,
       gad7Answers,
-      selectedValues,
       notificationTimes,
       consentProvided,
       timestamp: Date.now(),
@@ -1530,11 +1405,10 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
 
   const validateOnboardingState = (): boolean => {
     const isValid = {
-      screen: ['welcome', 'phq9', 'gad7', 'values', 'notifications', 'privacy', 'celebration'].includes(currentScreen),
+      screen: ['welcome', 'phq9', 'gad7', 'stoicIntro', 'notifications', 'privacy', 'celebration'].includes(currentScreen),
       questionIndex: currentQuestionIndex >= 0 && currentQuestionIndex < 9,
       phq9: phq9Answers.every(a => validateAssessmentAnswer(a.response)),
       gad7: gad7Answers.every(a => validateAssessmentAnswer(a.response)),
-      values: validateValuesSelection(selectedValues) || selectedValues.length === 0,
       notifications: validateNotificationTimes(notificationTimes),
       consent: typeof consentProvided === 'boolean',
     };
@@ -1581,14 +1455,14 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
           accessible={true}
           accessibilityRole="header"
         >
-          <Text
-            style={styles.welcomeIcon}
+          <View
             accessible={true}
-            accessibilityLabel="Brain icon"
+            accessibilityLabel="Being logo"
             accessibilityRole="image"
+            style={styles.welcomeIconContainer}
           >
-            🧠
-          </Text>
+            <BrainIcon color={colors.midnightBlue} size={80} />
+          </View>
           <Text
             style={styles.title}
             accessible={true}
@@ -1790,8 +1664,8 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
               <Pressable
                 style={[styles.secondaryButton, styles.accessibleTouchTarget, { marginTop: 16 }]}
                 onPress={() => {
-                  // Skip to next screen (values)
-                  setCurrentScreen('values');
+                  // Skip to next screen (Stoic Intro)
+                  setCurrentScreen('stoicIntro');
                 }}
                 accessible={true}
                 accessibilityRole="button"
@@ -1837,57 +1711,26 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
             </Text>
           </View>
 
-          {/* Response options with enhanced accessibility */}
-          <View
-            style={styles.optionsContainer}
-            accessible={true}
-            accessibilityRole="radiogroup"
-            accessibilityLabel="Response options. Choose how often this bothered you."
-          >
-            {RESPONSE_OPTIONS.map((option: ResponseOption, index: number) => {
-              const isSelected = previousAnswer?.response === option.value;
-              const isFirstOption = index === 0;
-              const isLastOption = index === RESPONSE_OPTIONS.length - 1;
-
-              return (
-                <Pressable
-                  key={option.value}
-                  style={[
-                    styles.optionButton,
-                    styles.accessibleTouchTarget,
-                    isSelected && styles.optionButtonSelected
-                  ]}
-                  onPress={() => {
-                    // Announce selection to screen reader
-                    if (isScreenReaderEnabled) {
-                      announceToScreenReader(`Selected: ${option.label}`);
-                    }
-                    handleAssessmentAnswer(option.value);
-                  }}
-                  accessible={true}
-                  accessibilityRole="radio"
-                  accessibilityLabel={`${option.label}. Option ${index + 1} of ${RESPONSE_OPTIONS.length}`}
-                  accessibilityHint={`Double tap to select. ${isLastQuestion ? 'This is the final question.' : 'Will proceed to next question.'}`}
-                  accessibilityState={{
-                    selected: isSelected,
-                    checked: isSelected
-                  }}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
-                  <Text
-                    style={[
-                      styles.optionText,
-                      isSelected && styles.optionTextSelected
-                    ]}
-                    accessible={false}
-                    allowFontScaling={true}
-                    maxFontSizeMultiplier={ACCESSIBILITY.MAX_TEXT_SCALE}
-                  >
-                    {isSelected ? '● ' : '○ '}{option.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
+          {/* Response options with enhanced accessibility - Using RadioGroup (no circles) */}
+          <View style={styles.optionsContainer}>
+            <RadioGroup
+              options={RESPONSE_OPTIONS}
+              value={previousAnswer?.response}
+              onValueChange={(value) => {
+                // Announce selection to screen reader
+                if (isScreenReaderEnabled) {
+                  const selectedOption = RESPONSE_OPTIONS.find(opt => opt.value === value);
+                  announceToScreenReader(`Selected: ${selectedOption?.label}`);
+                }
+                handleAssessmentAnswer(value as AssessmentResponse);
+              }}
+              label="Response options. Choose how often this bothered you."
+              orientation="vertical"
+              clinicalContext="phq9"
+              theme="neutral"
+              testID="phq9-response-options"
+              showRadioIndicator={false}
+            />
           </View>
 
           {/* Navigation with enhanced accessibility */}
@@ -2039,8 +1882,8 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
               <Pressable
                 style={[styles.secondaryButton, styles.accessibleTouchTarget, { marginTop: 16 }]}
                 onPress={() => {
-                  // Skip to next screen (values)
-                  setCurrentScreen('values');
+                  // Skip to next screen (Stoic Intro)
+                  setCurrentScreen('stoicIntro');
                 }}
                 accessible={true}
                 accessibilityRole="button"
@@ -2086,55 +1929,26 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
             </Text>
           </View>
 
-          {/* Response options with enhanced accessibility */}
-          <View
-            style={styles.optionsContainer}
-            accessible={true}
-            accessibilityRole="radiogroup"
-            accessibilityLabel="Response options. Choose how often this bothered you."
-          >
-            {RESPONSE_OPTIONS.map((option: ResponseOption, index: number) => {
-              const isSelected = previousAnswer?.response === option.value;
-
-              return (
-                <Pressable
-                  key={option.value}
-                  style={[
-                    styles.optionButton,
-                    styles.accessibleTouchTarget,
-                    isSelected && styles.optionButtonSelected
-                  ]}
-                  onPress={() => {
-                    // Announce selection to screen reader
-                    if (isScreenReaderEnabled) {
-                      announceToScreenReader(`Selected: ${option.label}`);
-                    }
-                    handleAssessmentAnswer(option.value);
-                  }}
-                  accessible={true}
-                  accessibilityRole="radio"
-                  accessibilityLabel={`${option.label}. Option ${index + 1} of ${RESPONSE_OPTIONS.length}`}
-                  accessibilityHint={`Double tap to select. ${isLastQuestion ? 'This will complete the anxiety assessment.' : 'Will proceed to next question.'}`}
-                  accessibilityState={{
-                    selected: isSelected,
-                    checked: isSelected
-                  }}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
-                  <Text
-                    style={[
-                      styles.optionText,
-                      isSelected && styles.optionTextSelected
-                    ]}
-                    accessible={false}
-                    allowFontScaling={true}
-                    maxFontSizeMultiplier={ACCESSIBILITY.MAX_TEXT_SCALE}
-                  >
-                    {isSelected ? '● ' : '○ '}{option.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
+          {/* Response options with enhanced accessibility - Using RadioGroup (no circles) */}
+          <View style={styles.optionsContainer}>
+            <RadioGroup
+              options={RESPONSE_OPTIONS}
+              value={previousAnswer?.response}
+              onValueChange={(value) => {
+                // Announce selection to screen reader
+                if (isScreenReaderEnabled) {
+                  const selectedOption = RESPONSE_OPTIONS.find(opt => opt.value === value);
+                  announceToScreenReader(`Selected: ${selectedOption?.label}`);
+                }
+                handleAssessmentAnswer(value as AssessmentResponse);
+              }}
+              label="Response options. Choose how often this bothered you."
+              orientation="vertical"
+              clinicalContext="gad7"
+              theme="neutral"
+              testID="gad7-response-options"
+              showRadioIndicator={false}
+            />
           </View>
 
           {/* Navigation with enhanced accessibility */}
@@ -2174,12 +1988,12 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
     );
   };
 
-  const renderValues = (): JSX.Element => (
+  const renderStoicIntro = (): JSX.Element => (
     <SafeAreaView
       style={styles.container}
       accessible={true}
       accessibilityRole="main"
-      accessibilityLabel="Personal values selection screen"
+      accessibilityLabel="Stoic Mindfulness introduction"
     >
       <ScrollView
         ref={scrollViewRef}
@@ -2189,144 +2003,77 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
         showsVerticalScrollIndicator={true}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Live region for announcements */}
-        <View
-          accessible={true}
-          accessibilityRole="alert"
-          accessibilityLiveRegion={ACCESSIBILITY.LIVE_REGION.POLITE}
-          style={{ position: 'absolute', left: -10000 }}
-        >
-          <Text>{announceText}</Text>
-        </View>
-
-        {/* Crisis button removed from Values screen - only on assessment screens for safety */}
-
-        <View
-          style={styles.header}
-          accessible={true}
-          accessibilityRole="header"
-        >
-          <Text
-            style={styles.title}
-            accessible={true}
-            accessibilityRole="header"
-            accessibilityLevel={1}
-            allowFontScaling={true}
-            maxFontSizeMultiplier={ACCESSIBILITY.MAX_TEXT_SCALE}
-          >
-            What Matters to You?
-          </Text>
-          <Text
-            style={styles.subtitle}
-            accessible={true}
-            accessibilityRole="text"
-            allowFontScaling={true}
-            maxFontSizeMultiplier={ACCESSIBILITY.MAX_TEXT_SCALE}
-          >
-            Choose 3-5 values that matter most to you
+        <View style={styles.header}>
+          <Text style={styles.title}>Welcome to Stoic Mindfulness</Text>
+          <Text style={styles.subtitle}>
+            Ancient wisdom meets modern mindfulness for mental wellbeing
           </Text>
         </View>
 
-        <View
-          style={styles.section}
-          accessible={true}
-          accessibilityRole="text"
-        >
-          <Text
-            style={styles.bodyText}
-            accessible={true}
-            accessibilityRole="text"
-            allowFontScaling={true}
-            maxFontSizeMultiplier={ACCESSIBILITY.MAX_TEXT_SCALE}
-          >
-            These guide your mindfulness practice.
-          </Text>
-          <Text
-            style={[
-              styles.selectionCount,
-              selectedValues.length < 3 && styles.requiredField
-            ]}
-            accessible={true}
-            accessibilityRole="text"
-            accessibilityLabel={`Value selection progress: ${selectedValues.length} selected out of required 3 to 5 values`}
-            allowFontScaling={true}
-            maxFontSizeMultiplier={ACCESSIBILITY.MAX_TEXT_SCALE}
-          >
-            Selected: {selectedValues.length} of 5 {selectedValues.length < 3 && '(Need at least 3)'}
+        <View style={styles.section}>
+          <Text style={styles.bodyText}>
+            Stoic Mindfulness combines present-moment awareness with classical Stoic philosophy from Marcus Aurelius, Epictetus, and Seneca.
           </Text>
         </View>
 
-        <View
-          style={styles.valuesGrid}
-          accessible={true}
-          accessibilityRole="group"
-          accessibilityLabel="Therapeutic values. Select 3 to 5 values that resonate with you."
-        >
-          {THERAPEUTIC_VALUES.map((value: TherapeuticValue, index: number) => {
-            const isSelected = selectedValues.includes(value.id);
-            const canSelect = selectedValues.length < 5 || isSelected;
-            const canDeselect = selectedValues.length > 3 || !isSelected;
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Five Core Principles</Text>
+          
+          <View style={styles.principleCard}>
+            <Text style={styles.principleTitle}>1. Aware Presence</Text>
+            <Text style={styles.principleDescription}>
+              Be fully here now, observing thoughts without judgment
+            </Text>
+          </View>
 
-            return (
-              <Pressable
-                key={value.id}
-                style={[
-                  styles.valuePill,
-                  isSelected && styles.valuePillSelected,
-                  !canSelect && styles.valuePillDisabled
-                ]}
-                onPress={() => {
-                  if ((isSelected && canDeselect) || (!isSelected && canSelect)) {
-                    // Announce selection change to screen reader
-                    if (isScreenReaderEnabled) {
-                      const action = isSelected ? 'Deselected' : 'Selected';
-                      const newCount = isSelected ? selectedValues.length - 1 : selectedValues.length + 1;
-                      announceToScreenReader(`${action}: ${value.label}. ${newCount} values selected.`);
-                    }
-                    handleValueToggle(value.id);
-                    manageFocus('value-pill');
-                  }
-                }}
-                accessible={true}
-                accessibilityRole="checkbox"
-                accessibilityLabel={`${value.label}: ${value.description}`}
-                accessibilityHint={
-                  isSelected
-                    ? canDeselect
-                      ? `Selected. Double tap to deselect. ${selectedValues.length - 1} would remain selected.`
-                      : 'Selected. Cannot deselect - minimum 3 values required.'
-                    : canSelect
-                      ? `Not selected. Double tap to select. ${selectedValues.length + 1} would be selected.`
-                      : 'Not selected. Cannot select - maximum 5 values allowed.'
-                }
-                accessibilityState={{
-                  checked: isSelected,
-                  disabled: (!canSelect && !isSelected) || (!canDeselect && isSelected)
-                }}
-                hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
-              >
-                <Text
-                  style={[
-                    styles.valuePillText,
-                    isSelected && styles.valuePillTextSelected
-                  ]}
-                  accessible={false}
-                  allowFontScaling={true}
-                  maxFontSizeMultiplier={ACCESSIBILITY.MAX_TEXT_SCALE}
-                >
-                  {value.label}
-                </Text>
-              </Pressable>
-            );
-          })}
+          <View style={styles.principleCard}>
+            <Text style={styles.principleTitle}>2. Radical Acceptance</Text>
+            <Text style={styles.principleDescription}>
+              Accept reality as it is, without resistance
+            </Text>
+          </View>
+
+          <View style={styles.principleCard}>
+            <Text style={styles.principleTitle}>3. Sphere Sovereignty</Text>
+            <Text style={styles.principleDescription}>
+              Focus on what you control (your responses, character, intentions)
+            </Text>
+          </View>
+
+          <View style={styles.principleCard}>
+            <Text style={styles.principleTitle}>4. Virtuous Response</Text>
+            <Text style={styles.principleDescription}>
+              In every situation, act with wisdom, courage, justice, or temperance
+            </Text>
+          </View>
+
+          <View style={styles.principleCard}>
+            <Text style={styles.principleTitle}>5. Interconnected Living</Text>
+            <Text style={styles.principleDescription}>
+              Recognize our shared humanity and act for the common good
+            </Text>
+          </View>
         </View>
 
-        <View
-          style={styles.navigationContainer}
-          accessible={true}
-          accessibilityRole="group"
-          accessibilityLabel="Navigation buttons"
-        >
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Four Cardinal Virtues</Text>
+          <Text style={styles.bodyText}>
+            These universal virtues guide character development:
+          </Text>
+          
+          <Text style={styles.bulletText}>• Wisdom - Sound judgment and understanding</Text>
+          <Text style={styles.bulletText}>• Courage - Facing challenges with strength</Text>
+          <Text style={styles.bulletText}>• Justice - Fairness toward yourself and others</Text>
+          <Text style={styles.bulletText}>• Temperance - Self-control and balance</Text>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.bodyText}>
+            Throughout your journey, you'll practice these principles and reflect on moments of virtue in your daily life.
+          </Text>
+        </View>
+
+        <View style={styles.navigationContainer}>
           <Pressable
             style={[styles.backButton, styles.accessibleTouchTarget]}
             onPress={() => {
@@ -2336,54 +2083,24 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
             accessible={true}
             accessibilityRole="button"
             accessibilityLabel="Back"
-            accessibilityHint="Double tap to return to the anxiety assessment"
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Text
-              style={styles.backButtonText}
-              accessible={false}
-              allowFontScaling={true}
-              maxFontSizeMultiplier={ACCESSIBILITY.MAX_TEXT_SCALE}
-            >
-              Back
-            </Text>
+            <Text style={styles.backButtonText}>Back</Text>
           </Pressable>
           <Pressable
             ref={primaryButtonRef}
-            style={[
-              styles.primaryButton,
-              styles.accessibleTouchTarget,
-              selectedValues.length < 3 && styles.primaryButtonDisabled
-            ]}
+            style={[styles.primaryButton, styles.accessibleTouchTarget]}
             onPress={() => {
-              if (selectedValues.length >= 3) {
-                announceToScreenReader('Continuing to notification settings');
-                manageFocus('primary-button', primaryButtonRef);
-                navigateNext();
-              }
+              announceToScreenReader('Continuing to notification settings');
+              navigateNext();
             }}
-            disabled={selectedValues.length < 3}
             accessible={true}
             accessibilityRole="button"
             accessibilityLabel="Continue"
-            accessibilityHint={
-              selectedValues.length >= 3
-                ? 'Double tap to continue to notification settings'
-                : `Cannot continue. Please select ${3 - selectedValues.length} more value${3 - selectedValues.length > 1 ? 's' : ''}.`
-            }
-            accessibilityState={{
-              disabled: selectedValues.length < 3
-            }}
+            accessibilityHint="Double tap to continue to notification settings"
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Text
-              style={styles.primaryButtonText}
-              accessible={false}
-              allowFontScaling={true}
-              maxFontSizeMultiplier={ACCESSIBILITY.MAX_TEXT_SCALE}
-            >
-              Continue
-            </Text>
+            <Text style={styles.primaryButtonText}>Continue</Text>
           </Pressable>
         </View>
       </ScrollView>
@@ -2605,19 +2322,6 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
           )}
 
           <View style={styles.summarySection}>
-            <Text style={styles.summaryLabel}>Your Values ({selectedValues.length} selected)</Text>
-            {selectedValues.slice(0, 3).map((valueId: string) => {
-              const value: TherapeuticValue | undefined = THERAPEUTIC_VALUES.find((v: TherapeuticValue) => v.id === valueId);
-              return (
-                <Text key={valueId} style={styles.summaryValue}>• {value?.label}</Text>
-              );
-            })}
-            {selectedValues.length > 3 && (
-              <Text style={styles.summaryValue}>• +{selectedValues.length - 3} more</Text>
-            )}
-          </View>
-
-          <View style={styles.summarySection}>
             <Text style={styles.summaryLabel}>Reminders</Text>
             <Text style={styles.summaryValue}>
               ✓ {notificationTimes.filter(n => n.enabled).length} daily check-in reminders
@@ -2656,7 +2360,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
       case 'welcome': return renderWelcome();
       case 'phq9': return renderPhq9();
       case 'gad7': return renderGad7();
-      case 'values': return renderValues();
+      case 'stoicIntro': return renderStoicIntro();
       case 'notifications': return renderNotifications();
       case 'privacy': return renderPrivacy();
       case 'celebration': return renderCelebration();
@@ -2713,6 +2417,9 @@ const styles = StyleSheet.create({
     fontSize: 48,
     marginBottom: spacing.md,
   },
+  welcomeIconContainer: {
+    marginBottom: spacing.md,
+  },
   celebrationIcon: {
     fontSize: 48,
     marginBottom: spacing.md,
@@ -2726,6 +2433,39 @@ const styles = StyleSheet.create({
     color: colors.gray600,
     lineHeight: 22,
     marginBottom: spacing.md,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: colors.black,
+    marginBottom: spacing.md,
+  },
+  principleCard: {
+    backgroundColor: colors.gray100,
+    borderRadius: 8,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.midnightBlue,
+  },
+  principleTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.black,
+    marginBottom: spacing.sm,
+  },
+  principleDescription: {
+    fontSize: 14,
+    fontWeight: '400',
+    color: colors.gray600,
+    lineHeight: 20,
+  },
+  bulletText: {
+    fontSize: 15,
+    fontWeight: '400',
+    color: colors.gray600,
+    lineHeight: 22,
+    marginBottom: spacing.sm,
   },
   featureList: {
     marginTop: spacing.md,

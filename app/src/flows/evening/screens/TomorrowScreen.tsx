@@ -54,7 +54,7 @@ const TomorrowScreen: React.FC<Props> = ({ navigation, onSave }) => {
       onSave(tomorrowData);
     }
 
-    navigation.navigate('Lessons');
+    navigation.navigate('SelfCompassion');
   };
 
   return (

@@ -1,7 +1,7 @@
 /**
  * Simple Exercises Screen - Minimal implementation
- * Direct PHQ-9/GAD-7 assessments with hardcoded styling
- * No complex imports or accessibility framework dependencies
+ * Direct PHQ-9/GAD-7 assessments with shared components
+ * Uses RadioGroup for WCAG-AA compliant accessibility
  */
 
 import React, { useState } from 'react';
@@ -14,6 +14,9 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { PHQ9_QUESTIONS, GAD7_QUESTIONS } from '../flows/assessment/types/questions';
+import { RadioGroup } from '../components/accessibility';
+import type { RadioOption } from '../components/accessibility';
 
 // Hardcoded colors - no dynamic theme system
 const colors = {
@@ -37,31 +40,11 @@ const spacing = {
   xl: 32,
 };
 
-// PHQ-9 Questions (Clinically Validated)
-const PHQ9_QUESTIONS = [
-  { id: 'phq9_1', text: 'Little interest or pleasure in doing things' },
-  { id: 'phq9_2', text: 'Feeling down, depressed, or hopeless' },
-  { id: 'phq9_3', text: 'Trouble falling or staying asleep, or sleeping too much' },
-  { id: 'phq9_4', text: 'Feeling tired or having little energy' },
-  { id: 'phq9_5', text: 'Poor appetite or overeating' },
-  { id: 'phq9_6', text: 'Feeling bad about yourself - or that you are a failure or have let yourself or your family down' },
-  { id: 'phq9_7', text: 'Trouble concentrating on things, such as reading the newspaper or watching television' },
-  { id: 'phq9_8', text: 'Moving or speaking so slowly that other people could have noticed. Or the opposite - being so fidgety or restless that you have been moving around a lot more than usual' },
-  { id: 'phq9_9', text: 'Thoughts that you would be better off dead, or of hurting yourself in some way' },
-];
+// NOTE: PHQ9_QUESTIONS and GAD7_QUESTIONS now imported from shared assessment types
+// This eliminates duplication and ensures clinical accuracy across the app
 
-// GAD-7 Questions (Clinically Validated)
-const GAD7_QUESTIONS = [
-  { id: 'gad7_1', text: 'Feeling nervous, anxious, or on edge' },
-  { id: 'gad7_2', text: 'Not being able to stop or control worrying' },
-  { id: 'gad7_3', text: 'Worrying too much about different things' },
-  { id: 'gad7_4', text: 'Trouble relaxing' },
-  { id: 'gad7_5', text: 'Being so restless that it is hard to sit still' },
-  { id: 'gad7_6', text: 'Becoming easily annoyed or irritable' },
-  { id: 'gad7_7', text: 'Feeling afraid, as if something awful might happen' },
-];
-
-const RESPONSE_OPTIONS = [
+// Response options in RadioOption format (clinically validated)
+const RESPONSE_OPTIONS: RadioOption[] = [
   { value: 0, label: 'Not at all' },
   { value: 1, label: 'Several days' },
   { value: 2, label: 'More than half the days' },
@@ -245,15 +228,17 @@ const ExercisesScreen: React.FC = () => {
         </View>
 
         <View style={styles.optionsContainer}>
-          {RESPONSE_OPTIONS.map((option) => (
-            <Pressable
-              key={option.value}
-              style={styles.optionButton}
-              onPress={() => handleAnswer(option.value)}
-            >
-              <Text style={styles.optionText}>{option.label}</Text>
-            </Pressable>
-          ))}
+          <RadioGroup
+            options={RESPONSE_OPTIONS}
+            value={answers.find(a => a.questionId === currentQuestion.id)?.response}
+            onValueChange={(value) => handleAnswer(value as number)}
+            label={`Response options for question ${currentQuestionIndex + 1} of ${questions.length}`}
+            orientation="vertical"
+            clinicalContext={assessmentType === 'phq9' ? 'phq9' : 'gad7'}
+            theme="neutral"
+            testID={`${assessmentType}-response-options`}
+            showRadioIndicator={false}
+          />
         </View>
       </ScrollView>
     </SafeAreaView>
