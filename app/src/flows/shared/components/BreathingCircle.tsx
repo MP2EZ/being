@@ -43,7 +43,8 @@ const BreathingCircle: React.FC<BreathingCircleProps> = ({
 
   // Cycle counter for completion tracking
   const cycleCountRef = useRef(0);
-  const isReducedMotionRef = useRef(reducedMotion);
+  // Use shared value for worklet compatibility (accessed in UI thread)
+  const isReducedMotion = useSharedValue(reducedMotion);
 
   // Audio accessibility announcements
   const announcePhase = useCallback((phaseText: string) => {
@@ -60,7 +61,7 @@ const BreathingCircle: React.FC<BreathingCircleProps> = ({
   const animatedStyle = useAnimatedStyle(() => {
     'worklet';
 
-    if (isReducedMotionRef.current) {
+    if (isReducedMotion.value) {
       // Minimal animation for reduced motion
       return {
         transform: [{ scale: 1 + (scale.value - 1) * 0.2 }],
@@ -72,7 +73,7 @@ const BreathingCircle: React.FC<BreathingCircleProps> = ({
       transform: [{ scale: scale.value }],
       opacity: opacity.value,
     };
-  }, [scale, opacity]); // Add dependencies for better optimization
+  }, [scale, opacity, isReducedMotion]); // Add dependencies for better optimization
 
   // Phase monitoring for accessibility announcements
   const phaseStyle = useAnimatedStyle(() => {
@@ -91,8 +92,8 @@ const BreathingCircle: React.FC<BreathingCircleProps> = ({
   }, [phase]); // Add dependencies for optimization
 
   useEffect(() => {
-    isReducedMotionRef.current = reducedMotion;
-  }, [reducedMotion]);
+    isReducedMotion.value = reducedMotion;
+  }, [reducedMotion, isReducedMotion]);
 
   useEffect(() => {
     if (!isActive) {
