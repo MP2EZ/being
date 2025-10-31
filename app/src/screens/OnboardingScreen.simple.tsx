@@ -1727,6 +1727,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
               clinicalContext="phq9"
               theme="neutral"
               testID="phq9-response-options"
+              showRadioIndicator={false}
             />
           </View>
 
@@ -1944,6 +1945,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
               clinicalContext="gad7"
               theme="neutral"
               testID="gad7-response-options"
+              showRadioIndicator={false}
             />
           </View>
 

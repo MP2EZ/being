@@ -237,6 +237,7 @@ const ExercisesScreen: React.FC = () => {
             clinicalContext={assessmentType === 'phq9' ? 'phq9' : 'gad7'}
             theme="neutral"
             testID={`${assessmentType}-response-options`}
+            showRadioIndicator={false}
           />
         </View>
       </ScrollView>
