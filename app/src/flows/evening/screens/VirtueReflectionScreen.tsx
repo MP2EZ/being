@@ -55,7 +55,7 @@ const VirtueReflectionScreen: React.FC<Props> = ({ navigation, onSave }) => {
       onSave(virtueReflectionData);
     }
 
-    navigation.navigate('SenecaQuestions');
+    navigation.navigate('Gratitude');
   };
 
   return (

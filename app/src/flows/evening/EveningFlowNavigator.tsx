@@ -1,6 +1,6 @@
 /**
  * Evening Flow Navigator - DRD v2.0.0
- * Stoic Mindfulness Evening Practice (8 screens)
+ * Stoic Mindfulness Evening Practice (6 screens)
  *
  * CRITICAL CLINICAL SAFETY IMPLEMENTATION:
  * - Crisis button always present in headers
@@ -8,21 +8,18 @@
  * - Evening-appropriate header styling
  * - Safety-first navigation approach
  *
- * Flow (10-15 min adjustable):
- * 1. VirtueReflection - Mindful reflection
- * 2. SenecaQuestions - Seneca's 3 questions (OPTIONAL)
- * 3. VirtueInstances - Track virtue successes (OPTIONAL) [FEAT-51]
- * 4. VirtueChallenges - Track virtue struggles (OPTIONAL) [FEAT-51]
- * 5. Celebration - Celebrate efforts
- * 6. Gratitude - Gratitude practice
- * 7. Tomorrow - Intention + letting go
- * 8. Lessons - React vs Respond (OPTIONAL)
- * 9. SelfCompassion - Self-compassion (REQUIRED)
- * 10. SleepTransition - Mindful breathing for sleep
- * 11. EveningCompletion - Flow summary
+ * Flow (8-12 min):
+ * 1. VirtueReflection - Mindful reflection on successes and growth areas
+ * 2. Gratitude - Gratitude practice
+ * 3. Tomorrow - Intention setting + letting go
+ * 4. SelfCompassion - Self-compassion practice (REQUIRED)
+ * 5. SleepTransition - Mindful breathing for sleep
+ * 6. EveningCompletion - Flow summary and encouragement
+ *
+ * Note: Detailed virtue tracking (VirtueInstances/VirtueChallenges) available
+ * separately via Profile > Virtue Dashboard to avoid evening flow fatigue.
  *
  * @see /docs/product/Being. DRD.md (DRD-FLOW-004: Evening Flow)
- * @see FEAT-51: Virtue Tracking Dashboard (added VirtueInstances + VirtueChallenges)
  */
 
 import { logSecurity, logPerformance, logError, LogCategory } from '../../services/logging';
@@ -34,13 +31,8 @@ import { EveningFlowParamList } from '../../types/flows';
 
 // Import DRD v2.0.0 Stoic Mindfulness screens
 import VirtueReflectionScreen from './screens/VirtueReflectionScreen';
-import SenecaQuestionsScreen from './screens/SenecaQuestionsScreen';
-import VirtueInstancesScreen from './screens/VirtueInstancesScreen';   // FEAT-51
-import VirtueChallengesScreen from './screens/VirtueChallengesScreen'; // FEAT-51
-import CelebrationScreen from './screens/CelebrationScreen';
 import GratitudeScreen from './screens/GratitudeScreen';
 import TomorrowScreen from './screens/TomorrowScreen';
-import LearningScreen from './screens/LearningScreen';
 import SelfCompassionScreen from './screens/SelfCompassionScreen';
 import SleepTransitionScreen from './screens/SleepTransitionScreen';
 import EveningCompletionScreen from './screens/EveningCompletionScreen';
@@ -94,16 +86,11 @@ const ExitHeaderButton: React.FC<{ onPress: () => void }> = ({ onPress }) => (
   </View>
 );
 
-// Screen order mapping for progress calculation (DRD v2.0.0 + FEAT-51)
+// Screen order mapping for progress calculation (streamlined 6-screen flow)
 const SCREEN_ORDER: (keyof EveningFlowParamList)[] = [
   'VirtueReflection',
-  'SenecaQuestions',
-  'VirtueInstances',      // FEAT-51: Track virtue successes
-  'VirtueChallenges',     // FEAT-51: Track virtue struggles
-  'Celebration',
   'Gratitude',
   'Tomorrow',
-  'Lessons',
   'SelfCompassion',
   'SleepTransition',
   'EveningCompletion'
@@ -199,30 +186,6 @@ const EveningFlowNavigator: React.FC<EveningFlowNavigatorProps> = ({
       />
 
       <Stack.Screen
-        name="SenecaQuestions"
-        component={SenecaQuestionsScreen}
-        options={getHeaderOptions('SenecaQuestions', "Seneca's Questions (Optional)")}
-      />
-
-      <Stack.Screen
-        name="VirtueInstances"
-        component={VirtueInstancesScreen}
-        options={getHeaderOptions('VirtueInstances', 'Virtue in Action (Optional)')}
-      />
-
-      <Stack.Screen
-        name="VirtueChallenges"
-        component={VirtueChallengesScreen}
-        options={getHeaderOptions('VirtueChallenges', 'Learning from Experience (Optional)')}
-      />
-
-      <Stack.Screen
-        name="Celebration"
-        component={CelebrationScreen}
-        options={getHeaderOptions('Celebration', 'Celebrate Your Efforts')}
-      />
-
-      <Stack.Screen
         name="Gratitude"
         component={GratitudeScreen}
         options={getHeaderOptions('Gratitude', 'Gratitude Practice')}
@@ -235,15 +198,9 @@ const EveningFlowNavigator: React.FC<EveningFlowNavigatorProps> = ({
       />
 
       <Stack.Screen
-        name="Lessons"
-        component={LearningScreen}
-        options={getHeaderOptions('Lessons', 'React vs Respond (Optional)')}
-      />
-
-      <Stack.Screen
         name="SelfCompassion"
         component={SelfCompassionScreen}
-        options={getHeaderOptions('SelfCompassion', 'Self-Compassion (Required)')}
+        options={getHeaderOptions('SelfCompassion', 'Self-Compassion')}
       />
 
       <Stack.Screen

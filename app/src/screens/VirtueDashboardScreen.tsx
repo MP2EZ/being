@@ -50,10 +50,6 @@ const VirtueDashboardScreen: React.FC<VirtueDashboardScreenProps> = ({ onReturn 
     totalPracticeDays,
     currentStreak,
     longestStreak,
-    virtueInstances,
-    virtueChallenges,
-    domainProgress,
-    getVirtueInstancesByVirtue,
     getRecentVirtueInstances,
     loadPersistedState,
   } = useStoicPracticeStore();
@@ -107,64 +103,6 @@ const VirtueDashboardScreen: React.FC<VirtueDashboardScreenProps> = ({ onReturn 
 
   const stageInfo = getStageDisplay(developmentalStage);
 
-  // Virtue data
-  const virtueData = [
-    {
-      virtue: 'wisdom' as CardinalVirtue,
-      label: 'Wisdom',
-      greekTerm: 'Sophia/Phronesis',
-      description: 'Sound judgment, understanding what matters',
-      instances: getVirtueInstancesByVirtue('wisdom'),
-      challenges: virtueChallenges.wisdom || [],
-    },
-    {
-      virtue: 'courage' as CardinalVirtue,
-      label: 'Courage',
-      greekTerm: 'Andreia',
-      description: 'Acting rightly despite fear',
-      instances: getVirtueInstancesByVirtue('courage'),
-      challenges: virtueChallenges.courage || [],
-    },
-    {
-      virtue: 'justice' as CardinalVirtue,
-      label: 'Justice',
-      greekTerm: 'Dikaiosyne',
-      description: 'Fairness, contributing to common good',
-      instances: getVirtueInstancesByVirtue('justice'),
-      challenges: virtueChallenges.justice || [],
-    },
-    {
-      virtue: 'temperance' as CardinalVirtue,
-      label: 'Temperance',
-      greekTerm: 'Sophrosyne',
-      description: 'Self-control, moderation',
-      instances: getVirtueInstancesByVirtue('temperance'),
-      challenges: virtueChallenges.temperance || [],
-    },
-  ];
-
-  // Domain data
-  const domains = [
-    {
-      domain: 'work',
-      label: 'Work',
-      description: 'Professional context, productivity, collaboration',
-      progress: domainProgress.work,
-    },
-    {
-      domain: 'relationships',
-      label: 'Relationships',
-      description: 'Family, friends, personal connections',
-      progress: domainProgress.relationships,
-    },
-    {
-      domain: 'adversity',
-      label: 'Adversity',
-      description: 'Challenges, setbacks, difficult circumstances',
-      progress: domainProgress.adversity,
-    },
-  ];
-
   // Recent practice (last 30 days)
   const recentInstances = getRecentVirtueInstances(30);
   const practiceFrequency = recentInstances.length;
@@ -175,9 +113,9 @@ const VirtueDashboardScreen: React.FC<VirtueDashboardScreenProps> = ({ onReturn 
       <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.title}>Virtue Tracking Dashboard</Text>
+          <Text style={styles.title}>Practice Progress</Text>
           <Text style={styles.subtitle}>
-            Character Development Through Practice
+            Your Mindfulness Journey
           </Text>
         </View>
 
@@ -211,103 +149,7 @@ const VirtueDashboardScreen: React.FC<VirtueDashboardScreenProps> = ({ onReturn 
           </View>
         </View>
 
-        {/* Section 2: The Four Cardinal Virtues */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>The Four Cardinal Virtues</Text>
-          <Text style={styles.sectionHelper}>
-            Classical Stoic philosophy - the foundation of character
-          </Text>
-
-          {virtueData.map((virtue) => (
-            <View key={virtue.virtue} style={styles.virtueCard}>
-              <View style={styles.virtueHeader}>
-                <View>
-                  <Text style={styles.virtueLabel}>{virtue.label}</Text>
-                  <Text style={styles.virtueGreek}>{virtue.greekTerm}</Text>
-                </View>
-                <View style={styles.virtueCounts}>
-                  <Text style={styles.instanceCount}>{virtue.instances.length} instances</Text>
-                  <Text style={styles.challengeCount}>{virtue.challenges.length} challenges</Text>
-                </View>
-              </View>
-
-              <Text style={styles.virtueDescription}>{virtue.description}</Text>
-
-              {/* Recent Practice */}
-              {virtue.instances.length > 0 && (
-                <View style={styles.recentPractice}>
-                  <Text style={styles.recentLabel}>Recent Practice:</Text>
-                  {virtue.instances.slice(0, 3).map((instance, index) => (
-                    <Text key={index} style={styles.recentItem}>
-                      • {instance.context.substring(0, 80)}
-                      {instance.context.length > 80 ? '...' : ''}
-                    </Text>
-                  ))}
-                </View>
-              )}
-
-              {/* Growth Area */}
-              {virtue.challenges.length > 0 && (
-                <View style={styles.growthArea}>
-                  <Text style={styles.growthLabel}>Growth Area:</Text>
-                  <Text style={styles.growthText}>
-                    {virtue.challenges.length} {virtue.challenges.length === 1 ? 'challenge' : 'challenges'} identified
-                    - opportunities for practice
-                  </Text>
-                </View>
-              )}
-
-              {/* No practice yet */}
-              {virtue.instances.length === 0 && virtue.challenges.length === 0 && (
-                <View style={styles.noPractice}>
-                  <Text style={styles.noPracticeText}>
-                    No practice recorded yet. Evening reflection is a good place to start.
-                  </Text>
-                </View>
-              )}
-            </View>
-          ))}
-        </View>
-
-        {/* Section 3: Practice Domains */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Where You Practice Virtue</Text>
-          <Text style={styles.sectionHelper}>
-            Virtue in action across different areas of life
-          </Text>
-
-          {domains.map((domain) => (
-            <View key={domain.domain} style={styles.domainCard}>
-              <View style={styles.domainHeader}>
-                <Text style={styles.domainLabel}>{domain.label}</Text>
-                <Text style={styles.domainCount}>
-                  {domain.progress.practiceInstances} instances
-                </Text>
-              </View>
-
-              {domain.progress.practiceInstances > 0 ? (
-                <>
-                  <Text style={styles.domainDescription}>
-                    Most practiced: {domain.progress.principlesApplied.length > 0
-                      ? domain.progress.principlesApplied.slice(0, 2).join(', ')
-                      : 'Building practice'}
-                  </Text>
-                  <Text style={styles.domainLastPractice}>
-                    Last practice: {domain.progress.lastPracticeDate
-                      ? new Date(domain.progress.lastPracticeDate).toLocaleDateString()
-                      : 'Not yet'}
-                  </Text>
-                </>
-              ) : (
-                <Text style={styles.domainNoPractice}>
-                  No practice in this domain yet
-                </Text>
-              )}
-            </View>
-          ))}
-        </View>
-
-        {/* Section 4: Practice Timeline */}
+        {/* Section 2: Practice Timeline */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Practice Frequency (Last 30 Days)</Text>
 
@@ -487,137 +329,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: colors.gray500,
     textAlign: 'center',
-  },
-  virtueCard: {
-    backgroundColor: colors.gray100,
-    borderRadius: 12,
-    padding: spacing.lg,
-    marginBottom: spacing.md,
-    borderLeftWidth: 4,
-    borderLeftColor: colors.eveningPrimary,
-  },
-  virtueHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: spacing.sm,
-  },
-  virtueLabel: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: colors.black,
-    marginBottom: 2,
-  },
-  virtueGreek: {
-    fontSize: 13,
-    fontWeight: '400',
-    color: colors.gray500,
-    fontStyle: 'italic',
-  },
-  virtueCounts: {
-    alignItems: 'flex-end',
-  },
-  instanceCount: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.success,
-  },
-  challengeCount: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: colors.warning,
-  },
-  virtueDescription: {
-    fontSize: 15,
-    fontWeight: '400',
-    color: colors.gray600,
-    marginBottom: spacing.md,
-    lineHeight: 21,
-  },
-  recentPractice: {
-    marginTop: spacing.sm,
-  },
-  recentLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.gray700,
-    marginBottom: 4,
-  },
-  recentItem: {
-    fontSize: 14,
-    fontWeight: '400',
-    color: colors.gray600,
-    lineHeight: 20,
-    marginBottom: 4,
-  },
-  growthArea: {
-    marginTop: spacing.sm,
-    paddingTop: spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: colors.gray300,
-  },
-  growthLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.gray700,
-    marginBottom: 4,
-  },
-  growthText: {
-    fontSize: 14,
-    fontWeight: '400',
-    color: colors.gray600,
-    lineHeight: 20,
-  },
-  noPractice: {
-    marginTop: spacing.sm,
-  },
-  noPracticeText: {
-    fontSize: 14,
-    fontWeight: '400',
-    color: colors.gray500,
-    fontStyle: 'italic',
-    lineHeight: 20,
-  },
-  domainCard: {
-    backgroundColor: colors.white,
-    borderRadius: 8,
-    padding: spacing.md,
-    marginBottom: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.gray200,
-  },
-  domainHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-  },
-  domainLabel: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.black,
-  },
-  domainCount: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: colors.eveningPrimary,
-  },
-  domainDescription: {
-    fontSize: 14,
-    fontWeight: '400',
-    color: colors.gray600,
-    marginBottom: 4,
-  },
-  domainLastPractice: {
-    fontSize: 13,
-    fontWeight: '400',
-    color: colors.gray500,
-  },
-  domainNoPractice: {
-    fontSize: 14,
-    fontWeight: '400',
-    color: colors.gray500,
-    fontStyle: 'italic',
   },
   frequencyCard: {
     backgroundColor: colors.gray100,
