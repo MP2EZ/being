@@ -36,7 +36,7 @@ import { PHQ9_QUESTIONS, GAD7_QUESTIONS } from '../flows/assessment/types/questi
 import type { AssessmentResponse } from '../flows/assessment/types';
 import { RadioGroup } from '../components/accessibility';
 import type { RadioOption } from '../components/accessibility';
-import AppIcon from '../../assets/icon.png';
+import BrainIcon from '../components/shared/BrainIcon';
 
 // WCAG-AA compliant colors with verified contrast ratios
 const colors = {
@@ -1455,14 +1455,14 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
           accessible={true}
           accessibilityRole="header"
         >
-          <Image
-            source={AppIcon}
-            style={styles.welcomeIconImage}
+          <View
             accessible={true}
             accessibilityLabel="Being logo"
             accessibilityRole="image"
-            resizeMode="contain"
-          />
+            style={styles.welcomeIconContainer}
+          >
+            <BrainIcon color={colors.midnightBlue} size={80} />
+          </View>
           <Text
             style={styles.title}
             accessible={true}
@@ -2417,9 +2417,7 @@ const styles = StyleSheet.create({
     fontSize: 48,
     marginBottom: spacing.md,
   },
-  welcomeIconImage: {
-    width: 80,
-    height: 80,
+  welcomeIconContainer: {
     marginBottom: spacing.md,
   },
   celebrationIcon: {
