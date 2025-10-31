@@ -43,6 +43,7 @@ const BreathingCircle: React.FC<BreathingCircleProps> = ({
 
   // Cycle counter for completion tracking
   const cycleCountRef = useRef(0);
+  // Use shared value for worklet compatibility (accessed in UI thread)
   const isReducedMotion = useSharedValue(reducedMotion);
 
   // Audio accessibility announcements
@@ -92,7 +93,7 @@ const BreathingCircle: React.FC<BreathingCircleProps> = ({
 
   useEffect(() => {
     isReducedMotion.value = reducedMotion;
-  }, [reducedMotion]);
+  }, [reducedMotion, isReducedMotion]);
 
   useEffect(() => {
     if (!isActive) {
