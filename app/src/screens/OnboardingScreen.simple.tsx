@@ -27,6 +27,7 @@ import {
   Alert,
   AccessibilityInfo,
   Platform,
+  Image,
 } from 'react-native';
 import SafetyButton from '../flows/shared/components/SafetyButton';
 import NotificationTimePicker from '../components/NotificationTimePicker';
@@ -1453,14 +1454,14 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
           accessible={true}
           accessibilityRole="header"
         >
-          <Text
-            style={styles.welcomeIcon}
+          <Image
+            source={require('../../assets/icon.png')}
+            style={styles.welcomeIconImage}
             accessible={true}
-            accessibilityLabel="Brain icon"
+            accessibilityLabel="Being logo"
             accessibilityRole="image"
-          >
-            🧠
-          </Text>
+            resizeMode="contain"
+          />
           <Text
             style={styles.title}
             accessible={true}
@@ -2413,6 +2414,11 @@ const styles = StyleSheet.create({
   },
   welcomeIcon: {
     fontSize: 48,
+    marginBottom: spacing.md,
+  },
+  welcomeIconImage: {
+    width: 80,
+    height: 80,
     marginBottom: spacing.md,
   },
   celebrationIcon: {
