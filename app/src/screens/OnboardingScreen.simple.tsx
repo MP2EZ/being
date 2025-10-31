@@ -31,6 +31,10 @@ import {
 import SafetyButton from '../flows/shared/components/SafetyButton';
 import NotificationTimePicker from '../components/NotificationTimePicker';
 import CollapsibleCrisisButton from '../flows/shared/components/CollapsibleCrisisButton';
+import { PHQ9_QUESTIONS, GAD7_QUESTIONS } from '../flows/assessment/types/questions';
+import type { AssessmentResponse } from '../flows/assessment/types';
+import { RadioGroup } from '../components/accessibility';
+import type { RadioOption } from '../components/accessibility';
 
 // WCAG-AA compliant colors with verified contrast ratios
 const colors = {
@@ -77,31 +81,11 @@ const ACCESSIBILITY = {
   ASSESSMENT_TIMEOUT_MS: 20 * 60 * 1000, // 20 minutes per assessment
 } as const;
 
-// PHQ-9 Questions (Clinically Validated - from ExercisesScreen)
-const PHQ9_QUESTIONS = [
-  { id: 'phq9_1', text: 'Little interest or pleasure in doing things' },
-  { id: 'phq9_2', text: 'Feeling down, depressed, or hopeless' },
-  { id: 'phq9_3', text: 'Trouble falling or staying asleep, or sleeping too much' },
-  { id: 'phq9_4', text: 'Feeling tired or having little energy' },
-  { id: 'phq9_5', text: 'Poor appetite or overeating' },
-  { id: 'phq9_6', text: 'Feeling bad about yourself - or that you are a failure or have let yourself or your family down' },
-  { id: 'phq9_7', text: 'Trouble concentrating on things, such as reading the newspaper or watching television' },
-  { id: 'phq9_8', text: 'Moving or speaking so slowly that other people could have noticed. Or the opposite - being so fidgety or restless that you have been moving around a lot more than usual' },
-  { id: 'phq9_9', text: 'Thoughts that you would be better off dead, or of hurting yourself in some way' },
-];
+// NOTE: PHQ9_QUESTIONS and GAD7_QUESTIONS now imported from shared assessment types
+// This eliminates duplication and ensures clinical accuracy across the app
 
-// GAD-7 Questions (Clinically Validated - from ExercisesScreen)
-const GAD7_QUESTIONS = [
-  { id: 'gad7_1', text: 'Feeling nervous, anxious, or on edge' },
-  { id: 'gad7_2', text: 'Not being able to stop or control worrying' },
-  { id: 'gad7_3', text: 'Worrying too much about different things' },
-  { id: 'gad7_4', text: 'Trouble relaxing' },
-  { id: 'gad7_5', text: 'Being so restless that it is hard to sit still' },
-  { id: 'gad7_6', text: 'Becoming easily annoyed or irritable' },
-  { id: 'gad7_7', text: 'Feeling afraid, as if something awful might happen' },
-];
-
-const RESPONSE_OPTIONS = [
+// Response options in RadioOption format (clinically validated)
+const RESPONSE_OPTIONS: RadioOption[] = [
   { value: 0, label: 'Not at all' },
   { value: 1, label: 'Several days' },
   { value: 2, label: 'More than half the days' },
@@ -132,7 +116,7 @@ type Screen = 'welcome' | 'phq9' | 'gad7' | 'stoicIntro' | 'notifications' | 'pr
 type AssessmentType = 'phq9' | 'gad7';
 
 // Crisis safety types - exact clinical thresholds
-type AssessmentResponse = 0 | 1 | 2 | 3; // Exact clinical response values
+// NOTE: AssessmentResponse now imported from shared assessment types
 type CrisisThresholdPhq = 20; // PHQ≥20 threshold
 type CrisisThresholdGad = 15; // GAD≥15 threshold
 type Question9Response = 0 | 1 | 2 | 3; // Q9 crisis detection (>0)
@@ -186,10 +170,7 @@ interface Question {
   text: string;
 }
 
-interface ResponseOption {
-  value: AssessmentResponse;
-  label: string;
-}
+// NOTE: ResponseOption interface removed - now using RadioOption from accessibility components
 
 // HIPAA COMPLIANCE INTERFACES
 // Comprehensive consent management - 45 CFR 164.508
@@ -1728,57 +1709,25 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
             </Text>
           </View>
 
-          {/* Response options with enhanced accessibility */}
-          <View
-            style={styles.optionsContainer}
-            accessible={true}
-            accessibilityRole="radiogroup"
-            accessibilityLabel="Response options. Choose how often this bothered you."
-          >
-            {RESPONSE_OPTIONS.map((option: ResponseOption, index: number) => {
-              const isSelected = previousAnswer?.response === option.value;
-              const isFirstOption = index === 0;
-              const isLastOption = index === RESPONSE_OPTIONS.length - 1;
-
-              return (
-                <Pressable
-                  key={option.value}
-                  style={[
-                    styles.optionButton,
-                    styles.accessibleTouchTarget,
-                    isSelected && styles.optionButtonSelected
-                  ]}
-                  onPress={() => {
-                    // Announce selection to screen reader
-                    if (isScreenReaderEnabled) {
-                      announceToScreenReader(`Selected: ${option.label}`);
-                    }
-                    handleAssessmentAnswer(option.value);
-                  }}
-                  accessible={true}
-                  accessibilityRole="radio"
-                  accessibilityLabel={`${option.label}. Option ${index + 1} of ${RESPONSE_OPTIONS.length}`}
-                  accessibilityHint={`Double tap to select. ${isLastQuestion ? 'This is the final question.' : 'Will proceed to next question.'}`}
-                  accessibilityState={{
-                    selected: isSelected,
-                    checked: isSelected
-                  }}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
-                  <Text
-                    style={[
-                      styles.optionText,
-                      isSelected && styles.optionTextSelected
-                    ]}
-                    accessible={false}
-                    allowFontScaling={true}
-                    maxFontSizeMultiplier={ACCESSIBILITY.MAX_TEXT_SCALE}
-                  >
-                    {isSelected ? '● ' : '○ '}{option.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
+          {/* Response options with enhanced accessibility - Using RadioGroup (no circles) */}
+          <View style={styles.optionsContainer}>
+            <RadioGroup
+              options={RESPONSE_OPTIONS}
+              value={previousAnswer?.response}
+              onValueChange={(value) => {
+                // Announce selection to screen reader
+                if (isScreenReaderEnabled) {
+                  const selectedOption = RESPONSE_OPTIONS.find(opt => opt.value === value);
+                  announceToScreenReader(`Selected: ${selectedOption?.label}`);
+                }
+                handleAssessmentAnswer(value as AssessmentResponse);
+              }}
+              label="Response options. Choose how often this bothered you."
+              orientation="vertical"
+              clinicalContext="phq9"
+              theme="neutral"
+              testID="phq9-response-options"
+            />
           </View>
 
           {/* Navigation with enhanced accessibility */}
@@ -1977,55 +1926,25 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
             </Text>
           </View>
 
-          {/* Response options with enhanced accessibility */}
-          <View
-            style={styles.optionsContainer}
-            accessible={true}
-            accessibilityRole="radiogroup"
-            accessibilityLabel="Response options. Choose how often this bothered you."
-          >
-            {RESPONSE_OPTIONS.map((option: ResponseOption, index: number) => {
-              const isSelected = previousAnswer?.response === option.value;
-
-              return (
-                <Pressable
-                  key={option.value}
-                  style={[
-                    styles.optionButton,
-                    styles.accessibleTouchTarget,
-                    isSelected && styles.optionButtonSelected
-                  ]}
-                  onPress={() => {
-                    // Announce selection to screen reader
-                    if (isScreenReaderEnabled) {
-                      announceToScreenReader(`Selected: ${option.label}`);
-                    }
-                    handleAssessmentAnswer(option.value);
-                  }}
-                  accessible={true}
-                  accessibilityRole="radio"
-                  accessibilityLabel={`${option.label}. Option ${index + 1} of ${RESPONSE_OPTIONS.length}`}
-                  accessibilityHint={`Double tap to select. ${isLastQuestion ? 'This will complete the anxiety assessment.' : 'Will proceed to next question.'}`}
-                  accessibilityState={{
-                    selected: isSelected,
-                    checked: isSelected
-                  }}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
-                  <Text
-                    style={[
-                      styles.optionText,
-                      isSelected && styles.optionTextSelected
-                    ]}
-                    accessible={false}
-                    allowFontScaling={true}
-                    maxFontSizeMultiplier={ACCESSIBILITY.MAX_TEXT_SCALE}
-                  >
-                    {isSelected ? '● ' : '○ '}{option.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
+          {/* Response options with enhanced accessibility - Using RadioGroup (no circles) */}
+          <View style={styles.optionsContainer}>
+            <RadioGroup
+              options={RESPONSE_OPTIONS}
+              value={previousAnswer?.response}
+              onValueChange={(value) => {
+                // Announce selection to screen reader
+                if (isScreenReaderEnabled) {
+                  const selectedOption = RESPONSE_OPTIONS.find(opt => opt.value === value);
+                  announceToScreenReader(`Selected: ${selectedOption?.label}`);
+                }
+                handleAssessmentAnswer(value as AssessmentResponse);
+              }}
+              label="Response options. Choose how often this bothered you."
+              orientation="vertical"
+              clinicalContext="gad7"
+              theme="neutral"
+              testID="gad7-response-options"
+            />
           </View>
 
           {/* Navigation with enhanced accessibility */}
