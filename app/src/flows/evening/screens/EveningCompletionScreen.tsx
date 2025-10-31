@@ -20,7 +20,7 @@
  * @see /docs/technical/Stoic-Mindfulness-Architecture-v1.0.md
  */
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   View,
   Text,
@@ -44,17 +44,28 @@ type EveningCompletionScreenRouteProp = RouteProp<
 interface Props {
   navigation: EveningCompletionScreenNavigationProp;
   route: EveningCompletionScreenRouteProp;
+  onComplete?: () => void;
 }
 
 const EVENING_COLOR = '#8B4789';
 
-const EveningCompletionScreen: React.FC<Props> = ({ navigation }) => {
+const EveningCompletionScreen: React.FC<Props> = ({ navigation, onComplete }) => {
+  // Auto-complete after 2 seconds
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (onComplete) {
+        onComplete();
+      }
+    }, 2000);
+
+    return () => clearTimeout(timer);
+  }, [onComplete]);
+
   const handleFinish = () => {
-    // Reset navigation to go back to home
-    navigation.reset({
-      index: 0,
-      routes: [{ name: 'DayReview' as any }], // This will be updated to proper home route
-    });
+    // Allow manual completion before 2-second timer
+    if (onComplete) {
+      onComplete();
+    }
   };
 
   return (

@@ -30,6 +30,8 @@ import {
 } from 'react-native';
 import SafetyButton from '../flows/shared/components/SafetyButton';
 import { useValuesStore } from '../stores/valuesStore';
+import NotificationTimePicker from '../components/NotificationTimePicker';
+import CollapsibleCrisisButton from '../flows/shared/components/CollapsibleCrisisButton';
 
 // WCAG-AA compliant colors with verified contrast ratios
 const colors = {
@@ -302,6 +304,10 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
     { period: 'evening', time: '19:00', enabled: true, dataMinimization: 'necessary', retentionPeriod: '90_days' },
   ]);
   const [consentProvided, setConsentProvided] = useState<boolean>(false);
+
+  // Time picker state management
+  const [showTimePicker, setShowTimePicker] = useState<'morning' | 'midday' | 'evening' | null>(null);
+  const [tempTimePickerValue, setTempTimePickerValue] = useState<Date>(new Date());
 
   // ACCESSIBILITY STATE MANAGEMENT
   const [isScreenReaderEnabled, setIsScreenReaderEnabled] = useState<boolean>(false);
@@ -1316,6 +1322,57 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
     });
   };
 
+  // Time picker handlers
+  const handleOpenTimePicker = (period: 'morning' | 'midday' | 'evening'): void => {
+    const notification = notificationTimes.find(n => n.period === period);
+    if (!notification) return;
+
+    // Parse current time string (e.g., "09:00") into a Date object
+    const [hours, minutes] = notification.time.split(':').map(Number);
+    const timeDate = new Date();
+    timeDate.setHours(hours, minutes, 0, 0);
+
+    setTempTimePickerValue(timeDate);
+    setShowTimePicker(period);
+
+    logStateChange('handleOpenTimePicker', { period, currentTime: notification.time });
+  };
+
+  const handleTimePickerConfirm = (selectedTime: Date): void => {
+    if (!showTimePicker) return;
+
+    // Convert Date to time string (e.g., "09:00")
+    const hours = selectedTime.getHours().toString().padStart(2, '0');
+    const minutes = selectedTime.getMinutes().toString().padStart(2, '0');
+    const timeString = `${hours}:${minutes}`;
+
+    // Update notification time
+    const updated = notificationTimes.map(n =>
+      n.period === showTimePicker
+        ? { ...n, time: timeString }
+        : n
+    );
+    setNotificationTimes(updated);
+
+    logStateChange('handleTimePickerConfirm', {
+      period: showTimePicker,
+      newTime: timeString,
+    });
+
+    // Close picker
+    setShowTimePicker(null);
+
+    // Announce change for screen readers
+    if (isScreenReaderEnabled) {
+      setAnnounceText(`${showTimePicker} notification time changed to ${selectedTime.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })}`);
+    }
+  };
+
+  const handleTimePickerCancel = (): void => {
+    setShowTimePicker(null);
+    logStateChange('handleTimePickerCancel', { period: showTimePicker });
+  };
+
   // Enhanced HIPAA consent handler with granular consent management
   const handleConsentToggle = (): void => {
     const newConsent = !consentProvided;
@@ -1517,24 +1574,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
           <Text>{announceText}</Text>
         </View>
 
-        {/* Crisis Button - Always visible with enhanced accessibility */}
-        <View
-          ref={crisisButtonRef}
-          style={styles.crisisButtonContainer}
-          accessible={true}
-          accessibilityRole="button"
-          accessibilityLabel="Crisis support - Get immediate help"
-          accessibilityHint="Double tap to access crisis resources including 988 Lifeline and emergency contacts"
-          onAccessibilityTap={handleCrisisButtonPress}
-          onMagicTap={handleCrisisButtonPress}
-        >
-          <SafetyButton
-            onPress={handleCrisisButtonPress}
-            accessible={true}
-            accessibilityLabel="Crisis support"
-            accessibilityRole="button"
-          />
-        </View>
+        {/* Crisis button removed from Welcome screen - only on assessment screens for safety */}
 
         <View
           style={styles.header}
@@ -1557,7 +1597,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
             allowFontScaling={true}
             maxFontSizeMultiplier={ACCESSIBILITY.MAX_TEXT_SCALE}
           >
-            Welcome to Being.
+            Welcome to Your Mindfulness Journey
           </Text>
           <Text
             style={styles.subtitle}
@@ -1566,7 +1606,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
             allowFontScaling={true}
             maxFontSizeMultiplier={ACCESSIBILITY.MAX_TEXT_SCALE}
           >
-            Your mindful journey begins with understanding yourself
+            Daily mindfulness practice enriched by Stoic philosophy
           </Text>
         </View>
 
@@ -1575,16 +1615,6 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
           accessible={true}
           accessibilityRole="text"
         >
-          <Text
-            style={styles.bodyText}
-            accessible={true}
-            accessibilityRole="text"
-            allowFontScaling={true}
-            maxFontSizeMultiplier={ACCESSIBILITY.MAX_TEXT_SCALE}
-          >
-            Being. is built on Mindfulness-Based Cognitive Therapy (MBCT) principles to support your mental wellness.
-          </Text>
-
           <View
             style={styles.featureList}
             accessible={true}
@@ -1598,7 +1628,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
               allowFontScaling={true}
               maxFontSizeMultiplier={ACCESSIBILITY.MAX_TEXT_SCALE}
             >
-              ✓ Gentle check-ins with yourself
+              ✓ Daily mindfulness practice with meaning
             </Text>
             <Text
               style={styles.featureText}
@@ -1607,7 +1637,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
               allowFontScaling={true}
               maxFontSizeMultiplier={ACCESSIBILITY.MAX_TEXT_SCALE}
             >
-              ✓ Mindful breathing exercises
+              ✓ Enriched by Stoic philosophy
             </Text>
             <Text
               style={styles.featureText}
@@ -1616,16 +1646,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
               allowFontScaling={true}
               maxFontSizeMultiplier={ACCESSIBILITY.MAX_TEXT_SCALE}
             >
-              ✓ Values-based reflection
-            </Text>
-            <Text
-              style={styles.featureText}
-              accessible={true}
-              accessibilityRole="text"
-              allowFontScaling={true}
-              maxFontSizeMultiplier={ACCESSIBILITY.MAX_TEXT_SCALE}
-            >
-              ✓ Crisis support when needed
+              ✓ Mental wellness with depth
             </Text>
           </View>
         </View>
@@ -1639,8 +1660,8 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
           }}
           accessible={true}
           accessibilityRole="button"
-          accessibilityLabel="Begin Your Journey"
-          accessibilityHint="Double tap to start the mental health assessment and onboarding process"
+          accessibilityLabel="Begin Your Practice"
+          accessibilityHint="Double tap to start the wellness check-in and onboarding process"
           accessibilityState={{ disabled: false }}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
@@ -1650,7 +1671,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
             allowFontScaling={true}
             maxFontSizeMultiplier={ACCESSIBILITY.MAX_TEXT_SCALE}
           >
-            Begin Your Journey
+            Begin Your Practice
           </Text>
         </Pressable>
       </ScrollView>
@@ -1685,25 +1706,6 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
             style={{ position: 'absolute', left: -10000 }}
           >
             <Text>{announceText}</Text>
-          </View>
-
-          {/* Crisis Button - Always visible with enhanced accessibility */}
-          <View
-            ref={crisisButtonRef}
-            style={styles.crisisButtonContainer}
-            accessible={true}
-            accessibilityRole="button"
-            accessibilityLabel="Crisis support - Get immediate help"
-            accessibilityHint="Double tap to access crisis resources. Available on all assessment screens for your safety."
-            onAccessibilityTap={handleCrisisButtonPress}
-            onMagicTap={handleCrisisButtonPress}
-          >
-            <SafetyButton
-              onPress={handleCrisisButtonPress}
-              accessible={true}
-              accessibilityLabel="Crisis support"
-              accessibilityRole="button"
-            />
           </View>
 
           {/* Assessment pause/resume controls for cognitive accessibility */}
@@ -1744,7 +1746,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
               allowFontScaling={true}
               maxFontSizeMultiplier={ACCESSIBILITY.MAX_TEXT_SCALE}
             >
-              Question {currentQuestionIndex + 1} of {PHQ9_QUESTIONS.length} • Mood Assessment
+              Question {currentQuestionIndex + 1} of {PHQ9_QUESTIONS.length} • Wellness Check-In (Optional)
             </Text>
             <View
               style={styles.progressBar}
@@ -1759,6 +1761,55 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
               />
             </View>
           </View>
+
+          {/* Intro text and disclaimer - shown only on first question */}
+          {currentQuestionIndex === 0 && (
+            <View
+              style={styles.section}
+              accessible={true}
+              accessibilityRole="text"
+            >
+              <Text
+                style={styles.bodyText}
+                accessible={true}
+                accessibilityRole="text"
+                allowFontScaling={true}
+                maxFontSizeMultiplier={ACCESSIBILITY.MAX_TEXT_SCALE}
+              >
+                Help us support your mindfulness journey
+              </Text>
+              <Text
+                style={[styles.bodyText, { marginTop: 12, fontSize: 14, fontStyle: 'italic' }]}
+                accessible={true}
+                accessibilityRole="text"
+                allowFontScaling={true}
+                maxFontSizeMultiplier={ACCESSIBILITY.MAX_TEXT_SCALE}
+              >
+                For wellness awareness, not diagnosis
+              </Text>
+              <Pressable
+                style={[styles.secondaryButton, styles.accessibleTouchTarget, { marginTop: 16 }]}
+                onPress={() => {
+                  // Skip to next screen (values)
+                  setCurrentScreen('values');
+                }}
+                accessible={true}
+                accessibilityRole="button"
+                accessibilityLabel="I'll do this later"
+                accessibilityHint="Skip the wellness check-in and continue to the next step"
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Text
+                  style={styles.secondaryButtonText}
+                  accessible={false}
+                  allowFontScaling={true}
+                  maxFontSizeMultiplier={ACCESSIBILITY.MAX_TEXT_SCALE}
+                >
+                  I'll do this later
+                </Text>
+              </Pressable>
+            </View>
+          )}
 
           {/* Question with enhanced accessibility */}
           <View
@@ -1865,6 +1916,13 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
             </Pressable>
           )}
         </ScrollView>
+
+        {/* Floating Crisis Button - Fixed at upper right, 1/6 from top */}
+        <CollapsibleCrisisButton
+          onPress={handleCrisisButtonPress}
+          position="right"
+          testID="phq9-crisis-chevron"
+        />
       </SafeAreaView>
     );
   };
@@ -1897,25 +1955,6 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
             style={{ position: 'absolute', left: -10000 }}
           >
             <Text>{announceText}</Text>
-          </View>
-
-          {/* Crisis Button - Always visible with enhanced accessibility */}
-          <View
-            ref={crisisButtonRef}
-            style={styles.crisisButtonContainer}
-            accessible={true}
-            accessibilityRole="button"
-            accessibilityLabel="Crisis support - Get immediate help"
-            accessibilityHint="Double tap to access crisis resources. Available on all assessment screens for your safety."
-            onAccessibilityTap={handleCrisisButtonPress}
-            onMagicTap={handleCrisisButtonPress}
-          >
-            <SafetyButton
-              onPress={handleCrisisButtonPress}
-              accessible={true}
-              accessibilityLabel="Crisis support"
-              accessibilityRole="button"
-            />
           </View>
 
           {/* Assessment pause/resume controls for cognitive accessibility */}
@@ -1956,7 +1995,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
               allowFontScaling={true}
               maxFontSizeMultiplier={ACCESSIBILITY.MAX_TEXT_SCALE}
             >
-              Question {currentQuestionIndex + 1} of {GAD7_QUESTIONS.length} • Anxiety Assessment
+              Question {currentQuestionIndex + 1} of {GAD7_QUESTIONS.length} • Wellness Check-In Continued (Optional)
             </Text>
             <View
               style={styles.progressBar}
@@ -1971,6 +2010,55 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
               />
             </View>
           </View>
+
+          {/* Intro text and disclaimer - shown only on first question */}
+          {currentQuestionIndex === 0 && (
+            <View
+              style={styles.section}
+              accessible={true}
+              accessibilityRole="text"
+            >
+              <Text
+                style={styles.bodyText}
+                accessible={true}
+                accessibilityRole="text"
+                allowFontScaling={true}
+                maxFontSizeMultiplier={ACCESSIBILITY.MAX_TEXT_SCALE}
+              >
+                Help us support your mindfulness journey
+              </Text>
+              <Text
+                style={[styles.bodyText, { marginTop: 12, fontSize: 14, fontStyle: 'italic' }]}
+                accessible={true}
+                accessibilityRole="text"
+                allowFontScaling={true}
+                maxFontSizeMultiplier={ACCESSIBILITY.MAX_TEXT_SCALE}
+              >
+                For wellness awareness, not diagnosis
+              </Text>
+              <Pressable
+                style={[styles.secondaryButton, styles.accessibleTouchTarget, { marginTop: 16 }]}
+                onPress={() => {
+                  // Skip to next screen (values)
+                  setCurrentScreen('values');
+                }}
+                accessible={true}
+                accessibilityRole="button"
+                accessibilityLabel="I'll do this later"
+                accessibilityHint="Skip the wellness check-in and continue to the next step"
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Text
+                  style={styles.secondaryButtonText}
+                  accessible={false}
+                  allowFontScaling={true}
+                  maxFontSizeMultiplier={ACCESSIBILITY.MAX_TEXT_SCALE}
+                >
+                  I'll do this later
+                </Text>
+              </Pressable>
+            </View>
+          )}
 
           {/* Question with enhanced accessibility */}
           <View
@@ -2075,6 +2163,13 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
             </Pressable>
           )}
         </ScrollView>
+
+        {/* Floating Crisis Button - Fixed at upper right, 1/6 from top */}
+        <CollapsibleCrisisButton
+          onPress={handleCrisisButtonPress}
+          position="right"
+          testID="gad7-crisis-chevron"
+        />
       </SafeAreaView>
     );
   };
@@ -2104,24 +2199,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
           <Text>{announceText}</Text>
         </View>
 
-        {/* Crisis Button - Always visible */}
-        <View
-          ref={crisisButtonRef}
-          style={styles.crisisButtonContainer}
-          accessible={true}
-          accessibilityRole="button"
-          accessibilityLabel="Crisis support - Get immediate help"
-          accessibilityHint="Double tap to access crisis resources"
-          onAccessibilityTap={handleCrisisButtonPress}
-          onMagicTap={handleCrisisButtonPress}
-        >
-          <SafetyButton
-            onPress={handleCrisisButtonPress}
-            accessible={true}
-            accessibilityLabel="Crisis support"
-            accessibilityRole="button"
-          />
-        </View>
+        {/* Crisis button removed from Values screen - only on assessment screens for safety */}
 
         <View
           style={styles.header}
@@ -2136,7 +2214,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
             allowFontScaling={true}
             maxFontSizeMultiplier={ACCESSIBILITY.MAX_TEXT_SCALE}
           >
-            Your Core Values
+            What Matters to You?
           </Text>
           <Text
             style={styles.subtitle}
@@ -2145,7 +2223,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
             allowFontScaling={true}
             maxFontSizeMultiplier={ACCESSIBILITY.MAX_TEXT_SCALE}
           >
-            Choose 3-5 values that resonate most deeply with you
+            Choose 3-5 values that matter most to you
           </Text>
         </View>
 
@@ -2161,7 +2239,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
             allowFontScaling={true}
             maxFontSizeMultiplier={ACCESSIBILITY.MAX_TEXT_SCALE}
           >
-            These values will guide your mindful check-ins and help personalize your experience.
+            These guide your mindfulness practice.
           </Text>
           <Text
             style={[
@@ -2193,10 +2271,9 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
               <Pressable
                 key={value.id}
                 style={[
-                  styles.valueCard,
-                  styles.accessibleTouchTarget,
-                  isSelected && styles.valueCardSelected,
-                  !canSelect && styles.valueCardDisabled
+                  styles.valuePill,
+                  isSelected && styles.valuePillSelected,
+                  !canSelect && styles.valuePillDisabled
                 ]}
                 onPress={() => {
                   if ((isSelected && canDeselect) || (!isSelected && canSelect)) {
@@ -2207,7 +2284,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
                       announceToScreenReader(`${action}: ${value.label}. ${newCount} values selected.`);
                     }
                     handleValueToggle(value.id);
-                    manageFocus('value-card');
+                    manageFocus('value-pill');
                   }
                 }}
                 accessible={true}
@@ -2226,29 +2303,18 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
                   checked: isSelected,
                   disabled: (!canSelect && !isSelected) || (!canDeselect && isSelected)
                 }}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
               >
                 <Text
                   style={[
-                    styles.valueLabel,
-                    isSelected && styles.valueLabelSelected
+                    styles.valuePillText,
+                    isSelected && styles.valuePillTextSelected
                   ]}
                   accessible={false}
                   allowFontScaling={true}
                   maxFontSizeMultiplier={ACCESSIBILITY.MAX_TEXT_SCALE}
                 >
-                  {isSelected ? '✓ ' : ''}{value.label}
-                </Text>
-                <Text
-                  style={[
-                    styles.valueDescription,
-                    isSelected && styles.valueDescriptionSelected
-                  ]}
-                  accessible={false}
-                  allowFontScaling={true}
-                  maxFontSizeMultiplier={ACCESSIBILITY.MAX_TEXT_SCALE}
-                >
-                  {value.description}
+                  {value.label}
                 </Text>
               </Pressable>
             );
@@ -2327,49 +2393,101 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
   const renderNotifications = (): JSX.Element => (
     <SafeAreaView style={styles.container}>
       <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
-        {/* Crisis Button - Always visible */}
-        <View style={styles.crisisButtonContainer}>
-          <SafetyButton onPress={handleCrisisButtonPress} />
-        </View>
+        {/* Crisis button removed from Notifications screen - only on assessment screens for safety */}
 
         <View style={styles.header}>
-          <Text style={styles.title}>Mindful Reminders</Text>
-          <Text style={styles.subtitle}>
-            Set gentle reminders for your check-ins
-          </Text>
+          <Text style={styles.title}>Mindfulness Practice Reminders</Text>
         </View>
 
         <View style={styles.section}>
           <Text style={styles.bodyText}>
-            Regular check-ins support mindful awareness throughout your day.
+            Set reminders for your daily mindfulness practice.
           </Text>
         </View>
 
         <View style={styles.notificationContainer}>
-          {notificationTimes.map((notification: NotificationTime, index: number) => (
-            <View key={notification.period} style={styles.notificationRow}>
-              <View style={styles.notificationInfo}>
-                <Text style={styles.notificationPeriod}>
-                  {notification.period.charAt(0).toUpperCase() + notification.period.slice(1)}
-                </Text>
-                <Text style={styles.notificationTime}>{notification.time}</Text>
+          {notificationTimes.map((notification: NotificationTime, index: number) => {
+            // Format time for display (convert "09:00" to "9:00 AM")
+            const [hours, minutes] = notification.time.split(':').map(Number);
+            const displayHours = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
+            const ampm = hours >= 12 ? 'PM' : 'AM';
+            const formattedTime = `${displayHours}:${minutes.toString().padStart(2, '0')} ${ampm}`;
+
+            return (
+              <View key={notification.period} style={styles.notificationRow}>
+                <View style={styles.notificationInfo}>
+                  <Text style={styles.notificationPeriod}>
+                    {notification.period.charAt(0).toUpperCase() + notification.period.slice(1)}
+                  </Text>
+                  <Pressable
+                    onPress={() => handleOpenTimePicker(notification.period)}
+                    style={styles.timeButton}
+                    accessible={true}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${notification.period} notification time, ${formattedTime}`}
+                    accessibilityHint="Double tap to change time"
+                    disabled={!notification.enabled}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Text style={[
+                      styles.notificationTime,
+                      !notification.enabled && styles.notificationTimeDisabled
+                    ]}>
+                      {formattedTime}
+                    </Text>
+                  </Pressable>
+                </View>
+                <Pressable
+                  style={[
+                    styles.toggleButton,
+                    notification.enabled && styles.toggleButtonEnabled
+                  ]}
+                  onPress={() => handleNotificationToggle(index)}
+                  accessible={true}
+                  accessibilityRole="switch"
+                  accessibilityState={{ checked: notification.enabled }}
+                  accessibilityLabel={`${notification.period} notifications ${notification.enabled ? 'enabled' : 'disabled'}`}
+                >
+                  <Text style={[
+                    styles.toggleButtonText,
+                    notification.enabled && styles.toggleButtonTextEnabled
+                  ]}>
+                    {notification.enabled ? 'On' : 'Off'}
+                  </Text>
+                </Pressable>
               </View>
-              <Pressable
-                style={[
-                  styles.toggleButton,
-                  notification.enabled && styles.toggleButtonEnabled
-                ]}
-                onPress={() => handleNotificationToggle(index)}
-              >
-                <Text style={[
-                  styles.toggleButtonText,
-                  notification.enabled && styles.toggleButtonTextEnabled
-                ]}>
-                  {notification.enabled ? 'On' : 'Off'}
-                </Text>
-              </Pressable>
-            </View>
-          ))}
+            );
+          })}
+        </View>
+
+        {/* Time Picker Modal */}
+        {showTimePicker && (
+          <NotificationTimePicker
+            visible={true}
+            value={tempTimePickerValue}
+            period={showTimePicker}
+            onConfirm={handleTimePickerConfirm}
+            onCancel={handleTimePickerCancel}
+          />
+        )}
+
+        <View style={styles.section}>
+          <Pressable
+            style={[styles.secondaryButton, styles.accessibleTouchTarget]}
+            onPress={() => {
+              // Skip to next screen
+              navigateNext();
+            }}
+            accessible={true}
+            accessibilityRole="button"
+            accessibilityLabel="Set up later"
+            accessibilityHint="Skip reminder setup and continue to the next step"
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Text style={styles.secondaryButtonText}>
+              Set up later
+            </Text>
+          </Pressable>
         </View>
 
         <View style={styles.navigationContainer}>
@@ -2387,136 +2505,63 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
   const renderPrivacy = (): JSX.Element => (
     <SafeAreaView style={styles.container}>
       <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
-        {/* Crisis Button - Always visible */}
-        <View style={styles.crisisButtonContainer}>
-          <SafetyButton onPress={handleCrisisButtonPress} />
-        </View>
+        {/* Crisis button removed from Privacy screen - only on assessment screens for safety */}
 
         <View style={styles.header}>
-          <Text style={styles.title}>HIPAA Privacy & Patient Rights</Text>
+          <Text style={styles.title}>Privacy & Wellness Data</Text>
           <Text style={styles.subtitle}>
-            Comprehensive protection of your mental health information
+            Your information is private and secure
           </Text>
         </View>
 
         <View style={styles.section}>
           <Text style={styles.bodyText}>
-            Being. is HIPAA-compliant and follows all federal healthcare privacy regulations to protect your Protected Health Information (PHI).
+            We're committed to protecting your privacy and giving you control over your data.
           </Text>
         </View>
 
         <View style={styles.consentContainer}>
-          {/* HIPAA Notice of Privacy Practices - 45 CFR 164.520 */}
+          {/* Privacy Principles */}
           <View style={styles.consentSection}>
-            <Text style={styles.consentTitle}>📋 HIPAA Notice of Privacy Practices</Text>
-            <Text style={styles.consentText}>
-              • We collect only the minimum necessary PHI for treatment purposes
-              • Your assessment responses (PHQ-9, GAD-7) are classified as Protected Health Information
-              • Crisis detection data is processed for emergency safety protocols
-              • All data processing is logged in secure audit trails
+            <Text style={styles.featureText}>
+              ✓ Your data stays on your device - encrypted and secure
+            </Text>
+            <Text style={styles.featureText}>
+              ✓ We don't sell or share your information for marketing purposes
+            </Text>
+            <Text style={styles.featureText}>
+              ✓ You control what you share and when
+            </Text>
+            <Text style={styles.featureText}>
+              ✓ Crisis support is always available when needed
             </Text>
           </View>
 
-          {/* Patient Rights - 45 CFR 164.524-528 */}
+          {/* Emergency Disclaimer */}
           <View style={styles.consentSection}>
-            <Text style={styles.consentTitle}>🔒 Your Patient Rights</Text>
-            <Text style={styles.consentText}>
-              • Right to Access: View and receive copies of your PHI within 30 days
-              • Right to Amendment: Request corrections to your health information
-              • Right to Restriction: Limit how we use or disclose your PHI
-              • Right to Portability: Export your data in standard formats
-              • Right to Revocation: Withdraw consent at any time (except for emergency situations)
+            <Text style={[styles.bodyText, { fontSize: 14, fontStyle: 'italic' }]}>
+              ⚠️ In a life-threatening emergency, call 911. For mental health crisis, call 988 Suicide & Crisis Lifeline.
             </Text>
           </View>
 
-          {/* Data Minimization - 45 CFR 164.514(d) */}
+          {/* Age Requirement */}
           <View style={styles.consentSection}>
-            <Text style={styles.consentTitle}>📊 Data Minimization</Text>
-            <Text style={styles.consentText}>
-              • Assessment data: Necessary for treatment (1-year retention)
-              • Therapeutic preferences: Necessary for personalized care (1-year retention)
-              • Crisis data: Necessary for safety (7-year retention per regulations)
-              • Consent records: Required for compliance (7-year retention)
+            <Text style={[styles.bodyText, { fontSize: 14 }]}>
+              You must be 13 or older to use this app. If you are under 18, you need a parent or guardian's permission.
             </Text>
           </View>
 
-          {/* Security Safeguards - 45 CFR 164.312 */}
+          {/* Consent Checkbox */}
           <View style={styles.consentSection}>
-            <Text style={styles.consentTitle}>🛡️ Technical Safeguards</Text>
-            <Text style={styles.consentText}>
-              • End-to-end encryption for all PHI transmission and storage
-              • Access controls and user authentication
-              • Automatic audit logging for all PHI access
-              • Regular compliance monitoring and breach detection
-            </Text>
-          </View>
-
-          {/* Business Associate Agreement */}
-          <View style={styles.consentSection}>
-            <Text style={styles.consentTitle}>🤝 Business Associate Protection</Text>
-            <Text style={styles.consentText}>
-              • No third-party access to PHI without your explicit consent
-              • All app components follow Business Associate Agreement requirements
-              • Breach notification within 60 days if required by law
-              • Regular risk assessments and compliance audits
-            </Text>
-          </View>
-
-          {/* Crisis Exception - Emergency Override */}
-          <View style={styles.consentSection}>
-            <Text style={styles.consentTitle}>🚨 Emergency Safety Exception</Text>
-            <Text style={styles.consentText}>
-              • Crisis intervention (988 Lifeline, 911) may override privacy restrictions for safety
-              • Emergency protocols are designed to save lives while protecting privacy
-              • Crisis data is processed with the highest security safeguards
-              • You will be notified of any emergency disclosures when safe to do so
-            </Text>
-          </View>
-
-          {/* Granular Consent Checkboxes */}
-          <View style={styles.consentSection}>
-            <Text style={styles.consentTitle}>✅ Granular Consent (Required for Service)</Text>
-
             <Pressable
               style={[styles.consentCheckbox, consentProvided && styles.consentCheckboxChecked]}
               onPress={handleConsentToggle}
             >
               <Text style={[styles.consentCheckboxText, consentProvided && styles.consentCheckboxTextChecked]}>
-                {consentProvided ? '✓' : '○'} I consent to the collection and processing of my assessment data (PHQ-9, GAD-7) for treatment purposes
-              </Text>
-            </Pressable>
-
-            <Pressable
-              style={[styles.consentCheckbox, consentProvided && styles.consentCheckboxChecked]}
-              onPress={() => {/* This would toggle specific consent if granular */}}
-            >
-              <Text style={[styles.consentCheckboxText, consentProvided && styles.consentCheckboxTextChecked]}>
-                {consentProvided ? '✓' : '○'} I consent to crisis intervention protocols that may override privacy for emergency safety
-              </Text>
-            </Pressable>
-
-            <Pressable
-              style={[styles.consentCheckbox, consentProvided && styles.consentCheckboxChecked]}
-              onPress={() => {/* This would toggle specific consent if granular */}}
-            >
-              <Text style={[styles.consentCheckboxText, consentProvided && styles.consentCheckboxTextChecked]}>
-                {consentProvided ? '✓' : '○'} I acknowledge my patient rights and understand how to exercise them
+                {consentProvided ? '✓' : '○'} I have read and agree to the Terms of Service and Privacy Policy. I understand this app provides wellness support and is not a substitute for professional mental health care.
               </Text>
             </Pressable>
           </View>
-
-          {/* Compliance Score Display (Development) */}
-          {__DEV__ && (
-            <View style={styles.consentSection}>
-              <Text style={styles.consentTitle}>🔍 Compliance Monitor (Dev Only)</Text>
-              <Text style={styles.consentText}>
-                • Compliance Score: {calculateComplianceScore().toFixed(1)}%
-                • Audit Events: {auditTrail.length}
-                • Active Consents: {hipaaConsents.filter(c => c.granted).length}
-                • Patient Rights Requests: {patientRightsRequests.length}
-              </Text>
-            </View>
-          )}
         </View>
 
         <View style={styles.navigationContainer}>
@@ -2528,7 +2573,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
             onPress={navigateNext}
             disabled={!consentProvided}
           >
-            <Text style={styles.primaryButtonText}>Complete HIPAA-Compliant Setup</Text>
+            <Text style={styles.primaryButtonText}>Continue</Text>
           </Pressable>
         </View>
       </ScrollView>
@@ -2538,26 +2583,26 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
   const renderCelebration = (): JSX.Element => (
     <SafeAreaView style={styles.container}>
       <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
-        {/* Crisis Button - Always visible */}
-        <View style={styles.crisisButtonContainer}>
-          <SafetyButton onPress={handleCrisisButtonPress} />
-        </View>
+        {/* Crisis button removed from Celebration screen - only on assessment screens for safety */}
 
         <View style={styles.header}>
           <Text style={styles.celebrationIcon}>🎉</Text>
-          <Text style={styles.title}>Welcome to Being.</Text>
+          <Text style={styles.title}>Your Mindfulness Journey Begins</Text>
           <Text style={styles.subtitle}>
-            Your mindful journey is ready to begin
+            Welcome to mindfulness enriched by Stoic philosophy—ancient wisdom from Marcus Aurelius, Epictetus, and Seneca that deepens your practice
           </Text>
         </View>
 
         <View style={styles.summaryContainer}>
           <Text style={styles.summaryTitle}>Your Setup:</Text>
 
-          <View style={styles.summarySection}>
-            <Text style={styles.summaryLabel}>Assessments Completed</Text>
-            <Text style={styles.summaryValue}>✓ Mental wellness baseline established</Text>
-          </View>
+          {/* Only show if assessments were actually completed */}
+          {phq9Answers.length === PHQ9_QUESTIONS.length && gad7Answers.length === GAD7_QUESTIONS.length && (
+            <View style={styles.summarySection}>
+              <Text style={styles.summaryLabel}>Assessments Completed</Text>
+              <Text style={styles.summaryValue}>✓ Mental wellness baseline established</Text>
+            </View>
+          )}
 
           <View style={styles.summarySection}>
             <Text style={styles.summaryLabel}>Your Values ({selectedValues.length} selected)</Text>
@@ -2580,9 +2625,22 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
           </View>
         </View>
 
-        <Pressable style={styles.primaryButton} onPress={navigateNext}>
-          <Text style={styles.primaryButtonText}>Start Your Journey</Text>
-        </Pressable>
+        <View style={styles.section}>
+          <Pressable style={styles.primaryButton} onPress={navigateNext}>
+            <Text style={styles.primaryButtonText}>Start Morning Practice</Text>
+          </Pressable>
+          <Pressable
+            style={[styles.secondaryButton, styles.accessibleTouchTarget, { marginTop: spacing.md }]}
+            onPress={navigateNext}
+            accessible={true}
+            accessibilityRole="button"
+            accessibilityLabel="Explore App"
+            accessibilityHint="Browse the app features before starting"
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          >
+            <Text style={styles.secondaryButtonText}>Explore App</Text>
+          </Pressable>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -2611,7 +2669,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
   return (
     <View style={{ flex: 1 }}>
       {renderCurrentScreen()}
-      {renderStateInspector()}
+      {/* {renderStateInspector()} */}
     </View>
   );
 };
@@ -2744,7 +2802,9 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   valuesGrid: {
-    gap: spacing.md,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
     marginBottom: spacing.xl,
   },
   valueCard: {
@@ -2781,6 +2841,35 @@ const styles = StyleSheet.create({
   valueDescriptionSelected: {
     color: colors.white,
   },
+  // Compact pill/chip styles for values
+  valuePill: {
+    backgroundColor: colors.white,
+    borderWidth: 1.5,
+    borderColor: colors.gray300,
+    borderRadius: 20,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    marginRight: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  valuePillSelected: {
+    backgroundColor: colors.morningPrimary,
+    borderColor: colors.morningPrimary,
+  },
+  valuePillDisabled: {
+    backgroundColor: colors.gray100,
+    borderColor: colors.gray200,
+    opacity: 0.5,
+  },
+  valuePillText: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: colors.midnightBlue,
+  },
+  valuePillTextSelected: {
+    color: colors.white,
+    fontWeight: '600',
+  },
   // Notifications
   notificationContainer: {
     marginBottom: spacing.xl,
@@ -2807,6 +2896,15 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '400',
     color: colors.gray600,
+  },
+  timeButton: {
+    // Pressable wrapper for time display
+    minHeight: ACCESSIBILITY.MIN_TOUCH_TARGET,
+    justifyContent: 'center',
+  },
+  notificationTimeDisabled: {
+    color: colors.gray400,
+    opacity: 0.6,
   },
   toggleButton: {
     backgroundColor: colors.gray300,

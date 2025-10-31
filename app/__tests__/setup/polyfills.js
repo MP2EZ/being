@@ -40,11 +40,46 @@ jest.mock('expo-secure-store', () => ({
 }));
 
 // Mock performance-critical modules
-jest.mock('react-native-reanimated', () => ({
-  default: {},
-  Easing: {},
-  Transition: {},
-  Transitioning: {},
+jest.mock('react-native-reanimated', () => {
+  const React = require('react');
+  const { View, Text } = require('react-native');
+
+  return {
+    default: {
+      View: View,
+      Text: Text,
+      ScrollView: require('react-native').ScrollView,
+    },
+    Easing: {},
+    Transition: {},
+    Transitioning: {},
+    useSharedValue: jest.fn((initialValue) => ({ value: initialValue })),
+    useAnimatedStyle: jest.fn((fn) => fn()),
+    useAnimatedProps: jest.fn(() => ({})),
+    useAnimatedRef: jest.fn(),
+    useDerivedValue: jest.fn((fn) => ({ value: fn() })),
+    withSpring: jest.fn((value) => value),
+    withTiming: jest.fn((value) => value),
+    withDelay: jest.fn((delay, value) => value),
+    withSequence: jest.fn((...values) => values[values.length - 1]),
+    withRepeat: jest.fn((value) => value),
+    runOnJS: jest.fn((fn) => fn),
+    runOnUI: jest.fn((fn) => fn),
+    interpolate: jest.fn((value, inputRange, outputRange) => outputRange[0]),
+    Extrapolation: { CLAMP: 'clamp', EXTEND: 'extend', IDENTITY: 'identity' },
+  };
+});
+
+jest.mock('react-native-gesture-handler', () => ({
+  Gesture: {
+    Pan: jest.fn(() => ({
+      onUpdate: jest.fn().mockReturnThis(),
+      onEnd: jest.fn().mockReturnThis(),
+    })),
+  },
+  GestureDetector: ({ children }) => children,
+  State: {},
+  Directions: {},
 }));
 
 // Global test timeout for crisis detection

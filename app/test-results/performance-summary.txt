@@ -1,8 +1,8 @@
 # Performance Regression Analysis Report
 
-Generated: 2025-10-20T02:36:03.184Z
-Total Tests: 25
-Execution Time: 387ms
+Generated: 2025-10-30T06:29:48.850Z
+Total Tests: 15
+Execution Time: 2342ms
 
 ## Performance Analysis
 
