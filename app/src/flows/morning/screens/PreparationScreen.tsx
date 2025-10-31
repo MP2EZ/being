@@ -34,6 +34,7 @@ import {
   Modal,
   Linking,
 } from 'react-native';
+import Slider from '@react-native-community/slider';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { MorningFlowParamList, PreparationData } from '../../../types/flows';
 import { PremeditationSafetyService } from '../../../services/premeditationSafetyService';
@@ -364,18 +365,6 @@ const PreparationScreen: React.FC<Props> = ({ navigation, onSave }) => {
         </View>
       )}
 
-      {/* Skip Button */}
-      <View style={styles.skipSection}>
-        <Text style={styles.skipText}>This practice is optional</Text>
-        <TouchableOpacity
-          style={styles.skipButton}
-          onPress={() => setShowOptOutModal(true)}
-          testID="skip-preparation"
-        >
-          <Text style={styles.skipButtonText}>Skip this practice</Text>
-        </TouchableOpacity>
-      </View>
-
       {/* Obstacles */}
       {obstacles.map((obstacle, index) => (
         <View key={index} style={styles.obstacleCard}>
@@ -483,30 +472,19 @@ const PreparationScreen: React.FC<Props> = ({ navigation, onSave }) => {
       {/* Readiness Rating */}
       <View style={styles.readinessSection}>
         <Text style={styles.sectionTitle}>How ready do you feel?</Text>
-        <View style={styles.ratingButtons}>
-          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((rating) => (
-            <TouchableOpacity
-              key={rating}
-              style={[
-                styles.ratingButton,
-                readinessRating === rating && styles.ratingButtonSelected,
-              ]}
-              onPress={() => setReadinessRating(rating)}
-              testID={rating === readinessRating ? 'readiness-rating' : undefined}
-              accessibilityLabel={`Set readiness rating to ${rating}`}
-              accessibilityState={{ selected: readinessRating === rating }}
-            >
-              <Text
-                style={[
-                  styles.ratingButtonText,
-                  readinessRating === rating && styles.ratingButtonTextSelected,
-                ]}
-              >
-                {rating}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+        <Slider
+          style={styles.slider}
+          minimumValue={1}
+          maximumValue={10}
+          step={1}
+          value={readinessRating}
+          onValueChange={setReadinessRating}
+          minimumTrackTintColor="#007AFF"
+          maximumTrackTintColor="#ddd"
+          thumbTintColor="#007AFF"
+          testID="readiness-rating"
+          accessibilityLabel={`Set readiness rating. Current value: ${readinessRating}`}
+        />
         <Text style={styles.ratingValue}>Rating: {readinessRating}/10</Text>
       </View>
 
@@ -525,7 +503,7 @@ const PreparationScreen: React.FC<Props> = ({ navigation, onSave }) => {
           disabled: obstacles.length > 0 && !selfCompassionNote.trim(),
         }}
       >
-        <Text style={styles.continueButtonText}>Continue</Text>
+        <Text style={styles.continueButtonText}>Continue or Skip</Text>
       </TouchableOpacity>
 
       {/* Opt-Out Modal */}
@@ -676,28 +654,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  skipSection: {
-    padding: 16,
-    backgroundColor: '#f9f9f9',
-    borderRadius: 8,
-    marginBottom: 20,
-    alignItems: 'center',
-  },
-  skipText: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 8,
-  },
-  skipButton: {
-    padding: 10,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 6,
-  },
-  skipButtonText: {
-    fontSize: 14,
-    color: '#007AFF',
-  },
   obstacleCard: {
     padding: 16,
     backgroundColor: '#f9f9f9',
@@ -763,33 +719,10 @@ const styles = StyleSheet.create({
   readinessSection: {
     marginBottom: 20,
   },
-  ratingButtons: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
+  slider: {
+    width: '100%',
+    height: 40,
     marginVertical: 12,
-  },
-  ratingButton: {
-    width: 50,
-    height: 50,
-    borderWidth: 2,
-    borderColor: '#ddd',
-    borderRadius: 25,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#fff',
-  },
-  ratingButtonSelected: {
-    borderColor: '#007AFF',
-    backgroundColor: '#E3F2FD',
-  },
-  ratingButtonText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-  },
-  ratingButtonTextSelected: {
-    color: '#007AFF',
   },
   ratingValue: {
     fontSize: 16,
