@@ -636,7 +636,7 @@ const styles = StyleSheet.create({
     minWidth: 300,
   },
   crisisTitle: {
-    fontSize: typography.heading2.size,
+    fontSize: typography.headline2.size,
     fontWeight: '700',
     color: colorSystem.status.error,
     textAlign: 'center',
@@ -743,7 +743,7 @@ const styles = StyleSheet.create({
     zIndex: 1000,
   },
   crisisButtonText: {
-    fontSize: typography.heading3.size,
+    fontSize: typography.headline3.size,
     fontWeight: '900',
     color: colorSystem.base.white,
   },
