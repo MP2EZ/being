@@ -1681,8 +1681,8 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
               <Pressable
                 style={[styles.secondaryButton, styles.accessibleTouchTarget, { marginTop: 16 }]}
                 onPress={() => {
-                  // Skip to next screen (values)
-                  setCurrentScreen('values');
+                  // Skip to next screen (Stoic Intro)
+                  setCurrentScreen('stoicIntro');
                 }}
                 accessible={true}
                 accessibilityRole="button"
@@ -1930,8 +1930,8 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
               <Pressable
                 style={[styles.secondaryButton, styles.accessibleTouchTarget, { marginTop: 16 }]}
                 onPress={() => {
-                  // Skip to next screen (values)
-                  setCurrentScreen('values');
+                  // Skip to next screen (Stoic Intro)
+                  setCurrentScreen('stoicIntro');
                 }}
                 accessible={true}
                 accessibilityRole="button"
@@ -2138,10 +2138,10 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
             These universal virtues guide character development:
           </Text>
           
-          <Text style={styles.bulletText}>• Wisdom (Sophia) - Sound judgment and understanding</Text>
-          <Text style={styles.bulletText}>• Courage (Andreia) - Facing challenges with strength</Text>
-          <Text style={styles.bulletText}>• Justice (Dikaiosyne) - Fairness toward yourself and others</Text>
-          <Text style={styles.bulletText}>• Temperance (Sophrosyne) - Self-control and balance</Text>
+          <Text style={styles.bulletText}>• Wisdom - Sound judgment and understanding</Text>
+          <Text style={styles.bulletText}>• Courage - Facing challenges with strength</Text>
+          <Text style={styles.bulletText}>• Justice - Fairness toward yourself and others</Text>
+          <Text style={styles.bulletText}>• Temperance - Self-control and balance</Text>
         </View>
 
         <View style={styles.section}>
