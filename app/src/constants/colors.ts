@@ -105,6 +105,12 @@ export const colorSystem = {
       secondary: '#374151', // 9.4:1 contrast on white
       tertiary: '#6B7280',  // 4.5:1 contrast on white
       inverse: '#F9FAFB',   // 15.8:1 contrast on dark
+    },
+    // Notification styling (for cognitive accessibility components)
+    notification: {
+      background: '#EFF6FF', // Light blue background for notifications
+      text: '#1E40AF',       // Dark blue text (5.86:1 contrast on background)
+      border: '#3B82F6',     // Blue border (4.5:1 contrast on white)
     }
   },
 
