@@ -213,7 +213,10 @@ const RadioGroup: React.FC<RadioGroupProps> = ({
         accessible={true}
         importantForAccessibility="yes"
       >
-        <View style={styles.radioOptionContent}>
+        <View style={[
+          styles.radioOptionContent,
+          !showRadioIndicator && styles.radioOptionContentCentered
+        ]}>
           {/* Radio button visual indicator (optional) */}
           {showRadioIndicator && (
             <View style={[
@@ -238,9 +241,13 @@ const RadioGroup: React.FC<RadioGroupProps> = ({
           )}
 
           {/* Option content */}
-          <View style={styles.radioContent}>
+          <View style={[
+            styles.radioContent,
+            !showRadioIndicator && styles.radioContentCentered
+          ]}>
             <Text style={[
               styles.radioLabel,
+              !showRadioIndicator && styles.radioLabelCentered,
               isSelected && styles.radioLabelSelected,
               isDisabled && styles.radioLabelDisabled,
             ]}>
@@ -453,6 +460,9 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: spacing.sm,
   },
+  radioOptionContentCentered: {
+    justifyContent: 'center',
+  },
   
   // Radio button visual
   radioButton: {
@@ -490,11 +500,17 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: spacing.xs,
   },
+  radioContentCentered: {
+    alignItems: 'center',
+  },
   radioLabel: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.bodyRegular.weight,
     color: colorSystem.accessibility.text.primary,
     lineHeight: typography.bodyRegular.size * 1.3,
+  },
+  radioLabelCentered: {
+    textAlign: 'center',
   },
   radioLabelSelected: {
     fontWeight: '600',
