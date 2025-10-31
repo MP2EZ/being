@@ -35,9 +35,12 @@ export type MiddayFlowParamList = {
 };
 
 // Stoic Mindfulness Evening Flow (FEAT-45) - DRD v2.0.0
+// FEAT-51: Added VirtueInstances and VirtueChallenges for virtue tracking
 export type EveningFlowParamList = {
   VirtueReflection: undefined;
   SenecaQuestions: undefined;
+  VirtueInstances: undefined;      // FEAT-51: Track virtue successes
+  VirtueChallenges: undefined;     // FEAT-51: Track virtue struggles
   Celebration: undefined;
   Gratitude: undefined;
   Tomorrow: undefined;

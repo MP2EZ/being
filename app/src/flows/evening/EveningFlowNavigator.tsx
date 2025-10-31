@@ -11,15 +11,18 @@
  * Flow (10-15 min adjustable):
  * 1. VirtueReflection - Mindful reflection
  * 2. SenecaQuestions - Seneca's 3 questions (OPTIONAL)
- * 3. Celebration - Celebrate efforts
- * 4. Gratitude - Gratitude practice
- * 5. Tomorrow - Intention + letting go
- * 6. Lessons - React vs Respond (OPTIONAL)
- * 7. SelfCompassion - Self-compassion (REQUIRED)
- * 8. SleepTransition - Mindful breathing for sleep
- * 9. EveningCompletion - Flow summary
+ * 3. VirtueInstances - Track virtue successes (OPTIONAL) [FEAT-51]
+ * 4. VirtueChallenges - Track virtue struggles (OPTIONAL) [FEAT-51]
+ * 5. Celebration - Celebrate efforts
+ * 6. Gratitude - Gratitude practice
+ * 7. Tomorrow - Intention + letting go
+ * 8. Lessons - React vs Respond (OPTIONAL)
+ * 9. SelfCompassion - Self-compassion (REQUIRED)
+ * 10. SleepTransition - Mindful breathing for sleep
+ * 11. EveningCompletion - Flow summary
  *
  * @see /docs/product/Being. DRD.md (DRD-FLOW-004: Evening Flow)
+ * @see FEAT-51: Virtue Tracking Dashboard (added VirtueInstances + VirtueChallenges)
  */
 
 import { logSecurity, logPerformance, logError, LogCategory } from '../../services/logging';
@@ -32,6 +35,8 @@ import { EveningFlowParamList } from '../../types/flows';
 // Import DRD v2.0.0 Stoic Mindfulness screens
 import VirtueReflectionScreen from './screens/VirtueReflectionScreen';
 import SenecaQuestionsScreen from './screens/SenecaQuestionsScreen';
+import VirtueInstancesScreen from './screens/VirtueInstancesScreen';   // FEAT-51
+import VirtueChallengesScreen from './screens/VirtueChallengesScreen'; // FEAT-51
 import CelebrationScreen from './screens/CelebrationScreen';
 import GratitudeScreen from './screens/GratitudeScreen';
 import TomorrowScreen from './screens/TomorrowScreen';
@@ -89,10 +94,12 @@ const ExitHeaderButton: React.FC<{ onPress: () => void }> = ({ onPress }) => (
   </View>
 );
 
-// Screen order mapping for progress calculation (DRD v2.0.0)
+// Screen order mapping for progress calculation (DRD v2.0.0 + FEAT-51)
 const SCREEN_ORDER: (keyof EveningFlowParamList)[] = [
   'VirtueReflection',
   'SenecaQuestions',
+  'VirtueInstances',      // FEAT-51: Track virtue successes
+  'VirtueChallenges',     // FEAT-51: Track virtue struggles
   'Celebration',
   'Gratitude',
   'Tomorrow',
@@ -195,6 +202,18 @@ const EveningFlowNavigator: React.FC<EveningFlowNavigatorProps> = ({
         name="SenecaQuestions"
         component={SenecaQuestionsScreen}
         options={getHeaderOptions('SenecaQuestions', "Seneca's Questions (Optional)")}
+      />
+
+      <Stack.Screen
+        name="VirtueInstances"
+        component={VirtueInstancesScreen}
+        options={getHeaderOptions('VirtueInstances', 'Virtue in Action (Optional)')}
+      />
+
+      <Stack.Screen
+        name="VirtueChallenges"
+        component={VirtueChallengesScreen}
+        options={getHeaderOptions('VirtueChallenges', 'Learning from Experience (Optional)')}
       />
 
       <Stack.Screen

@@ -1,23 +1,28 @@
 /**
- * THERAPEUTIC VALUES CONSTANTS
- * Shared between onboarding and profile screens
+ * THERAPEUTIC VALUES CONSTANTS - DEPRECATED (FEAT-51)
  *
- * CLINICAL CONTEXT:
+ * ⚠️ DEPRECATION NOTICE:
+ * This file is deprecated as of FEAT-51 (Virtue Tracking Dashboard).
+ * The therapeutic values system has been replaced by the Stoic Mindfulness framework
+ * with 4 cardinal virtues (wisdom, courage, justice, temperance).
+ *
+ * This file is retained for backward compatibility with existing user data,
+ * but no UI exists to manage these values anymore.
+ *
+ * Migration: None required - existing values data remains in storage but is no longer
+ * accessible or editable. New users will use the Stoic framework exclusively.
+ *
+ * ORIGINAL PURPOSE:
  * - 15 MBCT-aligned therapeutic values (qualities/principles)
- * - Originally defined in onboarding (OnboardingScreen.simple.tsx)
- * - Users select 3-5 values during onboarding
- * - Values are viewable and editable in profile
+ * - Users selected 3-5 values during onboarding
+ * - Values were viewable and editable in profile
  *
- * ARCHITECTURAL NOTE:
- * - This uses MBCT therapeutic qualities (compassion, mindfulness, etc.)
- * - Different from ACT life domains (relationships, work, health, etc.)
- * - Maintained for consistency with existing onboarding implementation
- * - Clinician agent recommended ACT domains but we're preserving existing design
+ * REPLACED BY:
+ * - /src/types/stoic.ts - Stoic Mindfulness type definitions
+ * - /src/stores/stoicPracticeStore.ts - Virtue tracking store
+ * - See /docs/technical/Stoic-Mindfulness-Architecture-v1.0.md
  *
- * SECURITY:
- * - Values are therapeutic preferences → encrypted storage
- * - PHI classification: 'therapeutic_preference'
- * - Data minimization: 'necessary' (required for therapeutic personalization)
+ * @deprecated Use Stoic Mindfulness framework instead (4 virtues + 5 principles)
  */
 
 import { PHIClassification } from '../types/compliance/hipaa';
