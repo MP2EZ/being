@@ -73,16 +73,16 @@ Path B (Urgent but can test): crisis-assess → main[rapid] → crisis-validate 
 Analyze work type, then route to appropriate path:
 
 1. Therapeutic content (MBCT exercises, mindfulness, guided practices)?
-   → clinician-review → main → (clinician+accessibility)-validate + [performance-validate if 60fps required]
+   → clinician-review → ux-design → main → (clinician+ux+accessibility)-validate + [performance-validate if 60fps required]
    → Testing → user tests → user runs /b-close
    Examples: New breathing exercise, body scan, check-in flow updates
-   Note: Performance required for animations (60fps), accessibility required for all therapeutic UI
+   Note: UX designs interaction, clinician validates therapeutic accuracy, accessibility validates WCAG, performance required for animations (60fps)
 
 2. Assessment features (PHQ-9/GAD-7 scoring, UI, calculations)?
-   → clinician-review → main → (clinician(DSM-5)+crisis(thresholds)+accessibility(UI))-validate
+   → clinician-review → ux-design → main → (clinician(DSM-5)+ux(interaction)+crisis(thresholds)+accessibility(UI))-validate
    → Testing → user tests → user runs /b-close
    Examples: Add GAD-7 follow-up questions, update severity labels
-   Note: Clinician validates clinical accuracy, crisis validates thresholds, accessibility validates UI
+   Note: UX designs interaction, clinician validates clinical accuracy, crisis validates thresholds, accessibility validates UI
 
 3. Privacy/PHI features (data export, payment, HIPAA compliance)?
    → (compliance+security)-review → main → (compliance+security)-validate
@@ -103,12 +103,12 @@ Analyze work type, then route to appropriate path:
 **Examples by path**:
 
 *Therapeutic path*:
-- "Add gratitude exercise" → clinician-review (MBCT?) → main → (clinician+accessibility)-validate → Testing → user runs `/b-close`
-- "Breathing with animation" → clinician → architect (60fps) → main → (clinician+accessibility+performance(60fps))-validate → Testing → user runs `/b-close`
+- "Add gratitude exercise" → clinician-review (MBCT?) → ux-design → main → (clinician+ux+accessibility)-validate → Testing → user runs `/b-close`
+- "Breathing with animation" → clinician → ux-design → architect (60fps) → main → (clinician+ux+accessibility+performance(60fps))-validate → Testing → user runs `/b-close`
 
 *Assessment path*:
-- "Update PHQ-9 severity labels" → clinician (DSM-5 correct?) → main → clinician-validate + crisis-validate (thresholds) + accessibility-validate → Testing → user runs `/b-close`
-- "Add GAD-7 trend display" → clinician-review → main → clinician-validate + crisis-validate + accessibility-validate → Testing → user runs `/b-close`
+- "Update PHQ-9 severity labels" → clinician (DSM-5 correct?) → ux-design → main → clinician-validate + ux-validate + crisis-validate (thresholds) + accessibility-validate → Testing → user runs `/b-close`
+- "Add GAD-7 trend display" → clinician-review → ux-design → main → clinician-validate + ux-validate + crisis-validate + accessibility-validate → Testing → user runs `/b-close`
 
 *Privacy path*:
 - "Export journal for therapist" → (compliance(PHI? HIPAA?)+security) → main (encrypt) → (compliance+security)-validate → Testing → user runs `/b-close`
@@ -202,14 +202,14 @@ Is this building or fixing (non-emergency)?
 - 🟡 **Conditional** - Required only if specific conditions met
 - ⚪ **Optional** - Beneficial but not required
 
-| Work Type | Clinician | Crisis | Compliance | Security | Performance | Accessibility |
-|-----------|-----------|--------|------------|----------|-------------|---------------|
-| **B-CRISIS features** | ⚪ optional | ✅ required | ✅ required | ⚪ optional | 🟡 <200ms | ✅ required |
-| **Assessment UI** | ✅ required (DSM-5) | ✅ required (thresholds) | ⚪ optional | ⚪ optional | ⚪ optional | ✅ required |
-| **Therapeutic content** | ✅ required (MBCT) | ⚪ optional | ⚪ optional | ⚪ optional | 🟡 if animation (60fps) | ✅ required |
-| **Privacy/PHI features** | ⚪ optional | ⚪ optional | ✅ required (HIPAA) | ✅ required (encryption) | ⚪ optional | 🟡 if UI |
-| **General UI features** | ⚪ optional | ⚪ optional | ⚪ optional | ⚪ optional | ⚪ optional | ✅ required |
-| **Backend-only** | ⚪ optional | ⚪ optional | ⚪ optional | ⚪ optional | ⚪ optional | ⚪ not needed |
+| Work Type | Clinician | UX | Crisis | Compliance | Security | Performance | Accessibility |
+|-----------|-----------|-----|--------|------------|----------|-------------|---------------|
+| **B-CRISIS features** | ⚪ optional | 🟡 if UI | ✅ required | ✅ required | ⚪ optional | 🟡 <200ms | ✅ required |
+| **Assessment UI** | ✅ required (DSM-5) | ✅ required | ✅ required (thresholds) | ⚪ optional | ⚪ optional | ⚪ optional | ✅ required |
+| **Therapeutic content** | ✅ required (MBCT) | ✅ required | ⚪ optional | ⚪ optional | ⚪ optional | 🟡 if animation (60fps) | ✅ required |
+| **Privacy/PHI features** | ⚪ optional | 🟡 if UI | ⚪ optional | ✅ required (HIPAA) | ✅ required (encryption) | ⚪ optional | 🟡 if UI |
+| **General UI features** | ⚪ optional | ✅ required | ⚪ optional | ⚪ optional | ⚪ optional | ⚪ optional | ✅ required |
+| **Backend-only** | ⚪ optional | ⚪ not needed | ⚪ optional | ⚪ optional | ⚪ optional | ⚪ optional | ⚪ not needed |
 
 ### Validator Responsibilities
 
@@ -217,6 +217,13 @@ Is this building or fixing (non-emergency)?
 - Validates MBCT therapeutic accuracy
 - Validates DSM-5 assessment wording
 - Validates therapeutic UX appropriateness
+
+**UX** (User experience design):
+- Validates interaction patterns appropriate for therapeutic context
+- Validates user flows support mindfulness (not rushed/anxious)
+- Validates design consistency with mental health best practices
+- Validates touch targets, gestures, navigation for mobile
+- Collaborates with clinician on therapeutic integrity
 
 **Crisis** (Safety thresholds):
 - Validates PHQ≥15, GAD≥15 thresholds

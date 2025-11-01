@@ -12,7 +12,7 @@
   | compliance | ! | HIPAA compliance\|privacy law\|regulatory validation\|legal requirements | data\|encrypt\|consent\|network | technical |
   | philosopher | ! | Stoic Mindfulness validation\|philosophical accuracy\|principle integrity\|virtue ethics | Stoic principles\|Marcus Aurelius\|Epictetus\|dichotomy of control\|virtue | UX |
 
-  Hierarchy: crisis>compliance>philosopher>technical
+  Hierarchy: crisis>compliance>philosopher>ux>technical
 
   ### Intern Boundaries
   PROHIBIT: clinical\|crisis\|compliance\|PHI\|PHQ-9\|GAD-7\|Stoic philosophy\|principles\|virtue\|AsyncStorage\|security
@@ -23,6 +23,7 @@
   CRITICAL: PHQ≥15\|PHQ≥20\|GAD≥15\|crisis-button\|safety-risk\|emergency-features
   COMPLIANCE: data-encrypt\|storage\|consent\|network\|app-store
   PHILOSOPHICAL: Stoic principles\|virtue ethics\|Marcus Aurelius\|Epictetus\|dichotomy of control\|educational modules
+  UX: therapeutic user flows\|check-in interactions\|assessment UI design\|onboarding
 
   ### Templates
   Detailed templates: ./.claude/templates/
