@@ -5,18 +5,19 @@
  */
 
 import React from 'react';
-import { logSecurity, logPerformance, logError, LogCategory } from '../../services/logging';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import { colorSystem, getTheme, spacing } from '../../constants/colors';
 import type { RootStackParamList } from '../../navigation/CleanRootNavigator';
+import { useStoicPracticeStore } from '../../stores/stoicPracticeStore';
 
 type CleanHomeScreenNavigationProp = StackNavigationProp<RootStackParamList>;
 
 const CleanHomeScreen: React.FC = () => {
   const navigation = useNavigation<CleanHomeScreenNavigationProp>();
+  const { isCheckInCompletedToday } = useStoicPracticeStore();
   const currentHour = new Date().getHours();
 
   const getGreeting = () => {
@@ -34,8 +35,6 @@ const CleanHomeScreen: React.FC = () => {
   const currentPeriod = getCurrentPeriod();
 
   const handleCheckInPress = (type: 'morning' | 'midday' | 'evening') => {
-    logPerformance(`🎯 ${type} check-in pressed`);
-
     switch (type) {
       case 'morning':
         // Navigate to Morning Flow (6-screen body scan & awareness)
@@ -61,6 +60,7 @@ const CleanHomeScreen: React.FC = () => {
     const isCurrent = type === currentPeriod;
     const themeColors = getTheme(type);
     const isImplemented = true; // All flows are now implemented
+    const isCompleted = isCheckInCompletedToday(type);
 
     return (
       <Pressable
@@ -70,15 +70,17 @@ const CleanHomeScreen: React.FC = () => {
             backgroundColor: themeColors.background,
             borderColor: isCurrent ? themeColors.primary : colorSystem.gray[200],
             borderWidth: isCurrent ? 2 : 1,
-            opacity: pressed ? 0.9 : (!isImplemented ? 0.6 : 1),
+            opacity: pressed ? 0.9 : (!isImplemented ? 0.6 : isCompleted ? 0.5 : 1),
           }
         ]}
         onPress={() => handleCheckInPress(type)}
         disabled={!isImplemented}
         accessibilityRole="button"
         accessibilityLabel={`${title} check-in`}
-        accessibilityHint={isImplemented 
-          ? `Start your ${type} mindfulness check-in, estimated ${duration}`
+        accessibilityHint={isImplemented
+          ? isCompleted
+            ? `${title} check-in completed today. Tap to do again.`
+            : `Start your ${type} mindfulness check-in, estimated ${duration}`
           : `${title} check-in coming soon`
         }
         accessibilityState={{ disabled: !isImplemented }}

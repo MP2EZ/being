@@ -16,6 +16,7 @@ import CrisisResourcesScreen from '../screens/crisis/CrisisResourcesScreen';
 import CrisisPlanScreen from '../screens/crisis/CrisisPlanScreen';
 import PurchaseOptionsScreen from '../components/subscription/PurchaseOptionsScreen';
 import SubscriptionStatusCard from '../components/subscription/SubscriptionStatusCard';
+import { useStoicPracticeStore } from '../stores/stoicPracticeStore';
 
 export type RootStackParamList = {
   Main: undefined;
@@ -34,18 +35,23 @@ export type RootStackParamList = {
 const Stack = createStackNavigator<RootStackParamList>();
 
 const CleanRootNavigator: React.FC = () => {
-  const handleMorningFlowComplete = (sessionData: any) => {
+  const { markCheckInComplete } = useStoicPracticeStore();
+
+  const handleMorningFlowComplete = async (sessionData: any) => {
     logPerformance('🌅 Morning flow completed:', sessionData);
+    await markCheckInComplete('morning');
     // TODO: Store session data to analytics/state
   };
 
-  const handleMiddayFlowComplete = (sessionData: any) => {
+  const handleMiddayFlowComplete = async (sessionData: any) => {
     logPerformance('🧘 Midday flow completed:', sessionData);
+    await markCheckInComplete('midday');
     // TODO: Store session data to analytics/state
   };
 
-  const handleEveningFlowComplete = (sessionData: any) => {
+  const handleEveningFlowComplete = async (sessionData: any) => {
     logPerformance('🌙 Evening flow completed:', sessionData);
+    await markCheckInComplete('evening');
     // TODO: Store session data to analytics/state
   };
 

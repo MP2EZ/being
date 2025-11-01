@@ -37,6 +37,16 @@ import type {
 // STORE STATE INTERFACE
 // ──────────────────────────────────────────────────────────────────────────────
 
+// Check-in completion tracking for daily check-ins
+// Used by Home screen to display faded appearance for completed check-ins
+export type CheckInType = 'morning' | 'midday' | 'evening';
+
+export interface CheckInCompletion {
+  type: CheckInType;
+  completedAt: Date;
+  date: string; // YYYY-MM-DD format for easy daily comparison
+}
+
 export interface StoicPracticeState {
   // Developmental tracking
   developmentalStage: DevelopmentalStage;
@@ -56,6 +66,9 @@ export interface StoicPracticeState {
     adversity: DomainProgress;
   };
 
+  // Daily check-in completion tracking (last 7 days, for home screen visual feedback)
+  checkInCompletions: CheckInCompletion[];
+
   // Loading state
   isLoading: boolean;
 
@@ -69,6 +82,9 @@ export interface StoicPracticeState {
   getVirtueInstancesByDomain: (domain: PracticeDomain) => VirtueInstance[];
   getVirtueInstancesByVirtue: (virtue: CardinalVirtue) => VirtueInstance[];
   getRecentVirtueInstances: (days: number) => VirtueInstance[];
+  // Check-in completion tracking (for home screen faded appearance)
+  markCheckInComplete: (type: CheckInType) => Promise<void>;
+  isCheckInCompletedToday: (type: CheckInType) => boolean;
   loadPersistedState: () => Promise<void>;
   persistState: () => Promise<void>;
   resetStore: () => Promise<void>;
@@ -114,7 +130,7 @@ const initialDomainProgress: DomainProgress = {
   lastPracticeDate: null,
 };
 
-const getInitialState = (): Omit<StoicPracticeState, 'isLoading' | 'addVirtueInstance' | 'addVirtueChallenge' | 'updateStreak' | 'incrementPracticeDays' | 'setPracticeStartDate' | 'setDevelopmentalStage' | 'getVirtueInstancesByDomain' | 'getVirtueInstancesByVirtue' | 'getRecentVirtueInstances' | 'loadPersistedState' | 'persistState' | 'resetStore'> => ({
+const getInitialState = (): Omit<StoicPracticeState, 'isLoading' | 'addVirtueInstance' | 'addVirtueChallenge' | 'updateStreak' | 'incrementPracticeDays' | 'setPracticeStartDate' | 'setDevelopmentalStage' | 'getVirtueInstancesByDomain' | 'getVirtueInstancesByVirtue' | 'getRecentVirtueInstances' | 'markCheckInComplete' | 'isCheckInCompletedToday' | 'loadPersistedState' | 'persistState' | 'resetStore'> => ({
   developmentalStage: 'fragmented',
   practiceStartDate: null,
   totalPracticeDays: 0,
@@ -122,6 +138,7 @@ const getInitialState = (): Omit<StoicPracticeState, 'isLoading' | 'addVirtueIns
   longestStreak: 0,
   virtueInstances: [],
   virtueChallenges: [],
+  checkInCompletions: [],
   domainProgress: {
     work: { ...initialDomainProgress, domain: 'work' },
     relationships: { ...initialDomainProgress, domain: 'relationships' },
@@ -230,6 +247,30 @@ const updateDomainProgressForInstance = (
 };
 
 /**
+ * Get today's date in YYYY-MM-DD format (local timezone)
+ * Used for check-in completion tracking
+ */
+const getTodayString = (): string => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+/**
+ * Clean up old check-in completions (keep last 7 days only)
+ * Reduces storage footprint and maintains recent history
+ */
+const cleanOldCheckInCompletions = (completions: CheckInCompletion[]): CheckInCompletion[] => {
+  const cutoffDate = new Date();
+  cutoffDate.setDate(cutoffDate.getDate() - 7);
+  const cutoffString = cutoffDate.toISOString().split('T')[0];
+
+  return completions.filter(completion => cutoffString && completion.date >= cutoffString);
+};
+
+/**
  * Persist state to SecureStore (encrypted)
  */
 const persistToSecureStore = async (state: Partial<StoicPracticeState>): Promise<void> => {
@@ -247,6 +288,10 @@ const persistToSecureStore = async (state: Partial<StoicPracticeState>): Promise
       virtueChallenges: state.virtueChallenges?.map(vc => ({
         ...vc,
         timestamp: vc.timestamp.toISOString(),
+      })) ?? [],
+      checkInCompletions: state.checkInCompletions?.map(c => ({
+        ...c,
+        completedAt: c.completedAt.toISOString(),
       })) ?? [],
       domainProgress: {
         work: {
@@ -294,6 +339,10 @@ const loadFromSecureStore = async (): Promise<Partial<StoicPracticeState> | null
       virtueChallenges: parsed.virtueChallenges?.map((vc: any) => ({
         ...vc,
         timestamp: new Date(vc.timestamp),
+      })) ?? [],
+      checkInCompletions: parsed.checkInCompletions?.map((c: any) => ({
+        ...c,
+        completedAt: new Date(c.completedAt),
       })) ?? [],
       domainProgress: {
         work: {
@@ -481,6 +530,44 @@ export const useStoicPracticeStore = create<StoicPracticeState>((set, get) => ({
   persistState: async () => {
     const state = get();
     await persistToSecureStore(state);
+  },
+
+  /**
+   * Mark a check-in as completed for today
+   * Used by completion screens to track daily check-in progress
+   */
+  markCheckInComplete: async (type: CheckInType) => {
+    const today = getTodayString();
+    const now = new Date();
+    const currentCompletions = get().checkInCompletions;
+
+    // Remove any existing completion for this type today (handle re-completions)
+    const filteredCompletions = currentCompletions.filter(
+      c => !(c.type === type && c.date === today)
+    );
+
+    // Add new completion
+    const newCompletion: CheckInCompletion = {
+      type,
+      completedAt: now,
+      date: today,
+    };
+
+    // Clean old completions and add new one
+    const updatedCompletions = cleanOldCheckInCompletions([...filteredCompletions, newCompletion]);
+
+    set({ checkInCompletions: updatedCompletions });
+    await persistToSecureStore({ ...get(), checkInCompletions: updatedCompletions });
+  },
+
+  /**
+   * Check if a specific check-in type was completed today
+   * Used by Home screen to determine faded appearance
+   */
+  isCheckInCompletedToday: (type: CheckInType): boolean => {
+    const today = getTodayString();
+    const completions = get().checkInCompletions;
+    return completions.some(c => c.type === type && c.date === today);
   },
 
   /**
