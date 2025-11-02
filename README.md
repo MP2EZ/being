@@ -1,185 +1,275 @@
-# Being. - Clinical-Grade Mental Health App
+# Being. - Stoic Mindfulness for Modern Life
 
-> **Evidence-based mindfulness and cognitive therapy practices for mental wellness**
+> **Ancient Stoic wisdom integrated with modern mindfulness practice**
 
-[![App Store Ready](https://img.shields.io/badge/App%20Store-95%25%20Ready-green.svg)](https://github.com/being-mbct)
-[![Clinical Accuracy](https://img.shields.io/badge/Clinical%20Accuracy-100%25%20Validated-brightgreen.svg)](./docs/clinical/)
-[![HIPAA Ready](https://img.shields.io/badge/HIPAA-Compliance%20Ready-blue.svg)](./docs/security/)
+[![Philosophical Accuracy](https://img.shields.io/badge/Philosophical%20Accuracy-Classical%20Sources-brightgreen.svg)](./docs/philosophical/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Strict%20Mode-blue.svg)](./app/tsconfig.json)
-[![Testing](https://img.shields.io/badge/Tests-Clinical%20Grade-green.svg)](./app/__tests__)
+[![Testing](https://img.shields.io/badge/Tests-Comprehensive-green.svg)](./app/__tests__)
+[![WCAG Compliance](https://img.shields.io/badge/WCAG-2.1%20AA%20Ready-blue.svg)](./docs/accessibility/)
 
 ---
 
-## 🎯 **Current Status: Production-Ready Mental Health Platform**
+## 🏛️ **What is Being?**
 
-**Being.** is a **clinical-grade React Native app** delivering evidence-based **Mindfulness-Based Cognitive Therapy (MBCT)** practices. After comprehensive multi-agent development and validation, the app is **95% ready for app store deployment**.
+**Being.** is a mobile mindfulness app that synthesizes ancient Stoic philosophy with contemporary mindfulness practice. Built on a five-principle framework that integrates Stoic wisdom, mindfulness meditation, and modern neuroscience, Being helps you develop practical skills for navigating life's challenges with clarity, resilience, and virtue.
 
-### **🚀 Ready for Launch (8-Week Timeline)**
-- ✅ **Clinical Accuracy**: PHQ-9/GAD-7 assessments with 100% scoring precision
-- ✅ **Crisis Safety**: <3 second emergency access to 988 Suicide & Crisis Lifeline
-- ✅ **HIPAA Encryption**: Military-grade AES-256 protection for mental health data
-- ✅ **Performance Optimized**: 60fps therapeutic animations, <200ms crisis response
-- ✅ **Accessibility Ready**: WCAG compliance roadmap for inclusive mental health access
-- ✅ **Type-Safe**: Zero-tolerance TypeScript for clinical calculation accuracy
+### **The Integration**
 
----
+Stoic Mindfulness rests on a simple insight: **Aware Wisdom = Metacognitive Awareness × Philosophical Discernment**. Without awareness, even the best philosophical principles remain abstract ideas that vanish under pressure. Without principled judgment, even refined awareness becomes directionless, unable to distinguish what matters from what merely captures attention.
 
-## 🏥 **Clinical Features**
-
-### **Evidence-Based Assessments**
-- **PHQ-9 Depression Screening**: Clinically accurate scoring with crisis detection (≥20)
-- **GAD-7 Anxiety Assessment**: Validated 7-question anxiety evaluation (crisis ≥15)
-- **Suicidal Ideation Detection**: Immediate crisis intervention for any response >0 on PHQ-9 question 9
-- **Clinical Data Encryption**: HIPAA-ready protection for all sensitive mental health information
-
-### **Daily MBCT Practice Cycle**
-- **Morning Check-in**: Body scan → emotions → thoughts → energy → values → dreams (6 steps)
-- **Midday Reset**: Emotions → 3-minute breathing → events & needs (3 steps)
-- **Evening Reflection**: Day review → gratitude → tension release → sleep preparation (4 steps)
-
-### **Crisis Intervention System**
-- **Emergency Resources**: Direct access to 988 Suicide & Crisis Lifeline
-- **Crisis Text Line**: 741741 text support integration
-- **Personal Crisis Plan**: User-defined safety strategies and emergency contacts
-- **<3 Second Access**: Emergency button accessible from any screen in under 3 seconds
+This framework isn't pop-Stoicism or diluted mindfulness—it's a rigorous synthesis of:
+- **Classical Stoicism**: Marcus Aurelius, Epictetus, Seneca (2,000+ years of wisdom)
+- **Mindfulness Practice**: Contemporary meditation techniques rooted in contemplative traditions
+- **Neuroscience**: How contemplative practice reshapes the brain for lasting change
 
 ---
 
-## 🛡️ **Security & Compliance**
+## 🎯 **Five Core Principles**
 
-### **HIPAA-Ready Data Protection**
-- **AES-256 Encryption**: Military-grade protection with separate keys by data sensitivity
-- **Data Classification**: Clinical (highest) → Personal → Therapeutic → System sensitivity levels
-- **Key Management**: 90-day rotation cycle with secure device keychain storage
-- **Audit Logging**: Complete access tracking for clinical data compliance
-- **Privacy by Design**: No network transmission of personal data in Phase 1
+The framework builds from foundation through discernment to response, ethics, and practice:
 
-### **Clinical Accuracy Safeguards**
-- **Type-Safe Calculations**: Compile-time guarantees for PHQ-9/GAD-7 scoring
-- **Runtime Validation**: Zod schemas prevent clinical data corruption
-- **Crisis Detection Logic**: Dual-threshold system (total score + suicidal ideation)
-- **Comprehensive Testing**: 348 assessment combinations validated for 100% accuracy
+### **1. Aware Presence**
+**Present Perception + Metacognitive Space + Embodied Awareness**
 
----
+The foundation of all practice. Notice when your mind has left the present moment and gently return. Cultivate the space between stimulus and response where choice becomes possible. Feel sensations in your body as they arise.
 
-## ⚡ **Performance & Accessibility**
+**Daily Practice**: "Am I present and aware right now?"
 
-### **Therapeutic Performance Requirements**
-- **Breathing Animation**: 60fps sustained for full 180-second therapeutic sessions
-- **Crisis Response**: <200ms emergency button response time (life-safety requirement)
-- **Assessment Loading**: <300ms for clinical engagement maintenance
-- **Memory Efficiency**: <150MB usage during extended mindfulness sessions
+### **2. Radical Acceptance**
+**This is what's happening. What do I do from here?**
 
-### **Inclusive Design Standards**
-- **WCAG AA Compliance**: Full accessibility for users with disabilities
-- **Crisis Accessibility**: Emergency features exceed WCAG AAA standards (life-safety)
-- **Screen Reader Support**: Complete VoiceOver/TalkBack compatibility
-- **48pt Touch Targets**: Crisis buttons exceed minimum accessibility requirements
+Distinguish acceptance from resignation. Accept reality as it is (not as you wish it were), then respond wisely. Radical acceptance isn't passive—it's the foundation for effective action. You cannot respond skillfully to a situation you refuse to see clearly.
 
----
+**Daily Practice**: "Am I accepting what is, or resisting reality?"
 
-## 🧪 **Testing & Quality Assurance**
+### **3. Sphere Sovereignty**
+**Dichotomy of Control + Intention Over Outcome**
 
-### **Clinical Accuracy Testing**
-```bash
-npm run validate:clinical      # 100% PHQ-9/GAD-7 scoring accuracy
-npm run test:crisis           # Crisis detection validation
-npm run test:encryption       # Data security verification
-npm run validate:performance  # Therapeutic timing requirements
-npm run validate:accessibility # WCAG compliance testing
-```
+Focus energy on what you can influence, release what you cannot. Calibrate your expectations to match reality: some things are fully in your control (your choices, responses, intentions), some you can influence (outcomes, others' actions), and some are beyond your power entirely. Focus on intentions and efforts, not outcomes.
 
-### **Comprehensive Test Coverage**
-- **Clinical Calculations**: All 348 possible PHQ-9/GAD-7 score combinations
-- **Crisis Detection**: 100% accuracy for emergency intervention scenarios
-- **Data Persistence**: Mental health data integrity across app lifecycle
-- **Performance**: 60fps animations and <200ms response time validation
-- **Security**: Encryption/decryption accuracy with key rotation testing
+**Daily Practice**: "Am I focused only on what I control?"
+
+### **4. Virtuous Response**
+**Wisdom, Courage, Justice, Temperance**
+
+Character over outcomes, intentions over results. Respond to life's challenges by cultivating the four cardinal virtues:
+- **Wisdom**: Sound judgment about what matters
+- **Courage**: Standing by what's right despite fear or difficulty
+- **Justice**: Treating others with fairness and contributing to the common good
+- **Temperance**: Balance, moderation, and self-regulation
+
+**Daily Practice**: "Am I responding with virtue in this moment?"
+
+### **5. Interconnected Living**
+**Relational Presence + Interconnected Action**
+
+Recognize our shared humanity and interconnectedness. Expand perspective beyond self-interest to include others and the common good. Bring full presence to relationships. Act with awareness that your choices ripple outward, affecting the larger whole.
+
+**Daily Practice**: "Am I considering others and the common good?"
 
 ---
 
-## 🏗️ **Technical Architecture**
+## 🌅 **Daily Practice Structure**
+
+### **Morning Foundation Practice (10-20 minutes)**
+Set your day's tone before reactive patterns engage:
+
+**1. Settle with Breath (3 minutes)**
+- Sit comfortably, close eyes or soften gaze
+- Bring attention to physical sensations of breathing
+- When mind wanders, label "thinking" and return to breath
+- Builds Aware Presence (present attention + metacognitive observation)
+
+**2. Open Awareness (5-10 minutes)**
+- Allow attention to open to whatever arises: sounds, sensations, thoughts, emotions
+- Observe each as temporary event in awareness without grasping or resisting
+- Notice what's happening in your body (embodied awareness)
+- Practice Radical Acceptance of whatever experiences arise
+
+**3. Set Daily Intention (2-3 minutes)**
+- Review your day's commitments
+- Choose specific focus from the five principles:
+  - "Today I practice Aware Presence when I notice my mind time-traveling"
+  - "Today I apply Sphere Sovereignty when facing obstacles"
+  - "Today I respond with Virtue in that difficult conversation"
+- Write intention briefly if helpful
+
+**4. Optional: Gratitude & Impermanence (2-3 minutes)**
+- Briefly acknowledge: this day isn't guaranteed, circumstances will change
+- Note three specific things you're grateful for right now
+- Incorporates negative visualization with safety framing
+
+*Minimum practice: 5 minutes (3 minutes breath + 2 minutes intention)*
+
+### **Midday Reset (3-5 minutes)**
+Reconnect with principles during the day:
+
+**STOP Practice:**
+- **S**top what you're doing
+- **T**ake a breath (or three)
+- **O**bserve what's happening in body and mind
+- **P**roceed with awareness and intention
+
+Brief check-in with the five questions:
+- Am I present? (Aware Presence)
+- Am I accepting what is? (Radical Acceptance)
+- Am I focused on what I control? (Sphere Sovereignty)
+- Am I responding with virtue? (Virtuous Response)
+- Am I considering others? (Interconnected Living)
+
+### **Evening Reflection Practice (5-10 minutes)**
+Honest examination for learning and growth (not self-judgment):
+
+**1. Review Morning Intention**
+- Did you remember it during the day?
+- Were there opportunities to practice?
+- What made it possible or what interfered?
+
+**2. Identify Wise Responses**
+- Where did you respond from wisdom and virtue?
+- Acknowledge specifically—positive reinforcement strengthens neural pathways
+
+**3. Identify Unskillful Responses**
+- Where did you violate principles or values?
+- Examine with compassionate honesty (not self-flagellation)
+- What triggered the response? What beliefs or patterns drove it?
+
+**4. Mental Rehearsal**
+- Imagine specifically how you might respond differently in similar future situations
+- Concrete rehearsal makes alternative responses more accessible
+- More effective than vague commitments to "do better"
+
+**5. Three Gratitudes**
+- Three specific things from today (not generic)
+- "I'm grateful my colleague took time to explain that concept"
+- Not "I'm grateful for my job"
+
+---
+
+## ✨ **Core Features**
+
+### **Philosophical Accuracy**
+- **Classical Sources**: All content grounded in Marcus Aurelius (*Meditations*), Epictetus (*Enchiridion*, *Discourses*), Seneca (*Letters from a Stoic*, *On Anger*)
+- **Educational Approach**: Learn authentic Stoic Mindfulness V2 framework, not pop-Stoicism
+- **Virtue Ethics**: Track growth in Wisdom, Justice, Courage, Temperance
+- **Balanced Practice**: Self-compassion integrated to prevent harsh "stoicism" (emotional suppression)
+
+### **Accessible Mindfulness**
+- **No Experience Required**: Guided practices for complete beginners
+- **Time-Flexible**: 5-20 minute sessions fit into any schedule
+- **Mobile-First**: Practice anywhere, anytime on your phone
+- **Offline-First**: Full functionality without internet connection
+
+### **Privacy & Security**
+- **Local-First**: All personal data encrypted and stored on your device
+- **AES-256 Encryption**: Military-grade protection for your reflections
+- **No Account Required**: Practice without creating accounts or sharing data
+- **Export Anytime**: Full data portability and deletion rights
+
+### **Performance Optimized**
+- **60fps Animations**: Smooth breathing animations for therapeutic quality
+- **<2s Launch**: Instant access to your practice
+- **Memory Efficient**: <150MB usage during extended sessions
+- **Battery Conscious**: Optimized for all-day use
+
+---
+
+## 🛠️ **Technical Architecture**
 
 ### **Technology Stack**
 - **Framework**: React Native 0.79.5 with Expo SDK 53
-- **Language**: TypeScript 5.8.3 (strict mode) with clinical-grade type safety
+- **Language**: TypeScript 5.8.3 (strict mode) for type safety
 - **State Management**: Zustand 5.0.8 with encrypted AsyncStorage persistence
-- **Navigation**: React Navigation 7.x with crisis-optimized routing
-- **Security**: AES-256-GCM encryption with react-native-keychain key storage
-- **Testing**: Jest + React Native Testing Library with clinical accuracy focus
+- **Navigation**: React Navigation 7.x with modal-based flow presentation
+- **Security**: AES-256-GCM encryption with device keychain key storage
+- **Testing**: Jest + React Native Testing Library with comprehensive coverage
 
 ### **Project Structure**
 ```
 app/
 ├── src/
 │   ├── components/          # Reusable UI components
-│   │   ├── checkin/        # Daily practice components (breathing, emotions)
-│   │   └── core/           # Base components (buttons, alerts, crisis)
-│   ├── flows/              # Multi-step therapeutic journeys
-│   │   ├── assessment/     # PHQ-9/GAD-7 clinical evaluations
-│   │   ├── morning/        # Morning MBCT practice (6 steps)
-│   │   ├── midday/         # Midday reset practice (3 steps)
-│   │   └── evening/        # Evening reflection practice (4 steps)
+│   │   ├── breathing/      # 60fps breathing animations
+│   │   └── core/           # Base components (buttons, inputs)
+│   ├── flows/              # Structured practice journeys
+│   │   ├── morning/        # Morning practice (6 screens)
+│   │   ├── midday/         # Midday reset (5 screens)
+│   │   └── evening/        # Evening reflection (11 screens)
 │   ├── screens/            # App navigation screens
-│   │   ├── assessment/     # Clinical assessment interfaces
-│   │   ├── crisis/         # Emergency intervention screens
-│   │   └── home/           # Main dashboard and navigation
+│   │   ├── home/           # Main dashboard with three check-ins
+│   │   └── settings/       # User preferences and data management
 │   ├── services/           # Business logic and data management
-│   │   ├── security/       # HIPAA-ready encryption services
-│   │   └── storage/        # Encrypted data persistence layer
-│   ├── store/              # Zustand state management
-│   │   ├── assessmentStore.ts  # PHQ-9/GAD-7 clinical data
-│   │   ├── checkInStore.ts     # Daily practice data
-│   │   └── userStore.ts        # User preferences and settings
-│   └── types/              # TypeScript definitions
-│       ├── clinical.ts     # Clinical data type safety
-│       ├── security.ts     # Encryption and compliance types
-│       └── index.ts        # Core application types
+│   │   ├── security/       # Encryption and key management
+│   │   └── storage/        # Encrypted data persistence
+│   ├── stores/             # Zustand state management
+│   │   └── stoicPracticeStore.ts  # Practice data and virtue tracking
+│   ├── types/              # TypeScript definitions
+│   │   ├── stoic.ts        # Stoic philosophy type safety
+│   │   └── flows.ts        # Practice flow definitions
+│   └── theme/              # Design system and accessibility
+│       ├── accessibility.ts # WCAG 2.1 AA compliant colors
+│       └── colors.ts        # Color system with DRD theming
 ├── __tests__/              # Comprehensive test suite
-│   ├── clinical/           # PHQ-9/GAD-7 accuracy tests
-│   ├── security/           # Encryption and privacy tests
-│   └── performance/        # Therapeutic timing validation
-└── docs/                   # App-specific documentation (see /docs/ for project docs)
+│   ├── unit/               # Unit tests for business logic
+│   ├── integration/        # Flow and navigation tests
+│   └── performance/        # Animation and timing validation
+└── docs/                   # App-specific documentation
 ```
 
 ---
 
-## 🚦 **Development Status & Next Steps**
+## 🧪 **Testing & Quality**
 
-### **Phase 4 Complete: Clinical-Grade Foundation** ✅
-- [x] **Multi-agent coordination**: 7 specialized agents enhanced app safety and quality
-- [x] **Critical bug fixes**: Clinical accuracy and data persistence issues resolved
-- [x] **Security implementation**: HIPAA-ready encryption with zero API changes
-- [x] **Performance optimization**: Therapeutic timing requirements achieved
-- [x] **Testing framework**: Medical-grade validation for clinical accuracy
+### **Comprehensive Test Suite**
+```bash
+npm test                    # Run all tests
+npm run test:unit          # Unit tests for core logic
+npm run test:integration   # Flow navigation and state tests
+npm run test:performance   # 60fps animation validation
+npm run typecheck          # TypeScript strict mode check
+```
 
-### **Phase 5: Final App Store Preparation** (In Progress - 95% Complete)
-- [x] **App.json Configuration**: Production bundle identifiers and metadata
-- [x] **Directory Cleanup**: Legacy code removed, clean architecture established
-- [ ] **Accessibility Implementation**: Deploy WCAG compliance fixes (identified)
-- [ ] **Final Testing**: Complete clinical accuracy validation on target devices
-- [ ] **App Store Assets**: Screenshots, descriptions, and promotional materials
-
-### **Phase 6: App Store Deployment** (Planned - Week 8)
-- [ ] **TestFlight/Play Beta**: Clinical advisor validation
-- [ ] **Store Submission**: iOS App Store and Google Play Store
-- [ ] **Launch Monitoring**: Clinical accuracy and crisis response validation
+### **Quality Standards**
+- **Philosophical Accuracy**: All Stoic content validated against classical sources
+- **Type Safety**: Strict TypeScript for compile-time guarantees
+- **Performance**: 60fps sustained animations, <2s launch time
+- **Accessibility**: WCAG 2.1 AA compliance for inclusive design
+- **Security**: Comprehensive encryption and data protection testing
 
 ---
 
-## 📋 **Clinical Validation Status**
+## 🚀 **Getting Started**
 
-### **✅ Clinician-Approved Features**
-- **PHQ-9/GAD-7 Implementation**: Exact clinical wording and scoring validated
-- **Crisis Detection Logic**: Dual-threshold approach (score + ideation) clinically approved
-- **MBCT Practice Flows**: Daily check-in structure aligns with therapeutic standards
-- **Therapeutic Language**: Non-judgmental, empowering clinical messaging validated
+### **Prerequisites**
+- Node.js 18+ and npm
+- iOS: macOS with Xcode 15+
+- Android: Android Studio with SDK 34+
+- Expo CLI installed globally
 
-### **✅ Compliance-Ready Implementation**  
-- **HIPAA Technical Safeguards**: Complete encryption and audit logging implementation
-- **Data Rights Management**: Export, deletion, and portability capabilities ready
-- **Privacy by Design**: Local-first architecture with optional cloud sync preparation
-- **Regulatory Documentation**: Complete security and compliance documentation
+### **Installation**
+```bash
+# Clone the repository
+git clone https://github.com/[your-org]/being.git
+cd being/app
+
+# Install dependencies
+npm install
+
+# iOS: Install pods
+cd ios && pod install && cd ..
+
+# Start development server
+npm start
+
+# Run on iOS
+npm run ios
+
+# Run on Android
+npm run android
+```
+
+### **Environment Setup**
+No API keys or environment variables required - Being is fully offline-first!
 
 ---
 
@@ -187,65 +277,155 @@ app/
 
 ### **Documentation Structure**
 - **`/docs/`** - Project-wide documentation (legal, brand guidelines)
-- **`/docs/`** - Technical documentation (product, clinical, architecture, security)
-- **`/website/docs/`** - Website documentation (implementation, reports)
-- **`/scripts/`** - Cross-module operational scripts
+- **`/docs/technical/`** - Technical documentation (architecture, security)
+- **`/docs/product/stoic-mindfulness/`** - Complete Stoic Mindfulness V2 framework
+- **`/docs/accessibility/`** - WCAG compliance and inclusive design
+- **`/scripts/`** - Development and operational scripts
 
 ### **Key Documentation**
-- [Documentation Placement Guide](docs/DOCUMENTATION_GUIDE.md) - Rules for organizing docs
-- [Product Requirements](app/docs/product/) - PRD, TRD, DRD, roadmaps
-- [Clinical Documentation](app/docs/clinical/) - MBCT compliance, safety protocols
-- [Architecture & Security](app/docs/architecture/) - System design, data protection
-- [Legal & Compliance](docs/legal/) - Privacy policy, HIPAA, GDPR
+- [Stoic Mindfulness Framework INDEX](docs/product/stoic-mindfulness/INDEX.md) - Complete navigation
+- [Five Core Principles](docs/product/stoic-mindfulness/principles/) - Detailed principle documentation
+- [Daily Practice Architecture](docs/product/stoic-mindfulness/practice/daily-architecture.md) - Complete practice guide
+- [WCAG Compliance Guide](docs/accessibility/wcag-compliance.md)
+- [Security & Encryption](docs/technical/security-architecture.md)
+- [Contributing Guidelines](CONTRIBUTING.md)
 
 ---
 
-## 🤝 **Contributing & Clinical Standards**
+## 🎨 **Design Philosophy**
+
+### **Accessibility First**
+- **WCAG 2.1 AA**: All colors meet minimum 4.5:1 contrast ratios
+- **Touch Targets**: Minimum 44x44pt (AAA level) for motor accessibility
+- **Screen Readers**: Complete VoiceOver/TalkBack compatibility
+- **Cognitive Load**: Simple, focused screens reduce anxiety for users with depression
+
+### **Period-Aware Design (DRD)**
+Three distinct visual themes for morning, midday, and evening practices:
+- **Morning**: Warm sunrise tones (#C4814C) for energy and clarity
+- **Midday**: Energizing blue (#2E86AB) for focus and reset
+- **Evening**: Calming purple (#8B4789) for reflection and rest
+
+---
+
+## 🤝 **Contributing**
 
 ### **Development Guidelines**
-- **Clinical Accuracy**: Zero tolerance for errors in PHQ-9/GAD-7 scoring or crisis detection
-- **User Safety**: All changes must maintain <200ms crisis response time requirement
-- **Type Safety**: Clinical calculations must be compile-time verified
-- **Testing**: All therapeutic features require comprehensive test coverage
-- **Documentation**: Clinical features need evidence-based justification
+- **Philosophical Accuracy**: All Stoic content must reference classical sources and be validated by philosopher agent
+- **Type Safety**: Strict TypeScript required for all code
+- **Testing**: Comprehensive test coverage for new features
+- **Accessibility**: WCAG 2.1 AA compliance maintained
+- **Performance**: 60fps animations and responsive interactions
 
 ### **Code Quality Standards**
-- **TypeScript Strict**: All clinical code must pass strict mode compilation
-- **Clinical Linting**: Specialized ESLint rules for therapeutic software development
-- **Performance**: 60fps animations and <3 second crisis access maintained
-- **Accessibility**: WCAG AA compliance for inclusive mental health access
+- **TypeScript Strict**: Zero tolerance for type errors
+- **ESLint**: Consistent code style enforcement
+- **Prettier**: Automated code formatting
+- **Conventional Commits**: Semantic versioning support
+
+### **Branch Strategy**
+- **`development`** - Default branch for active development
+- **`main`** - Production-ready releases only
+- **`feat/*`** - Feature branches from development
+- **`fix/*`** - Bug fix branches from development
+- **`chore/*`** - Infrastructure and tooling updates
 
 ---
 
-## 📞 **Crisis Resources & Support**
+## 📱 **Platform Support**
 
-**If you or someone you know is experiencing a mental health crisis:**
+### **iOS**
+- iOS 13.0+ (modern device support)
+- iPhone 8+ recommended
+- Full VoiceOver accessibility
+- Optimized for modern iOS design patterns
 
-- **🆘 Emergency**: Call 911 for immediate danger
-- **🌟 988 Suicide & Crisis Lifeline**: Call or text 988 (24/7 support)
-- **💬 Crisis Text Line**: Text HOME to 741741
-- **🏥 Emergency Room**: Go to your nearest emergency room
-- **👨‍⚕️ Mental Health Professional**: Contact your therapist or psychiatrist
+### **Android**
+- Android 10.0+ (API level 29+)
+- 4GB RAM recommended for smooth performance
+- Full TalkBack accessibility
+- Material Design integration
 
-**This app is not a substitute for professional mental health care.**
+---
+
+## 🛡️ **Security & Privacy**
+
+### **Data Protection**
+- **AES-256 Encryption**: All personal data encrypted at rest
+- **Device-Only Storage**: No cloud sync, no external servers
+- **Key Management**: Secure keychain storage with device-bound keys
+- **No Tracking**: Zero analytics or tracking without explicit consent
+- **Right to Delete**: Complete data deletion available anytime
+
+### **Privacy Principles**
+- **Local-First**: Your reflections never leave your device
+- **No Accounts**: Practice without creating accounts
+- **Transparent**: Open source code for complete transparency
+- **User Control**: Full data export and deletion rights
+
+---
+
+## 📦 **Mental Health Support Features**
+
+While Being is primarily an educational tool for Stoic Mindfulness philosophy and personal development, we recognize that users may be navigating mental health challenges:
+
+### **Assessment Tools**
+- **PHQ-9**: Depression screening with clinically accurate scoring
+- **GAD-7**: Anxiety assessment with validated evaluation
+- **Private & Encrypted**: All assessment data encrypted on your device
+
+### **Crisis Resources**
+- **Emergency Access**: Quick access to crisis support resources
+- **988 Integration**: Direct link to Suicide & Crisis Lifeline
+- **Safety Planning**: Personal crisis plan creation and storage
+- **Crisis Text Line**: 741741 text support integration
+
+**Important**: Being teaches Stoic Mindfulness philosophy for resilience-building and personal development. It is an educational tool, not a substitute for professional mental health care. If you're experiencing a crisis, please contact:
+- **Emergency**: 911 for immediate danger
+- **988 Lifeline**: Call or text 988 (24/7 support)
+- **Crisis Text Line**: Text HOME to 741741
+- **Professional Care**: Contact your therapist or psychiatrist
+
+---
+
+## 🎯 **Mission & Vision**
+
+**Being. makes ancient Stoic wisdom accessible for modern life through the Stoic Mindfulness framework—helping individuals develop practical philosophy skills through daily practice that builds awareness, resilience, clarity, and virtue one day at a time.**
 
 ---
 
 ## 📄 **License & Legal**
 
-- **MIT License**: Open source development with clinical accuracy requirements
-- **Privacy Policy**: HIPAA-ready privacy protections for mental health data
-- **Terms of Service**: Clear guidelines for therapeutic software usage
-- **Clinical Disclaimers**: Appropriate medical disclaimers for wellness application
+- **MIT License**: Open source development with educational focus
+- **Privacy Policy**: Comprehensive privacy protections for personal data
+- **Terms of Service**: Clear guidelines for educational software usage
+- **Philosophical Integrity**: Commitment to classical Stoic accuracy
 
 ---
 
-## 🎯 **Mission Statement**
+## 🙏 **Acknowledgments**
 
-**Being. delivers evidence-based mindfulness and cognitive therapy practices through clinical-grade mobile technology, empowering individuals to develop sustainable mental wellness skills while ensuring complete safety and privacy for those in their most vulnerable moments.**
+### **Philosophical Sources**
+
+**Classical Stoic Texts:**
+- Marcus Aurelius - *Meditations* (Gregory Hays translation)
+- Epictetus - *Enchiridion* and *Discourses* (Robin Hard translation)
+- Seneca - *Letters from a Stoic* and *On Anger*
+
+**Integration Framework:**
+- Stoic Mindfulness V2: Five-principle synthesis of Stoicism + mindfulness + neuroscience
+- Contemporary scholarship on virtue ethics and contemplative practice
+- Modern research on neuroplasticity and contemplative neuroscience
+
+### **Balanced Practice**
+
+Stoic Mindfulness integrates self-compassion with philosophical reflection. This prevents the harshness of colloquial "stoicism" (emotional suppression) and honors the Stoic ideal of wisdom applied to oneself. Examine yourself honestly, but with kindness—virtue development requires patience, not perfectionism.
+
+### **Built With**
+React Native, TypeScript, Expo, Zustand, and a commitment to philosophical accuracy and user privacy.
 
 ---
 
-*Built with clinical expertise, secured with military-grade encryption, validated by comprehensive testing, and designed for inclusive access to mental health support.*
+*Ancient wisdom, modern practice. Built with philosophical integrity, secured with military-grade encryption, designed for inclusive access to timeless principles.*
 
-**Version**: 1.0.0 | **Build**: Production Ready | **Status**: 95% App Store Complete
+**Version**: 2.0.0 | **Framework**: Stoic Mindfulness V2 | **Approach**: Educational
