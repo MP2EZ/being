@@ -99,14 +99,18 @@ const CleanHomeScreen: React.FC = () => {
 
         <View style={[
           styles.startButton,
-          { 
-            backgroundColor: isImplemented 
-              ? themeColors.primary 
-              : colorSystem.gray[400] 
+          {
+            backgroundColor: isImplemented
+              ? themeColors.primary
+              : colorSystem.gray[400]
           }
         ]}>
           <Text style={styles.startButtonText}>
-            {isImplemented ? 'Start Check-in' : 'Coming Soon'}
+            {!isImplemented
+              ? 'Coming Soon'
+              : isCompleted
+                ? 'Complete'
+                : 'Start'}
           </Text>
         </View>
       </Pressable>

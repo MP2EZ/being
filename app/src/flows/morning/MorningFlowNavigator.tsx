@@ -184,9 +184,10 @@ const MorningFlowNavigator: React.FC<MorningFlowNavigatorProps> = ({
 
       <Stack.Screen
         name="MorningCompletion"
-        component={MorningCompletionScreen}
         options={getHeaderOptions('MorningCompletion', 'Complete')}
-      />
+      >
+        {(props) => <MorningCompletionScreen {...props} onSave={onComplete} />}
+      </Stack.Screen>
     </Stack.Navigator>
   );
 };

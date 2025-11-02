@@ -72,8 +72,7 @@ const MorningCompletionScreen: React.FC<Props> = ({ navigation, route, onSave })
     if (onSave) {
       onSave(completeData);
     }
-
-    navigation.navigate('Home' as any);
+    // Navigation handled by onComplete callback in CleanRootNavigator
   };
 
   const handleReview = () => {
