@@ -144,7 +144,7 @@ assessments:
   
 check_ins:
   collect: Mood data for therapeutic tracking
-  rationale: MBCT practice requires daily awareness logging  
+  rationale: Stoic Mindfulness practice requires daily awareness logging
   retention: 90 days automatic, user can extend
   
 crisis_plan:

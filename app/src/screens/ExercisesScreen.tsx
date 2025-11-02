@@ -150,7 +150,7 @@ const ExercisesScreen: React.FC = () => {
           </View>
           <View style={styles.placeholderCard}>
             <Text style={styles.placeholderTitle}>Meditation Sessions</Text>
-            <Text style={styles.placeholderText}>MBCT-based meditation practices</Text>
+            <Text style={styles.placeholderText}>Stoic Mindfulness meditation practices</Text>
           </View>
         </View>
       </ScrollView>
