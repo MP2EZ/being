@@ -130,7 +130,7 @@ retention_period: 90 days default, user configurable
 default_retention: 90 days (therapeutic effectiveness window)
 minimum_retention: 7 days (weekly pattern analysis)
 maximum_retention: 2 years (long-term pattern tracking)
-therapeutic_justification: MBCT practices benefit from mood pattern awareness
+therapeutic_justification: Stoic Mindfulness practices benefit from mood pattern awareness
 
 disposal_method: Automatic deletion with user notification option
 user_control: Configure retention period, manual deletion, export before deletion
@@ -153,14 +153,14 @@ privacy_consideration: Contains free-text responses requiring careful handling
 
 ### 2.4 Mindfulness and Practice Data
 
-**MBCT Session Data**:
+**Stoic Mindfulness Practice Data**:
 ```yaml
-data_type: Mindfulness-Based Cognitive Therapy Session Records
+data_type: Stoic Mindfulness Practice Records (Virtue instances, challenges, philosophical reflections)
 retention_period: 1 year default, user configurable
 default_retention: 1 year (practice development tracking)
 minimum_retention: 30 days (immediate practice benefits)
-maximum_retention: 3 years (long-term mindfulness development)
-therapeutic_justification: Mindfulness skill development requires practice history
+maximum_retention: 3 years (long-term philosophical development)
+therapeutic_justification: Stoic practice skill development requires practice history
 
 disposal_method: Automatic deletion with progress summary preservation option
 user_control: Session-by-session deletion, bulk operations, retention preferences
