@@ -114,7 +114,7 @@ const EveningFlowNavigator: React.FC<EveningFlowNavigatorProps> = ({
   // FEAT-23: Session resumption state
   const [showResumeModal, setShowResumeModal] = useState(false);
   const [resumableSession, setResumableSession] = useState<SessionMetadata | null>(null);
-  const navigationRef = useRef<any>(null);
+  const [initialScreen, setInitialScreen] = useState<keyof EveningFlowParamList>('VirtueReflection');
   const hasCheckedSession = useRef(false);
 
   // FEAT-23: Check for resumable session on mount
@@ -138,19 +138,14 @@ const EveningFlowNavigator: React.FC<EveningFlowNavigatorProps> = ({
   }, []);
 
   // FEAT-23: Handle resume session
-  const handleResumeSession = async () => {
-    if (!resumableSession || !navigationRef.current) return;
+  const handleResumeSession = () => {
+    if (!resumableSession) return;
 
     try {
-      setShowResumeModal(false);
-
-      // Navigate to the saved screen
+      // Set the initial screen to the saved screen
       const screenName = resumableSession.currentScreen as keyof EveningFlowParamList;
-
-      // Use setTimeout to ensure navigation happens after modal closes
-      setTimeout(() => {
-        navigationRef.current?.navigate(screenName);
-      }, 300);
+      setInitialScreen(screenName);
+      setShowResumeModal(false);
 
       console.log(`[EveningFlow] Resumed session at ${screenName}`);
     } catch (error) {
@@ -162,6 +157,7 @@ const EveningFlowNavigator: React.FC<EveningFlowNavigatorProps> = ({
   const handleBeginFresh = async () => {
     try {
       await SessionStorageService.clearSession('evening');
+      setInitialScreen('VirtueReflection');
       setShowResumeModal(false);
       setResumableSession(null);
       console.log('[EveningFlow] Starting fresh evening session');
@@ -193,7 +189,7 @@ const EveningFlowNavigator: React.FC<EveningFlowNavigatorProps> = ({
   return (
     <>
       <Stack.Navigator
-        ref={navigationRef}
+        initialRouteName={initialScreen}
         screenOptions={{
           headerStyle: {
             backgroundColor: colorSystem.themes.evening.background,

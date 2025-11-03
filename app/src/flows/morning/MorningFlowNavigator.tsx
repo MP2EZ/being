@@ -88,7 +88,7 @@ const MorningFlowNavigator: React.FC<MorningFlowNavigatorProps> = ({
   // FEAT-23: Session resumption state
   const [showResumeModal, setShowResumeModal] = useState(false);
   const [resumableSession, setResumableSession] = useState<SessionMetadata | null>(null);
-  const navigationRef = useRef<any>(null);
+  const [initialScreen, setInitialScreen] = useState<keyof MorningFlowParamList>('Gratitude');
   const hasCheckedSession = useRef(false);
 
   // FEAT-23: Check for resumable session on mount
@@ -112,19 +112,14 @@ const MorningFlowNavigator: React.FC<MorningFlowNavigatorProps> = ({
   }, []);
 
   // FEAT-23: Handle resume session
-  const handleResumeSession = async () => {
-    if (!resumableSession || !navigationRef.current) return;
+  const handleResumeSession = () => {
+    if (!resumableSession) return;
 
     try {
-      setShowResumeModal(false);
-
-      // Navigate to the saved screen
+      // Set the initial screen to the saved screen
       const screenName = resumableSession.currentScreen as keyof MorningFlowParamList;
-
-      // Use setTimeout to ensure navigation happens after modal closes
-      setTimeout(() => {
-        navigationRef.current?.navigate(screenName);
-      }, 300);
+      setInitialScreen(screenName);
+      setShowResumeModal(false);
 
       console.log(`[MorningFlow] Resumed session at ${screenName}`);
     } catch (error) {
@@ -136,6 +131,7 @@ const MorningFlowNavigator: React.FC<MorningFlowNavigatorProps> = ({
   const handleBeginFresh = async () => {
     try {
       await SessionStorageService.clearSession('morning');
+      setInitialScreen('Gratitude');
       setShowResumeModal(false);
       setResumableSession(null);
       console.log('[MorningFlow] Starting fresh morning session');
@@ -169,7 +165,7 @@ const MorningFlowNavigator: React.FC<MorningFlowNavigatorProps> = ({
   return (
     <>
       <Stack.Navigator
-        ref={navigationRef}
+        initialRouteName={initialScreen}
         screenOptions={{
           headerStyle: {
             backgroundColor: colorSystem.themes.morning.background,

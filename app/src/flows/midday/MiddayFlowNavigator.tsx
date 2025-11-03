@@ -107,7 +107,7 @@ const MiddayFlowNavigator: React.FC<MiddayFlowNavigatorProps> = ({
   // FEAT-23: Session resumption state
   const [showResumeModal, setShowResumeModal] = useState(false);
   const [resumableSession, setResumableSession] = useState<SessionMetadata | null>(null);
-  const navigationRef = useRef<any>(null);
+  const [initialScreen, setInitialScreen] = useState<keyof MiddayFlowParamList>('ControlCheck');
   const hasCheckedSession = useRef(false);
 
   // FEAT-23: Check for resumable session on mount
@@ -131,19 +131,14 @@ const MiddayFlowNavigator: React.FC<MiddayFlowNavigatorProps> = ({
   }, []);
 
   // FEAT-23: Handle resume session
-  const handleResumeSession = async () => {
-    if (!resumableSession || !navigationRef.current) return;
+  const handleResumeSession = () => {
+    if (!resumableSession) return;
 
     try {
-      setShowResumeModal(false);
-
-      // Navigate to the saved screen
+      // Set the initial screen to the saved screen
       const screenName = resumableSession.currentScreen as keyof MiddayFlowParamList;
-
-      // Use setTimeout to ensure navigation happens after modal closes
-      setTimeout(() => {
-        navigationRef.current?.navigate(screenName);
-      }, 300);
+      setInitialScreen(screenName);
+      setShowResumeModal(false);
 
       console.log(`[MiddayFlow] Resumed session at ${screenName}`);
     } catch (error) {
@@ -155,6 +150,7 @@ const MiddayFlowNavigator: React.FC<MiddayFlowNavigatorProps> = ({
   const handleBeginFresh = async () => {
     try {
       await SessionStorageService.clearSession('midday');
+      setInitialScreen('ControlCheck');
       setShowResumeModal(false);
       setResumableSession(null);
       console.log('[MiddayFlow] Starting fresh midday session');
@@ -257,7 +253,7 @@ const MiddayFlowNavigator: React.FC<MiddayFlowNavigatorProps> = ({
   return (
     <>
       <Stack.Navigator
-        ref={navigationRef}
+        initialRouteName={initialScreen}
         screenOptions={{
           headerShown: true,
           gestureEnabled: true, // Allow swipe back for safety
