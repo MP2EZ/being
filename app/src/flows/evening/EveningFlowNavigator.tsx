@@ -116,6 +116,7 @@ const EveningFlowNavigator: React.FC<EveningFlowNavigatorProps> = ({
   const [resumableSession, setResumableSession] = useState<SessionMetadata | null>(null);
   const [initialScreen, setInitialScreen] = useState<keyof EveningFlowParamList>('VirtueReflection');
   const hasCheckedSession = useRef(false);
+  const lastSavedStep = useRef(0); // Track last saved step to prevent backward saves
 
   // FEAT-23: Check for resumable session on mount
   useEffect(() => {
@@ -241,8 +242,13 @@ const EveningFlowNavigator: React.FC<EveningFlowNavigatorProps> = ({
                 setCurrentStep(stepIndex + 1);
               }
 
-              // FEAT-23: Save session progress on screen change
-              if (currentRouteName && currentRouteName !== 'EveningCompletion') {
+              // FEAT-23: Save session progress only on forward navigation
+              // Only save if we're moving to a new screen or staying on the same screen
+              // Don't save if moving backward (exit/back button pressed)
+              if (currentRouteName &&
+                  currentRouteName !== 'EveningCompletion' &&
+                  stepIndex >= lastSavedStep.current) {
+                lastSavedStep.current = stepIndex;
                 SessionStorageService.saveSession('evening', currentRouteName as string)
                   .catch(error => {
                     console.error('[EveningFlow] Failed to save session:', error);

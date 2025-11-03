@@ -90,6 +90,7 @@ const MorningFlowNavigator: React.FC<MorningFlowNavigatorProps> = ({
   const [resumableSession, setResumableSession] = useState<SessionMetadata | null>(null);
   const [initialScreen, setInitialScreen] = useState<keyof MorningFlowParamList>('Gratitude');
   const hasCheckedSession = useRef(false);
+  const lastSavedStep = useRef(0); // Track last saved step to prevent backward saves
 
   // FEAT-23: Check for resumable session on mount
   useEffect(() => {
@@ -214,8 +215,13 @@ const MorningFlowNavigator: React.FC<MorningFlowNavigatorProps> = ({
                 setCurrentStep(stepIndex + 1);
               }
 
-              // FEAT-23: Save session progress on screen change
-              if (currentRouteName && currentRouteName !== 'MorningCompletion') {
+              // FEAT-23: Save session progress only on forward navigation
+              // Only save if we're moving to a new screen or staying on the same screen
+              // Don't save if moving backward (exit/back button pressed)
+              if (currentRouteName &&
+                  currentRouteName !== 'MorningCompletion' &&
+                  stepIndex >= lastSavedStep.current) {
+                lastSavedStep.current = stepIndex;
                 SessionStorageService.saveSession('morning', currentRouteName as string)
                   .catch(error => {
                     console.error('[MorningFlow] Failed to save session:', error);
