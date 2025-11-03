@@ -14,7 +14,7 @@
 
 **Pattern**:
 ```
-(crisis+compliance)-plan → main → (crisis+compliance+accessibility)-validate → Testing → Done (user runs /b-close)
+(crisis+compliance)-plan → main → (crisis+compliance+accessibility+[ux if UI])-validate → Testing → Done (user runs /b-close)
 ```
 
 **When to use**: Crisis detection, safety plans, emergency features, 988 integration, PHQ/GAD thresholds
@@ -33,7 +33,7 @@
 3. User runs `/b-close [WORK_ITEM_ID]` when satisfied → merges to development, updates to "Done"
 
 **Examples**:
-- "Update crisis button behavior" → (crisis+compliance) plan → main (<200ms) → (crisis+compliance+accessibility)-validate → Testing → user runs `/b-close`
+- "Update crisis button behavior" → (crisis+compliance) plan → main (<200ms) → (crisis+compliance+ux+accessibility)-validate → Testing → user runs `/b-close`
 - "PHQ-9 threshold from ≥20 to ≥15" → (crisis+compliance) → main → (crisis+compliance+accessibility)-validate → Testing → user runs `/b-close` → deploy
 
 ---
@@ -85,18 +85,22 @@ Analyze work type, then route to appropriate path:
    Note: UX designs interaction, clinician validates clinical accuracy, crisis validates thresholds, accessibility validates UI
 
 3. Privacy/PHI features (data export, payment, HIPAA compliance)?
-   → (compliance+security)-review → main → (compliance+security)-validate
+   → (compliance+security)-review → [ux-design if UI] → main → (compliance+security+[ux if UI]+[accessibility if UI])-validate
    → Testing → user tests → user runs /b-close
    Examples: Export user data, subscription flow, data retention
-   Note: Compliance validates HIPAA/legal requirements, security validates encryption/secure storage
+   Note: Compliance validates HIPAA/legal requirements, security validates encryption/secure storage, UX required if UI involved
 
 4. General Being feature (progress charts, UI improvements, non-PHI)?
+   UI features:
+   → [domain-review?] → ux-design → main → (ux+accessibility)-validate
+   → Testing → user tests → user runs /b-close
+   Backend-only:
    → [domain-review?] → main → [domain-validate?]
    → Testing → user tests → user runs /b-close
-   Examples: Mood trends chart, enhanced export (non-PHI), analytics
-   Optional domain review based on proximity to therapeutic/crisis/PHI areas
+   Examples: Mood trends chart (UI), enhanced export (UI), analytics dashboard (UI), API improvements (backend-only)
+   Note: UX+accessibility required for all UI features; optional domain review based on proximity to therapeutic/crisis/PHI areas
 
-5. Simple feature with no domain concerns?
+5. Simple technical feature with no domain or UI concerns?
    → main → Testing → user tests → user runs /b-close
 ```
 
@@ -111,12 +115,14 @@ Analyze work type, then route to appropriate path:
 - "Add GAD-7 trend display" → clinician-review → ux-design → main → clinician-validate + ux-validate + crisis-validate + accessibility-validate → Testing → user runs `/b-close`
 
 *Privacy path*:
-- "Export journal for therapist" → (compliance(PHI? HIPAA?)+security) → main (encrypt) → (compliance+security)-validate → Testing → user runs `/b-close`
-- "Subscription flow" → (compliance+security) → main → (compliance(PCI+HIPAA)+security(encryption))-validate → Testing → user runs `/b-close`
+- "Export journal for therapist" → (compliance(PHI? HIPAA?)+security) → ux-design → main (encrypt) → (compliance+security+ux+accessibility)-validate → Testing → user runs `/b-close`
+- "Subscription flow" → (compliance+security) → ux-design → main → (compliance(PCI+HIPAA)+security(encryption)+ux+accessibility)-validate → Testing → user runs `/b-close`
+- "Automated data retention (backend)" → (compliance+security) → main → (compliance+security)-validate → Testing → user runs `/b-close` (no UI, no UX needed)
 
 *General path*:
-- "Progress insights chart" → main → clinician-review (therapeutic presentation?) → Testing → user runs `/b-close`
-- "Enhanced UI animations" → main → [optional clinician check] → Testing → user runs `/b-close`
+- "Progress insights chart" → ux-design → main → (ux+accessibility)-validate → [optional clinician-review (therapeutic presentation?)] → Testing → user runs `/b-close`
+- "Enhanced UI animations" → ux-design → main → (ux+accessibility)-validate → [optional clinician check] → Testing → user runs `/b-close`
+- "API performance optimization" → main → Testing → user runs `/b-close` (backend-only, no UX needed)
 
 ---
 
@@ -137,31 +143,38 @@ Is root cause clear?
 
 Domain validation phase (after fix):
 Bug affected therapeutic content/UX?
-  → clinician-validate fix → Testing → user verifies → user runs /b-close
+  → (clinician+ux+accessibility)-validate fix → Testing → user verifies → user runs /b-close
 
 Bug affected assessment features?
-  → (clinician+crisis)-validate → Testing → user verifies → user runs /b-close
+  → (clinician+crisis+ux+accessibility)-validate → Testing → user verifies → user runs /b-close
 
 Bug affected privacy/data handling?
-  → compliance-validate → Testing → user verifies → user runs /b-close
+  → (compliance+[ux+accessibility if UI])-validate → Testing → user verifies → user runs /b-close
 
-General bug?
+Bug affected UI/interactions?
+  → (ux+accessibility)-validate → Testing → user verifies → user runs /b-close
+
+Backend-only bug?
   → Optional domain check → Testing → user verifies → user runs /b-close
 ```
 
 **Examples**:
 
 *With investigation*:
-- "Breathing animation stutters" → performance-investigate → main (fix) → (clinician(still therapeutic?)+performance(60fps?))-validate → Testing → user runs `/b-close`
+- "Breathing animation stutters" → performance-investigate → main (fix) → (clinician(still therapeutic?)+ux+performance(60fps?)+accessibility)-validate → Testing → user runs `/b-close`
 - "Mood data sometimes lost" → state-investigate → main (fix) → compliance-check (data integrity?) → Testing → user runs `/b-close`
 
 *Without investigation (root cause clear)*:
-- "Button color too dark in check-in" → main (fix CSS) → clinician-review (still therapeutic?) → Testing → user runs `/b-close`
-- "Text alignment broken on small screens" → main (fix layout) → accessibility-validate → Testing → user runs `/b-close`
+- "Button color too dark in check-in" → main (fix CSS) → (clinician+ux+accessibility)-validate (still therapeutic?) → Testing → user runs `/b-close`
+- "Text alignment broken on small screens" → main (fix layout) → (ux+accessibility)-validate → Testing → user runs `/b-close`
 
 *Assessment bugs*:
-- "GAD-7 score off by 1" → main (fix calculation) → (clinician(DSM-5?)+crisis(thresholds?))-validate → Testing → user runs `/b-close`
-- "PHQ-9 questions in wrong order" → main (reorder) → clinician-validate → Testing → user runs `/b-close`
+- "GAD-7 score off by 1" → main (fix calculation) → (clinician(DSM-5?)+crisis(thresholds?))-validate → Testing → user runs `/b-close` (backend-only, no UX)
+- "PHQ-9 questions in wrong order" → main (reorder) → (clinician+ux+accessibility)-validate → Testing → user runs `/b-close`
+
+*UI bugs*:
+- "Modal dismiss gesture broken" → main (fix gesture) → (ux+accessibility)-validate → Testing → user runs `/b-close`
+- "Navigation animation janky" → main (fix animation) → (ux+accessibility)-validate → Testing → user runs `/b-close`
 
 **Difference from B-HOTFIX**:
 - B-HOTFIX: URGENT (<30min), safety-critical, Path A skips "Testing" for true emergencies, Path B includes quick test
