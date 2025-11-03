@@ -89,7 +89,7 @@ const MorningFlowNavigator: React.FC<MorningFlowNavigatorProps> = ({
   const [isCheckingSession, setIsCheckingSession] = useState(true); // Prevent navigator mounting until checked
   const [showResumeModal, setShowResumeModal] = useState(false);
   const [resumableSession, setResumableSession] = useState<SessionMetadata | null>(null);
-  const [initialScreen, setInitialScreen] = useState<keyof MorningFlowParamList>('Gratitude');
+  const [initialNavigationState, setInitialNavigationState] = useState<any>(undefined);
   const hasCheckedSession = useRef(false);
   const lastSavedStep = useRef(0); // Track last saved step to prevent backward saves
 
@@ -120,12 +120,30 @@ const MorningFlowNavigator: React.FC<MorningFlowNavigatorProps> = ({
     if (!resumableSession) return;
 
     try {
-      // Set the initial screen to the saved screen
+      // Build navigation state with full stack up to resumed screen
       const screenName = resumableSession.currentScreen as keyof MorningFlowParamList;
-      setInitialScreen(screenName);
+      const screenIndex = SCREEN_ORDER.indexOf(screenName);
+
+      if (screenIndex === -1) {
+        console.error(`[MorningFlow] Invalid screen name: ${screenName}`);
+        return;
+      }
+
+      // Create navigation state with all screens up to and including the resumed screen
+      const routes = SCREEN_ORDER.slice(0, screenIndex + 1).map(name => ({
+        name,
+        params: {}
+      }));
+
+      const navState = {
+        index: screenIndex,
+        routes
+      };
+
+      setInitialNavigationState(navState);
       setShowResumeModal(false);
 
-      console.log(`[MorningFlow] Resumed session at ${screenName}`);
+      console.log(`[MorningFlow] Resumed session at ${screenName} with ${routes.length} screens in stack`);
     } catch (error) {
       console.error('[MorningFlow] Failed to resume session:', error);
     }
@@ -135,7 +153,7 @@ const MorningFlowNavigator: React.FC<MorningFlowNavigatorProps> = ({
   const handleBeginFresh = async () => {
     try {
       await SessionStorageService.clearSession('morning');
-      setInitialScreen('Gratitude');
+      setInitialNavigationState(undefined); // undefined = use default initialRouteName
       setShowResumeModal(false);
       setResumableSession(null);
       lastSavedStep.current = 0; // Reset saved step tracking
@@ -187,7 +205,8 @@ const MorningFlowNavigator: React.FC<MorningFlowNavigatorProps> = ({
   return (
     <>
       <Stack.Navigator
-        initialRouteName={initialScreen}
+        initialRouteName="Gratitude"
+        initialState={initialNavigationState}
         screenOptions={{
           headerStyle: {
             backgroundColor: colorSystem.themes.morning.background,

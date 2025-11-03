@@ -108,7 +108,7 @@ const MiddayFlowNavigator: React.FC<MiddayFlowNavigatorProps> = ({
   const [isCheckingSession, setIsCheckingSession] = useState(true); // Prevent navigator mounting until checked
   const [showResumeModal, setShowResumeModal] = useState(false);
   const [resumableSession, setResumableSession] = useState<SessionMetadata | null>(null);
-  const [initialScreen, setInitialScreen] = useState<keyof MiddayFlowParamList>('ControlCheck');
+  const [initialNavigationState, setInitialNavigationState] = useState<any>(undefined);
   const hasCheckedSession = useRef(false);
   const lastSavedStep = useRef(0); // Track last saved step to prevent backward saves
 
@@ -139,12 +139,30 @@ const MiddayFlowNavigator: React.FC<MiddayFlowNavigatorProps> = ({
     if (!resumableSession) return;
 
     try {
-      // Set the initial screen to the saved screen
+      // Build navigation state with full stack up to resumed screen
       const screenName = resumableSession.currentScreen as keyof MiddayFlowParamList;
-      setInitialScreen(screenName);
+      const screenIndex = SCREEN_ORDER.indexOf(screenName);
+
+      if (screenIndex === -1) {
+        console.error(`[MiddayFlow] Invalid screen name: ${screenName}`);
+        return;
+      }
+
+      // Create navigation state with all screens up to and including the resumed screen
+      const routes = SCREEN_ORDER.slice(0, screenIndex + 1).map(name => ({
+        name,
+        params: {}
+      }));
+
+      const navState = {
+        index: screenIndex,
+        routes
+      };
+
+      setInitialNavigationState(navState);
       setShowResumeModal(false);
 
-      console.log(`[MiddayFlow] Resumed session at ${screenName}`);
+      console.log(`[MiddayFlow] Resumed session at ${screenName} with ${routes.length} screens in stack`);
     } catch (error) {
       console.error('[MiddayFlow] Failed to resume session:', error);
     }
@@ -154,7 +172,7 @@ const MiddayFlowNavigator: React.FC<MiddayFlowNavigatorProps> = ({
   const handleBeginFresh = async () => {
     try {
       await SessionStorageService.clearSession('midday');
-      setInitialScreen('ControlCheck');
+      setInitialNavigationState(undefined); // undefined = use default initialRouteName
       setShowResumeModal(false);
       setResumableSession(null);
       lastSavedStep.current = 0; // Reset saved step tracking
@@ -275,7 +293,8 @@ const MiddayFlowNavigator: React.FC<MiddayFlowNavigatorProps> = ({
   return (
     <>
       <Stack.Navigator
-        initialRouteName={initialScreen}
+        initialRouteName="ControlCheck"
+        initialState={initialNavigationState}
         screenOptions={{
           headerShown: true,
           gestureEnabled: true, // Allow swipe back for safety
