@@ -18,6 +18,7 @@ import AssessmentQuestion from '../flows/assessment/components/AssessmentQuestio
 import AssessmentResults from '../flows/assessment/components/AssessmentResults';
 import { PHQ9_QUESTIONS, GAD7_QUESTIONS } from '../flows/assessment/types/questions';
 import type { AssessmentType, AssessmentAnswer, AssessmentResponse, PHQ9Result, GAD7Result } from '../flows/assessment/types';
+import { CollapsibleCrisisButton } from '../flows/shared/components/CollapsibleCrisisButton';
 
 type Screen = 'menu' | 'intro' | 'assessment' | 'results';
 
@@ -157,42 +158,53 @@ const ExercisesScreen: React.FC = () => {
     </SafeAreaView>
   );
 
-  if (currentScreen === 'menu') {
-    return renderMenu();
-  }
+  // Render content based on current screen
+  const renderContent = () => {
+    if (currentScreen === 'menu') {
+      return renderMenu();
+    }
 
-  if (currentScreen === 'intro') {
-    return (
-      <AssessmentIntroduction
-        assessmentType={assessmentType}
-        onBegin={handleBeginAssessment}
-        context="standalone"
-      />
-    );
-  }
+    if (currentScreen === 'intro') {
+      return (
+        <AssessmentIntroduction
+          assessmentType={assessmentType}
+          onBegin={handleBeginAssessment}
+          context="standalone"
+        />
+      );
+    }
 
-  if (currentScreen === 'assessment') {
-    return (
-      <AssessmentQuestion
-        question={currentQuestion}
-        onAnswer={handleAnswer}
-        currentStep={currentQuestionIndex + 1}
-        totalSteps={questions.length}
-      />
-    );
-  }
+    if (currentScreen === 'assessment') {
+      return (
+        <AssessmentQuestion
+          question={currentQuestion}
+          onAnswer={handleAnswer}
+          currentStep={currentQuestionIndex + 1}
+          totalSteps={questions.length}
+        />
+      );
+    }
 
-  if (currentScreen === 'results') {
-    return (
-      <AssessmentResults
-        result={calculateResults()}
-        onComplete={handleComplete}
-        context="standalone"
-      />
-    );
-  }
+    if (currentScreen === 'results') {
+      return (
+        <AssessmentResults
+          result={calculateResults()}
+          onComplete={handleComplete}
+          context="standalone"
+        />
+      );
+    }
 
-  return null;
+    return null;
+  };
+
+  return (
+    <>
+      {renderContent()}
+      {/* Crisis Button Overlay - accessible across all exercise states */}
+      <CollapsibleCrisisButton testID="crisis-exercises" />
+    </>
+  );
 };
 
 const styles = StyleSheet.create({

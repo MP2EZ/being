@@ -17,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { PHQ9_QUESTIONS, GAD7_QUESTIONS } from '../flows/assessment/types/questions';
 import { RadioGroup } from '../components/accessibility';
 import type { RadioOption } from '../components/accessibility';
+import { CollapsibleCrisisButton } from '../flows/shared/components/CollapsibleCrisisButton';
 
 // Hardcoded colors - no dynamic theme system
 const colors = {
@@ -287,12 +288,21 @@ const ExercisesScreen: React.FC = () => {
     );
   };
 
-  if (currentScreen === 'menu') return renderMenu();
-  if (currentScreen === 'intro') return renderIntro();
-  if (currentScreen === 'assessment') return renderAssessment();
-  if (currentScreen === 'results') return renderResults();
+  const renderContent = () => {
+    if (currentScreen === 'menu') return renderMenu();
+    if (currentScreen === 'intro') return renderIntro();
+    if (currentScreen === 'assessment') return renderAssessment();
+    if (currentScreen === 'results') return renderResults();
+    return null;
+  };
 
-  return null;
+  return (
+    <>
+      {renderContent()}
+      {/* Crisis Button Overlay - accessible across all exercise states (menu, intro, assessment, results) */}
+      <CollapsibleCrisisButton testID="crisis-exercises" />
+    </>
+  );
 };
 
 const styles = StyleSheet.create({
