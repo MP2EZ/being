@@ -102,7 +102,7 @@ This document outlines the step-by-step plan to complete the subscription system
 5. Add upgrade prompts
 
 **Files to modify**:
-- `/app/src/screens/ExercisesScreen.simple.tsx`
+- `/app/src/screens/ExercisesScreen.tsx`
 - Other feature screens as needed
 
 **Deliverable**: Comprehensive feature gating

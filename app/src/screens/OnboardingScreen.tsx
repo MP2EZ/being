@@ -1,7 +1,7 @@
 /**
- * Simple Onboarding Screen - HIPAA Compliant Implementation
+ * Onboarding Screen - HIPAA Compliant Implementation
  * 7-screen onboarding flow with comprehensive privacy protection
- * Replicates ExercisesScreen.simple.tsx structure with HIPAA compliance
+ * Provides user consent, privacy settings, and crisis resources
  * Crisis button integration on every screen (<3s access)
  *
  * COMPLIANCE FEATURES:

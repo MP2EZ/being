@@ -1,7 +1,7 @@
 /**
- * Simple Profile Screen - Minimal implementation
+ * Profile Screen
  * Menu-based profile management with integrated onboarding
- * Following ExercisesScreen.simple.tsx pattern exactly
+ * Provides access to settings, virtue dashboard, and onboarding
  */
 
 import React, { useState } from 'react';
@@ -16,13 +16,14 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import OnboardingScreen from './OnboardingScreen.simple';
+import OnboardingScreen from './OnboardingScreen';
 import VirtueDashboardScreen from './VirtueDashboardScreen';
 import AppSettingsScreen from './AppSettingsScreen';
 import AccountSettingsScreen from './AccountSettingsScreen';
 import { RootStackParamList } from '../navigation/CleanRootNavigator';
 import { useSubscriptionStore } from '../stores/subscriptionStore';
 import { isDevMode } from '../constants/devMode';
+import { CollapsibleCrisisButton } from '../flows/shared/components/CollapsibleCrisisButton';
 
 type ProfileScreenNavigationProp = StackNavigationProp<RootStackParamList>;
 
@@ -392,42 +393,52 @@ const ProfileScreen: React.FC = () => {
     </SafeAreaView>
   );
 
-  // Render different screens based on state
-  if (currentScreen === 'menu') return renderMenu();
+  // Render different screens based on state with crisis button overlay
+  const renderContent = () => {
+    if (currentScreen === 'menu') return renderMenu();
 
-  if (currentScreen === 'onboarding') {
-    return (
-      <OnboardingScreen
-        onComplete={handleOnboardingComplete}
-        isEmbedded={true}
-      />
-    );
-  }
+    if (currentScreen === 'onboarding') {
+      return (
+        <OnboardingScreen
+          onComplete={handleOnboardingComplete}
+          isEmbedded={true}
+        />
+      );
+    }
 
-  if (currentScreen === 'virtueDashboard') {
-    return <VirtueDashboardScreen onReturn={handleReturnToMenu} />;
-  }
+    if (currentScreen === 'virtueDashboard') {
+      return <VirtueDashboardScreen onReturn={handleReturnToMenu} />;
+    }
 
-  if (currentScreen === 'account') {
-    return <AccountSettingsScreen onReturn={handleReturnToMenu} />;
-  }
+    if (currentScreen === 'account') {
+      return <AccountSettingsScreen onReturn={handleReturnToMenu} />;
+    }
 
-  if (currentScreen === 'privacy') {
-    return <AppSettingsScreen onReturn={handleReturnToMenu} />;
-  }
+    if (currentScreen === 'privacy') {
+      return <AppSettingsScreen onReturn={handleReturnToMenu} />;
+    }
 
-  if (currentScreen === 'about') {
-    return renderPlaceholder(
-      'About Being.',
-      'Our mission and the science of mindfulness'
-    );
-  }
+    if (currentScreen === 'about') {
+      return renderPlaceholder(
+        'About Being.',
+        'Our mission and the science of mindfulness'
+      );
+    }
 
-  if (currentScreen === 'stoicMindfulness') {
-    return renderAboutStoicMindfulness();
-  }
+    if (currentScreen === 'stoicMindfulness') {
+      return renderAboutStoicMindfulness();
+    }
 
-  return null;
+    return null;
+  };
+
+  return (
+    <>
+      {renderContent()}
+      {/* Crisis Button Overlay - accessible across all profile screens */}
+      <CollapsibleCrisisButton testID="crisis-profile" position="right" />
+    </>
+  );
 };
 
 const styles = StyleSheet.create({

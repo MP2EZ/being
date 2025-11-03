@@ -4,7 +4,7 @@
 **Type**: MAINT (Maintenance/Review)
 **Review Date**: 2025-11-02
 **Agents**: UX, Philosopher, Accessibility
-**Screens Reviewed**: CleanHomeScreen.tsx, ExercisesScreen.tsx, ProfileScreen.simple.tsx
+**Screens Reviewed**: CleanHomeScreen.tsx, ExercisesScreen.tsx, ProfileScreen.tsx
 
 ---
 
@@ -105,7 +105,7 @@ This comprehensive UX review evaluated Being's core navigation screens across th
 - **Assessment**: Current performance is acceptable; loading states not required
 
 **AC 8: Empty States/Onboarding** - 🟡 **PARTIAL PASS**
-- ✅ Comprehensive onboarding flow implemented (OnboardingScreen.simple.tsx)
+- ✅ Comprehensive onboarding flow implemented (OnboardingScreen.tsx)
 - ✅ Explains assessments (PHQ-9/GAD-7 with full clinical questions)
 - ✅ Explains virtue system (5 principles + 4 cardinal virtues, Stoic Intro screen)
 - ✅ Accessible from Profile > "Onboarding Setup"
@@ -276,7 +276,7 @@ Full audit report: [`/docs/technical/WCAG-AA-Accessibility-Audit.md`](../WCAG-AA
 <Text style={styles.title}>Mindful Exercises</Text>
 <Text style={styles.sectionTitle}>Mental Health Assessments</Text>
 
-// ProfileScreen.simple.tsx
+// ProfileScreen.tsx
 <Text style={styles.title}>Your Profile</Text>
 <Text style={styles.sectionTitle}>Setup & Configuration</Text>
 ```
@@ -374,7 +374,7 @@ placeholderTextColor: '#999999' // 3.2:1 → '#767676' // 4.6:1
 **Effort**: 8-12 hours
 
 1. **Integrate CollapsibleCrisisButton** into all three screens
-   - Files: CleanHomeScreen.tsx, ExercisesScreen.tsx, ProfileScreen.simple.tsx
+   - Files: CleanHomeScreen.tsx, ExercisesScreen.tsx, ProfileScreen.tsx
    - Action: Import and render crisis button
    - Validation: Verify <3s accessibility via VoiceOver/TalkBack
    - **Acceptance Criterion**: AC 5

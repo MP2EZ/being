@@ -13,7 +13,7 @@
 import React from 'react';
 import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 import { Alert, Linking, AccessibilityInfo } from 'react-native';
-import OnboardingScreen from '../OnboardingScreen.simple';
+import OnboardingScreen from '../OnboardingScreen';
 
 // Mock dependencies
 jest.mock('react-native', () => ({

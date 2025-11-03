@@ -1,6 +1,7 @@
 /**
- * Exercises Screen with DRD-005 Assessments
- * Simple integration of PHQ-9 and GAD-7 assessments into exercises tab
+ * Exercises Screen
+ * PHQ-9/GAD-7 mental health assessments with shared components
+ * Uses RadioGroup for WCAG-AA compliant accessibility
  */
 
 import React, { useState } from 'react';
@@ -10,22 +11,60 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
-  SafeAreaView,
+  Alert,
 } from 'react-native';
-import { colorSystem, spacing, typography } from '../constants/colors';
-import AssessmentIntroduction from '../flows/assessment/components/AssessmentIntroduction';
-import AssessmentQuestion from '../flows/assessment/components/AssessmentQuestion';
-import AssessmentResults from '../flows/assessment/components/AssessmentResults';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { PHQ9_QUESTIONS, GAD7_QUESTIONS } from '../flows/assessment/types/questions';
-import type { AssessmentType, AssessmentAnswer, AssessmentResponse, PHQ9Result, GAD7Result } from '../flows/assessment/types';
+import { RadioGroup } from '../components/accessibility';
+import type { RadioOption } from '../components/accessibility';
+import { CollapsibleCrisisButton } from '../flows/shared/components/CollapsibleCrisisButton';
 
+// Hardcoded colors - no dynamic theme system
+const colors = {
+  white: '#FFFFFF',
+  black: '#1C1C1C',
+  gray100: '#F3F4F6',
+  gray200: '#E5E7EB',
+  gray300: '#D1D5DB',
+  gray400: '#9CA3AF',
+  gray500: '#6B7280',
+  gray600: '#4B5563',
+  midnightBlue: '#1B2951',
+  morningPrimary: '#FF9F43',
+  eveningPrimary: '#4A7C59',
+};
+
+const spacing = {
+  sm: 8,
+  md: 16,
+  lg: 24,
+  xl: 32,
+};
+
+// NOTE: PHQ9_QUESTIONS and GAD7_QUESTIONS now imported from shared assessment types
+// This eliminates duplication and ensures clinical accuracy across the app
+
+// Response options in RadioOption format (clinically validated)
+const RESPONSE_OPTIONS: RadioOption[] = [
+  { value: 0, label: 'Not at all' },
+  { value: 1, label: 'Several days' },
+  { value: 2, label: 'More than half the days' },
+  { value: 3, label: 'Nearly every day' },
+];
+
+type AssessmentType = 'phq9' | 'gad7';
 type Screen = 'menu' | 'intro' | 'assessment' | 'results';
+
+interface Answer {
+  questionId: string;
+  response: number;
+}
 
 const ExercisesScreen: React.FC = () => {
   const [currentScreen, setCurrentScreen] = useState<Screen>('menu');
   const [assessmentType, setAssessmentType] = useState<AssessmentType>('phq9');
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [answers, setAnswers] = useState<AssessmentAnswer[]>([]);
+  const [answers, setAnswers] = useState<Answer[]>([]);
 
   const questions = assessmentType === 'phq9' ? PHQ9_QUESTIONS : GAD7_QUESTIONS;
   const currentQuestion = questions[currentQuestionIndex];
@@ -41,11 +80,10 @@ const ExercisesScreen: React.FC = () => {
     setCurrentScreen('assessment');
   };
 
-  const handleAnswer = (response: AssessmentResponse) => {
-    const newAnswer: AssessmentAnswer = {
+  const handleAnswer = (response: number) => {
+    const newAnswer: Answer = {
       questionId: currentQuestion.id,
       response,
-      timestamp: Date.now(),
     };
 
     const updatedAnswers = [...answers, newAnswer];
@@ -59,51 +97,48 @@ const ExercisesScreen: React.FC = () => {
     }
   };
 
-  const calculateResults = (): PHQ9Result | GAD7Result => {
+  const calculateResults = () => {
     const totalScore = answers.reduce((sum, answer) => sum + answer.response, 0);
-    const completedAt = Date.now();
 
     if (assessmentType === 'phq9') {
-      // PHQ-9 severity calculation
-      let severity: 'minimal' | 'mild' | 'moderate' | 'moderately_severe' | 'severe';
-      if (totalScore <= 4) severity = 'minimal';
-      else if (totalScore <= 9) severity = 'mild';
-      else if (totalScore <= 14) severity = 'moderate';
-      else if (totalScore <= 19) severity = 'moderately_severe';
-      else severity = 'severe';
-
-      // Check for suicidal ideation (question 9)
+      // Check for crisis conditions: PHQ≥20 or suicidal ideation (question 9)
       const question9Answer = answers.find(a => a.questionId === 'phq9_9');
       const suicidalIdeation = question9Answer ? question9Answer.response > 0 : false;
+      const isCrisis = totalScore >= 20 || suicidalIdeation;
 
-      return {
-        totalScore,
-        severity,
-        isCrisis: totalScore >= 20 || suicidalIdeation,
-        suicidalIdeation,
-        completedAt,
-        answers,
-      } as PHQ9Result;
+      let severity = 'minimal';
+      if (totalScore <= 4) severity = 'minimal';
+      else if (totalScore <= 9) severity = 'mild';
+      else if (totalScore <= 14) severity = 'moderate';
+      else if (totalScore <= 19) severity = 'moderately severe';
+      else severity = 'severe';
+
+      return { totalScore, severity, isCrisis, suicidalIdeation };
     } else {
-      // GAD-7 severity calculation
-      let severity: 'minimal' | 'mild' | 'moderate' | 'severe';
+      // GAD-7: Crisis at ≥15
+      const isCrisis = totalScore >= 15;
+
+      let severity = 'minimal';
       if (totalScore <= 4) severity = 'minimal';
       else if (totalScore <= 9) severity = 'mild';
       else if (totalScore <= 14) severity = 'moderate';
       else severity = 'severe';
 
-      return {
-        totalScore,
-        severity,
-        isCrisis: totalScore >= 15,
-        completedAt,
-        answers,
-      } as GAD7Result;
+      return { totalScore, severity, isCrisis };
     }
   };
 
   const handleComplete = () => {
     setCurrentScreen('menu');
+  };
+
+  const showCrisisAlert = () => {
+    Alert.alert(
+      'Crisis Resources Available',
+      'If you are in immediate danger, please call 911.\n\nFor crisis support:\n• Call 988 (Suicide & Crisis Lifeline)\n• Text "HELLO" to 741741 (Crisis Text Line)',
+      [{ text: 'OK', onPress: handleComplete }],
+      { cancelable: false }
+    );
   };
 
   const renderMenu = () => (
@@ -141,64 +176,139 @@ const ExercisesScreen: React.FC = () => {
             <Text style={styles.cardDuration}>2-4 minutes</Text>
           </Pressable>
         </View>
+      </ScrollView>
+    </SafeAreaView>
+  );
+
+  const renderIntro = () => (
+    <SafeAreaView style={styles.container}>
+      <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
+        <View style={styles.header}>
+          <Text style={styles.title}>
+            {assessmentType === 'phq9' ? 'Mood Assessment' : 'Anxiety Assessment'}
+          </Text>
+          <Text style={styles.subtitle}>
+            {assessmentType === 'phq9'
+              ? 'A gentle check-in with your recent experiences'
+              : 'Noticing your relationship with worry and tension'
+            }
+          </Text>
+        </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Coming Soon</Text>
-          <View style={styles.placeholderCard}>
-            <Text style={styles.placeholderTitle}>Breathing Exercises</Text>
-            <Text style={styles.placeholderText}>Guided breathing practices for mindfulness</Text>
-          </View>
-          <View style={styles.placeholderCard}>
-            <Text style={styles.placeholderTitle}>Meditation Sessions</Text>
-            <Text style={styles.placeholderText}>Stoic Mindfulness meditation practices</Text>
-          </View>
+          <Text style={styles.bodyText}>
+            Over the last 2 weeks, how often have you been bothered by any of the following problems?
+          </Text>
+          <Text style={styles.bodyText}>
+            There are no right or wrong answers. Simply notice what feels true for you right now.
+          </Text>
+        </View>
+
+        <Pressable style={styles.primaryButton} onPress={handleBeginAssessment}>
+          <Text style={styles.primaryButtonText}>Begin Assessment</Text>
+        </Pressable>
+
+        <Pressable style={styles.secondaryButton} onPress={handleComplete}>
+          <Text style={styles.secondaryButtonText}>Return to Menu</Text>
+        </Pressable>
+      </ScrollView>
+    </SafeAreaView>
+  );
+
+  const renderAssessment = () => (
+    <SafeAreaView style={styles.container}>
+      <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
+        <View style={styles.progressContainer}>
+          <Text style={styles.progressText}>
+            Question {currentQuestionIndex + 1} of {questions.length}
+          </Text>
+        </View>
+
+        <View style={styles.questionContainer}>
+          <Text style={styles.questionText}>{currentQuestion.text}</Text>
+        </View>
+
+        <View style={styles.optionsContainer}>
+          <RadioGroup
+            options={RESPONSE_OPTIONS}
+            value={answers.find(a => a.questionId === currentQuestion.id)?.response}
+            onValueChange={(value) => handleAnswer(value as number)}
+            label={`Response options for question ${currentQuestionIndex + 1} of ${questions.length}`}
+            orientation="vertical"
+            clinicalContext={assessmentType === 'phq9' ? 'phq9' : 'gad7'}
+            theme="neutral"
+            testID={`${assessmentType}-response-options`}
+            showRadioIndicator={false}
+          />
         </View>
       </ScrollView>
     </SafeAreaView>
   );
 
-  if (currentScreen === 'menu') {
-    return renderMenu();
-  }
+  const renderResults = () => {
+    const results = calculateResults();
 
-  if (currentScreen === 'intro') {
+    // Check for crisis and show alert immediately
+    if (results.isCrisis) {
+      setTimeout(() => showCrisisAlert(), 500);
+    }
+
     return (
-      <AssessmentIntroduction
-        assessmentType={assessmentType}
-        onBegin={handleBeginAssessment}
-        context="standalone"
-      />
-    );
-  }
+      <SafeAreaView style={styles.container}>
+        <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
+          <View style={styles.header}>
+            <Text style={styles.title}>Assessment Complete</Text>
+          </View>
 
-  if (currentScreen === 'assessment') {
-    return (
-      <AssessmentQuestion
-        question={currentQuestion}
-        onAnswer={handleAnswer}
-        currentStep={currentQuestionIndex + 1}
-        totalSteps={questions.length}
-      />
-    );
-  }
+          <View style={styles.resultsContainer}>
+            <Text style={styles.scoreText}>
+              Total Score: {results.totalScore}
+            </Text>
+            <Text style={styles.severityText}>
+              Severity: {results.severity}
+            </Text>
 
-  if (currentScreen === 'results') {
-    return (
-      <AssessmentResults
-        result={calculateResults()}
-        onComplete={handleComplete}
-        context="standalone"
-      />
-    );
-  }
+            {results.isCrisis && (
+              <View style={styles.crisisContainer}>
+                <Text style={styles.crisisText}>
+                  ⚠️ Crisis Support Recommended
+                </Text>
+                <Text style={styles.crisisSubtext}>
+                  Your responses indicate you may benefit from immediate support.
+                </Text>
+              </View>
+            )}
+          </View>
 
-  return null;
+          <Pressable style={styles.primaryButton} onPress={handleComplete}>
+            <Text style={styles.primaryButtonText}>Return to Menu</Text>
+          </Pressable>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  };
+
+  const renderContent = () => {
+    if (currentScreen === 'menu') return renderMenu();
+    if (currentScreen === 'intro') return renderIntro();
+    if (currentScreen === 'assessment') return renderAssessment();
+    if (currentScreen === 'results') return renderResults();
+    return null;
+  };
+
+  return (
+    <>
+      {renderContent()}
+      {/* Crisis Button Overlay - accessible across all exercise states (menu, intro, assessment, results) */}
+      <CollapsibleCrisisButton testID="crisis-exercises" />
+    </>
+  );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colorSystem.base.white,
+    backgroundColor: colors.white,
   },
   scrollContainer: {
     flex: 1,
@@ -212,81 +322,162 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    fontSize: typography.headline1.size,
-    fontWeight: typography.headline1.weight,
-    color: colorSystem.accessibility.text.primary,
+    fontSize: 28,
+    fontWeight: '700',
+    color: colors.black,
     marginBottom: spacing.sm,
     textAlign: 'center',
   },
   subtitle: {
-    fontSize: typography.bodyLarge.size,
-    fontWeight: typography.bodyLarge.weight,
-    color: colorSystem.accessibility.text.secondary,
+    fontSize: 18,
+    fontWeight: '400',
+    color: colors.gray600,
     textAlign: 'center',
-    lineHeight: typography.bodyLarge.size * 1.5,
+    lineHeight: 24,
   },
   section: {
     marginBottom: spacing.xl,
   },
   sectionTitle: {
-    fontSize: typography.headline3.size,
-    fontWeight: typography.headline3.weight,
-    color: colorSystem.accessibility.text.primary,
+    fontSize: 22,
+    fontWeight: '600',
+    color: colors.black,
+    marginBottom: spacing.md,
+  },
+  bodyText: {
+    fontSize: 16,
+    fontWeight: '400',
+    color: colors.gray600,
+    lineHeight: 22,
     marginBottom: spacing.md,
   },
   assessmentCard: {
-    backgroundColor: colorSystem.base.white,
+    backgroundColor: colors.white,
     borderWidth: 1,
-    borderColor: colorSystem.gray[300],
+    borderColor: colors.gray300,
     borderRadius: 12,
     padding: spacing.lg,
     marginBottom: spacing.md,
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
   },
   cardTitle: {
-    fontSize: typography.headline3.size,
-    fontWeight: typography.headline3.weight,
-    color: colorSystem.accessibility.text.primary,
+    fontSize: 20,
+    fontWeight: '600',
+    color: colors.black,
     marginBottom: spacing.sm,
   },
   cardDescription: {
-    fontSize: typography.bodyRegular.size,
-    fontWeight: typography.bodyRegular.weight,
-    color: colorSystem.accessibility.text.secondary,
-    lineHeight: typography.bodyRegular.size * 1.5,
+    fontSize: 16,
+    fontWeight: '400',
+    color: colors.gray600,
+    lineHeight: 22,
     marginBottom: spacing.sm,
   },
   cardDuration: {
-    fontSize: typography.caption.size,
-    fontWeight: typography.caption.weight,
-    color: colorSystem.base.midnightBlue,
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.midnightBlue,
   },
-  placeholderCard: {
-    backgroundColor: colorSystem.gray[50],
-    borderWidth: 1,
-    borderColor: colorSystem.gray[200],
+  primaryButton: {
+    backgroundColor: colors.morningPrimary,
     borderRadius: 12,
     padding: spacing.lg,
+    alignItems: 'center',
     marginBottom: spacing.md,
   },
-  placeholderTitle: {
-    fontSize: typography.headline3.size,
-    fontWeight: typography.headline3.weight,
-    color: colorSystem.gray[500],
+  primaryButtonText: {
+    color: colors.white,
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  secondaryButton: {
+    backgroundColor: colors.gray200,
+    borderRadius: 12,
+    padding: spacing.lg,
+    alignItems: 'center',
+  },
+  secondaryButtonText: {
+    color: colors.black,
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  progressContainer: {
+    alignItems: 'center',
+    marginBottom: spacing.lg,
+  },
+  progressText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: colors.gray600,
+  },
+  questionContainer: {
+    marginBottom: spacing.xl,
+  },
+  questionText: {
+    fontSize: 20,
+    fontWeight: '500',
+    color: colors.black,
+    lineHeight: 28,
+    textAlign: 'center',
+  },
+  optionsContainer: {
+    gap: spacing.md,
+  },
+  optionButton: {
+    backgroundColor: colors.gray100,
+    borderWidth: 1,
+    borderColor: colors.gray300,
+    borderRadius: 12,
+    padding: spacing.lg,
+    alignItems: 'center',
+  },
+  optionText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: colors.black,
+  },
+  resultsContainer: {
+    alignItems: 'center',
+    marginBottom: spacing.xl,
+    padding: spacing.lg,
+    backgroundColor: colors.gray100,
+    borderRadius: 12,
+  },
+  scoreText: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: colors.black,
     marginBottom: spacing.sm,
   },
-  placeholderText: {
-    fontSize: typography.bodyRegular.size,
-    fontWeight: typography.bodyRegular.weight,
-    color: colorSystem.gray[400],
-    lineHeight: typography.bodyRegular.size * 1.5,
+  severityText: {
+    fontSize: 18,
+    fontWeight: '500',
+    color: colors.gray600,
+  },
+  crisisContainer: {
+    marginTop: spacing.lg,
+    padding: spacing.lg,
+    backgroundColor: '#FEF2F2',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FECACA',
+  },
+  crisisText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#DC2626',
+    textAlign: 'center',
+    marginBottom: spacing.sm,
+  },
+  crisisSubtext: {
+    fontSize: 16,
+    fontWeight: '400',
+    color: '#991B1B',
+    textAlign: 'center',
   },
 });
 
