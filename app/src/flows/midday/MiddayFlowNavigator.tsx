@@ -154,6 +154,7 @@ const MiddayFlowNavigator: React.FC<MiddayFlowNavigatorProps> = ({
       setInitialScreen('ControlCheck');
       setShowResumeModal(false);
       setResumableSession(null);
+      lastSavedStep.current = 0; // Reset saved step tracking
       console.log('[MiddayFlow] Starting fresh midday session');
     } catch (error) {
       console.error('[MiddayFlow] Failed to clear session:', error);
@@ -251,6 +252,18 @@ const MiddayFlowNavigator: React.FC<MiddayFlowNavigatorProps> = ({
     );
   };
 
+  // Don't render navigator until resume modal is dismissed to prevent premature saves
+  if (showResumeModal) {
+    return (
+      <ResumeSessionModal
+        visible={showResumeModal}
+        session={resumableSession}
+        onResume={handleResumeSession}
+        onBeginFresh={handleBeginFresh}
+      />
+    );
+  }
+
   return (
     <>
       <Stack.Navigator
@@ -295,11 +308,14 @@ const MiddayFlowNavigator: React.FC<MiddayFlowNavigatorProps> = ({
               if (currentRouteName &&
                   currentRouteName !== 'MiddayCompletion' &&
                   stepIndex >= lastSavedStep.current) {
+                console.log(`[MiddayFlow] Saving session: stepIndex=${stepIndex}, lastSavedStep=${lastSavedStep.current}, screen=${currentRouteName}`);
                 lastSavedStep.current = stepIndex;
                 SessionStorageService.saveSession('midday', currentRouteName as string)
                   .catch(error => {
                     console.error('[MiddayFlow] Failed to save session:', error);
                   });
+              } else if (currentRouteName && currentRouteName !== 'MiddayCompletion') {
+                console.log(`[MiddayFlow] NOT saving (backward nav): stepIndex=${stepIndex}, lastSavedStep=${lastSavedStep.current}, screen=${currentRouteName}`);
               }
             }
           },
@@ -339,14 +355,6 @@ const MiddayFlowNavigator: React.FC<MiddayFlowNavigatorProps> = ({
         }}
       />
     </Stack.Navigator>
-
-      {/* FEAT-23: Session resumption modal */}
-      <ResumeSessionModal
-        visible={showResumeModal}
-        session={resumableSession}
-        onResume={handleResumeSession}
-        onBeginFresh={handleBeginFresh}
-      />
     </>
   );
 };

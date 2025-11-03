@@ -135,6 +135,7 @@ const MorningFlowNavigator: React.FC<MorningFlowNavigatorProps> = ({
       setInitialScreen('Gratitude');
       setShowResumeModal(false);
       setResumableSession(null);
+      lastSavedStep.current = 0; // Reset saved step tracking
       console.log('[MorningFlow] Starting fresh morning session');
     } catch (error) {
       console.error('[MorningFlow] Failed to clear session:', error);
@@ -162,6 +163,18 @@ const MorningFlowNavigator: React.FC<MorningFlowNavigatorProps> = ({
       </TouchableOpacity>
     ),
   });
+
+  // Don't render navigator until resume modal is dismissed to prevent premature saves
+  if (showResumeModal) {
+    return (
+      <ResumeSessionModal
+        visible={showResumeModal}
+        session={resumableSession}
+        onResume={handleResumeSession}
+        onBeginFresh={handleBeginFresh}
+      />
+    );
+  }
 
   return (
     <>
@@ -221,11 +234,14 @@ const MorningFlowNavigator: React.FC<MorningFlowNavigatorProps> = ({
               if (currentRouteName &&
                   currentRouteName !== 'MorningCompletion' &&
                   stepIndex >= lastSavedStep.current) {
+                console.log(`[MorningFlow] Saving session: stepIndex=${stepIndex}, lastSavedStep=${lastSavedStep.current}, screen=${currentRouteName}`);
                 lastSavedStep.current = stepIndex;
                 SessionStorageService.saveSession('morning', currentRouteName as string)
                   .catch(error => {
                     console.error('[MorningFlow] Failed to save session:', error);
                   });
+              } else if (currentRouteName && currentRouteName !== 'MorningCompletion') {
+                console.log(`[MorningFlow] NOT saving (backward nav): stepIndex=${stepIndex}, lastSavedStep=${lastSavedStep.current}, screen=${currentRouteName}`);
               }
             }
           },
@@ -268,14 +284,6 @@ const MorningFlowNavigator: React.FC<MorningFlowNavigatorProps> = ({
         {(props) => <MorningCompletionScreen {...props} onSave={onComplete} />}
       </Stack.Screen>
     </Stack.Navigator>
-
-      {/* FEAT-23: Session resumption modal */}
-      <ResumeSessionModal
-        visible={showResumeModal}
-        session={resumableSession}
-        onResume={handleResumeSession}
-        onBeginFresh={handleBeginFresh}
-      />
     </>
   );
 };

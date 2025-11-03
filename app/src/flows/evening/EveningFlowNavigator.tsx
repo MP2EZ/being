@@ -161,6 +161,7 @@ const EveningFlowNavigator: React.FC<EveningFlowNavigatorProps> = ({
       setInitialScreen('VirtueReflection');
       setShowResumeModal(false);
       setResumableSession(null);
+      lastSavedStep.current = 0; // Reset saved step tracking
       console.log('[EveningFlow] Starting fresh evening session');
     } catch (error) {
       console.error('[EveningFlow] Failed to clear session:', error);
@@ -186,6 +187,18 @@ const EveningFlowNavigator: React.FC<EveningFlowNavigatorProps> = ({
       onComplete={onComplete}
     />
   );
+
+  // Don't render navigator until resume modal is dismissed to prevent premature saves
+  if (showResumeModal) {
+    return (
+      <ResumeSessionModal
+        visible={showResumeModal}
+        session={resumableSession}
+        onResume={handleResumeSession}
+        onBeginFresh={handleBeginFresh}
+      />
+    );
+  }
 
   return (
     <>
@@ -248,11 +261,14 @@ const EveningFlowNavigator: React.FC<EveningFlowNavigatorProps> = ({
               if (currentRouteName &&
                   currentRouteName !== 'EveningCompletion' &&
                   stepIndex >= lastSavedStep.current) {
+                console.log(`[EveningFlow] Saving session: stepIndex=${stepIndex}, lastSavedStep=${lastSavedStep.current}, screen=${currentRouteName}`);
                 lastSavedStep.current = stepIndex;
                 SessionStorageService.saveSession('evening', currentRouteName as string)
                   .catch(error => {
                     console.error('[EveningFlow] Failed to save session:', error);
                   });
+              } else if (currentRouteName && currentRouteName !== 'EveningCompletion') {
+                console.log(`[EveningFlow] NOT saving (backward nav): stepIndex=${stepIndex}, lastSavedStep=${lastSavedStep.current}, screen=${currentRouteName}`);
               }
             }
           },
@@ -294,14 +310,6 @@ const EveningFlowNavigator: React.FC<EveningFlowNavigatorProps> = ({
         options={getHeaderOptions('EveningCompletion', 'Evening Practice Complete')}
       />
     </Stack.Navigator>
-
-      {/* FEAT-23: Session resumption modal */}
-      <ResumeSessionModal
-        visible={showResumeModal}
-        session={resumableSession}
-        onResume={handleResumeSession}
-        onBeginFresh={handleBeginFresh}
-      />
     </>
   );
 };
