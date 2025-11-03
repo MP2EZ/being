@@ -25,9 +25,9 @@ FAILED_TESTS=0
 echo -e "${BLUE}Running OnboardingScreen test suite...${NC}"
 
 # Run the main test file
-echo -e "\n${YELLOW}📋 Testing: OnboardingScreen.simple.test.tsx${NC}"
+echo -e "\n${YELLOW}📋 Testing: OnboardingScreen.test.tsx${NC}"
 
-npx jest src/screens/__tests__/OnboardingScreen.simple.test.tsx \
+npx jest src/screens/__tests__/OnboardingScreen.test.tsx \
   --verbose \
   --coverage \
   --coverageReporters=text \

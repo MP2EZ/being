@@ -1,7 +1,7 @@
 /**
- * Simple Profile Screen - Minimal implementation
+ * Profile Screen
  * Menu-based profile management with integrated onboarding
- * Following ExercisesScreen.simple.tsx pattern exactly
+ * Provides access to settings, virtue dashboard, and onboarding
  */
 
 import React, { useState } from 'react';
@@ -16,7 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import OnboardingScreen from './OnboardingScreen.simple';
+import OnboardingScreen from './OnboardingScreen';
 import VirtueDashboardScreen from './VirtueDashboardScreen';
 import AppSettingsScreen from './AppSettingsScreen';
 import AccountSettingsScreen from './AccountSettingsScreen';
