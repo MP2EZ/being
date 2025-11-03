@@ -9,6 +9,11 @@
  * - Midday theme throughout (#40B5AD)
  * - Crisis-accessible (<3s from any screen)
  *
+ * FEAT-23: Session resumption with philosopher-validated Stoic language
+ * - Supports resuming interrupted sessions (24hr TTL)
+ * - Automatic session saving on screen navigation
+ * - Sphere Sovereignty: Both resume and fresh start equally virtuous
+ *
  * PHILOSOPHY:
  * - Mindfulness-first with Stoic wisdom enrichment
  * - NOT toxic positivity - realistic perspective shift
@@ -17,10 +22,13 @@
  */
 
 import { logSecurity, logPerformance, logError, LogCategory } from '../../services/logging';
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 import { View, Pressable, Text, StyleSheet } from 'react-native';
 import { colorSystem, spacing } from '../../constants/colors';
+import { SessionStorageService } from '../../services/session/SessionStorageService';
+import { SessionMetadata } from '../../types/session';
+import { ResumeSessionModal } from '../shared/components/ResumeSessionModal';
 import ControlCheckScreen from './screens/ControlCheckScreen';
 import EmbodimentScreen from './screens/EmbodimentScreen';
 import ReappraisalScreen from './screens/ReappraisalScreen';
@@ -95,6 +103,65 @@ const MiddayFlowNavigator: React.FC<MiddayFlowNavigatorProps> = ({
 
   const [currentStep, setCurrentStep] = useState(1);
   const totalSteps = SCREEN_ORDER.length - 1; // 4 steps (exclude MiddayCompletion)
+
+  // FEAT-23: Session resumption state
+  const [showResumeModal, setShowResumeModal] = useState(false);
+  const [resumableSession, setResumableSession] = useState<SessionMetadata | null>(null);
+  const navigationRef = useRef<any>(null);
+  const hasCheckedSession = useRef(false);
+
+  // FEAT-23: Check for resumable session on mount
+  useEffect(() => {
+    const checkForResumableSession = async () => {
+      if (hasCheckedSession.current) return;
+      hasCheckedSession.current = true;
+
+      try {
+        const sessionMetadata = await SessionStorageService.getSessionMetadata('midday');
+        if (sessionMetadata) {
+          setResumableSession(sessionMetadata);
+          setShowResumeModal(true);
+        }
+      } catch (error) {
+        console.error('[MiddayFlow] Failed to check for resumable session:', error);
+      }
+    };
+
+    checkForResumableSession();
+  }, []);
+
+  // FEAT-23: Handle resume session
+  const handleResumeSession = async () => {
+    if (!resumableSession || !navigationRef.current) return;
+
+    try {
+      setShowResumeModal(false);
+
+      // Navigate to the saved screen
+      const screenName = resumableSession.currentScreen as keyof MiddayFlowParamList;
+
+      // Use setTimeout to ensure navigation happens after modal closes
+      setTimeout(() => {
+        navigationRef.current?.navigate(screenName);
+      }, 300);
+
+      console.log(`[MiddayFlow] Resumed session at ${screenName}`);
+    } catch (error) {
+      console.error('[MiddayFlow] Failed to resume session:', error);
+    }
+  };
+
+  // FEAT-23: Handle begin fresh (clear old session)
+  const handleBeginFresh = async () => {
+    try {
+      await SessionStorageService.clearSession('midday');
+      setShowResumeModal(false);
+      setResumableSession(null);
+      console.log('[MiddayFlow] Starting fresh midday session');
+    } catch (error) {
+      console.error('[MiddayFlow] Failed to clear session:', error);
+    }
+  };
 
   // Custom header with progress
   const getHeaderOptions = (routeName: keyof MiddayFlowParamList, title: string) => ({
@@ -188,45 +255,55 @@ const MiddayFlowNavigator: React.FC<MiddayFlowNavigatorProps> = ({
   };
 
   return (
-    <Stack.Navigator
-      screenOptions={{
-        headerShown: true,
-        gestureEnabled: true, // Allow swipe back for safety
-        cardStyle: { backgroundColor: 'transparent' },
-        headerStyle: {
-          backgroundColor: colorSystem.themes.midday.background,
-          borderBottomColor: colorSystem.themes.midday.primary,
-          borderBottomWidth: 1,
-          height: 100, // Increased height for progress indicator
-        },
-        headerTintColor: colorSystem.themes.midday.primary,
-        headerLeft: () => (
-          <Pressable
-            onPress={onExit}
-            style={styles.closeButton}
-            accessibilityRole="button"
-            accessibilityLabel="Close midday flow"
-            accessibilityHint="Returns to home screen"
-          >
-            <Text style={styles.closeButtonText}>✕</Text>
-          </Pressable>
-        ),
-      }}
-      screenListeners={{
-        state: (e) => {
-          // Update progress based on current screen
-          const state = e.data.state;
-          if (state) {
-            const currentRouteName = state.routes[state.index]?.name;
-            const stepIndex = SCREEN_ORDER.indexOf(currentRouteName as keyof MiddayFlowParamList);
-            if (stepIndex !== -1) {
-              setCurrentStep(stepIndex + 1);
+    <>
+      <Stack.Navigator
+        ref={navigationRef}
+        screenOptions={{
+          headerShown: true,
+          gestureEnabled: true, // Allow swipe back for safety
+          cardStyle: { backgroundColor: 'transparent' },
+          headerStyle: {
+            backgroundColor: colorSystem.themes.midday.background,
+            borderBottomColor: colorSystem.themes.midday.primary,
+            borderBottomWidth: 1,
+            height: 100, // Increased height for progress indicator
+          },
+          headerTintColor: colorSystem.themes.midday.primary,
+          headerLeft: () => (
+            <Pressable
+              onPress={onExit}
+              style={styles.closeButton}
+              accessibilityRole="button"
+              accessibilityLabel="Close midday flow"
+              accessibilityHint="Returns to home screen"
+            >
+              <Text style={styles.closeButtonText}>✕</Text>
+            </Pressable>
+          ),
+        }}
+        screenListeners={{
+          state: (e) => {
+            // Update progress based on current screen
+            const state = e.data.state;
+            if (state) {
+              const currentRouteName = state.routes[state.index]?.name;
+              const stepIndex = SCREEN_ORDER.indexOf(currentRouteName as keyof MiddayFlowParamList);
+              if (stepIndex !== -1) {
+                setCurrentStep(stepIndex + 1);
+              }
+
+              // FEAT-23: Save session progress on screen change
+              if (currentRouteName && currentRouteName !== 'MiddayCompletion') {
+                SessionStorageService.saveSession('midday', currentRouteName as string)
+                  .catch(error => {
+                    console.error('[MiddayFlow] Failed to save session:', error);
+                  });
+              }
             }
-          }
-        },
-      }}
-      initialRouteName="ControlCheck"
-    >
+          },
+        }}
+        initialRouteName="ControlCheck"
+      >
       <Stack.Screen
         name="ControlCheck"
         component={ControlCheckScreenWrapper}
@@ -260,6 +337,15 @@ const MiddayFlowNavigator: React.FC<MiddayFlowNavigatorProps> = ({
         }}
       />
     </Stack.Navigator>
+
+      {/* FEAT-23: Session resumption modal */}
+      <ResumeSessionModal
+        visible={showResumeModal}
+        session={resumableSession}
+        onResume={handleResumeSession}
+        onBeginFresh={handleBeginFresh}
+      />
+    </>
   );
 };
 

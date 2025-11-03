@@ -3,6 +3,11 @@
  * Handles navigation for Stoic morning practice with progress tracking
  * Modal presentation from home screen with philosophical UX
  *
+ * FEAT-23: Session resumption with philosopher-validated Stoic language
+ * - Supports resuming interrupted sessions (24hr TTL)
+ * - Automatic session saving on screen navigation
+ * - Sphere Sovereignty: Both resume and fresh start equally virtuous
+ *
  * Classical Stoic Foundation:
  * - Marcus Aurelius: Daily morning preparation (Meditations 2:1)
  * - Epictetus: Begin the day with right principles (Enchiridion 21)
@@ -11,12 +16,15 @@
  * @see /docs/technical/Stoic-Mindfulness-Architecture-v1.0.md
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { colorSystem, spacing } from '../../constants/colors';
 import { MorningFlowParamList } from '../../types/flows';
+import { SessionStorageService } from '../../services/session/SessionStorageService';
+import { SessionMetadata } from '../../types/session';
+import { ResumeSessionModal } from '../shared/components/ResumeSessionModal';
 
 // Import Stoic Mindfulness screens (DRD v2.0.0)
 import GratitudeScreen from './screens/GratitudeScreen';
@@ -77,6 +85,65 @@ const MorningFlowNavigator: React.FC<MorningFlowNavigatorProps> = ({
   const [currentStep, setCurrentStep] = useState(1);
   const totalSteps = SCREEN_ORDER.length - 1; // Exclude MorningCompletion from count
 
+  // FEAT-23: Session resumption state
+  const [showResumeModal, setShowResumeModal] = useState(false);
+  const [resumableSession, setResumableSession] = useState<SessionMetadata | null>(null);
+  const navigationRef = useRef<any>(null);
+  const hasCheckedSession = useRef(false);
+
+  // FEAT-23: Check for resumable session on mount
+  useEffect(() => {
+    const checkForResumableSession = async () => {
+      if (hasCheckedSession.current) return;
+      hasCheckedSession.current = true;
+
+      try {
+        const sessionMetadata = await SessionStorageService.getSessionMetadata('morning');
+        if (sessionMetadata) {
+          setResumableSession(sessionMetadata);
+          setShowResumeModal(true);
+        }
+      } catch (error) {
+        console.error('[MorningFlow] Failed to check for resumable session:', error);
+      }
+    };
+
+    checkForResumableSession();
+  }, []);
+
+  // FEAT-23: Handle resume session
+  const handleResumeSession = async () => {
+    if (!resumableSession || !navigationRef.current) return;
+
+    try {
+      setShowResumeModal(false);
+
+      // Navigate to the saved screen
+      const screenName = resumableSession.currentScreen as keyof MorningFlowParamList;
+
+      // Use setTimeout to ensure navigation happens after modal closes
+      setTimeout(() => {
+        navigationRef.current?.navigate(screenName);
+      }, 300);
+
+      console.log(`[MorningFlow] Resumed session at ${screenName}`);
+    } catch (error) {
+      console.error('[MorningFlow] Failed to resume session:', error);
+    }
+  };
+
+  // FEAT-23: Handle begin fresh (clear old session)
+  const handleBeginFresh = async () => {
+    try {
+      await SessionStorageService.clearSession('morning');
+      setShowResumeModal(false);
+      setResumableSession(null);
+      console.log('[MorningFlow] Starting fresh morning session');
+    } catch (error) {
+      console.error('[MorningFlow] Failed to clear session:', error);
+    }
+  };
+
   // Custom header with progress
   const getHeaderOptions = (routeName: keyof MorningFlowParamList, title: string) => ({
     headerTitle: () => (
@@ -100,58 +167,68 @@ const MorningFlowNavigator: React.FC<MorningFlowNavigatorProps> = ({
   });
 
   return (
-    <Stack.Navigator
-      screenOptions={{
-        headerStyle: {
-          backgroundColor: colorSystem.themes.morning.background,
-          borderBottomColor: colorSystem.gray[200],
-          borderBottomWidth: 1,
-          shadowColor: '#000',
-          shadowOffset: {
-            width: 0,
-            height: 1,
-          },
-          shadowOpacity: 0.05,
-          shadowRadius: 2,
-          elevation: 4,
-          height: 100, // Increased height for progress indicator
-        },
-        headerTintColor: colorSystem.base.black,
-        cardStyle: {
-          backgroundColor: colorSystem.themes.morning.background,
-        },
-        // Modal presentation styling
-        presentation: 'modal',
-        gestureEnabled: true,
-        cardStyleInterpolator: ({ current, layouts }) => {
-          return {
-            cardStyle: {
-              transform: [
-                {
-                  translateY: current.progress.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [layouts.screen.height, 0],
-                  }),
-                },
-              ],
+    <>
+      <Stack.Navigator
+        ref={navigationRef}
+        screenOptions={{
+          headerStyle: {
+            backgroundColor: colorSystem.themes.morning.background,
+            borderBottomColor: colorSystem.gray[200],
+            borderBottomWidth: 1,
+            shadowColor: '#000',
+            shadowOffset: {
+              width: 0,
+              height: 1,
             },
-          };
-        },
-      }}
-      screenListeners={{
-        state: (e) => {
-          // Update progress based on current screen
-          const state = e.data.state;
-          if (state) {
-            const currentRouteName = state.routes[state.index]?.name;
-            const stepIndex = SCREEN_ORDER.indexOf(currentRouteName as keyof MorningFlowParamList);
-            if (stepIndex !== -1) {
-              setCurrentStep(stepIndex + 1);
+            shadowOpacity: 0.05,
+            shadowRadius: 2,
+            elevation: 4,
+            height: 100, // Increased height for progress indicator
+          },
+          headerTintColor: colorSystem.base.black,
+          cardStyle: {
+            backgroundColor: colorSystem.themes.morning.background,
+          },
+          // Modal presentation styling
+          presentation: 'modal',
+          gestureEnabled: true,
+          cardStyleInterpolator: ({ current, layouts }) => {
+            return {
+              cardStyle: {
+                transform: [
+                  {
+                    translateY: current.progress.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [layouts.screen.height, 0],
+                    }),
+                  },
+                ],
+              },
+            };
+          },
+        }}
+        screenListeners={{
+          state: (e) => {
+            // Update progress based on current screen
+            const state = e.data.state;
+            if (state) {
+              const currentRouteName = state.routes[state.index]?.name;
+              const stepIndex = SCREEN_ORDER.indexOf(currentRouteName as keyof MorningFlowParamList);
+              if (stepIndex !== -1) {
+                setCurrentStep(stepIndex + 1);
+              }
+
+              // FEAT-23: Save session progress on screen change
+              if (currentRouteName && currentRouteName !== 'MorningCompletion') {
+                SessionStorageService.saveSession('morning', currentRouteName as string)
+                  .catch(error => {
+                    console.error('[MorningFlow] Failed to save session:', error);
+                  });
+              }
             }
-          }
-        },
-      }}
-    >
+          },
+        }}
+      >
       <Stack.Screen
         name="Gratitude"
         component={GratitudeScreen}
@@ -189,6 +266,15 @@ const MorningFlowNavigator: React.FC<MorningFlowNavigatorProps> = ({
         {(props) => <MorningCompletionScreen {...props} onSave={onComplete} />}
       </Stack.Screen>
     </Stack.Navigator>
+
+      {/* FEAT-23: Session resumption modal */}
+      <ResumeSessionModal
+        visible={showResumeModal}
+        session={resumableSession}
+        onResume={handleResumeSession}
+        onBeginFresh={handleBeginFresh}
+      />
+    </>
   );
 };
 
