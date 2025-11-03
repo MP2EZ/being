@@ -105,6 +105,7 @@ const MiddayFlowNavigator: React.FC<MiddayFlowNavigatorProps> = ({
   const totalSteps = SCREEN_ORDER.length - 1; // 4 steps (exclude MiddayCompletion)
 
   // FEAT-23: Session resumption state
+  const [isCheckingSession, setIsCheckingSession] = useState(true); // Prevent navigator mounting until checked
   const [showResumeModal, setShowResumeModal] = useState(false);
   const [resumableSession, setResumableSession] = useState<SessionMetadata | null>(null);
   const [initialScreen, setInitialScreen] = useState<keyof MiddayFlowParamList>('ControlCheck');
@@ -125,6 +126,8 @@ const MiddayFlowNavigator: React.FC<MiddayFlowNavigatorProps> = ({
         }
       } catch (error) {
         console.error('[MiddayFlow] Failed to check for resumable session:', error);
+      } finally {
+        setIsCheckingSession(false); // Done checking, safe to render navigator
       }
     };
 
@@ -251,6 +254,11 @@ const MiddayFlowNavigator: React.FC<MiddayFlowNavigatorProps> = ({
       />
     );
   };
+
+  // Don't render anything until we've checked for a session
+  if (isCheckingSession) {
+    return null; // Could show a loading spinner here if desired
+  }
 
   // Don't render navigator until resume modal is dismissed to prevent premature saves
   if (showResumeModal) {
