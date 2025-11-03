@@ -1,6 +1,6 @@
 # Being Templates - Source of Truth
 
-**Purpose**: Detailed workflow definitions for Being. MBCT development with domain authority validation
+**Purpose**: Detailed workflow definitions for Being. Stoic Mindfulness development with domain authority validation
 
 **Usage**: Claude reads these templates on-demand when executing workflows. CLAUDE.md contains quick reference only.
 
@@ -72,17 +72,17 @@ Path B (Urgent but can test): crisis-assess → main[rapid] → crisis-validate 
 ```
 Analyze work type, then route to appropriate path:
 
-1. Therapeutic content (MBCT exercises, mindfulness, guided practices)?
-   → clinician-review → ux-design → main → (clinician+ux+accessibility)-validate + [performance-validate if 60fps required]
+1. Therapeutic content (Stoic Mindfulness exercises, philosophical practices)?
+   → philosopher-review → ux-design → main → (philosopher+ux+accessibility)-validate + [performance-validate if 60fps required]
    → Testing → user tests → user runs /b-close
    Examples: New breathing exercise, body scan, check-in flow updates
-   Note: UX designs interaction, clinician validates therapeutic accuracy, accessibility validates WCAG, performance required for animations (60fps)
+   Note: UX designs interaction, philosopher validates philosophical accuracy, accessibility validates WCAG, performance required for animations (60fps)
 
 2. Assessment features (PHQ-9/GAD-7 scoring, UI, calculations)?
-   → clinician-review → ux-design → main → (clinician(DSM-5)+ux(interaction)+crisis(thresholds)+accessibility(UI))-validate
+   → ux-design → main → (ux(interaction)+crisis(thresholds)+accessibility(UI))-validate
    → Testing → user tests → user runs /b-close
    Examples: Add GAD-7 follow-up questions, update severity labels
-   Note: UX designs interaction, clinician validates clinical accuracy, crisis validates thresholds, accessibility validates UI
+   Note: UX designs interaction, crisis validates thresholds, accessibility validates UI
 
 3. Privacy/PHI features (data export, payment, HIPAA compliance)?
    → (compliance+security)-review → [ux-design if UI] → main → (compliance+security+[ux if UI]+[accessibility if UI])-validate
@@ -98,7 +98,7 @@ Analyze work type, then route to appropriate path:
    → [domain-review?] → main → [domain-validate?]
    → Testing → user tests → user runs /b-close
    Examples: Mood trends chart (UI), enhanced export (UI), analytics dashboard (UI), API improvements (backend-only)
-   Note: UX+accessibility required for all UI features; optional domain review based on proximity to therapeutic/crisis/PHI areas
+   Note: UX+accessibility required for all UI features; optional domain review based on proximity to philosophical/crisis/PHI areas
 
 5. Simple technical feature with no domain or UI concerns?
    → main → Testing → user tests → user runs /b-close
@@ -107,12 +107,12 @@ Analyze work type, then route to appropriate path:
 **Examples by path**:
 
 *Therapeutic path*:
-- "Add gratitude exercise" → clinician-review (MBCT?) → ux-design → main → (clinician+ux+accessibility)-validate → Testing → user runs `/b-close`
-- "Breathing with animation" → clinician → ux-design → architect (60fps) → main → (clinician+ux+accessibility+performance(60fps))-validate → Testing → user runs `/b-close`
+- "Add gratitude exercise" → philosopher-review (Stoic principles?) → ux-design → main → (philosopher+ux+accessibility)-validate → Testing → user runs `/b-close`
+- "Breathing with animation" → philosopher → ux-design → architect (60fps) → main → (philosopher+ux+accessibility+performance(60fps))-validate → Testing → user runs `/b-close`
 
 *Assessment path*:
-- "Update PHQ-9 severity labels" → clinician (DSM-5 correct?) → ux-design → main → clinician-validate + ux-validate + crisis-validate (thresholds) + accessibility-validate → Testing → user runs `/b-close`
-- "Add GAD-7 trend display" → clinician-review → ux-design → main → clinician-validate + ux-validate + crisis-validate + accessibility-validate → Testing → user runs `/b-close`
+- "Update PHQ-9 severity labels" → ux-design → main → ux-validate + crisis-validate (thresholds) + accessibility-validate → Testing → user runs `/b-close`
+- "Add GAD-7 trend display" → ux-design → main → ux-validate + crisis-validate + accessibility-validate → Testing → user runs `/b-close`
 
 *Privacy path*:
 - "Export journal for therapist" → (compliance(PHI? HIPAA?)+security) → ux-design → main (encrypt) → (compliance+security+ux+accessibility)-validate → Testing → user runs `/b-close`
@@ -120,8 +120,8 @@ Analyze work type, then route to appropriate path:
 - "Automated data retention (backend)" → (compliance+security) → main → (compliance+security)-validate → Testing → user runs `/b-close` (no UI, no UX needed)
 
 *General path*:
-- "Progress insights chart" → ux-design → main → (ux+accessibility)-validate → [optional clinician-review (therapeutic presentation?)] → Testing → user runs `/b-close`
-- "Enhanced UI animations" → ux-design → main → (ux+accessibility)-validate → [optional clinician check] → Testing → user runs `/b-close`
+- "Progress insights chart" → ux-design → main → (ux+accessibility)-validate → [optional philosopher-review (philosophical presentation?)] → Testing → user runs `/b-close`
+- "Enhanced UI animations" → ux-design → main → (ux+accessibility)-validate → [optional philosopher check] → Testing → user runs `/b-close`
 - "API performance optimization" → main → Testing → user runs `/b-close` (backend-only, no UX needed)
 
 ---
@@ -143,10 +143,10 @@ Is root cause clear?
 
 Domain validation phase (after fix):
 Bug affected therapeutic content/UX?
-  → (clinician+ux+accessibility)-validate fix → Testing → user verifies → user runs /b-close
+  → (philosopher+ux+accessibility)-validate fix → Testing → user verifies → user runs /b-close
 
 Bug affected assessment features?
-  → (clinician+crisis+ux+accessibility)-validate → Testing → user verifies → user runs /b-close
+  → (crisis+ux+accessibility)-validate → Testing → user verifies → user runs /b-close
 
 Bug affected privacy/data handling?
   → (compliance+[ux+accessibility if UI])-validate → Testing → user verifies → user runs /b-close
@@ -161,16 +161,16 @@ Backend-only bug?
 **Examples**:
 
 *With investigation*:
-- "Breathing animation stutters" → performance-investigate → main (fix) → (clinician(still therapeutic?)+ux+performance(60fps?)+accessibility)-validate → Testing → user runs `/b-close`
+- "Breathing animation stutters" → performance-investigate → main (fix) → (philosopher(still philosophical?)+ux+performance(60fps?)+accessibility)-validate → Testing → user runs `/b-close`
 - "Mood data sometimes lost" → state-investigate → main (fix) → compliance-check (data integrity?) → Testing → user runs `/b-close`
 
 *Without investigation (root cause clear)*:
-- "Button color too dark in check-in" → main (fix CSS) → (clinician+ux+accessibility)-validate (still therapeutic?) → Testing → user runs `/b-close`
+- "Button color too dark in check-in" → main (fix CSS) → (philosopher+ux+accessibility)-validate (still philosophical?) → Testing → user runs `/b-close`
 - "Text alignment broken on small screens" → main (fix layout) → (ux+accessibility)-validate → Testing → user runs `/b-close`
 
 *Assessment bugs*:
-- "GAD-7 score off by 1" → main (fix calculation) → (clinician(DSM-5?)+crisis(thresholds?))-validate → Testing → user runs `/b-close` (backend-only, no UX)
-- "PHQ-9 questions in wrong order" → main (reorder) → (clinician+ux+accessibility)-validate → Testing → user runs `/b-close`
+- "GAD-7 score off by 1" → main (fix calculation) → crisis(thresholds?)-validate → Testing → user runs `/b-close` (backend-only, no UX)
+- "PHQ-9 questions in wrong order" → main (reorder) → (ux+accessibility)-validate → Testing → user runs `/b-close`
 
 *UI bugs*:
 - "Modal dismiss gesture broken" → main (fix gesture) → (ux+accessibility)-validate → Testing → user runs `/b-close`
@@ -215,28 +215,29 @@ Is this building or fixing (non-emergency)?
 - 🟡 **Conditional** - Required only if specific conditions met
 - ⚪ **Optional** - Beneficial but not required
 
-| Work Type | Clinician | UX | Crisis | Compliance | Security | Performance | Accessibility |
-|-----------|-----------|-----|--------|------------|----------|-------------|---------------|
+| Work Type | Philosopher | UX | Crisis | Compliance | Security | Performance | Accessibility |
+|-----------|-------------|-----|--------|------------|----------|-------------|---------------|
 | **B-CRISIS features** | ⚪ optional | 🟡 if UI | ✅ required | ✅ required | ⚪ optional | 🟡 <200ms | ✅ required |
-| **Assessment UI** | ✅ required (DSM-5) | ✅ required | ✅ required (thresholds) | ⚪ optional | ⚪ optional | ⚪ optional | ✅ required |
-| **Therapeutic content** | ✅ required (MBCT) | ✅ required | ⚪ optional | ⚪ optional | ⚪ optional | 🟡 if animation (60fps) | ✅ required |
+| **Assessment UI** | ⚪ optional | ✅ required | ✅ required (thresholds) | ⚪ optional | ⚪ optional | ⚪ optional | ✅ required |
+| **Therapeutic content** | ✅ required (Stoic principles) | ✅ required | ⚪ optional | ⚪ optional | ⚪ optional | 🟡 if animation (60fps) | ✅ required |
 | **Privacy/PHI features** | ⚪ optional | 🟡 if UI | ⚪ optional | ✅ required (HIPAA) | ✅ required (encryption) | ⚪ optional | 🟡 if UI |
 | **General UI features** | ⚪ optional | ✅ required | ⚪ optional | ⚪ optional | ⚪ optional | ⚪ optional | ✅ required |
 | **Backend-only** | ⚪ optional | ⚪ not needed | ⚪ optional | ⚪ optional | ⚪ optional | ⚪ optional | ⚪ not needed |
 
 ### Validator Responsibilities
 
-**Clinician** (MBCT/DSM-5 accuracy):
-- Validates MBCT therapeutic accuracy
-- Validates DSM-5 assessment wording
-- Validates therapeutic UX appropriateness
+**Philosopher** (Stoic Mindfulness accuracy):
+- Validates Stoic philosophical accuracy
+- Validates adherence to Stoic principles (dichotomy of control, virtue ethics)
+- Validates philosophical UX appropriateness
+- Validates classical source citations (Marcus Aurelius, Epictetus, Seneca)
 
 **UX** (User experience design):
-- Validates interaction patterns appropriate for therapeutic context
+- Validates interaction patterns appropriate for philosophical context
 - Validates user flows support mindfulness (not rushed/anxious)
 - Validates design consistency with mental health best practices
 - Validates touch targets, gestures, navigation for mobile
-- Collaborates with clinician on therapeutic integrity
+- Collaborates with philosopher on philosophical integrity
 
 **Crisis** (Safety thresholds):
 - Validates PHQ≥15, GAD≥15 thresholds
