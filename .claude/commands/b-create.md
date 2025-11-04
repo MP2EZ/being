@@ -352,6 +352,8 @@ Dimension Scores - adjust any? (specify dimension and new value, or Enter to ski
 
 ## Phase 7: Create Page in Notion
 
+NOTE: The Notion API update-block endpoint does not support updating block content. To update acceptance criteria or other block content after creation, blocks must be deleted and recreated using patch-block-children.
+
 ```
 mcp__notionApi__API-post-page
 parent: {

@@ -346,6 +346,32 @@ fi
 
 ---
 
+### Step 2.8: Mark Work Item as In Progress
+
+```
+mcp__notionApi__API-patch-page
+page_id: [page_id from Phase 1]
+properties: {
+  "Status": {
+    "status": {
+      "name": "In progress"
+    }
+  }
+}
+```
+
+**Display confirmation:**
+```
+📝 Notion updated: Status → In progress
+   Work item: [WORK_ITEM_ID]
+```
+
+**Error handling**:
+- If update fails: Log warning but continue (non-blocking)
+- Display: "⚠️  Could not update Notion status (continuing anyway)"
+
+---
+
 ## Phase 3: Classify Template
 
 **Classification considers**:
