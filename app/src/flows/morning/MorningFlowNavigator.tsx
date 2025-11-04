@@ -18,7 +18,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { createStackNavigator } from '@react-navigation/stack';
+import { createStackNavigator, StackNavigationProp } from '@react-navigation/stack';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { colorSystem, spacing } from '../../constants/colors';
 import { MorningFlowParamList } from '../../types/flows';
@@ -90,8 +90,14 @@ const MorningFlowNavigator: React.FC<MorningFlowNavigatorProps> = ({
   const [showResumeModal, setShowResumeModal] = useState(false);
   const [resumableSession, setResumableSession] = useState<SessionMetadata | null>(null);
   const [initialNavigationState, setInitialNavigationState] = useState<any>(undefined);
+  const [shouldResetNav, setShouldResetNav] = useState(false); // Trigger navigation reset
   const hasCheckedSession = useRef(false);
   const lastSavedStep = useRef(0); // Track last saved step to prevent backward saves
+  const hasResetNav = useRef(false); // Track if we've already reset to prevent loops
+
+  // FEAT-23: Accumulated screen data for session persistence
+  const [screenData, setScreenData] = useState<Record<string, any>>({});
+  const loadedScreenData = useRef<Record<string, any>>({}); // Store loaded data immediately for handleResumeSession
 
   // FEAT-23: Check for resumable session on mount
   useEffect(() => {
@@ -100,10 +106,27 @@ const MorningFlowNavigator: React.FC<MorningFlowNavigatorProps> = ({
       hasCheckedSession.current = true;
 
       try {
-        const sessionMetadata = await SessionStorageService.getSessionMetadata('morning');
-        if (sessionMetadata) {
-          setResumableSession(sessionMetadata);
+        const fullSession = await SessionStorageService.loadSession('morning');
+        if (fullSession) {
+          const { flowState, ...metadata } = fullSession;
+
+          // Don't show resume modal if we're at the first screen
+          if (metadata.currentScreen === SCREEN_ORDER[0]) {
+            console.log('[MorningFlow] Session at first screen, clearing and starting fresh');
+            await SessionStorageService.clearSession('morning');
+            setIsCheckingSession(false);
+            return;
+          }
+
+          setResumableSession(metadata);
           setShowResumeModal(true);
+
+          // Restore screen data if available
+          if (flowState?.screenData) {
+            loadedScreenData.current = flowState.screenData; // Store in ref immediately
+            setScreenData(flowState.screenData); // Also update state for UI
+            console.log(`[MorningFlow] Restored screen data for ${Object.keys(flowState.screenData).length} screens`);
+          }
         }
       } catch (error) {
         console.error('[MorningFlow] Failed to check for resumable session:', error);
@@ -130,9 +153,13 @@ const MorningFlowNavigator: React.FC<MorningFlowNavigatorProps> = ({
       }
 
       // Create navigation state with all screens up to and including the resumed screen
-      const routes = SCREEN_ORDER.slice(0, screenIndex + 1).map(name => ({
+      // Use loadedScreenData.current (not screenData state) because state hasn't updated yet
+      const routes = SCREEN_ORDER.slice(0, screenIndex + 1).map((name, idx) => ({
+        key: `${name}-${idx}`,
         name,
-        params: {}
+        params: {
+          initialData: loadedScreenData.current[name] // Use ref, not state
+        }
       }));
 
       const navState = {
@@ -140,10 +167,18 @@ const MorningFlowNavigator: React.FC<MorningFlowNavigatorProps> = ({
         routes
       };
 
+      // Set lastSavedStep to resumed screen index to prevent earlier screens from saving
+      lastSavedStep.current = screenIndex;
+
       setInitialNavigationState(navState);
       setShowResumeModal(false);
+      setShouldResetNav(true); // Trigger imperative reset after navigator mounts
 
-      console.log(`[MorningFlow] Resumed session at ${screenName} with ${routes.length} screens in stack`);
+      // Debug logging
+      const screensWithData = routes.filter(r => r.params?.initialData).map(r => r.name);
+      console.log(`[MorningFlow] Resumed at ${screenName} (index ${screenIndex}) with ${routes.length} screens in stack`);
+      console.log(`[MorningFlow] Screens with data: ${screensWithData.join(', ')}`);
+      console.log(`[MorningFlow] Initial state:`, JSON.stringify(navState, null, 2));
     } catch (error) {
       console.error('[MorningFlow] Failed to resume session:', error);
     }
@@ -157,11 +192,109 @@ const MorningFlowNavigator: React.FC<MorningFlowNavigatorProps> = ({
       setShowResumeModal(false);
       setResumableSession(null);
       lastSavedStep.current = 0; // Reset saved step tracking
+      hasResetNav.current = false; // Reset the flag
       console.log('[MorningFlow] Starting fresh morning session');
     } catch (error) {
       console.error('[MorningFlow] Failed to clear session:', error);
     }
   };
+
+  // Screen wrappers with data persistence
+  const GratitudeScreenWrapper = ({ navigation, route }: any) => (
+    <GratitudeScreen
+      navigation={navigation}
+      route={route}
+      onSave={(data) => {
+        // Update state
+        const newScreenData = { ...screenData, Gratitude: data };
+        setScreenData(newScreenData);
+
+        // Save immediately with updated data (don't wait for navigation)
+        const nextScreen = 'Intention';
+        const nextIndex = SCREEN_ORDER.indexOf(nextScreen);
+        if (nextIndex > lastSavedStep.current) {
+          lastSavedStep.current = nextIndex;
+          SessionStorageService.saveSession('morning', nextScreen, { screenData: newScreenData })
+            .catch(error => console.error('[MorningFlow] Failed to save from Gratitude:', error));
+        }
+      }}
+    />
+  );
+
+  const IntentionScreenWrapper = ({ navigation, route }: any) => (
+    <IntentionScreen
+      navigation={navigation}
+      route={route}
+      onSave={(data) => {
+        // Update state
+        const newScreenData = { ...screenData, Intention: data };
+        setScreenData(newScreenData);
+
+        // Save immediately with updated data
+        const nextScreen = 'Preparation';
+        const nextIndex = SCREEN_ORDER.indexOf(nextScreen);
+        if (nextIndex > lastSavedStep.current) {
+          lastSavedStep.current = nextIndex;
+          SessionStorageService.saveSession('morning', nextScreen, { screenData: newScreenData })
+            .catch(error => console.error('[MorningFlow] Failed to save from Intention:', error));
+        }
+      }}
+    />
+  );
+
+  const PreparationScreenWrapper = ({ navigation, route }: any) => (
+    <ProtectedPreparationScreen
+      navigation={navigation}
+      route={route}
+      onSave={(data) => {
+        const newScreenData = { ...screenData, Preparation: data };
+        setScreenData(newScreenData);
+        const nextScreen = 'PrincipleFocus';
+        const nextIndex = SCREEN_ORDER.indexOf(nextScreen);
+        if (nextIndex > lastSavedStep.current) {
+          lastSavedStep.current = nextIndex;
+          SessionStorageService.saveSession('morning', nextScreen, { screenData: newScreenData })
+            .catch(error => console.error('[MorningFlow] Failed to save from Preparation:', error));
+        }
+      }}
+    />
+  );
+
+  const PrincipleFocusScreenWrapper = ({ navigation, route }: any) => (
+    <PrincipleFocusScreen
+      navigation={navigation}
+      route={route}
+      onSave={(data) => {
+        const newScreenData = { ...screenData, PrincipleFocus: data };
+        setScreenData(newScreenData);
+        const nextScreen = 'PhysicalGrounding';
+        const nextIndex = SCREEN_ORDER.indexOf(nextScreen);
+        if (nextIndex > lastSavedStep.current) {
+          lastSavedStep.current = nextIndex;
+          SessionStorageService.saveSession('morning', nextScreen, { screenData: newScreenData })
+            .catch(error => console.error('[MorningFlow] Failed to save from PrincipleFocus:', error));
+        }
+      }}
+    />
+  );
+
+  const PhysicalGroundingScreenWrapper = ({ navigation, route }: any) => (
+    <PhysicalGroundingScreen
+      navigation={navigation}
+      route={route}
+      onSave={(data) => {
+        const newScreenData = { ...screenData, PhysicalGrounding: data };
+        setScreenData(newScreenData);
+        const nextScreen = 'MorningCompletion';
+        const nextIndex = SCREEN_ORDER.indexOf(nextScreen);
+        if (nextIndex > lastSavedStep.current) {
+          lastSavedStep.current = nextIndex;
+          SessionStorageService.saveSession('morning', nextScreen, { screenData: newScreenData })
+            .catch(error => console.error('[MorningFlow] Failed to save from PhysicalGrounding:', error));
+        }
+      }}
+    />
+  );
 
   // Custom header with progress
   const getHeaderOptions = (routeName: keyof MorningFlowParamList, title: string) => ({
@@ -206,7 +339,6 @@ const MorningFlowNavigator: React.FC<MorningFlowNavigatorProps> = ({
     <>
       <Stack.Navigator
         initialRouteName="Gratitude"
-        initialState={initialNavigationState}
         screenOptions={{
           headerStyle: {
             backgroundColor: colorSystem.themes.morning.background,
@@ -244,8 +376,20 @@ const MorningFlowNavigator: React.FC<MorningFlowNavigatorProps> = ({
             };
           },
         }}
-        screenListeners={{
+        screenListeners={({ navigation }) => ({
           state: (e) => {
+            // FEAT-23: Trigger imperative reset if needed (on first mount after resume)
+            if (shouldResetNav && !hasResetNav.current && initialNavigationState) {
+              hasResetNav.current = true;
+              console.log('[MorningFlow] Triggering imperative reset with state:', initialNavigationState);
+
+              // Reset navigation state
+              navigation.reset(initialNavigationState);
+              setShouldResetNav(false);
+              console.log('[MorningFlow] Imperative reset complete');
+              return; // Don't process state update this cycle
+            }
+
             // Update progress based on current screen
             const state = e.data.state;
             if (state) {
@@ -263,7 +407,9 @@ const MorningFlowNavigator: React.FC<MorningFlowNavigatorProps> = ({
                   stepIndex >= lastSavedStep.current) {
                 console.log(`[MorningFlow] Saving session: stepIndex=${stepIndex}, lastSavedStep=${lastSavedStep.current}, screen=${currentRouteName}`);
                 lastSavedStep.current = stepIndex;
-                SessionStorageService.saveSession('morning', currentRouteName as string)
+                SessionStorageService.saveSession('morning', currentRouteName as string, {
+                  screenData // Save accumulated screen data
+                })
                   .catch(error => {
                     console.error('[MorningFlow] Failed to save session:', error);
                   });
@@ -272,41 +418,41 @@ const MorningFlowNavigator: React.FC<MorningFlowNavigatorProps> = ({
               }
             }
           },
-        }}
+        })}
       >
       <Stack.Screen
         name="Gratitude"
-        component={GratitudeScreen}
+        component={GratitudeScreenWrapper}
         options={getHeaderOptions('Gratitude', 'Gratitude Practice')}
       />
 
       <Stack.Screen
         name="Intention"
-        component={IntentionScreen}
+        component={IntentionScreenWrapper}
         options={getHeaderOptions('Intention', 'Morning Intention')}
       />
 
       <Stack.Screen
         name="Preparation"
-        component={ProtectedPreparationScreen}
+        component={PreparationScreenWrapper}
         options={getHeaderOptions('Preparation', 'Preparation')}
       />
 
       <Stack.Screen
         name="PrincipleFocus"
-        component={PrincipleFocusScreen}
+        component={PrincipleFocusScreenWrapper}
         options={getHeaderOptions('PrincipleFocus', 'Principle Focus')}
       />
 
       <Stack.Screen
         name="PhysicalGrounding"
-        component={PhysicalGroundingScreen}
+        component={PhysicalGroundingScreenWrapper}
         options={getHeaderOptions('PhysicalGrounding', 'Ground in Your Body')}
       />
 
       <Stack.Screen
         name="MorningCompletion"
-        options={getHeaderOptions('MorningCompletion', 'Complete')}
+        options={{ headerShown: false }}
       >
         {(props) => <MorningCompletionScreen {...props} onSave={onComplete} />}
       </Stack.Screen>

@@ -53,12 +53,31 @@ interface ObstacleFormData {
 
 const TIME_LIMIT_SECONDS = 120;
 
-const PreparationScreen: React.FC<Props> = ({ navigation, onSave }) => {
+const PreparationScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
+  // FEAT-23: Restore initial data if resuming session
+  const initialData = route.params?.initialData as PreparationData | undefined;
+
+  // Debug logging
+  if (initialData) {
+    console.log('[PreparationScreen] Restoring data:', {
+      hasObstacles: !!initialData.obstacles?.length,
+      hasSelfCompassion: !!initialData.selfCompassionNote,
+      readinessRating: initialData.readinessRating
+    });
+  }
+
   const [sessionStartTime] = useState<Date>(new Date());
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
-  const [obstacles, setObstacles] = useState<ObstacleFormData[]>([]);
-  const [selfCompassionNote, setSelfCompassionNote] = useState('');
-  const [readinessRating, setReadinessRating] = useState(5);
+  const [obstacles, setObstacles] = useState<ObstacleFormData[]>(
+    initialData?.obstacles?.map(o => ({
+      obstacle: o.obstacle || '',
+      howICanRespond: o.howICanRespond || '',
+      whatIControl: o.whatIControl || '',
+      whatIDontControl: o.whatIDontControl || ''
+    })) || []
+  );
+  const [selfCompassionNote, setSelfCompassionNote] = useState(initialData?.selfCompassionNote || '');
+  const [readinessRating, setReadinessRating] = useState(initialData?.readinessRating || 5);
   const [showOptOutModal, setShowOptOutModal] = useState(false);
   const [anxietyDetected, setAnxietyDetected] = useState(false);
   const [crisisDetected, setCrisisDetected] = useState(false);

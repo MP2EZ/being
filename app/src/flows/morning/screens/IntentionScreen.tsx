@@ -35,10 +35,22 @@ type Props = NativeStackScreenProps<MorningFlowParamList, 'Intention'> & {
   onSave?: (data: IntentionData) => void;
 };
 
-const IntentionScreen: React.FC<Props> = ({ navigation, onSave }) => {
-  const [intentionStatement, setIntentionStatement] = useState('');
-  const [whatIControl, setWhatIControl] = useState('');
-  const [virtueAwareness, setVirtueAwareness] = useState('');
+const IntentionScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
+  // FEAT-23: Restore initial data if resuming session
+  const initialData = route.params?.initialData as IntentionData | undefined;
+
+  // Debug logging
+  if (initialData) {
+    console.log('[IntentionScreen] Restoring data:', {
+      hasIntention: !!initialData.intentionStatement,
+      hasControl: !!initialData.whatIControl,
+      hasVirtue: !!initialData.virtueAwareness
+    });
+  }
+
+  const [intentionStatement, setIntentionStatement] = useState(initialData?.intentionStatement || '');
+  const [whatIControl, setWhatIControl] = useState(initialData?.whatIControl || '');
+  const [virtueAwareness, setVirtueAwareness] = useState(initialData?.virtueAwareness || '');
   const [showEducation, setShowEducation] = useState(false);
 
   // Validation: Core fields only (mindfulness-first)

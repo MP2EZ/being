@@ -31,6 +31,7 @@ import {
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { MiddayFlowParamList, StoicMiddayFlowData } from '../../../types/flows';
+import { SessionStorageService } from '../../../services/session/SessionStorageService';
 
 type Props = NativeStackScreenProps<MiddayFlowParamList, 'MiddayCompletion'> & {
   onComplete?: () => void;
@@ -47,7 +48,15 @@ const COMPLETED_PRACTICES = [
 const MiddayCompletionScreen: React.FC<Props> = ({ navigation, onComplete }) => {
   // Auto-complete after 2 seconds
   useEffect(() => {
-    const timer = setTimeout(() => {
+    const timer = setTimeout(async () => {
+      // FEAT-23: Clear session on completion
+      try {
+        await SessionStorageService.clearSession('midday');
+        console.log('[MiddayCompletion] Session cleared on flow completion');
+      } catch (error) {
+        console.error('[MiddayCompletion] Failed to clear session:', error);
+      }
+
       if (onComplete) {
         onComplete();
       }
@@ -56,7 +65,15 @@ const MiddayCompletionScreen: React.FC<Props> = ({ navigation, onComplete }) => 
     return () => clearTimeout(timer);
   }, [onComplete]);
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
+    // FEAT-23: Clear session on completion
+    try {
+      await SessionStorageService.clearSession('midday');
+      console.log('[MiddayCompletion] Session cleared on manual completion');
+    } catch (error) {
+      console.error('[MiddayCompletion] Failed to clear session:', error);
+    }
+
     // Allow manual completion before 2-second timer
     if (onComplete) {
       onComplete();
