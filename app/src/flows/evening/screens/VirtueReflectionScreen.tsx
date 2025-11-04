@@ -37,9 +37,20 @@ type Props = NativeStackScreenProps<EveningFlowParamList, 'VirtueReflection'> & 
   onSave?: (data: VirtueReflectionData) => void;
 };
 
-const VirtueReflectionScreen: React.FC<Props> = ({ navigation, onSave }) => {
-  const [showedUpWell, setShowedUpWell] = useState('');
-  const [growthArea, setGrowthArea] = useState('');
+const VirtueReflectionScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
+  // FEAT-23: Restore initial data if resuming session
+  const initialData = route.params?.initialData as VirtueReflectionData | undefined;
+
+  // Debug logging
+  if (initialData) {
+    console.log('[VirtueReflectionScreen] Restoring data:', {
+      hasShowedUpWell: !!initialData.showedUpWell,
+      hasGrowthArea: !!initialData.growthArea
+    });
+  }
+
+  const [showedUpWell, setShowedUpWell] = useState(initialData?.showedUpWell || '');
+  const [growthArea, setGrowthArea] = useState(initialData?.growthArea || '');
 
   // Both fields optional (mindfulness practice, not forced reflection)
   const canContinue = showedUpWell.trim().length > 0 || growthArea.trim().length > 0;

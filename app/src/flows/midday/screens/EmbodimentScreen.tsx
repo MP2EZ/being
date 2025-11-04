@@ -39,7 +39,6 @@ import Slider from '@react-native-community/slider';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { MiddayFlowParamList, EmbodimentData } from '../../../types/flows';
 import BreathingCircle from '../../shared/components/BreathingCircle';
-import CollapsibleCrisisButton from '../../shared/components/CollapsibleCrisisButton';
 
 type Props = NativeStackScreenProps<MiddayFlowParamList, 'Embodiment'> & {
   onSave?: (data: EmbodimentData) => void;
@@ -47,11 +46,25 @@ type Props = NativeStackScreenProps<MiddayFlowParamList, 'Embodiment'> & {
 
 const BREATHING_DURATION = 60; // EXACTLY 60 seconds
 
-const EmbodimentScreen: React.FC<Props> = ({ navigation, onSave }) => {
+const EmbodimentScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
+  // FEAT-23: Restore initial data if resuming session
+  const initialData = route.params?.initialData as EmbodimentData | undefined;
+
+  // Debug logging
+  if (initialData) {
+    console.log('[EmbodimentScreen] Restoring data:', {
+      breathingQuality: initialData.breathingQuality,
+      hasBodyAwareness: !!initialData.bodyAwareness
+    });
+  }
+
+  // Timer state always starts fresh (not restored)
   const [breathingActive, setBreathingActive] = useState(true);
   const [secondsRemaining, setSecondsRemaining] = useState(BREATHING_DURATION);
-  const [breathingQuality, setBreathingQuality] = useState(5);
-  const [bodyAwareness, setBodyAwareness] = useState('');
+
+  // User input state restored from session
+  const [breathingQuality, setBreathingQuality] = useState(initialData?.breathingQuality || 5);
+  const [bodyAwareness, setBodyAwareness] = useState(initialData?.bodyAwareness || '');
 
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -98,10 +111,6 @@ const EmbodimentScreen: React.FC<Props> = ({ navigation, onSave }) => {
     }
 
     navigation.navigate('Reappraisal');
-  };
-
-  const handleCrisisButtonPress = () => {
-    // Direct 988 crisis line access - handled by CollapsibleCrisisButton
   };
 
   return (
@@ -233,13 +242,6 @@ const EmbodimentScreen: React.FC<Props> = ({ navigation, onSave }) => {
         </View>
       )}
       </ScrollView>
-
-      {/* Floating Crisis Button - Fixed at upper right, 1/6 from top */}
-      <CollapsibleCrisisButton
-        onPress={handleCrisisButtonPress}
-        position="right"
-        testID="embodiment-crisis-chevron"
-      />
     </View>
   );
 };

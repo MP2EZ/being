@@ -38,10 +38,38 @@ type Props = NativeStackScreenProps<EveningFlowParamList, 'Gratitude'> & {
   onSave?: (data: GratitudeData) => void;
 };
 
-const GratitudeScreen: React.FC<Props> = ({ navigation, onSave }) => {
-  const [gratitudes, setGratitudes] = useState<string[]>(['', '', '']);
-  const [impermanenceEnabled, setImpermanenceEnabled] = useState<boolean[]>([false, false, false]);
-  const [impermanenceAwareness, setImpermanenceAwareness] = useState<string[]>(['', '', '']);
+const GratitudeScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
+  // FEAT-23: Restore initial data if resuming session
+  const initialData = route.params?.initialData as GratitudeData | undefined;
+
+  // Debug logging
+  if (initialData) {
+    console.log('[GratitudeScreen (evening)] Restoring data:', {
+      itemCount: initialData.items?.length,
+      items: initialData.items?.map((item, i) => ({
+        index: i,
+        hasWhat: !!item.what,
+        hasImpermanence: !!item.impermanenceReflection
+      }))
+    });
+  }
+
+  // Reconstruct arrays from GratitudeData.items
+  const initialGratitudes = initialData?.items
+    ? initialData.items.map(item => item.what || '')
+    : ['', '', ''];
+
+  const initialImpermanenceEnabled = initialData?.items
+    ? initialData.items.map(item => !!item.impermanenceReflection?.acknowledged)
+    : [false, false, false];
+
+  const initialImpermanenceAwareness = initialData?.items
+    ? initialData.items.map(item => item.impermanenceReflection?.awareness || '')
+    : ['', '', ''];
+
+  const [gratitudes, setGratitudes] = useState<string[]>(initialGratitudes);
+  const [impermanenceEnabled, setImpermanenceEnabled] = useState<boolean[]>(initialImpermanenceEnabled);
+  const [impermanenceAwareness, setImpermanenceAwareness] = useState<string[]>(initialImpermanenceAwareness);
 
   const isValid = gratitudes.every(g => g.trim().length > 0);
 

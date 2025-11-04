@@ -34,7 +34,6 @@ import {
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { MiddayFlowParamList, ControlCheckData } from '../../../types/flows';
-import CollapsibleCrisisButton from '../../shared/components/CollapsibleCrisisButton';
 
 type Props = NativeStackScreenProps<MiddayFlowParamList, 'ControlCheck'> & {
   onSave?: (data: ControlCheckData) => void;
@@ -42,13 +41,26 @@ type Props = NativeStackScreenProps<MiddayFlowParamList, 'ControlCheck'> & {
 
 type ControlType = 'fully_in_control' | 'can_influence' | 'not_in_control';
 
-const ControlCheckScreen: React.FC<Props> = ({ navigation, onSave }) => {
-  const [aspect, setAspect] = useState('');
-  const [controlType, setControlType] = useState<ControlType | null>(null);
-  const [whatIControl, setWhatIControl] = useState('');
-  const [whatICannotControl, setWhatICannotControl] = useState('');
-  const [actionIfControllable, setActionIfControllable] = useState('');
-  const [acceptanceIfUncontrollable, setAcceptanceIfUncontrollable] = useState('');
+const ControlCheckScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
+  // FEAT-23: Restore initial data if resuming session
+  const initialData = route.params?.initialData as ControlCheckData | undefined;
+
+  // Debug logging
+  if (initialData) {
+    console.log('[ControlCheckScreen] Restoring data:', {
+      aspect: initialData.aspect,
+      controlType: initialData.controlType,
+      hasWhatIControl: !!initialData.whatIControl,
+      hasActionIfControllable: !!initialData.actionIfControllable
+    });
+  }
+
+  const [aspect, setAspect] = useState(initialData?.aspect || '');
+  const [controlType, setControlType] = useState<ControlType | null>(initialData?.controlType || null);
+  const [whatIControl, setWhatIControl] = useState(initialData?.whatIControl || '');
+  const [whatICannotControl, setWhatICannotControl] = useState(initialData?.whatICannotControl || '');
+  const [actionIfControllable, setActionIfControllable] = useState(initialData?.actionIfControllable || '');
+  const [acceptanceIfUncontrollable, setAcceptanceIfUncontrollable] = useState(initialData?.acceptanceIfUncontrollable || '');
 
   const isValid = (): boolean => {
     if (!aspect.trim() || !controlType) {
@@ -106,11 +118,6 @@ const ControlCheckScreen: React.FC<Props> = ({ navigation, onSave }) => {
     setWhatICannotControl('');
     setActionIfControllable('');
     setAcceptanceIfUncontrollable('');
-  };
-
-  const handleCrisisButtonPress = () => {
-    // Direct 988 crisis line access - handled by CollapsibleCrisisButton
-    // Additional logging or analytics can be added here if needed
   };
 
   return (
@@ -365,13 +372,6 @@ const ControlCheckScreen: React.FC<Props> = ({ navigation, onSave }) => {
         </Text>
       </View>
       </ScrollView>
-
-      {/* Floating Crisis Button - Fixed at upper right, 1/6 from top */}
-      <CollapsibleCrisisButton
-        onPress={handleCrisisButtonPress}
-        position="right"
-        testID="control-check-crisis-chevron"
-      />
     </View>
   );
 };

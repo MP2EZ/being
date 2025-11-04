@@ -34,7 +34,6 @@ import {
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { MiddayFlowParamList, AffirmationData } from '../../../types/flows';
-import CollapsibleCrisisButton from '../../shared/components/CollapsibleCrisisButton';
 
 type Props = NativeStackScreenProps<MiddayFlowParamList, 'Affirmation'> & {
   onSave?: (data: AffirmationData) => void;
@@ -94,10 +93,6 @@ const AffirmationScreen: React.FC<Props> = ({ navigation, onSave }) => {
 
     // Navigate to completion
     navigation.navigate('MiddayCompletion');
-  };
-
-  const handleCrisisButtonPress = () => {
-    // Direct 988 crisis line access - handled by CollapsibleCrisisButton
   };
 
   return (
@@ -232,13 +227,6 @@ const AffirmationScreen: React.FC<Props> = ({ navigation, onSave }) => {
         </Text>
       </View>
       </ScrollView>
-
-      {/* Floating Crisis Button - Fixed at upper right, 1/6 from top */}
-      <CollapsibleCrisisButton
-        onPress={handleCrisisButtonPress}
-        position="right"
-        testID="affirmation-crisis-chevron"
-      />
     </View>
   );
 };

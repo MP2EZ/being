@@ -31,6 +31,7 @@ import {
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import type { EveningFlowParamList } from '../../../types/flows';
+import { SessionStorageService } from '../../../services/session/SessionStorageService';
 
 type EveningCompletionScreenNavigationProp = NativeStackNavigationProp<
   EveningFlowParamList,
@@ -52,7 +53,15 @@ const EVENING_COLOR = '#8B4789';
 const EveningCompletionScreen: React.FC<Props> = ({ navigation, onComplete }) => {
   // Auto-complete after 2 seconds
   useEffect(() => {
-    const timer = setTimeout(() => {
+    const timer = setTimeout(async () => {
+      // FEAT-23: Clear session on completion
+      try {
+        await SessionStorageService.clearSession('evening');
+        console.log('[EveningCompletion] Session cleared on flow completion');
+      } catch (error) {
+        console.error('[EveningCompletion] Failed to clear session:', error);
+      }
+
       if (onComplete) {
         onComplete();
       }
@@ -61,7 +70,15 @@ const EveningCompletionScreen: React.FC<Props> = ({ navigation, onComplete }) =>
     return () => clearTimeout(timer);
   }, [onComplete]);
 
-  const handleFinish = () => {
+  const handleFinish = async () => {
+    // FEAT-23: Clear session on completion
+    try {
+      await SessionStorageService.clearSession('evening');
+      console.log('[EveningCompletion] Session cleared on manual completion');
+    } catch (error) {
+      console.error('[EveningCompletion] Failed to clear session:', error);
+    }
+
     // Allow manual completion before 2-second timer
     if (onComplete) {
       onComplete();

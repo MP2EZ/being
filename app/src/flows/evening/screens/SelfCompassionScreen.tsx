@@ -35,7 +35,6 @@ import {
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import type { EveningFlowParamList, SelfCompassionData } from '../../../types/flows';
-import CollapsibleCrisisButton from '../../shared/components/CollapsibleCrisisButton';
 
 type SelfCompassionScreenNavigationProp = NativeStackNavigationProp<
   EveningFlowParamList,
@@ -54,8 +53,18 @@ interface Props {
 
 const EVENING_COLOR = '#8B4789';
 
-const SelfCompassionScreen: React.FC<Props> = ({ navigation, onSave }) => {
-  const [reflection, setReflection] = useState('');
+const SelfCompassionScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
+  // FEAT-23: Restore initial data if resuming session
+  const initialData = route.params?.initialData as SelfCompassionData | undefined;
+
+  // Debug logging
+  if (initialData) {
+    console.log('[SelfCompassionScreen] Restoring data:', {
+      hasReflection: !!initialData.reflection
+    });
+  }
+
+  const [reflection, setReflection] = useState(initialData?.reflection || '');
 
   const handleComplete = () => {
     // Validate required field
@@ -73,10 +82,6 @@ const SelfCompassionScreen: React.FC<Props> = ({ navigation, onSave }) => {
     }
 
     navigation.navigate('SleepTransition');
-  };
-
-  const handleCrisisButtonPress = () => {
-    // Direct 988 crisis line access - handled by CollapsibleCrisisButton
   };
 
   return (
@@ -181,13 +186,6 @@ const SelfCompassionScreen: React.FC<Props> = ({ navigation, onSave }) => {
         <Text style={styles.completeButtonText}>Continue</Text>
       </TouchableOpacity>
       </ScrollView>
-
-      {/* Floating Crisis Button - Fixed at upper right, 1/6 from top */}
-      <CollapsibleCrisisButton
-        onPress={handleCrisisButtonPress}
-        position="right"
-        testID="self-compassion-crisis-chevron"
-      />
     </View>
   );
 };

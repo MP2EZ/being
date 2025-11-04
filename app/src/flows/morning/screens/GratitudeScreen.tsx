@@ -36,10 +36,23 @@ type Props = NativeStackScreenProps<MorningFlowParamList, 'Gratitude'> & {
   onSave?: (data: GratitudeData) => void;
 };
 
-const GratitudeScreen: React.FC<Props> = ({ navigation, onSave }) => {
-  const [gratitudeItems, setGratitudeItems] = useState<string[]>(['', '', '']);
+const GratitudeScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
+  // FEAT-23: Restore initial data if resuming session
+  const initialData = route.params?.initialData as GratitudeData | undefined;
+
+  // Debug logging
+  if (initialData) {
+    console.log('[GratitudeScreen] Restoring data:', {
+      items: initialData.items?.length,
+      hasGrounding: !!initialData.stoicGrounding
+    });
+  }
+
+  const [gratitudeItems, setGratitudeItems] = useState<string[]>(
+    initialData?.items?.map(item => item.what || '') || ['', '', '']
+  );
   const [showEducation, setShowEducation] = useState(false);
-  const [stoicGrounding, setStoicGrounding] = useState('');
+  const [stoicGrounding, setStoicGrounding] = useState(initialData?.stoicGrounding || '');
 
   // Validate at least 2 of 3 items filled
   const filledCount = gratitudeItems.filter(item => item.trim().length > 0).length;

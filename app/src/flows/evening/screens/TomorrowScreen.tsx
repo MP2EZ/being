@@ -36,9 +36,20 @@ type Props = NativeStackScreenProps<EveningFlowParamList, 'Tomorrow'> & {
   onSave?: (data: TomorrowData) => void;
 };
 
-const TomorrowScreen: React.FC<Props> = ({ navigation, onSave }) => {
-  const [intention, setIntention] = useState('');
-  const [lettingGo, setLettingGo] = useState('');
+const TomorrowScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
+  // FEAT-23: Restore initial data if resuming session
+  const initialData = route.params?.initialData as TomorrowData | undefined;
+
+  // Debug logging
+  if (initialData) {
+    console.log('[TomorrowScreen] Restoring data:', {
+      hasIntention: !!initialData.intention,
+      hasLettingGo: !!initialData.lettingGo
+    });
+  }
+
+  const [intention, setIntention] = useState(initialData?.intention || '');
+  const [lettingGo, setLettingGo] = useState(initialData?.lettingGo || '');
 
   // Both fields optional (rest-oriented, not forced)
   const canContinue = intention.trim().length > 0 || lettingGo.trim().length > 0;

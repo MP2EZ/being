@@ -34,9 +34,22 @@ type Props = NativeStackScreenProps<MorningFlowParamList, 'PhysicalGrounding'> &
 
 type GroundingMethod = 'body_scan' | 'breathing';
 
-const PhysicalGroundingScreen: React.FC<Props> = ({ navigation, onSave }) => {
-  const [selectedMethod, setSelectedMethod] = useState<GroundingMethod | null>(null);
-  const [bodyAwareness, setBodyAwareness] = useState('');
+const PhysicalGroundingScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
+  // FEAT-23: Restore initial data if resuming session
+  const initialData = route.params?.initialData as PhysicalGroundingData | undefined;
+
+  // Debug logging
+  if (initialData) {
+    console.log('[PhysicalGroundingScreen] Restoring data:', {
+      method: initialData.method,
+      hasBodyAwareness: !!initialData.bodyAwareness
+    });
+  }
+
+  const [selectedMethod, setSelectedMethod] = useState<GroundingMethod | null>(
+    initialData?.method || null
+  );
+  const [bodyAwareness, setBodyAwareness] = useState(initialData?.bodyAwareness || '');
 
   const isValid = selectedMethod !== null && bodyAwareness.trim().length > 0;
 

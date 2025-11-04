@@ -33,7 +33,6 @@ import {
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { MiddayFlowParamList, ReappraisalData } from '../../../types/flows';
-import CollapsibleCrisisButton from '../../shared/components/CollapsibleCrisisButton';
 
 type Props = NativeStackScreenProps<MiddayFlowParamList, 'Reappraisal'> & {
   onSave?: (data: ReappraisalData) => void;
@@ -68,11 +67,6 @@ const ReappraisalScreen: React.FC<Props> = ({ navigation, onSave }) => {
     }
 
     navigation.navigate('Affirmation');
-  };
-
-  const handleCrisisButtonPress = () => {
-    // Direct 988 crisis line access - handled by CollapsibleCrisisButton
-    // Additional logging or analytics can be added here if needed
   };
 
   return (
@@ -188,13 +182,6 @@ const ReappraisalScreen: React.FC<Props> = ({ navigation, onSave }) => {
         </Text>
       </View>
       </ScrollView>
-
-      {/* Floating Crisis Button - Fixed at upper right, 1/6 from top */}
-      <CollapsibleCrisisButton
-        onPress={handleCrisisButtonPress}
-        position="right"
-        testID="reappraisal-crisis-chevron"
-      />
     </View>
   );
 };

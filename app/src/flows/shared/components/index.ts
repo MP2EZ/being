@@ -15,6 +15,9 @@ export { default as OverflowSupport } from './OverflowSupport';
 export { default as ThoughtBubbles } from './ThoughtBubbles';
 export { default as DreamJournal } from './DreamJournal';
 
+// FEAT-23: Session resumption
+export { ResumeSessionModal } from './ResumeSessionModal';
+
 // Type exports
 export type { Emotion } from './EmotionGrid';
 export type { Need } from './NeedsGrid';

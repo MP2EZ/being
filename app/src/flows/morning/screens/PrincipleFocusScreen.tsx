@@ -98,11 +98,27 @@ const PRINCIPLES: PrincipleInfo[] = [
   },
 ];
 
-const PrincipleFocusScreen: React.FC<Props> = ({ navigation, onSave }) => {
-  const [selectedPrinciple, setSelectedPrinciple] = useState<StoicPrinciple | null>(null);
-  const [personalInterpretation, setPersonalInterpretation] = useState('');
-  const [reminderEnabled, setReminderEnabled] = useState(false);
-  const [reminderTime, setReminderTime] = useState('12:00');
+const PrincipleFocusScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
+  // FEAT-23: Restore initial data if resuming session
+  const initialData = route.params?.initialData as PrincipleFocusData | undefined;
+
+  // Debug logging
+  if (initialData) {
+    console.log('[PrincipleFocusScreen] Restoring data:', {
+      principle: initialData.principleKey,
+      hasInterpretation: !!initialData.personalInterpretation,
+      hasReminder: !!initialData.reminderTime
+    });
+  }
+
+  const [selectedPrinciple, setSelectedPrinciple] = useState<StoicPrinciple | null>(
+    initialData?.principleKey || null
+  );
+  const [personalInterpretation, setPersonalInterpretation] = useState(
+    initialData?.personalInterpretation || ''
+  );
+  const [reminderEnabled, setReminderEnabled] = useState(!!initialData?.reminderTime);
+  const [reminderTime, setReminderTime] = useState(initialData?.reminderTime || '12:00');
 
   const selectedPrincipleInfo = PRINCIPLES.find(p => p.key === selectedPrinciple);
 
