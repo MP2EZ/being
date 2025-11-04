@@ -32,7 +32,7 @@ import {
   AppStateStatus,
 } from 'react-native';
 import { colorSystem, spacing, typography } from '../../constants/colors';
-import { SafetyButton } from '../../flows/shared/components/SafetyButton';
+import SafetyButton from '../../flows/shared/components/SafetyButton';
 
 interface CrisisErrorBoundaryProps {
   children: ReactNode;

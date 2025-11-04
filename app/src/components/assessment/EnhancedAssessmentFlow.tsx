@@ -28,14 +28,15 @@ import {
   AppState,
   AppStateStatus,
   BackHandler,
+  ActivityIndicator,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { colorSystem, spacing } from '../../constants/colors';
 
 // Enhanced imports
 import EnhancedAssessmentQuestion from './EnhancedAssessmentQuestion';
-import { AssessmentIntroduction } from '../../flows/assessment/components/AssessmentIntroduction';
-import { AssessmentResults } from '../../flows/assessment/components/AssessmentResults';
+import AssessmentIntroduction from '../../flows/assessment/components/AssessmentIntroduction';
+import AssessmentResults from '../../flows/assessment/components/AssessmentResults';
 import CrisisErrorBoundary from '../crisis/CrisisErrorBoundary';
 import { useAssessmentStore } from '../../flows/assessment/stores/assessmentStore';
 
@@ -130,7 +131,7 @@ const EnhancedAssessmentFlow: React.FC<EnhancedAssessmentFlowProps> = ({
   sessionId,
 }) => {
   // State management
-  const [flowState, setFlowState] = useState<'introduction' | 'questions' | 'results'>('introduction');
+  const [flowState, setFlowState] = useState<'introduction' | 'questions' | 'results' | 'completing'>('introduction');
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Map<string, { response: AssessmentResponse; metadata: ResponseMetadata }>>(new Map());
   const [crisisDetected, setCrisisDetected] = useState<CrisisDetection | null>(null);
@@ -340,8 +341,18 @@ const EnhancedAssessmentFlow: React.FC<EnhancedAssessmentFlowProps> = ({
       // Get result from store
       const storeState = useAssessmentStore.getState();
       if (storeState.currentResult) {
-        setResult(storeState.currentResult);
-        setFlowState('results');
+        if (context === 'onboarding') {
+          // Skip results screen for onboarding - show completing state
+          // This prevents blank screen while parent handles navigation
+          setFlowState('completing');
+          setResult(storeState.currentResult);
+          // Call onComplete to trigger parent navigation
+          onComplete(storeState.currentResult);
+        } else {
+          // Standalone: show results screen
+          setResult(storeState.currentResult);
+          setFlowState('results');
+        }
       }
 
     } catch (error) {
@@ -354,7 +365,7 @@ const EnhancedAssessmentFlow: React.FC<EnhancedAssessmentFlowProps> = ({
     } finally {
       setIsProcessing(false);
     }
-  }, [completeAssessment, crisisDetected, questions.length, answers.size]);
+  }, [completeAssessment, crisisDetected, questions.length, answers.size, context, onComplete]);
 
   // Begin assessment flow
   const handleBeginAssessment = useCallback(() => {
@@ -396,7 +407,7 @@ const EnhancedAssessmentFlow: React.FC<EnhancedAssessmentFlowProps> = ({
           <AssessmentIntroduction
             assessmentType={assessmentType}
             onBegin={handleBeginAssessment}
-            onSkip={context === 'onboarding' ? handleBeginAssessment : undefined}
+            onSkip={context === 'onboarding' ? onCancel : undefined}
             theme={theme}
             context={context}
             showSkipOption={context === 'onboarding'}
@@ -440,6 +451,13 @@ const EnhancedAssessmentFlow: React.FC<EnhancedAssessmentFlowProps> = ({
             context={context}
           />
         )}
+
+        {/* Completing Phase (onboarding only) */}
+        {flowState === 'completing' && (
+          <View style={styles.completingContainer}>
+            <ActivityIndicator size="large" color={themeColors.primary} />
+          </View>
+        )}
       </View>
     </CrisisErrorBoundary>
   );
@@ -448,6 +466,11 @@ const EnhancedAssessmentFlow: React.FC<EnhancedAssessmentFlowProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  completingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 

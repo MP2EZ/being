@@ -29,7 +29,7 @@ import {
   AppStateStatus,
 } from 'react-native';
 import { colorSystem, spacing, typography } from '../../constants/colors';
-import { SafetyButton } from '../../flows/shared/components/SafetyButton';
+import { CollapsibleCrisisButton } from '../../flows/shared/components/CollapsibleCrisisButton';
 import { RadioGroup, FocusProvider, Focusable } from '../accessibility';
 import type { RadioOption } from '../accessibility';
 import type { 
@@ -383,48 +383,35 @@ const EnhancedAssessmentQuestion: React.FC<EnhancedAssessmentQuestionProps> = ({
     }
   }, [question, sessionId, consentStatus, onAnswer, onCrisisDetected, onError]);
 
-  // Get radio group label for accessibility
+  // Empty label - progress is shown at top, no need for duplicate text
   const radioGroupLabel = useMemo(() => {
-    return `${question.text} - Assessment question ${currentStep} of ${totalSteps}`;
-  }, [question.text, currentStep, totalSteps]);
-
-  // Enhanced radio group description with security context
-  const radioGroupDescription = useMemo(() => {
-    const baseDescription = "Over the last 2 weeks, how often have you been bothered by this problem? Use arrow keys to navigate between options.";
-    const securityNote = consentStatus.dataProcessingConsent ? 
-      " Your responses are encrypted and stored securely." : 
-      " Please review data consent before proceeding.";
-    
-    return baseDescription + securityNote;
-  }, [consentStatus.dataProcessingConsent]);
+    return ''; // Empty string to hide visual label
+  }, []);
 
   return (
-    <FocusProvider
-      announceChanges={true}
-      restoreFocus={true}
-    >
-      <View style={[styles.container, { backgroundColor: themeColors.background }]}>
-        {/* Crisis Alert Banner */}
-        {crisisAlert && (
-          <Focusable
-            id="crisis-alert-banner"
-            priority={5}
-          >
-            <View 
-              style={styles.crisisAlertBanner}
-              accessibilityRole="alert"
-              accessibilityLiveRegion="assertive"
+    <>
+      <FocusProvider
+        announceChanges={true}
+        restoreFocus={true}
+      >
+        <View style={[styles.container, { backgroundColor: themeColors.background }]}>
+          {/* Crisis Alert Banner */}
+          {crisisAlert && (
+            <Focusable
+              id="crisis-alert-banner"
+              priority={5}
             >
-              <Text style={styles.crisisAlertText}>
-                🚨 Crisis support is available immediately
-              </Text>
-              <SafetyButton 
-                variant="crisis" 
-                testID="crisis-alert-button"
-              />
-            </View>
-          </Focusable>
-        )}
+              <View
+                style={styles.crisisAlertBanner}
+                accessibilityRole="alert"
+                accessibilityLiveRegion="assertive"
+              >
+                <Text style={styles.crisisAlertText}>
+                  🚨 Crisis support is available immediately
+                </Text>
+              </View>
+            </Focusable>
+          )}
 
         {/* Enhanced Progress indicator with security status */}
         {showProgress && (
@@ -461,14 +448,6 @@ const EnhancedAssessmentQuestion: React.FC<EnhancedAssessmentQuestionProps> = ({
                     ]} 
                   />
                 </View>
-                <View style={styles.securityIndicator}>
-                  <Text style={[
-                    styles.securityText,
-                    { color: encryptionStatus === 'success' ? colorSystem.status.success : colorSystem.gray[500] }
-                  ]}>
-                    🔒 {encryptionStatus === 'success' ? 'Secured' : 'Securing...'}
-                  </Text>
-                </View>
               </View>
             </View>
           </Focusable>
@@ -494,20 +473,20 @@ const EnhancedAssessmentQuestion: React.FC<EnhancedAssessmentQuestionProps> = ({
           priority={20}
         >
           <View style={styles.questionContainer}>
-            <Text 
+            <Text
+              style={styles.instructionText}
+              accessibilityRole="text"
+            >
+              Over the last 2 weeks, how often have you been bothered by this problem?
+            </Text>
+            <Text
               style={styles.questionText}
               accessibilityRole="header"
               accessibilityLevel={2}
             >
               {question.text}
             </Text>
-            <Text 
-              style={styles.instructionText}
-              accessibilityRole="text"
-            >
-              Over the last 2 weeks, how often have you been bothered by this problem?
-            </Text>
-            
+
             {/* Special handling for suicidal ideation question */}
             {question.id === 'phq9_9' && (
               <View style={styles.specialInstructionContainer}>
@@ -530,11 +509,10 @@ const EnhancedAssessmentQuestion: React.FC<EnhancedAssessmentQuestionProps> = ({
             value={currentAnswer}
             onValueChange={handleAnswerSelection}
             label={radioGroupLabel}
-            description={radioGroupDescription}
             orientation="vertical"
-            required={true}
             clinicalContext={question.type === 'phq9' ? 'phq9' : 'gad7'}
-            showScores={true}
+            showScores={false}
+            showRadioIndicator={false}
             theme={theme}
             disabled={isProcessing}
             testID="assessment-response-group"
@@ -555,33 +533,12 @@ const EnhancedAssessmentQuestion: React.FC<EnhancedAssessmentQuestionProps> = ({
           </Focusable>
         )}
 
-        {/* Enhanced Safety buttons with crisis integration */}
-        {showSafetyButton && (
-          <Focusable
-            id="assessment-safety-buttons"
-            priority={40}
-          >
-            <View style={styles.safetyContainer}>
-              <Text style={styles.safetyTitle}>
-                Crisis Support Available 24/7
-              </Text>
-              <View style={styles.safetyButtonRow}>
-                {/* CRITICAL: Direct 1-tap crisis access */}
-                <SafetyButton
-                  variant="crisis"
-                  testID="assessment-crisis-button"
-                />
-                {/* General support options */}
-                <SafetyButton
-                  variant="primary"
-                  testID="assessment-safety-button"
-                />
-              </View>
-            </View>
-          </Focusable>
-        )}
-      </View>
-    </FocusProvider>
+        </View>
+      </FocusProvider>
+
+      {/* Collapsible Crisis Button - Always accessible overlay */}
+      <CollapsibleCrisisButton testID="assessment-crisis-button" />
+    </>
   );
 };
 
@@ -652,20 +609,21 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   questionContainer: {
-    marginBottom: spacing.xl,
+    marginBottom: 30, // Space between question and response options
   },
   questionText: {
     fontSize: typography.headline3.size,
     fontWeight: typography.headline3.weight,
     color: colorSystem.accessibility.text.primary,
     lineHeight: typography.headline3.size * 1.3,
-    marginBottom: spacing.md,
+    marginBottom: 0, // No space below question text
   },
   instructionText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.bodyRegular.weight,
     color: colorSystem.accessibility.text.secondary,
     lineHeight: typography.bodyRegular.size * 1.5,
+    marginBottom: spacing.lg, // More space between instruction and question
   },
   specialInstructionContainer: {
     backgroundColor: colorSystem.status.infoBackground,

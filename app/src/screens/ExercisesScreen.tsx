@@ -1,7 +1,7 @@
 /**
  * Exercises Screen
  * PHQ-9/GAD-7 mental health assessments with shared components
- * Uses RadioGroup for WCAG-AA compliant accessibility
+ * Uses EnhancedAssessmentFlow modal for DRY implementation
  */
 
 import React, { useState, useEffect } from 'react';
@@ -11,12 +11,11 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { PHQ9_QUESTIONS, GAD7_QUESTIONS } from '../flows/assessment/types/questions';
-import { RadioGroup } from '../components/accessibility';
-import type { RadioOption } from '../components/accessibility';
+import { useNavigation } from '@react-navigation/native';
+import type { StackNavigationProp } from '@react-navigation/stack';
+import type { RootStackParamList } from '../navigation/CleanRootNavigator';
 import { CollapsibleCrisisButton } from '../flows/shared/components/CollapsibleCrisisButton';
 import ThresholdEducationModal from '../components/ThresholdEducationModal';
 import { useAssessmentStore } from '../flows/assessment/stores/assessmentStore';
@@ -43,24 +42,7 @@ const spacing = {
   xl: 32,
 };
 
-// NOTE: PHQ9_QUESTIONS and GAD7_QUESTIONS now imported from shared assessment types
-// This eliminates duplication and ensures clinical accuracy across the app
-
-// Response options in RadioOption format (clinically validated)
-const RESPONSE_OPTIONS: RadioOption[] = [
-  { value: 0, label: 'Not at all' },
-  { value: 1, label: 'Several days' },
-  { value: 2, label: 'More than half the days' },
-  { value: 3, label: 'Nearly every day' },
-];
-
 type AssessmentType = 'phq9' | 'gad7';
-type Screen = 'menu' | 'intro' | 'assessment' | 'results';
-
-interface Answer {
-  questionId: string;
-  response: number;
-}
 
 interface AssessmentMetadata {
   lastCompleted?: number;
@@ -69,19 +51,13 @@ interface AssessmentMetadata {
 }
 
 const ExercisesScreen: React.FC = () => {
-  const [currentScreen, setCurrentScreen] = useState<Screen>('menu');
-  const [assessmentType, setAssessmentType] = useState<AssessmentType>('phq9');
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [answers, setAnswers] = useState<Answer[]>([]);
+  const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
   const [showEducationModal, setShowEducationModal] = useState(false);
   const [phq9Metadata, setPhq9Metadata] = useState<AssessmentMetadata>({ status: 'never' });
   const [gad7Metadata, setGad7Metadata] = useState<AssessmentMetadata>({ status: 'never' });
 
   // Get assessment history from encrypted store
   const completedAssessments = useAssessmentStore(state => state.completedAssessments);
-
-  const questions = assessmentType === 'phq9' ? PHQ9_QUESTIONS : GAD7_QUESTIONS;
-  const currentQuestion = questions[currentQuestionIndex];
 
   // Load assessment metadata when assessments change
   useEffect(() => {
@@ -129,79 +105,15 @@ const ExercisesScreen: React.FC = () => {
   };
 
   const handleStartAssessment = (type: AssessmentType) => {
-    setAssessmentType(type);
-    setCurrentScreen('intro');
-    setCurrentQuestionIndex(0);
-    setAnswers([]);
-  };
-
-  const handleBeginAssessment = () => {
-    setCurrentScreen('assessment');
-  };
-
-  const handleAnswer = (response: number) => {
-    if (!currentQuestion) return;
-
-    const newAnswer: Answer = {
-      questionId: currentQuestion.id,
-      response,
-    };
-
-    const updatedAnswers = [...answers, newAnswer];
-    setAnswers(updatedAnswers);
-
-    // Move to next question or results
-    if (currentQuestionIndex < questions.length - 1) {
-      setCurrentQuestionIndex(currentQuestionIndex + 1);
-    } else {
-      setCurrentScreen('results');
-    }
-  };
-
-  const calculateResults = () => {
-    const totalScore = answers.reduce((sum, answer) => sum + answer.response, 0);
-
-    if (assessmentType === 'phq9') {
-      // Check for crisis conditions: PHQ≥20 or suicidal ideation (question 9)
-      const question9Answer = answers.find(a => a.questionId === 'phq9_9');
-      const suicidalIdeation = question9Answer ? question9Answer.response > 0 : false;
-      const isCrisis = totalScore >= 20 || suicidalIdeation;
-
-      let severity = 'minimal';
-      if (totalScore <= 4) severity = 'minimal';
-      else if (totalScore <= 9) severity = 'mild';
-      else if (totalScore <= 14) severity = 'moderate';
-      else if (totalScore <= 19) severity = 'moderately severe';
-      else severity = 'severe';
-
-      return { totalScore, severity, isCrisis, suicidalIdeation };
-    } else {
-      // GAD-7: Crisis at ≥15
-      const isCrisis = totalScore >= 15;
-
-      let severity = 'minimal';
-      if (totalScore <= 4) severity = 'minimal';
-      else if (totalScore <= 9) severity = 'mild';
-      else if (totalScore <= 14) severity = 'moderate';
-      else severity = 'severe';
-
-      return { totalScore, severity, isCrisis };
-    }
-  };
-
-  const handleComplete = () => {
-    // Date already saved in assessmentStore - no need for markAssessmentComplete
-    // Metadata will auto-refresh via useEffect watching completedAssessments
-    setCurrentScreen('menu');
-  };
-
-  const showCrisisAlert = () => {
-    Alert.alert(
-      'Crisis Resources Available',
-      'If you are in immediate danger, please call 911.\n\nFor crisis support:\n• Call 988 (Suicide & Crisis Lifeline)\n• Text "HELLO" to 741741 (Crisis Text Line)',
-      [{ text: 'OK', onPress: handleComplete }],
-      { cancelable: false }
-    );
+    navigation.navigate('AssessmentFlow', {
+      assessmentType: type,
+      context: 'standalone',
+      onComplete: (result) => {
+        // Assessment automatically saved to assessmentStore by EnhancedAssessmentFlow
+        // Metadata will auto-refresh via useEffect watching completedAssessments
+        console.log(`✅ ${type} assessment completed:`, result);
+      },
+    });
   };
 
   const getStatusIndicator = (metadata: AssessmentMetadata) => {
@@ -299,130 +211,12 @@ const ExercisesScreen: React.FC = () => {
     </SafeAreaView>
   );
 
-  const renderIntro = () => (
-    <SafeAreaView style={styles.container}>
-      <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
-        <View style={styles.header}>
-          <Text style={styles.title}>
-            {assessmentType === 'phq9' ? 'Mood Assessment' : 'Anxiety Assessment'}
-          </Text>
-          <Text style={styles.subtitle}>
-            {assessmentType === 'phq9'
-              ? 'A gentle check-in with your recent experiences'
-              : 'Noticing your relationship with worry and tension'
-            }
-          </Text>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.bodyText}>
-            Over the last 2 weeks, how often have you been bothered by any of the following problems?
-          </Text>
-          <Text style={styles.bodyText}>
-            There are no right or wrong answers. Simply notice what feels true for you right now.
-          </Text>
-        </View>
-
-        <Pressable style={styles.primaryButton} onPress={handleBeginAssessment}>
-          <Text style={styles.primaryButtonText}>Begin Assessment</Text>
-        </Pressable>
-
-        <Pressable style={styles.secondaryButton} onPress={handleComplete}>
-          <Text style={styles.secondaryButtonText}>Return to Menu</Text>
-        </Pressable>
-      </ScrollView>
-    </SafeAreaView>
-  );
-
-  const renderAssessment = () => {
-    if (!currentQuestion) {
-      return null;
-    }
-
-    return (
-      <SafeAreaView style={styles.container}>
-        <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
-          <View style={styles.progressContainer}>
-            <Text style={styles.progressText}>
-              Question {currentQuestionIndex + 1} of {questions.length}
-            </Text>
-          </View>
-
-          <View style={styles.questionContainer}>
-            <Text style={styles.questionText}>{currentQuestion.text}</Text>
-          </View>
-
-          <View style={styles.optionsContainer}>
-            <RadioGroup
-              options={RESPONSE_OPTIONS}
-              value={answers.find(a => a.questionId === currentQuestion.id)?.response}
-              onValueChange={(value) => handleAnswer(value as number)}
-              label={`Response options for question ${currentQuestionIndex + 1} of ${questions.length}`}
-              orientation="vertical"
-              clinicalContext={assessmentType === 'phq9' ? 'phq9' : 'gad7'}
-              theme="neutral"
-              testID={`${assessmentType}-response-options`}
-            />
-          </View>
-        </ScrollView>
-      </SafeAreaView>
-    );
-  };
-
-  const renderResults = () => {
-    const results = calculateResults();
-
-    // Check for crisis and show alert immediately
-    if (results.isCrisis) {
-      setTimeout(() => showCrisisAlert(), 500);
-    }
-
-    return (
-      <SafeAreaView style={styles.container}>
-        <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
-          <View style={styles.header}>
-            <Text style={styles.title}>Assessment Complete</Text>
-          </View>
-
-          <View style={styles.resultsContainer}>
-            <Text style={styles.scoreText}>
-              Total Score: {results.totalScore}
-            </Text>
-            <Text style={styles.severityText}>
-              Severity: {results.severity}
-            </Text>
-
-            {results.isCrisis && (
-              <View style={styles.crisisContainer}>
-                <Text style={styles.crisisText}>
-                  ⚠️ Crisis Support Recommended
-                </Text>
-                <Text style={styles.crisisSubtext}>
-                  Your responses indicate you may benefit from immediate support.
-                </Text>
-              </View>
-            )}
-          </View>
-
-          <Pressable style={styles.primaryButton} onPress={handleComplete}>
-            <Text style={styles.primaryButtonText}>Return to Menu</Text>
-          </Pressable>
-        </ScrollView>
-      </SafeAreaView>
-    );
-  };
-
-  const renderContent = () => {
-    if (currentScreen === 'menu') return renderMenu();
-    if (currentScreen === 'intro') return renderIntro();
-    if (currentScreen === 'assessment') return renderAssessment();
-    if (currentScreen === 'results') return renderResults();
-    return null;
-  };
+  // All assessment rendering now handled by EnhancedAssessmentFlow modal
+  // Removed ~250 lines of duplicate code (renderIntro, renderAssessment, renderResults)
 
   return (
     <>
-      {renderContent()}
+      {renderMenu()}
       {/* Crisis Button Overlay - accessible across all exercise states (menu, intro, assessment, results) */}
       <CollapsibleCrisisButton testID="crisis-exercises" />
     </>
