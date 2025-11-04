@@ -407,7 +407,7 @@ const EnhancedAssessmentFlow: React.FC<EnhancedAssessmentFlowProps> = ({
           <AssessmentIntroduction
             assessmentType={assessmentType}
             onBegin={handleBeginAssessment}
-            onSkip={context === 'onboarding' ? onCancel : undefined}
+            onSkip={onCancel}
             theme={theme}
             context={context}
             showSkipOption={context === 'onboarding'}
@@ -424,7 +424,6 @@ const EnhancedAssessmentFlow: React.FC<EnhancedAssessmentFlowProps> = ({
             currentStep={currentQuestionIndex + 1}
             totalSteps={questions.length}
             theme={theme}
-            showSafetyButton={true}
             sessionId={sessionId}
             consentStatus={consentStatus}
             onCrisisDetected={handleCrisisDetected}

@@ -32,7 +32,6 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import type { RootStackParamList } from '../navigation/CleanRootNavigator';
-import SafetyButton from '../flows/shared/components/SafetyButton';
 import NotificationTimePicker from '../components/NotificationTimePicker';
 import CollapsibleCrisisButton from '../flows/shared/components/CollapsibleCrisisButton';
 import BrainIcon from '../components/shared/BrainIcon';

@@ -32,7 +32,7 @@ import {
   AppStateStatus,
 } from 'react-native';
 import { colorSystem, spacing, typography } from '../../constants/colors';
-import SafetyButton from '../../flows/shared/components/SafetyButton';
+import { CollapsibleCrisisButton } from '../../flows/shared/components/CollapsibleCrisisButton';
 
 interface CrisisErrorBoundaryProps {
   children: ReactNode;
@@ -272,9 +272,8 @@ export class CrisisErrorBoundary extends Component<
         return (
           <View style={styles.container}>
             {this.props.fallbackComponent}
-            <View style={styles.crisisSection}>
-              <SafetyButton variant="crisis" testID="error-boundary-crisis-button" />
-            </View>
+            {/* CollapsibleCrisisButton is globally available */}
+            <CollapsibleCrisisButton />
           </View>
         );
       }
@@ -314,17 +313,17 @@ export class CrisisErrorBoundary extends Component<
             {/* Crisis support - always first priority */}
             <View style={styles.actionGroup}>
               <Text style={styles.actionGroupTitle}>🚨 Crisis Support (24/7)</Text>
-              <View style={styles.buttonRow}>
-                <SafetyButton variant="crisis" testID="error-crisis-button" />
-                <Pressable
-                  style={styles.emergencyButton}
-                  onPress={this.handleEmergencyIntervention}
-                  accessibilityRole="button"
-                  accessibilityLabel="View all emergency options"
-                >
-                  <Text style={styles.emergencyButtonText}>All Options</Text>
-                </Pressable>
-              </View>
+              <Text style={styles.crisisNotice}>
+                Use the crisis button at the top of your screen for immediate support.
+              </Text>
+              <Pressable
+                style={styles.emergencyButton}
+                onPress={this.handleEmergencyIntervention}
+                accessibilityRole="button"
+                accessibilityLabel="View all emergency options"
+              >
+                <Text style={styles.emergencyButtonText}>All Emergency Options</Text>
+              </Pressable>
             </View>
 
             {/* Recovery options */}
@@ -450,6 +449,12 @@ const styles = StyleSheet.create({
     color: colorSystem.accessibility.text.primary,
     marginBottom: spacing.sm,
   },
+  crisisNotice: {
+    fontSize: typography.bodyRegular.size,
+    color: colorSystem.accessibility.text.secondary,
+    marginBottom: spacing.md,
+    lineHeight: typography.bodyRegular.size * 1.4,
+  },
   buttonRow: {
     flexDirection: 'row',
     gap: spacing.sm,
@@ -533,13 +538,6 @@ const styles = StyleSheet.create({
     fontSize: typography.bodyRegular.size,
     color: colorSystem.accessibility.text.primary,
     lineHeight: typography.bodyRegular.size * 1.5,
-  },
-  crisisSection: {
-    marginTop: spacing.lg,
-    paddingTop: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: colorSystem.gray[200],
-    alignItems: 'center',
   },
 });
 

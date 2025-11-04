@@ -82,7 +82,6 @@ interface EnhancedAssessmentQuestionProps {
   currentStep: number;
   totalSteps: number;
   theme?: 'morning' | 'midday' | 'evening' | 'neutral';
-  showSafetyButton?: boolean;
   sessionId: string;
   consentStatus: HIPAAConsentStatus;
   onCrisisDetected?: (detection: CrisisDetection) => void;
@@ -193,7 +192,6 @@ const EnhancedAssessmentQuestion: React.FC<EnhancedAssessmentQuestionProps> = ({
   currentStep,
   totalSteps,
   theme = 'neutral',
-  showSafetyButton = true,
   sessionId,
   consentStatus,
   onCrisisDetected,
