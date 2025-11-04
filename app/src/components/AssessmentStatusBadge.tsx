@@ -4,8 +4,9 @@
  * Three states: Recent (<14 days), Due (14-20 days), Recommended (≥21 days)
  *
  * COMPLIANCE:
- * - Assessment completion dates stored in AsyncStorage (non-PHI)
- * - No assessment scores or results stored (those are encrypted separately)
+ * - Assessment completion dates read from encrypted assessmentStore (SecureStore)
+ * - No assessment scores or results stored locally (only dates from encrypted source)
+ * - Single source of truth: assessmentStore.completedAssessments
  *
  * ACCESSIBILITY:
  * - Touch target ≥44pt
@@ -24,18 +25,10 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
-const STORAGE_KEY = 'assessment_completion_dates';
+import { useAssessmentStore } from '../flows/assessment/stores/assessmentStore';
 
 // Types
-type AssessmentType = 'phq9' | 'gad7';
 type BadgeStatus = 'recent' | 'due' | 'recommended';
-
-interface AssessmentDates {
-  phq9?: number; // timestamp
-  gad7?: number; // timestamp
-}
 
 // Tab navigation type (from CleanTabNavigator)
 type TabParamList = {
@@ -72,26 +65,25 @@ const AssessmentStatusBadge: React.FC = () => {
   const [status, setStatus] = useState<BadgeStatus | null>(null);
   const [daysSinceAssessment, setDaysSinceAssessment] = useState<number | null>(null);
 
+  // Get assessment history from encrypted store
+  const completedAssessments = useAssessmentStore(state => state.completedAssessments);
+
   useEffect(() => {
     loadAssessmentDates();
-  }, []);
+  }, [completedAssessments]); // Re-calculate when assessments change
 
-  const loadAssessmentDates = async () => {
+  const loadAssessmentDates = () => {
     try {
-      const storedData = await AsyncStorage.getItem(STORAGE_KEY);
-      if (!storedData) {
-        setStatus('recommended');
-        setDaysSinceAssessment(null);
-        return;
-      }
-
-      const dates: AssessmentDates = JSON.parse(storedData);
       const now = Date.now();
 
-      // Find most recent assessment
-      const phq9Date = dates.phq9 || 0;
-      const gad7Date = dates.gad7 || 0;
-      const mostRecentDate = Math.max(phq9Date, gad7Date);
+      // Find most recent assessment from encrypted store
+      let mostRecentDate = 0;
+
+      completedAssessments.forEach(session => {
+        if (session.result?.completedAt) {
+          mostRecentDate = Math.max(mostRecentDate, session.result.completedAt);
+        }
+      });
 
       if (mostRecentDate === 0) {
         setStatus('recommended');
@@ -114,21 +106,6 @@ const AssessmentStatusBadge: React.FC = () => {
       console.error('[AssessmentStatusBadge] Failed to load assessment dates', error);
       setStatus('recommended');
       setDaysSinceAssessment(null);
-    }
-  };
-
-  // Save assessment completion date (called from ExercisesScreen)
-  const markAssessmentComplete = async (type: AssessmentType) => {
-    try {
-      const storedData = await AsyncStorage.getItem(STORAGE_KEY);
-      const dates: AssessmentDates = storedData ? JSON.parse(storedData) : {};
-
-      dates[type] = Date.now();
-
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(dates));
-      await loadAssessmentDates(); // Refresh status
-    } catch (error) {
-      console.error('[AssessmentStatusBadge] Failed to save assessment date', error);
     }
   };
 
@@ -243,30 +220,5 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 });
-
-// Export function to mark assessment complete (called from ExercisesScreen)
-export const markAssessmentComplete = async (type: AssessmentType) => {
-  try {
-    const storedData = await AsyncStorage.getItem(STORAGE_KEY);
-    const dates: AssessmentDates = storedData ? JSON.parse(storedData) : {};
-
-    dates[type] = Date.now();
-
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(dates));
-  } catch (error) {
-    console.error('[AssessmentStatusBadge] Failed to save assessment date', error);
-  }
-};
-
-// Export function to get assessment dates (called from ExercisesScreen)
-export const getAssessmentDates = async (): Promise<AssessmentDates> => {
-  try {
-    const storedData = await AsyncStorage.getItem(STORAGE_KEY);
-    return storedData ? JSON.parse(storedData) : {};
-  } catch (error) {
-    console.error('[AssessmentStatusBadge] Failed to load assessment dates', error);
-    return {};
-  }
-};
 
 export default AssessmentStatusBadge;

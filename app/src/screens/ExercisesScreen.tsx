@@ -19,7 +19,7 @@ import { RadioGroup } from '../components/accessibility';
 import type { RadioOption } from '../components/accessibility';
 import { CollapsibleCrisisButton } from '../flows/shared/components/CollapsibleCrisisButton';
 import ThresholdEducationModal from '../components/ThresholdEducationModal';
-import { markAssessmentComplete, getAssessmentDates } from '../components/AssessmentStatusBadge';
+import { useAssessmentStore } from '../flows/assessment/stores/assessmentStore';
 
 // Hardcoded colors - no dynamic theme system
 const colors = {
@@ -77,38 +77,52 @@ const ExercisesScreen: React.FC = () => {
   const [phq9Metadata, setPhq9Metadata] = useState<AssessmentMetadata>({ status: 'never' });
   const [gad7Metadata, setGad7Metadata] = useState<AssessmentMetadata>({ status: 'never' });
 
+  // Get assessment history from encrypted store
+  const completedAssessments = useAssessmentStore(state => state.completedAssessments);
+
   const questions = assessmentType === 'phq9' ? PHQ9_QUESTIONS : GAD7_QUESTIONS;
   const currentQuestion = questions[currentQuestionIndex];
 
-  // Load assessment metadata on mount
+  // Load assessment metadata when assessments change
   useEffect(() => {
     loadAssessmentMetadata();
-  }, []);
+  }, [completedAssessments]); // Re-calculate when assessments change
 
-  const loadAssessmentMetadata = async () => {
-    const dates = await getAssessmentDates();
+  const loadAssessmentMetadata = () => {
     const now = Date.now();
 
-    // PHQ-9 metadata
-    if (dates.phq9) {
-      const daysSince = Math.floor((now - dates.phq9) / (1000 * 60 * 60 * 24));
-      let status: 'recent' | 'due' | 'recommended' = 'recommended';
-      if (daysSince < 14) status = 'recent';
-      else if (daysSince < 21) status = 'due';
-      else status = 'recommended';
-      setPhq9Metadata({ lastCompleted: dates.phq9, daysSince, status });
+    // PHQ-9 metadata from encrypted store
+    const phq9Sessions = completedAssessments.filter(s => s.type === 'phq9');
+    if (phq9Sessions.length > 0) {
+      const lastPhq9 = phq9Sessions[phq9Sessions.length - 1];
+      const completedAt = lastPhq9.result?.completedAt;
+
+      if (completedAt) {
+        const daysSince = Math.floor((now - completedAt) / (1000 * 60 * 60 * 24));
+        let status: 'recent' | 'due' | 'recommended' = 'recommended';
+        if (daysSince < 14) status = 'recent';
+        else if (daysSince < 21) status = 'due';
+        else status = 'recommended';
+        setPhq9Metadata({ lastCompleted: completedAt, daysSince, status });
+      }
     } else {
       setPhq9Metadata({ status: 'never' });
     }
 
-    // GAD-7 metadata
-    if (dates.gad7) {
-      const daysSince = Math.floor((now - dates.gad7) / (1000 * 60 * 60 * 24));
-      let status: 'recent' | 'due' | 'recommended' = 'recommended';
-      if (daysSince < 14) status = 'recent';
-      else if (daysSince < 21) status = 'due';
-      else status = 'recommended';
-      setGad7Metadata({ lastCompleted: dates.gad7, daysSince, status });
+    // GAD-7 metadata from encrypted store
+    const gad7Sessions = completedAssessments.filter(s => s.type === 'gad7');
+    if (gad7Sessions.length > 0) {
+      const lastGad7 = gad7Sessions[gad7Sessions.length - 1];
+      const completedAt = lastGad7.result?.completedAt;
+
+      if (completedAt) {
+        const daysSince = Math.floor((now - completedAt) / (1000 * 60 * 60 * 24));
+        let status: 'recent' | 'due' | 'recommended' = 'recommended';
+        if (daysSince < 14) status = 'recent';
+        else if (daysSince < 21) status = 'due';
+        else status = 'recommended';
+        setGad7Metadata({ lastCompleted: completedAt, daysSince, status });
+      }
     } else {
       setGad7Metadata({ status: 'never' });
     }
@@ -175,10 +189,9 @@ const ExercisesScreen: React.FC = () => {
     }
   };
 
-  const handleComplete = async () => {
-    // Save assessment completion date
-    await markAssessmentComplete(assessmentType);
-    await loadAssessmentMetadata(); // Refresh metadata
+  const handleComplete = () => {
+    // Date already saved in assessmentStore - no need for markAssessmentComplete
+    // Metadata will auto-refresh via useEffect watching completedAssessments
     setCurrentScreen('menu');
   };
 
