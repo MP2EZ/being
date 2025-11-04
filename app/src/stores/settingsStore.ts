@@ -54,6 +54,7 @@ export interface AppSettings {
   notifications: NotificationSettings;
   privacy: PrivacySettings;
   accessibility: AccessibilitySettings;
+  onboardingCompleted: boolean;
   appVersion: string;
   updatedAt: number;
 }
@@ -67,10 +68,11 @@ export interface SettingsStore {
   error: string | null;
 
   // Actions
-  loadSettings: () => Promise<void>;
+  loadSettings: () => Promise<AppSettings | null>;
   updateNotificationSettings: (notifications: Partial<NotificationSettings>) => Promise<void>;
   updatePrivacySettings: (privacy: Partial<PrivacySettings>) => Promise<void>;
   updateAccessibilitySettings: (accessibility: Partial<AccessibilitySettings>) => Promise<void>;
+  markOnboardingComplete: () => Promise<void>;
   resetSettings: () => Promise<void>;
 }
 
@@ -91,6 +93,7 @@ const DEFAULT_SETTINGS: Omit<AppSettings, 'userId' | 'updatedAt'> = {
     reducedMotion: false,
     highContrast: false
   },
+  onboardingCompleted: false,
   appVersion: '1.0.0' // TODO: Get from app config
 };
 
@@ -120,7 +123,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
       if (storedData) {
         const settings = JSON.parse(storedData) as AppSettings;
         set({ settings, isLoading: false });
-        return;
+        return settings;
       }
 
       // No settings stored - create defaults
@@ -133,9 +136,11 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
 
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(defaultSettings));
       set({ settings: defaultSettings, isLoading: false });
+      return defaultSettings;
     } catch (error) {
       console.error('[Settings] Failed to load settings', error);
       set({ error: 'Failed to load settings', isLoading: false });
+      return null;
     }
   },
 
@@ -218,6 +223,30 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
       set({ settings: updatedSettings, isLoading: false });
     } catch (error) {
       console.error('[Settings] Failed to update accessibility settings', error);
+      set({ error: 'Failed to update settings', isLoading: false });
+    }
+  },
+
+  /**
+   * Mark onboarding as completed
+   */
+  markOnboardingComplete: async () => {
+    const { settings } = get();
+    if (!settings) return;
+
+    set({ isLoading: true, error: null });
+
+    try {
+      const updatedSettings: AppSettings = {
+        ...settings,
+        onboardingCompleted: true,
+        updatedAt: Date.now()
+      };
+
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updatedSettings));
+      set({ settings: updatedSettings, isLoading: false });
+    } catch (error) {
+      console.error('[Settings] Failed to mark onboarding complete', error);
       set({ error: 'Failed to update settings', isLoading: false });
     }
   },

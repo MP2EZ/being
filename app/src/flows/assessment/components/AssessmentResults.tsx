@@ -25,7 +25,7 @@ import {
   Linking,
 } from 'react-native';
 import { colorSystem, spacing, typography } from '../../../constants/colors';
-import { SafetyButton } from '../../shared/components';
+import { CollapsibleCrisisButton } from '../../shared/components/CollapsibleCrisisButton';
 import { FocusProvider, Focusable, SkipLink } from '../../../components/accessibility';
 import type { PHQ9Result, GAD7Result, AssessmentType } from '../types';
 
@@ -268,16 +268,12 @@ const AssessmentResults: React.FC<AssessmentResultsProps> = ({
               accessibilityRole="alert"
               accessibilityLiveRegion="assertive"
             >
-              <Text 
+              <Text
                 style={styles.crisisBannerText}
                 accessibilityRole="text"
               >
-                🚨 Immediate support is available. You don't have to face this alone.
+                🚨 Immediate support is available. You don't have to face this alone. Use the crisis button below for immediate help.
               </Text>
-              <SafetyButton 
-                variant="crisis"
-                testID="crisis-safety-button"
-              />
             </View>
           </Focusable>
         )}
@@ -494,31 +490,11 @@ const AssessmentResults: React.FC<AssessmentResultsProps> = ({
               </Pressable>
             </Focusable>
           )}
-
-          {/* Safety buttons - crisis access <3 taps */}
-          <Focusable
-            id="assessment-safety-buttons"
-            priority={70}
-          >
-            <View 
-              style={styles.safetyButtonContainer}
-              accessibilityRole="group"
-              accessibilityLabel="Crisis support options"
-            >
-              {/* CRITICAL: Direct 1-tap crisis access */}
-              <SafetyButton
-                variant="crisis"
-                testID="assessment-results-crisis-button"
-              />
-              {/* General support options */}
-              <SafetyButton
-                variant="primary"
-                testID="assessment-results-safety-button"
-              />
-            </View>
-          </Focusable>
         </View>
       </ScrollView>
+
+      {/* Collapsible Crisis Button - Fixed overlay, always accessible */}
+      <CollapsibleCrisisButton />
     </FocusProvider>
   );
 };
@@ -714,14 +690,6 @@ const styles = StyleSheet.create({
     fontWeight: typography.bodyRegular.weight,
     color: colorSystem.accessibility.text.secondary,
     textDecorationLine: 'underline',
-  },
-  safetyButtonContainer: {
-    marginTop: spacing.md,
-    paddingTop: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: colorSystem.gray[200],
-    gap: spacing.sm, // Space between crisis and general support buttons
-    alignItems: 'center', // Center buttons horizontally
   },
 });
 

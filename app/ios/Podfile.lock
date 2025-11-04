@@ -10,7 +10,7 @@ PODS:
     - ExpoModulesCore
   - EXNotifications (0.32.12):
     - ExpoModulesCore
-  - Expo (54.0.21):
+  - Expo (54.0.22):
     - ExpoModulesCore
     - hermes-engine
     - RCTRequired
@@ -228,7 +228,7 @@ PODS:
     - ExpoModulesCore
   - ExpoLocalAuthentication (17.0.7):
     - ExpoModulesCore
-  - ExpoModulesCore (3.0.23):
+  - ExpoModulesCore (3.0.24):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -257,7 +257,7 @@ PODS:
     - ExpoModulesCore
   - ExpoSharing (14.0.7):
     - ExpoModulesCore
-  - ExpoWebBrowser (15.0.8):
+  - ExpoWebBrowser (15.0.9):
     - ExpoModulesCore
   - EXUpdatesInterface (2.0.0):
     - ExpoModulesCore
@@ -2772,7 +2772,7 @@ SPEC CHECKSUMS:
   EXJSONUtils: 1d3e4590438c3ee593684186007028a14b3686cd
   EXManifests: 224345a575fca389073c416297b6348163f28d1a
   EXNotifications: 7cff475adb5d7a255a9ea46bbd2589cb3b454506
-  Expo: 27ae59be9be4feab2b1c1ae06550752c524ca558
+  Expo: 6194a78e573849c28ab2f14fb3dce1b525ee4d6d
   expo-dev-client: 974463bca58c100a32f099450e9413893bee3de8
   expo-dev-launcher: adcbbff3464b908458255d0fdf3e8cf79c67d614
   expo-dev-menu: 78e39c8cca65695b7ccb2c70c618043137f6735c
@@ -2788,11 +2788,11 @@ SPEC CHECKSUMS:
   ExpoKeepAwake: 1a2e820692e933c94a565ec3fbbe38ac31658ffe
   ExpoLinking: f051f28e50ea9269ff539317c166adec81d9342d
   ExpoLocalAuthentication: ea7b9878fefac9ae38dc5766af00b52cac55c51b
-  ExpoModulesCore: 5f20603cf25698682d7c43c05fbba8c748b189d2
+  ExpoModulesCore: 87979cd52381b29e81e9cb7fa0fd5c4ae494d83e
   ExpoPrint: 3fa0bd322ea8effa81893a099803c914e59ad46f
   ExpoSecureStore: 9c6571fe3fcb045a671c4011c451546eaaab98fd
   ExpoSharing: 032c01bb034319e2374badf082ae935be866d2e9
-  ExpoWebBrowser: d04a0d6247a0bea4519fbc2ea816610019ad83e0
+  ExpoWebBrowser: b973e1351fdcf5fec0c400997b1851f5a8219ec3
   EXUpdatesInterface: 5adf50cb41e079c861da6d9b4b954c3db9a50734
   FBLazyVector: 9e0cd874afd81d9a4d36679daca991b58b260d42
   hermes-engine: 35c763d57c9832d0eef764316ca1c4d043581394

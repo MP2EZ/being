@@ -22,7 +22,7 @@ import {
   Pressable,
 } from 'react-native';
 import { colorSystem, spacing, typography } from '../../../constants/colors';
-import { SafetyButton } from '../../shared/components';
+import { CollapsibleCrisisButton } from '../../shared/components/CollapsibleCrisisButton';
 import { FocusProvider, Focusable, SkipLink } from '../../../components/accessibility';
 import type { AssessmentType } from '../types';
 
@@ -125,13 +125,27 @@ const AssessmentIntroduction: React.FC<AssessmentIntroductionProps> = ({
       announceChanges={true}
       restoreFocus={true}
     >
-      <ScrollView 
+      {/* Close/Exit Button - Top right */}
+      {onSkip && (
+        <Pressable
+          style={styles.closeButton}
+          onPress={onSkip}
+          accessibilityRole="button"
+          accessibilityLabel="Close assessment"
+          accessibilityHint="Exit this assessment"
+          testID="assessment-close-button"
+        >
+          <Text style={styles.closeButtonText}>✕</Text>
+        </Pressable>
+      )}
+
+      <ScrollView
         style={[styles.container, { backgroundColor: themeColors.background }]}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
         {/* Skip link to main action */}
-        <SkipLink 
+        <SkipLink
           targetId="assessment-begin-button"
           text="Skip to begin assessment"
           position="top-left"
@@ -264,7 +278,7 @@ const AssessmentIntroduction: React.FC<AssessmentIntroductionProps> = ({
               >
                 • Your responses are confidentially stored and encrypted
                 {'\n'}• This assessment may help identify when you need additional support
-                {'\n'}• You can access crisis support at any time using the button below
+                {'\n'}• You can access crisis support at any time using the crisis button
                 {'\n'}• You can pause or stop the assessment at any point
               </Text>
             </View>
@@ -316,31 +330,11 @@ const AssessmentIntroduction: React.FC<AssessmentIntroductionProps> = ({
               </Pressable>
             </Focusable>
           )}
-
-          {/* Safety buttons - crisis access <3 taps */}
-          <Focusable
-            id="assessment-safety-buttons"
-            priority={80}
-          >
-            <View 
-              style={styles.safetyButtonContainer}
-              accessibilityRole="group"
-              accessibilityLabel="Crisis support options"
-            >
-              {/* CRITICAL: Direct 1-tap crisis access */}
-              <SafetyButton
-                variant="crisis"
-                testID="assessment-intro-crisis-button"
-              />
-              {/* General support options */}
-              <SafetyButton
-                variant="primary"
-                testID="assessment-intro-safety-button"
-              />
-            </View>
-          </Focusable>
         </View>
       </ScrollView>
+
+      {/* Collapsible Crisis Button - Fixed overlay, always accessible */}
+      <CollapsibleCrisisButton />
     </FocusProvider>
   );
 };
@@ -348,6 +342,32 @@ const AssessmentIntroduction: React.FC<AssessmentIntroductionProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  closeButton: {
+    position: 'absolute',
+    top: spacing.md,
+    left: spacing.md,
+    zIndex: 100,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colorSystem.gray[100],
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  closeButtonText: {
+    fontSize: 24,
+    fontWeight: '300',
+    color: colorSystem.accessibility.text.secondary,
+    lineHeight: 24,
   },
   scrollContent: {
     padding: spacing.md,
@@ -502,14 +522,6 @@ const styles = StyleSheet.create({
     fontWeight: typography.bodyRegular.weight,
     color: colorSystem.accessibility.text.secondary,
     textDecorationLine: 'underline',
-  },
-  safetyButtonContainer: {
-    marginTop: spacing.md,
-    paddingTop: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: colorSystem.gray[200],
-    gap: spacing.sm,
-    alignItems: 'center',
   },
 });
 

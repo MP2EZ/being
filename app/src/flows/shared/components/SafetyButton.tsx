@@ -1,6 +1,13 @@
 /**
  * SafetyButton Component - Crisis Support Access
  *
+ * @deprecated This component has been replaced by CollapsibleCrisisButton
+ * Use src/flows/shared/components/CollapsibleCrisisButton instead
+ * This file is kept for reference only and should not be used in new code
+ *
+ * MIGRATION: Replace all SafetyButton instances with CollapsibleCrisisButton
+ * The new component provides a consistent global crisis button overlay
+ *
  * CLINICAL SPECIFICATIONS:
  * - Always visible "I need support" button
  * - <200ms crisis response time (CRITICAL)

@@ -4,7 +4,8 @@
  * Includes MBCT flow modal presentations
  */
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { logPerformance } from '../services/logging';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
@@ -16,13 +17,25 @@ import CrisisResourcesScreen from '../screens/crisis/CrisisResourcesScreen';
 import CrisisPlanScreen from '../screens/crisis/CrisisPlanScreen';
 import PurchaseOptionsScreen from '../components/subscription/PurchaseOptionsScreen';
 import SubscriptionStatusCard from '../components/subscription/SubscriptionStatusCard';
+import OnboardingScreen from '../screens/OnboardingScreen';
+import EnhancedAssessmentFlow from '../components/assessment/EnhancedAssessmentFlow';
 import { useStoicPracticeStore } from '../stores/stoicPracticeStore';
+import { useSettingsStore } from '../stores/settingsStore';
+import type { AssessmentType, PHQ9Result, GAD7Result } from '../flows/assessment/types';
 
 export type RootStackParamList = {
+  Onboarding: undefined;
   Main: undefined;
   MorningFlow: undefined;
   MiddayFlow: undefined;
   EveningFlow: undefined;
+  AssessmentFlow: {
+    assessmentType: AssessmentType;
+    context: 'onboarding' | 'standalone';
+    allowSkip?: boolean;
+    onComplete?: (result: PHQ9Result | GAD7Result) => void;
+    onSkip?: () => void;
+  };
   CrisisResources: {
     severityLevel?: 'moderate' | 'high' | 'emergency';
     source?: 'assessment' | 'direct' | 'crisis_button';
@@ -34,8 +47,25 @@ export type RootStackParamList = {
 
 const Stack = createStackNavigator<RootStackParamList>();
 
+// Loading screen component
+const LoadingScreen: React.FC = () => (
+  <View style={styles.loadingContainer}>
+    <ActivityIndicator size="large" color="#FF9F43" />
+  </View>
+);
+
 const CleanRootNavigator: React.FC = () => {
   const { markCheckInComplete } = useStoicPracticeStore();
+  const { loadSettings, markOnboardingComplete } = useSettingsStore();
+  const [initialRoute, setInitialRoute] = useState<'Onboarding' | 'Main' | null>(null);
+
+  useEffect(() => {
+    async function checkOnboarding() {
+      const settings = await loadSettings();
+      setInitialRoute(settings?.onboardingCompleted ? 'Main' : 'Onboarding');
+    }
+    checkOnboarding();
+  }, [loadSettings]);
 
   const handleMorningFlowComplete = async (sessionData: any) => {
     logPerformance('🌅 Morning flow completed:', sessionData);
@@ -55,9 +85,27 @@ const CleanRootNavigator: React.FC = () => {
     // TODO: Store session data to analytics/state
   };
 
+  const handleOnboardingComplete = async (destination?: 'home' | 'morning') => {
+    await markOnboardingComplete();
+    setInitialRoute('Main');
+
+    // Navigate to destination after state update
+    if (destination === 'morning') {
+      // Small delay to ensure Main screen is mounted before modal presentation
+      setTimeout(() => {
+        // Navigation will be handled by the OnboardingScreen's navigation prop
+      }, 100);
+    }
+  };
+
+  if (!initialRoute) {
+    return <LoadingScreen />;
+  }
+
   return (
     <NavigationContainer>
       <Stack.Navigator
+        initialRouteName={initialRoute}
         screenOptions={{
           headerShown: false,
           headerStyle: {
@@ -72,6 +120,34 @@ const CleanRootNavigator: React.FC = () => {
           },
         }}
       >
+        {/* Onboarding Flow */}
+        <Stack.Screen
+          name="Onboarding"
+          options={{
+            headerShown: false,
+            gestureEnabled: false,
+          }}
+        >
+          {({ navigation }) => (
+            <OnboardingScreen
+              onComplete={async (destination) => {
+                await handleOnboardingComplete(destination);
+                // Navigate based on destination
+                if (destination === 'morning') {
+                  navigation.replace('Main');
+                  // Navigate to MorningFlow after Main is mounted
+                  setTimeout(() => {
+                    navigation.navigate('MorningFlow');
+                  }, 100);
+                } else {
+                  navigation.replace('Main');
+                }
+              }}
+              isEmbedded={true}
+            />
+          )}
+        </Stack.Screen>
+
         {/* Main App */}
         <Stack.Screen name="Main" component={CleanTabNavigator} />
 
@@ -140,6 +216,53 @@ const CleanRootNavigator: React.FC = () => {
             )}
           </Stack.Screen>
 
+          {/* Assessment Flow Modal */}
+          <Stack.Screen
+            name="AssessmentFlow"
+            options={{
+              headerShown: false, // EnhancedAssessmentFlow has its own UI
+              gestureEnabled: false, // Prevent swipe to dismiss during assessment
+              animationTypeForReplace: 'push'
+            }}
+          >
+            {({ navigation, route }) => {
+              // Create consent status for EnhancedAssessmentFlow
+              const consentStatus = {
+                dataProcessingConsent: true, // Assumed true if user reached assessment
+                clinicalDataConsent: true,
+                consentTimestamp: Date.now(),
+                consentVersion: '1.0.0'
+              };
+
+              return (
+                <EnhancedAssessmentFlow
+                  assessmentType={route.params.assessmentType}
+                  context={route.params.context}
+                  theme="neutral"
+                  showIntroduction={route.params.context === 'standalone'}
+                  consentStatus={consentStatus}
+                  sessionId={`session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`}
+                  onComplete={(result) => {
+                    logPerformance(`✅ Assessment ${route.params.assessmentType} completed:`, result);
+                    // Always dismiss the modal first
+                    navigation.goBack();
+                    // Then notify parent after brief delay to allow modal dismissal animation
+                    setTimeout(() => {
+                      route.params.onComplete?.(result);
+                    }, 50);
+                  }}
+                  onCancel={() => {
+                    // Handle skip for onboarding context
+                    if (route.params.allowSkip && route.params.onSkip) {
+                      route.params.onSkip();
+                    }
+                    navigation.goBack();
+                  }}
+                />
+              );
+            }}
+          </Stack.Screen>
+
           {/* Crisis Resources Screen */}
           <Stack.Screen
             name="CrisisResources"
@@ -191,5 +314,14 @@ const CleanRootNavigator: React.FC = () => {
     </NavigationContainer>
   );
 };
+
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+});
 
 export default CleanRootNavigator;

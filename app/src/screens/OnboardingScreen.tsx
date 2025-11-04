@@ -29,13 +29,11 @@ import {
   Platform,
   Image,
 } from 'react-native';
-import SafetyButton from '../flows/shared/components/SafetyButton';
+import { useNavigation } from '@react-navigation/native';
+import type { StackNavigationProp } from '@react-navigation/stack';
+import type { RootStackParamList } from '../navigation/CleanRootNavigator';
 import NotificationTimePicker from '../components/NotificationTimePicker';
 import CollapsibleCrisisButton from '../flows/shared/components/CollapsibleCrisisButton';
-import { PHQ9_QUESTIONS, GAD7_QUESTIONS } from '../flows/assessment/types/questions';
-import type { AssessmentResponse } from '../flows/assessment/types';
-import { RadioGroup } from '../components/accessibility';
-import type { RadioOption } from '../components/accessibility';
 import BrainIcon from '../components/shared/BrainIcon';
 
 // WCAG-AA compliant colors with verified contrast ratios
@@ -86,14 +84,6 @@ const ACCESSIBILITY = {
 // NOTE: PHQ9_QUESTIONS and GAD7_QUESTIONS now imported from shared assessment types
 // This eliminates duplication and ensures clinical accuracy across the app
 
-// Response options in RadioOption format (clinically validated)
-const RESPONSE_OPTIONS: RadioOption[] = [
-  { value: 0, label: 'Not at all' },
-  { value: 1, label: 'Several days' },
-  { value: 2, label: 'More than half the days' },
-  { value: 3, label: 'Nearly every day' },
-];
-
 // Therapeutic Values (15 MBCT-aligned values) with HIPAA compliance
 const THERAPEUTIC_VALUES: TherapeuticValue[] = [
   { id: 'compassion', label: 'Compassion', description: 'Kindness toward yourself and others', phiClassification: 'therapeutic_preference', dataMinimization: 'necessary' },
@@ -113,15 +103,8 @@ const THERAPEUTIC_VALUES: TherapeuticValue[] = [
   { id: 'understanding', label: 'Understanding', description: 'Compassionate awareness of others', phiClassification: 'therapeutic_preference', dataMinimization: 'necessary' },
 ];
 
-// TypeScript strict mode interfaces and types (following ExercisesScreen pattern)
-type Screen = 'welcome' | 'phq9' | 'gad7' | 'stoicIntro' | 'notifications' | 'privacy' | 'celebration';
-type AssessmentType = 'phq9' | 'gad7';
-
-// Crisis safety types - exact clinical thresholds
-// NOTE: AssessmentResponse now imported from shared assessment types
-type CrisisThresholdPhq = 20; // PHQ≥20 threshold
-type CrisisThresholdGad = 15; // GAD≥15 threshold
-type Question9Response = 0 | 1 | 2 | 3; // Q9 crisis detection (>0)
+// TypeScript strict mode interfaces and types
+type Screen = 'welcome' | 'stoicIntro' | 'notifications' | 'privacy' | 'celebration';
 
 // HIPAA COMPLIANCE TYPES
 // PHI Data Classification - 45 CFR 164.514
@@ -138,16 +121,6 @@ type ComplianceRisk = 'low' | 'medium' | 'high' | 'critical';
 // Data Retention and Minimization
 type RetentionPeriod = '30_days' | '90_days' | '1_year' | '7_years' | 'indefinite';
 type DataMinimizationStatus = 'necessary' | 'optional' | 'excessive' | 'prohibited';
-
-interface Answer {
-  questionId: string;
-  response: AssessmentResponse;
-  // HIPAA: PHI classification for assessment responses
-  phiClassification: PHIClassification;
-  processingPurpose: DataProcessingPurpose;
-  timestamp: number;
-  auditTrail?: AuditEntry[];
-}
 
 interface NotificationTime {
   period: 'morning' | 'midday' | 'evening';
@@ -167,12 +140,7 @@ interface TherapeuticValue {
   dataMinimization: DataMinimizationStatus;
 }
 
-interface Question {
-  id: string;
-  text: string;
-}
-
-// NOTE: ResponseOption interface removed - now using RadioOption from accessibility components
+// NOTE: Question and Answer interfaces removed - assessments now handled by EnhancedAssessmentFlow
 
 // HIPAA COMPLIANCE INTERFACES
 // Comprehensive consent management - 45 CFR 164.508
@@ -256,7 +224,7 @@ interface BreachIncident {
 
 // Component props interface for embedded mode support
 interface OnboardingScreenProps {
-  onComplete?: () => void;
+  onComplete?: (destination?: 'home' | 'morning') => void;
   isEmbedded?: boolean;
 }
 
@@ -271,17 +239,17 @@ interface CrisisDetectionResult {
 }
 
 const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbedded = false }) => {
+  const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
+
   // Primary state (following ExercisesScreen pattern)
   const [currentScreen, setCurrentScreen] = useState<Screen>('welcome');
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [phq9Answers, setPhq9Answers] = useState<Answer[]>([]);
-  const [gad7Answers, setGad7Answers] = useState<Answer[]>([]);
   const [notificationTimes, setNotificationTimes] = useState<NotificationTime[]>([
     { period: 'morning', time: '09:00', enabled: true, dataMinimization: 'necessary', retentionPeriod: '90_days' },
     { period: 'midday', time: '13:00', enabled: true, dataMinimization: 'necessary', retentionPeriod: '90_days' },
     { period: 'evening', time: '19:00', enabled: true, dataMinimization: 'necessary', retentionPeriod: '90_days' },
   ]);
   const [consentProvided, setConsentProvided] = useState<boolean>(false);
+  const [completionDestination, setCompletionDestination] = useState<'home' | 'morning'>('home');
 
   // Time picker state management
   const [showTimePicker, setShowTimePicker] = useState<'morning' | 'midday' | 'evening' | null>(null);
@@ -345,23 +313,6 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
     };
   }, []);
 
-  // Assessment timeout tracking for cognitive accessibility
-  useEffect(() => {
-    if (currentScreen === 'phq9' || currentScreen === 'gad7') {
-      if (assessmentStartTime === 0) {
-        setAssessmentStartTime(Date.now());
-      }
-
-      // Check for timeout after accommodation period
-      const timeoutId = setTimeout(() => {
-        if (!isAssessmentPaused) {
-          announceToScreenReader('Take your time. This assessment has no time limit. You can pause at any time.');
-        }
-      }, ACCESSIBILITY.ASSESSMENT_TIMEOUT_MS);
-
-      return () => clearTimeout(timeoutId);
-    }
-  }, [currentScreen, isAssessmentPaused, assessmentStartTime]);
 
   // Screen reader announcement helper
   const announceToScreenReader = (text: string, politeness: 'polite' | 'assertive' = 'polite'): void => {
@@ -459,17 +410,8 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
     if (!isScreenReaderEnabled) return;
 
     const progress = getProgressPercentage();
-    const currentAssessment = currentScreen === 'phq9' ? 'depression' :
-                             currentScreen === 'gad7' ? 'anxiety' : 'onboarding';
-
-    if (currentScreen === 'phq9' || currentScreen === 'gad7') {
-      const questions = currentScreen === 'phq9' ? PHQ9_QUESTIONS : GAD7_QUESTIONS;
-      const progressText = `${currentAssessment} assessment: question ${currentQuestionIndex + 1} of ${questions.length}. ${progress}% complete.`;
-      announceToScreenReader(progressText);
-    } else {
-      const progressText = `Onboarding progress: ${progress}% complete.`;
-      announceToScreenReader(progressText);
-    }
+    const progressText = `Onboarding progress: ${progress}% complete.`;
+    announceToScreenReader(progressText);
   };
 
   // HIPAA COMPLIANCE STATE
@@ -501,10 +443,14 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
     lastComplianceCheck: 0,
   });
 
-  // State validation helpers (following ExercisesScreen calculateResults pattern)
-  const validateAssessmentAnswer = (response: number): response is AssessmentResponse => {
-    return response >= 0 && response <= 3 && Number.isInteger(response);
-  };
+  // NOTE: Assessment handler functions removed (~236 lines):
+  // - validateAssessmentAnswer() - now handled by EnhancedAssessmentFlow
+  // - checkCrisisConditions() - now handled by EnhancedAssessmentFlow
+  // - resetAssessmentState() - no longer needed
+  // - handleAssessmentAnswer() - now handled by EnhancedAssessmentFlow modal
+  // - showCrisisAlert() - now handled by EnhancedAssessmentFlow
+  // - handleCrisisButtonPress() - not used (CollapsibleCrisisButton handles crisis)
+  // Assessments now presented via AssessmentFlow modal (see navigateNext welcome case)
 
   const validateNotificationTimes = (times: NotificationTime[]): boolean => {
     return times.length === 3 &&
@@ -735,91 +681,8 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
     return Math.max(0, Math.min(100, score));
   };
 
-  // Crisis detection with HIPAA audit logging (following ExercisesScreen crisis pattern)
-  const checkCrisisConditions = (answers: Answer[], assessmentType: AssessmentType): CrisisDetectionResult => {
-    let isCrisis = false;
-    let reason: 'phq_total' | 'gad_total' | 'suicidal_ideation' | 'none' = 'none';
-    let score = 0;
-
-    if (assessmentType === 'phq9') {
-      // Check for immediate crisis: Q9 > 0 (suicidal ideation)
-      const question9Answer = answers.find(a => a.questionId === 'phq9_9');
-      if (question9Answer && question9Answer.response > 0) {
-        isCrisis = true;
-        reason = 'suicidal_ideation';
-
-        // HIPAA: Log crisis detection with emergency override
-        logAuditEvent(
-          'crisis_detection',
-          'crisis_data',
-          'Suicidal ideation detected in PHQ-9 Question 9',
-          'crisis_detector',
-          'critical',
-          'success'
-        );
-      }
-      // Check total score ≥20
-      const totalScore = answers.reduce((sum, answer) => sum + answer.response, 0);
-      score = totalScore;
-      if (totalScore >= 20 && !isCrisis) {
-        isCrisis = true;
-        reason = 'phq_total';
-
-        // HIPAA: Log crisis detection
-        logAuditEvent(
-          'crisis_detection',
-          'crisis_data',
-          `PHQ-9 total score ${totalScore} indicates severe depression`,
-          'crisis_detector',
-          'critical',
-          'success'
-        );
-      }
-    } else if (assessmentType === 'gad7') {
-      // GAD-7: Crisis at ≥15
-      const totalScore = answers.reduce((sum, answer) => sum + answer.response, 0);
-      score = totalScore;
-      if (totalScore >= 15) {
-        isCrisis = true;
-        reason = 'gad_total';
-
-        // HIPAA: Log crisis detection
-        logAuditEvent(
-          'crisis_detection',
-          'crisis_data',
-          `GAD-7 total score ${totalScore} indicates severe anxiety`,
-          'crisis_detector',
-          'critical',
-          'success'
-        );
-      }
-    }
-
-    // Log Business Associate activity for crisis detection
-    if (isCrisis) {
-      logBusinessAssociateActivity(
-        'crisis_detector',
-        ['crisis_data', 'assessment_response'],
-        'critical',
-        ['immediate_alert', 'emergency_protocols', 'audit_logging']
-      );
-    }
-
-    return {
-      isCrisis,
-      reason,
-      score,
-      emergencyOverride: isCrisis, // Crisis can override privacy restrictions for safety
-      auditRequired: true, // All crisis events require audit trail
-    };
-  };
 
   // State reset/cleanup functions (following ExercisesScreen pattern)
-  const resetAssessmentState = (): void => {
-    setCurrentQuestionIndex(0);
-    setPhq9Answers([]);
-    setGad7Answers([]);
-  };
 
   const resetOnboardingState = (): void => {
     setCurrentScreen('welcome');
@@ -839,9 +702,6 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
     if (__DEV__) {
       return {
         currentScreen,
-        currentQuestionIndex,
-        phq9AnswersCount: phq9Answers.length,
-        gad7AnswersCount: gad7Answers.length,
         notificationSettings: notificationTimes.map(n => `${n.period}:${n.enabled}`),
         consentProvided,
         progressPercentage: getProgressPercentage(),
@@ -858,7 +718,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
   };
 
   const getProgressPercentage = (): number => {
-    const screenOrder: Screen[] = ['welcome', 'phq9', 'gad7', 'stoicIntro', 'notifications', 'privacy', 'celebration'];
+    const screenOrder: Screen[] = ['welcome', 'stoicIntro', 'notifications', 'privacy', 'celebration'];
     const currentIndex = screenOrder.indexOf(currentScreen);
     return Math.round((currentIndex / (screenOrder.length - 1)) * 100);
   };
@@ -868,9 +728,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
 
     // Announce screen transitions to screen reader
     const screenTransitions: Record<Screen, string> = {
-      'welcome': 'Starting mental health assessment. First, the PHQ-9 depression screening.',
-      'phq9': 'PHQ-9 complete. Starting GAD-7 anxiety screening.',
-      'gad7': 'Assessments complete. Learning about Stoic Mindfulness.',
+      'welcome': 'Starting mental health assessments.',
       'stoicIntro': 'Introduction complete. Setting up notification preferences.',
       'notifications': 'Notifications configured. Reviewing privacy and consent information.',
       'privacy': 'Setup complete! Welcome to your mindful journey.',
@@ -879,63 +737,58 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
 
     switch (currentScreen) {
       case 'welcome':
-        setCurrentScreen('phq9');
-        setCurrentQuestionIndex(0);
-        resetAssessmentState(); // Clean slate for assessments
-        logStateChange('navigateNext:welcome->phq9');
-
-        // Accessibility: Announce transition and provide context
+        // Navigate to PHQ-9 assessment modal
+        navigation.navigate('AssessmentFlow', {
+          assessmentType: 'phq9',
+          context: 'onboarding',
+          allowSkip: true,
+          onComplete: (result) => {
+            logPerformance('✅ PHQ-9 onboarding completed:', result);
+            // Modal already dismissed by CleanRootNavigator, just open GAD-7
+            setTimeout(() => {
+              navigation.navigate('AssessmentFlow', {
+                assessmentType: 'gad7',
+                context: 'onboarding',
+                allowSkip: true,
+                onComplete: (result) => {
+                  logPerformance('✅ GAD-7 onboarding completed:', result);
+                  // Modal already dismissed, continue to Stoic intro
+                  setCurrentScreen('stoicIntro');
+                  logStateChange('navigateNext:assessments->stoicIntro');
+                  announceToScreenReader('Assessments complete. Learning about Stoic Mindfulness.');
+                },
+                onSkip: () => {
+                  // Modal already dismissed, continue to Stoic intro
+                  setCurrentScreen('stoicIntro');
+                  logStateChange('navigateNext:gad7-skipped->stoicIntro');
+                },
+              });
+            }, 50);
+          },
+          onSkip: () => {
+            // PHQ-9 skipped, modal already dismissed, go to GAD-7
+            setTimeout(() => {
+              navigation.navigate('AssessmentFlow', {
+                assessmentType: 'gad7',
+                context: 'onboarding',
+                allowSkip: true,
+                onComplete: (result) => {
+                  logPerformance('✅ GAD-7 onboarding completed:', result);
+                  // Modal already dismissed, continue to Stoic intro
+                  setCurrentScreen('stoicIntro');
+                  logStateChange('navigateNext:gad7->stoicIntro');
+                },
+                onSkip: () => {
+                  // Modal already dismissed, continue to Stoic intro
+                  setCurrentScreen('stoicIntro');
+                  logStateChange('navigateNext:assessments-skipped->stoicIntro');
+                },
+              });
+            }, 50);
+          },
+        });
+        logStateChange('navigateNext:welcome->assessments');
         announceToScreenReader(screenTransitions.welcome);
-        announceProgress();
-
-        // Set focus to question after transition
-        setTimeout(() => manageFocus('question', currentQuestionRef), 500);
-        break;
-      case 'phq9':
-        // Validate PHQ-9 completion before proceeding
-        // Note: Check current question index instead of answers length to avoid async state issues
-        if (currentQuestionIndex < PHQ9_QUESTIONS.length - 1) {
-          logStateChange('navigateNext:phq9:incomplete', { answersCount: phq9Answers.length, currentQuestionIndex });
-
-          // Accessibility: Announce validation error
-          const remaining = PHQ9_QUESTIONS.length - phq9Answers.length;
-          announceToScreenReader(
-            `Please complete all questions before continuing. ${remaining} question${remaining > 1 ? 's' : ''} remaining.`,
-            'assertive'
-          );
-          return;
-        }
-        setCurrentScreen('gad7');
-        setCurrentQuestionIndex(0);
-        logStateChange('navigateNext:phq9->gad7');
-
-        // Accessibility: Announce transition
-        announceToScreenReader(screenTransitions.phq9);
-        announceProgress();
-        setTimeout(() => manageFocus('question', currentQuestionRef), 500);
-        break;
-
-      case 'gad7':
-        // Validate GAD-7 completion before proceeding
-        // Note: Check current question index instead of answers length to avoid async state issues
-        if (currentQuestionIndex < GAD7_QUESTIONS.length - 1) {
-          logStateChange('navigateNext:gad7:incomplete', { answersCount: gad7Answers.length, currentQuestionIndex });
-
-          // Accessibility: Announce validation error
-          const remaining = GAD7_QUESTIONS.length - gad7Answers.length;
-          announceToScreenReader(
-            `Please complete all questions before continuing. ${remaining} question${remaining > 1 ? 's' : ''} remaining.`,
-            'assertive'
-          );
-          return;
-        }
-        setCurrentScreen('stoicIntro');
-        logStateChange('navigateNext:gad7->stoicIntro');
-
-        // Accessibility: Announce transition
-        announceToScreenReader(screenTransitions.gad7);
-        announceProgress();
-        setTimeout(() => manageFocus('primary-button', primaryButtonRef), 500);
         break;
 
       case 'stoicIntro':
@@ -993,8 +846,8 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
         announceToScreenReader(screenTransitions.celebration);
 
         if (isEmbedded && onComplete) {
-          // Call completion handler for embedded mode
-          onComplete();
+          // Call completion handler for embedded mode with destination
+          onComplete(completionDestination);
         } else {
           // Show alert for standalone mode
           Alert.alert('Welcome to Being.', 'Your mindful journey begins now.');
@@ -1007,23 +860,9 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
     logStateChange('navigateBack', { from: currentScreen });
 
     switch (currentScreen) {
-      case 'phq9':
-        setCurrentScreen('welcome');
-        // Reset assessment state when going back to welcome
-        resetAssessmentState();
-        logStateChange('navigateBack:phq9->welcome');
-        break;
-      case 'gad7':
-        setCurrentScreen('phq9');
-        // Reset GAD-7 answers but keep PHQ-9
-        setGad7Answers([]);
-        setCurrentQuestionIndex(PHQ9_QUESTIONS.length - 1); // Return to last PHQ-9 question
-        logStateChange('navigateBack:gad7->phq9');
-        break;
       case 'stoicIntro':
-        setCurrentScreen('gad7');
-        setCurrentQuestionIndex(GAD7_QUESTIONS.length - 1); // Return to last GAD-7 question
-        logStateChange('navigateBack:stoicIntro->gad7');
+        setCurrentScreen('welcome');
+        logStateChange('navigateBack:stoicIntro->welcome');
         break;
       case 'notifications':
         setCurrentScreen('stoicIntro');
@@ -1040,145 +879,6 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
     }
   };
 
-  const handleAssessmentAnswer = (response: AssessmentResponse): void => {
-    // Validate response before processing
-    if (!validateAssessmentAnswer(response)) {
-      logStateChange('handleAssessmentAnswer:invalid', { response, questionIndex: currentQuestionIndex });
-
-      // HIPAA: Log invalid assessment attempt
-      logAuditEvent(
-        'phi_creation',
-        'assessment_response',
-        `Invalid assessment response attempted: ${response}`,
-        'assessment_processor',
-        'medium',
-        'failure',
-        'Invalid response value'
-      );
-      return;
-    }
-
-    const currentAssessment = currentScreen === 'phq9' ? 'phq9' : 'gad7';
-    const questions = currentAssessment === 'phq9' ? PHQ9_QUESTIONS : GAD7_QUESTIONS;
-    const currentQuestion = questions[currentQuestionIndex];
-
-    logStateChange('handleAssessmentAnswer', {
-      assessment: currentAssessment,
-      questionId: currentQuestion.id,
-      response,
-      questionIndex: currentQuestionIndex
-    });
-
-    // HIPAA: Create compliant Answer with PHI classification and audit trail
-    const phiClassification = classifyPHI(currentQuestion.id);
-    const processingPurpose: DataProcessingPurpose = 'treatment';
-    const timestamp = Date.now();
-
-    const newAnswer: Answer = {
-      questionId: currentQuestion.id,
-      response,
-      phiClassification,
-      processingPurpose,
-      timestamp,
-    };
-
-    // HIPAA: Log PHI creation for assessment response
-    logAuditEvent(
-      'phi_creation',
-      phiClassification,
-      `Assessment response recorded: ${currentQuestion.id}`,
-      'assessment_processor',
-      phiClassification === 'assessment_response' ? 'high' : 'medium',
-      'success'
-    );
-
-    // HIPAA: Log Business Associate activity
-    logBusinessAssociateActivity(
-      'assessment_processor',
-      [phiClassification],
-      'medium',
-      ['encryption', 'audit_logging', 'access_controls']
-    );
-
-    if (currentAssessment === 'phq9') {
-      const updatedAnswers = [...phq9Answers, newAnswer];
-      setPhq9Answers(updatedAnswers);
-
-      // IMMEDIATE crisis check for suicidal ideation (Q9 > 0) - <200ms response required
-      if (currentQuestion.id === 'phq9_9' && response > 0) {
-        logStateChange('handleAssessmentAnswer:CRISIS:phq9_9', { response });
-
-        // Crisis detection with emergency override
-        const crisisResult = checkCrisisConditions([newAnswer], 'phq9');
-        if (crisisResult.isCrisis) {
-          showCrisisAlert();
-          return;
-        }
-      }
-
-      // Check for crisis at assessment completion (PHQ≥20)
-      if (updatedAnswers.length === PHQ9_QUESTIONS.length) {
-        const crisisResult = checkCrisisConditions(updatedAnswers, 'phq9');
-        if (crisisResult.isCrisis) {
-          logStateChange('handleAssessmentAnswer:CRISIS:phq9_total', {
-            totalScore: crisisResult.score
-          });
-          showCrisisAlert();
-          return;
-        }
-      }
-    } else {
-      const updatedAnswers = [...gad7Answers, newAnswer];
-      setGad7Answers(updatedAnswers);
-
-      // Check for crisis at GAD-7 completion (≥15)
-      if (updatedAnswers.length === GAD7_QUESTIONS.length) {
-        const crisisResult = checkCrisisConditions(updatedAnswers, 'gad7');
-        if (crisisResult.isCrisis) {
-          logStateChange('handleAssessmentAnswer:CRISIS:gad7_total', {
-            totalScore: crisisResult.score
-          });
-          showCrisisAlert();
-          return;
-        }
-      }
-    }
-
-    // Move to next question or next screen with accessibility announcements
-    if (currentQuestionIndex < questions.length - 1) {
-      const nextIndex = currentQuestionIndex + 1;
-      setCurrentQuestionIndex(nextIndex);
-      logStateChange('handleAssessmentAnswer:nextQuestion', { nextIndex });
-
-      // Accessibility: Announce next question with progress
-      setTimeout(() => {
-        if (isScreenReaderEnabled) {
-          const progressText = `Question ${nextIndex + 1} of ${questions.length}`;
-          announceToScreenReader(progressText);
-        }
-        manageFocus('question', currentQuestionRef);
-      }, 300);
-    } else {
-      // Assessment complete, proceed to next screen
-      logStateChange('handleAssessmentAnswer:assessmentComplete', {
-        assessment: currentAssessment,
-        answersCount: currentAssessment === 'phq9' ? phq9Answers.length + 1 : gad7Answers.length + 1
-      });
-
-      // Accessibility: Announce assessment completion
-      const completionMessage = currentAssessment === 'phq9'
-        ? 'Depression screening complete.'
-        : 'Anxiety screening complete.';
-      announceToScreenReader(completionMessage);
-
-      // Resume assessment tracking if it was paused
-      if (isAssessmentPaused) {
-        resumeAssessment();
-      }
-
-      navigateNext();
-    }
-  };
 
   // Enhanced notification time handler with validation
   const handleNotificationToggle = (index: number): void => {
@@ -1343,18 +1043,19 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
     }
   };
 
-  const showCrisisAlert = (): void => {
-    Alert.alert(
-      'Crisis Resources Available',
-      'If you are in immediate danger, please call 911.\n\nFor crisis support:\n• Call 988 (Suicide & Crisis Lifeline)\n• Text "HELLO" to 741741 (Crisis Text Line)',
-      [{ text: 'OK' }],
-      { cancelable: false }
-    );
+
+
+  // Celebration screen button handlers for destination-aware navigation
+  const handleStartMorningPractice = (): void => {
+    logStateChange('handleStartMorningPractice', { currentScreen });
+    setCompletionDestination('morning');
+    navigateNext();
   };
 
-  const handleCrisisButtonPress = (): void => {
-    logStateChange('handleCrisisButtonPress', { currentScreen });
-    showCrisisAlert();
+  const handleExploreApp = (): void => {
+    logStateChange('handleExploreApp', { currentScreen });
+    setCompletionDestination('home');
+    navigateNext();
   };
 
   // Development-only state inspector with HIPAA compliance monitoring
@@ -1362,7 +1063,6 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
     if (!__DEV__) return null;
 
     const complianceScore = calculateComplianceScore();
-    const activePHICount = phq9Answers.length + gad7Answers.length;
 
     return (
       <View style={{ position: 'absolute', bottom: 50, right: 10, backgroundColor: 'rgba(0,0,0,0.9)', padding: 8, borderRadius: 4, maxWidth: 300 }}>
@@ -1370,10 +1070,10 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
           🏥 HIPAA COMPLIANCE MONITOR
         </Text>
         <Text style={{ color: 'white', fontSize: 9, marginTop: 4 }}>
-          State: {currentScreen} | Q: {currentQuestionIndex} | PHQ: {phq9Answers.length}/9 | GAD: {gad7Answers.length}/7
+          State: {currentScreen} | Progress: {getProgressPercentage()}%
         </Text>
         <Text style={{ color: 'white', fontSize: 9, marginTop: 2 }}>
-          📊 Compliance: {complianceScore.toFixed(1)}% | 📋 Audits: {auditTrail.length} | 🔒 PHI Records: {activePHICount}
+          📊 Compliance: {complianceScore.toFixed(1)}% | 📋 Audits: {auditTrail.length}
         </Text>
         <Text style={{ color: 'white', fontSize: 9, marginTop: 2 }}>
           ✅ Consents: {hipaaConsents.filter(c => c.granted).length} | 🔧 BA Activities: {businessAssociateActivities.length}
@@ -1394,9 +1094,6 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
   const getOnboardingSnapshot = (): object => {
     return {
       currentScreen,
-      currentQuestionIndex,
-      phq9Answers,
-      gad7Answers,
       notificationTimes,
       consentProvided,
       timestamp: Date.now(),
@@ -1405,10 +1102,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
 
   const validateOnboardingState = (): boolean => {
     const isValid = {
-      screen: ['welcome', 'phq9', 'gad7', 'stoicIntro', 'notifications', 'privacy', 'celebration'].includes(currentScreen),
-      questionIndex: currentQuestionIndex >= 0 && currentQuestionIndex < 9,
-      phq9: phq9Answers.every(a => validateAssessmentAnswer(a.response)),
-      gad7: gad7Answers.every(a => validateAssessmentAnswer(a.response)),
+      screen: ['welcome', 'stoicIntro', 'notifications', 'privacy', 'celebration'].includes(currentScreen),
       notifications: validateNotificationTimes(notificationTimes),
       consent: typeof consentProvided === 'boolean',
     };
@@ -1552,441 +1246,8 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
     </SafeAreaView>
   );
 
-  const renderPhq9 = (): JSX.Element => {
-    const currentQuestion: Question = PHQ9_QUESTIONS[currentQuestionIndex];
-    const isLastQuestion = currentQuestionIndex === PHQ9_QUESTIONS.length - 1;
-    const previousAnswer = phq9Answers.find(a => a.questionId === currentQuestion.id);
-
-    return (
-      <SafeAreaView
-        style={styles.container}
-        accessible={true}
-        accessibilityRole="main"
-        accessibilityLabel={`PHQ-9 Depression Assessment, Question ${currentQuestionIndex + 1} of ${PHQ9_QUESTIONS.length}`}
-      >
-        <ScrollView
-          ref={scrollViewRef}
-          style={styles.scrollContainer}
-          contentContainerStyle={styles.scrollContent}
-          accessible={false}
-          showsVerticalScrollIndicator={true}
-          keyboardShouldPersistTaps="handled"
-        >
-          {/* Live region for announcements */}
-          <View
-            accessible={true}
-            accessibilityRole="alert"
-            accessibilityLiveRegion={ACCESSIBILITY.LIVE_REGION.POLITE}
-            style={{ position: 'absolute', left: -10000 }}
-          >
-            <Text>{announceText}</Text>
-          </View>
-
-          {/* Assessment pause/resume controls for cognitive accessibility */}
-          {isScreenReaderEnabled && (
-            <View style={styles.assessmentControls}>
-              <Pressable
-                style={[styles.secondaryButton, styles.accessibleTouchTarget]}
-                onPress={isAssessmentPaused ? resumeAssessment : pauseAssessment}
-                accessible={true}
-                accessibilityRole="button"
-                accessibilityLabel={isAssessmentPaused ? "Resume assessment" : "Pause assessment"}
-                accessibilityHint={isAssessmentPaused ? "Continue with the assessment" : "Take a break from the assessment"}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Text style={styles.secondaryButtonText}>
-                  {isAssessmentPaused ? 'Resume' : 'Pause'}
-                </Text>
-              </Pressable>
-            </View>
-          )}
-
-          {/* Progress indicator with enhanced accessibility */}
-          <View
-            style={styles.progressContainer}
-            accessible={true}
-            accessibilityRole="progressbar"
-            accessibilityLabel={`Assessment progress: Question ${currentQuestionIndex + 1} of ${PHQ9_QUESTIONS.length}`}
-            accessibilityValue={{
-              min: 0,
-              max: PHQ9_QUESTIONS.length,
-              now: currentQuestionIndex + 1,
-              text: `${Math.round(((currentQuestionIndex + 1) / PHQ9_QUESTIONS.length) * 100)}% complete`
-            }}
-          >
-            <Text
-              style={styles.progressText}
-              accessible={false}
-              allowFontScaling={true}
-              maxFontSizeMultiplier={ACCESSIBILITY.MAX_TEXT_SCALE}
-            >
-              Question {currentQuestionIndex + 1} of {PHQ9_QUESTIONS.length} • Wellness Check-In (Optional)
-            </Text>
-            <View
-              style={styles.progressBar}
-              accessible={false}
-            >
-              <View
-                style={[
-                  styles.progressFill,
-                  { width: `${((currentQuestionIndex + 1) / PHQ9_QUESTIONS.length) * 100}%` }
-                ]}
-                accessible={false}
-              />
-            </View>
-          </View>
-
-          {/* Intro text and disclaimer - shown only on first question */}
-          {currentQuestionIndex === 0 && (
-            <View
-              style={styles.section}
-              accessible={true}
-              accessibilityRole="text"
-            >
-              <Text
-                style={styles.bodyText}
-                accessible={true}
-                accessibilityRole="text"
-                allowFontScaling={true}
-                maxFontSizeMultiplier={ACCESSIBILITY.MAX_TEXT_SCALE}
-              >
-                Help us support your mindfulness journey
-              </Text>
-              <Text
-                style={[styles.bodyText, { marginTop: 12, fontSize: 14, fontStyle: 'italic' }]}
-                accessible={true}
-                accessibilityRole="text"
-                allowFontScaling={true}
-                maxFontSizeMultiplier={ACCESSIBILITY.MAX_TEXT_SCALE}
-              >
-                For wellness awareness, not diagnosis
-              </Text>
-              <Pressable
-                style={[styles.secondaryButton, styles.accessibleTouchTarget, { marginTop: 16 }]}
-                onPress={() => {
-                  // Skip to next screen (Stoic Intro)
-                  setCurrentScreen('stoicIntro');
-                }}
-                accessible={true}
-                accessibilityRole="button"
-                accessibilityLabel="I'll do this later"
-                accessibilityHint="Skip the wellness check-in and continue to the next step"
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Text
-                  style={styles.secondaryButtonText}
-                  accessible={false}
-                  allowFontScaling={true}
-                  maxFontSizeMultiplier={ACCESSIBILITY.MAX_TEXT_SCALE}
-                >
-                  I'll do this later
-                </Text>
-              </Pressable>
-            </View>
-          )}
-
-          {/* Question with enhanced accessibility */}
-          <View
-            ref={currentQuestionRef}
-            style={styles.questionContainer}
-            accessible={true}
-            accessibilityRole="text"
-            accessibilityLabel={`Assessment question: Over the last 2 weeks, how often have you been bothered by: ${currentQuestion.text}`}
-          >
-            <Text
-              style={styles.questionIntro}
-              accessible={false}
-              allowFontScaling={true}
-              maxFontSizeMultiplier={ACCESSIBILITY.MAX_TEXT_SCALE}
-            >
-              Over the last 2 weeks, how often have you been bothered by:
-            </Text>
-            <Text
-              style={styles.questionText}
-              accessible={false}
-              allowFontScaling={true}
-              maxFontSizeMultiplier={ACCESSIBILITY.MAX_TEXT_SCALE}
-            >
-              {currentQuestion.text}
-            </Text>
-          </View>
-
-          {/* Response options with enhanced accessibility - Using RadioGroup (no circles) */}
-          <View style={styles.optionsContainer}>
-            <RadioGroup
-              options={RESPONSE_OPTIONS}
-              value={previousAnswer?.response}
-              onValueChange={(value) => {
-                // Announce selection to screen reader
-                if (isScreenReaderEnabled) {
-                  const selectedOption = RESPONSE_OPTIONS.find(opt => opt.value === value);
-                  announceToScreenReader(`Selected: ${selectedOption?.label}`);
-                }
-                handleAssessmentAnswer(value as AssessmentResponse);
-              }}
-              label="Response options. Choose how often this bothered you."
-              orientation="vertical"
-              clinicalContext="phq9"
-              theme="neutral"
-              testID="phq9-response-options"
-              showRadioIndicator={false}
-            />
-          </View>
-
-          {/* Navigation with enhanced accessibility */}
-          {currentQuestionIndex > 0 && (
-            <Pressable
-              style={[styles.secondaryButton, styles.accessibleTouchTarget]}
-              onPress={() => {
-                setCurrentQuestionIndex(currentQuestionIndex - 1);
-                announceToScreenReader(`Going back to question ${currentQuestionIndex}`);
-                manageFocus('question', currentQuestionRef);
-              }}
-              accessible={true}
-              accessibilityRole="button"
-              accessibilityLabel="Previous Question"
-              accessibilityHint="Double tap to go back to the previous assessment question"
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Text
-                style={styles.secondaryButtonText}
-                accessible={false}
-                allowFontScaling={true}
-                maxFontSizeMultiplier={ACCESSIBILITY.MAX_TEXT_SCALE}
-              >
-                Previous Question
-              </Text>
-            </Pressable>
-          )}
-        </ScrollView>
-
-        {/* Floating Crisis Button - Fixed at upper right, 1/6 from top */}
-        <CollapsibleCrisisButton
-          onPress={handleCrisisButtonPress}
-          position="right"
-          testID="phq9-crisis-chevron"
-        />
-      </SafeAreaView>
-    );
-  };
-
-  const renderGad7 = (): JSX.Element => {
-    const currentQuestion: Question = GAD7_QUESTIONS[currentQuestionIndex];
-    const isLastQuestion = currentQuestionIndex === GAD7_QUESTIONS.length - 1;
-    const previousAnswer = gad7Answers.find(a => a.questionId === currentQuestion.id);
-
-    return (
-      <SafeAreaView
-        style={styles.container}
-        accessible={true}
-        accessibilityRole="main"
-        accessibilityLabel={`GAD-7 Anxiety Assessment, Question ${currentQuestionIndex + 1} of ${GAD7_QUESTIONS.length}`}
-      >
-        <ScrollView
-          ref={scrollViewRef}
-          style={styles.scrollContainer}
-          contentContainerStyle={styles.scrollContent}
-          accessible={false}
-          showsVerticalScrollIndicator={true}
-          keyboardShouldPersistTaps="handled"
-        >
-          {/* Live region for announcements */}
-          <View
-            accessible={true}
-            accessibilityRole="alert"
-            accessibilityLiveRegion={ACCESSIBILITY.LIVE_REGION.POLITE}
-            style={{ position: 'absolute', left: -10000 }}
-          >
-            <Text>{announceText}</Text>
-          </View>
-
-          {/* Assessment pause/resume controls for cognitive accessibility */}
-          {isScreenReaderEnabled && (
-            <View style={styles.assessmentControls}>
-              <Pressable
-                style={[styles.secondaryButton, styles.accessibleTouchTarget]}
-                onPress={isAssessmentPaused ? resumeAssessment : pauseAssessment}
-                accessible={true}
-                accessibilityRole="button"
-                accessibilityLabel={isAssessmentPaused ? "Resume assessment" : "Pause assessment"}
-                accessibilityHint={isAssessmentPaused ? "Continue with the anxiety assessment" : "Take a break from the anxiety assessment"}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Text style={styles.secondaryButtonText}>
-                  {isAssessmentPaused ? 'Resume' : 'Pause'}
-                </Text>
-              </Pressable>
-            </View>
-          )}
-
-          {/* Progress indicator with enhanced accessibility */}
-          <View
-            style={styles.progressContainer}
-            accessible={true}
-            accessibilityRole="progressbar"
-            accessibilityLabel={`Anxiety assessment progress: Question ${currentQuestionIndex + 1} of ${GAD7_QUESTIONS.length}`}
-            accessibilityValue={{
-              min: 0,
-              max: GAD7_QUESTIONS.length,
-              now: currentQuestionIndex + 1,
-              text: `${Math.round(((currentQuestionIndex + 1) / GAD7_QUESTIONS.length) * 100)}% complete`
-            }}
-          >
-            <Text
-              style={styles.progressText}
-              accessible={false}
-              allowFontScaling={true}
-              maxFontSizeMultiplier={ACCESSIBILITY.MAX_TEXT_SCALE}
-            >
-              Question {currentQuestionIndex + 1} of {GAD7_QUESTIONS.length} • Wellness Check-In Continued (Optional)
-            </Text>
-            <View
-              style={styles.progressBar}
-              accessible={false}
-            >
-              <View
-                style={[
-                  styles.progressFill,
-                  { width: `${((currentQuestionIndex + 1) / GAD7_QUESTIONS.length) * 100}%` }
-                ]}
-                accessible={false}
-              />
-            </View>
-          </View>
-
-          {/* Intro text and disclaimer - shown only on first question */}
-          {currentQuestionIndex === 0 && (
-            <View
-              style={styles.section}
-              accessible={true}
-              accessibilityRole="text"
-            >
-              <Text
-                style={styles.bodyText}
-                accessible={true}
-                accessibilityRole="text"
-                allowFontScaling={true}
-                maxFontSizeMultiplier={ACCESSIBILITY.MAX_TEXT_SCALE}
-              >
-                Help us support your mindfulness journey
-              </Text>
-              <Text
-                style={[styles.bodyText, { marginTop: 12, fontSize: 14, fontStyle: 'italic' }]}
-                accessible={true}
-                accessibilityRole="text"
-                allowFontScaling={true}
-                maxFontSizeMultiplier={ACCESSIBILITY.MAX_TEXT_SCALE}
-              >
-                For wellness awareness, not diagnosis
-              </Text>
-              <Pressable
-                style={[styles.secondaryButton, styles.accessibleTouchTarget, { marginTop: 16 }]}
-                onPress={() => {
-                  // Skip to next screen (Stoic Intro)
-                  setCurrentScreen('stoicIntro');
-                }}
-                accessible={true}
-                accessibilityRole="button"
-                accessibilityLabel="I'll do this later"
-                accessibilityHint="Skip the wellness check-in and continue to the next step"
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Text
-                  style={styles.secondaryButtonText}
-                  accessible={false}
-                  allowFontScaling={true}
-                  maxFontSizeMultiplier={ACCESSIBILITY.MAX_TEXT_SCALE}
-                >
-                  I'll do this later
-                </Text>
-              </Pressable>
-            </View>
-          )}
-
-          {/* Question with enhanced accessibility */}
-          <View
-            ref={currentQuestionRef}
-            style={styles.questionContainer}
-            accessible={true}
-            accessibilityRole="text"
-            accessibilityLabel={`Anxiety assessment question: Over the last 2 weeks, how often have you been bothered by: ${currentQuestion.text}`}
-          >
-            <Text
-              style={styles.questionIntro}
-              accessible={false}
-              allowFontScaling={true}
-              maxFontSizeMultiplier={ACCESSIBILITY.MAX_TEXT_SCALE}
-            >
-              Over the last 2 weeks, how often have you been bothered by:
-            </Text>
-            <Text
-              style={styles.questionText}
-              accessible={false}
-              allowFontScaling={true}
-              maxFontSizeMultiplier={ACCESSIBILITY.MAX_TEXT_SCALE}
-            >
-              {currentQuestion.text}
-            </Text>
-          </View>
-
-          {/* Response options with enhanced accessibility - Using RadioGroup (no circles) */}
-          <View style={styles.optionsContainer}>
-            <RadioGroup
-              options={RESPONSE_OPTIONS}
-              value={previousAnswer?.response}
-              onValueChange={(value) => {
-                // Announce selection to screen reader
-                if (isScreenReaderEnabled) {
-                  const selectedOption = RESPONSE_OPTIONS.find(opt => opt.value === value);
-                  announceToScreenReader(`Selected: ${selectedOption?.label}`);
-                }
-                handleAssessmentAnswer(value as AssessmentResponse);
-              }}
-              label="Response options. Choose how often this bothered you."
-              orientation="vertical"
-              clinicalContext="gad7"
-              theme="neutral"
-              testID="gad7-response-options"
-              showRadioIndicator={false}
-            />
-          </View>
-
-          {/* Navigation with enhanced accessibility */}
-          {currentQuestionIndex > 0 && (
-            <Pressable
-              style={[styles.secondaryButton, styles.accessibleTouchTarget]}
-              onPress={() => {
-                setCurrentQuestionIndex(currentQuestionIndex - 1);
-                announceToScreenReader(`Going back to question ${currentQuestionIndex}`);
-                manageFocus('question', currentQuestionRef);
-              }}
-              accessible={true}
-              accessibilityRole="button"
-              accessibilityLabel="Previous Question"
-              accessibilityHint="Double tap to go back to the previous anxiety assessment question"
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Text
-                style={styles.secondaryButtonText}
-                accessible={false}
-                allowFontScaling={true}
-                maxFontSizeMultiplier={ACCESSIBILITY.MAX_TEXT_SCALE}
-              >
-                Previous Question
-              </Text>
-            </Pressable>
-          )}
-        </ScrollView>
-
-        {/* Floating Crisis Button - Fixed at upper right, 1/6 from top */}
-        <CollapsibleCrisisButton
-          onPress={handleCrisisButtonPress}
-          position="right"
-          testID="gad7-crisis-chevron"
-        />
-      </SafeAreaView>
-    );
-  };
+  // NOTE: renderPhq9() and renderGad7() removed (~436 lines)
+  // Assessments now handled by EnhancedAssessmentFlow modal
 
   const renderStoicIntro = (): JSX.Element => (
     <SafeAreaView
@@ -2313,13 +1574,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
         <View style={styles.summaryContainer}>
           <Text style={styles.summaryTitle}>Your Setup:</Text>
 
-          {/* Only show if assessments were actually completed */}
-          {phq9Answers.length === PHQ9_QUESTIONS.length && gad7Answers.length === GAD7_QUESTIONS.length && (
-            <View style={styles.summarySection}>
-              <Text style={styles.summaryLabel}>Assessments Completed</Text>
-              <Text style={styles.summaryValue}>✓ Mental wellness baseline established</Text>
-            </View>
-          )}
+          {/* Assessment status will be shown on home screen via AssessmentStatusBadge */}
 
           <View style={styles.summarySection}>
             <Text style={styles.summaryLabel}>Reminders</Text>
@@ -2330,12 +1585,12 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
         </View>
 
         <View style={styles.section}>
-          <Pressable style={styles.primaryButton} onPress={navigateNext}>
+          <Pressable style={styles.primaryButton} onPress={handleStartMorningPractice}>
             <Text style={styles.primaryButtonText}>Start Morning Practice</Text>
           </Pressable>
           <Pressable
             style={[styles.secondaryButton, styles.accessibleTouchTarget, { marginTop: spacing.md }]}
-            onPress={navigateNext}
+            onPress={handleExploreApp}
             accessible={true}
             accessibilityRole="button"
             accessibilityLabel="Explore App"
@@ -2358,8 +1613,6 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
   const renderCurrentScreen = () => {
     switch (currentScreen) {
       case 'welcome': return renderWelcome();
-      case 'phq9': return renderPhq9();
-      case 'gad7': return renderGad7();
       case 'stoicIntro': return renderStoicIntro();
       case 'notifications': return renderNotifications();
       case 'privacy': return renderPrivacy();

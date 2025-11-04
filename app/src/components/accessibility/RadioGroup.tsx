@@ -302,20 +302,22 @@ const RadioGroup: React.FC<RadioGroupProps> = ({
       testID={testID}
     >
       {/* Group label */}
-      <Text 
-        style={[
-          styles.groupLabel,
-          required && styles.groupLabelRequired,
-          disabled && styles.groupLabelDisabled,
-          error && styles.groupLabelError,
-        ]}
-        accessibilityRole="header"
-        accessibilityLevel={3}
-        nativeID={`${groupId}-label`}
-      >
-        {label}
-        {required && <Text style={styles.requiredIndicator}> *</Text>}
-      </Text>
+      {label && (
+        <Text
+          style={[
+            styles.groupLabel,
+            required && styles.groupLabelRequired,
+            disabled && styles.groupLabelDisabled,
+            error && styles.groupLabelError,
+          ]}
+          accessibilityRole="header"
+          accessibilityLevel={3}
+          nativeID={`${groupId}-label`}
+        >
+          {label}
+          {required && <Text style={styles.requiredIndicator}> *</Text>}
+        </Text>
+      )}
       
       {/* Group description */}
       {description && (

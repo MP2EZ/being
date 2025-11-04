@@ -1,23 +1,24 @@
 /**
  * Exercises Screen
  * PHQ-9/GAD-7 mental health assessments with shared components
- * Uses RadioGroup for WCAG-AA compliant accessibility
+ * Uses EnhancedAssessmentFlow modal for DRY implementation
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   Pressable,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { PHQ9_QUESTIONS, GAD7_QUESTIONS } from '../flows/assessment/types/questions';
-import { RadioGroup } from '../components/accessibility';
-import type { RadioOption } from '../components/accessibility';
+import { useNavigation } from '@react-navigation/native';
+import type { StackNavigationProp } from '@react-navigation/stack';
+import type { RootStackParamList } from '../navigation/CleanRootNavigator';
 import { CollapsibleCrisisButton } from '../flows/shared/components/CollapsibleCrisisButton';
+import ThresholdEducationModal from '../components/ThresholdEducationModal';
+import { useAssessmentStore } from '../flows/assessment/stores/assessmentStore';
 
 // Hardcoded colors - no dynamic theme system
 const colors = {
@@ -41,104 +42,101 @@ const spacing = {
   xl: 32,
 };
 
-// NOTE: PHQ9_QUESTIONS and GAD7_QUESTIONS now imported from shared assessment types
-// This eliminates duplication and ensures clinical accuracy across the app
-
-// Response options in RadioOption format (clinically validated)
-const RESPONSE_OPTIONS: RadioOption[] = [
-  { value: 0, label: 'Not at all' },
-  { value: 1, label: 'Several days' },
-  { value: 2, label: 'More than half the days' },
-  { value: 3, label: 'Nearly every day' },
-];
-
 type AssessmentType = 'phq9' | 'gad7';
-type Screen = 'menu' | 'intro' | 'assessment' | 'results';
 
-interface Answer {
-  questionId: string;
-  response: number;
+interface AssessmentMetadata {
+  lastCompleted?: number;
+  daysSince?: number;
+  status: 'recent' | 'due' | 'recommended' | 'never';
 }
 
 const ExercisesScreen: React.FC = () => {
-  const [currentScreen, setCurrentScreen] = useState<Screen>('menu');
-  const [assessmentType, setAssessmentType] = useState<AssessmentType>('phq9');
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [answers, setAnswers] = useState<Answer[]>([]);
+  const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
+  const [showEducationModal, setShowEducationModal] = useState(false);
+  const [phq9Metadata, setPhq9Metadata] = useState<AssessmentMetadata>({ status: 'never' });
+  const [gad7Metadata, setGad7Metadata] = useState<AssessmentMetadata>({ status: 'never' });
 
-  const questions = assessmentType === 'phq9' ? PHQ9_QUESTIONS : GAD7_QUESTIONS;
-  const currentQuestion = questions[currentQuestionIndex];
+  // Get assessment history from encrypted store
+  const completedAssessments = useAssessmentStore(state => state.completedAssessments);
+
+  // Load assessment metadata when assessments change
+  useEffect(() => {
+    loadAssessmentMetadata();
+  }, [completedAssessments]); // Re-calculate when assessments change
+
+  const loadAssessmentMetadata = () => {
+    const now = Date.now();
+
+    // PHQ-9 metadata from encrypted store
+    const phq9Sessions = completedAssessments.filter(s => s.type === 'phq9');
+    if (phq9Sessions.length > 0) {
+      const lastPhq9 = phq9Sessions[phq9Sessions.length - 1];
+      const completedAt = lastPhq9.result?.completedAt;
+
+      if (completedAt) {
+        const daysSince = Math.floor((now - completedAt) / (1000 * 60 * 60 * 24));
+        let status: 'recent' | 'due' | 'recommended' = 'recommended';
+        if (daysSince < 14) status = 'recent';
+        else if (daysSince < 21) status = 'due';
+        else status = 'recommended';
+        setPhq9Metadata({ lastCompleted: completedAt, daysSince, status });
+      }
+    } else {
+      setPhq9Metadata({ status: 'never' });
+    }
+
+    // GAD-7 metadata from encrypted store
+    const gad7Sessions = completedAssessments.filter(s => s.type === 'gad7');
+    if (gad7Sessions.length > 0) {
+      const lastGad7 = gad7Sessions[gad7Sessions.length - 1];
+      const completedAt = lastGad7.result?.completedAt;
+
+      if (completedAt) {
+        const daysSince = Math.floor((now - completedAt) / (1000 * 60 * 60 * 24));
+        let status: 'recent' | 'due' | 'recommended' = 'recommended';
+        if (daysSince < 14) status = 'recent';
+        else if (daysSince < 21) status = 'due';
+        else status = 'recommended';
+        setGad7Metadata({ lastCompleted: completedAt, daysSince, status });
+      }
+    } else {
+      setGad7Metadata({ status: 'never' });
+    }
+  };
 
   const handleStartAssessment = (type: AssessmentType) => {
-    setAssessmentType(type);
-    setCurrentScreen('intro');
-    setCurrentQuestionIndex(0);
-    setAnswers([]);
+    navigation.navigate('AssessmentFlow', {
+      assessmentType: type,
+      context: 'standalone',
+      onComplete: (result) => {
+        // Assessment automatically saved to assessmentStore by EnhancedAssessmentFlow
+        // Metadata will auto-refresh via useEffect watching completedAssessments
+        console.log(`✅ ${type} assessment completed:`, result);
+      },
+    });
   };
 
-  const handleBeginAssessment = () => {
-    setCurrentScreen('assessment');
-  };
-
-  const handleAnswer = (response: number) => {
-    const newAnswer: Answer = {
-      questionId: currentQuestion.id,
-      response,
-    };
-
-    const updatedAnswers = [...answers, newAnswer];
-    setAnswers(updatedAnswers);
-
-    // Move to next question or results
-    if (currentQuestionIndex < questions.length - 1) {
-      setCurrentQuestionIndex(currentQuestionIndex + 1);
-    } else {
-      setCurrentScreen('results');
+  const getStatusIndicator = (metadata: AssessmentMetadata) => {
+    if (metadata.status === 'never') {
+      return <Text style={styles.statusRecommended}>Recommended</Text>;
     }
-  };
-
-  const calculateResults = () => {
-    const totalScore = answers.reduce((sum, answer) => sum + answer.response, 0);
-
-    if (assessmentType === 'phq9') {
-      // Check for crisis conditions: PHQ≥20 or suicidal ideation (question 9)
-      const question9Answer = answers.find(a => a.questionId === 'phq9_9');
-      const suicidalIdeation = question9Answer ? question9Answer.response > 0 : false;
-      const isCrisis = totalScore >= 20 || suicidalIdeation;
-
-      let severity = 'minimal';
-      if (totalScore <= 4) severity = 'minimal';
-      else if (totalScore <= 9) severity = 'mild';
-      else if (totalScore <= 14) severity = 'moderate';
-      else if (totalScore <= 19) severity = 'moderately severe';
-      else severity = 'severe';
-
-      return { totalScore, severity, isCrisis, suicidalIdeation };
-    } else {
-      // GAD-7: Crisis at ≥15
-      const isCrisis = totalScore >= 15;
-
-      let severity = 'minimal';
-      if (totalScore <= 4) severity = 'minimal';
-      else if (totalScore <= 9) severity = 'mild';
-      else if (totalScore <= 14) severity = 'moderate';
-      else severity = 'severe';
-
-      return { totalScore, severity, isCrisis };
+    if (metadata.status === 'recent') {
+      return <Text style={styles.statusRecent}>Completed</Text>;
     }
+    if (metadata.status === 'due') {
+      return <Text style={styles.statusDue}>Due Soon</Text>;
+    }
+    return <Text style={styles.statusRecommended}>Recommended</Text>;
   };
 
-  const handleComplete = () => {
-    setCurrentScreen('menu');
-  };
-
-  const showCrisisAlert = () => {
-    Alert.alert(
-      'Crisis Resources Available',
-      'If you are in immediate danger, please call 911.\n\nFor crisis support:\n• Call 988 (Suicide & Crisis Lifeline)\n• Text "HELLO" to 741741 (Crisis Text Line)',
-      [{ text: 'OK', onPress: handleComplete }],
-      { cancelable: false }
-    );
+  const getMetadataText = (metadata: AssessmentMetadata) => {
+    if (metadata.status === 'never') {
+      return 'Not completed yet';
+    }
+    if (metadata.daysSince !== undefined) {
+      return `Last completed ${metadata.daysSince} ${metadata.daysSince === 1 ? 'day' : 'days'} ago`;
+    }
+    return '';
   };
 
   const renderMenu = () => (
@@ -158,147 +156,67 @@ const ExercisesScreen: React.FC = () => {
             style={styles.assessmentCard}
             onPress={() => handleStartAssessment('phq9')}
           >
-            <Text style={styles.cardTitle}>Depression Assessment (PHQ-9)</Text>
+            <View style={styles.cardHeader}>
+              <Text style={styles.cardTitle}>Depression Assessment (PHQ-9)</Text>
+              {getStatusIndicator(phq9Metadata)}
+            </View>
             <Text style={styles.cardDescription}>
               A 9-question assessment to help you understand your mood patterns over the past two weeks.
             </Text>
-            <Text style={styles.cardDuration}>3-5 minutes</Text>
+            <View style={styles.cardFooter}>
+              <Text style={styles.cardDuration}>3-5 minutes</Text>
+              <Text style={styles.cardMetadata}>{getMetadataText(phq9Metadata)}</Text>
+            </View>
           </Pressable>
 
           <Pressable
             style={styles.assessmentCard}
             onPress={() => handleStartAssessment('gad7')}
           >
-            <Text style={styles.cardTitle}>Anxiety Assessment (GAD-7)</Text>
+            <View style={styles.cardHeader}>
+              <Text style={styles.cardTitle}>Anxiety Assessment (GAD-7)</Text>
+              {getStatusIndicator(gad7Metadata)}
+            </View>
             <Text style={styles.cardDescription}>
               A 7-question assessment to help you observe your relationship with worry and anxiety.
             </Text>
-            <Text style={styles.cardDuration}>2-4 minutes</Text>
+            <View style={styles.cardFooter}>
+              <Text style={styles.cardDuration}>2-4 minutes</Text>
+              <Text style={styles.cardMetadata}>{getMetadataText(gad7Metadata)}</Text>
+            </View>
+          </Pressable>
+
+          <Text style={styles.recommendationText}>
+            Recommended every 2 weeks
+          </Text>
+
+          <Pressable
+            style={styles.educationLink}
+            onPress={() => setShowEducationModal(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Learn about assessment scoring"
+          >
+            <Text style={styles.educationLinkText}>
+              Learn about assessment scoring
+            </Text>
           </Pressable>
         </View>
       </ScrollView>
+
+      {/* Education Modal */}
+      <ThresholdEducationModal
+        visible={showEducationModal}
+        onDismiss={() => setShowEducationModal(false)}
+      />
     </SafeAreaView>
   );
 
-  const renderIntro = () => (
-    <SafeAreaView style={styles.container}>
-      <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
-        <View style={styles.header}>
-          <Text style={styles.title}>
-            {assessmentType === 'phq9' ? 'Mood Assessment' : 'Anxiety Assessment'}
-          </Text>
-          <Text style={styles.subtitle}>
-            {assessmentType === 'phq9'
-              ? 'A gentle check-in with your recent experiences'
-              : 'Noticing your relationship with worry and tension'
-            }
-          </Text>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.bodyText}>
-            Over the last 2 weeks, how often have you been bothered by any of the following problems?
-          </Text>
-          <Text style={styles.bodyText}>
-            There are no right or wrong answers. Simply notice what feels true for you right now.
-          </Text>
-        </View>
-
-        <Pressable style={styles.primaryButton} onPress={handleBeginAssessment}>
-          <Text style={styles.primaryButtonText}>Begin Assessment</Text>
-        </Pressable>
-
-        <Pressable style={styles.secondaryButton} onPress={handleComplete}>
-          <Text style={styles.secondaryButtonText}>Return to Menu</Text>
-        </Pressable>
-      </ScrollView>
-    </SafeAreaView>
-  );
-
-  const renderAssessment = () => (
-    <SafeAreaView style={styles.container}>
-      <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
-        <View style={styles.progressContainer}>
-          <Text style={styles.progressText}>
-            Question {currentQuestionIndex + 1} of {questions.length}
-          </Text>
-        </View>
-
-        <View style={styles.questionContainer}>
-          <Text style={styles.questionText}>{currentQuestion.text}</Text>
-        </View>
-
-        <View style={styles.optionsContainer}>
-          <RadioGroup
-            options={RESPONSE_OPTIONS}
-            value={answers.find(a => a.questionId === currentQuestion.id)?.response}
-            onValueChange={(value) => handleAnswer(value as number)}
-            label={`Response options for question ${currentQuestionIndex + 1} of ${questions.length}`}
-            orientation="vertical"
-            clinicalContext={assessmentType === 'phq9' ? 'phq9' : 'gad7'}
-            theme="neutral"
-            testID={`${assessmentType}-response-options`}
-            showRadioIndicator={false}
-          />
-        </View>
-      </ScrollView>
-    </SafeAreaView>
-  );
-
-  const renderResults = () => {
-    const results = calculateResults();
-
-    // Check for crisis and show alert immediately
-    if (results.isCrisis) {
-      setTimeout(() => showCrisisAlert(), 500);
-    }
-
-    return (
-      <SafeAreaView style={styles.container}>
-        <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
-          <View style={styles.header}>
-            <Text style={styles.title}>Assessment Complete</Text>
-          </View>
-
-          <View style={styles.resultsContainer}>
-            <Text style={styles.scoreText}>
-              Total Score: {results.totalScore}
-            </Text>
-            <Text style={styles.severityText}>
-              Severity: {results.severity}
-            </Text>
-
-            {results.isCrisis && (
-              <View style={styles.crisisContainer}>
-                <Text style={styles.crisisText}>
-                  ⚠️ Crisis Support Recommended
-                </Text>
-                <Text style={styles.crisisSubtext}>
-                  Your responses indicate you may benefit from immediate support.
-                </Text>
-              </View>
-            )}
-          </View>
-
-          <Pressable style={styles.primaryButton} onPress={handleComplete}>
-            <Text style={styles.primaryButtonText}>Return to Menu</Text>
-          </Pressable>
-        </ScrollView>
-      </SafeAreaView>
-    );
-  };
-
-  const renderContent = () => {
-    if (currentScreen === 'menu') return renderMenu();
-    if (currentScreen === 'intro') return renderIntro();
-    if (currentScreen === 'assessment') return renderAssessment();
-    if (currentScreen === 'results') return renderResults();
-    return null;
-  };
+  // All assessment rendering now handled by EnhancedAssessmentFlow modal
+  // Removed ~250 lines of duplicate code (renderIntro, renderAssessment, renderResults)
 
   return (
     <>
-      {renderContent()}
+      {renderMenu()}
       {/* Crisis Button Overlay - accessible across all exercise states (menu, intro, assessment, results) */}
       <CollapsibleCrisisButton testID="crisis-exercises" />
     </>
@@ -364,11 +282,17 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
   cardTitle: {
     fontSize: 20,
     fontWeight: '600',
     color: colors.black,
-    marginBottom: spacing.sm,
+    flex: 1,
   },
   cardDescription: {
     fontSize: 16,
@@ -377,10 +301,67 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     marginBottom: spacing.sm,
   },
+  cardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   cardDuration: {
     fontSize: 14,
     fontWeight: '500',
     color: colors.midnightBlue,
+  },
+  cardMetadata: {
+    fontSize: 14,
+    fontWeight: '400',
+    color: colors.gray500,
+  },
+  statusRecent: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#065F46',
+    backgroundColor: '#D1FAE5',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  statusDue: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#374151',
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  statusRecommended: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#92400E',
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  recommendationText: {
+    fontSize: 14,
+    fontWeight: '400',
+    color: colors.gray500,
+    textAlign: 'center',
+    marginTop: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  educationLink: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    alignItems: 'center',
+    marginTop: spacing.sm,
+  },
+  educationLinkText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: colors.morningPrimary,
+    textDecorationLine: 'underline',
   },
   primaryButton: {
     backgroundColor: colors.morningPrimary,
