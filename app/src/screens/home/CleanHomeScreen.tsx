@@ -13,6 +13,7 @@ import { colorSystem, getTheme, spacing } from '../../constants/colors';
 import type { RootStackParamList } from '../../navigation/CleanRootNavigator';
 import { useStoicPracticeStore } from '../../stores/stoicPracticeStore';
 import { CollapsibleCrisisButton } from '../../flows/shared/components/CollapsibleCrisisButton';
+import AssessmentStatusBadge from '../../components/AssessmentStatusBadge';
 
 type CleanHomeScreenNavigationProp = StackNavigationProp<RootStackParamList>;
 
@@ -129,6 +130,9 @@ const CleanHomeScreen: React.FC = () => {
             Take a moment for mindful awareness
           </Text>
         </View>
+
+        {/* Assessment Status Badge */}
+        <AssessmentStatusBadge />
 
         {/* Check-in Cards */}
         <View style={styles.checkInSection}>

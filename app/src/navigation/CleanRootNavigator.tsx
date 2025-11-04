@@ -4,7 +4,8 @@
  * Includes MBCT flow modal presentations
  */
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { logPerformance } from '../services/logging';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
@@ -16,9 +17,12 @@ import CrisisResourcesScreen from '../screens/crisis/CrisisResourcesScreen';
 import CrisisPlanScreen from '../screens/crisis/CrisisPlanScreen';
 import PurchaseOptionsScreen from '../components/subscription/PurchaseOptionsScreen';
 import SubscriptionStatusCard from '../components/subscription/SubscriptionStatusCard';
+import OnboardingScreen from '../screens/OnboardingScreen';
 import { useStoicPracticeStore } from '../stores/stoicPracticeStore';
+import { useSettingsStore } from '../stores/settingsStore';
 
 export type RootStackParamList = {
+  Onboarding: undefined;
   Main: undefined;
   MorningFlow: undefined;
   MiddayFlow: undefined;
@@ -34,8 +38,25 @@ export type RootStackParamList = {
 
 const Stack = createStackNavigator<RootStackParamList>();
 
+// Loading screen component
+const LoadingScreen: React.FC = () => (
+  <View style={styles.loadingContainer}>
+    <ActivityIndicator size="large" color="#FF9F43" />
+  </View>
+);
+
 const CleanRootNavigator: React.FC = () => {
   const { markCheckInComplete } = useStoicPracticeStore();
+  const { loadSettings, markOnboardingComplete } = useSettingsStore();
+  const [initialRoute, setInitialRoute] = useState<'Onboarding' | 'Main' | null>(null);
+
+  useEffect(() => {
+    async function checkOnboarding() {
+      const settings = await loadSettings();
+      setInitialRoute(settings?.onboardingCompleted ? 'Main' : 'Onboarding');
+    }
+    checkOnboarding();
+  }, [loadSettings]);
 
   const handleMorningFlowComplete = async (sessionData: any) => {
     logPerformance('🌅 Morning flow completed:', sessionData);
@@ -55,9 +76,19 @@ const CleanRootNavigator: React.FC = () => {
     // TODO: Store session data to analytics/state
   };
 
+  const handleOnboardingComplete = async () => {
+    await markOnboardingComplete();
+    setInitialRoute('Main');
+  };
+
+  if (!initialRoute) {
+    return <LoadingScreen />;
+  }
+
   return (
     <NavigationContainer>
       <Stack.Navigator
+        initialRouteName={initialRoute}
         screenOptions={{
           headerShown: false,
           headerStyle: {
@@ -72,6 +103,21 @@ const CleanRootNavigator: React.FC = () => {
           },
         }}
       >
+        {/* Onboarding Flow */}
+        <Stack.Screen
+          name="Onboarding"
+          options={{
+            headerShown: false,
+            gestureEnabled: false,
+          }}
+        >
+          {({ navigation }) => (
+            <OnboardingScreen
+              onComplete={handleOnboardingComplete}
+            />
+          )}
+        </Stack.Screen>
+
         {/* Main App */}
         <Stack.Screen name="Main" component={CleanTabNavigator} />
 
@@ -191,5 +237,14 @@ const CleanRootNavigator: React.FC = () => {
     </NavigationContainer>
   );
 };
+
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+});
 
 export default CleanRootNavigator;
