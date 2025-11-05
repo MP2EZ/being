@@ -43,6 +43,7 @@
       "type": "guided-timer",
       "duration": 480,
       "icon": "💝",
+      "visualMode": "contemplative",
       "instructions": [
         "Bring yourself to mind with kindness",
         "Silently wish: 'May I be well. May I be peaceful. May I be free from suffering.'",

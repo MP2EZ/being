@@ -43,6 +43,7 @@
       "type": "guided-timer",
       "duration": 180,
       "icon": "🫁",
+      "visualMode": "breathing",
       "instructions": [
         "Find a comfortable seated position",
         "Bring awareness to your breathing",

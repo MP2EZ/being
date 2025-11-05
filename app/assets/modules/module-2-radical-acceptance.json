@@ -42,6 +42,7 @@
       "type": "guided-timer",
       "duration": 300,
       "icon": "🔄",
+      "visualMode": "contemplative",
       "instructions": [
         "Bring to mind a difficult situation you're facing",
         "Notice how your body feels when thinking about it",
