@@ -1,10 +1,10 @@
 /**
  * Profile Screen
  * Menu-based profile management with integrated onboarding
- * Provides access to settings, virtue dashboard, and onboarding
+ * Provides access to settings, virtue dashboard, wellbeing tracking, and onboarding
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -23,8 +23,18 @@ import { RootStackParamList } from '../navigation/CleanRootNavigator';
 import { useSubscriptionStore } from '../stores/subscriptionStore';
 import { isDevMode } from '../constants/devMode';
 import { CollapsibleCrisisButton } from '../flows/shared/components/CollapsibleCrisisButton';
+import ThresholdEducationModal from '../components/ThresholdEducationModal';
+import { useAssessmentStore } from '../flows/assessment/stores/assessmentStore';
 
 type ProfileScreenNavigationProp = StackNavigationProp<RootStackParamList>;
+
+type AssessmentType = 'phq9' | 'gad7';
+
+interface AssessmentMetadata {
+  lastCompleted?: number;
+  daysSince?: number;
+  status: 'recent' | 'due' | 'recommended' | 'never';
+}
 
 // Hardcoded colors - no dynamic theme system
 const colors = {
@@ -54,6 +64,12 @@ const ProfileScreen: React.FC = () => {
   const [currentScreen, setCurrentScreen] = useState<Screen>('menu');
   const navigation = useNavigation<ProfileScreenNavigationProp>();
   const subscriptionStore = useSubscriptionStore();
+  const [showEducationModal, setShowEducationModal] = useState(false);
+  const [phq9Metadata, setPhq9Metadata] = useState<AssessmentMetadata>({ status: 'never' });
+  const [gad7Metadata, setGad7Metadata] = useState<AssessmentMetadata>({ status: 'never' });
+
+  // Get assessment history from encrypted store
+  const completedAssessments = useAssessmentStore(state => state.completedAssessments);
 
   const handleStartOnboarding = () => {
     setCurrentScreen('onboarding');
@@ -81,6 +97,86 @@ const ProfileScreen: React.FC = () => {
       return 'Active Subscription';
     }
     return 'Start Your Free Trial';
+  };
+
+  // Load assessment metadata when assessments change
+  useEffect(() => {
+    loadAssessmentMetadata();
+  }, [completedAssessments]); // Re-calculate when assessments change
+
+  const loadAssessmentMetadata = () => {
+    const now = Date.now();
+
+    // PHQ-9 metadata from encrypted store
+    const phq9Sessions = completedAssessments.filter(s => s.type === 'phq9');
+    if (phq9Sessions.length > 0) {
+      const lastPhq9 = phq9Sessions[phq9Sessions.length - 1];
+      const completedAt = lastPhq9.result?.completedAt;
+
+      if (completedAt) {
+        const daysSince = Math.floor((now - completedAt) / (1000 * 60 * 60 * 24));
+        let status: 'recent' | 'due' | 'recommended' = 'recommended';
+        if (daysSince < 14) status = 'recent';
+        else if (daysSince < 21) status = 'due';
+        else status = 'recommended';
+        setPhq9Metadata({ lastCompleted: completedAt, daysSince, status });
+      }
+    } else {
+      setPhq9Metadata({ status: 'never' });
+    }
+
+    // GAD-7 metadata from encrypted store
+    const gad7Sessions = completedAssessments.filter(s => s.type === 'gad7');
+    if (gad7Sessions.length > 0) {
+      const lastGad7 = gad7Sessions[gad7Sessions.length - 1];
+      const completedAt = lastGad7.result?.completedAt;
+
+      if (completedAt) {
+        const daysSince = Math.floor((now - completedAt) / (1000 * 60 * 60 * 24));
+        let status: 'recent' | 'due' | 'recommended' = 'recommended';
+        if (daysSince < 14) status = 'recent';
+        else if (daysSince < 21) status = 'due';
+        else status = 'recommended';
+        setGad7Metadata({ lastCompleted: completedAt, daysSince, status });
+      }
+    } else {
+      setGad7Metadata({ status: 'never' });
+    }
+  };
+
+  const handleStartAssessment = (type: AssessmentType) => {
+    navigation.navigate('AssessmentFlow', {
+      assessmentType: type,
+      context: 'standalone',
+      onComplete: (result) => {
+        // Assessment automatically saved to assessmentStore by EnhancedAssessmentFlow
+        // Metadata will auto-refresh via useEffect watching completedAssessments
+        console.log(`✅ ${type} assessment completed:`, result);
+      },
+    });
+  };
+
+  const getStatusIndicator = (metadata: AssessmentMetadata) => {
+    if (metadata.status === 'never') {
+      return <Text style={styles.statusRecommended}>Recommended</Text>;
+    }
+    if (metadata.status === 'recent') {
+      return <Text style={styles.statusRecent}>Completed</Text>;
+    }
+    if (metadata.status === 'due') {
+      return <Text style={styles.statusDue}>Due Soon</Text>;
+    }
+    return <Text style={styles.statusRecommended}>Recommended</Text>;
+  };
+
+  const getMetadataText = (metadata: AssessmentMetadata) => {
+    if (metadata.status === 'never') {
+      return 'Not completed yet';
+    }
+    if (metadata.daysSince !== undefined) {
+      return `Last completed ${metadata.daysSince} ${metadata.daysSince === 1 ? 'day' : 'days'} ago`;
+    }
+    return '';
   };
 
   const devMode = isDevMode();
@@ -117,6 +213,62 @@ const ProfileScreen: React.FC = () => {
               Complete your initial assessment and configure your therapeutic preferences for a personalized experience.
             </Text>
             <Text style={styles.cardAction}>Start Setup →</Text>
+          </Pressable>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Wellbeing Tracking</Text>
+          <Text style={styles.sectionDescription}>
+            Periodic self-assessments to observe patterns in your mental wellbeing. Recommended every 2 weeks.
+          </Text>
+
+          <Pressable
+            style={styles.assessmentCard}
+            onPress={() => handleStartAssessment('phq9')}
+            accessibilityLabel="Depression Assessment (PHQ-9)"
+            accessibilityHint="3 to 5 minute assessment"
+          >
+            <View style={styles.cardHeader}>
+              <Text style={styles.cardTitle}>Depression Assessment (PHQ-9)</Text>
+              {getStatusIndicator(phq9Metadata)}
+            </View>
+            <Text style={styles.cardDescription}>
+              Observe your mood patterns over the past two weeks through 9 questions.
+            </Text>
+            <View style={styles.cardFooter}>
+              <Text style={styles.cardDuration}>3-5 minutes</Text>
+              <Text style={styles.cardMetadata}>{getMetadataText(phq9Metadata)}</Text>
+            </View>
+          </Pressable>
+
+          <Pressable
+            style={styles.assessmentCard}
+            onPress={() => handleStartAssessment('gad7')}
+            accessibilityLabel="Anxiety Assessment (GAD-7)"
+            accessibilityHint="2 to 4 minute assessment"
+          >
+            <View style={styles.cardHeader}>
+              <Text style={styles.cardTitle}>Anxiety Assessment (GAD-7)</Text>
+              {getStatusIndicator(gad7Metadata)}
+            </View>
+            <Text style={styles.cardDescription}>
+              Observe your relationship with worry and anxiety through 7 questions.
+            </Text>
+            <View style={styles.cardFooter}>
+              <Text style={styles.cardDuration}>2-4 minutes</Text>
+              <Text style={styles.cardMetadata}>{getMetadataText(gad7Metadata)}</Text>
+            </View>
+          </Pressable>
+
+          <Pressable
+            style={styles.educationLink}
+            onPress={() => setShowEducationModal(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Learn about assessment scoring"
+          >
+            <Text style={styles.educationLinkText}>
+              Learn about assessment scoring
+            </Text>
           </Pressable>
         </View>
 
@@ -229,6 +381,12 @@ const ProfileScreen: React.FC = () => {
           </Pressable>
         </View>
       </ScrollView>
+
+      {/* Education Modal */}
+      <ThresholdEducationModal
+        visible={showEducationModal}
+        onDismiss={() => setShowEducationModal(false)}
+      />
     </SafeAreaView>
   );
 
@@ -578,6 +736,79 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     color: '#92400E',
     textAlign: 'center',
+  },
+  assessmentCard: {
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.gray300,
+    borderRadius: 12,
+    padding: spacing.lg,
+    marginBottom: spacing.md,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  cardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  cardDuration: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.midnightBlue,
+  },
+  cardMetadata: {
+    fontSize: 14,
+    fontWeight: '400',
+    color: colors.gray500,
+  },
+  statusRecent: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#065F46',
+    backgroundColor: '#D1FAE5',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  statusDue: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#374151',
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  statusRecommended: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#92400E',
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  educationLink: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    alignItems: 'center',
+    marginTop: spacing.sm,
+  },
+  educationLinkText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: colors.morningPrimary,
+    textDecorationLine: 'underline',
   },
 });
 
