@@ -51,7 +51,7 @@ interface Props {
   onSave?: (data: SelfCompassionData) => void;
 }
 
-const EVENING_COLOR = '#8B4789';
+const EVENING_COLOR = '#4A7C59';
 
 const SelfCompassionScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
   // FEAT-23: Restore initial data if resuming session
@@ -248,13 +248,13 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   explanationContainer: {
-    backgroundColor: '#FFF9F5',
+    backgroundColor: '#F0F5F1',
     padding: 20,
     marginHorizontal: 20,
     marginBottom: 24,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: '#FFE6D5',
+    borderColor: '#D5E8D5',
   },
   explanationTitle: {
     fontSize: 18,
@@ -301,13 +301,13 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
   },
   promptsContainer: {
-    backgroundColor: '#F5F9FF',
+    backgroundColor: '#F0F5F1',
     padding: 20,
     marginHorizontal: 20,
     marginBottom: 24,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#D5E5FF',
+    borderColor: '#C5E0C5',
   },
   promptsTitle: {
     fontSize: 16,
