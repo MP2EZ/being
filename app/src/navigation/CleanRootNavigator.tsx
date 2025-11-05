@@ -20,9 +20,11 @@ import SubscriptionStatusCard from '../components/subscription/SubscriptionStatu
 import OnboardingScreen from '../screens/OnboardingScreen';
 import VirtueDashboardScreen from '../screens/VirtueDashboardScreen';
 import EnhancedAssessmentFlow from '../components/assessment/EnhancedAssessmentFlow';
+import ModuleDetailScreen from '../screens/learn/ModuleDetailScreen';
 import { useStoicPracticeStore } from '../stores/stoicPracticeStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import type { AssessmentType, PHQ9Result, GAD7Result } from '../flows/assessment/types';
+import type { ModuleId } from '../types/education';
 
 export type RootStackParamList = {
   Onboarding: undefined;
@@ -30,6 +32,7 @@ export type RootStackParamList = {
   MorningFlow: undefined;
   MiddayFlow: undefined;
   EveningFlow: undefined;
+  ModuleDetail: { moduleId: ModuleId };
   AssessmentFlow: {
     assessmentType: AssessmentType;
     context: 'onboarding' | 'standalone';
@@ -152,6 +155,16 @@ const CleanRootNavigator: React.FC = () => {
 
         {/* Main App */}
         <Stack.Screen name="Main" component={CleanTabNavigator} />
+
+        {/* Educational Module Detail */}
+        <Stack.Screen
+          name="ModuleDetail"
+          component={ModuleDetailScreen}
+          options={{
+            headerShown: false, // ModuleDetailScreen has its own header
+            presentation: 'card',
+          }}
+        />
 
         {/* MBCT Flow Modals */}
         <Stack.Group screenOptions={{ presentation: 'modal' }}>

@@ -19,6 +19,7 @@ import CleanHomeScreen from '../screens/home/CleanHomeScreen';
 import ExercisesScreen from '../screens/ExercisesScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import InsightsScreen from '../screens/InsightsScreen';
+import LearnScreen from '../screens/learn/LearnScreen';
 import BrainIcon from '../components/shared/BrainIcon';
 import FeatureGate from '../components/subscription/FeatureGate';
 import { useNavigation } from '@react-navigation/native';
@@ -51,6 +52,13 @@ const StarIcon: React.FC<{ color: string; size?: number }> = ({ color, size = 24
 const CircleIcon: React.FC<{ color: string; size?: number }> = ({ color, size = 24 }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24">
     <Circle cx="12" cy="12" r="10" fill={color} />
+  </Svg>
+);
+
+const BookIcon: React.FC<{ color: string; size?: number }> = ({ color, size = 24 }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24">
+    <Path d="M4 19.5C4 20.881 5.119 22 6.5 22H20V2H6.5C5.119 2 4 3.119 4 4.5V19.5ZM18 4V20H6.5C6.224 20 6 19.776 6 19.5V5.207C6.313 5.348 6.644 5.45 7 5.5V18H18V4Z" fill={color} />
+    <Path d="M9 8H15V10H9V8ZM9 11H15V13H9V11Z" fill={color} />
   </Svg>
 );
 
@@ -172,6 +180,20 @@ const CleanTabNavigator: React.FC = () => {
           tabBarIcon: ({ focused }) => (
             <StarIcon
               color={focused ? colorSystem.navigation.exercises : colorSystem.gray[500]}
+            />
+          ),
+        }}
+      />
+
+      <Tab.Screen
+        name="Learn"
+        component={LearnScreen}
+        options={{
+          headerTitle: 'Learn',
+          headerShown: false, // LearnScreen has its own SafeAreaView
+          tabBarIcon: ({ focused }) => (
+            <BookIcon
+              color={focused ? colorSystem.navigation.learn : colorSystem.gray[500]}
             />
           ),
         }}
