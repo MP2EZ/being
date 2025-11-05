@@ -31,10 +31,12 @@ import {
   TouchableOpacity,
   ScrollView,
   StyleSheet,
+  Modal,
 } from 'react-native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import type { EveningFlowParamList, SelfCompassionData } from '../../../types/flows';
+import { CollapsibleCrisisButton } from '../../shared/components/CollapsibleCrisisButton';
 
 type SelfCompassionScreenNavigationProp = NativeStackNavigationProp<
   EveningFlowParamList,
@@ -65,6 +67,7 @@ const SelfCompassionScreen: React.FC<Props> = ({ navigation, route, onSave }) =>
   }
 
   const [reflection, setReflection] = useState(initialData?.reflection || '');
+  const [showSkipModal, setShowSkipModal] = useState(false);
 
   const handleComplete = () => {
     // Validate required field
@@ -85,12 +88,21 @@ const SelfCompassionScreen: React.FC<Props> = ({ navigation, route, onSave }) =>
   };
 
   return (
-    <View style={styles.screenContainer}>
-      <ScrollView style={styles.container}>
+    <>
+      <View style={styles.screenContainer}>
+        <ScrollView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity
           testID="back-button"
-          onPress={() => navigation.goBack()}
+          onPress={() => {
+            if (!reflection.trim()) {
+              // User trying to skip without completing
+              setShowSkipModal(true);
+            } else {
+              // User has completed, allow normal back navigation
+              navigation.goBack();
+            }
+          }}
           style={styles.backButton}
           accessibilityLabel="Go back"
           accessibilityRole="button"
@@ -185,8 +197,56 @@ const SelfCompassionScreen: React.FC<Props> = ({ navigation, route, onSave }) =>
       >
         <Text style={styles.completeButtonText}>Continue</Text>
       </TouchableOpacity>
-      </ScrollView>
-    </View>
+        </ScrollView>
+      </View>
+
+      {/* Crisis Button Overlay - accessible when keyboard is visible */}
+      <CollapsibleCrisisButton testID="crisis-self-compassion" />
+
+      {/* Skip Prevention Modal */}
+      <Modal
+        visible={showSkipModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowSkipModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>💚 One More Moment</Text>
+            <Text style={styles.modalMessage}>
+              Self-compassion is a critical part of healthy Stoic practice. Without it,
+              self-examination can become harsh and counterproductive.
+            </Text>
+            <Text style={styles.modalMessage}>
+              Take a breath. What would you say to a dear friend who had your day?
+            </Text>
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={styles.modalPrimaryButton}
+                onPress={() => setShowSkipModal(false)}
+                accessibilityLabel="Stay and complete self-compassion"
+                accessibilityRole="button"
+              >
+                <Text style={styles.modalPrimaryButtonText}>Take a Breath</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.modalSecondaryButton}
+                onPress={() => {
+                  setShowSkipModal(false);
+                  navigation.goBack();
+                }}
+                accessibilityLabel="Leave anyway"
+                accessibilityRole="button"
+              >
+                <Text style={styles.modalSecondaryButtonText}>Leave Anyway</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </>
   );
 };
 
@@ -336,6 +396,67 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 18,
     fontWeight: '600',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 400,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: EVENING_COLOR,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  modalMessage: {
+    fontSize: 16,
+    color: '#2C3E50',
+    lineHeight: 24,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  modalButtons: {
+    marginTop: 8,
+  },
+  modalPrimaryButton: {
+    backgroundColor: EVENING_COLOR,
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    marginBottom: 12,
+    alignItems: 'center',
+  },
+  modalPrimaryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  modalSecondaryButton: {
+    backgroundColor: 'transparent',
+    paddingVertical: 10,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  modalSecondaryButtonText: {
+    color: '#7F8C8D',
+    fontSize: 16,
+    fontWeight: '500',
   },
 });
 

@@ -5,9 +5,8 @@
  * NOT harsh judgment - growth-oriented, self-compassionate lens.
  *
  * Classical Stoic Practice:
- * - Marcus Aurelius: "Begin each day by telling yourself: Today I shall be meeting
- *   with interference, ingratitude, insolence, disloyalty, ill-will, and selfishness"
- *   (Meditations 2:1) - BUT also: "Where did I show up well?"
+ * - Marcus Aurelius: "Look within. Within is the fountain of good, and it will
+ *   ever bubble up, if you will ever dig" (Meditations 7:59)
  * - Seneca: "I shall make use of this privilege and shall examine the whole of my day
  *   and shall measure my deeds and words" (On Anger 3.36)
  * - Epictetus: "Don't explain your philosophy. Embody it." (Frag. 21)
@@ -32,6 +31,7 @@ import {
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { EveningFlowParamList, VirtueReflectionData } from '../../../types/flows';
+import { CollapsibleCrisisButton } from '../../shared/components/CollapsibleCrisisButton';
 
 type Props = NativeStackScreenProps<EveningFlowParamList, 'VirtueReflection'> & {
   onSave?: (data: VirtueReflectionData) => void;
@@ -52,8 +52,8 @@ const VirtueReflectionScreen: React.FC<Props> = ({ navigation, route, onSave }) 
   const [showedUpWell, setShowedUpWell] = useState(initialData?.showedUpWell || '');
   const [growthArea, setGrowthArea] = useState(initialData?.growthArea || '');
 
-  // Both fields optional (mindfulness practice, not forced reflection)
-  const canContinue = showedUpWell.trim().length > 0 || growthArea.trim().length > 0;
+  // Both fields required for balanced reflection (prevents harsh self-criticism OR missing growth)
+  const canContinue = showedUpWell.trim().length > 0 && growthArea.trim().length > 0;
 
   const handleContinue = () => {
     const virtueReflectionData: VirtueReflectionData = {
@@ -70,88 +70,93 @@ const VirtueReflectionScreen: React.FC<Props> = ({ navigation, route, onSave }) 
   };
 
   return (
-    <ScrollView style={styles.container} testID="virtue-reflection-screen">
-      {/* Back Button */}
-      <TouchableOpacity
-        style={styles.backButton}
-        onPress={() => navigation.goBack()}
-        testID="back-button"
-        accessibilityLabel="Go back"
-      >
-        <Text style={styles.backButtonText}>← Back</Text>
-      </TouchableOpacity>
+    <>
+      <ScrollView style={styles.container} testID="virtue-reflection-screen">
+        {/* Back Button */}
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+          testID="back-button"
+          accessibilityLabel="Go back"
+        >
+          <Text style={styles.backButtonText}>← Back</Text>
+        </TouchableOpacity>
 
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.title}>Mindful Reflection</Text>
-        <Text style={styles.subtitle}>Settle Into Your Evening Practice</Text>
-        <Text style={styles.helperText}>
-          Notice your day without judgment
-        </Text>
-      </View>
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.title}>Mindful Reflection</Text>
+          <Text style={styles.subtitle}>Settle Into Your Evening Practice</Text>
+          <Text style={styles.helperText}>
+            Notice your day without judgment
+          </Text>
+        </View>
 
-      {/* Breathing Prompt */}
-      <View style={styles.breathingPrompt}>
-        <Text style={styles.breathingText}>
-          Take a few mindful breaths to settle into reflection...
-        </Text>
-      </View>
+        {/* Breathing Prompt */}
+        <View style={styles.breathingPrompt}>
+          <Text style={styles.breathingText}>
+            Take a few mindful breaths to settle into reflection...
+          </Text>
+        </View>
 
-      {/* Showed Up Well */}
-      <View style={styles.fieldSection}>
-        <Text style={styles.fieldLabel}>Where did you show up well today?</Text>
-        <Text style={styles.fieldHelper}>
-          Not harsh judgment - genuine acknowledgment
-        </Text>
-        <TextInput
-          style={styles.textInput}
-          value={showedUpWell}
-          onChangeText={setShowedUpWell}
-          placeholder="e.g., I listened fully, stayed patient, made a brave choice..."
-          placeholderTextColor="#999"
-          testID="showed-up-well-input"
-          accessibilityLabel="Where you showed up well today"
-          multiline
-        />
-      </View>
+        {/* Showed Up Well */}
+        <View style={styles.fieldSection}>
+          <Text style={styles.fieldLabel}>Where did you show up well today?</Text>
+          <Text style={styles.fieldHelper}>
+            Not harsh judgment - genuine acknowledgment
+          </Text>
+          <TextInput
+            style={styles.textInput}
+            value={showedUpWell}
+            onChangeText={setShowedUpWell}
+            placeholder="e.g., I listened fully, stayed patient, made a brave choice..."
+            placeholderTextColor="#999"
+            testID="showed-up-well-input"
+            accessibilityLabel="Where you showed up well today"
+            multiline
+          />
+        </View>
 
-      {/* Growth Area */}
-      <View style={styles.fieldSection}>
-        <Text style={styles.fieldLabel}>Where could you grow?</Text>
-        <Text style={styles.fieldHelper}>
-          Self-compassionate lens - learning, not failing
-        </Text>
-        <TextInput
-          style={styles.textInput}
-          value={growthArea}
-          onChangeText={setGrowthArea}
-          placeholder="e.g., I could practice more patience, listen deeper..."
-          placeholderTextColor="#999"
-          testID="growth-area-input"
-          accessibilityLabel="Where you could grow"
-          multiline
-        />
-      </View>
+        {/* Growth Area */}
+        <View style={styles.fieldSection}>
+          <Text style={styles.fieldLabel}>Where could you grow?</Text>
+          <Text style={styles.fieldHelper}>
+            Self-compassionate lens - learning, not failing
+          </Text>
+          <TextInput
+            style={styles.textInput}
+            value={growthArea}
+            onChangeText={setGrowthArea}
+            placeholder="e.g., I could practice more patience, listen deeper..."
+            placeholderTextColor="#999"
+            testID="growth-area-input"
+            accessibilityLabel="Where you could grow"
+            multiline
+          />
+        </View>
 
-      {/* Continue Button */}
-      <TouchableOpacity
-        style={[styles.continueButton, !canContinue && styles.continueButtonDisabled]}
-        onPress={handleContinue}
-        disabled={!canContinue}
-        accessibilityRole="button"
-        accessibilityState={{ disabled: !canContinue }}
-      >
-        <Text style={styles.continueButtonText}>Continue</Text>
-      </TouchableOpacity>
+        {/* Continue Button */}
+        <TouchableOpacity
+          style={[styles.continueButton, !canContinue && styles.continueButtonDisabled]}
+          onPress={handleContinue}
+          disabled={!canContinue}
+          accessibilityRole="button"
+          accessibilityState={{ disabled: !canContinue }}
+        >
+          <Text style={styles.continueButtonText}>Continue</Text>
+        </TouchableOpacity>
 
-      {/* Stoic Quote */}
-      <View style={styles.quoteSection}>
-        <Text style={styles.quoteText}>
-          "I shall make use of this privilege and shall examine the whole of my day
-          and shall measure my deeds and words." — Seneca, On Anger 3.36
-        </Text>
-      </View>
-    </ScrollView>
+        {/* Stoic Quote */}
+        <View style={styles.quoteSection}>
+          <Text style={styles.quoteText}>
+            "Look within. Within is the fountain of good, and it will ever bubble up,
+            if you will ever dig." — Marcus Aurelius, Meditations 7:59
+          </Text>
+        </View>
+      </ScrollView>
+
+      {/* Crisis Button Overlay - accessible when keyboard is visible */}
+      <CollapsibleCrisisButton testID="crisis-virtue-reflection" />
+    </>
   );
 };
 

@@ -51,8 +51,8 @@ const TomorrowScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
   const [intention, setIntention] = useState(initialData?.intention || '');
   const [lettingGo, setLettingGo] = useState(initialData?.lettingGo || '');
 
-  // Both fields optional (rest-oriented, not forced)
-  const canContinue = intention.trim().length > 0 || lettingGo.trim().length > 0;
+  // Both fields required for balanced sleep preparation (intention + release)
+  const canContinue = intention.trim().length > 0 && lettingGo.trim().length > 0;
 
   const handleContinue = () => {
     const tomorrowData: TomorrowData = {
