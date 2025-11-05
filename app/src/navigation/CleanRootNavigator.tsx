@@ -18,6 +18,7 @@ import CrisisPlanScreen from '../screens/crisis/CrisisPlanScreen';
 import PurchaseOptionsScreen from '../components/subscription/PurchaseOptionsScreen';
 import SubscriptionStatusCard from '../components/subscription/SubscriptionStatusCard';
 import OnboardingScreen from '../screens/OnboardingScreen';
+import VirtueDashboardScreen from '../screens/VirtueDashboardScreen';
 import EnhancedAssessmentFlow from '../components/assessment/EnhancedAssessmentFlow';
 import { useStoicPracticeStore } from '../stores/stoicPracticeStore';
 import { useSettingsStore } from '../stores/settingsStore';
@@ -43,6 +44,9 @@ export type RootStackParamList = {
   CrisisPlan: undefined;
   Subscription: undefined;
   SubscriptionStatus: undefined;
+  VirtueDashboard: {
+    source: 'insights' | 'profile';
+  };
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -309,6 +313,23 @@ const CleanRootNavigator: React.FC = () => {
               gestureEnabled: true
             }}
           />
+
+          {/* Virtue Dashboard Screen */}
+          <Stack.Screen
+            name="VirtueDashboard"
+            options={{
+              headerShown: false, // VirtueDashboardScreen has its own header
+              presentation: 'modal',
+              gestureEnabled: true
+            }}
+          >
+            {({ navigation, route }) => (
+              <VirtueDashboardScreen
+                source={route.params.source}
+                onReturn={() => navigation.goBack()}
+              />
+            )}
+          </Stack.Screen>
         </Stack.Group>
       </Stack.Navigator>
     </NavigationContainer>

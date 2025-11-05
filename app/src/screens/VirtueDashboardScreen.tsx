@@ -40,10 +40,11 @@ import { useStoicPracticeStore } from '../stores/stoicPracticeStore';
 import type { CardinalVirtue, DevelopmentalStage } from '../types/stoic';
 
 interface VirtueDashboardScreenProps {
+  source: 'insights' | 'profile';
   onReturn: () => void;
 }
 
-const VirtueDashboardScreen: React.FC<VirtueDashboardScreenProps> = ({ onReturn }) => {
+const VirtueDashboardScreen: React.FC<VirtueDashboardScreenProps> = ({ source, onReturn }) => {
   const {
     isLoading,
     developmentalStage,
@@ -192,7 +193,9 @@ const VirtueDashboardScreen: React.FC<VirtueDashboardScreenProps> = ({ onReturn 
 
         {/* Return Button */}
         <Pressable style={styles.returnButton} onPress={onReturn}>
-          <Text style={styles.returnButtonText}>Return to Profile</Text>
+          <Text style={styles.returnButtonText}>
+            {source === 'insights' ? 'Return to Insights' : 'Return to Profile'}
+          </Text>
         </Pressable>
       </ScrollView>
     </SafeAreaView>
