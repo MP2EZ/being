@@ -125,7 +125,7 @@ const AssessmentIntroduction: React.FC<AssessmentIntroductionProps> = ({
       announceChanges={true}
       restoreFocus={true}
     >
-      {/* Close/Exit Button - Top right */}
+      {/* Close/Exit Button - Top left */}
       {onSkip && (
         <Pressable
           style={styles.closeButton}
@@ -346,7 +346,7 @@ const styles = StyleSheet.create({
   closeButton: {
     position: 'absolute',
     top: spacing.md,
-    right: spacing.md,
+    left: spacing.md,
     zIndex: 100,
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -362,6 +362,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: spacing.md,
+    paddingTop: spacing.xl + spacing.lg, // Extra space for close button (60px)
     paddingBottom: spacing.xl,
   },
   headerContainer: {
