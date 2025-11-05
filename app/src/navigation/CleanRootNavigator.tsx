@@ -5,7 +5,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, ActivityIndicator, StyleSheet, TouchableOpacity, Text } from 'react-native';
 import { logPerformance } from '../services/logging';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
@@ -44,9 +44,7 @@ export type RootStackParamList = {
   CrisisPlan: undefined;
   Subscription: undefined;
   SubscriptionStatus: undefined;
-  VirtueDashboard: {
-    source: 'insights' | 'profile';
-  };
+  VirtueDashboard: undefined;
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -317,18 +315,36 @@ const CleanRootNavigator: React.FC = () => {
           {/* Virtue Dashboard Screen */}
           <Stack.Screen
             name="VirtueDashboard"
-            options={{
-              headerShown: false, // VirtueDashboardScreen has its own header
+            options={({ navigation }) => ({
+              headerShown: true,
               presentation: 'modal',
-              gestureEnabled: true
-            }}
+              gestureEnabled: true,
+              headerTitle: 'Practice Progress',
+              headerTitleAlign: 'center',
+              headerStyle: {
+                backgroundColor: '#FFFFFF',
+                borderBottomColor: '#E5E7EB',
+                borderBottomWidth: 1,
+              },
+              headerTitleStyle: {
+                fontSize: 18,
+                fontWeight: '600',
+                color: '#1C1C1C',
+              },
+              headerLeft: () => (
+                <TouchableOpacity
+                  onPress={() => navigation.goBack()}
+                  style={styles.closeButton}
+                  accessibilityLabel="Close virtue dashboard"
+                  accessibilityRole="button"
+                  accessibilityHint="Returns to previous screen"
+                >
+                  <Text style={styles.closeButtonText}>✕</Text>
+                </TouchableOpacity>
+              ),
+            })}
           >
-            {({ navigation, route }) => (
-              <VirtueDashboardScreen
-                source={route.params.source}
-                onReturn={() => navigation.goBack()}
-              />
-            )}
+            {() => <VirtueDashboardScreen />}
           </Stack.Screen>
         </Stack.Group>
       </Stack.Navigator>
@@ -342,6 +358,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
+  },
+  closeButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    minWidth: 44,
+    minHeight: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  closeButtonText: {
+    fontSize: 20,
+    fontWeight: '400',
+    color: '#1C1C1C',
   },
 });
 

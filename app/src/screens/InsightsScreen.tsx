@@ -175,8 +175,8 @@ const VirtueEmptyState: React.FC<VirtueEmptyStateProps> = ({ onLearnMore }) => (
     <Pressable
       accessible={true}
       accessibilityRole="button"
-      accessibilityLabel="Learn About Stoic Practice"
-      accessibilityHint="Double tap to view the virtue practice introduction and dashboard"
+      accessibilityLabel="Start Tracking"
+      accessibilityHint="Double tap to open your virtue tracking dashboard"
       style={({ pressed, focused }) => [
         styles.emptyStateButton,
         pressed && styles.emptyStateButtonPressed,
@@ -184,7 +184,7 @@ const VirtueEmptyState: React.FC<VirtueEmptyStateProps> = ({ onLearnMore }) => (
       ]}
       onPress={onLearnMore}
     >
-      <Text style={styles.emptyStateButtonText}>Learn About Stoic Practice</Text>
+      <Text style={styles.emptyStateButtonText}>Start Tracking</Text>
     </Pressable>
   </View>
 );
@@ -221,12 +221,12 @@ const InsightsScreen: React.FC = () => {
   const hasPracticeData = totalPracticeDays > 0;
 
   const handleNavigateToDashboard = () => {
-    navigation.navigate('VirtueDashboard', { source: 'insights' });
+    navigation.navigate('VirtueDashboard');
   };
 
   const handleLearnMore = () => {
     // Navigate to virtue dashboard which has educational content
-    navigation.navigate('VirtueDashboard', { source: 'insights' });
+    navigation.navigate('VirtueDashboard');
   };
 
   return (

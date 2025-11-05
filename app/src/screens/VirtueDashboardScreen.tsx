@@ -39,12 +39,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useStoicPracticeStore } from '../stores/stoicPracticeStore';
 import type { CardinalVirtue, DevelopmentalStage } from '../types/stoic';
 
-interface VirtueDashboardScreenProps {
-  source: 'insights' | 'profile';
-  onReturn: () => void;
-}
-
-const VirtueDashboardScreen: React.FC<VirtueDashboardScreenProps> = ({ source, onReturn }) => {
+const VirtueDashboardScreen: React.FC = () => {
   const {
     isLoading,
     developmentalStage,
@@ -190,13 +185,6 @@ const VirtueDashboardScreen: React.FC<VirtueDashboardScreenProps> = ({ source, o
             — Marcus Aurelius, Meditations 5.16
           </Text>
         </View>
-
-        {/* Return Button */}
-        <Pressable style={styles.returnButton} onPress={onReturn}>
-          <Text style={styles.returnButtonText}>
-            {source === 'insights' ? 'Return to Insights' : 'Return to Profile'}
-          </Text>
-        </Pressable>
       </ScrollView>
     </SafeAreaView>
   );
@@ -394,20 +382,6 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     color: colors.gray600,
     lineHeight: 20,
-  },
-  returnButton: {
-    backgroundColor: colors.white,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xl,
-    borderRadius: 12,
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: colors.gray300,
-  },
-  returnButtonText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.midnightBlue,
   },
 });
 
