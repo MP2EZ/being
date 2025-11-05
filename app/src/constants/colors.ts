@@ -119,7 +119,8 @@ export const colorSystem = {
     home: '#FF6B9D',       // Triangle - home navigation (pink)
     checkins: '#2C5282',   // Square - check-ins navigation (blue)
     exercises: '#FF9F43',  // Star - exercises navigation (orange)
-    insights: '#A8E6CF'    // Circle - insights navigation (green)
+    insights: '#A8E6CF',   // Circle - insights navigation (green)
+    learn: '#9B7EBD'       // Book - learn navigation (purple, represents wisdom)
   }
 };
 
