@@ -17,7 +17,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import OnboardingScreen from './OnboardingScreen';
-import VirtueDashboardScreen from './VirtueDashboardScreen';
 import AppSettingsScreen from './AppSettingsScreen';
 import AccountSettingsScreen from './AccountSettingsScreen';
 import { RootStackParamList } from '../navigation/CleanRootNavigator';
@@ -49,7 +48,7 @@ const spacing = {
   xl: 32,
 };
 
-type Screen = 'menu' | 'onboarding' | 'virtueDashboard' | 'account' | 'privacy' | 'about' | 'stoicMindfulness';
+type Screen = 'menu' | 'onboarding' | 'account' | 'privacy' | 'about' | 'stoicMindfulness';
 
 const ProfileScreen: React.FC = () => {
   const [currentScreen, setCurrentScreen] = useState<Screen>('menu');
@@ -118,21 +117,6 @@ const ProfileScreen: React.FC = () => {
               Complete your initial assessment and configure your therapeutic preferences for a personalized experience.
             </Text>
             <Text style={styles.cardAction}>Start Setup →</Text>
-          </Pressable>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Stoic Practice</Text>
-
-          <Pressable
-            style={styles.profileCard}
-            onPress={() => setCurrentScreen('virtueDashboard')}
-          >
-            <Text style={styles.cardTitle}>Virtue Tracking Dashboard</Text>
-            <Text style={styles.cardDescription}>
-              View your character development journey. Track instances of practicing the four cardinal virtues and reflect on growth areas.
-            </Text>
-            <Text style={styles.cardAction}>View Dashboard →</Text>
           </Pressable>
         </View>
 
@@ -404,10 +388,6 @@ const ProfileScreen: React.FC = () => {
           isEmbedded={true}
         />
       );
-    }
-
-    if (currentScreen === 'virtueDashboard') {
-      return <VirtueDashboardScreen onReturn={handleReturnToMenu} />;
     }
 
     if (currentScreen === 'account') {

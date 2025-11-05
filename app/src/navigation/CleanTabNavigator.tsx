@@ -18,6 +18,7 @@ import { colorSystem, spacing } from '../constants/colors';
 import CleanHomeScreen from '../screens/home/CleanHomeScreen';
 import ExercisesScreen from '../screens/ExercisesScreen';
 import ProfileScreen from '../screens/ProfileScreen';
+import InsightsScreen from '../screens/InsightsScreen';
 import LearnScreen from '../screens/learn/LearnScreen';
 import BrainIcon from '../components/shared/BrainIcon';
 import FeatureGate from '../components/subscription/FeatureGate';
@@ -93,7 +94,8 @@ const PlaceholderScreen: React.FC<{ name: string; description: string }> = ({ na
 // Create proper component references to avoid inline functions
 // ExercisesScreen now imported from separate file
 
-const InsightsScreen = () => {
+// Wrap InsightsScreen with FeatureGate
+const InsightsScreenWrapper = () => {
   const navigation = useNavigation<NavigationProp>();
 
   return (
@@ -101,10 +103,7 @@ const InsightsScreen = () => {
       feature="progressInsights"
       onUpgrade={() => navigation.navigate('Subscription')}
     >
-      <PlaceholderScreen
-        name="Your Insights"
-        description="Track your progress, view patterns, and understand your mindfulness journey over time."
-      />
+      <InsightsScreen />
     </FeatureGate>
   );
 };
@@ -202,9 +201,10 @@ const CleanTabNavigator: React.FC = () => {
 
       <Tab.Screen
         name="Insights"
-        component={InsightsScreen}
+        component={InsightsScreenWrapper}
         options={{
           headerTitle: 'Insights',
+          headerShown: false, // InsightsScreen has its own SafeAreaView
           tabBarIcon: ({ focused }) => (
             <CircleIcon
               color={focused ? colorSystem.navigation.insights : colorSystem.gray[500]}
