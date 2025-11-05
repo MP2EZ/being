@@ -5,12 +5,10 @@
  * Progressive relaxation + release day's tensions.
  *
  * Stoic Philosophy:
- * - Seneca: "Receive sleep as you would receive death" (Letters 54)
+ * - Seneca: "Receive sleep as you would receive death" (Letters 54:1)
  *   - Release control of the day
  *   - Trust in tomorrow's renewal
- * - Marcus Aurelius: "At dawn, when you have trouble getting out of bed...
- *   remember that you've been made by nature for the purpose of working with others,
- *   whereas even unthinking animals share sleeping" (Meditations 8:12)
+ * - Marcus Aurelius: Evening reflection prepares the mind for rest
  * - Epictetus: "Don't let the sun set on your anger" (implicit in evening practice)
  *
  * Design Philosophy:
@@ -33,6 +31,7 @@ import {
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { EveningFlowParamList, SleepTransitionData } from '../../../types/flows';
+import BreathingCircle from '../../shared/components/BreathingCircle';
 
 type Props = NativeStackScreenProps<EveningFlowParamList, 'SleepTransition'> & {
   onSave?: (data: SleepTransitionData) => void;
@@ -40,6 +39,8 @@ type Props = NativeStackScreenProps<EveningFlowParamList, 'SleepTransition'> & {
 
 const SleepTransitionScreen: React.FC<Props> = ({ navigation, onSave }) => {
   const [breathingCompleted, setBreathingCompleted] = useState(false);
+  const [breathingActive, setBreathingActive] = useState(false);
+  const [breathingStarted, setBreathingStarted] = useState(false);
 
   const handleComplete = () => {
     const sleepTransitionData: SleepTransitionData = {
@@ -79,48 +80,85 @@ const SleepTransitionScreen: React.FC<Props> = ({ navigation, onSave }) => {
         </Text>
       </View>
 
-      {/* Breathing Guidance */}
-      <View style={styles.guidanceSection}>
-        <Text style={styles.guidanceTitle}>Mindful Breathing for Sleep</Text>
-        <Text style={styles.guidanceText}>
-          Find a comfortable position...
-          {'\n\n'}
-          Take a slow, deep breath in through your nose... hold gently...
-          {'\n'}
-          and release slowly through your mouth.
-          {'\n\n'}
-          With each exhale, release the day's tensions.
-          {'\n\n'}
-          Continue breathing naturally, letting your body settle into rest.
+      {/* Sphere Sovereignty Framing */}
+      <View style={styles.sovereigntySection}>
+        <Text style={styles.sovereigntyTitle}>Sphere Sovereignty: Sleep</Text>
+        <Text style={styles.sovereigntyText}>
+          You cannot control when sleep comes, but you can create the conditions for rest.
+        </Text>
+        <Text style={styles.sovereigntyText}>
+          This 4-7-8 breathing pattern signals your nervous system that it's safe to release the day.
         </Text>
       </View>
 
-      {/* Progressive Relaxation */}
-      <View style={styles.relaxationSection}>
-        <Text style={styles.relaxationTitle}>Progressive Relaxation</Text>
-        <Text style={styles.relaxationText}>
-          Notice your body from head to toe...
-          {'\n\n'}
-          Release any tension in your face... your shoulders... your hands...
-          {'\n\n'}
-          Let your breath be gentle and easy.
-          {'\n\n'}
-          You've done what you could today. That's enough.
-        </Text>
+      {/* 4-7-8 Breathing Practice */}
+      <View style={styles.breathingSection}>
+        <Text style={styles.breathingTitle}>4-7-8 Breathing for Sleep</Text>
+
+        {!breathingStarted ? (
+          <>
+            <Text style={styles.breathingInstructions}>
+              • Inhale through your nose for 4 seconds{'\n'}
+              • Hold your breath for 7 seconds{'\n'}
+              • Exhale slowly through your mouth for 8 seconds{'\n'}
+              {'\n'}
+              Repeat 3-4 cycles to prepare for sleep.
+            </Text>
+            <TouchableOpacity
+              style={styles.startBreathingButton}
+              onPress={() => {
+                setBreathingStarted(true);
+                setBreathingActive(true);
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Start 4-7-8 breathing practice"
+            >
+              <Text style={styles.startBreathingText}>Begin Practice</Text>
+            </TouchableOpacity>
+          </>
+        ) : (
+          <>
+            <BreathingCircle
+              isActive={breathingActive}
+              pattern={{ inhale: 4000, hold: 7000, exhale: 8000 }}
+              showCountdown={true}
+              phaseText={{
+                inhale: 'Inhale (nose)',
+                hold: 'Hold gently',
+                exhale: 'Exhale (mouth)',
+              }}
+              testID="sleep-breathing-circle"
+            />
+            {!breathingCompleted && (
+              <TouchableOpacity
+                style={styles.stopBreathingButton}
+                onPress={() => {
+                  setBreathingActive(false);
+                  setBreathingCompleted(true);
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Complete breathing practice"
+              >
+                <Text style={styles.stopBreathingText}>Complete Practice</Text>
+              </TouchableOpacity>
+            )}
+          </>
+        )}
       </View>
 
-      {/* Breathing Completion Toggle */}
-      <TouchableOpacity
-        style={styles.completionToggle}
-        onPress={() => setBreathingCompleted(!breathingCompleted)}
-        accessibilityRole="checkbox"
-        accessibilityState={{ checked: breathingCompleted }}
-      >
-        <View style={[styles.checkbox, breathingCompleted && styles.checkboxChecked]}>
-          {breathingCompleted && <Text style={styles.checkmark}>✓</Text>}
+      {/* Progressive Relaxation (shown after breathing) */}
+      {breathingCompleted && (
+        <View style={styles.relaxationSection}>
+          <Text style={styles.relaxationTitle}>Release and Rest</Text>
+          <Text style={styles.relaxationText}>
+            Notice your body settling...
+            {'\n\n'}
+            Release any remaining tension...
+            {'\n\n'}
+            You've done what you could today. That's enough.
+          </Text>
         </View>
-        <Text style={styles.toggleText}>I completed the breathing practice</Text>
-      </TouchableOpacity>
+      )}
 
       {/* Completion Message */}
       <View style={styles.completionMessage}>
@@ -142,8 +180,8 @@ const SleepTransitionScreen: React.FC<Props> = ({ navigation, onSave }) => {
       {/* Stoic Quote */}
       <View style={styles.quoteSection}>
         <Text style={styles.quoteText}>
-          "Receive sleep as you would receive death - with trust in tomorrow's
-          renewal." — Adapted from Seneca
+          "Receive sleep as you would receive death—with serenity, trusting in
+          tomorrow's renewal." — Seneca, Letters 54:1
         </Text>
       </View>
     </ScrollView>
@@ -225,33 +263,73 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     fontStyle: 'italic',
   },
-  completionToggle: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  sovereigntySection: {
+    padding: 20,
+    backgroundColor: '#2A3A2D',
+    borderRadius: 12,
     marginBottom: 24,
-    padding: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: '#7A9C85',
   },
-  checkbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 4,
-    borderWidth: 2,
-    borderColor: '#5A7C65',
-    marginRight: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
+  sovereigntyTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 12,
+    color: '#C8D8C8',
   },
-  checkboxChecked: {
-    backgroundColor: '#5A7C65',
-  },
-  checkmark: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  toggleText: {
-    fontSize: 16,
+  sovereigntyText: {
+    fontSize: 15,
     color: '#B8B8B8',
+    lineHeight: 24,
+    marginBottom: 12,
+  },
+  breathingSection: {
+    padding: 20,
+    backgroundColor: '#252525',
+    borderRadius: 12,
+    marginBottom: 24,
+    alignItems: 'center',
+    borderLeftWidth: 4,
+    borderLeftColor: '#5A7C65',
+  },
+  breathingTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 16,
+    color: '#B8C8B8',
+    textAlign: 'center',
+  },
+  breathingInstructions: {
+    fontSize: 15,
+    color: '#A8A8A8',
+    lineHeight: 24,
+    marginBottom: 20,
+    textAlign: 'left',
+    width: '100%',
+  },
+  startBreathingButton: {
+    backgroundColor: '#5A7C65',
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    borderRadius: 8,
+    marginTop: 12,
+  },
+  startBreathingText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#E8F0E8',
+  },
+  stopBreathingButton: {
+    backgroundColor: '#2D5016',
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    borderRadius: 8,
+    marginTop: 20,
+  },
+  stopBreathingText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#E8F0E8',
   },
   completionMessage: {
     padding: 20,

@@ -17,32 +17,60 @@ import Animated, {
   useAnimatedStyle,
   withTiming,
   withRepeat,
+  withDelay,
+  withSequence,
   runOnJS,
   Easing,
   cancelAnimation,
 } from 'react-native-reanimated';
 import { colorSystem, spacing, typography } from '../../../constants/colors';
 
+interface BreathingPattern {
+  inhale: number;  // milliseconds
+  hold?: number;   // milliseconds (optional)
+  exhale: number;  // milliseconds
+}
+
 interface BreathingCircleProps {
   isActive?: boolean;
   onCycleComplete?: () => void;
   testID?: string;
   reducedMotion?: boolean;
+  pattern?: BreathingPattern; // NEW: configurable pattern
+  showCountdown?: boolean;     // NEW: show countdown numbers
+  phaseText?: {                // NEW: custom phase labels
+    inhale?: string;
+    hold?: string;
+    exhale?: string;
+  };
 }
+
+// Default 4-4 pattern (backward compatible)
+const DEFAULT_PATTERN: BreathingPattern = {
+  inhale: 4000,
+  exhale: 4000,
+};
 
 const BreathingCircle: React.FC<BreathingCircleProps> = ({
   isActive = true,
   onCycleComplete,
   testID = 'breathing-circle',
-  reducedMotion = false
+  reducedMotion = false,
+  pattern = DEFAULT_PATTERN,
+  showCountdown = false,
+  phaseText = { inhale: 'Breathe in', hold: 'Hold', exhale: 'Breathe out' },
 }) => {
   // High-performance shared values for 60fps animations
   const scale = useSharedValue(1);
   const opacity = useSharedValue(0.8);
   const phase = useSharedValue(0); // 0 = inhale start, 0.5 = exhale start, 1 = cycle complete
+  const countdown = useSharedValue(0);        // Current countdown number
+  const currentPhase = useSharedValue<'inhale' | 'hold' | 'exhale'>('inhale');
 
   // Cycle counter for completion tracking
   const cycleCountRef = useRef(0);
+  // Countdown interval ref for proper cleanup
+  const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
   // Use shared value for worklet compatibility (accessed in UI thread)
   const isReducedMotion = useSharedValue(reducedMotion);
 
@@ -101,19 +129,30 @@ const BreathingCircle: React.FC<BreathingCircleProps> = ({
       cancelAnimation(scale);
       cancelAnimation(opacity);
       cancelAnimation(phase);
+      cancelAnimation(countdown);
+
+      // Clear countdown interval
+      if (countdownIntervalRef.current) {
+        clearInterval(countdownIntervalRef.current);
+        countdownIntervalRef.current = null;
+      }
 
       scale.value = withTiming(1, { duration: 300 });
       opacity.value = withTiming(0.8, { duration: 300 });
       phase.value = 0;
+      countdown.value = 0;
       return;
     }
 
-    // Start the breathing cycle with precise timing
-    const startBreathingCycle = () => {
-      // Complete cycle: inhale (4s) + exhale (4s) = 8s total
+    const hasHoldPhase = pattern.hold && pattern.hold > 0;
+
+    if (!hasHoldPhase) {
+      // Backward compatible: use withRepeat for simple inhale/exhale pattern
+      const cycleDuration = pattern.inhale + pattern.exhale;
+
       scale.value = withRepeat(
         withTiming(1.5, {
-          duration: 4000,
+          duration: pattern.inhale,
           easing: Easing.inOut(Easing.ease),
         }),
         -1,
@@ -122,34 +161,140 @@ const BreathingCircle: React.FC<BreathingCircleProps> = ({
 
       opacity.value = withRepeat(
         withTiming(1, {
-          duration: 4000,
+          duration: pattern.inhale,
           easing: Easing.inOut(Easing.ease),
         }),
         -1,
         true // Reverse animation for exhale
       );
 
-      // Phase tracking for accessibility
       phase.value = withRepeat(
         withTiming(1, {
-          duration: 8000,
+          duration: cycleDuration,
           easing: Easing.linear,
         }),
         -1,
         false
       );
-    };
 
-    // Start the breathing cycle
-    startBreathingCycle();
+      // Initial announcement
+      announcePhase(phaseText.inhale || 'Breathe in');
+    } else {
+      // Sequential animation for patterns with hold phase (e.g., 4-7-8)
+      let isComponentActive = true;
 
-    // Cleanup function
+      const startCountdown = (duration: number, phaseName: 'inhale' | 'hold' | 'exhale') => {
+        if (!showCountdown) return;
+
+        const seconds = Math.ceil(duration / 1000);
+        countdown.value = seconds;
+        currentPhase.value = phaseName;
+
+        countdownIntervalRef.current = setInterval(() => {
+          countdown.value = Math.max(0, countdown.value - 1);
+          if (countdown.value <= 0 && countdownIntervalRef.current) {
+            clearInterval(countdownIntervalRef.current);
+            countdownIntervalRef.current = null;
+          }
+        }, 1000);
+      };
+
+      const clearCountdown = () => {
+        if (countdownIntervalRef.current) {
+          clearInterval(countdownIntervalRef.current);
+          countdownIntervalRef.current = null;
+        }
+      };
+
+      const startBreathingCycle = () => {
+        if (!isComponentActive) return;
+
+        // INHALE phase - start announcements and countdown
+        currentPhase.value = 'inhale';
+        announcePhase(phaseText.inhale || 'Breathe in');
+        startCountdown(pattern.inhale, 'inhale');
+
+        // Animation: inhale -> hold (maintain) -> exhale
+        scale.value = withSequence(
+          // Inhale: scale up
+          withTiming(1.5, {
+            duration: pattern.inhale,
+            easing: Easing.inOut(Easing.ease),
+          }),
+          // Hold: maintain scale for hold duration
+          withDelay(pattern.hold!, withTiming(1.5, { duration: 0 })),
+          // Exhale: scale down
+          withTiming(1, {
+            duration: pattern.exhale,
+            easing: Easing.inOut(Easing.ease),
+          })
+        );
+
+        // Schedule phase transitions and announcements
+        // After inhale completes -> start hold
+        setTimeout(() => {
+          if (!isComponentActive) return;
+          clearCountdown();
+          currentPhase.value = 'hold';
+          announcePhase(phaseText.hold || 'Hold');
+          startCountdown(pattern.hold!, 'hold');
+
+          // After hold completes -> start exhale
+          setTimeout(() => {
+            if (!isComponentActive) return;
+            clearCountdown();
+            currentPhase.value = 'exhale';
+            announcePhase(phaseText.exhale || 'Breathe out');
+            startCountdown(pattern.exhale, 'exhale');
+
+            // After exhale completes -> cycle complete
+            setTimeout(() => {
+              if (!isComponentActive) return;
+              clearCountdown();
+              handleCycleComplete();
+
+              // Restart cycle
+              setTimeout(() => {
+                if (isComponentActive) {
+                  startBreathingCycle();
+                }
+              }, 100);
+            }, pattern.exhale);
+          }, pattern.hold!);
+        }, pattern.inhale);
+
+        // Opacity animation (simpler - just pulse throughout)
+        opacity.value = withRepeat(
+          withTiming(1, {
+            duration: (pattern.inhale + (pattern.hold || 0) + pattern.exhale) / 2,
+            easing: Easing.inOut(Easing.ease),
+          }),
+          -1,
+          true
+        );
+      };
+
+      startBreathingCycle();
+
+      // Cleanup function
+      return () => {
+        isComponentActive = false;
+        clearCountdown();
+        cancelAnimation(scale);
+        cancelAnimation(opacity);
+        cancelAnimation(phase);
+        cancelAnimation(countdown);
+      };
+    }
+
+    // Cleanup function for simple pattern
     return () => {
       cancelAnimation(scale);
       cancelAnimation(opacity);
       cancelAnimation(phase);
+      cancelAnimation(countdown);
     };
-  }, [isActive, scale, opacity, phase]);
+  }, [isActive, pattern, scale, opacity, phase, countdown, announcePhase, handleCycleComplete, phaseText, showCountdown]);
 
   return (
     <View style={styles.container} testID={testID}>
@@ -165,6 +310,15 @@ const BreathingCircle: React.FC<BreathingCircleProps> = ({
       >
         {/* Inner circle for visual depth */}
         <View style={styles.innerCircle} />
+
+        {/* Countdown display (when enabled) */}
+        {showCountdown && (
+          <View style={styles.countdownContainer}>
+            <Text style={styles.countdownText}>
+              {countdown.value > 0 ? countdown.value : ''}
+            </Text>
+          </View>
+        )}
       </Animated.View>
 
       {/* Guidance text */}
@@ -243,6 +397,17 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: spacing.sm,
     fontWeight: '500',
+  },
+  countdownContainer: {
+    position: 'absolute',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  countdownText: {
+    fontSize: 48,
+    fontWeight: 'bold',
+    color: colorSystem.base.white,
+    textAlign: 'center',
   },
 });
 
