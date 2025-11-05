@@ -241,13 +241,13 @@ const styles = StyleSheet.create({
   },
   backButtonText: {
     fontSize: 32,
-    color: '#8B4789',
+    color: '#4A7C59',
   },
   title: {
     fontSize: 32,
     fontWeight: 'bold',
     marginBottom: 8,
-    color: '#8B4789',
+    color: '#4A7C59',
   },
   subtitle: {
     fontSize: 16,
@@ -255,10 +255,10 @@ const styles = StyleSheet.create({
   },
   quoteSection: {
     padding: 16,
-    backgroundColor: '#f9f3f9',
+    backgroundColor: '#F0F5F1',
     borderRadius: 12,
     borderLeftWidth: 4,
-    borderLeftColor: '#8B4789',
+    borderLeftColor: '#4A7C59',
     marginBottom: 32,
   },
   quoteText: {
@@ -279,7 +279,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 20,
     borderLeftWidth: 4,
-    borderLeftColor: '#8B4789',
+    borderLeftColor: '#4A7C59',
   },
   gratitudeHeader: {
     flexDirection: 'row',
@@ -289,7 +289,7 @@ const styles = StyleSheet.create({
   gratitudeNumber: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#8B4789',
+    color: '#4A7C59',
     marginRight: 12,
     width: 32,
   },
@@ -332,13 +332,13 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   continueButton: {
-    backgroundColor: '#8B4789',
+    backgroundColor: '#4A7C59',
     padding: 18,
     borderRadius: 12,
     alignItems: 'center',
     marginTop: 12,
     marginBottom: 12,
-    shadowColor: '#8B4789',
+    shadowColor: '#4A7C59',
     shadowOffset: {
       width: 0,
       height: 4,

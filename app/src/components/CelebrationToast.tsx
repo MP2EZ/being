@@ -50,8 +50,8 @@ const FLOW_CONFIG = {
   },
   evening: {
     title: 'Evening Examination Complete',
-    color: '#8B4789',
-    bgColor: '#F5F0FF',
+    color: '#4A7C59',
+    bgColor: '#F0F5F1',
   },
 };
 
