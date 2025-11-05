@@ -228,10 +228,8 @@ const ProfileScreen: React.FC = () => {
             accessibilityLabel="Depression Assessment (PHQ-9)"
             accessibilityHint="3 to 5 minute assessment"
           >
-            <View style={styles.cardHeader}>
-              <Text style={styles.cardTitle}>Depression Assessment (PHQ-9)</Text>
-              {getStatusIndicator(phq9Metadata)}
-            </View>
+            <Text style={styles.cardTitle}>Depression Assessment (PHQ-9)</Text>
+            {getStatusIndicator(phq9Metadata)}
             <Text style={styles.cardDescription}>
               Observe your mood patterns over the past two weeks through 9 questions.
             </Text>
@@ -247,10 +245,8 @@ const ProfileScreen: React.FC = () => {
             accessibilityLabel="Anxiety Assessment (GAD-7)"
             accessibilityHint="2 to 4 minute assessment"
           >
-            <View style={styles.cardHeader}>
-              <Text style={styles.cardTitle}>Anxiety Assessment (GAD-7)</Text>
-              {getStatusIndicator(gad7Metadata)}
-            </View>
+            <Text style={styles.cardTitle}>Anxiety Assessment (GAD-7)</Text>
+            {getStatusIndicator(gad7Metadata)}
             <Text style={styles.cardDescription}>
               Observe your relationship with worry and anxiety through 7 questions.
             </Text>
@@ -750,12 +746,6 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-  },
   cardFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -779,6 +769,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
+    alignSelf: 'flex-start',
+    marginTop: spacing.sm,
+    marginBottom: spacing.sm,
   },
   statusDue: {
     fontSize: 12,
@@ -788,6 +781,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
+    alignSelf: 'flex-start',
+    marginTop: spacing.sm,
+    marginBottom: spacing.sm,
   },
   statusRecommended: {
     fontSize: 12,
@@ -797,6 +793,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
+    alignSelf: 'flex-start',
+    marginTop: spacing.sm,
+    marginBottom: spacing.sm,
   },
   educationLink: {
     paddingVertical: spacing.sm,
