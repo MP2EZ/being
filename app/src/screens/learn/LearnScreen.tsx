@@ -76,8 +76,8 @@ const LearnScreen: React.FC = () => {
   const recommendedModuleId = getRecommendedModule();
 
   const handleModulePress = (moduleId: ModuleId) => {
-    // TODO: Navigate to ModuleDetailScreen when implemented
-    console.log(`Navigate to module: ${moduleId}`);
+    // Navigate to ModuleDetailScreen
+    navigation.navigate('ModuleDetail', { moduleId });
   };
 
   const getProgressPercentage = (moduleId: ModuleId): number => {
