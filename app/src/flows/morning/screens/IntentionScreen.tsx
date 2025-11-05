@@ -219,7 +219,7 @@ const styles = StyleSheet.create({
   },
   backButtonText: {
     fontSize: 16,
-    color: '#FF9F43',
+    color: '#B45309',
   },
   header: {
     marginBottom: 24,
@@ -246,7 +246,7 @@ const styles = StyleSheet.create({
   },
   educationToggleText: {
     fontSize: 14,
-    color: '#FF9F43',
+    color: '#B45309',
     fontWeight: '500',
   },
   educationCard: {
@@ -254,7 +254,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF8F0',
     borderRadius: 8,
     borderLeftWidth: 4,
-    borderLeftColor: '#FF9F43',
+    borderLeftColor: '#B45309',
     marginBottom: 24,
   },
   educationText: {
@@ -311,7 +311,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   continueButton: {
-    backgroundColor: '#FF9F43',
+    backgroundColor: '#B45309',
     padding: 16,
     borderRadius: 8,
     alignItems: 'center',
@@ -331,7 +331,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f9f9f9',
     borderRadius: 8,
     borderLeftWidth: 4,
-    borderLeftColor: '#FF9F43',
+    borderLeftColor: '#B45309',
     marginBottom: 40,
   },
   quoteText: {
