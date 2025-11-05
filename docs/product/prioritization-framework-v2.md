@@ -8,7 +8,7 @@
   - [Impact (1-5): User Breadth](#impact-1-5-user-breadth)
   - [Value (1-5): Effect Depth](#value-1-5-effect-depth)
   - [Strategic Fit (1-5): Business Alignment](#strategic-fit-1-5-business-alignment)
-  - [Urgency (1-5): Time Criticality](#urgency-1-5-time-criticality)
+  - [Urgency (1-5): When Required](#urgency-1-5-when-required)
   - [Effort (T-Shirt Sizing): Development Complexity](#effort-t-shirt-sizing-development-complexity)
   - [Risk (1-5): Technical/Domain/Operational Risk](#risk-1-5-technicaldomain-operational-risk)
 - [Priority Score Formula](#priority-score-formula)
@@ -241,7 +241,7 @@ Strategic Fit = 5 (mission-essential MBCT principle takes precedence)
 
 ---
 
-### Urgency (1-5): Time Criticality
+### Urgency (1-5): When Required
 
 **What it measures**: When does this need to be done? Based on external deadlines, dependencies, market windows, or blocking relationships.
 
@@ -481,7 +481,7 @@ Where:
   I  = Impact (1-5): User breadth
   V  = Value (1-5): Effect depth
   SF = Strategic Fit (1-5): Business alignment
-  U  = Urgency (1-5): Time criticality
+  U  = Urgency (1-5): When required
   E  = Effort (1, 2, 3, 5, 8, 13 Fibonacci points)
   R  = Risk (1-5): Uncertainty and complexity
 ```
@@ -691,7 +691,7 @@ Critical Issue: Stripe explicitly does NOT offer HIPAA BAAs. Cannot be used for 
 - **Start with Value**: "How much does this matter to users who use it?" (effect depth)
 - **Then Impact**: "How many users will use this?" (user breadth)
 - **Then Strategic Fit**: "How does this advance business goals?" (business alignment)
-- **Then Urgency**: "When does this need to be done?" (time criticality)
+- **Then Urgency**: "When does this need to be done?" (when required)
 - **Then Effort**: "How much work across all disciplines?" (complexity)
 - **Finally Risk**: "What could go wrong?" (uncertainty)
 
@@ -887,56 +887,6 @@ The Value^1.5 weighting is appropriate for pre-launch mental health app context.
 
 ---
 
-## Migration from v1.0
-
-### Mapping v1.0 → v2.0
-
-| v1.0 Dimension | v2.0 Dimension | Migration Guide |
-|----------------|----------------|-----------------|
-| **Impact** (business outcome) | Split: **Impact** (user breadth) + **Strategic Fit** (business) | Ask: "How many users?" (I) and "Why business important?" (SF) |
-| **Value** (user benefit) | **Value** (effect depth) | Unchanged concept, but clarify it's independent of reach |
-| **Strategic Fit** (roadmap) | **Strategic Fit** (business alignment) | Expand to include revenue, competitive, mission angles |
-| **Time Criticality** | **Urgency** (time criticality) | Renamed for clarity: U instead of TC |
-| **Effort** | **Effort** | Unchanged |
-| **Risk** | **Risk** | Unchanged |
-
-### Re-Scoring Existing Items
-
-For items scored with v1.0:
-
-1. **Review Impact score**: Did you score based on "business importance" or "user reach"?
-   - If business importance: Split into I (reach) + SF (strategic value)
-   - If user reach: Keep Impact, adjust Strategic Fit if needed
-
-2. **Review Value score**: Is it truly effect depth, or mixed with reach?
-   - If mixed: Clarify I (who) vs V (how much) distinction
-
-3. **Review Strategic Fit**: Does it capture business/revenue/competitive angles?
-   - If only roadmap alignment: Expand to business alignment
-
-**Example: Account System v1.0 → v2.0**
-
-v1.0 Scores:
-- I=5 (because "enables subscriptions" - business angle)
-- V=4 (significant user need)
-- SF=4 (core strategy)
-
-v2.0 Re-Score:
-- I=5 (ALL users → unchanged, but reasoning clarified)
-- V=4 (high effect for users → unchanged)
-- SF=4 (enables subscription revenue, competitive parity → reasoning expanded)
-
-Priority largely unchanged, but scoring rationale is clearer and more defensible.
-
-### Timeline for Migration
-
-- **Immediate**: Use v2.0 framework for all NEW work items
-- **Within 2 weeks**: Re-score top 20 backlog items (Priority >10) with v2.0
-- **Within 1 month**: Complete re-scoring of entire active backlog
-- **Ongoing**: Use v2.0 for all quarterly reviews
-
----
-
 ## Maintenance
 
 **Document Owner**: Product Manager
@@ -950,7 +900,7 @@ Priority largely unchanged, but scoring rationale is clearer and more defensible
 
 **Version History**:
 - **v2.1 (2025-10-07)**: Critical modifications and terminology refinement
-  - Renamed: "Time Criticality" → "Urgency" (TC → U for clarity and consistency)
+  - Renamed: "Urgency" → "Urgency" (TC → U for clarity and consistency)
   - Added: Pre-Launch Scoring Protocol (5 mandatory rules for validation-driven prioritization)
   - Added: Strategic Fit Hierarchy (Safety > Mission > Compliance > Revenue > Competitive)
   - Added: Effort Aggregation Guidance (cross-functional work estimation with critical path)
