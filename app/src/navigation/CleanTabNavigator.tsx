@@ -18,6 +18,8 @@ import { colorSystem, spacing } from '../constants/colors';
 import CleanHomeScreen from '../screens/home/CleanHomeScreen';
 import ExercisesScreen from '../screens/ExercisesScreen';
 import ProfileScreen from '../screens/ProfileScreen';
+import InsightsScreen from '../screens/InsightsScreen';
+import LearnScreen from '../screens/learn/LearnScreen';
 import BrainIcon from '../components/shared/BrainIcon';
 import FeatureGate from '../components/subscription/FeatureGate';
 import { useNavigation } from '@react-navigation/native';
@@ -53,6 +55,13 @@ const CircleIcon: React.FC<{ color: string; size?: number }> = ({ color, size = 
   </Svg>
 );
 
+const BookIcon: React.FC<{ color: string; size?: number }> = ({ color, size = 24 }) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24">
+    <Path d="M4 19.5C4 20.881 5.119 22 6.5 22H20V2H6.5C5.119 2 4 3.119 4 4.5V19.5ZM18 4V20H6.5C6.224 20 6 19.776 6 19.5V5.207C6.313 5.348 6.644 5.45 7 5.5V18H18V4Z" fill={color} />
+    <Path d="M9 8H15V10H9V8ZM9 11H15V13H9V11Z" fill={color} />
+  </Svg>
+);
+
 // Placeholder components for other tabs
 const PlaceholderScreen: React.FC<{ name: string; description: string }> = ({ name, description }) => (
   <View style={{
@@ -85,7 +94,8 @@ const PlaceholderScreen: React.FC<{ name: string; description: string }> = ({ na
 // Create proper component references to avoid inline functions
 // ExercisesScreen now imported from separate file
 
-const InsightsScreen = () => {
+// Wrap InsightsScreen with FeatureGate
+const InsightsScreenWrapper = () => {
   const navigation = useNavigation<NavigationProp>();
 
   return (
@@ -93,10 +103,7 @@ const InsightsScreen = () => {
       feature="progressInsights"
       onUpgrade={() => navigation.navigate('Subscription')}
     >
-      <PlaceholderScreen
-        name="Your Insights"
-        description="Track your progress, view patterns, and understand your mindfulness journey over time."
-      />
+      <InsightsScreen />
     </FeatureGate>
   );
 };
@@ -179,10 +186,25 @@ const CleanTabNavigator: React.FC = () => {
       />
 
       <Tab.Screen
+        name="Learn"
+        component={LearnScreen}
+        options={{
+          headerTitle: 'Learn',
+          headerShown: false, // LearnScreen has its own SafeAreaView
+          tabBarIcon: ({ focused }) => (
+            <BookIcon
+              color={focused ? colorSystem.navigation.learn : colorSystem.gray[500]}
+            />
+          ),
+        }}
+      />
+
+      <Tab.Screen
         name="Insights"
-        component={InsightsScreen}
+        component={InsightsScreenWrapper}
         options={{
           headerTitle: 'Insights',
+          headerShown: false, // InsightsScreen has its own SafeAreaView
           tabBarIcon: ({ focused }) => (
             <CircleIcon
               color={focused ? colorSystem.navigation.insights : colorSystem.gray[500]}
