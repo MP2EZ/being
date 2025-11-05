@@ -5,7 +5,7 @@
  *
  * Design Library Compliance:
  * - Navigation colors from colorSystem.navigation
- * - NavShape components: triangle (home), square (checkins), star (exercises), circle (insights)
+ * - NavShape components: triangle (home), book (learn), circle (insights)
  * - BrainIcon with 60% fill for profile
  * - Inactive state: colorSystem.gray[500]
  */
@@ -16,7 +16,6 @@ import { View, Text } from 'react-native';
 import Svg, { Path, Circle, Rect, ClipPath, Defs, G } from 'react-native-svg';
 import { colorSystem, spacing } from '../constants/colors';
 import CleanHomeScreen from '../screens/home/CleanHomeScreen';
-import ExercisesScreen from '../screens/ExercisesScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import InsightsScreen from '../screens/InsightsScreen';
 import LearnScreen from '../screens/learn/LearnScreen';
@@ -40,12 +39,6 @@ const TriangleIcon: React.FC<{ color: string; size?: number }> = ({ color, size 
 const SquareIcon: React.FC<{ color: string; size?: number }> = ({ color, size = 24 }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24">
     <Rect x="3" y="3" width="18" height="18" rx="3" fill={color} />
-  </Svg>
-);
-
-const StarIcon: React.FC<{ color: string; size?: number }> = ({ color, size = 24 }) => (
-  <Svg width={size} height={size} viewBox="0 0 24 24">
-    <Path d="M12 2 L15.09 8.26 L22 9.27 L17 14.14 L18.18 21.02 L12 17.77 L5.82 21.02 L7 14.14 L2 9.27 L8.91 8.26 Z" fill={color} />
   </Svg>
 );
 
@@ -166,20 +159,6 @@ const CleanTabNavigator: React.FC = () => {
           tabBarIcon: ({ focused }) => (
             <TriangleIcon
               color={focused ? colorSystem.navigation.home : colorSystem.gray[500]}
-            />
-          ),
-        }}
-      />
-
-      <Tab.Screen
-        name="Exercises"
-        component={ExercisesScreen}
-        options={{
-          headerTitle: 'Exercises',
-          headerShown: false, // ExercisesScreen has its own SafeAreaView
-          tabBarIcon: ({ focused }) => (
-            <StarIcon
-              color={focused ? colorSystem.navigation.exercises : colorSystem.gray[500]}
             />
           ),
         }}
