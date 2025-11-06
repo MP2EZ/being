@@ -476,3 +476,103 @@ Continue from Phase 3 focusing on high-impact categories above. Priority order:
 
 *Generated: 2025-11-05*
 *Last Update: Phase 2.3 complete (29.8%)*
+
+---
+
+## Phase 8: TS2554 Argument Count Mismatches (In Progress)
+
+**Started:** Session continuation  
+**Target:** 120 errors → 0  
+**Progress:** 34/120 fixed (28.3%)  
+**Remaining:** 86 errors
+
+### Sub-phase 8.1: useRef Initialization (5 errors) ✅ COMPLETE
+**Pattern:** `useRef<NodeJS.Timeout>()` missing required initial value
+
+**Files Fixed:**
+- `src/components/accessibility/advanced/CognitiveAccessibility.tsx`: 2 fixes
+- `src/components/accessibility/advanced/CrisisAccessibility.tsx`: 1 fix
+- `src/components/accessibility/advanced/MotorAccessibility.tsx`: 2 fixes
+
+**Solution:**
+```typescript
+// Before (ERROR):
+const timeoutRef = useRef<NodeJS.Timeout>();
+
+// After (FIXED):
+const timeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
+```
+
+**Commit:** bdaaa9d
+
+---
+
+### Sub-phases 8.2-8.5: Logging Signature Fixes (29 errors) ✅ COMPLETE
+
+**Root Cause:**  
+logPerformance/logSecurity/logError calls using incorrect signatures:
+- logPerformance signature: `(operation: string, duration: number, metadata?: {})`
+- logSecurity signature: `(event: string, severity: 'low'|'medium'|'high'|'critical', context?: {})`
+- logError signature: `(category: LogCategory, message: string, error?: Error)`
+
+**Pattern Categories:**
+
+1. **Performance measurements with embedded timing** → Extract timing variable
+   ```typescript
+   // Before:
+   logPerformance(`Operation completed (${time.toFixed(2)}ms)`);
+   
+   // After:
+   logPerformance('Service.operation', time, { metadata });
+   ```
+
+2. **Informational logs without timing** → Convert to console.log
+   ```typescript
+   // Before:
+   logPerformance('✅ Operation completed');
+   
+   // After:
+   console.log('✅ Operation completed');
+   ```
+
+**Files Completed:**
+
+#### Sub-phase 8.2: SecureStorageService.ts (8 errors) ✅
+- initialize, storeCrisisData, storeAssessmentData
+- retrieveCrisisData, retrieveAssessmentData
+- bulkOperation, deleteData, cleanup
+
+#### Sub-phase 8.3: NetworkSecurityService.ts (7 errors) ✅
+- initialize, secureRequest, crisisAPI
+- uploadAssessment, professionalAPI
+- bulkOperation, retry (converted to console.log)
+
+#### Sub-phase 8.4: EncryptionService.ts (7 errors) ✅
+- initialize, encrypt, decrypt
+- encryptCrisisData, encryptAssessmentData (console.log)
+- migration skip (console.log), rotateKeys
+
+#### Sub-phase 8.5: PerformanceValidator.ts (7 errors) ✅
+- All stress test logs (informational) → console.log
+
+**Commits:**  
+- bdaaa9d: Phase 8.1 & 8.2 (useRef + SecureStorageService)
+- 0298c0f: Phase 8.3 (NetworkSecurityService)
+- 5cd0bf0: Phase 8.4 (EncryptionService)
+- 123b677: Phase 8.5 (PerformanceValidator)
+
+---
+
+### Remaining TS2554 Errors (86)
+
+**Top Files:**
+- CrisisSecurityProtocol.ts: 6 errors
+- AnalyticsService.ts: 6 errors
+- SecurityMonitoringService.ts: 5 errors
+- AuthenticationService.ts: 5 errors
+- IncidentResponseService.ts: 5 errors
+- Others: ~59 errors across ~10 files
+
+**Next Steps:**
+Continue systematic file-by-file fixes following established patterns.
+
