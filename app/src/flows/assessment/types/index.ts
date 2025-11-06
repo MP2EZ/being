@@ -74,21 +74,14 @@ export interface AssessmentSession {
   context: 'standalone' | 'onboarding' | 'checkin';
 }
 
-// Crisis Intervention Types (Basic - see crisis/safety.ts for comprehensive)
-export interface CrisisDetection {
-  isTriggered: boolean;
-  triggerType: 'phq9_score' | 'phq9_suicidal' | 'gad7_score';
-  triggerValue: number;
-  timestamp: number;
-  assessmentId: string;
-}
-
-export interface CrisisIntervention {
-  detection: CrisisDetection;
-  interventionStarted: boolean;
-  contactedSupport: boolean;
-  responseTime: number; // Must be <200ms
-}
+// Crisis Intervention Types - Re-export comprehensive types from crisis/safety.ts
+// This avoids duplication and ensures all services use the complete type definitions
+export type {
+  CrisisDetection,
+  CrisisIntervention,
+  CrisisTriggerType,
+  CrisisSeverityLevel,
+} from './crisis/safety';
 
 // Legacy Component Props (see components/props.ts for comprehensive)
 export interface AssessmentQuestionProps {
