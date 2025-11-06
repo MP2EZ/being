@@ -557,13 +557,9 @@ export class EncryptionService {
       // Otherwise generate new salt (for encryption)
       const keySalt = salt || await this.generateSecureRandomBytes(ENCRYPTION_CONFIG.SALT_LENGTH);
 
-      // Check cache first (only if we have a stable keyId)
-      if (keyId && !salt) {
-        const cachedKey = this.keyCache.get(derivationKeyId);
-        if (cachedKey) {
-          return { key: cachedKey, salt: keySalt };
-        }
-      }
+      // Note: Caching is disabled because each encryption needs a unique salt.
+      // Returning a cached key with a different salt would break decryption.
+      // The cache was causing: encrypt with keyA+saltB, store saltB, decrypt with keyB (derived from saltB) → fail
 
       // Get master key
       const masterKeyB64 = await SecureStore.getItemAsync(ENCRYPTION_CONFIG.MASTER_KEY_ID);
@@ -581,15 +577,8 @@ export class EncryptionService {
         ENCRYPTION_CONFIG.KEY_LENGTH
       );
 
-      // Cache derived key (with memory cleanup) - only for stable keyIds
-      if (keyId) {
-        this.keyCache.set(derivationKeyId, derivedKey);
-
-        // Schedule key cleanup to prevent memory leaks
-        setTimeout(() => {
-          this.keyCache.delete(derivationKeyId);
-        }, 300000); // 5 minutes
-      }
+      // Caching removed: Each encryption operation needs unique salt,
+      // so we can't reuse derived keys across operations
 
       return { key: derivedKey, salt: keySalt };
 

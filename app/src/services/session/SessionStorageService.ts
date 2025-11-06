@@ -118,6 +118,12 @@ export class SessionStorageService {
       return sessionData;
     } catch (error) {
       console.error(`[SessionStorage] Failed to load session:`, error);
+
+      // Clear corrupted/incompatible session data
+      // This handles migration from old encryption formats
+      await this.clearSession(flowType);
+      console.log(`[SessionStorage] Cleared incompatible session for ${flowType}`);
+
       return null; // Fail gracefully
     }
   }
