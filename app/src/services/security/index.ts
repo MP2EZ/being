@@ -186,7 +186,9 @@ export class SecurityOrchestrator {
       this.initialized = true;
 
       const initializationTime = performance.now() - startTime;
-      logPerformance(`✅ Security Architecture Initialized Successfully (${initializationTime.toFixed(2)}ms)`);
+      logPerformance('SecurityArchitecture.initialize', initializationTime, {
+        status: 'success'
+      });
 
       // Log successful initialization through incident response
       await this.incidentResponse.detectAndRespondToIncident(
@@ -255,7 +257,7 @@ export class SecurityOrchestrator {
       // 4. Start crisis security monitoring
       await this.crisisSecurityProtocol.startCrisisSecurityMonitoring(crisisEpisodeId);
 
-      logPerformance(`🔒 Crisis data protected (episode: ${crisisEpisodeId})`);
+      console.log(`🔒 Crisis data protected (episode: ${crisisEpisodeId})`);
 
       return {
         encrypted: true,
@@ -345,7 +347,7 @@ export class SecurityOrchestrator {
       // 4. Perform compliance check
       const complianceStatus = await this.securityMonitoring.performComplianceCheck();
 
-      logPerformance(`📋 Assessment data protected (${assessmentData.type}, risk: ${riskLevel})`);
+      console.log(`📋 Assessment data protected (${assessmentData.type}, risk: ${riskLevel})`);
 
       return {
         encrypted: true,
@@ -414,7 +416,9 @@ export class SecurityOrchestrator {
 
       const accessTime = performance.now() - startTime;
 
-      logPerformance(`🚨 Emergency access granted (${accessTime.toFixed(2)}ms)`);
+      logPerformance('SecurityArchitecture.grantEmergencyAccess', accessTime, {
+        accessType: 'emergency'
+      });
 
       return {
         accessGranted: accessContext.auditTrail.accessGranted && authResult.success,
@@ -523,7 +527,7 @@ export class SecurityOrchestrator {
       if (incidentScore < 90) recommendations.push('Improve incident response procedures');
       if (complianceScore < 95) recommendations.push('Address compliance violations');
 
-      logPerformance(`🔍 Security health check completed (overall score: ${overallScore.toFixed(1)}%)`);
+      console.log(`🔍 Security health check completed (overall score: ${overallScore.toFixed(1)}%)`);
 
       return {
         overallScore,

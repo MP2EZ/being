@@ -277,7 +277,9 @@ class StorePartitionManager {
       partition.loadTime = performance.now() - startTime;
       partition.lastAccessed = Date.now();
 
-      logPerformance(`✅ Loaded partition: ${partitionId} in ${partition.loadTime.toFixed(2)}ms`);
+      logPerformance('ZustandStoreOptimizer.loadPartition', partition.loadTime, {
+        partitionId
+      });
 
       DeviceEventEmitter.emit('partition_loaded', {
         partitionId,
@@ -432,7 +434,9 @@ class BatchOperationProcessor {
 
     const batchTime = performance.now() - startTime;
 
-    logPerformance(`📦 Processed ${operations.length} operations in ${batchTime.toFixed(2)}ms`);
+    logPerformance('ZustandStoreOptimizer.processBatch', batchTime, {
+      operationCount: operations.length
+    });
 
     DeviceEventEmitter.emit('batch_operations_processed', {
       operationCount: operations.length,
@@ -582,11 +586,15 @@ export class ZustandStoreOptimizer {
 
     // Alert on performance issues
     if (cacheStats.hitRate < 70) {
-      logSecurity(`⚠️ Low cache hit rate: ${cacheStats.hitRate.toFixed(2)}%`);
+      logSecurity('Low cache hit rate', 'low', {
+        hitRate: cacheStats.hitRate
+      });
     }
 
     if (partitionStats.averageLoadTime > 100) {
-      logSecurity(`⚠️ Slow partition loading: ${partitionStats.averageLoadTime.toFixed(2)}ms`);
+      logSecurity('Slow partition loading', 'low', {
+        averageLoadTime: partitionStats.averageLoadTime
+      });
     }
   }
 
@@ -649,7 +657,10 @@ export class ZustandStoreOptimizer {
 
           // Check performance threshold
           if (executionTime > this.config.maxOperationTime) {
-            logSecurity(`⚠️ Slow store operation: ${operationName} took ${executionTime.toFixed(2)}ms`);
+            logSecurity('Slow store operation', 'low', {
+              operationName,
+              executionTime
+            });
           }
 
           resolve(result);

@@ -323,7 +323,9 @@ export class IncidentResponseService {
       this.initialized = true;
 
       const initializationTime = performance.now() - startTime;
-      logPerformance(`✅ Incident Response Service initialized (${initializationTime.toFixed(2)}ms)`);
+      logPerformance('IncidentResponseService.initialize', initializationTime, {
+        status: 'success'
+      });
 
       // Log successful initialization
       await this.logIncidentTimelineEvent('system_initialization', {
@@ -407,7 +409,10 @@ export class IncidentResponseService {
         evidence: [`detection_time: ${detectionTime.toFixed(2)}ms`, `severity: ${severity}`]
       });
 
-      logPerformance(`🚨 Incident response initiated (${incidentRecord.incidentId}, severity: ${severity}, ${detectionTime.toFixed(2)}ms)`);
+      logPerformance('IncidentResponseService.initiateResponse', detectionTime, {
+        incidentId: incidentRecord.incidentId,
+        severity
+      });
 
       return incidentRecord.incidentId;
 
@@ -521,7 +526,9 @@ export class IncidentResponseService {
         notes: 'Emergency crisis data breach response protocol executed'
       });
 
-      logPerformance(`🚨 Crisis data breach response completed (${incidentRecord.incidentId}, ${responseTime.toFixed(2)}ms)`);
+      logPerformance('IncidentResponseService.respondToCrisisDataBreach', responseTime, {
+        incidentId: incidentRecord.incidentId
+      });
 
       return incidentRecord.incidentId;
 
@@ -603,7 +610,9 @@ export class IncidentResponseService {
         evidence: containmentActions.map(a => `${a.actionType}: ${a.success ? 'success' : 'failed'}`)
       });
 
-      logPerformance(`🔒 Containment completed (${containmentActions.length} actions, ${containmentTime.toFixed(2)}ms)`);
+      logPerformance('IncidentResponseService.executeContainment', containmentTime, {
+        actionCount: containmentActions.length
+      });
 
       return containmentActions;
 
@@ -662,7 +671,7 @@ export class IncidentResponseService {
         evidence: notifications.map(n => `${n.recipientGroup}: ${n.deliveryStatus}`)
       });
 
-      logPerformance(`📢 Stakeholder notifications completed (${notifications.length} groups)`);
+      console.log(`📢 Stakeholder notifications completed (${notifications.length} groups)`);
 
       return notifications;
 
