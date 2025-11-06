@@ -273,7 +273,7 @@ export class CrisisPerformanceOptimizer {
       return detection;
     } catch (error) {
       const totalTime = performance.now() - startTime;
-      logError('Optimized crisis detection failed:', error);
+      logError(LogCategory.PERFORMANCE, 'Optimized crisis detection failed:', error instanceof Error ? error : new Error(String(error)));
 
       // Record failed attempt
       this.recordPerformanceMetric({
@@ -326,7 +326,7 @@ export class CrisisPerformanceOptimizer {
       }
 
     } catch (error) {
-      logError('Optimized emergency response failed:', error);
+      logError(LogCategory.PERFORMANCE, 'Optimized emergency response failed:', error instanceof Error ? error : new Error(String(error)));
       // Fallback: Direct 988 call
       Linking.openURL('tel:988');
     }
@@ -394,7 +394,7 @@ export class CrisisPerformanceOptimizer {
         AsyncStorage.setItem(logKey, JSON.stringify(interventionLog))
       );
     } catch (error) {
-      logError('Crisis intervention logging failed:', error);
+      logError(LogCategory.PERFORMANCE, 'Crisis intervention logging failed:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -419,7 +419,7 @@ export class CrisisPerformanceOptimizer {
   private static handlePerformanceAlert(duration: number, operation: string): void {
     this.alertCount++;
 
-    logError(`🚨 PERFORMANCE ALERT: ${operation} took ${duration}ms (target: <${this.config.alertThresholdMs}ms)`);
+    logError(LogCategory.SYSTEM, `PERFORMANCE ALERT: ${operation} took ${duration}ms (target: <${this.config.alertThresholdMs}ms)`);
 
     // Emit alert for external monitoring
     DeviceEventEmitter.emit('performance_alert', {
@@ -432,7 +432,7 @@ export class CrisisPerformanceOptimizer {
 
     // Critical performance degradation handling
     if (duration > this.config.alertThresholdMs * 2) {
-      logError(`🚨 CRITICAL PERFORMANCE DEGRADATION: ${operation} is severely slow`);
+      logError(LogCategory.SYSTEM, `CRITICAL PERFORMANCE DEGRADATION: ${operation} is severely slow`);
 
       // Clear caches to free memory
       if (operation === 'crisis_detection') {

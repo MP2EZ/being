@@ -337,7 +337,7 @@ const EnhancedAssessmentQuestion: React.FC<EnhancedAssessmentQuestionProps> = ({
       }
 
       if (crisisDetection && crisisCheckTime > 200) {
-        logError(`🚨 Crisis detection time: ${crisisCheckTime}ms (target: <200ms)`);
+        logError(LogCategory.SYSTEM, `Crisis detection time: ${crisisCheckTime}ms (target: <200ms)`);
       }
 
       // 6. Create comprehensive metadata
@@ -363,7 +363,7 @@ const EnhancedAssessmentQuestion: React.FC<EnhancedAssessmentQuestionProps> = ({
       );
 
     } catch (error) {
-      logError('Enhanced assessment response error:', error);
+      logError(LogCategory.SYSTEM, 'Enhanced assessment response error:', error instanceof Error ? error : new Error(String(error)));
       setEncryptionStatus('error');
       onError?.(error as Error);
       

@@ -340,7 +340,7 @@ export class CrisisPerformanceMonitor {
       }
 
     } catch (error) {
-      logError('🚨 PERFORMANCE RECORDING ERROR:', error);
+      logError(LogCategory.CRISIS, '🚨 PERFORMANCE RECORDING ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -385,7 +385,7 @@ export class CrisisPerformanceMonitor {
       }
 
     } catch (error) {
-      logError('🚨 SUICIDAL IDEATION PERFORMANCE ERROR:', error);
+      logError(LogCategory.CRISIS, '🚨 SUICIDAL IDEATION PERFORMANCE ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -452,7 +452,7 @@ export class CrisisPerformanceMonitor {
       }
 
     } catch (error) {
-      logError('🚨 INTERVENTION PERFORMANCE ERROR:', error);
+      logError(LogCategory.CRISIS, '🚨 INTERVENTION PERFORMANCE ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -508,7 +508,7 @@ export class CrisisPerformanceMonitor {
       }
 
     } catch (error) {
-      logError('🚨 SYSTEM RELIABILITY RECORDING ERROR:', error);
+      logError(LogCategory.CRISIS, '🚨 SYSTEM RELIABILITY RECORDING ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -568,7 +568,7 @@ export class CrisisPerformanceMonitor {
       return report;
 
     } catch (error) {
-      logError('🚨 PERFORMANCE REPORT GENERATION ERROR:', error);
+      logError(LogCategory.CRISIS, '🚨 PERFORMANCE REPORT GENERATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -606,7 +606,7 @@ export class CrisisPerformanceMonitor {
       });
 
     } catch (error) {
-      logError('🚨 HEALTH CHECK ERROR:', error);
+      logError(LogCategory.CRISIS, '🚨 HEALTH CHECK ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -633,7 +633,7 @@ export class CrisisPerformanceMonitor {
       await this.cleanupOldMetrics();
 
     } catch (error) {
-      logError('🚨 METRIC RECORDING ERROR:', error);
+      logError(LogCategory.CRISIS, '🚨 METRIC RECORDING ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -966,7 +966,7 @@ export class CrisisPerformanceMonitor {
         JSON.stringify(metric)
       );
     } catch (error) {
-      logError('Failed to store performance metric:', error);
+      logError(LogCategory.CRISIS, 'Failed to store performance metric:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -978,7 +978,7 @@ export class CrisisPerformanceMonitor {
         JSON.stringify(alert)
       );
     } catch (error) {
-      logError('Failed to store performance alert:', error);
+      logError(LogCategory.CRISIS, 'Failed to store performance alert:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -989,13 +989,13 @@ export class CrisisPerformanceMonitor {
         JSON.stringify(report)
       );
     } catch (error) {
-      logError('Failed to store performance report:', error);
+      logError(LogCategory.CRISIS, 'Failed to store performance report:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
   private async escalateEmergencyAlert(alert: PerformanceAlert): Promise<void> {
     // Implementation would notify system administrators
-    logError('🚨 EMERGENCY ALERT ESCALATED:', alert.message);
+    logError(LogCategory.SYSTEM, 'EMERGENCY ALERT ESCALATED:', alert.message);
   }
 
   private async cleanupOldMetrics(): Promise<void> {

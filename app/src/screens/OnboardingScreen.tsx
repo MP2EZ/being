@@ -372,7 +372,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
         () => {
           // Measurement failed, fallback to basic scroll
           if (__DEV__) {
-            logSecurity('[Accessibility] Failed to measure element for scroll');
+            logSecurity('[Accessibility] Failed to measure element for scroll', 'low');
           }
         }
       );

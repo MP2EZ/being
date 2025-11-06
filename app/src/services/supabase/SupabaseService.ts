@@ -155,7 +155,7 @@ class SupabaseService {
       logPerformance('[SupabaseService] Initialized with user ID:', this.userId);
 
     } catch (error) {
-      logError('[SupabaseService] Initialization failed:', error);
+      logError(LogCategory.SYSTEM, '[SupabaseService] Initialization failed:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -206,7 +206,7 @@ class SupabaseService {
       await AsyncStorage.setItem(STORAGE_KEYS.DEVICE_ID, this.deviceIdHash);
 
     } catch (error) {
-      logError('[SupabaseService] Failed to ensure anonymous user:', error);
+      logError(LogCategory.SYSTEM, '[SupabaseService] Failed to ensure anonymous user:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -334,7 +334,7 @@ class SupabaseService {
    */
   async saveBackup(encryptedData: string, checksum: string, version: number = 1): Promise<boolean> {
     if (!this.isInitialized || !this.client || !this.userId) {
-      logSecurity('[SupabaseService] Not initialized, queuing backup for later');
+      logSecurity('[SupabaseService] Not initialized, queuing backup for later', 'low');
       this.queueOfflineOperation('saveBackup', { encryptedData, checksum, version });
       return false;
     }
@@ -366,7 +366,7 @@ class SupabaseService {
    */
   async getBackup(): Promise<EncryptedBackup | null> {
     if (!this.isInitialized || !this.client || !this.userId) {
-      logSecurity('[SupabaseService] Not initialized, cannot retrieve backup');
+      logSecurity('[SupabaseService] Not initialized, cannot retrieve backup', 'low');
       return null;
     }
 
@@ -399,7 +399,7 @@ class SupabaseService {
     properties: Record<string, any> = {}
   ): Promise<void> {
     if (!this.userId) {
-      logSecurity('[SupabaseService] Cannot track event without user ID');
+      logSecurity('[SupabaseService] Cannot track event without user ID', 'low');
       return;
     }
 

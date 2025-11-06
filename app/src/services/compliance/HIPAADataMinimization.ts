@@ -412,7 +412,7 @@ export class HIPAADataMinimizationEngine {
       return evaluation;
 
     } catch (error) {
-      logError('🚨 DATA ACCESS EVALUATION ERROR:', error);
+      logError(LogCategory.SYSTEM, 'DATA ACCESS EVALUATION ERROR:', error);
       
       // Return restrictive evaluation on error
       return {
@@ -530,7 +530,7 @@ export class HIPAADataMinimizationEngine {
       };
 
     } catch (error) {
-      logError('🚨 DATA COLLECTION VALIDATION ERROR:', error);
+      logError(LogCategory.SYSTEM, 'DATA COLLECTION VALIDATION ERROR:', error);
       
       return {
         approved: false,
@@ -1190,7 +1190,7 @@ export class HIPAADataMinimizationEngine {
       await SecureStore.setItemAsync(auditKey, JSON.stringify(auditEvent));
 
     } catch (error) {
-      logError('🚨 ACCESS EVALUATION LOGGING ERROR:', error);
+      logError(LogCategory.SYSTEM, 'ACCESS EVALUATION LOGGING ERROR:', error);
     }
   }
 
@@ -1219,7 +1219,7 @@ export class HIPAADataMinimizationEngine {
       await AsyncStorage.setItem(logKey, JSON.stringify(logEntry));
 
     } catch (error) {
-      logError('🚨 COLLECTION VALIDATION LOGGING ERROR:', error);
+      logError(LogCategory.SYSTEM, 'COLLECTION VALIDATION LOGGING ERROR:', error);
     }
   }
 
@@ -1332,7 +1332,7 @@ export class HIPAADataMinimizationEngine {
       };
 
     } catch (error) {
-      logError('🚨 DATA MINIMIZATION STATUS ERROR:', error);
+      logError(LogCategory.SYSTEM, 'DATA MINIMIZATION STATUS ERROR:', error);
       return {
         totalElements: 0,
         protectedElements: 0,

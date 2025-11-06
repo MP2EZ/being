@@ -152,7 +152,7 @@ export const ProductionDashboard: React.FC = () => {
       setError(`Failed to initialize dashboard: ${error.message}`);
       logSecurity('Production dashboard initialization failed', 'medium', {
         component: 'production_dashboard',
-        error: error.message
+        
       });
     }
   };

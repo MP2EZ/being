@@ -285,7 +285,7 @@ class RenderBatchManager {
         try {
           update();
         } catch (error) {
-          logError('Batched update failed:', error);
+          logError(LogCategory.PERFORMANCE, 'Batched update failed:', error instanceof Error ? error : new Error(String(error)));
         }
       });
     });

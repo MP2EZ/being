@@ -138,7 +138,7 @@ export class SuicidalIdeationProtocol {
       return detection;
 
     } catch (error) {
-      logError('🚨 SUICIDAL IDEATION DETECTION ERROR:', error);
+      logError(LogCategory.CRISIS, '🚨 SUICIDAL IDEATION DETECTION ERROR:', error instanceof Error ? error : new Error(String(error)));
 
       // FAIL-SAFE: Emergency intervention
       await this.emergencyFailsafeIntervention(questionId, response);
@@ -178,7 +178,7 @@ export class SuicidalIdeationProtocol {
       return intervention;
 
     } catch (error) {
-      logError('🚨 SUICIDAL IDEATION INTERVENTION ERROR:', error);
+      logError(LogCategory.CRISIS, '🚨 SUICIDAL IDEATION INTERVENTION ERROR:', error instanceof Error ? error : new Error(String(error)));
 
       // FAIL-SAFE: Direct emergency call
       await this.emergencyFailsafeIntervention(
@@ -246,7 +246,7 @@ export class SuicidalIdeationProtocol {
       });
 
     } catch (error) {
-      logError('🚨 SAFETY ACKNOWLEDGMENT ERROR:', error);
+      logError(LogCategory.CRISIS, '🚨 SAFETY ACKNOWLEDGMENT ERROR:', error instanceof Error ? error : new Error(String(error)));
       return false;
     }
   }
@@ -479,7 +479,7 @@ export class SuicidalIdeationProtocol {
     questionId: string,
     response: number
   ): Promise<void> {
-    logError('🚨 EMERGENCY FAILSAFE ACTIVATED - SUICIDAL IDEATION');
+    logError(LogCategory.SYSTEM, 'EMERGENCY FAILSAFE ACTIVATED - SUICIDAL IDEATION');
 
     Alert.alert(
       '🚨 EMERGENCY CRISIS SUPPORT',
@@ -513,7 +513,7 @@ export class SuicidalIdeationProtocol {
         })
       );
     } catch (error) {
-      logError('Failed to log emergency failsafe:', error);
+      logError(LogCategory.CRISIS, 'Failed to log emergency failsafe:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -539,7 +539,7 @@ export class SuicidalIdeationProtocol {
         JSON.stringify(followUpSchedule)
       );
     } catch (error) {
-      logError('Failed to schedule mandatory follow-up:', error);
+      logError(LogCategory.CRISIS, 'Failed to schedule mandatory follow-up:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -565,7 +565,7 @@ export class SuicidalIdeationProtocol {
         JSON.stringify(auditEntry)
       );
     } catch (error) {
-      logError('Suicidal ideation detection logging failed:', error);
+      logError(LogCategory.CRISIS, 'Suicidal ideation detection logging failed:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -587,7 +587,7 @@ export class SuicidalIdeationProtocol {
         JSON.stringify(auditEntry)
       );
     } catch (error) {
-      logError('Suicidal ideation intervention logging failed:', error);
+      logError(LogCategory.CRISIS, 'Suicidal ideation intervention logging failed:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -610,7 +610,7 @@ export class SuicidalIdeationProtocol {
         JSON.stringify(auditEntry)
       );
     } catch (error) {
-      logError('Safety acknowledgment logging failed:', error);
+      logError(LogCategory.CRISIS, 'Safety acknowledgment logging failed:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 

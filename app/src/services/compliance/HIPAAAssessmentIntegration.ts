@@ -276,7 +276,7 @@ export class HIPAAAssessmentIntegration {
       return result;
 
     } catch (error) {
-      logError('🚨 ASSESSMENT COMPLIANCE VALIDATION ERROR:', error);
+      logError(LogCategory.SYSTEM, 'ASSESSMENT COMPLIANCE VALIDATION ERROR:', error);
       
       return {
         compliant: false,
@@ -364,7 +364,7 @@ export class HIPAAAssessmentIntegration {
       };
 
     } catch (error) {
-      logError('🚨 CRISIS DETECTION COMPLIANCE ERROR:', error);
+      logError(LogCategory.SYSTEM, 'CRISIS DETECTION COMPLIANCE ERROR:', error);
       
       return {
         compliant: false,
@@ -476,7 +476,7 @@ export class HIPAAAssessmentIntegration {
       };
 
     } catch (error) {
-      logError('🚨 ASSESSMENT RESULT COMPLIANCE ERROR:', error);
+      logError(LogCategory.SYSTEM, 'ASSESSMENT RESULT COMPLIANCE ERROR:', error);
       
       return {
         storageCompliant: false,
@@ -971,7 +971,7 @@ export class HIPAAAssessmentIntegration {
       // Implementation would use secure audit logging
       
     } catch (error) {
-      logError('🚨 COMPLIANCE VALIDATION LOGGING ERROR:', error);
+      logError(LogCategory.SYSTEM, 'COMPLIANCE VALIDATION LOGGING ERROR:', error);
     }
   }
 
@@ -1005,7 +1005,7 @@ export class HIPAAAssessmentIntegration {
       };
 
     } catch (error) {
-      logError('🚨 QUICK COMPLIANCE CHECK ERROR:', error);
+      logError(LogCategory.SYSTEM, 'QUICK COMPLIANCE CHECK ERROR:', error);
       
       return {
         canProceed: false,
@@ -1074,7 +1074,7 @@ export class HIPAAAssessmentIntegration {
       };
 
     } catch (error) {
-      logError('🚨 COMPLIANCE STATUS ERROR:', error);
+      logError(LogCategory.SYSTEM, 'COMPLIANCE STATUS ERROR:', error);
       
       return {
         overallCompliance: 'critical',

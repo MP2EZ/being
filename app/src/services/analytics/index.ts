@@ -1,4 +1,5 @@
 /**
+import { logPerformance, logError, LogCategory } from '../logging';
  * ANALYTICS SERVICES INDEX - Week 3 Privacy-Preserving Analytics
  *
  * SECURITY-INTEGRATED ANALYTICS ARCHITECTURE:

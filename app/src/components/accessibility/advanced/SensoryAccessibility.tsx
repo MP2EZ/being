@@ -330,7 +330,7 @@ export const SensoryAccessibilityProvider: React.FC<SensoryAccessibilityProvider
     // Check if flash would exceed threshold (simplified check)
     const threshold = thresholds[intensity];
     if (threshold > 3) {
-      logSecurity('Flash animation blocked to prevent seizures');
+      logSecurity('Flash animation blocked to prevent seizures', 'low');
       return false;
     }
     

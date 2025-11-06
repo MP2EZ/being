@@ -25,7 +25,17 @@
  * - Emergency response coordination
  */
 
-// Core Security Services
+// Import services for internal use by SecurityOrchestrator
+import EncryptionService from './EncryptionService';
+import AuthenticationService from './AuthenticationService';
+import SecureStorageService from './SecureStorageService';
+import NetworkSecurityService from './NetworkSecurityService';
+import SecurityMonitoringService from './SecurityMonitoringService';
+import IncidentResponseService from './IncidentResponseService';
+import CrisisSecurityProtocol from './crisis/CrisisSecurityProtocol';
+import { logPerformance, logError, LogCategory } from '../logging';
+
+// Core Security Services - Re-export
 export { default as EncryptionService } from './EncryptionService';
 export { default as AuthenticationService } from './AuthenticationService';
 export { default as SecureStorageService } from './SecureStorageService';
@@ -33,7 +43,7 @@ export { default as NetworkSecurityService } from './NetworkSecurityService';
 export { default as SecurityMonitoringService } from './SecurityMonitoringService';
 export { default as IncidentResponseService } from './IncidentResponseService';
 
-// Crisis-Specific Security
+// Crisis-Specific Security - Re-export
 export { default as CrisisSecurityProtocol } from './crisis/CrisisSecurityProtocol';
 
 // Type Exports - Encryption Service
@@ -198,7 +208,7 @@ export class SecurityOrchestrator {
       );
 
     } catch (error) {
-      logError('🚨 SECURITY ARCHITECTURE INITIALIZATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 SECURITY ARCHITECTURE INITIALIZATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw new Error(`Security architecture initialization failed: ${error.message}`);
     }
   }
@@ -254,7 +264,7 @@ export class SecurityOrchestrator {
       };
 
     } catch (error) {
-      logError('🚨 CRISIS DATA PROTECTION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 CRISIS DATA PROTECTION ERROR:', error instanceof Error ? error : new Error(String(error)));
 
       // Log security incident
       await this.incidentResponse.detectAndRespondToIncident(
@@ -344,7 +354,7 @@ export class SecurityOrchestrator {
       };
 
     } catch (error) {
-      logError('🚨 ASSESSMENT DATA PROTECTION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 ASSESSMENT DATA PROTECTION ERROR:', error instanceof Error ? error : new Error(String(error)));
 
       // Log security incident
       await this.incidentResponse.detectAndRespondToIncident(
@@ -414,7 +424,7 @@ export class SecurityOrchestrator {
 
     } catch (error) {
       const accessTime = performance.now() - startTime;
-      logError('🚨 EMERGENCY ACCESS ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 EMERGENCY ACCESS ERROR:', error instanceof Error ? error : new Error(String(error)));
 
       // Log failed emergency access
       await this.incidentResponse.detectAndRespondToIncident(
@@ -552,7 +562,7 @@ export class SecurityOrchestrator {
       };
 
     } catch (error) {
-      logError('🚨 SECURITY HEALTH CHECK ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 SECURITY HEALTH CHECK ERROR:', error instanceof Error ? error : new Error(String(error)));
       return {
         overallScore: 0,
         encryption: { status: 'error', score: 0 },
@@ -579,7 +589,7 @@ export class SecurityOrchestrator {
       return await this.securityMonitoring.performVulnerabilityAssessment();
 
     } catch (error) {
-      logError('🚨 VULNERABILITY ASSESSMENT ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 VULNERABILITY ASSESSMENT ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -623,7 +633,7 @@ export class SecurityOrchestrator {
       return incidentId;
 
     } catch (error) {
-      logError('🚨 INCIDENT RESPONSE COORDINATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 INCIDENT RESPONSE COORDINATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -656,7 +666,7 @@ export class SecurityOrchestrator {
       logPerformance('✅ All security services verified');
 
     } catch (error) {
-      logError('🚨 SECURITY SERVICE VERIFICATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 SECURITY SERVICE VERIFICATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -719,7 +729,7 @@ export class SecurityOrchestrator {
       logPerformance('✅ Security Architecture destroyed');
 
     } catch (error) {
-      logError('🚨 SECURITY ARCHITECTURE DESTRUCTION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 SECURITY ARCHITECTURE DESTRUCTION ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }

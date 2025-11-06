@@ -107,7 +107,7 @@ const AssessmentIntegrationExample: React.FC = () => {
       // Simulate performance issues for demonstration
       setTimeout(() => {
         performance.recordCrisisDetection(250); // Poor performance
-        logSecurity('⚠️ Demo: Performance issue simulated');
+        logSecurity('⚠️ Demo: Performance issue simulated', 'low');
       }, 5000);
     }
   }, [demoSettings.simulateErrors, isRunning, performance]);

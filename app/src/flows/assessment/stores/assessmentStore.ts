@@ -87,7 +87,7 @@ class EncryptedAssessmentStorage {
       // Audit trail for clinical compliance
       await this.logAccess('SAVE', Object.keys(data).length);
     } catch (error) {
-      logError('Assessment storage save failed:', error);
+      logError(LogCategory.SYSTEM, 'Assessment storage save failed:', error instanceof Error ? error : new Error(String(error)));
       throw new Error('Failed to save assessment data securely');
     }
   }
@@ -101,7 +101,7 @@ class EncryptedAssessmentStorage {
       await this.logAccess('LOAD', Object.keys(data).length);
       return data;
     } catch (error) {
-      logError('Assessment storage load failed:', error);
+      logError(LogCategory.SYSTEM, 'Assessment storage load failed:', error instanceof Error ? error : new Error(String(error)));
       return null;
     }
   }
@@ -111,7 +111,7 @@ class EncryptedAssessmentStorage {
       await SecureStore.deleteItemAsync(this.STORAGE_KEY);
       await this.logAccess('CLEAR', 0);
     } catch (error) {
-      logError('Assessment storage clear failed:', error);
+      logError(LogCategory.SYSTEM, 'Assessment storage clear failed:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -135,7 +135,7 @@ class EncryptedAssessmentStorage {
       
       await AsyncStorage.setItem(this.AUDIT_KEY, JSON.stringify(auditTrail));
     } catch (error) {
-      logError('Audit logging failed:', error);
+      logError(LogCategory.SYSTEM, 'Audit logging failed:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 }
@@ -269,7 +269,7 @@ class CrisisDetectionService {
 
       return detection;
     } catch (error) {
-      logError('Crisis detection failed:', error);
+      logError(LogCategory.SYSTEM, 'Crisis detection failed:', error instanceof Error ? error : new Error(String(error)));
       return null;
     }
   }
@@ -303,7 +303,7 @@ class CrisisDetectionService {
       // Log crisis intervention for clinical records
       await this.logCrisisIntervention(detection);
     } catch (error) {
-      logError('Emergency response failed:', error);
+      logError(LogCategory.SYSTEM, 'Emergency response failed:', error instanceof Error ? error : new Error(String(error)));
       // Fallback: Direct 988 call
       Linking.openURL('tel:988');
     }
@@ -323,7 +323,7 @@ class CrisisDetectionService {
         JSON.stringify(interventionLog)
       );
     } catch (error) {
-      logError('Crisis intervention logging failed:', error);
+      logError(LogCategory.SYSTEM, 'Crisis intervention logging failed:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 }
@@ -598,7 +598,7 @@ export const useAssessmentStore = create<AssessmentStore>()(
 
             return true;
           } catch (error) {
-            logError('Session recovery failed:', error);
+            logError(LogCategory.SYSTEM, 'Session recovery failed:', error instanceof Error ? error : new Error(String(error)));
             return false;
           }
         },
@@ -647,7 +647,7 @@ export const useAssessmentStore = create<AssessmentStore>()(
             await EncryptedAssessmentStorage.save(dataToSave);
             set({ lastSavedAt: Date.now(), lastSyncAt: Date.now() });
           } catch (error) {
-            logError('Save progress failed:', error);
+            logError(LogCategory.SYSTEM, 'Save progress failed:', error instanceof Error ? error : new Error(String(error)));
             set({ error: 'Failed to save assessment progress' });
           }
         },
@@ -715,14 +715,14 @@ export const useAssessmentStore = create<AssessmentStore>()(
             try {
               await EncryptedAssessmentStorage.save(JSON.parse(value));
             } catch (error) {
-              logError('Encrypted storage setItem failed:', error);
+              logError(LogCategory.SYSTEM, 'Encrypted storage setItem failed:', error instanceof Error ? error : new Error(String(error)));
             }
           },
           removeItem: async (name: string) => {
             try {
               await EncryptedAssessmentStorage.clear();
             } catch (error) {
-              logError('Encrypted storage removeItem failed:', error);
+              logError(LogCategory.SYSTEM, 'Encrypted storage removeItem failed:', error instanceof Error ? error : new Error(String(error)));
             }
           }
         })),
@@ -757,7 +757,7 @@ useAssessmentStore.subscribe(
         try {
           await useAssessmentStore.getState().saveProgress();
         } catch (error) {
-          logError('Auto-save failed:', error);
+          logError(LogCategory.SYSTEM, 'Auto-save failed:', error instanceof Error ? error : new Error(String(error)));
         }
       }, 1000);
     }

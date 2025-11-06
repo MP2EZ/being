@@ -466,7 +466,7 @@ export class BundleOptimizer {
       DeviceEventEmitter.emit('bundle_metrics_collected', metrics);
 
     } catch (error) {
-      logError('Bundle metrics collection failed:', error);
+      logError(LogCategory.PERFORMANCE, 'Bundle metrics collection failed:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 

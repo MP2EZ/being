@@ -147,17 +147,22 @@ export const AdvancedAccessibilityProvider: React.FC<AdvancedAccessibilityProvid
         }
 
         setIsInitialized(true);
-        
+
         const initTime = performance.now() - startTime;
-        logPerformance(`🌟 Advanced accessibility initialized in ${initTime}ms`);
-        
+        logPerformance('Advanced accessibility initialized', initTime, {
+          category: 'render',
+          
+        });
+
         // Ensure initialization doesn't impact crisis response time
         if (initTime > 100) {
-          logSecurity(`⚠️ Accessibility initialization took ${initTime}ms (target: <100ms)`);
+          logSecurity(`Accessibility initialization took ${initTime}ms (target: <100ms)`, 'medium', {
+            component: 'UnifiedProvider'
+          });
         }
-        
+
       } catch (error) {
-        logError('Failed to initialize advanced accessibility:', error);
+        logError(LogCategory.ACCESSIBILITY, 'Failed to initialize advanced accessibility:', error instanceof Error ? error : new Error(String(error)));
         setIsInitialized(true); // Allow app to continue
       }
     };
@@ -195,9 +200,12 @@ export const AdvancedAccessibilityProvider: React.FC<AdvancedAccessibilityProvid
         config.enableCrisisAccessibility && 'Crisis',
       ].filter(Boolean);
 
-      logPerformance(`🔍 Advanced Accessibility Features: ${features.join(', ')}`);
-      logPerformance(`🎯 Crisis Ready: ${crisisReady ? 'Yes' : 'No'}`);
-      logPerformance(`🧘 Therapeutic Mode: ${config.therapeuticMode ? 'Enabled' : 'Disabled'}`);
+      // Debug logging - informational only
+      if (__DEV__) {
+        console.log('Advanced Accessibility Features:', features.join(', '));
+        console.log('Crisis Ready:', crisisReady ? 'Yes' : 'No');
+        console.log('Therapeutic Mode:', config.therapeuticMode ? 'Enabled' : 'Disabled');
+      }
     }
   }, [isInitialized, config, crisisReady]);
 

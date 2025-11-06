@@ -118,7 +118,7 @@ class StateBatchProcessor {
       try {
         update();
       } catch (error) {
-        logError('Batch update failed:', error);
+        logError(LogCategory.PERFORMANCE, 'Batch update failed:', error instanceof Error ? error : new Error(String(error)));
       }
     });
   }
@@ -240,7 +240,7 @@ export class AssessmentFlowOptimizer {
       if (this.config.cacheAnswers) {
         // Fast, non-blocking persistence
         this.persistAnswerAsync(sessionId, answer).catch(error => {
-          logError('Answer persistence failed:', error);
+          logError(LogCategory.PERFORMANCE, 'Answer persistence failed:', error instanceof Error ? error : new Error(String(error)));
         });
       }
 
@@ -283,7 +283,7 @@ export class AssessmentFlowOptimizer {
       return { success: true, metrics };
 
     } catch (error) {
-      logError('Optimized answer processing failed:', error);
+      logError(LogCategory.PERFORMANCE, 'Optimized answer processing failed:', error instanceof Error ? error : new Error(String(error)));
       const totalTime = performance.now() - startTime;
 
       const errorMetrics: AssessmentFlowMetrics = {
@@ -331,7 +331,7 @@ export class AssessmentFlowOptimizer {
       const key = `answer_${sessionId}_${answer.questionId}`;
       await AsyncStorage.default.setItem(key, JSON.stringify(answer));
     } catch (error) {
-      logError('Async answer persistence failed:', error);
+      logError(LogCategory.PERFORMANCE, 'Async answer persistence failed:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -377,7 +377,7 @@ export class AssessmentFlowOptimizer {
       // Batch persistence
       if (this.config.cacheAnswers) {
         this.persistBatchAnswersAsync(sessionId, answers).catch(error => {
-          logError('Batch persistence failed:', error);
+          logError(LogCategory.PERFORMANCE, 'Batch persistence failed:', error instanceof Error ? error : new Error(String(error)));
         });
       }
 
@@ -391,7 +391,7 @@ export class AssessmentFlowOptimizer {
       return { processedCount, totalTime, failedAnswers };
 
     } catch (error) {
-      logError('Batch answer processing failed:', error);
+      logError(LogCategory.PERFORMANCE, 'Batch answer processing failed:', error instanceof Error ? error : new Error(String(error)));
       const totalTime = performance.now() - startTime;
       return { processedCount, totalTime, failedAnswers: answers.map(a => a.questionId) };
     }
@@ -417,7 +417,7 @@ export class AssessmentFlowOptimizer {
 
       await AsyncStorage.default.multiSet(batchData);
     } catch (error) {
-      logError('Batch answer persistence failed:', error);
+      logError(LogCategory.PERFORMANCE, 'Batch answer persistence failed:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 

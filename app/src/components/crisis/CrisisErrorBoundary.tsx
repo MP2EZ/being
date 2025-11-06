@@ -179,7 +179,7 @@ export class CrisisErrorBoundary extends Component<
       };
 
       // Log to secure audit system (mock implementation)
-      logError('🚨 Crisis Error Boundary:', sanitizedError);
+      logError(LogCategory.SYSTEM, 'Crisis Error Boundary:', sanitizedError);
 
       // Report to error tracking service (in production)
       // ErrorTrackingService.reportError(sanitizedError);

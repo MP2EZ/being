@@ -129,7 +129,7 @@ class CloudBackupService {
       logPerformance('[CloudBackupService] Initialized');
 
     } catch (error) {
-      logError('[CloudBackupService] Initialization failed:', error);
+      logError(LogCategory.SYSTEM, '[CloudBackupService] Initialization failed:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -139,7 +139,7 @@ class CloudBackupService {
    */
   async createBackup(): Promise<BackupResult> {
     if (!this.isInitialized) {
-      logSecurity('[CloudBackupService] Not initialized');
+      logSecurity('[CloudBackupService] Not initialized', 'low');
       return { success: false, error: 'Service not initialized' };
     }
 
@@ -218,7 +218,7 @@ class CloudBackupService {
       };
 
     } catch (error) {
-      logError('[CloudBackupService] Backup failed:', error);
+      logError(LogCategory.SYSTEM, '[CloudBackupService] Backup failed:', error instanceof Error ? error : new Error(String(error)));
 
       // Track failure
       await supabaseService.trackEvent('backup_failed', {
@@ -238,7 +238,7 @@ class CloudBackupService {
    */
   async restoreFromBackup(): Promise<RestoreResult> {
     if (!this.isInitialized) {
-      logSecurity('[CloudBackupService] Not initialized');
+      logSecurity('[CloudBackupService] Not initialized', 'low');
       return { success: false, restoredStores: [], errors: ['Service not initialized'] };
     }
 
@@ -315,7 +315,7 @@ class CloudBackupService {
       };
 
     } catch (error) {
-      logError('[CloudBackupService] Restore failed:', error);
+      logError(LogCategory.SYSTEM, '[CloudBackupService] Restore failed:', error instanceof Error ? error : new Error(String(error)));
 
       // Track failure
       await supabaseService.trackEvent('backup_restore_failed', {
@@ -339,7 +339,7 @@ class CloudBackupService {
       const backup = await supabaseService.getBackup();
       return backup !== null;
     } catch (error) {
-      logError('[CloudBackupService] Failed to check for backup:', error);
+      logError(LogCategory.SYSTEM, '[CloudBackupService] Failed to check for backup:', error instanceof Error ? error : new Error(String(error)));
       return false;
     }
   }
@@ -377,7 +377,7 @@ class CloudBackupService {
       };
 
     } catch (error) {
-      logError('[CloudBackupService] Failed to get backup status:', error);
+      logError(LogCategory.SYSTEM, '[CloudBackupService] Failed to get backup status:', error instanceof Error ? error : new Error(String(error)));
       return {
         hasLocalData: false,
         hasCloudBackup: false,
@@ -507,7 +507,7 @@ class CloudBackupService {
         this.config = { ...this.config, ...savedConfig };
       }
     } catch (error) {
-      logSecurity('[CloudBackupService] Failed to load config, using defaults');
+      logSecurity('[CloudBackupService] Failed to load config, using defaults', 'low');
     }
   }
 

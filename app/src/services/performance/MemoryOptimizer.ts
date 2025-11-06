@@ -141,7 +141,7 @@ class MemoryAwareCache {
         this.delete(nonCritical.key);
       } else if (entryToEvict) {
         // Force evict even critical data to prevent memory overflow
-        logSecurity('Force evicting critical cache entry due to memory pressure');
+        logSecurity('Force evicting critical cache entry due to memory pressure', 'low');
         this.delete(entryToEvict.key);
       }
     }
@@ -302,7 +302,7 @@ export class MemoryOptimizer {
       DeviceEventEmitter.emit('memory_metrics_collected', mockMetrics);
 
     } catch (error) {
-      logError('Memory metrics collection failed:', error);
+      logError(LogCategory.PERFORMANCE, 'Memory metrics collection failed:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -353,7 +353,7 @@ export class MemoryOptimizer {
 
     switch (level) {
       case 'critical':
-        logError(`🚨 CRITICAL MEMORY PRESSURE: ${metrics.totalUsage}MB`);
+        logError(LogCategory.SYSTEM, `CRITICAL MEMORY PRESSURE: ${metrics.totalUsage}MB`);
         this.emergencyMemoryCleanup();
         this.notifyUserOfMemoryIssue();
         break;
@@ -479,7 +479,7 @@ export class MemoryOptimizer {
       // Clear any closures or event listeners that might hold references
       DeviceEventEmitter.emit('force_garbage_collection');
     } catch (error) {
-      logError('Force GC failed:', error);
+      logError(LogCategory.PERFORMANCE, 'Force GC failed:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -521,7 +521,7 @@ export class MemoryOptimizer {
   private static setupMemoryWarningHandlers(): void {
     // Listen for low memory warnings from the system
     DeviceEventEmitter.addListener('memoryWarning', () => {
-      logSecurity('🚨 System memory warning received');
+      logSecurity('🚨 System memory warning received', 'low');
       this.emergencyMemoryCleanup();
     });
   }

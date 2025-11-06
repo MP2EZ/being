@@ -335,7 +335,7 @@ export class IncidentResponseService {
       });
 
     } catch (error) {
-      logError('🚨 INCIDENT RESPONSE INITIALIZATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 INCIDENT RESPONSE INITIALIZATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw new Error(`Incident response initialization failed: ${error.message}`);
     }
   }
@@ -394,7 +394,7 @@ export class IncidentResponseService {
 
       // Validate detection and response time
       if (detectionTime > INCIDENT_RESPONSE_CONFIG.DETECTION_THRESHOLD_MS) {
-        logSecurity(`⚠️  Incident detection slow: ${detectionTime.toFixed(2)}ms > ${INCIDENT_RESPONSE_CONFIG.DETECTION_THRESHOLD_MS}ms`);
+        logSecurity('⚠️  Incident detection slow: ${detectionTime.toFixed(2)}ms > ${INCIDENT_RESPONSE_CONFIG.DETECTION_THRESHOLD_MS}ms', 'medium', { component: 'SecurityService' });
       }
 
       // Log incident detection
@@ -413,7 +413,7 @@ export class IncidentResponseService {
 
     } catch (error) {
       const detectionTime = performance.now() - detectionStart;
-      logError('🚨 INCIDENT DETECTION AND RESPONSE ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 INCIDENT DETECTION AND RESPONSE ERROR:', error instanceof Error ? error : new Error(String(error)));
 
       // Log failed incident response
       await this.logIncidentTimelineEvent('detection_failure', {
@@ -507,7 +507,7 @@ export class IncidentResponseService {
 
       // Critical: Crisis data breach response must be fast
       if (responseTime > INCIDENT_RESPONSE_CONFIG.PROFESSIONAL_NOTIFICATION_MS) {
-        logError(`🚨 CRISIS BREACH RESPONSE TOO SLOW: ${responseTime.toFixed(2)}ms > ${INCIDENT_RESPONSE_CONFIG.PROFESSIONAL_NOTIFICATION_MS}ms`);
+        logError(LogCategory.SYSTEM, `CRISIS BREACH RESPONSE TOO SLOW: ${responseTime.toFixed(2)}ms > ${INCIDENT_RESPONSE_CONFIG.PROFESSIONAL_NOTIFICATION_MS}ms`);
       }
 
       // Log crisis breach response
@@ -527,7 +527,7 @@ export class IncidentResponseService {
 
     } catch (error) {
       const responseTime = performance.now() - responseStart;
-      logError('🚨 CRISIS DATA BREACH RESPONSE ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 CRISIS DATA BREACH RESPONSE ERROR:', error instanceof Error ? error : new Error(String(error)));
 
       // Log failed crisis response
       await this.logIncidentTimelineEvent('crisis_response_failure', {
@@ -590,7 +590,7 @@ export class IncidentResponseService {
 
       // Validate containment performance
       if (containmentTime > INCIDENT_RESPONSE_CONFIG.CONTAINMENT_THRESHOLD_MS) {
-        logSecurity(`⚠️  Containment slow: ${containmentTime.toFixed(2)}ms > ${INCIDENT_RESPONSE_CONFIG.CONTAINMENT_THRESHOLD_MS}ms`);
+        logSecurity('⚠️  Containment slow: ${containmentTime.toFixed(2)}ms > ${INCIDENT_RESPONSE_CONFIG.CONTAINMENT_THRESHOLD_MS}ms', 'medium', { component: 'SecurityService' });
       }
 
       // Log containment completion
@@ -609,7 +609,7 @@ export class IncidentResponseService {
 
     } catch (error) {
       const containmentTime = performance.now() - containmentStart;
-      logError('🚨 CONTAINMENT EXECUTION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 CONTAINMENT EXECUTION ERROR:', error instanceof Error ? error : new Error(String(error)));
 
       // Log containment failure
       await this.addTimelineEvent(incidentId, {
@@ -667,7 +667,7 @@ export class IncidentResponseService {
       return notifications;
 
     } catch (error) {
-      logError('🚨 STAKEHOLDER NOTIFICATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 STAKEHOLDER NOTIFICATION ERROR:', error instanceof Error ? error : new Error(String(error)));
 
       // Log notification failure
       await this.addTimelineEvent(incidentId, {
@@ -739,7 +739,7 @@ export class IncidentResponseService {
       logPerformance(`📋 Regulatory reporting processed for incident: ${incidentId}`);
 
     } catch (error) {
-      logError('🚨 REGULATORY REPORTING ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 REGULATORY REPORTING ERROR:', error instanceof Error ? error : new Error(String(error)));
 
       // Log reporting failure
       await this.addTimelineEvent(incidentId, {
@@ -806,7 +806,7 @@ export class IncidentResponseService {
       return recoveryPlan;
 
     } catch (error) {
-      logError('🚨 RECOVERY PLAN CREATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 RECOVERY PLAN CREATION ERROR:', error instanceof Error ? error : new Error(String(error)));
 
       // Log recovery plan failure
       await this.addTimelineEvent(incidentId, {
@@ -913,7 +913,7 @@ export class IncidentResponseService {
       return severity;
 
     } catch (error) {
-      logError('🚨 SEVERITY ASSESSMENT ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 SEVERITY ASSESSMENT ERROR:', error instanceof Error ? error : new Error(String(error)));
       return 'high'; // Default to high severity if assessment fails
     }
   }
@@ -963,7 +963,7 @@ export class IncidentResponseService {
       }
 
     } catch (error) {
-      logError('🚨 IMPACT ASSESSMENT ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 IMPACT ASSESSMENT ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -1008,7 +1008,7 @@ export class IncidentResponseService {
       incident.responseStatus.mitigationStatus = 'in_progress';
 
     } catch (error) {
-      logError('🚨 AUTOMATED RESPONSE ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 AUTOMATED RESPONSE ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -1022,12 +1022,12 @@ export class IncidentResponseService {
         try {
           await this.executeContainmentProcedures(incident.incidentId);
         } catch (error) {
-          logError('🚨 SCHEDULED CONTAINMENT ERROR:', error);
+          logError(LogCategory.SECURITY, '🚨 SCHEDULED CONTAINMENT ERROR:', error instanceof Error ? error : new Error(String(error)));
         }
       }, 1000); // Execute after 1 second
 
     } catch (error) {
-      logError('🚨 CONTAINMENT INITIATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 CONTAINMENT INITIATION ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -1106,7 +1106,7 @@ export class IncidentResponseService {
       logPerformance(`🔒 Isolating affected systems for incident: ${incidentId}`);
       return true;
     } catch (error) {
-      logError('🚨 SYSTEM ISOLATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 SYSTEM ISOLATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       return false;
     }
   }
@@ -1118,7 +1118,7 @@ export class IncidentResponseService {
       await this.authenticationService.logout();
       return true;
     } catch (error) {
-      logError('🚨 TOKEN REVOCATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 TOKEN REVOCATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       return false;
     }
   }
@@ -1129,7 +1129,7 @@ export class IncidentResponseService {
       logPerformance(`👀 Enabling enhanced monitoring for incident: ${incidentId}`);
       return true;
     } catch (error) {
-      logError('🚨 ENHANCED MONITORING ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 ENHANCED MONITORING ERROR:', error instanceof Error ? error : new Error(String(error)));
       return false;
     }
   }
@@ -1140,7 +1140,7 @@ export class IncidentResponseService {
       logPerformance(`🔧 Patching vulnerabilities for incident: ${incidentId}`);
       return true;
     } catch (error) {
-      logError('🚨 VULNERABILITY PATCHING ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 VULNERABILITY PATCHING ERROR:', error instanceof Error ? error : new Error(String(error)));
       return false;
     }
   }
@@ -1151,7 +1151,7 @@ export class IncidentResponseService {
       logPerformance(`🔐 Resetting credentials for incident: ${incidentId}`);
       return true;
     } catch (error) {
-      logError('🚨 CREDENTIAL RESET ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 CREDENTIAL RESET ERROR:', error instanceof Error ? error : new Error(String(error)));
       return false;
     }
   }
@@ -1162,7 +1162,7 @@ export class IncidentResponseService {
       logPerformance(`📋 Updating security policies for incident: ${incidentId}`);
       return true;
     } catch (error) {
-      logError('🚨 SECURITY POLICY UPDATE ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 SECURITY POLICY UPDATE ERROR:', error instanceof Error ? error : new Error(String(error)));
       return false;
     }
   }
@@ -1177,7 +1177,7 @@ export class IncidentResponseService {
       }
 
     } catch (error) {
-      logError('🚨 IMMEDIATE NOTIFICATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 IMMEDIATE NOTIFICATION ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -1231,7 +1231,7 @@ export class IncidentResponseService {
       notification.deliveryStatus = 'delivered';
 
     } catch (error) {
-      logError(`🚨 NOTIFICATION DELIVERY ERROR (${group}):`, error);
+      logError(LogCategory.SECURITY, '🚨 NOTIFICATION DELIVERY ERROR (${group}):', error instanceof Error ? error : new Error(String(error)));
       notification.deliveryStatus = 'failed';
     }
 
@@ -1312,7 +1312,7 @@ export class IncidentResponseService {
       });
 
     } catch (error) {
-      logError('🚨 EMERGENCY CONTAINMENT ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 EMERGENCY CONTAINMENT ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -1350,7 +1350,7 @@ export class IncidentResponseService {
       });
 
     } catch (error) {
-      logError('🚨 EMERGENCY PROFESSIONAL NOTIFICATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 EMERGENCY PROFESSIONAL NOTIFICATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -1383,7 +1383,7 @@ export class IncidentResponseService {
       });
 
     } catch (error) {
-      logError('🚨 CRISIS SECURITY PROTOCOL ACTIVATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 CRISIS SECURITY PROTOCOL ACTIVATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -1410,7 +1410,7 @@ export class IncidentResponseService {
       });
 
     } catch (error) {
-      logError('🚨 PATIENT SAFETY ASSESSMENT ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 PATIENT SAFETY ASSESSMENT ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -1448,7 +1448,7 @@ export class IncidentResponseService {
         professionalCount >= INCIDENT_RESPONSE_CONFIG.LEGAL_REPORTING_THRESHOLDS.professional_board;
 
     } catch (error) {
-      logError('🚨 REGULATORY ASSESSMENT ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 REGULATORY ASSESSMENT ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -1460,7 +1460,7 @@ export class IncidentResponseService {
       // For now, log the preparation
 
     } catch (error) {
-      logError('🚨 HIPAA BREACH NOTIFICATION PREPARATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 HIPAA BREACH NOTIFICATION PREPARATION ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -1472,7 +1472,7 @@ export class IncidentResponseService {
       // For now, log the preparation
 
     } catch (error) {
-      logError('🚨 STATE AUTHORITY NOTIFICATION PREPARATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 STATE AUTHORITY NOTIFICATION PREPARATION ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -1484,7 +1484,7 @@ export class IncidentResponseService {
       // For now, log the preparation
 
     } catch (error) {
-      logError('🚨 LAW ENFORCEMENT NOTIFICATION PREPARATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 LAW ENFORCEMENT NOTIFICATION PREPARATION ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -1496,7 +1496,7 @@ export class IncidentResponseService {
       // For now, log the preparation
 
     } catch (error) {
-      logError('🚨 PROFESSIONAL BOARD NOTIFICATION PREPARATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 PROFESSIONAL BOARD NOTIFICATION PREPARATION ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -1512,12 +1512,12 @@ export class IncidentResponseService {
         try {
           await this.processRegulatoryReporting(incident.incidentId);
         } catch (error) {
-          logError('🚨 SCHEDULED REGULATORY REPORTING ERROR:', error);
+          logError(LogCategory.SECURITY, '🚨 SCHEDULED REGULATORY REPORTING ERROR:', error instanceof Error ? error : new Error(String(error)));
         }
       }, 5000); // Process after 5 seconds
 
     } catch (error) {
-      logError('🚨 REGULATORY NOTIFICATION PREPARATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 REGULATORY NOTIFICATION PREPARATION ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -1685,7 +1685,7 @@ export class IncidentResponseService {
       // Implementation would load from secure storage
       logPerformance('📋 Loading incident history...');
     } catch (error) {
-      logError('🚨 INCIDENT HISTORY LOADING ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 INCIDENT HISTORY LOADING ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -1701,7 +1701,7 @@ export class IncidentResponseService {
       }, 60000); // Check every minute
 
     } catch (error) {
-      logError('🚨 RESPONSE MONITORING SETUP ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 RESPONSE MONITORING SETUP ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -1719,7 +1719,7 @@ export class IncidentResponseService {
       logPerformance('✅ Response capabilities verified');
 
     } catch (error) {
-      logError('🚨 RESPONSE CAPABILITY VERIFICATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 RESPONSE CAPABILITY VERIFICATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -1733,7 +1733,7 @@ export class IncidentResponseService {
       logPerformance('✅ Automated response procedures setup complete');
 
     } catch (error) {
-      logError('🚨 AUTOMATED RESPONSE SETUP ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 AUTOMATED RESPONSE SETUP ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -1752,7 +1752,7 @@ export class IncidentResponseService {
       }
 
     } catch (error) {
-      logError('🚨 ESCALATION CHECK ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 ESCALATION CHECK ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -1779,7 +1779,7 @@ export class IncidentResponseService {
       await this.sendStakeholderNotifications(incidentId);
 
     } catch (error) {
-      logError('🚨 INCIDENT ESCALATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 INCIDENT ESCALATION ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -1801,7 +1801,7 @@ export class IncidentResponseService {
       incident.timeline.push(timelineEvent);
 
     } catch (error) {
-      logError('🚨 TIMELINE EVENT ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 TIMELINE EVENT ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -1814,7 +1814,7 @@ export class IncidentResponseService {
       logPerformance(`📝 Incident timeline event [${context}]: ${event.description}`);
 
     } catch (error) {
-      logError('🚨 INCIDENT TIMELINE LOGGING ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 INCIDENT TIMELINE LOGGING ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -1968,7 +1968,7 @@ export class IncidentResponseService {
       logPerformance('✅ Incident response service destroyed');
 
     } catch (error) {
-      logError('🚨 INCIDENT RESPONSE DESTRUCTION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 INCIDENT RESPONSE DESTRUCTION ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }

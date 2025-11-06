@@ -634,7 +634,7 @@ describe('Week 4 Comprehensive Performance Regression Suite', () => {
 
       if (!allHealthy) {
         const unhealthyChecks = healthChecks.filter(check => !check.healthy);
-        logError('🚨 Unhealthy subsystems:', unhealthyChecks.map(c => c.subsystem));
+        logError(LogCategory.SYSTEM, 'Unhealthy subsystems:', unhealthyChecks.map(c => c.subsystem));
       }
 
       logPerformance('✅ All subsystems healthy for production deployment');

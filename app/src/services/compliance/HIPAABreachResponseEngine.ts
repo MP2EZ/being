@@ -378,7 +378,7 @@ export class HIPAABreachResponseEngine {
       };
 
     } catch (error) {
-      logError('🚨 BREACH DETECTION ERROR:', error);
+      logError(LogCategory.SYSTEM, 'BREACH DETECTION ERROR:', error);
       
       // Err on the side of caution - treat as potential breach
       return {
@@ -454,7 +454,7 @@ export class HIPAABreachResponseEngine {
       };
 
     } catch (error) {
-      logError('🚨 RISK ASSESSMENT ERROR:', error);
+      logError(LogCategory.SYSTEM, 'RISK ASSESSMENT ERROR:', error);
       
       return {
         overallRisk: 'critical',
@@ -539,7 +539,7 @@ export class HIPAABreachResponseEngine {
       };
 
     } catch (error) {
-      logError('🚨 CONTAINMENT ERROR:', error);
+      logError(LogCategory.SYSTEM, 'CONTAINMENT ERROR:', error);
       
       return {
         containmentStarted: false,
@@ -639,7 +639,7 @@ export class HIPAABreachResponseEngine {
       };
 
     } catch (error) {
-      logError('🚨 NOTIFICATION MANAGEMENT ERROR:', error);
+      logError(LogCategory.SYSTEM, 'NOTIFICATION MANAGEMENT ERROR:', error);
       
       return {
         notificationsRequired: this.getEmergencyNotificationRequirements(),
@@ -730,7 +730,7 @@ export class HIPAABreachResponseEngine {
       };
 
     } catch (error) {
-      logError('🚨 REMEDIATION PLAN ERROR:', error);
+      logError(LogCategory.SYSTEM, 'REMEDIATION PLAN ERROR:', error);
       
       return {
         planCreated: false,
@@ -1270,7 +1270,7 @@ export class HIPAABreachResponseEngine {
       };
 
     } catch (error) {
-      logError('🚨 BREACH STATUS ERROR:', error);
+      logError(LogCategory.SYSTEM, 'BREACH STATUS ERROR:', error);
       return {
         activeIncidents: -1,
         criticalIncidents: -1,
@@ -1314,7 +1314,7 @@ export class HIPAABreachResponseEngine {
       };
 
     } catch (error) {
-      logError('🚨 BREACH REPORTING ERROR:', error);
+      logError(LogCategory.SYSTEM, 'BREACH REPORTING ERROR:', error);
       return {
         reported: false,
         nextSteps: ['Contact system administrator for manual breach reporting']

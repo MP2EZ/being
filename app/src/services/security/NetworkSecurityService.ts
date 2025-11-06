@@ -33,6 +33,7 @@ import EncryptionService from './EncryptionService';
 import AuthenticationService from './AuthenticationService';
 import * as Crypto from 'expo-crypto';
 import { Platform } from 'react-native';
+import { logPerformance, logError, logSecurity, LogCategory } from '../logging';
 
 /**
  * NETWORK SECURITY CONFIGURATION
@@ -266,7 +267,7 @@ export class NetworkSecurityService {
       });
 
     } catch (error) {
-      logError('🚨 NETWORK SECURITY INITIALIZATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 NETWORK SECURITY INITIALIZATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw new Error(`Network security initialization failed: ${error.message}`);
     }
   }
@@ -324,7 +325,7 @@ export class NetworkSecurityService {
 
     } catch (error) {
       const responseTime = performance.now() - startTime;
-      logError('🚨 SECURE REQUEST ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 SECURE REQUEST ERROR:', error instanceof Error ? error : new Error(String(error)));
 
       // Update metrics
       this.updateSecurityMetrics(false, responseTime);
@@ -396,7 +397,7 @@ export class NetworkSecurityService {
 
       // Critical: Crisis API must be fast
       if (totalTime > NETWORK_CONFIG.PERFORMANCE_THRESHOLDS.crisis_api_ms) {
-        logError(`🚨 CRISIS API TOO SLOW: ${totalTime.toFixed(2)}ms > ${NETWORK_CONFIG.PERFORMANCE_THRESHOLDS.crisis_api_ms}ms`);
+        logError(LogCategory.SYSTEM, `CRISIS API TOO SLOW: ${totalTime.toFixed(2)}ms > ${NETWORK_CONFIG.PERFORMANCE_THRESHOLDS.crisis_api_ms}ms`);
         
         await this.logSecurityEvent({
           timestamp: Date.now(),
@@ -415,7 +416,7 @@ export class NetworkSecurityService {
       return response;
 
     } catch (error) {
-      logError('🚨 CRISIS API REQUEST ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 CRISIS API REQUEST ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -469,7 +470,7 @@ export class NetworkSecurityService {
       return response;
 
     } catch (error) {
-      logError('🚨 ASSESSMENT UPLOAD ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 ASSESSMENT UPLOAD ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -513,7 +514,7 @@ export class NetworkSecurityService {
       return response;
 
     } catch (error) {
-      logError('🚨 PROFESSIONAL API ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 PROFESSIONAL API ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -560,7 +561,7 @@ export class NetworkSecurityService {
       return response;
 
     } catch (error) {
-      logError('🚨 BULK OPERATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 BULK OPERATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -635,7 +636,7 @@ export class NetworkSecurityService {
       };
 
     } catch (error) {
-      logError('🚨 REQUEST PREPARATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 REQUEST PREPARATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -775,7 +776,7 @@ export class NetworkSecurityService {
       };
 
     } catch (error) {
-      logError('🚨 RESPONSE SECURITY VALIDATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 RESPONSE SECURITY VALIDATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       return {
         certificateValid: false,
         signatureValid: false,
@@ -797,7 +798,7 @@ export class NetworkSecurityService {
       return signature === expectedSignature;
 
     } catch (error) {
-      logError('🚨 RESPONSE SIGNATURE VALIDATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 RESPONSE SIGNATURE VALIDATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       return false;
     }
   }
@@ -814,7 +815,7 @@ export class NetworkSecurityService {
 
       return !isEncrypted; // If not encrypted, that's still valid for some endpoints
     } catch (error) {
-      logError('🚨 RESPONSE ENCRYPTION VERIFICATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 RESPONSE ENCRYPTION VERIFICATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       return false;
     }
   }
@@ -830,7 +831,7 @@ export class NetworkSecurityService {
       return providedHash === calculatedHash;
 
     } catch (error) {
-      logError('🚨 RESPONSE INTEGRITY VERIFICATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 RESPONSE INTEGRITY VERIFICATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       return false;
     }
   }
@@ -877,7 +878,7 @@ export class NetworkSecurityService {
       if (error.message.includes('Rate limit exceeded')) {
         throw error;
       }
-      logError('🚨 RATE LIMIT CHECK ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 RATE LIMIT CHECK ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -920,7 +921,7 @@ export class NetworkSecurityService {
         mitigationAction: 'performance_monitoring_alert'
       });
 
-      logSecurity(`⚠️  Performance violation: ${category} took ${responseTime.toFixed(2)}ms > ${threshold}ms`);
+      logSecurity('⚠️  Performance violation: ${category} took ${responseTime.toFixed(2)}ms > ${threshold}ms', 'medium', { component: 'SecurityService' });
     }
   }
 
@@ -978,7 +979,7 @@ export class NetworkSecurityService {
       
       return `req_${timestamp}_${random}`;
     } catch (error) {
-      logError('🚨 REQUEST ID GENERATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 REQUEST ID GENERATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       return `req_${Date.now()}_fallback`;
     }
   }
@@ -1010,7 +1011,7 @@ export class NetworkSecurityService {
       return `${signature.substring(0, 32)}_${nonce}`;
 
     } catch (error) {
-      logError('🚨 REQUEST SIGNATURE ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 REQUEST SIGNATURE ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -1024,7 +1025,7 @@ export class NetworkSecurityService {
         { encoding: Crypto.CryptoEncoding.HEX }
       );
     } catch (error) {
-      logError('🚨 RESPONSE SIGNATURE CALCULATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 RESPONSE SIGNATURE CALCULATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       return '';
     }
   }
@@ -1038,7 +1039,7 @@ export class NetworkSecurityService {
         { encoding: Crypto.CryptoEncoding.HEX }
       );
     } catch (error) {
-      logError('🚨 DATA HASH CALCULATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 DATA HASH CALCULATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       return '';
     }
   }
@@ -1050,7 +1051,7 @@ export class NetworkSecurityService {
         .map(b => b.toString(16).padStart(2, '0'))
         .join('');
     } catch (error) {
-      logError('🚨 NONCE GENERATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 NONCE GENERATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       return Date.now().toString(36);
     }
   }
@@ -1071,7 +1072,7 @@ export class NetworkSecurityService {
       };
 
     } catch (error) {
-      logError('🚨 AUTHENTICATION HEADERS ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 AUTHENTICATION HEADERS ERROR:', error instanceof Error ? error : new Error(String(error)));
       return {};
     }
   }
@@ -1159,7 +1160,7 @@ export class NetworkSecurityService {
       logPerformance('✅ Network security capabilities verified');
 
     } catch (error) {
-      logError('🚨 NETWORK SECURITY VERIFICATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 NETWORK SECURITY VERIFICATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -1174,7 +1175,7 @@ export class NetworkSecurityService {
       logPerformance('✅ Certificate pinning configured');
 
     } catch (error) {
-      logError('🚨 CERTIFICATE PINNING SETUP ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 CERTIFICATE PINNING SETUP ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -1209,7 +1210,7 @@ export class NetworkSecurityService {
       logPerformance('✅ API connectivity validated');
 
     } catch (error) {
-      logError('🚨 API CONNECTIVITY VALIDATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 API CONNECTIVITY VALIDATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       // Don't throw - allow initialization to continue
     }
   }
@@ -1222,7 +1223,7 @@ export class NetworkSecurityService {
       );
 
       if (recentViolations.length > 10) {
-        logSecurity(`⚠️  High security violation rate: ${recentViolations.length} in last 5 minutes`);
+        logSecurity('⚠️  High security violation rate: ${recentViolations.length} in last 5 minutes', 'medium', { component: 'SecurityService' });
       }
 
       // Check active requests for timeouts
@@ -1237,7 +1238,7 @@ export class NetworkSecurityService {
       }
 
     } catch (error) {
-      logError('🚨 SECURITY HEALTH CHECK ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 SECURITY HEALTH CHECK ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -1263,11 +1264,11 @@ export class NetworkSecurityService {
 
       // Log critical events immediately
       if (event.severity === 'critical' || event.severity === 'high') {
-        logError(`🚨 SECURITY VIOLATION [${event.severity.toUpperCase()}]: ${event.details}`);
+        logError(LogCategory.SYSTEM, `SECURITY VIOLATION [${event.severity.toUpperCase()}]: ${event.details}`);
       }
 
     } catch (error) {
-      logError('🚨 SECURITY EVENT LOGGING ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 SECURITY EVENT LOGGING ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -1295,7 +1296,7 @@ export class NetworkSecurityService {
       logPerformance('✅ All requests aborted');
 
     } catch (error) {
-      logError('🚨 REQUEST ABORTION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 REQUEST ABORTION ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -1320,7 +1321,7 @@ export class NetworkSecurityService {
       logPerformance('✅ Network security service destroyed');
 
     } catch (error) {
-      logError('🚨 NETWORK SECURITY DESTRUCTION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 NETWORK SECURITY DESTRUCTION ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }

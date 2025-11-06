@@ -185,7 +185,7 @@ export const useAssessmentPerformance = (): UseAssessmentPerformanceReturn => {
 
         logPerformance('✅ Week 3 performance systems initialized successfully');
       } catch (error) {
-        logError('Failed to initialize performance systems:', error);
+        logError(LogCategory.SYSTEM, 'Failed to initialize performance systems:', error instanceof Error ? error : new Error(String(error)));
         setAlertLevel('warning');
       }
     };
@@ -275,7 +275,7 @@ export const useAssessmentPerformance = (): UseAssessmentPerformanceReturn => {
       
       // Critical safety check
       if (duration > PERFORMANCE_THRESHOLDS.crisisDetection) {
-        logError(`🚨 Crisis detection exceeded threshold: ${duration}ms (target: <${PERFORMANCE_THRESHOLDS.crisisDetection}ms)`);
+        logError(LogCategory.SYSTEM, `Crisis detection exceeded threshold: ${duration}ms (target: <${PERFORMANCE_THRESHOLDS.crisisDetection}ms)`);
         setAlertLevel('critical');
         
         Alert.alert(
@@ -330,7 +330,7 @@ export const useAssessmentPerformance = (): UseAssessmentPerformanceReturn => {
 
         // Enhanced safety validation with Week 3 targets
         if (actualDetectionTime > PERFORMANCE_THRESHOLDS.crisisDetection) {
-          logError(`🚨 Crisis detection time: ${actualDetectionTime}ms (CRITICAL THRESHOLD EXCEEDED - Week 3 target: <${PERFORMANCE_THRESHOLDS.crisisDetection}ms)`);
+          logError(LogCategory.SYSTEM, `Crisis detection time: ${actualDetectionTime}ms (CRITICAL THRESHOLD EXCEEDED - Week 3 target: <${PERFORMANCE_THRESHOLDS.crisisDetection}ms)`);
           setAlertLevel('critical');
 
           Alert.alert(
@@ -342,7 +342,7 @@ export const useAssessmentPerformance = (): UseAssessmentPerformanceReturn => {
 
         return optimizedDetection;
       } catch (error) {
-        logError('Optimized crisis detection failed, using fallback:', error);
+        logError(LogCategory.SYSTEM, 'Optimized crisis detection failed, using fallback:', error instanceof Error ? error : new Error(String(error)));
       }
     }
 
@@ -354,7 +354,7 @@ export const useAssessmentPerformance = (): UseAssessmentPerformanceReturn => {
 
     // Critical safety validation
     if (detectionTime > PERFORMANCE_THRESHOLDS.crisisDetection) {
-      logError(`🚨 Crisis detection time: ${detectionTime}ms (CRITICAL THRESHOLD EXCEEDED)`);
+      logError(LogCategory.SYSTEM, `Crisis detection time: ${detectionTime}ms (CRITICAL THRESHOLD EXCEEDED)`);
       setAlertLevel('critical');
     }
   }, [metrics.crisisDetectedCount, updateMetrics]);
@@ -475,7 +475,7 @@ export const useAssessmentPerformance = (): UseAssessmentPerformanceReturn => {
 
       return validationReport;
     } catch (error) {
-      logError('Performance validation failed:', error);
+      logError(LogCategory.SYSTEM, 'Performance validation failed:', error instanceof Error ? error : new Error(String(error)));
       setAlertLevel('critical');
       return null;
     }

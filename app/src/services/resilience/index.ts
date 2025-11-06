@@ -1,4 +1,6 @@
 /**
+import { logError, LogCategory } from '../logging';
+
  * SYSTEM RESILIENCE SERVICES
  * Week 4 Phase 2a - Critical Production Infrastructure
  *

@@ -369,7 +369,7 @@ export class PerformanceValidator {
       return report;
 
     } catch (error) {
-      logError('Performance validation failed:', error);
+      logError(LogCategory.PERFORMANCE, 'Performance validation failed:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -475,7 +475,7 @@ export class PerformanceValidator {
 
     // Add memory leak check
     if (memoryResults.memoryLeak) {
-      logSecurity('⚠️ Memory leak detected during validation');
+      logSecurity('⚠️ Memory leak detected during validation', 'low');
     }
 
     return results;

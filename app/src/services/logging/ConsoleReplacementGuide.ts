@@ -59,7 +59,7 @@ export const logAnalyticsDataDeletion = () => {
   });
 };
 
-// ❌ BEFORE: logError('🚨 CRISIS DETECTION VALIDATION FAILED', detection);
+// ❌ BEFORE: logError(LogCategory.SYSTEM, 'CRISIS DETECTION VALIDATION FAILED', detection);
 // ✅ AFTER:
 export const logCrisisDetectionValidationFailed = (detectionTime?: number) => {
   logCrisis('Crisis detection validation failed', {
@@ -91,7 +91,7 @@ export const logAssessmentCompletionTracked = (processingTime: number) => {
  * CATEGORY 2: AUTHENTICATION/SESSION EXPOSURE - HIGH PRIORITY
  */
 
-// ❌ BEFORE: logError('🔐 Analytics authentication failed:', error);
+// ❌ BEFORE: logError(LogCategory.SYSTEM, '🔐 Analytics authentication failed:', error instanceof Error ? error : new Error(String(error)));
 // ✅ AFTER:
 export const logAnalyticsAuthenticationFailed = (error: Error) => {
   logAuth('Analytics authentication failed', {
@@ -122,7 +122,7 @@ export const logAuthServiceInitialization = () => {
  * CATEGORY 3: PERFORMANCE LOGS WITH POTENTIAL PHI - MEDIUM PRIORITY
  */
 
-// ❌ BEFORE: logError(`🚨 Crisis detection exceeded threshold: ${duration}ms`);
+// ❌ BEFORE: logError(LogCategory.SYSTEM, `Crisis detection exceeded threshold: ${duration}ms`);
 // ✅ AFTER:
 export const logCrisisDetectionThresholdExceeded = (duration: number, threshold: number) => {
   logPerformance('Crisis detection threshold exceeded', duration, {
@@ -174,7 +174,7 @@ export const logUserDataDeletionSuccess = () => {
   });
 };
 
-// ❌ BEFORE: logError('🚨 User data deletion failed:', error);
+// ❌ BEFORE: logError(LogCategory.SYSTEM, 'User data deletion failed:', error);
 // ✅ AFTER:
 export const logUserDataDeletionFailed = (error: Error) => {
   logError(LogCategory.SYNC, 'User data deletion failed', error);

@@ -88,7 +88,7 @@ export default function CloudBackupSettings({
         setAnalyticsStatus(status);
         setAnalyticsEnabled(status.initialized);
       } catch (error) {
-        logError('Failed to get analytics status:', error);
+        logError(LogCategory.SYSTEM, 'Failed to get analytics status:', error instanceof Error ? error : new Error(String(error)));
       }
     };
 

@@ -13,7 +13,18 @@
  * applications with real-time monitoring, alerting, and automatic optimization.
  */
 
-// Core Performance Optimizers
+// Import for internal use
+import { CrisisPerformanceOptimizer } from './CrisisPerformanceOptimizer';
+import { AssessmentFlowOptimizer } from './AssessmentFlowOptimizer';
+import { MemoryOptimizer } from './MemoryOptimizer';
+import { BundleOptimizer } from './BundleOptimizer';
+import { RenderingOptimizer } from './RenderingOptimizer';
+import { ZustandStoreOptimizer } from './ZustandStoreOptimizer';
+import { PerformanceMonitor } from './PerformanceMonitor';
+import { PerformanceValidator } from './PerformanceValidator';
+import { logPerformance, logError, LogCategory } from '../logging';
+
+// Core Performance Optimizers - Re-exports
 export { CrisisPerformanceOptimizer } from './CrisisPerformanceOptimizer';
 export { AssessmentFlowOptimizer } from './AssessmentFlowOptimizer';
 export { MemoryOptimizer } from './MemoryOptimizer';
@@ -105,12 +116,12 @@ export class PerformanceSystem {
           const validationReport = await PerformanceValidator.validatePerformance();
           logPerformance(`🎯 Initial performance validation: ${validationReport.status} (Score: ${validationReport.overallScore}/100)`);
         } catch (error) {
-          logError('Initial performance validation failed:', error);
+          logError(LogCategory.PERFORMANCE, 'Initial performance validation failed:', error instanceof Error ? error : new Error(String(error)));
         }
       }, 5000); // Wait 5 seconds for systems to stabilize
 
     } catch (error) {
-      logError('Failed to initialize Week 3 Performance System:', error);
+      logError(LogCategory.PERFORMANCE, 'Failed to initialize Week 3 Performance System:', error instanceof Error ? error : new Error(String(error)));
       this.initializationPromise = null;
       throw error;
     }
@@ -176,7 +187,7 @@ export class PerformanceSystem {
 
       logPerformance('✅ Comprehensive performance optimization completed');
     } catch (error) {
-      logError('Performance optimization failed:', error);
+      logError(LogCategory.PERFORMANCE, 'Performance optimization failed:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -273,7 +284,7 @@ export class PerformanceSystem {
 
       logPerformance('✅ Week 3 Performance System shutdown completed');
     } catch (error) {
-      logError('Performance system shutdown failed:', error);
+      logError(LogCategory.PERFORMANCE, 'Performance system shutdown failed:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 }

@@ -200,7 +200,7 @@ export class EncryptionService {
       });
 
     } catch (error) {
-      logError('🚨 ENCRYPTION INITIALIZATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 ENCRYPTION INITIALIZATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw new Error(`Encryption initialization failed: ${error.message}`);
     }
   }
@@ -289,7 +289,7 @@ export class EncryptionService {
 
     } catch (error) {
       const encryptionTime = performance.now() - startTime;
-      logError('🚨 ENCRYPTION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 ENCRYPTION ERROR:', error instanceof Error ? error : new Error(String(error)));
 
       // Record failure metrics
       await this.recordPerformanceMetrics({
@@ -365,7 +365,7 @@ export class EncryptionService {
       // Validate decryption performance for crisis scenarios
       if (encryptedPackage.metadata.sensitivityLevel === 'level_1_crisis_responses') {
         if (decryptionTime > ENCRYPTION_CONFIG.PERFORMANCE_THRESHOLD_MS) {
-          logSecurity(`⚠️  Crisis data decryption slow: ${decryptionTime.toFixed(2)}ms`);
+          logSecurity('⚠️  Crisis data decryption slow: ${decryptionTime.toFixed(2)}ms', 'medium', { component: 'SecurityService' });
         }
       }
 
@@ -387,7 +387,7 @@ export class EncryptionService {
 
     } catch (error) {
       const decryptionTime = performance.now() - startTime;
-      logError('🚨 DECRYPTION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 DECRYPTION ERROR:', error instanceof Error ? error : new Error(String(error)));
 
       // Record failure metrics
       await this.recordPerformanceMetrics({
@@ -430,7 +430,7 @@ export class EncryptionService {
 
       // Enforce crisis performance requirement
       if (totalTime > ENCRYPTION_CONFIG.PERFORMANCE_THRESHOLD_MS) {
-        logError(`🚨 CRISIS ENCRYPTION TOO SLOW: ${totalTime.toFixed(2)}ms > ${ENCRYPTION_CONFIG.PERFORMANCE_THRESHOLD_MS}ms`);
+        logError(LogCategory.SYSTEM, `CRISIS ENCRYPTION TOO SLOW: ${totalTime.toFixed(2)}ms > ${ENCRYPTION_CONFIG.PERFORMANCE_THRESHOLD_MS}ms`);
         
         // This is critical - crisis data must encrypt quickly
         throw new Error(`Crisis encryption performance violation: ${totalTime.toFixed(2)}ms`);
@@ -441,7 +441,7 @@ export class EncryptionService {
       return encryptedPackage;
 
     } catch (error) {
-      logError('🚨 CRISIS ENCRYPTION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 CRISIS ENCRYPTION ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -488,7 +488,7 @@ export class EncryptionService {
       return encryptedPackage;
 
     } catch (error) {
-      logError('🚨 ASSESSMENT ENCRYPTION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 ASSESSMENT ENCRYPTION ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -540,7 +540,7 @@ export class EncryptionService {
       logPerformance('✅ Master key initialized successfully');
 
     } catch (error) {
-      logError('🚨 MASTER KEY INITIALIZATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 MASTER KEY INITIALIZATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -583,7 +583,7 @@ export class EncryptionService {
       return { key: derivedKey, salt: keySalt };
 
     } catch (error) {
-      logError('🚨 KEY DERIVATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 KEY DERIVATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -601,7 +601,7 @@ export class EncryptionService {
       );
 
     } catch (error) {
-      logError('🚨 PASSPHRASE KEY DERIVATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 PASSPHRASE KEY DERIVATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -681,7 +681,7 @@ export class EncryptionService {
       }
 
     } catch (error) {
-      logError('🚨 AES-GCM ENCRYPTION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 AES-GCM ENCRYPTION ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -745,7 +745,7 @@ export class EncryptionService {
       }
 
     } catch (error) {
-      logError('🚨 AES-GCM DECRYPTION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 AES-GCM DECRYPTION ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -798,7 +798,7 @@ export class EncryptionService {
       }
 
     } catch (error) {
-      logError('🚨 PBKDF2 KEY DERIVATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 PBKDF2 KEY DERIVATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -844,7 +844,7 @@ export class EncryptionService {
         migrationStatus.migrationCompleted = true;
         logPerformance('✅ Legacy data migration skipped (invalid key format) - marked completed');
       } catch (error) {
-        logError('Failed to set migration flag:', error);
+        logError(LogCategory.SECURITY, 'Failed to set migration flag:', error instanceof Error ? error : new Error(String(error)));
         // Don't fail initialization if we can't set the flag
         migrationStatus.migrationCompleted = true;
       }
@@ -852,7 +852,7 @@ export class EncryptionService {
       return migrationStatus;
 
     } catch (error) {
-      logError('🚨 LEGACY DATA MIGRATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 LEGACY DATA MIGRATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw new Error(`Migration failed: ${error.message}`);
     }
   }
@@ -881,7 +881,7 @@ export class EncryptionService {
       return deviceId;
 
     } catch (error) {
-      logError('🚨 DEVICE ID GENERATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 DEVICE ID GENERATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw new Error(`Device ID generation failed: ${error.message}`);
     }
   }
@@ -902,7 +902,7 @@ export class EncryptionService {
         return new Uint8Array(randomString).buffer;
       }
     } catch (error) {
-      logError('🚨 RANDOM BYTES GENERATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 RANDOM BYTES GENERATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -934,7 +934,7 @@ export class EncryptionService {
       );
       return digest.substring(0, 32); // First 32 characters
     } catch (error) {
-      logError('🚨 CHECKSUM CALCULATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 CHECKSUM CALCULATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -958,7 +958,7 @@ export class EncryptionService {
     const threshold = performanceThresholds[sensitivityLevel];
     
     if (operationTimeMs > threshold) {
-      logSecurity(`⚠️  Encryption performance warning: ${operationTimeMs.toFixed(2)}ms > ${threshold}ms for ${sensitivityLevel}`);
+      logSecurity('⚠️  Encryption performance warning: ${operationTimeMs.toFixed(2)}ms > ${threshold}ms for ${sensitivityLevel}', 'medium', { component: 'SecurityService' });
       
       // Critical for crisis data
       if (sensitivityLevel === 'level_1_crisis_responses' && operationTimeMs > ENCRYPTION_CONFIG.PERFORMANCE_THRESHOLD_MS) {
@@ -978,15 +978,15 @@ export class EncryptionService {
 
       // Log critical performance issues
       if (metrics.successRate < 0.95) {
-        logError(`🚨 ENCRYPTION SUCCESS RATE LOW: ${(metrics.successRate * 100).toFixed(1)}%`);
+        logError(LogCategory.SYSTEM, `ENCRYPTION SUCCESS RATE LOW: ${(metrics.successRate * 100).toFixed(1)}%`);
       }
 
       if (metrics.operationTimeMs > ENCRYPTION_CONFIG.PERFORMANCE_THRESHOLD_MS) {
-        logSecurity(`⚠️  ENCRYPTION PERFORMANCE WARNING: ${metrics.operationTimeMs.toFixed(2)}ms`);
+        logSecurity('⚠️  ENCRYPTION PERFORMANCE WARNING: ${metrics.operationTimeMs.toFixed(2)}ms', 'medium', { component: 'SecurityService' });
       }
 
     } catch (error) {
-      logError('🚨 PERFORMANCE METRICS RECORDING ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 PERFORMANCE METRICS RECORDING ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -1007,7 +1007,7 @@ export class EncryptionService {
       try {
         await this.checkKeyRotationRequirements();
       } catch (error) {
-        logError('🚨 KEY ROTATION CHECK ERROR:', error);
+        logError(LogCategory.SECURITY, '🚨 KEY ROTATION CHECK ERROR:', error instanceof Error ? error : new Error(String(error)));
       }
     }, 24 * 60 * 60 * 1000);
   }
@@ -1023,7 +1023,7 @@ export class EncryptionService {
         }
       }
     } catch (error) {
-      logError('🚨 KEY ROTATION CHECK ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 KEY ROTATION CHECK ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -1072,7 +1072,7 @@ export class EncryptionService {
       logPerformance(`✅ Key rotated successfully (${rotationTime.toFixed(2)}ms)`);
 
     } catch (error) {
-      logError('🚨 KEY ROTATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 KEY ROTATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -1097,7 +1097,7 @@ export class EncryptionService {
       logPerformance('✅ Encryption capabilities verified');
 
     } catch (error) {
-      logError('🚨 ENCRYPTION VERIFICATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 ENCRYPTION VERIFICATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -1113,7 +1113,7 @@ export class EncryptionService {
       logPerformance('✅ Master key verified');
 
     } catch (error) {
-      logError('🚨 MASTER KEY VERIFICATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 MASTER KEY VERIFICATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -1182,7 +1182,7 @@ export class EncryptionService {
       logPerformance('✅ Sensitive data cleared');
 
     } catch (error) {
-      logError('🚨 SENSITIVE DATA CLEARING ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 SENSITIVE DATA CLEARING ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -1206,7 +1206,7 @@ export class EncryptionService {
       logPerformance('✅ Encryption service destroyed');
 
     } catch (error) {
-      logError('🚨 ENCRYPTION SERVICE DESTRUCTION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 ENCRYPTION SERVICE DESTRUCTION ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }

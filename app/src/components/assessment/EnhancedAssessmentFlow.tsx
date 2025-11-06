@@ -183,7 +183,7 @@ const EnhancedAssessmentFlow: React.FC<EnhancedAssessmentFlowProps> = ({
           questionStartTime.current = Date.now();
         }
       } catch (error) {
-        logError('Assessment initialization failed:', error);
+        logError(LogCategory.SYSTEM, 'Assessment initialization failed:', error instanceof Error ? error : new Error(String(error)));
       }
     };
 
@@ -299,7 +299,7 @@ const EnhancedAssessmentFlow: React.FC<EnhancedAssessmentFlowProps> = ({
       }
 
     } catch (error) {
-      logError('Enhanced answer handling failed:', error);
+      logError(LogCategory.SYSTEM, 'Enhanced answer handling failed:', error instanceof Error ? error : new Error(String(error)));
       Alert.alert(
         'Response Error',
         'There was an issue saving your response. Crisis support is still available.',
@@ -356,7 +356,7 @@ const EnhancedAssessmentFlow: React.FC<EnhancedAssessmentFlowProps> = ({
       }
 
     } catch (error) {
-      logError('Assessment completion failed:', error);
+      logError(LogCategory.SYSTEM, 'Assessment completion failed:', error instanceof Error ? error : new Error(String(error)));
       Alert.alert(
         'Completion Error',
         'There was an issue completing your assessment. Your responses are safely stored.',
@@ -382,7 +382,7 @@ const EnhancedAssessmentFlow: React.FC<EnhancedAssessmentFlowProps> = ({
 
   // Error handler
   const handleError = useCallback((error: Error) => {
-    logError('Assessment flow error:', error);
+    logError(LogCategory.SYSTEM, 'Assessment flow error:', error instanceof Error ? error : new Error(String(error)));
     
     // Always maintain crisis access during errors
     Alert.alert(

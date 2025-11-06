@@ -213,7 +213,7 @@ export class DeploymentService {
 
       logSecurity('Deployment service initialized', 'low', {
         component: 'deployment_service',
-        historySize: this.deploymentHistory.length
+        
       });
 
     } catch (error) {
@@ -305,7 +305,7 @@ export class DeploymentService {
 
       logSecurity('Deployment completed successfully', 'low', {
         component: 'deployment_service',
-        deploymentId: deployment.id,
+        
         duration: deployment.performanceMetrics.totalDuration,
         strategy: deployment.config.strategy
       });
@@ -325,7 +325,7 @@ export class DeploymentService {
     try {
       logSecurity('Starting pre-deployment validation', 'low', {
         component: 'deployment_service',
-        deploymentId: deployment.id
+        
       });
 
       // Check system health before deployment
@@ -353,7 +353,7 @@ export class DeploymentService {
 
       logSecurity('Pre-deployment validation completed', 'low', {
         component: 'deployment_service',
-        deploymentId: deployment.id,
+        
         validationTime: deployment.performanceMetrics.validationTime
       });
 
@@ -373,7 +373,7 @@ export class DeploymentService {
     try {
       logSecurity('Starting deployment execution', 'medium', {
         component: 'deployment_service',
-        deploymentId: deployment.id,
+        
         strategy: deployment.config.strategy
       });
 
@@ -403,7 +403,7 @@ export class DeploymentService {
 
       logSecurity('Deployment execution completed', 'low', {
         component: 'deployment_service',
-        deploymentId: deployment.id,
+        
         deploymentTime: deployment.performanceMetrics.deploymentTime
       });
 
@@ -419,7 +419,7 @@ export class DeploymentService {
   private async executeBlueGreenDeployment(deployment: DeploymentRecord): Promise<void> {
     logSecurity('Executing blue/green deployment', 'medium', {
       component: 'deployment_service',
-      deploymentId: deployment.id
+      
     });
 
     // Simulate blue/green deployment process
@@ -433,7 +433,7 @@ export class DeploymentService {
 
     logSecurity('Blue/green deployment completed', 'low', {
       component: 'deployment_service',
-      deploymentId: deployment.id
+      
     });
   }
 
@@ -443,7 +443,7 @@ export class DeploymentService {
   private async executeCanaryDeployment(deployment: DeploymentRecord): Promise<void> {
     logSecurity('Executing canary deployment', 'medium', {
       component: 'deployment_service',
-      deploymentId: deployment.id
+      
     });
 
     // Simulate canary deployment with gradual traffic shift
@@ -451,7 +451,7 @@ export class DeploymentService {
 
     logSecurity('Canary deployment completed', 'low', {
       component: 'deployment_service',
-      deploymentId: deployment.id
+      
     });
   }
 
@@ -461,7 +461,7 @@ export class DeploymentService {
   private async executeRollingDeployment(deployment: DeploymentRecord): Promise<void> {
     logSecurity('Executing rolling deployment', 'medium', {
       component: 'deployment_service',
-      deploymentId: deployment.id
+      
     });
 
     // Simulate rolling deployment with progressive updates
@@ -469,7 +469,7 @@ export class DeploymentService {
 
     logSecurity('Rolling deployment completed', 'low', {
       component: 'deployment_service',
-      deploymentId: deployment.id
+      
     });
   }
 
@@ -479,7 +479,7 @@ export class DeploymentService {
   private async executeEmergencyDeployment(deployment: DeploymentRecord): Promise<void> {
     logSecurity('Executing emergency deployment', 'critical', {
       component: 'deployment_service',
-      deploymentId: deployment.id
+      
     });
 
     // Emergency deployments bypass some safety checks for critical fixes
@@ -487,7 +487,7 @@ export class DeploymentService {
 
     logSecurity('Emergency deployment completed', 'critical', {
       component: 'deployment_service',
-      deploymentId: deployment.id
+      
     });
   }
 
@@ -501,7 +501,7 @@ export class DeploymentService {
     try {
       logSecurity('Starting post-deployment health checks', 'medium', {
         component: 'deployment_service',
-        deploymentId: deployment.id
+        
       });
 
       const healthCheck = deployment.config.healthCheck;
@@ -529,7 +529,7 @@ export class DeploymentService {
 
       logSecurity('Post-deployment health checks passed', 'low', {
         component: 'deployment_service',
-        deploymentId: deployment.id,
+        
         healthScore: healthScore * 100,
         healthCheckTime: deployment.performanceMetrics.healthCheckTime
       });
@@ -598,7 +598,7 @@ export class DeploymentService {
     try {
       logSecurity('Starting post-deployment actions', 'low', {
         component: 'deployment_service',
-        deploymentId: deployment.id
+        
       });
 
       // Update deployment tracking
@@ -612,7 +612,7 @@ export class DeploymentService {
 
       logSecurity('Post-deployment actions completed', 'low', {
         component: 'deployment_service',
-        deploymentId: deployment.id
+        
       });
 
     } catch (error) {
@@ -621,7 +621,7 @@ export class DeploymentService {
 
       logSecurity('Post-deployment action warning', 'low', {
         component: 'deployment_service',
-        deploymentId: deployment.id,
+        
         warning: error.message
       });
     }
@@ -638,7 +638,7 @@ export class DeploymentService {
 
       logSecurity('Starting deployment rollback', 'critical', {
         component: 'deployment_service',
-        deploymentId: deployment.id,
+        
         rollbackReason: 'Health check failure'
       });
 
@@ -668,7 +668,7 @@ export class DeploymentService {
 
       logSecurity('Deployment rollback completed', 'critical', {
         component: 'deployment_service',
-        deploymentId: deployment.id,
+        
         rollbackTime: deployment.performanceMetrics.rollbackTime
       });
 
@@ -677,7 +677,7 @@ export class DeploymentService {
       trackError(ErrorCategory.SECURITY,
         `Deployment rollback failed: ${deployment.id}`,
         error,
-        { deploymentId: deployment.id }
+        { }
       );
       throw error;
     }
@@ -762,7 +762,7 @@ export class DeploymentService {
 
     logSecurity('Deployment failed', 'high', {
       component: 'deployment_service',
-      deploymentId: deployment.id,
+      
       error: error.message,
       strategy: deployment.config.strategy
     });
@@ -770,7 +770,7 @@ export class DeploymentService {
     trackError(ErrorCategory.SECURITY,
       `Deployment failed: ${deployment.id}`,
       error,
-      { deploymentId: deployment.id, strategy: deployment.config.strategy }
+      {  strategy: deployment.config.strategy }
     );
   }
 
@@ -837,7 +837,7 @@ export class DeploymentService {
     // Notify monitoring systems of successful deployment
     logSecurity('Deployment notification sent', 'low', {
       component: 'deployment_service',
-      deploymentId: deployment.id,
+      
       version: deployment.config.version,
       environment: deployment.config.environment
     });
@@ -878,7 +878,7 @@ export class DeploymentService {
 
       logSecurity('Emergency shutdown during deployment', 'critical', {
         component: 'deployment_service',
-        deploymentId: this.currentDeployment.id
+        
       });
 
       // Attempt rollback if possible

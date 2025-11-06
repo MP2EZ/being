@@ -203,7 +203,7 @@ export class SecureStorageService {
       });
 
     } catch (error) {
-      logError('🚨 SECURE STORAGE INITIALIZATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 SECURE STORAGE INITIALIZATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw new Error(`Secure storage initialization failed: ${error.message}`);
     }
   }
@@ -263,7 +263,7 @@ export class SecureStorageService {
 
       // Validate crisis performance requirement
       if (operationTime > SECURE_STORAGE_CONFIG.CRISIS_ACCESS_THRESHOLD_MS) {
-        logSecurity(`⚠️  Crisis storage slow: ${operationTime.toFixed(2)}ms > ${SECURE_STORAGE_CONFIG.CRISIS_ACCESS_THRESHOLD_MS}ms`);
+        logSecurity('⚠️  Crisis storage slow: ${operationTime.toFixed(2)}ms > ${SECURE_STORAGE_CONFIG.CRISIS_ACCESS_THRESHOLD_MS}ms', 'medium', { component: 'SecurityService' });
       }
 
       // Log access
@@ -293,7 +293,7 @@ export class SecureStorageService {
 
     } catch (error) {
       const operationTime = performance.now() - startTime;
-      logError('🚨 CRISIS DATA STORAGE ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 CRISIS DATA STORAGE ERROR:', error instanceof Error ? error : new Error(String(error)));
 
       // Log failure
       await this.logStorageAccess({
@@ -380,7 +380,7 @@ export class SecureStorageService {
 
       // Validate assessment performance requirement
       if (operationTime > SECURE_STORAGE_CONFIG.ASSESSMENT_ACCESS_THRESHOLD_MS) {
-        logSecurity(`⚠️  Assessment storage slow: ${operationTime.toFixed(2)}ms > ${SECURE_STORAGE_CONFIG.ASSESSMENT_ACCESS_THRESHOLD_MS}ms`);
+        logSecurity('⚠️  Assessment storage slow: ${operationTime.toFixed(2)}ms > ${SECURE_STORAGE_CONFIG.ASSESSMENT_ACCESS_THRESHOLD_MS}ms', 'medium', { component: 'SecurityService' });
       }
 
       // Log access
@@ -410,7 +410,7 @@ export class SecureStorageService {
 
     } catch (error) {
       const operationTime = performance.now() - startTime;
-      logError('🚨 ASSESSMENT DATA STORAGE ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 ASSESSMENT DATA STORAGE ERROR:', error instanceof Error ? error : new Error(String(error)));
 
       // Log failure
       await this.logStorageAccess({
@@ -478,7 +478,7 @@ export class SecureStorageService {
 
       // Critical: Crisis data access must be fast
       if (operationTime > SECURE_STORAGE_CONFIG.CRISIS_ACCESS_THRESHOLD_MS) {
-        logError(`🚨 CRISIS DATA ACCESS TOO SLOW: ${operationTime.toFixed(2)}ms > ${SECURE_STORAGE_CONFIG.CRISIS_ACCESS_THRESHOLD_MS}ms`);
+        logError(LogCategory.SYSTEM, `CRISIS DATA ACCESS TOO SLOW: ${operationTime.toFixed(2)}ms > ${SECURE_STORAGE_CONFIG.CRISIS_ACCESS_THRESHOLD_MS}ms`);
       }
 
       // Log access
@@ -515,7 +515,7 @@ export class SecureStorageService {
 
     } catch (error) {
       const operationTime = performance.now() - startTime;
-      logError('🚨 CRISIS DATA RETRIEVAL ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 CRISIS DATA RETRIEVAL ERROR:', error instanceof Error ? error : new Error(String(error)));
 
       // Log failure
       await this.logStorageAccess({
@@ -606,7 +606,7 @@ export class SecureStorageService {
 
     } catch (error) {
       const operationTime = performance.now() - startTime;
-      logError('🚨 ASSESSMENT DATA RETRIEVAL ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 ASSESSMENT DATA RETRIEVAL ERROR:', error instanceof Error ? error : new Error(String(error)));
 
       // Log failure
       await this.logStorageAccess({
@@ -726,7 +726,7 @@ export class SecureStorageService {
 
       // Validate bulk operation performance
       if (totalOperationTime > SECURE_STORAGE_CONFIG.BULK_OPERATION_THRESHOLD_MS) {
-        logSecurity(`⚠️  Bulk operation slow: ${totalOperationTime.toFixed(2)}ms > ${SECURE_STORAGE_CONFIG.BULK_OPERATION_THRESHOLD_MS}ms`);
+        logSecurity('⚠️  Bulk operation slow: ${totalOperationTime.toFixed(2)}ms > ${SECURE_STORAGE_CONFIG.BULK_OPERATION_THRESHOLD_MS}ms', 'medium', { component: 'SecurityService' });
       }
 
       // Log bulk operation
@@ -749,7 +749,7 @@ export class SecureStorageService {
 
     } catch (error) {
       const operationTime = performance.now() - startTime;
-      logError('🚨 BULK OPERATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 BULK OPERATION ERROR:', error instanceof Error ? error : new Error(String(error)));
 
       // Log failure
       await this.logStorageAccess({
@@ -841,7 +841,7 @@ export class SecureStorageService {
       }
 
     } catch (error) {
-      logError('🚨 GENERAL DATA RETRIEVAL ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 GENERAL DATA RETRIEVAL ERROR:', error instanceof Error ? error : new Error(String(error)));
       return null;
     }
   }
@@ -931,7 +931,7 @@ export class SecureStorageService {
 
     } catch (error) {
       const operationTime = performance.now() - startTime;
-      logError('🚨 SECURE DATA DELETION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 SECURE DATA DELETION ERROR:', error instanceof Error ? error : new Error(String(error)));
 
       return {
         success: false,
@@ -953,7 +953,7 @@ export class SecureStorageService {
       try {
         await this.performScheduledCleanup();
       } catch (error) {
-        logError('🚨 SCHEDULED CLEANUP ERROR:', error);
+        logError(LogCategory.SECURITY, '🚨 SCHEDULED CLEANUP ERROR:', error instanceof Error ? error : new Error(String(error)));
       }
     }, SECURE_STORAGE_CONFIG.AUTO_CLEANUP_INTERVAL_MS);
   }
@@ -983,7 +983,7 @@ export class SecureStorageService {
       logPerformance(`✅ Cleanup completed (${cleanedCount} items removed)`);
 
     } catch (error) {
-      logError('🚨 CLEANUP ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 CLEANUP ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -999,7 +999,7 @@ export class SecureStorageService {
       }
 
     } catch (error) {
-      logError('🚨 AUDIT LOG CLEANUP ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 AUDIT LOG CLEANUP ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -1019,7 +1019,7 @@ export class SecureStorageService {
       }
 
     } catch (error) {
-      logError('🚨 METADATA LOADING ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 METADATA LOADING ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -1033,7 +1033,7 @@ export class SecureStorageService {
       await AsyncStorage.setItem('storage_metadata_index', JSON.stringify(metadataArray));
 
     } catch (error) {
-      logError('🚨 METADATA STORAGE ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 METADATA STORAGE ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -1046,7 +1046,7 @@ export class SecureStorageService {
       await AsyncStorage.setItem('storage_metadata_index', JSON.stringify(metadataArray));
 
     } catch (error) {
-      logError('🚨 METADATA DELETION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 METADATA DELETION ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -1099,7 +1099,7 @@ export class SecureStorageService {
       logPerformance('✅ Storage capabilities verified');
 
     } catch (error) {
-      logError('🚨 STORAGE CAPABILITY VERIFICATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 STORAGE CAPABILITY VERIFICATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -1124,7 +1124,7 @@ export class SecureStorageService {
       }
 
     } catch (error) {
-      logError('🚨 ACCESS LOGGING ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 ACCESS LOGGING ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -1198,7 +1198,7 @@ export class SecureStorageService {
       };
 
     } catch (error) {
-      logError('🚨 STORAGE EXPORT ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 STORAGE EXPORT ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -1225,7 +1225,7 @@ export class SecureStorageService {
       logPerformance('✅ Secure storage service destroyed');
 
     } catch (error) {
-      logError('🚨 SECURE STORAGE DESTRUCTION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 SECURE STORAGE DESTRUCTION ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }

@@ -1,4 +1,6 @@
 /**
+import { logError, LogCategory } from '../logging';
+
  * PRODUCTION MONITORING SERVICES
  * Week 4 Phase 1c - Critical Production Infrastructure
  *

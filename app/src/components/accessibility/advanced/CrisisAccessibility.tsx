@@ -191,7 +191,11 @@ export const CrisisAccessibilityProvider: React.FC<CrisisAccessibilityProviderPr
     // Performance monitoring - crisis mode must activate quickly
     const activationTime = performance.now() - startTime;
     if (activationTime > 200) {
-      logSecurity(`⚠️ Crisis mode activation took ${activationTime}ms (target: <200ms)`);
+      logSecurity(`⚠️ Crisis mode activation took ${activationTime}ms (target: <200ms)`, 'medium', {
+        component: 'CrisisAccessibility',
+        actualTime: activationTime,
+        target: 200
+      });
     }
 
     // Audio cue

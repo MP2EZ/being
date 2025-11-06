@@ -147,7 +147,7 @@ export class CrisisInterventionWorkflow {
       return context;
 
     } catch (error) {
-      logError('🚨 CRISIS WORKFLOW INITIATION ERROR:', error);
+      logError(LogCategory.CRISIS, '🚨 CRISIS WORKFLOW INITIATION ERROR:', error instanceof Error ? error : new Error(String(error)));
 
       // FAIL-SAFE: Emergency workflow
       await this.executeEmergencyFailsafe(detection);
@@ -179,7 +179,7 @@ export class CrisisInterventionWorkflow {
       await this.completeWorkflow(context);
 
     } catch (error) {
-      logError('🚨 WORKFLOW EXECUTION ERROR:', error);
+      logError(LogCategory.CRISIS, '🚨 WORKFLOW EXECUTION ERROR:', error instanceof Error ? error : new Error(String(error)));
       await this.handleWorkflowFailure(context, error);
     }
   }
@@ -211,7 +211,7 @@ export class CrisisInterventionWorkflow {
       this.recordStepMetrics(step.name, stepStartTime);
 
     } catch (error) {
-      logError(`🚨 WORKFLOW STEP ERROR (${step.name}):`, error);
+      logError(LogCategory.SYSTEM, `WORKFLOW STEP ERROR (${step.name}):`, error);
 
       // Execute step failsafe if available
       if (step.failsafe) {
@@ -673,7 +673,7 @@ export class CrisisInterventionWorkflow {
     context: CrisisInterventionContext,
     error: any
   ): Promise<void> {
-    logError('🚨 WORKFLOW FAILURE:', error);
+    logError(LogCategory.CRISIS, '🚨 WORKFLOW FAILURE:', error instanceof Error ? error : new Error(String(error)));
 
     // Log failure
     await this.logWorkflowFailure(context, error);
@@ -721,7 +721,7 @@ export class CrisisInterventionWorkflow {
    * FAIL-SAFE IMPLEMENTATIONS
    */
   private async executeEmergencyFailsafe(detection: CrisisDetection): Promise<void> {
-    logError('🚨 EXECUTING EMERGENCY FAILSAFE');
+    logError(LogCategory.SYSTEM, 'EXECUTING EMERGENCY FAILSAFE');
 
     Alert.alert(
       '🚨 EMERGENCY SUPPORT',
@@ -813,7 +813,7 @@ export class CrisisInterventionWorkflow {
         JSON.stringify(logEntry)
       );
     } catch (error) {
-      logError('Workflow completion logging failed:', error);
+      logError(LogCategory.CRISIS, 'Workflow completion logging failed:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 

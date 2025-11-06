@@ -281,7 +281,7 @@ export class LoggingSecurityValidator {
       /token[:\s]*[a-zA-Z0-9\.\-_]+/gi,
       /session[_-]?id[:\s]*[a-zA-Z0-9-]+/gi,
       /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi,
-      /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/gi
+      /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2}\b/gi
     ];
 
     return phiPatterns.some(pattern => pattern.test(text));

@@ -78,14 +78,14 @@ async function initializeCloudServices(): Promise<void> {
       logPerformance('[CloudServices] Initialization completed successfully');
 
     } catch (error) {
-      logError('[CloudServices] Initialization failed:', error);
+      logError(LogCategory.SYSTEM, '[CloudServices] Initialization failed:', error instanceof Error ? error : new Error(String(error)));
 
       // Reset state on failure
       isInitialized = false;
       initializationPromise = null;
 
       // Don't throw - allow app to continue working offline
-      logSecurity('[CloudServices] Continuing in offline mode');
+      logSecurity('[CloudServices] Continuing in offline mode', 'low');
     }
   })();
 

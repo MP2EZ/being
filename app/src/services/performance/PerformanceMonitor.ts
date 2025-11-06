@@ -461,7 +461,7 @@ export class PerformanceMonitor {
 
       logPerformance('✅ All performance optimizers initialized');
     } catch (error) {
-      logError('Failed to initialize performance optimizers:', error);
+      logError(LogCategory.PERFORMANCE, 'Failed to initialize performance optimizers:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -590,7 +590,7 @@ export class PerformanceMonitor {
       return report;
 
     } catch (error) {
-      logError('Failed to collect performance report:', error);
+      logError(LogCategory.PERFORMANCE, 'Failed to collect performance report:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -823,7 +823,7 @@ export class PerformanceMonitor {
         await AsyncStorage.multiRemove(keysToDelete);
       }
     } catch (error) {
-      logError('Failed to persist performance report:', error);
+      logError(LogCategory.PERFORMANCE, 'Failed to persist performance report:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
