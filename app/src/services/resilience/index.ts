@@ -22,6 +22,11 @@
  * import { circuitBreakerService, protectedCrisisDetection } from '@/services/resilience';
  */
 
+// Import for internal use
+import { circuitBreakerService, CircuitBreakerState, ProtectedService } from './CircuitBreakerService';
+import { logSecurity, logError, logPerformance, LogCategory } from '../logging';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 // Core Circuit Breaker Service
 export {
   CircuitBreakerService,
@@ -325,9 +330,5 @@ export async function initializeServiceResilience(serviceName: string): Promise<
     throw error;
   }
 }
-
-// Import required dependencies
-import { logSecurity, logError, logPerformance, LogCategory } from '../logging';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default resilienceOrchestrator;

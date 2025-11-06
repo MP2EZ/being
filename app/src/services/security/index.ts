@@ -34,6 +34,7 @@ import SecurityMonitoringService from './SecurityMonitoringService';
 import IncidentResponseService from './IncidentResponseService';
 import CrisisSecurityProtocol from './crisis/CrisisSecurityProtocol';
 import { logPerformance, logError, LogCategory } from '../logging';
+import type { VulnerabilityAssessment } from './SecurityMonitoringService';
 
 // Core Security Services - Re-export
 export { default as EncryptionService } from './EncryptionService';

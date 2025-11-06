@@ -28,6 +28,11 @@
  * import { deploymentService, deployToProduction, emergencyDeploy } from '@/services/deployment';
  */
 
+// Import for internal use
+import { deploymentService } from './DeploymentService';
+import { resilienceOrchestrator, ProtectedService } from '../resilience';
+import { logSecurity, logPerformance, logError, LogCategory } from '../logging';
+
 // Core Deployment Service
 export {
   DeploymentService,

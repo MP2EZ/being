@@ -686,13 +686,10 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
 
   const resetOnboardingState = (): void => {
     setCurrentScreen('welcome');
-    setCurrentQuestionIndex(0);
-    setPhq9Answers([]);
-    setGad7Answers([]);
     setNotificationTimes([
-      { period: 'morning', time: '09:00', enabled: true },
-      { period: 'midday', time: '13:00', enabled: true },
-      { period: 'evening', time: '19:00', enabled: true },
+      { period: 'morning', time: '09:00', enabled: true, dataMinimization: 'necessary', retentionPeriod: '90_days' },
+      { period: 'midday', time: '13:00', enabled: true, dataMinimization: 'necessary', retentionPeriod: '90_days' },
+      { period: 'evening', time: '19:00', enabled: true, dataMinimization: 'necessary', retentionPeriod: '90_days' },
     ]);
     setConsentProvided(false);
   };

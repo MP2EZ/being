@@ -18,7 +18,7 @@
 
 
 import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { Alert, AppState, AppStateStatus } from 'react-native';
 
 // Import Week 3 Performance Optimizers

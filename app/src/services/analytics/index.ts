@@ -26,6 +26,9 @@
 
 import { logPerformance, logError, LogCategory } from '../logging';
 
+// Import for internal use
+import AnalyticsService from './AnalyticsService';
+import type { AnalyticsEvent } from './AnalyticsService';
 
 // Core Analytics Service
 export { default as AnalyticsService } from './AnalyticsService';
