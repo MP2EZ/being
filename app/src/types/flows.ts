@@ -5,16 +5,6 @@
 
 // Flow Navigation Types
 
-// Original Morning Flow (DEPRECATED for FEAT-45)
-export type OriginalMorningFlowParamList = {
-  BodyScan: undefined;
-  EmotionRecognition: undefined;
-  ThoughtObservation: undefined;
-  PhysicalMetrics: undefined;
-  ValuesIntention: undefined;
-  DreamJournal: undefined;
-};
-
 // Stoic Mindfulness Morning Flow (FEAT-45) - DRD v2.0.0
 export type MorningFlowParamList = {
   Gratitude: undefined;
@@ -78,22 +68,6 @@ export interface ThoughtData {
   category: 'helpful' | 'unhelpful' | 'neutral';
   intensity: number; // 1-10 scale
   response?: string;
-}
-
-// Original Physical Metrics (DEPRECATED)
-export interface OriginalPhysicalMetricsData {
-  energy: number; // 1-10 scale
-  sleep: number; // 1-10 scale
-  physicalComfort: number; // 1-10 scale (replaces anxiety per clinical safety)
-}
-
-// Stoic Mindfulness Physical Metrics (FEAT-45 - DEPRECATED, use PhysicalGroundingData)
-export interface PhysicalMetricsData {
-  sleepHours: number;       // 0-24 hours
-  exerciseMinutes: number;  // 0-300 minutes
-  mealsCount: number;       // 0-5 meals
-  notes?: string;           // Optional notes
-  timestamp: Date;
 }
 
 // Physical Grounding (DRD v2.0.0 - Mindful body awareness, not data tracking)
@@ -189,7 +163,7 @@ export interface MorningFlowData {
   bodyScan?: BodyAreaData[];
   emotions?: EmotionData[];
   thoughts?: ThoughtData[];
-  physicalMetrics?: PhysicalMetricsData;
+  physicalMetrics?: PhysicalGroundingData;
   values?: ValuesData[];
   dream?: DreamData;
 }
