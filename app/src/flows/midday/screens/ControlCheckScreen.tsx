@@ -32,10 +32,10 @@ import {
   Linking,
   Alert,
 } from 'react-native';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { StackScreenProps } from '@react-navigation/stack';
 import type { MiddayFlowParamList, ControlCheckData } from '../../../types/flows';
 
-type Props = NativeStackScreenProps<MiddayFlowParamList, 'ControlCheck'> & {
+type Props = StackScreenProps<MiddayFlowParamList, 'ControlCheck'> & {
   onSave?: (data: ControlCheckData) => void;
 };
 

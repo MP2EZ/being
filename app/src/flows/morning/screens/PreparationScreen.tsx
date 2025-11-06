@@ -35,12 +35,12 @@ import {
   Linking,
 } from 'react-native';
 import Slider from '@react-native-community/slider';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { StackScreenProps } from '@react-navigation/stack';
 import type { MorningFlowParamList, PreparationData } from '../../../types/flows';
 import { PremeditationSafetyService } from '../../../services/premeditationSafetyService';
 import type { ObstacleInput } from '../../../services/premeditationSafetyService';
 
-type Props = NativeStackScreenProps<MorningFlowParamList, 'Preparation'> & {
+type Props = StackScreenProps<MorningFlowParamList, 'Preparation'> & {
   onSave?: (data: PreparationData) => void;
 };
 

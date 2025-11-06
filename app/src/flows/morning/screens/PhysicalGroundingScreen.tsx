@@ -25,11 +25,11 @@ import {
   ScrollView,
   StyleSheet,
 } from 'react-native';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { StackScreenProps } from '@react-navigation/stack';
 import type { MorningFlowParamList, PhysicalGroundingData } from '../../../types/flows';
 import BreathingCircle from '../../shared/components/BreathingCircle';
 
-type Props = NativeStackScreenProps<MorningFlowParamList, 'PhysicalGrounding'> & {
+type Props = StackScreenProps<MorningFlowParamList, 'PhysicalGrounding'> & {
   onSave?: (data: PhysicalGroundingData) => void;
 };
 

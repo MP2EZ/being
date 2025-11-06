@@ -20,13 +20,13 @@
 
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { StackScreenProps } from '@react-navigation/stack';
 import type { MorningFlowParamList } from '../../../types/flows';
 import PreparationScreen from './PreparationScreen';
 import { useAssessmentStore } from '../../assessment/stores/assessmentStore';
 import { ACCESSIBLE_COLORS, SPACING, TOUCH_TARGETS } from '../../../theme/accessibility';
 
-type Props = NativeStackScreenProps<MorningFlowParamList, 'Preparation'>;
+type Props = StackScreenProps<MorningFlowParamList, 'Preparation'>;
 
 const ProtectedPreparationScreen: React.FC<Props> = (props) => {
   const { navigation } = props;

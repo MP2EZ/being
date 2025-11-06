@@ -107,7 +107,7 @@ class CodeSplittingRegistry {
           loadedModule = await import('./MemoryOptimizer');
           break;
         case 'performance-monitoring':
-          loadedModule = await import('../hooks/useAssessmentPerformance');
+          loadedModule = await import('../../hooks/useAssessmentPerformance');
           break;
         default:
           throw new Error(`Unknown chunk: ${chunkName}`);

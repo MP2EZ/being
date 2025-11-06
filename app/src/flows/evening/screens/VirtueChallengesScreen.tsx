@@ -36,12 +36,12 @@ import {
   StyleSheet,
   Alert,
 } from 'react-native';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { StackScreenProps } from '@react-navigation/stack';
 import type { EveningFlowParamList } from '../../../types/flows';
 import { useStoicPracticeStore } from '../../../stores/stoicPracticeStore';
 import type { CardinalVirtue } from '../../../types/stoic';
 
-type Props = NativeStackScreenProps<EveningFlowParamList, 'VirtueChallenges'>;
+type Props = StackScreenProps<EveningFlowParamList, 'VirtueChallenges'>;
 
 const VirtueChallengesScreen: React.FC<Props> = ({ navigation }) => {
   const { addVirtueChallenge } = useStoicPracticeStore();

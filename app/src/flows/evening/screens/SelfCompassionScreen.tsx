@@ -33,7 +33,7 @@ import {
   StyleSheet,
   Modal,
 } from 'react-native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { NativeStackNavigationProp } from '@react-navigation/stack';
 import type { RouteProp } from '@react-navigation/native';
 import type { EveningFlowParamList, SelfCompassionData } from '../../../types/flows';
 import { CollapsibleCrisisButton } from '../../shared/components/CollapsibleCrisisButton';

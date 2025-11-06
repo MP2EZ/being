@@ -29,10 +29,10 @@ import {
   ScrollView,
   StyleSheet,
 } from 'react-native';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { StackScreenProps } from '@react-navigation/stack';
 import type { EveningFlowParamList, TomorrowData } from '../../../types/flows';
 
-type Props = NativeStackScreenProps<EveningFlowParamList, 'Tomorrow'> & {
+type Props = StackScreenProps<EveningFlowParamList, 'Tomorrow'> & {
   onSave?: (data: TomorrowData) => void;
 };
 

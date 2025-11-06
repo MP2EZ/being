@@ -26,7 +26,7 @@ import {
 import {
   crisisMonitoringService,
   initializeCrisisMonitoring
-} from '../crisis/CrisisMonitoringService';
+} from './CrisisMonitoringService';
 
 import {
   logError,

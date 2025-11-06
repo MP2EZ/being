@@ -14,12 +14,12 @@
 
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { StackScreenProps } from '@react-navigation/stack';
 import type { MorningFlowParamList, StoicMorningFlowData } from '../../../types/flows';
 import { SessionStorageService } from '../../../services/session/SessionStorageService';
 import { CelebrationToast } from '../../../components/CelebrationToast';
 
-type Props = NativeStackScreenProps<MorningFlowParamList, 'MorningCompletion'> & {
+type Props = StackScreenProps<MorningFlowParamList, 'MorningCompletion'> & {
   onSave?: (data: StoicMorningFlowData) => void;
 };
 

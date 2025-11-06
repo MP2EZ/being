@@ -31,10 +31,10 @@ import {
   Linking,
   Alert,
 } from 'react-native';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { StackScreenProps } from '@react-navigation/stack';
 import type { MiddayFlowParamList, ReappraisalData } from '../../../types/flows';
 
-type Props = NativeStackScreenProps<MiddayFlowParamList, 'Reappraisal'> & {
+type Props = StackScreenProps<MiddayFlowParamList, 'Reappraisal'> & {
   onSave?: (data: ReappraisalData) => void;
 };
 

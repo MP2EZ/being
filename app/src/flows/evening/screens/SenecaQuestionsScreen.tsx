@@ -34,10 +34,10 @@ import {
   StyleSheet,
   TextInput,
 } from 'react-native';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { StackScreenProps } from '@react-navigation/stack';
 import type { EveningFlowParamList, SenecaQuestionsData } from '../../../types/flows';
 
-type Props = NativeStackScreenProps<EveningFlowParamList, 'SenecaQuestions'> & {
+type Props = StackScreenProps<EveningFlowParamList, 'SenecaQuestions'> & {
   onSave?: (data: SenecaQuestionsData) => void;
 };
 

@@ -14,7 +14,7 @@
  */
 
 // Core Assessment Components
-export { default as AssessmentQuestion } from './AssessmentQuestion';
+// Note: AssessmentQuestion is in src/components/assessment/EnhancedAssessmentQuestion.tsx
 export { default as AssessmentProgress } from './AssessmentProgress';
 export { default as AssessmentIntroduction } from './AssessmentIntroduction';
 export { default as AssessmentResults } from './AssessmentResults';
@@ -43,4 +43,4 @@ export {
 } from '../types';
 
 // Accessibility components
-export * from '../../components/accessibility';
+export * from '../../../components/accessibility';

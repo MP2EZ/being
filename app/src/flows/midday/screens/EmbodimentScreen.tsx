@@ -36,11 +36,11 @@ import {
   StyleSheet,
 } from 'react-native';
 import Slider from '@react-native-community/slider';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { StackScreenProps } from '@react-navigation/stack';
 import type { MiddayFlowParamList, EmbodimentData } from '../../../types/flows';
 import BreathingCircle from '../../shared/components/BreathingCircle';
 
-type Props = NativeStackScreenProps<MiddayFlowParamList, 'Embodiment'> & {
+type Props = StackScreenProps<MiddayFlowParamList, 'Embodiment'> & {
   onSave?: (data: EmbodimentData) => void;
 };
 

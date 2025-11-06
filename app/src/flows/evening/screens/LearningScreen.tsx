@@ -33,13 +33,13 @@ import {
   ScrollView,
   StyleSheet,
 } from 'react-native';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { StackScreenProps } from '@react-navigation/stack';
 import type { EveningFlowParamList, LearningData } from '../../../types/flows';
 import { AccessibleButton } from '../../../components/accessibility/AccessibleButton';
 import { AccessibleInput } from '../../../components/accessibility/AccessibleInput';
 import { ACCESSIBLE_COLORS, TOUCH_TARGETS, SPACING } from '../../../theme/accessibility';
 
-type Props = NativeStackScreenProps<EveningFlowParamList, 'Learning'> & {
+type Props = StackScreenProps<EveningFlowParamList, 'Learning'> & {
   onSave?: (data: LearningData) => void;
 };
 

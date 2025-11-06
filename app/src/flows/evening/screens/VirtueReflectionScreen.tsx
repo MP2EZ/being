@@ -29,11 +29,11 @@ import {
   ScrollView,
   StyleSheet,
 } from 'react-native';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { StackScreenProps } from '@react-navigation/stack';
 import type { EveningFlowParamList, VirtueReflectionData } from '../../../types/flows';
 import { CollapsibleCrisisButton } from '../../shared/components/CollapsibleCrisisButton';
 
-type Props = NativeStackScreenProps<EveningFlowParamList, 'VirtueReflection'> & {
+type Props = StackScreenProps<EveningFlowParamList, 'VirtueReflection'> & {
   onSave?: (data: VirtueReflectionData) => void;
 };
 

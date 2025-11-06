@@ -41,7 +41,7 @@ import type {
   CrisisDetection,
   CrisisIntervention,
   AssessmentAnswer
-} from '../flows/assessment/types';
+} from '../../flows/assessment/types';
 
 /**
  * INTEGRATION CONFIGURATION

@@ -19,12 +19,12 @@
 
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { StackScreenProps } from '@react-navigation/stack';
 import type { MiddayFlowParamList } from '../../../types/flows';
 import { SessionStorageService } from '../../../services/session/SessionStorageService';
 import { CelebrationToast } from '../../../components/CelebrationToast';
 
-type Props = NativeStackScreenProps<MiddayFlowParamList, 'MiddayCompletion'> & {
+type Props = StackScreenProps<MiddayFlowParamList, 'MiddayCompletion'> & {
   onComplete?: () => void;
 };
 

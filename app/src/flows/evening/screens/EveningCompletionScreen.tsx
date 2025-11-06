@@ -19,7 +19,7 @@
 
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { NativeStackNavigationProp } from '@react-navigation/stack';
 import type { RouteProp } from '@react-navigation/native';
 import type { EveningFlowParamList } from '../../../types/flows';
 import { SessionStorageService } from '../../../services/session/SessionStorageService';

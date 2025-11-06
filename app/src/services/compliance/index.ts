@@ -26,7 +26,7 @@
 // Import for internal use
 import HIPAAComplianceEngine from './HIPAAComplianceEngine';
 import HIPAAConsentManager from './HIPAAConsentManager';
-import HIPAADataMinimizationEngine from './HIPAADataMinimizationEngine';
+import HIPAADataMinimizationEngine from './HIPAADataMinimization';
 import HIPAABreachResponseEngine from './HIPAABreachResponseEngine';
 import HIPAAAssessmentIntegration from './HIPAAAssessmentIntegration';
 import { logError, LogCategory } from '../logging';
