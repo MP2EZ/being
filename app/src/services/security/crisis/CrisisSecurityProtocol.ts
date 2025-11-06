@@ -278,7 +278,7 @@ export class CrisisSecurityProtocol {
       });
 
     } catch (error) {
-      logError(LogCategory.SYSTEM, 'CRISIS SECURITY INITIALIZATION ERROR:', error);
+      logError(LogCategory.SYSTEM, 'CRISIS SECURITY INITIALIZATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw new Error(`Crisis security initialization failed: ${(error instanceof Error ? error.message : String(error))}`);
     }
   }
@@ -393,7 +393,7 @@ export class CrisisSecurityProtocol {
 
     } catch (error) {
       const accessTime = performance.now() - startTime;
-      logError(LogCategory.SYSTEM, 'EMERGENCY ACCESS ERROR:', error);
+      logError(LogCategory.SYSTEM, 'EMERGENCY ACCESS ERROR:', error instanceof Error ? error : new Error(String(error)));
 
       // Log failed emergency access
       await this.logCrisisSecurityEvent({
@@ -521,7 +521,7 @@ export class CrisisSecurityProtocol {
 
     } catch (error) {
       const protectionTime = performance.now() - startTime;
-      logError(LogCategory.SYSTEM, 'CRISIS DATA PROTECTION ERROR:', error);
+      logError(LogCategory.SYSTEM, 'CRISIS DATA PROTECTION ERROR:', error instanceof Error ? error : new Error(String(error)));
 
       return {
         protected: false,
@@ -633,7 +633,7 @@ export class CrisisSecurityProtocol {
 
     } catch (error) {
       const validationTime = performance.now() - startTime;
-      logError(LogCategory.SYSTEM, 'PROFESSIONAL ACCESS VALIDATION ERROR:', error);
+      logError(LogCategory.SYSTEM, 'PROFESSIONAL ACCESS VALIDATION ERROR:', error instanceof Error ? error : new Error(String(error)));
 
       // Log failed professional access
       await this.logCrisisSecurityEvent({
@@ -704,7 +704,7 @@ export class CrisisSecurityProtocol {
       console.log(`✅ Crisis security monitoring active for episode: ${crisisEpisodeId}`);
 
     } catch (error) {
-      logError(LogCategory.SYSTEM, 'CRISIS SECURITY MONITORING ERROR:', error);
+      logError(LogCategory.SYSTEM, 'CRISIS SECURITY MONITORING ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -757,7 +757,7 @@ export class CrisisSecurityProtocol {
       console.log(`🚨 Security violation processed: ${violation.violationId}`);
 
     } catch (error) {
-      logError(LogCategory.SYSTEM, 'SECURITY VIOLATION DETECTION ERROR:', error);
+      logError(LogCategory.SYSTEM, 'SECURITY VIOLATION DETECTION ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -782,7 +782,7 @@ export class CrisisSecurityProtocol {
       );
 
     } catch (error) {
-      logError(LogCategory.SYSTEM, 'ENHANCED ENCRYPTION ERROR:', error);
+      logError(LogCategory.SYSTEM, 'ENHANCED ENCRYPTION ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -804,7 +804,7 @@ export class CrisisSecurityProtocol {
       );
 
     } catch (error) {
-      logError(LogCategory.SYSTEM, 'PROFESSIONAL ENCRYPTION ERROR:', error);
+      logError(LogCategory.SYSTEM, 'PROFESSIONAL ENCRYPTION ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -826,7 +826,7 @@ export class CrisisSecurityProtocol {
       );
 
     } catch (error) {
-      logError(LogCategory.SYSTEM, 'IMMUTABLE ENCRYPTION ERROR:', error);
+      logError(LogCategory.SYSTEM, 'IMMUTABLE ENCRYPTION ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -858,7 +858,7 @@ export class CrisisSecurityProtocol {
       );
 
     } catch (error) {
-      logError(LogCategory.SYSTEM, 'ACCESS CONTROL APPLICATION ERROR:', error);
+      logError(LogCategory.SYSTEM, 'ACCESS CONTROL APPLICATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -912,7 +912,7 @@ export class CrisisSecurityProtocol {
       console.log('✅ Crisis security monitoring initialized');
 
     } catch (error) {
-      logError(LogCategory.SYSTEM, 'CRISIS MONITORING INITIALIZATION ERROR:', error);
+      logError(LogCategory.SYSTEM, 'CRISIS MONITORING INITIALIZATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -939,7 +939,7 @@ export class CrisisSecurityProtocol {
       );
 
     } catch (error) {
-      logError(LogCategory.SYSTEM, 'CRISIS DATA MONITORING ERROR:', error);
+      logError(LogCategory.SYSTEM, 'CRISIS DATA MONITORING ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -1003,7 +1003,7 @@ export class CrisisSecurityProtocol {
       );
 
     } catch (error) {
-      logError(LogCategory.SYSTEM, 'AUDIT TRAIL CREATION ERROR:', error);
+      logError(LogCategory.SYSTEM, 'AUDIT TRAIL CREATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -1045,7 +1045,7 @@ export class CrisisSecurityProtocol {
       console.log('✅ Emergency access protocols verified');
 
     } catch (error) {
-      logError(LogCategory.SYSTEM, 'EMERGENCY ACCESS VERIFICATION ERROR:', error);
+      logError(LogCategory.SYSTEM, 'EMERGENCY ACCESS VERIFICATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -1060,7 +1060,7 @@ export class CrisisSecurityProtocol {
       console.log('✅ Professional access validation setup complete');
 
     } catch (error) {
-      logError(LogCategory.SYSTEM, 'PROFESSIONAL ACCESS SETUP ERROR:', error);
+      logError(LogCategory.SYSTEM, 'PROFESSIONAL ACCESS SETUP ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -1075,7 +1075,7 @@ export class CrisisSecurityProtocol {
       console.log('✅ Crisis data isolation initialized');
 
     } catch (error) {
-      logError(LogCategory.SYSTEM, 'CRISIS DATA ISOLATION ERROR:', error);
+      logError(LogCategory.SYSTEM, 'CRISIS DATA ISOLATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -1098,7 +1098,7 @@ export class CrisisSecurityProtocol {
       }
 
     } catch (error) {
-      logError(LogCategory.SYSTEM, 'EMERGENCY CREDENTIALS VALIDATION ERROR:', error);
+      logError(LogCategory.SYSTEM, 'EMERGENCY CREDENTIALS VALIDATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -1123,7 +1123,7 @@ export class CrisisSecurityProtocol {
       // In a real implementation, would validate against professional database
 
     } catch (error) {
-      logError(LogCategory.SYSTEM, 'PROFESSIONAL CREDENTIALS VALIDATION ERROR:', error);
+      logError(LogCategory.SYSTEM, 'PROFESSIONAL CREDENTIALS VALIDATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -1140,7 +1140,7 @@ export class CrisisSecurityProtocol {
       }
 
     } catch (error) {
-      logError(LogCategory.SYSTEM, 'EMERGENCY OVERRIDE LIMIT CHECK ERROR:', error);
+      logError(LogCategory.SYSTEM, 'EMERGENCY OVERRIDE LIMIT CHECK ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -1156,7 +1156,7 @@ export class CrisisSecurityProtocol {
       console.log(`🔍 Checking professional permissions for ${professionalId} accessing ${crisisEpisodeId}`);
 
     } catch (error) {
-      logError(LogCategory.SYSTEM, 'PROFESSIONAL PERMISSIONS CHECK ERROR:', error);
+      logError(LogCategory.SYSTEM, 'PROFESSIONAL PERMISSIONS CHECK ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -1222,7 +1222,7 @@ export class CrisisSecurityProtocol {
       }
 
     } catch (error) {
-      logError(LogCategory.SYSTEM, 'VIOLATION ASSESSMENT ERROR:', error);
+      logError(LogCategory.SYSTEM, 'VIOLATION ASSESSMENT ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -1248,7 +1248,7 @@ export class CrisisSecurityProtocol {
       }
 
     } catch (error) {
-      logError(LogCategory.SYSTEM, 'IMMEDIATE MITIGATION ERROR:', error);
+      logError(LogCategory.SYSTEM, 'IMMEDIATE MITIGATION ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -1262,7 +1262,7 @@ export class CrisisSecurityProtocol {
       violation.mitigationActions.push('violation_escalated');
 
     } catch (error) {
-      logError(LogCategory.SYSTEM, 'SECURITY VIOLATION ESCALATION ERROR:', error);
+      logError(LogCategory.SYSTEM, 'SECURITY VIOLATION ESCALATION ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -1285,7 +1285,7 @@ export class CrisisSecurityProtocol {
       }
 
     } catch (error) {
-      logError(LogCategory.SYSTEM, 'IMMEDIATE LOCKDOWN ERROR:', error);
+      logError(LogCategory.SYSTEM, 'IMMEDIATE LOCKDOWN ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -1297,7 +1297,7 @@ export class CrisisSecurityProtocol {
       this.monitoringActive = true;
 
     } catch (error) {
-      logError(LogCategory.SYSTEM, 'ENHANCED MONITORING ERROR:', error);
+      logError(LogCategory.SYSTEM, 'ENHANCED MONITORING ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -1313,7 +1313,7 @@ export class CrisisSecurityProtocol {
       }
 
     } catch (error) {
-      logError(LogCategory.SYSTEM, 'ACCESS REVIEW ERROR:', error);
+      logError(LogCategory.SYSTEM, 'ACCESS REVIEW ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -1325,7 +1325,7 @@ export class CrisisSecurityProtocol {
       // For now, log the alert
 
     } catch (error) {
-      logError(LogCategory.SYSTEM, 'PROFESSIONAL ALERT ERROR:', error);
+      logError(LogCategory.SYSTEM, 'PROFESSIONAL ALERT ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -1404,7 +1404,7 @@ export class CrisisSecurityProtocol {
       await this.validateEncryptionIntegrity();
 
     } catch (error) {
-      logError(LogCategory.SYSTEM, 'SECURITY HEALTH CHECK ERROR:', error);
+      logError(LogCategory.SYSTEM, 'SECURITY HEALTH CHECK ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -1421,7 +1421,7 @@ export class CrisisSecurityProtocol {
       }
 
     } catch (error) {
-      logError(LogCategory.SYSTEM, 'ACCESS CLEANUP ERROR:', error);
+      logError(LogCategory.SYSTEM, 'ACCESS CLEANUP ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -1441,7 +1441,7 @@ export class CrisisSecurityProtocol {
       }
 
     } catch (error) {
-      logError(LogCategory.SYSTEM, 'SUSPICIOUS ACTIVITY CHECK ERROR:', error);
+      logError(LogCategory.SYSTEM, 'SUSPICIOUS ACTIVITY CHECK ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -1459,7 +1459,7 @@ export class CrisisSecurityProtocol {
       }
 
     } catch (error) {
-      logError(LogCategory.SYSTEM, 'ENCRYPTION INTEGRITY VALIDATION ERROR:', error);
+      logError(LogCategory.SYSTEM, 'ENCRYPTION INTEGRITY VALIDATION ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -1482,7 +1482,7 @@ export class CrisisSecurityProtocol {
       }
 
     } catch (error) {
-      logError(LogCategory.SYSTEM, 'CRISIS SECURITY EVENT LOGGING ERROR:', error);
+      logError(LogCategory.SYSTEM, 'CRISIS SECURITY EVENT LOGGING ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -1547,7 +1547,7 @@ export class CrisisSecurityProtocol {
       console.log('✅ Crisis security protocol destroyed');
 
     } catch (error) {
-      logError(LogCategory.SYSTEM, 'CRISIS SECURITY DESTRUCTION ERROR:', error);
+      logError(LogCategory.SYSTEM, 'CRISIS SECURITY DESTRUCTION ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
