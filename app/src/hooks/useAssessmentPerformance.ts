@@ -201,7 +201,9 @@ export const useAssessmentPerformance = (): UseAssessmentPerformanceReturn => {
       updateMetrics({ memoryUsage });
 
       if (memoryUsage > PERFORMANCE_THRESHOLDS.memory) {
-        logSecurity(`⚠️ High memory usage: ${memoryUsage}MB`);
+        logSecurity('High memory usage detected', 'medium', {
+          memoryUsage
+        });
         setAlertLevel('warning');
       }
     }, 5000);
@@ -260,7 +262,9 @@ export const useAssessmentPerformance = (): UseAssessmentPerformanceReturn => {
   const endMeasurement = useCallback((measurementId: string): number => {
     const measurement = measurementTracker.current.get(measurementId);
     if (!measurement) {
-      logSecurity(`⚠️ Measurement not found: ${measurementId}`);
+      logSecurity('Measurement not found', 'low', {
+        measurementId
+      });
       return 0;
     }
 
@@ -364,7 +368,10 @@ export const useAssessmentPerformance = (): UseAssessmentPerformanceReturn => {
     updateMetrics({ encryptionTime });
 
     if (encryptionTime > PERFORMANCE_THRESHOLDS.encryption) {
-      logSecurity(`🔒 Encryption time: ${encryptionTime}ms (target: <${PERFORMANCE_THRESHOLDS.encryption}ms)`);
+      logSecurity('Encryption time exceeded threshold', 'low', {
+        encryptionTime,
+        threshold: PERFORMANCE_THRESHOLDS.encryption
+      });
       setAlertLevel('warning');
     }
   }, [updateMetrics]);
@@ -374,7 +381,10 @@ export const useAssessmentPerformance = (): UseAssessmentPerformanceReturn => {
     updateMetrics({ safetyButtonAccessTime: accessTime });
 
     if (accessTime > 150) {
-      logSecurity(`🚨 Safety button access time: ${accessTime}ms (target: <150ms)`);
+      logSecurity('Safety button access time exceeded', 'medium', {
+        accessTime,
+        threshold: 150
+      });
     }
   }, [updateMetrics]);
 

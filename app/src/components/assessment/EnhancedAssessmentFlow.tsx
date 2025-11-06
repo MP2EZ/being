@@ -224,7 +224,7 @@ const EnhancedAssessmentFlow: React.FC<EnhancedAssessmentFlowProps> = ({
     const handleAppStateChange = (nextAppState: AppStateStatus) => {
       if (nextAppState === 'background' && flowState === 'questions') {
         // Auto-save progress when app goes to background
-        logPerformance('📱 Saving assessment progress (app backgrounded)');
+        console.log('📱 Saving assessment progress (app backgrounded)');
       }
     };
 
@@ -239,7 +239,9 @@ const EnhancedAssessmentFlow: React.FC<EnhancedAssessmentFlowProps> = ({
 
     // Performance monitoring for crisis response
     const crisisResponseTime = Date.now() - questionStartTime.current;
-    logPerformance(`🚨 Crisis response time: ${crisisResponseTime}ms (target: <200ms)`);
+    logPerformance('EnhancedAssessmentFlow.crisisResponse', crisisResponseTime, {
+      threshold: 200
+    });
 
     // Update performance metrics
     setPerformanceMetrics(prev => ({
@@ -285,7 +287,10 @@ const EnhancedAssessmentFlow: React.FC<EnhancedAssessmentFlowProps> = ({
 
       // Validate performance targets
       if (questionResponseTime > 300) {
-        logSecurity(`⚠️ Question response time: ${questionResponseTime}ms (target: <300ms)`);
+        logSecurity('Question response time exceeded', 'medium', {
+          questionResponseTime,
+          threshold: 300
+        });
       }
 
       // Store in assessment store

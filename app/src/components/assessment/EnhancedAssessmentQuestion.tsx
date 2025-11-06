@@ -180,8 +180,8 @@ const mockAuditLogger = {
 };
 
 const mockPerformanceMonitor = {
-  startMeasurement: (name: string) => logPerformance(`📊 Started measuring: ${name}`),
-  endMeasurement: (name: string) => logPerformance(`📊 Ended measuring: ${name}`)
+  startMeasurement: (name: string) => console.log(`📊 Started measuring: ${name}`),
+  endMeasurement: (name: string) => console.log(`📊 Ended measuring: ${name}`)
 };
 
 const EnhancedAssessmentQuestion: React.FC<EnhancedAssessmentQuestionProps> = ({
@@ -333,7 +333,10 @@ const EnhancedAssessmentQuestion: React.FC<EnhancedAssessmentQuestionProps> = ({
 
       // Validate performance requirements
       if (totalResponseTime > 300) {
-        logSecurity(`⚠️ Assessment response time: ${totalResponseTime}ms (target: <300ms)`);
+        logSecurity('Assessment response time exceeded', 'medium', {
+          totalResponseTime,
+          threshold: 300
+        });
       }
 
       if (crisisDetection && crisisCheckTime > 200) {

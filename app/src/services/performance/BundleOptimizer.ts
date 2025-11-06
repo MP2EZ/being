@@ -71,7 +71,7 @@ class CodeSplittingRegistry {
    */
   static registerChunk(info: ChunkInfo): void {
     this.chunks.set(info.name, info);
-    logPerformance(`📦 Registered chunk: ${info.name} (${this.formatSize(info.size)})`);
+    console.log(`📦 Registered chunk: ${info.name} (${this.formatSize(info.size)})`);
   }
 
   /**
@@ -125,7 +125,9 @@ class CodeSplittingRegistry {
         dependencies: chunk.dependencies
       });
 
-      logPerformance(`✅ Loaded chunk: ${chunkName} in ${loadTime.toFixed(2)}ms`);
+      logPerformance('BundleOptimizer.loadChunk', loadTime, {
+        chunkName
+      });
       return loadedModule;
 
     } catch (error) {
@@ -475,7 +477,10 @@ export class BundleOptimizer {
    */
   private static validateBundleSize(metrics: BundleMetrics): void {
     if (metrics.jsSize > this.config.maxInitialBundleSize) {
-      logSecurity(`⚠️ Initial bundle size exceeded: ${this.formatSize(metrics.jsSize)} > ${this.formatSize(this.config.maxInitialBundleSize)}`);
+      logSecurity('Initial bundle size exceeded', 'medium', {
+        actualSize: metrics.jsSize,
+        maxSize: this.config.maxInitialBundleSize
+      });
 
       DeviceEventEmitter.emit('bundle_size_exceeded', {
         current: metrics.jsSize,
@@ -485,7 +490,10 @@ export class BundleOptimizer {
     }
 
     if (metrics.loadTime > 3000) { // 3 seconds
-      logSecurity(`⚠️ Bundle load time exceeded: ${metrics.loadTime}ms`);
+      logSecurity('Bundle load time exceeded', 'medium', {
+        loadTime: metrics.loadTime,
+        maxLoadTime: this.config.maxLoadTime
+      });
 
       DeviceEventEmitter.emit('bundle_load_time_exceeded', {
         loadTime: metrics.loadTime,

@@ -96,7 +96,10 @@ const AssessmentResults: React.FC<AssessmentResultsProps> = ({
     
     const responseTime = performance.now() - startTime;
     if (responseTime > 50) {
-      logSecurity(`🚨 Crisis detection time: ${responseTime}ms (target: <50ms)`);
+      logSecurity('Crisis detection time exceeded', 'high', {
+        responseTime,
+        threshold: 50
+      });
     }
     
     return { isCrisis, crisisType, responseTime };
@@ -223,7 +226,10 @@ const AssessmentResults: React.FC<AssessmentResultsProps> = ({
         
         const alertTime = performance.now() - startTime;
         if (alertTime > 200) {
-          logSecurity(`🚨 Crisis alert time: ${alertTime}ms (target: <200ms)`);
+          logSecurity('Crisis alert time exceeded', 'high', {
+            alertTime,
+            threshold: 200
+          });
         }
       }, 100); // Small delay for UI rendering
     }
@@ -236,7 +242,10 @@ const AssessmentResults: React.FC<AssessmentResultsProps> = ({
     
     const responseTime = performance.now() - startTime;
     if (responseTime > 100) {
-      logSecurity(`⚠️ Results completion time: ${responseTime}ms (target: <100ms)`);
+      logSecurity('Results completion time exceeded', 'medium', {
+        responseTime,
+        threshold: 100
+      });
     }
   }, [onComplete]);
 

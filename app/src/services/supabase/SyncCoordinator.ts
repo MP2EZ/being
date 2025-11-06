@@ -1440,7 +1440,9 @@ class SyncCoordinator {
           this.connectionSpeed = 0.5;
         }
 
-        logPerformance(`[SyncCoordinator] Network quality: ${this.networkQuality} (${responseTime}ms)`);
+        logPerformance('SyncCoordinator.networkQualityTest', responseTime, {
+          networkQuality: this.networkQuality
+        });
 
       } catch (error) {
         // Network test failed, assume poor quality
@@ -1566,7 +1568,12 @@ class SyncCoordinator {
       const backoffMs = Math.pow(2, newRetryCount) * 1000;
       this.failureBackoff.set(operationId, Date.now() + backoffMs);
 
-      logSecurity(`[SyncCoordinator] Operation ${operationId} failed (retry ${newRetryCount}/${maxRetries}), backoff ${backoffMs}ms`);
+      logSecurity('Sync operation failed - applying backoff', 'low', {
+        operationId,
+        retryCount: newRetryCount,
+        maxRetries,
+        backoffMs
+      });
 
       // Update circuit breaker
       this.circuitBreakerFailures++;
@@ -1937,7 +1944,7 @@ class SyncCoordinator {
         // Add back to queue with updated retry count
         this.syncQueue.push(updatedOperation);
 
-        logPerformance(`[SyncCoordinator] Re-queued operation ${operation.id} (retry ${currentRetries + 1}/${maxRetries})`);
+        console.log(`[SyncCoordinator] Re-queued operation ${operation.id} (retry ${currentRetries + 1}/${maxRetries})`);
       } else {
         logError(LogCategory.SYSTEM, `Operation ${operation.id} exceeded max retries, discarding`);
       }
