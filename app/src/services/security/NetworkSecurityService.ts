@@ -252,7 +252,9 @@ export class NetworkSecurityService {
       this.initialized = true;
 
       const initializationTime = performance.now() - startTime;
-      logPerformance(`✅ Network Security Service initialized (${initializationTime.toFixed(2)}ms)`);
+      logPerformance('NetworkSecurityService.initialize', initializationTime, {
+        status: 'success'
+      });
 
       // Log initialization
       await this.logSecurityEvent({
@@ -310,7 +312,10 @@ export class NetworkSecurityService {
       // Update metrics
       this.updateSecurityMetrics(true, responseTime);
 
-      logPerformance(`🔒 Secure request completed (${options.method} ${options.url}, ${responseTime.toFixed(2)}ms)`);
+      logPerformance('NetworkSecurityService.secureRequest', responseTime, {
+        method: options.method,
+        url: options.url
+      });
 
       return {
         success: true,
@@ -411,7 +416,9 @@ export class NetworkSecurityService {
         });
       }
 
-      logPerformance(`🚨 Crisis API completed (${totalTime.toFixed(2)}ms)`);
+      logPerformance('NetworkSecurityService.crisisAPI', totalTime, {
+        category: 'crisis_intervention'
+      });
 
       return response;
 
@@ -465,7 +472,9 @@ export class NetworkSecurityService {
 
       const response = await this.secureRequest<{ assessmentId: string; uploaded: boolean }>(options);
 
-      logPerformance(`📋 Assessment uploaded (${assessmentData.type}, ${response.responseTimeMs.toFixed(2)}ms)`);
+      logPerformance('NetworkSecurityService.uploadAssessment', response.responseTimeMs, {
+        assessmentType: assessmentData.type
+      });
 
       return response;
 
@@ -509,7 +518,9 @@ export class NetworkSecurityService {
 
       const response = await this.secureRequest<T>(options);
 
-      logPerformance(`👩‍⚕️ Professional API completed (${response.responseTimeMs.toFixed(2)}ms)`);
+      logPerformance('NetworkSecurityService.professionalAPI', response.responseTimeMs, {
+        category: 'professional_support'
+      });
 
       return response;
 
@@ -556,7 +567,9 @@ export class NetworkSecurityService {
 
       const response = await this.secureRequest<T>(requestOptions);
 
-      logPerformance(`📦 Bulk ${operation} completed (${response.responseTimeMs.toFixed(2)}ms)`);
+      logPerformance('NetworkSecurityService.bulkOperation', response.responseTimeMs, {
+        operation
+      });
 
       return response;
 
@@ -712,7 +725,7 @@ export class NetworkSecurityService {
           NETWORK_CONFIG.RETRY_CONFIG.maxDelayMs
         );
 
-        logPerformance(`⏳ Request failed, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`);
+        console.log(`⏳ Request failed, retrying in ${delay}ms (attempt ${attempt + 1}/${maxRetries})`);
         
         await new Promise(resolve => setTimeout(resolve, delay));
       }
