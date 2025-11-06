@@ -16,7 +16,7 @@ import { Alert, Linking } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 
 // Component imports
-import SafetyButton from '../shared/components/SafetyButton';
+import { CollapsibleCrisisButton } from '../shared/components/CollapsibleCrisisButton';
 import BreathingCircle from '../shared/components/BreathingCircle';
 import Timer from '../shared/components/Timer';
 import EmotionGrid from '../shared/components/EmotionGrid';
@@ -56,7 +56,7 @@ describe('DRD Check-in Flows Integration Testing', () => {
   });
 
   describe('1. CRITICAL CRISIS SAFETY TESTING', () => {
-    describe('SafetyButton Response Time Validation', () => {
+    describe('CollapsibleCrisisButton Response Time Validation', () => {
       it('CRITICAL: Crisis button responds under 200ms requirement', async () => {
         const startTime = 100;
         const endTime = 250; // 150ms response time
@@ -66,7 +66,7 @@ describe('DRD Check-in Flows Integration Testing', () => {
           .mockReturnValueOnce(endTime);
 
         const { getByTestId } = render(
-          <SafetyButton variant="crisis" testID="crisis-button" />
+          <CollapsibleCrisisButton testID="crisis-button" />
         );
 
         const crisisButton = getByTestId('crisis-button');
@@ -85,7 +85,7 @@ describe('DRD Check-in Flows Integration Testing', () => {
 
       it('CRITICAL: 988 crisis line accessibility from all screens', async () => {
         const { getByTestId } = render(
-          <SafetyButton variant="crisis" />
+          <CollapsibleCrisisButton />
         );
 
         const crisisButton = getByTestId('safety-button');
@@ -101,7 +101,7 @@ describe('DRD Check-in Flows Integration Testing', () => {
         (Linking.openURL as jest.Mock).mockRejectedValueOnce(new Error('No dialer'));
 
         const { getByTestId } = render(
-          <SafetyButton variant="crisis" />
+          <CollapsibleCrisisButton />
         );
 
         const crisisButton = getByTestId('safety-button');
@@ -121,7 +121,7 @@ describe('DRD Check-in Flows Integration Testing', () => {
 
       it('CRITICAL: Screen reader compatibility for crisis features', () => {
         const { getByTestId } = render(
-          <SafetyButton variant="crisis" />
+          <CollapsibleCrisisButton />
         );
 
         const crisisButton = getByTestId('safety-button');
@@ -380,7 +380,7 @@ describe('DRD Check-in Flows Integration Testing', () => {
     describe('Screen Reader Navigation', () => {
       it('CRITICAL: All interactive elements have proper accessibility labels', () => {
         const { getByTestId } = render(
-          <SafetyButton testID="safety-button" />
+          <CollapsibleCrisisButton testID="collapsible-crisis-button" />
         );
 
         const button = getByTestId('safety-button');
@@ -393,7 +393,7 @@ describe('DRD Check-in Flows Integration Testing', () => {
     describe('Touch Target Accessibility', () => {
       it('CRITICAL: All buttons meet 44pt minimum touch target', () => {
         const { getByTestId } = render(
-          <SafetyButton testID="safety-button" />
+          <CollapsibleCrisisButton testID="collapsible-crisis-button" />
         );
 
         const button = getByTestId('safety-button');
