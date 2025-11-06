@@ -136,7 +136,7 @@ export const CrisisAccessibilityProvider: React.FC<CrisisAccessibilityProviderPr
   
   const calmingAnimationRef = useRef(new Animated.Value(0));
   const urgencyAnimationRef = useRef(new Animated.Value(0));
-  const voiceGuidanceTimeoutRef = useRef<NodeJS.Timeout>();
+  const voiceGuidanceTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
 
   // Crisis mode activation
   const activateCrisisMode = useCallback((severity: CrisisState['severity'] = 'medium') => {

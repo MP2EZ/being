@@ -104,8 +104,8 @@ export const CognitiveAccessibilityProvider: React.FC<CognitiveAccessibilityProv
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   
   const { announceTherapeutic } = useAdvancedScreenReader();
-  const memoryAidTimeoutRef = useRef<NodeJS.Timeout>();
-  const breakReminderTimeoutRef = useRef<NodeJS.Timeout>();
+  const memoryAidTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
+  const breakReminderTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
 
   const updateConfig = useCallback((updates: Partial<CognitiveConfig>) => {
     setConfig(prev => ({ ...prev, ...updates }));

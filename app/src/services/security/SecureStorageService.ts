@@ -187,7 +187,10 @@ export class SecureStorageService {
       this.initialized = true;
 
       const initializationTime = performance.now() - startTime;
-      logPerformance(`✅ Secure Storage Service initialized (${initializationTime.toFixed(2)}ms)`);
+      logPerformance('SecureStorageService.initialize', initializationTime, {
+        status: 'success',
+        context: 'service_initialization'
+      });
 
       // Log initialization
       await this.logStorageAccess({
@@ -280,7 +283,10 @@ export class SecureStorageService {
         securityContext: 'crisis_data_storage'
       });
 
-      logPerformance(`🚨 Crisis data stored (${operationTime.toFixed(2)}ms, ${metadata.dataSize} bytes)`);
+      logPerformance('SecureStorageService.storeCrisisData', operationTime, {
+        dataSize: metadata.dataSize,
+        tier: 'crisis_tier'
+      });
 
       return {
         success: true,
@@ -397,7 +403,10 @@ export class SecureStorageService {
         securityContext: 'assessment_data_storage'
       });
 
-      logPerformance(`📋 Assessment data stored (${assessmentData.type}, ${operationTime.toFixed(2)}ms)`);
+      logPerformance('SecureStorageService.storeAssessmentData', operationTime, {
+        assessmentType: assessmentData.type,
+        tier: 'assessment_tier'
+      });
 
       return {
         success: true,
@@ -495,7 +504,9 @@ export class SecureStorageService {
         securityContext: 'crisis_data_retrieval'
       });
 
-      logPerformance(`🚨 Crisis data retrieved (${operationTime.toFixed(2)}ms)`);
+      logPerformance('SecureStorageService.retrieveCrisisData', operationTime, {
+        tier: 'crisis_tier'
+      });
 
       return {
         data: decryptedData,
@@ -586,7 +597,9 @@ export class SecureStorageService {
         securityContext: 'assessment_data_retrieval'
       });
 
-      logPerformance(`📋 Assessment data retrieved (${operationTime.toFixed(2)}ms)`);
+      logPerformance('SecureStorageService.retrieveAssessmentData', operationTime, {
+        tier: 'assessment_tier'
+      });
 
       return {
         data: decryptedData,
@@ -743,7 +756,10 @@ export class SecureStorageService {
         securityContext: 'bulk_storage_operation'
       });
 
-      logPerformance(`📦 Bulk ${operation.operationType} completed (${operation.items.length} items, ${totalOperationTime.toFixed(2)}ms)`);
+      logPerformance('SecureStorageService.bulkOperation', totalOperationTime, {
+        operationType: operation.operationType,
+        itemCount: operation.items.length
+      });
 
       return results;
 
@@ -919,7 +935,10 @@ export class SecureStorageService {
         securityContext: 'secure_data_deletion'
       });
 
-      logPerformance(`🗑️  Data deleted (${deletedKey || 'not found'}, ${operationTime.toFixed(2)}ms)`);
+      logPerformance('SecureStorageService.deleteData', operationTime, {
+        success: deletedKey !== null,
+        key: deletedKey || 'not_found'
+      });
 
       return {
         success: deletedKey !== null,
@@ -980,7 +999,7 @@ export class SecureStorageService {
       // Clean up old audit logs
       await this.cleanupAuditLogs();
 
-      logPerformance(`✅ Cleanup completed (${cleanedCount} items removed)`);
+      console.log(`✅ Cleanup completed (${cleanedCount} items removed)`);
 
     } catch (error) {
       logError(LogCategory.SECURITY, '🚨 CLEANUP ERROR:', error instanceof Error ? error : new Error(String(error)));
