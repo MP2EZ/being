@@ -250,7 +250,7 @@ export class AuthenticationService {
 
     } catch (error) {
       logError(LogCategory.SECURITY, '🚨 AUTHENTICATION INITIALIZATION ERROR:', error instanceof Error ? error : new Error(String(error)));
-      throw new Error(`Authentication initialization failed: ${error.message}`);
+      throw new Error(`Authentication initialization failed: ${(error instanceof Error ? error.message : String(error))}`);
     }
   }
 
@@ -342,7 +342,7 @@ export class AuthenticationService {
         success: false,
         authenticationMethod: 'password',
         authenticationTimeMs: authenticationTime,
-        error: error.message
+        error: (error instanceof Error ? error.message : String(error))
       };
     }
   }
@@ -433,7 +433,7 @@ export class AuthenticationService {
         authenticationLevel: 'crisis_access',
         success: false,
         operationTimeMs: authenticationTime,
-        error: error.message,
+        error: (error instanceof Error ? error.message : String(error)),
         securityFlags: ['crisis_access_failed']
       });
 
@@ -441,7 +441,7 @@ export class AuthenticationService {
         success: false,
         authenticationMethod: 'emergency_code',
         authenticationTimeMs: authenticationTime,
-        error: error.message
+        error: (error instanceof Error ? error.message : String(error))
       };
     }
   }
@@ -527,7 +527,7 @@ export class AuthenticationService {
         success: false,
         authenticationMethod: 'biometric',
         authenticationTimeMs: authenticationTime,
-        error: error.message
+        error: (error instanceof Error ? error.message : String(error))
       };
     }
   }
@@ -615,7 +615,7 @@ export class AuthenticationService {
         isExpiring: false,
         timeUntilExpiry: 0,
         validationTimeMs: validationTime,
-        error: error.message
+        error: (error instanceof Error ? error.message : String(error))
       };
     }
   }
@@ -695,7 +695,7 @@ export class AuthenticationService {
         success: false,
         authenticationMethod: this.currentUser?.authenticationMethod || 'password',
         authenticationTimeMs: refreshTime,
-        error: error.message
+        error: (error instanceof Error ? error.message : String(error))
       };
     }
   }
@@ -817,7 +817,7 @@ export class AuthenticationService {
         success: false,
         authenticationMethod: 'password',
         authenticationTimeMs: 0,
-        error: error.message
+        error: (error instanceof Error ? error.message : String(error))
       };
     }
   }
@@ -920,7 +920,7 @@ export class AuthenticationService {
       };
 
     } catch (error) {
-      return { available: false, reason: error.message };
+      return { available: false, reason: (error instanceof Error ? error.message : String(error)) };
     }
   }
 

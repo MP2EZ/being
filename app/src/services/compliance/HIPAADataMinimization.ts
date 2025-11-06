@@ -378,8 +378,8 @@ export class HIPAADataMinimizationEngine {
       if (request.emergencyAccess) {
         const emergencyOverride = await this.evaluateEmergencyOverride(request);
         evaluation.emergencyOverride = emergencyOverride;
-        
-        if (emergencyOverride.applied) {
+
+        if (emergencyOverride?.applied) {
           // Emergency override may approve additional elements
           const emergencyApproved = await this.getEmergencyApprovedElements(request);
           evaluation.approvedElements = [...new Set([...evaluation.approvedElements, ...emergencyApproved])];

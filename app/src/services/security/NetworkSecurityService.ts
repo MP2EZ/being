@@ -268,7 +268,7 @@ export class NetworkSecurityService {
 
     } catch (error) {
       logError(LogCategory.SECURITY, '🚨 NETWORK SECURITY INITIALIZATION ERROR:', error instanceof Error ? error : new Error(String(error)));
-      throw new Error(`Network security initialization failed: ${error.message}`);
+      throw new Error(`Network security initialization failed: ${(error instanceof Error ? error.message : String(error))}`);
     }
   }
 
@@ -338,7 +338,7 @@ export class NetworkSecurityService {
           endpoint: options.url,
           endpointCategory: options.securityContext.endpointCategory,
           severity: this.assessErrorSeverity(error, options.securityContext),
-          details: error.message,
+          details: (error instanceof Error ? error.message : String(error)),
           requestId,
           mitigationAction: 'request_blocked'
         });
@@ -356,7 +356,7 @@ export class NetworkSecurityService {
           encryptionVerified: false,
           integrityChecked: false
         },
-        error: error.message
+        error: (error instanceof Error ? error.message : String(error))
       };
     }
   }
@@ -875,7 +875,7 @@ export class NetworkSecurityService {
       tracker.count++;
 
     } catch (error) {
-      if (error.message.includes('Rate limit exceeded')) {
+      if ((error instanceof Error ? error.message : String(error)).includes('Rate limit exceeded')) {
         throw error;
       }
       logError(LogCategory.SECURITY, '🚨 RATE LIMIT CHECK ERROR:', error instanceof Error ? error : new Error(String(error)));
@@ -1102,7 +1102,7 @@ export class NetworkSecurityService {
   }
 
   private isSecurityRelatedError(error: any): boolean {
-    const errorMessage = error.message.toLowerCase();
+    const errorMessage = (error instanceof Error ? error.message : String(error)).toLowerCase();
     return errorMessage.includes('certificate') ||
            errorMessage.includes('signature') ||
            errorMessage.includes('encryption') ||
@@ -1112,7 +1112,7 @@ export class NetworkSecurityService {
   }
 
   private classifySecurityError(error: any): SecurityViolationEvent['violationType'] {
-    const errorMessage = error.message.toLowerCase();
+    const errorMessage = (error instanceof Error ? error.message : String(error)).toLowerCase();
     
     if (errorMessage.includes('certificate')) return 'certificate_mismatch';
     if (errorMessage.includes('signature')) return 'signature_invalid';
@@ -1131,7 +1131,7 @@ export class NetworkSecurityService {
   }
 
   private isNonRetryableError(error: any): boolean {
-    const errorMessage = error.message.toLowerCase();
+    const errorMessage = (error instanceof Error ? error.message : String(error)).toLowerCase();
     return errorMessage.includes('authentication') ||
            errorMessage.includes('authorization') ||
            errorMessage.includes('forbidden') ||

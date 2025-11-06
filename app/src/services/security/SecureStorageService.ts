@@ -204,7 +204,7 @@ export class SecureStorageService {
 
     } catch (error) {
       logError(LogCategory.SECURITY, '🚨 SECURE STORAGE INITIALIZATION ERROR:', error instanceof Error ? error : new Error(String(error)));
-      throw new Error(`Secure storage initialization failed: ${error.message}`);
+      throw new Error(`Secure storage initialization failed: ${(error instanceof Error ? error.message : String(error))}`);
     }
   }
 
@@ -306,7 +306,7 @@ export class SecureStorageService {
         operationTimeMs: operationTime,
         dataSize: 0,
         userContext,
-        error: error.message
+        error: (error instanceof Error ? error.message : String(error))
       });
 
       return {
@@ -315,7 +315,7 @@ export class SecureStorageService {
         storageKey: `${SECURE_STORAGE_CONFIG.CRISIS_PREFIX}${key}`,
         operationTimeMs: operationTime,
         dataSize: 0,
-        error: error.message
+        error: (error instanceof Error ? error.message : String(error))
       };
     }
   }
@@ -423,7 +423,7 @@ export class SecureStorageService {
         operationTimeMs: operationTime,
         dataSize: 0,
         userContext,
-        error: error.message
+        error: (error instanceof Error ? error.message : String(error))
       });
 
       return {
@@ -432,7 +432,7 @@ export class SecureStorageService {
         storageKey: `${SECURE_STORAGE_CONFIG.ASSESSMENT_PREFIX}${assessmentId}`,
         operationTimeMs: operationTime,
         dataSize: 0,
-        error: error.message
+        error: (error instanceof Error ? error.message : String(error))
       };
     }
   }
@@ -528,7 +528,7 @@ export class SecureStorageService {
         operationTimeMs: operationTime,
         dataSize: 0,
         userContext,
-        error: error.message
+        error: (error instanceof Error ? error.message : String(error))
       });
 
       throw error;
@@ -619,7 +619,7 @@ export class SecureStorageService {
         operationTimeMs: operationTime,
         dataSize: 0,
         userContext,
-        error: error.message
+        error: (error instanceof Error ? error.message : String(error))
       });
 
       throw error;
@@ -714,7 +714,7 @@ export class SecureStorageService {
             storageKey: item.key,
             operationTimeMs: 0,
             dataSize: 0,
-            error: error.message
+            error: (error instanceof Error ? error.message : String(error))
           };
         }
       });
@@ -762,7 +762,7 @@ export class SecureStorageService {
         operationTimeMs: operationTime,
         dataSize: 0,
         userContext,
-        error: error.message
+        error: (error instanceof Error ? error.message : String(error))
       });
 
       throw error;
@@ -816,7 +816,7 @@ export class SecureStorageService {
         storageKey: `${SECURE_STORAGE_CONFIG.GENERAL_PREFIX}${key}`,
         operationTimeMs: operationTime,
         dataSize: 0,
-        error: error.message
+        error: (error instanceof Error ? error.message : String(error))
       };
     }
   }
@@ -939,7 +939,7 @@ export class SecureStorageService {
         storageKey: key,
         operationTimeMs: operationTime,
         dataSize: 0,
-        error: error.message
+        error: (error instanceof Error ? error.message : String(error))
       };
     }
   }

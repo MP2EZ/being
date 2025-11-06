@@ -336,7 +336,7 @@ export class IncidentResponseService {
 
     } catch (error) {
       logError(LogCategory.SECURITY, '🚨 INCIDENT RESPONSE INITIALIZATION ERROR:', error instanceof Error ? error : new Error(String(error)));
-      throw new Error(`Incident response initialization failed: ${error.message}`);
+      throw new Error(`Incident response initialization failed: ${(error instanceof Error ? error.message : String(error))}`);
     }
   }
 
@@ -419,10 +419,10 @@ export class IncidentResponseService {
       await this.logIncidentTimelineEvent('detection_failure', {
         timestamp: Date.now(),
         eventType: 'detection',
-        description: `Incident detection failed: ${error.message}`,
+        description: `Incident detection failed: ${(error instanceof Error ? error.message : String(error))}`,
         actor: 'system',
         outcome: 'failure',
-        evidence: [`error: ${error.message}`, `detection_time: ${detectionTime.toFixed(2)}ms`]
+        evidence: [`error: ${(error instanceof Error ? error.message : String(error))}`, `detection_time: ${detectionTime.toFixed(2)}ms`]
       });
 
       throw error;
@@ -533,10 +533,10 @@ export class IncidentResponseService {
       await this.logIncidentTimelineEvent('crisis_response_failure', {
         timestamp: Date.now(),
         eventType: 'notification',
-        description: `Crisis data breach response failed: ${error.message}`,
+        description: `Crisis data breach response failed: ${(error instanceof Error ? error.message : String(error))}`,
         actor: 'automated_response',
         outcome: 'failure',
-        evidence: [`crisis_episode: ${crisisEpisodeId}`, `error: ${error.message}`, `response_time: ${responseTime.toFixed(2)}ms`]
+        evidence: [`crisis_episode: ${crisisEpisodeId}`, `error: ${(error instanceof Error ? error.message : String(error))}`, `response_time: ${responseTime.toFixed(2)}ms`]
       });
 
       throw error;
@@ -615,10 +615,10 @@ export class IncidentResponseService {
       await this.addTimelineEvent(incidentId, {
         timestamp: Date.now(),
         eventType: 'containment',
-        description: `Containment failed: ${error.message}`,
+        description: `Containment failed: ${(error instanceof Error ? error.message : String(error))}`,
         actor: 'automated_response',
         outcome: 'failure',
-        evidence: [`error: ${error.message}`, `containment_time: ${containmentTime.toFixed(2)}ms`]
+        evidence: [`error: ${(error instanceof Error ? error.message : String(error))}`, `containment_time: ${containmentTime.toFixed(2)}ms`]
       });
 
       throw error;
@@ -673,10 +673,10 @@ export class IncidentResponseService {
       await this.addTimelineEvent(incidentId, {
         timestamp: Date.now(),
         eventType: 'notification',
-        description: `Stakeholder notification failed: ${error.message}`,
+        description: `Stakeholder notification failed: ${(error instanceof Error ? error.message : String(error))}`,
         actor: 'automated_response',
         outcome: 'failure',
-        evidence: [`error: ${error.message}`]
+        evidence: [`error: ${(error instanceof Error ? error.message : String(error))}`]
       });
 
       throw error;
@@ -745,10 +745,10 @@ export class IncidentResponseService {
       await this.addTimelineEvent(incidentId, {
         timestamp: Date.now(),
         eventType: 'reporting',
-        description: `Regulatory reporting failed: ${error.message}`,
+        description: `Regulatory reporting failed: ${(error instanceof Error ? error.message : String(error))}`,
         actor: 'automated_response',
         outcome: 'failure',
-        evidence: [`error: ${error.message}`]
+        evidence: [`error: ${(error instanceof Error ? error.message : String(error))}`]
       });
 
       throw error;
@@ -812,10 +812,10 @@ export class IncidentResponseService {
       await this.addTimelineEvent(incidentId, {
         timestamp: Date.now(),
         eventType: 'recovery',
-        description: `Recovery plan creation failed: ${error.message}`,
+        description: `Recovery plan creation failed: ${(error instanceof Error ? error.message : String(error))}`,
         actor: 'automated_response',
         outcome: 'failure',
-        evidence: [`error: ${error.message}`]
+        evidence: [`error: ${(error instanceof Error ? error.message : String(error))}`]
       });
 
       throw error;
@@ -1080,7 +1080,7 @@ export class IncidentResponseService {
 
     } catch (error) {
       action.success = false;
-      action.evidence.push(`Action failed with error: ${error.message}`);
+      action.evidence.push(`Action failed with error: ${(error instanceof Error ? error.message : String(error))}`);
     }
 
     return action;

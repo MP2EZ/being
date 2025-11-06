@@ -111,6 +111,8 @@ class OptimizedScoringService {
 
     for (let i = 0; i < answers.length; i++) {
       const answer = answers[i];
+      if (!answer) continue;
+
       totalScore += answer.response;
 
       // Check suicidal ideation during iteration (PHQ-9 question 9)

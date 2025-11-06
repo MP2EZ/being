@@ -321,8 +321,8 @@ export class CrisisDetectionEngine {
     // Add threshold validations
     return {
       ...metrics,
-      detection_time_violations: metrics.detection_max > CLINICAL_CRISIS_THRESHOLDS.MAX_DETECTION_TIME_MS ? 1 : 0,
-      intervention_time_violations: metrics.intervention_max > CLINICAL_CRISIS_THRESHOLDS.MAX_INTERVENTION_TIME_MS ? 1 : 0,
+      detection_time_violations: (metrics.detection_max ?? 0) > CLINICAL_CRISIS_THRESHOLDS.MAX_DETECTION_TIME_MS ? 1 : 0,
+      intervention_time_violations: (metrics.intervention_max ?? 0) > CLINICAL_CRISIS_THRESHOLDS.MAX_INTERVENTION_TIME_MS ? 1 : 0,
       total_crisis_episodes: this.activeInterventions.size,
       performance_status: this.getPerformanceStatus(metrics)
     };

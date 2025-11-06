@@ -201,7 +201,7 @@ export class EncryptionService {
 
     } catch (error) {
       logError(LogCategory.SECURITY, '🚨 ENCRYPTION INITIALIZATION ERROR:', error instanceof Error ? error : new Error(String(error)));
-      throw new Error(`Encryption initialization failed: ${error.message}`);
+      throw new Error(`Encryption initialization failed: ${(error instanceof Error ? error.message : String(error))}`);
     }
   }
 
@@ -303,7 +303,7 @@ export class EncryptionService {
         timestamp: Date.now()
       });
 
-      throw new Error(`Encryption failed: ${error.message}`);
+      throw new Error(`Encryption failed: ${(error instanceof Error ? error.message : String(error))}`);
     }
   }
 
@@ -401,7 +401,7 @@ export class EncryptionService {
         timestamp: Date.now()
       });
 
-      throw new Error(`Decryption failed: ${error.message}`);
+      throw new Error(`Decryption failed: ${(error instanceof Error ? error.message : String(error))}`);
     }
   }
 
@@ -853,7 +853,7 @@ export class EncryptionService {
 
     } catch (error) {
       logError(LogCategory.SECURITY, '🚨 LEGACY DATA MIGRATION ERROR:', error instanceof Error ? error : new Error(String(error)));
-      throw new Error(`Migration failed: ${error.message}`);
+      throw new Error(`Migration failed: ${(error instanceof Error ? error.message : String(error))}`);
     }
   }
 
@@ -882,7 +882,7 @@ export class EncryptionService {
 
     } catch (error) {
       logError(LogCategory.SECURITY, '🚨 DEVICE ID GENERATION ERROR:', error instanceof Error ? error : new Error(String(error)));
-      throw new Error(`Device ID generation failed: ${error.message}`);
+      throw new Error(`Device ID generation failed: ${(error instanceof Error ? error.message : String(error))}`);
     }
   }
 

@@ -527,7 +527,7 @@ export class BundleOptimizer {
         chunkName,
         loadTime: 0,
         success: false,
-        error: error.message
+        error: (error instanceof Error ? error.message : String(error))
       });
 
       throw error;

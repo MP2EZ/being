@@ -242,7 +242,7 @@ class PerformanceAlertManager {
 
     const resolvedWithTime = resolved.filter(a => a.resolutionTime);
     const averageResolutionTime = resolvedWithTime.length > 0
-      ? resolvedWithTime.reduce((sum, a) => sum + (a.resolutionTime - a.timestamp), 0) / resolvedWithTime.length
+      ? resolvedWithTime.reduce((sum, a) => sum + ((a.resolutionTime ?? 0) - a.timestamp), 0) / resolvedWithTime.length
       : 0;
 
     return {
@@ -365,6 +365,8 @@ class PerformanceRegressionDetector {
       if (!baseline || recent.length === 0) continue;
 
       const current = recent[recent.length - 1];
+      if (!current) continue;
+
       const ratio = current / baseline;
 
       if (Math.abs(ratio - 1) > 0.1) { // 10% change threshold

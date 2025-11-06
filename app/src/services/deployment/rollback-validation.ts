@@ -42,7 +42,7 @@ export async function validateRollbackSafety(): Promise<RollbackValidation> {
     }
     
   } catch (error) {
-    errors.push(`Rollback validation failed: ${error.message}`);
+    errors.push(`Rollback validation failed: ${(error instanceof Error ? error.message : String(error))}`);
     criticalDataPreserved = false;
     userDataSafe = false;
   }

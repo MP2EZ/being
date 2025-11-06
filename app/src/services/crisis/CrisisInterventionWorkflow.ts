@@ -825,7 +825,7 @@ export class CrisisInterventionWorkflow {
       const logEntry = {
         type: 'workflow_failure',
         context,
-        error: (error instanceof Error ? error.message : String(error)),
+        error: (error instanceof Error ? (error instanceof Error ? error.message : String(error)) : String(error)),
         timestamp: Date.now(),
         source: 'CrisisInterventionWorkflow'
       };
@@ -835,8 +835,8 @@ export class CrisisInterventionWorkflow {
         `workflow_failure_${context.intervention.interventionId}`,
         JSON.stringify(logEntry)
       );
-    } catch (logError) {
-      logError('Workflow failure logging failed:', logError);
+    } catch (error) {
+      logError(LogCategory.CRISIS, 'Workflow failure logging failed', error instanceof Error ? error : new Error(String(error)));
     }
   }
 

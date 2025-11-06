@@ -206,8 +206,8 @@ export class LoggingSecurityValidator {
         name: 'Logger Integration',
         category: 'HIGH',
         passed: false,
-        details: `Logger integration failed: ${error.message}`,
-        evidence: { error: error.message }
+        details: `Logger integration failed: ${(error instanceof Error ? error.message : String(error))}`,
+        evidence: { error: (error instanceof Error ? error.message : String(error)) }
       });
     }
   }
@@ -244,8 +244,8 @@ export class LoggingSecurityValidator {
         name: 'Audit Trail Security',
         category: 'HIGH',
         passed: false,
-        details: `Audit trail validation failed: ${error.message}`,
-        evidence: { error: error.message }
+        details: `Audit trail validation failed: ${(error instanceof Error ? error.message : String(error))}`,
+        evidence: { error: (error instanceof Error ? error.message : String(error)) }
       });
     }
   }

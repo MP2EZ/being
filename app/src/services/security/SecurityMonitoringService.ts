@@ -375,7 +375,7 @@ export class SecurityMonitoringService {
 
     } catch (error) {
       logError(LogCategory.SECURITY, '🚨 SECURITY MONITORING INITIALIZATION ERROR:', error instanceof Error ? error : new Error(String(error)));
-      throw new Error(`Security monitoring initialization failed: ${error.message}`);
+      throw new Error(`Security monitoring initialization failed: ${(error instanceof Error ? error.message : String(error))}`);
     }
   }
 
@@ -474,7 +474,7 @@ export class SecurityMonitoringService {
         recommendations: [],
         complianceStatus: {
           overallScore: 0,
-          hipaaCompliance: { score: 0, status: 'non_compliant', violations: [error.message], recommendations: [] },
+          hipaaCompliance: { score: 0, status: 'non_compliant', violations: [(error instanceof Error ? error.message : String(error))], recommendations: [] },
           dataProtectionCompliance: { score: 0, encryptionCompliance: false, storageCompliance: false, transmissionCompliance: false, accessControlCompliance: false },
           clinicalCompliance: { score: 0, crisisProtocolCompliance: false, professionalAccessCompliance: false, auditTrailCompliance: false, documentationCompliance: false },
           lastComplianceCheck: Date.now()
@@ -684,7 +684,7 @@ export class SecurityMonitoringService {
       // Return failed compliance status
       return {
         overallScore: 0,
-        hipaaCompliance: { score: 0, status: 'non_compliant', violations: [error.message], recommendations: [] },
+        hipaaCompliance: { score: 0, status: 'non_compliant', violations: [(error instanceof Error ? error.message : String(error))], recommendations: [] },
         dataProtectionCompliance: { score: 0, encryptionCompliance: false, storageCompliance: false, transmissionCompliance: false, accessControlCompliance: false },
         clinicalCompliance: { score: 0, crisisProtocolCompliance: false, professionalAccessCompliance: false, auditTrailCompliance: false, documentationCompliance: false },
         lastComplianceCheck: Date.now()
@@ -1358,7 +1358,7 @@ export class SecurityMonitoringService {
       return {
         score: 0,
         status: 'non_compliant',
-        violations: [error.message],
+        violations: [(error instanceof Error ? error.message : String(error))],
         recommendations: ['Fix HIPAA compliance check errors']
       };
     }

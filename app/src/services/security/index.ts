@@ -210,7 +210,7 @@ export class SecurityOrchestrator {
 
     } catch (error) {
       logError(LogCategory.SECURITY, '🚨 SECURITY ARCHITECTURE INITIALIZATION ERROR:', error instanceof Error ? error : new Error(String(error)));
-      throw new Error(`Security architecture initialization failed: ${error.message}`);
+      throw new Error(`Security architecture initialization failed: ${(error instanceof Error ? error.message : String(error))}`);
     }
   }
 
@@ -270,7 +270,7 @@ export class SecurityOrchestrator {
       // Log security incident
       await this.incidentResponse.detectAndRespondToIncident(
         'data_breach',
-        `Crisis data protection failed for episode ${crisisEpisodeId}: ${error.message}`,
+        `Crisis data protection failed for episode ${crisisEpisodeId}: ${(error instanceof Error ? error.message : String(error))}`,
         {
           dataTypes: ['crisis_responses'],
           recordCount: 1,
@@ -360,7 +360,7 @@ export class SecurityOrchestrator {
       // Log security incident
       await this.incidentResponse.detectAndRespondToIncident(
         'data_breach',
-        `Assessment data protection failed for ${assessmentData.type} assessment ${assessmentId}: ${error.message}`,
+        `Assessment data protection failed for ${assessmentData.type} assessment ${assessmentId}: ${(error instanceof Error ? error.message : String(error))}`,
         {
           dataTypes: ['assessment_data'],
           recordCount: 1,
@@ -430,7 +430,7 @@ export class SecurityOrchestrator {
       // Log failed emergency access
       await this.incidentResponse.detectAndRespondToIncident(
         'unauthorized_access',
-        `Emergency access failed: ${error.message}`,
+        `Emergency access failed: ${(error instanceof Error ? error.message : String(error))}`,
         {
           dataTypes: [],
           recordCount: 0,

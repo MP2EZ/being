@@ -859,13 +859,13 @@ export class CrisisDataManagement {
         `crisis_data_error_${Date.now()}`,
         JSON.stringify({
           crisisId,
-          error: (error instanceof Error ? error.message : String(error)),
+          error: (error instanceof Error ? (error instanceof Error ? error.message : String(error)) : String(error)),
           timestamp: Date.now(),
           source: 'CrisisDataManagement'
         })
       );
-    } catch (logError) {
-      logError('Failed to log data capture error:', logError);
+    } catch (error) {
+      logError(LogCategory.CRISIS, 'Failed to log data capture error', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -891,7 +891,7 @@ export class CrisisDataManagement {
     await this.logAuditEvent(
       packageId,
       'data_update_error',
-      { updateType, error: (error instanceof Error ? error.message : String(error)) },
+      { updateType, error: (error instanceof Error ? (error instanceof Error ? error.message : String(error)) : String(error)) },
       'error'
     );
   }

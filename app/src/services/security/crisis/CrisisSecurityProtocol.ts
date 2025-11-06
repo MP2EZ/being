@@ -277,7 +277,7 @@ export class CrisisSecurityProtocol {
 
     } catch (error) {
       logError(LogCategory.SYSTEM, 'CRISIS SECURITY INITIALIZATION ERROR:', error);
-      throw new Error(`Crisis security initialization failed: ${error.message}`);
+      throw new Error(`Crisis security initialization failed: ${(error instanceof Error ? error.message : String(error))}`);
     }
   }
 
@@ -525,7 +525,7 @@ export class CrisisSecurityProtocol {
         monitoringEnabled: false,
         auditTrailCreated: false,
         protectionTimeMs: protectionTime,
-        error: error.message
+        error: (error instanceof Error ? error.message : String(error))
       };
     }
   }

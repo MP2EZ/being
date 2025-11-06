@@ -1383,7 +1383,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
         <View style={styles.notificationContainer}>
           {notificationTimes.map((notification: NotificationTime, index: number) => {
             // Format time for display (convert "09:00" to "9:00 AM")
-            const [hours, minutes] = notification.time.split(':').map(Number);
+            const [hours = 0, minutes = 0] = notification.time.split(':').map(Number);
             const displayHours = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
             const ampm = hours >= 12 ? 'PM' : 'AM';
             const formattedTime = `${displayHours}:${minutes.toString().padStart(2, '0')} ${ampm}`;
