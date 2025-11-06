@@ -108,7 +108,7 @@ export const NETWORK_CONFIG = {
 export type APIEndpointCategory = 
   | 'crisis_intervention'    // Emergency crisis endpoints
   | 'assessment_data'        // PHQ-9/GAD-7 assessment APIs
-  | 'therapeutic_content'    // MBCT and therapeutic resources
+  | 'therapeutic_content'    // Therapeutic resources
   | 'user_management'        // User profile and preferences
   | 'professional_access'    // Healthcare professional APIs
   | 'system_monitoring'      // Health checks and metrics

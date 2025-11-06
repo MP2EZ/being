@@ -5,7 +5,7 @@
  * - PHQ-9/GAD-7 score display with clinical accuracy
  * - Crisis intervention triggers (PHQ-9 ≥20, GAD-7 ≥15)
  * - Suicidal ideation detection (PHQ-9 Question 9 >0)
- * - MBCT therapeutic language and guidance
+ * - Therapeutic language and guidance
  * - <200ms crisis response time (CRITICAL)
  * - Professional support resources and next steps
  * - Proper focus management and keyboard navigation
@@ -348,7 +348,7 @@ const AssessmentResults: React.FC<AssessmentResultsProps> = ({
               {scoreInterpretation.guidance}
             </Text>
             
-            {/* MBCT-inspired guidance */}
+            {/* evidence-based guidance */}
             <View style={[styles.mbctContainer, { 
               backgroundColor: themeColors.light,
               borderLeftColor: themeColors.primary,

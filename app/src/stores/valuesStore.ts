@@ -17,7 +17,7 @@
  * - 4 cardinal virtues instead of 15 therapeutic values
  *
  * ORIGINAL PURPOSE:
- * - 15 MBCT-aligned therapeutic values management
+ * - 15 evidence-based therapeutic values management
  * - Users selected 3-5 values during onboarding
  * - Values were viewable and editable in profile
  * - Encrypted storage via SecureStore

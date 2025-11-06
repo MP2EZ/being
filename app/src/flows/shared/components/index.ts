@@ -1,5 +1,5 @@
 /**
- * Shared Components Index - MBCT Flow Components
+ * Shared Components Index - Check-in Flow Components
  * Export all reusable components for flows
  */
 

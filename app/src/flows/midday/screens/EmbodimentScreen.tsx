@@ -1,11 +1,11 @@
 /**
  * EMBODIMENT SCREEN
  *
- * 60-second breathing practice for midday embodiment (MBCT retained).
+ * 60-second breathing practice for midday embodiment (evidence-based practice).
  * Philosopher-validated (9.5/10) - aligns with Architecture v1.0.
  *
- * MBCT Retention:
- * - This practice is retained from original MBCT protocol
+ * Clinical Foundation:
+ * - This practice is retained from original evidence-based breathing protocol
  * - 60-second breathing space combines mindfulness with Stoic reflection
  * - Bridges cognitive practices with embodied awareness
  *

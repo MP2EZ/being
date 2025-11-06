@@ -3,7 +3,7 @@
  *
  * CRITICAL TESTING AREAS:
  * 1. Crisis Safety Response (<200ms requirement)
- * 2. Clinical Timing Validation (60s MBCT breathing)
+ * 2. Clinical Timing Validation (60s breathing)
  * 3. Flow Navigation and State Management
  * 4. Component Integration Behavior
  * 5. Performance Validation (60fps, <2s launch)
@@ -134,7 +134,7 @@ describe('DRD Check-in Flows Integration Testing', () => {
   });
 
   describe('2. CLINICAL TIMING VALIDATION', () => {
-    describe('MBCT Breathing Space Precision', () => {
+    describe('Breathing Space Precision', () => {
       it('CRITICAL: BreathingCircle 8-second cycle precision (4s inhale + 4s exhale)', async () => {
         const onCycleComplete = jest.fn();
 
@@ -150,7 +150,7 @@ describe('DRD Check-in Flows Integration Testing', () => {
         expect(onCycleComplete).toHaveBeenCalled();
       });
 
-      it('CRITICAL: Timer 60-second precision for MBCT screens', async () => {
+      it('CRITICAL: Timer 60-second precision for breathing screens', async () => {
         const onComplete = jest.fn();
         const duration = 60000; // 60 seconds in milliseconds
 

@@ -1,7 +1,7 @@
 /**
  * Clean Root Navigator - Fresh start navigation
  * No crypto dependencies, minimal implementation
- * Includes MBCT flow modal presentations
+ * Includes check-in flow modal presentations
  */
 
 import React, { useState, useEffect } from 'react';
@@ -166,7 +166,7 @@ const CleanRootNavigator: React.FC = () => {
           }}
         />
 
-        {/* MBCT Flow Modals */}
+        {/* Check-in Flow Modals */}
         <Stack.Group screenOptions={{ presentation: 'modal' }}>
           <Stack.Screen
             name="MorningFlow"

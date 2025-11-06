@@ -1,8 +1,8 @@
 /**
  * PHYSICAL METRICS SCREEN TESTS
  *
- * Tests for retained MBCT physical metrics baseline screen.
- * Retained from original Being MBCT flow (not Stoic-specific).
+ * Tests for retained evidence-based physical metrics baseline screen.
+ * Retained from original flow (not Stoic-specific).
  *
  * TDD Approach: Tests written first, screen implemented to pass tests.
  *
@@ -13,7 +13,7 @@
  * - Optional notes field
  * - Save to StoicMorningFlowData.physicalMetrics
  *
- * @see /docs/technical/Stoic-Mindfulness-Architecture-v1.0.md (MBCT integration)
+ * @see /docs/technical/Stoic-Mindfulness-Architecture-v1.0.md (clinical integration)
  */
 
 import React from 'react';

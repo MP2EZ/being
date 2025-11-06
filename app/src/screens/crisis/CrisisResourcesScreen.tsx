@@ -5,7 +5,7 @@
  * SAFETY REQUIREMENTS:
  * - All resources available offline (<200ms load)
  * - One-tap calling/texting via native protocols
- * - MBCT-aligned supportive language
+ * - evidence-based supportive language
  * - Emergency 911 prominently displayed
  * - Crisis detection context-aware display
  *

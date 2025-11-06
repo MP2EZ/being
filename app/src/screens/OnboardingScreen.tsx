@@ -84,7 +84,7 @@ const ACCESSIBILITY = {
 // NOTE: PHQ9_QUESTIONS and GAD7_QUESTIONS now imported from shared assessment types
 // This eliminates duplication and ensures clinical accuracy across the app
 
-// Therapeutic Values (15 MBCT-aligned values) with HIPAA compliance
+// Therapeutic Values (15 evidence-based values) with HIPAA compliance
 const THERAPEUTIC_VALUES: TherapeuticValue[] = [
   { id: 'compassion', label: 'Compassion', description: 'Kindness toward yourself and others', phiClassification: 'therapeutic_preference', dataMinimization: 'necessary' },
   { id: 'growth', label: 'Growth', description: 'Learning and evolving through experiences', phiClassification: 'therapeutic_preference', dataMinimization: 'necessary' },

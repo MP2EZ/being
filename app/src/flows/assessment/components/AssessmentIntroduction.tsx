@@ -2,7 +2,7 @@
  * AssessmentIntroduction Component - DRD-FLOW-005
  * 
  * CLINICAL SPECIFICATIONS:
- * - MBCT therapeutic guidance and mindful awareness
+ * - Therapeutic guidance and mindful awareness
  * - PHQ-9/GAD-7 clinical context and purpose explanation
  * - Therapeutic language for anxiety reduction
  * - Crisis support integration and safety messaging
@@ -198,7 +198,7 @@ const AssessmentIntroduction: React.FC<AssessmentIntroductionProps> = ({
             </View>
           </Focusable>
 
-          {/* MBCT Mindfulness guidance */}
+          {/* Mindfulness guidance */}
           <Focusable
             id="assessment-mindfulness"
             priority={30}

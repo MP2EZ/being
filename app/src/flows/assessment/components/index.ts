@@ -9,7 +9,7 @@
  * CLINICAL VALIDATION:
  * - All components validated for PHQ-9/GAD-7 accuracy
  * - Crisis intervention protocols integrated
- * - MBCT therapeutic styling applied
+ * - Therapeutic styling applied
  * - WCAG AA accessibility compliance
  */
 

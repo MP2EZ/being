@@ -5,7 +5,7 @@
 
 // Flow Navigation Types
 
-// MBCT Morning Flow (Original - DEPRECATED for FEAT-45)
+// Original Morning Flow (DEPRECATED for FEAT-45)
 export type MBCTMorningFlowParamList = {
   BodyScan: undefined;
   EmotionRecognition: undefined;
@@ -80,7 +80,7 @@ export interface ThoughtData {
   response?: string;
 }
 
-// MBCT Physical Metrics (Original - DEPRECATED)
+// Original Physical Metrics (DEPRECATED)
 export interface MBCTPhysicalMetricsData {
   energy: number; // 1-10 scale
   sleep: number; // 1-10 scale
@@ -300,7 +300,7 @@ export interface StoicMiddayFlowData {
   reappraisal?: ReappraisalData;
   intentionProgress?: IntentionProgressData;
 
-  // Retained from MBCT (60fps breathing)
+  // Retained from original evidence-based protocol (60fps breathing)
   embodiment?: EmbodimentData;
 
   // Metadata
