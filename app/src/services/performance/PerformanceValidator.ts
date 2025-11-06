@@ -77,7 +77,7 @@ class PerformanceStressTester {
   static async stressCrisisDetection(iterations: number = 100): Promise<number[]> {
     const results: number[] = [];
 
-    logPerformance(`🚨 Running crisis detection stress test (${iterations} iterations)...`);
+    console.log(`🚨 Running crisis detection stress test (${iterations} iterations)...`);
 
     for (let i = 0; i < iterations; i++) {
       const startTime = performance.now();
@@ -99,7 +99,7 @@ class PerformanceStressTester {
     const max = Math.max(...results);
     const min = Math.min(...results);
 
-    logPerformance(`✅ Crisis detection stress test completed: avg=${average.toFixed(2)}ms, min=${min.toFixed(2)}ms, max=${max.toFixed(2)}ms`);
+    console.log(`✅ Crisis detection stress test completed: avg=${average.toFixed(2)}ms, min=${min.toFixed(2)}ms, max=${max.toFixed(2)}ms`);
 
     return results;
   }
@@ -111,7 +111,7 @@ class PerformanceStressTester {
     const results: number[] = [];
     const sessionId = 'stress_test_session';
 
-    logPerformance(`📋 Running assessment flow stress test (${questionCount} questions)...`);
+    console.log(`📋 Running assessment flow stress test (${questionCount} questions)...`);
 
     // Initialize optimized session
     AssessmentFlowOptimizer.initializeOptimizedSession(sessionId, 'phq9', []);
@@ -133,7 +133,7 @@ class PerformanceStressTester {
     AssessmentFlowOptimizer.cleanupSession(sessionId);
 
     const average = results.reduce((sum, time) => sum + time, 0) / results.length;
-    logPerformance(`✅ Assessment flow stress test completed: avg=${average.toFixed(2)}ms per question`);
+    console.log(`✅ Assessment flow stress test completed: avg=${average.toFixed(2)}ms per question`);
 
     return results;
   }
@@ -146,7 +146,7 @@ class PerformanceStressTester {
     averageMemory: number;
     memoryLeak: boolean;
   }> {
-    logPerformance(`💾 Running memory stress test (${duration}ms)...`);
+    console.log(`💾 Running memory stress test (${duration}ms)...`);
 
     const startTime = Date.now();
     const memoryReadings: number[] = [];
@@ -188,7 +188,7 @@ class PerformanceStressTester {
           const peakMemory = Math.max(...memoryReadings);
           const averageMemory = memoryReadings.reduce((sum, mem) => sum + mem, 0) / memoryReadings.length;
 
-          logPerformance(`✅ Memory stress test completed: peak=${peakMemory.toFixed(2)}MB, avg=${averageMemory.toFixed(2)}MB, leak=${memoryLeak}`);
+          console.log(`✅ Memory stress test completed: peak=${peakMemory.toFixed(2)}MB, avg=${averageMemory.toFixed(2)}MB, leak=${memoryLeak}`);
 
           resolve({ peakMemory, averageMemory, memoryLeak });
         }
@@ -361,7 +361,7 @@ export class PerformanceValidator {
       // Generate final report
       const report = this.generateValidationReport(results, Date.now() - startTime);
 
-      logPerformance(`🎯 Performance validation completed: ${report.status} (${report.overallScore}/100)`);
+      console.log(`🎯 Performance validation completed: ${report.status} (${report.overallScore}/100)`);
 
       // Emit validation completed event
       DeviceEventEmitter.emit('performance_validation_completed', report);
