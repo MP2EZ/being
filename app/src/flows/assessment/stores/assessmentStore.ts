@@ -331,7 +331,7 @@ class CrisisDetectionService {
 /**
  * Assessment Store State Interface
  */
-interface AssessmentStoreState {
+export interface AssessmentStoreState {
   // Current session state
   currentSession: AssessmentSession | null;
   currentQuestionIndex: number;

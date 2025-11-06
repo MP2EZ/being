@@ -20,7 +20,7 @@
 /**
  * Protected Health Information (PHI) Classification
  */
-export type PHIClassification = 
+export type PHIClassification =
   | 'assessment_scores'     // PHQ-9/GAD-7 scores and responses
   | 'crisis_data'           // Crisis detection and intervention records
   | 'personal_identifiers'  // Name, DOB, contact information
@@ -30,7 +30,8 @@ export type PHIClassification =
   | 'location_data'         // GPS coordinates for crisis services
   | 'device_identifiers'    // Device IDs, tokens, session data
   | 'treatment_records'     // Therapy notes, clinical observations
-  | 'emergency_contacts';   // Crisis support contact information
+  | 'emergency_contacts'    // Crisis support contact information
+  | 'therapeutic_preference'; // User preferences for therapeutic modalities, mindfulness practices
 
 /**
  * HIPAA Consent Types

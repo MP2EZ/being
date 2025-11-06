@@ -21,7 +21,7 @@ import {
 import { colorSystem, spacing } from '../../constants/colors';
 
 // Focus management context
-interface FocusContextValue {
+export interface FocusContextValue {
   focusOrder: string[];
   currentFocusIndex: number;
   registerFocusable: (id: string, ref: any, priority?: number) => void;

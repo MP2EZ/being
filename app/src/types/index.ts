@@ -20,6 +20,36 @@
  */
 
 // =============================================================================
+// IMPORTS - For use in validation interfaces within this file
+// =============================================================================
+
+import type {
+  CrisisDetection,
+  CrisisIntervention,
+} from '../flows/assessment/types/crisis/safety';
+
+import type {
+  HIPAAConsent,
+  PHIClassification,
+  HIPAAAuditLog,
+} from './compliance/hipaa';
+
+import type {
+  AuthenticationSession,
+  EncryptionKey,
+  SecurityEvent,
+} from './security/encryption';
+
+import type {
+  PHQ9Result,
+  GAD7Result,
+} from '../flows/assessment/types';
+
+import type {
+  ErrorSeverity,
+} from './errors/recovery';
+
+// =============================================================================
 // CRISIS SAFETY TYPES - HIGHEST PRIORITY
 // =============================================================================
 
@@ -239,155 +269,80 @@ export {
 /**
  * Type Safety Validators
  * Compile-time and runtime validation utilities
+ *
+ * NOTE: These validation interfaces are temporarily commented out as part of MAINT-79.
+ * They reference types that need to be properly defined and exported before these
+ * interfaces can be used. They are not currently used in the codebase.
+ *
+ * TODO: Re-enable these interfaces once all referenced types are properly defined:
+ * - CrisisButtonProps, CrisisStoreState (from integration/components and stores)
+ * - ConsentManagementProps, ComplianceStoreState (from integration/components and stores)
+ * - SecurityAuthProps, SecurityStoreState (from integration/components and stores)
+ * - PerformanceConstraint, PerformanceMetric, PerformanceTimingCategory (need to be created)
+ * - EnhancedError, ErrorRecoveryStrategy, ErrorContext (need to be created)
+ * - BaseComponentProps, ComponentTheme (from integration/components)
+ * - StoreConfig, StoreActions (from integration/store)
  */
 
-/**
- * Crisis Workflow Type Validation
- * Ensures type safety across all crisis detection and intervention workflows
- */
+/*
 export interface CrisisWorkflowTypeValidation {
-  /** Validate crisis detection types */
   validateCrisisDetection: (detection: any) => detection is CrisisDetection;
-  
-  /** Validate crisis intervention types */
   validateCrisisIntervention: (intervention: any) => intervention is CrisisIntervention;
-  
-  /** Validate crisis button props */
   validateCrisisButtonProps: (props: any) => props is CrisisButtonProps;
-  
-  /** Validate crisis store state */
   validateCrisisStoreState: (state: any) => state is CrisisStoreState;
-  
-  /** Validate performance constraints for crisis operations */
-  validateCrisisPerformance: (
-    operation: string, 
-    timeMs: number
-  ) => Promise<boolean>;
+  validateCrisisPerformance: (operation: string, timeMs: number) => Promise<boolean>;
 }
 
-/**
- * Compliance Type Validation
- * Ensures HIPAA compliance across all data handling operations
- */
 export interface ComplianceTypeValidation {
-  /** Validate HIPAA consent types */
   validateHIPAAConsent: (consent: any) => consent is HIPAAConsent;
-  
-  /** Validate PHI classification */
   validatePHIClassification: (data: any, classification: PHIClassification) => boolean;
-  
-  /** Validate consent management props */
   validateConsentProps: (props: any) => props is ConsentManagementProps;
-  
-  /** Validate compliance store state */
-  validateComplianceState: (state: any) => state is ComplianceStoreState;
-  
-  /** Validate audit log entries */
+  validateComplianceState: (state: any) => consent is ComplianceStoreState;
   validateAuditLog: (log: any) => log is HIPAAAuditLog;
 }
 
-/**
- * Security Type Validation
- * Ensures security requirements across all authentication and encryption
- */
 export interface SecurityTypeValidation {
-  /** Validate authentication session */
   validateAuthSession: (session: any) => session is AuthenticationSession;
-  
-  /** Validate encryption key */
   validateEncryptionKey: (key: any) => key is EncryptionKey;
-  
-  /** Validate security event */
   validateSecurityEvent: (event: any) => event is SecurityEvent;
-  
-  /** Validate security auth props */
   validateSecurityProps: (props: any) => props is SecurityAuthProps;
-  
-  /** Validate security store state */
   validateSecurityState: (state: any) => state is SecurityStoreState;
 }
 
-/**
- * Performance Type Validation
- * Ensures performance constraints are met across all operations
- */
 export interface PerformanceTypeValidation {
-  /** Validate performance constraint */
   validatePerformanceConstraint: (constraint: any) => constraint is PerformanceConstraint;
-  
-  /** Validate performance metric */
   validatePerformanceMetric: (metric: any) => metric is PerformanceMetric;
-  
-  /** Validate timing category compliance */
-  validateTimingCompliance: (
-    category: PerformanceTimingCategory,
-    actualTimeMs: number
-  ) => Promise<boolean>;
-  
-  /** Validate memory constraints */
+  validateTimingCompliance: (category: PerformanceTimingCategory, actualTimeMs: number) => Promise<boolean>;
   validateMemoryConstraints: (usageMB: number) => Promise<boolean>;
 }
 
-/**
- * Error Type Validation
- * Ensures proper error handling and recovery across all workflows
- */
 export interface ErrorTypeValidation {
-  /** Validate enhanced error */
   validateEnhancedError: (error: any) => error is EnhancedError;
-  
-  /** Validate error recovery strategy */
   validateRecoveryStrategy: (strategy: any) => strategy is ErrorRecoveryStrategy;
-  
-  /** Validate error context */
   validateErrorContext: (context: any) => context is ErrorContext;
-  
-  /** Validate crisis-safe error handling */
   validateCrisisSafeHandling: (error: EnhancedError) => Promise<boolean>;
 }
 
-/**
- * Integration Type Validation
- * Ensures proper component and store integration
- */
 export interface IntegrationTypeValidation {
-  /** Validate base component props */
   validateBaseProps: (props: any) => props is BaseComponentProps;
-  
-  /** Validate component theme */
   validateComponentTheme: (theme: any) => theme is ComponentTheme;
-  
-  /** Validate store configuration */
   validateStoreConfig: (config: any) => config is StoreConfig<any, any>;
-  
-  /** Validate store actions */
   validateStoreActions: (actions: any) => actions is StoreActions<any>;
 }
 
-/**
- * Master Type Validation Interface
- * Comprehensive validation across all type categories
- */
-export interface MasterTypeValidation extends 
+export interface MasterTypeValidation extends
   CrisisWorkflowTypeValidation,
-  ComplianceTypeValidation, 
+  ComplianceTypeValidation,
   SecurityTypeValidation,
   PerformanceTypeValidation,
   ErrorTypeValidation,
   IntegrationTypeValidation {
-  
-  /** Validate complete crisis workflow */
-  validateCompleteWorkflow: (
-    assessment: PHQ9Result | GAD7Result,
-    userId: string
-  ) => Promise<WorkflowValidationResult>;
-  
-  /** Validate type safety across all systems */
+
+  validateCompleteWorkflow: (assessment: PHQ9Result | GAD7Result, userId: string) => Promise<WorkflowValidationResult>;
   validateSystemTypeSafety: () => Promise<SystemValidationResult>;
-  
-  /** Generate type coverage report */
   generateTypeCoverageReport: () => TypeCoverageReport;
 }
+*/
 
 /**
  * Workflow Validation Result
@@ -548,35 +503,27 @@ export const TYPE_SAFETY_CONFIG = {
 
 /**
  * Default Export - Main Type Safety Interface
+ *
+ * NOTE: Simplified as part of MAINT-79. Validation infrastructure commented out
+ * until all referenced types are properly defined.
  */
 export default {
-  // Type validators
-  validators: {} as MasterTypeValidation,
-  
   // Configuration
   config: TYPE_SAFETY_CONFIG,
-  
+
   // Utility functions
   utils: {
     isCrisisWorkflow: (workflow: any): boolean => {
-      return workflow && typeof workflow === 'object' && 
+      return workflow && typeof workflow === 'object' &&
              'crisisDetection' in workflow;
     },
-    
+
     isTypeSafe: (obj: any, validator: (obj: any) => boolean): boolean => {
       try {
         return validator(obj);
       } catch (error) {
         return false;
       }
-    },
-    
-    validatePerformanceConstraint: (
-      operation: string, 
-      timeMs: number, 
-      constraint: PerformanceConstraint
-    ): boolean => {
-      return timeMs <= constraint.maxTimeMs;
     }
   }
 } as const;
