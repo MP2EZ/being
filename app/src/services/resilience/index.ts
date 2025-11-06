@@ -1,4 +1,6 @@
 /**
+
+
  * SYSTEM RESILIENCE SERVICES
  * Week 4 Phase 2a - Critical Production Infrastructure
  *
@@ -19,6 +21,11 @@
  * USAGE:
  * import { circuitBreakerService, protectedCrisisDetection } from '@/services/resilience';
  */
+
+// Import for internal use
+import { circuitBreakerService, CircuitBreakerState, ProtectedService } from './CircuitBreakerService';
+import { logSecurity, logError, logPerformance, LogCategory } from '../logging';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Core Circuit Breaker Service
 export {
@@ -84,7 +91,7 @@ export class ResilienceOrchestrator {
       });
 
     } catch (error) {
-      logError(LogCategory.SECURITY, 'Resilience orchestrator initialization failed', error);
+      logError(LogCategory.SECURITY, 'Resilience orchestrator initialization failed', error instanceof Error ? error : undefined);
       throw error;
     }
   }
@@ -107,7 +114,7 @@ export class ResilienceOrchestrator {
       const systemHealth = circuitBreakerService.getSystemHealth();
 
       // Log health status
-      logPerformance('System resilience health check', {
+      logPerformance('System resilience health check', 0, {
         overall: systemHealth.overall,
         criticalServiceFailures: systemHealth.criticalServiceFailures,
         openCircuits: systemHealth.openCircuits,
@@ -133,7 +140,7 @@ export class ResilienceOrchestrator {
       }
 
     } catch (error) {
-      logError(LogCategory.SECURITY, 'Health check failed', error);
+      logError(LogCategory.SECURITY, 'Health check failed', error instanceof Error ? error : undefined);
     }
   }
 
@@ -201,7 +208,7 @@ export class ResilienceOrchestrator {
         try {
           circuitBreakerService.forceCircuitState(service, CircuitBreakerState.CLOSED);
         } catch (error) {
-          logError(LogCategory.SECURITY, `Failed to force close circuit for ${service}`, error);
+          logError(LogCategory.SECURITY, `Failed to force close circuit for ${service}`, error instanceof Error ? error : undefined);
         }
       }
 
@@ -211,11 +218,11 @@ export class ResilienceOrchestrator {
       logSecurity('Emergency resilience protocol completed', 'critical', {
         component: 'resilience_orchestrator',
         action: 'emergency_protocol',
-        result: 'completed'
+        result: 'success' as any
       });
 
     } catch (error) {
-      logError(LogCategory.SECURITY, 'Emergency resilience protocol failed', error);
+      logError(LogCategory.SECURITY, 'Emergency resilience protocol failed', error instanceof Error ? error : undefined);
       throw error;
     }
   }
@@ -244,7 +251,7 @@ export class ResilienceOrchestrator {
       });
 
     } catch (error) {
-      logError(LogCategory.SECURITY, 'Failed to clear operation queues', error);
+      logError(LogCategory.SECURITY, 'Failed to clear operation queues', error instanceof Error ? error : undefined);
     }
   }
 
@@ -268,7 +275,7 @@ export class ResilienceOrchestrator {
       });
 
     } catch (error) {
-      logError(LogCategory.SECURITY, 'Resilience orchestrator shutdown failed', error);
+      logError(LogCategory.SECURITY, 'Resilience orchestrator shutdown failed', error instanceof Error ? error : undefined);
     }
   }
 }
@@ -295,7 +302,7 @@ export function isServiceAvailable(service: ProtectedService): boolean {
   const statuses = circuitBreakerService.getCircuitBreakerStatuses();
   const serviceStatus = statuses[service];
 
-  return serviceStatus && serviceStatus.state !== CircuitBreakerState.OPEN;
+  return !!(serviceStatus && serviceStatus.state !== CircuitBreakerState.OPEN);
 }
 
 /**
@@ -319,13 +326,9 @@ export async function initializeServiceResilience(serviceName: string): Promise<
     });
 
   } catch (error) {
-    logError(LogCategory.SECURITY, `Failed to initialize resilience for ${serviceName}`, error);
+    logError(LogCategory.SECURITY, `Failed to initialize resilience for ${serviceName}`, error instanceof Error ? error : undefined);
     throw error;
   }
 }
-
-// Import required dependencies
-import { logSecurity, logError, logPerformance, LogCategory } from '../logging';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default resilienceOrchestrator;

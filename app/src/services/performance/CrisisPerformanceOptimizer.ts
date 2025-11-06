@@ -111,6 +111,8 @@ class OptimizedScoringService {
 
     for (let i = 0; i < answers.length; i++) {
       const answer = answers[i];
+      if (!answer) continue;
+
       totalScore += answer.response;
 
       // Check suicidal ideation during iteration (PHQ-9 question 9)
@@ -129,7 +131,10 @@ class OptimizedScoringService {
 
     // Performance monitoring
     if (duration > 10) {
-      logSecurity(`PHQ-9 scoring exceeded 10ms target: ${duration}ms`);
+      logSecurity('PHQ-9 scoring exceeded target', 'high', {
+        duration,
+        threshold: 10
+      });
     }
 
     return { score: totalScore, hasSuicidalIdeation: suicidalIdeation };
@@ -148,9 +153,9 @@ class OptimizedScoringService {
 
     // Optimized scoring with unrolled loop for maximum performance
     const totalScore =
-      answers[0].response + answers[1].response + answers[2].response +
-      answers[3].response + answers[4].response + answers[5].response +
-      answers[6].response;
+      (answers[0]?.response ?? 0) + (answers[1]?.response ?? 0) + (answers[2]?.response ?? 0) +
+      (answers[3]?.response ?? 0) + (answers[4]?.response ?? 0) + (answers[5]?.response ?? 0) +
+      (answers[6]?.response ?? 0);
 
     // Validate score range inline
     if (totalScore < 0 || totalScore > 21) {
@@ -162,7 +167,10 @@ class OptimizedScoringService {
 
     // Performance monitoring
     if (duration > 8) {
-      logSecurity(`GAD-7 scoring exceeded 8ms target: ${duration}ms`);
+      logSecurity('GAD-7 scoring exceeded target', 'high', {
+        duration,
+        threshold: 8
+      });
     }
 
     return totalScore;
@@ -215,20 +223,20 @@ export class CrisisPerformanceOptimizer {
 
       // Phase 2: Lightning-fast crisis detection using lookup tables
       const detectionStart = performance.now();
-      let triggerType: CrisisDetection['triggerType'] | null = null;
+      let triggerType: CrisisDetection['primaryTrigger'] | null = null;
       let triggerValue = score;
 
       if (type === 'phq9') {
         // Immediate suicidal ideation check (highest priority)
         if (hasSuicidalIdeation) {
-          triggerType = 'phq9_suicidal';
+          triggerType = 'phq9_suicidal_ideation';
           triggerValue = 1;
         } else if (PHQ9_CRISIS_LOOKUP.has(score)) {
-          triggerType = 'phq9_score';
+          triggerType = 'phq9_moderate_severe_score';
         }
       } else if (type === 'gad7') {
         if (GAD7_CRISIS_LOOKUP.has(score)) {
-          triggerType = 'gad7_score';
+          triggerType = 'gad7_severe_score';
         }
       }
 
@@ -247,13 +255,13 @@ export class CrisisPerformanceOptimizer {
       }
 
       // Phase 4: Crisis detected - create detection object
-      const detection: CrisisDetection = {
+      const detection = {
         isTriggered: true,
-        triggerType,
+        primaryTrigger: triggerType,
         triggerValue,
         timestamp: Date.now(),
         assessmentId: `${type}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-      };
+      } as Partial<CrisisDetection> as CrisisDetection;
 
       const totalTime = performance.now() - startTime;
 
@@ -273,7 +281,7 @@ export class CrisisPerformanceOptimizer {
       return detection;
     } catch (error) {
       const totalTime = performance.now() - startTime;
-      logError('Optimized crisis detection failed:', error);
+      logError(LogCategory.PERFORMANCE, 'Optimized crisis detection failed:', error instanceof Error ? error : new Error(String(error)));
 
       // Record failed attempt
       this.recordPerformanceMetric({
@@ -304,7 +312,7 @@ export class CrisisPerformanceOptimizer {
       // Emit performance event for monitoring
       DeviceEventEmitter.emit('crisis_intervention_started', {
         assessmentId: detection.assessmentId,
-        triggerType: detection.triggerType,
+        triggerType: detection.primaryTrigger,
         timestamp: detection.timestamp
       });
 
@@ -326,7 +334,7 @@ export class CrisisPerformanceOptimizer {
       }
 
     } catch (error) {
-      logError('Optimized emergency response failed:', error);
+      logError(LogCategory.PERFORMANCE, 'Optimized emergency response failed:', error instanceof Error ? error : new Error(String(error)));
       // Fallback: Direct 988 call
       Linking.openURL('tel:988');
     }
@@ -382,7 +390,7 @@ export class CrisisPerformanceOptimizer {
       // Use minimal, fast logging
       const interventionLog = {
         id: detection.assessmentId,
-        type: detection.triggerType,
+        type: detection.primaryTrigger,
         value: detection.triggerValue,
         timestamp: detection.timestamp,
         responseTime: Date.now() - detection.timestamp
@@ -394,7 +402,7 @@ export class CrisisPerformanceOptimizer {
         AsyncStorage.setItem(logKey, JSON.stringify(interventionLog))
       );
     } catch (error) {
-      logError('Crisis intervention logging failed:', error);
+      logError(LogCategory.PERFORMANCE, 'Crisis intervention logging failed:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -419,7 +427,7 @@ export class CrisisPerformanceOptimizer {
   private static handlePerformanceAlert(duration: number, operation: string): void {
     this.alertCount++;
 
-    logError(`🚨 PERFORMANCE ALERT: ${operation} took ${duration}ms (target: <${this.config.alertThresholdMs}ms)`);
+    logError(LogCategory.SYSTEM, `PERFORMANCE ALERT: ${operation} took ${duration}ms (target: <${this.config.alertThresholdMs}ms)`);
 
     // Emit alert for external monitoring
     DeviceEventEmitter.emit('performance_alert', {
@@ -432,7 +440,7 @@ export class CrisisPerformanceOptimizer {
 
     // Critical performance degradation handling
     if (duration > this.config.alertThresholdMs * 2) {
-      logError(`🚨 CRITICAL PERFORMANCE DEGRADATION: ${operation} is severely slow`);
+      logError(LogCategory.SYSTEM, `CRITICAL PERFORMANCE DEGRADATION: ${operation} is severely slow`);
 
       // Clear caches to free memory
       if (operation === 'crisis_detection') {
@@ -446,7 +454,7 @@ export class CrisisPerformanceOptimizer {
    */
   static configureOptimizations(config: Partial<CrisisOptimizationConfig>): void {
     this.config = { ...this.config, ...config };
-    logPerformance('Crisis performance optimizer configured:', this.config);
+    console.log('Crisis performance optimizer configured:', this.config);
   }
 
   /**
@@ -491,14 +499,14 @@ export class CrisisPerformanceOptimizer {
     this.performanceHistory = [];
     this.alertCount = 0;
     ScoringCache.clear();
-    logPerformance('Crisis performance tracking reset');
+    console.log('Crisis performance tracking reset');
   }
 
   /**
    * Precompute crisis thresholds for even faster lookup
    */
   static precomputeCrisisThresholds(): void {
-    logPerformance('Precomputing crisis detection lookup tables...');
+    console.log('Precomputing crisis detection lookup tables...');
 
     // Verify lookup tables are correct
     const phq9Expected = [20, 21, 22, 23, 24, 25, 26, 27];
@@ -515,7 +523,7 @@ export class CrisisPerformanceOptimizer {
       throw new Error('GAD-7 crisis lookup table mismatch');
     }
 
-    logPerformance('✅ Crisis detection lookup tables verified and ready');
+    console.log('✅ Crisis detection lookup tables verified and ready');
   }
 }
 

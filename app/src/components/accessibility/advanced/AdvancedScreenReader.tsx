@@ -64,7 +64,7 @@ export interface AdvancedAnnouncementOptions extends AnnouncementConfig {
 }
 
 // Context for advanced screen reader management
-interface AdvancedScreenReaderContextValue {
+export interface AdvancedScreenReaderContextValue {
   announce: (options: AdvancedAnnouncementOptions) => void;
   announceProgress: (current: number, total: number, context?: string) => void;
   announceCrisis: (message: string, urgency?: 'immediate' | 'gentle') => void;

@@ -262,7 +262,7 @@ export interface CrisisDetectionResult {
 
 /**
  * Therapeutic Value Enumeration
- * 15 core MBCT-aligned values for selection
+ * 15 core evidence-based values for selection
  */
 export enum TherapeuticValue {
   COMPASSION = 'compassion',

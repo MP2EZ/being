@@ -17,7 +17,7 @@
 
 import { logSecurity, logPerformance, logError, LogCategory } from '../logging';
 import { resilienceOrchestrator, ProtectedService, CircuitBreakerState } from '../resilience';
-import { performanceService } from '../performance';
+import performanceService from '../performance';
 
 export interface CrisisMonitoringMetrics {
   // Performance metrics
@@ -169,7 +169,7 @@ export class CrisisMonitoringService {
       });
 
     } catch (error) {
-      logError(LogCategory.SECURITY, 'Crisis monitoring startup failed', error);
+      logError(LogCategory.SECURITY, 'Crisis monitoring startup failed', error instanceof Error ? error : undefined);
       throw error;
     }
   }
@@ -214,15 +214,14 @@ export class CrisisMonitoringService {
 
       // Log monitoring performance
       const cycleDuration = Date.now() - startTime;
-      logPerformance('Crisis monitoring cycle completed', {
-        duration: cycleDuration,
+      logPerformance('Crisis monitoring cycle completed', cycleDuration, {
         metricsCollected: Object.keys(this.currentMetrics).length,
         activeAlerts: this.activeAlerts.length
       });
 
     } catch (error) {
-      logError(LogCategory.SECURITY, 'Crisis monitoring cycle failed', error);
-      
+      logError(LogCategory.SECURITY, 'Crisis monitoring cycle failed', error instanceof Error ? error : undefined);
+
       // Generate critical alert for monitoring failure
       await this.generateAlert({
         severity: 'critical',
@@ -270,7 +269,7 @@ export class CrisisMonitoringService {
       }
 
     } catch (error) {
-      logError(LogCategory.SECURITY, 'Performance monitoring failed', error);
+      logError(LogCategory.SECURITY, 'Performance monitoring failed', error instanceof Error ? error : undefined);
     }
   }
 
@@ -283,7 +282,10 @@ export class CrisisMonitoringService {
       const resilienceStatus = resilienceOrchestrator.getResilienceStatus();
       
       this.currentMetrics.criticalServicesHealth = resilienceStatus.systemHealth.overall;
-      this.currentMetrics.circuitBreakerStatus = resilienceStatus.circuitBreakers;
+      // Transform circuit breaker status to extract just the state values
+      this.currentMetrics.circuitBreakerStatus = Object.fromEntries(
+        Object.entries(resilienceStatus.circuitBreakers).map(([key, value]) => [key, value.state])
+      ) as Record<ProtectedService, CircuitBreakerState>;
       
       // Calculate system availability
       const healthyServices = Object.values(resilienceStatus.circuitBreakers)
@@ -317,8 +319,8 @@ export class CrisisMonitoringService {
         ProtectedService.CRISIS_DETECTION,
         ProtectedService.AUTHENTICATION,
         ProtectedService.ASSESSMENT_STORE
-      ].filter(service => 
-        this.currentMetrics.circuitBreakerStatus[service]?.state === CircuitBreakerState.OPEN
+      ].filter(service =>
+        this.currentMetrics.circuitBreakerStatus[service] === CircuitBreakerState.OPEN
       );
 
       if (openCriticalServices.length > this.config.maxCircuitOpenCount) {
@@ -331,7 +333,7 @@ export class CrisisMonitoringService {
       }
 
     } catch (error) {
-      logError(LogCategory.SECURITY, 'Infrastructure monitoring failed', error);
+      logError(LogCategory.SECURITY, 'Infrastructure monitoring failed', error instanceof Error ? error : undefined);
     }
   }
 
@@ -378,7 +380,7 @@ export class CrisisMonitoringService {
       }
 
     } catch (error) {
-      logError(LogCategory.SECURITY, 'Clinical validation monitoring failed', error);
+      logError(LogCategory.SECURITY, 'Clinical validation monitoring failed', error instanceof Error ? error : undefined);
     }
   }
 
@@ -650,7 +652,7 @@ export async function initializeCrisisMonitoring(): Promise<void> {
       monitoring: 'active'
     });
   } catch (error) {
-    logError(LogCategory.SECURITY, 'Crisis monitoring initialization failed', error);
+    logError(LogCategory.SECURITY, 'Crisis monitoring initialization failed', error instanceof Error ? error : undefined);
     throw error;
   }
 }

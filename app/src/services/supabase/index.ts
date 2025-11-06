@@ -33,11 +33,11 @@ import cloudBackupService from './CloudBackupService';
 export interface CloudSyncStatus {
   isInitialized: boolean;
   isOnline: boolean;
-  lastBackupTime?: number;
+  lastBackupTime?: number | undefined;
   lastSyncTime?: number;
   pendingOperations: number;
   circuitBreakerState: 'closed' | 'open' | 'half-open';
-  error?: string;
+  error?: string | undefined;
 }
 
 export interface CloudSyncStats {
@@ -65,7 +65,7 @@ async function initializeCloudServices(): Promise<void> {
 
   initializationPromise = (async () => {
     try {
-      logPerformance('[CloudServices] Starting initialization...');
+      console.log('[CloudServices] Starting initialization...');
 
       // Initialize services in order
       await supabaseService.initialize();
@@ -75,17 +75,17 @@ async function initializeCloudServices(): Promise<void> {
       setupAppLifecycleHandlers();
 
       isInitialized = true;
-      logPerformance('[CloudServices] Initialization completed successfully');
+      console.log('[CloudServices] Initialization completed successfully');
 
     } catch (error) {
-      logError('[CloudServices] Initialization failed:', error);
+      logError(LogCategory.SYSTEM, '[CloudServices] Initialization failed:', error instanceof Error ? error : new Error(String(error)));
 
       // Reset state on failure
       isInitialized = false;
       initializationPromise = null;
 
       // Don't throw - allow app to continue working offline
-      logSecurity('[CloudServices] Continuing in offline mode');
+      logSecurity('[CloudServices] Continuing in offline mode', 'low');
     }
   })();
 
@@ -102,14 +102,14 @@ function setupAppLifecycleHandlers(): void {
       try {
         await supabaseService.processOfflineQueue();
       } catch (error) {
-        logSecurity('[CloudServices] Failed to process offline queue:', error);
+        logSecurity('[CloudServices] Failed to process offline queue:', 'medium', { error });
       }
     } else if (nextAppState === 'background') {
       // App going to background
       try {
         await cloudBackupService.createBackup();
       } catch (error) {
-        logSecurity('[CloudServices] Background backup failed:', error);
+        logSecurity('[CloudServices] Background backup failed:', 'medium', { error });
       }
     }
   });
@@ -134,7 +134,7 @@ export async function getCloudSyncStatus(): Promise<CloudSyncStatus> {
       isInitialized: isInitialized && supabaseStatus.isInitialized,
       isOnline: supabaseStatus.circuitBreakerState === 'closed',
       lastBackupTime: backupStatus.lastBackupTime,
-      lastSyncTime: supabaseStatus.lastSyncTime,
+      lastSyncTime: supabaseStatus.lastSyncTime as any,
       pendingOperations: supabaseStatus.offlineQueueSize,
       circuitBreakerState: supabaseStatus.circuitBreakerState as any,
     };
@@ -171,7 +171,7 @@ export async function getCloudSyncStats(): Promise<CloudSyncStats> {
     };
 
   } catch (error) {
-    logSecurity('[CloudServices] Failed to get stats:', error);
+    logSecurity('[CloudServices] Failed to get stats:', 'medium', { error });
     return {
       totalBackups: 0,
       totalRestores: 0,
@@ -186,7 +186,7 @@ export async function getCloudSyncStats(): Promise<CloudSyncStats> {
 /**
  * Force manual sync operation
  */
-export async function forceSync(): Promise<{ success: boolean; error?: string }> {
+export async function forceSync(): Promise<{ success: boolean; error?: string | undefined }> {
   try {
     // Ensure services are initialized
     await initializeCloudServices();
@@ -216,7 +216,7 @@ export async function forceSync(): Promise<{ success: boolean; error?: string }>
  */
 export async function checkForCloudRestore(): Promise<{
   hasBackup: boolean;
-  backupTime?: number;
+  backupTime?: number | undefined;
   shouldPromptRestore: boolean;
 }> {
   try {
@@ -232,7 +232,7 @@ export async function checkForCloudRestore(): Promise<{
     };
 
   } catch (error) {
-    logSecurity('[CloudServices] Failed to check for backup:', error);
+    logSecurity('[CloudServices] Failed to check for backup:', 'medium', { error });
     return {
       hasBackup: false,
       shouldPromptRestore: false,
@@ -281,7 +281,7 @@ export async function configureCloudBackup(config: {
     await initializeCloudServices();
     await cloudBackupService.updateConfig(config);
   } catch (error) {
-    logSecurity('[CloudServices] Failed to update config:', error);
+    logSecurity('[CloudServices] Failed to update config:', 'medium', { error });
   }
 }
 
@@ -304,7 +304,7 @@ export async function trackAnalyticsEvent(
 
   } catch (error) {
     // Analytics failures should not affect app functionality
-    logSecurity('[CloudServices] Analytics tracking failed:', error);
+    logSecurity('[CloudServices] Analytics tracking failed:', 'medium', { error });
   }
 }
 
@@ -323,7 +323,7 @@ export async function cleanupCloudServices(): Promise<void> {
       initializationPromise = null;
     }
   } catch (error) {
-    logSecurity('[CloudServices] Cleanup failed:', error);
+    logSecurity('[CloudServices] Cleanup failed:', 'medium', { error });
   }
 }
 
@@ -333,7 +333,7 @@ export async function cleanupCloudServices(): Promise<void> {
 export async function testCloudConnectivity(): Promise<{
   canConnect: boolean;
   responseTimeMs?: number;
-  error?: string;
+  error?: string | undefined;
 }> {
   try {
     const startTime = Date.now();

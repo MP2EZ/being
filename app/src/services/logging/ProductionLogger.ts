@@ -61,17 +61,17 @@ const PHI_PATTERNS = [
   /phq[_-]?9?[:\s]*[0-9]+/gi,
   /gad[_-]?7?[:\s]*[0-9]+/gi,
   /score[:\s]*[0-9]+/gi,
-  /assessment[_-]?result[:\s]*[^,}]+/gi,
-  /crisis[_-]?data[:\s]*[^,}]+/gi,
+  /assessment[_-]?result[:\s]*[^}]+/gi,
+  /crisis[_-]?data[:\s]*[^}]+/gi,
 
   // Session/Auth
   /token[:\s]*[a-zA-Z0-9\.\-_]+/gi,
   /session[_-]?id[:\s]*[a-zA-Z0-9-]+/gi,
-  /password[:\s]*[^\s,}]+/gi,
+  /password[:\s]*[^\s}]+/gi,
   /auth[_-]?key[:\s]*[a-zA-Z0-9\.\-_]+/gi,
 
   // Email/Personal
-  /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/gi,
+  /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2}\b/gi,
   /\b\d{3}-?\d{2}-?\d{4}\b/gi, // SSN pattern
 ];
 

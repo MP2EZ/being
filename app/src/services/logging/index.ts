@@ -8,7 +8,7 @@
  * - Include context for debugging but sanitize all data
  *
  * MIGRATION EXAMPLE:
- * Before: logPerformance('User assessment completed:', result);
+ * Before: console.log('User assessment completed:', result);
  * After:  logger.assessment('Assessment completed', { type: 'PHQ-9', questionCount: 9 });
  */
 
@@ -42,7 +42,7 @@ export const logPerformance = (operation: string, duration: number, metadata?: {
   threshold?: number;
   target?: number;
   category?: 'render' | 'network' | 'storage' | 'computation';
-}) => {
+} & Record<string, any>) => {
   logger.performance(operation, duration, metadata);
 };
 
@@ -65,7 +65,7 @@ export const logSecurity = (event: string, severity: 'low' | 'medium' | 'high' |
   component?: string;
   action?: string;
   result?: 'success' | 'failure' | 'blocked';
-}) => {
+} & Record<string, any>) => {
   logger.security(event, severity, context);
 };
 

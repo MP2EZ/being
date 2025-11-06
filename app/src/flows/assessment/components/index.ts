@@ -9,12 +9,12 @@
  * CLINICAL VALIDATION:
  * - All components validated for PHQ-9/GAD-7 accuracy
  * - Crisis intervention protocols integrated
- * - MBCT therapeutic styling applied
+ * - Therapeutic styling applied
  * - WCAG AA accessibility compliance
  */
 
 // Core Assessment Components
-export { default as AssessmentQuestion } from './AssessmentQuestion';
+// Note: AssessmentQuestion is in src/components/assessment/EnhancedAssessmentQuestion.tsx
 export { default as AssessmentProgress } from './AssessmentProgress';
 export { default as AssessmentIntroduction } from './AssessmentIntroduction';
 export { default as AssessmentResults } from './AssessmentResults';
@@ -43,4 +43,4 @@ export {
 } from '../types';
 
 // Accessibility components
-export * from '../../components/accessibility';
+export * from '../../../components/accessibility';

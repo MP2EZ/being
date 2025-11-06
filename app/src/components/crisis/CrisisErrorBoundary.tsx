@@ -86,7 +86,7 @@ export class CrisisErrorBoundary extends Component<
     };
   }
 
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+  override componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     // Enhanced error logging with clinical safety focus
     this.setState({
       error,
@@ -104,11 +104,11 @@ export class CrisisErrorBoundary extends Component<
     this.setupAppStateMonitoring();
   }
 
-  componentDidMount() {
+  override componentDidMount() {
     this.setupAppStateMonitoring();
   }
 
-  componentWillUnmount() {
+  override componentWillUnmount() {
     if (this.errorReportingTimer) {
       clearTimeout(this.errorReportingTimer);
     }
@@ -168,7 +168,7 @@ export class CrisisErrorBoundary extends Component<
       const sanitizedError = {
         message: error.message.replace(/\b\d{3}-\d{2}-\d{4}\b/g, '[SSN]'), // Remove SSN patterns
         stack: error.stack?.split('\n').slice(0, 5).join('\n'), // Limit stack trace
-        component: errorInfo.componentStack.split('\n').slice(0, 3).join('\n'),
+        component: errorInfo.componentStack?.split('\n').slice(0, 3).join('\n') ?? 'unknown',
         timestamp: Date.now(),
         sessionId: this.props.sessionId ? `session_${this.props.sessionId.slice(-8)}` : 'unknown',
         retryCount: this.state.retryCount,
@@ -179,7 +179,7 @@ export class CrisisErrorBoundary extends Component<
       };
 
       // Log to secure audit system (mock implementation)
-      logError('🚨 Crisis Error Boundary:', sanitizedError);
+      logError(LogCategory.SYSTEM, 'Crisis Error Boundary:', sanitizedError as any);
 
       // Report to error tracking service (in production)
       // ErrorTrackingService.reportError(sanitizedError);
@@ -194,7 +194,7 @@ export class CrisisErrorBoundary extends Component<
       }
 
     } catch (reportingError) {
-      logError('Error reporting failed:', reportingError);
+      logError(LogCategory.CRISIS, 'Error reporting failed:', reportingError instanceof Error ? reportingError : new Error(String(reportingError)));
     }
   }
 
@@ -207,7 +207,7 @@ export class CrisisErrorBoundary extends Component<
     }
 
     const newRetryCount = this.state.retryCount + 1;
-    logPerformance(`🔄 Attempting recovery (attempt ${newRetryCount}/3)`);
+    console.log(`🔄 Attempting recovery (attempt ${newRetryCount}/3)`);
 
     this.setState({
       hasError: false,
@@ -257,7 +257,7 @@ export class CrisisErrorBoundary extends Component<
           text: 'Send Report',
           onPress: () => {
             // In production, this would open support form or email
-            logPerformance('📧 Support report requested');
+            console.log('📧 Support report requested');
           },
         },
         { text: 'Cancel', style: 'cancel' },
@@ -265,7 +265,7 @@ export class CrisisErrorBoundary extends Component<
     );
   };
 
-  render() {
+  override render() {
     if (this.state.hasError) {
       // Use custom fallback if provided
       if (this.props.fallbackComponent) {

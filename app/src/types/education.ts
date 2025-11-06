@@ -190,6 +190,10 @@ export interface EducationState {
   getRecommendedModule: () => ModuleId | null;
   setCurrentModule: (moduleId: ModuleId | null) => void;
   resetModule: (moduleId: ModuleId) => void; // Reset progress for a module
+
+  // Persistence
+  persistState: () => Promise<void>; // Save state to AsyncStorage (encrypted)
+  loadState: () => Promise<void>; // Load state from AsyncStorage
 }
 
 // ============================================================================

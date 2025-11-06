@@ -26,8 +26,8 @@ import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Environment configuration
-const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
-const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
+const SUPABASE_URL = process.env['EXPO_PUBLIC_SUPABASE_URL'] || '';
+const SUPABASE_ANON_KEY = process.env['EXPO_PUBLIC_SUPABASE_ANON_KEY'] || '';
 
 // Storage keys
 const STORAGE_KEYS = {
@@ -152,10 +152,10 @@ class SupabaseService {
       await this.loadOfflineQueue();
 
       this.isInitialized = true;
-      logPerformance('[SupabaseService] Initialized with user ID:', this.userId);
+      console.log('[SupabaseService] Initialized with user ID:', this.userId);
 
     } catch (error) {
-      logError('[SupabaseService] Initialization failed:', error);
+      logError(LogCategory.SYSTEM, '[SupabaseService] Initialization failed:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -202,11 +202,11 @@ class SupabaseService {
       }
 
       // Save to local storage
-      await AsyncStorage.setItem(STORAGE_KEYS.USER_ID, this.userId);
+      await AsyncStorage.setItem(STORAGE_KEYS.USER_ID, this.userId!);
       await AsyncStorage.setItem(STORAGE_KEYS.DEVICE_ID, this.deviceIdHash);
 
     } catch (error) {
-      logError('[SupabaseService] Failed to ensure anonymous user:', error);
+      logError(LogCategory.SYSTEM, '[SupabaseService] Failed to ensure anonymous user:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -310,7 +310,7 @@ class SupabaseService {
 
       } catch (error) {
         lastError = error as Error;
-        logSecurity(`[SupabaseService] ${operationName} attempt ${attempt} failed:`, error);
+        logSecurity(`[SupabaseService] ${operationName} attempt ${attempt} failed:`, 'medium', { error });
 
         if (attempt < this.config.retryAttempts) {
           await this.sleep(this.config.retryDelayMs * attempt);
@@ -334,7 +334,7 @@ class SupabaseService {
    */
   async saveBackup(encryptedData: string, checksum: string, version: number = 1): Promise<boolean> {
     if (!this.isInitialized || !this.client || !this.userId) {
-      logSecurity('[SupabaseService] Not initialized, queuing backup for later');
+      logSecurity('[SupabaseService] Not initialized, queuing backup for later', 'low');
       this.queueOfflineOperation('saveBackup', { encryptedData, checksum, version });
       return false;
     }
@@ -351,7 +351,7 @@ class SupabaseService {
     }, 'saveBackup');
 
     if (!result.success) {
-      logError('[SupabaseService] Backup failed:', result.error);
+      logError(LogCategory.SYSTEM, '[SupabaseService] Backup failed:', result.error instanceof Error ? result.error : new Error(String(result.error)));
       this.queueOfflineOperation('saveBackup', { encryptedData, checksum, version });
       return false;
     }
@@ -366,7 +366,7 @@ class SupabaseService {
    */
   async getBackup(): Promise<EncryptedBackup | null> {
     if (!this.isInitialized || !this.client || !this.userId) {
-      logSecurity('[SupabaseService] Not initialized, cannot retrieve backup');
+      logSecurity('[SupabaseService] Not initialized, cannot retrieve backup', 'low');
       return null;
     }
 
@@ -384,7 +384,7 @@ class SupabaseService {
     }, 'getBackup');
 
     if (!result.success) {
-      logError('[SupabaseService] Get backup failed:', result.error);
+      logError(LogCategory.SYSTEM, '[SupabaseService] Get backup failed:', result.error instanceof Error ? result.error : new Error(String(result.error)));
       return null;
     }
 
@@ -399,7 +399,7 @@ class SupabaseService {
     properties: Record<string, any> = {}
   ): Promise<void> {
     if (!this.userId) {
-      logSecurity('[SupabaseService] Cannot track event without user ID');
+      logSecurity('[SupabaseService] Cannot track event without user ID', 'low');
       return;
     }
 
@@ -485,7 +485,7 @@ class SupabaseService {
     }, 'flushAnalytics');
 
     if (!result.success) {
-      logError('[SupabaseService] Analytics flush failed:', result.error);
+      logError(LogCategory.SYSTEM, '[SupabaseService] Analytics flush failed:', result.error instanceof Error ? result.error : new Error(String(result.error)));
       // Put events back in queue (with size limit)
       this.analyticsQueue = eventsToFlush.concat(this.analyticsQueue)
         .slice(0, this.config.offlineQueueSize);
@@ -531,7 +531,7 @@ class SupabaseService {
         this.offlineQueue = JSON.parse(queueData);
       }
     } catch (error) {
-      logSecurity('[SupabaseService] Failed to load offline queue:', error);
+      logSecurity('[SupabaseService] Failed to load offline queue:', 'medium', { error });
       this.offlineQueue = [];
     }
   }
@@ -542,7 +542,7 @@ class SupabaseService {
   async processOfflineQueue(): Promise<void> {
     if (this.offlineQueue.length === 0 || !this.isInitialized) return;
 
-    logPerformance(`[SupabaseService] Processing ${this.offlineQueue.length} offline operations`);
+    console.log(`[SupabaseService] Processing ${this.offlineQueue.length} offline operations`);
 
     const processedOperations: number[] = [];
 
@@ -557,17 +557,19 @@ class SupabaseService {
             break;
 
           default:
-            logSecurity(`[SupabaseService] Unknown offline operation: ${operation}`);
+            logSecurity('Unknown offline operation', 'low', {
+              operation
+            });
             processedOperations.push(i); // Remove unknown operations
         }
       } catch (error) {
-        logError(`[SupabaseService] Failed to process offline operation ${operation}:`, error);
+        logError(LogCategory.SYSTEM, `[SupabaseService] Failed to process offline operation ${operation}:`, error instanceof Error ? error : new Error(String(error)));
       }
     }
 
     // Remove processed operations (in reverse order to maintain indices)
     for (let i = processedOperations.length - 1; i >= 0; i--) {
-      this.offlineQueue.splice(processedOperations[i], 1);
+      this.offlineQueue.splice(processedOperations[i]!, 1);
     }
 
     // Save updated queue

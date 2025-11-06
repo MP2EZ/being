@@ -1,5 +1,5 @@
 /**
- * BreathingCircle Component - MBCT 3-Minute Breathing Space
+ * BreathingCircle Component - 3-Minute Breathing Space
  *
  * CLINICAL SPECIFICATIONS:
  * - 8-second breathing cycle (4s inhale, 4s exhale)

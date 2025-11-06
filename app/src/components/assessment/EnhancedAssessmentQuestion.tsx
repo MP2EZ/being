@@ -76,16 +76,16 @@ interface ResponseMetadata {
 
 interface EnhancedAssessmentQuestionProps {
   question: AssessmentQuestionType;
-  currentAnswer?: AssessmentResponse;
+  currentAnswer?: AssessmentResponse | undefined;
   onAnswer: (response: AssessmentResponse, metadata: ResponseMetadata) => void;
-  showProgress?: boolean;
+  showProgress?: boolean | undefined;
   currentStep: number;
   totalSteps: number;
-  theme?: 'morning' | 'midday' | 'evening' | 'neutral';
+  theme?: ('morning' | 'midday' | 'evening' | 'neutral') | undefined;
   sessionId: string;
   consentStatus: HIPAAConsentStatus;
-  onCrisisDetected?: (detection: CrisisDetection) => void;
-  onError?: (error: Error) => void;
+  onCrisisDetected?: ((detection: CrisisDetection) => void) | undefined;
+  onError?: ((error: Error) => void) | undefined;
 }
 
 // Clinically validated response labels (exact PHQ-9/GAD-7 wording)
@@ -112,7 +112,7 @@ const mockCrisisEngine = {
     
     if (data.questionId === 'phq9_9' && data.response > 0) {
       const detectionTime = performance.now() - startTime;
-      logPerformance(`🚨 Crisis detection time: ${detectionTime}ms`);
+      console.log(`🚨 Crisis detection time: ${detectionTime}ms`);
       
       return {
         isTriggered: true,
@@ -158,7 +158,7 @@ const mockEncryptionService = {
     await new Promise(resolve => setTimeout(resolve, 10));
     
     const encryptionTime = performance.now() - encryptionStart;
-    logPerformance(`🔒 Encryption time: ${encryptionTime}ms`);
+    console.log(`🔒 Encryption time: ${encryptionTime}ms`);
     
     return {
       success: true,
@@ -171,17 +171,17 @@ const mockEncryptionService = {
 
 const mockAuditLogger = {
   logHighRiskAccess: (data: any) => {
-    logPerformance('🔍 High-risk question access logged:', data);
+    console.log('🔍 High-risk question access logged:', data);
   },
   logAssessmentResponse: async (data: any) => {
-    logPerformance('📋 Assessment response logged:', data);
+    console.log('📋 Assessment response logged:', data);
     return { auditId: `audit_${Date.now()}` };
   }
 };
 
 const mockPerformanceMonitor = {
-  startMeasurement: (name: string) => logPerformance(`📊 Started measuring: ${name}`),
-  endMeasurement: (name: string) => logPerformance(`📊 Ended measuring: ${name}`)
+  startMeasurement: (name: string) => console.log(`📊 Started measuring: ${name}`),
+  endMeasurement: (name: string) => console.log(`📊 Ended measuring: ${name}`)
 };
 
 const EnhancedAssessmentQuestion: React.FC<EnhancedAssessmentQuestionProps> = ({
@@ -333,11 +333,14 @@ const EnhancedAssessmentQuestion: React.FC<EnhancedAssessmentQuestionProps> = ({
 
       // Validate performance requirements
       if (totalResponseTime > 300) {
-        logSecurity(`⚠️ Assessment response time: ${totalResponseTime}ms (target: <300ms)`);
+        logSecurity('Assessment response time exceeded', 'medium', {
+          totalResponseTime,
+          threshold: 300
+        });
       }
 
       if (crisisDetection && crisisCheckTime > 200) {
-        logError(`🚨 Crisis detection time: ${crisisCheckTime}ms (target: <200ms)`);
+        logError(LogCategory.SYSTEM, `Crisis detection time: ${crisisCheckTime}ms (target: <200ms)`);
       }
 
       // 6. Create comprehensive metadata
@@ -363,7 +366,7 @@ const EnhancedAssessmentQuestion: React.FC<EnhancedAssessmentQuestionProps> = ({
       );
 
     } catch (error) {
-      logError('Enhanced assessment response error:', error);
+      logError(LogCategory.SYSTEM, 'Enhanced assessment response error:', error instanceof Error ? error : new Error(String(error)));
       setEncryptionStatus('error');
       onError?.(error as Error);
       
@@ -418,9 +421,8 @@ const EnhancedAssessmentQuestion: React.FC<EnhancedAssessmentQuestionProps> = ({
             priority={10}
           >
             <View style={styles.progressContainer}>
-              <Text 
+              <Text
                 style={styles.progressText}
-                accessibilityRole="status"
                 accessibilityLiveRegion="polite"
               >
                 Question {currentStep} of {totalSteps}
@@ -480,7 +482,6 @@ const EnhancedAssessmentQuestion: React.FC<EnhancedAssessmentQuestionProps> = ({
             <Text
               style={styles.questionText}
               accessibilityRole="header"
-              accessibilityLevel={2}
             >
               {question.text}
             </Text>

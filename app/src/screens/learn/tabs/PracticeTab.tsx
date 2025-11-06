@@ -107,7 +107,7 @@ const PracticeTab: React.FC<PracticeTabProps> = ({
                     {getPracticeTypeLabel(practice.type)}
                   </Text>
                   <Text style={styles.practiceDuration}>
-                    {formatDuration(practice.duration)}
+                    {formatDuration(practice.duration ?? 0)}
                   </Text>
                 </View>
               </View>

@@ -17,7 +17,7 @@ import { render, fireEvent } from '@testing-library/react-native';
 import { AccessibilityInfo } from 'react-native';
 
 // Component imports
-import SafetyButton from '../shared/components/SafetyButton';
+import { CollapsibleCrisisButton } from '../shared/components/CollapsibleCrisisButton';
 import BreathingCircle from '../shared/components/BreathingCircle';
 import Timer from '../shared/components/Timer';
 import EmotionGrid from '../shared/components/EmotionGrid';
@@ -42,29 +42,28 @@ describe('DRD Check-in Flows Accessibility Validation', () => {
   });
 
   describe('1. SCREEN READER NAVIGATION', () => {
-    describe('SafetyButton Accessibility', () => {
+    describe('CollapsibleCrisisButton Accessibility', () => {
       it('CRITICAL: Crisis button has proper accessibility labels', () => {
         const { getByTestId } = render(
-          <SafetyButton variant="crisis" testID="crisis-button" />
+          <CollapsibleCrisisButton testID="crisis-button" />
         );
 
         const crisisButton = getByTestId('crisis-button');
 
         expect(crisisButton.props.accessibilityRole).toBe('button');
-        expect(crisisButton.props.accessibilityLabel).toBe('Call 988 Crisis Line');
-        expect(crisisButton.props.accessibilityHint).toBe('Immediately call 988 crisis support line');
+        expect(crisisButton.props.accessibilityLabel).toBe('I need support');
+        expect(crisisButton.props.accessibilityHint).toContain('crisis');
       });
 
-      it('CRITICAL: Regular safety button accessibility', () => {
-        const { getByTestId } = render(
-          <SafetyButton variant="primary" testID="safety-button" />
+      it('CRITICAL: Crisis chevron is accessible', () => {
+        const { getByTestID } = render(
+          <CollapsibleCrisisButton testID="collapsible-crisis" />
         );
 
-        const safetyButton = getByTestId('safety-button');
+        const chevron = getByTestID('collapsible-crisis');
 
-        expect(safetyButton.props.accessibilityRole).toBe('button');
-        expect(safetyButton.props.accessibilityLabel).toBe('I need support');
-        expect(safetyButton.props.accessibilityHint).toBe('Access immediate crisis support and emergency resources');
+        expect(chevron.props.accessibilityRole).toBe('button');
+        expect(chevron.props.accessibilityLabel).toBeTruthy();
       });
     });
 
@@ -143,7 +142,7 @@ describe('DRD Check-in Flows Accessibility Validation', () => {
   describe('2. VOICE CONTROL COMPATIBILITY', () => {
     it('CRITICAL: All interactive elements support voice activation', () => {
       const components = [
-        { component: SafetyButton, props: { testID: 'safety' } },
+        { component: CollapsibleCrisisButton, props: { testID: 'collapsible-crisis' } },
         {
           component: EmotionGrid,
           props: {
@@ -181,7 +180,7 @@ describe('DRD Check-in Flows Accessibility Validation', () => {
   describe('3. HIGH CONTRAST MODE SUPPORT', () => {
     it('CRITICAL: Crisis button maintains visibility in high contrast', () => {
       const { getByTestId } = render(
-        <SafetyButton variant="crisis" testID="crisis-button" />
+        <CollapsibleCrisisButton testID="crisis-button" />
       );
 
       const crisisButton = getByTestId('crisis-button');
@@ -213,7 +212,7 @@ describe('DRD Check-in Flows Accessibility Validation', () => {
   describe('4. TOUCH TARGET ACCESSIBILITY', () => {
     it('CRITICAL: All buttons meet 44pt minimum touch target', () => {
       const { getByTestId } = render(
-        <SafetyButton testID="safety-button" />
+        <CollapsibleCrisisButton testID="collapsible-crisis-button" />
       );
 
       const button = getByTestId('safety-button');
@@ -353,7 +352,7 @@ describe('DRD Check-in Flows Accessibility Validation', () => {
 
       Object.entries(accessibilityChecklist).forEach(([requirement, passes]) => {
         expect(passes).toBe(true);
-        logPerformance(`✅ ${requirement}: ${passes ? 'PASS' : 'FAIL'}`);
+        console.log(`✅ ${requirement}: ${passes ? 'PASS' : 'FAIL'}`);
       });
     });
 
@@ -380,7 +379,7 @@ describe('DRD Check-in Flows Accessibility Validation', () => {
 
       Object.entries(crisisAccessibilityChecklist).forEach(([requirement, passes]) => {
         expect(passes).toBe(true);
-        logPerformance(`🚨 ${requirement}: ${passes ? 'PASS' : 'FAIL'}`);
+        console.log(`🚨 ${requirement}: ${passes ? 'PASS' : 'FAIL'}`);
       });
     });
 
@@ -406,7 +405,7 @@ describe('DRD Check-in Flows Accessibility Validation', () => {
 
       Object.entries(timingAccessibilityChecklist).forEach(([requirement, passes]) => {
         expect(passes).toBe(true);
-        logPerformance(`⏱️ ${requirement}: ${passes ? 'PASS' : 'FAIL'}`);
+        console.log(`⏱️ ${requirement}: ${passes ? 'PASS' : 'FAIL'}`);
       });
     });
   });

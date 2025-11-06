@@ -1,7 +1,7 @@
 /**
  * EMBODIMENT SCREEN TESTS
  *
- * Tests for 60-second breathing practice (MBCT retained).
+ * Tests for 60-second breathing practice (original evidence-based).
  * Philosopher-validated (9.5/10) - aligns with Architecture v1.0.
  *
  * TDD Approach: Tests written first, screen implemented to pass tests.
@@ -14,8 +14,8 @@
  * - Save to EmbodimentData with breathingDuration: 60 (constant)
  * - Navigate to MiddayCompletion screen
  *
- * MBCT Retention:
- * - This practice is retained from original MBCT protocol
+ * Evidence-Based Retention:
+ * - This practice is retained from original original evidence-based protocol
  * - 60-second breathing space for midday embodiment
  * - Combines with Stoic Mindfulness in broader flow
  *

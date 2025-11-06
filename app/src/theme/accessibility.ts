@@ -23,9 +23,20 @@
  */
 export const ACCESSIBLE_COLORS = {
   // ========================================
+  // MORNING FLOW COLORS (WCAG AA Compliant)
+  // ========================================
+
+  /**
+   * Morning Primary Color
+   * - Color: #B45309 (4.69:1 contrast - PASS)
+   * - Use for: Morning flow primary elements
+   */
+  morningPrimary: '#B45309',
+
+  // ========================================
   // EVENING FLOW COLORS (Fixed for WCAG AA)
   // ========================================
-  
+
   /**
    * Evening Primary Text Color (Darkened Purple)
    * - Original: #8B4789 (3.92:1 - FAIL)
@@ -459,16 +470,16 @@ export function getContrastRatio(foreground: string, background: string): number
     const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
     return result
       ? {
-          r: parseInt(result[1], 16),
-          g: parseInt(result[2], 16),
-          b: parseInt(result[3], 16),
+          r: parseInt(result[1]!, 16),
+          g: parseInt(result[2]!, 16),
+          b: parseInt(result[3]!, 16),
         }
       : null;
   };
 
   // Calculate relative luminance
   const getLuminance = (rgb: { r: number; g: number; b: number }) => {
-    const [r, g, b] = [rgb.r, rgb.g, rgb.b].map((val) => {
+    const [r = 0, g = 0, b = 0] = [rgb.r, rgb.g, rgb.b].map((val) => {
       const sRGB = val / 255;
       return sRGB <= 0.03928 ? sRGB / 12.92 : Math.pow((sRGB + 0.055) / 1.055, 2.4);
     });

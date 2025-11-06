@@ -20,6 +20,7 @@
 
 import { logSecurity, logPerformance, logError, LogCategory } from '../logging';
 import { DeviceEventEmitter } from 'react-native';
+import type { AssessmentAnswer, AssessmentResponse } from '../../flows/assessment/types';
 import { CrisisPerformanceOptimizer } from './CrisisPerformanceOptimizer';
 import { AssessmentFlowOptimizer } from './AssessmentFlowOptimizer';
 import { MemoryOptimizer } from './MemoryOptimizer';
@@ -77,13 +78,13 @@ class PerformanceStressTester {
   static async stressCrisisDetection(iterations: number = 100): Promise<number[]> {
     const results: number[] = [];
 
-    logPerformance(`🚨 Running crisis detection stress test (${iterations} iterations)...`);
+    console.log(`🚨 Running crisis detection stress test (${iterations} iterations)...`);
 
     for (let i = 0; i < iterations; i++) {
       const startTime = performance.now();
 
       // Simulate crisis detection with mock assessment data
-      const mockAnswers = this.generateMockPHQ9Answers(true); // Crisis scenario
+      const mockAnswers = this.generateMockPHQ9Answers(true) as AssessmentAnswer[]; // Crisis scenario
       await CrisisPerformanceOptimizer.detectCrisisOptimized('phq9', mockAnswers);
 
       const duration = performance.now() - startTime;
@@ -99,7 +100,7 @@ class PerformanceStressTester {
     const max = Math.max(...results);
     const min = Math.min(...results);
 
-    logPerformance(`✅ Crisis detection stress test completed: avg=${average.toFixed(2)}ms, min=${min.toFixed(2)}ms, max=${max.toFixed(2)}ms`);
+    console.log(`✅ Crisis detection stress test completed: avg=${average.toFixed(2)}ms, min=${min.toFixed(2)}ms, max=${max.toFixed(2)}ms`);
 
     return results;
   }
@@ -111,7 +112,7 @@ class PerformanceStressTester {
     const results: number[] = [];
     const sessionId = 'stress_test_session';
 
-    logPerformance(`📋 Running assessment flow stress test (${questionCount} questions)...`);
+    console.log(`📋 Running assessment flow stress test (${questionCount} questions)...`);
 
     // Initialize optimized session
     AssessmentFlowOptimizer.initializeOptimizedSession(sessionId, 'phq9', []);
@@ -121,7 +122,7 @@ class PerformanceStressTester {
 
       // Simulate rapid question answering
       const questionId = `phq9_${(i % 9) + 1}`;
-      const response = Math.floor(Math.random() * 4); // 0-3 response
+      const response = Math.floor(Math.random() * 4) as AssessmentResponse; // 0-3 response
 
       await AssessmentFlowOptimizer.processAnswerOptimized(sessionId, questionId, response, i);
 
@@ -133,7 +134,7 @@ class PerformanceStressTester {
     AssessmentFlowOptimizer.cleanupSession(sessionId);
 
     const average = results.reduce((sum, time) => sum + time, 0) / results.length;
-    logPerformance(`✅ Assessment flow stress test completed: avg=${average.toFixed(2)}ms per question`);
+    console.log(`✅ Assessment flow stress test completed: avg=${average.toFixed(2)}ms per question`);
 
     return results;
   }
@@ -146,7 +147,7 @@ class PerformanceStressTester {
     averageMemory: number;
     memoryLeak: boolean;
   }> {
-    logPerformance(`💾 Running memory stress test (${duration}ms)...`);
+    console.log(`💾 Running memory stress test (${duration}ms)...`);
 
     const startTime = Date.now();
     const memoryReadings: number[] = [];
@@ -175,7 +176,7 @@ class PerformanceStressTester {
         // Check for memory leak (consistently increasing memory)
         if (memoryReadings.length > 10) {
           const recent = memoryReadings.slice(-10);
-          const trend = recent[recent.length - 1] - recent[0];
+          const trend = recent[recent.length - 1]! - recent[0]!;
           if (trend > 50) { // 50MB increase over 10 readings
             memoryLeak = true;
           }
@@ -188,7 +189,7 @@ class PerformanceStressTester {
           const peakMemory = Math.max(...memoryReadings);
           const averageMemory = memoryReadings.reduce((sum, mem) => sum + mem, 0) / memoryReadings.length;
 
-          logPerformance(`✅ Memory stress test completed: peak=${peakMemory.toFixed(2)}MB, avg=${averageMemory.toFixed(2)}MB, leak=${memoryLeak}`);
+          console.log(`✅ Memory stress test completed: peak=${peakMemory.toFixed(2)}MB, avg=${averageMemory.toFixed(2)}MB, leak=${memoryLeak}`);
 
           resolve({ peakMemory, averageMemory, memoryLeak });
         }
@@ -331,7 +332,7 @@ export class PerformanceValidator {
    */
   static async validatePerformance(): Promise<ValidationReport> {
     const startTime = Date.now();
-    logPerformance('🎯 Starting comprehensive performance validation...');
+    console.log('🎯 Starting comprehensive performance validation...');
 
     const results: ValidationResult[] = [];
 
@@ -361,7 +362,7 @@ export class PerformanceValidator {
       // Generate final report
       const report = this.generateValidationReport(results, Date.now() - startTime);
 
-      logPerformance(`🎯 Performance validation completed: ${report.status} (${report.overallScore}/100)`);
+      console.log(`🎯 Performance validation completed: ${report.status} (${report.overallScore}/100)`);
 
       // Emit validation completed event
       DeviceEventEmitter.emit('performance_validation_completed', report);
@@ -369,7 +370,7 @@ export class PerformanceValidator {
       return report;
 
     } catch (error) {
-      logError('Performance validation failed:', error);
+      logError(LogCategory.PERFORMANCE, 'Performance validation failed:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -378,7 +379,7 @@ export class PerformanceValidator {
    * Initialize all performance systems
    */
   private static async initializePerformanceSystems(): Promise<void> {
-    logPerformance('🚀 Initializing performance systems for validation...');
+    console.log('🚀 Initializing performance systems for validation...');
 
     await Promise.all([
       BundleOptimizer.initialize(),
@@ -398,7 +399,7 @@ export class PerformanceValidator {
   private static async validateCrisisDetection(): Promise<ValidationResult[]> {
     const results: ValidationResult[] = [];
 
-    logPerformance('🚨 Validating crisis detection performance...');
+    console.log('🚨 Validating crisis detection performance...');
 
     // Test average response time
     const crisisResults = await PerformanceStressTester.stressCrisisDetection(50);
@@ -426,7 +427,7 @@ export class PerformanceValidator {
   private static async validateAssessmentFlow(): Promise<ValidationResult[]> {
     const results: ValidationResult[] = [];
 
-    logPerformance('📋 Validating assessment flow performance...');
+    console.log('📋 Validating assessment flow performance...');
 
     // Test question response times
     const flowResults = await PerformanceStressTester.stressAssessmentFlow(20);
@@ -456,7 +457,7 @@ export class PerformanceValidator {
   private static async validateMemoryUsage(): Promise<ValidationResult[]> {
     const results: ValidationResult[] = [];
 
-    logPerformance('💾 Validating memory usage...');
+    console.log('💾 Validating memory usage...');
 
     // Run memory stress test
     const memoryResults = await PerformanceStressTester.stressMemoryUsage(15000); // 15 seconds
@@ -475,7 +476,7 @@ export class PerformanceValidator {
 
     // Add memory leak check
     if (memoryResults.memoryLeak) {
-      logSecurity('⚠️ Memory leak detected during validation');
+      logSecurity('⚠️ Memory leak detected during validation', 'low');
     }
 
     return results;
@@ -487,7 +488,7 @@ export class PerformanceValidator {
   private static async validateRenderingPerformance(): Promise<ValidationResult[]> {
     const results: ValidationResult[] = [];
 
-    logPerformance('🎨 Validating rendering performance...');
+    console.log('🎨 Validating rendering performance...');
 
     // Get current rendering stats
     const renderingStats = RenderingOptimizer.getPerformanceReport();
@@ -514,7 +515,7 @@ export class PerformanceValidator {
   private static async validateBundleOptimization(): Promise<ValidationResult[]> {
     const results: ValidationResult[] = [];
 
-    logPerformance('📦 Validating bundle optimization...');
+    console.log('📦 Validating bundle optimization...');
 
     // Get bundle analysis
     const bundleAnalysis = BundleOptimizer.getBundleAnalysis();
@@ -544,7 +545,7 @@ export class PerformanceValidator {
   private static async validateStorePerformance(): Promise<ValidationResult[]> {
     const results: ValidationResult[] = [];
 
-    logPerformance('🏪 Validating store performance...');
+    console.log('🏪 Validating store performance...');
 
     // Get store performance report
     const storeReport = ZustandStoreOptimizer.getPerformanceReport();
@@ -562,7 +563,7 @@ export class PerformanceValidator {
    * Run stress tests
    */
   private static async runStressTests(): Promise<ValidationResult[]> {
-    logPerformance('🔥 Running additional stress tests...');
+    console.log('🔥 Running additional stress tests...');
 
     const results: ValidationResult[] = [];
 
@@ -591,7 +592,7 @@ export class PerformanceValidator {
   private static calculatePercentile(values: number[], percentile: number): number {
     const sorted = [...values].sort((a, b) => a - b);
     const index = Math.ceil((percentile / 100) * sorted.length) - 1;
-    return sorted[Math.max(0, index)];
+    return sorted[Math.max(0, index)] ?? 0;
   }
 
   /**
@@ -719,7 +720,7 @@ export class PerformanceValidator {
    */
   static configure(config: Partial<ValidationConfig>): void {
     this.config = { ...this.config, ...config };
-    logPerformance('Performance validator configured:', this.config);
+    console.log('Performance validator configured:', this.config);
   }
 
   /**
@@ -727,7 +728,7 @@ export class PerformanceValidator {
    */
   static addValidationTarget(target: PerformanceTarget): void {
     this.targets.push(target);
-    logPerformance(`Added custom validation target: ${target.component}.${target.metric}`);
+    console.log(`Added custom validation target: ${target.component}.${target.metric}`);
   }
 }
 

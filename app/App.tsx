@@ -1,5 +1,5 @@
 /**
- * Being. MBCT App Entry Point
+ * Being. App Entry Point
  * Evidence-based mindfulness and cognitive therapy for mental wellness
  */
 

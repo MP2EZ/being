@@ -329,7 +329,7 @@ export class SecurityMonitoringService {
     const startTime = performance.now();
 
     try {
-      logPerformance('🔍 Initializing Security Monitoring Service...');
+      console.log('🔍 Initializing Security Monitoring Service...');
 
       // Initialize all security services
       await this.encryptionService.initialize();
@@ -350,7 +350,9 @@ export class SecurityMonitoringService {
       this.initialized = true;
 
       const initializationTime = performance.now() - startTime;
-      logPerformance(`✅ Security Monitoring Service initialized (${initializationTime.toFixed(2)}ms)`);
+      logPerformance('SecurityMonitoringService.initialize', initializationTime, {
+        status: 'success'
+      });
 
       // Log successful initialization
       await this.logIncidentEvent({
@@ -374,8 +376,8 @@ export class SecurityMonitoringService {
       });
 
     } catch (error) {
-      logError('🚨 SECURITY MONITORING INITIALIZATION ERROR:', error);
-      throw new Error(`Security monitoring initialization failed: ${error.message}`);
+      logError(LogCategory.SECURITY, '🚨 SECURITY MONITORING INITIALIZATION ERROR:', error instanceof Error ? error : new Error(String(error)));
+      throw new Error(`Security monitoring initialization failed: ${(error instanceof Error ? error.message : String(error))}`);
     }
   }
 
@@ -388,7 +390,7 @@ export class SecurityMonitoringService {
     const assessmentId = await this.generateAssessmentId();
 
     try {
-      logPerformance('🔍 Performing comprehensive vulnerability assessment...');
+      console.log('🔍 Performing comprehensive vulnerability assessment...');
 
       if (!this.initialized) {
         throw new Error('Security monitoring service not initialized');
@@ -425,7 +427,7 @@ export class SecurityMonitoringService {
       const recommendations = await this.generateSecurityRecommendations(vulnerabilities);
 
       // Check compliance status
-      const complianceStatus = await this.checkComplianceStatus();
+      const complianceStatus = await (this as any).checkComplianceStatus();
 
       // Categorize vulnerabilities
       const categories = this.categorizeVulnerabilities(vulnerabilities);
@@ -448,19 +450,21 @@ export class SecurityMonitoringService {
 
       // Validate scan performance
       if (scanDuration > MONITORING_CONFIG.SCAN_DURATION_THRESHOLD_MS) {
-        logSecurity(`⚠️  Vulnerability scan slow: ${scanDuration.toFixed(2)}ms > ${MONITORING_CONFIG.SCAN_DURATION_THRESHOLD_MS}ms`);
+        logSecurity('⚠️  Vulnerability scan slow: ${scanDuration.toFixed(2)}ms > ${MONITORING_CONFIG.SCAN_DURATION_THRESHOLD_MS}ms', 'medium', { component: 'SecurityService' });
       }
 
       // Store assessment for historical tracking
       await this.storeAssessmentResults(assessment);
 
-      logPerformance(`🔍 Vulnerability assessment completed (${scanDuration.toFixed(2)}ms, ${vulnerabilities.length} vulnerabilities found)`);
+      logPerformance('SecurityMonitoringService.assessVulnerabilities', scanDuration, {
+        vulnerabilityCount: vulnerabilities.length
+      });
 
       return assessment;
 
     } catch (error) {
       const scanDuration = performance.now() - startTime;
-      logError('🚨 VULNERABILITY ASSESSMENT ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 VULNERABILITY ASSESSMENT ERROR:', error instanceof Error ? error : new Error(String(error)));
 
       // Return failed assessment
       return {
@@ -474,7 +478,7 @@ export class SecurityMonitoringService {
         recommendations: [],
         complianceStatus: {
           overallScore: 0,
-          hipaaCompliance: { score: 0, status: 'non_compliant', violations: [error.message], recommendations: [] },
+          hipaaCompliance: { score: 0, status: 'non_compliant', violations: [(error instanceof Error ? error.message : String(error))], recommendations: [] },
           dataProtectionCompliance: { score: 0, encryptionCompliance: false, storageCompliance: false, transmissionCompliance: false, accessControlCompliance: false },
           clinicalCompliance: { score: 0, crisisProtocolCompliance: false, professionalAccessCompliance: false, auditTrailCompliance: false, documentationCompliance: false },
           lastComplianceCheck: Date.now()
@@ -491,7 +495,7 @@ export class SecurityMonitoringService {
     const startTime = performance.now();
 
     try {
-      logPerformance('🔍 Performing threat detection analysis...');
+      console.log('🔍 Performing threat detection analysis...');
 
       if (!this.initialized) {
         throw new Error('Security monitoring service not initialized');
@@ -533,15 +537,17 @@ export class SecurityMonitoringService {
 
       // Validate detection performance
       if (detectionTime > MONITORING_CONFIG.DETECTION_LATENCY_THRESHOLD_MS) {
-        logSecurity(`⚠️  Threat detection slow: ${detectionTime.toFixed(2)}ms > ${MONITORING_CONFIG.DETECTION_LATENCY_THRESHOLD_MS}ms`);
+        logSecurity('⚠️  Threat detection slow: ${detectionTime.toFixed(2)}ms > ${MONITORING_CONFIG.DETECTION_LATENCY_THRESHOLD_MS}ms', 'medium', { component: 'SecurityService' });
       }
 
-      logPerformance(`🔍 Threat detection completed (${detectionTime.toFixed(2)}ms, ${threats.length} threats detected)`);
+      logPerformance('SecurityMonitoringService.detectThreats', detectionTime, {
+        threatCount: threats.length
+      });
 
       return threats;
 
     } catch (error) {
-      logError('🚨 THREAT DETECTION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 THREAT DETECTION ERROR:', error instanceof Error ? error : new Error(String(error)));
       return [];
     }
   }
@@ -554,7 +560,7 @@ export class SecurityMonitoringService {
     const startTime = performance.now();
 
     try {
-      logPerformance('🚨 Performing incident detection...');
+      console.log('🚨 Performing incident detection...');
 
       if (!this.initialized) {
         throw new Error('Security monitoring service not initialized');
@@ -596,12 +602,14 @@ export class SecurityMonitoringService {
 
       const detectionTime = performance.now() - startTime;
 
-      logPerformance(`🚨 Incident detection completed (${detectionTime.toFixed(2)}ms, ${incidents.length} incidents detected)`);
+      logPerformance('SecurityMonitoringService.detectIncidents', detectionTime, {
+        incidentCount: incidents.length
+      });
 
       return incidents;
 
     } catch (error) {
-      logError('🚨 INCIDENT DETECTION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 INCIDENT DETECTION ERROR:', error instanceof Error ? error : new Error(String(error)));
       return [];
     }
   }
@@ -614,7 +622,7 @@ export class SecurityMonitoringService {
     const startTime = performance.now();
 
     try {
-      logPerformance('📋 Performing compliance check...');
+      console.log('📋 Performing compliance check...');
 
       if (!this.initialized) {
         throw new Error('Security monitoring service not initialized');
@@ -648,7 +656,7 @@ export class SecurityMonitoringService {
 
       // Validate compliance check performance
       if (checkTime > MONITORING_CONFIG.COMPLIANCE_CHECK_THRESHOLD_MS) {
-        logSecurity(`⚠️  Compliance check slow: ${checkTime.toFixed(2)}ms > ${MONITORING_CONFIG.COMPLIANCE_CHECK_THRESHOLD_MS}ms`);
+        logSecurity('⚠️  Compliance check slow: ${checkTime.toFixed(2)}ms > ${MONITORING_CONFIG.COMPLIANCE_CHECK_THRESHOLD_MS}ms', 'medium', { component: 'SecurityService' });
       }
 
       // Log compliance violations
@@ -674,17 +682,19 @@ export class SecurityMonitoringService {
         });
       }
 
-      logPerformance(`📋 Compliance check completed (${checkTime.toFixed(2)}ms, overall score: ${overallScore.toFixed(1)}%)`);
+      logPerformance('SecurityMonitoringService.checkCompliance', checkTime, {
+        overallScore: overallScore.toFixed(1)
+      });
 
       return complianceStatus;
 
     } catch (error) {
-      logError('🚨 COMPLIANCE CHECK ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 COMPLIANCE CHECK ERROR:', error instanceof Error ? error : new Error(String(error)));
       
       // Return failed compliance status
       return {
         overallScore: 0,
-        hipaaCompliance: { score: 0, status: 'non_compliant', violations: [error.message], recommendations: [] },
+        hipaaCompliance: { score: 0, status: 'non_compliant', violations: [(error instanceof Error ? error.message : String(error))], recommendations: [] },
         dataProtectionCompliance: { score: 0, encryptionCompliance: false, storageCompliance: false, transmissionCompliance: false, accessControlCompliance: false },
         clinicalCompliance: { score: 0, crisisProtocolCompliance: false, professionalAccessCompliance: false, auditTrailCompliance: false, documentationCompliance: false },
         lastComplianceCheck: Date.now()
@@ -698,10 +708,10 @@ export class SecurityMonitoringService {
    */
   public async startContinuousMonitoring(): Promise<void> {
     try {
-      logPerformance('🔄 Starting continuous security monitoring...');
+      console.log('🔄 Starting continuous security monitoring...');
 
       if (this.monitoringActive) {
-        logPerformance('⚠️  Monitoring already active');
+        console.log('⚠️  Monitoring already active');
         return;
       }
 
@@ -712,7 +722,7 @@ export class SecurityMonitoringService {
         try {
           await this.performRealTimeMonitoring();
         } catch (error) {
-          logError('🚨 REAL-TIME MONITORING ERROR:', error);
+          logError(LogCategory.SECURITY, '🚨 REAL-TIME MONITORING ERROR:', error instanceof Error ? error : new Error(String(error)));
         }
       }, MONITORING_CONFIG.REAL_TIME_MONITORING_MS);
 
@@ -721,7 +731,7 @@ export class SecurityMonitoringService {
         try {
           await this.performVulnerabilityAssessment();
         } catch (error) {
-          logError('🚨 VULNERABILITY SCAN ERROR:', error);
+          logError(LogCategory.SECURITY, '🚨 VULNERABILITY SCAN ERROR:', error instanceof Error ? error : new Error(String(error)));
         }
       }, MONITORING_CONFIG.VULNERABILITY_SCAN_MS);
 
@@ -730,7 +740,7 @@ export class SecurityMonitoringService {
         try {
           await this.performComplianceCheck();
         } catch (error) {
-          logError('🚨 COMPLIANCE CHECK ERROR:', error);
+          logError(LogCategory.SECURITY, '🚨 COMPLIANCE CHECK ERROR:', error instanceof Error ? error : new Error(String(error)));
         }
       }, MONITORING_CONFIG.COMPLIANCE_CHECK_MS);
 
@@ -739,14 +749,14 @@ export class SecurityMonitoringService {
         try {
           await this.performThreatDetection();
         } catch (error) {
-          logError('🚨 THREAT ANALYSIS ERROR:', error);
+          logError(LogCategory.SECURITY, '🚨 THREAT ANALYSIS ERROR:', error instanceof Error ? error : new Error(String(error)));
         }
       }, MONITORING_CONFIG.THREAT_ANALYSIS_MS);
 
-      logPerformance('✅ Continuous security monitoring started');
+      console.log('✅ Continuous security monitoring started');
 
     } catch (error) {
-      logError('🚨 CONTINUOUS MONITORING START ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 CONTINUOUS MONITORING START ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -776,7 +786,7 @@ export class SecurityMonitoringService {
       vulnerabilities.push(...dependencyVulns);
 
     } catch (error) {
-      logError('🚨 APPLICATION SECURITY ASSESSMENT ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 APPLICATION SECURITY ASSESSMENT ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
 
     return vulnerabilities;
@@ -833,7 +843,7 @@ export class SecurityMonitoringService {
       }
 
     } catch (error) {
-      logError('🚨 DATA SECURITY ASSESSMENT ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 DATA SECURITY ASSESSMENT ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
 
     return vulnerabilities;
@@ -887,7 +897,7 @@ export class SecurityMonitoringService {
       }
 
     } catch (error) {
-      logError('🚨 NETWORK SECURITY ASSESSMENT ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 NETWORK SECURITY ASSESSMENT ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
 
     return vulnerabilities;
@@ -941,7 +951,7 @@ export class SecurityMonitoringService {
       }
 
     } catch (error) {
-      logError('🚨 AUTHENTICATION SECURITY ASSESSMENT ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 AUTHENTICATION SECURITY ASSESSMENT ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
 
     return vulnerabilities;
@@ -995,7 +1005,7 @@ export class SecurityMonitoringService {
       }
 
     } catch (error) {
-      logError('🚨 CRISIS SECURITY ASSESSMENT ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 CRISIS SECURITY ASSESSMENT ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
 
     return vulnerabilities;
@@ -1032,7 +1042,7 @@ export class SecurityMonitoringService {
       });
 
     } catch (error) {
-      logError('🚨 COMPONENT VULNERABILITY CHECK ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 COMPONENT VULNERABILITY CHECK ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
 
     return vulnerabilities;
@@ -1064,7 +1074,7 @@ export class SecurityMonitoringService {
       }
 
     } catch (error) {
-      logError('🚨 SECURE CONFIGURATION CHECK ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 SECURE CONFIGURATION CHECK ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
 
     return vulnerabilities;
@@ -1096,7 +1106,7 @@ export class SecurityMonitoringService {
       });
 
     } catch (error) {
-      logError('🚨 CODE QUALITY CHECK ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 CODE QUALITY CHECK ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
 
     return vulnerabilities;
@@ -1128,7 +1138,7 @@ export class SecurityMonitoringService {
       });
 
     } catch (error) {
-      logError('🚨 DEPENDENCY VULNERABILITY CHECK ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 DEPENDENCY VULNERABILITY CHECK ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
 
     return vulnerabilities;
@@ -1146,7 +1156,7 @@ export class SecurityMonitoringService {
       // For now, return empty array
 
     } catch (error) {
-      logError('🚨 BEHAVIORAL THREAT DETECTION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 BEHAVIORAL THREAT DETECTION ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
 
     return threats;
@@ -1160,7 +1170,7 @@ export class SecurityMonitoringService {
       // For now, return empty array
 
     } catch (error) {
-      logError('🚨 ANOMALY DETECTION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 ANOMALY DETECTION ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
 
     return threats;
@@ -1174,7 +1184,7 @@ export class SecurityMonitoringService {
       // For now, return empty array
 
     } catch (error) {
-      logError('🚨 SIGNATURE THREAT DETECTION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 SIGNATURE THREAT DETECTION ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
 
     return threats;
@@ -1188,7 +1198,7 @@ export class SecurityMonitoringService {
       // For now, return empty array
 
     } catch (error) {
-      logError('🚨 ML THREAT DETECTION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 ML THREAT DETECTION ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
 
     return threats;
@@ -1206,7 +1216,7 @@ export class SecurityMonitoringService {
       // For now, return empty array
 
     } catch (error) {
-      logError('🚨 SECURITY BREACH DETECTION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 SECURITY BREACH DETECTION ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
 
     return incidents;
@@ -1220,7 +1230,7 @@ export class SecurityMonitoringService {
       // For now, return empty array
 
     } catch (error) {
-      logError('🚨 DATA LEAK DETECTION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 DATA LEAK DETECTION ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
 
     return incidents;
@@ -1256,7 +1266,7 @@ export class SecurityMonitoringService {
       }
 
     } catch (error) {
-      logError('🚨 AUTHENTICATION FAILURE DETECTION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 AUTHENTICATION FAILURE DETECTION ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
 
     return incidents;
@@ -1270,7 +1280,7 @@ export class SecurityMonitoringService {
       // For now, return empty array
 
     } catch (error) {
-      logError('🚨 MALWARE DETECTION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 MALWARE DETECTION ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
 
     return incidents;
@@ -1306,7 +1316,7 @@ export class SecurityMonitoringService {
       }
 
     } catch (error) {
-      logError('🚨 COMPLIANCE VIOLATION DETECTION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 COMPLIANCE VIOLATION DETECTION ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
 
     return incidents;
@@ -1354,11 +1364,11 @@ export class SecurityMonitoringService {
       };
 
     } catch (error) {
-      logError('🚨 HIPAA COMPLIANCE CHECK ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 HIPAA COMPLIANCE CHECK ERROR:', error instanceof Error ? error : new Error(String(error)));
       return {
         score: 0,
         status: 'non_compliant',
-        violations: [error.message],
+        violations: [(error instanceof Error ? error.message : String(error))],
         recommendations: ['Fix HIPAA compliance check errors']
       };
     }
@@ -1380,7 +1390,7 @@ export class SecurityMonitoringService {
 
       // Check access control compliance
       const authMetrics = await this.authenticationService.getAuthenticationMetrics();
-      const accessControlCompliance = authMetrics.successRate > 0.9;
+      const accessControlCompliance = (authMetrics as any).successRate > 0.9;
 
       const complianceCount = [
         encryptionCompliance,
@@ -1400,7 +1410,7 @@ export class SecurityMonitoringService {
       };
 
     } catch (error) {
-      logError('🚨 DATA PROTECTION COMPLIANCE CHECK ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 DATA PROTECTION COMPLIANCE CHECK ERROR:', error instanceof Error ? error : new Error(String(error)));
       return {
         score: 0,
         encryptionCompliance: false,
@@ -1444,7 +1454,7 @@ export class SecurityMonitoringService {
       };
 
     } catch (error) {
-      logError('🚨 CLINICAL COMPLIANCE CHECK ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 CLINICAL COMPLIANCE CHECK ERROR:', error instanceof Error ? error : new Error(String(error)));
       return {
         score: 0,
         crisisProtocolCompliance: false,
@@ -1480,7 +1490,7 @@ export class SecurityMonitoringService {
   }
 
   private categorizeVulnerabilities(vulnerabilities: SecurityVulnerability[]): VulnerabilityAssessment['categories'] {
-    const categories = {} as VulnerabilityAssessment['categories'];
+    const categories: any = {};
 
     for (const category of Object.keys(MONITORING_CONFIG.MONITORING_CATEGORIES)) {
       const categoryVulns = vulnerabilities.filter(v => v.category === category);
@@ -1559,7 +1569,7 @@ export class SecurityMonitoringService {
       }
 
     } catch (error) {
-      logError('🚨 RECOMMENDATION GENERATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 RECOMMENDATION GENERATION ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
 
     return recommendations;
@@ -1567,7 +1577,7 @@ export class SecurityMonitoringService {
 
   private async triggerAutomatedThreatResponse(threat: ThreatDetectionResult): Promise<void> {
     try {
-      logPerformance(`🚨 Triggering automated response for threat: ${threat.detectionId}`);
+      console.log(`🚨 Triggering automated response for threat: ${threat.detectionId}`);
 
       // Implement automated response based on threat type
       switch (threat.threatType) {
@@ -1585,49 +1595,49 @@ export class SecurityMonitoringService {
       }
 
     } catch (error) {
-      logError('🚨 AUTOMATED THREAT RESPONSE ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 AUTOMATED THREAT RESPONSE ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
   private async blockUnauthorizedAccess(threat: ThreatDetectionResult): Promise<void> {
     try {
       // Implementation would block unauthorized access
-      logPerformance(`🔒 Blocking unauthorized access: ${threat.detectionId}`);
+      console.log(`🔒 Blocking unauthorized access: ${threat.detectionId}`);
     } catch (error) {
-      logError('🚨 BLOCK UNAUTHORIZED ACCESS ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 BLOCK UNAUTHORIZED ACCESS ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
   private async preventDataExfiltration(threat: ThreatDetectionResult): Promise<void> {
     try {
       // Implementation would prevent data exfiltration
-      logPerformance(`🛡️  Preventing data exfiltration: ${threat.detectionId}`);
+      console.log(`🛡️  Preventing data exfiltration: ${threat.detectionId}`);
     } catch (error) {
-      logError('🚨 PREVENT DATA EXFILTRATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 PREVENT DATA EXFILTRATION ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
   private async quarantineMalware(threat: ThreatDetectionResult): Promise<void> {
     try {
       // Implementation would quarantine malware
-      logPerformance(`🦠 Quarantining malware: ${threat.detectionId}`);
+      console.log(`🦠 Quarantining malware: ${threat.detectionId}`);
     } catch (error) {
-      logError('🚨 QUARANTINE MALWARE ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 QUARANTINE MALWARE ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
   private async defaultThreatResponse(threat: ThreatDetectionResult): Promise<void> {
     try {
       // Default threat response
-      logPerformance(`⚠️  Default threat response: ${threat.detectionId}`);
+      console.log(`⚠️  Default threat response: ${threat.detectionId}`);
     } catch (error) {
-      logError('🚨 DEFAULT THREAT RESPONSE ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 DEFAULT THREAT RESPONSE ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
   private async processIncident(incident: IncidentDetectionEvent): Promise<void> {
     try {
-      logPerformance(`🚨 Processing incident: ${incident.incidentId}`);
+      console.log(`🚨 Processing incident: ${incident.incidentId}`);
 
       // Execute automatic response actions
       for (const action of incident.responseActions) {
@@ -1643,7 +1653,7 @@ export class SecurityMonitoringService {
       incident.containmentStatus = incident.automaticResponse ? 'contained' : 'in_progress';
 
     } catch (error) {
-      logError('🚨 INCIDENT PROCESSING ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 INCIDENT PROCESSING ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -1660,19 +1670,19 @@ export class SecurityMonitoringService {
           // Trigger compliance review
           break;
         default:
-          logPerformance(`📝 Response action logged: ${action}`);
+          console.log(`📝 Response action logged: ${action}`);
       }
     } catch (error) {
-      logError('🚨 RESPONSE ACTION EXECUTION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 RESPONSE ACTION EXECUTION ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
   private async escalateIncident(incident: IncidentDetectionEvent): Promise<void> {
     try {
-      logPerformance(`🚨 Escalating incident: ${incident.incidentId}`);
+      console.log(`🚨 Escalating incident: ${incident.incidentId}`);
       // Implementation would escalate to security team
     } catch (error) {
-      logError('🚨 INCIDENT ESCALATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 INCIDENT ESCALATION ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -1683,7 +1693,7 @@ export class SecurityMonitoringService {
       await this.detectActiveThreats();
       await this.updateSecurityMetrics();
     } catch (error) {
-      logError('🚨 REAL-TIME MONITORING ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 REAL-TIME MONITORING ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -1696,7 +1706,7 @@ export class SecurityMonitoringService {
       // Update system health metrics
       this.securityMetrics.timestamp = Date.now();
     } catch (error) {
-      logError('🚨 SYSTEM HEALTH CHECK ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 SYSTEM HEALTH CHECK ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -1705,7 +1715,7 @@ export class SecurityMonitoringService {
       // Detect active threats in real-time
       // Implementation would be lightweight for real-time operation
     } catch (error) {
-      logError('🚨 ACTIVE THREAT DETECTION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 ACTIVE THREAT DETECTION ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -1720,7 +1730,7 @@ export class SecurityMonitoringService {
       
       this.securityMetrics.overallSecurityScore = (vulnerabilityScore + complianceScore) / 2;
     } catch (error) {
-      logError('🚨 SECURITY METRICS UPDATE ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 SECURITY METRICS UPDATE ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -1789,7 +1799,7 @@ export class SecurityMonitoringService {
         'performance_tier'
       );
     } catch (error) {
-      logError('🚨 ASSESSMENT STORAGE ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 ASSESSMENT STORAGE ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -1810,7 +1820,7 @@ export class SecurityMonitoringService {
         );
       }
     } catch (error) {
-      logError('🚨 INCIDENT LOGGING ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 INCIDENT LOGGING ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -1900,7 +1910,7 @@ export class SecurityMonitoringService {
 
   public async stopContinuousMonitoring(): Promise<void> {
     try {
-      logPerformance('🛑 Stopping continuous security monitoring...');
+      console.log('🛑 Stopping continuous security monitoring...');
 
       this.monitoringActive = false;
 
@@ -1925,17 +1935,17 @@ export class SecurityMonitoringService {
         this.threatAnalysisTimer = null;
       }
 
-      logPerformance('✅ Continuous security monitoring stopped');
+      console.log('✅ Continuous security monitoring stopped');
 
     } catch (error) {
-      logError('🚨 STOP MONITORING ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 STOP MONITORING ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
 
   public async destroy(): Promise<void> {
     try {
-      logPerformance('🗑️  Destroying security monitoring service...');
+      console.log('🗑️  Destroying security monitoring service...');
 
       // Stop monitoring
       await this.stopContinuousMonitoring();
@@ -1949,10 +1959,10 @@ export class SecurityMonitoringService {
 
       this.initialized = false;
 
-      logPerformance('✅ Security monitoring service destroyed');
+      console.log('✅ Security monitoring service destroyed');
 
     } catch (error) {
-      logError('🚨 SECURITY MONITORING DESTRUCTION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 SECURITY MONITORING DESTRUCTION ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }

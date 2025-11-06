@@ -41,7 +41,7 @@ export interface PHQ9ScoringConfig {
     readonly severe: [20, 27];
   };
   /** Crisis detection threshold */
-  readonly crisisThreshold: 20;
+  readonly crisisThreshold: 15;
   /** Suicidal ideation question ID */
   readonly suicidalIdeationQuestionId: 'phq9_9';
 }

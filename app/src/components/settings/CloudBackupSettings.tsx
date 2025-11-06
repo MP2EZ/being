@@ -88,7 +88,7 @@ export default function CloudBackupSettings({
         setAnalyticsStatus(status);
         setAnalyticsEnabled(status.initialized);
       } catch (error) {
-        logError('Failed to get analytics status:', error);
+        logError(LogCategory.SYSTEM, 'Failed to get analytics status:', error instanceof Error ? error : new Error(String(error)));
       }
     };
 
@@ -194,7 +194,7 @@ export default function CloudBackupSettings({
     } catch (error) {
       Alert.alert(
         'Analytics Error',
-        `Failed to ${enabled ? 'enable' : 'disable'} analytics: ${error.message}`
+        `Failed to ${enabled ? 'enable' : 'disable'} analytics: ${(error instanceof Error ? error.message : String(error))}`
       );
     } finally {
       setAnalyticsLoading(false);
@@ -314,7 +314,7 @@ export default function CloudBackupSettings({
           showDetailed={showAdvanced}
           style={styles.statusIndicator}
           onStatusChange={(status) => {
-            logPerformance('Overall system status:', status);
+            console.log('Overall system status:', status);
           }}
         />
 
@@ -603,6 +603,7 @@ const styles = StyleSheet.create({
     width: 12,
     height: 12,
     borderRadius: 6,
+    marginBottom: 16,
   },
 
   errorContainer: {
@@ -732,10 +733,6 @@ const styles = StyleSheet.create({
   dangerButtonText: {
     color: '#c62828',
     fontWeight: '500',
-  },
-
-  statusIndicator: {
-    marginBottom: 16,
   },
 
   configLabelContainer: {

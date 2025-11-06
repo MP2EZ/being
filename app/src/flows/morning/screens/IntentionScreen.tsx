@@ -28,16 +28,16 @@ import {
   ScrollView,
   StyleSheet,
 } from 'react-native';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { StackScreenProps } from '@react-navigation/stack';
 import type { MorningFlowParamList, IntentionData } from '../../../types/flows';
 
-type Props = NativeStackScreenProps<MorningFlowParamList, 'Intention'> & {
+type Props = StackScreenProps<MorningFlowParamList, 'Intention'> & {
   onSave?: (data: IntentionData) => void;
 };
 
 const IntentionScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
   // FEAT-23: Restore initial data if resuming session
-  const initialData = route.params?.initialData as IntentionData | undefined;
+  const initialData = (route.params as any)?.initialData as IntentionData | undefined;
 
   // Debug logging
   if (initialData) {

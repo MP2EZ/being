@@ -148,10 +148,10 @@ const EveningFlowNavigator: React.FC<EveningFlowNavigatorProps> = ({
           setShowResumeModal(true);
 
           // Restore screen data if available
-          if (flowState?.screenData) {
-            loadedScreenData.current = flowState.screenData; // Store in ref immediately
-            setScreenData(flowState.screenData); // Also update state for UI
-            console.log(`[EveningFlow] Restored screen data for ${Object.keys(flowState.screenData).length} screens`);
+          if (flowState?.['screenData']) {
+            loadedScreenData.current = flowState["screenData"]; // Store in ref immediately
+            setScreenData(flowState["screenData"]); // Also update state for UI
+            console.log(`[EveningFlow] Restored screen data for ${Object.keys(flowState["screenData"]).length} screens`);
           }
         }
       } catch (error) {
@@ -333,13 +333,14 @@ const EveningFlowNavigator: React.FC<EveningFlowNavigatorProps> = ({
   );
 
   // Wrapper for EveningCompletionScreen to pass onComplete callback
-  const EveningCompletionScreenWrapper = ({ navigation, route }: any) => (
-    <EveningCompletionScreen
-      navigation={navigation}
-      route={route}
-      onComplete={onComplete}
-    />
-  );
+  const EveningCompletionScreenWrapper = ({ navigation, route }: any) => {
+    const props: any = {
+      navigation,
+      route,
+      onComplete: (completionData: any) => onComplete(completionData || {})
+    };
+    return <EveningCompletionScreen {...props} />;
+  };
 
   // Don't render anything until we've checked for a session
   if (isCheckingSession) {

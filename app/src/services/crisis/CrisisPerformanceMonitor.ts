@@ -32,7 +32,7 @@ import type {
   CrisisDetection,
   CrisisIntervention,
   CrisisSeverityLevel
-} from '../flows/assessment/types';
+} from '../../flows/assessment/types';
 
 /**
  * PERFORMANCE REQUIREMENTS CONSTANTS
@@ -223,7 +223,7 @@ export class CrisisPerformanceMonitor {
   private metrics: Map<string, PerformanceMetric[]> = new Map();
   private alerts: Map<string, PerformanceAlert> = new Map();
   private isMonitoring: boolean = false;
-  private monitoringInterval?: NodeJS.Timeout;
+  private monitoringInterval: NodeJS.Timeout | undefined = undefined;
   private performanceHistory: PerformanceMetric[] = [];
 
   private constructor() {}
@@ -251,7 +251,7 @@ export class CrisisPerformanceMonitor {
       this.performSystemHealthCheck();
     }, PERFORMANCE_REQUIREMENTS.MONITORING_INTERVAL_MS);
 
-    logPerformance('🔍 Crisis Performance Monitoring Started');
+    console.log('🔍 Crisis Performance Monitoring Started');
   }
 
   /**
@@ -265,7 +265,7 @@ export class CrisisPerformanceMonitor {
       this.monitoringInterval = undefined;
     }
 
-    logPerformance('⏹️ Crisis Performance Monitoring Stopped');
+    console.log('⏹️ Crisis Performance Monitoring Stopped');
   }
 
   /**
@@ -340,7 +340,7 @@ export class CrisisPerformanceMonitor {
       }
 
     } catch (error) {
-      logError('🚨 PERFORMANCE RECORDING ERROR:', error);
+      logError(LogCategory.CRISIS, '🚨 PERFORMANCE RECORDING ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -385,7 +385,7 @@ export class CrisisPerformanceMonitor {
       }
 
     } catch (error) {
-      logError('🚨 SUICIDAL IDEATION PERFORMANCE ERROR:', error);
+      logError(LogCategory.CRISIS, '🚨 SUICIDAL IDEATION PERFORMANCE ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -452,7 +452,7 @@ export class CrisisPerformanceMonitor {
       }
 
     } catch (error) {
-      logError('🚨 INTERVENTION PERFORMANCE ERROR:', error);
+      logError(LogCategory.CRISIS, '🚨 INTERVENTION PERFORMANCE ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -508,7 +508,7 @@ export class CrisisPerformanceMonitor {
       }
 
     } catch (error) {
-      logError('🚨 SYSTEM RELIABILITY RECORDING ERROR:', error);
+      logError(LogCategory.CRISIS, '🚨 SYSTEM RELIABILITY RECORDING ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -568,7 +568,7 @@ export class CrisisPerformanceMonitor {
       return report;
 
     } catch (error) {
-      logError('🚨 PERFORMANCE REPORT GENERATION ERROR:', error);
+      logError(LogCategory.CRISIS, '🚨 PERFORMANCE REPORT GENERATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -606,14 +606,14 @@ export class CrisisPerformanceMonitor {
       });
 
     } catch (error) {
-      logError('🚨 HEALTH CHECK ERROR:', error);
+      logError(LogCategory.CRISIS, '🚨 HEALTH CHECK ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
   /**
    * METRIC RECORDING
    */
-  private async recordMetric(metric: PerformanceMetric): Promise<void> {
+  public async recordMetric(metric: PerformanceMetric): Promise<void> {
     try {
       // Store in memory
       const categoryMetrics = this.metrics.get(metric.category) || [];
@@ -633,7 +633,7 @@ export class CrisisPerformanceMonitor {
       await this.cleanupOldMetrics();
 
     } catch (error) {
-      logError('🚨 METRIC RECORDING ERROR:', error);
+      logError(LogCategory.CRISIS, '🚨 METRIC RECORDING ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -903,14 +903,14 @@ export class CrisisPerformanceMonitor {
     if (values.length === 0) return 0;
     const sorted = [...values].sort((a, b) => a - b);
     const mid = Math.floor(sorted.length / 2);
-    return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
+    return sorted.length % 2 === 0 ? ((sorted[mid - 1] ?? 0) + (sorted[mid] ?? 0)) / 2 : (sorted[mid] ?? 0);
   }
 
   private calculatePercentile(values: number[], percentile: number): number {
     if (values.length === 0) return 0;
     const sorted = [...values].sort((a, b) => a - b);
     const index = Math.ceil((percentile / 100) * sorted.length) - 1;
-    return sorted[Math.max(0, index)];
+    return sorted[Math.max(0, index)] ?? 0;
   }
 
   private calculateStandardDeviation(values: number[]): number {
@@ -966,7 +966,7 @@ export class CrisisPerformanceMonitor {
         JSON.stringify(metric)
       );
     } catch (error) {
-      logError('Failed to store performance metric:', error);
+      logError(LogCategory.CRISIS, 'Failed to store performance metric:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -978,7 +978,7 @@ export class CrisisPerformanceMonitor {
         JSON.stringify(alert)
       );
     } catch (error) {
-      logError('Failed to store performance alert:', error);
+      logError(LogCategory.CRISIS, 'Failed to store performance alert:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -989,13 +989,13 @@ export class CrisisPerformanceMonitor {
         JSON.stringify(report)
       );
     } catch (error) {
-      logError('Failed to store performance report:', error);
+      logError(LogCategory.CRISIS, 'Failed to store performance report:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
   private async escalateEmergencyAlert(alert: PerformanceAlert): Promise<void> {
     // Implementation would notify system administrators
-    logError('🚨 EMERGENCY ALERT ESCALATED:', alert.message);
+    logError(LogCategory.SYSTEM, 'EMERGENCY ALERT ESCALATED:', new Error(alert.message));
   }
 
   private async cleanupOldMetrics(): Promise<void> {

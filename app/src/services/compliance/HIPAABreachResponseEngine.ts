@@ -267,7 +267,7 @@ export interface BreachRemediationPlan {
       status: 'pending' | 'in_progress' | 'completed';
     }>;
     /** External investigators */
-    externalInvestigators?: string[];
+    externalInvestigators?: string[] | undefined;
   };
   /** Remediation measures */
   remediation: {
@@ -341,7 +341,7 @@ export class HIPAABreachResponseEngine {
     }
   ): Promise<{
     breachDetected: boolean;
-    incidentId?: string;
+    incidentId?: string | undefined;
     severity: BreachSeverity;
     immediateActions: string[];
   }> {
@@ -378,8 +378,8 @@ export class HIPAABreachResponseEngine {
       };
 
     } catch (error) {
-      logError('🚨 BREACH DETECTION ERROR:', error);
-      
+      logError(LogCategory.SYSTEM, 'BREACH DETECTION ERROR:', error instanceof Error ? error : undefined);
+
       // Err on the side of caution - treat as potential breach
       return {
         breachDetected: true,
@@ -454,8 +454,8 @@ export class HIPAABreachResponseEngine {
       };
 
     } catch (error) {
-      logError('🚨 RISK ASSESSMENT ERROR:', error);
-      
+      logError(LogCategory.SYSTEM, 'RISK ASSESSMENT ERROR:', error instanceof Error ? error : undefined);
+
       return {
         overallRisk: 'critical',
         riskFactors: ['Risk assessment system error'],
@@ -539,8 +539,8 @@ export class HIPAABreachResponseEngine {
       };
 
     } catch (error) {
-      logError('🚨 CONTAINMENT ERROR:', error);
-      
+      logError(LogCategory.SYSTEM, 'CONTAINMENT ERROR:', error instanceof Error ? error : undefined);
+
       return {
         containmentStarted: false,
         actionsPerformed: ['Containment system error'],
@@ -639,8 +639,8 @@ export class HIPAABreachResponseEngine {
       };
 
     } catch (error) {
-      logError('🚨 NOTIFICATION MANAGEMENT ERROR:', error);
-      
+      logError(LogCategory.SYSTEM, 'NOTIFICATION MANAGEMENT ERROR:', error instanceof Error ? error : undefined);
+
       return {
         notificationsRequired: this.getEmergencyNotificationRequirements(),
         notificationsPrepared: [],
@@ -730,8 +730,8 @@ export class HIPAABreachResponseEngine {
       };
 
     } catch (error) {
-      logError('🚨 REMEDIATION PLAN ERROR:', error);
-      
+      logError(LogCategory.SYSTEM, 'REMEDIATION PLAN ERROR:', error instanceof Error ? error : undefined);
+
       return {
         planCreated: false,
         immediateMeasures: ['Manual remediation planning required'],
@@ -1270,7 +1270,7 @@ export class HIPAABreachResponseEngine {
       };
 
     } catch (error) {
-      logError('🚨 BREACH STATUS ERROR:', error);
+      logError(LogCategory.SYSTEM, 'BREACH STATUS ERROR:', error instanceof Error ? error : undefined);
       return {
         activeIncidents: -1,
         criticalIncidents: -1,
@@ -1290,7 +1290,7 @@ export class HIPAABreachResponseEngine {
     estimatedAffectedUsers: number = 1
   ): Promise<{
     reported: boolean;
-    incidentId?: string;
+    incidentId?: string | undefined;
     nextSteps: string[];
   }> {
     try {
@@ -1314,7 +1314,7 @@ export class HIPAABreachResponseEngine {
       };
 
     } catch (error) {
-      logError('🚨 BREACH REPORTING ERROR:', error);
+      logError(LogCategory.SYSTEM, 'BREACH REPORTING ERROR:', error instanceof Error ? error : undefined);
       return {
         reported: false,
         nextSteps: ['Contact system administrator for manual breach reporting']

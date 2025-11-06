@@ -71,7 +71,7 @@ class CodeSplittingRegistry {
    */
   static registerChunk(info: ChunkInfo): void {
     this.chunks.set(info.name, info);
-    logPerformance(`📦 Registered chunk: ${info.name} (${this.formatSize(info.size)})`);
+    console.log(`📦 Registered chunk: ${info.name} (${this.formatSize(info.size)})`);
   }
 
   /**
@@ -107,7 +107,7 @@ class CodeSplittingRegistry {
           loadedModule = await import('./MemoryOptimizer');
           break;
         case 'performance-monitoring':
-          loadedModule = await import('../hooks/useAssessmentPerformance');
+          loadedModule = await import('../../hooks/useAssessmentPerformance');
           break;
         default:
           throw new Error(`Unknown chunk: ${chunkName}`);
@@ -125,11 +125,13 @@ class CodeSplittingRegistry {
         dependencies: chunk.dependencies
       });
 
-      logPerformance(`✅ Loaded chunk: ${chunkName} in ${loadTime.toFixed(2)}ms`);
+      logPerformance('BundleOptimizer.loadChunk', loadTime, {
+        chunkName
+      });
       return loadedModule;
 
     } catch (error) {
-      logError(`❌ Failed to load chunk: ${chunkName}`, error);
+      logError(LogCategory.PERFORMANCE, `❌ Failed to load chunk: ${chunkName}`, error instanceof Error ? error : new Error(String(error)));
       this.loadingQueue = this.loadingQueue.filter(name => name !== chunkName);
       throw error;
     }
@@ -143,11 +145,11 @@ class CodeSplittingRegistry {
       .filter(chunk => chunk.isCritical)
       .sort((a, b) => b.loadPriority === 'high' ? 1 : -1);
 
-    logPerformance(`🚀 Preloading ${criticalChunks.length} critical chunks`);
+    console.log(`🚀 Preloading ${criticalChunks.length} critical chunks`);
 
     const preloadPromises = criticalChunks.map(chunk =>
       this.loadChunk(chunk.name).catch(error => {
-        logError(`Failed to preload critical chunk: ${chunk.name}`, error);
+        logError(LogCategory.PERFORMANCE, `Failed to preload critical chunk: ${chunk.name}`, error instanceof Error ? error : new Error(String(error)));
       })
     );
 
@@ -242,7 +244,7 @@ class AssetOptimizer {
       return optimizedAsset;
 
     } catch (error) {
-      logError(`Asset optimization failed: ${assetPath}`, error);
+      logError(LogCategory.PERFORMANCE, `Asset optimization failed: ${assetPath}`, error instanceof Error ? error : new Error(String(error)));
       return { uri: assetPath, optimized: false };
     }
   }
@@ -257,13 +259,13 @@ class AssetOptimizer {
           await this.optimizeAsset(path);
           this.preloadedAssets.add(path);
         } catch (error) {
-          logError(`Failed to preload asset: ${path}`, error);
+          logError(LogCategory.PERFORMANCE, `Failed to preload asset: ${path}`, error instanceof Error ? error : new Error(String(error)));
         }
       }
     });
 
     await Promise.allSettled(preloadPromises);
-    logPerformance(`✅ Preloaded ${assetPaths.length} critical assets`);
+    console.log(`✅ Preloaded ${assetPaths.length} critical assets`);
   }
 
   /**
@@ -316,7 +318,7 @@ export class BundleOptimizer {
   static async initialize(): Promise<void> {
     if (this.isInitialized) return;
 
-    logPerformance('📦 Initializing bundle optimizer...');
+    console.log('📦 Initializing bundle optimizer...');
 
     // Register critical chunks that should never be lazy-loaded
     this.registerCriticalChunks();
@@ -331,7 +333,7 @@ export class BundleOptimizer {
     this.startBundleMonitoring();
 
     this.isInitialized = true;
-    logPerformance('✅ Bundle optimizer initialized');
+    console.log('✅ Bundle optimizer initialized');
   }
 
   /**
@@ -466,7 +468,7 @@ export class BundleOptimizer {
       DeviceEventEmitter.emit('bundle_metrics_collected', metrics);
 
     } catch (error) {
-      logError('Bundle metrics collection failed:', error);
+      logError(LogCategory.PERFORMANCE, 'Bundle metrics collection failed:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -475,7 +477,10 @@ export class BundleOptimizer {
    */
   private static validateBundleSize(metrics: BundleMetrics): void {
     if (metrics.jsSize > this.config.maxInitialBundleSize) {
-      logSecurity(`⚠️ Initial bundle size exceeded: ${this.formatSize(metrics.jsSize)} > ${this.formatSize(this.config.maxInitialBundleSize)}`);
+      logSecurity('Initial bundle size exceeded', 'medium', {
+        actualSize: metrics.jsSize,
+        maxSize: this.config.maxInitialBundleSize
+      });
 
       DeviceEventEmitter.emit('bundle_size_exceeded', {
         current: metrics.jsSize,
@@ -485,7 +490,10 @@ export class BundleOptimizer {
     }
 
     if (metrics.loadTime > 3000) { // 3 seconds
-      logSecurity(`⚠️ Bundle load time exceeded: ${metrics.loadTime}ms`);
+      logSecurity('Bundle load time exceeded', 'medium', {
+        loadTime: metrics.loadTime,
+        maxLoadTime: 3000
+      });
 
       DeviceEventEmitter.emit('bundle_load_time_exceeded', {
         loadTime: metrics.loadTime,
@@ -521,13 +529,13 @@ export class BundleOptimizer {
 
       return result;
     } catch (error) {
-      logError(`Optimized chunk load failed: ${chunkName}`, error);
+      logError(LogCategory.PERFORMANCE, `Optimized chunk load failed: ${chunkName}`, error instanceof Error ? error : new Error(String(error)));
 
       DeviceEventEmitter.emit('optimized_chunk_loaded', {
         chunkName,
         loadTime: 0,
         success: false,
-        error: error.message
+        error: (error instanceof Error ? error.message : String(error))
       });
 
       throw error;
@@ -552,15 +560,15 @@ export class BundleOptimizer {
     chunkStats: any;
     assetStats: any;
   } {
-    const currentMetrics = this.bundleMetrics.length > 0
-      ? this.bundleMetrics[this.bundleMetrics.length - 1]
+    const currentMetrics: BundleMetrics | null = this.bundleMetrics.length > 0
+      ? (this.bundleMetrics[this.bundleMetrics.length - 1] ?? null)
       : null;
 
     const averageLoadTime = this.bundleMetrics.length > 0
       ? this.bundleMetrics.reduce((sum, metric) => sum + metric.loadTime, 0) / this.bundleMetrics.length
       : 0;
 
-    const optimizationSuggestions = this.generateOptimizationSuggestions(currentMetrics);
+    const optimizationSuggestions = this.generateOptimizationSuggestions(currentMetrics ?? null);
 
     return {
       currentMetrics,
@@ -616,7 +624,7 @@ export class BundleOptimizer {
    */
   static configure(config: Partial<BundleOptimizationConfig>): void {
     this.config = { ...this.config, ...config };
-    logPerformance('Bundle optimizer configured:', this.config);
+    console.log('Bundle optimizer configured:', this.config);
   }
 
   /**
@@ -627,7 +635,7 @@ export class BundleOptimizer {
     CodeSplittingRegistry.clear();
     AssetOptimizer.clearCache();
     this.isInitialized = false;
-    logPerformance('Bundle optimizer reset');
+    console.log('Bundle optimizer reset');
   }
 }
 

@@ -149,10 +149,10 @@ export const ProductionDashboard: React.FC = () => {
       });
 
     } catch (error) {
-      setError(`Failed to initialize dashboard: ${error.message}`);
+      setError(`Failed to initialize dashboard: ${(error instanceof Error ? error.message : String(error))}`);
       logSecurity('Production dashboard initialization failed', 'medium', {
         component: 'production_dashboard',
-        error: error.message
+        
       });
     }
   };
@@ -179,14 +179,14 @@ export const ProductionDashboard: React.FC = () => {
       setError(null);
 
       // Log performance metrics
-      logPerformance('Dashboard data refresh', {
+      logPerformance('Dashboard data refresh', 0, {
         systemHealth: data.systemHealth.overall,
         criticalServiceFailures: data.systemHealth.criticalServiceFailures,
         activeErrors: data.errorMonitoring.activeErrors
       });
 
     } catch (error) {
-      setError(`Failed to refresh data: ${error.message}`);
+      setError(`Failed to refresh data: ${(error instanceof Error ? error.message : String(error))}`);
     } finally {
       setIsRefreshing(false);
     }
@@ -211,7 +211,7 @@ export const ProductionDashboard: React.FC = () => {
 
               Alert.alert('Success', 'Emergency protocol executed successfully');
             } catch (error) {
-              Alert.alert('Error', `Emergency protocol failed: ${error.message}`);
+              Alert.alert('Error', `Emergency protocol failed: ${(error instanceof Error ? error.message : String(error))}`);
             }
           }
         }
@@ -229,7 +229,7 @@ export const ProductionDashboard: React.FC = () => {
   /**
    * Render system health overview
    */
-  const renderSystemHealth = (): JSX.Element => {
+  const renderSystemHealth = (): React.ReactElement | null => {
     if (!dashboardData) return null;
 
     const { systemHealth } = dashboardData;
@@ -274,7 +274,7 @@ export const ProductionDashboard: React.FC = () => {
   /**
    * Render error monitoring status
    */
-  const renderErrorMonitoring = (): JSX.Element => {
+  const renderErrorMonitoring = (): React.ReactElement | null => {
     if (!dashboardData) return null;
 
     const { errorMonitoring } = dashboardData;
@@ -321,7 +321,7 @@ export const ProductionDashboard: React.FC = () => {
   /**
    * Render circuit breaker status
    */
-  const renderCircuitBreakers = (): JSX.Element => {
+  const renderCircuitBreakers = (): React.ReactElement | null => {
     if (!dashboardData) return null;
 
     const { circuitBreakers } = dashboardData;
@@ -400,7 +400,7 @@ export const ProductionDashboard: React.FC = () => {
   /**
    * Render error state
    */
-  const renderError = (): JSX.Element => (
+  const renderError = (): React.ReactElement => (
     <View style={styles.errorContainer}>
       <Text style={styles.errorTitle}>⚠️ Dashboard Error</Text>
       <Text style={styles.errorMessage}>{error}</Text>
@@ -413,7 +413,7 @@ export const ProductionDashboard: React.FC = () => {
   /**
    * Render loading state
    */
-  const renderLoading = (): JSX.Element => (
+  const renderLoading = (): React.ReactElement => (
     <View style={styles.loadingContainer}>
       <Text style={styles.loadingText}>🔄 Initializing Dashboard...</Text>
     </View>

@@ -2,14 +2,17 @@
  * Assessment Types - DRD-FLOW-005 Standalone Assessments
  * Clinical accuracy validated and regulatory compliant
  * Designed for reusability in DRD-FLOW-001 onboarding
- * 
+ *
  * COMPREHENSIVE TYPE SAFETY:
  * - Component prop interfaces with strict typing
- * - Store action types with crisis safety constraints  
+ * - Store action types with crisis safety constraints
  * - Navigation parameter types for assessment flows
  * - Crisis intervention types with PHQ≥20, GAD≥15 validation
  * - Utility function types for 100% accurate scoring calculations
  */
+
+// Crisis types import
+import type { CrisisDetection } from './crisis/safety';
 
 // Base Assessment Types
 export type AssessmentType = 'phq9' | 'gad7';
@@ -74,21 +77,14 @@ export interface AssessmentSession {
   context: 'standalone' | 'onboarding' | 'checkin';
 }
 
-// Crisis Intervention Types (Basic - see crisis/safety.ts for comprehensive)
-export interface CrisisDetection {
-  isTriggered: boolean;
-  triggerType: 'phq9_score' | 'phq9_suicidal' | 'gad7_score';
-  triggerValue: number;
-  timestamp: number;
-  assessmentId: string;
-}
-
-export interface CrisisIntervention {
-  detection: CrisisDetection;
-  interventionStarted: boolean;
-  contactedSupport: boolean;
-  responseTime: number; // Must be <200ms
-}
+// Crisis Intervention Types - Re-export comprehensive types from crisis/safety.ts
+// This avoids duplication and ensures all services use the complete type definitions
+export type {
+  CrisisDetection,
+  CrisisIntervention,
+  CrisisTriggerType,
+  CrisisSeverityLevel,
+} from './crisis/safety';
 
 // Legacy Component Props (see components/props.ts for comprehensive)
 export interface AssessmentQuestionProps {

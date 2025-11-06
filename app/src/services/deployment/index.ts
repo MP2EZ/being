@@ -1,4 +1,6 @@
 /**
+
+
  * DEPLOYMENT SERVICES - CI/CD Pipeline Hardening
  * Week 4 Phase 2c - Critical Production Infrastructure
  *
@@ -25,6 +27,11 @@
  * USAGE:
  * import { deploymentService, deployToProduction, emergencyDeploy } from '@/services/deployment';
  */
+
+// Import for internal use
+import { deploymentService } from './DeploymentService';
+import { resilienceOrchestrator, ProtectedService } from '../resilience';
+import { logSecurity, logPerformance, logError, LogCategory } from '../logging';
 
 // Core Deployment Service
 export {
@@ -88,7 +95,7 @@ export class DeploymentOrchestrator {
       });
 
     } catch (error) {
-      logError(LogCategory.SECURITY, 'Deployment orchestrator initialization failed', error);
+      logError(LogCategory.SECURITY, 'Deployment orchestrator initialization failed', error instanceof Error ? error : undefined);
       throw error;
     }
   }
@@ -211,7 +218,7 @@ export class DeploymentOrchestrator {
         checks.push({
           name: 'Critical Services Health',
           status: 'failed',
-          message: `Health check failed: ${error.message}`
+          message: `Health check failed: ${(error instanceof Error ? error.message : String(error))}`
         });
       }
 
@@ -243,7 +250,7 @@ export class DeploymentOrchestrator {
         checks.push({
           name: 'Circuit Breaker Status',
           status: 'failed',
-          message: `Circuit breaker check failed: ${error.message}`
+          message: `Circuit breaker check failed: ${(error instanceof Error ? error.message : String(error))}`
         });
       }
 
@@ -288,7 +295,7 @@ export class DeploymentOrchestrator {
         checks.push({
           name: 'Deployment History',
           status: 'failed',
-          message: `Deployment history check failed: ${error.message}`
+          message: `Deployment history check failed: ${(error instanceof Error ? error.message : String(error))}`
         });
       }
 
@@ -314,7 +321,7 @@ export class DeploymentOrchestrator {
         checks.push({
           name: 'Crisis Detection Service',
           status: 'failed',
-          message: `Crisis detection check failed: ${error.message}`
+          message: `Crisis detection check failed: ${(error instanceof Error ? error.message : String(error))}`
         });
       }
 
@@ -331,14 +338,14 @@ export class DeploymentOrchestrator {
       return { passed, checks };
 
     } catch (error) {
-      logError(LogCategory.SECURITY, 'Pre-flight check failed', error);
+      logError(LogCategory.SECURITY, 'Pre-flight check failed', error instanceof Error ? error : undefined);
 
       return {
         passed: false,
         checks: [{
           name: 'Pre-flight Check System',
           status: 'failed',
-          message: `System error: ${error.message}`
+          message: `System error: ${(error instanceof Error ? error.message : String(error))}`
         }]
       };
     }
@@ -359,7 +366,7 @@ export class DeploymentOrchestrator {
       });
 
     } catch (error) {
-      logError(LogCategory.SECURITY, 'Deployment orchestrator shutdown failed', error);
+      logError(LogCategory.SECURITY, 'Deployment orchestrator shutdown failed', error instanceof Error ? error : undefined);
     }
   }
 }
@@ -422,7 +429,7 @@ ${readiness.warnings.length > 0 ? `\nWarnings:\n${readiness.warnings.map(w => `-
   } catch (error) {
     return {
       canDeploy: false,
-      report: `Deployment validation failed: ${error.message}`,
+      report: `Deployment validation failed: ${(error instanceof Error ? error.message : String(error))}`,
       criticalIssues: ['System validation error']
     };
   }
@@ -441,12 +448,9 @@ export async function initializeServiceDeployment(serviceName: string): Promise<
     });
 
   } catch (error) {
-    logError(LogCategory.SECURITY, `Failed to initialize deployment for ${serviceName}`, error);
+    logError(LogCategory.SECURITY, `Failed to initialize deployment for ${serviceName}`, error instanceof Error ? error : undefined);
     throw error;
   }
 }
-
-// Import required dependencies at the end to avoid circular imports
-import { logSecurity, logError, LogCategory } from '../logging';
 
 export default deploymentOrchestrator;

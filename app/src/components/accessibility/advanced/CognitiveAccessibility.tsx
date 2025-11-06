@@ -104,8 +104,8 @@ export const CognitiveAccessibilityProvider: React.FC<CognitiveAccessibilityProv
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   
   const { announceTherapeutic } = useAdvancedScreenReader();
-  const memoryAidTimeoutRef = useRef<NodeJS.Timeout>();
-  const breakReminderTimeoutRef = useRef<NodeJS.Timeout>();
+  const memoryAidTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
+  const breakReminderTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
 
   const updateConfig = useCallback((updates: Partial<CognitiveConfig>) => {
     setConfig(prev => ({ ...prev, ...updates }));
@@ -192,7 +192,7 @@ export const CognitiveAccessibilityProvider: React.FC<CognitiveAccessibilityProv
     setCurrentStepIndex(0);
     
     if (steps.length > 0) {
-      announceInstruction(steps[0], 'guidance');
+      announceInstruction(steps[0]!, 'guidance');
     }
   }, [config.enableFocusGuides, announceInstruction]);
 
@@ -461,7 +461,7 @@ const styles = StyleSheet.create({
   memoryAidContent: {
     backgroundColor: colorSystem.accessibility.notification.background,
     borderLeftWidth: 4,
-    borderLeftColor: colorSystem.accessibility.notification.accent,
+    borderLeftColor: colorSystem.accessibility.notification.border,
     padding: spacing.md,
     borderRadius: 8,
     shadowColor: '#000',

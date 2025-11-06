@@ -8,7 +8,7 @@
  * - Validate crisis intervention timing requirements (<200ms)
  * - Check therapeutic response appropriateness based on timing
  * 
- * MBCT INTEGRATION:
+ * CLINICAL INTEGRATION:
  * - Breathing exercises should not be interrupted by assessments
  * - Check-ins should be spaced appropriately for therapeutic value
  * - Crisis interventions must be immediate regardless of current activity
@@ -171,7 +171,7 @@ describe('THERAPEUTIC TIMING VALIDATION', () => {
     });
   });
 
-  describe('MBCT Integration Timing', () => {
+  describe('Therapeutic Integration Timing', () => {
     it('Crisis detection should work during any therapeutic activity', async () => {
       const therapeuticActivities = [
         'breathing_exercise',

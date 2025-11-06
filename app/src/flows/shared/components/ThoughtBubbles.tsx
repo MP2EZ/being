@@ -1,7 +1,7 @@
 /**
  * Thought Bubbles Component
  * DRD-compliant thought observation and categorization interface
- * Clinical: Positive examples per safety requirements, MBCT mindful awareness
+ * Clinical: Positive examples per safety requirements, mindful awareness
  */
 
 import React, { useState } from 'react';
@@ -155,7 +155,7 @@ const ThoughtBubbles: React.FC<ThoughtBubblesProps> = ({
         </View>
       )}
 
-      {/* MBCT Mindfulness Note */}
+      {/* Mindfulness Note */}
       <View style={[
         styles.noteSection,
         { backgroundColor: themeColors.light }

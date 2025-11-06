@@ -32,10 +32,10 @@ import {
   Linking,
   Alert,
 } from 'react-native';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { StackScreenProps } from '@react-navigation/stack';
 import type { MiddayFlowParamList, ControlCheckData } from '../../../types/flows';
 
-type Props = NativeStackScreenProps<MiddayFlowParamList, 'ControlCheck'> & {
+type Props = StackScreenProps<MiddayFlowParamList, 'ControlCheck'> & {
   onSave?: (data: ControlCheckData) => void;
 };
 
@@ -43,7 +43,7 @@ type ControlType = 'fully_in_control' | 'can_influence' | 'not_in_control';
 
 const ControlCheckScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
   // FEAT-23: Restore initial data if resuming session
-  const initialData = route.params?.initialData as ControlCheckData | undefined;
+  const initialData = (route.params as any)?.initialData as ControlCheckData | undefined;
 
   // Debug logging
   if (initialData) {

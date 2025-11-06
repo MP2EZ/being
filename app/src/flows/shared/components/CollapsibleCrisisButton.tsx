@@ -105,9 +105,12 @@ export const CollapsibleCrisisButton: React.FC<CollapsibleCrisisButtonProps> = (
     // Performance monitoring for clinical safety
     const responseTime = performance.now() - startTime;
     if (responseTime > 200) {
-      logSecurity(`🚨 Crisis button response time: ${responseTime}ms (target: <200ms)`);
+      logSecurity('Crisis button response time exceeded', 'high', {
+        responseTime,
+        threshold: 200
+      });
     } else {
-      logPerformance(`✅ Crisis button response: ${responseTime}ms`);
+      console.log(`✅ Crisis button response: ${responseTime}ms`);
     }
   }, [onPress]);
 
@@ -116,7 +119,7 @@ export const CollapsibleCrisisButton: React.FC<CollapsibleCrisisButtonProps> = (
    */
   const expand = useCallback(() => {
     setIsExpanded(true);
-    logPerformance('Crisis button expanded via swipe');
+    console.log('Crisis button expanded via swipe');
 
     // Announce for screen readers
     if (Platform.OS === 'ios') {
@@ -129,7 +132,7 @@ export const CollapsibleCrisisButton: React.FC<CollapsibleCrisisButtonProps> = (
    */
   const collapse = useCallback(() => {
     setIsExpanded(false);
-    logPerformance('Crisis button collapsed');
+    console.log('Crisis button collapsed');
   }, []);
 
   /**
@@ -141,7 +144,7 @@ export const CollapsibleCrisisButton: React.FC<CollapsibleCrisisButtonProps> = (
 
     if (timeSinceLastTap < 300) {
       // Double-tap detected - immediate crisis action
-      logPerformance('Crisis action via double-tap (accessibility)');
+      console.log('Crisis action via double-tap (accessibility)');
       handleCrisisAction();
     } else {
       // Single tap - expand button

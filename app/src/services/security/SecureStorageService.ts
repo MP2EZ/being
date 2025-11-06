@@ -106,8 +106,8 @@ export interface StorageOperationResult {
   storageKey: string;
   operationTimeMs: number;
   dataSize: number;
-  error?: string;
-  metadata?: SecureStorageMetadata;
+  error?: string | undefined;
+  metadata?: SecureStorageMetadata | undefined;
 }
 
 /**
@@ -134,7 +134,7 @@ export interface StorageAccessLogEntry {
   success: boolean;
   operationTimeMs: number;
   dataSize: number;
-  userContext?: string;
+  userContext?: string | undefined;
   securityContext?: string;
   error?: string;
 }
@@ -170,7 +170,7 @@ export class SecureStorageService {
     const startTime = performance.now();
 
     try {
-      logPerformance('🔒 Initializing Secure Storage Service...');
+      console.log('🔒 Initializing Secure Storage Service...');
 
       // Initialize encryption service
       await this.encryptionService.initialize();
@@ -187,7 +187,10 @@ export class SecureStorageService {
       this.initialized = true;
 
       const initializationTime = performance.now() - startTime;
-      logPerformance(`✅ Secure Storage Service initialized (${initializationTime.toFixed(2)}ms)`);
+      logPerformance('SecureStorageService.initialize', initializationTime, {
+        status: 'success',
+        context: 'service_initialization'
+      });
 
       // Log initialization
       await this.logStorageAccess({
@@ -203,8 +206,8 @@ export class SecureStorageService {
       });
 
     } catch (error) {
-      logError('🚨 SECURE STORAGE INITIALIZATION ERROR:', error);
-      throw new Error(`Secure storage initialization failed: ${error.message}`);
+      logError(LogCategory.SECURITY, '🚨 SECURE STORAGE INITIALIZATION ERROR:', error instanceof Error ? error : new Error(String(error)));
+      throw new Error(`Secure storage initialization failed: ${(error instanceof Error ? error.message : String(error))}`);
     }
   }
 
@@ -263,7 +266,7 @@ export class SecureStorageService {
 
       // Validate crisis performance requirement
       if (operationTime > SECURE_STORAGE_CONFIG.CRISIS_ACCESS_THRESHOLD_MS) {
-        logSecurity(`⚠️  Crisis storage slow: ${operationTime.toFixed(2)}ms > ${SECURE_STORAGE_CONFIG.CRISIS_ACCESS_THRESHOLD_MS}ms`);
+        logSecurity('⚠️  Crisis storage slow: ${operationTime.toFixed(2)}ms > ${SECURE_STORAGE_CONFIG.CRISIS_ACCESS_THRESHOLD_MS}ms', 'medium', { component: 'SecurityService' });
       }
 
       // Log access
@@ -280,7 +283,10 @@ export class SecureStorageService {
         securityContext: 'crisis_data_storage'
       });
 
-      logPerformance(`🚨 Crisis data stored (${operationTime.toFixed(2)}ms, ${metadata.dataSize} bytes)`);
+      logPerformance('SecureStorageService.storeCrisisData', operationTime, {
+        dataSize: metadata.dataSize,
+        tier: 'crisis_tier'
+      });
 
       return {
         success: true,
@@ -293,7 +299,7 @@ export class SecureStorageService {
 
     } catch (error) {
       const operationTime = performance.now() - startTime;
-      logError('🚨 CRISIS DATA STORAGE ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 CRISIS DATA STORAGE ERROR:', error instanceof Error ? error : new Error(String(error)));
 
       // Log failure
       await this.logStorageAccess({
@@ -306,7 +312,7 @@ export class SecureStorageService {
         operationTimeMs: operationTime,
         dataSize: 0,
         userContext,
-        error: error.message
+        error: (error instanceof Error ? error.message : String(error))
       });
 
       return {
@@ -315,7 +321,7 @@ export class SecureStorageService {
         storageKey: `${SECURE_STORAGE_CONFIG.CRISIS_PREFIX}${key}`,
         operationTimeMs: operationTime,
         dataSize: 0,
-        error: error.message
+        error: (error instanceof Error ? error.message : String(error))
       };
     }
   }
@@ -380,7 +386,7 @@ export class SecureStorageService {
 
       // Validate assessment performance requirement
       if (operationTime > SECURE_STORAGE_CONFIG.ASSESSMENT_ACCESS_THRESHOLD_MS) {
-        logSecurity(`⚠️  Assessment storage slow: ${operationTime.toFixed(2)}ms > ${SECURE_STORAGE_CONFIG.ASSESSMENT_ACCESS_THRESHOLD_MS}ms`);
+        logSecurity('⚠️  Assessment storage slow: ${operationTime.toFixed(2)}ms > ${SECURE_STORAGE_CONFIG.ASSESSMENT_ACCESS_THRESHOLD_MS}ms', 'medium', { component: 'SecurityService' });
       }
 
       // Log access
@@ -397,7 +403,10 @@ export class SecureStorageService {
         securityContext: 'assessment_data_storage'
       });
 
-      logPerformance(`📋 Assessment data stored (${assessmentData.type}, ${operationTime.toFixed(2)}ms)`);
+      logPerformance('SecureStorageService.storeAssessmentData', operationTime, {
+        assessmentType: assessmentData.type,
+        tier: 'assessment_tier'
+      });
 
       return {
         success: true,
@@ -410,7 +419,7 @@ export class SecureStorageService {
 
     } catch (error) {
       const operationTime = performance.now() - startTime;
-      logError('🚨 ASSESSMENT DATA STORAGE ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 ASSESSMENT DATA STORAGE ERROR:', error instanceof Error ? error : new Error(String(error)));
 
       // Log failure
       await this.logStorageAccess({
@@ -423,7 +432,7 @@ export class SecureStorageService {
         operationTimeMs: operationTime,
         dataSize: 0,
         userContext,
-        error: error.message
+        error: (error instanceof Error ? error.message : String(error))
       });
 
       return {
@@ -432,7 +441,7 @@ export class SecureStorageService {
         storageKey: `${SECURE_STORAGE_CONFIG.ASSESSMENT_PREFIX}${assessmentId}`,
         operationTimeMs: operationTime,
         dataSize: 0,
-        error: error.message
+        error: (error instanceof Error ? error.message : String(error))
       };
     }
   }
@@ -478,7 +487,7 @@ export class SecureStorageService {
 
       // Critical: Crisis data access must be fast
       if (operationTime > SECURE_STORAGE_CONFIG.CRISIS_ACCESS_THRESHOLD_MS) {
-        logError(`🚨 CRISIS DATA ACCESS TOO SLOW: ${operationTime.toFixed(2)}ms > ${SECURE_STORAGE_CONFIG.CRISIS_ACCESS_THRESHOLD_MS}ms`);
+        logError(LogCategory.SYSTEM, `CRISIS DATA ACCESS TOO SLOW: ${operationTime.toFixed(2)}ms > ${SECURE_STORAGE_CONFIG.CRISIS_ACCESS_THRESHOLD_MS}ms`);
       }
 
       // Log access
@@ -495,7 +504,9 @@ export class SecureStorageService {
         securityContext: 'crisis_data_retrieval'
       });
 
-      logPerformance(`🚨 Crisis data retrieved (${operationTime.toFixed(2)}ms)`);
+      logPerformance('SecureStorageService.retrieveCrisisData', operationTime, {
+        tier: 'crisis_tier'
+      });
 
       return {
         data: decryptedData,
@@ -515,7 +526,7 @@ export class SecureStorageService {
 
     } catch (error) {
       const operationTime = performance.now() - startTime;
-      logError('🚨 CRISIS DATA RETRIEVAL ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 CRISIS DATA RETRIEVAL ERROR:', error instanceof Error ? error : new Error(String(error)));
 
       // Log failure
       await this.logStorageAccess({
@@ -528,7 +539,7 @@ export class SecureStorageService {
         operationTimeMs: operationTime,
         dataSize: 0,
         userContext,
-        error: error.message
+        error: (error instanceof Error ? error.message : String(error))
       });
 
       throw error;
@@ -586,7 +597,9 @@ export class SecureStorageService {
         securityContext: 'assessment_data_retrieval'
       });
 
-      logPerformance(`📋 Assessment data retrieved (${operationTime.toFixed(2)}ms)`);
+      logPerformance('SecureStorageService.retrieveAssessmentData', operationTime, {
+        tier: 'assessment_tier'
+      });
 
       return {
         data: decryptedData,
@@ -606,7 +619,7 @@ export class SecureStorageService {
 
     } catch (error) {
       const operationTime = performance.now() - startTime;
-      logError('🚨 ASSESSMENT DATA RETRIEVAL ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 ASSESSMENT DATA RETRIEVAL ERROR:', error instanceof Error ? error : new Error(String(error)));
 
       // Log failure
       await this.logStorageAccess({
@@ -619,7 +632,7 @@ export class SecureStorageService {
         operationTimeMs: operationTime,
         dataSize: 0,
         userContext,
-        error: error.message
+        error: (error instanceof Error ? error.message : String(error))
       });
 
       throw error;
@@ -714,7 +727,7 @@ export class SecureStorageService {
             storageKey: item.key,
             operationTimeMs: 0,
             dataSize: 0,
-            error: error.message
+            error: (error instanceof Error ? error.message : String(error))
           };
         }
       });
@@ -726,7 +739,7 @@ export class SecureStorageService {
 
       // Validate bulk operation performance
       if (totalOperationTime > SECURE_STORAGE_CONFIG.BULK_OPERATION_THRESHOLD_MS) {
-        logSecurity(`⚠️  Bulk operation slow: ${totalOperationTime.toFixed(2)}ms > ${SECURE_STORAGE_CONFIG.BULK_OPERATION_THRESHOLD_MS}ms`);
+        logSecurity('⚠️  Bulk operation slow: ${totalOperationTime.toFixed(2)}ms > ${SECURE_STORAGE_CONFIG.BULK_OPERATION_THRESHOLD_MS}ms', 'medium', { component: 'SecurityService' });
       }
 
       // Log bulk operation
@@ -743,13 +756,16 @@ export class SecureStorageService {
         securityContext: 'bulk_storage_operation'
       });
 
-      logPerformance(`📦 Bulk ${operation.operationType} completed (${operation.items.length} items, ${totalOperationTime.toFixed(2)}ms)`);
+      logPerformance('SecureStorageService.bulkOperation', totalOperationTime, {
+        operationType: operation.operationType,
+        itemCount: operation.items.length
+      });
 
       return results;
 
     } catch (error) {
       const operationTime = performance.now() - startTime;
-      logError('🚨 BULK OPERATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 BULK OPERATION ERROR:', error instanceof Error ? error : new Error(String(error)));
 
       // Log failure
       await this.logStorageAccess({
@@ -762,7 +778,7 @@ export class SecureStorageService {
         operationTimeMs: operationTime,
         dataSize: 0,
         userContext,
-        error: error.message
+        error: (error instanceof Error ? error.message : String(error))
       });
 
       throw error;
@@ -773,7 +789,7 @@ export class SecureStorageService {
    * GENERAL DATA STORAGE
    * Lower security tiers for non-sensitive data
    */
-  private async storeGeneralData(
+  public async storeGeneralData(
     key: string,
     data: any,
     tier: StorageTier,
@@ -816,12 +832,12 @@ export class SecureStorageService {
         storageKey: `${SECURE_STORAGE_CONFIG.GENERAL_PREFIX}${key}`,
         operationTimeMs: operationTime,
         dataSize: 0,
-        error: error.message
+        error: (error instanceof Error ? error.message : String(error))
       };
     }
   }
 
-  private async retrieveGeneralData(
+  public async retrieveGeneralData(
     key: string,
     userContext?: string
   ): Promise<any | null> {
@@ -841,7 +857,7 @@ export class SecureStorageService {
       }
 
     } catch (error) {
-      logError('🚨 GENERAL DATA RETRIEVAL ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 GENERAL DATA RETRIEVAL ERROR:', error instanceof Error ? error : new Error(String(error)));
       return null;
     }
   }
@@ -919,7 +935,10 @@ export class SecureStorageService {
         securityContext: 'secure_data_deletion'
       });
 
-      logPerformance(`🗑️  Data deleted (${deletedKey || 'not found'}, ${operationTime.toFixed(2)}ms)`);
+      logPerformance('SecureStorageService.deleteData', operationTime, {
+        success: deletedKey !== null,
+        key: deletedKey || 'not_found'
+      });
 
       return {
         success: deletedKey !== null,
@@ -931,7 +950,7 @@ export class SecureStorageService {
 
     } catch (error) {
       const operationTime = performance.now() - startTime;
-      logError('🚨 SECURE DATA DELETION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 SECURE DATA DELETION ERROR:', error instanceof Error ? error : new Error(String(error)));
 
       return {
         success: false,
@@ -939,7 +958,7 @@ export class SecureStorageService {
         storageKey: key,
         operationTimeMs: operationTime,
         dataSize: 0,
-        error: error.message
+        error: (error instanceof Error ? error.message : String(error))
       };
     }
   }
@@ -953,14 +972,14 @@ export class SecureStorageService {
       try {
         await this.performScheduledCleanup();
       } catch (error) {
-        logError('🚨 SCHEDULED CLEANUP ERROR:', error);
+        logError(LogCategory.SECURITY, '🚨 SCHEDULED CLEANUP ERROR:', error instanceof Error ? error : new Error(String(error)));
       }
     }, SECURE_STORAGE_CONFIG.AUTO_CLEANUP_INTERVAL_MS);
   }
 
   private async performScheduledCleanup(): Promise<void> {
     try {
-      logPerformance('🧹 Performing scheduled storage cleanup...');
+      console.log('🧹 Performing scheduled storage cleanup...');
 
       let cleanedCount = 0;
       const currentTime = Date.now();
@@ -980,10 +999,10 @@ export class SecureStorageService {
       // Clean up old audit logs
       await this.cleanupAuditLogs();
 
-      logPerformance(`✅ Cleanup completed (${cleanedCount} items removed)`);
+      console.log(`✅ Cleanup completed (${cleanedCount} items removed)`);
 
     } catch (error) {
-      logError('🚨 CLEANUP ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 CLEANUP ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -999,7 +1018,7 @@ export class SecureStorageService {
       }
 
     } catch (error) {
-      logError('🚨 AUDIT LOG CLEANUP ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 AUDIT LOG CLEANUP ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -1015,11 +1034,11 @@ export class SecureStorageService {
       if (metadataString) {
         const metadataArray: Array<[string, SecureStorageMetadata]> = JSON.parse(metadataString);
         this.metadataCache = new Map(metadataArray);
-        logPerformance(`📋 Loaded ${this.metadataCache.size} metadata entries`);
+        console.log(`📋 Loaded ${this.metadataCache.size} metadata entries`);
       }
 
     } catch (error) {
-      logError('🚨 METADATA LOADING ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 METADATA LOADING ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -1033,7 +1052,7 @@ export class SecureStorageService {
       await AsyncStorage.setItem('storage_metadata_index', JSON.stringify(metadataArray));
 
     } catch (error) {
-      logError('🚨 METADATA STORAGE ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 METADATA STORAGE ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -1046,7 +1065,7 @@ export class SecureStorageService {
       await AsyncStorage.setItem('storage_metadata_index', JSON.stringify(metadataArray));
 
     } catch (error) {
-      logError('🚨 METADATA DELETION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 METADATA DELETION ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -1073,7 +1092,7 @@ export class SecureStorageService {
 
   private async verifyStorageCapabilities(): Promise<void> {
     try {
-      logPerformance('🔍 Verifying storage capabilities...');
+      console.log('🔍 Verifying storage capabilities...');
 
       // Test SecureStore
       const testKey = 'storage_capability_test';
@@ -1096,10 +1115,10 @@ export class SecureStorageService {
         throw new Error('AsyncStorage capability test failed');
       }
 
-      logPerformance('✅ Storage capabilities verified');
+      console.log('✅ Storage capabilities verified');
 
     } catch (error) {
-      logError('🚨 STORAGE CAPABILITY VERIFICATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 STORAGE CAPABILITY VERIFICATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -1124,7 +1143,7 @@ export class SecureStorageService {
       }
 
     } catch (error) {
-      logError('🚨 ACCESS LOGGING ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 ACCESS LOGGING ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -1198,14 +1217,14 @@ export class SecureStorageService {
       };
 
     } catch (error) {
-      logError('🚨 STORAGE EXPORT ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 STORAGE EXPORT ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
 
   public async destroy(): Promise<void> {
     try {
-      logPerformance('🗑️  Destroying secure storage service...');
+      console.log('🗑️  Destroying secure storage service...');
 
       // Clear cleanup timer
       if (this.cleanupTimer) {
@@ -1222,10 +1241,10 @@ export class SecureStorageService {
 
       this.initialized = false;
 
-      logPerformance('✅ Secure storage service destroyed');
+      console.log('✅ Secure storage service destroyed');
 
     } catch (error) {
-      logError('🚨 SECURE STORAGE DESTRUCTION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 SECURE STORAGE DESTRUCTION ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }

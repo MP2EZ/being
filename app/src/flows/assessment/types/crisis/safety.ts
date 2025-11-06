@@ -23,6 +23,10 @@ export const CRISIS_SAFETY_THRESHOLDS = {
   PHQ9_SEVERE_THRESHOLD: 20,
   /** GAD-7 Severe Anxiety Score - Immediate Intervention */
   GAD7_SEVERE_THRESHOLD: 15,
+  /** PHQ-9 Crisis Score (alias for severe threshold) - Backward Compatibility */
+  PHQ9_CRISIS_SCORE: 20,
+  /** GAD-7 Crisis Score (alias for severe threshold) - Backward Compatibility */
+  GAD7_CRISIS_SCORE: 15,
   /** PHQ-9 Suicidal Ideation Question ID */
   PHQ9_SUICIDAL_QUESTION_ID: 'phq9_9',
   /** Any non-zero response to suicidal ideation triggers crisis */

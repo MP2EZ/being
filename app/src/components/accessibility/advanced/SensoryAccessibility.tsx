@@ -104,7 +104,7 @@ const COLOR_SCHEMES = {
     background: colorSystem.base.white,
     surface: colorSystem.gray[50],
     primary: colorSystem.base.midnightBlue,
-    secondary: colorSystem.base.teal,
+    secondary: colorSystem.themes.midday.primary,
     text: colorSystem.base.midnightBlue,
     textSecondary: colorSystem.gray[600],
     border: colorSystem.gray[300],
@@ -253,7 +253,7 @@ export const SensoryAccessibilityProvider: React.FC<SensoryAccessibilityProvider
           reduceMotion: reduceMotion || prev.reduceMotion,
         }));
       } catch (error) {
-        logSecurity('Could not check accessibility preferences:', error);
+        logSecurity('Could not check accessibility preferences:', 'medium', { error });
       }
     };
 
@@ -330,7 +330,7 @@ export const SensoryAccessibilityProvider: React.FC<SensoryAccessibilityProvider
     // Check if flash would exceed threshold (simplified check)
     const threshold = thresholds[intensity];
     if (threshold > 3) {
-      logSecurity('Flash animation blocked to prevent seizures');
+      logSecurity('Flash animation blocked to prevent seizures', 'low');
       return false;
     }
     
@@ -588,11 +588,11 @@ export const useColorContrastValidator = () => {
       const g = (rgb >> 8) & 255;
       const b = rgb & 255;
       
-      const [rs, gs, bs] = [r, g, b].map(c => {
+      const [rs = 0, gs = 0, bs = 0] = [r, g, b].map(c => {
         c = c / 255;
         return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
       });
-      
+
       return 0.2126 * rs + 0.7152 * gs + 0.0722 * bs;
     };
 

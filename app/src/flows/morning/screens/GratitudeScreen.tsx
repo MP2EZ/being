@@ -28,17 +28,17 @@ import {
   ScrollView,
   StyleSheet,
 } from 'react-native';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { StackScreenProps } from '@react-navigation/stack';
 import type { MorningFlowParamList } from '../../../types/flows';
 import type { GratitudeData, GratitudeItem } from '../../../types/flows';
 
-type Props = NativeStackScreenProps<MorningFlowParamList, 'Gratitude'> & {
+type Props = StackScreenProps<MorningFlowParamList, 'Gratitude'> & {
   onSave?: (data: GratitudeData) => void;
 };
 
 const GratitudeScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
   // FEAT-23: Restore initial data if resuming session
-  const initialData = route.params?.initialData as GratitudeData | undefined;
+  const initialData = (route.params as any)?.initialData as GratitudeData | undefined;
 
   // Debug logging
   if (initialData) {

@@ -33,12 +33,12 @@ import {
   StyleSheet,
   Modal,
 } from 'react-native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { StackNavigationProp } from '@react-navigation/stack';
 import type { RouteProp } from '@react-navigation/native';
 import type { EveningFlowParamList, SelfCompassionData } from '../../../types/flows';
 import { CollapsibleCrisisButton } from '../../shared/components/CollapsibleCrisisButton';
 
-type SelfCompassionScreenNavigationProp = NativeStackNavigationProp<
+type SelfCompassionScreenNavigationProp = StackNavigationProp<
   EveningFlowParamList,
   'SelfCompassion'
 >;
@@ -57,7 +57,7 @@ const EVENING_COLOR = '#4A7C59';
 
 const SelfCompassionScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
   // FEAT-23: Restore initial data if resuming session
-  const initialData = route.params?.initialData as SelfCompassionData | undefined;
+  const initialData = (route.params as any)?.initialData as SelfCompassionData | undefined;
 
   // Debug logging
   if (initialData) {

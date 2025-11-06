@@ -110,7 +110,7 @@ export const GAD7_QUESTIONS: GAD7Question[] = [
   }
 ];
 
-// Assessment Instructions (MBCT-Compliant)
+// Assessment Instructions (Evidence-Based)
 export const ASSESSMENT_INSTRUCTIONS = {
   PHQ9: {
     title: 'Mood Assessment',

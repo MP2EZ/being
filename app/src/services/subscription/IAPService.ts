@@ -268,9 +268,9 @@ class IAPServiceClass {
    */
   async verifyReceipt(receiptData: string, platform: 'apple' | 'google', purchaseToken?: string): Promise<{
     valid: boolean;
-    subscriptionId?: string;
-    expiresDate?: number;
-    error?: string;
+    subscriptionId?: string | undefined;
+    expiresDate?: number | undefined;
+    error?: string | undefined;
   }> {
     try {
       console.log('[IAP] Verifying receipt...', { platform, mockMode: this.mockMode });

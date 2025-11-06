@@ -5,7 +5,7 @@
  * - PHQ-9/GAD-7 score display with clinical accuracy
  * - Crisis intervention triggers (PHQ-9 ≥20, GAD-7 ≥15)
  * - Suicidal ideation detection (PHQ-9 Question 9 >0)
- * - MBCT therapeutic language and guidance
+ * - Therapeutic language and guidance
  * - <200ms crisis response time (CRITICAL)
  * - Professional support resources and next steps
  * - Proper focus management and keyboard navigation
@@ -96,7 +96,10 @@ const AssessmentResults: React.FC<AssessmentResultsProps> = ({
     
     const responseTime = performance.now() - startTime;
     if (responseTime > 50) {
-      logSecurity(`🚨 Crisis detection time: ${responseTime}ms (target: <50ms)`);
+      logSecurity('Crisis detection time exceeded', 'high', {
+        responseTime,
+        threshold: 50
+      });
     }
     
     return { isCrisis, crisisType, responseTime };
@@ -223,7 +226,10 @@ const AssessmentResults: React.FC<AssessmentResultsProps> = ({
         
         const alertTime = performance.now() - startTime;
         if (alertTime > 200) {
-          logSecurity(`🚨 Crisis alert time: ${alertTime}ms (target: <200ms)`);
+          logSecurity('Crisis alert time exceeded', 'high', {
+            alertTime,
+            threshold: 200
+          });
         }
       }, 100); // Small delay for UI rendering
     }
@@ -236,7 +242,10 @@ const AssessmentResults: React.FC<AssessmentResultsProps> = ({
     
     const responseTime = performance.now() - startTime;
     if (responseTime > 100) {
-      logSecurity(`⚠️ Results completion time: ${responseTime}ms (target: <100ms)`);
+      logSecurity('Results completion time exceeded', 'medium', {
+        responseTime,
+        threshold: 100
+      });
     }
   }, [onComplete]);
 
@@ -291,7 +300,6 @@ const AssessmentResults: React.FC<AssessmentResultsProps> = ({
               <Text 
                 style={styles.assessmentTitle}
                 accessibilityRole="header"
-                accessibilityLevel={2}
               >
                 {assessmentType === 'phq9' ? 'PHQ-9 Depression Assessment' : 'GAD-7 Anxiety Assessment'}
               </Text>
@@ -308,7 +316,6 @@ const AssessmentResults: React.FC<AssessmentResultsProps> = ({
             <Text 
               style={[styles.severityTitle, { color: scoreInterpretation.color }]}
               accessibilityRole="header"
-              accessibilityLevel={3}
             >
               {scoreInterpretation.title}
             </Text>
@@ -331,7 +338,6 @@ const AssessmentResults: React.FC<AssessmentResultsProps> = ({
             <Text 
               style={styles.guidanceTitle}
               accessibilityRole="header"
-              accessibilityLevel={3}
             >
               Mindful Reflection & Next Steps
             </Text>
@@ -342,20 +348,19 @@ const AssessmentResults: React.FC<AssessmentResultsProps> = ({
               {scoreInterpretation.guidance}
             </Text>
             
-            {/* MBCT-inspired guidance */}
-            <View style={[styles.mbctContainer, { 
+            {/* evidence-based guidance */}
+            <View style={[styles.therapeuticContainer, { 
               backgroundColor: themeColors.light,
               borderLeftColor: themeColors.primary,
             }]}>
               <Text 
-                style={styles.mbctTitle}
+                style={styles.therapeuticTitle}
                 accessibilityRole="header"
-                accessibilityLevel={4}
               >
                 Mindful Approach
               </Text>
               <Text 
-                style={styles.mbctText}
+                style={styles.therapeuticText}
                 accessibilityRole="text"
               >
                 Remember that these results are a snapshot of your current experience. 
@@ -375,13 +380,12 @@ const AssessmentResults: React.FC<AssessmentResultsProps> = ({
           >
             <View 
               style={styles.resourcesContainer}
-              accessibilityRole="group"
+              
               accessibilityLabel="Professional support resources"
             >
               <Text 
                 style={styles.resourcesTitle}
                 accessibilityRole="header"
-                accessibilityLevel={3}
               >
                 Professional Support
               </Text>
@@ -410,13 +414,12 @@ const AssessmentResults: React.FC<AssessmentResultsProps> = ({
         >
           <View 
             style={styles.summaryContainer}
-            accessibilityRole="group"
+            
             accessibilityLabel="Assessment summary"
           >
             <Text 
               style={styles.summaryTitle}
               accessibilityRole="header"
-              accessibilityLevel={3}
             >
               Assessment Summary
             </Text>
@@ -575,18 +578,18 @@ const styles = StyleSheet.create({
     color: colorSystem.accessibility.text.primary,
     lineHeight: typography.bodyRegular.size * 1.5,
   },
-  mbctContainer: {
+  therapeuticContainer: {
     padding: spacing.md,
     borderRadius: 12,
     borderLeftWidth: 4,
   },
-  mbctTitle: {
+  therapeuticTitle: {
     fontSize: typography.bodyLarge.size,
     fontWeight: '600',
     color: colorSystem.accessibility.text.primary,
     marginBottom: spacing.sm,
   },
-  mbctText: {
+  therapeuticText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.bodyRegular.weight,
     color: colorSystem.accessibility.text.primary,

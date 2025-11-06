@@ -32,9 +32,9 @@ import { crisisAnalyticsService } from '../services/crisis/CrisisAnalyticsServic
 
 export interface CopingStrategy {
   strategy: string;
-  effectiveness?: 1 | 2 | 3 | 4 | 5;
-  lastUsed?: number;
-  timesUsed?: number;
+  effectiveness?: (1 | 2 | 3 | 4 | 5) | undefined;
+  lastUsed?: number | undefined;
+  timesUsed?: number | undefined;
 }
 
 export interface PersonalContact {
@@ -233,7 +233,7 @@ export const useCrisisPlanStore = create<CrisisPlanStore>((set, get) => ({
         set({ crisisPlan, isLoading: false });
 
         const loadTime = performance.now() - startTime;
-        logPerformance('Crisis plan loaded', { loadTime }, LogCategory.Crisis);
+        console.log('Crisis plan loaded', loadTime, { category: 'storage', target: 500 });
 
         return;
       }
@@ -241,7 +241,7 @@ export const useCrisisPlanStore = create<CrisisPlanStore>((set, get) => ({
       // No plan exists
       set({ crisisPlan: null, isLoading: false });
     } catch (error) {
-      logError('Failed to load crisis plan', { error }, LogCategory.Crisis);
+      logError(LogCategory.CRISIS, 'Failed to load crisis plan', error instanceof Error ? error : new Error(String(error)));
       set({ error: 'Failed to load crisis plan', isLoading: false });
     }
   },
@@ -268,12 +268,13 @@ export const useCrisisPlanStore = create<CrisisPlanStore>((set, get) => ({
       // Track analytics
       await crisisAnalyticsService.trackEvent('crisis_plan_created');
 
-      logSecurity('Crisis plan created', {
-        planId: crisisPlan.id,
-        consentGiven: userConsent
-      }, LogCategory.Crisis);
+      logSecurity('Crisis plan created', 'low', {
+        component: 'CrisisPlanStore',
+        action: 'create',
+        result: 'success'
+      });
     } catch (error) {
-      logError('Failed to create crisis plan', { error }, LogCategory.Crisis);
+      logError(LogCategory.CRISIS, 'Failed to create crisis plan', error instanceof Error ? error : new Error(String(error)));
       set({ error: 'Failed to create crisis plan', isLoading: false });
     }
   },
@@ -309,7 +310,7 @@ export const useCrisisPlanStore = create<CrisisPlanStore>((set, get) => ({
         SecureStore.setItemAsync(SECURE_STORAGE_KEY, JSON.stringify(updatedPlan))
           .then(() => resolve())
           .catch(error => {
-            logError('Failed to auto-save crisis plan', { error }, LogCategory.Crisis);
+            logError(LogCategory.CRISIS, 'Failed to auto-save crisis plan', error instanceof Error ? error : new Error(String(error)));
             resolve();
           });
       } else {
@@ -329,9 +330,13 @@ export const useCrisisPlanStore = create<CrisisPlanStore>((set, get) => ({
       // Track analytics
       await crisisAnalyticsService.trackEvent('crisis_plan_deleted');
 
-      logSecurity('Crisis plan deleted', {}, LogCategory.Crisis);
+      logSecurity('Crisis plan deleted', 'low', {
+        component: 'CrisisPlanStore',
+        action: 'delete',
+        result: 'success'
+      });
     } catch (error) {
-      logError('Failed to delete crisis plan', { error }, LogCategory.Crisis);
+      logError(LogCategory.CRISIS, 'Failed to delete crisis plan', error instanceof Error ? error : new Error(String(error)));
       set({ error: 'Failed to delete crisis plan' });
     }
   },
@@ -413,7 +418,7 @@ export const useCrisisPlanStore = create<CrisisPlanStore>((set, get) => ({
     if (!crisisPlan) return;
 
     const updated = [...crisisPlan.copingStrategies];
-    updated[index] = { ...updated[index], effectiveness };
+    updated[index] = { ...updated[index], effectiveness } as CopingStrategy;
     await updateCrisisPlan({ copingStrategies: updated });
   },
 
@@ -428,8 +433,8 @@ export const useCrisisPlanStore = create<CrisisPlanStore>((set, get) => ({
     updated[index] = {
       ...updated[index],
       lastUsed: Date.now(),
-      timesUsed: (updated[index].timesUsed || 0) + 1
-    };
+      timesUsed: (updated[index]!.timesUsed || 0) + 1
+    } as CopingStrategy;
     await updateCrisisPlan({ copingStrategies: updated });
 
     // Track analytics
@@ -607,10 +612,11 @@ export const useCrisisPlanStore = create<CrisisPlanStore>((set, get) => ({
       timesActivated: (crisisPlan.timesActivated || 0) + 1
     });
 
-    logSecurity('Safety plan activated', {
-      planId: crisisPlan.id,
-      timesActivated: (crisisPlan.timesActivated || 0) + 1
-    }, LogCategory.Crisis);
+    logSecurity('Safety plan activated', 'medium', {
+      component: 'CrisisPlanStore',
+      action: 'activate',
+      result: 'success'
+    });
   },
 
   /**
@@ -624,7 +630,7 @@ export const useCrisisPlanStore = create<CrisisPlanStore>((set, get) => ({
       lastEffectivenessRating: effectiveness
     });
 
-    logPerformance('Safety plan effectiveness recorded', { effectiveness }, LogCategory.Crisis);
+    // Effectiveness recorded - no performance measurement needed
   },
 
   /**

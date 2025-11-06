@@ -97,7 +97,7 @@ const AssessmentIntegrationExample: React.FC = () => {
       // Simulate crisis detection for demonstration
       setTimeout(() => {
         performance.recordCrisisDetection(150); // Good performance
-        logPerformance('🚨 Demo: Crisis detection simulated');
+        console.log('🚨 Demo: Crisis detection simulated');
       }, 3000);
     }
   }, [demoSettings.simulateCrisis, isRunning, performance]);
@@ -107,20 +107,20 @@ const AssessmentIntegrationExample: React.FC = () => {
       // Simulate performance issues for demonstration
       setTimeout(() => {
         performance.recordCrisisDetection(250); // Poor performance
-        logSecurity('⚠️ Demo: Performance issue simulated');
+        logSecurity('⚠️ Demo: Performance issue simulated', 'low');
       }, 5000);
     }
   }, [demoSettings.simulateErrors, isRunning, performance]);
 
   // Handle assessment completion
   const handleAssessmentComplete = useCallback((result: PHQ9Result | GAD7Result) => {
-    logPerformance('✅ Assessment completed:', result);
+    console.log('✅ Assessment completed:', result);
     setResults(prev => [...prev, result]);
     setIsRunning(false);
 
     // Generate performance report
     const report = performance.getPerformanceReport();
-    logPerformance('📊 Final Performance Report:', report);
+    console.log('📊 Final Performance Report:', report);
 
     Alert.alert(
       '✅ Assessment Complete',
@@ -131,14 +131,14 @@ const AssessmentIntegrationExample: React.FC = () => {
 
   // Handle assessment cancellation
   const handleAssessmentCancel = useCallback(() => {
-    logPerformance('❌ Assessment cancelled');
+    console.log('❌ Assessment cancelled');
     setIsRunning(false);
     performance.resetMetrics();
   }, [performance]);
 
   // Start assessment demo
   const startAssessmentDemo = useCallback(() => {
-    logPerformance('🚀 Starting assessment integration demo');
+    console.log('🚀 Starting assessment integration demo');
     setIsRunning(true);
     performance.resetMetrics();
     

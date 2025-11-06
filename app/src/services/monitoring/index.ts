@@ -13,7 +13,29 @@
  * import { errorMonitoringService, trackCrisisError, trackSyncError } from '@/services/monitoring';
  */
 
-// Core Error Monitoring Service
+// Import for internal use and re-export
+import {
+  ErrorMonitoringService,
+  errorMonitoringService,
+  ErrorSeverity,
+  ErrorCategory,
+  trackError,
+  trackCrisisError
+} from './ErrorMonitoringService';
+
+import {
+  crisisMonitoringService,
+  initializeCrisisMonitoring
+} from './CrisisMonitoringService';
+
+import {
+  logError,
+  logSecurity,
+  logCrisis,
+  LogCategory
+} from '../logging';
+
+// Core Error Monitoring Service - Re-export
 export {
   ErrorMonitoringService,
   errorMonitoringService,
@@ -44,7 +66,10 @@ export {
 // Re-export crisis monitoring service for safety oversight
 export {
   crisisMonitoringService,
-  initializeCrisisMonitoring,
+  initializeCrisisMonitoring
+} from './CrisisMonitoringService';
+
+export type {
   CrisisMonitoringMetrics,
   CrisisAlert
 } from './CrisisMonitoringService';
@@ -87,7 +112,7 @@ export class MonitoringOrchestrator {
       });
 
     } catch (error) {
-      logError(LogCategory.SECURITY, 'Monitoring orchestrator initialization failed', error);
+      logError(LogCategory.SECURITY, 'Monitoring orchestrator initialization failed', error instanceof Error ? error : undefined);
       throw error;
     }
   }
@@ -142,7 +167,7 @@ export class MonitoringOrchestrator {
       });
 
     } catch (error) {
-      logError(LogCategory.SECURITY, 'Monitoring orchestrator shutdown failed', error);
+      logError(LogCategory.SECURITY, 'Monitoring orchestrator shutdown failed', error instanceof Error ? error : undefined);
     }
   }
 }
@@ -167,7 +192,7 @@ export async function initializeServiceMonitoring(serviceName: string): Promise<
     });
 
   } catch (error) {
-    logError(LogCategory.SECURITY, `Failed to initialize monitoring for ${serviceName}`, error);
+    logError(LogCategory.SECURITY, `Failed to initialize monitoring for ${serviceName}`, error instanceof Error ? error : undefined);
     throw error;
   }
 }
@@ -200,7 +225,7 @@ export function trackServiceError(
 export function escalateCrisisError(
   message: string,
   context?: {
-    detectionTime?: number;
+    detectionTime?: number | undefined;
     assessmentType?: 'PHQ-9' | 'GAD-7';
     interventionTriggered?: boolean;
   }
@@ -215,8 +240,8 @@ export function escalateCrisisError(
   // Also log as crisis event for clinical monitoring
   logCrisis(message, {
     severity: 'critical',
-    interventionType: context?.interventionTriggered ? 'automated' : 'manual',
-    detectionTime: context?.detectionTime
+    interventionType: context?.interventionTriggered ? 'modal' : 'display',
+    ...(context?.detectionTime !== undefined && { detectionTime: context.detectionTime })
   });
 }
 

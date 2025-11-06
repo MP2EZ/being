@@ -31,17 +31,29 @@ export { default as CrisisErrorBoundary } from '../crisis/CrisisErrorBoundary';
 export { useAssessmentPerformance } from '../../hooks/useAssessmentPerformance';
 
 // Type exports for enhanced integration
+// Note: These types are re-exported from the main types system, not from component files
 export type {
-  // Crisis detection types
   CrisisDetection,
-  HIPAAConsentStatus,
+} from '../../types';
+
+export type {
+  ConsentStatus as HIPAAConsentStatus,
+} from '../../types/compliance/hipaa';
+
+export type {
   EncryptionResult,
+} from '../../types/security/encryption';
+
+// Note: ResponseMetadata, PerformanceMetrics, and PerformanceBudget need to be defined
+// in the types system if they're needed for external consumption.
+// Commenting out until proper type definitions are created.
+/*
+export type {
   ResponseMetadata,
-  
-  // Performance types
   PerformanceMetrics,
   PerformanceBudget,
 } from './EnhancedAssessmentQuestion';
+*/
 
 // Integration utilities
 export const INTEGRATION_VERSION = '2.0.0';

@@ -67,7 +67,7 @@ class QuestionCache {
 
   static setCachedQuestion(questionId: string, questionData: any): void {
     if (this.cache.size >= this.MAX_CACHE_SIZE) {
-      const firstKey = this.cache.keys().next().value;
+      const firstKey = this.cache.keys().next().value!;
       this.cache.delete(firstKey);
     }
     this.cache.set(questionId, questionData);
@@ -118,7 +118,7 @@ class StateBatchProcessor {
       try {
         update();
       } catch (error) {
-        logError('Batch update failed:', error);
+        logError(LogCategory.PERFORMANCE, 'Batch update failed:', error instanceof Error ? error : new Error(String(error)));
       }
     });
   }
@@ -179,7 +179,7 @@ export class AssessmentFlowOptimizer {
     this.sessions.set(sessionId, session);
 
     const initTime = performance.now() - startTime;
-    logPerformance(`Assessment session initialized in ${initTime}ms`);
+    console.log(`Assessment session initialized in ${initTime}ms`);
 
     return session;
   }
@@ -240,7 +240,7 @@ export class AssessmentFlowOptimizer {
       if (this.config.cacheAnswers) {
         // Fast, non-blocking persistence
         this.persistAnswerAsync(sessionId, answer).catch(error => {
-          logError('Answer persistence failed:', error);
+          logError(LogCategory.PERFORMANCE, 'Answer persistence failed:', error instanceof Error ? error : new Error(String(error)));
         });
       }
 
@@ -263,7 +263,10 @@ export class AssessmentFlowOptimizer {
 
       // Performance validation
       if (totalTime > 200) {
-        logSecurity(`Question response exceeded 200ms target: ${totalTime}ms`);
+        logSecurity('Question response exceeded target', 'medium', {
+          totalTime,
+          threshold: 200
+        });
         DeviceEventEmitter.emit('assessment_performance_alert', {
           sessionId,
           questionId,
@@ -283,7 +286,7 @@ export class AssessmentFlowOptimizer {
       return { success: true, metrics };
 
     } catch (error) {
-      logError('Optimized answer processing failed:', error);
+      logError(LogCategory.PERFORMANCE, 'Optimized answer processing failed:', error instanceof Error ? error : new Error(String(error)));
       const totalTime = performance.now() - startTime;
 
       const errorMetrics: AssessmentFlowMetrics = {
@@ -331,7 +334,7 @@ export class AssessmentFlowOptimizer {
       const key = `answer_${sessionId}_${answer.questionId}`;
       await AsyncStorage.default.setItem(key, JSON.stringify(answer));
     } catch (error) {
-      logError('Async answer persistence failed:', error);
+      logError(LogCategory.PERFORMANCE, 'Async answer persistence failed:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -366,7 +369,7 @@ export class AssessmentFlowOptimizer {
           session.answers.set(answerData.questionId, answer);
           processedCount++;
         } catch (error) {
-          logError(`Failed to process answer ${answerData.questionId}:`, error);
+          logError(LogCategory.PERFORMANCE, `Failed to process answer ${answerData.questionId}:`, error instanceof Error ? error : new Error(String(error)));
           failedAnswers.push(answerData.questionId);
         }
       }
@@ -377,7 +380,7 @@ export class AssessmentFlowOptimizer {
       // Batch persistence
       if (this.config.cacheAnswers) {
         this.persistBatchAnswersAsync(sessionId, answers).catch(error => {
-          logError('Batch persistence failed:', error);
+          logError(LogCategory.PERFORMANCE, 'Batch persistence failed:', error instanceof Error ? error : new Error(String(error)));
         });
       }
 
@@ -385,13 +388,17 @@ export class AssessmentFlowOptimizer {
 
       // Performance validation
       if (totalTime > 500) {
-        logSecurity(`Batch processing exceeded 500ms target: ${totalTime}ms for ${answers.length} answers`);
+        logSecurity('Batch processing exceeded target', 'medium', {
+          totalTime,
+          threshold: 500,
+          answerCount: answers.length
+        });
       }
 
       return { processedCount, totalTime, failedAnswers };
 
     } catch (error) {
-      logError('Batch answer processing failed:', error);
+      logError(LogCategory.PERFORMANCE, 'Batch answer processing failed:', error instanceof Error ? error : new Error(String(error)));
       const totalTime = performance.now() - startTime;
       return { processedCount, totalTime, failedAnswers: answers.map(a => a.questionId) };
     }
@@ -413,11 +420,11 @@ export class AssessmentFlowOptimizer {
           response: a.response,
           timestamp: Date.now()
         })
-      ]);
+      ] as [string, string]);
 
       await AsyncStorage.default.multiSet(batchData);
     } catch (error) {
-      logError('Batch answer persistence failed:', error);
+      logError(LogCategory.PERFORMANCE, 'Batch answer persistence failed:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -488,7 +495,7 @@ export class AssessmentFlowOptimizer {
    */
   static configureOptimizations(config: Partial<AssessmentCacheConfig>): void {
     this.config = { ...this.config, ...config };
-    logPerformance('Assessment flow optimizer configured:', this.config);
+    console.log('Assessment flow optimizer configured:', this.config);
   }
 
   /**
@@ -500,7 +507,7 @@ export class AssessmentFlowOptimizer {
       // Clear preloaded questions to free memory
       session.preloadedQuestions.clear();
       this.sessions.delete(sessionId);
-      logPerformance(`Session ${sessionId} cleaned up`);
+      console.log(`Session ${sessionId} cleaned up`);
     }
   }
 
@@ -512,7 +519,7 @@ export class AssessmentFlowOptimizer {
     this.performanceHistory = [];
     QuestionCache.clear();
     StateBatchProcessor.clear();
-    logPerformance('Assessment flow optimizer reset');
+    console.log('Assessment flow optimizer reset');
   }
 
   /**

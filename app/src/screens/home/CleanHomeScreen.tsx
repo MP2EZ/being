@@ -1,7 +1,7 @@
 /**
  * Clean Home Screen - Fresh start implementation
  * Shows three DRD-compliant check-in cards without crypto dependencies
- * Integrated with MBCT flow navigation
+ * Integrated with check-in flow navigation
  */
 
 import React from 'react';
@@ -43,7 +43,7 @@ const CleanHomeScreen: React.FC = () => {
         navigation.navigate('MorningFlow');
         break;
       case 'midday':
-        // Navigate to MBCT 3-Minute Breathing Space
+        // Navigate to 3-Minute Breathing Space
         navigation.navigate('MiddayFlow');
         break;
       case 'evening':

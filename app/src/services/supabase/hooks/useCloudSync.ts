@@ -108,7 +108,7 @@ export function useCloudSync(): UseCloudSyncReturn {
       setHasCloudBackup(restoreInfo.hasBackup);
       setShouldPromptRestore(restoreInfo.shouldPromptRestore);
     } catch (err) {
-      logSecurity('Failed to check for restore:', err);
+      logSecurity('Failed to check for restore:', 'medium', { error: err });
     }
   }, []);
 
@@ -327,7 +327,7 @@ export function useCloudAnalytics() {
       await CloudServices.trackAnalyticsEvent(eventType, properties);
     } catch (error) {
       // Analytics failures should not affect UX
-      logSecurity('Analytics tracking failed:', error);
+      logSecurity('Analytics tracking failed:', 'medium', { error });
     }
   }, []);
 

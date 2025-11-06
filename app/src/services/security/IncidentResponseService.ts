@@ -298,7 +298,7 @@ export class IncidentResponseService {
     const startTime = performance.now();
 
     try {
-      logPerformance('🚨 Initializing Incident Response Service...');
+      console.log('🚨 Initializing Incident Response Service...');
 
       // Initialize all security services
       await this.encryptionService.initialize();
@@ -323,7 +323,9 @@ export class IncidentResponseService {
       this.initialized = true;
 
       const initializationTime = performance.now() - startTime;
-      logPerformance(`✅ Incident Response Service initialized (${initializationTime.toFixed(2)}ms)`);
+      logPerformance('IncidentResponseService.initialize', initializationTime, {
+        status: 'success'
+      });
 
       // Log successful initialization
       await this.logIncidentTimelineEvent('system_initialization', {
@@ -335,8 +337,8 @@ export class IncidentResponseService {
       });
 
     } catch (error) {
-      logError('🚨 INCIDENT RESPONSE INITIALIZATION ERROR:', error);
-      throw new Error(`Incident response initialization failed: ${error.message}`);
+      logError(LogCategory.SECURITY, '🚨 INCIDENT RESPONSE INITIALIZATION ERROR:', error instanceof Error ? error : new Error(String(error)));
+      throw new Error(`Incident response initialization failed: ${(error instanceof Error ? error.message : String(error))}`);
     }
   }
 
@@ -354,7 +356,7 @@ export class IncidentResponseService {
     const detectionStart = performance.now();
 
     try {
-      logPerformance(`🚨 Incident detected: ${incidentType} - ${description}`);
+      console.log(`🚨 Incident detected: ${incidentType} - ${description}`);
 
       if (!this.initialized) {
         throw new Error('Incident response service not initialized');
@@ -394,12 +396,11 @@ export class IncidentResponseService {
 
       // Validate detection and response time
       if (detectionTime > INCIDENT_RESPONSE_CONFIG.DETECTION_THRESHOLD_MS) {
-        logSecurity(`⚠️  Incident detection slow: ${detectionTime.toFixed(2)}ms > ${INCIDENT_RESPONSE_CONFIG.DETECTION_THRESHOLD_MS}ms`);
+        logSecurity('⚠️  Incident detection slow: ${detectionTime.toFixed(2)}ms > ${INCIDENT_RESPONSE_CONFIG.DETECTION_THRESHOLD_MS}ms', 'medium', { component: 'SecurityService' });
       }
 
       // Log incident detection
       await this.addTimelineEvent(incidentRecord.incidentId, {
-        timestamp: Date.now(),
         eventType: 'detection',
         description: `Incident detected and initial response initiated (${detectionTime.toFixed(2)}ms)`,
         actor: 'system',
@@ -407,22 +408,25 @@ export class IncidentResponseService {
         evidence: [`detection_time: ${detectionTime.toFixed(2)}ms`, `severity: ${severity}`]
       });
 
-      logPerformance(`🚨 Incident response initiated (${incidentRecord.incidentId}, severity: ${severity}, ${detectionTime.toFixed(2)}ms)`);
+      logPerformance('IncidentResponseService.initiateResponse', detectionTime, {
+        incidentId: incidentRecord.incidentId,
+        severity
+      });
 
       return incidentRecord.incidentId;
 
     } catch (error) {
       const detectionTime = performance.now() - detectionStart;
-      logError('🚨 INCIDENT DETECTION AND RESPONSE ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 INCIDENT DETECTION AND RESPONSE ERROR:', error instanceof Error ? error : new Error(String(error)));
 
       // Log failed incident response
       await this.logIncidentTimelineEvent('detection_failure', {
         timestamp: Date.now(),
         eventType: 'detection',
-        description: `Incident detection failed: ${error.message}`,
+        description: `Incident detection failed: ${(error instanceof Error ? error.message : String(error))}`,
         actor: 'system',
         outcome: 'failure',
-        evidence: [`error: ${error.message}`, `detection_time: ${detectionTime.toFixed(2)}ms`]
+        evidence: [`error: ${(error instanceof Error ? error.message : String(error))}`, `detection_time: ${detectionTime.toFixed(2)}ms`]
       });
 
       throw error;
@@ -445,7 +449,7 @@ export class IncidentResponseService {
     const responseStart = performance.now();
 
     try {
-      logPerformance(`🚨 CRISIS DATA BREACH: Episode ${crisisEpisodeId}`);
+      console.log(`🚨 CRISIS DATA BREACH: Episode ${crisisEpisodeId}`);
 
       if (!this.initialized) {
         throw new Error('Incident response service not initialized');
@@ -507,12 +511,11 @@ export class IncidentResponseService {
 
       // Critical: Crisis data breach response must be fast
       if (responseTime > INCIDENT_RESPONSE_CONFIG.PROFESSIONAL_NOTIFICATION_MS) {
-        logError(`🚨 CRISIS BREACH RESPONSE TOO SLOW: ${responseTime.toFixed(2)}ms > ${INCIDENT_RESPONSE_CONFIG.PROFESSIONAL_NOTIFICATION_MS}ms`);
+        logError(LogCategory.SYSTEM, `CRISIS BREACH RESPONSE TOO SLOW: ${responseTime.toFixed(2)}ms > ${INCIDENT_RESPONSE_CONFIG.PROFESSIONAL_NOTIFICATION_MS}ms`);
       }
 
       // Log crisis breach response
       await this.addTimelineEvent(incidentRecord.incidentId, {
-        timestamp: Date.now(),
         eventType: 'notification',
         description: `Crisis data breach emergency response completed (${responseTime.toFixed(2)}ms)`,
         actor: 'automated_response',
@@ -521,22 +524,24 @@ export class IncidentResponseService {
         notes: 'Emergency crisis data breach response protocol executed'
       });
 
-      logPerformance(`🚨 Crisis data breach response completed (${incidentRecord.incidentId}, ${responseTime.toFixed(2)}ms)`);
+      logPerformance('IncidentResponseService.respondToCrisisDataBreach', responseTime, {
+        incidentId: incidentRecord.incidentId
+      });
 
       return incidentRecord.incidentId;
 
     } catch (error) {
       const responseTime = performance.now() - responseStart;
-      logError('🚨 CRISIS DATA BREACH RESPONSE ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 CRISIS DATA BREACH RESPONSE ERROR:', error instanceof Error ? error : new Error(String(error)));
 
       // Log failed crisis response
       await this.logIncidentTimelineEvent('crisis_response_failure', {
         timestamp: Date.now(),
         eventType: 'notification',
-        description: `Crisis data breach response failed: ${error.message}`,
+        description: `Crisis data breach response failed: ${(error instanceof Error ? error.message : String(error))}`,
         actor: 'automated_response',
         outcome: 'failure',
-        evidence: [`crisis_episode: ${crisisEpisodeId}`, `error: ${error.message}`, `response_time: ${responseTime.toFixed(2)}ms`]
+        evidence: [`crisis_episode: ${crisisEpisodeId}`, `error: ${(error instanceof Error ? error.message : String(error))}`, `response_time: ${responseTime.toFixed(2)}ms`]
       });
 
       throw error;
@@ -551,7 +556,7 @@ export class IncidentResponseService {
     const containmentStart = performance.now();
 
     try {
-      logPerformance(`🔒 Executing containment procedures for incident: ${incidentId}`);
+      console.log(`🔒 Executing containment procedures for incident: ${incidentId}`);
 
       const incident = this.activeIncidents.get(incidentId);
       if (!incident) {
@@ -590,12 +595,11 @@ export class IncidentResponseService {
 
       // Validate containment performance
       if (containmentTime > INCIDENT_RESPONSE_CONFIG.CONTAINMENT_THRESHOLD_MS) {
-        logSecurity(`⚠️  Containment slow: ${containmentTime.toFixed(2)}ms > ${INCIDENT_RESPONSE_CONFIG.CONTAINMENT_THRESHOLD_MS}ms`);
+        logSecurity('⚠️  Containment slow: ${containmentTime.toFixed(2)}ms > ${INCIDENT_RESPONSE_CONFIG.CONTAINMENT_THRESHOLD_MS}ms', 'medium', { component: 'SecurityService' });
       }
 
       // Log containment completion
       await this.addTimelineEvent(incidentId, {
-        timestamp: Date.now(),
         eventType: 'containment',
         description: `Containment procedures completed (${containmentActions.length} actions, ${containmentTime.toFixed(2)}ms)`,
         actor: 'automated_response',
@@ -603,22 +607,23 @@ export class IncidentResponseService {
         evidence: containmentActions.map(a => `${a.actionType}: ${a.success ? 'success' : 'failed'}`)
       });
 
-      logPerformance(`🔒 Containment completed (${containmentActions.length} actions, ${containmentTime.toFixed(2)}ms)`);
+      logPerformance('IncidentResponseService.executeContainment', containmentTime, {
+        actionCount: containmentActions.length
+      });
 
       return containmentActions;
 
     } catch (error) {
       const containmentTime = performance.now() - containmentStart;
-      logError('🚨 CONTAINMENT EXECUTION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 CONTAINMENT EXECUTION ERROR:', error instanceof Error ? error : new Error(String(error)));
 
       // Log containment failure
       await this.addTimelineEvent(incidentId, {
-        timestamp: Date.now(),
         eventType: 'containment',
-        description: `Containment failed: ${error.message}`,
+        description: `Containment failed: ${(error instanceof Error ? error.message : String(error))}`,
         actor: 'automated_response',
         outcome: 'failure',
-        evidence: [`error: ${error.message}`, `containment_time: ${containmentTime.toFixed(2)}ms`]
+        evidence: [`error: ${(error instanceof Error ? error.message : String(error))}`, `containment_time: ${containmentTime.toFixed(2)}ms`]
       });
 
       throw error;
@@ -631,7 +636,7 @@ export class IncidentResponseService {
    */
   public async sendStakeholderNotifications(incidentId: string): Promise<IncidentNotification[]> {
     try {
-      logPerformance(`📢 Sending stakeholder notifications for incident: ${incidentId}`);
+      console.log(`📢 Sending stakeholder notifications for incident: ${incidentId}`);
 
       const incident = this.activeIncidents.get(incidentId);
       if (!incident) {
@@ -654,7 +659,6 @@ export class IncidentResponseService {
 
       // Log notification completion
       await this.addTimelineEvent(incidentId, {
-        timestamp: Date.now(),
         eventType: 'notification',
         description: `Stakeholder notifications sent (${notifications.length} groups)`,
         actor: 'automated_response',
@@ -662,21 +666,20 @@ export class IncidentResponseService {
         evidence: notifications.map(n => `${n.recipientGroup}: ${n.deliveryStatus}`)
       });
 
-      logPerformance(`📢 Stakeholder notifications completed (${notifications.length} groups)`);
+      console.log(`📢 Stakeholder notifications completed (${notifications.length} groups)`);
 
       return notifications;
 
     } catch (error) {
-      logError('🚨 STAKEHOLDER NOTIFICATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 STAKEHOLDER NOTIFICATION ERROR:', error instanceof Error ? error : new Error(String(error)));
 
       // Log notification failure
       await this.addTimelineEvent(incidentId, {
-        timestamp: Date.now(),
         eventType: 'notification',
-        description: `Stakeholder notification failed: ${error.message}`,
+        description: `Stakeholder notification failed: ${(error instanceof Error ? error.message : String(error))}`,
         actor: 'automated_response',
         outcome: 'failure',
-        evidence: [`error: ${error.message}`]
+        evidence: [`error: ${(error instanceof Error ? error.message : String(error))}`]
       });
 
       throw error;
@@ -689,7 +692,7 @@ export class IncidentResponseService {
    */
   public async processRegulatoryReporting(incidentId: string): Promise<void> {
     try {
-      logPerformance(`📋 Processing regulatory reporting for incident: ${incidentId}`);
+      console.log(`📋 Processing regulatory reporting for incident: ${incidentId}`);
 
       const incident = this.activeIncidents.get(incidentId);
       if (!incident) {
@@ -724,7 +727,6 @@ export class IncidentResponseService {
 
       // Log regulatory reporting preparation
       await this.addTimelineEvent(incidentId, {
-        timestamp: Date.now(),
         eventType: 'reporting',
         description: 'Regulatory reporting requirements assessed and preparation completed',
         actor: 'automated_response',
@@ -736,19 +738,18 @@ export class IncidentResponseService {
         ]
       });
 
-      logPerformance(`📋 Regulatory reporting processed for incident: ${incidentId}`);
+      console.log(`📋 Regulatory reporting processed for incident: ${incidentId}`);
 
     } catch (error) {
-      logError('🚨 REGULATORY REPORTING ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 REGULATORY REPORTING ERROR:', error instanceof Error ? error : new Error(String(error)));
 
       // Log reporting failure
       await this.addTimelineEvent(incidentId, {
-        timestamp: Date.now(),
         eventType: 'reporting',
-        description: `Regulatory reporting failed: ${error.message}`,
+        description: `Regulatory reporting failed: ${(error instanceof Error ? error.message : String(error))}`,
         actor: 'automated_response',
         outcome: 'failure',
-        evidence: [`error: ${error.message}`]
+        evidence: [`error: ${(error instanceof Error ? error.message : String(error))}`]
       });
 
       throw error;
@@ -761,7 +762,7 @@ export class IncidentResponseService {
    */
   public async createRecoveryPlan(incidentId: string): Promise<RecoveryPlan> {
     try {
-      logPerformance(`🔧 Creating recovery plan for incident: ${incidentId}`);
+      console.log(`🔧 Creating recovery plan for incident: ${incidentId}`);
 
       const incident = this.activeIncidents.get(incidentId);
       if (!incident) {
@@ -793,7 +794,6 @@ export class IncidentResponseService {
 
       // Log recovery plan creation
       await this.addTimelineEvent(incidentId, {
-        timestamp: Date.now(),
         eventType: 'recovery',
         description: `Recovery plan created (RTO: ${recoveryPlan.recoveryObjectives.rto}ms, RPO: ${recoveryPlan.recoveryObjectives.rpo}ms)`,
         actor: 'automated_response',
@@ -801,21 +801,20 @@ export class IncidentResponseService {
         evidence: [`plan_id: ${recoveryPlan.planId}`, `steps: ${recoveryPlan.recoverySteps.length}`]
       });
 
-      logPerformance(`🔧 Recovery plan created: ${recoveryPlan.planId}`);
+      console.log(`🔧 Recovery plan created: ${recoveryPlan.planId}`);
 
       return recoveryPlan;
 
     } catch (error) {
-      logError('🚨 RECOVERY PLAN CREATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 RECOVERY PLAN CREATION ERROR:', error instanceof Error ? error : new Error(String(error)));
 
       // Log recovery plan failure
       await this.addTimelineEvent(incidentId, {
-        timestamp: Date.now(),
         eventType: 'recovery',
-        description: `Recovery plan creation failed: ${error.message}`,
+        description: `Recovery plan creation failed: ${(error instanceof Error ? error.message : String(error))}`,
         actor: 'automated_response',
         outcome: 'failure',
-        evidence: [`error: ${error.message}`]
+        evidence: [`error: ${(error instanceof Error ? error.message : String(error))}`]
       });
 
       throw error;
@@ -913,7 +912,7 @@ export class IncidentResponseService {
       return severity;
 
     } catch (error) {
-      logError('🚨 SEVERITY ASSESSMENT ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 SEVERITY ASSESSMENT ERROR:', error instanceof Error ? error : new Error(String(error)));
       return 'high'; // Default to high severity if assessment fails
     }
   }
@@ -963,7 +962,7 @@ export class IncidentResponseService {
       }
 
     } catch (error) {
-      logError('🚨 IMPACT ASSESSMENT ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 IMPACT ASSESSMENT ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -996,7 +995,7 @@ export class IncidentResponseService {
 
   private async executeAutomatedResponse(incident: IncidentRecord): Promise<void> {
     try {
-      logPerformance(`🤖 Executing automated response for incident: ${incident.incidentId}`);
+      console.log(`🤖 Executing automated response for incident: ${incident.incidentId}`);
 
       // Start containment
       await this.initiateContainment(incident);
@@ -1008,7 +1007,7 @@ export class IncidentResponseService {
       incident.responseStatus.mitigationStatus = 'in_progress';
 
     } catch (error) {
-      logError('🚨 AUTOMATED RESPONSE ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 AUTOMATED RESPONSE ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -1022,12 +1021,12 @@ export class IncidentResponseService {
         try {
           await this.executeContainmentProcedures(incident.incidentId);
         } catch (error) {
-          logError('🚨 SCHEDULED CONTAINMENT ERROR:', error);
+          logError(LogCategory.SECURITY, '🚨 SCHEDULED CONTAINMENT ERROR:', error instanceof Error ? error : new Error(String(error)));
         }
       }, 1000); // Execute after 1 second
 
     } catch (error) {
-      logError('🚨 CONTAINMENT INITIATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 CONTAINMENT INITIATION ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -1080,7 +1079,7 @@ export class IncidentResponseService {
 
     } catch (error) {
       action.success = false;
-      action.evidence.push(`Action failed with error: ${error.message}`);
+      action.evidence.push(`Action failed with error: ${(error instanceof Error ? error.message : String(error))}`);
     }
 
     return action;
@@ -1103,10 +1102,10 @@ export class IncidentResponseService {
   private async isolateAffectedSystems(incidentId: string): Promise<boolean> {
     try {
       // Implementation would isolate affected systems
-      logPerformance(`🔒 Isolating affected systems for incident: ${incidentId}`);
+      console.log(`🔒 Isolating affected systems for incident: ${incidentId}`);
       return true;
     } catch (error) {
-      logError('🚨 SYSTEM ISOLATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 SYSTEM ISOLATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       return false;
     }
   }
@@ -1114,11 +1113,11 @@ export class IncidentResponseService {
   private async revokeAccessTokens(incidentId: string): Promise<boolean> {
     try {
       // Implementation would revoke access tokens
-      logPerformance(`🔑 Revoking access tokens for incident: ${incidentId}`);
+      console.log(`🔑 Revoking access tokens for incident: ${incidentId}`);
       await this.authenticationService.logout();
       return true;
     } catch (error) {
-      logError('🚨 TOKEN REVOCATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 TOKEN REVOCATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       return false;
     }
   }
@@ -1126,10 +1125,10 @@ export class IncidentResponseService {
   private async enableEnhancedMonitoring(incidentId: string): Promise<boolean> {
     try {
       // Implementation would enable enhanced monitoring
-      logPerformance(`👀 Enabling enhanced monitoring for incident: ${incidentId}`);
+      console.log(`👀 Enabling enhanced monitoring for incident: ${incidentId}`);
       return true;
     } catch (error) {
-      logError('🚨 ENHANCED MONITORING ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 ENHANCED MONITORING ERROR:', error instanceof Error ? error : new Error(String(error)));
       return false;
     }
   }
@@ -1137,10 +1136,10 @@ export class IncidentResponseService {
   private async patchVulnerabilities(incidentId: string): Promise<boolean> {
     try {
       // Implementation would patch vulnerabilities
-      logPerformance(`🔧 Patching vulnerabilities for incident: ${incidentId}`);
+      console.log(`🔧 Patching vulnerabilities for incident: ${incidentId}`);
       return true;
     } catch (error) {
-      logError('🚨 VULNERABILITY PATCHING ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 VULNERABILITY PATCHING ERROR:', error instanceof Error ? error : new Error(String(error)));
       return false;
     }
   }
@@ -1148,10 +1147,10 @@ export class IncidentResponseService {
   private async resetCredentials(incidentId: string): Promise<boolean> {
     try {
       // Implementation would reset credentials
-      logPerformance(`🔐 Resetting credentials for incident: ${incidentId}`);
+      console.log(`🔐 Resetting credentials for incident: ${incidentId}`);
       return true;
     } catch (error) {
-      logError('🚨 CREDENTIAL RESET ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 CREDENTIAL RESET ERROR:', error instanceof Error ? error : new Error(String(error)));
       return false;
     }
   }
@@ -1159,17 +1158,17 @@ export class IncidentResponseService {
   private async updateSecurityPolicies(incidentId: string): Promise<boolean> {
     try {
       // Implementation would update security policies
-      logPerformance(`📋 Updating security policies for incident: ${incidentId}`);
+      console.log(`📋 Updating security policies for incident: ${incidentId}`);
       return true;
     } catch (error) {
-      logError('🚨 SECURITY POLICY UPDATE ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 SECURITY POLICY UPDATE ERROR:', error instanceof Error ? error : new Error(String(error)));
       return false;
     }
   }
 
   private async sendImmediateNotifications(incident: IncidentRecord): Promise<void> {
     try {
-      logPerformance(`📢 Sending immediate notifications for incident: ${incident.incidentId}`);
+      console.log(`📢 Sending immediate notifications for incident: ${incident.incidentId}`);
 
       // For emergency and critical incidents, send immediate notifications
       if (['emergency', 'critical'].includes(incident.severity)) {
@@ -1177,7 +1176,7 @@ export class IncidentResponseService {
       }
 
     } catch (error) {
-      logError('🚨 IMMEDIATE NOTIFICATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 IMMEDIATE NOTIFICATION ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -1225,13 +1224,13 @@ export class IncidentResponseService {
 
     try {
       // Implementation would send actual notification
-      logPerformance(`📤 Sending notification to ${group} for incident: ${incident.incidentId}`);
+      console.log(`📤 Sending notification to ${group} for incident: ${incident.incidentId}`);
       
       // Simulate successful delivery
       notification.deliveryStatus = 'delivered';
 
     } catch (error) {
-      logError(`🚨 NOTIFICATION DELIVERY ERROR (${group}):`, error);
+      logError(LogCategory.SECURITY, '🚨 NOTIFICATION DELIVERY ERROR (${group}):', error instanceof Error ? error : new Error(String(error)));
       notification.deliveryStatus = 'failed';
     }
 
@@ -1290,7 +1289,7 @@ export class IncidentResponseService {
     crisisEpisodeId: string
   ): Promise<void> {
     try {
-      logPerformance(`🚨 Executing emergency containment for crisis episode: ${crisisEpisodeId}`);
+      console.log(`🚨 Executing emergency containment for crisis episode: ${crisisEpisodeId}`);
 
       // Immediate crisis system lockdown
       await this.crisisSecurityProtocol.performImmediateLockdown(crisisEpisodeId);
@@ -1303,7 +1302,6 @@ export class IncidentResponseService {
 
       // Update incident timeline
       await this.addTimelineEvent(incident.incidentId, {
-        timestamp: Date.now(),
         eventType: 'containment',
         description: `Emergency containment executed for crisis episode ${crisisEpisodeId}`,
         actor: 'automated_response',
@@ -1312,7 +1310,7 @@ export class IncidentResponseService {
       });
 
     } catch (error) {
-      logError('🚨 EMERGENCY CONTAINMENT ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 EMERGENCY CONTAINMENT ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -1322,7 +1320,7 @@ export class IncidentResponseService {
     crisisEpisodeId: string
   ): Promise<void> {
     try {
-      logPerformance(`📞 Sending emergency professional notification for crisis episode: ${crisisEpisodeId}`);
+      console.log(`📞 Sending emergency professional notification for crisis episode: ${crisisEpisodeId}`);
 
       const emergencyNotification: IncidentNotification = {
         notificationId: await this.generateNotificationId(),
@@ -1341,7 +1339,6 @@ export class IncidentResponseService {
 
       // Update incident timeline
       await this.addTimelineEvent(incident.incidentId, {
-        timestamp: Date.now(),
         eventType: 'notification',
         description: `Emergency professional notification sent for crisis episode ${crisisEpisodeId}`,
         actor: 'automated_response',
@@ -1350,7 +1347,7 @@ export class IncidentResponseService {
       });
 
     } catch (error) {
-      logError('🚨 EMERGENCY PROFESSIONAL NOTIFICATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 EMERGENCY PROFESSIONAL NOTIFICATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -1360,7 +1357,7 @@ export class IncidentResponseService {
     crisisEpisodeId: string
   ): Promise<void> {
     try {
-      logPerformance(`🔒 Activating crisis security protocol for episode: ${crisisEpisodeId}`);
+      console.log(`🔒 Activating crisis security protocol for episode: ${crisisEpisodeId}`);
 
       // Activate enhanced crisis monitoring
       await this.crisisSecurityProtocol.startCrisisSecurityMonitoring(crisisEpisodeId);
@@ -1374,7 +1371,6 @@ export class IncidentResponseService {
 
       // Update incident timeline
       await this.addTimelineEvent(incident.incidentId, {
-        timestamp: Date.now(),
         eventType: 'containment',
         description: `Crisis security protocol activated for episode ${crisisEpisodeId}`,
         actor: 'automated_response',
@@ -1383,7 +1379,7 @@ export class IncidentResponseService {
       });
 
     } catch (error) {
-      logError('🚨 CRISIS SECURITY PROTOCOL ACTIVATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 CRISIS SECURITY PROTOCOL ACTIVATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -1393,7 +1389,7 @@ export class IncidentResponseService {
     crisisEpisodeId: string
   ): Promise<void> {
     try {
-      logPerformance(`👥 Assessing patient safety impact for crisis episode: ${crisisEpisodeId}`);
+      console.log(`👥 Assessing patient safety impact for crisis episode: ${crisisEpisodeId}`);
 
       // Set critical patient safety risk for crisis data exposure
       incident.impactAssessment.patientSafetyRisk = 'critical';
@@ -1401,7 +1397,6 @@ export class IncidentResponseService {
 
       // Update incident timeline
       await this.addTimelineEvent(incident.incidentId, {
-        timestamp: Date.now(),
         eventType: 'investigation',
         description: `Patient safety impact assessed for crisis episode ${crisisEpisodeId}: CRITICAL`,
         actor: 'automated_response',
@@ -1410,7 +1405,7 @@ export class IncidentResponseService {
       });
 
     } catch (error) {
-      logError('🚨 PATIENT SAFETY ASSESSMENT ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 PATIENT SAFETY ASSESSMENT ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -1448,61 +1443,61 @@ export class IncidentResponseService {
         professionalCount >= INCIDENT_RESPONSE_CONFIG.LEGAL_REPORTING_THRESHOLDS.professional_board;
 
     } catch (error) {
-      logError('🚨 REGULATORY ASSESSMENT ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 REGULATORY ASSESSMENT ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
   private async prepareHIPAABreachNotification(incident: IncidentRecord): Promise<void> {
     try {
-      logPerformance(`📋 Preparing HIPAA breach notification for incident: ${incident.incidentId}`);
+      console.log(`📋 Preparing HIPAA breach notification for incident: ${incident.incidentId}`);
 
       // HIPAA breach notification preparation would be implemented here
       // For now, log the preparation
 
     } catch (error) {
-      logError('🚨 HIPAA BREACH NOTIFICATION PREPARATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 HIPAA BREACH NOTIFICATION PREPARATION ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
   private async prepareStateAuthorityNotification(incident: IncidentRecord): Promise<void> {
     try {
-      logPerformance(`🏛️  Preparing state authority notification for incident: ${incident.incidentId}`);
+      console.log(`🏛️  Preparing state authority notification for incident: ${incident.incidentId}`);
 
       // State authority notification preparation would be implemented here
       // For now, log the preparation
 
     } catch (error) {
-      logError('🚨 STATE AUTHORITY NOTIFICATION PREPARATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 STATE AUTHORITY NOTIFICATION PREPARATION ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
   private async prepareLawEnforcementNotification(incident: IncidentRecord): Promise<void> {
     try {
-      logPerformance(`👮 Preparing law enforcement notification for incident: ${incident.incidentId}`);
+      console.log(`👮 Preparing law enforcement notification for incident: ${incident.incidentId}`);
 
       // Law enforcement notification preparation would be implemented here
       // For now, log the preparation
 
     } catch (error) {
-      logError('🚨 LAW ENFORCEMENT NOTIFICATION PREPARATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 LAW ENFORCEMENT NOTIFICATION PREPARATION ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
   private async prepareProfessionalBoardNotification(incident: IncidentRecord): Promise<void> {
     try {
-      logPerformance(`🏥 Preparing professional board notification for incident: ${incident.incidentId}`);
+      console.log(`🏥 Preparing professional board notification for incident: ${incident.incidentId}`);
 
       // Professional board notification preparation would be implemented here
       // For now, log the preparation
 
     } catch (error) {
-      logError('🚨 PROFESSIONAL BOARD NOTIFICATION PREPARATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 PROFESSIONAL BOARD NOTIFICATION PREPARATION ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
   private async prepareRegulatoryNotifications(incident: IncidentRecord): Promise<void> {
     try {
-      logPerformance(`📋 Preparing regulatory notifications for incident: ${incident.incidentId}`);
+      console.log(`📋 Preparing regulatory notifications for incident: ${incident.incidentId}`);
 
       // Assess regulatory reporting requirements
       await this.assessRegulatoryReportingRequirements(incident);
@@ -1512,12 +1507,12 @@ export class IncidentResponseService {
         try {
           await this.processRegulatoryReporting(incident.incidentId);
         } catch (error) {
-          logError('🚨 SCHEDULED REGULATORY REPORTING ERROR:', error);
+          logError(LogCategory.SECURITY, '🚨 SCHEDULED REGULATORY REPORTING ERROR:', error instanceof Error ? error : new Error(String(error)));
         }
       }, 5000); // Process after 5 seconds
 
     } catch (error) {
-      logError('🚨 REGULATORY NOTIFICATION PREPARATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 REGULATORY NOTIFICATION PREPARATION ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -1683,15 +1678,15 @@ export class IncidentResponseService {
     try {
       // Load incident history from storage
       // Implementation would load from secure storage
-      logPerformance('📋 Loading incident history...');
+      console.log('📋 Loading incident history...');
     } catch (error) {
-      logError('🚨 INCIDENT HISTORY LOADING ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 INCIDENT HISTORY LOADING ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
   private async setupResponseMonitoring(): Promise<void> {
     try {
-      logPerformance('🔍 Setting up response monitoring...');
+      console.log('🔍 Setting up response monitoring...');
 
       this.responseMonitoringActive = true;
 
@@ -1701,13 +1696,13 @@ export class IncidentResponseService {
       }, 60000); // Check every minute
 
     } catch (error) {
-      logError('🚨 RESPONSE MONITORING SETUP ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 RESPONSE MONITORING SETUP ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
   private async verifyResponseCapabilities(): Promise<void> {
     try {
-      logPerformance('🔍 Verifying response capabilities...');
+      console.log('🔍 Verifying response capabilities...');
 
       // Verify all security services are available
       if (!this.encryptionService || !this.authenticationService || 
@@ -1716,24 +1711,24 @@ export class IncidentResponseService {
         throw new Error('Required security services not available');
       }
 
-      logPerformance('✅ Response capabilities verified');
+      console.log('✅ Response capabilities verified');
 
     } catch (error) {
-      logError('🚨 RESPONSE CAPABILITY VERIFICATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 RESPONSE CAPABILITY VERIFICATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
 
   private async setupAutomatedResponse(): Promise<void> {
     try {
-      logPerformance('🤖 Setting up automated response procedures...');
+      console.log('🤖 Setting up automated response procedures...');
 
       this.automatedResponseEnabled = true;
 
-      logPerformance('✅ Automated response procedures setup complete');
+      console.log('✅ Automated response procedures setup complete');
 
     } catch (error) {
-      logError('🚨 AUTOMATED RESPONSE SETUP ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 AUTOMATED RESPONSE SETUP ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -1752,13 +1747,13 @@ export class IncidentResponseService {
       }
 
     } catch (error) {
-      logError('🚨 ESCALATION CHECK ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 ESCALATION CHECK ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
   private async escalateIncident(incidentId: string): Promise<void> {
     try {
-      logPerformance(`📈 Escalating incident: ${incidentId}`);
+      console.log(`📈 Escalating incident: ${incidentId}`);
 
       const incident = this.activeIncidents.get(incidentId);
       if (!incident) {
@@ -1767,7 +1762,6 @@ export class IncidentResponseService {
 
       // Add escalation event to timeline
       await this.addTimelineEvent(incidentId, {
-        timestamp: Date.now(),
         eventType: 'notification',
         description: 'Incident escalated due to time threshold exceeded',
         actor: 'automated_response',
@@ -1779,7 +1773,7 @@ export class IncidentResponseService {
       await this.sendStakeholderNotifications(incidentId);
 
     } catch (error) {
-      logError('🚨 INCIDENT ESCALATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 INCIDENT ESCALATION ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -1801,7 +1795,7 @@ export class IncidentResponseService {
       incident.timeline.push(timelineEvent);
 
     } catch (error) {
-      logError('🚨 TIMELINE EVENT ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 TIMELINE EVENT ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -1811,10 +1805,10 @@ export class IncidentResponseService {
   ): Promise<void> {
     try {
       // Log incident timeline event for monitoring
-      logPerformance(`📝 Incident timeline event [${context}]: ${event.description}`);
+      console.log(`📝 Incident timeline event [${context}]: ${event.description}`);
 
     } catch (error) {
-      logError('🚨 INCIDENT TIMELINE LOGGING ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 INCIDENT TIMELINE LOGGING ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -1942,7 +1936,7 @@ export class IncidentResponseService {
 
   public async destroy(): Promise<void> {
     try {
-      logPerformance('🗑️  Destroying incident response service...');
+      console.log('🗑️  Destroying incident response service...');
 
       // Stop monitoring
       this.responseMonitoringActive = false;
@@ -1965,10 +1959,10 @@ export class IncidentResponseService {
 
       this.initialized = false;
 
-      logPerformance('✅ Incident response service destroyed');
+      console.log('✅ Incident response service destroyed');
 
     } catch (error) {
-      logError('🚨 INCIDENT RESPONSE DESTRUCTION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 INCIDENT RESPONSE DESTRUCTION ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
