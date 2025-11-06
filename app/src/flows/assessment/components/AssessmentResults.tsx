@@ -349,18 +349,18 @@ const AssessmentResults: React.FC<AssessmentResultsProps> = ({
             </Text>
             
             {/* evidence-based guidance */}
-            <View style={[styles.mbctContainer, { 
+            <View style={[styles.therapeuticContainer, { 
               backgroundColor: themeColors.light,
               borderLeftColor: themeColors.primary,
             }]}>
               <Text 
-                style={styles.mbctTitle}
+                style={styles.therapeuticTitle}
                 accessibilityRole="header"
               >
                 Mindful Approach
               </Text>
               <Text 
-                style={styles.mbctText}
+                style={styles.therapeuticText}
                 accessibilityRole="text"
               >
                 Remember that these results are a snapshot of your current experience. 
@@ -578,18 +578,18 @@ const styles = StyleSheet.create({
     color: colorSystem.accessibility.text.primary,
     lineHeight: typography.bodyRegular.size * 1.5,
   },
-  mbctContainer: {
+  therapeuticContainer: {
     padding: spacing.md,
     borderRadius: 12,
     borderLeftWidth: 4,
   },
-  mbctTitle: {
+  therapeuticTitle: {
     fontSize: typography.bodyLarge.size,
     fontWeight: '600',
     color: colorSystem.accessibility.text.primary,
     marginBottom: spacing.sm,
   },
-  mbctText: {
+  therapeuticText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.bodyRegular.weight,
     color: colorSystem.accessibility.text.primary,

@@ -159,11 +159,11 @@ describe('DRD Check-in Flows Integration Testing', () => {
             duration={duration}
             isActive={true}
             onComplete={onComplete}
-            testID="mbct-timer"
+            testID="breathing-timer"
           />
         );
 
-        const timer = getByTestId('mbct-timer');
+        const timer = getByTestId('breathing-timer');
         expect(timer).toBeTruthy();
 
         // Fast-forward timer
