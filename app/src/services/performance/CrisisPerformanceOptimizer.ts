@@ -131,7 +131,10 @@ class OptimizedScoringService {
 
     // Performance monitoring
     if (duration > 10) {
-      logSecurity(`PHQ-9 scoring exceeded 10ms target: ${duration}ms`);
+      logSecurity('PHQ-9 scoring exceeded target', 'high', {
+        duration,
+        threshold: 10
+      });
     }
 
     return { score: totalScore, hasSuicidalIdeation: suicidalIdeation };
@@ -164,7 +167,10 @@ class OptimizedScoringService {
 
     // Performance monitoring
     if (duration > 8) {
-      logSecurity(`GAD-7 scoring exceeded 8ms target: ${duration}ms`);
+      logSecurity('GAD-7 scoring exceeded target', 'high', {
+        duration,
+        threshold: 8
+      });
     }
 
     return totalScore;

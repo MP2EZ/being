@@ -280,7 +280,9 @@ export class CrisisIntegrationOrchestrator {
       // Get assessment context
       const context = this.activeAssessments.get(assessmentId);
       if (!context) {
-        logSecurity(`Assessment context not found for completion: ${assessmentId}`);
+        logSecurity('Assessment context not found for completion', 'low', {
+          assessmentId
+        });
       }
 
       // Perform comprehensive crisis detection
@@ -380,7 +382,9 @@ export class CrisisIntegrationOrchestrator {
       // Get assessment context
       const context = this.activeAssessments.get(assessmentId);
       if (!context) {
-        logSecurity(`Assessment context not found for crisis resolution: ${assessmentId}`);
+        logSecurity('Assessment context not found for crisis resolution', 'low', {
+          assessmentId
+        });
         return;
       }
 

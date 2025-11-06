@@ -209,7 +209,9 @@ class CloudBackupService {
       });
 
       const duration = Date.now() - startTime;
-      logPerformance(`[CloudBackupService] Backup completed in ${duration}ms, size: ${Math.round(finalSize / 1024)}KB`);
+      logPerformance('CloudBackupService.createBackup', duration, {
+        sizeKB: Math.round(finalSize / 1024)
+      });
 
       return {
         success: true,
@@ -305,7 +307,9 @@ class CloudBackupService {
       });
 
       const duration = Date.now() - startTime;
-      logPerformance(`[CloudBackupService] Restore completed in ${duration}ms, restored: ${restoredStores.join(', ')}`);
+      logPerformance('CloudBackupService.restoreBackup', duration, {
+        restoredStores: restoredStores.join(', ')
+      });
 
       return {
         success: errors.length === 0,

@@ -320,13 +320,13 @@ export const safeConsole = {
 
   error: (message: string, ...args: any[]) => {
     const sanitizedMessage = message.replace(/user[_-]?id[:\s]*[a-zA-Z0-9-]+/gi, '[USER_ID_REDACTED]');
-    logError(sanitizedMessage);
+    logError(LogCategory.SYSTEM, sanitizedMessage);
   },
 
   warn: (message: string, ...args: any[]) => {
     if (__DEV__) {
       const sanitizedMessage = message.replace(/user[_-]?id[:\s]*[a-zA-Z0-9-]+/gi, '[USER_ID_REDACTED]');
-      logSecurity(sanitizedMessage);
+      logSecurity(sanitizedMessage, 'low');
     }
   }
 };

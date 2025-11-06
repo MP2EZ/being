@@ -136,7 +136,7 @@ class PerformanceAlertManager {
       this.alertHistory.shift();
     }
 
-    logPerformance(`🚨 Performance Alert [${severity.toUpperCase()}]: ${alert.message}`);
+    console.log(`🚨 Performance Alert [${severity.toUpperCase()}]: ${alert.message}`);
 
     // Emit alert event
     DeviceEventEmitter.emit('performance_alert_created', alert);
@@ -587,7 +587,7 @@ export class PerformanceMonitor {
       // Emit report event
       DeviceEventEmitter.emit('performance_report_generated', report);
 
-      logPerformance(`📊 Performance Report Generated (Score: ${performanceScore}/100)`);
+      console.log(`📊 Performance Report Generated (Score: ${performanceScore}/100)`);
 
       return report;
 

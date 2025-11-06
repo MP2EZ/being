@@ -263,7 +263,10 @@ export class AssessmentFlowOptimizer {
 
       // Performance validation
       if (totalTime > 200) {
-        logSecurity(`Question response exceeded 200ms target: ${totalTime}ms`);
+        logSecurity('Question response exceeded target', 'medium', {
+          totalTime,
+          threshold: 200
+        });
         DeviceEventEmitter.emit('assessment_performance_alert', {
           sessionId,
           questionId,
@@ -385,7 +388,11 @@ export class AssessmentFlowOptimizer {
 
       // Performance validation
       if (totalTime > 500) {
-        logSecurity(`Batch processing exceeded 500ms target: ${totalTime}ms for ${answers.length} answers`);
+        logSecurity('Batch processing exceeded target', 'medium', {
+          totalTime,
+          threshold: 500,
+          answerCount: answers.length
+        });
       }
 
       return { processedCount, totalTime, failedAnswers };

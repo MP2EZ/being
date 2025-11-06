@@ -105,7 +105,10 @@ export const CollapsibleCrisisButton: React.FC<CollapsibleCrisisButtonProps> = (
     // Performance monitoring for clinical safety
     const responseTime = performance.now() - startTime;
     if (responseTime > 200) {
-      logSecurity(`🚨 Crisis button response time: ${responseTime}ms (target: <200ms)`);
+      logSecurity('Crisis button response time exceeded', 'high', {
+        responseTime,
+        threshold: 200
+      });
     } else {
       console.log(`✅ Crisis button response: ${responseTime}ms`);
     }
@@ -141,7 +144,7 @@ export const CollapsibleCrisisButton: React.FC<CollapsibleCrisisButtonProps> = (
 
     if (timeSinceLastTap < 300) {
       // Double-tap detected - immediate crisis action
-      logPerformance('Crisis action via double-tap (accessibility)');
+      console.log('Crisis action via double-tap (accessibility)');
       handleCrisisAction();
     } else {
       // Single tap - expand button
