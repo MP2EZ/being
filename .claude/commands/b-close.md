@@ -8,18 +8,38 @@
 
 ## Phase 1: Validate & Align Context
 
-### Step 1.1: Determine Work Item ID
+### Step 1.1: Parse Arguments & Determine Work Item ID
+
+**Parse command arguments**:
+- Extract WORK_ITEM_ID (if provided)
+- Extract flags: `--push`
+
+**Examples**:
+```bash
+/b-close MAINT-79           # Close without push
+/b-close MAINT-79 --push    # Close and push
+/b-close --push             # Auto-detect work item, push
+```
+
+**Flag detection**:
+```
+args = [MAINT-79, --push]
+→ WORK_ITEM_ID = MAINT-79
+→ SHOULD_PUSH = true
+```
 
 **If WORK_ITEM_ID provided as argument**:
-→ Use $ARGUMENTS as WORK_ITEM_ID
+→ Use provided WORK_ITEM_ID (excluding --push flag)
+→ Check remaining args for --push flag
 
-**If no arguments provided**:
+**If no WORK_ITEM_ID provided**:
 → Auto-detect from current branch name
 ```bash
 git branch --show-current
 # Example: feat/FEAT-42-easy-navigation-home
 # Extract: FEAT-42
 ```
+→ Check args for --push flag
 
 **Validation**:
 - Pattern: `[TYPE]-[NUMBER]` (e.g., FEAT-42, DEBUG-15)
@@ -324,7 +344,43 @@ Add to Notion comment:
 
 ---
 
-### Step 5.2: Final Summary
+### Step 5.2: Push to Remote (Optional)
+
+**If --push flag was provided**:
+
+```bash
+cd /Users/max/Development/active/being/development
+git push
+```
+
+**Display**:
+```
+🚀 Pushing to remote...
+   Branch: development
+```
+
+**Success**:
+```
+✅ Pushed to remote
+   development: [old-commit]...[new-commit]
+```
+
+**Error handling**:
+```
+⚠️  Push failed: [error message]
+
+   Push manually when ready:
+   cd ~/being/development && git push
+```
+
+**If --push flag was NOT provided**:
+```
+ℹ️  Skip push (use --push flag to auto-push)
+```
+
+---
+
+### Step 5.3: Final Summary
 
 ```
 ✅ [WORK_ITEM_ID] closed successfully!
@@ -335,10 +391,16 @@ Summary:
   Merged to: development
   Notion updated: ✓
   Worktree: [removed/kept]
+  Pushed to remote: [✓ / -]
 
 Next steps:
+  [If NOT pushed]
   - Push to remote: cd ~/being/development && git push
-  - Or continue working on next item: /b-work [NEXT-ITEM]
+
+  [If pushed]
+  - Remote updated ✓
+
+  - Continue with next item: /b-work [NEXT-ITEM]
 ```
 
 ---
@@ -349,7 +411,8 @@ Next steps:
 - Phase 1-2 interruption: Safe to re-run (idempotent)
 - Phase 3 interruption (merge conflicts): User resolves, re-runs command
 - Phase 4 interruption (Notion): Re-run will update status/comment
-- Phase 5 interruption: Manual cleanup if needed
+- Phase 5.1 interruption (worktree): Manual cleanup if needed
+- Phase 5.2 interruption (push): Re-run will attempt push again (idempotent)
 
 **Safe to run multiple times**: Command checks state at each phase and skips completed steps.
 

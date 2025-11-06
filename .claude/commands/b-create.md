@@ -1,12 +1,12 @@
 # Create Work Item in Notion
 
-**ARGUMENTS**: `[--review] [TYPE] - [Name]`
+**ARGUMENTS**: `[TYPE] - [Name] [--review]`
 
 **Types**: FEAT | DEBUG | INFRA | MAINT | AGENT
 
 **Examples**:
 - `/b-create FEAT - Simple subscription flow`
-- `/b-create --review FEAT - Medication tracking`
+- `/b-create FEAT - Medication tracking --review`
 
 **Database ID**: 277a1108c20880bda80dce2ec7d8a12e
 
@@ -14,12 +14,17 @@
 
 ## Phase 1: Parse Arguments
 
-Parse `$ARGUMENTS` using pattern: `[--review] [TYPE] - [Name]`
+Parse `$ARGUMENTS` using pattern: `[TYPE] - [Name] [--review]`
 
 **Extract**:
-- REVIEW_FLAG: `true` if `--review` present, `false` otherwise
-- TYPE: First word after flags before ` - `
-- Name: Everything after ` - `
+- TYPE: First word before ` - `
+- Name: Everything after ` - ` (excluding `--review` flag if present)
+- REVIEW_FLAG: `true` if `--review` present at end, `false` otherwise
+
+**Parsing logic**:
+1. Check if arguments end with `--review` (strip and set flag)
+2. Split remaining by ` - ` delimiter
+3. Extract TYPE (before ` - `) and Name (after ` - `)
 
 **Validate TYPE**:
 - Must be one of: FEAT, DEBUG, INFRA, MAINT, AGENT
@@ -28,14 +33,14 @@ Parse `$ARGUMENTS` using pattern: `[--review] [TYPE] - [Name]`
 **Examples**:
 ```
 Input: "FEAT - Simple subscription flow"
-→ REVIEW_FLAG: false
 → TYPE: "FEAT"
 → Name: "Simple subscription flow"
+→ REVIEW_FLAG: false
 
-Input: "--review FEAT - Medication tracking"
-→ REVIEW_FLAG: true
+Input: "FEAT - Medication tracking --review"
 → TYPE: "FEAT"
 → Name: "Medication tracking"
+→ REVIEW_FLAG: true
 ```
 
 ---
@@ -597,7 +602,7 @@ Please try again or create manually in Notion.
 **Best Practice**:
 - Discuss feature/bug in conversation first
 - Use `/b-create [TYPE] - [Name]` for quick capture with scoring
-- Use `/b-create --review [TYPE] - [Name]` for strategic work needing validation
+- Use `/b-create [TYPE] - [Name] --review` for strategic work needing validation
 - Confirm and create → dimension scores available for prioritization
 - Use `/b-work [WORK_ITEM_ID]` to begin implementation
 
