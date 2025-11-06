@@ -21,13 +21,8 @@ export * from './midday';
 export {
   EveningFlowNavigator,
   VirtueReflectionScreen,
-  SenecaQuestionsScreen,
-  VirtueInstancesScreen,
-  VirtueChallengesScreen,
-  CelebrationScreen,
   GratitudeScreen as EveningGratitudeScreen,
   TomorrowScreen,
-  LearningScreen,
   SelfCompassionScreen,
   SleepTransitionScreen,
   EveningCompletionScreen
