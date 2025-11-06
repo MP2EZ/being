@@ -314,7 +314,7 @@ export default function CloudBackupSettings({
           showDetailed={showAdvanced}
           style={styles.statusIndicator}
           onStatusChange={(status) => {
-            logPerformance('Overall system status:', status);
+            console.log('Overall system status:', status);
           }}
         />
 

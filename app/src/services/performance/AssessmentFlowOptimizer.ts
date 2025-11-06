@@ -179,7 +179,7 @@ export class AssessmentFlowOptimizer {
     this.sessions.set(sessionId, session);
 
     const initTime = performance.now() - startTime;
-    logPerformance(`Assessment session initialized in ${initTime}ms`);
+    console.log(`Assessment session initialized in ${initTime}ms`);
 
     return session;
   }
@@ -488,7 +488,7 @@ export class AssessmentFlowOptimizer {
    */
   static configureOptimizations(config: Partial<AssessmentCacheConfig>): void {
     this.config = { ...this.config, ...config };
-    logPerformance('Assessment flow optimizer configured:', this.config);
+    console.log('Assessment flow optimizer configured:', this.config);
   }
 
   /**
@@ -500,7 +500,7 @@ export class AssessmentFlowOptimizer {
       // Clear preloaded questions to free memory
       session.preloadedQuestions.clear();
       this.sessions.delete(sessionId);
-      logPerformance(`Session ${sessionId} cleaned up`);
+      console.log(`Session ${sessionId} cleaned up`);
     }
   }
 
@@ -512,7 +512,7 @@ export class AssessmentFlowOptimizer {
     this.performanceHistory = [];
     QuestionCache.clear();
     StateBatchProcessor.clear();
-    logPerformance('Assessment flow optimizer reset');
+    console.log('Assessment flow optimizer reset');
   }
 
   /**

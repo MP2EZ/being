@@ -57,7 +57,7 @@ export class PerformanceSystem {
    */
   private static async performInitialization(): Promise<void> {
     try {
-      logPerformance('🚀 Initializing Week 3 Performance Optimization System...');
+      console.log('🚀 Initializing Week 3 Performance Optimization System...');
 
       // Initialize all performance optimizers in parallel
       await Promise.all([
@@ -108,7 +108,7 @@ export class PerformanceSystem {
       });
 
       this.isInitialized = true;
-      logPerformance('✅ Week 3 Performance Optimization System initialized successfully');
+      console.log('✅ Week 3 Performance Optimization System initialized successfully');
 
       // Run initial performance validation
       setTimeout(async () => {
@@ -165,7 +165,7 @@ export class PerformanceSystem {
       throw new Error('Performance system not initialized');
     }
 
-    logPerformance('🔧 Running comprehensive performance optimization...');
+    console.log('🔧 Running comprehensive performance optimization...');
 
     // Trigger optimization in all components
     try {
@@ -185,7 +185,7 @@ export class PerformanceSystem {
       // Crisis detection precomputation
       CrisisPerformanceOptimizer.precomputeCrisisThresholds();
 
-      logPerformance('✅ Comprehensive performance optimization completed');
+      console.log('✅ Comprehensive performance optimization completed');
     } catch (error) {
       logError(LogCategory.PERFORMANCE, 'Performance optimization failed:', error instanceof Error ? error : new Error(String(error)));
       throw error;
@@ -268,7 +268,7 @@ export class PerformanceSystem {
   static shutdown(): void {
     if (!this.isInitialized) return;
 
-    logPerformance('🛑 Shutting down Week 3 Performance System...');
+    console.log('🛑 Shutting down Week 3 Performance System...');
 
     try {
       PerformanceMonitor.stopMonitoring();
@@ -282,7 +282,7 @@ export class PerformanceSystem {
       this.isInitialized = false;
       this.initializationPromise = null;
 
-      logPerformance('✅ Week 3 Performance System shutdown completed');
+      console.log('✅ Week 3 Performance System shutdown completed');
     } catch (error) {
       logError(LogCategory.PERFORMANCE, 'Performance system shutdown failed:', error instanceof Error ? error : new Error(String(error)));
     }

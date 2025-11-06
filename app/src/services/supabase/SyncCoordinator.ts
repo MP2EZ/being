@@ -1282,7 +1282,7 @@ class SyncCoordinator {
       }
 
       // All conditions met - perform the backup
-      logPerformance('[SyncCoordinator] Conditional backup proceeding - all checks passed');
+      console.log('[SyncCoordinator] Conditional backup proceeding - all checks passed');
 
       const result = await this.cloudBackupService.createBackup();
 
@@ -1355,7 +1355,7 @@ class SyncCoordinator {
         });
       }
 
-      logPerformance('[SyncCoordinator] Sync metadata updated successfully');
+      console.log('[SyncCoordinator] Sync metadata updated successfully');
 
     } catch (error) {
       logError(LogCategory.SYNC, 'Failed to update sync metadata', error instanceof Error ? error : new Error(String(error)));
@@ -1384,7 +1384,7 @@ class SyncCoordinator {
           Object.assign(this.syncState.storeStates, metadata.storeStates);
         }
 
-        logPerformance('[SyncCoordinator] Sync metadata loaded from storage');
+        console.log('[SyncCoordinator] Sync metadata loaded from storage');
       }
 
     } catch (error) {
@@ -1461,7 +1461,7 @@ class SyncCoordinator {
         return;
       }
 
-      logPerformance(`[SyncCoordinator] Processing ${this.syncQueue.length} queued operations with ${this.networkQuality} network`);
+      console.log(`[SyncCoordinator] Processing ${this.syncQueue.length} queued operations with ${this.networkQuality} network`);
 
       // Adaptive processing based on network quality
       let batchSize: number;
@@ -1515,7 +1515,7 @@ class SyncCoordinator {
 
         // Check if network is still connected
         if (!this.isConnected) {
-          logPerformance('[SyncCoordinator] Lost connection during queue processing');
+          console.log('[SyncCoordinator] Lost connection during queue processing');
           break;
         }
       }
@@ -1645,7 +1645,7 @@ class SyncCoordinator {
       };
 
       await AsyncStorage.setItem(this.queuePersistenceKey, JSON.stringify(queueData));
-      logPerformance(`[SyncCoordinator] Persisted ${this.syncQueue.length} operations to storage`);
+      console.log(`[SyncCoordinator] Persisted ${this.syncQueue.length} operations to storage`);
 
     } catch (error) {
       logError(LogCategory.SYNC, 'Failed to persist queue', error instanceof Error ? error : new Error(String(error)));
@@ -1674,7 +1674,7 @@ class SyncCoordinator {
           }
         }
 
-        logPerformance(`[SyncCoordinator] Restored ${this.syncQueue.length} operations from storage`);
+        console.log(`[SyncCoordinator] Restored ${this.syncQueue.length} operations from storage`);
       }
 
     } catch (error) {
@@ -1751,7 +1751,7 @@ class SyncCoordinator {
       // Persist queue after changes
       await this.persistQueue();
 
-      logPerformance(`[SyncCoordinator] Scheduled ${priority} priority sync: ${reason}`);
+      console.log(`[SyncCoordinator] Scheduled ${priority} priority sync: ${reason}`);
 
       // If high priority or crisis, process immediately
       if (priority === 'crisis' || priority === 'high') {
@@ -1866,7 +1866,7 @@ class SyncCoordinator {
 
       switch (operation.type) {
         case 'backup':
-          logPerformance(`[SyncCoordinator] Processing queued backup operation: ${operation.id}`);
+          console.log(`[SyncCoordinator] Processing queued backup operation: ${operation.id}`);
 
           // Use CloudBackupService for backup operations
           const backupResult = await this.cloudBackupService.createBackup();
@@ -1880,7 +1880,7 @@ class SyncCoordinator {
           break;
 
         case 'restore':
-          logPerformance(`[SyncCoordinator] Processing queued restore operation: ${operation.id}`);
+          console.log(`[SyncCoordinator] Processing queued restore operation: ${operation.id}`);
 
           // Use CloudBackupService for restore operations
           const restoreResult = await this.cloudBackupService.restoreFromBackup();
@@ -1894,7 +1894,7 @@ class SyncCoordinator {
           break;
 
         case 'conflict_resolution':
-          logPerformance(`[SyncCoordinator] Processing queued conflict resolution: ${operation.id}`);
+          console.log(`[SyncCoordinator] Processing queued conflict resolution: ${operation.id}`);
 
           // Re-process conflict resolution with current data
           if (operation.data?.conflictId) {

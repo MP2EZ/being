@@ -8,7 +8,7 @@
  * - Include context for debugging but sanitize all data
  *
  * MIGRATION EXAMPLE:
- * Before: logPerformance('User assessment completed:', result);
+ * Before: console.log('User assessment completed:', result);
  * After:  logger.assessment('Assessment completed', { type: 'PHQ-9', questionCount: 9 });
  */
 

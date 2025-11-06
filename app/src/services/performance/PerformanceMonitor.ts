@@ -200,7 +200,7 @@ class PerformanceAlertManager {
     alert.resolved = true;
     alert.resolutionTime = Date.now();
 
-    logPerformance(`✅ Performance Alert Resolved: ${alert.message}`);
+    console.log(`✅ Performance Alert Resolved: ${alert.message}`);
     DeviceEventEmitter.emit('performance_alert_resolved', alert);
 
     return true;
@@ -283,7 +283,7 @@ class PerformanceRegressionDetector {
    */
   static setBaseline(metric: string, value: number): void {
     this.baselineMetrics.set(metric, value);
-    logPerformance(`📊 Baseline set for ${metric}: ${value}`);
+    console.log(`📊 Baseline set for ${metric}: ${value}`);
   }
 
   /**
@@ -428,7 +428,7 @@ export class PerformanceMonitor {
   static async startMonitoring(): Promise<void> {
     if (this.isMonitoring) return;
 
-    logPerformance('📊 Starting comprehensive performance monitoring...');
+    console.log('📊 Starting comprehensive performance monitoring...');
 
     // Initialize all performance optimizers
     await this.initializeOptimizers();
@@ -445,7 +445,7 @@ export class PerformanceMonitor {
     this.isMonitoring = true;
     this.startTime = Date.now();
 
-    logPerformance('✅ Performance monitoring active');
+    console.log('✅ Performance monitoring active');
   }
 
   /**
@@ -461,7 +461,7 @@ export class PerformanceMonitor {
         Promise.resolve(ZustandStoreOptimizer.initialize())
       ]);
 
-      logPerformance('✅ All performance optimizers initialized');
+      console.log('✅ All performance optimizers initialized');
     } catch (error) {
       logError(LogCategory.PERFORMANCE, 'Failed to initialize performance optimizers:', error instanceof Error ? error : new Error(String(error)));
     }
@@ -768,7 +768,7 @@ export class PerformanceMonitor {
    * Trigger automatic optimization
    */
   private static triggerAutoOptimization(type: 'crisis' | 'memory' | 'rendering' | 'bundle' | 'store'): void {
-    logPerformance(`🔧 Triggering auto-optimization for: ${type}`);
+    console.log(`🔧 Triggering auto-optimization for: ${type}`);
 
     switch (type) {
       case 'crisis':
@@ -797,10 +797,10 @@ export class PerformanceMonitor {
   private static setupAppStateMonitoring(): void {
     AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
       if (nextAppState === 'background') {
-        logPerformance('📱 App backgrounded - generating final report');
+        console.log('📱 App backgrounded - generating final report');
         this.collectPerformanceReport();
       } else if (nextAppState === 'active') {
-        logPerformance('📱 App active - resuming monitoring');
+        console.log('📱 App active - resuming monitoring');
         this.startTime = Date.now();
       }
     });
@@ -869,7 +869,7 @@ export class PerformanceMonitor {
    */
   static configure(config: Partial<MonitoringConfig>): void {
     this.config = { ...this.config, ...config };
-    logPerformance('Performance monitor configured:', this.config);
+    console.log('Performance monitor configured:', this.config);
   }
 
   /**
@@ -883,7 +883,7 @@ export class PerformanceMonitor {
       this.monitoringTimer = null;
     }
 
-    logPerformance('📊 Performance monitoring stopped');
+    console.log('📊 Performance monitoring stopped');
   }
 }
 

@@ -244,7 +244,7 @@ export class MemoryOptimizer {
   static initialize(): void {
     if (this.isMonitoring) return;
 
-    logPerformance('🧠 Initializing memory optimizer...');
+    console.log('🧠 Initializing memory optimizer...');
     this.isMonitoring = true;
 
     // Start memory monitoring
@@ -259,7 +259,7 @@ export class MemoryOptimizer {
     // Listen for memory warnings
     this.setupMemoryWarningHandlers();
 
-    logPerformance('✅ Memory optimizer initialized');
+    console.log('✅ Memory optimizer initialized');
   }
 
   /**
@@ -364,7 +364,7 @@ export class MemoryOptimizer {
         break;
 
       case 'moderate':
-        logPerformance(`📊 MODERATE MEMORY PRESSURE: ${metrics.totalUsage}MB`);
+        console.log(`📊 MODERATE MEMORY PRESSURE: ${metrics.totalUsage}MB`);
         this.gentleMemoryCleanup();
         break;
 
@@ -385,7 +385,7 @@ export class MemoryOptimizer {
    * Emergency memory cleanup for critical situations
    */
   private static emergencyMemoryCleanup(): void {
-    logPerformance('🧹 Emergency memory cleanup initiated');
+    console.log('🧹 Emergency memory cleanup initiated');
 
     // Clear non-critical caches aggressively
     this.componentCache.clearNonCritical();
@@ -407,7 +407,7 @@ export class MemoryOptimizer {
    * Aggressive memory cleanup for high pressure
    */
   private static aggressiveMemoryCleanup(): void {
-    logPerformance('🧹 Aggressive memory cleanup initiated');
+    console.log('🧹 Aggressive memory cleanup initiated');
 
     // Clear 50% of non-critical cache entries
     this.clearCachePercentage(this.componentCache, 50, false);
@@ -423,7 +423,7 @@ export class MemoryOptimizer {
    * Gentle memory cleanup for moderate pressure
    */
   private static gentleMemoryCleanup(): void {
-    logPerformance('🧹 Gentle memory cleanup initiated');
+    console.log('🧹 Gentle memory cleanup initiated');
 
     // Clear 20% of least used cache entries
     this.clearCachePercentage(this.componentCache, 20, false);
@@ -504,10 +504,10 @@ export class MemoryOptimizer {
   private static setupAppStateMonitoring(): void {
     const handleAppStateChange = (nextAppState: AppStateStatus) => {
       if (nextAppState === 'background') {
-        logPerformance('📱 App backgrounded - aggressive memory cleanup');
+        console.log('📱 App backgrounded - aggressive memory cleanup');
         this.aggressiveMemoryCleanup();
       } else if (nextAppState === 'active') {
-        logPerformance('📱 App active - resetting memory monitoring');
+        console.log('📱 App active - resetting memory monitoring');
         this.startMemoryMonitoring();
       }
     };
@@ -619,7 +619,7 @@ export class MemoryOptimizer {
     this.assessmentCache = new MemoryAwareCache(20, this.config.cacheEvictionStrategy);
     this.componentCache = new MemoryAwareCache(10, this.config.cacheEvictionStrategy);
 
-    logPerformance('Memory optimizer reconfigured:', this.config);
+    console.log('Memory optimizer reconfigured:', this.config);
   }
 
   /**
@@ -642,7 +642,7 @@ export class MemoryOptimizer {
     this.componentCache.clear();
     this.memoryHistory = [];
 
-    logPerformance('Memory optimizer shutdown');
+    console.log('Memory optimizer shutdown');
   }
 }
 

@@ -225,7 +225,7 @@ export default function CrisisResourcesScreen() {
   // Track screen load performance
   useEffect(() => {
     const loadTime = performance.now() - startTime;
-    logPerformance('Crisis Resources Screen loaded', { loadTime }, LogCategory.Crisis);
+    console.log('Crisis Resources Screen loaded', { loadTime }, LogCategory.Crisis);
 
     // Track crisis resources access
     logSecurity('Crisis resources accessed', {
@@ -235,7 +235,7 @@ export default function CrisisResourcesScreen() {
 
     return () => {
       const sessionTime = performance.now() - startTime;
-      logPerformance('Crisis Resources Screen session ended', { sessionTime }, LogCategory.Crisis);
+      console.log('Crisis Resources Screen session ended', { sessionTime }, LogCategory.Crisis);
     };
   }, []);
 
@@ -292,7 +292,7 @@ export default function CrisisResourcesScreen() {
    * Handle navigation to Crisis Plan
    */
   const handleNavigateToCrisisPlan = () => {
-    logPerformance('Navigating to Crisis Plan from Resources', {}, LogCategory.Crisis);
+    console.log('Navigating to Crisis Plan from Resources', {}, LogCategory.Crisis);
     navigation.navigate('CrisisPlan');
   };
 

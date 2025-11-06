@@ -65,7 +65,7 @@ async function initializeCloudServices(): Promise<void> {
 
   initializationPromise = (async () => {
     try {
-      logPerformance('[CloudServices] Starting initialization...');
+      console.log('[CloudServices] Starting initialization...');
 
       // Initialize services in order
       await supabaseService.initialize();
@@ -75,7 +75,7 @@ async function initializeCloudServices(): Promise<void> {
       setupAppLifecycleHandlers();
 
       isInitialized = true;
-      logPerformance('[CloudServices] Initialization completed successfully');
+      console.log('[CloudServices] Initialization completed successfully');
 
     } catch (error) {
       logError(LogCategory.SYSTEM, '[CloudServices] Initialization failed:', error instanceof Error ? error : new Error(String(error)));

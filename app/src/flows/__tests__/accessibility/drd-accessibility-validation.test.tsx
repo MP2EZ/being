@@ -353,7 +353,7 @@ describe('DRD Check-in Flows Accessibility Validation', () => {
 
       Object.entries(accessibilityChecklist).forEach(([requirement, passes]) => {
         expect(passes).toBe(true);
-        logPerformance(`✅ ${requirement}: ${passes ? 'PASS' : 'FAIL'}`);
+        console.log(`✅ ${requirement}: ${passes ? 'PASS' : 'FAIL'}`);
       });
     });
 
@@ -380,7 +380,7 @@ describe('DRD Check-in Flows Accessibility Validation', () => {
 
       Object.entries(crisisAccessibilityChecklist).forEach(([requirement, passes]) => {
         expect(passes).toBe(true);
-        logPerformance(`🚨 ${requirement}: ${passes ? 'PASS' : 'FAIL'}`);
+        console.log(`🚨 ${requirement}: ${passes ? 'PASS' : 'FAIL'}`);
       });
     });
 
@@ -406,7 +406,7 @@ describe('DRD Check-in Flows Accessibility Validation', () => {
 
       Object.entries(timingAccessibilityChecklist).forEach(([requirement, passes]) => {
         expect(passes).toBe(true);
-        logPerformance(`⏱️ ${requirement}: ${passes ? 'PASS' : 'FAIL'}`);
+        console.log(`⏱️ ${requirement}: ${passes ? 'PASS' : 'FAIL'}`);
       });
     });
   });

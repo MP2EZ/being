@@ -744,11 +744,11 @@ export class DeploymentService {
   }
 
   private async simulateDeploymentOperation(operation: string, duration: number): Promise<void> {
-    logPerformance(`Starting ${operation}`, { estimatedDuration: duration });
+    console.log(`Starting ${operation}`, { estimatedDuration: duration });
 
     return new Promise((resolve) => {
       setTimeout(() => {
-        logPerformance(`Completed ${operation}`, { actualDuration: duration });
+        console.log(`Completed ${operation}`, { actualDuration: duration });
         resolve();
       }, duration);
     });

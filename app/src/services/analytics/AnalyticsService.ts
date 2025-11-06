@@ -511,7 +511,7 @@ class AnalyticsService {
       this.currentSessionId = `session_${currentDate}_${randomComponent}`;
       this.lastSessionDate = currentDate;
 
-      logPerformance(`🔄 Session rotated for ${currentDate}`);
+      console.log(`🔄 Session rotated for ${currentDate}`);
       
       await this.logSecurityEvent('session_rotated', {
         date: currentDate,

@@ -32,7 +32,7 @@ import {
  * CATEGORY 1: CRITICAL PHI VIOLATIONS - IMMEDIATE REPLACEMENT REQUIRED
  */
 
-// ❌ BEFORE: logPerformance(`🔒 Updating analytics consent for user: ${consent.userId}`);
+// ❌ BEFORE: console.log(`🔒 Updating analytics consent for user: ${consent.userId}`);
 // ✅ AFTER:
 export const logAnalyticsConsentUpdate = () => {
   logAnalytics('Analytics consent updated', {
@@ -41,7 +41,7 @@ export const logAnalyticsConsentUpdate = () => {
   });
 };
 
-// ❌ BEFORE: logPerformance(`🛡️ Applying privacy controls for user: ${userId}`);
+// ❌ BEFORE: console.log(`🛡️ Applying privacy controls for user: ${userId}`);
 // ✅ AFTER:
 export const logPrivacyControlsApplied = () => {
   logSecurity('Privacy controls applied', 'low', {
@@ -50,7 +50,7 @@ export const logPrivacyControlsApplied = () => {
   });
 };
 
-// ❌ BEFORE: logPerformance(`🗑️ Deleting analytics data for user: ${userId}`);
+// ❌ BEFORE: console.log(`🗑️ Deleting analytics data for user: ${userId}`);
 // ✅ AFTER:
 export const logAnalyticsDataDeletion = () => {
   logAnalytics('Analytics data deletion requested', {
@@ -69,7 +69,7 @@ export const logCrisisDetectionValidationFailed = (detectionTime?: number) => {
   });
 };
 
-// ❌ BEFORE: logPerformance('🚨 Processing crisis analytics event with priority');
+// ❌ BEFORE: console.log('🚨 Processing crisis analytics event with priority');
 // ✅ AFTER:
 export const logCrisisAnalyticsProcessing = () => {
   logCrisis('Crisis analytics processing initiated', {
@@ -101,7 +101,7 @@ export const logAnalyticsAuthenticationFailed = (error: Error) => {
   logError(LogCategory.AUTH, 'Analytics authentication error', error);
 };
 
-// ❌ BEFORE: logPerformance(`🔄 Session rotated for ${currentDate}`);
+// ❌ BEFORE: console.log(`🔄 Session rotated for ${currentDate}`);
 // ✅ AFTER:
 export const logSessionRotated = () => {
   logAuth('Session rotated', {
@@ -110,7 +110,7 @@ export const logSessionRotated = () => {
   });
 };
 
-// ❌ BEFORE: logPerformance('🚪 Initializing Authentication Service...');
+// ❌ BEFORE: console.log('🚪 Initializing Authentication Service...');
 // ✅ AFTER:
 export const logAuthServiceInitialization = () => {
   logAuth('Authentication service initializing', {
@@ -152,7 +152,7 @@ export const logGAD7ScoringPerformance = (duration: number) => {
   });
 };
 
-// ❌ BEFORE: logPerformance(`Assessment session initialized in ${initTime}ms`);
+// ❌ BEFORE: console.log(`Assessment session initialized in ${initTime}ms`);
 // ✅ AFTER:
 export const logAssessmentSessionInitialized = (initTime: number) => {
   logPerformance('Assessment session initialized', initTime, {
@@ -165,7 +165,7 @@ export const logAssessmentSessionInitialized = (initTime: number) => {
  * CATEGORY 4: SYNC AND CLOUD OPERATIONS - MEDIUM PRIORITY
  */
 
-// ❌ BEFORE: logPerformance('✅ User analytics data deleted successfully');
+// ❌ BEFORE: console.log('✅ User analytics data deleted successfully');
 // ✅ AFTER:
 export const logUserDataDeletionSuccess = () => {
   logSync('User data deletion completed', {
@@ -180,7 +180,7 @@ export const logUserDataDeletionFailed = (error: Error) => {
   logError(LogCategory.SYNC, 'User data deletion failed', error);
 };
 
-// ❌ BEFORE: logPerformance(`📤 Exporting analytics data for user: ${userId}`);
+// ❌ BEFORE: console.log(`📤 Exporting analytics data for user: ${userId}`);
 // ✅ AFTER:
 export const logAnalyticsDataExport = () => {
   logSync('Analytics data export initiated', {
@@ -193,7 +193,7 @@ export const logAnalyticsDataExport = () => {
  * CATEGORY 5: SYSTEM AND APP LIFECYCLE - LOW PRIORITY
  */
 
-// ❌ BEFORE: logPerformance('📱 App backgrounding - saving performance data');
+// ❌ BEFORE: console.log('📱 App backgrounding - saving performance data');
 // ✅ AFTER:
 export const logAppBackgrounding = () => {
   logSystem('App backgrounding - saving performance data', {
@@ -201,7 +201,7 @@ export const logAppBackgrounding = () => {
   });
 };
 
-// ❌ BEFORE: logPerformance('Assessment flow optimizer configured:', this.config);
+// ❌ BEFORE: console.log('Assessment flow optimizer configured:', this.config);
 // ✅ AFTER:
 export const logAssessmentFlowOptimizerConfigured = () => {
   logSystem('Assessment flow optimizer configured', {
@@ -209,7 +209,7 @@ export const logAssessmentFlowOptimizerConfigured = () => {
   });
 };
 
-// ❌ BEFORE: logPerformance(`Session ${sessionId} cleaned up`);
+// ❌ BEFORE: console.log(`Session ${sessionId} cleaned up`);
 // ✅ AFTER:
 export const logSessionCleanup = () => {
   logSystem('Session cleanup completed', {
@@ -221,7 +221,7 @@ export const logSessionCleanup = () => {
  * CATEGORY 6: ANALYTICS AND MONITORING - LOW PRIORITY
  */
 
-// ❌ BEFORE: logPerformance('👁️ Assessment store monitoring started');
+// ❌ BEFORE: console.log('👁️ Assessment store monitoring started');
 // ✅ AFTER:
 export const logAssessmentStoreMonitoringStarted = () => {
   logAnalytics('Assessment store monitoring started', {
@@ -242,7 +242,7 @@ export const logAnalyticsBatchProcessing = (eventCount: number) => {
  * CATEGORY 7: ACCESSIBILITY AND UX - LOW PRIORITY
  */
 
-// ❌ BEFORE: logPerformance('🚨 Crisis interaction prioritized');
+// ❌ BEFORE: console.log('🚨 Crisis interaction prioritized');
 // ✅ AFTER:
 export const logCrisisInteractionPrioritized = () => {
   logAccessibility('Crisis interaction prioritized', {

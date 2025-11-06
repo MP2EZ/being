@@ -159,7 +159,7 @@ export const useAssessmentPerformance = (): UseAssessmentPerformanceReturn => {
   useEffect(() => {
     const initializePerformanceSystems = async () => {
       try {
-        logPerformance('🚀 Initializing Week 3 performance optimization systems...');
+        console.log('🚀 Initializing Week 3 performance optimization systems...');
 
         // Initialize all performance optimizers
         await Promise.all([
@@ -183,7 +183,7 @@ export const useAssessmentPerformance = (): UseAssessmentPerformanceReturn => {
           optimizeTransitions: true
         });
 
-        logPerformance('✅ Week 3 performance systems initialized successfully');
+        console.log('✅ Week 3 performance systems initialized successfully');
       } catch (error) {
         logError(LogCategory.SYSTEM, 'Failed to initialize performance systems:', error instanceof Error ? error : new Error(String(error)));
         setAlertLevel('warning');
@@ -218,12 +218,12 @@ export const useAssessmentPerformance = (): UseAssessmentPerformanceReturn => {
     const handleAppStateChange = (nextAppState: AppStateStatus) => {
       if (nextAppState === 'active') {
         // Reset performance metrics when app becomes active
-        logPerformance('📱 App active - resetting performance metrics');
+        console.log('📱 App active - resetting performance metrics');
       } else if (nextAppState === 'background') {
         // Save performance report before backgrounding
-        logPerformance('📱 App backgrounding - saving performance data');
+        console.log('📱 App backgrounding - saving performance data');
         const report = generatePerformanceReport();
-        logPerformance('📊 Performance Report:', report);
+        console.log('📊 Performance Report:', report);
       }
     };
 
@@ -380,7 +380,7 @@ export const useAssessmentPerformance = (): UseAssessmentPerformanceReturn => {
 
   // Performance optimization functions
   const optimizeForCrisis = useCallback(() => {
-    logPerformance('🚨 Optimizing performance for crisis scenario');
+    console.log('🚨 Optimizing performance for crisis scenario');
     
     // Clear low-priority tasks
     clearLowPriorityTasks();
@@ -397,7 +397,7 @@ export const useAssessmentPerformance = (): UseAssessmentPerformanceReturn => {
   }, [metrics.crisisDetectionTime, updateMetrics]);
 
   const clearLowPriorityTasks = useCallback(() => {
-    logPerformance('🧹 Clearing low-priority background tasks');
+    console.log('🧹 Clearing low-priority background tasks');
     
     // Clear timers and reduce memory usage
     if (memoryMonitor.current) {
@@ -410,7 +410,7 @@ export const useAssessmentPerformance = (): UseAssessmentPerformanceReturn => {
   }, [updateMetrics]);
 
   const prioritizeAssessment = useCallback(() => {
-    logPerformance('📋 Prioritizing assessment performance');
+    console.log('📋 Prioritizing assessment performance');
     
     // Optimize for assessment flow
     updateMetrics({ 
@@ -456,7 +456,7 @@ export const useAssessmentPerformance = (): UseAssessmentPerformanceReturn => {
   // Week 3 Performance Validation
   const validatePerformanceTargets = useCallback(async () => {
     try {
-      logPerformance('🎯 Running Week 3 performance validation...');
+      console.log('🎯 Running Week 3 performance validation...');
 
       const validationReport = await PerformanceValidator.validatePerformance();
 
@@ -555,7 +555,7 @@ export const useAssessmentPerformance = (): UseAssessmentPerformanceReturn => {
     setAlertLevel('none');
     performanceHistory.current = [];
     startTime.current = Date.now();
-    logPerformance('📊 Performance metrics reset');
+    console.log('📊 Performance metrics reset');
   }, []);
 
   // Calculate if performance is optimal

@@ -329,7 +329,7 @@ export class SecurityMonitoringService {
     const startTime = performance.now();
 
     try {
-      logPerformance('🔍 Initializing Security Monitoring Service...');
+      console.log('🔍 Initializing Security Monitoring Service...');
 
       // Initialize all security services
       await this.encryptionService.initialize();
@@ -388,7 +388,7 @@ export class SecurityMonitoringService {
     const assessmentId = await this.generateAssessmentId();
 
     try {
-      logPerformance('🔍 Performing comprehensive vulnerability assessment...');
+      console.log('🔍 Performing comprehensive vulnerability assessment...');
 
       if (!this.initialized) {
         throw new Error('Security monitoring service not initialized');
@@ -491,7 +491,7 @@ export class SecurityMonitoringService {
     const startTime = performance.now();
 
     try {
-      logPerformance('🔍 Performing threat detection analysis...');
+      console.log('🔍 Performing threat detection analysis...');
 
       if (!this.initialized) {
         throw new Error('Security monitoring service not initialized');
@@ -554,7 +554,7 @@ export class SecurityMonitoringService {
     const startTime = performance.now();
 
     try {
-      logPerformance('🚨 Performing incident detection...');
+      console.log('🚨 Performing incident detection...');
 
       if (!this.initialized) {
         throw new Error('Security monitoring service not initialized');
@@ -614,7 +614,7 @@ export class SecurityMonitoringService {
     const startTime = performance.now();
 
     try {
-      logPerformance('📋 Performing compliance check...');
+      console.log('📋 Performing compliance check...');
 
       if (!this.initialized) {
         throw new Error('Security monitoring service not initialized');
@@ -698,10 +698,10 @@ export class SecurityMonitoringService {
    */
   public async startContinuousMonitoring(): Promise<void> {
     try {
-      logPerformance('🔄 Starting continuous security monitoring...');
+      console.log('🔄 Starting continuous security monitoring...');
 
       if (this.monitoringActive) {
-        logPerformance('⚠️  Monitoring already active');
+        console.log('⚠️  Monitoring already active');
         return;
       }
 
@@ -743,7 +743,7 @@ export class SecurityMonitoringService {
         }
       }, MONITORING_CONFIG.THREAT_ANALYSIS_MS);
 
-      logPerformance('✅ Continuous security monitoring started');
+      console.log('✅ Continuous security monitoring started');
 
     } catch (error) {
       logError(LogCategory.SECURITY, '🚨 CONTINUOUS MONITORING START ERROR:', error instanceof Error ? error : new Error(String(error)));
@@ -1567,7 +1567,7 @@ export class SecurityMonitoringService {
 
   private async triggerAutomatedThreatResponse(threat: ThreatDetectionResult): Promise<void> {
     try {
-      logPerformance(`🚨 Triggering automated response for threat: ${threat.detectionId}`);
+      console.log(`🚨 Triggering automated response for threat: ${threat.detectionId}`);
 
       // Implement automated response based on threat type
       switch (threat.threatType) {
@@ -1592,7 +1592,7 @@ export class SecurityMonitoringService {
   private async blockUnauthorizedAccess(threat: ThreatDetectionResult): Promise<void> {
     try {
       // Implementation would block unauthorized access
-      logPerformance(`🔒 Blocking unauthorized access: ${threat.detectionId}`);
+      console.log(`🔒 Blocking unauthorized access: ${threat.detectionId}`);
     } catch (error) {
       logError(LogCategory.SECURITY, '🚨 BLOCK UNAUTHORIZED ACCESS ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
@@ -1601,7 +1601,7 @@ export class SecurityMonitoringService {
   private async preventDataExfiltration(threat: ThreatDetectionResult): Promise<void> {
     try {
       // Implementation would prevent data exfiltration
-      logPerformance(`🛡️  Preventing data exfiltration: ${threat.detectionId}`);
+      console.log(`🛡️  Preventing data exfiltration: ${threat.detectionId}`);
     } catch (error) {
       logError(LogCategory.SECURITY, '🚨 PREVENT DATA EXFILTRATION ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
@@ -1610,7 +1610,7 @@ export class SecurityMonitoringService {
   private async quarantineMalware(threat: ThreatDetectionResult): Promise<void> {
     try {
       // Implementation would quarantine malware
-      logPerformance(`🦠 Quarantining malware: ${threat.detectionId}`);
+      console.log(`🦠 Quarantining malware: ${threat.detectionId}`);
     } catch (error) {
       logError(LogCategory.SECURITY, '🚨 QUARANTINE MALWARE ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
@@ -1619,7 +1619,7 @@ export class SecurityMonitoringService {
   private async defaultThreatResponse(threat: ThreatDetectionResult): Promise<void> {
     try {
       // Default threat response
-      logPerformance(`⚠️  Default threat response: ${threat.detectionId}`);
+      console.log(`⚠️  Default threat response: ${threat.detectionId}`);
     } catch (error) {
       logError(LogCategory.SECURITY, '🚨 DEFAULT THREAT RESPONSE ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
@@ -1627,7 +1627,7 @@ export class SecurityMonitoringService {
 
   private async processIncident(incident: IncidentDetectionEvent): Promise<void> {
     try {
-      logPerformance(`🚨 Processing incident: ${incident.incidentId}`);
+      console.log(`🚨 Processing incident: ${incident.incidentId}`);
 
       // Execute automatic response actions
       for (const action of incident.responseActions) {
@@ -1660,7 +1660,7 @@ export class SecurityMonitoringService {
           // Trigger compliance review
           break;
         default:
-          logPerformance(`📝 Response action logged: ${action}`);
+          console.log(`📝 Response action logged: ${action}`);
       }
     } catch (error) {
       logError(LogCategory.SECURITY, '🚨 RESPONSE ACTION EXECUTION ERROR:', error instanceof Error ? error : new Error(String(error)));
@@ -1669,7 +1669,7 @@ export class SecurityMonitoringService {
 
   private async escalateIncident(incident: IncidentDetectionEvent): Promise<void> {
     try {
-      logPerformance(`🚨 Escalating incident: ${incident.incidentId}`);
+      console.log(`🚨 Escalating incident: ${incident.incidentId}`);
       // Implementation would escalate to security team
     } catch (error) {
       logError(LogCategory.SECURITY, '🚨 INCIDENT ESCALATION ERROR:', error instanceof Error ? error : new Error(String(error)));
@@ -1900,7 +1900,7 @@ export class SecurityMonitoringService {
 
   public async stopContinuousMonitoring(): Promise<void> {
     try {
-      logPerformance('🛑 Stopping continuous security monitoring...');
+      console.log('🛑 Stopping continuous security monitoring...');
 
       this.monitoringActive = false;
 
@@ -1925,7 +1925,7 @@ export class SecurityMonitoringService {
         this.threatAnalysisTimer = null;
       }
 
-      logPerformance('✅ Continuous security monitoring stopped');
+      console.log('✅ Continuous security monitoring stopped');
 
     } catch (error) {
       logError(LogCategory.SECURITY, '🚨 STOP MONITORING ERROR:', error instanceof Error ? error : new Error(String(error)));
@@ -1935,7 +1935,7 @@ export class SecurityMonitoringService {
 
   public async destroy(): Promise<void> {
     try {
-      logPerformance('🗑️  Destroying security monitoring service...');
+      console.log('🗑️  Destroying security monitoring service...');
 
       // Stop monitoring
       await this.stopContinuousMonitoring();
@@ -1949,7 +1949,7 @@ export class SecurityMonitoringService {
 
       this.initialized = false;
 
-      logPerformance('✅ Security monitoring service destroyed');
+      console.log('✅ Security monitoring service destroyed');
 
     } catch (error) {
       logError(LogCategory.SECURITY, '🚨 SECURITY MONITORING DESTRUCTION ERROR:', error instanceof Error ? error : new Error(String(error)));

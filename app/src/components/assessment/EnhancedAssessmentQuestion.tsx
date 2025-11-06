@@ -112,7 +112,7 @@ const mockCrisisEngine = {
     
     if (data.questionId === 'phq9_9' && data.response > 0) {
       const detectionTime = performance.now() - startTime;
-      logPerformance(`🚨 Crisis detection time: ${detectionTime}ms`);
+      console.log(`🚨 Crisis detection time: ${detectionTime}ms`);
       
       return {
         isTriggered: true,
@@ -158,7 +158,7 @@ const mockEncryptionService = {
     await new Promise(resolve => setTimeout(resolve, 10));
     
     const encryptionTime = performance.now() - encryptionStart;
-    logPerformance(`🔒 Encryption time: ${encryptionTime}ms`);
+    console.log(`🔒 Encryption time: ${encryptionTime}ms`);
     
     return {
       success: true,
@@ -171,10 +171,10 @@ const mockEncryptionService = {
 
 const mockAuditLogger = {
   logHighRiskAccess: (data: any) => {
-    logPerformance('🔍 High-risk question access logged:', data);
+    console.log('🔍 High-risk question access logged:', data);
   },
   logAssessmentResponse: async (data: any) => {
-    logPerformance('📋 Assessment response logged:', data);
+    console.log('📋 Assessment response logged:', data);
     return { auditId: `audit_${Date.now()}` };
   }
 };

@@ -231,7 +231,7 @@ export class NetworkSecurityService {
     const startTime = performance.now();
 
     try {
-      logPerformance('🔒 Initializing Network Security Service...');
+      console.log('🔒 Initializing Network Security Service...');
 
       // Initialize dependencies
       await this.encryptionService.initialize();
@@ -373,7 +373,7 @@ export class NetworkSecurityService {
     const startTime = performance.now();
 
     try {
-      logPerformance('🚨 Crisis API request initiated');
+      console.log('🚨 Crisis API request initiated');
 
       const options: SecureRequestOptions = {
         method,
@@ -435,7 +435,7 @@ export class NetworkSecurityService {
     assessmentId: string
   ): Promise<SecureResponse<{ assessmentId: string; uploaded: boolean }>> {
     try {
-      logPerformance(`📋 Uploading ${assessmentData.type} assessment data`);
+      console.log(`📋 Uploading ${assessmentData.type} assessment data`);
 
       // Encrypt assessment data before transmission
       const encryptedData = await this.encryptionService.encryptAssessmentData(
@@ -486,7 +486,7 @@ export class NetworkSecurityService {
     professionalToken?: string
   ): Promise<SecureResponse<T>> {
     try {
-      logPerformance('👩‍⚕️ Professional API request');
+      console.log('👩‍⚕️ Professional API request');
 
       const options: SecureRequestOptions = {
         method,
@@ -532,7 +532,7 @@ export class NetworkSecurityService {
     }
   ): Promise<SecureResponse<T>> {
     try {
-      logPerformance(`📦 Bulk ${operation} operation initiated`);
+      console.log(`📦 Bulk ${operation} operation initiated`);
 
       const requestOptions: SecureRequestOptions = {
         method: operation === 'download' ? 'GET' : 'POST',
@@ -1145,7 +1145,7 @@ export class NetworkSecurityService {
 
   private async verifyNetworkSecurityCapabilities(): Promise<void> {
     try {
-      logPerformance('🔍 Verifying network security capabilities...');
+      console.log('🔍 Verifying network security capabilities...');
 
       // Check TLS support
       if (Platform.OS !== 'web') {
@@ -1157,7 +1157,7 @@ export class NetworkSecurityService {
         throw new Error('Encryption service not available');
       }
 
-      logPerformance('✅ Network security capabilities verified');
+      console.log('✅ Network security capabilities verified');
 
     } catch (error) {
       logError(LogCategory.SECURITY, '🚨 NETWORK SECURITY VERIFICATION ERROR:', error instanceof Error ? error : new Error(String(error)));
@@ -1167,12 +1167,12 @@ export class NetworkSecurityService {
 
   private async setupCertificatePinning(): Promise<void> {
     try {
-      logPerformance('🔒 Setting up certificate pinning...');
+      console.log('🔒 Setting up certificate pinning...');
 
       // Certificate pinning would be implemented here
       // For now, log that it's configured
       
-      logPerformance('✅ Certificate pinning configured');
+      console.log('✅ Certificate pinning configured');
 
     } catch (error) {
       logError(LogCategory.SECURITY, '🚨 CERTIFICATE PINNING SETUP ERROR:', error instanceof Error ? error : new Error(String(error)));
@@ -1193,7 +1193,7 @@ export class NetworkSecurityService {
 
   private async validateAPIConnectivity(): Promise<void> {
     try {
-      logPerformance('🔍 Validating API connectivity...');
+      console.log('🔍 Validating API connectivity...');
 
       // Test basic connectivity
       const testResponse = await fetch(`${this.apiBaseUrl}/health`, {
@@ -1207,7 +1207,7 @@ export class NetworkSecurityService {
         throw new Error(`API connectivity test failed: ${testResponse.status}`);
       }
 
-      logPerformance('✅ API connectivity validated');
+      console.log('✅ API connectivity validated');
 
     } catch (error) {
       logError(LogCategory.SECURITY, '🚨 API CONNECTIVITY VALIDATION ERROR:', error instanceof Error ? error : new Error(String(error)));
@@ -1286,14 +1286,14 @@ export class NetworkSecurityService {
 
   public async abortAllRequests(): Promise<void> {
     try {
-      logPerformance('🛑 Aborting all active requests...');
+      console.log('🛑 Aborting all active requests...');
 
       for (const [requestKey, controller] of this.activeRequests.entries()) {
         controller.abort();
         this.activeRequests.delete(requestKey);
       }
 
-      logPerformance('✅ All requests aborted');
+      console.log('✅ All requests aborted');
 
     } catch (error) {
       logError(LogCategory.SECURITY, '🚨 REQUEST ABORTION ERROR:', error instanceof Error ? error : new Error(String(error)));
@@ -1302,7 +1302,7 @@ export class NetworkSecurityService {
 
   public async destroy(): Promise<void> {
     try {
-      logPerformance('🗑️  Destroying network security service...');
+      console.log('🗑️  Destroying network security service...');
 
       // Abort all active requests
       await this.abortAllRequests();
@@ -1318,7 +1318,7 @@ export class NetworkSecurityService {
 
       this.initialized = false;
 
-      logPerformance('✅ Network security service destroyed');
+      console.log('✅ Network security service destroyed');
 
     } catch (error) {
       logError(LogCategory.SECURITY, '🚨 NETWORK SECURITY DESTRUCTION ERROR:', error instanceof Error ? error : new Error(String(error)));

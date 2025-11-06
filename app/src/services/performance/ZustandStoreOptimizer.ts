@@ -257,7 +257,7 @@ class StorePartitionManager {
       this.keyToPartition.set(key, partitionId);
     });
 
-    logPerformance(`📦 Created partition: ${partitionId} with ${keys.length} keys`);
+    console.log(`📦 Created partition: ${partitionId} with ${keys.length} keys`);
   }
 
   /**
@@ -508,7 +508,7 @@ export class ZustandStoreOptimizer {
   static initialize(): void {
     if (this.isInitialized) return;
 
-    logPerformance('🏪 Initializing Zustand store optimizer...');
+    console.log('🏪 Initializing Zustand store optimizer...');
 
     // Setup default partitions for assessment data
     this.setupDefaultPartitions();
@@ -517,7 +517,7 @@ export class ZustandStoreOptimizer {
     this.setupPerformanceMonitoring();
 
     this.isInitialized = true;
-    logPerformance('✅ Zustand store optimizer initialized');
+    console.log('✅ Zustand store optimizer initialized');
   }
 
   /**
@@ -847,7 +847,7 @@ export class ZustandStoreOptimizer {
       this.selectorCache = new SelectorCache(config.maxCacheSize);
     }
 
-    logPerformance('Zustand store optimizer configured:', this.config);
+    console.log('Zustand store optimizer configured:', this.config);
   }
 
   /**
@@ -859,7 +859,7 @@ export class ZustandStoreOptimizer {
     this.partitionManager.clear();
     this.batchProcessor.clear();
     this.isInitialized = false;
-    logPerformance('Zustand store optimizer reset');
+    console.log('Zustand store optimizer reset');
   }
 }
 

@@ -152,7 +152,7 @@ class SupabaseService {
       await this.loadOfflineQueue();
 
       this.isInitialized = true;
-      logPerformance('[SupabaseService] Initialized with user ID:', this.userId);
+      console.log('[SupabaseService] Initialized with user ID:', this.userId);
 
     } catch (error) {
       logError(LogCategory.SYSTEM, '[SupabaseService] Initialization failed:', error instanceof Error ? error : new Error(String(error)));
@@ -542,7 +542,7 @@ class SupabaseService {
   async processOfflineQueue(): Promise<void> {
     if (this.offlineQueue.length === 0 || !this.isInitialized) return;
 
-    logPerformance(`[SupabaseService] Processing ${this.offlineQueue.length} offline operations`);
+    console.log(`[SupabaseService] Processing ${this.offlineQueue.length} offline operations`);
 
     const processedOperations: number[] = [];
 

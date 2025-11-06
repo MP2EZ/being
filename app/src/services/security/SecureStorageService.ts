@@ -170,7 +170,7 @@ export class SecureStorageService {
     const startTime = performance.now();
 
     try {
-      logPerformance('🔒 Initializing Secure Storage Service...');
+      console.log('🔒 Initializing Secure Storage Service...');
 
       // Initialize encryption service
       await this.encryptionService.initialize();
@@ -960,7 +960,7 @@ export class SecureStorageService {
 
   private async performScheduledCleanup(): Promise<void> {
     try {
-      logPerformance('🧹 Performing scheduled storage cleanup...');
+      console.log('🧹 Performing scheduled storage cleanup...');
 
       let cleanedCount = 0;
       const currentTime = Date.now();
@@ -1015,7 +1015,7 @@ export class SecureStorageService {
       if (metadataString) {
         const metadataArray: Array<[string, SecureStorageMetadata]> = JSON.parse(metadataString);
         this.metadataCache = new Map(metadataArray);
-        logPerformance(`📋 Loaded ${this.metadataCache.size} metadata entries`);
+        console.log(`📋 Loaded ${this.metadataCache.size} metadata entries`);
       }
 
     } catch (error) {
@@ -1073,7 +1073,7 @@ export class SecureStorageService {
 
   private async verifyStorageCapabilities(): Promise<void> {
     try {
-      logPerformance('🔍 Verifying storage capabilities...');
+      console.log('🔍 Verifying storage capabilities...');
 
       // Test SecureStore
       const testKey = 'storage_capability_test';
@@ -1096,7 +1096,7 @@ export class SecureStorageService {
         throw new Error('AsyncStorage capability test failed');
       }
 
-      logPerformance('✅ Storage capabilities verified');
+      console.log('✅ Storage capabilities verified');
 
     } catch (error) {
       logError(LogCategory.SECURITY, '🚨 STORAGE CAPABILITY VERIFICATION ERROR:', error instanceof Error ? error : new Error(String(error)));
@@ -1205,7 +1205,7 @@ export class SecureStorageService {
 
   public async destroy(): Promise<void> {
     try {
-      logPerformance('🗑️  Destroying secure storage service...');
+      console.log('🗑️  Destroying secure storage service...');
 
       // Clear cleanup timer
       if (this.cleanupTimer) {
@@ -1222,7 +1222,7 @@ export class SecureStorageService {
 
       this.initialized = false;
 
-      logPerformance('✅ Secure storage service destroyed');
+      console.log('✅ Secure storage service destroyed');
 
     } catch (error) {
       logError(LogCategory.SECURITY, '🚨 SECURE STORAGE DESTRUCTION ERROR:', error instanceof Error ? error : new Error(String(error)));

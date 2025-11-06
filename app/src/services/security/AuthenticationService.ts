@@ -211,7 +211,7 @@ export class AuthenticationService {
     const startTime = performance.now();
 
     try {
-      logPerformance('🔐 Initializing Authentication Service...');
+      console.log('🔐 Initializing Authentication Service...');
 
       // Initialize secure storage
       await this.secureStorage.initialize();
@@ -361,7 +361,7 @@ export class AuthenticationService {
         throw new Error('Authentication service not initialized');
       }
 
-      logPerformance('🚨 Crisis emergency access requested');
+      console.log('🚨 Crisis emergency access requested');
 
       const deviceId = await this.getDeviceId();
 
@@ -745,7 +745,7 @@ export class AuthenticationService {
       // Clear current user
       this.currentUser = null;
 
-      logPerformance('👋 User logged out successfully');
+      console.log('👋 User logged out successfully');
 
     } catch (error) {
       logError(LogCategory.SECURITY, '🚨 LOGOUT ERROR:', error instanceof Error ? error : new Error(String(error)));
@@ -831,7 +831,7 @@ export class AuthenticationService {
       const storedSession = await this.loadStoredSession();
       if (storedSession && Date.now() < storedSession.expiresAt) {
         this.currentUser = storedSession;
-        logPerformance(`🔄 Session restored for user: ${storedSession.userId}`);
+        console.log(`🔄 Session restored for user: ${storedSession.userId}`);
       }
     } catch (error) {
       logError(LogCategory.SECURITY, '🚨 SESSION RESTORATION ERROR:', error instanceof Error ? error : new Error(String(error)));
@@ -1219,7 +1219,7 @@ export class AuthenticationService {
 
   public async destroy(): Promise<void> {
     try {
-      logPerformance('🗑️  Destroying authentication service...');
+      console.log('🗑️  Destroying authentication service...');
 
       // Logout current user
       await this.logout();
@@ -1241,7 +1241,7 @@ export class AuthenticationService {
 
       this.initialized = false;
 
-      logPerformance('✅ Authentication service destroyed');
+      console.log('✅ Authentication service destroyed');
 
     } catch (error) {
       logError(LogCategory.SECURITY, '🚨 AUTHENTICATION SERVICE DESTRUCTION ERROR:', error instanceof Error ? error : new Error(String(error)));

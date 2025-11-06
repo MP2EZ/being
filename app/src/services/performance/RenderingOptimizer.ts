@@ -81,7 +81,7 @@ class FrameRateMonitor {
     this.frameCount = 0;
     this.droppedFrameCount = 0;
 
-    logPerformance('🎬 Starting frame rate monitoring...');
+    console.log('🎬 Starting frame rate monitoring...');
     this.scheduleFrameCheck();
   }
 
@@ -191,7 +191,7 @@ class FrameRateMonitor {
       cancelAnimationFrame(this.animationFrameId);
       this.animationFrameId = null;
     }
-    logPerformance('🎬 Frame rate monitoring stopped');
+    console.log('🎬 Frame rate monitoring stopped');
   }
 
   /**
@@ -584,7 +584,7 @@ export class RenderingOptimizer {
   static initialize(): void {
     if (this.isInitialized) return;
 
-    logPerformance('🎨 Initializing rendering optimizer...');
+    console.log('🎨 Initializing rendering optimizer...');
 
     // Start frame rate monitoring
     FrameRateMonitor.startMonitoring();
@@ -596,7 +596,7 @@ export class RenderingOptimizer {
     this.setupTouchOptimizations();
 
     this.isInitialized = true;
-    logPerformance('✅ Rendering optimizer initialized');
+    console.log('✅ Rendering optimizer initialized');
   }
 
   /**
@@ -629,7 +629,7 @@ export class RenderingOptimizer {
 
     // Temporarily reduce other performance monitoring
     setTimeout(() => {
-      logPerformance('🚨 Crisis interaction prioritized');
+      console.log('🚨 Crisis interaction prioritized');
     }, 0);
   }
 
@@ -771,7 +771,7 @@ export class RenderingOptimizer {
    */
   static configure(config: Partial<RenderOptimizationConfig>): void {
     this.config = { ...this.config, ...config };
-    logPerformance('Rendering optimizer configured:', this.config);
+    console.log('Rendering optimizer configured:', this.config);
   }
 
   /**
@@ -782,7 +782,7 @@ export class RenderingOptimizer {
     RenderBatchManager.clearBatch();
     ComponentPerformanceTracker.clear();
     this.isInitialized = false;
-    logPerformance('Rendering optimizer shutdown');
+    console.log('Rendering optimizer shutdown');
   }
 }
 

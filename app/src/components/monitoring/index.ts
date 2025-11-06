@@ -195,7 +195,7 @@ export async function initializeMonitoringComponents(): Promise<void> {
     await monitoringOrchestrator.initialize();
     await resilienceOrchestrator.initialize();
 
-    logPerformance('Monitoring components initialized', 10);
+    console.log('Monitoring components initialized', 10);
   } catch (error) {
     logError(LogCategory.SYSTEM, 'Monitoring components initialization failed', error instanceof Error ? error : undefined);
     throw error;

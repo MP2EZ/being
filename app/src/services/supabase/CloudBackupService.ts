@@ -126,7 +126,7 @@ class CloudBackupService {
       this.setupAppStateListener();
 
       this.isInitialized = true;
-      logPerformance('[CloudBackupService] Initialized');
+      console.log('[CloudBackupService] Initialized');
 
     } catch (error) {
       logError(LogCategory.SYSTEM, '[CloudBackupService] Initialization failed:', error instanceof Error ? error : new Error(String(error)));
@@ -152,7 +152,7 @@ class CloudBackupService {
       // Check if data has changed since last backup
       const dataHash = await this.calculateDataHash(backupData);
       if (dataHash === this.lastBackupHash) {
-        logPerformance('[CloudBackupService] No changes detected, skipping backup');
+        console.log('[CloudBackupService] No changes detected, skipping backup');
         return { success: true, timestamp: Date.now() };
       }
 

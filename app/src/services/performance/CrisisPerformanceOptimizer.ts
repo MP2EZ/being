@@ -448,7 +448,7 @@ export class CrisisPerformanceOptimizer {
    */
   static configureOptimizations(config: Partial<CrisisOptimizationConfig>): void {
     this.config = { ...this.config, ...config };
-    logPerformance('Crisis performance optimizer configured:', this.config);
+    console.log('Crisis performance optimizer configured:', this.config);
   }
 
   /**
@@ -493,14 +493,14 @@ export class CrisisPerformanceOptimizer {
     this.performanceHistory = [];
     this.alertCount = 0;
     ScoringCache.clear();
-    logPerformance('Crisis performance tracking reset');
+    console.log('Crisis performance tracking reset');
   }
 
   /**
    * Precompute crisis thresholds for even faster lookup
    */
   static precomputeCrisisThresholds(): void {
-    logPerformance('Precomputing crisis detection lookup tables...');
+    console.log('Precomputing crisis detection lookup tables...');
 
     // Verify lookup tables are correct
     const phq9Expected = [20, 21, 22, 23, 24, 25, 26, 27];
@@ -517,7 +517,7 @@ export class CrisisPerformanceOptimizer {
       throw new Error('GAD-7 crisis lookup table mismatch');
     }
 
-    logPerformance('✅ Crisis detection lookup tables verified and ready');
+    console.log('✅ Crisis detection lookup tables verified and ready');
   }
 }
 

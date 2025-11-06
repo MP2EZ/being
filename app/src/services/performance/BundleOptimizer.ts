@@ -143,7 +143,7 @@ class CodeSplittingRegistry {
       .filter(chunk => chunk.isCritical)
       .sort((a, b) => b.loadPriority === 'high' ? 1 : -1);
 
-    logPerformance(`🚀 Preloading ${criticalChunks.length} critical chunks`);
+    console.log(`🚀 Preloading ${criticalChunks.length} critical chunks`);
 
     const preloadPromises = criticalChunks.map(chunk =>
       this.loadChunk(chunk.name).catch(error => {
@@ -263,7 +263,7 @@ class AssetOptimizer {
     });
 
     await Promise.allSettled(preloadPromises);
-    logPerformance(`✅ Preloaded ${assetPaths.length} critical assets`);
+    console.log(`✅ Preloaded ${assetPaths.length} critical assets`);
   }
 
   /**
@@ -316,7 +316,7 @@ export class BundleOptimizer {
   static async initialize(): Promise<void> {
     if (this.isInitialized) return;
 
-    logPerformance('📦 Initializing bundle optimizer...');
+    console.log('📦 Initializing bundle optimizer...');
 
     // Register critical chunks that should never be lazy-loaded
     this.registerCriticalChunks();
@@ -331,7 +331,7 @@ export class BundleOptimizer {
     this.startBundleMonitoring();
 
     this.isInitialized = true;
-    logPerformance('✅ Bundle optimizer initialized');
+    console.log('✅ Bundle optimizer initialized');
   }
 
   /**
@@ -616,7 +616,7 @@ export class BundleOptimizer {
    */
   static configure(config: Partial<BundleOptimizationConfig>): void {
     this.config = { ...this.config, ...config };
-    logPerformance('Bundle optimizer configured:', this.config);
+    console.log('Bundle optimizer configured:', this.config);
   }
 
   /**
@@ -627,7 +627,7 @@ export class BundleOptimizer {
     CodeSplittingRegistry.clear();
     AssetOptimizer.clearCache();
     this.isInitialized = false;
-    logPerformance('Bundle optimizer reset');
+    console.log('Bundle optimizer reset');
   }
 }
 

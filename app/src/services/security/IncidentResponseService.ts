@@ -298,7 +298,7 @@ export class IncidentResponseService {
     const startTime = performance.now();
 
     try {
-      logPerformance('🚨 Initializing Incident Response Service...');
+      console.log('🚨 Initializing Incident Response Service...');
 
       // Initialize all security services
       await this.encryptionService.initialize();
@@ -354,7 +354,7 @@ export class IncidentResponseService {
     const detectionStart = performance.now();
 
     try {
-      logPerformance(`🚨 Incident detected: ${incidentType} - ${description}`);
+      console.log(`🚨 Incident detected: ${incidentType} - ${description}`);
 
       if (!this.initialized) {
         throw new Error('Incident response service not initialized');
@@ -445,7 +445,7 @@ export class IncidentResponseService {
     const responseStart = performance.now();
 
     try {
-      logPerformance(`🚨 CRISIS DATA BREACH: Episode ${crisisEpisodeId}`);
+      console.log(`🚨 CRISIS DATA BREACH: Episode ${crisisEpisodeId}`);
 
       if (!this.initialized) {
         throw new Error('Incident response service not initialized');
@@ -551,7 +551,7 @@ export class IncidentResponseService {
     const containmentStart = performance.now();
 
     try {
-      logPerformance(`🔒 Executing containment procedures for incident: ${incidentId}`);
+      console.log(`🔒 Executing containment procedures for incident: ${incidentId}`);
 
       const incident = this.activeIncidents.get(incidentId);
       if (!incident) {
@@ -631,7 +631,7 @@ export class IncidentResponseService {
    */
   public async sendStakeholderNotifications(incidentId: string): Promise<IncidentNotification[]> {
     try {
-      logPerformance(`📢 Sending stakeholder notifications for incident: ${incidentId}`);
+      console.log(`📢 Sending stakeholder notifications for incident: ${incidentId}`);
 
       const incident = this.activeIncidents.get(incidentId);
       if (!incident) {
@@ -689,7 +689,7 @@ export class IncidentResponseService {
    */
   public async processRegulatoryReporting(incidentId: string): Promise<void> {
     try {
-      logPerformance(`📋 Processing regulatory reporting for incident: ${incidentId}`);
+      console.log(`📋 Processing regulatory reporting for incident: ${incidentId}`);
 
       const incident = this.activeIncidents.get(incidentId);
       if (!incident) {
@@ -736,7 +736,7 @@ export class IncidentResponseService {
         ]
       });
 
-      logPerformance(`📋 Regulatory reporting processed for incident: ${incidentId}`);
+      console.log(`📋 Regulatory reporting processed for incident: ${incidentId}`);
 
     } catch (error) {
       logError(LogCategory.SECURITY, '🚨 REGULATORY REPORTING ERROR:', error instanceof Error ? error : new Error(String(error)));
@@ -761,7 +761,7 @@ export class IncidentResponseService {
    */
   public async createRecoveryPlan(incidentId: string): Promise<RecoveryPlan> {
     try {
-      logPerformance(`🔧 Creating recovery plan for incident: ${incidentId}`);
+      console.log(`🔧 Creating recovery plan for incident: ${incidentId}`);
 
       const incident = this.activeIncidents.get(incidentId);
       if (!incident) {
@@ -801,7 +801,7 @@ export class IncidentResponseService {
         evidence: [`plan_id: ${recoveryPlan.planId}`, `steps: ${recoveryPlan.recoverySteps.length}`]
       });
 
-      logPerformance(`🔧 Recovery plan created: ${recoveryPlan.planId}`);
+      console.log(`🔧 Recovery plan created: ${recoveryPlan.planId}`);
 
       return recoveryPlan;
 
@@ -996,7 +996,7 @@ export class IncidentResponseService {
 
   private async executeAutomatedResponse(incident: IncidentRecord): Promise<void> {
     try {
-      logPerformance(`🤖 Executing automated response for incident: ${incident.incidentId}`);
+      console.log(`🤖 Executing automated response for incident: ${incident.incidentId}`);
 
       // Start containment
       await this.initiateContainment(incident);
@@ -1103,7 +1103,7 @@ export class IncidentResponseService {
   private async isolateAffectedSystems(incidentId: string): Promise<boolean> {
     try {
       // Implementation would isolate affected systems
-      logPerformance(`🔒 Isolating affected systems for incident: ${incidentId}`);
+      console.log(`🔒 Isolating affected systems for incident: ${incidentId}`);
       return true;
     } catch (error) {
       logError(LogCategory.SECURITY, '🚨 SYSTEM ISOLATION ERROR:', error instanceof Error ? error : new Error(String(error)));
@@ -1114,7 +1114,7 @@ export class IncidentResponseService {
   private async revokeAccessTokens(incidentId: string): Promise<boolean> {
     try {
       // Implementation would revoke access tokens
-      logPerformance(`🔑 Revoking access tokens for incident: ${incidentId}`);
+      console.log(`🔑 Revoking access tokens for incident: ${incidentId}`);
       await this.authenticationService.logout();
       return true;
     } catch (error) {
@@ -1126,7 +1126,7 @@ export class IncidentResponseService {
   private async enableEnhancedMonitoring(incidentId: string): Promise<boolean> {
     try {
       // Implementation would enable enhanced monitoring
-      logPerformance(`👀 Enabling enhanced monitoring for incident: ${incidentId}`);
+      console.log(`👀 Enabling enhanced monitoring for incident: ${incidentId}`);
       return true;
     } catch (error) {
       logError(LogCategory.SECURITY, '🚨 ENHANCED MONITORING ERROR:', error instanceof Error ? error : new Error(String(error)));
@@ -1137,7 +1137,7 @@ export class IncidentResponseService {
   private async patchVulnerabilities(incidentId: string): Promise<boolean> {
     try {
       // Implementation would patch vulnerabilities
-      logPerformance(`🔧 Patching vulnerabilities for incident: ${incidentId}`);
+      console.log(`🔧 Patching vulnerabilities for incident: ${incidentId}`);
       return true;
     } catch (error) {
       logError(LogCategory.SECURITY, '🚨 VULNERABILITY PATCHING ERROR:', error instanceof Error ? error : new Error(String(error)));
@@ -1148,7 +1148,7 @@ export class IncidentResponseService {
   private async resetCredentials(incidentId: string): Promise<boolean> {
     try {
       // Implementation would reset credentials
-      logPerformance(`🔐 Resetting credentials for incident: ${incidentId}`);
+      console.log(`🔐 Resetting credentials for incident: ${incidentId}`);
       return true;
     } catch (error) {
       logError(LogCategory.SECURITY, '🚨 CREDENTIAL RESET ERROR:', error instanceof Error ? error : new Error(String(error)));
@@ -1159,7 +1159,7 @@ export class IncidentResponseService {
   private async updateSecurityPolicies(incidentId: string): Promise<boolean> {
     try {
       // Implementation would update security policies
-      logPerformance(`📋 Updating security policies for incident: ${incidentId}`);
+      console.log(`📋 Updating security policies for incident: ${incidentId}`);
       return true;
     } catch (error) {
       logError(LogCategory.SECURITY, '🚨 SECURITY POLICY UPDATE ERROR:', error instanceof Error ? error : new Error(String(error)));
@@ -1169,7 +1169,7 @@ export class IncidentResponseService {
 
   private async sendImmediateNotifications(incident: IncidentRecord): Promise<void> {
     try {
-      logPerformance(`📢 Sending immediate notifications for incident: ${incident.incidentId}`);
+      console.log(`📢 Sending immediate notifications for incident: ${incident.incidentId}`);
 
       // For emergency and critical incidents, send immediate notifications
       if (['emergency', 'critical'].includes(incident.severity)) {
@@ -1225,7 +1225,7 @@ export class IncidentResponseService {
 
     try {
       // Implementation would send actual notification
-      logPerformance(`📤 Sending notification to ${group} for incident: ${incident.incidentId}`);
+      console.log(`📤 Sending notification to ${group} for incident: ${incident.incidentId}`);
       
       // Simulate successful delivery
       notification.deliveryStatus = 'delivered';
@@ -1290,7 +1290,7 @@ export class IncidentResponseService {
     crisisEpisodeId: string
   ): Promise<void> {
     try {
-      logPerformance(`🚨 Executing emergency containment for crisis episode: ${crisisEpisodeId}`);
+      console.log(`🚨 Executing emergency containment for crisis episode: ${crisisEpisodeId}`);
 
       // Immediate crisis system lockdown
       await this.crisisSecurityProtocol.performImmediateLockdown(crisisEpisodeId);
@@ -1322,7 +1322,7 @@ export class IncidentResponseService {
     crisisEpisodeId: string
   ): Promise<void> {
     try {
-      logPerformance(`📞 Sending emergency professional notification for crisis episode: ${crisisEpisodeId}`);
+      console.log(`📞 Sending emergency professional notification for crisis episode: ${crisisEpisodeId}`);
 
       const emergencyNotification: IncidentNotification = {
         notificationId: await this.generateNotificationId(),
@@ -1360,7 +1360,7 @@ export class IncidentResponseService {
     crisisEpisodeId: string
   ): Promise<void> {
     try {
-      logPerformance(`🔒 Activating crisis security protocol for episode: ${crisisEpisodeId}`);
+      console.log(`🔒 Activating crisis security protocol for episode: ${crisisEpisodeId}`);
 
       // Activate enhanced crisis monitoring
       await this.crisisSecurityProtocol.startCrisisSecurityMonitoring(crisisEpisodeId);
@@ -1393,7 +1393,7 @@ export class IncidentResponseService {
     crisisEpisodeId: string
   ): Promise<void> {
     try {
-      logPerformance(`👥 Assessing patient safety impact for crisis episode: ${crisisEpisodeId}`);
+      console.log(`👥 Assessing patient safety impact for crisis episode: ${crisisEpisodeId}`);
 
       // Set critical patient safety risk for crisis data exposure
       incident.impactAssessment.patientSafetyRisk = 'critical';
@@ -1454,7 +1454,7 @@ export class IncidentResponseService {
 
   private async prepareHIPAABreachNotification(incident: IncidentRecord): Promise<void> {
     try {
-      logPerformance(`📋 Preparing HIPAA breach notification for incident: ${incident.incidentId}`);
+      console.log(`📋 Preparing HIPAA breach notification for incident: ${incident.incidentId}`);
 
       // HIPAA breach notification preparation would be implemented here
       // For now, log the preparation
@@ -1466,7 +1466,7 @@ export class IncidentResponseService {
 
   private async prepareStateAuthorityNotification(incident: IncidentRecord): Promise<void> {
     try {
-      logPerformance(`🏛️  Preparing state authority notification for incident: ${incident.incidentId}`);
+      console.log(`🏛️  Preparing state authority notification for incident: ${incident.incidentId}`);
 
       // State authority notification preparation would be implemented here
       // For now, log the preparation
@@ -1478,7 +1478,7 @@ export class IncidentResponseService {
 
   private async prepareLawEnforcementNotification(incident: IncidentRecord): Promise<void> {
     try {
-      logPerformance(`👮 Preparing law enforcement notification for incident: ${incident.incidentId}`);
+      console.log(`👮 Preparing law enforcement notification for incident: ${incident.incidentId}`);
 
       // Law enforcement notification preparation would be implemented here
       // For now, log the preparation
@@ -1490,7 +1490,7 @@ export class IncidentResponseService {
 
   private async prepareProfessionalBoardNotification(incident: IncidentRecord): Promise<void> {
     try {
-      logPerformance(`🏥 Preparing professional board notification for incident: ${incident.incidentId}`);
+      console.log(`🏥 Preparing professional board notification for incident: ${incident.incidentId}`);
 
       // Professional board notification preparation would be implemented here
       // For now, log the preparation
@@ -1502,7 +1502,7 @@ export class IncidentResponseService {
 
   private async prepareRegulatoryNotifications(incident: IncidentRecord): Promise<void> {
     try {
-      logPerformance(`📋 Preparing regulatory notifications for incident: ${incident.incidentId}`);
+      console.log(`📋 Preparing regulatory notifications for incident: ${incident.incidentId}`);
 
       // Assess regulatory reporting requirements
       await this.assessRegulatoryReportingRequirements(incident);
@@ -1683,7 +1683,7 @@ export class IncidentResponseService {
     try {
       // Load incident history from storage
       // Implementation would load from secure storage
-      logPerformance('📋 Loading incident history...');
+      console.log('📋 Loading incident history...');
     } catch (error) {
       logError(LogCategory.SECURITY, '🚨 INCIDENT HISTORY LOADING ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
@@ -1691,7 +1691,7 @@ export class IncidentResponseService {
 
   private async setupResponseMonitoring(): Promise<void> {
     try {
-      logPerformance('🔍 Setting up response monitoring...');
+      console.log('🔍 Setting up response monitoring...');
 
       this.responseMonitoringActive = true;
 
@@ -1707,7 +1707,7 @@ export class IncidentResponseService {
 
   private async verifyResponseCapabilities(): Promise<void> {
     try {
-      logPerformance('🔍 Verifying response capabilities...');
+      console.log('🔍 Verifying response capabilities...');
 
       // Verify all security services are available
       if (!this.encryptionService || !this.authenticationService || 
@@ -1716,7 +1716,7 @@ export class IncidentResponseService {
         throw new Error('Required security services not available');
       }
 
-      logPerformance('✅ Response capabilities verified');
+      console.log('✅ Response capabilities verified');
 
     } catch (error) {
       logError(LogCategory.SECURITY, '🚨 RESPONSE CAPABILITY VERIFICATION ERROR:', error instanceof Error ? error : new Error(String(error)));
@@ -1726,11 +1726,11 @@ export class IncidentResponseService {
 
   private async setupAutomatedResponse(): Promise<void> {
     try {
-      logPerformance('🤖 Setting up automated response procedures...');
+      console.log('🤖 Setting up automated response procedures...');
 
       this.automatedResponseEnabled = true;
 
-      logPerformance('✅ Automated response procedures setup complete');
+      console.log('✅ Automated response procedures setup complete');
 
     } catch (error) {
       logError(LogCategory.SECURITY, '🚨 AUTOMATED RESPONSE SETUP ERROR:', error instanceof Error ? error : new Error(String(error)));
@@ -1758,7 +1758,7 @@ export class IncidentResponseService {
 
   private async escalateIncident(incidentId: string): Promise<void> {
     try {
-      logPerformance(`📈 Escalating incident: ${incidentId}`);
+      console.log(`📈 Escalating incident: ${incidentId}`);
 
       const incident = this.activeIncidents.get(incidentId);
       if (!incident) {
@@ -1811,7 +1811,7 @@ export class IncidentResponseService {
   ): Promise<void> {
     try {
       // Log incident timeline event for monitoring
-      logPerformance(`📝 Incident timeline event [${context}]: ${event.description}`);
+      console.log(`📝 Incident timeline event [${context}]: ${event.description}`);
 
     } catch (error) {
       logError(LogCategory.SECURITY, '🚨 INCIDENT TIMELINE LOGGING ERROR:', error instanceof Error ? error : new Error(String(error)));
@@ -1942,7 +1942,7 @@ export class IncidentResponseService {
 
   public async destroy(): Promise<void> {
     try {
-      logPerformance('🗑️  Destroying incident response service...');
+      console.log('🗑️  Destroying incident response service...');
 
       // Stop monitoring
       this.responseMonitoringActive = false;
@@ -1965,7 +1965,7 @@ export class IncidentResponseService {
 
       this.initialized = false;
 
-      logPerformance('✅ Incident response service destroyed');
+      console.log('✅ Incident response service destroyed');
 
     } catch (error) {
       logError(LogCategory.SECURITY, '🚨 INCIDENT RESPONSE DESTRUCTION ERROR:', error instanceof Error ? error : new Error(String(error)));

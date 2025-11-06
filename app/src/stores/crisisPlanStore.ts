@@ -233,7 +233,7 @@ export const useCrisisPlanStore = create<CrisisPlanStore>((set, get) => ({
         set({ crisisPlan, isLoading: false });
 
         const loadTime = performance.now() - startTime;
-        logPerformance('Crisis plan loaded', loadTime, { category: 'storage', target: 500 });
+        console.log('Crisis plan loaded', loadTime, { category: 'storage', target: 500 });
 
         return;
       }

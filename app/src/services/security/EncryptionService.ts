@@ -163,7 +163,7 @@ export class EncryptionService {
     const startTime = performance.now();
 
     try {
-      logPerformance('🔐 Initializing Encryption Service...');
+      console.log('🔐 Initializing Encryption Service...');
 
       // Initialize master key
       await this.initializeMasterKey(userPassphrase);
@@ -503,12 +503,12 @@ export class EncryptionService {
       const existingKey = await SecureStore.getItemAsync(ENCRYPTION_CONFIG.MASTER_KEY_ID);
       
       if (existingKey) {
-        logPerformance('🔑 Master key found, verifying...');
+        console.log('🔑 Master key found, verifying...');
         await this.verifyMasterKey(existingKey);
         return;
       }
 
-      logPerformance('🔑 Generating new master key...');
+      console.log('🔑 Generating new master key...');
 
       // Generate or derive master key
       let masterKey: ArrayBuffer;
@@ -537,7 +537,7 @@ export class EncryptionService {
 
       this.keyMetadata.set(ENCRYPTION_CONFIG.MASTER_KEY_ID, keyMetadata);
 
-      logPerformance('✅ Master key initialized successfully');
+      console.log('✅ Master key initialized successfully');
 
     } catch (error) {
       logError(LogCategory.SECURITY, '🚨 MASTER KEY INITIALIZATION ERROR:', error instanceof Error ? error : new Error(String(error)));
@@ -814,7 +814,7 @@ export class EncryptionService {
     warnings: string[];
   }> {
     try {
-      logPerformance('🔄 Checking for legacy encrypted data...');
+      console.log('🔄 Checking for legacy encrypted data...');
 
       const migrationStatus = {
         migrationRequired: false,
@@ -829,7 +829,7 @@ export class EncryptionService {
         const migrationFlag = await SecureStore.getItemAsync(migrationFlagKey);
         if (migrationFlag === 'completed') {
           migrationStatus.migrationCompleted = true;
-          logPerformance('✅ Encryption migration already completed');
+          console.log('✅ Encryption migration already completed');
           return migrationStatus;
         }
       } catch (error) {
@@ -867,7 +867,7 @@ export class EncryptionService {
       const existingDeviceId = await SecureStore.getItemAsync('@being/device_id');
 
       if (existingDeviceId) {
-        logPerformance('🔑 Device ID found');
+        console.log('🔑 Device ID found');
         return existingDeviceId;
       }
 
@@ -877,7 +877,7 @@ export class EncryptionService {
       // Store securely
       await SecureStore.setItemAsync('@being/device_id', deviceId);
 
-      logPerformance('🔑 New device ID generated');
+      console.log('🔑 New device ID generated');
       return deviceId;
 
     } catch (error) {
@@ -1018,7 +1018,7 @@ export class EncryptionService {
       
       for (const [keyId, metadata] of this.keyMetadata.entries()) {
         if (currentTime > metadata.expiresAt) {
-          logPerformance(`🔄 Key rotation required for: ${keyId}`);
+          console.log(`🔄 Key rotation required for: ${keyId}`);
           await this.rotateKey(keyId);
         }
       }
@@ -1031,7 +1031,7 @@ export class EncryptionService {
     const startTime = performance.now();
 
     try {
-      logPerformance(`🔄 Rotating key: ${keyId}`);
+      console.log(`🔄 Rotating key: ${keyId}`);
 
       // Generate new key
       const newKey = await this.generateSecureRandomBytes(ENCRYPTION_CONFIG.KEY_LENGTH);
@@ -1083,7 +1083,7 @@ export class EncryptionService {
 
   private async verifyEncryptionCapabilities(): Promise<void> {
     try {
-      logPerformance('🔍 Verifying encryption capabilities...');
+      console.log('🔍 Verifying encryption capabilities...');
 
       // Test encryption/decryption cycle
       const testData = 'encryption_test_data';
@@ -1094,7 +1094,7 @@ export class EncryptionService {
         throw new Error('Encryption verification failed');
       }
 
-      logPerformance('✅ Encryption capabilities verified');
+      console.log('✅ Encryption capabilities verified');
 
     } catch (error) {
       logError(LogCategory.SECURITY, '🚨 ENCRYPTION VERIFICATION ERROR:', error instanceof Error ? error : new Error(String(error)));
@@ -1110,7 +1110,7 @@ export class EncryptionService {
         throw new Error('Invalid master key length');
       }
 
-      logPerformance('✅ Master key verified');
+      console.log('✅ Master key verified');
 
     } catch (error) {
       logError(LogCategory.SECURITY, '🚨 MASTER KEY VERIFICATION ERROR:', error instanceof Error ? error : new Error(String(error)));
@@ -1163,7 +1163,7 @@ export class EncryptionService {
 
   public async clearSensitiveData(): Promise<void> {
     try {
-      logPerformance('🧹 Clearing sensitive encryption data...');
+      console.log('🧹 Clearing sensitive encryption data...');
 
       // Clear key cache
       this.keyCache.clear();
@@ -1179,7 +1179,7 @@ export class EncryptionService {
         this.keyMetadata.set(ENCRYPTION_CONFIG.MASTER_KEY_ID, masterKeyMetadata);
       }
 
-      logPerformance('✅ Sensitive data cleared');
+      console.log('✅ Sensitive data cleared');
 
     } catch (error) {
       logError(LogCategory.SECURITY, '🚨 SENSITIVE DATA CLEARING ERROR:', error instanceof Error ? error : new Error(String(error)));
@@ -1189,7 +1189,7 @@ export class EncryptionService {
 
   public async destroy(): Promise<void> {
     try {
-      logPerformance('🗑️  Destroying encryption service...');
+      console.log('🗑️  Destroying encryption service...');
 
       // Clear timers
       if (this.keyRotationTimer) {
@@ -1203,7 +1203,7 @@ export class EncryptionService {
       // Reset initialization flag
       this.masterKeyInitialized = false;
 
-      logPerformance('✅ Encryption service destroyed');
+      console.log('✅ Encryption service destroyed');
 
     } catch (error) {
       logError(LogCategory.SECURITY, '🚨 ENCRYPTION SERVICE DESTRUCTION ERROR:', error instanceof Error ? error : new Error(String(error)));

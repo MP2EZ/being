@@ -73,19 +73,19 @@ const CleanRootNavigator: React.FC = () => {
   }, [loadSettings]);
 
   const handleMorningFlowComplete = async (sessionData: any) => {
-    logPerformance('🌅 Morning flow completed:', sessionData);
+    console.log('🌅 Morning flow completed:', sessionData);
     await markCheckInComplete('morning');
     // TODO: Store session data to analytics/state
   };
 
   const handleMiddayFlowComplete = async (sessionData: any) => {
-    logPerformance('🧘 Midday flow completed:', sessionData);
+    console.log('🧘 Midday flow completed:', sessionData);
     await markCheckInComplete('midday');
     // TODO: Store session data to analytics/state
   };
 
   const handleEveningFlowComplete = async (sessionData: any) => {
-    logPerformance('🌙 Evening flow completed:', sessionData);
+    console.log('🌙 Evening flow completed:', sessionData);
     await markCheckInComplete('evening');
     // TODO: Store session data to analytics/state
   };
@@ -258,7 +258,7 @@ const CleanRootNavigator: React.FC = () => {
                   consentStatus={consentStatus}
                   sessionId={`session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`}
                   onComplete={(result) => {
-                    logPerformance(`✅ Assessment ${route.params.assessmentType} completed:`, result);
+                    console.log(`✅ Assessment ${route.params.assessmentType} completed:`, result);
                     // Always dismiss the modal first
                     navigation.goBack();
                     // Then notify parent after brief delay to allow modal dismissal animation

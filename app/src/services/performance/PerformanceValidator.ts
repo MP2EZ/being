@@ -331,7 +331,7 @@ export class PerformanceValidator {
    */
   static async validatePerformance(): Promise<ValidationReport> {
     const startTime = Date.now();
-    logPerformance('🎯 Starting comprehensive performance validation...');
+    console.log('🎯 Starting comprehensive performance validation...');
 
     const results: ValidationResult[] = [];
 
@@ -378,7 +378,7 @@ export class PerformanceValidator {
    * Initialize all performance systems
    */
   private static async initializePerformanceSystems(): Promise<void> {
-    logPerformance('🚀 Initializing performance systems for validation...');
+    console.log('🚀 Initializing performance systems for validation...');
 
     await Promise.all([
       BundleOptimizer.initialize(),
@@ -398,7 +398,7 @@ export class PerformanceValidator {
   private static async validateCrisisDetection(): Promise<ValidationResult[]> {
     const results: ValidationResult[] = [];
 
-    logPerformance('🚨 Validating crisis detection performance...');
+    console.log('🚨 Validating crisis detection performance...');
 
     // Test average response time
     const crisisResults = await PerformanceStressTester.stressCrisisDetection(50);
@@ -426,7 +426,7 @@ export class PerformanceValidator {
   private static async validateAssessmentFlow(): Promise<ValidationResult[]> {
     const results: ValidationResult[] = [];
 
-    logPerformance('📋 Validating assessment flow performance...');
+    console.log('📋 Validating assessment flow performance...');
 
     // Test question response times
     const flowResults = await PerformanceStressTester.stressAssessmentFlow(20);
@@ -456,7 +456,7 @@ export class PerformanceValidator {
   private static async validateMemoryUsage(): Promise<ValidationResult[]> {
     const results: ValidationResult[] = [];
 
-    logPerformance('💾 Validating memory usage...');
+    console.log('💾 Validating memory usage...');
 
     // Run memory stress test
     const memoryResults = await PerformanceStressTester.stressMemoryUsage(15000); // 15 seconds
@@ -487,7 +487,7 @@ export class PerformanceValidator {
   private static async validateRenderingPerformance(): Promise<ValidationResult[]> {
     const results: ValidationResult[] = [];
 
-    logPerformance('🎨 Validating rendering performance...');
+    console.log('🎨 Validating rendering performance...');
 
     // Get current rendering stats
     const renderingStats = RenderingOptimizer.getPerformanceReport();
@@ -514,7 +514,7 @@ export class PerformanceValidator {
   private static async validateBundleOptimization(): Promise<ValidationResult[]> {
     const results: ValidationResult[] = [];
 
-    logPerformance('📦 Validating bundle optimization...');
+    console.log('📦 Validating bundle optimization...');
 
     // Get bundle analysis
     const bundleAnalysis = BundleOptimizer.getBundleAnalysis();
@@ -544,7 +544,7 @@ export class PerformanceValidator {
   private static async validateStorePerformance(): Promise<ValidationResult[]> {
     const results: ValidationResult[] = [];
 
-    logPerformance('🏪 Validating store performance...');
+    console.log('🏪 Validating store performance...');
 
     // Get store performance report
     const storeReport = ZustandStoreOptimizer.getPerformanceReport();
@@ -562,7 +562,7 @@ export class PerformanceValidator {
    * Run stress tests
    */
   private static async runStressTests(): Promise<ValidationResult[]> {
-    logPerformance('🔥 Running additional stress tests...');
+    console.log('🔥 Running additional stress tests...');
 
     const results: ValidationResult[] = [];
 
@@ -719,7 +719,7 @@ export class PerformanceValidator {
    */
   static configure(config: Partial<ValidationConfig>): void {
     this.config = { ...this.config, ...config };
-    logPerformance('Performance validator configured:', this.config);
+    console.log('Performance validator configured:', this.config);
   }
 
   /**
@@ -727,7 +727,7 @@ export class PerformanceValidator {
    */
   static addValidationTarget(target: PerformanceTarget): void {
     this.targets.push(target);
-    logPerformance(`Added custom validation target: ${target.component}.${target.metric}`);
+    console.log(`Added custom validation target: ${target.component}.${target.metric}`);
   }
 }
 

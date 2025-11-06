@@ -234,7 +234,7 @@ const EnhancedAssessmentFlow: React.FC<EnhancedAssessmentFlowProps> = ({
 
   // Crisis detection handler
   const handleCrisisDetected = useCallback(async (detection: CrisisDetection) => {
-    logPerformance('🚨 Crisis detected in assessment flow:', detection);
+    console.log('🚨 Crisis detected in assessment flow:', detection);
     setCrisisDetected(detection);
 
     // Performance monitoring for crisis response

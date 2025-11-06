@@ -222,7 +222,7 @@ export default function CrisisPlanScreen() {
       }
 
       setInputValue('');
-      logPerformance('Safety plan item added', { step: currentStep }, LogCategory.Crisis);
+      console.log('Safety plan item added', { step: currentStep }, LogCategory.Crisis);
     } catch (error) {
       logError('Failed to add item to safety plan', { error, step: currentStep }, LogCategory.Crisis);
     }
@@ -265,7 +265,7 @@ export default function CrisisPlanScreen() {
       setContactName('');
       setContactPhone('');
       setContactRelation('');
-      logPerformance('Contact added to safety plan', {}, LogCategory.Crisis);
+      console.log('Contact added to safety plan', {}, LogCategory.Crisis);
     } catch (error) {
       logError('Failed to add contact', { error }, LogCategory.Crisis);
     }

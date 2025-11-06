@@ -251,7 +251,7 @@ export class CrisisPerformanceMonitor {
       this.performSystemHealthCheck();
     }, PERFORMANCE_REQUIREMENTS.MONITORING_INTERVAL_MS);
 
-    logPerformance('🔍 Crisis Performance Monitoring Started');
+    console.log('🔍 Crisis Performance Monitoring Started');
   }
 
   /**
@@ -265,7 +265,7 @@ export class CrisisPerformanceMonitor {
       this.monitoringInterval = undefined;
     }
 
-    logPerformance('⏹️ Crisis Performance Monitoring Stopped');
+    console.log('⏹️ Crisis Performance Monitoring Stopped');
   }
 
   /**

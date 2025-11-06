@@ -150,7 +150,7 @@ export class CrisisIntegrationOrchestrator {
    */
   public async initializeCrisisIntegration(): Promise<void> {
     try {
-      logPerformance('🔄 Initializing Crisis Integration Orchestrator...');
+      console.log('🔄 Initializing Crisis Integration Orchestrator...');
 
       // Start performance monitoring
       CrisisPerformanceMonitor.startMonitoring();
@@ -169,7 +169,7 @@ export class CrisisIntegrationOrchestrator {
       this.integrationStatus.monitoringEnabled = true;
       this.integrationStatus.lastHealthCheck = Date.now();
 
-      logPerformance('✅ Crisis Integration Orchestrator Initialized');
+      console.log('✅ Crisis Integration Orchestrator Initialized');
 
     } catch (error) {
       logError(LogCategory.CRISIS, '🚨 CRISIS INTEGRATION INITIALIZATION ERROR:', error instanceof Error ? error : new Error(String(error)));
@@ -197,7 +197,7 @@ export class CrisisIntegrationOrchestrator {
         }
       );
 
-      logPerformance('✅ Assessment Store Integration Initialized');
+      console.log('✅ Assessment Store Integration Initialized');
 
     } catch (error) {
       logError(LogCategory.CRISIS, '🚨 ASSESSMENT STORE INTEGRATION ERROR:', error instanceof Error ? error : new Error(String(error)));
@@ -486,7 +486,7 @@ export class CrisisIntegrationOrchestrator {
   ): Promise<void> {
     // Provide early warning without full intervention
     // Implementation would show supportive messaging and prepare resources
-    logPerformance(`🔶 Emerging crisis risk detected: ${riskType} for assessment ${context.assessmentId}`);
+    console.log(`🔶 Emerging crisis risk detected: ${riskType} for assessment ${context.assessmentId}`);
   }
 
   /**
@@ -598,7 +598,7 @@ export class CrisisIntegrationOrchestrator {
   ): Promise<void> {
     // Integration with React Native navigation and UI
     // Implementation would overlay crisis intervention UI
-    logPerformance('🚨 Displaying Crisis Intervention Overlay');
+    console.log('🚨 Displaying Crisis Intervention Overlay');
   }
 
   private async setupCrisisNavigation(
@@ -607,13 +607,13 @@ export class CrisisIntegrationOrchestrator {
   ): Promise<void> {
     // Setup navigation to crisis intervention screens
     // Implementation would configure navigation stack
-    logPerformance('🔄 Setting up Crisis Navigation');
+    console.log('🔄 Setting up Crisis Navigation');
   }
 
   private async handleAssessmentContinuation(context: CrisisAssessmentContext): Promise<void> {
     // Allow assessment to continue after crisis resolution
     setTimeout(() => {
-      logPerformance('✅ Assessment continuation allowed');
+      console.log('✅ Assessment continuation allowed');
       // Implementation would enable assessment UI
     }, INTEGRATION_CONFIG.ASSESSMENT_CONTINUATION_DELAY_MS);
   }
@@ -624,7 +624,7 @@ export class CrisisIntegrationOrchestrator {
     context.terminatedAt = Date.now();
     context.terminationReason = 'crisis_intervention_required';
 
-    logPerformance('⏹️ Assessment terminated due to crisis');
+    console.log('⏹️ Assessment terminated due to crisis');
   }
 
   private async scheduleFollowUp(
@@ -635,7 +635,7 @@ export class CrisisIntegrationOrchestrator {
     const followUpUrgency = this.determineFollowUpUrgency(resolutionType);
 
     // Implementation would schedule follow-up
-    logPerformance(`📅 Follow-up scheduled with urgency: ${followUpUrgency}`);
+    console.log(`📅 Follow-up scheduled with urgency: ${followUpUrgency}`);
   }
 
   /**
@@ -889,7 +889,7 @@ export class CrisisIntegrationOrchestrator {
 
     CrisisPerformanceMonitor.stopMonitoring();
 
-    logPerformance('⏹️ Crisis Integration Orchestrator Shutdown');
+    console.log('⏹️ Crisis Integration Orchestrator Shutdown');
   }
 
   public getIntegrationErrors(): string[] {

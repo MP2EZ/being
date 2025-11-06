@@ -257,7 +257,7 @@ export class CrisisErrorBoundary extends Component<
           text: 'Send Report',
           onPress: () => {
             // In production, this would open support form or email
-            logPerformance('📧 Support report requested');
+            console.log('📧 Support report requested');
           },
         },
         { text: 'Cancel', style: 'cancel' },

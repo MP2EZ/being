@@ -489,7 +489,7 @@ class CloudSyncErrorHandler {
       };
 
       // Would integrate with analytics service here
-      logPerformance('[Analytics] Error tracked:', analyticsData);
+      console.log('[Analytics] Error tracked:', analyticsData);
 
     } catch (error) {
       // Ignore analytics failures

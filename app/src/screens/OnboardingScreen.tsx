@@ -489,7 +489,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
 
     // Development logging for compliance monitoring
     if (__DEV__) {
-      logPerformance(`[HIPAA-Audit] ${eventType}:`, auditEntry);
+      console.log(`[HIPAA-Audit] ${eventType}:`, auditEntry);
     }
   };
 
@@ -740,7 +740,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
           context: 'onboarding',
           allowSkip: true,
           onComplete: (result) => {
-            logPerformance('✅ PHQ-9 onboarding completed:', result);
+            console.log('✅ PHQ-9 onboarding completed:', result);
             // Modal already dismissed by CleanRootNavigator, just open GAD-7
             setTimeout(() => {
               navigation.navigate('AssessmentFlow', {
@@ -748,7 +748,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
                 context: 'onboarding',
                 allowSkip: true,
                 onComplete: (result) => {
-                  logPerformance('✅ GAD-7 onboarding completed:', result);
+                  console.log('✅ GAD-7 onboarding completed:', result);
                   // Modal already dismissed, continue to Stoic intro
                   setCurrentScreen('stoicIntro');
                   logStateChange('navigateNext:assessments->stoicIntro');
@@ -770,7 +770,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
                 context: 'onboarding',
                 allowSkip: true,
                 onComplete: (result) => {
-                  logPerformance('✅ GAD-7 onboarding completed:', result);
+                  console.log('✅ GAD-7 onboarding completed:', result);
                   // Modal already dismissed, continue to Stoic intro
                   setCurrentScreen('stoicIntro');
                   logStateChange('navigateNext:gad7->stoicIntro');
