@@ -660,7 +660,7 @@ export interface SuicidalIdeationDetection {
   detectionTimestamp: number;
   detectionResponseTimeMs: number;
   context: {
-    totalScore?: number;
+    totalScore?: number | undefined;
     timeOfDay: 'morning' | 'afternoon' | 'evening' | 'night';
     dayOfWeek: number;
     questionText: string;

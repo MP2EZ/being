@@ -133,7 +133,7 @@ class CircuitBreaker {
 
     } catch (error) {
       // Record failure
-      this.recordFailure(Date.now() - startTime, error);
+      this.recordFailure(Date.now() - startTime, error instanceof Error ? error : new Error(String(error)));
 
       // Check if we should open the circuit
       if (this.shouldOpenCircuit()) {
@@ -146,9 +146,9 @@ class CircuitBreaker {
           return await this.handleFallback<T>(context);
         } catch (fallbackError) {
           // Log both errors
-          logError(LogCategory.ERROR,
+          logError(LogCategory.SYSTEM,
             `Circuit breaker and fallback failed for ${this.serviceName}`,
-            fallbackError
+            fallbackError instanceof Error ? fallbackError : undefined
           );
           throw error; // Throw original error
         }
@@ -230,7 +230,7 @@ class CircuitBreaker {
         return JSON.parse(cached);
       }
     } catch (error) {
-      logError(LogCategory.ERROR, `Failed to get cached value for ${this.serviceName}`, error);
+      logError(LogCategory.SYSTEM, `Failed to get cached value for ${this.serviceName}`, error instanceof Error ? error : undefined);
     }
 
     return this.fallbackConfig.defaultValue;
@@ -269,7 +269,7 @@ class CircuitBreaker {
       });
 
     } catch (error) {
-      logError(LogCategory.ERROR, `Failed to queue request for ${this.serviceName}`, error);
+      logError(LogCategory.SYSTEM, `Failed to queue request for ${this.serviceName}`, error instanceof Error ? error : undefined);
     }
   }
 
@@ -304,8 +304,7 @@ class CircuitBreaker {
     }
 
     // Log performance metrics
-    logPerformance(`Circuit breaker success: ${this.serviceName}`, {
-      responseTime,
+    logPerformance(`Circuit breaker success: ${this.serviceName}`, responseTime, {
       averageResponseTime: this.metrics.averageResponseTime,
       state: this.state
     });
@@ -602,7 +601,7 @@ export class CircuitBreakerService {
       });
 
     } catch (error) {
-      logError(LogCategory.SECURITY, 'Failed to initialize circuit breaker service', error);
+      logError(LogCategory.SECURITY, 'Failed to initialize circuit breaker service', error instanceof Error ? error : undefined);
       throw error;
     }
   }

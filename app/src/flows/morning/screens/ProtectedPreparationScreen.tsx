@@ -41,7 +41,7 @@ const ProtectedPreparationScreen: React.FC<Props> = (props) => {
   const checkCrisisState = () => {
     try {
       // Get latest PHQ-9 result
-      const latestPHQ9 = useAssessmentStore.getState().getLastResult('PHQ-9');
+      const latestPHQ9 = useAssessmentStore.getState().getLastResult('phq9');
 
       if (latestPHQ9) {
         // Check for severe depression (PHQ-9 ≥20)
@@ -53,7 +53,7 @@ const ProtectedPreparationScreen: React.FC<Props> = (props) => {
         }
 
         // Check for suicidal ideation (Q9 > 0)
-        if (latestPHQ9.suicidalIdeation) {
+        if ('suicidalIdeation' in latestPHQ9 && latestPHQ9.suicidalIdeation) {
           setShouldSkip(true);
           setSkipReason('suicidal');
           setIsChecking(false);

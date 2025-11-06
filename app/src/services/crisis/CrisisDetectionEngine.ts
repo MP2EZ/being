@@ -253,7 +253,7 @@ export class CrisisDetectionEngine {
         context: {
           triggeringAnswers: [{
             questionId,
-            response,
+            response: response as any,
             timestamp: Date.now()
           }],
           timeOfDay: this.getTimeOfDay()
@@ -321,10 +321,10 @@ export class CrisisDetectionEngine {
     // Add threshold validations
     return {
       ...metrics,
-      detection_time_violations: (metrics.detection_max ?? 0) > CLINICAL_CRISIS_THRESHOLDS.MAX_DETECTION_TIME_MS ? 1 : 0,
-      intervention_time_violations: (metrics.intervention_max ?? 0) > CLINICAL_CRISIS_THRESHOLDS.MAX_INTERVENTION_TIME_MS ? 1 : 0,
+      detection_time_violations: (metrics['detection_max'] ?? 0) > CLINICAL_CRISIS_THRESHOLDS.MAX_DETECTION_TIME_MS ? 1 : 0,
+      intervention_time_violations: (metrics['intervention_max'] ?? 0) > CLINICAL_CRISIS_THRESHOLDS.MAX_INTERVENTION_TIME_MS ? 1 : 0,
       total_crisis_episodes: this.activeInterventions.size,
-      performance_status: this.getPerformanceStatus(metrics)
+      performance_status: this.getPerformanceStatus(metrics) as any
     };
   }
 
@@ -698,8 +698,8 @@ export class CrisisDetectionEngine {
   }
 
   private getPerformanceStatus(metrics: Record<string, number>): 'optimal' | 'acceptable' | 'concerning' | 'critical' {
-    const detectionTime = metrics.detection_max || 0;
-    const interventionTime = metrics.intervention_max || 0;
+    const detectionTime = metrics['detection_max'] || 0;
+    const interventionTime = metrics['intervention_max'] || 0;
 
     if (detectionTime > CLINICAL_CRISIS_THRESHOLDS.MAX_DETECTION_TIME_MS * 2 ||
         interventionTime > CLINICAL_CRISIS_THRESHOLDS.MAX_INTERVENTION_TIME_MS * 2) {

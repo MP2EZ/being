@@ -401,7 +401,6 @@ export class IncidentResponseService {
 
       // Log incident detection
       await this.addTimelineEvent(incidentRecord.incidentId, {
-        timestamp: Date.now(),
         eventType: 'detection',
         description: `Incident detected and initial response initiated (${detectionTime.toFixed(2)}ms)`,
         actor: 'system',
@@ -517,7 +516,6 @@ export class IncidentResponseService {
 
       // Log crisis breach response
       await this.addTimelineEvent(incidentRecord.incidentId, {
-        timestamp: Date.now(),
         eventType: 'notification',
         description: `Crisis data breach emergency response completed (${responseTime.toFixed(2)}ms)`,
         actor: 'automated_response',
@@ -602,7 +600,6 @@ export class IncidentResponseService {
 
       // Log containment completion
       await this.addTimelineEvent(incidentId, {
-        timestamp: Date.now(),
         eventType: 'containment',
         description: `Containment procedures completed (${containmentActions.length} actions, ${containmentTime.toFixed(2)}ms)`,
         actor: 'automated_response',
@@ -622,7 +619,6 @@ export class IncidentResponseService {
 
       // Log containment failure
       await this.addTimelineEvent(incidentId, {
-        timestamp: Date.now(),
         eventType: 'containment',
         description: `Containment failed: ${(error instanceof Error ? error.message : String(error))}`,
         actor: 'automated_response',
@@ -663,7 +659,6 @@ export class IncidentResponseService {
 
       // Log notification completion
       await this.addTimelineEvent(incidentId, {
-        timestamp: Date.now(),
         eventType: 'notification',
         description: `Stakeholder notifications sent (${notifications.length} groups)`,
         actor: 'automated_response',
@@ -680,7 +675,6 @@ export class IncidentResponseService {
 
       // Log notification failure
       await this.addTimelineEvent(incidentId, {
-        timestamp: Date.now(),
         eventType: 'notification',
         description: `Stakeholder notification failed: ${(error instanceof Error ? error.message : String(error))}`,
         actor: 'automated_response',
@@ -733,7 +727,6 @@ export class IncidentResponseService {
 
       // Log regulatory reporting preparation
       await this.addTimelineEvent(incidentId, {
-        timestamp: Date.now(),
         eventType: 'reporting',
         description: 'Regulatory reporting requirements assessed and preparation completed',
         actor: 'automated_response',
@@ -752,7 +745,6 @@ export class IncidentResponseService {
 
       // Log reporting failure
       await this.addTimelineEvent(incidentId, {
-        timestamp: Date.now(),
         eventType: 'reporting',
         description: `Regulatory reporting failed: ${(error instanceof Error ? error.message : String(error))}`,
         actor: 'automated_response',
@@ -802,7 +794,6 @@ export class IncidentResponseService {
 
       // Log recovery plan creation
       await this.addTimelineEvent(incidentId, {
-        timestamp: Date.now(),
         eventType: 'recovery',
         description: `Recovery plan created (RTO: ${recoveryPlan.recoveryObjectives.rto}ms, RPO: ${recoveryPlan.recoveryObjectives.rpo}ms)`,
         actor: 'automated_response',
@@ -819,7 +810,6 @@ export class IncidentResponseService {
 
       // Log recovery plan failure
       await this.addTimelineEvent(incidentId, {
-        timestamp: Date.now(),
         eventType: 'recovery',
         description: `Recovery plan creation failed: ${(error instanceof Error ? error.message : String(error))}`,
         actor: 'automated_response',
@@ -1312,7 +1302,6 @@ export class IncidentResponseService {
 
       // Update incident timeline
       await this.addTimelineEvent(incident.incidentId, {
-        timestamp: Date.now(),
         eventType: 'containment',
         description: `Emergency containment executed for crisis episode ${crisisEpisodeId}`,
         actor: 'automated_response',
@@ -1350,7 +1339,6 @@ export class IncidentResponseService {
 
       // Update incident timeline
       await this.addTimelineEvent(incident.incidentId, {
-        timestamp: Date.now(),
         eventType: 'notification',
         description: `Emergency professional notification sent for crisis episode ${crisisEpisodeId}`,
         actor: 'automated_response',
@@ -1383,7 +1371,6 @@ export class IncidentResponseService {
 
       // Update incident timeline
       await this.addTimelineEvent(incident.incidentId, {
-        timestamp: Date.now(),
         eventType: 'containment',
         description: `Crisis security protocol activated for episode ${crisisEpisodeId}`,
         actor: 'automated_response',
@@ -1410,7 +1397,6 @@ export class IncidentResponseService {
 
       // Update incident timeline
       await this.addTimelineEvent(incident.incidentId, {
-        timestamp: Date.now(),
         eventType: 'investigation',
         description: `Patient safety impact assessed for crisis episode ${crisisEpisodeId}: CRITICAL`,
         actor: 'automated_response',
@@ -1776,7 +1762,6 @@ export class IncidentResponseService {
 
       // Add escalation event to timeline
       await this.addTimelineEvent(incidentId, {
-        timestamp: Date.now(),
         eventType: 'notification',
         description: 'Incident escalated due to time threshold exceeded',
         actor: 'automated_response',

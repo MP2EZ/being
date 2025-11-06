@@ -217,7 +217,7 @@ export class DeploymentService {
       });
 
     } catch (error) {
-      logError(LogCategory.SECURITY, 'Failed to initialize deployment service', error);
+      logError(LogCategory.SECURITY, 'Failed to initialize deployment service', error instanceof Error ? error : undefined);
       throw error;
     }
   }
@@ -271,7 +271,7 @@ export class DeploymentService {
       return deployment;
 
     } catch (error) {
-      await this.handleDeploymentFailure(deployment, error);
+      await this.handleDeploymentFailure(deployment, error instanceof Error ? error : new Error(String(error)));
       throw error;
     } finally {
       this.currentDeployment = null;
@@ -676,7 +676,7 @@ export class DeploymentService {
       deployment.errors.push(`Rollback failed: ${(error instanceof Error ? error.message : String(error))}`);
       trackError(ErrorCategory.SECURITY,
         `Deployment rollback failed: ${deployment.id}`,
-        error,
+        error instanceof Error ? error : undefined,
         { }
       );
       throw error;
@@ -724,7 +724,7 @@ export class DeploymentService {
       rollbackConfig: {
         ...defaultConfig.rollbackConfig,
         ...config.rollbackConfig
-      },
+      } as any,
       preDeploymentChecks: config.preDeploymentChecks || [],
       postDeploymentActions: config.postDeploymentActions || []
     };
@@ -737,7 +737,7 @@ export class DeploymentService {
     try {
       const status = resilienceOrchestrator.getResilienceStatus();
       const serviceStatus = status.circuitBreakers[service];
-      return serviceStatus && serviceStatus.healthStatus !== 'unhealthy';
+      return !!(serviceStatus && serviceStatus.healthStatus !== 'unhealthy');
     } catch {
       return false;
     }
@@ -790,7 +790,7 @@ export class DeploymentService {
       );
 
     } catch (error) {
-      logError(LogCategory.SECURITY, 'Failed to save deployment record', error);
+      logError(LogCategory.SECURITY, 'Failed to save deployment record', error instanceof Error ? error : undefined);
     }
   }
 
@@ -801,7 +801,7 @@ export class DeploymentService {
         this.deploymentHistory = JSON.parse(historyData);
       }
     } catch (error) {
-      logError(LogCategory.SECURITY, 'Failed to load deployment history', error);
+      logError(LogCategory.SECURITY, 'Failed to load deployment history', error instanceof Error ? error : undefined);
       this.deploymentHistory = [];
     }
   }

@@ -38,7 +38,7 @@ type Props = StackScreenProps<EveningFlowParamList, 'Tomorrow'> & {
 
 const TomorrowScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
   // FEAT-23: Restore initial data if resuming session
-  const initialData = route.params?.initialData as TomorrowData | undefined;
+  const initialData = (route.params as any)?.initialData as TomorrowData | undefined;
 
   // Debug logging
   if (initialData) {

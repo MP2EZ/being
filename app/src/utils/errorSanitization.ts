@@ -128,7 +128,7 @@ export function createUserFriendlyError(error: any, context?: string): string {
     return `${context}: ${baseMessage}`;
   }
 
-  return baseMessage;
+  return baseMessage ?? 'An error occurred';
 }
 
 /**

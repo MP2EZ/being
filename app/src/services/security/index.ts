@@ -331,7 +331,7 @@ export class SecurityOrchestrator {
 
       // 3. Check for crisis-level responses (PHQ-9 Q9 > 0)
       let riskLevel = 'standard';
-      if (assessmentData.type === 'PHQ-9' && assessmentData.responses[8] > 0) {
+      if (assessmentData.type === 'PHQ-9' && (assessmentData.responses[8] ?? 0) > 0) {
         riskLevel = 'crisis';
         // Trigger crisis data protection for suicidal ideation
         await this.protectCrisisData(

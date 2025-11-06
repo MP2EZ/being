@@ -141,10 +141,10 @@ const MiddayFlowNavigator: React.FC<MiddayFlowNavigatorProps> = ({
           setShowResumeModal(true);
 
           // Restore screen data if available
-          if (flowState?.screenData) {
-            loadedScreenData.current = flowState.screenData; // Store in ref immediately
-            setScreenData(flowState.screenData); // Also update state for UI
-            console.log(`[MiddayFlow] Restored screen data for ${Object.keys(flowState.screenData).length} screens`);
+          if (flowState?.['screenData']) {
+            loadedScreenData.current = flowState["screenData"]; // Store in ref immediately
+            setScreenData(flowState["screenData"]); // Also update state for UI
+            console.log(`[MiddayFlow] Restored screen data for ${Object.keys(flowState["screenData"]).length} screens`);
           }
         }
       } catch (error) {

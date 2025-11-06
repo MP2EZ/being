@@ -262,7 +262,7 @@ class SyncCoordinator {
       const result: SyncResult = {
         success: true,
         timestamp: Date.now(),
-        
+        operationsCompleted: resolutions.length,
         conflictsResolved: resolutions.length,
         errors: [],
         performance: {
@@ -1501,7 +1501,7 @@ class SyncCoordinator {
             }
 
           } catch (error) {
-            logError(LogCategory.SYSTEM, `Failed to process operation ${operation.id}:`, error);
+            logError(LogCategory.SYSTEM, `Failed to process operation ${operation.id}:`, error instanceof Error ? error : undefined);
 
             // Re-add failed operation to queue if retryable
             if (this.shouldRetryOperation(operation)) {
@@ -1921,7 +1921,7 @@ class SyncCoordinator {
       this.lastSyncOperationEnd = Date.now();
 
     } catch (error) {
-      logError(LogCategory.SYSTEM, `Failed to process queued operation ${operation.id}:`, error);
+      logError(LogCategory.SYSTEM, `Failed to process queued operation ${operation.id}:`, error instanceof Error ? error : undefined);
 
       // Track failed operation
       this.operationMetrics.failed++;

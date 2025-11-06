@@ -24,8 +24,6 @@
  * - User consent management for privacy compliance
  */
 
-import { logPerformance, logError, LogCategory } from '../logging';
-
 // Import for internal use
 import AnalyticsService from './AnalyticsService';
 import type { AnalyticsEvent } from './AnalyticsService';
@@ -40,6 +38,7 @@ import {
   logSecurity,
   logError,
   logSync,
+  logPerformance,
   LogCategory
 } from '../logging';
 
@@ -168,8 +167,6 @@ export interface AnalyticsError {
  * Provides unified access to analytics capabilities and management
  */
 
-import { logPerformance, logError, LogCategory } from '../logging';
-
 export class AnalyticsOrchestrator {
   private static instance: AnalyticsOrchestrator;
   private analyticsService = AnalyticsService;
@@ -206,7 +203,7 @@ export class AnalyticsOrchestrator {
       });
 
     } catch (error) {
-      logError(LogCategory.ANALYTICS, 'Analytics Orchestrator initialization failed', error);
+      logError(LogCategory.ANALYTICS, 'Analytics Orchestrator initialization failed', error instanceof Error ? error : undefined);
       throw new Error(`Analytics orchestrator initialization failed: ${(error instanceof Error ? error.message : String(error))}`);
     }
   }
@@ -295,7 +292,7 @@ export class AnalyticsOrchestrator {
       });
 
     } catch (error) {
-      logError(LogCategory.ANALYTICS, 'Analytics consent update failed', error);
+      logError(LogCategory.ANALYTICS, 'Analytics consent update failed', error instanceof Error ? error : undefined);
       throw error;
     }
   }
@@ -319,7 +316,7 @@ export class AnalyticsOrchestrator {
       });
 
     } catch (error) {
-      logError(LogCategory.SECURITY, 'Privacy controls application failed', error);
+      logError(LogCategory.SECURITY, 'Privacy controls application failed', error instanceof Error ? error : undefined);
       throw error;
     }
   }
@@ -342,7 +339,7 @@ export class AnalyticsOrchestrator {
       });
 
     } catch (error) {
-      logError(LogCategory.SYNC, 'User data deletion failed', error);
+      logError(LogCategory.SYNC, 'User data deletion failed', error instanceof Error ? error : undefined);
       throw error;
     }
   }
@@ -365,7 +362,7 @@ export class AnalyticsOrchestrator {
       };
 
     } catch (error) {
-      logError(LogCategory.SYNC, 'User data export failed', error);
+      logError(LogCategory.SYNC, 'User data export failed', error instanceof Error ? error : undefined);
       throw error;
     }
   }
@@ -393,7 +390,7 @@ export class AnalyticsOrchestrator {
       };
 
     } catch (error) {
-      logError(LogCategory.SECURITY, 'Analytics security audit failed', error);
+      logError(LogCategory.SECURITY, 'Analytics security audit failed', error instanceof Error ? error : undefined);
       throw error;
     }
   }
@@ -421,7 +418,7 @@ export class AnalyticsOrchestrator {
       });
 
     } catch (error) {
-      logError(LogCategory.SECURITY, 'Emergency analytics shutdown failed', error);
+      logError(LogCategory.SECURITY, 'Emergency analytics shutdown failed', error instanceof Error ? error : undefined);
       throw error;
     }
   }
@@ -450,7 +447,7 @@ export class AnalyticsOrchestrator {
       });
 
     } catch (error) {
-      logError(LogCategory.ANALYTICS, 'Analytics Orchestrator destruction failed', error);
+      logError(LogCategory.ANALYTICS, 'Analytics Orchestrator destruction failed', error instanceof Error ? error : undefined);
       throw error;
     }
   }

@@ -37,7 +37,7 @@ type Props = StackScreenProps<MorningFlowParamList, 'Intention'> & {
 
 const IntentionScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
   // FEAT-23: Restore initial data if resuming session
-  const initialData = route.params?.initialData as IntentionData | undefined;
+  const initialData = (route.params as any)?.initialData as IntentionData | undefined;
 
   // Debug logging
   if (initialData) {

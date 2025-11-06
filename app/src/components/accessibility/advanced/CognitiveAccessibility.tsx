@@ -461,7 +461,7 @@ const styles = StyleSheet.create({
   memoryAidContent: {
     backgroundColor: colorSystem.accessibility.notification.background,
     borderLeftWidth: 4,
-    borderLeftColor: colorSystem.accessibility.notification.accent,
+    borderLeftColor: colorSystem.accessibility.notification.border,
     padding: spacing.md,
     borderRadius: 8,
     shadowColor: '#000',

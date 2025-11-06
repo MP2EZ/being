@@ -131,7 +131,7 @@ class CodeSplittingRegistry {
       return loadedModule;
 
     } catch (error) {
-      logError(`❌ Failed to load chunk: ${chunkName}`, error);
+      logError(LogCategory.PERFORMANCE, `❌ Failed to load chunk: ${chunkName}`, error instanceof Error ? error : new Error(String(error)));
       this.loadingQueue = this.loadingQueue.filter(name => name !== chunkName);
       throw error;
     }
@@ -149,7 +149,7 @@ class CodeSplittingRegistry {
 
     const preloadPromises = criticalChunks.map(chunk =>
       this.loadChunk(chunk.name).catch(error => {
-        logError(`Failed to preload critical chunk: ${chunk.name}`, error);
+        logError(LogCategory.PERFORMANCE, `Failed to preload critical chunk: ${chunk.name}`, error instanceof Error ? error : new Error(String(error)));
       })
     );
 
@@ -244,7 +244,7 @@ class AssetOptimizer {
       return optimizedAsset;
 
     } catch (error) {
-      logError(`Asset optimization failed: ${assetPath}`, error);
+      logError(LogCategory.PERFORMANCE, `Asset optimization failed: ${assetPath}`, error instanceof Error ? error : new Error(String(error)));
       return { uri: assetPath, optimized: false };
     }
   }
@@ -259,7 +259,7 @@ class AssetOptimizer {
           await this.optimizeAsset(path);
           this.preloadedAssets.add(path);
         } catch (error) {
-          logError(`Failed to preload asset: ${path}`, error);
+          logError(LogCategory.PERFORMANCE, `Failed to preload asset: ${path}`, error instanceof Error ? error : new Error(String(error)));
         }
       }
     });
@@ -492,7 +492,7 @@ export class BundleOptimizer {
     if (metrics.loadTime > 3000) { // 3 seconds
       logSecurity('Bundle load time exceeded', 'medium', {
         loadTime: metrics.loadTime,
-        maxLoadTime: this.config.maxLoadTime
+        maxLoadTime: 3000
       });
 
       DeviceEventEmitter.emit('bundle_load_time_exceeded', {
@@ -529,7 +529,7 @@ export class BundleOptimizer {
 
       return result;
     } catch (error) {
-      logError(`Optimized chunk load failed: ${chunkName}`, error);
+      logError(LogCategory.PERFORMANCE, `Optimized chunk load failed: ${chunkName}`, error instanceof Error ? error : new Error(String(error)));
 
       DeviceEventEmitter.emit('optimized_chunk_loaded', {
         chunkName,
@@ -560,15 +560,15 @@ export class BundleOptimizer {
     chunkStats: any;
     assetStats: any;
   } {
-    const currentMetrics = this.bundleMetrics.length > 0
-      ? this.bundleMetrics[this.bundleMetrics.length - 1]
+    const currentMetrics: BundleMetrics | null = this.bundleMetrics.length > 0
+      ? (this.bundleMetrics[this.bundleMetrics.length - 1] ?? null)
       : null;
 
     const averageLoadTime = this.bundleMetrics.length > 0
       ? this.bundleMetrics.reduce((sum, metric) => sum + metric.loadTime, 0) / this.bundleMetrics.length
       : 0;
 
-    const optimizationSuggestions = this.generateOptimizationSuggestions(currentMetrics);
+    const optimizationSuggestions = this.generateOptimizationSuggestions(currentMetrics ?? null);
 
     return {
       currentMetrics,

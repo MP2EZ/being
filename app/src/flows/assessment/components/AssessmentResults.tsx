@@ -300,7 +300,6 @@ const AssessmentResults: React.FC<AssessmentResultsProps> = ({
               <Text 
                 style={styles.assessmentTitle}
                 accessibilityRole="header"
-                accessibilityLevel={2}
               >
                 {assessmentType === 'phq9' ? 'PHQ-9 Depression Assessment' : 'GAD-7 Anxiety Assessment'}
               </Text>
@@ -317,7 +316,6 @@ const AssessmentResults: React.FC<AssessmentResultsProps> = ({
             <Text 
               style={[styles.severityTitle, { color: scoreInterpretation.color }]}
               accessibilityRole="header"
-              accessibilityLevel={3}
             >
               {scoreInterpretation.title}
             </Text>
@@ -340,7 +338,6 @@ const AssessmentResults: React.FC<AssessmentResultsProps> = ({
             <Text 
               style={styles.guidanceTitle}
               accessibilityRole="header"
-              accessibilityLevel={3}
             >
               Mindful Reflection & Next Steps
             </Text>
@@ -359,7 +356,6 @@ const AssessmentResults: React.FC<AssessmentResultsProps> = ({
               <Text 
                 style={styles.mbctTitle}
                 accessibilityRole="header"
-                accessibilityLevel={4}
               >
                 Mindful Approach
               </Text>
@@ -384,13 +380,12 @@ const AssessmentResults: React.FC<AssessmentResultsProps> = ({
           >
             <View 
               style={styles.resourcesContainer}
-              accessibilityRole="group"
+              
               accessibilityLabel="Professional support resources"
             >
               <Text 
                 style={styles.resourcesTitle}
                 accessibilityRole="header"
-                accessibilityLevel={3}
               >
                 Professional Support
               </Text>
@@ -419,13 +414,12 @@ const AssessmentResults: React.FC<AssessmentResultsProps> = ({
         >
           <View 
             style={styles.summaryContainer}
-            accessibilityRole="group"
+            
             accessibilityLabel="Assessment summary"
           >
             <Text 
               style={styles.summaryTitle}
               accessibilityRole="header"
-              accessibilityLevel={3}
             >
               Assessment Summary
             </Text>

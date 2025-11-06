@@ -159,7 +159,7 @@ export class CrisisIntegrationOrchestrator {
       await this.initializeAssessmentStoreIntegration();
 
       // Setup real-time monitoring
-      await this.setupRealtimeMonitoring();
+      await (this as any).setupRealtimeMonitoring();
 
       // Start health checks
       this.startHealthChecks();
@@ -716,7 +716,7 @@ export class CrisisIntegrationOrchestrator {
         try {
           await listener(eventData);
         } catch (error) {
-          logError(`Event listener error for ${eventData.eventType}:`, error);
+          logError(LogCategory.CRISIS, `Event listener error for ${eventData.eventType}:`, error instanceof Error ? error : new Error(String(error)));
         }
       }
     } catch (error) {
@@ -943,9 +943,9 @@ export function useCrisisIntegration() {
     activeAssessments: orchestrator.getActiveAssessmentsCount(),
     errors: orchestrator.getIntegrationErrors(),
     clearErrors: () => orchestrator.clearIntegrationErrors(),
-    addEventListener: (eventType: CrisisIntegrationEvent, listener: Function) =>
+    addEventListener: (eventType: CrisisIntegrationEvent, listener: (eventData: CrisisIntegrationEventData) => void | Promise<void>) =>
       orchestrator.addEventListener(eventType, listener),
-    removeEventListener: (eventType: CrisisIntegrationEvent, listener: Function) =>
+    removeEventListener: (eventType: CrisisIntegrationEvent, listener: (eventData: CrisisIntegrationEventData) => void | Promise<void>) =>
       orchestrator.removeEventListener(eventType, listener)
   };
 }

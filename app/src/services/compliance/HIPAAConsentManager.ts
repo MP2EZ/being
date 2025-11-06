@@ -155,7 +155,7 @@ export interface ConsentValidationResult {
     legalBasis: string;
     /** Override limitations */
     limitations: string[];
-  };
+  } | undefined;
 }
 
 /**
@@ -294,7 +294,7 @@ export class HIPAAConsentManager {
       };
 
     } catch (error) {
-      logError(LogCategory.SYSTEM, 'CONSENT VALIDATION ERROR:', error);
+      logError(LogCategory.SYSTEM, 'CONSENT VALIDATION ERROR:', error instanceof Error ? error : undefined);
       return {
         valid: false,
         status: 'not_found',
@@ -349,7 +349,7 @@ export class HIPAAConsentManager {
       return workflowId;
 
     } catch (error) {
-      logError(LogCategory.SYSTEM, 'CONSENT COLLECTION INITIATION ERROR:', error);
+      logError(LogCategory.SYSTEM, 'CONSENT COLLECTION INITIATION ERROR:', error instanceof Error ? error : undefined);
       throw new Error(`Failed to initiate consent collection: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
@@ -405,7 +405,7 @@ export class HIPAAConsentManager {
       }
 
     } catch (error) {
-      logError(LogCategory.SYSTEM, `WORKFLOW STEP ERROR (${step}):`, error);
+      logError(LogCategory.SYSTEM, `WORKFLOW STEP ERROR (${step}):`, error instanceof Error ? error : undefined);
       return {
         completed: false,
         error: error instanceof Error ? error.message : 'Unknown error'
@@ -677,7 +677,7 @@ export class HIPAAConsentManager {
       };
 
     } catch (error) {
-      logError(LogCategory.SYSTEM, 'CONSENT STORAGE ERROR:', error);
+      logError(LogCategory.SYSTEM, 'CONSENT STORAGE ERROR:', error instanceof Error ? error : undefined);
       workflow.status = 'failed';
       
       return {
@@ -771,7 +771,7 @@ export class HIPAAConsentManager {
       };
 
     } catch (error) {
-      logError(LogCategory.SYSTEM, 'CONSENT REVOCATION ERROR:', error);
+      logError(LogCategory.SYSTEM, 'CONSENT REVOCATION ERROR:', error instanceof Error ? error : undefined);
       return {
         success: false,
         revocationId: '',
@@ -819,7 +819,7 @@ export class HIPAAConsentManager {
       return consent;
 
     } catch (error) {
-      logError(LogCategory.SYSTEM, 'CONSENT LOADING ERROR:', error);
+      logError(LogCategory.SYSTEM, 'CONSENT LOADING ERROR:', error instanceof Error ? error : undefined);
       return null;
     }
   }
@@ -1099,7 +1099,7 @@ You can customize these choices or change them anytime in your settings.
       
       return false;
     } catch (error) {
-      logError(LogCategory.SYSTEM, 'SIGNATURE VALIDATION ERROR:', error);
+      logError(LogCategory.SYSTEM, 'SIGNATURE VALIDATION ERROR:', error instanceof Error ? error : undefined);
       return false;
     }
   }
@@ -1265,7 +1265,7 @@ You can customize these choices or change them anytime in your settings.
       };
 
     } catch (error) {
-      logError(LogCategory.SYSTEM, 'CONSENT STATUS ERROR:', error);
+      logError(LogCategory.SYSTEM, 'CONSENT STATUS ERROR:', error instanceof Error ? error : undefined);
       return {
         hasValidConsent: false,
         consentVersion: '',

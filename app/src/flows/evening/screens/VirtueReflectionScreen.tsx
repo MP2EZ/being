@@ -39,7 +39,7 @@ type Props = StackScreenProps<EveningFlowParamList, 'VirtueReflection'> & {
 
 const VirtueReflectionScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
   // FEAT-23: Restore initial data if resuming session
-  const initialData = route.params?.initialData as VirtueReflectionData | undefined;
+  const initialData = (route.params as any)?.initialData as VirtueReflectionData | undefined;
 
   // Debug logging
   if (initialData) {

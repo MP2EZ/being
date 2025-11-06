@@ -55,7 +55,7 @@ const TIME_LIMIT_SECONDS = 120;
 
 const PreparationScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
   // FEAT-23: Restore initial data if resuming session
-  const initialData = route.params?.initialData as PreparationData | undefined;
+  const initialData = (route.params as any)?.initialData as PreparationData | undefined;
 
   // Debug logging
   if (initialData) {

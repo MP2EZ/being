@@ -104,7 +104,7 @@ const COLOR_SCHEMES = {
     background: colorSystem.base.white,
     surface: colorSystem.gray[50],
     primary: colorSystem.base.midnightBlue,
-    secondary: colorSystem.base.teal,
+    secondary: colorSystem.themes.midday.primary,
     text: colorSystem.base.midnightBlue,
     textSecondary: colorSystem.gray[600],
     border: colorSystem.gray[300],
@@ -253,7 +253,7 @@ export const SensoryAccessibilityProvider: React.FC<SensoryAccessibilityProvider
           reduceMotion: reduceMotion || prev.reduceMotion,
         }));
       } catch (error) {
-        logSecurity('Could not check accessibility preferences:', error);
+        logSecurity('Could not check accessibility preferences:', 'medium', { error });
       }
     };
 

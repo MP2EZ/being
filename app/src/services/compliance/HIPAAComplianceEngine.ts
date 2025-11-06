@@ -574,7 +574,8 @@ export class HIPAAComplianceEngine {
       
       // Load from storage if not cached
       if (!consent) {
-        consent = await this.loadActiveConsent(userId);
+        const loadedConsent = await this.loadActiveConsent(userId);
+        consent = loadedConsent ?? undefined;
         if (consent) {
           this.activeConsents.set(userId, consent);
         }

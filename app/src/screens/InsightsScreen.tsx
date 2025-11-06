@@ -110,10 +110,9 @@ const VirtueSummaryCard: React.FC<VirtueSummaryCardProps> = ({
       accessibilityRole="button"
       accessibilityLabel={`Virtue development summary. Your current stage is ${getStageLabel(developmentalStage)}. ${getStageDescription(developmentalStage)}. ${totalPracticeDays} practice days. ${currentStreak} day current streak. ${consistencyPercentage} percent consistency.`}
       accessibilityHint="Double tap to view your full virtue development dashboard"
-      style={({ pressed, focused }) => [
+      style={({ pressed }) => [
         styles.summaryCard,
         pressed && styles.summaryCardPressed,
-        focused && styles.summaryCardFocused,
       ]}
       onPress={onPress}
     >
@@ -177,10 +176,9 @@ const VirtueEmptyState: React.FC<VirtueEmptyStateProps> = ({ onLearnMore }) => (
       accessibilityRole="button"
       accessibilityLabel="Start Tracking"
       accessibilityHint="Double tap to open your virtue tracking dashboard"
-      style={({ pressed, focused }) => [
+      style={({ pressed }) => [
         styles.emptyStateButton,
         pressed && styles.emptyStateButtonPressed,
-        focused && styles.emptyStateButtonFocused,
       ]}
       onPress={onLearnMore}
     >

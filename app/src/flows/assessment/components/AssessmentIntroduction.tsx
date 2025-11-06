@@ -29,10 +29,10 @@ import type { AssessmentType } from '../types';
 interface AssessmentIntroductionProps {
   assessmentType: AssessmentType;
   onBegin: () => void;
-  onSkip?: () => void;
-  theme?: 'morning' | 'midday' | 'evening' | 'neutral';
-  context?: 'standalone' | 'onboarding' | 'checkin';
-  showSkipOption?: boolean;
+  onSkip?: (() => void) | undefined;
+  theme?: ('morning' | 'midday' | 'evening' | 'neutral') | undefined;
+  context?: ('standalone' | 'onboarding' | 'checkin') | undefined;
+  showSkipOption?: boolean | undefined;
 }
 
 const AssessmentIntroduction: React.FC<AssessmentIntroductionProps> = ({
@@ -163,7 +163,6 @@ const AssessmentIntroduction: React.FC<AssessmentIntroductionProps> = ({
             <Text 
               style={styles.title}
               accessibilityRole="header"
-              accessibilityLevel={1}
             >
               {assessmentContent.title}
             </Text>
@@ -211,7 +210,6 @@ const AssessmentIntroduction: React.FC<AssessmentIntroductionProps> = ({
               <Text 
                 style={styles.mindfulnessTitle}
                 accessibilityRole="header"
-                accessibilityLevel={3}
               >
                 Mindful Approach
               </Text>
@@ -238,7 +236,7 @@ const AssessmentIntroduction: React.FC<AssessmentIntroductionProps> = ({
           >
             <View 
               style={styles.detailsContainer}
-              accessibilityRole="group"
+              
               accessibilityLabel="Assessment details"
             >
               <View style={styles.detailRow}>
@@ -265,13 +263,12 @@ const AssessmentIntroduction: React.FC<AssessmentIntroductionProps> = ({
           >
             <View 
               style={styles.privacyContainer}
-              accessibilityRole="group"
+              
               accessibilityLabel="Privacy and safety information"
             >
               <Text 
                 style={styles.privacyTitle}
                 accessibilityRole="header"
-                accessibilityLevel={3}
               >
                 Your Privacy & Safety
               </Text>

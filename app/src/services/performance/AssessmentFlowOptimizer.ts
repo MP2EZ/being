@@ -369,7 +369,7 @@ export class AssessmentFlowOptimizer {
           session.answers.set(answerData.questionId, answer);
           processedCount++;
         } catch (error) {
-          logError(`Failed to process answer ${answerData.questionId}:`, error);
+          logError(LogCategory.PERFORMANCE, `Failed to process answer ${answerData.questionId}:`, error instanceof Error ? error : new Error(String(error)));
           failedAnswers.push(answerData.questionId);
         }
       }
@@ -420,7 +420,7 @@ export class AssessmentFlowOptimizer {
           response: a.response,
           timestamp: Date.now()
         })
-      ]);
+      ] as [string, string]);
 
       await AsyncStorage.default.multiSet(batchData);
     } catch (error) {

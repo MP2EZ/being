@@ -66,7 +66,7 @@ export interface SessionMetadata {
  */
 export interface SessionData extends SessionMetadata {
   // Flow-specific state (stored as JSON, encrypted)
-  flowState?: Record<string, any>;  // Navigator-specific state (answers, progress, etc.)
+  flowState?: Record<string, any> | undefined;  // Navigator-specific state (answers, progress, etc.)
 }
 
 /**

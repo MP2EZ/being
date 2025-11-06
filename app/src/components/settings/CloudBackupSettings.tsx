@@ -603,6 +603,7 @@ const styles = StyleSheet.create({
     width: 12,
     height: 12,
     borderRadius: 6,
+    marginBottom: 16,
   },
 
   errorContainer: {
@@ -732,10 +733,6 @@ const styles = StyleSheet.create({
   dangerButtonText: {
     color: '#c62828',
     fontWeight: '500',
-  },
-
-  statusIndicator: {
-    marginBottom: 16,
   },
 
   configLabelContainer: {

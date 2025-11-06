@@ -25,6 +25,7 @@ import {
   logAccessibility,
   logSystem,
   logError,
+  logDebug,
   LogCategory
 } from './index';
 
@@ -63,7 +64,7 @@ export const logAnalyticsDataDeletion = () => {
 // ✅ AFTER:
 export const logCrisisDetectionValidationFailed = (detectionTime?: number) => {
   logCrisis('Crisis detection validation failed', {
-    detectionTime,
+    ...(detectionTime !== undefined && { detectionTime }),
     severity: 'critical',
     interventionType: 'display'
   });
@@ -312,9 +313,10 @@ export const safeConsole = {
   log: (message: string, ...args: any[]) => {
     if (__DEV__) {
       const sanitizedMessage = message.replace(/user[_-]?id[:\s]*[a-zA-Z0-9-]+/gi, '[USER_ID_REDACTED]');
-      logPerformance(sanitizedMessage, ...args.map(arg =>
+      const sanitizedArgs = args.map(arg =>
         typeof arg === 'object' ? '[OBJECT_REDACTED]' : arg
-      ));
+      );
+      logDebug(LogCategory.SYSTEM, sanitizedMessage, sanitizedArgs.length > 0 ? sanitizedArgs : undefined);
     }
   },
 

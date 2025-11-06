@@ -67,7 +67,7 @@ export class ErrorBoundary extends Component<Props, State> {
     };
   }
 
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+  override componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     // Log error safely (PHI-sanitized)
     logError(error, 'ErrorBoundary');
 
@@ -83,7 +83,7 @@ export class ErrorBoundary extends Component<Props, State> {
     this.setState({ hasError: false, errorMessage: '' });
   };
 
-  render() {
+  override render() {
     if (this.state.hasError) {
       // Use custom fallback if provided
       if (this.props.fallback) {

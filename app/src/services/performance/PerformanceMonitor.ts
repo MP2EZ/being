@@ -107,7 +107,7 @@ class PerformanceAlertManager {
     // Check throttling
     const lastAlertTime = this.lastAlertTimes.get(alertKey) || 0;
     if (Date.now() - lastAlertTime < this.alertThrottling) {
-      return null; // Throttled
+      return null as any; // Throttled
     }
 
     const alert: PerformanceAlert = {
@@ -560,7 +560,7 @@ export class PerformanceMonitor {
         summary: {
           overallHealth: this.getHealthStatus(performanceScore),
           totalAlerts: alertStats.total,
-          criticalAlerts: alertStats.bySeverity.critical,
+          criticalAlerts: alertStats.bySeverity['critical'] ?? 0,
           performanceScore
         },
         metrics: {
@@ -834,7 +834,7 @@ export class PerformanceMonitor {
    */
   static getLatestReport(): PerformanceReport | null {
     return this.reportHistory.length > 0
-      ? this.reportHistory[this.reportHistory.length - 1]
+      ? (this.reportHistory[this.reportHistory.length - 1] ?? null)
       : null;
   }
 
@@ -858,8 +858,8 @@ export class PerformanceMonitor {
       uptime: Date.now() - this.startTime,
       totalReports: this.reportHistory.length,
       activeAlerts: alertStats.active,
-      criticalAlerts: alertStats.bySeverity.critical,
-      latestScore: latest?.summary.performanceScore || 0,
+      criticalAlerts: alertStats.bySeverity['critical'] ?? 0,
+      latestScore: latest?.summary.performanceScore ?? 0,
       healthStatus: latest?.summary.overallHealth || 'unknown'
     };
   }

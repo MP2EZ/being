@@ -1270,7 +1270,7 @@ export class CrisisSecurityProtocol {
    * MITIGATION ACTIONS
    */
 
-  private async performImmediateLockdown(crisisEpisodeId?: string): Promise<void> {
+  public async performImmediateLockdown(crisisEpisodeId?: string): Promise<void> {
     try {
       console.log(`🔒 Performing immediate lockdown for crisis episode: ${crisisEpisodeId}`);
 

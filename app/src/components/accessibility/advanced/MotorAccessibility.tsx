@@ -292,6 +292,7 @@ export const AccessiblePressable: React.FC<AccessiblePressableProps> = ({
       registerVoiceCommand(voiceCommand, onPress);
       return () => unregisterVoiceCommand(voiceCommand);
     }
+    return undefined;
   }, [voiceCommand, onPress, registerVoiceCommand, unregisterVoiceCommand]);
 
   // Tremor-tolerant touch handling

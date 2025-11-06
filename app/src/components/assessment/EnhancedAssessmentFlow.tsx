@@ -244,7 +244,7 @@ const EnhancedAssessmentFlow: React.FC<EnhancedAssessmentFlowProps> = ({
     });
 
     // Update performance metrics
-    setPerformanceMetrics(prev => ({
+    setPerformanceMetrics((prev: any) => ({
       ...prev,
       crisisResponseTime,
       crisisDetected: true,
@@ -278,7 +278,7 @@ const EnhancedAssessmentFlow: React.FC<EnhancedAssessmentFlowProps> = ({
 
       // Track performance
       const questionResponseTime = Date.now() - questionStartTime.current;
-      setPerformanceMetrics(prev => ({
+      setPerformanceMetrics((prev: any) => ({
         ...prev,
         [`question_${currentQuestionIndex + 1}_time`]: questionResponseTime,
         totalEncryptionTime: (prev.totalEncryptionTime || 0) + metadata.performanceMetrics.encryptionTime,
@@ -330,7 +330,7 @@ const EnhancedAssessmentFlow: React.FC<EnhancedAssessmentFlowProps> = ({
       const totalFlowTime = Date.now() - flowStartTime.current;
 
       // Update final performance metrics
-      setPerformanceMetrics(prev => ({
+      setPerformanceMetrics((prev: any) => ({
         ...prev,
         completionTime,
         totalFlowTime,
@@ -338,8 +338,7 @@ const EnhancedAssessmentFlow: React.FC<EnhancedAssessmentFlowProps> = ({
         answersEncrypted: answers.size,
       }));
 
-      logPerformance('📊 Assessment completion metrics:', {
-        completionTime,
+      logPerformance('📊 Assessment completion metrics:', completionTime, {
         totalFlowTime,
         questionsCompleted: questions.length,
         crisisDetected: !!crisisDetected,

@@ -38,7 +38,7 @@ type Props = StackScreenProps<MorningFlowParamList, 'Gratitude'> & {
 
 const GratitudeScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
   // FEAT-23: Restore initial data if resuming session
-  const initialData = route.params?.initialData as GratitudeData | undefined;
+  const initialData = (route.params as any)?.initialData as GratitudeData | undefined;
 
   // Debug logging
   if (initialData) {

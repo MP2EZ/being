@@ -39,7 +39,7 @@ import { AccessibleButton } from '../../../components/accessibility/AccessibleBu
 import { AccessibleInput } from '../../../components/accessibility/AccessibleInput';
 import { ACCESSIBLE_COLORS, TOUCH_TARGETS, SPACING } from '../../../theme/accessibility';
 
-type Props = StackScreenProps<EveningFlowParamList, 'Learning'> & {
+type Props = StackScreenProps<EveningFlowParamList, 'Lessons'> & {
   onSave?: (data: LearningData) => void;
 };
 

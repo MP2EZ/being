@@ -48,7 +48,7 @@ const BREATHING_DURATION = 60; // EXACTLY 60 seconds
 
 const EmbodimentScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
   // FEAT-23: Restore initial data if resuming session
-  const initialData = route.params?.initialData as EmbodimentData | undefined;
+  const initialData = (route.params as any)?.initialData as EmbodimentData | undefined;
 
   // Debug logging
   if (initialData) {
@@ -90,6 +90,7 @@ const EmbodimentScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
         }
       };
     }
+    return undefined;
   }, [breathingActive, secondsRemaining]);
 
   const isValid = !breathingActive && bodyAwareness.trim().length > 0;

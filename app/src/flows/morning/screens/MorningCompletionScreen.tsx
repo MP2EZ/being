@@ -24,7 +24,7 @@ type Props = StackScreenProps<MorningFlowParamList, 'MorningCompletion'> & {
 };
 
 const MorningCompletionScreen: React.FC<Props> = ({ route, onSave }) => {
-  const { flowData, startTime } = route.params || {};
+  const { flowData, startTime } = (route.params as any) || {};
 
   const handleComplete = async () => {
     const timeSpent = startTime

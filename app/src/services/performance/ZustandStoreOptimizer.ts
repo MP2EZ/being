@@ -288,7 +288,7 @@ class StorePartitionManager {
       });
 
     } catch (error) {
-      logError(`Failed to load partition: ${partitionId}`, error);
+      logError(LogCategory.PERFORMANCE, `Failed to load partition: ${partitionId}`, error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -349,7 +349,7 @@ class StorePartitionManager {
       totalPartitions: partitions.length,
       loadedPartitions: loadedPartitions.length,
       averageLoadTime,
-      mostAccessedPartition: mostAccessed?.partitionId || null,
+      mostAccessedPartition: (mostAccessed as DataPartition | null)?.partitionId || null,
       totalAccessCount
     };
   }
@@ -428,7 +428,7 @@ class BatchOperationProcessor {
       try {
         operation();
       } catch (error) {
-        logError(`Batch operation failed (${priority}):`, error);
+        logError(LogCategory.PERFORMANCE, `Batch operation failed (${priority}):`, error instanceof Error ? error : new Error(String(error)));
       }
     });
 
@@ -460,7 +460,7 @@ class BatchOperationProcessor {
   private getPriorityBreakdown(operations: any[]): Record<string, number> {
     const breakdown = { critical: 0, high: 0, medium: 0, low: 0 };
     operations.forEach(op => {
-      breakdown[op.priority]++;
+      breakdown[op.priority as keyof typeof breakdown]++;
     });
     return breakdown;
   }
@@ -665,7 +665,7 @@ export class ZustandStoreOptimizer {
 
           resolve(result);
         } catch (error) {
-          logError(`Store operation failed: ${operationName}`, error);
+          logError(LogCategory.PERFORMANCE, `Store operation failed: ${operationName}`, error instanceof Error ? error : new Error(String(error)));
           reject(error);
         }
       };

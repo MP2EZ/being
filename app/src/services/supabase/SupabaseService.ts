@@ -26,8 +26,8 @@ import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Environment configuration
-const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
-const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
+const SUPABASE_URL = process.env['EXPO_PUBLIC_SUPABASE_URL'] || '';
+const SUPABASE_ANON_KEY = process.env['EXPO_PUBLIC_SUPABASE_ANON_KEY'] || '';
 
 // Storage keys
 const STORAGE_KEYS = {
@@ -202,7 +202,7 @@ class SupabaseService {
       }
 
       // Save to local storage
-      await AsyncStorage.setItem(STORAGE_KEYS.USER_ID, this.userId);
+      await AsyncStorage.setItem(STORAGE_KEYS.USER_ID, this.userId!);
       await AsyncStorage.setItem(STORAGE_KEYS.DEVICE_ID, this.deviceIdHash);
 
     } catch (error) {
@@ -310,7 +310,7 @@ class SupabaseService {
 
       } catch (error) {
         lastError = error as Error;
-        logSecurity(`[SupabaseService] ${operationName} attempt ${attempt} failed:`, error);
+        logSecurity(`[SupabaseService] ${operationName} attempt ${attempt} failed:`, 'medium', { error });
 
         if (attempt < this.config.retryAttempts) {
           await this.sleep(this.config.retryDelayMs * attempt);
@@ -351,7 +351,7 @@ class SupabaseService {
     }, 'saveBackup');
 
     if (!result.success) {
-      logError('[SupabaseService] Backup failed:', result.error);
+      logError(LogCategory.SYSTEM, '[SupabaseService] Backup failed:', result.error instanceof Error ? result.error : new Error(String(result.error)));
       this.queueOfflineOperation('saveBackup', { encryptedData, checksum, version });
       return false;
     }
@@ -384,7 +384,7 @@ class SupabaseService {
     }, 'getBackup');
 
     if (!result.success) {
-      logError('[SupabaseService] Get backup failed:', result.error);
+      logError(LogCategory.SYSTEM, '[SupabaseService] Get backup failed:', result.error instanceof Error ? result.error : new Error(String(result.error)));
       return null;
     }
 
@@ -485,7 +485,7 @@ class SupabaseService {
     }, 'flushAnalytics');
 
     if (!result.success) {
-      logError('[SupabaseService] Analytics flush failed:', result.error);
+      logError(LogCategory.SYSTEM, '[SupabaseService] Analytics flush failed:', result.error instanceof Error ? result.error : new Error(String(result.error)));
       // Put events back in queue (with size limit)
       this.analyticsQueue = eventsToFlush.concat(this.analyticsQueue)
         .slice(0, this.config.offlineQueueSize);
@@ -531,7 +531,7 @@ class SupabaseService {
         this.offlineQueue = JSON.parse(queueData);
       }
     } catch (error) {
-      logSecurity('[SupabaseService] Failed to load offline queue:', error);
+      logSecurity('[SupabaseService] Failed to load offline queue:', 'medium', { error });
       this.offlineQueue = [];
     }
   }
@@ -563,13 +563,13 @@ class SupabaseService {
             processedOperations.push(i); // Remove unknown operations
         }
       } catch (error) {
-        logError(`[SupabaseService] Failed to process offline operation ${operation}:`, error);
+        logError(LogCategory.SYSTEM, `[SupabaseService] Failed to process offline operation ${operation}:`, error instanceof Error ? error : new Error(String(error)));
       }
     }
 
     // Remove processed operations (in reverse order to maintain indices)
     for (let i = processedOperations.length - 1; i >= 0; i--) {
-      this.offlineQueue.splice(processedOperations[i], 1);
+      this.offlineQueue.splice(processedOperations[i]!, 1);
     }
 
     // Save updated queue

@@ -55,7 +55,7 @@ const validateUrlProtocol = (url: string, allowedProtocols: string[]): boolean =
   const isValid = allowedProtocols.some(protocol => trimmed.startsWith(`${protocol}:`));
 
   if (!isValid) {
-    logError('Invalid URL protocol detected', { url: trimmed }, LogCategory.Crisis);
+    logError(LogCategory.CRISIS, 'Invalid URL protocol detected');
   }
 
   return isValid;
@@ -96,7 +96,7 @@ const ResourceCard: React.FC<ResourceCardProps> = ({ resource, onPress }) => {
       }
 
       Linking.openURL(smsUrl).catch(error => {
-        logError('Failed to open SMS', { error }, LogCategory.Crisis);
+        logError(LogCategory.CRISIS, 'Failed to open SMS', error instanceof Error ? error : new Error(String(error)));
         Alert.alert('Error', 'Unable to open messaging app');
       });
     } else if (resource.website) {
@@ -107,7 +107,7 @@ const ResourceCard: React.FC<ResourceCardProps> = ({ resource, onPress }) => {
       }
 
       Linking.openURL(resource.website).catch(error => {
-        logError('Failed to open website', { error }, LogCategory.Crisis);
+        logError(LogCategory.CRISIS, 'Failed to open website', error instanceof Error ? error : new Error(String(error)));
         Alert.alert('Error', 'Unable to open website');
       });
     }
@@ -225,17 +225,17 @@ export default function CrisisResourcesScreen() {
   // Track screen load performance
   useEffect(() => {
     const loadTime = performance.now() - startTime;
-    console.log('Crisis Resources Screen loaded', { loadTime }, LogCategory.Crisis);
+    console.log('Crisis Resources Screen loaded', { loadTime }, LogCategory.CRISIS);
 
     // Track crisis resources access
-    logSecurity('Crisis resources accessed', {
+    logSecurity('Crisis resources accessed', 'high', {
       severityLevel: route.params?.severityLevel || 'unknown',
       source: route.params?.source || 'direct'
-    }, LogCategory.Crisis);
+    });
 
     return () => {
       const sessionTime = performance.now() - startTime;
-      console.log('Crisis Resources Screen session ended', { sessionTime }, LogCategory.Crisis);
+      console.log('Crisis Resources Screen session ended', { sessionTime }, LogCategory.CRISIS);
     };
   }, []);
 
@@ -258,11 +258,11 @@ export default function CrisisResourcesScreen() {
       return;
     }
 
-    logSecurity('Crisis resource contact initiated', {
+    logSecurity('Crisis resource contact initiated', 'medium', {
       resourceId: resource.id,
       resourceName: resource.name,
       contactType: 'phone'
-    }, LogCategory.Crisis);
+    });
 
     Linking.canOpenURL(phoneUrl)
       .then(supported => {
@@ -273,10 +273,7 @@ export default function CrisisResourcesScreen() {
         }
       })
       .catch(error => {
-        logError('Failed to initiate crisis resource contact', {
-          error,
-          resourceId: resource.id
-        }, LogCategory.Crisis);
+        logError(LogCategory.CRISIS, 'Failed to initiate crisis resource contact', error instanceof Error ? error : new Error(String(error)));
 
         Alert.alert(
           'Unable to Call',
@@ -292,7 +289,7 @@ export default function CrisisResourcesScreen() {
    * Handle navigation to Crisis Plan
    */
   const handleNavigateToCrisisPlan = () => {
-    console.log('Navigating to Crisis Plan from Resources', {}, LogCategory.Crisis);
+    console.log('Navigating to Crisis Plan from Resources', {}, LogCategory.CRISIS);
     navigation.navigate('CrisisPlan');
   };
 
@@ -336,9 +333,9 @@ export default function CrisisResourcesScreen() {
                     text: 'Call 911',
                     style: 'destructive',
                     onPress: () => {
-                      logSecurity('911 emergency call initiated', {}, LogCategory.Crisis);
+                      logSecurity('911 emergency call initiated', 'critical', {});
                       Linking.openURL('tel:911').catch(error => {
-                        logError('Failed to call 911', { error }, LogCategory.Crisis);
+                        logError(LogCategory.CRISIS, 'Failed to call 911', error instanceof Error ? error : new Error(String(error)));
                         Alert.alert(
                           'Call Failed',
                           'Unable to initiate 911 call. Please dial 911 manually on your phone.',
@@ -442,7 +439,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: '700',
-    color: colorSystem.gray[900],
+    color: colorSystem.gray[800],
     marginBottom: spacing.xs
   },
   subtitle: {
@@ -484,7 +481,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 20,
     fontWeight: '600',
-    color: colorSystem.gray[900],
+    color: colorSystem.gray[800],
     marginBottom: spacing.xs
   },
   sectionDescription: {
@@ -540,7 +537,7 @@ const styles = StyleSheet.create({
   resourceName: {
     fontSize: 18,
     fontWeight: '600',
-    color: colorSystem.gray[900],
+    color: colorSystem.gray[800],
     marginBottom: spacing.xs
   },
   resourceAvailability: {
@@ -624,7 +621,7 @@ const styles = StyleSheet.create({
   ctaTitle: {
     fontSize: 20,
     fontWeight: '600',
-    color: colorSystem.gray[900],
+    color: colorSystem.gray[800],
     marginBottom: spacing.sm
   },
   ctaDescription: {

@@ -122,10 +122,10 @@ const MorningFlowNavigator: React.FC<MorningFlowNavigatorProps> = ({
           setShowResumeModal(true);
 
           // Restore screen data if available
-          if (flowState?.screenData) {
-            loadedScreenData.current = flowState.screenData; // Store in ref immediately
-            setScreenData(flowState.screenData); // Also update state for UI
-            console.log(`[MorningFlow] Restored screen data for ${Object.keys(flowState.screenData).length} screens`);
+          if (flowState?.['screenData']) {
+            loadedScreenData.current = flowState["screenData"]; // Store in ref immediately
+            setScreenData(flowState["screenData"]); // Also update state for UI
+            console.log(`[MorningFlow] Restored screen data for ${Object.keys(flowState["screenData"]).length} screens`);
           }
         }
       } catch (error) {
@@ -244,9 +244,8 @@ const MorningFlowNavigator: React.FC<MorningFlowNavigatorProps> = ({
 
   const PreparationScreenWrapper = ({ navigation, route }: any) => (
     <ProtectedPreparationScreen
-      navigation={navigation}
-      route={route}
-      onSave={(data) => {
+      {...{ navigation, route } as any}
+      onSave={(data: any) => {
         const newScreenData = { ...screenData, Preparation: data };
         setScreenData(newScreenData);
         const nextScreen = 'PrincipleFocus';

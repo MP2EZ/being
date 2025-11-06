@@ -588,7 +588,7 @@ export class MemoryOptimizer {
       : 'unknown';
 
     return {
-      currentUsage,
+      currentUsage: currentUsage ?? null,
       averageUsage,
       peakUsage,
       cacheStats: {

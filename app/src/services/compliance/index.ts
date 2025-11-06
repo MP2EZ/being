@@ -145,7 +145,7 @@ export class HIPAAComplianceService {
       }
 
       return {
-        canProceed,
+        canProceed: canProceed ?? false,
         complianceStatus,
         validationResult,
         requiredActions: validationResult.recommendations,
@@ -385,7 +385,7 @@ export class HIPAAComplianceService {
     estimatedAffectedUsers: number = 1
   ): Promise<{
     breachReported: boolean;
-    incidentId?: string;
+    incidentId?: string | undefined;
     severity: string;
     immediateActions: string[];
     notificationRequired: boolean;
@@ -503,34 +503,39 @@ export class HIPAAComplianceService {
       const timestamp = Date.now();
       
       // Audit each component
-      const findings = [
+      const findings: Array<{
+        component: string;
+        status: 'pass' | 'warning' | 'fail';
+        description: string;
+        recommendations: string[];
+      }> = [
         {
           component: 'consent_management',
-          status: 'pass' as const,
+          status: 'pass',
           description: 'Consent management system operational',
           recommendations: []
         },
         {
           component: 'data_minimization',
-          status: 'pass' as const,
+          status: 'pass',
           description: 'Data minimization controls in place',
           recommendations: []
         },
         {
           component: 'access_control',
-          status: 'pass' as const,
+          status: 'pass',
           description: 'Access controls properly configured',
           recommendations: []
         },
         {
           component: 'audit_logging',
-          status: 'pass' as const,
+          status: 'pass',
           description: 'Audit logging comprehensive',
           recommendations: []
         },
         {
           component: 'breach_response',
-          status: 'pass' as const,
+          status: 'pass',
           description: 'Breach response procedures ready',
           recommendations: []
         }

@@ -3,7 +3,7 @@
  * DRD-FLOW-005 Production-Ready Implementation
  */
 
-export { useAssessmentStore, default as useAssessmentStore } from './assessmentStore';
+export { default as useAssessmentStore } from './assessmentStore';
 export type {
   AssessmentStoreState,
   AssessmentStoreActions

@@ -162,13 +162,13 @@ interface AuditEntry {
   auditId: string;
   eventType: AuditEventType;
   timestamp: number;
-  userId?: string;
+  userId?: string | undefined;
   phiClassification: PHIClassification;
   dataAccessed: string; // Description of data accessed
   component: DataProcessingComponent;
   riskLevel: ComplianceRisk;
   outcome: 'success' | 'failure' | 'blocked';
-  reason?: string; // For failures or blocks
+  reason?: string | undefined; // For failures or blocks
 }
 
 // Patient rights implementation - 45 CFR 164.524-528
@@ -290,7 +290,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
         }
       } catch (error) {
         if (__DEV__) {
-          logSecurity('[Accessibility] Failed to detect screen reader:', error);
+          logSecurity('[Accessibility] Failed to detect screen reader:', 'medium', { error });
         }
       }
     };
@@ -648,7 +648,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
 
     // In production, this would trigger immediate notification protocols
     if (__DEV__) {
-      logSecurity('[HIPAA-Breach] Potential breach detected:', incident);
+      logSecurity('[HIPAA-Breach] Potential breach detected:', 'critical', { incident });
     }
   };
 
@@ -885,12 +885,12 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
     }
 
     const updated = [...notificationTimes];
-    updated[index].enabled = !updated[index].enabled;
+    updated[index]!.enabled = !updated[index]!.enabled;
     setNotificationTimes(updated);
 
     logStateChange('handleNotificationToggle', {
-      period: updated[index].period,
-      enabled: updated[index].enabled,
+      period: updated[index]!.period,
+      enabled: updated[index]!.enabled,
       enabledCount: updated.filter(n => n.enabled).length
     });
   };
@@ -903,7 +903,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
     // Parse current time string (e.g., "09:00") into a Date object
     const [hours, minutes] = notification.time.split(':').map(Number);
     const timeDate = new Date();
-    timeDate.setHours(hours, minutes, 0, 0);
+    timeDate.setHours(hours ?? 0, minutes ?? 0, 0, 0);
 
     setTempTimePickerValue(timeDate);
     setShowTimePicker(period);
@@ -1056,7 +1056,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
   };
 
   // Development-only state inspector with HIPAA compliance monitoring
-  const renderStateInspector = (): JSX.Element | null => {
+  const renderStateInspector = (): React.ReactElement | null => {
     if (!__DEV__) return null;
 
     const complianceScore = calculateComplianceScore();
@@ -1106,7 +1106,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
 
     const hasErrors = Object.values(isValid).some(v => !v);
     if (hasErrors && __DEV__) {
-      logSecurity('[OnboardingState] Validation errors:', isValid);
+      logSecurity('[OnboardingState] Validation errors:', 'low', { validationErrors: isValid });
     }
 
     return !hasErrors;
@@ -1114,11 +1114,11 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
 
   // Render Functions (7 screens) - all typed with JSX.Element return
 
-  const renderWelcome = (): JSX.Element => (
+  const renderWelcome = (): React.ReactElement => (
     <SafeAreaView
       style={styles.container}
       accessible={true}
-      accessibilityRole="main"
+      
       accessibilityLabel="Welcome to Being mental health onboarding"
     >
       <ScrollView
@@ -1158,7 +1158,6 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
             style={styles.title}
             accessible={true}
             accessibilityRole="header"
-            accessibilityLevel={1}
             allowFontScaling={true}
             maxFontSizeMultiplier={ACCESSIBILITY.MAX_TEXT_SCALE}
           >
@@ -1246,11 +1245,11 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
   // NOTE: renderPhq9() and renderGad7() removed (~436 lines)
   // Assessments now handled by EnhancedAssessmentFlow modal
 
-  const renderStoicIntro = (): JSX.Element => (
+  const renderStoicIntro = (): React.ReactElement => (
     <SafeAreaView
       style={styles.container}
       accessible={true}
-      accessibilityRole="main"
+      
       accessibilityLabel="Stoic Mindfulness introduction"
     >
       <ScrollView
@@ -1365,7 +1364,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
     </SafeAreaView>
   );
 
-  const renderNotifications = (): JSX.Element => (
+  const renderNotifications = (): React.ReactElement => (
     <SafeAreaView style={styles.container}>
       <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
         {/* Crisis button removed from Notifications screen - only on assessment screens for safety */}
@@ -1477,7 +1476,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
     </SafeAreaView>
   );
 
-  const renderPrivacy = (): JSX.Element => (
+  const renderPrivacy = (): React.ReactElement => (
     <SafeAreaView style={styles.container}>
       <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
         {/* Crisis button removed from Privacy screen - only on assessment screens for safety */}
@@ -1555,7 +1554,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
     </SafeAreaView>
   );
 
-  const renderCelebration = (): JSX.Element => (
+  const renderCelebration = (): React.ReactElement => (
     <SafeAreaView style={styles.container}>
       <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
         {/* Crisis button removed from Celebration screen - only on assessment screens for safety */}

@@ -2,14 +2,17 @@
  * Assessment Types - DRD-FLOW-005 Standalone Assessments
  * Clinical accuracy validated and regulatory compliant
  * Designed for reusability in DRD-FLOW-001 onboarding
- * 
+ *
  * COMPREHENSIVE TYPE SAFETY:
  * - Component prop interfaces with strict typing
- * - Store action types with crisis safety constraints  
+ * - Store action types with crisis safety constraints
  * - Navigation parameter types for assessment flows
  * - Crisis intervention types with PHQ≥20, GAD≥15 validation
  * - Utility function types for 100% accurate scoring calculations
  */
+
+// Crisis types import
+import type { CrisisDetection } from './crisis/safety';
 
 // Base Assessment Types
 export type AssessmentType = 'phq9' | 'gad7';

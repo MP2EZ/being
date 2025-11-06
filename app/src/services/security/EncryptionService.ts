@@ -181,7 +181,7 @@ export class EncryptionService {
       // Run legacy data migration
       const migrationResult = await this.migrateLegacyEncryptedData();
       if (migrationResult.warnings.length > 0) {
-        logSecurity('⚠️  Migration warnings:', migrationResult.warnings);
+        logSecurity('⚠️  Migration warnings:', 'low', { warnings: migrationResult.warnings });
       }
 
       const initializationTime = performance.now() - startTime;
@@ -235,7 +235,7 @@ export class EncryptionService {
 
       // Perform AES-GCM encryption
       const encryptionResult = await this.performAESGCMEncryption(
-        dataBuffer,
+        dataBuffer.buffer,
         encryptionKey,
         iv
       );
@@ -243,7 +243,7 @@ export class EncryptionService {
       // Calculate performance metrics
       const encryptionTime = performance.now() - startTime;
       const originalSize = dataBuffer.length;
-      const encryptedSize = encryptionResult.ciphertext.length;
+      const encryptedSize = encryptionResult.ciphertext.byteLength;
 
       // Create metadata
       const metadata: EncryptionMetadata = {
@@ -477,7 +477,7 @@ export class EncryptionService {
       let sensitivityLevel: DataSensitivityLevel = 'level_2_assessment_data';
       
       // Elevate to crisis level for high-risk responses
-      if (assessmentData.type === 'PHQ-9' && assessmentData.responses[8] > 0) {
+      if (assessmentData.type === 'PHQ-9' && (assessmentData.responses[8] ?? 0) > 0) {
         // Question 9 (suicidal ideation) - highest security
         sensitivityLevel = 'level_1_crisis_responses';
       } else if (assessmentData.totalScore >= 20 || 
@@ -603,7 +603,7 @@ export class EncryptionService {
       const passphraseBuffer = new TextEncoder().encode(passphrase);
 
       return await this.deriveKeyPBKDF2(
-        passphraseBuffer,
+        passphraseBuffer.buffer,
         salt,
         ENCRYPTION_CONFIG.PBKDF2_ITERATIONS,
         ENCRYPTION_CONFIG.KEY_LENGTH
@@ -666,7 +666,7 @@ export class EncryptionService {
           dataB64,
           keyB64,
           ivB64,
-          'aes-256-gcm'
+          'aes-256-gcm' as any
         );
 
         // react-native-aes-crypto returns ciphertext+tag as single base64 string
@@ -747,7 +747,7 @@ export class EncryptionService {
           encryptedDataB64,
           keyB64,
           ivB64,
-          'aes-256-gcm'
+          'aes-256-gcm' as any
         );
 
         return this.base64ToArrayBuffer(decryptedB64);
@@ -842,7 +842,7 @@ export class EncryptionService {
           return migrationStatus;
         }
       } catch (error) {
-        logSecurity('Migration flag check failed, proceeding with migration:', error);
+        logSecurity('Migration flag check failed, proceeding with migration:', 'medium', { error });
       }
 
       // Legacy keys with slashes are invalid for SecureStore anyway
@@ -920,7 +920,7 @@ export class EncryptionService {
     const bytes = new Uint8Array(buffer);
     let binary = '';
     for (let i = 0; i < bytes.length; i++) {
-      binary += String.fromCharCode(bytes[i]);
+      binary += String.fromCharCode(bytes[i]!);
     }
     return btoa(binary);
   }

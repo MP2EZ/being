@@ -23,9 +23,20 @@
  */
 export const ACCESSIBLE_COLORS = {
   // ========================================
+  // MORNING FLOW COLORS (WCAG AA Compliant)
+  // ========================================
+
+  /**
+   * Morning Primary Color
+   * - Color: #B45309 (4.69:1 contrast - PASS)
+   * - Use for: Morning flow primary elements
+   */
+  morningPrimary: '#B45309',
+
+  // ========================================
   // EVENING FLOW COLORS (Fixed for WCAG AA)
   // ========================================
-  
+
   /**
    * Evening Primary Text Color (Darkened Purple)
    * - Original: #8B4789 (3.92:1 - FAIL)

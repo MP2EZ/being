@@ -95,7 +95,7 @@ export class DeploymentOrchestrator {
       });
 
     } catch (error) {
-      logError(LogCategory.SECURITY, 'Deployment orchestrator initialization failed', error);
+      logError(LogCategory.SECURITY, 'Deployment orchestrator initialization failed', error instanceof Error ? error : undefined);
       throw error;
     }
   }
@@ -338,7 +338,7 @@ export class DeploymentOrchestrator {
       return { passed, checks };
 
     } catch (error) {
-      logError(LogCategory.SECURITY, 'Pre-flight check failed', error);
+      logError(LogCategory.SECURITY, 'Pre-flight check failed', error instanceof Error ? error : undefined);
 
       return {
         passed: false,
@@ -366,7 +366,7 @@ export class DeploymentOrchestrator {
       });
 
     } catch (error) {
-      logError(LogCategory.SECURITY, 'Deployment orchestrator shutdown failed', error);
+      logError(LogCategory.SECURITY, 'Deployment orchestrator shutdown failed', error instanceof Error ? error : undefined);
     }
   }
 }
@@ -448,12 +448,9 @@ export async function initializeServiceDeployment(serviceName: string): Promise<
     });
 
   } catch (error) {
-    logError(LogCategory.SECURITY, `Failed to initialize deployment for ${serviceName}`, error);
+    logError(LogCategory.SECURITY, `Failed to initialize deployment for ${serviceName}`, error instanceof Error ? error : undefined);
     throw error;
   }
 }
-
-// Import required dependencies at the end to avoid circular imports
-import { logSecurity, logError, LogCategory } from '../logging';
 
 export default deploymentOrchestrator;

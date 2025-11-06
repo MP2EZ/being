@@ -203,7 +203,7 @@ class FrameRateMonitor {
    */
   static getCurrentMetrics(): FrameMetrics | null {
     return this.frameMetrics.length > 0
-      ? this.frameMetrics[this.frameMetrics.length - 1]
+      ? (this.frameMetrics[this.frameMetrics.length - 1] ?? null)
       : null;
   }
 

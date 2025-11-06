@@ -211,7 +211,7 @@ export class CrisisInterventionWorkflow {
       this.recordStepMetrics(step.name, stepStartTime);
 
     } catch (error) {
-      logError(LogCategory.SYSTEM, `WORKFLOW STEP ERROR (${step.name}):`, error);
+      logError(LogCategory.SYSTEM, `WORKFLOW STEP ERROR (${step.name}):`, error instanceof Error ? error : undefined);
 
       // Execute step failsafe if available
       if (step.failsafe) {

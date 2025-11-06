@@ -202,7 +202,7 @@ export class ErrorMonitoringService {
       });
 
     } catch (error) {
-      logError(LogCategory.SECURITY, 'Failed to initialize error monitoring', error);
+      logError(LogCategory.SECURITY, 'Failed to initialize error monitoring', error instanceof Error ? error : undefined);
       throw error;
     }
   }
@@ -258,7 +258,7 @@ export class ErrorMonitoringService {
 
     } catch (monitoringError) {
       // Fail silently to prevent monitoring errors from breaking the app
-      logError(LogCategory.SECURITY, 'Error monitoring tracking failed', monitoringError);
+      logError(LogCategory.SECURITY, 'Error monitoring tracking failed', monitoringError instanceof Error ? monitoringError : undefined);
     }
   }
 
@@ -362,7 +362,7 @@ export class ErrorMonitoringService {
     if (!context) return {};
 
     const sanitized: any = {
-      platform: context.platform || process.env.EXPO_PLATFORM || 'unknown',
+      platform: context.platform || process.env['EXPO_PLATFORM'] || 'unknown',
       timestamp: Date.now(),
       version: context.version || 'unknown'
     };
@@ -397,7 +397,7 @@ export class ErrorMonitoringService {
     const totalCount = recentErrors.reduce((sum, e) => sum + e.count, 0);
 
     if (totalCount >= alertConfig.threshold) {
-      await this.triggerAlert(category, fingerprint, totalCount, recentErrors[0]);
+      await this.triggerAlert(category, fingerprint, totalCount, recentErrors[0]!);
       this.alertHistory.set(fingerprint, now);
     }
   }
@@ -432,7 +432,7 @@ export class ErrorMonitoringService {
       await this.storeAlertEvent(category, fingerprint, count, errorEvent);
 
     } catch (error) {
-      logError(LogCategory.SECURITY, 'Failed to trigger error alert', error);
+      logError(LogCategory.SECURITY, 'Failed to trigger error alert', error instanceof Error ? error : undefined);
     }
   }
 
@@ -444,7 +444,7 @@ export class ErrorMonitoringService {
     if (category === ErrorCategory.CRISIS_DETECTION) {
       logCrisis('Crisis detection system failure detected', {
         severity: 'critical',
-        interventionType: 'system_alert',
+        interventionType: 'modal' as any,
         detectionTime: Date.now() - errorEvent.timestamp
       });
     }
@@ -517,7 +517,7 @@ export class ErrorMonitoringService {
       case ErrorCategory.PERFORMANCE:
         return LogCategory.PERFORMANCE;
       default:
-        return LogCategory.ERROR;
+        return LogCategory.SYSTEM;
     }
   }
 
@@ -581,7 +581,7 @@ export class ErrorMonitoringService {
       this.errorEvents = this.errorEvents.slice(this.config.batchSize);
 
     } catch (error) {
-      logError(LogCategory.SECURITY, 'Error monitoring flush failed', error);
+      logError(LogCategory.SECURITY, 'Error monitoring flush failed', error instanceof Error ? error : undefined);
     }
   }
 

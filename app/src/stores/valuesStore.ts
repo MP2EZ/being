@@ -38,10 +38,10 @@ const STORAGE_KEY = 'user_values_v1';
 export interface UserValue {
   valueId: string; // ID from THERAPEUTIC_VALUES
   selectedAt: number; // When user selected this value
-  lastReflectedAt?: number; // Optional: last time user reflected on this value
-  importance?: 1 | 2 | 3 | 4 | 5; // Optional importance rating (for future enhancement)
-  alignment?: 1 | 2 | 3 | 4 | 5; // Optional: current alignment self-assessment
-  notes?: string; // Optional: user's personal notes about this value
+  lastReflectedAt?: number | undefined; // Optional: last time user reflected on this value
+  importance?: (1 | 2 | 3 | 4 | 5) | undefined; // Optional importance rating (for future enhancement)
+  alignment?: (1 | 2 | 3 | 4 | 5) | undefined; // Optional: current alignment self-assessment
+  notes?: string | undefined; // Optional: user's personal notes about this value
 }
 
 /**
@@ -321,7 +321,7 @@ export const useValuesStore = create<ValuesStore>((set, get) => ({
       updatedSelectedValues[valueIndex] = {
         ...updatedSelectedValues[valueIndex],
         ...updates
-      };
+      } as UserValue;
 
       const updatedValues: ValuesMetadata = {
         ...values,

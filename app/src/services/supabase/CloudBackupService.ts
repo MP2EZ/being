@@ -33,11 +33,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppState } from 'react-native';
 
 // Services
-import EncryptionService from '../security/EncryptionService';
+import EncryptionService, { EncryptedDataPackage } from '../security/EncryptionService';
 import supabaseService from './SupabaseService';
 
 // Store imports
-import { assessmentStore } from '../../flows/assessment/stores/assessmentStore';
+import { useAssessmentStore as assessmentStore } from '../../flows/assessment/stores/assessmentStore';
 
 // Types
 interface BackupData {
@@ -177,12 +177,15 @@ class CloudBackupService {
         'level_3_intervention_metadata' // Cloud backup is level 3 sensitivity
       );
 
+      // Serialize encrypted package for storage
+      const encryptedDataString = JSON.stringify(encryptedData);
+
       // Calculate integrity checksum
-      const checksum = await this.calculateChecksum(encryptedData);
+      const checksum = await this.calculateChecksum(encryptedDataString);
 
       // Upload to Supabase
       const uploadSuccess = await supabaseService.saveBackup(
-        encryptedData,
+        encryptedDataString,
         checksum,
         backupData.version
       );
@@ -261,9 +264,10 @@ class CloudBackupService {
         }
       }
 
-      // Decrypt data
+      // Decrypt data (parse JSON string back to EncryptedDataPackage)
+      const encryptedPackage = JSON.parse(backupRecord.encrypted_data) as EncryptedDataPackage;
       const decryptedData = await EncryptionService.decryptData(
-        backupRecord.encrypted_data,
+        encryptedPackage,
         'level_3_intervention_metadata'
       );
 
@@ -354,8 +358,8 @@ class CloudBackupService {
   async getBackupStatus(): Promise<{
     hasLocalData: boolean;
     hasCloudBackup: boolean;
-    lastBackupTime?: number;
-    cloudBackupTime?: number;
+    lastBackupTime?: number | undefined;
+    cloudBackupTime?: number | undefined;
     needsBackup: boolean;
   }> {
     try {
@@ -522,7 +526,7 @@ class CloudBackupService {
     try {
       await AsyncStorage.setItem(STORAGE_KEYS.BACKUP_CONFIG, JSON.stringify(this.config));
     } catch (error) {
-      logSecurity('[CloudBackupService] Failed to save config:', error);
+      logSecurity('[CloudBackupService] Failed to save config:', 'medium', { error });
     }
   }
 
@@ -545,7 +549,7 @@ class CloudBackupService {
    */
   private setupStoreListeners(): void {
     // Listen to assessment store changes
-    assessmentStore.subscribe((state, prevState) => {
+    assessmentStore.subscribe((state: any, prevState: any) => {
       // Trigger backup on significant changes
       if (this.shouldTriggerImmediateBackup(state, prevState)) {
         // Debounce rapid changes

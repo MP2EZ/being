@@ -97,7 +97,7 @@ export default function SyncStatusIndicator({
       setError(null);
 
       // Get sync coordinator status
-      const syncCoordinatorStatus = await SyncCoordinator.getStatus();
+      const syncCoordinatorStatus = await (SyncCoordinator as any).getStatus();
       setSyncStatus({
         isInitialized: syncCoordinatorStatus.isInitialized,
         lastSyncTime: syncCoordinatorStatus.lastSyncTime,
@@ -127,7 +127,7 @@ export default function SyncStatusIndicator({
       onStatusChange?.(overallStatus);
 
     } catch (error) {
-      logError(LogCategory.SYSTEM, 'Status update failed:', error);
+      logError(LogCategory.SYSTEM, 'Status update failed:', error instanceof Error ? error : undefined);
       setError((error instanceof Error ? error.message : String(error)) || 'Status update failed');
     } finally {
       setIsLoading(false);
@@ -450,7 +450,7 @@ export default function SyncStatusIndicator({
       testID={testID}
       accessible={true}
       accessibilityLabel={getAccessibilityLabel()}
-      accessibilityRole="status"
+      accessibilityRole="text"
     >
       {showDetailed ? renderDetailedStatus() : renderCompactStatus()}
     </View>

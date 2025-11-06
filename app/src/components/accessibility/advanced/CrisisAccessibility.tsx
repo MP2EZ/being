@@ -237,13 +237,13 @@ export const CrisisAccessibilityProvider: React.FC<CrisisAccessibilityProviderPr
     setCrisisState(prev => {
       const severityLevels = ['low', 'medium', 'high', 'critical'] as const;
       const currentIndex = severityLevels.indexOf(prev.severity);
-      const newSeverity = severityLevels[Math.min(currentIndex + 1, severityLevels.length - 1)];
-      
+      const newSeverity = severityLevels[Math.min(currentIndex + 1, severityLevels.length - 1)]!;
+
       if (newSeverity === 'critical') {
         // Automatically connect to emergency services
         triggerEmergencyContact('988');
       }
-      
+
       return { ...prev, severity: newSeverity };
     });
   }, []);
@@ -252,7 +252,7 @@ export const CrisisAccessibilityProvider: React.FC<CrisisAccessibilityProviderPr
     setCrisisState(prev => {
       const severityLevels = ['low', 'medium', 'high', 'critical'] as const;
       const currentIndex = severityLevels.indexOf(prev.severity);
-      const newSeverity = severityLevels[Math.max(currentIndex - 1, 0)];
+      const newSeverity = severityLevels[Math.max(currentIndex - 1, 0)]!;
       
       return { ...prev, severity: newSeverity };
     });
@@ -590,12 +590,14 @@ export const UltraCrisisButton: React.FC<CrisisButtonProps> = ({
         positionStyles,
         style,
       ]}
-      enlargeTouchTarget={true}
-      hapticType="heavy"
-      voiceCommand="crisis help"
-      accessibilityLabel="Emergency crisis support - tap for immediate help"
-      accessibilityRole="button"
-      accessibilityHint="Activates crisis intervention mode with immediate access to help"
+      {...{
+        enlargeTouchTarget: true,
+        hapticType: "heavy",
+        voiceCommand: "crisis help",
+        accessibilityLabel: "Emergency crisis support - tap for immediate help",
+        accessibilityRole: "button",
+        accessibilityHint: "Activates crisis intervention mode with immediate access to help"
+      } as any}
     >
       <Text style={styles.crisisButtonText}>
         SOS
@@ -718,13 +720,13 @@ const styles = StyleSheet.create({
     width: 200,
     height: 200,
     borderRadius: 100,
-    backgroundColor: colorSystem.base.teal,
+    backgroundColor: colorSystem.themes.midday.primary,
     marginBottom: spacing.lg,
   },
   breathingText: {
     fontSize: typography.bodyLarge.size,
     fontWeight: '600',
-    color: colorSystem.base.teal,
+    color: colorSystem.themes.midday.primary,
     textAlign: 'center',
   },
   

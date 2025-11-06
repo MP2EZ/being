@@ -94,6 +94,10 @@ interface UseAssessmentPerformanceReturn {
   // Reporting
   getPerformanceReport: () => string;
   resetMetrics: () => void;
+
+  // Week 3 Enhanced Methods
+  validatePerformanceTargets: () => boolean;
+  getPerformanceSummary: () => any;
 }
 
 // Enhanced Week 3 clinical safety thresholds
@@ -361,6 +365,8 @@ export const useAssessmentPerformance = (): UseAssessmentPerformanceReturn => {
       logError(LogCategory.SYSTEM, `Crisis detection time: ${detectionTime}ms (CRITICAL THRESHOLD EXCEEDED)`);
       setAlertLevel('critical');
     }
+
+    return undefined;
   }, [metrics.crisisDetectedCount, updateMetrics]);
 
   // Record encryption
@@ -479,7 +485,7 @@ export const useAssessmentPerformance = (): UseAssessmentPerformanceReturn => {
         Alert.alert(
           'Performance Validation Failed',
           `${validationReport.criticalFailures} critical targets not met. System may not be production ready.`,
-          [{ text: 'View Report', onPress: () => logPerformance('Validation Report:', validationReport) }]
+          [{ text: 'View Report', onPress: () => logPerformance('Validation Report:', 0, validationReport) }]
         );
       }
 
@@ -595,7 +601,7 @@ export const useAssessmentPerformance = (): UseAssessmentPerformanceReturn => {
     getPerformanceReport,
     resetMetrics,
     // Week 3 Enhanced Methods
-    validatePerformanceTargets,
+    validatePerformanceTargets: validatePerformanceTargets as any,
     getPerformanceSummary,
   };
 };

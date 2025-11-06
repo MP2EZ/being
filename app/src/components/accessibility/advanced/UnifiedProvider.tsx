@@ -12,7 +12,7 @@
 
 import { logSecurity, logPerformance, logError, LogCategory } from '../../../services/logging';
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 
 // Import all advanced accessibility providers
 import AdvancedScreenReaderProvider from './AdvancedScreenReader';
@@ -142,7 +142,7 @@ export const AdvancedAccessibilityProvider: React.FC<AdvancedAccessibilityProvid
           setCrisisReady(crisisCheck.ready);
           
           if (!crisisCheck.ready) {
-            logSecurity('⚠️ Crisis accessibility not ready:', crisisCheck.issues);
+            logSecurity('⚠️ Crisis accessibility not ready:', 'high', { issues: crisisCheck.issues });
           }
         }
 
@@ -341,11 +341,11 @@ export const AdvancedAccessibilityProvider: React.FC<AdvancedAccessibilityProvid
         {/* Performance Monitoring UI (development only by default) */}
         {config.enablePerformanceMonitoring && config.showTestingPanel && (
           <View style={styles.debugPanel}>
-            <AccessibilityPerformanceMonitor
-              monitor={performanceMonitor}
-              showAdvanced={__DEV__}
-            />
-            
+            {/* TODO: Create PerformanceMonitorDisplay component to show performance metrics */}
+            <Text style={{ padding: 10, fontSize: 12 }}>
+              Performance Monitoring Active (FPS tracking enabled)
+            </Text>
+
             {config.enableAccessibilityTesting && (
               <AccessibilityTestingPanel
                 autoRun={false}

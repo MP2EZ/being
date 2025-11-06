@@ -32,9 +32,9 @@ import { crisisAnalyticsService } from '../services/crisis/CrisisAnalyticsServic
 
 export interface CopingStrategy {
   strategy: string;
-  effectiveness?: 1 | 2 | 3 | 4 | 5;
-  lastUsed?: number;
-  timesUsed?: number;
+  effectiveness?: (1 | 2 | 3 | 4 | 5) | undefined;
+  lastUsed?: number | undefined;
+  timesUsed?: number | undefined;
 }
 
 export interface PersonalContact {
@@ -418,7 +418,7 @@ export const useCrisisPlanStore = create<CrisisPlanStore>((set, get) => ({
     if (!crisisPlan) return;
 
     const updated = [...crisisPlan.copingStrategies];
-    updated[index] = { ...updated[index], effectiveness };
+    updated[index] = { ...updated[index], effectiveness } as CopingStrategy;
     await updateCrisisPlan({ copingStrategies: updated });
   },
 
@@ -433,8 +433,8 @@ export const useCrisisPlanStore = create<CrisisPlanStore>((set, get) => ({
     updated[index] = {
       ...updated[index],
       lastUsed: Date.now(),
-      timesUsed: (updated[index].timesUsed || 0) + 1
-    };
+      timesUsed: (updated[index]!.timesUsed || 0) + 1
+    } as CopingStrategy;
     await updateCrisisPlan({ copingStrategies: updated });
 
     // Track analytics

@@ -92,7 +92,7 @@ export type AuthenticationMethod =
  */
 export interface UserAuthenticationContext {
   userId: string;
-  username?: string;
+  username?: string | undefined;
   email?: string;
   authenticationLevel: AuthenticationLevel;
   authenticationMethod: AuthenticationMethod;
@@ -133,8 +133,8 @@ export interface AuthenticationResult {
   authenticationTimeMs: number;
   requiresAdditionalAuth?: boolean;
   additionalAuthMethods?: AuthenticationMethod[];
-  error?: string;
-  rateLimitedUntil?: number;
+  error?: string | undefined;
+  rateLimitedUntil?: number | undefined;
 }
 
 /**
@@ -147,7 +147,7 @@ export interface SessionValidationResult {
   isExpiring: boolean;
   timeUntilExpiry: number;
   validationTimeMs: number;
-  error?: string;
+  error?: string | undefined;
 }
 
 /**
@@ -156,7 +156,7 @@ export interface SessionValidationResult {
 export interface BiometricAuthOptions {
   promptMessage: string;
   cancelLabel: string;
-  fallbackLabel?: string;
+  fallbackLabel?: string | undefined;
   disableDeviceFallback?: boolean;
   requireConfirmation?: boolean;
 }
@@ -167,7 +167,7 @@ export interface BiometricAuthOptions {
 export interface AuthenticationAuditEntry {
   timestamp: number;
   eventType: 'login' | 'logout' | 'session_check' | 'token_refresh' | 'biometric_auth' | 'crisis_access' | 'failed_attempt';
-  userId?: string;
+  userId?: string | undefined;
   deviceId: string;
   authenticationMethod: AuthenticationMethod;
   authenticationLevel: AuthenticationLevel;
@@ -175,8 +175,8 @@ export interface AuthenticationAuditEntry {
   operationTimeMs: number;
   ipAddress?: string;
   userAgent?: string;
-  error?: string;
-  securityFlags?: string[];
+  error?: string | undefined;
+  securityFlags?: string[] | undefined;
 }
 
 /**
@@ -262,7 +262,7 @@ export class AuthenticationService {
    */
   public async authenticateUser(
     credentials: {
-      username?: string;
+      username?: string | undefined;
       password?: string;
       useStoredCredentials?: boolean;
     },
@@ -474,7 +474,7 @@ export class AuthenticationService {
       const biometricResult = await LocalAuthentication.authenticateAsync({
         promptMessage: options.promptMessage,
         cancelLabel: options.cancelLabel,
-        fallbackLabel: options.fallbackLabel,
+        ...(options.fallbackLabel ? { fallbackLabel: options.fallbackLabel } : {}),
         disableDeviceFallback: options.disableDeviceFallback || false,
         requireConfirmation: options.requireConfirmation || true
       });
@@ -765,7 +765,7 @@ export class AuthenticationService {
    */
   private async authenticateWithCredentials(
     credentials: {
-      username?: string;
+      username?: string | undefined;
       password?: string;
       useStoredCredentials?: boolean;
     }

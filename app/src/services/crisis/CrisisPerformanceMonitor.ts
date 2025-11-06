@@ -223,7 +223,7 @@ export class CrisisPerformanceMonitor {
   private metrics: Map<string, PerformanceMetric[]> = new Map();
   private alerts: Map<string, PerformanceAlert> = new Map();
   private isMonitoring: boolean = false;
-  private monitoringInterval?: NodeJS.Timeout;
+  private monitoringInterval: NodeJS.Timeout | undefined = undefined;
   private performanceHistory: PerformanceMetric[] = [];
 
   private constructor() {}
@@ -613,7 +613,7 @@ export class CrisisPerformanceMonitor {
   /**
    * METRIC RECORDING
    */
-  private async recordMetric(metric: PerformanceMetric): Promise<void> {
+  public async recordMetric(metric: PerformanceMetric): Promise<void> {
     try {
       // Store in memory
       const categoryMetrics = this.metrics.get(metric.category) || [];
@@ -903,14 +903,14 @@ export class CrisisPerformanceMonitor {
     if (values.length === 0) return 0;
     const sorted = [...values].sort((a, b) => a - b);
     const mid = Math.floor(sorted.length / 2);
-    return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
+    return sorted.length % 2 === 0 ? ((sorted[mid - 1] ?? 0) + (sorted[mid] ?? 0)) / 2 : (sorted[mid] ?? 0);
   }
 
   private calculatePercentile(values: number[], percentile: number): number {
     if (values.length === 0) return 0;
     const sorted = [...values].sort((a, b) => a - b);
     const index = Math.ceil((percentile / 100) * sorted.length) - 1;
-    return sorted[Math.max(0, index)];
+    return sorted[Math.max(0, index)] ?? 0;
   }
 
   private calculateStandardDeviation(values: number[]): number {
@@ -995,7 +995,7 @@ export class CrisisPerformanceMonitor {
 
   private async escalateEmergencyAlert(alert: PerformanceAlert): Promise<void> {
     // Implementation would notify system administrators
-    logError(LogCategory.SYSTEM, 'EMERGENCY ALERT ESCALATED:', alert.message);
+    logError(LogCategory.SYSTEM, 'EMERGENCY ALERT ESCALATED:', new Error(alert.message));
   }
 
   private async cleanupOldMetrics(): Promise<void> {

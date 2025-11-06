@@ -133,10 +133,9 @@ class CloudSyncErrorHandler {
     this.addToHistory(enhancedError);
 
     // Log for development
-    logSecurity('[CloudSyncError]', {
+    logSecurity('[CloudSyncError]', severity, {
       id: errorId,
       category,
-      severity,
       message: originalError.message,
       context,
     });
@@ -455,7 +454,7 @@ class CloudSyncErrorHandler {
         this.errorHistory = JSON.parse(historyData);
       }
     } catch (error) {
-      logSecurity('Failed to load error history:', error);
+      logSecurity('Failed to load error history:', 'medium', { error });
       this.errorHistory = [];
     }
   }
@@ -470,7 +469,7 @@ class CloudSyncErrorHandler {
         JSON.stringify(this.errorHistory.slice(0, 50)) // Save only recent errors
       );
     } catch (error) {
-      logSecurity('Failed to save error history:', error);
+      logSecurity('Failed to save error history:', 'medium', { error });
     }
   }
 

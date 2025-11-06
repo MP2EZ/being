@@ -17,7 +17,7 @@ export const CERTIFICATE_PINS = {
 };
 
 export function validateCertificatePinning(hostname: string, certPin: string): boolean {
-  const validPins = CERTIFICATE_PINS[hostname];
+  const validPins = CERTIFICATE_PINS[hostname as keyof typeof CERTIFICATE_PINS];
   if (!validPins) {
     console.warn(`No certificate pins configured for ${hostname}`);
     return false;

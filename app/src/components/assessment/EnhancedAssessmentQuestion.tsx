@@ -76,16 +76,16 @@ interface ResponseMetadata {
 
 interface EnhancedAssessmentQuestionProps {
   question: AssessmentQuestionType;
-  currentAnswer?: AssessmentResponse;
+  currentAnswer?: AssessmentResponse | undefined;
   onAnswer: (response: AssessmentResponse, metadata: ResponseMetadata) => void;
-  showProgress?: boolean;
+  showProgress?: boolean | undefined;
   currentStep: number;
   totalSteps: number;
-  theme?: 'morning' | 'midday' | 'evening' | 'neutral';
+  theme?: ('morning' | 'midday' | 'evening' | 'neutral') | undefined;
   sessionId: string;
   consentStatus: HIPAAConsentStatus;
-  onCrisisDetected?: (detection: CrisisDetection) => void;
-  onError?: (error: Error) => void;
+  onCrisisDetected?: ((detection: CrisisDetection) => void) | undefined;
+  onError?: ((error: Error) => void) | undefined;
 }
 
 // Clinically validated response labels (exact PHQ-9/GAD-7 wording)
@@ -421,9 +421,8 @@ const EnhancedAssessmentQuestion: React.FC<EnhancedAssessmentQuestionProps> = ({
             priority={10}
           >
             <View style={styles.progressContainer}>
-              <Text 
+              <Text
                 style={styles.progressText}
-                accessibilityRole="status"
                 accessibilityLiveRegion="polite"
               >
                 Question {currentStep} of {totalSteps}
@@ -483,7 +482,6 @@ const EnhancedAssessmentQuestion: React.FC<EnhancedAssessmentQuestionProps> = ({
             <Text
               style={styles.questionText}
               accessibilityRole="header"
-              accessibilityLevel={2}
             >
               {question.text}
             </Text>

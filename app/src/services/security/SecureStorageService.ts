@@ -106,8 +106,8 @@ export interface StorageOperationResult {
   storageKey: string;
   operationTimeMs: number;
   dataSize: number;
-  error?: string;
-  metadata?: SecureStorageMetadata;
+  error?: string | undefined;
+  metadata?: SecureStorageMetadata | undefined;
 }
 
 /**
@@ -134,7 +134,7 @@ export interface StorageAccessLogEntry {
   success: boolean;
   operationTimeMs: number;
   dataSize: number;
-  userContext?: string;
+  userContext?: string | undefined;
   securityContext?: string;
   error?: string;
 }
@@ -789,7 +789,7 @@ export class SecureStorageService {
    * GENERAL DATA STORAGE
    * Lower security tiers for non-sensitive data
    */
-  private async storeGeneralData(
+  public async storeGeneralData(
     key: string,
     data: any,
     tier: StorageTier,
@@ -837,7 +837,7 @@ export class SecureStorageService {
     }
   }
 
-  private async retrieveGeneralData(
+  public async retrieveGeneralData(
     key: string,
     userContext?: string
   ): Promise<any | null> {

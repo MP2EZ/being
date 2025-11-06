@@ -37,7 +37,7 @@ type GroundingMethod = 'body_scan' | 'breathing';
 
 const PhysicalGroundingScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
   // FEAT-23: Restore initial data if resuming session
-  const initialData = route.params?.initialData as PhysicalGroundingData | undefined;
+  const initialData = (route.params as any)?.initialData as PhysicalGroundingData | undefined;
 
   // Debug logging
   if (initialData) {

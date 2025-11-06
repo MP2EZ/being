@@ -36,8 +36,8 @@ export interface PostCrisisSupport {
   checkIns: Array<{
     day: number;
     completedAt: number;
-    moodRating?: 1 | 2 | 3 | 4 | 5;
-    notes?: string;
+    moodRating?: (1 | 2 | 3 | 4 | 5) | undefined;
+    notes?: string | undefined;
   }>;
 
   // Engagement tracking
@@ -136,11 +136,11 @@ class PostCrisisSupportService {
       // Track analytics
       await crisisAnalyticsService.trackEvent('post_crisis_support_activated');
 
-      logSecurity('7-day post-crisis support activated', {
+      logSecurity('7-day post-crisis support activated', 'high', {
         supportId: support.id,
         crisisType,
         crisisScore
-      }, LogCategory.CRISIS);
+      });
     } catch (error) {
       logError(LogCategory.CRISIS, 'Failed to save post-crisis support', error as Error);
     }
@@ -222,10 +222,10 @@ class PostCrisisSupportService {
     // Track analytics
     await crisisAnalyticsService.trackEvent('support_opted_out');
 
-    logSecurity('User opted out of post-crisis support', {
+    logSecurity('User opted out of post-crisis support', 'low', {
       supportId: this.currentSupport.id,
       daysActive: this.getDaysActive()
-    }, LogCategory.CRISIS);
+    });
   }
 
   /**
@@ -319,7 +319,7 @@ class PostCrisisSupportService {
       7: "You've completed your 7-day check-in journey. That takes courage. Continue using the tools and connections you've built."
     };
 
-    return messages[day] || messages[1];
+    return (messages[day] || messages[1]) as string;
   }
 
   /**

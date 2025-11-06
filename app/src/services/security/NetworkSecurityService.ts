@@ -417,7 +417,7 @@ export class NetworkSecurityService {
       }
 
       logPerformance('NetworkSecurityService.crisisAPI', totalTime, {
-        category: 'crisis_intervention'
+        category: 'network'
       });
 
       return response;
@@ -519,7 +519,7 @@ export class NetworkSecurityService {
       const response = await this.secureRequest<T>(options);
 
       logPerformance('NetworkSecurityService.professionalAPI', response.responseTimeMs, {
-        category: 'professional_support'
+        category: 'network'
       });
 
       return response;
@@ -590,7 +590,7 @@ export class NetworkSecurityService {
     url: string;
     method: string;
     headers: Record<string, string>;
-    body?: string;
+    body?: string | undefined;
     timeout: number;
   }> {
     try {
@@ -855,7 +855,7 @@ export class NetworkSecurityService {
 
   private async checkRateLimit(category: APIEndpointCategory): Promise<void> {
     try {
-      const limit = NETWORK_CONFIG.RATE_LIMITS[category] || NETWORK_CONFIG.RATE_LIMITS.standard;
+      const limit = NETWORK_CONFIG.RATE_LIMITS[category as keyof typeof NETWORK_CONFIG.RATE_LIMITS] || NETWORK_CONFIG.RATE_LIMITS.standard;
       const key = `rate_limit_${category}`;
       const currentTime = Date.now();
 

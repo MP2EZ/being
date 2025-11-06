@@ -20,6 +20,7 @@
 
 import { logSecurity, logPerformance, logError, LogCategory } from '../logging';
 import { DeviceEventEmitter } from 'react-native';
+import type { AssessmentAnswer, AssessmentResponse } from '../../flows/assessment/types';
 import { CrisisPerformanceOptimizer } from './CrisisPerformanceOptimizer';
 import { AssessmentFlowOptimizer } from './AssessmentFlowOptimizer';
 import { MemoryOptimizer } from './MemoryOptimizer';
@@ -83,7 +84,7 @@ class PerformanceStressTester {
       const startTime = performance.now();
 
       // Simulate crisis detection with mock assessment data
-      const mockAnswers = this.generateMockPHQ9Answers(true); // Crisis scenario
+      const mockAnswers = this.generateMockPHQ9Answers(true) as AssessmentAnswer[]; // Crisis scenario
       await CrisisPerformanceOptimizer.detectCrisisOptimized('phq9', mockAnswers);
 
       const duration = performance.now() - startTime;
@@ -121,7 +122,7 @@ class PerformanceStressTester {
 
       // Simulate rapid question answering
       const questionId = `phq9_${(i % 9) + 1}`;
-      const response = Math.floor(Math.random() * 4); // 0-3 response
+      const response = Math.floor(Math.random() * 4) as AssessmentResponse; // 0-3 response
 
       await AssessmentFlowOptimizer.processAnswerOptimized(sessionId, questionId, response, i);
 
@@ -175,7 +176,7 @@ class PerformanceStressTester {
         // Check for memory leak (consistently increasing memory)
         if (memoryReadings.length > 10) {
           const recent = memoryReadings.slice(-10);
-          const trend = recent[recent.length - 1] - recent[0];
+          const trend = recent[recent.length - 1]! - recent[0]!;
           if (trend > 50) { // 50MB increase over 10 readings
             memoryLeak = true;
           }
@@ -591,7 +592,7 @@ export class PerformanceValidator {
   private static calculatePercentile(values: number[], percentile: number): number {
     const sorted = [...values].sort((a, b) => a - b);
     const index = Math.ceil((percentile / 100) * sorted.length) - 1;
-    return sorted[Math.max(0, index)];
+    return sorted[Math.max(0, index)] ?? 0;
   }
 
   /**

@@ -37,9 +37,9 @@ import { FeatureAccess } from '../../types/subscription';
 interface FeatureGateProps {
   children: React.ReactNode;
   feature: keyof FeatureAccess;
-  onUpgrade?: () => void;
-  fallback?: React.ReactNode;
-  showUpgradePrompt?: boolean;
+  onUpgrade?: (() => void) | undefined;
+  fallback?: React.ReactNode | undefined;
+  showUpgradePrompt?: boolean | undefined;
 }
 
 export default function FeatureGate({

@@ -153,9 +153,9 @@ class OptimizedScoringService {
 
     // Optimized scoring with unrolled loop for maximum performance
     const totalScore =
-      answers[0].response + answers[1].response + answers[2].response +
-      answers[3].response + answers[4].response + answers[5].response +
-      answers[6].response;
+      (answers[0]?.response ?? 0) + (answers[1]?.response ?? 0) + (answers[2]?.response ?? 0) +
+      (answers[3]?.response ?? 0) + (answers[4]?.response ?? 0) + (answers[5]?.response ?? 0) +
+      (answers[6]?.response ?? 0);
 
     // Validate score range inline
     if (totalScore < 0 || totalScore > 21) {
@@ -223,20 +223,20 @@ export class CrisisPerformanceOptimizer {
 
       // Phase 2: Lightning-fast crisis detection using lookup tables
       const detectionStart = performance.now();
-      let triggerType: CrisisDetection['triggerType'] | null = null;
+      let triggerType: CrisisDetection['primaryTrigger'] | null = null;
       let triggerValue = score;
 
       if (type === 'phq9') {
         // Immediate suicidal ideation check (highest priority)
         if (hasSuicidalIdeation) {
-          triggerType = 'phq9_suicidal';
+          triggerType = 'phq9_suicidal_ideation';
           triggerValue = 1;
         } else if (PHQ9_CRISIS_LOOKUP.has(score)) {
-          triggerType = 'phq9_score';
+          triggerType = 'phq9_moderate_severe_score';
         }
       } else if (type === 'gad7') {
         if (GAD7_CRISIS_LOOKUP.has(score)) {
-          triggerType = 'gad7_score';
+          triggerType = 'gad7_severe_score';
         }
       }
 
@@ -255,13 +255,13 @@ export class CrisisPerformanceOptimizer {
       }
 
       // Phase 4: Crisis detected - create detection object
-      const detection: CrisisDetection = {
+      const detection = {
         isTriggered: true,
-        triggerType,
+        primaryTrigger: triggerType,
         triggerValue,
         timestamp: Date.now(),
         assessmentId: `${type}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-      };
+      } as Partial<CrisisDetection> as CrisisDetection;
 
       const totalTime = performance.now() - startTime;
 
@@ -312,7 +312,7 @@ export class CrisisPerformanceOptimizer {
       // Emit performance event for monitoring
       DeviceEventEmitter.emit('crisis_intervention_started', {
         assessmentId: detection.assessmentId,
-        triggerType: detection.triggerType,
+        triggerType: detection.primaryTrigger,
         timestamp: detection.timestamp
       });
 
@@ -390,7 +390,7 @@ export class CrisisPerformanceOptimizer {
       // Use minimal, fast logging
       const interventionLog = {
         id: detection.assessmentId,
-        type: detection.triggerType,
+        type: detection.primaryTrigger,
         value: detection.triggerValue,
         timestamp: detection.timestamp,
         responseTime: Date.now() - detection.timestamp
