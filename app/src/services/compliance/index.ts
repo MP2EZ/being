@@ -153,7 +153,7 @@ export class HIPAAComplianceService {
       };
 
     } catch (error) {
-      logError(LogCategory.SYSTEM, 'ASSESSMENT COMPLIANCE VALIDATION ERROR:', error);
+      logError(LogCategory.SYSTEM, 'ASSESSMENT COMPLIANCE VALIDATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       
       return {
         canProceed: false,
@@ -205,7 +205,7 @@ export class HIPAAComplianceService {
       };
 
     } catch (error) {
-      logError(LogCategory.SYSTEM, 'CRISIS INTERVENTION COMPLIANCE ERROR:', error);
+      logError(LogCategory.SYSTEM, 'CRISIS INTERVENTION COMPLIANCE ERROR:', error instanceof Error ? error : new Error(String(error)));
       
       return {
         canIntervene: false,
@@ -256,7 +256,7 @@ export class HIPAAComplianceService {
       };
 
     } catch (error) {
-      logError(LogCategory.SYSTEM, 'CONSENT COLLECTION ERROR:', error);
+      logError(LogCategory.SYSTEM, 'CONSENT COLLECTION ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -290,7 +290,7 @@ export class HIPAAComplianceService {
       };
 
     } catch (error) {
-      logError(LogCategory.SYSTEM, 'CONSENT VALIDATION ERROR:', error);
+      logError(LogCategory.SYSTEM, 'CONSENT VALIDATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       
       return {
         valid: false,
@@ -354,7 +354,7 @@ export class HIPAAComplianceService {
       };
 
     } catch (error) {
-      logError(LogCategory.SYSTEM, 'DATA ACCESS VALIDATION ERROR:', error);
+      logError(LogCategory.SYSTEM, 'DATA ACCESS VALIDATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       
       return {
         approved: false,
@@ -409,7 +409,7 @@ export class HIPAAComplianceService {
       };
 
     } catch (error) {
-      logError(LogCategory.SYSTEM, 'BREACH REPORTING ERROR:', error);
+      logError(LogCategory.SYSTEM, 'BREACH REPORTING ERROR:', error instanceof Error ? error : new Error(String(error)));
       
       return {
         breachReported: false,
@@ -460,7 +460,7 @@ export class HIPAAComplianceService {
       };
 
     } catch (error) {
-      logError(LogCategory.SYSTEM, 'COMPLIANCE STATUS ERROR:', error);
+      logError(LogCategory.SYSTEM, 'COMPLIANCE STATUS ERROR:', error instanceof Error ? error : new Error(String(error)));
       
       return {
         overallStatus: 'critical',
@@ -550,7 +550,7 @@ export class HIPAAComplianceService {
       };
 
     } catch (error) {
-      logError(LogCategory.SYSTEM, 'COMPLIANCE AUDIT ERROR:', error);
+      logError(LogCategory.SYSTEM, 'COMPLIANCE AUDIT ERROR:', error instanceof Error ? error : new Error(String(error)));
       
       const auditId = `audit_error_${Date.now()}`;
       return {
@@ -599,7 +599,7 @@ export class HIPAAComplianceService {
       };
 
     } catch (error) {
-      logError(LogCategory.SYSTEM, 'QUICK COMPLIANCE CHECK ERROR:', error);
+      logError(LogCategory.SYSTEM, 'QUICK COMPLIANCE CHECK ERROR:', error instanceof Error ? error : new Error(String(error)));
       
       return {
         canProceed: false,
