@@ -234,7 +234,9 @@ export class AuthenticationService {
       this.initialized = true;
 
       const initializationTime = performance.now() - startTime;
-      logPerformance(`✅ Authentication Service initialized (${initializationTime.toFixed(2)}ms)`);
+      logPerformance('AuthenticationService.initialize', initializationTime, {
+        status: 'success'
+      });
 
       // Log initialization
       await this.logAuthenticationEvent({
@@ -410,7 +412,9 @@ export class AuthenticationService {
         securityFlags: ['emergency_access', 'crisis_intervention']
       });
 
-      logPerformance(`🚨 Crisis access granted (${authenticationTime.toFixed(2)}ms)`);
+      logPerformance('AuthenticationService.grantCrisisAccess', authenticationTime, {
+        accessType: 'crisis_emergency'
+      });
 
       return {
         success: true,
@@ -509,7 +513,9 @@ export class AuthenticationService {
 
       const authenticationTime = performance.now() - startTime;
 
-      logPerformance(`👆 Biometric authentication successful (${authenticationTime.toFixed(2)}ms)`);
+      logPerformance('AuthenticationService.authenticateBiometric', authenticationTime, {
+        method: 'biometric'
+      });
 
       return {
         success: true,
@@ -674,7 +680,9 @@ export class AuthenticationService {
         operationTimeMs: refreshTime
       });
 
-      logPerformance(`🔄 Token refreshed (${refreshTime.toFixed(2)}ms)`);
+      logPerformance('AuthenticationService.refreshToken', refreshTime, {
+        status: 'success'
+      });
 
       return {
         success: true,
@@ -937,7 +945,7 @@ export class AuthenticationService {
         await SecureStore.setItemAsync(AUTH_CONFIG.DEVICE_ID_KEY, deviceId);
       }
 
-      logPerformance(`📱 Device ID: ${deviceId.substring(0, 8)}...`);
+      console.log(`📱 Device ID: ${deviceId.substring(0, 8)}...`);
 
     } catch (error) {
       logError(LogCategory.SECURITY, '🚨 DEVICE IDENTIFICATION ERROR:', error instanceof Error ? error : new Error(String(error)));

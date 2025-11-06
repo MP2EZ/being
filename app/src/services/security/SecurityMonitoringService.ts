@@ -350,7 +350,9 @@ export class SecurityMonitoringService {
       this.initialized = true;
 
       const initializationTime = performance.now() - startTime;
-      logPerformance(`✅ Security Monitoring Service initialized (${initializationTime.toFixed(2)}ms)`);
+      logPerformance('SecurityMonitoringService.initialize', initializationTime, {
+        status: 'success'
+      });
 
       // Log successful initialization
       await this.logIncidentEvent({
@@ -454,7 +456,9 @@ export class SecurityMonitoringService {
       // Store assessment for historical tracking
       await this.storeAssessmentResults(assessment);
 
-      logPerformance(`🔍 Vulnerability assessment completed (${scanDuration.toFixed(2)}ms, ${vulnerabilities.length} vulnerabilities found)`);
+      logPerformance('SecurityMonitoringService.assessVulnerabilities', scanDuration, {
+        vulnerabilityCount: vulnerabilities.length
+      });
 
       return assessment;
 
@@ -536,7 +540,9 @@ export class SecurityMonitoringService {
         logSecurity('⚠️  Threat detection slow: ${detectionTime.toFixed(2)}ms > ${MONITORING_CONFIG.DETECTION_LATENCY_THRESHOLD_MS}ms', 'medium', { component: 'SecurityService' });
       }
 
-      logPerformance(`🔍 Threat detection completed (${detectionTime.toFixed(2)}ms, ${threats.length} threats detected)`);
+      logPerformance('SecurityMonitoringService.detectThreats', detectionTime, {
+        threatCount: threats.length
+      });
 
       return threats;
 
@@ -596,7 +602,9 @@ export class SecurityMonitoringService {
 
       const detectionTime = performance.now() - startTime;
 
-      logPerformance(`🚨 Incident detection completed (${detectionTime.toFixed(2)}ms, ${incidents.length} incidents detected)`);
+      logPerformance('SecurityMonitoringService.detectIncidents', detectionTime, {
+        incidentCount: incidents.length
+      });
 
       return incidents;
 
@@ -674,7 +682,9 @@ export class SecurityMonitoringService {
         });
       }
 
-      logPerformance(`📋 Compliance check completed (${checkTime.toFixed(2)}ms, overall score: ${overallScore.toFixed(1)}%)`);
+      logPerformance('SecurityMonitoringService.checkCompliance', checkTime, {
+        overallScore: overallScore.toFixed(1)
+      });
 
       return complianceStatus;
 
