@@ -802,7 +802,7 @@ export class HIPAAConsentManager {
       // Get most recent non-revoked consent
       const latestKey = consentKeys
         .sort((a, b) => b.localeCompare(a)) // Sort by timestamp (newest first)
-        [0];
+        [0]!;
 
       const consentData = await SecureStore.getItemAsync(latestKey);
       if (!consentData) {

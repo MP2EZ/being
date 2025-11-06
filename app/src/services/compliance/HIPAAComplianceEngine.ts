@@ -1132,7 +1132,7 @@ export class HIPAAComplianceEngine {
       }
 
       // Get the most recent consent
-      const latestKey = consentKeys.sort().reverse()[0];
+      const latestKey = consentKeys.sort().reverse()[0]!;
       const consentData = await SecureStore.getItemAsync(latestKey);
       
       return consentData ? JSON.parse(consentData) : null;

@@ -1243,7 +1243,7 @@ export class NetworkSecurityService {
       const currentTime = Date.now();
       for (const [requestKey, controller] of this.activeRequests.entries()) {
         // Clean up stale requests (older than 5 minutes)
-        const requestTime = parseInt(requestKey.split('_')[1]);
+        const requestTime = parseInt(requestKey.split('_')[1]!);
         if (currentTime - requestTime > 300000) {
           controller.abort();
           this.activeRequests.delete(requestKey);

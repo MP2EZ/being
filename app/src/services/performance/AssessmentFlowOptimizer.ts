@@ -67,7 +67,7 @@ class QuestionCache {
 
   static setCachedQuestion(questionId: string, questionData: any): void {
     if (this.cache.size >= this.MAX_CACHE_SIZE) {
-      const firstKey = this.cache.keys().next().value;
+      const firstKey = this.cache.keys().next().value!;
       this.cache.delete(firstKey);
     }
     this.cache.set(questionId, questionData);

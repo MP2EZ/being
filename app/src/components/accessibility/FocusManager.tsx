@@ -89,9 +89,9 @@ export const FocusProvider: React.FC<FocusProviderProps> = ({
   // Focus navigation methods
   const focusNext = useCallback(() => {
     if (focusOrder.length === 0) return;
-    
+
     const nextIndex = (currentFocusIndex + 1) % focusOrder.length;
-    const nextId = focusOrder[nextIndex];
+    const nextId = focusOrder[nextIndex]!;
     const element = focusableElements.get(nextId);
     
     if (element?.ref) {
@@ -106,9 +106,9 @@ export const FocusProvider: React.FC<FocusProviderProps> = ({
 
   const focusPrevious = useCallback(() => {
     if (focusOrder.length === 0) return;
-    
+
     const prevIndex = currentFocusIndex === 0 ? focusOrder.length - 1 : currentFocusIndex - 1;
-    const prevId = focusOrder[prevIndex];
+    const prevId = focusOrder[prevIndex]!;
     const element = focusableElements.get(prevId);
     
     if (element?.ref) {
@@ -123,8 +123,8 @@ export const FocusProvider: React.FC<FocusProviderProps> = ({
 
   const focusFirst = useCallback(() => {
     if (focusOrder.length === 0) return;
-    
-    const firstId = focusOrder[0];
+
+    const firstId = focusOrder[0]!;
     const element = focusableElements.get(firstId);
     
     if (element?.ref) {
@@ -139,9 +139,9 @@ export const FocusProvider: React.FC<FocusProviderProps> = ({
 
   const focusLast = useCallback(() => {
     if (focusOrder.length === 0) return;
-    
+
     const lastIndex = focusOrder.length - 1;
-    const lastId = focusOrder[lastIndex];
+    const lastId = focusOrder[lastIndex]!;
     const element = focusableElements.get(lastId);
     
     if (element?.ref) {
@@ -172,7 +172,7 @@ export const FocusProvider: React.FC<FocusProviderProps> = ({
   const trapFocusInContainer = useCallback((containerRef: any) => {
     if (restoreFocus && !previousFocus) {
       const currentFocusId = focusOrder[currentFocusIndex];
-      setPreviousFocus(currentFocusId);
+      setPreviousFocus(currentFocusId ?? null);
     }
     
     trapContainerRef.current = containerRef;

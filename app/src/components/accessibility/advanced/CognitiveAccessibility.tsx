@@ -192,7 +192,7 @@ export const CognitiveAccessibilityProvider: React.FC<CognitiveAccessibilityProv
     setCurrentStepIndex(0);
     
     if (steps.length > 0) {
-      announceInstruction(steps[0], 'guidance');
+      announceInstruction(steps[0]!, 'guidance');
     }
   }, [config.enableFocusGuides, announceInstruction]);
 

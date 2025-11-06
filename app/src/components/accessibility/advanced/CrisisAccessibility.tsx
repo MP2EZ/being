@@ -312,7 +312,7 @@ export const CrisisAccessibilityProvider: React.FC<CrisisAccessibilityProviderPr
     
     const announceGuidanceStep = () => {
       if (stepIndex < guidanceSteps.length && voiceGuidanceActive) {
-        announceTherapeutic(guidanceSteps[stepIndex], 'calming');
+        announceTherapeutic(guidanceSteps[stepIndex]!, 'calming');
         stepIndex++;
         
         voiceGuidanceTimeoutRef.current = setTimeout(announceGuidanceStep, 8000);
