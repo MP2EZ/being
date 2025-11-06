@@ -319,7 +319,9 @@ class AnalyticsService {
       this.initialized = true;
 
       const initTime = performance.now() - startTime;
-      logPerformance(`✅ AnalyticsService initialized (${initTime.toFixed(2)}ms)`);
+      logPerformance('AnalyticsService.initialize', initTime, {
+        status: 'success'
+      });
 
       // Log initialization event
       await this.logSecurityEvent('service_initialized', {
@@ -565,7 +567,10 @@ class AnalyticsService {
 
       // 5. Validate performance requirements
       if (processingTime > 10) {
-        logSecurity(`⚠️ Analytics event processing exceeded 10ms: ${processingTime.toFixed(2)}ms`);
+        logSecurity('Analytics event processing slow', 'low', {
+          processingTime,
+          threshold: 10
+        });
       }
 
       // 6. Special handling for crisis events
@@ -680,7 +685,9 @@ class AnalyticsService {
       }
 
       const processingTime = performance.now() - startTime;
-      logPerformance(`🚨 Crisis event processed (${processingTime.toFixed(2)}ms)`);
+      logPerformance('AnalyticsService.processCrisisEvent', processingTime, {
+        eventType: 'crisis_intervention'
+      });
 
       if (processingTime > 200) {
         await this.logSecurityEvent('crisis_performance_violation', {
@@ -719,7 +726,7 @@ class AnalyticsService {
     const startTime = performance.now();
 
     try {
-      logPerformance(`📊 Processing analytics batch (${this.eventQueue.length} events)`);
+      console.log(`📊 Processing analytics batch (${this.eventQueue.length} events)`);
 
       // Extract batch for processing
       const batchEvents = this.eventQueue.splice(0, this.BATCH_SIZE);
@@ -744,7 +751,9 @@ class AnalyticsService {
       }
 
       const processingTime = performance.now() - startTime;
-      logPerformance(`✅ Analytics batch processed (${batchEvents.length} events, ${processingTime.toFixed(2)}ms)`);
+      logPerformance('AnalyticsService.processBatch', processingTime, {
+        eventCount: batchEvents.length
+      });
 
       await this.logSecurityEvent('batch_processed', {
         eventCount: batchEvents.length,
@@ -813,7 +822,9 @@ class AnalyticsService {
       }
 
       const processingTime = performance.now() - startTime;
-      logPerformance(`📋 Assessment completion tracked (${processingTime.toFixed(2)}ms)`);
+      logPerformance('AnalyticsService.trackAssessmentCompletion', processingTime, {
+        assessmentType: assessmentData.type
+      });
 
     } catch (error) {
       logError(LogCategory.ANALYTICS, '📋 Assessment completion tracking failed:', error instanceof Error ? error : new Error(String(error)));

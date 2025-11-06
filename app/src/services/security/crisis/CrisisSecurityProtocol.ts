@@ -239,7 +239,9 @@ export class CrisisSecurityProtocol {
       this.initialized = true;
 
       const initializationTime = performance.now() - startTime;
-      logPerformance(`✅ Crisis Security Protocol initialized (${initializationTime.toFixed(2)}ms)`);
+      logPerformance('CrisisSecurityProtocol.initialize', initializationTime, {
+        status: 'success'
+      });
 
       // Log initialization
       await this.logCrisisSecurityEvent({
@@ -383,7 +385,9 @@ export class CrisisSecurityProtocol {
         }
       });
 
-      logPerformance(`🚨 Emergency access granted (${accessTime.toFixed(2)}ms, expires in ${CRISIS_SECURITY_CONFIG.ACCESS_TIMEOUTS.emergency_session_ms / 60000} minutes)`);
+      logPerformance('CrisisSecurityProtocol.grantEmergencyAccess', accessTime, {
+        expiresInMinutes: CRISIS_SECURITY_CONFIG.ACCESS_TIMEOUTS.emergency_session_ms / 60000
+      });
 
       return accessContext;
 
@@ -445,7 +449,7 @@ export class CrisisSecurityProtocol {
         throw new Error('Crisis security protocol not initialized');
       }
 
-      logPerformance(`🔒 Applying crisis data protection (level: ${protectionLevel})`);
+      console.log(`🔒 Applying crisis data protection (level: ${protectionLevel})`);
 
       const encryptionApplied: string[] = [];
       const accessControlsSet: string[] = [];
@@ -501,7 +505,9 @@ export class CrisisSecurityProtocol {
 
       const protectionTime = performance.now() - startTime;
 
-      logPerformance(`🔒 Crisis data protection applied (${protectionTime.toFixed(2)}ms)`);
+      logPerformance('CrisisSecurityProtocol.applyCrisisDataProtection', protectionTime, {
+        protectionLevel
+      });
 
       return {
         protected: true,
@@ -593,7 +599,10 @@ export class CrisisSecurityProtocol {
 
       // Validate professional access performance
       if (validationTime > CRISIS_SECURITY_CONFIG.PROFESSIONAL_OVERRIDE_THRESHOLD_MS) {
-        logSecurity(`⚠️  Professional access validation slow: ${validationTime.toFixed(2)}ms > ${CRISIS_SECURITY_CONFIG.PROFESSIONAL_OVERRIDE_THRESHOLD_MS}ms`);
+        logSecurity('Professional access validation slow', 'medium', {
+          validationTime,
+          threshold: CRISIS_SECURITY_CONFIG.PROFESSIONAL_OVERRIDE_THRESHOLD_MS
+        });
       }
 
       // Log professional access
@@ -616,7 +625,9 @@ export class CrisisSecurityProtocol {
         }
       });
 
-      logPerformance(`👩‍⚕️ Professional access validated (${validationTime.toFixed(2)}ms)`);
+      logPerformance('CrisisSecurityProtocol.validateProfessionalAccess', validationTime, {
+        professionalId: professionalCredentials.professionalId
+      });
 
       return accessContext;
 
