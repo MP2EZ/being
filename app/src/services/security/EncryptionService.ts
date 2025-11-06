@@ -185,7 +185,9 @@ export class EncryptionService {
       }
 
       const initializationTime = performance.now() - startTime;
-      logPerformance(`✅ Encryption Service initialized (${initializationTime.toFixed(2)}ms)`);
+      logPerformance('EncryptionService.initialize', initializationTime, {
+        status: 'success'
+      });
 
       // Record performance metrics
       await this.recordPerformanceMetrics({
@@ -283,7 +285,10 @@ export class EncryptionService {
         timestamp: Date.now()
       });
 
-      logPerformance(`🔐 Data encrypted (${encryptionTime.toFixed(2)}ms, ${originalSize}→${encryptedSize} bytes)`);
+      logPerformance('EncryptionService.encrypt', encryptionTime, {
+        originalSize,
+        encryptedSize
+      });
 
       return encryptedPackage;
 
@@ -381,7 +386,9 @@ export class EncryptionService {
         timestamp: Date.now()
       });
 
-      logPerformance(`🔓 Data decrypted (${decryptionTime.toFixed(2)}ms)`);
+      logPerformance('EncryptionService.decrypt', decryptionTime, {
+        context: 'data_decryption'
+      });
 
       return decryptedData;
 
@@ -436,7 +443,9 @@ export class EncryptionService {
         throw new Error(`Crisis encryption performance violation: ${totalTime.toFixed(2)}ms`);
       }
 
-      logPerformance(`🚨 Crisis data encrypted (${totalTime.toFixed(2)}ms)`);
+      logPerformance('EncryptionService.encryptCrisisData', totalTime, {
+        tier: 'crisis_tier'
+      });
 
       return encryptedPackage;
 
@@ -483,7 +492,7 @@ export class EncryptionService {
         assessmentKeyId
       );
 
-      logPerformance(`📋 Assessment data encrypted (${assessmentData.type}, score: ${assessmentData.totalScore})`);
+      console.log(`📋 Assessment data encrypted (${assessmentData.type}, score: ${assessmentData.totalScore})`);
 
       return encryptedPackage;
 
@@ -842,7 +851,7 @@ export class EncryptionService {
       try {
         await SecureStore.setItemAsync(migrationFlagKey, 'completed');
         migrationStatus.migrationCompleted = true;
-        logPerformance('✅ Legacy data migration skipped (invalid key format) - marked completed');
+        console.log('✅ Legacy data migration skipped (invalid key format) - marked completed');
       } catch (error) {
         logError(LogCategory.SECURITY, 'Failed to set migration flag:', error instanceof Error ? error : new Error(String(error)));
         // Don't fail initialization if we can't set the flag
@@ -1069,7 +1078,9 @@ export class EncryptionService {
         timestamp: Date.now()
       });
 
-      logPerformance(`✅ Key rotated successfully (${rotationTime.toFixed(2)}ms)`);
+      logPerformance('EncryptionService.rotateKeys', rotationTime, {
+        status: 'success'
+      });
 
     } catch (error) {
       logError(LogCategory.SECURITY, '🚨 KEY ROTATION ERROR:', error instanceof Error ? error : new Error(String(error)));
