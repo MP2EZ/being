@@ -149,7 +149,7 @@ export const ProductionDashboard: React.FC = () => {
       });
 
     } catch (error) {
-      setError(`Failed to initialize dashboard: ${error.message}`);
+      setError(`Failed to initialize dashboard: ${(error instanceof Error ? error.message : String(error))}`);
       logSecurity('Production dashboard initialization failed', 'medium', {
         component: 'production_dashboard',
         
@@ -186,7 +186,7 @@ export const ProductionDashboard: React.FC = () => {
       });
 
     } catch (error) {
-      setError(`Failed to refresh data: ${error.message}`);
+      setError(`Failed to refresh data: ${(error instanceof Error ? error.message : String(error))}`);
     } finally {
       setIsRefreshing(false);
     }
@@ -211,7 +211,7 @@ export const ProductionDashboard: React.FC = () => {
 
               Alert.alert('Success', 'Emergency protocol executed successfully');
             } catch (error) {
-              Alert.alert('Error', `Emergency protocol failed: ${error.message}`);
+              Alert.alert('Error', `Emergency protocol failed: ${(error instanceof Error ? error.message : String(error))}`);
             }
           }
         }

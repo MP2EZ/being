@@ -218,7 +218,7 @@ export class DeploymentOrchestrator {
         checks.push({
           name: 'Critical Services Health',
           status: 'failed',
-          message: `Health check failed: ${error.message}`
+          message: `Health check failed: ${(error instanceof Error ? error.message : String(error))}`
         });
       }
 
@@ -250,7 +250,7 @@ export class DeploymentOrchestrator {
         checks.push({
           name: 'Circuit Breaker Status',
           status: 'failed',
-          message: `Circuit breaker check failed: ${error.message}`
+          message: `Circuit breaker check failed: ${(error instanceof Error ? error.message : String(error))}`
         });
       }
 
@@ -295,7 +295,7 @@ export class DeploymentOrchestrator {
         checks.push({
           name: 'Deployment History',
           status: 'failed',
-          message: `Deployment history check failed: ${error.message}`
+          message: `Deployment history check failed: ${(error instanceof Error ? error.message : String(error))}`
         });
       }
 
@@ -321,7 +321,7 @@ export class DeploymentOrchestrator {
         checks.push({
           name: 'Crisis Detection Service',
           status: 'failed',
-          message: `Crisis detection check failed: ${error.message}`
+          message: `Crisis detection check failed: ${(error instanceof Error ? error.message : String(error))}`
         });
       }
 
@@ -345,7 +345,7 @@ export class DeploymentOrchestrator {
         checks: [{
           name: 'Pre-flight Check System',
           status: 'failed',
-          message: `System error: ${error.message}`
+          message: `System error: ${(error instanceof Error ? error.message : String(error))}`
         }]
       };
     }
@@ -429,7 +429,7 @@ ${readiness.warnings.length > 0 ? `\nWarnings:\n${readiness.warnings.map(w => `-
   } catch (error) {
     return {
       canDeploy: false,
-      report: `Deployment validation failed: ${error.message}`,
+      report: `Deployment validation failed: ${(error instanceof Error ? error.message : String(error))}`,
       criticalIssues: ['System validation error']
     };
   }

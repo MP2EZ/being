@@ -329,7 +329,7 @@ class AnalyticsService {
 
     } catch (error) {
       logError(LogCategory.ANALYTICS, '🚨 AnalyticsService initialization failed:', error instanceof Error ? error : new Error(String(error)));
-      throw new Error(`Analytics service initialization failed: ${error.message}`);
+      throw new Error(`Analytics service initialization failed: ${(error instanceof Error ? error.message : String(error))}`);
     }
   }
 
@@ -581,7 +581,7 @@ class AnalyticsService {
       logError(LogCategory.ANALYTICS, '📊 Analytics event tracking failed:', error instanceof Error ? error : new Error(String(error)));
       await this.logSecurityEvent('event_tracking_failure', {
         eventType,
-        error: error.message
+        error: (error instanceof Error ? error.message : String(error))
       });
     }
   }
@@ -693,7 +693,7 @@ class AnalyticsService {
       logError(LogCategory.ANALYTICS, '🚨 Crisis event processing failed:', error instanceof Error ? error : new Error(String(error)));
       await this.logSecurityEvent('crisis_processing_failure', {
         eventType: event.eventType,
-        error: error.message
+        error: (error instanceof Error ? error.message : String(error))
       });
     }
   }
@@ -756,7 +756,7 @@ class AnalyticsService {
       logError(LogCategory.ANALYTICS, '📊 Batch processing failed:', error instanceof Error ? error : new Error(String(error)));
       await this.logSecurityEvent('batch_processing_failure', {
         queueSize: this.eventQueue.length,
-        error: error.message
+        error: (error instanceof Error ? error.message : String(error))
       });
     } finally {
       this.isProcessing = false;
@@ -818,7 +818,7 @@ class AnalyticsService {
     } catch (error) {
       logError(LogCategory.ANALYTICS, '📋 Assessment completion tracking failed:', error instanceof Error ? error : new Error(String(error)));
       await this.logSecurityEvent('assessment_tracking_failure', {
-        error: error.message
+        error: (error instanceof Error ? error.message : String(error))
       });
     }
   }

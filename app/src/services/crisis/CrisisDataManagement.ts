@@ -859,7 +859,7 @@ export class CrisisDataManagement {
         `crisis_data_error_${Date.now()}`,
         JSON.stringify({
           crisisId,
-          error: error.message,
+          error: (error instanceof Error ? error.message : String(error)),
           timestamp: Date.now(),
           source: 'CrisisDataManagement'
         })
@@ -891,7 +891,7 @@ export class CrisisDataManagement {
     await this.logAuditEvent(
       packageId,
       'data_update_error',
-      { updateType, error: error.message },
+      { updateType, error: (error instanceof Error ? error.message : String(error)) },
       'error'
     );
   }

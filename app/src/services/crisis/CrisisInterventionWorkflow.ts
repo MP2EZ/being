@@ -825,7 +825,7 @@ export class CrisisInterventionWorkflow {
       const logEntry = {
         type: 'workflow_failure',
         context,
-        error: error.message,
+        error: (error instanceof Error ? error.message : String(error)),
         timestamp: Date.now(),
         source: 'CrisisInterventionWorkflow'
       };

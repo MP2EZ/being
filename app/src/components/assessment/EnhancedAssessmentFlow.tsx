@@ -264,8 +264,10 @@ const EnhancedAssessmentFlow: React.FC<EnhancedAssessmentFlowProps> = ({
 
   // Enhanced answer handler
   const handleAnswer = useCallback(async (response: AssessmentResponse, metadata: ResponseMetadata) => {
+    if (!currentQuestion) return;
+
     const questionId = currentQuestion.id;
-    
+
     try {
       setIsProcessing(true);
 

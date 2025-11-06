@@ -147,9 +147,11 @@ const RadioGroup: React.FC<RadioGroupProps> = ({
 
     const startTime = performance.now();
     onValueChange(optionValue);
-    
+
     // Announce selection to screen readers
     const option = options[index];
+    if (!option) return;
+
     AccessibilityInfo.announceForAccessibility(
       `Selected: ${option.label}${showScores ? `, score ${optionValue}` : ''}`
     );

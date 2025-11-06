@@ -207,7 +207,7 @@ export class AnalyticsOrchestrator {
 
     } catch (error) {
       logError(LogCategory.ANALYTICS, 'Analytics Orchestrator initialization failed', error);
-      throw new Error(`Analytics orchestrator initialization failed: ${error.message}`);
+      throw new Error(`Analytics orchestrator initialization failed: ${(error instanceof Error ? error.message : String(error))}`);
     }
   }
 

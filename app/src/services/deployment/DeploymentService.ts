@@ -358,7 +358,7 @@ export class DeploymentService {
       });
 
     } catch (error) {
-      deployment.errors.push(`Pre-deployment validation failed: ${error.message}`);
+      deployment.errors.push(`Pre-deployment validation failed: ${(error instanceof Error ? error.message : String(error))}`);
       throw error;
     }
   }
@@ -408,7 +408,7 @@ export class DeploymentService {
       });
 
     } catch (error) {
-      deployment.errors.push(`Deployment execution failed: ${error.message}`);
+      deployment.errors.push(`Deployment execution failed: ${(error instanceof Error ? error.message : String(error))}`);
       throw error;
     }
   }
@@ -535,7 +535,7 @@ export class DeploymentService {
       });
 
     } catch (error) {
-      deployment.errors.push(`Health check failed: ${error.message}`);
+      deployment.errors.push(`Health check failed: ${(error instanceof Error ? error.message : String(error))}`);
 
       // Trigger automatic rollback if configured
       if (deployment.config.rollbackConfig.triggerOnFailure) {
@@ -586,7 +586,7 @@ export class DeploymentService {
         status: 'unhealthy',
         responseTime: Date.now() - startTime,
         timestamp: Date.now(),
-        details: error.message
+        details: (error instanceof Error ? error.message : String(error))
       };
     }
   }
@@ -617,12 +617,12 @@ export class DeploymentService {
 
     } catch (error) {
       // Post-deployment action failures are not deployment failures
-      deployment.errors.push(`Post-deployment action warning: ${error.message}`);
+      deployment.errors.push(`Post-deployment action warning: ${(error instanceof Error ? error.message : String(error))}`);
 
       logSecurity('Post-deployment action warning', 'low', {
         component: 'deployment_service',
         
-        warning: error.message
+        warning: (error instanceof Error ? error.message : String(error))
       });
     }
   }
@@ -673,7 +673,7 @@ export class DeploymentService {
       });
 
     } catch (error) {
-      deployment.errors.push(`Rollback failed: ${error.message}`);
+      deployment.errors.push(`Rollback failed: ${(error instanceof Error ? error.message : String(error))}`);
       trackError(ErrorCategory.SECURITY,
         `Deployment rollback failed: ${deployment.id}`,
         error,
@@ -756,14 +756,14 @@ export class DeploymentService {
 
   private async handleDeploymentFailure(deployment: DeploymentRecord, error: Error): Promise<void> {
     deployment.status = DeploymentStatus.FAILED;
-    deployment.errors.push(error.message);
+    deployment.errors.push((error instanceof Error ? error.message : String(error)));
 
     await this.saveDeploymentRecord(deployment);
 
     logSecurity('Deployment failed', 'high', {
       component: 'deployment_service',
       
-      error: error.message,
+      error: (error instanceof Error ? error.message : String(error)),
       strategy: deployment.config.strategy
     });
 

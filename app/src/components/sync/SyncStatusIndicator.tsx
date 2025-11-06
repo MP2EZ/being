@@ -128,7 +128,7 @@ export default function SyncStatusIndicator({
 
     } catch (error) {
       logError(LogCategory.SYSTEM, 'Status update failed:', error);
-      setError(error.message || 'Status update failed');
+      setError((error instanceof Error ? error.message : String(error)) || 'Status update failed');
     } finally {
       setIsLoading(false);
     }

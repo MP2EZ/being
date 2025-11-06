@@ -194,7 +194,7 @@ export default function CloudBackupSettings({
     } catch (error) {
       Alert.alert(
         'Analytics Error',
-        `Failed to ${enabled ? 'enable' : 'disable'} analytics: ${error.message}`
+        `Failed to ${enabled ? 'enable' : 'disable'} analytics: ${(error instanceof Error ? error.message : String(error))}`
       );
     } finally {
       setAnalyticsLoading(false);
