@@ -104,7 +104,7 @@ export const MotorAccessibilityProvider: React.FC<MotorAccessibilityProviderProp
   const [voiceCommands, setVoiceCommands] = useState<Map<string, () => void>>(new Map());
   
   const { announce } = useAdvancedScreenReader();
-  const dwellTimerRef = useRef<NodeJS.Timeout>();
+  const dwellTimerRef = useRef<NodeJS.Timeout | undefined>(undefined);
 
   const updateConfig = useCallback((updates: Partial<MotorAccessibilityConfig>) => {
     setConfig(prev => ({ ...prev, ...updates }));
@@ -282,8 +282,8 @@ export const AccessiblePressable: React.FC<AccessiblePressableProps> = ({
   const [isHovered, setIsHovered] = useState(false);
   const [isDwelling, setIsDwelling] = useState(false);
   const [touchPosition, setTouchPosition] = useState<{ x: number; y: number } | null>(null);
-  
-  const dwellTimerRef = useRef<NodeJS.Timeout>();
+
+  const dwellTimerRef = useRef<NodeJS.Timeout | undefined>(undefined);
   const tremorFilterRef = useRef<{ x: number; y: number; timestamp: number }[]>([]);
 
   // Voice command registration
@@ -292,6 +292,7 @@ export const AccessiblePressable: React.FC<AccessiblePressableProps> = ({
       registerVoiceCommand(voiceCommand, onPress);
       return () => unregisterVoiceCommand(voiceCommand);
     }
+    return undefined;
   }, [voiceCommand, onPress, registerVoiceCommand, unregisterVoiceCommand]);
 
   // Tremor-tolerant touch handling

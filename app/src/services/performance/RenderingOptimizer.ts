@@ -81,7 +81,7 @@ class FrameRateMonitor {
     this.frameCount = 0;
     this.droppedFrameCount = 0;
 
-    logPerformance('🎬 Starting frame rate monitoring...');
+    console.log('🎬 Starting frame rate monitoring...');
     this.scheduleFrameCheck();
   }
 
@@ -164,7 +164,9 @@ class FrameRateMonitor {
    */
   private static validateFramePerformance(metrics: FrameMetrics): void {
     if (metrics.frameRate < 50) {
-      logSecurity(`⚠️ Low frame rate detected: ${metrics.frameRate.toFixed(2)}fps`);
+      logSecurity('Low frame rate detected', 'low', {
+        frameRate: metrics.frameRate
+      });
       DeviceEventEmitter.emit('performance_degradation', {
         type: 'low_fps',
         value: metrics.frameRate,
@@ -173,7 +175,9 @@ class FrameRateMonitor {
     }
 
     if (metrics.droppedFrames > 5) {
-      logSecurity(`⚠️ High dropped frame count: ${metrics.droppedFrames}`);
+      logSecurity('High dropped frame count', 'low', {
+        droppedFrames: metrics.droppedFrames
+      });
       DeviceEventEmitter.emit('performance_degradation', {
         type: 'dropped_frames',
         value: metrics.droppedFrames,
@@ -191,7 +195,7 @@ class FrameRateMonitor {
       cancelAnimationFrame(this.animationFrameId);
       this.animationFrameId = null;
     }
-    logPerformance('🎬 Frame rate monitoring stopped');
+    console.log('🎬 Frame rate monitoring stopped');
   }
 
   /**
@@ -199,7 +203,7 @@ class FrameRateMonitor {
    */
   static getCurrentMetrics(): FrameMetrics | null {
     return this.frameMetrics.length > 0
-      ? this.frameMetrics[this.frameMetrics.length - 1]
+      ? (this.frameMetrics[this.frameMetrics.length - 1] ?? null)
       : null;
   }
 
@@ -285,7 +289,7 @@ class RenderBatchManager {
         try {
           update();
         } catch (error) {
-          logError('Batched update failed:', error);
+          logError(LogCategory.PERFORMANCE, 'Batched update failed:', error instanceof Error ? error : new Error(String(error)));
         }
       });
     });
@@ -358,7 +362,10 @@ class ComponentPerformanceTracker {
 
     // Check for slow renders
     if (renderTime > 16.67) { // Slower than 60fps
-      logSecurity(`⚠️ Slow render detected: ${componentName} took ${renderTime.toFixed(2)}ms`);
+      logSecurity('Slow render detected', 'low', {
+        componentName,
+        renderTime
+      });
       DeviceEventEmitter.emit('slow_render_detected', {
         componentName,
         renderTime,
@@ -472,7 +479,11 @@ class AnimationOptimizer {
         DeviceEventEmitter.emit('animation_completed', finalMetrics);
 
         if (!finalMetrics.isSmooth) {
-          logSecurity(`⚠️ Choppy animation: ${animationId} (${actualFps.toFixed(2)}fps, ${droppedFrames} dropped)`);
+          logSecurity('Choppy animation detected', 'low', {
+            animationId,
+            actualFps,
+            droppedFrames
+          });
         }
       }
     };
@@ -584,7 +595,7 @@ export class RenderingOptimizer {
   static initialize(): void {
     if (this.isInitialized) return;
 
-    logPerformance('🎨 Initializing rendering optimizer...');
+    console.log('🎨 Initializing rendering optimizer...');
 
     // Start frame rate monitoring
     FrameRateMonitor.startMonitoring();
@@ -596,7 +607,7 @@ export class RenderingOptimizer {
     this.setupTouchOptimizations();
 
     this.isInitialized = true;
-    logPerformance('✅ Rendering optimizer initialized');
+    console.log('✅ Rendering optimizer initialized');
   }
 
   /**
@@ -629,7 +640,7 @@ export class RenderingOptimizer {
 
     // Temporarily reduce other performance monitoring
     setTimeout(() => {
-      logPerformance('🚨 Crisis interaction prioritized');
+      console.log('🚨 Crisis interaction prioritized');
     }, 0);
   }
 
@@ -685,7 +696,9 @@ export class RenderingOptimizer {
     // Limit animation duration for better performance
     if (animationConfig.duration > 500) {
       animationConfig.duration = 500;
-      logSecurity(`Animation duration capped at 500ms for performance: ${animationId}`);
+      logSecurity('Animation duration capped at 500ms for performance', 'low', {
+        animationId
+      });
     }
   }
 
@@ -771,7 +784,7 @@ export class RenderingOptimizer {
    */
   static configure(config: Partial<RenderOptimizationConfig>): void {
     this.config = { ...this.config, ...config };
-    logPerformance('Rendering optimizer configured:', this.config);
+    console.log('Rendering optimizer configured:', this.config);
   }
 
   /**
@@ -782,7 +795,7 @@ export class RenderingOptimizer {
     RenderBatchManager.clearBatch();
     ComponentPerformanceTracker.clear();
     this.isInitialized = false;
-    logPerformance('Rendering optimizer shutdown');
+    console.log('Rendering optimizer shutdown');
   }
 }
 

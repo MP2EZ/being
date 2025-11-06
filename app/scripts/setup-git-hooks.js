@@ -104,7 +104,7 @@ class GitHooksSetup {
   generatePreCommitHook() {
     return `#!/bin/bash
 
-# Being MBCT Pre-commit Hook
+# Being. Pre-commit Hook
 # Optional validation - can be skipped with --no-verify
 
 set -e
@@ -268,7 +268,7 @@ exit 0
   generatePrePushHook() {
     return `#!/bin/bash
 
-# Being MBCT Pre-push Hook
+# Being. Pre-push Hook
 # Comprehensive validation before pushing to remote
 # Can be skipped with --no-verify
 

@@ -32,7 +32,7 @@ import type {
   CrisisActionType,
   CrisisResource,
   CrisisResolutionType
-} from '../flows/assessment/types';
+} from '../../flows/assessment/types';
 
 /**
  * CRISIS INTERVENTION WORKFLOW CONSTANTS
@@ -147,7 +147,7 @@ export class CrisisInterventionWorkflow {
       return context;
 
     } catch (error) {
-      logError('🚨 CRISIS WORKFLOW INITIATION ERROR:', error);
+      logError(LogCategory.CRISIS, '🚨 CRISIS WORKFLOW INITIATION ERROR:', error instanceof Error ? error : new Error(String(error)));
 
       // FAIL-SAFE: Emergency workflow
       await this.executeEmergencyFailsafe(detection);
@@ -179,7 +179,7 @@ export class CrisisInterventionWorkflow {
       await this.completeWorkflow(context);
 
     } catch (error) {
-      logError('🚨 WORKFLOW EXECUTION ERROR:', error);
+      logError(LogCategory.CRISIS, '🚨 WORKFLOW EXECUTION ERROR:', error instanceof Error ? error : new Error(String(error)));
       await this.handleWorkflowFailure(context, error);
     }
   }
@@ -211,7 +211,7 @@ export class CrisisInterventionWorkflow {
       this.recordStepMetrics(step.name, stepStartTime);
 
     } catch (error) {
-      logError(`🚨 WORKFLOW STEP ERROR (${step.name}):`, error);
+      logError(LogCategory.SYSTEM, `WORKFLOW STEP ERROR (${step.name}):`, error instanceof Error ? error : undefined);
 
       // Execute step failsafe if available
       if (step.failsafe) {
@@ -441,7 +441,9 @@ export class CrisisInterventionWorkflow {
         await this.scheduleFollowUp(context, step.id);
         break;
       default:
-        logSecurity(`Unknown workflow step: ${step.id}`);
+        logSecurity('Unknown workflow step', 'medium', {
+          stepId: step.id
+        });
     }
   }
 
@@ -673,7 +675,7 @@ export class CrisisInterventionWorkflow {
     context: CrisisInterventionContext,
     error: any
   ): Promise<void> {
-    logError('🚨 WORKFLOW FAILURE:', error);
+    logError(LogCategory.CRISIS, '🚨 WORKFLOW FAILURE:', error instanceof Error ? error : new Error(String(error)));
 
     // Log failure
     await this.logWorkflowFailure(context, error);
@@ -721,7 +723,7 @@ export class CrisisInterventionWorkflow {
    * FAIL-SAFE IMPLEMENTATIONS
    */
   private async executeEmergencyFailsafe(detection: CrisisDetection): Promise<void> {
-    logError('🚨 EXECUTING EMERGENCY FAILSAFE');
+    logError(LogCategory.SYSTEM, 'EXECUTING EMERGENCY FAILSAFE');
 
     Alert.alert(
       '🚨 EMERGENCY SUPPORT',
@@ -813,7 +815,7 @@ export class CrisisInterventionWorkflow {
         JSON.stringify(logEntry)
       );
     } catch (error) {
-      logError('Workflow completion logging failed:', error);
+      logError(LogCategory.CRISIS, 'Workflow completion logging failed:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -825,7 +827,7 @@ export class CrisisInterventionWorkflow {
       const logEntry = {
         type: 'workflow_failure',
         context,
-        error: error.message,
+        error: (error instanceof Error ? (error instanceof Error ? error.message : String(error)) : String(error)),
         timestamp: Date.now(),
         source: 'CrisisInterventionWorkflow'
       };
@@ -835,8 +837,8 @@ export class CrisisInterventionWorkflow {
         `workflow_failure_${context.intervention.interventionId}`,
         JSON.stringify(logEntry)
       );
-    } catch (logError) {
-      logError('Workflow failure logging failed:', logError);
+    } catch (error) {
+      logError(LogCategory.CRISIS, 'Workflow failure logging failed', error instanceof Error ? error : new Error(String(error)));
     }
   }
 

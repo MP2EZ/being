@@ -31,16 +31,16 @@ import {
   TextInput,
   Switch,
 } from 'react-native';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { StackScreenProps } from '@react-navigation/stack';
 import type { EveningFlowParamList, GratitudeData, GratitudeItem } from '../../../types/flows';
 
-type Props = NativeStackScreenProps<EveningFlowParamList, 'Gratitude'> & {
+type Props = StackScreenProps<EveningFlowParamList, 'Gratitude'> & {
   onSave?: (data: GratitudeData) => void;
 };
 
 const GratitudeScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
   // FEAT-23: Restore initial data if resuming session
-  const initialData = route.params?.initialData as GratitudeData | undefined;
+  const initialData = (route.params as any)?.initialData as GratitudeData | undefined;
 
   // Debug logging
   if (initialData) {
@@ -101,10 +101,10 @@ const GratitudeScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
         what: gratitude.trim(),
       };
 
-      if (impermanenceEnabled[index] && impermanenceAwareness[index].trim()) {
+      if (impermanenceEnabled[index] && impermanenceAwareness[index]?.trim()) {
         item.impermanenceReflection = {
           acknowledged: true,
-          awareness: impermanenceAwareness[index].trim(),
+          awareness: impermanenceAwareness[index]!.trim(),
         };
       }
 

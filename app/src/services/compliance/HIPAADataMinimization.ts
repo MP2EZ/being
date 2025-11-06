@@ -189,7 +189,7 @@ export interface DataAccessEvaluation {
   deniedElements: Array<{
     element: string;
     reason: string;
-    alternative?: string;
+    alternative?: string | undefined;
   }>;
   /** Access conditions */
   conditions: {
@@ -354,7 +354,7 @@ export class HIPAADataMinimizationEngine {
         evaluation.deniedElements = request.requestedElements.map(element => ({
           element,
           reason: `Role ${request.requesterRole} not authorized for this data`,
-          alternative: roleAuthorization.suggestedAlternative
+          ...(roleAuthorization.suggestedAlternative && { alternative: roleAuthorization.suggestedAlternative })
         }));
         return evaluation;
       }
@@ -377,9 +377,11 @@ export class HIPAADataMinimizationEngine {
       // Check for emergency override
       if (request.emergencyAccess) {
         const emergencyOverride = await this.evaluateEmergencyOverride(request);
-        evaluation.emergencyOverride = emergencyOverride;
-        
-        if (emergencyOverride.applied) {
+        if (emergencyOverride) {
+          evaluation.emergencyOverride = emergencyOverride;
+        }
+
+        if (emergencyOverride?.applied) {
           // Emergency override may approve additional elements
           const emergencyApproved = await this.getEmergencyApprovedElements(request);
           evaluation.approvedElements = [...new Set([...evaluation.approvedElements, ...emergencyApproved])];
@@ -412,7 +414,7 @@ export class HIPAADataMinimizationEngine {
       return evaluation;
 
     } catch (error) {
-      logError('🚨 DATA ACCESS EVALUATION ERROR:', error);
+      logError(LogCategory.SYSTEM, 'DATA ACCESS EVALUATION ERROR:', error instanceof Error ? error : undefined);
       
       // Return restrictive evaluation on error
       return {
@@ -530,7 +532,7 @@ export class HIPAADataMinimizationEngine {
       };
 
     } catch (error) {
-      logError('🚨 DATA COLLECTION VALIDATION ERROR:', error);
+      logError(LogCategory.SYSTEM, 'DATA COLLECTION VALIDATION ERROR:', error instanceof Error ? error : undefined);
       
       return {
         approved: false,
@@ -586,7 +588,7 @@ export class HIPAADataMinimizationEngine {
       }
     };
 
-    const roleConfig = roleAccessMatrix[request.requesterRole];
+    const roleConfig = roleAccessMatrix[request.requesterRole as keyof typeof roleAccessMatrix];
     if (!roleConfig) {
       return {
         authorized: false,
@@ -626,7 +628,7 @@ export class HIPAADataMinimizationEngine {
   ): Promise<{
     approved: boolean;
     reason: string;
-    alternative?: string;
+    alternative?: string | undefined;
   }> {
     const metadata = this.dataElementRegistry.get(elementId);
     if (!metadata) {
@@ -889,7 +891,7 @@ export class HIPAADataMinimizationEngine {
       legitimatePurposes.includes(purpose)
     );
 
-    return allPurposesLegitimate && request.justification && request.justification.length > 0;
+    return allPurposesLegitimate && !!request.justification && request.justification.length > 0;
   }
 
   /**
@@ -935,7 +937,7 @@ export class HIPAADataMinimizationEngine {
       [UserRole.COMPLIANCE_AUDITOR]: 30 * 24 * 60 * 60 * 1000 // 30 days
     };
 
-    const roleMaxDuration = maxDurations[request.requesterRole] || 
+    const roleMaxDuration = maxDurations[request.requesterRole as keyof typeof maxDurations] || 
       DATA_MINIMIZATION_CONFIG.ACCESS_CONTROLS.DEFAULT_ACCESS_DURATION_HOURS * 60 * 60 * 1000;
 
     conditions.maxDuration = Math.min(conditions.maxDuration, roleMaxDuration);
@@ -1190,7 +1192,7 @@ export class HIPAADataMinimizationEngine {
       await SecureStore.setItemAsync(auditKey, JSON.stringify(auditEvent));
 
     } catch (error) {
-      logError('🚨 ACCESS EVALUATION LOGGING ERROR:', error);
+      logError(LogCategory.SYSTEM, 'ACCESS EVALUATION LOGGING ERROR:', error instanceof Error ? error : undefined);
     }
   }
 
@@ -1219,7 +1221,7 @@ export class HIPAADataMinimizationEngine {
       await AsyncStorage.setItem(logKey, JSON.stringify(logEntry));
 
     } catch (error) {
-      logError('🚨 COLLECTION VALIDATION LOGGING ERROR:', error);
+      logError(LogCategory.SYSTEM, 'COLLECTION VALIDATION LOGGING ERROR:', error instanceof Error ? error : undefined);
     }
   }
 
@@ -1332,7 +1334,7 @@ export class HIPAADataMinimizationEngine {
       };
 
     } catch (error) {
-      logError('🚨 DATA MINIMIZATION STATUS ERROR:', error);
+      logError(LogCategory.SYSTEM, 'DATA MINIMIZATION STATUS ERROR:', error instanceof Error ? error : undefined);
       return {
         totalElements: 0,
         protectedElements: 0,

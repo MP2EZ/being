@@ -385,7 +385,7 @@ describe('Crisis Detection - Clinical Accuracy Validation', () => {
     const highRiskScenarios = CrisisTestDataGenerator.generateHighRiskScenarios();
 
     for (const scenario of highRiskScenarios) {
-      logPerformance(`Testing scenario: ${scenario.description}`);
+      console.log(`Testing scenario: ${scenario.description}`);
 
       // Test PHQ-9 detection
       const phq9Detection = await crisisEngine.detectCrisis(
@@ -1182,7 +1182,7 @@ describe('Crisis System - Regulatory Compliance', () => {
     // REGULATORY REQUIREMENT: Zero violations
     expect(performanceTests.violations).toBe(0);
     expect(performanceTests.success).toBe(true);
-    logPerformance(`Performance Compliance: ${performanceTests.violations} violations in 50 tests`);
+    console.log(`Performance Compliance: ${performanceTests.violations} violations in 50 tests`);
   });
 
   test('Data Retention and Audit Compliance', async () => {

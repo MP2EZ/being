@@ -23,7 +23,7 @@ config.resolver.alias = {
 
 // Minimal development console output
 if (process.env.NODE_ENV === 'development') {
-  console.log('🏥 Being MBCT - Simplified Metro Configuration');
+  console.log('🏥 Being. - Simplified Metro Configuration');
 }
 
 // Export consolidated configuration

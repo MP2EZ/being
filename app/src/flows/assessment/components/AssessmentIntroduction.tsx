@@ -2,7 +2,7 @@
  * AssessmentIntroduction Component - DRD-FLOW-005
  * 
  * CLINICAL SPECIFICATIONS:
- * - MBCT therapeutic guidance and mindful awareness
+ * - Therapeutic guidance and mindful awareness
  * - PHQ-9/GAD-7 clinical context and purpose explanation
  * - Therapeutic language for anxiety reduction
  * - Crisis support integration and safety messaging
@@ -29,10 +29,10 @@ import type { AssessmentType } from '../types';
 interface AssessmentIntroductionProps {
   assessmentType: AssessmentType;
   onBegin: () => void;
-  onSkip?: () => void;
-  theme?: 'morning' | 'midday' | 'evening' | 'neutral';
-  context?: 'standalone' | 'onboarding' | 'checkin';
-  showSkipOption?: boolean;
+  onSkip?: (() => void) | undefined;
+  theme?: ('morning' | 'midday' | 'evening' | 'neutral') | undefined;
+  context?: ('standalone' | 'onboarding' | 'checkin') | undefined;
+  showSkipOption?: boolean | undefined;
 }
 
 const AssessmentIntroduction: React.FC<AssessmentIntroductionProps> = ({
@@ -116,7 +116,10 @@ const AssessmentIntroduction: React.FC<AssessmentIntroductionProps> = ({
     // Performance monitoring for therapeutic flow
     const responseTime = performance.now() - startTime;
     if (responseTime > 100) {
-      logSecurity(`⚠️ Assessment begin response time: ${responseTime}ms (target: <100ms)`);
+      logSecurity('Assessment begin response time exceeded', 'medium', {
+        responseTime,
+        threshold: 100
+      });
     }
   }, [onBegin]);
 
@@ -160,7 +163,6 @@ const AssessmentIntroduction: React.FC<AssessmentIntroductionProps> = ({
             <Text 
               style={styles.title}
               accessibilityRole="header"
-              accessibilityLevel={1}
             >
               {assessmentContent.title}
             </Text>
@@ -196,7 +198,7 @@ const AssessmentIntroduction: React.FC<AssessmentIntroductionProps> = ({
             </View>
           </Focusable>
 
-          {/* MBCT Mindfulness guidance */}
+          {/* Mindfulness guidance */}
           <Focusable
             id="assessment-mindfulness"
             priority={30}
@@ -208,7 +210,6 @@ const AssessmentIntroduction: React.FC<AssessmentIntroductionProps> = ({
               <Text 
                 style={styles.mindfulnessTitle}
                 accessibilityRole="header"
-                accessibilityLevel={3}
               >
                 Mindful Approach
               </Text>
@@ -235,7 +236,7 @@ const AssessmentIntroduction: React.FC<AssessmentIntroductionProps> = ({
           >
             <View 
               style={styles.detailsContainer}
-              accessibilityRole="group"
+              
               accessibilityLabel="Assessment details"
             >
               <View style={styles.detailRow}>
@@ -262,13 +263,12 @@ const AssessmentIntroduction: React.FC<AssessmentIntroductionProps> = ({
           >
             <View 
               style={styles.privacyContainer}
-              accessibilityRole="group"
+              
               accessibilityLabel="Privacy and safety information"
             >
               <Text 
                 style={styles.privacyTitle}
                 accessibilityRole="header"
-                accessibilityLevel={3}
               >
                 Your Privacy & Safety
               </Text>

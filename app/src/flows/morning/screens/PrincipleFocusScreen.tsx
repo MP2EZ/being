@@ -100,7 +100,7 @@ const PRINCIPLES: PrincipleInfo[] = [
 
 const PrincipleFocusScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
   // FEAT-23: Restore initial data if resuming session
-  const initialData = route.params?.initialData as PrincipleFocusData | undefined;
+  const initialData = (route.params as any)?.initialData as PrincipleFocusData | undefined;
 
   // Debug logging
   if (initialData) {
@@ -112,7 +112,7 @@ const PrincipleFocusScreen: React.FC<Props> = ({ navigation, route, onSave }) =>
   }
 
   const [selectedPrinciple, setSelectedPrinciple] = useState<StoicPrinciple | null>(
-    initialData?.principleKey || null
+    (initialData?.principleKey as StoicPrinciple) || null
   );
   const [personalInterpretation, setPersonalInterpretation] = useState(
     initialData?.personalInterpretation || ''

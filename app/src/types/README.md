@@ -2,7 +2,7 @@
 
 ## Overview
 
-This implementation provides complete TypeScript type safety for all crisis detection, compliance, and security workflows in the Being MBCT application. All types are designed with strict mode compliance and performance constraints to ensure both clinical accuracy and crisis safety.
+This implementation provides complete TypeScript type safety for all crisis detection, compliance, and security workflows in the Being application. All types are designed with strict mode compliance and performance constraints to ensure both clinical accuracy and crisis safety.
 
 ## 🚨 Crisis Safety Types
 

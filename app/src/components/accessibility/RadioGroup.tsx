@@ -32,21 +32,21 @@ export interface RadioOption {
 
 export interface RadioGroupProps {
   options: RadioOption[];
-  value?: string | number;
+  value?: (string | number) | undefined;
   onValueChange: (value: string | number) => void;
   label: string;
-  description?: string;
-  orientation?: 'vertical' | 'horizontal';
-  disabled?: boolean;
-  required?: boolean;
-  error?: string;
-  testID?: string;
+  description?: string | undefined;
+  orientation?: ('vertical' | 'horizontal') | undefined;
+  disabled?: boolean | undefined;
+  required?: boolean | undefined;
+  error?: string | undefined;
+  testID?: string | undefined;
   // Clinical-specific props
-  clinicalContext?: 'phq9' | 'gad7' | 'general';
-  showScores?: boolean;
-  theme?: 'morning' | 'midday' | 'evening' | 'neutral';
+  clinicalContext?: ('phq9' | 'gad7' | 'general') | undefined;
+  showScores?: boolean | undefined;
+  theme?: ('morning' | 'midday' | 'evening' | 'neutral') | undefined;
   // Visual customization
-  showRadioIndicator?: boolean; // Show visual radio button circle (default: true)
+  showRadioIndicator?: boolean | undefined; // Show visual radio button circle (default: true)
 }
 
 const RadioGroup: React.FC<RadioGroupProps> = ({
@@ -123,7 +123,7 @@ const RadioGroup: React.FC<RadioGroupProps> = ({
       case 'Enter':
         event.preventDefault();
         if (!options[index]?.disabled) {
-          handleOptionSelect(options[index].value, index);
+          handleOptionSelect(options[index]!.value, index);
         }
         return;
       
@@ -136,7 +136,7 @@ const RadioGroup: React.FC<RadioGroupProps> = ({
       setFocusedIndex(newIndex);
       // In React Native, we announce the focus change
       AccessibilityInfo.announceForAccessibility(
-        `${options[newIndex].label}${showScores ? `, score ${options[newIndex].value}` : ''}`
+        `${options[newIndex]!.label}${showScores ? `, score ${options[newIndex]!.value}` : ''}`
       );
     }
   }, [disabled, options, showScores]);
@@ -147,9 +147,11 @@ const RadioGroup: React.FC<RadioGroupProps> = ({
 
     const startTime = performance.now();
     onValueChange(optionValue);
-    
+
     // Announce selection to screen readers
     const option = options[index];
+    if (!option) return;
+
     AccessibilityInfo.announceForAccessibility(
       `Selected: ${option.label}${showScores ? `, score ${optionValue}` : ''}`
     );
@@ -157,7 +159,11 @@ const RadioGroup: React.FC<RadioGroupProps> = ({
     // Performance monitoring for clinical contexts
     const responseTime = performance.now() - startTime;
     if (clinicalContext !== 'general' && responseTime > 100) {
-      logSecurity(`⚠️ Radio selection response time: ${responseTime}ms (target: <100ms for clinical)`);
+      logSecurity('Radio selection response time exceeded', 'medium', {
+        responseTime,
+        threshold: 100,
+        context: 'clinical'
+      });
     }
   }, [disabled, options, onValueChange, showScores, clinicalContext]);
 
@@ -198,7 +204,7 @@ const RadioGroup: React.FC<RadioGroupProps> = ({
         onPress={() => handleOptionSelect(option.value, index)}
         onFocus={() => handleFocus(index)}
         onBlur={handleBlur}
-        onKeyPress={(event) => handleKeyDown(event, index)}
+        {...{ onKeyPress: (event: any) => handleKeyDown(event, index) } as any}
         accessibilityRole="radio"
         accessibilityState={{ 
           selected: isSelected, 
@@ -311,7 +317,6 @@ const RadioGroup: React.FC<RadioGroupProps> = ({
             error && styles.groupLabelError,
           ]}
           accessibilityRole="header"
-          accessibilityLevel={3}
           nativeID={`${groupId}-label`}
         >
           {label}
@@ -339,8 +344,6 @@ const RadioGroup: React.FC<RadioGroupProps> = ({
           orientation === 'horizontal' && styles.optionsContainerHorizontal,
         ]}
         accessibilityRole="radiogroup"
-        accessibilityLabelledBy={`${groupId}-label`}
-        accessibilityDescribedBy={description ? `${groupId}-description` : undefined}
       >
         {options.map(renderRadioOption)}
       </View>

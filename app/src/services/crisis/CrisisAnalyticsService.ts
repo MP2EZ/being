@@ -73,7 +73,7 @@ export interface CrisisAnalyticsEvent {
     category?: string;
     source?: string;
     effectiveness?: 'helped' | 'somewhat' | 'not_helpful';
-  };
+  } | undefined;
 }
 
 /**

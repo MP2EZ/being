@@ -35,12 +35,12 @@ import {
   Linking,
 } from 'react-native';
 import Slider from '@react-native-community/slider';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { StackScreenProps } from '@react-navigation/stack';
 import type { MorningFlowParamList, PreparationData } from '../../../types/flows';
 import { PremeditationSafetyService } from '../../../services/premeditationSafetyService';
 import type { ObstacleInput } from '../../../services/premeditationSafetyService';
 
-type Props = NativeStackScreenProps<MorningFlowParamList, 'Preparation'> & {
+type Props = StackScreenProps<MorningFlowParamList, 'Preparation'> & {
   onSave?: (data: PreparationData) => void;
 };
 
@@ -55,7 +55,7 @@ const TIME_LIMIT_SECONDS = 120;
 
 const PreparationScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
   // FEAT-23: Restore initial data if resuming session
-  const initialData = route.params?.initialData as PreparationData | undefined;
+  const initialData = (route.params as any)?.initialData as PreparationData | undefined;
 
   // Debug logging
   if (initialData) {
@@ -134,6 +134,8 @@ const PreparationScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
   const removeObstacle = (index: number) => {
     // Only remove from safety service if obstacle was fully filled and added
     const obstacle = obstacles[index];
+    if (!obstacle) return;
+
     const wasFullyFilled =
       obstacle.obstacle.trim() &&
       obstacle.howICanRespond.trim() &&
@@ -185,6 +187,8 @@ const PreparationScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
 
   const updateObstacle = (index: number, field: keyof ObstacleFormData, value: string) => {
     const newObstacles = [...obstacles];
+    if (!newObstacles[index]) return;
+
     newObstacles[index][field] = value;
     setObstacles(newObstacles);
 
@@ -196,6 +200,8 @@ const PreparationScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
 
     // Add to main safety service if all fields filled
     const obstacle = newObstacles[index];
+    if (!obstacle) return;
+
     if (
       obstacle.obstacle.trim() &&
       obstacle.howICanRespond.trim() &&

@@ -24,19 +24,12 @@ import {
   AccessibilityInfo,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import type { StackNavigationProp } from '@react-navigation/stack';
 import { useAssessmentStore } from '../flows/assessment/stores/assessmentStore';
+import type { RootStackParamList } from '../navigation/CleanRootNavigator';
 
 // Types
 type BadgeStatus = 'recent' | 'due' | 'recommended';
-
-// Tab navigation type (from CleanTabNavigator)
-type TabParamList = {
-  Home: undefined;
-  Exercises: undefined;
-  Progress: undefined;
-  Profile: undefined;
-};
 
 // WCAG-AA compliant colors with muted presentation
 const colors = {
@@ -61,7 +54,7 @@ const spacing = {
 };
 
 const AssessmentStatusBadge: React.FC = () => {
-  const navigation = useNavigation<BottomTabNavigationProp<TabParamList>>();
+  const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
   const [status, setStatus] = useState<BadgeStatus | null>(null);
   const [daysSinceAssessment, setDaysSinceAssessment] = useState<number | null>(null);
 
@@ -111,7 +104,13 @@ const AssessmentStatusBadge: React.FC = () => {
 
   const handlePress = () => {
     if (status === 'due' || status === 'recommended') {
-      navigation.navigate('Exercises');
+      // Default to PHQ-9 (primary depression assessment)
+      // User can access GAD-7 from the assessment flow if needed
+      navigation.navigate('AssessmentFlow', {
+        assessmentType: 'phq9',
+        context: 'standalone',
+        allowSkip: false,
+      });
     }
   };
 

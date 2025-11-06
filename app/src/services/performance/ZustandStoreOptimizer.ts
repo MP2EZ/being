@@ -257,7 +257,7 @@ class StorePartitionManager {
       this.keyToPartition.set(key, partitionId);
     });
 
-    logPerformance(`📦 Created partition: ${partitionId} with ${keys.length} keys`);
+    console.log(`📦 Created partition: ${partitionId} with ${keys.length} keys`);
   }
 
   /**
@@ -277,7 +277,9 @@ class StorePartitionManager {
       partition.loadTime = performance.now() - startTime;
       partition.lastAccessed = Date.now();
 
-      logPerformance(`✅ Loaded partition: ${partitionId} in ${partition.loadTime.toFixed(2)}ms`);
+      logPerformance('ZustandStoreOptimizer.loadPartition', partition.loadTime, {
+        partitionId
+      });
 
       DeviceEventEmitter.emit('partition_loaded', {
         partitionId,
@@ -286,7 +288,7 @@ class StorePartitionManager {
       });
 
     } catch (error) {
-      logError(`Failed to load partition: ${partitionId}`, error);
+      logError(LogCategory.PERFORMANCE, `Failed to load partition: ${partitionId}`, error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -347,7 +349,7 @@ class StorePartitionManager {
       totalPartitions: partitions.length,
       loadedPartitions: loadedPartitions.length,
       averageLoadTime,
-      mostAccessedPartition: mostAccessed?.partitionId || null,
+      mostAccessedPartition: (mostAccessed as DataPartition | null)?.partitionId || null,
       totalAccessCount
     };
   }
@@ -426,13 +428,15 @@ class BatchOperationProcessor {
       try {
         operation();
       } catch (error) {
-        logError(`Batch operation failed (${priority}):`, error);
+        logError(LogCategory.PERFORMANCE, `Batch operation failed (${priority}):`, error instanceof Error ? error : new Error(String(error)));
       }
     });
 
     const batchTime = performance.now() - startTime;
 
-    logPerformance(`📦 Processed ${operations.length} operations in ${batchTime.toFixed(2)}ms`);
+    logPerformance('ZustandStoreOptimizer.processBatch', batchTime, {
+      operationCount: operations.length
+    });
 
     DeviceEventEmitter.emit('batch_operations_processed', {
       operationCount: operations.length,
@@ -456,7 +460,7 @@ class BatchOperationProcessor {
   private getPriorityBreakdown(operations: any[]): Record<string, number> {
     const breakdown = { critical: 0, high: 0, medium: 0, low: 0 };
     operations.forEach(op => {
-      breakdown[op.priority]++;
+      breakdown[op.priority as keyof typeof breakdown]++;
     });
     return breakdown;
   }
@@ -508,7 +512,7 @@ export class ZustandStoreOptimizer {
   static initialize(): void {
     if (this.isInitialized) return;
 
-    logPerformance('🏪 Initializing Zustand store optimizer...');
+    console.log('🏪 Initializing Zustand store optimizer...');
 
     // Setup default partitions for assessment data
     this.setupDefaultPartitions();
@@ -517,7 +521,7 @@ export class ZustandStoreOptimizer {
     this.setupPerformanceMonitoring();
 
     this.isInitialized = true;
-    logPerformance('✅ Zustand store optimizer initialized');
+    console.log('✅ Zustand store optimizer initialized');
   }
 
   /**
@@ -582,11 +586,15 @@ export class ZustandStoreOptimizer {
 
     // Alert on performance issues
     if (cacheStats.hitRate < 70) {
-      logSecurity(`⚠️ Low cache hit rate: ${cacheStats.hitRate.toFixed(2)}%`);
+      logSecurity('Low cache hit rate', 'low', {
+        hitRate: cacheStats.hitRate
+      });
     }
 
     if (partitionStats.averageLoadTime > 100) {
-      logSecurity(`⚠️ Slow partition loading: ${partitionStats.averageLoadTime.toFixed(2)}ms`);
+      logSecurity('Slow partition loading', 'low', {
+        averageLoadTime: partitionStats.averageLoadTime
+      });
     }
   }
 
@@ -649,12 +657,15 @@ export class ZustandStoreOptimizer {
 
           // Check performance threshold
           if (executionTime > this.config.maxOperationTime) {
-            logSecurity(`⚠️ Slow store operation: ${operationName} took ${executionTime.toFixed(2)}ms`);
+            logSecurity('Slow store operation', 'low', {
+              operationName,
+              executionTime
+            });
           }
 
           resolve(result);
         } catch (error) {
-          logError(`Store operation failed: ${operationName}`, error);
+          logError(LogCategory.PERFORMANCE, `Store operation failed: ${operationName}`, error instanceof Error ? error : new Error(String(error)));
           reject(error);
         }
       };
@@ -847,7 +858,7 @@ export class ZustandStoreOptimizer {
       this.selectorCache = new SelectorCache(config.maxCacheSize);
     }
 
-    logPerformance('Zustand store optimizer configured:', this.config);
+    console.log('Zustand store optimizer configured:', this.config);
   }
 
   /**
@@ -859,7 +870,7 @@ export class ZustandStoreOptimizer {
     this.partitionManager.clear();
     this.batchProcessor.clear();
     this.isInitialized = false;
-    logPerformance('Zustand store optimizer reset');
+    console.log('Zustand store optimizer reset');
   }
 }
 

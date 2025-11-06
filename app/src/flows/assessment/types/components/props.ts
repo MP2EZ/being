@@ -94,7 +94,7 @@ export interface AssessmentResultsProps extends BaseAssessmentProps {
   showCrisisIntervention?: boolean;
   /** Whether to show detailed breakdown */
   showDetailedBreakdown?: boolean;
-  /** Whether to show MBCT-aligned messaging */
+  /** Whether to show evidence-based messaging */
   showTherapeuticGuidance?: boolean;
   /** Callback for result analytics */
   onResultViewed?: (result: PHQ9Result | GAD7Result, viewDuration: number) => void;
@@ -168,7 +168,7 @@ export interface SeverityIndicatorProps extends BaseAssessmentProps {
   severity: 'minimal' | 'mild' | 'moderate' | 'moderately_severe' | 'severe';
   /** Whether to show severity description */
   showDescription?: boolean;
-  /** Whether to use therapeutic language (MBCT-aligned) */
+  /** Whether to use therapeutic language (evidence-based) */
   useTherapeuticLanguage?: boolean;
   /** Custom color scheme override */
   colorScheme?: {

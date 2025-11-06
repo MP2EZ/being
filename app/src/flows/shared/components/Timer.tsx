@@ -1,5 +1,5 @@
 /**
- * Timer Component - Millisecond Precision for MBCT 3-Minute Breathing Space
+ * Timer Component - Millisecond Precision for 3-Minute Breathing Space
  * 
  * CLINICAL SPECIFICATIONS:
  * - 60 seconds per screen (±50ms tolerance)

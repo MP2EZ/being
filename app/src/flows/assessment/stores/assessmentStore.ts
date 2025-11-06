@@ -87,7 +87,7 @@ class EncryptedAssessmentStorage {
       // Audit trail for clinical compliance
       await this.logAccess('SAVE', Object.keys(data).length);
     } catch (error) {
-      logError('Assessment storage save failed:', error);
+      logError(LogCategory.SYSTEM, 'Assessment storage save failed:', error instanceof Error ? error : new Error(String(error)));
       throw new Error('Failed to save assessment data securely');
     }
   }
@@ -101,7 +101,7 @@ class EncryptedAssessmentStorage {
       await this.logAccess('LOAD', Object.keys(data).length);
       return data;
     } catch (error) {
-      logError('Assessment storage load failed:', error);
+      logError(LogCategory.SYSTEM, 'Assessment storage load failed:', error instanceof Error ? error : new Error(String(error)));
       return null;
     }
   }
@@ -111,7 +111,7 @@ class EncryptedAssessmentStorage {
       await SecureStore.deleteItemAsync(this.STORAGE_KEY);
       await this.logAccess('CLEAR', 0);
     } catch (error) {
-      logError('Assessment storage clear failed:', error);
+      logError(LogCategory.SYSTEM, 'Assessment storage clear failed:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -135,7 +135,7 @@ class EncryptedAssessmentStorage {
       
       await AsyncStorage.setItem(this.AUDIT_KEY, JSON.stringify(auditTrail));
     } catch (error) {
-      logError('Audit logging failed:', error);
+      logError(LogCategory.SYSTEM, 'Audit logging failed:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 }
@@ -232,20 +232,20 @@ class CrisisDetectionService {
     const startTime = Date.now();
 
     try {
-      let triggerType: CrisisDetection['triggerType'] | null = null;
+      let triggerType: CrisisDetection['primaryTrigger'] | null = null;
       let triggerValue = result.totalScore;
 
       if (type === 'phq9') {
         const phqResult = result as PHQ9Result;
         if (phqResult.suicidalIdeation) {
-          triggerType = 'phq9_suicidal';
+          triggerType = 'phq9_suicidal_ideation';
           triggerValue = 1; // Indicates suicidal ideation present
         } else if (phqResult.totalScore >= CRISIS_THRESHOLDS.PHQ9_CRISIS_SCORE) {
-          triggerType = 'phq9_score';
+          triggerType = 'phq9_moderate_severe_score';
         }
       } else if (type === 'gad7') {
         if (result.totalScore >= CRISIS_THRESHOLDS.GAD7_CRISIS_SCORE) {
-          triggerType = 'gad7_score';
+          triggerType = 'gad7_severe_score';
         }
       }
 
@@ -253,23 +253,26 @@ class CrisisDetectionService {
         return null;
       }
 
-      const detection: CrisisDetection = {
+      const detection = {
         isTriggered: true,
-        triggerType,
+        primaryTrigger: triggerType,
         triggerValue,
         timestamp: Date.now(),
         assessmentId: `${type}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-      };
+      } as Partial<CrisisDetection> as CrisisDetection;
 
       // Validate response time (must be <200ms)
       const responseTime = Date.now() - startTime;
       if (responseTime >= 200) {
-        logSecurity(`Crisis detection exceeded 200ms: ${responseTime}ms`);
+        logSecurity('Crisis detection time exceeded', 'high', {
+          responseTime,
+          threshold: 200
+        });
       }
 
       return detection;
     } catch (error) {
-      logError('Crisis detection failed:', error);
+      logError(LogCategory.SYSTEM, 'Crisis detection failed:', error instanceof Error ? error : new Error(String(error)));
       return null;
     }
   }
@@ -303,7 +306,7 @@ class CrisisDetectionService {
       // Log crisis intervention for clinical records
       await this.logCrisisIntervention(detection);
     } catch (error) {
-      logError('Emergency response failed:', error);
+      logError(LogCategory.SYSTEM, 'Emergency response failed:', error instanceof Error ? error : new Error(String(error)));
       // Fallback: Direct 988 call
       Linking.openURL('tel:988');
     }
@@ -323,7 +326,7 @@ class CrisisDetectionService {
         JSON.stringify(interventionLog)
       );
     } catch (error) {
-      logError('Crisis intervention logging failed:', error);
+      logError(LogCategory.SYSTEM, 'Crisis intervention logging failed:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 }
@@ -331,7 +334,7 @@ class CrisisDetectionService {
 /**
  * Assessment Store State Interface
  */
-interface AssessmentStoreState {
+export interface AssessmentStoreState {
   // Current session state
   currentSession: AssessmentSession | null;
   currentQuestionIndex: number;
@@ -359,7 +362,7 @@ interface AssessmentStoreState {
 /**
  * Assessment Store Actions Interface
  */
-interface AssessmentStoreActions {
+export interface AssessmentStoreActions {
   // Session management
   startAssessment: (type: AssessmentType, context?: string) => Promise<void>;
   answerQuestion: (questionId: string, response: AssessmentResponse) => Promise<void>;
@@ -490,13 +493,13 @@ export const useAssessmentStore = create<AssessmentStore>()(
 
             // Check for real-time crisis detection on specific questions
             if (questionId === CRISIS_THRESHOLDS.PHQ9_SUICIDAL_QUESTION_ID && response > 0) {
-              const detection: CrisisDetection = {
+              const detection = {
                 isTriggered: true,
-                triggerType: 'phq9_suicidal',
+                primaryTrigger: 'phq9_suicidal_ideation' as const,
                 triggerValue: response,
                 timestamp: Date.now(),
                 assessmentId: state.currentSession.id
-              };
+              } as Partial<CrisisDetection> as CrisisDetection;
 
               await get().handleCrisisDetection(detection);
             }
@@ -598,7 +601,7 @@ export const useAssessmentStore = create<AssessmentStore>()(
 
             return true;
           } catch (error) {
-            logError('Session recovery failed:', error);
+            logError(LogCategory.SYSTEM, 'Session recovery failed:', error instanceof Error ? error : new Error(String(error)));
             return false;
           }
         },
@@ -607,11 +610,26 @@ export const useAssessmentStore = create<AssessmentStore>()(
         handleCrisisDetection: async (detection: CrisisDetection) => {
           set({ crisisDetection: detection });
 
+          const interventionTimestamp = Date.now();
           const intervention: CrisisIntervention = {
             detection,
+            interventionId: `intervention_${detection.id}_${interventionTimestamp}`,
             interventionStarted: true,
+            startTimestamp: interventionTimestamp,
             contactedSupport: false,
-            responseTime: Date.now() - detection.timestamp
+            responseTime: interventionTimestamp - detection.timestamp,
+            status: 'initiated',
+            actionsTaken: [],
+            followUp: {
+              required: true,
+              urgency: 'within_24h',
+              type: 'clinical_assessment',
+              recommendations: ['Contact mental health professional', 'Monitor safety'],
+              contacts: [],
+              completed: false
+            },
+            canDismiss: false,
+            dismissalAvailableAt: interventionTimestamp + (5 * 60 * 1000) // 5 minutes minimum
           };
 
           set({ crisisIntervention: intervention });
@@ -647,7 +665,7 @@ export const useAssessmentStore = create<AssessmentStore>()(
             await EncryptedAssessmentStorage.save(dataToSave);
             set({ lastSavedAt: Date.now(), lastSyncAt: Date.now() });
           } catch (error) {
-            logError('Save progress failed:', error);
+            logError(LogCategory.SYSTEM, 'Save progress failed:', error instanceof Error ? error : new Error(String(error)));
             set({ error: 'Failed to save assessment progress' });
           }
         },
@@ -665,7 +683,7 @@ export const useAssessmentStore = create<AssessmentStore>()(
 
         getLastResult: (type: AssessmentType) => {
           const history = get().getAssessmentHistory(type);
-          return history.length > 0 ? history[history.length - 1].result || null : null;
+          return history.length > 0 ? history[history.length - 1]!.result || null : null;
         },
 
         clearHistory: async () => {
@@ -715,14 +733,14 @@ export const useAssessmentStore = create<AssessmentStore>()(
             try {
               await EncryptedAssessmentStorage.save(JSON.parse(value));
             } catch (error) {
-              logError('Encrypted storage setItem failed:', error);
+              logError(LogCategory.SYSTEM, 'Encrypted storage setItem failed:', error instanceof Error ? error : new Error(String(error)));
             }
           },
           removeItem: async (name: string) => {
             try {
               await EncryptedAssessmentStorage.clear();
             } catch (error) {
-              logError('Encrypted storage removeItem failed:', error);
+              logError(LogCategory.SYSTEM, 'Encrypted storage removeItem failed:', error instanceof Error ? error : new Error(String(error)));
             }
           }
         })),
@@ -757,7 +775,7 @@ useAssessmentStore.subscribe(
         try {
           await useAssessmentStore.getState().saveProgress();
         } catch (error) {
-          logError('Auto-save failed:', error);
+          logError(LogCategory.SYSTEM, 'Auto-save failed:', error instanceof Error ? error : new Error(String(error)));
         }
       }, 1000);
     }

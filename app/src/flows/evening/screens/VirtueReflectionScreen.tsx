@@ -29,17 +29,17 @@ import {
   ScrollView,
   StyleSheet,
 } from 'react-native';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { StackScreenProps } from '@react-navigation/stack';
 import type { EveningFlowParamList, VirtueReflectionData } from '../../../types/flows';
 import { CollapsibleCrisisButton } from '../../shared/components/CollapsibleCrisisButton';
 
-type Props = NativeStackScreenProps<EveningFlowParamList, 'VirtueReflection'> & {
+type Props = StackScreenProps<EveningFlowParamList, 'VirtueReflection'> & {
   onSave?: (data: VirtueReflectionData) => void;
 };
 
 const VirtueReflectionScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
   // FEAT-23: Restore initial data if resuming session
-  const initialData = route.params?.initialData as VirtueReflectionData | undefined;
+  const initialData = (route.params as any)?.initialData as VirtueReflectionData | undefined;
 
   // Debug logging
   if (initialData) {

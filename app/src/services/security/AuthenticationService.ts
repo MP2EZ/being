@@ -92,7 +92,7 @@ export type AuthenticationMethod =
  */
 export interface UserAuthenticationContext {
   userId: string;
-  username?: string;
+  username?: string | undefined;
   email?: string;
   authenticationLevel: AuthenticationLevel;
   authenticationMethod: AuthenticationMethod;
@@ -133,8 +133,8 @@ export interface AuthenticationResult {
   authenticationTimeMs: number;
   requiresAdditionalAuth?: boolean;
   additionalAuthMethods?: AuthenticationMethod[];
-  error?: string;
-  rateLimitedUntil?: number;
+  error?: string | undefined;
+  rateLimitedUntil?: number | undefined;
 }
 
 /**
@@ -147,7 +147,7 @@ export interface SessionValidationResult {
   isExpiring: boolean;
   timeUntilExpiry: number;
   validationTimeMs: number;
-  error?: string;
+  error?: string | undefined;
 }
 
 /**
@@ -156,7 +156,7 @@ export interface SessionValidationResult {
 export interface BiometricAuthOptions {
   promptMessage: string;
   cancelLabel: string;
-  fallbackLabel?: string;
+  fallbackLabel?: string | undefined;
   disableDeviceFallback?: boolean;
   requireConfirmation?: boolean;
 }
@@ -167,7 +167,7 @@ export interface BiometricAuthOptions {
 export interface AuthenticationAuditEntry {
   timestamp: number;
   eventType: 'login' | 'logout' | 'session_check' | 'token_refresh' | 'biometric_auth' | 'crisis_access' | 'failed_attempt';
-  userId?: string;
+  userId?: string | undefined;
   deviceId: string;
   authenticationMethod: AuthenticationMethod;
   authenticationLevel: AuthenticationLevel;
@@ -175,8 +175,8 @@ export interface AuthenticationAuditEntry {
   operationTimeMs: number;
   ipAddress?: string;
   userAgent?: string;
-  error?: string;
-  securityFlags?: string[];
+  error?: string | undefined;
+  securityFlags?: string[] | undefined;
 }
 
 /**
@@ -211,7 +211,7 @@ export class AuthenticationService {
     const startTime = performance.now();
 
     try {
-      logPerformance('🔐 Initializing Authentication Service...');
+      console.log('🔐 Initializing Authentication Service...');
 
       // Initialize secure storage
       await this.secureStorage.initialize();
@@ -234,7 +234,9 @@ export class AuthenticationService {
       this.initialized = true;
 
       const initializationTime = performance.now() - startTime;
-      logPerformance(`✅ Authentication Service initialized (${initializationTime.toFixed(2)}ms)`);
+      logPerformance('AuthenticationService.initialize', initializationTime, {
+        status: 'success'
+      });
 
       // Log initialization
       await this.logAuthenticationEvent({
@@ -249,8 +251,8 @@ export class AuthenticationService {
       });
 
     } catch (error) {
-      logError('🚨 AUTHENTICATION INITIALIZATION ERROR:', error);
-      throw new Error(`Authentication initialization failed: ${error.message}`);
+      logError(LogCategory.SECURITY, '🚨 AUTHENTICATION INITIALIZATION ERROR:', error instanceof Error ? error : new Error(String(error)));
+      throw new Error(`Authentication initialization failed: ${(error instanceof Error ? error.message : String(error))}`);
     }
   }
 
@@ -260,7 +262,7 @@ export class AuthenticationService {
    */
   public async authenticateUser(
     credentials: {
-      username?: string;
+      username?: string | undefined;
       password?: string;
       useStoredCredentials?: boolean;
     },
@@ -310,7 +312,7 @@ export class AuthenticationService {
 
       // Validate authentication performance
       if (authenticationTime > AUTH_CONFIG.STANDARD_AUTH_THRESHOLD_MS) {
-        logSecurity(`⚠️  Authentication slow: ${authenticationTime.toFixed(2)}ms > ${AUTH_CONFIG.STANDARD_AUTH_THRESHOLD_MS}ms`);
+        logSecurity('⚠️  Authentication slow: ${authenticationTime.toFixed(2)}ms > ${AUTH_CONFIG.STANDARD_AUTH_THRESHOLD_MS}ms', 'medium', { component: 'SecurityService' });
       }
 
       // Log authentication attempt
@@ -333,7 +335,7 @@ export class AuthenticationService {
 
     } catch (error) {
       const authenticationTime = performance.now() - startTime;
-      logError('🚨 USER AUTHENTICATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 USER AUTHENTICATION ERROR:', error instanceof Error ? error : new Error(String(error)));
 
       const deviceId = await this.getDeviceId();
       await this.recordFailedAttempt(deviceId);
@@ -342,7 +344,7 @@ export class AuthenticationService {
         success: false,
         authenticationMethod: 'password',
         authenticationTimeMs: authenticationTime,
-        error: error.message
+        error: (error instanceof Error ? error.message : String(error))
       };
     }
   }
@@ -361,7 +363,7 @@ export class AuthenticationService {
         throw new Error('Authentication service not initialized');
       }
 
-      logPerformance('🚨 Crisis emergency access requested');
+      console.log('🚨 Crisis emergency access requested');
 
       const deviceId = await this.getDeviceId();
 
@@ -394,7 +396,7 @@ export class AuthenticationService {
 
       // Critical: Crisis access must be fast
       if (authenticationTime > AUTH_CONFIG.CRISIS_AUTH_THRESHOLD_MS) {
-        logError(`🚨 CRISIS ACCESS TOO SLOW: ${authenticationTime.toFixed(2)}ms > ${AUTH_CONFIG.CRISIS_AUTH_THRESHOLD_MS}ms`);
+        logError(LogCategory.SYSTEM, `CRISIS ACCESS TOO SLOW: ${authenticationTime.toFixed(2)}ms > ${AUTH_CONFIG.CRISIS_AUTH_THRESHOLD_MS}ms`);
       }
 
       // Log crisis access
@@ -410,7 +412,9 @@ export class AuthenticationService {
         securityFlags: ['emergency_access', 'crisis_intervention']
       });
 
-      logPerformance(`🚨 Crisis access granted (${authenticationTime.toFixed(2)}ms)`);
+      logPerformance('AuthenticationService.grantCrisisAccess', authenticationTime, {
+        accessType: 'crisis_emergency'
+      });
 
       return {
         success: true,
@@ -422,7 +426,7 @@ export class AuthenticationService {
 
     } catch (error) {
       const authenticationTime = performance.now() - startTime;
-      logError('🚨 CRISIS ACCESS ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 CRISIS ACCESS ERROR:', error instanceof Error ? error : new Error(String(error)));
 
       // Log failed crisis access
       await this.logAuthenticationEvent({
@@ -433,7 +437,7 @@ export class AuthenticationService {
         authenticationLevel: 'crisis_access',
         success: false,
         operationTimeMs: authenticationTime,
-        error: error.message,
+        error: (error instanceof Error ? error.message : String(error)),
         securityFlags: ['crisis_access_failed']
       });
 
@@ -441,7 +445,7 @@ export class AuthenticationService {
         success: false,
         authenticationMethod: 'emergency_code',
         authenticationTimeMs: authenticationTime,
-        error: error.message
+        error: (error instanceof Error ? error.message : String(error))
       };
     }
   }
@@ -470,7 +474,7 @@ export class AuthenticationService {
       const biometricResult = await LocalAuthentication.authenticateAsync({
         promptMessage: options.promptMessage,
         cancelLabel: options.cancelLabel,
-        fallbackLabel: options.fallbackLabel,
+        ...(options.fallbackLabel ? { fallbackLabel: options.fallbackLabel } : {}),
         disableDeviceFallback: options.disableDeviceFallback || false,
         requireConfirmation: options.requireConfirmation || true
       });
@@ -509,7 +513,9 @@ export class AuthenticationService {
 
       const authenticationTime = performance.now() - startTime;
 
-      logPerformance(`👆 Biometric authentication successful (${authenticationTime.toFixed(2)}ms)`);
+      logPerformance('AuthenticationService.authenticateBiometric', authenticationTime, {
+        method: 'biometric'
+      });
 
       return {
         success: true,
@@ -521,13 +527,13 @@ export class AuthenticationService {
 
     } catch (error) {
       const authenticationTime = performance.now() - startTime;
-      logError('🚨 BIOMETRIC AUTHENTICATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 BIOMETRIC AUTHENTICATION ERROR:', error instanceof Error ? error : new Error(String(error)));
 
       return {
         success: false,
         authenticationMethod: 'biometric',
         authenticationTimeMs: authenticationTime,
-        error: error.message
+        error: (error instanceof Error ? error.message : String(error))
       };
     }
   }
@@ -578,7 +584,7 @@ export class AuthenticationService {
 
       // Validate session check performance
       if (validationTime > AUTH_CONFIG.SESSION_CHECK_THRESHOLD_MS) {
-        logSecurity(`⚠️  Session validation slow: ${validationTime.toFixed(2)}ms > ${AUTH_CONFIG.SESSION_CHECK_THRESHOLD_MS}ms`);
+        logSecurity('⚠️  Session validation slow: ${validationTime.toFixed(2)}ms > ${AUTH_CONFIG.SESSION_CHECK_THRESHOLD_MS}ms', 'medium', { component: 'SecurityService' });
       }
 
       // Log session check (only for significant events)
@@ -607,7 +613,7 @@ export class AuthenticationService {
 
     } catch (error) {
       const validationTime = performance.now() - startTime;
-      logError('🚨 SESSION VALIDATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 SESSION VALIDATION ERROR:', error instanceof Error ? error : new Error(String(error)));
 
       return {
         isValid: false,
@@ -615,7 +621,7 @@ export class AuthenticationService {
         isExpiring: false,
         timeUntilExpiry: 0,
         validationTimeMs: validationTime,
-        error: error.message
+        error: (error instanceof Error ? error.message : String(error))
       };
     }
   }
@@ -674,7 +680,9 @@ export class AuthenticationService {
         operationTimeMs: refreshTime
       });
 
-      logPerformance(`🔄 Token refreshed (${refreshTime.toFixed(2)}ms)`);
+      logPerformance('AuthenticationService.refreshToken', refreshTime, {
+        status: 'success'
+      });
 
       return {
         success: true,
@@ -686,7 +694,7 @@ export class AuthenticationService {
 
     } catch (error) {
       const refreshTime = performance.now() - startTime;
-      logError('🚨 TOKEN REFRESH ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 TOKEN REFRESH ERROR:', error instanceof Error ? error : new Error(String(error)));
 
       // Clear invalid session
       await this.logout();
@@ -695,7 +703,7 @@ export class AuthenticationService {
         success: false,
         authenticationMethod: this.currentUser?.authenticationMethod || 'password',
         authenticationTimeMs: refreshTime,
-        error: error.message
+        error: (error instanceof Error ? error.message : String(error))
       };
     }
   }
@@ -745,10 +753,10 @@ export class AuthenticationService {
       // Clear current user
       this.currentUser = null;
 
-      logPerformance('👋 User logged out successfully');
+      console.log('👋 User logged out successfully');
 
     } catch (error) {
-      logError('🚨 LOGOUT ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 LOGOUT ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -757,7 +765,7 @@ export class AuthenticationService {
    */
   private async authenticateWithCredentials(
     credentials: {
-      username?: string;
+      username?: string | undefined;
       password?: string;
       useStoredCredentials?: boolean;
     }
@@ -817,7 +825,7 @@ export class AuthenticationService {
         success: false,
         authenticationMethod: 'password',
         authenticationTimeMs: 0,
-        error: error.message
+        error: (error instanceof Error ? error.message : String(error))
       };
     }
   }
@@ -831,10 +839,10 @@ export class AuthenticationService {
       const storedSession = await this.loadStoredSession();
       if (storedSession && Date.now() < storedSession.expiresAt) {
         this.currentUser = storedSession;
-        logPerformance(`🔄 Session restored for user: ${storedSession.userId}`);
+        console.log(`🔄 Session restored for user: ${storedSession.userId}`);
       }
     } catch (error) {
-      logError('🚨 SESSION RESTORATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 SESSION RESTORATION ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -850,7 +858,7 @@ export class AuthenticationService {
           await this.logout();
         }
       } catch (error) {
-        logError('🚨 SESSION MONITORING ERROR:', error);
+        logError(LogCategory.SECURITY, '🚨 SESSION MONITORING ERROR:', error instanceof Error ? error : new Error(String(error)));
       }
     }, 60000); // 1 minute
   }
@@ -865,7 +873,7 @@ export class AuthenticationService {
           try {
             await this.refreshAuthenticationToken();
           } catch (error) {
-            logError('🚨 AUTOMATIC TOKEN REFRESH ERROR:', error);
+            logError(LogCategory.SECURITY, '🚨 AUTOMATIC TOKEN REFRESH ERROR:', error instanceof Error ? error : new Error(String(error)));
           }
         }, refreshTime);
       }
@@ -887,7 +895,7 @@ export class AuthenticationService {
       
       return hasHardware && isEnrolled;
     } catch (error) {
-      logError('🚨 BIOMETRIC CHECK ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 BIOMETRIC CHECK ERROR:', error instanceof Error ? error : new Error(String(error)));
       return false;
     }
   }
@@ -920,7 +928,7 @@ export class AuthenticationService {
       };
 
     } catch (error) {
-      return { available: false, reason: error.message };
+      return { available: false, reason: (error instanceof Error ? error.message : String(error)) };
     }
   }
 
@@ -937,10 +945,10 @@ export class AuthenticationService {
         await SecureStore.setItemAsync(AUTH_CONFIG.DEVICE_ID_KEY, deviceId);
       }
 
-      logPerformance(`📱 Device ID: ${deviceId.substring(0, 8)}...`);
+      console.log(`📱 Device ID: ${deviceId.substring(0, 8)}...`);
 
     } catch (error) {
-      logError('🚨 DEVICE IDENTIFICATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 DEVICE IDENTIFICATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -953,7 +961,7 @@ export class AuthenticationService {
       }
       return deviceId;
     } catch (error) {
-      logError('🚨 DEVICE ID RETRIEVAL ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 DEVICE ID RETRIEVAL ERROR:', error instanceof Error ? error : new Error(String(error)));
       return 'unknown_device';
     }
   }
@@ -986,7 +994,7 @@ export class AuthenticationService {
       };
 
     } catch (error) {
-      logError('🚨 RATE LIMIT CHECK ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 RATE LIMIT CHECK ERROR:', error instanceof Error ? error : new Error(String(error)));
       return { allowed: true, attempts: 0 };
     }
   }
@@ -1001,7 +1009,7 @@ export class AuthenticationService {
       await SecureStore.setItemAsync(AUTH_CONFIG.AUTH_ATTEMPTS_KEY, attemptsData);
 
     } catch (error) {
-      logError('🚨 FAILED ATTEMPT RECORDING ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 FAILED ATTEMPT RECORDING ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -1013,7 +1021,7 @@ export class AuthenticationService {
         this.authenticationAttempts = new Map(attemptsArray);
       }
     } catch (error) {
-      logError('🚨 AUTHENTICATION ATTEMPTS LOADING ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 AUTHENTICATION ATTEMPTS LOADING ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -1061,7 +1069,7 @@ export class AuthenticationService {
       };
 
     } catch (error) {
-      logError('🚨 TOKEN GENERATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 TOKEN GENERATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -1075,7 +1083,7 @@ export class AuthenticationService {
       );
       return digest.substring(0, 32);
     } catch (error) {
-      logError('🚨 TOKEN SIGNATURE ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 TOKEN SIGNATURE ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -1090,7 +1098,7 @@ export class AuthenticationService {
       
       return `${timestamp}_${random}`;
     } catch (error) {
-      logError('🚨 SECURE ID GENERATION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 SECURE ID GENERATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -1103,7 +1111,7 @@ export class AuthenticationService {
     try {
       await SecureStore.setItemAsync(AUTH_CONFIG.USER_SESSION_KEY, JSON.stringify(user));
     } catch (error) {
-      logError('🚨 USER SESSION STORAGE ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 USER SESSION STORAGE ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -1113,7 +1121,7 @@ export class AuthenticationService {
       const sessionData = await SecureStore.getItemAsync(AUTH_CONFIG.USER_SESSION_KEY);
       return sessionData ? JSON.parse(sessionData) : null;
     } catch (error) {
-      logError('🚨 SESSION LOADING ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 SESSION LOADING ERROR:', error instanceof Error ? error : new Error(String(error)));
       return null;
     }
   }
@@ -1123,7 +1131,7 @@ export class AuthenticationService {
       await SecureStore.setItemAsync(AUTH_CONFIG.ACCESS_TOKEN_KEY, token.accessToken);
       await SecureStore.setItemAsync(AUTH_CONFIG.REFRESH_TOKEN_KEY, JSON.stringify(token));
     } catch (error) {
-      logError('🚨 TOKEN STORAGE ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 TOKEN STORAGE ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -1133,7 +1141,7 @@ export class AuthenticationService {
       const tokenData = await SecureStore.getItemAsync(AUTH_CONFIG.REFRESH_TOKEN_KEY);
       return tokenData ? JSON.parse(tokenData) : null;
     } catch (error) {
-      logError('🚨 TOKEN LOADING ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 TOKEN LOADING ERROR:', error instanceof Error ? error : new Error(String(error)));
       return null;
     }
   }
@@ -1144,7 +1152,7 @@ export class AuthenticationService {
       const userData = await this.secureStorage.retrieveGeneralData('user_context');
       return userData || null;
     } catch (error) {
-      logError('🚨 USER CONTEXT LOADING ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 USER CONTEXT LOADING ERROR:', error instanceof Error ? error : new Error(String(error)));
       return null;
     }
   }
@@ -1169,7 +1177,7 @@ export class AuthenticationService {
       }
 
     } catch (error) {
-      logError('🚨 AUTHENTICATION AUDIT LOGGING ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 AUTHENTICATION AUDIT LOGGING ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -1219,7 +1227,7 @@ export class AuthenticationService {
 
   public async destroy(): Promise<void> {
     try {
-      logPerformance('🗑️  Destroying authentication service...');
+      console.log('🗑️  Destroying authentication service...');
 
       // Logout current user
       await this.logout();
@@ -1241,10 +1249,10 @@ export class AuthenticationService {
 
       this.initialized = false;
 
-      logPerformance('✅ Authentication service destroyed');
+      console.log('✅ Authentication service destroyed');
 
     } catch (error) {
-      logError('🚨 AUTHENTICATION SERVICE DESTRUCTION ERROR:', error);
+      logError(LogCategory.SECURITY, '🚨 AUTHENTICATION SERVICE DESTRUCTION ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }

@@ -213,11 +213,11 @@ export class DeploymentService {
 
       logSecurity('Deployment service initialized', 'low', {
         component: 'deployment_service',
-        historySize: this.deploymentHistory.length
+        
       });
 
     } catch (error) {
-      logError(LogCategory.SECURITY, 'Failed to initialize deployment service', error);
+      logError(LogCategory.SECURITY, 'Failed to initialize deployment service', error instanceof Error ? error : undefined);
       throw error;
     }
   }
@@ -271,7 +271,7 @@ export class DeploymentService {
       return deployment;
 
     } catch (error) {
-      await this.handleDeploymentFailure(deployment, error);
+      await this.handleDeploymentFailure(deployment, error instanceof Error ? error : new Error(String(error)));
       throw error;
     } finally {
       this.currentDeployment = null;
@@ -305,7 +305,7 @@ export class DeploymentService {
 
       logSecurity('Deployment completed successfully', 'low', {
         component: 'deployment_service',
-        deploymentId: deployment.id,
+        
         duration: deployment.performanceMetrics.totalDuration,
         strategy: deployment.config.strategy
       });
@@ -325,7 +325,7 @@ export class DeploymentService {
     try {
       logSecurity('Starting pre-deployment validation', 'low', {
         component: 'deployment_service',
-        deploymentId: deployment.id
+        
       });
 
       // Check system health before deployment
@@ -353,12 +353,12 @@ export class DeploymentService {
 
       logSecurity('Pre-deployment validation completed', 'low', {
         component: 'deployment_service',
-        deploymentId: deployment.id,
+        
         validationTime: deployment.performanceMetrics.validationTime
       });
 
     } catch (error) {
-      deployment.errors.push(`Pre-deployment validation failed: ${error.message}`);
+      deployment.errors.push(`Pre-deployment validation failed: ${(error instanceof Error ? error.message : String(error))}`);
       throw error;
     }
   }
@@ -373,7 +373,7 @@ export class DeploymentService {
     try {
       logSecurity('Starting deployment execution', 'medium', {
         component: 'deployment_service',
-        deploymentId: deployment.id,
+        
         strategy: deployment.config.strategy
       });
 
@@ -403,12 +403,12 @@ export class DeploymentService {
 
       logSecurity('Deployment execution completed', 'low', {
         component: 'deployment_service',
-        deploymentId: deployment.id,
+        
         deploymentTime: deployment.performanceMetrics.deploymentTime
       });
 
     } catch (error) {
-      deployment.errors.push(`Deployment execution failed: ${error.message}`);
+      deployment.errors.push(`Deployment execution failed: ${(error instanceof Error ? error.message : String(error))}`);
       throw error;
     }
   }
@@ -419,7 +419,7 @@ export class DeploymentService {
   private async executeBlueGreenDeployment(deployment: DeploymentRecord): Promise<void> {
     logSecurity('Executing blue/green deployment', 'medium', {
       component: 'deployment_service',
-      deploymentId: deployment.id
+      
     });
 
     // Simulate blue/green deployment process
@@ -433,7 +433,7 @@ export class DeploymentService {
 
     logSecurity('Blue/green deployment completed', 'low', {
       component: 'deployment_service',
-      deploymentId: deployment.id
+      
     });
   }
 
@@ -443,7 +443,7 @@ export class DeploymentService {
   private async executeCanaryDeployment(deployment: DeploymentRecord): Promise<void> {
     logSecurity('Executing canary deployment', 'medium', {
       component: 'deployment_service',
-      deploymentId: deployment.id
+      
     });
 
     // Simulate canary deployment with gradual traffic shift
@@ -451,7 +451,7 @@ export class DeploymentService {
 
     logSecurity('Canary deployment completed', 'low', {
       component: 'deployment_service',
-      deploymentId: deployment.id
+      
     });
   }
 
@@ -461,7 +461,7 @@ export class DeploymentService {
   private async executeRollingDeployment(deployment: DeploymentRecord): Promise<void> {
     logSecurity('Executing rolling deployment', 'medium', {
       component: 'deployment_service',
-      deploymentId: deployment.id
+      
     });
 
     // Simulate rolling deployment with progressive updates
@@ -469,7 +469,7 @@ export class DeploymentService {
 
     logSecurity('Rolling deployment completed', 'low', {
       component: 'deployment_service',
-      deploymentId: deployment.id
+      
     });
   }
 
@@ -479,7 +479,7 @@ export class DeploymentService {
   private async executeEmergencyDeployment(deployment: DeploymentRecord): Promise<void> {
     logSecurity('Executing emergency deployment', 'critical', {
       component: 'deployment_service',
-      deploymentId: deployment.id
+      
     });
 
     // Emergency deployments bypass some safety checks for critical fixes
@@ -487,7 +487,7 @@ export class DeploymentService {
 
     logSecurity('Emergency deployment completed', 'critical', {
       component: 'deployment_service',
-      deploymentId: deployment.id
+      
     });
   }
 
@@ -501,7 +501,7 @@ export class DeploymentService {
     try {
       logSecurity('Starting post-deployment health checks', 'medium', {
         component: 'deployment_service',
-        deploymentId: deployment.id
+        
       });
 
       const healthCheck = deployment.config.healthCheck;
@@ -529,13 +529,13 @@ export class DeploymentService {
 
       logSecurity('Post-deployment health checks passed', 'low', {
         component: 'deployment_service',
-        deploymentId: deployment.id,
+        
         healthScore: healthScore * 100,
         healthCheckTime: deployment.performanceMetrics.healthCheckTime
       });
 
     } catch (error) {
-      deployment.errors.push(`Health check failed: ${error.message}`);
+      deployment.errors.push(`Health check failed: ${(error instanceof Error ? error.message : String(error))}`);
 
       // Trigger automatic rollback if configured
       if (deployment.config.rollbackConfig.triggerOnFailure) {
@@ -586,7 +586,7 @@ export class DeploymentService {
         status: 'unhealthy',
         responseTime: Date.now() - startTime,
         timestamp: Date.now(),
-        details: error.message
+        details: (error instanceof Error ? error.message : String(error))
       };
     }
   }
@@ -598,7 +598,7 @@ export class DeploymentService {
     try {
       logSecurity('Starting post-deployment actions', 'low', {
         component: 'deployment_service',
-        deploymentId: deployment.id
+        
       });
 
       // Update deployment tracking
@@ -612,17 +612,17 @@ export class DeploymentService {
 
       logSecurity('Post-deployment actions completed', 'low', {
         component: 'deployment_service',
-        deploymentId: deployment.id
+        
       });
 
     } catch (error) {
       // Post-deployment action failures are not deployment failures
-      deployment.errors.push(`Post-deployment action warning: ${error.message}`);
+      deployment.errors.push(`Post-deployment action warning: ${(error instanceof Error ? error.message : String(error))}`);
 
       logSecurity('Post-deployment action warning', 'low', {
         component: 'deployment_service',
-        deploymentId: deployment.id,
-        warning: error.message
+        
+        warning: (error instanceof Error ? error.message : String(error))
       });
     }
   }
@@ -638,7 +638,7 @@ export class DeploymentService {
 
       logSecurity('Starting deployment rollback', 'critical', {
         component: 'deployment_service',
-        deploymentId: deployment.id,
+        
         rollbackReason: 'Health check failure'
       });
 
@@ -668,16 +668,16 @@ export class DeploymentService {
 
       logSecurity('Deployment rollback completed', 'critical', {
         component: 'deployment_service',
-        deploymentId: deployment.id,
+        
         rollbackTime: deployment.performanceMetrics.rollbackTime
       });
 
     } catch (error) {
-      deployment.errors.push(`Rollback failed: ${error.message}`);
+      deployment.errors.push(`Rollback failed: ${(error instanceof Error ? error.message : String(error))}`);
       trackError(ErrorCategory.SECURITY,
         `Deployment rollback failed: ${deployment.id}`,
-        error,
-        { deploymentId: deployment.id }
+        error instanceof Error ? error : undefined,
+        { }
       );
       throw error;
     }
@@ -724,7 +724,7 @@ export class DeploymentService {
       rollbackConfig: {
         ...defaultConfig.rollbackConfig,
         ...config.rollbackConfig
-      },
+      } as any,
       preDeploymentChecks: config.preDeploymentChecks || [],
       postDeploymentActions: config.postDeploymentActions || []
     };
@@ -737,18 +737,18 @@ export class DeploymentService {
     try {
       const status = resilienceOrchestrator.getResilienceStatus();
       const serviceStatus = status.circuitBreakers[service];
-      return serviceStatus && serviceStatus.healthStatus !== 'unhealthy';
+      return !!(serviceStatus && serviceStatus.healthStatus !== 'unhealthy');
     } catch {
       return false;
     }
   }
 
   private async simulateDeploymentOperation(operation: string, duration: number): Promise<void> {
-    logPerformance(`Starting ${operation}`, { estimatedDuration: duration });
+    console.log(`Starting ${operation}`, { estimatedDuration: duration });
 
     return new Promise((resolve) => {
       setTimeout(() => {
-        logPerformance(`Completed ${operation}`, { actualDuration: duration });
+        console.log(`Completed ${operation}`, { actualDuration: duration });
         resolve();
       }, duration);
     });
@@ -756,21 +756,21 @@ export class DeploymentService {
 
   private async handleDeploymentFailure(deployment: DeploymentRecord, error: Error): Promise<void> {
     deployment.status = DeploymentStatus.FAILED;
-    deployment.errors.push(error.message);
+    deployment.errors.push((error instanceof Error ? error.message : String(error)));
 
     await this.saveDeploymentRecord(deployment);
 
     logSecurity('Deployment failed', 'high', {
       component: 'deployment_service',
-      deploymentId: deployment.id,
-      error: error.message,
+      
+      error: (error instanceof Error ? error.message : String(error)),
       strategy: deployment.config.strategy
     });
 
     trackError(ErrorCategory.SECURITY,
       `Deployment failed: ${deployment.id}`,
       error,
-      { deploymentId: deployment.id, strategy: deployment.config.strategy }
+      {  strategy: deployment.config.strategy }
     );
   }
 
@@ -790,7 +790,7 @@ export class DeploymentService {
       );
 
     } catch (error) {
-      logError(LogCategory.SECURITY, 'Failed to save deployment record', error);
+      logError(LogCategory.SECURITY, 'Failed to save deployment record', error instanceof Error ? error : undefined);
     }
   }
 
@@ -801,7 +801,7 @@ export class DeploymentService {
         this.deploymentHistory = JSON.parse(historyData);
       }
     } catch (error) {
-      logError(LogCategory.SECURITY, 'Failed to load deployment history', error);
+      logError(LogCategory.SECURITY, 'Failed to load deployment history', error instanceof Error ? error : undefined);
       this.deploymentHistory = [];
     }
   }
@@ -837,7 +837,7 @@ export class DeploymentService {
     // Notify monitoring systems of successful deployment
     logSecurity('Deployment notification sent', 'low', {
       component: 'deployment_service',
-      deploymentId: deployment.id,
+      
       version: deployment.config.version,
       environment: deployment.config.environment
     });
@@ -878,7 +878,7 @@ export class DeploymentService {
 
       logSecurity('Emergency shutdown during deployment', 'critical', {
         component: 'deployment_service',
-        deploymentId: this.currentDeployment.id
+        
       });
 
       // Attempt rollback if possible

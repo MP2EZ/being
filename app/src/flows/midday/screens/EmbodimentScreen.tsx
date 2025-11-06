@@ -1,11 +1,11 @@
 /**
  * EMBODIMENT SCREEN
  *
- * 60-second breathing practice for midday embodiment (MBCT retained).
+ * 60-second breathing practice for midday embodiment (evidence-based practice).
  * Philosopher-validated (9.5/10) - aligns with Architecture v1.0.
  *
- * MBCT Retention:
- * - This practice is retained from original MBCT protocol
+ * Clinical Foundation:
+ * - This practice is retained from original evidence-based breathing protocol
  * - 60-second breathing space combines mindfulness with Stoic reflection
  * - Bridges cognitive practices with embodied awareness
  *
@@ -36,11 +36,11 @@ import {
   StyleSheet,
 } from 'react-native';
 import Slider from '@react-native-community/slider';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { StackScreenProps } from '@react-navigation/stack';
 import type { MiddayFlowParamList, EmbodimentData } from '../../../types/flows';
 import BreathingCircle from '../../shared/components/BreathingCircle';
 
-type Props = NativeStackScreenProps<MiddayFlowParamList, 'Embodiment'> & {
+type Props = StackScreenProps<MiddayFlowParamList, 'Embodiment'> & {
   onSave?: (data: EmbodimentData) => void;
 };
 
@@ -48,7 +48,7 @@ const BREATHING_DURATION = 60; // EXACTLY 60 seconds
 
 const EmbodimentScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
   // FEAT-23: Restore initial data if resuming session
-  const initialData = route.params?.initialData as EmbodimentData | undefined;
+  const initialData = (route.params as any)?.initialData as EmbodimentData | undefined;
 
   // Debug logging
   if (initialData) {
@@ -90,6 +90,7 @@ const EmbodimentScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
         }
       };
     }
+    return undefined;
   }, [breathingActive, secondsRemaining]);
 
   const isValid = !breathingActive && bodyAwareness.trim().length > 0;

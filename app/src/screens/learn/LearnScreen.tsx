@@ -93,7 +93,7 @@ const LearnScreen: React.FC = () => {
 
   const getStatusColor = (moduleId: ModuleId): string => {
     const module = modules[moduleId];
-    if (module.status === 'completed') return colorSystem.status.completed;
+    if (module.status === 'completed') return colorSystem.status.success;
     if (module.status === 'in_progress') return colorSystem.navigation.learn;
     return colorSystem.gray[400];
   };

@@ -141,10 +141,10 @@ const MiddayFlowNavigator: React.FC<MiddayFlowNavigatorProps> = ({
           setShowResumeModal(true);
 
           // Restore screen data if available
-          if (flowState?.screenData) {
-            loadedScreenData.current = flowState.screenData; // Store in ref immediately
-            setScreenData(flowState.screenData); // Also update state for UI
-            console.log(`[MiddayFlow] Restored screen data for ${Object.keys(flowState.screenData).length} screens`);
+          if (flowState?.['screenData']) {
+            loadedScreenData.current = flowState["screenData"]; // Store in ref immediately
+            setScreenData(flowState["screenData"]); // Also update state for UI
+            console.log(`[MiddayFlow] Restored screen data for ${Object.keys(flowState["screenData"]).length} screens`);
           }
         }
       } catch (error) {
@@ -257,7 +257,7 @@ const MiddayFlowNavigator: React.FC<MiddayFlowNavigatorProps> = ({
             .catch(error => console.error('[MiddayFlow] Failed to save from ControlCheck:', error));
         }
 
-        logPerformance('✅ ControlCheck completed');
+        console.log('✅ ControlCheck completed');
       }}
     />
   );
@@ -287,7 +287,7 @@ const MiddayFlowNavigator: React.FC<MiddayFlowNavigatorProps> = ({
             .catch(error => console.error('[MiddayFlow] Failed to save from Embodiment:', error));
         }
 
-        logPerformance('✅ Embodiment completed');
+        console.log('✅ Embodiment completed');
       }}
     />
   );
@@ -317,7 +317,7 @@ const MiddayFlowNavigator: React.FC<MiddayFlowNavigatorProps> = ({
             .catch(error => console.error('[MiddayFlow] Failed to save from Reappraisal:', error));
         }
 
-        logPerformance('✅ Reappraisal completed');
+        console.log('✅ Reappraisal completed');
       }}
     />
   );
@@ -347,7 +347,7 @@ const MiddayFlowNavigator: React.FC<MiddayFlowNavigatorProps> = ({
             .catch(error => console.error('[MiddayFlow] Failed to save from Affirmation:', error));
         }
 
-        logPerformance('✅ Affirmation completed');
+        console.log('✅ Affirmation completed');
       }}
     />
   );
@@ -364,7 +364,7 @@ const MiddayFlowNavigator: React.FC<MiddayFlowNavigatorProps> = ({
         navigation={navigation}
         route={{ params: {} } as any}
         onComplete={() => {
-          logPerformance('✅ Midday flow completed');
+          console.log('✅ Midday flow completed');
           onComplete(finalSessionData);
         }}
       />

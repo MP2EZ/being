@@ -487,7 +487,7 @@ export class HIPAAComplianceEngine {
       };
 
     } catch (error) {
-      logError('🚨 HIPAA VALIDATION ERROR:', error);
+      logError(LogCategory.SYSTEM, 'HIPAA VALIDATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       violations.push(`Validation system error: ${error instanceof Error ? error.message : 'Unknown error'}`);
       
       return {
@@ -556,7 +556,7 @@ export class HIPAAComplianceEngine {
       return consentId;
 
     } catch (error) {
-      logError('🚨 CONSENT OBTAINING ERROR:', error);
+      logError(LogCategory.SYSTEM, 'CONSENT OBTAINING ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw new Error(`Failed to obtain user consent: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
@@ -574,7 +574,8 @@ export class HIPAAComplianceEngine {
       
       // Load from storage if not cached
       if (!consent) {
-        consent = await this.loadActiveConsent(userId);
+        const loadedConsent = await this.loadActiveConsent(userId);
+        consent = loadedConsent ?? undefined;
         if (consent) {
           this.activeConsents.set(userId, consent);
         }
@@ -604,7 +605,7 @@ export class HIPAAComplianceEngine {
       }
 
     } catch (error) {
-      logError('🚨 CONSENT VALIDATION ERROR:', error);
+      logError(LogCategory.SYSTEM, 'CONSENT VALIDATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       return false;
     }
   }
@@ -670,7 +671,7 @@ export class HIPAAComplianceEngine {
       });
 
     } catch (error) {
-      logError('🚨 CONSENT REVOCATION ERROR:', error);
+      logError(LogCategory.SYSTEM, 'CONSENT REVOCATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -727,7 +728,7 @@ export class HIPAAComplianceEngine {
       };
 
     } catch (error) {
-      logError('🚨 SESSION VALIDATION ERROR:', error);
+      logError(LogCategory.SYSTEM, 'SESSION VALIDATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       violations.push('Session validation system error');
       return { valid: false, securityLevel: 'low', violations };
     }
@@ -757,7 +758,7 @@ export class HIPAAComplianceEngine {
       return encryptionKey.length >= 32; // Minimum for AES-256
 
     } catch (error) {
-      logError('🚨 ENCRYPTION VALIDATION ERROR:', error);
+      logError(LogCategory.SYSTEM, 'ENCRYPTION VALIDATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       return false;
     }
   }
@@ -799,7 +800,7 @@ export class HIPAAComplianceEngine {
       }
 
     } catch (error) {
-      logError('🚨 AUDIT LOGGING ERROR:', error);
+      logError(LogCategory.SYSTEM, 'AUDIT LOGGING ERROR:', error instanceof Error ? error : new Error(String(error)));
       // Compliance audit logging failure is critical
       throw new Error('HIPAA audit logging failed - system integrity compromised');
     }
@@ -857,7 +858,7 @@ export class HIPAAComplianceEngine {
       );
 
     } catch (error) {
-      logError('🚨 COMPLIANCE VIOLATION HANDLING ERROR:', error);
+      logError(LogCategory.SYSTEM, 'COMPLIANCE VIOLATION HANDLING ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -904,7 +905,7 @@ export class HIPAAComplianceEngine {
       });
 
     } catch (error) {
-      logError('🚨 BREACH INITIATION ERROR:', error);
+      logError(LogCategory.SYSTEM, 'BREACH INITIATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -950,7 +951,7 @@ export class HIPAAComplianceEngine {
       });
 
     } catch (error) {
-      logError('🚨 DATA DELETION ERROR:', error);
+      logError(LogCategory.SYSTEM, 'DATA DELETION ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -1132,12 +1133,12 @@ export class HIPAAComplianceEngine {
       }
 
       // Get the most recent consent
-      const latestKey = consentKeys.sort().reverse()[0];
+      const latestKey = consentKeys.sort().reverse()[0]!;
       const consentData = await SecureStore.getItemAsync(latestKey);
       
       return consentData ? JSON.parse(consentData) : null;
     } catch (error) {
-      logError('🚨 CONSENT LOADING ERROR:', error);
+      logError(LogCategory.SYSTEM, 'CONSENT LOADING ERROR:', error instanceof Error ? error : new Error(String(error)));
       return null;
     }
   }
@@ -1147,7 +1148,7 @@ export class HIPAAComplianceEngine {
       const sessionData = await AsyncStorage.getItem(`session_${sessionId}`);
       return sessionData ? JSON.parse(sessionData) : null;
     } catch (error) {
-      logError('🚨 SESSION LOADING ERROR:', error);
+      logError(LogCategory.SYSTEM, 'SESSION LOADING ERROR:', error instanceof Error ? error : new Error(String(error)));
       return null;
     }
   }
@@ -1175,7 +1176,7 @@ export class HIPAAComplianceEngine {
       }
 
     } catch (error) {
-      logError(`🚨 PHI DELETION ERROR for ${dataType}:`, error);
+      logError(LogCategory.SYSTEM, `PHI DELETION ERROR for ${dataType}:`, error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -1248,7 +1249,7 @@ export class HIPAAComplianceEngine {
       };
 
     } catch (error) {
-      logError('🚨 COMPLIANCE STATUS ERROR:', error);
+      logError(LogCategory.SYSTEM, 'COMPLIANCE STATUS ERROR:', error instanceof Error ? error : new Error(String(error)));
       return {
         overall: 'critical_issues',
         privacyRule: false,
@@ -1286,7 +1287,7 @@ export class HIPAAComplianceEngine {
             classifications[dataType] = phiElement.classification;
           }
         } catch (error) {
-          logError(`Failed to export ${dataType}:`, error);
+          logError(LogCategory.SYSTEM, `Failed to export ${dataType}:`, error instanceof Error ? error : new Error(String(error)));
         }
       }
 
@@ -1321,7 +1322,7 @@ export class HIPAAComplianceEngine {
       };
 
     } catch (error) {
-      logError('🚨 PHI EXPORT ERROR:', error);
+      logError(LogCategory.SYSTEM, 'PHI EXPORT ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }

@@ -118,7 +118,6 @@ export const AccessibleInput: React.FC<AccessibleInputProps> = ({
         accessibilityRole={A11Y_ROLES.text}
         accessibilityLabel={accessibilityLabel}
         accessibilityHint={accessibilityHint}
-        accessibilityRequired={required}
         accessibilityState={{
           disabled: textInputProps.editable === false,
         }}

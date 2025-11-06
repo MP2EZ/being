@@ -1,5 +1,5 @@
 /**
- * Clean Global Type Declarations - Being. MBCT
+ * Clean Global Type Declarations - Being.
  * Minimal type environment without crypto dependencies
  */
 

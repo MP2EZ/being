@@ -111,6 +111,8 @@ const ProfileScreen: React.FC = () => {
     const phq9Sessions = completedAssessments.filter(s => s.type === 'phq9');
     if (phq9Sessions.length > 0) {
       const lastPhq9 = phq9Sessions[phq9Sessions.length - 1];
+      if (!lastPhq9) return;
+
       const completedAt = lastPhq9.result?.completedAt;
 
       if (completedAt) {
@@ -129,6 +131,8 @@ const ProfileScreen: React.FC = () => {
     const gad7Sessions = completedAssessments.filter(s => s.type === 'gad7');
     if (gad7Sessions.length > 0) {
       const lastGad7 = gad7Sessions[gad7Sessions.length - 1];
+      if (!lastGad7) return;
+
       const completedAt = lastGad7.result?.completedAt;
 
       if (completedAt) {

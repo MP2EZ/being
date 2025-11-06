@@ -9,7 +9,7 @@
  * - Assessment data belongs to the user with full control
  * - Crisis interventions respect user autonomy while ensuring safety
  * 
- * MBCT PRINCIPLES:
+ * CLINICAL PRINCIPLES:
  * - Self-awareness and self-direction in therapeutic process
  * - Mindful choice in engagement with assessment tools
  * - Non-judgmental approach to user decisions

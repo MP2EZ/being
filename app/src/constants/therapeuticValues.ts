@@ -13,7 +13,7 @@
  * accessible or editable. New users will use the Stoic framework exclusively.
  *
  * ORIGINAL PURPOSE:
- * - 15 MBCT-aligned therapeutic values (qualities/principles)
+ * - 15 evidence-based therapeutic values (qualities/principles)
  * - Users selected 3-5 values during onboarding
  * - Values were viewable and editable in profile
  *
@@ -39,7 +39,7 @@ export interface TherapeuticValue {
 }
 
 /**
- * 15 MBCT-aligned therapeutic values
+ * 15 evidence-based therapeutic values
  * Users select 3-5 during onboarding
  */
 export const THERAPEUTIC_VALUES: TherapeuticValue[] = [

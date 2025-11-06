@@ -184,9 +184,9 @@ export default function CrisisPlanScreen() {
     try {
       await createCrisisPlan(true);
       setCurrentStep('warning_signs');
-      logSecurity('Crisis plan created with user consent', {}, LogCategory.Crisis);
+      logSecurity('Crisis plan created with user consent', 'low', {});
     } catch (error) {
-      logError('Failed to create crisis plan', { error }, LogCategory.Crisis);
+      logError(LogCategory.CRISIS, 'Failed to create crisis plan', error instanceof Error ? error : new Error(String(error)));
       Alert.alert('Error', 'Failed to create safety plan. Please try again.');
     }
   };
@@ -202,7 +202,7 @@ export default function CrisisPlanScreen() {
     try {
       switch (currentStep) {
         case 'warning_signs':
-          if (!checkItemLimit('warning signs', crisisPlan?.personalizedContent.personalWarningSigns.length || 0)) {
+          if (!checkItemLimit('warning signs', crisisPlan?.warningSignsPersonal.length || 0)) {
             return;
           }
           await addWarningSign(sanitizedInput, 'personal');
@@ -222,9 +222,9 @@ export default function CrisisPlanScreen() {
       }
 
       setInputValue('');
-      logPerformance('Safety plan item added', { step: currentStep }, LogCategory.Crisis);
+      console.log('Safety plan item added', { step: currentStep }, LogCategory.CRISIS);
     } catch (error) {
-      logError('Failed to add item to safety plan', { error, step: currentStep }, LogCategory.Crisis);
+      logError(LogCategory.CRISIS, 'Failed to add item to safety plan', error instanceof Error ? error : new Error(String(error)));
     }
   };
 
@@ -265,9 +265,9 @@ export default function CrisisPlanScreen() {
       setContactName('');
       setContactPhone('');
       setContactRelation('');
-      logPerformance('Contact added to safety plan', {}, LogCategory.Crisis);
+      console.log('Contact added to safety plan', {}, LogCategory.CRISIS);
     } catch (error) {
-      logError('Failed to add contact', { error }, LogCategory.Crisis);
+      logError(LogCategory.CRISIS, 'Failed to add contact', error instanceof Error ? error : new Error(String(error)));
     }
   };
 
@@ -283,9 +283,9 @@ export default function CrisisPlanScreen() {
         title: 'My Personal Safety Plan'
       });
 
-      logSecurity('Safety plan exported', {}, LogCategory.Crisis);
+      logSecurity('Safety plan exported', 'low', {});
     } catch (error) {
-      logError('Failed to export safety plan', { error }, LogCategory.Crisis);
+      logError(LogCategory.CRISIS, 'Failed to export safety plan', error instanceof Error ? error : new Error(String(error)));
       Alert.alert('Error', 'Failed to export safety plan.');
     }
   };
@@ -306,9 +306,9 @@ export default function CrisisPlanScreen() {
             try {
               await deleteCrisisPlan();
               navigation.goBack();
-              logSecurity('Safety plan deleted by user', {}, LogCategory.Crisis);
+              logSecurity('Safety plan deleted by user', 'low', {});
             } catch (error) {
-              logError('Failed to delete safety plan', { error }, LogCategory.Crisis);
+              logError(LogCategory.CRISIS, 'Failed to delete safety plan', error instanceof Error ? error : new Error(String(error)));
             }
           }
         }
@@ -324,7 +324,7 @@ export default function CrisisPlanScreen() {
     const currentIndex = steps.indexOf(currentStep);
 
     if (currentIndex < steps.length - 1) {
-      setCurrentStep(steps[currentIndex + 1]);
+      setCurrentStep(steps[currentIndex + 1]!);
     }
   };
 
@@ -336,7 +336,7 @@ export default function CrisisPlanScreen() {
     const currentIndex = steps.indexOf(currentStep);
 
     if (currentIndex > 0) {
-      setCurrentStep(steps[currentIndex - 1]);
+      setCurrentStep(steps[currentIndex - 1]!);
     }
   };
 
@@ -838,7 +838,7 @@ const styles = StyleSheet.create({
   stepTitle: {
     fontSize: 28,
     fontWeight: '700',
-    color: colorSystem.gray[900],
+    color: colorSystem.gray[800],
     marginBottom: spacing.md
   },
   stepDescription: {
@@ -856,7 +856,7 @@ const styles = StyleSheet.create({
   infoTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: colorSystem.gray[900],
+    color: colorSystem.gray[800],
     marginBottom: spacing.sm
   },
   infoText: {
@@ -878,7 +878,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: spacing.md,
     fontSize: 16,
-    color: colorSystem.gray[900],
+    color: colorSystem.gray[800],
     marginBottom: spacing.sm,
     minHeight: 50
   },
@@ -903,7 +903,7 @@ const styles = StyleSheet.create({
   itemsListTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: colorSystem.gray[900],
+    color: colorSystem.gray[800],
     marginBottom: spacing.sm
   },
   itemCard: {
@@ -967,7 +967,7 @@ const styles = StyleSheet.create({
   reviewSectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: colorSystem.gray[900],
+    color: colorSystem.gray[800],
     marginBottom: spacing.sm
   },
   reviewItem: {

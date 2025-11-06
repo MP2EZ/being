@@ -260,7 +260,7 @@ class TestReportGenerator {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Local Test Dashboard - Being MBCT</title>
+    <title>Local Test Dashboard - Being.</title>
     <style>
         ${this.getDashboardCSS()}
     </style>
@@ -269,7 +269,7 @@ class TestReportGenerator {
     <div class="dashboard">
         <header class="header">
             <h1>🧪 Local Test Dashboard</h1>
-            <p class="subtitle">Being MBCT App - Development Testing</p>
+            <p class="subtitle">Being. App - Development Testing</p>
             <div class="timestamp">Last updated: ${new Date().toLocaleString()}</div>
         </header>
 
@@ -771,7 +771,7 @@ class TestReportGenerator {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Performance Trends - Being MBCT</title>
+    <title>Performance Trends - Being.</title>
     <style>${this.getDashboardCSS()}</style>
 </head>
 <body>
@@ -798,7 +798,7 @@ class TestReportGenerator {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Coverage Report - Being MBCT</title>
+    <title>Coverage Report - Being.</title>
     <style>${this.getDashboardCSS()}</style>
 </head>
 <body>

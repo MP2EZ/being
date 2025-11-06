@@ -107,7 +107,7 @@ class PerformanceAlertManager {
     // Check throttling
     const lastAlertTime = this.lastAlertTimes.get(alertKey) || 0;
     if (Date.now() - lastAlertTime < this.alertThrottling) {
-      return null; // Throttled
+      return null as any; // Throttled
     }
 
     const alert: PerformanceAlert = {
@@ -136,7 +136,7 @@ class PerformanceAlertManager {
       this.alertHistory.shift();
     }
 
-    logPerformance(`🚨 Performance Alert [${severity.toUpperCase()}]: ${alert.message}`);
+    console.log(`🚨 Performance Alert [${severity.toUpperCase()}]: ${alert.message}`);
 
     // Emit alert event
     DeviceEventEmitter.emit('performance_alert_created', alert);
@@ -200,7 +200,7 @@ class PerformanceAlertManager {
     alert.resolved = true;
     alert.resolutionTime = Date.now();
 
-    logPerformance(`✅ Performance Alert Resolved: ${alert.message}`);
+    console.log(`✅ Performance Alert Resolved: ${alert.message}`);
     DeviceEventEmitter.emit('performance_alert_resolved', alert);
 
     return true;
@@ -242,7 +242,7 @@ class PerformanceAlertManager {
 
     const resolvedWithTime = resolved.filter(a => a.resolutionTime);
     const averageResolutionTime = resolvedWithTime.length > 0
-      ? resolvedWithTime.reduce((sum, a) => sum + (a.resolutionTime - a.timestamp), 0) / resolvedWithTime.length
+      ? resolvedWithTime.reduce((sum, a) => sum + ((a.resolutionTime ?? 0) - a.timestamp), 0) / resolvedWithTime.length
       : 0;
 
     return {
@@ -283,7 +283,7 @@ class PerformanceRegressionDetector {
    */
   static setBaseline(metric: string, value: number): void {
     this.baselineMetrics.set(metric, value);
-    logPerformance(`📊 Baseline set for ${metric}: ${value}`);
+    console.log(`📊 Baseline set for ${metric}: ${value}`);
   }
 
   /**
@@ -365,6 +365,8 @@ class PerformanceRegressionDetector {
       if (!baseline || recent.length === 0) continue;
 
       const current = recent[recent.length - 1];
+      if (!current) continue;
+
       const ratio = current / baseline;
 
       if (Math.abs(ratio - 1) > 0.1) { // 10% change threshold
@@ -426,7 +428,7 @@ export class PerformanceMonitor {
   static async startMonitoring(): Promise<void> {
     if (this.isMonitoring) return;
 
-    logPerformance('📊 Starting comprehensive performance monitoring...');
+    console.log('📊 Starting comprehensive performance monitoring...');
 
     // Initialize all performance optimizers
     await this.initializeOptimizers();
@@ -443,7 +445,7 @@ export class PerformanceMonitor {
     this.isMonitoring = true;
     this.startTime = Date.now();
 
-    logPerformance('✅ Performance monitoring active');
+    console.log('✅ Performance monitoring active');
   }
 
   /**
@@ -459,9 +461,9 @@ export class PerformanceMonitor {
         Promise.resolve(ZustandStoreOptimizer.initialize())
       ]);
 
-      logPerformance('✅ All performance optimizers initialized');
+      console.log('✅ All performance optimizers initialized');
     } catch (error) {
-      logError('Failed to initialize performance optimizers:', error);
+      logError(LogCategory.PERFORMANCE, 'Failed to initialize performance optimizers:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -558,7 +560,7 @@ export class PerformanceMonitor {
         summary: {
           overallHealth: this.getHealthStatus(performanceScore),
           totalAlerts: alertStats.total,
-          criticalAlerts: alertStats.bySeverity.critical,
+          criticalAlerts: alertStats.bySeverity['critical'] ?? 0,
           performanceScore
         },
         metrics: {
@@ -585,12 +587,12 @@ export class PerformanceMonitor {
       // Emit report event
       DeviceEventEmitter.emit('performance_report_generated', report);
 
-      logPerformance(`📊 Performance Report Generated (Score: ${performanceScore}/100)`);
+      console.log(`📊 Performance Report Generated (Score: ${performanceScore}/100)`);
 
       return report;
 
     } catch (error) {
-      logError('Failed to collect performance report:', error);
+      logError(LogCategory.PERFORMANCE, 'Failed to collect performance report:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -766,7 +768,7 @@ export class PerformanceMonitor {
    * Trigger automatic optimization
    */
   private static triggerAutoOptimization(type: 'crisis' | 'memory' | 'rendering' | 'bundle' | 'store'): void {
-    logPerformance(`🔧 Triggering auto-optimization for: ${type}`);
+    console.log(`🔧 Triggering auto-optimization for: ${type}`);
 
     switch (type) {
       case 'crisis':
@@ -795,10 +797,10 @@ export class PerformanceMonitor {
   private static setupAppStateMonitoring(): void {
     AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
       if (nextAppState === 'background') {
-        logPerformance('📱 App backgrounded - generating final report');
+        console.log('📱 App backgrounded - generating final report');
         this.collectPerformanceReport();
       } else if (nextAppState === 'active') {
-        logPerformance('📱 App active - resuming monitoring');
+        console.log('📱 App active - resuming monitoring');
         this.startTime = Date.now();
       }
     });
@@ -823,7 +825,7 @@ export class PerformanceMonitor {
         await AsyncStorage.multiRemove(keysToDelete);
       }
     } catch (error) {
-      logError('Failed to persist performance report:', error);
+      logError(LogCategory.PERFORMANCE, 'Failed to persist performance report:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -832,7 +834,7 @@ export class PerformanceMonitor {
    */
   static getLatestReport(): PerformanceReport | null {
     return this.reportHistory.length > 0
-      ? this.reportHistory[this.reportHistory.length - 1]
+      ? (this.reportHistory[this.reportHistory.length - 1] ?? null)
       : null;
   }
 
@@ -856,8 +858,8 @@ export class PerformanceMonitor {
       uptime: Date.now() - this.startTime,
       totalReports: this.reportHistory.length,
       activeAlerts: alertStats.active,
-      criticalAlerts: alertStats.bySeverity.critical,
-      latestScore: latest?.summary.performanceScore || 0,
+      criticalAlerts: alertStats.bySeverity['critical'] ?? 0,
+      latestScore: latest?.summary.performanceScore ?? 0,
       healthStatus: latest?.summary.overallHealth || 'unknown'
     };
   }
@@ -867,7 +869,7 @@ export class PerformanceMonitor {
    */
   static configure(config: Partial<MonitoringConfig>): void {
     this.config = { ...this.config, ...config };
-    logPerformance('Performance monitor configured:', this.config);
+    console.log('Performance monitor configured:', this.config);
   }
 
   /**
@@ -881,7 +883,7 @@ export class PerformanceMonitor {
       this.monitoringTimer = null;
     }
 
-    logPerformance('📊 Performance monitoring stopped');
+    console.log('📊 Performance monitoring stopped');
   }
 }
 

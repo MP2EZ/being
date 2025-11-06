@@ -18,7 +18,7 @@
 
 
 import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { Alert, AppState, AppStateStatus } from 'react-native';
 
 // Import Week 3 Performance Optimizers
@@ -94,6 +94,10 @@ interface UseAssessmentPerformanceReturn {
   // Reporting
   getPerformanceReport: () => string;
   resetMetrics: () => void;
+
+  // Week 3 Enhanced Methods
+  validatePerformanceTargets: () => boolean;
+  getPerformanceSummary: () => any;
 }
 
 // Enhanced Week 3 clinical safety thresholds
@@ -159,7 +163,7 @@ export const useAssessmentPerformance = (): UseAssessmentPerformanceReturn => {
   useEffect(() => {
     const initializePerformanceSystems = async () => {
       try {
-        logPerformance('🚀 Initializing Week 3 performance optimization systems...');
+        console.log('🚀 Initializing Week 3 performance optimization systems...');
 
         // Initialize all performance optimizers
         await Promise.all([
@@ -183,9 +187,9 @@ export const useAssessmentPerformance = (): UseAssessmentPerformanceReturn => {
           optimizeTransitions: true
         });
 
-        logPerformance('✅ Week 3 performance systems initialized successfully');
+        console.log('✅ Week 3 performance systems initialized successfully');
       } catch (error) {
-        logError('Failed to initialize performance systems:', error);
+        logError(LogCategory.SYSTEM, 'Failed to initialize performance systems:', error instanceof Error ? error : new Error(String(error)));
         setAlertLevel('warning');
       }
     };
@@ -201,7 +205,9 @@ export const useAssessmentPerformance = (): UseAssessmentPerformanceReturn => {
       updateMetrics({ memoryUsage });
 
       if (memoryUsage > PERFORMANCE_THRESHOLDS.memory) {
-        logSecurity(`⚠️ High memory usage: ${memoryUsage}MB`);
+        logSecurity('High memory usage detected', 'medium', {
+          memoryUsage
+        });
         setAlertLevel('warning');
       }
     }, 5000);
@@ -218,12 +224,12 @@ export const useAssessmentPerformance = (): UseAssessmentPerformanceReturn => {
     const handleAppStateChange = (nextAppState: AppStateStatus) => {
       if (nextAppState === 'active') {
         // Reset performance metrics when app becomes active
-        logPerformance('📱 App active - resetting performance metrics');
+        console.log('📱 App active - resetting performance metrics');
       } else if (nextAppState === 'background') {
         // Save performance report before backgrounding
-        logPerformance('📱 App backgrounding - saving performance data');
+        console.log('📱 App backgrounding - saving performance data');
         const report = generatePerformanceReport();
-        logPerformance('📊 Performance Report:', report);
+        console.log('📊 Performance Report:', report);
       }
     };
 
@@ -260,7 +266,9 @@ export const useAssessmentPerformance = (): UseAssessmentPerformanceReturn => {
   const endMeasurement = useCallback((measurementId: string): number => {
     const measurement = measurementTracker.current.get(measurementId);
     if (!measurement) {
-      logSecurity(`⚠️ Measurement not found: ${measurementId}`);
+      logSecurity('Measurement not found', 'low', {
+        measurementId
+      });
       return 0;
     }
 
@@ -275,7 +283,7 @@ export const useAssessmentPerformance = (): UseAssessmentPerformanceReturn => {
       
       // Critical safety check
       if (duration > PERFORMANCE_THRESHOLDS.crisisDetection) {
-        logError(`🚨 Crisis detection exceeded threshold: ${duration}ms (target: <${PERFORMANCE_THRESHOLDS.crisisDetection}ms)`);
+        logError(LogCategory.SYSTEM, `Crisis detection exceeded threshold: ${duration}ms (target: <${PERFORMANCE_THRESHOLDS.crisisDetection}ms)`);
         setAlertLevel('critical');
         
         Alert.alert(
@@ -330,7 +338,7 @@ export const useAssessmentPerformance = (): UseAssessmentPerformanceReturn => {
 
         // Enhanced safety validation with Week 3 targets
         if (actualDetectionTime > PERFORMANCE_THRESHOLDS.crisisDetection) {
-          logError(`🚨 Crisis detection time: ${actualDetectionTime}ms (CRITICAL THRESHOLD EXCEEDED - Week 3 target: <${PERFORMANCE_THRESHOLDS.crisisDetection}ms)`);
+          logError(LogCategory.SYSTEM, `Crisis detection time: ${actualDetectionTime}ms (CRITICAL THRESHOLD EXCEEDED - Week 3 target: <${PERFORMANCE_THRESHOLDS.crisisDetection}ms)`);
           setAlertLevel('critical');
 
           Alert.alert(
@@ -342,7 +350,7 @@ export const useAssessmentPerformance = (): UseAssessmentPerformanceReturn => {
 
         return optimizedDetection;
       } catch (error) {
-        logError('Optimized crisis detection failed, using fallback:', error);
+        logError(LogCategory.SYSTEM, 'Optimized crisis detection failed, using fallback:', error instanceof Error ? error : new Error(String(error)));
       }
     }
 
@@ -354,9 +362,11 @@ export const useAssessmentPerformance = (): UseAssessmentPerformanceReturn => {
 
     // Critical safety validation
     if (detectionTime > PERFORMANCE_THRESHOLDS.crisisDetection) {
-      logError(`🚨 Crisis detection time: ${detectionTime}ms (CRITICAL THRESHOLD EXCEEDED)`);
+      logError(LogCategory.SYSTEM, `Crisis detection time: ${detectionTime}ms (CRITICAL THRESHOLD EXCEEDED)`);
       setAlertLevel('critical');
     }
+
+    return undefined;
   }, [metrics.crisisDetectedCount, updateMetrics]);
 
   // Record encryption
@@ -364,7 +374,10 @@ export const useAssessmentPerformance = (): UseAssessmentPerformanceReturn => {
     updateMetrics({ encryptionTime });
 
     if (encryptionTime > PERFORMANCE_THRESHOLDS.encryption) {
-      logSecurity(`🔒 Encryption time: ${encryptionTime}ms (target: <${PERFORMANCE_THRESHOLDS.encryption}ms)`);
+      logSecurity('Encryption time exceeded threshold', 'low', {
+        encryptionTime,
+        threshold: PERFORMANCE_THRESHOLDS.encryption
+      });
       setAlertLevel('warning');
     }
   }, [updateMetrics]);
@@ -374,13 +387,16 @@ export const useAssessmentPerformance = (): UseAssessmentPerformanceReturn => {
     updateMetrics({ safetyButtonAccessTime: accessTime });
 
     if (accessTime > 150) {
-      logSecurity(`🚨 Safety button access time: ${accessTime}ms (target: <150ms)`);
+      logSecurity('Safety button access time exceeded', 'medium', {
+        accessTime,
+        threshold: 150
+      });
     }
   }, [updateMetrics]);
 
   // Performance optimization functions
   const optimizeForCrisis = useCallback(() => {
-    logPerformance('🚨 Optimizing performance for crisis scenario');
+    console.log('🚨 Optimizing performance for crisis scenario');
     
     // Clear low-priority tasks
     clearLowPriorityTasks();
@@ -397,7 +413,7 @@ export const useAssessmentPerformance = (): UseAssessmentPerformanceReturn => {
   }, [metrics.crisisDetectionTime, updateMetrics]);
 
   const clearLowPriorityTasks = useCallback(() => {
-    logPerformance('🧹 Clearing low-priority background tasks');
+    console.log('🧹 Clearing low-priority background tasks');
     
     // Clear timers and reduce memory usage
     if (memoryMonitor.current) {
@@ -410,7 +426,7 @@ export const useAssessmentPerformance = (): UseAssessmentPerformanceReturn => {
   }, [updateMetrics]);
 
   const prioritizeAssessment = useCallback(() => {
-    logPerformance('📋 Prioritizing assessment performance');
+    console.log('📋 Prioritizing assessment performance');
     
     // Optimize for assessment flow
     updateMetrics({ 
@@ -456,7 +472,7 @@ export const useAssessmentPerformance = (): UseAssessmentPerformanceReturn => {
   // Week 3 Performance Validation
   const validatePerformanceTargets = useCallback(async () => {
     try {
-      logPerformance('🎯 Running Week 3 performance validation...');
+      console.log('🎯 Running Week 3 performance validation...');
 
       const validationReport = await PerformanceValidator.validatePerformance();
 
@@ -469,13 +485,13 @@ export const useAssessmentPerformance = (): UseAssessmentPerformanceReturn => {
         Alert.alert(
           'Performance Validation Failed',
           `${validationReport.criticalFailures} critical targets not met. System may not be production ready.`,
-          [{ text: 'View Report', onPress: () => logPerformance('Validation Report:', validationReport) }]
+          [{ text: 'View Report', onPress: () => logPerformance('Validation Report:', 0, validationReport) }]
         );
       }
 
       return validationReport;
     } catch (error) {
-      logError('Performance validation failed:', error);
+      logError(LogCategory.SYSTEM, 'Performance validation failed:', error instanceof Error ? error : new Error(String(error)));
       setAlertLevel('critical');
       return null;
     }
@@ -555,7 +571,7 @@ export const useAssessmentPerformance = (): UseAssessmentPerformanceReturn => {
     setAlertLevel('none');
     performanceHistory.current = [];
     startTime.current = Date.now();
-    logPerformance('📊 Performance metrics reset');
+    console.log('📊 Performance metrics reset');
   }, []);
 
   // Calculate if performance is optimal
@@ -585,7 +601,7 @@ export const useAssessmentPerformance = (): UseAssessmentPerformanceReturn => {
     getPerformanceReport,
     resetMetrics,
     // Week 3 Enhanced Methods
-    validatePerformanceTargets,
+    validatePerformanceTargets: validatePerformanceTargets as any,
     getPerformanceSummary,
   };
 };

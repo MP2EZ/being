@@ -34,7 +34,7 @@ import type {
   CrisisActionType,
   CrisisSeverityLevel,
   CrisisResolutionType
-} from '../flows/assessment/types';
+} from '../../flows/assessment/types';
 
 /**
  * CRISIS DATA STORAGE CONFIGURATION
@@ -374,7 +374,7 @@ export class CrisisDataManagement {
       return dataPackage.packageId;
 
     } catch (error) {
-      logError('🚨 CRISIS DATA CAPTURE ERROR:', error);
+      logError(LogCategory.CRISIS, '🚨 CRISIS DATA CAPTURE ERROR:', error instanceof Error ? error : new Error(String(error)));
       await this.logDataCaptureError(detection.id, error);
       throw error;
     }
@@ -415,7 +415,7 @@ export class CrisisDataManagement {
       await this.logDataUpdate(packageId, updateType, updateStartTime);
 
     } catch (error) {
-      logError('🚨 CRISIS DATA UPDATE ERROR:', error);
+      logError(LogCategory.CRISIS, '🚨 CRISIS DATA UPDATE ERROR:', error instanceof Error ? error : new Error(String(error)));
       await this.logDataUpdateError(packageId, updateType, error);
       throw error;
     }
@@ -465,7 +465,7 @@ export class CrisisDataManagement {
       await this.updateCrisisData(packageId, 'performance_metric', performanceData);
 
     } catch (error) {
-      logError('🚨 PERFORMANCE METRICS CAPTURE ERROR:', error);
+      logError(LogCategory.CRISIS, '🚨 PERFORMANCE METRICS CAPTURE ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -496,7 +496,7 @@ export class CrisisDataManagement {
       await this.checkFollowUpCompliance(packageId);
 
     } catch (error) {
-      logError('🚨 FOLLOW-UP RECORDING ERROR:', error);
+      logError(LogCategory.CRISIS, '🚨 FOLLOW-UP RECORDING ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -531,7 +531,7 @@ export class CrisisDataManagement {
       await this.storeAuditEvent(packageId, auditEvent);
 
     } catch (error) {
-      logError('🚨 AUDIT EVENT LOGGING ERROR:', error);
+      logError(LogCategory.CRISIS, '🚨 AUDIT EVENT LOGGING ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -726,7 +726,7 @@ export class CrisisDataManagement {
       this.dataPackages.set(dataPackage.packageId, dataPackage);
 
     } catch (error) {
-      logError('🚨 CRISIS DATA STORAGE ERROR:', error);
+      logError(LogCategory.CRISIS, '🚨 CRISIS DATA STORAGE ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -755,7 +755,7 @@ export class CrisisDataManagement {
       return dataPackage;
 
     } catch (error) {
-      logError('🚨 CRISIS DATA RETRIEVAL ERROR:', error);
+      logError(LogCategory.CRISIS, '🚨 CRISIS DATA RETRIEVAL ERROR:', error instanceof Error ? error : new Error(String(error)));
       return null;
     }
   }
@@ -830,7 +830,7 @@ export class CrisisDataManagement {
       // Use SecureStore for audit events (may contain PHI context)
       await SecureStore.setItemAsync(auditKey, JSON.stringify(auditEvent));
     } catch (error) {
-      logError('🚨 AUDIT EVENT STORAGE ERROR:', error);
+      logError(LogCategory.CRISIS, '🚨 AUDIT EVENT STORAGE ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -859,13 +859,13 @@ export class CrisisDataManagement {
         `crisis_data_error_${Date.now()}`,
         JSON.stringify({
           crisisId,
-          error: error.message,
+          error: (error instanceof Error ? (error instanceof Error ? error.message : String(error)) : String(error)),
           timestamp: Date.now(),
           source: 'CrisisDataManagement'
         })
       );
-    } catch (logError) {
-      logError('Failed to log data capture error:', logError);
+    } catch (error) {
+      logError(LogCategory.CRISIS, 'Failed to log data capture error', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -891,7 +891,7 @@ export class CrisisDataManagement {
     await this.logAuditEvent(
       packageId,
       'data_update_error',
-      { updateType, error: error.message },
+      { updateType, error: (error instanceof Error ? (error instanceof Error ? error.message : String(error)) : String(error)) },
       'error'
     );
   }

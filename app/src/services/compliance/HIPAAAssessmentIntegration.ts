@@ -276,7 +276,7 @@ export class HIPAAAssessmentIntegration {
       return result;
 
     } catch (error) {
-      logError('🚨 ASSESSMENT COMPLIANCE VALIDATION ERROR:', error);
+      logError(LogCategory.SYSTEM, 'ASSESSMENT COMPLIANCE VALIDATION ERROR:', error instanceof Error ? error : undefined);
       
       return {
         compliant: false,
@@ -331,7 +331,7 @@ export class HIPAAAssessmentIntegration {
       // Assess crisis intervention compliance
       const crisisCompliance = await this.assessCrisisInterventionCompliance(
         crisisLevel,
-        crisisDetection.triggerType
+        crisisDetection.primaryTrigger
       );
 
       // Validate data sharing permissions
@@ -364,7 +364,7 @@ export class HIPAAAssessmentIntegration {
       };
 
     } catch (error) {
-      logError('🚨 CRISIS DETECTION COMPLIANCE ERROR:', error);
+      logError(LogCategory.SYSTEM, 'CRISIS DETECTION COMPLIANCE ERROR:', error instanceof Error ? error : undefined);
       
       return {
         compliant: false,
@@ -476,7 +476,7 @@ export class HIPAAAssessmentIntegration {
       };
 
     } catch (error) {
-      logError('🚨 ASSESSMENT RESULT COMPLIANCE ERROR:', error);
+      logError(LogCategory.SYSTEM, 'ASSESSMENT RESULT COMPLIANCE ERROR:', error instanceof Error ? error : undefined);
       
       return {
         storageCompliant: false,
@@ -651,12 +651,12 @@ export class HIPAAAssessmentIntegration {
    */
 
   private determineCrisisLevel(crisisDetection: CrisisDetection): CrisisInterventionCompliance['crisisLevel'] {
-    switch (crisisDetection.triggerType) {
-      case 'phq9_suicidal':
+    switch (crisisDetection.primaryTrigger) {
+      case 'phq9_suicidal_ideation':
         return 'imminent_danger';
-      case 'phq9_score':
+      case 'phq9_severe_score':
         return crisisDetection.triggerValue >= 22 ? 'severe' : 'high';
-      case 'gad7_score':
+      case 'gad7_severe_score':
         return crisisDetection.triggerValue >= 18 ? 'severe' : 'moderate';
       default:
         return 'moderate';
@@ -665,7 +665,7 @@ export class HIPAAAssessmentIntegration {
 
   private async assessCrisisInterventionCompliance(
     crisisLevel: CrisisInterventionCompliance['crisisLevel'],
-    triggerType: CrisisDetection['triggerType']
+    triggerType: CrisisDetection['primaryTrigger']
   ): Promise<CrisisInterventionCompliance> {
     const isImminentDanger = crisisLevel === 'imminent_danger';
     const isSevere = crisisLevel === 'severe' || isImminentDanger;
@@ -971,7 +971,7 @@ export class HIPAAAssessmentIntegration {
       // Implementation would use secure audit logging
       
     } catch (error) {
-      logError('🚨 COMPLIANCE VALIDATION LOGGING ERROR:', error);
+      logError(LogCategory.SYSTEM, 'COMPLIANCE VALIDATION LOGGING ERROR:', error instanceof Error ? error : undefined);
     }
   }
 
@@ -1005,7 +1005,7 @@ export class HIPAAAssessmentIntegration {
       };
 
     } catch (error) {
-      logError('🚨 QUICK COMPLIANCE CHECK ERROR:', error);
+      logError(LogCategory.SYSTEM, 'QUICK COMPLIANCE CHECK ERROR:', error instanceof Error ? error : undefined);
       
       return {
         canProceed: false,
@@ -1074,7 +1074,7 @@ export class HIPAAAssessmentIntegration {
       };
 
     } catch (error) {
-      logError('🚨 COMPLIANCE STATUS ERROR:', error);
+      logError(LogCategory.SYSTEM, 'COMPLIANCE STATUS ERROR:', error instanceof Error ? error : undefined);
       
       return {
         overallCompliance: 'critical',

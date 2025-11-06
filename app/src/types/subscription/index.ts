@@ -161,7 +161,7 @@ export interface FeatureAccess {
   // Non-Crisis Features (gated by subscription status)
   checkIns: boolean;                   // Mood check-ins
   breathingExercises: boolean;         // Full breathing library
-  therapeuticContent: boolean;         // MBCT exercises
+  therapeuticContent: boolean;         // educational exercises
   progressInsights: boolean;           // Charts, trends, analytics
   assessments: boolean;                // PHQ-9/GAD-7 (initial assessment always free)
 }

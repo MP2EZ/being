@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Prebuild Health Check Script - Being. MBCT
+ * Prebuild Health Check Script - Being.
  * Validates critical system health before build execution
  *
  * CRITICAL SAFETY CHECKS:

@@ -102,4 +102,4 @@ export type {
 export { default as AccessibilityPerformanceMonitor, PerformanceMonitorUI } from './AccessibilityPerformance';
 
 // Unified Provider for all advanced accessibility features
-export { AdvancedAccessibilityProvider } from './UnifiedProvider';
+export { AdvancedAccessibilityProvider, useAdvancedAccessibilityStatus } from './UnifiedProvider';

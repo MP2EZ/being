@@ -101,7 +101,7 @@ export const useSimpleTheme = (): SimpleThemeContextValue => {
 
   if (!context) {
     // Fallback to default instead of throwing error for stability
-    logSecurity('useSimpleTheme used outside provider, using default');
+    logSecurity('useSimpleTheme used outside provider, using default', 'low');
     return defaultValue;
   }
 

@@ -1,7 +1,7 @@
 /**
  * Body Area Grid Component
  * DRD-compliant interactive body area selection for body scan exercises
- * Clinical: Inclusive language, gentle awareness, MBCT-compliant
+ * Clinical: Inclusive language, gentle awareness, evidence-based
  */
 
 import React from 'react';

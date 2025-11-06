@@ -2,7 +2,7 @@
 
 ## Overview
 
-This implementation provides encrypted cloud backup and privacy-preserving analytics for the Being MBCT app using Supabase free tier. No BAA required as only encrypted blobs are stored.
+This implementation provides encrypted cloud backup and privacy-preserving analytics for the Being app using Supabase free tier. No BAA required as only encrypted blobs are stored.
 
 ### Key Features
 

@@ -41,7 +41,7 @@ import type {
   CrisisDetection,
   CrisisIntervention,
   AssessmentAnswer
-} from '../flows/assessment/types';
+} from '../../flows/assessment/types';
 
 /**
  * INTEGRATION CONFIGURATION
@@ -150,7 +150,7 @@ export class CrisisIntegrationOrchestrator {
    */
   public async initializeCrisisIntegration(): Promise<void> {
     try {
-      logPerformance('🔄 Initializing Crisis Integration Orchestrator...');
+      console.log('🔄 Initializing Crisis Integration Orchestrator...');
 
       // Start performance monitoring
       CrisisPerformanceMonitor.startMonitoring();
@@ -159,7 +159,7 @@ export class CrisisIntegrationOrchestrator {
       await this.initializeAssessmentStoreIntegration();
 
       // Setup real-time monitoring
-      await this.setupRealtimeMonitoring();
+      await (this as any).setupRealtimeMonitoring();
 
       // Start health checks
       this.startHealthChecks();
@@ -169,10 +169,10 @@ export class CrisisIntegrationOrchestrator {
       this.integrationStatus.monitoringEnabled = true;
       this.integrationStatus.lastHealthCheck = Date.now();
 
-      logPerformance('✅ Crisis Integration Orchestrator Initialized');
+      console.log('✅ Crisis Integration Orchestrator Initialized');
 
     } catch (error) {
-      logError('🚨 CRISIS INTEGRATION INITIALIZATION ERROR:', error);
+      logError(LogCategory.CRISIS, '🚨 CRISIS INTEGRATION INITIALIZATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       this.recordIntegrationError('initialization_failed', error);
       throw error;
     }
@@ -197,10 +197,10 @@ export class CrisisIntegrationOrchestrator {
         }
       );
 
-      logPerformance('✅ Assessment Store Integration Initialized');
+      console.log('✅ Assessment Store Integration Initialized');
 
     } catch (error) {
-      logError('🚨 ASSESSMENT STORE INTEGRATION ERROR:', error);
+      logError(LogCategory.CRISIS, '🚨 ASSESSMENT STORE INTEGRATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -259,7 +259,7 @@ export class CrisisIntegrationOrchestrator {
       });
 
     } catch (error) {
-      logError('🚨 ASSESSMENT RESPONSE MONITORING ERROR:', error);
+      logError(LogCategory.CRISIS, '🚨 ASSESSMENT RESPONSE MONITORING ERROR:', error instanceof Error ? error : new Error(String(error)));
       this.recordIntegrationError('response_monitoring_failed', error);
     }
   }
@@ -280,7 +280,9 @@ export class CrisisIntegrationOrchestrator {
       // Get assessment context
       const context = this.activeAssessments.get(assessmentId);
       if (!context) {
-        logSecurity(`Assessment context not found for completion: ${assessmentId}`);
+        logSecurity('Assessment context not found for completion', 'low', {
+          assessmentId
+        });
       }
 
       // Perform comprehensive crisis detection
@@ -317,7 +319,7 @@ export class CrisisIntegrationOrchestrator {
       return detection;
 
     } catch (error) {
-      logError('🚨 ASSESSMENT COMPLETION INTEGRATION ERROR:', error);
+      logError(LogCategory.CRISIS, '🚨 ASSESSMENT COMPLETION INTEGRATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       this.recordIntegrationError('completion_integration_failed', error);
       return null;
     }
@@ -362,7 +364,7 @@ export class CrisisIntegrationOrchestrator {
       });
 
     } catch (error) {
-      logError('🚨 CRISIS INTERVENTION UI INTEGRATION ERROR:', error);
+      logError(LogCategory.CRISIS, '🚨 CRISIS INTERVENTION UI INTEGRATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       this.recordIntegrationError('intervention_ui_integration_failed', error);
     }
   }
@@ -380,7 +382,9 @@ export class CrisisIntegrationOrchestrator {
       // Get assessment context
       const context = this.activeAssessments.get(assessmentId);
       if (!context) {
-        logSecurity(`Assessment context not found for crisis resolution: ${assessmentId}`);
+        logSecurity('Assessment context not found for crisis resolution', 'low', {
+          assessmentId
+        });
         return;
       }
 
@@ -409,7 +413,7 @@ export class CrisisIntegrationOrchestrator {
       });
 
     } catch (error) {
-      logError('🚨 CRISIS RESOLUTION INTEGRATION ERROR:', error);
+      logError(LogCategory.CRISIS, '🚨 CRISIS RESOLUTION INTEGRATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       this.recordIntegrationError('crisis_resolution_failed', error);
     }
   }
@@ -453,7 +457,7 @@ export class CrisisIntegrationOrchestrator {
       }
 
     } catch (error) {
-      logError('🚨 SUICIDAL IDEATION DETECTION ERROR:', error);
+      logError(LogCategory.CRISIS, '🚨 SUICIDAL IDEATION DETECTION ERROR:', error instanceof Error ? error : new Error(String(error)));
       this.recordIntegrationError('suicidal_ideation_detection_failed', error);
     }
   }
@@ -476,7 +480,7 @@ export class CrisisIntegrationOrchestrator {
       }
 
     } catch (error) {
-      logError('🚨 PROGRESSIVE CRISIS EVALUATION ERROR:', error);
+      logError(LogCategory.CRISIS, '🚨 PROGRESSIVE CRISIS EVALUATION ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -486,7 +490,7 @@ export class CrisisIntegrationOrchestrator {
   ): Promise<void> {
     // Provide early warning without full intervention
     // Implementation would show supportive messaging and prepare resources
-    logPerformance(`🔶 Emerging crisis risk detected: ${riskType} for assessment ${context.assessmentId}`);
+    console.log(`🔶 Emerging crisis risk detected: ${riskType} for assessment ${context.assessmentId}`);
   }
 
   /**
@@ -585,7 +589,7 @@ export class CrisisIntegrationOrchestrator {
       );
 
     } catch (error) {
-      logError('🚨 CRISIS DATA CAPTURE ERROR:', error);
+      logError(LogCategory.CRISIS, '🚨 CRISIS DATA CAPTURE ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -598,7 +602,7 @@ export class CrisisIntegrationOrchestrator {
   ): Promise<void> {
     // Integration with React Native navigation and UI
     // Implementation would overlay crisis intervention UI
-    logPerformance('🚨 Displaying Crisis Intervention Overlay');
+    console.log('🚨 Displaying Crisis Intervention Overlay');
   }
 
   private async setupCrisisNavigation(
@@ -607,13 +611,13 @@ export class CrisisIntegrationOrchestrator {
   ): Promise<void> {
     // Setup navigation to crisis intervention screens
     // Implementation would configure navigation stack
-    logPerformance('🔄 Setting up Crisis Navigation');
+    console.log('🔄 Setting up Crisis Navigation');
   }
 
   private async handleAssessmentContinuation(context: CrisisAssessmentContext): Promise<void> {
     // Allow assessment to continue after crisis resolution
     setTimeout(() => {
-      logPerformance('✅ Assessment continuation allowed');
+      console.log('✅ Assessment continuation allowed');
       // Implementation would enable assessment UI
     }, INTEGRATION_CONFIG.ASSESSMENT_CONTINUATION_DELAY_MS);
   }
@@ -624,7 +628,7 @@ export class CrisisIntegrationOrchestrator {
     context.terminatedAt = Date.now();
     context.terminationReason = 'crisis_intervention_required';
 
-    logPerformance('⏹️ Assessment terminated due to crisis');
+    console.log('⏹️ Assessment terminated due to crisis');
   }
 
   private async scheduleFollowUp(
@@ -635,7 +639,7 @@ export class CrisisIntegrationOrchestrator {
     const followUpUrgency = this.determineFollowUpUrgency(resolutionType);
 
     // Implementation would schedule follow-up
-    logPerformance(`📅 Follow-up scheduled with urgency: ${followUpUrgency}`);
+    console.log(`📅 Follow-up scheduled with urgency: ${followUpUrgency}`);
   }
 
   /**
@@ -666,16 +670,16 @@ export class CrisisIntegrationOrchestrator {
 
       if (healthyComponents < totalComponents * 0.8) {
         this.integrationStatus.performanceStatus = 'critical';
-        logError('🚨 CRISIS INTEGRATION SYSTEM HEALTH CRITICAL');
+        logError(LogCategory.SYSTEM, 'CRISIS INTEGRATION SYSTEM HEALTH CRITICAL');
       } else if (healthyComponents < totalComponents) {
         this.integrationStatus.performanceStatus = 'degraded';
-        logSecurity('⚠️ Crisis Integration System Health Degraded');
+        logSecurity('⚠️ Crisis Integration System Health Degraded', 'low');
       } else {
         this.integrationStatus.performanceStatus = 'optimal';
       }
 
     } catch (error) {
-      logError('🚨 INTEGRATION HEALTH CHECK ERROR:', error);
+      logError(LogCategory.CRISIS, '🚨 INTEGRATION HEALTH CHECK ERROR:', error instanceof Error ? error : new Error(String(error)));
       this.recordIntegrationError('health_check_failed', error);
     }
   }
@@ -712,11 +716,11 @@ export class CrisisIntegrationOrchestrator {
         try {
           await listener(eventData);
         } catch (error) {
-          logError(`Event listener error for ${eventData.eventType}:`, error);
+          logError(LogCategory.CRISIS, `Event listener error for ${eventData.eventType}:`, error instanceof Error ? error : new Error(String(error)));
         }
       }
     } catch (error) {
-      logError('🚨 EVENT EMISSION ERROR:', error);
+      logError(LogCategory.CRISIS, '🚨 EVENT EMISSION ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -863,7 +867,7 @@ export class CrisisIntegrationOrchestrator {
       }
 
     } catch (error) {
-      logError('🚨 ASSESSMENT STORE CHANGE HANDLING ERROR:', error);
+      logError(LogCategory.CRISIS, '🚨 ASSESSMENT STORE CHANGE HANDLING ERROR:', error instanceof Error ? error : new Error(String(error)));
       this.recordIntegrationError('store_change_handling_failed', error);
     }
   }
@@ -889,7 +893,7 @@ export class CrisisIntegrationOrchestrator {
 
     CrisisPerformanceMonitor.stopMonitoring();
 
-    logPerformance('⏹️ Crisis Integration Orchestrator Shutdown');
+    console.log('⏹️ Crisis Integration Orchestrator Shutdown');
   }
 
   public getIntegrationErrors(): string[] {
@@ -939,9 +943,9 @@ export function useCrisisIntegration() {
     activeAssessments: orchestrator.getActiveAssessmentsCount(),
     errors: orchestrator.getIntegrationErrors(),
     clearErrors: () => orchestrator.clearIntegrationErrors(),
-    addEventListener: (eventType: CrisisIntegrationEvent, listener: Function) =>
+    addEventListener: (eventType: CrisisIntegrationEvent, listener: (eventData: CrisisIntegrationEventData) => void | Promise<void>) =>
       orchestrator.addEventListener(eventType, listener),
-    removeEventListener: (eventType: CrisisIntegrationEvent, listener: Function) =>
+    removeEventListener: (eventType: CrisisIntegrationEvent, listener: (eventData: CrisisIntegrationEventData) => void | Promise<void>) =>
       orchestrator.removeEventListener(eventType, listener)
   };
 }

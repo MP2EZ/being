@@ -39,7 +39,7 @@ import type {
   CrisisSeverityLevel,
   CrisisActionType,
   CrisisResource
-} from '../flows/assessment/types';
+} from '../../flows/assessment/types';
 
 /**
  * CLINICAL CRISIS THRESHOLDS - IMMUTABLE
@@ -159,7 +159,7 @@ export class CrisisDetectionEngine {
       return detection;
 
     } catch (error) {
-      logError(LogCategory.CRISIS, 'Crisis detection engine error', error);
+      logError(LogCategory.CRISIS, 'Crisis detection engine error', error instanceof Error ? error : new Error(String(error)));
 
       // FAIL-SAFE: Create emergency detection for any system error
       const emergencyDetection = this.createEmergencyFailsafe(
@@ -206,7 +206,7 @@ export class CrisisDetectionEngine {
       return intervention;
 
     } catch (error) {
-      logError(LogCategory.CRISIS, 'Crisis intervention error', error);
+      logError(LogCategory.CRISIS, 'Crisis intervention error', error instanceof Error ? error : new Error(String(error)));
 
       // FAIL-SAFE: Direct 988 call
       this.emergencyFailsafeIntervention();
@@ -253,7 +253,7 @@ export class CrisisDetectionEngine {
         context: {
           triggeringAnswers: [{
             questionId,
-            response,
+            response: response as any,
             timestamp: Date.now()
           }],
           timeOfDay: this.getTimeOfDay()
@@ -266,7 +266,7 @@ export class CrisisDetectionEngine {
       return detection;
 
     } catch (error) {
-      logError(LogCategory.CRISIS, 'Suicidal ideation detection error', error);
+      logError(LogCategory.CRISIS, 'Suicidal ideation detection error', error instanceof Error ? error : new Error(String(error)));
 
       // FAIL-SAFE: Emergency intervention
       this.emergencyFailsafeIntervention();
@@ -306,7 +306,7 @@ export class CrisisDetectionEngine {
       this.recordPerformanceMetric('data_capture_complete', performance.now());
 
     } catch (error) {
-      logError(LogCategory.CRISIS, 'Crisis data capture error', error);
+      logError(LogCategory.CRISIS, 'Crisis data capture error', error instanceof Error ? error : new Error(String(error)));
       // Continue - don't fail intervention for data capture errors
     }
   }
@@ -321,10 +321,10 @@ export class CrisisDetectionEngine {
     // Add threshold validations
     return {
       ...metrics,
-      detection_time_violations: metrics.detection_max > CLINICAL_CRISIS_THRESHOLDS.MAX_DETECTION_TIME_MS ? 1 : 0,
-      intervention_time_violations: metrics.intervention_max > CLINICAL_CRISIS_THRESHOLDS.MAX_INTERVENTION_TIME_MS ? 1 : 0,
+      detection_time_violations: (metrics['detection_max'] ?? 0) > CLINICAL_CRISIS_THRESHOLDS.MAX_DETECTION_TIME_MS ? 1 : 0,
+      intervention_time_violations: (metrics['intervention_max'] ?? 0) > CLINICAL_CRISIS_THRESHOLDS.MAX_INTERVENTION_TIME_MS ? 1 : 0,
       total_crisis_episodes: this.activeInterventions.size,
-      performance_status: this.getPerformanceStatus(metrics)
+      performance_status: this.getPerformanceStatus(metrics) as any
     };
   }
 
@@ -349,7 +349,7 @@ export class CrisisDetectionEngine {
           break;
       }
     } catch (error) {
-      logError(LogCategory.CRISIS, 'Crisis intervention display error', error);
+      logError(LogCategory.CRISIS, 'Crisis intervention display error', error instanceof Error ? error : new Error(String(error)));
       // Fail-safe: Basic emergency alert
       this.emergencyFailsafeIntervention();
     }
@@ -698,8 +698,8 @@ export class CrisisDetectionEngine {
   }
 
   private getPerformanceStatus(metrics: Record<string, number>): 'optimal' | 'acceptable' | 'concerning' | 'critical' {
-    const detectionTime = metrics.detection_max || 0;
-    const interventionTime = metrics.intervention_max || 0;
+    const detectionTime = metrics['detection_max'] || 0;
+    const interventionTime = metrics['intervention_max'] || 0;
 
     if (detectionTime > CLINICAL_CRISIS_THRESHOLDS.MAX_DETECTION_TIME_MS * 2 ||
         interventionTime > CLINICAL_CRISIS_THRESHOLDS.MAX_INTERVENTION_TIME_MS * 2) {
@@ -733,7 +733,7 @@ export class CrisisDetectionEngine {
         JSON.stringify(logEntry)
       );
     } catch (error) {
-      logError(LogCategory.CRISIS, 'Crisis detection logging failed', error);
+      logError(LogCategory.CRISIS, 'Crisis detection logging failed', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -752,7 +752,7 @@ export class CrisisDetectionEngine {
         JSON.stringify(logEntry)
       );
     } catch (error) {
-      logError(LogCategory.CRISIS, 'Crisis intervention logging failed', error);
+      logError(LogCategory.CRISIS, 'Crisis intervention logging failed', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -764,7 +764,7 @@ export class CrisisDetectionEngine {
         encrypted
       );
     } catch (error) {
-      logError(LogCategory.CRISIS, 'Crisis data storage failed', error);
+      logError(LogCategory.CRISIS, 'Crisis data storage failed', error instanceof Error ? error : new Error(String(error)));
     }
   }
 

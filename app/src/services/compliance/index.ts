@@ -23,7 +23,15 @@
  * - Audit Logging Systems
  */
 
-// Core compliance engines
+// Import for internal use
+import HIPAAComplianceEngine from './HIPAAComplianceEngine';
+import HIPAAConsentManager from './HIPAAConsentManager';
+import HIPAADataMinimizationEngine from './HIPAADataMinimization';
+import HIPAABreachResponseEngine from './HIPAABreachResponseEngine';
+import HIPAAAssessmentIntegration from './HIPAAAssessmentIntegration';
+import { logError, LogCategory } from '../logging';
+
+// Core compliance engines - Re-export
 export { default as HIPAAComplianceEngine } from './HIPAAComplianceEngine';
 export { default as HIPAAConsentManager } from './HIPAAConsentManager';
 export { default as HIPAADataMinimizationEngine } from './HIPAADataMinimization';
@@ -137,7 +145,7 @@ export class HIPAAComplianceService {
       }
 
       return {
-        canProceed,
+        canProceed: canProceed ?? false,
         complianceStatus,
         validationResult,
         requiredActions: validationResult.recommendations,
@@ -145,7 +153,7 @@ export class HIPAAComplianceService {
       };
 
     } catch (error) {
-      logError('🚨 ASSESSMENT COMPLIANCE VALIDATION ERROR:', error);
+      logError(LogCategory.SYSTEM, 'ASSESSMENT COMPLIANCE VALIDATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       
       return {
         canProceed: false,
@@ -197,7 +205,7 @@ export class HIPAAComplianceService {
       };
 
     } catch (error) {
-      logError('🚨 CRISIS INTERVENTION COMPLIANCE ERROR:', error);
+      logError(LogCategory.SYSTEM, 'CRISIS INTERVENTION COMPLIANCE ERROR:', error instanceof Error ? error : new Error(String(error)));
       
       return {
         canIntervene: false,
@@ -248,7 +256,7 @@ export class HIPAAComplianceService {
       };
 
     } catch (error) {
-      logError('🚨 CONSENT COLLECTION ERROR:', error);
+      logError(LogCategory.SYSTEM, 'CONSENT COLLECTION ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -282,7 +290,7 @@ export class HIPAAComplianceService {
       };
 
     } catch (error) {
-      logError('🚨 CONSENT VALIDATION ERROR:', error);
+      logError(LogCategory.SYSTEM, 'CONSENT VALIDATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       
       return {
         valid: false,
@@ -346,7 +354,7 @@ export class HIPAAComplianceService {
       };
 
     } catch (error) {
-      logError('🚨 DATA ACCESS VALIDATION ERROR:', error);
+      logError(LogCategory.SYSTEM, 'DATA ACCESS VALIDATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       
       return {
         approved: false,
@@ -377,7 +385,7 @@ export class HIPAAComplianceService {
     estimatedAffectedUsers: number = 1
   ): Promise<{
     breachReported: boolean;
-    incidentId?: string;
+    incidentId?: string | undefined;
     severity: string;
     immediateActions: string[];
     notificationRequired: boolean;
@@ -401,7 +409,7 @@ export class HIPAAComplianceService {
       };
 
     } catch (error) {
-      logError('🚨 BREACH REPORTING ERROR:', error);
+      logError(LogCategory.SYSTEM, 'BREACH REPORTING ERROR:', error instanceof Error ? error : new Error(String(error)));
       
       return {
         breachReported: false,
@@ -452,7 +460,7 @@ export class HIPAAComplianceService {
       };
 
     } catch (error) {
-      logError('🚨 COMPLIANCE STATUS ERROR:', error);
+      logError(LogCategory.SYSTEM, 'COMPLIANCE STATUS ERROR:', error instanceof Error ? error : new Error(String(error)));
       
       return {
         overallStatus: 'critical',
@@ -495,34 +503,39 @@ export class HIPAAComplianceService {
       const timestamp = Date.now();
       
       // Audit each component
-      const findings = [
+      const findings: Array<{
+        component: string;
+        status: 'pass' | 'warning' | 'fail';
+        description: string;
+        recommendations: string[];
+      }> = [
         {
           component: 'consent_management',
-          status: 'pass' as const,
+          status: 'pass',
           description: 'Consent management system operational',
           recommendations: []
         },
         {
           component: 'data_minimization',
-          status: 'pass' as const,
+          status: 'pass',
           description: 'Data minimization controls in place',
           recommendations: []
         },
         {
           component: 'access_control',
-          status: 'pass' as const,
+          status: 'pass',
           description: 'Access controls properly configured',
           recommendations: []
         },
         {
           component: 'audit_logging',
-          status: 'pass' as const,
+          status: 'pass',
           description: 'Audit logging comprehensive',
           recommendations: []
         },
         {
           component: 'breach_response',
-          status: 'pass' as const,
+          status: 'pass',
           description: 'Breach response procedures ready',
           recommendations: []
         }
@@ -542,7 +555,7 @@ export class HIPAAComplianceService {
       };
 
     } catch (error) {
-      logError('🚨 COMPLIANCE AUDIT ERROR:', error);
+      logError(LogCategory.SYSTEM, 'COMPLIANCE AUDIT ERROR:', error instanceof Error ? error : new Error(String(error)));
       
       const auditId = `audit_error_${Date.now()}`;
       return {
@@ -591,7 +604,7 @@ export class HIPAAComplianceService {
       };
 
     } catch (error) {
-      logError('🚨 QUICK COMPLIANCE CHECK ERROR:', error);
+      logError(LogCategory.SYSTEM, 'QUICK COMPLIANCE CHECK ERROR:', error instanceof Error ? error : new Error(String(error)));
       
       return {
         canProceed: false,

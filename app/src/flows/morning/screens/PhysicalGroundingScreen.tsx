@@ -25,11 +25,11 @@ import {
   ScrollView,
   StyleSheet,
 } from 'react-native';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { StackScreenProps } from '@react-navigation/stack';
 import type { MorningFlowParamList, PhysicalGroundingData } from '../../../types/flows';
 import BreathingCircle from '../../shared/components/BreathingCircle';
 
-type Props = NativeStackScreenProps<MorningFlowParamList, 'PhysicalGrounding'> & {
+type Props = StackScreenProps<MorningFlowParamList, 'PhysicalGrounding'> & {
   onSave?: (data: PhysicalGroundingData) => void;
 };
 
@@ -37,7 +37,7 @@ type GroundingMethod = 'body_scan' | 'breathing';
 
 const PhysicalGroundingScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
   // FEAT-23: Restore initial data if resuming session
-  const initialData = route.params?.initialData as PhysicalGroundingData | undefined;
+  const initialData = (route.params as any)?.initialData as PhysicalGroundingData | undefined;
 
   // Debug logging
   if (initialData) {

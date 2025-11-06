@@ -33,11 +33,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppState } from 'react-native';
 
 // Services
-import EncryptionService from '../security/EncryptionService';
+import EncryptionService, { EncryptedDataPackage } from '../security/EncryptionService';
 import supabaseService from './SupabaseService';
 
 // Store imports
-import { assessmentStore } from '../../flows/assessment/stores/assessmentStore';
+import { useAssessmentStore as assessmentStore } from '../../flows/assessment/stores/assessmentStore';
 
 // Types
 interface BackupData {
@@ -126,10 +126,10 @@ class CloudBackupService {
       this.setupAppStateListener();
 
       this.isInitialized = true;
-      logPerformance('[CloudBackupService] Initialized');
+      console.log('[CloudBackupService] Initialized');
 
     } catch (error) {
-      logError('[CloudBackupService] Initialization failed:', error);
+      logError(LogCategory.SYSTEM, '[CloudBackupService] Initialization failed:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -139,7 +139,7 @@ class CloudBackupService {
    */
   async createBackup(): Promise<BackupResult> {
     if (!this.isInitialized) {
-      logSecurity('[CloudBackupService] Not initialized');
+      logSecurity('[CloudBackupService] Not initialized', 'low');
       return { success: false, error: 'Service not initialized' };
     }
 
@@ -152,7 +152,7 @@ class CloudBackupService {
       // Check if data has changed since last backup
       const dataHash = await this.calculateDataHash(backupData);
       if (dataHash === this.lastBackupHash) {
-        logPerformance('[CloudBackupService] No changes detected, skipping backup');
+        console.log('[CloudBackupService] No changes detected, skipping backup');
         return { success: true, timestamp: Date.now() };
       }
 
@@ -177,12 +177,15 @@ class CloudBackupService {
         'level_3_intervention_metadata' // Cloud backup is level 3 sensitivity
       );
 
+      // Serialize encrypted package for storage
+      const encryptedDataString = JSON.stringify(encryptedData);
+
       // Calculate integrity checksum
-      const checksum = await this.calculateChecksum(encryptedData);
+      const checksum = await this.calculateChecksum(encryptedDataString);
 
       // Upload to Supabase
       const uploadSuccess = await supabaseService.saveBackup(
-        encryptedData,
+        encryptedDataString,
         checksum,
         backupData.version
       );
@@ -209,7 +212,9 @@ class CloudBackupService {
       });
 
       const duration = Date.now() - startTime;
-      logPerformance(`[CloudBackupService] Backup completed in ${duration}ms, size: ${Math.round(finalSize / 1024)}KB`);
+      logPerformance('CloudBackupService.createBackup', duration, {
+        sizeKB: Math.round(finalSize / 1024)
+      });
 
       return {
         success: true,
@@ -218,7 +223,7 @@ class CloudBackupService {
       };
 
     } catch (error) {
-      logError('[CloudBackupService] Backup failed:', error);
+      logError(LogCategory.SYSTEM, '[CloudBackupService] Backup failed:', error instanceof Error ? error : new Error(String(error)));
 
       // Track failure
       await supabaseService.trackEvent('backup_failed', {
@@ -238,7 +243,7 @@ class CloudBackupService {
    */
   async restoreFromBackup(): Promise<RestoreResult> {
     if (!this.isInitialized) {
-      logSecurity('[CloudBackupService] Not initialized');
+      logSecurity('[CloudBackupService] Not initialized', 'low');
       return { success: false, restoredStores: [], errors: ['Service not initialized'] };
     }
 
@@ -259,9 +264,10 @@ class CloudBackupService {
         }
       }
 
-      // Decrypt data
+      // Decrypt data (parse JSON string back to EncryptedDataPackage)
+      const encryptedPackage = JSON.parse(backupRecord.encrypted_data) as EncryptedDataPackage;
       const decryptedData = await EncryptionService.decryptData(
-        backupRecord.encrypted_data,
+        encryptedPackage,
         'level_3_intervention_metadata'
       );
 
@@ -305,7 +311,9 @@ class CloudBackupService {
       });
 
       const duration = Date.now() - startTime;
-      logPerformance(`[CloudBackupService] Restore completed in ${duration}ms, restored: ${restoredStores.join(', ')}`);
+      logPerformance('CloudBackupService.restoreBackup', duration, {
+        restoredStores: restoredStores.join(', ')
+      });
 
       return {
         success: errors.length === 0,
@@ -315,7 +323,7 @@ class CloudBackupService {
       };
 
     } catch (error) {
-      logError('[CloudBackupService] Restore failed:', error);
+      logError(LogCategory.SYSTEM, '[CloudBackupService] Restore failed:', error instanceof Error ? error : new Error(String(error)));
 
       // Track failure
       await supabaseService.trackEvent('backup_restore_failed', {
@@ -339,7 +347,7 @@ class CloudBackupService {
       const backup = await supabaseService.getBackup();
       return backup !== null;
     } catch (error) {
-      logError('[CloudBackupService] Failed to check for backup:', error);
+      logError(LogCategory.SYSTEM, '[CloudBackupService] Failed to check for backup:', error instanceof Error ? error : new Error(String(error)));
       return false;
     }
   }
@@ -350,8 +358,8 @@ class CloudBackupService {
   async getBackupStatus(): Promise<{
     hasLocalData: boolean;
     hasCloudBackup: boolean;
-    lastBackupTime?: number;
-    cloudBackupTime?: number;
+    lastBackupTime?: number | undefined;
+    cloudBackupTime?: number | undefined;
     needsBackup: boolean;
   }> {
     try {
@@ -377,7 +385,7 @@ class CloudBackupService {
       };
 
     } catch (error) {
-      logError('[CloudBackupService] Failed to get backup status:', error);
+      logError(LogCategory.SYSTEM, '[CloudBackupService] Failed to get backup status:', error instanceof Error ? error : new Error(String(error)));
       return {
         hasLocalData: false,
         hasCloudBackup: false,
@@ -507,7 +515,7 @@ class CloudBackupService {
         this.config = { ...this.config, ...savedConfig };
       }
     } catch (error) {
-      logSecurity('[CloudBackupService] Failed to load config, using defaults');
+      logSecurity('[CloudBackupService] Failed to load config, using defaults', 'low');
     }
   }
 
@@ -518,7 +526,7 @@ class CloudBackupService {
     try {
       await AsyncStorage.setItem(STORAGE_KEYS.BACKUP_CONFIG, JSON.stringify(this.config));
     } catch (error) {
-      logSecurity('[CloudBackupService] Failed to save config:', error);
+      logSecurity('[CloudBackupService] Failed to save config:', 'medium', { error });
     }
   }
 
@@ -541,7 +549,7 @@ class CloudBackupService {
    */
   private setupStoreListeners(): void {
     // Listen to assessment store changes
-    assessmentStore.subscribe((state, prevState) => {
+    assessmentStore.subscribe((state: any, prevState: any) => {
       // Trigger backup on significant changes
       if (this.shouldTriggerImmediateBackup(state, prevState)) {
         // Debounce rapid changes
