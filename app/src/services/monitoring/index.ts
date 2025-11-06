@@ -1,6 +1,4 @@
 /**
-import { logError, LogCategory } from '../logging';
-
  * PRODUCTION MONITORING SERVICES
  * Week 4 Phase 1c - Critical Production Infrastructure
  *
@@ -15,7 +13,29 @@ import { logError, LogCategory } from '../logging';
  * import { errorMonitoringService, trackCrisisError, trackSyncError } from '@/services/monitoring';
  */
 
-// Core Error Monitoring Service
+// Import for internal use and re-export
+import {
+  ErrorMonitoringService,
+  errorMonitoringService,
+  ErrorSeverity,
+  ErrorCategory,
+  trackError,
+  trackCrisisError
+} from './ErrorMonitoringService';
+
+import {
+  crisisMonitoringService,
+  initializeCrisisMonitoring
+} from '../crisis/CrisisMonitoringService';
+
+import {
+  logError,
+  logSecurity,
+  logCrisis,
+  LogCategory
+} from '../logging';
+
+// Core Error Monitoring Service - Re-export
 export {
   ErrorMonitoringService,
   errorMonitoringService,

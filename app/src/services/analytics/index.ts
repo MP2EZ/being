@@ -1,5 +1,5 @@
 /**
-import { logPerformance, logError, LogCategory } from '../logging';
+
  * ANALYTICS SERVICES INDEX - Week 3 Privacy-Preserving Analytics
  *
  * SECURITY-INTEGRATED ANALYTICS ARCHITECTURE:
@@ -23,6 +23,9 @@ import { logPerformance, logError, LogCategory } from '../logging';
  * - Crisis detection system integration for emergency prioritization
  * - User consent management for privacy compliance
  */
+
+import { logPerformance, logError, LogCategory } from '../logging';
+
 
 // Core Analytics Service
 export { default as AnalyticsService } from './AnalyticsService';
@@ -161,6 +164,9 @@ export interface AnalyticsError {
  * ANALYTICS SERVICE ORCHESTRATOR
  * Provides unified access to analytics capabilities and management
  */
+
+import { logPerformance, logError, LogCategory } from '../logging';
+
 export class AnalyticsOrchestrator {
   private static instance: AnalyticsOrchestrator;
   private analyticsService = AnalyticsService;

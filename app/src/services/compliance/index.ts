@@ -1,6 +1,4 @@
 /**
-import { logError, LogCategory } from '../logging';
-
  * HIPAA COMPLIANCE SERVICE INDEX - DRD-FLOW-005 Assessment System
  *
  * COMPREHENSIVE COMPLIANCE ORCHESTRATION:
@@ -25,7 +23,15 @@ import { logError, LogCategory } from '../logging';
  * - Audit Logging Systems
  */
 
-// Core compliance engines
+// Import for internal use
+import HIPAAComplianceEngine from './HIPAAComplianceEngine';
+import HIPAAConsentManager from './HIPAAConsentManager';
+import HIPAADataMinimizationEngine from './HIPAADataMinimizationEngine';
+import HIPAABreachResponseEngine from './HIPAABreachResponseEngine';
+import HIPAAAssessmentIntegration from './HIPAAAssessmentIntegration';
+import { logError, LogCategory } from '../logging';
+
+// Core compliance engines - Re-export
 export { default as HIPAAComplianceEngine } from './HIPAAComplianceEngine';
 export { default as HIPAAConsentManager } from './HIPAAConsentManager';
 export { default as HIPAADataMinimizationEngine } from './HIPAADataMinimization';
