@@ -159,7 +159,7 @@ export class CrisisDetectionEngine {
       return detection;
 
     } catch (error) {
-      logError(LogCategory.CRISIS, 'Crisis detection engine error', error);
+      logError(LogCategory.CRISIS, 'Crisis detection engine error', error instanceof Error ? error : new Error(String(error)));
 
       // FAIL-SAFE: Create emergency detection for any system error
       const emergencyDetection = this.createEmergencyFailsafe(
@@ -206,7 +206,7 @@ export class CrisisDetectionEngine {
       return intervention;
 
     } catch (error) {
-      logError(LogCategory.CRISIS, 'Crisis intervention error', error);
+      logError(LogCategory.CRISIS, 'Crisis intervention error', error instanceof Error ? error : new Error(String(error)));
 
       // FAIL-SAFE: Direct 988 call
       this.emergencyFailsafeIntervention();
@@ -266,7 +266,7 @@ export class CrisisDetectionEngine {
       return detection;
 
     } catch (error) {
-      logError(LogCategory.CRISIS, 'Suicidal ideation detection error', error);
+      logError(LogCategory.CRISIS, 'Suicidal ideation detection error', error instanceof Error ? error : new Error(String(error)));
 
       // FAIL-SAFE: Emergency intervention
       this.emergencyFailsafeIntervention();
@@ -306,7 +306,7 @@ export class CrisisDetectionEngine {
       this.recordPerformanceMetric('data_capture_complete', performance.now());
 
     } catch (error) {
-      logError(LogCategory.CRISIS, 'Crisis data capture error', error);
+      logError(LogCategory.CRISIS, 'Crisis data capture error', error instanceof Error ? error : new Error(String(error)));
       // Continue - don't fail intervention for data capture errors
     }
   }
@@ -349,7 +349,7 @@ export class CrisisDetectionEngine {
           break;
       }
     } catch (error) {
-      logError(LogCategory.CRISIS, 'Crisis intervention display error', error);
+      logError(LogCategory.CRISIS, 'Crisis intervention display error', error instanceof Error ? error : new Error(String(error)));
       // Fail-safe: Basic emergency alert
       this.emergencyFailsafeIntervention();
     }
@@ -733,7 +733,7 @@ export class CrisisDetectionEngine {
         JSON.stringify(logEntry)
       );
     } catch (error) {
-      logError(LogCategory.CRISIS, 'Crisis detection logging failed', error);
+      logError(LogCategory.CRISIS, 'Crisis detection logging failed', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -752,7 +752,7 @@ export class CrisisDetectionEngine {
         JSON.stringify(logEntry)
       );
     } catch (error) {
-      logError(LogCategory.CRISIS, 'Crisis intervention logging failed', error);
+      logError(LogCategory.CRISIS, 'Crisis intervention logging failed', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -764,7 +764,7 @@ export class CrisisDetectionEngine {
         encrypted
       );
     } catch (error) {
-      logError(LogCategory.CRISIS, 'Crisis data storage failed', error);
+      logError(LogCategory.CRISIS, 'Crisis data storage failed', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
