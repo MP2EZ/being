@@ -27,6 +27,7 @@ import {
 } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { MorningFlowParamList, PhysicalGroundingData } from '../../../types/flows';
+import BreathingCircle from '../../shared/components/BreathingCircle';
 
 type Props = NativeStackScreenProps<MorningFlowParamList, 'PhysicalGrounding'> & {
   onSave?: (data: PhysicalGroundingData) => void;
@@ -171,21 +172,17 @@ const PhysicalGroundingScreen: React.FC<Props> = ({ navigation, route, onSave })
               </Text>
             </View>
           ) : (
-            <View style={styles.guidanceSteps}>
-              <Text style={styles.guidanceStep}>
-                1. Find your natural breath - no need to change it
-              </Text>
-              <Text style={styles.guidanceStep}>
-                2. Notice the rhythm - in and out
-              </Text>
-              <Text style={styles.guidanceStep}>
-                3. Feel the breath in your body
-              </Text>
-              <Text style={styles.guidanceStep}>
-                4. When your mind wanders, gently return
-              </Text>
-              <Text style={styles.guidanceStep}>
-                5. Stay with this for 1-2 minutes
+            <View style={styles.breathingContainer}>
+              <BreathingCircle
+                isActive={true}
+                testID="morning-breathing-circle"
+                phaseText={{
+                  inhale: 'Breathe In',
+                  exhale: 'Breathe Out'
+                }}
+              />
+              <Text style={styles.breathingInstructions}>
+                Follow the circle's rhythm. When your mind wanders, gently return to the breath.
               </Text>
             </View>
           )}
@@ -244,7 +241,7 @@ const styles = StyleSheet.create({
   },
   backButtonText: {
     fontSize: 16,
-    color: '#FF9F43',
+    color: '#B45309',
   },
   header: {
     marginBottom: 24,
@@ -285,7 +282,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   methodCardSelected: {
-    borderColor: '#FF9F43',
+    borderColor: '#B45309',
     backgroundColor: '#FFF8F0',
   },
   methodTitle: {
@@ -295,7 +292,7 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   methodTitleSelected: {
-    color: '#FF9F43',
+    color: '#B45309',
   },
   methodDescription: {
     fontSize: 14,
@@ -346,7 +343,7 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
   },
   continueButton: {
-    backgroundColor: '#FF9F43',
+    backgroundColor: '#B45309',
     padding: 16,
     borderRadius: 8,
     alignItems: 'center',
@@ -366,7 +363,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f9f9f9',
     borderRadius: 8,
     borderLeftWidth: 4,
-    borderLeftColor: '#FF9F43',
+    borderLeftColor: '#B45309',
     marginBottom: 40,
     alignItems: 'center',
   },
@@ -374,6 +371,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontStyle: 'italic',
     color: '#666',
+  },
+  breathingContainer: {
+    alignItems: 'center',
+    paddingVertical: 24,
+  },
+  breathingInstructions: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    marginTop: 16,
+    fontStyle: 'italic',
   },
 });
 

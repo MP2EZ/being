@@ -5,7 +5,7 @@
  * Handles saving/loading/clearing session data with encryption and 24-hour TTL.
  *
  * FEATURES:
- * - Encrypted storage using expo-secure-store
+ * - AES-256-GCM encrypted storage for HIPAA compliance
  * - Automatic 24-hour expiration to prevent guilt accumulation
  * - Type-safe session data handling
  * - Simple API for session management
@@ -24,6 +24,7 @@ import {
   SESSION_STORAGE_KEYS,
   SESSION_TTL_MS,
 } from '../../types/session';
+import EncryptionService from '../security/EncryptionService';
 
 /**
  * Session Storage Service
@@ -54,9 +55,17 @@ export class SessionStorageService {
       };
 
       const key = this.getStorageKey(flowType);
-      const jsonData = JSON.stringify(sessionData);
 
-      await SecureStore.setItemAsync(key, jsonData);
+      // Encrypt session data using AES-256-GCM
+      const encryptedPackage = await EncryptionService.encryptData(
+        sessionData,
+        'level_3_intervention_metadata',
+        `session_${flowType}`
+      );
+
+      // Store encrypted package as JSON
+      const encryptedJson = JSON.stringify(encryptedPackage);
+      await SecureStore.setItemAsync(key, encryptedJson);
 
       console.log(`[SessionStorage] Session saved for ${flowType} at ${currentScreen}`);
     } catch (error) {
@@ -75,13 +84,20 @@ export class SessionStorageService {
   static async loadSession(flowType: FlowType): Promise<SessionData | null> {
     try {
       const key = this.getStorageKey(flowType);
-      const jsonData = await SecureStore.getItemAsync(key);
+      const encryptedJson = await SecureStore.getItemAsync(key);
 
-      if (!jsonData) {
+      if (!encryptedJson) {
         return null; // No session saved
       }
 
-      const sessionData: SessionData = JSON.parse(jsonData);
+      // Parse encrypted package
+      const encryptedPackage = JSON.parse(encryptedJson);
+
+      // Decrypt session data using AES-256-GCM
+      const sessionData: SessionData = await EncryptionService.decryptData(
+        encryptedPackage,
+        `session_${flowType}`
+      );
 
       // Check if session is expired (24 hour TTL)
       const now = Date.now();
@@ -102,6 +118,12 @@ export class SessionStorageService {
       return sessionData;
     } catch (error) {
       console.error(`[SessionStorage] Failed to load session:`, error);
+
+      // Clear corrupted/incompatible session data
+      // This handles migration from old encryption formats
+      await this.clearSession(flowType);
+      console.log(`[SessionStorage] Cleared incompatible session for ${flowType}`);
+
       return null; // Fail gracefully
     }
   }
@@ -137,8 +159,17 @@ export class SessionStorageService {
         sessionData.lastSavedAt = Date.now();
 
         const key = this.getStorageKey(flowType);
-        const jsonData = JSON.stringify(sessionData);
-        await SecureStore.setItemAsync(key, jsonData);
+
+        // Encrypt updated session data using AES-256-GCM
+        const encryptedPackage = await EncryptionService.encryptData(
+          sessionData,
+          'level_3_intervention_metadata',
+          `session_${flowType}`
+        );
+
+        // Store encrypted package as JSON
+        const encryptedJson = JSON.stringify(encryptedPackage);
+        await SecureStore.setItemAsync(key, encryptedJson);
 
         console.log(`[SessionStorage] Session marked completed for ${flowType}`);
       }

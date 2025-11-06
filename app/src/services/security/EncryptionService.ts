@@ -168,6 +168,10 @@ export class EncryptionService {
       // Initialize master key
       await this.initializeMasterKey(userPassphrase);
 
+      // Set flag immediately after master key is ready
+      // (required for verifyEncryptionCapabilities which calls encryptData)
+      this.masterKeyInitialized = true;
+
       // Verify encryption capabilities
       await this.verifyEncryptionCapabilities();
 
@@ -179,8 +183,6 @@ export class EncryptionService {
       if (migrationResult.warnings.length > 0) {
         logSecurity('⚠️  Migration warnings:', migrationResult.warnings);
       }
-
-      this.masterKeyInitialized = true;
 
       const initializationTime = performance.now() - startTime;
       logPerformance(`✅ Encryption Service initialized (${initializationTime.toFixed(2)}ms)`);
@@ -223,8 +225,8 @@ export class EncryptionService {
       const dataString = typeof data === 'string' ? data : JSON.stringify(data);
       const dataBuffer = new TextEncoder().encode(dataString);
 
-      // Generate encryption key
-      const encryptionKey = await this.deriveEncryptionKey(sensitivityLevel, keyId);
+      // Generate encryption key (returns key + salt)
+      const { key: encryptionKey, salt: keySalt } = await this.deriveEncryptionKey(sensitivityLevel, keyId);
 
       // Generate cryptographically secure IV
       const iv = await this.generateSecureRandomBytes(ENCRYPTION_CONFIG.IV_LENGTH);
@@ -261,7 +263,7 @@ export class EncryptionService {
         encryptedData: this.arrayBufferToBase64(encryptionResult.ciphertext),
         iv: this.arrayBufferToBase64(iv),
         tag: this.arrayBufferToBase64(encryptionResult.tag),
-        salt: this.arrayBufferToBase64(encryptionResult.salt || new ArrayBuffer(0)),
+        salt: this.arrayBufferToBase64(keySalt), // Store salt from key derivation
         metadata,
         checksum: await this.calculateChecksum(dataString)
       };
@@ -320,16 +322,18 @@ export class EncryptionService {
         throw new Error('Encryption service not initialized');
       }
 
-      // Derive decryption key
-      const decryptionKey = await this.deriveEncryptionKey(
-        encryptedPackage.metadata.sensitivityLevel,
-        keyId
-      );
-
       // Convert base64 to ArrayBuffer
       const ciphertext = this.base64ToArrayBuffer(encryptedPackage.encryptedData);
       const iv = this.base64ToArrayBuffer(encryptedPackage.iv);
       const tag = this.base64ToArrayBuffer(encryptedPackage.tag);
+      const salt = this.base64ToArrayBuffer(encryptedPackage.salt);
+
+      // Derive decryption key using the stored salt
+      const { key: decryptionKey } = await this.deriveEncryptionKey(
+        encryptedPackage.metadata.sensitivityLevel,
+        keyId,
+        salt // Pass salt to derive the same key used for encryption
+      );
 
       // Perform AES-GCM decryption
       const decryptedBuffer = await this.performAESGCMDecryption(
@@ -543,16 +547,19 @@ export class EncryptionService {
 
   private async deriveEncryptionKey(
     sensitivityLevel: DataSensitivityLevel,
-    keyId?: string
-  ): Promise<ArrayBuffer> {
+    keyId?: string,
+    salt?: ArrayBuffer
+  ): Promise<{ key: ArrayBuffer; salt: ArrayBuffer }> {
     try {
       const derivationKeyId = keyId || `${sensitivityLevel}_${Date.now()}`;
 
-      // Check cache first
-      const cachedKey = this.keyCache.get(derivationKeyId);
-      if (cachedKey) {
-        return cachedKey;
-      }
+      // If salt provided, use it (for decryption)
+      // Otherwise generate new salt (for encryption)
+      const keySalt = salt || await this.generateSecureRandomBytes(ENCRYPTION_CONFIG.SALT_LENGTH);
+
+      // Note: Caching is disabled because each encryption needs a unique salt.
+      // Returning a cached key with a different salt would break decryption.
+      // The cache was causing: encrypt with keyA+saltB, store saltB, decrypt with keyB (derived from saltB) → fail
 
       // Get master key
       const masterKeyB64 = await SecureStore.getItemAsync(ENCRYPTION_CONFIG.MASTER_KEY_ID);
@@ -562,26 +569,18 @@ export class EncryptionService {
 
       const masterKey = this.base64ToArrayBuffer(masterKeyB64);
 
-      // Generate salt for key derivation
-      const salt = await this.generateSecureRandomBytes(ENCRYPTION_CONFIG.SALT_LENGTH);
-
-      // Derive key using PBKDF2
+      // Derive key using PBKDF2 with provided or generated salt
       const derivedKey = await this.deriveKeyPBKDF2(
         masterKey,
-        salt,
+        keySalt,
         ENCRYPTION_CONFIG.PBKDF2_ITERATIONS,
         ENCRYPTION_CONFIG.KEY_LENGTH
       );
 
-      // Cache derived key (with memory cleanup)
-      this.keyCache.set(derivationKeyId, derivedKey);
+      // Caching removed: Each encryption operation needs unique salt,
+      // so we can't reuse derived keys across operations
 
-      // Schedule key cleanup to prevent memory leaks
-      setTimeout(() => {
-        this.keyCache.delete(derivationKeyId);
-      }, 300000); // 5 minutes
-
-      return derivedKey;
+      return { key: derivedKey, salt: keySalt };
 
     } catch (error) {
       logError('🚨 KEY DERIVATION ERROR:', error);
@@ -661,17 +660,23 @@ export class EncryptionService {
           'aes-256-gcm'
         );
 
-        // Parse the result which contains both ciphertext and auth tag
-        // react-native-aes-crypto returns: "ciphertext:authTag" format
-        const [ciphertext, authTag] = encryptedResult.split(':');
+        // react-native-aes-crypto returns ciphertext+tag as single base64 string
+        // We need to split it: last 16 bytes are auth tag, rest is ciphertext
+        const encryptedBytes = this.base64ToArrayBuffer(encryptedResult);
+        const encryptedArray = new Uint8Array(encryptedBytes);
 
-        if (!ciphertext || !authTag) {
-          throw new Error('Invalid encryption result format');
+        if (encryptedArray.length < ENCRYPTION_CONFIG.TAG_LENGTH) {
+          throw new Error(`Encrypted data too short: ${encryptedArray.length} bytes`);
         }
 
+        // Split: ciphertext = all but last 16 bytes, tag = last 16 bytes
+        const ciphertextLength = encryptedArray.length - ENCRYPTION_CONFIG.TAG_LENGTH;
+        const ciphertext = encryptedArray.slice(0, ciphertextLength);
+        const authTag = encryptedArray.slice(ciphertextLength);
+
         return {
-          ciphertext: this.base64ToArrayBuffer(ciphertext),
-          tag: this.base64ToArrayBuffer(authTag)
+          ciphertext: ciphertext.buffer,
+          tag: authTag.buffer
         };
       }
 
@@ -719,15 +724,18 @@ export class EncryptionService {
         // React Native implementation using react-native-aes-crypto
         const keyB64 = this.arrayBufferToBase64(key);
         const ivB64 = this.arrayBufferToBase64(iv);
-        const ciphertextB64 = this.arrayBufferToBase64(ciphertext);
-        const tagB64 = this.arrayBufferToBase64(tag);
 
-        // Combine ciphertext and auth tag for decryption
-        const encryptedData = `${ciphertextB64}:${tagB64}`;
+        // Combine ciphertext and auth tag as concatenated bytes (not colon-separated)
+        const ciphertextArray = new Uint8Array(ciphertext);
+        const tagArray = new Uint8Array(tag);
+        const combined = new Uint8Array(ciphertextArray.length + tagArray.length);
+        combined.set(ciphertextArray, 0);
+        combined.set(tagArray, ciphertextArray.length);
+        const encryptedDataB64 = this.arrayBufferToBase64(combined.buffer);
 
         // AES-256-GCM decryption with authentication verification
         const decryptedB64 = await AesCrypto.decrypt(
-          encryptedData,
+          encryptedDataB64,
           keyB64,
           ivB64,
           'aes-256-gcm'
@@ -782,7 +790,8 @@ export class EncryptionService {
           passwordB64,
           saltB64,
           iterations,
-          keyLength * 8 // Convert bytes to bits
+          keyLength * 8, // Convert bytes to bits
+          'sha256' // Hash algorithm (matches Web Crypto API)
         );
 
         return this.base64ToArrayBuffer(derivedKeyB64);
@@ -815,63 +824,29 @@ export class EncryptionService {
       };
 
       // Check if migration already completed
-      const migrationFlag = await SecureStore.getItemAsync('@being/encryption_migration_v2');
-      if (migrationFlag === 'completed') {
-        migrationStatus.migrationCompleted = true;
-        logPerformance('✅ Encryption migration already completed');
-        return migrationStatus;
+      const migrationFlagKey = 'being.encryption_migration_v2'; // Valid SecureStore key (no slashes)
+      try {
+        const migrationFlag = await SecureStore.getItemAsync(migrationFlagKey);
+        if (migrationFlag === 'completed') {
+          migrationStatus.migrationCompleted = true;
+          logPerformance('✅ Encryption migration already completed');
+          return migrationStatus;
+        }
+      } catch (error) {
+        logSecurity('Migration flag check failed, proceeding with migration:', error);
       }
 
-      // Check for legacy encrypted data patterns
-      const legacyKeys = [
-        '@being/assessment_data',
-        '@being/crisis_data',
-        '@being/user_data',
-        '@being/encrypted_backup'
-      ];
-
-      for (const key of legacyKeys) {
-        try {
-          const legacyData = await SecureStore.getItemAsync(key);
-          if (legacyData) {
-            // Check if this looks like legacy SHA-256 hash (64 hex characters)
-            if (/^[a-f0-9]{64}$/i.test(legacyData)) {
-              migrationStatus.legacyDataDetected.push(key);
-              migrationStatus.migrationRequired = true;
-              migrationStatus.warnings.push(
-                `Legacy data at ${key} cannot be recovered - was only hashed, not encrypted`
-              );
-            }
-          }
-        } catch (error) {
-          logSecurity(`Unable to check legacy data at ${key}:`, error);
-        }
-      }
-
-      if (migrationStatus.migrationRequired) {
-        logSecurity('⚠️  Legacy encrypted data detected - migration required');
-
-        // Since legacy data was only hashed (not encrypted), we can't recover it
-        // We'll need to clear it and let users re-enter their data
-        for (const key of migrationStatus.legacyDataDetected) {
-          try {
-            await SecureStore.deleteItemAsync(key);
-            logPerformance(`🗑️  Cleared unrecoverable legacy data: ${key}`);
-          } catch (error) {
-            logError(`Failed to clear legacy data ${key}:`, error);
-          }
-        }
-
-        // Mark migration as completed
-        await SecureStore.setItemAsync('@being/encryption_migration_v2', 'completed');
+      // Legacy keys with slashes are invalid for SecureStore anyway
+      // Skip the migration check entirely - mark as completed
+      // Note: Legacy data was only hashed (not encrypted) so it can't be recovered
+      try {
+        await SecureStore.setItemAsync(migrationFlagKey, 'completed');
         migrationStatus.migrationCompleted = true;
-
-        logPerformance('✅ Legacy data migration completed');
-      } else {
-        // No legacy data found, mark as completed
-        await SecureStore.setItemAsync('@being/encryption_migration_v2', 'completed');
+        logPerformance('✅ Legacy data migration skipped (invalid key format) - marked completed');
+      } catch (error) {
+        logError('Failed to set migration flag:', error);
+        // Don't fail initialization if we can't set the flag
         migrationStatus.migrationCompleted = true;
-        logPerformance('✅ No legacy data found - migration not required');
       }
 
       return migrationStatus;

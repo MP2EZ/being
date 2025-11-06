@@ -332,11 +332,6 @@ const BreathingCircle: React.FC<BreathingCircleProps> = ({
         <Text style={styles.instructionText}>
           Let your breath find its natural rhythm
         </Text>
-
-        {/* Accessibility status */}
-        <Text style={styles.accessibilityText}>
-          {reducedMotion ? '🔊 Audio guidance enabled' : '👁️ Visual guidance active'}
-        </Text>
       </View>
     </View>
   );
@@ -390,13 +385,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
     fontStyle: 'italic',
-  },
-  accessibilityText: {
-    fontSize: typography.caption.size,
-    color: colorSystem.themes.midday.primary,
-    textAlign: 'center',
-    marginTop: spacing.sm,
-    fontWeight: '500',
   },
   countdownContainer: {
     position: 'absolute',

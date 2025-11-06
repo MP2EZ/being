@@ -7,7 +7,7 @@
  * Classical Stoic Practice:
  * - Marcus Aurelius: "When you arise in the morning, think of what a privilege it is
  *   to be alive... What if someone tried to take me from you today? How would you
- *   respond?" (Meditations 8:36)
+ *   respond?" (Meditations 2:1)
  * - Seneca: "It is in times of security that the spirit should be preparing itself
  *   to deal with difficult times" (Letters to Lucilius 107)
  * - Epictetus: "What is the prize of a good man? To do his duty well." (Discourses 3.24)
