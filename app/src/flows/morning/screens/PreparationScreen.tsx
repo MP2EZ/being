@@ -134,6 +134,8 @@ const PreparationScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
   const removeObstacle = (index: number) => {
     // Only remove from safety service if obstacle was fully filled and added
     const obstacle = obstacles[index];
+    if (!obstacle) return;
+
     const wasFullyFilled =
       obstacle.obstacle.trim() &&
       obstacle.howICanRespond.trim() &&
@@ -185,6 +187,8 @@ const PreparationScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
 
   const updateObstacle = (index: number, field: keyof ObstacleFormData, value: string) => {
     const newObstacles = [...obstacles];
+    if (!newObstacles[index]) return;
+
     newObstacles[index][field] = value;
     setObstacles(newObstacles);
 
@@ -196,6 +200,8 @@ const PreparationScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
 
     // Add to main safety service if all fields filled
     const obstacle = newObstacles[index];
+    if (!obstacle) return;
+
     if (
       obstacle.obstacle.trim() &&
       obstacle.howICanRespond.trim() &&
