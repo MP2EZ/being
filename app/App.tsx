@@ -12,6 +12,7 @@ import { postCrisisSupportService } from './src/services/crisis/PostCrisisSuppor
 import { migrateCrisisDataToSecureStore } from './src/services/crisis/CrisisDataMigration';
 import { IAPService } from './src/services/subscription/IAPService';
 import { useSubscriptionStore } from './src/stores/subscriptionStore';
+import EncryptionService from './src/services/security/EncryptionService';
 
 export default function App() {
   const [isInitialized, setIsInitialized] = useState(false);
@@ -19,9 +20,15 @@ export default function App() {
   useEffect(() => {
     async function initializeApp() {
       try {
-        console.log('[App] Initialization started - migrating crisis data to SecureStore');
+        console.log('[App] Initialization started');
+
+        // Initialize EncryptionService first (required by SessionStorageService and other services)
+        console.log('[App] Initializing encryption service...');
+        await EncryptionService.initialize();
+        console.log('[App] Encryption service initialized');
 
         // Initialize PostCrisisSupport service (includes automatic migration)
+        console.log('[App] Migrating crisis data to SecureStore...');
         await postCrisisSupportService.initialize();
 
         // Migrate crisis detection/intervention logs from AsyncStorage to SecureStore
