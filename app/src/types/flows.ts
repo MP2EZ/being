@@ -6,7 +6,7 @@
 // Flow Navigation Types
 
 // Original Morning Flow (DEPRECATED for FEAT-45)
-export type MBCTMorningFlowParamList = {
+export type OriginalMorningFlowParamList = {
   BodyScan: undefined;
   EmotionRecognition: undefined;
   ThoughtObservation: undefined;
@@ -81,7 +81,7 @@ export interface ThoughtData {
 }
 
 // Original Physical Metrics (DEPRECATED)
-export interface MBCTPhysicalMetricsData {
+export interface OriginalPhysicalMetricsData {
   energy: number; // 1-10 scale
   sleep: number; // 1-10 scale
   physicalComfort: number; // 1-10 scale (replaces anxiety per clinical safety)
