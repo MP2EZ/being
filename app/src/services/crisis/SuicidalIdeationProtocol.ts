@@ -454,9 +454,10 @@ export class SuicidalIdeationProtocol {
    */
   private validateDetectionTiming(detection: SuicidalIdeationDetection): void {
     if (detection.detectionResponseTimeMs > SUICIDAL_IDEATION_CONFIG.MAX_DETECTION_TIME_MS) {
-      logSecurity(
-        `🚨 SUICIDAL IDEATION DETECTION TIME VIOLATION: ${detection.detectionResponseTimeMs}ms (max: ${SUICIDAL_IDEATION_CONFIG.MAX_DETECTION_TIME_MS}ms)`
-      );
+      logSecurity('Suicidal ideation detection time violation', 'critical', {
+        detectionTime: detection.detectionResponseTimeMs,
+        maxTime: SUICIDAL_IDEATION_CONFIG.MAX_DETECTION_TIME_MS
+      });
     }
   }
 

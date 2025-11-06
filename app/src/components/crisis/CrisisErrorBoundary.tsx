@@ -207,7 +207,7 @@ export class CrisisErrorBoundary extends Component<
     }
 
     const newRetryCount = this.state.retryCount + 1;
-    logPerformance(`🔄 Attempting recovery (attempt ${newRetryCount}/3)`);
+    console.log(`🔄 Attempting recovery (attempt ${newRetryCount}/3)`);
 
     this.setState({
       hasError: false,

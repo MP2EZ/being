@@ -264,7 +264,10 @@ class CrisisDetectionService {
       // Validate response time (must be <200ms)
       const responseTime = Date.now() - startTime;
       if (responseTime >= 200) {
-        logSecurity(`Crisis detection exceeded 200ms: ${responseTime}ms`);
+        logSecurity('Crisis detection time exceeded', 'high', {
+          responseTime,
+          threshold: 200
+        });
       }
 
       return detection;

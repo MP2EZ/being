@@ -159,7 +159,11 @@ const RadioGroup: React.FC<RadioGroupProps> = ({
     // Performance monitoring for clinical contexts
     const responseTime = performance.now() - startTime;
     if (clinicalContext !== 'general' && responseTime > 100) {
-      logSecurity(`⚠️ Radio selection response time: ${responseTime}ms (target: <100ms for clinical)`);
+      logSecurity('Radio selection response time exceeded', 'medium', {
+        responseTime,
+        threshold: 100,
+        context: 'clinical'
+      });
     }
   }, [disabled, options, onValueChange, showScores, clinicalContext]);
 

@@ -114,7 +114,7 @@ export class PerformanceSystem {
       setTimeout(async () => {
         try {
           const validationReport = await PerformanceValidator.validatePerformance();
-          logPerformance(`🎯 Initial performance validation: ${validationReport.status} (Score: ${validationReport.overallScore}/100)`);
+          console.log(`🎯 Initial performance validation: ${validationReport.status} (Score: ${validationReport.overallScore}/100)`);
         } catch (error) {
           logError(LogCategory.PERFORMANCE, 'Initial performance validation failed:', error instanceof Error ? error : new Error(String(error)));
         }

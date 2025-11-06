@@ -359,7 +359,9 @@ export class MemoryOptimizer {
         break;
 
       case 'high':
-        logSecurity(`⚠️ HIGH MEMORY PRESSURE: ${metrics.totalUsage}MB`);
+        logSecurity('High memory pressure detected', 'high', {
+          totalUsageMB: metrics.totalUsage
+        });
         this.aggressiveMemoryCleanup();
         break;
 

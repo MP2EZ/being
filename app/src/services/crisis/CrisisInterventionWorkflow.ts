@@ -441,7 +441,9 @@ export class CrisisInterventionWorkflow {
         await this.scheduleFollowUp(context, step.id);
         break;
       default:
-        logSecurity(`Unknown workflow step: ${step.id}`);
+        logSecurity('Unknown workflow step', 'medium', {
+          stepId: step.id
+        });
     }
   }
 

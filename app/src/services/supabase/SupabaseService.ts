@@ -557,7 +557,9 @@ class SupabaseService {
             break;
 
           default:
-            logSecurity(`[SupabaseService] Unknown offline operation: ${operation}`);
+            logSecurity('Unknown offline operation', 'low', {
+              operation
+            });
             processedOperations.push(i); // Remove unknown operations
         }
       } catch (error) {

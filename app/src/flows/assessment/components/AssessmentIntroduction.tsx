@@ -116,7 +116,10 @@ const AssessmentIntroduction: React.FC<AssessmentIntroductionProps> = ({
     // Performance monitoring for therapeutic flow
     const responseTime = performance.now() - startTime;
     if (responseTime > 100) {
-      logSecurity(`⚠️ Assessment begin response time: ${responseTime}ms (target: <100ms)`);
+      logSecurity('Assessment begin response time exceeded', 'medium', {
+        responseTime,
+        threshold: 100
+      });
     }
   }, [onBegin]);
 
