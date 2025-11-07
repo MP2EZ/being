@@ -1,11 +1,11 @@
 /**
  * MODULE DETAIL SCREEN - Educational Module Detail View
  * FEAT-49: Educational Modules for 5 Stoic Principles
+ * FEAT-80: Reorganized to 2-tab design (Overview + Practice)
  *
- * Shows module content across 3 tabs:
- * - Overview: Classical quote, What It Is, Why It Matters, Developmental Stages
+ * Shows module content across 2 tabs:
+ * - Overview: Classical quote, What It Is, Why It Matters, Common Obstacles, Developmental Stages
  * - Practice: Practice exercises with timers/interactions
- * - Reflect: Common Obstacles, Reflection Prompt, Journal integration
  *
  * Non-negotiables:
  * - User-determined completion (no forced progression)
@@ -31,7 +31,6 @@ import { loadModuleContent } from '../../services/moduleContent';
 import type { ModuleId, ModuleContent } from '../../types/education';
 import OverviewTab from './tabs/OverviewTab';
 import PracticeTab from './tabs/PracticeTab';
-import ReflectTab from './tabs/ReflectTab';
 
 type ModuleDetailRouteProp = RouteProp<
   { ModuleDetail: { moduleId: ModuleId } },
@@ -40,7 +39,7 @@ type ModuleDetailRouteProp = RouteProp<
 
 type NavigationProp = StackNavigationProp<RootStackParamList>;
 
-type TabType = 'overview' | 'practice' | 'reflect';
+type TabType = 'overview' | 'practice';
 
 const ModuleDetailScreen: React.FC = () => {
   const route = useRoute<ModuleDetailRouteProp>();
@@ -89,8 +88,6 @@ const ModuleDetailScreen: React.FC = () => {
         return <OverviewTab moduleContent={moduleContent} moduleId={moduleId} />;
       case 'practice':
         return <PracticeTab moduleContent={moduleContent} moduleId={moduleId} />;
-      case 'reflect':
-        return <ReflectTab moduleContent={moduleContent} moduleId={moduleId} />;
       default:
         return null;
     }
@@ -184,20 +181,6 @@ const ModuleDetailScreen: React.FC = () => {
               ]}
             >
               Practice
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.tab, activeTab === 'reflect' && styles.tabActive]}
-            onPress={() => setActiveTab('reflect')}
-          >
-            <Text
-              style={[
-                styles.tabText,
-                activeTab === 'reflect' && styles.tabTextActive,
-              ]}
-            >
-              Reflect
             </Text>
           </TouchableOpacity>
         </View>

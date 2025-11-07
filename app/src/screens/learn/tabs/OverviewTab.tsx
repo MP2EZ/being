@@ -1,6 +1,7 @@
 /**
  * OVERVIEW TAB - Module Overview Content
  * FEAT-49: Educational Modules
+ * FEAT-80: Added Common Obstacles section (moved from Reflect tab)
  *
  * Displays:
  * - Classical quote (Stoic source)
@@ -8,6 +9,7 @@
  * - Why It Matters
  * - Practical Example (callout)
  * - Developmental Stages timeline
+ * - Common Obstacles (expandable FAQ style) [NEW - after stages for context]
  */
 
 import React, { useState } from 'react';
@@ -34,6 +36,9 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
   const [expandedConcepts, setExpandedConcepts] = useState<Set<number>>(
     new Set([0]) // First concept expanded by default
   );
+  const [expandedObstacles, setExpandedObstacles] = useState<Set<number>>(
+    new Set()
+  );
   const { completeSection } = useEducationStore();
 
   const toggleConcept = (index: number) => {
@@ -45,6 +50,18 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
         newSet.add(index);
         // Mark this concept section as "viewed" (optional analytics)
         completeSection(moduleId, `concept-${index}`);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleObstacle = (index: number) => {
+    setExpandedObstacles((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(index)) {
+        newSet.delete(index);
+      } else {
+        newSet.add(index);
       }
       return newSet;
     });
@@ -138,6 +155,9 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
         </View>
       )}
 
+      {/* Divider */}
+      <View style={styles.divider} />
+
       {/* Developmental Stages Timeline */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Developmental Stages</Text>
@@ -179,6 +199,54 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
               </View>
             </View>
           ))}
+        </View>
+      </View>
+
+      {/* Common Obstacles */}
+      <View style={styles.obstaclesSection}>
+        <Text style={styles.sectionTitle}>Common Questions & Challenges</Text>
+        <Text style={styles.obstaclesIntro}>
+          These questions and challenges arise naturally during practice. Stoic
+          practitioners have worked with these same concerns for centuries. Tap
+          any question to explore practical responses.
+        </Text>
+
+        <View style={styles.obstaclesList}>
+          {moduleContent.commonObstacles.map((obstacle, index) => {
+            const isExpanded = expandedObstacles.has(index);
+
+            return (
+              <View key={index} style={styles.obstacleCard}>
+                <TouchableOpacity
+                  style={styles.obstacleHeader}
+                  onPress={() => toggleObstacle(index)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.obstacleQuestion}>
+                    {obstacle.question}
+                  </Text>
+                  <Text style={styles.obstacleIcon}>
+                    {isExpanded ? '−' : '+'}
+                  </Text>
+                </TouchableOpacity>
+
+                {isExpanded && (
+                  <View style={styles.obstacleContent}>
+                    <Text style={styles.obstacleResponse}>
+                      {obstacle.response}
+                    </Text>
+
+                    {obstacle.tip && (
+                      <View style={styles.tipBox}>
+                        <Text style={styles.tipLabel}>💡 Tip</Text>
+                        <Text style={styles.tipText}>{obstacle.tip}</Text>
+                      </View>
+                    )}
+                  </View>
+                )}
+              </View>
+            );
+          })}
         </View>
       </View>
 
@@ -325,6 +393,76 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: colorSystem.gray[800],
     lineHeight: 22,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: colorSystem.gray[200],
+    marginVertical: spacing.xl,
+  },
+  obstaclesSection: {
+    marginBottom: spacing.xl,
+  },
+  obstaclesIntro: {
+    fontSize: 14,
+    color: colorSystem.gray[600],
+    lineHeight: 20,
+    marginBottom: spacing.lg,
+  },
+  obstaclesList: {
+    gap: spacing.md,
+  },
+  obstacleCard: {
+    borderWidth: 1,
+    borderColor: colorSystem.gray[200],
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: colorSystem.base.white,
+  },
+  obstacleHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: spacing.md,
+    backgroundColor: colorSystem.gray[50],
+  },
+  obstacleQuestion: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colorSystem.base.black,
+    flex: 1,
+    paddingRight: spacing.sm,
+  },
+  obstacleIcon: {
+    fontSize: 24,
+    fontWeight: '300',
+    color: colorSystem.navigation.learn,
+  },
+  obstacleContent: {
+    padding: spacing.md,
+    gap: spacing.md,
+  },
+  obstacleResponse: {
+    fontSize: 15,
+    color: colorSystem.gray[700],
+    lineHeight: 22,
+  },
+  tipBox: {
+    backgroundColor: '#FFF9E6', // Light yellow
+    borderRadius: 8,
+    padding: spacing.md,
+    borderLeftWidth: 3,
+    borderLeftColor: '#FFD700',
+  },
+  tipLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colorSystem.gray[700],
+    marginBottom: spacing.xs,
+  },
+  tipText: {
+    fontSize: 14,
+    color: colorSystem.gray[700],
+    lineHeight: 20,
   },
   stagesIntro: {
     fontSize: 14,
