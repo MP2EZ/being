@@ -21,10 +21,11 @@ import OnboardingScreen from '../screens/OnboardingScreen';
 import VirtueDashboardScreen from '../screens/VirtueDashboardScreen';
 import EnhancedAssessmentFlow from '../components/assessment/EnhancedAssessmentFlow';
 import ModuleDetailScreen from '../screens/learn/ModuleDetailScreen';
+import { PracticeTimerScreen, SortingPracticeScreen, BodyScanScreen } from '../screens/learn/practices';
 import { useStoicPracticeStore } from '../stores/stoicPracticeStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import type { AssessmentType, PHQ9Result, GAD7Result } from '../flows/assessment/types';
-import type { ModuleId } from '../types/education';
+import type { ModuleId, SortingScenario } from '../types/education';
 
 export type RootStackParamList = {
   Onboarding: undefined;
@@ -33,6 +34,22 @@ export type RootStackParamList = {
   MiddayFlow: undefined;
   EveningFlow: undefined;
   ModuleDetail: { moduleId: ModuleId };
+  PracticeTimer: {
+    practiceId: string;
+    moduleId: ModuleId;
+    duration: number;
+    title: string;
+  };
+  SortingPractice: {
+    practiceId: string;
+    moduleId: ModuleId;
+    scenarios: SortingScenario[];
+  };
+  BodyScan: {
+    practiceId: string;
+    moduleId: ModuleId;
+    duration: number;
+  };
   AssessmentFlow: {
     assessmentType: AssessmentType;
     context: 'onboarding' | 'standalone';
@@ -165,6 +182,65 @@ const CleanRootNavigator: React.FC = () => {
             presentation: 'card',
           }}
         />
+
+        {/* Practice Screens - Educational Exercises */}
+        <Stack.Screen
+          name="PracticeTimer"
+          options={{
+            headerShown: false,
+            presentation: 'modal',
+            gestureEnabled: false, // Prevent accidental swipe during practice
+          }}
+        >
+          {({ navigation, route }) => (
+            <PracticeTimerScreen
+              practiceId={route.params.practiceId}
+              moduleId={route.params.moduleId}
+              duration={route.params.duration}
+              title={route.params.title}
+              onComplete={() => navigation.goBack()}
+              onBack={() => navigation.goBack()}
+            />
+          )}
+        </Stack.Screen>
+
+        <Stack.Screen
+          name="SortingPractice"
+          options={{
+            headerShown: false,
+            presentation: 'modal',
+            gestureEnabled: false,
+          }}
+        >
+          {({ navigation, route }) => (
+            <SortingPracticeScreen
+              practiceId={route.params.practiceId}
+              moduleId={route.params.moduleId}
+              scenarios={route.params.scenarios}
+              onComplete={() => navigation.goBack()}
+              onBack={() => navigation.goBack()}
+            />
+          )}
+        </Stack.Screen>
+
+        <Stack.Screen
+          name="BodyScan"
+          options={{
+            headerShown: false,
+            presentation: 'modal',
+            gestureEnabled: false,
+          }}
+        >
+          {({ navigation, route }) => (
+            <BodyScanScreen
+              practiceId={route.params.practiceId}
+              moduleId={route.params.moduleId}
+              duration={route.params.duration}
+              onComplete={() => navigation.goBack()}
+              onBack={() => navigation.goBack()}
+            />
+          )}
+        </Stack.Screen>
 
         {/* Check-in Flow Modals */}
         <Stack.Group screenOptions={{ presentation: 'modal' }}>

@@ -19,7 +19,9 @@ interface TimerProps {
   onComplete: () => void;
   onPause?: () => void;
   onResume?: () => void;
+  onTick?: (remainingMs: number) => void; // Called on each tick with remaining time
   showProgress?: boolean;
+  showControls?: boolean; // Show pause/resume buttons (default true)
   showSkip?: boolean;
   onSkip?: () => void;
   theme?: 'morning' | 'midday' | 'evening';
@@ -32,7 +34,9 @@ const Timer: React.FC<TimerProps> = ({
   onComplete,
   onPause,
   onResume,
+  onTick,
   showProgress = true,
+  showControls = true,
   showSkip = true,
   onSkip,
   theme = 'midday',
@@ -78,7 +82,7 @@ const Timer: React.FC<TimerProps> = ({
       const now = Date.now();
       const elapsed = now - (startTimeRef.current || 0) - pausedTimeRef.current;
       const remaining = duration - elapsed;
-      
+
       if (remaining <= 0) {
         setTimeRemaining(0);
         if (intervalRef.current) {
@@ -89,9 +93,10 @@ const Timer: React.FC<TimerProps> = ({
       } else {
         setTimeRemaining(remaining);
         announceTimeRemaining(remaining);
+        onTick?.(remaining); // Report remaining time to parent
       }
     }, 16); // ~60fps for smooth progress updates
-  }, [duration, onComplete, announceTimeRemaining]);
+  }, [duration, onComplete, announceTimeRemaining, onTick]);
 
   // Pause timer
   const handlePause = useCallback(() => {
@@ -179,23 +184,25 @@ const Timer: React.FC<TimerProps> = ({
       {/* Control buttons */}
       <View style={styles.controlsContainer}>
         {/* Pause/Resume button */}
-        <Pressable
-          style={({ pressed }) => [
-            styles.controlButton,
-            { 
-              backgroundColor: pressed ? themeColors.light : themeColors.primary,
-              opacity: pressed ? 0.8 : 1 
-            }
-          ]}
-          onPress={isPaused ? handleResume : handlePause}
-          accessibilityRole="button"
-          accessibilityLabel={isPaused ? "Resume timer" : "Pause timer"}
-          accessibilityHint="Tap to pause or resume the session timer"
-        >
-          <Text style={styles.controlButtonText}>
-            {isPaused ? 'Resume' : 'Pause'}
-          </Text>
-        </Pressable>
+        {showControls && (
+          <Pressable
+            style={({ pressed }) => [
+              styles.controlButton,
+              {
+                backgroundColor: pressed ? themeColors.light : themeColors.primary,
+                opacity: pressed ? 0.8 : 1
+              }
+            ]}
+            onPress={isPaused ? handleResume : handlePause}
+            accessibilityRole="button"
+            accessibilityLabel={isPaused ? "Resume timer" : "Pause timer"}
+            accessibilityHint="Tap to pause or resume the session timer"
+          >
+            <Text style={styles.controlButtonText}>
+              {isPaused ? 'Resume' : 'Pause'}
+            </Text>
+          </Pressable>
+        )}
 
         {/* Skip button */}
         {showSkip && onSkip && (
