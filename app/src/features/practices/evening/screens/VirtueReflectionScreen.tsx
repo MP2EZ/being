@@ -30,7 +30,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import type { StackScreenProps } from '@react-navigation/stack';
-import type { EveningFlowParamList, VirtueReflectionData } from '@/types/flows';
+import type { EveningFlowParamList, VirtueReflectionData } from '@/features/practices/types/flows';
 import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
 
 type Props = StackScreenProps<EveningFlowParamList, 'VirtueReflection'> & {

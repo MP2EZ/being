@@ -31,7 +31,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { colorSystem, spacing, borderRadius } from '@/core/theme/colors';
-import { FlowType, SessionMetadata } from '@/types/session';
+import { FlowType, SessionMetadata } from '@/core/types/session';
 
 interface ResumeSessionModalProps {
   visible: boolean;

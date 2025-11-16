@@ -37,7 +37,7 @@ import {
 } from 'react-native';
 import Slider from '@react-native-community/slider';
 import type { StackScreenProps } from '@react-navigation/stack';
-import type { MiddayFlowParamList, EmbodimentData } from '@/types/flows';
+import type { MiddayFlowParamList, EmbodimentData } from '@/features/practices/types/flows';
 import BreathingCircle from '../../shared/components/BreathingCircle';
 
 type Props = StackScreenProps<MiddayFlowParamList, 'Embodiment'> & {

@@ -29,7 +29,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import type { StackScreenProps } from '@react-navigation/stack';
-import type { MorningFlowParamList, IntentionData } from '@/types/flows';
+import type { MorningFlowParamList, IntentionData } from '@/features/practices/types/flows';
 
 type Props = StackScreenProps<MorningFlowParamList, 'Intention'> & {
   onSave?: (data: IntentionData) => void;

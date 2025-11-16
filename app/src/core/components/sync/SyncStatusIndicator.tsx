@@ -36,7 +36,7 @@ import {
 
 // Import services
 import SyncCoordinator from '@/core/services/supabase/SyncCoordinator';
-import AnalyticsService from '@/analytics/AnalyticsService';
+import AnalyticsService from '@/core/analytics/AnalyticsService';
 
 /**
  * SYNC STATUS TYPES

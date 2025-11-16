@@ -31,7 +31,7 @@ import {
 import { useStoicPracticeStore } from '@/features/practices/stores/stoicPracticeStore';
 import { useSettingsStore } from '@/core/stores/settingsStore';
 import type { AssessmentType, PHQ9Result, GAD7Result } from '@/features/assessment/types';
-import type { ModuleId, SortingScenario } from '@/types/education';
+import type { ModuleId, SortingScenario } from '@/features/learn/types/education';
 
 export type RootStackParamList = {
   Onboarding: undefined;

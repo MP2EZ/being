@@ -28,7 +28,7 @@ import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 import { colorSystem, spacing } from '@/core/theme/colors';
 import { useEducationStore } from '@/features/learn/stores/educationStore';
 import { loadModuleContent } from '@/core/services/moduleContent';
-import type { ModuleId, ModuleContent } from '@/types/education';
+import type { ModuleId, ModuleContent } from '@/features/learn/types/education';
 import OverviewTab from '@/features/learn/tabs/OverviewTab';
 import PracticeTab from '@/features/learn/tabs/PracticeTab';
 

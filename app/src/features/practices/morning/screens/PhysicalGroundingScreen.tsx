@@ -26,7 +26,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import type { StackScreenProps } from '@react-navigation/stack';
-import type { MorningFlowParamList, PhysicalGroundingData } from '@/types/flows';
+import type { MorningFlowParamList, PhysicalGroundingData } from '@/features/practices/types/flows';
 import BreathingCircle from '../../shared/components/BreathingCircle';
 
 type Props = StackScreenProps<MorningFlowParamList, 'PhysicalGrounding'> & {

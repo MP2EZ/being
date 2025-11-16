@@ -30,7 +30,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import type { StackScreenProps } from '@react-navigation/stack';
-import type { EveningFlowParamList, TomorrowData } from '@/types/flows';
+import type { EveningFlowParamList, TomorrowData } from '@/features/practices/types/flows';
 
 type Props = StackScreenProps<EveningFlowParamList, 'Tomorrow'> & {
   onSave?: (data: TomorrowData) => void;

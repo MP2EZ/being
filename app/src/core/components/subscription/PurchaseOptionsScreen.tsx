@@ -38,7 +38,7 @@ import { useSubscriptionStore } from '@/core/stores/subscriptionStore';
 import {
   SubscriptionInterval,
   SUBSCRIPTION_PRICING,
-} from '@/types/subscription';
+} from '@/core/types/subscription';
 
 interface PurchaseOptionsScreenProps {
   onPurchaseComplete?: () => void;

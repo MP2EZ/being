@@ -30,7 +30,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import type { StackScreenProps } from '@react-navigation/stack';
-import type { EveningFlowParamList, SleepTransitionData } from '@/types/flows';
+import type { EveningFlowParamList, SleepTransitionData } from '@/features/practices/types/flows';
 import BreathingCircle from '../../shared/components/BreathingCircle';
 
 type Props = StackScreenProps<EveningFlowParamList, 'SleepTransition'> & {

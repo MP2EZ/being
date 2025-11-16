@@ -20,7 +20,7 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import type { StackScreenProps } from '@react-navigation/stack';
-import type { MiddayFlowParamList } from '@/types/flows';
+import type { MiddayFlowParamList } from '@/features/practices/types/flows';
 import { SessionStorageService } from '@/core/services/session/SessionStorageService';
 import { CelebrationToast } from '@/core/components/CelebrationToast';
 

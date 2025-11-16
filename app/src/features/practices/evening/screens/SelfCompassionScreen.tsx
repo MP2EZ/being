@@ -35,7 +35,7 @@ import {
 } from 'react-native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import type { RouteProp } from '@react-navigation/native';
-import type { EveningFlowParamList, SelfCompassionData } from '@/types/flows';
+import type { EveningFlowParamList, SelfCompassionData } from '@/features/practices/types/flows';
 import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
 
 type SelfCompassionScreenNavigationProp = StackNavigationProp<

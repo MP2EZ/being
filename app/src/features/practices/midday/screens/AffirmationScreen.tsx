@@ -33,7 +33,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import type { StackScreenProps } from '@react-navigation/stack';
-import type { MiddayFlowParamList, AffirmationData } from '@/types/flows';
+import type { MiddayFlowParamList, AffirmationData } from '@/features/practices/types/flows';
 
 type Props = StackScreenProps<MiddayFlowParamList, 'Affirmation'> & {
   onSave?: (data: AffirmationData) => void;

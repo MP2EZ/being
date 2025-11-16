@@ -39,7 +39,7 @@ import {
 import {
   SubscriptionStatus,
   SUBSCRIPTION_STATUS_LABELS,
-} from '@/types/subscription';
+} from '@/core/types/subscription';
 
 interface SubscriptionStatusCardProps {
   style?: any;

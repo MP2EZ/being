@@ -29,8 +29,8 @@ import {
   StyleSheet,
 } from 'react-native';
 import type { StackScreenProps } from '@react-navigation/stack';
-import type { MorningFlowParamList } from '@/types/flows';
-import type { GratitudeData, GratitudeItem } from '@/types/flows';
+import type { MorningFlowParamList } from '@/features/practices/types/flows';
+import type { GratitudeData, GratitudeItem } from '@/features/practices/types/flows';
 
 type Props = StackScreenProps<MorningFlowParamList, 'Gratitude'> & {
   onSave?: (data: GratitudeData) => void;

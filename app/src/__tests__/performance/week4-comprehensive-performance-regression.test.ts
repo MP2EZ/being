@@ -27,7 +27,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // Service imports for testing
 import { CrisisDetectionEngine } from '@/features/crisis/services/CrisisDetectionEngine';
 import { useAssessmentPerformance } from '@/features/assessment/hooks/useAssessmentPerformance';
-import AnalyticsService from '@/analytics/AnalyticsService';
+import AnalyticsService from '@/core/analytics/AnalyticsService';
 import { AuthenticationService } from '@/core/services/security/AuthenticationService';
 import { NetworkSecurityService } from '@/core/services/security/NetworkSecurityService';
 import { EncryptionService } from '@/core/services/security/EncryptionService';

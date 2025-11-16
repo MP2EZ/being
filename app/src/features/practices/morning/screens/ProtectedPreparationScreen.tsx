@@ -21,7 +21,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import type { StackScreenProps } from '@react-navigation/stack';
-import type { MorningFlowParamList } from '@/types/flows';
+import type { MorningFlowParamList } from '@/features/practices/types/flows';
 import PreparationScreen from './PreparationScreen';
 import { useAssessmentStore } from '@/features/assessment/stores/assessmentStore';
 import { ACCESSIBLE_COLORS, SPACING, TOUCH_TARGETS } from '@/core/theme/accessibility';

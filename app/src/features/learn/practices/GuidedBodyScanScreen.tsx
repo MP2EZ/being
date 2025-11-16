@@ -36,7 +36,7 @@ import ProgressiveBodyScanList from '@/features/practices/shared/components/Prog
 import PracticeScreenHeader from '@/features/learn/practices/shared/PracticeScreenHeader';
 import { usePracticeCompletion } from '@/features/learn/practices/shared/usePracticeCompletion';
 import { useInstructionsFade } from '@/features/learn/practices/shared/useInstructionsFade';
-import type { ModuleId } from '../../../types/education';
+import type { ModuleId } from '@/features/learn/types/education';
 
 interface GuidedBodyScanScreenProps {
   practiceId: string;

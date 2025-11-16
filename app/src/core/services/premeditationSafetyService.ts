@@ -24,7 +24,7 @@
  * @see /docs/technical/Stoic-Mindfulness-Architecture-v1.0.md
  */
 
-import type { CardinalVirtue } from '@/types/stoic';
+import type { CardinalVirtue } from '@/features/practices/types/stoic';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // TYPE DEFINITIONS

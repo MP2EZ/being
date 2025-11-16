@@ -76,4 +76,4 @@ export { sharedPracticeStyles } from './sharedPracticeStyles';
 // ============================================================================
 // Types
 // ============================================================================
-export type { ModuleId } from '../../../../types/education';
+export type { ModuleId } from '@/features/learn/types/education';

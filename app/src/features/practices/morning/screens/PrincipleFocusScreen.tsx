@@ -37,8 +37,8 @@ import {
   Switch,
 } from 'react-native';
 import type { StackScreenProps } from '@react-navigation/stack';
-import type { MorningFlowParamList, PrincipleFocusData } from '@/types/flows';
-import type { StoicPrinciple } from '@/types/stoic';
+import type { MorningFlowParamList, PrincipleFocusData } from '@/features/practices/types/flows';
+import type { StoicPrinciple } from '@/features/practices/types/stoic';
 
 type Props = StackScreenProps<MorningFlowParamList, 'PrincipleFocus'> & {
   onSave?: (data: PrincipleFocusData) => void;

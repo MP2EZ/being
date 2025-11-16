@@ -36,7 +36,7 @@ import {
 } from 'react-native';
 import Slider from '@react-native-community/slider';
 import type { StackScreenProps } from '@react-navigation/stack';
-import type { MorningFlowParamList, PreparationData } from '@/types/flows';
+import type { MorningFlowParamList, PreparationData } from '@/features/practices/types/flows';
 import { PremeditationSafetyService } from '@/core/services/premeditationSafetyService';
 import type { ObstacleInput } from '@/core/services/premeditationSafetyService';
 

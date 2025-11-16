@@ -32,7 +32,7 @@ import {
   Switch,
 } from 'react-native';
 import type { StackScreenProps } from '@react-navigation/stack';
-import type { EveningFlowParamList, GratitudeData, GratitudeItem } from '@/types/flows';
+import type { EveningFlowParamList, GratitudeData, GratitudeItem } from '@/features/practices/types/flows';
 
 type Props = StackScreenProps<EveningFlowParamList, 'Gratitude'> & {
   onSave?: (data: GratitudeData) => void;

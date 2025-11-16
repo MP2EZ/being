@@ -15,7 +15,7 @@ import PracticeCompletionScreen, {
   PRACTICE_QUOTES,
 } from '../PracticeCompletionScreen';
 import { useEducationStore } from '../../stores/educationStore';
-import type { ModuleId } from '../../../../types/education';
+import type { ModuleId } from '@/features/learn/types/education';
 
 interface UsePracticeCompletionOptions {
   practiceId: string;

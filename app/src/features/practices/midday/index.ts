@@ -4,7 +4,7 @@
  */
 
 export { default as MiddayFlowNavigator } from './MiddayFlowNavigator';
-export type { MiddayFlowParamList } from '@/types/flows';
+export type { MiddayFlowParamList } from '@/features/practices/types/flows';
 
 // DRD v2.0.0 Screens
 export { default as ControlCheckScreen } from './screens/ControlCheckScreen';

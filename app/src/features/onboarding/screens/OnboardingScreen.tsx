@@ -85,23 +85,6 @@ const ACCESSIBILITY = {
 // This eliminates duplication and ensures clinical accuracy across the app
 
 // Therapeutic Values (15 evidence-based values) with HIPAA compliance
-const THERAPEUTIC_VALUES: TherapeuticValue[] = [
-  { id: 'compassion', label: 'Compassion', description: 'Kindness toward yourself and others', phiClassification: 'therapeutic_preference', dataMinimization: 'necessary' },
-  { id: 'growth', label: 'Growth', description: 'Learning and evolving through experiences', phiClassification: 'therapeutic_preference', dataMinimization: 'necessary' },
-  { id: 'connection', label: 'Connection', description: 'Meaningful relationships with others', phiClassification: 'therapeutic_preference', dataMinimization: 'necessary' },
-  { id: 'mindfulness', label: 'Mindfulness', description: 'Present-moment awareness', phiClassification: 'therapeutic_preference', dataMinimization: 'necessary' },
-  { id: 'acceptance', label: 'Acceptance', description: 'Embracing what is, as it is', phiClassification: 'therapeutic_preference', dataMinimization: 'necessary' },
-  { id: 'presence', label: 'Presence', description: 'Being fully here and now', phiClassification: 'therapeutic_preference', dataMinimization: 'necessary' },
-  { id: 'kindness', label: 'Kindness', description: 'Gentle, caring actions and thoughts', phiClassification: 'therapeutic_preference', dataMinimization: 'necessary' },
-  { id: 'resilience', label: 'Resilience', description: 'Bouncing back from challenges', phiClassification: 'therapeutic_preference', dataMinimization: 'necessary' },
-  { id: 'authenticity', label: 'Authenticity', description: 'Being true to yourself', phiClassification: 'therapeutic_preference', dataMinimization: 'necessary' },
-  { id: 'peace', label: 'Peace', description: 'Inner calm and tranquility', phiClassification: 'therapeutic_preference', dataMinimization: 'necessary' },
-  { id: 'gratitude', label: 'Gratitude', description: 'Appreciation for what you have', phiClassification: 'therapeutic_preference', dataMinimization: 'necessary' },
-  { id: 'wisdom', label: 'Wisdom', description: 'Deep understanding and insight', phiClassification: 'therapeutic_preference', dataMinimization: 'necessary' },
-  { id: 'courage', label: 'Courage', description: 'Facing challenges with strength', phiClassification: 'therapeutic_preference', dataMinimization: 'necessary' },
-  { id: 'balance', label: 'Balance', description: 'Harmony in all aspects of life', phiClassification: 'therapeutic_preference', dataMinimization: 'necessary' },
-  { id: 'understanding', label: 'Understanding', description: 'Compassionate awareness of others', phiClassification: 'therapeutic_preference', dataMinimization: 'necessary' },
-];
 
 // TypeScript strict mode interfaces and types
 type Screen = 'welcome' | 'stoicIntro' | 'notifications' | 'privacy' | 'celebration';
@@ -131,14 +114,6 @@ interface NotificationTime {
   retentionPeriod: RetentionPeriod;
 }
 
-interface TherapeuticValue {
-  id: string;
-  label: string;
-  description: string;
-  // HIPAA: Mental health preference classification
-  phiClassification: PHIClassification;
-  dataMinimization: DataMinimizationStatus;
-}
 
 // NOTE: Question and Answer interfaces removed - assessments now handled by EnhancedAssessmentFlow
 

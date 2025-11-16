@@ -21,7 +21,7 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import type { RouteProp } from '@react-navigation/native';
-import type { EveningFlowParamList } from '@/types/flows';
+import type { EveningFlowParamList } from '@/features/practices/types/flows';
 import { SessionStorageService } from '@/core/services/session/SessionStorageService';
 import { CelebrationToast } from '@/core/components/CelebrationToast';
 

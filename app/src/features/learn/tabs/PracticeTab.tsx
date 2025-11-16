@@ -21,7 +21,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import { colorSystem, spacing } from '@/core/theme/colors';
 import { useEducationStore } from '../stores/educationStore';
-import type { ModuleContent, ModuleId, Practice } from '../../../types/education';
+import type { ModuleContent, ModuleId, Practice } from '@/features/learn/types/education';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 
 type NavigationProp = StackNavigationProp<RootStackParamList>;

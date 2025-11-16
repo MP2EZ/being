@@ -21,9 +21,9 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { createStackNavigator, StackNavigationProp } from '@react-navigation/stack';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { colorSystem, spacing } from '@/core/theme/colors';
-import { MorningFlowParamList } from '@/types/flows';
+import { MorningFlowParamList } from '@/features/practices/types/flows';
 import { SessionStorageService } from '@/core/services/session/SessionStorageService';
-import { SessionMetadata } from '@/types/session';
+import { SessionMetadata } from '@/core/types/session';
 import { ResumeSessionModal } from '../shared/components/ResumeSessionModal';
 
 // Import Stoic Mindfulness screens (DRD v2.0.0)

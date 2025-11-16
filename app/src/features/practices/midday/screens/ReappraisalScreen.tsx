@@ -32,7 +32,7 @@ import {
   Alert,
 } from 'react-native';
 import type { StackScreenProps } from '@react-navigation/stack';
-import type { MiddayFlowParamList, ReappraisalData } from '@/types/flows';
+import type { MiddayFlowParamList, ReappraisalData } from '@/features/practices/types/flows';
 
 type Props = StackScreenProps<MiddayFlowParamList, 'Reappraisal'> & {
   onSave?: (data: ReappraisalData) => void;
