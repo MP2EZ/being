@@ -23,7 +23,7 @@
  */
 
 
-import { logSecurity, logPerformance, logError, LogCategory } from '../../logging';
+import { logSecurity, logPerformance, logError, LogCategory } from '@/core/services/logging';
 import { describe, test, expect, beforeEach, afterEach, jest } from '@jest/globals';
 import CrisisDetectionEngine from '../CrisisDetectionEngine';
 import SuicidalIdeationProtocol from '../SuicidalIdeationProtocol';
