@@ -34,7 +34,7 @@ import {
 } from 'react-native';
 import { useCloudSync, useCloudBackupConfig } from '../../services/supabase/hooks/useCloudSync';
 import SyncStatusIndicator from '../sync/SyncStatusIndicator';
-import AnalyticsService from '../../services/analytics/AnalyticsService';
+import AnalyticsService from '@/analytics/AnalyticsService';
 
 interface CloudBackupSettingsProps {
   style?: any;

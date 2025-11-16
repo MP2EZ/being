@@ -25,7 +25,7 @@
  */
 
 
-import { logSecurity, logPerformance, logError, LogCategory } from '../logging';
+import { logSecurity, logPerformance, logError, LogCategory } from '@/services/logging';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import HIPAAComplianceEngine, { 

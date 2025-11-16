@@ -34,12 +34,12 @@ import type {
   RequestSecurityContext,
   SecureResponse,
   AuthenticationResult
-} from '../security';
-import authServiceInstance from '../security/AuthenticationService';
-import networkSecurityInstance from '../security/NetworkSecurityService';
-import securityMonitoringInstance from '../security/SecurityMonitoringService';
+} from '@/services/security';
+import authServiceInstance from '@/services/security/AuthenticationService';
+import networkSecurityInstance from '@/services/security/NetworkSecurityService';
+import securityMonitoringInstance from '@/services/security/SecurityMonitoringService';
 
-import { logError, logSecurity, logPerformance, LogCategory } from '../logging';
+import { logError, logSecurity, logPerformance, LogCategory } from '@/services/logging';
 
 /**
  * ANALYTICS PRIVACY ENGINE
