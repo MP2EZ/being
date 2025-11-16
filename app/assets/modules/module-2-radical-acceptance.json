@@ -39,10 +39,9 @@
       "id": "acceptance-shift",
       "title": "The Acceptance Shift Practice",
       "description": "Notice resistance and gently shift to acceptance of what's happening.",
-      "type": "guided-timer",
+      "type": "reflection",
       "duration": 300,
       "icon": "🔄",
-      "visualMode": "contemplative",
       "instructions": [
         "Bring to mind a difficult situation you're facing",
         "Notice how your body feels when thinking about it",

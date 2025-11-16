@@ -36,7 +36,6 @@ interface PracticeCompletionScreenProps {
   quote: ClassicalQuote;
   moduleId: ModuleId;
   onContinue: () => void;
-  onReturn: () => void;
   testID?: string;
 }
 
@@ -50,10 +49,40 @@ export const PRACTICE_QUOTES: Record<string, ClassicalQuote> = {
     author: 'Marcus Aurelius',
     source: 'Meditations 8.36',
   },
-  'sphere-sovereignty-sorting': {
+  'acceptance-shift': {
+    text: 'The universe is change; our life is what our thoughts make it.',
+    author: 'Marcus Aurelius',
+    source: 'Meditations 4.3',
+  },
+  'resistance-check': {
+    text: 'Do not let the body\'s reflexes control the soul.',
+    author: 'Marcus Aurelius',
+    source: 'Meditations 6.16',
+  },
+  'control-sorting': {
     text: 'Some things are up to us and some things are not up to us.',
     author: 'Epictetus',
     source: 'Enchiridion 1',
+  },
+  'reserve-clause': {
+    text: 'Nothing happens to any man that he is not formed by nature to bear.',
+    author: 'Marcus Aurelius',
+    source: 'Meditations 5.18',
+  },
+  'virtue-check': {
+    text: 'Waste no more time arguing what a good person should be. Be one.',
+    author: 'Marcus Aurelius',
+    source: 'Meditations 10.16',
+  },
+  'virtuous-reframing': {
+    text: 'The impediment to action advances action. What stands in the way becomes the way.',
+    author: 'Marcus Aurelius',
+    source: 'Meditations 5.20',
+  },
+  'gratitude-reflection': {
+    text: 'Receive without conceit, release without struggle.',
+    author: 'Marcus Aurelius',
+    source: 'Meditations 8.33',
   },
   'body-scan': {
     text: 'You have power over your mind - not outside events. Realize this, and you will find strength.',
@@ -67,7 +96,6 @@ const PracticeCompletionScreen: React.FC<PracticeCompletionScreenProps> = ({
   quote,
   moduleId,
   onContinue,
-  onReturn,
   testID = 'practice-completion-screen',
 }) => {
   // Announce completion for screen readers
@@ -131,8 +159,8 @@ const PracticeCompletionScreen: React.FC<PracticeCompletionScreenProps> = ({
           ]}
           onPress={onContinue}
           accessibilityRole="button"
-          accessibilityLabel="Continue to next section"
-          accessibilityHint="Navigates to the next module section"
+          accessibilityLabel="Continue"
+          accessibilityHint="Continue from practice completion"
           testID={`${testID}-continue-button`}
         >
           {({ pressed }) => (
@@ -143,29 +171,6 @@ const PracticeCompletionScreen: React.FC<PracticeCompletionScreenProps> = ({
               ]}
             >
               Continue
-            </Text>
-          )}
-        </Pressable>
-
-        <Pressable
-          style={({ pressed }) => [
-            styles.secondaryButton,
-            pressed && styles.secondaryButtonPressed,
-          ]}
-          onPress={onReturn}
-          accessibilityRole="button"
-          accessibilityLabel="Return to module overview"
-          accessibilityHint="Navigates back to module home"
-          testID={`${testID}-return-button`}
-        >
-          {({ pressed }) => (
-            <Text
-              style={[
-                styles.secondaryButtonText,
-                pressed && styles.secondaryButtonTextPressed,
-              ]}
-            >
-              Return to Module
             </Text>
           )}
         </Pressable>

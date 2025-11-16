@@ -51,6 +51,13 @@ const DEFAULT_PATTERN: BreathingPattern = {
   exhale: 4000,
 };
 
+// Default phase text (stable reference to prevent re-renders)
+const DEFAULT_PHASE_TEXT = {
+  inhale: 'Breathe in',
+  hold: 'Hold',
+  exhale: 'Breathe out',
+};
+
 const BreathingCircle: React.FC<BreathingCircleProps> = ({
   isActive = true,
   onCycleComplete,
@@ -58,7 +65,7 @@ const BreathingCircle: React.FC<BreathingCircleProps> = ({
   reducedMotion = false,
   pattern = DEFAULT_PATTERN,
   showCountdown = false,
-  phaseText = { inhale: 'Breathe in', hold: 'Hold', exhale: 'Breathe out' },
+  phaseText = DEFAULT_PHASE_TEXT,
 }) => {
   // High-performance shared values for 60fps animations
   const scale = useSharedValue(1);
@@ -143,6 +150,12 @@ const BreathingCircle: React.FC<BreathingCircleProps> = ({
       countdown.value = 0;
       return;
     }
+
+    // When becoming active, ensure clean state by canceling any existing animations
+    cancelAnimation(scale);
+    cancelAnimation(opacity);
+    cancelAnimation(phase);
+    cancelAnimation(countdown);
 
     const hasHoldPhase = pattern.hold && pattern.hold > 0;
 

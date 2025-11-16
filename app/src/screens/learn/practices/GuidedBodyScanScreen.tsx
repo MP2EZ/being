@@ -28,14 +28,14 @@ import {
   TouchableOpacity,
   StatusBar,
   ScrollView,
+  Animated,
 } from 'react-native';
 import { colorSystem, spacing, typography, borderRadius } from '../../../constants/colors';
 import { BODY_AREAS } from '../../../flows/shared/components/BodyAreaGrid';
 import ProgressiveBodyScanList from '../../../flows/shared/components/ProgressiveBodyScanList';
-import PracticeCompletionScreen, {
-  PRACTICE_QUOTES,
-} from './PracticeCompletionScreen';
-import { useEducationStore } from '../../../stores/educationStore';
+import PracticeScreenHeader from './shared/PracticeScreenHeader';
+import { usePracticeCompletion } from './shared/usePracticeCompletion';
+import { useInstructionsFade } from './shared/useInstructionsFade';
 import type { ModuleId } from '../../../types/education';
 
 interface GuidedBodyScanScreenProps {
@@ -69,12 +69,19 @@ const GuidedBodyScanScreen: React.FC<GuidedBodyScanScreenProps> = ({
   testID = 'guided-body-scan-screen',
 }) => {
   const [currentAreaIndex, setCurrentAreaIndex] = useState(0);
-  const [isComplete, setIsComplete] = useState(false);
+  const [isPracticeStarted, setIsPracticeStarted] = useState(false);
 
-  // Store actions
-  const incrementPracticeCount = useEducationStore(
-    (state) => state.incrementPracticeCount
-  );
+  // Shared hooks
+  const { renderCompletion, markComplete } = usePracticeCompletion({
+    practiceId,
+    moduleId,
+    title,
+    onComplete,
+    onBack,
+    testID,
+  });
+
+  const { opacity: instructionsOpacity, showInstructions } = useInstructionsFade(isPracticeStarted);
 
   const currentArea = BODY_AREAS[currentAreaIndex] ?? 'Head & Neck';
   const currentGuidance = RESISTANCE_GUIDANCE[currentArea] || 'Notice the sensations in this area.';
@@ -85,46 +92,24 @@ const GuidedBodyScanScreen: React.FC<GuidedBodyScanScreenProps> = ({
    * Handle advancing to next area or completing
    */
   const handleNext = () => {
+    // Start practice on first Next press
+    if (!isPracticeStarted) {
+      setIsPracticeStarted(true);
+    }
+
     if (isLastArea) {
       // Complete the practice
-      setIsComplete(true);
-      incrementPracticeCount(moduleId);
+      markComplete();
     } else {
       // Move to next area
       setCurrentAreaIndex(currentAreaIndex + 1);
     }
   };
 
-  /**
-   * Handle completion screen done
-   */
-  const handleCompletionDone = () => {
-    onComplete?.();
-  };
-
-  /**
-   * Handle back button
-   */
-  const handleBack = () => {
-    onBack?.();
-  };
-
   // Show completion screen after all areas checked
-  if (isComplete) {
-    const quote = PRACTICE_QUOTES[practiceId] || PRACTICE_QUOTES['body-scan'];
-    if (!quote) {
-      throw new Error(`Missing quote for practiceId: ${practiceId}`);
-    }
-    return (
-      <PracticeCompletionScreen
-        practiceTitle={title}
-        quote={quote}
-        moduleId={moduleId}
-        onContinue={handleCompletionDone}
-        onReturn={handleBack}
-        testID={`${testID}-completion`}
-      />
-    );
+  const completionScreen = renderCompletion();
+  if (completionScreen) {
+    return completionScreen;
   }
 
   return (
@@ -132,19 +117,11 @@ const GuidedBodyScanScreen: React.FC<GuidedBodyScanScreenProps> = ({
       <StatusBar barStyle="dark-content" backgroundColor={colorSystem.base.white} />
 
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={handleBack}
-          accessibilityRole="button"
-          accessibilityLabel="Go back"
-          accessibilityHint="Return to previous screen"
-        >
-          <Text style={styles.backButtonText}>←</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>{title}</Text>
-        <View style={styles.headerSpacer} />
-      </View>
+      <PracticeScreenHeader
+        title={title}
+        onBack={onBack || (() => {})}
+        testID={`${testID}-header`}
+      />
 
       {/* Main Content - Scrollable */}
       <ScrollView
@@ -152,13 +129,19 @@ const GuidedBodyScanScreen: React.FC<GuidedBodyScanScreenProps> = ({
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        {/* Practice Instructions */}
-        <View style={styles.instructionsSection}>
+        {/* Practice Instructions - Fade out after first Next press */}
+        <Animated.View
+          style={[
+            styles.instructionsSection,
+            { opacity: instructionsOpacity }
+          ]}
+          pointerEvents={showInstructions ? 'auto' : 'none'}
+        >
           <Text style={styles.instructionsText}>
             Take your time with each area. Notice sensations without trying to change them.
             Tap "Next" when you're ready to continue.
           </Text>
-        </View>
+        </Animated.View>
 
         {/* Progressive Body Scan List (Shared DRY Component) */}
         <View style={styles.bodyAreaSection}>
@@ -202,36 +185,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colorSystem.base.white,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderBottomWidth: 1,
-    borderBottomColor: colorSystem.gray[200],
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 20,
-  },
-  backButtonText: {
-    fontSize: 24,
-    color: colorSystem.navigation.learn,
-  },
-  headerTitle: {
-    fontSize: typography.headline3.size,
-    fontWeight: typography.headline3.weight,
-    color: colorSystem.base.black,
-    textAlign: 'center',
-    flex: 1,
-  },
-  headerSpacer: {
-    width: 40,
   },
   scrollView: {
     flex: 1,

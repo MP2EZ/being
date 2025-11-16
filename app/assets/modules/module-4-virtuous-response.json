@@ -57,10 +57,9 @@
       "id": "virtuous-reframing",
       "title": "Virtuous Reframing Practice",
       "description": "Take a current difficulty and reframe it as an opportunity for virtue.",
-      "type": "guided-timer",
+      "type": "reflection",
       "duration": 420,
       "icon": "🔄",
-      "visualMode": "contemplative",
       "instructions": [
         "Bring to mind a current challenge or difficulty",
         "Notice your automatic emotional reaction without judging it",
