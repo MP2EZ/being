@@ -164,7 +164,7 @@ Priority = (Impact × Value^1.5 × Strategic Fit × Urgency) / (Effort × Risk)
 - Defines what Being fundamentally is
 - Mission-essential or revenue-critical
 - Competitive differentiator or regulatory requirement
-- *Example*: MBCT therapeutic accuracy, HIPAA compliance, crisis intervention system, subscription infrastructure (revenue)
+- *Example*: Stoic Mindfulness philosophical integrity, HIPAA compliance, crisis intervention system, subscription infrastructure (revenue)
 
 **4 - Core Strategy**
 - Directly advances business objectives
@@ -202,8 +202,8 @@ When multiple strategic concerns conflict, use this hierarchy to determine Strat
 - Rationale: Zero tolerance for user harm in mental health context
 
 **2. Mission / Therapeutic Integrity**
-- MBCT fidelity, therapeutic effectiveness, clinical validation
-- Examples: MBCT exercises, assessment workflows, therapeutic content
+- Stoic Mindfulness authenticity, therapeutic effectiveness, philosophical validation
+- Examples: Stoic Mindfulness practices (morning/midday/evening check-ins, virtue reflection), assessment workflows, educational content
 - Rationale: Defines what Being fundamentally is
 
 **3. Compliance / Legal**
@@ -223,14 +223,14 @@ When multiple strategic concerns conflict, use this hierarchy to determine Strat
 
 **Application Example**:
 ```
-Feature: Values Matrix (MBCT therapeutic tool)
+Feature: Virtue Reflection Matrix (Stoic practice)
 - Safety angle: None (informational, non-crisis)
-- Mission angle: HIGH (core MBCT principle - values-based living)
+- Mission angle: HIGH (core Stoic principle - virtue-based living via four cardinal virtues)
 - Compliance angle: None (no PHI)
 - Revenue angle: None (doesn't enable monetization)
 - Competitive angle: Medium (some competitors have values features)
 
-Strategic Fit = 5 (mission-essential MBCT principle takes precedence)
+Strategic Fit = 5 (mission-essential Stoic principle takes precedence)
 ```
 
 **Conflict Resolution**:
@@ -527,9 +527,9 @@ This creates strong preference for safety-critical and high-impact features over
 
 | Score | Tier | Action |
 |-------|------|--------|
-| **>150** | Must-Have | Work immediately, blocks launch or critical for success |
-| **50-150** | Should-Have | Plan for current/next sprint, high business value |
-| **10-50** | Could-Have | Backlog for later, validate need before building |
+| **>100** | Must-Have | Work immediately, blocks launch or critical for success |
+| **30-100** | Should-Have | Plan for current/next sprint, high business value |
+| **10-30** | Could-Have | Backlog for later, validate need before building |
 | **<10** | Won't-Have | Defer or delete, low priority for current phase |
 
 ---
@@ -579,25 +579,25 @@ Rationale: High I×V×SF (important feature strategically), but U=1 (no urgency,
 Recommendation: Launch with anonymous-first, validate need with real users, then reconsider
 ```
 
-### Example 3: Profile Tab with Values Matrix
+### Example 3: Profile Tab with Virtue Reflection Matrix
 
-**Context**: Complete profile tab implementation including MBCT values-based living matrix.
+**Context**: Complete profile tab implementation including Stoic virtue reflection matrix.
 
 ```
 Impact: 5 (ALL users access profile)
-Value: 4 (values matrix is core MBCT therapeutic tool - high effect)
-Strategic Fit: 5 (values-based living is mission-essential MBCT principle)
+Value: 4 (virtue reflection is core Stoic Mindfulness practice - high effect)
+Strategic Fit: 5 (virtue-based living via four cardinal virtues is mission-essential Stoic Mindfulness principle)
 Urgency: 3 (pre-launch target window, enhances therapeutic completeness)
 Effort: M = 3 points (3 sections: values matrix, account settings, privacy/data)
-Risk: 2 (values matrix needs clinical validation, otherwise straightforward)
+Risk: 2 (values matrix needs philosophical validation, otherwise straightforward)
 
 Priority = (5 × 4^1.5 × 5 × 3) / (3 × 2)
          = (5 × 8 × 5 × 3) / 6
          = 600 / 6
          = 100
 
-Interpretation: SHOULD-HAVE (tier 50-150) - plan for current sprint
-Rationale: High I×V×SF (all users, core MBCT, mission-essential) + moderate U + manageable E×R
+Interpretation: SHOULD-HAVE (tier 30-100) - plan for current sprint
+Rationale: High I×V×SF (all users, core Stoic Mindfulness practice, mission-essential) + moderate U + manageable E×R
 ```
 
 ### Example 4: Breathing Bell Sound (Therapeutic Audio)
@@ -607,7 +607,7 @@ Rationale: High I×V×SF (all users, core MBCT, mission-essential) + moderate U 
 ```
 Impact: 4 (most users do breathing exercises - 75%+ reach)
 Value: 3 (helps maintain rhythm, improves completion - moderate effect)
-Strategic Fit: 3 (supports core MBCT feature, therapeutic enhancement)
+Strategic Fit: 3 (supports core Stoic Mindfulness practice, therapeutic enhancement)
 Urgency: 1 (nice-to-have, should validate: do users want audio guidance?)
 Effort: S = 2 points (audio file, playback integration, user toggle)
 Risk: 1 (simple audio playback, proven patterns)
@@ -617,8 +617,8 @@ Priority = (4 × 3^1.5 × 3 × 1) / (2 × 1)
          = 62.4 / 2
          = 31.2
 
-Interpretation: COULD-HAVE (tier 10-50) - backlog for later
-Rationale: Good I×V×SF (most users, moderate benefit, aligned), but U=1 (unvalidated - some users prefer silence in MBCT)
+Interpretation: COULD-HAVE (tier 10-30) - backlog for later
+Rationale: Good I×V×SF (most users, moderate benefit, aligned), but U=1 (unvalidated - some users prefer silence in mindfulness practice)
 Recommendation: Launch without audio, survey users on audio preferences, then build if validated
 ```
 
@@ -821,7 +821,7 @@ Priority = (5 × 4^1.5 × 4 × 3) / (5 × 3) = 480 / 15 = 32
 - Core flow blockers (onboarding crash, assessment data loss)
 
 **U=4 (Launch Credibility)**:
-- Therapeutic completeness (PHQ-9/GAD-7, core MBCT exercises)
+- Therapeutic completeness (PHQ-9/GAD-7, core Stoic Mindfulness practices)
 - Professional requirements (privacy policy, data security)
 - User onboarding (assessment flow, initial setup)
 
@@ -856,9 +856,9 @@ This creates clear criteria for re-prioritization as evidence emerges.
 **Priority Score → Action Mapping**:
 
 ```
->150  Must-Have   → Work immediately (next sprint)
-50-150 Should-Have → Plan for current phase (this quarter)
-10-50  Could-Have  → Backlog for validation (defer until evidence supports)
+>100  Must-Have   → Work immediately (next sprint)
+30-100 Should-Have → Plan for current phase (this quarter)
+10-30  Could-Have  → Backlog for validation (defer until evidence supports)
 <10    Won't-Have  → Defer to future phase or delete
 
 Special Cases:
