@@ -26,7 +26,7 @@
  */
 
 
-import { logSecurity, logPerformance, logError, LogCategory } from '@/services/logging';
+import { logSecurity, logPerformance, logError, LogCategory } from '@/core/services/logging';
 import HIPAAComplianceEngine, { PHIClassification } from './HIPAAComplianceEngine';
 import HIPAAConsentManager from './HIPAAConsentManager';
 import HIPAADataMinimizationEngine, { DataPurpose, UserRole } from './HIPAADataMinimization';

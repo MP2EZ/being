@@ -18,7 +18,7 @@
 import { crisisAnalyticsService, CrisisUsageSummary } from './CrisisAnalyticsService';
 import { useCrisisPlanStore } from '@/features/crisis/stores/crisisPlanStore';
 import { postCrisisSupportService } from './PostCrisisSupportService';
-import { logPerformance, LogCategory } from '@/services/logging';
+import { logPerformance, LogCategory } from '@/core/services/logging';
 
 /**
  * METRICS DASHBOARD DATA

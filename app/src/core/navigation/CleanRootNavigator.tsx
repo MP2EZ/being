@@ -6,7 +6,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { View, ActivityIndicator, StyleSheet, TouchableOpacity, Text } from 'react-native';
-import { logPerformance } from '@/services/logging';
+import { logPerformance } from '@/core/services/logging';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import CleanTabNavigator from './CleanTabNavigator';

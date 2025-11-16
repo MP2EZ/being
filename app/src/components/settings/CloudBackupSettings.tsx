@@ -21,7 +21,7 @@
  */
 
 
-import { logSecurity, logPerformance, logError, LogCategory } from '../../services/logging';
+import { logSecurity, logPerformance, logError, LogCategory } from '@/core/services/logging';
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -32,7 +32,7 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import { useCloudSync, useCloudBackupConfig } from '../../services/supabase/hooks/useCloudSync';
+import { useCloudSync, useCloudBackupConfig } from '@/core/services/supabase/hooks/useCloudSync';
 import SyncStatusIndicator from '../sync/SyncStatusIndicator';
 import AnalyticsService from '@/analytics/AnalyticsService';
 

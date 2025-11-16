@@ -6,7 +6,7 @@
  * Type-safe content access with error handling.
  */
 
-import type { ModuleId, ModuleContent } from '../types/education';
+import type { ModuleId, ModuleContent } from '@/types/education';
 
 // Content cache (in-memory, persists for app session)
 const contentCache: Partial<Record<ModuleId, ModuleContent>> = {};

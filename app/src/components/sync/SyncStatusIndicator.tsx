@@ -23,7 +23,7 @@
  */
 
 
-import { logSecurity, logPerformance, logError, LogCategory } from '../../services/logging';
+import { logSecurity, logPerformance, logError, LogCategory } from '@/core/services/logging';
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
@@ -35,7 +35,7 @@ import {
 } from 'react-native';
 
 // Import services
-import SyncCoordinator from '../../services/supabase/SyncCoordinator';
+import SyncCoordinator from '@/core/services/supabase/SyncCoordinator';
 import AnalyticsService from '@/analytics/AnalyticsService';
 
 /**

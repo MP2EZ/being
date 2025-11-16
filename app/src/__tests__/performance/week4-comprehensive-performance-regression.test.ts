@@ -20,7 +20,7 @@
  */
 
 
-import { logSecurity, logPerformance, logError, LogCategory } from '../../services/logging';
+import { logSecurity, logPerformance, logError, LogCategory } from '@/core/services/logging';
 import { performance } from 'perf_hooks';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -28,12 +28,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CrisisDetectionEngine } from '@/features/crisis/services/CrisisDetectionEngine';
 import { useAssessmentPerformance } from '@/features/assessment/hooks/useAssessmentPerformance';
 import AnalyticsService from '@/analytics/AnalyticsService';
-import { AuthenticationService } from '../../services/security/AuthenticationService';
-import { NetworkSecurityService } from '../../services/security/NetworkSecurityService';
-import { EncryptionService } from '../../services/security/EncryptionService';
-import { SyncCoordinator } from '../../services/supabase/SyncCoordinator';
-import { MemoryOptimizer } from '../../services/performance/MemoryOptimizer';
-import { PerformanceMonitor } from '../../services/performance/PerformanceMonitor';
+import { AuthenticationService } from '@/core/services/security/AuthenticationService';
+import { NetworkSecurityService } from '@/core/services/security/NetworkSecurityService';
+import { EncryptionService } from '@/core/services/security/EncryptionService';
+import { SyncCoordinator } from '@/core/services/supabase/SyncCoordinator';
+import { MemoryOptimizer } from '@/core/services/performance/MemoryOptimizer';
+import { PerformanceMonitor } from '@/core/services/performance/PerformanceMonitor';
 
 // Performance baseline constants
 const PERFORMANCE_BASELINES = {

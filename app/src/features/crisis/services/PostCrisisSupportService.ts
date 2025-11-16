@@ -22,7 +22,7 @@
 
 import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { logPerformance, logSecurity, logError, logDebug, LogCategory } from '@/services/logging';
+import { logPerformance, logSecurity, logError, logDebug, LogCategory } from '@/core/services/logging';
 import { crisisAnalyticsService } from './CrisisAnalyticsService';
 
 export interface PostCrisisSupport {

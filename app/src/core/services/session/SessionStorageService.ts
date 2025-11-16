@@ -23,7 +23,7 @@ import {
   SessionMetadata,
   SESSION_STORAGE_KEYS,
   SESSION_TTL_MS,
-} from '../../types/session';
+} from '@/types/session';
 import EncryptionService from '../security/EncryptionService';
 
 /**

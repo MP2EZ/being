@@ -23,7 +23,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { logPerformance, logError, logDebug, LogCategory } from '@/services/logging';
+import { logPerformance, logError, logDebug, LogCategory } from '@/core/services/logging';
 
 /**
  * CRISIS ANALYTICS EVENT TYPES

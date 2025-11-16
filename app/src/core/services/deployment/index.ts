@@ -25,7 +25,7 @@
  * - PHI protection remains active during deployment
  *
  * USAGE:
- * import { deploymentService, deployToProduction, emergencyDeploy } from '@/services/deployment';
+ * import { deploymentService, deployToProduction, emergencyDeploy } from '@/core/services/deployment';
  */
 
 // Import for internal use

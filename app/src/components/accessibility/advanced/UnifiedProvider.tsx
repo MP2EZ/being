@@ -10,7 +10,7 @@
  */
 
 
-import { logSecurity, logPerformance, logError, LogCategory } from '../../../services/logging';
+import { logSecurity, logPerformance, logError, LogCategory } from '@/core/services/logging';
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 

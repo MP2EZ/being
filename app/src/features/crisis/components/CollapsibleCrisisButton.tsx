@@ -47,7 +47,7 @@ import Animated, {
   withTiming,
   runOnJS,
 } from 'react-native-reanimated';
-import { logSecurity, logPerformance } from '../../../services/logging';
+import { logSecurity, logPerformance } from '@/core/services/logging';
 
 interface CollapsibleCrisisButtonProps {
   /** Crisis action callback */

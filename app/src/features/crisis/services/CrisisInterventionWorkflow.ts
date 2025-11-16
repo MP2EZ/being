@@ -22,7 +22,7 @@
  */
 
 
-import { logSecurity, logPerformance, logError, LogCategory } from '@/services/logging';
+import { logSecurity, logPerformance, logError, LogCategory } from '@/core/services/logging';
 import { Alert, Linking } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import type {

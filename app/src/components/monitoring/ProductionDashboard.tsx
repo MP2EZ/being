@@ -37,9 +37,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 // Import our monitoring services
-import { monitoringOrchestrator } from '../../services/monitoring';
-import { resilienceOrchestrator, ProtectedService, CircuitBreakerState } from '../../services/resilience';
-import { logSecurity, logPerformance } from '../../services/logging';
+import { monitoringOrchestrator } from '@/core/services/monitoring';
+import { resilienceOrchestrator, ProtectedService, CircuitBreakerState } from '@/core/services/resilience';
+import { logSecurity, logPerformance } from '@/core/services/logging';
 
 // Dashboard configuration
 const REFRESH_INTERVAL = 5000; // 5 seconds

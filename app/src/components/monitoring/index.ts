@@ -26,7 +26,7 @@ import {
   logPerformance,
   logError,
   LogCategory
-} from '../../services/logging';
+} from '@/core/services/logging';
 
 import {
   monitoringOrchestrator,
@@ -35,7 +35,7 @@ import {
   trackCrisisError,
   trackAuthError,
   trackSyncError
-} from '../../services/monitoring';
+} from '@/core/services/monitoring';
 import ProductionDashboard from './ProductionDashboard';
 
 // Re-export monitoring services for integration
@@ -60,14 +60,14 @@ export {
   protectedCrisisDetection,
   protectedAuthentication,
   protectedSyncOperation
-} from '../../services/resilience';
+} from '@/core/services/resilience';
 
 /**
  * MONITORING WIDGET - Compact Status Display
  */
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { resilienceOrchestrator } from '../../services/resilience';
+import { resilienceOrchestrator } from '@/core/services/resilience';
 
 interface MonitoringWidgetProps {
   onPress?: () => void;

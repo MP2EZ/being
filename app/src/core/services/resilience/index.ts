@@ -19,7 +19,7 @@
  * - Analytics fail silently without user impact
  *
  * USAGE:
- * import { circuitBreakerService, protectedCrisisDetection } from '@/services/resilience';
+ * import { circuitBreakerService, protectedCrisisDetection } from '@/core/services/resilience';
  */
 
 // Import for internal use

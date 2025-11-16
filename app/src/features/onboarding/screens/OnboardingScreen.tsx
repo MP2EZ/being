@@ -15,7 +15,7 @@
  */
 
 
-import { logSecurity, logPerformance, logError, LogCategory } from '@/services/logging';
+import { logSecurity, logPerformance, logError, LogCategory } from '@/core/services/logging';
 import React, { useState, useRef, useEffect } from 'react';
 import {
   View,

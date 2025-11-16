@@ -26,7 +26,7 @@ import {
   SubscriptionProductIds,
   SubscriptionInterval,
   DEFAULT_SUBSCRIPTION_CONFIG
-} from '../../types/subscription';
+} from '@/types/subscription';
 import { Platform } from 'react-native';
 import { supabaseService } from '../supabase/SupabaseService';
 

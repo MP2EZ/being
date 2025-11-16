@@ -29,7 +29,7 @@ import HIPAAConsentManager from './HIPAAConsentManager';
 import HIPAADataMinimizationEngine from './HIPAADataMinimization';
 import HIPAABreachResponseEngine from './HIPAABreachResponseEngine';
 import HIPAAAssessmentIntegration from './HIPAAAssessmentIntegration';
-import { logError, LogCategory } from '@/services/logging';
+import { logError, LogCategory } from '@/core/services/logging';
 
 // Core compliance engines - Re-export
 export { default as HIPAAComplianceEngine } from './HIPAAComplianceEngine';

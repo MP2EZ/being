@@ -20,7 +20,7 @@
 
 import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { logError, logDebug, LogCategory } from '@/services/logging';
+import { logError, logDebug, LogCategory } from '@/core/services/logging';
 
 /**
  * Migration result tracking

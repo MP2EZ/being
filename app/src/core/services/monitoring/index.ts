@@ -10,7 +10,7 @@
  * - HIPAA-compliant error aggregation
  *
  * USAGE:
- * import { errorMonitoringService, trackCrisisError, trackSyncError } from '@/services/monitoring';
+ * import { errorMonitoringService, trackCrisisError, trackSyncError } from '@/core/services/monitoring';
  */
 
 // Import for internal use and re-export

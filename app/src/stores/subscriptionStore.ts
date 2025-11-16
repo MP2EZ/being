@@ -39,7 +39,7 @@ import {
   DEFAULT_SUBSCRIPTION_CONFIG,
   CRISIS_FEATURES
 } from '../types/subscription';
-import AuthenticationService from '../services/security/AuthenticationService';
+import AuthenticationService from '@/core/services/security/AuthenticationService';
 
 const STORAGE_KEY = 'subscription_metadata_v1';
 const SECURE_STORAGE_KEY = 'subscription_secure_v1';
@@ -248,7 +248,7 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
       logger.info('Initiating purchase flow', { interval });
 
       // Import IAPService dynamically to avoid circular dependency
-      const { IAPService } = await import('../services/subscription/IAPService');
+      const { IAPService } = await import('@/core/services/subscription/IAPService');
 
       // 1. Initiate platform IAP purchase
       const purchase = await IAPService.purchaseSubscription(interval);

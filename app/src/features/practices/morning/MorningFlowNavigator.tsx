@@ -22,7 +22,7 @@ import { createStackNavigator, StackNavigationProp } from '@react-navigation/sta
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { colorSystem, spacing } from '@/core/theme/colors';
 import { MorningFlowParamList } from '@/types/flows';
-import { SessionStorageService } from '@/services/session/SessionStorageService';
+import { SessionStorageService } from '@/core/services/session/SessionStorageService';
 import { SessionMetadata } from '@/types/session';
 import { ResumeSessionModal } from '../shared/components/ResumeSessionModal';
 

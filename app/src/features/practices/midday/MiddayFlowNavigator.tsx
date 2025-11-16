@@ -21,12 +21,12 @@
  * - Oikeiôsis framework (self-compassion as foundation)
  */
 
-import { logSecurity, logPerformance, logError, LogCategory } from '@/services/logging';
+import { logSecurity, logPerformance, logError, LogCategory } from '@/core/services/logging';
 import React, { useState, useEffect, useRef } from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 import { View, Pressable, Text, StyleSheet } from 'react-native';
 import { colorSystem, spacing } from '@/core/theme/colors';
-import { SessionStorageService } from '@/services/session/SessionStorageService';
+import { SessionStorageService } from '@/core/services/session/SessionStorageService';
 import { SessionMetadata } from '@/types/session';
 import { ResumeSessionModal } from '../shared/components/ResumeSessionModal';
 import ControlCheckScreen from './screens/ControlCheckScreen';

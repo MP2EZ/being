@@ -22,7 +22,7 @@
 
 import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
-import { logPerformance, logSecurity, logError, LogCategory } from '@/services/logging';
+import { logPerformance, logSecurity, logError, LogCategory } from '@/core/services/logging';
 import { crisisAnalyticsService } from '@/features/crisis/services/CrisisAnalyticsService';
 
 /**

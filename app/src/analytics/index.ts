@@ -40,7 +40,7 @@ import {
   logSync,
   logPerformance,
   LogCategory
-} from '@/services/logging';
+} from '@/core/services/logging';
 
 // Analytics Privacy Engine (internal component of AnalyticsService)
 // Note: AnalyticsPrivacyEngine is not exported as it's internal to AnalyticsService

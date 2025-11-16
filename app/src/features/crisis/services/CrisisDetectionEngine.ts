@@ -28,7 +28,7 @@ import {
   logError,
   logSecurity,
   LogCategory
-} from '@/services/logging';
+} from '@/core/services/logging';
 import type {
   PHQ9Result,
   GAD7Result,

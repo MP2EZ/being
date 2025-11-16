@@ -24,7 +24,7 @@
  */
 
 
-import { logSecurity, logPerformance, logError, LogCategory } from '@/services/logging';
+import { logSecurity, logPerformance, logError, LogCategory } from '@/core/services/logging';
 import React from 'react';
 import { Alert, Linking } from 'react-native';
 import { useAssessmentStore } from '@/features/assessment/stores/assessmentStore';
