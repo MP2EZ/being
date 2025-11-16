@@ -39,7 +39,7 @@ import {
   typography,
   type ModuleId,
 } from './shared/practiceCommon';
-import Timer from '../../../flows/shared/components/Timer';
+import Timer from '@/features/practices/shared/components/Timer';
 
 interface ReflectionTimerScreenProps {
   practiceId: string;

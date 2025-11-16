@@ -46,9 +46,9 @@ import {
   typography,
   type ModuleId,
 } from './shared/practiceCommon';
-import { BODY_AREAS } from '../../../flows/shared/components/BodyAreaGrid';
-import ProgressiveBodyScanList from '../../../flows/shared/components/ProgressiveBodyScanList';
-import Timer from '../../../flows/shared/components/Timer';
+import { BODY_AREAS } from '@/features/practices/shared/components/BodyAreaGrid';
+import ProgressiveBodyScanList from '@/features/practices/shared/components/ProgressiveBodyScanList';
+import Timer from '@/features/practices/shared/components/Timer';
 
 interface BodyScanScreenProps {
   practiceId: string;

@@ -34,8 +34,8 @@ import {
   borderRadius,
   type ModuleId,
 } from './shared/practiceCommon';
-import BreathingCircle from '../../../flows/shared/components/BreathingCircle';
-import Timer from '../../../flows/shared/components/Timer';
+import BreathingCircle from '@/features/practices/shared/components/BreathingCircle';
+import Timer from '@/features/practices/shared/components/Timer';
 
 interface PracticeTimerScreenProps {
   practiceId: string;

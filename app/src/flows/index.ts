@@ -1,6 +1,9 @@
 /**
  * Flows Export Index
  * Main export file for all DRD check-in flows
+ *
+ * DEPRECATED: Practice flows have moved to features/practices
+ * This file remains for backward compatibility during migration
  */
 
 // Morning Flow - Exclude GratitudeScreen to avoid conflict
@@ -12,10 +15,10 @@ export {
   PrincipleFocusScreen,
   PhysicalGroundingScreen,
   MorningCompletionScreen
-} from './morning';
+} from '@/features/practices/morning';
 
 // Midday Flow
-export * from './midday';
+export * from '@/features/practices/midday';
 
 // Evening Flow - Exclude GratitudeScreen to avoid conflict
 export {
@@ -26,7 +29,7 @@ export {
   SelfCompassionScreen,
   SleepTransitionScreen,
   EveningCompletionScreen
-} from './evening';
+} from '@/features/practices/evening';
 
 // Shared Components
-export * from './shared/components';
+export * from '@/features/practices/shared/components';

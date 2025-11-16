@@ -31,8 +31,8 @@ import {
   Animated,
 } from 'react-native';
 import { colorSystem, spacing, typography, borderRadius } from '@/core/theme/colors';
-import { BODY_AREAS } from '../../../flows/shared/components/BodyAreaGrid';
-import ProgressiveBodyScanList from '../../../flows/shared/components/ProgressiveBodyScanList';
+import { BODY_AREAS } from '@/features/practices/shared/components/BodyAreaGrid';
+import ProgressiveBodyScanList from '@/features/practices/shared/components/ProgressiveBodyScanList';
 import PracticeScreenHeader from './shared/PracticeScreenHeader';
 import { usePracticeCompletion } from './shared/usePracticeCompletion';
 import { useInstructionsFade } from './shared/useInstructionsFade';
