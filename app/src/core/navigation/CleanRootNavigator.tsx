@@ -17,8 +17,8 @@ import CrisisResourcesScreen from '@/features/crisis/screens/CrisisResourcesScre
 import CrisisPlanScreen from '@/features/crisis/screens/CrisisPlanScreen';
 import PurchaseOptionsScreen from '../../components/subscription/PurchaseOptionsScreen';
 import SubscriptionStatusCard from '../../components/subscription/SubscriptionStatusCard';
-import OnboardingScreen from '../../screens/OnboardingScreen';
-import VirtueDashboardScreen from '../../screens/VirtueDashboardScreen';
+import OnboardingScreen from '@/features/onboarding/screens/OnboardingScreen';
+import VirtueDashboardScreen from '@/features/insights/screens/VirtueDashboardScreen';
 import EnhancedAssessmentFlow from '@/features/assessment/components/EnhancedAssessmentFlow';
 import ModuleDetailScreen from '@/features/learn/screens/ModuleDetailScreen';
 import {

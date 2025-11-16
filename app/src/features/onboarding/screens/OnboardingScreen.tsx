@@ -15,7 +15,7 @@
  */
 
 
-import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
+import { logSecurity, logPerformance, logError, LogCategory } from '@/services/logging';
 import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
@@ -32,9 +32,9 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
-import NotificationTimePicker from '../components/NotificationTimePicker';
+import NotificationTimePicker from '@/components/NotificationTimePicker';
 import CollapsibleCrisisButton from '@/features/crisis/components/CollapsibleCrisisButton';
-import BrainIcon from '../components/shared/BrainIcon';
+import BrainIcon from '@/components/shared/BrainIcon';
 
 // WCAG-AA compliant colors with verified contrast ratios
 const colors = {

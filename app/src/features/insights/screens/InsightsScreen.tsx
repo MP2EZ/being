@@ -28,7 +28,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { useStoicPracticeStore } from '../stores/stoicPracticeStore';
+import { useStoicPracticeStore } from '@/stores/stoicPracticeStore';
 import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 

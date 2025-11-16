@@ -16,14 +16,14 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import OnboardingScreen from './OnboardingScreen';
+import OnboardingScreen from '@/features/onboarding/screens/OnboardingScreen';
 import AppSettingsScreen from './AppSettingsScreen';
 import AccountSettingsScreen from './AccountSettingsScreen';
 import { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
-import { useSubscriptionStore } from '../stores/subscriptionStore';
+import { useSubscriptionStore } from '@/stores/subscriptionStore';
 import { isDevMode } from '@/core/constants/devMode';
 import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
-import ThresholdEducationModal from '../components/ThresholdEducationModal';
+import ThresholdEducationModal from '@/components/ThresholdEducationModal';
 import { useAssessmentStore } from '@/features/assessment/stores/assessmentStore';
 
 type ProfileScreenNavigationProp = StackNavigationProp<RootStackParamList>;
