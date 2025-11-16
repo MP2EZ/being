@@ -30,7 +30,7 @@
 
 import React from 'react';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
-import EveningCompletionScreen from '../../../src/flows/evening/screens/EveningCompletionScreen';
+import EveningCompletionScreen from '@/features/practices/evening/screens/EveningCompletionScreen';
 
 // Mock navigation
 const mockNavigate = jest.fn();

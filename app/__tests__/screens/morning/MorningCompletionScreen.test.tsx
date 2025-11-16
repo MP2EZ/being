@@ -22,8 +22,8 @@
 
 import React from 'react';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
-import MorningCompletionScreen from '../../../src/flows/morning/screens/MorningCompletionScreen';
-import type { StoicMorningFlowData } from '../../../src/types/flows';
+import MorningCompletionScreen from '@/features/practices/morning/screens/MorningCompletionScreen';
+import type { StoicMorningFlowData } from '@/features/practices/types/flows';
 
 // Mock navigation
 const mockNavigate = jest.fn();

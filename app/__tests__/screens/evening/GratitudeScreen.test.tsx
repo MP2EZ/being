@@ -29,8 +29,8 @@
 
 import React from 'react';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
-import GratitudeScreen from '../../../src/flows/evening/screens/GratitudeScreen';
-import type { GratitudeData } from '../../../src/types/flows';
+import GratitudeScreen from '@/features/practices/evening/screens/GratitudeScreen';
+import type { GratitudeData } from '@/features/practices/types/flows';
 
 // Mock navigation
 const mockNavigate = jest.fn();

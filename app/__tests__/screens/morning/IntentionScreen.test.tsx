@@ -19,8 +19,8 @@
 
 import React from 'react';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
-import IntentionScreen from '../../../src/flows/morning/screens/IntentionScreen';
-import type { IntentionData } from '../../../src/types/flows';
+import IntentionScreen from '@/features/practices/morning/screens/IntentionScreen';
+import type { IntentionData } from '@/features/practices/types/flows';
 
 // Mock navigation
 const mockNavigate = jest.fn();

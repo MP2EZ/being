@@ -18,8 +18,8 @@
 
 import React from 'react';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
-import PhysicalMetricsScreen from '../../../src/flows/morning/screens/PhysicalMetricsScreen';
-import type { PhysicalMetricsData } from '../../../src/types/flows';
+import PhysicalGroundingScreen from '@/features/practices/morning/screens/PhysicalGroundingScreen';
+import type { PhysicalMetricsData } from '@/features/practices/types/flows';
 
 // Mock navigation
 const mockNavigate = jest.fn();
@@ -29,7 +29,7 @@ const mockNavigation = {
   setOptions: jest.fn(),
 };
 
-describe('PhysicalMetricsScreen', () => {
+describe('PhysicalGroundingScreen', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
@@ -37,7 +37,7 @@ describe('PhysicalMetricsScreen', () => {
   describe('Screen Rendering', () => {
     it('should render physical metrics screen', () => {
       const { getByText } = render(
-        <PhysicalMetricsScreen navigation={mockNavigation as any} route={{} as any} />
+        <PhysicalGroundingScreen navigation={mockNavigation as any} route={{} as any} />
       );
 
       expect(getByText(/physical metrics/i)).toBeTruthy();
@@ -46,7 +46,7 @@ describe('PhysicalMetricsScreen', () => {
 
     it('should show all metric inputs', () => {
       const { getByTestId } = render(
-        <PhysicalMetricsScreen navigation={mockNavigation as any} route={{} as any} />
+        <PhysicalGroundingScreen navigation={mockNavigation as any} route={{} as any} />
       );
 
       expect(getByTestId('sleep-hours')).toBeTruthy();
@@ -58,7 +58,7 @@ describe('PhysicalMetricsScreen', () => {
   describe('Sleep Hours Input', () => {
     it('should allow setting sleep hours from 0-24', () => {
       const { getByLabelText } = render(
-        <PhysicalMetricsScreen navigation={mockNavigation as any} route={{} as any} />
+        <PhysicalGroundingScreen navigation={mockNavigation as any} route={{} as any} />
       );
 
       const sleepButton = getByLabelText('Set sleep hours to 7');
@@ -70,7 +70,7 @@ describe('PhysicalMetricsScreen', () => {
 
     it('should default to 7 hours', () => {
       const { getByText } = render(
-        <PhysicalMetricsScreen navigation={mockNavigation as any} route={{} as any} />
+        <PhysicalGroundingScreen navigation={mockNavigation as any} route={{} as any} />
       );
 
       expect(getByText('7 hours')).toBeTruthy();
@@ -80,7 +80,7 @@ describe('PhysicalMetricsScreen', () => {
   describe('Exercise Minutes Input', () => {
     it('should allow setting exercise minutes', () => {
       const { getByLabelText } = render(
-        <PhysicalMetricsScreen navigation={mockNavigation as any} route={{} as any} />
+        <PhysicalGroundingScreen navigation={mockNavigation as any} route={{} as any} />
       );
 
       const exerciseButton = getByLabelText('Set exercise to 30 minutes');
@@ -91,7 +91,7 @@ describe('PhysicalMetricsScreen', () => {
 
     it('should default to 0 minutes', () => {
       const { getByText } = render(
-        <PhysicalMetricsScreen navigation={mockNavigation as any} route={{} as any} />
+        <PhysicalGroundingScreen navigation={mockNavigation as any} route={{} as any} />
       );
 
       expect(getByText('0 minutes')).toBeTruthy();
@@ -101,7 +101,7 @@ describe('PhysicalMetricsScreen', () => {
   describe('Meals Count Input', () => {
     it('should allow setting meals from 0-5', () => {
       const { getByLabelText } = render(
-        <PhysicalMetricsScreen navigation={mockNavigation as any} route={{} as any} />
+        <PhysicalGroundingScreen navigation={mockNavigation as any} route={{} as any} />
       );
 
       const mealsButton = getByLabelText('Set meals to 3');
@@ -112,7 +112,7 @@ describe('PhysicalMetricsScreen', () => {
 
     it('should default to 3 meals', () => {
       const { getByText } = render(
-        <PhysicalMetricsScreen navigation={mockNavigation as any} route={{} as any} />
+        <PhysicalGroundingScreen navigation={mockNavigation as any} route={{} as any} />
       );
 
       expect(getByText('3 meals')).toBeTruthy();
@@ -122,7 +122,7 @@ describe('PhysicalMetricsScreen', () => {
   describe('Notes Field', () => {
     it('should have optional notes field', () => {
       const { getByTestId } = render(
-        <PhysicalMetricsScreen navigation={mockNavigation as any} route={{} as any} />
+        <PhysicalGroundingScreen navigation={mockNavigation as any} route={{} as any} />
       );
 
       const notesInput = getByTestId('metrics-notes');
@@ -134,7 +134,7 @@ describe('PhysicalMetricsScreen', () => {
     it('should NOT require notes (optional)', async () => {
       const onSave = jest.fn();
       const { getByText } = render(
-        <PhysicalMetricsScreen
+        <PhysicalGroundingScreen
           navigation={mockNavigation as any}
           route={{} as any}
           onSave={onSave}
@@ -157,7 +157,7 @@ describe('PhysicalMetricsScreen', () => {
     it('should save physical metrics on continue', async () => {
       const onSave = jest.fn();
       const { getByLabelText, getByText } = render(
-        <PhysicalMetricsScreen
+        <PhysicalGroundingScreen
           navigation={mockNavigation as any}
           route={{} as any}
           onSave={onSave}
@@ -185,7 +185,7 @@ describe('PhysicalMetricsScreen', () => {
     it('should save with notes', async () => {
       const onSave = jest.fn();
       const { getByTestId, getByText } = render(
-        <PhysicalMetricsScreen
+        <PhysicalGroundingScreen
           navigation={mockNavigation as any}
           route={{} as any}
           onSave={onSave}
@@ -207,7 +207,7 @@ describe('PhysicalMetricsScreen', () => {
     it('should trim whitespace from notes', async () => {
       const onSave = jest.fn();
       const { getByTestId, getByText } = render(
-        <PhysicalMetricsScreen
+        <PhysicalGroundingScreen
           navigation={mockNavigation as any}
           route={{} as any}
           onSave={onSave}
@@ -230,7 +230,7 @@ describe('PhysicalMetricsScreen', () => {
   describe('Navigation', () => {
     it('should navigate to completion screen on continue', async () => {
       const { getByText } = render(
-        <PhysicalMetricsScreen navigation={mockNavigation as any} route={{} as any} />
+        <PhysicalGroundingScreen navigation={mockNavigation as any} route={{} as any} />
       );
 
       fireEvent.press(getByText(/continue/i));
@@ -242,7 +242,7 @@ describe('PhysicalMetricsScreen', () => {
 
     it('should allow going back', () => {
       const { getByTestId } = render(
-        <PhysicalMetricsScreen navigation={mockNavigation as any} route={{} as any} />
+        <PhysicalGroundingScreen navigation={mockNavigation as any} route={{} as any} />
       );
 
       fireEvent.press(getByTestId('back-button'));
@@ -253,7 +253,7 @@ describe('PhysicalMetricsScreen', () => {
   describe('Accessibility', () => {
     it('should have accessible labels for all inputs', () => {
       const { getByTestId } = render(
-        <PhysicalMetricsScreen navigation={mockNavigation as any} route={{} as any} />
+        <PhysicalGroundingScreen navigation={mockNavigation as any} route={{} as any} />
       );
 
       expect(getByTestId('sleep-hours').props.accessibilityLabel).toBeTruthy();
@@ -267,7 +267,7 @@ describe('PhysicalMetricsScreen', () => {
     it('should allow proceeding with default values', async () => {
       const onSave = jest.fn();
       const { getByText } = render(
-        <PhysicalMetricsScreen
+        <PhysicalGroundingScreen
           navigation={mockNavigation as any}
           route={{} as any}
           onSave={onSave}

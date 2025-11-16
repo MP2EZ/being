@@ -25,8 +25,8 @@
 
 import React from 'react';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
-import ControlCheckScreen from '../../../src/flows/midday/screens/ControlCheckScreen';
-import type { ControlCheckData } from '../../../src/types/flows';
+import ControlCheckScreen from '@/features/practices/midday/screens/ControlCheckScreen';
+import type { ControlCheckData } from '@/features/practices/types/flows';
 
 // Mock navigation
 const mockNavigate = jest.fn();

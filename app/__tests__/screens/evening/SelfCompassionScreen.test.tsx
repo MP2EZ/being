@@ -31,8 +31,8 @@
 
 import React from 'react';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
-import SelfCompassionScreen from '../../../src/flows/evening/screens/SelfCompassionScreen';
-import type { SelfCompassionData } from '../../../src/types/flows';
+import SelfCompassionScreen from '@/features/practices/evening/screens/SelfCompassionScreen';
+import type { SelfCompassionData } from '@/features/practices/types/flows';
 
 // Mock navigation
 const mockNavigate = jest.fn();

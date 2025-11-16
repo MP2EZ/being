@@ -28,8 +28,8 @@
 
 import React from 'react';
 import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
-import EmbodimentScreen from '../../../src/flows/midday/screens/EmbodimentScreen';
-import type { EmbodimentData } from '../../../src/types/flows';
+import EmbodimentScreen from '@/features/practices/midday/screens/EmbodimentScreen';
+import type { EmbodimentData } from '@/features/practices/types/flows';
 
 // Mock BreathingCircle component
 jest.mock('../../../src/flows/shared/components/BreathingCircle', () => {

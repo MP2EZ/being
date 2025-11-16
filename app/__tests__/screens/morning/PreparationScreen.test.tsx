@@ -27,8 +27,8 @@
 
 import React from 'react';
 import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
-import PreparationScreen from '../../../src/flows/morning/screens/PreparationScreen';
-import type { PreparationData } from '../../../src/types/flows';
+import PreparationScreen from '@/features/practices/morning/screens/PreparationScreen';
+import type { PreparationData } from '@/features/practices/types/flows';
 
 // Mock navigation
 const mockNavigate = jest.fn();

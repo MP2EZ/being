@@ -26,8 +26,8 @@
 
 import React from 'react';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
-import ReappraisalScreen from '../../../src/flows/midday/screens/ReappraisalScreen';
-import type { ReappraisalData } from '../../../src/types/flows';
+import ReappraisalScreen from '@/features/practices/midday/screens/ReappraisalScreen';
+import type { ReappraisalData } from '@/features/practices/types/flows';
 
 // Mock navigation
 const mockNavigate = jest.fn();

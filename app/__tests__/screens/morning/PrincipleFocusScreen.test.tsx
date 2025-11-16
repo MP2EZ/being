@@ -18,8 +18,8 @@
 
 import React from 'react';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
-import PrincipleFocusScreen from '../../../src/flows/morning/screens/PrincipleFocusScreen';
-import type { PrincipleFocusData } from '../../../src/types/flows';
+import PrincipleFocusScreen from '@/features/practices/morning/screens/PrincipleFocusScreen';
+import type { PrincipleFocusData } from '@/features/practices/types/flows';
 
 // Mock navigation
 const mockNavigate = jest.fn();

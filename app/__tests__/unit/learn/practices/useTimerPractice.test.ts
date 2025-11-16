@@ -16,7 +16,7 @@
  */
 
 import { renderHook, act } from '@testing-library/react-native';
-import { useTimerPractice } from '../../../../src/screens/learn/practices/shared/useTimerPractice';
+import { useTimerPractice } from '@/features/learn/practices/shared/useTimerPractice';
 
 describe('useTimerPractice', () => {
   describe('Initialization', () => {

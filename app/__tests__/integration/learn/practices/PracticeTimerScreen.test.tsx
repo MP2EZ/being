@@ -15,7 +15,7 @@
 
 import React from 'react';
 import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
-import PracticeTimerScreen from '../../../../src/screens/learn/practices/PracticeTimerScreen';
+import PracticeTimerScreen from '@/features/learn/practices/PracticeTimerScreen';
 
 // Mock Phase 2 shared components
 jest.mock('../../../../src/screens/learn/practices/shared/PracticeScreenLayout', () => {

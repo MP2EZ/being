@@ -17,7 +17,7 @@
 
 import React from 'react';
 import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
-import BodyScanScreen from '../../../../src/screens/learn/practices/BodyScanScreen';
+import BodyScanScreen from '@/features/learn/practices/BodyScanScreen';
 
 // Mock Phase 2 shared components
 jest.mock('../../../../src/screens/learn/practices/shared/PracticeScreenLayout', () => {
