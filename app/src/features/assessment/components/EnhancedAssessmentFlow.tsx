@@ -35,8 +35,8 @@ import { colorSystem, spacing } from '@/core/theme/colors';
 
 // Enhanced imports
 import EnhancedAssessmentQuestion from './EnhancedAssessmentQuestion';
-import AssessmentIntroduction from '../components/AssessmentIntroduction';
-import AssessmentResults from '../components/AssessmentResults';
+import AssessmentIntroduction from '@/features/assessment/components/AssessmentIntroduction';
+import AssessmentResults from '@/features/assessment/components/AssessmentResults';
 import CrisisErrorBoundary from '@/features/crisis/components/CrisisErrorBoundary';
 import { useAssessmentStore } from '../stores/assessmentStore';
 

@@ -15,8 +15,8 @@ import MiddayFlowNavigator from '@/features/practices/midday/MiddayFlowNavigator
 import EveningFlowNavigator from '@/features/practices/evening/EveningFlowNavigator';
 import CrisisResourcesScreen from '@/features/crisis/screens/CrisisResourcesScreen';
 import CrisisPlanScreen from '@/features/crisis/screens/CrisisPlanScreen';
-import PurchaseOptionsScreen from '../../components/subscription/PurchaseOptionsScreen';
-import SubscriptionStatusCard from '../../components/subscription/SubscriptionStatusCard';
+import PurchaseOptionsScreen from '@/core/components/subscription/PurchaseOptionsScreen';
+import SubscriptionStatusCard from '@/core/components/subscription/SubscriptionStatusCard';
 import OnboardingScreen from '@/features/onboarding/screens/OnboardingScreen';
 import VirtueDashboardScreen from '@/features/insights/screens/VirtueDashboardScreen';
 import EnhancedAssessmentFlow from '@/features/assessment/components/EnhancedAssessmentFlow';

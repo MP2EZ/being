@@ -23,7 +23,7 @@ import {
 } from 'react-native';
 import { colorSystem, spacing, typography } from '@/core/theme/colors';
 import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
-import { FocusProvider, Focusable, SkipLink } from '../../../components/accessibility';
+import { FocusProvider, Focusable, SkipLink } from '@/core/components/accessibility';
 import type { AssessmentType } from '../types';
 
 interface AssessmentIntroductionProps {

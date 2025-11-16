@@ -23,7 +23,7 @@ import { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 import { useSubscriptionStore } from '@/stores/subscriptionStore';
 import { isDevMode } from '@/core/constants/devMode';
 import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
-import ThresholdEducationModal from '@/components/ThresholdEducationModal';
+import ThresholdEducationModal from '@/core/components/ThresholdEducationModal';
 import { useAssessmentStore } from '@/features/assessment/stores/assessmentStore';
 
 type ProfileScreenNavigationProp = StackNavigationProp<RootStackParamList>;

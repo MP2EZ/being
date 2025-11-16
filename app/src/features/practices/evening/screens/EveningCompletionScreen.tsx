@@ -23,7 +23,7 @@ import type { StackNavigationProp } from '@react-navigation/stack';
 import type { RouteProp } from '@react-navigation/native';
 import type { EveningFlowParamList } from '@/types/flows';
 import { SessionStorageService } from '@/core/services/session/SessionStorageService';
-import { CelebrationToast } from '@/components/CelebrationToast';
+import { CelebrationToast } from '@/core/components/CelebrationToast';
 
 type EveningCompletionScreenNavigationProp = StackNavigationProp<
   EveningFlowParamList,

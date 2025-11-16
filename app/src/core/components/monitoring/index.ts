@@ -17,7 +17,7 @@
  * - PHI-safe visualization throughout
  *
  * USAGE:
- * import { ProductionDashboard, MonitoringWidget } from '@/components/monitoring';
+ * import { ProductionDashboard, MonitoringWidget } from '@/core/components/monitoring';
  */
 
 

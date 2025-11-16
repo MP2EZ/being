@@ -35,11 +35,11 @@ import {
   useSubscriptionStatus,
   useIsTrialActive,
   useSubscriptionStore,
-} from '../../stores/subscriptionStore';
+} from '@/stores/subscriptionStore';
 import {
   SubscriptionStatus,
   SUBSCRIPTION_STATUS_LABELS,
-} from '../../types/subscription';
+} from '@/types/subscription';
 
 interface SubscriptionStatusCardProps {
   style?: any;
