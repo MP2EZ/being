@@ -21,7 +21,13 @@ import OnboardingScreen from '../screens/OnboardingScreen';
 import VirtueDashboardScreen from '../screens/VirtueDashboardScreen';
 import EnhancedAssessmentFlow from '../components/assessment/EnhancedAssessmentFlow';
 import ModuleDetailScreen from '../screens/learn/ModuleDetailScreen';
-import { PracticeTimerScreen, SortingPracticeScreen, BodyScanScreen } from '../screens/learn/practices';
+import {
+  PracticeTimerScreen,
+  ReflectionTimerScreen,
+  SortingPracticeScreen,
+  BodyScanScreen,
+  GuidedBodyScanScreen
+} from '../screens/learn/practices';
 import { useStoicPracticeStore } from '../stores/stoicPracticeStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import type { AssessmentType, PHQ9Result, GAD7Result } from '../flows/assessment/types';
@@ -40,6 +46,14 @@ export type RootStackParamList = {
     duration: number;
     title: string;
   };
+  ReflectionTimer: {
+    practiceId: string;
+    moduleId: ModuleId;
+    duration: number;
+    title: string;
+    prompt?: string;
+    instructions?: string[];
+  };
   SortingPractice: {
     practiceId: string;
     moduleId: ModuleId;
@@ -49,6 +63,11 @@ export type RootStackParamList = {
     practiceId: string;
     moduleId: ModuleId;
     duration: number;
+  };
+  GuidedBodyScan: {
+    practiceId: string;
+    moduleId: ModuleId;
+    title: string;
   };
   AssessmentFlow: {
     assessmentType: AssessmentType;
@@ -236,6 +255,47 @@ const CleanRootNavigator: React.FC = () => {
               practiceId={route.params.practiceId}
               moduleId={route.params.moduleId}
               duration={route.params.duration}
+              onComplete={() => navigation.goBack()}
+              onBack={() => navigation.goBack()}
+            />
+          )}
+        </Stack.Screen>
+
+        <Stack.Screen
+          name="ReflectionTimer"
+          options={{
+            headerShown: false,
+            presentation: 'modal',
+            gestureEnabled: false,
+          }}
+        >
+          {({ navigation, route }) => (
+            <ReflectionTimerScreen
+              practiceId={route.params.practiceId}
+              moduleId={route.params.moduleId}
+              duration={route.params.duration}
+              title={route.params.title}
+              {...(route.params.prompt && { prompt: route.params.prompt })}
+              {...(route.params.instructions && { instructions: route.params.instructions })}
+              onComplete={() => navigation.goBack()}
+              onBack={() => navigation.goBack()}
+            />
+          )}
+        </Stack.Screen>
+
+        <Stack.Screen
+          name="GuidedBodyScan"
+          options={{
+            headerShown: false,
+            presentation: 'modal',
+            gestureEnabled: false,
+          }}
+        >
+          {({ navigation, route }) => (
+            <GuidedBodyScanScreen
+              practiceId={route.params.practiceId}
+              moduleId={route.params.moduleId}
+              title={route.params.title}
               onComplete={() => navigation.goBack()}
               onBack={() => navigation.goBack()}
             />

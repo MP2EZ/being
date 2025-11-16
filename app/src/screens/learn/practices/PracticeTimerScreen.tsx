@@ -1,35 +1,41 @@
 /**
  * Practice Timer Screen - Educational Breathing & Reflection Exercises
- * FEAT-81: Interactive Practice Screens
+ * FEAT-81: Interactive Practice Screens (Phase 2 DRY Migration)
  *
- * Reuses shared components for DRY compliance:
+ * Phase 2 Migration: Uses Phase 2 DRY abstractions from practiceCommon.ts barrel
+ * - PracticeScreenLayout: Shared layout wrapper (replaces SafeAreaView + header)
+ * - PracticeInstructions: Fade animation component (replaces inline Animated.View)
+ * - useTimerPractice: Timer state management hook (consolidates timer logic)
+ * - sharedPracticeStyles: Common styles (reduces StyleSheet duplication)
+ *
+ * Reuses shared components:
  * - BreathingCircle: 60fps react-native-reanimated animations
  * - Timer: Timestamp-based timer with pause/resume and accessibility
- * - PracticeScreenHeader: Shared header with back button
  * - PracticeToggleButton: Begin/Pause/Resume logic
  * - usePracticeCompletion: Completion flow and quote lookup
- * - useInstructionsFade: Instructions fade animation
  *
  * Philosopher-validated Stoic quotes for completion screen
  */
 
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
-  StatusBar,
-  Animated,
-} from 'react-native';
-import { colorSystem, spacing, typography, borderRadius } from '../../../constants/colors';
+  PracticeScreenLayout,
+  PracticeInstructions,
+  PracticeToggleButton,
+  usePracticeCompletion,
+  useTimerPractice,
+  sharedPracticeStyles,
+  colorSystem,
+  spacing,
+  typography,
+  borderRadius,
+  type ModuleId,
+} from './shared/practiceCommon';
 import BreathingCircle from '../../../flows/shared/components/BreathingCircle';
 import Timer from '../../../flows/shared/components/Timer';
-import PracticeScreenHeader from './shared/PracticeScreenHeader';
-import PracticeToggleButton from './shared/PracticeToggleButton';
-import { usePracticeCompletion } from './shared/usePracticeCompletion';
-import { useInstructionsFade } from './shared/useInstructionsFade';
-import type { ModuleId } from '../../../types/education';
 
 interface PracticeTimerScreenProps {
   practiceId: string;
@@ -50,35 +56,26 @@ const PracticeTimerScreen: React.FC<PracticeTimerScreenProps> = ({
   onBack,
   testID = 'practice-timer-screen',
 }) => {
-  const [isTimerActive, setIsTimerActive] = useState(false); // Start inactive, wait for user to begin
-  const [elapsedTime, setElapsedTime] = useState(0); // Track elapsed time in ms
+  // Phase 2: Consolidated timer state management
+  const {
+    isTimerActive,
+    elapsedTime,
+    setIsTimerActive,
+    handleTimerTick,
+    handleTimerComplete,
+  } = useTimerPractice({
+    duration,
+    onComplete: () => markComplete(),
+  });
 
   // Shared hooks
-  const { opacity: instructionsOpacity, showInstructions } = useInstructionsFade(isTimerActive);
   const { renderCompletion, markComplete } = usePracticeCompletion({
     practiceId,
     moduleId,
     title,
     onComplete,
-    onBack,
     testID,
   });
-
-  /**
-   * Handle timer tick - update elapsed time
-   */
-  const handleTimerTick = (remainingMs: number) => {
-    const elapsed = (duration * 1000) - remainingMs;
-    setElapsedTime(elapsed);
-  };
-
-  /**
-   * Handle timer completion
-   */
-  const handleTimerComplete = () => {
-    setIsTimerActive(false);
-    markComplete();
-  };
 
   // Show completion screen after timer finishes
   const completionScreen = renderCompletion();
@@ -87,123 +84,72 @@ const PracticeTimerScreen: React.FC<PracticeTimerScreenProps> = ({
   }
 
   return (
-    <SafeAreaView style={styles.container} testID={testID}>
-      <StatusBar barStyle="dark-content" backgroundColor={colorSystem.base.white} />
-
-      {/* Header */}
-      <PracticeScreenHeader
-        title={title}
-        onBack={onBack || (() => {})}
-        testID={`${testID}-header`}
+    <PracticeScreenLayout
+      title={title}
+      onBack={onBack || (() => {})}
+      scrollable={false}
+      testID={testID}
+    >
+      {/* Practice Instructions - Phase 2: Uses shared PracticeInstructions component */}
+      <PracticeInstructions
+        text="Find a comfortable position. Follow the breathing circle and let your breath find its natural rhythm."
+        isActive={isTimerActive}
+        variant="simple"
+        testID={`${testID}-instructions`}
       />
 
-      {/* Main Content */}
-      <View style={styles.content}>
-        {/* Practice Instructions - Fade out after starting */}
-        <Animated.View
-          style={[
-            styles.instructionsSection,
-            { opacity: instructionsOpacity }
-          ]}
-          pointerEvents={showInstructions ? 'auto' : 'none'}
-        >
-          <Text style={styles.instructionsText}>
-            Find a comfortable position. Follow the breathing circle and let your breath
-            find its natural rhythm.
-          </Text>
-        </Animated.View>
-
-        {/* Breathing Circle */}
-        <View style={styles.breathingSection}>
-          <BreathingCircle
-            isActive={isTimerActive}
-            testID={`${testID}-breathing-circle`}
-          />
-        </View>
-
-        {/* Timer Component (Shared DRY Component) - Always rendered, controlled by isActive */}
-        <View style={styles.timerSection}>
-          <Timer
-            duration={duration * 1000} // Convert seconds to milliseconds
-            isActive={isTimerActive}
-            onComplete={handleTimerComplete}
-            onTick={handleTimerTick}
-            onPause={() => setIsTimerActive(false)}
-            onResume={() => setIsTimerActive(true)}
-            showProgress={true}
-            showControls={false} // Hide built-in controls, using custom button below
-            showSkip={false}
-            theme="learn"
-            testID={`${testID}-timer`}
-          />
-        </View>
-
-        {/* Single Toggle Button: Begin Practice → Pause → Resume */}
-        <PracticeToggleButton
+      {/* Breathing Circle - Screen-specific component */}
+      <View style={styles.breathingSection}>
+        <BreathingCircle
           isActive={isTimerActive}
-          elapsedTime={elapsedTime}
-          onToggle={setIsTimerActive}
-          style={{ marginBottom: spacing.xl }}
-          testID={`${testID}-toggle-button`}
+          testID={`${testID}-breathing-circle`}
         />
-
-        {/* Mindfulness Note */}
-        <View style={styles.noteSection}>
-          <Text style={styles.noteIcon}>💡</Text>
-          <Text style={styles.noteText}>
-            If your mind wanders, gently return your attention to the breath. This is
-            the practice.
-          </Text>
-        </View>
       </View>
-    </SafeAreaView>
+
+      {/* Timer Component (Shared DRY Component) - Always rendered, controlled by isActive */}
+      <View style={sharedPracticeStyles.timerSection}>
+        <Timer
+          duration={duration * 1000} // Convert seconds to milliseconds
+          isActive={isTimerActive}
+          onComplete={handleTimerComplete}
+          onTick={handleTimerTick}
+          onPause={() => setIsTimerActive(false)}
+          onResume={() => setIsTimerActive(true)}
+          showProgress={true}
+          showControls={false} // Hide built-in controls, using custom button below
+          showSkip={false}
+          theme="learn"
+          testID={`${testID}-timer`}
+        />
+      </View>
+
+      {/* Single Toggle Button: Begin Practice → Pause → Resume */}
+      <PracticeToggleButton
+        isActive={isTimerActive}
+        elapsedTime={elapsedTime}
+        onToggle={setIsTimerActive}
+        style={{ marginBottom: spacing.xl }}
+        testID={`${testID}-toggle-button`}
+      />
+
+      {/* Mindfulness Note - Phase 2: Uses shared styles */}
+      <View style={sharedPracticeStyles.noteSection}>
+        <Text style={sharedPracticeStyles.noteIcon}>💡</Text>
+        <Text style={sharedPracticeStyles.noteText}>
+          If your mind wanders, gently return your attention to the breath. This is
+          the practice.
+        </Text>
+      </View>
+    </PracticeScreenLayout>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colorSystem.base.white,
-  },
-  content: {
-    flex: 1,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.xl,
-  },
-  instructionsSection: {
-    marginBottom: spacing.xl,
-  },
-  instructionsText: {
-    fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[700],
-    textAlign: 'center',
-    lineHeight: 24,
-  },
+  // Screen-specific styles only
   breathingSection: {
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.xl,
-  },
-  timerSection: {
-    marginBottom: spacing.xl,
-  },
-  noteSection: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: colorSystem.navigation.learn + '10',
-    padding: spacing.md,
-    borderRadius: borderRadius.medium,
-    gap: spacing.sm,
-  },
-  noteIcon: {
-    fontSize: 20,
-  },
-  noteText: {
-    flex: 1,
-    fontSize: typography.caption.size,
-    color: colorSystem.gray[700],
-    lineHeight: 20,
-    fontStyle: 'italic',
   },
 });
 

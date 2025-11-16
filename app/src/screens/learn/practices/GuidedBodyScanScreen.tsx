@@ -77,7 +77,6 @@ const GuidedBodyScanScreen: React.FC<GuidedBodyScanScreenProps> = ({
     moduleId,
     title,
     onComplete,
-    onBack,
     testID,
   });
 

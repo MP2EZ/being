@@ -67,16 +67,27 @@ const PracticeTab: React.FC<PracticeTabProps> = ({
         navigation.navigate('BodyScan', {
           practiceId: practice.id,
           moduleId,
-          duration: practice.duration ?? 540, // Default 9 minutes
+          duration: practice.duration ?? 300, // Default 5 minutes
         });
         break;
 
       case 'reflection':
-        // Reflection exercises can use the timer screen with longer duration
-        navigation.navigate('PracticeTimer', {
+        // Reflection exercises - contemplation without breathing circle
+        navigation.navigate('ReflectionTimer', {
           practiceId: practice.id,
           moduleId,
           duration: practice.duration ?? 300, // Default 5 minutes
+          title: practice.title,
+          prompt: practice.description, // Use description as reflection prompt
+          ...(practice.instructions && { instructions: practice.instructions }), // Full instruction steps
+        });
+        break;
+
+      case 'guided-body-scan':
+        // Self-paced resistance/tension body check
+        navigation.navigate('GuidedBodyScan', {
+          practiceId: practice.id,
+          moduleId,
           title: practice.title,
         });
         break;
@@ -108,6 +119,8 @@ const PracticeTab: React.FC<PracticeTabProps> = ({
         return 'Reflection Exercise';
       case 'body-scan':
         return 'Body Scan';
+      case 'guided-body-scan':
+        return 'Guided Body Scan';
       default:
         return 'Practice';
     }
@@ -123,6 +136,8 @@ const PracticeTab: React.FC<PracticeTabProps> = ({
         return '✍️';
       case 'body-scan':
         return '🧘';
+      case 'guided-body-scan':
+        return '🙏';
       default:
         return '✨';
     }
@@ -267,13 +282,8 @@ const styles = StyleSheet.create({
     backgroundColor: colorSystem.base.white,
     borderRadius: 16,
     padding: spacing.lg,
-    borderWidth: 1,
-    borderColor: colorSystem.gray[200],
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    borderWidth: 1.5,
+    borderColor: colorSystem.navigation.learn,
     gap: spacing.md,
   },
   practiceHeader: {
@@ -380,8 +390,8 @@ const styles = StyleSheet.create({
     backgroundColor: colorSystem.gray[50],
     padding: spacing.md,
     borderRadius: 12,
-    borderLeftWidth: 3,
-    borderLeftColor: colorSystem.navigation.learn,
+    borderWidth: 1.5,
+    borderColor: colorSystem.navigation.learn,
   },
   tipIcon: {
     fontSize: 20,

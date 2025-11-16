@@ -30,10 +30,8 @@ import {
   Animated,
 } from 'react-native';
 import { colorSystem, spacing, typography, borderRadius } from '../../../constants/colors';
-import PracticeCompletionScreen, {
-  PRACTICE_QUOTES,
-} from './PracticeCompletionScreen';
-import { useEducationStore } from '../../../stores/educationStore';
+import PracticeScreenHeader from './shared/PracticeScreenHeader';
+import { usePracticeCompletion } from './shared/usePracticeCompletion';
 import type { ModuleId } from '../../../types/education';
 import type { SortingScenario } from '../../../types/education';
 
@@ -64,13 +62,16 @@ const SortingPracticeScreen: React.FC<SortingPracticeScreenProps> = ({
   const [currentScenarioIndex, setCurrentScenarioIndex] = useState(0);
   const [userAnswer, setUserAnswer] = useState<'in-control' | 'not-in-control' | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
-  const [isComplete, setIsComplete] = useState(false);
   const [cardAnimation] = useState(new Animated.Value(1));
 
-  // Store actions
-  const incrementPracticeCount = useEducationStore(
-    (state) => state.incrementPracticeCount
-  );
+  // Shared hook
+  const { renderCompletion, markComplete } = usePracticeCompletion({
+    practiceId,
+    moduleId,
+    title: 'Control Sorting Practice',
+    onComplete,
+    testID,
+  });
 
   const currentScenario = scenarios[currentScenarioIndex];
   if (!currentScenario) {
@@ -112,8 +113,7 @@ const SortingPracticeScreen: React.FC<SortingPracticeScreenProps> = ({
     }).start(() => {
       if (isLastScenario) {
         // Complete practice
-        setIsComplete(true);
-        incrementPracticeCount(moduleId);
+        markComplete();
         AccessibilityInfo.announceForAccessibility('Sorting practice complete');
       } else {
         // Move to next scenario
@@ -130,7 +130,7 @@ const SortingPracticeScreen: React.FC<SortingPracticeScreenProps> = ({
         }).start();
       }
     });
-  }, [isLastScenario, cardAnimation, moduleId, incrementPracticeCount]);
+  }, [isLastScenario, cardAnimation, markComplete]);
 
   /**
    * Reset card animation on mount
@@ -140,40 +140,20 @@ const SortingPracticeScreen: React.FC<SortingPracticeScreenProps> = ({
   }, [cardAnimation]);
 
   // Show completion screen
-  if (isComplete) {
-    const quote =
-      PRACTICE_QUOTES[practiceId] ??
-      PRACTICE_QUOTES['sphere-sovereignty-sorting'];
-    if (!quote) {
-      throw new Error(`Missing quote for practiceId: ${practiceId}`);
-    }
-
-    return (
-      <PracticeCompletionScreen
-        practiceTitle="Control Sorting Practice"
-        quote={quote}
-        moduleId={moduleId}
-        onContinue={onComplete || (() => {})}
-        onReturn={onBack || (() => {})}
-        testID={`${testID}-completion`}
-      />
-    );
+  const completionScreen = renderCompletion();
+  if (completionScreen) {
+    return completionScreen;
   }
 
   return (
     <View style={styles.container} testID={testID}>
       {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.title} accessibilityRole="header">
-          Control Sorting Practice
-        </Text>
-        <Text
-          style={styles.progress}
-          accessibilityLabel={`Scenario ${progress} of ${total}`}
-        >
-          {progress}/{total}
-        </Text>
-      </View>
+      <PracticeScreenHeader
+        title="Control Sorting Practice"
+        onBack={onBack || (() => {})}
+        progress={{ current: progress, total }}
+        testID={`${testID}-header`}
+      />
 
       {/* Progress Bar */}
       <View style={styles.progressBarContainer}>
@@ -353,31 +333,6 @@ const SortingPracticeScreen: React.FC<SortingPracticeScreenProps> = ({
           )}
         </ScrollView>
       </Animated.View>
-
-      {/* Back button */}
-      {onBack && (
-        <Pressable
-          style={({ pressed }) => [
-            styles.backButton,
-            pressed && styles.backButtonPressed,
-          ]}
-          onPress={onBack}
-          accessibilityRole="button"
-          accessibilityLabel="Go back"
-          testID={`${testID}-back-button`}
-        >
-          {({ pressed }) => (
-            <Text
-              style={[
-                styles.backButtonText,
-                pressed && styles.backButtonTextPressed,
-              ]}
-            >
-              ← Back
-            </Text>
-          )}
-        </Pressable>
-      )}
     </View>
   );
 };
@@ -389,23 +344,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.xl,
     paddingBottom: spacing.lg,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: spacing.md,
-  },
-  title: {
-    fontSize: typography.headline3.size,
-    fontWeight: typography.headline3.weight,
-    color: colorSystem.base.black,
-    flex: 1,
-  },
-  progress: {
-    fontSize: typography.bodyRegular.size,
-    fontWeight: '600',
-    color: colorSystem.gray[600],
   },
   progressBarContainer: {
     height: 4,
@@ -430,8 +368,8 @@ const styles = StyleSheet.create({
   },
   scenarioCard: {
     backgroundColor: colorSystem.navigation.learn + '10',
-    borderLeftWidth: 4,
-    borderLeftColor: colorSystem.navigation.learn,
+    borderWidth: 1.5,
+    borderColor: colorSystem.navigation.learn,
     paddingVertical: spacing.lg,
     paddingHorizontal: spacing.md,
     borderRadius: borderRadius.medium,
@@ -574,22 +512,6 @@ const styles = StyleSheet.create({
   },
   nextButtonTextPressed: {
     opacity: 0.9,
-  },
-  backButton: {
-    paddingVertical: spacing.sm,
-    alignItems: 'center',
-    marginTop: spacing.md,
-  },
-  backButtonPressed: {
-    opacity: 0.6,
-  },
-  backButtonText: {
-    fontSize: typography.bodyRegular.size,
-    fontWeight: '500',
-    color: colorSystem.navigation.learn,
-  },
-  backButtonTextPressed: {
-    color: colorSystem.navigation.learn + 'DD',
   },
 });
 

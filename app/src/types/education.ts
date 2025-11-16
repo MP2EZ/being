@@ -26,7 +26,7 @@ export type DevelopmentalStage =
   | 'integrated'
   | null;
 
-export type PracticeType = 'guided-timer' | 'sorting' | 'reflection' | 'body-scan';
+export type PracticeType = 'guided-timer' | 'sorting' | 'reflection' | 'body-scan' | 'guided-body-scan';
 
 export type ModuleTag =
   | 'FOUNDATION'

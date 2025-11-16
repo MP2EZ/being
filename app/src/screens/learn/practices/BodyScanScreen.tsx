@@ -1,13 +1,18 @@
 /**
  * Body Scan Practice Screen - Educational Body Awareness Exercise
  * FEAT-81: Interactive Practice Screens
+ * PHASE 2: Migrated to DRY abstractions
  *
  * Reuses shared components for DRY compliance:
- * - BodyAreaGrid: Progressive body scan visualization
+ * - PracticeScreenLayout: Unified screen wrapper with header
+ * - PracticeInstructions: Standardized fade-in/out instructions
+ * - PracticeToggleButton: Begin/Pause/Resume control
+ * - useTimerPractice: Timer state management with custom onTick
+ * - ProgressiveBodyScanList: Progressive body scan visualization
  * - Timer: Timestamp-based timer with pause/resume and accessibility
  *
  * CLINICAL SPECIFICATIONS:
- * - Progressive body scan through 10 body areas
+ * - Progressive body scan through 6 body areas
  * - Timer advances through areas automatically
  * - Guidance text for each body area
  *
@@ -21,28 +26,29 @@
  *
  * ACCESSIBILITY:
  * - WCAG AA compliant
- * - Screen reader announcements via BodyAreaGrid
+ * - Screen reader announcements via ProgressiveBodyScanList
  */
 
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
-  StatusBar,
-  ScrollView,
-  Animated,
-} from 'react-native';
-import { colorSystem, spacing, typography, borderRadius } from '../../../constants/colors';
+  PracticeScreenLayout,
+  PracticeInstructions,
+  PracticeToggleButton,
+  usePracticeCompletion,
+  useTimerPractice,
+  useState,
+  sharedPracticeStyles,
+  colorSystem,
+  spacing,
+  typography,
+  type ModuleId,
+} from './shared/practiceCommon';
 import { BODY_AREAS } from '../../../flows/shared/components/BodyAreaGrid';
 import ProgressiveBodyScanList from '../../../flows/shared/components/ProgressiveBodyScanList';
 import Timer from '../../../flows/shared/components/Timer';
-import PracticeScreenHeader from './shared/PracticeScreenHeader';
-import PracticeToggleButton from './shared/PracticeToggleButton';
-import { usePracticeCompletion } from './shared/usePracticeCompletion';
-import { useInstructionsFade } from './shared/useInstructionsFade';
-import type { ModuleId } from '../../../types/education';
 
 interface BodyScanScreenProps {
   practiceId: string;
@@ -74,52 +80,50 @@ const BodyScanScreen: React.FC<BodyScanScreenProps> = ({
   onBack,
   testID = 'body-scan-screen',
 }) => {
+  // Screen-specific state: track which body area we're currently on
   const [currentAreaIndex, setCurrentAreaIndex] = useState(0);
-  const [isTimerActive, setIsTimerActive] = useState(false);
-  const [elapsedTime, setElapsedTime] = useState(0); // Track elapsed time in ms
+
+  // Calculate area-based timing
+  const areaCount = BODY_AREAS.length;
+  const durationPerArea = duration / areaCount; // Seconds per area
 
   // Shared hooks
-  const { opacity: instructionsOpacity, showInstructions } = useInstructionsFade(isTimerActive);
   const { renderCompletion, markComplete } = usePracticeCompletion({
     practiceId,
     moduleId,
     title: 'Body Scan Practice',
     onComplete,
-    onBack,
     testID,
   });
 
+  // Timer state management with custom onTick for area advancement
+  const {
+    isTimerActive,
+    elapsedTime,
+    setIsTimerActive,
+    handleTimerTick,
+    handleTimerComplete,
+  } = useTimerPractice({
+    duration,
+    onComplete: markComplete,
+    onTick: (elapsedMs) => {
+      // Calculate which area we should be on based on elapsed time
+      const elapsedSeconds = elapsedMs / 1000;
+      const targetAreaIndex = Math.min(
+        Math.floor(elapsedSeconds / durationPerArea),
+        areaCount - 1
+      );
+
+      // Advance to next area if needed
+      if (targetAreaIndex !== currentAreaIndex) {
+        setCurrentAreaIndex(targetAreaIndex);
+      }
+    },
+  });
+
+  // Current area context
   const currentArea = BODY_AREAS[currentAreaIndex] ?? 'Head & Neck';
   const currentGuidance = AREA_GUIDANCE[currentArea] || 'Bring gentle awareness to this area.';
-  const areaCount = BODY_AREAS.length;
-  const durationPerArea = duration / areaCount; // Seconds per area
-
-  /**
-   * Handle timer tick - update elapsed time and advance areas
-   */
-  const handleTimerTick = (remainingMs: number) => {
-    const elapsed = (duration * 1000) - remainingMs;
-    setElapsedTime(elapsed);
-
-    // Calculate which area we should be on based on elapsed time
-    const elapsedSeconds = elapsed / 1000;
-    const targetAreaIndex = Math.min(
-      Math.floor(elapsedSeconds / durationPerArea),
-      areaCount - 1
-    );
-
-    if (targetAreaIndex !== currentAreaIndex) {
-      setCurrentAreaIndex(targetAreaIndex);
-    }
-  };
-
-  /**
-   * Handle timer completion
-   */
-  const handleTimerComplete = () => {
-    setIsTimerActive(false);
-    markComplete();
-  };
 
   // Show completion screen after all areas scanned
   const completionScreen = renderCompletion();
@@ -128,102 +132,61 @@ const BodyScanScreen: React.FC<BodyScanScreenProps> = ({
   }
 
   return (
-    <SafeAreaView style={styles.container} testID={testID}>
-      <StatusBar barStyle="dark-content" backgroundColor={colorSystem.base.white} />
-
-      {/* Header */}
-      <PracticeScreenHeader
-        title="Body Scan Practice"
-        onBack={onBack || (() => {})}
-        testID={`${testID}-header`}
+    <PracticeScreenLayout
+      title="Body Scan Practice"
+      onBack={onBack || (() => {})}
+      scrollable={true}
+      testID={testID}
+    >
+      {/* Practice Instructions - Fade out after starting */}
+      <PracticeInstructions
+        text={`Find a comfortable position. We'll guide you through ${areaCount} body areas, spending time with each one. Simply notice what's here.`}
+        isActive={isTimerActive}
+        variant="simple"
+        testID={`${testID}-instructions`}
       />
 
-      {/* Main Content - Scrollable */}
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Practice Instructions - Fade out after starting */}
-        <Animated.View
-          style={[
-            styles.instructionsSection,
-            { opacity: instructionsOpacity }
-          ]}
-          pointerEvents={showInstructions ? 'auto' : 'none'}
-        >
-          <Text style={styles.instructionsText}>
-            Find a comfortable position. We'll guide you through {areaCount} body areas,
-            spending time with each one. Simply notice what's here.
-          </Text>
-        </Animated.View>
-
-        {/* Progressive Body Scan List (Shared DRY Component) */}
-        <View style={styles.bodyAreaSection}>
-          <ProgressiveBodyScanList
-            areas={BODY_AREAS}
-            currentIndex={currentAreaIndex}
-            {...(isTimerActive && { currentGuidance })}
-            testID={`${testID}-body-scan-list`}
-          />
-        </View>
-
-        {/* Timer Component (Shared DRY Component) - Full duration */}
-        <View style={styles.timerSection}>
-          <Timer
-            duration={duration * 1000} // Full duration in milliseconds
-            isActive={isTimerActive}
-            onComplete={handleTimerComplete}
-            onTick={handleTimerTick}
-            onPause={() => setIsTimerActive(false)}
-            onResume={() => setIsTimerActive(true)}
-            showProgress={true}
-            showControls={false} // Hide built-in controls, using custom button below
-            showSkip={false}
-            theme="learn"
-            testID={`${testID}-timer`}
-          />
-        </View>
-
-        {/* Single Toggle Button: Begin Practice → Pause → Resume */}
-        <PracticeToggleButton
-          isActive={isTimerActive}
-          elapsedTime={elapsedTime}
-          onToggle={setIsTimerActive}
-          style={{ marginBottom: spacing.xl }}
-          testID={`${testID}-toggle-button`}
+      {/* Progressive Body Scan List (Shared DRY Component) */}
+      <View style={styles.bodyAreaSection}>
+        <ProgressiveBodyScanList
+          areas={BODY_AREAS}
+          currentIndex={currentAreaIndex}
+          {...(isTimerActive && { currentGuidance })}
+          testID={`${testID}-body-scan-list`}
         />
-      </ScrollView>
-    </SafeAreaView>
+      </View>
+
+      {/* Timer Component (Shared DRY Component) - Full duration */}
+      <View style={sharedPracticeStyles.timerSection}>
+        <Timer
+          duration={duration * 1000} // Full duration in milliseconds
+          isActive={isTimerActive}
+          onComplete={handleTimerComplete}
+          onTick={handleTimerTick}
+          onPause={() => setIsTimerActive(false)}
+          onResume={() => setIsTimerActive(true)}
+          showProgress={true}
+          showControls={false} // Hide built-in controls, using custom button below
+          showSkip={false}
+          theme="learn"
+          testID={`${testID}-timer`}
+        />
+      </View>
+
+      {/* Single Toggle Button: Begin Practice → Pause → Resume */}
+      <PracticeToggleButton
+        isActive={isTimerActive}
+        elapsedTime={elapsedTime}
+        onToggle={setIsTimerActive}
+        style={{ marginBottom: spacing.xl }}
+        testID={`${testID}-toggle-button`}
+      />
+    </PracticeScreenLayout>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colorSystem.base.white,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  content: {
-    flexGrow: 1,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.xl,
-  },
-  instructionsSection: {
-    marginBottom: spacing.xl,
-  },
-  instructionsText: {
-    fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[700],
-    textAlign: 'center',
-    lineHeight: 24,
-  },
   bodyAreaSection: {
-    marginBottom: spacing.xl,
-  },
-  timerSection: {
     marginBottom: spacing.xl,
   },
 });

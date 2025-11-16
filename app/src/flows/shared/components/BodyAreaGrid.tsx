@@ -30,7 +30,7 @@ export const BODY_AREAS = [
   'Shoulders & Chest',
   'Upper Back & Lower Back',
   'Abdomen & Hips',
-  'Legs & Thighs',
+  'Upper Legs & Lower Legs',
   'Feet'
 ];
 

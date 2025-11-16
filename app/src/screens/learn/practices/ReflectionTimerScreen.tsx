@@ -2,6 +2,11 @@
  * Reflection Timer Screen - Educational Reflection & Contemplation Exercises
  * FEAT-81: Interactive Practice Screens
  *
+ * Phase 2 Migration: Uses DRY abstractions
+ * - PracticeScreenLayout: Unified layout wrapper
+ * - useTimerPractice: Shared timer state management
+ * - sharedPracticeStyles: Reusable layout styles
+ *
  * Reuses shared components for DRY compliance:
  * - Timer: Timestamp-based timer with pause/resume and accessibility
  * - PracticeCompletionScreen: Philosopher-validated completion
@@ -12,28 +17,29 @@
  * DESIGN:
  * - Clean, minimal interface for contemplation
  * - No input required (space for mental reflection)
- * - Optional reflection prompt that fades after start
+ * - Always-visible numbered instructions (unique pattern)
  *
  * ACCESSIBILITY:
  * - WCAG AA compliant
  * - Screen reader announcements via Timer
  */
 
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
-  StatusBar,
-  ScrollView,
-} from 'react-native';
-import { colorSystem, spacing, typography, borderRadius } from '../../../constants/colors';
+  PracticeScreenLayout,
+  PracticeToggleButton,
+  usePracticeCompletion,
+  useTimerPractice,
+  sharedPracticeStyles,
+  colorSystem,
+  spacing,
+  typography,
+  type ModuleId,
+} from './shared/practiceCommon';
 import Timer from '../../../flows/shared/components/Timer';
-import PracticeScreenHeader from './shared/PracticeScreenHeader';
-import PracticeToggleButton from './shared/PracticeToggleButton';
-import { usePracticeCompletion } from './shared/usePracticeCompletion';
-import type { ModuleId } from '../../../types/education';
 
 interface ReflectionTimerScreenProps {
   practiceId: string;
@@ -58,34 +64,25 @@ const ReflectionTimerScreen: React.FC<ReflectionTimerScreenProps> = ({
   onBack,
   testID = 'reflection-timer-screen',
 }) => {
-  const [isTimerActive, setIsTimerActive] = useState(false);
-  const [elapsedTime, setElapsedTime] = useState(0); // Track elapsed time in ms
-
   // Shared hooks
   const { renderCompletion, markComplete } = usePracticeCompletion({
     practiceId,
     moduleId,
     title,
     onComplete,
-    onBack,
     testID,
   });
 
-  /**
-   * Handle timer tick - update elapsed time
-   */
-  const handleTimerTick = (remainingMs: number) => {
-    const elapsed = (duration * 1000) - remainingMs;
-    setElapsedTime(elapsed);
-  };
-
-  /**
-   * Handle timer completion
-   */
-  const handleTimerComplete = () => {
-    setIsTimerActive(false);
-    markComplete();
-  };
+  const {
+    isTimerActive,
+    elapsedTime,
+    setIsTimerActive,
+    handleTimerTick,
+    handleTimerComplete,
+  } = useTimerPractice({
+    duration,
+    onComplete: markComplete,
+  });
 
   // Show completion screen after timer finishes
   const completionScreen = renderCompletion();
@@ -94,89 +91,67 @@ const ReflectionTimerScreen: React.FC<ReflectionTimerScreenProps> = ({
   }
 
   return (
-    <SafeAreaView style={styles.container} testID={testID}>
-      <StatusBar barStyle="dark-content" backgroundColor={colorSystem.base.white} />
-
-      {/* Header */}
-      <PracticeScreenHeader
-        title={title}
-        onBack={onBack || (() => {})}
-        testID={`${testID}-header`}
-      />
-
-      {/* Main Content - Scrollable */}
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Always-Visible Full Instructions */}
-        {instructions && instructions.length > 0 && (
-          <View style={styles.instructionsSection}>
-            <Text style={styles.instructionsLabel}>Instructions:</Text>
-            {instructions.map((instruction, index) => (
-              <View key={index} style={styles.instructionItem}>
-                <Text style={styles.instructionNumber}>{index + 1}.</Text>
-                <Text style={styles.instructionText}>{instruction}</Text>
-              </View>
-            ))}
-          </View>
-        )}
-
-        {/* Contemplation Space - Visual anchor */}
-        <View style={styles.contemplationSpace}>
-          <View style={styles.contemplationIcon}>
-            <Text style={styles.iconText}>🧘</Text>
-          </View>
-          <Text style={styles.contemplationText}>
-            Take time to reflect. There's no need to write anything down—simply
-            contemplate the prompt and notice what arises.
-          </Text>
+    <PracticeScreenLayout
+      title={title}
+      onBack={onBack || (() => {})}
+      scrollable={true}
+      testID={testID}
+    >
+      {/* Always-Visible Full Instructions */}
+      {instructions && instructions.length > 0 && (
+        <View style={styles.instructionsSection}>
+          <Text style={styles.instructionsLabel}>Instructions:</Text>
+          {instructions.map((instruction, index) => (
+            <View key={index} style={styles.instructionItem}>
+              <Text style={styles.instructionNumber}>{index + 1}.</Text>
+              <Text style={styles.instructionText}>{instruction}</Text>
+            </View>
+          ))}
         </View>
+      )}
 
-        {/* Timer Component (Shared DRY Component) */}
-        <View style={styles.timerSection}>
-          <Timer
-            duration={duration * 1000} // Convert seconds to milliseconds
-            isActive={isTimerActive}
-            onComplete={handleTimerComplete}
-            onTick={handleTimerTick}
-            onPause={() => setIsTimerActive(false)}
-            onResume={() => setIsTimerActive(true)}
-            showProgress={true}
-            showControls={false} // Hide built-in controls, using custom button below
-            showSkip={false}
-            theme="learn"
-            testID={`${testID}-timer`}
-          />
+      {/* Contemplation Space - Visual anchor */}
+      <View style={styles.contemplationSpace}>
+        <View style={styles.contemplationIcon}>
+          <Text style={styles.iconText}>🧘</Text>
         </View>
+        <Text style={styles.contemplationText}>
+          Take time to reflect. There's no need to write anything down—simply
+          contemplate the prompt and notice what arises.
+        </Text>
+      </View>
 
-        {/* Single Toggle Button: Begin Practice → Pause → Resume */}
-        <PracticeToggleButton
+      {/* Timer Component (Shared DRY Component) */}
+      <View style={sharedPracticeStyles.timerSection}>
+        <Timer
+          duration={duration * 1000} // Convert seconds to milliseconds
           isActive={isTimerActive}
-          elapsedTime={elapsedTime}
-          onToggle={setIsTimerActive}
-          style={{ marginBottom: spacing.xl }}
-          testID={`${testID}-toggle-button`}
+          onComplete={handleTimerComplete}
+          onTick={handleTimerTick}
+          onPause={() => setIsTimerActive(false)}
+          onResume={() => setIsTimerActive(true)}
+          showProgress={true}
+          showControls={false} // Hide built-in controls, using custom button below
+          showSkip={false}
+          theme="learn"
+          testID={`${testID}-timer`}
         />
-      </ScrollView>
-    </SafeAreaView>
+      </View>
+
+      {/* Single Toggle Button: Begin Practice → Pause → Resume */}
+      <PracticeToggleButton
+        isActive={isTimerActive}
+        elapsedTime={elapsedTime}
+        onToggle={setIsTimerActive}
+        style={{ marginBottom: spacing.xl }}
+        testID={`${testID}-toggle-button`}
+      />
+    </PracticeScreenLayout>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colorSystem.base.white,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  content: {
-    flexGrow: 1,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.xl,
-  },
+  // Screen-specific: Always-visible numbered instructions (unique pattern)
   instructionsSection: {
     marginBottom: spacing.xl,
     paddingVertical: spacing.md,
@@ -207,6 +182,8 @@ const styles = StyleSheet.create({
     color: colorSystem.gray[800],
     lineHeight: 22,
   },
+
+  // Screen-specific: Contemplation space
   contemplationSpace: {
     alignItems: 'center',
     paddingVertical: spacing.xl,
@@ -230,9 +207,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 24,
     paddingHorizontal: spacing.md,
-  },
-  timerSection: {
-    marginBottom: spacing.xl,
   },
 });
 
