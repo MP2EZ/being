@@ -18,7 +18,7 @@ import { colorSystem, spacing } from '@/core/theme/colors';
 import CleanHomeScreen from '../../screens/home/CleanHomeScreen';
 import ProfileScreen from '../../screens/ProfileScreen';
 import InsightsScreen from '../../screens/InsightsScreen';
-import LearnScreen from '../../screens/learn/LearnScreen';
+import LearnScreen from '@/features/learn/screens/LearnScreen';
 import BrainIcon from '../../components/shared/BrainIcon';
 import FeatureGate from '../../components/subscription/FeatureGate';
 import { useNavigation } from '@react-navigation/native';

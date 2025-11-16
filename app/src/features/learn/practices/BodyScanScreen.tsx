@@ -45,7 +45,7 @@ import {
   spacing,
   typography,
   type ModuleId,
-} from './shared/practiceCommon';
+} from '@/features/learn/practices/shared/practiceCommon';
 import { BODY_AREAS } from '@/features/practices/shared/components/BodyAreaGrid';
 import ProgressiveBodyScanList from '@/features/practices/shared/components/ProgressiveBodyScanList';
 import Timer from '@/features/practices/shared/components/Timer';

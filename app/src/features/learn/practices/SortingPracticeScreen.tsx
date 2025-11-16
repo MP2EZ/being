@@ -30,8 +30,8 @@ import {
   Animated,
 } from 'react-native';
 import { colorSystem, spacing, typography, borderRadius } from '@/core/theme/colors';
-import PracticeScreenHeader from './shared/PracticeScreenHeader';
-import { usePracticeCompletion } from './shared/usePracticeCompletion';
+import PracticeScreenHeader from '@/features/learn/practices/shared/PracticeScreenHeader';
+import { usePracticeCompletion } from '@/features/learn/practices/shared/usePracticeCompletion';
 import type { ModuleId } from '../../../types/education';
 import type { SortingScenario } from '../../../types/education';
 

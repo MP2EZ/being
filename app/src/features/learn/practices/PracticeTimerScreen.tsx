@@ -33,7 +33,7 @@ import {
   typography,
   borderRadius,
   type ModuleId,
-} from './shared/practiceCommon';
+} from '@/features/learn/practices/shared/practiceCommon';
 import BreathingCircle from '@/features/practices/shared/components/BreathingCircle';
 import Timer from '@/features/practices/shared/components/Timer';
 

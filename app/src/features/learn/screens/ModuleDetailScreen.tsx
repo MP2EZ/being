@@ -26,11 +26,11 @@ import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 import { colorSystem, spacing } from '@/core/theme/colors';
-import { useEducationStore } from '../../stores/educationStore';
-import { loadModuleContent } from '../../services/moduleContent';
-import type { ModuleId, ModuleContent } from '../../types/education';
-import OverviewTab from './tabs/OverviewTab';
-import PracticeTab from './tabs/PracticeTab';
+import { useEducationStore } from '@/stores/educationStore';
+import { loadModuleContent } from '@/services/moduleContent';
+import type { ModuleId, ModuleContent } from '@/types/education';
+import OverviewTab from '@/features/learn/tabs/OverviewTab';
+import PracticeTab from '@/features/learn/tabs/PracticeTab';
 
 type ModuleDetailRouteProp = RouteProp<
   { ModuleDetail: { moduleId: ModuleId } },

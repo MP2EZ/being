@@ -33,9 +33,9 @@ import {
 import { colorSystem, spacing, typography, borderRadius } from '@/core/theme/colors';
 import { BODY_AREAS } from '@/features/practices/shared/components/BodyAreaGrid';
 import ProgressiveBodyScanList from '@/features/practices/shared/components/ProgressiveBodyScanList';
-import PracticeScreenHeader from './shared/PracticeScreenHeader';
-import { usePracticeCompletion } from './shared/usePracticeCompletion';
-import { useInstructionsFade } from './shared/useInstructionsFade';
+import PracticeScreenHeader from '@/features/learn/practices/shared/PracticeScreenHeader';
+import { usePracticeCompletion } from '@/features/learn/practices/shared/usePracticeCompletion';
+import { useInstructionsFade } from '@/features/learn/practices/shared/useInstructionsFade';
 import type { ModuleId } from '../../../types/education';
 
 interface GuidedBodyScanScreenProps {

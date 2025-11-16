@@ -38,7 +38,7 @@ import {
   spacing,
   typography,
   type ModuleId,
-} from './shared/practiceCommon';
+} from '@/features/learn/practices/shared/practiceCommon';
 import Timer from '@/features/practices/shared/components/Timer';
 
 interface ReflectionTimerScreenProps {
