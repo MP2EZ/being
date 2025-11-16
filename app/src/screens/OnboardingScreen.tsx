@@ -33,7 +33,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 import NotificationTimePicker from '../components/NotificationTimePicker';
-import CollapsibleCrisisButton from '../flows/shared/components/CollapsibleCrisisButton';
+import CollapsibleCrisisButton from '@/features/crisis/components/CollapsibleCrisisButton';
 import BrainIcon from '../components/shared/BrainIcon';
 
 // WCAG-AA compliant colors with verified contrast ratios

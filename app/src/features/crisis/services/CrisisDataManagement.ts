@@ -25,7 +25,7 @@
  */
 
 
-import { logSecurity, logPerformance, logError, LogCategory } from '../logging';
+import { logSecurity, logPerformance, logError, LogCategory } from '@/services/logging';
 import * as SecureStore from 'expo-secure-store';
 import * as FileSystem from 'expo-file-system';
 import type {
@@ -34,7 +34,7 @@ import type {
   CrisisActionType,
   CrisisSeverityLevel,
   CrisisResolutionType
-} from '../../flows/assessment/types';
+} from '@/flows/assessment/types';
 
 /**
  * CRISIS DATA STORAGE CONFIGURATION

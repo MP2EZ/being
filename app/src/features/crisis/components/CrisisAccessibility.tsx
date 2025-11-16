@@ -27,9 +27,9 @@ import {
   Dimensions,
 } from 'react-native';
 import { colorSystem, spacing, typography } from '@/core/theme/colors';
-import { useAdvancedScreenReader } from './AdvancedScreenReader';
-import { useSensoryAccessibility } from './SensoryAccessibility';
-import { useMotorAccessibility, AccessiblePressable } from './MotorAccessibility';
+import { useAdvancedScreenReader } from '@/components/accessibility/advanced/AdvancedScreenReader';
+import { useSensoryAccessibility } from '@/components/accessibility/advanced/SensoryAccessibility';
+import { useMotorAccessibility, AccessiblePressable } from '@/components/accessibility/advanced/MotorAccessibility';
 
 // Crisis accessibility configuration
 export interface CrisisAccessibilityConfig {

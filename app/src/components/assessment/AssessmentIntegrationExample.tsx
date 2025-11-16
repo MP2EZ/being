@@ -31,7 +31,7 @@ import { colorSystem, spacing, typography } from '@/core/theme/colors';
 
 // Import all integrated components
 import EnhancedAssessmentFlow from './EnhancedAssessmentFlow';
-import CrisisErrorBoundary from '../crisis/CrisisErrorBoundary';
+import CrisisErrorBoundary from '@/features/crisis/components/CrisisErrorBoundary';
 import { useAssessmentPerformance } from '../../hooks/useAssessmentPerformance';
 import { useAssessmentStore } from '../../flows/assessment/stores/assessmentStore';
 

@@ -30,13 +30,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import { colorSystem, spacing } from '@/core/theme/colors';
-import { logPerformance, logSecurity, logError, LogCategory } from '../../services/logging';
+import { logPerformance, logSecurity, logError, LogCategory } from '@/services/logging';
 import {
   CRISIS_RESOURCE_CATEGORIES,
   getPriorityCrisisResources,
   type CrisisResource,
   type CrisisResourcePriority
-} from '../../services/crisis/types/CrisisResources';
+} from '@/features/crisis/services/types/CrisisResources';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 
 type CrisisResourcesScreenNavigationProp = StackNavigationProp<RootStackParamList, 'CrisisResources'>;

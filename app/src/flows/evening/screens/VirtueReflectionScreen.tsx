@@ -31,7 +31,7 @@ import {
 } from 'react-native';
 import type { StackScreenProps } from '@react-navigation/stack';
 import type { EveningFlowParamList, VirtueReflectionData } from '../../../types/flows';
-import { CollapsibleCrisisButton } from '../../shared/components/CollapsibleCrisisButton';
+import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
 
 type Props = StackScreenProps<EveningFlowParamList, 'VirtueReflection'> & {
   onSave?: (data: VirtueReflectionData) => void;

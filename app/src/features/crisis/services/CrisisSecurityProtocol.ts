@@ -31,11 +31,11 @@
  */
 
 
-import { logSecurity, logPerformance, logError, LogCategory } from '../../logging';
-import EncryptionService from '../EncryptionService';
-import AuthenticationService from '../AuthenticationService';
-import SecureStorageService from '../SecureStorageService';
-import NetworkSecurityService from '../NetworkSecurityService';
+import { logSecurity, logPerformance, logError, LogCategory } from '@/services/logging';
+import EncryptionService from '@/services/security/EncryptionService';
+import AuthenticationService from '@/services/security/AuthenticationService';
+import SecureStorageService from '@/services/security/SecureStorageService';
+import NetworkSecurityService from '@/services/security/NetworkSecurityService';
 import * as Crypto from 'expo-crypto';
 import * as LocalAuthentication from 'expo-local-authentication';
 

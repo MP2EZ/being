@@ -10,7 +10,7 @@
  * - GAD-7 ≥15: Severe anxiety - immediate intervention required
  */
 
-import { AssessmentType, PHQ9Result, GAD7Result, AssessmentAnswer } from '../index';
+import { AssessmentType, PHQ9Result, GAD7Result, AssessmentAnswer } from '@/flows/assessment/types';
 
 /**
  * Crisis Detection Thresholds - IMMUTABLE CLINICAL CONSTANTS

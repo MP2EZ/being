@@ -12,7 +12,7 @@ import {
   PHQ9Result, 
   GAD7Result 
 } from '../index';
-import { CrisisDetection } from '../crisis/safety';
+import { CrisisDetection } from '@/features/crisis/types/safety';
 
 /**
  * Scoring Algorithm Types

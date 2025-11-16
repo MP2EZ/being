@@ -37,7 +37,7 @@ import { colorSystem, spacing } from '@/core/theme/colors';
 import EnhancedAssessmentQuestion from './EnhancedAssessmentQuestion';
 import AssessmentIntroduction from '../../flows/assessment/components/AssessmentIntroduction';
 import AssessmentResults from '../../flows/assessment/components/AssessmentResults';
-import CrisisErrorBoundary from '../crisis/CrisisErrorBoundary';
+import CrisisErrorBoundary from '@/features/crisis/components/CrisisErrorBoundary';
 import { useAssessmentStore } from '../../flows/assessment/stores/assessmentStore';
 
 // Types and interfaces

@@ -28,7 +28,7 @@ import {
   logError,
   logSecurity,
   LogCategory
-} from '../logging';
+} from '@/services/logging';
 import type {
   PHQ9Result,
   GAD7Result,
@@ -39,7 +39,7 @@ import type {
   CrisisSeverityLevel,
   CrisisActionType,
   CrisisResource
-} from '../../flows/assessment/types';
+} from '@/flows/assessment/types';
 
 /**
  * CLINICAL CRISIS THRESHOLDS - IMMUTABLE

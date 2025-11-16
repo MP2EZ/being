@@ -13,7 +13,7 @@ import {
   CrisisDetection,
   CrisisIntervention 
 } from '../index';
-import { CRISIS_SAFETY_THRESHOLDS } from '../crisis/safety';
+import { CRISIS_SAFETY_THRESHOLDS } from '@/features/crisis/types/safety';
 import { PHQ9_SCORING_CONFIG, GAD7_SCORING_CONFIG } from './scoring';
 
 /**

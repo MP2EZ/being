@@ -36,7 +36,7 @@ import EncryptionService from './EncryptionService';
 import AuthenticationService from './AuthenticationService';
 import SecureStorageService from './SecureStorageService';
 import NetworkSecurityService from './NetworkSecurityService';
-import CrisisSecurityProtocol from './crisis/CrisisSecurityProtocol';
+import CrisisSecurityProtocol from '@/features/crisis/services/CrisisSecurityProtocol';
 import SecurityMonitoringService from './SecurityMonitoringService';
 import * as Crypto from 'expo-crypto';
 import * as FileSystem from 'expo-file-system';

@@ -12,7 +12,7 @@
  */
 
 // Crisis types import
-import type { CrisisDetection } from './crisis/safety';
+import type { CrisisDetection } from '@/features/crisis/types/safety';
 
 // Base Assessment Types
 export type AssessmentType = 'phq9' | 'gad7';
@@ -84,7 +84,7 @@ export type {
   CrisisIntervention,
   CrisisTriggerType,
   CrisisSeverityLevel,
-} from './crisis/safety';
+} from '@/features/crisis/types/safety';
 
 // Legacy Component Props (see components/props.ts for comprehensive)
 export interface AssessmentQuestionProps {
@@ -166,7 +166,7 @@ export * from './store/actions';
 export * from './navigation/params';
 
 // Crisis Safety Types - Enhanced safety constraints and intervention protocols
-export * from './crisis/safety';
+export * from '@/features/crisis/types/safety';
 
 // Utility Types - 100% accurate scoring calculations with clinical validation
 export * from './utils/scoring';

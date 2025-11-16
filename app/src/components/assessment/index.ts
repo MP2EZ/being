@@ -25,7 +25,7 @@ export { default as EnhancedAssessmentFlow } from './EnhancedAssessmentFlow';
 export { default as AssessmentIntegrationExample } from './AssessmentIntegrationExample';
 
 // Crisis safety components
-export { default as CrisisErrorBoundary } from '../crisis/CrisisErrorBoundary';
+export { default as CrisisErrorBoundary } from '@/features/crisis/components/CrisisErrorBoundary';
 
 // Performance monitoring
 export { useAssessmentPerformance } from '../../hooks/useAssessmentPerformance';

@@ -18,7 +18,7 @@
  */
 
 
-import { logSecurity, logPerformance, logError, LogCategory } from '../../services/logging';
+import { logSecurity, logPerformance, logError, LogCategory } from '@/services/logging';
 import React, { Component, ReactNode, ErrorInfo } from 'react';
 import {
   View,
@@ -32,7 +32,7 @@ import {
   AppStateStatus,
 } from 'react-native';
 import { colorSystem, spacing, typography } from '@/core/theme/colors';
-import { CollapsibleCrisisButton } from '../../flows/shared/components/CollapsibleCrisisButton';
+import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
 
 interface CrisisErrorBoundaryProps {
   children: ReactNode;

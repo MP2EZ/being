@@ -78,12 +78,12 @@ export {
   default as CrisisAccessibilityProvider,
   useCrisisAccessibility,
   UltraCrisisButton,
-} from './CrisisAccessibility';
+} from '@/features/crisis/components/CrisisAccessibility';
 export type {
   CrisisAccessibilityConfig,
   CrisisState,
   CrisisAccessibilityContextValue,
-} from './CrisisAccessibility';
+} from '@/features/crisis/components/CrisisAccessibility';
 
 // Accessibility Testing Framework
 export {

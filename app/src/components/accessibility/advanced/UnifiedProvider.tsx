@@ -19,7 +19,7 @@ import AdvancedScreenReaderProvider from './AdvancedScreenReader';
 import CognitiveAccessibilityProvider from './CognitiveAccessibility';
 import MotorAccessibilityProvider from './MotorAccessibility';
 import SensoryAccessibilityProvider from './SensoryAccessibility';
-import CrisisAccessibilityProvider from './CrisisAccessibility';
+import CrisisAccessibilityProvider from '@/features/crisis/components/CrisisAccessibility';
 import { AccessibilityPerformanceMonitor } from './AccessibilityPerformance';
 import { AccessibilityTestingPanel } from './AccessibilityTesting';
 

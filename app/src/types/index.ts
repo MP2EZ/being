@@ -26,7 +26,7 @@
 import type {
   CrisisDetection,
   CrisisIntervention,
-} from '../flows/assessment/types/crisis/safety';
+} from '@/features/crisis/types/safety';
 
 import type {
   HIPAAConsent,
@@ -54,7 +54,7 @@ import type {
 // =============================================================================
 
 // Crisis Detection and Intervention Types
-export * from '../flows/assessment/types/crisis/safety';
+export * from '@/features/crisis/types/safety';
 export type {
   CrisisDetection,
   CrisisIntervention,
@@ -65,7 +65,7 @@ export type {
   CrisisSafetyPlan,
   CrisisFollowUp,
   CrisisResolution
-} from '../flows/assessment/types/crisis/safety';
+} from '@/features/crisis/types/safety';
 
 // Crisis Safety Constants and Thresholds
 export {
@@ -76,7 +76,7 @@ export {
   isCriticalCrisis,
   requiresImmediateIntervention,
   canSafelyDismissIntervention
-} from '../flows/assessment/types/crisis/safety';
+} from '@/features/crisis/types/safety';
 
 // =============================================================================
 // COMPLIANCE TYPES - REGULATORY REQUIREMENTS

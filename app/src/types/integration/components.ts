@@ -53,7 +53,7 @@ import {
   CrisisSeverityLevel,
   CrisisActionType,
   CrisisResource 
-} from '../../flows/assessment/types/crisis/safety';
+} from '@/features/crisis/types/safety';
 import { 
   HIPAAConsent, 
   ConsentStatus, 

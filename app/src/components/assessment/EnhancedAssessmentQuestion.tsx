@@ -29,7 +29,7 @@ import {
   AppStateStatus,
 } from 'react-native';
 import { colorSystem, spacing, typography } from '@/core/theme/colors';
-import { CollapsibleCrisisButton } from '../../flows/shared/components/CollapsibleCrisisButton';
+import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
 import { RadioGroup, FocusProvider, Focusable } from '../accessibility';
 import type { RadioOption } from '../accessibility';
 import type { 

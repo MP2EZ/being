@@ -25,7 +25,7 @@ import {
   Linking,
 } from 'react-native';
 import { colorSystem, spacing, typography } from '@/core/theme/colors';
-import { CollapsibleCrisisButton } from '../../shared/components/CollapsibleCrisisButton';
+import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
 import { FocusProvider, Focusable, SkipLink } from '../../../components/accessibility';
 import type { PHQ9Result, GAD7Result, AssessmentType } from '../types';
 

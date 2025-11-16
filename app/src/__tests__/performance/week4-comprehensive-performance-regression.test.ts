@@ -25,7 +25,7 @@ import { performance } from 'perf_hooks';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Service imports for testing
-import { CrisisDetectionEngine } from '../../services/crisis/CrisisDetectionEngine';
+import { CrisisDetectionEngine } from '@/features/crisis/services/CrisisDetectionEngine';
 import { useAssessmentPerformance } from '../../hooks/useAssessmentPerformance';
 import AnalyticsService from '../../services/analytics/AnalyticsService';
 import { AuthenticationService } from '../../services/security/AuthenticationService';

@@ -36,8 +36,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import { colorSystem, spacing } from '@/core/theme/colors';
-import { logPerformance, logSecurity, logError, LogCategory } from '../../services/logging';
-import { useCrisisPlanStore } from '../../stores/crisisPlanStore';
+import { logPerformance, logSecurity, logError, LogCategory } from '@/services/logging';
+import { useCrisisPlanStore } from '@/features/crisis/stores/crisisPlanStore';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 
 type CrisisPlanScreenNavigationProp = StackNavigationProp<RootStackParamList>;

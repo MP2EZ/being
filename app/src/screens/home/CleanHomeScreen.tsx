@@ -12,7 +12,7 @@ import type { StackNavigationProp } from '@react-navigation/stack';
 import { colorSystem, getTheme, spacing } from '@/core/theme/colors';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 import { useStoicPracticeStore } from '../../stores/stoicPracticeStore';
-import { CollapsibleCrisisButton } from '../../flows/shared/components/CollapsibleCrisisButton';
+import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
 import AssessmentStatusBadge from '../../components/AssessmentStatusBadge';
 
 type CleanHomeScreenNavigationProp = StackNavigationProp<RootStackParamList>;

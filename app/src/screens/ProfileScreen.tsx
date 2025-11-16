@@ -22,7 +22,7 @@ import AccountSettingsScreen from './AccountSettingsScreen';
 import { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 import { useSubscriptionStore } from '../stores/subscriptionStore';
 import { isDevMode } from '@/core/constants/devMode';
-import { CollapsibleCrisisButton } from '../flows/shared/components/CollapsibleCrisisButton';
+import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
 import ThresholdEducationModal from '../components/ThresholdEducationModal';
 import { useAssessmentStore } from '../flows/assessment/stores/assessmentStore';
 

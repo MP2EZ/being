@@ -24,10 +24,10 @@
  */
 
 
-import { logSecurity, logPerformance, logError, LogCategory } from '../logging';
+import { logSecurity, logPerformance, logError, LogCategory } from '@/services/logging';
 import React from 'react';
 import { Alert, Linking } from 'react-native';
-import { useAssessmentStore } from '../../flows/assessment/stores/assessmentStore';
+import { useAssessmentStore } from '@/flows/assessment/stores/assessmentStore';
 import CrisisDetectionEngine from './CrisisDetectionEngine';
 import SuicidalIdeationProtocol from './SuicidalIdeationProtocol';
 import CrisisInterventionWorkflow from './CrisisInterventionWorkflow';
@@ -41,7 +41,7 @@ import type {
   CrisisDetection,
   CrisisIntervention,
   AssessmentAnswer
-} from '../../flows/assessment/types';
+} from '@/flows/assessment/types';
 
 /**
  * INTEGRATION CONFIGURATION

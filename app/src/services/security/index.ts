@@ -32,7 +32,7 @@ import SecureStorageService from './SecureStorageService';
 import NetworkSecurityService from './NetworkSecurityService';
 import SecurityMonitoringService from './SecurityMonitoringService';
 import IncidentResponseService from './IncidentResponseService';
-import CrisisSecurityProtocol from './crisis/CrisisSecurityProtocol';
+import CrisisSecurityProtocol from '@/features/crisis/services/CrisisSecurityProtocol';
 import { logPerformance, logError, LogCategory } from '../logging';
 import type { VulnerabilityAssessment } from './SecurityMonitoringService';
 
@@ -45,7 +45,7 @@ export { default as SecurityMonitoringService } from './SecurityMonitoringServic
 export { default as IncidentResponseService } from './IncidentResponseService';
 
 // Crisis-Specific Security - Re-export
-export { default as CrisisSecurityProtocol } from './crisis/CrisisSecurityProtocol';
+export { default as CrisisSecurityProtocol } from '@/features/crisis/services/CrisisSecurityProtocol';
 
 // Type Exports - Encryption Service
 export type {
@@ -94,7 +94,7 @@ export type {
   CrisisDataProtectionResult,
   CrisisSecurityViolation,
   EmergencyAccessCredentials
-} from './crisis/CrisisSecurityProtocol';
+} from '@/features/crisis/services/CrisisSecurityProtocol';
 
 // Type Exports - Security Monitoring Service
 export type {
