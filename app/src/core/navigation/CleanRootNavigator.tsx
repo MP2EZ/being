@@ -6,32 +6,32 @@
 
 import React, { useState, useEffect } from 'react';
 import { View, ActivityIndicator, StyleSheet, TouchableOpacity, Text } from 'react-native';
-import { logPerformance } from '../services/logging';
+import { logPerformance } from '@/services/logging';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import CleanTabNavigator from './CleanTabNavigator';
-import MorningFlowNavigator from '../flows/morning/MorningFlowNavigator';
-import MiddayFlowNavigator from '../flows/midday/MiddayFlowNavigator';
-import EveningFlowNavigator from '../flows/evening/EveningFlowNavigator';
-import CrisisResourcesScreen from '../screens/crisis/CrisisResourcesScreen';
-import CrisisPlanScreen from '../screens/crisis/CrisisPlanScreen';
-import PurchaseOptionsScreen from '../components/subscription/PurchaseOptionsScreen';
-import SubscriptionStatusCard from '../components/subscription/SubscriptionStatusCard';
-import OnboardingScreen from '../screens/OnboardingScreen';
-import VirtueDashboardScreen from '../screens/VirtueDashboardScreen';
-import EnhancedAssessmentFlow from '../components/assessment/EnhancedAssessmentFlow';
-import ModuleDetailScreen from '../screens/learn/ModuleDetailScreen';
+import MorningFlowNavigator from '../../flows/morning/MorningFlowNavigator';
+import MiddayFlowNavigator from '../../flows/midday/MiddayFlowNavigator';
+import EveningFlowNavigator from '../../flows/evening/EveningFlowNavigator';
+import CrisisResourcesScreen from '../../screens/crisis/CrisisResourcesScreen';
+import CrisisPlanScreen from '../../screens/crisis/CrisisPlanScreen';
+import PurchaseOptionsScreen from '../../components/subscription/PurchaseOptionsScreen';
+import SubscriptionStatusCard from '../../components/subscription/SubscriptionStatusCard';
+import OnboardingScreen from '../../screens/OnboardingScreen';
+import VirtueDashboardScreen from '../../screens/VirtueDashboardScreen';
+import EnhancedAssessmentFlow from '../../components/assessment/EnhancedAssessmentFlow';
+import ModuleDetailScreen from '../../screens/learn/ModuleDetailScreen';
 import {
   PracticeTimerScreen,
   ReflectionTimerScreen,
   SortingPracticeScreen,
   BodyScanScreen,
   GuidedBodyScanScreen
-} from '../screens/learn/practices';
-import { useStoicPracticeStore } from '../stores/stoicPracticeStore';
-import { useSettingsStore } from '../stores/settingsStore';
-import type { AssessmentType, PHQ9Result, GAD7Result } from '../flows/assessment/types';
-import type { ModuleId, SortingScenario } from '../types/education';
+} from '../../screens/learn/practices';
+import { useStoicPracticeStore } from '@/stores/stoicPracticeStore';
+import { useSettingsStore } from '@/stores/settingsStore';
+import type { AssessmentType, PHQ9Result, GAD7Result } from '../../flows/assessment/types';
+import type { ModuleId, SortingScenario } from '@/types/education';
 
 export type RootStackParamList = {
   Onboarding: undefined;

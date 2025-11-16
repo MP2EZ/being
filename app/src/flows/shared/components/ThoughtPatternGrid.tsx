@@ -17,7 +17,7 @@ import {
   Pressable,
   ScrollView 
 } from 'react-native';
-import { colorSystem, spacing, borderRadius, typography } from '../../../constants/colors';
+import { colorSystem, spacing, borderRadius, typography } from '@/core/theme/colors';
 
 export interface ThoughtPattern {
   id: string;

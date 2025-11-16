@@ -21,7 +21,7 @@
 
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
-import { sanitizeError, logError } from '../utils/errorSanitization';
+import { sanitizeError, logError } from '@/core/utils/errorSanitization';
 
 interface Props {
   children: ReactNode;

@@ -21,8 +21,8 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
-import type { RootStackParamList } from '../../navigation/CleanRootNavigator';
-import { colorSystem, spacing } from '../../constants/colors';
+import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
+import { colorSystem, spacing } from '@/core/theme/colors';
 import { useEducationStore } from '../../stores/educationStore';
 import type { ModuleId } from '../../types/education';
 

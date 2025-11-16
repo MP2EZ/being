@@ -23,7 +23,7 @@ import Animated, {
   Easing,
   cancelAnimation,
 } from 'react-native-reanimated';
-import { colorSystem, spacing, typography } from '../../../constants/colors';
+import { colorSystem, spacing, typography } from '@/core/theme/colors';
 
 interface BreathingPattern {
   inhale: number;  // milliseconds

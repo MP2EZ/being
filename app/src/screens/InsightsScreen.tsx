@@ -30,7 +30,7 @@ import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useStoicPracticeStore } from '../stores/stoicPracticeStore';
 import { CollapsibleCrisisButton } from '../flows/shared/components/CollapsibleCrisisButton';
-import type { RootStackParamList } from '../navigation/CleanRootNavigator';
+import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 
 type NavigationProp = StackNavigationProp<RootStackParamList>;
 

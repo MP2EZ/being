@@ -23,7 +23,7 @@ import {
   Platform,
   Dimensions,
 } from 'react-native';
-import { colorSystem, spacing, typography } from '../../../constants/colors';
+import { colorSystem, spacing, typography } from '@/core/theme/colors';
 
 // Accessibility test types and configurations
 export type AccessibilityTestType = 

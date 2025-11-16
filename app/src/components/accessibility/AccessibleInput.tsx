@@ -41,7 +41,7 @@ import {
   FOCUS_STYLES,
   A11Y_ROLES,
   A11Y_LIVE_REGIONS,
-} from '../../theme/accessibility';
+} from '@/core/theme/accessibility';
 
 export interface AccessibleInputProps extends Omit<TextInputProps, 'style'> {
   /** Visible label text */

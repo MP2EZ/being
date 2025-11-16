@@ -28,7 +28,7 @@
 import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
 import { THERAPEUTIC_VALUES, MIN_VALUES_SELECTION, MAX_VALUES_SELECTION } from '../constants/therapeuticValues';
-import { getCurrentUserId } from '../constants/devMode';
+import { getCurrentUserId } from '@/core/constants/devMode';
 
 const STORAGE_KEY = 'user_values_v1';
 

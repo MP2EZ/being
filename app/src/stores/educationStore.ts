@@ -21,7 +21,7 @@
 
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getCurrentUserId } from '../constants/devMode';
+import { getCurrentUserId } from '@/core/constants/devMode';
 import type {
   ModuleId,
   ModuleStatus,

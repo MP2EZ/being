@@ -4,7 +4,7 @@
  */
 
 import React, { createContext, useContext, ReactNode } from 'react';
-import { logSecurity } from '../services/logging';
+import { logSecurity } from '@/services/logging';
 
 /**
  * Theme configuration

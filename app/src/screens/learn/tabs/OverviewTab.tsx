@@ -20,7 +20,7 @@ import {
   TouchableOpacity,
   StyleSheet,
 } from 'react-native';
-import { colorSystem, spacing } from '../../../constants/colors';
+import { colorSystem, spacing } from '@/core/theme/colors';
 import { useEducationStore } from '../../../stores/educationStore';
 import type { ModuleContent, ModuleId } from '../../../types/education';
 

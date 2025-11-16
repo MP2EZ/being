@@ -11,7 +11,7 @@
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, Pressable, AccessibilityInfo } from 'react-native';
-import { colorSystem, spacing, typography } from '../../../constants/colors';
+import { colorSystem, spacing, typography } from '@/core/theme/colors';
 
 interface TimerProps {
   duration: number; // Duration in milliseconds

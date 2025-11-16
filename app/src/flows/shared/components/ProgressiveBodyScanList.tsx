@@ -9,7 +9,7 @@
 
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { colorSystem, spacing, borderRadius, typography } from '../../../constants/colors';
+import { colorSystem, spacing, borderRadius, typography } from '@/core/theme/colors';
 
 interface ProgressiveBodyScanListProps {
   areas: string[];

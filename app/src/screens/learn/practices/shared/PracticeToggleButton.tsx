@@ -15,7 +15,7 @@
 
 import React from 'react';
 import { TouchableOpacity, Text, StyleSheet, ViewStyle } from 'react-native';
-import { colorSystem, spacing, typography, borderRadius } from '../../../../constants/colors';
+import { colorSystem, spacing, typography, borderRadius } from '@/core/theme/colors';
 
 interface PracticeToggleButtonProps {
   isActive: boolean;

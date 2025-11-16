@@ -22,7 +22,7 @@ import {
   ScrollView,
   AccessibilityInfo,
 } from 'react-native';
-import { colorSystem, spacing, typography, borderRadius } from '../../../constants/colors';
+import { colorSystem, spacing, typography, borderRadius } from '@/core/theme/colors';
 import type { ModuleId } from '../../../types/education';
 
 interface ClassicalQuote {

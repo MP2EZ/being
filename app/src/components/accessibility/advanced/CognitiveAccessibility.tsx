@@ -20,7 +20,7 @@ import {
   Easing,
   Dimensions,
 } from 'react-native';
-import { colorSystem, spacing, typography } from '../../../constants/colors';
+import { colorSystem, spacing, typography } from '@/core/theme/colors';
 import { useAdvancedScreenReader } from './AdvancedScreenReader';
 
 // Cognitive accessibility configuration

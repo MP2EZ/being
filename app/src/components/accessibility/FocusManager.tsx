@@ -18,7 +18,7 @@ import {
   Platform,
   Dimensions,
 } from 'react-native';
-import { colorSystem, spacing } from '../../constants/colors';
+import { colorSystem, spacing } from '@/core/theme/colors';
 
 // Focus management context
 export interface FocusContextValue {

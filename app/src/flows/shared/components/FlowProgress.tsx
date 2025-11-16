@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { getTheme, spacing, typography, colorSystem } from '../../../constants/colors';
+import { getTheme, spacing, typography, colorSystem } from '@/core/theme/colors';
 
 interface FlowProgressProps {
   currentStep: number;

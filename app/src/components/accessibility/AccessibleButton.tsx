@@ -36,7 +36,7 @@ import {
   BORDER_RADIUS,
   FOCUS_STYLES,
   A11Y_ROLES,
-} from '../../theme/accessibility';
+} from '@/core/theme/accessibility';
 
 export interface AccessibleButtonProps {
   /** Button press handler */

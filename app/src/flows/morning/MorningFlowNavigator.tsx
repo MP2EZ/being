@@ -20,7 +20,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { createStackNavigator, StackNavigationProp } from '@react-navigation/stack';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { colorSystem, spacing } from '../../constants/colors';
+import { colorSystem, spacing } from '@/core/theme/colors';
 import { MorningFlowParamList } from '../../types/flows';
 import { SessionStorageService } from '../../services/session/SessionStorageService';
 import { SessionMetadata } from '../../types/session';

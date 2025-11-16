@@ -35,7 +35,7 @@ import {
   TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { getCurrentUserEmail, getUserCreatedAt, isDevMode } from '../constants/devMode';
+import { getCurrentUserEmail, getUserCreatedAt, isDevMode } from '@/core/constants/devMode';
 
 // Hardcoded colors - consistent with ProfileScreen
 const colors = {

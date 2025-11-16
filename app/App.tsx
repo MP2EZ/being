@@ -6,8 +6,8 @@
 import React, { useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { SimpleThemeProvider } from './src/contexts/SimpleThemeContext';
-import CleanRootNavigator from './src/navigation/CleanRootNavigator';
+import { SimpleThemeProvider } from './src/core/providers/ThemeProvider';
+import CleanRootNavigator from './src/core/navigation/CleanRootNavigator';
 import { postCrisisSupportService } from './src/services/crisis/PostCrisisSupportService';
 import { migrateCrisisDataToSecureStore } from './src/services/crisis/CrisisDataMigration';
 import { IAPService } from './src/services/subscription/IAPService';
