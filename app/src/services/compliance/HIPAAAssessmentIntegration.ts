@@ -38,7 +38,7 @@ import type {
   GAD7Result,
   CrisisDetection,
   CrisisIntervention
-} from '../../flows/assessment/types';
+} from '@/features/assessment/types';
 
 /**
  * COMPLIANCE VALIDATION RESULT

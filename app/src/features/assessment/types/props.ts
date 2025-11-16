@@ -5,16 +5,16 @@
  */
 
 import { ViewStyle, TextStyle } from 'react-native';
-import { 
-  AssessmentQuestion, 
-  AssessmentResponse, 
+import type {
+  AssessmentQuestion,
+  AssessmentResponse,
   AssessmentProgress,
   PHQ9Result,
   GAD7Result,
   CrisisDetection,
   CrisisIntervention,
-  AssessmentType 
-} from '../index';
+  AssessmentType
+} from './index';
 
 // Base Props for All Assessment Components
 export interface BaseAssessmentProps {

@@ -32,7 +32,7 @@ import type {
   CrisisActionType,
   CrisisResource,
   CrisisResolutionType
-} from '@/flows/assessment/types';
+} from '@/features/assessment/types';
 
 /**
  * CRISIS INTERVENTION WORKFLOW CONSTANTS

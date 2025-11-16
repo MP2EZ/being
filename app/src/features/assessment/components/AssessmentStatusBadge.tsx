@@ -25,7 +25,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
-import { useAssessmentStore } from '../flows/assessment/stores/assessmentStore';
+import { useAssessmentStore } from '@/features/assessment/stores/assessmentStore';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 
 // Types

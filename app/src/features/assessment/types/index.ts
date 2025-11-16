@@ -157,16 +157,16 @@ export const CRISIS_THRESHOLDS = {
 // =============================================================================
 
 // Component Types - Enhanced with strict typing and performance constraints
-export * from './components/props';
+export * from './props';
 
 // Store Types - Comprehensive action types with crisis safety validation
-export * from './store/actions';
+export * from './actions';
 
 // Navigation Types - Complete parameter types for all assessment flows
-export * from './navigation/params';
+export * from './params';
 
 // Crisis Safety Types - Enhanced safety constraints and intervention protocols
 export * from '@/features/crisis/types/safety';
 
 // Utility Types - 100% accurate scoring calculations with clinical validation
-export * from './utils/scoring';
+export * from './scoring';

@@ -37,7 +37,7 @@ import EncryptionService, { EncryptedDataPackage } from '../security/EncryptionS
 import supabaseService from './SupabaseService';
 
 // Store imports
-import { useAssessmentStore as assessmentStore } from '../../flows/assessment/stores/assessmentStore';
+import { useAssessmentStore as assessmentStore } from '@/features/assessment/stores/assessmentStore';
 
 // Types
 interface BackupData {

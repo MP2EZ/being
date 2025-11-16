@@ -27,7 +27,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useAssessmentStore } from '../../flows/assessment/stores/assessmentStore';
+import { useAssessmentStore } from '@/features/assessment/stores/assessmentStore';
 
 // Security service integrations (Tier 1 requirements)
 import type {

@@ -4,9 +4,9 @@
  * Supports PHQ≥20, GAD≥15 automatic crisis intervention
  */
 
-import { 
-  AssessmentType, 
-  AssessmentResponse, 
+import type {
+  AssessmentType,
+  AssessmentResponse,
   AssessmentSession,
   AssessmentProgress,
   PHQ9Result,
@@ -14,7 +14,7 @@ import {
   CrisisDetection,
   CrisisIntervention,
   AssessmentAnswer
-} from '../index';
+} from './index';
 
 /**
  * Base Action Interface

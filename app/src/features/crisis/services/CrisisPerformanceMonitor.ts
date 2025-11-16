@@ -32,7 +32,7 @@ import type {
   CrisisDetection,
   CrisisIntervention,
   CrisisSeverityLevel
-} from '@/flows/assessment/types';
+} from '@/features/assessment/types';
 
 /**
  * PERFORMANCE REQUIREMENTS CONSTANTS

@@ -24,7 +24,7 @@ import { useSubscriptionStore } from '../stores/subscriptionStore';
 import { isDevMode } from '@/core/constants/devMode';
 import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
 import ThresholdEducationModal from '../components/ThresholdEducationModal';
-import { useAssessmentStore } from '../flows/assessment/stores/assessmentStore';
+import { useAssessmentStore } from '@/features/assessment/stores/assessmentStore';
 
 type ProfileScreenNavigationProp = StackNavigationProp<RootStackParamList>;
 

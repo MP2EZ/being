@@ -37,7 +37,7 @@ import type {
   CrisisDetection,
   CrisisIntervention,
   AssessmentAnswer
-} from '@/flows/assessment/types';
+} from '@/features/assessment/types';
 
 /**
  * TEST CONFIGURATION

@@ -16,7 +16,7 @@
  */
 
 
-import { logSecurity, logPerformance, logError, LogCategory } from '../../services/logging';
+import { logSecurity, logPerformance, logError, LogCategory } from '@/services/logging';
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import {
   View,
@@ -32,15 +32,15 @@ import { colorSystem, spacing, typography } from '@/core/theme/colors';
 // Import all integrated components
 import EnhancedAssessmentFlow from './EnhancedAssessmentFlow';
 import CrisisErrorBoundary from '@/features/crisis/components/CrisisErrorBoundary';
-import { useAssessmentPerformance } from '../../hooks/useAssessmentPerformance';
-import { useAssessmentStore } from '../../flows/assessment/stores/assessmentStore';
+import { useAssessmentPerformance } from '@/features/assessment/hooks/useAssessmentPerformance';
+import { useAssessmentStore } from '../stores/assessmentStore';
 
 // Types for demonstration
 import type { 
   AssessmentType,
   PHQ9Result,
   GAD7Result
-} from '../../flows/assessment/types';
+} from '@/features/assessment/types';
 
 interface HIPAAConsentStatus {
   dataProcessingConsent: boolean;

@@ -20,7 +20,7 @@
 
 import { logSecurity, logPerformance, logError, LogCategory } from '../logging';
 import { DeviceEventEmitter } from 'react-native';
-import type { AssessmentAnswer, AssessmentResponse } from '../../flows/assessment/types';
+import type { AssessmentAnswer, AssessmentResponse } from '@/features/assessment/types';
 import { CrisisPerformanceOptimizer } from './CrisisPerformanceOptimizer';
 import { AssessmentFlowOptimizer } from './AssessmentFlowOptimizer';
 import { MemoryOptimizer } from './MemoryOptimizer';

@@ -36,7 +36,7 @@ import type {
   AssessmentAnswer,
   CrisisDetection,
   CrisisIntervention
-} from '../../flows/assessment/types';
+} from '@/features/assessment/types';
 
 /**
  * HIPAA COMPLIANCE CONFIGURATION

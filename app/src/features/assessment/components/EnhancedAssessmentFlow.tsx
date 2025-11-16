@@ -19,7 +19,7 @@
  */
 
 
-import { logSecurity, logPerformance, logError, LogCategory } from '../../services/logging';
+import { logSecurity, logPerformance, logError, LogCategory } from '@/services/logging';
 import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import {
   View,
@@ -35,10 +35,10 @@ import { colorSystem, spacing } from '@/core/theme/colors';
 
 // Enhanced imports
 import EnhancedAssessmentQuestion from './EnhancedAssessmentQuestion';
-import AssessmentIntroduction from '../../flows/assessment/components/AssessmentIntroduction';
-import AssessmentResults from '../../flows/assessment/components/AssessmentResults';
+import AssessmentIntroduction from '../components/AssessmentIntroduction';
+import AssessmentResults from '../components/AssessmentResults';
 import CrisisErrorBoundary from '@/features/crisis/components/CrisisErrorBoundary';
-import { useAssessmentStore } from '../../flows/assessment/stores/assessmentStore';
+import { useAssessmentStore } from '../stores/assessmentStore';
 
 // Types and interfaces
 import type { 
@@ -48,7 +48,7 @@ import type {
   PHQ9Result,
   GAD7Result,
   AssessmentSession
-} from '../../flows/assessment/types';
+} from '@/features/assessment/types';
 
 interface CrisisDetection {
   isTriggered: boolean;

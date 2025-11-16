@@ -25,7 +25,7 @@ import {
   AssessmentAnswer,
   AssessmentProgress,
   AssessmentQuestion
-} from '../../flows/assessment/types/index';
+} from '@/features/assessment/types';
 
 interface AssessmentFlowMetrics {
   questionResponseTime: number;

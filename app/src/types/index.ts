@@ -43,7 +43,7 @@ import type {
 import type {
   PHQ9Result,
   GAD7Result,
-} from '../flows/assessment/types';
+} from '@/features/assessment/types';
 
 import type {
   ErrorSeverity,
@@ -246,13 +246,13 @@ export type {
   AssessmentSession,
   AssessmentActions,
   AssessmentStackParamList
-} from '../flows/assessment/types';
+} from '@/features/assessment/types';
 
 // Assessment Constants
 export {
   ASSESSMENT_RESPONSE_LABELS,
   CRISIS_THRESHOLDS
-} from '../flows/assessment/types';
+} from '@/features/assessment/types';
 
 // Assessment Questions
 export {
@@ -260,7 +260,7 @@ export {
   GAD7_QUESTIONS,
   ASSESSMENT_INSTRUCTIONS,
   SEVERITY_INTERPRETATIONS
-} from '../flows/assessment/types/questions';
+} from '@/features/assessment/types/questions';
 
 // =============================================================================
 // TYPE SAFETY VALIDATION UTILITIES

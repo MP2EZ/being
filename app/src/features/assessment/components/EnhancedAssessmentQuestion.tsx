@@ -17,7 +17,7 @@
  */
 
 
-import { logSecurity, logPerformance, logError, LogCategory } from '../../services/logging';
+import { logSecurity, logPerformance, logError, LogCategory } from '@/services/logging';
 import React, { useCallback, useMemo, useEffect, useState, useRef } from 'react';
 import {
   View,
@@ -30,12 +30,12 @@ import {
 } from 'react-native';
 import { colorSystem, spacing, typography } from '@/core/theme/colors';
 import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
-import { RadioGroup, FocusProvider, Focusable } from '../accessibility';
-import type { RadioOption } from '../accessibility';
+import { RadioGroup, FocusProvider, Focusable } from '@/components/accessibility';
+import type { RadioOption } from '@/components/accessibility';
 import type { 
   AssessmentQuestion as AssessmentQuestionType, 
   AssessmentResponse
-} from '../../flows/assessment/types';
+} from '@/features/assessment/types';
 
 // Enhanced interfaces for comprehensive integration
 interface CrisisDetection {

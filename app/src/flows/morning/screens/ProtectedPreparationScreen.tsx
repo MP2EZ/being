@@ -23,7 +23,7 @@ import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'rea
 import type { StackScreenProps } from '@react-navigation/stack';
 import type { MorningFlowParamList } from '../../../types/flows';
 import PreparationScreen from './PreparationScreen';
-import { useAssessmentStore } from '../../assessment/stores/assessmentStore';
+import { useAssessmentStore } from '@/features/assessment/stores/assessmentStore';
 import { ACCESSIBLE_COLORS, SPACING, TOUCH_TARGETS } from '@/core/theme/accessibility';
 
 type Props = StackScreenProps<MorningFlowParamList, 'Preparation'>;

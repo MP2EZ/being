@@ -31,7 +31,7 @@ import type {
   CrisisDetection,
   CrisisIntervention,
   AssessmentAnswer
-} from '@/flows/assessment/types';
+} from '@/features/assessment/types';
 
 /**
  * SUICIDAL IDEATION CONSTANTS

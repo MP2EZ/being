@@ -39,7 +39,7 @@ import type {
   CrisisSeverityLevel,
   CrisisActionType,
   CrisisResource
-} from '@/flows/assessment/types';
+} from '@/features/assessment/types';
 
 /**
  * CLINICAL CRISIS THRESHOLDS - IMMUTABLE

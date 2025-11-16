@@ -71,7 +71,7 @@ import {
   PHQ9Result, 
   GAD7Result, 
   AssessmentProgress 
-} from '../../flows/assessment/types';
+} from '@/features/assessment/types';
 
 /**
  * Base Component Props

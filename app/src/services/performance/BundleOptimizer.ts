@@ -98,7 +98,7 @@ class CodeSplittingRegistry {
 
       switch (chunkName) {
         case 'assessment-flow':
-          loadedModule = await import('../../flows/assessment/stores/assessmentStore');
+          loadedModule = await import('@/features/assessment/stores/assessmentStore');
           break;
         case 'crisis-detection':
           loadedModule = await import('./CrisisPerformanceOptimizer');
@@ -107,7 +107,7 @@ class CodeSplittingRegistry {
           loadedModule = await import('./MemoryOptimizer');
           break;
         case 'performance-monitoring':
-          loadedModule = await import('../../hooks/useAssessmentPerformance');
+          loadedModule = await import('@/features/assessment/hooks/useAssessmentPerformance');
           break;
         default:
           throw new Error(`Unknown chunk: ${chunkName}`);

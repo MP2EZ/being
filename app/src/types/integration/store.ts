@@ -45,7 +45,7 @@ import {
   GAD7Result, 
   AssessmentProgress,
   AssessmentSession 
-} from '../../flows/assessment/types';
+} from '@/features/assessment/types';
 
 /**
  * Base Store Interface

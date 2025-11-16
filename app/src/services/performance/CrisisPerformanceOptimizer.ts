@@ -25,7 +25,7 @@ import {
   GAD7Result,
   CrisisDetection,
   CRISIS_THRESHOLDS
-} from '../../flows/assessment/types/index';
+} from '@/features/assessment/types';
 
 // Precomputed crisis lookup tables for ultra-fast detection
 const PHQ9_CRISIS_LOOKUP = new Set([

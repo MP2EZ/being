@@ -34,7 +34,7 @@ import NetInfo from '@react-native-community/netinfo';
 // Services
 import { cloudBackupService } from './CloudBackupService';
 import supabaseService from './SupabaseService';
-import { useAssessmentStore } from '../../flows/assessment/stores/assessmentStore';
+import { useAssessmentStore } from '@/features/assessment/stores/assessmentStore';
 
 // Types
 export type SyncState = 'idle' | 'syncing' | 'conflict' | 'error' | 'crisis_priority';

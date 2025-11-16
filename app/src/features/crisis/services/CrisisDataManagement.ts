@@ -34,7 +34,7 @@ import type {
   CrisisActionType,
   CrisisSeverityLevel,
   CrisisResolutionType
-} from '@/flows/assessment/types';
+} from '@/features/assessment/types';
 
 /**
  * CRISIS DATA STORAGE CONFIGURATION

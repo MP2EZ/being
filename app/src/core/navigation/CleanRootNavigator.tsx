@@ -19,7 +19,7 @@ import PurchaseOptionsScreen from '../../components/subscription/PurchaseOptions
 import SubscriptionStatusCard from '../../components/subscription/SubscriptionStatusCard';
 import OnboardingScreen from '../../screens/OnboardingScreen';
 import VirtueDashboardScreen from '../../screens/VirtueDashboardScreen';
-import EnhancedAssessmentFlow from '../../components/assessment/EnhancedAssessmentFlow';
+import EnhancedAssessmentFlow from '@/features/assessment/components/EnhancedAssessmentFlow';
 import ModuleDetailScreen from '../../screens/learn/ModuleDetailScreen';
 import {
   PracticeTimerScreen,
@@ -30,7 +30,7 @@ import {
 } from '../../screens/learn/practices';
 import { useStoicPracticeStore } from '@/stores/stoicPracticeStore';
 import { useSettingsStore } from '@/stores/settingsStore';
-import type { AssessmentType, PHQ9Result, GAD7Result } from '../../flows/assessment/types';
+import type { AssessmentType, PHQ9Result, GAD7Result } from '@/features/assessment/types';
 import type { ModuleId, SortingScenario } from '@/types/education';
 
 export type RootStackParamList = {

@@ -17,19 +17,19 @@
  */
 
 
-import { logSecurity, logPerformance, logError, LogCategory } from '../services/logging';
+import { logSecurity, logPerformance, logError, LogCategory } from '@/services/logging';
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { Alert, AppState, AppStateStatus } from 'react-native';
 
 // Import Week 3 Performance Optimizers
-import { CrisisPerformanceOptimizer } from '../services/performance/CrisisPerformanceOptimizer';
-import { AssessmentFlowOptimizer } from '../services/performance/AssessmentFlowOptimizer';
-import { MemoryOptimizer } from '../services/performance/MemoryOptimizer';
-import { BundleOptimizer } from '../services/performance/BundleOptimizer';
-import { RenderingOptimizer } from '../services/performance/RenderingOptimizer';
-import { ZustandStoreOptimizer } from '../services/performance/ZustandStoreOptimizer';
-import { PerformanceMonitor } from '../services/performance/PerformanceMonitor';
-import { PerformanceValidator } from '../services/performance/PerformanceValidator';
+import { CrisisPerformanceOptimizer } from '@/services/performance/CrisisPerformanceOptimizer';
+import { AssessmentFlowOptimizer } from '@/services/performance/AssessmentFlowOptimizer';
+import { MemoryOptimizer } from '@/services/performance/MemoryOptimizer';
+import { BundleOptimizer } from '@/services/performance/BundleOptimizer';
+import { RenderingOptimizer } from '@/services/performance/RenderingOptimizer';
+import { ZustandStoreOptimizer } from '@/services/performance/ZustandStoreOptimizer';
+import { PerformanceMonitor } from '@/services/performance/PerformanceMonitor';
+import { PerformanceValidator } from '@/services/performance/PerformanceValidator';
 
 interface PerformanceMetrics {
   // Core timing metrics
