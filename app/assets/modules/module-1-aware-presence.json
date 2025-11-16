@@ -57,14 +57,14 @@
       "title": "Body Scan Practice",
       "description": "Bring awareness to physical sensations systematically.",
       "type": "body-scan",
-      "duration": 480,
+      "duration": 300,
       "icon": "👁️",
       "instructions": [
         "Lie down or sit comfortably",
-        "Begin with awareness of your feet",
-        "Slowly move attention up through your body",
+        "Begin with awareness of your head and face",
+        "Slowly move attention down through your body",
         "Notice sensations without judging them",
-        "Complete the full body scan over 8 minutes"
+        "Complete the full body scan over 5 minutes"
       ]
     }
   ],

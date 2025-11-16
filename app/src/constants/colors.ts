@@ -27,6 +27,13 @@ const eveningTheme = {
   background: '#F0F8F4'  // Section backgrounds
 };
 
+const learnTheme = {
+  primary: '#9B7EBD',    // Learn section purple (navigation.learn)
+  success: '#7C5FA0',    // Darker purple for completion
+  light: '#B89DD1',      // Lighter purple for hover states, backgrounds
+  background: '#F8F5FB'  // Light purple tint for section backgrounds
+};
+
 // Create themes object with Proxy for safe access
 const themesHandler: ProxyHandler<any> = {
   get(target, prop) {
@@ -41,7 +48,8 @@ const themesHandler: ProxyHandler<any> = {
 const themesProxy = new Proxy({
   morning: morningTheme,
   midday: middayTheme,
-  evening: eveningTheme
+  evening: eveningTheme,
+  learn: learnTheme
 }, themesHandler);
 
 export const colorSystem = {
@@ -145,7 +153,7 @@ export const typography = {
 
 // Safe theme getter with fallback protection
 export const getTheme = (
-  themeKey: 'morning' | 'midday' | 'evening' | undefined
+  themeKey: 'morning' | 'midday' | 'evening' | 'learn' | undefined
 ): typeof colorSystem.themes.morning => {
   if (!themeKey) {
     console.warn(`[getTheme] Invalid theme key: ${themeKey}, falling back to morning theme`);

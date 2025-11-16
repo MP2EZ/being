@@ -17,72 +17,83 @@ import { colorSystem, spacing, borderRadius, typography } from '../../../constan
 interface BodyAreaGridProps {
   selectedAreas?: string[];
   onAreaSelect?: (area: string) => void;
+  currentArea?: string; // For progressive body scan mode
+  mode?: 'selection' | 'progressive'; // Selection = tap to select, Progressive = auto-highlight current
   disabled?: boolean;
   theme?: 'morning' | 'midday' | 'evening';
 }
 
 // Clinical body areas - inclusive and accessible to all users
-const BODY_AREAS = [
-  'Head',
-  'Neck', 
-  'Shoulders',
-  'Chest',
-  'Upper Back',
-  'Lower Back',
-  'Stomach',
-  'Hips',
-  'Legs',
+// Grouped into 6 areas for single-screen display
+export const BODY_AREAS = [
+  'Head & Neck',
+  'Shoulders & Chest',
+  'Upper Back & Lower Back',
+  'Abdomen & Hips',
+  'Upper Legs & Lower Legs',
   'Feet'
 ];
 
 const BodyAreaGrid: React.FC<BodyAreaGridProps> = ({
   selectedAreas = [],
   onAreaSelect,
+  currentArea,
+  mode = 'selection',
   disabled = false,
   theme = 'morning',
 }) => {
   const themeColors = colorSystem.themes[theme];
 
   const handleAreaPress = (area: string) => {
-    if (disabled || !onAreaSelect) return;
-    
+    if (disabled || !onAreaSelect || mode === 'progressive') return;
+
     // Gentle haptic feedback for selection
     Vibration.vibrate(50);
     onAreaSelect(area);
   };
 
-  const isAreaSelected = (area: string) => selectedAreas.includes(area);
+  const isAreaActive = (area: string) => {
+    // Progressive mode: highlight current area
+    if (mode === 'progressive') {
+      return area === currentArea;
+    }
+    // Selection mode: highlight selected areas
+    return selectedAreas.includes(area);
+  };
 
   const BodyAreaButton: React.FC<{ area: string }> = ({ area }) => {
-    const selected = isAreaSelected(area);
-    
+    const isActive = isAreaActive(area);
+    const isProgressive = mode === 'progressive';
+
     return (
       <Pressable
         style={({ pressed }) => [
           styles.areaButton,
           {
-            backgroundColor: selected 
+            backgroundColor: isActive
               ? themeColors.primary
               : colorSystem.base.white,
-            borderColor: selected 
-              ? themeColors.primary 
+            borderColor: isActive
+              ? themeColors.primary
               : colorSystem.gray[300],
-            opacity: disabled ? 0.6 : (pressed ? 0.8 : 1),
-            transform: [{ scale: pressed && !disabled ? 0.95 : 1 }],
+            opacity: disabled ? 0.6 : (pressed && !isProgressive ? 0.8 : 1),
+            transform: [{ scale: pressed && !disabled && !isProgressive ? 0.95 : 1 }],
           }
         ]}
         onPress={() => handleAreaPress(area)}
-        disabled={disabled}
+        disabled={disabled || isProgressive}
         accessibilityRole="button"
         accessibilityLabel={`${area} body area`}
-        accessibilityHint={`Tap to ${selected ? 'deselect' : 'select'} ${area} for body awareness`}
-        accessibilityState={{ selected, disabled }}
+        accessibilityHint={isProgressive
+          ? `Currently focusing on ${area}`
+          : `Tap to ${isActive ? 'deselect' : 'select'} ${area} for body awareness`}
+        accessibilityState={{ selected: isActive, disabled: disabled || isProgressive }}
       >
         <Text style={[
           styles.areaButtonText,
           {
-            color: selected 
-              ? colorSystem.base.white 
+            color: isActive
+              ? colorSystem.base.white
               : colorSystem.base.black
           }
         ]}>
@@ -101,8 +112,8 @@ const BodyAreaGrid: React.FC<BodyAreaGridProps> = ({
         ))}
       </View>
 
-      {/* Selection Summary */}
-      {selectedAreas.length > 0 && (
+      {/* Selection Summary - only in selection mode */}
+      {mode === 'selection' && selectedAreas.length > 0 && (
         <View style={[
           styles.summarySection,
           { borderLeftColor: themeColors.primary }
@@ -112,6 +123,21 @@ const BodyAreaGrid: React.FC<BodyAreaGridProps> = ({
           </Text>
           <Text style={styles.summaryText}>
             {selectedAreas.join(', ')}
+          </Text>
+        </View>
+      )}
+
+      {/* Current Area Display - only in progressive mode */}
+      {mode === 'progressive' && currentArea && (
+        <View style={[
+          styles.summarySection,
+          { borderLeftColor: themeColors.primary }
+        ]}>
+          <Text style={styles.summaryTitle}>
+            Current focus:
+          </Text>
+          <Text style={[styles.summaryText, { fontSize: typography.bodyRegular.size, fontWeight: '600' }]}>
+            {currentArea}
           </Text>
         </View>
       )}

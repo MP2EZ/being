@@ -19,10 +19,12 @@ interface TimerProps {
   onComplete: () => void;
   onPause?: () => void;
   onResume?: () => void;
+  onTick?: (remainingMs: number) => void; // Called on each tick with remaining time
   showProgress?: boolean;
+  showControls?: boolean; // Show pause/resume buttons (default true)
   showSkip?: boolean;
   onSkip?: () => void;
-  theme?: 'morning' | 'midday' | 'evening';
+  theme?: 'morning' | 'midday' | 'evening' | 'learn';
   testID?: string;
 }
 
@@ -32,18 +34,21 @@ const Timer: React.FC<TimerProps> = ({
   onComplete,
   onPause,
   onResume,
+  onTick,
   showProgress = true,
+  showControls = true,
   showSkip = true,
   onSkip,
-  theme = 'midday',
+  theme = 'learn',
   testID = 'timer'
 }) => {
   const [timeRemaining, setTimeRemaining] = useState(duration);
-  const [isPaused, setIsPaused] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const startTimeRef = useRef<number | null>(null);
   const pausedTimeRef = useRef<number>(0);
-  
+  const pauseStartTimeRef = useRef<number | null>(null); // Track when pause started
+  const previousIsActiveRef = useRef<boolean>(isActive); // Track previous isActive state
+
   const themeColors = colorSystem.themes[theme];
 
   // Calculate progress percentage
@@ -78,7 +83,7 @@ const Timer: React.FC<TimerProps> = ({
       const now = Date.now();
       const elapsed = now - (startTimeRef.current || 0) - pausedTimeRef.current;
       const remaining = duration - elapsed;
-      
+
       if (remaining <= 0) {
         setTimeRemaining(0);
         if (intervalRef.current) {
@@ -89,29 +94,20 @@ const Timer: React.FC<TimerProps> = ({
       } else {
         setTimeRemaining(remaining);
         announceTimeRemaining(remaining);
+        onTick?.(remaining); // Report remaining time to parent
       }
     }, 16); // ~60fps for smooth progress updates
-  }, [duration, onComplete, announceTimeRemaining]);
+  }, [duration, onComplete, announceTimeRemaining, onTick]);
 
-  // Pause timer
+  // Pause timer - just notify parent, parent controls isActive
   const handlePause = useCallback(() => {
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-    setIsPaused(true);
     onPause?.();
   }, [onPause]);
 
-  // Resume timer
+  // Resume timer - just notify parent, parent controls isActive
   const handleResume = useCallback(() => {
-    if (isPaused) {
-      pausedTimeRef.current += Date.now() - (startTimeRef.current || 0);
-      startTimer();
-      setIsPaused(false);
-      onResume?.();
-    }
-  }, [isPaused, startTimer, onResume]);
+    onResume?.();
+  }, [onResume]);
 
   // Handle skip
   const handleSkip = useCallback(() => {
@@ -122,30 +118,49 @@ const Timer: React.FC<TimerProps> = ({
     onSkip?.();
   }, [onSkip]);
 
-  // Effect to manage timer lifecycle
+  // Effect to manage timer lifecycle based on isActive prop
   useEffect(() => {
-    if (isActive && !isPaused) {
-      startTimer();
+    const wasActive = previousIsActiveRef.current;
+    previousIsActiveRef.current = isActive;
+
+    if (isActive) {
+      // Only start timer if not already running
+      if (!intervalRef.current) {
+        // Handle resume from pause
+        if (!wasActive && pauseStartTimeRef.current !== null) {
+          // Resuming from pause - add pause duration to total
+          const pauseDuration = Date.now() - pauseStartTimeRef.current;
+          pausedTimeRef.current += pauseDuration;
+          pauseStartTimeRef.current = null;
+        }
+        startTimer();
+      }
     } else {
+      // Pause timer
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
+      }
+      if (wasActive) {
+        // Just paused - store pause start time
+        pauseStartTimeRef.current = Date.now();
       }
     }
 
     return () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
+        intervalRef.current = null;
       }
     };
-  }, [isActive, isPaused, startTimer]);
+  }, [isActive, startTimer]);
 
   // Reset timer when duration changes
   useEffect(() => {
     setTimeRemaining(duration);
     startTimeRef.current = null;
     pausedTimeRef.current = 0;
-    setIsPaused(false);
+    pauseStartTimeRef.current = null;
   }, [duration]);
 
   return (
@@ -179,23 +194,25 @@ const Timer: React.FC<TimerProps> = ({
       {/* Control buttons */}
       <View style={styles.controlsContainer}>
         {/* Pause/Resume button */}
-        <Pressable
-          style={({ pressed }) => [
-            styles.controlButton,
-            { 
-              backgroundColor: pressed ? themeColors.light : themeColors.primary,
-              opacity: pressed ? 0.8 : 1 
-            }
-          ]}
-          onPress={isPaused ? handleResume : handlePause}
-          accessibilityRole="button"
-          accessibilityLabel={isPaused ? "Resume timer" : "Pause timer"}
-          accessibilityHint="Tap to pause or resume the session timer"
-        >
-          <Text style={styles.controlButtonText}>
-            {isPaused ? 'Resume' : 'Pause'}
-          </Text>
-        </Pressable>
+        {showControls && (
+          <Pressable
+            style={({ pressed }) => [
+              styles.controlButton,
+              {
+                backgroundColor: pressed ? themeColors.light : themeColors.primary,
+                opacity: pressed ? 0.8 : 1
+              }
+            ]}
+            onPress={isActive ? handlePause : handleResume}
+            accessibilityRole="button"
+            accessibilityLabel={isActive ? "Pause timer" : "Resume timer"}
+            accessibilityHint="Tap to pause or resume the session timer"
+          >
+            <Text style={styles.controlButtonText}>
+              {isActive ? 'Pause' : 'Resume'}
+            </Text>
+          </Pressable>
+        )}
 
         {/* Skip button */}
         {showSkip && onSkip && (
