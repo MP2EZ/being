@@ -12,12 +12,12 @@
  * and meet clinical standards for the cloud sync feature.
  */
 
-import { useAssessmentStore } from '../../src/flows/assessment/stores/assessmentStore';
+import { useAssessmentStore } from '../../src/features/assessment/stores/assessmentStore';
 import { 
   AssessmentType, 
   AssessmentResponse,
   CRISIS_THRESHOLDS 
-} from '../../src/flows/assessment/types/index';
+} from '../../src/features/assessment/types/index';
 
 // Mock secure storage for testing
 jest.mock('expo-secure-store', () => ({

@@ -24,14 +24,14 @@
  * - Professional liability protection validation
  */
 
-import { useAssessmentStore } from '../../src/flows/assessment/stores/assessmentStore';
+import { useAssessmentStore } from '../../src/features/assessment/stores/assessmentStore';
 import { 
   AssessmentType, 
   AssessmentResponse, 
   PHQ9Result, 
   GAD7Result,
   CrisisDetection 
-} from '../../src/flows/assessment/types/index';
+} from '../../src/features/assessment/types/index';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 

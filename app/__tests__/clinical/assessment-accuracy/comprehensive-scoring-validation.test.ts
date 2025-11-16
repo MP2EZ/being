@@ -17,7 +17,7 @@
  * Week 2 Orchestration Plan - Crisis-Critical Testing Component
  */
 
-import { useAssessmentStore } from '../../../src/flows/assessment/stores/assessmentStore';
+import { useAssessmentStore } from '../../../src/features/assessment/stores/assessmentStore';
 import {
   AssessmentType,
   AssessmentResponse,
@@ -25,7 +25,7 @@ import {
   GAD7Result,
   CrisisDetection,
   CRISIS_THRESHOLDS
-} from '../../../src/flows/assessment/types/index';
+} from '../../../src/features/assessment/types/index';
 import {
   createPHQ9Responses,
   createGAD7Responses,

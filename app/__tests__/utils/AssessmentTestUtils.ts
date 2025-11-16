@@ -1,6 +1,6 @@
-import { useAssessmentStore } from '../../src/flows/assessment/stores/assessmentStore';
-import { AssessmentResponse, AssessmentType } from '../../src/flows/assessment/types';
-import { AssessmentState } from '../../src/flows/assessment/types';
+import { useAssessmentStore } from '../../src/features/assessment/stores/assessmentStore';
+import { AssessmentResponse, AssessmentType } from '../../src/features/assessment/types';
+import { AssessmentState } from '../../src/features/assessment/types';
 
 /**
  * Create a set of PHQ-9 responses with predefined or specified scores
