@@ -35,7 +35,7 @@ import {
   useSubscriptionStatus,
   useIsTrialActive,
   useSubscriptionStore,
-} from '@/stores/subscriptionStore';
+} from '@/core/stores/subscriptionStore';
 import {
   SubscriptionStatus,
   SUBSCRIPTION_STATUS_LABELS,

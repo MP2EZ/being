@@ -30,7 +30,7 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useSettingsStore } from '@/stores/settingsStore';
+import { useSettingsStore } from '@/core/stores/settingsStore';
 
 // Hardcoded colors - consistent with ProfileScreen
 const colors = {

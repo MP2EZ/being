@@ -29,7 +29,7 @@ import type {
   ModuleProgress,
   EducationState,
   MODULE_ORDER,
-} from '../types/education';
+} from '@/types/education';
 
 const STORAGE_KEY = '@education:state';
 

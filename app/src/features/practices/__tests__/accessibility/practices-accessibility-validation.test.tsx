@@ -11,18 +11,18 @@
  */
 
 
-import { logSecurity, logPerformance, logError, LogCategory } from '../../../services/logging';
+import { logSecurity, logPerformance, logError, LogCategory } from '@/core/services/logging';
 import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
 import { AccessibilityInfo } from 'react-native';
 
 // Component imports
-import { CollapsibleCrisisButton } from '../shared/components/CollapsibleCrisisButton';
-import BreathingCircle from '../shared/components/BreathingCircle';
-import Timer from '../shared/components/Timer';
-import EmotionGrid from '../shared/components/EmotionGrid';
-import NeedsGrid from '../shared/components/NeedsGrid';
-import EveningValueSlider from '../shared/components/EveningValueSlider';
+import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
+import BreathingCircle from '../../shared/components/BreathingCircle';
+import Timer from '../../shared/components/Timer';
+import EmotionGrid from '../../shared/components/EmotionGrid';
+import NeedsGrid from '../../shared/components/NeedsGrid';
+import EveningValueSlider from '../../shared/components/EveningValueSlider';
 
 // Mock accessibility APIs
 jest.mock('react-native', () => ({

@@ -20,7 +20,7 @@ import OnboardingScreen from '@/features/onboarding/screens/OnboardingScreen';
 import AppSettingsScreen from './AppSettingsScreen';
 import AccountSettingsScreen from './AccountSettingsScreen';
 import { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
-import { useSubscriptionStore } from '@/stores/subscriptionStore';
+import { useSubscriptionStore } from '@/core/stores/subscriptionStore';
 import { isDevMode } from '@/core/constants/devMode';
 import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
 import ThresholdEducationModal from '@/core/components/ThresholdEducationModal';

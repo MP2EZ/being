@@ -31,7 +31,7 @@ import type {
   VirtueInstance,
   VirtueChallenge,
   DomainProgress,
-} from '../types/stoic';
+} from '@/types/stoic';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // STORE STATE INTERFACE

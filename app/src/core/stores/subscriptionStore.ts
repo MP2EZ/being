@@ -38,7 +38,7 @@ import {
   calculateFeatureAccess,
   DEFAULT_SUBSCRIPTION_CONFIG,
   CRISIS_FEATURES
-} from '../types/subscription';
+} from '@/types/subscription';
 import AuthenticationService from '@/core/services/security/AuthenticationService';
 
 const STORAGE_KEY = 'subscription_metadata_v1';

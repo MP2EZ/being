@@ -11,7 +11,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import { colorSystem, getTheme, spacing } from '@/core/theme/colors';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
-import { useStoicPracticeStore } from '@/stores/stoicPracticeStore';
+import { useStoicPracticeStore } from '@/features/practices/stores/stoicPracticeStore';
 import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
 import AssessmentStatusBadge from '@/features/assessment/components/AssessmentStatusBadge';
 

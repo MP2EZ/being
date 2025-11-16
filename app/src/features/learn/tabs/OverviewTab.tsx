@@ -21,7 +21,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { colorSystem, spacing } from '@/core/theme/colors';
-import { useEducationStore } from '../../../stores/educationStore';
+import { useEducationStore } from '../stores/educationStore';
 import type { ModuleContent, ModuleId } from '../../../types/education';
 
 interface OverviewTabProps {

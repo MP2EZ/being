@@ -31,7 +31,7 @@ import {
   TouchableOpacity,
   StyleSheet,
 } from 'react-native';
-import { useSubscriptionStore } from '@/stores/subscriptionStore';
+import { useSubscriptionStore } from '@/core/stores/subscriptionStore';
 import { FeatureAccess } from '@/types/subscription';
 
 interface FeatureGateProps {

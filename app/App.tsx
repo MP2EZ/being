@@ -11,7 +11,7 @@ import CleanRootNavigator from './src/core/navigation/CleanRootNavigator';
 import { postCrisisSupportService } from './src/features/crisis/services/PostCrisisSupportService';
 import { migrateCrisisDataToSecureStore } from './src/features/crisis/services/CrisisDataMigration';
 import { IAPService } from './src/core/services/subscription/IAPService';
-import { useSubscriptionStore } from './src/stores/subscriptionStore';
+import { useSubscriptionStore } from './src/core/stores/subscriptionStore';
 import EncryptionService from './src/core/services/security/EncryptionService';
 
 export default function App() {

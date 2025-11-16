@@ -16,13 +16,13 @@ import { Alert, Linking } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 
 // Component imports
-import { CollapsibleCrisisButton } from '../shared/components/CollapsibleCrisisButton';
-import BreathingCircle from '../shared/components/BreathingCircle';
-import Timer from '../shared/components/Timer';
-import EmotionGrid from '../shared/components/EmotionGrid';
-import NeedsGrid from '../shared/components/NeedsGrid';
-import EveningValueSlider from '../shared/components/EveningValueSlider';
-import MorningFlowNavigator from '../morning/MorningFlowNavigator';
+import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
+import BreathingCircle from '../../shared/components/BreathingCircle';
+import Timer from '../../shared/components/Timer';
+import EmotionGrid from '../../shared/components/EmotionGrid';
+import NeedsGrid from '../../shared/components/NeedsGrid';
+import EveningValueSlider from '../../shared/components/EveningValueSlider';
+import MorningFlowNavigator from '../../morning/MorningFlowNavigator';
 
 // Mock performance and linking
 jest.mock('react-native/Libraries/Performance/Systrace', () => ({

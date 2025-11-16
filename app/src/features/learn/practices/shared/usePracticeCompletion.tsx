@@ -14,7 +14,7 @@ import type { ReactElement } from 'react';
 import PracticeCompletionScreen, {
   PRACTICE_QUOTES,
 } from '../PracticeCompletionScreen';
-import { useEducationStore } from '../../../../stores/educationStore';
+import { useEducationStore } from '../../stores/educationStore';
 import type { ModuleId } from '../../../../types/education';
 
 interface UsePracticeCompletionOptions {

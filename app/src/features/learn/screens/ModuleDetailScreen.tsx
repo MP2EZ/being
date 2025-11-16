@@ -26,7 +26,7 @@ import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 import { colorSystem, spacing } from '@/core/theme/colors';
-import { useEducationStore } from '@/stores/educationStore';
+import { useEducationStore } from '@/features/learn/stores/educationStore';
 import { loadModuleContent } from '@/core/services/moduleContent';
 import type { ModuleId, ModuleContent } from '@/types/education';
 import OverviewTab from '@/features/learn/tabs/OverviewTab';

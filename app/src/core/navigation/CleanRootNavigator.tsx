@@ -28,8 +28,8 @@ import {
   BodyScanScreen,
   GuidedBodyScanScreen
 } from '@/features/learn/practices';
-import { useStoicPracticeStore } from '@/stores/stoicPracticeStore';
-import { useSettingsStore } from '@/stores/settingsStore';
+import { useStoicPracticeStore } from '@/features/practices/stores/stoicPracticeStore';
+import { useSettingsStore } from '@/core/stores/settingsStore';
 import type { AssessmentType, PHQ9Result, GAD7Result } from '@/features/assessment/types';
 import type { ModuleId, SortingScenario } from '@/types/education';
 

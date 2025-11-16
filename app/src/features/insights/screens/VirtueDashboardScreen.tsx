@@ -36,7 +36,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useStoicPracticeStore } from '@/stores/stoicPracticeStore';
+import { useStoicPracticeStore } from '@/features/practices/stores/stoicPracticeStore';
 import type { CardinalVirtue, DevelopmentalStage } from '@/types/stoic';
 
 const VirtueDashboardScreen: React.FC = () => {

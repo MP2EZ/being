@@ -34,7 +34,7 @@ import {
   Linking,
 } from 'react-native';
 import { IAPService, useIAPService } from '@/core/services/subscription/IAPService';
-import { useSubscriptionStore } from '@/stores/subscriptionStore';
+import { useSubscriptionStore } from '@/core/stores/subscriptionStore';
 import {
   SubscriptionInterval,
   SUBSCRIPTION_PRICING,
