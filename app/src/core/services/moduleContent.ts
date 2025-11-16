@@ -51,19 +51,19 @@ async function loadModuleFromAssets(
 
   switch (moduleId) {
     case 'aware-presence':
-      content = require('../../assets/modules/module-1-aware-presence.json');
+      content = require('../../../assets/modules/module-1-aware-presence.json');
       break;
     case 'radical-acceptance':
-      content = require('../../assets/modules/module-2-radical-acceptance.json');
+      content = require('../../../assets/modules/module-2-radical-acceptance.json');
       break;
     case 'sphere-sovereignty':
-      content = require('../../assets/modules/module-3-sphere-sovereignty.json');
+      content = require('../../../assets/modules/module-3-sphere-sovereignty.json');
       break;
     case 'virtuous-response':
-      content = require('../../assets/modules/module-4-virtuous-response.json');
+      content = require('../../../assets/modules/module-4-virtuous-response.json');
       break;
     case 'interconnected-living':
-      content = require('../../assets/modules/module-5-interconnected-living.json');
+      content = require('../../../assets/modules/module-5-interconnected-living.json');
       break;
     default:
       throw new Error(`Unknown module ID: ${moduleId}`);
