@@ -1,1 +1,0 @@
-export { PhoneMockup } from './PhoneMockup';
