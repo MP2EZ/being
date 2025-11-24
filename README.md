@@ -342,3 +342,8 @@ for dir in development main feat-*/; do echo "=== $dir ===" && cd $dir && git st
 ---
 
 **Questions or Issues?** Refer to the detailed conversion plan at `/Users/max/dtemp/bare-repo-worktree-conversion-plan.md`
+
+
+## 🔗 Related Repositories
+
+- **Website**: [being-website](https://github.com/MP2EZ/being-website) - Marketing website for Being app (Next.js, Cloudflare Pages)
