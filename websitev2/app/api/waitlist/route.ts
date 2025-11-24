@@ -5,6 +5,9 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 
+// Configure for Cloudflare Edge Runtime
+export const runtime = 'edge';
+
 const NOTION_TOKEN = process.env.NOTION_TOKEN;
 const NOTION_DATABASE_ID = process.env.NOTION_WAITLIST_DB_ID;
 

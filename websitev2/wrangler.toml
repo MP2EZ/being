@@ -1,0 +1,9 @@
+name = "websitev2"
+pages_build_output_dir = ".vercel/output/static"
+compatibility_date = "2025-11-17"
+compatibility_flags = ["nodejs_compat"]
+
+# Preview environment (inherits same settings)
+[env.preview]
+compatibility_date = "2025-11-17"
+compatibility_flags = ["nodejs_compat"]

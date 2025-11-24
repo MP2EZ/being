@@ -1,0 +1,72 @@
+Cost Category,Cost Description,Cost Type,User Tier,Confidence,Notes
+Technology Infrastructure,Expo EAS Build (Production Plan),Fixed,All,High,Currently using free tier. Production plan $99/mo for unlimited builds. Critical for iOS/Android deployment.
+Technology Infrastructure,Expo EAS Update (OTA Updates),Variable,All,Medium,Currently using free tier. Costs scale with update frequency and user base.
+Technology Infrastructure,Supabase Database & Storage (Free Tier),Fixed,0-5K,High,Currently on free tier: 500MB DB + 2GB bandwidth/month. Supports ~5K users / ~150 DAU.
+Technology Infrastructure,Supabase Pro Tier,Fixed,5K-50K,High,"$25/mo. Upgrade when exceeding 500MB DB or 2GB bandwidth. 8GB DB, 50GB bandwidth, 500K edge function invocations."
+Technology Infrastructure,Supabase Team/Enterprise Tier,Fixed,50K+,Medium,"$599+/mo. For enterprise scale. Custom pricing, dedicated support."
+Technology Infrastructure,Supabase Edge Functions,Variable,All,High,Included in free tier (50K invocations/mo). Used for Apple/Google receipt verification.
+Technology Infrastructure,GitHub (Version Control),Fixed,All,High,"Currently free (personal). Team ($4/user/mo) or Enterprise ($21/user/mo) if expanding team."
+Technology Infrastructure,Development Tools (TypeScript/Node/Jest),Fixed,All,High,$0. All free/open-source tools.
+Technology Infrastructure,SSL & Security Certificates,Fixed,All,High,$0. Included with Expo + Supabase. Apple Developer Program includes certificates.
+Technology Infrastructure,CDN & Media Delivery,Fixed,All,Low,Not currently needed. Static assets bundled with app. Future if web content delivery needed.
+Technology Infrastructure,Monitoring & Error Tracking (Sentry),Fixed,All,Medium,"Not currently implemented. Recommended at 1K+ users. $26-80/mo (Team: 50K events, Business: 250K events)."
+Technology Infrastructure,AI API Costs (GPT-4/Claude),Variable,All,Low,No AI integrations in current codebase. Future feature only if planned.
+Clinical/Philosophical Content,Philosophical Advisor (Stoic Mindfulness),Fixed,All,Low,"PIVOT from Clinical Advisor. Validate Stoic principles, classical sources (Marcus Aurelius, Epictetus, Seneca). Low confidence - classical texts widely available."
+Clinical/Philosophical Content,Content Development (Stoic Practices),Fixed,All,Medium,"Ongoing content for 13 Stoic principles, virtue practices, educational modules. Philosophical accuracy validation."
+Clinical/Philosophical Content,Content Updates (New Practices/Modules),Fixed,All,Medium,Ongoing updates to Stoic Mindfulness content based on user feedback and principle progression.
+Clinical/Philosophical Content,Philosophical Accuracy Review,Fixed,All,Low,"Peer review for Stoic philosophical accuracy. May use academic consultants. Low confidence - community review possible."
+Clinical/Philosophical Content,Crisis Protocols (PHQ-9/GAD-7),Fixed,All,High,"CRITICAL. Crisis detection thresholds (PHQ≥15, PHQ≥20, GAD≥15). 988 integration. Always free to user, always available."
+Clinical/Philosophical Content,Crisis Protocol Updates,Variable,All,High,Updates to crisis detection algorithms and safety protocols as clinical standards evolve.
+Compliance & Security,HIPAA Compliance Consultation,Fixed,All,Medium,"BAA-Free design (no PHI transmitted). Initial consultation for architecture validation. $0-5K for audit/consultation."
+Compliance & Security,Privacy Law Compliance (CCPA/VCDPA/GDPR),Fixed,All,High,"Privacy policy maintenance, user rights implementation (access, delete, portability). Legal review required."
+Compliance & Security,Legal Counsel (Privacy/Terms),Fixed,All,High,"Ongoing legal review for privacy policy, terms of service, data retention policy, consent frameworks."
+Compliance & Security,Terms & Privacy Policy Updates,Fixed,All,High,Regular updates to legal documents as laws change (CCPA, VCDPA, GDPR, etc.).
+Compliance & Security,Security Audits,Fixed,All,Medium,"Periodic security audits for encryption implementation (AES-256-GCM), key rotation, data minimization."
+Compliance & Security,Cyber Insurance,Fixed,All,Medium,"Coverage for mental health app with encrypted PHI. Cost depends on coverage amount and user base."
+Compliance & Security,SOC 2 Certification,Fixed,All,Low,"Not mentioned in current compliance docs. Likely only needed for B2B enterprise sales. $15K-50K annually."
+Compliance & Security,App Store Privacy Compliance,Fixed,All,High,"Apple Privacy Nutrition Label, Google Data Safety Section. Review and updates as policies change."
+Customer Support,Support Tools (Zendesk/Intercom),Fixed,All,Medium,"Not currently integrated. Recommended at 5K+ users or $50K MRR. $49-99/agent/mo (Zendesk Suite)."
+Customer Support,Support Agent (0.5 FTE),Variable,All,Medium,"Part-time support for user inquiries, technical issues. Scales with user base."
+Customer Support,Crisis Hotline Integration (988),Fixed,All,High,$0. Free government service. Native integration via tel: link. No external partnership needed.
+Customer Support,Community Management,Fixed,All,Low,"Future feature only. Not in current roadmap. For forums, Discord, social media engagement."
+Customer Support,Email/Onboarding Automation,Fixed,All,Medium,"Not currently implemented. Recommended for user retention. SendGrid/Mailchimp $15-50/mo."
+Customer Support,Knowledge Base / Help Center,Fixed,All,Low,"Future feature. In-app help, FAQs, troubleshooting guides."
+Marketing & Growth,SEO & Content Marketing,Fixed,All,Low,"No current marketing infrastructure. Future pre-launch and ongoing content creation."
+Marketing & Growth,Paid Acquisition (Ads),Variable,All,Low,"No current ad SDK integration. Future if growth strategy includes paid channels (Apple Search Ads, Google, Meta)."
+Marketing & Growth,Email Marketing Platform,Variable,All,Medium,"Not currently implemented. Recommended for onboarding/retention. SendGrid Essentials $15/mo (40K emails)."
+Marketing & Growth,Analytics Tools (Privacy-First),Fixed,All,High,"$0. Custom privacy-preserving analytics (BAA-free, differential privacy ε=0.1). No third-party vendors (Amplitude, Mixpanel)."
+Marketing & Growth,Marketing Attribution,Variable,All,Low,"No attribution SDKs (Adjust, AppsFlyer, Branch). Privacy-first strategy. Future low priority."
+Marketing & Growth,Affiliate Program,Variable,All,Low,Not in current codebase. Future feature if monetization strategy includes affiliates.
+Marketing & Growth,Events & Webinars,Fixed,All,Low,"Future marketing channel. Conference sponsorships, virtual events for Stoic Mindfulness education."
+Operations & Admin,Accounting & Bookkeeping (Base),Fixed,All,High,"Business accounting services, tax preparation, financial reporting. $100-500/mo depending on complexity."
+Operations & Admin,Accounting & Bookkeeping (Variable),Variable,All,High,"Additional accounting for increased transaction volume, payroll, etc."
+Operations & Admin,Payment Processing (Apple IAP 15-30%),Variable,All,High,"Apple In-App Purchase commission. 15% (subscriptions after year 1 or <$1M revenue), 30% (monthly subs or >$1M)."
+Operations & Admin,Payment Processing (Google Play 15-30%),Variable,All,High,"Google Play Billing commission. 15% (first $1M revenue/year), 30% (after $1M revenue/year)."
+Operations & Admin,Payment Processing (Stripe),Variable,All,Medium,"2.9% + $0.30 per transaction. Implemented but not primary (IAP-first strategy). For web subscriptions (FEAT-38 future)."
+Operations & Admin,Business Insurance (General Liability),Fixed,All,Medium,"General business insurance, professional liability, errors & omissions coverage."
+Operations & Admin,Software Subscriptions (Core),Fixed,All,High,"Microsoft 365 Business Standard (email, productivity). Notion (project management). Design tools if needed."
+Operations & Admin,Software Subscriptions (Variable),Variable,All,Medium,"Additional tools as team/needs scale. Analytics, monitoring, development tools."
+Operations & Admin,Corporate Filings & Compliance,Fixed,All,High,"LLC registration, annual reports, business licenses, registered agent fees. ~$200-1000/year."
+Operations & Admin,Apple Developer Program,Fixed,All,High,"$99/year. Required for App Store distribution, Sign in with Apple, TestFlight."
+Operations & Admin,Google Play Console,Fixed,All,High,"$25 one-time fee. Required for Play Store distribution."
+Operations & Admin,Contingency (Fixed),Fixed,All,High,"Buffer for unexpected costs, infrastructure failures, emergency fixes. 10-15% of fixed costs."
+Operations & Admin,Contingency (Variable),Variable,All,High,"Buffer for variable cost spikes, seasonal fluctuations, growth surges."
+Future Features,Web Application Development,Fixed,All,Low,"Future feature. Static website for marketing, web-based subscriptions (FEAT-38). Hosting + domain + development."
+Future Features,Classical Resources Library (FEAT-54),Fixed,All,Medium,"Curated library of Stoic texts (Marcus Aurelius, Epictetus, Seneca). Content curation, UI/UX development. Medium effort."
+Future Features,Domain-Specific Guidance (FEAT-55),Fixed,All,Medium,"Specialized Stoic guidance for pain, grief, conflict, career challenges. Content development, philosophical validation. Large effort."
+Future Features,Progress Measurement Dashboard (FEAT-56),Fixed,All,Medium,"Advanced progress tracking beyond current Insights tab. Data visualization, analytics. Large effort."
+Future Features,Enhanced Export Options (FEAT-33),Fixed,All,Low,"Export user data to various formats (CSV, PDF, JSON). Blocked by Export & Sharing (FEAT-29). Large effort."
+Future Features,SQLite Migration (INFRA-37),Fixed,All,Medium,"Migrate from AsyncStorage to SQLite for better performance and querying. Large effort, moderate risk."
+Future Features,Advanced Account Features (FEAT-16),Fixed,All,High,"Email/password authentication, account recovery, profile management. Blocked several features. XXL effort."
+Future Features,Subscription Management Features,Fixed,All,High,"Grace period automation, subscription status tracking, receipt verification optimization. Currently basic implementation."
+Design & UX,Design Tools (Figma),Fixed,All,Medium,"$0-15/editor/mo. Free for limited use, Professional $15/mo. For app UI/UX design, asset creation."
+Design & UX,App Store Assets,Fixed,All,High,"Icon design, screenshots, promotional graphics for Apple App Store and Google Play. One-time + updates."
+Design & UX,Brand Identity,Fixed,All,Medium,"Logo, color palette, typography, brand guidelines. One-time investment for Stoic Mindfulness brand."
+Testing & QA,Device Testing,Fixed,All,Medium,"Physical iOS and Android devices for testing. One-time hardware costs + ongoing device updates."
+Testing & QA,TestFlight & Beta Testing,Fixed,All,High,$0. Apple TestFlight free. Google Play Internal Testing free. For beta user testing and QA.
+Testing & QA,Automated Testing Infrastructure,Fixed,All,Medium,"CI/CD testing automation (currently GitHub Actions - free tier). May need paid tier for increased usage."
+Testing & QA,Accessibility Testing Tools,Fixed,All,Low,"WCAG AA compliance testing tools, screen reader validation. Some free, some paid."
+Team & Contractors,Solo Developer + AI-Assisted,Fixed,All,High,"PRIMARY MODEL. Single developer (you) with AI coding assistance (Claude, Cursor, etc.). $0 for your time."
+Team & Contractors,Part-time Developer,Variable,All,Low,"Future if specific expertise needed (e.g., advanced animations, native iOS/Android modules). $50-150/hr."
+Team & Contractors,Part-time Designer,Variable,All,Low,"Future for specialized design work (app redesign, marketing materials). $50-100/hr."
+Team & Contractors,Part-time Product Manager,Variable,All,Low,"Future if product complexity increases. User research, roadmap planning, feature prioritization. $75-150/hr."

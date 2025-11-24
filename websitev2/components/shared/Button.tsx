@@ -3,7 +3,7 @@
  * Based on Cerebral, Notion, Claude.ai patterns
  */
 
-import { ButtonHTMLAttributes, ReactNode } from 'react';
+import { AnchorHTMLAttributes, ButtonHTMLAttributes, ReactNode } from 'react';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'text';
@@ -11,6 +11,8 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   children: ReactNode;
   href?: string;
 }
+
+type AnchorProps = Omit<AnchorHTMLAttributes<HTMLAnchorElement>, 'href' | 'className'>;
 
 export default function Button({
   variant = 'primary',
@@ -67,7 +69,7 @@ export default function Button({
       <a
         href={href}
         className={combinedClassName}
-        {...(props as any)}
+        {...(props as AnchorProps)}
       >
         {children}
       </a>

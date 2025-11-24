@@ -9,6 +9,9 @@ interface QRCodePlaceholderProps {
   className?: string;
 }
 
+// Generate stable random pattern outside component (executed once at module load)
+const GRID_OPACITIES = Array.from({ length: 64 }, () => Math.random() > 0.5 ? 1 : 0.3);
+
 export default function QRCodePlaceholder({ platform, className = '' }: QRCodePlaceholderProps) {
   const platformText = platform === 'ios' ? 'iOS App Store' : 'Google Play Store';
 
@@ -25,13 +28,11 @@ export default function QRCodePlaceholder({ platform, className = '' }: QRCodePl
       >
         {/* Placeholder grid pattern */}
         <div className="absolute inset-4 grid grid-cols-8 grid-rows-8 gap-2">
-          {Array.from({ length: 64 }).map((_, i) => (
+          {GRID_OPACITIES.map((opacity, i) => (
             <div
               key={i}
               className="bg-gray-300 rounded-sm"
-              style={{
-                opacity: Math.random() > 0.5 ? 1 : 0.3,
-              }}
+              style={{ opacity }}
             />
           ))}
         </div>

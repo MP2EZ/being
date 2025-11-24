@@ -4,14 +4,28 @@ This folder contains ALL documentation related to the Being mobile app - the pri
 
 ## 📁 Contents
 
+### Product & Design
 - **`/product/`** - Product requirements, technical specs, design docs, roadmaps
-- **`/clinical/`** - MBCT compliance, therapeutic standards, safety protocols
 - **`/architecture/`** - App architecture, system design, data flow
-- **`/security/`** - Encryption, data protection, security protocols
+- **`/technical/`** - Technical architecture and implementation details
 - **`/development/`** - Development guides, component documentation
-- **`/testing/`** - Test strategies, reports, QA procedures
-- **`/operations/`** - App Store deployment, TestFlight, certificates
+
+### Philosophical Framework
+- **`/philosophical/`** - Stoic Mindfulness framework, principles, classical sources validation (Note: Folder may be named differently; check actual structure)
+
+### Compliance & Legal
+- **`/compliance/`** - HIPAA, CCPA, VCDPA, GDPR compliance, user consent frameworks
+- **`/brand-legal/`** - Legal documentation, privacy policy, terms of service, data retention
+- **`/security/`** - Encryption, data protection, security protocols, threat models
+
+### Operations & Testing
+- **`/testing/`** - Test strategies, reports, QA procedures, clinical accuracy validation
+- **`/operations/`** - App Store deployment, TestFlight, certificates, CI/CD
+- **`/performance/`** - Performance documentation, optimization strategies, benchmarks
 - **`/widgets/`** - iOS/Android widget implementation guides
+
+### Business
+- **`/business/`** - Cost analysis, financial planning, business strategy
 
 ## 📖 Quick Navigation
 
@@ -22,11 +36,10 @@ This folder contains ALL documentation related to the Being mobile app - the pri
 - [Product Roadmap](product/Being.%20Product%20Roadmap%20-%20Prioritized%20-%20Based%20on%20v1.7.md)
 - [User Journey & Personas](product/Being.%20User%20Journey%20Flows%20&%20Persona%20Analysis.md)
 
-### Clinical & Therapeutic
-- [MBCT Compliance Verification](clinical/mbct-compliance-verification.md)
-- [Crisis Safety Implementation](clinical/crisis-safety-implementation-report.md)
-- [Therapeutic Content Validation](clinical/safety-protocols/therapeutic-content-validation.md)
-- [PHQ-9/GAD-7 Accuracy Reports](clinical/validation-reports/)
+### Philosophical Framework & Wellness
+- Stoic Mindfulness framework documentation
+- Crisis safety protocols (PHQ-9/GAD-7 wellness monitoring)
+- Philosophical accuracy validation
 
 ### Architecture & Security
 - [System Design](architecture/system-design.md)
@@ -47,47 +60,57 @@ This folder contains ALL documentation related to the Being mobile app - the pri
 
 ## 🎯 Key Features
 
-### Clinical-Grade Standards
-- **100% accurate** PHQ-9/GAD-7 assessment scoring
-- **Crisis detection** with automatic intervention at clinical thresholds
-- **MBCT compliance** for all therapeutic content
-- **Emergency response** with <3 second crisis button access
+### Stoic Mindfulness Framework
+- **5 core principles** across 4 developmental stages
+- **Philosophical accuracy** validated against classical sources (Marcus Aurelius, Epictetus, Seneca)
+- **Character development** through virtue ethics and practical wisdom
+- **100% accurate** PHQ-9/GAD-7 wellness monitoring (not clinical diagnosis)
+
+### Crisis Safety Standards
+- **Crisis detection** with automatic intervention at safety thresholds (PHQ≥15, PHQ≥20, GAD≥15)
+- **Emergency response** with <3 second crisis button access from all screens
+- **988 integration** for professional crisis support
+- **Breathing exercises** with precisely timed 60-second intervals
 
 ### Technical Excellence
 - **React Native + Expo** with TypeScript
 - **Zustand** for state management
-- **AsyncStorage** with encryption for sensitive data
-- **60fps** performance for therapeutic animations
+- **AES-256-GCM encryption** with PBKDF2 key derivation
+- **Privacy-first analytics** (differential privacy ε=0.1, k-anonymity k≥5)
+- **60fps** performance for breathing animations
+- **Offline-first** architecture for complete functionality without network
 
-### Healthcare Compliance
-- **HIPAA-aware** design patterns
-- **No network transmission** of personal health data (Phase 1)
-- **Encrypted local storage** for all clinical data
-- **App Store compliance** for mental health apps
+### Privacy & Compliance
+- **BAA-free design** - NO PHI transmitted to cloud
+- **On-device encryption only** for all wellness data
+- **CCPA, VCDPA, GDPR compliance** for user privacy rights
+- **App Store privacy compliance** (Privacy Nutrition Label, Data Safety Section)
 
 ## 🚨 Critical Safety Requirements
 
-### Never Modify Without Clinical Validation
-- PHQ-9/GAD-7 exact clinical wording and scoring algorithms
-- Crisis detection thresholds (PHQ-9 ≥20, GAD-7 ≥15)
-- 988 crisis hotline integration
-- 3-minute breathing exercise timing (exactly 60s per step)
+### Never Modify Without Validation
+- **PHQ-9/GAD-7**: Exact clinical wording and scoring algorithms (100% accuracy required)
+- **Crisis thresholds**: PHQ-9 ≥15 (support), ≥20 (intervention), GAD-7 ≥15, PHQ-9 Q9 >0
+- **988 integration**: Crisis hotline must remain accessible
+- **Breathing timing**: Exactly 60 seconds per phase (180 seconds total)
+- **Stoic principles**: Philosophical accuracy against classical sources
 
 ### Development Guidelines
-- All clinical content requires `clinician` agent validation
-- All safety features require `crisis` agent approval
-- All data handling requires `compliance` agent review
-- All UI must meet `accessibility` standards (WCAG AA)
+- **Philosophical content**: Requires `philosopher` agent validation for Stoic accuracy
+- **Crisis/safety features**: Requires `crisis` agent approval
+- **Privacy/compliance**: Requires `compliance` agent review
+- **UI accessibility**: Must meet WCAG AA standards (`accessibility` agent)
 
 ## 📱 App Overview
 
-**Being** is a clinical-grade mobile app delivering evidence-based Mindfulness-Based Cognitive Therapy (MBCT) practices for depression and anxiety management. The app provides:
+**Being** is a mental wellness app based on the Stoic Mindfulness framework, integrating ancient Stoic philosophy with modern mindfulness practices for character development and emotional resilience. The app provides:
 
-- **Daily check-ins** with mood tracking
-- **Clinical assessments** (PHQ-9/GAD-7) with crisis detection
-- **Guided MBCT practices** including breathing exercises
-- **Progress tracking** with therapeutic insights
-- **Crisis support** with emergency protocols
+- **Daily check-ins** across three times of day (morning, midday, evening)
+- **5 core Stoic principles** with progressive practices
+- **Wellness monitoring** (PHQ-9/GAD-7) with crisis safety protocols
+- **Educational modules** on Stoic philosophy and practical application
+- **Progress tracking** through 4 developmental stages (Fragmented → Effortful → Fluid → Integrated)
+- **Crisis support** with 988 integration and emergency resources
 
 ---
 
