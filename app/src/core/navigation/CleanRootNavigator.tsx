@@ -31,13 +31,12 @@ import {
 import { useStoicPracticeStore } from '@/features/practices/stores/stoicPracticeStore';
 import { useSettingsStore } from '@/core/stores/settingsStore';
 import { useConsentStore } from '@/core/stores/consentStore';
-import { AgeVerificationScreen, ConsentManagementScreen } from '@/features/consent';
+import { CombinedLegalGateScreen } from '@/features/consent';
 import type { AssessmentType, PHQ9Result, GAD7Result } from '@/features/assessment/types';
 import type { ModuleId, SortingScenario } from '@/features/learn/types/education';
 
 export type RootStackParamList = {
-  AgeVerification: undefined;
-  ConsentCollection: undefined;
+  LegalGate: undefined;
   Onboarding: undefined;
   Main: undefined;
   MorningFlow: undefined;
@@ -103,7 +102,7 @@ const CleanRootNavigator: React.FC = () => {
   const { markCheckInComplete } = useStoicPracticeStore();
   const { loadSettings, markOnboardingComplete } = useSettingsStore();
   const { loadConsent, consentStatus } = useConsentStore();
-  const [initialRoute, setInitialRoute] = useState<'AgeVerification' | 'ConsentCollection' | 'Onboarding' | 'Main' | null>(null);
+  const [initialRoute, setInitialRoute] = useState<'LegalGate' | 'Onboarding' | 'Main' | null>(null);
 
   useEffect(() => {
     async function checkInitialRoute() {
@@ -114,12 +113,9 @@ const CleanRootNavigator: React.FC = () => {
       if (settings?.onboardingCompleted) {
         // Already onboarded - go to main
         setInitialRoute('Main');
-      } else if (!consent || consentStatus === 'missing') {
-        // No consent - start with age verification (COPPA compliance)
-        setInitialRoute('AgeVerification');
-      } else if (consentStatus === 'under_age') {
-        // Under age - stay at age verification (shows resources)
-        setInitialRoute('AgeVerification');
+      } else if (!consent || consentStatus === 'missing' || consentStatus === 'under_age') {
+        // No consent or under age - start with legal gate (COPPA compliance)
+        setInitialRoute('LegalGate');
       } else {
         // Has consent but not onboarded - go to onboarding
         setInitialRoute('Onboarding');
@@ -181,53 +177,26 @@ const CleanRootNavigator: React.FC = () => {
           },
         }}
       >
-        {/* Age Verification (COPPA Compliance) - First screen for new users */}
+        {/* Legal Gate (Age + ToS) - First screen for new users */}
         <Stack.Screen
-          name="AgeVerification"
+          name="LegalGate"
           options={{
             headerShown: false,
             gestureEnabled: false,
           }}
         >
           {({ navigation }) => (
-            <AgeVerificationScreen
-              onVerified={() => {
-                // Age verified - proceed to consent collection
-                navigation.replace('ConsentCollection');
+            <CombinedLegalGateScreen
+              onComplete={() => {
+                // Legal gate passed - proceed to onboarding
+                navigation.replace('Onboarding');
               }}
               onUnderAge={() => {
                 // Under age - screen handles showing crisis resources
-                // User stays on AgeVerification screen with crisis resources
+                // User stays on LegalGate screen with crisis resources
               }}
             />
           )}
-        </Stack.Screen>
-
-        {/* Consent Collection (Privacy Settings) */}
-        <Stack.Screen
-          name="ConsentCollection"
-          options={{
-            headerShown: false,
-            gestureEnabled: false,
-          }}
-        >
-          {({ navigation }) => {
-            const { currentConsent } = useConsentStore.getState();
-            return (
-              <ConsentManagementScreen
-                mode="onboarding"
-                ageVerification={currentConsent?.ageVerification || {
-                  verified: true,
-                  isEligible: true,
-                  verifiedAt: Date.now(),
-                }}
-                onComplete={() => {
-                  // Consent collected - proceed to onboarding
-                  navigation.replace('Onboarding');
-                }}
-              />
-            );
-          }}
         </Stack.Screen>
 
         {/* Onboarding Flow */}

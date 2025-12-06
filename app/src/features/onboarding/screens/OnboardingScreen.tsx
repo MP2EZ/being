@@ -35,6 +35,8 @@ import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 import NotificationTimePicker from '@/core/components/NotificationTimePicker';
 import CollapsibleCrisisButton from '@/features/crisis/components/CollapsibleCrisisButton';
 import BrainIcon from '@/core/components/shared/BrainIcon';
+import { useConsentStore, ConsentPreferences } from '@/core/stores/consentStore';
+import { ConsentToggleCard } from '@/features/consent';
 
 // WCAG-AA compliant colors with verified contrast ratios
 const colors = {
@@ -213,6 +215,81 @@ interface CrisisDetectionResult {
   auditRequired: boolean;
 }
 
+// Consent category details (plain language, reused from ConsentManagementScreen)
+const CONSENT_DETAILS = {
+  analytics: {
+    title: 'Analytics',
+    description: 'Help us improve the app by understanding how it\'s used',
+    details: {
+      whatWeCollect: [
+        'Which features you use (e.g., "Daily Check-in completed")',
+        'How long you spend in the app',
+        'Device type (iPhone, Android, etc.)',
+      ],
+      whatWeDontCollect: [
+        'Your journal entries, mood ratings, or assessment scores',
+        'Any personally identifiable information',
+        'Location data',
+      ],
+      whyItHelps: 'Understanding usage patterns helps us improve features you care about and fix confusing flows.',
+      privacyNote: 'Data retention: 90 days, then automatically deleted. Anonymized before storage.',
+    },
+  },
+  crashReports: {
+    title: 'Crash Reports',
+    description: 'Automatically report errors to fix bugs faster',
+    details: {
+      whatWeCollect: [
+        'Technical error logs (which code failed)',
+        'Device info (OS version, app version)',
+        'What screen you were on when the crash occurred',
+      ],
+      whatWeDontCollect: [
+        'Your personal data (mood, journal, assessments)',
+        'Identifiable information',
+      ],
+      whyItHelps: 'Crashes disrupt your practice. Automatic reports help us detect and fix issues before they affect more people.',
+      privacyNote: 'All crash reports are encrypted and anonymized.',
+    },
+  },
+  cloudSync: {
+    title: 'Cloud Backup',
+    description: 'Securely sync your data across devices',
+    details: {
+      whatWeCollect: [
+        'App preferences and settings',
+        'Journal entries (encrypted)',
+        'Mood tracking history',
+        'Custom reminders',
+      ],
+      whatWeDontCollect: [
+        'PHQ-9/GAD-7 assessment raw scores (local only for privacy)',
+        'Crisis contact information (device-specific)',
+      ],
+      whyItHelps: 'Restore data if you get a new phone. Access your journal on tablet and phone. Automatic backup protection.',
+      privacyNote: 'End-to-end encryption. We cannot decrypt or access your synced content.',
+    },
+  },
+  research: {
+    title: 'Research Participation',
+    description: 'Help improve mental health care (fully anonymous)',
+    details: {
+      whatWeCollect: [
+        'Aggregated mood trends (e.g., "60% of users report improvement")',
+        'Feature effectiveness data (which practices help most)',
+        'Anonymized usage patterns',
+      ],
+      whatWeDontCollect: [
+        'Individual responses or identifiable data',
+        'Data shared with third parties for advertising',
+        'Anything that could identify you',
+      ],
+      whyItHelps: 'Research helps us validate that Stoic practices are effective, publish findings to help more people, and secure funding to keep the app accessible.',
+      privacyNote: 'Fully anonymized. Aggregated with 1,000+ other users. You can opt out anytime.',
+    },
+  },
+};
+
 const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbedded = false }) => {
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
 
@@ -225,6 +302,17 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
   ]);
   const [consentProvided, setConsentProvided] = useState<boolean>(false);
   const [completionDestination, setCompletionDestination] = useState<'home' | 'morning'>('home');
+
+  // Granular consent preferences (FEAT-90: all default to false for privacy)
+  const [consentPreferences, setConsentPreferences] = useState<ConsentPreferences>({
+    analyticsEnabled: false,
+    crashReportsEnabled: false,
+    cloudSyncEnabled: false,
+    researchEnabled: false,
+  });
+
+  // Get consent store functions
+  const { grantConsent, getStoredAgeVerification } = useConsentStore();
 
   // Time picker state management
   const [showTimePicker, setShowTimePicker] = useState<'morning' | 'midday' | 'evening' | null>(null);
@@ -1451,66 +1539,110 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
     </SafeAreaView>
   );
 
+  // Handler for granular consent toggles
+  const handleConsentPreferenceToggle = (key: keyof ConsentPreferences, value: boolean) => {
+    setConsentPreferences(prev => ({ ...prev, [key]: value }));
+    logStateChange('handleConsentPreferenceToggle', { key, value });
+  };
+
+  // Save consent preferences when leaving privacy screen
+  const handlePrivacyContinue = async () => {
+    try {
+      // Get stored age verification (from CombinedLegalGateScreen)
+      const ageVerification = await getStoredAgeVerification();
+
+      if (ageVerification) {
+        // Grant consent with preferences and age verification
+        await grantConsent(consentPreferences, ageVerification);
+        logStateChange('handlePrivacyContinue', { consentPreferences });
+      } else {
+        // This shouldn't happen if flow is correct, but log it
+        logError(LogCategory.SECURITY, 'No age verification found during consent save');
+      }
+
+      navigateNext();
+    } catch (error) {
+      logError(LogCategory.SECURITY, 'Failed to save consent preferences', error instanceof Error ? error : undefined);
+      // Still proceed - consent is optional
+      navigateNext();
+    }
+  };
+
   const renderPrivacy = (): React.ReactElement => (
     <SafeAreaView style={styles.container}>
       <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
         {/* Crisis button removed from Privacy screen - only on assessment screens for safety */}
 
         <View style={styles.header}>
-          <Text style={styles.title}>Privacy & Wellness Data</Text>
+          <Text style={styles.title}>Privacy Settings</Text>
           <Text style={styles.subtitle}>
-            Your information is private and secure
+            Choose what to share (all optional)
           </Text>
         </View>
 
         <View style={styles.section}>
           <Text style={styles.bodyText}>
-            We're committed to protecting your privacy and giving you control over your data.
+            Your data stays on your device by default. These optional features enhance your experience but are not required.
           </Text>
         </View>
 
+        {/* Privacy Principles - always visible */}
+        <View style={[styles.consentSection, { marginBottom: spacing.lg }]}>
+          <Text style={styles.featureText}>
+            ✓ Your data is encrypted and secure
+          </Text>
+          <Text style={styles.featureText}>
+            ✓ We never sell your information
+          </Text>
+          <Text style={styles.featureText}>
+            ✓ Crisis support is always available
+          </Text>
+        </View>
+
+        {/* Granular Consent Toggles (FEAT-90) */}
         <View style={styles.consentContainer}>
-          {/* Privacy Principles */}
-          <View style={styles.consentSection}>
-            <Text style={styles.featureText}>
-              ✓ Your data stays on your device - encrypted and secure
-            </Text>
-            <Text style={styles.featureText}>
-              ✓ We don't sell or share your information for marketing purposes
-            </Text>
-            <Text style={styles.featureText}>
-              ✓ You control what you share and when
-            </Text>
-            <Text style={styles.featureText}>
-              ✓ Crisis support is always available when needed
-            </Text>
-          </View>
+          <ConsentToggleCard
+            title={CONSENT_DETAILS.analytics.title}
+            description={CONSENT_DETAILS.analytics.description}
+            details={CONSENT_DETAILS.analytics.details}
+            value={consentPreferences.analyticsEnabled}
+            onValueChange={(value) => handleConsentPreferenceToggle('analyticsEnabled', value)}
+            testID="consent-analytics"
+          />
 
-          {/* Emergency Disclaimer */}
-          <View style={styles.consentSection}>
-            <Text style={[styles.bodyText, { fontSize: 14, fontStyle: 'italic' }]}>
-              ⚠️ In a life-threatening emergency, call 911. For mental health crisis, call 988 Suicide & Crisis Lifeline.
-            </Text>
-          </View>
+          <ConsentToggleCard
+            title={CONSENT_DETAILS.crashReports.title}
+            description={CONSENT_DETAILS.crashReports.description}
+            details={CONSENT_DETAILS.crashReports.details}
+            value={consentPreferences.crashReportsEnabled}
+            onValueChange={(value) => handleConsentPreferenceToggle('crashReportsEnabled', value)}
+            testID="consent-crash-reports"
+          />
 
-          {/* Age Requirement */}
-          <View style={styles.consentSection}>
-            <Text style={[styles.bodyText, { fontSize: 14 }]}>
-              You must be 13 or older to use this app. If you are under 18, you need a parent or guardian's permission.
-            </Text>
-          </View>
+          <ConsentToggleCard
+            title={CONSENT_DETAILS.cloudSync.title}
+            description={CONSENT_DETAILS.cloudSync.description}
+            details={CONSENT_DETAILS.cloudSync.details}
+            value={consentPreferences.cloudSyncEnabled}
+            onValueChange={(value) => handleConsentPreferenceToggle('cloudSyncEnabled', value)}
+            testID="consent-cloud-sync"
+          />
 
-          {/* Consent Checkbox */}
-          <View style={styles.consentSection}>
-            <Pressable
-              style={[styles.consentCheckbox, consentProvided && styles.consentCheckboxChecked]}
-              onPress={handleConsentToggle}
-            >
-              <Text style={[styles.consentCheckboxText, consentProvided && styles.consentCheckboxTextChecked]}>
-                {consentProvided ? '✓' : '○'} I have read and agree to the Terms of Service and Privacy Policy. I understand this app provides wellness support and is not a substitute for professional mental health care.
-              </Text>
-            </Pressable>
-          </View>
+          <ConsentToggleCard
+            title={CONSENT_DETAILS.research.title}
+            description={CONSENT_DETAILS.research.description}
+            details={CONSENT_DETAILS.research.details}
+            value={consentPreferences.researchEnabled}
+            onValueChange={(value) => handleConsentPreferenceToggle('researchEnabled', value)}
+            testID="consent-research"
+          />
+        </View>
+
+        {/* Emergency Disclaimer */}
+        <View style={[styles.consentSection, { marginTop: spacing.lg }]}>
+          <Text style={[styles.bodyText, { fontSize: 14, fontStyle: 'italic' }]}>
+            ⚠️ In a life-threatening emergency, call 911. For mental health crisis, call 988 Suicide & Crisis Lifeline.
+          </Text>
         </View>
 
         <View style={styles.navigationContainer}>
@@ -1518,9 +1650,10 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
             <Text style={styles.backButtonText}>Back</Text>
           </Pressable>
           <Pressable
-            style={[styles.primaryButton, !consentProvided && styles.primaryButtonDisabled]}
-            onPress={navigateNext}
-            disabled={!consentProvided}
+            style={styles.primaryButton}
+            onPress={handlePrivacyContinue}
+            accessibilityLabel="Continue"
+            accessibilityHint="Save your privacy preferences and continue to the next screen"
           >
             <Text style={styles.primaryButtonText}>Continue</Text>
           </Pressable>

@@ -132,6 +132,7 @@ export interface ConsentStore {
   updateConsent: (preferences: Partial<ConsentPreferences>) => Promise<void>;
   revokeConsent: (reason?: string) => Promise<void>;
   verifyAge: (birthYear: number) => Promise<{ eligible: boolean; age: number }>;
+  getStoredAgeVerification: () => Promise<AgeVerification | null>;
 
   // Fast validation (uses cache, <5ms)
   canPerformOperation: (operation: 'analytics' | 'crash_reports' | 'cloud_sync' | 'research') => boolean;
@@ -530,6 +531,21 @@ export const useConsentStore = create<ConsentStore>((set, get) => ({
     await SecureStore.setItemAsync(AGE_VERIFICATION_KEY, JSON.stringify(verification));
 
     return { eligible, age };
+  },
+
+  /**
+   * Get stored age verification (for onboarding flow)
+   */
+  getStoredAgeVerification: async () => {
+    try {
+      const stored = await SecureStore.getItemAsync(AGE_VERIFICATION_KEY);
+      if (stored) {
+        return JSON.parse(stored) as AgeVerification;
+      }
+      return null;
+    } catch {
+      return null;
+    }
   },
 
   /**
