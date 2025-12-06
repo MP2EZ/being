@@ -30,10 +30,14 @@ import {
 } from '@/features/learn/practices';
 import { useStoicPracticeStore } from '@/features/practices/stores/stoicPracticeStore';
 import { useSettingsStore } from '@/core/stores/settingsStore';
+import { useConsentStore } from '@/core/stores/consentStore';
+import { AgeVerificationScreen, ConsentManagementScreen } from '@/features/consent';
 import type { AssessmentType, PHQ9Result, GAD7Result } from '@/features/assessment/types';
 import type { ModuleId, SortingScenario } from '@/features/learn/types/education';
 
 export type RootStackParamList = {
+  AgeVerification: undefined;
+  ConsentCollection: undefined;
   Onboarding: undefined;
   Main: undefined;
   MorningFlow: undefined;
@@ -98,15 +102,31 @@ const LoadingScreen: React.FC = () => (
 const CleanRootNavigator: React.FC = () => {
   const { markCheckInComplete } = useStoicPracticeStore();
   const { loadSettings, markOnboardingComplete } = useSettingsStore();
-  const [initialRoute, setInitialRoute] = useState<'Onboarding' | 'Main' | null>(null);
+  const { loadConsent, consentStatus } = useConsentStore();
+  const [initialRoute, setInitialRoute] = useState<'AgeVerification' | 'ConsentCollection' | 'Onboarding' | 'Main' | null>(null);
 
   useEffect(() => {
-    async function checkOnboarding() {
+    async function checkInitialRoute() {
       const settings = await loadSettings();
-      setInitialRoute(settings?.onboardingCompleted ? 'Main' : 'Onboarding');
+      const consent = await loadConsent();
+
+      // Determine initial route based on onboarding and consent status
+      if (settings?.onboardingCompleted) {
+        // Already onboarded - go to main
+        setInitialRoute('Main');
+      } else if (!consent || consentStatus === 'missing') {
+        // No consent - start with age verification (COPPA compliance)
+        setInitialRoute('AgeVerification');
+      } else if (consentStatus === 'under_age') {
+        // Under age - stay at age verification (shows resources)
+        setInitialRoute('AgeVerification');
+      } else {
+        // Has consent but not onboarded - go to onboarding
+        setInitialRoute('Onboarding');
+      }
     }
-    checkOnboarding();
-  }, [loadSettings]);
+    checkInitialRoute();
+  }, [loadSettings, loadConsent, consentStatus]);
 
   const handleMorningFlowComplete = async (sessionData: any) => {
     console.log('🌅 Morning flow completed:', sessionData);
@@ -161,6 +181,55 @@ const CleanRootNavigator: React.FC = () => {
           },
         }}
       >
+        {/* Age Verification (COPPA Compliance) - First screen for new users */}
+        <Stack.Screen
+          name="AgeVerification"
+          options={{
+            headerShown: false,
+            gestureEnabled: false,
+          }}
+        >
+          {({ navigation }) => (
+            <AgeVerificationScreen
+              onVerified={() => {
+                // Age verified - proceed to consent collection
+                navigation.replace('ConsentCollection');
+              }}
+              onUnderAge={() => {
+                // Under age - screen handles showing crisis resources
+                // User stays on AgeVerification screen with crisis resources
+              }}
+            />
+          )}
+        </Stack.Screen>
+
+        {/* Consent Collection (Privacy Settings) */}
+        <Stack.Screen
+          name="ConsentCollection"
+          options={{
+            headerShown: false,
+            gestureEnabled: false,
+          }}
+        >
+          {({ navigation }) => {
+            const { currentConsent } = useConsentStore.getState();
+            return (
+              <ConsentManagementScreen
+                mode="onboarding"
+                ageVerification={currentConsent?.ageVerification || {
+                  verified: true,
+                  isEligible: true,
+                  verifiedAt: Date.now(),
+                }}
+                onComplete={() => {
+                  // Consent collected - proceed to onboarding
+                  navigation.replace('Onboarding');
+                }}
+              />
+            );
+          }}
+        </Stack.Screen>
+
         {/* Onboarding Flow */}
         <Stack.Screen
           name="Onboarding"

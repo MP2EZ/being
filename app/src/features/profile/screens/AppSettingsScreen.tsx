@@ -31,6 +31,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSettingsStore } from '@/core/stores/settingsStore';
+import { useConsentStore } from '@/core/stores/consentStore';
+import { ConsentManagementScreen } from '@/features/consent';
 
 // Hardcoded colors - consistent with ProfileScreen
 const colors = {
@@ -60,12 +62,15 @@ interface AppSettingsScreenProps {
 
 const AppSettingsScreen: React.FC<AppSettingsScreenProps> = ({ onReturn }) => {
   const settingsStore = useSettingsStore();
+  const { loadConsent, currentConsent } = useConsentStore();
   const [isSaving, setIsSaving] = useState(false);
+  const [showConsentScreen, setShowConsentScreen] = useState(false);
 
-  // Load settings on mount
+  // Load settings and consent on mount
   useEffect(() => {
     settingsStore.loadSettings();
-  }, []);
+    loadConsent();
+  }, [loadConsent]);
 
   const handleToggleSetting = async (
     category: 'notifications' | 'privacy' | 'accessibility',
@@ -145,6 +150,16 @@ const AppSettingsScreen: React.FC<AppSettingsScreenProps> = ({ onReturn }) => {
 
   const settings = settingsStore.settings;
   if (!settings) return null;
+
+  // Render consent management screen if selected
+  if (showConsentScreen) {
+    return (
+      <ConsentManagementScreen
+        mode="settings"
+        onComplete={() => setShowConsentScreen(false)}
+      />
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -252,9 +267,34 @@ const AppSettingsScreen: React.FC<AppSettingsScreenProps> = ({ onReturn }) => {
 
           <View style={styles.infoBox}>
             <Text style={styles.infoText}>
-              🔒 Your check-in responses, therapeutic values, and health data are NEVER shared. Analytics are limited to app usage patterns only.
+              Your check-in responses, therapeutic values, and health data are NEVER shared. Analytics are limited to app usage patterns only.
             </Text>
           </View>
+
+          {/* Manage Consent Preferences Button */}
+          <Pressable
+            style={styles.consentButton}
+            onPress={() => setShowConsentScreen(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Manage consent preferences"
+            accessibilityHint="Opens detailed privacy consent settings"
+          >
+            <View style={styles.consentButtonContent}>
+              <View style={styles.consentButtonInfo}>
+                <Text style={styles.consentButtonLabel}>Manage Consent Preferences</Text>
+                <Text style={styles.consentButtonDescription}>
+                  Control analytics, crash reports, cloud sync, and research participation
+                </Text>
+              </View>
+              <Text style={styles.consentButtonArrow}>→</Text>
+            </View>
+          </Pressable>
+
+          {currentConsent && (
+            <Text style={styles.consentLastUpdated}>
+              Last updated: {new Date(currentConsent.updatedAt).toLocaleDateString()}
+            </Text>
+          )}
         </View>
 
         {/* Accessibility Section */}
@@ -558,6 +598,48 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.5,
+  },
+  consentButton: {
+    backgroundColor: colors.white,
+    borderRadius: 12,
+    padding: spacing.lg,
+    marginTop: spacing.md,
+    borderWidth: 2,
+    borderColor: colors.midnightBlue,
+    minHeight: 56,
+  },
+  consentButtonContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  consentButtonInfo: {
+    flex: 1,
+    marginRight: spacing.md,
+  },
+  consentButtonLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.midnightBlue,
+    marginBottom: spacing.sm,
+  },
+  consentButtonDescription: {
+    fontSize: 14,
+    fontWeight: '400',
+    color: colors.gray600,
+    lineHeight: 20,
+  },
+  consentButtonArrow: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: colors.midnightBlue,
+  },
+  consentLastUpdated: {
+    fontSize: 13,
+    fontWeight: '400',
+    color: colors.gray400,
+    textAlign: 'center',
+    marginTop: spacing.sm,
   },
 });
 
