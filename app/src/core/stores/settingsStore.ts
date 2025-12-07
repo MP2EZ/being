@@ -57,6 +57,7 @@ export interface AppSettings {
   onboardingCompleted: boolean;
   appVersion: string;
   updatedAt: number;
+  lastActiveTimestamp: number | null; // Tracks when app went to background (for intro animation)
 }
 
 /**
@@ -74,6 +75,8 @@ export interface SettingsStore {
   updateAccessibilitySettings: (accessibility: Partial<AccessibilitySettings>) => Promise<void>;
   markOnboardingComplete: () => Promise<void>;
   resetSettings: () => Promise<void>;
+  setLastActiveTimestamp: (timestamp: number) => Promise<void>;
+  getLastActiveTimestamp: () => number | null;
 }
 
 /**
@@ -94,7 +97,8 @@ const DEFAULT_SETTINGS: Omit<AppSettings, 'userId' | 'updatedAt'> = {
     highContrast: false
   },
   onboardingCompleted: false,
-  appVersion: '1.0.0' // TODO: Get from app config
+  appVersion: '1.0.0', // TODO: Get from app config
+  lastActiveTimestamp: null
 };
 
 /**
@@ -269,6 +273,36 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
       console.error('[Settings] Failed to reset settings', error);
       set({ error: 'Failed to reset settings' });
     }
+  },
+
+  /**
+   * Set last active timestamp (called when app goes to background)
+   * Used by intro animation to determine if 30+ minutes have passed
+   */
+  setLastActiveTimestamp: async (timestamp: number) => {
+    const { settings } = get();
+    if (!settings) return;
+
+    try {
+      const updatedSettings: AppSettings = {
+        ...settings,
+        lastActiveTimestamp: timestamp,
+        updatedAt: Date.now()
+      };
+
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updatedSettings));
+      set({ settings: updatedSettings });
+    } catch (error) {
+      console.error('[Settings] Failed to update last active timestamp', error);
+    }
+  },
+
+  /**
+   * Get last active timestamp (for intro animation check)
+   */
+  getLastActiveTimestamp: () => {
+    const { settings } = get();
+    return settings?.lastActiveTimestamp ?? null;
   }
 }));
 

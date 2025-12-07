@@ -4,7 +4,7 @@
  * Integrated with check-in flow navigation
  */
 
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -12,15 +12,47 @@ import type { StackNavigationProp } from '@react-navigation/stack';
 import { colorSystem, getTheme, spacing } from '@/core/theme/colors';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 import { useStoicPracticeStore } from '@/features/practices/stores/stoicPracticeStore';
+import { useSettingsStore, useAccessibilitySettings } from '@/core/stores/settingsStore';
 import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
 import AssessmentStatusBadge from '@/features/assessment/components/AssessmentStatusBadge';
+import { IntroOverlay } from '../components/IntroOverlay';
+
+// 30 minutes in milliseconds
+const INTRO_THRESHOLD_MS = 30 * 60 * 1000;
 
 type CleanHomeScreenNavigationProp = StackNavigationProp<RootStackParamList>;
 
 const CleanHomeScreen: React.FC = () => {
   const navigation = useNavigation<CleanHomeScreenNavigationProp>();
   const { isCheckInCompletedToday } = useStoicPracticeStore();
+  const accessibilitySettings = useAccessibilitySettings();
+  const getLastActiveTimestamp = useSettingsStore((state) => state.getLastActiveTimestamp);
   const currentHour = new Date().getHours();
+
+  // Determine if intro animation should show
+  const shouldShowIntroInitially = useMemo(() => {
+    // Skip animation if reduced motion is enabled
+    if (accessibilitySettings?.reducedMotion) {
+      return false;
+    }
+
+    const lastActive = getLastActiveTimestamp();
+
+    // First launch (no timestamp) - show intro
+    if (lastActive === null) {
+      return true;
+    }
+
+    // Check if 30+ minutes have passed
+    const timeSinceActive = Date.now() - lastActive;
+    return timeSinceActive > INTRO_THRESHOLD_MS;
+  }, [accessibilitySettings?.reducedMotion, getLastActiveTimestamp]);
+
+  const [showIntro, setShowIntro] = useState(shouldShowIntroInitially);
+
+  const handleIntroComplete = () => {
+    setShowIntro(false);
+  };
 
   const getGreeting = () => {
     if (currentHour < 12) return 'Good morning';
@@ -171,6 +203,14 @@ const CleanHomeScreen: React.FC = () => {
 
       {/* Crisis Button Overlay */}
       <CollapsibleCrisisButton testID="crisis-home" />
+
+      {/* Intro Animation Overlay */}
+      {showIntro && (
+        <IntroOverlay
+          onComplete={handleIntroComplete}
+          greeting={getGreeting()}
+        />
+      )}
     </SafeAreaView>
   );
 };
