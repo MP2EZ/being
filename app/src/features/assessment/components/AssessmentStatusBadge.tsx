@@ -154,7 +154,9 @@ const AssessmentStatusBadge: React.FC = () => {
     }
   };
 
-  if (!status) {
+  // Only show badge when action is needed (due or recommended)
+  // Hide for "recent" status - reduces clutter, badge becomes purely actionable
+  if (!status || status === 'recent') {
     return null;
   }
 
