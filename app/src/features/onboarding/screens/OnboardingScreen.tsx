@@ -879,17 +879,8 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
         break;
 
       case 'privacy':
-        // Validate consent before proceeding
-        if (!consentProvided) {
-          logStateChange('navigateNext:privacy:no-consent');
-
-          // Accessibility: Announce validation error with context
-          announceToScreenReader(
-            'Please review and consent to the privacy notice to complete setup. Your privacy and safety are our priority.',
-            'assertive'
-          );
-          return;
-        }
+        // No validation needed - granular consent toggles are optional
+        // ToS consent was already given in CombinedLegalGateScreen
         setCurrentScreen('celebration');
         logStateChange('navigateNext:privacy->celebration');
 
@@ -1685,6 +1676,28 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
             <Text style={styles.summaryValue}>
               ✓ {notificationTimes.filter(n => n.enabled).length} daily check-in reminders
             </Text>
+          </View>
+
+          <View style={styles.summarySection}>
+            <Text style={styles.summaryLabel}>Privacy Settings</Text>
+            {consentPreferences.analyticsEnabled && (
+              <Text style={styles.summaryValue}>✓ Analytics enabled</Text>
+            )}
+            {consentPreferences.crashReportsEnabled && (
+              <Text style={styles.summaryValue}>✓ Crash reports enabled</Text>
+            )}
+            {consentPreferences.cloudSyncEnabled && (
+              <Text style={styles.summaryValue}>✓ Cloud backup enabled</Text>
+            )}
+            {consentPreferences.researchEnabled && (
+              <Text style={styles.summaryValue}>✓ Research participation enabled</Text>
+            )}
+            {!consentPreferences.analyticsEnabled &&
+             !consentPreferences.crashReportsEnabled &&
+             !consentPreferences.cloudSyncEnabled &&
+             !consentPreferences.researchEnabled && (
+              <Text style={styles.summaryValue}>✓ Privacy-first (all optional features off)</Text>
+            )}
           </View>
         </View>
 
