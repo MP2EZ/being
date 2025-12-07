@@ -5,7 +5,7 @@
  */
 
 import React, { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
@@ -119,17 +119,18 @@ const CleanHomeScreen: React.FC = () => {
         }
         accessibilityState={{ disabled: !isImplemented }}
       >
-        <View style={styles.cardHeader}>
-          <Text style={[
-            styles.cardTitle,
-            { color: themeColors.primary }
-          ]}>
-            {title}
-          </Text>
-          <Text style={styles.durationBadge}>{duration}</Text>
+        <View>
+          <View style={styles.cardHeader}>
+            <Text style={[
+              styles.cardTitle,
+              { color: themeColors.primary }
+            ]}>
+              {title}
+            </Text>
+            <Text style={styles.durationBadge}>{duration}</Text>
+          </View>
+          <Text style={styles.cardDescription} numberOfLines={2}>{description}</Text>
         </View>
-
-        <Text style={styles.cardDescription}>{description}</Text>
 
         <View style={[
           styles.startButton,
@@ -153,7 +154,7 @@ const CleanHomeScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <View style={styles.content}>
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.appTitle}>Being.</Text>
@@ -166,7 +167,7 @@ const CleanHomeScreen: React.FC = () => {
         {/* Assessment Status Badge */}
         <AssessmentStatusBadge />
 
-        {/* Check-in Cards */}
+        {/* Check-in Cards - flex to fill remaining space */}
         <View style={styles.checkInSection}>
           <CheckInCard
             type="morning"
@@ -189,17 +190,7 @@ const CleanHomeScreen: React.FC = () => {
             duration="5-6 min"
           />
         </View>
-
-        {/* Current Period Indicator */}
-        <View style={styles.currentPeriodSection}>
-          <Text style={styles.currentPeriodText}>
-            Current period: <Text style={{
-              color: getTheme(currentPeriod).primary,
-              fontWeight: '600'
-            }}>{currentPeriod}</Text>
-          </Text>
-        </View>
-      </ScrollView>
+      </View>
 
       {/* Crisis Button Overlay */}
       <CollapsibleCrisisButton testID="crisis-home" />
@@ -220,90 +211,84 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colorSystem.base.white,
   },
-  scrollView: {
+  content: {
     flex: 1,
     paddingHorizontal: spacing.lg,
   },
   header: {
-    paddingVertical: spacing.xl,
+    paddingVertical: spacing.sm,
     alignItems: 'center',
   },
   appTitle: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: '700',
-    color: colorSystem.base.black,
-    marginBottom: spacing.sm,
+    color: colorSystem.base.midnightBlue,
+    marginBottom: 4,
   },
   greeting: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: '600',
     color: colorSystem.base.black,
-    marginBottom: spacing.xs,
+    marginBottom: 2,
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 14,
     color: colorSystem.gray[600],
     textAlign: 'center',
+    marginBottom: 10,
   },
   checkInSection: {
-    marginBottom: spacing.xl,
+    flex: 1,
+    marginTop: 12,
   },
   checkInCard: {
-    padding: spacing.lg,
-    borderRadius: 16,
-    marginBottom: spacing.md,
+    flex: 1,
+    justifyContent: 'space-between',
+    padding: spacing.md,
+    borderRadius: 12,
+    marginBottom: 35,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: 1,
     },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 2,
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.sm,
+    marginBottom: 4,
   },
   cardTitle: {
-    fontSize: 20,
+    fontSize: 21,
     fontWeight: '600',
   },
   durationBadge: {
-    fontSize: 12,
+    fontSize: 11,
     color: colorSystem.gray[600],
     backgroundColor: colorSystem.gray[100],
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
     fontWeight: '500',
   },
   cardDescription: {
     fontSize: 14,
-    color: colorSystem.gray[700],
+    color: colorSystem.gray[600],
     lineHeight: 20,
-    marginBottom: spacing.md,
   },
   startButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
     alignItems: 'center',
   },
   startButtonText: {
     color: 'white',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
-  },
-  currentPeriodSection: {
-    alignItems: 'center',
-    paddingVertical: spacing.lg,
-  },
-  currentPeriodText: {
-    fontSize: 14,
-    color: colorSystem.gray[600],
   },
 });
 

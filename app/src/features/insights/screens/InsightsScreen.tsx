@@ -198,7 +198,6 @@ const SectionSeparator: React.FC = () => (
 const InsightsScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
   const {
-    isLoading,
     developmentalStage,
     totalPracticeDays,
     currentStreak,
@@ -303,7 +302,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: '700',
-    color: colors.black,
+    color: colors.midnightBlue,
     marginBottom: spacing.sm,
   },
   subtitle: {
@@ -339,15 +338,6 @@ const styles = StyleSheet.create({
   summaryCardPressed: {
     opacity: 0.7,
     transform: [{ scale: 0.98 }],
-  },
-  summaryCardFocused: {
-    borderWidth: 3,
-    borderColor: '#007AFF',
-    shadowColor: '#007AFF',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.5,
-    shadowRadius: 4,
-    elevation: 4,
   },
   summaryHeader: {
     flexDirection: 'row',
@@ -429,15 +419,6 @@ const styles = StyleSheet.create({
   },
   emptyStateButtonPressed: {
     opacity: 0.8,
-  },
-  emptyStateButtonFocused: {
-    borderWidth: 3,
-    borderColor: '#007AFF',
-    shadowColor: '#007AFF',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.5,
-    shadowRadius: 4,
-    elevation: 4,
   },
   emptyStateButtonText: {
     fontSize: 16,
