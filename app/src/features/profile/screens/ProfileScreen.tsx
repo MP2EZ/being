@@ -16,7 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import OnboardingScreen from '@/features/onboarding/screens/OnboardingScreen';
+// OnboardingScreen no longer embedded - navigation to LegalGate handles full flow
 import AppSettingsScreen from './AppSettingsScreen';
 import AccountSettingsScreen from './AccountSettingsScreen';
 import { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
@@ -58,7 +58,7 @@ const spacing = {
   xl: 32,
 };
 
-type Screen = 'menu' | 'onboarding' | 'account' | 'privacy' | 'about' | 'stoicMindfulness';
+type Screen = 'menu' | 'account' | 'privacy' | 'about' | 'stoicMindfulness';
 
 const ProfileScreen: React.FC = () => {
   const [currentScreen, setCurrentScreen] = useState<Screen>('menu');
@@ -72,12 +72,8 @@ const ProfileScreen: React.FC = () => {
   const completedAssessments = useAssessmentStore(state => state.completedAssessments);
 
   const handleStartOnboarding = () => {
-    setCurrentScreen('onboarding');
-  };
-
-  const handleOnboardingComplete = () => {
-    // Return to profile menu after onboarding
-    setCurrentScreen('menu');
+    // Navigate to LegalGate for full first-time experience (age + ToS + onboarding)
+    navigation.navigate('LegalGate');
   };
 
   const handleReturnToMenu = () => {
@@ -538,15 +534,6 @@ const ProfileScreen: React.FC = () => {
   // Render different screens based on state with crisis button overlay
   const renderContent = () => {
     if (currentScreen === 'menu') return renderMenu();
-
-    if (currentScreen === 'onboarding') {
-      return (
-        <OnboardingScreen
-          onComplete={handleOnboardingComplete}
-          isEmbedded={true}
-        />
-      );
-    }
 
     if (currentScreen === 'account') {
       return <AccountSettingsScreen onReturn={handleReturnToMenu} />;
