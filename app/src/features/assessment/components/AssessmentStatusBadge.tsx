@@ -21,7 +21,6 @@ import {
   Text,
   StyleSheet,
   Pressable,
-  AccessibilityInfo,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
@@ -179,46 +178,39 @@ const AssessmentStatusBadge: React.FC = () => {
       accessibilityLabel={config.accessibilityLabel}
       accessibilityHint={config.actionable ? 'Tap to navigate to assessments' : undefined}
     >
-      <View style={styles.content}>
-        <Text
-          style={[styles.label, { color: config.textColor }]}
-          accessibilityLabel="" // Label read by parent
-        >
-          {config.label}
-        </Text>
-        <Text
-          style={[styles.sublabel, { color: config.textColor }]}
-          accessibilityLabel="" // Sublabel read by parent
-        >
-          {config.sublabel}
-        </Text>
-      </View>
+      <Text
+        style={[styles.label, { color: config.textColor }]}
+        accessibilityLabel=""
+      >
+        {config.label}
+      </Text>
+      <Text
+        style={[styles.sublabel, { color: config.textColor }]}
+        accessibilityLabel=""
+      >
+        {config.sublabel}
+      </Text>
     </Component>
   );
 };
 
 const styles = StyleSheet.create({
   badge: {
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
     borderRadius: 12,
     marginHorizontal: spacing.lg,
-    marginTop: spacing.md,
-    marginBottom: spacing.lg,
-  },
-  content: {
-    alignItems: 'center',
+    marginBottom: spacing.sm,
   },
   label: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
-    marginBottom: spacing.xs,
-    textAlign: 'center',
+    marginBottom: 2,
   },
   sublabel: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '400',
-    textAlign: 'center',
   },
 });
 

@@ -48,7 +48,6 @@ const colors = {
   gray600: '#4B5563',
   midnightBlue: '#1B2951',
   morningPrimary: '#FF9F43',
-  eveningPrimary: '#4A7C59',
 };
 
 const spacing = {
@@ -585,7 +584,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: '700',
-    color: colors.black,
+    color: colors.midnightBlue,
     marginBottom: spacing.sm,
     textAlign: 'center',
   },

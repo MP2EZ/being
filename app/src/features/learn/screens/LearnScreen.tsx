@@ -10,7 +10,7 @@
  * - Module 3 (Sphere Sovereignty) emphasized as MOST ESSENTIAL
  */
 
-import React, { useEffect } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -149,7 +149,6 @@ const LearnScreen: React.FC = () => {
               const info = MODULE_INFO[moduleId];
               const progress = getProgressPercentage(moduleId);
               const statusColor = getStatusColor(moduleId);
-              const isRecommended = moduleId === recommendedModuleId;
               const isMostEssential = moduleId === 'sphere-sovereignty';
 
               return (
@@ -242,7 +241,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 28,
     fontWeight: '700',
-    color: colorSystem.base.black,
+    color: colorSystem.base.midnightBlue,
     marginBottom: spacing.xs,
   },
   headerSubtitle: {
