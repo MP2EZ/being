@@ -393,8 +393,16 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
     alignItems: 'center',
     marginBottom: spacing.lg,
-    borderLeftWidth: 4,
-    borderLeftColor: colors.eveningPrimary,
+    borderWidth: 1,
+    borderColor: colors.eveningPrimary,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 2,
   },
   emptyStateTitle: {
     fontSize: 20,

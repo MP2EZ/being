@@ -220,7 +220,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   appTitle: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: '700',
     color: colorSystem.base.midnightBlue,
     marginBottom: 4,
