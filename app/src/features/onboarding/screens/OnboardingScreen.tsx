@@ -37,26 +37,16 @@ import CollapsibleCrisisButton from '@/features/crisis/components/CollapsibleCri
 import BrainIcon from '@/core/components/shared/BrainIcon';
 import { useConsentStore, ConsentPreferences } from '@/core/stores/consentStore';
 import { ConsentToggleCard } from '@/features/consent';
-import { colors as dsColors, spacing, borderRadius, typography } from '@/core/theme/colors';
+import { commonColors, spacing, borderRadius, typography } from '@/core/theme/colors';
 
-// Local colors for easier reference
+// Extended local colors for onboarding-specific needs
 const localColors = {
-  white: dsColors.base.white,
-  black: dsColors.base.black,
-  gray100: dsColors.gray[100],
-  gray200: dsColors.gray[200],
-  gray300: dsColors.gray[300],
-  gray400: dsColors.gray[400],
-  gray500: dsColors.gray[500],
-  gray600: dsColors.gray[600],
-  gray700: dsColors.gray[700],
-  midnightBlue: dsColors.base.midnightBlue,
-  morningPrimary: dsColors.themes.morning.primary,
-  eveningPrimary: dsColors.themes.evening.primary,
-  crisisRed: dsColors.status.error,
-  focusBlue: dsColors.accessibility.focus.primary,
-  successGreen: dsColors.status.success,
-  warningAmber: dsColors.status.warning,
+  ...commonColors,
+  // Aliases for onboarding-specific naming
+  crisisRed: commonColors.error,
+  focusBlue: commonColors.focusPrimary,
+  successGreen: commonColors.success,
+  warningAmber: commonColors.warning,
 };
 
 // WCAG-AA accessibility constants

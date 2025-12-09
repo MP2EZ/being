@@ -40,21 +40,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useConsentStore, ConsentPreferences, AgeVerification } from '@/core/stores/consentStore';
 import ConsentToggleCard from '../components/ConsentToggleCard';
-import { colors as dsColors, spacing, borderRadius, typography } from '@/core/theme/colors';
-
-// Local colors for easier reference
-const localColors = {
-  white: dsColors.base.white,
-  black: dsColors.base.black,
-  gray100: dsColors.gray[100],
-  gray200: dsColors.gray[200],
-  gray300: dsColors.gray[300],
-  gray400: dsColors.gray[400],
-  gray500: dsColors.gray[500],
-  gray600: dsColors.gray[600],
-  midnightBlue: dsColors.themes.morning.primary,
-  success: dsColors.status.success,
-};
+import { commonColors, spacing, borderRadius, typography } from '@/core/theme/colors';
 
 interface ConsentManagementScreenProps {
   /** 'onboarding' = condensed view, 'settings' = full view */
@@ -227,7 +213,7 @@ const ConsentManagementScreen: React.FC<ConsentManagementScreenProps> = ({
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={localColors.midnightBlue} />
+          <ActivityIndicator size="large" color={commonColors.midnightBlue} />
           <Text style={styles.loadingText}>Loading consent settings...</Text>
         </View>
       </SafeAreaView>
@@ -354,7 +340,7 @@ const ConsentManagementScreen: React.FC<ConsentManagementScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: localColors.white,
+    backgroundColor: commonColors.white,
   },
   scrollContainer: {
     flex: 1,
@@ -372,7 +358,7 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
-    color: localColors.gray600,
+    color: commonColors.gray600,
     marginTop: spacing.md,
   },
   header: {
@@ -382,14 +368,14 @@ const styles = StyleSheet.create({
   title: {
     fontSize: typography.headline2.size,
     fontWeight: typography.fontWeight.bold,
-    color: localColors.black,
+    color: commonColors.black,
     marginBottom: spacing.sm,
     textAlign: 'center',
   },
   subtitle: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
-    color: localColors.gray600,
+    color: commonColors.gray600,
     textAlign: 'center',
     lineHeight: 24,
   },
@@ -399,12 +385,12 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     marginBottom: spacing.lg,
     borderWidth: 1,
-    borderColor: localColors.gray200,
+    borderColor: commonColors.gray200,
   },
   essentialTitle: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.semibold,
-    color: localColors.gray500,
+    color: commonColors.gray500,
     marginBottom: spacing.sm,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -412,7 +398,7 @@ const styles = StyleSheet.create({
   essentialItem: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
-    color: localColors.gray600,
+    color: commonColors.gray600,
     lineHeight: 24,
   },
   toggleSection: {
@@ -424,23 +410,23 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     marginBottom: spacing.lg,
     borderLeftWidth: 3,
-    borderLeftColor: localColors.success,
+    borderLeftColor: commonColors.success,
   },
   privacyPromiseText: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: localColors.gray600,
+    color: commonColors.gray600,
     lineHeight: 20,
   },
   lastUpdated: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: localColors.gray400,
+    color: commonColors.gray400,
     textAlign: 'center',
     marginBottom: spacing.lg,
   },
   continueButton: {
-    backgroundColor: localColors.midnightBlue,
+    backgroundColor: commonColors.midnightBlue,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.xl,
     borderRadius: borderRadius.large,
@@ -448,12 +434,12 @@ const styles = StyleSheet.create({
     minHeight: 56,
   },
   continueButtonDisabled: {
-    backgroundColor: localColors.gray400,
+    backgroundColor: commonColors.gray400,
   },
   continueButtonText: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
-    color: localColors.white,
+    color: commonColors.white,
   },
   limitationNote: {
     backgroundColor: '#FFF8E1',
@@ -472,7 +458,7 @@ const styles = StyleSheet.create({
   limitationNoteText: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: localColors.gray600,
+    color: commonColors.gray600,
     lineHeight: 20,
   },
 });

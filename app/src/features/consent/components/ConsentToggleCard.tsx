@@ -27,25 +27,12 @@ import {
   UIManager,
   AccessibilityInfo,
 } from 'react-native';
-import { colors as dsColors, spacing, borderRadius, typography } from '@/core/theme/colors';
+import { commonColors, spacing, borderRadius, typography } from '@/core/theme/colors';
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
-
-// Local colors for easier reference
-const localColors = {
-  white: dsColors.base.white,
-  black: dsColors.base.black,
-  gray100: dsColors.gray[100],
-  gray200: dsColors.gray[200],
-  gray400: dsColors.gray[400],
-  gray500: dsColors.gray[500],
-  gray600: dsColors.gray[600],
-  midnightBlue: dsColors.base.midnightBlue,
-  success: dsColors.status.success,
-};
 
 export interface ConsentToggleCardProps {
   /** Title of the consent category */
@@ -113,9 +100,9 @@ const ConsentToggleCard: React.FC<ConsentToggleCardProps> = ({
           value={value}
           onValueChange={handleToggle}
           disabled={disabled}
-          trackColor={{ false: localColors.gray400, true: localColors.midnightBlue }}
-          thumbColor={localColors.white}
-          ios_backgroundColor={localColors.gray400}
+          trackColor={{ false: commonColors.gray400, true: commonColors.midnightBlue }}
+          thumbColor={commonColors.white}
+          ios_backgroundColor={commonColors.gray400}
           accessibilityLabel={`${title} consent`}
           accessibilityHint={`Double tap to ${value ? 'disable' : 'enable'} ${title}`}
           accessibilityState={{ checked: value, disabled }}
@@ -177,12 +164,12 @@ const ConsentToggleCard: React.FC<ConsentToggleCardProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: localColors.gray100,
+    backgroundColor: commonColors.gray100,
     borderRadius: borderRadius.large,
     padding: spacing.lg,
     marginBottom: spacing.md,
     borderWidth: 1,
-    borderColor: localColors.gray200,
+    borderColor: commonColors.gray200,
   },
   headerRow: {
     flexDirection: 'row',
@@ -196,13 +183,13 @@ const styles = StyleSheet.create({
   title: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
-    color: localColors.black,
+    color: commonColors.black,
     marginBottom: spacing.xs,
   },
   description: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: localColors.gray600,
+    color: commonColors.gray600,
     lineHeight: 20,
   },
   switch: {
@@ -219,14 +206,14 @@ const styles = StyleSheet.create({
   learnMoreText: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.medium,
-    color: localColors.midnightBlue,
+    color: commonColors.midnightBlue,
     textDecorationLine: 'underline',
   },
   detailsContainer: {
     marginTop: spacing.md,
     paddingTop: spacing.md,
     borderTopWidth: 1,
-    borderTopColor: localColors.gray200,
+    borderTopColor: commonColors.gray200,
   },
   detailSection: {
     marginBottom: spacing.md,
@@ -234,20 +221,20 @@ const styles = StyleSheet.create({
   detailSectionTitle: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.semibold,
-    color: localColors.black,
+    color: commonColors.black,
     marginBottom: spacing.xs,
   },
   detailBullet: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: localColors.gray600,
+    color: commonColors.gray600,
     lineHeight: 22,
     marginLeft: spacing.sm,
   },
   detailText: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: localColors.gray600,
+    color: commonColors.gray600,
     lineHeight: 22,
   },
   privacyNoteBox: {
@@ -256,12 +243,12 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     marginTop: spacing.sm,
     borderLeftWidth: 3,
-    borderLeftColor: localColors.success,
+    borderLeftColor: commonColors.success,
   },
   privacyNoteText: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: localColors.gray600,
+    color: commonColors.gray600,
     lineHeight: 18,
   },
 });

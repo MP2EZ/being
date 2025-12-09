@@ -36,22 +36,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getCurrentUserEmail, getUserCreatedAt, isDevMode } from '@/core/constants/devMode';
-import { colors as dsColors, spacing, borderRadius, typography } from '@/core/theme/colors';
-
-// Local colors for easier reference
-const localColors = {
-  white: dsColors.base.white,
-  black: dsColors.base.black,
-  gray100: dsColors.gray[100],
-  gray200: dsColors.gray[200],
-  gray300: dsColors.gray[300],
-  gray400: dsColors.gray[400],
-  gray500: dsColors.gray[500],
-  gray600: dsColors.gray[600],
-  midnightBlue: dsColors.themes.morning.primary,
-  error: dsColors.status.error,
-  warning: dsColors.status.warning,
-};
+import { commonColors, spacing, borderRadius, typography } from '@/core/theme/colors';
 
 interface AccountSettingsScreenProps {
   onReturn: () => void;
@@ -238,7 +223,7 @@ const AccountSettingsScreen: React.FC<AccountSettingsScreenProps> = ({ onReturn 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: localColors.white,
+    backgroundColor: commonColors.white,
   },
   scrollContainer: {
     flex: 1,
@@ -254,14 +239,14 @@ const styles = StyleSheet.create({
   title: {
     fontSize: typography.headline2.size,
     fontWeight: typography.fontWeight.bold,
-    color: localColors.black,
+    color: commonColors.black,
     marginBottom: spacing.sm,
     textAlign: 'center',
   },
   subtitle: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.regular,
-    color: localColors.gray600,
+    color: commonColors.gray600,
     textAlign: 'center',
     lineHeight: 24,
   },
@@ -271,72 +256,72 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: typography.headline3.size,
     fontWeight: typography.fontWeight.semibold,
-    color: localColors.black,
+    color: commonColors.black,
     marginBottom: spacing.sm,
   },
   sectionDescription: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
-    color: localColors.gray600,
+    color: commonColors.gray600,
     lineHeight: 22,
     marginBottom: spacing.md,
   },
   dangerTitle: {
-    color: localColors.error,
+    color: commonColors.error,
   },
   infoCard: {
-    backgroundColor: localColors.gray100,
+    backgroundColor: commonColors.gray100,
     borderRadius: borderRadius.large,
     padding: spacing.lg,
     marginBottom: spacing.md,
     borderWidth: 1,
-    borderColor: localColors.gray200,
+    borderColor: commonColors.gray200,
   },
   infoCardLabel: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.semibold,
-    color: localColors.gray500,
+    color: commonColors.gray500,
     marginBottom: spacing.sm,
   },
   infoCardValue: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
-    color: localColors.black,
+    color: commonColors.black,
     marginBottom: 4,
   },
   infoCardNote: {
     fontSize: typography.micro.size,
     fontWeight: typography.fontWeight.regular,
-    color: localColors.warning,
+    color: commonColors.warning,
     fontStyle: 'italic',
   },
   actionCard: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: localColors.gray100,
+    backgroundColor: commonColors.gray100,
     borderRadius: borderRadius.large,
     padding: spacing.lg,
     marginBottom: spacing.md,
     borderWidth: 1,
-    borderColor: localColors.gray200,
+    borderColor: commonColors.gray200,
   },
   actionCardTitle: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
-    color: localColors.black,
+    color: commonColors.black,
     marginBottom: spacing.sm,
   },
   actionCardDescription: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: localColors.gray600,
+    color: commonColors.gray600,
     lineHeight: 20,
   },
   actionCardArrow: {
     fontSize: 24,
     fontWeight: typography.fontWeight.semibold,
-    color: localColors.midnightBlue,
+    color: commonColors.midnightBlue,
   },
   actionCardDisabled: {
     opacity: 0.6,
@@ -349,24 +334,24 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#FEE2E2',
     borderLeftWidth: 4,
-    borderLeftColor: localColors.error,
+    borderLeftColor: commonColors.error,
   },
   dangerCardDisabled: {
     opacity: 0.6,
-    backgroundColor: localColors.gray100,
-    borderColor: localColors.gray300,
-    borderLeftColor: localColors.gray400,
+    backgroundColor: commonColors.gray100,
+    borderColor: commonColors.gray300,
+    borderLeftColor: commonColors.gray400,
   },
   dangerCardTitle: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
-    color: localColors.error,
+    color: commonColors.error,
     marginBottom: spacing.sm,
   },
   dangerCardDescription: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: localColors.gray600,
+    color: commonColors.gray600,
     lineHeight: 20,
     marginBottom: spacing.md,
   },
@@ -376,18 +361,18 @@ const styles = StyleSheet.create({
   confirmationLabel: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.semibold,
-    color: localColors.gray600,
+    color: commonColors.gray600,
     marginBottom: spacing.sm,
   },
   confirmationInput: {
-    backgroundColor: localColors.white,
+    backgroundColor: commonColors.white,
     borderRadius: borderRadius.medium,
     borderWidth: 2,
-    borderColor: localColors.gray300,
+    borderColor: commonColors.gray300,
     padding: spacing.md,
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.semibold,
-    color: localColors.black,
+    color: commonColors.black,
   },
   infoBox: {
     backgroundColor: '#F0F4FF',
@@ -395,12 +380,12 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     marginTop: spacing.sm,
     borderLeftWidth: 3,
-    borderLeftColor: localColors.midnightBlue,
+    borderLeftColor: commonColors.midnightBlue,
   },
   infoText: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: localColors.gray600,
+    color: commonColors.gray600,
     lineHeight: 20,
   },
   warningBox: {
@@ -409,7 +394,7 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     marginTop: spacing.sm,
     borderLeftWidth: 3,
-    borderLeftColor: localColors.warning,
+    borderLeftColor: commonColors.warning,
   },
   warningText: {
     fontSize: typography.bodySmall.size,
@@ -418,23 +403,23 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   todoBox: {
-    backgroundColor: localColors.gray100,
+    backgroundColor: commonColors.gray100,
     borderRadius: borderRadius.medium,
     padding: spacing.md,
     marginTop: spacing.xl,
     borderLeftWidth: 3,
-    borderLeftColor: localColors.warning,
+    borderLeftColor: commonColors.warning,
   },
   todoTitle: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.semibold,
-    color: localColors.black,
+    color: commonColors.black,
     marginBottom: spacing.sm,
   },
   todoText: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: localColors.gray600,
+    color: commonColors.gray600,
     lineHeight: 20,
     marginBottom: spacing.sm,
   },
@@ -442,7 +427,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.lg,
   },
   primaryButton: {
-    backgroundColor: localColors.midnightBlue,
+    backgroundColor: commonColors.midnightBlue,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.xl,
     borderRadius: borderRadius.large,
@@ -452,10 +437,10 @@ const styles = StyleSheet.create({
   primaryButtonText: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
-    color: localColors.white,
+    color: commonColors.white,
   },
   dangerButton: {
-    backgroundColor: localColors.error,
+    backgroundColor: commonColors.error,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.xl,
     borderRadius: borderRadius.large,
@@ -464,7 +449,7 @@ const styles = StyleSheet.create({
   dangerButtonText: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
-    color: localColors.white,
+    color: commonColors.white,
   },
   buttonDisabled: {
     opacity: 0.5,

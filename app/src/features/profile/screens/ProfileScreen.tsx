@@ -25,7 +25,7 @@ import { isDevMode } from '@/core/constants/devMode';
 import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
 import ThresholdEducationModal from '@/core/components/ThresholdEducationModal';
 import { useAssessmentStore } from '@/features/assessment/stores/assessmentStore';
-import { colors as dsColors, spacing, borderRadius, typography } from '@/core/theme/colors';
+import { commonColors, spacing, borderRadius, typography } from '@/core/theme/colors';
 
 type ProfileScreenNavigationProp = StackNavigationProp<RootStackParamList>;
 
@@ -36,20 +36,6 @@ interface AssessmentMetadata {
   daysSince?: number;
   status: 'recent' | 'due' | 'recommended' | 'never';
 }
-
-// Local colors for easier reference
-const localColors = {
-  white: dsColors.base.white,
-  black: dsColors.base.black,
-  gray100: dsColors.gray[100],
-  gray200: dsColors.gray[200],
-  gray300: dsColors.gray[300],
-  gray400: dsColors.gray[400],
-  gray500: dsColors.gray[500],
-  gray600: dsColors.gray[600],
-  midnightBlue: dsColors.themes.morning.primary,
-  morningPrimary: dsColors.themes.morning.primary,
-};
 
 type Screen = 'menu' | 'account' | 'privacy' | 'about' | 'stoicMindfulness';
 
@@ -562,7 +548,7 @@ const ProfileScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: localColors.white,
+    backgroundColor: commonColors.white,
   },
   scrollContainer: {
     flex: 1,
@@ -578,14 +564,14 @@ const styles = StyleSheet.create({
   title: {
     fontSize: typography.headline2.size,
     fontWeight: typography.fontWeight.bold,
-    color: localColors.midnightBlue,
+    color: commonColors.midnightBlue,
     marginBottom: spacing.sm,
     textAlign: 'center',
   },
   subtitle: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.regular,
-    color: localColors.gray600,
+    color: commonColors.gray600,
     textAlign: 'center',
     lineHeight: 24,
   },
@@ -595,41 +581,41 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: typography.headline3.size,
     fontWeight: typography.fontWeight.semibold,
-    color: localColors.black,
+    color: commonColors.black,
     marginBottom: spacing.md,
   },
   sectionDescription: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
-    color: localColors.gray600,
+    color: commonColors.gray600,
     lineHeight: 22,
     marginBottom: spacing.md,
   },
   profileCard: {
-    backgroundColor: localColors.gray100,
+    backgroundColor: commonColors.gray100,
     borderRadius: borderRadius.large,
     padding: spacing.lg,
     marginBottom: spacing.md,
     borderWidth: 1,
-    borderColor: localColors.gray200,
+    borderColor: commonColors.gray200,
   },
   cardTitle: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
-    color: localColors.black,
+    color: commonColors.black,
     marginBottom: spacing.sm,
   },
   cardDescription: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
-    color: localColors.gray600,
+    color: commonColors.gray600,
     lineHeight: 22,
     marginBottom: spacing.md,
   },
   cardAction: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.medium,
-    color: localColors.midnightBlue,
+    color: commonColors.midnightBlue,
   },
   crisisCard: {
     backgroundColor: '#FFF5F5',
@@ -643,7 +629,7 @@ const styles = StyleSheet.create({
     color: '#DC2626',
   },
   placeholderContent: {
-    backgroundColor: localColors.gray100,
+    backgroundColor: commonColors.gray100,
     borderRadius: borderRadius.large,
     padding: spacing.xl,
     marginVertical: spacing.xl,
@@ -654,12 +640,12 @@ const styles = StyleSheet.create({
   placeholderText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
-    color: localColors.gray500,
+    color: commonColors.gray500,
     textAlign: 'center',
     lineHeight: 24,
   },
   primaryButton: {
-    backgroundColor: localColors.midnightBlue,
+    backgroundColor: commonColors.midnightBlue,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.xl,
     borderRadius: borderRadius.large,
@@ -669,33 +655,33 @@ const styles = StyleSheet.create({
   primaryButtonText: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
-    color: localColors.white,
+    color: commonColors.white,
   },
   bodyText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
-    color: localColors.gray600,
+    color: commonColors.gray600,
     lineHeight: 24,
     marginBottom: spacing.md,
   },
   principleCard: {
-    backgroundColor: localColors.gray100,
+    backgroundColor: commonColors.gray100,
     borderRadius: borderRadius.medium,
     padding: spacing.md,
     marginBottom: spacing.md,
     borderLeftWidth: 3,
-    borderLeftColor: localColors.midnightBlue,
+    borderLeftColor: commonColors.midnightBlue,
   },
   principleTitle: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.semibold,
-    color: localColors.black,
+    color: commonColors.black,
     marginBottom: spacing.sm,
   },
   principleDescription: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: localColors.gray600,
+    color: commonColors.gray600,
     lineHeight: 20,
   },
   devModeBanner: {
@@ -718,9 +704,9 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   assessmentCard: {
-    backgroundColor: localColors.white,
+    backgroundColor: commonColors.white,
     borderWidth: 1,
-    borderColor: localColors.gray300,
+    borderColor: commonColors.gray300,
     borderRadius: borderRadius.large,
     padding: spacing.lg,
     marginBottom: spacing.md,
@@ -738,12 +724,12 @@ const styles = StyleSheet.create({
   cardDuration: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.medium,
-    color: localColors.midnightBlue,
+    color: commonColors.midnightBlue,
   },
   cardMetadata: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: localColors.gray500,
+    color: commonColors.gray500,
   },
   statusRecent: {
     fontSize: typography.micro.size,
@@ -790,7 +776,7 @@ const styles = StyleSheet.create({
   educationLinkText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.medium,
-    color: localColors.morningPrimary,
+    color: commonColors.morningPrimary,
     textDecorationLine: 'underline',
   },
 });

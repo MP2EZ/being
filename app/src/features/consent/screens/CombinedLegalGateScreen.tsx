@@ -32,22 +32,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Picker } from '@react-native-picker/picker';
 import { useConsentStore } from '@/core/stores/consentStore';
-import { colors, spacing, borderRadius, typography } from '@/core/theme/colors';
-
-// Colors - WCAG AA compliant
-const localColors = {
-  white: colors.base.white,
-  black: colors.base.black,
-  gray100: colors.gray[100],
-  gray200: colors.gray[200],
-  gray400: colors.gray[400],
-  gray500: colors.gray[500],
-  gray600: colors.gray[600],
-  midnightBlue: colors.base.midnightBlue,
-  error: colors.status.error,
-  crisis: colors.status.critical,
-  success: colors.status.success,
-};
+import { commonColors, spacing, borderRadius, typography } from '@/core/theme/colors';
 
 interface CombinedLegalGateScreenProps {
   /** Called when user passes legal gate (age verified + ToS accepted) */
@@ -215,13 +200,13 @@ const CombinedLegalGateScreen: React.FC<CombinedLegalGateScreenProps> = ({
               style={styles.picker}
               accessibilityLabel="Select your birth year"
             >
-              <Picker.Item label="Select year..." value={null} color={localColors.gray400} />
+              <Picker.Item label="Select year..." value={null} color={commonColors.gray400} />
               {years.map((year) => (
                 <Picker.Item
                   key={year}
                   label={year.toString()}
                   value={year}
-                  color={localColors.black}
+                  color={commonColors.black}
                 />
               ))}
             </Picker>
@@ -337,7 +322,7 @@ const CombinedLegalGateScreen: React.FC<CombinedLegalGateScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: localColors.white,
+    backgroundColor: commonColors.white,
   },
   scrollContainer: {
     flex: 1,
@@ -353,14 +338,14 @@ const styles = StyleSheet.create({
   title: {
     fontSize: typography.headline2.size,
     fontWeight: typography.fontWeight.bold,
-    color: localColors.black,
+    color: commonColors.black,
     marginBottom: spacing.sm,
     textAlign: 'center',
   },
   subtitle: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
-    color: localColors.gray600,
+    color: commonColors.gray600,
     textAlign: 'center',
     lineHeight: spacing.lg,
   },
@@ -370,20 +355,20 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
-    color: localColors.black,
+    color: commonColors.black,
     marginBottom: spacing.sm,
   },
   sectionDescription: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: localColors.gray600,
+    color: commonColors.gray600,
     marginBottom: spacing.md,
   },
   pickerContainer: {
-    backgroundColor: localColors.gray100,
+    backgroundColor: commonColors.gray100,
     borderRadius: borderRadius.large,
     borderWidth: 1,
-    borderColor: localColors.gray200,
+    borderColor: commonColors.gray200,
     overflow: 'hidden',
   },
   picker: {
@@ -392,21 +377,21 @@ const styles = StyleSheet.create({
   helperText: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: localColors.gray500,
+    color: commonColors.gray500,
     marginTop: spacing.sm,
     fontStyle: 'italic',
   },
   checkbox: {
     flexDirection: 'row',
-    backgroundColor: localColors.gray100,
+    backgroundColor: commonColors.gray100,
     borderRadius: borderRadius.large,
     padding: spacing.lg,
     borderWidth: 2,
-    borderColor: localColors.gray200,
+    borderColor: commonColors.gray200,
     minHeight: 56,
   },
   checkboxChecked: {
-    borderColor: localColors.midnightBlue,
+    borderColor: commonColors.midnightBlue,
     backgroundColor: '#F0F4FF',
   },
   checkboxIndicator: {
@@ -414,22 +399,22 @@ const styles = StyleSheet.create({
     height: spacing.lg,
     borderRadius: borderRadius.small,
     borderWidth: 2,
-    borderColor: localColors.gray400,
+    borderColor: commonColors.gray400,
     marginRight: spacing.md,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: localColors.white,
+    backgroundColor: commonColors.white,
   },
   checkboxCheck: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.bold,
-    color: localColors.midnightBlue,
+    color: commonColors.midnightBlue,
   },
   checkboxText: {
     flex: 1,
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: localColors.gray600,
+    color: commonColors.gray600,
     lineHeight: 22,
   },
   linkRow: {
@@ -441,7 +426,7 @@ const styles = StyleSheet.create({
   linkText: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.medium,
-    color: localColors.midnightBlue,
+    color: commonColors.midnightBlue,
     textDecorationLine: 'underline',
   },
   essentialSection: {
@@ -450,12 +435,12 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     marginBottom: spacing.lg,
     borderWidth: 1,
-    borderColor: localColors.gray200,
+    borderColor: commonColors.gray200,
   },
   essentialTitle: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.semibold,
-    color: localColors.gray500,
+    color: commonColors.gray500,
     marginBottom: spacing.sm,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -463,13 +448,13 @@ const styles = StyleSheet.create({
   essentialItem: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: localColors.gray600,
+    color: commonColors.gray600,
     lineHeight: spacing.lg,
   },
   essentialNote: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: localColors.gray500,
+    color: commonColors.gray500,
     marginTop: spacing.md,
     fontStyle: 'italic',
   },
@@ -482,11 +467,11 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.medium,
-    color: localColors.error,
+    color: commonColors.error,
     textAlign: 'center',
   },
   continueButton: {
-    backgroundColor: localColors.midnightBlue,
+    backgroundColor: commonColors.midnightBlue,
     paddingVertical: spacing.md,
     borderRadius: borderRadius.large,
     alignItems: 'center',
@@ -494,23 +479,23 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   continueButtonDisabled: {
-    backgroundColor: localColors.gray400,
+    backgroundColor: commonColors.gray400,
   },
   continueButtonText: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
-    color: localColors.white,
+    color: commonColors.white,
   },
   crisisFooter: {
     alignItems: 'center',
     paddingTop: spacing.md,
     borderTopWidth: 1,
-    borderTopColor: localColors.gray200,
+    borderTopColor: commonColors.gray200,
   },
   crisisFooterTitle: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.medium,
-    color: localColors.gray500,
+    color: commonColors.gray500,
     marginBottom: spacing.sm,
   },
   crisisFooterButtons: {
@@ -522,12 +507,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     borderRadius: borderRadius.medium,
     borderWidth: 1,
-    borderColor: localColors.crisis,
+    borderColor: commonColors.crisis,
   },
   crisisFooterButtonText: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.semibold,
-    color: localColors.crisis,
+    color: commonColors.crisis,
   },
   // Under-age screen styles
   crisisSection: {
@@ -536,19 +521,19 @@ const styles = StyleSheet.create({
   crisisSectionTitle: {
     fontSize: typography.title.size,
     fontWeight: typography.fontWeight.semibold,
-    color: localColors.black,
+    color: commonColors.black,
     marginBottom: spacing.sm,
     textAlign: 'center',
   },
   crisisDescription: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: localColors.gray600,
+    color: commonColors.gray600,
     textAlign: 'center',
     marginBottom: spacing.lg,
   },
   crisisButton: {
-    backgroundColor: localColors.crisis,
+    backgroundColor: commonColors.crisis,
     paddingVertical: spacing.lg,
     borderRadius: borderRadius.large,
     alignItems: 'center',
@@ -558,44 +543,44 @@ const styles = StyleSheet.create({
   crisisButtonText: {
     fontSize: typography.title.size,
     fontWeight: typography.fontWeight.bold,
-    color: localColors.white,
+    color: commonColors.white,
   },
   crisisButtonSubtext: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: localColors.white,
+    color: commonColors.white,
     marginTop: spacing.xs,
   },
   crisisButtonSecondary: {
-    backgroundColor: localColors.white,
+    backgroundColor: commonColors.white,
     paddingVertical: spacing.lg,
     borderRadius: borderRadius.large,
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: localColors.crisis,
+    borderColor: commonColors.crisis,
     minHeight: 72,
   },
   crisisButtonSecondaryText: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
-    color: localColors.crisis,
+    color: commonColors.crisis,
   },
   crisisButtonSubtextSecondary: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: localColors.gray600,
+    color: commonColors.gray600,
     marginTop: spacing.xs,
   },
   resourcesSection: {
     marginTop: spacing.lg,
     padding: spacing.lg,
-    backgroundColor: localColors.gray100,
+    backgroundColor: commonColors.gray100,
     borderRadius: borderRadius.large,
   },
   resourcesTitle: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.semibold,
-    color: localColors.black,
+    color: commonColors.black,
     marginBottom: spacing.md,
   },
 });
