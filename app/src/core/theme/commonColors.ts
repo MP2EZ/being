@@ -2,8 +2,11 @@
  * Common Color Aliases
  * Pre-mapped color tokens for common UI patterns
  * Reduces boilerplate in component files
+ *
+ * NOTE: Imports directly from design system to avoid circular dependency
+ * with colors.ts which re-exports this module
  */
-import { colors } from './colors';
+import { colors as dsColors } from '@mp2ez/being-design-system/native';
 
 /**
  * Flat color aliases for common use cases
@@ -11,31 +14,31 @@ import { colors } from './colors';
  */
 export const commonColors = {
   // Base colors
-  white: colors.base.white,
-  black: colors.base.black,
-  midnightBlue: colors.base.midnightBlue,
+  white: dsColors.base.white,
+  black: dsColors.base.black,
+  midnightBlue: dsColors.base.midnightBlue,
 
   // Gray scale (flat access)
-  gray100: colors.gray[100],
-  gray200: colors.gray[200],
-  gray300: colors.gray[300],
-  gray400: colors.gray[400],
-  gray500: colors.gray[500],
-  gray600: colors.gray[600],
-  gray700: colors.gray[700],
+  gray100: dsColors.gray[100],
+  gray200: dsColors.gray[200],
+  gray300: dsColors.gray[300],
+  gray400: dsColors.gray[400],
+  gray500: dsColors.gray[500],
+  gray600: dsColors.gray[600],
+  gray700: dsColors.gray[700],
 
   // Theme shortcuts
-  morningPrimary: colors.themes.morning.primary,
-  eveningPrimary: colors.themes.evening.primary,
+  morningPrimary: dsColors.themes.morning.primary,
+  eveningPrimary: dsColors.themes.evening.primary,
 
   // Status colors
-  error: colors.status.error,
-  warning: colors.status.warning,
-  success: colors.status.success,
-  crisis: colors.status.critical,
+  error: dsColors.status.error,
+  warning: dsColors.status.warning,
+  success: dsColors.status.success,
+  crisis: dsColors.status.critical,
 
   // Accessibility colors
-  focusPrimary: colors.accessibility.focus.primary,
+  focusPrimary: dsColors.accessibility.focus.primary,
 } as const;
 
 export type CommonColorKey = keyof typeof commonColors;
