@@ -39,7 +39,7 @@ import {
   SubscriptionInterval,
   SUBSCRIPTION_PRICING,
 } from '@/core/types/subscription';
-import { spacing, borderRadius, typography } from '@/core/theme/colors';
+import { spacing, borderRadius, typography } from '@/core/theme';
 
 interface PurchaseOptionsScreenProps {
   onPurchaseComplete?: () => void;

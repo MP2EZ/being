@@ -25,7 +25,7 @@ import { logSecurity, logPerformance, logError, LogCategory } from '@/core/servi
 import React, { useState, useEffect, useRef } from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 import { View, Pressable, Text, StyleSheet } from 'react-native';
-import { colorSystem, spacing, borderRadius, typography } from '@/core/theme/colors';
+import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
 import { SessionStorageService } from '@/core/services/session/SessionStorageService';
 import { SessionMetadata } from '@/core/types/session';
 import { ResumeSessionModal } from '../shared/components/ResumeSessionModal';

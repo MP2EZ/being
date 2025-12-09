@@ -39,7 +39,7 @@ import type { StackScreenProps } from '@react-navigation/stack';
 import type { MorningFlowParamList, PreparationData } from '@/features/practices/types/flows';
 import { PremeditationSafetyService } from '@/core/services/premeditationSafetyService';
 import type { ObstacleInput } from '@/core/services/premeditationSafetyService';
-import { spacing, borderRadius, typography } from '@/core/theme/colors';
+import { spacing, borderRadius, typography } from '@/core/theme';
 
 type Props = StackScreenProps<MorningFlowParamList, 'Preparation'> & {
   onSave?: (data: PreparationData) => void;

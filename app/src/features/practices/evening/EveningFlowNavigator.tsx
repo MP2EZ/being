@@ -31,7 +31,7 @@ import { logSecurity, logPerformance, logError, LogCategory } from '@/core/servi
 import React, { useState, useEffect, useRef } from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 import { View, Pressable, Text, StyleSheet } from 'react-native';
-import { colorSystem, spacing, typography, borderRadius } from '@/core/theme/colors';
+import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
 import { EveningFlowParamList } from '@/features/practices/types/flows';
 import { SessionStorageService } from '@/core/services/session/SessionStorageService';
 import { SessionMetadata } from '@/core/types/session';

@@ -33,7 +33,7 @@ import {
 } from 'react-native';
 import { useSubscriptionStore } from '@/core/stores/subscriptionStore';
 import { FeatureAccess } from '@/core/types/subscription';
-import { spacing, borderRadius, typography } from '@/core/theme/colors';
+import { spacing, borderRadius, typography } from '@/core/theme';
 
 interface FeatureGateProps {
   children: React.ReactNode;

@@ -29,7 +29,7 @@ import {
   Platform,
 } from 'react-native';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
-import { spacing, borderRadius, typography } from '@/core/theme/colors';
+import { spacing, borderRadius, typography } from '@/core/theme';
 
 interface NotificationTimePickerProps {
   /** Whether the picker modal is visible */

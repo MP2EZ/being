@@ -37,7 +37,7 @@ import {
   FOCUS_STYLES,
   A11Y_ROLES,
 } from '@/core/theme/accessibility';
-import { typography } from '@/core/theme/colors';
+import { typography } from '@/core/theme';
 
 export interface AccessibleButtonProps {
   /** Button press handler */

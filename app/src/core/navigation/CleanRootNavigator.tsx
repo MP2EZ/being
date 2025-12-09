@@ -9,7 +9,7 @@ import { View, ActivityIndicator, StyleSheet, TouchableOpacity, Text } from 'rea
 import { logPerformance } from '@/core/services/logging';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
-import { spacing, typography } from '@/core/theme/colors';
+import { spacing, typography } from '@/core/theme';
 import CleanTabNavigator from './CleanTabNavigator';
 import MorningFlowNavigator from '@/features/practices/morning/MorningFlowNavigator';
 import MiddayFlowNavigator from '@/features/practices/midday/MiddayFlowNavigator';

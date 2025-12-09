@@ -5,7 +5,7 @@
 
 import React from 'react';
 import Svg, { Path, ClipPath, Defs, G, Rect } from 'react-native-svg';
-import { colorSystem } from '@/core/theme/colors';
+import { colorSystem } from '@/core/theme';
 
 interface BrainIconProps {
   color?: string;

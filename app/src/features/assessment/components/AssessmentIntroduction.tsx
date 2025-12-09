@@ -21,7 +21,7 @@ import {
   ScrollView,
   Pressable,
 } from 'react-native';
-import { colorSystem, spacing, typography, borderRadius } from '@/core/theme/colors';
+import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
 import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
 import { FocusProvider, Focusable, SkipLink } from '@/core/components/accessibility';
 import type { AssessmentType } from '../types';

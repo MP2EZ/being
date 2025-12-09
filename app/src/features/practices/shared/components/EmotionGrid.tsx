@@ -11,7 +11,7 @@
 
 import React, { useState } from 'react';
 import { View, Text, Pressable, StyleSheet, ViewStyle } from 'react-native';
-import { colorSystem, spacing, typography, borderRadius } from '@/core/theme/colors';
+import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
 
 export interface Emotion {
   id: string;

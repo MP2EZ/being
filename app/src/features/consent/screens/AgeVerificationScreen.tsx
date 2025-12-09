@@ -32,7 +32,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Picker } from '@react-native-picker/picker';
 import { useConsentStore } from '@/core/stores/consentStore';
-import { commonColors, spacing, borderRadius, typography } from '@/core/theme/colors';
+import { commonColors, spacing, borderRadius, typography } from '@/core/theme';
 
 interface AgeVerificationScreenProps {
   onVerified: () => void;

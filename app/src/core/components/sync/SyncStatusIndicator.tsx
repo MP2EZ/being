@@ -37,7 +37,7 @@ import {
 // Import services
 import SyncCoordinator from '@/core/services/supabase/SyncCoordinator';
 import AnalyticsService from '@/core/analytics/AnalyticsService';
-import { spacing, borderRadius, typography } from '@/core/theme/colors';
+import { spacing, borderRadius, typography } from '@/core/theme';
 
 /**
  * SYNC STATUS TYPES

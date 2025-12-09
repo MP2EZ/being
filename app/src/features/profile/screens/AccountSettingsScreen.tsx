@@ -36,7 +36,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getCurrentUserEmail, getUserCreatedAt, isDevMode } from '@/core/constants/devMode';
-import { commonColors, spacing, borderRadius, typography } from '@/core/theme/colors';
+import { commonColors, spacing, borderRadius, typography } from '@/core/theme';
 
 interface AccountSettingsScreenProps {
   onReturn: () => void;

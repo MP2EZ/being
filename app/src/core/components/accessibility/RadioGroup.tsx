@@ -21,7 +21,7 @@ import {
   AccessibilityInfo,
   Platform,
 } from 'react-native';
-import { colorSystem, spacing, typography, borderRadius } from '@/core/theme/colors';
+import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
 
 export interface RadioOption {
   value: string | number;

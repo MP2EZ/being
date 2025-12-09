@@ -32,7 +32,7 @@ import {
 import type { StackScreenProps } from '@react-navigation/stack';
 import type { EveningFlowParamList, VirtueReflectionData } from '@/features/practices/types/flows';
 import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
-import { spacing, borderRadius, typography } from '@/core/theme/colors';
+import { spacing, borderRadius, typography } from '@/core/theme';
 
 type Props = StackScreenProps<EveningFlowParamList, 'VirtueReflection'> & {
   onSave?: (data: VirtueReflectionData) => void;

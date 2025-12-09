@@ -27,7 +27,7 @@ import {
   UIManager,
   AccessibilityInfo,
 } from 'react-native';
-import { commonColors, spacing, borderRadius, typography } from '@/core/theme/colors';
+import { commonColors, spacing, borderRadius, typography } from '@/core/theme';
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {

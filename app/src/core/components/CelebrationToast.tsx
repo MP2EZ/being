@@ -28,7 +28,7 @@ import {
   StyleSheet,
   Animated,
 } from 'react-native';
-import { spacing, borderRadius, typography } from '@/core/theme/colors';
+import { spacing, borderRadius, typography } from '@/core/theme';
 
 export interface CelebrationToastProps {
   flowType: 'morning' | 'midday' | 'evening';

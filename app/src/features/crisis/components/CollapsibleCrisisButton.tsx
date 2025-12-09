@@ -48,7 +48,7 @@ import Animated, {
   runOnJS,
 } from 'react-native-reanimated';
 import { logSecurity, logPerformance } from '@/core/services/logging';
-import { spacing, borderRadius, typography } from '@/core/theme/colors';
+import { spacing, borderRadius, typography } from '@/core/theme';
 
 interface CollapsibleCrisisButtonProps {
   /** Crisis action callback */

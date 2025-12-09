@@ -30,7 +30,7 @@ import {
   Vibration,
   ScrollView,
 } from 'react-native';
-import { colorSystem, spacing, borderRadius, typography } from '@/core/theme/colors';
+import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
 import { FlowType, SessionMetadata } from '@/core/types/session';
 
 interface ResumeSessionModalProps {

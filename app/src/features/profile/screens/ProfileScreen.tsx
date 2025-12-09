@@ -25,7 +25,7 @@ import { isDevMode } from '@/core/constants/devMode';
 import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
 import ThresholdEducationModal from '@/core/components/ThresholdEducationModal';
 import { useAssessmentStore } from '@/features/assessment/stores/assessmentStore';
-import { commonColors, spacing, borderRadius, typography } from '@/core/theme/colors';
+import { commonColors, spacing, borderRadius, typography } from '@/core/theme';
 
 type ProfileScreenNavigationProp = StackNavigationProp<RootStackParamList>;
 

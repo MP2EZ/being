@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { colorSystem, spacing, typography, borderRadius } from '@/core/theme/colors';
+import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
 
 export const sharedPracticeStyles = StyleSheet.create({
   // Layout containers

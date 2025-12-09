@@ -37,7 +37,7 @@ import CollapsibleCrisisButton from '@/features/crisis/components/CollapsibleCri
 import BrainIcon from '@/core/components/shared/BrainIcon';
 import { useConsentStore, ConsentPreferences } from '@/core/stores/consentStore';
 import { ConsentToggleCard } from '@/features/consent';
-import { commonColors, spacing, borderRadius, typography } from '@/core/theme/colors';
+import { commonColors, spacing, borderRadius, typography } from '@/core/theme';
 
 // Extended local colors for onboarding-specific needs
 const localColors = {

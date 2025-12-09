@@ -29,7 +29,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
-import { colorSystem, spacing, borderRadius, typography } from '@/core/theme/colors';
+import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
 import { logPerformance, logSecurity, logError, LogCategory } from '@/core/services/logging';
 import {
   CRISIS_RESOURCE_CATEGORIES,

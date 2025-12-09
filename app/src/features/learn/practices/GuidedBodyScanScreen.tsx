@@ -30,7 +30,7 @@ import {
   ScrollView,
   Animated,
 } from 'react-native';
-import { colorSystem, spacing, typography, borderRadius } from '@/core/theme/colors';
+import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
 import { BODY_AREAS } from '@/features/practices/shared/components/BodyAreaGrid';
 import ProgressiveBodyScanList from '@/features/practices/shared/components/ProgressiveBodyScanList';
 import PracticeScreenHeader from '@/features/learn/practices/shared/PracticeScreenHeader';

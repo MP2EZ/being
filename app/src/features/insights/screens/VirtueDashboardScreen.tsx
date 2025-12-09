@@ -38,7 +38,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useStoicPracticeStore } from '@/features/practices/stores/stoicPracticeStore';
 import type { CardinalVirtue, DevelopmentalStage } from '@/features/practices/types/stoic';
-import { colorSystem, spacing, borderRadius, typography } from '@/core/theme/colors';
+import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
 
 const VirtueDashboardScreen: React.FC = () => {
   const {

@@ -43,7 +43,7 @@ export {
   spacing,
   typography,
   borderRadius,
-} from '@/core/theme/colors';
+} from '@/core/theme';
 
 // ============================================================================
 // Phase 1 Shared Components (Existing)

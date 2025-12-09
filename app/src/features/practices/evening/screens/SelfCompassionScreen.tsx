@@ -37,7 +37,7 @@ import type { StackNavigationProp } from '@react-navigation/stack';
 import type { RouteProp } from '@react-navigation/native';
 import type { EveningFlowParamList, SelfCompassionData } from '@/features/practices/types/flows';
 import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
-import { spacing, borderRadius, typography } from '@/core/theme/colors';
+import { spacing, borderRadius, typography } from '@/core/theme';
 
 type SelfCompassionScreenNavigationProp = StackNavigationProp<
   EveningFlowParamList,

@@ -28,7 +28,7 @@ import {
   AppState,
   AppStateStatus,
 } from 'react-native';
-import { colorSystem, spacing, typography, borderRadius } from '@/core/theme/colors';
+import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
 import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
 import { RadioGroup, FocusProvider, Focusable } from '@/core/components/accessibility';
 import type { RadioOption } from '@/core/components/accessibility';

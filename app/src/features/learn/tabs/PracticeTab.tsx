@@ -19,7 +19,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
-import { colorSystem, spacing, typography, borderRadius } from '@/core/theme/colors';
+import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
 import { useEducationStore } from '../stores/educationStore';
 import type { ModuleContent, ModuleId, Practice } from '@/features/learn/types/education';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';

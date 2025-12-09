@@ -31,7 +31,7 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { useStoicPracticeStore } from '@/features/practices/stores/stoicPracticeStore';
 import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
-import { colorSystem, spacing, borderRadius, typography } from '@/core/theme/colors';
+import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
 
 type NavigationProp = StackNavigationProp<RootStackParamList>;
 

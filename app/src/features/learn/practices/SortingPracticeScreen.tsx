@@ -29,7 +29,7 @@ import {
   AccessibilityInfo,
   Animated,
 } from 'react-native';
-import { colorSystem, spacing, typography, borderRadius } from '@/core/theme/colors';
+import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
 import PracticeScreenHeader from '@/features/learn/practices/shared/PracticeScreenHeader';
 import { usePracticeCompletion } from '@/features/learn/practices/shared/usePracticeCompletion';
 import type { ModuleId } from '@/features/learn/types/education';

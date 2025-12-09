@@ -32,7 +32,7 @@ import {
 import type { StackScreenProps } from '@react-navigation/stack';
 import type { EveningFlowParamList, SleepTransitionData } from '@/features/practices/types/flows';
 import BreathingCircle from '../../shared/components/BreathingCircle';
-import { spacing, borderRadius, typography } from '@/core/theme/colors';
+import { spacing, borderRadius, typography } from '@/core/theme';
 
 type Props = StackScreenProps<EveningFlowParamList, 'SleepTransition'> & {
   onSave?: (data: SleepTransitionData) => void;

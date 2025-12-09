@@ -17,7 +17,7 @@ import {
   Animated,
   AccessibilityInfo,
 } from 'react-native';
-import { colorSystem, spacing, typography, borderRadius } from '@/core/theme/colors';
+import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
 import type { AssessmentProgress as AssessmentProgressType } from '../types';
 
 interface AssessmentProgressProps {

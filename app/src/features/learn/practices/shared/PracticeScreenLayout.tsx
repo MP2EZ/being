@@ -2,7 +2,7 @@ import React from 'react';
 import { View, SafeAreaView, StatusBar, ScrollView } from 'react-native';
 import { sharedPracticeStyles } from './sharedPracticeStyles';
 import PracticeScreenHeader from './PracticeScreenHeader';
-import { colorSystem } from '@/core/theme/colors';
+import { colorSystem } from '@/core/theme';
 
 interface PracticeScreenLayoutProps {
   title: string;

@@ -26,7 +26,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import { useAssessmentStore } from '@/features/assessment/stores/assessmentStore';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
-import { spacing, typography, borderRadius } from '@/core/theme/colors';
+import { spacing, typography, borderRadius } from '@/core/theme';
 
 // Types
 type BadgeStatus = 'recent' | 'due' | 'recommended';

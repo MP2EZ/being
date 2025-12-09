@@ -40,7 +40,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useConsentStore, ConsentPreferences, AgeVerification } from '@/core/stores/consentStore';
 import ConsentToggleCard from '../components/ConsentToggleCard';
-import { commonColors, spacing, borderRadius, typography } from '@/core/theme/colors';
+import { commonColors, spacing, borderRadius, typography } from '@/core/theme';
 
 interface ConsentManagementScreenProps {
   /** 'onboarding' = condensed view, 'settings' = full view */

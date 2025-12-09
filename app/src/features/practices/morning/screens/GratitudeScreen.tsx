@@ -31,7 +31,7 @@ import {
 import type { StackScreenProps } from '@react-navigation/stack';
 import type { MorningFlowParamList } from '@/features/practices/types/flows';
 import type { GratitudeData, GratitudeItem } from '@/features/practices/types/flows';
-import { spacing, borderRadius, typography } from '@/core/theme/colors';
+import { spacing, borderRadius, typography } from '@/core/theme';
 
 type Props = StackScreenProps<MorningFlowParamList, 'Gratitude'> & {
   onSave?: (data: GratitudeData) => void;

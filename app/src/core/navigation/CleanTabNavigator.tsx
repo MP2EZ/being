@@ -14,7 +14,7 @@ import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { View, Text } from 'react-native';
 import Svg, { Path, Circle, Rect, ClipPath, Defs, G } from 'react-native-svg';
-import { colorSystem, spacing, typography } from '@/core/theme/colors';
+import { colorSystem, spacing, typography } from '@/core/theme';
 import CleanHomeScreen from '@/features/home/screens/CleanHomeScreen';
 import ProfileScreen from '@/features/profile/screens/ProfileScreen';
 import InsightsScreen from '@/features/insights/screens/InsightsScreen';

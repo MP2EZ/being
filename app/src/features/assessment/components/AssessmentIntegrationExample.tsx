@@ -27,7 +27,7 @@ import {
   Alert,
   Switch,
 } from 'react-native';
-import { colorSystem, spacing, typography, borderRadius } from '@/core/theme/colors';
+import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
 
 // Import all integrated components
 import EnhancedAssessmentFlow from './EnhancedAssessmentFlow';

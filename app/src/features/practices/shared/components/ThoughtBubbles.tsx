@@ -13,7 +13,7 @@ import {
   Vibration,
   Animated
 } from 'react-native';
-import { colorSystem, spacing, borderRadius, typography } from '@/core/theme/colors';
+import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
 
 interface ThoughtBubblesProps {
   onThoughtAcknowledge?: (thought: string) => void;

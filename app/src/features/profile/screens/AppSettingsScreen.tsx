@@ -33,7 +33,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSettingsStore } from '@/core/stores/settingsStore';
 import { useConsentStore } from '@/core/stores/consentStore';
 import { ConsentManagementScreen } from '@/features/consent';
-import { commonColors, spacing, borderRadius, typography } from '@/core/theme/colors';
+import { commonColors, spacing, borderRadius, typography } from '@/core/theme';
 
 interface AppSettingsScreenProps {
   onReturn: () => void;

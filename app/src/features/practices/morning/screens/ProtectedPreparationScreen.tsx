@@ -25,7 +25,7 @@ import type { MorningFlowParamList } from '@/features/practices/types/flows';
 import PreparationScreen from './PreparationScreen';
 import { useAssessmentStore } from '@/features/assessment/stores/assessmentStore';
 import { ACCESSIBLE_COLORS, SPACING, TOUCH_TARGETS } from '@/core/theme/accessibility';
-import { borderRadius, typography } from '@/core/theme/colors';
+import { borderRadius, typography } from '@/core/theme';
 
 type Props = StackScreenProps<MorningFlowParamList, 'Preparation'>;
 

@@ -40,7 +40,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { monitoringOrchestrator } from '@/core/services/monitoring';
 import { resilienceOrchestrator, ProtectedService, CircuitBreakerState } from '@/core/services/resilience';
 import { logSecurity, logPerformance } from '@/core/services/logging';
-import { spacing, borderRadius, typography } from '@/core/theme/colors';
+import { spacing, borderRadius, typography } from '@/core/theme';
 
 // Dashboard configuration
 const REFRESH_INTERVAL = 5000; // 5 seconds

@@ -26,7 +26,7 @@ import {
   Dimensions,
   Vibration,
 } from 'react-native';
-import { colorSystem, spacing, typography, borderRadius } from '@/core/theme/colors';
+import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
 import { useAdvancedScreenReader } from './AdvancedScreenReader';
 
 // Sensory accessibility configuration

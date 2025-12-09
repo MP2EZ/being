@@ -31,7 +31,7 @@ import {
   AppState,
   AppStateStatus,
 } from 'react-native';
-import { colorSystem, spacing, typography, borderRadius } from '@/core/theme/colors';
+import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
 import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
 
 interface CrisisErrorBoundaryProps {

@@ -15,7 +15,7 @@ import Animated, {
   runOnJS,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colorSystem, spacing, typography } from '@/core/theme/colors';
+import { colorSystem, spacing, typography } from '@/core/theme';
 import BrainIcon from '@/core/components/shared/BrainIcon';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');

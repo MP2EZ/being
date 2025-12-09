@@ -24,7 +24,7 @@ import {
   Platform,
   AccessibilityInfo,
 } from 'react-native';
-import { colorSystem, spacing, typography, borderRadius } from '@/core/theme/colors';
+import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
 import { useAdvancedScreenReader } from './AdvancedScreenReader';
 
 // Motor accessibility configuration

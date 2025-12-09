@@ -9,7 +9,7 @@ import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
-import { colorSystem, getTheme, spacing, borderRadius, typography } from '@/core/theme/colors';
+import { colorSystem, getTheme, spacing, borderRadius, typography } from '@/core/theme';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 import { useStoicPracticeStore } from '@/features/practices/stores/stoicPracticeStore';
 import { useSettingsStore, useAccessibilitySettings } from '@/core/stores/settingsStore';

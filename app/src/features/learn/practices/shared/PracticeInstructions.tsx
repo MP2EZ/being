@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, Animated, StyleSheet } from 'react-native';
 import { sharedPracticeStyles } from './sharedPracticeStyles';
 import { useInstructionsFade } from './useInstructionsFade';
-import { colorSystem, spacing, typography } from '@/core/theme/colors';
+import { colorSystem, spacing, typography } from '@/core/theme';
 
 interface PracticeInstructionsProps {
   text: string | string[]; // Single string or array of instruction steps

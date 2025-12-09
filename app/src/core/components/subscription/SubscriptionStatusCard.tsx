@@ -40,7 +40,7 @@ import {
   SubscriptionStatus,
   SUBSCRIPTION_STATUS_LABELS,
 } from '@/core/types/subscription';
-import { spacing, borderRadius, typography } from '@/core/theme/colors';
+import { spacing, borderRadius, typography } from '@/core/theme';
 
 interface SubscriptionStatusCardProps {
   style?: any;

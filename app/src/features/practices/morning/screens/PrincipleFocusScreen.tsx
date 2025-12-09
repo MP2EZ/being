@@ -39,7 +39,7 @@ import {
 import type { StackScreenProps } from '@react-navigation/stack';
 import type { MorningFlowParamList, PrincipleFocusData } from '@/features/practices/types/flows';
 import type { StoicPrinciple } from '@/features/practices/types/stoic';
-import { spacing, borderRadius, typography } from '@/core/theme/colors';
+import { spacing, borderRadius, typography } from '@/core/theme';
 
 type Props = StackScreenProps<MorningFlowParamList, 'PrincipleFocus'> & {
   onSave?: (data: PrincipleFocusData) => void;

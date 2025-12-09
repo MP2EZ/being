@@ -35,7 +35,7 @@ import {
 import { useCloudSync, useCloudBackupConfig } from '@/core/services/supabase/hooks/useCloudSync';
 import SyncStatusIndicator from '../sync/SyncStatusIndicator';
 import AnalyticsService from '@/core/analytics/AnalyticsService';
-import { spacing, borderRadius, typography } from '@/core/theme/colors';
+import { spacing, borderRadius, typography } from '@/core/theme';
 
 interface CloudBackupSettingsProps {
   style?: any;

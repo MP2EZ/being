@@ -26,7 +26,7 @@ import {
   Alert,
   Dimensions,
 } from 'react-native';
-import { colorSystem, spacing, typography, borderRadius } from '@/core/theme/colors';
+import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
 import { useAdvancedScreenReader } from '@/core/components/accessibility/advanced/AdvancedScreenReader';
 import { useSensoryAccessibility } from '@/core/components/accessibility/advanced/SensoryAccessibility';
 import { useMotorAccessibility, AccessiblePressable } from '@/core/components/accessibility/advanced/MotorAccessibility';

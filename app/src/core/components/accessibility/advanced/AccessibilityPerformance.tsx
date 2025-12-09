@@ -20,7 +20,7 @@ import {
   InteractionManager,
   Platform,
 } from 'react-native';
-import { colorSystem, spacing, typography, borderRadius } from '@/core/theme/colors';
+import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
 
 // Performance metrics interface
 export interface AccessibilityPerformanceMetrics {

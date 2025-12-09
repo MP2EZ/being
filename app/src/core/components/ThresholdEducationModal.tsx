@@ -26,7 +26,7 @@ import {
   ScrollView,
   AccessibilityInfo,
 } from 'react-native';
-import { spacing, borderRadius, typography } from '@/core/theme/colors';
+import { spacing, borderRadius, typography } from '@/core/theme';
 
 interface ThresholdEducationModalProps {
   visible: boolean;
