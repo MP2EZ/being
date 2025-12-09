@@ -27,31 +27,24 @@ import {
   UIManager,
   AccessibilityInfo,
 } from 'react-native';
+import { colors as dsColors, spacing, borderRadius, typography } from '@/core/theme/colors';
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-// Colors consistent with Being design system
-// Updated for WCAG AA color contrast compliance (4.5:1 for body text)
-const colors = {
-  white: '#FFFFFF',
-  black: '#1C1C1C',
-  gray100: '#F5F5F5',
-  gray200: '#E5E7EB',
-  gray400: '#9CA3AF',
-  gray500: '#525863', // Darkened for contrast (was #6B7280)
-  gray600: '#374151', // Darkened for contrast (was #4B5563)
-  midnightBlue: '#1B2951',
-  success: '#10B981',
-};
-
-const spacing = {
-  xs: 4,
-  sm: 8,
-  md: 16,
-  lg: 24,
+// Local colors for easier reference
+const localColors = {
+  white: dsColors.base.white,
+  black: dsColors.base.black,
+  gray100: dsColors.gray[100],
+  gray200: dsColors.gray[200],
+  gray400: dsColors.gray[400],
+  gray500: dsColors.gray[500],
+  gray600: dsColors.gray[600],
+  midnightBlue: dsColors.base.midnightBlue,
+  success: dsColors.status.success,
 };
 
 export interface ConsentToggleCardProps {
@@ -120,9 +113,9 @@ const ConsentToggleCard: React.FC<ConsentToggleCardProps> = ({
           value={value}
           onValueChange={handleToggle}
           disabled={disabled}
-          trackColor={{ false: colors.gray400, true: colors.midnightBlue }}
-          thumbColor={colors.white}
-          ios_backgroundColor={colors.gray400}
+          trackColor={{ false: localColors.gray400, true: localColors.midnightBlue }}
+          thumbColor={localColors.white}
+          ios_backgroundColor={localColors.gray400}
           accessibilityLabel={`${title} consent`}
           accessibilityHint={`Double tap to ${value ? 'disable' : 'enable'} ${title}`}
           accessibilityState={{ checked: value, disabled }}
@@ -184,12 +177,12 @@ const ConsentToggleCard: React.FC<ConsentToggleCardProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: colors.gray100,
-    borderRadius: 12,
+    backgroundColor: localColors.gray100,
+    borderRadius: borderRadius.large,
     padding: spacing.lg,
     marginBottom: spacing.md,
     borderWidth: 1,
-    borderColor: colors.gray200,
+    borderColor: localColors.gray200,
   },
   headerRow: {
     flexDirection: 'row',
@@ -201,15 +194,15 @@ const styles = StyleSheet.create({
     marginRight: spacing.md,
   },
   title: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: colors.black,
+    fontSize: typography.bodyLarge.size,
+    fontWeight: typography.fontWeight.semibold,
+    color: localColors.black,
     marginBottom: spacing.xs,
   },
   description: {
-    fontSize: 14,
-    fontWeight: '400',
-    color: colors.gray600,
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.regular,
+    color: localColors.gray600,
     lineHeight: 20,
   },
   switch: {
@@ -224,51 +217,51 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   learnMoreText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: colors.midnightBlue,
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.medium,
+    color: localColors.midnightBlue,
     textDecorationLine: 'underline',
   },
   detailsContainer: {
     marginTop: spacing.md,
     paddingTop: spacing.md,
     borderTopWidth: 1,
-    borderTopColor: colors.gray200,
+    borderTopColor: localColors.gray200,
   },
   detailSection: {
     marginBottom: spacing.md,
   },
   detailSectionTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.black,
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.semibold,
+    color: localColors.black,
     marginBottom: spacing.xs,
   },
   detailBullet: {
-    fontSize: 14,
-    fontWeight: '400',
-    color: colors.gray600,
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.regular,
+    color: localColors.gray600,
     lineHeight: 22,
     marginLeft: spacing.sm,
   },
   detailText: {
-    fontSize: 14,
-    fontWeight: '400',
-    color: colors.gray600,
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.regular,
+    color: localColors.gray600,
     lineHeight: 22,
   },
   privacyNoteBox: {
     backgroundColor: '#E8F4EC',
-    borderRadius: 8,
+    borderRadius: borderRadius.medium,
     padding: spacing.md,
     marginTop: spacing.sm,
     borderLeftWidth: 3,
-    borderLeftColor: colors.success,
+    borderLeftColor: localColors.success,
   },
   privacyNoteText: {
-    fontSize: 13,
-    fontWeight: '400',
-    color: colors.gray600,
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.regular,
+    color: localColors.gray600,
     lineHeight: 18,
   },
 });

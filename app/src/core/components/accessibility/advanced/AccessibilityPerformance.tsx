@@ -20,7 +20,7 @@ import {
   InteractionManager,
   Platform,
 } from 'react-native';
-import { colorSystem, spacing, typography } from '@/core/theme/colors';
+import { colorSystem, spacing, typography, borderRadius } from '@/core/theme/colors';
 
 // Performance metrics interface
 export interface AccessibilityPerformanceMetrics {
@@ -552,7 +552,7 @@ const styles = StyleSheet.create({
   monitorContainer: {
     backgroundColor: colorSystem.gray[100],
     padding: spacing.sm,
-    borderRadius: 8,
+    borderRadius: borderRadius.medium,
     margin: spacing.xs,
   },
   monitorTitle: {
@@ -574,9 +574,9 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   statusIndicator: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: borderRadius.medium,
+    height: borderRadius.medium,
+    borderRadius: borderRadius.small,
   },
   statusText: {
     fontSize: typography.caption.size,
@@ -590,7 +590,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: colorSystem.gray[300],
     paddingTop: spacing.xs,
-    gap: 2,
+    gap: borderRadius.xs,
   },
   metricText: {
     fontSize: typography.caption.size,

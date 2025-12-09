@@ -221,7 +221,7 @@ const styles = StyleSheet.create({
   },
   sliderTitle: {
     fontSize: typography.bodyRegular.size,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.black,
     flex: 1,
   },
@@ -230,7 +230,7 @@ const styles = StyleSheet.create({
     color: colorSystem.gray[600],
     marginBottom: spacing.sm,
     fontStyle: 'italic',
-    lineHeight: 18,
+    lineHeight: spacing[5],
   },
   valueIndicator: {
     backgroundColor: colorSystem.base.white,
@@ -248,7 +248,7 @@ const styles = StyleSheet.create({
   },
   valueText: {
     fontSize: typography.bodyRegular.size,
-    fontWeight: '700',
+    fontWeight: typography.fontWeight.bold,
   },
   sliderWrapper: {
     paddingHorizontal: spacing.xs,
@@ -258,13 +258,13 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   sliderTrack: {
-    height: 6,
-    borderRadius: 3,
+    height: spacing[2],
+    borderRadius: borderRadius.xs,
     marginBottom: spacing.sm,
   },
   sliderFill: {
     height: '100%',
-    borderRadius: 3,
+    borderRadius: borderRadius.xs,
   },
   sliderButtons: {
     flexDirection: 'row',
@@ -273,14 +273,14 @@ const styles = StyleSheet.create({
   sliderButton: {
     width: 28,
     height: 28,
-    borderRadius: 14,
+    borderRadius: borderRadius.small,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
   },
   sliderButtonText: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: typography.micro.size,
+    fontWeight: typography.fontWeight.semibold,
   },
   sliderLabels: {
     flexDirection: 'row',
@@ -302,6 +302,7 @@ const styles = StyleSheet.create({
     color: colorSystem.gray[700],
     textAlign: 'center',
     fontStyle: 'italic',
+    lineHeight: spacing[5],
   },
   reminderSection: {
     padding: spacing.md,
@@ -313,7 +314,7 @@ const styles = StyleSheet.create({
   reminderText: {
     fontSize: typography.caption.size,
     color: colorSystem.gray[700],
-    lineHeight: 20,
+    lineHeight: spacing[5],
     textAlign: 'center',
   },
 });

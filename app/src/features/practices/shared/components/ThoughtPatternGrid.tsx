@@ -225,7 +225,7 @@ const styles = StyleSheet.create({
   },
   introTitle: {
     fontSize: typography.bodyLarge.size,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.black,
     marginBottom: spacing.sm,
     textAlign: 'center',
@@ -258,7 +258,7 @@ const styles = StyleSheet.create({
       height: 1,
     },
     shadowOpacity: 0.05,
-    shadowRadius: 2,
+    shadowRadius: borderRadius.xs,
     elevation: 1,
   },
   patternHeader: {
@@ -269,13 +269,13 @@ const styles = StyleSheet.create({
   },
   patternTitle: {
     fontSize: typography.bodyRegular.size,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
     flex: 1,
-    lineHeight: 20,
+    lineHeight: typography.title.size,
   },
   checkmark: {
-    width: 20,
-    height: 20,
+    width: spacing[5],
+    height: spacing[5],
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
@@ -283,20 +283,20 @@ const styles = StyleSheet.create({
   },
   checkmarkText: {
     color: colorSystem.base.white,
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: typography.micro.size,
+    fontWeight: typography.fontWeight.semibold,
   },
   patternDescription: {
     fontSize: typography.caption.size,
     color: colorSystem.gray[600],
     marginBottom: spacing.xs,
-    lineHeight: 18,
+    lineHeight: typography.bodyLarge.size,
   },
   patternExample: {
     fontSize: typography.caption.size,
     color: colorSystem.gray[500],
     fontStyle: 'italic',
-    lineHeight: 16,
+    lineHeight: typography.bodyRegular.size,
   },
   feedbackSection: {
     padding: spacing.md,
@@ -320,7 +320,7 @@ const styles = StyleSheet.create({
     fontSize: typography.caption.size,
     color: colorSystem.gray[600],
     textAlign: 'center',
-    lineHeight: 18,
+    lineHeight: typography.bodyLarge.size,
   },
 });
 

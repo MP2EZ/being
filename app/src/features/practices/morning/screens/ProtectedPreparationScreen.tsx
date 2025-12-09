@@ -25,6 +25,7 @@ import type { MorningFlowParamList } from '@/features/practices/types/flows';
 import PreparationScreen from './PreparationScreen';
 import { useAssessmentStore } from '@/features/assessment/stores/assessmentStore';
 import { ACCESSIBLE_COLORS, SPACING, TOUCH_TARGETS } from '@/core/theme/accessibility';
+import { borderRadius, typography } from '@/core/theme/colors';
 
 type Props = StackScreenProps<MorningFlowParamList, 'Preparation'>;
 
@@ -164,7 +165,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: SPACING.md,
-    fontSize: 16,
+    fontSize: typography.bodyRegular.size,
     color: ACCESSIBLE_COLORS.textSecondary,
   },
   skipContainer: {
@@ -179,26 +180,26 @@ const styles = StyleSheet.create({
     maxWidth: 400,
     padding: SPACING.xl,
     backgroundColor: '#FFF9F0',
-    borderRadius: 16,
-    borderLeftWidth: 4,
+    borderRadius: borderRadius.xl,
+    borderLeftWidth: SPACING.xs,
     borderLeftColor: ACCESSIBLE_COLORS.morningPrimary,
     alignItems: 'center',
   },
   skipIcon: {
-    fontSize: 48,
+    fontSize: SPACING.xxl,
     marginBottom: SPACING.md,
   },
   skipTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
+    fontSize: typography.headline4.size,
+    fontWeight: typography.fontWeight.bold,
     color: ACCESSIBLE_COLORS.textPrimary,
     marginBottom: SPACING.md,
     textAlign: 'center',
   },
   skipMessage: {
-    fontSize: 16,
+    fontSize: typography.bodyRegular.size,
     color: ACCESSIBLE_COLORS.textSecondary,
-    lineHeight: 24,
+    lineHeight: typography.headline4.size,
     textAlign: 'center',
     marginBottom: SPACING.xl,
   },
@@ -209,27 +210,27 @@ const styles = StyleSheet.create({
   skipButton: {
     backgroundColor: ACCESSIBLE_COLORS.morningPrimary,
     padding: SPACING.md,
-    borderRadius: 12,
+    borderRadius: borderRadius.large,
     minHeight: TOUCH_TARGETS.minimum,
     alignItems: 'center',
     justifyContent: 'center',
   },
   skipButtonText: {
     color: '#fff',
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: typography.bodyLarge.size,
+    fontWeight: typography.fontWeight.semibold,
   },
   crisisReminder: {
     width: '100%',
     padding: SPACING.md,
     backgroundColor: '#fff',
-    borderRadius: 12,
+    borderRadius: borderRadius.large,
     borderWidth: 2,
     borderColor: ACCESSIBLE_COLORS.error,
     alignItems: 'center',
   },
   crisisReminderText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.size,
     color: ACCESSIBLE_COLORS.textSecondary,
     textAlign: 'center',
     marginBottom: SPACING.sm,
@@ -238,7 +239,7 @@ const styles = StyleSheet.create({
     backgroundColor: ACCESSIBLE_COLORS.error,
     paddingHorizontal: SPACING.lg,
     paddingVertical: SPACING.sm,
-    borderRadius: 8,
+    borderRadius: borderRadius.medium,
     minHeight: TOUCH_TARGETS.minimum,
     minWidth: 120,
     alignItems: 'center',
@@ -246,8 +247,8 @@ const styles = StyleSheet.create({
   },
   crisisButtonText: {
     color: '#fff',
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.bold,
   },
 });
 

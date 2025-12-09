@@ -200,14 +200,14 @@ const styles = StyleSheet.create({
     fontSize: typography.bodyRegular.size,
     color: colorSystem.gray[700],
     textAlign: 'center',
-    lineHeight: 24,
+    lineHeight: spacing.lg,
   },
   bodyAreaSection: {
     marginBottom: spacing.xl,
   },
   sectionLabel: {
     fontSize: typography.caption.size,
-    fontWeight: '700',
+    fontWeight: typography.fontWeight.bold,
     color: colorSystem.gray[600],
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -222,15 +222,15 @@ const styles = StyleSheet.create({
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: spacing.xs,
     },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowRadius: spacing.xs,
     elevation: 2,
   },
   nextButtonText: {
     fontSize: typography.bodyRegular.size,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.white,
   },
   noteSection: {
@@ -242,13 +242,13 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   noteIcon: {
-    fontSize: 20,
+    fontSize: typography.title.size,
   },
   noteText: {
     flex: 1,
     fontSize: typography.caption.size,
     color: colorSystem.gray[700],
-    lineHeight: 20,
+    lineHeight: spacing[5],
     fontStyle: 'italic',
   },
 });

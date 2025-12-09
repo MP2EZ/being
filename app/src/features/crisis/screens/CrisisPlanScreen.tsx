@@ -35,7 +35,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
-import { colorSystem, spacing } from '@/core/theme/colors';
+import { colorSystem, spacing, borderRadius, typography } from '@/core/theme/colors';
 import { logPerformance, logSecurity, logError, LogCategory } from '@/core/services/logging';
 import { useCrisisPlanStore } from '@/features/crisis/stores/crisisPlanStore';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
@@ -829,40 +829,40 @@ const styles = StyleSheet.create({
     alignItems: 'center'
   },
   loadingText: {
-    fontSize: 16,
+    fontSize: typography.bodyRegular.size,
     color: colorSystem.gray[600]
   },
   stepContainer: {
     flex: 1
   },
   stepTitle: {
-    fontSize: 28,
-    fontWeight: '700',
+    fontSize: typography.headline2.size,
+    fontWeight: typography.fontWeight.bold,
     color: colorSystem.gray[800],
     marginBottom: spacing.md
   },
   stepDescription: {
-    fontSize: 16,
+    fontSize: typography.bodyRegular.size,
     color: colorSystem.gray[600],
-    lineHeight: 24,
+    lineHeight: typography.bodyLarge.size,
     marginBottom: spacing.lg
   },
   infoBox: {
     backgroundColor: '#E3F2FD',
-    borderRadius: 12,
+    borderRadius: borderRadius.large,
     padding: spacing.lg,
     marginBottom: spacing.md
   },
   infoTitle: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.gray[800],
     marginBottom: spacing.sm
   },
   infoText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.size,
     color: colorSystem.gray[700],
-    lineHeight: 20,
+    lineHeight: spacing[5],
     marginBottom: spacing.xs
   },
   inputContainer: {
@@ -875,9 +875,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: colorSystem.gray[300],
-    borderRadius: 8,
+    borderRadius: borderRadius.medium,
     padding: spacing.md,
-    fontSize: 16,
+    fontSize: typography.bodyRegular.size,
     color: colorSystem.gray[800],
     marginBottom: spacing.sm,
     minHeight: 50
@@ -886,7 +886,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#1976D2',
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
-    borderRadius: 8,
+    borderRadius: borderRadius.medium,
     alignItems: 'center'
   },
   addButtonDisabled: {
@@ -894,15 +894,15 @@ const styles = StyleSheet.create({
   },
   addButtonText: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600'
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.semibold
   },
   itemsList: {
     marginBottom: spacing.lg
   },
   itemsListTitle: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.gray[800],
     marginBottom: spacing.sm
   },
@@ -910,14 +910,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: colorSystem.gray[200],
-    borderRadius: 8,
+    borderRadius: borderRadius.medium,
     padding: spacing.md,
     marginBottom: spacing.sm
   },
   itemText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.size,
     color: colorSystem.gray[800],
-    lineHeight: 20
+    lineHeight: spacing[5]
   },
   navigationButtons: {
     flexDirection: 'row',
@@ -932,14 +932,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#1976D2',
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
-    borderRadius: 8,
+    borderRadius: borderRadius.medium,
     alignItems: 'center',
     flex: 1
   },
   primaryButtonText: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700'
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.bold
   },
   secondaryButton: {
     backgroundColor: colorSystem.gray[100],
@@ -947,15 +947,15 @@ const styles = StyleSheet.create({
     borderColor: colorSystem.gray[300],
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
-    borderRadius: 8,
+    borderRadius: borderRadius.medium,
     alignItems: 'center',
     flex: 1,
     marginTop: spacing.sm
   },
   secondaryButtonText: {
     color: colorSystem.gray[800],
-    fontSize: 16,
-    fontWeight: '600'
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.semibold
   },
   reviewContainer: {
     maxHeight: 400,
@@ -965,15 +965,15 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg
   },
   reviewSectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: typography.bodyLarge.size,
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.gray[800],
     marginBottom: spacing.sm
   },
   reviewItem: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.size,
     color: colorSystem.gray[700],
-    lineHeight: 20,
+    lineHeight: spacing[5],
     marginBottom: spacing.xs
   },
   reviewActions: {
@@ -984,36 +984,36 @@ const styles = StyleSheet.create({
     backgroundColor: '#4CAF50',
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
-    borderRadius: 8,
+    borderRadius: borderRadius.medium,
     alignItems: 'center'
   },
   exportButtonText: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600'
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.semibold
   },
   editButton: {
     backgroundColor: '#FF9800',
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
-    borderRadius: 8,
+    borderRadius: borderRadius.medium,
     alignItems: 'center'
   },
   editButtonText: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600'
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.semibold
   },
   deleteButton: {
     backgroundColor: '#F44336',
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
-    borderRadius: 8,
+    borderRadius: borderRadius.medium,
     alignItems: 'center'
   },
   deleteButtonText: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600'
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.semibold
   }
 });

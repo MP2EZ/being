@@ -25,7 +25,7 @@ import { logSecurity, logPerformance, logError, LogCategory } from '@/core/servi
 import React, { useState, useEffect, useRef } from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 import { View, Pressable, Text, StyleSheet } from 'react-native';
-import { colorSystem, spacing } from '@/core/theme/colors';
+import { colorSystem, spacing, borderRadius, typography } from '@/core/theme/colors';
 import { SessionStorageService } from '@/core/services/session/SessionStorageService';
 import { SessionMetadata } from '@/core/types/session';
 import { ResumeSessionModal } from '../shared/components/ResumeSessionModal';
@@ -500,8 +500,8 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: typography.bodyLarge.size,
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.black,
     marginBottom: spacing.xs,
   },
@@ -513,19 +513,19 @@ const styles = StyleSheet.create({
   },
   progressBar: {
     width: 120,
-    height: 4,
+    height: spacing.xs,
     backgroundColor: colorSystem.gray[200],
-    borderRadius: 2,
-    marginBottom: 4,
+    borderRadius: borderRadius.xs,
+    marginBottom: spacing.xs,
   },
   progressFill: {
     height: '100%',
-    borderRadius: 2,
+    borderRadius: borderRadius.xs,
   },
   progressText: {
-    fontSize: 12,
+    fontSize: typography.micro.size,
     color: colorSystem.gray[600],
-    fontWeight: '500',
+    fontWeight: typography.fontWeight.medium,
   },
 
   // Exit button (consistent with Evening/Morning)
@@ -538,9 +538,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   closeButtonText: {
-    fontSize: 24,
+    fontSize: typography.headline4.size,
     color: colorSystem.base.black,
-    fontWeight: '300',
+    fontWeight: typography.fontWeight.regular,
   },
 });
 

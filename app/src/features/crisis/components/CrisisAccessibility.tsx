@@ -26,7 +26,7 @@ import {
   Alert,
   Dimensions,
 } from 'react-native';
-import { colorSystem, spacing, typography } from '@/core/theme/colors';
+import { colorSystem, spacing, typography, borderRadius } from '@/core/theme/colors';
 import { useAdvancedScreenReader } from '@/core/components/accessibility/advanced/AdvancedScreenReader';
 import { useSensoryAccessibility } from '@/core/components/accessibility/advanced/SensoryAccessibility';
 import { useMotorAccessibility, AccessiblePressable } from '@/core/components/accessibility/advanced/MotorAccessibility';
@@ -632,18 +632,18 @@ const styles = StyleSheet.create({
   crisisControls: {
     backgroundColor: colorSystem.base.white,
     padding: spacing.xl,
-    borderRadius: 16,
+    borderRadius: borderRadius.xl,
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
+    shadowOffset: { width: 0, height: spacing.sm },
     shadowOpacity: 0.3,
-    shadowRadius: 16,
+    shadowRadius: borderRadius.xl,
     elevation: 16,
     minWidth: 300,
   },
   crisisTitle: {
     fontSize: typography.headline2.size,
-    fontWeight: '700',
+    fontWeight: typography.fontWeight.bold,
     color: colorSystem.status.error,
     textAlign: 'center',
     marginBottom: spacing.lg,
@@ -654,27 +654,27 @@ const styles = StyleSheet.create({
     backgroundColor: colorSystem.status.error,
     paddingVertical: spacing.xl,
     paddingHorizontal: spacing.xl * 1.5,
-    borderRadius: 16,
+    borderRadius: borderRadius.xl,
     minHeight: 100,
     minWidth: 200,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: colorSystem.status.error,
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: spacing.xs },
     shadowOpacity: 0.5,
-    shadowRadius: 8,
-    elevation: 12,
+    shadowRadius: borderRadius.medium,
+    elevation: spacing[3],
     marginBottom: spacing.lg,
   },
   emergencyButtonText: {
-    fontSize: 32,
+    fontSize: typography.display2.size,
     fontWeight: '900',
     color: colorSystem.base.white,
     textAlign: 'center',
   },
   emergencyButtonSubtext: {
     fontSize: typography.bodyRegular.size,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.white,
     textAlign: 'center',
     marginTop: spacing.xs,
@@ -689,7 +689,7 @@ const styles = StyleSheet.create({
     backgroundColor: colorSystem.gray[600],
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
-    borderRadius: 12,
+    borderRadius: borderRadius.large,
     minHeight: 60,
     justifyContent: 'center',
     flex: 1,
@@ -699,7 +699,7 @@ const styles = StyleSheet.create({
   },
   secondaryButtonText: {
     fontSize: typography.bodyRegular.size,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.white,
     textAlign: 'center',
   },
@@ -719,28 +719,28 @@ const styles = StyleSheet.create({
   breathingCircle: {
     width: 200,
     height: 200,
-    borderRadius: 100,
+    borderRadius: borderRadius.xxxl * 2,
     backgroundColor: colorSystem.themes.midday.primary,
     marginBottom: spacing.lg,
   },
   breathingText: {
     fontSize: typography.bodyLarge.size,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.themes.midday.primary,
     textAlign: 'center',
   },
-  
+
   // Crisis button
   crisisButton: {
     backgroundColor: colorSystem.status.error,
-    borderRadius: 50,
+    borderRadius: borderRadius.xxxl,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: colorSystem.status.error,
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: spacing.xs },
     shadowOpacity: 0.5,
-    shadowRadius: 8,
-    elevation: 12,
+    shadowRadius: borderRadius.medium,
+    elevation: spacing[3],
   },
   floatingButton: {
     position: 'absolute',

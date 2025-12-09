@@ -17,7 +17,7 @@ import {
   Animated,
   AccessibilityInfo,
 } from 'react-native';
-import { colorSystem, spacing, typography } from '@/core/theme/colors';
+import { colorSystem, spacing, typography, borderRadius } from '@/core/theme/colors';
 import type { AssessmentProgress as AssessmentProgressType } from '../types';
 
 interface AssessmentProgressProps {
@@ -192,7 +192,7 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: colorSystem.base.white,
     padding: spacing.md,
-    borderRadius: 12,
+    borderRadius: borderRadius.large,
     marginBottom: spacing.md,
     shadowColor: '#000',
     shadowOffset: {
@@ -200,7 +200,7 @@ const styles = StyleSheet.create({
       height: 2,
     },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowRadius: borderRadius.small,
     elevation: 3,
   },
   headerContainer: {
@@ -229,18 +229,18 @@ const styles = StyleSheet.create({
   },
   progressBarTrack: {
     flex: 1,
-    height: 8,
-    borderRadius: 4,
+    height: spacing.sm,
+    borderRadius: borderRadius.small,
     overflow: 'hidden',
   },
   progressBarFill: {
     height: '100%',
-    borderRadius: 4,
-    minWidth: 8, // Minimum visible progress
+    borderRadius: borderRadius.small,
+    minWidth: spacing.sm, // Minimum visible progress
   },
   progressPercentage: {
     fontSize: typography.caption.size,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.accessibility.text.secondary,
     minWidth: 35,
     textAlign: 'right',
@@ -266,14 +266,14 @@ const styles = StyleSheet.create({
     right: spacing.sm,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
-    borderRadius: 12,
+    borderRadius: borderRadius.large,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
       height: 1,
     },
     shadowOpacity: 0.2,
-    shadowRadius: 2,
+    shadowRadius: borderRadius.xs,
     elevation: 2,
   },
   completionText: {

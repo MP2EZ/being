@@ -25,7 +25,7 @@ import {
 import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
-import { colorSystem, spacing } from '@/core/theme/colors';
+import { colorSystem, spacing, typography, borderRadius } from '@/core/theme/colors';
 import { useEducationStore } from '@/features/learn/stores/educationStore';
 import { loadModuleContent } from '@/core/services/moduleContent';
 import type { ModuleId, ModuleContent } from '@/features/learn/types/education';
@@ -207,7 +207,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   loadingText: {
-    fontSize: 16,
+    fontSize: typography.bodyRegular.size,
     color: colorSystem.gray[600],
   },
   errorContainer: {
@@ -218,7 +218,7 @@ const styles = StyleSheet.create({
     gap: spacing.lg,
   },
   errorText: {
-    fontSize: 16,
+    fontSize: typography.bodyRegular.size,
     color: colorSystem.gray[700],
     textAlign: 'center',
   },
@@ -226,11 +226,11 @@ const styles = StyleSheet.create({
     backgroundColor: colorSystem.navigation.learn,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.xl,
-    borderRadius: 12,
+    borderRadius: borderRadius.large,
   },
   errorButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.white,
   },
   header: {
@@ -248,8 +248,8 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   backButtonText: {
-    fontSize: 16,
-    fontWeight: '500',
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.medium,
     color: colorSystem.navigation.learn,
   },
   headerContent: {
@@ -261,24 +261,24 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   headerNumber: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.gray[600],
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   headerTag: {
     paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    borderRadius: 6,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.medium,
     backgroundColor: colorSystem.gray[200],
   },
   headerTagEssential: {
     backgroundColor: colorSystem.navigation.learn,
   },
   headerTagText: {
-    fontSize: 10,
-    fontWeight: '700',
+    fontSize: typography.micro.size,
+    fontWeight: typography.fontWeight.bold,
     color: colorSystem.gray[700],
     letterSpacing: 0.5,
   },
@@ -286,12 +286,12 @@ const styles = StyleSheet.create({
     color: colorSystem.base.white,
   },
   headerTitle: {
-    fontSize: 24,
-    fontWeight: '700',
+    fontSize: typography.headline4.size,
+    fontWeight: typography.fontWeight.bold,
     color: colorSystem.base.black,
   },
   headerDescription: {
-    fontSize: 15,
+    fontSize: typography.bodyRegular.size,
     color: colorSystem.gray[600],
     lineHeight: 20,
   },
@@ -312,13 +312,13 @@ const styles = StyleSheet.create({
     borderBottomColor: colorSystem.navigation.learn,
   },
   tabText: {
-    fontSize: 15,
-    fontWeight: '500',
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.medium,
     color: colorSystem.gray[600],
   },
   tabTextActive: {
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.navigation.learn,
   },
   tabContent: {

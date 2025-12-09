@@ -11,7 +11,7 @@
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, Pressable, AccessibilityInfo } from 'react-native';
-import { colorSystem, spacing, typography } from '@/core/theme/colors';
+import { colorSystem, spacing, typography, borderRadius } from '@/core/theme/colors';
 
 interface TimerProps {
   duration: number; // Duration in milliseconds
@@ -247,13 +247,13 @@ const styles = StyleSheet.create({
   },
   progressTrack: {
     width: '100%',
-    height: 4,
-    borderRadius: 2,
+    height: spacing.xs,
+    borderRadius: borderRadius.xs,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    borderRadius: 2,
+    borderRadius: borderRadius.xs,
   },
   timeText: {
     fontSize: typography.headline3.size,
@@ -269,14 +269,14 @@ const styles = StyleSheet.create({
   controlButton: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    borderRadius: 8,
+    borderRadius: borderRadius.medium,
     minWidth: 80,
     alignItems: 'center',
   },
   controlButtonText: {
     color: colorSystem.base.white,
     fontSize: typography.caption.size,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
   },
   skipButton: {
     paddingHorizontal: spacing.sm,
@@ -284,7 +284,7 @@ const styles = StyleSheet.create({
   },
   skipButtonText: {
     fontSize: typography.caption.size,
-    fontWeight: '500',
+    fontWeight: typography.fontWeight.medium,
     textDecorationLine: 'underline',
   },
 });

@@ -21,7 +21,7 @@ import {
   AccessibilityInfo,
   Platform,
 } from 'react-native';
-import { colorSystem, spacing, typography } from '@/core/theme/colors';
+import { colorSystem, spacing, typography, borderRadius } from '@/core/theme/colors';
 
 export interface RadioOption {
   value: string | number;
@@ -419,7 +419,7 @@ const styles = StyleSheet.create({
     backgroundColor: colorSystem.base.white,
     borderWidth: 2,
     borderColor: colorSystem.gray[300],
-    borderRadius: 12,
+    borderRadius: borderRadius.large,
     padding: spacing.md,
     minHeight: 64, // WCAG touch target requirement
     shadowColor: '#000',
@@ -471,9 +471,9 @@ const styles = StyleSheet.create({
   
   // Radio button visual
   radioButton: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: borderRadius.xxl,
+    height: borderRadius.xxl,
+    borderRadius: borderRadius.large,
     borderWidth: 2,
     borderColor: colorSystem.gray[400],
     backgroundColor: colorSystem.base.white,
@@ -495,8 +495,8 @@ const styles = StyleSheet.create({
     borderColor: colorSystem.status.error,
   },
   radioButtonInner: {
-    width: 12,
-    height: 12,
+    width: borderRadius.large,
+    height: borderRadius.large,
     borderRadius: 6,
   },
   

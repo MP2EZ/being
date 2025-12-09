@@ -346,7 +346,7 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.lg,
   },
   progressBarContainer: {
-    height: 4,
+    height: spacing.xs,
     backgroundColor: colorSystem.gray[300],
     borderRadius: borderRadius.small,
     marginBottom: spacing.xl,
@@ -377,7 +377,7 @@ const styles = StyleSheet.create({
   },
   scenarioLabel: {
     fontSize: typography.caption.size,
-    fontWeight: '700',
+    fontWeight: typography.fontWeight.bold,
     color: colorSystem.gray[600],
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -405,8 +405,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     borderRadius: borderRadius.medium,
     alignItems: 'center',
-    minHeight: 48,
-    borderWidth: 2,
+    minHeight: spacing.xxl,
+    borderWidth: spacing.xs,
   },
   inControlButton: {
     backgroundColor: colorSystem.status.successBackground,
@@ -422,7 +422,7 @@ const styles = StyleSheet.create({
   },
   choiceButtonText: {
     fontSize: typography.bodyRegular.size,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.black,
   },
   choiceButtonTextPressed: {
@@ -435,7 +435,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.lg,
     paddingHorizontal: spacing.md,
     borderRadius: borderRadius.medium,
-    borderLeftWidth: 4,
+    borderLeftWidth: spacing.xs,
   },
   feedbackCorrect: {
     backgroundColor: colorSystem.status.successBackground,
@@ -447,7 +447,7 @@ const styles = StyleSheet.create({
   },
   feedbackLabel: {
     fontSize: typography.caption.size,
-    fontWeight: '700',
+    fontWeight: typography.fontWeight.bold,
     color: colorSystem.gray[700],
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -469,7 +469,7 @@ const styles = StyleSheet.create({
   },
   listTitle: {
     fontSize: typography.bodyRegular.size,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.black,
     marginBottom: spacing.sm,
   },
@@ -499,7 +499,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     borderRadius: borderRadius.medium,
     alignItems: 'center',
-    minHeight: 48,
+    minHeight: spacing.xxl,
   },
   nextButtonPressed: {
     backgroundColor: colorSystem.navigation.learn + 'DD',
@@ -507,7 +507,7 @@ const styles = StyleSheet.create({
   },
   nextButtonText: {
     fontSize: typography.bodyRegular.size,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.white,
   },
   nextButtonTextPressed: {

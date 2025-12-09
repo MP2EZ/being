@@ -21,7 +21,7 @@ import {
   ScrollView,
   Pressable,
 } from 'react-native';
-import { colorSystem, spacing, typography } from '@/core/theme/colors';
+import { colorSystem, spacing, typography, borderRadius } from '@/core/theme/colors';
 import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
 import { FocusProvider, Focusable, SkipLink } from '@/core/components/accessibility';
 import type { AssessmentType } from '../types';
@@ -348,21 +348,21 @@ const styles = StyleSheet.create({
     top: spacing.md,
     left: spacing.md,
     zIndex: 100,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing[3],
     minWidth: 44,
     minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
   closeButtonText: {
-    fontSize: 20,
-    fontWeight: '400',
+    fontSize: typography.title.size,
+    fontWeight: typography.fontWeight.regular,
     color: colorSystem.base.black,
   },
   scrollContent: {
     padding: spacing.md,
-    paddingTop: spacing.xl + spacing.lg, // Extra space for close button (60px)
+    paddingTop: spacing.xxl + spacing.lg, // Extra space for close button
     paddingBottom: spacing.xl,
   },
   headerContainer: {
@@ -405,7 +405,7 @@ const styles = StyleSheet.create({
   },
   mindfulnessContainer: {
     padding: spacing.md,
-    borderRadius: 12,
+    borderRadius: borderRadius.large,
     borderLeftWidth: 4,
   },
   mindfulnessTitle: {
@@ -431,7 +431,7 @@ const styles = StyleSheet.create({
   detailsContainer: {
     backgroundColor: colorSystem.gray[50],
     padding: spacing.md,
-    borderRadius: 12,
+    borderRadius: borderRadius.large,
     gap: spacing.sm,
   },
   detailRow: {
@@ -441,7 +441,7 @@ const styles = StyleSheet.create({
   },
   detailLabel: {
     fontSize: typography.bodyRegular.size,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.accessibility.text.secondary,
     flex: 0.3,
   },
@@ -457,13 +457,13 @@ const styles = StyleSheet.create({
   privacyContainer: {
     backgroundColor: colorSystem.status.infoBackground,
     padding: spacing.md,
-    borderRadius: 12,
+    borderRadius: borderRadius.large,
     borderWidth: 1,
     borderColor: colorSystem.status.info,
   },
   privacyTitle: {
     fontSize: typography.bodyRegular.size,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.status.info,
     marginBottom: spacing.sm,
   },
@@ -480,7 +480,7 @@ const styles = StyleSheet.create({
   beginButton: {
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
-    borderRadius: 12,
+    borderRadius: borderRadius.large,
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 48, // WCAG touch target
@@ -490,7 +490,7 @@ const styles = StyleSheet.create({
       height: 2,
     },
     shadowOpacity: 0.2,
-    shadowRadius: 4,
+    shadowRadius: borderRadius.small,
     elevation: 4,
   },
   beginButtonPressed: {
@@ -499,7 +499,7 @@ const styles = StyleSheet.create({
   },
   beginButtonText: {
     fontSize: typography.bodyLarge.size,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.white,
   },
   skipButton: {

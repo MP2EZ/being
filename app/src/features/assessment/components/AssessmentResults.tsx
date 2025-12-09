@@ -24,7 +24,7 @@ import {
   Alert,
   Linking,
 } from 'react-native';
-import { colorSystem, spacing, typography } from '@/core/theme/colors';
+import { colorSystem, spacing, typography, borderRadius } from '@/core/theme/colors';
 import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
 import { FocusProvider, Focusable, SkipLink } from '@/core/components/accessibility';
 import type { PHQ9Result, GAD7Result, AssessmentType } from '../types';
@@ -513,20 +513,20 @@ const styles = StyleSheet.create({
   crisisBanner: {
     backgroundColor: colorSystem.status.critical,
     padding: spacing.md,
-    borderRadius: 12,
+    borderRadius: borderRadius.large,
     marginBottom: spacing.lg,
     alignItems: 'center',
     gap: spacing.sm,
   },
   crisisBannerText: {
     fontSize: typography.bodyLarge.size,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.white,
     textAlign: 'center',
   },
   scoreContainer: {
     padding: spacing.lg,
-    borderRadius: 16,
+    borderRadius: borderRadius.xl,
     borderWidth: 2,
     marginBottom: spacing.lg,
   },
@@ -545,11 +545,11 @@ const styles = StyleSheet.create({
   scoreBadge: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    borderRadius: 20,
+    borderRadius: typography.title.size,
   },
   scoreBadgeText: {
     fontSize: typography.bodyLarge.size,
-    fontWeight: '700',
+    fontWeight: typography.fontWeight.bold,
     color: colorSystem.base.white,
   },
   severityTitle: {
@@ -580,12 +580,12 @@ const styles = StyleSheet.create({
   },
   therapeuticContainer: {
     padding: spacing.md,
-    borderRadius: 12,
+    borderRadius: borderRadius.large,
     borderLeftWidth: 4,
   },
   therapeuticTitle: {
     fontSize: typography.bodyLarge.size,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.accessibility.text.primary,
     marginBottom: spacing.sm,
   },
@@ -599,14 +599,14 @@ const styles = StyleSheet.create({
   resourcesContainer: {
     backgroundColor: colorSystem.status.infoBackground,
     padding: spacing.md,
-    borderRadius: 12,
+    borderRadius: borderRadius.large,
     borderWidth: 1,
     borderColor: colorSystem.status.info,
     marginBottom: spacing.lg,
   },
   resourcesTitle: {
     fontSize: typography.bodyLarge.size,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.status.info,
     marginBottom: spacing.sm,
   },
@@ -622,12 +622,12 @@ const styles = StyleSheet.create({
   summaryContainer: {
     backgroundColor: colorSystem.gray[50],
     padding: spacing.md,
-    borderRadius: 12,
+    borderRadius: borderRadius.large,
     marginBottom: spacing.lg,
   },
   summaryTitle: {
     fontSize: typography.bodyLarge.size,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.accessibility.text.primary,
     marginBottom: spacing.md,
   },
@@ -649,7 +649,7 @@ const styles = StyleSheet.create({
   },
   summaryValue: {
     fontSize: typography.bodyRegular.size,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.accessibility.text.primary,
     textTransform: 'capitalize',
   },
@@ -659,7 +659,7 @@ const styles = StyleSheet.create({
   completeButton: {
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
-    borderRadius: 12,
+    borderRadius: borderRadius.large,
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 48,
@@ -669,7 +669,7 @@ const styles = StyleSheet.create({
       height: 2,
     },
     shadowOpacity: 0.2,
-    shadowRadius: 4,
+    shadowRadius: borderRadius.small,
     elevation: 4,
   },
   completeButtonPressed: {
@@ -678,7 +678,7 @@ const styles = StyleSheet.create({
   },
   completeButtonText: {
     fontSize: typography.bodyLarge.size,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.white,
   },
   retakeButton: {

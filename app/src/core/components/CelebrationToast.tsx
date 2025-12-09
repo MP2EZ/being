@@ -28,6 +28,7 @@ import {
   StyleSheet,
   Animated,
 } from 'react-native';
+import { spacing, borderRadius, typography } from '@/core/theme/colors';
 
 export interface CelebrationToastProps {
   flowType: 'morning' | 'midday' | 'evening';
@@ -159,9 +160,9 @@ const styles = StyleSheet.create({
   card: {
     minWidth: 280,
     maxWidth: 340,
-    paddingVertical: 32,
-    paddingHorizontal: 24,
-    borderRadius: 20,
+    paddingVertical: spacing.xl,
+    paddingHorizontal: spacing.lg,
+    borderRadius: borderRadius.xxl,
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },
@@ -170,17 +171,17 @@ const styles = StyleSheet.create({
     elevation: 12,
   },
   emoji: {
-    fontSize: 48,
-    marginBottom: 16,
+    fontSize: typography.display1.size,
+    marginBottom: spacing.md,
   },
   title: {
-    fontSize: 20,
-    fontWeight: '600',
+    fontSize: typography.title.size,
+    fontWeight: typography.fontWeight.semibold,
     textAlign: 'center',
-    marginBottom: 12,
+    marginBottom: spacing[3],
   },
   stats: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.size,
     color: '#666',
     textAlign: 'center',
   },

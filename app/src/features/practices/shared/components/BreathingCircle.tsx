@@ -23,7 +23,7 @@ import Animated, {
   Easing,
   cancelAnimation,
 } from 'react-native-reanimated';
-import { colorSystem, spacing, typography } from '@/core/theme/colors';
+import { colorSystem, spacing, typography, borderRadius } from '@/core/theme/colors';
 
 interface BreathingPattern {
   inhale: number;  // milliseconds
@@ -359,23 +359,23 @@ const styles = StyleSheet.create({
   breathingCircle: {
     width: 120,
     height: 120,
-    borderRadius: 60,
+    borderRadius: borderRadius.xxl,
     backgroundColor: colorSystem.themes.midday.primary, // #40B5AD
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: colorSystem.themes.midday.primary,
     shadowOffset: {
       width: 0,
-      height: 4,
+      height: spacing.xs,
     },
     shadowOpacity: 0.3,
-    shadowRadius: 8,
+    shadowRadius: spacing.sm,
     elevation: 8,
   },
   innerCircle: {
     width: 80,
     height: 80,
-    borderRadius: 40,
+    borderRadius: spacing[5],
     backgroundColor: colorSystem.themes.midday.light, // #5EC4BC
     opacity: 0.6,
   },
@@ -386,7 +386,7 @@ const styles = StyleSheet.create({
   },
   guidanceText: {
     fontSize: typography.bodyRegular.size,
-    fontWeight: '500',
+    fontWeight: typography.fontWeight.medium,
     color: colorSystem.base.black,
     textAlign: 'center',
     marginBottom: spacing.sm,
@@ -396,7 +396,7 @@ const styles = StyleSheet.create({
     fontSize: typography.caption.size,
     color: colorSystem.gray[600],
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: spacing[5],
     fontStyle: 'italic',
   },
   countdownContainer: {
@@ -405,8 +405,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   countdownText: {
-    fontSize: 48,
-    fontWeight: 'bold',
+    fontSize: spacing[12],
+    fontWeight: typography.fontWeight.bold,
     color: colorSystem.base.white,
     textAlign: 'center',
   },

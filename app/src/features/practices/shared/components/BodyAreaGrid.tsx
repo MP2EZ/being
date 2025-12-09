@@ -136,7 +136,7 @@ const BodyAreaGrid: React.FC<BodyAreaGridProps> = ({
           <Text style={styles.summaryTitle}>
             Current focus:
           </Text>
-          <Text style={[styles.summaryText, { fontSize: typography.bodyRegular.size, fontWeight: '600' }]}>
+          <Text style={[styles.summaryText, { fontSize: typography.bodyRegular.size, fontWeight: typography.fontWeight.semibold }]}>
             {currentArea}
           </Text>
         </View>
@@ -186,7 +186,7 @@ const styles = StyleSheet.create({
   },
   areaButtonText: {
     fontSize: typography.bodyRegular.size,
-    fontWeight: '500',
+    fontWeight: typography.fontWeight.medium,
     textAlign: 'center',
   },
   summarySection: {
@@ -206,14 +206,14 @@ const styles = StyleSheet.create({
   },
   summaryTitle: {
     fontSize: typography.bodyRegular.size,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.black,
     marginBottom: spacing.xs,
   },
   summaryText: {
     fontSize: typography.caption.size,
     color: colorSystem.gray[700],
-    lineHeight: 20,
+    lineHeight: spacing[5],
   },
   noteSection: {
     padding: spacing.md,
@@ -223,7 +223,7 @@ const styles = StyleSheet.create({
   noteText: {
     fontSize: typography.caption.size,
     color: colorSystem.gray[700],
-    lineHeight: 20,
+    lineHeight: spacing[5],
     textAlign: 'center',
     fontStyle: 'italic',
   },

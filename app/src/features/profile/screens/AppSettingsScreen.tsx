@@ -33,27 +33,21 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSettingsStore } from '@/core/stores/settingsStore';
 import { useConsentStore } from '@/core/stores/consentStore';
 import { ConsentManagementScreen } from '@/features/consent';
+import { colors as dsColors, spacing, borderRadius, typography } from '@/core/theme/colors';
 
-// Hardcoded colors - consistent with ProfileScreen
-const colors = {
-  white: '#FFFFFF',
-  black: '#1C1C1C',
-  gray100: '#F3F4F6',
-  gray200: '#E5E7EB',
-  gray300: '#D1D5DB',
-  gray400: '#9CA3AF',
-  gray500: '#6B7280',
-  gray600: '#4B5563',
-  midnightBlue: '#1B2951',
-  success: '#10B981',
-  warning: '#F59E0B',
-};
-
-const spacing = {
-  sm: 8,
-  md: 16,
-  lg: 24,
-  xl: 32,
+// Local colors for easier reference
+const localColors = {
+  white: dsColors.base.white,
+  black: dsColors.base.black,
+  gray100: dsColors.gray[100],
+  gray200: dsColors.gray[200],
+  gray300: dsColors.gray[300],
+  gray400: dsColors.gray[400],
+  gray500: dsColors.gray[500],
+  gray600: dsColors.gray[600],
+  midnightBlue: dsColors.themes.morning.primary,
+  success: dsColors.status.success,
+  warning: dsColors.status.warning,
 };
 
 interface AppSettingsScreenProps {
@@ -127,7 +121,7 @@ const AppSettingsScreen: React.FC<AppSettingsScreenProps> = ({ onReturn }) => {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.midnightBlue} />
+          <ActivityIndicator size="large" color={localColors.midnightBlue} />
           <Text style={styles.loadingText}>Loading settings...</Text>
         </View>
       </SafeAreaView>
@@ -190,8 +184,8 @@ const AppSettingsScreen: React.FC<AppSettingsScreenProps> = ({ onReturn }) => {
               <Switch
                 value={settings.notifications.checkInReminders}
                 onValueChange={(value) => handleToggleSetting('notifications', 'checkInReminders', value)}
-                trackColor={{ false: colors.gray300, true: colors.midnightBlue }}
-                thumbColor={colors.white}
+                trackColor={{ false: localColors.gray300, true: localColors.midnightBlue }}
+                thumbColor={localColors.white}
                 disabled={isSaving}
               />
             </View>
@@ -208,8 +202,8 @@ const AppSettingsScreen: React.FC<AppSettingsScreenProps> = ({ onReturn }) => {
               <Switch
                 value={settings.notifications.breathingReminders}
                 onValueChange={(value) => handleToggleSetting('notifications', 'breathingReminders', value)}
-                trackColor={{ false: colors.gray300, true: colors.midnightBlue }}
-                thumbColor={colors.white}
+                trackColor={{ false: localColors.gray300, true: localColors.midnightBlue }}
+                thumbColor={localColors.white}
                 disabled={isSaving}
               />
             </View>
@@ -226,8 +220,8 @@ const AppSettingsScreen: React.FC<AppSettingsScreenProps> = ({ onReturn }) => {
               <Switch
                 value={settings.notifications.valuesReflectionPrompts}
                 onValueChange={(value) => handleToggleSetting('notifications', 'valuesReflectionPrompts', value)}
-                trackColor={{ false: colors.gray300, true: colors.midnightBlue }}
-                thumbColor={colors.white}
+                trackColor={{ false: localColors.gray300, true: localColors.midnightBlue }}
+                thumbColor={localColors.white}
                 disabled={isSaving}
               />
             </View>
@@ -258,8 +252,8 @@ const AppSettingsScreen: React.FC<AppSettingsScreenProps> = ({ onReturn }) => {
               <Switch
                 value={settings.privacy.analyticsEnabled}
                 onValueChange={(value) => handleToggleSetting('privacy', 'analyticsEnabled', value)}
-                trackColor={{ false: colors.gray300, true: colors.midnightBlue }}
-                thumbColor={colors.white}
+                trackColor={{ false: localColors.gray300, true: localColors.midnightBlue }}
+                thumbColor={localColors.white}
                 disabled={isSaving}
               />
             </View>
@@ -343,8 +337,8 @@ const AppSettingsScreen: React.FC<AppSettingsScreenProps> = ({ onReturn }) => {
               <Switch
                 value={settings.accessibility.reducedMotion}
                 onValueChange={(value) => handleToggleSetting('accessibility', 'reducedMotion', value)}
-                trackColor={{ false: colors.gray300, true: colors.midnightBlue }}
-                thumbColor={colors.white}
+                trackColor={{ false: localColors.gray300, true: localColors.midnightBlue }}
+                thumbColor={localColors.white}
                 disabled={isSaving}
               />
             </View>
@@ -362,8 +356,8 @@ const AppSettingsScreen: React.FC<AppSettingsScreenProps> = ({ onReturn }) => {
               <Switch
                 value={settings.accessibility.highContrast}
                 onValueChange={(value) => handleToggleSetting('accessibility', 'highContrast', value)}
-                trackColor={{ false: colors.gray300, true: colors.midnightBlue }}
-                thumbColor={colors.white}
+                trackColor={{ false: localColors.gray300, true: localColors.midnightBlue }}
+                thumbColor={localColors.white}
                 disabled={isSaving}
               />
             </View>
@@ -409,7 +403,7 @@ const AppSettingsScreen: React.FC<AppSettingsScreenProps> = ({ onReturn }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.white,
+    backgroundColor: localColors.white,
   },
   scrollContainer: {
     flex: 1,
@@ -423,16 +417,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: colors.black,
+    fontSize: typography.headline2.size,
+    fontWeight: typography.fontWeight.bold,
+    color: localColors.black,
     marginBottom: spacing.sm,
     textAlign: 'center',
   },
   subtitle: {
-    fontSize: 18,
-    fontWeight: '400',
-    color: colors.gray600,
+    fontSize: typography.bodyLarge.size,
+    fontWeight: typography.fontWeight.regular,
+    color: localColors.gray600,
     textAlign: 'center',
     lineHeight: 24,
   },
@@ -443,9 +437,9 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
   },
   loadingText: {
-    fontSize: 16,
-    fontWeight: '400',
-    color: colors.gray600,
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.regular,
+    color: localColors.gray600,
     marginTop: spacing.md,
   },
   errorContainer: {
@@ -455,8 +449,8 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
   },
   errorText: {
-    fontSize: 16,
-    fontWeight: '400',
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.regular,
     color: '#EF4444',
     marginBottom: spacing.lg,
   },
@@ -464,25 +458,25 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xl,
   },
   sectionTitle: {
-    fontSize: 22,
-    fontWeight: '600',
-    color: colors.black,
+    fontSize: typography.headline3.size,
+    fontWeight: typography.fontWeight.semibold,
+    color: localColors.black,
     marginBottom: spacing.sm,
   },
   sectionDescription: {
-    fontSize: 16,
-    fontWeight: '400',
-    color: colors.gray600,
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.regular,
+    color: localColors.gray600,
     lineHeight: 22,
     marginBottom: spacing.md,
   },
   settingCard: {
-    backgroundColor: colors.gray100,
-    borderRadius: 12,
+    backgroundColor: localColors.gray100,
+    borderRadius: borderRadius.large,
     padding: spacing.lg,
     marginBottom: spacing.md,
     borderWidth: 1,
-    borderColor: colors.gray200,
+    borderColor: localColors.gray200,
   },
   settingRow: {
     flexDirection: 'row',
@@ -494,15 +488,15 @@ const styles = StyleSheet.create({
     marginRight: spacing.md,
   },
   settingLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.black,
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.semibold,
+    color: localColors.black,
     marginBottom: spacing.sm,
   },
   settingDescription: {
-    fontSize: 14,
-    fontWeight: '400',
-    color: colors.gray600,
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.regular,
+    color: localColors.gray600,
     lineHeight: 20,
   },
   textSizeContainer: {
@@ -514,98 +508,98 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: spacing.md,
     marginHorizontal: 4,
-    backgroundColor: colors.white,
-    borderRadius: 8,
+    backgroundColor: localColors.white,
+    borderRadius: borderRadius.medium,
     borderWidth: 2,
-    borderColor: colors.gray300,
+    borderColor: localColors.gray300,
     alignItems: 'center',
   },
   textSizeButtonActive: {
-    backgroundColor: colors.midnightBlue,
-    borderColor: colors.midnightBlue,
+    backgroundColor: localColors.midnightBlue,
+    borderColor: localColors.midnightBlue,
   },
   textSizeButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.gray600,
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.semibold,
+    color: localColors.gray600,
   },
   textSizeButtonTextActive: {
-    color: colors.white,
+    color: localColors.white,
   },
   infoBox: {
     backgroundColor: '#F0F4FF',
-    borderRadius: 8,
+    borderRadius: borderRadius.medium,
     padding: spacing.md,
     marginTop: spacing.sm,
     borderLeftWidth: 3,
-    borderLeftColor: colors.midnightBlue,
+    borderLeftColor: localColors.midnightBlue,
   },
   infoText: {
-    fontSize: 14,
-    fontWeight: '400',
-    color: colors.gray600,
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.regular,
+    color: localColors.gray600,
     lineHeight: 20,
   },
   infoCard: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: colors.gray100,
-    borderRadius: 8,
+    backgroundColor: localColors.gray100,
+    borderRadius: borderRadius.medium,
     padding: spacing.md,
     marginBottom: spacing.sm,
   },
   infoCardLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.black,
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.semibold,
+    color: localColors.black,
   },
   infoCardValue: {
-    fontSize: 16,
-    fontWeight: '400',
-    color: colors.gray600,
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.regular,
+    color: localColors.gray600,
   },
   actionContainer: {
     marginTop: spacing.lg,
   },
   primaryButton: {
-    backgroundColor: colors.midnightBlue,
+    backgroundColor: localColors.midnightBlue,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.xl,
-    borderRadius: 12,
+    borderRadius: borderRadius.large,
     alignItems: 'center',
     marginBottom: spacing.md,
   },
   primaryButtonText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.white,
+    fontSize: typography.bodyLarge.size,
+    fontWeight: typography.fontWeight.semibold,
+    color: localColors.white,
   },
   dangerButton: {
-    backgroundColor: colors.white,
+    backgroundColor: localColors.white,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.xl,
-    borderRadius: 12,
+    borderRadius: borderRadius.large,
     alignItems: 'center',
     borderWidth: 2,
     borderColor: '#EF4444',
     marginBottom: spacing.md,
   },
   dangerButtonText: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: typography.bodyLarge.size,
+    fontWeight: typography.fontWeight.semibold,
     color: '#EF4444',
   },
   buttonDisabled: {
     opacity: 0.5,
   },
   consentButton: {
-    backgroundColor: colors.white,
-    borderRadius: 12,
+    backgroundColor: localColors.white,
+    borderRadius: borderRadius.large,
     padding: spacing.lg,
     marginTop: spacing.md,
     borderWidth: 2,
-    borderColor: colors.midnightBlue,
+    borderColor: localColors.midnightBlue,
     minHeight: 56,
   },
   consentButtonContent: {
@@ -618,26 +612,26 @@ const styles = StyleSheet.create({
     marginRight: spacing.md,
   },
   consentButtonLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.midnightBlue,
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.semibold,
+    color: localColors.midnightBlue,
     marginBottom: spacing.sm,
   },
   consentButtonDescription: {
-    fontSize: 14,
-    fontWeight: '400',
-    color: colors.gray600,
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.regular,
+    color: localColors.gray600,
     lineHeight: 20,
   },
   consentButtonArrow: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: colors.midnightBlue,
+    fontSize: typography.title.size,
+    fontWeight: typography.fontWeight.semibold,
+    color: localColors.midnightBlue,
   },
   consentLastUpdated: {
-    fontSize: 13,
-    fontWeight: '400',
-    color: colors.gray400,
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.regular,
+    color: localColors.gray400,
     textAlign: 'center',
     marginTop: spacing.sm,
   },

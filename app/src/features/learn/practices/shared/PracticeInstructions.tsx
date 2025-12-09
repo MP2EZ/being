@@ -63,7 +63,7 @@ const PracticeInstructions: React.FC<PracticeInstructionsProps> = ({
 const styles = StyleSheet.create({
   instructionsLabel: {
     fontSize: typography.caption.size,
-    fontWeight: '700',
+    fontWeight: typography.fontWeight.bold,
     color: colorSystem.navigation.learn,
     textTransform: 'uppercase' as const,
     letterSpacing: 0.5,
@@ -76,16 +76,16 @@ const styles = StyleSheet.create({
   },
   instructionNumber: {
     fontSize: typography.bodyRegular.size,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.navigation.learn,
     marginRight: spacing.xs,
-    minWidth: 20,
+    minWidth: spacing[5],
   },
   instructionText: {
     flex: 1,
     fontSize: typography.bodyRegular.size,
     color: colorSystem.gray[800],
-    lineHeight: 22,
+    lineHeight: spacing[5] + spacing.xs,
   },
 });
 

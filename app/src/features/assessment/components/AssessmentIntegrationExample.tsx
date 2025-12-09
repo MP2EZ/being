@@ -27,7 +27,7 @@ import {
   Alert,
   Switch,
 } from 'react-native';
-import { colorSystem, spacing, typography } from '@/core/theme/colors';
+import { colorSystem, spacing, typography, borderRadius } from '@/core/theme/colors';
 
 // Import all integrated components
 import EnhancedAssessmentFlow from './EnhancedAssessmentFlow';
@@ -505,7 +505,7 @@ const styles = StyleSheet.create({
   performanceSection: {
     backgroundColor: colorSystem.gray[50],
     padding: spacing.md,
-    borderRadius: 12,
+    borderRadius: borderRadius.large,
     marginBottom: spacing.lg,
   },
   performanceGrid: {
@@ -519,7 +519,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: spacing.sm,
     backgroundColor: colorSystem.base.white,
-    borderRadius: 8,
+    borderRadius: borderRadius.medium,
   },
   performanceLabel: {
     fontSize: typography.caption.size,
@@ -528,12 +528,12 @@ const styles = StyleSheet.create({
   },
   performanceValue: {
     fontSize: typography.bodyLarge.size,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
   },
   complianceSection: {
     backgroundColor: colorSystem.status.infoBackground,
     padding: spacing.md,
-    borderRadius: 12,
+    borderRadius: borderRadius.large,
     marginBottom: spacing.lg,
     borderLeftWidth: 4,
     borderLeftColor: colorSystem.status.info,
@@ -559,7 +559,7 @@ const styles = StyleSheet.create({
   settingsSection: {
     backgroundColor: colorSystem.gray[50],
     padding: spacing.md,
-    borderRadius: 12,
+    borderRadius: borderRadius.large,
     marginBottom: spacing.lg,
     gap: spacing.md,
   },
@@ -568,20 +568,20 @@ const styles = StyleSheet.create({
   },
   settingLabel: {
     fontSize: typography.bodyRegular.size,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.accessibility.text.primary,
   },
   segmentedControl: {
     flexDirection: 'row',
     backgroundColor: colorSystem.gray[200],
-    borderRadius: 8,
-    padding: 2,
+    borderRadius: borderRadius.medium,
+    padding: spacing.xs,
   },
   segmentedButton: {
     flex: 1,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.xs,
-    borderRadius: 6,
+    borderRadius: borderRadius.medium,
     alignItems: 'center',
   },
   segmentedButtonActive: {
@@ -589,7 +589,7 @@ const styles = StyleSheet.create({
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
-    shadowRadius: 2,
+    shadowRadius: borderRadius.xs,
     elevation: 2,
   },
   segmentedButtonText: {
@@ -599,7 +599,7 @@ const styles = StyleSheet.create({
   },
   segmentedButtonTextActive: {
     color: colorSystem.accessibility.text.primary,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
   },
   controlsSection: {
     marginBottom: spacing.lg,
@@ -609,12 +609,12 @@ const styles = StyleSheet.create({
     backgroundColor: colorSystem.base.midnightBlue,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
-    borderRadius: 12,
+    borderRadius: borderRadius.large,
     alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: spacing.xs },
     shadowOpacity: 0.2,
-    shadowRadius: 4,
+    shadowRadius: borderRadius.small,
     elevation: 4,
   },
   primaryButtonDisabled: {
@@ -624,26 +624,26 @@ const styles = StyleSheet.create({
   },
   primaryButtonText: {
     fontSize: typography.bodyLarge.size,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.white,
   },
   secondaryButton: {
     backgroundColor: colorSystem.status.critical,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
-    borderRadius: 12,
+    borderRadius: borderRadius.large,
     alignItems: 'center',
   },
   secondaryButtonText: {
     fontSize: typography.bodyLarge.size,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.white,
   },
   tertiaryButton: {
     backgroundColor: colorSystem.gray[200],
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
-    borderRadius: 8,
+    borderRadius: borderRadius.medium,
     alignItems: 'center',
   },
   tertiaryButtonText: {
@@ -656,7 +656,7 @@ const styles = StyleSheet.create({
   resultItem: {
     backgroundColor: colorSystem.gray[50],
     padding: spacing.md,
-    borderRadius: 8,
+    borderRadius: borderRadius.medium,
     marginBottom: spacing.sm,
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -664,7 +664,7 @@ const styles = StyleSheet.create({
   },
   resultScore: {
     fontSize: typography.bodyRegular.size,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.accessibility.text.primary,
   },
   resultSeverity: {
@@ -679,7 +679,7 @@ const styles = StyleSheet.create({
   statusSection: {
     backgroundColor: colorSystem.gray[50],
     padding: spacing.md,
-    borderRadius: 12,
+    borderRadius: borderRadius.large,
     marginBottom: spacing.lg,
   },
   statusGrid: {
@@ -693,7 +693,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: spacing.sm,
     backgroundColor: colorSystem.base.white,
-    borderRadius: 8,
+    borderRadius: borderRadius.medium,
   },
   statusLabel: {
     fontSize: typography.caption.size,
@@ -702,12 +702,12 @@ const styles = StyleSheet.create({
   },
   statusValue: {
     fontSize: typography.bodyRegular.size,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
   },
   assessmentSection: {
     flex: 1,
     marginTop: spacing.lg,
-    borderTopWidth: 2,
+    borderTopWidth: spacing.xs,
     borderTopColor: colorSystem.base.midnightBlue,
     paddingTop: spacing.lg,
   },

@@ -19,7 +19,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
-import { colorSystem, spacing } from '@/core/theme/colors';
+import { colorSystem, spacing, typography, borderRadius } from '@/core/theme/colors';
 import { useEducationStore } from '../stores/educationStore';
 import type { ModuleContent, ModuleId, Practice } from '@/features/learn/types/education';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
@@ -264,13 +264,13 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xl,
   },
   introTitle: {
-    fontSize: 22,
-    fontWeight: '700',
+    fontSize: typography.headline3.size,
+    fontWeight: typography.fontWeight.bold,
     color: colorSystem.base.black,
     marginBottom: spacing.sm,
   },
   introText: {
-    fontSize: 15,
+    fontSize: typography.bodyRegular.size,
     color: colorSystem.gray[600],
     lineHeight: 22,
   },
@@ -280,7 +280,7 @@ const styles = StyleSheet.create({
   },
   practiceCard: {
     backgroundColor: colorSystem.base.white,
-    borderRadius: 16,
+    borderRadius: borderRadius.xl,
     padding: spacing.lg,
     borderWidth: 1.5,
     borderColor: colorSystem.navigation.learn,
@@ -292,23 +292,23 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   practiceIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: spacing.xxl,
+    height: spacing.xxl,
+    borderRadius: borderRadius.xxl,
     backgroundColor: colorSystem.gray[100],
     alignItems: 'center',
     justifyContent: 'center',
   },
   practiceEmoji: {
-    fontSize: 24,
+    fontSize: typography.headline4.size,
   },
   practiceHeaderText: {
     flex: 1,
     gap: spacing.xs,
   },
   practiceTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: typography.bodyLarge.size,
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.black,
   },
   practiceMetadata: {
@@ -317,16 +317,16 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   practiceType: {
-    fontSize: 13,
-    fontWeight: '500',
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.medium,
     color: colorSystem.navigation.learn,
   },
   practiceDuration: {
-    fontSize: 13,
+    fontSize: typography.bodySmall.size,
     color: colorSystem.gray[500],
   },
   practiceDescription: {
-    fontSize: 15,
+    fontSize: typography.bodyRegular.size,
     color: colorSystem.gray[700],
     lineHeight: 22,
   },
@@ -337,8 +337,8 @@ const styles = StyleSheet.create({
     borderTopColor: colorSystem.gray[200],
   },
   instructionsLabel: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.gray[700],
     marginBottom: spacing.xs,
   },
@@ -347,40 +347,40 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   instructionNumber: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.navigation.learn,
-    minWidth: 20,
+    minWidth: spacing[5],
   },
   instructionText: {
     flex: 1,
-    fontSize: 14,
+    fontSize: typography.bodySmall.size,
     color: colorSystem.gray[700],
     lineHeight: 20,
   },
   instructionsMore: {
-    fontSize: 13,
+    fontSize: typography.bodySmall.size,
     color: colorSystem.gray[500],
     fontStyle: 'italic',
     marginTop: spacing.xs,
   },
   startButton: {
     backgroundColor: colorSystem.navigation.learn,
-    borderRadius: 12,
+    borderRadius: borderRadius.large,
     paddingVertical: spacing.md,
     alignItems: 'center',
   },
   startButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.white,
   },
   tipsSection: {
     gap: spacing.md,
   },
   tipsTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: typography.bodyLarge.size,
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.black,
     marginBottom: spacing.sm,
   },
@@ -389,21 +389,21 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     backgroundColor: colorSystem.gray[50],
     padding: spacing.md,
-    borderRadius: 12,
+    borderRadius: borderRadius.large,
     borderWidth: 1.5,
     borderColor: colorSystem.navigation.learn,
   },
   tipIcon: {
-    fontSize: 20,
+    fontSize: typography.title.size,
   },
   tipText: {
     flex: 1,
-    fontSize: 14,
+    fontSize: typography.bodySmall.size,
     color: colorSystem.gray[700],
     lineHeight: 20,
   },
   tipBold: {
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.gray[800],
   },
 });

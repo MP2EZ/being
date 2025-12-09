@@ -25,6 +25,7 @@ import { isDevMode } from '@/core/constants/devMode';
 import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
 import ThresholdEducationModal from '@/core/components/ThresholdEducationModal';
 import { useAssessmentStore } from '@/features/assessment/stores/assessmentStore';
+import { colors as dsColors, spacing, borderRadius, typography } from '@/core/theme/colors';
 
 type ProfileScreenNavigationProp = StackNavigationProp<RootStackParamList>;
 
@@ -36,25 +37,18 @@ interface AssessmentMetadata {
   status: 'recent' | 'due' | 'recommended' | 'never';
 }
 
-// Hardcoded colors - no dynamic theme system
-const colors = {
-  white: '#FFFFFF',
-  black: '#1C1C1C',
-  gray100: '#F3F4F6',
-  gray200: '#E5E7EB',
-  gray300: '#D1D5DB',
-  gray400: '#9CA3AF',
-  gray500: '#6B7280',
-  gray600: '#4B5563',
-  midnightBlue: '#1B2951',
-  morningPrimary: '#FF9F43',
-};
-
-const spacing = {
-  sm: 8,
-  md: 16,
-  lg: 24,
-  xl: 32,
+// Local colors for easier reference
+const localColors = {
+  white: dsColors.base.white,
+  black: dsColors.base.black,
+  gray100: dsColors.gray[100],
+  gray200: dsColors.gray[200],
+  gray300: dsColors.gray[300],
+  gray400: dsColors.gray[400],
+  gray500: dsColors.gray[500],
+  gray600: dsColors.gray[600],
+  midnightBlue: dsColors.themes.morning.primary,
+  morningPrimary: dsColors.themes.morning.primary,
 };
 
 type Screen = 'menu' | 'account' | 'privacy' | 'about' | 'stoicMindfulness';
@@ -513,13 +507,13 @@ const ProfileScreen: React.FC = () => {
             Stoic Mindfulness draws on the wisdom of three major Stoic philosophers:
           </Text>
           <Text style={styles.bodyText}>
-            <Text style={{ fontWeight: '600' }}>Marcus Aurelius</Text> (121-180 CE) - Roman Emperor whose Meditations provide intimate reflections on applying Stoic principles to daily challenges.
+            <Text style={{ fontWeight: typography.fontWeight.semibold }}>Marcus Aurelius</Text> (121-180 CE) - Roman Emperor whose Meditations provide intimate reflections on applying Stoic principles to daily challenges.
           </Text>
           <Text style={styles.bodyText}>
-            <Text style={{ fontWeight: '600' }}>Epictetus</Text> (50-135 CE) - Former slave who taught that true freedom comes from focusing only on what we control.
+            <Text style={{ fontWeight: typography.fontWeight.semibold }}>Epictetus</Text> (50-135 CE) - Former slave who taught that true freedom comes from focusing only on what we control.
           </Text>
           <Text style={styles.bodyText}>
-            <Text style={{ fontWeight: '600' }}>Seneca</Text> (4 BCE-65 CE) - Statesman and advisor whose Letters provide practical guidance for living well.
+            <Text style={{ fontWeight: typography.fontWeight.semibold }}>Seneca</Text> (4 BCE-65 CE) - Statesman and advisor whose Letters provide practical guidance for living well.
           </Text>
         </View>
 
@@ -568,7 +562,7 @@ const ProfileScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.white,
+    backgroundColor: localColors.white,
   },
   scrollContainer: {
     flex: 1,
@@ -582,16 +576,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: colors.midnightBlue,
+    fontSize: typography.headline2.size,
+    fontWeight: typography.fontWeight.bold,
+    color: localColors.midnightBlue,
     marginBottom: spacing.sm,
     textAlign: 'center',
   },
   subtitle: {
-    fontSize: 18,
-    fontWeight: '400',
-    color: colors.gray600,
+    fontSize: typography.bodyLarge.size,
+    fontWeight: typography.fontWeight.regular,
+    color: localColors.gray600,
     textAlign: 'center',
     lineHeight: 24,
   },
@@ -599,43 +593,43 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xl,
   },
   sectionTitle: {
-    fontSize: 22,
-    fontWeight: '600',
-    color: colors.black,
+    fontSize: typography.headline3.size,
+    fontWeight: typography.fontWeight.semibold,
+    color: localColors.black,
     marginBottom: spacing.md,
   },
   sectionDescription: {
-    fontSize: 16,
-    fontWeight: '400',
-    color: colors.gray600,
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.regular,
+    color: localColors.gray600,
     lineHeight: 22,
     marginBottom: spacing.md,
   },
   profileCard: {
-    backgroundColor: colors.gray100,
-    borderRadius: 12,
+    backgroundColor: localColors.gray100,
+    borderRadius: borderRadius.large,
     padding: spacing.lg,
     marginBottom: spacing.md,
     borderWidth: 1,
-    borderColor: colors.gray200,
+    borderColor: localColors.gray200,
   },
   cardTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.black,
+    fontSize: typography.bodyLarge.size,
+    fontWeight: typography.fontWeight.semibold,
+    color: localColors.black,
     marginBottom: spacing.sm,
   },
   cardDescription: {
-    fontSize: 16,
-    fontWeight: '400',
-    color: colors.gray600,
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.regular,
+    color: localColors.gray600,
     lineHeight: 22,
     marginBottom: spacing.md,
   },
   cardAction: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: colors.midnightBlue,
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.medium,
+    color: localColors.midnightBlue,
   },
   crisisCard: {
     backgroundColor: '#FFF5F5',
@@ -644,13 +638,13 @@ const styles = StyleSheet.create({
     borderLeftColor: '#DC2626',
   },
   crisisAction: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.semibold,
     color: '#DC2626',
   },
   placeholderContent: {
-    backgroundColor: colors.gray100,
-    borderRadius: 12,
+    backgroundColor: localColors.gray100,
+    borderRadius: borderRadius.large,
     padding: spacing.xl,
     marginVertical: spacing.xl,
     minHeight: 200,
@@ -658,50 +652,50 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   placeholderText: {
-    fontSize: 16,
-    fontWeight: '400',
-    color: colors.gray500,
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.regular,
+    color: localColors.gray500,
     textAlign: 'center',
     lineHeight: 24,
   },
   primaryButton: {
-    backgroundColor: colors.midnightBlue,
+    backgroundColor: localColors.midnightBlue,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.xl,
-    borderRadius: 12,
+    borderRadius: borderRadius.large,
     alignItems: 'center',
     marginTop: spacing.lg,
   },
   primaryButtonText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.white,
+    fontSize: typography.bodyLarge.size,
+    fontWeight: typography.fontWeight.semibold,
+    color: localColors.white,
   },
   bodyText: {
-    fontSize: 16,
-    fontWeight: '400',
-    color: colors.gray600,
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.regular,
+    color: localColors.gray600,
     lineHeight: 24,
     marginBottom: spacing.md,
   },
   principleCard: {
-    backgroundColor: colors.gray100,
-    borderRadius: 8,
+    backgroundColor: localColors.gray100,
+    borderRadius: borderRadius.medium,
     padding: spacing.md,
     marginBottom: spacing.md,
     borderLeftWidth: 3,
-    borderLeftColor: colors.midnightBlue,
+    borderLeftColor: localColors.midnightBlue,
   },
   principleTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.black,
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.semibold,
+    color: localColors.black,
     marginBottom: spacing.sm,
   },
   principleDescription: {
-    fontSize: 14,
-    fontWeight: '400',
-    color: colors.gray600,
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.regular,
+    color: localColors.gray600,
     lineHeight: 20,
   },
   devModeBanner: {
@@ -711,23 +705,23 @@ const styles = StyleSheet.create({
     borderBottomColor: '#F59E0B',
   },
   devModeText: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.semibold,
     color: '#92400E',
     textAlign: 'center',
     marginBottom: 4,
   },
   devModeSubtext: {
-    fontSize: 12,
-    fontWeight: '400',
+    fontSize: typography.micro.size,
+    fontWeight: typography.fontWeight.regular,
     color: '#92400E',
     textAlign: 'center',
   },
   assessmentCard: {
-    backgroundColor: colors.white,
+    backgroundColor: localColors.white,
     borderWidth: 1,
-    borderColor: colors.gray300,
-    borderRadius: 12,
+    borderColor: localColors.gray300,
+    borderRadius: borderRadius.large,
     padding: spacing.lg,
     marginBottom: spacing.md,
     shadowColor: '#000',
@@ -742,47 +736,47 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   cardDuration: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: colors.midnightBlue,
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.medium,
+    color: localColors.midnightBlue,
   },
   cardMetadata: {
-    fontSize: 14,
-    fontWeight: '400',
-    color: colors.gray500,
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.regular,
+    color: localColors.gray500,
   },
   statusRecent: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: typography.micro.size,
+    fontWeight: typography.fontWeight.semibold,
     color: '#065F46',
     backgroundColor: '#D1FAE5',
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 6,
+    borderRadius: borderRadius.small,
     alignSelf: 'flex-start',
     marginTop: spacing.sm,
     marginBottom: spacing.sm,
   },
   statusDue: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: typography.micro.size,
+    fontWeight: typography.fontWeight.semibold,
     color: '#374151',
     backgroundColor: '#F3F4F6',
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 6,
+    borderRadius: borderRadius.small,
     alignSelf: 'flex-start',
     marginTop: spacing.sm,
     marginBottom: spacing.sm,
   },
   statusRecommended: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: typography.micro.size,
+    fontWeight: typography.fontWeight.semibold,
     color: '#92400E',
     backgroundColor: '#FEF3C7',
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 6,
+    borderRadius: borderRadius.small,
     alignSelf: 'flex-start',
     marginTop: spacing.sm,
     marginBottom: spacing.sm,
@@ -794,9 +788,9 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   educationLinkText: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: colors.morningPrimary,
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.medium,
+    color: localColors.morningPrimary,
     textDecorationLine: 'underline',
   },
 });

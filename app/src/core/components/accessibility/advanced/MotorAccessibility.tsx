@@ -24,7 +24,7 @@ import {
   Platform,
   AccessibilityInfo,
 } from 'react-native';
-import { colorSystem, spacing, typography } from '@/core/theme/colors';
+import { colorSystem, spacing, typography, borderRadius } from '@/core/theme/colors';
 import { useAdvancedScreenReader } from './AdvancedScreenReader';
 
 // Motor accessibility configuration
@@ -549,12 +549,12 @@ const styles = StyleSheet.create({
   // Dwell indicator
   dwellIndicator: {
     position: 'absolute',
-    bottom: -4,
+    bottom: -borderRadius.small,
     left: 0,
     right: 0,
-    height: 4,
+    height: borderRadius.small,
     backgroundColor: colorSystem.gray[200],
-    borderRadius: 2,
+    borderRadius: borderRadius.xs,
     overflow: 'hidden',
   },
   dwellProgress: {
@@ -573,13 +573,13 @@ const styles = StyleSheet.create({
     backgroundColor: colorSystem.status.success + '20',
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
-    borderRadius: 16,
+    borderRadius: borderRadius.xl,
     gap: spacing.xs,
   },
   voiceIndicatorDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: borderRadius.medium,
+    height: borderRadius.medium,
+    borderRadius: borderRadius.small,
     backgroundColor: colorSystem.status.success,
   },
   voiceIndicatorText: {
@@ -599,18 +599,18 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     backgroundColor: colorSystem.base.white,
     padding: spacing.md,
-    borderRadius: 12,
+    borderRadius: borderRadius.large,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: borderRadius.small },
     shadowOpacity: 0.15,
-    shadowRadius: 8,
+    shadowRadius: borderRadius.medium,
     elevation: 6,
   },
   switchButton: {
     backgroundColor: colorSystem.gray[200],
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    borderRadius: 8,
+    borderRadius: borderRadius.medium,
     minWidth: 44,
     minHeight: 44,
     justifyContent: 'center',
@@ -620,7 +620,7 @@ const styles = StyleSheet.create({
     backgroundColor: colorSystem.accessibility.focus.primary,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
-    borderRadius: 8,
+    borderRadius: borderRadius.medium,
     minWidth: 44,
     minHeight: 44,
     justifyContent: 'center',

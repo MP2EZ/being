@@ -11,7 +11,7 @@
 
 import React from 'react';
 import { View, Text, Pressable, StyleSheet, ViewStyle } from 'react-native';
-import { colorSystem, spacing, typography } from '@/core/theme/colors';
+import { colorSystem, spacing, typography, borderRadius } from '@/core/theme/colors';
 
 export interface Need {
   id: string;
@@ -137,14 +137,14 @@ const styles = StyleSheet.create({
     color: colorSystem.base.black,
     textAlign: 'center',
     marginBottom: spacing.sm,
-    lineHeight: 24,
+    lineHeight: typography.headline4.size,
   },
   selectionHint: {
     fontSize: typography.caption.size,
     color: colorSystem.gray[600],
     textAlign: 'center',
     marginBottom: spacing.lg,
-    lineHeight: 20,
+    lineHeight: typography.title.size,
   },
   needsGrid: {
     flexDirection: 'row',
@@ -156,7 +156,7 @@ const styles = StyleSheet.create({
     width: '48%',
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.sm,
-    borderRadius: 12,
+    borderRadius: borderRadius.large,
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
@@ -165,14 +165,14 @@ const styles = StyleSheet.create({
   },
   needText: {
     fontSize: typography.bodyRegular.size,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
     textAlign: 'center',
-    marginBottom: 4,
+    marginBottom: spacing.xs,
   },
   needDescription: {
     fontSize: typography.caption.size,
     textAlign: 'center',
-    lineHeight: 18,
+    lineHeight: typography.bodyLarge.size,
   },
   selectedContainer: {
     marginTop: spacing.md,
@@ -181,7 +181,7 @@ const styles = StyleSheet.create({
   },
   selectedLabel: {
     fontSize: typography.caption.size,
-    fontWeight: '500',
+    fontWeight: typography.fontWeight.medium,
     textAlign: 'center',
     fontStyle: 'italic',
   },

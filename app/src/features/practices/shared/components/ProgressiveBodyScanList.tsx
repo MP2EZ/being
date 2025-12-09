@@ -131,7 +131,7 @@ const styles = StyleSheet.create({
       height: 2,
     },
     shadowOpacity: 0.15,
-    shadowRadius: 4,
+    shadowRadius: borderRadius.small,
     elevation: 3,
   },
   areaItemUpcoming: {
@@ -139,27 +139,27 @@ const styles = StyleSheet.create({
     borderColor: colorSystem.gray[300],
   },
   statusIndicator: {
-    width: 32,
-    height: 32,
+    width: spacing.xl,
+    height: spacing.xl,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: spacing.md,
   },
   statusIcon: {
-    fontSize: 18,
+    fontSize: typography.bodyLarge.size,
     color: '#66BB6A',
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
   },
   areaText: {
     flex: 1,
     fontSize: typography.bodyRegular.size,
-    fontWeight: '500',
+    fontWeight: typography.fontWeight.medium,
   },
   areaTextCompleted: {
     color: '#4CAF50',
   },
   areaTextCurrent: {
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
   },
   areaTextUpcoming: {
     color: colorSystem.gray[600],
@@ -167,9 +167,9 @@ const styles = StyleSheet.create({
   guidanceText: {
     fontSize: typography.bodySmall.size,
     color: colorSystem.gray[700],
-    lineHeight: 20,
+    lineHeight: typography.title.size,
     marginTop: spacing.sm,
-    paddingLeft: 32 + spacing.md, // Align with area name (status indicator width + margin)
+    paddingLeft: spacing.xl + spacing.md, // Align with area name (status indicator width + margin)
   },
 });
 

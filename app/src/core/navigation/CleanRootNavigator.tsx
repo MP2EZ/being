@@ -9,6 +9,7 @@ import { View, ActivityIndicator, StyleSheet, TouchableOpacity, Text } from 'rea
 import { logPerformance } from '@/core/services/logging';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
+import { spacing, typography } from '@/core/theme/colors';
 import CleanTabNavigator from './CleanTabNavigator';
 import MorningFlowNavigator from '@/features/practices/morning/MorningFlowNavigator';
 import MiddayFlowNavigator from '@/features/practices/midday/MiddayFlowNavigator';
@@ -172,8 +173,8 @@ const CleanRootNavigator: React.FC = () => {
           },
           headerTintColor: '#000000',
           headerTitleStyle: {
-            fontSize: 18,
-            fontWeight: '600',
+            fontSize: typography.bodyLarge.size,
+            fontWeight: typography.fontWeight.semibold,
           },
         }}
       >
@@ -514,8 +515,8 @@ const CleanRootNavigator: React.FC = () => {
                 borderBottomWidth: 1,
               },
               headerTitleStyle: {
-                fontSize: 18,
-                fontWeight: '600',
+                fontSize: typography.bodyLarge.size,
+                fontWeight: typography.fontWeight.semibold,
                 color: '#1C1C1C',
               },
               headerLeft: () => (
@@ -547,16 +548,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   closeButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing[3],
     minWidth: 44,
     minHeight: 44,
     justifyContent: 'center',
     alignItems: 'center',
   },
   closeButtonText: {
-    fontSize: 20,
-    fontWeight: '400',
+    fontSize: typography.title.size,
+    fontWeight: typography.fontWeight.regular,
     color: '#1C1C1C',
   },
 });

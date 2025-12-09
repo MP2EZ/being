@@ -30,7 +30,7 @@ import {
   Vibration,
   ScrollView,
 } from 'react-native';
-import { colorSystem, spacing, borderRadius } from '@/core/theme/colors';
+import { colorSystem, spacing, borderRadius, typography } from '@/core/theme/colors';
 import { FlowType, SessionMetadata } from '@/core/types/session';
 
 interface ResumeSessionModalProps {
@@ -297,10 +297,10 @@ const styles = StyleSheet.create({
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: 4,
+      height: spacing.xs,
     },
     shadowOpacity: 0.3,
-    shadowRadius: 8,
+    shadowRadius: borderRadius.medium,
     elevation: 8,
   },
   header: {
@@ -308,12 +308,12 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   emoji: {
-    fontSize: 48,
+    fontSize: spacing.xxl,
     marginBottom: spacing.sm,
   },
   title: {
-    fontSize: 24,
-    fontWeight: '600',
+    fontSize: typography.headline4.size,
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.black,
     textAlign: 'center',
   },
@@ -325,13 +325,13 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.medium,
   },
   infoLabel: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.size,
     color: colorSystem.gray[600],
     marginBottom: spacing.xs,
   },
   infoValue: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.black,
     marginBottom: spacing.md,
   },
@@ -339,7 +339,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
   },
   progressLabel: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.size,
     color: colorSystem.gray[600],
     marginBottom: spacing.xs,
   },
@@ -350,24 +350,24 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   screenBadgeText: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.semibold,
   },
   messageSection: {
     marginBottom: spacing.xl,
   },
   message: {
-    fontSize: 16,
+    fontSize: typography.bodyRegular.size,
     color: colorSystem.base.black,
     textAlign: 'center',
     lineHeight: 22,
     marginBottom: spacing.sm,
   },
   submessage: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.size,
     color: colorSystem.gray[600],
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: typography.title.size,
     fontStyle: 'italic',
     marginBottom: spacing.md,
   },
@@ -376,9 +376,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   tooltipButtonText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.size,
     color: colorSystem.gray[700],
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
   },
   tooltip: {
     marginTop: spacing.sm,
@@ -389,23 +389,23 @@ const styles = StyleSheet.create({
     borderLeftColor: colorSystem.gray[400],
   },
   tooltipTitle: {
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.bold,
     color: colorSystem.base.black,
     marginBottom: spacing.xs,
   },
   tooltipText: {
     fontSize: 13,
     color: colorSystem.gray[700],
-    lineHeight: 18,
+    lineHeight: typography.bodyLarge.size,
     marginBottom: spacing.xs,
   },
   tooltipBold: {
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.black,
   },
   tooltipCitation: {
-    fontSize: 12,
+    fontSize: typography.micro.size,
     color: colorSystem.gray[500],
     fontStyle: 'italic',
     marginTop: spacing.xs,
@@ -419,11 +419,11 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.medium,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 48,
+    minHeight: spacing.xxl,
   },
   primaryButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.white,
   },
   secondaryButton: {
@@ -432,13 +432,13 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.medium,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 48,
+    minHeight: spacing.xxl,
     borderWidth: 2,
     backgroundColor: colorSystem.base.white,
   },
   secondaryButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.gray[700],
   },
 });

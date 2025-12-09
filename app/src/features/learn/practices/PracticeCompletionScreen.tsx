@@ -192,18 +192,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   iconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: spacing[20],
+    height: spacing[20],
+    borderRadius: borderRadius.xxxl,
     backgroundColor: colorSystem.status.successBackground,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.lg,
   },
   completionIcon: {
-    fontSize: 48,
+    fontSize: spacing.xxl,
     color: colorSystem.status.success,
-    fontWeight: 'bold',
+    fontWeight: typography.fontWeight.bold,
   },
   title: {
     fontSize: typography.headline2.size,
@@ -214,14 +214,14 @@ const styles = StyleSheet.create({
   },
   practiceName: {
     fontSize: typography.bodyLarge.size,
-    fontWeight: '500',
+    fontWeight: typography.fontWeight.medium,
     color: colorSystem.gray[700],
     marginBottom: spacing.xl,
     textAlign: 'center',
   },
   quoteContainer: {
     backgroundColor: colorSystem.navigation.learn + '10', // 10% opacity
-    borderLeftWidth: 4,
+    borderLeftWidth: spacing.xs,
     borderLeftColor: colorSystem.navigation.learn,
     paddingVertical: spacing.lg,
     paddingHorizontal: spacing.md,
@@ -241,7 +241,7 @@ const styles = StyleSheet.create({
     fontSize: typography.bodySmall.size,
     color: colorSystem.gray[600],
     textAlign: 'right',
-    fontWeight: '500',
+    fontWeight: typography.fontWeight.medium,
   },
   educationalMessage: {
     fontSize: typography.bodyRegular.size,
@@ -269,7 +269,7 @@ const styles = StyleSheet.create({
   },
   primaryButtonText: {
     fontSize: typography.bodyRegular.size,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.white,
   },
   primaryButtonTextPressed: {
@@ -291,7 +291,7 @@ const styles = StyleSheet.create({
   },
   secondaryButtonText: {
     fontSize: typography.bodyRegular.size,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.black,
   },
   secondaryButtonTextPressed: {

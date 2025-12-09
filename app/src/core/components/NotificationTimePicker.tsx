@@ -29,6 +29,7 @@ import {
   Platform,
 } from 'react-native';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import { spacing, borderRadius, typography } from '@/core/theme/colors';
 
 interface NotificationTimePickerProps {
   /** Whether the picker modal is visible */
@@ -176,9 +177,9 @@ const styles = StyleSheet.create({
   // Picker modal container (bottom sheet)
   pickerModal: {
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingBottom: Platform.OS === 'ios' ? 34 : 20, // Account for iOS home indicator
+    borderTopLeftRadius: borderRadius.xxl,
+    borderTopRightRadius: borderRadius.xxl,
+    paddingBottom: Platform.OS === 'ios' ? 34 : spacing[5], // Account for iOS home indicator
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.1,
@@ -191,8 +192,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing[3],
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
   },
@@ -205,17 +206,17 @@ const styles = StyleSheet.create({
   },
 
   headerButtonText: {
-    fontSize: 17,
+    fontSize: typography.bodyLarge.size,
     color: '#007AFF', // iOS blue
   },
 
   confirmText: {
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
   },
 
   headerTitle: {
-    fontSize: 17,
-    fontWeight: '600',
+    fontSize: typography.bodyLarge.size,
+    fontWeight: typography.fontWeight.semibold,
     color: '#1F2937',
   },
 

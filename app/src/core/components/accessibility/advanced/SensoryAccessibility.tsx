@@ -26,7 +26,7 @@ import {
   Dimensions,
   Vibration,
 } from 'react-native';
-import { colorSystem, spacing, typography } from '@/core/theme/colors';
+import { colorSystem, spacing, typography, borderRadius } from '@/core/theme/colors';
 import { useAdvancedScreenReader } from './AdvancedScreenReader';
 
 // Sensory accessibility configuration
@@ -647,9 +647,9 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   visualIndicator: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: borderRadius.medium,
+    height: borderRadius.medium,
+    borderRadius: borderRadius.small,
   },
   
   // Audio indicators
@@ -660,9 +660,9 @@ const styles = StyleSheet.create({
     padding: spacing.xs,
   },
   audioIndicator: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
+    width: borderRadius.xl,
+    height: borderRadius.xl,
+    borderRadius: borderRadius.medium,
   },
   audioIndicatorText: {
     fontSize: typography.caption.size,
@@ -671,7 +671,7 @@ const styles = StyleSheet.create({
   
   // Focus enhancements
   focusedContainer: {
-    borderRadius: 8,
+    borderRadius: borderRadius.medium,
   },
 });
 

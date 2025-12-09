@@ -11,7 +11,7 @@
 
 import React, { useState } from 'react';
 import { View, Text, Pressable, StyleSheet, ViewStyle } from 'react-native';
-import { colorSystem, spacing, typography } from '@/core/theme/colors';
+import { colorSystem, spacing, typography, borderRadius } from '@/core/theme/colors';
 
 export interface Emotion {
   id: string;
@@ -147,14 +147,14 @@ const styles = StyleSheet.create({
     color: colorSystem.base.black,
     textAlign: 'center',
     marginBottom: spacing.sm,
-    lineHeight: 24,
+    lineHeight: spacing.lg,
   },
   selectionHint: {
     fontSize: typography.caption.size,
     color: colorSystem.gray[600],
     textAlign: 'center',
     marginBottom: spacing.lg,
-    lineHeight: 20,
+    lineHeight: spacing[5],
   },
   emotionGrid: {
     flexDirection: 'row',
@@ -166,7 +166,7 @@ const styles = StyleSheet.create({
     width: '48%',
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.sm,
-    borderRadius: 12,
+    borderRadius: borderRadius.large,
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
@@ -175,7 +175,7 @@ const styles = StyleSheet.create({
   },
   emotionText: {
     fontSize: typography.bodyRegular.size,
-    fontWeight: '500',
+    fontWeight: typography.fontWeight.medium,
     textAlign: 'center',
   },
   selectedContainer: {
@@ -185,7 +185,7 @@ const styles = StyleSheet.create({
   selectedLabel: {
     fontSize: typography.caption.size,
     color: colorSystem.gray[600],
-    fontWeight: '500',
+    fontWeight: typography.fontWeight.medium,
   },
 });
 

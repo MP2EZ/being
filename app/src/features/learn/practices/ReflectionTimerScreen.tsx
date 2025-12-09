@@ -37,6 +37,7 @@ import {
   colorSystem,
   spacing,
   typography,
+  borderRadius,
   type ModuleId,
 } from '@/features/learn/practices/shared/practiceCommon';
 import Timer from '@/features/practices/shared/components/Timer';
@@ -158,7 +159,7 @@ const styles = StyleSheet.create({
   },
   instructionsLabel: {
     fontSize: typography.caption.size,
-    fontWeight: '700',
+    fontWeight: typography.fontWeight.bold,
     color: colorSystem.navigation.learn,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -171,16 +172,16 @@ const styles = StyleSheet.create({
   },
   instructionNumber: {
     fontSize: typography.bodyRegular.size,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.navigation.learn,
     marginRight: spacing.xs,
-    minWidth: 20,
+    minWidth: spacing[5],
   },
   instructionText: {
     flex: 1,
     fontSize: typography.bodyRegular.size,
     color: colorSystem.gray[800],
-    lineHeight: 22,
+    lineHeight: spacing[5] + spacing.xs,
   },
 
   // Screen-specific: Contemplation space
@@ -190,22 +191,22 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xl,
   },
   contemplationIcon: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: spacing[20],
+    height: spacing[20],
+    borderRadius: borderRadius.xxxl,
     backgroundColor: colorSystem.navigation.learn + '15',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.md,
   },
   iconText: {
-    fontSize: 40,
+    fontSize: spacing[10],
   },
   contemplationText: {
     fontSize: typography.bodyRegular.size,
     color: colorSystem.gray[700],
     textAlign: 'center',
-    lineHeight: 24,
+    lineHeight: spacing.lg,
     paddingHorizontal: spacing.md,
   },
 });

@@ -20,7 +20,7 @@ import {
   Easing,
   Dimensions,
 } from 'react-native';
-import { colorSystem, spacing, typography } from '@/core/theme/colors';
+import { colorSystem, spacing, typography, borderRadius } from '@/core/theme/colors';
 import { useAdvancedScreenReader } from './AdvancedScreenReader';
 
 // Cognitive accessibility configuration
@@ -460,14 +460,14 @@ const styles = StyleSheet.create({
   },
   memoryAidContent: {
     backgroundColor: colorSystem.accessibility.notification.background,
-    borderLeftWidth: 4,
+    borderLeftWidth: borderRadius.small,
     borderLeftColor: colorSystem.accessibility.notification.border,
     padding: spacing.md,
-    borderRadius: 8,
+    borderRadius: borderRadius.medium,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowRadius: borderRadius.small,
     elevation: 3,
   },
   memoryAidText: {
@@ -490,11 +490,11 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: colorSystem.accessibility.focus.primary,
     padding: spacing.lg,
-    borderRadius: 12,
+    borderRadius: borderRadius.large,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: borderRadius.small },
     shadowOpacity: 0.15,
-    shadowRadius: 8,
+    shadowRadius: borderRadius.medium,
     elevation: 6,
   },
   focusGuidanceTitle: {
@@ -513,15 +513,15 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   progressContainer: {
-    height: 4,
+    height: borderRadius.small,
     backgroundColor: colorSystem.gray[200],
-    borderRadius: 2,
+    borderRadius: borderRadius.xs,
     overflow: 'hidden',
   },
   progressBar: {
     height: '100%',
     backgroundColor: colorSystem.accessibility.focus.primary,
-    borderRadius: 2,
+    borderRadius: borderRadius.xs,
   },
   
   // Instruction styling
@@ -551,9 +551,9 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   loadIndicatorDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: borderRadius.medium,
+    height: borderRadius.medium,
+    borderRadius: borderRadius.small,
   },
   loadIndicatorText: {
     fontSize: typography.caption.size,

@@ -28,7 +28,7 @@ import {
   AppState,
   AppStateStatus,
 } from 'react-native';
-import { colorSystem, spacing, typography } from '@/core/theme/colors';
+import { colorSystem, spacing, typography, borderRadius } from '@/core/theme/colors';
 import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
 import { RadioGroup, FocusProvider, Focusable } from '@/core/components/accessibility';
 import type { RadioOption } from '@/core/components/accessibility';
@@ -549,7 +549,7 @@ const styles = StyleSheet.create({
   crisisAlertBanner: {
     backgroundColor: colorSystem.status.critical,
     padding: spacing.md,
-    borderRadius: 8,
+    borderRadius: borderRadius.medium,
     marginBottom: spacing.lg,
     flexDirection: 'row',
     alignItems: 'center',
@@ -557,7 +557,7 @@ const styles = StyleSheet.create({
   },
   crisisAlertText: {
     fontSize: typography.bodyLarge.size,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.white,
     flex: 1,
   },
@@ -578,37 +578,37 @@ const styles = StyleSheet.create({
   },
   progressBar: {
     flex: 1,
-    height: 4,
+    height: spacing.xs,
     backgroundColor: colorSystem.gray[200],
-    borderRadius: 2,
+    borderRadius: borderRadius.xs,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    borderRadius: 2,
+    borderRadius: borderRadius.xs,
   },
   securityIndicator: {
     alignItems: 'center',
   },
   securityText: {
     fontSize: typography.caption.size,
-    fontWeight: '500',
+    fontWeight: typography.fontWeight.medium,
   },
   consentWarning: {
     backgroundColor: colorSystem.status.warningBackground,
     padding: spacing.sm,
-    borderRadius: 8,
+    borderRadius: borderRadius.medium,
     marginBottom: spacing.md,
-    borderLeftWidth: 4,
+    borderLeftWidth: spacing.xs,
     borderLeftColor: colorSystem.status.warning,
   },
   consentWarningText: {
     fontSize: typography.caption.size,
     color: colorSystem.status.warning,
-    fontWeight: '500',
+    fontWeight: typography.fontWeight.medium,
   },
   questionContainer: {
-    marginBottom: 30, // Space between question and response options
+    marginBottom: spacing.xl, // Space between question and response options
   },
   questionText: {
     fontSize: typography.headline3.size,
@@ -627,15 +627,15 @@ const styles = StyleSheet.create({
   specialInstructionContainer: {
     backgroundColor: colorSystem.status.infoBackground,
     padding: spacing.sm,
-    borderRadius: 8,
+    borderRadius: borderRadius.medium,
     marginTop: spacing.sm,
-    borderLeftWidth: 4,
+    borderLeftWidth: spacing.xs,
     borderLeftColor: colorSystem.status.info,
   },
   specialInstructionText: {
     fontSize: typography.caption.size,
     color: colorSystem.status.info,
-    fontWeight: '500',
+    fontWeight: typography.fontWeight.medium,
     lineHeight: typography.caption.size * 1.4,
   },
   responseContainer: {
@@ -645,7 +645,7 @@ const styles = StyleSheet.create({
   processingContainer: {
     backgroundColor: colorSystem.gray[100],
     padding: spacing.sm,
-    borderRadius: 8,
+    borderRadius: borderRadius.medium,
     alignItems: 'center',
     marginBottom: spacing.md,
   },
@@ -662,7 +662,7 @@ const styles = StyleSheet.create({
   },
   safetyTitle: {
     fontSize: typography.bodyRegular.size,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.accessibility.text.primary,
     textAlign: 'center',
     marginBottom: spacing.sm,

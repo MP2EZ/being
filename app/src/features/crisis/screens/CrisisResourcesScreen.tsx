@@ -29,7 +29,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
-import { colorSystem, spacing } from '@/core/theme/colors';
+import { colorSystem, spacing, borderRadius, typography } from '@/core/theme/colors';
 import { logPerformance, logSecurity, logError, LogCategory } from '@/core/services/logging';
 import {
   CRISIS_RESOURCE_CATEGORIES,
@@ -437,28 +437,28 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.md
   },
   title: {
-    fontSize: 28,
-    fontWeight: '700',
+    fontSize: typography.headline2.size,
+    fontWeight: typography.fontWeight.bold,
     color: colorSystem.gray[800],
     marginBottom: spacing.xs
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: typography.bodyRegular.size,
     color: colorSystem.gray[600],
-    lineHeight: 24
+    lineHeight: typography.bodyLarge.size
   },
   emergencyBanner: {
     backgroundColor: '#FFEBEE',
-    borderLeftWidth: 4,
+    borderLeftWidth: spacing.xs,
     borderLeftColor: '#D32F2F',
     padding: spacing.lg,
     marginHorizontal: spacing.lg,
     marginBottom: spacing.lg,
-    borderRadius: 8
+    borderRadius: borderRadius.medium
   },
   emergencyBannerText: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.semibold,
     color: '#C62828',
     marginBottom: spacing.md
   },
@@ -466,33 +466,33 @@ const styles = StyleSheet.create({
     backgroundColor: '#D32F2F',
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
-    borderRadius: 8,
+    borderRadius: borderRadius.medium,
     alignItems: 'center'
   },
   emergency911ButtonText: {
     color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '700'
+    fontSize: typography.bodyLarge.size,
+    fontWeight: typography.fontWeight.bold
   },
   section: {
     marginBottom: spacing.xl,
     paddingHorizontal: spacing.lg
   },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: '600',
+    fontSize: typography.title.size,
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.gray[800],
     marginBottom: spacing.xs
   },
   sectionDescription: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.size,
     color: colorSystem.gray[600],
     marginBottom: spacing.lg,
-    lineHeight: 20
+    lineHeight: spacing[5]
   },
   resourceCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    borderRadius: borderRadius.large,
     padding: spacing.lg,
     marginBottom: spacing.md,
     borderWidth: 1,
@@ -502,7 +502,7 @@ const styles = StyleSheet.create({
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
-        shadowRadius: 4
+        shadowRadius: spacing.xs
       },
       android: {
         elevation: 2
@@ -522,33 +522,33 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.sm,
-    borderRadius: 4,
+    borderRadius: borderRadius.small,
     marginBottom: spacing.sm
   },
   priorityText: {
     color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '700',
+    fontSize: typography.micro.size,
+    fontWeight: typography.fontWeight.bold,
     letterSpacing: 0.5
   },
   resourceHeader: {
     marginBottom: spacing.sm
   },
   resourceName: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: typography.bodyLarge.size,
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.gray[800],
     marginBottom: spacing.xs
   },
   resourceAvailability: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.size,
     color: colorSystem.gray[600],
-    fontWeight: '500'
+    fontWeight: typography.fontWeight.medium
   },
   resourceDescription: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.size,
     color: colorSystem.gray[700],
-    lineHeight: 20,
+    lineHeight: spacing[5],
     marginBottom: spacing.md
   },
   contactInfo: {
@@ -556,27 +556,27 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs
   },
   contactLabel: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.gray[600],
     width: 80
   },
   contactValue: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.size,
     color: colorSystem.gray[800],
     flex: 1
   },
   warningContainer: {
     backgroundColor: '#FFF3CD',
     padding: spacing.sm,
-    borderRadius: 6,
+    borderRadius: borderRadius.medium,
     marginTop: spacing.sm,
     marginBottom: spacing.sm
   },
   warningText: {
-    fontSize: 13,
+    fontSize: typography.bodySmall.size,
     color: '#856404',
-    fontWeight: '500'
+    fontWeight: typography.fontWeight.medium
   },
   actionButtons: {
     flexDirection: 'row',
@@ -587,19 +587,19 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
-    borderRadius: 8,
+    borderRadius: borderRadius.medium,
     alignItems: 'center'
   },
   primaryButtonText: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700'
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.bold
   },
   secondaryButton: {
     flex: 1,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
-    borderRadius: 8,
+    borderRadius: borderRadius.medium,
     alignItems: 'center',
     backgroundColor: colorSystem.gray[100],
     borderWidth: 1,
@@ -607,40 +607,40 @@ const styles = StyleSheet.create({
   },
   secondaryButtonText: {
     color: colorSystem.gray[800],
-    fontSize: 16,
-    fontWeight: '600'
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.semibold
   },
   ctaContainer: {
     backgroundColor: '#E3F2FD',
-    borderRadius: 12,
+    borderRadius: borderRadius.large,
     padding: spacing.lg,
     marginHorizontal: spacing.lg,
     marginTop: spacing.lg,
     marginBottom: spacing.xl
   },
   ctaTitle: {
-    fontSize: 20,
-    fontWeight: '600',
+    fontSize: typography.title.size,
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.gray[800],
     marginBottom: spacing.sm
   },
   ctaDescription: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.size,
     color: colorSystem.gray[700],
-    lineHeight: 20,
+    lineHeight: spacing[5],
     marginBottom: spacing.md
   },
   ctaButton: {
     backgroundColor: '#1976D2',
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
-    borderRadius: 8,
+    borderRadius: borderRadius.medium,
     alignItems: 'center'
   },
   ctaButtonText: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700'
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.bold
   },
   footer: {
     paddingHorizontal: spacing.lg,
@@ -649,9 +649,9 @@ const styles = StyleSheet.create({
     borderTopColor: colorSystem.gray[200]
   },
   footerText: {
-    fontSize: 12,
+    fontSize: typography.micro.size,
     color: colorSystem.gray[500],
-    lineHeight: 18,
+    lineHeight: typography.bodyLarge.size,
     textAlign: 'center'
   }
 });

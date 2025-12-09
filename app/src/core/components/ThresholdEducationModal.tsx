@@ -26,6 +26,7 @@ import {
   ScrollView,
   AccessibilityInfo,
 } from 'react-native';
+import { spacing, borderRadius, typography } from '@/core/theme/colors';
 
 interface ThresholdEducationModalProps {
   visible: boolean;
@@ -41,13 +42,6 @@ const colors = {
   gray700: '#374151',
   backdrop: 'rgba(0, 0, 0, 0.5)',
   primaryOrange: '#FF9F43',
-};
-
-const spacing = {
-  sm: 8,
-  md: 16,
-  lg: 24,
-  xl: 32,
 };
 
 const ThresholdEducationModal: React.FC<ThresholdEducationModalProps> = ({
@@ -156,10 +150,10 @@ const styles = StyleSheet.create({
   },
   bottomSheet: {
     backgroundColor: colors.white,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: borderRadius.xxl,
+    borderTopRightRadius: borderRadius.xxl,
     maxHeight: '80%',
-    paddingBottom: 40, // Safe area padding
+    paddingBottom: spacing[10], // Safe area padding
   },
   scrollView: {
     paddingHorizontal: spacing.lg,
@@ -168,14 +162,14 @@ const styles = StyleSheet.create({
     width: 40,
     height: 4,
     backgroundColor: colors.gray600,
-    borderRadius: 2,
+    borderRadius: borderRadius.xs,
     alignSelf: 'center',
     marginTop: spacing.md,
     marginBottom: spacing.lg,
   },
   title: {
-    fontSize: 24,
-    fontWeight: '700',
+    fontSize: typography.headline4.size,
+    fontWeight: typography.fontWeight.bold,
     color: colors.black,
     marginBottom: spacing.lg,
     textAlign: 'center',
@@ -184,33 +178,33 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: typography.bodyLarge.size,
+    fontWeight: typography.fontWeight.semibold,
     color: colors.black,
     marginBottom: spacing.sm,
   },
   bodyText: {
-    fontSize: 16,
+    fontSize: typography.bodyRegular.size,
     lineHeight: 24,
     color: colors.gray700,
     marginBottom: spacing.sm,
   },
   bold: {
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
     color: colors.black,
   },
   dismissButton: {
     backgroundColor: colors.primaryOrange,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
-    borderRadius: 12,
+    borderRadius: borderRadius.large,
     marginTop: spacing.md,
     marginBottom: spacing.xl,
     minHeight: 48, // Touch target minimum
   },
   dismissButtonText: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: typography.bodyLarge.size,
+    fontWeight: typography.fontWeight.semibold,
     color: colors.white,
     textAlign: 'center',
   },

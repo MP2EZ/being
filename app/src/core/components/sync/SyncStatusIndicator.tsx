@@ -37,6 +37,7 @@ import {
 // Import services
 import SyncCoordinator from '@/core/services/supabase/SyncCoordinator';
 import AnalyticsService from '@/core/analytics/AnalyticsService';
+import { spacing, borderRadius, typography } from '@/core/theme/colors';
 
 /**
  * SYNC STATUS TYPES
@@ -469,10 +470,10 @@ const styles = StyleSheet.create({
   compactContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing[3],
     backgroundColor: '#f8f9fa',
-    borderRadius: 20,
+    borderRadius: borderRadius.xxl,
     borderWidth: 1,
     borderColor: '#e9ecef',
   },
@@ -480,13 +481,13 @@ const styles = StyleSheet.create({
   statusDot: {
     width: 8,
     height: 8,
-    borderRadius: 4,
-    marginRight: 8,
+    borderRadius: borderRadius.small,
+    marginRight: spacing.sm,
   },
 
   compactStatusText: {
-    fontSize: 14,
-    fontWeight: '500',
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.medium,
     color: '#495057',
     flex: 1,
   },
@@ -494,10 +495,10 @@ const styles = StyleSheet.create({
   // Detailed Status Styles
   detailedContainer: {
     backgroundColor: '#fff',
-    borderRadius: 12,
+    borderRadius: borderRadius.large,
     borderWidth: 1,
     borderColor: '#e9ecef',
-    padding: 16,
+    padding: spacing.md,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -512,7 +513,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: spacing.md,
   },
 
   headerLeft: {
@@ -524,22 +525,22 @@ const styles = StyleSheet.create({
   statusIndicator: {
     width: 12,
     height: 12,
-    borderRadius: 6,
-    marginRight: 12,
+    borderRadius: borderRadius.medium,
+    marginRight: spacing[3],
   },
 
   headerTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: typography.bodyLarge.size,
+    fontWeight: typography.fontWeight.bold,
     color: '#212529',
     flex: 1,
   },
 
   errorContainer: {
     backgroundColor: '#ffebee',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 16,
+    padding: spacing[3],
+    borderRadius: borderRadius.medium,
+    marginBottom: spacing.md,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -548,54 +549,54 @@ const styles = StyleSheet.create({
   errorText: {
     color: '#c62828',
     flex: 1,
-    fontSize: 14,
+    fontSize: typography.bodySmall.size,
   },
 
   retryButton: {
     backgroundColor: '#c62828',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 4,
-    marginLeft: 8,
+    paddingHorizontal: spacing[3],
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.small,
+    marginLeft: spacing.sm,
   },
 
   retryButtonText: {
     color: '#fff',
-    fontSize: 12,
-    fontWeight: 'bold',
+    fontSize: typography.micro.size,
+    fontWeight: typography.fontWeight.bold,
   },
 
   statusSection: {
-    marginBottom: 16,
-    paddingBottom: 16,
+    marginBottom: spacing.md,
+    paddingBottom: spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: '#e9ecef',
   },
 
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.bold,
     color: '#495057',
-    marginBottom: 12,
+    marginBottom: spacing[3],
   },
 
   statusRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: spacing.sm,
     minHeight: 24,
   },
 
   statusLabel: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.size,
     color: '#6c757d',
     flex: 1,
   },
 
   statusValue: {
-    fontSize: 14,
-    fontWeight: '500',
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.medium,
     color: '#495057',
     textAlign: 'right',
   },
@@ -608,28 +609,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 8,
-    paddingTop: 16,
+    marginTop: spacing.sm,
+    paddingTop: spacing.md,
     borderTopWidth: 1,
     borderTopColor: '#e9ecef',
   },
 
   lastUpdatedText: {
-    fontSize: 12,
+    fontSize: typography.micro.size,
     color: '#6c757d',
   },
 
   refreshButton: {
     backgroundColor: '#e9ecef',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 4,
+    paddingHorizontal: spacing[3],
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.small,
   },
 
   refreshButtonText: {
     color: '#495057',
-    fontSize: 12,
-    fontWeight: '500',
+    fontSize: typography.micro.size,
+    fontWeight: typography.fontWeight.medium,
   },
 });
 

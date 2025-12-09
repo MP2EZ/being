@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { getTheme, spacing, typography, colorSystem } from '@/core/theme/colors';
+import { getTheme, spacing, typography, colorSystem, borderRadius } from '@/core/theme/colors';
 
 interface FlowProgressProps {
   currentStep: number;
@@ -50,7 +50,7 @@ const FlowProgress: React.FC<FlowProgressProps> = ({
 const styles = StyleSheet.create({
   container: {
     backgroundColor: colorSystem.base.white,
-    borderRadius: 12,
+    borderRadius: borderRadius.large,
     padding: spacing.lg,
     borderWidth: 1,
     borderColor: colorSystem.gray[200],
@@ -70,7 +70,7 @@ const styles = StyleSheet.create({
   stepCounter: {
     fontSize: typography.bodyRegular.size,
     color: colorSystem.gray[600],
-    fontWeight: '500',
+    fontWeight: typography.fontWeight.medium,
   },
   progressContainer: {
     minHeight: 120,
@@ -79,7 +79,7 @@ const styles = StyleSheet.create({
   },
   placeholder: {
     fontSize: typography.bodyRegular.size,
-    fontWeight: '500',
+    fontWeight: typography.fontWeight.medium,
     color: colorSystem.gray[600],
     textAlign: 'center',
     marginBottom: spacing.md,
@@ -88,7 +88,7 @@ const styles = StyleSheet.create({
     fontSize: typography.caption.size,
     color: colorSystem.gray[500],
     textAlign: 'center',
-    lineHeight: 18,
+    lineHeight: spacing[5],
   },
 });
 

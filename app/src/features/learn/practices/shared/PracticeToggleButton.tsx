@@ -103,19 +103,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.xl,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 48, // WCAG AA minimum
+    minHeight: spacing.xxl, // WCAG AA minimum
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: spacing.xs,
     },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowRadius: borderRadius.small,
     elevation: 2,
   },
   buttonText: {
     fontSize: typography.bodyRegular.size,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.white,
   },
 });

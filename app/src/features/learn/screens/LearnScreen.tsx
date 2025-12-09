@@ -22,7 +22,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
-import { colorSystem, spacing } from '@/core/theme/colors';
+import { colorSystem, spacing, typography, borderRadius } from '@/core/theme/colors';
 import { useEducationStore } from '@/features/learn/stores/educationStore';
 import type { ModuleId } from '@/features/learn/types/education';
 
@@ -239,13 +239,13 @@ const styles = StyleSheet.create({
     borderBottomColor: colorSystem.gray[200],
   },
   headerTitle: {
-    fontSize: 28,
-    fontWeight: '700',
+    fontSize: typography.headline2.size,
+    fontWeight: typography.fontWeight.bold,
     color: colorSystem.base.midnightBlue,
     marginBottom: spacing.xs,
   },
   headerSubtitle: {
-    fontSize: 15,
+    fontSize: typography.bodyRegular.size,
     color: colorSystem.gray[600],
     lineHeight: 20,
   },
@@ -258,55 +258,55 @@ const styles = StyleSheet.create({
   },
   recommendationCard: {
     backgroundColor: '#F8F5FF', // Light purple background
-    borderRadius: 16,
+    borderRadius: borderRadius.xl,
     padding: spacing.lg,
     marginBottom: spacing.xl,
     borderWidth: 1,
     borderColor: colorSystem.navigation.learn,
   },
   recommendationLabel: {
-    fontSize: 11,
-    fontWeight: '700',
+    fontSize: typography.micro.size,
+    fontWeight: typography.fontWeight.bold,
     color: colorSystem.navigation.learn,
     letterSpacing: 0.5,
     marginBottom: spacing.xs,
   },
   recommendationTitle: {
-    fontSize: 20,
-    fontWeight: '700',
+    fontSize: typography.title.size,
+    fontWeight: typography.fontWeight.bold,
     color: colorSystem.base.black,
     marginBottom: spacing.xs,
   },
   recommendationDescription: {
-    fontSize: 15,
+    fontSize: typography.bodyRegular.size,
     color: colorSystem.gray[700],
     lineHeight: 20,
     marginBottom: spacing.md,
   },
   recommendationButton: {
     backgroundColor: colorSystem.navigation.learn,
-    borderRadius: 12,
+    borderRadius: borderRadius.large,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.lg,
     alignItems: 'center',
   },
   recommendationButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.white,
   },
   modulesSection: {
     gap: spacing.md,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: typography.bodyLarge.size,
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.black,
     marginBottom: spacing.sm,
   },
   moduleCard: {
     backgroundColor: colorSystem.base.white,
-    borderRadius: 16,
+    borderRadius: borderRadius.xl,
     padding: spacing.lg,
     borderWidth: 1,
     borderColor: colorSystem.gray[200],
@@ -329,30 +329,30 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   moduleNumber: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: spacing.xl,
+    height: spacing.xl,
+    borderRadius: borderRadius.xl,
     backgroundColor: colorSystem.gray[100],
     alignItems: 'center',
     justifyContent: 'center',
   },
   moduleNumberText: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.bold,
     color: colorSystem.gray[700],
   },
   moduleTag: {
     paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    borderRadius: 6,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.medium,
     backgroundColor: colorSystem.gray[100],
   },
   moduleTagEssential: {
     backgroundColor: colorSystem.navigation.learn,
   },
   moduleTagText: {
-    fontSize: 10,
-    fontWeight: '700',
+    fontSize: typography.micro.size,
+    fontWeight: typography.fontWeight.bold,
     color: colorSystem.gray[600],
     letterSpacing: 0.5,
   },
@@ -360,13 +360,13 @@ const styles = StyleSheet.create({
     color: colorSystem.base.white,
   },
   moduleTitle: {
-    fontSize: 20,
-    fontWeight: '700',
+    fontSize: typography.title.size,
+    fontWeight: typography.fontWeight.bold,
     color: colorSystem.base.black,
     marginBottom: spacing.xs,
   },
   moduleDescription: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.size,
     color: colorSystem.gray[600],
     lineHeight: 20,
     marginBottom: spacing.md,
@@ -379,20 +379,20 @@ const styles = StyleSheet.create({
   },
   progressBar: {
     flex: 1,
-    height: 6,
+    height: borderRadius.medium,
     backgroundColor: colorSystem.gray[200],
-    borderRadius: 3,
+    borderRadius: borderRadius.xs,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    borderRadius: 3,
+    borderRadius: borderRadius.xs,
   },
   progressText: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.gray[600],
-    minWidth: 40,
+    minWidth: spacing[10],
     textAlign: 'right',
   },
   moduleFooter: {
@@ -401,11 +401,11 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   moduleTime: {
-    fontSize: 13,
+    fontSize: typography.bodySmall.size,
     color: colorSystem.gray[500],
   },
   modulePractices: {
-    fontSize: 13,
+    fontSize: typography.bodySmall.size,
     color: colorSystem.gray[500],
   },
 });

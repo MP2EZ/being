@@ -45,10 +45,10 @@ const ThoughtBubbles: React.FC<ThoughtBubblesProps> = ({
 
   const handleThoughtPress = (thought: string) => {
     if (disabled || acknowledgedThoughts.includes(thought)) return;
-    
+
     // Gentle haptic feedback
     Vibration.vibrate(30);
-    
+
     // Fade out animation
     const animationValue = fadeAnimations[thought];
     if (animationValue) {
@@ -58,23 +58,23 @@ const ThoughtBubbles: React.FC<ThoughtBubblesProps> = ({
         useNativeDriver: true,
       }).start();
     }
-    
+
     // Track acknowledgment
     setAcknowledgedThoughts(prev => [...prev, thought]);
-    
+
     // Call parent handler
     if (onThoughtAcknowledge) {
       onThoughtAcknowledge(thought);
     }
   };
 
-  const ThoughtBubble: React.FC<{ 
-    thought: string; 
-    index: number; 
+  const ThoughtBubble: React.FC<{
+    thought: string;
+    index: number;
   }> = ({ thought, index }) => {
     const isAcknowledged = acknowledgedThoughts.includes(thought);
     const animatedValue = fadeAnimations[thought] || new Animated.Value(1);
-    
+
     // Staggered positioning for visual appeal
     const leftOffset = (index % 2 === 0) ? '15%' : '55%';
     const topOffset = 40 + (index * 80);
@@ -188,7 +188,7 @@ const styles = StyleSheet.create({
       height: 2,
     },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowRadius: borderRadius.small,
     elevation: 3,
   },
   bubblePressable: {
@@ -199,35 +199,35 @@ const styles = StyleSheet.create({
   },
   thoughtText: {
     fontSize: typography.caption.size,
-    fontWeight: '500',
+    fontWeight: typography.fontWeight.medium,
     textAlign: 'center',
-    lineHeight: 18,
+    lineHeight: typography.bodyLarge.size,
   },
   summarySection: {
     backgroundColor: colorSystem.base.white,
     padding: spacing.md,
     borderRadius: borderRadius.medium,
     marginBottom: spacing.lg,
-    borderLeftWidth: 4,
+    borderLeftWidth: spacing.xs,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
       height: 1,
     },
     shadowOpacity: 0.05,
-    shadowRadius: 2,
+    shadowRadius: borderRadius.xs,
     elevation: 1,
   },
   summaryTitle: {
     fontSize: typography.bodyRegular.size,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.black,
     marginBottom: spacing.xs,
   },
   summaryText: {
     fontSize: typography.caption.size,
     color: colorSystem.gray[700],
-    lineHeight: 20,
+    lineHeight: typography.title.size,
   },
   noteSection: {
     padding: spacing.md,
@@ -237,7 +237,7 @@ const styles = StyleSheet.create({
   noteText: {
     fontSize: typography.caption.size,
     color: colorSystem.gray[700],
-    lineHeight: 20,
+    lineHeight: typography.title.size,
     textAlign: 'center',
     fontStyle: 'italic',
   },

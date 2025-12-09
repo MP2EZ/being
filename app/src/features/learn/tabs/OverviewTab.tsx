@@ -20,7 +20,7 @@ import {
   TouchableOpacity,
   StyleSheet,
 } from 'react-native';
-import { colorSystem, spacing } from '@/core/theme/colors';
+import { colorSystem, spacing, typography, borderRadius } from '@/core/theme/colors';
 import { useEducationStore } from '../stores/educationStore';
 import type { ModuleContent, ModuleId } from '@/features/learn/types/education';
 
@@ -266,22 +266,22 @@ const styles = StyleSheet.create({
   },
   quoteSection: {
     backgroundColor: colorSystem.gray[50],
-    borderLeftWidth: 4,
+    borderLeftWidth: spacing.xs,
     borderLeftColor: colorSystem.navigation.learn,
     padding: spacing.lg,
-    borderRadius: 8,
+    borderRadius: borderRadius.medium,
     marginBottom: spacing.xl,
   },
   quoteText: {
-    fontSize: 17,
+    fontSize: typography.bodyLarge.size,
     fontStyle: 'italic',
     color: colorSystem.gray[800],
     lineHeight: 26,
     marginBottom: spacing.md,
   },
   quoteAuthor: {
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.gray[700],
     textAlign: 'right',
   },
@@ -289,18 +289,18 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xl,
   },
   sectionTitle: {
-    fontSize: 22,
-    fontWeight: '700',
+    fontSize: typography.headline3.size,
+    fontWeight: typography.fontWeight.bold,
     color: colorSystem.base.black,
     marginBottom: spacing.md,
   },
   summaryText: {
-    fontSize: 16,
+    fontSize: typography.bodyRegular.size,
     color: colorSystem.gray[700],
     lineHeight: 24,
   },
   bodyText: {
-    fontSize: 16,
+    fontSize: typography.bodyRegular.size,
     color: colorSystem.gray[700],
     lineHeight: 24,
   },
@@ -311,7 +311,7 @@ const styles = StyleSheet.create({
   conceptCard: {
     borderWidth: 1,
     borderColor: colorSystem.gray[200],
-    borderRadius: 12,
+    borderRadius: borderRadius.large,
     overflow: 'hidden',
     backgroundColor: colorSystem.base.white,
   },
@@ -323,14 +323,14 @@ const styles = StyleSheet.create({
     backgroundColor: colorSystem.gray[50],
   },
   conceptTitle: {
-    fontSize: 17,
-    fontWeight: '600',
+    fontSize: typography.bodyLarge.size,
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.black,
     flex: 1,
   },
   conceptIcon: {
-    fontSize: 24,
-    fontWeight: '300',
+    fontSize: typography.headline4.size,
+    fontWeight: typography.fontWeight.light,
     color: colorSystem.navigation.learn,
     marginLeft: spacing.sm,
   },
@@ -339,7 +339,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   conceptText: {
-    fontSize: 15,
+    fontSize: typography.bodyRegular.size,
     color: colorSystem.gray[700],
     lineHeight: 22,
   },
@@ -349,21 +349,21 @@ const styles = StyleSheet.create({
     borderTopColor: colorSystem.gray[200],
   },
   learnMoreLabel: {
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.bold,
     color: colorSystem.navigation.learn,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: spacing.xs,
   },
   learnMoreText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.size,
     color: colorSystem.gray[600],
     lineHeight: 21,
   },
   exampleCard: {
     backgroundColor: '#FFF9E6', // Light yellow
-    borderRadius: 12,
+    borderRadius: borderRadius.large,
     padding: spacing.lg,
     marginBottom: spacing.xl,
     borderWidth: 1,
@@ -380,17 +380,17 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   exampleIcon: {
-    fontSize: 20,
+    fontSize: typography.title.size,
   },
   exampleLabel: {
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.bold,
     color: colorSystem.gray[700],
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   exampleText: {
-    fontSize: 15,
+    fontSize: typography.bodyRegular.size,
     color: colorSystem.gray[800],
     lineHeight: 22,
   },
@@ -403,7 +403,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xl,
   },
   obstaclesIntro: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.size,
     color: colorSystem.gray[600],
     lineHeight: 20,
     marginBottom: spacing.lg,
@@ -414,7 +414,7 @@ const styles = StyleSheet.create({
   obstacleCard: {
     borderWidth: 1,
     borderColor: colorSystem.gray[200],
-    borderRadius: 12,
+    borderRadius: borderRadius.large,
     overflow: 'hidden',
     backgroundColor: colorSystem.base.white,
   },
@@ -426,15 +426,15 @@ const styles = StyleSheet.create({
     backgroundColor: colorSystem.gray[50],
   },
   obstacleQuestion: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.black,
     flex: 1,
     paddingRight: spacing.sm,
   },
   obstacleIcon: {
-    fontSize: 24,
-    fontWeight: '300',
+    fontSize: typography.headline4.size,
+    fontWeight: typography.fontWeight.light,
     color: colorSystem.navigation.learn,
   },
   obstacleContent: {
@@ -442,30 +442,30 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   obstacleResponse: {
-    fontSize: 15,
+    fontSize: typography.bodyRegular.size,
     color: colorSystem.gray[700],
     lineHeight: 22,
   },
   tipBox: {
     backgroundColor: '#FFF9E6', // Light yellow
-    borderRadius: 8,
+    borderRadius: borderRadius.medium,
     padding: spacing.md,
-    borderLeftWidth: 3,
+    borderLeftWidth: spacing[3],
     borderLeftColor: '#FFD700',
   },
   tipLabel: {
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.bold,
     color: colorSystem.gray[700],
     marginBottom: spacing.xs,
   },
   tipText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.size,
     color: colorSystem.gray[700],
     lineHeight: 20,
   },
   stagesIntro: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.size,
     color: colorSystem.gray[600],
     lineHeight: 20,
     marginBottom: spacing.lg,
@@ -482,23 +482,23 @@ const styles = StyleSheet.create({
   timelineConnector: {
     position: 'absolute',
     left: 19, // Center of bubble (40/2)
-    top: 40, // Start below bubble
+    top: spacing[10], // Start below bubble
     bottom: -spacing.lg, // Extend to next card
     width: 2,
     backgroundColor: colorSystem.gray[300],
   },
   stageBubble: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: spacing[10],
+    height: spacing[10],
+    borderRadius: borderRadius.xxxl,
     backgroundColor: colorSystem.navigation.learn,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 1,
   },
   stageBubbleText: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.bold,
     color: colorSystem.base.white,
   },
   stageContent: {
@@ -506,13 +506,13 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.md,
   },
   stageTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: typography.bodyLarge.size,
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.black,
     marginBottom: spacing.xs,
   },
   stageDescription: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.size,
     color: colorSystem.gray[600],
     lineHeight: 20,
     marginBottom: spacing.md,
@@ -521,8 +521,8 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   indicatorsLabel: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.gray[700],
     marginBottom: spacing.xs,
   },
@@ -532,13 +532,13 @@ const styles = StyleSheet.create({
     paddingLeft: spacing.sm,
   },
   indicatorBullet: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.size,
     color: colorSystem.navigation.learn,
-    fontWeight: '700',
+    fontWeight: typography.fontWeight.bold,
   },
   indicatorText: {
     flex: 1,
-    fontSize: 14,
+    fontSize: typography.bodySmall.size,
     color: colorSystem.gray[700],
     lineHeight: 20,
   },

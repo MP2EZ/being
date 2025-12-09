@@ -38,6 +38,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useStoicPracticeStore } from '@/features/practices/stores/stoicPracticeStore';
 import type { CardinalVirtue, DevelopmentalStage } from '@/features/practices/types/stoic';
+import { colorSystem, spacing, borderRadius, typography } from '@/core/theme/colors';
 
 const VirtueDashboardScreen: React.FC = () => {
   const {
@@ -191,25 +192,18 @@ const VirtueDashboardScreen: React.FC = () => {
 };
 
 const colors = {
-  white: '#FFFFFF',
-  black: '#1C1C1C',
-  gray100: '#F3F4F6',
-  gray200: '#E5E7EB',
-  gray300: '#D1D5DB',
-  gray400: '#9CA3AF',
-  gray500: '#6B7280',
-  gray600: '#4B5563',
-  midnightBlue: '#1B2951',
+  white: colorSystem.base.white,
+  black: colorSystem.base.black,
+  gray100: colorSystem.gray[100],
+  gray200: colorSystem.gray[200],
+  gray300: colorSystem.gray[300],
+  gray400: colorSystem.gray[400],
+  gray500: colorSystem.gray[500],
+  gray600: colorSystem.gray[600],
+  midnightBlue: colorSystem.base.midnightBlue,
   eveningPrimary: '#4A7C59',
   success: '#10B981',
   warning: '#F59E0B',
-};
-
-const spacing = {
-  sm: 8,
-  md: 16,
-  lg: 24,
-  xl: 32,
 };
 
 const styles = StyleSheet.create({
@@ -231,8 +225,8 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
   },
   loadingText: {
-    fontSize: 16,
-    fontWeight: '400',
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.regular,
     color: colors.gray600,
     marginTop: spacing.md,
   },
@@ -240,38 +234,38 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xl,
   },
   title: {
-    fontSize: 28,
-    fontWeight: '700',
+    fontSize: typography.headline2.size,
+    fontWeight: typography.fontWeight.bold,
     color: colors.black,
     marginBottom: spacing.sm,
   },
   subtitle: {
-    fontSize: 18,
-    fontWeight: '400',
+    fontSize: typography.bodyLarge.size,
+    fontWeight: typography.fontWeight.regular,
     color: colors.gray600,
-    lineHeight: 24,
+    lineHeight: typography.headline4.size,
   },
   section: {
     marginBottom: spacing.xl,
   },
   sectionTitle: {
-    fontSize: 22,
-    fontWeight: '600',
+    fontSize: typography.headline3.size,
+    fontWeight: typography.fontWeight.semibold,
     color: colors.black,
     marginBottom: spacing.sm,
   },
   sectionHelper: {
-    fontSize: 14,
-    fontWeight: '400',
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.regular,
     color: colors.gray500,
     marginBottom: spacing.md,
   },
   stageCard: {
     backgroundColor: colors.gray100,
-    borderRadius: 12,
+    borderRadius: borderRadius.large,
     padding: spacing.lg,
     marginBottom: spacing.md,
-    borderLeftWidth: 4,
+    borderLeftWidth: spacing.xs,
   },
   stageHeader: {
     flexDirection: 'row',
@@ -280,21 +274,21 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   stageLabel: {
-    fontSize: 14,
-    fontWeight: '500',
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.medium,
     color: colors.gray600,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   stageName: {
-    fontSize: 20,
-    fontWeight: '700',
+    fontSize: typography.title.size,
+    fontWeight: typography.fontWeight.bold,
   },
   stageDescription: {
-    fontSize: 16,
-    fontWeight: '400',
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.regular,
     color: colors.gray600,
-    lineHeight: 22,
+    lineHeight: typography.headline3.size,
   },
   metricsGrid: {
     flexDirection: 'row',
@@ -303,27 +297,27 @@ const styles = StyleSheet.create({
   metricCard: {
     flex: 1,
     backgroundColor: colors.white,
-    borderRadius: 8,
+    borderRadius: borderRadius.medium,
     padding: spacing.md,
     borderWidth: 1,
     borderColor: colors.gray200,
     alignItems: 'center',
   },
   metricValue: {
-    fontSize: 32,
-    fontWeight: '700',
+    fontSize: typography.display2.size,
+    fontWeight: typography.fontWeight.bold,
     color: colors.eveningPrimary,
-    marginBottom: 4,
+    marginBottom: spacing.xs,
   },
   metricLabel: {
-    fontSize: 12,
-    fontWeight: '500',
+    fontSize: typography.micro.size,
+    fontWeight: typography.fontWeight.medium,
     color: colors.gray500,
     textAlign: 'center',
   },
   frequencyCard: {
     backgroundColor: colors.gray100,
-    borderRadius: 12,
+    borderRadius: borderRadius.large,
     padding: spacing.lg,
   },
   frequencyHeader: {
@@ -332,56 +326,56 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   frequencyValue: {
-    fontSize: 48,
-    fontWeight: '700',
+    fontSize: typography.display1.size,
+    fontWeight: typography.fontWeight.bold,
     color: colors.eveningPrimary,
     marginRight: spacing.sm,
   },
   frequencyLabel: {
-    fontSize: 16,
-    fontWeight: '400',
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.regular,
     color: colors.gray600,
   },
   progressBarContainer: {
     marginBottom: spacing.md,
   },
   progressBar: {
-    height: 8,
+    height: spacing.sm,
     backgroundColor: colors.gray300,
-    borderRadius: 4,
+    borderRadius: borderRadius.small,
     overflow: 'hidden',
     marginBottom: spacing.sm,
   },
   progressFill: {
     height: '100%',
     backgroundColor: colors.eveningPrimary,
-    borderRadius: 4,
+    borderRadius: borderRadius.small,
   },
   progressText: {
-    fontSize: 14,
-    fontWeight: '500',
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.medium,
     color: colors.gray600,
     textAlign: 'right',
   },
   frequencyHelper: {
-    fontSize: 14,
-    fontWeight: '400',
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.regular,
     color: colors.gray600,
-    lineHeight: 20,
+    lineHeight: typography.title.size,
   },
   quoteSection: {
     padding: spacing.lg,
     backgroundColor: colors.gray100,
-    borderRadius: 8,
-    borderLeftWidth: 4,
+    borderRadius: borderRadius.medium,
+    borderLeftWidth: spacing.xs,
     borderLeftColor: colors.eveningPrimary,
     marginBottom: spacing.xl,
   },
   quoteText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.size,
     fontStyle: 'italic',
     color: colors.gray600,
-    lineHeight: 20,
+    lineHeight: typography.title.size,
   },
 });
 

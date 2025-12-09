@@ -23,7 +23,7 @@ import {
   Platform,
   Dimensions,
 } from 'react-native';
-import { colorSystem, spacing, typography } from '@/core/theme/colors';
+import { colorSystem, spacing, typography, borderRadius } from '@/core/theme/colors';
 
 // Accessibility test types and configurations
 export type AccessibilityTestType = 
@@ -813,7 +813,7 @@ const styles = StyleSheet.create({
   testingPanel: {
     backgroundColor: colorSystem.gray[100],
     padding: spacing.md,
-    borderRadius: 8,
+    borderRadius: borderRadius.medium,
     margin: spacing.sm,
   },
   panelTitle: {
@@ -842,7 +842,7 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     padding: spacing.sm,
     backgroundColor: colorSystem.status.errorBackground,
-    borderRadius: 4,
+    borderRadius: borderRadius.small,
   },
   issuesTitle: {
     fontSize: typography.bodyRegular.size,

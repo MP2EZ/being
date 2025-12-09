@@ -18,7 +18,7 @@ import {
   Platform,
   Dimensions,
 } from 'react-native';
-import { colorSystem, spacing } from '@/core/theme/colors';
+import { colorSystem, spacing, borderRadius } from '@/core/theme/colors';
 
 // Focus management context
 export interface FocusContextValue {
@@ -354,7 +354,7 @@ const styles = StyleSheet.create({
   focusIndicator: {
     borderWidth: 3,
     borderColor: colorSystem.accessibility.focus.primary,
-    borderRadius: 4,
+    borderRadius: borderRadius.small,
     shadowColor: colorSystem.accessibility.focus.primary,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.3,
@@ -384,7 +384,7 @@ const styles = StyleSheet.create({
     backgroundColor: colorSystem.accessibility.focus.primary,
     color: colorSystem.base.white,
     padding: spacing.sm,
-    borderRadius: 4,
+    borderRadius: borderRadius.small,
     minHeight: 44, // WCAG touch target
     minWidth: 44,
     justifyContent: 'center',
@@ -392,7 +392,7 @@ const styles = StyleSheet.create({
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
-    shadowRadius: 4,
+    shadowRadius: borderRadius.small,
     elevation: 6,
   },
 });

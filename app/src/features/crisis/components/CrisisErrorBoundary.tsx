@@ -31,7 +31,7 @@ import {
   AppState,
   AppStateStatus,
 } from 'react-native';
-import { colorSystem, spacing, typography } from '@/core/theme/colors';
+import { colorSystem, spacing, typography, borderRadius } from '@/core/theme/colors';
 import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
 
 interface CrisisErrorBoundaryProps {
@@ -404,14 +404,14 @@ const styles = StyleSheet.create({
   crisisBanner: {
     backgroundColor: colorSystem.status.critical,
     padding: spacing.md,
-    borderRadius: 8,
+    borderRadius: borderRadius.medium,
     marginBottom: spacing.lg,
     alignItems: 'center',
   },
   crisisBannerText: {
     color: colorSystem.base.white,
     fontSize: typography.bodyLarge.size,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
     textAlign: 'center',
   },
   headerSection: {
@@ -445,7 +445,7 @@ const styles = StyleSheet.create({
   },
   actionGroupTitle: {
     fontSize: typography.bodyLarge.size,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.accessibility.text.primary,
     marginBottom: spacing.sm,
   },
@@ -464,55 +464,55 @@ const styles = StyleSheet.create({
     backgroundColor: colorSystem.status.critical,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
-    borderRadius: 8,
+    borderRadius: borderRadius.medium,
     minHeight: 44,
     justifyContent: 'center',
   },
   emergencyButtonText: {
     color: colorSystem.base.white,
     fontSize: typography.bodyRegular.size,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
   },
   retryButton: {
     backgroundColor: colorSystem.base.midnightBlue,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
-    borderRadius: 8,
+    borderRadius: borderRadius.medium,
     minHeight: 44,
     justifyContent: 'center',
   },
   retryButtonText: {
     color: colorSystem.base.white,
     fontSize: typography.bodyRegular.size,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
   },
   supportButton: {
     backgroundColor: colorSystem.gray[600],
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
-    borderRadius: 8,
+    borderRadius: borderRadius.medium,
     minHeight: 44,
     justifyContent: 'center',
   },
   supportButtonText: {
     color: colorSystem.base.white,
     fontSize: typography.bodyRegular.size,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
   },
   detailsSection: {
     marginBottom: spacing.xl,
   },
   detailsTitle: {
     fontSize: typography.bodyLarge.size,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.accessibility.text.primary,
     marginBottom: spacing.sm,
   },
   detailsContainer: {
     backgroundColor: colorSystem.gray[100],
     padding: spacing.md,
-    borderRadius: 8,
-    borderLeftWidth: 4,
+    borderRadius: borderRadius.medium,
+    borderLeftWidth: spacing.xs,
     borderLeftColor: colorSystem.status.warning,
   },
   detailsText: {
@@ -524,13 +524,13 @@ const styles = StyleSheet.create({
   safetySection: {
     backgroundColor: colorSystem.status.successBackground,
     padding: spacing.md,
-    borderRadius: 8,
-    borderLeftWidth: 4,
+    borderRadius: borderRadius.medium,
+    borderLeftWidth: spacing.xs,
     borderLeftColor: colorSystem.status.success,
   },
   safetyTitle: {
     fontSize: typography.bodyLarge.size,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.status.success,
     marginBottom: spacing.sm,
   },

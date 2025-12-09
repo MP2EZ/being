@@ -31,28 +31,22 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { useStoicPracticeStore } from '@/features/practices/stores/stoicPracticeStore';
 import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
+import { colorSystem, spacing, borderRadius, typography } from '@/core/theme/colors';
 
 type NavigationProp = StackNavigationProp<RootStackParamList>;
 
 // Hardcoded colors - no dynamic theme system
 const colors = {
-  white: '#FFFFFF',
-  black: '#1C1C1C',
-  gray100: '#F3F4F6',
-  gray200: '#E5E7EB',
-  gray300: '#D1D5DB',
-  gray400: '#9CA3AF',
-  gray500: '#6B7280',
-  gray600: '#4B5563',
-  midnightBlue: '#1B2951',
+  white: colorSystem.base.white,
+  black: colorSystem.base.black,
+  gray100: colorSystem.gray[100],
+  gray200: colorSystem.gray[200],
+  gray300: colorSystem.gray[300],
+  gray400: colorSystem.gray[400],
+  gray500: colorSystem.gray[500],
+  gray600: colorSystem.gray[600],
+  midnightBlue: colorSystem.base.midnightBlue,
   eveningPrimary: '#4A7C59',
-};
-
-const spacing = {
-  sm: 8,
-  md: 16,
-  lg: 24,
-  xl: 32,
 };
 
 interface VirtueSummaryCardProps {
@@ -300,39 +294,39 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xl,
   },
   title: {
-    fontSize: 28,
-    fontWeight: '700',
+    fontSize: typography.headline2.size,
+    fontWeight: typography.fontWeight.bold,
     color: colors.midnightBlue,
     marginBottom: spacing.sm,
   },
   subtitle: {
-    fontSize: 16,
-    fontWeight: '400',
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.regular,
     color: colors.gray600,
-    lineHeight: 22,
+    lineHeight: typography.headline3.size,
   },
   virtueSection: {
-    marginBottom: 65, // 65pt spacing before separator
+    marginBottom: spacing[16] + 1, // 65pt spacing before separator
   },
   sectionTitle: {
-    fontSize: 22,
-    fontWeight: '600',
+    fontSize: typography.headline3.size,
+    fontWeight: typography.fontWeight.semibold,
     color: colors.eveningPrimary,
     marginBottom: spacing.sm,
   },
   sectionSubtitle: {
-    fontSize: 16,
-    fontWeight: '400',
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.regular,
     color: colors.gray600,
-    lineHeight: 22,
+    lineHeight: typography.headline3.size,
     marginBottom: spacing.lg,
   },
   summaryCard: {
     backgroundColor: colors.gray100,
-    borderRadius: 12,
+    borderRadius: borderRadius.large,
     padding: spacing.lg,
     marginBottom: spacing.lg,
-    borderLeftWidth: 4,
+    borderLeftWidth: spacing.xs,
     borderLeftColor: colors.eveningPrimary,
   },
   summaryCardPressed: {
@@ -346,18 +340,18 @@ const styles = StyleSheet.create({
     marginBottom: spacing.lg,
   },
   stageBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
+    paddingHorizontal: spacing[3],
+    paddingVertical: borderRadius.medium,
+    borderRadius: borderRadius.xl,
   },
   stageBadgeText: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.semibold,
     color: colors.white,
   },
   viewDashboardText: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.semibold,
     color: colors.eveningPrimary,
   },
   summaryMetrics: {
@@ -370,26 +364,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   metricValue: {
-    fontSize: 28,
-    fontWeight: '700',
+    fontSize: typography.headline2.size,
+    fontWeight: typography.fontWeight.bold,
     color: colors.eveningPrimary,
-    marginBottom: 4,
+    marginBottom: spacing.xs,
   },
   metricLabel: {
-    fontSize: 12,
-    fontWeight: '500',
+    fontSize: typography.micro.size,
+    fontWeight: typography.fontWeight.medium,
     color: colors.gray600, // Fixed: 7.0:1 contrast
     textAlign: 'center',
   },
   metricDivider: {
     width: 1,
-    height: 40,
+    height: spacing[10],
     backgroundColor: colors.gray300,
     marginHorizontal: spacing.sm,
   },
   emptyStateCard: {
     backgroundColor: colors.gray100,
-    borderRadius: 12,
+    borderRadius: borderRadius.large,
     padding: spacing.xl,
     alignItems: 'center',
     marginBottom: spacing.lg,
@@ -401,21 +395,21 @@ const styles = StyleSheet.create({
       height: 1,
     },
     shadowOpacity: 0.08,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowRadius: borderRadius.xs,
+    elevation: spacing.xs,
   },
   emptyStateTitle: {
-    fontSize: 20,
-    fontWeight: '600',
+    fontSize: typography.title.size,
+    fontWeight: typography.fontWeight.semibold,
     color: colors.black,
     marginBottom: spacing.md,
     textAlign: 'center',
   },
   emptyStateDescription: {
-    fontSize: 16,
-    fontWeight: '400',
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.regular,
     color: colors.gray600,
-    lineHeight: 22,
+    lineHeight: typography.headline3.size,
     textAlign: 'center',
     marginBottom: spacing.lg,
   },
@@ -423,33 +417,33 @@ const styles = StyleSheet.create({
     backgroundColor: colors.eveningPrimary,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.xl,
-    borderRadius: 12,
+    borderRadius: borderRadius.large,
   },
   emptyStateButtonPressed: {
     opacity: 0.8,
   },
   emptyStateButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.semibold,
     color: colors.white,
   },
   quoteSection: {
     padding: spacing.lg,
     backgroundColor: colors.gray100,
-    borderRadius: 8,
-    borderLeftWidth: 4,
+    borderRadius: borderRadius.medium,
+    borderLeftWidth: spacing.xs,
     borderLeftColor: colors.eveningPrimary,
   },
   quoteText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.size,
     fontStyle: 'italic',
     color: colors.gray600,
-    lineHeight: 20,
+    lineHeight: typography.title.size,
     marginBottom: spacing.sm,
   },
   quoteAttribution: {
-    fontSize: 12,
-    fontWeight: '500',
+    fontSize: typography.micro.size,
+    fontWeight: typography.fontWeight.medium,
     color: colors.gray600, // Fixed: 7.0:1 contrast
     textAlign: 'right',
   },
@@ -464,8 +458,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gray300,
   },
   separatorText: {
-    fontSize: 12,
-    fontWeight: '500',
+    fontSize: typography.micro.size,
+    fontWeight: typography.fontWeight.medium,
     color: colors.gray500,
     paddingHorizontal: spacing.md,
     textTransform: 'uppercase',
@@ -476,8 +470,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   futureSectionText: {
-    fontSize: 14,
-    fontWeight: '400',
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.regular,
     color: colors.gray500,
     textAlign: 'center',
     fontStyle: 'italic',

@@ -40,29 +40,20 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useConsentStore, ConsentPreferences, AgeVerification } from '@/core/stores/consentStore';
 import ConsentToggleCard from '../components/ConsentToggleCard';
+import { colors as dsColors, spacing, borderRadius, typography } from '@/core/theme/colors';
 
-// Colors consistent with Being design system
-// Updated for WCAG AA color contrast compliance (4.5:1 for body text)
-const colors = {
-  white: '#FFFFFF',
-  black: '#1C1C1C',
-  gray100: '#F3F4F6',
-  gray200: '#E5E7EB',
-  gray300: '#D1D5DB',
-  gray400: '#6B7280', // Darkened for contrast (was #9CA3AF)
-  gray500: '#525863', // Darkened for contrast (was #6B7280)
-  gray600: '#374151', // Darkened for contrast (was #4B5563)
-  midnightBlue: '#1B2951',
-  success: '#10B981',
-};
-
-const spacing = {
-  xs: 4,
-  sm: 8,
-  md: 16,
-  lg: 24,
-  xl: 32,
-  xxl: 48,
+// Local colors for easier reference
+const localColors = {
+  white: dsColors.base.white,
+  black: dsColors.base.black,
+  gray100: dsColors.gray[100],
+  gray200: dsColors.gray[200],
+  gray300: dsColors.gray[300],
+  gray400: dsColors.gray[400],
+  gray500: dsColors.gray[500],
+  gray600: dsColors.gray[600],
+  midnightBlue: dsColors.themes.morning.primary,
+  success: dsColors.status.success,
 };
 
 interface ConsentManagementScreenProps {
@@ -236,7 +227,7 @@ const ConsentManagementScreen: React.FC<ConsentManagementScreenProps> = ({
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.midnightBlue} />
+          <ActivityIndicator size="large" color={localColors.midnightBlue} />
           <Text style={styles.loadingText}>Loading consent settings...</Text>
         </View>
       </SafeAreaView>
@@ -363,7 +354,7 @@ const ConsentManagementScreen: React.FC<ConsentManagementScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.white,
+    backgroundColor: localColors.white,
   },
   scrollContainer: {
     flex: 1,
@@ -379,9 +370,9 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
   },
   loadingText: {
-    fontSize: 16,
-    fontWeight: '400',
-    color: colors.gray600,
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.regular,
+    color: localColors.gray600,
     marginTop: spacing.md,
   },
   header: {
@@ -389,39 +380,39 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: colors.black,
+    fontSize: typography.headline2.size,
+    fontWeight: typography.fontWeight.bold,
+    color: localColors.black,
     marginBottom: spacing.sm,
     textAlign: 'center',
   },
   subtitle: {
-    fontSize: 16,
-    fontWeight: '400',
-    color: colors.gray600,
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.regular,
+    color: localColors.gray600,
     textAlign: 'center',
     lineHeight: 24,
   },
   essentialSection: {
     backgroundColor: '#FAFAFA',
-    borderRadius: 12,
+    borderRadius: borderRadius.large,
     padding: spacing.lg,
     marginBottom: spacing.lg,
     borderWidth: 1,
-    borderColor: colors.gray200,
+    borderColor: localColors.gray200,
   },
   essentialTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.gray500,
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.semibold,
+    color: localColors.gray500,
     marginBottom: spacing.sm,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   essentialItem: {
-    fontSize: 15,
-    fontWeight: '400',
-    color: colors.gray600,
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.regular,
+    color: localColors.gray600,
     lineHeight: 24,
   },
   toggleSection: {
@@ -429,59 +420,59 @@ const styles = StyleSheet.create({
   },
   privacyPromise: {
     backgroundColor: '#E8F4EC',
-    borderRadius: 8,
+    borderRadius: borderRadius.medium,
     padding: spacing.md,
     marginBottom: spacing.lg,
     borderLeftWidth: 3,
-    borderLeftColor: colors.success,
+    borderLeftColor: localColors.success,
   },
   privacyPromiseText: {
-    fontSize: 14,
-    fontWeight: '400',
-    color: colors.gray600,
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.regular,
+    color: localColors.gray600,
     lineHeight: 20,
   },
   lastUpdated: {
-    fontSize: 13,
-    fontWeight: '400',
-    color: colors.gray400,
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.regular,
+    color: localColors.gray400,
     textAlign: 'center',
     marginBottom: spacing.lg,
   },
   continueButton: {
-    backgroundColor: colors.midnightBlue,
+    backgroundColor: localColors.midnightBlue,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.xl,
-    borderRadius: 12,
+    borderRadius: borderRadius.large,
     alignItems: 'center',
     minHeight: 56,
   },
   continueButtonDisabled: {
-    backgroundColor: colors.gray400,
+    backgroundColor: localColors.gray400,
   },
   continueButtonText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.white,
+    fontSize: typography.bodyLarge.size,
+    fontWeight: typography.fontWeight.semibold,
+    color: localColors.white,
   },
   limitationNote: {
     backgroundColor: '#FFF8E1',
-    borderRadius: 8,
+    borderRadius: borderRadius.medium,
     padding: spacing.md,
     marginTop: spacing.lg,
     borderLeftWidth: 3,
     borderLeftColor: '#F59E0B',
   },
   limitationNoteTitle: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.semibold,
     color: '#92400E',
     marginBottom: spacing.xs,
   },
   limitationNoteText: {
-    fontSize: 14,
-    fontWeight: '400',
-    color: colors.gray600,
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.regular,
+    color: localColors.gray600,
     lineHeight: 20,
   },
 });
