@@ -98,6 +98,7 @@
     "@types/react": "19.1.10"
   },
   "dependencies": {
+    "@mp2ez/being-design-system": "^1.2.0",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/datetimepicker": "8.4.4",
     "@react-native-community/netinfo": "11.4.1",

@@ -1,173 +1,43 @@
 /**
- * Being. Color System - Direct port from Design Library v1.1
- * React Native optimized version
+ * Being. Color System - Powered by @mp2ez/being-design-system
+ *
+ * Re-exports design tokens from the shared design system package.
+ * The Proxy wrapper on themes provides safe access with fallback warnings.
  */
+import {
+  colors as dsColors,
+  spacing,
+  borderRadius,
+  typography,
+  getTheme,
+} from '@mp2ez/being-design-system/native';
+import type { Theme, ThemeKey } from '@mp2ez/being-design-system/native';
 
-// Define theme objects first
-const morningTheme = {
-  primary: '#B45309',    // WCAG-AA compliant: 4.69:1 contrast (was #FF9F43: 2.04:1)
-  primaryFallback: '#FF9F43', // Original color for non-text elements
-  success: '#E8863A',    // Completion states (darker)
-  light: '#FFB366',      // Hover states, backgrounds
-  background: '#FFF8F0'  // Section backgrounds
-};
+// Re-export spacing, borderRadius, typography, getTheme directly
+export { spacing, borderRadius, typography, getTheme };
+export type { Theme, ThemeKey };
 
-const middayTheme = {
-  primary: '#0F766E',    // WCAG-AA compliant: 4.85:1 contrast (was #40B5AD: 2.49:1)
-  primaryFallback: '#40B5AD', // Original color for non-text elements
-  success: '#2C8A82',    // Completion states (darker)
-  light: '#5EC4BC',      // Hover states, backgrounds
-  background: '#F0FBF9'  // Section backgrounds
-};
-
-const eveningTheme = {
-  primary: '#4A7C59',    // Continue buttons, reflection progress
-  success: '#2D5016',    // Reflection completion (much darker)
-  light: '#6B9B78',      // Hover states, backgrounds
-  background: '#F0F8F4'  // Section backgrounds
-};
-
-const learnTheme = {
-  primary: '#9B7EBD',    // Learn section purple (navigation.learn)
-  success: '#7C5FA0',    // Darker purple for completion
-  light: '#B89DD1',      // Lighter purple for hover states, backgrounds
-  background: '#F8F5FB'  // Light purple tint for section backgrounds
-};
-
-// Create themes object with Proxy for safe access
-const themesHandler: ProxyHandler<any> = {
+// Create themes object with Proxy for safe access (maintains backward compatibility)
+const themesHandler: ProxyHandler<typeof dsColors.themes> = {
   get(target, prop) {
     if (prop in target) {
-      return target[prop];
+      return target[prop as keyof typeof target];
     }
     console.warn(`[Theme Warning] Attempted to access undefined theme: ${String(prop)}, falling back to morning`);
     return target.morning;
   }
 };
 
-const themesProxy = new Proxy({
-  morning: morningTheme,
-  midday: middayTheme,
-  evening: eveningTheme,
-  learn: learnTheme
-}, themesHandler);
+const themesProxy = new Proxy(dsColors.themes, themesHandler);
 
+// Build colorSystem from design system values with Proxy-wrapped themes
 export const colorSystem = {
-  // Check-in Themes (PRIMARY FOR COMPONENT USAGE)
   themes: themesProxy,
-
-  // Base System Colors
-  base: {
-    white: '#FFFFFF',
-    black: '#1C1C1C', 
-    midnightBlue: '#1B2951'  // Logo, system metrics, general
-  },
-
-  // Gray Scale (9 levels)
-  gray: {
-    50: '#F9F9F9',   // Lightest background tint
-    100: '#FAFAFA',  // Secondary backgrounds
-    200: '#F5F5F5',  // Tertiary backgrounds, input backgrounds
-    300: '#E8E8E8',  // Borders, dividers, inactive elements
-    400: '#D1D1D1',  // Placeholder text, disabled borders
-    500: '#B8B8B8',  // Inactive navigation, secondary text
-    600: '#757575',  // Secondary text, captions
-    700: '#424242',  // Tertiary text, less important
-    800: '#212121'   // High contrast secondary text
-  },
-
-  // System Status (WCAG AA Compliant)
-  status: {
-    success: '#0F7A24',  // 7.12:1 contrast - Success states, completion, positive trends (WCAG AA Enhanced)
-    warning: '#A66100',  // 5.02:1 contrast - Warnings, caution, medium priority (WCAG AA Fixed)
-    error: '#DC2626',    // 4.5:1 contrast - Errors, critical alerts, negative trends
-    info: '#2563EB',     // 4.5:1 contrast - Information, links, general accent
-    critical: '#991B1B', // 7.85:1 contrast - Crisis/emergency states (WCAG AA Enhanced for Safety)
-    successBackground: '#F0FDF4',  // Success background tint
-    warningBackground: '#FFFBEB',  // Warning background tint
-    errorBackground: '#FEF2F2',    // Error background tint
-    infoBackground: '#EFF6FF',     // Info background tint
-    criticalBackground: '#FEF2F2'  // Critical background tint
-  },
-
-  // Accessibility-Enhanced Colors
-  accessibility: {
-    // High contrast alternatives for enhanced mode
-    highContrast: {
-      text: '#000000',      // Pure black for maximum contrast
-      background: '#FFFFFF', // Pure white for maximum contrast
-      focus: '#0066CC',     // High contrast focus indicator
-      error: '#CC0000',     // High contrast error
-      success: '#006600',   // High contrast success
-    },
-    // Focus indicators with WCAG AAA compliance
-    focus: {
-      primary: '#1D4ED8',   // 7:1 contrast ratio
-      error: '#B91C1C',     // 7:1 contrast ratio for errors
-      success: '#166534',   // 7:1 contrast ratio for success
-      outline: '#3B82F6',   // 4.5:1 minimum for outlines
-    },
-    // Text contrast helpers
-    text: {
-      primary: '#111827',   // 15.3:1 contrast on white
-      secondary: '#374151', // 9.4:1 contrast on white
-      tertiary: '#6B7280',  // 4.5:1 contrast on white
-      inverse: '#F9FAFB',   // 15.8:1 contrast on dark
-    },
-    // Notification styling (for cognitive accessibility components)
-    notification: {
-      background: '#EFF6FF', // Light blue background for notifications
-      text: '#1E40AF',       // Dark blue text (5.86:1 contrast on background)
-      border: '#3B82F6',     // Blue border (4.5:1 contrast on white)
-    }
-  },
-
-  // Navigation Shape Colors (Design Library v1.1)
-  navigation: {
-    home: '#FF6B9D',       // Triangle - home navigation (pink)
-    checkins: '#2C5282',   // Square - check-ins navigation (blue)
-    exercises: '#FF9F43',  // Star - exercises navigation (orange)
-    insights: '#A8E6CF',   // Circle - insights navigation (green)
-    learn: '#9B7EBD'       // Book - learn navigation (purple, represents wisdom)
-  }
-};
-
-export const spacing = {
-  xs: 4, sm: 8, md: 16, lg: 24, xl: 32, xxl: 48, xxxl: 64
-};
-
-export const borderRadius = {
-  small: 4, medium: 8, large: 12, xl: 16, full: 9999
-};
-
-export const typography = {
-  headline1: { size: 34, weight: '700' as const, spacing: -0.5 },
-  headline2: { size: 28, weight: '600' as const, spacing: -0.3 },
-  headline3: { size: 22, weight: '600' as const, spacing: 0 },
-  bodyLarge: { size: 18, weight: '400' as const, spacing: 0.2, lineHeight: 1.5 },
-  bodyRegular: { size: 16, weight: '400' as const, spacing: 0.1, lineHeight: 1.5 },
-  bodySmall: { size: 14, weight: '400' as const, spacing: 0.1, lineHeight: 1.4 },
-  caption: { size: 14, weight: '400' as const, spacing: 0.2 },
-  micro: { size: 12, weight: '500' as const, spacing: 0.3 }
-};
-
-// Safe theme getter with fallback protection
-export const getTheme = (
-  themeKey: 'morning' | 'midday' | 'evening' | 'learn' | undefined
-): typeof colorSystem.themes.morning => {
-  if (!themeKey) {
-    console.warn(`[getTheme] Invalid theme key: ${themeKey}, falling back to morning theme`);
-    return colorSystem.themes.morning;
-  }
-
-  const theme = colorSystem.themes[themeKey];
-
-  if (!theme || !theme.primary) {
-    console.warn(`[getTheme] Theme ${themeKey} is invalid or missing .primary, falling back to morning`);
-    return colorSystem.themes.morning;
-  }
-
-  return theme;
+  base: dsColors.base,
+  gray: dsColors.gray,
+  status: dsColors.status,
+  accessibility: dsColors.accessibility,
+  navigation: dsColors.navigation,
 };
 
 // Export as 'colors' for backward compatibility
