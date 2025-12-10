@@ -359,7 +359,7 @@ const styles = StyleSheet.create({
   breathingCircle: {
     width: 120,
     height: 120,
-    borderRadius: borderRadius.xxl,
+    borderRadius: borderRadius.full,
     backgroundColor: colorSystem.themes.midday.primary, // #40B5AD
     alignItems: 'center',
     justifyContent: 'center',
@@ -375,7 +375,7 @@ const styles = StyleSheet.create({
   innerCircle: {
     width: 80,
     height: 80,
-    borderRadius: spacing[5],
+    borderRadius: borderRadius.full,
     backgroundColor: colorSystem.themes.midday.light, // #5EC4BC
     opacity: 0.6,
   },
@@ -396,7 +396,7 @@ const styles = StyleSheet.create({
     fontSize: typography.caption.size,
     color: colorSystem.gray[600],
     textAlign: 'center',
-    lineHeight: spacing[5],
+    lineHeight: spacing.lg,
     fontStyle: 'italic',
   },
   countdownContainer: {
@@ -405,7 +405,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   countdownText: {
-    fontSize: spacing[12],
+    fontSize: spacing.xxl,
     fontWeight: typography.fontWeight.bold,
     color: colorSystem.base.white,
     textAlign: 'center',
