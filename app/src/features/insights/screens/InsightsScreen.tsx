@@ -287,17 +287,17 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: spacing.lg,
-    paddingBottom: spacing.xl,
+    padding: spacing[24],
+    paddingBottom: spacing[32],
   },
   header: {
-    marginBottom: spacing.xl,
+    marginBottom: spacing[32],
   },
   title: {
     fontSize: typography.headline2.size,
     fontWeight: typography.fontWeight.bold,
     color: colors.midnightBlue,
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
   },
   subtitle: {
     fontSize: typography.bodyRegular.size,
@@ -306,27 +306,27 @@ const styles = StyleSheet.create({
     lineHeight: typography.headline3.size,
   },
   virtueSection: {
-    marginBottom: spacing[16] + 1, // 65pt spacing before separator
+    marginBottom: spacing[64] + 1, // 65pt spacing before separator
   },
   sectionTitle: {
     fontSize: typography.headline3.size,
     fontWeight: typography.fontWeight.semibold,
     color: colors.eveningPrimary,
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
   },
   sectionSubtitle: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
     color: colors.gray600,
     lineHeight: typography.headline3.size,
-    marginBottom: spacing.lg,
+    marginBottom: spacing[24],
   },
   summaryCard: {
     backgroundColor: colors.gray100,
     borderRadius: borderRadius.large,
-    padding: spacing.lg,
-    marginBottom: spacing.lg,
-    borderLeftWidth: spacing.xs,
+    padding: spacing[24],
+    marginBottom: spacing[24],
+    borderLeftWidth: spacing[4],
     borderLeftColor: colors.eveningPrimary,
   },
   summaryCardPressed: {
@@ -337,10 +337,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.lg,
+    marginBottom: spacing[24],
   },
   stageBadge: {
-    paddingHorizontal: spacing[3],
+    paddingHorizontal: spacing[12],
     paddingVertical: borderRadius.medium,
     borderRadius: borderRadius.xl,
   },
@@ -367,7 +367,7 @@ const styles = StyleSheet.create({
     fontSize: typography.headline2.size,
     fontWeight: typography.fontWeight.bold,
     color: colors.eveningPrimary,
-    marginBottom: spacing.xs,
+    marginBottom: spacing[4],
   },
   metricLabel: {
     fontSize: typography.micro.size,
@@ -377,16 +377,16 @@ const styles = StyleSheet.create({
   },
   metricDivider: {
     width: 1,
-    height: spacing[10],
+    height: spacing[40],
     backgroundColor: colors.gray300,
-    marginHorizontal: spacing.sm,
+    marginHorizontal: spacing[8],
   },
   emptyStateCard: {
     backgroundColor: colors.gray100,
     borderRadius: borderRadius.large,
-    padding: spacing.xl,
+    padding: spacing[32],
     alignItems: 'center',
-    marginBottom: spacing.lg,
+    marginBottom: spacing[24],
     borderWidth: 1,
     borderColor: colors.eveningPrimary,
     shadowColor: '#000',
@@ -396,13 +396,13 @@ const styles = StyleSheet.create({
     },
     shadowOpacity: 0.08,
     shadowRadius: borderRadius.xs,
-    elevation: spacing.xs,
+    elevation: spacing[4],
   },
   emptyStateTitle: {
     fontSize: typography.title.size,
     fontWeight: typography.fontWeight.semibold,
     color: colors.black,
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
     textAlign: 'center',
   },
   emptyStateDescription: {
@@ -411,12 +411,12 @@ const styles = StyleSheet.create({
     color: colors.gray600,
     lineHeight: typography.headline3.size,
     textAlign: 'center',
-    marginBottom: spacing.lg,
+    marginBottom: spacing[24],
   },
   emptyStateButton: {
     backgroundColor: colors.eveningPrimary,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing[16],
+    paddingHorizontal: spacing[32],
     borderRadius: borderRadius.large,
   },
   emptyStateButtonPressed: {
@@ -428,10 +428,10 @@ const styles = StyleSheet.create({
     color: colors.white,
   },
   quoteSection: {
-    padding: spacing.lg,
+    padding: spacing[24],
     backgroundColor: colors.gray100,
     borderRadius: borderRadius.medium,
-    borderLeftWidth: spacing.xs,
+    borderLeftWidth: spacing[4],
     borderLeftColor: colors.eveningPrimary,
   },
   quoteText: {
@@ -439,7 +439,7 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     color: colors.gray600,
     lineHeight: typography.title.size,
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
   },
   quoteAttribution: {
     fontSize: typography.micro.size,
@@ -450,7 +450,7 @@ const styles = StyleSheet.create({
   separator: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: spacing.xl,
+    marginVertical: spacing[32],
   },
   separatorLine: {
     flex: 1,
@@ -461,12 +461,12 @@ const styles = StyleSheet.create({
     fontSize: typography.micro.size,
     fontWeight: typography.fontWeight.medium,
     color: colors.gray500,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing[16],
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   futureSection: {
-    paddingVertical: spacing.xl,
+    paddingVertical: spacing[32],
     alignItems: 'center',
   },
   futureSectionText: {

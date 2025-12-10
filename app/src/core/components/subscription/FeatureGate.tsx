@@ -130,7 +130,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: spacing.xl,
+    padding: spacing[32],
     backgroundColor: '#FFFFFF',
   },
   lockIcon: {
@@ -140,7 +140,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5F5F5',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: spacing.lg,
+    marginBottom: spacing[24],
   },
   lockIconText: {
     fontSize: typography.display1.size,
@@ -149,7 +149,7 @@ const styles = StyleSheet.create({
     fontSize: typography.headline4.size,
     fontWeight: typography.fontWeight.bold,
     color: '#333333',
-    marginBottom: spacing[3],
+    marginBottom: spacing[12],
     textAlign: 'center',
   },
   description: {
@@ -157,14 +157,14 @@ const styles = StyleSheet.create({
     color: '#666666',
     textAlign: 'center',
     lineHeight: 22,
-    marginBottom: spacing.lg,
-    paddingHorizontal: spacing.md,
+    marginBottom: spacing[24],
+    paddingHorizontal: spacing[16],
   },
   upgradeButton: {
     backgroundColor: '#4A90E2',
     borderRadius: borderRadius.medium,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing[8],
+    paddingHorizontal: spacing[32],
   },
   upgradeButtonText: {
     color: '#FFFFFF',

@@ -319,9 +319,9 @@ export const SkipLink: React.FC<SkipLinkProps> = ({
   }, [setFocus, targetId]);
 
   const positionStyles = {
-    'top-left': { top: spacing.sm, left: spacing.sm },
-    'top-center': { top: spacing.sm, left: '50%', transform: [{ translateX: -50 }] },
-    'top-right': { top: spacing.sm, right: spacing.sm },
+    'top-left': { top: spacing[8], left: spacing[8] },
+    'top-center': { top: spacing[8], left: '50%', transform: [{ translateX: -50 }] },
+    'top-right': { top: spacing[8], right: spacing[8] },
   };
 
   return (
@@ -383,7 +383,7 @@ const styles = StyleSheet.create({
   skipLinkButton: {
     backgroundColor: colorSystem.accessibility.focus.primary,
     color: colorSystem.base.white,
-    padding: spacing.sm,
+    padding: spacing[8],
     borderRadius: borderRadius.small,
     minHeight: 44, // WCAG touch target
     minWidth: 44,

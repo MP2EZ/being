@@ -385,27 +385,27 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
-    padding: spacing[5],
+    padding: spacing[20],
   },
   backButton: {
-    marginBottom: spacing[5],
+    marginBottom: spacing[20],
   },
   backButtonText: {
     fontSize: typography.bodyRegular.size,
     color: '#007AFF',
   },
   header: {
-    marginBottom: spacing.lg,
+    marginBottom: spacing[24],
   },
   title: {
     fontSize: typography.headline2.size,
     fontWeight: typography.fontWeight.bold,
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
   },
   subtitle: {
     fontSize: typography.bodyRegular.size,
     color: '#666',
-    marginBottom: spacing.xs,
+    marginBottom: spacing[4],
   },
   helperText: {
     fontSize: typography.bodySmall.size,
@@ -413,29 +413,29 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   fieldSection: {
-    marginBottom: spacing[5],
+    marginBottom: spacing[20],
   },
   fieldLabel: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
     color: '#333',
   },
   textInput: {
     borderWidth: 1,
     borderColor: '#ddd',
     borderRadius: borderRadius.medium,
-    padding: spacing[3],
+    padding: spacing[12],
     fontSize: typography.bodyRegular.size,
     backgroundColor: '#fff',
     minHeight: 80,
     textAlignVertical: 'top',
   },
   controlTypeOptions: {
-    gap: spacing[3],
+    gap: spacing[12],
   },
   controlTypeButton: {
-    padding: spacing.md,
+    padding: spacing[16],
     borderWidth: 2,
     borderColor: '#ddd',
     borderRadius: borderRadius.medium,
@@ -448,7 +448,7 @@ const styles = StyleSheet.create({
   controlTypeTitle: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.semibold,
-    marginBottom: spacing.xs,
+    marginBottom: spacing[4],
     color: '#333',
   },
   controlTypeTextSelected: {
@@ -459,15 +459,15 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   conditionalSection: {
-    marginTop: spacing.sm,
+    marginTop: spacing[8],
   },
   continueButton: {
     backgroundColor: '#007AFF',
-    padding: spacing.md,
+    padding: spacing[16],
     borderRadius: borderRadius.medium,
     alignItems: 'center',
-    marginTop: spacing[3],
-    marginBottom: spacing.lg,
+    marginTop: spacing[12],
+    marginBottom: spacing[24],
   },
   continueButtonDisabled: {
     backgroundColor: '#ccc',
@@ -478,10 +478,10 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.semibold,
   },
   quoteSection: {
-    padding: spacing.md,
+    padding: spacing[16],
     backgroundColor: '#f9f9f9',
     borderRadius: borderRadius.medium,
-    borderLeftWidth: spacing.xs,
+    borderLeftWidth: spacing[4],
     borderLeftColor: '#007AFF',
     marginBottom: 40,
   },
@@ -489,7 +489,7 @@ const styles = StyleSheet.create({
     fontSize: typography.bodySmall.size,
     fontStyle: 'italic',
     color: '#666',
-    lineHeight: spacing[5],
+    lineHeight: spacing[20],
   },
 });
 

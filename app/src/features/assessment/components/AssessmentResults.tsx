@@ -507,16 +507,16 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: spacing.md,
-    paddingBottom: spacing.xl,
+    padding: spacing[16],
+    paddingBottom: spacing[32],
   },
   crisisBanner: {
     backgroundColor: colorSystem.status.critical,
-    padding: spacing.md,
+    padding: spacing[16],
     borderRadius: borderRadius.large,
-    marginBottom: spacing.lg,
+    marginBottom: spacing[24],
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: spacing[8],
   },
   crisisBannerText: {
     fontSize: typography.bodyLarge.size,
@@ -525,16 +525,16 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   scoreContainer: {
-    padding: spacing.lg,
+    padding: spacing[24],
     borderRadius: borderRadius.xl,
     borderWidth: 2,
-    marginBottom: spacing.lg,
+    marginBottom: spacing[24],
   },
   scoreHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
   },
   assessmentTitle: {
     fontSize: typography.headline3.size,
@@ -543,8 +543,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scoreBadge: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing[16],
+    paddingVertical: spacing[8],
     borderRadius: typography.title.size,
   },
   scoreBadgeText: {
@@ -555,7 +555,7 @@ const styles = StyleSheet.create({
   severityTitle: {
     fontSize: typography.headline2.size,
     fontWeight: typography.headline2.weight,
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
   },
   severityDescription: {
     fontSize: typography.bodyLarge.size,
@@ -564,8 +564,8 @@ const styles = StyleSheet.create({
     lineHeight: typography.bodyLarge.size * 1.5,
   },
   guidanceContainer: {
-    marginBottom: spacing.lg,
-    gap: spacing.md,
+    marginBottom: spacing[24],
+    gap: spacing[16],
   },
   guidanceTitle: {
     fontSize: typography.headline3.size,
@@ -579,7 +579,7 @@ const styles = StyleSheet.create({
     lineHeight: typography.bodyRegular.size * 1.5,
   },
   therapeuticContainer: {
-    padding: spacing.md,
+    padding: spacing[16],
     borderRadius: borderRadius.large,
     borderLeftWidth: 4,
   },
@@ -587,7 +587,7 @@ const styles = StyleSheet.create({
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
     color: colorSystem.accessibility.text.primary,
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
   },
   therapeuticText: {
     fontSize: typography.bodyRegular.size,
@@ -598,20 +598,20 @@ const styles = StyleSheet.create({
   },
   resourcesContainer: {
     backgroundColor: colorSystem.status.infoBackground,
-    padding: spacing.md,
+    padding: spacing[16],
     borderRadius: borderRadius.large,
     borderWidth: 1,
     borderColor: colorSystem.status.info,
-    marginBottom: spacing.lg,
+    marginBottom: spacing[24],
   },
   resourcesTitle: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
     color: colorSystem.status.info,
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
   },
   resourcesList: {
-    gap: spacing.xs,
+    gap: spacing[4],
   },
   resourceItem: {
     fontSize: typography.bodyRegular.size,
@@ -621,26 +621,26 @@ const styles = StyleSheet.create({
   },
   summaryContainer: {
     backgroundColor: colorSystem.gray[50],
-    padding: spacing.md,
+    padding: spacing[16],
     borderRadius: borderRadius.large,
-    marginBottom: spacing.lg,
+    marginBottom: spacing[24],
   },
   summaryTitle: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
     color: colorSystem.accessibility.text.primary,
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
   },
   summaryGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.md,
+    gap: spacing[16],
   },
   summaryItem: {
     flex: 1,
     minWidth: '45%',
     alignItems: 'center',
-    gap: spacing.xs,
+    gap: spacing[4],
   },
   summaryLabel: {
     fontSize: typography.caption.size,
@@ -654,11 +654,11 @@ const styles = StyleSheet.create({
     textTransform: 'capitalize',
   },
   actionContainer: {
-    gap: spacing.md,
+    gap: spacing[16],
   },
   completeButton: {
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing[16],
+    paddingHorizontal: spacing[24],
     borderRadius: borderRadius.large,
     alignItems: 'center',
     justifyContent: 'center',
@@ -682,8 +682,8 @@ const styles = StyleSheet.create({
     color: colorSystem.base.white,
   },
   retakeButton: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
+    paddingVertical: spacing[8],
+    paddingHorizontal: spacing[16],
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 44,

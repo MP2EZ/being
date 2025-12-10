@@ -51,16 +51,16 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: colorSystem.base.white,
     borderRadius: borderRadius.large,
-    padding: spacing.lg,
+    padding: spacing[24],
     borderWidth: 1,
     borderColor: colorSystem.gray[200],
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
   },
   title: {
     fontSize: typography.headline3.size,
@@ -82,13 +82,13 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.medium,
     color: colorSystem.gray[600],
     textAlign: 'center',
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
   },
   description: {
     fontSize: typography.caption.size,
     color: colorSystem.gray[500],
     textAlign: 'center',
-    lineHeight: spacing[5],
+    lineHeight: spacing[20],
   },
 });
 

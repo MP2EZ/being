@@ -582,27 +582,27 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
-    padding: spacing[5],
+    padding: spacing[20],
   },
   backButton: {
-    marginBottom: spacing[5],
+    marginBottom: spacing[20],
   },
   backButtonText: {
     fontSize: typography.bodyRegular.size,
     color: '#007AFF',
   },
   header: {
-    marginBottom: spacing[5],
+    marginBottom: spacing[20],
   },
   title: {
     fontSize: typography.headline2.size,
     fontWeight: typography.fontWeight.bold,
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
   },
   subtitle: {
     fontSize: typography.bodyRegular.size,
     color: '#666',
-    marginBottom: spacing.xs,
+    marginBottom: spacing[4],
   },
   helperText: {
     fontSize: typography.bodySmall.size,
@@ -611,10 +611,10 @@ const styles = StyleSheet.create({
   safetyIndicators: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    padding: spacing.md,
+    padding: spacing[16],
     backgroundColor: '#f5f5f5',
     borderRadius: borderRadius.medium,
-    marginBottom: spacing[5],
+    marginBottom: spacing[20],
   },
   indicator: {
     alignItems: 'center',
@@ -622,7 +622,7 @@ const styles = StyleSheet.create({
   indicatorLabel: {
     fontSize: typography.micro.size,
     color: '#666',
-    marginBottom: spacing.xs,
+    marginBottom: spacing[4],
   },
   indicatorValue: {
     fontSize: typography.bodyLarge.size,
@@ -633,33 +633,33 @@ const styles = StyleSheet.create({
     color: '#FF3B30',
   },
   warningBox: {
-    padding: spacing.md,
+    padding: spacing[16],
     backgroundColor: '#FFF3CD',
     borderLeftWidth: 4,
     borderLeftColor: '#FFC107',
     borderRadius: borderRadius.medium,
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
   },
   warningText: {
     fontSize: typography.bodySmall.size,
     color: '#856404',
   },
   crisisBox: {
-    padding: spacing.md,
+    padding: spacing[16],
     backgroundColor: '#F8D7DA',
     borderLeftWidth: 4,
     borderLeftColor: '#DC3545',
     borderRadius: borderRadius.medium,
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
   },
   crisisText: {
     fontSize: typography.bodySmall.size,
     color: '#721C24',
-    marginBottom: spacing[3],
+    marginBottom: spacing[12],
   },
   crisisButton: {
     backgroundColor: '#DC3545',
-    padding: spacing[3],
+    padding: spacing[12],
     borderRadius: borderRadius.small,
     alignItems: 'center',
   },
@@ -669,11 +669,11 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.semibold,
   },
   optOutButton: {
-    padding: spacing[3],
+    padding: spacing[12],
     backgroundColor: '#FFC107',
     borderRadius: borderRadius.small,
     alignItems: 'center',
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
   },
   optOutButtonText: {
     color: '#333',
@@ -681,10 +681,10 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.semibold,
   },
   obstacleCard: {
-    padding: spacing.md,
+    padding: spacing[16],
     backgroundColor: '#f9f9f9',
     borderRadius: borderRadius.medium,
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
     borderLeftWidth: 4,
     borderLeftColor: '#007AFF',
   },
@@ -692,7 +692,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing[3],
+    marginBottom: spacing[12],
   },
   obstacleTitle: {
     fontSize: typography.bodyLarge.size,
@@ -703,30 +703,30 @@ const styles = StyleSheet.create({
     fontSize: typography.bodySmall.size,
   },
   fieldGroup: {
-    marginBottom: spacing[3],
+    marginBottom: spacing[12],
   },
   fieldLabel: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.medium,
-    marginBottom: spacing.xs,
+    marginBottom: spacing[4],
     color: '#333',
   },
   input: {
     borderWidth: 1,
     borderColor: '#ddd',
     borderRadius: borderRadius.small,
-    padding: spacing[3],
+    padding: spacing[12],
     fontSize: typography.bodySmall.size,
     backgroundColor: '#fff',
     minHeight: 50,
   },
   addButton: {
-    padding: spacing.md,
+    padding: spacing[16],
     borderWidth: 2,
     borderColor: '#007AFF',
     borderRadius: borderRadius.medium,
     alignItems: 'center',
-    marginBottom: spacing[5],
+    marginBottom: spacing[20],
     borderStyle: 'dashed',
   },
   addButtonText: {
@@ -735,20 +735,20 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.semibold,
   },
   selfCompassionSection: {
-    marginBottom: spacing[5],
+    marginBottom: spacing[20],
   },
   sectionTitle: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
   },
   readinessSection: {
-    marginBottom: spacing[5],
+    marginBottom: spacing[20],
   },
   slider: {
     width: '100%',
-    height: spacing[10],
-    marginVertical: spacing[3],
+    height: spacing[40],
+    marginVertical: spacing[12],
   },
   ratingValue: {
     fontSize: typography.bodyRegular.size,
@@ -758,11 +758,11 @@ const styles = StyleSheet.create({
   },
   continueButton: {
     backgroundColor: '#007AFF',
-    padding: spacing.md,
+    padding: spacing[16],
     borderRadius: borderRadius.medium,
     alignItems: 'center',
-    marginTop: spacing[5],
-    marginBottom: spacing[10],
+    marginTop: spacing[20],
+    marginBottom: spacing[40],
   },
   continueButtonDisabled: {
     backgroundColor: '#ccc',
@@ -780,29 +780,29 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     backgroundColor: '#fff',
-    padding: spacing.lg,
+    padding: spacing[24],
     borderRadius: borderRadius.large,
     width: '80%',
   },
   modalTitle: {
     fontSize: typography.title.size,
     fontWeight: typography.fontWeight.semibold,
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
     textAlign: 'center',
   },
   modalOption: {
-    padding: spacing.md,
+    padding: spacing[16],
     backgroundColor: '#f5f5f5',
     borderRadius: borderRadius.medium,
-    marginBottom: spacing[3],
+    marginBottom: spacing[12],
   },
   modalOptionText: {
     fontSize: typography.bodyRegular.size,
     textAlign: 'center',
   },
   modalCancel: {
-    padding: spacing.md,
-    marginTop: spacing.sm,
+    padding: spacing[16],
+    marginTop: spacing[8],
   },
   modalCancelText: {
     fontSize: typography.bodyRegular.size,

@@ -239,15 +239,15 @@ const Timer: React.FC<TimerProps> = ({
 const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
-    paddingVertical: spacing.md,
+    paddingVertical: spacing[16],
   },
   progressContainer: {
     width: '100%',
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
   },
   progressTrack: {
     width: '100%',
-    height: spacing.xs,
+    height: spacing[4],
     borderRadius: borderRadius.xs,
     overflow: 'hidden',
   },
@@ -258,17 +258,17 @@ const styles = StyleSheet.create({
   timeText: {
     fontSize: typography.headline3.size,
     fontWeight: typography.headline3.weight,
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
     fontVariant: ['tabular-nums'], // Consistent spacing for numbers
   },
   controlsContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
+    gap: spacing[16],
   },
   controlButton: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing[16],
+    paddingVertical: spacing[8],
     borderRadius: borderRadius.medium,
     minWidth: 80,
     alignItems: 'center',
@@ -279,8 +279,8 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.semibold,
   },
   skipButton: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing[8],
+    paddingVertical: spacing[8],
   },
   skipButtonText: {
     fontSize: typography.caption.size,

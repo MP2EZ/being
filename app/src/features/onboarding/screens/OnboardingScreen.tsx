@@ -1561,7 +1561,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
         </View>
 
         {/* Privacy Principles - always visible */}
-        <View style={[styles.consentSection, { marginBottom: spacing.lg }]}>
+        <View style={[styles.consentSection, { marginBottom: spacing[24] }]}>
           <Text style={styles.featureText}>
             ✓ Your data is encrypted and secure
           </Text>
@@ -1613,7 +1613,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
         </View>
 
         {/* Emergency Disclaimer */}
-        <View style={[styles.consentSection, { marginTop: spacing.lg }]}>
+        <View style={[styles.consentSection, { marginTop: spacing[24] }]}>
           <Text style={[styles.bodyText, { fontSize: typography.bodySmall.size, fontStyle: 'italic' }]}>
             ⚠️ In a life-threatening emergency, call 911. For mental health crisis, call 988 Suicide & Crisis Lifeline.
           </Text>
@@ -1689,7 +1689,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
             <Text style={styles.primaryButtonText}>Start Morning Practice</Text>
           </Pressable>
           <Pressable
-            style={[styles.secondaryButton, styles.accessibleTouchTarget, { marginTop: spacing.md }]}
+            style={[styles.secondaryButton, styles.accessibleTouchTarget, { marginTop: spacing[16] }]}
             onPress={handleExploreApp}
             accessible={true}
             accessibilityRole="button"
@@ -1740,23 +1740,23 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: spacing.lg,
-    paddingBottom: spacing.xl,
+    padding: spacing[24],
+    paddingBottom: spacing[32],
   },
   // Crisis Button - Always at top
   crisisButtonContainer: {
     alignItems: 'flex-end',
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
   },
   header: {
-    marginBottom: spacing.xl,
+    marginBottom: spacing[32],
     alignItems: 'center',
   },
   title: {
     fontSize: typography.headline2.size,
     fontWeight: typography.fontWeight.bold,
     color: localColors.black,
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
     textAlign: 'center',
   },
   subtitle: {
@@ -1768,36 +1768,36 @@ const styles = StyleSheet.create({
   },
   welcomeIcon: {
     fontSize: 48,
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
   },
   welcomeIconContainer: {
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
   },
   celebrationIcon: {
     fontSize: 48,
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
   },
   section: {
-    marginBottom: spacing.xl,
+    marginBottom: spacing[32],
   },
   bodyText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
     color: localColors.gray600,
     lineHeight: 22,
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
   },
   sectionTitle: {
     fontSize: typography.title.size,
     fontWeight: typography.fontWeight.semibold,
     color: localColors.black,
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
   },
   principleCard: {
     backgroundColor: localColors.gray100,
     borderRadius: borderRadius.medium,
-    padding: spacing.md,
-    marginBottom: spacing.md,
+    padding: spacing[16],
+    marginBottom: spacing[16],
     borderLeftWidth: 3,
     borderLeftColor: localColors.midnightBlue,
   },
@@ -1805,7 +1805,7 @@ const styles = StyleSheet.create({
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.semibold,
     color: localColors.black,
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
   },
   principleDescription: {
     fontSize: typography.bodySmall.size,
@@ -1818,28 +1818,28 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.regular,
     color: localColors.gray600,
     lineHeight: 22,
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
   },
   featureList: {
-    marginTop: spacing.md,
+    marginTop: spacing[16],
   },
   featureText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
     color: localColors.gray600,
     lineHeight: 22,
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
   },
   // Progress Bar
   progressContainer: {
     alignItems: 'center',
-    marginBottom: spacing.lg,
+    marginBottom: spacing[24],
   },
   progressText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.medium,
     color: localColors.gray600,
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
   },
   progressBar: {
     width: '100%',
@@ -1854,14 +1854,14 @@ const styles = StyleSheet.create({
   },
   // Assessment Questions
   questionContainer: {
-    marginBottom: spacing.xl,
+    marginBottom: spacing[32],
   },
   questionIntro: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
     color: localColors.gray600,
     lineHeight: 22,
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
     textAlign: 'center',
   },
   questionText: {
@@ -1872,14 +1872,14 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   optionsContainer: {
-    gap: spacing.md,
+    gap: spacing[16],
   },
   optionButton: {
     backgroundColor: localColors.gray100,
     borderWidth: 1,
     borderColor: localColors.gray300,
     borderRadius: borderRadius.large,
-    padding: spacing.lg,
+    padding: spacing[24],
     alignItems: 'center',
   },
   optionText: {
@@ -1897,15 +1897,15 @@ const styles = StyleSheet.create({
   valuesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.sm,
-    marginBottom: spacing.xl,
+    gap: spacing[8],
+    marginBottom: spacing[32],
   },
   valueCard: {
     backgroundColor: localColors.gray100,
     borderWidth: 1,
     borderColor: localColors.gray300,
     borderRadius: borderRadius.large,
-    padding: spacing.lg,
+    padding: spacing[24],
   },
   valueCardSelected: {
     backgroundColor: localColors.morningPrimary,
@@ -1920,7 +1920,7 @@ const styles = StyleSheet.create({
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
     color: localColors.black,
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
   },
   valueLabelSelected: {
     color: localColors.white,
@@ -1940,10 +1940,10 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: localColors.gray300,
     borderRadius: borderRadius.xxl,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    marginRight: spacing.sm,
-    marginBottom: spacing.sm,
+    paddingHorizontal: spacing[16],
+    paddingVertical: spacing[8],
+    marginRight: spacing[8],
+    marginBottom: spacing[8],
   },
   valuePillSelected: {
     backgroundColor: localColors.morningPrimary,
@@ -1965,8 +1965,8 @@ const styles = StyleSheet.create({
   },
   // Notifications
   notificationContainer: {
-    marginBottom: spacing.xl,
-    gap: spacing.md,
+    marginBottom: spacing[32],
+    gap: spacing[16],
   },
   notificationRow: {
     flexDirection: 'row',
@@ -1974,7 +1974,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: localColors.gray100,
     borderRadius: borderRadius.large,
-    padding: spacing.lg,
+    padding: spacing[24],
   },
   notificationInfo: {
     flex: 1,
@@ -1983,7 +1983,7 @@ const styles = StyleSheet.create({
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
     color: localColors.black,
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
   },
   notificationTime: {
     fontSize: typography.bodyRegular.size,
@@ -2002,8 +2002,8 @@ const styles = StyleSheet.create({
   toggleButton: {
     backgroundColor: localColors.gray300,
     borderRadius: borderRadius.medium,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing[16],
+    paddingVertical: spacing[8],
     minWidth: 60,
     alignItems: 'center',
   },
@@ -2020,16 +2020,16 @@ const styles = StyleSheet.create({
   },
   // Privacy/Consent
   consentContainer: {
-    marginBottom: spacing.xl,
+    marginBottom: spacing[32],
   },
   consentSection: {
-    marginBottom: spacing.lg,
+    marginBottom: spacing[24],
   },
   consentTitle: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
     color: localColors.black,
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
   },
   consentText: {
     fontSize: typography.bodyRegular.size,
@@ -2042,8 +2042,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: localColors.gray100,
     borderRadius: borderRadius.large,
-    padding: spacing.lg,
-    marginTop: spacing.lg,
+    padding: spacing[24],
+    marginTop: spacing[24],
   },
   consentCheckboxChecked: {
     backgroundColor: localColors.eveningPrimary,
@@ -2061,23 +2061,23 @@ const styles = StyleSheet.create({
   summaryContainer: {
     backgroundColor: localColors.gray100,
     borderRadius: borderRadius.large,
-    padding: spacing.lg,
-    marginBottom: spacing.xl,
+    padding: spacing[24],
+    marginBottom: spacing[32],
   },
   summaryTitle: {
     fontSize: typography.title.size,
     fontWeight: typography.fontWeight.semibold,
     color: localColors.black,
-    marginBottom: spacing.lg,
+    marginBottom: spacing[24],
   },
   summarySection: {
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
   },
   summaryLabel: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.semibold,
     color: localColors.black,
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
   },
   summaryValue: {
     fontSize: typography.bodyRegular.size,
@@ -2088,12 +2088,12 @@ const styles = StyleSheet.create({
   // Navigation Buttons
   navigationContainer: {
     flexDirection: 'row',
-    gap: spacing.md,
+    gap: spacing[16],
   },
   primaryButton: {
     backgroundColor: localColors.morningPrimary,
     borderRadius: borderRadius.large,
-    padding: spacing.lg,
+    padding: spacing[24],
     alignItems: 'center',
     flex: 1,
   },
@@ -2108,9 +2108,9 @@ const styles = StyleSheet.create({
   secondaryButton: {
     backgroundColor: localColors.gray200,
     borderRadius: borderRadius.large,
-    padding: spacing.lg,
+    padding: spacing[24],
     alignItems: 'center',
-    marginTop: spacing.md,
+    marginTop: spacing[16],
   },
   secondaryButtonText: {
     color: localColors.black,
@@ -2120,7 +2120,7 @@ const styles = StyleSheet.create({
   backButton: {
     backgroundColor: localColors.gray200,
     borderRadius: borderRadius.large,
-    padding: spacing.lg,
+    padding: spacing[24],
     alignItems: 'center',
     minWidth: 100,
   },
@@ -2154,8 +2154,8 @@ const styles = StyleSheet.create({
   assessmentControls: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginBottom: spacing.md,
-    paddingHorizontal: spacing.lg,
+    marginBottom: spacing[16],
+    paddingHorizontal: spacing[24],
   },
   // High contrast mode styles (automatically applied by system)
   highContrastText: {
@@ -2176,7 +2176,7 @@ const styles = StyleSheet.create({
   requiredField: {
     borderLeftWidth: 4,
     borderLeftColor: localColors.warningAmber,
-    paddingLeft: spacing.sm,
+    paddingLeft: spacing[8],
   },
   validationError: {
     borderWidth: 2,

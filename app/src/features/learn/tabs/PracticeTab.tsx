@@ -247,7 +247,7 @@ const PracticeTab: React.FC<PracticeTabProps> = ({
       </View>
 
       {/* Bottom Padding */}
-      <View style={{ height: spacing.xxxl }} />
+      <View style={{ height: spacing[64] }} />
     </ScrollView>
   );
 };
@@ -258,16 +258,16 @@ const styles = StyleSheet.create({
     backgroundColor: colorSystem.base.white,
   },
   scrollContent: {
-    padding: spacing.lg,
+    padding: spacing[24],
   },
   introSection: {
-    marginBottom: spacing.xl,
+    marginBottom: spacing[32],
   },
   introTitle: {
     fontSize: typography.headline3.size,
     fontWeight: typography.fontWeight.bold,
     color: colorSystem.base.black,
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
   },
   introText: {
     fontSize: typography.bodyRegular.size,
@@ -275,25 +275,25 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   practicesSection: {
-    gap: spacing.lg,
-    marginBottom: spacing.xl,
+    gap: spacing[24],
+    marginBottom: spacing[32],
   },
   practiceCard: {
     backgroundColor: colorSystem.base.white,
     borderRadius: borderRadius.xl,
-    padding: spacing.lg,
+    padding: spacing[24],
     borderWidth: 1.5,
     borderColor: colorSystem.navigation.learn,
-    gap: spacing.md,
+    gap: spacing[16],
   },
   practiceHeader: {
     flexDirection: 'row',
-    gap: spacing.md,
+    gap: spacing[16],
     alignItems: 'flex-start',
   },
   practiceIconContainer: {
-    width: spacing.xxl,
-    height: spacing.xxl,
+    width: spacing[48],
+    height: spacing[48],
     borderRadius: borderRadius.xxl,
     backgroundColor: colorSystem.gray[100],
     alignItems: 'center',
@@ -304,7 +304,7 @@ const styles = StyleSheet.create({
   },
   practiceHeaderText: {
     flex: 1,
-    gap: spacing.xs,
+    gap: spacing[4],
   },
   practiceTitle: {
     fontSize: typography.bodyLarge.size,
@@ -313,7 +313,7 @@ const styles = StyleSheet.create({
   },
   practiceMetadata: {
     flexDirection: 'row',
-    gap: spacing.sm,
+    gap: spacing[8],
     flexWrap: 'wrap',
   },
   practiceType: {
@@ -331,8 +331,8 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   instructionsSection: {
-    gap: spacing.xs,
-    paddingTop: spacing.sm,
+    gap: spacing[4],
+    paddingTop: spacing[8],
     borderTopWidth: 1,
     borderTopColor: colorSystem.gray[200],
   },
@@ -340,17 +340,17 @@ const styles = StyleSheet.create({
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.semibold,
     color: colorSystem.gray[700],
-    marginBottom: spacing.xs,
+    marginBottom: spacing[4],
   },
   instructionRow: {
     flexDirection: 'row',
-    gap: spacing.sm,
+    gap: spacing[8],
   },
   instructionNumber: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.semibold,
     color: colorSystem.navigation.learn,
-    minWidth: spacing[5],
+    minWidth: spacing[20],
   },
   instructionText: {
     flex: 1,
@@ -362,12 +362,12 @@ const styles = StyleSheet.create({
     fontSize: typography.bodySmall.size,
     color: colorSystem.gray[500],
     fontStyle: 'italic',
-    marginTop: spacing.xs,
+    marginTop: spacing[4],
   },
   startButton: {
     backgroundColor: colorSystem.navigation.learn,
     borderRadius: borderRadius.large,
-    paddingVertical: spacing.md,
+    paddingVertical: spacing[16],
     alignItems: 'center',
   },
   startButtonText: {
@@ -376,19 +376,19 @@ const styles = StyleSheet.create({
     color: colorSystem.base.white,
   },
   tipsSection: {
-    gap: spacing.md,
+    gap: spacing[16],
   },
   tipsTitle: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.black,
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
   },
   tipCard: {
     flexDirection: 'row',
-    gap: spacing.md,
+    gap: spacing[16],
     backgroundColor: colorSystem.gray[50],
-    padding: spacing.md,
+    padding: spacing[16],
     borderRadius: borderRadius.large,
     borderWidth: 1.5,
     borderColor: colorSystem.navigation.learn,

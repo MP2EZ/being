@@ -190,20 +190,20 @@ const styles = StyleSheet.create({
   },
   content: {
     flexGrow: 1,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.xl,
+    paddingHorizontal: spacing[24],
+    paddingVertical: spacing[32],
   },
   instructionsSection: {
-    marginBottom: spacing.xl,
+    marginBottom: spacing[32],
   },
   instructionsText: {
     fontSize: typography.bodyRegular.size,
     color: colorSystem.gray[700],
     textAlign: 'center',
-    lineHeight: spacing.lg,
+    lineHeight: spacing[24],
   },
   bodyAreaSection: {
-    marginBottom: spacing.xl,
+    marginBottom: spacing[32],
   },
   sectionLabel: {
     fontSize: typography.caption.size,
@@ -211,21 +211,21 @@ const styles = StyleSheet.create({
     color: colorSystem.gray[600],
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
   },
   nextButton: {
     backgroundColor: colorSystem.navigation.learn,
     borderRadius: borderRadius.large,
-    paddingVertical: spacing.lg,
+    paddingVertical: spacing[24],
     alignItems: 'center',
-    marginBottom: spacing.xl,
+    marginBottom: spacing[32],
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: spacing.xs,
+      height: spacing[4],
     },
     shadowOpacity: 0.1,
-    shadowRadius: spacing.xs,
+    shadowRadius: spacing[4],
     elevation: 2,
   },
   nextButtonText: {
@@ -237,9 +237,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     backgroundColor: colorSystem.navigation.learn + '10',
-    padding: spacing.md,
+    padding: spacing[16],
     borderRadius: borderRadius.medium,
-    gap: spacing.sm,
+    gap: spacing[8],
   },
   noteIcon: {
     fontSize: typography.title.size,
@@ -248,7 +248,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: typography.caption.size,
     color: colorSystem.gray[700],
-    lineHeight: spacing[5],
+    lineHeight: spacing[20],
     fontStyle: 'italic',
   },
 });

@@ -544,13 +544,13 @@ const EnhancedAssessmentQuestion: React.FC<EnhancedAssessmentQuestionProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: spacing.md,
+    padding: spacing[16],
   },
   crisisAlertBanner: {
     backgroundColor: colorSystem.status.critical,
-    padding: spacing.md,
+    padding: spacing[16],
     borderRadius: borderRadius.medium,
-    marginBottom: spacing.lg,
+    marginBottom: spacing[24],
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -562,23 +562,23 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   progressContainer: {
-    marginBottom: spacing.lg,
+    marginBottom: spacing[24],
   },
   progressText: {
     fontSize: typography.caption.size,
     fontWeight: typography.caption.weight,
     color: colorSystem.accessibility.text.secondary,
-    marginBottom: spacing.xs,
+    marginBottom: spacing[4],
     textAlign: 'center',
   },
   progressRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: spacing[8],
   },
   progressBar: {
     flex: 1,
-    height: spacing.xs,
+    height: spacing[4],
     backgroundColor: colorSystem.gray[200],
     borderRadius: borderRadius.xs,
     overflow: 'hidden',
@@ -596,10 +596,10 @@ const styles = StyleSheet.create({
   },
   consentWarning: {
     backgroundColor: colorSystem.status.warningBackground,
-    padding: spacing.sm,
+    padding: spacing[8],
     borderRadius: borderRadius.medium,
-    marginBottom: spacing.md,
-    borderLeftWidth: spacing.xs,
+    marginBottom: spacing[16],
+    borderLeftWidth: spacing[4],
     borderLeftColor: colorSystem.status.warning,
   },
   consentWarningText: {
@@ -608,7 +608,7 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.medium,
   },
   questionContainer: {
-    marginBottom: spacing.xl, // Space between question and response options
+    marginBottom: spacing[32], // Space between question and response options
   },
   questionText: {
     fontSize: typography.headline3.size,
@@ -622,14 +622,14 @@ const styles = StyleSheet.create({
     fontWeight: typography.bodyRegular.weight,
     color: colorSystem.accessibility.text.secondary,
     lineHeight: typography.bodyRegular.size * 1.5,
-    marginBottom: spacing.lg, // More space between instruction and question
+    marginBottom: spacing[24], // More space between instruction and question
   },
   specialInstructionContainer: {
     backgroundColor: colorSystem.status.infoBackground,
-    padding: spacing.sm,
+    padding: spacing[8],
     borderRadius: borderRadius.medium,
-    marginTop: spacing.sm,
-    borderLeftWidth: spacing.xs,
+    marginTop: spacing[8],
+    borderLeftWidth: spacing[4],
     borderLeftColor: colorSystem.status.info,
   },
   specialInstructionText: {
@@ -640,14 +640,14 @@ const styles = StyleSheet.create({
   },
   responseContainer: {
     flex: 1,
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
   },
   processingContainer: {
     backgroundColor: colorSystem.gray[100],
-    padding: spacing.sm,
+    padding: spacing[8],
     borderRadius: borderRadius.medium,
     alignItems: 'center',
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
   },
   processingText: {
     fontSize: typography.caption.size,
@@ -655,8 +655,8 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   safetyContainer: {
-    marginTop: spacing.lg,
-    paddingTop: spacing.md,
+    marginTop: spacing[24],
+    paddingTop: spacing[16],
     borderTopWidth: 1,
     borderTopColor: colorSystem.gray[200],
   },
@@ -665,11 +665,11 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.semibold,
     color: colorSystem.accessibility.text.primary,
     textAlign: 'center',
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
   },
   safetyButtonRow: {
     flexDirection: 'row',
-    gap: spacing.sm,
+    gap: spacing[8],
     justifyContent: 'center',
   },
 });

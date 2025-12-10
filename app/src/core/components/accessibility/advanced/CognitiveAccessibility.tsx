@@ -453,16 +453,16 @@ const styles = StyleSheet.create({
   // Memory aid styling
   memoryAidOverlay: {
     position: 'absolute',
-    top: spacing.lg,
-    left: spacing.md,
-    right: spacing.md,
+    top: spacing[24],
+    left: spacing[16],
+    right: spacing[16],
     zIndex: 1000,
   },
   memoryAidContent: {
     backgroundColor: colorSystem.accessibility.notification.background,
     borderLeftWidth: borderRadius.small,
     borderLeftColor: colorSystem.accessibility.notification.border,
-    padding: spacing.md,
+    padding: spacing[16],
     borderRadius: borderRadius.medium,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -480,16 +480,16 @@ const styles = StyleSheet.create({
   // Focus guidance styling
   focusGuidanceOverlay: {
     position: 'absolute',
-    bottom: spacing.lg,
-    left: spacing.md,
-    right: spacing.md,
+    bottom: spacing[24],
+    left: spacing[16],
+    right: spacing[16],
     zIndex: 1000,
   },
   focusGuidanceContent: {
     backgroundColor: colorSystem.base.white,
     borderWidth: 2,
     borderColor: colorSystem.accessibility.focus.primary,
-    padding: spacing.lg,
+    padding: spacing[24],
     borderRadius: borderRadius.large,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: borderRadius.small },
@@ -501,7 +501,7 @@ const styles = StyleSheet.create({
     fontSize: typography.bodySmall.size,
     fontWeight: '600',
     color: colorSystem.accessibility.text.secondary,
-    marginBottom: spacing.xs,
+    marginBottom: spacing[4],
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
@@ -510,7 +510,7 @@ const styles = StyleSheet.create({
     fontWeight: typography.bodyLarge.weight,
     color: colorSystem.accessibility.text.primary,
     lineHeight: typography.bodyLarge.size * 1.3,
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
   },
   progressContainer: {
     height: borderRadius.small,
@@ -526,13 +526,13 @@ const styles = StyleSheet.create({
   
   // Instruction styling
   instructionContainer: {
-    marginVertical: spacing.sm,
+    marginVertical: spacing[8],
   },
   timeEstimate: {
     fontSize: typography.caption.size,
     fontWeight: typography.caption.weight,
     color: colorSystem.accessibility.text.tertiary,
-    marginBottom: spacing.xs,
+    marginBottom: spacing[4],
   },
   instructionText: {
     fontSize: typography.bodyRegular.size,
@@ -548,7 +548,7 @@ const styles = StyleSheet.create({
   loadIndicator: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
+    gap: spacing[4],
   },
   loadIndicatorDot: {
     width: borderRadius.medium,

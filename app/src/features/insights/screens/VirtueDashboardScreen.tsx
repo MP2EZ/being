@@ -215,29 +215,29 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: spacing.lg,
-    paddingBottom: spacing.xl,
+    padding: spacing[24],
+    paddingBottom: spacing[32],
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: spacing.xl,
+    padding: spacing[32],
   },
   loadingText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
     color: colors.gray600,
-    marginTop: spacing.md,
+    marginTop: spacing[16],
   },
   header: {
-    marginBottom: spacing.xl,
+    marginBottom: spacing[32],
   },
   title: {
     fontSize: typography.headline2.size,
     fontWeight: typography.fontWeight.bold,
     color: colors.black,
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
   },
   subtitle: {
     fontSize: typography.bodyLarge.size,
@@ -246,32 +246,32 @@ const styles = StyleSheet.create({
     lineHeight: typography.headline4.size,
   },
   section: {
-    marginBottom: spacing.xl,
+    marginBottom: spacing[32],
   },
   sectionTitle: {
     fontSize: typography.headline3.size,
     fontWeight: typography.fontWeight.semibold,
     color: colors.black,
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
   },
   sectionHelper: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
     color: colors.gray500,
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
   },
   stageCard: {
     backgroundColor: colors.gray100,
     borderRadius: borderRadius.large,
-    padding: spacing.lg,
-    marginBottom: spacing.md,
-    borderLeftWidth: spacing.xs,
+    padding: spacing[24],
+    marginBottom: spacing[16],
+    borderLeftWidth: spacing[4],
   },
   stageHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
   },
   stageLabel: {
     fontSize: typography.bodySmall.size,
@@ -292,13 +292,13 @@ const styles = StyleSheet.create({
   },
   metricsGrid: {
     flexDirection: 'row',
-    gap: spacing.md,
+    gap: spacing[16],
   },
   metricCard: {
     flex: 1,
     backgroundColor: colors.white,
     borderRadius: borderRadius.medium,
-    padding: spacing.md,
+    padding: spacing[16],
     borderWidth: 1,
     borderColor: colors.gray200,
     alignItems: 'center',
@@ -307,7 +307,7 @@ const styles = StyleSheet.create({
     fontSize: typography.display2.size,
     fontWeight: typography.fontWeight.bold,
     color: colors.eveningPrimary,
-    marginBottom: spacing.xs,
+    marginBottom: spacing[4],
   },
   metricLabel: {
     fontSize: typography.micro.size,
@@ -318,18 +318,18 @@ const styles = StyleSheet.create({
   frequencyCard: {
     backgroundColor: colors.gray100,
     borderRadius: borderRadius.large,
-    padding: spacing.lg,
+    padding: spacing[24],
   },
   frequencyHeader: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
   },
   frequencyValue: {
     fontSize: typography.display1.size,
     fontWeight: typography.fontWeight.bold,
     color: colors.eveningPrimary,
-    marginRight: spacing.sm,
+    marginRight: spacing[8],
   },
   frequencyLabel: {
     fontSize: typography.bodyRegular.size,
@@ -337,14 +337,14 @@ const styles = StyleSheet.create({
     color: colors.gray600,
   },
   progressBarContainer: {
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
   },
   progressBar: {
-    height: spacing.sm,
+    height: spacing[8],
     backgroundColor: colors.gray300,
     borderRadius: borderRadius.small,
     overflow: 'hidden',
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
   },
   progressFill: {
     height: '100%',
@@ -364,12 +364,12 @@ const styles = StyleSheet.create({
     lineHeight: typography.title.size,
   },
   quoteSection: {
-    padding: spacing.lg,
+    padding: spacing[24],
     backgroundColor: colors.gray100,
     borderRadius: borderRadius.medium,
-    borderLeftWidth: spacing.xs,
+    borderLeftWidth: spacing[4],
     borderLeftColor: colors.eveningPrimary,
-    marginBottom: spacing.xl,
+    marginBottom: spacing[32],
   },
   quoteText: {
     fontSize: typography.bodySmall.size,

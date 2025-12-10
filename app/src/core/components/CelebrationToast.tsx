@@ -160,8 +160,8 @@ const styles = StyleSheet.create({
   card: {
     minWidth: 280,
     maxWidth: 340,
-    paddingVertical: spacing.xl,
-    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing[32],
+    paddingHorizontal: spacing[24],
     borderRadius: borderRadius.xxl,
     alignItems: 'center',
     shadowColor: '#000',
@@ -172,13 +172,13 @@ const styles = StyleSheet.create({
   },
   emoji: {
     fontSize: typography.display1.size,
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
   },
   title: {
     fontSize: typography.title.size,
     fontWeight: typography.fontWeight.semibold,
     textAlign: 'center',
-    marginBottom: spacing[3],
+    marginBottom: spacing[12],
   },
   stats: {
     fontSize: typography.bodySmall.size,

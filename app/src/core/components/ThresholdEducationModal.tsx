@@ -153,10 +153,10 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: borderRadius.xxl,
     borderTopRightRadius: borderRadius.xxl,
     maxHeight: '80%',
-    paddingBottom: spacing[10], // Safe area padding
+    paddingBottom: spacing[40], // Safe area padding
   },
   scrollView: {
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing[24],
   },
   dragIndicator: {
     width: 40,
@@ -164,30 +164,30 @@ const styles = StyleSheet.create({
     backgroundColor: colors.gray600,
     borderRadius: borderRadius.xs,
     alignSelf: 'center',
-    marginTop: spacing.md,
-    marginBottom: spacing.lg,
+    marginTop: spacing[16],
+    marginBottom: spacing[24],
   },
   title: {
     fontSize: typography.headline4.size,
     fontWeight: typography.fontWeight.bold,
     color: colors.black,
-    marginBottom: spacing.lg,
+    marginBottom: spacing[24],
     textAlign: 'center',
   },
   section: {
-    marginBottom: spacing.lg,
+    marginBottom: spacing[24],
   },
   sectionTitle: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
     color: colors.black,
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
   },
   bodyText: {
     fontSize: typography.bodyRegular.size,
     lineHeight: 24,
     color: colors.gray700,
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
   },
   bold: {
     fontWeight: typography.fontWeight.semibold,
@@ -195,11 +195,11 @@ const styles = StyleSheet.create({
   },
   dismissButton: {
     backgroundColor: colors.primaryOrange,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing[16],
+    paddingHorizontal: spacing[24],
     borderRadius: borderRadius.large,
-    marginTop: spacing.md,
-    marginBottom: spacing.xl,
+    marginTop: spacing[16],
+    marginBottom: spacing[32],
     minHeight: 48, // Touch target minimum
   },
   dismissButtonText: {

@@ -193,11 +193,11 @@ const AssessmentStatusBadge: React.FC = () => {
 const styles = StyleSheet.create({
   badge: {
     alignItems: 'center',
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
+    paddingVertical: spacing[8],
+    paddingHorizontal: spacing[16],
     borderRadius: borderRadius.large,
-    marginHorizontal: spacing.lg,
-    marginBottom: spacing.sm,
+    marginHorizontal: spacing[24],
+    marginBottom: spacing[8],
   },
   label: {
     fontSize: typography.bodySmall.size,

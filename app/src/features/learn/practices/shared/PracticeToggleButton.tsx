@@ -99,15 +99,15 @@ const styles = StyleSheet.create({
   button: {
     backgroundColor: colorSystem.navigation.learn,
     borderRadius: borderRadius.large,
-    paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing[24],
+    paddingHorizontal: spacing[32],
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: spacing.xxl, // WCAG AA minimum
+    minHeight: spacing[48], // WCAG AA minimum
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: spacing.xs,
+      height: spacing[4],
     },
     shadowOpacity: 0.1,
     shadowRadius: borderRadius.small,

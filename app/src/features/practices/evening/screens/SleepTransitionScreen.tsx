@@ -195,29 +195,29 @@ const styles = StyleSheet.create({
     backgroundColor: '#1A1A1A', // Dark, sleep-compatible
   },
   contentContainer: {
-    padding: spacing[5],
+    padding: spacing[20],
     paddingBottom: 40,
   },
   backButton: {
-    marginBottom: spacing[5],
+    marginBottom: spacing[20],
   },
   backButtonText: {
     fontSize: typography.bodyRegular.size,
     color: '#7A9C85', // Muted green, not bright
   },
   header: {
-    marginBottom: spacing.lg,
+    marginBottom: spacing[24],
   },
   title: {
     fontSize: typography.headline2.size,
     fontWeight: typography.fontWeight.bold,
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
     color: '#E8E8E8', // Soft white, not harsh
   },
   subtitle: {
     fontSize: typography.bodyRegular.size,
     color: '#B8B8B8',
-    marginBottom: spacing.xs,
+    marginBottom: spacing[4],
   },
   helperText: {
     fontSize: typography.bodySmall.size,
@@ -225,17 +225,17 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   guidanceSection: {
-    padding: spacing[5],
+    padding: spacing[20],
     backgroundColor: '#252525',
     borderRadius: borderRadius.large,
-    marginBottom: spacing.lg,
-    borderLeftWidth: spacing.xs,
+    marginBottom: spacing[24],
+    borderLeftWidth: spacing[4],
     borderLeftColor: '#5A7C65', // Muted evening green
   },
   guidanceTitle: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
-    marginBottom: spacing[3],
+    marginBottom: spacing[12],
     color: '#B8C8B8',
   },
   guidanceText: {
@@ -245,17 +245,17 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   relaxationSection: {
-    padding: spacing[5],
+    padding: spacing[20],
     backgroundColor: '#252525',
     borderRadius: borderRadius.large,
-    marginBottom: spacing.lg,
-    borderLeftWidth: spacing.xs,
+    marginBottom: spacing[24],
+    borderLeftWidth: spacing[4],
     borderLeftColor: '#5A7C65',
   },
   relaxationTitle: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
-    marginBottom: spacing[3],
+    marginBottom: spacing[12],
     color: '#B8C8B8',
   },
   relaxationText: {
@@ -265,38 +265,38 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   sovereigntySection: {
-    padding: spacing[5],
+    padding: spacing[20],
     backgroundColor: '#2A3A2D',
     borderRadius: borderRadius.large,
-    marginBottom: spacing.lg,
-    borderLeftWidth: spacing.xs,
+    marginBottom: spacing[24],
+    borderLeftWidth: spacing[4],
     borderLeftColor: '#7A9C85',
   },
   sovereigntyTitle: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
-    marginBottom: spacing[3],
+    marginBottom: spacing[12],
     color: '#C8D8C8',
   },
   sovereigntyText: {
     fontSize: 15,
     color: '#B8B8B8',
     lineHeight: 24,
-    marginBottom: spacing[3],
+    marginBottom: spacing[12],
   },
   breathingSection: {
-    padding: spacing[5],
+    padding: spacing[20],
     backgroundColor: '#252525',
     borderRadius: borderRadius.large,
-    marginBottom: spacing.lg,
+    marginBottom: spacing[24],
     alignItems: 'center',
-    borderLeftWidth: spacing.xs,
+    borderLeftWidth: spacing[4],
     borderLeftColor: '#5A7C65',
   },
   breathingTitle: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
     color: '#B8C8B8',
     textAlign: 'center',
   },
@@ -304,16 +304,16 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#A8A8A8',
     lineHeight: 24,
-    marginBottom: spacing[5],
+    marginBottom: spacing[20],
     textAlign: 'left',
     width: '100%',
   },
   startBreathingButton: {
     backgroundColor: '#5A7C65',
     paddingVertical: typography.bodySmall.size,
-    paddingHorizontal: spacing.xl,
+    paddingHorizontal: spacing[32],
     borderRadius: borderRadius.medium,
-    marginTop: spacing[3],
+    marginTop: spacing[12],
   },
   startBreathingText: {
     fontSize: typography.bodyRegular.size,
@@ -323,9 +323,9 @@ const styles = StyleSheet.create({
   stopBreathingButton: {
     backgroundColor: '#2D5016',
     paddingVertical: typography.bodySmall.size,
-    paddingHorizontal: spacing.xl,
+    paddingHorizontal: spacing[32],
     borderRadius: borderRadius.medium,
-    marginTop: spacing[5],
+    marginTop: spacing[20],
   },
   stopBreathingText: {
     fontSize: typography.bodyRegular.size,
@@ -333,10 +333,10 @@ const styles = StyleSheet.create({
     color: '#E8F0E8',
   },
   completionMessage: {
-    padding: spacing[5],
+    padding: spacing[20],
     backgroundColor: '#2A3A2D',
     borderRadius: borderRadius.large,
-    marginBottom: spacing.lg,
+    marginBottom: spacing[24],
     alignItems: 'center',
   },
   completionText: {
@@ -348,10 +348,10 @@ const styles = StyleSheet.create({
   },
   completeButton: {
     backgroundColor: '#2D5016', // Evening success green from DRD
-    padding: spacing.md,
+    padding: spacing[16],
     borderRadius: borderRadius.medium,
     alignItems: 'center',
-    marginBottom: spacing.lg,
+    marginBottom: spacing[24],
   },
   completeButtonText: {
     color: '#E8F0E8',
@@ -359,12 +359,12 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.semibold,
   },
   quoteSection: {
-    padding: spacing.md,
+    padding: spacing[16],
     backgroundColor: '#252525',
     borderRadius: borderRadius.medium,
-    borderLeftWidth: spacing.xs,
+    borderLeftWidth: spacing[4],
     borderLeftColor: '#5A7C65',
-    marginBottom: spacing[5],
+    marginBottom: spacing[20],
   },
   quoteText: {
     fontSize: typography.bodySmall.size,

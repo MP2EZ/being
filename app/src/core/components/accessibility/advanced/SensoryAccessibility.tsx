@@ -644,7 +644,7 @@ const styles = StyleSheet.create({
   textWithIndicator: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
+    gap: spacing[4],
   },
   visualIndicator: {
     width: borderRadius.medium,
@@ -656,8 +656,8 @@ const styles = StyleSheet.create({
   audioIndicatorContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
-    padding: spacing.xs,
+    gap: spacing[4],
+    padding: spacing[4],
   },
   audioIndicator: {
     width: borderRadius.xl,

@@ -430,17 +430,17 @@ const styles = StyleSheet.create({
     flex: 1
   },
   scrollContent: {
-    paddingBottom: spacing.xl
+    paddingBottom: spacing[32]
   },
   header: {
-    padding: spacing.lg,
-    paddingBottom: spacing.md
+    padding: spacing[24],
+    paddingBottom: spacing[16]
   },
   title: {
     fontSize: typography.headline2.size,
     fontWeight: typography.fontWeight.bold,
     color: colorSystem.gray[800],
-    marginBottom: spacing.xs
+    marginBottom: spacing[4]
   },
   subtitle: {
     fontSize: typography.bodyRegular.size,
@@ -449,23 +449,23 @@ const styles = StyleSheet.create({
   },
   emergencyBanner: {
     backgroundColor: '#FFEBEE',
-    borderLeftWidth: spacing.xs,
+    borderLeftWidth: spacing[4],
     borderLeftColor: '#D32F2F',
-    padding: spacing.lg,
-    marginHorizontal: spacing.lg,
-    marginBottom: spacing.lg,
+    padding: spacing[24],
+    marginHorizontal: spacing[24],
+    marginBottom: spacing[24],
     borderRadius: borderRadius.medium
   },
   emergencyBannerText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.semibold,
     color: '#C62828',
-    marginBottom: spacing.md
+    marginBottom: spacing[16]
   },
   emergency911Button: {
     backgroundColor: '#D32F2F',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing[16],
+    paddingHorizontal: spacing[24],
     borderRadius: borderRadius.medium,
     alignItems: 'center'
   },
@@ -475,26 +475,26 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.bold
   },
   section: {
-    marginBottom: spacing.xl,
-    paddingHorizontal: spacing.lg
+    marginBottom: spacing[32],
+    paddingHorizontal: spacing[24]
   },
   sectionTitle: {
     fontSize: typography.title.size,
     fontWeight: typography.fontWeight.semibold,
     color: colorSystem.gray[800],
-    marginBottom: spacing.xs
+    marginBottom: spacing[4]
   },
   sectionDescription: {
     fontSize: typography.bodySmall.size,
     color: colorSystem.gray[600],
-    marginBottom: spacing.lg,
-    lineHeight: spacing[5]
+    marginBottom: spacing[24],
+    lineHeight: spacing[20]
   },
   resourceCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: borderRadius.large,
-    padding: spacing.lg,
-    marginBottom: spacing.md,
+    padding: spacing[24],
+    marginBottom: spacing[16],
     borderWidth: 1,
     borderColor: colorSystem.gray[200],
     ...Platform.select({
@@ -502,7 +502,7 @@ const styles = StyleSheet.create({
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
-        shadowRadius: spacing.xs
+        shadowRadius: spacing[4]
       },
       android: {
         elevation: 2
@@ -520,10 +520,10 @@ const styles = StyleSheet.create({
   },
   priorityBadge: {
     alignSelf: 'flex-start',
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing[4],
+    paddingHorizontal: spacing[8],
     borderRadius: borderRadius.small,
-    marginBottom: spacing.sm
+    marginBottom: spacing[8]
   },
   priorityText: {
     color: '#FFFFFF',
@@ -532,13 +532,13 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5
   },
   resourceHeader: {
-    marginBottom: spacing.sm
+    marginBottom: spacing[8]
   },
   resourceName: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
     color: colorSystem.gray[800],
-    marginBottom: spacing.xs
+    marginBottom: spacing[4]
   },
   resourceAvailability: {
     fontSize: typography.bodySmall.size,
@@ -548,12 +548,12 @@ const styles = StyleSheet.create({
   resourceDescription: {
     fontSize: typography.bodySmall.size,
     color: colorSystem.gray[700],
-    lineHeight: spacing[5],
-    marginBottom: spacing.md
+    lineHeight: spacing[20],
+    marginBottom: spacing[16]
   },
   contactInfo: {
     flexDirection: 'row',
-    marginBottom: spacing.xs
+    marginBottom: spacing[4]
   },
   contactLabel: {
     fontSize: typography.bodySmall.size,
@@ -568,10 +568,10 @@ const styles = StyleSheet.create({
   },
   warningContainer: {
     backgroundColor: '#FFF3CD',
-    padding: spacing.sm,
+    padding: spacing[8],
     borderRadius: borderRadius.medium,
-    marginTop: spacing.sm,
-    marginBottom: spacing.sm
+    marginTop: spacing[8],
+    marginBottom: spacing[8]
   },
   warningText: {
     fontSize: typography.bodySmall.size,
@@ -580,13 +580,13 @@ const styles = StyleSheet.create({
   },
   actionButtons: {
     flexDirection: 'row',
-    marginTop: spacing.md,
-    gap: spacing.sm
+    marginTop: spacing[16],
+    gap: spacing[8]
   },
   primaryButton: {
     flex: 1,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing[16],
+    paddingHorizontal: spacing[24],
     borderRadius: borderRadius.medium,
     alignItems: 'center'
   },
@@ -597,8 +597,8 @@ const styles = StyleSheet.create({
   },
   secondaryButton: {
     flex: 1,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing[16],
+    paddingHorizontal: spacing[24],
     borderRadius: borderRadius.medium,
     alignItems: 'center',
     backgroundColor: colorSystem.gray[100],
@@ -613,27 +613,27 @@ const styles = StyleSheet.create({
   ctaContainer: {
     backgroundColor: '#E3F2FD',
     borderRadius: borderRadius.large,
-    padding: spacing.lg,
-    marginHorizontal: spacing.lg,
-    marginTop: spacing.lg,
-    marginBottom: spacing.xl
+    padding: spacing[24],
+    marginHorizontal: spacing[24],
+    marginTop: spacing[24],
+    marginBottom: spacing[32]
   },
   ctaTitle: {
     fontSize: typography.title.size,
     fontWeight: typography.fontWeight.semibold,
     color: colorSystem.gray[800],
-    marginBottom: spacing.sm
+    marginBottom: spacing[8]
   },
   ctaDescription: {
     fontSize: typography.bodySmall.size,
     color: colorSystem.gray[700],
-    lineHeight: spacing[5],
-    marginBottom: spacing.md
+    lineHeight: spacing[20],
+    marginBottom: spacing[16]
   },
   ctaButton: {
     backgroundColor: '#1976D2',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing[16],
+    paddingHorizontal: spacing[24],
     borderRadius: borderRadius.medium,
     alignItems: 'center'
   },
@@ -643,8 +643,8 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.bold
   },
   footer: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
+    paddingHorizontal: spacing[24],
+    paddingTop: spacing[24],
     borderTopWidth: 1,
     borderTopColor: colorSystem.gray[200]
   },

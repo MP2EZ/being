@@ -343,7 +343,7 @@ const styles = StyleSheet.create({
     fontSize: typography.headline2.size,
     fontWeight: typography.fontWeight.bold,
     color: '#FFFFFF',
-    marginLeft: -spacing.xs, // Optical centering
+    marginLeft: -spacing[4], // Optical centering
   },
 
   // Expanded state
@@ -353,9 +353,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#991B1B',
     borderTopLeftRadius: borderRadius.large,
     borderBottomLeftRadius: borderRadius.large,
-    paddingLeft: spacing.md,
-    paddingRight: spacing.sm,
-    paddingVertical: spacing.sm,
+    paddingLeft: spacing[16],
+    paddingRight: spacing[8],
+    paddingVertical: spacing[8],
     width: EXPANDED_WIDTH,
     shadowColor: '#000',
     shadowOffset: {
@@ -371,13 +371,13 @@ const styles = StyleSheet.create({
   crisisButton: {
     flex: 1,
     backgroundColor: '#7F1D1D', // Darker red for contrast
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing[3],
+    paddingHorizontal: spacing[16],
+    paddingVertical: spacing[12],
     borderRadius: borderRadius.medium,
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 44, // WCAG touch target
-    marginRight: spacing.sm,
+    marginRight: spacing[8],
   },
 
   crisisButtonText: {
@@ -390,8 +390,8 @@ const styles = StyleSheet.create({
 
   // Collapse button
   collapseButton: {
-    width: spacing.xl,
-    height: spacing.xl,
+    width: spacing[32],
+    height: spacing[32],
     justifyContent: 'center',
     alignItems: 'center',
   },

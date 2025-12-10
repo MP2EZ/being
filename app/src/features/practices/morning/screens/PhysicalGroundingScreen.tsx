@@ -235,28 +235,28 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
-    padding: spacing[5],
+    padding: spacing[20],
   },
   backButton: {
-    marginBottom: spacing[5],
+    marginBottom: spacing[20],
   },
   backButtonText: {
     fontSize: typography.bodyRegular.size,
     color: '#B45309',
   },
   header: {
-    marginBottom: spacing.lg,
+    marginBottom: spacing[24],
   },
   title: {
     fontSize: typography.headline2.size,
     fontWeight: typography.fontWeight.bold,
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
     color: '#333',
   },
   subtitle: {
     fontSize: typography.bodyRegular.size,
     color: '#666',
-    marginBottom: spacing.xs,
+    marginBottom: spacing[4],
   },
   helperText: {
     fontSize: typography.bodySmall.size,
@@ -264,19 +264,19 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   methodSection: {
-    marginBottom: spacing.lg,
+    marginBottom: spacing[24],
   },
   methodLabel: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
-    marginBottom: spacing[3],
+    marginBottom: spacing[12],
     color: '#333',
   },
   methodOptions: {
-    gap: spacing[3],
+    gap: spacing[12],
   },
   methodCard: {
-    padding: spacing.md,
+    padding: spacing[16],
     borderWidth: 2,
     borderColor: '#ddd',
     borderRadius: borderRadius.medium,
@@ -289,7 +289,7 @@ const styles = StyleSheet.create({
   methodTitle: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.semibold,
-    marginBottom: spacing.xs,
+    marginBottom: spacing[4],
     color: '#333',
   },
   methodTitleSelected: {
@@ -300,19 +300,19 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   guidanceSection: {
-    padding: spacing.md,
+    padding: spacing[16],
     backgroundColor: '#F9F9F9',
     borderRadius: borderRadius.medium,
-    marginBottom: spacing.lg,
+    marginBottom: spacing[24],
   },
   guidanceTitle: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.semibold,
-    marginBottom: spacing[3],
+    marginBottom: spacing[12],
     color: '#666',
   },
   guidanceSteps: {
-    gap: spacing.sm,
+    gap: spacing[8],
   },
   guidanceStep: {
     fontSize: typography.bodySmall.size,
@@ -320,24 +320,24 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   awarenessSection: {
-    marginBottom: spacing.lg,
+    marginBottom: spacing[24],
   },
   awarenessLabel: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
-    marginBottom: spacing.xs,
+    marginBottom: spacing[4],
     color: '#333',
   },
   awarenessHelper: {
     fontSize: typography.bodySmall.size,
     color: '#666',
-    marginBottom: spacing[3],
+    marginBottom: spacing[12],
   },
   textInput: {
     borderWidth: 1,
     borderColor: '#ddd',
     borderRadius: borderRadius.medium,
-    padding: spacing[3],
+    padding: spacing[12],
     fontSize: typography.bodyRegular.size,
     backgroundColor: '#fff',
     minHeight: 80,
@@ -345,11 +345,11 @@ const styles = StyleSheet.create({
   },
   continueButton: {
     backgroundColor: '#B45309',
-    padding: spacing.md,
+    padding: spacing[16],
     borderRadius: borderRadius.medium,
     alignItems: 'center',
-    marginTop: spacing[3],
-    marginBottom: spacing.lg,
+    marginTop: spacing[12],
+    marginBottom: spacing[24],
   },
   continueButtonDisabled: {
     backgroundColor: '#ccc',
@@ -360,12 +360,12 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.semibold,
   },
   transitionSection: {
-    padding: spacing.md,
+    padding: spacing[16],
     backgroundColor: '#f9f9f9',
     borderRadius: borderRadius.medium,
     borderLeftWidth: 4,
     borderLeftColor: '#B45309',
-    marginBottom: spacing[10],
+    marginBottom: spacing[40],
     alignItems: 'center',
   },
   transitionText: {
@@ -375,13 +375,13 @@ const styles = StyleSheet.create({
   },
   breathingContainer: {
     alignItems: 'center',
-    paddingVertical: spacing.lg,
+    paddingVertical: spacing[24],
   },
   breathingInstructions: {
     fontSize: typography.bodySmall.size,
     color: '#666',
     textAlign: 'center',
-    marginTop: spacing.md,
+    marginTop: spacing[16],
     fontStyle: 'italic',
   },
 });

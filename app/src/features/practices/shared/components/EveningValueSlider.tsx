@@ -211,13 +211,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   sliderContainer: {
-    marginBottom: spacing.xl,
+    marginBottom: spacing[32],
   },
   sliderHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.xs,
+    marginBottom: spacing[4],
   },
   sliderTitle: {
     fontSize: typography.bodyRegular.size,
@@ -228,14 +228,14 @@ const styles = StyleSheet.create({
   sliderDescription: {
     fontSize: typography.caption.size,
     color: colorSystem.gray[600],
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
     fontStyle: 'italic',
-    lineHeight: spacing[5],
+    lineHeight: spacing[20],
   },
   valueIndicator: {
     backgroundColor: colorSystem.base.white,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing[8],
+    paddingVertical: spacing[4],
     borderRadius: borderRadius.small,
     borderWidth: 1,
     borderColor: colorSystem.gray[300],
@@ -251,16 +251,16 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.bold,
   },
   sliderWrapper: {
-    paddingHorizontal: spacing.xs,
-    marginBottom: spacing.xs,
+    paddingHorizontal: spacing[4],
+    marginBottom: spacing[4],
   },
   customSlider: {
     width: '100%',
   },
   sliderTrack: {
-    height: spacing[2],
+    height: spacing[8],
     borderRadius: borderRadius.xs,
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
   },
   sliderFill: {
     height: '100%',
@@ -285,36 +285,36 @@ const styles = StyleSheet.create({
   sliderLabels: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing.xs,
-    marginBottom: spacing.sm,
+    paddingHorizontal: spacing[4],
+    marginBottom: spacing[8],
   },
   labelText: {
     fontSize: typography.caption.size,
     color: colorSystem.gray[600],
   },
   responseNote: {
-    padding: spacing.sm,
+    padding: spacing[8],
     borderRadius: borderRadius.small,
-    marginTop: spacing.xs,
+    marginTop: spacing[4],
   },
   responseNoteText: {
     fontSize: typography.caption.size,
     color: colorSystem.gray[700],
     textAlign: 'center',
     fontStyle: 'italic',
-    lineHeight: spacing[5],
+    lineHeight: spacing[20],
   },
   reminderSection: {
-    padding: spacing.md,
+    padding: spacing[16],
     borderRadius: borderRadius.medium,
-    marginTop: spacing.md,
+    marginTop: spacing[16],
     borderWidth: 1,
     borderColor: colorSystem.themes.evening.primary,
   },
   reminderText: {
     fontSize: typography.caption.size,
     color: colorSystem.gray[700],
-    lineHeight: spacing[5],
+    lineHeight: spacing[20],
     textAlign: 'center',
   },
 });

@@ -128,7 +128,7 @@ const PracticeTimerScreen: React.FC<PracticeTimerScreenProps> = ({
         isActive={isTimerActive}
         elapsedTime={elapsedTime}
         onToggle={setIsTimerActive}
-        style={{ marginBottom: spacing.xl }}
+        style={{ marginBottom: spacing[32] }}
         testID={`${testID}-toggle-button`}
       />
 
@@ -149,7 +149,7 @@ const styles = StyleSheet.create({
   breathingSection: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.xl,
+    marginBottom: spacing[32],
   },
 });
 

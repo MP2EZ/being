@@ -548,8 +548,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   closeButton: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing[3],
+    paddingHorizontal: spacing[16],
+    paddingVertical: spacing[12],
     minWidth: 44,
     minHeight: 44,
     justifyContent: 'center',

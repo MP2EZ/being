@@ -103,12 +103,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   areaList: {
-    gap: spacing.sm,
-    marginBottom: spacing.lg,
+    gap: spacing[8],
+    marginBottom: spacing[24],
   },
   areaItem: {
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
+    paddingVertical: spacing[16],
+    paddingHorizontal: spacing[16],
     borderRadius: borderRadius.medium,
     borderWidth: 2,
     borderColor: 'transparent',
@@ -139,11 +139,11 @@ const styles = StyleSheet.create({
     borderColor: colorSystem.gray[300],
   },
   statusIndicator: {
-    width: spacing.xl,
-    height: spacing.xl,
+    width: spacing[32],
+    height: spacing[32],
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: spacing.md,
+    marginRight: spacing[16],
   },
   statusIcon: {
     fontSize: typography.bodyLarge.size,
@@ -168,8 +168,8 @@ const styles = StyleSheet.create({
     fontSize: typography.bodySmall.size,
     color: colorSystem.gray[700],
     lineHeight: typography.title.size,
-    marginTop: spacing.sm,
-    paddingLeft: spacing.xl + spacing.md, // Align with area name (status indicator width + margin)
+    marginTop: spacing[8],
+    paddingLeft: spacing[32] + spacing[16], // Align with area name (status indicator width + margin)
   },
 });
 

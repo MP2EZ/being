@@ -821,7 +821,7 @@ const styles = StyleSheet.create({
     flex: 1
   },
   scrollContent: {
-    padding: spacing.lg
+    padding: spacing[24]
   },
   loadingContainer: {
     flex: 1,
@@ -839,53 +839,53 @@ const styles = StyleSheet.create({
     fontSize: typography.headline2.size,
     fontWeight: typography.fontWeight.bold,
     color: colorSystem.gray[800],
-    marginBottom: spacing.md
+    marginBottom: spacing[16]
   },
   stepDescription: {
     fontSize: typography.bodyRegular.size,
     color: colorSystem.gray[600],
     lineHeight: typography.bodyLarge.size,
-    marginBottom: spacing.lg
+    marginBottom: spacing[24]
   },
   infoBox: {
     backgroundColor: '#E3F2FD',
     borderRadius: borderRadius.large,
-    padding: spacing.lg,
-    marginBottom: spacing.md
+    padding: spacing[24],
+    marginBottom: spacing[16]
   },
   infoTitle: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.semibold,
     color: colorSystem.gray[800],
-    marginBottom: spacing.sm
+    marginBottom: spacing[8]
   },
   infoText: {
     fontSize: typography.bodySmall.size,
     color: colorSystem.gray[700],
-    lineHeight: spacing[5],
-    marginBottom: spacing.xs
+    lineHeight: spacing[20],
+    marginBottom: spacing[4]
   },
   inputContainer: {
-    marginBottom: spacing.lg
+    marginBottom: spacing[24]
   },
   contactForm: {
-    marginBottom: spacing.lg
+    marginBottom: spacing[24]
   },
   textInput: {
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: colorSystem.gray[300],
     borderRadius: borderRadius.medium,
-    padding: spacing.md,
+    padding: spacing[16],
     fontSize: typography.bodyRegular.size,
     color: colorSystem.gray[800],
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
     minHeight: 50
   },
   addButton: {
     backgroundColor: '#1976D2',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing[16],
+    paddingHorizontal: spacing[24],
     borderRadius: borderRadius.medium,
     alignItems: 'center'
   },
@@ -898,40 +898,40 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.semibold
   },
   itemsList: {
-    marginBottom: spacing.lg
+    marginBottom: spacing[24]
   },
   itemsListTitle: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.semibold,
     color: colorSystem.gray[800],
-    marginBottom: spacing.sm
+    marginBottom: spacing[8]
   },
   itemCard: {
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: colorSystem.gray[200],
     borderRadius: borderRadius.medium,
-    padding: spacing.md,
-    marginBottom: spacing.sm
+    padding: spacing[16],
+    marginBottom: spacing[8]
   },
   itemText: {
     fontSize: typography.bodySmall.size,
     color: colorSystem.gray[800],
-    lineHeight: spacing[5]
+    lineHeight: spacing[20]
   },
   navigationButtons: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: spacing.lg,
-    gap: spacing.md
+    marginTop: spacing[24],
+    gap: spacing[16]
   },
   actionButtons: {
-    marginTop: spacing.xl
+    marginTop: spacing[32]
   },
   primaryButton: {
     backgroundColor: '#1976D2',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing[16],
+    paddingHorizontal: spacing[24],
     borderRadius: borderRadius.medium,
     alignItems: 'center',
     flex: 1
@@ -945,12 +945,12 @@ const styles = StyleSheet.create({
     backgroundColor: colorSystem.gray[100],
     borderWidth: 1,
     borderColor: colorSystem.gray[300],
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing[16],
+    paddingHorizontal: spacing[24],
     borderRadius: borderRadius.medium,
     alignItems: 'center',
     flex: 1,
-    marginTop: spacing.sm
+    marginTop: spacing[8]
   },
   secondaryButtonText: {
     color: colorSystem.gray[800],
@@ -959,31 +959,31 @@ const styles = StyleSheet.create({
   },
   reviewContainer: {
     maxHeight: 400,
-    marginBottom: spacing.lg
+    marginBottom: spacing[24]
   },
   reviewSection: {
-    marginBottom: spacing.lg
+    marginBottom: spacing[24]
   },
   reviewSectionTitle: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
     color: colorSystem.gray[800],
-    marginBottom: spacing.sm
+    marginBottom: spacing[8]
   },
   reviewItem: {
     fontSize: typography.bodySmall.size,
     color: colorSystem.gray[700],
-    lineHeight: spacing[5],
-    marginBottom: spacing.xs
+    lineHeight: spacing[20],
+    marginBottom: spacing[4]
   },
   reviewActions: {
-    gap: spacing.sm,
-    marginBottom: spacing.lg
+    gap: spacing[8],
+    marginBottom: spacing[24]
   },
   exportButton: {
     backgroundColor: '#4CAF50',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing[16],
+    paddingHorizontal: spacing[24],
     borderRadius: borderRadius.medium,
     alignItems: 'center'
   },
@@ -994,8 +994,8 @@ const styles = StyleSheet.create({
   },
   editButton: {
     backgroundColor: '#FF9800',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing[16],
+    paddingHorizontal: spacing[24],
     borderRadius: borderRadius.medium,
     alignItems: 'center'
   },
@@ -1006,8 +1006,8 @@ const styles = StyleSheet.create({
   },
   deleteButton: {
     backgroundColor: '#F44336',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing[16],
+    paddingHorizontal: spacing[24],
     borderRadius: borderRadius.medium,
     alignItems: 'center'
   },

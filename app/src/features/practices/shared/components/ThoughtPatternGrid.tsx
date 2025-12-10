@@ -217,9 +217,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   introSection: {
-    padding: spacing.md,
+    padding: spacing[16],
     borderRadius: borderRadius.medium,
-    marginBottom: spacing.lg,
+    marginBottom: spacing[24],
     borderWidth: 1,
     borderColor: colorSystem.themes.evening.primary,
   },
@@ -227,7 +227,7 @@ const styles = StyleSheet.create({
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.black,
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
     textAlign: 'center',
   },
   introText: {
@@ -239,7 +239,7 @@ const styles = StyleSheet.create({
   },
   gridScrollView: {
     flex: 1,
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
   },
   grid: {
     flexDirection: 'row',
@@ -248,9 +248,9 @@ const styles = StyleSheet.create({
   },
   patternCard: {
     width: '48%',
-    padding: spacing.md,
+    padding: spacing[16],
     borderRadius: borderRadius.medium,
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
     minHeight: 140,
     shadowColor: '#000',
     shadowOffset: {
@@ -265,7 +265,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: spacing.xs,
+    marginBottom: spacing[4],
   },
   patternTitle: {
     fontSize: typography.bodyRegular.size,
@@ -274,12 +274,12 @@ const styles = StyleSheet.create({
     lineHeight: typography.title.size,
   },
   checkmark: {
-    width: spacing[5],
-    height: spacing[5],
+    width: spacing[20],
+    height: spacing[20],
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: spacing.xs,
+    marginLeft: spacing[4],
   },
   checkmarkText: {
     color: colorSystem.base.white,
@@ -289,7 +289,7 @@ const styles = StyleSheet.create({
   patternDescription: {
     fontSize: typography.caption.size,
     color: colorSystem.gray[600],
-    marginBottom: spacing.xs,
+    marginBottom: spacing[4],
     lineHeight: typography.bodyLarge.size,
   },
   patternExample: {
@@ -299,9 +299,9 @@ const styles = StyleSheet.create({
     lineHeight: typography.bodyRegular.size,
   },
   feedbackSection: {
-    padding: spacing.md,
+    padding: spacing[16],
     borderRadius: borderRadius.medium,
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
     borderWidth: 1,
     borderColor: colorSystem.themes.evening.primary,
   },
@@ -312,7 +312,7 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   educationalNote: {
-    padding: spacing.sm,
+    padding: spacing[8],
     backgroundColor: colorSystem.gray[50],
     borderRadius: borderRadius.small,
   },

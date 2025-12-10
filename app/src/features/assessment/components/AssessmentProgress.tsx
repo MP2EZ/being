@@ -191,9 +191,9 @@ const AssessmentProgress: React.FC<AssessmentProgressProps> = ({
 const styles = StyleSheet.create({
   container: {
     backgroundColor: colorSystem.base.white,
-    padding: spacing.md,
+    padding: spacing[16],
     borderRadius: borderRadius.large,
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -207,7 +207,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
   },
   assessmentTitle: {
     fontSize: typography.headline3.size,
@@ -224,19 +224,19 @@ const styles = StyleSheet.create({
   progressBarContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
-    marginBottom: spacing.sm,
+    gap: spacing[8],
+    marginBottom: spacing[8],
   },
   progressBarTrack: {
     flex: 1,
-    height: spacing.sm,
+    height: spacing[8],
     borderRadius: borderRadius.small,
     overflow: 'hidden',
   },
   progressBarFill: {
     height: '100%',
     borderRadius: borderRadius.small,
-    minWidth: spacing.sm, // Minimum visible progress
+    minWidth: spacing[8], // Minimum visible progress
   },
   progressPercentage: {
     fontSize: typography.caption.size,
@@ -262,10 +262,10 @@ const styles = StyleSheet.create({
   },
   completionBadge: {
     position: 'absolute',
-    top: spacing.sm,
-    right: spacing.sm,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
+    top: spacing[8],
+    right: spacing[8],
+    paddingHorizontal: spacing[8],
+    paddingVertical: spacing[4],
     borderRadius: borderRadius.large,
     shadowColor: '#000',
     shadowOffset: {

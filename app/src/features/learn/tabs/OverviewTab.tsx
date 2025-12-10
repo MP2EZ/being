@@ -251,7 +251,7 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
       </View>
 
       {/* Bottom Padding */}
-      <View style={{ height: spacing.xxxl }} />
+      <View style={{ height: spacing[64] }} />
     </ScrollView>
   );
 };
@@ -262,22 +262,22 @@ const styles = StyleSheet.create({
     backgroundColor: colorSystem.base.white,
   },
   scrollContent: {
-    padding: spacing.lg,
+    padding: spacing[24],
   },
   quoteSection: {
     backgroundColor: colorSystem.gray[50],
-    borderLeftWidth: spacing.xs,
+    borderLeftWidth: spacing[4],
     borderLeftColor: colorSystem.navigation.learn,
-    padding: spacing.lg,
+    padding: spacing[24],
     borderRadius: borderRadius.medium,
-    marginBottom: spacing.xl,
+    marginBottom: spacing[32],
   },
   quoteText: {
     fontSize: typography.bodyLarge.size,
     fontStyle: 'italic',
     color: colorSystem.gray[800],
     lineHeight: 26,
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
   },
   quoteAuthor: {
     fontSize: typography.bodyRegular.size,
@@ -286,13 +286,13 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   section: {
-    marginBottom: spacing.xl,
+    marginBottom: spacing[32],
   },
   sectionTitle: {
     fontSize: typography.headline3.size,
     fontWeight: typography.fontWeight.bold,
     color: colorSystem.base.black,
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
   },
   summaryText: {
     fontSize: typography.bodyRegular.size,
@@ -305,8 +305,8 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   conceptsSection: {
-    marginBottom: spacing.xl,
-    gap: spacing.md,
+    marginBottom: spacing[32],
+    gap: spacing[16],
   },
   conceptCard: {
     borderWidth: 1,
@@ -319,7 +319,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: spacing.md,
+    padding: spacing[16],
     backgroundColor: colorSystem.gray[50],
   },
   conceptTitle: {
@@ -332,11 +332,11 @@ const styles = StyleSheet.create({
     fontSize: typography.headline4.size,
     fontWeight: typography.fontWeight.light,
     color: colorSystem.navigation.learn,
-    marginLeft: spacing.sm,
+    marginLeft: spacing[8],
   },
   conceptContent: {
-    padding: spacing.md,
-    gap: spacing.md,
+    padding: spacing[16],
+    gap: spacing[16],
   },
   conceptText: {
     fontSize: typography.bodyRegular.size,
@@ -344,7 +344,7 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   learnMoreSection: {
-    paddingTop: spacing.md,
+    paddingTop: spacing[16],
     borderTopWidth: 1,
     borderTopColor: colorSystem.gray[200],
   },
@@ -354,7 +354,7 @@ const styles = StyleSheet.create({
     color: colorSystem.navigation.learn,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    marginBottom: spacing.xs,
+    marginBottom: spacing[4],
   },
   learnMoreText: {
     fontSize: typography.bodySmall.size,
@@ -364,8 +364,8 @@ const styles = StyleSheet.create({
   exampleCard: {
     backgroundColor: '#FFF9E6', // Light yellow
     borderRadius: borderRadius.large,
-    padding: spacing.lg,
-    marginBottom: spacing.xl,
+    padding: spacing[24],
+    marginBottom: spacing[32],
     borderWidth: 1,
     borderColor: '#FFE066',
   },
@@ -376,8 +376,8 @@ const styles = StyleSheet.create({
   exampleHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
-    marginBottom: spacing.sm,
+    gap: spacing[8],
+    marginBottom: spacing[8],
   },
   exampleIcon: {
     fontSize: typography.title.size,
@@ -397,19 +397,19 @@ const styles = StyleSheet.create({
   divider: {
     height: 1,
     backgroundColor: colorSystem.gray[200],
-    marginVertical: spacing.xl,
+    marginVertical: spacing[32],
   },
   obstaclesSection: {
-    marginBottom: spacing.xl,
+    marginBottom: spacing[32],
   },
   obstaclesIntro: {
     fontSize: typography.bodySmall.size,
     color: colorSystem.gray[600],
     lineHeight: 20,
-    marginBottom: spacing.lg,
+    marginBottom: spacing[24],
   },
   obstaclesList: {
-    gap: spacing.md,
+    gap: spacing[16],
   },
   obstacleCard: {
     borderWidth: 1,
@@ -422,7 +422,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: spacing.md,
+    padding: spacing[16],
     backgroundColor: colorSystem.gray[50],
   },
   obstacleQuestion: {
@@ -430,7 +430,7 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.black,
     flex: 1,
-    paddingRight: spacing.sm,
+    paddingRight: spacing[8],
   },
   obstacleIcon: {
     fontSize: typography.headline4.size,
@@ -438,8 +438,8 @@ const styles = StyleSheet.create({
     color: colorSystem.navigation.learn,
   },
   obstacleContent: {
-    padding: spacing.md,
-    gap: spacing.md,
+    padding: spacing[16],
+    gap: spacing[16],
   },
   obstacleResponse: {
     fontSize: typography.bodyRegular.size,
@@ -449,15 +449,15 @@ const styles = StyleSheet.create({
   tipBox: {
     backgroundColor: '#FFF9E6', // Light yellow
     borderRadius: borderRadius.medium,
-    padding: spacing.md,
-    borderLeftWidth: spacing[3],
+    padding: spacing[16],
+    borderLeftWidth: spacing[12],
     borderLeftColor: '#FFD700',
   },
   tipLabel: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.bold,
     color: colorSystem.gray[700],
-    marginBottom: spacing.xs,
+    marginBottom: spacing[4],
   },
   tipText: {
     fontSize: typography.bodySmall.size,
@@ -468,28 +468,28 @@ const styles = StyleSheet.create({
     fontSize: typography.bodySmall.size,
     color: colorSystem.gray[600],
     lineHeight: 20,
-    marginBottom: spacing.lg,
+    marginBottom: spacing[24],
     fontStyle: 'italic',
   },
   stagesTimeline: {
-    gap: spacing.lg,
+    gap: spacing[24],
   },
   stageCard: {
     flexDirection: 'row',
-    gap: spacing.md,
+    gap: spacing[16],
     position: 'relative',
   },
   timelineConnector: {
     position: 'absolute',
     left: 19, // Center of bubble (40/2)
-    top: spacing[10], // Start below bubble
-    bottom: -spacing.lg, // Extend to next card
+    top: spacing[40], // Start below bubble
+    bottom: -spacing[24], // Extend to next card
     width: 2,
     backgroundColor: colorSystem.gray[300],
   },
   stageBubble: {
-    width: spacing[10],
-    height: spacing[10],
+    width: spacing[40],
+    height: spacing[40],
     borderRadius: borderRadius.xxxl,
     backgroundColor: colorSystem.navigation.learn,
     alignItems: 'center',
@@ -503,33 +503,33 @@ const styles = StyleSheet.create({
   },
   stageContent: {
     flex: 1,
-    paddingBottom: spacing.md,
+    paddingBottom: spacing[16],
   },
   stageTitle: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.black,
-    marginBottom: spacing.xs,
+    marginBottom: spacing[4],
   },
   stageDescription: {
     fontSize: typography.bodySmall.size,
     color: colorSystem.gray[600],
     lineHeight: 20,
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
   },
   indicatorsSection: {
-    gap: spacing.xs,
+    gap: spacing[4],
   },
   indicatorsLabel: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.semibold,
     color: colorSystem.gray[700],
-    marginBottom: spacing.xs,
+    marginBottom: spacing[4],
   },
   indicatorRow: {
     flexDirection: 'row',
-    gap: spacing.sm,
-    paddingLeft: spacing.sm,
+    gap: spacing[8],
+    paddingLeft: spacing[8],
   },
   indicatorBullet: {
     fontSize: typography.bodySmall.size,

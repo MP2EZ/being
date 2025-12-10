@@ -231,14 +231,14 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
-    padding: spacing[5],
+    padding: spacing[20],
   },
   header: {
-    marginBottom: spacing.lg,
-    marginTop: spacing[10],
+    marginBottom: spacing[24],
+    marginTop: spacing[40],
   },
   backButton: {
-    marginBottom: spacing[3],
+    marginBottom: spacing[12],
   },
   backButtonText: {
     fontSize: typography.display2.size,
@@ -247,7 +247,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: typography.display2.size,
     fontWeight: typography.fontWeight.bold,
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
     color: '#4A7C59',
   },
   subtitle: {
@@ -255,19 +255,19 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   quoteSection: {
-    padding: spacing.md,
+    padding: spacing[16],
     backgroundColor: '#F0F5F1',
     borderRadius: borderRadius.large,
     borderLeftWidth: 4,
     borderLeftColor: '#4A7C59',
-    marginBottom: spacing.xl,
+    marginBottom: spacing[32],
   },
   quoteText: {
     fontSize: typography.bodyRegular.size,
     fontStyle: 'italic',
     color: '#666',
     lineHeight: 22,
-    marginBottom: spacing.xs,
+    marginBottom: spacing[4],
   },
   quoteSubtext: {
     fontSize: typography.bodySmall.size,
@@ -276,22 +276,22 @@ const styles = StyleSheet.create({
   },
   gratitudeCard: {
     backgroundColor: '#f9f9f9',
-    padding: spacing[5],
+    padding: spacing[20],
     borderRadius: borderRadius.large,
-    marginBottom: spacing[5],
+    marginBottom: spacing[20],
     borderLeftWidth: 4,
     borderLeftColor: '#4A7C59',
   },
   gratitudeHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: spacing[3],
+    marginBottom: spacing[12],
   },
   gratitudeNumber: {
     fontSize: typography.headline4.size,
     fontWeight: typography.fontWeight.bold,
     color: '#4A7C59',
-    marginRight: spacing[3],
+    marginRight: spacing[12],
     width: 32,
   },
   gratitudeLabel: {
@@ -304,14 +304,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#ddd',
     borderRadius: borderRadius.medium,
-    padding: spacing[3],
+    padding: spacing[12],
     fontSize: typography.bodyRegular.size,
     minHeight: 60,
     textAlignVertical: 'top',
-    marginBottom: spacing[3],
+    marginBottom: spacing[12],
   },
   impermanenceSection: {
-    marginTop: spacing.sm,
+    marginTop: spacing[8],
   },
   impermanenceToggle: {
     flexDirection: 'row',
@@ -320,16 +320,16 @@ const styles = StyleSheet.create({
   impermanenceLabel: {
     fontSize: typography.bodySmall.size,
     color: '#666',
-    marginLeft: spacing.sm,
+    marginLeft: spacing[8],
     fontStyle: 'italic',
   },
   impermanenceFields: {
-    marginTop: spacing[3],
+    marginTop: spacing[12],
   },
   impermanenceHint: {
     fontSize: typography.bodySmall.size,
     color: '#999',
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
     fontStyle: 'italic',
   },
   continueButton: {
@@ -337,12 +337,12 @@ const styles = StyleSheet.create({
     padding: typography.bodyLarge.size,
     borderRadius: borderRadius.large,
     alignItems: 'center',
-    marginTop: spacing[3],
-    marginBottom: spacing[3],
+    marginTop: spacing[12],
+    marginBottom: spacing[12],
     shadowColor: '#4A7C59',
     shadowOffset: {
       width: 0,
-      height: spacing.xs,
+      height: spacing[4],
     },
     shadowOpacity: 0.3,
     shadowRadius: borderRadius.medium,
@@ -361,7 +361,7 @@ const styles = StyleSheet.create({
     fontSize: typography.bodySmall.size,
     color: '#d64545',
     textAlign: 'center',
-    marginBottom: spacing[10],
+    marginBottom: spacing[40],
     fontStyle: 'italic',
   },
 });

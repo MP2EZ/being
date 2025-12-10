@@ -130,44 +130,44 @@ const NeedsGrid: React.FC<NeedsGridProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    paddingVertical: spacing.lg,
+    paddingVertical: spacing[24],
   },
   instructionText: {
     fontSize: typography.bodyRegular.size,
     color: colorSystem.base.black,
     textAlign: 'center',
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
     lineHeight: typography.headline4.size,
   },
   selectionHint: {
     fontSize: typography.caption.size,
     color: colorSystem.gray[600],
     textAlign: 'center',
-    marginBottom: spacing.lg,
+    marginBottom: spacing[24],
     lineHeight: typography.title.size,
   },
   needsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing.sm,
+    paddingHorizontal: spacing[8],
   },
   needButton: {
     width: '48%',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing[16],
+    paddingHorizontal: spacing[8],
     borderRadius: borderRadius.large,
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
     minHeight: 88, // Larger for description text
   },
   needText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.semibold,
     textAlign: 'center',
-    marginBottom: spacing.xs,
+    marginBottom: spacing[4],
   },
   needDescription: {
     fontSize: typography.caption.size,
@@ -175,9 +175,9 @@ const styles = StyleSheet.create({
     lineHeight: typography.bodyLarge.size,
   },
   selectedContainer: {
-    marginTop: spacing.md,
+    marginTop: spacing[16],
     alignItems: 'center',
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing[16],
   },
   selectedLabel: {
     fontSize: typography.caption.size,

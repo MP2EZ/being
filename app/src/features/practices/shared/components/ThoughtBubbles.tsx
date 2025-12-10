@@ -174,7 +174,7 @@ const styles = StyleSheet.create({
   },
   thoughtSpace: {
     height: 320, // Fixed height for bubble positioning
-    marginBottom: spacing.lg,
+    marginBottom: spacing[24],
     position: 'relative',
   },
   thoughtBubble: {
@@ -192,7 +192,7 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   bubblePressable: {
-    padding: spacing.md,
+    padding: spacing[16],
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 56, // WCAG AA touch target
@@ -205,10 +205,10 @@ const styles = StyleSheet.create({
   },
   summarySection: {
     backgroundColor: colorSystem.base.white,
-    padding: spacing.md,
+    padding: spacing[16],
     borderRadius: borderRadius.medium,
-    marginBottom: spacing.lg,
-    borderLeftWidth: spacing.xs,
+    marginBottom: spacing[24],
+    borderLeftWidth: spacing[4],
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -222,7 +222,7 @@ const styles = StyleSheet.create({
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.black,
-    marginBottom: spacing.xs,
+    marginBottom: spacing[4],
   },
   summaryText: {
     fontSize: typography.caption.size,
@@ -230,9 +230,9 @@ const styles = StyleSheet.create({
     lineHeight: typography.title.size,
   },
   noteSection: {
-    padding: spacing.md,
+    padding: spacing[16],
     borderRadius: borderRadius.medium,
-    marginTop: spacing.sm,
+    marginTop: spacing[8],
   },
   noteText: {
     fontSize: typography.caption.size,

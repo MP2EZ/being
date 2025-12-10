@@ -551,27 +551,27 @@ export const PerformanceMonitorUI: React.FC<PerformanceMonitorProps> = ({
 const styles = StyleSheet.create({
   monitorContainer: {
     backgroundColor: colorSystem.gray[100],
-    padding: spacing.sm,
+    padding: spacing[8],
     borderRadius: borderRadius.medium,
-    margin: spacing.xs,
+    margin: spacing[4],
   },
   monitorTitle: {
     fontSize: typography.bodySmall.size,
     fontWeight: '600',
     color: colorSystem.accessibility.text.primary,
-    marginBottom: spacing.xs,
+    marginBottom: spacing[4],
   },
   statusContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
-    marginBottom: spacing.xs,
+    gap: spacing[4],
+    marginBottom: spacing[4],
   },
   crisisContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
-    marginBottom: spacing.xs,
+    gap: spacing[4],
+    marginBottom: spacing[4],
   },
   statusIndicator: {
     width: borderRadius.medium,
@@ -589,7 +589,7 @@ const styles = StyleSheet.create({
   metricsContainer: {
     borderTopWidth: 1,
     borderTopColor: colorSystem.gray[300],
-    paddingTop: spacing.xs,
+    paddingTop: spacing[4],
     gap: borderRadius.xs,
   },
   metricText: {

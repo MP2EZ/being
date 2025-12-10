@@ -127,7 +127,7 @@ const styles = StyleSheet.create({
   },
   textContainer: {
     position: 'absolute',
-    bottom: spacing[10] * 2,
+    bottom: spacing[40] * 2,
     left: 0,
     right: 0,
     alignItems: 'center',
@@ -136,14 +136,14 @@ const styles = StyleSheet.create({
     fontSize: typography.display2.size,
     fontWeight: typography.fontWeight.bold,
     color: colorSystem.base.midnightBlue,
-    marginTop: spacing.md,
-    marginBottom: spacing.sm,
+    marginTop: spacing[16],
+    marginBottom: spacing[8],
   },
   greeting: {
     fontSize: typography.headline4.size,
     fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.black,
-    marginBottom: spacing.xs,
+    marginBottom: spacing[4],
   },
   subtitle: {
     fontSize: typography.bodyRegular.size,

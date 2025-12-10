@@ -204,7 +204,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    gap: spacing.md,
+    gap: spacing[16],
   },
   loadingText: {
     fontSize: typography.bodyRegular.size,
@@ -214,8 +214,8 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: spacing.xl,
-    gap: spacing.lg,
+    padding: spacing[32],
+    gap: spacing[24],
   },
   errorText: {
     fontSize: typography.bodyRegular.size,
@@ -224,8 +224,8 @@ const styles = StyleSheet.create({
   },
   errorButton: {
     backgroundColor: colorSystem.navigation.learn,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing[16],
+    paddingHorizontal: spacing[32],
     borderRadius: borderRadius.large,
   },
   errorButtonText: {
@@ -234,8 +234,8 @@ const styles = StyleSheet.create({
     color: colorSystem.base.white,
   },
   header: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    paddingHorizontal: spacing[24],
+    paddingVertical: spacing[16],
     backgroundColor: colorSystem.gray[50],
     borderBottomWidth: 1,
     borderBottomColor: colorSystem.gray[200],
@@ -244,8 +244,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8F5FF', // Light purple for Module 3
   },
   backButton: {
-    paddingVertical: spacing.sm,
-    marginBottom: spacing.sm,
+    paddingVertical: spacing[8],
+    marginBottom: spacing[8],
   },
   backButtonText: {
     fontSize: typography.bodyRegular.size,
@@ -253,12 +253,12 @@ const styles = StyleSheet.create({
     color: colorSystem.navigation.learn,
   },
   headerContent: {
-    gap: spacing.xs,
+    gap: spacing[4],
   },
   headerTop: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: spacing[8],
   },
   headerNumber: {
     fontSize: typography.bodySmall.size,
@@ -268,8 +268,8 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   headerTag: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing[8],
+    paddingVertical: spacing[4],
     borderRadius: borderRadius.medium,
     backgroundColor: colorSystem.gray[200],
   },
@@ -303,7 +303,7 @@ const styles = StyleSheet.create({
   },
   tab: {
     flex: 1,
-    paddingVertical: spacing.md,
+    paddingVertical: spacing[16],
     alignItems: 'center',
     borderBottomWidth: 2,
     borderBottomColor: 'transparent',

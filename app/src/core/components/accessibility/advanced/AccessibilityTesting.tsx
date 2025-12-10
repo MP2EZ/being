@@ -812,18 +812,18 @@ export const AccessibilityTestingPanel: React.FC<AccessibilityTestingPanelProps>
 const styles = StyleSheet.create({
   testingPanel: {
     backgroundColor: colorSystem.gray[100],
-    padding: spacing.md,
+    padding: spacing[16],
     borderRadius: borderRadius.medium,
-    margin: spacing.sm,
+    margin: spacing[8],
   },
   panelTitle: {
     fontSize: typography.bodyLarge.size,
     fontWeight: '600',
     color: colorSystem.accessibility.text.primary,
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
   },
   reportContainer: {
-    gap: spacing.xs,
+    gap: spacing[4],
   },
   scoreText: {
     fontSize: typography.bodyRegular.size,
@@ -839,8 +839,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   issuesContainer: {
-    marginTop: spacing.sm,
-    padding: spacing.sm,
+    marginTop: spacing[8],
+    padding: spacing[8],
     backgroundColor: colorSystem.status.errorBackground,
     borderRadius: borderRadius.small,
   },
@@ -848,7 +848,7 @@ const styles = StyleSheet.create({
     fontSize: typography.bodyRegular.size,
     fontWeight: '600',
     color: colorSystem.status.error,
-    marginBottom: spacing.xs,
+    marginBottom: spacing[4],
   },
   issueText: {
     fontSize: typography.bodySmall.size,

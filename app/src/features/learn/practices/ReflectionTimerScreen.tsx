@@ -144,7 +144,7 @@ const ReflectionTimerScreen: React.FC<ReflectionTimerScreenProps> = ({
         isActive={isTimerActive}
         elapsedTime={elapsedTime}
         onToggle={setIsTimerActive}
-        style={{ marginBottom: spacing.xl }}
+        style={{ marginBottom: spacing[32] }}
         testID={`${testID}-toggle-button`}
       />
     </PracticeScreenLayout>
@@ -154,8 +154,8 @@ const ReflectionTimerScreen: React.FC<ReflectionTimerScreenProps> = ({
 const styles = StyleSheet.create({
   // Screen-specific: Always-visible numbered instructions (unique pattern)
   instructionsSection: {
-    marginBottom: spacing.xl,
-    paddingVertical: spacing.md,
+    marginBottom: spacing[32],
+    paddingVertical: spacing[16],
   },
   instructionsLabel: {
     fontSize: typography.caption.size,
@@ -163,51 +163,51 @@ const styles = StyleSheet.create({
     color: colorSystem.navigation.learn,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
   },
   instructionItem: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
   },
   instructionNumber: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.semibold,
     color: colorSystem.navigation.learn,
-    marginRight: spacing.xs,
-    minWidth: spacing[5],
+    marginRight: spacing[4],
+    minWidth: spacing[20],
   },
   instructionText: {
     flex: 1,
     fontSize: typography.bodyRegular.size,
     color: colorSystem.gray[800],
-    lineHeight: spacing[5] + spacing.xs,
+    lineHeight: spacing[20] + spacing[4],
   },
 
   // Screen-specific: Contemplation space
   contemplationSpace: {
     alignItems: 'center',
-    paddingVertical: spacing.xl,
-    marginBottom: spacing.xl,
+    paddingVertical: spacing[32],
+    marginBottom: spacing[32],
   },
   contemplationIcon: {
-    width: spacing[20],
-    height: spacing[20],
+    width: spacing[80],
+    height: spacing[80],
     borderRadius: borderRadius.xxxl,
     backgroundColor: colorSystem.navigation.learn + '15',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
   },
   iconText: {
-    fontSize: spacing[10],
+    fontSize: spacing[40],
   },
   contemplationText: {
     fontSize: typography.bodyRegular.size,
     color: colorSystem.gray[700],
     textAlign: 'center',
-    lineHeight: spacing.lg,
-    paddingHorizontal: spacing.md,
+    lineHeight: spacing[24],
+    paddingHorizontal: spacing[16],
   },
 });
 

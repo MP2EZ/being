@@ -468,8 +468,8 @@ const styles = StyleSheet.create({
   },
 
   header: {
-    paddingHorizontal: spacing[5],
-    paddingVertical: spacing.md,
+    paddingHorizontal: spacing[20],
+    paddingVertical: spacing[16],
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
@@ -484,7 +484,7 @@ const styles = StyleSheet.create({
     fontSize: typography.headline4.size,
     fontWeight: typography.fontWeight.bold,
     color: '#1F2937',
-    marginBottom: spacing.xs
+    marginBottom: spacing[4]
   },
 
   lastUpdated: {
@@ -499,20 +499,20 @@ const styles = StyleSheet.create({
 
   // System Health Styles
   healthOverview: {
-    padding: spacing[5]
+    padding: spacing[20]
   },
 
   sectionTitle: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
     color: '#374151',
-    marginBottom: spacing[3]
+    marginBottom: spacing[12]
   },
 
   healthCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: borderRadius.large,
-    padding: spacing.md,
+    padding: spacing[16],
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -522,10 +522,10 @@ const styles = StyleSheet.create({
 
   healthIndicator: {
     alignSelf: 'flex-start',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing[16],
+    paddingVertical: spacing[8],
     borderRadius: borderRadius.xxl,
-    marginBottom: spacing[3]
+    marginBottom: spacing[12]
   },
 
   healthText: {
@@ -535,19 +535,19 @@ const styles = StyleSheet.create({
   },
 
   healthMetrics: {
-    marginBottom: spacing[3]
+    marginBottom: spacing[12]
   },
 
   metricText: {
     fontSize: typography.bodySmall.size,
     color: '#4B5563',
-    marginBottom: spacing.xs
+    marginBottom: spacing[4]
   },
 
   emergencyButton: {
     backgroundColor: '#DC2626',
-    paddingVertical: spacing[3],
-    paddingHorizontal: spacing.md,
+    paddingVertical: spacing[12],
+    paddingHorizontal: spacing[16],
     borderRadius: borderRadius.medium,
     alignItems: 'center'
   },
@@ -560,14 +560,14 @@ const styles = StyleSheet.create({
 
   // Error Monitoring Styles
   monitoringSection: {
-    paddingHorizontal: spacing[5],
-    paddingBottom: spacing[5]
+    paddingHorizontal: spacing[20],
+    paddingBottom: spacing[20]
   },
 
   monitoringCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: borderRadius.large,
-    padding: spacing.md,
+    padding: spacing[16],
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -579,7 +579,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: spacing.sm
+    paddingVertical: spacing[8]
   },
 
   monitoringLabel: {
@@ -596,15 +596,15 @@ const styles = StyleSheet.create({
 
   // Circuit Breaker Styles
   circuitSection: {
-    paddingHorizontal: spacing[5],
-    paddingBottom: spacing[5]
+    paddingHorizontal: spacing[20],
+    paddingBottom: spacing[20]
   },
 
   circuitCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: borderRadius.large,
-    padding: spacing.md,
-    marginBottom: spacing[3],
+    padding: spacing[16],
+    marginBottom: spacing[12],
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -616,7 +616,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing[3]
+    marginBottom: spacing[12]
   },
 
   serviceName: {
@@ -628,8 +628,8 @@ const styles = StyleSheet.create({
   },
 
   circuitState: {
-    paddingHorizontal: spacing[3],
-    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing[12],
+    paddingVertical: spacing[4],
     borderRadius: borderRadius.xl
   },
 
@@ -646,7 +646,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: spacing.xs
+    paddingVertical: spacing[4]
   },
 
   metricLabel: {
@@ -665,27 +665,27 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: spacing[5]
+    padding: spacing[20]
   },
 
   errorTitle: {
     fontSize: typography.title.size,
     fontWeight: typography.fontWeight.bold,
     color: '#DC2626',
-    marginBottom: spacing[3]
+    marginBottom: spacing[12]
   },
 
   errorMessage: {
     fontSize: typography.bodySmall.size,
     color: '#6B7280',
     textAlign: 'center',
-    marginBottom: spacing[5]
+    marginBottom: spacing[20]
   },
 
   retryButton: {
     backgroundColor: '#3B82F6',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing[3],
+    paddingHorizontal: spacing[24],
+    paddingVertical: spacing[12],
     borderRadius: borderRadius.medium
   },
 
@@ -708,7 +708,7 @@ const styles = StyleSheet.create({
 
   // Footer
   footer: {
-    padding: spacing[5],
+    padding: spacing[20],
     alignItems: 'center'
   },
 

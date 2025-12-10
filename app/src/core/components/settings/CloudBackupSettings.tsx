@@ -584,14 +584,14 @@ export default function CloudBackupSettings({
 
 const styles = StyleSheet.create({
   container: {
-    padding: spacing.md,
+    padding: spacing[16],
   },
 
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: spacing[5],
+    marginBottom: spacing[20],
   },
 
   title: {
@@ -601,17 +601,17 @@ const styles = StyleSheet.create({
   },
 
   statusIndicator: {
-    width: spacing[3],
-    height: spacing[3],
+    width: spacing[12],
+    height: spacing[12],
     borderRadius: borderRadius.medium,
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
   },
 
   errorContainer: {
     backgroundColor: '#ffebee',
-    padding: spacing[3],
+    padding: spacing[12],
     borderRadius: borderRadius.medium,
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -623,7 +623,7 @@ const styles = StyleSheet.create({
   },
 
   errorDismiss: {
-    marginLeft: spacing[3],
+    marginLeft: spacing[12],
   },
 
   errorDismissText: {
@@ -633,26 +633,26 @@ const styles = StyleSheet.create({
 
   restorePrompt: {
     backgroundColor: '#e3f2fd',
-    padding: spacing.md,
+    padding: spacing[16],
     borderRadius: borderRadius.medium,
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
   },
 
   restorePromptTitle: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.bold,
     color: '#1976d2',
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
   },
 
   restorePromptText: {
     color: '#1976d2',
-    marginBottom: spacing[3],
+    marginBottom: spacing[12],
   },
 
   restoreButton: {
     backgroundColor: '#1976d2',
-    padding: spacing[3],
+    padding: spacing[12],
     borderRadius: borderRadius.medium,
     alignItems: 'center',
     minHeight: 44, // Accessibility requirement
@@ -664,20 +664,20 @@ const styles = StyleSheet.create({
   },
 
   section: {
-    marginBottom: spacing.lg,
+    marginBottom: spacing[24],
   },
 
   sectionTitle: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.bold,
     color: '#333',
-    marginBottom: spacing[3],
+    marginBottom: spacing[12],
   },
 
   statusRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
   },
 
   statusLabel: {
@@ -690,10 +690,10 @@ const styles = StyleSheet.create({
   },
 
   button: {
-    padding: spacing[3],
+    padding: spacing[12],
     borderRadius: borderRadius.medium,
     alignItems: 'center',
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
     minHeight: 44, // Accessibility requirement
   },
 
@@ -738,20 +738,20 @@ const styles = StyleSheet.create({
 
   configLabelContainer: {
     flex: 1,
-    marginRight: spacing[3],
+    marginRight: spacing[12],
   },
 
   configDescription: {
     fontSize: typography.micro.size,
     color: '#6c757d',
-    marginTop: spacing.xs,
+    marginTop: spacing[4],
   },
 
   warningContainer: {
     backgroundColor: '#fff3cd',
-    padding: spacing[3],
+    padding: spacing[12],
     borderRadius: borderRadius.medium,
-    marginBottom: spacing[3],
+    marginBottom: spacing[12],
     borderWidth: 1,
     borderColor: '#ffeaa7',
   },
@@ -762,8 +762,8 @@ const styles = StyleSheet.create({
   },
 
   subsection: {
-    marginBottom: spacing.md,
-    paddingBottom: spacing.md,
+    marginBottom: spacing[16],
+    paddingBottom: spacing[16],
     borderBottomWidth: 1,
     borderBottomColor: '#f8f9fa',
   },
@@ -772,7 +772,7 @@ const styles = StyleSheet.create({
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.bold,
     color: '#6c757d',
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
     textTransform: 'uppercase',
   },
 
@@ -780,7 +780,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing[3],
+    marginBottom: spacing[12],
     minHeight: 44, // Accessibility requirement
   },
 
@@ -795,7 +795,7 @@ const styles = StyleSheet.create({
   },
 
   advancedToggle: {
-    padding: spacing.sm,
+    padding: spacing[8],
     alignItems: 'center',
   },
 
@@ -805,8 +805,8 @@ const styles = StyleSheet.create({
   },
 
   advancedSection: {
-    marginTop: spacing[3],
-    paddingTop: spacing[3],
+    marginTop: spacing[12],
+    paddingTop: spacing[12],
     borderTopWidth: 1,
     borderTopColor: '#eee',
   },

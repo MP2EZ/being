@@ -496,7 +496,7 @@ const styles = StyleSheet.create({
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.black,
-    marginBottom: spacing.xs,
+    marginBottom: spacing[4],
   },
   progressContainer: {
     alignItems: 'center',
@@ -504,10 +504,10 @@ const styles = StyleSheet.create({
   },
   progressBar: {
     width: 120,
-    height: spacing.xs,
+    height: spacing[4],
     backgroundColor: colorSystem.gray[200],
     borderRadius: borderRadius.xs,
-    marginBottom: spacing.xs,
+    marginBottom: spacing[4],
   },
   progressFill: {
     height: '100%',
@@ -522,10 +522,10 @@ const styles = StyleSheet.create({
 
 const headerStyles = StyleSheet.create({
   exitContainer: {
-    marginLeft: spacing.md,
+    marginLeft: spacing[16],
   },
   exitButton: {
-    padding: spacing.sm,
+    padding: spacing[8],
     width: 44,
     height: 44,
     justifyContent: 'center',

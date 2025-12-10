@@ -256,29 +256,29 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
-    padding: spacing[5],
+    padding: spacing[20],
   },
   backButton: {
-    marginBottom: spacing[5],
+    marginBottom: spacing[20],
   },
   backButtonText: {
     fontSize: typography.bodyRegular.size,
     color: '#007AFF',
   },
   header: {
-    marginBottom: spacing.lg,
+    marginBottom: spacing[24],
     alignItems: 'center',
   },
   title: {
     fontSize: typography.headline2.size,
     fontWeight: typography.fontWeight.bold,
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
     textAlign: 'center',
   },
   subtitle: {
     fontSize: typography.bodyRegular.size,
     color: '#666',
-    marginBottom: spacing.xs,
+    marginBottom: spacing[4],
     textAlign: 'center',
   },
   helperText: {
@@ -289,11 +289,11 @@ const styles = StyleSheet.create({
   },
   breathingPhase: {
     alignItems: 'center',
-    paddingVertical: spacing[5],
+    paddingVertical: spacing[20],
   },
   timerContainer: {
     alignItems: 'center',
-    marginBottom: spacing.xl,
+    marginBottom: spacing[32],
   },
   timerText: {
     fontSize: 48,
@@ -303,19 +303,19 @@ const styles = StyleSheet.create({
   timerLabel: {
     fontSize: typography.bodySmall.size,
     color: '#666',
-    marginTop: spacing.xs,
+    marginTop: spacing[4],
   },
   instructionContainer: {
     alignItems: 'center',
-    marginTop: spacing.xl,
-    paddingHorizontal: spacing[5],
+    marginTop: spacing[32],
+    paddingHorizontal: spacing[20],
   },
   instructionText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.medium,
     color: '#333',
     textAlign: 'center',
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
   },
   subInstructionText: {
     fontSize: typography.bodySmall.size,
@@ -324,13 +324,13 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   reflectionPhase: {
-    paddingVertical: spacing[3],
+    paddingVertical: spacing[12],
   },
   completionMessage: {
     alignItems: 'center',
-    marginBottom: spacing.xl,
-    paddingVertical: spacing[5],
-    paddingHorizontal: spacing[5],
+    marginBottom: spacing[32],
+    paddingVertical: spacing[20],
+    paddingHorizontal: spacing[20],
     backgroundColor: '#f0f8ff',
     borderRadius: borderRadius.large,
   },
@@ -338,7 +338,7 @@ const styles = StyleSheet.create({
     fontSize: typography.headline4.size,
     fontWeight: typography.fontWeight.bold,
     color: '#40B5AD',
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
   },
   completionSubtitle: {
     fontSize: typography.bodyRegular.size,
@@ -346,26 +346,26 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   fieldSection: {
-    marginBottom: spacing.lg,
+    marginBottom: spacing[24],
   },
   fieldLabel: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
     color: '#333',
   },
   fieldHelper: {
     fontSize: typography.bodySmall.size,
     color: '#666',
-    marginBottom: spacing[3],
+    marginBottom: spacing[12],
   },
   sliderContainer: {
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing[8],
   },
   sliderLabels: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
   },
   sliderLabelText: {
     fontSize: typography.micro.size,
@@ -381,13 +381,13 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.semibold,
     color: '#40B5AD',
     textAlign: 'center',
-    marginTop: spacing.sm,
+    marginTop: spacing[8],
   },
   textInput: {
     borderWidth: 1,
     borderColor: '#ddd',
     borderRadius: borderRadius.medium,
-    padding: spacing[3],
+    padding: spacing[12],
     fontSize: typography.bodyRegular.size,
     backgroundColor: '#fff',
     minHeight: 100,
@@ -395,11 +395,11 @@ const styles = StyleSheet.create({
   },
   continueButton: {
     backgroundColor: '#40B5AD',
-    padding: spacing.md,
+    padding: spacing[16],
     borderRadius: borderRadius.medium,
     alignItems: 'center',
-    marginTop: spacing[3],
-    marginBottom: spacing.lg,
+    marginTop: spacing[12],
+    marginBottom: spacing[24],
   },
   continueButtonDisabled: {
     backgroundColor: '#ccc',
@@ -410,10 +410,10 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.semibold,
   },
   quoteSection: {
-    padding: spacing.md,
+    padding: spacing[16],
     backgroundColor: '#f9f9f9',
     borderRadius: borderRadius.medium,
-    borderLeftWidth: spacing.xs,
+    borderLeftWidth: spacing[4],
     borderLeftColor: '#40B5AD',
     marginBottom: 40,
   },
@@ -421,7 +421,7 @@ const styles = StyleSheet.create({
     fontSize: typography.bodySmall.size,
     fontStyle: 'italic',
     color: '#666',
-    lineHeight: spacing[5],
+    lineHeight: spacing[20],
   },
 });
 

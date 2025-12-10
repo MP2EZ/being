@@ -519,14 +519,14 @@ const styles = StyleSheet.create({
   // Container styles
   oneHandedContainer: {
     flex: 1,
-    paddingHorizontal: spacing.sm,
+    paddingHorizontal: spacing[8],
   },
   
   // Pressable enhancements
   enlargedTouchTarget: {
     minHeight: 56,
     minWidth: 56,
-    padding: spacing.md,
+    padding: spacing[16],
   },
   hoverState: {
     backgroundColor: colorSystem.gray[100],
@@ -566,15 +566,15 @@ const styles = StyleSheet.create({
   // Voice control indicator
   voiceIndicator: {
     position: 'absolute',
-    top: spacing.sm,
-    right: spacing.sm,
+    top: spacing[8],
+    right: spacing[8],
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colorSystem.status.success + '20',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing[8],
+    paddingVertical: spacing[4],
     borderRadius: borderRadius.xl,
-    gap: spacing.xs,
+    gap: spacing[4],
   },
   voiceIndicatorDot: {
     width: borderRadius.medium,
@@ -591,14 +591,14 @@ const styles = StyleSheet.create({
   // Switch control helper
   switchControlHelper: {
     position: 'absolute',
-    bottom: spacing.lg,
-    left: spacing.md,
-    right: spacing.md,
+    bottom: spacing[24],
+    left: spacing[16],
+    right: spacing[16],
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: spacing.sm,
+    gap: spacing[8],
     backgroundColor: colorSystem.base.white,
-    padding: spacing.md,
+    padding: spacing[16],
     borderRadius: borderRadius.large,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: borderRadius.small },
@@ -608,8 +608,8 @@ const styles = StyleSheet.create({
   },
   switchButton: {
     backgroundColor: colorSystem.gray[200],
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing[16],
+    paddingVertical: spacing[8],
     borderRadius: borderRadius.medium,
     minWidth: 44,
     minHeight: 44,
@@ -618,8 +618,8 @@ const styles = StyleSheet.create({
   },
   switchSelectButton: {
     backgroundColor: colorSystem.accessibility.focus.primary,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing[24],
+    paddingVertical: spacing[8],
     borderRadius: borderRadius.medium,
     minWidth: 44,
     minHeight: 44,
@@ -648,19 +648,19 @@ const styles = StyleSheet.create({
   },
   oneHandedPrimaryActions: {
     position: 'absolute',
-    bottom: spacing.lg,
+    bottom: spacing[24],
     maxWidth: '70%',
   },
   oneHandedSecondaryActions: {
     position: 'absolute',
-    bottom: spacing.xl * 2,
+    bottom: spacing[32] * 2,
     maxWidth: '70%',
   },
   oneHandedActionsLeft: {
-    left: spacing.md,
+    left: spacing[16],
   },
   oneHandedActionsRight: {
-    right: spacing.md,
+    right: spacing[16],
   },
 });
 

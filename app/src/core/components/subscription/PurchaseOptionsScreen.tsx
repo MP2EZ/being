@@ -393,7 +393,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5F5F5',
   },
   content: {
-    padding: spacing[5],
+    padding: spacing[20],
   },
   loadingContainer: {
     flex: 1,
@@ -402,19 +402,19 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5F5F5',
   },
   loadingText: {
-    marginTop: spacing.md,
+    marginTop: spacing[16],
     fontSize: typography.bodyRegular.size,
     color: '#666666',
   },
   header: {
     alignItems: 'center',
-    marginBottom: spacing.xl,
+    marginBottom: spacing[32],
   },
   title: {
     fontSize: typography.headline2.size,
     fontWeight: typography.fontWeight.bold,
     color: '#333333',
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
     textAlign: 'center',
   },
   subtitle: {
@@ -424,13 +424,13 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   options: {
-    marginBottom: spacing.lg,
+    marginBottom: spacing[24],
   },
   option: {
     backgroundColor: '#FFFFFF',
     borderRadius: borderRadius.large,
-    padding: spacing[5],
-    marginBottom: spacing.md,
+    padding: spacing[20],
+    marginBottom: spacing[16],
     borderWidth: 2,
     borderColor: '#E0E0E0',
   },
@@ -444,10 +444,10 @@ const styles = StyleSheet.create({
   recommendedBadge: {
     position: 'absolute',
     top: -12,
-    right: spacing.md,
+    right: spacing[16],
     backgroundColor: '#7ED321',
-    paddingHorizontal: spacing[3],
-    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing[12],
+    paddingVertical: spacing[4],
     borderRadius: borderRadius.large,
   },
   recommendedBadgeText: {
@@ -460,19 +460,19 @@ const styles = StyleSheet.create({
     fontSize: typography.title.size,
     fontWeight: typography.fontWeight.bold,
     color: '#333333',
-    marginBottom: spacing.xs,
+    marginBottom: spacing[4],
   },
   optionPrice: {
     fontSize: typography.display2.size,
     fontWeight: typography.fontWeight.bold,
     color: '#4A90E2',
-    marginBottom: spacing.xs,
+    marginBottom: spacing[4],
   },
   optionSavings: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.semibold,
     color: '#7ED321',
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
   },
   optionDescription: {
     fontSize: typography.bodySmall.size,
@@ -481,13 +481,13 @@ const styles = StyleSheet.create({
   trialInfo: {
     backgroundColor: '#FFF8E1',
     borderRadius: borderRadius.medium,
-    padding: spacing.md,
-    marginBottom: spacing.lg,
+    padding: spacing[16],
+    marginBottom: spacing[24],
   },
   trialText: {
     fontSize: typography.bodyRegular.size,
     color: '#333333',
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
     textAlign: 'center',
   },
   trialBold: {
@@ -503,9 +503,9 @@ const styles = StyleSheet.create({
   freeTrialButton: {
     backgroundColor: '#7ED321',
     borderRadius: borderRadius.medium,
-    padding: spacing.md,
+    padding: spacing[16],
     alignItems: 'center',
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
   },
   freeTrialButtonText: {
     color: '#FFFFFF',
@@ -515,7 +515,7 @@ const styles = StyleSheet.create({
   orDivider: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: spacing.md,
+    marginVertical: spacing[16],
   },
   dividerLine: {
     flex: 1,
@@ -523,7 +523,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#E0E0E0',
   },
   dividerText: {
-    marginHorizontal: spacing[3],
+    marginHorizontal: spacing[12],
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.semibold,
     color: '#999999',
@@ -531,9 +531,9 @@ const styles = StyleSheet.create({
   purchaseButton: {
     backgroundColor: '#4A90E2',
     borderRadius: borderRadius.medium,
-    padding: spacing.md,
+    padding: spacing[16],
     alignItems: 'center',
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
   },
   purchaseButtonDisabled: {
     backgroundColor: '#B0B0B0',
@@ -546,9 +546,9 @@ const styles = StyleSheet.create({
   restoreButton: {
     backgroundColor: 'transparent',
     borderRadius: borderRadius.medium,
-    padding: spacing.md,
+    padding: spacing[16],
     alignItems: 'center',
-    marginBottom: spacing.lg,
+    marginBottom: spacing[24],
   },
   restoreButtonText: {
     color: '#4A90E2',
@@ -558,8 +558,8 @@ const styles = StyleSheet.create({
   crisisGuarantee: {
     backgroundColor: '#E8F5E9',
     borderRadius: borderRadius.medium,
-    padding: spacing[3],
-    marginBottom: spacing.lg,
+    padding: spacing[12],
+    marginBottom: spacing[24],
   },
   crisisGuaranteeText: {
     fontSize: typography.micro.size,
@@ -571,7 +571,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
   },
   legalLink: {
     fontSize: typography.micro.size,
@@ -581,10 +581,10 @@ const styles = StyleSheet.create({
   legalSeparator: {
     fontSize: typography.micro.size,
     color: '#999999',
-    marginHorizontal: spacing.sm,
+    marginHorizontal: spacing[8],
   },
   closeButton: {
-    padding: spacing.md,
+    padding: spacing[16],
     alignItems: 'center',
   },
   closeButtonText: {

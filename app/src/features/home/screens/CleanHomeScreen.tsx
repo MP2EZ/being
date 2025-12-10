@@ -213,17 +213,17 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing[24],
   },
   header: {
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing[8],
     alignItems: 'center',
   },
   appTitle: {
     fontSize: typography.display2.size,
     fontWeight: typography.fontWeight.bold,
     color: colorSystem.base.midnightBlue,
-    marginBottom: spacing.xs,
+    marginBottom: spacing[4],
   },
   greeting: {
     fontSize: typography.title.size,
@@ -235,18 +235,18 @@ const styles = StyleSheet.create({
     fontSize: typography.bodySmall.size,
     color: colorSystem.gray[600],
     textAlign: 'center',
-    marginBottom: spacing[3],
+    marginBottom: spacing[12],
   },
   checkInSection: {
     flex: 1,
-    marginTop: spacing[3],
+    marginTop: spacing[12],
   },
   checkInCard: {
     flex: 1,
     justifyContent: 'space-between',
-    padding: spacing.md,
+    padding: spacing[16],
     borderRadius: borderRadius.large,
-    marginBottom: spacing[10],
+    marginBottom: spacing[40],
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -260,7 +260,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.xs,
+    marginBottom: spacing[4],
   },
   cardTitle: {
     fontSize: typography.headline3.size,
@@ -281,8 +281,8 @@ const styles = StyleSheet.create({
     lineHeight: typography.title.size,
   },
   startButton: {
-    paddingVertical: spacing[3],
-    borderRadius: spacing[3],
+    paddingVertical: spacing[12],
+    borderRadius: spacing[12],
     alignItems: 'center',
   },
   startButtonText: {

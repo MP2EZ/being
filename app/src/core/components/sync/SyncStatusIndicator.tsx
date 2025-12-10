@@ -470,8 +470,8 @@ const styles = StyleSheet.create({
   compactContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing[3],
+    paddingVertical: spacing[8],
+    paddingHorizontal: spacing[12],
     backgroundColor: '#f8f9fa',
     borderRadius: borderRadius.xxl,
     borderWidth: 1,
@@ -482,7 +482,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: borderRadius.small,
-    marginRight: spacing.sm,
+    marginRight: spacing[8],
   },
 
   compactStatusText: {
@@ -498,7 +498,7 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.large,
     borderWidth: 1,
     borderColor: '#e9ecef',
-    padding: spacing.md,
+    padding: spacing[16],
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -513,7 +513,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
   },
 
   headerLeft: {
@@ -526,7 +526,7 @@ const styles = StyleSheet.create({
     width: 12,
     height: 12,
     borderRadius: borderRadius.medium,
-    marginRight: spacing[3],
+    marginRight: spacing[12],
   },
 
   headerTitle: {
@@ -538,9 +538,9 @@ const styles = StyleSheet.create({
 
   errorContainer: {
     backgroundColor: '#ffebee',
-    padding: spacing[3],
+    padding: spacing[12],
     borderRadius: borderRadius.medium,
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -554,10 +554,10 @@ const styles = StyleSheet.create({
 
   retryButton: {
     backgroundColor: '#c62828',
-    paddingHorizontal: spacing[3],
-    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing[12],
+    paddingVertical: spacing[4],
     borderRadius: borderRadius.small,
-    marginLeft: spacing.sm,
+    marginLeft: spacing[8],
   },
 
   retryButtonText: {
@@ -567,8 +567,8 @@ const styles = StyleSheet.create({
   },
 
   statusSection: {
-    marginBottom: spacing.md,
-    paddingBottom: spacing.md,
+    marginBottom: spacing[16],
+    paddingBottom: spacing[16],
     borderBottomWidth: 1,
     borderBottomColor: '#e9ecef',
   },
@@ -577,14 +577,14 @@ const styles = StyleSheet.create({
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.bold,
     color: '#495057',
-    marginBottom: spacing[3],
+    marginBottom: spacing[12],
   },
 
   statusRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
     minHeight: 24,
   },
 
@@ -609,8 +609,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: spacing.sm,
-    paddingTop: spacing.md,
+    marginTop: spacing[8],
+    paddingTop: spacing[16],
     borderTopWidth: 1,
     borderTopColor: '#e9ecef',
   },
@@ -622,8 +622,8 @@ const styles = StyleSheet.create({
 
   refreshButton: {
     backgroundColor: '#e9ecef',
-    paddingHorizontal: spacing[3],
-    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing[12],
+    paddingVertical: spacing[4],
     borderRadius: borderRadius.small,
   },
 

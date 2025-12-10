@@ -365,7 +365,7 @@ const RadioGroup: React.FC<RadioGroupProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    gap: spacing.md,
+    gap: spacing[16],
   },
   containerHorizontal: {
     // Horizontal container adjustments if needed
@@ -399,7 +399,7 @@ const styles = StyleSheet.create({
     fontWeight: typography.bodyRegular.weight,
     color: colorSystem.accessibility.text.secondary,
     lineHeight: typography.bodyRegular.size * 1.4,
-    marginTop: -spacing.xs, // Reduce gap after label
+    marginTop: -spacing[4], // Reduce gap after label
   },
   groupDescriptionDisabled: {
     color: colorSystem.accessibility.text.tertiary,
@@ -407,7 +407,7 @@ const styles = StyleSheet.create({
   
   // Options container
   optionsContainer: {
-    gap: spacing.sm,
+    gap: spacing[8],
   },
   optionsContainerHorizontal: {
     flexDirection: 'row',
@@ -420,7 +420,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: colorSystem.gray[300],
     borderRadius: borderRadius.large,
-    padding: spacing.md,
+    padding: spacing[16],
     minHeight: 64, // WCAG touch target requirement
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
@@ -430,7 +430,7 @@ const styles = StyleSheet.create({
   },
   radioOptionHorizontal: {
     flex: 1,
-    marginRight: spacing.sm,
+    marginRight: spacing[8],
   },
   radioOptionSelected: {
     borderWidth: 2,
@@ -463,7 +463,7 @@ const styles = StyleSheet.create({
   radioOptionContent: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: spacing.sm,
+    gap: spacing[8],
   },
   radioOptionContentCentered: {
     justifyContent: 'center',
@@ -503,7 +503,7 @@ const styles = StyleSheet.create({
   // Text content
   radioContent: {
     flex: 1,
-    gap: spacing.xs,
+    gap: spacing[4],
   },
   radioContentCentered: {
     alignItems: 'center',
@@ -551,7 +551,7 @@ const styles = StyleSheet.create({
     fontWeight: typography.caption.weight,
     color: colorSystem.status.error,
     lineHeight: typography.caption.size * 1.4,
-    marginTop: -spacing.xs, // Reduce gap
+    marginTop: -spacing[4], // Reduce gap
   },
 });
 

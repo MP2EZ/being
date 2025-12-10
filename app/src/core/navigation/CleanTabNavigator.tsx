@@ -62,13 +62,13 @@ const PlaceholderScreen: React.FC<{ name: string; description: string }> = ({ na
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: colorSystem.base.white,
-    padding: spacing.lg
+    padding: spacing[24]
   }}>
     <Text style={{
       fontSize: typography.headline4.size,
       fontWeight: typography.fontWeight.semibold,
       color: colorSystem.base.black,
-      marginBottom: spacing.sm,
+      marginBottom: spacing[8],
       textAlign: 'center'
     }}>
       {name}
@@ -111,8 +111,8 @@ const CleanTabNavigator: React.FC = () => {
           backgroundColor: colorSystem.base.white,
           borderTopColor: colorSystem.gray[200],
           borderTopWidth: 1,
-          paddingBottom: spacing.sm,
-          paddingTop: spacing.sm,
+          paddingBottom: spacing[8],
+          paddingTop: spacing[8],
           height: 84,
           shadowColor: '#000',
           shadowOffset: {
@@ -128,7 +128,7 @@ const CleanTabNavigator: React.FC = () => {
         tabBarLabelStyle: {
           fontSize: typography.micro.size,
           fontWeight: typography.fontWeight.medium,
-          marginTop: spacing.xs,
+          marginTop: spacing[4],
         },
         headerStyle: {
           backgroundColor: colorSystem.base.white,

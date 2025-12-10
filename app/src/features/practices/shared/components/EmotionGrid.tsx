@@ -140,37 +140,37 @@ const EmotionGrid: React.FC<EmotionGridProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    paddingVertical: spacing.lg,
+    paddingVertical: spacing[24],
   },
   instructionText: {
     fontSize: typography.bodyRegular.size,
     color: colorSystem.base.black,
     textAlign: 'center',
-    marginBottom: spacing.sm,
-    lineHeight: spacing.lg,
+    marginBottom: spacing[8],
+    lineHeight: spacing[24],
   },
   selectionHint: {
     fontSize: typography.caption.size,
     color: colorSystem.gray[600],
     textAlign: 'center',
-    marginBottom: spacing.lg,
-    lineHeight: spacing[5],
+    marginBottom: spacing[24],
+    lineHeight: spacing[20],
   },
   emotionGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing.sm,
+    paddingHorizontal: spacing[8],
   },
   emotionButton: {
     width: '48%',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing[16],
+    paddingHorizontal: spacing[8],
     borderRadius: borderRadius.large,
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
     minHeight: 44, // WCAG touch target
   },
   emotionText: {
@@ -179,7 +179,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   selectedContainer: {
-    marginTop: spacing.md,
+    marginTop: spacing[16],
     alignItems: 'center',
   },
   selectedLabel: {

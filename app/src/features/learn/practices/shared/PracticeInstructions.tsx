@@ -67,25 +67,25 @@ const styles = StyleSheet.create({
     color: colorSystem.navigation.learn,
     textTransform: 'uppercase' as const,
     letterSpacing: 0.5,
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
   },
   instructionItem: {
     flexDirection: 'row' as const,
     alignItems: 'flex-start' as const,
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
   },
   instructionNumber: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.semibold,
     color: colorSystem.navigation.learn,
-    marginRight: spacing.xs,
-    minWidth: spacing[5],
+    marginRight: spacing[4],
+    minWidth: spacing[20],
   },
   instructionText: {
     flex: 1,
     fontSize: typography.bodyRegular.size,
     color: colorSystem.gray[800],
-    lineHeight: spacing[5] + spacing.xs,
+    lineHeight: spacing[20] + spacing[4],
   },
 });
 

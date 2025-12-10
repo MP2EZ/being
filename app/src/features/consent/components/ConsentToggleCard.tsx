@@ -166,8 +166,8 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: commonColors.gray100,
     borderRadius: borderRadius.large,
-    padding: spacing.lg,
-    marginBottom: spacing.md,
+    padding: spacing[24],
+    marginBottom: spacing[16],
     borderWidth: 1,
     borderColor: commonColors.gray200,
   },
@@ -178,13 +178,13 @@ const styles = StyleSheet.create({
   },
   titleContainer: {
     flex: 1,
-    marginRight: spacing.md,
+    marginRight: spacing[16],
   },
   title: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
     color: commonColors.black,
-    marginBottom: spacing.xs,
+    marginBottom: spacing[4],
   },
   description: {
     fontSize: typography.bodySmall.size,
@@ -197,8 +197,8 @@ const styles = StyleSheet.create({
     transform: Platform.OS === 'ios' ? [{ scaleX: 1 }, { scaleY: 1 }] : [],
   },
   learnMoreButton: {
-    marginTop: spacing.sm,
-    paddingVertical: spacing.sm,
+    marginTop: spacing[8],
+    paddingVertical: spacing[8],
     alignSelf: 'flex-start',
     minHeight: 44, // Touch target
     justifyContent: 'center',
@@ -210,26 +210,26 @@ const styles = StyleSheet.create({
     textDecorationLine: 'underline',
   },
   detailsContainer: {
-    marginTop: spacing.md,
-    paddingTop: spacing.md,
+    marginTop: spacing[16],
+    paddingTop: spacing[16],
     borderTopWidth: 1,
     borderTopColor: commonColors.gray200,
   },
   detailSection: {
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
   },
   detailSectionTitle: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.semibold,
     color: commonColors.black,
-    marginBottom: spacing.xs,
+    marginBottom: spacing[4],
   },
   detailBullet: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
     color: commonColors.gray600,
     lineHeight: 22,
-    marginLeft: spacing.sm,
+    marginLeft: spacing[8],
   },
   detailText: {
     fontSize: typography.bodySmall.size,
@@ -240,8 +240,8 @@ const styles = StyleSheet.create({
   privacyNoteBox: {
     backgroundColor: '#E8F4EC',
     borderRadius: borderRadius.medium,
-    padding: spacing.md,
-    marginTop: spacing.sm,
+    padding: spacing[16],
+    marginTop: spacing[8],
     borderLeftWidth: 3,
     borderLeftColor: commonColors.success,
   },

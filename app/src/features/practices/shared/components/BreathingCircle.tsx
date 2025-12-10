@@ -354,7 +354,7 @@ const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: spacing.xl,
+    paddingVertical: spacing[32],
   },
   breathingCircle: {
     width: 120,
@@ -366,10 +366,10 @@ const styles = StyleSheet.create({
     shadowColor: colorSystem.themes.midday.primary,
     shadowOffset: {
       width: 0,
-      height: spacing.xs,
+      height: spacing[4],
     },
     shadowOpacity: 0.3,
-    shadowRadius: spacing.sm,
+    shadowRadius: spacing[8],
     elevation: 8,
   },
   innerCircle: {
@@ -380,23 +380,23 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   guidanceContainer: {
-    marginTop: spacing.xl,
+    marginTop: spacing[32],
     alignItems: 'center',
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing[24],
   },
   guidanceText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.medium,
     color: colorSystem.base.black,
     textAlign: 'center',
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
     lineHeight: 22,
   },
   instructionText: {
     fontSize: typography.caption.size,
     color: colorSystem.gray[600],
     textAlign: 'center',
-    lineHeight: spacing.lg,
+    lineHeight: spacing[24],
     fontStyle: 'italic',
   },
   countdownContainer: {
@@ -405,7 +405,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   countdownText: {
-    fontSize: spacing.xxl,
+    fontSize: spacing[48],
     fontWeight: typography.fontWeight.bold,
     color: colorSystem.base.white,
     textAlign: 'center',

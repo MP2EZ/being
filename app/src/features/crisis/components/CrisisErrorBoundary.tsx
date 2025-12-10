@@ -398,14 +398,14 @@ const styles = StyleSheet.create({
     backgroundColor: colorSystem.base.white,
   },
   scrollContent: {
-    padding: spacing.lg,
-    paddingBottom: spacing.xl,
+    padding: spacing[24],
+    paddingBottom: spacing[32],
   },
   crisisBanner: {
     backgroundColor: colorSystem.status.critical,
-    padding: spacing.md,
+    padding: spacing[16],
     borderRadius: borderRadius.medium,
-    marginBottom: spacing.lg,
+    marginBottom: spacing[24],
     alignItems: 'center',
   },
   crisisBannerText: {
@@ -415,7 +415,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   headerSection: {
-    marginBottom: spacing.xl,
+    marginBottom: spacing[32],
     alignItems: 'center',
   },
   errorTitle: {
@@ -423,7 +423,7 @@ const styles = StyleSheet.create({
     fontWeight: typography.headline2.weight,
     color: colorSystem.accessibility.text.primary,
     textAlign: 'center',
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
   },
   errorSubtitle: {
     fontSize: typography.bodyLarge.size,
@@ -432,38 +432,38 @@ const styles = StyleSheet.create({
     lineHeight: typography.bodyLarge.size * 1.5,
   },
   actionsSection: {
-    marginBottom: spacing.xl,
+    marginBottom: spacing[32],
   },
   sectionTitle: {
     fontSize: typography.headline3.size,
     fontWeight: typography.headline3.weight,
     color: colorSystem.accessibility.text.primary,
-    marginBottom: spacing.lg,
+    marginBottom: spacing[24],
   },
   actionGroup: {
-    marginBottom: spacing.lg,
+    marginBottom: spacing[24],
   },
   actionGroupTitle: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
     color: colorSystem.accessibility.text.primary,
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
   },
   crisisNotice: {
     fontSize: typography.bodyRegular.size,
     color: colorSystem.accessibility.text.secondary,
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
     lineHeight: typography.bodyRegular.size * 1.4,
   },
   buttonRow: {
     flexDirection: 'row',
-    gap: spacing.sm,
+    gap: spacing[8],
     flexWrap: 'wrap',
   },
   emergencyButton: {
     backgroundColor: colorSystem.status.critical,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
+    paddingVertical: spacing[8],
+    paddingHorizontal: spacing[16],
     borderRadius: borderRadius.medium,
     minHeight: 44,
     justifyContent: 'center',
@@ -475,8 +475,8 @@ const styles = StyleSheet.create({
   },
   retryButton: {
     backgroundColor: colorSystem.base.midnightBlue,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
+    paddingVertical: spacing[8],
+    paddingHorizontal: spacing[16],
     borderRadius: borderRadius.medium,
     minHeight: 44,
     justifyContent: 'center',
@@ -488,8 +488,8 @@ const styles = StyleSheet.create({
   },
   supportButton: {
     backgroundColor: colorSystem.gray[600],
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
+    paddingVertical: spacing[8],
+    paddingHorizontal: spacing[16],
     borderRadius: borderRadius.medium,
     minHeight: 44,
     justifyContent: 'center',
@@ -500,19 +500,19 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.semibold,
   },
   detailsSection: {
-    marginBottom: spacing.xl,
+    marginBottom: spacing[32],
   },
   detailsTitle: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
     color: colorSystem.accessibility.text.primary,
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
   },
   detailsContainer: {
     backgroundColor: colorSystem.gray[100],
-    padding: spacing.md,
+    padding: spacing[16],
     borderRadius: borderRadius.medium,
-    borderLeftWidth: spacing.xs,
+    borderLeftWidth: spacing[4],
     borderLeftColor: colorSystem.status.warning,
   },
   detailsText: {
@@ -523,16 +523,16 @@ const styles = StyleSheet.create({
   },
   safetySection: {
     backgroundColor: colorSystem.status.successBackground,
-    padding: spacing.md,
+    padding: spacing[16],
     borderRadius: borderRadius.medium,
-    borderLeftWidth: spacing.xs,
+    borderLeftWidth: spacing[4],
     borderLeftColor: colorSystem.status.success,
   },
   safetyTitle: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
     color: colorSystem.status.success,
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
   },
   safetyText: {
     fontSize: typography.bodyRegular.size,

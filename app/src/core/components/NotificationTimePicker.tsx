@@ -179,7 +179,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: borderRadius.xxl,
     borderTopRightRadius: borderRadius.xxl,
-    paddingBottom: Platform.OS === 'ios' ? 34 : spacing[5], // Account for iOS home indicator
+    paddingBottom: Platform.OS === 'ios' ? 34 : spacing[20], // Account for iOS home indicator
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.1,
@@ -192,8 +192,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing[3],
+    paddingHorizontal: spacing[16],
+    paddingVertical: spacing[12],
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
   },

@@ -257,18 +257,18 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: spacing.lg,
-    paddingBottom: spacing.xxl,
+    padding: spacing[24],
+    paddingBottom: spacing[48],
   },
   header: {
-    marginBottom: spacing.xl,
+    marginBottom: spacing[32],
     alignItems: 'center',
   },
   title: {
     fontSize: typography.headline2.size,
     fontWeight: typography.fontWeight.bold,
     color: commonColors.black,
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
     textAlign: 'center',
   },
   subtitle: {
@@ -279,13 +279,13 @@ const styles = StyleSheet.create({
     lineHeight: 26,
   },
   formSection: {
-    marginBottom: spacing.xl,
+    marginBottom: spacing[32],
   },
   questionLabel: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
     color: commonColors.black,
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
     textAlign: 'center',
   },
   pickerContainer: {
@@ -293,7 +293,7 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.large,
     borderWidth: 1,
     borderColor: commonColors.gray200,
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
     overflow: 'hidden',
   },
   picker: {
@@ -305,13 +305,13 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.medium,
     color: commonColors.error,
     textAlign: 'center',
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
   },
   privacyNote: {
     backgroundColor: commonColors.gray100,
     borderRadius: borderRadius.medium,
-    padding: spacing.md,
-    marginTop: spacing.sm,
+    padding: spacing[16],
+    marginTop: spacing[8],
   },
   privacyNoteText: {
     fontSize: typography.bodySmall.size,
@@ -322,8 +322,8 @@ const styles = StyleSheet.create({
   },
   continueButton: {
     backgroundColor: commonColors.midnightBlue,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing[16],
+    paddingHorizontal: spacing[32],
     borderRadius: borderRadius.large,
     alignItems: 'center',
     minHeight: 56, // 44px + padding for touch target
@@ -338,22 +338,22 @@ const styles = StyleSheet.create({
   },
   // Under age screen styles
   crisisSection: {
-    marginBottom: spacing.xl,
+    marginBottom: spacing[32],
   },
   crisisTitle: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
     color: commonColors.black,
-    marginBottom: spacing.lg,
+    marginBottom: spacing[24],
     textAlign: 'center',
   },
   crisisButton: {
     backgroundColor: commonColors.crisis,
-    paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing[24],
+    paddingHorizontal: spacing[32],
     borderRadius: borderRadius.large,
     alignItems: 'center',
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
     minHeight: 72, // Large touch target for crisis
   },
   crisisButtonText: {
@@ -366,12 +366,12 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.medium,
     color: commonColors.white,
     opacity: 0.9,
-    marginTop: spacing.xs,
+    marginTop: spacing[4],
   },
   crisisButtonSecondary: {
     backgroundColor: commonColors.white,
-    paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing[24],
+    paddingHorizontal: spacing[32],
     borderRadius: borderRadius.large,
     alignItems: 'center',
     borderWidth: 2,
@@ -387,11 +387,11 @@ const styles = StyleSheet.create({
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.medium,
     color: commonColors.gray600,
-    marginTop: spacing.xs,
+    marginTop: spacing[4],
   },
   parentSection: {
-    marginTop: spacing.lg,
-    padding: spacing.lg,
+    marginTop: spacing[24],
+    padding: spacing[24],
     backgroundColor: commonColors.gray100,
     borderRadius: borderRadius.large,
   },
@@ -399,21 +399,21 @@ const styles = StyleSheet.create({
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.semibold,
     color: commonColors.black,
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
   },
   parentText: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
     color: commonColors.gray600,
     lineHeight: 20,
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
   },
   linkText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.medium,
     color: commonColors.midnightBlue,
     textDecorationLine: 'underline',
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
   },
 });
 
