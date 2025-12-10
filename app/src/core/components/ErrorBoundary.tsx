@@ -22,6 +22,7 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { sanitizeError, logError } from '@/core/utils/errorSanitization';
+import { spacing, borderRadius, typography } from '@/core/theme';
 
 interface Props {
   children: ReactNode;
@@ -40,12 +41,6 @@ const colors = {
   gray600: '#4B5563',
   error: '#EF4444',
   midnightBlue: '#1B2951',
-};
-
-const spacing = {
-  md: 16,
-  lg: 24,
-  xl: 32,
 };
 
 export class ErrorBoundary extends Component<Props, State> {
@@ -117,44 +112,44 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: spacing.xl,
+    padding: spacing[32],
   },
   content: {
     alignItems: 'center',
     maxWidth: 400,
   },
   title: {
-    fontSize: 32,
-    fontWeight: '700',
+    fontSize: typography.display2.size,
+    fontWeight: typography.fontWeight.bold,
     color: colors.error,
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
   },
   message: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: typography.bodyLarge.size,
+    fontWeight: typography.fontWeight.semibold,
     color: colors.black,
     textAlign: 'center',
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
   },
   description: {
-    fontSize: 16,
-    fontWeight: '400',
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.regular,
     color: colors.gray600,
     textAlign: 'center',
-    marginBottom: spacing.lg,
+    marginBottom: spacing[24],
     lineHeight: 24,
   },
   button: {
     backgroundColor: colors.midnightBlue,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xl,
-    borderRadius: 12,
+    paddingVertical: spacing[16],
+    paddingHorizontal: spacing[32],
+    borderRadius: borderRadius.large,
     minWidth: 200,
     alignItems: 'center',
   },
   buttonText: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: typography.bodyLarge.size,
+    fontWeight: typography.fontWeight.semibold,
     color: colors.white,
   },
 });

@@ -40,6 +40,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { monitoringOrchestrator } from '@/core/services/monitoring';
 import { resilienceOrchestrator, ProtectedService, CircuitBreakerState } from '@/core/services/resilience';
 import { logSecurity, logPerformance } from '@/core/services/logging';
+import { spacing, borderRadius, typography } from '@/core/theme';
 
 // Dashboard configuration
 const REFRESH_INTERVAL = 5000; // 5 seconds
@@ -467,8 +468,8 @@ const styles = StyleSheet.create({
   },
 
   header: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: spacing[20],
+    paddingVertical: spacing[16],
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#E5E7EB',
@@ -480,14 +481,14 @@ const styles = StyleSheet.create({
   },
 
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
+    fontSize: typography.headline4.size,
+    fontWeight: typography.fontWeight.bold,
     color: '#1F2937',
-    marginBottom: 4
+    marginBottom: spacing[4]
   },
 
   lastUpdated: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.size,
     color: '#6B7280',
     fontFamily: 'monospace'
   },
@@ -498,20 +499,20 @@ const styles = StyleSheet.create({
 
   // System Health Styles
   healthOverview: {
-    padding: 20
+    padding: spacing[20]
   },
 
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: typography.bodyLarge.size,
+    fontWeight: typography.fontWeight.semibold,
     color: '#374151',
-    marginBottom: 12
+    marginBottom: spacing[12]
   },
 
   healthCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: borderRadius.large,
+    padding: spacing[16],
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -521,52 +522,52 @@ const styles = StyleSheet.create({
 
   healthIndicator: {
     alignSelf: 'flex-start',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    marginBottom: 12
+    paddingHorizontal: spacing[16],
+    paddingVertical: spacing[8],
+    borderRadius: borderRadius.xxl,
+    marginBottom: spacing[12]
   },
 
   healthText: {
     color: '#FFFFFF',
-    fontWeight: 'bold',
-    fontSize: 16
+    fontWeight: typography.fontWeight.bold,
+    fontSize: typography.bodyRegular.size
   },
 
   healthMetrics: {
-    marginBottom: 12
+    marginBottom: spacing[12]
   },
 
   metricText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.size,
     color: '#4B5563',
-    marginBottom: 4
+    marginBottom: spacing[4]
   },
 
   emergencyButton: {
     backgroundColor: '#DC2626',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
+    paddingVertical: spacing[12],
+    paddingHorizontal: spacing[16],
+    borderRadius: borderRadius.medium,
     alignItems: 'center'
   },
 
   emergencyButtonText: {
     color: '#FFFFFF',
-    fontWeight: 'bold',
-    fontSize: 16
+    fontWeight: typography.fontWeight.bold,
+    fontSize: typography.bodyRegular.size
   },
 
   // Error Monitoring Styles
   monitoringSection: {
-    paddingHorizontal: 20,
-    paddingBottom: 20
+    paddingHorizontal: spacing[20],
+    paddingBottom: spacing[20]
   },
 
   monitoringCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: borderRadius.large,
+    padding: spacing[16],
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -578,32 +579,32 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 8
+    paddingVertical: spacing[8]
   },
 
   monitoringLabel: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.size,
     color: '#4B5563',
-    fontWeight: '500'
+    fontWeight: typography.fontWeight.medium
   },
 
   monitoringValue: {
-    fontSize: 14,
-    fontWeight: 'bold',
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.bold,
     color: '#1F2937'
   },
 
   // Circuit Breaker Styles
   circuitSection: {
-    paddingHorizontal: 20,
-    paddingBottom: 20
+    paddingHorizontal: spacing[20],
+    paddingBottom: spacing[20]
   },
 
   circuitCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
+    borderRadius: borderRadius.large,
+    padding: spacing[16],
+    marginBottom: spacing[12],
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -615,27 +616,27 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12
+    marginBottom: spacing[12]
   },
 
   serviceName: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.semibold,
     color: '#1F2937',
     flex: 1,
     textTransform: 'capitalize'
   },
 
   circuitState: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16
+    paddingHorizontal: spacing[12],
+    paddingVertical: spacing[4],
+    borderRadius: borderRadius.xl
   },
 
   circuitStateText: {
     color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: 'bold',
+    fontSize: typography.micro.size,
+    fontWeight: typography.fontWeight.bold,
     textTransform: 'uppercase'
   },
 
@@ -645,17 +646,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 4
+    paddingVertical: spacing[4]
   },
 
   metricLabel: {
-    fontSize: 13,
+    fontSize: typography.bodySmall.size,
     color: '#6B7280'
   },
 
   metricValue: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.semibold,
     color: '#1F2937'
   },
 
@@ -664,34 +665,34 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20
+    padding: spacing[20]
   },
 
   errorTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
+    fontSize: typography.title.size,
+    fontWeight: typography.fontWeight.bold,
     color: '#DC2626',
-    marginBottom: 12
+    marginBottom: spacing[12]
   },
 
   errorMessage: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.size,
     color: '#6B7280',
     textAlign: 'center',
-    marginBottom: 20
+    marginBottom: spacing[20]
   },
 
   retryButton: {
     backgroundColor: '#3B82F6',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8
+    paddingHorizontal: spacing[24],
+    paddingVertical: spacing[12],
+    borderRadius: borderRadius.medium
   },
 
   retryButtonText: {
     color: '#FFFFFF',
-    fontWeight: 'bold',
-    fontSize: 16
+    fontWeight: typography.fontWeight.bold,
+    fontSize: typography.bodyRegular.size
   },
 
   loadingContainer: {
@@ -701,18 +702,18 @@ const styles = StyleSheet.create({
   },
 
   loadingText: {
-    fontSize: 16,
+    fontSize: typography.bodyRegular.size,
     color: '#6B7280'
   },
 
   // Footer
   footer: {
-    padding: 20,
+    padding: spacing[20],
     alignItems: 'center'
   },
 
   footerText: {
-    fontSize: 12,
+    fontSize: typography.micro.size,
     color: '#9CA3AF',
     textAlign: 'center'
   }

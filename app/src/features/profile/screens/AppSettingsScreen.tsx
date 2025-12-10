@@ -33,28 +33,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSettingsStore } from '@/core/stores/settingsStore';
 import { useConsentStore } from '@/core/stores/consentStore';
 import { ConsentManagementScreen } from '@/features/consent';
-
-// Hardcoded colors - consistent with ProfileScreen
-const colors = {
-  white: '#FFFFFF',
-  black: '#1C1C1C',
-  gray100: '#F3F4F6',
-  gray200: '#E5E7EB',
-  gray300: '#D1D5DB',
-  gray400: '#9CA3AF',
-  gray500: '#6B7280',
-  gray600: '#4B5563',
-  midnightBlue: '#1B2951',
-  success: '#10B981',
-  warning: '#F59E0B',
-};
-
-const spacing = {
-  sm: 8,
-  md: 16,
-  lg: 24,
-  xl: 32,
-};
+import { commonColors, spacing, borderRadius, typography } from '@/core/theme';
 
 interface AppSettingsScreenProps {
   onReturn: () => void;
@@ -127,7 +106,7 @@ const AppSettingsScreen: React.FC<AppSettingsScreenProps> = ({ onReturn }) => {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.midnightBlue} />
+          <ActivityIndicator size="large" color={commonColors.midnightBlue} />
           <Text style={styles.loadingText}>Loading settings...</Text>
         </View>
       </SafeAreaView>
@@ -190,8 +169,8 @@ const AppSettingsScreen: React.FC<AppSettingsScreenProps> = ({ onReturn }) => {
               <Switch
                 value={settings.notifications.checkInReminders}
                 onValueChange={(value) => handleToggleSetting('notifications', 'checkInReminders', value)}
-                trackColor={{ false: colors.gray300, true: colors.midnightBlue }}
-                thumbColor={colors.white}
+                trackColor={{ false: commonColors.gray300, true: commonColors.midnightBlue }}
+                thumbColor={commonColors.white}
                 disabled={isSaving}
               />
             </View>
@@ -208,8 +187,8 @@ const AppSettingsScreen: React.FC<AppSettingsScreenProps> = ({ onReturn }) => {
               <Switch
                 value={settings.notifications.breathingReminders}
                 onValueChange={(value) => handleToggleSetting('notifications', 'breathingReminders', value)}
-                trackColor={{ false: colors.gray300, true: colors.midnightBlue }}
-                thumbColor={colors.white}
+                trackColor={{ false: commonColors.gray300, true: commonColors.midnightBlue }}
+                thumbColor={commonColors.white}
                 disabled={isSaving}
               />
             </View>
@@ -226,8 +205,8 @@ const AppSettingsScreen: React.FC<AppSettingsScreenProps> = ({ onReturn }) => {
               <Switch
                 value={settings.notifications.valuesReflectionPrompts}
                 onValueChange={(value) => handleToggleSetting('notifications', 'valuesReflectionPrompts', value)}
-                trackColor={{ false: colors.gray300, true: colors.midnightBlue }}
-                thumbColor={colors.white}
+                trackColor={{ false: commonColors.gray300, true: commonColors.midnightBlue }}
+                thumbColor={commonColors.white}
                 disabled={isSaving}
               />
             </View>
@@ -258,8 +237,8 @@ const AppSettingsScreen: React.FC<AppSettingsScreenProps> = ({ onReturn }) => {
               <Switch
                 value={settings.privacy.analyticsEnabled}
                 onValueChange={(value) => handleToggleSetting('privacy', 'analyticsEnabled', value)}
-                trackColor={{ false: colors.gray300, true: colors.midnightBlue }}
-                thumbColor={colors.white}
+                trackColor={{ false: commonColors.gray300, true: commonColors.midnightBlue }}
+                thumbColor={commonColors.white}
                 disabled={isSaving}
               />
             </View>
@@ -343,8 +322,8 @@ const AppSettingsScreen: React.FC<AppSettingsScreenProps> = ({ onReturn }) => {
               <Switch
                 value={settings.accessibility.reducedMotion}
                 onValueChange={(value) => handleToggleSetting('accessibility', 'reducedMotion', value)}
-                trackColor={{ false: colors.gray300, true: colors.midnightBlue }}
-                thumbColor={colors.white}
+                trackColor={{ false: commonColors.gray300, true: commonColors.midnightBlue }}
+                thumbColor={commonColors.white}
                 disabled={isSaving}
               />
             </View>
@@ -362,8 +341,8 @@ const AppSettingsScreen: React.FC<AppSettingsScreenProps> = ({ onReturn }) => {
               <Switch
                 value={settings.accessibility.highContrast}
                 onValueChange={(value) => handleToggleSetting('accessibility', 'highContrast', value)}
-                trackColor={{ false: colors.gray300, true: colors.midnightBlue }}
-                thumbColor={colors.white}
+                trackColor={{ false: commonColors.gray300, true: commonColors.midnightBlue }}
+                thumbColor={commonColors.white}
                 disabled={isSaving}
               />
             </View>
@@ -409,30 +388,30 @@ const AppSettingsScreen: React.FC<AppSettingsScreenProps> = ({ onReturn }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.white,
+    backgroundColor: commonColors.white,
   },
   scrollContainer: {
     flex: 1,
   },
   scrollContent: {
-    padding: spacing.lg,
-    paddingBottom: spacing.xl,
+    padding: spacing[24],
+    paddingBottom: spacing[32],
   },
   header: {
-    marginBottom: spacing.xl,
+    marginBottom: spacing[32],
     alignItems: 'center',
   },
   title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: colors.black,
-    marginBottom: spacing.sm,
+    fontSize: typography.headline2.size,
+    fontWeight: typography.fontWeight.bold,
+    color: commonColors.black,
+    marginBottom: spacing[8],
     textAlign: 'center',
   },
   subtitle: {
-    fontSize: 18,
-    fontWeight: '400',
-    color: colors.gray600,
+    fontSize: typography.bodyLarge.size,
+    fontWeight: typography.fontWeight.regular,
+    color: commonColors.gray600,
     textAlign: 'center',
     lineHeight: 24,
   },
@@ -440,49 +419,49 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: spacing.xl,
+    padding: spacing[32],
   },
   loadingText: {
-    fontSize: 16,
-    fontWeight: '400',
-    color: colors.gray600,
-    marginTop: spacing.md,
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.regular,
+    color: commonColors.gray600,
+    marginTop: spacing[16],
   },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: spacing.xl,
+    padding: spacing[32],
   },
   errorText: {
-    fontSize: 16,
-    fontWeight: '400',
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.regular,
     color: '#EF4444',
-    marginBottom: spacing.lg,
+    marginBottom: spacing[24],
   },
   section: {
-    marginBottom: spacing.xl,
+    marginBottom: spacing[32],
   },
   sectionTitle: {
-    fontSize: 22,
-    fontWeight: '600',
-    color: colors.black,
-    marginBottom: spacing.sm,
+    fontSize: typography.headline3.size,
+    fontWeight: typography.fontWeight.semibold,
+    color: commonColors.black,
+    marginBottom: spacing[8],
   },
   sectionDescription: {
-    fontSize: 16,
-    fontWeight: '400',
-    color: colors.gray600,
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.regular,
+    color: commonColors.gray600,
     lineHeight: 22,
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
   },
   settingCard: {
-    backgroundColor: colors.gray100,
-    borderRadius: 12,
-    padding: spacing.lg,
-    marginBottom: spacing.md,
+    backgroundColor: commonColors.gray100,
+    borderRadius: borderRadius.large,
+    padding: spacing[24],
+    marginBottom: spacing[16],
     borderWidth: 1,
-    borderColor: colors.gray200,
+    borderColor: commonColors.gray200,
   },
   settingRow: {
     flexDirection: 'row',
@@ -491,121 +470,121 @@ const styles = StyleSheet.create({
   },
   settingInfo: {
     flex: 1,
-    marginRight: spacing.md,
+    marginRight: spacing[16],
   },
   settingLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.black,
-    marginBottom: spacing.sm,
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.semibold,
+    color: commonColors.black,
+    marginBottom: spacing[8],
   },
   settingDescription: {
-    fontSize: 14,
-    fontWeight: '400',
-    color: colors.gray600,
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.regular,
+    color: commonColors.gray600,
     lineHeight: 20,
   },
   textSizeContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: spacing.md,
+    marginTop: spacing[16],
   },
   textSizeButton: {
     flex: 1,
-    paddingVertical: spacing.md,
+    paddingVertical: spacing[16],
     marginHorizontal: 4,
-    backgroundColor: colors.white,
-    borderRadius: 8,
+    backgroundColor: commonColors.white,
+    borderRadius: borderRadius.medium,
     borderWidth: 2,
-    borderColor: colors.gray300,
+    borderColor: commonColors.gray300,
     alignItems: 'center',
   },
   textSizeButtonActive: {
-    backgroundColor: colors.midnightBlue,
-    borderColor: colors.midnightBlue,
+    backgroundColor: commonColors.midnightBlue,
+    borderColor: commonColors.midnightBlue,
   },
   textSizeButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.gray600,
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.semibold,
+    color: commonColors.gray600,
   },
   textSizeButtonTextActive: {
-    color: colors.white,
+    color: commonColors.white,
   },
   infoBox: {
     backgroundColor: '#F0F4FF',
-    borderRadius: 8,
-    padding: spacing.md,
-    marginTop: spacing.sm,
+    borderRadius: borderRadius.medium,
+    padding: spacing[16],
+    marginTop: spacing[8],
     borderLeftWidth: 3,
-    borderLeftColor: colors.midnightBlue,
+    borderLeftColor: commonColors.midnightBlue,
   },
   infoText: {
-    fontSize: 14,
-    fontWeight: '400',
-    color: colors.gray600,
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.regular,
+    color: commonColors.gray600,
     lineHeight: 20,
   },
   infoCard: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: colors.gray100,
-    borderRadius: 8,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
+    backgroundColor: commonColors.gray100,
+    borderRadius: borderRadius.medium,
+    padding: spacing[16],
+    marginBottom: spacing[8],
   },
   infoCardLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.black,
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.semibold,
+    color: commonColors.black,
   },
   infoCardValue: {
-    fontSize: 16,
-    fontWeight: '400',
-    color: colors.gray600,
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.regular,
+    color: commonColors.gray600,
   },
   actionContainer: {
-    marginTop: spacing.lg,
+    marginTop: spacing[24],
   },
   primaryButton: {
-    backgroundColor: colors.midnightBlue,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xl,
-    borderRadius: 12,
+    backgroundColor: commonColors.midnightBlue,
+    paddingVertical: spacing[16],
+    paddingHorizontal: spacing[32],
+    borderRadius: borderRadius.large,
     alignItems: 'center',
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
   },
   primaryButtonText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.white,
+    fontSize: typography.bodyLarge.size,
+    fontWeight: typography.fontWeight.semibold,
+    color: commonColors.white,
   },
   dangerButton: {
-    backgroundColor: colors.white,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xl,
-    borderRadius: 12,
+    backgroundColor: commonColors.white,
+    paddingVertical: spacing[16],
+    paddingHorizontal: spacing[32],
+    borderRadius: borderRadius.large,
     alignItems: 'center',
     borderWidth: 2,
     borderColor: '#EF4444',
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
   },
   dangerButtonText: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: typography.bodyLarge.size,
+    fontWeight: typography.fontWeight.semibold,
     color: '#EF4444',
   },
   buttonDisabled: {
     opacity: 0.5,
   },
   consentButton: {
-    backgroundColor: colors.white,
-    borderRadius: 12,
-    padding: spacing.lg,
-    marginTop: spacing.md,
+    backgroundColor: commonColors.white,
+    borderRadius: borderRadius.large,
+    padding: spacing[24],
+    marginTop: spacing[16],
     borderWidth: 2,
-    borderColor: colors.midnightBlue,
+    borderColor: commonColors.midnightBlue,
     minHeight: 56,
   },
   consentButtonContent: {
@@ -615,31 +594,31 @@ const styles = StyleSheet.create({
   },
   consentButtonInfo: {
     flex: 1,
-    marginRight: spacing.md,
+    marginRight: spacing[16],
   },
   consentButtonLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.midnightBlue,
-    marginBottom: spacing.sm,
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.semibold,
+    color: commonColors.midnightBlue,
+    marginBottom: spacing[8],
   },
   consentButtonDescription: {
-    fontSize: 14,
-    fontWeight: '400',
-    color: colors.gray600,
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.regular,
+    color: commonColors.gray600,
     lineHeight: 20,
   },
   consentButtonArrow: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: colors.midnightBlue,
+    fontSize: typography.title.size,
+    fontWeight: typography.fontWeight.semibold,
+    color: commonColors.midnightBlue,
   },
   consentLastUpdated: {
-    fontSize: 13,
-    fontWeight: '400',
-    color: colors.gray400,
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.regular,
+    color: commonColors.gray400,
     textAlign: 'center',
-    marginTop: spacing.sm,
+    marginTop: spacing[8],
   },
 });
 

@@ -12,7 +12,7 @@ import {
   TextInput,
   Pressable
 } from 'react-native';
-import { colorSystem, spacing, borderRadius, typography } from '@/core/theme/colors';
+import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
 
 interface DreamJournalProps {
   dreamContent?: string;
@@ -191,23 +191,23 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   toggleSection: {
-    marginBottom: spacing.xl,
+    marginBottom: spacing[32],
   },
   questionText: {
     fontSize: typography.bodyLarge.size,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.black,
     textAlign: 'center',
-    marginBottom: spacing.lg,
+    marginBottom: spacing[24],
   },
   toggleContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    gap: spacing.md,
+    gap: spacing[16],
   },
   toggleButton: {
     flex: 1,
-    padding: spacing.md,
+    padding: spacing[16],
     borderRadius: borderRadius.medium,
     borderWidth: 2,
     alignItems: 'center',
@@ -219,32 +219,32 @@ const styles = StyleSheet.create({
       height: 1,
     },
     shadowOpacity: 0.1,
-    shadowRadius: 2,
+    shadowRadius: borderRadius.xs,
     elevation: 2,
   },
   toggleTitle: {
     fontSize: typography.bodyRegular.size,
-    fontWeight: '600',
-    marginBottom: spacing.xs,
+    fontWeight: typography.fontWeight.semibold,
+    marginBottom: spacing[4],
   },
   toggleSubtitle: {
     fontSize: typography.caption.size,
     textAlign: 'center',
   },
   contentSection: {
-    marginBottom: spacing.xl,
+    marginBottom: spacing[32],
   },
   promptText: {
     fontSize: typography.bodyRegular.size,
     color: colorSystem.gray[700],
     textAlign: 'center',
-    marginBottom: spacing.md,
-    lineHeight: 22,
+    marginBottom: spacing[16],
+    lineHeight: spacing[24],
   },
   textInput: {
     borderWidth: 1,
     borderRadius: borderRadius.medium,
-    padding: spacing.md,
+    padding: spacing[16],
     fontSize: typography.bodyRegular.size,
     color: colorSystem.base.black,
     minHeight: 120,
@@ -255,52 +255,52 @@ const styles = StyleSheet.create({
       height: 1,
     },
     shadowOpacity: 0.05,
-    shadowRadius: 2,
+    shadowRadius: borderRadius.xs,
     elevation: 1,
   },
   characterCount: {
     alignItems: 'flex-end',
-    marginTop: spacing.xs,
+    marginTop: spacing[4],
   },
   countText: {
     fontSize: typography.micro.size,
     color: colorSystem.gray[500],
   },
   insightSection: {
-    padding: spacing.md,
+    padding: spacing[16],
     borderRadius: borderRadius.medium,
-    marginBottom: spacing.lg,
+    marginBottom: spacing[24],
   },
   insightTitle: {
     fontSize: typography.bodyRegular.size,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.black,
-    marginBottom: spacing.xs,
+    marginBottom: spacing[4],
   },
   insightText: {
     fontSize: typography.caption.size,
     color: colorSystem.gray[700],
-    lineHeight: 18,
+    lineHeight: spacing[20],
   },
   summarySection: {
     backgroundColor: colorSystem.base.white,
-    padding: spacing.md,
+    padding: spacing[16],
     borderRadius: borderRadius.medium,
-    borderLeftWidth: 4,
+    borderLeftWidth: spacing[4],
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
       height: 1,
     },
     shadowOpacity: 0.05,
-    shadowRadius: 2,
+    shadowRadius: borderRadius.xs,
     elevation: 1,
   },
   summaryTitle: {
     fontSize: typography.bodyRegular.size,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.black,
-    marginBottom: spacing.xs,
+    marginBottom: spacing[4],
   },
   summaryText: {
     fontSize: typography.caption.size,

@@ -32,30 +32,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Picker } from '@react-native-picker/picker';
 import { useConsentStore } from '@/core/stores/consentStore';
-
-// Colors consistent with Being design system
-// Updated for WCAG AA color contrast compliance (4.5:1 for body text)
-const colors = {
-  white: '#FFFFFF',
-  black: '#1C1C1C',
-  gray100: '#F3F4F6',
-  gray200: '#E5E7EB',
-  gray400: '#6B7280', // Darkened for contrast (was #9CA3AF)
-  gray500: '#525863', // Darkened for contrast (was #6B7280)
-  gray600: '#374151', // Darkened for contrast (was #4B5563)
-  midnightBlue: '#1B2951',
-  error: '#EF4444',
-  crisis: '#DC2626',
-};
-
-const spacing = {
-  xs: 4,
-  sm: 8,
-  md: 16,
-  lg: 24,
-  xl: 32,
-  xxl: 48,
-};
+import { commonColors, spacing, borderRadius, typography } from '@/core/theme';
 
 interface AgeVerificationScreenProps {
   onVerified: () => void;
@@ -225,13 +202,13 @@ const AgeVerificationScreen: React.FC<AgeVerificationScreenProps> = ({
               accessibilityLabel="Select your birth year"
               accessibilityHint="Scroll to select the year you were born"
             >
-              <Picker.Item label="Select year..." value={null} color={colors.gray400} />
+              <Picker.Item label="Select year..." value={null} color={commonColors.gray400} />
               {years.map((year) => (
                 <Picker.Item
                   key={year}
                   label={year.toString()}
                   value={year}
-                  color={colors.black}
+                  color={commonColors.black}
                 />
               ))}
             </Picker>
@@ -274,49 +251,49 @@ const AgeVerificationScreen: React.FC<AgeVerificationScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.white,
+    backgroundColor: commonColors.white,
   },
   scrollContainer: {
     flex: 1,
   },
   scrollContent: {
-    padding: spacing.lg,
-    paddingBottom: spacing.xxl,
+    padding: spacing[24],
+    paddingBottom: spacing[48],
   },
   header: {
-    marginBottom: spacing.xl,
+    marginBottom: spacing[32],
     alignItems: 'center',
   },
   title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: colors.black,
-    marginBottom: spacing.sm,
+    fontSize: typography.headline2.size,
+    fontWeight: typography.fontWeight.bold,
+    color: commonColors.black,
+    marginBottom: spacing[8],
     textAlign: 'center',
   },
   subtitle: {
-    fontSize: 18,
-    fontWeight: '400',
-    color: colors.gray600,
+    fontSize: typography.bodyLarge.size,
+    fontWeight: typography.fontWeight.regular,
+    color: commonColors.gray600,
     textAlign: 'center',
     lineHeight: 26,
   },
   formSection: {
-    marginBottom: spacing.xl,
+    marginBottom: spacing[32],
   },
   questionLabel: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.black,
-    marginBottom: spacing.md,
+    fontSize: typography.bodyLarge.size,
+    fontWeight: typography.fontWeight.semibold,
+    color: commonColors.black,
+    marginBottom: spacing[16],
     textAlign: 'center',
   },
   pickerContainer: {
-    backgroundColor: colors.gray100,
-    borderRadius: 12,
+    backgroundColor: commonColors.gray100,
+    borderRadius: borderRadius.large,
     borderWidth: 1,
-    borderColor: colors.gray200,
-    marginBottom: spacing.md,
+    borderColor: commonColors.gray200,
+    marginBottom: spacing[16],
     overflow: 'hidden',
   },
   picker: {
@@ -324,119 +301,119 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   errorText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: colors.error,
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.medium,
+    color: commonColors.error,
     textAlign: 'center',
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
   },
   privacyNote: {
-    backgroundColor: colors.gray100,
-    borderRadius: 8,
-    padding: spacing.md,
-    marginTop: spacing.sm,
+    backgroundColor: commonColors.gray100,
+    borderRadius: borderRadius.medium,
+    padding: spacing[16],
+    marginTop: spacing[8],
   },
   privacyNoteText: {
-    fontSize: 14,
-    fontWeight: '400',
-    color: colors.gray600,
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.regular,
+    color: commonColors.gray600,
     lineHeight: 20,
     textAlign: 'center',
   },
   continueButton: {
-    backgroundColor: colors.midnightBlue,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xl,
-    borderRadius: 12,
+    backgroundColor: commonColors.midnightBlue,
+    paddingVertical: spacing[16],
+    paddingHorizontal: spacing[32],
+    borderRadius: borderRadius.large,
     alignItems: 'center',
     minHeight: 56, // 44px + padding for touch target
   },
   continueButtonDisabled: {
-    backgroundColor: colors.gray400,
+    backgroundColor: commonColors.gray400,
   },
   continueButtonText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.white,
+    fontSize: typography.bodyLarge.size,
+    fontWeight: typography.fontWeight.semibold,
+    color: commonColors.white,
   },
   // Under age screen styles
   crisisSection: {
-    marginBottom: spacing.xl,
+    marginBottom: spacing[32],
   },
   crisisTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.black,
-    marginBottom: spacing.lg,
+    fontSize: typography.bodyLarge.size,
+    fontWeight: typography.fontWeight.semibold,
+    color: commonColors.black,
+    marginBottom: spacing[24],
     textAlign: 'center',
   },
   crisisButton: {
-    backgroundColor: colors.crisis,
-    paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.xl,
-    borderRadius: 12,
+    backgroundColor: commonColors.crisis,
+    paddingVertical: spacing[24],
+    paddingHorizontal: spacing[32],
+    borderRadius: borderRadius.large,
     alignItems: 'center',
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
     minHeight: 72, // Large touch target for crisis
   },
   crisisButtonText: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: colors.white,
+    fontSize: typography.headline4.size,
+    fontWeight: typography.fontWeight.bold,
+    color: commonColors.white,
   },
   crisisButtonSubtext: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: colors.white,
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.medium,
+    color: commonColors.white,
     opacity: 0.9,
-    marginTop: spacing.xs,
+    marginTop: spacing[4],
   },
   crisisButtonSecondary: {
-    backgroundColor: colors.white,
-    paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.xl,
-    borderRadius: 12,
+    backgroundColor: commonColors.white,
+    paddingVertical: spacing[24],
+    paddingHorizontal: spacing[32],
+    borderRadius: borderRadius.large,
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: colors.crisis,
+    borderColor: commonColors.crisis,
     minHeight: 72,
   },
   crisisButtonSecondaryText: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: colors.crisis,
+    fontSize: typography.title.size,
+    fontWeight: typography.fontWeight.semibold,
+    color: commonColors.crisis,
   },
   crisisButtonSecondarySubtext: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: colors.gray600,
-    marginTop: spacing.xs,
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.medium,
+    color: commonColors.gray600,
+    marginTop: spacing[4],
   },
   parentSection: {
-    marginTop: spacing.lg,
-    padding: spacing.lg,
-    backgroundColor: colors.gray100,
-    borderRadius: 12,
+    marginTop: spacing[24],
+    padding: spacing[24],
+    backgroundColor: commonColors.gray100,
+    borderRadius: borderRadius.large,
   },
   parentTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.black,
-    marginBottom: spacing.sm,
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.semibold,
+    color: commonColors.black,
+    marginBottom: spacing[8],
   },
   parentText: {
-    fontSize: 14,
-    fontWeight: '400',
-    color: colors.gray600,
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.regular,
+    color: commonColors.gray600,
     lineHeight: 20,
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
   },
   linkText: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: colors.midnightBlue,
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.medium,
+    color: commonColors.midnightBlue,
     textDecorationLine: 'underline',
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
   },
 });
 

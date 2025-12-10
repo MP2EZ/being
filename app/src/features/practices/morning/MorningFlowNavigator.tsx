@@ -20,7 +20,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { createStackNavigator, StackNavigationProp } from '@react-navigation/stack';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { colorSystem, spacing } from '@/core/theme/colors';
+import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
 import { MorningFlowParamList } from '@/features/practices/types/flows';
 import { SessionStorageService } from '@/core/services/session/SessionStorageService';
 import { SessionMetadata } from '@/core/types/session';
@@ -466,10 +466,10 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: typography.bodyLarge.size,
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.black,
-    marginBottom: spacing.xs,
+    marginBottom: spacing[4],
   },
   progressContainer: {
     alignItems: 'center',
@@ -477,32 +477,32 @@ const styles = StyleSheet.create({
   },
   progressBar: {
     width: 120,
-    height: 4,
+    height: spacing[4],
     backgroundColor: colorSystem.gray[200],
-    borderRadius: 2,
-    marginBottom: 4,
+    borderRadius: borderRadius.xs,
+    marginBottom: spacing[4],
   },
   progressFill: {
     height: '100%',
-    borderRadius: 2,
+    borderRadius: borderRadius.xs,
   },
   progressText: {
-    fontSize: 12,
+    fontSize: typography.micro.size,
     color: colorSystem.gray[600],
-    fontWeight: '500',
+    fontWeight: typography.fontWeight.medium,
   },
   closeButton: {
-    marginLeft: spacing.md,
-    padding: spacing.sm,
+    marginLeft: spacing[16],
+    padding: spacing[8],
     width: 44,
     height: 44,
     justifyContent: 'center',
     alignItems: 'center',
   },
   closeButtonText: {
-    fontSize: 24,
+    fontSize: typography.headline4.size,
     color: colorSystem.base.black,
-    fontWeight: '300',
+    fontWeight: typography.fontWeight.light,
   },
 });
 

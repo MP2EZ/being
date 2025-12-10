@@ -34,6 +34,7 @@ import {
 } from 'react-native';
 import type { StackScreenProps } from '@react-navigation/stack';
 import type { MiddayFlowParamList, AffirmationData } from '@/features/practices/types/flows';
+import { spacing, borderRadius, typography } from '@/core/theme';
 
 type Props = StackScreenProps<MiddayFlowParamList, 'Affirmation'> & {
   onSave?: (data: AffirmationData) => void;
@@ -239,66 +240,66 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
-    padding: 20,
+    padding: spacing[20],
   },
   backButton: {
-    marginBottom: 20,
+    marginBottom: spacing[20],
   },
   backButtonText: {
-    fontSize: 16,
+    fontSize: typography.bodyRegular.size,
     color: '#40B5AD',
   },
   header: {
-    marginBottom: 24,
+    marginBottom: spacing[24],
   },
   title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginBottom: 8,
+    fontSize: typography.headline2.size,
+    fontWeight: typography.fontWeight.bold,
+    marginBottom: spacing[8],
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: typography.bodyRegular.size,
     color: '#666',
-    marginBottom: 4,
+    marginBottom: spacing[4],
   },
   helperText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.size,
     color: '#40B5AD',
     fontStyle: 'italic',
-    fontWeight: '500',
+    fontWeight: typography.fontWeight.medium,
   },
   fieldSection: {
-    marginBottom: 24,
+    marginBottom: spacing[24],
   },
   fieldLabel: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 8,
+    fontSize: typography.bodyLarge.size,
+    fontWeight: typography.fontWeight.semibold,
+    marginBottom: spacing[8],
     color: '#333',
   },
   fieldHelper: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.size,
     color: '#666',
-    marginBottom: 12,
+    marginBottom: spacing[12],
   },
   textInput: {
     borderWidth: 1,
     borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
+    borderRadius: borderRadius.medium,
+    padding: spacing[12],
+    fontSize: typography.bodyRegular.size,
     backgroundColor: '#fff',
     minHeight: 80,
     textAlignVertical: 'top',
   },
   affirmationList: {
-    gap: 12,
+    gap: spacing[12],
   },
   affirmationCard: {
-    padding: 16,
+    padding: spacing[16],
     borderWidth: 2,
     borderColor: '#ddd',
-    borderRadius: 8,
+    borderRadius: borderRadius.medium,
     backgroundColor: '#fff',
   },
   affirmationCardSelected: {
@@ -311,8 +312,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   affirmationText: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.semibold,
     color: '#333',
     flex: 1,
   },
@@ -320,47 +321,47 @@ const styles = StyleSheet.create({
     color: '#40B5AD',
   },
   expandIndicator: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.size,
     color: '#40B5AD',
-    marginLeft: 8,
+    marginLeft: spacing[8],
   },
   affirmationDescription: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.size,
     color: '#666',
-    marginTop: 8,
-    paddingTop: 8,
+    marginTop: spacing[8],
+    paddingTop: spacing[8],
     borderTopWidth: 1,
     borderTopColor: '#eee',
   },
   continueButton: {
     backgroundColor: '#40B5AD',
-    padding: 16,
-    borderRadius: 8,
+    padding: spacing[16],
+    borderRadius: borderRadius.medium,
     alignItems: 'center',
-    marginTop: 12,
-    marginBottom: 24,
+    marginTop: spacing[12],
+    marginBottom: spacing[24],
   },
   continueButtonDisabled: {
     backgroundColor: '#ccc',
   },
   continueButtonText: {
     color: '#fff',
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: typography.bodyLarge.size,
+    fontWeight: typography.fontWeight.semibold,
   },
   quoteSection: {
-    padding: 16,
+    padding: spacing[16],
     backgroundColor: '#f9f9f9',
-    borderRadius: 8,
-    borderLeftWidth: 4,
+    borderRadius: borderRadius.medium,
+    borderLeftWidth: spacing[4],
     borderLeftColor: '#40B5AD',
     marginBottom: 40,
   },
   quoteText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.size,
     fontStyle: 'italic',
     color: '#666',
-    lineHeight: 20,
+    lineHeight: spacing[20],
   },
 });
 

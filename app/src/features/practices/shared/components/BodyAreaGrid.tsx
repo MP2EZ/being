@@ -12,7 +12,7 @@ import {
   Pressable, 
   Vibration 
 } from 'react-native';
-import { colorSystem, spacing, borderRadius, typography } from '@/core/theme/colors';
+import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
 
 interface BodyAreaGridProps {
   selectedAreas?: string[];
@@ -136,7 +136,7 @@ const BodyAreaGrid: React.FC<BodyAreaGridProps> = ({
           <Text style={styles.summaryTitle}>
             Current focus:
           </Text>
-          <Text style={[styles.summaryText, { fontSize: typography.bodyRegular.size, fontWeight: '600' }]}>
+          <Text style={[styles.summaryText, { fontSize: typography.bodyRegular.size, fontWeight: typography.fontWeight.semibold }]}>
             {currentArea}
           </Text>
         </View>
@@ -163,15 +163,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    marginBottom: spacing.lg,
+    marginBottom: spacing[24],
   },
   areaButton: {
     width: '48%', // 2 columns with gap
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing[16],
+    paddingHorizontal: spacing[8],
     borderRadius: borderRadius.medium,
     borderWidth: 2,
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 56, // WCAG AA touch target size (44pt minimum)
@@ -186,14 +186,14 @@ const styles = StyleSheet.create({
   },
   areaButtonText: {
     fontSize: typography.bodyRegular.size,
-    fontWeight: '500',
+    fontWeight: typography.fontWeight.medium,
     textAlign: 'center',
   },
   summarySection: {
     backgroundColor: colorSystem.base.white,
-    padding: spacing.md,
+    padding: spacing[16],
     borderRadius: borderRadius.medium,
-    marginBottom: spacing.lg,
+    marginBottom: spacing[24],
     borderLeftWidth: 4,
     shadowColor: '#000',
     shadowOffset: {
@@ -206,24 +206,24 @@ const styles = StyleSheet.create({
   },
   summaryTitle: {
     fontSize: typography.bodyRegular.size,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.black,
-    marginBottom: spacing.xs,
+    marginBottom: spacing[4],
   },
   summaryText: {
     fontSize: typography.caption.size,
     color: colorSystem.gray[700],
-    lineHeight: 20,
+    lineHeight: spacing[20],
   },
   noteSection: {
-    padding: spacing.md,
+    padding: spacing[16],
     borderRadius: borderRadius.medium,
-    marginTop: spacing.sm,
+    marginTop: spacing[8],
   },
   noteText: {
     fontSize: typography.caption.size,
     color: colorSystem.gray[700],
-    lineHeight: 20,
+    lineHeight: spacing[20],
     textAlign: 'center',
     fontStyle: 'italic',
   },

@@ -9,7 +9,7 @@ import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
-import { colorSystem, getTheme, spacing } from '@/core/theme/colors';
+import { colorSystem, getTheme, spacing, borderRadius, typography } from '@/core/theme';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 import { useStoicPracticeStore } from '@/features/practices/stores/stoicPracticeStore';
 import { useSettingsStore, useAccessibilitySettings } from '@/core/stores/settingsStore';
@@ -213,82 +213,82 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing[24],
   },
   header: {
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing[8],
     alignItems: 'center',
   },
   appTitle: {
-    fontSize: 32,
-    fontWeight: '700',
+    fontSize: typography.display2.size,
+    fontWeight: typography.fontWeight.bold,
     color: colorSystem.base.midnightBlue,
-    marginBottom: 4,
+    marginBottom: spacing[4],
   },
   greeting: {
-    fontSize: 20,
-    fontWeight: '600',
+    fontSize: typography.title.size,
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.black,
-    marginBottom: 2,
+    marginBottom: borderRadius.xs,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.size,
     color: colorSystem.gray[600],
     textAlign: 'center',
-    marginBottom: 10,
+    marginBottom: spacing[12],
   },
   checkInSection: {
     flex: 1,
-    marginTop: 12,
+    marginTop: spacing[12],
   },
   checkInCard: {
     flex: 1,
     justifyContent: 'space-between',
-    padding: spacing.md,
-    borderRadius: 12,
-    marginBottom: 35,
+    padding: spacing[16],
+    borderRadius: borderRadius.large,
+    marginBottom: spacing[40],
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
       height: 1,
     },
     shadowOpacity: 0.08,
-    shadowRadius: 2,
+    shadowRadius: borderRadius.xs,
     elevation: 2,
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: spacing[4],
   },
   cardTitle: {
-    fontSize: 21,
-    fontWeight: '600',
+    fontSize: typography.headline3.size,
+    fontWeight: typography.fontWeight.semibold,
   },
   durationBadge: {
-    fontSize: 11,
+    fontSize: typography.micro.size,
     color: colorSystem.gray[600],
     backgroundColor: colorSystem.gray[100],
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 6,
-    fontWeight: '500',
+    paddingHorizontal: borderRadius.medium,
+    paddingVertical: borderRadius.xs,
+    borderRadius: borderRadius.medium,
+    fontWeight: typography.fontWeight.medium,
   },
   cardDescription: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.size,
     color: colorSystem.gray[600],
-    lineHeight: 20,
+    lineHeight: typography.title.size,
   },
   startButton: {
-    paddingVertical: 10,
-    borderRadius: 10,
+    paddingVertical: spacing[12],
+    borderRadius: spacing[12],
     alignItems: 'center',
   },
   startButtonText: {
     color: 'white',
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.semibold,
   },
 });
 

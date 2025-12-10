@@ -14,7 +14,7 @@ import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { View, Text } from 'react-native';
 import Svg, { Path, Circle, Rect, ClipPath, Defs, G } from 'react-native-svg';
-import { colorSystem, spacing } from '@/core/theme/colors';
+import { colorSystem, spacing, typography } from '@/core/theme';
 import CleanHomeScreen from '@/features/home/screens/CleanHomeScreen';
 import ProfileScreen from '@/features/profile/screens/ProfileScreen';
 import InsightsScreen from '@/features/insights/screens/InsightsScreen';
@@ -62,19 +62,19 @@ const PlaceholderScreen: React.FC<{ name: string; description: string }> = ({ na
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: colorSystem.base.white,
-    padding: spacing.lg
+    padding: spacing[24]
   }}>
     <Text style={{
-      fontSize: 24,
-      fontWeight: '600',
+      fontSize: typography.headline4.size,
+      fontWeight: typography.fontWeight.semibold,
       color: colorSystem.base.black,
-      marginBottom: spacing.sm,
+      marginBottom: spacing[8],
       textAlign: 'center'
     }}>
       {name}
     </Text>
     <Text style={{
-      fontSize: 16,
+      fontSize: typography.bodyRegular.size,
       color: colorSystem.gray[600],
       textAlign: 'center',
       lineHeight: 22
@@ -111,8 +111,8 @@ const CleanTabNavigator: React.FC = () => {
           backgroundColor: colorSystem.base.white,
           borderTopColor: colorSystem.gray[200],
           borderTopWidth: 1,
-          paddingBottom: 8,
-          paddingTop: 8,
+          paddingBottom: spacing[8],
+          paddingTop: spacing[8],
           height: 84,
           shadowColor: '#000',
           shadowOffset: {
@@ -126,9 +126,9 @@ const CleanTabNavigator: React.FC = () => {
         tabBarActiveTintColor: colorSystem.base.black,
         tabBarInactiveTintColor: '#1C1C1C', // DRD soft-black
         tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: '500',
-          marginTop: 4,
+          fontSize: typography.micro.size,
+          fontWeight: typography.fontWeight.medium,
+          marginTop: spacing[4],
         },
         headerStyle: {
           backgroundColor: colorSystem.base.white,
@@ -144,8 +144,8 @@ const CleanTabNavigator: React.FC = () => {
           elevation: 4,
         },
         headerTitleStyle: {
-          fontSize: 20,
-          fontWeight: '600',
+          fontSize: typography.title.size,
+          fontWeight: typography.fontWeight.semibold,
           color: colorSystem.base.black,
         },
       }}

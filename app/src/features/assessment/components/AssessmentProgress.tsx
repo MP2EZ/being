@@ -17,7 +17,7 @@ import {
   Animated,
   AccessibilityInfo,
 } from 'react-native';
-import { colorSystem, spacing, typography } from '@/core/theme/colors';
+import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
 import type { AssessmentProgress as AssessmentProgressType } from '../types';
 
 interface AssessmentProgressProps {
@@ -191,23 +191,23 @@ const AssessmentProgress: React.FC<AssessmentProgressProps> = ({
 const styles = StyleSheet.create({
   container: {
     backgroundColor: colorSystem.base.white,
-    padding: spacing.md,
-    borderRadius: 12,
-    marginBottom: spacing.md,
+    padding: spacing[16],
+    borderRadius: borderRadius.large,
+    marginBottom: spacing[16],
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
       height: 2,
     },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowRadius: borderRadius.small,
     elevation: 3,
   },
   headerContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
   },
   assessmentTitle: {
     fontSize: typography.headline3.size,
@@ -224,23 +224,23 @@ const styles = StyleSheet.create({
   progressBarContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
-    marginBottom: spacing.sm,
+    gap: spacing[8],
+    marginBottom: spacing[8],
   },
   progressBarTrack: {
     flex: 1,
-    height: 8,
-    borderRadius: 4,
+    height: spacing[8],
+    borderRadius: borderRadius.small,
     overflow: 'hidden',
   },
   progressBarFill: {
     height: '100%',
-    borderRadius: 4,
-    minWidth: 8, // Minimum visible progress
+    borderRadius: borderRadius.small,
+    minWidth: spacing[8], // Minimum visible progress
   },
   progressPercentage: {
     fontSize: typography.caption.size,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.accessibility.text.secondary,
     minWidth: 35,
     textAlign: 'right',
@@ -262,18 +262,18 @@ const styles = StyleSheet.create({
   },
   completionBadge: {
     position: 'absolute',
-    top: spacing.sm,
-    right: spacing.sm,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: 12,
+    top: spacing[8],
+    right: spacing[8],
+    paddingHorizontal: spacing[8],
+    paddingVertical: spacing[4],
+    borderRadius: borderRadius.large,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
       height: 1,
     },
     shadowOpacity: 0.2,
-    shadowRadius: 2,
+    shadowRadius: borderRadius.xs,
     elevation: 2,
   },
   completionText: {

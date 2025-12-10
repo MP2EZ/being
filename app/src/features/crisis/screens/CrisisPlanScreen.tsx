@@ -35,7 +35,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
-import { colorSystem, spacing } from '@/core/theme/colors';
+import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
 import { logPerformance, logSecurity, logError, LogCategory } from '@/core/services/logging';
 import { useCrisisPlanStore } from '@/features/crisis/stores/crisisPlanStore';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
@@ -821,7 +821,7 @@ const styles = StyleSheet.create({
     flex: 1
   },
   scrollContent: {
-    padding: spacing.lg
+    padding: spacing[24]
   },
   loadingContainer: {
     flex: 1,
@@ -829,64 +829,64 @@ const styles = StyleSheet.create({
     alignItems: 'center'
   },
   loadingText: {
-    fontSize: 16,
+    fontSize: typography.bodyRegular.size,
     color: colorSystem.gray[600]
   },
   stepContainer: {
     flex: 1
   },
   stepTitle: {
-    fontSize: 28,
-    fontWeight: '700',
+    fontSize: typography.headline2.size,
+    fontWeight: typography.fontWeight.bold,
     color: colorSystem.gray[800],
-    marginBottom: spacing.md
+    marginBottom: spacing[16]
   },
   stepDescription: {
-    fontSize: 16,
+    fontSize: typography.bodyRegular.size,
     color: colorSystem.gray[600],
-    lineHeight: 24,
-    marginBottom: spacing.lg
+    lineHeight: typography.bodyLarge.size,
+    marginBottom: spacing[24]
   },
   infoBox: {
     backgroundColor: '#E3F2FD',
-    borderRadius: 12,
-    padding: spacing.lg,
-    marginBottom: spacing.md
+    borderRadius: borderRadius.large,
+    padding: spacing[24],
+    marginBottom: spacing[16]
   },
   infoTitle: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.gray[800],
-    marginBottom: spacing.sm
+    marginBottom: spacing[8]
   },
   infoText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.size,
     color: colorSystem.gray[700],
-    lineHeight: 20,
-    marginBottom: spacing.xs
+    lineHeight: spacing[20],
+    marginBottom: spacing[4]
   },
   inputContainer: {
-    marginBottom: spacing.lg
+    marginBottom: spacing[24]
   },
   contactForm: {
-    marginBottom: spacing.lg
+    marginBottom: spacing[24]
   },
   textInput: {
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: colorSystem.gray[300],
-    borderRadius: 8,
-    padding: spacing.md,
-    fontSize: 16,
+    borderRadius: borderRadius.medium,
+    padding: spacing[16],
+    fontSize: typography.bodyRegular.size,
     color: colorSystem.gray[800],
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
     minHeight: 50
   },
   addButton: {
     backgroundColor: '#1976D2',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderRadius: 8,
+    paddingVertical: spacing[16],
+    paddingHorizontal: spacing[24],
+    borderRadius: borderRadius.medium,
     alignItems: 'center'
   },
   addButtonDisabled: {
@@ -894,126 +894,126 @@ const styles = StyleSheet.create({
   },
   addButtonText: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600'
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.semibold
   },
   itemsList: {
-    marginBottom: spacing.lg
+    marginBottom: spacing[24]
   },
   itemsListTitle: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.gray[800],
-    marginBottom: spacing.sm
+    marginBottom: spacing[8]
   },
   itemCard: {
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: colorSystem.gray[200],
-    borderRadius: 8,
-    padding: spacing.md,
-    marginBottom: spacing.sm
+    borderRadius: borderRadius.medium,
+    padding: spacing[16],
+    marginBottom: spacing[8]
   },
   itemText: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.size,
     color: colorSystem.gray[800],
-    lineHeight: 20
+    lineHeight: spacing[20]
   },
   navigationButtons: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: spacing.lg,
-    gap: spacing.md
+    marginTop: spacing[24],
+    gap: spacing[16]
   },
   actionButtons: {
-    marginTop: spacing.xl
+    marginTop: spacing[32]
   },
   primaryButton: {
     backgroundColor: '#1976D2',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderRadius: 8,
+    paddingVertical: spacing[16],
+    paddingHorizontal: spacing[24],
+    borderRadius: borderRadius.medium,
     alignItems: 'center',
     flex: 1
   },
   primaryButtonText: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700'
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.bold
   },
   secondaryButton: {
     backgroundColor: colorSystem.gray[100],
     borderWidth: 1,
     borderColor: colorSystem.gray[300],
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderRadius: 8,
+    paddingVertical: spacing[16],
+    paddingHorizontal: spacing[24],
+    borderRadius: borderRadius.medium,
     alignItems: 'center',
     flex: 1,
-    marginTop: spacing.sm
+    marginTop: spacing[8]
   },
   secondaryButtonText: {
     color: colorSystem.gray[800],
-    fontSize: 16,
-    fontWeight: '600'
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.semibold
   },
   reviewContainer: {
     maxHeight: 400,
-    marginBottom: spacing.lg
+    marginBottom: spacing[24]
   },
   reviewSection: {
-    marginBottom: spacing.lg
+    marginBottom: spacing[24]
   },
   reviewSectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: typography.bodyLarge.size,
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.gray[800],
-    marginBottom: spacing.sm
+    marginBottom: spacing[8]
   },
   reviewItem: {
-    fontSize: 14,
+    fontSize: typography.bodySmall.size,
     color: colorSystem.gray[700],
-    lineHeight: 20,
-    marginBottom: spacing.xs
+    lineHeight: spacing[20],
+    marginBottom: spacing[4]
   },
   reviewActions: {
-    gap: spacing.sm,
-    marginBottom: spacing.lg
+    gap: spacing[8],
+    marginBottom: spacing[24]
   },
   exportButton: {
     backgroundColor: '#4CAF50',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderRadius: 8,
+    paddingVertical: spacing[16],
+    paddingHorizontal: spacing[24],
+    borderRadius: borderRadius.medium,
     alignItems: 'center'
   },
   exportButtonText: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600'
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.semibold
   },
   editButton: {
     backgroundColor: '#FF9800',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderRadius: 8,
+    paddingVertical: spacing[16],
+    paddingHorizontal: spacing[24],
+    borderRadius: borderRadius.medium,
     alignItems: 'center'
   },
   editButtonText: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600'
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.semibold
   },
   deleteButton: {
     backgroundColor: '#F44336',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderRadius: 8,
+    paddingVertical: spacing[16],
+    paddingHorizontal: spacing[24],
+    borderRadius: borderRadius.medium,
     alignItems: 'center'
   },
   deleteButtonText: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600'
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.semibold
   }
 });

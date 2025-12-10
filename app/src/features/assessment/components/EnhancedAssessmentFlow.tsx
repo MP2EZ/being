@@ -31,7 +31,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { colorSystem, spacing } from '@/core/theme/colors';
+import { colorSystem, spacing, borderRadius } from '@/core/theme';
 
 // Enhanced imports
 import EnhancedAssessmentQuestion from './EnhancedAssessmentQuestion';

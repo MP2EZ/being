@@ -30,7 +30,7 @@ import {
   ScrollView,
   Animated,
 } from 'react-native';
-import { colorSystem, spacing, typography, borderRadius } from '@/core/theme/colors';
+import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
 import { BODY_AREAS } from '@/features/practices/shared/components/BodyAreaGrid';
 import ProgressiveBodyScanList from '@/features/practices/shared/components/ProgressiveBodyScanList';
 import PracticeScreenHeader from '@/features/learn/practices/shared/PracticeScreenHeader';
@@ -190,65 +190,65 @@ const styles = StyleSheet.create({
   },
   content: {
     flexGrow: 1,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.xl,
+    paddingHorizontal: spacing[24],
+    paddingVertical: spacing[32],
   },
   instructionsSection: {
-    marginBottom: spacing.xl,
+    marginBottom: spacing[32],
   },
   instructionsText: {
     fontSize: typography.bodyRegular.size,
     color: colorSystem.gray[700],
     textAlign: 'center',
-    lineHeight: 24,
+    lineHeight: spacing[24],
   },
   bodyAreaSection: {
-    marginBottom: spacing.xl,
+    marginBottom: spacing[32],
   },
   sectionLabel: {
     fontSize: typography.caption.size,
-    fontWeight: '700',
+    fontWeight: typography.fontWeight.bold,
     color: colorSystem.gray[600],
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
   },
   nextButton: {
     backgroundColor: colorSystem.navigation.learn,
     borderRadius: borderRadius.large,
-    paddingVertical: spacing.lg,
+    paddingVertical: spacing[24],
     alignItems: 'center',
-    marginBottom: spacing.xl,
+    marginBottom: spacing[32],
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: spacing[4],
     },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowRadius: spacing[4],
     elevation: 2,
   },
   nextButtonText: {
     fontSize: typography.bodyRegular.size,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.white,
   },
   noteSection: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     backgroundColor: colorSystem.navigation.learn + '10',
-    padding: spacing.md,
+    padding: spacing[16],
     borderRadius: borderRadius.medium,
-    gap: spacing.sm,
+    gap: spacing[8],
   },
   noteIcon: {
-    fontSize: 20,
+    fontSize: typography.title.size,
   },
   noteText: {
     flex: 1,
     fontSize: typography.caption.size,
     color: colorSystem.gray[700],
-    lineHeight: 20,
+    lineHeight: spacing[20],
     fontStyle: 'italic',
   },
 });

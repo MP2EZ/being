@@ -20,7 +20,7 @@ import {
   Easing,
   Dimensions,
 } from 'react-native';
-import { colorSystem, spacing, typography } from '@/core/theme/colors';
+import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
 import { useAdvancedScreenReader } from './AdvancedScreenReader';
 
 // Cognitive accessibility configuration
@@ -453,21 +453,21 @@ const styles = StyleSheet.create({
   // Memory aid styling
   memoryAidOverlay: {
     position: 'absolute',
-    top: spacing.lg,
-    left: spacing.md,
-    right: spacing.md,
+    top: spacing[24],
+    left: spacing[16],
+    right: spacing[16],
     zIndex: 1000,
   },
   memoryAidContent: {
     backgroundColor: colorSystem.accessibility.notification.background,
-    borderLeftWidth: 4,
+    borderLeftWidth: borderRadius.small,
     borderLeftColor: colorSystem.accessibility.notification.border,
-    padding: spacing.md,
-    borderRadius: 8,
+    padding: spacing[16],
+    borderRadius: borderRadius.medium,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowRadius: borderRadius.small,
     elevation: 3,
   },
   memoryAidText: {
@@ -480,28 +480,28 @@ const styles = StyleSheet.create({
   // Focus guidance styling
   focusGuidanceOverlay: {
     position: 'absolute',
-    bottom: spacing.lg,
-    left: spacing.md,
-    right: spacing.md,
+    bottom: spacing[24],
+    left: spacing[16],
+    right: spacing[16],
     zIndex: 1000,
   },
   focusGuidanceContent: {
     backgroundColor: colorSystem.base.white,
     borderWidth: 2,
     borderColor: colorSystem.accessibility.focus.primary,
-    padding: spacing.lg,
-    borderRadius: 12,
+    padding: spacing[24],
+    borderRadius: borderRadius.large,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: borderRadius.small },
     shadowOpacity: 0.15,
-    shadowRadius: 8,
+    shadowRadius: borderRadius.medium,
     elevation: 6,
   },
   focusGuidanceTitle: {
     fontSize: typography.bodySmall.size,
     fontWeight: '600',
     color: colorSystem.accessibility.text.secondary,
-    marginBottom: spacing.xs,
+    marginBottom: spacing[4],
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
@@ -510,29 +510,29 @@ const styles = StyleSheet.create({
     fontWeight: typography.bodyLarge.weight,
     color: colorSystem.accessibility.text.primary,
     lineHeight: typography.bodyLarge.size * 1.3,
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
   },
   progressContainer: {
-    height: 4,
+    height: borderRadius.small,
     backgroundColor: colorSystem.gray[200],
-    borderRadius: 2,
+    borderRadius: borderRadius.xs,
     overflow: 'hidden',
   },
   progressBar: {
     height: '100%',
     backgroundColor: colorSystem.accessibility.focus.primary,
-    borderRadius: 2,
+    borderRadius: borderRadius.xs,
   },
   
   // Instruction styling
   instructionContainer: {
-    marginVertical: spacing.sm,
+    marginVertical: spacing[8],
   },
   timeEstimate: {
     fontSize: typography.caption.size,
     fontWeight: typography.caption.weight,
     color: colorSystem.accessibility.text.tertiary,
-    marginBottom: spacing.xs,
+    marginBottom: spacing[4],
   },
   instructionText: {
     fontSize: typography.bodyRegular.size,
@@ -548,12 +548,12 @@ const styles = StyleSheet.create({
   loadIndicator: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
+    gap: spacing[4],
   },
   loadIndicatorDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: borderRadius.medium,
+    height: borderRadius.medium,
+    borderRadius: borderRadius.small,
   },
   loadIndicatorText: {
     fontSize: typography.caption.size,

@@ -24,7 +24,7 @@ import {
   Platform,
   AccessibilityInfo,
 } from 'react-native';
-import { colorSystem, spacing, typography } from '@/core/theme/colors';
+import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
 import { useAdvancedScreenReader } from './AdvancedScreenReader';
 
 // Motor accessibility configuration
@@ -519,14 +519,14 @@ const styles = StyleSheet.create({
   // Container styles
   oneHandedContainer: {
     flex: 1,
-    paddingHorizontal: spacing.sm,
+    paddingHorizontal: spacing[8],
   },
   
   // Pressable enhancements
   enlargedTouchTarget: {
     minHeight: 56,
     minWidth: 56,
-    padding: spacing.md,
+    padding: spacing[16],
   },
   hoverState: {
     backgroundColor: colorSystem.gray[100],
@@ -549,12 +549,12 @@ const styles = StyleSheet.create({
   // Dwell indicator
   dwellIndicator: {
     position: 'absolute',
-    bottom: -4,
+    bottom: -borderRadius.small,
     left: 0,
     right: 0,
-    height: 4,
+    height: borderRadius.small,
     backgroundColor: colorSystem.gray[200],
-    borderRadius: 2,
+    borderRadius: borderRadius.xs,
     overflow: 'hidden',
   },
   dwellProgress: {
@@ -566,20 +566,20 @@ const styles = StyleSheet.create({
   // Voice control indicator
   voiceIndicator: {
     position: 'absolute',
-    top: spacing.sm,
-    right: spacing.sm,
+    top: spacing[8],
+    right: spacing[8],
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colorSystem.status.success + '20',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: 16,
-    gap: spacing.xs,
+    paddingHorizontal: spacing[8],
+    paddingVertical: spacing[4],
+    borderRadius: borderRadius.xl,
+    gap: spacing[4],
   },
   voiceIndicatorDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: borderRadius.medium,
+    height: borderRadius.medium,
+    borderRadius: borderRadius.small,
     backgroundColor: colorSystem.status.success,
   },
   voiceIndicatorText: {
@@ -591,26 +591,26 @@ const styles = StyleSheet.create({
   // Switch control helper
   switchControlHelper: {
     position: 'absolute',
-    bottom: spacing.lg,
-    left: spacing.md,
-    right: spacing.md,
+    bottom: spacing[24],
+    left: spacing[16],
+    right: spacing[16],
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: spacing.sm,
+    gap: spacing[8],
     backgroundColor: colorSystem.base.white,
-    padding: spacing.md,
-    borderRadius: 12,
+    padding: spacing[16],
+    borderRadius: borderRadius.large,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: borderRadius.small },
     shadowOpacity: 0.15,
-    shadowRadius: 8,
+    shadowRadius: borderRadius.medium,
     elevation: 6,
   },
   switchButton: {
     backgroundColor: colorSystem.gray[200],
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: 8,
+    paddingHorizontal: spacing[16],
+    paddingVertical: spacing[8],
+    borderRadius: borderRadius.medium,
     minWidth: 44,
     minHeight: 44,
     justifyContent: 'center',
@@ -618,9 +618,9 @@ const styles = StyleSheet.create({
   },
   switchSelectButton: {
     backgroundColor: colorSystem.accessibility.focus.primary,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm,
-    borderRadius: 8,
+    paddingHorizontal: spacing[24],
+    paddingVertical: spacing[8],
+    borderRadius: borderRadius.medium,
     minWidth: 44,
     minHeight: 44,
     justifyContent: 'center',
@@ -648,19 +648,19 @@ const styles = StyleSheet.create({
   },
   oneHandedPrimaryActions: {
     position: 'absolute',
-    bottom: spacing.lg,
+    bottom: spacing[24],
     maxWidth: '70%',
   },
   oneHandedSecondaryActions: {
     position: 'absolute',
-    bottom: spacing.xl * 2,
+    bottom: spacing[32] * 2,
     maxWidth: '70%',
   },
   oneHandedActionsLeft: {
-    left: spacing.md,
+    left: spacing[16],
   },
   oneHandedActionsRight: {
-    right: spacing.md,
+    right: spacing[16],
   },
 });
 

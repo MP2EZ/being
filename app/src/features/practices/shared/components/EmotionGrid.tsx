@@ -11,7 +11,7 @@
 
 import React, { useState } from 'react';
 import { View, Text, Pressable, StyleSheet, ViewStyle } from 'react-native';
-import { colorSystem, spacing, typography } from '@/core/theme/colors';
+import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
 
 export interface Emotion {
   id: string;
@@ -140,52 +140,52 @@ const EmotionGrid: React.FC<EmotionGridProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    paddingVertical: spacing.lg,
+    paddingVertical: spacing[24],
   },
   instructionText: {
     fontSize: typography.bodyRegular.size,
     color: colorSystem.base.black,
     textAlign: 'center',
-    marginBottom: spacing.sm,
-    lineHeight: 24,
+    marginBottom: spacing[8],
+    lineHeight: spacing[24],
   },
   selectionHint: {
     fontSize: typography.caption.size,
     color: colorSystem.gray[600],
     textAlign: 'center',
-    marginBottom: spacing.lg,
-    lineHeight: 20,
+    marginBottom: spacing[24],
+    lineHeight: spacing[20],
   },
   emotionGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing.sm,
+    paddingHorizontal: spacing[8],
   },
   emotionButton: {
     width: '48%',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.sm,
-    borderRadius: 12,
+    paddingVertical: spacing[16],
+    paddingHorizontal: spacing[8],
+    borderRadius: borderRadius.large,
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
     minHeight: 44, // WCAG touch target
   },
   emotionText: {
     fontSize: typography.bodyRegular.size,
-    fontWeight: '500',
+    fontWeight: typography.fontWeight.medium,
     textAlign: 'center',
   },
   selectedContainer: {
-    marginTop: spacing.md,
+    marginTop: spacing[16],
     alignItems: 'center',
   },
   selectedLabel: {
     fontSize: typography.caption.size,
     color: colorSystem.gray[600],
-    fontWeight: '500',
+    fontWeight: typography.fontWeight.medium,
   },
 });
 

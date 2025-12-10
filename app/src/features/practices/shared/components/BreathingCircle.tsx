@@ -23,7 +23,7 @@ import Animated, {
   Easing,
   cancelAnimation,
 } from 'react-native-reanimated';
-import { colorSystem, spacing, typography } from '@/core/theme/colors';
+import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
 
 interface BreathingPattern {
   inhale: number;  // milliseconds
@@ -354,49 +354,49 @@ const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: spacing.xl,
+    paddingVertical: spacing[32],
   },
   breathingCircle: {
     width: 120,
     height: 120,
-    borderRadius: 60,
+    borderRadius: borderRadius.full,
     backgroundColor: colorSystem.themes.midday.primary, // #40B5AD
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: colorSystem.themes.midday.primary,
     shadowOffset: {
       width: 0,
-      height: 4,
+      height: spacing[4],
     },
     shadowOpacity: 0.3,
-    shadowRadius: 8,
+    shadowRadius: spacing[8],
     elevation: 8,
   },
   innerCircle: {
     width: 80,
     height: 80,
-    borderRadius: 40,
+    borderRadius: borderRadius.full,
     backgroundColor: colorSystem.themes.midday.light, // #5EC4BC
     opacity: 0.6,
   },
   guidanceContainer: {
-    marginTop: spacing.xl,
+    marginTop: spacing[32],
     alignItems: 'center',
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing[24],
   },
   guidanceText: {
     fontSize: typography.bodyRegular.size,
-    fontWeight: '500',
+    fontWeight: typography.fontWeight.medium,
     color: colorSystem.base.black,
     textAlign: 'center',
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
     lineHeight: 22,
   },
   instructionText: {
     fontSize: typography.caption.size,
     color: colorSystem.gray[600],
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: spacing[24],
     fontStyle: 'italic',
   },
   countdownContainer: {
@@ -405,8 +405,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   countdownText: {
-    fontSize: 48,
-    fontWeight: 'bold',
+    fontSize: spacing[48],
+    fontWeight: typography.fontWeight.bold,
     color: colorSystem.base.white,
     textAlign: 'center',
   },

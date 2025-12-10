@@ -21,7 +21,7 @@ import {
   ScrollView,
   Pressable,
 } from 'react-native';
-import { colorSystem, spacing, typography } from '@/core/theme/colors';
+import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
 import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
 import { FocusProvider, Focusable, SkipLink } from '@/core/components/accessibility';
 import type { AssessmentType } from '../types';
@@ -345,28 +345,28 @@ const styles = StyleSheet.create({
   },
   closeButton: {
     position: 'absolute',
-    top: spacing.md,
-    left: spacing.md,
+    top: spacing[16],
+    left: spacing[16],
     zIndex: 100,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: spacing[16],
+    paddingVertical: spacing[12],
     minWidth: 44,
     minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
   closeButtonText: {
-    fontSize: 20,
-    fontWeight: '400',
+    fontSize: typography.title.size,
+    fontWeight: typography.fontWeight.regular,
     color: colorSystem.base.black,
   },
   scrollContent: {
-    padding: spacing.md,
-    paddingTop: spacing.xl + spacing.lg, // Extra space for close button (60px)
-    paddingBottom: spacing.xl,
+    padding: spacing[16],
+    paddingTop: spacing[48] + spacing[24], // Extra space for close button
+    paddingBottom: spacing[32],
   },
   headerContainer: {
-    marginBottom: spacing.xl,
+    marginBottom: spacing[32],
     alignItems: 'center',
   },
   title: {
@@ -374,7 +374,7 @@ const styles = StyleSheet.create({
     fontWeight: typography.headline1.weight,
     color: colorSystem.accessibility.text.primary,
     textAlign: 'center',
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
   },
   subtitle: {
     fontSize: typography.headline3.size,
@@ -384,10 +384,10 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     flex: 1,
-    gap: spacing.lg,
+    gap: spacing[24],
   },
   sectionContainer: {
-    gap: spacing.md,
+    gap: spacing[16],
   },
   description: {
     fontSize: typography.bodyLarge.size,
@@ -404,22 +404,22 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   mindfulnessContainer: {
-    padding: spacing.md,
-    borderRadius: 12,
+    padding: spacing[16],
+    borderRadius: borderRadius.large,
     borderLeftWidth: 4,
   },
   mindfulnessTitle: {
     fontSize: typography.headline3.size,
     fontWeight: typography.headline3.weight,
     color: colorSystem.accessibility.text.primary,
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
   },
   mindfulnessText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.bodyRegular.weight,
     color: colorSystem.accessibility.text.primary,
     lineHeight: typography.bodyRegular.size * 1.5,
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
   },
   breathingReminder: {
     fontSize: typography.caption.size,
@@ -430,9 +430,9 @@ const styles = StyleSheet.create({
   },
   detailsContainer: {
     backgroundColor: colorSystem.gray[50],
-    padding: spacing.md,
-    borderRadius: 12,
-    gap: spacing.sm,
+    padding: spacing[16],
+    borderRadius: borderRadius.large,
+    gap: spacing[8],
   },
   detailRow: {
     flexDirection: 'row',
@@ -441,7 +441,7 @@ const styles = StyleSheet.create({
   },
   detailLabel: {
     fontSize: typography.bodyRegular.size,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.accessibility.text.secondary,
     flex: 0.3,
   },
@@ -456,16 +456,16 @@ const styles = StyleSheet.create({
   },
   privacyContainer: {
     backgroundColor: colorSystem.status.infoBackground,
-    padding: spacing.md,
-    borderRadius: 12,
+    padding: spacing[16],
+    borderRadius: borderRadius.large,
     borderWidth: 1,
     borderColor: colorSystem.status.info,
   },
   privacyTitle: {
     fontSize: typography.bodyRegular.size,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.status.info,
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
   },
   privacyText: {
     fontSize: typography.caption.size,
@@ -474,13 +474,13 @@ const styles = StyleSheet.create({
     lineHeight: typography.caption.size * 1.5,
   },
   actionContainer: {
-    marginTop: spacing.xl,
-    gap: spacing.md,
+    marginTop: spacing[32],
+    gap: spacing[16],
   },
   beginButton: {
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderRadius: 12,
+    paddingVertical: spacing[16],
+    paddingHorizontal: spacing[24],
+    borderRadius: borderRadius.large,
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 48, // WCAG touch target
@@ -490,7 +490,7 @@ const styles = StyleSheet.create({
       height: 2,
     },
     shadowOpacity: 0.2,
-    shadowRadius: 4,
+    shadowRadius: borderRadius.small,
     elevation: 4,
   },
   beginButtonPressed: {
@@ -499,12 +499,12 @@ const styles = StyleSheet.create({
   },
   beginButtonText: {
     fontSize: typography.bodyLarge.size,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.white,
   },
   skipButton: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
+    paddingVertical: spacing[8],
+    paddingHorizontal: spacing[16],
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 44, // WCAG touch target

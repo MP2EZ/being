@@ -27,32 +27,12 @@ import {
   UIManager,
   AccessibilityInfo,
 } from 'react-native';
+import { commonColors, spacing, borderRadius, typography } from '@/core/theme';
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
-
-// Colors consistent with Being design system
-// Updated for WCAG AA color contrast compliance (4.5:1 for body text)
-const colors = {
-  white: '#FFFFFF',
-  black: '#1C1C1C',
-  gray100: '#F5F5F5',
-  gray200: '#E5E7EB',
-  gray400: '#9CA3AF',
-  gray500: '#525863', // Darkened for contrast (was #6B7280)
-  gray600: '#374151', // Darkened for contrast (was #4B5563)
-  midnightBlue: '#1B2951',
-  success: '#10B981',
-};
-
-const spacing = {
-  xs: 4,
-  sm: 8,
-  md: 16,
-  lg: 24,
-};
 
 export interface ConsentToggleCardProps {
   /** Title of the consent category */
@@ -120,9 +100,9 @@ const ConsentToggleCard: React.FC<ConsentToggleCardProps> = ({
           value={value}
           onValueChange={handleToggle}
           disabled={disabled}
-          trackColor={{ false: colors.gray400, true: colors.midnightBlue }}
-          thumbColor={colors.white}
-          ios_backgroundColor={colors.gray400}
+          trackColor={{ false: commonColors.gray400, true: commonColors.midnightBlue }}
+          thumbColor={commonColors.white}
+          ios_backgroundColor={commonColors.gray400}
           accessibilityLabel={`${title} consent`}
           accessibilityHint={`Double tap to ${value ? 'disable' : 'enable'} ${title}`}
           accessibilityState={{ checked: value, disabled }}
@@ -184,12 +164,12 @@ const ConsentToggleCard: React.FC<ConsentToggleCardProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: colors.gray100,
-    borderRadius: 12,
-    padding: spacing.lg,
-    marginBottom: spacing.md,
+    backgroundColor: commonColors.gray100,
+    borderRadius: borderRadius.large,
+    padding: spacing[24],
+    marginBottom: spacing[16],
     borderWidth: 1,
-    borderColor: colors.gray200,
+    borderColor: commonColors.gray200,
   },
   headerRow: {
     flexDirection: 'row',
@@ -198,18 +178,18 @@ const styles = StyleSheet.create({
   },
   titleContainer: {
     flex: 1,
-    marginRight: spacing.md,
+    marginRight: spacing[16],
   },
   title: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: colors.black,
-    marginBottom: spacing.xs,
+    fontSize: typography.bodyLarge.size,
+    fontWeight: typography.fontWeight.semibold,
+    color: commonColors.black,
+    marginBottom: spacing[4],
   },
   description: {
-    fontSize: 14,
-    fontWeight: '400',
-    color: colors.gray600,
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.regular,
+    color: commonColors.gray600,
     lineHeight: 20,
   },
   switch: {
@@ -217,58 +197,58 @@ const styles = StyleSheet.create({
     transform: Platform.OS === 'ios' ? [{ scaleX: 1 }, { scaleY: 1 }] : [],
   },
   learnMoreButton: {
-    marginTop: spacing.sm,
-    paddingVertical: spacing.sm,
+    marginTop: spacing[8],
+    paddingVertical: spacing[8],
     alignSelf: 'flex-start',
     minHeight: 44, // Touch target
     justifyContent: 'center',
   },
   learnMoreText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: colors.midnightBlue,
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.medium,
+    color: commonColors.midnightBlue,
     textDecorationLine: 'underline',
   },
   detailsContainer: {
-    marginTop: spacing.md,
-    paddingTop: spacing.md,
+    marginTop: spacing[16],
+    paddingTop: spacing[16],
     borderTopWidth: 1,
-    borderTopColor: colors.gray200,
+    borderTopColor: commonColors.gray200,
   },
   detailSection: {
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
   },
   detailSectionTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.black,
-    marginBottom: spacing.xs,
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.semibold,
+    color: commonColors.black,
+    marginBottom: spacing[4],
   },
   detailBullet: {
-    fontSize: 14,
-    fontWeight: '400',
-    color: colors.gray600,
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.regular,
+    color: commonColors.gray600,
     lineHeight: 22,
-    marginLeft: spacing.sm,
+    marginLeft: spacing[8],
   },
   detailText: {
-    fontSize: 14,
-    fontWeight: '400',
-    color: colors.gray600,
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.regular,
+    color: commonColors.gray600,
     lineHeight: 22,
   },
   privacyNoteBox: {
     backgroundColor: '#E8F4EC',
-    borderRadius: 8,
-    padding: spacing.md,
-    marginTop: spacing.sm,
+    borderRadius: borderRadius.medium,
+    padding: spacing[16],
+    marginTop: spacing[8],
     borderLeftWidth: 3,
-    borderLeftColor: colors.success,
+    borderLeftColor: commonColors.success,
   },
   privacyNoteText: {
-    fontSize: 13,
-    fontWeight: '400',
-    color: colors.gray600,
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.regular,
+    color: commonColors.gray600,
     lineHeight: 18,
   },
 });

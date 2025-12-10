@@ -31,7 +31,7 @@ import { logSecurity, logPerformance, logError, LogCategory } from '@/core/servi
 import React, { useState, useEffect, useRef } from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 import { View, Pressable, Text, StyleSheet } from 'react-native';
-import { colorSystem, spacing, typography } from '@/core/theme/colors';
+import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
 import { EveningFlowParamList } from '@/features/practices/types/flows';
 import { SessionStorageService } from '@/core/services/session/SessionStorageService';
 import { SessionMetadata } from '@/core/types/session';
@@ -493,10 +493,10 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: typography.bodyLarge.size,
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.black,
-    marginBottom: spacing.xs,
+    marginBottom: spacing[4],
   },
   progressContainer: {
     alignItems: 'center',
@@ -504,37 +504,37 @@ const styles = StyleSheet.create({
   },
   progressBar: {
     width: 120,
-    height: 4,
+    height: spacing[4],
     backgroundColor: colorSystem.gray[200],
-    borderRadius: 2,
-    marginBottom: 4,
+    borderRadius: borderRadius.xs,
+    marginBottom: spacing[4],
   },
   progressFill: {
     height: '100%',
-    borderRadius: 2,
+    borderRadius: borderRadius.xs,
   },
   progressText: {
-    fontSize: 12,
+    fontSize: typography.micro.size,
     color: colorSystem.gray[600],
-    fontWeight: '500',
+    fontWeight: typography.fontWeight.medium,
   },
 });
 
 const headerStyles = StyleSheet.create({
   exitContainer: {
-    marginLeft: spacing.md,
+    marginLeft: spacing[16],
   },
   exitButton: {
-    padding: spacing.sm,
+    padding: spacing[8],
     width: 44,
     height: 44,
     justifyContent: 'center',
     alignItems: 'center',
   },
   exitButtonText: {
-    fontSize: 24,
+    fontSize: typography.headline4.size,
     color: colorSystem.base.black,
-    fontWeight: '300',
+    fontWeight: typography.fontWeight.regular,
   },
 });
 

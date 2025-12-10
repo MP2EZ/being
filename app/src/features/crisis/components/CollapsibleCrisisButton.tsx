@@ -48,6 +48,7 @@ import Animated, {
   runOnJS,
 } from 'react-native-reanimated';
 import { logSecurity, logPerformance } from '@/core/services/logging';
+import { spacing, borderRadius, typography } from '@/core/theme';
 
 interface CollapsibleCrisisButtonProps {
   /** Crisis action callback */
@@ -324,8 +325,8 @@ const styles = StyleSheet.create({
     width: COLLAPSED_WIDTH,
     height: COLLAPSED_WIDTH,
     backgroundColor: '#991B1B', // Crisis red
-    borderTopLeftRadius: 24,
-    borderBottomLeftRadius: 24,
+    borderTopLeftRadius: borderRadius.xxl,
+    borderBottomLeftRadius: borderRadius.xxl,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
@@ -339,10 +340,10 @@ const styles = StyleSheet.create({
   },
 
   chevronIcon: {
-    fontSize: 28,
-    fontWeight: '700',
+    fontSize: typography.headline2.size,
+    fontWeight: typography.fontWeight.bold,
     color: '#FFFFFF',
-    marginLeft: -4, // Optical centering
+    marginLeft: -spacing[4], // Optical centering
   },
 
   // Expanded state
@@ -350,11 +351,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#991B1B',
-    borderTopLeftRadius: 12,
-    borderBottomLeftRadius: 12,
-    paddingLeft: 16,
-    paddingRight: 8,
-    paddingVertical: 8,
+    borderTopLeftRadius: borderRadius.large,
+    borderBottomLeftRadius: borderRadius.large,
+    paddingLeft: spacing[16],
+    paddingRight: spacing[8],
+    paddingVertical: spacing[8],
     width: EXPANDED_WIDTH,
     shadowColor: '#000',
     shadowOffset: {
@@ -370,34 +371,34 @@ const styles = StyleSheet.create({
   crisisButton: {
     flex: 1,
     backgroundColor: '#7F1D1D', // Darker red for contrast
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 8,
+    paddingHorizontal: spacing[16],
+    paddingVertical: spacing[12],
+    borderRadius: borderRadius.medium,
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 44, // WCAG touch target
-    marginRight: 8,
+    marginRight: spacing[8],
   },
 
   crisisButtonText: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.bold,
     textAlign: 'center',
     letterSpacing: 0.5,
   },
 
   // Collapse button
   collapseButton: {
-    width: 32,
-    height: 32,
+    width: spacing[32],
+    height: spacing[32],
     justifyContent: 'center',
     alignItems: 'center',
   },
 
   collapseButtonText: {
-    fontSize: 24,
-    fontWeight: '400',
+    fontSize: typography.headline4.size,
+    fontWeight: typography.fontWeight.regular,
     color: '#FFFFFF',
   },
 });

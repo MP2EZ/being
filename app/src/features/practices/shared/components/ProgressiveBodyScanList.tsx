@@ -9,7 +9,7 @@
 
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { colorSystem, spacing, borderRadius, typography } from '@/core/theme/colors';
+import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
 
 interface ProgressiveBodyScanListProps {
   areas: string[];
@@ -103,12 +103,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   areaList: {
-    gap: spacing.sm,
-    marginBottom: spacing.lg,
+    gap: spacing[8],
+    marginBottom: spacing[24],
   },
   areaItem: {
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
+    paddingVertical: spacing[16],
+    paddingHorizontal: spacing[16],
     borderRadius: borderRadius.medium,
     borderWidth: 2,
     borderColor: 'transparent',
@@ -131,7 +131,7 @@ const styles = StyleSheet.create({
       height: 2,
     },
     shadowOpacity: 0.15,
-    shadowRadius: 4,
+    shadowRadius: borderRadius.small,
     elevation: 3,
   },
   areaItemUpcoming: {
@@ -139,27 +139,27 @@ const styles = StyleSheet.create({
     borderColor: colorSystem.gray[300],
   },
   statusIndicator: {
-    width: 32,
-    height: 32,
+    width: spacing[32],
+    height: spacing[32],
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: spacing.md,
+    marginRight: spacing[16],
   },
   statusIcon: {
-    fontSize: 18,
+    fontSize: typography.bodyLarge.size,
     color: '#66BB6A',
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
   },
   areaText: {
     flex: 1,
     fontSize: typography.bodyRegular.size,
-    fontWeight: '500',
+    fontWeight: typography.fontWeight.medium,
   },
   areaTextCompleted: {
     color: '#4CAF50',
   },
   areaTextCurrent: {
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
   },
   areaTextUpcoming: {
     color: colorSystem.gray[600],
@@ -167,9 +167,9 @@ const styles = StyleSheet.create({
   guidanceText: {
     fontSize: typography.bodySmall.size,
     color: colorSystem.gray[700],
-    lineHeight: 20,
-    marginTop: spacing.sm,
-    paddingLeft: 32 + spacing.md, // Align with area name (status indicator width + margin)
+    lineHeight: typography.title.size,
+    marginTop: spacing[8],
+    paddingLeft: spacing[32] + spacing[16], // Align with area name (status indicator width + margin)
   },
 });
 

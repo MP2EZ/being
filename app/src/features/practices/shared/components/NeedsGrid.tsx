@@ -11,7 +11,7 @@
 
 import React from 'react';
 import { View, Text, Pressable, StyleSheet, ViewStyle } from 'react-native';
-import { colorSystem, spacing, typography } from '@/core/theme/colors';
+import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
 
 export interface Need {
   id: string;
@@ -130,58 +130,58 @@ const NeedsGrid: React.FC<NeedsGridProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    paddingVertical: spacing.lg,
+    paddingVertical: spacing[24],
   },
   instructionText: {
     fontSize: typography.bodyRegular.size,
     color: colorSystem.base.black,
     textAlign: 'center',
-    marginBottom: spacing.sm,
-    lineHeight: 24,
+    marginBottom: spacing[8],
+    lineHeight: typography.headline4.size,
   },
   selectionHint: {
     fontSize: typography.caption.size,
     color: colorSystem.gray[600],
     textAlign: 'center',
-    marginBottom: spacing.lg,
-    lineHeight: 20,
+    marginBottom: spacing[24],
+    lineHeight: typography.title.size,
   },
   needsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing.sm,
+    paddingHorizontal: spacing[8],
   },
   needButton: {
     width: '48%',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.sm,
-    borderRadius: 12,
+    paddingVertical: spacing[16],
+    paddingHorizontal: spacing[8],
+    borderRadius: borderRadius.large,
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
     minHeight: 88, // Larger for description text
   },
   needText: {
     fontSize: typography.bodyRegular.size,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
     textAlign: 'center',
-    marginBottom: 4,
+    marginBottom: spacing[4],
   },
   needDescription: {
     fontSize: typography.caption.size,
     textAlign: 'center',
-    lineHeight: 18,
+    lineHeight: typography.bodyLarge.size,
   },
   selectedContainer: {
-    marginTop: spacing.md,
+    marginTop: spacing[16],
     alignItems: 'center',
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing[16],
   },
   selectedLabel: {
     fontSize: typography.caption.size,
-    fontWeight: '500',
+    fontWeight: typography.fontWeight.medium,
     textAlign: 'center',
     fontStyle: 'italic',
   },

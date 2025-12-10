@@ -18,7 +18,7 @@ import {
   Platform,
   Dimensions,
 } from 'react-native';
-import { colorSystem, spacing } from '@/core/theme/colors';
+import { colorSystem, spacing, borderRadius } from '@/core/theme';
 
 // Focus management context
 export interface FocusContextValue {
@@ -319,9 +319,9 @@ export const SkipLink: React.FC<SkipLinkProps> = ({
   }, [setFocus, targetId]);
 
   const positionStyles = {
-    'top-left': { top: spacing.sm, left: spacing.sm },
-    'top-center': { top: spacing.sm, left: '50%', transform: [{ translateX: -50 }] },
-    'top-right': { top: spacing.sm, right: spacing.sm },
+    'top-left': { top: spacing[8], left: spacing[8] },
+    'top-center': { top: spacing[8], left: '50%', transform: [{ translateX: -50 }] },
+    'top-right': { top: spacing[8], right: spacing[8] },
   };
 
   return (
@@ -354,7 +354,7 @@ const styles = StyleSheet.create({
   focusIndicator: {
     borderWidth: 3,
     borderColor: colorSystem.accessibility.focus.primary,
-    borderRadius: 4,
+    borderRadius: borderRadius.small,
     shadowColor: colorSystem.accessibility.focus.primary,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.3,
@@ -383,8 +383,8 @@ const styles = StyleSheet.create({
   skipLinkButton: {
     backgroundColor: colorSystem.accessibility.focus.primary,
     color: colorSystem.base.white,
-    padding: spacing.sm,
-    borderRadius: 4,
+    padding: spacing[8],
+    borderRadius: borderRadius.small,
     minHeight: 44, // WCAG touch target
     minWidth: 44,
     justifyContent: 'center',
@@ -392,7 +392,7 @@ const styles = StyleSheet.create({
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
-    shadowRadius: 4,
+    shadowRadius: borderRadius.small,
     elevation: 6,
   },
 });

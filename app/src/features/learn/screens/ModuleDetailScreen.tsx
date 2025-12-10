@@ -25,7 +25,7 @@ import {
 import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
-import { colorSystem, spacing } from '@/core/theme/colors';
+import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
 import { useEducationStore } from '@/features/learn/stores/educationStore';
 import { loadModuleContent } from '@/core/services/moduleContent';
 import type { ModuleId, ModuleContent } from '@/features/learn/types/education';
@@ -204,38 +204,38 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    gap: spacing.md,
+    gap: spacing[16],
   },
   loadingText: {
-    fontSize: 16,
+    fontSize: typography.bodyRegular.size,
     color: colorSystem.gray[600],
   },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: spacing.xl,
-    gap: spacing.lg,
+    padding: spacing[32],
+    gap: spacing[24],
   },
   errorText: {
-    fontSize: 16,
+    fontSize: typography.bodyRegular.size,
     color: colorSystem.gray[700],
     textAlign: 'center',
   },
   errorButton: {
     backgroundColor: colorSystem.navigation.learn,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xl,
-    borderRadius: 12,
+    paddingVertical: spacing[16],
+    paddingHorizontal: spacing[32],
+    borderRadius: borderRadius.large,
   },
   errorButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.white,
   },
   header: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    paddingHorizontal: spacing[24],
+    paddingVertical: spacing[16],
     backgroundColor: colorSystem.gray[50],
     borderBottomWidth: 1,
     borderBottomColor: colorSystem.gray[200],
@@ -244,41 +244,41 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8F5FF', // Light purple for Module 3
   },
   backButton: {
-    paddingVertical: spacing.sm,
-    marginBottom: spacing.sm,
+    paddingVertical: spacing[8],
+    marginBottom: spacing[8],
   },
   backButtonText: {
-    fontSize: 16,
-    fontWeight: '500',
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.medium,
     color: colorSystem.navigation.learn,
   },
   headerContent: {
-    gap: spacing.xs,
+    gap: spacing[4],
   },
   headerTop: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: spacing[8],
   },
   headerNumber: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.gray[600],
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   headerTag: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    borderRadius: 6,
+    paddingHorizontal: spacing[8],
+    paddingVertical: spacing[4],
+    borderRadius: borderRadius.medium,
     backgroundColor: colorSystem.gray[200],
   },
   headerTagEssential: {
     backgroundColor: colorSystem.navigation.learn,
   },
   headerTagText: {
-    fontSize: 10,
-    fontWeight: '700',
+    fontSize: typography.micro.size,
+    fontWeight: typography.fontWeight.bold,
     color: colorSystem.gray[700],
     letterSpacing: 0.5,
   },
@@ -286,12 +286,12 @@ const styles = StyleSheet.create({
     color: colorSystem.base.white,
   },
   headerTitle: {
-    fontSize: 24,
-    fontWeight: '700',
+    fontSize: typography.headline4.size,
+    fontWeight: typography.fontWeight.bold,
     color: colorSystem.base.black,
   },
   headerDescription: {
-    fontSize: 15,
+    fontSize: typography.bodyRegular.size,
     color: colorSystem.gray[600],
     lineHeight: 20,
   },
@@ -303,7 +303,7 @@ const styles = StyleSheet.create({
   },
   tab: {
     flex: 1,
-    paddingVertical: spacing.md,
+    paddingVertical: spacing[16],
     alignItems: 'center',
     borderBottomWidth: 2,
     borderBottomColor: 'transparent',
@@ -312,13 +312,13 @@ const styles = StyleSheet.create({
     borderBottomColor: colorSystem.navigation.learn,
   },
   tabText: {
-    fontSize: 15,
-    fontWeight: '500',
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.medium,
     color: colorSystem.gray[600],
   },
   tabTextActive: {
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.navigation.learn,
   },
   tabContent: {

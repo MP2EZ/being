@@ -26,6 +26,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import { useAssessmentStore } from '@/features/assessment/stores/assessmentStore';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
+import { spacing, typography, borderRadius } from '@/core/theme';
 
 // Types
 type BadgeStatus = 'recent' | 'due' | 'recommended';
@@ -45,12 +46,7 @@ const colors = {
   recommendedText: '#92400E', // Dark amber (8.73:1 contrast)
 };
 
-const spacing = {
-  xs: 4,
-  sm: 8,
-  md: 16,
-  lg: 24,
-};
+// Removed local spacing definition - using imported design tokens
 
 const AssessmentStatusBadge: React.FC = () => {
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
@@ -197,20 +193,20 @@ const AssessmentStatusBadge: React.FC = () => {
 const styles = StyleSheet.create({
   badge: {
     alignItems: 'center',
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: 12,
-    marginHorizontal: spacing.lg,
-    marginBottom: spacing.sm,
+    paddingVertical: spacing[8],
+    paddingHorizontal: spacing[16],
+    borderRadius: borderRadius.large,
+    marginHorizontal: spacing[24],
+    marginBottom: spacing[8],
   },
   label: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 2,
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.semibold,
+    marginBottom: borderRadius.xs,
   },
   sublabel: {
-    fontSize: 12,
-    fontWeight: '400',
+    fontSize: typography.micro.size,
+    fontWeight: typography.fontWeight.regular,
   },
 });
 

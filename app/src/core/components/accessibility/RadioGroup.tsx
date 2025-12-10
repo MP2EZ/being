@@ -21,7 +21,7 @@ import {
   AccessibilityInfo,
   Platform,
 } from 'react-native';
-import { colorSystem, spacing, typography } from '@/core/theme/colors';
+import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
 
 export interface RadioOption {
   value: string | number;
@@ -365,7 +365,7 @@ const RadioGroup: React.FC<RadioGroupProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    gap: spacing.md,
+    gap: spacing[16],
   },
   containerHorizontal: {
     // Horizontal container adjustments if needed
@@ -399,7 +399,7 @@ const styles = StyleSheet.create({
     fontWeight: typography.bodyRegular.weight,
     color: colorSystem.accessibility.text.secondary,
     lineHeight: typography.bodyRegular.size * 1.4,
-    marginTop: -spacing.xs, // Reduce gap after label
+    marginTop: -spacing[4], // Reduce gap after label
   },
   groupDescriptionDisabled: {
     color: colorSystem.accessibility.text.tertiary,
@@ -407,7 +407,7 @@ const styles = StyleSheet.create({
   
   // Options container
   optionsContainer: {
-    gap: spacing.sm,
+    gap: spacing[8],
   },
   optionsContainerHorizontal: {
     flexDirection: 'row',
@@ -419,8 +419,8 @@ const styles = StyleSheet.create({
     backgroundColor: colorSystem.base.white,
     borderWidth: 2,
     borderColor: colorSystem.gray[300],
-    borderRadius: 12,
-    padding: spacing.md,
+    borderRadius: borderRadius.large,
+    padding: spacing[16],
     minHeight: 64, // WCAG touch target requirement
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
@@ -430,7 +430,7 @@ const styles = StyleSheet.create({
   },
   radioOptionHorizontal: {
     flex: 1,
-    marginRight: spacing.sm,
+    marginRight: spacing[8],
   },
   radioOptionSelected: {
     borderWidth: 2,
@@ -463,7 +463,7 @@ const styles = StyleSheet.create({
   radioOptionContent: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: spacing.sm,
+    gap: spacing[8],
   },
   radioOptionContentCentered: {
     justifyContent: 'center',
@@ -471,9 +471,9 @@ const styles = StyleSheet.create({
   
   // Radio button visual
   radioButton: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: borderRadius.xxl,
+    height: borderRadius.xxl,
+    borderRadius: borderRadius.large,
     borderWidth: 2,
     borderColor: colorSystem.gray[400],
     backgroundColor: colorSystem.base.white,
@@ -495,15 +495,15 @@ const styles = StyleSheet.create({
     borderColor: colorSystem.status.error,
   },
   radioButtonInner: {
-    width: 12,
-    height: 12,
+    width: borderRadius.large,
+    height: borderRadius.large,
     borderRadius: 6,
   },
   
   // Text content
   radioContent: {
     flex: 1,
-    gap: spacing.xs,
+    gap: spacing[4],
   },
   radioContentCentered: {
     alignItems: 'center',
@@ -551,7 +551,7 @@ const styles = StyleSheet.create({
     fontWeight: typography.caption.weight,
     color: colorSystem.status.error,
     lineHeight: typography.caption.size * 1.4,
-    marginTop: -spacing.xs, // Reduce gap
+    marginTop: -spacing[4], // Reduce gap
   },
 });
 

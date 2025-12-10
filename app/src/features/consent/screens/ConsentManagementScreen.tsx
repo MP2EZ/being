@@ -40,30 +40,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useConsentStore, ConsentPreferences, AgeVerification } from '@/core/stores/consentStore';
 import ConsentToggleCard from '../components/ConsentToggleCard';
-
-// Colors consistent with Being design system
-// Updated for WCAG AA color contrast compliance (4.5:1 for body text)
-const colors = {
-  white: '#FFFFFF',
-  black: '#1C1C1C',
-  gray100: '#F3F4F6',
-  gray200: '#E5E7EB',
-  gray300: '#D1D5DB',
-  gray400: '#6B7280', // Darkened for contrast (was #9CA3AF)
-  gray500: '#525863', // Darkened for contrast (was #6B7280)
-  gray600: '#374151', // Darkened for contrast (was #4B5563)
-  midnightBlue: '#1B2951',
-  success: '#10B981',
-};
-
-const spacing = {
-  xs: 4,
-  sm: 8,
-  md: 16,
-  lg: 24,
-  xl: 32,
-  xxl: 48,
-};
+import { commonColors, spacing, borderRadius, typography } from '@/core/theme';
 
 interface ConsentManagementScreenProps {
   /** 'onboarding' = condensed view, 'settings' = full view */
@@ -236,7 +213,7 @@ const ConsentManagementScreen: React.FC<ConsentManagementScreenProps> = ({
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.midnightBlue} />
+          <ActivityIndicator size="large" color={commonColors.midnightBlue} />
           <Text style={styles.loadingText}>Loading consent settings...</Text>
         </View>
       </SafeAreaView>
@@ -363,125 +340,125 @@ const ConsentManagementScreen: React.FC<ConsentManagementScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.white,
+    backgroundColor: commonColors.white,
   },
   scrollContainer: {
     flex: 1,
   },
   scrollContent: {
-    padding: spacing.lg,
-    paddingBottom: spacing.xxl,
+    padding: spacing[24],
+    paddingBottom: spacing[48],
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: spacing.xl,
+    padding: spacing[32],
   },
   loadingText: {
-    fontSize: 16,
-    fontWeight: '400',
-    color: colors.gray600,
-    marginTop: spacing.md,
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.regular,
+    color: commonColors.gray600,
+    marginTop: spacing[16],
   },
   header: {
-    marginBottom: spacing.lg,
+    marginBottom: spacing[24],
     alignItems: 'center',
   },
   title: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: colors.black,
-    marginBottom: spacing.sm,
+    fontSize: typography.headline2.size,
+    fontWeight: typography.fontWeight.bold,
+    color: commonColors.black,
+    marginBottom: spacing[8],
     textAlign: 'center',
   },
   subtitle: {
-    fontSize: 16,
-    fontWeight: '400',
-    color: colors.gray600,
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.regular,
+    color: commonColors.gray600,
     textAlign: 'center',
     lineHeight: 24,
   },
   essentialSection: {
     backgroundColor: '#FAFAFA',
-    borderRadius: 12,
-    padding: spacing.lg,
-    marginBottom: spacing.lg,
+    borderRadius: borderRadius.large,
+    padding: spacing[24],
+    marginBottom: spacing[24],
     borderWidth: 1,
-    borderColor: colors.gray200,
+    borderColor: commonColors.gray200,
   },
   essentialTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.gray500,
-    marginBottom: spacing.sm,
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.semibold,
+    color: commonColors.gray500,
+    marginBottom: spacing[8],
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   essentialItem: {
-    fontSize: 15,
-    fontWeight: '400',
-    color: colors.gray600,
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.regular,
+    color: commonColors.gray600,
     lineHeight: 24,
   },
   toggleSection: {
-    marginBottom: spacing.lg,
+    marginBottom: spacing[24],
   },
   privacyPromise: {
     backgroundColor: '#E8F4EC',
-    borderRadius: 8,
-    padding: spacing.md,
-    marginBottom: spacing.lg,
+    borderRadius: borderRadius.medium,
+    padding: spacing[16],
+    marginBottom: spacing[24],
     borderLeftWidth: 3,
-    borderLeftColor: colors.success,
+    borderLeftColor: commonColors.success,
   },
   privacyPromiseText: {
-    fontSize: 14,
-    fontWeight: '400',
-    color: colors.gray600,
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.regular,
+    color: commonColors.gray600,
     lineHeight: 20,
   },
   lastUpdated: {
-    fontSize: 13,
-    fontWeight: '400',
-    color: colors.gray400,
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.regular,
+    color: commonColors.gray400,
     textAlign: 'center',
-    marginBottom: spacing.lg,
+    marginBottom: spacing[24],
   },
   continueButton: {
-    backgroundColor: colors.midnightBlue,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.xl,
-    borderRadius: 12,
+    backgroundColor: commonColors.midnightBlue,
+    paddingVertical: spacing[16],
+    paddingHorizontal: spacing[32],
+    borderRadius: borderRadius.large,
     alignItems: 'center',
     minHeight: 56,
   },
   continueButtonDisabled: {
-    backgroundColor: colors.gray400,
+    backgroundColor: commonColors.gray400,
   },
   continueButtonText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.white,
+    fontSize: typography.bodyLarge.size,
+    fontWeight: typography.fontWeight.semibold,
+    color: commonColors.white,
   },
   limitationNote: {
     backgroundColor: '#FFF8E1',
-    borderRadius: 8,
-    padding: spacing.md,
-    marginTop: spacing.lg,
+    borderRadius: borderRadius.medium,
+    padding: spacing[16],
+    marginTop: spacing[24],
     borderLeftWidth: 3,
     borderLeftColor: '#F59E0B',
   },
   limitationNoteTitle: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.semibold,
     color: '#92400E',
-    marginBottom: spacing.xs,
+    marginBottom: spacing[4],
   },
   limitationNoteText: {
-    fontSize: 14,
-    fontWeight: '400',
-    color: colors.gray600,
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.regular,
+    color: commonColors.gray600,
     lineHeight: 20,
   },
 });

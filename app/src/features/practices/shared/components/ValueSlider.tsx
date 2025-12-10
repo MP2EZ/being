@@ -11,7 +11,7 @@ import {
   StyleSheet,
   Pressable 
 } from 'react-native';
-import { colorSystem, spacing, borderRadius, typography } from '@/core/theme/colors';
+import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
 
 interface ValueSliderProps {
   sleepQuality?: number;
@@ -182,24 +182,24 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   sliderContainer: {
-    marginBottom: spacing.xl,
+    marginBottom: spacing[32],
   },
   sliderHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
   },
   sliderTitle: {
     fontSize: typography.bodyRegular.size,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.black,
     flex: 1,
   },
   valueIndicator: {
     backgroundColor: colorSystem.base.white,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing[8],
+    paddingVertical: spacing[4],
     borderRadius: borderRadius.small,
     borderWidth: 1,
     borderColor: colorSystem.gray[300],
@@ -208,11 +208,11 @@ const styles = StyleSheet.create({
   },
   valueText: {
     fontSize: typography.bodyRegular.size,
-    fontWeight: '700',
+    fontWeight: typography.fontWeight.bold,
   },
   sliderWrapper: {
-    paddingHorizontal: spacing.xs,
-    marginBottom: spacing.xs,
+    paddingHorizontal: spacing[4],
+    marginBottom: spacing[4],
   },
   customSlider: {
     width: '100%',
@@ -220,7 +220,7 @@ const styles = StyleSheet.create({
   sliderTrack: {
     height: 6,
     borderRadius: 3,
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
   },
   sliderFill: {
     height: '100%',
@@ -240,44 +240,44 @@ const styles = StyleSheet.create({
     borderColor: colorSystem.gray[300],
   },
   sliderButtonText: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: typography.micro.size,
+    fontWeight: typography.fontWeight.semibold,
   },
   sliderLabels: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing.xs,
+    paddingHorizontal: spacing[4],
   },
   labelText: {
     fontSize: typography.caption.size,
     color: colorSystem.gray[600],
   },
   summaryCard: {
-    padding: spacing.md,
+    padding: spacing[16],
     borderRadius: borderRadius.medium,
     borderWidth: 1,
-    marginBottom: spacing.lg,
+    marginBottom: spacing[24],
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
       height: 1,
     },
     shadowOpacity: 0.05,
-    shadowRadius: 2,
+    shadowRadius: borderRadius.xs,
     elevation: 1,
   },
   summaryTitle: {
     fontSize: typography.bodyRegular.size,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.black,
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
     textAlign: 'center',
   },
   summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.xs,
+    marginBottom: spacing[4],
   },
   summaryLabel: {
     fontSize: typography.caption.size,
@@ -285,17 +285,17 @@ const styles = StyleSheet.create({
   },
   summaryValue: {
     fontSize: typography.caption.size,
-    fontWeight: '700',
+    fontWeight: typography.fontWeight.bold,
   },
   noteSection: {
-    padding: spacing.md,
+    padding: spacing[16],
     borderRadius: borderRadius.medium,
-    marginTop: spacing.sm,
+    marginTop: spacing[8],
   },
   noteText: {
     fontSize: typography.caption.size,
     color: colorSystem.gray[700],
-    lineHeight: 20,
+    lineHeight: typography.title.size,
     textAlign: 'center',
     fontStyle: 'italic',
   },

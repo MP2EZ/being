@@ -17,7 +17,7 @@ import {
   Pressable,
   ScrollView 
 } from 'react-native';
-import { colorSystem, spacing, borderRadius, typography } from '@/core/theme/colors';
+import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
 
 export interface ThoughtPattern {
   id: string;
@@ -217,17 +217,17 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   introSection: {
-    padding: spacing.md,
+    padding: spacing[16],
     borderRadius: borderRadius.medium,
-    marginBottom: spacing.lg,
+    marginBottom: spacing[24],
     borderWidth: 1,
     borderColor: colorSystem.themes.evening.primary,
   },
   introTitle: {
     fontSize: typography.bodyLarge.size,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.black,
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
     textAlign: 'center',
   },
   introText: {
@@ -239,7 +239,7 @@ const styles = StyleSheet.create({
   },
   gridScrollView: {
     flex: 1,
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
   },
   grid: {
     flexDirection: 'row',
@@ -248,9 +248,9 @@ const styles = StyleSheet.create({
   },
   patternCard: {
     width: '48%',
-    padding: spacing.md,
+    padding: spacing[16],
     borderRadius: borderRadius.medium,
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
     minHeight: 140,
     shadowColor: '#000',
     shadowOffset: {
@@ -258,50 +258,50 @@ const styles = StyleSheet.create({
       height: 1,
     },
     shadowOpacity: 0.05,
-    shadowRadius: 2,
+    shadowRadius: borderRadius.xs,
     elevation: 1,
   },
   patternHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: spacing.xs,
+    marginBottom: spacing[4],
   },
   patternTitle: {
     fontSize: typography.bodyRegular.size,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
     flex: 1,
-    lineHeight: 20,
+    lineHeight: typography.title.size,
   },
   checkmark: {
-    width: 20,
-    height: 20,
+    width: spacing[20],
+    height: spacing[20],
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: spacing.xs,
+    marginLeft: spacing[4],
   },
   checkmarkText: {
     color: colorSystem.base.white,
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: typography.micro.size,
+    fontWeight: typography.fontWeight.semibold,
   },
   patternDescription: {
     fontSize: typography.caption.size,
     color: colorSystem.gray[600],
-    marginBottom: spacing.xs,
-    lineHeight: 18,
+    marginBottom: spacing[4],
+    lineHeight: typography.bodyLarge.size,
   },
   patternExample: {
     fontSize: typography.caption.size,
     color: colorSystem.gray[500],
     fontStyle: 'italic',
-    lineHeight: 16,
+    lineHeight: typography.bodyRegular.size,
   },
   feedbackSection: {
-    padding: spacing.md,
+    padding: spacing[16],
     borderRadius: borderRadius.medium,
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
     borderWidth: 1,
     borderColor: colorSystem.themes.evening.primary,
   },
@@ -312,7 +312,7 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   educationalNote: {
-    padding: spacing.sm,
+    padding: spacing[8],
     backgroundColor: colorSystem.gray[50],
     borderRadius: borderRadius.small,
   },
@@ -320,7 +320,7 @@ const styles = StyleSheet.create({
     fontSize: typography.caption.size,
     color: colorSystem.gray[600],
     textAlign: 'center',
-    lineHeight: 18,
+    lineHeight: typography.bodyLarge.size,
   },
 });
 

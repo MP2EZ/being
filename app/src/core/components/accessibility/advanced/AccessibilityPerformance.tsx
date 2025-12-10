@@ -20,7 +20,7 @@ import {
   InteractionManager,
   Platform,
 } from 'react-native';
-import { colorSystem, spacing, typography } from '@/core/theme/colors';
+import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
 
 // Performance metrics interface
 export interface AccessibilityPerformanceMetrics {
@@ -551,32 +551,32 @@ export const PerformanceMonitorUI: React.FC<PerformanceMonitorProps> = ({
 const styles = StyleSheet.create({
   monitorContainer: {
     backgroundColor: colorSystem.gray[100],
-    padding: spacing.sm,
-    borderRadius: 8,
-    margin: spacing.xs,
+    padding: spacing[8],
+    borderRadius: borderRadius.medium,
+    margin: spacing[4],
   },
   monitorTitle: {
     fontSize: typography.bodySmall.size,
     fontWeight: '600',
     color: colorSystem.accessibility.text.primary,
-    marginBottom: spacing.xs,
+    marginBottom: spacing[4],
   },
   statusContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
-    marginBottom: spacing.xs,
+    gap: spacing[4],
+    marginBottom: spacing[4],
   },
   crisisContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
-    marginBottom: spacing.xs,
+    gap: spacing[4],
+    marginBottom: spacing[4],
   },
   statusIndicator: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: borderRadius.medium,
+    height: borderRadius.medium,
+    borderRadius: borderRadius.small,
   },
   statusText: {
     fontSize: typography.caption.size,
@@ -589,8 +589,8 @@ const styles = StyleSheet.create({
   metricsContainer: {
     borderTopWidth: 1,
     borderTopColor: colorSystem.gray[300],
-    paddingTop: spacing.xs,
-    gap: 2,
+    paddingTop: spacing[4],
+    gap: borderRadius.xs,
   },
   metricText: {
     fontSize: typography.caption.size,

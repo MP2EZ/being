@@ -37,33 +37,16 @@ import CollapsibleCrisisButton from '@/features/crisis/components/CollapsibleCri
 import BrainIcon from '@/core/components/shared/BrainIcon';
 import { useConsentStore, ConsentPreferences } from '@/core/stores/consentStore';
 import { ConsentToggleCard } from '@/features/consent';
+import { commonColors, spacing, borderRadius, typography } from '@/core/theme';
 
-// WCAG-AA compliant colors with verified contrast ratios
-const colors = {
-  white: '#FFFFFF',
-  black: '#1C1C1C',          // 4.5:1 contrast on white (AA Normal)
-  gray100: '#F3F4F6',
-  gray200: '#E5E7EB',
-  gray300: '#D1D5DB',
-  gray400: '#9CA3AF',
-  gray500: '#6B7280',        // 4.54:1 contrast on white (AA Normal)
-  gray600: '#4B5563',        // 7.21:1 contrast on white (AAA Normal)
-  gray700: '#374151',        // 10.70:1 contrast on white (AAA Large)
-  midnightBlue: '#1B2951',   // 15.29:1 contrast on white (AAA Large)
-  morningPrimary: '#E07B39', // Enhanced for better contrast (4.52:1 on white)
-  eveningPrimary: '#3F6B4C', // Enhanced for better contrast (4.89:1 on white)
-  crisisRed: '#991B1B',      // 7.73:1 contrast on white (AAA Normal)
-  focusBlue: '#0066CC',      // High contrast focus indicator (6.41:1)
-  successGreen: '#16A34A',   // WCAG-AA compliant success color (4.97:1)
-  warningAmber: '#D97706',   // WCAG-AA compliant warning color (4.52:1)
-};
-
-const spacing = {
-  sm: 8,
-  md: 16,
-  lg: 24,
-  xl: 32,
-  xxl: 48,  // For larger spacing between major sections
+// Extended local colors for onboarding-specific needs
+const localColors = {
+  ...commonColors,
+  // Aliases for onboarding-specific naming
+  crisisRed: commonColors.error,
+  focusBlue: commonColors.focusPrimary,
+  successGreen: commonColors.success,
+  warningAmber: commonColors.warning,
 };
 
 // WCAG-AA accessibility constants
@@ -1116,7 +1099,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
     const complianceScore = calculateComplianceScore();
 
     return (
-      <View style={{ position: 'absolute', bottom: 50, right: 10, backgroundColor: 'rgba(0,0,0,0.9)', padding: 8, borderRadius: 4, maxWidth: 300 }}>
+      <View style={{ position: 'absolute', bottom: 50, right: 10, backgroundColor: 'rgba(0,0,0,0.9)', padding: 8, borderRadius: borderRadius.small, maxWidth: 300 }}>
         <Text style={{ color: 'white', fontSize: 10, fontWeight: 'bold' }}>
           🏥 HIPAA COMPLIANCE MONITOR
         </Text>
@@ -1206,7 +1189,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
             accessibilityRole="image"
             style={styles.welcomeIconContainer}
           >
-            <BrainIcon color={colors.midnightBlue} size={80} />
+            <BrainIcon color={localColors.midnightBlue} size={80} />
           </View>
           <Text
             style={styles.title}
@@ -1578,7 +1561,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
         </View>
 
         {/* Privacy Principles - always visible */}
-        <View style={[styles.consentSection, { marginBottom: spacing.lg }]}>
+        <View style={[styles.consentSection, { marginBottom: spacing[24] }]}>
           <Text style={styles.featureText}>
             ✓ Your data is encrypted and secure
           </Text>
@@ -1630,8 +1613,8 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
         </View>
 
         {/* Emergency Disclaimer */}
-        <View style={[styles.consentSection, { marginTop: spacing.lg }]}>
-          <Text style={[styles.bodyText, { fontSize: 14, fontStyle: 'italic' }]}>
+        <View style={[styles.consentSection, { marginTop: spacing[24] }]}>
+          <Text style={[styles.bodyText, { fontSize: typography.bodySmall.size, fontStyle: 'italic' }]}>
             ⚠️ In a life-threatening emergency, call 911. For mental health crisis, call 988 Suicide & Crisis Lifeline.
           </Text>
         </View>
@@ -1706,7 +1689,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
             <Text style={styles.primaryButtonText}>Start Morning Practice</Text>
           </Pressable>
           <Pressable
-            style={[styles.secondaryButton, styles.accessibleTouchTarget, { marginTop: spacing.md }]}
+            style={[styles.secondaryButton, styles.accessibleTouchTarget, { marginTop: spacing[16] }]}
             onPress={handleExploreApp}
             accessible={true}
             accessibilityRole="button"
@@ -1751,261 +1734,261 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.white,
+    backgroundColor: localColors.white,
   },
   scrollContainer: {
     flex: 1,
   },
   scrollContent: {
-    padding: spacing.lg,
-    paddingBottom: spacing.xl,
+    padding: spacing[24],
+    paddingBottom: spacing[32],
   },
   // Crisis Button - Always at top
   crisisButtonContainer: {
     alignItems: 'flex-end',
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
   },
   header: {
-    marginBottom: spacing.xl,
+    marginBottom: spacing[32],
     alignItems: 'center',
   },
   title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: colors.black,
-    marginBottom: spacing.sm,
+    fontSize: typography.headline2.size,
+    fontWeight: typography.fontWeight.bold,
+    color: localColors.black,
+    marginBottom: spacing[8],
     textAlign: 'center',
   },
   subtitle: {
-    fontSize: 18,
-    fontWeight: '400',
-    color: colors.gray600,
+    fontSize: typography.bodyLarge.size,
+    fontWeight: typography.fontWeight.regular,
+    color: localColors.gray600,
     textAlign: 'center',
     lineHeight: 24,
   },
   welcomeIcon: {
     fontSize: 48,
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
   },
   welcomeIconContainer: {
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
   },
   celebrationIcon: {
     fontSize: 48,
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
   },
   section: {
-    marginBottom: spacing.xl,
+    marginBottom: spacing[32],
   },
   bodyText: {
-    fontSize: 16,
-    fontWeight: '400',
-    color: colors.gray600,
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.regular,
+    color: localColors.gray600,
     lineHeight: 22,
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
   },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: colors.black,
-    marginBottom: spacing.md,
+    fontSize: typography.title.size,
+    fontWeight: typography.fontWeight.semibold,
+    color: localColors.black,
+    marginBottom: spacing[16],
   },
   principleCard: {
-    backgroundColor: colors.gray100,
-    borderRadius: 8,
-    padding: spacing.md,
-    marginBottom: spacing.md,
+    backgroundColor: localColors.gray100,
+    borderRadius: borderRadius.medium,
+    padding: spacing[16],
+    marginBottom: spacing[16],
     borderLeftWidth: 3,
-    borderLeftColor: colors.midnightBlue,
+    borderLeftColor: localColors.midnightBlue,
   },
   principleTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.black,
-    marginBottom: spacing.sm,
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.semibold,
+    color: localColors.black,
+    marginBottom: spacing[8],
   },
   principleDescription: {
-    fontSize: 14,
-    fontWeight: '400',
-    color: colors.gray600,
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.regular,
+    color: localColors.gray600,
     lineHeight: 20,
   },
   bulletText: {
-    fontSize: 15,
-    fontWeight: '400',
-    color: colors.gray600,
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.regular,
+    color: localColors.gray600,
     lineHeight: 22,
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
   },
   featureList: {
-    marginTop: spacing.md,
+    marginTop: spacing[16],
   },
   featureText: {
-    fontSize: 16,
-    fontWeight: '400',
-    color: colors.gray600,
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.regular,
+    color: localColors.gray600,
     lineHeight: 22,
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
   },
   // Progress Bar
   progressContainer: {
     alignItems: 'center',
-    marginBottom: spacing.lg,
+    marginBottom: spacing[24],
   },
   progressText: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: colors.gray600,
-    marginBottom: spacing.sm,
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.medium,
+    color: localColors.gray600,
+    marginBottom: spacing[8],
   },
   progressBar: {
     width: '100%',
     height: 4,
-    backgroundColor: colors.gray200,
-    borderRadius: 2,
+    backgroundColor: localColors.gray200,
+    borderRadius: borderRadius.xs,
   },
   progressFill: {
     height: '100%',
-    backgroundColor: colors.morningPrimary,
-    borderRadius: 2,
+    backgroundColor: localColors.morningPrimary,
+    borderRadius: borderRadius.xs,
   },
   // Assessment Questions
   questionContainer: {
-    marginBottom: spacing.xl,
+    marginBottom: spacing[32],
   },
   questionIntro: {
-    fontSize: 16,
-    fontWeight: '400',
-    color: colors.gray600,
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.regular,
+    color: localColors.gray600,
     lineHeight: 22,
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
     textAlign: 'center',
   },
   questionText: {
-    fontSize: 20,
-    fontWeight: '500',
-    color: colors.black,
+    fontSize: typography.title.size,
+    fontWeight: typography.fontWeight.medium,
+    color: localColors.black,
     lineHeight: 28,
     textAlign: 'center',
   },
   optionsContainer: {
-    gap: spacing.md,
+    gap: spacing[16],
   },
   optionButton: {
-    backgroundColor: colors.gray100,
+    backgroundColor: localColors.gray100,
     borderWidth: 1,
-    borderColor: colors.gray300,
-    borderRadius: 12,
-    padding: spacing.lg,
+    borderColor: localColors.gray300,
+    borderRadius: borderRadius.large,
+    padding: spacing[24],
     alignItems: 'center',
   },
   optionText: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: colors.black,
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.medium,
+    color: localColors.black,
   },
   // Values Selection
   selectionCount: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: colors.midnightBlue,
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.medium,
+    color: localColors.midnightBlue,
     textAlign: 'center',
   },
   valuesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.sm,
-    marginBottom: spacing.xl,
+    gap: spacing[8],
+    marginBottom: spacing[32],
   },
   valueCard: {
-    backgroundColor: colors.gray100,
+    backgroundColor: localColors.gray100,
     borderWidth: 1,
-    borderColor: colors.gray300,
-    borderRadius: 12,
-    padding: spacing.lg,
+    borderColor: localColors.gray300,
+    borderRadius: borderRadius.large,
+    padding: spacing[24],
   },
   valueCardSelected: {
-    backgroundColor: colors.morningPrimary,
-    borderColor: colors.morningPrimary,
+    backgroundColor: localColors.morningPrimary,
+    borderColor: localColors.morningPrimary,
   },
   valueCardDisabled: {
-    backgroundColor: colors.gray200,
-    borderColor: colors.gray300,
+    backgroundColor: localColors.gray200,
+    borderColor: localColors.gray300,
     opacity: 0.6,
   },
   valueLabel: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.black,
-    marginBottom: spacing.sm,
+    fontSize: typography.bodyLarge.size,
+    fontWeight: typography.fontWeight.semibold,
+    color: localColors.black,
+    marginBottom: spacing[8],
   },
   valueLabelSelected: {
-    color: colors.white,
+    color: localColors.white,
   },
   valueDescription: {
-    fontSize: 14,
-    fontWeight: '400',
-    color: colors.gray600,
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.regular,
+    color: localColors.gray600,
     lineHeight: 18,
   },
   valueDescriptionSelected: {
-    color: colors.white,
+    color: localColors.white,
   },
   // Compact pill/chip styles for values
   valuePill: {
-    backgroundColor: colors.white,
+    backgroundColor: localColors.white,
     borderWidth: 1.5,
-    borderColor: colors.gray300,
-    borderRadius: 20,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    marginRight: spacing.sm,
-    marginBottom: spacing.sm,
+    borderColor: localColors.gray300,
+    borderRadius: borderRadius.xxl,
+    paddingHorizontal: spacing[16],
+    paddingVertical: spacing[8],
+    marginRight: spacing[8],
+    marginBottom: spacing[8],
   },
   valuePillSelected: {
-    backgroundColor: colors.morningPrimary,
-    borderColor: colors.morningPrimary,
+    backgroundColor: localColors.morningPrimary,
+    borderColor: localColors.morningPrimary,
   },
   valuePillDisabled: {
-    backgroundColor: colors.gray100,
-    borderColor: colors.gray200,
+    backgroundColor: localColors.gray100,
+    borderColor: localColors.gray200,
     opacity: 0.5,
   },
   valuePillText: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: colors.midnightBlue,
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.medium,
+    color: localColors.midnightBlue,
   },
   valuePillTextSelected: {
-    color: colors.white,
-    fontWeight: '600',
+    color: localColors.white,
+    fontWeight: typography.fontWeight.semibold,
   },
   // Notifications
   notificationContainer: {
-    marginBottom: spacing.xl,
-    gap: spacing.md,
+    marginBottom: spacing[32],
+    gap: spacing[16],
   },
   notificationRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: colors.gray100,
-    borderRadius: 12,
-    padding: spacing.lg,
+    backgroundColor: localColors.gray100,
+    borderRadius: borderRadius.large,
+    padding: spacing[24],
   },
   notificationInfo: {
     flex: 1,
   },
   notificationPeriod: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.black,
-    marginBottom: spacing.sm,
+    fontSize: typography.bodyLarge.size,
+    fontWeight: typography.fontWeight.semibold,
+    color: localColors.black,
+    marginBottom: spacing[8],
   },
   notificationTime: {
-    fontSize: 16,
-    fontWeight: '400',
-    color: colors.gray600,
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.regular,
+    color: localColors.gray600,
   },
   timeButton: {
     // Pressable wrapper for time display
@@ -2013,138 +1996,138 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   notificationTimeDisabled: {
-    color: colors.gray400,
+    color: localColors.gray400,
     opacity: 0.6,
   },
   toggleButton: {
-    backgroundColor: colors.gray300,
-    borderRadius: 8,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    backgroundColor: localColors.gray300,
+    borderRadius: borderRadius.medium,
+    paddingHorizontal: spacing[16],
+    paddingVertical: spacing[8],
     minWidth: 60,
     alignItems: 'center',
   },
   toggleButtonEnabled: {
-    backgroundColor: colors.eveningPrimary,
+    backgroundColor: localColors.eveningPrimary,
   },
   toggleButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.gray600,
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.semibold,
+    color: localColors.gray600,
   },
   toggleButtonTextEnabled: {
-    color: colors.white,
+    color: localColors.white,
   },
   // Privacy/Consent
   consentContainer: {
-    marginBottom: spacing.xl,
+    marginBottom: spacing[32],
   },
   consentSection: {
-    marginBottom: spacing.lg,
+    marginBottom: spacing[24],
   },
   consentTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.black,
-    marginBottom: spacing.sm,
+    fontSize: typography.bodyLarge.size,
+    fontWeight: typography.fontWeight.semibold,
+    color: localColors.black,
+    marginBottom: spacing[8],
   },
   consentText: {
-    fontSize: 16,
-    fontWeight: '400',
-    color: colors.gray600,
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.regular,
+    color: localColors.gray600,
     lineHeight: 22,
   },
   consentCheckbox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.gray100,
-    borderRadius: 12,
-    padding: spacing.lg,
-    marginTop: spacing.lg,
+    backgroundColor: localColors.gray100,
+    borderRadius: borderRadius.large,
+    padding: spacing[24],
+    marginTop: spacing[24],
   },
   consentCheckboxChecked: {
-    backgroundColor: colors.eveningPrimary,
+    backgroundColor: localColors.eveningPrimary,
   },
   consentCheckboxText: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: colors.black,
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.medium,
+    color: localColors.black,
     flex: 1,
   },
   consentCheckboxTextChecked: {
-    color: colors.white,
+    color: localColors.white,
   },
   // Celebration Summary
   summaryContainer: {
-    backgroundColor: colors.gray100,
-    borderRadius: 12,
-    padding: spacing.lg,
-    marginBottom: spacing.xl,
+    backgroundColor: localColors.gray100,
+    borderRadius: borderRadius.large,
+    padding: spacing[24],
+    marginBottom: spacing[32],
   },
   summaryTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: colors.black,
-    marginBottom: spacing.lg,
+    fontSize: typography.title.size,
+    fontWeight: typography.fontWeight.semibold,
+    color: localColors.black,
+    marginBottom: spacing[24],
   },
   summarySection: {
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
   },
   summaryLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.black,
-    marginBottom: spacing.sm,
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.semibold,
+    color: localColors.black,
+    marginBottom: spacing[8],
   },
   summaryValue: {
-    fontSize: 16,
-    fontWeight: '400',
-    color: colors.gray600,
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.regular,
+    color: localColors.gray600,
     lineHeight: 22,
   },
   // Navigation Buttons
   navigationContainer: {
     flexDirection: 'row',
-    gap: spacing.md,
+    gap: spacing[16],
   },
   primaryButton: {
-    backgroundColor: colors.morningPrimary,
-    borderRadius: 12,
-    padding: spacing.lg,
+    backgroundColor: localColors.morningPrimary,
+    borderRadius: borderRadius.large,
+    padding: spacing[24],
     alignItems: 'center',
     flex: 1,
   },
   primaryButtonDisabled: {
-    backgroundColor: colors.gray400,
+    backgroundColor: localColors.gray400,
   },
   primaryButtonText: {
-    color: colors.white,
-    fontSize: 18,
-    fontWeight: '600',
+    color: localColors.white,
+    fontSize: typography.bodyLarge.size,
+    fontWeight: typography.fontWeight.semibold,
   },
   secondaryButton: {
-    backgroundColor: colors.gray200,
-    borderRadius: 12,
-    padding: spacing.lg,
+    backgroundColor: localColors.gray200,
+    borderRadius: borderRadius.large,
+    padding: spacing[24],
     alignItems: 'center',
-    marginTop: spacing.md,
+    marginTop: spacing[16],
   },
   secondaryButtonText: {
-    color: colors.black,
-    fontSize: 18,
-    fontWeight: '600',
+    color: localColors.black,
+    fontSize: typography.bodyLarge.size,
+    fontWeight: typography.fontWeight.semibold,
   },
   backButton: {
-    backgroundColor: colors.gray200,
-    borderRadius: 12,
-    padding: spacing.lg,
+    backgroundColor: localColors.gray200,
+    borderRadius: borderRadius.large,
+    padding: spacing[24],
     alignItems: 'center',
     minWidth: 100,
   },
   backButtonText: {
-    color: colors.black,
-    fontSize: 18,
-    fontWeight: '600',
+    color: localColors.black,
+    fontSize: typography.bodyLarge.size,
+    fontWeight: typography.fontWeight.semibold,
   },
   // WCAG-AA ACCESSIBILITY STYLES
   // Minimum touch target size (44pt minimum per iOS/WCAG guidelines)
@@ -2155,31 +2138,31 @@ const styles = StyleSheet.create({
   // Focus indicators for keyboard navigation
   focusedElement: {
     borderWidth: 2,
-    borderColor: colors.focusBlue,
-    borderRadius: 4,
+    borderColor: localColors.focusBlue,
+    borderRadius: borderRadius.small,
   },
   // Selected option styles for radio buttons
   optionButtonSelected: {
-    backgroundColor: colors.morningPrimary,
-    borderColor: colors.morningPrimary,
+    backgroundColor: localColors.morningPrimary,
+    borderColor: localColors.morningPrimary,
   },
   optionTextSelected: {
-    color: colors.white,
-    fontWeight: '600',
+    color: localColors.white,
+    fontWeight: typography.fontWeight.semibold,
   },
   // Assessment controls for cognitive accessibility
   assessmentControls: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginBottom: spacing.md,
-    paddingHorizontal: spacing.lg,
+    marginBottom: spacing[16],
+    paddingHorizontal: spacing[24],
   },
   // High contrast mode styles (automatically applied by system)
   highContrastText: {
-    color: colors.black,
-    backgroundColor: colors.white,
+    color: localColors.black,
+    backgroundColor: localColors.white,
     borderWidth: 1,
-    borderColor: colors.gray700,
+    borderColor: localColors.gray700,
   },
   // Screen reader specific styles
   screenReaderOnly: {
@@ -2192,17 +2175,17 @@ const styles = StyleSheet.create({
   // Cognitive accessibility indicators
   requiredField: {
     borderLeftWidth: 4,
-    borderLeftColor: colors.warningAmber,
-    paddingLeft: spacing.sm,
+    borderLeftColor: localColors.warningAmber,
+    paddingLeft: spacing[8],
   },
   validationError: {
     borderWidth: 2,
-    borderColor: colors.crisisRed,
+    borderColor: localColors.crisisRed,
     backgroundColor: '#FEF2F2', // Light red background
   },
   validationSuccess: {
     borderWidth: 2,
-    borderColor: colors.successGreen,
+    borderColor: localColors.successGreen,
     backgroundColor: '#F0FDF4', // Light green background
   },
 });

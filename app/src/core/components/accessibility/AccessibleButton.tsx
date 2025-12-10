@@ -37,6 +37,7 @@ import {
   FOCUS_STYLES,
   A11Y_ROLES,
 } from '@/core/theme/accessibility';
+import { typography } from '@/core/theme';
 
 export interface AccessibleButtonProps {
   /** Button press handler */
@@ -257,7 +258,7 @@ const styles = StyleSheet.create({
   },
   
   iconText: {
-    fontSize: 24,
+    fontSize: typography.headline4.size,
     color: ACCESSIBLE_COLORS.textPrimary,
   },
   

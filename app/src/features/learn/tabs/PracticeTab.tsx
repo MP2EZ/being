@@ -19,7 +19,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
-import { colorSystem, spacing } from '@/core/theme/colors';
+import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
 import { useEducationStore } from '../stores/educationStore';
 import type { ModuleContent, ModuleId, Practice } from '@/features/learn/types/education';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
@@ -247,7 +247,7 @@ const PracticeTab: React.FC<PracticeTabProps> = ({
       </View>
 
       {/* Bottom Padding */}
-      <View style={{ height: spacing.xxxl }} />
+      <View style={{ height: spacing[64] }} />
     </ScrollView>
   );
 };
@@ -258,152 +258,152 @@ const styles = StyleSheet.create({
     backgroundColor: colorSystem.base.white,
   },
   scrollContent: {
-    padding: spacing.lg,
+    padding: spacing[24],
   },
   introSection: {
-    marginBottom: spacing.xl,
+    marginBottom: spacing[32],
   },
   introTitle: {
-    fontSize: 22,
-    fontWeight: '700',
+    fontSize: typography.headline3.size,
+    fontWeight: typography.fontWeight.bold,
     color: colorSystem.base.black,
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
   },
   introText: {
-    fontSize: 15,
+    fontSize: typography.bodyRegular.size,
     color: colorSystem.gray[600],
     lineHeight: 22,
   },
   practicesSection: {
-    gap: spacing.lg,
-    marginBottom: spacing.xl,
+    gap: spacing[24],
+    marginBottom: spacing[32],
   },
   practiceCard: {
     backgroundColor: colorSystem.base.white,
-    borderRadius: 16,
-    padding: spacing.lg,
+    borderRadius: borderRadius.xl,
+    padding: spacing[24],
     borderWidth: 1.5,
     borderColor: colorSystem.navigation.learn,
-    gap: spacing.md,
+    gap: spacing[16],
   },
   practiceHeader: {
     flexDirection: 'row',
-    gap: spacing.md,
+    gap: spacing[16],
     alignItems: 'flex-start',
   },
   practiceIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: spacing[48],
+    height: spacing[48],
+    borderRadius: borderRadius.xxl,
     backgroundColor: colorSystem.gray[100],
     alignItems: 'center',
     justifyContent: 'center',
   },
   practiceEmoji: {
-    fontSize: 24,
+    fontSize: typography.headline4.size,
   },
   practiceHeaderText: {
     flex: 1,
-    gap: spacing.xs,
+    gap: spacing[4],
   },
   practiceTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: typography.bodyLarge.size,
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.black,
   },
   practiceMetadata: {
     flexDirection: 'row',
-    gap: spacing.sm,
+    gap: spacing[8],
     flexWrap: 'wrap',
   },
   practiceType: {
-    fontSize: 13,
-    fontWeight: '500',
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.medium,
     color: colorSystem.navigation.learn,
   },
   practiceDuration: {
-    fontSize: 13,
+    fontSize: typography.bodySmall.size,
     color: colorSystem.gray[500],
   },
   practiceDescription: {
-    fontSize: 15,
+    fontSize: typography.bodyRegular.size,
     color: colorSystem.gray[700],
     lineHeight: 22,
   },
   instructionsSection: {
-    gap: spacing.xs,
-    paddingTop: spacing.sm,
+    gap: spacing[4],
+    paddingTop: spacing[8],
     borderTopWidth: 1,
     borderTopColor: colorSystem.gray[200],
   },
   instructionsLabel: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.gray[700],
-    marginBottom: spacing.xs,
+    marginBottom: spacing[4],
   },
   instructionRow: {
     flexDirection: 'row',
-    gap: spacing.sm,
+    gap: spacing[8],
   },
   instructionNumber: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.navigation.learn,
-    minWidth: 20,
+    minWidth: spacing[20],
   },
   instructionText: {
     flex: 1,
-    fontSize: 14,
+    fontSize: typography.bodySmall.size,
     color: colorSystem.gray[700],
     lineHeight: 20,
   },
   instructionsMore: {
-    fontSize: 13,
+    fontSize: typography.bodySmall.size,
     color: colorSystem.gray[500],
     fontStyle: 'italic',
-    marginTop: spacing.xs,
+    marginTop: spacing[4],
   },
   startButton: {
     backgroundColor: colorSystem.navigation.learn,
-    borderRadius: 12,
-    paddingVertical: spacing.md,
+    borderRadius: borderRadius.large,
+    paddingVertical: spacing[16],
     alignItems: 'center',
   },
   startButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.white,
   },
   tipsSection: {
-    gap: spacing.md,
+    gap: spacing[16],
   },
   tipsTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: typography.bodyLarge.size,
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.black,
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
   },
   tipCard: {
     flexDirection: 'row',
-    gap: spacing.md,
+    gap: spacing[16],
     backgroundColor: colorSystem.gray[50],
-    padding: spacing.md,
-    borderRadius: 12,
+    padding: spacing[16],
+    borderRadius: borderRadius.large,
     borderWidth: 1.5,
     borderColor: colorSystem.navigation.learn,
   },
   tipIcon: {
-    fontSize: 20,
+    fontSize: typography.title.size,
   },
   tipText: {
     flex: 1,
-    fontSize: 14,
+    fontSize: typography.bodySmall.size,
     color: colorSystem.gray[700],
     lineHeight: 20,
   },
   tipBold: {
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.gray[800],
   },
 });

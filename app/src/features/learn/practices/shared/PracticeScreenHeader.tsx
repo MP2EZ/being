@@ -10,7 +10,7 @@
 
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { colorSystem, spacing, typography } from '@/core/theme/colors';
+import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
 
 interface PracticeScreenHeaderProps {
   title: string;
@@ -64,8 +64,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing[16],
+    paddingVertical: spacing[8],
     borderBottomWidth: 1,
     borderBottomColor: colorSystem.gray[200],
   },
@@ -74,11 +74,11 @@ const styles = StyleSheet.create({
     height: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 22,
+    borderRadius: borderRadius.xxl,
     // WCAG AA touch target: 44×44
   },
   backButtonText: {
-    fontSize: 24,
+    fontSize: typography.headline4.size,
     color: colorSystem.navigation.learn,
   },
   headerTitle: {
@@ -87,7 +87,7 @@ const styles = StyleSheet.create({
     color: colorSystem.base.black,
     textAlign: 'center',
     flex: 1,
-    marginHorizontal: spacing.sm,
+    marginHorizontal: spacing[8],
   },
   headerRight: {
     width: 44,
@@ -97,7 +97,7 @@ const styles = StyleSheet.create({
   },
   progressText: {
     fontSize: typography.bodyRegular.size,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.gray[600],
   },
 });

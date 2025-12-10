@@ -15,7 +15,7 @@
 
 import React from 'react';
 import { TouchableOpacity, Text, StyleSheet, ViewStyle } from 'react-native';
-import { colorSystem, spacing, typography, borderRadius } from '@/core/theme/colors';
+import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
 
 interface PracticeToggleButtonProps {
   isActive: boolean;
@@ -99,23 +99,23 @@ const styles = StyleSheet.create({
   button: {
     backgroundColor: colorSystem.navigation.learn,
     borderRadius: borderRadius.large,
-    paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing[24],
+    paddingHorizontal: spacing[32],
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 48, // WCAG AA minimum
+    minHeight: spacing[48], // WCAG AA minimum
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: spacing[4],
     },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowRadius: borderRadius.small,
     elevation: 2,
   },
   buttonText: {
     fontSize: typography.bodyRegular.size,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.white,
   },
 });

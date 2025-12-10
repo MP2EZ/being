@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { colorSystem, spacing, typography, borderRadius } from '@/core/theme/colors';
+import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
 
 export const sharedPracticeStyles = StyleSheet.create({
   // Layout containers
@@ -12,13 +12,13 @@ export const sharedPracticeStyles = StyleSheet.create({
   },
   content: {
     flexGrow: 1,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.xl,
+    paddingHorizontal: spacing[24],
+    paddingVertical: spacing[32],
   },
 
   // Instruction sections
   instructionsSection: {
-    marginBottom: spacing.xl,
+    marginBottom: spacing[32],
   },
   instructionsText: {
     fontSize: typography.bodyRegular.size,
@@ -29,7 +29,7 @@ export const sharedPracticeStyles = StyleSheet.create({
 
   // Timer section
   timerSection: {
-    marginBottom: spacing.xl,
+    marginBottom: spacing[32],
   },
 
   // Note section (used in PracticeTimerScreen)
@@ -37,9 +37,9 @@ export const sharedPracticeStyles = StyleSheet.create({
     flexDirection: 'row' as const,
     alignItems: 'flex-start' as const,
     backgroundColor: colorSystem.navigation.learn + '10',
-    padding: spacing.md,
+    padding: spacing[16],
     borderRadius: borderRadius.medium,
-    gap: spacing.sm,
+    gap: spacing[8],
   },
   noteIcon: {
     fontSize: 20,

@@ -29,7 +29,7 @@ import {
   AccessibilityInfo,
   Animated,
 } from 'react-native';
-import { colorSystem, spacing, typography, borderRadius } from '@/core/theme/colors';
+import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
 import PracticeScreenHeader from '@/features/learn/practices/shared/PracticeScreenHeader';
 import { usePracticeCompletion } from '@/features/learn/practices/shared/usePracticeCompletion';
 import type { ModuleId } from '@/features/learn/types/education';
@@ -341,15 +341,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colorSystem.base.white,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.lg,
+    paddingHorizontal: spacing[24],
+    paddingTop: spacing[32],
+    paddingBottom: spacing[24],
   },
   progressBarContainer: {
-    height: 4,
+    height: spacing[4],
     backgroundColor: colorSystem.gray[300],
     borderRadius: borderRadius.small,
-    marginBottom: spacing.xl,
+    marginBottom: spacing[32],
     overflow: 'hidden',
   },
   progressBar: {
@@ -370,18 +370,18 @@ const styles = StyleSheet.create({
     backgroundColor: colorSystem.navigation.learn + '10',
     borderWidth: 1.5,
     borderColor: colorSystem.navigation.learn,
-    paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.md,
+    paddingVertical: spacing[24],
+    paddingHorizontal: spacing[16],
     borderRadius: borderRadius.medium,
-    marginBottom: spacing.xl,
+    marginBottom: spacing[32],
   },
   scenarioLabel: {
     fontSize: typography.caption.size,
-    fontWeight: '700',
+    fontWeight: typography.fontWeight.bold,
     color: colorSystem.gray[600],
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
   },
   scenarioText: {
     fontSize: typography.bodyLarge.size,
@@ -389,24 +389,24 @@ const styles = StyleSheet.create({
     lineHeight: typography.bodyLarge.size * (typography.bodyLarge.lineHeight || 1.5),
   },
   selectionContainer: {
-    marginBottom: spacing.xl,
+    marginBottom: spacing[32],
   },
   selectionPrompt: {
     fontSize: typography.bodyRegular.size,
     color: colorSystem.gray[700],
     textAlign: 'center',
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
   },
   buttonRow: {
-    gap: spacing.md,
+    gap: spacing[16],
   },
   choiceButton: {
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing[16],
+    paddingHorizontal: spacing[24],
     borderRadius: borderRadius.medium,
     alignItems: 'center',
-    minHeight: 48,
-    borderWidth: 2,
+    minHeight: spacing[48],
+    borderWidth: spacing[4],
   },
   inControlButton: {
     backgroundColor: colorSystem.status.successBackground,
@@ -422,20 +422,20 @@ const styles = StyleSheet.create({
   },
   choiceButtonText: {
     fontSize: typography.bodyRegular.size,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.black,
   },
   choiceButtonTextPressed: {
     opacity: 0.9,
   },
   feedbackContainer: {
-    gap: spacing.lg,
+    gap: spacing[24],
   },
   feedbackCard: {
-    paddingVertical: spacing.lg,
-    paddingHorizontal: spacing.md,
+    paddingVertical: spacing[24],
+    paddingHorizontal: spacing[16],
     borderRadius: borderRadius.medium,
-    borderLeftWidth: 4,
+    borderLeftWidth: spacing[4],
   },
   feedbackCorrect: {
     backgroundColor: colorSystem.status.successBackground,
@@ -447,11 +447,11 @@ const styles = StyleSheet.create({
   },
   feedbackLabel: {
     fontSize: typography.caption.size,
-    fontWeight: '700',
+    fontWeight: typography.fontWeight.bold,
     color: colorSystem.gray[700],
     textTransform: 'uppercase',
     letterSpacing: 0.5,
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
   },
   feedbackText: {
     fontSize: typography.bodyRegular.size,
@@ -459,30 +459,30 @@ const styles = StyleSheet.create({
     lineHeight: typography.bodyRegular.size * (typography.bodyRegular.lineHeight || 1.5),
   },
   listsContainer: {
-    gap: spacing.md,
+    gap: spacing[16],
   },
   listSection: {
     backgroundColor: colorSystem.gray[100],
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
+    paddingVertical: spacing[16],
+    paddingHorizontal: spacing[16],
     borderRadius: borderRadius.medium,
   },
   listTitle: {
     fontSize: typography.bodyRegular.size,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.black,
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
   },
   listItem: {
     fontSize: typography.bodySmall.size,
     color: colorSystem.gray[700],
     lineHeight: typography.bodySmall.size * (typography.bodySmall.lineHeight || 1.4),
-    marginBottom: spacing.xs,
+    marginBottom: spacing[4],
   },
   virtueCheckContainer: {
     backgroundColor: colorSystem.navigation.learn + '10',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
+    paddingVertical: spacing[16],
+    paddingHorizontal: spacing[16],
     borderRadius: borderRadius.medium,
     borderWidth: 1,
     borderColor: colorSystem.navigation.learn + '40',
@@ -495,11 +495,11 @@ const styles = StyleSheet.create({
   },
   nextButton: {
     backgroundColor: colorSystem.navigation.learn,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing[16],
+    paddingHorizontal: spacing[24],
     borderRadius: borderRadius.medium,
     alignItems: 'center',
-    minHeight: 48,
+    minHeight: spacing[48],
   },
   nextButtonPressed: {
     backgroundColor: colorSystem.navigation.learn + 'DD',
@@ -507,7 +507,7 @@ const styles = StyleSheet.create({
   },
   nextButtonText: {
     fontSize: typography.bodyRegular.size,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.white,
   },
   nextButtonTextPressed: {

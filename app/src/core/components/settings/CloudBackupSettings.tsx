@@ -35,6 +35,7 @@ import {
 import { useCloudSync, useCloudBackupConfig } from '@/core/services/supabase/hooks/useCloudSync';
 import SyncStatusIndicator from '../sync/SyncStatusIndicator';
 import AnalyticsService from '@/core/analytics/AnalyticsService';
+import { spacing, borderRadius, typography } from '@/core/theme';
 
 interface CloudBackupSettingsProps {
   style?: any;
@@ -583,34 +584,34 @@ export default function CloudBackupSettings({
 
 const styles = StyleSheet.create({
   container: {
-    padding: 16,
+    padding: spacing[16],
   },
 
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 20,
+    marginBottom: spacing[20],
   },
 
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
+    fontSize: typography.headline4.size,
+    fontWeight: typography.fontWeight.bold,
     color: '#333',
   },
 
   statusIndicator: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    marginBottom: 16,
+    width: spacing[12],
+    height: spacing[12],
+    borderRadius: borderRadius.medium,
+    marginBottom: spacing[16],
   },
 
   errorContainer: {
     backgroundColor: '#ffebee',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 16,
+    padding: spacing[12],
+    borderRadius: borderRadius.medium,
+    marginBottom: spacing[16],
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -622,61 +623,61 @@ const styles = StyleSheet.create({
   },
 
   errorDismiss: {
-    marginLeft: 12,
+    marginLeft: spacing[12],
   },
 
   errorDismissText: {
     color: '#c62828',
-    fontWeight: 'bold',
+    fontWeight: typography.fontWeight.bold,
   },
 
   restorePrompt: {
     backgroundColor: '#e3f2fd',
-    padding: 16,
-    borderRadius: 8,
-    marginBottom: 16,
+    padding: spacing[16],
+    borderRadius: borderRadius.medium,
+    marginBottom: spacing[16],
   },
 
   restorePromptTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: typography.bodyLarge.size,
+    fontWeight: typography.fontWeight.bold,
     color: '#1976d2',
-    marginBottom: 8,
+    marginBottom: spacing[8],
   },
 
   restorePromptText: {
     color: '#1976d2',
-    marginBottom: 12,
+    marginBottom: spacing[12],
   },
 
   restoreButton: {
     backgroundColor: '#1976d2',
-    padding: 12,
-    borderRadius: 8,
+    padding: spacing[12],
+    borderRadius: borderRadius.medium,
     alignItems: 'center',
     minHeight: 44, // Accessibility requirement
   },
 
   restoreButtonText: {
     color: '#fff',
-    fontWeight: 'bold',
+    fontWeight: typography.fontWeight.bold,
   },
 
   section: {
-    marginBottom: 24,
+    marginBottom: spacing[24],
   },
 
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: typography.bodyLarge.size,
+    fontWeight: typography.fontWeight.bold,
     color: '#333',
-    marginBottom: 12,
+    marginBottom: spacing[12],
   },
 
   statusRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: spacing[8],
   },
 
   statusLabel: {
@@ -685,14 +686,14 @@ const styles = StyleSheet.create({
 
   statusValue: {
     color: '#333',
-    fontWeight: '500',
+    fontWeight: typography.fontWeight.medium,
   },
 
   button: {
-    padding: 12,
-    borderRadius: 8,
+    padding: spacing[12],
+    borderRadius: borderRadius.medium,
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: spacing[8],
     minHeight: 44, // Accessibility requirement
   },
 
@@ -702,7 +703,7 @@ const styles = StyleSheet.create({
 
   primaryButtonText: {
     color: '#fff',
-    fontWeight: 'bold',
+    fontWeight: typography.fontWeight.bold,
   },
 
   secondaryButton: {
@@ -713,7 +714,7 @@ const styles = StyleSheet.create({
 
   secondaryButtonText: {
     color: '#333',
-    fontWeight: '500',
+    fontWeight: typography.fontWeight.medium,
   },
 
   tertiaryButton: {
@@ -732,46 +733,46 @@ const styles = StyleSheet.create({
 
   dangerButtonText: {
     color: '#c62828',
-    fontWeight: '500',
+    fontWeight: typography.fontWeight.medium,
   },
 
   configLabelContainer: {
     flex: 1,
-    marginRight: 12,
+    marginRight: spacing[12],
   },
 
   configDescription: {
-    fontSize: 12,
+    fontSize: typography.micro.size,
     color: '#6c757d',
-    marginTop: 2,
+    marginTop: spacing[4],
   },
 
   warningContainer: {
     backgroundColor: '#fff3cd',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 12,
+    padding: spacing[12],
+    borderRadius: borderRadius.medium,
+    marginBottom: spacing[12],
     borderWidth: 1,
     borderColor: '#ffeaa7',
   },
 
   warningText: {
     color: '#856404',
-    fontSize: 14,
+    fontSize: typography.bodySmall.size,
   },
 
   subsection: {
-    marginBottom: 16,
-    paddingBottom: 16,
+    marginBottom: spacing[16],
+    paddingBottom: spacing[16],
     borderBottomWidth: 1,
     borderBottomColor: '#f8f9fa',
   },
 
   subsectionTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.bold,
     color: '#6c757d',
-    marginBottom: 8,
+    marginBottom: spacing[8],
     textTransform: 'uppercase',
   },
 
@@ -779,33 +780,33 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: spacing[12],
     minHeight: 44, // Accessibility requirement
   },
 
   configLabel: {
-    fontSize: 16,
+    fontSize: typography.bodyRegular.size,
     color: '#333',
   },
 
   configValue: {
-    fontSize: 16,
+    fontSize: typography.bodyRegular.size,
     color: '#666',
   },
 
   advancedToggle: {
-    padding: 8,
+    padding: spacing[8],
     alignItems: 'center',
   },
 
   advancedToggleText: {
     color: '#1976d2',
-    fontWeight: '500',
+    fontWeight: typography.fontWeight.medium,
   },
 
   advancedSection: {
-    marginTop: 12,
-    paddingTop: 12,
+    marginTop: spacing[12],
+    paddingTop: spacing[12],
     borderTopWidth: 1,
     borderTopColor: '#eee',
   },

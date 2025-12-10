@@ -24,7 +24,7 @@ import {
   Alert,
   Linking,
 } from 'react-native';
-import { colorSystem, spacing, typography } from '@/core/theme/colors';
+import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
 import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
 import { FocusProvider, Focusable, SkipLink } from '@/core/components/accessibility';
 import type { PHQ9Result, GAD7Result, AssessmentType } from '../types';
@@ -507,34 +507,34 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: spacing.md,
-    paddingBottom: spacing.xl,
+    padding: spacing[16],
+    paddingBottom: spacing[32],
   },
   crisisBanner: {
     backgroundColor: colorSystem.status.critical,
-    padding: spacing.md,
-    borderRadius: 12,
-    marginBottom: spacing.lg,
+    padding: spacing[16],
+    borderRadius: borderRadius.large,
+    marginBottom: spacing[24],
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: spacing[8],
   },
   crisisBannerText: {
     fontSize: typography.bodyLarge.size,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.white,
     textAlign: 'center',
   },
   scoreContainer: {
-    padding: spacing.lg,
-    borderRadius: 16,
+    padding: spacing[24],
+    borderRadius: borderRadius.xl,
     borderWidth: 2,
-    marginBottom: spacing.lg,
+    marginBottom: spacing[24],
   },
   scoreHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
   },
   assessmentTitle: {
     fontSize: typography.headline3.size,
@@ -543,19 +543,19 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scoreBadge: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: 20,
+    paddingHorizontal: spacing[16],
+    paddingVertical: spacing[8],
+    borderRadius: typography.title.size,
   },
   scoreBadgeText: {
     fontSize: typography.bodyLarge.size,
-    fontWeight: '700',
+    fontWeight: typography.fontWeight.bold,
     color: colorSystem.base.white,
   },
   severityTitle: {
     fontSize: typography.headline2.size,
     fontWeight: typography.headline2.weight,
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
   },
   severityDescription: {
     fontSize: typography.bodyLarge.size,
@@ -564,8 +564,8 @@ const styles = StyleSheet.create({
     lineHeight: typography.bodyLarge.size * 1.5,
   },
   guidanceContainer: {
-    marginBottom: spacing.lg,
-    gap: spacing.md,
+    marginBottom: spacing[24],
+    gap: spacing[16],
   },
   guidanceTitle: {
     fontSize: typography.headline3.size,
@@ -579,15 +579,15 @@ const styles = StyleSheet.create({
     lineHeight: typography.bodyRegular.size * 1.5,
   },
   therapeuticContainer: {
-    padding: spacing.md,
-    borderRadius: 12,
+    padding: spacing[16],
+    borderRadius: borderRadius.large,
     borderLeftWidth: 4,
   },
   therapeuticTitle: {
     fontSize: typography.bodyLarge.size,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.accessibility.text.primary,
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
   },
   therapeuticText: {
     fontSize: typography.bodyRegular.size,
@@ -598,20 +598,20 @@ const styles = StyleSheet.create({
   },
   resourcesContainer: {
     backgroundColor: colorSystem.status.infoBackground,
-    padding: spacing.md,
-    borderRadius: 12,
+    padding: spacing[16],
+    borderRadius: borderRadius.large,
     borderWidth: 1,
     borderColor: colorSystem.status.info,
-    marginBottom: spacing.lg,
+    marginBottom: spacing[24],
   },
   resourcesTitle: {
     fontSize: typography.bodyLarge.size,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.status.info,
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
   },
   resourcesList: {
-    gap: spacing.xs,
+    gap: spacing[4],
   },
   resourceItem: {
     fontSize: typography.bodyRegular.size,
@@ -621,26 +621,26 @@ const styles = StyleSheet.create({
   },
   summaryContainer: {
     backgroundColor: colorSystem.gray[50],
-    padding: spacing.md,
-    borderRadius: 12,
-    marginBottom: spacing.lg,
+    padding: spacing[16],
+    borderRadius: borderRadius.large,
+    marginBottom: spacing[24],
   },
   summaryTitle: {
     fontSize: typography.bodyLarge.size,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.accessibility.text.primary,
-    marginBottom: spacing.md,
+    marginBottom: spacing[16],
   },
   summaryGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.md,
+    gap: spacing[16],
   },
   summaryItem: {
     flex: 1,
     minWidth: '45%',
     alignItems: 'center',
-    gap: spacing.xs,
+    gap: spacing[4],
   },
   summaryLabel: {
     fontSize: typography.caption.size,
@@ -649,17 +649,17 @@ const styles = StyleSheet.create({
   },
   summaryValue: {
     fontSize: typography.bodyRegular.size,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.accessibility.text.primary,
     textTransform: 'capitalize',
   },
   actionContainer: {
-    gap: spacing.md,
+    gap: spacing[16],
   },
   completeButton: {
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderRadius: 12,
+    paddingVertical: spacing[16],
+    paddingHorizontal: spacing[24],
+    borderRadius: borderRadius.large,
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 48,
@@ -669,7 +669,7 @@ const styles = StyleSheet.create({
       height: 2,
     },
     shadowOpacity: 0.2,
-    shadowRadius: 4,
+    shadowRadius: borderRadius.small,
     elevation: 4,
   },
   completeButtonPressed: {
@@ -678,12 +678,12 @@ const styles = StyleSheet.create({
   },
   completeButtonText: {
     fontSize: typography.bodyLarge.size,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.white,
   },
   retakeButton: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
+    paddingVertical: spacing[8],
+    paddingHorizontal: spacing[16],
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 44,

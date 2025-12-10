@@ -178,7 +178,7 @@ const BodyScanScreen: React.FC<BodyScanScreenProps> = ({
         isActive={isTimerActive}
         elapsedTime={elapsedTime}
         onToggle={setIsTimerActive}
-        style={{ marginBottom: spacing.xl }}
+        style={{ marginBottom: spacing[32] }}
         testID={`${testID}-toggle-button`}
       />
     </PracticeScreenLayout>
@@ -187,7 +187,7 @@ const BodyScanScreen: React.FC<BodyScanScreenProps> = ({
 
 const styles = StyleSheet.create({
   bodyAreaSection: {
-    marginBottom: spacing.xl,
+    marginBottom: spacing[32],
   },
 });
 

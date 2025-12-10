@@ -33,6 +33,7 @@ import {
 } from 'react-native';
 import { useSubscriptionStore } from '@/core/stores/subscriptionStore';
 import { FeatureAccess } from '@/core/types/subscription';
+import { spacing, borderRadius, typography } from '@/core/theme';
 
 interface FeatureGateProps {
   children: React.ReactNode;
@@ -129,45 +130,45 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 32,
+    padding: spacing[32],
     backgroundColor: '#FFFFFF',
   },
   lockIcon: {
     width: 80,
     height: 80,
-    borderRadius: 40,
+    borderRadius: borderRadius.xxxl,
     backgroundColor: '#F5F5F5',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: spacing[24],
   },
   lockIconText: {
-    fontSize: 40,
+    fontSize: typography.display1.size,
   },
   title: {
-    fontSize: 24,
-    fontWeight: '700',
+    fontSize: typography.headline4.size,
+    fontWeight: typography.fontWeight.bold,
     color: '#333333',
-    marginBottom: 12,
+    marginBottom: spacing[12],
     textAlign: 'center',
   },
   description: {
-    fontSize: 16,
+    fontSize: typography.bodyRegular.size,
     color: '#666666',
     textAlign: 'center',
     lineHeight: 22,
-    marginBottom: 24,
-    paddingHorizontal: 16,
+    marginBottom: spacing[24],
+    paddingHorizontal: spacing[16],
   },
   upgradeButton: {
     backgroundColor: '#4A90E2',
-    borderRadius: 8,
-    paddingVertical: 14,
-    paddingHorizontal: 32,
+    borderRadius: borderRadius.medium,
+    paddingVertical: spacing[8],
+    paddingHorizontal: spacing[32],
   },
   upgradeButtonText: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.semibold,
   },
 });

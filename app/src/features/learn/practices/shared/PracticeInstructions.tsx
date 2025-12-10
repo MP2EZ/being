@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, Animated, StyleSheet } from 'react-native';
 import { sharedPracticeStyles } from './sharedPracticeStyles';
 import { useInstructionsFade } from './useInstructionsFade';
-import { colorSystem, spacing, typography } from '@/core/theme/colors';
+import { colorSystem, spacing, typography } from '@/core/theme';
 
 interface PracticeInstructionsProps {
   text: string | string[]; // Single string or array of instruction steps
@@ -63,29 +63,29 @@ const PracticeInstructions: React.FC<PracticeInstructionsProps> = ({
 const styles = StyleSheet.create({
   instructionsLabel: {
     fontSize: typography.caption.size,
-    fontWeight: '700',
+    fontWeight: typography.fontWeight.bold,
     color: colorSystem.navigation.learn,
     textTransform: 'uppercase' as const,
     letterSpacing: 0.5,
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
   },
   instructionItem: {
     flexDirection: 'row' as const,
     alignItems: 'flex-start' as const,
-    marginBottom: spacing.sm,
+    marginBottom: spacing[8],
   },
   instructionNumber: {
     fontSize: typography.bodyRegular.size,
-    fontWeight: '600',
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.navigation.learn,
-    marginRight: spacing.xs,
-    minWidth: 20,
+    marginRight: spacing[4],
+    minWidth: spacing[20],
   },
   instructionText: {
     flex: 1,
     fontSize: typography.bodyRegular.size,
     color: colorSystem.gray[800],
-    lineHeight: 22,
+    lineHeight: spacing[20] + spacing[4],
   },
 });
 
