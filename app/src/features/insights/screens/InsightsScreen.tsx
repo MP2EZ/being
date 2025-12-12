@@ -222,7 +222,11 @@ const InsightsScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <CollapsibleCrisisButton />
+      <CollapsibleCrisisButton
+        mode="standard"
+        onNavigate={() => navigation.navigate('CrisisResources')}
+        testID="crisis-insights"
+      />
       <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
         {/* Header */}
         <View style={styles.header}>

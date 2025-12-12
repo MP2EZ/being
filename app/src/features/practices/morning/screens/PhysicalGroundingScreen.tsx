@@ -74,7 +74,8 @@ const PhysicalGroundingScreen: React.FC<Props> = ({ navigation, route, onSave })
   };
 
   return (
-    <ScrollView style={styles.container} testID="physical-grounding-screen">
+    <View style={{ flex: 1 }}>
+      <ScrollView style={styles.container} testID="physical-grounding-screen">
       {/* Back Button */}
       <TouchableOpacity
         style={styles.backButton}
@@ -227,7 +228,8 @@ const PhysicalGroundingScreen: React.FC<Props> = ({ navigation, route, onSave })
           Transition to your day with presence
         </Text>
       </View>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 };
 

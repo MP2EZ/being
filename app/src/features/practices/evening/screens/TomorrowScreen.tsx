@@ -70,7 +70,8 @@ const TomorrowScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
   };
 
   return (
-    <ScrollView style={styles.container} testID="tomorrow-screen">
+    <View style={{ flex: 1 }}>
+      <ScrollView style={styles.container} testID="tomorrow-screen">
       {/* Back Button */}
       <TouchableOpacity
         style={styles.backButton}
@@ -156,7 +157,8 @@ const TomorrowScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
           upon the future." — Seneca
         </Text>
       </View>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 };
 

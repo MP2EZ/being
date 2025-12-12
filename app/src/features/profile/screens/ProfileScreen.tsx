@@ -124,14 +124,11 @@ const ProfileScreen: React.FC = () => {
   };
 
   const handleStartAssessment = (type: AssessmentType) => {
+    // Assessment results auto-saved to assessmentStore by EnhancedAssessmentFlow
+    // ProfileScreen refreshes via useEffect watching completedAssessments
     navigation.navigate('AssessmentFlow', {
       assessmentType: type,
       context: 'standalone',
-      onComplete: (result) => {
-        // Assessment automatically saved to assessmentStore by EnhancedAssessmentFlow
-        // Metadata will auto-refresh via useEffect watching completedAssessments
-        console.log(`✅ ${type} assessment completed:`, result);
-      },
     });
   };
 
@@ -244,46 +241,6 @@ const ProfileScreen: React.FC = () => {
             <Text style={styles.educationLinkText}>
               Learn about assessment scoring
             </Text>
-          </Pressable>
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Crisis Resources</Text>
-          <Text style={styles.sectionDescription}>
-            If you're experiencing a mental health crisis, immediate help is available.
-          </Text>
-
-          <Pressable
-            style={[styles.profileCard, styles.crisisCard]}
-            onPress={() => Linking.openURL('tel:988')}
-          >
-            <Text style={styles.cardTitle}>🆘 988 Suicide & Crisis Lifeline</Text>
-            <Text style={styles.cardDescription}>
-              24/7 support for people in distress, prevention and crisis resources for you or your loved ones. Call or text 988.
-            </Text>
-            <Text style={styles.crisisAction}>Call 988 →</Text>
-          </Pressable>
-
-          <Pressable
-            style={[styles.profileCard, styles.crisisCard]}
-            onPress={() => Linking.openURL('sms:741741')}
-          >
-            <Text style={styles.cardTitle}>💬 Crisis Text Line</Text>
-            <Text style={styles.cardDescription}>
-              Free, 24/7 support for those in crisis. Text HOME to 741741 to connect with a trained Crisis Counselor.
-            </Text>
-            <Text style={styles.crisisAction}>Text HOME to 741741 →</Text>
-          </Pressable>
-
-          <Pressable
-            style={[styles.profileCard, styles.crisisCard]}
-            onPress={() => Linking.openURL('https://findtreatment.samhsa.gov/')}
-          >
-            <Text style={styles.cardTitle}>🏥 Find Local Treatment</Text>
-            <Text style={styles.cardDescription}>
-              SAMHSA's Treatment Locator helps you find mental health and substance use treatment facilities in your area.
-            </Text>
-            <Text style={styles.crisisAction}>Find Treatment →</Text>
           </Pressable>
         </View>
 
@@ -540,7 +497,12 @@ const ProfileScreen: React.FC = () => {
     <>
       {renderContent()}
       {/* Crisis Button Overlay - accessible across all profile screens */}
-      <CollapsibleCrisisButton testID="crisis-profile" position="right" />
+      <CollapsibleCrisisButton
+        mode="standard"
+        onNavigate={() => navigation.navigate('CrisisResources')}
+        testID="crisis-profile"
+        position="right"
+      />
     </>
   );
 };
@@ -616,17 +578,6 @@ const styles = StyleSheet.create({
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.medium,
     color: commonColors.midnightBlue,
-  },
-  crisisCard: {
-    backgroundColor: '#FFF5F5',
-    borderColor: '#FEE2E2',
-    borderLeftWidth: 4,
-    borderLeftColor: '#DC2626',
-  },
-  crisisAction: {
-    fontSize: typography.bodyRegular.size,
-    fontWeight: typography.fontWeight.semibold,
-    color: '#DC2626',
   },
   placeholderContent: {
     backgroundColor: commonColors.gray100,

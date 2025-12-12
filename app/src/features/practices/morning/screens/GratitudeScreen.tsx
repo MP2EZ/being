@@ -87,7 +87,8 @@ const GratitudeScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
   };
 
   return (
-    <ScrollView style={styles.container} testID="gratitude-screen">
+    <View style={{ flex: 1 }}>
+      <ScrollView style={styles.container} testID="gratitude-screen">
       {/* Back Button */}
       <TouchableOpacity
         style={styles.backButton}
@@ -191,7 +192,8 @@ const GratitudeScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
           to be alive." — Marcus Aurelius
         </Text>
       </View>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 };
 

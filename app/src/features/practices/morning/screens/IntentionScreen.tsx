@@ -79,7 +79,8 @@ const IntentionScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
   };
 
   return (
-    <ScrollView style={styles.container} testID="intention-screen">
+    <View style={{ flex: 1 }}>
+      <ScrollView style={styles.container} testID="intention-screen">
       {/* Back Button */}
       <TouchableOpacity
         style={styles.backButton}
@@ -205,7 +206,8 @@ const IntentionScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
           'I have to go to work—as a human being.'" — Marcus Aurelius
         </Text>
       </View>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 };
 

@@ -25,6 +25,7 @@ import {
 import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
+import { CollapsibleCrisisButton } from '@/features/crisis/components';
 import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
 import { useEducationStore } from '@/features/learn/stores/educationStore';
 import { loadModuleContent } from '@/core/services/moduleContent';
@@ -121,7 +122,8 @@ const ModuleDetailScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
+      <View style={{ flex: 1 }}>
+        <View style={styles.container}>
         {/* Header */}
         <View style={[styles.header, isMostEssential && styles.headerEssential]}>
           <TouchableOpacity onPress={handleBack} style={styles.backButton}>
@@ -187,6 +189,12 @@ const ModuleDetailScreen: React.FC = () => {
 
         {/* Tab Content */}
         <View style={styles.tabContent}>{renderTabContent()}</View>
+        </View>
+        <CollapsibleCrisisButton
+          mode="standard"
+          onNavigate={() => navigation.navigate('CrisisResources')}
+          testID="crisis-button"
+        />
       </View>
     </SafeAreaView>
   );

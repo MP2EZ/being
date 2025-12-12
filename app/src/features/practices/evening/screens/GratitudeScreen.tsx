@@ -124,7 +124,8 @@ const GratitudeScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
   };
 
   return (
-    <ScrollView style={styles.container} testID="gratitude-screen">
+    <View style={{ flex: 1 }}>
+      <ScrollView style={styles.container} testID="gratitude-screen">
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
@@ -223,7 +224,8 @@ const GratitudeScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
           Please fill all three gratitude items
         </Text>
       )}
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 };
 

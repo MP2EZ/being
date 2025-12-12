@@ -57,11 +57,12 @@ const SleepTransitionScreen: React.FC<Props> = ({ navigation, onSave }) => {
   };
 
   return (
-    <ScrollView
-      style={styles.container}
-      testID="sleep-transition-screen"
-      contentContainerStyle={styles.contentContainer}
-    >
+    <View style={{ flex: 1 }}>
+      <ScrollView
+        style={styles.container}
+        testID="sleep-transition-screen"
+        contentContainerStyle={styles.contentContainer}
+      >
       {/* Back Button */}
       <TouchableOpacity
         style={styles.backButton}
@@ -185,7 +186,8 @@ const SleepTransitionScreen: React.FC<Props> = ({ navigation, onSave }) => {
           tomorrow's renewal." — Seneca, Letters 54:1
         </Text>
       </View>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 };
 

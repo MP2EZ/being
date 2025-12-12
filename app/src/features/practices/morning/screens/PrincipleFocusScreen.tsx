@@ -143,7 +143,8 @@ const PrincipleFocusScreen: React.FC<Props> = ({ navigation, route, onSave }) =>
   };
 
   return (
-    <ScrollView style={styles.container} testID="principle-focus-screen">
+    <View style={{ flex: 1 }}>
+      <ScrollView style={styles.container} testID="principle-focus-screen">
       {/* Back Button */}
       <TouchableOpacity
         style={styles.backButton}
@@ -256,7 +257,8 @@ const PrincipleFocusScreen: React.FC<Props> = ({ navigation, route, onSave }) =>
       >
         <Text style={styles.continueButtonText}>Continue</Text>
       </TouchableOpacity>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 };
 

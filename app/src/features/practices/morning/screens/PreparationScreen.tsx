@@ -292,7 +292,8 @@ const PreparationScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
   const shouldSuggestOptOut = timeExceeded || anxietyDetected;
 
   return (
-    <ScrollView style={styles.container} testID="preparation-screen">
+    <View style={{ flex: 1 }}>
+      <ScrollView style={styles.container} testID="preparation-screen">
       {/* Back Button */}
       <TouchableOpacity
         style={styles.backButton}
@@ -574,7 +575,8 @@ const PreparationScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
           </View>
         </View>
       </Modal>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 };
 

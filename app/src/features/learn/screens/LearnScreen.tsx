@@ -22,6 +22,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
+import { CollapsibleCrisisButton } from '@/features/crisis/components';
 import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
 import { useEducationStore } from '@/features/learn/stores/educationStore';
 import type { ModuleId } from '@/features/learn/types/education';
@@ -108,7 +109,8 @@ const LearnScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
+      <View style={{ flex: 1 }}>
+        <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Learn</Text>
@@ -218,6 +220,12 @@ const LearnScreen: React.FC = () => {
             })}
           </View>
         </ScrollView>
+        </View>
+        <CollapsibleCrisisButton
+          mode="standard"
+          onNavigate={() => navigation.navigate('CrisisResources')}
+          testID="crisis-button"
+        />
       </View>
     </SafeAreaView>
   );

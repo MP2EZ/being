@@ -30,6 +30,9 @@ import {
 } from 'react-native';
 import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
 import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
+import { useNavigation } from '@react-navigation/native';
+import type { StackNavigationProp } from '@react-navigation/stack';
+import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 import { RadioGroup, FocusProvider, Focusable } from '@/core/components/accessibility';
 import type { RadioOption } from '@/core/components/accessibility';
 import type { 
@@ -197,6 +200,9 @@ const EnhancedAssessmentQuestion: React.FC<EnhancedAssessmentQuestionProps> = ({
   onCrisisDetected,
   onError,
 }) => {
+  // Navigation for crisis button
+  const rootNavigation = useNavigation<StackNavigationProp<RootStackParamList>>();
+
   // State management
   const [isProcessing, setIsProcessing] = useState(false);
   const [crisisAlert, setCrisisAlert] = useState<CrisisDetection | null>(null);
@@ -536,7 +542,11 @@ const EnhancedAssessmentQuestion: React.FC<EnhancedAssessmentQuestionProps> = ({
       </FocusProvider>
 
       {/* Collapsible Crisis Button - Always accessible overlay */}
-      <CollapsibleCrisisButton testID="assessment-crisis-button" />
+      <CollapsibleCrisisButton
+        mode="prominent"
+        onNavigate={() => rootNavigation.navigate('CrisisResources')}
+        testID="assessment-crisis-button"
+      />
     </>
   );
 };
