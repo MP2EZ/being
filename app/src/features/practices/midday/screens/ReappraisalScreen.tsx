@@ -33,13 +33,18 @@ import {
 } from 'react-native';
 import type { StackScreenProps } from '@react-navigation/stack';
 import type { MiddayFlowParamList, ReappraisalData } from '@/features/practices/types/flows';
+import { CollapsibleCrisisButton } from '@/features/crisis/components';
 import { spacing, borderRadius, typography } from '@/core/theme';
+import { useNavigation } from '@react-navigation/native';
+import type { StackNavigationProp } from '@react-navigation/stack';
+import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 
 type Props = StackScreenProps<MiddayFlowParamList, 'Reappraisal'> & {
   onSave?: (data: ReappraisalData) => void;
 };
 
 const ReappraisalScreen: React.FC<Props> = ({ navigation, onSave }) => {
+  const rootNavigation = useNavigation<StackNavigationProp<RootStackParamList>>();
   const [obstacle, setObstacle] = useState('');
   const [virtueOpportunity, setVirtueOpportunity] = useState('');
   const [reframedPerspective, setReframedPerspective] = useState('');
@@ -183,6 +188,11 @@ const ReappraisalScreen: React.FC<Props> = ({ navigation, onSave }) => {
         </Text>
       </View>
       </ScrollView>
+      <CollapsibleCrisisButton
+        mode="immersive"
+        onNavigate={() => rootNavigation.navigate('CrisisResources')}
+        testID="crisis-button"
+      />
     </View>
   );
 };

@@ -33,13 +33,19 @@ import {
 } from 'react-native';
 import type { StackScreenProps } from '@react-navigation/stack';
 import type { EveningFlowParamList, GratitudeData, GratitudeItem } from '@/features/practices/types/flows';
+import { CollapsibleCrisisButton } from '@/features/crisis/components';
 import { spacing, borderRadius, typography } from '@/core/theme';
+import { useNavigation } from '@react-navigation/native';
+import type { StackNavigationProp } from '@react-navigation/stack';
+import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 
 type Props = StackScreenProps<EveningFlowParamList, 'Gratitude'> & {
   onSave?: (data: GratitudeData) => void;
 };
 
 const GratitudeScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
+  const rootNavigation = useNavigation<StackNavigationProp<RootStackParamList>>();
+
   // FEAT-23: Restore initial data if resuming session
   const initialData = (route.params as any)?.initialData as GratitudeData | undefined;
 
@@ -124,7 +130,8 @@ const GratitudeScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
   };
 
   return (
-    <ScrollView style={styles.container} testID="gratitude-screen">
+    <View style={{ flex: 1 }}>
+      <ScrollView style={styles.container} testID="gratitude-screen">
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
@@ -223,7 +230,13 @@ const GratitudeScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
           Please fill all three gratitude items
         </Text>
       )}
-    </ScrollView>
+      </ScrollView>
+      <CollapsibleCrisisButton
+        mode="immersive"
+        onNavigate={() => rootNavigation.navigate('CrisisResources')}
+        testID="crisis-button"
+      />
+    </View>
   );
 };
 

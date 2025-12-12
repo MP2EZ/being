@@ -39,7 +39,11 @@ import {
 import type { StackScreenProps } from '@react-navigation/stack';
 import type { MorningFlowParamList, PrincipleFocusData } from '@/features/practices/types/flows';
 import type { StoicPrinciple } from '@/features/practices/types/stoic';
+import { CollapsibleCrisisButton } from '@/features/crisis/components';
 import { spacing, borderRadius, typography } from '@/core/theme';
+import { useNavigation } from '@react-navigation/native';
+import type { StackNavigationProp } from '@react-navigation/stack';
+import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 
 type Props = StackScreenProps<MorningFlowParamList, 'PrincipleFocus'> & {
   onSave?: (data: PrincipleFocusData) => void;
@@ -100,6 +104,8 @@ const PRINCIPLES: PrincipleInfo[] = [
 ];
 
 const PrincipleFocusScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
+  const rootNavigation = useNavigation<StackNavigationProp<RootStackParamList>>();
+
   // FEAT-23: Restore initial data if resuming session
   const initialData = (route.params as any)?.initialData as PrincipleFocusData | undefined;
 
@@ -143,7 +149,8 @@ const PrincipleFocusScreen: React.FC<Props> = ({ navigation, route, onSave }) =>
   };
 
   return (
-    <ScrollView style={styles.container} testID="principle-focus-screen">
+    <View style={{ flex: 1 }}>
+      <ScrollView style={styles.container} testID="principle-focus-screen">
       {/* Back Button */}
       <TouchableOpacity
         style={styles.backButton}
@@ -256,7 +263,13 @@ const PrincipleFocusScreen: React.FC<Props> = ({ navigation, route, onSave }) =>
       >
         <Text style={styles.continueButtonText}>Continue</Text>
       </TouchableOpacity>
-    </ScrollView>
+      </ScrollView>
+      <CollapsibleCrisisButton
+        mode="immersive"
+        onNavigate={() => rootNavigation.navigate('CrisisResources')}
+        testID="crisis-button"
+      />
+    </View>
   );
 };
 

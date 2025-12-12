@@ -32,13 +32,18 @@ import {
 import type { StackScreenProps } from '@react-navigation/stack';
 import type { EveningFlowParamList, SleepTransitionData } from '@/features/practices/types/flows';
 import BreathingCircle from '../../shared/components/BreathingCircle';
+import { CollapsibleCrisisButton } from '@/features/crisis/components';
 import { spacing, borderRadius, typography } from '@/core/theme';
+import { useNavigation } from '@react-navigation/native';
+import type { StackNavigationProp } from '@react-navigation/stack';
+import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 
 type Props = StackScreenProps<EveningFlowParamList, 'SleepTransition'> & {
   onSave?: (data: SleepTransitionData) => void;
 };
 
 const SleepTransitionScreen: React.FC<Props> = ({ navigation, onSave }) => {
+  const rootNavigation = useNavigation<StackNavigationProp<RootStackParamList>>();
   const [breathingCompleted, setBreathingCompleted] = useState(false);
   const [breathingActive, setBreathingActive] = useState(false);
   const [breathingStarted, setBreathingStarted] = useState(false);
@@ -57,11 +62,12 @@ const SleepTransitionScreen: React.FC<Props> = ({ navigation, onSave }) => {
   };
 
   return (
-    <ScrollView
-      style={styles.container}
-      testID="sleep-transition-screen"
-      contentContainerStyle={styles.contentContainer}
-    >
+    <View style={{ flex: 1 }}>
+      <ScrollView
+        style={styles.container}
+        testID="sleep-transition-screen"
+        contentContainerStyle={styles.contentContainer}
+      >
       {/* Back Button */}
       <TouchableOpacity
         style={styles.backButton}
@@ -185,7 +191,13 @@ const SleepTransitionScreen: React.FC<Props> = ({ navigation, onSave }) => {
           tomorrow's renewal." — Seneca, Letters 54:1
         </Text>
       </View>
-    </ScrollView>
+      </ScrollView>
+      <CollapsibleCrisisButton
+        mode="immersive"
+        onNavigate={() => rootNavigation.navigate('CrisisResources')}
+        testID="crisis-button"
+      />
+    </View>
   );
 };
 

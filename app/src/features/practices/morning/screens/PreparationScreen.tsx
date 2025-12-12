@@ -39,7 +39,11 @@ import type { StackScreenProps } from '@react-navigation/stack';
 import type { MorningFlowParamList, PreparationData } from '@/features/practices/types/flows';
 import { PremeditationSafetyService } from '@/core/services/premeditationSafetyService';
 import type { ObstacleInput } from '@/core/services/premeditationSafetyService';
+import { CollapsibleCrisisButton } from '@/features/crisis/components';
 import { spacing, borderRadius, typography } from '@/core/theme';
+import { useNavigation } from '@react-navigation/native';
+import type { StackNavigationProp } from '@react-navigation/stack';
+import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 
 type Props = StackScreenProps<MorningFlowParamList, 'Preparation'> & {
   onSave?: (data: PreparationData) => void;
@@ -55,6 +59,8 @@ interface ObstacleFormData {
 const TIME_LIMIT_SECONDS = 120;
 
 const PreparationScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
+  const rootNavigation = useNavigation<StackNavigationProp<RootStackParamList>>();
+
   // FEAT-23: Restore initial data if resuming session
   const initialData = (route.params as any)?.initialData as PreparationData | undefined;
 
@@ -292,7 +298,8 @@ const PreparationScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
   const shouldSuggestOptOut = timeExceeded || anxietyDetected;
 
   return (
-    <ScrollView style={styles.container} testID="preparation-screen">
+    <View style={{ flex: 1 }}>
+      <ScrollView style={styles.container} testID="preparation-screen">
       {/* Back Button */}
       <TouchableOpacity
         style={styles.backButton}
@@ -574,7 +581,13 @@ const PreparationScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
           </View>
         </View>
       </Modal>
-    </ScrollView>
+      </ScrollView>
+      <CollapsibleCrisisButton
+        mode="immersive"
+        onNavigate={() => rootNavigation.navigate('CrisisResources')}
+        testID="crisis-button"
+      />
+    </View>
   );
 };
 

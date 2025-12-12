@@ -31,13 +31,19 @@ import {
 } from 'react-native';
 import type { StackScreenProps } from '@react-navigation/stack';
 import type { EveningFlowParamList, TomorrowData } from '@/features/practices/types/flows';
+import { CollapsibleCrisisButton } from '@/features/crisis/components';
 import { spacing, borderRadius, typography } from '@/core/theme';
+import { useNavigation } from '@react-navigation/native';
+import type { StackNavigationProp } from '@react-navigation/stack';
+import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 
 type Props = StackScreenProps<EveningFlowParamList, 'Tomorrow'> & {
   onSave?: (data: TomorrowData) => void;
 };
 
 const TomorrowScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
+  const rootNavigation = useNavigation<StackNavigationProp<RootStackParamList>>();
+
   // FEAT-23: Restore initial data if resuming session
   const initialData = (route.params as any)?.initialData as TomorrowData | undefined;
 
@@ -70,7 +76,8 @@ const TomorrowScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
   };
 
   return (
-    <ScrollView style={styles.container} testID="tomorrow-screen">
+    <View style={{ flex: 1 }}>
+      <ScrollView style={styles.container} testID="tomorrow-screen">
       {/* Back Button */}
       <TouchableOpacity
         style={styles.backButton}
@@ -156,7 +163,13 @@ const TomorrowScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
           upon the future." — Seneca
         </Text>
       </View>
-    </ScrollView>
+      </ScrollView>
+      <CollapsibleCrisisButton
+        mode="immersive"
+        onNavigate={() => rootNavigation.navigate('CrisisResources')}
+        testID="crisis-button"
+      />
+    </View>
   );
 };
 

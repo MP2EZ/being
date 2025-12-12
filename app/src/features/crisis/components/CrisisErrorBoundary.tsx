@@ -272,8 +272,11 @@ export class CrisisErrorBoundary extends Component<
         return (
           <View style={styles.container}>
             {this.props.fallbackComponent}
-            {/* CollapsibleCrisisButton is globally available */}
-            <CollapsibleCrisisButton />
+            {/* CollapsibleCrisisButton is globally available - uses direct tel:988 in error state */}
+            <CollapsibleCrisisButton
+              mode="prominent"
+              onNavigate={() => Linking.openURL('tel:988')}
+            />
           </View>
         );
       }

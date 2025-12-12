@@ -24,6 +24,9 @@ import {
 import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
 import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
 import { FocusProvider, Focusable, SkipLink } from '@/core/components/accessibility';
+import { useNavigation } from '@react-navigation/native';
+import type { StackNavigationProp } from '@react-navigation/stack';
+import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 import type { AssessmentType } from '../types';
 
 interface AssessmentIntroductionProps {
@@ -43,6 +46,9 @@ const AssessmentIntroduction: React.FC<AssessmentIntroductionProps> = ({
   context = 'standalone',
   showSkipOption = false,
 }) => {
+  // Navigation for crisis button
+  const rootNavigation = useNavigation<StackNavigationProp<RootStackParamList>>();
+
   // Theme-based styling
   const themeColors = useMemo(() => {
     // Default neutral theme
@@ -334,7 +340,11 @@ const AssessmentIntroduction: React.FC<AssessmentIntroductionProps> = ({
       </ScrollView>
 
       {/* Collapsible Crisis Button - Fixed overlay, always accessible */}
-      <CollapsibleCrisisButton />
+      <CollapsibleCrisisButton
+        mode="prominent"
+        onNavigate={() => rootNavigation.navigate('CrisisResources')}
+        testID="crisis-button"
+      />
     </FocusProvider>
   );
 };

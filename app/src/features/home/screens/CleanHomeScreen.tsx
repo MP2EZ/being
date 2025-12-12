@@ -193,7 +193,11 @@ const CleanHomeScreen: React.FC = () => {
       </View>
 
       {/* Crisis Button Overlay */}
-      <CollapsibleCrisisButton testID="crisis-home" />
+      <CollapsibleCrisisButton
+        mode="standard"
+        onNavigate={() => navigation.navigate('CrisisResources')}
+        testID="crisis-home"
+      />
 
       {/* Intro Animation Overlay */}
       {showIntro && (

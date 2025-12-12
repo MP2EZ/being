@@ -156,7 +156,11 @@ const VirtueReflectionScreen: React.FC<Props> = ({ navigation, route, onSave }) 
       </ScrollView>
 
       {/* Crisis Button Overlay - accessible when keyboard is visible */}
-      <CollapsibleCrisisButton testID="crisis-virtue-reflection" />
+      <CollapsibleCrisisButton
+        mode="immersive"
+        onNavigate={() => navigation.navigate('CrisisResources' as never)}
+        testID="crisis-virtue-reflection"
+      />
     </>
   );
 };

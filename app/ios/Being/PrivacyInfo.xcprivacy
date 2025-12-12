@@ -42,18 +42,17 @@
 	</array>
 	<key>NSPrivacyCollectedDataTypes</key>
 	<array>
-		<!-- Health Data: PHQ-9/GAD-7 assessment responses, mood check-in data -->
 		<dict>
 			<key>NSPrivacyCollectedDataType</key>
 			<string>NSPrivacyCollectedDataTypeHealth</string>
 			<key>NSPrivacyCollectedDataTypeLinked</key>
 			<false/>
-			<key>NSPrivacyCollectedDataTypeTracking</key>
-			<false/>
 			<key>NSPrivacyCollectedDataTypePurposes</key>
 			<array>
 				<string>NSPrivacyCollectedDataTypePurposeAppFunctionality</string>
 			</array>
+			<key>NSPrivacyCollectedDataTypeTracking</key>
+			<false/>
 		</dict>
 	</array>
 	<key>NSPrivacyTracking</key>

@@ -202,7 +202,11 @@ const SelfCompassionScreen: React.FC<Props> = ({ navigation, route, onSave }) =>
       </View>
 
       {/* Crisis Button Overlay - accessible when keyboard is visible */}
-      <CollapsibleCrisisButton testID="crisis-self-compassion" />
+      <CollapsibleCrisisButton
+        mode="immersive"
+        onNavigate={() => navigation.navigate('CrisisResources' as never)}
+        testID="crisis-self-compassion"
+      />
 
       {/* Skip Prevention Modal */}
       <Modal

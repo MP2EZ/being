@@ -540,7 +540,12 @@ const ProfileScreen: React.FC = () => {
     <>
       {renderContent()}
       {/* Crisis Button Overlay - accessible across all profile screens */}
-      <CollapsibleCrisisButton testID="crisis-profile" position="right" />
+      <CollapsibleCrisisButton
+        mode="standard"
+        onNavigate={() => navigation.navigate('CrisisResources')}
+        testID="crisis-profile"
+        position="right"
+      />
     </>
   );
 };
