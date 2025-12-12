@@ -15,7 +15,6 @@ import MorningFlowNavigator from '@/features/practices/morning/MorningFlowNaviga
 import MiddayFlowNavigator from '@/features/practices/midday/MiddayFlowNavigator';
 import EveningFlowNavigator from '@/features/practices/evening/EveningFlowNavigator';
 import CrisisResourcesScreen from '@/features/crisis/screens/CrisisResourcesScreen';
-import CrisisPlanScreen from '@/features/crisis/screens/CrisisPlanScreen';
 import PurchaseOptionsScreen from '@/core/components/subscription/PurchaseOptionsScreen';
 import SubscriptionStatusCard from '@/core/components/subscription/SubscriptionStatusCard';
 import OnboardingScreen from '@/features/onboarding/screens/OnboardingScreen';
@@ -84,7 +83,6 @@ export type RootStackParamList = {
     severityLevel?: 'moderate' | 'high' | 'emergency';
     source?: 'assessment' | 'direct' | 'crisis_button';
   } | undefined;
-  CrisisPlan: undefined;
   Subscription: undefined;
   SubscriptionStatus: undefined;
   VirtueDashboard: undefined;
@@ -459,18 +457,6 @@ const CleanRootNavigator: React.FC = () => {
             component={CrisisResourcesScreen}
             options={{
               title: 'Crisis Support',
-              headerShown: true,
-              presentation: 'modal',
-              gestureEnabled: true
-            }}
-          />
-
-          {/* Crisis Plan Screen */}
-          <Stack.Screen
-            name="CrisisPlan"
-            component={CrisisPlanScreen}
-            options={{
-              title: 'Safety Plan',
               headerShown: true,
               presentation: 'modal',
               gestureEnabled: true

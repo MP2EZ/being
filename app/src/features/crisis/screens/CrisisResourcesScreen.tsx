@@ -285,14 +285,6 @@ export default function CrisisResourcesScreen() {
       });
   };
 
-  /**
-   * Handle navigation to Crisis Plan
-   */
-  const handleNavigateToCrisisPlan = () => {
-    console.log('Navigating to Crisis Plan from Resources', {}, LogCategory.CRISIS);
-    navigation.navigate('CrisisPlan');
-  };
-
   const priorityResources = getPriorityCrisisResources();
 
   return (
@@ -390,25 +382,6 @@ export default function CrisisResourcesScreen() {
               ))}
             </View>
           ))}
-
-        {/* Crisis Plan CTA */}
-        <View style={styles.ctaContainer}>
-          <Text style={styles.ctaTitle}>Create Your Safety Plan</Text>
-          <Text style={styles.ctaDescription}>
-            A personalized plan can help you navigate difficult moments and connect you with support when you need it most.
-          </Text>
-          <Pressable
-            style={({ pressed }) => [
-              styles.ctaButton,
-              { opacity: pressed ? 0.9 : 1 }
-            ]}
-            onPress={handleNavigateToCrisisPlan}
-            accessibilityRole="button"
-            accessibilityLabel="Create your personalized crisis plan"
-          >
-            <Text style={styles.ctaButtonText}>Create Safety Plan →</Text>
-          </Pressable>
-        </View>
 
         {/* Footer Note */}
         <View style={styles.footer}>
@@ -609,38 +582,6 @@ const styles = StyleSheet.create({
     color: colorSystem.gray[800],
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.semibold
-  },
-  ctaContainer: {
-    backgroundColor: '#E3F2FD',
-    borderRadius: borderRadius.large,
-    padding: spacing[24],
-    marginHorizontal: spacing[24],
-    marginTop: spacing[24],
-    marginBottom: spacing[32]
-  },
-  ctaTitle: {
-    fontSize: typography.title.size,
-    fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.gray[800],
-    marginBottom: spacing[8]
-  },
-  ctaDescription: {
-    fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[700],
-    lineHeight: spacing[20],
-    marginBottom: spacing[16]
-  },
-  ctaButton: {
-    backgroundColor: '#1976D2',
-    paddingVertical: spacing[16],
-    paddingHorizontal: spacing[24],
-    borderRadius: borderRadius.medium,
-    alignItems: 'center'
-  },
-  ctaButtonText: {
-    color: '#FFFFFF',
-    fontSize: typography.bodyRegular.size,
-    fontWeight: typography.fontWeight.bold
   },
   footer: {
     paddingHorizontal: spacing[24],

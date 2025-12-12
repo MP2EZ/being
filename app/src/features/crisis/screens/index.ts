@@ -4,4 +4,3 @@
  */
 
 export { default as CrisisResourcesScreen } from './CrisisResourcesScreen';
-export { default as CrisisPlanScreen } from './CrisisPlanScreen';
