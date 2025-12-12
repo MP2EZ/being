@@ -1,1 +1,0 @@
-export { Clinical } from './Clinical';

@@ -24,13 +24,13 @@
  * - Emergency contact system resilience testing
  */
 
-import { useAssessmentStore } from '../../src/flows/assessment/stores/assessmentStore';
+import { useAssessmentStore } from '../../src/features/assessment/stores/assessmentStore';
 import { 
   AssessmentType, 
   AssessmentResponse, 
   CrisisDetection,
   CRISIS_THRESHOLDS 
-} from '../../src/flows/assessment/types/index';
+} from '../../src/features/assessment/types/index';
 import { Alert, Linking } from 'react-native';
 import { performance } from 'react-native-performance';
 

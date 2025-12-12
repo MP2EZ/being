@@ -20,20 +20,20 @@
  */
 
 
-import { logSecurity, logPerformance, logError, LogCategory } from '../../services/logging';
+import { logSecurity, logPerformance, logError, LogCategory } from '@/core/services/logging';
 import { performance } from 'perf_hooks';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Service imports for testing
-import { CrisisDetectionEngine } from '../../services/crisis/CrisisDetectionEngine';
-import { useAssessmentPerformance } from '../../hooks/useAssessmentPerformance';
-import AnalyticsService from '../../services/analytics/AnalyticsService';
-import { AuthenticationService } from '../../services/security/AuthenticationService';
-import { NetworkSecurityService } from '../../services/security/NetworkSecurityService';
-import { EncryptionService } from '../../services/security/EncryptionService';
-import { SyncCoordinator } from '../../services/supabase/SyncCoordinator';
-import { MemoryOptimizer } from '../../services/performance/MemoryOptimizer';
-import { PerformanceMonitor } from '../../services/performance/PerformanceMonitor';
+import { CrisisDetectionEngine } from '@/features/crisis/services/CrisisDetectionEngine';
+import { useAssessmentPerformance } from '@/features/assessment/hooks/useAssessmentPerformance';
+import AnalyticsService from '@/core/analytics/AnalyticsService';
+import { AuthenticationService } from '@/core/services/security/AuthenticationService';
+import { NetworkSecurityService } from '@/core/services/security/NetworkSecurityService';
+import { EncryptionService } from '@/core/services/security/EncryptionService';
+import { SyncCoordinator } from '@/core/services/supabase/SyncCoordinator';
+import { MemoryOptimizer } from '@/core/services/performance/MemoryOptimizer';
+import { PerformanceMonitor } from '@/core/services/performance/PerformanceMonitor';
 
 // Performance baseline constants
 const PERFORMANCE_BASELINES = {
@@ -267,7 +267,7 @@ describe('Week 4 Comprehensive Performance Regression Suite', () => {
     // Ensure services are initialized
     await analyticsService.initialize();
     
-    logPerformance('🚀 Performance regression test suite initialized');
+    console.log('🚀 Performance regression test suite initialized');
   });
 
   describe('🚨 CRITICAL CRISIS DETECTION PERFORMANCE', () => {
@@ -634,10 +634,10 @@ describe('Week 4 Comprehensive Performance Regression Suite', () => {
 
       if (!allHealthy) {
         const unhealthyChecks = healthChecks.filter(check => !check.healthy);
-        logError('🚨 Unhealthy subsystems:', unhealthyChecks.map(c => c.subsystem));
+        logError(LogCategory.SYSTEM, 'Unhealthy subsystems:', unhealthyChecks.map(c => c.subsystem));
       }
 
-      logPerformance('✅ All subsystems healthy for production deployment');
+      console.log('✅ All subsystems healthy for production deployment');
     });
   });
 
@@ -645,25 +645,25 @@ describe('Week 4 Comprehensive Performance Regression Suite', () => {
     // Generate comprehensive performance report
     const report = testHarness.generateReport();
     
-    logPerformance('\n🏁 WEEK 4 PERFORMANCE REGRESSION REPORT');
-    logPerformance('=====================================');
+    console.log('\n🏁 WEEK 4 PERFORMANCE REGRESSION REPORT');
+    console.log('=====================================');
     logPerformance(`Overall Score: ${report.overallScore.toFixed(1)}%`);
-    logPerformance(`Critical Failures: ${report.criticalFailures}`);
-    logPerformance(`Total Tests: ${report.testResults.length}`);
+    console.log(`Critical Failures: ${report.criticalFailures}`);
+    console.log(`Total Tests: ${report.testResults.length}`);
     logPerformance(`Passed Tests: ${report.testResults.filter(r => r.passed).length}`);
     
-    logPerformance('\n🎯 System Health:');
+    console.log('\n🎯 System Health:');
     Object.entries(report.systemHealth).forEach(([system, healthy]) => {
-      logPerformance(`  ${system}: ${healthy ? '✅' : '❌'}`);
+      console.log(`  ${system}: ${healthy ? '✅' : '❌'}`);
     });
     
     if (report.blockingIssues.length > 0) {
-      logPerformance('\n🚨 BLOCKING ISSUES:');
+      console.log('\n🚨 BLOCKING ISSUES:');
       report.blockingIssues.forEach(issue => logPerformance(`  - ${issue}`));
     }
     
     if (report.recommendations.length > 0) {
-      logPerformance('\n💡 RECOMMENDATIONS:');
+      console.log('\n💡 RECOMMENDATIONS:');
       report.recommendations.forEach(rec => logPerformance(`  - ${rec}`));
     }
     
@@ -671,7 +671,7 @@ describe('Week 4 Comprehensive Performance Regression Suite', () => {
     expect(report.criticalFailures).toBe(0);
     expect(report.overallScore).toBeGreaterThanOrEqual(90);
     
-    logPerformance('\n✅ Performance regression validation complete');
-    logPerformance('🚀 System ready for Week 4 production deployment');
+    console.log('\n✅ Performance regression validation complete');
+    console.log('🚀 System ready for Week 4 production deployment');
   });
 });

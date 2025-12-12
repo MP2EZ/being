@@ -32,7 +32,7 @@ import NetInfo from '@react-native-community/netinfo';
 import { Alert, Linking } from 'react-native';
 
 import SyncCoordinator from '../../src/services/supabase/SyncCoordinator';
-import { useAssessmentStore } from '../../src/flows/assessment/stores/assessmentStore';
+import { useAssessmentStore } from '../../src/features/assessment/stores/assessmentStore';
 
 // Mock React Native components
 jest.mock('react-native', () => ({

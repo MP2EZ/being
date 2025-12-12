@@ -3,6 +3,9 @@
 **/.git/
 *.git
 
+# Claude Configuration (symlinked from bare repo root)
+.claude
+
 # OS Files
 .DS_Store
 Thumbs.db
@@ -227,3 +230,5 @@ authentication-canonical.ts
 *_monitor.py
 monitoring-*.js
 monitoring-*.py
+# Local test results
+app/test-results/local-performance.json

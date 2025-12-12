@@ -52,7 +52,7 @@
         },
         "entitlements": {
           "com.apple.security.application-groups": [
-            "group.com.being.mbct.widgets"
+            "group.com.being.app.widgets"
           ]
         }
       },
@@ -98,7 +98,7 @@
   "submit": {
     "production": {
       "ios": {
-        "appId": "com.being.mbct",
+        "appId": "com.being.app",
         "ascAppId": "PLACEHOLDER_APP_ID",
         "appleTeamId": "PLACEHOLDER_TEAM_ID"
       },
@@ -110,7 +110,7 @@
     },
     "preview": {
       "ios": {
-        "appId": "com.being.mbct",
+        "appId": "com.being.app",
         "ascAppId": "PLACEHOLDER_APP_ID",
         "appleTeamId": "PLACEHOLDER_TEAM_ID"
       },

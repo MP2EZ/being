@@ -67,7 +67,7 @@ module.exports = {
   },
 
   transformIgnorePatterns: [
-    'node_modules/(?!(react-native|@react-native|react-native-vector-icons|@react-navigation|react-navigation|expo|@expo|zustand)/)'
+    'node_modules/(?!(react-native|@react-native|react-native-vector-icons|@react-navigation|react-navigation|expo|@expo|expo-in-app-purchases|expo-modules-core|zustand|react-native-gesture-handler|react-native-reanimated)/)'
   ],
 
   // Enhanced module mapping
@@ -144,8 +144,8 @@ module.exports = {
     '<rootDir>/__tests__/reporters/quick-reporter.js'
   ] : [
     'default',
-    ['<rootDir>/__tests__/reporters/local-performance-reporter.js', {
-      outputFile: 'test-results/local-performance.json',
+    ['<rootDir>/__tests__/reporters/performance-regression-reporter.js', {
+      outputFile: 'test-results/performance-regression.json',
       includeTimings: true
     }],
     ['<rootDir>/__tests__/reporters/coverage-reporter.js', {

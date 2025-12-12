@@ -88,17 +88,51 @@ Assessment: <300ms
 
 ## 📁 File Organization
 
+### Source Architecture
+
+Being uses **feature-based architecture** with clear separation between infrastructure and domain code:
+
+```
+app/src/
+├── __tests__/      # Integration/regression tests (app-wide only)
+├── core/           # Infrastructure (cross-cutting concerns)
+│   ├── analytics/  # Privacy-preserving analytics
+│   ├── services/   # Security, sync, session, logging
+│   ├── stores/     # Subscription, settings
+│   ├── types/      # Infrastructure types
+│   └── ...
+├── features/       # Domain features (business logic)
+│   ├── learn/      # Educational modules
+│   ├── practices/  # Morning/midday/evening practices
+│   ├── crisis/     # Crisis intervention
+│   └── ...
+└── App.tsx         # Entry point
+```
+
+**Key Principles:**
+- `core/` = Infrastructure (analytics, security, types used across features)
+- `features/` = Domain features (business logic, feature-specific code)
+- Types co-located with their consumers
+- Path aliases (`@/core/*`, `@/features/*`) over relative imports
+
+**📂 See [`app/src/README.md`](./app/src/README.md) for:**
+- Complete directory structure rules
+- "Where does this file go?" decision tree
+- Import path conventions
+- File placement examples
+- Common mistakes & fixes
+
 ### Protected Paths (Domain Agent Required)
-- `/app/src/screens/assessment/` → `clinician` required
-- `/app/src/components/clinical/` → `clinician` required
-- `/app/src/components/core/CrisisButton*` → `crisis` required
-- `/app/src/store/*crisis*` → `crisis` required
-- `/app/src/types/*clinical*` → `clinician` required
+- `/app/src/features/assessment/` → `clinician` required
+- `/app/src/features/crisis/` → `crisis` required
+- `/app/src/core/services/security/` → `compliance` required
+- `/app/src/core/types/compliance/` → `compliance` required
 
 ### Documentation Structure
 - `/docs/` → Technical Documentation (Product | Clinical | Architecture | Security)
 - `/brand-legal/` → Brand Guidelines | Legal | Compliance
 - `/scripts/` → Cross-module operations
+- `/app/src/README.md` → Source architecture guide
 
 ## 🧪 Testing Strategy
 

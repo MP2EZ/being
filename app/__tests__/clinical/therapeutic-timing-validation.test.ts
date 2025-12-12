@@ -8,19 +8,19 @@
  * - Validate crisis intervention timing requirements (<200ms)
  * - Check therapeutic response appropriateness based on timing
  * 
- * MBCT INTEGRATION:
+ * CLINICAL INTEGRATION:
  * - Breathing exercises should not be interrupted by assessments
  * - Check-ins should be spaced appropriately for therapeutic value
  * - Crisis interventions must be immediate regardless of current activity
  * - Therapeutic content timing should support mindfulness practice
  */
 
-import { useAssessmentStore } from '../../src/flows/assessment/stores/assessmentStore';
+import { useAssessmentStore } from '../../src/features/assessment/stores/assessmentStore';
 import { 
   AssessmentType, 
   AssessmentResponse, 
   CRISIS_THRESHOLDS 
-} from '../../src/flows/assessment/types/index';
+} from '../../src/features/assessment/types/index';
 
 // Mock secure storage for testing
 jest.mock('expo-secure-store', () => ({
@@ -171,7 +171,7 @@ describe('THERAPEUTIC TIMING VALIDATION', () => {
     });
   });
 
-  describe('MBCT Integration Timing', () => {
+  describe('Therapeutic Integration Timing', () => {
     it('Crisis detection should work during any therapeutic activity', async () => {
       const therapeuticActivities = [
         'breathing_exercise',

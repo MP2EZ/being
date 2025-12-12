@@ -31,7 +31,7 @@ import NetInfo from '@react-native-community/netinfo';
 
 // Import the services and stores
 import SyncCoordinator from '../../src/services/supabase/SyncCoordinator';
-import { useAssessmentStore } from '../../src/flows/assessment/stores/assessmentStore';
+import { useAssessmentStore } from '../../src/features/assessment/stores/assessmentStore';
 import { cloudBackupService } from '../../src/services/supabase/CloudBackupService';
 import supabaseService from '../../src/services/supabase/SupabaseService';
 

@@ -1,0 +1,282 @@
+/**
+ * REAPPRAISAL SCREEN
+ *
+ * Stoic cognitive reframing - transforming obstacles into opportunities.
+ * Philosopher-validated (9.5/10) - aligns with Architecture v1.0.
+ *
+ * Classical Stoic Practice:
+ * - Marcus Aurelius: "The impediment to action advances action. What stands in the
+ *   way becomes the way." (Meditations 5:20) - Core reframing principle
+ * - Epictetus: "It's not what happens to you, but how you react to it that matters."
+ *   (Enchiridion 5) - Cognitive control over interpretation
+ * - Seneca: "Difficulties strengthen the mind, as labor does the body." (Letters 13)
+ *   - Growth through challenge
+ * - Marcus Aurelius: "Choose not to be harmed—and you won't feel harmed. Don't feel
+ *   harmed—and you haven't been." (Meditations 4:7) - Power of perspective
+ *
+ * Purpose: Transform adversity from threat into training ground for character.
+ * This is cognitive reappraisal grounded in Stoic philosophy.
+ *
+ * @see /docs/technical/Stoic-Mindfulness-Architecture-v1.0.md
+ */
+
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  ScrollView,
+  StyleSheet,
+  Linking,
+  Alert,
+} from 'react-native';
+import type { StackScreenProps } from '@react-navigation/stack';
+import type { MiddayFlowParamList, ReappraisalData } from '@/features/practices/types/flows';
+import { spacing, borderRadius, typography } from '@/core/theme';
+
+type Props = StackScreenProps<MiddayFlowParamList, 'Reappraisal'> & {
+  onSave?: (data: ReappraisalData) => void;
+};
+
+const ReappraisalScreen: React.FC<Props> = ({ navigation, onSave }) => {
+  const [obstacle, setObstacle] = useState('');
+  const [virtueOpportunity, setVirtueOpportunity] = useState('');
+  const [reframedPerspective, setReframedPerspective] = useState('');
+  const [principleApplied, setPrincipleApplied] = useState('');
+
+  const isValid =
+    obstacle.trim().length > 0 &&
+    virtueOpportunity.trim().length > 0 &&
+    reframedPerspective.trim().length > 0;
+
+  const handleContinue = () => {
+    if (!isValid) {
+      return;
+    }
+
+    const reappraisalData: ReappraisalData = {
+      obstacle: obstacle.trim(),
+      virtueOpportunity: virtueOpportunity.trim(),
+      reframedPerspective: reframedPerspective.trim(),
+      principleApplied: principleApplied.trim() || undefined,
+      timestamp: new Date(),
+    };
+
+    if (onSave) {
+      onSave(reappraisalData);
+    }
+
+    navigation.navigate('Affirmation');
+  };
+
+  return (
+    <View style={styles.screenContainer}>
+      <ScrollView style={styles.container} testID="reappraisal-screen">
+      {/* Back Button */}
+      <TouchableOpacity
+        style={styles.backButton}
+        onPress={() => navigation.goBack()}
+        testID="back-button"
+        accessibilityLabel="Go back"
+      >
+        <Text style={styles.backButtonText}>← Back</Text>
+      </TouchableOpacity>
+
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.title}>Reappraisal</Text>
+        <Text style={styles.subtitle}>Reframe Obstacles as Opportunities</Text>
+        <Text style={styles.helperText}>
+          "The impediment to action advances action. What stands in the way becomes the way."
+        </Text>
+      </View>
+
+      {/* Obstacle Input */}
+      <View style={styles.fieldSection}>
+        <Text style={styles.fieldLabel}>What obstacle are you facing?</Text>
+        <Text style={styles.fieldHelper}>
+          Describe the challenge objectively, without judgment
+        </Text>
+        <TextInput
+          style={styles.textInput}
+          value={obstacle}
+          onChangeText={setObstacle}
+          placeholder="e.g., Unexpected project delay, difficult feedback..."
+          placeholderTextColor="#999"
+          testID="obstacle-input"
+          accessibilityLabel="Obstacle description"
+          multiline
+        />
+      </View>
+
+      {/* Virtue Opportunity Input */}
+      <View style={styles.fieldSection}>
+        <Text style={styles.fieldLabel}>What virtue can you practice?</Text>
+        <Text style={styles.fieldHelper}>
+          Which virtue does this obstacle invite you to develop?
+        </Text>
+        <TextInput
+          style={styles.textInput}
+          value={virtueOpportunity}
+          onChangeText={setVirtueOpportunity}
+          placeholder="e.g., Practice patience and wisdom, develop courage..."
+          placeholderTextColor="#999"
+          testID="virtue-opportunity-input"
+          accessibilityLabel="Virtue opportunity"
+          multiline
+        />
+      </View>
+
+      {/* Reframed Perspective Input */}
+      <View style={styles.fieldSection}>
+        <Text style={styles.fieldLabel}>How can you reframe this?</Text>
+        <Text style={styles.fieldHelper}>
+          What's a more constructive way to view this situation?
+        </Text>
+        <TextInput
+          style={styles.textInput}
+          value={reframedPerspective}
+          onChangeText={setReframedPerspective}
+          placeholder="e.g., This is training for resilience, a chance to grow..."
+          placeholderTextColor="#999"
+          testID="reframed-perspective-input"
+          accessibilityLabel="Reframed perspective"
+          multiline
+        />
+      </View>
+
+      {/* Principle Applied (Optional) */}
+      <View style={styles.fieldSection}>
+        <Text style={styles.fieldLabel}>Stoic Principle (Optional)</Text>
+        <Text style={styles.fieldHelper}>
+          Which Stoic principle helps with this reframe?
+        </Text>
+        <TextInput
+          style={styles.textInput}
+          value={principleApplied}
+          onChangeText={setPrincipleApplied}
+          placeholder="e.g., The obstacle is the way, dichotomy of control..."
+          placeholderTextColor="#999"
+          testID="principle-input"
+          accessibilityLabel="Stoic principle applied"
+          multiline
+        />
+      </View>
+
+      {/* Continue Button */}
+      <TouchableOpacity
+        style={[styles.continueButton, !isValid && styles.continueButtonDisabled]}
+        onPress={handleContinue}
+        disabled={!isValid}
+        accessibilityRole="button"
+        accessibilityState={{ disabled: !isValid }}
+      >
+        <Text style={styles.continueButtonText}>Continue</Text>
+      </TouchableOpacity>
+
+      {/* Stoic Quote */}
+      <View style={styles.quoteSection}>
+        <Text style={styles.quoteText}>
+          "Choose not to be harmed—and you won't feel harmed. Don't feel harmed—and you
+          haven't been." — Marcus Aurelius
+        </Text>
+      </View>
+      </ScrollView>
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  screenContainer: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  container: {
+    flex: 1,
+    backgroundColor: '#fff',
+    padding: spacing[20],
+  },
+  backButton: {
+    marginBottom: spacing[20],
+  },
+  backButtonText: {
+    fontSize: typography.bodyRegular.size,
+    color: '#007AFF',
+  },
+  header: {
+    marginBottom: spacing[24],
+  },
+  title: {
+    fontSize: typography.headline2.size,
+    fontWeight: typography.fontWeight.bold,
+    marginBottom: spacing[8],
+  },
+  subtitle: {
+    fontSize: typography.bodyRegular.size,
+    color: '#666',
+    marginBottom: spacing[8],
+  },
+  helperText: {
+    fontSize: typography.bodySmall.size,
+    color: '#999',
+    fontStyle: 'italic',
+    lineHeight: spacing[20],
+  },
+  fieldSection: {
+    marginBottom: spacing[24],
+  },
+  fieldLabel: {
+    fontSize: typography.bodyLarge.size,
+    fontWeight: typography.fontWeight.semibold,
+    marginBottom: spacing[4],
+    color: '#333',
+  },
+  fieldHelper: {
+    fontSize: typography.bodySmall.size,
+    color: '#666',
+    marginBottom: spacing[12],
+  },
+  textInput: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: borderRadius.medium,
+    padding: spacing[12],
+    fontSize: typography.bodyRegular.size,
+    backgroundColor: '#fff',
+    minHeight: 80,
+    textAlignVertical: 'top',
+  },
+  continueButton: {
+    backgroundColor: '#007AFF',
+    padding: spacing[16],
+    borderRadius: borderRadius.medium,
+    alignItems: 'center',
+    marginTop: spacing[12],
+    marginBottom: spacing[24],
+  },
+  continueButtonDisabled: {
+    backgroundColor: '#ccc',
+  },
+  continueButtonText: {
+    color: '#fff',
+    fontSize: typography.bodyLarge.size,
+    fontWeight: typography.fontWeight.semibold,
+  },
+  quoteSection: {
+    padding: spacing[16],
+    backgroundColor: '#f9f9f9',
+    borderRadius: borderRadius.medium,
+    borderLeftWidth: spacing[4],
+    borderLeftColor: '#007AFF',
+    marginBottom: 40,
+  },
+  quoteText: {
+    fontSize: typography.bodySmall.size,
+    fontStyle: 'italic',
+    color: '#666',
+    lineHeight: spacing[20],
+  },
+});
+
+export default ReappraisalScreen;

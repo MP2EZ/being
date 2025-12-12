@@ -18,8 +18,8 @@
  * Week 2 Orchestration Plan - Performance Critical Validation
  */
 
-import { useAssessmentStore } from '../../src/flows/assessment/stores/assessmentStore';
-import { AssessmentType, AssessmentResponse } from '../../src/flows/assessment/types/index';
+import { useAssessmentStore } from '../../src/features/assessment/stores/assessmentStore';
+import { AssessmentType, AssessmentResponse } from '../../src/features/assessment/types/index';
 import { performance } from 'react-native-performance';
 
 // Mock performance monitoring

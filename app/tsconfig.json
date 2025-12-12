@@ -1,6 +1,6 @@
 {
   "$schema": "https://json.schemastore.org/tsconfig",
-  "_description": "Being MBCT App - Clinical Grade TypeScript Configuration",
+  "_description": "Being. App - Clinical Grade TypeScript Configuration",
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
     "strict": true,
@@ -22,6 +22,12 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"],
+      // New feature-based path aliases
+      "@/core/*": ["src/core/*"],
+      "@/features/*": ["src/features/*"],
+      "@/compliance/*": ["src/compliance/*"],
+      "@/analytics/*": ["src/analytics/*"],
+      // Legacy path aliases (kept during migration, will be removed in Phase 10)
       "@/components/*": ["src/components/*"],
       "@/screens/*": ["src/screens/*"],
       "@/services/*": ["src/services/*"],

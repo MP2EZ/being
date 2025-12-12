@@ -1,0 +1,42 @@
+Work Item ID,Name,Type,Status,Effort,Description
+FEAT-8,sounds,FEAT,Not started,XS,Sound features for the app
+FEAT-4,insights tab enhancements,FEAT,Not started,L,Enhancements to the insights tab
+FEAT-16,account / login feature,FEAT,Not started,XXL,User authentication and login functionality
+FEAT-28,Progress Insights,FEAT,Blocked,L,Progress insights and tracking
+FEAT-33,Enhanced Export Options,FEAT,Blocked,L,Enhanced data export options
+FEAT-29,Export & Sharing,FEAT,Blocked,XL,Export and sharing functionality
+INFRA-37,SQLite Migration,INFRA,Not started,L,Migration to SQLite database
+FEAT-30,Assessment Trends,FEAT,Not started,L,Assessment trend visualization
+FEAT-38,Web subscriptions via Stripe,FEAT,Not started,XXL,Web-based subscription payment via Stripe
+FEAT-39,App Store subscription deployment,FEAT,Blocked,L,App Store subscription configuration and polish
+FEAT-40,privacy analytics legal review,FEAT,Not started,M,Privacy analytics legal review and vendor research
+FEAT-55,Domain-Specific Guidance,FEAT,Not started,XL,Domain-specific guidance for pain/grief/conflict/career
+FEAT-56,Progress Measurement Dashboard,FEAT,Not started,L,Progress measurement dashboard
+FEAT-54,Classical Resources Library,FEAT,Not started,M,Library of classical Stoic resources
+FEAT-52,Developmental Stage Assessment Flow,FEAT,Not started,M,Assessment flow for developmental stages
+INFRA-61,PHI-Safe Error Logging Service,INFRA,Blocked,M,HIPAA-compliant error logging
+INFRA-62,Operational Security Monitoring,INFRA,Not started,M,Security monitoring infrastructure
+FEAT-50,Principle Progression Visualization,FEAT,Not started,S,Visualization of principle progression
+INFRA-60,PHI Audit Trail System,INFRA,Not started,L,PHI audit trail for compliance
+DEBUG-48,Jest Test Suite Memory Crash,DEBUG,Not started,M,Fix memory issues in Jest test suite
+FEAT-57,Profile Tab V2 (Production-Ready),FEAT,Blocked,XL,Production-ready profile tab redesign
+FEAT-53,Weekly Integration & Journal Review,FEAT,Not started,L,Weekly integration and journal review features
+FEAT-58,Logout Flow Implementation,FEAT,Blocked,S,User logout flow
+FEAT-59,Account Deletion with Grace Period,FEAT,Blocked,M,Account deletion with grace period
+MAINT-68,SSL certificate pinning for Supabase,MAINT,Blocked,M,SSL certificate pinning for security
+MAINT-65,Midday Flow UX Review,MAINT,Not started,L,UX review for midday flow
+MAINT-69,Replace Math.random() with cryptographic UUIDs,MAINT,Not started,M,Security improvement for random generation
+MAINT-67,HIPAA encryption validation testing,MAINT,Blocked,S,HIPAA encryption validation on physical devices
+-76,Enhance stoic mindfulness description module,N/A,Not started,N/A,Profile page stoic mindfulness description
+MAINT-73,Navigation State Persistence,MAINT,Not started,S,Persist navigation state across sessions
+MAINT-74,Offline Error Recovery,MAINT,Not started,M,Improved offline error handling
+MAINT-75,Fix Reset Your Energy Philosophical Wording,MAINT,Not started,XS,Fix philosophical wording issues
+MAINT-71,Fix Accessibility Compliance (WCAG AA),MAINT,Not started,L,WCAG AA accessibility compliance fixes
+MAINT-78,DRY: Refactor EmbodimentScreen timer,MAINT,Not started,XS,Refactor to use shared timer component
+INFRA-86,TESTFLIGHT: TestFlight Deployment,INFRA,Blocked,L,TestFlight deployment and beta testing infrastructure
+INFRA-83,TESTFLIGHT: Legal document deployment,INFRA,Blocked,XS,Legal document deployment infrastructure
+INFRA-85,TESTFLIGHT: App Store assets and metadata,INFRA,Blocked,M,App Store assets and metadata creation
+INFRA-87,TESTFLIGHT: Production readiness validation,INFRA,Blocked,M,Production readiness validation checklist
+INFRA-84,TESTFLIGHT: Production Supabase setup,INFRA,Not started,L,Production Supabase environment setup
+INFRA-82,TESTFLIGHT: Developer account setup,INFRA,Not started,S,Developer account and certificate infrastructure
+FEAT-88,Being. website overhaul,FEAT,Testing,M,Website overhaul from MBCT to Stoic Mindfulness

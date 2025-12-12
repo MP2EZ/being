@@ -28,7 +28,7 @@
 import { jest } from '@jest/globals';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import SyncCoordinator from '../../src/services/supabase/SyncCoordinator';
-import { useAssessmentStore } from '../../src/flows/assessment/stores/assessmentStore';
+import { useAssessmentStore } from '../../src/features/assessment/stores/assessmentStore';
 
 // Performance monitoring utilities
 class PerformanceMonitor {

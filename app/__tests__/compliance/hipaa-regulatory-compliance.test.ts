@@ -24,14 +24,14 @@
  * - Professional liability protection validation
  */
 
-import { useAssessmentStore } from '../../src/flows/assessment/stores/assessmentStore';
+import { useAssessmentStore } from '../../src/features/assessment/stores/assessmentStore';
 import { 
   AssessmentType, 
   AssessmentResponse, 
   PHQ9Result, 
   GAD7Result,
   CrisisDetection 
-} from '../../src/flows/assessment/types/index';
+} from '../../src/features/assessment/types/index';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 
@@ -547,7 +547,7 @@ describe('HIPAA AND REGULATORY COMPLIANCE TESTING SUITE', () => {
         await store.startAssessment(testCase.type, 'regulatory_validation');
 
         const questionCount = testCase.type === 'phq9' ? 9 : 7;
-        const answers = this.distributeScore(testCase.score, questionCount);
+        const answers = distributeScore(testCase.score, questionCount);
 
         for (let i = 0; i < questionCount; i++) {
           await store.answerQuestion(`${testCase.type}_${i + 1}`, answers[i]);
@@ -579,9 +579,9 @@ describe('HIPAA AND REGULATORY COMPLIANCE TESTING SUITE', () => {
     });
 
     /**
-     * Helper method to distribute score across questions
+     * Helper function to distribute score across questions
      */
-    distributeScore(targetScore: number, questionCount: number): AssessmentResponse[] {
+    function distributeScore(targetScore: number, questionCount: number): AssessmentResponse[] {
       const answers: AssessmentResponse[] = new Array(questionCount).fill(0);
       let remainingScore = targetScore;
       
@@ -836,7 +836,7 @@ describe('HIPAA AND REGULATORY COMPLIANCE TESTING SUITE', () => {
         await store.startAssessment(testScenario.type, `compliance_${testScenario.scenario}`);
 
         const questionCount = testScenario.type === 'phq9' ? 9 : 7;
-        const answers = this.distributeScore(testScenario.score, questionCount);
+        const answers = distributeScore(testScenario.score, questionCount);
 
         // Handle suicidal ideation scenario
         if (testScenario.suicidalResponse && testScenario.type === 'phq9') {

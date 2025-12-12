@@ -1,0 +1,83 @@
+# SUPABASE PROJECT CONFIGURATION
+# Being MBCT App - Subscription Management
+
+[project]
+name = "being-mbct-app"
+
+# DATABASE CONFIGURATION
+[db]
+port = 54322
+major_version = 15
+
+# API CONFIGURATION
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "storage", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+# EDGE FUNCTIONS CONFIGURATION
+[functions]
+enabled = true
+
+# Verify Apple Receipt Function
+[functions.verify-apple-receipt]
+verify_jwt = false  # We verify JWS manually
+
+# Verify Google Receipt Function
+[functions.verify-google-receipt]
+verify_jwt = false
+
+# Subscription Webhook Handler
+[functions.subscription-webhook]
+verify_jwt = false  # Webhooks have their own signature verification
+
+# Grace Period Automation (Cron Job)
+[functions.grace-period-automation]
+verify_jwt = false
+
+# CRON JOB CONFIGURATION
+# Daily automation at 2:00 AM UTC
+[[functions.grace-period-automation.schedule]]
+cron = "0 2 * * *"  # Every day at 2:00 AM UTC
+payload = { "source": "cron" }
+
+# AUTH CONFIGURATION
+[auth]
+enabled = true
+site_url = "exp://localhost:8081"  # Expo development URL
+additional_redirect_urls = ["exp://being.app"]
+
+# Anonymous sign-in enabled (no email/password required)
+[auth.email]
+enable_signup = false
+
+[auth.external.apple]
+enabled = true
+client_id = "env(APPLE_CLIENT_ID)"
+secret = "env(APPLE_SECRET)"
+
+# STORAGE CONFIGURATION
+[storage]
+enabled = true
+file_size_limit = "10MB"  # Encrypted backup limit
+
+# REALTIME CONFIGURATION
+[realtime]
+enabled = false  # Not needed for this app
+
+# ENVIRONMENT VARIABLES
+# Note: Set these in Supabase dashboard or via CLI
+# Required for Apple receipt verification:
+# - APPLE_SHARED_SECRET
+#
+# Required for Google receipt verification:
+# - GOOGLE_SERVICE_ACCOUNT (JSON string)
+#
+# Required for cron job:
+# - CRON_SECRET
+#
+# Required for all functions:
+# - SUPABASE_URL
+# - SUPABASE_SERVICE_ROLE_KEY
