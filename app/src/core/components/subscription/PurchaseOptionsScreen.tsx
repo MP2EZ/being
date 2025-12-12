@@ -209,7 +209,7 @@ export default function PurchaseOptionsScreen({
 
   // Open terms
   const handleOpenTerms = async () => {
-    const url = 'https://being.app/terms'; // TODO: Replace with actual URL
+    const url = 'https://being.fyi/terms';
     const supported = await Linking.canOpenURL(url);
     if (supported) {
       await Linking.openURL(url);
@@ -218,7 +218,7 @@ export default function PurchaseOptionsScreen({
 
   // Open privacy policy
   const handleOpenPrivacy = async () => {
-    const url = 'https://being.app/privacy'; // TODO: Replace with actual URL
+    const url = 'https://being.fyi/privacy';
     const supported = await Linking.canOpenURL(url);
     if (supported) {
       await Linking.openURL(url);

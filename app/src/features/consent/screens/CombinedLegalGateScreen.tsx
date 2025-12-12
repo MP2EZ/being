@@ -243,13 +243,13 @@ const CombinedLegalGateScreen: React.FC<CombinedLegalGateScreenProps> = ({
 
           <View style={styles.linkRow}>
             <Pressable
-              onPress={() => Linking.openURL('https://being.app/terms')}
+              onPress={() => Linking.openURL('https://being.fyi/terms')}
               accessibilityRole="link"
             >
               <Text style={styles.linkText}>View Terms</Text>
             </Pressable>
             <Pressable
-              onPress={() => Linking.openURL('https://being.app/privacy')}
+              onPress={() => Linking.openURL('https://being.fyi/privacy')}
               accessibilityRole="link"
             >
               <Text style={styles.linkText}>View Privacy Policy</Text>
