@@ -25,6 +25,8 @@ import { MorningFlowParamList } from '@/features/practices/types/flows';
 import { SessionStorageService } from '@/core/services/session/SessionStorageService';
 import { SessionMetadata } from '@/core/types/session';
 import { ResumeSessionModal } from '../shared/components/ResumeSessionModal';
+import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
+import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 
 // Import Stoic Mindfulness screens (DRD v2.0.0)
 import GratitudeScreen from './screens/GratitudeScreen';
@@ -82,6 +84,8 @@ const MorningFlowNavigator: React.FC<MorningFlowNavigatorProps> = ({
   onComplete,
   onExit
 }) => {
+  // Navigation for crisis button
+  const rootNavigation = useNavigation<StackNavigationProp<RootStackParamList>>();
   const [currentStep, setCurrentStep] = useState(1);
   const totalSteps = SCREEN_ORDER.length - 1; // Exclude MorningCompletion from count
 
@@ -456,6 +460,13 @@ const MorningFlowNavigator: React.FC<MorningFlowNavigatorProps> = ({
         {(props) => <MorningCompletionScreen {...props} onSave={onComplete} />}
       </Stack.Screen>
     </Stack.Navigator>
+
+      {/* Crisis Button - Single instance for entire flow, maintains fade state */}
+      <CollapsibleCrisisButton
+        mode="immersive"
+        onNavigate={() => rootNavigation.navigate('CrisisResources')}
+        testID="crisis-morning-flow"
+      />
     </>
   );
 };

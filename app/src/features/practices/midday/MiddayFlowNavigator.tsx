@@ -34,6 +34,10 @@ import EmbodimentScreen from './screens/EmbodimentScreen';
 import ReappraisalScreen from './screens/ReappraisalScreen';
 import AffirmationScreen from './screens/AffirmationScreen';
 import MiddayCompletionScreen from './screens/MiddayCompletionScreen';
+import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
+import { useNavigation } from '@react-navigation/native';
+import type { StackNavigationProp } from '@react-navigation/stack';
+import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 
 // Navigation types (DRD v2.0.0 compliant)
 export type MiddayFlowParamList = {
@@ -91,6 +95,8 @@ const MiddayFlowNavigator: React.FC<MiddayFlowNavigatorProps> = ({
   onComplete,
   onExit
 }) => {
+  // Navigation for crisis button
+  const rootNavigation = useNavigation<StackNavigationProp<RootStackParamList>>();
   const [sessionData, setSessionData] = useState<{
     startTime: number;
     controlCheckData?: any;
@@ -489,6 +495,13 @@ const MiddayFlowNavigator: React.FC<MiddayFlowNavigatorProps> = ({
         options={{ headerShown: false }}
       />
     </Stack.Navigator>
+
+      {/* Crisis Button - Single instance for entire flow, maintains fade state */}
+      <CollapsibleCrisisButton
+        mode="immersive"
+        onNavigate={() => rootNavigation.navigate('CrisisResources')}
+        testID="crisis-midday-flow"
+      />
     </>
   );
 };

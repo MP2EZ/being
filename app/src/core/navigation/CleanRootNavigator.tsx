@@ -458,6 +458,7 @@ const CleanRootNavigator: React.FC = () => {
             options={{
               title: 'Crisis Support',
               headerShown: true,
+              headerBackTitle: 'Back',
               presentation: 'modal',
               gestureEnabled: true
             }}

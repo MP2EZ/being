@@ -36,7 +36,6 @@ import {
 import type { StackNavigationProp } from '@react-navigation/stack';
 import type { RouteProp } from '@react-navigation/native';
 import type { EveningFlowParamList, SelfCompassionData } from '@/features/practices/types/flows';
-import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
 import { spacing, borderRadius, typography } from '@/core/theme';
 
 type SelfCompassionScreenNavigationProp = StackNavigationProp<
@@ -89,8 +88,7 @@ const SelfCompassionScreen: React.FC<Props> = ({ navigation, route, onSave }) =>
   };
 
   return (
-    <>
-      <View style={styles.screenContainer}>
+    <View style={styles.screenContainer}>
         <ScrollView style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity
@@ -199,14 +197,6 @@ const SelfCompassionScreen: React.FC<Props> = ({ navigation, route, onSave }) =>
         <Text style={styles.completeButtonText}>Continue</Text>
       </TouchableOpacity>
         </ScrollView>
-      </View>
-
-      {/* Crisis Button Overlay - accessible when keyboard is visible */}
-      <CollapsibleCrisisButton
-        mode="immersive"
-        onNavigate={() => navigation.navigate('CrisisResources' as never)}
-        testID="crisis-self-compassion"
-      />
 
       {/* Skip Prevention Modal */}
       <Modal
@@ -251,7 +241,7 @@ const SelfCompassionScreen: React.FC<Props> = ({ navigation, route, onSave }) =>
           </View>
         </View>
       </Modal>
-    </>
+    </View>
   );
 };
 

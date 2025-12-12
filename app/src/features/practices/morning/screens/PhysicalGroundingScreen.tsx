@@ -28,11 +28,7 @@ import {
 import type { StackScreenProps } from '@react-navigation/stack';
 import type { MorningFlowParamList, PhysicalGroundingData } from '@/features/practices/types/flows';
 import BreathingCircle from '../../shared/components/BreathingCircle';
-import { CollapsibleCrisisButton } from '@/features/crisis/components';
 import { spacing, borderRadius, typography } from '@/core/theme';
-import { useNavigation } from '@react-navigation/native';
-import type { StackNavigationProp } from '@react-navigation/stack';
-import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 
 type Props = StackScreenProps<MorningFlowParamList, 'PhysicalGrounding'> & {
   onSave?: (data: PhysicalGroundingData) => void;
@@ -41,8 +37,6 @@ type Props = StackScreenProps<MorningFlowParamList, 'PhysicalGrounding'> & {
 type GroundingMethod = 'body_scan' | 'breathing';
 
 const PhysicalGroundingScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
-  const rootNavigation = useNavigation<StackNavigationProp<RootStackParamList>>();
-
   // FEAT-23: Restore initial data if resuming session
   const initialData = (route.params as any)?.initialData as PhysicalGroundingData | undefined;
 
@@ -235,11 +229,6 @@ const PhysicalGroundingScreen: React.FC<Props> = ({ navigation, route, onSave })
         </Text>
       </View>
       </ScrollView>
-      <CollapsibleCrisisButton
-        mode="immersive"
-        onNavigate={() => rootNavigation.navigate('CrisisResources')}
-        testID="crisis-button"
-      />
     </View>
   );
 };

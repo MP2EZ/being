@@ -36,6 +36,10 @@ import { EveningFlowParamList } from '@/features/practices/types/flows';
 import { SessionStorageService } from '@/core/services/session/SessionStorageService';
 import { SessionMetadata } from '@/core/types/session';
 import { ResumeSessionModal } from '../shared/components/ResumeSessionModal';
+import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
+import { useNavigation } from '@react-navigation/native';
+import type { StackNavigationProp } from '@react-navigation/stack';
+import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 
 // Import DRD v2.0.0 Stoic Mindfulness screens
 import VirtueReflectionScreen from './screens/VirtueReflectionScreen';
@@ -108,6 +112,8 @@ const EveningFlowNavigator: React.FC<EveningFlowNavigatorProps> = ({
   onComplete,
   onExit
 }) => {
+  // Navigation for crisis button
+  const rootNavigation = useNavigation<StackNavigationProp<RootStackParamList>>();
   const [currentStep, setCurrentStep] = useState(1);
   const totalSteps = SCREEN_ORDER.length - 1; // Exclude EveningCompletion from count
 
@@ -483,6 +489,13 @@ const EveningFlowNavigator: React.FC<EveningFlowNavigatorProps> = ({
         options={{ headerShown: false }}
       />
     </Stack.Navigator>
+
+      {/* Crisis Button - Single instance for entire flow, maintains fade state */}
+      <CollapsibleCrisisButton
+        mode="immersive"
+        onNavigate={() => rootNavigation.navigate('CrisisResources')}
+        testID="crisis-evening-flow"
+      />
     </>
   );
 };

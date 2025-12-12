@@ -22,9 +22,9 @@
  * - Motor: Large touch targets, no complex gestures required
  *
  * MODES:
- * - 'standard': Persistent, full opacity (Learn, check-ins)
- * - 'immersive': Fades after 5s, tap-to-reveal (practices)
- * - 'prominent': Full emphasis (assessments, PHQ>=15)
+ * - 'standard': 40px, persistent, full opacity (Learn, check-ins)
+ * - 'immersive': 40px, starts faded (50%), tap reveals briefly (practices)
+ * - 'prominent': 56px, full emphasis (assessments, PHQ>=15)
  *
  * Usage:
  * ```tsx
@@ -82,13 +82,17 @@ const SPRING_CONFIG = {
   mass: 1,
 };
 
-const COLLAPSED_WIDTH = 48; // Icon size
+// Mode-dependent button sizes (crisis-agent validated)
+// Standard/Immersive: 40px - more subtle, maintains 44pt touch via hitSlop
+// Prominent: 56px - 40% larger for assessments (PHQ>=15)
+const COLLAPSED_WIDTH_STANDARD = 40;
+const COLLAPSED_WIDTH_PROMINENT = 56;
 const EXPANDED_WIDTH = 260; // Full button width
 
 // Fade configuration for immersive mode
-const FADE_DELAY_MS = 5000; // 5 seconds before fade
 const FADED_OPACITY = 0.5; // 50% opacity minimum for 3:1+ contrast
 const FADE_DURATION_MS = 300;
+const FADE_BACK_DELAY_MS = 3000; // Re-fade after interaction
 
 /**
  * Collapsible crisis button component
@@ -103,7 +107,6 @@ export const CollapsibleCrisisButton: React.FC<CollapsibleCrisisButtonProps> = (
   const [reduceMotionEnabled, setReduceMotionEnabled] = useState(false);
   const translateX = useSharedValue(0);
   const fadeOpacity = useSharedValue(1);
-  const lastInteractionTime = useSharedValue(Date.now());
 
   /**
    * ACCESSIBILITY: Check reduced-motion preference
@@ -137,35 +140,42 @@ export const CollapsibleCrisisButton: React.FC<CollapsibleCrisisButtonProps> = (
   }, [fadeOpacity]);
 
   /**
-   * IMMERSIVE MODE: Fade after 5 seconds of inactivity
-   * Bypassed when reduceMotionEnabled or mode !== 'immersive'
+   * IMMERSIVE MODE: Start already faded for minimal distraction
+   * Button remains visible but subtle during mindful practices
+   * Tapping restores full visibility temporarily
    */
   useEffect(() => {
-    if (mode !== 'immersive' || reduceMotionEnabled || isExpanded) {
-      // Ensure full opacity in non-immersive modes or when expanded
+    if (mode !== 'immersive' || reduceMotionEnabled) {
+      // Full opacity in non-immersive modes or for accessibility
       fadeOpacity.value = withTiming(1, { duration: FADE_DURATION_MS / 2 });
       return;
     }
 
-    const fadeTimer = setInterval(() => {
-      const timeSinceInteraction = Date.now() - lastInteractionTime.value;
-      if (timeSinceInteraction >= FADE_DELAY_MS && fadeOpacity.value > FADED_OPACITY) {
-        fadeOpacity.value = withTiming(FADED_OPACITY, { duration: FADE_DURATION_MS });
-      }
-    }, 1000);
+    if (isExpanded) {
+      // Full opacity when expanded for better visibility
+      fadeOpacity.value = withTiming(1, { duration: FADE_DURATION_MS / 2 });
+      return;
+    }
 
-    return () => clearInterval(fadeTimer);
-  }, [mode, reduceMotionEnabled, isExpanded, fadeOpacity, lastInteractionTime]);
+    // Start faded immediately - no jarring transition during practice
+    fadeOpacity.value = withTiming(FADED_OPACITY, { duration: FADE_DURATION_MS });
+  }, [mode, reduceMotionEnabled, isExpanded, fadeOpacity]);
 
   /**
-   * Reset fade on any interaction
+   * Reset fade on interaction, then auto-fade back in immersive mode
    */
   const resetFade = useCallback(() => {
-    lastInteractionTime.value = Date.now();
     if (mode === 'immersive' && !reduceMotionEnabled) {
+      // Brief full visibility on interaction
       fadeOpacity.value = withTiming(1, { duration: FADE_DURATION_MS / 2 });
+      // Auto-fade back after brief delay
+      setTimeout(() => {
+        if (!isExpanded) {
+          fadeOpacity.value = withTiming(FADED_OPACITY, { duration: FADE_DURATION_MS });
+        }
+      }, FADE_BACK_DELAY_MS);
     }
-  }, [mode, reduceMotionEnabled, fadeOpacity, lastInteractionTime]);
+  }, [mode, reduceMotionEnabled, fadeOpacity, isExpanded]);
 
   /**
    * CRITICAL: <200ms crisis response - navigate to CrisisResourcesScreen
@@ -229,24 +239,25 @@ export const CollapsibleCrisisButton: React.FC<CollapsibleCrisisButtonProps> = (
 
   /**
    * Pan gesture for swipe-to-expand
+   * Uses mode-dependent collapsed width for calculations
    */
   const panGesture = Gesture.Pan()
     .onUpdate((event) => {
       // Only allow leftward swipe (reveal from right edge)
       if (position === 'right') {
-        translateX.value = Math.max(-EXPANDED_WIDTH + COLLAPSED_WIDTH, Math.min(0, event.translationX));
+        translateX.value = Math.max(-EXPANDED_WIDTH + collapsedWidth, Math.min(0, event.translationX));
       } else {
-        translateX.value = Math.min(EXPANDED_WIDTH - COLLAPSED_WIDTH, Math.max(0, event.translationX));
+        translateX.value = Math.min(EXPANDED_WIDTH - collapsedWidth, Math.max(0, event.translationX));
       }
     })
-    .onEnd((event) => {
+    .onEnd(() => {
       // Determine if gesture should expand or collapse
-      const threshold = (EXPANDED_WIDTH - COLLAPSED_WIDTH) / 3;
+      const threshold = (EXPANDED_WIDTH - collapsedWidth) / 3;
 
       if (position === 'right') {
         if (Math.abs(translateX.value) > threshold) {
           // Expand
-          translateX.value = withSpring(-EXPANDED_WIDTH + COLLAPSED_WIDTH, SPRING_CONFIG);
+          translateX.value = withSpring(-EXPANDED_WIDTH + collapsedWidth, SPRING_CONFIG);
           runOnJS(expand)();
         } else {
           // Collapse
@@ -256,7 +267,7 @@ export const CollapsibleCrisisButton: React.FC<CollapsibleCrisisButtonProps> = (
       } else {
         if (translateX.value > threshold) {
           // Expand
-          translateX.value = withSpring(EXPANDED_WIDTH - COLLAPSED_WIDTH, SPRING_CONFIG);
+          translateX.value = withSpring(EXPANDED_WIDTH - collapsedWidth, SPRING_CONFIG);
           runOnJS(expand)();
         } else {
           // Collapse
@@ -305,6 +316,18 @@ export const CollapsibleCrisisButton: React.FC<CollapsibleCrisisButtonProps> = (
   );
 
   /**
+   * Get mode-specific collapsed width
+   * Standard/Immersive: 40px (subtle)
+   * Prominent: 56px (assessments, PHQ>=15)
+   */
+  const collapsedWidth = mode === 'prominent' ? COLLAPSED_WIDTH_PROMINENT : COLLAPSED_WIDTH_STANDARD;
+
+  /**
+   * Get mode-specific icon size (proportional to button)
+   */
+  const iconSize = mode === 'prominent' ? 32 : 24;
+
+  /**
    * Get mode-specific styling
    */
   const getModeStyles = useCallback(() => {
@@ -344,7 +367,12 @@ export const CollapsibleCrisisButton: React.FC<CollapsibleCrisisButtonProps> = (
             <Pressable
               style={[
                 styles.iconButton,
-                { shadowOpacity: modeStyles.shadowOpacity, elevation: modeStyles.elevation },
+                {
+                  width: collapsedWidth,
+                  height: collapsedWidth,
+                  shadowOpacity: modeStyles.shadowOpacity,
+                  elevation: modeStyles.elevation,
+                },
               ]}
               onPress={handleTap}
               accessible={true}
@@ -354,11 +382,11 @@ export const CollapsibleCrisisButton: React.FC<CollapsibleCrisisButtonProps> = (
               accessibilityActions={accessibilityActions}
               onAccessibilityAction={onAccessibilityAction}
               testID={`${testID}-icon`}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             >
               <MaterialCommunityIcons
                 name="lifebuoy"
-                size={28}
+                size={iconSize}
                 color={commonColors.white}
               />
             </Pressable>
@@ -434,9 +462,8 @@ const styles = StyleSheet.create({
   },
 
   // Collapsed state: Lifebuoy icon button
+  // Note: width/height applied dynamically based on mode
   iconButton: {
-    width: COLLAPSED_WIDTH,
-    height: COLLAPSED_WIDTH,
     backgroundColor: commonColors.crisis,
     borderTopLeftRadius: borderRadius.xxl,
     borderBottomLeftRadius: borderRadius.xxl,

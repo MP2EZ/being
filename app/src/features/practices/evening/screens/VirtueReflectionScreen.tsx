@@ -31,7 +31,6 @@ import {
 } from 'react-native';
 import type { StackScreenProps } from '@react-navigation/stack';
 import type { EveningFlowParamList, VirtueReflectionData } from '@/features/practices/types/flows';
-import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
 import { spacing, borderRadius, typography } from '@/core/theme';
 
 type Props = StackScreenProps<EveningFlowParamList, 'VirtueReflection'> & {
@@ -71,8 +70,7 @@ const VirtueReflectionScreen: React.FC<Props> = ({ navigation, route, onSave }) 
   };
 
   return (
-    <>
-      <ScrollView style={styles.container} testID="virtue-reflection-screen">
+    <ScrollView style={styles.container} testID="virtue-reflection-screen">
         {/* Back Button */}
         <TouchableOpacity
           style={styles.backButton}
@@ -154,14 +152,6 @@ const VirtueReflectionScreen: React.FC<Props> = ({ navigation, route, onSave }) 
           </Text>
         </View>
       </ScrollView>
-
-      {/* Crisis Button Overlay - accessible when keyboard is visible */}
-      <CollapsibleCrisisButton
-        mode="immersive"
-        onNavigate={() => navigation.navigate('CrisisResources' as never)}
-        testID="crisis-virtue-reflection"
-      />
-    </>
   );
 };
 
