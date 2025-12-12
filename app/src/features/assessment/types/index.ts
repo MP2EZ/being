@@ -170,3 +170,6 @@ export * from '@/features/crisis/types/safety';
 
 // Utility Types - 100% accurate scoring calculations with clinical validation
 export * from './scoring';
+
+// Zod Schemas - MAINT-115 Input validation with clinical accuracy (100%)
+export * from './schemas';
