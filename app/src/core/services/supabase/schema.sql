@@ -143,6 +143,7 @@ CREATE POLICY "Users can only access own analytics"
 -- =====================================================
 
 -- Function to get or create user by device ID
+-- SECURITY: Input validation added per MAINT-116 security review (LOW-01)
 CREATE OR REPLACE FUNCTION get_or_create_user(device_id_hash TEXT)
 RETURNS UUID
 LANGUAGE plpgsql
@@ -151,6 +152,20 @@ AS $$
 DECLARE
   user_uuid UUID;
 BEGIN
+  -- Input validation: Verify device_id format before database operations
+  -- Must be exactly 64 hex characters (SHA-256 hash)
+  IF device_id_hash IS NULL THEN
+    RAISE EXCEPTION 'device_id_hash cannot be NULL';
+  END IF;
+
+  IF length(device_id_hash) != 64 THEN
+    RAISE EXCEPTION 'device_id_hash must be exactly 64 characters (got %)', length(device_id_hash);
+  END IF;
+
+  IF device_id_hash !~ '^[a-f0-9]{64}$' THEN
+    RAISE EXCEPTION 'device_id_hash must be lowercase hex format (a-f, 0-9)';
+  END IF;
+
   -- Try to find existing user
   SELECT id INTO user_uuid
   FROM users
@@ -460,6 +475,7 @@ CREATE TRIGGER update_subscription_timestamp_trigger
   EXECUTE FUNCTION update_subscription_timestamp();
 
 -- Function to log subscription events
+-- SECURITY: Ownership validation added per MAINT-116 security review (MED-01)
 CREATE OR REPLACE FUNCTION log_subscription_event(
   p_user_id UUID,
   p_subscription_id UUID,
@@ -472,7 +488,33 @@ SECURITY DEFINER
 AS $$
 DECLARE
   event_uuid UUID;
+  subscription_owner_id UUID;
 BEGIN
+  -- Input validation
+  IF p_user_id IS NULL THEN
+    RAISE EXCEPTION 'user_id cannot be NULL';
+  END IF;
+
+  IF p_event_type IS NULL OR length(p_event_type) = 0 THEN
+    RAISE EXCEPTION 'event_type cannot be NULL or empty';
+  END IF;
+
+  -- Ownership validation: If subscription_id provided, verify it belongs to user
+  IF p_subscription_id IS NOT NULL THEN
+    SELECT user_id INTO subscription_owner_id
+    FROM subscriptions
+    WHERE id = p_subscription_id;
+
+    IF subscription_owner_id IS NULL THEN
+      RAISE EXCEPTION 'subscription_id % does not exist', p_subscription_id;
+    END IF;
+
+    IF subscription_owner_id != p_user_id THEN
+      RAISE EXCEPTION 'subscription_id % does not belong to user_id %', p_subscription_id, p_user_id;
+    END IF;
+  END IF;
+
+  -- Insert validated event
   INSERT INTO subscription_events (user_id, subscription_id, event_type, metadata)
   VALUES (p_user_id, p_subscription_id, p_event_type, p_metadata)
   RETURNING id INTO event_uuid;
