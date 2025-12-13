@@ -159,7 +159,7 @@ const ProfileScreen: React.FC = () => {
   const devMode = isDevMode();
 
   const renderMenu = () => (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} testID="profile-screen">
       {devMode && (
         <View style={styles.devModeBanner}>
           <Text style={styles.devModeText}>
