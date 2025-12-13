@@ -6,7 +6,8 @@
  * for offline availability.
  */
 
-const upstreamTransformer = require('metro-react-native-babel-transformer');
+// Use Expo's babel transformer (Expo SDK 52+)
+const upstreamTransformer = require('@expo/metro-config/babel-transformer');
 
 module.exports.transform = async ({ src, filename, options }) => {
   // Only transform .md files
