@@ -332,9 +332,53 @@ supabase functions logs grace-period-automation
 - [x] Crisis access hardcoded to `TRUE`
 - [x] Subscription metadata treated as PHI
 - [x] Audit logging for all state changes
+- [x] Input validation on SECURITY DEFINER functions (MAINT-116)
+- [x] Ownership validation on subscription event logging (MAINT-116)
 - [ ] TODO: Implement receipt data encryption (currently stored as-is)
 - [ ] TODO: Implement Apple JWS signature verification (currently placeholder)
 - [ ] TODO: Implement Google JWT signing (currently placeholder)
+
+## Rate Limiting (MAINT-116 LOW-02)
+
+Rate limiting is implemented at multiple layers for defense-in-depth:
+
+### Supabase Built-in Rate Limiting
+- API rate limits: 1000 req/min per IP (configurable in dashboard)
+- Auth rate limits: 30 requests/hour for auth endpoints
+- Realtime connections: 200 concurrent per project
+
+### Edge Function Rate Limiting (Recommended)
+
+For additional protection, implement rate limiting in Edge Functions:
+
+```typescript
+// Example rate limiting in Edge Function
+const RATE_LIMIT = {
+  maxRequests: 10,
+  windowMs: 60000, // 1 minute
+};
+
+// Use Supabase Edge Function built-in KV or external Redis
+const rateLimitKey = `rate_limit:${userId}`;
+const requests = await kv.get(rateLimitKey) || 0;
+
+if (requests >= RATE_LIMIT.maxRequests) {
+  return new Response('Rate limit exceeded', { status: 429 });
+}
+
+await kv.set(rateLimitKey, requests + 1, { ex: RATE_LIMIT.windowMs / 1000 });
+```
+
+### Why Not Database-Level Rate Limiting?
+- PostgreSQL functions lack built-in rate limiting
+- Adds latency to every database call
+- Better handled at application/API gateway layer
+- Supabase's API layer provides sufficient protection for most cases
+
+### Monitoring
+- Monitor `pg_stat_statements` for unusual query patterns
+- Set up alerts for high API usage in Supabase dashboard
+- Review Edge Function logs for abuse patterns
 
 ## Performance Targets
 
