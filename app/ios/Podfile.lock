@@ -1,16 +1,16 @@
 PODS:
   - EXApplication (7.0.8):
     - ExpoModulesCore
-  - EXConstants (18.0.11):
+  - EXConstants (18.0.12):
     - ExpoModulesCore
   - EXInAppPurchases (14.5.0):
     - ExpoModulesCore
   - EXJSONUtils (0.15.0)
   - EXManifests (1.0.10):
     - ExpoModulesCore
-  - EXNotifications (0.32.14):
+  - EXNotifications (0.32.15):
     - ExpoModulesCore
-  - Expo (54.0.27):
+  - Expo (54.0.29):
     - ExpoModulesCore
     - hermes-engine
     - RCTRequired
@@ -214,7 +214,7 @@ PODS:
     - ExpoModulesCore
   - ExpoDevice (8.0.10):
     - ExpoModulesCore
-  - ExpoFileSystem (19.0.20):
+  - ExpoFileSystem (19.0.21):
     - ExpoModulesCore
   - ExpoFont (14.0.10):
     - ExpoModulesCore
@@ -226,7 +226,7 @@ PODS:
     - ExpoModulesCore
   - ExpoLocalAuthentication (17.0.8):
     - ExpoModulesCore
-  - ExpoModulesCore (3.0.28):
+  - ExpoModulesCore (3.0.29):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -2777,12 +2777,12 @@ EXTERNAL SOURCES:
 
 SPEC CHECKSUMS:
   EXApplication: 1e98d4b1dccdf30627f92917f4b2c5a53c330e5f
-  EXConstants: c378c1b344ff1ecfbad27b90f0e48d1d0ead8cbb
+  EXConstants: 805f35b1b295c542ca6acce836f21a1f9ee104d5
   EXInAppPurchases: 44558a44dca7293a3040e3cce135cc0b4e39dc81
   EXJSONUtils: 1d3e4590438c3ee593684186007028a14b3686cd
   EXManifests: a8d97683e5c7a3b026ffbd58559c64dc655b747b
-  EXNotifications: 52c982ff8aa4ed971534e27f20dbf532aa4082b1
-  Expo: 3d19389232751e415391827839a629100a3c6a64
+  EXNotifications: 983f04ad4ad879b181179e326bf220541e478386
+  Expo: 8fa2204bf8483fe546b4ec87c90d3ca189afc8db
   expo-dev-client: 425ee077d6754a98cfe3a2e2410d29b440b24c9d
   expo-dev-launcher: a4f4cdef064ab1fb8621e5b8c7c457cd6e9568c3
   expo-dev-menu: 05b18812110c175814c6af0d09dd658abcc5e00d
@@ -2791,13 +2791,13 @@ SPEC CHECKSUMS:
   ExpoAsset: 23a958e97d3d340919fe6774db35d563241e6c03
   ExpoCrypto: b6105ebaa15d6b38a811e71e43b52cd934945322
   ExpoDevice: 6327c3c200816795708885adf540d26ecab83d1a
-  ExpoFileSystem: 3592defb5faa3c5866a2900eae87ceec8cc0489f
+  ExpoFileSystem: 858a44267a3e6e9057e0888ad7c7cfbf55d52063
   ExpoFont: 35ac6191ed86bbf56b3ebd2d9154eda9fad5b509
   ExpoHaptics: d3a6375d8dcc3a1083d003bc2298ff654fafb536
   ExpoKeepAwake: 55f75eca6499bb9e4231ebad6f3e9cb8f99c0296
   ExpoLinking: f4c4a351523da72a6bfa7e1f4ca92aee1043a3ca
   ExpoLocalAuthentication: 8a31808565da7af926dd9b595e98594d8b1553b6
-  ExpoModulesCore: ded694f230d03c59d919efe243911622fa169834
+  ExpoModulesCore: f3da4f1ab5a8375d0beafab763739dbee8446583
   ExpoSecureStore: d32f751874a2ceb5aaeebeb3578e165c1ba2b24a
   ExpoWebBrowser: 17b064c621789e41d4816c95c93f429b84971f52
   EXUpdatesInterface: 5adf50cb41e079c861da6d9b4b954c3db9a50734

@@ -206,6 +206,7 @@ END;
 $$;
 
 -- Trigger to automatically update backup statistics
+DROP TRIGGER IF EXISTS update_backup_stats_trigger ON encrypted_backups;
 CREATE TRIGGER update_backup_stats_trigger
   AFTER INSERT OR UPDATE ON encrypted_backups
   FOR EACH ROW
@@ -216,7 +217,7 @@ CREATE TRIGGER update_backup_stats_trigger
 -- =====================================================
 
 -- View for monitoring free tier usage
-CREATE VIEW IF NOT EXISTS free_tier_usage AS
+CREATE OR REPLACE VIEW free_tier_usage AS
 SELECT
   COUNT(*) as total_users,
   SUM(backup_count) as total_backups,
@@ -227,7 +228,7 @@ SELECT
 FROM users;
 
 -- View for analytics summary
-CREATE VIEW IF NOT EXISTS analytics_summary AS
+CREATE OR REPLACE VIEW analytics_summary AS
 SELECT
   event_type,
   COUNT(*) as event_count,
@@ -469,6 +470,7 @@ END;
 $$;
 
 -- Trigger to automatically update updated_at
+DROP TRIGGER IF EXISTS update_subscription_timestamp_trigger ON subscriptions;
 CREATE TRIGGER update_subscription_timestamp_trigger
   BEFORE UPDATE ON subscriptions
   FOR EACH ROW
@@ -574,6 +576,7 @@ END;
 $$;
 
 -- Function to expire trials automatically (for daily cron job)
+-- FIXED: Uses single CTE for both update and event logging
 CREATE OR REPLACE FUNCTION expire_old_trials()
 RETURNS INTEGER
 LANGUAGE plpgsql
@@ -582,7 +585,8 @@ AS $$
 DECLARE
   updated_count INTEGER;
 BEGIN
-  WITH updated_subscriptions AS (
+  -- Update expired trials and log events in one operation
+  WITH expired_trials AS (
     UPDATE subscriptions
     SET
       status = 'expired',
@@ -591,30 +595,25 @@ BEGIN
       AND trial_end_date IS NOT NULL
       AND trial_end_date <= NOW()
     RETURNING id, user_id
+  ),
+  logged_events AS (
+    INSERT INTO subscription_events (user_id, subscription_id, event_type, metadata)
+    SELECT
+      et.user_id,
+      et.id,
+      'trial_ended',
+      jsonb_build_object('expired_at', NOW())
+    FROM expired_trials et
+    RETURNING 1
   )
-  SELECT COUNT(*) INTO updated_count FROM updated_subscriptions;
-
-  -- Log events for expired trials
-  INSERT INTO subscription_events (user_id, subscription_id, event_type, metadata)
-  SELECT
-    us.user_id,
-    us.id,
-    'trial_ended',
-    jsonb_build_object('expired_at', NOW())
-  FROM (
-    UPDATE subscriptions
-    SET status = 'expired', updated_at = NOW()
-    WHERE status = 'trial'
-      AND trial_end_date IS NOT NULL
-      AND trial_end_date <= NOW()
-    RETURNING id, user_id
-  ) us;
+  SELECT COUNT(*) INTO updated_count FROM expired_trials;
 
   RETURN updated_count;
 END;
 $$;
 
 -- Function to expire grace periods automatically (for daily cron job)
+-- FIXED: Uses single CTE for both update and event logging
 CREATE OR REPLACE FUNCTION expire_grace_periods()
 RETURNS INTEGER
 LANGUAGE plpgsql
@@ -623,7 +622,8 @@ AS $$
 DECLARE
   updated_count INTEGER;
 BEGIN
-  WITH updated_subscriptions AS (
+  -- Update expired grace periods and log events in one operation
+  WITH expired_grace AS (
     UPDATE subscriptions
     SET
       status = 'expired',
@@ -632,24 +632,18 @@ BEGIN
       AND grace_period_end IS NOT NULL
       AND grace_period_end <= NOW()
     RETURNING id, user_id
+  ),
+  logged_events AS (
+    INSERT INTO subscription_events (user_id, subscription_id, event_type, metadata)
+    SELECT
+      eg.user_id,
+      eg.id,
+      'subscription_expired',
+      jsonb_build_object('expired_at', NOW(), 'previous_status', 'grace')
+    FROM expired_grace eg
+    RETURNING 1
   )
-  SELECT COUNT(*) INTO updated_count FROM updated_subscriptions;
-
-  -- Log events for expired grace periods
-  INSERT INTO subscription_events (user_id, subscription_id, event_type, metadata)
-  SELECT
-    us.user_id,
-    us.id,
-    'subscription_expired',
-    jsonb_build_object('expired_at', NOW(), 'previous_status', 'grace')
-  FROM (
-    UPDATE subscriptions
-    SET status = 'expired', updated_at = NOW()
-    WHERE status = 'grace'
-      AND grace_period_end IS NOT NULL
-      AND grace_period_end <= NOW()
-    RETURNING id, user_id
-  ) us;
+  SELECT COUNT(*) INTO updated_count FROM expired_grace;
 
   RETURN updated_count;
 END;
@@ -660,7 +654,7 @@ $$;
 -- =====================================================
 
 -- View for subscription metrics
-CREATE VIEW IF NOT EXISTS subscription_metrics AS
+CREATE OR REPLACE VIEW subscription_metrics AS
 SELECT
   COUNT(*) as total_subscriptions,
   COUNT(*) FILTER (WHERE status = 'trial') as trial_count,
@@ -676,7 +670,7 @@ SELECT
 FROM subscriptions;
 
 -- View for subscription events summary
-CREATE VIEW IF NOT EXISTS subscription_events_summary AS
+CREATE OR REPLACE VIEW subscription_events_summary AS
 SELECT
   event_type,
   COUNT(*) as event_count,
