@@ -108,7 +108,7 @@ const LearnScreen: React.FC = () => {
   ];
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} testID="learn-screen">
       <View style={{ flex: 1 }}>
         <View style={styles.container}>
         {/* Header */}

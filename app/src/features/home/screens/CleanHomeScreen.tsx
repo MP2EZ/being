@@ -153,7 +153,7 @@ const CleanHomeScreen: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} testID="home-screen">
       <View style={styles.content}>
         {/* Header */}
         <View style={styles.header}>

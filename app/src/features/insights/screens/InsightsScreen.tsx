@@ -221,7 +221,7 @@ const InsightsScreen: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} testID="insights-screen">
       <CollapsibleCrisisButton
         mode="standard"
         onNavigate={() => navigation.navigate('CrisisResources')}
