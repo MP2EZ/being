@@ -21,6 +21,13 @@ config.resolver.alias = {
   '@/api': path.resolve(__dirname, 'src/api'),
 };
 
+// Add .md to asset extensions for importing markdown files as raw text
+config.resolver.assetExts = config.resolver.assetExts.filter(ext => ext !== 'md');
+config.resolver.sourceExts = [...config.resolver.sourceExts, 'md'];
+
+// Configure transformer to handle .md files as raw text
+config.transformer.babelTransformerPath = require.resolve('./metro-md-transformer.js');
+
 // Minimal development console output
 if (process.env.NODE_ENV === 'development') {
   console.log('🏥 Being. - Simplified Metro Configuration');

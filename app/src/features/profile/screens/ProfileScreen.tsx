@@ -19,6 +19,7 @@ import { StackNavigationProp } from '@react-navigation/stack';
 // OnboardingScreen no longer embedded - navigation to LegalGate handles full flow
 import AppSettingsScreen from './AppSettingsScreen';
 import AccountSettingsScreen from './AccountSettingsScreen';
+import LegalDocumentsListScreen from './LegalDocumentsListScreen';
 import { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 import { useSubscriptionStore } from '@/core/stores/subscriptionStore';
 import { isDevMode } from '@/core/constants/devMode';
@@ -37,7 +38,7 @@ interface AssessmentMetadata {
   status: 'recent' | 'due' | 'recommended' | 'never';
 }
 
-type Screen = 'menu' | 'account' | 'privacy' | 'about' | 'stoicMindfulness';
+type Screen = 'menu' | 'account' | 'privacy' | 'about' | 'stoicMindfulness' | 'legal';
 
 const ProfileScreen: React.FC = () => {
   const [currentScreen, setCurrentScreen] = useState<Screen>('menu');
@@ -311,6 +312,17 @@ const ProfileScreen: React.FC = () => {
             </Text>
             <Text style={styles.cardAction}>Learn More →</Text>
           </Pressable>
+
+          <Pressable
+            style={styles.profileCard}
+            onPress={() => setCurrentScreen('legal')}
+          >
+            <Text style={styles.cardTitle}>Legal Documents</Text>
+            <Text style={styles.cardDescription}>
+              View our Privacy Policy, Terms of Service, Medical Disclaimer, and other important legal information.
+            </Text>
+            <Text style={styles.cardAction}>View Documents →</Text>
+          </Pressable>
         </View>
       </ScrollView>
 
@@ -488,6 +500,10 @@ const ProfileScreen: React.FC = () => {
 
     if (currentScreen === 'stoicMindfulness') {
       return renderAboutStoicMindfulness();
+    }
+
+    if (currentScreen === 'legal') {
+      return <LegalDocumentsListScreen onReturn={handleReturnToMenu} />;
     }
 
     return null;
