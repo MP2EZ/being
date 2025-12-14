@@ -29,7 +29,6 @@ This folder contains ALL documentation related to the Being mobile app.
 - [Stoic Mindfulness Framework](product/stoic-mindfulness/INDEX.md)
 
 ### Architecture
-- [System Design](architecture/system-design.md)
 - [Data Flow Diagrams](architecture/data-flow-diagrams.md)
 - [Stoic Mindfulness Architecture](architecture/Stoic-Mindfulness-Architecture-v1.0.md)
 - [Stoic Data Models](architecture/Stoic-Data-Models.md)
@@ -47,9 +46,9 @@ This folder contains ALL documentation related to the Being mobile app.
 - [Accessibility Testing Guide](development/guides/ACCESSIBILITY_TESTING_GUIDE.md)
 
 ### Testing
-- [Testing Strategy](testing/TESTING_STRATEGY.md)
 - [Clinical Testing](testing/clinical-testing-implementation.md)
 - [Local Testing Guide](testing/LOCAL_TESTING_GUIDE.md)
+- [QA Protocols](testing/quality-assurance-protocols.md)
 
 ### Legal (Source of Truth)
 - [Privacy Policy](legal/public/privacy-policy.md)
