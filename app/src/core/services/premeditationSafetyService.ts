@@ -21,7 +21,7 @@
  * - Seneca, Letters to Lucilius (91, 107)
  * - Epictetus, Discourses (3.24, 4.1)
  *
- * @see /docs/technical/Stoic-Mindfulness-Architecture-v1.0.md
+ * @see /docs/architecture/Stoic-Mindfulness-Architecture-v1.0.md
  */
 
 import type { CardinalVirtue } from '@/features/practices/types/stoic';

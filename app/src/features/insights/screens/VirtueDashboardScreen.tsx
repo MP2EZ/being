@@ -23,7 +23,7 @@
  * - Temperance (sophrosyne): Self-control, moderation, emotional regulation
  *
  * @see FEAT-51: Virtue Tracking Dashboard
- * @see /docs/technical/Stoic-Mindfulness-Architecture-v1.0.md
+ * @see /docs/architecture/Stoic-Mindfulness-Architecture-v1.0.md
  */
 
 import React, { useEffect } from 'react';

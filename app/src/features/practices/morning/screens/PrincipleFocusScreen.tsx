@@ -22,7 +22,7 @@
  * 4. Virtuous Response - Virtue ethics in action (reappraisal + premeditatio + character)
  * 5. Interconnected Living - Relational ethics, oikeiosis, common good
  *
- * @see /docs/technical/Stoic-Mindfulness-Architecture-v1.0.md (v1.1 LOCKED)
+ * @see /docs/architecture/Stoic-Mindfulness-Architecture-v1.0.md (v1.1 LOCKED)
  * @see /docs/product/stoic-mindfulness/principles/ for detailed principle documentation
  */
 

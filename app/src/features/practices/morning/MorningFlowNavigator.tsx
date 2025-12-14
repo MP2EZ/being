@@ -13,7 +13,7 @@
  * - Epictetus: Begin the day with right principles (Enchiridion 21)
  * - Seneca: "Begin at once to live" (Letters 101)
  *
- * @see /docs/technical/Stoic-Mindfulness-Architecture-v1.0.md
+ * @see /docs/architecture/Stoic-Mindfulness-Architecture-v1.0.md
  */
 
 import React, { useState, useEffect, useRef } from 'react';

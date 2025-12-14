@@ -15,7 +15,7 @@
  * - Classical Stoic alignment maintained
  * - Prohairesis (moral agency) preserved in Sphere Sovereignty
  *
- * @see /docs/technical/Stoic-Mindfulness-Architecture-v1.0.md (v1.1 LOCKED)
+ * @see /docs/architecture/Stoic-Mindfulness-Architecture-v1.0.md (v1.1 LOCKED)
  */
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -59,7 +59,7 @@ export type CardinalVirtue =
  *
  * Sources: Marcus Aurelius (Meditations), Epictetus (Enchiridion, Discourses), Seneca (Letters)
  *
- * @see /docs/technical/Stoic-Mindfulness-Architecture-v1.0.md (v1.1 LOCKED)
+ * @see /docs/architecture/Stoic-Mindfulness-Architecture-v1.0.md (v1.1 LOCKED)
  * @see /docs/product/stoic-mindfulness/ for detailed principle documentation
  */
 export type StoicPrinciple =
@@ -76,7 +76,7 @@ export type StoicPrinciple =
  * Useful for understanding educational content, historical data, and the consolidation rationale.
  *
  * This mapping documents the philosophical relationships between legacy and current framework.
- * See /docs/technical/Stoic-Data-Models.md Section 6 for full migration strategy.
+ * See /docs/architecture/Stoic-Data-Models.md Section 6 for full migration strategy.
  *
  * @example
  * // Convert legacy principle to new framework

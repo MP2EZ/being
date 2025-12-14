@@ -23,7 +23,7 @@
  * Purpose: Embodied awareness grounds Stoic philosophy in present-moment experience.
  * The breath connects mind and body, creating foundation for virtue practice.
  *
- * @see /docs/technical/Stoic-Mindfulness-Architecture-v1.0.md
+ * @see /docs/architecture/Stoic-Mindfulness-Architecture-v1.0.md
  */
 
 import React, { useState, useEffect, useRef } from 'react';

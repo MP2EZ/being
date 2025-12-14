@@ -20,7 +20,7 @@
  * 5. Self-compassion REQUIRED (if obstacles present)
  * 6. Crisis integration (show resources if severe distress)
  *
- * @see /docs/technical/Stoic-Mindfulness-Architecture-v1.0.md
+ * @see /docs/architecture/Stoic-Mindfulness-Architecture-v1.0.md
  */
 
 import React, { useState, useEffect, useRef } from 'react';

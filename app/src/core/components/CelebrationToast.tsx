@@ -16,7 +16,7 @@
  * - Sleep-friendly for evening flows (dark overlay, quick dismiss)
  * - Respects user time (especially midday check-ins)
  *
- * @see /docs/technical/Stoic-Mindfulness-Architecture-v1.0.md
+ * @see /docs/architecture/Stoic-Mindfulness-Architecture-v1.0.md
  */
 
 import React, { useEffect, useRef } from 'react';

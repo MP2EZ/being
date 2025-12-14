@@ -169,7 +169,7 @@ Located in `/docs/product/`:
 
 ### Additional Documentation
 - **Architecture**: `/docs/architecture/` (system design, ADRs)
-- **Clinical Standards**: `/docs/clinical/` (MBCT compliance, safety protocols)
+- **Clinical Standards**: `/docs/architecture/` (MBCT compliance, safety protocols)
 - **Security**: `/docs/security/` (security analysis, implementation)
 - **Master Index**: `/docs/archive/MASTER_DOCUMENTATION_INDEX.md`
 
@@ -234,7 +234,7 @@ npm run test:ci                       # CI/CD test suite
 
 ### Development Support
 - **Documentation**: Complete guides in `/docs/product/`
-- **Clinical Standards**: `/docs/clinical/`
+- **Clinical Standards**: `/docs/architecture/`
 - **Architecture**: `/docs/architecture/`
 
 ---

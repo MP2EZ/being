@@ -301,7 +301,7 @@ import { AssessmentQuestionProps } from './types/components/props';
 
 For questions about clinical accuracy, crisis safety requirements, or type system implementation, refer to:
 
-- **Clinical Validation**: `/docs/clinical/` 
+- **Clinical Validation**: `/docs/architecture/` 
 - **Crisis Safety**: `/docs/security/crisis-safety.md`
-- **Type System**: `/docs/technical/typescript-patterns.md`
-- **Performance**: `/docs/technical/performance-requirements.md`
+- **Type System**: `/docs/architecture/typescript-patterns.md`
+- **Performance**: `/docs/architecture/performance-requirements.md`

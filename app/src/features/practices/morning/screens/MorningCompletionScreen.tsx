@@ -9,7 +9,7 @@
  *   it is to be alive – to breathe, to think, to enjoy, to love." (Meditations 1:17)
  * - Seneca: "Begin at once to live" (Letters 101) - Daily renewal complete
  *
- * @see /docs/technical/Stoic-Mindfulness-Architecture-v1.0.md
+ * @see /docs/architecture/Stoic-Mindfulness-Architecture-v1.0.md
  */
 
 import React from 'react';

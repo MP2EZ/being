@@ -19,7 +19,7 @@
  * - Balanced examination (instances + challenges)
  * - Privacy-first: No analytics on virtue content
  *
- * @see /docs/technical/Stoic-Mindfulness-Architecture-v1.0.md (v1.1 LOCKED)
+ * @see /docs/architecture/Stoic-Mindfulness-Architecture-v1.0.md (v1.1 LOCKED)
  */
 
 import { create } from 'zustand';

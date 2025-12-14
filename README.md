@@ -277,7 +277,7 @@ No API keys or environment variables required - Being is fully offline-first!
 
 ### **Documentation Structure**
 - **`/docs/`** - Project-wide documentation (legal, brand guidelines)
-- **`/docs/technical/`** - Technical documentation (architecture, security)
+- **`/docs/architecture/`** - Technical documentation (architecture, security)
 - **`/docs/product/stoic-mindfulness/`** - Complete Stoic Mindfulness V2 framework
 - **`/docs/accessibility/`** - WCAG compliance and inclusive design
 - **`/scripts/`** - Development and operational scripts
@@ -287,7 +287,7 @@ No API keys or environment variables required - Being is fully offline-first!
 - [Five Core Principles](docs/product/stoic-mindfulness/principles/) - Detailed principle documentation
 - [Daily Practice Architecture](docs/product/stoic-mindfulness/practice/daily-architecture.md) - Complete practice guide
 - [WCAG Compliance Guide](docs/accessibility/wcag-compliance.md)
-- [Security & Encryption](docs/technical/security-architecture.md)
+- [Security & Encryption](docs/architecture/security-architecture.md)
 - [Contributing Guidelines](CONTRIBUTING.md)
 
 ---

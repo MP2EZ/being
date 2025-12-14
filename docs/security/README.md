@@ -211,9 +211,9 @@ This audit requires validation from Being's domain authorities:
 ## Related Documentation
 
 **Being Project**:
-- `/docs/clinical/` - MBCT compliance, PHQ-9/GAD-7 requirements
+- `/docs/architecture/` - MBCT compliance, PHQ-9/GAD-7 requirements
 - `/docs/brand-legal/` - HIPAA policies, privacy notice
-- `/docs/technical/` - Architecture, data model
+- `/docs/architecture/` - Architecture, data model
 
 **External References**:
 - [HIPAA §164.312](https://www.law.cornell.edu/cfr/text/45/164.312) - Technical Safeguards

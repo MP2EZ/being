@@ -14,7 +14,7 @@
  * - Optional reserve clause (Stoic "fate permitting")
  * - Optional principle applied
  *
- * @see /docs/technical/Stoic-Mindfulness-Architecture-v1.0.md
+ * @see /docs/architecture/Stoic-Mindfulness-Architecture-v1.0.md
  */
 
 import React from 'react';

@@ -18,7 +18,7 @@
  * 2. Can influence: Outcomes through effort (but not guaranteed)
  * 3. Not in control: External events, others' actions
  *
- * @see /docs/technical/Stoic-Mindfulness-Architecture-v1.0.md
+ * @see /docs/architecture/Stoic-Mindfulness-Architecture-v1.0.md
  */
 
 import React, { useState } from 'react';

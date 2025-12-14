@@ -52,7 +52,7 @@ const CLEANUP_TARGETS = [
 const PRESERVE_PATTERNS = [
   'src/',
   '__tests__/',
-  'docs/technical/',
+  'docs/architecture/',
   'docs/privacy/',
   'docs/security/',
   'package.json',
@@ -194,7 +194,7 @@ const essentialFiles = [
   'src/services/monitoring/CrisisMonitoringService.ts',
   'src/services/resilience/CircuitBreakerService.ts',
   'src/services/deployment/DeploymentService.ts',
-  'docs/technical/Cloud-Sync-Complete-Implementation.md',
+  'docs/architecture/Cloud-Sync-Complete-Implementation.md',
   'docs/compliance/Week3-Analytics-Privacy-Design.md',
   '__tests__/clinical/clinical-validation-summary.test.ts'
 ];

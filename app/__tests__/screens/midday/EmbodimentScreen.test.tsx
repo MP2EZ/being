@@ -23,7 +23,7 @@
  * - BreathingCircle must run at 60fps for therapeutic smoothness
  * - Timer must be precise (exactly 60 seconds, not 59 or 61)
  *
- * @see /docs/technical/Stoic-Mindfulness-Architecture-v1.0.md
+ * @see /docs/architecture/Stoic-Mindfulness-Architecture-v1.0.md
  */
 
 import React from 'react';
