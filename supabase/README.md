@@ -1,4 +1,4 @@
-# Supabase Backend - Being MBCT App
+# Supabase Backend - Being App
 
 Backend infrastructure for subscription management using Supabase Edge Functions and PostgreSQL.
 

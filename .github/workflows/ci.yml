@@ -128,8 +128,8 @@ jobs:
           # PHQ-9/GAD-7 accuracy testing (MUST BE 100%)
           npm run test:clinical -- --ci --coverage --testTimeout=15000 --testNamePattern="PHQ.*GAD.*Accuracy"
           
-          # MBCT therapeutic content validation
-          npm run test:clinical -- --ci --testNamePattern="MBCT.*Content.*Validation" --testTimeout=10000
+          # Stoic Mindfulness content validation
+          npm run test:clinical -- --ci --testNamePattern="Stoic.*Content.*Validation" --testTimeout=10000
           
           echo "status=passed" >> $GITHUB_OUTPUT
           echo "phq-gad-accuracy=100%" >> $GITHUB_OUTPUT
@@ -346,7 +346,7 @@ jobs:
     steps:
       - name: 📋 Generate CI Summary Report
         run: |
-          echo "# 🧪 CI Summary Report - FullMind MBCT Healthcare" > ci-summary.md
+          echo "# 🧪 CI Summary Report - Being Stoic Mindfulness" > ci-summary.md
           echo "" >> ci-summary.md
           echo "## Critical Healthcare Validations" >> ci-summary.md
           echo "- **Crisis Authority**: ${{ needs.crisis-authority-validation.outputs.crisis-status }}" >> ci-summary.md
