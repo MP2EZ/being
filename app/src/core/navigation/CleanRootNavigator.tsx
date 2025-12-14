@@ -18,7 +18,6 @@ import CrisisResourcesScreen from '@/features/crisis/screens/CrisisResourcesScre
 import PurchaseOptionsScreen from '@/core/components/subscription/PurchaseOptionsScreen';
 import SubscriptionStatusCard from '@/core/components/subscription/SubscriptionStatusCard';
 import OnboardingScreen from '@/features/onboarding/screens/OnboardingScreen';
-import VirtueDashboardScreen from '@/features/insights/screens/VirtueDashboardScreen';
 import EnhancedAssessmentFlow from '@/features/assessment/components/EnhancedAssessmentFlow';
 import ModuleDetailScreen from '@/features/learn/screens/ModuleDetailScreen';
 import {
@@ -85,7 +84,6 @@ export type RootStackParamList = {
   } | undefined;
   Subscription: undefined;
   SubscriptionStatus: undefined;
-  VirtueDashboard: undefined;
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -486,41 +484,6 @@ const CleanRootNavigator: React.FC = () => {
               gestureEnabled: true
             }}
           />
-
-          {/* Virtue Dashboard Screen */}
-          <Stack.Screen
-            name="VirtueDashboard"
-            options={({ navigation }) => ({
-              headerShown: true,
-              presentation: 'modal',
-              gestureEnabled: true,
-              headerTitle: 'Practice Progress',
-              headerTitleAlign: 'center',
-              headerStyle: {
-                backgroundColor: '#FFFFFF',
-                borderBottomColor: '#E5E7EB',
-                borderBottomWidth: 1,
-              },
-              headerTitleStyle: {
-                fontSize: typography.bodyLarge.size,
-                fontWeight: typography.fontWeight.semibold,
-                color: '#1C1C1C',
-              },
-              headerLeft: () => (
-                <TouchableOpacity
-                  onPress={() => navigation.goBack()}
-                  style={styles.closeButton}
-                  accessibilityLabel="Close virtue dashboard"
-                  accessibilityRole="button"
-                  accessibilityHint="Returns to previous screen"
-                >
-                  <Text style={styles.closeButtonText}>✕</Text>
-                </TouchableOpacity>
-              ),
-            })}
-          >
-            {() => <VirtueDashboardScreen />}
-          </Stack.Screen>
         </Stack.Group>
       </Stack.Navigator>
     </NavigationContainer>
