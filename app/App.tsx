@@ -15,6 +15,7 @@ import { IAPService } from './src/core/services/subscription/IAPService';
 import { useSubscriptionStore } from './src/core/stores/subscriptionStore';
 import EncryptionService from './src/core/services/security/EncryptionService';
 import { useSettingsStore } from './src/core/stores/settingsStore';
+import { initializeExternalReporting } from './src/core/services/logging';
 
 export default function App() {
   const [isInitialized, setIsInitialized] = useState(false);
@@ -29,6 +30,10 @@ export default function App() {
         console.log('[App] Initializing encryption service...');
         await EncryptionService.initialize();
         console.log('[App] Encryption service initialized');
+
+        // Initialize external error reporting (Sentry) - INFRA-61
+        // Only active in production when EXPO_PUBLIC_SENTRY_DSN is set
+        await initializeExternalReporting();
 
         // Initialize PostCrisisSupport service (includes automatic migration)
         console.log('[App] Migrating crisis data to SecureStore...');

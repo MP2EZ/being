@@ -38,3 +38,4 @@ yarn-error.*
 .jest-cache/
 test-results/
 .env
+.jest-cache-quick/
