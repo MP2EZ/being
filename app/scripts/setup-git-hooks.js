@@ -178,6 +178,49 @@ if [ "\$CRISIS_ONLY" = "true" ]; then
     exit 0
 fi
 
+# INFRA-61: PHI-Safe Logging Check - Block console.log in staged files
+print_status "info" "INFRA-61: Checking for console.log statements (PHI-safe logging)..."
+
+# Get list of staged TypeScript files
+STAGED_TS_FILES=\$(git diff --cached --name-only --diff-filter=ACMR | grep -E '\\.(ts|tsx)\$' | grep -v '__tests__' | grep -v '\\.test\\.' | grep -v '\\.spec\\.' || true)
+
+if [ -n "\$STAGED_TS_FILES" ]; then
+    # Check for console.log in staged files (excluding logging service files)
+    CONSOLE_LOG_VIOLATIONS=""
+    for file in \$STAGED_TS_FILES; do
+        # Skip logging service files (they're allowed to use console)
+        if [[ "\$file" == *"services/logging"* ]]; then
+            continue
+        fi
+
+        # Check staged content for console.log (not console.error which is allowed)
+        VIOLATIONS=\$(git show ":\$file" 2>/dev/null | grep -n "console\\.log\\|console\\.warn\\|console\\.info\\|console\\.debug" || true)
+        if [ -n "\$VIOLATIONS" ]; then
+            CONSOLE_LOG_VIOLATIONS="\${CONSOLE_LOG_VIOLATIONS}\n  \$file:\n\$VIOLATIONS"
+        fi
+    done
+
+    if [ -n "\$CONSOLE_LOG_VIOLATIONS" ]; then
+        print_status "error" "INFRA-61 VIOLATION: console.log statements detected!"
+        echo
+        echo "🚨 PHI-SAFE LOGGING VIOLATION"
+        echo "   console.log/warn/info/debug statements found in staged files:"
+        echo -e "\$CONSOLE_LOG_VIOLATIONS"
+        echo
+        echo "💡 REQUIRED ACTION:"
+        echo "   Use ProductionLogger instead of console statements"
+        echo "   Import: import { logger, LogCategory } from '@/core/services/logging/ProductionLogger'"
+        echo "   Usage:  logger.info(LogCategory.SYSTEM, 'message', context)"
+        echo
+        echo "   Only console.error is allowed for emergency/critical issues"
+        echo
+        exit 1
+    fi
+    print_status "success" "No console.log violations found"
+else
+    print_status "info" "No TypeScript files staged (skipping console.log check)"
+fi
+
 # TypeScript compilation check
 print_status "info" "Checking TypeScript compilation..."
 if ! run_with_timeout "npm run typecheck" 60 "TypeScript compilation"; then

@@ -52,6 +52,8 @@ export enum LogCategory {
 
 /**
  * SANITIZATION PATTERNS - PHI Detection
+ *
+ * INFRA-61: Extended patterns for PHI, clinical data, and philosophical content
  */
 const PHI_PATTERNS = [
   // User identifiers
@@ -75,6 +77,13 @@ const PHI_PATTERNS = [
   // Email/Personal
   /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2}\b/gi,
   /\b\d{3}-?\d{2}-?\d{4}\b/gi, // SSN pattern
+
+  // INFRA-61: Philosophical/therapeutic content patterns
+  /reflection[:\s]*["']?[^"'}\n]{10,}/gi,      // Reflection text
+  /journal[:\s]*["']?[^"'}\n]{10,}/gi,          // Journal entries
+  /intention[:\s]*["']?[^"'}\n]{10,}/gi,        // Daily intentions
+  /gratitude[:\s]*["']?[^"'}\n]{10,}/gi,        // Gratitude entries
+  /virtue[_-]?practice[:\s]*["']?[^"'}\n]{10,}/gi, // Virtue practice content
 ];
 
 /**
@@ -314,15 +323,34 @@ export class ProductionLogger {
 
   private isSensitiveKey(key: string): boolean {
     const sensitiveKeys = [
+      // User identifiers
       'userId', 'user_id', 'userIdentifier', 'id',
+      // Authentication
       'token', 'authToken', 'accessToken', 'refreshToken',
       'password', 'secret', 'key', 'apiKey',
       'session', 'sessionId', 'session_id',
+      // Clinical/Assessment data
       'phq9', 'gad7', 'score', 'scores', 'responses',
       'assessment', 'assessmentData', 'result', 'results',
       'crisis', 'crisisData', 'detection', 'intervention',
+      // Personal identifiers
       'email', 'phone', 'ssn', 'personal', 'private',
-      'data', 'userData', 'profile', 'profileData'
+      'data', 'userData', 'profile', 'profileData',
+      // INFRA-61: Philosophical/Therapeutic content protection
+      'journal', 'journalEntry', 'entry', 'entries',
+      'reflection', 'reflections', 'personalReflection',
+      'virtue', 'virtueResponse', 'virtuePractice', 'virtueScore',
+      'principle', 'principles', 'stoicPrinciple',
+      'quote', 'quotes', 'citation',
+      'practice', 'dailyPractice', 'morningPractice', 'eveningPractice',
+      'meditation', 'meditationContent', 'breathingContent',
+      'educational', 'moduleContent', 'lessonContent', 'content',
+      'insight', 'insights', 'personalInsight',
+      'gratitude', 'gratitudeEntry',
+      'intention', 'dailyIntention',
+      'examen', 'eveningExamen',
+      'thought', 'thoughts', 'thoughtContent',
+      'emotion', 'emotions', 'emotionData', 'mood', 'moodData'
     ];
 
     return sensitiveKeys.some(sensitive =>

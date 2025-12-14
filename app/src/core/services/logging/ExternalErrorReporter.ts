@@ -236,7 +236,7 @@ export class ExternalErrorReporter {
           logger.info(LogCategory.SYSTEM, 'External error reporting initialized');
           return true;
         }
-      } catch (loadError) {
+      } catch {
         logger.info(LogCategory.SYSTEM, 'Sentry SDK not installed - external reporting disabled');
         this.config.enabled = false;
         return false;
@@ -300,7 +300,7 @@ export class ExternalErrorReporter {
           },
         });
       }
-    } catch (reportError) {
+    } catch {
       // Never let reporting errors break the app
       logger.error(LogCategory.SYSTEM, 'External error reporting failed silently');
     }
@@ -327,7 +327,7 @@ export class ExternalErrorReporter {
 
       // Apply PHI pattern scrubbing
       return this.scrubPHI(sanitized);
-    } catch (error) {
+    } catch {
       // On any error, drop the event (fail-safe)
       logger.error(LogCategory.SECURITY, 'beforeSend sanitization failed - dropping event');
       return null;
