@@ -26,7 +26,7 @@
  * @see /docs/architecture/Stoic-Mindfulness-Architecture-v1.0.md
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -39,13 +39,14 @@ import Slider from '@react-native-community/slider';
 import type { StackScreenProps } from '@react-navigation/stack';
 import type { MiddayFlowParamList, EmbodimentData } from '@/features/practices/types/flows';
 import BreathingCircle from '../../shared/components/BreathingCircle';
+import Timer from '../../shared/components/Timer';
 import { spacing, borderRadius, typography } from '@/core/theme';
 
 type Props = StackScreenProps<MiddayFlowParamList, 'Embodiment'> & {
   onSave?: (data: EmbodimentData) => void;
 };
 
-const BREATHING_DURATION = 60; // EXACTLY 60 seconds
+const BREATHING_DURATION_MS = 60 * 1000; // EXACTLY 60 seconds in milliseconds
 
 const EmbodimentScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
   // FEAT-23: Restore initial data if resuming session
@@ -59,42 +60,29 @@ const EmbodimentScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
     });
   }
 
-  // Timer state always starts fresh (not restored)
+  // Timer/breathing state (always starts fresh, not restored)
   const [breathingActive, setBreathingActive] = useState(true);
-  const [secondsRemaining, setSecondsRemaining] = useState(BREATHING_DURATION);
+  const [breathingComplete, setBreathingComplete] = useState(false);
 
   // User input state restored from session
   const [breathingQuality, setBreathingQuality] = useState(initialData?.breathingQuality || 5);
   const [bodyAwareness, setBodyAwareness] = useState(initialData?.bodyAwareness || '');
 
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  // Timer callbacks using shared Timer component
+  const handleTimerComplete = useCallback(() => {
+    setBreathingActive(false);
+    setBreathingComplete(true);
+  }, []);
 
-  // 60-second breathing timer
-  useEffect(() => {
-    if (breathingActive && secondsRemaining > 0) {
-      timerRef.current = setInterval(() => {
-        setSecondsRemaining((prev) => {
-          if (prev <= 1) {
-            setBreathingActive(false);
-            if (timerRef.current) {
-              clearInterval(timerRef.current);
-            }
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
+  const handleTimerPause = useCallback(() => {
+    setBreathingActive(false);
+  }, []);
 
-      return () => {
-        if (timerRef.current) {
-          clearInterval(timerRef.current);
-        }
-      };
-    }
-    return undefined;
-  }, [breathingActive, secondsRemaining]);
+  const handleTimerResume = useCallback(() => {
+    setBreathingActive(true);
+  }, []);
 
-  const isValid = !breathingActive && bodyAwareness.trim().length > 0;
+  const isValid = breathingComplete && bodyAwareness.trim().length > 0;
 
   const handleContinue = () => {
     if (!isValid) {
@@ -132,7 +120,7 @@ const EmbodimentScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
       <View style={styles.header}>
         <Text style={styles.title}>Embodiment</Text>
         <Text style={styles.subtitle}>60-Second Breathing Space</Text>
-        {breathingActive && (
+        {!breathingComplete && (
           <Text style={styles.helperText}>
             Connect with your breath and body
           </Text>
@@ -140,13 +128,21 @@ const EmbodimentScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
       </View>
 
       {/* Breathing Phase */}
-      {breathingActive && (
+      {!breathingComplete && (
         <View style={styles.breathingPhase}>
-          {/* Timer Display */}
-          <View style={styles.timerContainer}>
-            <Text style={styles.timerText}>{secondsRemaining}s</Text>
-            <Text style={styles.timerLabel}>remaining</Text>
-          </View>
+          {/* Shared Timer Component - provides 60fps precision, accessibility, pause/resume */}
+          <Timer
+            duration={BREATHING_DURATION_MS}
+            isActive={breathingActive}
+            onComplete={handleTimerComplete}
+            onPause={handleTimerPause}
+            onResume={handleTimerResume}
+            showProgress={true}
+            showControls={true}
+            showSkip={false}
+            theme="midday"
+            testID="breathing-timer"
+          />
 
           {/* BreathingCircle Component */}
           <BreathingCircle
@@ -167,7 +163,7 @@ const EmbodimentScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
       )}
 
       {/* Reflection Phase - After Breathing Completes */}
-      {!breathingActive && (
+      {breathingComplete && (
         <View style={styles.reflectionPhase}>
           {/* Completion Message */}
           <View style={styles.completionMessage}>
@@ -290,20 +286,6 @@ const styles = StyleSheet.create({
   breathingPhase: {
     alignItems: 'center',
     paddingVertical: spacing[20],
-  },
-  timerContainer: {
-    alignItems: 'center',
-    marginBottom: spacing[32],
-  },
-  timerText: {
-    fontSize: 48,
-    fontWeight: typography.fontWeight.bold,
-    color: '#40B5AD',
-  },
-  timerLabel: {
-    fontSize: typography.bodySmall.size,
-    color: '#666',
-    marginTop: spacing[4],
   },
   instructionContainer: {
     alignItems: 'center',
