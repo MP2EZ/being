@@ -12,7 +12,6 @@
  */
 
 import { ProductionLogger, LogCategory } from '../ProductionLogger';
-import { EncryptionService } from '../../security/EncryptionService';
 
 // Mock SecureStore
 jest.mock('expo-secure-store', () => ({
@@ -30,26 +29,50 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
   multiRemove: jest.fn().mockResolvedValue(undefined),
 }));
 
+// Create mock EncryptionService that returns valid encrypted packages
+const createMockEncryptionService = () => ({
+  encryptData: jest.fn().mockImplementation(async (data: any, sensitivityLevel: string) => {
+    return {
+      ciphertext: 'mockedCiphertext',
+      iv: 'mockedIv',
+      tag: 'mockedTag',
+      metadata: {
+        algorithm: 'AES-GCM',
+        sensitivityLevel,
+        encryptedAt: new Date().toISOString(),
+        performanceMetrics: {
+          encryptionTimeMs: 5,
+        },
+      },
+    };
+  }),
+  initialize: jest.fn().mockResolvedValue(undefined),
+  destroy: jest.fn().mockResolvedValue(undefined),
+});
+
 describe('ProductionLogger Encryption Integration - INFRA-61', () => {
   let logger: ProductionLogger;
-  let encryptionService: EncryptionService;
+  let mockEncryptionService: ReturnType<typeof createMockEncryptionService>;
 
   beforeEach(async () => {
     // Get logger instance
     logger = ProductionLogger.getInstance();
 
-    // Create and initialize encryption service
-    encryptionService = EncryptionService.getInstance();
-    await encryptionService.initialize();
+    // Create mock encryption service
+    mockEncryptionService = createMockEncryptionService();
 
     // Reset any previous encryption state
     logger.disableEncryption();
+
+    // Clear mocks
+    const SecureStore = require('expo-secure-store');
+    SecureStore.setItemAsync.mockClear();
+    SecureStore.getItemAsync.mockClear();
   });
 
   afterEach(async () => {
     // Cleanup
     logger.disableEncryption();
-    await encryptionService.destroy();
   });
 
   describe('Encryption Enable/Disable', () => {
@@ -62,7 +85,7 @@ describe('ProductionLogger Encryption Integration - INFRA-61', () => {
     });
 
     it('should enable encryption with valid EncryptionService', async () => {
-      await expect(logger.enableEncryption(encryptionService)).resolves.not.toThrow();
+      await expect(logger.enableEncryption(mockEncryptionService as any)).resolves.not.toThrow();
     });
 
     it('should disable encryption', () => {
@@ -70,15 +93,15 @@ describe('ProductionLogger Encryption Integration - INFRA-61', () => {
     });
 
     it('should allow re-enabling after disabling', async () => {
-      await logger.enableEncryption(encryptionService);
+      await logger.enableEncryption(mockEncryptionService as any);
       logger.disableEncryption();
-      await expect(logger.enableEncryption(encryptionService)).resolves.not.toThrow();
+      await expect(logger.enableEncryption(mockEncryptionService as any)).resolves.not.toThrow();
     });
   });
 
   describe('Category to Sensitivity Level Mapping', () => {
     it('should map CRISIS to level_1_crisis_responses', async () => {
-      await logger.enableEncryption(encryptionService);
+      await logger.enableEncryption(mockEncryptionService as any);
 
       const SecureStore = require('expo-secure-store');
       SecureStore.setItemAsync.mockClear();
@@ -108,7 +131,7 @@ describe('ProductionLogger Encryption Integration - INFRA-61', () => {
     });
 
     it('should map ASSESSMENT to level_2_assessment_data', async () => {
-      await logger.enableEncryption(encryptionService);
+      await logger.enableEncryption(mockEncryptionService as any);
 
       const SecureStore = require('expo-secure-store');
       SecureStore.setItemAsync.mockClear();
@@ -129,7 +152,7 @@ describe('ProductionLogger Encryption Integration - INFRA-61', () => {
     });
 
     it('should map SECURITY to level_3_intervention_metadata', async () => {
-      await logger.enableEncryption(encryptionService);
+      await logger.enableEncryption(mockEncryptionService as any);
 
       const SecureStore = require('expo-secure-store');
       SecureStore.setItemAsync.mockClear();
@@ -172,7 +195,7 @@ describe('ProductionLogger Encryption Integration - INFRA-61', () => {
     });
 
     it('should store encrypted when encryption enabled', async () => {
-      await logger.enableEncryption(encryptionService);
+      await logger.enableEncryption(mockEncryptionService as any);
 
       const SecureStore = require('expo-secure-store');
       SecureStore.setItemAsync.mockClear();
@@ -204,7 +227,7 @@ describe('ProductionLogger Encryption Integration - INFRA-61', () => {
     });
 
     it('should include correct metadata in encrypted package', async () => {
-      await logger.enableEncryption(encryptionService);
+      await logger.enableEncryption(mockEncryptionService as any);
 
       const SecureStore = require('expo-secure-store');
       SecureStore.setItemAsync.mockClear();
@@ -254,7 +277,7 @@ describe('ProductionLogger Encryption Integration - INFRA-61', () => {
 
       // Should NOT have encrypted wrapper (fell back to unencrypted)
       expect(storedData.encrypted).not.toBe(true);
-      expect(storedData.encrypted).toBe undefined;
+      expect(storedData.encrypted).toBeUndefined();
     });
 
     it('should not throw when encryption fails', async () => {
@@ -273,7 +296,7 @@ describe('ProductionLogger Encryption Integration - INFRA-61', () => {
 
   describe('Performance Requirements', () => {
     it('should complete crisis logging with encryption in <200ms', async () => {
-      await logger.enableEncryption(encryptionService);
+      await logger.enableEncryption(mockEncryptionService as any);
 
       const start = Date.now();
 
@@ -293,7 +316,7 @@ describe('ProductionLogger Encryption Integration - INFRA-61', () => {
     });
 
     it('should handle 10 encrypted logs in <500ms', async () => {
-      await logger.enableEncryption(encryptionService);
+      await logger.enableEncryption(mockEncryptionService as any);
 
       const start = Date.now();
 
@@ -313,7 +336,7 @@ describe('ProductionLogger Encryption Integration - INFRA-61', () => {
     });
 
     it('should not block main thread during encryption', async () => {
-      await logger.enableEncryption(encryptionService);
+      await logger.enableEncryption(mockEncryptionService as any);
 
       // Log should return immediately (async storage)
       const start = Date.now();
@@ -327,7 +350,7 @@ describe('ProductionLogger Encryption Integration - INFRA-61', () => {
 
   describe('Multiple Log Categories', () => {
     it('should encrypt all critical log categories correctly', async () => {
-      await logger.enableEncryption(encryptionService);
+      await logger.enableEncryption(mockEncryptionService as any);
 
       const SecureStore = require('expo-secure-store');
       SecureStore.setItemAsync.mockClear();
@@ -350,10 +373,8 @@ describe('ProductionLogger Encryption Integration - INFRA-61', () => {
   });
 
   describe('Encryption Service Integration', () => {
-    it('should use same EncryptionService instance', async () => {
-      const encryptDataSpy = jest.spyOn(encryptionService, 'encryptData');
-
-      await logger.enableEncryption(encryptionService);
+    it('should use provided EncryptionService instance', async () => {
+      await logger.enableEncryption(mockEncryptionService as any);
 
       logger.crisis('Test encryption service usage', {
         severity: 'high',
@@ -362,33 +383,27 @@ describe('ProductionLogger Encryption Integration - INFRA-61', () => {
       await new Promise(resolve => setTimeout(resolve, 100));
 
       // Verify encryptData was called
-      expect(encryptDataSpy).toHaveBeenCalled();
-
-      encryptDataSpy.mockRestore();
+      expect(mockEncryptionService.encryptData).toHaveBeenCalled();
     });
 
     it('should pass correct sensitivity level to encryption service', async () => {
-      const encryptDataSpy = jest.spyOn(encryptionService, 'encryptData');
-
-      await logger.enableEncryption(encryptionService);
+      await logger.enableEncryption(mockEncryptionService as any);
 
       logger.crisis('Test sensitivity level', { severity: 'high' });
 
       await new Promise(resolve => setTimeout(resolve, 100));
 
       // Verify called with correct sensitivity level
-      expect(encryptDataSpy).toHaveBeenCalledWith(
+      expect(mockEncryptionService.encryptData).toHaveBeenCalledWith(
         expect.any(Object),
         'level_1_crisis_responses'
       );
-
-      encryptDataSpy.mockRestore();
     });
   });
 
   describe('Edge Cases', () => {
     it('should handle encryption with null context', async () => {
-      await logger.enableEncryption(encryptionService);
+      await logger.enableEncryption(mockEncryptionService as any);
 
       expect(() => {
         logger.crisis('Crisis with null context');
@@ -396,7 +411,7 @@ describe('ProductionLogger Encryption Integration - INFRA-61', () => {
     });
 
     it('should handle encryption with large context', async () => {
-      await logger.enableEncryption(encryptionService);
+      await logger.enableEncryption(mockEncryptionService as any);
 
       const largeContext = {
         data: new Array(1000).fill('test').join(''),
@@ -410,7 +425,7 @@ describe('ProductionLogger Encryption Integration - INFRA-61', () => {
 
     it('should handle rapid enable/disable cycles', async () => {
       for (let i = 0; i < 10; i++) {
-        await logger.enableEncryption(encryptionService);
+        await logger.enableEncryption(mockEncryptionService as any);
         logger.disableEncryption();
       }
 

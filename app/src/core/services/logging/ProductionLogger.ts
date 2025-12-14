@@ -21,7 +21,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 import { TokenBucketRateLimiter } from './RateLimiter';
-import type { EncryptionService } from '../security/EncryptionService';
+import type { EncryptionService, DataSensitivityLevel } from '../security/EncryptionService';
 
 /**
  * LOG LEVELS - Production Safe
@@ -350,9 +350,45 @@ export class ProductionLogger {
   private async storeCriticalEntry(entry: LogEntry): Promise<void> {
     try {
       const storageKey = `critical_log_${Date.now()}`;
-      await SecureStore.setItemAsync(storageKey, JSON.stringify(entry));
-    } catch (error) {
+
+      // INFRA-61: Encrypt if encryption is enabled
+      if (this.encryptionEnabled && this.encryptionService) {
+        try {
+          const sensitivityLevel = this.mapCategoryToSensitivity(entry.category);
+          const encryptedPackage = await this.encryptionService.encryptData(entry, sensitivityLevel);
+
+          // Store encrypted wrapper
+          const encryptedEntry = {
+            encrypted: true,
+            package: encryptedPackage,
+          };
+          await SecureStore.setItemAsync(storageKey, JSON.stringify(encryptedEntry));
+        } catch {
+          // Fallback to unencrypted storage if encryption fails
+          await SecureStore.setItemAsync(storageKey, JSON.stringify(entry));
+        }
+      } else {
+        // Store unencrypted
+        await SecureStore.setItemAsync(storageKey, JSON.stringify(entry));
+      }
+    } catch {
       // Fail silently - we don't want logging errors to break the app
+    }
+  }
+
+  /**
+   * INFRA-61: Map log category to encryption sensitivity level
+   */
+  private mapCategoryToSensitivity(category: LogCategory): DataSensitivityLevel {
+    switch (category) {
+      case LogCategory.CRISIS:
+        return 'level_1_crisis_responses';
+      case LogCategory.ASSESSMENT:
+        return 'level_2_assessment_data';
+      case LogCategory.SECURITY:
+        return 'level_3_intervention_metadata';
+      default:
+        return 'level_5_general_data';
     }
   }
 
@@ -437,7 +473,7 @@ export class ProductionLogger {
     try {
       // Initialize any required storage or configurations
       // This runs once when the logger is created
-    } catch (error) {
+    } catch {
       // Fail silently - logger must not break app initialization
     }
   }
@@ -457,7 +493,7 @@ export class ProductionLogger {
       const keys = await AsyncStorage.getAllKeys();
       const logKeys = keys.filter(key => key.startsWith('critical_log_'));
       await AsyncStorage.multiRemove(logKeys);
-    } catch (error) {
+    } catch {
       // Fail silently
     }
   }

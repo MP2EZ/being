@@ -361,8 +361,10 @@ describe('TokenBucket Rate Limiter - INFRA-61', () => {
       }
       const duration2 = Date.now() - start2;
 
-      // 10x operations should take roughly 10x time (linear, not exponential)
-      expect(duration2).toBeLessThan(duration1 * 20); // Allow 2x variance
+      // 10x operations should complete in reasonable time (O(1) per operation)
+      // Handle case where duration1 is 0 (operations faster than 1ms resolution)
+      const baseline = Math.max(duration1, 1); // Minimum 1ms baseline
+      expect(duration2).toBeLessThan(baseline * 20); // Allow 20x variance for 10x operations
     });
 
     it('should maintain minimal memory footprint', () => {
