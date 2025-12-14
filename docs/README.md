@@ -14,7 +14,7 @@ This folder contains ALL documentation related to the Being mobile app.
 
 ### Compliance & Legal
 - **`/compliance/`** - BAA-free design, consent framework, privacy requirements
-- **`/legal/public/`** - Privacy policy, terms of service, medical disclaimer (source of truth for app + website)
+- **`/legal/`** - Privacy policy, terms of service, medical disclaimer (source of truth for app + website)
 - **`/security/`** - Encryption standards, key management, threat models
 
 ### Testing
@@ -51,9 +51,9 @@ This folder contains ALL documentation related to the Being mobile app.
 - [QA Protocols](testing/quality-assurance-protocols.md)
 
 ### Legal (Source of Truth)
-- [Privacy Policy](legal/public/privacy-policy.md)
-- [Terms of Service](legal/public/terms-of-service.md)
-- [Medical Disclaimer](legal/public/medical-disclaimer.md)
+- [Privacy Policy](legal/privacy-policy.md)
+- [Terms of Service](legal/terms-of-service.md)
+- [Medical Disclaimer](legal/medical-disclaimer.md)
 
 ## Key Features
 

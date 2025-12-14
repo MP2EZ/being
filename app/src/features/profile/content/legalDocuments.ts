@@ -1,6 +1,6 @@
 /**
  * Legal Documents Content
- * Imports all legal documents from docs/legal/public/ and exports them
+ * Imports all legal documents from docs/legal/ and exports them
  * for use in the LegalDocumentScreen component.
  *
  * COMPLIANCE:
@@ -12,20 +12,20 @@
  * Uses require() instead of import because TypeScript's module resolution
  * can't find files outside the app/ directory. Metro handles the actual
  * bundling at build time, so this still works correctly at runtime.
- * The files remain in docs/legal/public/ (single source of truth).
+ * The files remain in docs/legal/ (single source of truth).
  */
 
 // Import markdown files as raw text strings using require()
 // This bypasses TypeScript module resolution and lets Metro handle it at runtime
-// Path: app/src/features/profile/content -> ../../../../../docs/legal/public/
+// Path: app/src/features/profile/content -> ../../../../../docs/legal/
 /* eslint-disable @typescript-eslint/no-require-imports */
-const privacyPolicyContent: string = require('../../../../../docs/legal/public/privacy-policy.md').default;
-const termsOfServiceContent: string = require('../../../../../docs/legal/public/terms-of-service.md').default;
-const medicalDisclaimerContent: string = require('../../../../../docs/legal/public/medical-disclaimer.md').default;
-const noticeOfPrivacyPracticesContent: string = require('../../../../../docs/legal/public/notice-of-privacy-practices.md').default;
-const californiaPrivacyContent: string = require('../../../../../docs/legal/public/california-privacy.md').default;
-const doNotSellContent: string = require('../../../../../docs/legal/public/do-not-sell.md').default;
-const supportContent: string = require('../../../../../docs/legal/public/support.md').default;
+const privacyPolicyContent: string = require('../../../../../docs/legal/privacy-policy.md').default;
+const termsOfServiceContent: string = require('../../../../../docs/legal/terms-of-service.md').default;
+const medicalDisclaimerContent: string = require('../../../../../docs/legal/medical-disclaimer.md').default;
+const noticeOfPrivacyPracticesContent: string = require('../../../../../docs/legal/notice-of-privacy-practices.md').default;
+const californiaPrivacyContent: string = require('../../../../../docs/legal/california-privacy.md').default;
+const doNotSellContent: string = require('../../../../../docs/legal/do-not-sell.md').default;
+const supportContent: string = require('../../../../../docs/legal/support.md').default;
 /* eslint-enable @typescript-eslint/no-require-imports */
 
 export type LegalDocumentType =

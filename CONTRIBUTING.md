@@ -130,7 +130,7 @@ app/src/
 
 ### Documentation Structure
 - `/docs/` → Technical Documentation (Product | Philosophical | Architecture | Security)
-- `/docs/legal/public/` → Legal Documents (Privacy Policy | Terms | Medical Disclaimer)
+- `/docs/legal/` → Legal Documents (Privacy Policy | Terms | Medical Disclaimer)
 - `/scripts/` → Cross-module operations
 - `/app/src/README.md` → Source architecture guide
 

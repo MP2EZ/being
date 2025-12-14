@@ -28,7 +28,7 @@ config.resolver.sourceExts = [...config.resolver.sourceExts, 'md'];
 // Configure transformer to handle .md files as raw text
 config.transformer.babelTransformerPath = require.resolve('./metro-md-transformer.js');
 
-// Watch parent directory to allow importing from docs/legal/public/
+// Watch parent directory to allow importing from docs/legal/
 // This enables single source of truth for legal documents (used by both website and app)
 const repoRoot = path.resolve(__dirname, '..');
 config.watchFolders = [repoRoot];
