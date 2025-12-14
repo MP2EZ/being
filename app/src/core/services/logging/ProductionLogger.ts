@@ -20,6 +20,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
+import { TokenBucketRateLimiter } from './RateLimiter';
+import type { EncryptionService } from '../security/EncryptionService';
 
 /**
  * LOG LEVELS - Production Safe
@@ -103,7 +105,15 @@ export class ProductionLogger {
   // Hash salt for consistent PHI replacement
   private readonly phiSalt = 'fullmind_logging_salt_2024';
 
+  // INFRA-61: Rate limiter for log throughput control
+  private rateLimiter: TokenBucketRateLimiter;
+
+  // INFRA-61: Optional encryption for sensitive logs
+  private encryptionService: EncryptionService | null = null;
+  private encryptionEnabled = false;
+
   private constructor() {
+    this.rateLimiter = new TokenBucketRateLimiter();
     this.initializeLogger();
   }
 
@@ -458,6 +468,31 @@ export class ProductionLogger {
   emergencyShutdown(reason: string): void {
     console.error(`🚨 EMERGENCY LOGGER SHUTDOWN: ${reason}`);
     this.auditTrail.length = 0;
+  }
+
+  /**
+   * INFRA-61: Rate Limiter Statistics
+   */
+  getRateLimiterStats() {
+    return this.rateLimiter.getStats();
+  }
+
+  /**
+   * INFRA-61: Enable log encryption
+   */
+  async enableEncryption(encryptionService: EncryptionService): Promise<void> {
+    this.encryptionService = encryptionService;
+    this.encryptionEnabled = true;
+    this.info(LogCategory.SECURITY, 'Log encryption enabled');
+  }
+
+  /**
+   * INFRA-61: Disable log encryption
+   */
+  disableEncryption(): void {
+    this.encryptionEnabled = false;
+    this.encryptionService = null;
+    this.info(LogCategory.SECURITY, 'Log encryption disabled');
   }
 }
 

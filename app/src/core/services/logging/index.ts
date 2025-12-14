@@ -168,3 +168,43 @@ export const clearLogAuditTrail = async () => {
 export const emergencyLoggerShutdown = (reason: string) => {
   logger.emergencyShutdown(reason);
 };
+
+/**
+ * INFRA-61: Rate limiter statistics
+ */
+export const getRateLimiterStats = () => {
+  return logger.getRateLimiterStats();
+};
+
+/**
+ * INFRA-61: Enable log encryption
+ */
+export const enableLogEncryption = async (encryptionService: any) => {
+  await logger.enableEncryption(encryptionService);
+};
+
+/**
+ * INFRA-61: Disable log encryption
+ */
+export const disableLogEncryption = () => {
+  logger.disableEncryption();
+};
+
+/**
+ * INFRA-61: External Error Reporting
+ */
+export {
+  ExternalErrorReporter,
+  externalErrorReporter,
+  reportExternalError,
+  killExternalReporting,
+  isExternalReportingActive,
+} from './ExternalErrorReporter';
+
+/**
+ * INFRA-61: Initialize external error reporting
+ */
+export const initializeExternalReporting = async (dsn?: string) => {
+  const { externalErrorReporter } = await import('./ExternalErrorReporter');
+  return externalErrorReporter.initialize(dsn);
+};
