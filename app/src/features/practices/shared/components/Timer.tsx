@@ -75,13 +75,16 @@ const Timer: React.FC<TimerProps> = ({
 
   // Start timer
   const startTimer = useCallback(() => {
-    // Always set start time when starting (ensures fresh start)
-    startTimeRef.current = Date.now();
+    // Only set start time on fresh start (not on resume from pause)
+    if (startTimeRef.current === null) {
+      startTimeRef.current = Date.now();
+    }
 
     intervalRef.current = setInterval(() => {
       const now = Date.now();
-      // Guard against null startTimeRef (should never happen now, but defensive)
+      // Guard against null startTimeRef (defensive - shouldn't happen)
       if (startTimeRef.current === null) {
+        startTimeRef.current = Date.now();
         return;
       }
       const elapsed = now - startTimeRef.current - pausedTimeRef.current;
