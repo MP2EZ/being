@@ -75,13 +75,16 @@ const Timer: React.FC<TimerProps> = ({
 
   // Start timer
   const startTimer = useCallback(() => {
-    if (startTimeRef.current === null) {
-      startTimeRef.current = Date.now();
-    }
-    
+    // Always set start time when starting (ensures fresh start)
+    startTimeRef.current = Date.now();
+
     intervalRef.current = setInterval(() => {
       const now = Date.now();
-      const elapsed = now - (startTimeRef.current || 0) - pausedTimeRef.current;
+      // Guard against null startTimeRef (should never happen now, but defensive)
+      if (startTimeRef.current === null) {
+        return;
+      }
+      const elapsed = now - startTimeRef.current - pausedTimeRef.current;
       const remaining = duration - elapsed;
 
       if (remaining <= 0) {
@@ -117,6 +120,14 @@ const Timer: React.FC<TimerProps> = ({
     }
     onSkip?.();
   }, [onSkip]);
+
+  // Reset timer when duration changes - MUST run before isActive effect
+  useEffect(() => {
+    setTimeRemaining(duration);
+    startTimeRef.current = null;
+    pausedTimeRef.current = 0;
+    pauseStartTimeRef.current = null;
+  }, [duration]);
 
   // Effect to manage timer lifecycle based on isActive prop
   useEffect(() => {
@@ -154,14 +165,6 @@ const Timer: React.FC<TimerProps> = ({
       }
     };
   }, [isActive, startTimer]);
-
-  // Reset timer when duration changes
-  useEffect(() => {
-    setTimeRemaining(duration);
-    startTimeRef.current = null;
-    pausedTimeRef.current = 0;
-    pauseStartTimeRef.current = null;
-  }, [duration]);
 
   return (
     <View style={styles.container} testID={testID}>
