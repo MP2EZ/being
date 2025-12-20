@@ -130,7 +130,7 @@ const EmbodimentScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
       {/* Breathing Phase */}
       {!breathingComplete && (
         <View style={styles.breathingPhase}>
-          {/* Shared Timer Component - provides 60fps precision, accessibility, pause/resume */}
+          {/* Timer: countdown only (consistent with other timed practice screens) */}
           <Timer
             duration={BREATHING_DURATION_MS}
             isActive={breathingActive}
@@ -138,13 +138,13 @@ const EmbodimentScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
             onPause={handleTimerPause}
             onResume={handleTimerResume}
             showProgress={true}
-            showControls={true}
+            showControls={false}
             showSkip={false}
             theme="midday"
             testID="breathing-timer"
           />
 
-          {/* BreathingCircle Component */}
+          {/* BreathingCircle Component - primary therapeutic element */}
           <BreathingCircle
             isActive={breathingActive}
             testID="breathing-circle"
@@ -159,6 +159,19 @@ const EmbodimentScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
               Let your breath find its natural flow
             </Text>
           </View>
+
+          {/* Pause/Resume Button - below circle for consistent UX pattern */}
+          <TouchableOpacity
+            style={styles.toggleButton}
+            onPress={breathingActive ? handleTimerPause : handleTimerResume}
+            accessibilityRole="button"
+            accessibilityLabel={breathingActive ? "Pause breathing exercise" : "Resume breathing exercise"}
+            testID="breathing-toggle-button"
+          >
+            <Text style={styles.toggleButtonText}>
+              {breathingActive ? 'Pause' : 'Resume'}
+            </Text>
+          </TouchableOpacity>
         </View>
       )}
 
@@ -304,6 +317,20 @@ const styles = StyleSheet.create({
     color: '#666',
     textAlign: 'center',
     fontStyle: 'italic',
+  },
+  toggleButton: {
+    marginTop: spacing[24],
+    backgroundColor: '#40B5AD',
+    paddingHorizontal: spacing[24],
+    paddingVertical: spacing[12],
+    borderRadius: borderRadius.medium,
+    minWidth: 120,
+    alignItems: 'center',
+  },
+  toggleButtonText: {
+    color: '#fff',
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.semibold,
   },
   reflectionPhase: {
     paddingVertical: spacing[12],
