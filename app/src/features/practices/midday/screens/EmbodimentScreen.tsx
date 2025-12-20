@@ -127,10 +127,26 @@ const EmbodimentScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
         )}
       </View>
 
-      {/* Breathing Phase */}
+      {/* Breathing Phase - Layout matches PracticeTimerScreen: Instructions → Visual → Timer → Button */}
       {!breathingComplete && (
         <View style={styles.breathingPhase}>
-          {/* Timer: countdown only (consistent with other timed practice screens) */}
+          {/* Breathing Instructions (top) */}
+          <View style={styles.instructionContainer}>
+            <Text style={styles.instructionText}>
+              Follow the circle's rhythm
+            </Text>
+            <Text style={styles.subInstructionText}>
+              Let your breath find its natural flow
+            </Text>
+          </View>
+
+          {/* BreathingCircle Component - primary therapeutic element */}
+          <BreathingCircle
+            isActive={breathingActive}
+            testID="breathing-circle"
+          />
+
+          {/* Timer: countdown only (below visual, consistent with other screens) */}
           <Timer
             duration={BREATHING_DURATION_MS}
             isActive={breathingActive}
@@ -144,23 +160,7 @@ const EmbodimentScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
             testID="breathing-timer"
           />
 
-          {/* BreathingCircle Component - primary therapeutic element */}
-          <BreathingCircle
-            isActive={breathingActive}
-            testID="breathing-circle"
-          />
-
-          {/* Breathing Instructions */}
-          <View style={styles.instructionContainer}>
-            <Text style={styles.instructionText}>
-              Follow the circle's rhythm
-            </Text>
-            <Text style={styles.subInstructionText}>
-              Let your breath find its natural flow
-            </Text>
-          </View>
-
-          {/* Pause/Resume Button - below circle for consistent UX pattern */}
+          {/* Pause/Resume Button (bottom) */}
           <TouchableOpacity
             style={styles.toggleButton}
             onPress={breathingActive ? handleTimerPause : handleTimerResume}
@@ -302,7 +302,7 @@ const styles = StyleSheet.create({
   },
   instructionContainer: {
     alignItems: 'center',
-    marginTop: spacing[32],
+    marginBottom: spacing[24],
     paddingHorizontal: spacing[20],
   },
   instructionText: {
