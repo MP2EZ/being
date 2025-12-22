@@ -23,7 +23,7 @@ import {
   Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { commonColors, spacing, borderRadius, typography } from '@/core/theme';
+import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
 import {
   legalDocumentsList,
   LegalDocument,
@@ -105,7 +105,7 @@ const LegalDocumentsListScreen: React.FC<LegalDocumentsListScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: commonColors.white,
+    backgroundColor: colorSystem.base.white,
   },
   scrollContainer: {
     flex: 1,
@@ -121,14 +121,14 @@ const styles = StyleSheet.create({
   title: {
     fontSize: typography.headline2.size,
     fontWeight: typography.fontWeight.bold,
-    color: commonColors.black,
+    color: colorSystem.base.black,
     marginBottom: spacing[8],
     textAlign: 'center',
   },
   subtitle: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
-    color: commonColors.gray600,
+    color: colorSystem.gray[600],
     textAlign: 'center',
     lineHeight: 24,
   },
@@ -138,12 +138,12 @@ const styles = StyleSheet.create({
   documentCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: commonColors.gray100,
+    backgroundColor: colorSystem.gray[100],
     borderRadius: borderRadius.large,
     padding: spacing[20],
     marginBottom: spacing[12],
     borderWidth: 1,
-    borderColor: commonColors.gray200,
+    borderColor: colorSystem.gray[200],
     minHeight: 76,
   },
   documentInfo: {
@@ -153,19 +153,19 @@ const styles = StyleSheet.create({
   documentTitle: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
-    color: commonColors.black,
+    color: colorSystem.base.black,
     marginBottom: spacing[4],
   },
   documentDescription: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: commonColors.gray600,
+    color: colorSystem.gray[600],
     lineHeight: 20,
   },
   documentArrow: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
-    color: commonColors.midnightBlue,
+    color: colorSystem.base.midnightBlue,
   },
   offlineNote: {
     backgroundColor: '#F0F4FF',
@@ -173,16 +173,16 @@ const styles = StyleSheet.create({
     padding: spacing[16],
     marginBottom: spacing[24],
     borderLeftWidth: 3,
-    borderLeftColor: commonColors.midnightBlue,
+    borderLeftColor: colorSystem.base.midnightBlue,
   },
   offlineNoteText: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: commonColors.gray600,
+    color: colorSystem.gray[600],
     lineHeight: 20,
   },
   returnButton: {
-    backgroundColor: commonColors.midnightBlue,
+    backgroundColor: colorSystem.base.midnightBlue,
     paddingVertical: spacing[16],
     paddingHorizontal: spacing[32],
     borderRadius: borderRadius.large,
@@ -192,7 +192,7 @@ const styles = StyleSheet.create({
   returnButtonText: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
-    color: commonColors.white,
+    color: colorSystem.base.white,
   },
 });
 
