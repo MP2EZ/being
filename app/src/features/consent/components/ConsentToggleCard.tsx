@@ -27,7 +27,7 @@ import {
   UIManager,
   AccessibilityInfo,
 } from 'react-native';
-import { commonColors, spacing, borderRadius, typography } from '@/core/theme';
+import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -100,9 +100,9 @@ const ConsentToggleCard: React.FC<ConsentToggleCardProps> = ({
           value={value}
           onValueChange={handleToggle}
           disabled={disabled}
-          trackColor={{ false: commonColors.gray400, true: commonColors.midnightBlue }}
-          thumbColor={commonColors.white}
-          ios_backgroundColor={commonColors.gray400}
+          trackColor={{ false: colorSystem.gray[400], true: colorSystem.base.midnightBlue }}
+          thumbColor={colorSystem.base.white}
+          ios_backgroundColor={colorSystem.gray[400]}
           accessibilityLabel={`${title} consent`}
           accessibilityHint={`Double tap to ${value ? 'disable' : 'enable'} ${title}`}
           accessibilityState={{ checked: value, disabled }}
@@ -164,12 +164,12 @@ const ConsentToggleCard: React.FC<ConsentToggleCardProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: commonColors.gray100,
+    backgroundColor: colorSystem.gray[100],
     borderRadius: borderRadius.large,
     padding: spacing[24],
     marginBottom: spacing[16],
     borderWidth: 1,
-    borderColor: commonColors.gray200,
+    borderColor: colorSystem.gray[200],
   },
   headerRow: {
     flexDirection: 'row',
@@ -183,13 +183,13 @@ const styles = StyleSheet.create({
   title: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
-    color: commonColors.black,
+    color: colorSystem.base.black,
     marginBottom: spacing[4],
   },
   description: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: commonColors.gray600,
+    color: colorSystem.gray[600],
     lineHeight: 20,
   },
   switch: {
@@ -206,14 +206,14 @@ const styles = StyleSheet.create({
   learnMoreText: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.medium,
-    color: commonColors.midnightBlue,
+    color: colorSystem.base.midnightBlue,
     textDecorationLine: 'underline',
   },
   detailsContainer: {
     marginTop: spacing[16],
     paddingTop: spacing[16],
     borderTopWidth: 1,
-    borderTopColor: commonColors.gray200,
+    borderTopColor: colorSystem.gray[200],
   },
   detailSection: {
     marginBottom: spacing[16],
@@ -221,20 +221,20 @@ const styles = StyleSheet.create({
   detailSectionTitle: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.semibold,
-    color: commonColors.black,
+    color: colorSystem.base.black,
     marginBottom: spacing[4],
   },
   detailBullet: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: commonColors.gray600,
+    color: colorSystem.gray[600],
     lineHeight: 22,
     marginLeft: spacing[8],
   },
   detailText: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: commonColors.gray600,
+    color: colorSystem.gray[600],
     lineHeight: 22,
   },
   privacyNoteBox: {
@@ -243,12 +243,12 @@ const styles = StyleSheet.create({
     padding: spacing[16],
     marginTop: spacing[8],
     borderLeftWidth: 3,
-    borderLeftColor: commonColors.success,
+    borderLeftColor: colorSystem.status.success,
   },
   privacyNoteText: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: commonColors.gray600,
+    color: colorSystem.gray[600],
     lineHeight: 18,
   },
 });

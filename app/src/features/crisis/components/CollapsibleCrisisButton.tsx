@@ -56,7 +56,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { logSecurity } from '@/core/services/logging';
-import { spacing, borderRadius, typography, commonColors } from '@/core/theme';
+import { spacing, borderRadius, typography, colorSystem } from '@/core/theme';
 
 /** Display mode for the crisis button */
 export type CrisisButtonMode = 'standard' | 'immersive' | 'prominent';
@@ -387,7 +387,7 @@ export const CollapsibleCrisisButton: React.FC<CollapsibleCrisisButtonProps> = (
               <MaterialCommunityIcons
                 name="lifebuoy"
                 size={iconSize}
-                color={commonColors.white}
+                color={colorSystem.base.white}
               />
             </Pressable>
           )}
@@ -410,7 +410,7 @@ export const CollapsibleCrisisButton: React.FC<CollapsibleCrisisButtonProps> = (
                 <MaterialCommunityIcons
                   name="lifebuoy"
                   size={20}
-                  color={commonColors.white}
+                  color={colorSystem.base.white}
                   style={styles.buttonIcon}
                 />
                 <Text style={styles.crisisButtonText}>Get Support</Text>
@@ -430,7 +430,7 @@ export const CollapsibleCrisisButton: React.FC<CollapsibleCrisisButtonProps> = (
                 <MaterialCommunityIcons
                   name="close"
                   size={20}
-                  color={commonColors.white}
+                  color={colorSystem.base.white}
                 />
               </Pressable>
             </View>
@@ -464,7 +464,7 @@ const styles = StyleSheet.create({
   // Collapsed state: Lifebuoy icon button
   // Note: width/height applied dynamically based on mode
   iconButton: {
-    backgroundColor: commonColors.crisis,
+    backgroundColor: colorSystem.status.critical,
     borderTopLeftRadius: borderRadius.xxl,
     borderBottomLeftRadius: borderRadius.xxl,
     justifyContent: 'center',
@@ -481,7 +481,7 @@ const styles = StyleSheet.create({
   expandedContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: commonColors.crisis,
+    backgroundColor: colorSystem.status.critical,
     borderTopLeftRadius: borderRadius.large,
     borderBottomLeftRadius: borderRadius.large,
     paddingLeft: spacing[16],
@@ -515,7 +515,7 @@ const styles = StyleSheet.create({
   },
 
   crisisButtonText: {
-    color: commonColors.white,
+    color: colorSystem.base.white,
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.bold,
     textAlign: 'center',

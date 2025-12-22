@@ -26,7 +26,7 @@ import { isDevMode } from '@/core/constants/devMode';
 import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
 import ThresholdEducationModal from '@/core/components/ThresholdEducationModal';
 import { useAssessmentStore } from '@/features/assessment/stores/assessmentStore';
-import { commonColors, spacing, borderRadius, typography } from '@/core/theme';
+import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
 
 type ProfileScreenNavigationProp = StackNavigationProp<RootStackParamList>;
 
@@ -600,7 +600,7 @@ const ProfileScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: commonColors.white,
+    backgroundColor: colorSystem.base.white,
   },
   scrollContainer: {
     flex: 1,
@@ -616,14 +616,14 @@ const styles = StyleSheet.create({
   title: {
     fontSize: typography.headline2.size,
     fontWeight: typography.fontWeight.bold,
-    color: commonColors.midnightBlue,
+    color: colorSystem.base.midnightBlue,
     marginBottom: spacing[8],
     textAlign: 'center',
   },
   subtitle: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.regular,
-    color: commonColors.gray600,
+    color: colorSystem.gray[600],
     textAlign: 'center',
     lineHeight: 24,
   },
@@ -633,45 +633,45 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: typography.headline3.size,
     fontWeight: typography.fontWeight.semibold,
-    color: commonColors.black,
+    color: colorSystem.base.black,
     marginBottom: spacing[16],
   },
   sectionDescription: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
-    color: commonColors.gray600,
+    color: colorSystem.gray[600],
     lineHeight: 22,
     marginBottom: spacing[16],
   },
   profileCard: {
-    backgroundColor: commonColors.gray100,
+    backgroundColor: colorSystem.gray[100],
     borderRadius: borderRadius.large,
     padding: spacing[24],
     marginBottom: spacing[16],
     borderWidth: 1,
-    // WCAG AA: Use gray400 for 3:1 minimum contrast ratio on borders
-    borderColor: commonColors.gray400,
+// WCAG AA: Use gray400 for 3:1 minimum contrast ratio on borders
+    borderColor: colorSystem.gray[400],
   },
   cardTitle: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
-    color: commonColors.black,
+    color: colorSystem.base.black,
     marginBottom: spacing[8],
   },
   cardDescription: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
-    color: commonColors.gray600,
+    color: colorSystem.gray[600],
     lineHeight: 22,
     marginBottom: spacing[16],
   },
   cardAction: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.medium,
-    color: commonColors.midnightBlue,
+    color: colorSystem.base.midnightBlue,
   },
   placeholderContent: {
-    backgroundColor: commonColors.gray100,
+    backgroundColor: colorSystem.gray[100],
     borderRadius: borderRadius.large,
     padding: spacing[32],
     marginVertical: spacing[32],
@@ -682,12 +682,12 @@ const styles = StyleSheet.create({
   placeholderText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
-    color: commonColors.gray500,
+    color: colorSystem.gray[500],
     textAlign: 'center',
     lineHeight: 24,
   },
   primaryButton: {
-    backgroundColor: commonColors.midnightBlue,
+    backgroundColor: colorSystem.base.midnightBlue,
     paddingVertical: spacing[16],
     paddingHorizontal: spacing[32],
     borderRadius: borderRadius.large,
@@ -697,33 +697,33 @@ const styles = StyleSheet.create({
   primaryButtonText: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
-    color: commonColors.white,
+    color: colorSystem.base.white,
   },
   bodyText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
-    color: commonColors.gray600,
+    color: colorSystem.gray[600],
     lineHeight: 24,
     marginBottom: spacing[16],
   },
   principleCard: {
-    backgroundColor: commonColors.gray100,
+    backgroundColor: colorSystem.gray[100],
     borderRadius: borderRadius.medium,
     padding: spacing[16],
     marginBottom: spacing[16],
     borderLeftWidth: 3,
-    borderLeftColor: commonColors.midnightBlue,
+    borderLeftColor: colorSystem.base.midnightBlue,
   },
   principleTitle: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.semibold,
-    color: commonColors.black,
+    color: colorSystem.base.black,
     marginBottom: spacing[8],
   },
   principleDescription: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: commonColors.gray600,
+    color: colorSystem.gray[600],
     lineHeight: 20,
   },
   devModeBanner: {
@@ -746,10 +746,10 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   assessmentCard: {
-    backgroundColor: commonColors.white,
+    backgroundColor: colorSystem.base.white,
     borderWidth: 1,
-    // WCAG AA: Use gray400 for 3:1 minimum contrast ratio on borders
-    borderColor: commonColors.gray400,
+// WCAG AA: Use gray400 for 3:1 minimum contrast ratio on borders
+    borderColor: colorSystem.gray[400],
     borderRadius: borderRadius.large,
     padding: spacing[24],
     marginBottom: spacing[16],
@@ -767,12 +767,12 @@ const styles = StyleSheet.create({
   cardDuration: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.medium,
-    color: commonColors.midnightBlue,
+    color: colorSystem.base.midnightBlue,
   },
   cardMetadata: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: commonColors.gray500,
+    color: colorSystem.gray[500],
   },
   statusRecent: {
     fontSize: typography.micro.size,
@@ -819,7 +819,7 @@ const styles = StyleSheet.create({
   educationLinkText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.medium,
-    color: commonColors.morningPrimary,
+    color: colorSystem.themes.morning.primary,
     textDecorationLine: 'underline',
   },
 });

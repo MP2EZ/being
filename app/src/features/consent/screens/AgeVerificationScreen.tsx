@@ -32,7 +32,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Picker } from '@react-native-picker/picker';
 import { useConsentStore } from '@/core/stores/consentStore';
-import { commonColors, spacing, borderRadius, typography } from '@/core/theme';
+import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
 
 interface AgeVerificationScreenProps {
   onVerified: () => void;
@@ -202,13 +202,13 @@ const AgeVerificationScreen: React.FC<AgeVerificationScreenProps> = ({
               accessibilityLabel="Select your birth year"
               accessibilityHint="Scroll to select the year you were born"
             >
-              <Picker.Item label="Select year..." value={null} color={commonColors.gray400} />
+              <Picker.Item label="Select year..." value={null} color={colorSystem.gray[400]} />
               {years.map((year) => (
                 <Picker.Item
                   key={year}
                   label={year.toString()}
                   value={year}
-                  color={commonColors.black}
+                  color={colorSystem.base.black}
                 />
               ))}
             </Picker>
@@ -251,7 +251,7 @@ const AgeVerificationScreen: React.FC<AgeVerificationScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: commonColors.white,
+    backgroundColor: colorSystem.base.white,
   },
   scrollContainer: {
     flex: 1,
@@ -267,14 +267,14 @@ const styles = StyleSheet.create({
   title: {
     fontSize: typography.headline2.size,
     fontWeight: typography.fontWeight.bold,
-    color: commonColors.black,
+    color: colorSystem.base.black,
     marginBottom: spacing[8],
     textAlign: 'center',
   },
   subtitle: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.regular,
-    color: commonColors.gray600,
+    color: colorSystem.gray[600],
     textAlign: 'center',
     lineHeight: 26,
   },
@@ -284,15 +284,15 @@ const styles = StyleSheet.create({
   questionLabel: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
-    color: commonColors.black,
+    color: colorSystem.base.black,
     marginBottom: spacing[16],
     textAlign: 'center',
   },
   pickerContainer: {
-    backgroundColor: commonColors.gray100,
+    backgroundColor: colorSystem.gray[100],
     borderRadius: borderRadius.large,
     borderWidth: 1,
-    borderColor: commonColors.gray200,
+    borderColor: colorSystem.gray[200],
     marginBottom: spacing[16],
     overflow: 'hidden',
   },
@@ -303,12 +303,12 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.medium,
-    color: commonColors.error,
+    color: colorSystem.status.error,
     textAlign: 'center',
     marginBottom: spacing[16],
   },
   privacyNote: {
-    backgroundColor: commonColors.gray100,
+    backgroundColor: colorSystem.gray[100],
     borderRadius: borderRadius.medium,
     padding: spacing[16],
     marginTop: spacing[8],
@@ -316,12 +316,12 @@ const styles = StyleSheet.create({
   privacyNoteText: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: commonColors.gray600,
+    color: colorSystem.gray[600],
     lineHeight: 20,
     textAlign: 'center',
   },
   continueButton: {
-    backgroundColor: commonColors.midnightBlue,
+    backgroundColor: colorSystem.base.midnightBlue,
     paddingVertical: spacing[16],
     paddingHorizontal: spacing[32],
     borderRadius: borderRadius.large,
@@ -329,12 +329,12 @@ const styles = StyleSheet.create({
     minHeight: 56, // 44px + padding for touch target
   },
   continueButtonDisabled: {
-    backgroundColor: commonColors.gray400,
+    backgroundColor: colorSystem.gray[400],
   },
   continueButtonText: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
-    color: commonColors.white,
+    color: colorSystem.base.white,
   },
   // Under age screen styles
   crisisSection: {
@@ -343,12 +343,12 @@ const styles = StyleSheet.create({
   crisisTitle: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
-    color: commonColors.black,
+    color: colorSystem.base.black,
     marginBottom: spacing[24],
     textAlign: 'center',
   },
   crisisButton: {
-    backgroundColor: commonColors.crisis,
+    backgroundColor: colorSystem.status.critical,
     paddingVertical: spacing[24],
     paddingHorizontal: spacing[32],
     borderRadius: borderRadius.large,
@@ -359,59 +359,59 @@ const styles = StyleSheet.create({
   crisisButtonText: {
     fontSize: typography.headline4.size,
     fontWeight: typography.fontWeight.bold,
-    color: commonColors.white,
+    color: colorSystem.base.white,
   },
   crisisButtonSubtext: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.medium,
-    color: commonColors.white,
+    color: colorSystem.base.white,
     opacity: 0.9,
     marginTop: spacing[4],
   },
   crisisButtonSecondary: {
-    backgroundColor: commonColors.white,
+    backgroundColor: colorSystem.base.white,
     paddingVertical: spacing[24],
     paddingHorizontal: spacing[32],
     borderRadius: borderRadius.large,
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: commonColors.crisis,
+    borderColor: colorSystem.status.critical,
     minHeight: 72,
   },
   crisisButtonSecondaryText: {
     fontSize: typography.title.size,
     fontWeight: typography.fontWeight.semibold,
-    color: commonColors.crisis,
+    color: colorSystem.status.critical,
   },
   crisisButtonSecondarySubtext: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.medium,
-    color: commonColors.gray600,
+    color: colorSystem.gray[600],
     marginTop: spacing[4],
   },
   parentSection: {
     marginTop: spacing[24],
     padding: spacing[24],
-    backgroundColor: commonColors.gray100,
+    backgroundColor: colorSystem.gray[100],
     borderRadius: borderRadius.large,
   },
   parentTitle: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.semibold,
-    color: commonColors.black,
+    color: colorSystem.base.black,
     marginBottom: spacing[8],
   },
   parentText: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: commonColors.gray600,
+    color: colorSystem.gray[600],
     lineHeight: 20,
     marginBottom: spacing[16],
   },
   linkText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.medium,
-    color: commonColors.midnightBlue,
+    color: colorSystem.base.midnightBlue,
     textDecorationLine: 'underline',
     marginBottom: spacing[8],
   },

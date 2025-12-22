@@ -43,9 +43,6 @@ export const colorSystem = {
 // Export as 'colors' for backward compatibility
 export const colors = colorSystem;
 
-// Re-export commonColors for shared color aliases
-export { commonColors } from './commonColors';
-
 /**
  * Semantic color tokens for common UI patterns
  * Maps intent to specific color values
@@ -68,11 +65,5 @@ export const semantic = {
 } as const;
 
 // Flat re-exports for direct destructuring (optional convenience)
-import { commonColors as _cc } from './commonColors';
-export const {
-  white, black, midnightBlue,
-  gray100, gray200, gray300, gray400, gray500, gray600, gray700,
-  morningPrimary, eveningPrimary,
-  error, warning, success, crisis,
-  focusPrimary,
-} = _cc;
+// Use colorSystem.* for most cases; these are for legacy compatibility
+export const crisis = colorSystem.status.critical;
