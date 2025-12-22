@@ -8,4 +8,3 @@
  */
 
 export { default as InsightsScreen } from './screens/InsightsScreen';
-export { useInsightsStore } from './stores/insightsStore';
