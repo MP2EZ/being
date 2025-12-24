@@ -12,45 +12,35 @@ This folder contains ALL documentation related to the Being mobile app.
 - **`/architecture/`** - System design, data models, technical patterns, Stoic architecture
 - **`/development/`** - Implementation guides, coding standards, accessibility
 
-### Compliance & Legal
-- **`/compliance/`** - BAA-free design, consent framework, privacy requirements
+### Legal
 - **`/legal/`** - Privacy policy, terms of service, medical disclaimer (source of truth for app + website)
-- **`/security/`** - Encryption standards, key management, threat models
+- **`/security/`** - Privacy-first security architecture (Being is NOT HIPAA-covered)
 
 ### Testing
-- **`/testing/`** - Test strategies, clinical testing, QA protocols
+- **`/testing/`** - Test strategies, clinical testing, production testing
 
-## Quick Navigation
+## Key Documents
 
 ### Product
-- [Product Requirements (PRD)](product/Being.%20PRD.md)
-- [Technical Requirements (TRD)](product/Being.%20TRD.md)
-- [Design Requirements (DRD)](product/Being.%20DRD.md)
-- [Stoic Mindfulness Framework](product/stoic-mindfulness/INDEX.md)
+- [Product Requirements (PRD)](product/Being.%20PRD.md) - Complete product specification
+- [Stoic Mindfulness Framework](product/stoic-mindfulness/INDEX.md) - Philosophical foundation
 
 ### Architecture
-- [Data Flow Diagrams](architecture/data-flow-diagrams.md)
-- [Stoic Mindfulness Architecture](architecture/Stoic-Mindfulness-Architecture-v1.0.md)
-- [Stoic Data Models](architecture/Stoic-Data-Models.md)
+- [Architecture Overview](architecture/README.md) - Start here for codebase structure
+- [Data Privacy Architecture](architecture/data-privacy-architecture.md) - Local-first, no PHI transmission
 
 ### Security
-- [Security Architecture](security/security-architecture.md)
-- [Encryption Standards](security/encryption-standards.md)
-- [Key Management](security/key-management.md)
-- [Privacy Implementation Guide](security/Privacy-Preserving-Implementation-Guide.md)
+- [Security Architecture](security/security-architecture.md) - Privacy-first security framework
 
 ### Development
-- [Implementation Guide](development/guides/IMPLEMENTATION_GUIDE.md)
-- [TypeScript Safety Guide](development/guides/typescript-safety-guide.md)
-- [Crisis Button Implementation](development/guides/crisis-button-implementation-guide.md)
-- [Accessibility Testing Guide](development/guides/ACCESSIBILITY_TESTING_GUIDE.md)
+- [TypeScript Safety Guide](development/typescript-safety-guide.md) - Clinical type safety patterns
+- [BAA-Free Analytics Design](development/BAA-Free-Analytics-Design.md) - Why we don't need BAAs
 
 ### Testing
-- [Clinical Testing](testing/clinical-testing-implementation.md)
-- [Local Testing Guide](testing/LOCAL_TESTING_GUIDE.md)
-- [QA Protocols](testing/quality-assurance-protocols.md)
+- [Local Testing Guide](testing/LOCAL_TESTING_GUIDE.md) - Quick validation workflows
+- [Clinical Testing](testing/clinical-testing-implementation.md) - PHQ-9/GAD-7 accuracy testing
 
-### Legal (Source of Truth)
+### Legal (Source of Truth for App + Website)
 - [Privacy Policy](legal/privacy-policy.md)
 - [Terms of Service](legal/terms-of-service.md)
 - [Medical Disclaimer](legal/medical-disclaimer.md)
@@ -71,7 +61,7 @@ This folder contains ALL documentation related to the Being mobile app.
 - React Native + Expo + TypeScript
 - Zustand for state management
 - AES-256-GCM encryption with PBKDF2
-- Privacy-first analytics (differential privacy)
+- Privacy-first architecture (no PHI transmission)
 - Offline-first architecture
 
 ### Privacy & Compliance
@@ -86,12 +76,6 @@ This folder contains ALL documentation related to the Being mobile app.
 - **Crisis thresholds**: PHQ-9 >=15 (support), >=20 (intervention), GAD-7 >=15
 - **988 integration**: Must remain accessible
 - **Stoic principles**: Philosophical accuracy required
-
-### Agent Requirements
-- Philosophical content: `philosopher` agent validation
-- Crisis/safety features: `crisis` agent approval
-- Privacy/compliance: `compliance` agent review
-- UI accessibility: WCAG AA standards
 
 ---
 

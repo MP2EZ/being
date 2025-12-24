@@ -40,7 +40,7 @@ The following tables mentioned in technical notes do NOT exist in Supabase becau
 - `crisis_plans` - Stored locally, encrypted in `encrypted_backups` blob
 - `user_profiles` - Stored locally, encrypted in `encrypted_backups` blob
 
-This is the correct HIPAA-compliant "conduit exception" approach where Supabase acts as a pass-through for encrypted blobs and has no ability to decrypt contents.
+This is the correct privacy-first approach where Supabase acts as a pass-through for encrypted blobs and has no ability to decrypt contents.
 
 ---
 
@@ -373,17 +373,17 @@ DELETE FROM users WHERE device_id IN (repeat('a', 64), repeat('b', 64));
 
 ---
 
-## Compliance Summary
+## Security Best Practices Summary
 
-### HIPAA Technical Safeguards (45 CFR 164.312)
+### Data Protection Controls
 
-| Requirement | Implementation | Status |
-|-------------|----------------|--------|
-| Access Control (a)(1) | RLS policies enforce user isolation | COMPLIANT |
-| Unique User ID (a)(2)(i) | Device-based anonymous IDs | COMPLIANT |
-| Automatic Logoff (a)(2)(iii) | Session management in app | N/A (App-level) |
-| Encryption (e)(2)(ii) | Client-side AES-256-GCM | COMPLIANT |
-| Audit Controls (b) | subscription_events table | COMPLIANT |
+| Control | Implementation | Status |
+|---------|----------------|--------|
+| Access Control | RLS policies enforce user isolation | ✅ IMPLEMENTED |
+| User Identification | Device-based anonymous IDs | ✅ IMPLEMENTED |
+| Session Security | Session management in app | ✅ App-level |
+| Encryption | Client-side AES-256-GCM | ✅ IMPLEMENTED |
+| Audit Trail | subscription_events table | ✅ IMPLEMENTED |
 
 ### Data Breach Prevention
 
@@ -478,7 +478,6 @@ All critical security requirements are met. All recommended improvements have be
 
 - Schema Source: `app/src/core/services/supabase/schema.sql`
 - Supabase RLS Docs: https://supabase.com/docs/guides/auth/row-level-security
-- HIPAA Technical Safeguards: 45 CFR 164.312
 - Being Security Architecture: `/docs/security/security-architecture.md`
 
 ---

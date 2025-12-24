@@ -1,10 +1,23 @@
 # BAA-Free Analytics Design for Being.
 **Avoiding Business Associate Agreements Through Privacy-First Architecture**
 
-**Document Version**: 1.0
-**Last Updated**: 2025-10-02
-**Status**: Legal Foundation
-**Related**: INFRA-24 Privacy-First Analytics, Privacy-Analytics-Compliance-Requirements.md
+**Document Version**: 1.1
+**Last Updated**: 2025-12-23
+**Status**: Reference (Implementation Deferred)
+
+---
+
+> **Note (2025-12-23)**: This document was created as part of INFRA-24 planning work.
+> The core principle—that Being avoids BAAs by never transmitting PHI—remains valid
+> and is captured in the architecture doc `docs/architecture/data-privacy-architecture.md`.
+>
+> This detailed analytics-specific document is retained for reference if/when analytics
+> implementation (FEAT-40) is prioritized. The implementation approach described here
+> (k-anonymity, differential privacy, etc.) is likely over-engineered for Being's
+> current stage and should be re-evaluated when the work begins.
+>
+> **Related docs removed**: Privacy-Analytics-Compliance-Requirements.md,
+> User-Consent-Framework.md, CRITICAL-COMPLIANCE-SUMMARY.md (stale planning artifacts)
 
 ---
 

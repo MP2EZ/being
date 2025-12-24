@@ -1,8 +1,8 @@
-# FullMind API Design and Architecture Documentation
+# Being API Design and Architecture Documentation
 
 ## Overview
 
-This document details the current local-only API architecture and design patterns for FullMind's mental health platform. The system is architected for seamless transition from local-only operation to connected backend integration while maintaining clinical-grade data integrity and therapeutic effectiveness.
+This document details the current local-only API architecture and design patterns for Being's Stoic Mindfulness platform. The system is architected for seamless transition from local-only operation to connected backend integration while maintaining clinical-grade data integrity and therapeutic effectiveness.
 
 ## Table of Contents
 
@@ -21,7 +21,7 @@ This document details the current local-only API architecture and design pattern
 
 ### Local-First Design Philosophy
 
-FullMind operates on a **local-first** architecture that prioritizes user data sovereignty, offline functionality, and clinical data integrity. The system is designed to function completely offline while being prepared for future backend integration.
+Being operates on a **local-first** architecture that prioritizes user data sovereignty, offline functionality, and clinical data integrity. The system is designed to function completely offline while being prepared for future backend integration.
 
 ```typescript
 // Current architecture overview

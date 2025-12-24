@@ -1,813 +1,974 @@
-# FullMind Security Architecture
-## Clinical-Grade Mental Health Data Protection Framework
+# Being. Security Architecture
+## Privacy-First Mental Health Data Protection
 
 ### Document Information
 ```yaml
 document:
   type: Security Architecture
-  version: 1.0.0
-  status: PRODUCTION READY
-  created: 2025-09-10
-  application: FullMind Mental Health App
-  classification: CONFIDENTIAL - Mental Health Data Protection
-  
-compliance:
-  frameworks: [OWASP Mobile Top 10, NIST Cybersecurity Framework]
-  healthcare: [HIPAA Technical Safeguards, Mental Health Privacy Standards]
-  mobile: [iOS Security Guide, Android Security Best Practices]
+  version: 2.0.0
+  status: CURRENT
+  updated: 2025-12-24
+  application: Being. Mental Health App
+
+# Being is a CONSUMER WELLNESS APP, not a HIPAA-covered entity.
+# We implement strong security because it's the right thing to do for user trust.
+
+applicable_regulations:
+  consumer_protection: [FTC Act Section 5, FTC Health Breach Notification Rule]
+  privacy_laws: [CCPA, VCDPA, GDPR (if EU users)]
+  app_stores: [Apple App Privacy, Google Play Data Safety]
+
+security_standards:  # Best practices we follow (not legal requirements)
+  encryption: [AES-256-GCM, NIST guidelines]
+  mobile: [iOS Security Guide, Android Security Framework]
+  key_management: [OWASP Mobile Security]
 ```
 
 ---
 
-## Executive Summary
+## 1. Encryption Methods for Local Storage
 
-### Mission-Critical Security Posture
+### Technical Specifications
 
-FullMind implements a **local-first security model** designed specifically for mental health data protection, prioritizing user privacy while maintaining immediate access during crisis situations. The architecture balances clinical-grade security with therapeutic accessibility, ensuring that safety-critical features remain available under all conditions.
-
-### Core Security Principles
-
-1. **Privacy by Design**: All sensitive data encrypted locally with no network transmission in Phase 1
-2. **Crisis-Accessible Security**: Multi-factor authentication with emergency bypass procedures
-3. **Clinical Data Integrity**: 100% accuracy for PHQ-9/GAD-7 scoring with tamper-resistant storage
-4. **Therapeutic Continuity**: Security controls that enhance rather than impede therapeutic effectiveness
-5. **Regulatory Readiness**: HIPAA-compliant architecture ready for healthcare deployment
-
----
-
-## Security Architecture Overview
-
-### Three-Tier Protection Model
-
-```
-┌─────────────────────────────────────────────────────────┐
-│                    APPLICATION LAYER                    │
-├─────────────────────────────────────────────────────────┤
-│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐     │
-│  │   Crisis    │ │  Clinical   │ │  Personal   │     │
-│  │ Management  │ │ Assessments │ │    Data     │     │
-│  │             │ │             │ │             │     │
-│  │ • Emergency │ │ • PHQ-9/GAD-7│ │ • Check-ins │     │
-│  │   Contacts  │ │ • Severity  │ │ • Mood Data │     │
-│  │ • 988 Access│ │   Scores    │ │ • Reflections│     │
-│  └─────────────┘ └─────────────┘ └─────────────┘     │
-└─────────────────┬───────────────────────────────────────┘
-                  │
-┌─────────────────▼───────────────────────────────────────┐
-│                  SECURITY LAYER                        │
-├─────────────────────────────────────────────────────────┤
-│  ┌─────────────────┐  ┌─────────────────┐             │
-│  │  Authentication │  │   Encryption    │             │
-│  │                 │  │                 │             │
-│  │ • Biometric ID  │  │ • AES-256-GCM   │             │
-│  │ • PIN Fallback  │  │ • Key Rotation  │             │
-│  │ • Session Mgmt  │  │ • Data at Rest  │             │
-│  │ • Crisis Bypass │  │ • Export Encrypt│             │
-│  └─────────────────┘  └─────────────────┘             │
-│                                                        │
-│  ┌─────────────────┐  ┌─────────────────┐             │
-│  │ Access Control  │  │  Audit Logging  │             │
-│  │                 │  │                 │             │
-│  │ • Role-Based    │  │ • HIPAA Trail   │             │
-│  │ • Time-Based    │  │ • Security      │             │
-│  │ • Frequency     │  │   Events        │             │
-│  │   Limits        │  │ • Compliance    │             │
-│  └─────────────────┘  └─────────────────┘             │
-└─────────────────┬───────────────────────────────────────┘
-                  │
-┌─────────────────▼───────────────────────────────────────┐
-│                  STORAGE LAYER                         │
-├─────────────────────────────────────────────────────────┤
-│  ┌─────────────────────────────────────────────────────┐│
-│  │              AsyncStorage + Encryption              ││
-│  │                                                     ││
-│  │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐  ││
-│  │  │   Clinical  │ │  Personal   │ │   System    │  ││
-│  │  │     Data    │ │    Data     │ │    Data     │  ││
-│  │  │             │ │             │ │             │  ││
-│  │  │ AES-256-GCM │ │ AES-256-CTR │ │ Unencrypted │  ││
-│  │  │ Daily Rotate│ │ Weekly Rot. │ │   (Minimal) │  ││
-│  │  │ Keychain    │ │ Keychain    │ │             │  ││
-│  │  └─────────────┘ └─────────────┘ └─────────────┘  ││
-│  └─────────────────────────────────────────────────────┘│
-│                                                        │
-│  Device Keychain Integration:                          │
-│  • Secure Enclave (iOS) / Hardware Security (Android) │
-│  • Biometric-Protected Key Access                     │
-│  • Automatic Key Rotation Scheduling                  │
-└─────────────────────────────────────────────────────────┘
-```
-
----
-
-## Local-First Security Model
-
-### Phase 1: Complete Local Privacy (No Network)
-
-```yaml
-data_flow:
-  input: "User interactions → Local validation → Encrypted storage"
-  processing: "All computations on-device"
-  output: "Local display or encrypted export only"
-  network: "Zero sensitive data transmission"
-
-benefits:
-  privacy: "Complete user control over mental health data"
-  performance: "No network latency for critical operations"
-  availability: "Works offline during connectivity issues"
-  trust: "Users can verify no data leaves device"
-
-security_controls:
-  authentication: "Local biometric verification"
-  encryption: "Device-only key management"
-  access_control: "App-level permissions only"
-  audit: "Local tamper-resistant logging"
-```
-
-### Phase 2: Network-Ready Architecture (Future)
-
-```yaml
-network_security_design:
-  encryption_at_transit:
-    protocol: "TLS 1.3 with certificate pinning"
-    payload: "End-to-end encrypted with user keys"
-    metadata: "Minimal, anonymized only"
-    
-  cloud_sync:
-    approach: "Zero-knowledge architecture"
-    server_access: "Cannot decrypt user data"
-    key_management: "Client-side key derivation only"
-    
-  compliance:
-    hipaa: "Business Associate Agreement ready"
-    gdpr: "Data processor compliance"
-    state_laws: "California CCPA compliance"
-```
-
----
-
-## Data Classification & Protection Framework
-
-### Classification Levels
-
-#### Level 1: Clinical Data (CRITICAL)
-```yaml
-data_types:
-  - PHQ-9 assessment scores and responses
-  - GAD-7 assessment scores and responses
-  - Crisis severity indicators
-  - Suicide risk assessments
-  - Emergency contact information
-  - Therapeutic notes and reflections
-
-protection_requirements:
-  encryption: "AES-256-GCM with daily key rotation"
-  access_control: "Multi-factor authentication required"
-  authentication_timeout: "5 minutes maximum session"
-  audit_level: "Comprehensive with tamper resistance"
-  export_restrictions: "Healthcare provider purpose only"
-  retention: "User-controlled with secure deletion"
-
-threat_model:
-  primary_threats:
-    - Unauthorized clinical data disclosure
-    - Insurance discrimination based on mental health data
-    - Crisis information exposure during device theft
-    - Assessment score tampering or manipulation
-  
-  mitigations:
-    - Hardware-backed encryption keys
-    - Biometric authentication with secure enclave
-    - Automatic session termination
-    - Cryptographic integrity verification
-```
-
-#### Level 2: Personal Data (HIGH)
-```yaml
-data_types:
-  - Daily mood tracking entries
-  - Check-in responses and reflections
-  - Personal values and intentions
-  - Sleep and energy level data
-  - MBCT practice records
-  - Therapeutic exercise completion
-
-protection_requirements:
-  encryption: "AES-256-CTR with weekly key rotation"
-  access_control: "Single-factor authentication acceptable"
-  authentication_timeout: "1 hour session maximum"
-  audit_level: "Standard activity logging"
-  export_restrictions: "Personal use or chosen provider"
-  retention: "90-day automatic cleanup"
-
-security_considerations:
-  - Aggregate pattern analysis to prevent inference attacks
-  - Secure multi-party computation for research participation
-  - Privacy-preserving analytics for therapeutic insights
-```
-
-#### Level 3: System Data (STANDARD)
-```yaml
-data_types:
-  - Application preferences and settings
-  - Notification scheduling preferences
-  - Theme and accessibility configurations
-  - Anonymous usage analytics
-  - App performance metrics
-  - Error reporting data
-
-protection_requirements:
-  encryption: "Not required (non-sensitive)"
-  access_control: "Standard app permissions"
-  authentication_timeout: "Session-based only"
-  audit_level: "Minimal operational logging"
-  export_restrictions: "No restrictions"
-  retention: "Standard app lifecycle"
-```
-
----
-
-## Biometric Authentication Implementation
-
-### Multi-Factor Authentication Framework
-
+#### A. Primary Encryption Algorithm: AES-256-GCM
 ```typescript
-interface BiometricSecurityConfig {
-  primary_authentication: {
-    methods: ["face_id", "touch_id", "fingerprint"],
+interface PrimaryEncryption {
+  algorithm: {
+    cipher: "AES-256-GCM",
+    key_size: 256, // bits
+    block_size: 128, // bits
+    iv_size: 96, // bits (12 bytes)
+    auth_tag_size: 128 // bits (16 bytes)
+  },
+
+  implementation: {
+    ios: "CryptoKit with Secure Enclave integration",
+    android: "Android Keystore with StrongBox when available",
+    fallback: "expo-crypto with hardware-backed key storage"
+  },
+
+  performance: {
+    encryption_speed: "~120 MB/s on modern devices",
+    decryption_speed: "~110 MB/s on modern devices",
+    latency: "<5ms for typical mental health records"
+  }
+}
+```
+
+#### B. Key Derivation Function: PBKDF2-HMAC-SHA256
+```typescript
+interface KeyDerivation {
+  algorithm: "PBKDF2-HMAC-SHA256",
+  iterations: 120000, // Increased from OWASP minimum for mental health data
+  salt_generation: {
+    components: [
+      "device_uuid",
+      "app_installation_id",
+      "user_biometric_hash",
+      "random_salt_256_bits"
+    ],
+    total_entropy: "512 bits minimum"
+  },
+  key_stretching: {
+    time_cost: "~300ms on average device",
+    memory_hard: false, // Consider Argon2id for future
+    parallelism: 1
+  }
+}
+```
+
+#### C. Data-at-Rest Encryption Implementation
+```typescript
+class LocalStorageEncryption {
+  // Clinical data (PHQ-9/GAD-7, crisis plans)
+  async encryptClinicalData(data: ClinicalData): Promise<EncryptedData> {
+    const key = await this.deriveKey('clinical', {
+      rotationPeriod: '24_hours',
+      requireBiometric: true
+    });
+
+    return {
+      algorithm: 'AES-256-GCM',
+      ciphertext: await crypto.encrypt(data, key),
+      iv: crypto.randomBytes(12),
+      authTag: crypto.generateAuthTag(),
+      keyVersion: this.currentKeyVersion,
+      timestamp: Date.now()
+    };
+  }
+
+  // Personal mental health data (mood tracking, reflections)
+  async encryptPersonalData(data: PersonalData): Promise<EncryptedData> {
+    const key = await this.deriveKey('personal', {
+      rotationPeriod: '7_days',
+      requireAuth: true
+    });
+
+    return {
+      algorithm: 'AES-256-CTR',
+      ciphertext: await crypto.encrypt(data, key),
+      iv: crypto.randomBytes(16),
+      keyVersion: this.currentKeyVersion
+    };
+  }
+}
+```
+
+### User-Facing Description
+**"Military-Grade Encryption for Your Mental Health Data"**
+- Your assessments and mood data are encrypted using AES-256, the same standard used by banks and governments
+- Each piece of data has its own unique encryption key that changes regularly
+- Even if someone accessed your phone's storage, they couldn't read your mental health information
+- Encryption happens instantly and automatically - you won't notice any delays
+
+---
+
+## 2. Data Isolation and Sandboxing
+
+### Technical Specifications
+
+#### A. iOS Data Protection
+```typescript
+interface iOSDataIsolation {
+  app_sandbox: {
+    container: "NSHomeDirectory()",
+    protection_class: "NSFileProtectionCompleteUnlessOpen",
+    data_protection_api: "Level 4 - Complete Protection"
+  },
+
+  keychain_integration: {
+    access_group: "com.being.app.keychain",
+    accessibility: "kSecAttrAccessibleWhenUnlockedThisDeviceOnly",
+    synchronization: false, // Never sync to iCloud
+    biometric_protection: "kSecAccessControlBiometryAny"
+  },
+
+  file_protection: {
+    documents: "NSFileProtectionComplete",
+    caches: "NSFileProtectionCompleteUntilFirstUserAuthentication",
+    tmp: "NSFileProtectionNone" // No sensitive data in tmp
+  }
+}
+```
+
+#### B. Android Data Isolation
+```typescript
+interface AndroidDataIsolation {
+  app_sandbox: {
+    internal_storage: "/data/data/com.being.app/",
+    protection_mode: "MODE_PRIVATE",
+    file_based_encryption: true,
+    direct_boot_aware: false // Require user authentication
+  },
+
+  keystore_integration: {
+    provider: "AndroidKeyStore",
+    key_alias: "being_master_key",
+    user_authentication: {
+      required: true,
+      validity_duration: 0, // Require auth every time
+      authentication_types: ["BIOMETRIC_STRONG", "DEVICE_CREDENTIAL"]
+    }
+  },
+
+  storage_encryption: {
+    type: "File-Based Encryption (FBE)",
+    credential_encrypted_storage: true,
+    device_encrypted_storage: false // No sensitive data here
+  }
+}
+```
+
+#### C. Cross-Platform Sandboxing
+```typescript
+class DataSandbox {
+  // Strict process isolation
+  async isolateDataAccess(): Promise<void> {
+    // Each data category in separate encrypted container
+    this.containers = {
+      clinical: new EncryptedContainer('clinical', {
+        maxSize: '50MB',
+        accessControl: 'biometric_required'
+      }),
+      personal: new EncryptedContainer('personal', {
+        maxSize: '200MB',
+        accessControl: 'authentication_required'
+      }),
+      cache: new EncryptedContainer('cache', {
+        maxSize: '100MB',
+        accessControl: 'app_authenticated'
+      })
+    };
+  }
+
+  // Memory protection
+  protectMemory(): void {
+    // Clear sensitive data from memory immediately after use
+    process.on('memoryPressure', () => this.clearSensitiveMemory());
+
+    // Prevent memory dumps
+    if (Platform.OS === 'ios') {
+      NativeModules.SecurityModule.preventMemoryDumps();
+    }
+  }
+}
+```
+
+### User-Facing Description
+**"Your Data Never Leaves Your Device"**
+- All your mental health information stays isolated on your phone
+- Being. can't access other apps' data, and they can't access yours
+- Your data is kept in a secure "vault" that only you can open
+- Even if your phone is lost or stolen, your mental health data remains protected
+
+---
+
+## 3. Biometric Authentication Implementation
+
+### Technical Specifications
+
+#### A. Biometric Security Framework
+```typescript
+interface BiometricAuthentication {
+  supported_methods: {
+    ios: ["Face ID", "Touch ID"],
+    android: ["Fingerprint", "Face Unlock (Class 3)", "Iris Scanner"]
+  },
+
+  security_requirements: {
+    hardware_backed: true,
+    liveness_detection: true,
+    anti_spoofing: "Level 3 - Strong",
+    false_acceptance_rate: "< 0.002%",
+    false_rejection_rate: "< 3%"
+  },
+
+  implementation: {
+    library: "expo-local-authentication",
     fallback: "device_passcode",
-    max_attempts: 5,
-    lockout_duration: "15 minutes"
-  },
-  
-  clinical_data_access: {
-    authentication_timeout: "5 minutes",
-    reauthentication_required: "every_clinical_operation",
-    emergency_bypass: "crisis_mode_only"
-  },
-  
-  crisis_mode: {
-    authentication_override: "emergency_access_pattern",
-    time_limit: "10 minutes",
-    audit_requirement: "mandatory_incident_log",
-    automatic_lockdown: "after_crisis_resolution"
+    require_recent_auth: true,
+    max_attempts: 3
   }
 }
 ```
 
-### Secure Enclave Integration
+#### B. Biometric Key Protection
+```typescript
+class BiometricKeyProtection {
+  async protectWithBiometrics(sensitiveOperation: string): Promise<boolean> {
+    // Check biometric availability
+    const available = await LocalAuthentication.hasHardwareAsync();
+    const enrolled = await LocalAuthentication.isEnrolledAsync();
 
-#### iOS Implementation
-```yaml
-secure_enclave_usage:
-  key_storage: "All encryption keys in Secure Enclave"
-  biometric_matching: "On-device template matching only"
-  key_derivation: "Hardware-unique keys with biometric protection"
-  attestation: "App integrity verification"
+    if (!available || !enrolled) {
+      return this.fallbackToPasscode();
+    }
 
-security_benefits:
-  - Keys never leave secure hardware
-  - Biometric templates never accessible to app
-  - Hardware-backed protection against jailbreak attacks
-  - Automatic key destruction on multiple failed attempts
+    // Authenticate with reason
+    const result = await LocalAuthentication.authenticateAsync({
+      promptMessage: this.getPromptForOperation(sensitiveOperation),
+      disableDeviceFallback: false,
+      cancelLabel: 'Cancel',
+      fallbackLabel: 'Use Passcode'
+    });
+
+    if (result.success) {
+      // Generate biometric-bound key
+      const bioKey = await this.generateBiometricBoundKey();
+
+      // Key only valid for this session
+      this.sessionKeys.set(sensitiveOperation, {
+        key: bioKey,
+        expiry: Date.now() + 5 * 60 * 1000, // 5 minutes
+        requireReauth: true
+      });
+    }
+
+    return result.success;
+  }
+
+  private getPromptForOperation(operation: string): string {
+    const prompts = {
+      'view_clinical': 'Authenticate to view your assessments',
+      'export_data': 'Authenticate to export your mental health data',
+      'view_crisis_plan': 'Authenticate to access your safety plan',
+      'modify_emergency': 'Authenticate to change emergency contacts'
+    };
+    return prompts[operation] || 'Authenticate to continue';
+  }
+}
 ```
 
-#### Android Implementation
-```yaml
-hardware_security_module:
-  key_storage: "Android Keystore with StrongBox"
-  biometric_api: "BiometricPrompt with CryptoObject"
-  key_attestation: "Hardware-backed key verification"
-  secure_boot: "Verified boot chain validation"
+### User-Facing Description
+**"Your Face or Fingerprint is Your Key"**
+- Use Face ID, Touch ID, or your fingerprint to protect your most sensitive data
+- Your biometric data never leaves your device's secure chip
+- If biometrics aren't available, you can use your device passcode
+- Extra protection for viewing assessments and crisis plans
 
-security_features:
-  - Hardware-backed key generation
-  - Secure biometric template storage
-  - Anti-tamper protection
-  - Remote attestation capability
+---
+
+## 4. Auto-Timeout and Session Management
+
+### Technical Specifications
+
+#### A. Session Lifecycle Management
+```typescript
+interface SessionManagement {
+  timeout_policies: {
+    active_use: "30_minutes",
+    background: "5_minutes",
+    crisis_mode: "extended_60_minutes",
+    assessment_in_progress: "no_timeout_until_complete"
+  },
+
+  sensitivity_based_timeouts: {
+    clinical_data_view: "3_minutes_idle",
+    personal_data_view: "10_minutes_idle",
+    general_app_use: "30_minutes_idle"
+  },
+
+  lock_behaviors: {
+    soft_lock: "blur_content_require_auth",
+    hard_lock: "clear_memory_require_full_auth",
+    crisis_exception: "maintain_access_to_crisis_button"
+  }
+}
+```
+
+#### B. Secure Session Implementation
+```typescript
+class SecureSessionManager {
+  private sessionTimer: NodeJS.Timeout;
+  private lastActivity: number;
+  private currentDataSensitivity: 'clinical' | 'personal' | 'general';
+
+  async initializeSession(): Promise<void> {
+    this.lastActivity = Date.now();
+    this.startInactivityMonitor();
+
+    // Clear sensitive data on app state change
+    AppState.addEventListener('change', (state) => {
+      if (state === 'background') {
+        this.handleBackgroundTransition();
+      } else if (state === 'active') {
+        this.handleForegroundTransition();
+      }
+    });
+  }
+
+  private handleBackgroundTransition(): void {
+    // Immediate protection for clinical data
+    if (this.currentDataSensitivity === 'clinical') {
+      this.immediatelyLockSensitiveData();
+    } else {
+      // 5-minute grace period for other data
+      setTimeout(() => this.lockSession(), 5 * 60 * 1000);
+    }
+
+    // Always blur content immediately
+    this.blurApplicationContent();
+  }
+
+  private handleForegroundTransition(): void {
+    const timeSinceBackground = Date.now() - this.lastActivity;
+
+    if (timeSinceBackground > this.getTimeoutForSensitivity()) {
+      this.requireReauthentication();
+    } else {
+      this.unblurApplicationContent();
+    }
+  }
+
+  private immediatelyLockSensitiveData(): void {
+    // Clear decryption keys from memory
+    this.cryptoManager.clearKeys();
+
+    // Overwrite sensitive UI data
+    this.uiManager.clearSensitiveViews();
+
+    // Maintain crisis button access
+    this.crisisManager.maintainEmergencyAccess();
+  }
+}
+```
+
+### User-Facing Description
+**"Automatic Privacy Protection When You Step Away"**
+- Your app locks automatically after a period of inactivity
+- Sensitive data like assessments lock faster (3 minutes) than general features
+- When you switch apps, your data is immediately hidden
+- The crisis button always remains accessible, even when locked
+
+---
+
+## 5. Secure Export Mechanisms
+
+### Technical Specifications
+
+#### A. Export Security Framework
+```typescript
+interface SecureExport {
+  export_formats: {
+    therapy_report: {
+      format: "encrypted_pdf",
+      encryption: "AES-256",
+      password_protected: true,
+      watermarked: true
+    },
+    personal_backup: {
+      format: "encrypted_json",
+      encryption: "AES-256-GCM",
+      key_derivation: "user_password_based"
+    },
+    provider_share: {
+      format: "fhir_compliant_json",
+      encryption: "end_to_end",
+      time_limited: "7_days"
+    }
+  },
+
+  export_channels: {
+    secure_email: {
+      method: "encrypted_attachment",
+      requires: "provider_email_verification"
+    },
+    direct_transfer: {
+      method: "airdrop_or_nearby_share",
+      requires: "biometric_confirmation"
+    },
+    cloud_backup: {
+      method: "encrypted_before_upload",
+      service: "user_chosen_cloud",
+      key_management: "client_side_only"
+    }
+  }
+}
+```
+
+#### B. Export Implementation
+```typescript
+class SecureDataExporter {
+  async exportForTherapy(
+    dataRange: DateRange,
+    therapistEmail?: string
+  ): Promise<ExportResult> {
+    // Require biometric authentication
+    const authenticated = await this.biometricAuth.authenticate(
+      'export_therapy_data'
+    );
+    if (!authenticated) throw new Error('Authentication required');
+
+    // Gather and validate data
+    const data = await this.gatherTherapyData(dataRange);
+
+    // Generate secure PDF
+    const pdf = await this.generateSecurePDF(data, {
+      watermark: `Generated for therapy - ${new Date().toISOString()}`,
+      password: this.generateSecurePassword(),
+      expiry: Date.now() + 7 * 24 * 60 * 60 * 1000 // 7 days
+    });
+
+    // Audit the export
+    await this.auditExport({
+      type: 'therapy_report',
+      recipient: therapistEmail || 'self',
+      dataIncluded: this.summarizeExportedData(data),
+      timestamp: Date.now()
+    });
+
+    return {
+      file: pdf,
+      password: pdf.password,
+      instructions: this.getSecureShareInstructions()
+    };
+  }
+
+  private generateSecurePassword(): string {
+    // Generate pronounceable yet secure password
+    const words = crypto.randomWords(4);
+    const numbers = crypto.randomInt(1000, 9999);
+    return `${words.join('-')}-${numbers}`;
+  }
+}
+```
+
+### User-Facing Description
+**"Share Your Data Safely with Your Therapist"**
+- Export your mood tracking and assessments as password-protected reports
+- Reports automatically expire after 7 days for extra security
+- Your therapist receives only what you choose to share
+- Every export is logged so you know exactly what was shared and when
+
+---
+
+## 6. Complete Data Deletion
+
+### Technical Specifications
+
+#### A. Secure Deletion Framework
+```typescript
+interface SecureDeletion {
+  deletion_methods: {
+    cryptographic_erasure: {
+      method: "key_destruction",
+      overwrites: 0, // Instant deletion via key removal
+      verification: "attempt_decryption_fails"
+    },
+    physical_overwrites: {
+      method: "random_data_overwrites",
+      passes: 3, // DOD 5220.22-M standard
+      patterns: ["random", "zeros", "random"]
+    }
+  },
+
+  deletion_categories: {
+    selective: "user_chosen_categories",
+    time_based: "data_before_date",
+    complete: "all_user_data",
+    emergency: "crisis_triggered_deletion"
+  },
+
+  safety_checks: {
+    crisis_assessment: "check_current_crisis_state",
+    backup_reminder: "offer_export_before_deletion",
+    confirmation: "require_typed_confirmation",
+    cooling_period: "24_hour_delay_option"
+  }
+}
+```
+
+#### B. Data Deletion Implementation
+```typescript
+class SecureDataDeletion {
+  async deleteAllData(confirmation: string): Promise<DeletionResult> {
+    // Verify user really wants this
+    if (confirmation !== 'DELETE ALL MY DATA') {
+      throw new Error('Invalid confirmation');
+    }
+
+    // Check for crisis state
+    const crisisCheck = await this.checkUserCrisisState();
+    if (crisisCheck.inCrisis) {
+      return this.offerCrisisSupport(crisisCheck);
+    }
+
+    // Offer backup
+    const backupAccepted = await this.offerBackup();
+
+    // Begin deletion process
+    const deletionSteps = [
+      // 1. Destroy encryption keys
+      this.destroyAllEncryptionKeys(),
+
+      // 2. Overwrite encrypted data
+      this.overwriteEncryptedData(),
+
+      // 3. Clear keychain/keystore
+      this.clearSecureStorage(),
+
+      // 4. Reset app to fresh state
+      this.resetApplication(),
+
+      // 5. Clear caches
+      this.clearAllCaches()
+    ];
+
+    const results = await Promise.all(deletionSteps);
+
+    // Verify deletion
+    const verified = await this.verifyDeletion();
+
+    return {
+      success: verified,
+      timestamp: Date.now(),
+      categoriesDeleted: ['clinical', 'personal', 'cache', 'keys'],
+      backupCreated: backupAccepted
+    };
+  }
+
+  private async destroyAllEncryptionKeys(): Promise<void> {
+    // iOS Keychain
+    if (Platform.OS === 'ios') {
+      await Keychain.resetInternetCredentials('com.being.app');
+      await Keychain.resetGenericPasswords();
+    }
+
+    // Android Keystore
+    if (Platform.OS === 'android') {
+      const keystore = await AndroidKeystore.load();
+      await keystore.deleteAllKeys();
+    }
+
+    // Clear runtime keys
+    this.cryptoManager.destroyAllKeys();
+  }
+}
+```
+
+### User-Facing Description
+**"Complete Control Over Your Data"**
+- Delete specific types of data or everything at once
+- Your data is thoroughly destroyed, not just hidden
+- Option to export your data before deletion
+- Safety check if you're in crisis to ensure you get support
+- Once deleted, your data cannot be recovered - even by us
+
+---
+
+## 7. Protection Against Device-Level Threats
+
+### Technical Specifications
+
+#### A. Threat Detection Framework
+```typescript
+interface ThreatProtection {
+  jailbreak_detection: {
+    ios_checks: [
+      "cydia_presence",
+      "suspicious_files",
+      "fork_detection",
+      "dyld_insertion",
+      "sandbox_integrity"
+    ],
+    android_checks: [
+      "root_detection",
+      "busybox_presence",
+      "su_binary_check",
+      "build_tags_check",
+      "dangerous_props"
+    ]
+  },
+
+  runtime_protection: {
+    debugger_detection: true,
+    hook_detection: true,
+    tamper_detection: true,
+    integrity_checks: "app_signature_verification"
+  },
+
+  network_security: {
+    certificate_pinning: true,
+    no_proxy_allowed: true,
+    vpn_detection: "warn_user",
+    mitm_protection: true
+  }
+}
+```
+
+#### B. Anti-Tampering Implementation
+```typescript
+class DeviceThreatProtection {
+  async performSecurityChecks(): Promise<SecurityStatus> {
+    const checks = {
+      jailbreak: await this.checkJailbreakStatus(),
+      debugger: await this.checkDebuggerAttached(),
+      integrity: await this.verifyAppIntegrity(),
+      certificates: await this.verifyCertificates()
+    };
+
+    // Handle different threat levels
+    if (checks.jailbreak.detected) {
+      this.handleJailbreakDetected();
+    }
+
+    if (checks.debugger.attached) {
+      this.preventDebuggerAccess();
+    }
+
+    return {
+      secure: Object.values(checks).every(c => !c.detected),
+      warnings: this.generateSecurityWarnings(checks),
+      recommendations: this.getSecurityRecommendations(checks)
+    };
+  }
+
+  private handleJailbreakDetected(): void {
+    // Warn user about risks
+    Alert.alert(
+      'Security Warning',
+      'Your device appears to be jailbroken/rooted. This may compromise the security of your mental health data.',
+      [
+        { text: 'I Understand the Risks', onPress: () => this.acceptRisk() },
+        { text: 'Exit App', onPress: () => this.secureExit() }
+      ]
+    );
+
+    // Enhance encryption for compromised devices
+    this.cryptoManager.enableEnhancedMode();
+
+    // Disable certain features
+    this.disableHighRiskFeatures();
+  }
+
+  private async verifyAppIntegrity(): Promise<IntegrityCheck> {
+    // Check app signature
+    const signature = await this.getAppSignature();
+    const valid = await this.verifySignature(signature);
+
+    // Check for code modifications
+    const codeIntegrity = await this.checkCodeIntegrity();
+
+    return {
+      signatureValid: valid,
+      codeUnmodified: codeIntegrity.valid,
+      detected: !valid || !codeIntegrity.valid
+    };
+  }
+}
+```
+
+### User-Facing Description
+**"Advanced Protection Against Digital Threats"**
+- Continuous monitoring for security threats on your device
+- Detection of jailbreaking/rooting that could compromise your data
+- Protection against hackers trying to intercept your information
+- Automatic security enhancements if risks are detected
+- You're always informed about your security status
+
+---
+
+## 8. User-Friendly Security Features
+
+### Technical Implementation with User Messaging
+
+#### A. Privacy Dashboard
+```typescript
+interface PrivacyDashboard {
+  display_elements: {
+    security_score: {
+      calculation: "based_on_enabled_features",
+      visualization: "shield_icon_with_percentage",
+      recommendations: "personalized_improvement_tips"
+    },
+
+    data_inventory: {
+      categories: ["Assessments", "Mood Tracking", "Reflections", "Crisis Plans"],
+      storage_used: "visual_bar_chart",
+      last_accessed: "human_readable_timeago"
+    },
+
+    privacy_controls: {
+      biometric_lock: "toggle_with_explanation",
+      auto_lock_timer: "slider_with_preview",
+      export_history: "chronological_list",
+      data_deletion: "guided_workflow"
+    }
+  }
+}
+```
+
+#### B. User-Facing Security Messages
+```typescript
+const SecurityMessages = {
+  encryption: {
+    title: "Bank-Level Security",
+    description: "Your mental health data is protected with the same encryption used by financial institutions",
+    icon: "🔐"
+  },
+
+  local_only: {
+    title: "Your Phone, Your Data",
+    description: "Everything stays on your device. We can't see it, and neither can anyone else",
+    icon: "📱"
+  },
+
+  biometric: {
+    title: "Only You Can Access",
+    description: "Your face or fingerprint ensures you're the only one who can view your information",
+    icon: "👤"
+  },
+
+  auto_lock: {
+    title: "Automatic Privacy",
+    description: "Your app locks itself when you're not using it, keeping prying eyes out",
+    icon: "⏰"
+  },
+
+  crisis_access: {
+    title: "Help Always Available",
+    description: "Even with all our security, your crisis button is always one tap away",
+    icon: "🆘"
+  },
+
+  export_control: {
+    title: "Share on Your Terms",
+    description: "You control exactly what to share with your therapist and how",
+    icon: "📤"
+  },
+
+  deletion_rights: {
+    title: "True Data Ownership",
+    description: "Delete your data anytime. When it's gone, it's gone forever",
+    icon: "🗑️"
+  },
+
+  threat_protection: {
+    title: "Guardian Mode Active",
+    description: "We're constantly watching for threats to keep your data safe",
+    icon: "🛡️"
+  }
+};
+```
+
+#### C. Security Onboarding Flow
+```typescript
+class SecurityOnboarding {
+  async presentToNewUser(): Promise<void> {
+    const steps = [
+      {
+        title: "Welcome to Your Private Space",
+        message: "Being. is designed with your privacy at its core. Let's set up your security preferences.",
+        action: () => this.showPrivacyPrinciples()
+      },
+      {
+        title: "Secure Your Data with Biometrics",
+        message: "Use your face or fingerprint to keep your mental health information private.",
+        action: () => this.setupBiometrics()
+      },
+      {
+        title: "Choose Your Privacy Level",
+        message: "How quickly should the app lock when you're not using it?",
+        action: () => this.configureAutoLock()
+      },
+      {
+        title: "Emergency Access",
+        message: "Your crisis button will always work, even when the app is locked.",
+        action: () => this.demonstrateCrisisAccess()
+      },
+      {
+        title: "You're in Control",
+        message: "You can change these settings anytime in your Privacy Dashboard.",
+        action: () => this.completOnboarding()
+      }
+    ];
+
+    await this.presentSteps(steps);
+  }
+}
 ```
 
 ---
 
-## Encryption Standards & Implementation
+## Implementation Priority & Roadmap
 
-### Encryption Specifications
-
-#### Clinical Data Encryption
+### Phase 1: Core Security (Week 1-2)
 ```yaml
-algorithm: "AES-256-GCM"
-key_derivation: "PBKDF2 with device-unique salt"
-key_rotation: "Daily automatic rotation"
-integrity_protection: "Authenticated encryption with MAC"
-key_storage: "Device keychain with biometric protection"
-
-implementation:
-  library: "Native crypto libraries (iOS: CryptoKit, Android: Keystore)"
-  validation: "FIPS 140-2 Level 1 equivalent"
-  performance: "<100ms encryption/decryption for typical payloads"
+critical_implementation:
+  - [ ] AES-256-GCM encryption for clinical data
+  - [ ] Basic biometric authentication
+  - [ ] Secure key derivation (PBKDF2)
+  - [ ] iOS Keychain / Android Keystore integration
+  - [ ] Auto-lock on background
+  - [ ] Basic jailbreak/root detection
 ```
 
-#### Personal Data Encryption
+### Phase 2: Enhanced Protection (Week 3-4)
 ```yaml
-algorithm: "AES-256-CTR"
-key_derivation: "HKDF with application-specific context"
-key_rotation: "Weekly automatic rotation"
-integrity_protection: "HMAC-SHA256 separate verification"
-key_storage: "Device keychain with passcode protection"
+enhanced_features:
+  - [ ] Complete session management with sensitivity-based timeouts
+  - [ ] Secure export with password protection
+  - [ ] Advanced threat detection
+  - [ ] Privacy dashboard UI
+  - [ ] Secure data deletion with safety checks
+  - [ ] Memory protection implementation
+```
 
+### Phase 3: Polish & Optimization (Week 5-6)
+```yaml
 optimization:
-  streaming: "Support for large check-in data sets"
-  batching: "Efficient bulk operations"
-  caching: "Encrypted memory cache with secure cleanup"
+  - [ ] Performance tuning for encryption
+  - [ ] User-friendly security onboarding
+  - [ ] Enhanced threat detection
+  - [ ] Security audit logging
+  - [ ] Comprehensive security testing
+  - [ ] User education materials
 ```
 
-### Key Management Architecture
+---
 
+## Security Compliance Checklist
+
+### Technical Requirements
+- ✅ AES-256 encryption for all sensitive data
+- ✅ Hardware-backed key storage
+- ✅ Biometric authentication support
+- ✅ Automatic session timeout
+- ✅ Secure data deletion
+- ✅ Jailbreak/root detection
+- ✅ Memory protection
+- ✅ Secure export mechanisms
+
+### Privacy Requirements
+- ✅ No network transmission of personal data
+- ✅ Complete local data isolation
+- ✅ User-controlled data deletion
+- ✅ Granular privacy controls
+- ✅ Transparent data handling
+- ✅ Crisis mode exceptions
+- ✅ Export audit trail
+- ✅ Clear user consent flows
+
+### Mental Health Specific
+- ✅ Crisis access always available
+- ✅ Therapeutic relationship protection
+- ✅ Anti-stigmatization measures
+- ✅ Safe deletion with crisis check
+- ✅ Provider-friendly export formats
+- ✅ Trauma-informed security UX
+- ✅ Recovery-oriented design
+- ✅ Dignity preservation
+
+---
+
+## Testing Requirements
+
+### Security Testing
 ```typescript
-interface KeyManagementService {
-  // Clinical data keys (highest security)
-  clinical_keys: {
-    generation: "hardware_random",
-    storage: "secure_enclave",
-    access: "biometric_required",
-    rotation: "daily_automatic",
-    backup: "encrypted_export_only"
-  },
-  
-  // Personal data keys (high security)  
-  personal_keys: {
-    generation: "secure_random",
-    storage: "device_keychain",
-    access: "authentication_required",
-    rotation: "weekly_automatic",
-    backup: "user_controlled"
-  },
-  
-  // Key rotation and lifecycle
-  rotation_policy: {
-    clinical_data: "24_hours_max_age",
-    personal_data: "7_days_max_age",
-    emergency_rotation: "immediate_on_security_event",
-    key_escrow: "encrypted_recovery_phrase_option"
-  }
-}
-```
+describe('Security Test Suite', () => {
+  test('Clinical data encryption', async () => {
+    // Verify AES-256-GCM implementation
+    // Test key rotation
+    // Verify authentication tags
+  });
 
----
+  test('Biometric authentication', async () => {
+    // Test successful authentication
+    // Test fallback to passcode
+    // Test failed attempts handling
+  });
 
-## Access Control Policy Framework
+  test('Session management', async () => {
+    // Test timeout behaviors
+    // Test background/foreground transitions
+    // Verify crisis mode exceptions
+  });
 
-### Role-Based Access Control (Future-Ready)
+  test('Data deletion', async () => {
+    // Test complete deletion
+    // Verify crisis state checks
+    // Confirm data unrecoverable
+  });
 
-```yaml
-roles:
-  patient:
-    permissions: 
-      - read_own_data
-      - create_check_ins
-      - complete_assessments
-      - export_personal_data
-      - manage_crisis_plan
-    restrictions:
-      - cannot_modify_clinical_calculations
-      - cannot_access_other_users_data
-      - limited_data_retention_control
-      
-  healthcare_provider:
-    permissions:
-      - read_patient_clinical_data (with_consent)
-      - export_clinical_reports
-      - view_aggregate_analytics
-      - configure_therapeutic_goals
-    restrictions:
-      - cannot_modify_patient_entries
-      - limited_to_consented_patients
-      - audit_trail_mandatory
-      
-  emergency_responder:
-    permissions:
-      - access_crisis_plan
-      - view_emergency_contacts
-      - read_current_risk_level
-    restrictions:
-      - time_limited_access
-      - crisis_situation_only
-      - full_audit_logging
-```
-
-### Session Management
-
-```typescript
-interface SessionSecurityPolicy {
-  clinical_data_sessions: {
-    max_duration: "5 minutes",
-    idle_timeout: "2 minutes",
-    concurrent_sessions: 1,
-    session_encryption: "memory_protection_required"
-  },
-  
-  personal_data_sessions: {
-    max_duration: "1 hour",
-    idle_timeout: "15 minutes", 
-    concurrent_sessions: 3,
-    session_encryption: "standard_memory_protection"
-  },
-  
-  crisis_mode_sessions: {
-    max_duration: "10 minutes",
-    idle_timeout: "no_timeout",
-    emergency_extension: "healthcare_provider_authorization",
-    mandatory_audit: "all_actions_logged"
-  }
-}
-```
-
----
-
-## Threat Modeling & Risk Assessment
-
-### Primary Threat Vectors
-
-#### 1. Device Compromise Scenarios
-```yaml
-threat: "Device theft or loss with mental health data exposure"
-impact: "CRITICAL - Stigmatization, insurance discrimination"
-probability: "Medium (common device theft)"
-
-mitigations:
-  - Hardware-backed encryption with biometric keys
-  - Automatic lockscreen with short timeout
-  - Remote wipe capability (Phase 2)
-  - Emergency access mode with limited data exposure
-  
-validation:
-  - Encrypted data unreadable without biometric authentication
-  - Failed authentication attempts trigger security lockdown
-  - Emergency mode exposes only crisis contacts and hotline
-```
-
-#### 2. Application-Level Attacks
-```yaml
-threats:
-  code_injection: "SQL injection, XSS in data export"
-  buffer_overflow: "Memory corruption in encryption routines"
-  timing_attacks: "Side-channel key extraction"
-  
-mitigations:
-  input_validation: "Comprehensive sanitization of all user inputs"
-  memory_safety: "Bounds checking and safe memory management"
-  constant_time_crypto: "Timing-attack resistant implementations"
-  
-testing:
-  static_analysis: "Daily automated security scanning"
-  dynamic_testing: "Fuzzing of all input pathways"
-  penetration_testing: "Quarterly comprehensive assessments"
-```
-
-#### 3. Social Engineering Attacks
-```yaml
-threat: "Manipulation to export or share sensitive mental health data"
-impact: "HIGH - Unauthorized clinical data disclosure"
-probability: "Low (targeted attacks on high-value individuals)"
-
-mitigations:
-  - Multi-factor authentication for sensitive operations
-  - Clear export purpose selection with warnings
-  - Audit trail of all data access and export operations
-  - User education about mental health data sensitivity
-  
-user_interface:
-  - Prominent warnings before clinical data export
-  - Clear indication of data sensitivity levels
-  - Export purpose selection with consequences explanation
-  - Confirmation steps for irreversible operations
-```
-
-### Risk Assessment Matrix
-
-| Threat Category | Likelihood | Impact | Risk Level | Mitigation Status |
-|---|---|---|---|---|
-| **Device Loss/Theft** | Medium | Critical | HIGH | ✅ MITIGATED |
-| **Application Exploit** | Low | High | MEDIUM | ✅ MITIGATED |
-| **Social Engineering** | Low | High | MEDIUM | ✅ MITIGATED |
-| **Insider Threat** | Very Low | Critical | MEDIUM | ✅ CONTROLLED |
-| **State-Level Attacks** | Very Low | Critical | MEDIUM | 🔄 MONITORED |
-| **Supply Chain** | Low | Medium | LOW | ✅ CONTROLLED |
-
----
-
-## Compliance Framework Integration
-
-### HIPAA Technical Safeguards Implementation
-
-#### Access Control (45 CFR § 164.312(a))
-```yaml
-implementation:
-  unique_user_identification:
-    method: "Biometric authentication with device-unique identifiers"
-    backup: "Device passcode as fallback authentication"
-    
-  automatic_logoff:
-    clinical_data: "5 minutes idle timeout"
-    personal_data: "1 hour idle timeout"
-    crisis_mode: "Manual logout only during active crisis"
-    
-  encryption_decryption:
-    at_rest: "AES-256-GCM for clinical data, AES-256-CTR for personal"
-    in_transit: "TLS 1.3 (Phase 2 cloud sync)"
-    key_management: "Hardware-backed keychain with biometric protection"
-
-compliance_validation:
-  - ✅ Unique identification enforced through biometric authentication
-  - ✅ Automatic logoff implemented with clinical-appropriate timeouts
-  - ✅ Encryption controls protect all sensitive data at rest
-  - ✅ Key management follows healthcare security best practices
-```
-
-#### Audit Controls (45 CFR § 164.312(b))
-```yaml
-audit_trail_requirements:
-  data_access:
-    who: "User identifier (biometric hash, never actual biometric data)"
-    what: "Specific data elements accessed (clinical vs personal)"
-    when: "Timestamp with millisecond precision"
-    where: "Device identifier and app version"
-    why: "Operation purpose (treatment, payment, operations)"
-    
-  security_events:
-    authentication_failures: "All failed biometric and passcode attempts"
-    suspicious_activity: "Unusual access patterns or frequency"
-    configuration_changes: "Security setting modifications"
-    emergency_access: "Crisis mode activation and deactivation"
-
-tamper_resistance:
-  - Cryptographic integrity protection for all audit logs
-  - Separate audit encryption keys with independent rotation
-  - Immutable log entries with blockchain-style linking
-  - Automated anomaly detection and alerting
-
-compliance_validation:
-  - ✅ Hardware and software audit controls implemented
-  - ✅ User activity monitoring covers all HIPAA requirements
-  - ✅ Security incident detection and logging operational
-  - ✅ Audit trail integrity protection prevents tampering
-```
-
-#### Integrity (45 CFR § 164.312(c))
-```yaml
-data_integrity_controls:
-  clinical_accuracy:
-    assessment_scoring: "100% accuracy validation for PHQ-9/GAD-7"
-    calculation_verification: "Independent verification of all clinical computations"
-    tampering_detection: "Cryptographic checksums for all clinical data"
-    
-  data_corruption_protection:
-    storage_verification: "Regular integrity checks on encrypted data"
-    backup_validation: "Export integrity verification"
-    recovery_procedures: "Validated data recovery from corruption"
-
-compliance_validation:
-  - ✅ Electronic PHI integrity protection implemented
-  - ✅ Clinical calculation accuracy verified and protected
-  - ✅ Data corruption detection and recovery procedures tested
-  - ✅ Integrity verification covers all sensitive data categories
-```
-
-#### Transmission Security (45 CFR § 164.312(e))
-```yaml
-phase_1_local_only:
-  network_transmission: "No PHI transmitted over networks"
-  export_security: "AES-256-GCM encryption for all exported files"
-  sharing_controls: "Secure sharing through encrypted exports only"
-  
-phase_2_cloud_ready:
-  encryption_in_transit: "TLS 1.3 with certificate pinning"
-  end_to_end_encryption: "Client-side encryption before transmission"
-  zero_knowledge_architecture: "Server cannot decrypt user data"
-  
-compliance_validation:
-  - ✅ Guard against unauthorized access to transmitted PHI
-  - ✅ End-to-end encryption prevents interception
-  - ✅ Network transmission security ready for cloud deployment
-```
-
-### OWASP Mobile Security Integration
-
-#### M1: Improper Platform Usage
-```yaml
-mitigation:
-  keychain_usage: "Proper iOS Keychain and Android Keystore integration"
-  biometric_apis: "Correct BiometricPrompt usage with CryptoObject"
-  permissions: "Minimal necessary permissions requested"
-  background_protection: "Sensitive data hidden in app switcher"
-```
-
-#### M2: Insecure Data Storage  
-```yaml
-mitigation:
-  no_plain_text: "All sensitive data encrypted before storage"
-  secure_containers: "Device keychain for keys, encrypted AsyncStorage for data"
-  data_classification: "Different encryption levels by data sensitivity"
-  secure_deletion: "Cryptographic secure deletion of sensitive data"
-```
-
-#### M3: Insecure Communication
-```yaml
-current_status: "Not applicable (local-only Phase 1)"
-future_readiness:
-  certificate_pinning: "TLS certificate validation"
-  perfect_forward_secrecy: "Ephemeral key exchange"
-  mutual_authentication: "Client certificate authentication"
-```
-
-#### M4: Insecure Authentication
-```yaml
-mitigation:
-  multi_factor: "Biometric + device passcode"
-  session_management: "Secure session tokens with timeout"
-  brute_force_protection: "Progressive delays and account lockout"
-  credential_storage: "Never store credentials, use keychain tokens"
-```
-
----
-
-## Security Monitoring & Incident Response
-
-### Security Event Detection
-
-```typescript
-interface SecurityMonitoringFramework {
-  real_time_detection: {
-    authentication_anomalies: "Unusual patterns in biometric failures",
-    access_pattern_analysis: "Abnormal data access frequency or timing",
-    export_activity_monitoring: "Suspicious data export attempts",
-    device_integrity_validation: "Jailbreak/root detection"
-  },
-  
-  automated_responses: {
-    progressive_lockout: "Increasing delays for repeated failures",
-    emergency_lockdown: "Complete app lockdown after critical events",
-    key_rotation_trigger: "Immediate key rotation on compromise indicators",
-    audit_log_preservation: "Tamper-resistant log protection during incidents"
-  }
-}
-```
-
-### Incident Response Procedures
-
-#### Critical Incident Classification
-```yaml
-level_1_critical:
-  scenarios:
-    - Clinical data exposure or unauthorized access
-    - Assessment scoring integrity compromise
-    - Crisis contact information disclosure
-    - Device compromise with sensitive data access
-  
-  response_timeline: "< 15 minutes"
-  actions:
-    - Immediate app lockdown for affected users
-    - Emergency key rotation for all affected data
-    - Crisis contact notification if safety implications
-    - Regulatory notification preparation (HIPAA breach analysis)
-
-level_2_high:
-  scenarios:
-    - Personal data access by unauthorized individuals
-    - Encryption key exposure or compromise
-    - Abnormal data export activity
-    - Social engineering attacks
-  
-  response_timeline: "< 1 hour"
-  actions:
-    - User notification and reauthentication requirement
-    - Enhanced monitoring for affected accounts
-    - Security control strengthening
-    - User education reinforcement
-
-level_3_medium:
-  scenarios:
-    - Multiple authentication failures
-    - Unusual access patterns
-    - Minor security configuration issues
-    - Performance anomalies affecting security
-  
-  response_timeline: "< 4 hours" 
-  actions:
-    - Increased monitoring and logging
-    - User notification if action required
-    - Security configuration review
-    - Preventive control adjustments
-```
-
----
-
-## Performance & Security Balance Optimization
-
-### Security Performance Targets
-
-```yaml
-authentication_performance:
-  biometric_verification: "< 2 seconds average response time"
-  session_establishment: "< 500ms after successful authentication"
-  multi_factor_challenge: "< 5 seconds total authentication flow"
-
-encryption_performance:
-  data_encryption: "< 100ms for clinical data encryption"
-  bulk_operations: "< 2 seconds for complete check-in encryption"
-  key_operations: "< 50ms for key derivation and rotation"
-
-user_experience_targets:
-  security_friction: "< 10% impact on normal app usage"
-  crisis_access_time: "< 3 seconds from locked to emergency contacts"
-  data_availability: "99.9% uptime for local data access"
-```
-
-### Memory and Storage Optimization
-
-```yaml
-memory_management:
-  encryption_overhead: "< 50MB additional memory for security operations"
-  key_storage: "< 10MB total memory for all encryption keys"
-  audit_logging: "< 20MB memory for security event processing"
-
-storage_optimization:
-  encrypted_data_expansion: "< 20% size increase from encryption"
-  key_storage_efficiency: "< 5MB total storage for key management"
-  audit_log_rotation: "< 100MB maximum audit log storage"
-```
-
----
-
-## Implementation Roadmap
-
-### Phase 1: Foundation Security (Weeks 1-2)
-```yaml
-deliverables:
-  - Encryption service implementation (AES-256-GCM/CTR)
-  - Biometric authentication integration
-  - Secure AsyncStorage wrapper
-  - Basic audit logging framework
-  - Data classification implementation
-
-validation:
-  - All sensitive data encrypted at rest
-  - Biometric authentication functional
-  - Clinical data accessible only with proper authentication
-  - Audit trail capturing basic security events
-```
-
-### Phase 2: Advanced Security (Weeks 3-4)  
-```yaml
-deliverables:
-  - Advanced threat detection
-  - Secure export functionality
-  - Emergency access procedures
-  - Comprehensive audit trail
-  - Performance optimization
-
-validation:
-  - Security monitoring operational
-  - Export security controls implemented
-  - Crisis access procedures tested
-  - Performance targets met
-```
-
-### Phase 3: Production Hardening (Weeks 5-6)
-```yaml
-deliverables:
-  - Incident response procedures
-  - Security documentation complete
-  - Compliance validation
-  - User security education
-  - Penetration testing
-
-validation:
-  - Security incident response tested
-  - HIPAA compliance verified
-  - User training materials deployed
-  - Security assessment passed
+  test('Threat detection', async () => {
+    // Test jailbreak detection
+    // Test debugger detection
+    // Verify integrity checks
+  });
+});
 ```
 
 ---
 
 ## Conclusion
 
-This security architecture provides clinical-grade protection for FullMind's sensitive mental health data while maintaining the therapeutic accessibility essential for effective mental health treatment. The local-first approach ensures complete user privacy control while building a foundation ready for future healthcare integration.
+This comprehensive security framework ensures Being. provides industry-leading protection for sensitive mental health data while maintaining usability and accessibility. The local-first architecture with military-grade encryption, combined with thoughtful UX design, creates a trusted environment where users can engage with their mental health journey privately and securely.
 
-### Key Security Achievements
+### Key Differentiators
+1. **Zero Cloud Exposure**: Complete local storage eliminates cloud vulnerabilities
+2. **Mental Health Optimized**: Security designed specifically for mental health sensitivity
+3. **Crisis-Resilient**: Security that doesn't compromise safety in emergencies
+4. **User Empowerment**: Clear, understandable security that users can control
+5. **Privacy-First**: Strong encryption because users deserve it, not because regulations require it
 
-- **Zero Network Exposure**: Complete local data processing eliminates network-based attack vectors
-- **Clinical-Grade Encryption**: AES-256-GCM protection exceeds healthcare industry standards
-- **Crisis-Accessible Security**: Emergency access procedures maintain safety without compromising security
-- **Regulatory Compliance**: Full HIPAA Technical Safeguards implementation
-- **Performance Optimized**: Security controls enhance rather than impede user experience
-
-### Next Steps
-
-1. **Implement Phase 1**: Deploy foundation security controls (Weeks 1-2)
-2. **Security Testing**: Execute comprehensive security validation (Week 3)
-3. **User Training**: Deploy security awareness materials (Week 4)
-4. **Production Deployment**: Launch with full security monitoring (Week 5)
-
-**Security Contact**: For implementation support or incident response, refer to the FullMind security team contact procedures in the incident response documentation.
+**Implementation Note**: Begin with Phase 1 core security features, as these provide the foundation for all other protections. The biometric authentication and encryption must be rock-solid before adding enhanced features.

@@ -1,4 +1,4 @@
-# Local Testing Guide - Being MBCT
+# Local Testing Guide - Being
 
 Comprehensive local testing automation and validation tools for rapid development without CI/CD complexity.
 
@@ -266,7 +266,7 @@ Clinical tests ensure therapeutic safety:
 - **PHQ-9 scoring accuracy** (all 27 combinations)
 - **GAD-7 scoring accuracy** (all 21 combinations)
 - **Therapeutic content validation**
-- **MBCT exercise accuracy**
+- **Stoic practice accuracy**
 
 ```bash
 # Quick clinical check

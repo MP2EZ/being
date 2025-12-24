@@ -86,7 +86,7 @@ function detectCrisisState(assessment: MentalHealthAssessment): CrisisResponse {
 - Geolocation-enabled emergency services routing
 
 ## Compliance and Safety Notes
-- HIPAA Compliant
+- Privacy-First Design
 - End-to-End Encryption
 - Offline Functionality Preserved
 - WCAG Accessibility Standards Met

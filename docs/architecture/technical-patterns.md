@@ -1,8 +1,8 @@
-# Being. MBCT App - Architectural Foundation
+# Being Stoic Mindfulness App - Architectural Foundation
 
 ## Overview
 
-This document describes the core architectural foundation for the Being. MBCT app, designed to enable stable concurrent development while maintaining clinical safety standards.
+This document describes the core architectural foundation for the Being Stoic Mindfulness app, designed to enable stable concurrent development while maintaining clinical safety standards.
 
 ## Architecture Principles
 
@@ -418,4 +418,4 @@ if (isCrisisMode || isEnabled) {
 }
 ```
 
-This architectural foundation provides the stable base needed for safe concurrent development while maintaining the clinical safety standards required for the Being. MBCT app.
+This architectural foundation provides the stable base needed for safe concurrent development while maintaining the clinical safety standards required for the Being Stoic Mindfulness app.

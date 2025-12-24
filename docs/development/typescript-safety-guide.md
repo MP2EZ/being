@@ -1,8 +1,8 @@
-# TypeScript Safety Guide for FullMind MBCT App
+# TypeScript Safety Guide for Being
 
 ## Overview
 
-This guide outlines the enhanced TypeScript implementation designed to ensure **clinical accuracy** and **user safety** in the FullMind mental health application. Type errors in mental health applications are not just bugs – they can be life-threatening failures in crisis situations.
+This guide outlines the enhanced TypeScript implementation designed to ensure **clinical accuracy** and **user safety** in the Being mental health application. Type errors in mental health applications are not just bugs – they can be life-threatening failures in crisis situations.
 
 ## 🚨 Critical Safety Standards
 
@@ -13,7 +13,7 @@ The following areas require **100% type safety** with zero tolerance for any typ
 - **PHQ-9/GAD-7 Scoring Algorithms** - Incorrect calculations could misclassify mental health severity
 - **Crisis Detection Logic** - Failed crisis detection could prevent life-saving interventions
 - **Emergency Contact Systems** - Type errors could block access to emergency services
-- **Data Encryption/Decryption** - Data corruption could violate HIPAA compliance
+- **Data Encryption/Decryption** - Data corruption could compromise user privacy
 - **Therapeutic Timing** - Incorrect breathing exercise timing affects clinical effectiveness
 
 ### Clinical Accuracy Requirements
