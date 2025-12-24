@@ -239,7 +239,7 @@ const detectDominantPrinciple = (
  */
 const isBeginnerUser = (practiceStartDate: Date | null): boolean => {
   if (!practiceStartDate) {
-    return false; // No start date means we can't determine tenure
+    return true; // No start date = assume new user = show beginner tip
   }
 
   const now = new Date();
@@ -388,7 +388,8 @@ const PrincipleEngagementChart: React.FC<PrincipleEngagementChartProps> = ({
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
 
   // FEAT-133: Education store for dismissed tips
-  const { dismissInsightTip, isInsightTipDismissed } = useEducationStore();
+  // Subscribe to dismissedInsightTips array directly for proper reactivity
+  const { dismissInsightTip, dismissedInsightTips } = useEducationStore();
 
   // FEAT-133: Practice start date for beginner detection
   const { practiceStartDate } = useStoicPracticeStore();
@@ -409,15 +410,16 @@ const PrincipleEngagementChart: React.FC<PrincipleEngagementChartProps> = ({
   }, [principleCounts, totalEngagements]);
 
   // FEAT-133: Determine if beginner tip should show
+  // Uses dismissedInsightTips array directly for proper reactivity (not the function)
   const shouldShowBeginnerTip = useMemo(() => {
-    const tipDismissed = isInsightTipDismissed('principle-engagement-beginner');
+    const tipDismissed = dismissedInsightTips.includes('principle-engagement-beginner');
     if (tipDismissed) return false;
 
     const isBeginner = isBeginnerUser(practiceStartDate);
     if (!isBeginner) return false;
 
     return totalEngagements >= MIN_ENGAGEMENTS_FOR_TIP;
-  }, [isInsightTipDismissed, practiceStartDate, totalEngagements]);
+  }, [dismissedInsightTips, practiceStartDate, totalEngagements]);
 
   // FEAT-133: Handle principle bar press → navigate to module
   const handlePrinciplePress = useCallback((principle: StoicPrinciple) => {
