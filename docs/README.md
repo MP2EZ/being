@@ -31,6 +31,7 @@ This folder contains ALL documentation related to the Being mobile app.
 
 ### Security
 - [Security Architecture](security/security-architecture.md) - Privacy-first security framework
+- [Secret Management](security/secret-management.md) - Git security, .gitignore patterns, pre-commit hooks
 
 ### Development
 - [TypeScript Safety Guide](development/typescript-safety-guide.md) - Clinical type safety patterns

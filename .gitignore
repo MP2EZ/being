@@ -21,6 +21,19 @@ Thumbs.db
 *.p8
 *.p12
 *.mobileprovision
+credentials.*
+!credentials.example.*
+secrets.*
+!secrets.example.*
+*.secret
+id_rsa
+id_rsa.*
+id_ed25519
+id_ed25519.*
+*.pfx
+service-account*.json
+*-credentials.json
+*-service-key.json
 
 # Dependencies
 node_modules/

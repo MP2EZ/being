@@ -33,6 +33,21 @@ yarn-error.*
 # local env files
 .env*.local
 
+# Additional secret patterns (MAINT-122)
+credentials.*
+!credentials.example.*
+secrets.*
+!secrets.example.*
+*.secret
+id_rsa
+id_rsa.*
+id_ed25519
+id_ed25519.*
+*.pfx
+service-account*.json
+*-credentials.json
+*-service-key.json
+
 # typescript
 *.tsbuildinfo
 .jest-cache/
