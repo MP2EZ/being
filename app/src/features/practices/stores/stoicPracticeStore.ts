@@ -40,7 +40,8 @@ import type {
 
 // Check-in completion tracking for daily check-ins
 // Used by Home screen to display faded appearance for completed check-ins
-export type CheckInType = 'morning' | 'midday' | 'evening';
+// FEAT-133: Added 'learn' for Learn module practice engagements
+export type CheckInType = 'morning' | 'midday' | 'evening' | 'learn';
 
 export interface CheckInCompletion {
   type: CheckInType;
@@ -58,8 +59,9 @@ export interface CheckInCompletion {
  * - 'selected': User selected this principle as focus in morning flow
  * - 'applied': User reported applying principle during midday/evening
  * - 'reflected': User reflected on principle in evening review
+ * - 'practiced': User completed a practice exercise in Learn module (FEAT-133)
  */
-export type PrincipleEngagementType = 'selected' | 'applied' | 'reflected';
+export type PrincipleEngagementType = 'selected' | 'applied' | 'reflected' | 'practiced';
 
 export interface PrincipleEngagement {
   principle: StoicPrinciple;
