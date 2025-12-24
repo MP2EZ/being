@@ -223,7 +223,7 @@ src/stores/             → Split to core/stores/ and features/*/stores/
 ## Related Documentation
 
 - **Contribution Workflow:** `/CONTRIBUTING.md`
-- **Architecture Deep Dive:** `/docs/technical/` (if exists)
+- **Architecture Deep Dive:** `/docs/architecture/` (if exists)
 - **Stoic Mindfulness Framework:** `/docs/philosophical/`
 - **Security & Compliance:** `/docs/security/`
 

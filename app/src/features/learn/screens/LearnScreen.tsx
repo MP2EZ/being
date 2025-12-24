@@ -15,7 +15,7 @@ import {
   View,
   Text,
   ScrollView,
-  TouchableOpacity,
+  Pressable,
   StyleSheet,
   SafeAreaView,
 } from 'react-native';
@@ -108,12 +108,19 @@ const LearnScreen: React.FC = () => {
   ];
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} testID="learn-screen">
       <View style={{ flex: 1 }}>
         <View style={styles.container}>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Learn</Text>
+          <Text
+            style={styles.headerTitle}
+            accessibilityRole="header"
+            // @ts-expect-error - accessibilityLevel is valid for header role
+            accessibilityLevel={1}
+          >
+            Learn
+          </Text>
           <Text style={styles.headerSubtitle}>
             Explore the 5 Stoic Mindfulness principles
           </Text>
@@ -126,47 +133,67 @@ const LearnScreen: React.FC = () => {
         >
           {/* Recommendation Card (if applicable) */}
           {recommendedModuleId && (
-            <View style={styles.recommendationCard}>
-              <Text style={styles.recommendationLabel}>RECOMMENDED FOR YOU</Text>
-              <Text style={styles.recommendationTitle}>
+            <View style={styles.recommendationCard} accessible={true}>
+              <Text style={styles.recommendationLabel} importantForAccessibility="no">RECOMMENDED FOR YOU</Text>
+              <Text
+                style={styles.recommendationTitle}
+                accessibilityRole="header"
+                // @ts-expect-error - accessibilityLevel is valid for header role
+                accessibilityLevel={2}
+              >
                 {MODULE_INFO[recommendedModuleId].title}
               </Text>
               <Text style={styles.recommendationDescription}>
                 {MODULE_INFO[recommendedModuleId].description}
               </Text>
-              <TouchableOpacity
+              <Pressable
                 style={styles.recommendationButton}
                 onPress={() => handleModulePress(recommendedModuleId)}
-                activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel={`Start learning ${MODULE_INFO[recommendedModuleId].title}`}
+                accessibilityHint={`Begin the ${MODULE_INFO[recommendedModuleId].estimatedMinutes} minute module`}
               >
                 <Text style={styles.recommendationButtonText}>Start Learning</Text>
-              </TouchableOpacity>
+              </Pressable>
             </View>
           )}
 
           {/* Module Cards */}
           <View style={styles.modulesSection}>
-            <Text style={styles.sectionTitle}>All Modules</Text>
+            <Text
+              style={styles.sectionTitle}
+              accessibilityRole="header"
+              // @ts-expect-error - accessibilityLevel is valid for header role
+              accessibilityLevel={2}
+            >
+              All Modules
+            </Text>
             {moduleIds.map((moduleId) => {
               const info = MODULE_INFO[moduleId];
               const progress = getProgressPercentage(moduleId);
               const statusColor = getStatusColor(moduleId);
               const isMostEssential = moduleId === 'sphere-sovereignty';
+              const module = modules[moduleId];
+              const statusText = module.status === 'completed' ? 'completed' :
+                                 module.status === 'in_progress' ? 'in progress' : 'not started';
 
               return (
-                <TouchableOpacity
+                <Pressable
                   key={moduleId}
-                  style={[
+                  style={({ pressed }) => [
                     styles.moduleCard,
                     isMostEssential && styles.moduleCardEssential,
+                    pressed && { opacity: 0.7 },
                   ]}
                   onPress={() => handleModulePress(moduleId)}
-                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Module ${info.number}: ${info.title}, ${statusText}, ${progress}% complete, ${info.estimatedMinutes} minutes`}
+                  accessibilityHint="Open this module to learn"
                 >
                   {/* Module Number & Tag */}
                   <View style={styles.moduleHeader}>
                     <View style={styles.moduleNumber}>
-                      <Text style={styles.moduleNumberText}>{info.number}</Text>
+                      <Text style={styles.moduleNumberText} importantForAccessibility="no">{info.number}</Text>
                     </View>
                     <View
                       style={[
@@ -179,6 +206,7 @@ const LearnScreen: React.FC = () => {
                           styles.moduleTagText,
                           isMostEssential && styles.moduleTagTextEssential,
                         ]}
+                        importantForAccessibility="no"
                       >
                         {info.tag}
                       </Text>
@@ -186,13 +214,24 @@ const LearnScreen: React.FC = () => {
                   </View>
 
                   {/* Module Title & Description */}
-                  <Text style={styles.moduleTitle}>{info.title}</Text>
+                  <Text
+                    style={styles.moduleTitle}
+                    accessibilityRole="header"
+                    // @ts-expect-error - accessibilityLevel is valid for header role
+                    accessibilityLevel={3}
+                  >
+                    {info.title}
+                  </Text>
                   <Text style={styles.moduleDescription} numberOfLines={2}>
                     {info.description}
                   </Text>
 
-                  {/* Progress Bar */}
-                  <View style={styles.progressContainer}>
+                  {/* Progress Bar - announced via parent label */}
+                  <View
+                    style={styles.progressContainer}
+                    accessible={true}
+                    accessibilityLabel={`Progress: ${progress}%`}
+                  >
                     <View style={styles.progressBar}>
                       <View
                         style={[
@@ -201,21 +240,21 @@ const LearnScreen: React.FC = () => {
                         ]}
                       />
                     </View>
-                    <Text style={styles.progressText}>{progress}%</Text>
+                    <Text style={styles.progressText} importantForAccessibility="no">{progress}%</Text>
                   </View>
 
-                  {/* Metadata */}
+                  {/* Metadata - included in parent label */}
                   <View style={styles.moduleFooter}>
-                    <Text style={styles.moduleTime}>
+                    <Text style={styles.moduleTime} importantForAccessibility="no">
                       {info.estimatedMinutes} min read
                     </Text>
-                    {modules[moduleId].practiceCount > 0 && (
-                      <Text style={styles.modulePractices}>
-                        {modules[moduleId].practiceCount} practices
+                    {module.practiceCount > 0 && (
+                      <Text style={styles.modulePractices} importantForAccessibility="no">
+                        {module.practiceCount} practices
                       </Text>
                     )}
                   </View>
-                </TouchableOpacity>
+                </Pressable>
               );
             })}
           </View>
@@ -317,7 +356,8 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.xl,
     padding: spacing[24],
     borderWidth: 1,
-    borderColor: colorSystem.gray[200],
+    // WCAG AA: Use gray[400] for 3:1 minimum contrast ratio on borders
+    borderColor: colorSystem.gray[400],
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,

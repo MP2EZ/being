@@ -85,7 +85,13 @@
     "security:sast": "echo \"🔍 Running SAST Analysis...\" && npm audit --audit-level moderate && echo \"✅ SAST Analysis completed\"",
     "security:deps": "npm audit --audit-level high",
     "security:full": "npm run security:sast && npm run security:deps",
-    "deploy:validate-rollback": "echo \"🔄 Validating rollback safety...\" && node -e \"console.log('Rollback validation would run here in production')\""
+    "deploy:validate-rollback": "echo \"🔄 Validating rollback safety...\" && node -e \"console.log('Rollback validation would run here in production')\"",
+    "e2e:build": "detox build --configuration ios.sim.debug",
+    "e2e:build:release": "detox build --configuration ios.sim.release",
+    "e2e:test": "detox test --configuration ios.sim.debug",
+    "e2e:test:release": "detox test --configuration ios.sim.release",
+    "e2e:crisis": "detox test --configuration ios.sim.debug --testNamePattern='Crisis Access'",
+    "e2e:crisis:ci": "detox test --configuration ios.sim.release --testNamePattern='Crisis Access' --cleanup"
   },
   "overrides": {
     "react": "19.1.0",
@@ -107,6 +113,7 @@
     "@react-navigation/bottom-tabs": "^7.4.7",
     "@react-navigation/native": "^7.1.17",
     "@react-navigation/stack": "^7.4.8",
+    "@sentry/react-native": "^7.7.0",
     "@stripe/stripe-react-native": "0.50.3",
     "@supabase/supabase-js": "^2.39.3",
     "expo": "~54.0.9",
@@ -129,6 +136,7 @@
     "react-native-aes-crypto": "^3.2.1",
     "react-native-gesture-handler": "~2.28.0",
     "react-native-keychain": "^10.0.0",
+    "react-native-markdown-display": "^7.0.2",
     "react-native-reanimated": "~4.1.1",
     "react-native-safe-area-context": "~5.6.0",
     "react-native-screens": "~4.16.0",
@@ -156,6 +164,7 @@
     "jest": "^29.7.0",
     "jest-expo": "^54.0.12",
     "prettier": "^3.6.2",
+    "ts-jest": "^29.4.6",
     "ts-node": "^10.9.2",
     "typescript": "~5.9.2"
   },

@@ -42,6 +42,19 @@ Provider architecture, error boundaries, crisis fallbacks, and safety-first patt
 - Implementing error boundaries
 - Building crisis-related features
 
+## Data & Privacy
+
+### [Data Privacy Architecture](./data-privacy-architecture.md)
+Being's core data philosophy: local-first, no PHI transmission.
+
+**Read this when:**
+- Designing any feature that touches user health data
+- Considering cloud sync, backup, or sharing features
+- Evaluating analytics or third-party integrations
+- Understanding why Being doesn't need BAAs
+
+---
+
 ## Architecture Principles
 
 The Being app follows these core architectural principles:

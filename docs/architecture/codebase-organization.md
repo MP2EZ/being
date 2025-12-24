@@ -122,7 +122,7 @@ Previously scattered across 100+ files in 7+ directories. Now unified for easy a
 
 ## Migration Context
 
-This structure resulted from a comprehensive reorganization (2025-01) from a mixed layer-based/feature-based structure. See [Migration Checklist](./migration-checklist.md) for details.
+This structure resulted from a comprehensive reorganization (2025-01) from a mixed layer-based/feature-based structure.
 
 ### Before (Old Structure)
 ```
@@ -210,7 +210,6 @@ src/
 - [Feature Structure Guidelines](./feature-structure.md) - How to build features
 - [Import Guidelines](./import-guidelines.md) - Import patterns & dependencies
 - [Technical Patterns](./technical-patterns.md) - Provider architecture, error boundaries
-- [Migration Checklist](./migration-checklist.md) - Reorganization execution
 
 ## Questions?
 

@@ -13,7 +13,7 @@
  * - Optional notes field
  * - Save to StoicMorningFlowData.physicalMetrics
  *
- * @see /docs/technical/Stoic-Mindfulness-Architecture-v1.0.md (clinical integration)
+ * @see /docs/architecture/Stoic-Mindfulness-Architecture-v1.0.md (clinical integration)
  */
 
 import React from 'react';

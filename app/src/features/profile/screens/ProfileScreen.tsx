@@ -19,13 +19,14 @@ import { StackNavigationProp } from '@react-navigation/stack';
 // OnboardingScreen no longer embedded - navigation to LegalGate handles full flow
 import AppSettingsScreen from './AppSettingsScreen';
 import AccountSettingsScreen from './AccountSettingsScreen';
+import LegalDocumentsListScreen from './LegalDocumentsListScreen';
 import { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 import { useSubscriptionStore } from '@/core/stores/subscriptionStore';
 import { isDevMode } from '@/core/constants/devMode';
 import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
 import ThresholdEducationModal from '@/core/components/ThresholdEducationModal';
 import { useAssessmentStore } from '@/features/assessment/stores/assessmentStore';
-import { commonColors, spacing, borderRadius, typography } from '@/core/theme';
+import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
 
 type ProfileScreenNavigationProp = StackNavigationProp<RootStackParamList>;
 
@@ -37,7 +38,7 @@ interface AssessmentMetadata {
   status: 'recent' | 'due' | 'recommended' | 'never';
 }
 
-type Screen = 'menu' | 'account' | 'privacy' | 'about' | 'stoicMindfulness';
+type Screen = 'menu' | 'account' | 'privacy' | 'about' | 'stoicMindfulness' | 'legal';
 
 const ProfileScreen: React.FC = () => {
   const [currentScreen, setCurrentScreen] = useState<Screen>('menu');
@@ -158,7 +159,7 @@ const ProfileScreen: React.FC = () => {
   const devMode = isDevMode();
 
   const renderMenu = () => (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} testID="profile-screen">
       {devMode && (
         <View style={styles.devModeBanner}>
           <Text style={styles.devModeText}>
@@ -171,29 +172,53 @@ const ProfileScreen: React.FC = () => {
       )}
       <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
-          <Text style={styles.title}>Your Profile</Text>
+          <Text
+            style={styles.title}
+            accessibilityRole="header"
+            // @ts-expect-error - accessibilityLevel is valid for header role
+            accessibilityLevel={1}
+          >
+            Your Profile
+          </Text>
           <Text style={styles.subtitle}>
             Manage your account and personalize your Being. experience
           </Text>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Setup & Configuration</Text>
+          <Text
+            style={styles.sectionTitle}
+            accessibilityRole="header"
+            // @ts-expect-error - accessibilityLevel is valid for header role
+            accessibilityLevel={2}
+          >
+            Setup & Configuration
+          </Text>
 
           <Pressable
             style={styles.profileCard}
             onPress={handleStartOnboarding}
+            accessibilityRole="button"
+            accessibilityLabel="Onboarding Setup"
+            accessibilityHint="Complete your initial assessment and configure preferences"
           >
             <Text style={styles.cardTitle}>Onboarding Setup</Text>
             <Text style={styles.cardDescription}>
               Complete your initial assessment and configure your therapeutic preferences for a personalized experience.
             </Text>
-            <Text style={styles.cardAction}>Start Setup →</Text>
+            <Text style={styles.cardAction} importantForAccessibility="no">Start Setup →</Text>
           </Pressable>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Wellbeing Tracking</Text>
+          <Text
+            style={styles.sectionTitle}
+            accessibilityRole="header"
+            // @ts-expect-error - accessibilityLevel is valid for header role
+            accessibilityLevel={2}
+          >
+            Wellbeing Tracking
+          </Text>
           <Text style={styles.sectionDescription}>
             Periodic self-assessments to observe patterns in your mental wellbeing. Recommended every 2 weeks.
           </Text>
@@ -201,8 +226,13 @@ const ProfileScreen: React.FC = () => {
           <Pressable
             style={styles.assessmentCard}
             onPress={() => handleStartAssessment('phq9')}
-            accessibilityLabel="Depression Assessment (PHQ-9)"
-            accessibilityHint="3 to 5 minute assessment"
+            accessibilityRole="button"
+            accessibilityLabel={`Depression Assessment PHQ-9, 3 to 5 minutes, ${
+              phq9Metadata.status === 'never' ? 'recommended' :
+              phq9Metadata.status === 'recent' ? 'completed' :
+              phq9Metadata.status === 'due' ? 'due soon' : 'recommended'
+            }`}
+            accessibilityHint="Start the depression assessment"
           >
             <Text style={styles.cardTitle}>Depression Assessment (PHQ-9)</Text>
             {getStatusIndicator(phq9Metadata)}
@@ -210,16 +240,21 @@ const ProfileScreen: React.FC = () => {
               Observe your mood patterns over the past two weeks through 9 questions.
             </Text>
             <View style={styles.cardFooter}>
-              <Text style={styles.cardDuration}>3-5 minutes</Text>
-              <Text style={styles.cardMetadata}>{getMetadataText(phq9Metadata)}</Text>
+              <Text style={styles.cardDuration} importantForAccessibility="no">3-5 minutes</Text>
+              <Text style={styles.cardMetadata} importantForAccessibility="no">{getMetadataText(phq9Metadata)}</Text>
             </View>
           </Pressable>
 
           <Pressable
             style={styles.assessmentCard}
             onPress={() => handleStartAssessment('gad7')}
-            accessibilityLabel="Anxiety Assessment (GAD-7)"
-            accessibilityHint="2 to 4 minute assessment"
+            accessibilityRole="button"
+            accessibilityLabel={`Anxiety Assessment GAD-7, 2 to 4 minutes, ${
+              gad7Metadata.status === 'never' ? 'recommended' :
+              gad7Metadata.status === 'recent' ? 'completed' :
+              gad7Metadata.status === 'due' ? 'due soon' : 'recommended'
+            }`}
+            accessibilityHint="Start the anxiety assessment"
           >
             <Text style={styles.cardTitle}>Anxiety Assessment (GAD-7)</Text>
             {getStatusIndicator(gad7Metadata)}
@@ -227,8 +262,8 @@ const ProfileScreen: React.FC = () => {
               Observe your relationship with worry and anxiety through 7 questions.
             </Text>
             <View style={styles.cardFooter}>
-              <Text style={styles.cardDuration}>2-4 minutes</Text>
-              <Text style={styles.cardMetadata}>{getMetadataText(gad7Metadata)}</Text>
+              <Text style={styles.cardDuration} importantForAccessibility="no">2-4 minutes</Text>
+              <Text style={styles.cardMetadata} importantForAccessibility="no">{getMetadataText(gad7Metadata)}</Text>
             </View>
           </Pressable>
 
@@ -237,6 +272,7 @@ const ProfileScreen: React.FC = () => {
             onPress={() => setShowEducationModal(true)}
             accessibilityRole="button"
             accessibilityLabel="Learn about assessment scoring"
+            accessibilityHint="Opens educational information about how assessments are scored"
           >
             <Text style={styles.educationLinkText}>
               Learn about assessment scoring
@@ -245,71 +281,121 @@ const ProfileScreen: React.FC = () => {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Subscription</Text>
+          <Text
+            style={styles.sectionTitle}
+            accessibilityRole="header"
+            // @ts-expect-error - accessibilityLevel is valid for header role
+            accessibilityLevel={2}
+          >
+            Subscription
+          </Text>
 
           <Pressable
             style={styles.profileCard}
             onPress={handleSubscriptionPress}
+            accessibilityRole="button"
+            accessibilityLabel={getSubscriptionStatus()}
+            accessibilityHint={subscriptionStore.isSubscriptionActive() ? 'Manage your subscription' : 'Start your 28-day free trial'}
           >
             <Text style={styles.cardTitle}>{getSubscriptionStatus()}</Text>
             <Text style={styles.cardDescription}>
               Unlock all therapeutic exercises, progress insights, and personalized guidance with a subscription. Try free for 28 days.
             </Text>
-            <Text style={styles.cardAction}>
+            <Text style={styles.cardAction} importantForAccessibility="no">
               {subscriptionStore.isSubscriptionActive() ? 'Manage Subscription →' : 'Start Free Trial →'}
             </Text>
           </Pressable>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Account Management</Text>
+          <Text
+            style={styles.sectionTitle}
+            accessibilityRole="header"
+            // @ts-expect-error - accessibilityLevel is valid for header role
+            accessibilityLevel={2}
+          >
+            Account Management
+          </Text>
 
           <Pressable
             style={styles.profileCard}
             onPress={() => setCurrentScreen('account')}
+            accessibilityRole="button"
+            accessibilityLabel="Account Settings"
+            accessibilityHint="Manage your email, password, and account preferences"
           >
             <Text style={styles.cardTitle}>Account Settings</Text>
             <Text style={styles.cardDescription}>
               Manage your email, password, and account preferences.
             </Text>
-            <Text style={styles.cardAction}>Manage →</Text>
+            <Text style={styles.cardAction} importantForAccessibility="no">Manage →</Text>
           </Pressable>
 
           <Pressable
             style={styles.profileCard}
             onPress={() => setCurrentScreen('privacy')}
+            accessibilityRole="button"
+            accessibilityLabel="Privacy and Data"
+            accessibilityHint="Control your data, export information, and manage privacy settings"
           >
             <Text style={styles.cardTitle}>Privacy & Data</Text>
             <Text style={styles.cardDescription}>
               Control your data, export your information, and manage privacy settings.
             </Text>
-            <Text style={styles.cardAction}>Review →</Text>
+            <Text style={styles.cardAction} importantForAccessibility="no">Review →</Text>
           </Pressable>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Information</Text>
+          <Text
+            style={styles.sectionTitle}
+            accessibilityRole="header"
+            // @ts-expect-error - accessibilityLevel is valid for header role
+            accessibilityLevel={2}
+          >
+            Information
+          </Text>
 
           <Pressable
             style={styles.profileCard}
             onPress={() => setCurrentScreen('about')}
+            accessibilityRole="button"
+            accessibilityLabel="About Being"
+            accessibilityHint="Learn about our mission and how Being supports your mental wellbeing"
           >
             <Text style={styles.cardTitle}>About Being.</Text>
             <Text style={styles.cardDescription}>
               Learn about our mission, the philosophy and practice of Stoic Mindfulness, and how Being. supports your mental wellbeing.
             </Text>
-            <Text style={styles.cardAction}>Learn More →</Text>
+            <Text style={styles.cardAction} importantForAccessibility="no">Learn More →</Text>
           </Pressable>
 
           <Pressable
             style={styles.profileCard}
             onPress={() => setCurrentScreen('stoicMindfulness')}
+            accessibilityRole="button"
+            accessibilityLabel="About Stoic Mindfulness"
+            accessibilityHint="Explore the 5 core principles and developmental stages"
           >
             <Text style={styles.cardTitle}>About Stoic Mindfulness</Text>
             <Text style={styles.cardDescription}>
               Explore the 5 core principles, developmental stages, and how ancient Stoic wisdom combines with modern mindfulness practice.
             </Text>
-            <Text style={styles.cardAction}>Learn More →</Text>
+            <Text style={styles.cardAction} importantForAccessibility="no">Learn More →</Text>
+          </Pressable>
+
+          <Pressable
+            style={styles.profileCard}
+            onPress={() => setCurrentScreen('legal')}
+            accessibilityRole="button"
+            accessibilityLabel="Legal Documents"
+            accessibilityHint="View Privacy Policy, Terms of Service, and Medical Disclaimer"
+          >
+            <Text style={styles.cardTitle}>Legal Documents</Text>
+            <Text style={styles.cardDescription}>
+              View our Privacy Policy, Terms of Service, Medical Disclaimer, and other important legal information.
+            </Text>
+            <Text style={styles.cardAction} importantForAccessibility="no">View Documents →</Text>
           </Pressable>
         </View>
       </ScrollView>
@@ -490,6 +576,10 @@ const ProfileScreen: React.FC = () => {
       return renderAboutStoicMindfulness();
     }
 
+    if (currentScreen === 'legal') {
+      return <LegalDocumentsListScreen onReturn={handleReturnToMenu} />;
+    }
+
     return null;
   };
 
@@ -510,7 +600,7 @@ const ProfileScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: commonColors.white,
+    backgroundColor: colorSystem.base.white,
   },
   scrollContainer: {
     flex: 1,
@@ -526,14 +616,14 @@ const styles = StyleSheet.create({
   title: {
     fontSize: typography.headline2.size,
     fontWeight: typography.fontWeight.bold,
-    color: commonColors.midnightBlue,
+    color: colorSystem.base.midnightBlue,
     marginBottom: spacing[8],
     textAlign: 'center',
   },
   subtitle: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.regular,
-    color: commonColors.gray600,
+    color: colorSystem.gray[600],
     textAlign: 'center',
     lineHeight: 24,
   },
@@ -543,44 +633,45 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: typography.headline3.size,
     fontWeight: typography.fontWeight.semibold,
-    color: commonColors.black,
+    color: colorSystem.base.black,
     marginBottom: spacing[16],
   },
   sectionDescription: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
-    color: commonColors.gray600,
+    color: colorSystem.gray[600],
     lineHeight: 22,
     marginBottom: spacing[16],
   },
   profileCard: {
-    backgroundColor: commonColors.gray100,
+    backgroundColor: colorSystem.gray[100],
     borderRadius: borderRadius.large,
     padding: spacing[24],
     marginBottom: spacing[16],
     borderWidth: 1,
-    borderColor: commonColors.gray200,
+// WCAG AA: Use gray400 for 3:1 minimum contrast ratio on borders
+    borderColor: colorSystem.gray[400],
   },
   cardTitle: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
-    color: commonColors.black,
+    color: colorSystem.base.black,
     marginBottom: spacing[8],
   },
   cardDescription: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
-    color: commonColors.gray600,
+    color: colorSystem.gray[600],
     lineHeight: 22,
     marginBottom: spacing[16],
   },
   cardAction: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.medium,
-    color: commonColors.midnightBlue,
+    color: colorSystem.base.midnightBlue,
   },
   placeholderContent: {
-    backgroundColor: commonColors.gray100,
+    backgroundColor: colorSystem.gray[100],
     borderRadius: borderRadius.large,
     padding: spacing[32],
     marginVertical: spacing[32],
@@ -591,12 +682,12 @@ const styles = StyleSheet.create({
   placeholderText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
-    color: commonColors.gray500,
+    color: colorSystem.gray[500],
     textAlign: 'center',
     lineHeight: 24,
   },
   primaryButton: {
-    backgroundColor: commonColors.midnightBlue,
+    backgroundColor: colorSystem.base.midnightBlue,
     paddingVertical: spacing[16],
     paddingHorizontal: spacing[32],
     borderRadius: borderRadius.large,
@@ -606,33 +697,33 @@ const styles = StyleSheet.create({
   primaryButtonText: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
-    color: commonColors.white,
+    color: colorSystem.base.white,
   },
   bodyText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
-    color: commonColors.gray600,
+    color: colorSystem.gray[600],
     lineHeight: 24,
     marginBottom: spacing[16],
   },
   principleCard: {
-    backgroundColor: commonColors.gray100,
+    backgroundColor: colorSystem.gray[100],
     borderRadius: borderRadius.medium,
     padding: spacing[16],
     marginBottom: spacing[16],
     borderLeftWidth: 3,
-    borderLeftColor: commonColors.midnightBlue,
+    borderLeftColor: colorSystem.base.midnightBlue,
   },
   principleTitle: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.semibold,
-    color: commonColors.black,
+    color: colorSystem.base.black,
     marginBottom: spacing[8],
   },
   principleDescription: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: commonColors.gray600,
+    color: colorSystem.gray[600],
     lineHeight: 20,
   },
   devModeBanner: {
@@ -655,9 +746,10 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   assessmentCard: {
-    backgroundColor: commonColors.white,
+    backgroundColor: colorSystem.base.white,
     borderWidth: 1,
-    borderColor: commonColors.gray300,
+// WCAG AA: Use gray400 for 3:1 minimum contrast ratio on borders
+    borderColor: colorSystem.gray[400],
     borderRadius: borderRadius.large,
     padding: spacing[24],
     marginBottom: spacing[16],
@@ -675,12 +767,12 @@ const styles = StyleSheet.create({
   cardDuration: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.medium,
-    color: commonColors.midnightBlue,
+    color: colorSystem.base.midnightBlue,
   },
   cardMetadata: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: commonColors.gray500,
+    color: colorSystem.gray[500],
   },
   statusRecent: {
     fontSize: typography.micro.size,
@@ -727,7 +819,7 @@ const styles = StyleSheet.create({
   educationLinkText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.medium,
-    color: commonColors.morningPrimary,
+    color: colorSystem.themes.morning.primary,
     textDecorationLine: 'underline',
   },
 });

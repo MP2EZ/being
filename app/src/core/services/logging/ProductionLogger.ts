@@ -20,6 +20,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
+import { TokenBucketRateLimiter } from './RateLimiter';
+import type { EncryptionService, DataSensitivityLevel } from '../security/EncryptionService';
 
 /**
  * LOG LEVELS - Production Safe
@@ -50,6 +52,8 @@ export enum LogCategory {
 
 /**
  * SANITIZATION PATTERNS - PHI Detection
+ *
+ * INFRA-61: Extended patterns for PHI, clinical data, and philosophical content
  */
 const PHI_PATTERNS = [
   // User identifiers
@@ -73,6 +77,13 @@ const PHI_PATTERNS = [
   // Email/Personal
   /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2}\b/gi,
   /\b\d{3}-?\d{2}-?\d{4}\b/gi, // SSN pattern
+
+  // INFRA-61: Philosophical/therapeutic content patterns
+  /reflection[:\s]*["']?[^"'}\n]{10,}/gi,      // Reflection text
+  /journal[:\s]*["']?[^"'}\n]{10,}/gi,          // Journal entries
+  /intention[:\s]*["']?[^"'}\n]{10,}/gi,        // Daily intentions
+  /gratitude[:\s]*["']?[^"'}\n]{10,}/gi,        // Gratitude entries
+  /virtue[_-]?practice[:\s]*["']?[^"'}\n]{10,}/gi, // Virtue practice content
 ];
 
 /**
@@ -103,7 +114,15 @@ export class ProductionLogger {
   // Hash salt for consistent PHI replacement
   private readonly phiSalt = 'fullmind_logging_salt_2024';
 
+  // INFRA-61: Rate limiter for log throughput control
+  private rateLimiter: TokenBucketRateLimiter;
+
+  // INFRA-61: Optional encryption for sensitive logs
+  private encryptionService: EncryptionService | null = null;
+  private encryptionEnabled = false;
+
   private constructor() {
+    this.rateLimiter = new TokenBucketRateLimiter();
     this.initializeLogger();
   }
 
@@ -304,15 +323,34 @@ export class ProductionLogger {
 
   private isSensitiveKey(key: string): boolean {
     const sensitiveKeys = [
+      // User identifiers
       'userId', 'user_id', 'userIdentifier', 'id',
+      // Authentication
       'token', 'authToken', 'accessToken', 'refreshToken',
       'password', 'secret', 'key', 'apiKey',
       'session', 'sessionId', 'session_id',
+      // Clinical/Assessment data
       'phq9', 'gad7', 'score', 'scores', 'responses',
       'assessment', 'assessmentData', 'result', 'results',
       'crisis', 'crisisData', 'detection', 'intervention',
+      // Personal identifiers
       'email', 'phone', 'ssn', 'personal', 'private',
-      'data', 'userData', 'profile', 'profileData'
+      'data', 'userData', 'profile', 'profileData',
+      // INFRA-61: Philosophical/Therapeutic content protection
+      'journal', 'journalEntry', 'entry', 'entries',
+      'reflection', 'reflections', 'personalReflection',
+      'virtue', 'virtueResponse', 'virtuePractice', 'virtueScore',
+      'principle', 'principles', 'stoicPrinciple',
+      'quote', 'quotes', 'citation',
+      'practice', 'dailyPractice', 'morningPractice', 'eveningPractice',
+      'meditation', 'meditationContent', 'breathingContent',
+      'educational', 'moduleContent', 'lessonContent', 'content',
+      'insight', 'insights', 'personalInsight',
+      'gratitude', 'gratitudeEntry',
+      'intention', 'dailyIntention',
+      'examen', 'eveningExamen',
+      'thought', 'thoughts', 'thoughtContent',
+      'emotion', 'emotions', 'emotionData', 'mood', 'moodData'
     ];
 
     return sensitiveKeys.some(sensitive =>
@@ -340,9 +378,45 @@ export class ProductionLogger {
   private async storeCriticalEntry(entry: LogEntry): Promise<void> {
     try {
       const storageKey = `critical_log_${Date.now()}`;
-      await SecureStore.setItemAsync(storageKey, JSON.stringify(entry));
-    } catch (error) {
+
+      // INFRA-61: Encrypt if encryption is enabled
+      if (this.encryptionEnabled && this.encryptionService) {
+        try {
+          const sensitivityLevel = this.mapCategoryToSensitivity(entry.category);
+          const encryptedPackage = await this.encryptionService.encryptData(entry, sensitivityLevel);
+
+          // Store encrypted wrapper
+          const encryptedEntry = {
+            encrypted: true,
+            package: encryptedPackage,
+          };
+          await SecureStore.setItemAsync(storageKey, JSON.stringify(encryptedEntry));
+        } catch {
+          // Fallback to unencrypted storage if encryption fails
+          await SecureStore.setItemAsync(storageKey, JSON.stringify(entry));
+        }
+      } else {
+        // Store unencrypted
+        await SecureStore.setItemAsync(storageKey, JSON.stringify(entry));
+      }
+    } catch {
       // Fail silently - we don't want logging errors to break the app
+    }
+  }
+
+  /**
+   * INFRA-61: Map log category to encryption sensitivity level
+   */
+  private mapCategoryToSensitivity(category: LogCategory): DataSensitivityLevel {
+    switch (category) {
+      case LogCategory.CRISIS:
+        return 'level_1_crisis_responses';
+      case LogCategory.ASSESSMENT:
+        return 'level_2_assessment_data';
+      case LogCategory.SECURITY:
+        return 'level_3_intervention_metadata';
+      default:
+        return 'level_5_general_data';
     }
   }
 
@@ -427,7 +501,7 @@ export class ProductionLogger {
     try {
       // Initialize any required storage or configurations
       // This runs once when the logger is created
-    } catch (error) {
+    } catch {
       // Fail silently - logger must not break app initialization
     }
   }
@@ -447,7 +521,7 @@ export class ProductionLogger {
       const keys = await AsyncStorage.getAllKeys();
       const logKeys = keys.filter(key => key.startsWith('critical_log_'));
       await AsyncStorage.multiRemove(logKeys);
-    } catch (error) {
+    } catch {
       // Fail silently
     }
   }
@@ -458,6 +532,31 @@ export class ProductionLogger {
   emergencyShutdown(reason: string): void {
     console.error(`🚨 EMERGENCY LOGGER SHUTDOWN: ${reason}`);
     this.auditTrail.length = 0;
+  }
+
+  /**
+   * INFRA-61: Rate Limiter Statistics
+   */
+  getRateLimiterStats() {
+    return this.rateLimiter.getStats();
+  }
+
+  /**
+   * INFRA-61: Enable log encryption
+   */
+  async enableEncryption(encryptionService: EncryptionService): Promise<void> {
+    this.encryptionService = encryptionService;
+    this.encryptionEnabled = true;
+    this.info(LogCategory.SECURITY, 'Log encryption enabled');
+  }
+
+  /**
+   * INFRA-61: Disable log encryption
+   */
+  disableEncryption(): void {
+    this.encryptionEnabled = false;
+    this.encryptionService = null;
+    this.info(LogCategory.SECURITY, 'Log encryption disabled');
   }
 }
 

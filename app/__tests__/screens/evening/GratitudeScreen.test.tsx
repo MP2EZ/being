@@ -24,7 +24,7 @@
  * Optional impermanence reflection deepens appreciation by acknowledging that
  * all things are temporary.
  *
- * @see /docs/technical/Stoic-Mindfulness-Architecture-v1.0.md
+ * @see /docs/architecture/Stoic-Mindfulness-Architecture-v1.0.md
  */
 
 import React from 'react';

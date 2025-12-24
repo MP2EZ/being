@@ -21,6 +21,19 @@ config.resolver.alias = {
   '@/api': path.resolve(__dirname, 'src/api'),
 };
 
+// Add .md to source extensions for importing markdown files as raw text
+config.resolver.assetExts = config.resolver.assetExts.filter(ext => ext !== 'md');
+config.resolver.sourceExts = [...config.resolver.sourceExts, 'md'];
+
+// Configure transformer to handle .md files as raw text
+config.transformer.babelTransformerPath = require.resolve('./metro-md-transformer.js');
+
+// Watch parent directory to allow importing from docs/legal/
+// This enables single source of truth for legal documents (used by both website and app)
+const repoRoot = path.resolve(__dirname, '..');
+config.watchFolders = [repoRoot];
+config.resolver.nodeModulesPaths = [path.resolve(__dirname, 'node_modules')];
+
 // Minimal development console output
 if (process.env.NODE_ENV === 'development') {
   console.log('🏥 Being. - Simplified Metro Configuration');

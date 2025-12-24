@@ -7,6 +7,24 @@
  * - Integrity verification with checksums
  * - Anonymous user association only
  *
+ * HIPAA COMPLIANCE (MAINT-117):
+ * Cloud backup MUST NOT include Protected Health Information (PHI).
+ *
+ * PHI FIELDS EXCLUDED (45 CFR §160.103):
+ * - Individual PHQ-9/GAD-7 question responses (answers[])
+ * - Assessment scores (totalScore, severity)
+ * - Crisis indicators (suicidalIdeation, isCrisis)
+ * - Crisis detection/intervention records
+ * - Completed assessment history
+ *
+ * PERMITTED DATA (Non-PHI settings only):
+ * - autoSaveEnabled (boolean preference)
+ * - lastSyncAt (backup metadata timestamp)
+ *
+ * FILTERING APPROACH: STRICT ALLOWLIST
+ * Only explicitly permitted fields are backed up. Unknown fields
+ * are automatically excluded for fail-safe PHI protection.
+ *
  * FEATURES:
  * - Automated backup on significant events
  * - Conflict resolution (last-write-wins)
@@ -44,7 +62,7 @@ interface BackupData {
   version: number;
   timestamp: number;
   stores: {
-    assessment?: any;
+    assessment?: AssessmentStoreBackup;
     user?: any;
     exercises?: any;
     // Add other stores as needed
@@ -55,6 +73,43 @@ interface BackupData {
     platform?: string;
   };
 }
+
+/**
+ * HIPAA-Compliant Assessment Store Backup
+ *
+ * STRICT ALLOWLIST: Only non-PHI configuration fields are backed up.
+ * All PHQ-9/GAD-7 responses, scores, and clinical data are EXCLUDED.
+ *
+ * This interface defines the ONLY fields that may be transmitted to cloud backup.
+ * Any fields not in this interface are automatically excluded.
+ *
+ * @security MAINT-117 - PHI Filtering Implementation
+ */
+interface AssessmentStoreBackup {
+  /** User preference for automatic saving - NOT PHI */
+  autoSaveEnabled: boolean;
+  /** Timestamp of last sync operation (backup metadata) - NOT PHI */
+  lastSyncAt: number | null;
+}
+
+/**
+ * PHI fields that are PROHIBITED from cloud backup
+ * Used for validation logging only - these fields are NEVER included
+ *
+ * @security Reference list for audit purposes
+ */
+const PHI_FIELDS_EXCLUDED = [
+  'answers',                    // Individual PHQ-9/GAD-7 question responses
+  'currentSession',             // Active assessment session with responses
+  'currentQuestionIndex',       // Assessment progress indicator
+  'completedAssessments',       // Historical assessment data with scores
+  'currentResult',              // Assessment result with scores/severity
+  'crisisDetection',            // Crisis detection records
+  'crisisIntervention',         // Crisis intervention records
+  'hasRecoverableSession',      // Indicates in-progress assessment
+  'isLoading',                  // Transient state (not needed)
+  'error',                      // Transient state (not needed)
+] as const;
 
 interface BackupResult {
   success: boolean;
@@ -285,20 +340,52 @@ class CloudBackupService {
         throw new Error('Invalid backup structure');
       }
 
-      // Restore stores
+      // Restore stores with PHI-safe filtering
+      // HIPAA COMPLIANCE (MAINT-117): Backups contain ONLY non-PHI config fields.
+      // Even on restore, we use allowlist approach to prevent any accidental PHI restoration.
       const restoredStores: string[] = [];
       const errors: string[] = [];
 
       if (backupData.stores.assessment) {
         try {
-          assessmentStore.setState(backupData.stores.assessment);
-          restoredStores.push('assessment');
+          // STRICT ALLOWLIST: Only restore non-PHI configuration fields
+          // This protects against any legacy backups that might contain PHI
+          const safeRestoreData: Partial<AssessmentStoreBackup> = {};
+
+          // Only restore fields that are explicitly safe (non-PHI)
+          if (typeof backupData.stores.assessment.autoSaveEnabled === 'boolean') {
+            safeRestoreData.autoSaveEnabled = backupData.stores.assessment.autoSaveEnabled;
+          }
+          if (backupData.stores.assessment.lastSyncAt !== undefined) {
+            safeRestoreData.lastSyncAt = backupData.stores.assessment.lastSyncAt;
+          }
+
+          // Log if unexpected fields were found (might be legacy backup with PHI)
+          // SECURITY: Use minimal metadata to prevent structure disclosure (CR-2)
+          const EXPECTED_SAFE_FIELDS = 2; // autoSaveEnabled, lastSyncAt
+          const safeFieldCount = Object.keys(safeRestoreData).length;
+          const backupFieldCount = Object.keys(backupData.stores.assessment).length;
+
+          if (backupFieldCount > safeFieldCount) {
+            // Legacy backup detected - PHI was filtered out
+            logSecurity('[CloudBackupService] Legacy backup filtered (PHI excluded)', 'medium', {
+              legacyBackupDetected: true,
+              safeFieldsRestored: safeFieldCount,
+              // DO NOT log: exact field counts (prevents structure disclosure)
+            });
+          }
+
+          // Restore only the safe fields (merges with existing state)
+          if (Object.keys(safeRestoreData).length > 0) {
+            assessmentStore.setState(safeRestoreData);
+            restoredStores.push('assessment (config only - PHI excluded per HIPAA)');
+          }
         } catch (error) {
           errors.push(`Failed to restore assessment store: ${error}`);
         }
       }
 
-      // Add other store restorations as needed
+      // Add other store restorations as needed with similar PHI filtering
       // if (backupData.stores.user) { ... }
       // if (backupData.stores.exercises) { ... }
 
@@ -395,17 +482,66 @@ class CloudBackupService {
   }
 
   /**
-   * Collect data from all stores
+   * Collect data from all stores with PHI filtering
+   *
+   * HIPAA COMPLIANCE (MAINT-117):
+   * This method implements STRICT ALLOWLIST filtering to ensure no Protected
+   * Health Information (PHI) is included in cloud backups.
+   *
+   * PERMITTED DATA (Non-PHI only):
+   * - Assessment: autoSaveEnabled, lastSyncAt
+   * - User: preferences (if added)
+   * - Exercises: progress (if added, non-clinical)
+   *
+   * EXCLUDED DATA (PHI):
+   * - All PHQ-9/GAD-7 question responses
+   * - Assessment scores and severity levels
+   * - Crisis detection/intervention records
+   * - Completed assessment history
+   *
+   * @security Uses allowlist pattern - only explicitly safe fields are included
    */
   private async collectStoreData(): Promise<BackupData> {
-    return {
+    // Get full assessment state for filtering
+    const fullAssessmentState = assessmentStore.getState();
+
+    // STRICT ALLOWLIST: Extract ONLY non-PHI configuration fields
+    // Any field not explicitly copied here is EXCLUDED from backup
+    const filteredAssessmentData: AssessmentStoreBackup = {
+      autoSaveEnabled: fullAssessmentState.autoSaveEnabled,
+      lastSyncAt: fullAssessmentState.lastSyncAt,
+    };
+
+    // Audit log: Track PHI filtering (metadata only, no PHI structure revealed)
+    // SECURITY: Use static expected count to prevent structure disclosure (CR-2)
+    const EXPECTED_SAFE_FIELDS = 2; // autoSaveEnabled, lastSyncAt
+    const actualSafeFieldCount = Object.keys(filteredAssessmentData).length;
+
+    logSecurity('[CloudBackupService] PHI filtering applied', 'low', {
+      safeFieldsBackedUp: EXPECTED_SAFE_FIELDS,
+      filteringActive: true,
+      // DO NOT log: excludedFieldCount (reveals PHI structure over time)
+      // DO NOT log: field names or values
+    });
+
+    // Anomaly detection: Flag unexpected field counts (indicates code change needed)
+    if (actualSafeFieldCount !== EXPECTED_SAFE_FIELDS) {
+      logSecurity('[CloudBackupService] Backup field count anomaly', 'high', {
+        expected: EXPECTED_SAFE_FIELDS,
+        actual: actualSafeFieldCount,
+        // Security note: Update EXPECTED_SAFE_FIELDS if allowlist changes
+      });
+    }
+
+    // Validate backup size (config-only should be <1KB)
+    const backupPayload = {
       version: 1,
       timestamp: Date.now(),
       stores: {
-        assessment: assessmentStore.getState(),
-        // Add other stores as needed
-        // user: userStore.getState(),
-        // exercises: exerciseStore.getState(),
+        assessment: filteredAssessmentData,
+        // Add other stores as needed with similar PHI filtering
+        // user: filterUserStore(userStore.getState()),
+        // exercises: filterExerciseStore(exerciseStore.getState()),
       },
       metadata: {
         platform: 'react-native',
@@ -413,6 +549,29 @@ class CloudBackupService {
         // appVersion: getAppVersion(),
       },
     };
+
+    // SECURITY: Precise size validation for PHI leak detection (CR-1)
+    // Config-only backup (2 assessment fields + metadata) is ~150-200 bytes
+    // PHI-containing backups would be in KB range (thousands of bytes)
+    const EXPECTED_MAX_SIZE = 500; // ~150 bytes typical + generous margin for future metadata
+    const payloadSize = JSON.stringify(backupPayload).length;
+
+    if (payloadSize > EXPECTED_MAX_SIZE) {
+      logSecurity('[CloudBackupService] Backup size exceeds expected maximum (PHI leak risk)', 'critical', {
+        actualSize: payloadSize,
+        expectedMax: EXPECTED_MAX_SIZE,
+        // SECURITY: Large backup may indicate accidental PHI inclusion
+      });
+
+      // FAIL-SAFE: Abort backup if size anomaly detected
+      // This prevents potential PHI transmission to cloud
+      throw new Error(
+        `Backup size validation failed: ${payloadSize} bytes exceeds expected ${EXPECTED_MAX_SIZE} bytes. ` +
+        'Potential PHI inclusion detected. Aborting backup for safety.'
+      );
+    }
+
+    return backupPayload;
   }
 
   /**

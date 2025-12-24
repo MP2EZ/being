@@ -1,24 +1,24 @@
-# Contributing to FullMind MBCT
+# Contributing to Being
 
-> Mental health therapeutic app built with Claude Code agents | Safety-first development
+> Mental wellness app built with Claude Code agents | Safety-first development
 
 ## 🤖 Agent Safety Protocols
 
 ### Domain Authority Hierarchy (IMMUTABLE)
 ```
-crisis >> compliance >> clinician >> technical agents
+crisis >> compliance >> philosopher >> technical agents
 ```
 
 **Auto-Escalation Triggers:**
 - PHQ-9 score ≥20 or GAD-7 ≥15 → `crisis` agent required
 - Crisis button/emergency features → `crisis` agent required
-- Data encryption/HIPAA → `compliance` agent required
-- MBCT exercises/therapeutic content → `clinician` agent required
+- Data encryption/privacy → `compliance` agent required
+- Stoic Mindfulness content/principles → `philosopher` agent required
 
 ### Intern Agent Restrictions
-❌ **PROHIBITED:** clinical | crisis | compliance | PHI | MBCT | PHQ-9 | GAD-7 | therapeutic | AsyncStorage | security
-✅ **ALLOWED:** formatting | imports | scaffolding (non-clinical) | file organization | config (non-security)
-🚨 **ESCALATE:** Any healthcare terms, `/assessment/`, `/crisis/`, `/clinical/`, `/therapeutic/` paths
+❌ **PROHIBITED:** crisis | compliance | PHI | PHQ-9 | GAD-7 | Stoic philosophy | principles | virtue | AsyncStorage | security
+✅ **ALLOWED:** formatting | imports | scaffolding (non-philosophical) | file organization | config (non-security)
+🚨 **ESCALATE:** Any wellness terms, `/assessment/`, `/crisis/`, Stoic terminology, `/principles/` paths
 
 ## 📋 Development Standards
 
@@ -39,15 +39,15 @@ npm run perf:breathing
 
 ## 🏗️ Agent Workflow Templates
 
-### Clinical/Therapeutic Features (F1-F6)
+### Stoic Mindfulness Features (F1-F6)
 | Template | Trigger | Flow |
 |----------|---------|------|
-| F1 | MBCT/Therapeutic | `clinician→accessibility→react→test→crisis?` |
-| F2 | Crisis/Safety | `crisis→(clinician+compliance)→architect→(react+typescript+security)→accessibility→test→deploy` |
-| F3 | PHQ-9/GAD-7 | `clinician→(typescript+state)→crisis→react→test→accessibility` |
+| F1 | Stoic Content | `philosopher→accessibility→react→test→crisis?` |
+| F2 | Crisis/Safety | `crisis→(philosopher+compliance)→architect→(react+typescript+security)→accessibility→test→deploy` |
+| F3 | PHQ-9/GAD-7 | `philosopher→(typescript+state)→crisis→react→test→accessibility` |
 | F4 | Data/Privacy | `compliance→(security+api)→architect→(react+state)→test→deploy` |
-| F5 | Exercises/Mood | `clinician→architect→(react+typescript+state)→accessibility→test→performance→review` |
-| F6 | Safety Bugs | `crisis→(compliance+clinician)→architect→[rapid]→test→deploy` |
+| F5 | Practices/Mood | `philosopher→architect→(react+typescript+state)→accessibility→test→performance→review` |
+| F6 | Safety Bugs | `crisis→(compliance+philosopher)→architect→[rapid]→test→deploy` |
 
 ### Standard Features (Global T1-T8)
 - Non-clinical UI components → T5: `react→typescript→accessibility→test`
@@ -57,16 +57,16 @@ npm run perf:breathing
 ### Handoff Requirements
 | Safety Level | Required | Use Case |
 |--------------|----------|----------|
-| L1-Simple | key findings + next steps | Non-clinical fixes |
+| L1-Simple | key findings + next steps | Non-domain fixes |
 | L2-Standard | findings + constraints + integration | Standard features |
-| L3-Complex | domain requirements + validation + non-negotiables | Clinical/Safety |
+| L3-Complex | domain requirements + validation + non-negotiables | Safety/Philosophical |
 | L4-AI | model config + prompts + validation | AI features |
 
 **Domain work requires L3-Complex handoffs**
 
 ## 🔒 Non-Negotiables
 
-### Clinical Accuracy (100% Required)
+### Wellness Accuracy (100% Required)
 - **PHQ-9/GAD-7**: Exact wording | 100% accuracy | Thresholds (≥20, ≥15)
 - **Crisis Features**: 988 integration | <3s access | Auto-trigger
 - **Breathing Exercises**: 60s×3=180s exact timing
@@ -123,28 +123,28 @@ app/src/
 - Common mistakes & fixes
 
 ### Protected Paths (Domain Agent Required)
-- `/app/src/features/assessment/` → `clinician` required
+- `/app/src/features/assessment/` → `philosopher` + `crisis` required
 - `/app/src/features/crisis/` → `crisis` required
+- `/app/src/features/practices/` → `philosopher` required
 - `/app/src/core/services/security/` → `compliance` required
-- `/app/src/core/types/compliance/` → `compliance` required
 
 ### Documentation Structure
-- `/docs/` → Technical Documentation (Product | Clinical | Architecture | Security)
-- `/brand-legal/` → Brand Guidelines | Legal | Compliance
+- `/docs/` → Technical Documentation (Product | Philosophical | Architecture | Security)
+- `/docs/legal/` → Legal Documents (Privacy Policy | Terms | Medical Disclaimer)
 - `/scripts/` → Cross-module operations
 - `/app/src/README.md` → Source architecture guide
 
 ## 🧪 Testing Strategy
 
 ### Required Coverage
-- **Clinical**: 100% PHQ/GAD combinations + scoring algorithms
+- **Wellness**: 100% PHQ/GAD combinations + scoring algorithms
 - **Crisis**: <3s access from all screens + 988 integration
 - **Platform**: iOS = Android + WCAG-AA + Offline complete
-- **Therapeutic**: 60s exact timing + mood algorithms + progress tracking
+- **Practices**: 60s exact timing + mood algorithms + progress tracking
 
 ### Test Commands
 ```bash
-npm run test:clinical     # Before clinical changes
+npm run test:clinical     # Before wellness/assessment changes
 npm run test:crisis      # Before crisis features
 npm run test:accessibility # Before UI changes
 npm run test:platform    # Cross-platform validation
@@ -160,13 +160,13 @@ assessment → PHQ/GAD [critical]
 crisis → contacts [critical]
 ```
 
-**All clinical data must be encrypted at rest**
+**All wellness data must be encrypted at rest**
 
 ## 🚨 Emergency Protocols
 
 ### Crisis Feature Development
 1. `crisis` agent validates safety requirements
-2. `compliance` agent ensures HIPAA compliance
+2. `compliance` agent ensures privacy compliance
 3. `architect` coordinates technical implementation
 4. Full test suite including <3s access validation
 5. Crisis contact integration testing
@@ -174,12 +174,12 @@ crisis → contacts [critical]
 ### Hotfix Process
 - Branch: `hotfix/crisis-*` or `hotfix/safety-*`
 - Expedited review for safety-critical issues
-- Full clinical validation required even for hotfixes
+- Full wellness validation required even for hotfixes
 
 ## 📞 Support
 
 **For Agents**: Follow domain hierarchy for escalation
-**For PM**: All clinical/safety concerns require domain agent validation
+**For PM**: All wellness/safety concerns require domain agent validation
 **For Development**: Reference `/docs/architecture/` for technical details
 
 ---

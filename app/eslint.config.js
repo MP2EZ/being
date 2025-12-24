@@ -1,6 +1,11 @@
 /**
  * Consolidated ESLint Configuration
  * Phase 7A: Unified configuration combining standard and clinical safety rules
+ *
+ * INFRA-61: PHI-Safe Logging Enforcement
+ * - no-console rule set to error for production code
+ * - All logging must go through ProductionLogger
+ * - Only console.error allowed for emergency/critical issues
  */
 
 module.exports = [
@@ -49,7 +54,8 @@ module.exports = [
       // General Code Quality
       'prefer-const': 'error',
       'no-var': 'error',
-      'no-console': ['warn', { allow: ['warn', 'error', 'info'] }],
+      // INFRA-61: Enforce ProductionLogger usage - only console.error allowed
+      'no-console': ['error', { allow: ['error'] }],
       'complexity': ['warn', { max: 10 }],
     },
     settings: {
@@ -95,10 +101,11 @@ module.exports = [
       // ],
       'complexity': ['error', { max: 8 }],
       'max-depth': ['error', { max: 3 }],
+      // INFRA-61: Clinical files must use ProductionLogger exclusively
       'no-console': ['error', { allow: ['error'] }],
     },
   },
-  
+
   // Relaxed rules for test files
   {
     files: ['**/*.test.{ts,tsx}', '**/*.spec.{ts,tsx}', '__tests__/**/*.{ts,tsx}'],
@@ -120,7 +127,20 @@ module.exports = [
     ],
     rules: {
       'react-hooks/exhaustive-deps': 'error',
-      'no-console': ['error', { allow: ['error', 'warn'] }],
+      // INFRA-61: Performance components - only error allowed
+      'no-console': ['error', { allow: ['error'] }],
+    },
+  },
+
+  // INFRA-61: Logging service files - allowed to use console for output handlers
+  {
+    files: [
+      '**/services/logging/**/*.ts',
+      '**/services/logging/**/*.tsx',
+    ],
+    rules: {
+      // ProductionLogger outputs to console based on environment
+      'no-console': ['error', { allow: ['log', 'error', 'warn', 'info'] }],
     },
   },
 ];

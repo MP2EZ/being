@@ -288,7 +288,7 @@ export default function CrisisResourcesScreen() {
   const priorityResources = getPriorityCrisisResources();
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container} edges={['top']} testID="crisis-resources-screen">
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}

@@ -13,7 +13,7 @@
  * - Optional: Set principle reminder time
  * - Save selection to StoicMorningFlowData
  *
- * @see /docs/technical/Stoic-Mindfulness-Architecture-v1.0.md
+ * @see /docs/architecture/Stoic-Mindfulness-Architecture-v1.0.md
  */
 
 import React from 'react';

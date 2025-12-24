@@ -21,7 +21,7 @@
  *   (Enchiridion 5)
  * - Seneca: "Difficulties strengthen the mind, as labor does the body." (Letters 13)
  *
- * @see /docs/technical/Stoic-Mindfulness-Architecture-v1.0.md
+ * @see /docs/architecture/Stoic-Mindfulness-Architecture-v1.0.md
  */
 
 import React from 'react';

@@ -102,7 +102,8 @@ const CleanHomeScreen: React.FC = () => {
           styles.checkInCard,
           {
             backgroundColor: themeColors.background,
-            borderColor: isCurrent ? themeColors.primary : colorSystem.gray[200],
+            // WCAG AA: Use gray[400] for 3:1 contrast ratio on borders
+            borderColor: isCurrent ? themeColors.primary : colorSystem.gray[400],
             borderWidth: isCurrent ? 2 : 1,
             opacity: pressed ? 0.9 : (!isImplemented ? 0.6 : isCompleted ? 0.5 : 1),
           }
@@ -110,24 +111,29 @@ const CleanHomeScreen: React.FC = () => {
         onPress={() => handleCheckInPress(type)}
         disabled={!isImplemented}
         accessibilityRole="button"
-        accessibilityLabel={`${title} check-in`}
+        accessibilityLabel={`${title} check-in, ${duration}${isCompleted ? ', completed today' : ''}`}
         accessibilityHint={isImplemented
           ? isCompleted
-            ? `${title} check-in completed today. Tap to do again.`
-            : `Start your ${type} mindfulness check-in, estimated ${duration}`
-          : `${title} check-in coming soon`
+            ? 'Tap to start this check-in again'
+            : `Start your ${type} mindfulness check-in`
+          : 'Coming soon'
         }
         accessibilityState={{ disabled: !isImplemented }}
       >
         <View>
           <View style={styles.cardHeader}>
-            <Text style={[
-              styles.cardTitle,
-              { color: themeColors.primary }
-            ]}>
+            <Text
+              style={[styles.cardTitle, { color: themeColors.primary }]}
+              accessibilityRole="header"
+              // @ts-expect-error - accessibilityLevel is valid for header role
+              accessibilityLevel={3}
+            >
               {title}
             </Text>
-            <Text style={styles.durationBadge}>{duration}</Text>
+            {/* Duration included in parent's accessibilityLabel */}
+            <Text style={styles.durationBadge} importantForAccessibility="no">
+              {duration}
+            </Text>
           </View>
           <Text style={styles.cardDescription} numberOfLines={2}>{description}</Text>
         </View>
@@ -153,12 +159,26 @@ const CleanHomeScreen: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} testID="home-screen">
       <View style={styles.content}>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.appTitle}>Being.</Text>
-          <Text style={styles.greeting}>{getGreeting()}</Text>
+          <Text
+            style={styles.appTitle}
+            accessibilityRole="header"
+            // @ts-expect-error - accessibilityLevel is valid for header role
+            accessibilityLevel={1}
+          >
+            Being.
+          </Text>
+          <Text
+            style={styles.greeting}
+            accessibilityRole="header"
+            // @ts-expect-error - accessibilityLevel is valid for header role
+            accessibilityLevel={2}
+          >
+            {getGreeting()}
+          </Text>
           <Text style={styles.subtitle}>
             Take a moment for mindful awareness
           </Text>

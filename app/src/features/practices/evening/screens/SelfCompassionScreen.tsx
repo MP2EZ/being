@@ -19,7 +19,7 @@
  * counterproductive. This screen is REQUIRED to maintain philosophical integrity
  * while being psychologically healthy.
  *
- * @see /docs/technical/Stoic-Mindfulness-Architecture-v1.0.md
+ * @see /docs/architecture/Stoic-Mindfulness-Architecture-v1.0.md
  * @see /docs/product/Being. DRD.md (DRD-FLOW-004: Evening Flow, Screen 7)
  */
 

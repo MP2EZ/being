@@ -306,6 +306,24 @@ export default function CloudBackupSettings({
         </View>
       )}
 
+      {/* Privacy Notice - HIPAA Compliance (MAINT-117) */}
+      <View style={styles.privacyNotice}>
+        <Text style={styles.privacyNoticeTitle}>
+          Privacy Protection
+        </Text>
+        <Text style={styles.privacyNoticeText}>
+          <Text style={styles.privacyBold}>What is backed up: </Text>
+          App settings and preferences only.
+        </Text>
+        <Text style={styles.privacyNoticeText}>
+          <Text style={styles.privacyBold}>What stays on your device: </Text>
+          Your mental health assessment responses (PHQ-9, GAD-7), scores, and crisis data are never backed up to the cloud.
+        </Text>
+        <Text style={styles.privacyNoticeNote}>
+          Your assessment data stays on this device only, protected by device-level encryption. If you uninstall the app or lose your device, assessment history cannot be recovered.
+        </Text>
+      </View>
+
       {/* Enhanced Status Section with Analytics */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>System Status</Text>
@@ -661,6 +679,43 @@ const styles = StyleSheet.create({
   restoreButtonText: {
     color: '#fff',
     fontWeight: typography.fontWeight.bold,
+  },
+
+  // Privacy Notice - HIPAA Compliance (MAINT-117)
+  privacyNotice: {
+    backgroundColor: '#f3f8f4', // Light green tint for privacy/trust
+    padding: spacing[16],
+    borderRadius: borderRadius.medium,
+    marginBottom: spacing[16],
+    borderWidth: 1,
+    borderColor: '#e0efe2',
+  },
+
+  privacyNoticeTitle: {
+    fontSize: typography.bodyLarge.size,
+    fontWeight: typography.fontWeight.bold,
+    color: '#2e7d32', // Green for privacy/security
+    marginBottom: spacing[12],
+  },
+
+  privacyNoticeText: {
+    color: '#495057',
+    fontSize: typography.bodySmall.size,
+    marginBottom: spacing[8],
+    lineHeight: 20,
+  },
+
+  privacyBold: {
+    fontWeight: typography.fontWeight.bold,
+    color: '#333',
+  },
+
+  privacyNoticeNote: {
+    color: '#6c757d',
+    fontSize: typography.micro.size,
+    marginTop: spacing[8],
+    fontStyle: 'italic',
+    lineHeight: 18,
   },
 
   section: {

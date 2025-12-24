@@ -183,7 +183,7 @@ export interface EveningFlowData {
 /**
  * Stoic Mindfulness Flow Data Interfaces
  * Philosopher-validated (9.5/10 rating) - See Architecture v1.0
- * @see /docs/technical/Stoic-Mindfulness-Architecture-v1.0.md
+ * @see /docs/architecture/Stoic-Mindfulness-Architecture-v1.0.md
  */
 
 import type { CardinalVirtue, PracticeDomain, VirtueInstance, VirtueChallenge } from './stoic';

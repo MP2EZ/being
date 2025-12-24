@@ -32,7 +32,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Picker } from '@react-native-picker/picker';
 import { useConsentStore } from '@/core/stores/consentStore';
-import { commonColors, spacing, borderRadius, typography } from '@/core/theme';
+import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
 
 interface CombinedLegalGateScreenProps {
   /** Called when user passes legal gate (age verified + ToS accepted) */
@@ -200,13 +200,13 @@ const CombinedLegalGateScreen: React.FC<CombinedLegalGateScreenProps> = ({
               style={styles.picker}
               accessibilityLabel="Select your birth year"
             >
-              <Picker.Item label="Select year..." value={null} color={commonColors.gray400} />
+              <Picker.Item label="Select year..." value={null} color={colorSystem.gray[400]} />
               {years.map((year) => (
                 <Picker.Item
                   key={year}
                   label={year.toString()}
                   value={year}
-                  color={commonColors.black}
+                  color={colorSystem.base.black}
                 />
               ))}
             </Picker>
@@ -322,7 +322,7 @@ const CombinedLegalGateScreen: React.FC<CombinedLegalGateScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: commonColors.white,
+    backgroundColor: colorSystem.base.white,
   },
   scrollContainer: {
     flex: 1,
@@ -338,14 +338,14 @@ const styles = StyleSheet.create({
   title: {
     fontSize: typography.headline2.size,
     fontWeight: typography.fontWeight.bold,
-    color: commonColors.black,
+    color: colorSystem.base.black,
     marginBottom: spacing[8],
     textAlign: 'center',
   },
   subtitle: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
-    color: commonColors.gray600,
+    color: colorSystem.gray[600],
     textAlign: 'center',
     lineHeight: spacing[24],
   },
@@ -355,20 +355,20 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
-    color: commonColors.black,
+    color: colorSystem.base.black,
     marginBottom: spacing[8],
   },
   sectionDescription: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: commonColors.gray600,
+    color: colorSystem.gray[600],
     marginBottom: spacing[16],
   },
   pickerContainer: {
-    backgroundColor: commonColors.gray100,
+    backgroundColor: colorSystem.gray[100],
     borderRadius: borderRadius.large,
     borderWidth: 1,
-    borderColor: commonColors.gray200,
+    borderColor: colorSystem.gray[200],
     overflow: 'hidden',
   },
   picker: {
@@ -377,21 +377,21 @@ const styles = StyleSheet.create({
   helperText: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: commonColors.gray500,
+    color: colorSystem.gray[500],
     marginTop: spacing[8],
     fontStyle: 'italic',
   },
   checkbox: {
     flexDirection: 'row',
-    backgroundColor: commonColors.gray100,
+    backgroundColor: colorSystem.gray[100],
     borderRadius: borderRadius.large,
     padding: spacing[24],
     borderWidth: 2,
-    borderColor: commonColors.gray200,
+    borderColor: colorSystem.gray[200],
     minHeight: 56,
   },
   checkboxChecked: {
-    borderColor: commonColors.midnightBlue,
+    borderColor: colorSystem.base.midnightBlue,
     backgroundColor: '#F0F4FF',
   },
   checkboxIndicator: {
@@ -399,22 +399,22 @@ const styles = StyleSheet.create({
     height: spacing[24],
     borderRadius: borderRadius.small,
     borderWidth: 2,
-    borderColor: commonColors.gray400,
+    borderColor: colorSystem.gray[400],
     marginRight: spacing[16],
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: commonColors.white,
+    backgroundColor: colorSystem.base.white,
   },
   checkboxCheck: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.bold,
-    color: commonColors.midnightBlue,
+    color: colorSystem.base.midnightBlue,
   },
   checkboxText: {
     flex: 1,
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: commonColors.gray600,
+    color: colorSystem.gray[600],
     lineHeight: 22,
   },
   linkRow: {
@@ -426,7 +426,7 @@ const styles = StyleSheet.create({
   linkText: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.medium,
-    color: commonColors.midnightBlue,
+    color: colorSystem.base.midnightBlue,
     textDecorationLine: 'underline',
   },
   essentialSection: {
@@ -435,12 +435,12 @@ const styles = StyleSheet.create({
     padding: spacing[24],
     marginBottom: spacing[24],
     borderWidth: 1,
-    borderColor: commonColors.gray200,
+    borderColor: colorSystem.gray[200],
   },
   essentialTitle: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.semibold,
-    color: commonColors.gray500,
+    color: colorSystem.gray[500],
     marginBottom: spacing[8],
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -448,13 +448,13 @@ const styles = StyleSheet.create({
   essentialItem: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: commonColors.gray600,
+    color: colorSystem.gray[600],
     lineHeight: spacing[24],
   },
   essentialNote: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: commonColors.gray500,
+    color: colorSystem.gray[500],
     marginTop: spacing[16],
     fontStyle: 'italic',
   },
@@ -467,11 +467,11 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.medium,
-    color: commonColors.error,
+    color: colorSystem.status.error,
     textAlign: 'center',
   },
   continueButton: {
-    backgroundColor: commonColors.midnightBlue,
+    backgroundColor: colorSystem.base.midnightBlue,
     paddingVertical: spacing[16],
     borderRadius: borderRadius.large,
     alignItems: 'center',
@@ -479,23 +479,23 @@ const styles = StyleSheet.create({
     marginBottom: spacing[24],
   },
   continueButtonDisabled: {
-    backgroundColor: commonColors.gray400,
+    backgroundColor: colorSystem.gray[400],
   },
   continueButtonText: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
-    color: commonColors.white,
+    color: colorSystem.base.white,
   },
   crisisFooter: {
     alignItems: 'center',
     paddingTop: spacing[16],
     borderTopWidth: 1,
-    borderTopColor: commonColors.gray200,
+    borderTopColor: colorSystem.gray[200],
   },
   crisisFooterTitle: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.medium,
-    color: commonColors.gray500,
+    color: colorSystem.gray[500],
     marginBottom: spacing[8],
   },
   crisisFooterButtons: {
@@ -507,12 +507,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing[24],
     borderRadius: borderRadius.medium,
     borderWidth: 1,
-    borderColor: commonColors.crisis,
+    borderColor: colorSystem.status.critical,
   },
   crisisFooterButtonText: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.semibold,
-    color: commonColors.crisis,
+    color: colorSystem.status.critical,
   },
   // Under-age screen styles
   crisisSection: {
@@ -521,19 +521,19 @@ const styles = StyleSheet.create({
   crisisSectionTitle: {
     fontSize: typography.title.size,
     fontWeight: typography.fontWeight.semibold,
-    color: commonColors.black,
+    color: colorSystem.base.black,
     marginBottom: spacing[8],
     textAlign: 'center',
   },
   crisisDescription: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: commonColors.gray600,
+    color: colorSystem.gray[600],
     textAlign: 'center',
     marginBottom: spacing[24],
   },
   crisisButton: {
-    backgroundColor: commonColors.crisis,
+    backgroundColor: colorSystem.status.critical,
     paddingVertical: spacing[24],
     borderRadius: borderRadius.large,
     alignItems: 'center',
@@ -543,44 +543,44 @@ const styles = StyleSheet.create({
   crisisButtonText: {
     fontSize: typography.title.size,
     fontWeight: typography.fontWeight.bold,
-    color: commonColors.white,
+    color: colorSystem.base.white,
   },
   crisisButtonSubtext: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: commonColors.white,
+    color: colorSystem.base.white,
     marginTop: spacing[4],
   },
   crisisButtonSecondary: {
-    backgroundColor: commonColors.white,
+    backgroundColor: colorSystem.base.white,
     paddingVertical: spacing[24],
     borderRadius: borderRadius.large,
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: commonColors.crisis,
+    borderColor: colorSystem.status.critical,
     minHeight: 72,
   },
   crisisButtonSecondaryText: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
-    color: commonColors.crisis,
+    color: colorSystem.status.critical,
   },
   crisisButtonSubtextSecondary: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: commonColors.gray600,
+    color: colorSystem.gray[600],
     marginTop: spacing[4],
   },
   resourcesSection: {
     marginTop: spacing[24],
     padding: spacing[24],
-    backgroundColor: commonColors.gray100,
+    backgroundColor: colorSystem.gray[100],
     borderRadius: borderRadius.large,
   },
   resourcesTitle: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.semibold,
-    color: commonColors.black,
+    color: colorSystem.base.black,
     marginBottom: spacing[16],
   },
 });

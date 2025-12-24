@@ -15,7 +15,7 @@
  * 8. SelfCompassion → EveningCompletion
  * 9. EveningCompletion → Home (reset)
  *
- * @see /docs/technical/Stoic-Mindfulness-Architecture-v1.0.md
+ * @see /docs/architecture/Stoic-Mindfulness-Architecture-v1.0.md
  */
 
 import React from 'react';

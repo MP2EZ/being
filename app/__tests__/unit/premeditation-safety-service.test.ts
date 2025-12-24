@@ -13,7 +13,7 @@
  * - Self-compassion REQUIRED if obstacles present
  * - Crisis integration (detect anxiety patterns, offer support)
  *
- * @see /docs/technical/Stoic-Mindfulness-Architecture-v1.0.md (Philosopher validation)
+ * @see /docs/architecture/Stoic-Mindfulness-Architecture-v1.0.md (Philosopher validation)
  */
 
 import {

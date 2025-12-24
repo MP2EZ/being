@@ -332,7 +332,7 @@ open "docs/product/stoic-mindfulness/INDEX.md"
 open "docs/product/stoic-mindfulness/principles/"
 
 # Technical architecture
-open "docs/technical/Stoic-Mindfulness-Architecture-v1.0.md"
+open "docs/architecture/Stoic-Mindfulness-Architecture-v1.0.md"
 
 # Daily practice architecture
 open "docs/product/stoic-mindfulness/practice/daily-architecture.md"

@@ -25,6 +25,12 @@ declare module '*.json' {
   export default value;
 }
 
+// Markdown files are imported as raw text strings via Metro transformer
+declare module '*.md' {
+  const content: string;
+  export default content;
+}
+
 // Performance API augmentation for memory monitoring
 declare global {
   interface Performance {

@@ -20,7 +20,7 @@
  * - Epictetus: "Some things are in our power, others not." (Enchiridion 1)
  * - Marcus Aurelius: "You have power over your mind, not outside events." (Meditations 12:8)
  *
- * @see /docs/technical/Stoic-Mindfulness-Architecture-v1.0.md
+ * @see /docs/architecture/Stoic-Mindfulness-Architecture-v1.0.md
  */
 
 import React from 'react';

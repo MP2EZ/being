@@ -19,7 +19,7 @@
  * - Balanced examination (instances + challenges)
  * - Privacy-first: No analytics on virtue content
  *
- * @see /docs/technical/Stoic-Mindfulness-Architecture-v1.0.md (v1.1 LOCKED)
+ * @see /docs/architecture/Stoic-Mindfulness-Architecture-v1.0.md (v1.1 LOCKED)
  */
 
 import { create } from 'zustand';
@@ -28,6 +28,7 @@ import type {
   CardinalVirtue,
   DevelopmentalStage,
   PracticeDomain,
+  StoicPrinciple,
   VirtueInstance,
   VirtueChallenge,
   DomainProgress,
@@ -45,6 +46,27 @@ export interface CheckInCompletion {
   type: CheckInType;
   completedAt: Date;
   date: string; // YYYY-MM-DD format for easy daily comparison
+}
+
+/**
+ * Principle Engagement Tracking (FEAT-28: Insights Dashboard)
+ *
+ * Records when a user engages with a Stoic principle during check-in flows.
+ * Used by InsightsScreen to show principle engagement patterns over time.
+ *
+ * Engagement types:
+ * - 'selected': User selected this principle as focus in morning flow
+ * - 'applied': User reported applying principle during midday/evening
+ * - 'reflected': User reflected on principle in evening review
+ */
+export type PrincipleEngagementType = 'selected' | 'applied' | 'reflected';
+
+export interface PrincipleEngagement {
+  principle: StoicPrinciple;
+  flowType: CheckInType;
+  engagementType: PrincipleEngagementType;
+  date: string;  // YYYY-MM-DD format for aggregation
+  timestamp: Date;
 }
 
 export interface StoicPracticeState {
@@ -66,8 +88,12 @@ export interface StoicPracticeState {
     adversity: DomainProgress;
   };
 
-  // Daily check-in completion tracking (last 7 days, for home screen visual feedback)
+  // Daily check-in completion tracking (last 90 days for Insights Dashboard)
   checkInCompletions: CheckInCompletion[];
+
+  // Principle engagement tracking (FEAT-28: Insights Dashboard)
+  // Records which principles users engage with during check-in flows
+  principleEngagements: PrincipleEngagement[];
 
   // Loading state
   isLoading: boolean;
@@ -85,6 +111,14 @@ export interface StoicPracticeState {
   // Check-in completion tracking (for home screen faded appearance)
   markCheckInComplete: (type: CheckInType) => Promise<void>;
   isCheckInCompletedToday: (type: CheckInType) => boolean;
+  // Principle engagement tracking (FEAT-28: Insights Dashboard)
+  recordPrincipleEngagement: (
+    principle: StoicPrinciple,
+    flowType: CheckInType,
+    engagementType: PrincipleEngagementType
+  ) => Promise<void>;
+  getPrincipleEngagements: (days: number) => PrincipleEngagement[];
+  getCheckInHistory: (days: number) => CheckInCompletion[];
   loadPersistedState: () => Promise<void>;
   persistState: () => Promise<void>;
   resetStore: () => Promise<void>;
@@ -130,7 +164,7 @@ const initialDomainProgress: DomainProgress = {
   lastPracticeDate: null,
 };
 
-const getInitialState = (): Omit<StoicPracticeState, 'isLoading' | 'addVirtueInstance' | 'addVirtueChallenge' | 'updateStreak' | 'incrementPracticeDays' | 'setPracticeStartDate' | 'setDevelopmentalStage' | 'getVirtueInstancesByDomain' | 'getVirtueInstancesByVirtue' | 'getRecentVirtueInstances' | 'markCheckInComplete' | 'isCheckInCompletedToday' | 'loadPersistedState' | 'persistState' | 'resetStore'> => ({
+const getInitialState = (): Omit<StoicPracticeState, 'isLoading' | 'addVirtueInstance' | 'addVirtueChallenge' | 'updateStreak' | 'incrementPracticeDays' | 'setPracticeStartDate' | 'setDevelopmentalStage' | 'getVirtueInstancesByDomain' | 'getVirtueInstancesByVirtue' | 'getRecentVirtueInstances' | 'markCheckInComplete' | 'isCheckInCompletedToday' | 'recordPrincipleEngagement' | 'getPrincipleEngagements' | 'getCheckInHistory' | 'loadPersistedState' | 'persistState' | 'resetStore'> => ({
   developmentalStage: 'fragmented',
   practiceStartDate: null,
   totalPracticeDays: 0,
@@ -139,6 +173,7 @@ const getInitialState = (): Omit<StoicPracticeState, 'isLoading' | 'addVirtueIns
   virtueInstances: [],
   virtueChallenges: [],
   checkInCompletions: [],
+  principleEngagements: [],
   domainProgress: {
     work: { ...initialDomainProgress, domain: 'work' },
     relationships: { ...initialDomainProgress, domain: 'relationships' },
@@ -259,15 +294,29 @@ const getTodayString = (): string => {
 };
 
 /**
- * Clean up old check-in completions (keep last 7 days only)
- * Reduces storage footprint and maintains recent history
+ * Clean up old check-in completions (keep last 90 days)
+ * Extended retention for Insights Dashboard (FEAT-28) - supports Week/Month/Quarter views
+ * Storage impact: ~3KB/user (negligible)
  */
 const cleanOldCheckInCompletions = (completions: CheckInCompletion[]): CheckInCompletion[] => {
   const cutoffDate = new Date();
-  cutoffDate.setDate(cutoffDate.getDate() - 7);
+  cutoffDate.setDate(cutoffDate.getDate() - 90);
   const cutoffString = cutoffDate.toISOString().split('T')[0];
 
   return completions.filter(completion => cutoffString && completion.date >= cutoffString);
+};
+
+/**
+ * Clean up old principle engagements (keep last 90 days)
+ * FEAT-28: Insights Dashboard requires 90-day retention for Quarter view
+ * Storage impact: ~5KB/user (negligible, encrypted)
+ */
+const cleanOldPrincipleEngagements = (engagements: PrincipleEngagement[]): PrincipleEngagement[] => {
+  const cutoffDate = new Date();
+  cutoffDate.setDate(cutoffDate.getDate() - 90);
+  const cutoffString = cutoffDate.toISOString().split('T')[0];
+
+  return engagements.filter(engagement => cutoffString && engagement.date >= cutoffString);
 };
 
 /**
@@ -292,6 +341,10 @@ const persistToSecureStore = async (state: Partial<StoicPracticeState>): Promise
       checkInCompletions: state.checkInCompletions?.map(c => ({
         ...c,
         completedAt: c.completedAt.toISOString(),
+      })) ?? [],
+      principleEngagements: state.principleEngagements?.map(pe => ({
+        ...pe,
+        timestamp: pe.timestamp.toISOString(),
       })) ?? [],
       domainProgress: {
         work: {
@@ -343,6 +396,10 @@ const loadFromSecureStore = async (): Promise<Partial<StoicPracticeState> | null
       checkInCompletions: parsed.checkInCompletions?.map((c: any) => ({
         ...c,
         completedAt: new Date(c.completedAt),
+      })) ?? [],
+      principleEngagements: parsed.principleEngagements?.map((pe: any) => ({
+        ...pe,
+        timestamp: new Date(pe.timestamp),
       })) ?? [],
       domainProgress: {
         work: {
@@ -568,6 +625,65 @@ export const useStoicPracticeStore = create<StoicPracticeState>((set, get) => ({
     const today = getTodayString();
     const completions = get().checkInCompletions;
     return completions.some(c => c.type === type && c.date === today);
+  },
+
+  /**
+   * Record a principle engagement (FEAT-28: Insights Dashboard)
+   *
+   * Called by flow completion handlers when user engages with a principle.
+   * Engagement types:
+   * - 'selected': Morning flow - user selected principle as focus
+   * - 'applied': Midday/evening - user reported applying principle
+   * - 'reflected': Evening - user reflected on principle practice
+   */
+  recordPrincipleEngagement: async (
+    principle: StoicPrinciple,
+    flowType: CheckInType,
+    engagementType: PrincipleEngagementType
+  ) => {
+    const today = getTodayString();
+    const now = new Date();
+    const currentEngagements = get().principleEngagements;
+
+    // Create new engagement record
+    const newEngagement: PrincipleEngagement = {
+      principle,
+      flowType,
+      engagementType,
+      date: today,
+      timestamp: now,
+    };
+
+    // Clean old engagements and add new one
+    const updatedEngagements = cleanOldPrincipleEngagements([
+      ...currentEngagements,
+      newEngagement,
+    ]);
+
+    set({ principleEngagements: updatedEngagements });
+    await persistToSecureStore({ ...get(), principleEngagements: updatedEngagements });
+  },
+
+  /**
+   * Get principle engagements for last N days (FEAT-28: Insights Dashboard)
+   * Used by InsightsScreen to display principle engagement patterns
+   */
+  getPrincipleEngagements: (days: number): PrincipleEngagement[] => {
+    const engagements = get().principleEngagements;
+    const cutoffDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    const cutoffString = cutoffDate.toISOString().split('T')[0];
+    return engagements.filter(pe => cutoffString && pe.date >= cutoffString);
+  },
+
+  /**
+   * Get check-in history for last N days (FEAT-28: Insights Dashboard)
+   * Used by InsightsScreen to display daily check-in patterns (dot calendar)
+   */
+  getCheckInHistory: (days: number): CheckInCompletion[] => {
+    const completions = get().checkInCompletions;
+    const cutoffDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    const cutoffString = cutoffDate.toISOString().split('T')[0];
+    return completions.filter(c => cutoffString && c.date >= cutoffString);
   },
 
   /**

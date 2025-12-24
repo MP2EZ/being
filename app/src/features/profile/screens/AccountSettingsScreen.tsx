@@ -36,7 +36,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getCurrentUserEmail, getUserCreatedAt, isDevMode } from '@/core/constants/devMode';
-import { commonColors, spacing, borderRadius, typography } from '@/core/theme';
+import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
 
 interface AccountSettingsScreenProps {
   onReturn: () => void;
@@ -223,7 +223,7 @@ const AccountSettingsScreen: React.FC<AccountSettingsScreenProps> = ({ onReturn 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: commonColors.white,
+    backgroundColor: colorSystem.base.white,
   },
   scrollContainer: {
     flex: 1,
@@ -239,14 +239,14 @@ const styles = StyleSheet.create({
   title: {
     fontSize: typography.headline2.size,
     fontWeight: typography.fontWeight.bold,
-    color: commonColors.black,
+    color: colorSystem.base.black,
     marginBottom: spacing[8],
     textAlign: 'center',
   },
   subtitle: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.regular,
-    color: commonColors.gray600,
+    color: colorSystem.gray[600],
     textAlign: 'center',
     lineHeight: 24,
   },
@@ -256,72 +256,72 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: typography.headline3.size,
     fontWeight: typography.fontWeight.semibold,
-    color: commonColors.black,
+    color: colorSystem.base.black,
     marginBottom: spacing[8],
   },
   sectionDescription: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
-    color: commonColors.gray600,
+    color: colorSystem.gray[600],
     lineHeight: 22,
     marginBottom: spacing[16],
   },
   dangerTitle: {
-    color: commonColors.error,
+    color: colorSystem.status.error,
   },
   infoCard: {
-    backgroundColor: commonColors.gray100,
+    backgroundColor: colorSystem.gray[100],
     borderRadius: borderRadius.large,
     padding: spacing[24],
     marginBottom: spacing[16],
     borderWidth: 1,
-    borderColor: commonColors.gray200,
+    borderColor: colorSystem.gray[200],
   },
   infoCardLabel: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.semibold,
-    color: commonColors.gray500,
+    color: colorSystem.gray[500],
     marginBottom: spacing[8],
   },
   infoCardValue: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
-    color: commonColors.black,
+    color: colorSystem.base.black,
     marginBottom: 4,
   },
   infoCardNote: {
     fontSize: typography.micro.size,
     fontWeight: typography.fontWeight.regular,
-    color: commonColors.warning,
+    color: colorSystem.status.warning,
     fontStyle: 'italic',
   },
   actionCard: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: commonColors.gray100,
+    backgroundColor: colorSystem.gray[100],
     borderRadius: borderRadius.large,
     padding: spacing[24],
     marginBottom: spacing[16],
     borderWidth: 1,
-    borderColor: commonColors.gray200,
+    borderColor: colorSystem.gray[200],
   },
   actionCardTitle: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
-    color: commonColors.black,
+    color: colorSystem.base.black,
     marginBottom: spacing[8],
   },
   actionCardDescription: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: commonColors.gray600,
+    color: colorSystem.gray[600],
     lineHeight: 20,
   },
   actionCardArrow: {
     fontSize: 24,
     fontWeight: typography.fontWeight.semibold,
-    color: commonColors.midnightBlue,
+    color: colorSystem.base.midnightBlue,
   },
   actionCardDisabled: {
     opacity: 0.6,
@@ -334,24 +334,24 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#FEE2E2',
     borderLeftWidth: 4,
-    borderLeftColor: commonColors.error,
+    borderLeftColor: colorSystem.status.error,
   },
   dangerCardDisabled: {
     opacity: 0.6,
-    backgroundColor: commonColors.gray100,
-    borderColor: commonColors.gray300,
-    borderLeftColor: commonColors.gray400,
+    backgroundColor: colorSystem.gray[100],
+    borderColor: colorSystem.gray[300],
+    borderLeftColor: colorSystem.gray[400],
   },
   dangerCardTitle: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
-    color: commonColors.error,
+    color: colorSystem.status.error,
     marginBottom: spacing[8],
   },
   dangerCardDescription: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: commonColors.gray600,
+    color: colorSystem.gray[600],
     lineHeight: 20,
     marginBottom: spacing[16],
   },
@@ -361,18 +361,18 @@ const styles = StyleSheet.create({
   confirmationLabel: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.semibold,
-    color: commonColors.gray600,
+    color: colorSystem.gray[600],
     marginBottom: spacing[8],
   },
   confirmationInput: {
-    backgroundColor: commonColors.white,
+    backgroundColor: colorSystem.base.white,
     borderRadius: borderRadius.medium,
     borderWidth: 2,
-    borderColor: commonColors.gray300,
+    borderColor: colorSystem.gray[300],
     padding: spacing[16],
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.semibold,
-    color: commonColors.black,
+    color: colorSystem.base.black,
   },
   infoBox: {
     backgroundColor: '#F0F4FF',
@@ -380,12 +380,12 @@ const styles = StyleSheet.create({
     padding: spacing[16],
     marginTop: spacing[8],
     borderLeftWidth: 3,
-    borderLeftColor: commonColors.midnightBlue,
+    borderLeftColor: colorSystem.base.midnightBlue,
   },
   infoText: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: commonColors.gray600,
+    color: colorSystem.gray[600],
     lineHeight: 20,
   },
   warningBox: {
@@ -394,7 +394,7 @@ const styles = StyleSheet.create({
     padding: spacing[16],
     marginTop: spacing[8],
     borderLeftWidth: 3,
-    borderLeftColor: commonColors.warning,
+    borderLeftColor: colorSystem.status.warning,
   },
   warningText: {
     fontSize: typography.bodySmall.size,
@@ -403,23 +403,23 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   todoBox: {
-    backgroundColor: commonColors.gray100,
+    backgroundColor: colorSystem.gray[100],
     borderRadius: borderRadius.medium,
     padding: spacing[16],
     marginTop: spacing[32],
     borderLeftWidth: 3,
-    borderLeftColor: commonColors.warning,
+    borderLeftColor: colorSystem.status.warning,
   },
   todoTitle: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.semibold,
-    color: commonColors.black,
+    color: colorSystem.base.black,
     marginBottom: spacing[8],
   },
   todoText: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: commonColors.gray600,
+    color: colorSystem.gray[600],
     lineHeight: 20,
     marginBottom: spacing[8],
   },
@@ -427,7 +427,7 @@ const styles = StyleSheet.create({
     marginTop: spacing[24],
   },
   primaryButton: {
-    backgroundColor: commonColors.midnightBlue,
+    backgroundColor: colorSystem.base.midnightBlue,
     paddingVertical: spacing[16],
     paddingHorizontal: spacing[32],
     borderRadius: borderRadius.large,
@@ -437,10 +437,10 @@ const styles = StyleSheet.create({
   primaryButtonText: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
-    color: commonColors.white,
+    color: colorSystem.base.white,
   },
   dangerButton: {
-    backgroundColor: commonColors.error,
+    backgroundColor: colorSystem.status.error,
     paddingVertical: spacing[16],
     paddingHorizontal: spacing[32],
     borderRadius: borderRadius.large,
@@ -449,7 +449,7 @@ const styles = StyleSheet.create({
   dangerButtonText: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
-    color: commonColors.white,
+    color: colorSystem.base.white,
   },
   buttonDisabled: {
     opacity: 0.5,

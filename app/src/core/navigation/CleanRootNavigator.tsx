@@ -18,7 +18,6 @@ import CrisisResourcesScreen from '@/features/crisis/screens/CrisisResourcesScre
 import PurchaseOptionsScreen from '@/core/components/subscription/PurchaseOptionsScreen';
 import SubscriptionStatusCard from '@/core/components/subscription/SubscriptionStatusCard';
 import OnboardingScreen from '@/features/onboarding/screens/OnboardingScreen';
-import VirtueDashboardScreen from '@/features/insights/screens/VirtueDashboardScreen';
 import EnhancedAssessmentFlow from '@/features/assessment/components/EnhancedAssessmentFlow';
 import ModuleDetailScreen from '@/features/learn/screens/ModuleDetailScreen';
 import {
@@ -85,7 +84,6 @@ export type RootStackParamList = {
   } | undefined;
   Subscription: undefined;
   SubscriptionStatus: undefined;
-  VirtueDashboard: undefined;
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -98,7 +96,7 @@ const LoadingScreen: React.FC = () => (
 );
 
 const CleanRootNavigator: React.FC = () => {
-  const { markCheckInComplete } = useStoicPracticeStore();
+  const { markCheckInComplete, recordPrincipleEngagement } = useStoicPracticeStore();
   const { loadSettings, markOnboardingComplete } = useSettingsStore();
   const { loadConsent, consentStatus } = useConsentStore();
   const [initialRoute, setInitialRoute] = useState<'LegalGate' | 'Onboarding' | 'Main' | null>(null);
@@ -126,19 +124,54 @@ const CleanRootNavigator: React.FC = () => {
   const handleMorningFlowComplete = async (sessionData: any) => {
     console.log('🌅 Morning flow completed:', sessionData);
     await markCheckInComplete('morning');
-    // TODO: Store session data to analytics/state
+
+    // FEAT-28: Record principle engagement for Insights Dashboard
+    if (sessionData?.principleFocus?.principleKey) {
+      await recordPrincipleEngagement(
+        sessionData.principleFocus.principleKey,
+        'morning',
+        'selected'
+      );
+      console.log('📊 Recorded principle engagement:', sessionData.principleFocus.principleKey);
+    }
   };
 
   const handleMiddayFlowComplete = async (sessionData: any) => {
     console.log('🧘 Midday flow completed:', sessionData);
     await markCheckInComplete('midday');
-    // TODO: Store session data to analytics/state
+
+    // FEAT-28: Record principle engagement for Insights Dashboard
+    if (sessionData?.reappraisal?.principleApplied) {
+      await recordPrincipleEngagement(
+        sessionData.reappraisal.principleApplied,
+        'midday',
+        'applied'
+      );
+      console.log('📊 Recorded principle engagement:', sessionData.reappraisal.principleApplied);
+    }
   };
 
   const handleEveningFlowComplete = async (sessionData: any) => {
     console.log('🌙 Evening flow completed:', sessionData);
     await markCheckInComplete('evening');
-    // TODO: Store session data to analytics/state
+
+    // FEAT-28: Record principle engagements from virtue instances for Insights Dashboard
+    if (sessionData?.virtueInstances?.length) {
+      const principlesReflected = new Set<string>();
+      for (const instance of sessionData.virtueInstances) {
+        if (instance.principleApplied && !principlesReflected.has(instance.principleApplied)) {
+          principlesReflected.add(instance.principleApplied);
+          await recordPrincipleEngagement(
+            instance.principleApplied,
+            'evening',
+            'reflected'
+          );
+        }
+      }
+      if (principlesReflected.size > 0) {
+        console.log('📊 Recorded principle engagements:', Array.from(principlesReflected).join(', '));
+      }
+    }
   };
 
   const handleOnboardingComplete = async (destination?: 'home' | 'morning') => {
@@ -486,41 +519,6 @@ const CleanRootNavigator: React.FC = () => {
               gestureEnabled: true
             }}
           />
-
-          {/* Virtue Dashboard Screen */}
-          <Stack.Screen
-            name="VirtueDashboard"
-            options={({ navigation }) => ({
-              headerShown: true,
-              presentation: 'modal',
-              gestureEnabled: true,
-              headerTitle: 'Practice Progress',
-              headerTitleAlign: 'center',
-              headerStyle: {
-                backgroundColor: '#FFFFFF',
-                borderBottomColor: '#E5E7EB',
-                borderBottomWidth: 1,
-              },
-              headerTitleStyle: {
-                fontSize: typography.bodyLarge.size,
-                fontWeight: typography.fontWeight.semibold,
-                color: '#1C1C1C',
-              },
-              headerLeft: () => (
-                <TouchableOpacity
-                  onPress={() => navigation.goBack()}
-                  style={styles.closeButton}
-                  accessibilityLabel="Close virtue dashboard"
-                  accessibilityRole="button"
-                  accessibilityHint="Returns to previous screen"
-                >
-                  <Text style={styles.closeButtonText}>✕</Text>
-                </TouchableOpacity>
-              ),
-            })}
-          >
-            {() => <VirtueDashboardScreen />}
-          </Stack.Screen>
         </Stack.Group>
       </Stack.Navigator>
     </NavigationContainer>
