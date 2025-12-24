@@ -1,4 +1,4 @@
-  # Being. MBCT [requires: ~/.claude/CLAUDE.md]
+  # Being. [requires: ~/.claude/CLAUDE.md]
   
   ## Requirement
   ~/.claude/CLAUDE.md
@@ -82,12 +82,27 @@
   ### State [Zustand]
   user→profile\|prefs | checkIn→mood[encrypted] | assessment→PHQ/GAD[!!] | crisis→contacts[!!]
 
+  ## Design System [!]
+  Theme: @/core/theme
+
+  ### Exports
+  colorSystem: themes(morning|midday|evening)|base|gray[100-700]|status|accessibility|navigation
+  semantic: text(primary|secondary|muted|inverse)|background(primary|secondary)|border(default|strong)
+  spacing: pixel-value keys (spacing[4]=4px, spacing[8]=8px... spacing[128]=128px)
+  borderRadius: small|medium|large|xl|xxl
+  typography: micro|caption|bodySmall|bodyRegular|bodyLarge|headline2-4|title|display + fontWeight.*
+  getTheme(flowType): returns theme colors for morning|midday|evening
+
+  ### Rules
+  UI-work → import from @/core/theme
+  PROHIBIT: hardcoded hex|magic-numbers|inline-fontSize
+  Prefer: colorSystem.* (hierarchical) | semantic.* (intent-based)
+
   ## Documentation
 
-  ### Structure & Key Files
-  Docs: /docs/{technical,philosophical,security,brand-legal}/ | /scripts/
-  Guides: Crisis-Button-Implementation-Guide.md | TypeScript-Safety-Guide.md | Widget-Crisis-Button-Integration-Summary.md
-  Agent Protocols: /CONTRIBUTING.md (safety requirements | handoff protocols | philosophical validation)
+  ### Structure
+  Docs: /docs/{product,architecture,development,testing,security,legal}/
+  Key: /docs/README.md (navigation) | /docs/architecture/README.md (codebase structure)
   PM: Notion 25da1108c2088077b24be0238a1ddf37
 
   ### Policies
