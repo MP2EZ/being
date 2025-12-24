@@ -457,7 +457,27 @@ const MorningFlowNavigator: React.FC<MorningFlowNavigatorProps> = ({
         name="MorningCompletion"
         options={{ headerShown: false }}
       >
-        {(props) => <MorningCompletionScreen {...props} onSave={onComplete} />}
+        {(props) => (
+          <MorningCompletionScreen
+            {...props}
+            route={{
+              ...props.route,
+              // Cast params to any - MorningCompletionScreen extracts via (route.params as any)
+              // Transform screenData keys from PascalCase to camelCase to match StoicMorningFlowData
+              params: {
+                flowData: {
+                  gratitude: screenData['Gratitude'],
+                  intention: screenData['Intention'],
+                  preparation: screenData['Preparation'],
+                  principleFocus: screenData['PrincipleFocus'],
+                  physicalGrounding: screenData['PhysicalGrounding'],
+                },
+                startTime: new Date().toISOString(),
+              } as any,
+            }}
+            onSave={onComplete}
+          />
+        )}
       </Stack.Screen>
     </Stack.Navigator>
 

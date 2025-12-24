@@ -93,15 +93,23 @@ const getDailyQuote = () => {
 const InsightsScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
 
-  // Store hooks
-  const { getCheckInHistory, getPrincipleEngagements } = useStoicPracticeStore();
+  // Store hooks - subscribe to raw data arrays for reactivity
+  const {
+    getCheckInHistory,
+    getPrincipleEngagements,
+    checkInCompletions,
+    principleEngagements: rawPrincipleEngagements,
+  } = useStoicPracticeStore();
   const { completedAssessments } = useAssessmentStore();
 
-  // Get data for components
-  const checkInHistory = useMemo(() => getCheckInHistory(90), [getCheckInHistory]);
+  // Get data for components - depend on raw arrays for proper reactivity
+  const checkInHistory = useMemo(
+    () => getCheckInHistory(90),
+    [getCheckInHistory, checkInCompletions]
+  );
   const principleEngagements = useMemo(
     () => getPrincipleEngagements(90),
-    [getPrincipleEngagements]
+    [getPrincipleEngagements, rawPrincipleEngagements]
   );
 
   // Get daily quote
