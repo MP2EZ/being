@@ -1,7 +1,6 @@
-# Being MBCT - Bare Repository with Worktrees
+# Being - Bare Repository with Worktrees
 
-**Structure**: Bare repository with multiple worktrees for parallel feature development
-**Created**: 2025-10-03
+**Structure**: Bare repository with worktrees for parallel feature development
 **Repository**: `/Users/max/Development/active/being`
 
 ---
@@ -14,34 +13,34 @@
 │   ├── refs/
 │   ├── objects/
 │   ├── worktrees/                     # Worktree metadata
-│   │   ├── development/
-│   │   ├── main/
-│   │   ├── feat-23/
-│   │   ├── feat-41/
-│   │   └── feat-42/
 │   └── HEAD                           # Points to: refs/heads/_bare
 │
 ├── .claude/                           # ⭐ Shared configuration (NOT in git)
 │   ├── CLAUDE.md                      # Project-specific instructions
-│   ├── agents/                        # Domain agents (crisis, compliance, clinician)
+│   ├── agents/                        # Domain agents
+│   │   ├── compliance.md              # HIPAA, privacy, regulatory
+│   │   ├── crisis.md                  # Safety protocols, 988
+│   │   └── philosopher.md             # Stoic Mindfulness validation
 │   ├── commands/                      # Custom slash commands
+│   │   ├── b-create.md                # Create work item in Notion
+│   │   ├── b-work.md                  # Begin work on item
+│   │   ├── b-close.md                 # Close & merge
+│   │   ├── b-cleanup.md               # Branch cleanup
+│   │   ├── b-crisis.md                # Crisis feature workflow
+│   │   └── b-hotfix.md                # Safety bug hotfix
 │   ├── templates/                     # Agent orchestration templates
 │   └── settings.local.json            # Local settings
 │
 ├── development/                       # Worktree: development branch
 │   ├── .git                          # File → ../.git/worktrees/development
-│   ├── .claude/                      # Symlink → /Users/max/Development/active/being/.claude
-│   ├── app/                          # Full project source code
-│   └── ...
+│   ├── .claude/                      # Symlink → shared .claude/
+│   └── app/                          # Full project source code
 │
 ├── main/                             # Worktree: main branch
 │   ├── .git                          # File → ../.git/worktrees/main
-│   ├── .claude/                      # Symlink → /Users/max/Development/active/being/.claude
-│   └── ...
+│   └── .claude/                      # Symlink → shared .claude/
 │
-├── feat-23/                          # Worktree: FEAT-23 branch
-├── feat-41/                          # Worktree: FEAT-41 branch
-└── feat-42/                          # Worktree: FEAT-42 branch
+└── feat-*/                           # Feature worktrees (created as needed)
 ```
 
 ---
@@ -80,17 +79,18 @@ claude
 
 ### Work on Feature Branch
 ```bash
-cd ~/being/feat-23
+cd ~/being/feat-X
 # Make changes to code
 git add .
 git commit -m "feat: implement feature"
 git push
 ```
 
-### Switch Between Features (No Branch Switching!)
+### Switch Between Branches (No git checkout!)
 ```bash
 cd ~/being/development  # Work on development
-cd ~/being/feat-41      # Switch to FEAT-41
+cd ~/being/main         # Switch to main
+cd ~/being/feat-X       # Switch to feature
 # Just cd between directories - no git checkout needed!
 ```
 
@@ -103,9 +103,8 @@ git worktree list
 ### View Status Across All Worktrees
 ```bash
 cd ~/being
-for dir in development main feat-*/; do
-  echo "=== $dir ==="
-  cd $dir && git status --short && cd ..
+for dir in development main; do
+  echo "=== $dir ===" && (cd $dir && git status --short)
 done
 ```
 
@@ -145,15 +144,15 @@ cd ~/being/feat-99
 ### After Feature is Merged
 ```bash
 cd ~/being
-git worktree remove feat-23
+git worktree remove feat-X
 # Worktree directory removed, branch still exists
 ```
 
 ### Delete Branch (if no longer needed)
 ```bash
-git branch -d feat/FEAT-23-habit-formation-optimization
+git branch -d feat/FEAT-X-description
 # Delete remote branch
-git push origin --delete feat/FEAT-23-habit-formation-optimization
+git push origin --delete feat/FEAT-X-description
 ```
 
 ---
@@ -161,19 +160,17 @@ git push origin --delete feat/FEAT-23-habit-formation-optimization
 ## 🔧 MCP Configuration
 
 ### Single Configuration for All Worktrees
-- **Location**: `~/.claude.json`
 - **Project Path**: `/Users/max/Development/active/being`
 - **Git MCP**: Points to `/Users/max/Development/active/being/.git`
 
 ### MCP Servers Configured
 - **context7**: Library documentation lookup
 - **filesystem**: File operations across project
-- **brave-search**: Web search capabilities
 - **git**: Git operations on bare repository
 - **notionApi**: Notion integration for PM
 
 ### No Per-Worktree Configuration Needed
-All worktrees automatically access MCP servers when launching Claude from `being/` directory.
+All worktrees share MCP servers when launching Claude from `being/` directory.
 
 ---
 
@@ -275,43 +272,15 @@ cat development/.claude/CLAUDE.md
 
 ---
 
-## 🔄 Migration History
-
-### Previous Structure
-- **Main repo**: `/Users/max/Development/active/fullmind/`
-- **Worktrees**: `fullmind-feat-23/`, `fullmind-feat-41/`, `fullmind-feat-42/`
-- **MCP**: Required separate entry for each worktree (not scalable)
-
-### Current Structure (Migrated 2025-10-03)
-- **Bare repo**: `/Users/max/Development/active/being/`
-- **Worktrees**: `being/development/`, `being/main/`, `being/feat-*/`
-- **MCP**: Single entry for entire project (scalable)
-
-### Backup
-- **Location**: `/Users/max/Development/active/fullmind-backup-20251003-153752.tar.gz`
-- **Size**: ~600MB
-- **Contains**: Full state before migration
-
----
-
 ## 📚 Additional Resources
 
 ### Git Worktrees Documentation
 - Official: https://git-scm.com/docs/git-worktree
-- Tutorial: https://git-scm.com/book/en/v2/Git-Tools-Advanced-Merging
-
-### Bare Repository Reference
 - Layout: https://git-scm.com/docs/gitrepository-layout
-- Best practices: https://git-scm.com/book/en/v2/Git-on-the-Server-Getting-Git-on-a-Server
 
-### Claude Code MCP
-- Documentation: https://docs.claude.com/en/docs/claude-code/mcp
-- Server setup: https://docs.claude.com/en/docs/claude-code/mcp-servers
-
-### Detailed Conversion Plan
-- **Location**: `/Users/max/dtemp/bare-repo-worktree-conversion-plan.md`
-- **Contains**: 8-phase step-by-step conversion process
-- **Includes**: Rollback procedures, troubleshooting, verification steps
+### Claude Code
+- Documentation: https://docs.anthropic.com/en/docs/claude-code
+- MCP Servers: https://docs.anthropic.com/en/docs/claude-code/mcp-servers
 
 ---
 
@@ -329,19 +298,12 @@ cd ~/being
 git worktree add feat-X -b feat/FEAT-X-description development
 ln -s /Users/max/Development/active/being/.claude feat-X/.claude
 
-# Switch between features
-cd ~/being/development  # or main, feat-23, feat-41, feat-42
+# Switch between branches
+cd ~/being/development  # or main, feat-X
 
 # Remove completed feature
 git worktree remove feat-X
-
-# Check status of all worktrees
-for dir in development main feat-*/; do echo "=== $dir ===" && cd $dir && git status -s && cd ..; done
 ```
-
----
-
-**Questions or Issues?** Refer to the detailed conversion plan at `/Users/max/dtemp/bare-repo-worktree-conversion-plan.md`
 
 
 ## 🔗 Related Repositories
