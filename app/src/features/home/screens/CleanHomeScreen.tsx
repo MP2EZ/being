@@ -206,7 +206,7 @@ const CleanHomeScreen: React.FC = () => {
           <CheckInCard
             type="evening"
             title="Evening Reflection"
-            description="Reflect on your day and prepare your mind for restful sleep."
+            description="Reflect on your day with gratitude and intention. Release what's done and rest peacefully."
             duration="5-6 min"
           />
         </View>
@@ -268,9 +268,11 @@ const styles = StyleSheet.create({
   checkInCard: {
     flex: 1,
     justifyContent: 'space-between',
-    padding: spacing[16],
+    paddingTop: spacing[16],
+    paddingHorizontal: spacing[16],
+    paddingBottom: spacing[20], // Extra to optically balance with title line-height
     borderRadius: borderRadius.large,
-    marginBottom: spacing[40],
+    marginBottom: spacing[16],
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -303,6 +305,7 @@ const styles = StyleSheet.create({
     fontSize: typography.bodySmall.size,
     color: colorSystem.gray[600],
     lineHeight: typography.title.size,
+    marginBottom: spacing[12], // Space before button
   },
   startButton: {
     paddingVertical: spacing[12],

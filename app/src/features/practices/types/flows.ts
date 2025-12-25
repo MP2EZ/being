@@ -24,15 +24,18 @@ export type MiddayFlowParamList = {
   MiddayCompletion: undefined;
 };
 
-// Stoic Mindfulness Evening Flow (FEAT-45) - DRD v2.0.0
-// Streamlined to 6 core screens (virtue tracking moved to VirtueDashboardScreen)
+// Stoic Mindfulness Evening Flow (FEAT-134) - UX-Optimized 6-Screen Flow
+// Redesigned for reduced cognitive load: 3 required fields (down from 8)
+// Flow order: Breathe → Gratitude → Reflection → Compassion → Tomorrow → Sleep
 export type EveningFlowParamList = {
-  VirtueReflection: undefined;
-  Gratitude: undefined;
-  Tomorrow: undefined;
-  SelfCompassion: undefined;
-  SleepTransition: undefined;
-  EveningCompletion: undefined;
+  Breathing: undefined;           // Screen 1: Pure 60s breathing (no decisions)
+  Gratitude: undefined;           // Screen 2: 1 required, up to 3 optional
+  VirtueReflection: undefined;    // Screen 3: Reflection + inline principle picker
+  SelfCompassion: undefined;      // Screen 4: Dedicated self-kindness (required)
+  Tomorrow: undefined;            // Screen 5: Optional intention (skippable)
+  SleepTransition: {              // Screen 6: Breathing + completion card
+    summary?: EveningCompletionSummary;
+  } | undefined;
 };
 
 // Common Flow Data Types
@@ -186,7 +189,7 @@ export interface EveningFlowData {
  * @see /docs/architecture/Stoic-Mindfulness-Architecture-v1.0.md
  */
 
-import type { CardinalVirtue, PracticeDomain, VirtueInstance, VirtueChallenge } from './stoic';
+import type { CardinalVirtue, PracticeDomain, StoicPrinciple, VirtueInstance, VirtueChallenge } from './stoic';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // MORNING FLOW TYPES
@@ -393,8 +396,9 @@ export interface SenecaQuestionsData {
 }
 
 export interface VirtueReflectionData {
-  showedUpWell?: string | undefined;  // Where did I show up well today?
-  growthArea?: string | undefined;    // Where could I grow?
+  showedUpWell: string;                              // Where did I show up well today? (REQUIRED)
+  growthArea?: string | undefined;                   // Where could I grow? (optional)
+  principleReflected?: StoicPrinciple | undefined;   // Inline principle picker (optional, feeds Insights)
   timestamp: Date;
 }
 
@@ -418,6 +422,27 @@ export interface SelfCompassionData {
 export interface SleepTransitionData {
   breathingCompleted: boolean;  // Optional tracking of breathing practice completion
   timestamp: Date;
+}
+
+// FEAT-134: Evening flow breathing screen data
+export interface EveningBreathingData {
+  completed: boolean;
+  durationSeconds: 60;  // Fixed 60s duration
+  timestamp: Date;
+}
+
+// FEAT-134: Updated gratitude data for evening flow (1 required, up to 3 optional)
+export interface EveningGratitudeData {
+  items: string[];  // 1-3 items, first is required
+  timestamp: Date;
+}
+
+// FEAT-134: Evening flow completion summary for completion card
+export interface EveningCompletionSummary {
+  gratitudeCount: number;
+  principleReflected?: StoicPrinciple | undefined;
+  selfCompassionCompleted: boolean;
+  tomorrowIntentionSet: boolean;
 }
 
 export interface MeditationData {

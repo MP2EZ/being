@@ -155,7 +155,14 @@ const CleanRootNavigator: React.FC = () => {
     console.log('🌙 Evening flow completed:', sessionData);
     await markCheckInComplete('evening');
 
-    // FEAT-28: Record principle engagements from virtue instances for Insights Dashboard
+    // FEAT-134: Record principle engagement from VirtueReflection screen (new path)
+    // Note: The EveningFlowNavigator now records principle engagement directly via
+    // recordPrincipleEngagement prop when the user selects a principle on VirtueReflection.
+    // This is the primary engagement tracking path for FEAT-134.
+    // The principle is recorded in real-time when selected, not at flow completion.
+
+    // FEAT-28: Legacy path - Record principle engagements from virtue instances
+    // Kept for backward compatibility with older session data format
     if (sessionData?.virtueInstances?.length) {
       const principlesReflected = new Set<string>();
       for (const instance of sessionData.virtueInstances) {
@@ -169,7 +176,7 @@ const CleanRootNavigator: React.FC = () => {
         }
       }
       if (principlesReflected.size > 0) {
-        console.log('📊 Recorded principle engagements:', Array.from(principlesReflected).join(', '));
+        console.log('📊 Recorded principle engagements (legacy path):', Array.from(principlesReflected).join(', '));
       }
     }
   };
@@ -433,6 +440,8 @@ const CleanRootNavigator: React.FC = () => {
                 onExit={() => {
                   navigation.goBack();
                 }}
+                // FEAT-134: Pass recordPrincipleEngagement for Insights dashboard
+                recordPrincipleEngagement={recordPrincipleEngagement}
               />
             )}
           </Stack.Screen>

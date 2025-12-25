@@ -345,7 +345,8 @@ const MorningFlowNavigator: React.FC<MorningFlowNavigatorProps> = ({
         screenOptions={{
           headerStyle: {
             backgroundColor: colorSystem.themes.morning.background,
-            borderBottomColor: colorSystem.gray[200],
+            // Colored accent bar at bottom (matches midday/evening pattern)
+            borderBottomColor: colorSystem.themes.morning.primary,
             borderBottomWidth: 1,
             shadowColor: '#000',
             shadowOffset: {
