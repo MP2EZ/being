@@ -380,7 +380,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   guidanceContainer: {
-    marginTop: spacing[32],
+    marginTop: spacing[56], // Extra space to account for circle expansion (1.5x scale adds 30px to bottom)
     alignItems: 'center',
     paddingHorizontal: spacing[24],
   },

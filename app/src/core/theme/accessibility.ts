@@ -1,23 +1,25 @@
 /**
  * WCAG 2.1 AA Compliant Accessibility Theme
- * 
+ *
  * All colors meet minimum contrast ratios:
  * - Normal text: 4.5:1 on white background
  * - Large text (≥18pt or ≥14pt bold): 3:1 on white background
  * - UI components (borders, icons): 3:1 on adjacent colors
- * 
+ *
  * Touch targets meet minimum size requirements:
  * - Minimum: 44x44 CSS pixels (WCAG 2.5.5 Level AAA, strongly recommended)
  * - Recommended: 48x48 CSS pixels
  * - Spacing: 8px minimum between targets
- * 
+ *
  * @see WCAG 2.1 Level AA Guidelines
  * @see /docs/accessibility/wcag-compliance.md
  */
 
+import { colors as dsColors } from '@mp2ez/being-design-system/native';
+
 /**
  * WCAG 2.1 AA Compliant Color Palette
- * 
+ *
  * Color contrast tested with WebAIM Contrast Checker
  * All ratios verified against white (#FFFFFF) background
  */
@@ -31,7 +33,7 @@ export const ACCESSIBLE_COLORS = {
    * - Color: #B45309 (4.69:1 contrast - PASS)
    * - Use for: Morning flow primary elements
    */
-  morningPrimary: '#B45309',
+  morningPrimary: dsColors.themes.morning.primary,
 
   // ========================================
   // EVENING FLOW COLORS (Fixed for WCAG AA)
@@ -41,24 +43,26 @@ export const ACCESSIBLE_COLORS = {
    * Evening Primary Color (Green)
    * - Color: #4A7C59 (4.5:1 with white - PASS)
    * - Use for: Primary buttons, key actions in evening flow
-   * - Matches colorSystem.themes.evening.primary
+   * - Uses design system: dsColors.themes.evening.primary
    */
-  eveningPrimary: '#4A7C59',
+  eveningPrimary: dsColors.themes.evening.primary,
 
   /**
    * Evening Accent Color (Light Green)
    * - Color: #6B9B78 (3.0:1 with white)
    * - Use ONLY for: Large text (≥18pt), bold text (≥14pt), borders
    * - DO NOT use for: Normal small text
+   * - Uses design system: dsColors.themes.evening.light
    */
-  eveningAccent: '#6B9B78',
+  eveningAccent: dsColors.themes.evening.light,
 
   /**
    * Evening Border Color
    * - Contrast: 3.0:1 (meets 3:1 for UI components)
    * - Use for: Borders, dividers, decorative elements
+   * - Uses design system: dsColors.themes.evening.light
    */
-  eveningBorder: '#6B9B78',
+  eveningBorder: dsColors.themes.evening.light,
   
   // ========================================
   // TEXT COLORS (WCAG AA Compliant)
@@ -117,8 +121,9 @@ export const ACCESSIBLE_COLORS = {
    * Selected Border Color
    * - Contrast: 4.5:1
    * - Use for: Selected state borders
+   * - Uses design system: dsColors.themes.evening.primary
    */
-  borderSelected: '#4A7C59',
+  borderSelected: dsColors.themes.evening.primary,
   
   /**
    * Focus Border Color (iOS System Blue)
@@ -204,8 +209,9 @@ export const ACCESSIBLE_COLORS = {
   /**
    * Evening Accent Background (Light Green)
    * - Use for: Selected evening flow items
+   * - Uses design system: dsColors.themes.evening.background
    */
-  bgEveningAccent: '#F0F8F4',
+  bgEveningAccent: dsColors.themes.evening.background,
   
   /**
    * Info Background (Light Blue)
