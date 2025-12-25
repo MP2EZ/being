@@ -158,6 +158,11 @@ const GratitudeScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
 
       {/* Fixed bottom button */}
       <View style={styles.buttonContainer}>
+        {!isValid && (
+          <Text style={styles.validationHint}>
+            Add at least one gratitude ({MIN_CHARS}+ characters)
+          </Text>
+        )}
         <AccessibleButton
           onPress={handleContinue}
           label="Continue"
@@ -167,11 +172,6 @@ const GratitudeScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
           testID="continue-button"
           accessibilityHint="Continue to reflection"
         />
-        {!isValid && (
-          <Text style={styles.validationHint}>
-            Add at least one gratitude ({MIN_CHARS}+ characters)
-          </Text>
-        )}
       </View>
     </View>
   );
@@ -243,7 +243,7 @@ const styles = StyleSheet.create({
     fontSize: typography.caption.size,
     color: colorSystem.gray[500],
     textAlign: 'center',
-    marginTop: spacing[8],
+    marginBottom: spacing[8],
     fontStyle: 'italic',
   },
 });

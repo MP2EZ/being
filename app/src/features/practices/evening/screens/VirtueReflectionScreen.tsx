@@ -236,6 +236,11 @@ const VirtueReflectionScreen: React.FC<Props> = ({ navigation, route, onSave }) 
 
       {/* Fixed bottom button */}
       <View style={styles.buttonContainer}>
+        {!isValid && (
+          <Text style={styles.validationHint}>
+            Describe where you showed up well ({MIN_CHARS_FOR_PICKER}+ characters)
+          </Text>
+        )}
         <AccessibleButton
           onPress={handleContinue}
           label="Continue"
@@ -245,11 +250,6 @@ const VirtueReflectionScreen: React.FC<Props> = ({ navigation, route, onSave }) 
           testID="continue-button"
           accessibilityHint="Continue to self-compassion"
         />
-        {!isValid && (
-          <Text style={styles.validationHint}>
-            Describe where you showed up well ({MIN_CHARS_FOR_PICKER}+ characters)
-          </Text>
-        )}
       </View>
     </View>
   );
@@ -370,7 +370,7 @@ const styles = StyleSheet.create({
     fontSize: typography.caption.size,
     color: colorSystem.gray[500],
     textAlign: 'center',
-    marginTop: spacing[8],
+    marginBottom: spacing[8],
     fontStyle: 'italic',
   },
 });
