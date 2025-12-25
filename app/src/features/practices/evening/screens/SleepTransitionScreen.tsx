@@ -30,6 +30,7 @@ import type { EveningFlowParamList, SleepTransitionData, EveningCompletionSummar
 import BreathingCircle from '../../shared/components/BreathingCircle';
 import { AccessibleButton } from '@/core/components/accessibility/AccessibleButton';
 import { spacing, borderRadius, typography, colorSystem } from '@/core/theme';
+import EveningProgressBar from '../components/EveningProgressBar';
 
 // Map principle keys to friendly names for display
 const PRINCIPLE_NAMES: Record<string, string> = {
@@ -100,6 +101,10 @@ const SleepTransitionScreen: React.FC<Props> = ({ navigation, route, onComplete 
     navigation.getParent()?.goBack();
   };
 
+  const handleBack = () => {
+    navigation.goBack();
+  };
+
   // Build personalized summary text
   const buildSummaryText = (summaryData?: EveningCompletionSummary): string[] => {
     const items: string[] = [];
@@ -132,18 +137,13 @@ const SleepTransitionScreen: React.FC<Props> = ({ navigation, route, onComplete 
 
   return (
     <View style={styles.container} testID="sleep-transition-screen">
-      {/* Progress indicator */}
-      <View style={styles.progressContainer}>
-        <View style={styles.progressDots}>
-          <View style={styles.dotComplete} />
-          <View style={styles.dotComplete} />
-          <View style={styles.dotComplete} />
-          <View style={styles.dotComplete} />
-          <View style={styles.dotComplete} />
-          <View style={[styles.dot, styles.dotActive]} />
-        </View>
-        <Text style={styles.progressText}>6/6</Text>
-      </View>
+      {/* Progress bar with back button */}
+      <EveningProgressBar
+        currentStep={6}
+        totalSteps={6}
+        onBack={handleBack}
+        showBackButton={true}
+      />
 
       {/* Header */}
       <View style={styles.header}>
@@ -220,35 +220,6 @@ const styles = StyleSheet.create({
     paddingTop: spacing[48],
     alignItems: 'center',
   },
-  progressContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing[24],
-  },
-  progressDots: {
-    flexDirection: 'row',
-    gap: spacing[8],
-    marginRight: spacing[12],
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colorSystem.gray[500],
-  },
-  dotActive: {
-    backgroundColor: colorSystem.themes.evening.primary,
-  },
-  dotComplete: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colorSystem.status.success,
-  },
-  progressText: {
-    fontSize: typography.caption.size,
-    color: colorSystem.gray[400],
-  },
   header: {
     marginBottom: spacing[32],
     alignItems: 'center',
@@ -256,7 +227,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: typography.headline3.size,
     fontWeight: typography.fontWeight.medium,
-    color: colorSystem.base.white,
+    color: colorSystem.themes.evening.primary,
     textAlign: 'center',
   },
   breathingContainer: {

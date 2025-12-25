@@ -8,7 +8,7 @@
  * - NO cognitive load - just breathe
  * - Calming entry point to evening practice
  * - Continue button appears only after 60s
- * - Evening theme (dark, sleep-compatible)
+ * - Evening theme with proper contrast
  *
  * Stoic Philosophy:
  * - "First, stillness" - grounding before reflection
@@ -28,6 +28,7 @@ import BreathingCircle from '../../shared/components/BreathingCircle';
 import Timer from '../../shared/components/Timer';
 import { AccessibleButton } from '@/core/components/accessibility/AccessibleButton';
 import { spacing, typography, colorSystem } from '@/core/theme';
+import EveningProgressBar from '../components/EveningProgressBar';
 
 type Props = StackScreenProps<EveningFlowParamList, 'Breathing'> & {
   onSave?: (data: EveningBreathingData) => void;
@@ -65,24 +66,26 @@ const BreathingScreen: React.FC<Props> = ({ navigation, onSave }) => {
     navigation.navigate('Gratitude');
   };
 
+  const handleBack = () => {
+    // First screen - exit the flow
+    navigation.getParent()?.goBack();
+  };
+
   return (
     <View style={styles.container} testID="evening-breathing-screen">
-      {/* Progress indicator */}
-      <View style={styles.progressContainer}>
-        <View style={styles.progressDots}>
-          <View style={[styles.dot, styles.dotActive]} />
-          <View style={styles.dot} />
-          <View style={styles.dot} />
-          <View style={styles.dot} />
-          <View style={styles.dot} />
-          <View style={styles.dot} />
-        </View>
-        <Text style={styles.progressText}>1/6</Text>
-      </View>
+      {/* Progress bar with back button */}
+      <EveningProgressBar
+        currentStep={1}
+        totalSteps={6}
+        onBack={handleBack}
+        showBackButton={true}
+      />
 
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>Let's settle into evening</Text>
+        <Text style={styles.subtitle}>Follow the circle as it expands and contracts</Text>
+        <Text style={styles.hint}>Let your breath find its natural rhythm</Text>
       </View>
 
       {/* Breathing Circle - uses shared 60fps component */}
@@ -139,39 +142,28 @@ const styles = StyleSheet.create({
     backgroundColor: colorSystem.themes.evening.background,
     paddingHorizontal: spacing[20],
     paddingTop: spacing[48],
-    alignItems: 'center',
-  },
-  progressContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing[32],
-  },
-  progressDots: {
-    flexDirection: 'row',
-    gap: spacing[8],
-    marginRight: spacing[12],
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colorSystem.gray[500],
-  },
-  dotActive: {
-    backgroundColor: colorSystem.themes.evening.primary,
-  },
-  progressText: {
-    fontSize: typography.caption.size,
-    color: colorSystem.gray[400],
   },
   header: {
-    marginBottom: spacing[32],
+    marginBottom: spacing[24],
     alignItems: 'center',
   },
   title: {
     fontSize: typography.headline3.size,
-    fontWeight: typography.fontWeight.medium,
-    color: colorSystem.base.white,
+    fontWeight: typography.fontWeight.semibold,
+    color: colorSystem.themes.evening.primary,
+    textAlign: 'center',
+    marginBottom: spacing[8],
+  },
+  subtitle: {
+    fontSize: typography.bodyRegular.size,
+    color: colorSystem.base.black,
+    textAlign: 'center',
+    marginBottom: spacing[4],
+  },
+  hint: {
+    fontSize: typography.bodySmall.size,
+    fontStyle: 'italic',
+    color: colorSystem.gray[600],
     textAlign: 'center',
   },
   breathingContainer: {

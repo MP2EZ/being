@@ -31,6 +31,7 @@ import type { EveningFlowParamList, TomorrowData } from '@/features/practices/ty
 import { AccessibleInput } from '@/core/components/accessibility/AccessibleInput';
 import { AccessibleButton } from '@/core/components/accessibility/AccessibleButton';
 import { spacing, borderRadius, typography, colorSystem } from '@/core/theme';
+import EveningProgressBar from '../components/EveningProgressBar';
 
 type Props = StackScreenProps<EveningFlowParamList, 'Tomorrow'> & {
   onSave?: (data: TomorrowData) => void;
@@ -71,28 +72,13 @@ const TomorrowScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
         testID="tomorrow-screen"
         keyboardShouldPersistTaps="handled"
       >
-        {/* Progress indicator */}
-        <View style={styles.progressContainer}>
-          <View style={styles.progressDots}>
-            <View style={styles.dotComplete} />
-            <View style={styles.dotComplete} />
-            <View style={styles.dotComplete} />
-            <View style={styles.dotComplete} />
-            <View style={[styles.dot, styles.dotActive]} />
-            <View style={styles.dot} />
-          </View>
-          <Text style={styles.progressText}>5/6</Text>
-        </View>
-
-        {/* Back button */}
-        <TouchableOpacity
-          onPress={handleBack}
-          style={styles.backButton}
-          accessibilityRole="button"
-          accessibilityLabel="Go back"
-        >
-          <Text style={styles.backButtonText}>{"<-"} Back</Text>
-        </TouchableOpacity>
+        {/* Progress bar with back button */}
+        <EveningProgressBar
+          currentStep={5}
+          totalSteps={6}
+          onBack={handleBack}
+          showBackButton={true}
+        />
 
         {/* Header */}
         <View style={styles.header}>
@@ -177,49 +163,13 @@ const styles = StyleSheet.create({
     padding: spacing[20],
     paddingTop: spacing[48],
   },
-  progressContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing[16],
-  },
-  progressDots: {
-    flexDirection: 'row',
-    gap: spacing[8],
-    marginRight: spacing[12],
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colorSystem.gray[500],
-  },
-  dotActive: {
-    backgroundColor: colorSystem.themes.evening.primary,
-  },
-  dotComplete: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colorSystem.status.success,
-  },
-  progressText: {
-    fontSize: typography.caption.size,
-    color: colorSystem.gray[400],
-  },
-  backButton: {
-    marginBottom: spacing[16],
-  },
-  backButtonText: {
-    fontSize: typography.bodyRegular.size,
-    color: colorSystem.themes.evening.primary,
-  },
   header: {
     marginBottom: spacing[24],
   },
   title: {
     fontSize: typography.headline3.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.white,
+    color: colorSystem.themes.evening.primary,
   },
   subtitle: {
     fontSize: typography.bodySmall.size,
@@ -238,7 +188,7 @@ const styles = StyleSheet.create({
     color: colorSystem.base.white,
   },
   inputLabel: {
-    color: colorSystem.base.white,
+    color: colorSystem.base.black,
   },
   addLettingGoButton: {
     paddingVertical: spacing[16],

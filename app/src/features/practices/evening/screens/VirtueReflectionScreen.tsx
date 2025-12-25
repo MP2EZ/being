@@ -32,6 +32,7 @@ import type { StoicPrinciple } from '@/features/practices/types/stoic';
 import { AccessibleInput } from '@/core/components/accessibility/AccessibleInput';
 import { AccessibleButton } from '@/core/components/accessibility/AccessibleButton';
 import { spacing, borderRadius, typography, colorSystem } from '@/core/theme';
+import EveningProgressBar from '../components/EveningProgressBar';
 
 type Props = StackScreenProps<EveningFlowParamList, 'VirtueReflection'> & {
   onSave?: (data: VirtueReflectionData) => void;
@@ -135,28 +136,13 @@ const VirtueReflectionScreen: React.FC<Props> = ({ navigation, route, onSave }) 
         testID="virtue-reflection-screen"
         keyboardShouldPersistTaps="handled"
       >
-        {/* Progress indicator */}
-        <View style={styles.progressContainer}>
-          <View style={styles.progressDots}>
-            <View style={styles.dotComplete} />
-            <View style={styles.dotComplete} />
-            <View style={[styles.dot, styles.dotActive]} />
-            <View style={styles.dot} />
-            <View style={styles.dot} />
-            <View style={styles.dot} />
-          </View>
-          <Text style={styles.progressText}>3/6</Text>
-        </View>
-
-        {/* Back button */}
-        <TouchableOpacity
-          onPress={handleBack}
-          style={styles.backButton}
-          accessibilityRole="button"
-          accessibilityLabel="Go back"
-        >
-          <Text style={styles.backButtonText}>{"<-"} Back</Text>
-        </TouchableOpacity>
+        {/* Progress bar with back button */}
+        <EveningProgressBar
+          currentStep={3}
+          totalSteps={6}
+          onBack={handleBack}
+          showBackButton={true}
+        />
 
         {/* Header */}
         <View style={styles.header}>
@@ -327,7 +313,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: typography.headline3.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.white,
+    color: colorSystem.themes.evening.primary,
   },
   inputSection: {
     marginBottom: spacing[16],
@@ -341,7 +327,7 @@ const styles = StyleSheet.create({
     color: colorSystem.base.white,
   },
   inputLabel: {
-    color: colorSystem.base.white,
+    color: colorSystem.base.black,
   },
   quickExamplesSection: {
     marginBottom: spacing[24],
