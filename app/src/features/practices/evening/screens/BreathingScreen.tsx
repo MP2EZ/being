@@ -67,11 +67,9 @@ const BreathingScreen: React.FC<Props> = ({ navigation, onSave }) => {
 
   return (
     <View style={styles.container} testID="evening-breathing-screen">
-      {/* Header */}
+      {/* Header - minimal, breathing circle has instructions */}
       <View style={styles.header}>
         <Text style={styles.title}>Let's settle into evening</Text>
-        <Text style={styles.subtitle}>Follow the circle as it expands and contracts</Text>
-        <Text style={styles.hint}>Let your breath find its natural rhythm</Text>
       </View>
 
       {/* Breathing Circle - uses shared 60fps component */}
@@ -125,12 +123,12 @@ const BreathingScreen: React.FC<Props> = ({ navigation, onSave }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colorSystem.base.white, // White content area (matches morning/midday)
+    backgroundColor: colorSystem.base.white,
     paddingHorizontal: spacing[20],
-    paddingTop: spacing[24],
   },
   header: {
-    marginBottom: spacing[24],
+    paddingTop: spacing[16],
+    paddingBottom: spacing[8],
     alignItems: 'center',
   },
   title: {
@@ -138,27 +136,15 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.black,
     textAlign: 'center',
-    marginBottom: spacing[8],
-  },
-  subtitle: {
-    fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[600],
-    textAlign: 'center',
-    marginBottom: spacing[4],
-  },
-  hint: {
-    fontSize: typography.bodySmall.size,
-    fontStyle: 'italic',
-    color: colorSystem.gray[500],
-    textAlign: 'center',
   },
   breathingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: spacing[24], // Balance visual weight
   },
   timerWrapper: {
-    marginTop: spacing[16],
+    marginTop: spacing[24],
     opacity: 0.6, // Dim timer - not the focus
   },
   buttonContainer: {
