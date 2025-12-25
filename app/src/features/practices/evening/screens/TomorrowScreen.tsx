@@ -67,6 +67,16 @@ const TomorrowScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
         testID="tomorrow-screen"
         keyboardShouldPersistTaps="handled"
       >
+        {/* Back Button */}
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+          testID="back-button"
+          accessibilityLabel="Go back"
+        >
+          <Text style={styles.backButtonText}>← Back</Text>
+        </TouchableOpacity>
+
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.title}>Any intention for tomorrow?</Text>
@@ -148,6 +158,13 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     padding: spacing[20],
+  },
+  backButton: {
+    marginBottom: spacing[20],
+  },
+  backButtonText: {
+    fontSize: typography.bodyRegular.size,
+    color: colorSystem.themes.evening.primary,
   },
   header: {
     marginBottom: spacing[24],

@@ -247,6 +247,7 @@ const EveningFlowNavigator: React.FC<EveningFlowNavigatorProps> = ({
   };
 
   // Custom header with progress (matches morning/midday pattern)
+  // X close button on left in header, Back link rendered in screen content
   const getHeaderOptions = (routeName: keyof EveningFlowParamList) => ({
     headerTitle: () => (
       <View style={headerStyles.headerContainer}>

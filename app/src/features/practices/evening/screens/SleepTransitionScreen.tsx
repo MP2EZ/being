@@ -24,6 +24,7 @@ import {
   Text,
   StyleSheet,
   Animated,
+  TouchableOpacity,
 } from 'react-native';
 import type { StackScreenProps } from '@react-navigation/stack';
 import type { EveningFlowParamList, SleepTransitionData, EveningCompletionSummary } from '@/features/practices/types/flows';
@@ -128,6 +129,16 @@ const SleepTransitionScreen: React.FC<Props> = ({ navigation, route, onComplete 
 
   return (
     <View style={styles.container} testID="sleep-transition-screen">
+      {/* Back Button */}
+      <TouchableOpacity
+        style={styles.backButton}
+        onPress={() => navigation.goBack()}
+        testID="back-button"
+        accessibilityLabel="Go back"
+      >
+        <Text style={styles.backButtonText}>← Back</Text>
+      </TouchableOpacity>
+
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>
@@ -215,7 +226,14 @@ const styles = StyleSheet.create({
     backgroundColor: colorSystem.base.white, // White content area (matches morning/midday)
     paddingHorizontal: spacing[20],
     paddingTop: spacing[24],
-    alignItems: 'center',
+  },
+  backButton: {
+    marginBottom: spacing[20],
+    alignSelf: 'flex-start',
+  },
+  backButtonText: {
+    fontSize: typography.bodyRegular.size,
+    color: colorSystem.themes.evening.primary,
   },
   header: {
     marginBottom: spacing[32],
