@@ -177,6 +177,9 @@ const SleepTransitionScreen: React.FC<Props> = ({ navigation, route, onComplete 
         </View>
       )}
 
+      {/* Spacer to push button down when showing breathing */}
+      {!showCompletion && <View style={{ flex: 1 }} />}
+
       {/* Completion Card - fades in after breathing */}
       {showCompletion && (
         <Animated.View style={[styles.completionCard, { opacity: cardFadeAnim }]}>
@@ -246,10 +249,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   breathingContainer: {
-    flex: 1,
-    justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: spacing[32],
+    marginTop: spacing[24], // Close to title, not centered in full space
   },
   timerWrapper: {
     marginTop: spacing[24],

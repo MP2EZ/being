@@ -92,20 +92,18 @@ const GratitudeScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
           <Text style={styles.title}>What are you grateful for today?</Text>
         </View>
 
-        {/* Gratitude 1 - Required */}
+        {/* Gratitude 1 - Required (validation enforced, no label for visual consistency) */}
         <View style={styles.inputSection}>
           <AccessibleInput
-            label="Something from today"
+            label=""
             value={gratitude1}
             onChangeText={setGratitude1}
             placeholder="I'm grateful for..."
             multiline
             numberOfLines={2}
-            required
             testID="gratitude-1"
             containerStyle={styles.inputContainer}
             inputStyle={styles.input}
-            labelStyle={styles.inputLabel}
           />
         </View>
 

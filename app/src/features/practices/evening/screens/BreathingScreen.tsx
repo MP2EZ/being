@@ -143,16 +143,16 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   breathingContainer: {
-    flex: 1,
-    justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: spacing[24], // Balance visual weight
+    marginTop: spacing[24], // Close to title, not centered in full space
   },
   timerWrapper: {
     marginTop: spacing[24],
     opacity: 0.6, // Dim timer - not the focus
   },
   buttonContainer: {
+    flex: 1,
+    justifyContent: 'flex-end',
     width: '100%',
     paddingBottom: spacing[48],
   },
