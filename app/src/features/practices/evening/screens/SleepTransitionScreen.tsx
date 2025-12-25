@@ -236,7 +236,7 @@ const styles = StyleSheet.create({
     color: colorSystem.themes.evening.primary,
   },
   header: {
-    marginBottom: spacing[32],
+    marginBottom: spacing[24], // Match other screens
     alignItems: 'center',
   },
   title: {

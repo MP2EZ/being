@@ -35,10 +35,15 @@ type Props = StackScreenProps<EveningFlowParamList, 'Breathing'> & {
 
 const BREATHING_DURATION_MS = 60000; // 60 seconds
 
-const BreathingScreen: React.FC<Props> = ({ navigation, onSave }) => {
-  const [isTimerActive, setIsTimerActive] = useState(true);
-  const [isComplete, setIsComplete] = useState(false);
-  const buttonOpacity = useRef(new Animated.Value(0)).current;
+const BreathingScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
+  // FEAT-23: Restore initial data if resuming session or returning via back button
+  const initialData = (route.params as { initialData?: any } | undefined)?.initialData;
+  const wasCompleted = !!initialData?.completed;
+
+  const [isTimerActive, setIsTimerActive] = useState(!wasCompleted);
+  const [isComplete, setIsComplete] = useState(wasCompleted);
+  // Start at 1 if already completed, otherwise fade in later
+  const buttonOpacity = useRef(new Animated.Value(wasCompleted ? 1 : 0)).current;
 
   const handleTimerComplete = () => {
     setIsTimerActive(false);

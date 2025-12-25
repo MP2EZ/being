@@ -285,11 +285,18 @@ const EveningFlowNavigator: React.FC<EveningFlowNavigatorProps> = ({
   }, [screenData]);
 
   // Screen wrappers with data persistence
-  const BreathingScreenWrapper = ({ navigation, route }: any) => (
-    <BreathingScreen
-      navigation={navigation}
-      route={route}
-      onSave={(data: EveningBreathingData) => {
+  const BreathingScreenWrapper = ({ navigation, route }: any) => {
+    // Merge existing screenData with route.params.initialData for back navigation
+    const existingData = screenData['Breathing'] || route.params?.initialData;
+    const enhancedRoute = existingData
+      ? { ...route, params: { ...route.params, initialData: existingData } }
+      : route;
+
+    return (
+      <BreathingScreen
+        navigation={navigation}
+        route={enhancedRoute}
+        onSave={(data: EveningBreathingData) => {
         const newScreenData = { ...screenData, Breathing: data };
         setScreenData(newScreenData);
 
@@ -301,8 +308,9 @@ const EveningFlowNavigator: React.FC<EveningFlowNavigatorProps> = ({
             .catch(error => console.error('[EveningFlow] Failed to save from Breathing:', error));
         }
       }}
-    />
-  );
+      />
+    );
+  };
 
   const GratitudeScreenWrapper = ({ navigation, route }: any) => (
     <GratitudeScreen
