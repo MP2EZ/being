@@ -28,6 +28,7 @@ import {
 import type { StackScreenProps } from '@react-navigation/stack';
 import type { EveningFlowParamList, SleepTransitionData, EveningCompletionSummary } from '@/features/practices/types/flows';
 import BreathingCircle from '../../shared/components/BreathingCircle';
+import Timer from '../../shared/components/Timer';
 import { AccessibleButton } from '@/core/components/accessibility/AccessibleButton';
 import { spacing, borderRadius, typography, colorSystem } from '@/core/theme';
 
@@ -55,21 +56,17 @@ const SleepTransitionScreen: React.FC<Props> = ({ navigation, route, onComplete 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const cardFadeAnim = useRef(new Animated.Value(0)).current;
 
-  // Auto-transition to completion after breathing duration
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsBreathingActive(false);
-      setShowCompletion(true);
-      // Fade in completion card
-      Animated.timing(cardFadeAnim, {
-        toValue: 1,
-        duration: 1000,
-        useNativeDriver: true,
-      }).start();
-    }, BREATHING_DURATION_MS);
-
-    return () => clearTimeout(timer);
-  }, [cardFadeAnim]);
+  // Handle timer completion - transition to completion card
+  const handleTimerComplete = () => {
+    setIsBreathingActive(false);
+    setShowCompletion(true);
+    // Fade in completion card
+    Animated.timing(cardFadeAnim, {
+      toValue: 1,
+      duration: 1000,
+      useNativeDriver: true,
+    }).start();
+  };
 
   // Fade in done button after completion card appears
   useEffect(() => {
@@ -152,6 +149,20 @@ const SleepTransitionScreen: React.FC<Props> = ({ navigation, route, onComplete 
             }}
             testID="sleep-breathing-circle"
           />
+
+          {/* Timer - dim display, evening theme */}
+          <View style={styles.timerWrapper}>
+            <Timer
+              duration={BREATHING_DURATION_MS}
+              isActive={isBreathingActive}
+              onComplete={handleTimerComplete}
+              showProgress={false}
+              showControls={false}
+              showSkip={false}
+              theme="evening"
+              testID="sleep-transition-timer"
+            />
+          </View>
         </View>
       )}
 
@@ -221,6 +232,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: spacing[32],
+  },
+  timerWrapper: {
+    marginTop: spacing[24],
+    opacity: 0.6, // Dim timer - not the focus
   },
   completionCard: {
     flex: 1,

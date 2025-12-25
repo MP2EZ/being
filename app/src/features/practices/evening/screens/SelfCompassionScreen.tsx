@@ -97,7 +97,6 @@ const SelfCompassionScreen: React.FC<Props> = ({ navigation, route, onSave }) =>
             placeholder="I did my best with what I knew and had today..."
             multiline
             numberOfLines={4}
-            required
             testID="compassion-input"
             containerStyle={styles.inputContainer}
             inputStyle={styles.input}

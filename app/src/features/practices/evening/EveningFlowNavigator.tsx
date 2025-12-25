@@ -549,7 +549,7 @@ const EveningFlowNavigator: React.FC<EveningFlowNavigatorProps> = ({
         <Stack.Screen
           name="SleepTransition"
           component={SleepTransitionScreenWrapper}
-          options={{ headerShown: false }} // Completion screen - no header
+          options={getHeaderOptions('SleepTransition')}
         />
       </Stack.Navigator>
 

@@ -145,7 +145,6 @@ const VirtueReflectionScreen: React.FC<Props> = ({ navigation, route, onSave }) 
             placeholder="I handled the difficult conversation with..."
             multiline
             numberOfLines={3}
-            required
             testID="showed-up-well-input"
             containerStyle={styles.inputContainer}
             inputStyle={styles.input}

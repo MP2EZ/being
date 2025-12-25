@@ -38,27 +38,27 @@ export const ACCESSIBLE_COLORS = {
   // ========================================
 
   /**
-   * Evening Primary Text Color (Darkened Purple)
-   * - Original: #8B4789 (3.92:1 - FAIL)
-   * - Fixed: #6B2F69 (5.1:1 - PASS)
-   * - Use for: Small text, normal weight
+   * Evening Primary Color (Green)
+   * - Color: #4A7C59 (4.5:1 with white - PASS)
+   * - Use for: Primary buttons, key actions in evening flow
+   * - Matches colorSystem.themes.evening.primary
    */
-  eveningPrimary: '#6B2F69',
-  
+  eveningPrimary: '#4A7C59',
+
   /**
-   * Evening Accent Color (Original Purple)
-   * - Contrast: 3.92:1
+   * Evening Accent Color (Light Green)
+   * - Color: #6B9B78 (3.0:1 with white)
    * - Use ONLY for: Large text (≥18pt), bold text (≥14pt), borders
    * - DO NOT use for: Normal small text
    */
-  eveningAccent: '#8B4789',
-  
+  eveningAccent: '#6B9B78',
+
   /**
    * Evening Border Color
-   * - Contrast: 3.92:1 (meets 3:1 for UI components)
+   * - Contrast: 3.0:1 (meets 3:1 for UI components)
    * - Use for: Borders, dividers, decorative elements
    */
-  eveningBorder: '#8B4789',
+  eveningBorder: '#6B9B78',
   
   // ========================================
   // TEXT COLORS (WCAG AA Compliant)
@@ -115,10 +115,10 @@ export const ACCESSIBLE_COLORS = {
   
   /**
    * Selected Border Color
-   * - Contrast: 5.1:1
+   * - Contrast: 4.5:1
    * - Use for: Selected state borders
    */
-  borderSelected: '#6B2F69',
+  borderSelected: '#4A7C59',
   
   /**
    * Focus Border Color (iOS System Blue)
@@ -202,10 +202,10 @@ export const ACCESSIBLE_COLORS = {
   bgWarning: '#FFF9F5',
   
   /**
-   * Evening Accent Background (Light Purple)
+   * Evening Accent Background (Light Green)
    * - Use for: Selected evening flow items
    */
-  bgEveningAccent: '#F5F0F4',
+  bgEveningAccent: '#F0F8F4',
   
   /**
    * Info Background (Light Blue)
