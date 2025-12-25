@@ -1,64 +1,118 @@
 /**
- * VIRTUE REFLECTION SCREEN - DRD v2.0.0
+ * VIRTUE REFLECTION SCREEN - FEAT-134 Evening Flow Redesign
  *
- * Evening mindful reflection with Stoic self-examination.
- * NOT harsh judgment - growth-oriented, self-compassionate lens.
+ * Screen 3 of 6: Reflection + inline principle picker with progressive disclosure
+ * Uses shared AccessibleInput and AccessibleButton components
+ *
+ * Design Philosophy:
+ * - Progressive disclosure: principle picker appears after 10+ chars
+ * - Quick-tap examples reduce typing friction
+ * - Optional principle selection feeds Insights dashboard
+ * - Growth area is optional (reduces required fields)
  *
  * Classical Stoic Practice:
- * - Marcus Aurelius: "Look within. Within is the fountain of good, and it will
- *   ever bubble up, if you will ever dig" (Meditations 7:59)
- * - Seneca: "I shall make use of this privilege and shall examine the whole of my day
- *   and shall measure my deeds and words" (On Anger 3.36)
- * - Epictetus: "Don't explain your philosophy. Embody it." (Frag. 21)
+ * - Marcus Aurelius: "Look within. Within is the fountain of good" (Meditations 7:59)
+ * - Seneca: "I shall examine the whole of my day and measure my deeds" (On Anger 3.36)
  *
- * Philosophy:
- * - Mindfulness-first: Notice your day without judgment
- * - Self-compassionate examination: Where did I show up well? Where can I grow?
- * - NOT perfectionist critique
- * - Virtue-focused (integrated, not modular)
- *
- * @see /docs/product/Being. DRD.md (DRD-FLOW-004: Evening Flow, Screen 1)
+ * @see /docs/architecture/Stoic-Mindfulness-Architecture-v1.0.md
  */
 
 import React, { useState } from 'react';
 import {
   View,
   Text,
-  TextInput,
-  TouchableOpacity,
   ScrollView,
   StyleSheet,
+  TouchableOpacity,
+  Animated,
 } from 'react-native';
 import type { StackScreenProps } from '@react-navigation/stack';
 import type { EveningFlowParamList, VirtueReflectionData } from '@/features/practices/types/flows';
-import { spacing, borderRadius, typography } from '@/core/theme';
+import type { StoicPrinciple } from '@/features/practices/types/stoic';
+import { AccessibleInput } from '@/core/components/accessibility/AccessibleInput';
+import { AccessibleButton } from '@/core/components/accessibility/AccessibleButton';
+import { spacing, borderRadius, typography, colorSystem } from '@/core/theme';
 
 type Props = StackScreenProps<EveningFlowParamList, 'VirtueReflection'> & {
   onSave?: (data: VirtueReflectionData) => void;
 };
 
+const MIN_CHARS_FOR_PICKER = 10;
+
+// Quick-tap examples to reduce typing friction
+const QUICK_EXAMPLES = [
+  'Stayed calm',
+  'Set boundaries',
+  'Chose kindness',
+  'Listened fully',
+];
+
+// Principle options (abbreviated for compact chips)
+interface PrincipleOption {
+  key: StoicPrinciple;
+  label: string;
+  shortDescription: string;
+}
+
+const PRINCIPLES: PrincipleOption[] = [
+  {
+    key: 'aware_presence',
+    label: 'Aware Presence',
+    shortDescription: 'Being fully here now',
+  },
+  {
+    key: 'radical_acceptance',
+    label: 'Radical Acceptance',
+    shortDescription: 'Accepting what is',
+  },
+  {
+    key: 'sphere_sovereignty',
+    label: 'Sphere Sovereignty',
+    shortDescription: 'Focus on what you control',
+  },
+  {
+    key: 'virtuous_response',
+    label: 'Virtuous Response',
+    shortDescription: 'Acting with virtue',
+  },
+  {
+    key: 'interconnected_living',
+    label: 'Interconnected Living',
+    shortDescription: 'Acting for common good',
+  },
+];
+
 const VirtueReflectionScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
   // FEAT-23: Restore initial data if resuming session
-  const initialData = (route.params as any)?.initialData as VirtueReflectionData | undefined;
-
-  // Debug logging
-  if (initialData) {
-    console.log('[VirtueReflectionScreen] Restoring data:', {
-      hasShowedUpWell: !!initialData.showedUpWell,
-      hasGrowthArea: !!initialData.growthArea
-    });
-  }
+  const initialData = (route.params as { initialData?: any } | undefined)?.initialData;
 
   const [showedUpWell, setShowedUpWell] = useState(initialData?.showedUpWell || '');
   const [growthArea, setGrowthArea] = useState(initialData?.growthArea || '');
+  const [selectedPrinciple, setSelectedPrinciple] = useState<StoicPrinciple | null>(
+    initialData?.principleReflected || null
+  );
 
-  // Both fields required for balanced reflection (prevents harsh self-criticism OR missing growth)
-  const canContinue = showedUpWell.trim().length > 0 && growthArea.trim().length > 0;
+  // Show principle picker after 10+ chars (progressive disclosure)
+  const showPrinciplePicker = showedUpWell.trim().length >= MIN_CHARS_FOR_PICKER;
+
+  // Only showedUpWell is required (10+ chars)
+  const isValid = showedUpWell.trim().length >= MIN_CHARS_FOR_PICKER;
+
+  const handleQuickExample = (example: string) => {
+    setShowedUpWell(example);
+  };
+
+  const handleSelectPrinciple = (principle: StoicPrinciple) => {
+    setSelectedPrinciple(selectedPrinciple === principle ? null : principle);
+  };
 
   const handleContinue = () => {
+    if (!isValid) return;
+
     const virtueReflectionData: VirtueReflectionData = {
-      showedUpWell: showedUpWell.trim() || undefined,
+      showedUpWell: showedUpWell.trim(),
       growthArea: growthArea.trim() || undefined,
+      principleReflected: selectedPrinciple || undefined,
       timestamp: new Date(),
     };
 
@@ -66,194 +120,306 @@ const VirtueReflectionScreen: React.FC<Props> = ({ navigation, route, onSave }) 
       onSave(virtueReflectionData);
     }
 
-    navigation.navigate('Gratitude');
+    navigation.navigate('SelfCompassion');
+  };
+
+  const handleBack = () => {
+    navigation.goBack();
   };
 
   return (
-    <ScrollView style={styles.container} testID="virtue-reflection-screen">
-        {/* Back Button */}
+    <View style={styles.container}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.contentContainer}
+        testID="virtue-reflection-screen"
+        keyboardShouldPersistTaps="handled"
+      >
+        {/* Progress indicator */}
+        <View style={styles.progressContainer}>
+          <View style={styles.progressDots}>
+            <View style={styles.dotComplete} />
+            <View style={styles.dotComplete} />
+            <View style={[styles.dot, styles.dotActive]} />
+            <View style={styles.dot} />
+            <View style={styles.dot} />
+            <View style={styles.dot} />
+          </View>
+          <Text style={styles.progressText}>3/6</Text>
+        </View>
+
+        {/* Back button */}
         <TouchableOpacity
+          onPress={handleBack}
           style={styles.backButton}
-          onPress={() => navigation.goBack()}
-          testID="back-button"
+          accessibilityRole="button"
           accessibilityLabel="Go back"
         >
-          <Text style={styles.backButtonText}>← Back</Text>
+          <Text style={styles.backButtonText}>{"<-"} Back</Text>
         </TouchableOpacity>
 
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.title}>Mindful Reflection</Text>
-          <Text style={styles.subtitle}>Settle Into Your Evening Practice</Text>
-          <Text style={styles.helperText}>
-            Notice your day without judgment
-          </Text>
+          <Text style={styles.title}>Where did you show up well today?</Text>
         </View>
 
-        {/* Breathing Prompt */}
-        <View style={styles.breathingPrompt}>
-          <Text style={styles.breathingText}>
-            Take a few mindful breaths to settle into reflection...
-          </Text>
-        </View>
-
-        {/* Showed Up Well */}
-        <View style={styles.fieldSection}>
-          <Text style={styles.fieldLabel}>Where did you show up well today?</Text>
-          <Text style={styles.fieldHelper}>
-            Not harsh judgment - genuine acknowledgment
-          </Text>
-          <TextInput
-            style={styles.textInput}
+        {/* Main input */}
+        <View style={styles.inputSection}>
+          <AccessibleInput
+            label=""
             value={showedUpWell}
             onChangeText={setShowedUpWell}
-            placeholder="e.g., I listened fully, stayed patient, made a brave choice..."
-            placeholderTextColor="#999"
-            testID="showed-up-well-input"
-            accessibilityLabel="Where you showed up well today"
+            placeholder="I handled the difficult conversation with..."
             multiline
+            numberOfLines={3}
+            required
+            testID="showed-up-well-input"
+            containerStyle={styles.inputContainer}
+            inputStyle={styles.input}
           />
         </View>
 
-        {/* Growth Area */}
-        <View style={styles.fieldSection}>
-          <Text style={styles.fieldLabel}>Where could you grow?</Text>
-          <Text style={styles.fieldHelper}>
-            Self-compassionate lens - learning, not failing
-          </Text>
-          <TextInput
-            style={styles.textInput}
+        {/* Quick-tap examples */}
+        {showedUpWell.length < MIN_CHARS_FOR_PICKER && (
+          <View style={styles.quickExamplesSection}>
+            <Text style={styles.quickExamplesLabel}>Quick examples:</Text>
+            <View style={styles.quickExamplesRow}>
+              {QUICK_EXAMPLES.map((example) => (
+                <TouchableOpacity
+                  key={example}
+                  style={styles.quickExampleChip}
+                  onPress={() => handleQuickExample(example)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Use example: ${example}`}
+                >
+                  <Text style={styles.quickExampleText}>{example}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {/* Principle picker - appears after 10+ chars (progressive disclosure) */}
+        {showPrinciplePicker && (
+          <View style={styles.principleSection}>
+            <Text style={styles.principleLabel}>This sounds like... (optional)</Text>
+            <View style={styles.principleGrid}>
+              {PRINCIPLES.map((principle) => (
+                <TouchableOpacity
+                  key={principle.key}
+                  style={[
+                    styles.principleChip,
+                    selectedPrinciple === principle.key && styles.principleChipSelected,
+                  ]}
+                  onPress={() => handleSelectPrinciple(principle.key)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Select ${principle.label}`}
+                  accessibilityState={{ selected: selectedPrinciple === principle.key }}
+                  testID={`principle-${principle.key}`}
+                >
+                  <Text
+                    style={[
+                      styles.principleChipText,
+                      selectedPrinciple === principle.key && styles.principleChipTextSelected,
+                    ]}
+                  >
+                    {principle.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {/* Optional growth area */}
+        <View style={styles.inputSection}>
+          <AccessibleInput
+            label="Where could you grow?"
+            helperText="optional"
             value={growthArea}
             onChangeText={setGrowthArea}
-            placeholder="e.g., I could practice more patience, listen deeper..."
-            placeholderTextColor="#999"
-            testID="growth-area-input"
-            accessibilityLabel="Where you could grow"
+            placeholder="Next time I might..."
             multiline
+            numberOfLines={2}
+            testID="growth-area-input"
+            containerStyle={styles.inputContainer}
+            inputStyle={styles.input}
+            labelStyle={styles.inputLabel}
           />
         </View>
 
-        {/* Continue Button */}
-        <TouchableOpacity
-          style={[styles.continueButton, !canContinue && styles.continueButtonDisabled]}
-          onPress={handleContinue}
-          disabled={!canContinue}
-          accessibilityRole="button"
-          accessibilityState={{ disabled: !canContinue }}
-        >
-          <Text style={styles.continueButtonText}>Continue</Text>
-        </TouchableOpacity>
-
-        {/* Stoic Quote */}
-        <View style={styles.quoteSection}>
-          <Text style={styles.quoteText}>
-            "Look within. Within is the fountain of good, and it will ever bubble up,
-            if you will ever dig." — Marcus Aurelius, Meditations 7:59
-          </Text>
-        </View>
+        {/* Spacer */}
+        <View style={styles.spacer} />
       </ScrollView>
+
+      {/* Fixed bottom button */}
+      <View style={styles.buttonContainer}>
+        <AccessibleButton
+          onPress={handleContinue}
+          label="Continue"
+          variant="primary"
+          size="large"
+          disabled={!isValid}
+          testID="continue-button"
+          accessibilityHint="Continue to self-compassion"
+        />
+        {!isValid && (
+          <Text style={styles.validationHint}>
+            Describe where you showed up well ({MIN_CHARS_FOR_PICKER}+ characters)
+          </Text>
+        )}
+      </View>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: colorSystem.themes.evening.background,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  contentContainer: {
     padding: spacing[20],
+    paddingTop: spacing[48],
+  },
+  progressContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing[16],
+  },
+  progressDots: {
+    flexDirection: 'row',
+    gap: spacing[8],
+    marginRight: spacing[12],
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colorSystem.gray[500],
+  },
+  dotActive: {
+    backgroundColor: colorSystem.themes.evening.primary,
+  },
+  dotComplete: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colorSystem.status.success,
+  },
+  progressText: {
+    fontSize: typography.caption.size,
+    color: colorSystem.gray[400],
   },
   backButton: {
-    marginBottom: spacing[20],
+    marginBottom: spacing[16],
   },
   backButtonText: {
     fontSize: typography.bodyRegular.size,
-    color: '#4A7C59',
+    color: colorSystem.themes.evening.primary,
   },
   header: {
     marginBottom: spacing[24],
   },
   title: {
-    fontSize: typography.headline2.size,
-    fontWeight: typography.fontWeight.bold,
-    marginBottom: spacing[8],
-    color: '#333',
-  },
-  subtitle: {
-    fontSize: typography.bodyRegular.size,
-    color: '#666',
-    marginBottom: spacing[4],
-  },
-  helperText: {
-    fontSize: typography.bodySmall.size,
-    color: '#999',
-    fontStyle: 'italic',
-  },
-  breathingPrompt: {
-    padding: spacing[16],
-    backgroundColor: '#F0F5F1',
-    borderRadius: borderRadius.medium,
-    borderLeftWidth: spacing[4],
-    borderLeftColor: '#4A7C59',
-    marginBottom: spacing[24],
-  },
-  breathingText: {
-    fontSize: typography.bodySmall.size,
-    color: '#4A7C59',
-    fontStyle: 'italic',
-    textAlign: 'center',
-  },
-  fieldSection: {
-    marginBottom: spacing[24],
-  },
-  fieldLabel: {
-    fontSize: typography.bodyLarge.size,
+    fontSize: typography.headline3.size,
     fontWeight: typography.fontWeight.semibold,
-    marginBottom: spacing[4],
-    color: '#333',
+    color: colorSystem.base.white,
   },
-  fieldHelper: {
+  inputSection: {
+    marginBottom: spacing[16],
+  },
+  inputContainer: {
+    marginBottom: 0,
+  },
+  input: {
+    backgroundColor: colorSystem.gray[700],
+    borderColor: colorSystem.gray[600],
+    color: colorSystem.base.white,
+  },
+  inputLabel: {
+    color: colorSystem.base.white,
+  },
+  quickExamplesSection: {
+    marginBottom: spacing[24],
+  },
+  quickExamplesLabel: {
+    fontSize: typography.caption.size,
+    color: colorSystem.gray[400],
+    marginBottom: spacing[8],
+  },
+  quickExamplesRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing[8],
+  },
+  quickExampleChip: {
+    paddingVertical: spacing[8],
+    paddingHorizontal: spacing[12],
+    backgroundColor: colorSystem.gray[700],
+    borderRadius: borderRadius.medium,
+    borderWidth: 1,
+    borderColor: colorSystem.gray[600],
+  },
+  quickExampleText: {
     fontSize: typography.bodySmall.size,
-    color: '#666',
+    color: colorSystem.gray[300],
+  },
+  principleSection: {
+    marginBottom: spacing[24],
+    padding: spacing[16],
+    backgroundColor: colorSystem.gray[800],
+    borderRadius: borderRadius.medium,
+    borderWidth: 1,
+    borderColor: colorSystem.gray[600],
+  },
+  principleLabel: {
+    fontSize: typography.bodyRegular.size,
+    color: colorSystem.gray[300],
     marginBottom: spacing[12],
   },
-  textInput: {
-    borderWidth: 1,
-    borderColor: '#ddd',
+  principleGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing[8],
+  },
+  principleChip: {
+    paddingVertical: spacing[8],
+    paddingHorizontal: spacing[12],
+    backgroundColor: colorSystem.gray[700],
     borderRadius: borderRadius.medium,
-    padding: spacing[12],
-    fontSize: typography.bodyRegular.size,
-    backgroundColor: '#fff',
-    minHeight: 100,
-    textAlignVertical: 'top',
+    borderWidth: 2,
+    borderColor: 'transparent',
   },
-  continueButton: {
-    backgroundColor: '#4A7C59',
-    padding: spacing[16],
-    borderRadius: borderRadius.medium,
-    alignItems: 'center',
-    marginTop: spacing[12],
-    marginBottom: spacing[24],
+  principleChipSelected: {
+    borderColor: colorSystem.themes.evening.primary,
+    backgroundColor: colorSystem.gray[600],
   },
-  continueButtonDisabled: {
-    backgroundColor: '#ccc',
-  },
-  continueButtonText: {
-    color: '#fff',
-    fontSize: typography.bodyLarge.size,
-    fontWeight: typography.fontWeight.semibold,
-  },
-  quoteSection: {
-    padding: spacing[16],
-    backgroundColor: '#f9f9f9',
-    borderRadius: borderRadius.medium,
-    borderLeftWidth: spacing[4],
-    borderLeftColor: '#4A7C59',
-    marginBottom: 40,
-  },
-  quoteText: {
+  principleChipText: {
     fontSize: typography.bodySmall.size,
+    color: colorSystem.gray[300],
+    fontWeight: typography.fontWeight.medium,
+  },
+  principleChipTextSelected: {
+    color: colorSystem.base.white,
+  },
+  spacer: {
+    height: spacing[96],
+  },
+  buttonContainer: {
+    padding: spacing[20],
+    paddingBottom: spacing[32],
+    backgroundColor: colorSystem.themes.evening.background,
+  },
+  validationHint: {
+    fontSize: typography.caption.size,
+    color: colorSystem.gray[400],
+    textAlign: 'center',
+    marginTop: spacing[8],
     fontStyle: 'italic',
-    color: '#666',
-    lineHeight: 20,
   },
 });
 

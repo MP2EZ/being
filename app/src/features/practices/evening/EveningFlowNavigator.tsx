@@ -1,10 +1,10 @@
 /**
- * Evening Flow Navigator - DRD v2.0.0
+ * Evening Flow Navigator - FEAT-134 UX-Optimized Redesign
  * Stoic Mindfulness Evening Practice (6 screens)
  *
  * CRITICAL CLINICAL SAFETY IMPLEMENTATION:
  * - Crisis button always present in headers
- * - Gentle therapeutic language in titles
+ * - Gentle therapeutic language
  * - Evening-appropriate header styling
  * - Safety-first navigation approach
  *
@@ -13,26 +13,37 @@
  * - Automatic session saving on screen navigation
  * - Sphere Sovereignty: Both resume and fresh start equally virtuous
  *
- * Flow (8-12 min):
- * 1. VirtueReflection - Mindful reflection on successes and growth areas
- * 2. Gratitude - Gratitude practice
- * 3. Tomorrow - Intention setting + letting go
- * 4. SelfCompassion - Self-compassion practice (REQUIRED)
- * 5. SleepTransition - Mindful breathing for sleep
- * 6. EveningCompletion - Flow summary and encouragement
+ * FEAT-134 UX-Optimized Flow (6 screens, 3 required fields):
+ * 1. Breathing - Pure 60s settling (no decisions)
+ * 2. Gratitude - Positive priming (1 required, up to 3)
+ * 3. VirtueReflection - Reflection + inline principle picker
+ * 4. SelfCompassion - Dedicated self-kindness (required)
+ * 5. Tomorrow - Optional intention (skippable)
+ * 6. SleepTransition - Gentle breathing + completion card
  *
- * Note: Detailed virtue tracking (VirtueInstances/VirtueChallenges) available
- * separately via Profile > Virtue Dashboard to avoid evening flow fatigue.
+ * Principle Engagement:
+ * - When user selects a principle on VirtueReflection, record engagement
+ * - Feeds Insights dashboard via recordPrincipleEngagement()
  *
- * @see /docs/product/Being. DRD.md (DRD-FLOW-004: Evening Flow)
+ * @see /docs/architecture/Stoic-Mindfulness-Architecture-v1.0.md
  */
 
-import { logSecurity, logPerformance, logError, LogCategory } from '@/core/services/logging';
-import React, { useState, useEffect, useRef } from 'react';
+import { logger, LogCategory } from '@/core/services/logging';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 import { View, Pressable, Text, StyleSheet } from 'react-native';
 import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
-import { EveningFlowParamList } from '@/features/practices/types/flows';
+import type {
+  EveningFlowParamList,
+  EveningBreathingData,
+  EveningGratitudeData,
+  VirtueReflectionData,
+  SelfCompassionData,
+  TomorrowData,
+  SleepTransitionData,
+  EveningCompletionSummary,
+} from '@/features/practices/types/flows';
+import type { StoicPrinciple } from '@/features/practices/types/stoic';
 import { SessionStorageService } from '@/core/services/session/SessionStorageService';
 import { SessionMetadata } from '@/core/types/session';
 import { ResumeSessionModal } from '../shared/components/ResumeSessionModal';
@@ -41,47 +52,36 @@ import { useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 
-// Import DRD v2.0.0 Stoic Mindfulness screens
-import VirtueReflectionScreen from './screens/VirtueReflectionScreen';
+// Import FEAT-134 UX-Optimized screens
+import BreathingScreen from './screens/BreathingScreen';
 import GratitudeScreen from './screens/GratitudeScreen';
-import TomorrowScreen from './screens/TomorrowScreen';
+import VirtueReflectionScreen from './screens/VirtueReflectionScreen';
 import SelfCompassionScreen from './screens/SelfCompassionScreen';
+import TomorrowScreen from './screens/TomorrowScreen';
 import SleepTransitionScreen from './screens/SleepTransitionScreen';
-import EveningCompletionScreen from './screens/EveningCompletionScreen';
 
 const Stack = createStackNavigator<EveningFlowParamList>();
 
 interface EveningFlowNavigatorProps {
-  onComplete: (sessionData: any) => void;
+  onComplete: (sessionData: EveningSessionData) => void;
   onExit: () => void;
+  recordPrincipleEngagement?: (
+    principle: StoicPrinciple,
+    context: 'evening',
+    type: 'reflected'
+  ) => void;
 }
 
-// Progress indicator component
-const ProgressIndicator: React.FC<{ currentStep: number; totalSteps: number }> = ({
-  currentStep,
-  totalSteps
-}) => {
-  const progress = (currentStep / totalSteps) * 100;
-
-  return (
-    <View style={styles.progressContainer}>
-      <View style={styles.progressBar}>
-        <View
-          style={[
-            styles.progressFill,
-            {
-              width: `${progress}%`,
-              backgroundColor: colorSystem.themes.evening.primary
-            }
-          ]}
-        />
-      </View>
-      <Text style={styles.progressText}>
-        {currentStep} of {totalSteps}
-      </Text>
-    </View>
-  );
-};
+// Session data accumulated across screens
+interface EveningSessionData {
+  breathing?: EveningBreathingData;
+  gratitude?: EveningGratitudeData;
+  virtueReflection?: VirtueReflectionData;
+  selfCompassion?: SelfCompassionData;
+  tomorrow?: TomorrowData;
+  sleepTransition?: SleepTransitionData;
+  completedAt: Date;
+}
 
 // Close/Exit Header Component
 const ExitHeaderButton: React.FC<{ onPress: () => void }> = ({ onPress }) => (
@@ -98,38 +98,40 @@ const ExitHeaderButton: React.FC<{ onPress: () => void }> = ({ onPress }) => (
   </View>
 );
 
-// Screen order mapping for progress calculation (streamlined 6-screen flow)
+// FEAT-134: New screen order (UX-optimized)
+// Breathing first (settle), then positive priming (gratitude), then reflection
 const SCREEN_ORDER: (keyof EveningFlowParamList)[] = [
-  'VirtueReflection',
+  'Breathing',
   'Gratitude',
-  'Tomorrow',
+  'VirtueReflection',
   'SelfCompassion',
+  'Tomorrow',
   'SleepTransition',
-  'EveningCompletion'
 ];
 
 const EveningFlowNavigator: React.FC<EveningFlowNavigatorProps> = ({
   onComplete,
-  onExit
+  onExit,
+  recordPrincipleEngagement,
 }) => {
   // Navigation for crisis button
   const rootNavigation = useNavigation<StackNavigationProp<RootStackParamList>>();
   const [currentStep, setCurrentStep] = useState(1);
-  const totalSteps = SCREEN_ORDER.length - 1; // Exclude EveningCompletion from count
+  const totalSteps = SCREEN_ORDER.length;
 
   // FEAT-23: Accumulated screen data for session persistence
   const [screenData, setScreenData] = useState<Record<string, any>>({});
-  const loadedScreenData = useRef<Record<string, any>>({}); // Store loaded data immediately for handleResumeSession
+  const loadedScreenData = useRef<Record<string, any>>({});
 
   // FEAT-23: Session resumption state
-  const [isCheckingSession, setIsCheckingSession] = useState(true); // Prevent navigator mounting until checked
+  const [isCheckingSession, setIsCheckingSession] = useState(true);
   const [showResumeModal, setShowResumeModal] = useState(false);
   const [resumableSession, setResumableSession] = useState<SessionMetadata | null>(null);
   const [initialNavigationState, setInitialNavigationState] = useState<any>(undefined);
-  const [shouldResetNav, setShouldResetNav] = useState(false); // Trigger navigation reset
+  const [shouldResetNav, setShouldResetNav] = useState(false);
   const hasCheckedSession = useRef(false);
-  const lastSavedStep = useRef(0); // Track last saved step to prevent backward saves
-  const hasResetNav = useRef(false); // Track if we've already reset to prevent loops
+  const lastSavedStep = useRef(0);
+  const hasResetNav = useRef(false);
 
   // FEAT-23: Check for resumable session on mount
   useEffect(() => {
@@ -155,15 +157,15 @@ const EveningFlowNavigator: React.FC<EveningFlowNavigatorProps> = ({
 
           // Restore screen data if available
           if (flowState?.['screenData']) {
-            loadedScreenData.current = flowState["screenData"]; // Store in ref immediately
-            setScreenData(flowState["screenData"]); // Also update state for UI
-            console.log(`[EveningFlow] Restored screen data for ${Object.keys(flowState["screenData"]).length} screens`);
+            loadedScreenData.current = flowState['screenData'];
+            setScreenData(flowState['screenData']);
+            console.log(`[EveningFlow] Restored screen data for ${Object.keys(flowState['screenData']).length} screens`);
           }
         }
       } catch (error) {
         console.error('[EveningFlow] Failed to check for resumable session:', error);
       } finally {
-        setIsCheckingSession(false); // Done checking, safe to render navigator
+        setIsCheckingSession(false);
       }
     };
 
@@ -175,7 +177,6 @@ const EveningFlowNavigator: React.FC<EveningFlowNavigatorProps> = ({
     if (!resumableSession) return;
 
     try {
-      // Build navigation state with full stack up to resumed screen
       const screenName = resumableSession.currentScreen as keyof EveningFlowParamList;
       const screenIndex = SCREEN_ORDER.indexOf(screenName);
 
@@ -184,71 +185,67 @@ const EveningFlowNavigator: React.FC<EveningFlowNavigatorProps> = ({
         return;
       }
 
-      // Create navigation state with all screens up to and including the resumed screen
-      // Use loadedScreenData.current (not screenData state) because state hasn't updated yet
       const routes = SCREEN_ORDER.slice(0, screenIndex + 1).map((name, idx) => ({
         key: `${name}-${idx}`,
         name,
         params: {
-          initialData: loadedScreenData.current[name] // Use ref, not state
-        }
+          initialData: loadedScreenData.current[name],
+        },
       }));
 
       const navState = {
         index: screenIndex,
-        routes
+        routes,
       };
 
-      // Set lastSavedStep to resumed screen index to prevent earlier screens from saving
       lastSavedStep.current = screenIndex;
-
       setInitialNavigationState(navState);
       setShowResumeModal(false);
-      setShouldResetNav(true); // Trigger imperative reset after navigator mounts
+      setShouldResetNav(true);
 
-      // Debug logging
-      const screensWithData = routes.filter(r => r.params?.initialData).map(r => r.name);
-      console.log(`[EveningFlow] Resumed at ${screenName} (index ${screenIndex}) with ${routes.length} screens in stack`);
-      console.log(`[EveningFlow] Screens with data: ${screensWithData.join(', ')}`);
-      console.log(`[EveningFlow] Initial state:`, JSON.stringify(navState, null, 2));
+      console.log(`[EveningFlow] Resumed at ${screenName} (index ${screenIndex})`);
     } catch (error) {
       console.error('[EveningFlow] Failed to resume session:', error);
     }
   };
 
-  // FEAT-23: Handle begin fresh (clear old session)
+  // FEAT-23: Handle begin fresh
   const handleBeginFresh = async () => {
     try {
       await SessionStorageService.clearSession('evening');
-      setInitialNavigationState(undefined); // undefined = use default initialRouteName
+      setInitialNavigationState(undefined);
       setShowResumeModal(false);
       setResumableSession(null);
-      lastSavedStep.current = 0; // Reset saved step tracking
-      hasResetNav.current = false; // Reset the flag
+      lastSavedStep.current = 0;
+      hasResetNav.current = false;
       console.log('[EveningFlow] Starting fresh evening session');
     } catch (error) {
       console.error('[EveningFlow] Failed to clear session:', error);
     }
   };
 
-  // Custom header with progress
-  const getHeaderOptions = (routeName: keyof EveningFlowParamList, title: string) => ({
-    headerTitle: () => (
-      <View style={styles.headerContainer}>
-        <Text style={styles.headerTitle}>{title}</Text>
-        <ProgressIndicator currentStep={currentStep} totalSteps={totalSteps} />
-      </View>
-    ),
-    headerTitleAlign: 'center' as const,
-  });
+  // Build completion summary from accumulated data
+  const buildCompletionSummary = useCallback((): EveningCompletionSummary => {
+    const gratitudeData = screenData['Gratitude'] as EveningGratitudeData | undefined;
+    const virtueData = screenData['VirtueReflection'] as VirtueReflectionData | undefined;
+    const compassionData = screenData['SelfCompassion'] as SelfCompassionData | undefined;
+    const tomorrowData = screenData['Tomorrow'] as TomorrowData | undefined;
 
-  // Screen wrappers with data persistence (FEAT-23)
-  const VirtueReflectionScreenWrapper = ({ navigation, route }: any) => (
-    <VirtueReflectionScreen
+    return {
+      gratitudeCount: gratitudeData?.items?.length || 0,
+      principleReflected: virtueData?.principleReflected,
+      selfCompassionCompleted: !!compassionData?.reflection,
+      tomorrowIntentionSet: !!(tomorrowData?.intention?.trim()),
+    };
+  }, [screenData]);
+
+  // Screen wrappers with data persistence
+  const BreathingScreenWrapper = ({ navigation, route }: any) => (
+    <BreathingScreen
       navigation={navigation}
       route={route}
-      onSave={(data: any) => {
-        const newScreenData = { ...screenData, VirtueReflection: data };
+      onSave={(data: EveningBreathingData) => {
+        const newScreenData = { ...screenData, Breathing: data };
         setScreenData(newScreenData);
 
         const nextScreen = 'Gratitude';
@@ -256,7 +253,7 @@ const EveningFlowNavigator: React.FC<EveningFlowNavigatorProps> = ({
         if (nextIndex > lastSavedStep.current) {
           lastSavedStep.current = nextIndex;
           SessionStorageService.saveSession('evening', nextScreen, { screenData: newScreenData })
-            .catch(error => console.error('[EveningFlow] Failed to save from VirtueReflection:', error));
+            .catch(error => console.error('[EveningFlow] Failed to save from Breathing:', error));
         }
       }}
     />
@@ -266,11 +263,11 @@ const EveningFlowNavigator: React.FC<EveningFlowNavigatorProps> = ({
     <GratitudeScreen
       navigation={navigation}
       route={route}
-      onSave={(data: any) => {
+      onSave={(data: EveningGratitudeData) => {
         const newScreenData = { ...screenData, Gratitude: data };
         setScreenData(newScreenData);
 
-        const nextScreen = 'Tomorrow';
+        const nextScreen = 'VirtueReflection';
         const nextIndex = SCREEN_ORDER.indexOf(nextScreen);
         if (nextIndex > lastSavedStep.current) {
           lastSavedStep.current = nextIndex;
@@ -281,20 +278,33 @@ const EveningFlowNavigator: React.FC<EveningFlowNavigatorProps> = ({
     />
   );
 
-  const TomorrowScreenWrapper = ({ navigation, route }: any) => (
-    <TomorrowScreen
+  const VirtueReflectionScreenWrapper = ({ navigation, route }: any) => (
+    <VirtueReflectionScreen
       navigation={navigation}
       route={route}
-      onSave={(data: any) => {
-        const newScreenData = { ...screenData, Tomorrow: data };
+      onSave={(data: VirtueReflectionData) => {
+        const newScreenData = { ...screenData, VirtueReflection: data };
         setScreenData(newScreenData);
+
+        // FEAT-134: Record principle engagement for Insights dashboard
+        if (data.principleReflected && recordPrincipleEngagement) {
+          try {
+            recordPrincipleEngagement(data.principleReflected, 'evening', 'reflected');
+            logger.info(LogCategory.ANALYTICS, 'principle_engagement_recorded', {
+              context: 'evening',
+              type: 'reflected',
+            });
+          } catch (error) {
+            logger.error(LogCategory.ANALYTICS, 'principle_engagement_failed', { error: String(error) });
+          }
+        }
 
         const nextScreen = 'SelfCompassion';
         const nextIndex = SCREEN_ORDER.indexOf(nextScreen);
         if (nextIndex > lastSavedStep.current) {
           lastSavedStep.current = nextIndex;
           SessionStorageService.saveSession('evening', nextScreen, { screenData: newScreenData })
-            .catch(error => console.error('[EveningFlow] Failed to save from Tomorrow:', error));
+            .catch(error => console.error('[EveningFlow] Failed to save from VirtueReflection:', error));
         }
       }}
     />
@@ -304,11 +314,11 @@ const EveningFlowNavigator: React.FC<EveningFlowNavigatorProps> = ({
     <SelfCompassionScreen
       navigation={navigation}
       route={route}
-      onSave={(data: any) => {
+      onSave={(data: SelfCompassionData) => {
         const newScreenData = { ...screenData, SelfCompassion: data };
         setScreenData(newScreenData);
 
-        const nextScreen = 'SleepTransition';
+        const nextScreen = 'Tomorrow';
         const nextIndex = SCREEN_ORDER.indexOf(nextScreen);
         if (nextIndex > lastSavedStep.current) {
           lastSavedStep.current = nextIndex;
@@ -319,41 +329,69 @@ const EveningFlowNavigator: React.FC<EveningFlowNavigatorProps> = ({
     />
   );
 
-  const SleepTransitionScreenWrapper = ({ navigation, route }: any) => (
-    <SleepTransitionScreen
+  const TomorrowScreenWrapper = ({ navigation, route }: any) => (
+    <TomorrowScreen
       navigation={navigation}
       route={route}
-      onSave={(data: any) => {
-        const newScreenData = { ...screenData, SleepTransition: data };
+      onSave={(data: TomorrowData) => {
+        const newScreenData = { ...screenData, Tomorrow: data };
         setScreenData(newScreenData);
 
-        const nextScreen = 'EveningCompletion';
+        const nextScreen = 'SleepTransition';
         const nextIndex = SCREEN_ORDER.indexOf(nextScreen);
         if (nextIndex > lastSavedStep.current) {
           lastSavedStep.current = nextIndex;
           SessionStorageService.saveSession('evening', nextScreen, { screenData: newScreenData })
-            .catch(error => console.error('[EveningFlow] Failed to save from SleepTransition:', error));
+            .catch(error => console.error('[EveningFlow] Failed to save from Tomorrow:', error));
         }
+
+        // Pass summary to SleepTransition when navigating
+        navigation.navigate('SleepTransition', {
+          summary: buildCompletionSummary(),
+        });
       }}
     />
   );
 
-  // Wrapper for EveningCompletionScreen to pass onComplete callback
-  const EveningCompletionScreenWrapper = ({ navigation, route }: any) => {
-    const props: any = {
-      navigation,
-      route,
-      onComplete: (completionData: any) => onComplete(completionData || {})
-    };
-    return <EveningCompletionScreen {...props} />;
+  const SleepTransitionScreenWrapper = ({ navigation, route }: any) => {
+    // Ensure we have the summary (may come from Tomorrow or resumption)
+    const summary = route.params?.summary || buildCompletionSummary();
+
+    return (
+      <SleepTransitionScreen
+        navigation={navigation}
+        route={{ ...route, params: { ...route.params, summary } }}
+        onComplete={(data: SleepTransitionData) => {
+          const newScreenData = { ...screenData, SleepTransition: data };
+          setScreenData(newScreenData);
+
+          // Clear session on completion
+          SessionStorageService.clearSession('evening')
+            .catch(error => console.error('[EveningFlow] Failed to clear session:', error));
+
+          // Build final session data and complete
+          const sessionData: EveningSessionData = {
+            breathing: screenData['Breathing'],
+            gratitude: screenData['Gratitude'],
+            virtueReflection: screenData['VirtueReflection'],
+            selfCompassion: screenData['SelfCompassion'],
+            tomorrow: screenData['Tomorrow'],
+            sleepTransition: data,
+            completedAt: new Date(),
+          };
+
+          onComplete(sessionData);
+        }}
+      />
+    );
   };
 
-  // Don't render anything until we've checked for a session
+  // Don't render until session check complete
   if (isCheckingSession) {
-    return null; // Could show a loading spinner here if desired
+    return null;
   }
 
-  // Don't render navigator until resume modal is dismissed to prevent premature saves
+  // Show resume modal before rendering navigator
   if (showResumeModal) {
     return (
       <ResumeSessionModal
@@ -368,59 +406,34 @@ const EveningFlowNavigator: React.FC<EveningFlowNavigatorProps> = ({
   return (
     <>
       <Stack.Navigator
-        initialRouteName="VirtueReflection"
+        initialRouteName="Breathing"
         screenOptions={{
-          headerStyle: {
-            backgroundColor: colorSystem.themes.evening.background,
-            borderBottomColor: colorSystem.themes.evening.primary,
-            borderBottomWidth: 1,
-            shadowColor: '#000',
-            shadowOffset: {
-              width: 0,
-              height: 2,
-            },
-            shadowOpacity: 0.1,
-            shadowRadius: 4,
-            elevation: 6,
-            height: 100, // Increased height for progress indicator + safety elements
-          },
-          headerTintColor: colorSystem.themes.evening.primary,
-          headerLeft: () => (
-            <ExitHeaderButton onPress={onExit} />
-          ),
+          headerShown: false, // FEAT-134: Hide header - screens have their own progress dots
           cardStyle: {
             backgroundColor: colorSystem.themes.evening.background,
           },
-          // Modal presentation styling
-          presentation: 'modal',
           gestureEnabled: true,
-          cardStyleInterpolator: ({ current, layouts }) => {
-            return {
-              cardStyle: {
-                transform: [
-                  {
-                    translateY: current.progress.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [layouts.screen.height, 0],
-                    }),
-                  },
-                ],
-              },
-            };
-          },
+          cardStyleInterpolator: ({ current, layouts }) => ({
+            cardStyle: {
+              transform: [
+                {
+                  translateY: current.progress.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [layouts.screen.height, 0],
+                  }),
+                },
+              ],
+            },
+          }),
         }}
         screenListeners={({ navigation }) => ({
           state: (e) => {
-            // FEAT-23: Trigger imperative reset if needed (on first mount after resume)
+            // FEAT-23: Trigger imperative reset if needed
             if (shouldResetNav && !hasResetNav.current && initialNavigationState) {
               hasResetNav.current = true;
-              console.log('[EveningFlow] Triggering imperative reset with state:', initialNavigationState);
-
-              // Reset navigation state
               navigation.reset(initialNavigationState);
               setShouldResetNav(false);
-              console.log('[EveningFlow] Imperative reset complete');
-              return; // Don't process state update this cycle
+              return;
             }
 
             // Update progress based on current screen
@@ -432,65 +445,51 @@ const EveningFlowNavigator: React.FC<EveningFlowNavigatorProps> = ({
                 setCurrentStep(stepIndex + 1);
               }
 
-              // FEAT-23: Save session progress only on forward navigation
-              // Only save if we're moving to a new screen or staying on the same screen
-              // Don't save if moving backward (exit/back button pressed)
-              if (currentRouteName &&
-                  currentRouteName !== 'EveningCompletion' &&
-                  stepIndex >= lastSavedStep.current) {
-                console.log(`[EveningFlow] Saving session: stepIndex=${stepIndex}, lastSavedStep=${lastSavedStep.current}, screen=${currentRouteName}`);
+              // FEAT-23: Save session progress on forward navigation
+              if (currentRouteName && stepIndex >= lastSavedStep.current) {
                 lastSavedStep.current = stepIndex;
                 SessionStorageService.saveSession('evening', currentRouteName as string, {
-                  screenData // Save accumulated screen data
-                })
-                  .catch(error => {
-                    console.error('[EveningFlow] Failed to save session:', error);
-                  });
-              } else if (currentRouteName && currentRouteName !== 'EveningCompletion') {
-                console.log(`[EveningFlow] NOT saving (backward nav): stepIndex=${stepIndex}, lastSavedStep=${lastSavedStep.current}, screen=${currentRouteName}`);
+                  screenData,
+                }).catch(error => {
+                  console.error('[EveningFlow] Failed to save session:', error);
+                });
               }
             }
           },
         })}
       >
-      <Stack.Screen
-        name="VirtueReflection"
-        component={VirtueReflectionScreenWrapper}
-        options={getHeaderOptions('VirtueReflection', 'Mindful Reflection')}
-      />
+        <Stack.Screen
+          name="Breathing"
+          component={BreathingScreenWrapper}
+        />
 
-      <Stack.Screen
-        name="Gratitude"
-        component={GratitudeScreenWrapper}
-        options={getHeaderOptions('Gratitude', 'Gratitude Practice')}
-      />
+        <Stack.Screen
+          name="Gratitude"
+          component={GratitudeScreenWrapper}
+        />
 
-      <Stack.Screen
-        name="Tomorrow"
-        component={TomorrowScreenWrapper}
-        options={getHeaderOptions('Tomorrow', 'Prepare for Tomorrow')}
-      />
+        <Stack.Screen
+          name="VirtueReflection"
+          component={VirtueReflectionScreenWrapper}
+        />
 
-      <Stack.Screen
-        name="SelfCompassion"
-        component={SelfCompassionScreenWrapper}
-        options={getHeaderOptions('SelfCompassion', 'Self-Compassion')}
-      />
+        <Stack.Screen
+          name="SelfCompassion"
+          component={SelfCompassionScreenWrapper}
+        />
 
-      <Stack.Screen
-        name="SleepTransition"
-        component={SleepTransitionScreenWrapper}
-        options={getHeaderOptions('SleepTransition', 'Transition to Rest')}
-      />
+        <Stack.Screen
+          name="Tomorrow"
+          component={TomorrowScreenWrapper}
+        />
 
-      <Stack.Screen
-        name="EveningCompletion"
-        component={EveningCompletionScreenWrapper}
-        options={{ headerShown: false }}
-      />
-    </Stack.Navigator>
+        <Stack.Screen
+          name="SleepTransition"
+          component={SleepTransitionScreenWrapper}
+        />
+      </Stack.Navigator>
 
-      {/* Crisis Button - Single instance for entire flow, maintains fade state */}
+      {/* Crisis Button - Single instance for entire flow */}
       <CollapsibleCrisisButton
         mode="immersive"
         onNavigate={() => rootNavigation.navigate('CrisisResources')}
@@ -499,39 +498,6 @@ const EveningFlowNavigator: React.FC<EveningFlowNavigatorProps> = ({
     </>
   );
 };
-
-const styles = StyleSheet.create({
-  headerContainer: {
-    alignItems: 'center',
-    width: '100%',
-  },
-  headerTitle: {
-    fontSize: typography.bodyLarge.size,
-    fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
-    marginBottom: spacing[4],
-  },
-  progressContainer: {
-    alignItems: 'center',
-    width: '100%',
-  },
-  progressBar: {
-    width: 120,
-    height: spacing[4],
-    backgroundColor: colorSystem.gray[200],
-    borderRadius: borderRadius.xs,
-    marginBottom: spacing[4],
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: borderRadius.xs,
-  },
-  progressText: {
-    fontSize: typography.micro.size,
-    color: colorSystem.gray[600],
-    fontWeight: typography.fontWeight.medium,
-  },
-});
 
 const headerStyles = StyleSheet.create({
   exitContainer: {

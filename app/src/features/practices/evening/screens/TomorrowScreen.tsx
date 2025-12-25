@@ -1,37 +1,36 @@
 /**
- * TOMORROW SCREEN - DRD v2.0.0
+ * TOMORROW SCREEN - FEAT-134 Evening Flow Redesign
  *
- * Mindful visualization + intention + letting go for peaceful transition to rest.
- * NOT anxiety-inducing planning.
+ * Screen 5 of 6: Optional intention (skippable)
+ * Uses shared AccessibleInput and AccessibleButton components
+ *
+ * Design Philosophy:
+ * - Fully optional - respects users who just want to rest
+ * - Progressive disclosure for "letting go" field
+ * - Evening theme (dark, calming)
+ * - NOT anxiety-inducing planning
  *
  * Stoic Philosophy:
  * - Marcus Aurelius: "Confine yourself to the present" (Meditations 7:29)
- * - Epictetus: "Make the best use of what is in your power, and take the rest
- *   as it happens" (Discourses 1:1)
- * - Seneca: "True happiness is to enjoy the present, without anxious dependence
- *   upon the future" (Letters 23)
+ * - Seneca: "True happiness is to enjoy the present, without anxious
+ *   dependence upon the future" (Letters 23)
  *
- * Design Philosophy:
- * - Calm visualization (1-2 minutes)
- * - Brief intention for what's in your control
- * - Letting go of what's not in your control
- * - Sleep-compatible design (calming, not stimulating)
- *
- * @see /docs/product/Being. DRD.md (DRD-FLOW-004: Evening Flow, Screen 5)
+ * @see /docs/architecture/Stoic-Mindfulness-Architecture-v1.0.md
  */
 
 import React, { useState } from 'react';
 import {
   View,
   Text,
-  TextInput,
-  TouchableOpacity,
   ScrollView,
   StyleSheet,
+  TouchableOpacity,
 } from 'react-native';
 import type { StackScreenProps } from '@react-navigation/stack';
 import type { EveningFlowParamList, TomorrowData } from '@/features/practices/types/flows';
-import { spacing, borderRadius, typography } from '@/core/theme';
+import { AccessibleInput } from '@/core/components/accessibility/AccessibleInput';
+import { AccessibleButton } from '@/core/components/accessibility/AccessibleButton';
+import { spacing, borderRadius, typography, colorSystem } from '@/core/theme';
 
 type Props = StackScreenProps<EveningFlowParamList, 'Tomorrow'> & {
   onSave?: (data: TomorrowData) => void;
@@ -39,22 +38,13 @@ type Props = StackScreenProps<EveningFlowParamList, 'Tomorrow'> & {
 
 const TomorrowScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
   // FEAT-23: Restore initial data if resuming session
-  const initialData = (route.params as any)?.initialData as TomorrowData | undefined;
-
-  // Debug logging
-  if (initialData) {
-    console.log('[TomorrowScreen] Restoring data:', {
-      hasIntention: !!initialData.intention,
-      hasLettingGo: !!initialData.lettingGo
-    });
-  }
+  const initialData = (route.params as { initialData?: any } | undefined)?.initialData;
 
   const [intention, setIntention] = useState(initialData?.intention || '');
   const [lettingGo, setLettingGo] = useState(initialData?.lettingGo || '');
+  const [showLettingGo, setShowLettingGo] = useState(!!initialData?.lettingGo);
 
-  // Both fields required for balanced sleep preparation (intention + release)
-  const canContinue = intention.trim().length > 0 && lettingGo.trim().length > 0;
-
+  // Always valid - this screen is fully optional/skippable
   const handleContinue = () => {
     const tomorrowData: TomorrowData = {
       intention: intention.trim() || undefined,
@@ -66,98 +56,111 @@ const TomorrowScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
       onSave(tomorrowData);
     }
 
-    navigation.navigate('SelfCompassion');
+    navigation.navigate('SleepTransition');
+  };
+
+  const handleBack = () => {
+    navigation.goBack();
   };
 
   return (
-    <View style={{ flex: 1 }}>
-      <ScrollView style={styles.container} testID="tomorrow-screen">
-      {/* Back Button */}
-      <TouchableOpacity
-        style={styles.backButton}
-        onPress={() => navigation.goBack()}
-        testID="back-button"
-        accessibilityLabel="Go back"
+    <View style={styles.container}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.contentContainer}
+        testID="tomorrow-screen"
+        keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.backButtonText}>← Back</Text>
-      </TouchableOpacity>
+        {/* Progress indicator */}
+        <View style={styles.progressContainer}>
+          <View style={styles.progressDots}>
+            <View style={styles.dotComplete} />
+            <View style={styles.dotComplete} />
+            <View style={styles.dotComplete} />
+            <View style={styles.dotComplete} />
+            <View style={[styles.dot, styles.dotActive]} />
+            <View style={styles.dot} />
+          </View>
+          <Text style={styles.progressText}>5/6</Text>
+        </View>
 
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.title}>Prepare for Tomorrow</Text>
-        <Text style={styles.subtitle}>Mindful Visualization & Intention</Text>
-        <Text style={styles.helperText}>
-          Calm preparation for peaceful rest
-        </Text>
-      </View>
+        {/* Back button */}
+        <TouchableOpacity
+          onPress={handleBack}
+          style={styles.backButton}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
+        >
+          <Text style={styles.backButtonText}>{"<-"} Back</Text>
+        </TouchableOpacity>
 
-      {/* Visualization Prompt */}
-      <View style={styles.visualizationPrompt}>
-        <Text style={styles.visualizationTitle}>Mindful Visualization</Text>
-        <Text style={styles.visualizationText}>
-          Take a moment to picture tomorrow calmly...
-          {'\n\n'}
-          See yourself moving through the day with presence.
-          {'\n'}
-          Notice what matters, without anxiety about outcomes.
-        </Text>
-      </View>
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.title}>Any intention for tomorrow?</Text>
+          <Text style={styles.subtitle}>(optional)</Text>
+        </View>
 
-      {/* Intention for Tomorrow */}
-      <View style={styles.fieldSection}>
-        <Text style={styles.fieldLabel}>What's your intention for tomorrow?</Text>
-        <Text style={styles.fieldHelper}>
-          Brief intention - focus on what's in your control
-        </Text>
-        <TextInput
-          style={styles.textInput}
-          value={intention}
-          onChangeText={setIntention}
-          placeholder="e.g., I'll stay present, practice patience, listen fully..."
-          placeholderTextColor="#999"
-          testID="intention-input"
-          accessibilityLabel="Intention for tomorrow"
-          multiline
-        />
-      </View>
+        {/* Intention input - optional */}
+        <View style={styles.inputSection}>
+          <AccessibleInput
+            label=""
+            value={intention}
+            onChangeText={setIntention}
+            placeholder="What matters tomorrow..."
+            multiline
+            numberOfLines={2}
+            testID="intention-input"
+            containerStyle={styles.inputContainer}
+            inputStyle={styles.input}
+          />
+        </View>
 
-      {/* Letting Go */}
-      <View style={styles.fieldSection}>
-        <Text style={styles.fieldLabel}>What can you let go of tonight?</Text>
-        <Text style={styles.fieldHelper}>
-          Release what's not in your control - peaceful transition to rest
-        </Text>
-        <TextInput
-          style={styles.textInput}
-          value={lettingGo}
-          onChangeText={setLettingGo}
-          placeholder="e.g., Others' opinions, outcomes I can't control, today's worries..."
-          placeholderTextColor="#999"
-          testID="letting-go-input"
-          accessibilityLabel="What to let go of"
-          multiline
-        />
-      </View>
+        {/* Letting go - collapsed by default */}
+        {!showLettingGo ? (
+          <TouchableOpacity
+            style={styles.addLettingGoButton}
+            onPress={() => setShowLettingGo(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Add what you want to let go of"
+          >
+            <Text style={styles.addLettingGoText}>+ Anything you want to let go of tonight?</Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.inputSection}>
+            <AccessibleInput
+              label="What can you let go of tonight?"
+              helperText="optional"
+              value={lettingGo}
+              onChangeText={setLettingGo}
+              placeholder="Release what's not in your control..."
+              multiline
+              numberOfLines={2}
+              testID="letting-go-input"
+              containerStyle={styles.inputContainer}
+              inputStyle={styles.input}
+              labelStyle={styles.inputLabel}
+            />
+          </View>
+        )}
 
-      {/* Continue Button */}
-      <TouchableOpacity
-        style={[styles.continueButton, !canContinue && styles.continueButtonDisabled]}
-        onPress={handleContinue}
-        disabled={!canContinue}
-        accessibilityRole="button"
-        accessibilityState={{ disabled: !canContinue }}
-      >
-        <Text style={styles.continueButtonText}>Continue</Text>
-      </TouchableOpacity>
-
-      {/* Stoic Quote */}
-      <View style={styles.quoteSection}>
-        <Text style={styles.quoteText}>
-          "True happiness is to enjoy the present, without anxious dependence
-          upon the future." — Seneca
-        </Text>
-      </View>
+        {/* Spacer */}
+        <View style={styles.spacer} />
       </ScrollView>
+
+      {/* Fixed bottom button - always enabled (skippable) */}
+      <View style={styles.buttonContainer}>
+        <AccessibleButton
+          onPress={handleContinue}
+          label="Continue"
+          variant="primary"
+          size="large"
+          testID="continue-button"
+          accessibilityHint="Continue to sleep transition"
+        />
+        <Text style={styles.skipHint}>
+          Skip if you just want to rest
+        </Text>
+      </View>
     </View>
   );
 };
@@ -165,106 +168,106 @@ const TomorrowScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: colorSystem.themes.evening.background,
+  },
+  scrollView: {
+    flex: 1,
+  },
+  contentContainer: {
     padding: spacing[20],
+    paddingTop: spacing[48],
+  },
+  progressContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing[16],
+  },
+  progressDots: {
+    flexDirection: 'row',
+    gap: spacing[8],
+    marginRight: spacing[12],
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colorSystem.gray[500],
+  },
+  dotActive: {
+    backgroundColor: colorSystem.themes.evening.primary,
+  },
+  dotComplete: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colorSystem.status.success,
+  },
+  progressText: {
+    fontSize: typography.caption.size,
+    color: colorSystem.gray[400],
   },
   backButton: {
-    marginBottom: spacing[20],
+    marginBottom: spacing[16],
   },
   backButtonText: {
     fontSize: typography.bodyRegular.size,
-    color: '#4A7C59',
+    color: colorSystem.themes.evening.primary,
   },
   header: {
     marginBottom: spacing[24],
   },
   title: {
-    fontSize: typography.headline2.size,
-    fontWeight: typography.fontWeight.bold,
-    marginBottom: spacing[8],
-    color: '#333',
+    fontSize: typography.headline3.size,
+    fontWeight: typography.fontWeight.semibold,
+    color: colorSystem.base.white,
   },
   subtitle: {
-    fontSize: typography.bodyRegular.size,
-    color: '#666',
-    marginBottom: spacing[4],
-  },
-  helperText: {
     fontSize: typography.bodySmall.size,
-    color: '#999',
-    fontStyle: 'italic',
+    color: colorSystem.gray[400],
+    marginTop: spacing[4],
   },
-  visualizationPrompt: {
-    padding: spacing[16],
-    backgroundColor: '#F0F5F1',
-    borderRadius: borderRadius.medium,
-    marginBottom: spacing[24],
+  inputSection: {
+    marginBottom: spacing[16],
   },
-  visualizationTitle: {
-    fontSize: typography.bodyRegular.size,
-    fontWeight: typography.fontWeight.semibold,
-    marginBottom: spacing[8],
-    color: '#4A7C59',
+  inputContainer: {
+    marginBottom: 0,
   },
-  visualizationText: {
-    fontSize: typography.bodySmall.size,
-    color: '#666',
-    lineHeight: 20,
-    fontStyle: 'italic',
+  input: {
+    backgroundColor: colorSystem.gray[700],
+    borderColor: colorSystem.gray[600],
+    color: colorSystem.base.white,
   },
-  fieldSection: {
-    marginBottom: spacing[24],
+  inputLabel: {
+    color: colorSystem.base.white,
   },
-  fieldLabel: {
-    fontSize: typography.bodyLarge.size,
-    fontWeight: typography.fontWeight.semibold,
-    marginBottom: spacing[4],
-    color: '#333',
-  },
-  fieldHelper: {
-    fontSize: typography.bodySmall.size,
-    color: '#666',
-    marginBottom: spacing[12],
-  },
-  textInput: {
+  addLettingGoButton: {
+    paddingVertical: spacing[16],
+    paddingHorizontal: spacing[16],
     borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: borderRadius.medium,
-    padding: spacing[12],
-    fontSize: typography.bodyRegular.size,
-    backgroundColor: '#fff',
-    minHeight: 80,
-    textAlignVertical: 'top',
-  },
-  continueButton: {
-    backgroundColor: '#4A7C59',
-    padding: spacing[16],
+    borderColor: colorSystem.gray[600],
+    borderStyle: 'dashed',
     borderRadius: borderRadius.medium,
     alignItems: 'center',
-    marginTop: spacing[12],
-    marginBottom: spacing[24],
+    marginBottom: spacing[16],
   },
-  continueButtonDisabled: {
-    backgroundColor: '#ccc',
+  addLettingGoText: {
+    fontSize: typography.bodyRegular.size,
+    color: colorSystem.gray[400],
   },
-  continueButtonText: {
-    color: '#fff',
-    fontSize: typography.bodyLarge.size,
-    fontWeight: typography.fontWeight.semibold,
+  spacer: {
+    height: spacing[96],
   },
-  quoteSection: {
-    padding: spacing[16],
-    backgroundColor: '#f9f9f9',
-    borderRadius: borderRadius.medium,
-    borderLeftWidth: spacing[4],
-    borderLeftColor: '#4A7C59',
-    marginBottom: 40,
+  buttonContainer: {
+    padding: spacing[20],
+    paddingBottom: spacing[32],
+    backgroundColor: colorSystem.themes.evening.background,
   },
-  quoteText: {
-    fontSize: typography.bodySmall.size,
+  skipHint: {
+    fontSize: typography.caption.size,
+    color: colorSystem.gray[500],
+    textAlign: 'center',
+    marginTop: spacing[8],
     fontStyle: 'italic',
-    color: '#666',
-    lineHeight: 20,
   },
 });
 

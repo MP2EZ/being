@@ -1,192 +1,213 @@
 /**
- * SLEEP TRANSITION SCREEN - DRD v2.0.0
+ * SLEEP TRANSITION SCREEN - FEAT-134 Evening Flow Redesign
  *
- * Mindful breathing for peaceful sleep transition.
- * Progressive relaxation + release day's tensions.
- *
- * Stoic Philosophy:
- * - Seneca: "Receive sleep as you would receive death" (Letters 54:1)
- *   - Release control of the day
- *   - Trust in tomorrow's renewal
- * - Marcus Aurelius: Evening reflection prepares the mind for rest
- * - Epictetus: "Don't let the sun set on your anger" (implicit in evening practice)
+ * Screen 6 of 6: Gentle breathing + completion card
+ * Uses shared BreathingCircle (60fps) and AccessibleButton components
  *
  * Design Philosophy:
- * - Sleep-compatible (calming, no blue light spikes)
- * - Brief practice (2-3 minutes max)
- * - Progressive relaxation guidance
- * - Peaceful completion
- * - Release day's tensions
+ * - Sleep-compatible (calming, minimal brightness)
+ * - Auto-running breathing (no decisions)
+ * - Personalized completion summary (positive closure)
+ * - Brief practice (30-60s)
  *
- * @see /docs/product/Being. DRD.md (DRD-FLOW-004: Evening Flow, Screen 8)
+ * Stoic Philosophy:
+ * - Seneca: "Receive sleep as you would receive death—with serenity,
+ *   trusting in tomorrow's renewal" (Letters 54:1)
+ * - Marcus Aurelius: Evening reflection prepares the mind for rest
+ *
+ * @see /docs/architecture/Stoic-Mindfulness-Architecture-v1.0.md
  */
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
-  ScrollView,
   StyleSheet,
+  Animated,
 } from 'react-native';
 import type { StackScreenProps } from '@react-navigation/stack';
-import type { EveningFlowParamList, SleepTransitionData } from '@/features/practices/types/flows';
+import type { EveningFlowParamList, SleepTransitionData, EveningCompletionSummary } from '@/features/practices/types/flows';
 import BreathingCircle from '../../shared/components/BreathingCircle';
-import { spacing, borderRadius, typography } from '@/core/theme';
+import { AccessibleButton } from '@/core/components/accessibility/AccessibleButton';
+import { spacing, borderRadius, typography, colorSystem } from '@/core/theme';
 
-type Props = StackScreenProps<EveningFlowParamList, 'SleepTransition'> & {
-  onSave?: (data: SleepTransitionData) => void;
+// Map principle keys to friendly names for display
+const PRINCIPLE_NAMES: Record<string, string> = {
+  aware_presence: 'Aware Presence',
+  radical_acceptance: 'Radical Acceptance',
+  sphere_sovereignty: 'Sphere Sovereignty',
+  virtuous_response: 'Virtuous Response',
+  interconnected_living: 'Interconnected Living',
 };
 
-const SleepTransitionScreen: React.FC<Props> = ({ navigation, onSave }) => {
-  const [breathingCompleted, setBreathingCompleted] = useState(false);
-  const [breathingActive, setBreathingActive] = useState(false);
-  const [breathingStarted, setBreathingStarted] = useState(false);
+type Props = StackScreenProps<EveningFlowParamList, 'SleepTransition'> & {
+  onComplete?: (data: SleepTransitionData) => void;
+};
 
-  const handleComplete = () => {
+const BREATHING_DURATION_MS = 45000; // 45 seconds (gentle, not too long)
+
+const SleepTransitionScreen: React.FC<Props> = ({ navigation, route, onComplete }) => {
+  // Get summary from route params (passed from navigator)
+  const summary = route.params?.summary;
+
+  const [isBreathingActive, setIsBreathingActive] = useState(true);
+  const [showCompletion, setShowCompletion] = useState(false);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const cardFadeAnim = useRef(new Animated.Value(0)).current;
+
+  // Auto-transition to completion after breathing duration
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsBreathingActive(false);
+      setShowCompletion(true);
+      // Fade in completion card
+      Animated.timing(cardFadeAnim, {
+        toValue: 1,
+        duration: 1000,
+        useNativeDriver: true,
+      }).start();
+    }, BREATHING_DURATION_MS);
+
+    return () => clearTimeout(timer);
+  }, [cardFadeAnim]);
+
+  // Fade in done button after completion card appears
+  useEffect(() => {
+    if (showCompletion) {
+      const timer = setTimeout(() => {
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true,
+        }).start();
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+    return undefined;
+  }, [showCompletion, fadeAnim]);
+
+  const handleDone = () => {
     const sleepTransitionData: SleepTransitionData = {
-      breathingCompleted,
+      breathingCompleted: true,
       timestamp: new Date(),
     };
 
-    if (onSave) {
-      onSave(sleepTransitionData);
+    if (onComplete) {
+      onComplete(sleepTransitionData);
     }
 
-    navigation.navigate('EveningCompletion');
+    // Navigate back to home/practices (flow complete)
+    navigation.getParent()?.goBack();
   };
 
+  // Build personalized summary text
+  const buildSummaryText = (summaryData?: EveningCompletionSummary): string[] => {
+    const items: string[] = [];
+
+    if (summaryData) {
+      if (summaryData.gratitudeCount > 0) {
+        items.push(`Named ${summaryData.gratitudeCount} gratitude${summaryData.gratitudeCount > 1 ? 's' : ''}`);
+      }
+      if (summaryData.principleReflected) {
+        const principleName = PRINCIPLE_NAMES[summaryData.principleReflected] || summaryData.principleReflected;
+        items.push(`Practiced ${principleName}`);
+      }
+      if (summaryData.selfCompassionCompleted) {
+        items.push('Offered yourself kindness');
+      }
+      if (summaryData.tomorrowIntentionSet) {
+        items.push('Set an intention for tomorrow');
+      }
+    }
+
+    // Fallback if no data
+    if (items.length === 0) {
+      items.push('Completed your evening reflection');
+    }
+
+    return items;
+  };
+
+  const summaryItems = buildSummaryText(summary);
+
   return (
-    <View style={{ flex: 1 }}>
-      <ScrollView
-        style={styles.container}
-        testID="sleep-transition-screen"
-        contentContainerStyle={styles.contentContainer}
-      >
-      {/* Back Button */}
-      <TouchableOpacity
-        style={styles.backButton}
-        onPress={() => navigation.goBack()}
-        testID="back-button"
-        accessibilityLabel="Go back"
-      >
-        <Text style={styles.backButtonText}>← Back</Text>
-      </TouchableOpacity>
+    <View style={styles.container} testID="sleep-transition-screen">
+      {/* Progress indicator */}
+      <View style={styles.progressContainer}>
+        <View style={styles.progressDots}>
+          <View style={styles.dotComplete} />
+          <View style={styles.dotComplete} />
+          <View style={styles.dotComplete} />
+          <View style={styles.dotComplete} />
+          <View style={styles.dotComplete} />
+          <View style={[styles.dot, styles.dotActive]} />
+        </View>
+        <Text style={styles.progressText}>6/6</Text>
+      </View>
 
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Transition to Rest</Text>
-        <Text style={styles.subtitle}>Complete Your Evening Practice</Text>
-        <Text style={styles.helperText}>
-          Release the day, prepare for peaceful rest
+        <Text style={styles.title}>
+          {showCompletion ? 'Evening reflection complete' : 'Settling into rest...'}
         </Text>
       </View>
 
-      {/* Sphere Sovereignty Framing */}
-      <View style={styles.sovereigntySection}>
-        <Text style={styles.sovereigntyTitle}>Sphere Sovereignty: Sleep</Text>
-        <Text style={styles.sovereigntyText}>
-          You cannot control when sleep comes, but you can create the conditions for rest.
-        </Text>
-        <Text style={styles.sovereigntyText}>
-          This 4-7-8 breathing pattern signals your nervous system that it's safe to release the day.
-        </Text>
-      </View>
-
-      {/* 4-7-8 Breathing Practice */}
-      <View style={styles.breathingSection}>
-        <Text style={styles.breathingTitle}>4-7-8 Breathing for Sleep</Text>
-
-        {!breathingStarted ? (
-          <>
-            <Text style={styles.breathingInstructions}>
-              • Inhale through your nose for 4 seconds{'\n'}
-              • Hold your breath for 7 seconds{'\n'}
-              • Exhale slowly through your mouth for 8 seconds{'\n'}
-              {'\n'}
-              Repeat 3-4 cycles to prepare for sleep.
-            </Text>
-            <TouchableOpacity
-              style={styles.startBreathingButton}
-              onPress={() => {
-                setBreathingStarted(true);
-                setBreathingActive(true);
-              }}
-              accessibilityRole="button"
-              accessibilityLabel="Start 4-7-8 breathing practice"
-            >
-              <Text style={styles.startBreathingText}>Begin Practice</Text>
-            </TouchableOpacity>
-          </>
-        ) : (
-          <>
-            <BreathingCircle
-              isActive={breathingActive}
-              pattern={{ inhale: 4000, hold: 7000, exhale: 8000 }}
-              showCountdown={true}
-              phaseText={{
-                inhale: 'Inhale (nose)',
-                hold: 'Hold gently',
-                exhale: 'Exhale (mouth)',
-              }}
-              testID="sleep-breathing-circle"
-            />
-            {!breathingCompleted && (
-              <TouchableOpacity
-                style={styles.stopBreathingButton}
-                onPress={() => {
-                  setBreathingActive(false);
-                  setBreathingCompleted(true);
-                }}
-                accessibilityRole="button"
-                accessibilityLabel="Complete breathing practice"
-              >
-                <Text style={styles.stopBreathingText}>Complete Practice</Text>
-              </TouchableOpacity>
-            )}
-          </>
-        )}
-      </View>
-
-      {/* Progressive Relaxation (shown after breathing) */}
-      {breathingCompleted && (
-        <View style={styles.relaxationSection}>
-          <Text style={styles.relaxationTitle}>Release and Rest</Text>
-          <Text style={styles.relaxationText}>
-            Notice your body settling...
-            {'\n\n'}
-            Release any remaining tension...
-            {'\n\n'}
-            You've done what you could today. That's enough.
-          </Text>
+      {/* Breathing Circle - auto-running, gentle */}
+      {!showCompletion && (
+        <View style={styles.breathingContainer}>
+          <BreathingCircle
+            isActive={isBreathingActive}
+            pattern={{ inhale: 4000, hold: 4000, exhale: 6000 }}
+            showCountdown={false}
+            phaseText={{
+              inhale: 'Breathe in...',
+              hold: 'Hold gently...',
+              exhale: 'Release...',
+            }}
+            testID="sleep-breathing-circle"
+          />
         </View>
       )}
 
-      {/* Completion Message */}
-      <View style={styles.completionMessage}>
-        <Text style={styles.completionText}>
-          Rest well. Tomorrow is a new practice.
-        </Text>
-      </View>
+      {/* Completion Card - fades in after breathing */}
+      {showCompletion && (
+        <Animated.View style={[styles.completionCard, { opacity: cardFadeAnim }]}>
+          <Text style={styles.checkmark}>✓</Text>
+          <Text style={styles.completionTitle}>Tonight you:</Text>
+          <View style={styles.summaryList}>
+            {summaryItems.map((item, index) => (
+              <Text key={index} style={styles.summaryItem}>• {item}</Text>
+            ))}
+          </View>
 
-      {/* Complete Button */}
-      <TouchableOpacity
-        style={styles.completeButton}
-        onPress={handleComplete}
-        accessibilityRole="button"
-        accessibilityLabel="Complete evening practice"
-      >
-        <Text style={styles.completeButtonText}>Complete Evening Practice</Text>
-      </TouchableOpacity>
+          {/* Seneca Quote */}
+          <View style={styles.quoteContainer}>
+            <Text style={styles.quoteText}>
+              "Receive sleep as you would receive death—with serenity, trusting in tomorrow's renewal."
+            </Text>
+            <Text style={styles.quoteAttribution}>— Seneca, Letters 54</Text>
+          </View>
+        </Animated.View>
+      )}
 
-      {/* Stoic Quote */}
-      <View style={styles.quoteSection}>
-        <Text style={styles.quoteText}>
-          "Receive sleep as you would receive death—with serenity, trusting in
-          tomorrow's renewal." — Seneca, Letters 54:1
-        </Text>
-      </View>
-      </ScrollView>
+      {/* Done Button - fades in after completion card */}
+      <Animated.View style={[styles.buttonContainer, { opacity: fadeAnim }]}>
+        {showCompletion && (
+          <AccessibleButton
+            onPress={handleDone}
+            label="Done for tonight"
+            variant="primary"
+            size="large"
+            testID="done-button"
+            accessibilityHint="Complete evening practice and return home"
+          />
+        )}
+      </Animated.View>
+
+      {/* Rest message - always visible */}
+      <Text style={styles.restMessage}>
+        Rest well. Tomorrow is a new practice.
+      </Text>
     </View>
   );
 };
@@ -194,185 +215,117 @@ const SleepTransitionScreen: React.FC<Props> = ({ navigation, onSave }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1A1A1A', // Dark, sleep-compatible
+    backgroundColor: colorSystem.themes.evening.background,
+    paddingHorizontal: spacing[20],
+    paddingTop: spacing[48],
+    alignItems: 'center',
   },
-  contentContainer: {
-    padding: spacing[20],
-    paddingBottom: 40,
+  progressContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing[24],
   },
-  backButton: {
-    marginBottom: spacing[20],
+  progressDots: {
+    flexDirection: 'row',
+    gap: spacing[8],
+    marginRight: spacing[12],
   },
-  backButtonText: {
-    fontSize: typography.bodyRegular.size,
-    color: '#7A9C85', // Muted green, not bright
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colorSystem.gray[500],
+  },
+  dotActive: {
+    backgroundColor: colorSystem.themes.evening.primary,
+  },
+  dotComplete: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colorSystem.status.success,
+  },
+  progressText: {
+    fontSize: typography.caption.size,
+    color: colorSystem.gray[400],
   },
   header: {
-    marginBottom: spacing[24],
+    marginBottom: spacing[32],
+    alignItems: 'center',
   },
   title: {
-    fontSize: typography.headline2.size,
-    fontWeight: typography.fontWeight.bold,
-    marginBottom: spacing[8],
-    color: '#E8E8E8', // Soft white, not harsh
-  },
-  subtitle: {
-    fontSize: typography.bodyRegular.size,
-    color: '#B8B8B8',
-    marginBottom: spacing[4],
-  },
-  helperText: {
-    fontSize: typography.bodySmall.size,
-    color: '#888',
-    fontStyle: 'italic',
-  },
-  guidanceSection: {
-    padding: spacing[20],
-    backgroundColor: '#252525',
-    borderRadius: borderRadius.large,
-    marginBottom: spacing[24],
-    borderLeftWidth: spacing[4],
-    borderLeftColor: '#5A7C65', // Muted evening green
-  },
-  guidanceTitle: {
-    fontSize: typography.bodyLarge.size,
-    fontWeight: typography.fontWeight.semibold,
-    marginBottom: spacing[12],
-    color: '#B8C8B8',
-  },
-  guidanceText: {
-    fontSize: 15,
-    color: '#A8A8A8',
-    lineHeight: 24,
-    fontStyle: 'italic',
-  },
-  relaxationSection: {
-    padding: spacing[20],
-    backgroundColor: '#252525',
-    borderRadius: borderRadius.large,
-    marginBottom: spacing[24],
-    borderLeftWidth: spacing[4],
-    borderLeftColor: '#5A7C65',
-  },
-  relaxationTitle: {
-    fontSize: typography.bodyLarge.size,
-    fontWeight: typography.fontWeight.semibold,
-    marginBottom: spacing[12],
-    color: '#B8C8B8',
-  },
-  relaxationText: {
-    fontSize: 15,
-    color: '#A8A8A8',
-    lineHeight: 24,
-    fontStyle: 'italic',
-  },
-  sovereigntySection: {
-    padding: spacing[20],
-    backgroundColor: '#2A3A2D',
-    borderRadius: borderRadius.large,
-    marginBottom: spacing[24],
-    borderLeftWidth: spacing[4],
-    borderLeftColor: '#7A9C85',
-  },
-  sovereigntyTitle: {
-    fontSize: typography.bodyLarge.size,
-    fontWeight: typography.fontWeight.semibold,
-    marginBottom: spacing[12],
-    color: '#C8D8C8',
-  },
-  sovereigntyText: {
-    fontSize: 15,
-    color: '#B8B8B8',
-    lineHeight: 24,
-    marginBottom: spacing[12],
-  },
-  breathingSection: {
-    padding: spacing[20],
-    backgroundColor: '#252525',
-    borderRadius: borderRadius.large,
-    marginBottom: spacing[24],
-    alignItems: 'center',
-    borderLeftWidth: spacing[4],
-    borderLeftColor: '#5A7C65',
-  },
-  breathingTitle: {
-    fontSize: typography.bodyLarge.size,
-    fontWeight: typography.fontWeight.semibold,
-    marginBottom: spacing[16],
-    color: '#B8C8B8',
-    textAlign: 'center',
-  },
-  breathingInstructions: {
-    fontSize: 15,
-    color: '#A8A8A8',
-    lineHeight: 24,
-    marginBottom: spacing[20],
-    textAlign: 'left',
-    width: '100%',
-  },
-  startBreathingButton: {
-    backgroundColor: '#5A7C65',
-    paddingVertical: typography.bodySmall.size,
-    paddingHorizontal: spacing[32],
-    borderRadius: borderRadius.medium,
-    marginTop: spacing[12],
-  },
-  startBreathingText: {
-    fontSize: typography.bodyRegular.size,
-    fontWeight: typography.fontWeight.semibold,
-    color: '#E8F0E8',
-  },
-  stopBreathingButton: {
-    backgroundColor: '#2D5016',
-    paddingVertical: typography.bodySmall.size,
-    paddingHorizontal: spacing[32],
-    borderRadius: borderRadius.medium,
-    marginTop: spacing[20],
-  },
-  stopBreathingText: {
-    fontSize: typography.bodyRegular.size,
-    fontWeight: typography.fontWeight.semibold,
-    color: '#E8F0E8',
-  },
-  completionMessage: {
-    padding: spacing[20],
-    backgroundColor: '#2A3A2D',
-    borderRadius: borderRadius.large,
-    marginBottom: spacing[24],
-    alignItems: 'center',
-  },
-  completionText: {
-    fontSize: 17,
-    color: '#C8D8C8',
-    textAlign: 'center',
-    fontStyle: 'italic',
+    fontSize: typography.headline3.size,
     fontWeight: typography.fontWeight.medium,
+    color: colorSystem.base.white,
+    textAlign: 'center',
   },
-  completeButton: {
-    backgroundColor: '#2D5016', // Evening success green from DRD
-    padding: spacing[16],
-    borderRadius: borderRadius.medium,
+  breathingContainer: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: spacing[32],
+  },
+  completionCard: {
+    flex: 1,
+    width: '100%',
+    backgroundColor: colorSystem.gray[800],
+    borderRadius: borderRadius.large,
+    padding: spacing[24],
+    borderWidth: 1,
+    borderColor: colorSystem.gray[600],
     marginBottom: spacing[24],
   },
-  completeButtonText: {
-    color: '#E8F0E8',
+  checkmark: {
+    fontSize: typography.display1.size,
+    color: colorSystem.status.success,
+    textAlign: 'center',
+    marginBottom: spacing[16],
+  },
+  completionTitle: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
+    color: colorSystem.base.white,
+    textAlign: 'center',
+    marginBottom: spacing[16],
   },
-  quoteSection: {
-    padding: spacing[16],
-    backgroundColor: '#252525',
+  summaryList: {
+    marginBottom: spacing[24],
+  },
+  summaryItem: {
+    fontSize: typography.bodyRegular.size,
+    color: colorSystem.gray[300],
+    marginBottom: spacing[8],
+    paddingLeft: spacing[8],
+  },
+  quoteContainer: {
+    backgroundColor: colorSystem.gray[700],
     borderRadius: borderRadius.medium,
-    borderLeftWidth: spacing[4],
-    borderLeftColor: '#5A7C65',
-    marginBottom: spacing[20],
+    padding: spacing[16],
+    borderLeftWidth: 3,
+    borderLeftColor: colorSystem.themes.evening.primary,
   },
   quoteText: {
     fontSize: typography.bodySmall.size,
     fontStyle: 'italic',
-    color: '#A8A8A8',
-    lineHeight: 20,
+    color: colorSystem.gray[300],
+    lineHeight: 22,
+    marginBottom: spacing[8],
+  },
+  quoteAttribution: {
+    fontSize: typography.caption.size,
+    color: colorSystem.gray[400],
+    textAlign: 'right',
+  },
+  buttonContainer: {
+    width: '100%',
+    marginBottom: spacing[16],
+  },
+  restMessage: {
+    fontSize: typography.bodySmall.size,
+    color: colorSystem.gray[500],
+    fontStyle: 'italic',
+    textAlign: 'center',
+    marginBottom: spacing[32],
   },
 });
 
