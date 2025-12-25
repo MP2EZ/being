@@ -232,7 +232,7 @@ const styles = StyleSheet.create({
     color: colorSystem.gray[500],
   },
   spacer: {
-    height: spacing[96],
+    height: spacing[24], // Small buffer, not excessive scroll space
   },
   buttonContainer: {
     padding: spacing[20],

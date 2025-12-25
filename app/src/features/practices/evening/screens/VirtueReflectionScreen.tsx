@@ -359,7 +359,7 @@ const styles = StyleSheet.create({
     color: colorSystem.themes.evening.primary,
   },
   spacer: {
-    height: spacing[96],
+    height: spacing[24], // Small buffer, not excessive scroll space
   },
   buttonContainer: {
     padding: spacing[20],

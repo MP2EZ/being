@@ -132,6 +132,9 @@ const TomorrowScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
 
       {/* Fixed bottom button - always enabled (skippable) */}
       <View style={styles.buttonContainer}>
+        <Text style={styles.skipHint}>
+          Skip if you just want to rest
+        </Text>
         <AccessibleButton
           onPress={handleContinue}
           label="Continue"
@@ -140,9 +143,6 @@ const TomorrowScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
           testID="continue-button"
           accessibilityHint="Continue to sleep transition"
         />
-        <Text style={styles.skipHint}>
-          Skip if you just want to rest
-        </Text>
       </View>
     </View>
   );
@@ -208,7 +208,7 @@ const styles = StyleSheet.create({
     color: colorSystem.gray[500],
   },
   spacer: {
-    height: spacing[96],
+    height: spacing[24], // Small buffer, not excessive scroll space
   },
   buttonContainer: {
     padding: spacing[20],
@@ -219,7 +219,7 @@ const styles = StyleSheet.create({
     fontSize: typography.caption.size,
     color: colorSystem.gray[500],
     textAlign: 'center',
-    marginTop: spacing[8],
+    marginBottom: spacing[8],
     fontStyle: 'italic',
   },
 });
