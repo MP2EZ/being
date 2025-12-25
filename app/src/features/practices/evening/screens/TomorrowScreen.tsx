@@ -31,7 +31,6 @@ import type { EveningFlowParamList, TomorrowData } from '@/features/practices/ty
 import { AccessibleInput } from '@/core/components/accessibility/AccessibleInput';
 import { AccessibleButton } from '@/core/components/accessibility/AccessibleButton';
 import { spacing, borderRadius, typography, colorSystem } from '@/core/theme';
-import EveningProgressBar from '../components/EveningProgressBar';
 
 type Props = StackScreenProps<EveningFlowParamList, 'Tomorrow'> & {
   onSave?: (data: TomorrowData) => void;
@@ -60,10 +59,6 @@ const TomorrowScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
     navigation.navigate('SleepTransition');
   };
 
-  const handleBack = () => {
-    navigation.goBack();
-  };
-
   return (
     <View style={styles.container}>
       <ScrollView
@@ -72,14 +67,6 @@ const TomorrowScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
         testID="tomorrow-screen"
         keyboardShouldPersistTaps="handled"
       >
-        {/* Progress bar with back button */}
-        <EveningProgressBar
-          currentStep={5}
-          totalSteps={6}
-          onBack={handleBack}
-          showBackButton={true}
-        />
-
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.title}>Any intention for tomorrow?</Text>
@@ -154,14 +141,13 @@ const TomorrowScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colorSystem.themes.evening.background,
+    backgroundColor: colorSystem.base.white, // White content area (matches morning/midday)
   },
   scrollView: {
     flex: 1,
   },
   contentContainer: {
     padding: spacing[20],
-    paddingTop: spacing[48],
   },
   header: {
     marginBottom: spacing[24],
@@ -169,11 +155,11 @@ const styles = StyleSheet.create({
   title: {
     fontSize: typography.headline3.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.themes.evening.primary,
+    color: colorSystem.base.black,
   },
   subtitle: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[400],
+    color: colorSystem.gray[500],
     marginTop: spacing[4],
   },
   inputSection: {
@@ -183,9 +169,9 @@ const styles = StyleSheet.create({
     marginBottom: 0,
   },
   input: {
-    backgroundColor: colorSystem.gray[700],
-    borderColor: colorSystem.gray[600],
-    color: colorSystem.base.white,
+    backgroundColor: colorSystem.base.white,
+    borderColor: colorSystem.gray[300],
+    color: colorSystem.base.black,
   },
   inputLabel: {
     color: colorSystem.base.black,
@@ -194,7 +180,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing[16],
     paddingHorizontal: spacing[16],
     borderWidth: 1,
-    borderColor: colorSystem.gray[600],
+    borderColor: colorSystem.gray[300],
     borderStyle: 'dashed',
     borderRadius: borderRadius.medium,
     alignItems: 'center',
@@ -202,7 +188,7 @@ const styles = StyleSheet.create({
   },
   addLettingGoText: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[400],
+    color: colorSystem.gray[500],
   },
   spacer: {
     height: spacing[96],
@@ -210,7 +196,7 @@ const styles = StyleSheet.create({
   buttonContainer: {
     padding: spacing[20],
     paddingBottom: spacing[32],
-    backgroundColor: colorSystem.themes.evening.background,
+    backgroundColor: colorSystem.base.white,
   },
   skipHint: {
     fontSize: typography.caption.size,

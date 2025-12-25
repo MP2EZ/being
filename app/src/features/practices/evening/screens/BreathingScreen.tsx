@@ -28,7 +28,6 @@ import BreathingCircle from '../../shared/components/BreathingCircle';
 import Timer from '../../shared/components/Timer';
 import { AccessibleButton } from '@/core/components/accessibility/AccessibleButton';
 import { spacing, typography, colorSystem } from '@/core/theme';
-import EveningProgressBar from '../components/EveningProgressBar';
 
 type Props = StackScreenProps<EveningFlowParamList, 'Breathing'> & {
   onSave?: (data: EveningBreathingData) => void;
@@ -66,21 +65,8 @@ const BreathingScreen: React.FC<Props> = ({ navigation, onSave }) => {
     navigation.navigate('Gratitude');
   };
 
-  const handleBack = () => {
-    // First screen - exit the flow
-    navigation.getParent()?.goBack();
-  };
-
   return (
     <View style={styles.container} testID="evening-breathing-screen">
-      {/* Progress bar with back button */}
-      <EveningProgressBar
-        currentStep={1}
-        totalSteps={6}
-        onBack={handleBack}
-        showBackButton={true}
-      />
-
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>Let's settle into evening</Text>
@@ -139,9 +125,9 @@ const BreathingScreen: React.FC<Props> = ({ navigation, onSave }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colorSystem.themes.evening.background,
+    backgroundColor: colorSystem.base.white, // White content area (matches morning/midday)
     paddingHorizontal: spacing[20],
-    paddingTop: spacing[48],
+    paddingTop: spacing[24],
   },
   header: {
     marginBottom: spacing[24],
@@ -150,20 +136,20 @@ const styles = StyleSheet.create({
   title: {
     fontSize: typography.headline3.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.themes.evening.primary,
+    color: colorSystem.base.black,
     textAlign: 'center',
     marginBottom: spacing[8],
   },
   subtitle: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.base.black,
+    color: colorSystem.gray[600],
     textAlign: 'center',
     marginBottom: spacing[4],
   },
   hint: {
     fontSize: typography.bodySmall.size,
     fontStyle: 'italic',
-    color: colorSystem.gray[600],
+    color: colorSystem.gray[500],
     textAlign: 'center',
   },
   breathingContainer: {

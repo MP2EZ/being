@@ -83,20 +83,32 @@ interface EveningSessionData {
   completedAt: Date;
 }
 
-// Close/Exit Header Component
-const ExitHeaderButton: React.FC<{ onPress: () => void }> = ({ onPress }) => (
-  <View style={headerStyles.exitContainer}>
-    <Pressable
-      style={headerStyles.exitButton}
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel="Close evening flow"
-      accessibilityHint="Returns to home screen"
-    >
-      <Text style={headerStyles.exitButtonText}>✕</Text>
-    </Pressable>
-  </View>
-);
+// Progress indicator component (matches morning/midday flows)
+const ProgressIndicator: React.FC<{ currentStep: number; totalSteps: number }> = ({
+  currentStep,
+  totalSteps
+}) => {
+  const progress = (currentStep / totalSteps) * 100;
+
+  return (
+    <View style={headerStyles.progressContainer}>
+      <View style={headerStyles.progressBar}>
+        <View
+          style={[
+            headerStyles.progressFill,
+            {
+              width: `${progress}%`,
+              backgroundColor: colorSystem.themes.evening.primary
+            }
+          ]}
+        />
+      </View>
+      <Text style={headerStyles.progressText}>
+        {currentStep} of {totalSteps}
+      </Text>
+    </View>
+  );
+};
 
 // FEAT-134: New screen order (UX-optimized)
 // Breathing first (settle), then positive priming (gratitude), then reflection
@@ -108,6 +120,16 @@ const SCREEN_ORDER: (keyof EveningFlowParamList)[] = [
   'Tomorrow',
   'SleepTransition',
 ];
+
+// Screen titles for header
+const SCREEN_TITLES: Record<keyof EveningFlowParamList, string> = {
+  Breathing: 'Evening Practice',
+  Gratitude: 'Evening Gratitude',
+  VirtueReflection: 'Reflection',
+  SelfCompassion: 'Self-Compassion',
+  Tomorrow: "Tomorrow's Intention",
+  SleepTransition: 'Evening Complete',
+};
 
 const EveningFlowNavigator: React.FC<EveningFlowNavigatorProps> = ({
   onComplete,
@@ -223,6 +245,28 @@ const EveningFlowNavigator: React.FC<EveningFlowNavigatorProps> = ({
       console.error('[EveningFlow] Failed to clear session:', error);
     }
   };
+
+  // Custom header with progress (matches morning/midday pattern)
+  const getHeaderOptions = (routeName: keyof EveningFlowParamList) => ({
+    headerTitle: () => (
+      <View style={headerStyles.headerContainer}>
+        <Text style={headerStyles.headerTitle}>{SCREEN_TITLES[routeName]}</Text>
+        <ProgressIndicator currentStep={currentStep} totalSteps={totalSteps} />
+      </View>
+    ),
+    headerTitleAlign: 'center' as const,
+    headerLeft: () => (
+      <Pressable
+        onPress={onExit}
+        style={headerStyles.closeButton}
+        accessibilityLabel="Close evening flow"
+        accessibilityRole="button"
+        accessibilityHint="Returns to home screen"
+      >
+        <Text style={headerStyles.closeButtonText}>✕</Text>
+      </Pressable>
+    ),
+  });
 
   // Build completion summary from accumulated data
   const buildCompletionSummary = useCallback((): EveningCompletionSummary => {
@@ -408,10 +452,24 @@ const EveningFlowNavigator: React.FC<EveningFlowNavigatorProps> = ({
       <Stack.Navigator
         initialRouteName="Breathing"
         screenOptions={{
-          headerShown: false, // FEAT-134: Hide header - screens have their own progress dots
-          cardStyle: {
+          headerStyle: {
+            // Light background matching morning/midday pattern
             backgroundColor: colorSystem.themes.evening.background,
+            // Colored accent bar at bottom (matches midday pattern)
+            borderBottomColor: colorSystem.themes.evening.primary,
+            borderBottomWidth: 1,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 1 },
+            shadowOpacity: 0.05,
+            shadowRadius: 2,
+            elevation: 4,
+            height: 100, // Increased height for progress indicator
           },
+          headerTintColor: colorSystem.base.black, // Dark text on light header
+          cardStyle: {
+            backgroundColor: colorSystem.base.white, // White content area (matches morning/midday)
+          },
+          presentation: 'modal',
           gestureEnabled: true,
           cardStyleInterpolator: ({ current, layouts }) => ({
             cardStyle: {
@@ -461,31 +519,37 @@ const EveningFlowNavigator: React.FC<EveningFlowNavigatorProps> = ({
         <Stack.Screen
           name="Breathing"
           component={BreathingScreenWrapper}
+          options={getHeaderOptions('Breathing')}
         />
 
         <Stack.Screen
           name="Gratitude"
           component={GratitudeScreenWrapper}
+          options={getHeaderOptions('Gratitude')}
         />
 
         <Stack.Screen
           name="VirtueReflection"
           component={VirtueReflectionScreenWrapper}
+          options={getHeaderOptions('VirtueReflection')}
         />
 
         <Stack.Screen
           name="SelfCompassion"
           component={SelfCompassionScreenWrapper}
+          options={getHeaderOptions('SelfCompassion')}
         />
 
         <Stack.Screen
           name="Tomorrow"
           component={TomorrowScreenWrapper}
+          options={getHeaderOptions('Tomorrow')}
         />
 
         <Stack.Screen
           name="SleepTransition"
           component={SleepTransitionScreenWrapper}
+          options={{ headerShown: false }} // Completion screen - no header
         />
       </Stack.Navigator>
 
@@ -500,20 +564,49 @@ const EveningFlowNavigator: React.FC<EveningFlowNavigatorProps> = ({
 };
 
 const headerStyles = StyleSheet.create({
-  exitContainer: {
-    marginLeft: spacing[16],
+  headerContainer: {
+    alignItems: 'center',
+    width: '100%',
   },
-  exitButton: {
+  headerTitle: {
+    fontSize: typography.bodyLarge.size,
+    fontWeight: typography.fontWeight.semibold,
+    color: colorSystem.base.black,
+    marginBottom: spacing[4],
+  },
+  progressContainer: {
+    alignItems: 'center',
+    width: '100%',
+  },
+  progressBar: {
+    width: 120,
+    height: spacing[4],
+    backgroundColor: colorSystem.gray[200],
+    borderRadius: borderRadius.xs,
+    marginBottom: spacing[4],
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: borderRadius.xs,
+    backgroundColor: colorSystem.themes.evening.primary,
+  },
+  progressText: {
+    fontSize: typography.micro.size,
+    color: colorSystem.gray[600],
+    fontWeight: typography.fontWeight.medium,
+  },
+  closeButton: {
+    marginLeft: spacing[16],
     padding: spacing[8],
     width: 44,
     height: 44,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  exitButtonText: {
+  closeButtonText: {
     fontSize: typography.headline4.size,
     color: colorSystem.base.black,
-    fontWeight: typography.fontWeight.regular,
+    fontWeight: typography.fontWeight.light,
   },
 });
 

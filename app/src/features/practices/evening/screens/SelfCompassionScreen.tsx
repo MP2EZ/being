@@ -31,7 +31,6 @@ import type { EveningFlowParamList, SelfCompassionData } from '@/features/practi
 import { AccessibleInput } from '@/core/components/accessibility/AccessibleInput';
 import { AccessibleButton } from '@/core/components/accessibility/AccessibleButton';
 import { spacing, borderRadius, typography, colorSystem } from '@/core/theme';
-import EveningProgressBar from '../components/EveningProgressBar';
 
 type Props = StackScreenProps<EveningFlowParamList, 'SelfCompassion'> & {
   onSave?: (data: SelfCompassionData) => void;
@@ -73,10 +72,6 @@ const SelfCompassionScreen: React.FC<Props> = ({ navigation, route, onSave }) =>
     navigation.navigate('Tomorrow');
   };
 
-  const handleBack = () => {
-    navigation.goBack();
-  };
-
   return (
     <View style={styles.container}>
       <ScrollView
@@ -85,14 +80,6 @@ const SelfCompassionScreen: React.FC<Props> = ({ navigation, route, onSave }) =>
         testID="self-compassion-screen"
         keyboardShouldPersistTaps="handled"
       >
-        {/* Progress bar with back button */}
-        <EveningProgressBar
-          currentStep={4}
-          totalSteps={6}
-          onBack={handleBack}
-          showBackButton={true}
-        />
-
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.title}>What kindness can you offer yourself?</Text>
@@ -165,50 +152,13 @@ const SelfCompassionScreen: React.FC<Props> = ({ navigation, route, onSave }) =>
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colorSystem.themes.evening.background,
+    backgroundColor: colorSystem.base.white, // White content area (matches morning/midday)
   },
   scrollView: {
     flex: 1,
   },
   contentContainer: {
     padding: spacing[20],
-    paddingTop: spacing[48],
-  },
-  progressContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing[16],
-  },
-  progressDots: {
-    flexDirection: 'row',
-    gap: spacing[8],
-    marginRight: spacing[12],
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colorSystem.gray[500],
-  },
-  dotActive: {
-    backgroundColor: colorSystem.themes.evening.primary,
-  },
-  dotComplete: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colorSystem.status.success,
-  },
-  progressText: {
-    fontSize: typography.caption.size,
-    color: colorSystem.gray[400],
-  },
-  backButton: {
-    marginBottom: spacing[16],
-  },
-  backButtonText: {
-    fontSize: typography.bodyRegular.size,
-    color: colorSystem.themes.evening.primary,
   },
   header: {
     marginBottom: spacing[24],
@@ -216,7 +166,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: typography.headline3.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.themes.evening.primary,
+    color: colorSystem.base.black,
     marginBottom: spacing[8],
   },
   subtitle: {
@@ -231,9 +181,9 @@ const styles = StyleSheet.create({
     marginBottom: 0,
   },
   input: {
-    backgroundColor: colorSystem.gray[700],
-    borderColor: colorSystem.gray[600],
-    color: colorSystem.base.white,
+    backgroundColor: colorSystem.base.white,
+    borderColor: colorSystem.gray[300],
+    color: colorSystem.base.black,
     minHeight: 120,
   },
   quickStartersSection: {
@@ -241,7 +191,7 @@ const styles = StyleSheet.create({
   },
   quickStartersLabel: {
     fontSize: typography.caption.size,
-    color: colorSystem.gray[400],
+    color: colorSystem.gray[500],
     marginBottom: spacing[8],
   },
   quickStartersRow: {
@@ -252,14 +202,14 @@ const styles = StyleSheet.create({
   quickStarterChip: {
     paddingVertical: spacing[8],
     paddingHorizontal: spacing[12],
-    backgroundColor: colorSystem.gray[700],
+    backgroundColor: colorSystem.gray[100],
     borderRadius: borderRadius.medium,
     borderWidth: 1,
-    borderColor: colorSystem.gray[600],
+    borderColor: colorSystem.gray[300],
   },
   quickStarterText: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[300],
+    color: colorSystem.gray[600],
   },
   spacer: {
     height: spacing[96],
@@ -267,11 +217,11 @@ const styles = StyleSheet.create({
   buttonContainer: {
     padding: spacing[20],
     paddingBottom: spacing[32],
-    backgroundColor: colorSystem.themes.evening.background,
+    backgroundColor: colorSystem.base.white,
   },
   validationHint: {
     fontSize: typography.caption.size,
-    color: colorSystem.gray[400],
+    color: colorSystem.gray[500],
     textAlign: 'center',
     marginTop: spacing[8],
     fontStyle: 'italic',

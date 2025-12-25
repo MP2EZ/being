@@ -30,7 +30,6 @@ import type { EveningFlowParamList, SleepTransitionData, EveningCompletionSummar
 import BreathingCircle from '../../shared/components/BreathingCircle';
 import { AccessibleButton } from '@/core/components/accessibility/AccessibleButton';
 import { spacing, borderRadius, typography, colorSystem } from '@/core/theme';
-import EveningProgressBar from '../components/EveningProgressBar';
 
 // Map principle keys to friendly names for display
 const PRINCIPLE_NAMES: Record<string, string> = {
@@ -96,13 +95,8 @@ const SleepTransitionScreen: React.FC<Props> = ({ navigation, route, onComplete 
     if (onComplete) {
       onComplete(sleepTransitionData);
     }
-
-    // Navigate back to home/practices (flow complete)
-    navigation.getParent()?.goBack();
-  };
-
-  const handleBack = () => {
-    navigation.goBack();
+    // Note: Navigation is handled by the EveningFlowNavigator's onComplete callback
+    // which dismisses the entire flow - no need to navigate here
   };
 
   // Build personalized summary text
@@ -137,14 +131,6 @@ const SleepTransitionScreen: React.FC<Props> = ({ navigation, route, onComplete 
 
   return (
     <View style={styles.container} testID="sleep-transition-screen">
-      {/* Progress bar with back button */}
-      <EveningProgressBar
-        currentStep={6}
-        totalSteps={6}
-        onBack={handleBack}
-        showBackButton={true}
-      />
-
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>
@@ -215,9 +201,9 @@ const SleepTransitionScreen: React.FC<Props> = ({ navigation, route, onComplete 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colorSystem.themes.evening.background,
+    backgroundColor: colorSystem.base.white, // White content area (matches morning/midday)
     paddingHorizontal: spacing[20],
-    paddingTop: spacing[48],
+    paddingTop: spacing[24],
     alignItems: 'center',
   },
   header: {
@@ -227,7 +213,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: typography.headline3.size,
     fontWeight: typography.fontWeight.medium,
-    color: colorSystem.themes.evening.primary,
+    color: colorSystem.base.black,
     textAlign: 'center',
   },
   breathingContainer: {
@@ -239,11 +225,11 @@ const styles = StyleSheet.create({
   completionCard: {
     flex: 1,
     width: '100%',
-    backgroundColor: colorSystem.gray[800],
+    backgroundColor: colorSystem.themes.evening.background, // Light green card for completion
     borderRadius: borderRadius.large,
     padding: spacing[24],
     borderWidth: 1,
-    borderColor: colorSystem.gray[600],
+    borderColor: colorSystem.gray[300],
     marginBottom: spacing[24],
   },
   checkmark: {
@@ -255,7 +241,7 @@ const styles = StyleSheet.create({
   completionTitle: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.white,
+    color: colorSystem.base.black,
     textAlign: 'center',
     marginBottom: spacing[16],
   },
@@ -264,12 +250,12 @@ const styles = StyleSheet.create({
   },
   summaryItem: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[300],
+    color: colorSystem.gray[600],
     marginBottom: spacing[8],
     paddingLeft: spacing[8],
   },
   quoteContainer: {
-    backgroundColor: colorSystem.gray[700],
+    backgroundColor: colorSystem.base.white,
     borderRadius: borderRadius.medium,
     padding: spacing[16],
     borderLeftWidth: 3,
@@ -278,13 +264,13 @@ const styles = StyleSheet.create({
   quoteText: {
     fontSize: typography.bodySmall.size,
     fontStyle: 'italic',
-    color: colorSystem.gray[300],
+    color: colorSystem.gray[600],
     lineHeight: 22,
     marginBottom: spacing[8],
   },
   quoteAttribution: {
     fontSize: typography.caption.size,
-    color: colorSystem.gray[400],
+    color: colorSystem.gray[500],
     textAlign: 'right',
   },
   buttonContainer: {
