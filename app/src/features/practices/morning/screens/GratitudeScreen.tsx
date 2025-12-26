@@ -89,16 +89,6 @@ const GratitudeScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
   return (
     <View style={{ flex: 1 }}>
       <ScrollView style={styles.container} testID="gratitude-screen">
-      {/* Back Button */}
-      <TouchableOpacity
-        style={styles.backButton}
-        onPress={() => navigation.goBack()}
-        testID="back-button"
-        accessibilityLabel="Go back"
-      >
-        <Text style={styles.backButtonText}>← Back</Text>
-      </TouchableOpacity>
-
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>Morning Gratitude</Text>
