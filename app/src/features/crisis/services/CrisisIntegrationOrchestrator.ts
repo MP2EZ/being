@@ -159,7 +159,7 @@ export class CrisisIntegrationOrchestrator {
       await this.initializeAssessmentStoreIntegration();
 
       // Setup real-time monitoring
-      await (this as any).setupRealtimeMonitoring();
+      await this.setupRealtimeMonitoring();
 
       // Start health checks
       this.startHealthChecks();
@@ -649,6 +649,16 @@ export class CrisisIntegrationOrchestrator {
     this.healthCheckInterval = setInterval(async () => {
       await this.performIntegrationHealthCheck();
     }, INTEGRATION_CONFIG.HEALTH_CHECK_INTERVAL_MS);
+  }
+
+  /**
+   * Setup real-time monitoring for crisis detection
+   * FIX (DEBUG-48): Added missing method stub that was being called but undefined
+   */
+  private async setupRealtimeMonitoring(): Promise<void> {
+    // Real-time monitoring is handled by CrisisPerformanceMonitor
+    // This method exists for future extension of monitoring capabilities
+    this.integrationStatus.monitoringEnabled = true;
   }
 
   private async performIntegrationHealthCheck(): Promise<void> {

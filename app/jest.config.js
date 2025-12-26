@@ -125,10 +125,12 @@ module.exports = {
   },
 
   // Performance and execution optimization
+  // MEMORY FIX (DEBUG-48): Added workerIdleMemoryLimit to help with garbage collection
   cache: true,
   cacheDirectory: isQuickMode ? '<rootDir>/.jest-cache-quick' : '<rootDir>/.jest-cache',
   maxWorkers: isQuickMode ? 1 : '50%',
   testTimeout: isQuickMode ? 5000 : 10000,
+  workerIdleMemoryLimit: '512MB', // Restart workers that exceed memory limit
 
   // Feedback and monitoring
   bail: false, // Continue on failures for comprehensive feedback

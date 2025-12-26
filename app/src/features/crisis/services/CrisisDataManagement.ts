@@ -411,12 +411,17 @@ export class CrisisDataManagement {
       // Store updated package
       await this.storeCrisisDataPackage(dataPackage);
 
-      // Log update
-      await this.logDataUpdate(packageId, updateType, updateStartTime);
+      // Log update (but NOT for audit_event updates to prevent infinite recursion - DEBUG-48)
+      if (updateType !== 'audit_event') {
+        await this.logDataUpdate(packageId, updateType, updateStartTime);
+      }
 
     } catch (error) {
       logError(LogCategory.CRISIS, '🚨 CRISIS DATA UPDATE ERROR:', error instanceof Error ? error : new Error(String(error)));
-      await this.logDataUpdateError(packageId, updateType, error);
+      // Don't log error for audit_event updates to prevent infinite recursion (DEBUG-48)
+      if (updateType !== 'audit_event') {
+        await this.logDataUpdateError(packageId, updateType, error);
+      }
       throw error;
     }
   }
@@ -800,13 +805,26 @@ export class CrisisDataManagement {
   }
 
   private async calculateChecksum(dataPackage: CrisisDataPackage): Promise<string> {
-    // Simple checksum calculation (would use proper hashing in production)
+    // MEMORY FIX (DEBUG-48): Use hash-based checksum instead of btoa on large data
+    // btoa() on large JSON strings can cause memory exhaustion
     const dataString = JSON.stringify({
       ...dataPackage,
       checksum: undefined // Exclude checksum from calculation
     });
 
-    return btoa(dataString).substring(0, 32);
+    // Simple hash function for checksum (avoids btoa memory issues)
+    let hash = 0;
+    for (let i = 0; i < dataString.length; i++) {
+      const char = dataString.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+
+    // Include data length for additional collision resistance
+    const lengthHash = dataString.length.toString(16).padStart(8, '0');
+    const valueHash = Math.abs(hash).toString(16).padStart(8, '0');
+
+    return `${lengthHash}${valueHash}`.substring(0, 32).padEnd(32, '0');
   }
 
   private calculateAccuracyScore(metrics: any): number {
@@ -942,6 +960,52 @@ export class CrisisDataManagement {
     }
 
     return cleanedCount;
+  }
+
+  /**
+   * MEMORY FIX (DEBUG-48): Reset method for testing
+   * Clears all stored data to prevent memory accumulation across tests
+   * ONLY use in test environments
+   */
+  public resetForTesting(): void {
+    if (process.env.NODE_ENV !== 'test' && !process.env.JEST_WORKER_ID) {
+      console.warn('⚠️ resetForTesting() called outside test environment');
+      return;
+    }
+    this.dataPackages.clear();
+    this.auditTrail.clear();
+  }
+
+  /**
+   * MEMORY FIX (DEBUG-48): Get current memory usage stats
+   * Useful for debugging memory issues in tests
+   */
+  public getMemoryStats(): { packageCount: number; auditTrailCount: number; estimatedSizeBytes: number } {
+    let estimatedSize = 0;
+
+    // Estimate package sizes (rough approximation)
+    for (const [, pkg] of this.dataPackages) {
+      try {
+        estimatedSize += JSON.stringify(pkg).length * 2; // *2 for UTF-16
+      } catch {
+        estimatedSize += 10000; // Default estimate if stringify fails
+      }
+    }
+
+    // Estimate audit trail sizes
+    for (const [, trail] of this.auditTrail) {
+      try {
+        estimatedSize += JSON.stringify(trail).length * 2;
+      } catch {
+        estimatedSize += 5000;
+      }
+    }
+
+    return {
+      packageCount: this.dataPackages.size,
+      auditTrailCount: this.auditTrail.size,
+      estimatedSizeBytes: estimatedSize
+    };
   }
 }
 

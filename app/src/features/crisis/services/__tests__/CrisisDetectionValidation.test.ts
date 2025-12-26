@@ -318,7 +318,11 @@ describe('Crisis Detection - Clinical Accuracy Validation', () => {
       totalTests++;
 
       // Validate crisis detection logic
-      const expectedCrisis = phq9Result.totalScore >= 20 || phq9Result.suicidalIdeation;
+      // FIX (DEBUG-48): PHQ-9 >= 15 triggers crisis detection per clinical guidelines
+      // - PHQ-9 15-19 = "moderately severe" → moderate severity (support)
+      // - PHQ-9 >= 20 = "severe" → high severity (intervention)
+      // - Suicidal ideation = critical/emergency regardless of score
+      const expectedCrisis = phq9Result.totalScore >= 15 || phq9Result.suicidalIdeation;
       const actualCrisis = detection !== null;
 
       if (expectedCrisis === actualCrisis) {
@@ -332,6 +336,9 @@ describe('Crisis Detection - Clinical Accuracy Validation', () => {
           } else if (phq9Result.totalScore >= 20) {
             expect(detection.primaryTrigger).toBe('phq9_severe_score');
             expect(detection.severityLevel).toBeOneOf(['high', 'critical']);
+          } else if (phq9Result.totalScore >= 15) {
+            // Moderately severe: support-level intervention
+            expect(detection.severityLevel).toBeOneOf(['moderate', 'high']);
           }
         }
       } else {
@@ -755,6 +762,11 @@ describe('Crisis Data Management - Data Integrity', () => {
 
   beforeEach(() => {
     dataManagement = CrisisDataManagement;
+  });
+
+  // MEMORY FIX (DEBUG-48): Clean up after each test to prevent memory accumulation
+  afterEach(() => {
+    dataManagement.resetForTesting();
   });
 
   test('Crisis Data Capture and Storage', async () => {
