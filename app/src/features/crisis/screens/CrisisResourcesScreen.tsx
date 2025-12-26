@@ -386,7 +386,7 @@ export default function CrisisResourcesScreen() {
         {/* Footer Note */}
         <View style={styles.footer}>
           <Text style={styles.footerText}>
-            FullMind provides referrals to crisis services. We do not operate these services or provide emergency response. All contacts are external, professional crisis support organizations.
+            Being. provides referrals to crisis services. We do not operate these services or provide emergency response. All contacts are external, professional crisis support organizations.
           </Text>
         </View>
       </ScrollView>

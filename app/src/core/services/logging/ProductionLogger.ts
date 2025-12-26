@@ -112,7 +112,7 @@ export class ProductionLogger {
   private readonly maxAuditEntries = 1000;
 
   // Hash salt for consistent PHI replacement
-  private readonly phiSalt = 'fullmind_logging_salt_2024';
+  private readonly phiSalt = 'being_logging_salt_2024';
 
   // INFRA-61: Rate limiter for log throughput control
   private rateLimiter: TokenBucketRateLimiter;

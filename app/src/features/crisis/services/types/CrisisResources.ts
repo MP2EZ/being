@@ -12,7 +12,7 @@
  * COMPLIANCE:
  * - HIPAA: No PHI transmitted to external resources
  * - Terms of Service: User acknowledges referral-only service
- * - External services operate independently of FullMind
+ * - External services operate independently of Being.
  */
 
 export type CrisisResourceType =
