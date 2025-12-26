@@ -24,6 +24,10 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import * as Crypto from 'expo-crypto';
 import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  createSupabasePinnedFetch,
+  validatePinningConfiguration,
+} from '../security/pinned-fetch';
 
 // Environment configuration
 const SUPABASE_URL = process.env['EXPO_PUBLIC_SUPABASE_URL'] || '';
@@ -134,11 +138,27 @@ class SupabaseService {
         throw new Error('Supabase configuration missing. Check environment variables.');
       }
 
-      // Create client
+      // Validate SSL pinning configuration
+      const pinningValidation = validatePinningConfiguration();
+      if (!pinningValidation.valid) {
+        logSecurity(
+          '[SupabaseService] SSL pinning configuration issues detected',
+          'high',
+          { errors: pinningValidation.errors }
+        );
+      }
+
+      // Create client with SSL certificate pinning
+      // MAINT-68: All Supabase requests now use pinned fetch for MITM protection
       this.client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
         auth: {
           autoRefreshToken: false,
           persistSession: false,
+        },
+        global: {
+          // Use pinned fetch for all requests
+          // Data classification defaults to 'NON_PHI' - override per-request if needed
+          fetch: createSupabasePinnedFetch('NON_PHI'),
         },
       });
 
