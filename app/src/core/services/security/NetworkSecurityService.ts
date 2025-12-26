@@ -39,10 +39,14 @@ import { logPerformance, logError, logSecurity, LogCategory } from '../logging';
  * NETWORK SECURITY CONFIGURATION
  */
 export const NETWORK_CONFIG = {
-  /** API base URLs */
-  PRODUCTION_API_URL: 'https://api.being-mental-health.com',
-  STAGING_API_URL: 'https://staging-api.being-mental-health.com',
-  DEVELOPMENT_API_URL: 'https://dev-api.being-mental-health.com',
+  /** API base URLs
+   * NOTE: Currently using Supabase as the only backend.
+   * These URLs are placeholders for future custom API endpoints.
+   * See certificate-pinning.ts for SSL pinning configuration.
+   */
+  PRODUCTION_API_URL: 'https://api.being.fyi',
+  STAGING_API_URL: 'https://staging-api.being.fyi',
+  DEVELOPMENT_API_URL: 'https://dev-api.being.fyi',
   
   /** Security headers */
   REQUIRED_SECURITY_HEADERS: [
@@ -61,11 +65,15 @@ export const NETWORK_CONFIG = {
     'TLS_AES_128_GCM_SHA256'
   ] as const,
   
-  /** Certificate pinning */
+  /** Certificate pinning
+   * NOTE: Certificate pins are now managed in certificate-pinning.ts
+   * This configuration is kept for reference and legacy compatibility.
+   * For Supabase pinning, see SUPABASE_CERTIFICATE_PINS in certificate-pinning.ts
+   */
   CERTIFICATE_PINS: {
-    'api.being-mental-health.com': [
-      'sha256/AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=', // Primary cert
-      'sha256/BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB='  // Backup cert
+    'api.being.fyi': [
+      'sha256/PLACEHOLDER_UPDATE_WHEN_API_DEPLOYED', // Primary cert
+      'sha256/PLACEHOLDER_UPDATE_WHEN_API_DEPLOYED'  // Backup cert
     ]
   },
   
