@@ -31,7 +31,7 @@ import {
   PHIClassification,
   DataProcessingPurpose,
   HIPAAAuditLog 
-} from '../compliance/hipaa';
+} from '../compliance/data-protection';
 import { 
   AuthenticationSession, 
   SecurityEvent, 

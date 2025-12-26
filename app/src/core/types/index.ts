@@ -32,7 +32,7 @@ import type {
   HIPAAConsent,
   PHIClassification,
   HIPAAAuditLog,
-} from './compliance/hipaa';
+} from './compliance/data-protection';
 
 import type {
   AuthenticationSession,
@@ -93,7 +93,7 @@ export type {
   ConsentManagementService,
   HIPAAComplianceValidator,
   CompliancePerformanceConstraints
-} from './compliance/hipaa';
+} from './compliance/data-protection';
 
 // Compliance Utilities
 export {
@@ -102,7 +102,7 @@ export {
   requiresEmergencyDisclosure,
   isHighRiskPHI,
   calculateRetentionExpiry
-} from './compliance/hipaa';
+} from './compliance/data-protection';
 
 // =============================================================================
 // SECURITY TYPES - PROTECTION FRAMEWORK

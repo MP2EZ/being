@@ -18,7 +18,7 @@
  * - Security monitoring: <5ms impact on operations
  */
 
-import { PHIClassification } from '../compliance/hipaa';
+import { PHIClassification } from '../compliance/data-protection';
 
 /**
  * Encryption Algorithm Types

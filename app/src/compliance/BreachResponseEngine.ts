@@ -34,7 +34,7 @@ import HIPAAComplianceEngine, {
   PHIClassification,
   HIPAAComplianceAuditEvent,
   HIPAA_COMPLIANCE_CONFIG 
-} from './HIPAAComplianceEngine';
+} from './DataProtectionEngine';
 
 /**
  * BREACH SEVERITY LEVELS

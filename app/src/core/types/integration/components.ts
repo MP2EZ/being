@@ -59,7 +59,7 @@ import {
   ConsentStatus, 
   PHIClassification,
   DataProcessingPurpose 
-} from '../compliance/hipaa';
+} from '../compliance/data-protection';
 import { 
   AuthenticationSession, 
   SecurityEvent, 

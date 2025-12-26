@@ -32,7 +32,7 @@ import HIPAAComplianceEngine, {
   PHIClassification,
   HIPAAComplianceAuditEvent,
   HIPAA_COMPLIANCE_CONFIG 
-} from './HIPAAComplianceEngine';
+} from './DataProtectionEngine';
 import type {
   AssessmentAnswer,
   PHQ9Result,

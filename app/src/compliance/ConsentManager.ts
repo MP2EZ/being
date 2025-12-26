@@ -34,7 +34,7 @@ import HIPAAComplianceEngine, {
   HIPAAConsent, 
   PHIClassification,
   HIPAA_COMPLIANCE_CONFIG 
-} from './HIPAAComplianceEngine';
+} from './DataProtectionEngine';
 
 /**
  * CONSENT SCOPE DEFINITIONS

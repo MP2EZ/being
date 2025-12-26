@@ -20,7 +20,7 @@
 
 import { PerformanceMetric, PerformanceViolation } from '../performance/constraints';
 import { CrisisDetection, CrisisIntervention } from '@/features/crisis/types/safety';
-import { HIPAAAuditLog, PHIClassification } from '../compliance/hipaa';
+import { HIPAAAuditLog, PHIClassification } from '../compliance/data-protection';
 import { SecurityEvent } from '../security/encryption';
 
 /**

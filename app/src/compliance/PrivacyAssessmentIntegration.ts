@@ -27,10 +27,10 @@
 
 
 import { logSecurity, logPerformance, logError, LogCategory } from '@/core/services/logging';
-import HIPAAComplianceEngine, { PHIClassification } from './HIPAAComplianceEngine';
-import HIPAAConsentManager from './HIPAAConsentManager';
-import HIPAADataMinimizationEngine, { DataPurpose, UserRole } from './HIPAADataMinimization';
-import HIPAABreachResponseEngine, { BreachTrigger } from './HIPAABreachResponseEngine';
+import HIPAAComplianceEngine, { PHIClassification } from './DataProtectionEngine';
+import HIPAAConsentManager from './ConsentManager';
+import HIPAADataMinimizationEngine, { DataPurpose, UserRole } from './DataMinimization';
+import HIPAABreachResponseEngine, { BreachTrigger } from './BreachResponseEngine';
 import type {
   AssessmentType,
   AssessmentAnswer,
