@@ -1,7 +1,7 @@
 ---
 name: crisis
 description: Validates crisis intervention protocols, safety detection mechanisms, and emergency response workflows for mental health crisis situations. USE PROACTIVELY for crisis intervention, safety protocols, PHQ-9/GAD-7 crisis thresholds, emergency response, and suicide risk assessment.
-model: sonnet
+model: opus
 color: orange
 ---
 

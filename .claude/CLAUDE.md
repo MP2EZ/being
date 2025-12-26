@@ -103,7 +103,7 @@
   ### Structure
   Docs: /docs/{product,architecture,development,testing,security,legal}/
   Key: /docs/README.md (navigation) | /docs/architecture/README.md (codebase structure)
-  PM: Notion 25da1108c2088077b24be0238a1ddf37
+  PM, planning, backlog: Notion database (MCP) 277a1108-c208-805c-810b-000b0f0aae22
 
   ### Policies
   PROHIBIT: /app/*.md | duplicates | phase-reports

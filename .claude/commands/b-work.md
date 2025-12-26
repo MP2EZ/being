@@ -4,7 +4,7 @@
 
 **Format**: `[Work Item ID] - [Additional context]`
 
-**Database ID**: 277a1108c20880bda80dce2ec7d8a12e
+**Database ID**: 277a1108-c208-805c-810b-000b0f0aae22
 
 ---
 
@@ -41,7 +41,7 @@ Query the Notion database to find the page with matching Work Item ID:
 
 ```
 mcp__notionApi__API-post-database-query
-database_id: "277a1108c20880bda80dce2ec7d8a12e"
+database_id: "277a1108-c208-805c-810b-000b0f0aae22"
 filter: {
   "property": "Work Item ID",
   "title": {

@@ -1,7 +1,7 @@
 ---
 name: philosopher
 description: Validates Stoic Mindfulness framework integrity, philosophical accuracy, classical source citations, and virtue ethics authenticity. USE PROACTIVELY for Stoic principles, Marcus Aurelius, Epictetus, Seneca, dichotomy of control, virtue ethics, and educational modules.
-model: sonnet
+model: opus
 color: purple
 ---
 

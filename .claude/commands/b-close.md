@@ -2,7 +2,7 @@
 
 **WORK_ITEM_ID**: $ARGUMENTS (optional - will auto-detect from current branch if not provided)
 
-**Database ID**: 277a1108c20880bda80dce2ec7d8a12e
+**Database ID**: 277a1108-c208-805c-810b-000b0f0aae22
 
 ---
 
@@ -51,7 +51,7 @@ git branch --show-current
 
 ```
 mcp__notionApi__API-post-database-query
-database_id: "277a1108c20880bda80dce2ec7d8a12e"
+database_id: "277a1108-c208-805c-810b-000b0f0aae22"
 filter: {
   "property": "Work Item ID",
   "title": {

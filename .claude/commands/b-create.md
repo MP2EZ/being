@@ -8,7 +8,7 @@
 - `/b-create FEAT - Simple subscription flow`
 - `/b-create FEAT - Medication tracking --review`
 
-**Database ID**: 277a1108c20880bda80dce2ec7d8a12e
+**Database ID**: 277a1108-c208-805c-810b-000b0f0aae22
 
 ---
 
@@ -363,7 +363,7 @@ NOTE: The Notion API update-block endpoint does not support updating block conte
 mcp__notionApi__API-post-page
 parent: {
   "type": "database_id",
-  "database_id": "277a1108c20880bda80dce2ec7d8a12e"
+  "database_id": "277a1108-c208-805c-810b-000b0f0aae22"
 }
 properties: {
   "Name": {
@@ -608,4 +608,4 @@ Please try again or create manually in Notion.
 
 ---
 
-*File location: ~/Development/active/fullmind/.claude/commands/b-create.md*
+*File location: ~/Development/active/being/.claude/commands/b-create.md*
