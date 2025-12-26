@@ -8,6 +8,7 @@ import React, { useState, useEffect } from 'react';
 import { View, ActivityIndicator, StyleSheet, TouchableOpacity, Text } from 'react-native';
 import { logPerformance } from '@/core/services/logging';
 import { NavigationContainer } from '@react-navigation/native';
+import { linkingConfig } from './linking';
 import { createStackNavigator } from '@react-navigation/stack';
 import { spacing, typography } from '@/core/theme';
 import CleanTabNavigator from './CleanTabNavigator';
@@ -199,7 +200,7 @@ const CleanRootNavigator: React.FC = () => {
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer linking={linkingConfig}>
       <Stack.Navigator
         initialRouteName={initialRoute}
         screenOptions={{
