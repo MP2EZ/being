@@ -1,26 +1,31 @@
 /**
- * MiddayFlowNavigator - Stoic Mindfulness Midday Reset
+ * MiddayFlowNavigator - Stoic Mindfulness Midday Reset (MAINT-65)
  *
- * DRD v2.0.0 SPECIFICATION (DRD-FLOW-003):
- * - 4 practices: Control → Embodiment → Reappraisal → Affirmation
- * - 3-7 minutes flexible duration
- * - Interrupt-friendly (can pause/resume)
- * - Modal presentation from CleanHomeScreen
- * - Midday theme throughout (#40B5AD)
+ * MAINT-65: Refactored 4-Screen Flow (Philosopher-validated 8.5/10)
+ *
+ * NEW FLOW ORDER (aligned with 5 Stoic Mindfulness Principles):
+ * 1. Pause & Acknowledge → Aware Presence (30s micro-breath + situation)
+ * 2. Reality Check → Radical Acceptance + Sphere Sovereignty
+ * 3. Virtue Response → Virtuous Response (principle picker)
+ * 4. Compassionate Close → Interconnected Living (completion)
+ *
+ * KEY CHANGES FROM v1:
+ * - Reduced from 5 screens to 4 (removed standalone Embodiment)
+ * - 30s micro-breath integrated into Screen 1 (was 60s standalone)
+ * - Principle picker now required (feeds Insights dashboard)
+ * - Previous answer cards for contextual continuity
+ * - Duration: 3-5 minutes (down from 3-7 minutes)
+ *
+ * NON-NEGOTIABLES:
  * - Crisis-accessible (<3s from any screen)
+ * - Self-compassion field on closing screen
+ * - Principle selection feeds Insights dashboard
  *
  * FEAT-23: Session resumption with philosopher-validated Stoic language
- * - Supports resuming interrupted sessions (24hr TTL)
- * - Automatic session saving on screen navigation
- * - Sphere Sovereignty: Both resume and fresh start equally virtuous
- *
  * INFRA-135: Uses shared FlowProgressIndicator and useFlowSessionResumption hook
  *
- * PHILOSOPHY:
- * - Mindfulness-first with Stoic wisdom enrichment
- * - NOT toxic positivity - realistic perspective shift
- * - Grounded affirmations (capability within control)
- * - Oikeiôsis framework (self-compassion as foundation)
+ * @see /docs/design/midday-flow-wireframes-v2.md
+ * @see /docs/architecture/Stoic-Mindfulness-Architecture-v1.0.md
  */
 
 import React, { useState } from 'react';
@@ -29,39 +34,29 @@ import { View, Pressable, Text, StyleSheet } from 'react-native';
 import { colorSystem, spacing, typography } from '@/core/theme';
 import { ResumeSessionModal, FlowProgressIndicator } from '../shared/components';
 import { useFlowSessionResumption } from '../shared/hooks';
-import ControlCheckScreen from './screens/ControlCheckScreen';
-import EmbodimentScreen from './screens/EmbodimentScreen';
-import ReappraisalScreen from './screens/ReappraisalScreen';
-import AffirmationScreen from './screens/AffirmationScreen';
-import MiddayCompletionScreen from './screens/MiddayCompletionScreen';
+import PauseAcknowledgeScreen from './screens/PauseAcknowledgeScreen';
+import RealityCheckScreen from './screens/RealityCheckScreen';
+import VirtueResponseScreen from './screens/VirtueResponseScreen';
+import CompassionateCloseScreen from './screens/CompassionateCloseScreen';
 import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
 import { useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
-
-// Navigation types (DRD v2.0.0 compliant)
-export type MiddayFlowParamList = {
-  ControlCheck: undefined;
-  Embodiment: undefined;
-  Reappraisal: undefined;
-  Affirmation: undefined;
-  MiddayCompletion: undefined;
-};
+import type { MiddayFlowParamList, StoicMiddayFlowData } from '@/features/practices/types/flows';
 
 interface MiddayFlowNavigatorProps {
-  onComplete: (sessionData: any) => void;
+  onComplete: (sessionData: StoicMiddayFlowData) => void;
   onExit: () => void;
 }
 
 const Stack = createStackNavigator<MiddayFlowParamList>();
 
-// Screen order mapping for progress calculation (DRD v2.0.0)
+// Screen order mapping for progress calculation (MAINT-65: 4 screens)
 const SCREEN_ORDER = [
-  'ControlCheck',
-  'Embodiment',
-  'Reappraisal',
-  'Affirmation',
-  'MiddayCompletion',
+  'PauseAcknowledge',
+  'RealityCheck',
+  'VirtueResponse',
+  'CompassionateClose',
 ] as const;
 
 type MiddayScreenName = (typeof SCREEN_ORDER)[number];
@@ -72,18 +67,11 @@ const MiddayFlowNavigator: React.FC<MiddayFlowNavigatorProps> = ({
 }) => {
   // Navigation for crisis button
   const rootNavigation = useNavigation<StackNavigationProp<RootStackParamList>>();
-  const [sessionData, setSessionData] = useState<{
-    startTime: number;
-    controlCheckData?: any;
-    embodimentData?: any;
-    reappraisalData?: any;
-    affirmationData?: any;
-  }>({
-    startTime: Date.now(),
-  });
+  const [sessionData, setSessionData] = useState<Partial<StoicMiddayFlowData>>({});
+  const [startTime] = useState(() => Date.now());
 
   const [currentStep, setCurrentStep] = useState(1);
-  const totalSteps = SCREEN_ORDER.length - 1; // 4 steps (exclude MiddayCompletion)
+  const totalSteps = SCREEN_ORDER.length; // 4 steps
 
   // FEAT-23 + INFRA-135: Use shared session resumption hook
   const {
@@ -119,70 +107,65 @@ const MiddayFlowNavigator: React.FC<MiddayFlowNavigatorProps> = ({
   });
 
   // Screen wrappers with data persistence
-  const ControlCheckScreenWrapper = ({ navigation, route }: any) => (
-    <ControlCheckScreen
+  const PauseAcknowledgeScreenWrapper = ({ navigation, route }: any) => (
+    <PauseAcknowledgeScreen
       navigation={navigation}
       route={route}
       onSave={(data) => {
-        updateScreenData('ControlCheck', data, 'Embodiment');
-        // Also update sessionData for completion screen
-        setSessionData((prev) => ({ ...prev, controlCheckData: data }));
-        console.log('✅ ControlCheck completed');
+        updateScreenData('PauseAcknowledge', data, 'RealityCheck');
+        setSessionData((prev) => ({ ...prev, pauseAcknowledge: data }));
+        console.log('✅ PauseAcknowledge completed');
       }}
     />
   );
 
-  const EmbodimentScreenWrapper = ({ navigation, route }: any) => (
-    <EmbodimentScreen
+  const RealityCheckScreenWrapper = ({ navigation, route }: any) => (
+    <RealityCheckScreen
       navigation={navigation}
       route={route}
+      previousSituation={sessionData.pauseAcknowledge?.situation}
       onSave={(data) => {
-        updateScreenData('Embodiment', data, 'Reappraisal');
-        setSessionData((prev) => ({ ...prev, embodimentData: data }));
-        console.log('✅ Embodiment completed');
+        updateScreenData('RealityCheck', data, 'VirtueResponse');
+        setSessionData((prev) => ({ ...prev, realityCheck: data }));
+        console.log('✅ RealityCheck completed');
       }}
     />
   );
 
-  const ReappraisalScreenWrapper = ({ navigation, route }: any) => (
-    <ReappraisalScreen
+  const VirtueResponseScreenWrapper = ({ navigation, route }: any) => (
+    <VirtueResponseScreen
       navigation={navigation}
       route={route}
+      previousSituation={sessionData.pauseAcknowledge?.situation}
+      previousWithinPower={sessionData.realityCheck?.withinPower}
       onSave={(data) => {
-        updateScreenData('Reappraisal', data, 'Affirmation');
-        setSessionData((prev) => ({ ...prev, reappraisalData: data }));
-        console.log('✅ Reappraisal completed');
+        updateScreenData('VirtueResponse', data, 'CompassionateClose');
+        setSessionData((prev) => ({ ...prev, virtueResponse: data }));
+        console.log('✅ VirtueResponse completed');
       }}
     />
   );
 
-  const AffirmationScreenWrapper = ({ navigation, route }: any) => (
-    <AffirmationScreen
-      navigation={navigation}
-      route={route}
-      onSave={(data) => {
-        updateScreenData('Affirmation', data, 'MiddayCompletion');
-        setSessionData((prev) => ({ ...prev, affirmationData: data }));
-        console.log('✅ Affirmation completed');
-      }}
-    />
-  );
+  const CompassionateCloseScreenWrapper = ({ navigation, route }: any) => {
+    const handleComplete = (data: any) => {
+      const finalSessionData: StoicMiddayFlowData = {
+        ...sessionData,
+        compassionateClose: data,
+        completedAt: new Date(),
+        timeSpentSeconds: Math.round((Date.now() - startTime) / 1000),
+        flowVersion: 'stoic_midday_v2',
+      };
 
-  const MiddayCompletionScreenWrapper = ({ navigation }: any) => {
-    const finalSessionData = {
-      ...sessionData,
-      completedAt: Date.now(),
-      duration: Date.now() - sessionData.startTime,
+      console.log('✅ Midday flow completed');
+      onComplete(finalSessionData);
     };
 
     return (
-      <MiddayCompletionScreen
+      <CompassionateCloseScreen
         navigation={navigation}
-        route={{ params: {} } as any}
-        onComplete={() => {
-          console.log('✅ Midday flow completed');
-          onComplete(finalSessionData);
-        }}
+        route={route}
+        previousVirtuousResponse={sessionData.virtueResponse?.virtuousResponse}
+        onComplete={handleComplete}
       />
     );
   };
@@ -207,7 +190,7 @@ const MiddayFlowNavigator: React.FC<MiddayFlowNavigatorProps> = ({
   return (
     <>
       <Stack.Navigator
-        initialRouteName="ControlCheck"
+        initialRouteName="PauseAcknowledge"
         screenOptions={{
           headerShown: true,
           gestureEnabled: true, // Allow swipe back for safety
@@ -260,32 +243,26 @@ const MiddayFlowNavigator: React.FC<MiddayFlowNavigatorProps> = ({
         })}
       >
         <Stack.Screen
-          name="ControlCheck"
-          component={ControlCheckScreenWrapper}
-          options={getHeaderOptions('ControlCheck', 'Pause & Center')}
+          name="PauseAcknowledge"
+          component={PauseAcknowledgeScreenWrapper}
+          options={getHeaderOptions('PauseAcknowledge', 'Pause & Acknowledge')}
         />
 
         <Stack.Screen
-          name="Embodiment"
-          component={EmbodimentScreenWrapper}
-          options={getHeaderOptions('Embodiment', 'Ground in Your Body')}
+          name="RealityCheck"
+          component={RealityCheckScreenWrapper}
+          options={getHeaderOptions('RealityCheck', 'Reality Check')}
         />
 
         <Stack.Screen
-          name="Reappraisal"
-          component={ReappraisalScreenWrapper}
-          options={getHeaderOptions('Reappraisal', 'Reframe with Wisdom')}
+          name="VirtueResponse"
+          component={VirtueResponseScreenWrapper}
+          options={getHeaderOptions('VirtueResponse', 'Virtue Response')}
         />
 
         <Stack.Screen
-          name="Affirmation"
-          component={AffirmationScreenWrapper}
-          options={getHeaderOptions('Affirmation', 'Self-Compassion')}
-        />
-
-        <Stack.Screen
-          name="MiddayCompletion"
-          component={MiddayCompletionScreenWrapper}
+          name="CompassionateClose"
+          component={CompassionateCloseScreenWrapper}
           options={{ headerShown: false }}
         />
       </Stack.Navigator>
