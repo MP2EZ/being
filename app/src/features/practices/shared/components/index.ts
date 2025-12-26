@@ -19,6 +19,10 @@ export { default as DreamJournal } from './DreamJournal';
 // FEAT-23: Session resumption
 export { ResumeSessionModal } from './ResumeSessionModal';
 
+// INFRA-135: Shared flow navigator components
+export { FlowProgressIndicator } from './FlowProgressIndicator';
+export type { FlowType } from './FlowProgressIndicator';
+
 // Type exports
 export type { Emotion } from './EmotionGrid';
 export type { Need } from './NeedsGrid';

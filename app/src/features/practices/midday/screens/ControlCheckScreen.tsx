@@ -124,16 +124,6 @@ const ControlCheckScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
   return (
     <View style={styles.screenContainer}>
       <ScrollView style={styles.container} testID="control-check-screen">
-      {/* Back Button */}
-      <TouchableOpacity
-        style={styles.backButton}
-        onPress={() => navigation.goBack()}
-        testID="back-button"
-        accessibilityLabel="Go back"
-      >
-        <Text style={styles.backButtonText}>← Back</Text>
-      </TouchableOpacity>
-
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>Control Check</Text>
