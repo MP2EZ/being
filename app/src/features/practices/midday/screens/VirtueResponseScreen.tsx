@@ -1,21 +1,20 @@
 /**
  * VIRTUE RESPONSE SCREEN (Screen 3 of 4)
  *
- * MAINT-65: Stoic Mindfulness Midday Flow - Refactored
- * Principle: Virtuous Response (Virtue ethics in action)
+ * MAINT-65: Stoic Mindfulness Midday Flow - Simplified
+ * Principle: Virtuous Response (demonstrated through action)
  *
- * Purpose: Choose virtuous response, identify guiding principle
+ * Purpose: Identify a virtuous action (simplified per UX/Philosopher validation)
  *
- * Structure:
+ * Structure (UX-simplified):
  * 1. Previous answer card (shows "within power" from Screen 2)
- * 2. Text input: "How does virtue invite you to respond?"
- * 3. Principle picker (REQUIRED - feeds Insights dashboard)
+ * 2. Single text input: "What's one small, virtuous action you could take?"
  *
- * Critical: The principle picker selection feeds the Insights dashboard
- * to track which principles users apply most often.
+ * UX/Philosopher validated: Removed principle picker + Cardinal Virtues card
+ * Virtue is demonstrated through action, not by naming/categorizing
+ * "Wisdom and integrity" + "best self" embeds virtue without taxonomy
  *
  * @see /docs/design/midday-flow-wireframes-v2.md
- * @see /docs/architecture/Stoic-Mindfulness-Architecture-v1.0.md
  */
 
 import React, { useState, useCallback } from 'react';
@@ -32,13 +31,10 @@ import {
 import type { StackScreenProps } from '@react-navigation/stack';
 import { colorSystem, spacing, borderRadius, typography, getTheme } from '@/core/theme';
 import { PreviousAnswerCard } from '@/features/practices/shared/components/PreviousAnswerCard';
-import { StoicPrinciplePicker } from '@/features/practices/shared/components/StoicPrinciplePicker';
 import type { MiddayFlowParamList, VirtueResponseData } from '@/features/practices/types/flows';
-import type { StoicPrinciple } from '@/features/practices/types/stoic';
 
 type Props = StackScreenProps<MiddayFlowParamList, 'VirtueResponse'> & {
   onSave?: (data: VirtueResponseData) => void;
-  previousSituation?: string | undefined;
   previousWithinPower?: string | undefined;
 };
 
@@ -46,37 +42,32 @@ const VirtueResponseScreen: React.FC<Props> = ({
   navigation,
   route,
   onSave,
-  previousSituation,
   previousWithinPower,
 }) => {
   // FEAT-23: Restore initial data if resuming session
   const initialData = (route.params as any)?.initialData as VirtueResponseData | undefined;
 
-  // State
+  // State - single text input (simplified from input + principle picker)
   const [virtuousResponse, setVirtuousResponse] = useState(initialData?.virtuousResponse || '');
-  const [guidingPrinciple, setGuidingPrinciple] = useState<StoicPrinciple | null>(
-    initialData?.guidingPrinciple || null
-  );
 
   const themeColors = getTheme('midday');
 
   // Handle continue
   const handleContinue = useCallback(() => {
-    if (!virtuousResponse.trim() || !guidingPrinciple) {
+    if (!virtuousResponse.trim()) {
       return;
     }
 
     const data: VirtueResponseData = {
       virtuousResponse: virtuousResponse.trim(),
-      guidingPrinciple,
       timestamp: new Date(),
     };
 
     onSave?.(data);
     navigation.navigate('CompassionateClose');
-  }, [virtuousResponse, guidingPrinciple, onSave, navigation]);
+  }, [virtuousResponse, onSave, navigation]);
 
-  const canContinue = virtuousResponse.trim().length > 0 && guidingPrinciple !== null;
+  const canContinue = virtuousResponse.trim().length > 0;
 
   return (
     <KeyboardAvoidingView
@@ -100,7 +91,13 @@ const VirtueResponseScreen: React.FC<Props> = ({
           <Text style={[styles.backButtonText, { color: themeColors.primary }]}>← Back</Text>
         </Pressable>
 
-        {/* Previous Answer Card */}
+        {/* Section Header */}
+        <Text style={styles.sectionTitle}>Virtue Response</Text>
+        <Text style={styles.sectionSubtitle}>
+          What would wisdom call you to do here?
+        </Text>
+
+        {/* Previous Answer Card - Context from Screen 2 */}
         {previousWithinPower && (
           <PreviousAnswerCard
             label="What's within your power:"
@@ -110,19 +107,13 @@ const VirtueResponseScreen: React.FC<Props> = ({
           />
         )}
 
-        {/* Section Header */}
-        <Text style={styles.sectionTitle}>Virtue Response</Text>
-        <Text style={styles.sectionSubtitle}>
-          How would wisdom, courage, justice, or temperance guide you here?
-        </Text>
-
-        {/* Virtuous Response Input */}
+        {/* Virtuous Action Input - Single focused input */}
         <View style={styles.inputSection}>
           <Text style={styles.inputLabel}>
-            How does virtue invite you to respond? <Text style={styles.required}>*</Text>
+            What's one small, virtuous action you could take?
           </Text>
           <Text style={styles.inputHint}>
-            Consider what the best version of yourself would do.
+            Consider: What would your best self do here?
           </Text>
 
           <TextInput
@@ -132,46 +123,15 @@ const VirtueResponseScreen: React.FC<Props> = ({
             ]}
             value={virtuousResponse}
             onChangeText={setVirtuousResponse}
-            placeholder="E.g., 'I'll speak calmly, focus on solutions, ask for what I need...'"
+            placeholder="E.g., 'Speak calmly, ask for what I need, take a break...'"
             placeholderTextColor={colorSystem.gray[500]}
             multiline
-            numberOfLines={3}
+            numberOfLines={4}
             textAlignVertical="top"
-            accessibilityLabel="Your virtuous response"
-            accessibilityHint="Describe how virtue invites you to respond"
+            accessibilityLabel="Your virtuous action"
+            accessibilityHint="Describe one small action you could take"
             testID="virtuous-response-input"
           />
-        </View>
-
-        {/* Principle Picker */}
-        <View style={styles.pickerSection}>
-          <StoicPrinciplePicker
-            value={guidingPrinciple}
-            onChange={setGuidingPrinciple}
-            theme="midday"
-            label="Which principle is guiding you?"
-            required
-            testID="principle-picker"
-          />
-        </View>
-
-        {/* Four Virtues Reference */}
-        <View style={[styles.virtuesCard, { backgroundColor: themeColors.background }]}>
-          <Text style={styles.virtuesTitle}>The Four Cardinal Virtues</Text>
-          <View style={styles.virtuesList}>
-            <Text style={styles.virtueItem}>
-              <Text style={styles.virtueName}>Wisdom</Text> — Right judgment in the moment
-            </Text>
-            <Text style={styles.virtueItem}>
-              <Text style={styles.virtueName}>Courage</Text> — Facing what's difficult
-            </Text>
-            <Text style={styles.virtueItem}>
-              <Text style={styles.virtueName}>Justice</Text> — Treating others rightly
-            </Text>
-            <Text style={styles.virtueItem}>
-              <Text style={styles.virtueName}>Temperance</Text> — Self-control and moderation
-            </Text>
-          </View>
         </View>
 
         {/* Continue Button */}
@@ -226,26 +186,24 @@ const styles = StyleSheet.create({
   sectionSubtitle: {
     fontSize: typography.bodyRegular.size,
     color: colorSystem.gray[600],
-    marginBottom: spacing[24],
+    marginBottom: spacing[16],
   },
 
   // Input section
   inputSection: {
-    marginBottom: spacing[24],
+    marginBottom: spacing[32],
   },
   inputLabel: {
-    fontSize: typography.bodySmall.size,
+    fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.medium,
-    color: colorSystem.gray[700],
+    color: colorSystem.base.black,
     marginBottom: spacing[8],
   },
-  required: {
-    color: colorSystem.status.error,
-  },
   inputHint: {
-    fontSize: typography.caption.size,
+    fontSize: typography.bodySmall.size,
     color: colorSystem.gray[600],
-    marginBottom: spacing[12],
+    marginBottom: spacing[16],
+    lineHeight: typography.bodySmall.size * 1.5,
   },
   textInput: {
     borderWidth: 2,
@@ -254,37 +212,7 @@ const styles = StyleSheet.create({
     fontSize: typography.bodyRegular.size,
     color: colorSystem.base.black,
     backgroundColor: colorSystem.base.white,
-    minHeight: 100,
-  },
-
-  // Picker section
-  pickerSection: {
-    marginBottom: spacing[24],
-  },
-
-  // Virtues card
-  virtuesCard: {
-    padding: spacing[16],
-    borderRadius: borderRadius.medium,
-    marginBottom: spacing[24],
-  },
-  virtuesTitle: {
-    fontSize: typography.bodySmall.size,
-    fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.gray[700],
-    marginBottom: spacing[12],
-  },
-  virtuesList: {
-    gap: spacing[8],
-  },
-  virtueItem: {
-    fontSize: typography.caption.size,
-    color: colorSystem.gray[600],
-    lineHeight: typography.caption.size * 1.4,
-  },
-  virtueName: {
-    fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.gray[700],
+    minHeight: 120,
   },
 
   // Continue button
@@ -292,7 +220,6 @@ const styles = StyleSheet.create({
     padding: spacing[16],
     borderRadius: borderRadius.medium,
     alignItems: 'center',
-    marginTop: spacing[8],
   },
   continueButtonPressed: {
     opacity: 0.8,

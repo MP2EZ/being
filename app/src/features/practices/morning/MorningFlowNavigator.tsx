@@ -135,11 +135,11 @@ const MorningFlowNavigator: React.FC<MorningFlowNavigatorProps> = ({
     />
   );
 
-  // Custom header with progress
-  const getHeaderOptions = (_routeName: keyof MorningFlowParamList, title: string) => ({
+  // Custom header with flow name + progress (screen titles are in cards)
+  const getHeaderOptions = () => ({
     headerTitle: () => (
       <View style={styles.headerContainer}>
-        <Text style={styles.headerTitle}>{title}</Text>
+        <Text style={styles.headerTitle}>Morning Awareness</Text>
         <FlowProgressIndicator
           currentStep={currentStep}
           totalSteps={totalSteps}
@@ -236,31 +236,31 @@ const MorningFlowNavigator: React.FC<MorningFlowNavigatorProps> = ({
         <Stack.Screen
           name="Gratitude"
           component={GratitudeScreenWrapper}
-          options={getHeaderOptions('Gratitude', 'Gratitude Practice')}
+          options={getHeaderOptions()}
         />
 
         <Stack.Screen
           name="Intention"
           component={IntentionScreenWrapper}
-          options={getHeaderOptions('Intention', 'Morning Intention')}
+          options={getHeaderOptions()}
         />
 
         <Stack.Screen
           name="Preparation"
           component={PreparationScreenWrapper}
-          options={getHeaderOptions('Preparation', 'Preparation')}
+          options={getHeaderOptions()}
         />
 
         <Stack.Screen
           name="PrincipleFocus"
           component={PrincipleFocusScreenWrapper}
-          options={getHeaderOptions('PrincipleFocus', 'Principle Focus')}
+          options={getHeaderOptions()}
         />
 
         <Stack.Screen
           name="PhysicalGrounding"
           component={PhysicalGroundingScreenWrapper}
-          options={getHeaderOptions('PhysicalGrounding', 'Ground in Your Body')}
+          options={getHeaderOptions()}
         />
 
         <Stack.Screen

@@ -1,22 +1,17 @@
 /**
  * COMPASSIONATE CLOSE SCREEN (Screen 4 of 4)
  *
- * MAINT-65: Stoic Mindfulness Midday Flow - Refactored
- * Principle: Interconnected Living (Relational ethics, self-compassion)
+ * MAINT-65: Stoic Mindfulness Midday Flow - Simplified
+ * Principle: Interconnected Living (Self-compassion)
  *
- * Purpose: Self-compassion and integration into afternoon
+ * Purpose: Single integration prompt + completion
  *
- * Structure:
- * 1. Previous answer card (shows virtuous response from Screen 3)
- * 2. Optional self-compassion input: "What kindness do you need?"
- * 3. Optional afternoon intention: "How will you carry this forward?"
- * 4. Completion card with summary
- *
- * Design: Both inputs are optional to respect user's time and energy.
- * Focus on closure and transition back to day.
+ * Structure (UX-simplified):
+ * 1. Single optional text input: "What do you need to remember?"
+ * 2. Visible Complete button
+ * 3. CelebrationToast on completion (auto-dismiss, consistent with morning flow)
  *
  * @see /docs/design/midday-flow-wireframes-v2.md
- * @see /docs/architecture/Stoic-Mindfulness-Architecture-v1.0.md
  */
 
 import React, { useState, useCallback } from 'react';
@@ -32,41 +27,52 @@ import {
 } from 'react-native';
 import type { StackScreenProps } from '@react-navigation/stack';
 import { colorSystem, spacing, borderRadius, typography, getTheme } from '@/core/theme';
-import { PreviousAnswerCard } from '@/features/practices/shared/components/PreviousAnswerCard';
+import { CelebrationToast } from '@/core/components/CelebrationToast';
 import type { MiddayFlowParamList, CompassionateCloseData } from '@/features/practices/types/flows';
 
 type Props = StackScreenProps<MiddayFlowParamList, 'CompassionateClose'> & {
   onComplete?: (data: CompassionateCloseData) => void;
-  previousVirtuousResponse?: string | undefined;
+  startTime?: number; // Flow start time for duration calculation
 };
 
 const CompassionateCloseScreen: React.FC<Props> = ({
-  navigation,
   route,
   onComplete,
-  previousVirtuousResponse,
+  startTime,
 }) => {
   // FEAT-23: Restore initial data if resuming session
   const initialData = (route.params as any)?.initialData as CompassionateCloseData | undefined;
 
-  // State - both fields are optional
-  const [selfCompassion, setSelfCompassion] = useState(initialData?.selfCompassion || '');
-  const [afternoonIntention, setAfternoonIntention] = useState(
-    initialData?.afternoonIntention || ''
-  );
+  // State
+  const [integrationNote, setIntegrationNote] = useState(initialData?.integrationNote || '');
+  const [showToast, setShowToast] = useState(false);
+  const [completionData, setCompletionData] = useState<CompassionateCloseData | null>(null);
 
   const themeColors = getTheme('midday');
 
-  // Handle complete
+  // Calculate duration in minutes
+  const getDurationMinutes = () => {
+    if (!startTime) return 3; // Default estimate
+    return Math.max(1, Math.round((Date.now() - startTime) / 60000));
+  };
+
+  // Handle complete - show toast
   const handleComplete = useCallback(() => {
     const data: CompassionateCloseData = {
-      selfCompassion: selfCompassion.trim() || undefined,
-      afternoonIntention: afternoonIntention.trim() || undefined,
+      integrationNote: integrationNote.trim() || undefined,
       timestamp: new Date(),
     };
 
-    onComplete?.(data);
-  }, [selfCompassion, afternoonIntention, onComplete]);
+    setCompletionData(data);
+    setShowToast(true);
+  }, [integrationNote]);
+
+  // Handle toast dismiss - trigger completion callback
+  const handleToastComplete = useCallback(() => {
+    if (completionData) {
+      onComplete?.(completionData);
+    }
+  }, [completionData, onComplete]);
 
   return (
     <KeyboardAvoidingView
@@ -79,102 +85,37 @@ const CompassionateCloseScreen: React.FC<Props> = ({
         keyboardShouldPersistTaps="handled"
         testID="compassionate-close-screen"
       >
-        {/* Back Button */}
-        <Pressable
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-          accessibilityRole="button"
-          accessibilityLabel="Go back"
-          testID="back-button"
-        >
-          <Text style={[styles.backButtonText, { color: themeColors.primary }]}>← Back</Text>
-        </Pressable>
-
         {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Compassionate Close</Text>
-          <Text style={styles.headerSubtitle}>
-            Take a moment of kindness before returning to your day.
-          </Text>
-        </View>
+        <Text style={styles.sectionTitle}>Compassionate Close</Text>
+        <Text style={styles.sectionSubtitle}>
+          You've done the work. Now, close with kindness.
+        </Text>
 
-        {/* Previous Answer Card */}
-        {previousVirtuousResponse && (
-          <PreviousAnswerCard
-            label="Your virtuous response:"
-            answer={previousVirtuousResponse}
-            theme="midday"
-            testID="previous-response-card"
-          />
-        )}
-
-        {/* Self-Compassion Input (Optional) */}
+        {/* Single Integration Input (Optional) */}
         <View style={styles.inputSection}>
-          <Text style={styles.inputLabel}>What kindness do you need?</Text>
+          <Text style={styles.inputLabel}>
+            What do you need to remember as you return to your day?
+          </Text>
           <Text style={styles.inputHint}>
-            Offer yourself the same understanding you'd give a friend. (Optional)
+            A reminder, intention, or word of kindness. (Optional)
           </Text>
 
           <TextInput
             style={[
               styles.textInput,
-              { borderColor: selfCompassion ? themeColors.primary : colorSystem.gray[300] },
+              { borderColor: integrationNote ? themeColors.primary : colorSystem.gray[300] },
             ]}
-            value={selfCompassion}
-            onChangeText={setSelfCompassion}
-            placeholder="E.g., 'I'm doing my best in a difficult situation...'"
+            value={integrationNote}
+            onChangeText={setIntegrationNote}
+            placeholder="E.g., 'I can only control my effort' or 'Be patient with myself'"
             placeholderTextColor={colorSystem.gray[500]}
             multiline
-            numberOfLines={2}
+            numberOfLines={3}
             textAlignVertical="top"
-            accessibilityLabel="Self-compassion note"
-            accessibilityHint="What kindness do you need right now?"
-            testID="self-compassion-input"
+            accessibilityLabel="Integration note"
+            accessibilityHint="What do you need to remember?"
+            testID="integration-note-input"
           />
-        </View>
-
-        {/* Afternoon Intention Input (Optional) */}
-        <View style={styles.inputSection}>
-          <Text style={styles.inputLabel}>How will you carry this forward?</Text>
-          <Text style={styles.inputHint}>
-            A simple intention for the rest of your day. (Optional)
-          </Text>
-
-          <TextInput
-            style={[
-              styles.textInput,
-              { borderColor: afternoonIntention ? themeColors.primary : colorSystem.gray[300] },
-            ]}
-            value={afternoonIntention}
-            onChangeText={setAfternoonIntention}
-            placeholder="E.g., 'I'll pause before reacting, stay present in my next meeting...'"
-            placeholderTextColor={colorSystem.gray[500]}
-            multiline
-            numberOfLines={2}
-            textAlignVertical="top"
-            accessibilityLabel="Afternoon intention"
-            accessibilityHint="How will you carry this forward into your afternoon?"
-            testID="afternoon-intention-input"
-          />
-        </View>
-
-        {/* Completion Card */}
-        <View style={[styles.completionCard, { backgroundColor: themeColors.background }]}>
-          <Text style={[styles.completionIcon, { color: themeColors.primary }]}>✓</Text>
-          <Text style={styles.completionTitle}>Midday Reset Complete</Text>
-          <Text style={styles.completionText}>
-            You've taken a meaningful pause. Return to your day with renewed perspective.
-          </Text>
-        </View>
-
-        {/* Stoic Wisdom */}
-        <View style={styles.wisdomSection}>
-          <Text style={styles.wisdomText}>
-            "The soul becomes dyed with the color of its thoughts."
-          </Text>
-          <Text style={[styles.wisdomSource, { color: themeColors.primary }]}>
-            — Marcus Aurelius, Meditations 5:16
-          </Text>
         </View>
 
         {/* Complete Button */}
@@ -186,12 +127,23 @@ const CompassionateCloseScreen: React.FC<Props> = ({
           ]}
           onPress={handleComplete}
           accessibilityRole="button"
-          accessibilityLabel="Complete midday reset and return to home"
+          accessibilityLabel="Complete midday reset"
           testID="complete-button"
         >
-          <Text style={styles.completeButtonText}>Complete & Return Home</Text>
+          <Text style={styles.completeButtonText}>Complete</Text>
         </Pressable>
       </ScrollView>
+
+      {/* Celebration Toast */}
+      {showToast && (
+        <CelebrationToast
+          flowType="midday"
+          screenCount={4}
+          duration={getDurationMinutes()}
+          streak={1} // TODO: Get actual streak from user data
+          onComplete={handleToastComplete}
+        />
+      )}
     </KeyboardAvoidingView>
   );
 };
@@ -209,44 +161,34 @@ const styles = StyleSheet.create({
     paddingBottom: spacing[40],
   },
 
-  // Back button
-  backButton: {
-    marginBottom: spacing[8],
-  },
-  backButtonText: {
-    fontSize: typography.bodyRegular.size,
-  },
-
-  // Header
-  header: {
-    marginBottom: spacing[24],
-    paddingTop: spacing[16],
-  },
-  headerTitle: {
-    fontSize: typography.headline2.size,
-    fontWeight: typography.fontWeight.bold,
+  // Section header
+  sectionTitle: {
+    fontSize: typography.headline3.size,
+    fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.black,
     marginBottom: spacing[8],
   },
-  headerSubtitle: {
+  sectionSubtitle: {
     fontSize: typography.bodyRegular.size,
     color: colorSystem.gray[600],
+    marginBottom: spacing[24],
   },
 
   // Input section
   inputSection: {
-    marginBottom: spacing[20],
+    marginBottom: spacing[32],
   },
   inputLabel: {
-    fontSize: typography.bodySmall.size,
+    fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.medium,
-    color: colorSystem.gray[700],
-    marginBottom: spacing[4],
+    color: colorSystem.base.black,
+    marginBottom: spacing[8],
   },
   inputHint: {
-    fontSize: typography.caption.size,
+    fontSize: typography.bodySmall.size,
     color: colorSystem.gray[600],
-    marginBottom: spacing[12],
+    marginBottom: spacing[16],
+    lineHeight: typography.bodySmall.size * 1.5,
   },
   textInput: {
     borderWidth: 2,
@@ -255,50 +197,7 @@ const styles = StyleSheet.create({
     fontSize: typography.bodyRegular.size,
     color: colorSystem.base.black,
     backgroundColor: colorSystem.base.white,
-    minHeight: 80,
-  },
-
-  // Completion card
-  completionCard: {
-    padding: spacing[24],
-    borderRadius: borderRadius.large,
-    alignItems: 'center',
-    marginBottom: spacing[24],
-  },
-  completionIcon: {
-    fontSize: 48,
-    marginBottom: spacing[12],
-  },
-  completionTitle: {
-    fontSize: typography.headline4.size,
-    fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
-    marginBottom: spacing[8],
-    textAlign: 'center',
-  },
-  completionText: {
-    fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[600],
-    textAlign: 'center',
-    lineHeight: typography.bodySmall.size * 1.5,
-  },
-
-  // Wisdom section
-  wisdomSection: {
-    marginBottom: spacing[24],
-    alignItems: 'center',
-  },
-  wisdomText: {
-    fontSize: typography.bodySmall.size,
-    fontStyle: 'italic',
-    color: colorSystem.gray[700],
-    textAlign: 'center',
-    lineHeight: typography.bodySmall.size * 1.5,
-    marginBottom: spacing[8],
-  },
-  wisdomSource: {
-    fontSize: typography.caption.size,
-    fontWeight: typography.fontWeight.medium,
+    minHeight: 100,
   },
 
   // Complete button

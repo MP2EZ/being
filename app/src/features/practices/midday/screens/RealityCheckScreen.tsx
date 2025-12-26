@@ -1,23 +1,19 @@
 /**
  * REALITY CHECK SCREEN (Screen 2 of 4)
  *
- * MAINT-65: Stoic Mindfulness Midday Flow - Refactored
- * Principles: Radical Acceptance + Sphere Sovereignty
+ * MAINT-65: Stoic Mindfulness Midday Flow - Simplified
+ * Principles: Sphere Sovereignty (Dichotomy of Control)
  *
- * Purpose: Accept reality, identify what's controllable
+ * Purpose: Focus on what's controllable
  *
- * Structure:
+ * Structure (UX-simplified):
  * 1. Previous answer card (shows situation from Screen 1)
- * 2. Graduated acceptance selector (3 levels)
- * 3. Text input: "What's actually within your power here?"
+ * 2. Single text input: "What can you actually control or influence here?"
  *
- * Philosopher-validated levels:
- * - Full: "I can accept this as it is"
- * - Aware Resistance: "I notice I'm resisting"
- * - Struggling: "I'm struggling to accept" (no shame - honest acknowledgment)
+ * UX/Philosopher validated: Removed 3-way acceptance selector + quote
+ * Dichotomy of control embedded in helper text
  *
  * @see /docs/design/midday-flow-wireframes-v2.md
- * @see /docs/architecture/Stoic-Mindfulness-Architecture-v1.0.md
  */
 
 import React, { useState, useCallback } from 'react';
@@ -34,7 +30,6 @@ import {
 import type { StackScreenProps } from '@react-navigation/stack';
 import { colorSystem, spacing, borderRadius, typography, getTheme } from '@/core/theme';
 import { PreviousAnswerCard } from '@/features/practices/shared/components/PreviousAnswerCard';
-import { GraduatedAcceptanceSelector, type AcceptanceLevel } from '@/features/practices/shared/components/GraduatedAcceptanceSelector';
 import type { MiddayFlowParamList, RealityCheckData } from '@/features/practices/types/flows';
 
 type Props = StackScreenProps<MiddayFlowParamList, 'RealityCheck'> & {
@@ -51,31 +46,27 @@ const RealityCheckScreen: React.FC<Props> = ({
   // FEAT-23: Restore initial data if resuming session
   const initialData = (route.params as any)?.initialData as RealityCheckData | undefined;
 
-  // State
-  const [acceptanceLevel, setAcceptanceLevel] = useState<AcceptanceLevel | null>(
-    initialData?.acceptanceLevel || null
-  );
+  // State - single text input (simplified from acceptance selector + input)
   const [withinPower, setWithinPower] = useState(initialData?.withinPower || '');
 
   const themeColors = getTheme('midday');
 
   // Handle continue
   const handleContinue = useCallback(() => {
-    if (!acceptanceLevel || !withinPower.trim()) {
+    if (!withinPower.trim()) {
       return;
     }
 
     const data: RealityCheckData = {
-      acceptanceLevel,
       withinPower: withinPower.trim(),
       timestamp: new Date(),
     };
 
     onSave?.(data);
     navigation.navigate('VirtueResponse');
-  }, [acceptanceLevel, withinPower, onSave, navigation]);
+  }, [withinPower, onSave, navigation]);
 
-  const canContinue = acceptanceLevel !== null && withinPower.trim().length > 0;
+  const canContinue = withinPower.trim().length > 0;
 
   return (
     <KeyboardAvoidingView
@@ -99,7 +90,13 @@ const RealityCheckScreen: React.FC<Props> = ({
           <Text style={[styles.backButtonText, { color: themeColors.primary }]}>← Back</Text>
         </Pressable>
 
-        {/* Previous Answer Card */}
+        {/* Section Header */}
+        <Text style={styles.sectionTitle}>Reality Check</Text>
+        <Text style={styles.sectionSubtitle}>
+          Let's examine what's truly within your power.
+        </Text>
+
+        {/* Previous Answer Card - Context from Screen 1 */}
         {previousSituation && (
           <PreviousAnswerCard
             label="What's weighing on you:"
@@ -109,29 +106,13 @@ const RealityCheckScreen: React.FC<Props> = ({
           />
         )}
 
-        {/* Section Header */}
-        <Text style={styles.sectionTitle}>Reality Check</Text>
-        <Text style={styles.sectionSubtitle}>
-          Accept what's happening, then identify what you can control.
-        </Text>
-
-        {/* Graduated Acceptance Selector */}
-        <View style={styles.acceptanceSection}>
-          <GraduatedAcceptanceSelector
-            value={acceptanceLevel}
-            onChange={setAcceptanceLevel}
-            theme="midday"
-            testID="acceptance-selector"
-          />
-        </View>
-
-        {/* Sphere of Control Input */}
+        {/* Sphere of Control Input - Single focused input */}
         <View style={styles.inputSection}>
           <Text style={styles.inputLabel}>
-            What's actually within your power here? <Text style={styles.required}>*</Text>
+            What can you actually control or influence here?
           </Text>
           <Text style={styles.inputHint}>
-            Focus on your intentions, judgments, and responses—not outcomes.
+            Focus on your own thoughts, intentions, and actions—not outcomes or other people's behavior.
           </Text>
 
           <TextInput
@@ -141,25 +122,15 @@ const RealityCheckScreen: React.FC<Props> = ({
             ]}
             value={withinPower}
             onChangeText={setWithinPower}
-            placeholder="E.g., 'I can choose how I respond, ask for help, set boundaries...'"
+            placeholder="E.g., 'My response, my attitude, asking for help...'"
             placeholderTextColor={colorSystem.gray[500]}
             multiline
-            numberOfLines={3}
+            numberOfLines={4}
             textAlignVertical="top"
             accessibilityLabel="What's within your power"
             accessibilityHint="Enter what you can control in this situation"
             testID="within-power-input"
           />
-        </View>
-
-        {/* Stoic Wisdom Note */}
-        <View style={[styles.wisdomCard, { backgroundColor: themeColors.background }]}>
-          <Text style={styles.wisdomText}>
-            "Make the best use of what is in your power, and take the rest as it happens."
-          </Text>
-          <Text style={[styles.wisdomSource, { color: themeColors.primary }]}>
-            — Epictetus, Enchiridion 1
-          </Text>
         </View>
 
         {/* Continue Button */}
@@ -214,31 +185,24 @@ const styles = StyleSheet.create({
   sectionSubtitle: {
     fontSize: typography.bodyRegular.size,
     color: colorSystem.gray[600],
-    marginBottom: spacing[24],
-  },
-
-  // Acceptance section
-  acceptanceSection: {
-    marginBottom: spacing[24],
+    marginBottom: spacing[16],
   },
 
   // Input section
   inputSection: {
-    marginBottom: spacing[24],
+    marginBottom: spacing[32],
   },
   inputLabel: {
-    fontSize: typography.bodySmall.size,
+    fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.medium,
-    color: colorSystem.gray[700],
+    color: colorSystem.base.black,
     marginBottom: spacing[8],
   },
-  required: {
-    color: colorSystem.status.error,
-  },
   inputHint: {
-    fontSize: typography.caption.size,
+    fontSize: typography.bodySmall.size,
     color: colorSystem.gray[600],
-    marginBottom: spacing[12],
+    marginBottom: spacing[16],
+    lineHeight: typography.bodySmall.size * 1.5,
   },
   textInput: {
     borderWidth: 2,
@@ -247,25 +211,7 @@ const styles = StyleSheet.create({
     fontSize: typography.bodyRegular.size,
     color: colorSystem.base.black,
     backgroundColor: colorSystem.base.white,
-    minHeight: 100,
-  },
-
-  // Wisdom card
-  wisdomCard: {
-    padding: spacing[16],
-    borderRadius: borderRadius.medium,
-    marginBottom: spacing[24],
-  },
-  wisdomText: {
-    fontSize: typography.bodySmall.size,
-    fontStyle: 'italic',
-    color: colorSystem.gray[700],
-    lineHeight: typography.bodySmall.size * 1.5,
-    marginBottom: spacing[8],
-  },
-  wisdomSource: {
-    fontSize: typography.caption.size,
-    fontWeight: typography.fontWeight.medium,
+    minHeight: 120,
   },
 
   // Continue button
@@ -273,7 +219,6 @@ const styles = StyleSheet.create({
     padding: spacing[16],
     borderRadius: borderRadius.medium,
     alignItems: 'center',
-    marginTop: spacing[8],
   },
   continueButtonPressed: {
     opacity: 0.8,

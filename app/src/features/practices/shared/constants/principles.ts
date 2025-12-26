@@ -5,7 +5,7 @@
  * FEAT-45: Consolidated from 12 principles to 5 integrative principles.
  *
  * MAINT-65: Extracted from PrincipleFocusScreen for reuse across flows.
- * Used by: PrincipleFocusScreen (morning), StoicPrinciplePicker (midday/evening)
+ * Used by: PrincipleFocusScreen (morning), Learn tab principle screens
  *
  * @see /docs/architecture/Stoic-Mindfulness-Architecture-v1.0.md (v1.1 LOCKED)
  * @see /docs/product/stoic-mindfulness/principles/ for detailed documentation

@@ -316,33 +316,33 @@ export interface PauseAcknowledgeData {
 /**
  * Screen 2: Reality Check
  * Principles: Radical Acceptance + Sphere Sovereignty
- * Purpose: Accept reality, identify what's controllable
+ * Purpose: Focus on what's controllable (simplified per UX/Philosopher validation)
+ * @see MAINT-65 UX simplification - removed acceptance selector
  */
 export interface RealityCheckData {
-  acceptanceLevel: 'full' | 'aware_resistance' | 'struggling';
-  withinPower: string;  // "What's actually within your power here?"
+  withinPower: string;  // "What can you actually control or influence here?"
   timestamp: Date;
 }
 
 /**
  * Screen 3: Virtue Response
  * Principle: Virtuous Response
- * Purpose: Choose virtuous response, identify guiding principle
+ * Purpose: Choose virtuous action (simplified per UX/Philosopher validation)
+ * @see MAINT-65 UX simplification - removed principle picker (virtue demonstrated through action)
  */
 export interface VirtueResponseData {
-  virtuousResponse: string;  // "How does virtue invite you to respond?"
-  guidingPrinciple: StoicPrinciple;  // Required - feeds Insights dashboard
+  virtuousResponse: string;  // "What's one small, virtuous action you could take?"
   timestamp: Date;
 }
 
 /**
  * Screen 4: Compassionate Close
  * Principle: Interconnected Living
- * Purpose: Self-compassion and integration into afternoon
+ * Purpose: Single integration prompt before completion (simplified per UX validation)
+ * @see MAINT-65 UX simplification - merged two inputs into one, removed previous answer card
  */
 export interface CompassionateCloseData {
-  selfCompassion?: string | undefined;      // "What kindness do you need?" (optional)
-  afternoonIntention?: string | undefined;  // "How will you carry this forward?" (optional)
+  integrationNote?: string | undefined;  // "What do you need to remember as you return to your day?" (optional)
   timestamp: Date;
 }
 

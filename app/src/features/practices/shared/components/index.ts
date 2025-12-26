@@ -1,20 +1,12 @@
 /**
- * Shared Components Index - Check-in Flow Components
+ * Shared Components Index - Practice Flow Components
  * Export all reusable components for flows
+ *
+ * MAINT-65: Cleaned up 9 unused legacy components
  */
 
 export { default as BreathingCircle } from './BreathingCircle';
 export { default as Timer } from './Timer';
-export { default as EmotionGrid } from './EmotionGrid';
-export { default as NeedsGrid } from './NeedsGrid';
-export { default as ValueSlider } from './ValueSlider';
-export { default as EveningValueSlider } from './EveningValueSlider';
-export { default as ThoughtPatternGrid } from './ThoughtPatternGrid';
-export { default as ThoughtBubbles } from './ThoughtBubbles';
-export { default as DreamJournal } from './DreamJournal';
-
-// DEPRECATED: SafetyButton replaced by CollapsibleCrisisButton
-// DEPRECATED: OverflowSupport unused
 
 // FEAT-23: Session resumption
 export { ResumeSessionModal } from './ResumeSessionModal';
@@ -23,7 +15,5 @@ export { ResumeSessionModal } from './ResumeSessionModal';
 export { FlowProgressIndicator } from './FlowProgressIndicator';
 export type { FlowType } from './FlowProgressIndicator';
 
-// Type exports
-export type { Emotion } from './EmotionGrid';
-export type { Need } from './NeedsGrid';
-export type { ThoughtPattern } from './ThoughtPatternGrid';
+// Note: BodyAreaGrid exports BODY_AREAS constant used by Learn tab
+// Import directly: import { BODY_AREAS } from '@/features/practices/shared/components/BodyAreaGrid';

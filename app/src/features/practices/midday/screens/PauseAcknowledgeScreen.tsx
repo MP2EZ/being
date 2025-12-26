@@ -129,6 +129,12 @@ const PauseAcknowledgeScreen: React.FC<Props> = ({ navigation, route, onSave }) 
         {/* Input Phase (shown after breathing completes) */}
         {breathCompleted && (
           <View style={styles.inputSection}>
+            {/* Section Header */}
+            <Text style={styles.sectionTitle}>Pause & Acknowledge</Text>
+            <Text style={styles.sectionSubtitle}>
+              You've paused. Now name what's present.
+            </Text>
+
             {/* Completion message */}
             <View style={[styles.completionCard, { backgroundColor: themeColors.background }]}>
               <Text style={[styles.completionText, { color: themeColors.primary }]}>
@@ -226,6 +232,19 @@ const styles = StyleSheet.create({
   },
   breathCircleContainer: {
     marginBottom: spacing[24],
+  },
+
+  // Section header (input phase)
+  sectionTitle: {
+    fontSize: typography.headline3.size,
+    fontWeight: typography.fontWeight.semibold,
+    color: colorSystem.base.black,
+    marginBottom: spacing[8],
+  },
+  sectionSubtitle: {
+    fontSize: typography.bodyRegular.size,
+    color: colorSystem.gray[600],
+    marginBottom: spacing[16],
   },
 
   // Input section

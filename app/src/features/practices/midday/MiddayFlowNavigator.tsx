@@ -1,31 +1,31 @@
 /**
  * MiddayFlowNavigator - Stoic Mindfulness Midday Reset (MAINT-65)
  *
- * MAINT-65: Refactored 4-Screen Flow (Philosopher-validated 8.5/10)
+ * MAINT-65: Simplified 4-Screen Flow (UX + Philosopher validated 9/10)
  *
- * NEW FLOW ORDER (aligned with 5 Stoic Mindfulness Principles):
- * 1. Pause & Acknowledge → Aware Presence (30s micro-breath + situation)
- * 2. Reality Check → Radical Acceptance + Sphere Sovereignty
- * 3. Virtue Response → Virtuous Response (principle picker)
- * 4. Compassionate Close → Interconnected Living (completion)
+ * FLOW ORDER (action-focused, reduced cognitive load):
+ * 1. Pause & Acknowledge → 30s breath + situation input
+ * 2. Reality Check → Single input: "What can you control?"
+ * 3. Virtue Response → Single input: "What virtuous action?"
+ * 4. Compassionate Close → Optional integration note + completion
  *
- * KEY CHANGES FROM v1:
- * - Reduced from 5 screens to 4 (removed standalone Embodiment)
- * - 30s micro-breath integrated into Screen 1 (was 60s standalone)
- * - Principle picker now required (feeds Insights dashboard)
- * - Previous answer cards for contextual continuity
- * - Duration: 3-5 minutes (down from 3-7 minutes)
+ * UX SIMPLIFICATIONS (validated by philosopher):
+ * - Removed 3-way acceptance selector (Screen 2)
+ * - Removed principle picker + Cardinal Virtues card (Screen 3)
+ * - Removed previous answer card + second input (Screen 4)
+ * - Quote moved to post-completion success state
+ * - Virtue demonstrated through action, not by naming
+ * - Duration: 2-3 minutes (down from 3-5 minutes)
  *
  * NON-NEGOTIABLES:
  * - Crisis-accessible (<3s from any screen)
- * - Self-compassion field on closing screen
- * - Principle selection feeds Insights dashboard
+ * - Dichotomy of control embedded in helper text
+ * - Previous answer cards on Screens 2-3 for continuity
  *
  * FEAT-23: Session resumption with philosopher-validated Stoic language
  * INFRA-135: Uses shared FlowProgressIndicator and useFlowSessionResumption hook
  *
  * @see /docs/design/midday-flow-wireframes-v2.md
- * @see /docs/architecture/Stoic-Mindfulness-Architecture-v1.0.md
  */
 
 import React, { useState } from 'react';
@@ -91,11 +91,11 @@ const MiddayFlowNavigator: React.FC<MiddayFlowNavigatorProps> = ({
     logPrefix: '[MiddayFlow]',
   });
 
-  // Custom header with progress
-  const getHeaderOptions = (_routeName: keyof MiddayFlowParamList, title: string) => ({
+  // Custom header with flow name + progress (screen titles are in cards)
+  const getHeaderOptions = () => ({
     headerTitle: () => (
       <View style={styles.headerContainer}>
-        <Text style={styles.headerTitle}>{title}</Text>
+        <Text style={styles.headerTitle}>Midday Reset</Text>
         <FlowProgressIndicator
           currentStep={currentStep}
           totalSteps={totalSteps}
@@ -136,7 +136,6 @@ const MiddayFlowNavigator: React.FC<MiddayFlowNavigatorProps> = ({
     <VirtueResponseScreen
       navigation={navigation}
       route={route}
-      previousSituation={sessionData.pauseAcknowledge?.situation}
       previousWithinPower={sessionData.realityCheck?.withinPower}
       onSave={(data) => {
         updateScreenData('VirtueResponse', data, 'CompassionateClose');
@@ -164,8 +163,8 @@ const MiddayFlowNavigator: React.FC<MiddayFlowNavigatorProps> = ({
       <CompassionateCloseScreen
         navigation={navigation}
         route={route}
-        previousVirtuousResponse={sessionData.virtueResponse?.virtuousResponse}
         onComplete={handleComplete}
+        startTime={startTime}
       />
     );
   };
@@ -245,25 +244,25 @@ const MiddayFlowNavigator: React.FC<MiddayFlowNavigatorProps> = ({
         <Stack.Screen
           name="PauseAcknowledge"
           component={PauseAcknowledgeScreenWrapper}
-          options={getHeaderOptions('PauseAcknowledge', 'Pause & Acknowledge')}
+          options={getHeaderOptions()}
         />
 
         <Stack.Screen
           name="RealityCheck"
           component={RealityCheckScreenWrapper}
-          options={getHeaderOptions('RealityCheck', 'Reality Check')}
+          options={getHeaderOptions()}
         />
 
         <Stack.Screen
           name="VirtueResponse"
           component={VirtueResponseScreenWrapper}
-          options={getHeaderOptions('VirtueResponse', 'Virtue Response')}
+          options={getHeaderOptions()}
         />
 
         <Stack.Screen
           name="CompassionateClose"
           component={CompassionateCloseScreenWrapper}
-          options={{ headerShown: false }}
+          options={getHeaderOptions()}
         />
       </Stack.Navigator>
 
@@ -278,7 +277,7 @@ const MiddayFlowNavigator: React.FC<MiddayFlowNavigatorProps> = ({
 };
 
 const styles = StyleSheet.create({
-  // Header container and title
+  // Header
   headerContainer: {
     alignItems: 'center',
     width: '100%',
