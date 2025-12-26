@@ -9,13 +9,12 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { SimpleThemeProvider } from './src/core/providers/ThemeProvider';
 import CleanRootNavigator from './src/core/navigation/CleanRootNavigator';
-import { postCrisisSupportService } from './src/features/crisis/services/PostCrisisSupportService';
-import { migrateCrisisDataToSecureStore } from './src/features/crisis/services/CrisisDataMigration';
 import { IAPService } from './src/core/services/subscription/IAPService';
 import { useSubscriptionStore } from './src/core/stores/subscriptionStore';
 import EncryptionService from './src/core/services/security/EncryptionService';
 import { useSettingsStore } from './src/core/stores/settingsStore';
 import { initializeExternalReporting } from './src/core/services/logging';
+import { DataRetentionService } from './src/core/services/data-retention';
 
 export default function App() {
   const [isInitialized, setIsInitialized] = useState(false);
@@ -35,17 +34,6 @@ export default function App() {
         // Only active in production when EXPO_PUBLIC_SENTRY_DSN is set
         await initializeExternalReporting();
 
-        // Initialize PostCrisisSupport service (includes automatic migration)
-        console.log('[App] Migrating crisis data to SecureStore...');
-        await postCrisisSupportService.initialize();
-
-        // Migrate crisis detection/intervention logs from AsyncStorage to SecureStore
-        const migrationResult = await migrateCrisisDataToSecureStore();
-
-        if (migrationResult.migratedKeys > 0) {
-          console.log(`[App] Crisis data migration completed: ${migrationResult.migratedKeys}/${migrationResult.totalKeys} keys migrated`);
-        }
-
         // Initialize subscription system
         console.log('[App] Initializing subscription system...');
 
@@ -58,6 +46,16 @@ export default function App() {
           console.log('[App] IAP service initialized');
         } else {
           console.log('[App] IAP not available on this platform');
+        }
+
+        // Run data retention cleanup (MAINT-123)
+        // Safe to call on every launch - runs max once per day
+        console.log('[App] Running data retention cleanup...');
+        const cleanupResult = await DataRetentionService.runRetentionCleanup();
+        if (cleanupResult.totalRecordsDeleted > 0) {
+          console.log(`[App] Data retention: ${cleanupResult.totalRecordsDeleted} records cleaned up`);
+        } else {
+          console.log('[App] Data retention: No cleanup needed');
         }
 
         setIsInitialized(true);
