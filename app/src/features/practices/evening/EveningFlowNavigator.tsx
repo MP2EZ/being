@@ -98,16 +98,6 @@ const SCREEN_ORDER = [
 
 type EveningScreenName = (typeof SCREEN_ORDER)[number];
 
-// Screen titles for header
-const SCREEN_TITLES: Record<keyof EveningFlowParamList, string> = {
-  Breathing: 'Evening Practice',
-  Gratitude: 'Evening Gratitude',
-  VirtueReflection: 'Reflection',
-  SelfCompassion: 'Self-Compassion',
-  Tomorrow: "Tomorrow's Intention",
-  SleepTransition: 'Evening Complete',
-};
-
 const EveningFlowNavigator: React.FC<EveningFlowNavigatorProps> = ({
   onComplete,
   onExit,
@@ -137,12 +127,11 @@ const EveningFlowNavigator: React.FC<EveningFlowNavigatorProps> = ({
     logPrefix: '[EveningFlow]',
   });
 
-  // Custom header with progress (matches morning/midday pattern)
-  // X close button on left in header, Back link rendered in screen content
-  const getHeaderOptions = (routeName: keyof EveningFlowParamList) => ({
+  // Custom header with flow name + progress (screen titles are in cards)
+  const getHeaderOptions = () => ({
     headerTitle: () => (
       <View style={styles.headerContainer}>
-        <Text style={styles.headerTitle}>{SCREEN_TITLES[routeName]}</Text>
+        <Text style={styles.headerTitle}>Evening Reflection</Text>
         <FlowProgressIndicator
           currentStep={currentStep}
           totalSteps={totalSteps}
@@ -359,37 +348,37 @@ const EveningFlowNavigator: React.FC<EveningFlowNavigatorProps> = ({
         <Stack.Screen
           name="Breathing"
           component={BreathingScreenWrapper}
-          options={getHeaderOptions('Breathing')}
+          options={getHeaderOptions()}
         />
 
         <Stack.Screen
           name="Gratitude"
           component={GratitudeScreenWrapper}
-          options={getHeaderOptions('Gratitude')}
+          options={getHeaderOptions()}
         />
 
         <Stack.Screen
           name="VirtueReflection"
           component={VirtueReflectionScreenWrapper}
-          options={getHeaderOptions('VirtueReflection')}
+          options={getHeaderOptions()}
         />
 
         <Stack.Screen
           name="SelfCompassion"
           component={SelfCompassionScreenWrapper}
-          options={getHeaderOptions('SelfCompassion')}
+          options={getHeaderOptions()}
         />
 
         <Stack.Screen
           name="Tomorrow"
           component={TomorrowScreenWrapper}
-          options={getHeaderOptions('Tomorrow')}
+          options={getHeaderOptions()}
         />
 
         <Stack.Screen
           name="SleepTransition"
           component={SleepTransitionScreenWrapper}
-          options={getHeaderOptions('SleepTransition')}
+          options={getHeaderOptions()}
         />
       </Stack.Navigator>
 
