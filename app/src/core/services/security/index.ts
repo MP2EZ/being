@@ -43,6 +43,7 @@ export { default as SecureStorageService } from './SecureStorageService';
 export { default as NetworkSecurityService } from './NetworkSecurityService';
 export { default as SecurityMonitoringService } from './SecurityMonitoringService';
 export { default as IncidentResponseService } from './IncidentResponseService';
+export { default as DeepLinkValidationService } from './DeepLinkValidationService';
 
 // Crisis-Specific Security - Re-export
 export { default as CrisisSecurityProtocol } from '@/features/crisis/services/CrisisSecurityProtocol';
@@ -118,6 +119,16 @@ export type {
   ContainmentAction,
   RecoveryPlan
 } from './IncidentResponseService';
+
+// Type Exports - Deep Link Validation Service
+export type {
+  DeepLinkValidationResult,
+  DeepLinkValidationError,
+  DeepLinkErrorCode,
+  DeepLinkSecurityEvent
+} from './DeepLinkValidationService';
+
+export { DEEP_LINK_CONFIG } from './DeepLinkValidationService';
 
 /**
  * COMPREHENSIVE SECURITY ORCHESTRATOR

@@ -17,20 +17,41 @@
     "assetBundlePatterns": [
       "**/*"
     ],
+    "scheme": "being",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.being.app",
       "buildNumber": "1",
       "icon": "./assets/icon.png",
       "jsEngine": "hermes",
-      "newArchEnabled": true
+      "newArchEnabled": true,
+      "associatedDomains": ["applinks:being.fyi", "applinks:www.being.fyi"]
     },
     "android": {
       "package": "com.being.app",
       "versionCode": 1,
       "icon": "./assets/icon.png",
       "jsEngine": "hermes",
-      "newArchEnabled": true
+      "newArchEnabled": true,
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "being.fyi",
+              "pathPrefix": "/"
+            },
+            {
+              "scheme": "https",
+              "host": "www.being.fyi",
+              "pathPrefix": "/"
+            }
+          ],
+          "category": ["BROWSABLE", "DEFAULT"]
+        }
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png",
