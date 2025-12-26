@@ -9,8 +9,6 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { SimpleThemeProvider } from './src/core/providers/ThemeProvider';
 import CleanRootNavigator from './src/core/navigation/CleanRootNavigator';
-import { postCrisisSupportService } from './src/features/crisis/services/PostCrisisSupportService';
-import { migrateCrisisDataToSecureStore } from './src/features/crisis/services/CrisisDataMigration';
 import { IAPService } from './src/core/services/subscription/IAPService';
 import { useSubscriptionStore } from './src/core/stores/subscriptionStore';
 import EncryptionService from './src/core/services/security/EncryptionService';
@@ -35,17 +33,6 @@ export default function App() {
         // Initialize external error reporting (Sentry) - INFRA-61
         // Only active in production when EXPO_PUBLIC_SENTRY_DSN is set
         await initializeExternalReporting();
-
-        // Initialize PostCrisisSupport service (includes automatic migration)
-        console.log('[App] Migrating crisis data to SecureStore...');
-        await postCrisisSupportService.initialize();
-
-        // Migrate crisis detection/intervention logs from AsyncStorage to SecureStore
-        const migrationResult = await migrateCrisisDataToSecureStore();
-
-        if (migrationResult.migratedKeys > 0) {
-          console.log(`[App] Crisis data migration completed: ${migrationResult.migratedKeys}/${migrationResult.totalKeys} keys migrated`);
-        }
 
         // Initialize subscription system
         console.log('[App] Initializing subscription system...');

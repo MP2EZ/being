@@ -13,5 +13,4 @@
 export * from './services';
 export * from './components';
 export * from './screens';
-export * from './stores';
 export * from './types';
