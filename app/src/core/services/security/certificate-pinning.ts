@@ -27,10 +27,15 @@ import { logSecurity, logError, LogCategory } from '../logging';
 /**
  * Certificate pins for Supabase endpoints
  *
- * Supabase uses Cloudflare for TLS termination.
+ * Supabase uses Google Trust Services (GTS) for TLS.
  * Pins are SHA-256 hashes of the Subject Public Key Info (SPKI)
  *
- * IMPORTANT: Verify these pins before production deployment by running:
+ * Current certificate chain (verified 2025-12-25):
+ * - Leaf: supabase.co (issued by WE1)
+ * - Intermediate: WE1 (Google Trust Services, issued by GTS Root R4)
+ * - Root: GTS Root R4 (cross-signed by GlobalSign Root CA)
+ *
+ * IMPORTANT: Verify pins before production deployment:
  * openssl s_client -connect pqlhcblzwuonyhltjlth.supabase.co:443 -servername pqlhcblzwuonyhltjlth.supabase.co -showcerts
  */
 export const SUPABASE_CERTIFICATE_PINS = {
@@ -39,15 +44,17 @@ export const SUPABASE_CERTIFICATE_PINS = {
    * Host: pqlhcblzwuonyhltjlth.supabase.co
    */
   'pqlhcblzwuonyhltjlth.supabase.co': {
-    // Cloudflare Inc ECC CA-3 (intermediate)
-    // Common intermediate CA used by Cloudflare-protected domains
-    primary: 'Vo5VKd0aM3a3tLRH48gDpqPR+yKjOs98hPB3yzQdIjI=',
+    // WE1 - Google Trust Services Intermediate CA (current chain)
+    // Expires: 2029-02-20 (certificate validity)
+    primary: 'kIdp6NNEd8wsugYyyIYFsi1ylMCED3hZbSR8ZFsa/A4=',
 
-    // Baltimore CyberTrust Root (Cloudflare legacy root)
-    backup1: 'Y9mvm0exBk1JoQ57f9Vm28jKo5lFm/woKcVxrYxu80o=',
+    // GTS Root R4 - Google Trust Services Root CA (current chain root)
+    // Cross-signed by GlobalSign Root CA
+    backup1: 'mEflZT5enoR1FuXLgYYGqnVEoZvmf9c2bVBpiOjYQ0c=',
 
-    // DigiCert Global Root G2 (Cloudflare current root)
-    backup2: 'i7WTqTvh0OioIruIfFR4kMPnBqrS2rdiVPl/s2uC/CY=',
+    // GTS Root R1 - Alternative Google Trust Services Root
+    // Used as backup in case of CA rotation within Google PKI
+    backup2: 'hxqRlPTu1bMS/0DITB1SSu0vd4u/8l8TjPgfaAp63Gc=',
   },
 
   /**
@@ -55,9 +62,9 @@ export const SUPABASE_CERTIFICATE_PINS = {
    * Used for auth endpoints and future Supabase services
    */
   '*.supabase.co': {
-    primary: 'Vo5VKd0aM3a3tLRH48gDpqPR+yKjOs98hPB3yzQdIjI=',
-    backup1: 'Y9mvm0exBk1JoQ57f9Vm28jKo5lFm/woKcVxrYxu80o=',
-    backup2: 'i7WTqTvh0OioIruIfFR4kMPnBqrS2rdiVPl/s2uC/CY=',
+    primary: 'kIdp6NNEd8wsugYyyIYFsi1ylMCED3hZbSR8ZFsa/A4=',
+    backup1: 'mEflZT5enoR1FuXLgYYGqnVEoZvmf9c2bVBpiOjYQ0c=',
+    backup2: 'hxqRlPTu1bMS/0DITB1SSu0vd4u/8l8TjPgfaAp63Gc=',
   },
 } as const;
 
