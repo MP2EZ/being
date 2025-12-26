@@ -1,26 +1,31 @@
 /**
- * HIPAA COMPLIANCE ENGINE - DRD-FLOW-005 Assessment System
+ * DATA PROTECTION ENGINE - DRD-FLOW-005 Assessment System
  *
- * COMPREHENSIVE HIPAA COMPLIANCE:
- * - Protected Health Information (PHI) classification and handling
- * - Privacy Rule compliance for assessment data
- * - Security Rule technical safeguards implementation
- * - Breach Notification Rule compliance and procedures
- * - Business Associate Agreement (BAA) management
- * - Minimum Necessary Rule enforcement
+ * COMPREHENSIVE PRIVACY COMPLIANCE:
+ * - Sensitive data classification and handling
+ * - CCPA/CPRA consumer privacy compliance
+ * - FTC Health Breach Notification Rule (16 CFR 318)
+ * - CA SB 446 breach notification (effective Jan 1, 2026)
+ * - NY SHIELD Act compliance
+ * - TX TDPSA sensitive data requirements
+ * - Data minimization enforcement
  * - Individual Rights compliance (access, portability, deletion)
  *
- * MENTAL HEALTH SPECIFIC REQUIREMENTS:
- * - Enhanced sensitivity for mental health PHI
+ * WELLNESS DATA REQUIREMENTS:
+ * - Enhanced sensitivity for wellness assessment data
  * - Crisis intervention data protection
- * - Therapeutic relationship preservation
- * - Clinical assessment data integrity
- * - Professional sharing protocols for emergency situations
+ * - User privacy preservation
+ * - Assessment data integrity
+ * - Emergency sharing protocols for imminent harm
+ *
+ * NOTE: Being is NOT a HIPAA covered entity. This engine implements
+ * privacy protections required by applicable consumer privacy laws.
+ * Legacy type names (PHI*, HIPAA*) maintained for backwards compatibility.
  *
  * INTEGRATION WITH EXISTING SYSTEMS:
  * - Crisis detection and intervention workflows
  * - Assessment data storage and encryption
- * - Audit trail integration for clinical compliance
+ * - Audit trail integration for compliance
  * - User consent and authorization management
  */
 
@@ -39,24 +44,24 @@ import type {
 } from '@/features/assessment/types';
 
 /**
- * HIPAA COMPLIANCE CONFIGURATION
- * Regulatory requirements and implementation standards
+ * DATA PROTECTION COMPLIANCE CONFIGURATION
+ * Regulatory requirements: CCPA/CPRA, FTC Health Breach Rule, CA SB 446, NY SHIELD, TX TDPSA
  */
-export const HIPAA_COMPLIANCE_CONFIG = {
-  /** Data retention periods per HIPAA requirements */
+export const DATA_PROTECTION_CONFIG = {
+  /** Data retention periods (purpose-based, not HIPAA) */
   DATA_RETENTION: {
-    /** Mental health records retention (6 years minimum) */
-    CLINICAL_RECORDS_YEARS: 6,
-    /** Assessment data retention (6 years) */
-    ASSESSMENT_DATA_YEARS: 6,
-    /** Crisis intervention records (7 years) */
-    CRISIS_RECORDS_YEARS: 7,
-    /** Audit logs retention (6 years) */
-    AUDIT_LOGS_YEARS: 6,
+    /** Wellness assessment data retention (2 years) */
+    WELLNESS_DATA_YEARS: 2,
+    /** Assessment data retention (2 years) */
+    ASSESSMENT_DATA_YEARS: 2,
+    /** Crisis intervention records (3 years - liability protection) */
+    CRISIS_RECORDS_YEARS: 3,
+    /** Audit logs retention (3 years - security practice) */
+    AUDIT_LOGS_YEARS: 3,
     /** Consent records retention (indefinite until revoked) */
     CONSENT_RECORDS_INDEFINITE: true
   },
-  /** Encryption requirements per Security Rule */
+  /** Encryption requirements (FTC reasonable security, state laws) */
   ENCRYPTION: {
     /** Minimum encryption algorithm */
     ALGORITHM: 'AES-256',
@@ -80,8 +85,8 @@ export const HIPAA_COMPLIANCE_CONFIG = {
   },
   /** Audit requirements */
   AUDIT: {
-    /** Audit all PHI access */
-    AUDIT_ALL_PHI_ACCESS: true,
+    /** Audit all sensitive data access */
+    AUDIT_ALL_SENSITIVE_ACCESS: true,
     /** Audit log integrity verification */
     VERIFY_AUDIT_INTEGRITY: true,
     /** Real-time audit event processing */
@@ -89,35 +94,48 @@ export const HIPAA_COMPLIANCE_CONFIG = {
     /** Audit log backup frequency (hours) */
     BACKUP_FREQUENCY_HOURS: 24
   },
-  /** Breach notification timeframes */
+  /** Breach notification timeframes (state law requirements) */
   BREACH_NOTIFICATION: {
-    /** Discovery to notification (hours) */
-    DISCOVERY_TO_NOTIFICATION_HOURS: 60,
-    /** Notification to individuals (days) */
-    INDIVIDUAL_NOTIFICATION_DAYS: 60,
-    /** HHS notification (days) */
-    HHS_NOTIFICATION_DAYS: 60,
+    /** Discovery to notification (hours) - internal SLA */
+    DISCOVERY_TO_NOTIFICATION_HOURS: 48,
+    /** Consumer notification deadline (days) - strictest: CA/NY 30 days */
+    CONSUMER_NOTIFICATION_DAYS: 30,
+    /** FTC notification deadline (days) - 16 CFR 318 */
+    FTC_NOTIFICATION_DAYS: 60,
+    /** CA AG notification threshold (CA SB 446) */
+    CA_AG_THRESHOLD: 500,
+    /** TX AG notification threshold (TX TDPSA) */
+    TX_AG_THRESHOLD: 250,
     /** Media notification threshold (individuals affected) */
     MEDIA_NOTIFICATION_THRESHOLD: 500
   }
 } as const;
 
+// Legacy alias for backwards compatibility
+export const HIPAA_COMPLIANCE_CONFIG = DATA_PROTECTION_CONFIG;
+
 /**
- * PHI CLASSIFICATION SYSTEM
- * Comprehensive classification of Protected Health Information
+ * DATA SENSITIVITY CLASSIFICATION SYSTEM
+ * Classification of sensitive wellness data per CCPA/CPRA and TX TDPSA
+ *
+ * NOTE: Legacy enum name PHIClassification maintained for backwards compatibility.
+ * New code should use DataSensitivityLevel values.
  */
 export enum PHIClassification {
-  /** Non-PHI data (no special protection needed) */
-  NON_PHI = 'non_phi',
-  /** Limited PHI (demographic info, etc.) */
-  LIMITED_PHI = 'limited_phi',
-  /** Standard PHI (general health information) */
-  STANDARD_PHI = 'standard_phi',
-  /** Sensitive PHI (mental health, substance abuse) */
-  SENSITIVE_PHI = 'sensitive_phi',
-  /** Critical PHI (crisis/suicidal ideation data) */
-  CRITICAL_PHI = 'critical_phi'
+  /** Public data (no special protection needed) */
+  NON_PHI = 'public',
+  /** Internal data (app preferences, usage patterns) */
+  LIMITED_PHI = 'internal',
+  /** Confidential data (journal entries, mood logs) */
+  STANDARD_PHI = 'confidential',
+  /** Sensitive data (PHQ-9, GAD-7 wellness scores) - TX TDPSA sensitive category */
+  SENSITIVE_PHI = 'sensitive',
+  /** Critical data (crisis/suicidal ideation data) - highest protection */
+  CRITICAL_PHI = 'critical'
 }
+
+// New enum alias with clearer naming
+export const DataSensitivityLevel = PHIClassification;
 
 /**
  * PHI DATA ELEMENT CLASSIFICATION
