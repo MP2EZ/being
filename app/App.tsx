@@ -16,6 +16,7 @@ import { useSubscriptionStore } from './src/core/stores/subscriptionStore';
 import EncryptionService from './src/core/services/security/EncryptionService';
 import { useSettingsStore } from './src/core/stores/settingsStore';
 import { initializeExternalReporting } from './src/core/services/logging';
+import { DataRetentionService } from './src/core/services/data-retention';
 
 export default function App() {
   const [isInitialized, setIsInitialized] = useState(false);
@@ -58,6 +59,16 @@ export default function App() {
           console.log('[App] IAP service initialized');
         } else {
           console.log('[App] IAP not available on this platform');
+        }
+
+        // Run data retention cleanup (MAINT-123)
+        // Safe to call on every launch - runs max once per day
+        console.log('[App] Running data retention cleanup...');
+        const cleanupResult = await DataRetentionService.runRetentionCleanup();
+        if (cleanupResult.totalRecordsDeleted > 0) {
+          console.log(`[App] Data retention: ${cleanupResult.totalRecordsDeleted} records cleaned up`);
+        } else {
+          console.log('[App] Data retention: No cleanup needed');
         }
 
         setIsInitialized(true);
