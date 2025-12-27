@@ -27,6 +27,7 @@ import { CollapsibleCrisisButton } from '@/features/crisis/components/Collapsibl
 import ThresholdEducationModal from '@/core/components/ThresholdEducationModal';
 import { useAssessmentStore } from '@/features/assessment/stores/assessmentStore';
 import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
+import { useAnalytics } from '@/core/analytics';
 
 type ProfileScreenNavigationProp = StackNavigationProp<RootStackParamList>;
 
@@ -47,9 +48,16 @@ const ProfileScreen: React.FC = () => {
   const [showEducationModal, setShowEducationModal] = useState(false);
   const [phq9Metadata, setPhq9Metadata] = useState<AssessmentMetadata>({ status: 'never' });
   const [gad7Metadata, setGad7Metadata] = useState<AssessmentMetadata>({ status: 'never' });
+  const { trackScreenView, trackSettingsOpened } = useAnalytics();
 
   // Get assessment history from encrypted store
   const completedAssessments = useAssessmentStore(state => state.completedAssessments);
+
+  // Track screen view for analytics (FEAT-40)
+  useEffect(() => {
+    trackScreenView('ProfileScreen');
+    trackSettingsOpened();
+  }, [trackScreenView, trackSettingsOpened]);
 
   const handleStartOnboarding = () => {
     // Navigate to LegalGate for full first-time experience (age + ToS + onboarding)

@@ -28,6 +28,7 @@ export { default as AnalyticsService } from './AnalyticsService';
 // PostHog Integration (FEAT-40)
 export { PostHogProvider, usePostHogConfigured } from './PostHogProvider';
 export { PHIFilter, AnalyticsEvents } from './PHIFilter';
+export { useAnalytics } from './useAnalytics';
 export type { PHIValidationResult, AnalyticsEventType } from './PHIFilter';
 export {
   handleAnalyticsDeletion,

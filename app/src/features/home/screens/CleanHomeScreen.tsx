@@ -4,7 +4,7 @@
  * Integrated with check-in flow navigation
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -16,6 +16,7 @@ import { useSettingsStore, useAccessibilitySettings } from '@/core/stores/settin
 import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
 import AssessmentStatusBadge from '@/features/assessment/components/AssessmentStatusBadge';
 import { IntroOverlay } from '../components/IntroOverlay';
+import { useAnalytics } from '@/core/analytics';
 
 // 30 minutes in milliseconds
 const INTRO_THRESHOLD_MS = 30 * 60 * 1000;
@@ -28,6 +29,12 @@ const CleanHomeScreen: React.FC = () => {
   const accessibilitySettings = useAccessibilitySettings();
   const getLastActiveTimestamp = useSettingsStore((state) => state.getLastActiveTimestamp);
   const currentHour = new Date().getHours();
+  const { trackScreenView } = useAnalytics();
+
+  // Track screen view for analytics (FEAT-40)
+  useEffect(() => {
+    trackScreenView('HomeScreen');
+  }, [trackScreenView]);
 
   // Determine if intro animation should show
   const shouldShowIntroInitially = useMemo(() => {
