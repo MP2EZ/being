@@ -142,6 +142,72 @@ export function useAnalytics() {
     [trackEvent]
   );
 
+  /**
+   * Track learn module lifecycle
+   */
+  const trackLearnModuleStarted = useCallback(
+    (moduleId?: string) => {
+      trackEvent(AnalyticsEvents.LEARN_MODULE_STARTED, {
+        ...(moduleId !== undefined && { module_id: moduleId }),
+      });
+    },
+    [trackEvent]
+  );
+
+  const trackLearnModuleCompleted = useCallback(
+    (moduleId?: string, durationMs?: number) => {
+      trackEvent(AnalyticsEvents.LEARN_MODULE_COMPLETED, {
+        ...(moduleId !== undefined && { module_id: moduleId }),
+        ...(durationMs !== undefined && { duration_ms: durationMs }),
+      });
+    },
+    [trackEvent]
+  );
+
+  /**
+   * Track breathing exercise lifecycle
+   */
+  const trackBreathingExerciseStarted = useCallback(() => {
+    trackEvent(AnalyticsEvents.BREATHING_EXERCISE_STARTED);
+  }, [trackEvent]);
+
+  const trackBreathingExerciseCompleted = useCallback(
+    (durationMs?: number) => {
+      trackEvent(AnalyticsEvents.BREATHING_EXERCISE_COMPLETED, {
+        ...(durationMs !== undefined && { duration_ms: durationMs }),
+      });
+    },
+    [trackEvent]
+  );
+
+  /**
+   * Track onboarding flow
+   */
+  const trackOnboardingStarted = useCallback(() => {
+    trackEvent(AnalyticsEvents.ONBOARDING_STARTED);
+  }, [trackEvent]);
+
+  const trackOnboardingStepCompleted = useCallback(
+    (step: number) => {
+      trackEvent(AnalyticsEvents.ONBOARDING_STEP_COMPLETED, { step });
+    },
+    [trackEvent]
+  );
+
+  const trackOnboardingCompleted = useCallback(() => {
+    trackEvent(AnalyticsEvents.ONBOARDING_COMPLETED);
+  }, [trackEvent]);
+
+  /**
+   * Track errors (sanitized - no PHI in error messages)
+   */
+  const trackErrorOccurred = useCallback(
+    (errorType: string) => {
+      trackEvent(AnalyticsEvents.ERROR_OCCURRED, { error_type: errorType });
+    },
+    [trackEvent]
+  );
+
   return {
     // Core methods
     trackEvent,
@@ -162,7 +228,23 @@ export function useAnalytics() {
     trackCrisisHotlineTapped,
     trackSettingsOpened,
     trackConsentChanged,
+
+    // Learn
     trackLearnContentViewed,
+    trackLearnModuleStarted,
+    trackLearnModuleCompleted,
+
+    // Breathing
+    trackBreathingExerciseStarted,
+    trackBreathingExerciseCompleted,
+
+    // Onboarding
+    trackOnboardingStarted,
+    trackOnboardingStepCompleted,
+    trackOnboardingCompleted,
+
+    // Errors
+    trackErrorOccurred,
   };
 }
 

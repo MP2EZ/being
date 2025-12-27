@@ -16,7 +16,7 @@
 
 
 import { logSecurity, logPerformance, logError, LogCategory } from '@/core/services/logging';
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -29,9 +29,10 @@ import {
   Platform,
   Image,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
+import { useAnalytics } from '@/core/analytics';
 import NotificationTimePicker from '@/core/components/NotificationTimePicker';
 import CollapsibleCrisisButton from '@/features/crisis/components/CollapsibleCrisisButton';
 import BrainIcon from '@/core/components/shared/BrainIcon';
@@ -288,6 +289,12 @@ const CONSENT_DETAILS = {
 
 const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbedded = false }) => {
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
+  const {
+    trackScreenView,
+    trackOnboardingStarted,
+    trackOnboardingStepCompleted,
+    trackOnboardingCompleted,
+  } = useAnalytics();
 
   // Primary state (following ExercisesScreen pattern)
   const [currentScreen, setCurrentScreen] = useState<Screen>('welcome');
@@ -329,6 +336,17 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
   const primaryButtonRef = useRef<View>(null);
   const crisisButtonRef = useRef<View>(null);
   const currentQuestionRef = useRef<View>(null);
+
+  // Track screen view and onboarding start for analytics (FEAT-137)
+  useFocusEffect(
+    useCallback(() => {
+      trackScreenView('OnboardingScreen');
+      // Track onboarding started only on the welcome screen (first entry)
+      if (currentScreen === 'welcome') {
+        trackOnboardingStarted();
+      }
+    }, [trackScreenView, trackOnboardingStarted, currentScreen])
+  );
 
   // Screen reader detection and announcement management
   useEffect(() => {
@@ -811,12 +829,14 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
                   // Modal already dismissed, continue to Stoic intro
                   setCurrentScreen('stoicIntro');
                   logStateChange('navigateNext:assessments->stoicIntro');
+                  trackOnboardingStepCompleted(1); // Track step completion (FEAT-137)
                   announceToScreenReader('Assessments complete. Learning about Stoic Mindfulness.');
                 },
                 onSkip: () => {
                   // Modal already dismissed, continue to Stoic intro
                   setCurrentScreen('stoicIntro');
                   logStateChange('navigateNext:gad7-skipped->stoicIntro');
+                  trackOnboardingStepCompleted(1); // Track step completion (FEAT-137)
                 },
               });
             }, 50);
@@ -833,11 +853,13 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
                   // Modal already dismissed, continue to Stoic intro
                   setCurrentScreen('stoicIntro');
                   logStateChange('navigateNext:gad7->stoicIntro');
+                  trackOnboardingStepCompleted(1); // Track step completion (FEAT-137)
                 },
                 onSkip: () => {
                   // Modal already dismissed, continue to Stoic intro
                   setCurrentScreen('stoicIntro');
                   logStateChange('navigateNext:assessments-skipped->stoicIntro');
+                  trackOnboardingStepCompleted(1); // Track step completion (FEAT-137)
                 },
               });
             }, 50);
@@ -851,6 +873,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
         // No validation needed - educational screen only
         setCurrentScreen('notifications');
         logStateChange('navigateNext:stoicIntro->notifications');
+        trackOnboardingStepCompleted(2); // Track step completion (FEAT-137)
 
         // Accessibility: Announce transition
         announceToScreenReader(screenTransitions.stoicIntro);
@@ -868,6 +891,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
         }
         setCurrentScreen('privacy');
         logStateChange('navigateNext:notifications->privacy');
+        trackOnboardingStepCompleted(3); // Track step completion (FEAT-137)
 
         // Accessibility: Announce transition
         announceToScreenReader(screenTransitions.notifications);
@@ -879,6 +903,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
         // ToS consent was already given in CombinedLegalGateScreen
         setCurrentScreen('celebration');
         logStateChange('navigateNext:privacy->celebration');
+        trackOnboardingStepCompleted(4); // Track step completion (FEAT-137)
 
         // Accessibility: Announce transition
         announceToScreenReader(screenTransitions.privacy);
@@ -888,6 +913,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
       case 'celebration':
         // Complete onboarding with state persistence
         logStateChange('navigateNext:celebration:complete', getStateDebugInfo());
+        trackOnboardingCompleted(); // Track onboarding completion (FEAT-137)
 
         // Accessibility: Announce completion
         announceToScreenReader(screenTransitions.celebration);
