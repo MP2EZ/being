@@ -15,6 +15,7 @@ import EncryptionService from './src/core/services/security/EncryptionService';
 import { useSettingsStore } from './src/core/stores/settingsStore';
 import { initializeExternalReporting } from './src/core/services/logging';
 import { DataRetentionService } from './src/core/services/data-retention';
+import { PostHogProvider } from './src/core/analytics';
 
 export default function App() {
   const [isInitialized, setIsInitialized] = useState(false);
@@ -93,11 +94,13 @@ export default function App() {
 
   // Render app immediately - migration runs in background
   return (
-    <SafeAreaProvider>
-      <SimpleThemeProvider>
-        <StatusBar style="auto" />
-        <CleanRootNavigator />
-      </SimpleThemeProvider>
-    </SafeAreaProvider>
+    <PostHogProvider>
+      <SafeAreaProvider>
+        <SimpleThemeProvider>
+          <StatusBar style="auto" />
+          <CleanRootNavigator />
+        </SimpleThemeProvider>
+      </SafeAreaProvider>
+    </PostHogProvider>
   );
 }

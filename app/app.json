@@ -25,7 +25,10 @@
       "icon": "./assets/icon.png",
       "jsEngine": "hermes",
       "newArchEnabled": true,
-      "associatedDomains": ["applinks:being.fyi", "applinks:www.being.fyi"]
+      "associatedDomains": [
+        "applinks:being.fyi",
+        "applinks:www.being.fyi"
+      ]
     },
     "android": {
       "package": "com.being.app",
@@ -49,7 +52,10 @@
               "pathPrefix": "/"
             }
           ],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ]
     },
@@ -58,7 +64,9 @@
       "name": "Being.",
       "shortName": "Being."
     },
-    "plugins": [],
+    "plugins": [
+      "expo-localization"
+    ],
     "extra": {
       "clinicalVersion": "1.0",
       "buildType": "production",

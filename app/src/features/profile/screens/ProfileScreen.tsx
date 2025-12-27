@@ -4,7 +4,7 @@
  * Provides access to settings, virtue dashboard, wellbeing tracking, and onboarding
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -14,7 +14,7 @@ import {
   Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 // OnboardingScreen no longer embedded - navigation to LegalGate handles full flow
 import AppSettingsScreen from './AppSettingsScreen';
@@ -27,6 +27,7 @@ import { CollapsibleCrisisButton } from '@/features/crisis/components/Collapsibl
 import ThresholdEducationModal from '@/core/components/ThresholdEducationModal';
 import { useAssessmentStore } from '@/features/assessment/stores/assessmentStore';
 import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
+import { useAnalytics } from '@/core/analytics';
 
 type ProfileScreenNavigationProp = StackNavigationProp<RootStackParamList>;
 
@@ -47,9 +48,18 @@ const ProfileScreen: React.FC = () => {
   const [showEducationModal, setShowEducationModal] = useState(false);
   const [phq9Metadata, setPhq9Metadata] = useState<AssessmentMetadata>({ status: 'never' });
   const [gad7Metadata, setGad7Metadata] = useState<AssessmentMetadata>({ status: 'never' });
+  const { trackScreenView } = useAnalytics();
 
   // Get assessment history from encrypted store
   const completedAssessments = useAssessmentStore(state => state.completedAssessments);
+
+  // Track screen view for analytics (FEAT-40)
+  // useFocusEffect tracks on every focus, not just mount (handles consent timing)
+  useFocusEffect(
+    useCallback(() => {
+      trackScreenView('ProfileScreen');
+    }, [trackScreenView])
+  );
 
   const handleStartOnboarding = () => {
     // Navigate to LegalGate for full first-time experience (age + ToS + onboarding)

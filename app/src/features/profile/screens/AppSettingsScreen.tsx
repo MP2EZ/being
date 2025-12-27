@@ -32,7 +32,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useSettingsStore } from '@/core/stores/settingsStore';
 import { useConsentStore } from '@/core/stores/consentStore';
-import { ConsentManagementScreen } from '@/features/consent';
 import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
 
 interface AppSettingsScreenProps {
@@ -41,9 +40,14 @@ interface AppSettingsScreenProps {
 
 const AppSettingsScreen: React.FC<AppSettingsScreenProps> = ({ onReturn }) => {
   const settingsStore = useSettingsStore();
-  const { loadConsent, currentConsent } = useConsentStore();
+  const { loadConsent, currentConsent, updateConsent } = useConsentStore();
   const [isSaving, setIsSaving] = useState(false);
-  const [showConsentScreen, setShowConsentScreen] = useState(false);
+
+  // Consent preferences from consentStore (source of truth)
+  const analyticsEnabled = currentConsent?.preferences?.analyticsEnabled ?? false;
+  const crashReportsEnabled = currentConsent?.preferences?.crashReportsEnabled ?? false;
+  const cloudSyncEnabled = currentConsent?.preferences?.cloudSyncEnabled ?? false;
+  const researchEnabled = currentConsent?.preferences?.researchEnabled ?? false;
 
   // Load settings and consent on mount
   useEffect(() => {
@@ -69,6 +73,22 @@ const AppSettingsScreen: React.FC<AppSettingsScreenProps> = ({ onReturn }) => {
       Alert.alert(
         'Save Failed',
         'Failed to save setting. Please try again.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Consent toggles write directly to consentStore (source of truth)
+  const handleConsentToggle = async (key: string, value: boolean) => {
+    setIsSaving(true);
+    try {
+      await updateConsent({ [key]: value });
+    } catch (error) {
+      Alert.alert(
+        'Save Failed',
+        'Failed to save preference. Please try again.',
         [{ text: 'OK' }]
       );
     } finally {
@@ -129,16 +149,6 @@ const AppSettingsScreen: React.FC<AppSettingsScreenProps> = ({ onReturn }) => {
 
   const settings = settingsStore.settings;
   if (!settings) return null;
-
-  // Render consent management screen if selected
-  if (showConsentScreen) {
-    return (
-      <ConsentManagementScreen
-        mode="settings"
-        onComplete={() => setShowConsentScreen(false)}
-      />
-    );
-  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -235,8 +245,62 @@ const AppSettingsScreen: React.FC<AppSettingsScreenProps> = ({ onReturn }) => {
                 </Text>
               </View>
               <Switch
-                value={settings.privacy.analyticsEnabled}
-                onValueChange={(value) => handleToggleSetting('privacy', 'analyticsEnabled', value)}
+                value={analyticsEnabled}
+                onValueChange={(value) => handleConsentToggle('analyticsEnabled', value)}
+                trackColor={{ false: colorSystem.gray[300], true: colorSystem.base.midnightBlue }}
+                thumbColor={colorSystem.base.white}
+                disabled={isSaving}
+              />
+            </View>
+          </View>
+
+          <View style={styles.settingCard}>
+            <View style={styles.settingRow}>
+              <View style={styles.settingInfo}>
+                <Text style={styles.settingLabel}>Crash Reports</Text>
+                <Text style={styles.settingDescription}>
+                  Automatically report errors to fix bugs faster
+                </Text>
+              </View>
+              <Switch
+                value={crashReportsEnabled}
+                onValueChange={(value) => handleConsentToggle('crashReportsEnabled', value)}
+                trackColor={{ false: colorSystem.gray[300], true: colorSystem.base.midnightBlue }}
+                thumbColor={colorSystem.base.white}
+                disabled={isSaving}
+              />
+            </View>
+          </View>
+
+          <View style={styles.settingCard}>
+            <View style={styles.settingRow}>
+              <View style={styles.settingInfo}>
+                <Text style={styles.settingLabel}>Cloud Backup</Text>
+                <Text style={styles.settingDescription}>
+                  Securely sync your data across devices
+                </Text>
+              </View>
+              <Switch
+                value={cloudSyncEnabled}
+                onValueChange={(value) => handleConsentToggle('cloudSyncEnabled', value)}
+                trackColor={{ false: colorSystem.gray[300], true: colorSystem.base.midnightBlue }}
+                thumbColor={colorSystem.base.white}
+                disabled={isSaving}
+              />
+            </View>
+          </View>
+
+          <View style={styles.settingCard}>
+            <View style={styles.settingRow}>
+              <View style={styles.settingInfo}>
+                <Text style={styles.settingLabel}>Research Participation</Text>
+                <Text style={styles.settingDescription}>
+                  Help improve mental health care (fully anonymous)
+                </Text>
+              </View>
+              <Switch
+                value={researchEnabled}
+                onValueChange={(value) => handleConsentToggle('researchEnabled', value)}
                 trackColor={{ false: colorSystem.gray[300], true: colorSystem.base.midnightBlue }}
                 thumbColor={colorSystem.base.white}
                 disabled={isSaving}
@@ -249,25 +313,6 @@ const AppSettingsScreen: React.FC<AppSettingsScreenProps> = ({ onReturn }) => {
               Your check-in responses, therapeutic values, and health data are NEVER shared. Analytics are limited to app usage patterns only.
             </Text>
           </View>
-
-          {/* Manage Consent Preferences Button */}
-          <Pressable
-            style={styles.consentButton}
-            onPress={() => setShowConsentScreen(true)}
-            accessibilityRole="button"
-            accessibilityLabel="Manage consent preferences"
-            accessibilityHint="Opens detailed privacy consent settings"
-          >
-            <View style={styles.consentButtonContent}>
-              <View style={styles.consentButtonInfo}>
-                <Text style={styles.consentButtonLabel}>Manage Consent Preferences</Text>
-                <Text style={styles.consentButtonDescription}>
-                  Control analytics, crash reports, cloud sync, and research participation
-                </Text>
-              </View>
-              <Text style={styles.consentButtonArrow}>→</Text>
-            </View>
-          </Pressable>
 
           {currentConsent && (
             <Text style={styles.consentLastUpdated}>
@@ -577,41 +622,6 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.5,
-  },
-  consentButton: {
-    backgroundColor: colorSystem.base.white,
-    borderRadius: borderRadius.large,
-    padding: spacing[24],
-    marginTop: spacing[16],
-    borderWidth: 2,
-    borderColor: colorSystem.base.midnightBlue,
-    minHeight: 56,
-  },
-  consentButtonContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  consentButtonInfo: {
-    flex: 1,
-    marginRight: spacing[16],
-  },
-  consentButtonLabel: {
-    fontSize: typography.bodyRegular.size,
-    fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.midnightBlue,
-    marginBottom: spacing[8],
-  },
-  consentButtonDescription: {
-    fontSize: typography.bodySmall.size,
-    fontWeight: typography.fontWeight.regular,
-    color: colorSystem.gray[600],
-    lineHeight: 20,
-  },
-  consentButtonArrow: {
-    fontSize: typography.title.size,
-    fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.midnightBlue,
   },
   consentLastUpdated: {
     fontSize: typography.bodySmall.size,
