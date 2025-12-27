@@ -45,6 +45,9 @@ const AppSettingsScreen: React.FC<AppSettingsScreenProps> = ({ onReturn }) => {
   const [isSaving, setIsSaving] = useState(false);
   const [showConsentScreen, setShowConsentScreen] = useState(false);
 
+  // Analytics consent from consentStore (source of truth for PostHog)
+  const analyticsEnabled = currentConsent?.preferences?.analyticsEnabled ?? false;
+
   // Load settings and consent on mount
   useEffect(() => {
     settingsStore.loadSettings();
@@ -62,10 +65,6 @@ const AppSettingsScreen: React.FC<AppSettingsScreenProps> = ({ onReturn }) => {
         await settingsStore.updateNotificationSettings({ [key]: value });
       } else if (category === 'privacy') {
         await settingsStore.updatePrivacySettings({ [key]: value });
-        // Sync analytics consent with consentStore for PostHog (FEAT-40)
-        if (key === 'analyticsEnabled' && typeof value === 'boolean') {
-          await updateConsent({ analyticsEnabled: value });
-        }
       } else if (category === 'accessibility') {
         await settingsStore.updateAccessibilitySettings({ [key]: value });
       }
@@ -73,6 +72,22 @@ const AppSettingsScreen: React.FC<AppSettingsScreenProps> = ({ onReturn }) => {
       Alert.alert(
         'Save Failed',
         'Failed to save setting. Please try again.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Analytics toggle writes directly to consentStore (source of truth for PostHog)
+  const handleAnalyticsToggle = async (value: boolean) => {
+    setIsSaving(true);
+    try {
+      await updateConsent({ analyticsEnabled: value });
+    } catch (error) {
+      Alert.alert(
+        'Save Failed',
+        'Failed to save analytics preference. Please try again.',
         [{ text: 'OK' }]
       );
     } finally {
@@ -239,8 +254,8 @@ const AppSettingsScreen: React.FC<AppSettingsScreenProps> = ({ onReturn }) => {
                 </Text>
               </View>
               <Switch
-                value={settings.privacy.analyticsEnabled}
-                onValueChange={(value) => handleToggleSetting('privacy', 'analyticsEnabled', value)}
+                value={analyticsEnabled}
+                onValueChange={handleAnalyticsToggle}
                 trackColor={{ false: colorSystem.gray[300], true: colorSystem.base.midnightBlue }}
                 thumbColor={colorSystem.base.white}
                 disabled={isSaving}
