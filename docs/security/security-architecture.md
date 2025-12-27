@@ -898,6 +898,7 @@ optimization:
 - ✅ Jailbreak/root detection
 - ✅ Memory protection
 - ✅ Secure export mechanisms
+- ✅ Cryptographic ID generation (no Math.random() - see `@/core/utils/id`)
 
 ### Privacy Requirements
 - ✅ No network transmission of personal data
