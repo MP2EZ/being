@@ -31,6 +31,7 @@
 
 
 import { logSecurity, logPerformance, logError, LogCategory } from '@/core/services/logging';
+import { generateTimestampedId } from '@/core/utils/id';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import * as Crypto from 'expo-crypto';
@@ -466,7 +467,7 @@ export class DataProtectionEngine {
 
       // Log compliance audit event
       await this.logComplianceAuditEvent({
-        eventId: `audit_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        eventId: generateTimestampedId('audit'),
         timestamp: Date.now(),
         type: this.getEventTypeFromOperation(operation),
         userId: context.userId,
@@ -520,7 +521,7 @@ export class DataProtectionEngine {
     evidence: DataProtectionConsent['evidence']
   ): Promise<string> {
     try {
-      const consentId = `consent_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const consentId = generateTimestampedId('consent');
       
       const consent: DataProtectionConsent = {
         consentId,
@@ -540,7 +541,7 @@ export class DataProtectionEngine {
 
       // Log consent event
       await this.logComplianceAuditEvent({
-        eventId: `consent_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        eventId: generateTimestampedId('consent'),
         timestamp: Date.now(),
         type: 'consent_obtained',
         userId,
@@ -657,7 +658,7 @@ export class DataProtectionEngine {
 
       // Log revocation event
       await this.logComplianceAuditEvent({
-        eventId: `revocation_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        eventId: generateTimestampedId('revocation'),
         timestamp: Date.now(),
         type: 'consent_revoked',
         userId,
@@ -825,7 +826,7 @@ export class DataProtectionEngine {
       
       if (isBreach) {
         await this.initiateBreach({
-          breachId: `breach_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          breachId: generateTimestampedId('breach'),
           discoveryTimestamp: Date.now(),
           type: 'unauthorized_access',
           severity: 'medium',
@@ -892,7 +893,7 @@ export class DataProtectionEngine {
 
       // Log breach event
       await this.logComplianceAuditEvent({
-        eventId: `breach_log_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        eventId: generateTimestampedId('breach_log'),
         timestamp: Date.now(),
         type: 'breach_detected',
         dataElements: ['breach_record'],
@@ -937,7 +938,7 @@ export class DataProtectionEngine {
 
       // Log data deletion
       await this.logComplianceAuditEvent({
-        eventId: `deletion_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        eventId: generateTimestampedId('deletion'),
         timestamp: Date.now(),
         type: 'data_deletion',
         userId,
@@ -1302,7 +1303,7 @@ export class DataProtectionEngine {
 
       // Log export event
       await this.logComplianceAuditEvent({
-        eventId: `export_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        eventId: generateTimestampedId('export'),
         timestamp: Date.now(),
         type: 'data_export',
         userId,

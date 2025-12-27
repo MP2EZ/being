@@ -7,6 +7,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, ActivityIndicator, StyleSheet, TouchableOpacity, Text } from 'react-native';
 import { logPerformance } from '@/core/services/logging';
+import { generateTimestampedId } from '@/core/utils/id';
 import { NavigationContainer } from '@react-navigation/native';
 import { linkingConfig } from './linking';
 import { createStackNavigator } from '@react-navigation/stack';
@@ -472,7 +473,7 @@ const CleanRootNavigator: React.FC = () => {
                   theme="neutral"
                   showIntroduction={route.params.context === 'standalone'}
                   consentStatus={consentStatus}
-                  sessionId={`session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`}
+                  sessionId={generateTimestampedId('session')}
                   onComplete={(result) => {
                     console.log(`✅ Assessment ${route.params.assessmentType} completed:`, result);
                     // Always dismiss the modal first

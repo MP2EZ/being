@@ -17,6 +17,7 @@
 
 
 import { logSecurity, logPerformance, logError, LogCategory } from '../logging';
+import { generateTimestampedId } from '@/core/utils/id';
 import { Alert, Linking, DeviceEventEmitter } from 'react-native';
 import {
   AssessmentType,
@@ -260,7 +261,7 @@ export class CrisisPerformanceOptimizer {
         primaryTrigger: triggerType,
         triggerValue,
         timestamp: Date.now(),
-        assessmentId: `${type}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+        assessmentId: generateTimestampedId(type)
       } as Partial<CrisisDetection> as CrisisDetection;
 
       const totalTime = performance.now() - startTime;

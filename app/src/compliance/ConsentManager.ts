@@ -26,6 +26,7 @@
 
 
 import { logSecurity, logPerformance, logError, LogCategory } from '@/core/services/logging';
+import { generateTimestampedId } from '@/core/utils/id';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import * as LocalAuthentication from 'expo-local-authentication';
@@ -321,7 +322,7 @@ export class DataProtectionConsentManager {
     context: ConsentCollectionContext
   ): Promise<string> {
     try {
-      const workflowId = `consent_workflow_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const workflowId = generateTimestampedId('consent_workflow');
 
       const workflow: ConsentCollectionWorkflow = {
         workflowId,
@@ -762,7 +763,7 @@ export class DataProtectionConsentManager {
       // Remove from cache
       this.consentCache.delete(userId);
 
-      const revocationId = `revocation_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const revocationId = generateTimestampedId('revocation');
 
       return {
         success: true,
@@ -1133,7 +1134,7 @@ You can customize these choices or change them anytime in your settings.
 
   private async createConsentRecord(workflow: ConsentCollectionWorkflow): Promise<DataProtectionConsent> {
     return {
-      consentId: `consent_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      consentId: generateTimestampedId('consent'),
       userId: workflow.context.assessmentContext?.type || 'user',
       timestamp: Date.now(),
       version: '1.0',

@@ -24,6 +24,7 @@
 
 import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
+import { generateInternalId } from '@/core/utils/id';
 import type {
   CardinalVirtue,
   DevelopmentalStage,
@@ -191,7 +192,7 @@ const getInitialState = (): Omit<StoicPracticeState, 'isLoading' | 'addVirtueIns
  * Generate unique ID for virtue instances/challenges
  */
 const generateId = (): string => {
-  return `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  return generateInternalId();
 };
 
 /**

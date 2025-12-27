@@ -3,9 +3,10 @@
  * Used for Profile tab and welcome screen branding
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import Svg, { Path, ClipPath, Defs, G, Rect } from 'react-native-svg';
 import { colorSystem } from '@/core/theme';
+import { generateComponentId } from '@/core/utils/id';
 
 interface BrainIconProps {
   color?: string;
@@ -16,7 +17,7 @@ const BrainIcon: React.FC<BrainIconProps> = ({
   color = colorSystem.base.midnightBlue,
   size = 24
 }) => {
-  const uniqueId = `brain-${Math.random().toString(36).substr(2, 9)}`;
+  const uniqueId = useMemo(() => generateComponentId('brain'), []);
 
   return (
     <Svg width={size} height={size} viewBox="0 0 32 32" accessible={false}>

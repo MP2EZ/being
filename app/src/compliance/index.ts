@@ -37,6 +37,7 @@ import DataMinimizationEngine from './DataMinimization';
 import BreachResponseEngine from './BreachResponseEngine';
 import PrivacyAssessmentIntegration from './PrivacyAssessmentIntegration';
 import { logError, LogCategory } from '@/core/services/logging';
+import { generateTimestampedId } from '@/core/utils/id';
 
 // Core compliance engines - Re-export
 export { default as DataProtectionEngine } from './DataProtectionEngine';
@@ -508,7 +509,7 @@ export class DataProtectionService {
     nextAuditDue: number;
   }> {
     try {
-      const auditId = `audit_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const auditId = generateTimestampedId('audit');
       const timestamp = Date.now();
       
       // Audit each component

@@ -28,6 +28,7 @@
 
 
 import { logSecurity, logPerformance, logError, LogCategory } from '../logging';
+import { generateTimestampedId } from '@/core/utils/id';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 
@@ -1076,7 +1077,7 @@ class SyncCoordinator {
         ...crisisData,
         syncTriggered: true,
         responseTime: Date.now() - crisisData.timestamp,
-        syncId: `crisis_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+        syncId: generateTimestampedId('crisis')
       };
 
       // Store crisis log for clinical audit trail
@@ -1700,7 +1701,7 @@ class SyncCoordinator {
     try {
       // Add operation to queue
       const operation: SyncOperation = {
-        id: `sync_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        id: generateTimestampedId('sync'),
         type: 'backup',
         priority,
         timestamp: Date.now(),

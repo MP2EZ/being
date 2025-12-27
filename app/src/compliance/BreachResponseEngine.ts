@@ -27,6 +27,7 @@
 
 
 import { logSecurity, logPerformance, logError, LogCategory } from '@/core/services/logging';
+import { generateTimestampedId } from '@/core/utils/id';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import { Alert, Linking } from 'react-native';
@@ -879,7 +880,7 @@ export class DataBreachResponseEngine {
     eventData: any,
     riskAssessment: any
   ): Promise<BreachIncident> {
-    const incidentId = `breach_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const incidentId = generateTimestampedId('breach');
     
     return {
       incidentId,

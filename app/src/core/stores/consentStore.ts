@@ -21,6 +21,7 @@
  */
 
 import { create } from 'zustand';
+import { generateRandomString } from '@/core/utils/id';
 import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getCurrentUserId } from '@/core/constants/devMode';
@@ -183,7 +184,7 @@ const CONSENT_VERSION = '1.0.0';
  */
 const generateConsentId = (): string => {
   const timestamp = Date.now().toString(36);
-  const randomPart = Math.random().toString(36).substring(2, 8);
+  const randomPart = generateRandomString(6);
   return `consent_${timestamp}_${randomPart}`;
 };
 

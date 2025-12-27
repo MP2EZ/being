@@ -256,6 +256,23 @@ jest.mock('expo-haptics', () => ({
   }
 }));
 
+// Mock expo-crypto for cryptographic ID generation
+jest.mock('expo-crypto', () => ({
+  getRandomBytes: jest.fn((length) => {
+    // Generate pseudo-random bytes for testing (NOT cryptographically secure)
+    const bytes = new Uint8Array(length);
+    for (let i = 0; i < length; i++) {
+      bytes[i] = Math.floor(Math.random() * 256);
+    }
+    return bytes;
+  }),
+  digestStringAsync: jest.fn(() => Promise.resolve('mockedhash123')),
+  CryptoDigestAlgorithm: {
+    SHA256: 'SHA-256',
+    SHA512: 'SHA-512',
+  },
+}));
+
 jest.mock('@react-native-async-storage/async-storage', () => ({
   getItem: jest.fn(() => Promise.resolve(null)),
   setItem: jest.fn(() => Promise.resolve()),

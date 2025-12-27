@@ -16,6 +16,7 @@
 
 
 import { logSecurity, logPerformance, logError, LogCategory } from '@/core/services/logging';
+import { generateTimestampedId } from '@/core/utils/id';
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View,
@@ -546,7 +547,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
     reason?: string
   ): void => {
     const auditEntry: AuditEntry = {
-      auditId: `audit_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      auditId: generateTimestampedId('audit'),
       eventType,
       timestamp: Date.now(),
       sensitivityLevel,
@@ -620,7 +621,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
     purposes: DataProcessingPurpose[]
   ): void => {
     const consent: DataProtectionConsent = {
-      consentId: `consent_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      consentId: generateTimestampedId('consent'),
       scope,
       purposes,
       granted: true,
@@ -653,7 +654,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
     requestDetails: string
   ): void => {
     const request: PatientRightsRequest = {
-      requestId: `rights_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      requestId: generateTimestampedId('rights'),
       rightType,
       requestDate: Date.now(),
       status: 'pending',
@@ -681,7 +682,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
     safeguardsApplied: string[]
   ): void => {
     const activity: BusinessAssociateActivity = {
-      activityId: `ba_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      activityId: generateTimestampedId('ba'),
       component,
       phiProcessed,
       timestamp: Date.now(),
@@ -700,7 +701,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
     riskLevel: ComplianceRisk
   ): void => {
     const incident: BreachIncident = {
-      incidentId: `breach_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      incidentId: generateTimestampedId('breach'),
       detectedAt: Date.now(),
       riskLevel,
       phiAffected,
@@ -1052,7 +1053,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
 
       // Privacy: Create data minimization report
       const minimizationReport: DataMinimizationReport = {
-        reportId: `report_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        reportId: generateTimestampedId('report'),
         timestamp: Date.now(),
         dataCollected: [
           {
@@ -1104,7 +1105,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
 
       // Privacy: Handle right to revocation
       const revocationRequest: PatientRightsRequest = {
-        requestId: `revoke_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        requestId: generateTimestampedId('revoke'),
         rightType: 'revocation',
         requestDate: Date.now(),
         status: 'pending',

@@ -69,6 +69,37 @@ import { logger } from '@/core/services/logging';
 import { LoggingService } from '@/core/services/logging/LoggingService';
 ```
 
+### Cryptographic ID Generation
+
+**IMPORTANT:** Never use `Math.random()` for generating IDs, session tokens, or any identifier that could be security-sensitive. Use the cryptographic utilities instead:
+
+```typescript
+// ✅ Good - cryptographically secure ID generation
+import {
+  generateUUID,           // Standard UUID v4
+  generateTimestampedId,  // Sortable: prefix_timestamp_random
+  generateSessionId,      // Session: session_date_random
+  generateComponentId,    // React keys: prefix-random
+  generateRandomString,   // Raw crypto random string
+  generateInternalId      // Internal: timestamp_random
+} from '@/core/utils/id';
+
+// Usage examples
+const id = generateUUID();                    // "550e8400-e29b-41d4-a716-446655440000"
+const eventId = generateTimestampedId('evt'); // "evt_1703702400000_a1b2c3d4e"
+const sessionId = generateSessionId();        // "session_2024-12-27_x9y8z7w6v"
+const radioId = generateComponentId('radio'); // "radio-m3n4o5p6q"
+
+// ❌ Bad - Math.random() is NOT cryptographically secure
+const insecureId = `id_${Math.random().toString(36).substr(2, 9)}`; // NEVER DO THIS
+```
+
+**Why cryptographic IDs matter:**
+- `Math.random()` is predictable and can be exploited
+- Secure IDs prevent enumeration attacks
+- Required for HIPAA-adjacent data handling
+- Consistent ID format across the codebase
+
 **Prefer barrel exports when available:**
 ```typescript
 // ✅ Better - use barrel
