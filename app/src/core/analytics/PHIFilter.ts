@@ -152,18 +152,23 @@ export class PHIFilter {
       };
     }
 
-    // 2. PHI KEYWORD CHECK: Scan data for PHI indicators
-    const dataString = JSON.stringify(eventData).toLowerCase();
-    for (const keyword of this.PHI_KEYWORDS) {
-      if (dataString.includes(keyword)) {
-        logSecurity(
-          `PHI Filter: Blocked event with PHI keyword: ${keyword}`,
-          'high'
-        );
-        return {
-          valid: false,
-          reason: `PHI keyword detected: "${keyword}"`,
-        };
+    // 2. PHI KEYWORD CHECK: Scan VALUES only for PHI indicators
+    // (Keys are controlled by us, so we only check the actual data values)
+    for (const [key, value] of Object.entries(eventData)) {
+      if (typeof value === 'string') {
+        const lowerValue = value.toLowerCase();
+        for (const keyword of this.PHI_KEYWORDS) {
+          if (lowerValue.includes(keyword)) {
+            logSecurity(
+              `PHI Filter: Blocked event with PHI keyword: ${keyword}`,
+              'high'
+            );
+            return {
+              valid: false,
+              reason: `PHI keyword detected: "${keyword}" in key "${key}"`,
+            };
+          }
+        }
       }
     }
 
