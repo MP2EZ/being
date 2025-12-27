@@ -673,7 +673,7 @@ export class PrivacyAssessmentIntegration {
     return {
       crisisLevel,
       legalBasis: [
-        'Privacy Privacy Rule emergency care exception (45 CFR 164.510)',
+        'State privacy law emergency care exception',
         isImminentDanger ? 'Duty to warn/protect (state law)' : '',
         'Mental health crisis intervention authority'
       ].filter(Boolean),
@@ -791,7 +791,7 @@ export class PrivacyAssessmentIntegration {
     if (context.crisisSituation) {
       overrides.push({
         type: 'crisis_intervention_override',
-        legalBasis: 'Privacy Privacy Rule emergency care exception (45 CFR 164.510)',
+        legalBasis: 'State privacy law emergency care exception',
         limitations: [
           'Limited to information necessary for crisis intervention',
           'User notification required within 24 hours',

@@ -17,8 +17,8 @@
  * - Capacity assessment for consent validity
  *
  * REGULATORY COMPLIANCE:
- * - 45 CFR 164.508 (Privacy Authorization Requirements)
- * - 45 CFR 164.522 (Rights to Request Privacy Protection)
+ * - State privacy law authorization requirements (CCPA, CPRA)
+ * - Consumer rights to privacy protection
  * - 21 CFR Part 11 (Electronic Records and Signatures)
  * - State mental health privacy laws
  * - Crisis intervention legal requirements
@@ -1159,13 +1159,13 @@ You can customize these choices or change them anytime in your settings.
   }
 
   private async storeConsentRecord(consent: DataProtectionConsent): Promise<void> {
-    const storageKey = `hipaa_consent_${consent.userId}_${consent.timestamp}`;
+    const storageKey = `privacy_consent_${consent.userId}_${consent.timestamp}`;
     await SecureStore.setItemAsync(storageKey, JSON.stringify(consent));
   }
 
   private async getConsentKeys(userId: string): Promise<string[]> {
     const allKeys = await AsyncStorage.getAllKeys();
-    return allKeys.filter(key => key.startsWith(`hipaa_consent_${userId}_`));
+    return allKeys.filter(key => key.startsWith(`privacy_consent_${userId}_`));
   }
 
   private generateConsentSummary(scope: ConsentScope): string {

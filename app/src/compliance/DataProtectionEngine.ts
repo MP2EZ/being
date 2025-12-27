@@ -330,8 +330,8 @@ export interface DataBreach {
   notifications: {
     /** Notification to individuals required */
     individualsRequired: boolean;
-    /** Notification to HHS required */
-    hhsRequired: boolean;
+    /** FTC notification required */
+    ftcRequired: boolean;
     /** Media notification required */
     mediaRequired: boolean;
     /** Law enforcement notification required */
@@ -836,7 +836,7 @@ export class DataProtectionEngine {
           immediateActions: ['Access revoked', 'Investigation initiated'],
           notifications: {
             individualsRequired: false,
-            hhsRequired: false,
+            ftcRequired: false,
             mediaRequired: false,
             lawEnforcementRequired: false
           },

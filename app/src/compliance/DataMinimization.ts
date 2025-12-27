@@ -2,7 +2,7 @@
  * Privacy DATA MINIMIZATION ENGINE - DRD-FLOW-005 Assessment System
  *
  * COMPREHENSIVE DATA MINIMIZATION:
- * - Implementation of Privacy Minimum Necessary Rule (45 CFR 164.502(b))
+ * - Implementation of data minimization principles (CCPA, GDPR)
  * - Sensitivity classification and sensitivity-based access controls
  * - Purpose-limited data collection and processing
  * - Automated data lifecycle management and retention policies
@@ -811,7 +811,7 @@ export class DataMinimizationEngine {
 
     return {
       applied: true,
-      legalBasis: 'Privacy Privacy Rule emergency care exception (45 CFR 164.510(a))',
+      legalBasis: 'State privacy law emergency care exception',
       limitations: [
         'Access limited to information necessary for emergency care',
         'Access expires when emergency ends',
