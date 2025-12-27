@@ -148,7 +148,7 @@ export interface SensitiveDataElement {
     /** Purpose limitation for access */
     purposeLimitation: string[];
     /** Minimum necessary rule applies */
-    minimumNecessaryRule: boolean;
+    dataMinimizationRule: boolean;
   };
   /** Retention requirements */
   retention: {
@@ -246,7 +246,7 @@ export interface ComplianceAuditEvent {
   /** Access purpose */
   purpose: 'treatment' | 'payment' | 'operations' | 'emergency' | 'user_request';
   /** Minimum necessary compliance */
-  minimumNecessaryCompliant: boolean;
+  dataMinimizationCompliant: boolean;
   /** Authorization details */
   authorization: {
     /** Authorization type */
@@ -443,13 +443,13 @@ export class DataProtectionEngine {
       }
 
       // Check minimum necessary rule
-      if (phiElement && phiElement.accessControl.minimumNecessaryRule) {
-        const minimumNecessaryCompliant = await this.validateMinimumNecessary(
+      if (phiElement && phiElement.accessControl.dataMinimizationRule) {
+        const dataMinimizationCompliant = await this.validateDataMinimization(
           dataType,
           operation,
           context.purpose
         );
-        if (!minimumNecessaryCompliant) {
+        if (!dataMinimizationCompliant) {
           violations.push('Minimum necessary rule violation');
           recommendations.push('Limit data access to minimum necessary for stated purpose');
         }
@@ -474,7 +474,7 @@ export class DataProtectionEngine {
         dataElements: [dataType],
         sensitivityLevel: phiElement?.classification || DataSensitivityLevel.CONFIDENTIAL,
         purpose: context.purpose as any,
-        minimumNecessaryCompliant: violations.length === 0,
+        dataMinimizationCompliant: violations.length === 0,
         authorization: {
           type: context.authorization ? 'consent' : 'user_request',
           reference: context.authorization || context.sessionId
@@ -547,7 +547,7 @@ export class DataProtectionEngine {
         dataElements: ['user_consent'],
         sensitivityLevel: DataSensitivityLevel.CONFIDENTIAL,
         purpose: 'operations',
-        minimumNecessaryCompliant: true,
+        dataMinimizationCompliant: true,
         authorization: {
           type: 'consent',
           reference: consentId
@@ -664,7 +664,7 @@ export class DataProtectionEngine {
         dataElements: ['user_consent'],
         sensitivityLevel: DataSensitivityLevel.CONFIDENTIAL,
         purpose: 'user_request',
-        minimumNecessaryCompliant: true,
+        dataMinimizationCompliant: true,
         authorization: {
           type: 'user_request',
           reference: consent.consentId
@@ -775,7 +775,7 @@ export class DataProtectionEngine {
   /**
    * Validates minimum necessary rule compliance
    */
-  private async validateMinimumNecessary(
+  private async validateDataMinimization(
     dataType: string,
     operation: string,
     purpose: string
@@ -898,7 +898,7 @@ export class DataProtectionEngine {
         dataElements: ['breach_record'],
         sensitivityLevel: DataSensitivityLevel.CRITICAL,
         purpose: 'operations',
-        minimumNecessaryCompliant: true,
+        dataMinimizationCompliant: true,
         authorization: {
           type: 'legal_requirement',
           reference: breach.breachId
@@ -944,7 +944,7 @@ export class DataProtectionEngine {
         dataElements: phiDataTypes,
         sensitivityLevel: DataSensitivityLevel.SENSITIVE,
         purpose: 'user_request',
-        minimumNecessaryCompliant: true,
+        dataMinimizationCompliant: true,
         authorization: {
           type: 'user_request',
           reference: userId
@@ -982,7 +982,7 @@ export class DataProtectionEngine {
         accessControl: {
           authorizedRoles: ['user', 'clinician', 'emergency_responder'],
           purposeLimitation: ['treatment', 'emergency'],
-          minimumNecessaryRule: true
+          dataMinimizationRule: true
         },
         retention: {
           retentionYears: DATA_PROTECTION_CONFIG.DATA_RETENTION.ASSESSMENT_DATA_YEARS,
@@ -1004,7 +1004,7 @@ export class DataProtectionEngine {
         accessControl: {
           authorizedRoles: ['user', 'clinician', 'emergency_responder'],
           purposeLimitation: ['treatment', 'emergency'],
-          minimumNecessaryRule: true
+          dataMinimizationRule: true
         },
         retention: {
           retentionYears: DATA_PROTECTION_CONFIG.DATA_RETENTION.ASSESSMENT_DATA_YEARS,
@@ -1026,7 +1026,7 @@ export class DataProtectionEngine {
         accessControl: {
           authorizedRoles: ['user', 'clinician', 'emergency_responder', 'crisis_counselor'],
           purposeLimitation: ['treatment', 'emergency', 'crisis_intervention'],
-          minimumNecessaryRule: true
+          dataMinimizationRule: true
         },
         retention: {
           retentionYears: DATA_PROTECTION_CONFIG.DATA_RETENTION.CRISIS_RECORDS_YEARS,
@@ -1048,7 +1048,7 @@ export class DataProtectionEngine {
         accessControl: {
           authorizedRoles: ['user', 'clinician', 'emergency_responder', 'crisis_counselor'],
           purposeLimitation: ['treatment', 'emergency', 'crisis_intervention'],
-          minimumNecessaryRule: true
+          dataMinimizationRule: true
         },
         retention: {
           retentionYears: DATA_PROTECTION_CONFIG.DATA_RETENTION.CRISIS_RECORDS_YEARS,
@@ -1309,7 +1309,7 @@ export class DataProtectionEngine {
         dataElements: exportedTypes,
         sensitivityLevel: DataSensitivityLevel.SENSITIVE,
         purpose: 'user_request',
-        minimumNecessaryCompliant: true,
+        dataMinimizationCompliant: true,
         authorization: {
           type: 'user_request',
           reference: userId

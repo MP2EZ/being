@@ -88,7 +88,7 @@ const ACCESSIBILITY = {
 type Screen = 'welcome' | 'stoicIntro' | 'notifications' | 'privacy' | 'celebration';
 
 // Privacy COMPLIANCE TYPES
-// PHI Data Classification - 45 CFR 164.514
+// PHI Data Classification
 type DataSensitivityLevel = 'assessment_response' | 'therapeutic_preference' | 'crisis_data' | 'consent_record' | 'metadata';
 type DataProcessingPurpose = 'treatment' | 'payment' | 'operations' | 'emergency';
 type PatientRightType = 'access' | 'amendment' | 'restriction' | 'portability' | 'revocation';
@@ -116,7 +116,7 @@ interface NotificationTime {
 // NOTE: Question and Answer interfaces removed - assessments now handled by EnhancedAssessmentFlow
 
 // Privacy COMPLIANCE INTERFACES
-// Comprehensive consent management - 45 CFR 164.508
+// Comprehensive consent management
 interface DataProtectionConsent {
   consentId: string;
   scope: ConsentScope[];
@@ -130,7 +130,7 @@ interface DataProtectionConsent {
   witnessSignature?: string; // For high-risk consents
 }
 
-// Audit trail for PHI access - 45 CFR 164.312(b)
+// Audit trail for PHI access
 interface AuditEntry {
   auditId: string;
   eventType: AuditEventType;
@@ -144,7 +144,7 @@ interface AuditEntry {
   reason?: string | undefined; // For failures or blocks
 }
 
-// Patient rights implementation - 45 CFR 164.524-528
+// Patient rights implementation
 interface PatientRightsRequest {
   requestId: string;
   rightType: PatientRightType;
@@ -156,7 +156,7 @@ interface PatientRightsRequest {
   responseDate?: number;
 }
 
-// Data minimization compliance - 45 CFR 164.514(d)
+// Data minimization compliance
 interface DataMinimizationReport {
   reportId: string;
   timestamp: number;
@@ -181,7 +181,7 @@ interface BusinessAssociateActivity {
   breachRisk: ComplianceRisk;
 }
 
-// Breach notification tracking - 45 CFR 164.400-414
+// Breach notification tracking
 interface BreachIncident {
   incidentId: string;
   detectedAt: number;
@@ -474,14 +474,14 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
   };
 
   // Privacy COMPLIANCE STATE
-  // Granular consent management - 45 CFR 164.508
+  // Granular consent management
   const [hipaaConsents, setHipaaConsents] = useState<DataProtectionConsent[]>([]);
   const [consentScope, setConsentScope] = useState<ConsentScope[]>([]);
 
-  // Audit trail management - 45 CFR 164.312(b)
+  // Audit trail management
   const [auditTrail, setAuditTrail] = useState<AuditEntry[]>([]);
 
-  // Patient rights tracking - 45 CFR 164.524-528
+  // Patient rights tracking
   const [patientRightsRequests, setPatientRightsRequests] = useState<PatientRightsRequest[]>([]);
 
   // Data minimization compliance
@@ -490,7 +490,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
   // Business Associate Activities
   const [businessAssociateActivities, setBusinessAssociateActivities] = useState<BusinessAssociateActivity[]>([]);
 
-  // Breach incident tracking - 45 CFR 164.400-414
+  // Breach incident tracking
   const [breachIncidents, setBreachIncidents] = useState<BreachIncident[]>([]);
 
   // Compliance monitoring
@@ -517,7 +517,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
   };
 
   // Privacy COMPLIANCE UTILITY FUNCTIONS
-  // Audit trail logging - 45 CFR 164.312(b)
+  // Audit trail logging
   const logAuditEvent = (
     eventType: AuditEventType,
     sensitivityLevel: DataSensitivityLevel,
@@ -566,7 +566,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
     return 'metadata';
   };
 
-  // Data minimization validation - 45 CFR 164.514(d)
+  // Data minimization validation
   const validateDataMinimization = (
     classification: DataSensitivityLevel,
     purpose: DataProcessingPurpose,
@@ -596,7 +596,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
     return 'necessary';
   };
 
-  // Consent management - 45 CFR 164.508
+  // Consent management
   const grantDataProtectionConsent = (
     scope: ConsentScope[],
     purposes: DataProcessingPurpose[]
@@ -629,7 +629,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
     }));
   };
 
-  // Patient rights implementation - 45 CFR 164.524-528
+  // Patient rights implementation
   const handlePatientRightsRequest = (
     rightType: PatientRightType,
     requestDetails: string
@@ -675,7 +675,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
     setBusinessAssociateActivities(prev => [...prev, activity]);
   };
 
-  // Breach detection and notification - 45 CFR 164.400-414
+  // Breach detection and notification
   const detectPotentialBreach = (
     phiAffected: DataSensitivityLevel[],
     estimatedRecords: number,
@@ -1076,7 +1076,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
         'success'
       );
 
-      // Privacy: Handle right to revocation - 45 CFR 164.508(b)(5)
+      // Privacy: Handle right to revocation
       const revocationRequest: PatientRightsRequest = {
         requestId: `revoke_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         rightType: 'revocation',

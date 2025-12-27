@@ -10,7 +10,7 @@
  * Privacy COMPLIANCE (MAINT-117):
  * Cloud backup MUST NOT include Protected Health Information (PHI).
  *
- * PHI FIELDS EXCLUDED (45 CFR §160.103):
+ * SENSITIVE FIELDS EXCLUDED (privacy protection):
  * - Individual PHQ-9/GAD-7 question responses (answers[])
  * - Assessment scores (totalScore, severity)
  * - Crisis indicators (suicidalIdeation, isCrisis)

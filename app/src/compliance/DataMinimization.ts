@@ -216,7 +216,7 @@ export interface DataAccessEvaluation {
   /** Compliance notes */
   compliance: {
     /** Minimum necessary rule satisfied */
-    minimumNecessarySatisfied: boolean;
+    dataMinimizationSatisfied: boolean;
     /** Purpose limitation satisfied */
     purposeLimitationSatisfied: boolean;
     /** Role authorization satisfied */
@@ -339,7 +339,7 @@ export class DataMinimizationEngine {
           notifications: []
         },
         compliance: {
-          minimumNecessarySatisfied: false,
+          dataMinimizationSatisfied: false,
           purposeLimitationSatisfied: false,
           roleAuthorizationSatisfied: false,
           notes: []
@@ -397,7 +397,7 @@ export class DataMinimizationEngine {
       }
 
       // Validate minimum necessary compliance
-      evaluation.compliance.minimumNecessarySatisfied = await this.validateMinimumNecessary(
+      evaluation.compliance.dataMinimizationSatisfied = await this.validateDataMinimization(
         request,
         evaluation.approvedElements
       );
@@ -432,7 +432,7 @@ export class DataMinimizationEngine {
           notifications: ['System administrator notification required']
         },
         compliance: {
-          minimumNecessarySatisfied: false,
+          dataMinimizationSatisfied: false,
           purposeLimitationSatisfied: false,
           roleAuthorizationSatisfied: false,
           notes: ['System error during evaluation']
@@ -850,7 +850,7 @@ export class DataMinimizationEngine {
   /**
    * Validates minimum necessary rule compliance
    */
-  private async validateMinimumNecessary(
+  private async validateDataMinimization(
     request: DataAccessRequest,
     approvedElements: string[]
   ): Promise<boolean> {
@@ -1163,7 +1163,7 @@ export class DataMinimizationEngine {
         dataElements: request.requestedElements,
         sensitivityLevel: DataSensitivityLevel.SENSITIVE, // Most restrictive
         purpose: request.purposes[0] as any,
-        minimumNecessaryCompliant: evaluation.compliance.minimumNecessarySatisfied,
+        dataMinimizationCompliant: evaluation.compliance.dataMinimizationSatisfied,
         authorization: {
           type: 'user_request',
           reference: request.requestId
@@ -1180,7 +1180,7 @@ export class DataMinimizationEngine {
           securityLevel: evaluation.emergencyOverride?.applied ? 'critical' : 'high'
         },
         compliance: {
-          privacyCompliant: evaluation.approved && evaluation.compliance.minimumNecessarySatisfied,
+          privacyCompliant: evaluation.approved && evaluation.compliance.dataMinimizationSatisfied,
           privacyRuleCompliant: evaluation.compliance.purposeLimitationSatisfied,
           securityRuleCompliant: evaluation.compliance.roleAuthorizationSatisfied,
           violations: evaluation.deniedElements.map(d => d.reason)
