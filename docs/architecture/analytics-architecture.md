@@ -54,18 +54,22 @@ User Action (e.g., completes check-in)
 
 ### PostHogProvider
 **Location:** `src/core/analytics/PostHogProvider.tsx`
+**Wired in:** `App.tsx` (wraps entire app)
 
 Wraps the app and provides PostHog context. Key behaviors:
 - **Consent-gated**: Only renders PostHog when analytics consent granted
 - **EU data residency**: Configured for Frankfurt (GDPR compliance)
 - **Privacy settings**: No autocapture, no session replay
+- **Batching**: 10 events or 30 seconds before transmission
+
+**Helper Hook:** `usePostHogConfigured()` - Returns true if PostHog API key is configured (for conditional UI rendering)
 
 ### PHIFilter
 **Location:** `src/core/analytics/PHIFilter.ts`
 
 Whitelist-based validation ensuring only safe events are transmitted.
 
-**Whitelisted Events:**
+**Whitelisted Events (27 total):**
 - App lifecycle: `app_opened`, `app_backgrounded`, `session_started`, `session_ended`
 - Navigation: `screen_viewed`
 - Features: `check_in_started/completed`, `assessment_started/completed`, `practice_started/completed`, `breathing_exercise_started/completed`
@@ -75,10 +79,19 @@ Whitelist-based validation ensuring only safe events are transmitted.
 - Onboarding: `onboarding_started/completed/step_completed`
 - Learn: `learn_content_viewed`, `learn_module_started/completed`
 
+**Blocked PHI Keywords:**
+`score`, `phq`, `gad`, `severity`, `result`, `mood`, `feeling`, `emotion`, `anxious`, `depressed`, `crisis_contact`, `emergency_contact`, `hotline_number`, `suicid`, `harm`, `journal`, `note`, `entry`, `reflection`, `thought`, `email`, `phone`, `name`, `address`
+
+**Safe Numeric Keys** (allowed in event data):
+`duration`, `duration_ms`, `duration_seconds`, `count`, `timestamp`, `step`, `index`, `page`, `version`
+
+**Type-safe Constants:**
+Use `AnalyticsEvents.EVENT_NAME` instead of raw strings for compile-time safety.
+
 **Blocked patterns:**
 - Any event type not in whitelist
-- Events containing PHI keywords (score, phq, gad, mood, journal, etc.)
-- Suspicious numeric values in non-safe keys
+- Events containing PHI keywords in data
+- Numeric values in non-safe keys (potential assessment scores)
 
 ### AnalyticsDeletion
 **Location:** `src/core/analytics/AnalyticsDeletion.ts`
@@ -87,6 +100,30 @@ GDPR/CCPA compliant deletion workflow:
 - Logs deletion requests with audit trail (CCPA 45-day requirement)
 - Resets PostHog identity (immediate unlinking)
 - Provides regulatory-appropriate user messaging
+
+---
+
+## Exports
+
+All analytics components are exported from `@/core/analytics`:
+
+```typescript
+// Provider
+export { PostHogProvider, usePostHogConfigured } from './PostHogProvider';
+
+// PHI Filter
+export { PHIFilter, AnalyticsEvents } from './PHIFilter';
+export type { PHIValidationResult, AnalyticsEventType } from './PHIFilter';
+
+// Deletion Workflow
+export {
+  handleAnalyticsDeletion,
+  showDeletionConfirmation,
+  getDeletionRequestHistory,
+  hasPendingDeletionRequests,
+} from './AnalyticsDeletion';
+export type { DeletionRequestType } from './AnalyticsDeletion';
+```
 
 ---
 
@@ -112,22 +149,37 @@ EXPO_PUBLIC_POSTHOG_HOST=https://eu.i.posthog.com  # EU data residency
 
 ```typescript
 import { usePostHog } from 'posthog-react-native';
-import { PHIFilter } from '@/core/analytics';
+import { PHIFilter, AnalyticsEvents } from '@/core/analytics';
 
 const posthog = usePostHog();
 
-// Always validate before sending
-const validation = PHIFilter.validate('screen_viewed', { screen_name: 'home' });
+// Type-safe event tracking with PHI validation
+const eventData = { screen_name: 'home' };
+const validation = PHIFilter.validate(AnalyticsEvents.SCREEN_VIEWED, eventData);
+
 if (validation.valid) {
-  posthog.capture('screen_viewed', { screen_name: 'home' });
+  posthog.capture(AnalyticsEvents.SCREEN_VIEWED, eventData);
+} else {
+  // Event blocked - logged automatically by PHIFilter
+  console.warn('Analytics blocked:', validation.reason);
+}
+```
+
+### Quick Pattern (for simple events)
+
+```typescript
+// For events with no properties, validation is simpler
+if (PHIFilter.isWhitelisted(AnalyticsEvents.CHECK_IN_COMPLETED)) {
+  posthog.capture(AnalyticsEvents.CHECK_IN_COMPLETED);
 }
 ```
 
 ### Adding New Events
 
 1. Add event to `SAFE_EVENT_TYPES` in `PHIFilter.ts`
-2. Add constant to `AnalyticsEvents` object
+2. Add constant to `AnalyticsEvents` object (same file)
 3. Ensure no PHI is included in event properties
+4. Update this documentation
 
 ### Deletion Requests
 

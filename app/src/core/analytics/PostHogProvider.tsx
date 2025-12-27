@@ -7,7 +7,7 @@
  * - No session recording (privacy)
  * - No autocapture (we control what's sent)
  *
- * @see docs/development/PostHog-Integration-Plan.md
+ * @see docs/architecture/analytics-architecture.md
  */
 
 import React, { useEffect, useState } from 'react';

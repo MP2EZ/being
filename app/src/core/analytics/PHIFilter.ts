@@ -7,7 +7,7 @@
  * Design principle: If an event type isn't in SAFE_EVENT_TYPES,
  * it doesn't get sent. Period.
  *
- * @see docs/development/PostHog-Integration-Plan.md
+ * @see docs/architecture/analytics-architecture.md
  */
 
 import { logSecurity } from '@/core/services/logging';
