@@ -10,7 +10,7 @@
  * @see docs/architecture/analytics-architecture.md
  */
 
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { PostHogProvider as PHProvider } from 'posthog-react-native';
 import { useConsentStore } from '@/core/stores/consentStore';
 
@@ -29,14 +29,10 @@ interface PostHogProviderProps {
  * Analytics is DISABLED unless user explicitly grants consent.
  */
 export function PostHogProvider({ children }: PostHogProviderProps): React.ReactElement {
-  const { canPerformOperation } = useConsentStore();
-  const [analyticsEnabled, setAnalyticsEnabled] = useState(false);
-
-  // Check consent status
-  useEffect(() => {
-    const hasConsent = canPerformOperation('analytics');
-    setAnalyticsEnabled(hasConsent);
-  }, [canPerformOperation]);
+  // Subscribe directly to consent state (reactive to changes)
+  const analyticsEnabled = useConsentStore(
+    (state) => state.currentConsent?.preferences?.analyticsEnabled ?? false
+  );
 
   // Don't render PostHog if no API key configured or no consent
   if (!POSTHOG_API_KEY || POSTHOG_API_KEY === 'phc_your_api_key_here' || !analyticsEnabled) {
