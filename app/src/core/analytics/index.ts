@@ -31,6 +31,18 @@ import type { AnalyticsEvent } from './AnalyticsService';
 // Core Analytics Service
 export { default as AnalyticsService } from './AnalyticsService';
 
+// PostHog Integration (FEAT-40)
+export { PostHogProvider, usePostHogConfigured } from './PostHogProvider';
+export { PHIFilter, AnalyticsEvents } from './PHIFilter';
+export type { PHIValidationResult, AnalyticsEventType } from './PHIFilter';
+export {
+  handleAnalyticsDeletion,
+  showDeletionConfirmation,
+  getDeletionRequestHistory,
+  hasPendingDeletionRequests,
+} from './AnalyticsDeletion';
+export type { DeletionRequestType } from './AnalyticsDeletion';
+
 // Import secure logging
 import {
   logger,
