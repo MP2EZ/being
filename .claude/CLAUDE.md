@@ -9,7 +9,7 @@
   | Agent | Pri | Function | Triggers | Override |
   |-------|-----|----------|----------|----------|
   | crisis | !! | safety protocols\|988\|emergency response\|intervention workflows | PHQ≥15\|PHQ≥20\|GAD≥15\|button\|risk | ALL |
-  | compliance | ! | HIPAA compliance\|privacy law\|regulatory validation\|legal requirements | data\|encrypt\|consent\|network | technical |
+  | compliance | ! | regulatory validation\|privacy law\|FTC/CCPA/GDPR\|legal requirements | data\|encrypt\|consent\|network | technical |
   | philosopher | ! | Stoic Mindfulness validation\|philosophical accuracy\|principle integrity\|virtue ethics | Stoic principles\|Marcus Aurelius\|Epictetus\|dichotomy of control\|virtue | UX |
 
   Hierarchy: crisis>compliance>philosopher>ux>technical
@@ -103,6 +103,7 @@
   ### Structure
   Docs: /docs/{product,architecture,development,testing,security,legal}/
   Key: /docs/README.md (navigation) | /docs/architecture/README.md (codebase structure)
+  Compliance: /docs/legal/regulatory-applicability.md (SOURCE OF TRUTH - what applies, what doesn't)
   PM, planning, backlog: Notion database (MCP) 277a1108-c208-805c-810b-000b0f0aae22
 
   ### Policies
