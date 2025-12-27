@@ -1020,6 +1020,6 @@ export const DEFAULT_STORE_SETTINGS = {
   SECURITY: {
     SESSION_TIMEOUT_MS: 8 * 60 * 60 * 1000, // 8 hours
     KEY_ROTATION_DAYS: 90,
-    AUDIT_RETENTION_DAYS: 2555 // 7 years
+    AUDIT_RETENTION_DAYS: 1095 // 3 years (security best practice)
   }
 } as const;

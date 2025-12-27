@@ -23,7 +23,7 @@
  *
  * MENTAL HEALTH COMPLIANCE:
  * - Privacy-compliant storage with audit trails
- * - 7-year retention for clinical records
+ * - 3-year retention for crisis intervention records (liability protection)
  * - Secure data deletion and device cleanup
  * - Emergency data access protocols
  */

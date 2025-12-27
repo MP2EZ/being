@@ -494,10 +494,10 @@ export function calculateRetentionExpiry(
 export const DEFAULT_COMPLIANCE_SETTINGS = {
   /** Default consent expiry period (2 years) */
   DEFAULT_CONSENT_EXPIRY_MS: 2 * 365 * 24 * 60 * 60 * 1000,
-  /** Default audit log retention (7 years) */
-  DEFAULT_AUDIT_RETENTION_MS: 7 * 365 * 24 * 60 * 60 * 1000,
-  /** Default PHI retention period (6 years) */
-  DEFAULT_DATA_RETENTION_MS: 6 * 365 * 24 * 60 * 60 * 1000,
+  /** Default audit log retention (3 years - security best practice) */
+  DEFAULT_AUDIT_RETENTION_MS: 3 * 365 * 24 * 60 * 60 * 1000,
+  /** Default data retention period (2 years - purpose-based) */
+  DEFAULT_DATA_RETENTION_MS: 2 * 365 * 24 * 60 * 60 * 1000,
   /** Default grace period for data deletion (30 days) */
   DEFAULT_DELETION_GRACE_PERIOD_MS: 30 * 24 * 60 * 60 * 1000,
   /** Required consent types for core functionality */
