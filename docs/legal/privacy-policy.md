@@ -171,10 +171,35 @@ To exercise these rights, email [privacy@being.fyi](mailto:privacy@being.fyi) or
 
 We retain your information as follows:
 
+### 7.1 General Wellness Data (90 Days)
+
+- **Daily Check-Ins:** Mood logs, mindfulness completions
+- **Principle Engagements:** Stoic practice progress tracking
+- **Non-Crisis Assessments:** PHQ-9 and GAD-7 results below crisis thresholds
+
+This data is automatically deleted after 90 days to minimize data collection while still enabling meaningful progress tracking.
+
+### 7.2 Crisis-Related Data (3 Years)
+
+For your safety and our liability protection, we retain crisis-related data for 3 years:
+
+- **High-Severity Assessments:** PHQ-9 scores ≥ 20, GAD-7 scores ≥ 15
+- **Suicidal Ideation Responses:** Any non-zero response to PHQ-9 question 9
+- **Crisis Intervention Records:** When you accessed 988 or emergency resources
+
+This extended retention ensures continuity of care information and protects both you and us in case of legal proceedings.
+
+### 7.3 Other Data
+
 - **Local Data:** Stored on your device until you delete the app or clear data
 - **Cloud Backup:** Retained until you delete your account or disable backup
 - **Account Deletion:** All data permanently deleted within 30 days
-- **Legal/Financial Records:** May be retained longer to comply with legal obligations
+- **Audit Logs:** 3 years (for security and compliance)
+- **Consent Records:** Retained indefinitely as proof of lawful data processing
+
+### 7.4 Your Right to Delete
+
+You can delete your data at any time in Settings, including crisis-related data. We will honor deletion requests within 30 days, though we may retain anonymized records for legal compliance.
 
 ---
 

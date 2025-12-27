@@ -97,8 +97,18 @@ describe('DataRetentionService', () => {
       );
     });
 
-    it('should have 365-day audit log retention', () => {
-      expect(DATA_RETENTION_CONFIG.AUDIT_LOG_RETENTION_DAYS).toBe(365);
+    it('should have 3-year audit log retention', () => {
+      expect(DATA_RETENTION_CONFIG.AUDIT_LOG_RETENTION_YEARS).toBe(3);
+      expect(DATA_RETENTION_CONFIG.AUDIT_LOG_RETENTION_MS).toBe(
+        3 * 365 * 24 * 60 * 60 * 1000
+      );
+    });
+
+    it('should have 3-year crisis data retention', () => {
+      expect(DATA_RETENTION_CONFIG.CRISIS_RETENTION_YEARS).toBe(3);
+      expect(DATA_RETENTION_CONFIG.CRISIS_RETENTION_MS).toBe(
+        3 * 365 * 24 * 60 * 60 * 1000
+      );
     });
 
     it('should have 24-hour minimum cleanup interval', () => {
@@ -173,6 +183,82 @@ describe('DataRetentionService', () => {
       expect(result.success).toBe(true);
       expect(result.totalRecordsDeleted).toBe(2);
       expect(result.categoriesProcessed).toContain('assessment_history');
+    });
+
+    it('CRITICAL: should preserve crisis assessments for 3 years (PHQ-9 >= 20)', async () => {
+      // Crisis assessment from 400 days ago - should be preserved
+      const crisisAssessment = {
+        id: 'crisis-1',
+        type: 'phq9',
+        progress: { startedAt: daysAgoMs(400), completedAt: daysAgoMs(400) },
+        result: { totalScore: 22, isCrisis: true },
+      };
+      // Non-crisis assessment from 100 days ago - should be deleted
+      const normalAssessment = {
+        id: 'normal-1',
+        type: 'phq9',
+        progress: { startedAt: daysAgoMs(100), completedAt: daysAgoMs(100) },
+        result: { totalScore: 8, isCrisis: false },
+      };
+
+      mockSecureStore.getItemAsync
+        .mockResolvedValueOnce(JSON.stringify(createMockPracticeData([], [])))
+        .mockResolvedValueOnce(
+          JSON.stringify({ completedAssessments: [crisisAssessment, normalAssessment] })
+        );
+      mockSecureStore.setItemAsync.mockResolvedValue(undefined);
+
+      const result = await DataRetentionService.runRetentionCleanup();
+
+      expect(result.success).toBe(true);
+      expect(result.totalRecordsDeleted).toBe(1); // Only normal assessment deleted
+
+      const savedData = JSON.parse(mockSecureStore.setItemAsync.mock.calls[0][1]);
+      expect(savedData.completedAssessments).toHaveLength(1);
+      expect(savedData.completedAssessments[0].id).toBe('crisis-1');
+    });
+
+    it('CRITICAL: should preserve suicidal ideation assessments for 3 years', async () => {
+      // Assessment with suicidal ideation from 200 days ago - should be preserved
+      const suicidalIdeationAssessment = {
+        id: 'si-1',
+        type: 'phq9',
+        progress: { startedAt: daysAgoMs(200), completedAt: daysAgoMs(200) },
+        result: { totalScore: 12, suicidalIdeation: true },
+      };
+
+      mockSecureStore.getItemAsync
+        .mockResolvedValueOnce(JSON.stringify(createMockPracticeData([], [])))
+        .mockResolvedValueOnce(
+          JSON.stringify({ completedAssessments: [suicidalIdeationAssessment] })
+        );
+      mockSecureStore.setItemAsync.mockResolvedValue(undefined);
+
+      const result = await DataRetentionService.runRetentionCleanup();
+
+      // Should not delete suicidal ideation assessment even though > 90 days
+      expect(result.totalRecordsDeleted).toBe(0);
+    });
+
+    it('CRITICAL: should preserve GAD-7 >= 15 assessments for 3 years', async () => {
+      const severeAnxietyAssessment = {
+        id: 'gad-1',
+        type: 'gad7',
+        progress: { startedAt: daysAgoMs(300), completedAt: daysAgoMs(300) },
+        result: { totalScore: 18, isCrisis: false },
+      };
+
+      mockSecureStore.getItemAsync
+        .mockResolvedValueOnce(JSON.stringify(createMockPracticeData([], [])))
+        .mockResolvedValueOnce(
+          JSON.stringify({ completedAssessments: [severeAnxietyAssessment] })
+        );
+      mockSecureStore.setItemAsync.mockResolvedValue(undefined);
+
+      const result = await DataRetentionService.runRetentionCleanup();
+
+      // GAD-7 >= 15 should be retained for 3 years
+      expect(result.totalRecordsDeleted).toBe(0);
     });
 
     it('should preserve records within 90-day window', async () => {

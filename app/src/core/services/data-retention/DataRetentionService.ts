@@ -16,9 +16,12 @@
  * DATA CLASSIFICATION:
  * - Check-in completions: 90-day auto-delete
  * - Principle engagements: 90-day auto-delete
- * - Assessment history: 90-day auto-delete
+ * - Assessment history: 90-day auto-delete (except crisis data)
+ * - Crisis assessment data: 3-year retention (PHQ-9 ≥20, Item 9 > 0, GAD-7 ≥15)
+ * - Crisis intervention records: 3-year retention (liability protection)
  * - Practice progress: User-controlled (delete on request)
  * - Consent records: Indefinite (audit trail)
+ * - Audit logs: 3-year retention (legal defense)
  *
  * NON-NEGOTIABLES:
  * - Privacy policy: 90-day retention for check-in/assessment data
@@ -40,13 +43,18 @@ import { logSecurity, logError, LogCategory } from '@/core/services/logging';
  * All periods are in milliseconds
  */
 export const DATA_RETENTION_CONFIG = {
-  // Privacy policy commitment: 90 days
+  // Privacy policy commitment: 90 days for general wellness data
   DEFAULT_RETENTION_DAYS: 90,
   DEFAULT_RETENTION_MS: 90 * 24 * 60 * 60 * 1000,
 
-  // Audit log retention (for legal defense)
-  AUDIT_LOG_RETENTION_DAYS: 365,
-  AUDIT_LOG_RETENTION_MS: 365 * 24 * 60 * 60 * 1000,
+  // Crisis data retention: 3 years (liability protection)
+  // Applies to: PHQ-9 ≥20, PHQ-9 Item 9 > 0, GAD-7 ≥15, crisis interventions
+  CRISIS_RETENTION_YEARS: 3,
+  CRISIS_RETENTION_MS: 3 * 365 * 24 * 60 * 60 * 1000,
+
+  // Audit log retention: 3 years (legal defense, best practice)
+  AUDIT_LOG_RETENTION_YEARS: 3,
+  AUDIT_LOG_RETENTION_MS: 3 * 365 * 24 * 60 * 60 * 1000,
 
   // Cleanup frequency (run on app launch, max once per day)
   MIN_CLEANUP_INTERVAL_MS: 24 * 60 * 60 * 1000,
@@ -248,7 +256,7 @@ class DataRetentionServiceImpl {
         errors.push(assessmentResult.error);
       }
 
-      // 3. Clean up old audit logs (keep 1 year)
+      // 3. Clean up old audit logs (keep 3 years per config)
       await this.cleanupOldAuditLogs();
 
       // Update last cleanup timestamp
@@ -526,6 +534,16 @@ class DataRetentionServiceImpl {
 
   /**
    * Clean up assessment history data
+   *
+   * RETENTION POLICY:
+   * - General assessments: 90 days
+   * - Crisis assessments: 3 years (liability protection)
+   *
+   * Crisis assessments are defined as:
+   * - PHQ-9 total score ≥ 20 (severe depression)
+   * - PHQ-9 Item 9 response > 0 (suicidal ideation)
+   * - GAD-7 total score ≥ 15 (severe anxiety)
+   * - Any assessment flagged as isCrisis
    */
   private async cleanupAssessmentData(): Promise<{
     success: boolean;
@@ -542,14 +560,37 @@ class DataRetentionServiceImpl {
       }
 
       const parsed = JSON.parse(storedData);
-      const cutoffMs = getRetentionCutoffMs();
+      const defaultCutoffMs = getRetentionCutoffMs();
+      const crisisCutoffMs = Date.now() - DATA_RETENTION_CONFIG.CRISIS_RETENTION_MS;
 
-      // Clean completed assessments older than 90 days
+      // Clean completed assessments with tiered retention
       const originalCount = parsed.completedAssessments?.length || 0;
       const filteredAssessments = (parsed.completedAssessments || []).filter(
-        (assessment: { progress?: { startedAt?: number } }) => {
+        (assessment: {
+          progress?: { startedAt?: number };
+          result?: {
+            isCrisis?: boolean;
+            suicidalIdeation?: boolean;
+            totalScore?: number;
+          };
+          type?: string;
+        }) => {
           const startedAt = assessment.progress?.startedAt;
-          return startedAt && startedAt >= cutoffMs;
+          if (!startedAt) return false;
+
+          // Check if this is crisis data (requires 3-year retention)
+          const result = assessment.result;
+          const isCrisisData =
+            result?.isCrisis === true ||
+            result?.suicidalIdeation === true ||
+            (assessment.type === 'phq9' && (result?.totalScore ?? 0) >= 20) ||
+            (assessment.type === 'gad7' && (result?.totalScore ?? 0) >= 15);
+
+          // Apply appropriate retention period
+          if (isCrisisData) {
+            return startedAt >= crisisCutoffMs; // 3-year retention
+          }
+          return startedAt >= defaultCutoffMs; // 90-day retention
         }
       );
       const recordsDeleted = originalCount - filteredAssessments.length;
@@ -565,7 +606,7 @@ class DataRetentionServiceImpl {
           recordCount: recordsDeleted,
           deletionReason: 'retention_expiry',
           oldestRecordDate: null,
-          newestRecordDate: cutoffMs,
+          newestRecordDate: defaultCutoffMs,
           success: true,
         };
 
