@@ -47,31 +47,31 @@ describe('SSLPinningError', () => {
     const error = new SSLPinningError(
       'Certificate pin mismatch',
       'https://test.supabase.co/api/data',
-      'PHI_CLINICAL'
+      'CLINICAL_DATA'
     );
 
     expect(error.name).toBe('SSLPinningError');
     expect(error.message).toBe('Certificate pin mismatch');
     expect(error.endpoint).toBe('https://test.supabase.co/api/data');
-    expect(error.dataClassification).toBe('PHI_CLINICAL');
+    expect(error.dataClassification).toBe('CLINICAL_DATA');
   });
 
   it('should be instanceof Error', () => {
-    const error = new SSLPinningError('Test', 'url', 'NON_PHI');
+    const error = new SSLPinningError('Test', 'url', 'METADATA');
 
     expect(error).toBeInstanceOf(Error);
     expect(error).toBeInstanceOf(SSLPinningError);
   });
 
   it('should have stack trace', () => {
-    const error = new SSLPinningError('Test', 'url', 'NON_PHI');
+    const error = new SSLPinningError('Test', 'url', 'METADATA');
 
     expect(error.stack).toBeDefined();
     expect(error.stack).toContain('SSLPinningError');
   });
 
   it('should support all data classifications', () => {
-    const classifications = ['PHI_CLINICAL', 'PHI_CRISIS', 'PHI_CHECKIN', 'NON_PHI'] as const;
+    const classifications = ['CLINICAL_DATA', 'CRISIS_DATA', 'CHECKIN_DATA', 'METADATA'] as const;
 
     classifications.forEach((classification) => {
       const error = new SSLPinningError('Test', 'url', classification);
@@ -177,7 +177,7 @@ describe('PinnedFetchOptions Interface', () => {
   it('should document expected option types', () => {
     // Type-level test - these should compile without error
     const options: Record<string, unknown> = {
-      dataClassification: 'PHI_CLINICAL',
+      dataClassification: 'CLINICAL_DATA',
       timeout: 5000,
       skipPinning: false,
       method: 'POST',
@@ -185,7 +185,7 @@ describe('PinnedFetchOptions Interface', () => {
       body: JSON.stringify({ test: true }),
     };
 
-    expect(options.dataClassification).toBe('PHI_CLINICAL');
+    expect(options.dataClassification).toBe('CLINICAL_DATA');
     expect(options.timeout).toBe(5000);
     expect(options.skipPinning).toBe(false);
   });
@@ -206,8 +206,8 @@ describe('Security Audit Trail', () => {
   });
 });
 
-describe('HIPAA Compliance Validation', () => {
-  it('should have HIPAA-compliant transmission security (§164.312(e)(1))', () => {
+describe('Privacy Compliance Validation', () => {
+  it('should have Privacy-compliant transmission security (§164.312(e)(1))', () => {
     // Requirement: Technical security measures to guard against unauthorized access
     expect(PIN_VALIDATION_CONFIG.failOnPinMismatch).toBe(true);
 
@@ -218,8 +218,8 @@ describe('HIPAA Compliance Validation', () => {
 
   it('should support data classification for audit controls (§164.312(b))', () => {
     // SSLPinningError captures data classification for audit
-    const error = new SSLPinningError('Test', '/api/assessment', 'PHI_CLINICAL');
-    expect(error.dataClassification).toBe('PHI_CLINICAL');
+    const error = new SSLPinningError('Test', '/api/assessment', 'CLINICAL_DATA');
+    expect(error.dataClassification).toBe('CLINICAL_DATA');
   });
 });
 

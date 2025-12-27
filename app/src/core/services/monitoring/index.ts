@@ -7,7 +7,7 @@
  * - Intelligent alerting with crisis escalation
  * - Performance tracking integration
  * - Security event monitoring
- * - HIPAA-compliant error aggregation
+ * - Privacy-compliant error aggregation
  *
  * USAGE:
  * import { errorMonitoringService, trackCrisisError, trackSyncError } from '@/core/services/monitoring';

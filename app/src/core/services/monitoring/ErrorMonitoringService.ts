@@ -16,7 +16,7 @@
  *
  * COMPLIANCE FEATURES:
  * - Zero PHI in error reports
- * - HIPAA-compliant error aggregation
+ * - Privacy-compliant error aggregation
  * - Privacy-preserving error classification
  * - Secure audit trail integration
  */

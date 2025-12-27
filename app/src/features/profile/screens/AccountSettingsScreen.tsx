@@ -9,7 +9,7 @@
  *
  * COMPLIANCE:
  * - Account deletion must be app store compliant
- * - Data export for HIPAA compliance (right to access)
+ * - Data export for Privacy compliance (right to access)
  * - Clear explanation of what gets deleted
  * - Confirmation flow for destructive actions
  *
@@ -74,7 +74,7 @@ const AccountSettingsScreen: React.FC<AccountSettingsScreenProps> = ({ onReturn 
     // MVP: Disabled until FEAT-29 (export & sharing) ships
     Alert.alert(
       'Feature Not Available',
-      '⚠️ Development Mode\n\nData export is blocked by FEAT-29 (Export & Sharing). This feature has been validated and will use client-side PDF generation to comply with HIPAA requirements.',
+      '⚠️ Development Mode\n\nData export is blocked by FEAT-29 (Export & Sharing). This feature has been validated and will use client-side PDF generation to comply with Privacy requirements.',
       [{ text: 'OK' }]
     );
   };
@@ -83,7 +83,7 @@ const AccountSettingsScreen: React.FC<AccountSettingsScreenProps> = ({ onReturn 
     // MVP: Disabled until FEAT-59 (account deletion with grace period) ships
     Alert.alert(
       'Feature Not Available',
-      '⚠️ Development Mode\n\nAccount deletion is blocked by FEAT-59 (Account Deletion with Grace Period). This feature will include:\n\n• 30-day recovery period\n• App store compliance\n• Pre-deletion data export\n• Full HIPAA compliance\n\nThis feature will be available in V2.',
+      '⚠️ Development Mode\n\nAccount deletion is blocked by FEAT-59 (Account Deletion with Grace Period). This feature will include:\n\n• 30-day recovery period\n• App store compliance\n• Pre-deletion data export\n• Full Privacy compliance\n\nThis feature will be available in V2.',
       [{ text: 'OK' }]
     );
   };

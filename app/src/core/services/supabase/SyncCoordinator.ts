@@ -14,7 +14,7 @@
  * - Network resilience orchestration
  *
  * PRIVACY-FIRST DESIGN:
- * - Operates on encrypted blobs only (HIPAA compliant)
+ * - Operates on encrypted blobs only (Privacy compliant)
  * - No PHI exposure during conflict resolution
  * - Maintains "conduit exception" status
  * - Sync metadata contains no health information

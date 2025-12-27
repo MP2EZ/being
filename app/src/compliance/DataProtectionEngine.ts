@@ -18,9 +18,9 @@
  * - Assessment data integrity
  * - Emergency sharing protocols for imminent harm
  *
- * NOTE: Being is NOT a HIPAA covered entity. This engine implements
+ * NOTE: Being is NOT a Privacy covered entity. This engine implements
  * privacy protections required by applicable consumer privacy laws.
- * Legacy type names (PHI*, HIPAA*) maintained for backwards compatibility.
+ * All terminology updated to reflect actual regulatory requirements.
  *
  * INTEGRATION WITH EXISTING SYSTEMS:
  * - Crisis detection and intervention workflows
@@ -48,7 +48,7 @@ import type {
  * Regulatory requirements: CCPA/CPRA, FTC Health Breach Rule, CA SB 446, NY SHIELD, TX TDPSA
  */
 export const DATA_PROTECTION_CONFIG = {
-  /** Data retention periods (purpose-based, not HIPAA) */
+  /** Data retention periods (purpose-based) */
   DATA_RETENTION: {
     /** Wellness assessment data retention (2 years) */
     WELLNESS_DATA_YEARS: 2,
@@ -111,43 +111,34 @@ export const DATA_PROTECTION_CONFIG = {
   }
 } as const;
 
-// Legacy alias for backwards compatibility
-export const HIPAA_COMPLIANCE_CONFIG = DATA_PROTECTION_CONFIG;
-
 /**
  * DATA SENSITIVITY CLASSIFICATION SYSTEM
  * Classification of sensitive wellness data per CCPA/CPRA and TX TDPSA
- *
- * NOTE: Legacy enum name PHIClassification maintained for backwards compatibility.
- * New code should use DataSensitivityLevel values.
  */
-export enum PHIClassification {
+export enum DataSensitivityLevel {
   /** Public data (no special protection needed) */
-  NON_PHI = 'public',
+  PUBLIC = 'public',
   /** Internal data (app preferences, usage patterns) */
-  LIMITED_PHI = 'internal',
+  INTERNAL = 'internal',
   /** Confidential data (journal entries, mood logs) */
-  STANDARD_PHI = 'confidential',
+  CONFIDENTIAL = 'confidential',
   /** Sensitive data (PHQ-9, GAD-7 wellness scores) - TX TDPSA sensitive category */
-  SENSITIVE_PHI = 'sensitive',
+  SENSITIVE = 'sensitive',
   /** Critical data (crisis/suicidal ideation data) - highest protection */
-  CRITICAL_PHI = 'critical'
+  CRITICAL = 'critical'
 }
 
-// New enum alias with clearer naming
-export const DataSensitivityLevel = PHIClassification;
-
 /**
- * PHI DATA ELEMENT CLASSIFICATION
+ * SENSITIVE DATA ELEMENT CLASSIFICATION
  * Specific classification for assessment data elements
  */
-export interface PHIDataElement {
+export interface SensitiveDataElement {
   /** Unique identifier for data element */
   elementId: string;
   /** Data element name */
   name: string;
-  /** PHI classification level */
-  classification: PHIClassification;
+  /** Sensitivity classification level */
+  classification: DataSensitivityLevel;
   /** Whether encryption is required */
   encryptionRequired: boolean;
   /** Access control requirements */
@@ -182,10 +173,10 @@ export interface PHIDataElement {
 }
 
 /**
- * HIPAA CONSENT MANAGEMENT
+ * DATA PROTECTION CONSENT MANAGEMENT
  * Comprehensive consent tracking and validation
  */
-export interface HIPAAConsent {
+export interface DataProtectionConsent {
   /** Unique consent ID */
   consentId: string;
   /** User ID (encrypted) */
@@ -234,24 +225,24 @@ export interface HIPAAConsent {
 }
 
 /**
- * HIPAA COMPLIANCE AUDIT EVENT
+ * DATA PROTECTION AUDIT EVENT
  * Comprehensive audit trail for compliance
  */
-export interface HIPAAComplianceAuditEvent {
+export interface ComplianceAuditEvent {
   /** Unique event ID */
   eventId: string;
   /** Event timestamp */
   timestamp: number;
   /** Event type */
-  type: HIPAAEventType;
+  type: AuditEventType;
   /** User ID (encrypted) */
   userId?: string;
   /** Session ID */
   sessionId?: string;
   /** Data elements accessed */
   dataElements: string[];
-  /** PHI classification of accessed data */
-  phiClassification: PHIClassification;
+  /** Sensitivity classification of accessed data */
+  sensitivityLevel: DataSensitivityLevel;
   /** Access purpose */
   purpose: 'treatment' | 'payment' | 'operations' | 'emergency' | 'user_request';
   /** Minimum necessary compliance */
@@ -287,8 +278,8 @@ export interface HIPAAComplianceAuditEvent {
   };
   /** Compliance status */
   compliance: {
-    /** HIPAA compliant */
-    hipaaCompliant: boolean;
+    /** Privacy compliant */
+    privacyCompliant: boolean;
     /** Privacy rule compliant */
     privacyRuleCompliant: boolean;
     /** Security rule compliant */
@@ -298,12 +289,12 @@ export interface HIPAAComplianceAuditEvent {
   };
 }
 
-export type HIPAAEventType = 
-  | 'phi_access'           // PHI data accessed
-  | 'phi_modification'     // PHI data modified
-  | 'phi_deletion'         // PHI data deleted
-  | 'phi_export'           // PHI data exported
-  | 'phi_sharing'          // PHI data shared
+export type AuditEventType = 
+  | 'data_access'           // Sensitive data accessed
+  | 'data_modification'     // Sensitive data modified
+  | 'data_deletion'         // Sensitive data deleted
+  | 'data_export'           // Sensitive data exported
+  | 'data_sharing'          // Sensitive data shared
   | 'consent_obtained'     // User consent obtained
   | 'consent_revoked'      // User consent revoked
   | 'authentication'       // User authentication
@@ -311,12 +302,12 @@ export type HIPAAEventType =
   | 'breach_detected'      // Security breach detected
   | 'compliance_violation' // Compliance violation
   | 'audit_log_access'     // Audit log accessed
-  | 'emergency_access';    // Emergency PHI access
+  | 'emergency_access';    // Emergency data access
 
 /**
- * HIPAA BREACH DETECTION AND RESPONSE
+ * DATA BREACH DETECTION AND RESPONSE
  */
-export interface HIPAABreach {
+export interface DataBreach {
   /** Unique breach ID */
   breachId: string;
   /** Discovery timestamp */
@@ -327,8 +318,8 @@ export interface HIPAABreach {
   severity: 'low' | 'medium' | 'high' | 'critical';
   /** Affected individuals count */
   affectedIndividuals: number;
-  /** PHI types involved */
-  phiTypesInvolved: PHIClassification[];
+  /** Data types involved */
+  dataTypesInvolved: DataSensitivityLevel[];
   /** Description of breach */
   description: string;
   /** Discovery method */
@@ -359,7 +350,7 @@ export interface HIPAABreach {
   };
   /** Risk assessment */
   riskAssessment: {
-    /** Probability of PHI compromise */
+    /** Probability of data compromise */
     compromiseProbability: 'low' | 'medium' | 'high';
     /** Harm to individuals */
     harmToIndividuals: 'low' | 'medium' | 'high';
@@ -369,55 +360,55 @@ export interface HIPAABreach {
 }
 
 /**
- * HIPAA COMPLIANCE ENGINE IMPLEMENTATION
+ * DATA PROTECTION ENGINE IMPLEMENTATION
  */
-export class HIPAAComplianceEngine {
-  private static instance: HIPAAComplianceEngine;
-  private auditEvents: Map<string, HIPAAComplianceAuditEvent[]> = new Map();
-  private activeConsents: Map<string, HIPAAConsent> = new Map();
-  private phiClassifications: Map<string, PHIDataElement> = new Map();
-  private breachEvents: Map<string, HIPAABreach> = new Map();
+export class DataProtectionEngine {
+  private static instance: DataProtectionEngine;
+  private auditEvents: Map<string, ComplianceAuditEvent[]> = new Map();
+  private activeConsents: Map<string, DataProtectionConsent> = new Map();
+  private sensitivityLevels: Map<string, SensitiveDataElement> = new Map();
+  private breachEvents: Map<string, DataBreach> = new Map();
   private encryptionKeys: Map<string, string> = new Map();
 
   private constructor() {
-    this.initializePHIClassifications();
+    this.initializeDataSensitivityLevels();
   }
 
-  public static getInstance(): HIPAAComplianceEngine {
-    if (!HIPAAComplianceEngine.instance) {
-      HIPAAComplianceEngine.instance = new HIPAAComplianceEngine();
+  public static getInstance(): DataProtectionEngine {
+    if (!DataProtectionEngine.instance) {
+      DataProtectionEngine.instance = new DataProtectionEngine();
     }
-    return HIPAAComplianceEngine.instance;
+    return DataProtectionEngine.instance;
   }
 
   /**
-   * CORE PHI CLASSIFICATION AND VALIDATION
+   * CORE SENSITIVITY CLASSIFICATION AND VALIDATION
    */
 
   /**
-   * Classifies assessment data according to PHI sensitivity levels
+   * Classifies assessment data according to data sensitivity levels
    */
   public classifyAssessmentData(
     assessmentType: 'phq9' | 'gad7',
     answers: AssessmentAnswer[],
     result: PHQ9Result | GAD7Result
-  ): PHIClassification {
+  ): DataSensitivityLevel {
     // Crisis/suicidal ideation data is always CRITICAL_PHI
     if ('suicidalIdeation' in result && result.suicidalIdeation) {
-      return PHIClassification.CRITICAL_PHI;
+      return DataSensitivityLevel.CRITICAL;
     }
 
     // High crisis scores are SENSITIVE_PHI
     if (result.isCrisis) {
-      return PHIClassification.SENSITIVE_PHI;
+      return DataSensitivityLevel.SENSITIVE;
     }
 
     // All other mental health assessment data is SENSITIVE_PHI
-    return PHIClassification.SENSITIVE_PHI;
+    return DataSensitivityLevel.SENSITIVE;
   }
 
   /**
-   * Validates that data handling meets HIPAA requirements
+   * Validates that data handling meets data protection requirements
    */
   public async validateDataHandling(
     dataType: string,
@@ -437,18 +428,18 @@ export class HIPAAComplianceEngine {
     const recommendations: string[] = [];
 
     try {
-      // Check PHI classification
-      const phiElement = this.phiClassifications.get(dataType);
+      // Check Sensitivity classification
+      const phiElement = this.sensitivityLevels.get(dataType);
       if (!phiElement) {
         violations.push(`Unclassified data type: ${dataType}`);
-        recommendations.push('All data types must be classified for PHI sensitivity');
+        recommendations.push('All data types must be classified for data sensitivity');
       }
 
       // Validate consent
       const consentValid = await this.validateUserConsent(context.userId, operation);
       if (!consentValid) {
-        violations.push('User consent required for PHI access');
-        recommendations.push('Obtain valid user consent before accessing PHI');
+        violations.push('User consent required for data access');
+        recommendations.push('Obtain valid user consent before accessing data');
       }
 
       // Check minimum necessary rule
@@ -460,7 +451,7 @@ export class HIPAAComplianceEngine {
         );
         if (!minimumNecessaryCompliant) {
           violations.push('Minimum necessary rule violation');
-          recommendations.push('Limit PHI access to minimum necessary for stated purpose');
+          recommendations.push('Limit data access to minimum necessary for stated purpose');
         }
       }
 
@@ -469,7 +460,7 @@ export class HIPAAComplianceEngine {
         const encryptionValid = await this.validateEncryption(dataType);
         if (!encryptionValid) {
           violations.push('Encryption required but not properly implemented');
-          recommendations.push('Implement proper encryption for sensitive PHI');
+          recommendations.push('Implement proper encryption for sensitive data');
         }
       }
 
@@ -481,7 +472,7 @@ export class HIPAAComplianceEngine {
         userId: context.userId,
         sessionId: context.sessionId,
         dataElements: [dataType],
-        phiClassification: phiElement?.classification || PHIClassification.STANDARD_PHI,
+        sensitivityLevel: phiElement?.classification || DataSensitivityLevel.CONFIDENTIAL,
         purpose: context.purpose as any,
         minimumNecessaryCompliant: violations.length === 0,
         authorization: {
@@ -491,7 +482,7 @@ export class HIPAAComplianceEngine {
         technical: await this.getTechnicalContext(),
         security: await this.getSecurityContext(context.sessionId),
         compliance: {
-          hipaaCompliant: violations.length === 0,
+          privacyCompliant: violations.length === 0,
           privacyRuleCompliant: violations.length === 0,
           securityRuleCompliant: violations.length === 0,
           violations
@@ -505,13 +496,13 @@ export class HIPAAComplianceEngine {
       };
 
     } catch (error) {
-      logError(LogCategory.SYSTEM, 'HIPAA VALIDATION ERROR:', error instanceof Error ? error : new Error(String(error)));
+      logError(LogCategory.SYSTEM, 'PRIVACY VALIDATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       violations.push(`Validation system error: ${error instanceof Error ? error.message : 'Unknown error'}`);
       
       return {
         compliant: false,
         violations,
-        recommendations: [...recommendations, 'Review and fix HIPAA validation system errors']
+        recommendations: [...recommendations, 'Review and fix privacy validation system errors']
       };
     }
   }
@@ -521,17 +512,17 @@ export class HIPAAComplianceEngine {
    */
 
   /**
-   * Obtains and records HIPAA-compliant user consent
+   * Obtains and records compliant user consent
    */
   public async obtainUserConsent(
     userId: string,
-    consentScope: HIPAAConsent['scope'],
-    evidence: HIPAAConsent['evidence']
+    consentScope: DataProtectionConsent['scope'],
+    evidence: DataProtectionConsent['evidence']
   ): Promise<string> {
     try {
       const consentId = `consent_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       
-      const consent: HIPAAConsent = {
+      const consent: DataProtectionConsent = {
         consentId,
         userId,
         timestamp: Date.now(),
@@ -554,7 +545,7 @@ export class HIPAAComplianceEngine {
         type: 'consent_obtained',
         userId,
         dataElements: ['user_consent'],
-        phiClassification: PHIClassification.STANDARD_PHI,
+        sensitivityLevel: DataSensitivityLevel.CONFIDENTIAL,
         purpose: 'operations',
         minimumNecessaryCompliant: true,
         authorization: {
@@ -564,7 +555,7 @@ export class HIPAAComplianceEngine {
         technical: await this.getTechnicalContext(),
         security: await this.getSecurityContext(''),
         compliance: {
-          hipaaCompliant: true,
+          privacyCompliant: true,
           privacyRuleCompliant: true,
           securityRuleCompliant: true,
           violations: []
@@ -580,7 +571,7 @@ export class HIPAAComplianceEngine {
   }
 
   /**
-   * Validates current user consent for PHI operations
+   * Validates current user consent for data operations
    */
   public async validateUserConsent(
     userId: string,
@@ -643,7 +634,7 @@ export class HIPAAComplianceEngine {
       }
 
       // Update consent with revocation
-      const revokedConsent: HIPAAConsent = {
+      const revokedConsent: DataProtectionConsent = {
         ...consent,
         type: 'revoked',
         revocation: {
@@ -671,7 +662,7 @@ export class HIPAAComplianceEngine {
         type: 'consent_revoked',
         userId,
         dataElements: ['user_consent'],
-        phiClassification: PHIClassification.STANDARD_PHI,
+        sensitivityLevel: DataSensitivityLevel.CONFIDENTIAL,
         purpose: 'user_request',
         minimumNecessaryCompliant: true,
         authorization: {
@@ -681,7 +672,7 @@ export class HIPAAComplianceEngine {
         technical: await this.getTechnicalContext(),
         security: await this.getSecurityContext(''),
         compliance: {
-          hipaaCompliant: true,
+          privacyCompliant: true,
           privacyRuleCompliant: true,
           securityRuleCompliant: true,
           violations: []
@@ -699,7 +690,7 @@ export class HIPAAComplianceEngine {
    */
 
   /**
-   * Validates user session and authentication for PHI access
+   * Validates user session and authentication for data access
    */
   public async validateUserSession(
     userId: string,
@@ -722,7 +713,7 @@ export class HIPAAComplianceEngine {
 
       // Check session timeout
       const sessionAge = Date.now() - sessionData.createdAt;
-      const timeoutMs = HIPAA_COMPLIANCE_CONFIG.ACCESS_CONTROL.SESSION_TIMEOUT_MINUTES * 60 * 1000;
+      const timeoutMs = DATA_PROTECTION_CONFIG.ACCESS_CONTROL.SESSION_TIMEOUT_MINUTES * 60 * 1000;
       
       if (sessionAge > timeoutMs) {
         violations.push('Session timeout exceeded');
@@ -757,11 +748,11 @@ export class HIPAAComplianceEngine {
    */
 
   /**
-   * Validates encryption implementation for PHI data
+   * Validates encryption implementation for sensitive data
    */
   public async validateEncryption(dataType: string): Promise<boolean> {
     try {
-      const phiElement = this.phiClassifications.get(dataType);
+      const phiElement = this.sensitivityLevels.get(dataType);
       if (!phiElement || !phiElement.encryptionRequired) {
         return true; // No encryption required
       }
@@ -799,12 +790,12 @@ export class HIPAAComplianceEngine {
    */
 
   /**
-   * Logs comprehensive HIPAA compliance audit events
+   * Logs comprehensive compliance audit events
    */
-  private async logComplianceAuditEvent(event: HIPAAComplianceAuditEvent): Promise<void> {
+  private async logComplianceAuditEvent(event: ComplianceAuditEvent): Promise<void> {
     try {
       // Store audit event securely
-      const auditKey = `hipaa_audit_${event.timestamp}_${event.eventId}`;
+      const auditKey = `data_protection_audit_${event.timestamp}_${event.eventId}`;
       await SecureStore.setItemAsync(auditKey, JSON.stringify(event));
 
       // Add to in-memory audit trail
@@ -820,14 +811,14 @@ export class HIPAAComplianceEngine {
     } catch (error) {
       logError(LogCategory.SYSTEM, 'AUDIT LOGGING ERROR:', error instanceof Error ? error : new Error(String(error)));
       // Compliance audit logging failure is critical
-      throw new Error('HIPAA audit logging failed - system integrity compromised');
+      throw new Error('Audit logging failed - system integrity compromised');
     }
   }
 
   /**
    * Handles compliance violations and breach detection
    */
-  private async handleComplianceViolation(event: HIPAAComplianceAuditEvent): Promise<void> {
+  private async handleComplianceViolation(event: ComplianceAuditEvent): Promise<void> {
     try {
       // Assess if violation constitutes a breach
       const isBreach = this.assessBreachRisk(event);
@@ -839,7 +830,7 @@ export class HIPAAComplianceEngine {
           type: 'unauthorized_access',
           severity: 'medium',
           affectedIndividuals: 1,
-          phiTypesInvolved: [event.phiClassification],
+          dataTypesInvolved: [event.sensitivityLevel],
           description: `Compliance violation detected: ${event.compliance.violations.join(', ')}`,
           discoveryMethod: 'automated_monitoring',
           immediateActions: ['Access revoked', 'Investigation initiated'],
@@ -887,7 +878,7 @@ export class HIPAAComplianceEngine {
   /**
    * Initiates breach response procedures
    */
-  private async initiateBreach(breach: HIPAABreach): Promise<void> {
+  private async initiateBreach(breach: DataBreach): Promise<void> {
     try {
       // Store breach record
       this.breachEvents.set(breach.breachId, breach);
@@ -905,7 +896,7 @@ export class HIPAAComplianceEngine {
         timestamp: Date.now(),
         type: 'breach_detected',
         dataElements: ['breach_record'],
-        phiClassification: PHIClassification.CRITICAL_PHI,
+        sensitivityLevel: DataSensitivityLevel.CRITICAL,
         purpose: 'operations',
         minimumNecessaryCompliant: true,
         authorization: {
@@ -915,7 +906,7 @@ export class HIPAAComplianceEngine {
         technical: await this.getTechnicalContext(),
         security: await this.getSecurityContext(''),
         compliance: {
-          hipaaCompliant: true,
+          privacyCompliant: true,
           privacyRuleCompliant: true,
           securityRuleCompliant: true,
           violations: []
@@ -933,25 +924,25 @@ export class HIPAAComplianceEngine {
    */
 
   /**
-   * Initiates HIPAA-compliant data deletion
+   * Initiates compliant data deletion
    */
   private async initiateDataDeletion(userId: string): Promise<void> {
     try {
-      // Identify all PHI data for user
-      const phiDataTypes = Array.from(this.phiClassifications.keys());
+      // Identify all Sensitive data for user
+      const phiDataTypes = Array.from(this.sensitivityLevels.keys());
       
       for (const dataType of phiDataTypes) {
-        await this.deleteUserPHI(userId, dataType);
+        await this.deleteUserData(userId, dataType);
       }
 
       // Log data deletion
       await this.logComplianceAuditEvent({
         eventId: `deletion_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         timestamp: Date.now(),
-        type: 'phi_deletion',
+        type: 'data_deletion',
         userId,
         dataElements: phiDataTypes,
-        phiClassification: PHIClassification.SENSITIVE_PHI,
+        sensitivityLevel: DataSensitivityLevel.SENSITIVE,
         purpose: 'user_request',
         minimumNecessaryCompliant: true,
         authorization: {
@@ -961,7 +952,7 @@ export class HIPAAComplianceEngine {
         technical: await this.getTechnicalContext(),
         security: await this.getSecurityContext(''),
         compliance: {
-          hipaaCompliant: true,
+          privacyCompliant: true,
           privacyRuleCompliant: true,
           securityRuleCompliant: true,
           violations: []
@@ -979,14 +970,14 @@ export class HIPAAComplianceEngine {
    */
 
   /**
-   * Initializes PHI classification system
+   * Initializes data sensitivity classification system
    */
-  private initializePHIClassifications(): void {
-    const classifications: PHIDataElement[] = [
+  private initializeDataSensitivityLevels(): void {
+    const classifications: SensitiveDataElement[] = [
       {
         elementId: 'phq9_responses',
         name: 'PHQ-9 Assessment Responses',
-        classification: PHIClassification.SENSITIVE_PHI,
+        classification: DataSensitivityLevel.SENSITIVE,
         encryptionRequired: true,
         accessControl: {
           authorizedRoles: ['user', 'clinician', 'emergency_responder'],
@@ -994,7 +985,7 @@ export class HIPAAComplianceEngine {
           minimumNecessaryRule: true
         },
         retention: {
-          retentionYears: HIPAA_COMPLIANCE_CONFIG.DATA_RETENTION.ASSESSMENT_DATA_YEARS,
+          retentionYears: DATA_PROTECTION_CONFIG.DATA_RETENTION.ASSESSMENT_DATA_YEARS,
           autoDelete: true,
           legalHoldCapable: true
         },
@@ -1008,7 +999,7 @@ export class HIPAAComplianceEngine {
       {
         elementId: 'gad7_responses',
         name: 'GAD-7 Assessment Responses',
-        classification: PHIClassification.SENSITIVE_PHI,
+        classification: DataSensitivityLevel.SENSITIVE,
         encryptionRequired: true,
         accessControl: {
           authorizedRoles: ['user', 'clinician', 'emergency_responder'],
@@ -1016,7 +1007,7 @@ export class HIPAAComplianceEngine {
           minimumNecessaryRule: true
         },
         retention: {
-          retentionYears: HIPAA_COMPLIANCE_CONFIG.DATA_RETENTION.ASSESSMENT_DATA_YEARS,
+          retentionYears: DATA_PROTECTION_CONFIG.DATA_RETENTION.ASSESSMENT_DATA_YEARS,
           autoDelete: true,
           legalHoldCapable: true
         },
@@ -1030,7 +1021,7 @@ export class HIPAAComplianceEngine {
       {
         elementId: 'suicidal_ideation_data',
         name: 'Suicidal Ideation Assessment Data',
-        classification: PHIClassification.CRITICAL_PHI,
+        classification: DataSensitivityLevel.CRITICAL,
         encryptionRequired: true,
         accessControl: {
           authorizedRoles: ['user', 'clinician', 'emergency_responder', 'crisis_counselor'],
@@ -1038,7 +1029,7 @@ export class HIPAAComplianceEngine {
           minimumNecessaryRule: true
         },
         retention: {
-          retentionYears: HIPAA_COMPLIANCE_CONFIG.DATA_RETENTION.CRISIS_RECORDS_YEARS,
+          retentionYears: DATA_PROTECTION_CONFIG.DATA_RETENTION.CRISIS_RECORDS_YEARS,
           autoDelete: false, // Manual review required
           legalHoldCapable: true
         },
@@ -1052,7 +1043,7 @@ export class HIPAAComplianceEngine {
       {
         elementId: 'crisis_intervention_records',
         name: 'Crisis Intervention Records',
-        classification: PHIClassification.CRITICAL_PHI,
+        classification: DataSensitivityLevel.CRITICAL,
         encryptionRequired: true,
         accessControl: {
           authorizedRoles: ['user', 'clinician', 'emergency_responder', 'crisis_counselor'],
@@ -1060,7 +1051,7 @@ export class HIPAAComplianceEngine {
           minimumNecessaryRule: true
         },
         retention: {
-          retentionYears: HIPAA_COMPLIANCE_CONFIG.DATA_RETENTION.CRISIS_RECORDS_YEARS,
+          retentionYears: DATA_PROTECTION_CONFIG.DATA_RETENTION.CRISIS_RECORDS_YEARS,
           autoDelete: false,
           legalHoldCapable: true
         },
@@ -1074,7 +1065,7 @@ export class HIPAAComplianceEngine {
     ];
 
     classifications.forEach(classification => {
-      this.phiClassifications.set(classification.elementId, classification);
+      this.sensitivityLevels.set(classification.elementId, classification);
     });
   }
 
@@ -1082,18 +1073,18 @@ export class HIPAAComplianceEngine {
    * UTILITY METHODS
    */
 
-  private getEventTypeFromOperation(operation: string): HIPAAEventType {
+  private getEventTypeFromOperation(operation: string): AuditEventType {
     switch (operation) {
-      case 'read': return 'phi_access';
-      case 'write': return 'phi_modification';
-      case 'update': return 'phi_modification';
-      case 'delete': return 'phi_deletion';
-      case 'share': return 'phi_sharing';
-      default: return 'phi_access';
+      case 'read': return 'data_access';
+      case 'write': return 'data_modification';
+      case 'update': return 'data_modification';
+      case 'delete': return 'data_deletion';
+      case 'share': return 'data_sharing';
+      default: return 'data_access';
     }
   }
 
-  private async getTechnicalContext(): Promise<HIPAAComplianceAuditEvent['technical']> {
+  private async getTechnicalContext(): Promise<ComplianceAuditEvent['technical']> {
     return {
       sourceIP: '127.0.0.1', // Would get actual IP
       deviceId: 'mobile_device_id',
@@ -1102,7 +1093,7 @@ export class HIPAAComplianceEngine {
     };
   }
 
-  private async getSecurityContext(sessionId: string): Promise<HIPAAComplianceAuditEvent['security']> {
+  private async getSecurityContext(sessionId: string): Promise<ComplianceAuditEvent['security']> {
     return {
       encrypted: true,
       authMethod: 'biometric',
@@ -1119,32 +1110,32 @@ export class HIPAAComplianceEngine {
     }
   }
 
-  private assessBreachRisk(event: HIPAAComplianceAuditEvent): boolean {
+  private assessBreachRisk(event: ComplianceAuditEvent): boolean {
     // Simplified breach assessment
     return event.compliance.violations.includes('unauthorized_access') ||
-           event.phiClassification === PHIClassification.CRITICAL_PHI;
+           event.sensitivityLevel === DataSensitivityLevel.CRITICAL;
   }
 
-  private async performBreachContainment(breach: HIPAABreach): Promise<void> {
+  private async performBreachContainment(breach: DataBreach): Promise<void> {
     // Implement breach containment procedures
     // This would include stopping unauthorized access, securing systems, etc.
   }
 
-  private async assessBreachNotificationRequirements(breach: HIPAABreach): Promise<void> {
+  private async assessBreachNotificationRequirements(breach: DataBreach): Promise<void> {
     // Assess notification requirements based on breach details
     // Update breach.notifications based on analysis
   }
 
-  private async storeConsent(consent: HIPAAConsent): Promise<void> {
-    const consentKey = `hipaa_consent_${consent.userId}_${consent.consentId}`;
+  private async storeConsent(consent: DataProtectionConsent): Promise<void> {
+    const consentKey = `consent_record_${consent.userId}_${consent.consentId}`;
     await SecureStore.setItemAsync(consentKey, JSON.stringify(consent));
   }
 
-  private async loadActiveConsent(userId: string): Promise<HIPAAConsent | null> {
+  private async loadActiveConsent(userId: string): Promise<DataProtectionConsent | null> {
     try {
       // In production, would query for latest non-revoked consent
       const keys = await AsyncStorage.getAllKeys();
-      const consentKeys = keys.filter(key => key.startsWith(`hipaa_consent_${userId}_`));
+      const consentKeys = keys.filter(key => key.startsWith(`consent_record_${userId}_`));
       
       if (consentKeys.length === 0) {
         return null;
@@ -1171,7 +1162,7 @@ export class HIPAAComplianceEngine {
     }
   }
 
-  private async deleteUserPHI(userId: string, dataType: string): Promise<void> {
+  private async deleteUserData(userId: string, dataType: string): Promise<void> {
     try {
       // Delete from SecureStore
       const secureKeys = [`phi_${dataType}_${userId}`, `encrypted_${dataType}_${userId}`];
@@ -1194,7 +1185,7 @@ export class HIPAAComplianceEngine {
       }
 
     } catch (error) {
-      logError(LogCategory.SYSTEM, `PHI DELETION ERROR for ${dataType}:`, error instanceof Error ? error : new Error(String(error)));
+      logError(LogCategory.SYSTEM, `DATA DELETION ERROR for ${dataType}:`, error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -1204,7 +1195,7 @@ export class HIPAAComplianceEngine {
    */
 
   /**
-   * Validates HIPAA compliance for assessment data operations
+   * Validates Data protection compliance for assessment data operations
    */
   public async validateAssessmentCompliance(
     assessmentType: 'phq9' | 'gad7',
@@ -1215,10 +1206,10 @@ export class HIPAAComplianceEngine {
     compliant: boolean;
     violations: string[];
     recommendations: string[];
-    phiClassification: PHIClassification;
+    sensitivityLevel: DataSensitivityLevel;
   }> {
     const dataType = `${assessmentType}_responses`;
-    const phiClassification = this.phiClassifications.get(dataType)?.classification || PHIClassification.STANDARD_PHI;
+    const sensitivityLevel = this.sensitivityLevels.get(dataType)?.classification || DataSensitivityLevel.CONFIDENTIAL;
 
     const validation = await this.validateDataHandling(dataType, operation, {
       userId,
@@ -1228,7 +1219,7 @@ export class HIPAAComplianceEngine {
 
     return {
       ...validation,
-      phiClassification
+      sensitivityLevel
     };
   }
 
@@ -1280,19 +1271,19 @@ export class HIPAAComplianceEngine {
   }
 
   /**
-   * Exports user PHI data for compliance with individual rights
+   * Exports user Sensitive data for compliance with individual rights
    */
-  public async exportUserPHI(userId: string): Promise<{
+  public async exportUserData(userId: string): Promise<{
     data: Record<string, any>;
     exported: string[];
-    classification: Record<string, PHIClassification>;
+    classification: Record<string, DataSensitivityLevel>;
   }> {
     try {
       const exportedData: Record<string, any> = {};
       const exportedTypes: string[] = [];
-      const classifications: Record<string, PHIClassification> = {};
+      const classifications: Record<string, DataSensitivityLevel> = {};
 
-      for (const [dataType, phiElement] of this.phiClassifications.entries()) {
+      for (const [dataType, phiElement] of this.sensitivityLevels.entries()) {
         try {
           // Load data from storage
           const secureData = await SecureStore.getItemAsync(`phi_${dataType}_${userId}`);
@@ -1313,10 +1304,10 @@ export class HIPAAComplianceEngine {
       await this.logComplianceAuditEvent({
         eventId: `export_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         timestamp: Date.now(),
-        type: 'phi_export',
+        type: 'data_export',
         userId,
         dataElements: exportedTypes,
-        phiClassification: PHIClassification.SENSITIVE_PHI,
+        sensitivityLevel: DataSensitivityLevel.SENSITIVE,
         purpose: 'user_request',
         minimumNecessaryCompliant: true,
         authorization: {
@@ -1326,7 +1317,7 @@ export class HIPAAComplianceEngine {
         technical: await this.getTechnicalContext(),
         security: await this.getSecurityContext(''),
         compliance: {
-          hipaaCompliant: true,
+          privacyCompliant: true,
           privacyRuleCompliant: true,
           securityRuleCompliant: true,
           violations: []
@@ -1340,11 +1331,11 @@ export class HIPAAComplianceEngine {
       };
 
     } catch (error) {
-      logError(LogCategory.SYSTEM, 'PHI EXPORT ERROR:', error instanceof Error ? error : new Error(String(error)));
+      logError(LogCategory.SYSTEM, 'DATA EXPORT ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
 }
 
 // Export singleton instance
-export default HIPAAComplianceEngine.getInstance();
+export default DataProtectionEngine.getInstance();

@@ -9,7 +9,7 @@
  * - API rate limiting and DDoS protection
  *
  * MENTAL HEALTH SPECIFIC REQUIREMENTS:
- * - HIPAA-compliant data transmission
+ * - Privacy-compliant data transmission
  * - Crisis data priority routing and security
  * - Assessment data encryption in transit
  * - Professional access API security

@@ -6,7 +6,7 @@
  *
  * IMPLEMENTATION NOTES:
  * - Application-layer validation framework (ready for native integration)
- * - Full audit logging for HIPAA compliance
+ * - Full audit logging for Privacy compliance
  * - Crisis endpoint fallback for life-safety
  * - Development bypass with explicit opt-in
  *
@@ -38,7 +38,7 @@ import { logSecurity, logPerformance, logError, LogCategory } from '../logging';
 export interface PinnedFetchOptions extends RequestInit {
   /**
    * Data classification for audit logging
-   * @default 'NON_PHI'
+   * @default 'METADATA'
    */
   dataClassification?: DataClassification;
 
@@ -142,7 +142,7 @@ async function fetchWithTimeout(
  *
  * const response = await pinnedFetch('https://xyz.supabase.co/rest/v1/data', {
  *   method: 'GET',
- *   dataClassification: 'PHI_CLINICAL',
+ *   dataClassification: 'CLINICAL_DATA',
  * });
  * ```
  */
@@ -152,7 +152,7 @@ export async function pinnedFetch(
 ): Promise<Response> {
   const startTime = Date.now();
   const hostname = getHostname(url);
-  const dataClassification = options.dataClassification || 'NON_PHI';
+  const dataClassification = options.dataClassification || 'METADATA';
   const timeout = options.timeout || 30000;
 
   // Remove custom options before passing to fetch
@@ -290,13 +290,13 @@ export async function pinnedFetch(
  *
  * const client = createClient(SUPABASE_URL, SUPABASE_KEY, {
  *   global: {
- *     fetch: createSupabasePinnedFetch('PHI_CLINICAL'),
+ *     fetch: createSupabasePinnedFetch('CLINICAL_DATA'),
  *   },
  * });
  * ```
  */
 export function createSupabasePinnedFetch(
-  defaultClassification: DataClassification = 'NON_PHI'
+  defaultClassification: DataClassification = 'METADATA'
 ): typeof fetch {
   return async (
     input: RequestInfo | URL,

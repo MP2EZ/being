@@ -70,7 +70,7 @@ export const legalDocuments: Record<LegalDocumentType, LegalDocument> = {
   'notice-of-privacy-practices': {
     id: 'notice-of-privacy-practices',
     title: 'Notice of Privacy Practices',
-    shortTitle: 'HIPAA Notice',
+    shortTitle: 'Privacy Notice',
     description: 'Your rights under health privacy laws',
     content: noticeOfPrivacyPracticesContent,
   },

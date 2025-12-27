@@ -157,8 +157,8 @@ class SupabaseService {
         },
         global: {
           // Use pinned fetch for all requests
-          // Data classification defaults to 'NON_PHI' - override per-request if needed
-          fetch: createSupabasePinnedFetch('NON_PHI'),
+          // Data classification defaults to 'METADATA' - override per-request if needed
+          fetch: createSupabasePinnedFetch('METADATA'),
         },
       });
 

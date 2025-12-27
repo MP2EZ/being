@@ -4,7 +4,7 @@
  * Enforces the 90-day data retention policy promised in the privacy policy.
  * Runs cleanup on app launch and provides user deletion request handling.
  *
- * REGULATORY CONTEXT (Non-HIPAA Covered Entity):
+ * REGULATORY CONTEXT (Non-Privacy Covered Entity):
  * - FTC Act Section 5: Unfair/deceptive practices (must match privacy policy promises)
  * - FTC Health Breach Notification Rule: Notify users of unauthorized disclosures
  * - GDPR: Right to erasure, data minimization

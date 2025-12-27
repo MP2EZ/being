@@ -13,7 +13,7 @@
  * - Session persistence during therapeutic activities
  * - Secure professional access for crisis intervention
  * - User privacy protection and anonymous modes
- * - HIPAA-compliant authentication logging
+ * - Privacy-compliant authentication logging
  *
  * SECURITY FEATURES:
  * - JWT tokens with short expiration (15 minutes)

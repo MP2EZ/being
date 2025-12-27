@@ -1,9 +1,9 @@
 /**
- * HIPAA BREACH RESPONSE ENGINE - DRD-FLOW-005 Assessment System
+ * Privacy BREACH RESPONSE ENGINE - DRD-FLOW-005 Assessment System
  *
  * COMPREHENSIVE BREACH RESPONSE:
  * - Automated breach detection and risk assessment
- * - HIPAA Breach Notification Rule compliance (45 CFR 164.400-414)
+ * - Privacy Breach Notification Rule compliance (45 CFR 164.400-414)
  * - Incident response workflows and escalation procedures
  * - Forensic investigation and evidence preservation
  * - Notification management for individuals, HHS, and media
@@ -29,11 +29,11 @@ import { logSecurity, logPerformance, logError, LogCategory } from '@/core/servi
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import { Alert, Linking } from 'react-native';
-import HIPAAComplianceEngine, { 
-  HIPAABreach,
-  PHIClassification,
-  HIPAAComplianceAuditEvent,
-  HIPAA_COMPLIANCE_CONFIG 
+import DataProtectionEngine, { 
+  DataBreach,
+  DataSensitivityLevel,
+  ComplianceAuditEvent,
+  DATA_PROTECTION_CONFIG 
 } from './DataProtectionEngine';
 
 /**
@@ -102,7 +102,7 @@ export interface BreachIncident {
     /** Number of individuals affected */
     affectedIndividuals: number;
     /** Types of PHI involved */
-    phiTypesInvolved: PHIClassification[];
+    dataTypesInvolved: DataSensitivityLevel[];
     /** Geographic scope */
     geographicScope: string[];
   };
@@ -121,8 +121,8 @@ export interface BreachIncident {
     };
     /** Sensitivity analysis */
     sensitivityAnalysis: {
-      /** Highest PHI classification */
-      highestClassification: PHIClassification;
+      /** Highest Sensitivity classification */
+      highestClassification: DataSensitivityLevel;
       /** Contains crisis data */
       containsCrisisData: boolean;
       /** Contains suicidal ideation data */
@@ -303,24 +303,24 @@ export interface BreachRemediationPlan {
 }
 
 /**
- * HIPAA BREACH RESPONSE ENGINE
+ * Privacy BREACH RESPONSE ENGINE
  */
-export class HIPAABreachResponseEngine {
-  private static instance: HIPAABreachResponseEngine;
+export class DataBreachResponseEngine {
+  private static instance: DataBreachResponseEngine;
   private activeIncidents: Map<string, BreachIncident> = new Map();
   private remediationPlans: Map<string, BreachRemediationPlan> = new Map();
   private notificationQueue: Map<string, BreachNotificationRequirements> = new Map();
-  private complianceEngine = HIPAAComplianceEngine;
+  private complianceEngine = DataProtectionEngine;
 
   private constructor() {
     this.initializeBreachDetection();
   }
 
-  public static getInstance(): HIPAABreachResponseEngine {
-    if (!HIPAABreachResponseEngine.instance) {
-      HIPAABreachResponseEngine.instance = new HIPAABreachResponseEngine();
+  public static getInstance(): DataBreachResponseEngine {
+    if (!DataBreachResponseEngine.instance) {
+      DataBreachResponseEngine.instance = new DataBreachResponseEngine();
     }
-    return HIPAABreachResponseEngine.instance;
+    return DataBreachResponseEngine.instance;
   }
 
   /**
@@ -810,7 +810,7 @@ export class HIPAABreachResponseEngine {
    * Determines if event constitutes a breach
    */
   private determineBreachStatus(riskAssessment: any): boolean {
-    // HIPAA breach determination criteria
+    // Privacy breach determination criteria
     return riskAssessment.phiCompromised && 
            (riskAssessment.severity === BreachSeverity.HIGH || 
             riskAssessment.severity === BreachSeverity.CRITICAL ||
@@ -836,7 +836,7 @@ export class HIPAABreachResponseEngine {
         compromiseLikelihood: riskAssessment.phiCompromised ? 'high' : 'medium',
         harmPotential: riskAssessment.criticalDataInvolved ? 'severe' : 'moderate',
         affectedIndividuals: riskAssessment.affectedIndividuals,
-        phiTypesInvolved: [PHIClassification.SENSITIVE_PHI],
+        dataTypesInvolved: [DataSensitivityLevel.SENSITIVE],
         geographicScope: ['US']
       },
       affectedData: {
@@ -847,7 +847,7 @@ export class HIPAABreachResponseEngine {
           estimatedSizeBytes: 1024
         },
         sensitivityAnalysis: {
-          highestClassification: PHIClassification.SENSITIVE_PHI,
+          highestClassification: DataSensitivityLevel.SENSITIVE,
           containsCrisisData: riskAssessment.criticalDataInvolved,
           containsSuicidalIdeationData: riskAssessment.criticalDataInvolved,
           specialCategories: riskAssessment.criticalDataInvolved ? ['mental_health'] : []
@@ -916,7 +916,7 @@ export class HIPAABreachResponseEngine {
   }
 
   private async assessNotificationRequirements(incident: BreachIncident): Promise<boolean> {
-    // HIPAA requires notification for confirmed breaches
+    // Privacy requires notification for confirmed breaches
     return incident.riskAssessment.compromiseLikelihood === 'high' || 
            incident.riskAssessment.compromiseLikelihood === 'certain';
   }
@@ -1085,7 +1085,7 @@ export class HIPAABreachResponseEngine {
     return [
       'Security awareness training',
       'Incident response training',
-      'HIPAA compliance training',
+      'Data protection compliance training',
       'Crisis intervention training'
     ];
   }
@@ -1324,4 +1324,4 @@ export class HIPAABreachResponseEngine {
 }
 
 // Export singleton instance
-export default HIPAABreachResponseEngine.getInstance();
+export default DataBreachResponseEngine.getInstance();

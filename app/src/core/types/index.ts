@@ -6,13 +6,13 @@
  * - 100% TypeScript strict mode compliance
  * - Comprehensive type coverage for all crisis workflows
  * - Performance-constrained types with compile-time validation
- * - HIPAA-compliant type interfaces with PHI protection
+ * - Privacy-compliant type interfaces with PHI protection
  * - Security-aware type definitions with threat modeling
  * - Error-safe type handling with recovery mechanisms
  * 
  * INTEGRATION POINTS:
  * - Crisis detection and intervention workflows
- * - HIPAA compliance and consent management
+ * - Privacy compliance and consent management
  * - Security services (encryption, authentication, monitoring)
  * - Performance monitoring and constraint validation
  * - Error handling and recovery strategies
@@ -29,9 +29,9 @@ import type {
 } from '@/features/crisis/types/safety';
 
 import type {
-  HIPAAConsent,
-  PHIClassification,
-  HIPAAAuditLog,
+  DataProtectionConsent,
+  DataSensitivityLevel,
+  ComplianceAuditLog,
 } from './compliance/data-protection';
 
 import type {
@@ -82,16 +82,16 @@ export {
 // COMPLIANCE TYPES - REGULATORY REQUIREMENTS
 // =============================================================================
 
-// HIPAA Compliance Types
+// Privacy Compliance Types
 export type {
-  HIPAAConsent,
+  DataProtectionConsent,
   ConsentStatus,
-  PHIClassification,
+  DataSensitivityLevel,
   DataProcessingPurpose,
-  HIPAAAuditLog,
+  ComplianceAuditLog,
   DataBreachIncident,
   ConsentManagementService,
-  HIPAAComplianceValidator,
+  PrivacyComplianceValidator,
   CompliancePerformanceConstraints
 } from './compliance/data-protection';
 
@@ -187,7 +187,7 @@ export type {
   BaseComponentProps,
   ComponentTheme,
   CrisisComponentContext,
-  HIPAAComponentContext,
+  PrivacyComponentContext,
   SecurityComponentContext,
   CrisisButtonProps,
   AssessmentComponentProps,
@@ -294,11 +294,11 @@ export interface CrisisWorkflowTypeValidation {
 }
 
 export interface ComplianceTypeValidation {
-  validateHIPAAConsent: (consent: any) => consent is HIPAAConsent;
-  validatePHIClassification: (data: any, classification: PHIClassification) => boolean;
+  validateDataProtectionConsent: (consent: any) => consent is DataProtectionConsent;
+  validateDataSensitivityLevel: (data: any, classification: DataSensitivityLevel) => boolean;
   validateConsentProps: (props: any) => props is ConsentManagementProps;
   validateComplianceState: (state: any) => consent is ComplianceStoreState;
-  validateAuditLog: (log: any) => log is HIPAAAuditLog;
+  validateAuditLog: (log: any) => log is ComplianceAuditLog;
 }
 
 export interface SecurityTypeValidation {
@@ -415,8 +415,8 @@ export interface SystemValidationResult {
   /** Security requirement compliance */
   securityCompliant: boolean;
   
-  /** HIPAA compliance */
-  hipaaCompliant: boolean;
+  /** Privacy compliance */
+  privacyCompliant: boolean;
   
   /** Crisis safety compliance */
   crisisSafetyCompliant: boolean;

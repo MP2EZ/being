@@ -9,7 +9,7 @@
  * - Emergency override for crisis intervention only
  *
  * COMPLIANCE:
- * - HIPAA: Granular consent scopes with audit trail
+ * - Privacy: Granular consent scopes with audit trail
  * - COPPA: Age verification gate (13+ years)
  * - CCPA/VCDPA: Opt-out defaults, export capability
  * - Dark pattern prevention: No pre-checked boxes
@@ -334,7 +334,7 @@ export const useConsentStore = create<ConsentStore>((set, get) => ({
         timestamp: now,
       };
 
-      // Persist history to SecureStore (HIPAA audit trail requirement)
+      // Persist history to SecureStore (Privacy audit trail requirement)
       const updatedHistory = [historyEntry];
       await SecureStore.setItemAsync(CONSENT_HISTORY_KEY, JSON.stringify(updatedHistory));
 
@@ -406,7 +406,7 @@ export const useConsentStore = create<ConsentStore>((set, get) => ({
         timestamp: now,
       };
 
-      // Persist history to SecureStore (HIPAA audit trail requirement)
+      // Persist history to SecureStore (Privacy audit trail requirement)
       const updatedHistory = [...consentHistory, historyEntry];
       await SecureStore.setItemAsync(CONSENT_HISTORY_KEY, JSON.stringify(updatedHistory));
 
@@ -474,7 +474,7 @@ export const useConsentStore = create<ConsentStore>((set, get) => ({
         timestamp: now,
       };
 
-      // Persist history to SecureStore (HIPAA audit trail requirement)
+      // Persist history to SecureStore (Privacy audit trail requirement)
       const updatedHistory = [...consentHistory, historyEntry];
       await SecureStore.setItemAsync(CONSENT_HISTORY_KEY, JSON.stringify(updatedHistory));
 
@@ -640,6 +640,6 @@ export const useAgeVerification = () => useConsentStore((state) => state.current
  */
 export const canPerformCrisisIntervention = (): boolean => {
   // Emergency override - crisis access ALWAYS allowed
-  // This is a HIPAA vital interests exception
+  // This is a Privacy vital interests exception
   return true;
 };

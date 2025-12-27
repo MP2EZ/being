@@ -6,7 +6,7 @@
  * - Type-safe Zustand store interfaces with strict action typing
  * - Performance-constrained state updates (<5ms for crisis actions)
  * - Crisis-aware state management with immediate response capability
- * - HIPAA-compliant data handling with encryption and audit trails
+ * - Privacy-compliant data handling with encryption and audit trails
  * - Real-time synchronization with conflict resolution
  * - Memory-efficient state management with cleanup policies
  * 
@@ -26,11 +26,11 @@ import {
   CrisisActionType 
 } from '@/features/crisis/types/safety';
 import { 
-  HIPAAConsent, 
+  DataProtectionConsent, 
   ConsentStatus, 
-  PHIClassification,
+  DataSensitivityLevel,
   DataProcessingPurpose,
-  HIPAAAuditLog 
+  ComplianceAuditLog 
 } from '../compliance/data-protection';
 import { 
   AuthenticationSession, 
@@ -583,9 +583,9 @@ export interface ComplianceStore extends BaseStore<ComplianceStoreState> {
  */
 export interface ComplianceStoreState {
   /** User consents */
-  consents: Record<string, HIPAAConsent>;
+  consents: Record<string, DataProtectionConsent>;
   /** Audit logs */
-  auditLogs: HIPAAAuditLog[];
+  auditLogs: ComplianceAuditLog[];
   /** PHI data inventory */
   phiInventory: PHIDataInventory;
   /** Compliance status */
@@ -603,7 +603,7 @@ export interface ComplianceStoreState {
  */
 export interface PHIDataInventory {
   /** Data categories */
-  categories: Record<PHIClassification, PHIDataCategory>;
+  categories: Record<DataSensitivityLevel, PHIDataCategory>;
   /** Total data volume */
   totalVolumeBytes: number;
   /** Data locations */
@@ -619,7 +619,7 @@ export interface PHIDataInventory {
  */
 export interface PHIDataCategory {
   /** Category type */
-  type: PHIClassification;
+  type: DataSensitivityLevel;
   /** Number of records */
   recordCount: number;
   /** Data volume in bytes */
@@ -645,7 +645,7 @@ export interface DataLocation {
   /** Encryption status */
   encrypted: boolean;
   /** Data categories stored */
-  dataCategories: PHIClassification[];
+  dataCategories: DataSensitivityLevel[];
   /** Access controls */
   accessControls: string[];
   /** Compliance status */
@@ -658,8 +658,8 @@ export interface DataLocation {
 export interface ComplianceStatus {
   /** Overall compliance score */
   overallScore: number;
-  /** HIPAA compliance status */
-  hipaaCompliant: boolean;
+  /** Privacy compliance status */
+  privacyCompliant: boolean;
   /** GDPR compliance status */
   gdprCompliant: boolean;
   /** Consent compliance */
@@ -707,7 +707,7 @@ export interface DataRetentionPolicy {
   /** Policy ID */
   id: string;
   /** Data type */
-  dataType: PHIClassification;
+  dataType: DataSensitivityLevel;
   /** Retention period (ms) */
   retentionPeriodMs: number;
   /** Auto-deletion enabled */
@@ -733,7 +733,7 @@ export interface DataBreachIncident {
   /** Severity level */
   severity: 'low' | 'medium' | 'high' | 'critical';
   /** Affected data types */
-  affectedDataTypes: PHIClassification[];
+  affectedDataTypes: DataSensitivityLevel[];
   /** Number of affected users */
   affectedUserCount: number;
   /** Incident timestamp */
@@ -781,12 +781,12 @@ export interface ComplianceStoreActions extends StoreActions<ComplianceStoreStat
   renewConsent: (consentId: string) => Promise<void>;
   
   /** Audit logging */
-  logAuditEvent: (event: Partial<HIPAAAuditLog>) => Promise<void>;
-  getAuditTrail: (userId: string, timeRange: [number, number]) => Promise<HIPAAAuditLog[]>;
+  logAuditEvent: (event: Partial<ComplianceAuditLog>) => Promise<void>;
+  getAuditTrail: (userId: string, timeRange: [number, number]) => Promise<ComplianceAuditLog[]>;
   
   /** PHI management */
   updatePHIInventory: () => Promise<void>;
-  validateDataCompliance: (dataType: PHIClassification) => Promise<boolean>;
+  validateDataCompliance: (dataType: DataSensitivityLevel) => Promise<boolean>;
   
   /** Breach management */
   reportBreach: (incident: Partial<DataBreachIncident>) => Promise<string>;
@@ -797,7 +797,7 @@ export interface ComplianceStoreActions extends StoreActions<ComplianceStoreStat
   updateComplianceSettings: (settings: Partial<ComplianceSettings>) => Promise<void>;
   
   /** Performance-critical actions */
-  validateConsentFast: (userId: string, dataType: PHIClassification) => Promise<boolean>; // <5ms
+  validateConsentFast: (userId: string, dataType: DataSensitivityLevel) => Promise<boolean>; // <5ms
   auditAccessFast: (userId: string, resourceId: string) => Promise<void>; // <10ms
 }
 

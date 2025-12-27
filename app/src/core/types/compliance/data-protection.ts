@@ -1,6 +1,6 @@
 /**
- * HIPAA Compliance Types - Enhanced Privacy Protection
- * Comprehensive type definitions for HIPAA-compliant data handling
+ * Privacy Compliance Types - Enhanced Privacy Protection
+ * Comprehensive type definitions for Privacy-compliant data handling
  * 
  * REGULATORY REQUIREMENTS:
  * - PHI (Protected Health Information) encryption at rest and in transit
@@ -20,7 +20,7 @@
 /**
  * Protected Health Information (PHI) Classification
  */
-export type PHIClassification =
+export type DataSensitivityLevel =
   | 'assessment_scores'     // PHQ-9/GAD-7 scores and responses
   | 'crisis_data'           // Crisis detection and intervention records
   | 'personal_identifiers'  // Name, DOB, contact information
@@ -34,9 +34,9 @@ export type PHIClassification =
   | 'therapeutic_preference'; // User preferences for therapeutic modalities, mindfulness practices
 
 /**
- * HIPAA Consent Types
+ * Privacy Consent Types
  */
-export type HIPAAConsentType = 
+export type DataProtectionConsentType = 
   | 'data_collection'       // Basic data collection consent
   | 'data_processing'       // Data analysis and processing
   | 'data_sharing'          // Sharing with healthcare providers
@@ -75,21 +75,21 @@ export type DataProcessingPurpose =
   | 'support_provision';    // Customer service and technical support
 
 /**
- * HIPAA Consent Record
+ * Privacy Consent Record
  */
-export interface HIPAAConsent {
+export interface DataProtectionConsent {
   /** Unique consent record ID */
   consentId: string;
   /** User identifier (encrypted) */
   userId: string;
   /** Type of consent */
-  type: HIPAAConsentType;
+  type: DataProtectionConsentType;
   /** Current consent status */
   status: ConsentStatus;
   /** Data processing purposes covered by this consent */
   purposes: DataProcessingPurpose[];
   /** PHI classifications covered by this consent */
-  phiTypes: PHIClassification[];
+  phiTypes: DataSensitivityLevel[];
   /** When consent was granted */
   grantedAt?: number;
   /** When consent was last modified */
@@ -150,7 +150,7 @@ export interface ConsentPermission {
   /** Whether this permission is required for core functionality */
   required: boolean;
   /** Data types this permission covers */
-  dataTypes: PHIClassification[];
+  dataTypes: DataSensitivityLevel[];
   /** Processing activities this permission enables */
   activities: DataProcessingPurpose[];
   /** When this permission was last modified */
@@ -181,9 +181,9 @@ export interface ConsentAuditEntry {
   /** User who performed action (system for automated actions) */
   actor: string;
   /** Previous consent state */
-  previousState?: Partial<HIPAAConsent>;
+  previousState?: Partial<DataProtectionConsent>;
   /** New consent state */
-  newState: Partial<HIPAAConsent>;
+  newState: Partial<DataProtectionConsent>;
   /** Reason for change */
   reason?: string;
   /** System context (app version, session ID, etc.) */
@@ -197,7 +197,7 @@ export interface DataRetentionPolicy {
   /** Policy ID */
   policyId: string;
   /** Data type this policy applies to */
-  dataType: PHIClassification;
+  dataType: DataSensitivityLevel;
   /** Retention period in milliseconds */
   retentionPeriodMs: number;
   /** Deletion schedule */
@@ -223,7 +223,7 @@ export interface PHIAccessControl {
   /** User requesting access */
   userId: string;
   /** PHI classification being accessed */
-  phiType: PHIClassification;
+  phiType: DataSensitivityLevel;
   /** Purpose of access */
   accessPurpose: DataProcessingPurpose;
   /** Access level granted */
@@ -257,9 +257,9 @@ export interface AccessCondition {
 }
 
 /**
- * HIPAA Audit Log Entry
+ * Compliance Audit Log Entry
  */
-export interface HIPAAAuditLog {
+export interface ComplianceAuditLog {
   /** Unique audit log entry ID */
   logId: string;
   /** Timestamp of logged event */
@@ -267,9 +267,9 @@ export interface HIPAAAuditLog {
   /** User who performed the action (system for automated) */
   actor: string;
   /** Type of action performed */
-  action: HIPAAAuditAction;
+  action: ComplianceAuditAction;
   /** Resource type that was accessed/modified */
-  resourceType: PHIClassification;
+  resourceType: DataSensitivityLevel;
   /** Unique identifier of the accessed resource */
   resourceId: string;
   /** Result of the action */
@@ -306,9 +306,9 @@ export interface HIPAAAuditLog {
 }
 
 /**
- * HIPAA Audit Actions
+ * Compliance Audit Actions
  */
-export type HIPAAAuditAction = 
+export type ComplianceAuditAction = 
   | 'data_created'          // New PHI record created
   | 'data_accessed'         // PHI data viewed/retrieved
   | 'data_modified'         // PHI data updated
@@ -327,7 +327,7 @@ export type HIPAAAuditAction =
   | 'backup_created'        // Data backup operation
   | 'backup_restored'       // Data restore operation
   | 'security_incident'     // Security breach or incident
-  | 'compliance_violation'; // HIPAA compliance violation detected
+  | 'compliance_violation'; // Privacy compliance violation detected
 
 /**
  * Data Breach Incident
@@ -344,7 +344,7 @@ export interface DataBreachIncident {
   /** Type of breach */
   breachType: 'unauthorized_access' | 'data_theft' | 'system_compromise' | 'human_error' | 'vendor_breach';
   /** PHI types potentially affected */
-  affectedPHITypes: PHIClassification[];
+  affectedPHITypes: DataSensitivityLevel[];
   /** Number of users potentially affected */
   affectedUserCount: number;
   /** Estimated number of records compromised */
@@ -372,13 +372,13 @@ export interface DataBreachIncident {
 }
 
 /**
- * HIPAA Compliance Validator
+ * Privacy Compliance Validator
  */
-export interface HIPAAComplianceValidator {
-  validateConsent: (userId: string, dataType: PHIClassification, purpose: DataProcessingPurpose) => Promise<boolean>;
+export interface PrivacyComplianceValidator {
+  validateConsent: (userId: string, dataType: DataSensitivityLevel, purpose: DataProcessingPurpose) => Promise<boolean>;
   validateAccess: (userId: string, resourceId: string, accessLevel: string) => Promise<PHIAccessControl>;
-  auditDataAccess: (userId: string, action: HIPAAAuditAction, resourceId: string) => Promise<void>;
-  checkRetentionPolicy: (dataType: PHIClassification, createdAt: number) => Promise<boolean>;
+  auditDataAccess: (userId: string, action: ComplianceAuditAction, resourceId: string) => Promise<void>;
+  checkRetentionPolicy: (dataType: DataSensitivityLevel, createdAt: number) => Promise<boolean>;
   validateEncryption: (data: string) => Promise<boolean>;
   reportSecurityIncident: (incident: Partial<DataBreachIncident>) => Promise<string>;
 }
@@ -387,13 +387,13 @@ export interface HIPAAComplianceValidator {
  * Consent Management Service Types
  */
 export interface ConsentManagementService {
-  requestConsent: (userId: string, consentType: HIPAAConsentType, purposes: DataProcessingPurpose[]) => Promise<string>;
-  grantConsent: (consentId: string, signature: ConsentSignature) => Promise<HIPAAConsent>;
-  withdrawConsent: (consentId: string, reason: string) => Promise<HIPAAConsent>;
-  renewConsent: (consentId: string) => Promise<HIPAAConsent>;
-  getConsentStatus: (userId: string, consentType: HIPAAConsentType) => Promise<ConsentStatus>;
-  getUserConsents: (userId: string) => Promise<HIPAAConsent[]>;
-  updatePermissions: (consentId: string, permissions: ConsentPermission[]) => Promise<HIPAAConsent>;
+  requestConsent: (userId: string, consentType: DataProtectionConsentType, purposes: DataProcessingPurpose[]) => Promise<string>;
+  grantConsent: (consentId: string, signature: ConsentSignature) => Promise<DataProtectionConsent>;
+  withdrawConsent: (consentId: string, reason: string) => Promise<DataProtectionConsent>;
+  renewConsent: (consentId: string) => Promise<DataProtectionConsent>;
+  getConsentStatus: (userId: string, consentType: DataProtectionConsentType) => Promise<ConsentStatus>;
+  getUserConsents: (userId: string) => Promise<DataProtectionConsent[]>;
+  updatePermissions: (consentId: string, permissions: ConsentPermission[]) => Promise<DataProtectionConsent>;
 }
 
 /**
@@ -413,9 +413,9 @@ export interface CompliancePerformanceConstraints {
 }
 
 /**
- * Crisis-Specific HIPAA Considerations
+ * Crisis-Specific Privacy Considerations
  */
-export interface CrisisHIPAAContext {
+export interface CrisisPrivacyContext {
   /** Emergency disclosure permissions */
   emergencyDisclosure: {
     /** Whether emergency disclosure is permitted */
@@ -425,7 +425,7 @@ export interface CrisisHIPAAContext {
     /** Who can be notified in emergency */
     notificationContacts: string[];
     /** Data types that can be disclosed */
-    disclosableData: PHIClassification[];
+    disclosableData: DataSensitivityLevel[];
   };
   /** Crisis intervention data handling */
   crisisDataHandling: {
@@ -466,7 +466,7 @@ export type ComplianceCheckResult = {
 /**
  * Type Guards and Validation Functions
  */
-export function isValidConsent(consent: HIPAAConsent, currentTime: number): boolean {
+export function isValidConsent(consent: DataProtectionConsent, currentTime: number): boolean {
   return consent.status === 'granted' && 
          (!consent.expiresAt || consent.expiresAt > currentTime);
 }
@@ -477,7 +477,7 @@ export function requiresEmergencyDisclosure(
   return crisisLevel === 'critical' || crisisLevel === 'emergency';
 }
 
-export function isHighRiskPHI(phiType: PHIClassification): boolean {
+export function isHighRiskPHI(phiType: DataSensitivityLevel): boolean {
   return ['crisis_data', 'assessment_scores', 'treatment_records', 'emergency_contacts'].includes(phiType);
 }
 
@@ -497,7 +497,7 @@ export const DEFAULT_COMPLIANCE_SETTINGS = {
   /** Default audit log retention (7 years) */
   DEFAULT_AUDIT_RETENTION_MS: 7 * 365 * 24 * 60 * 60 * 1000,
   /** Default PHI retention period (6 years) */
-  DEFAULT_PHI_RETENTION_MS: 6 * 365 * 24 * 60 * 60 * 1000,
+  DEFAULT_DATA_RETENTION_MS: 6 * 365 * 24 * 60 * 60 * 1000,
   /** Default grace period for data deletion (30 days) */
   DEFAULT_DELETION_GRACE_PERIOD_MS: 30 * 24 * 60 * 60 * 1000,
   /** Required consent types for core functionality */
@@ -505,7 +505,7 @@ export const DEFAULT_COMPLIANCE_SETTINGS = {
     'data_collection',
     'data_processing',
     'emergency_disclosure'
-  ] as HIPAAConsentType[],
+  ] as DataProtectionConsentType[],
   /** Performance constraints */
   PERFORMANCE_LIMITS: {
     MAX_CONSENT_VALIDATION_TIME: 5,
@@ -516,4 +516,4 @@ export const DEFAULT_COMPLIANCE_SETTINGS = {
   } as CompliancePerformanceConstraints
 } as const;
 
-export default HIPAAConsent;
+export default DataProtectionConsent;

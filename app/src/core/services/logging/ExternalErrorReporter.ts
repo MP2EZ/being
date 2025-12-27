@@ -4,7 +4,7 @@
  * Privacy-first external error reporting service.
  *
  * PRIVACY PRINCIPLES:
- * - Being is NOT a HIPAA covered entity (wellness app, not healthcare)
+ * - Being is NOT a Privacy covered entity (wellness app, not healthcare)
  * - We voluntarily implement strong privacy practices per our privacy policy
  * - Local-first data architecture: wellness data never leaves device
  * - Only crash/error metadata sent externally (no PHI, no wellness data)
@@ -18,7 +18,7 @@
  *
  * ACTIVATION:
  * - Set SENTRY_DSN environment variable when ready
- * - No BAA required (Being is not HIPAA covered entity)
+ * - No BAA required (Being is not Privacy covered entity)
  * - Any Sentry tier is sufficient (including free)
  */
 
@@ -104,7 +104,7 @@ const BLOCKED_FIELDS = [
 /**
  * PHI PATTERNS: Regex patterns for additional PHI detection
  */
-const PHI_PATTERNS = [
+const SENSITIVE_DATA_PATTERNS = [
   // UUIDs (could be user IDs)
   /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi,
 
@@ -447,7 +447,7 @@ export class ExternalErrorReporter {
     let scrubbed = eventStr;
 
     // Apply all PHI patterns
-    for (const pattern of PHI_PATTERNS) {
+    for (const pattern of SENSITIVE_DATA_PATTERNS) {
       scrubbed = scrubbed.replace(pattern, '[REDACTED]');
     }
 
@@ -501,7 +501,7 @@ export class ExternalErrorReporter {
     if (!str || typeof str !== 'string') return '';
 
     let sanitized = str;
-    for (const pattern of PHI_PATTERNS) {
+    for (const pattern of SENSITIVE_DATA_PATTERNS) {
       sanitized = sanitized.replace(pattern, '[REDACTED]');
     }
 

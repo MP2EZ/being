@@ -1,8 +1,8 @@
 /**
- * HIPAA ASSESSMENT INTEGRATION - DRD-FLOW-005 Compliance Validation
+ * Privacy ASSESSMENT INTEGRATION - DRD-FLOW-005 Compliance Validation
  *
  * COMPREHENSIVE INTEGRATION VALIDATION:
- * - Crisis detection system HIPAA compliance validation
+ * - Crisis detection system Data protection compliance validation
  * - Assessment data flow compliance checking
  * - Real-time compliance monitoring during assessments
  * - Emergency intervention compliance protocols
@@ -19,18 +19,18 @@
  * INTEGRATION POINTS:
  * - Assessment Store (DRD-FLOW-005)
  * - Crisis Detection Engine
- * - HIPAA Compliance Engine
- * - HIPAA Consent Manager
- * - HIPAA Data Minimization Engine
- * - HIPAA Breach Response Engine
+ * - Data Protection Compliance Engine
+ * - Privacy Consent Manager
+ * - Privacy Data Minimization Engine
+ * - Privacy Breach Response Engine
  */
 
 
 import { logSecurity, logPerformance, logError, LogCategory } from '@/core/services/logging';
-import HIPAAComplianceEngine, { PHIClassification } from './DataProtectionEngine';
-import HIPAAConsentManager from './ConsentManager';
-import HIPAADataMinimizationEngine, { DataPurpose, UserRole } from './DataMinimization';
-import HIPAABreachResponseEngine, { BreachTrigger } from './BreachResponseEngine';
+import DataProtectionEngine, { DataSensitivityLevel } from './DataProtectionEngine';
+import DataProtectionConsentManager from './ConsentManager';
+import DataMinimizationEngine, { DataPurpose, UserRole } from './DataMinimization';
+import DataBreachResponseEngine, { BreachTrigger } from './BreachResponseEngine';
 import type {
   AssessmentType,
   AssessmentAnswer,
@@ -160,22 +160,22 @@ export interface CrisisInterventionCompliance {
 }
 
 /**
- * HIPAA ASSESSMENT INTEGRATION ENGINE
+ * Privacy ASSESSMENT INTEGRATION ENGINE
  */
-export class HIPAAAssessmentIntegration {
-  private static instance: HIPAAAssessmentIntegration;
-  private complianceEngine = HIPAAComplianceEngine;
-  private consentManager = HIPAAConsentManager;
-  private dataMinimization = HIPAADataMinimizationEngine;
-  private breachResponse = HIPAABreachResponseEngine;
+export class PrivacyAssessmentIntegration {
+  private static instance: PrivacyAssessmentIntegration;
+  private complianceEngine = DataProtectionEngine;
+  private consentManager = DataProtectionConsentManager;
+  private dataMinimization = DataMinimizationEngine;
+  private breachResponse = DataBreachResponseEngine;
 
   private constructor() {}
 
-  public static getInstance(): HIPAAAssessmentIntegration {
-    if (!HIPAAAssessmentIntegration.instance) {
-      HIPAAAssessmentIntegration.instance = new HIPAAAssessmentIntegration();
+  public static getInstance(): PrivacyAssessmentIntegration {
+    if (!PrivacyAssessmentIntegration.instance) {
+      PrivacyAssessmentIntegration.instance = new PrivacyAssessmentIntegration();
     }
-    return HIPAAAssessmentIntegration.instance;
+    return PrivacyAssessmentIntegration.instance;
   }
 
   /**
@@ -183,7 +183,7 @@ export class HIPAAAssessmentIntegration {
    */
 
   /**
-   * Validates HIPAA compliance before assessment data collection
+   * Validates Data protection compliance before assessment data collection
    */
   public async validateAssessmentDataCollection(
     userId: string,
@@ -298,7 +298,7 @@ export class HIPAAAssessmentIntegration {
           severity: 'critical',
           description: 'Compliance validation system failure',
           remediation: 'Resolve system errors before proceeding',
-          legalImplications: ['Cannot ensure HIPAA compliance']
+          legalImplications: ['Cannot ensure Data protection compliance']
         }],
         recommendations: ['Contact system administrator immediately'],
         emergencyOverrides: []
@@ -307,7 +307,7 @@ export class HIPAAAssessmentIntegration {
   }
 
   /**
-   * Validates HIPAA compliance during crisis detection
+   * Validates Data protection compliance during crisis detection
    */
   public async validateCrisisDetectionCompliance(
     userId: string,
@@ -385,7 +385,7 @@ export class HIPAAAssessmentIntegration {
    */
 
   /**
-   * Validates HIPAA compliance for assessment result processing
+   * Validates Data protection compliance for assessment result processing
    */
   public async validateAssessmentResultCompliance(
     userId: string,
@@ -604,7 +604,7 @@ export class HIPAAAssessmentIntegration {
         return {
           passed: false,
           details: 'Audit logging system not properly configured',
-          warnings: ['Audit logging is required for HIPAA compliance']
+          warnings: ['Audit logging is required for Data protection compliance']
         };
       }
 
@@ -673,7 +673,7 @@ export class HIPAAAssessmentIntegration {
     return {
       crisisLevel,
       legalBasis: [
-        'HIPAA Privacy Rule emergency care exception (45 CFR 164.510)',
+        'Privacy Privacy Rule emergency care exception (45 CFR 164.510)',
         isImminentDanger ? 'Duty to warn/protect (state law)' : '',
         'Mental health crisis intervention authority'
       ].filter(Boolean),
@@ -728,7 +728,7 @@ export class HIPAAAssessmentIntegration {
     return {
       approvedRecipients,
       restrictions,
-      legalBasis: 'HIPAA emergency care exception and state mental health crisis laws'
+      legalBasis: 'Privacy emergency care exception and state mental health crisis laws'
     };
   }
 
@@ -746,7 +746,7 @@ export class HIPAAAssessmentIntegration {
           severity: checkType === 'crisisIntervention' ? 'critical' : 'high',
           description: check.details,
           remediation: `Address ${checkType} compliance requirements`,
-          legalImplications: [`HIPAA ${checkType} compliance violation`]
+          legalImplications: [`Privacy ${checkType} compliance violation`]
         });
       }
     });
@@ -791,7 +791,7 @@ export class HIPAAAssessmentIntegration {
     if (context.crisisSituation) {
       overrides.push({
         type: 'crisis_intervention_override',
-        legalBasis: 'HIPAA Privacy Rule emergency care exception (45 CFR 164.510)',
+        legalBasis: 'Privacy Privacy Rule emergency care exception (45 CFR 164.510)',
         limitations: [
           'Limited to information necessary for crisis intervention',
           'User notification required within 24 hours',
@@ -1093,4 +1093,4 @@ export class HIPAAAssessmentIntegration {
 }
 
 // Export singleton instance
-export default HIPAAAssessmentIntegration.getInstance();
+export default PrivacyAssessmentIntegration.getInstance();

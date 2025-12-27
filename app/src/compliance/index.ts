@@ -45,23 +45,12 @@ export { default as DataMinimizationEngine } from './DataMinimization';
 export { default as BreachResponseEngine } from './BreachResponseEngine';
 export { default as PrivacyAssessmentIntegration } from './PrivacyAssessmentIntegration';
 
-// Legacy exports for backwards compatibility (will be removed in future version)
-export { default as HIPAAComplianceEngine } from './DataProtectionEngine';
-export { default as HIPAAConsentManager } from './ConsentManager';
-export { default as HIPAADataMinimizationEngine } from './DataMinimization';
-export { default as HIPAABreachResponseEngine } from './BreachResponseEngine';
-export { default as HIPAAAssessmentIntegration } from './PrivacyAssessmentIntegration';
-
 // Type exports from DataProtectionEngine
 export type {
-  HIPAAConsent,
-  HIPAAConsent as DataProtectionConsent,
-  PHIClassification,
-  PHIClassification as DataSensitivityLevel,
-  HIPAAComplianceAuditEvent,
-  HIPAAComplianceAuditEvent as ComplianceAuditEvent,
-  HIPAABreach,
-  HIPAABreach as DataBreach
+  DataProtectionConsent,
+  DataSensitivityLevel,
+  ComplianceAuditEvent,
+  DataBreach
 } from './DataProtectionEngine';
 
 export type {
@@ -638,9 +627,5 @@ export class DataProtectionService {
 
 // Export singleton instance
 export const dataProtectionService = DataProtectionService.getInstance();
-
-// Legacy alias for backwards compatibility
-export const complianceService = dataProtectionService;
-export const HIPAAComplianceService = DataProtectionService;
 
 export default dataProtectionService;

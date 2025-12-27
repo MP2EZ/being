@@ -4,7 +4,7 @@
  * COMPREHENSIVE INCIDENT RESPONSE FOR MENTAL HEALTH DATA BREACHES:
  * - Immediate incident detection and classification
  * - Automated containment and mitigation procedures
- * - HIPAA-compliant breach notification protocols
+ * - Privacy-compliant breach notification protocols
  * - Crisis intervention data special handling
  * - Professional notification and coordination
  *
@@ -16,7 +16,7 @@
  * - Therapeutic continuity protection
  *
  * REGULATORY COMPLIANCE:
- * - HIPAA breach notification (within 60 days to HHS, 60 days to individuals)
+ * - Privacy breach notification (within 60 days to HHS, 60 days to individuals)
  * - State mental health authority reporting
  * - Professional licensing board notifications
  * - Law enforcement coordination for criminal breaches
@@ -702,9 +702,9 @@ export class IncidentResponseService {
       // Assess regulatory reporting requirements
       await this.assessRegulatoryReportingRequirements(incident);
 
-      // Prepare HIPAA breach notification if required
+      // Prepare Privacy breach notification if required
       if (incident.regulatoryReporting.hipaaReportingRequired) {
-        await this.prepareHIPAABreachNotification(incident);
+        await this.prepareDataBreachNotification(incident);
       }
 
       // Prepare state authority notification if required
@@ -1419,7 +1419,7 @@ export class IncidentResponseService {
       const userCount = incident.affectedData.userCount;
       const professionalCount = incident.affectedData.professionalCount;
 
-      // HIPAA breach notification (500+ individuals)
+      // Privacy breach notification (500+ individuals)
       incident.regulatoryReporting.hipaaReportingRequired = 
         userCount >= INCIDENT_RESPONSE_CONFIG.LEGAL_REPORTING_THRESHOLDS.hipaa_breach ||
         incident.affectedData.dataTypes.some(type => ['crisis_responses', 'assessment_data'].includes(type));
@@ -1447,15 +1447,15 @@ export class IncidentResponseService {
     }
   }
 
-  private async prepareHIPAABreachNotification(incident: IncidentRecord): Promise<void> {
+  private async prepareDataBreachNotification(incident: IncidentRecord): Promise<void> {
     try {
-      console.log(`📋 Preparing HIPAA breach notification for incident: ${incident.incidentId}`);
+      console.log(`📋 Preparing Privacy breach notification for incident: ${incident.incidentId}`);
 
-      // HIPAA breach notification preparation would be implemented here
+      // Privacy breach notification preparation would be implemented here
       // For now, log the preparation
 
     } catch (error) {
-      logError(LogCategory.SECURITY, '🚨 HIPAA BREACH NOTIFICATION PREPARATION ERROR:', error instanceof Error ? error : new Error(String(error)));
+      logError(LogCategory.SECURITY, '🚨 Privacy BREACH NOTIFICATION PREPARATION ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 

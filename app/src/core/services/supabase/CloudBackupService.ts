@@ -7,7 +7,7 @@
  * - Integrity verification with checksums
  * - Anonymous user association only
  *
- * HIPAA COMPLIANCE (MAINT-117):
+ * Privacy COMPLIANCE (MAINT-117):
  * Cloud backup MUST NOT include Protected Health Information (PHI).
  *
  * PHI FIELDS EXCLUDED (45 CFR §160.103):
@@ -75,7 +75,7 @@ interface BackupData {
 }
 
 /**
- * HIPAA-Compliant Assessment Store Backup
+ * Privacy-Compliant Assessment Store Backup
  *
  * STRICT ALLOWLIST: Only non-PHI configuration fields are backed up.
  * All PHQ-9/GAD-7 responses, scores, and clinical data are EXCLUDED.
@@ -98,7 +98,7 @@ interface AssessmentStoreBackup {
  *
  * @security Reference list for audit purposes
  */
-const PHI_FIELDS_EXCLUDED = [
+const SENSITIVE_FIELDS_EXCLUDED = [
   'answers',                    // Individual PHQ-9/GAD-7 question responses
   'currentSession',             // Active assessment session with responses
   'currentQuestionIndex',       // Assessment progress indicator
@@ -341,7 +341,7 @@ class CloudBackupService {
       }
 
       // Restore stores with PHI-safe filtering
-      // HIPAA COMPLIANCE (MAINT-117): Backups contain ONLY non-PHI config fields.
+      // Privacy COMPLIANCE (MAINT-117): Backups contain ONLY non-PHI config fields.
       // Even on restore, we use allowlist approach to prevent any accidental PHI restoration.
       const restoredStores: string[] = [];
       const errors: string[] = [];
@@ -378,7 +378,7 @@ class CloudBackupService {
           // Restore only the safe fields (merges with existing state)
           if (Object.keys(safeRestoreData).length > 0) {
             assessmentStore.setState(safeRestoreData);
-            restoredStores.push('assessment (config only - PHI excluded per HIPAA)');
+            restoredStores.push('assessment (config only - PHI excluded per Privacy)');
           }
         } catch (error) {
           errors.push(`Failed to restore assessment store: ${error}`);
@@ -484,7 +484,7 @@ class CloudBackupService {
   /**
    * Collect data from all stores with PHI filtering
    *
-   * HIPAA COMPLIANCE (MAINT-117):
+   * Privacy COMPLIANCE (MAINT-117):
    * This method implements STRICT ALLOWLIST filtering to ensure no Protected
    * Health Information (PHI) is included in cloud backups.
    *

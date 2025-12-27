@@ -4,7 +4,7 @@
  * 
  * ERROR HANDLING REQUIREMENTS:
  * - Crisis-safe error handling (maintain crisis functionality during errors)
- * - HIPAA-compliant error logging (no PHI in error messages)
+ * - Privacy-compliant error logging (no PHI in error messages)
  * - Graceful degradation with user-friendly fallbacks
  * - Automatic recovery mechanisms with escalation paths
  * - Performance-aware error handling (no blocking error processing)
@@ -20,7 +20,7 @@
 
 import { PerformanceMetric, PerformanceViolation } from '../performance/constraints';
 import { CrisisDetection, CrisisIntervention } from '@/features/crisis/types/safety';
-import { HIPAAAuditLog, PHIClassification } from '../compliance/data-protection';
+import { ComplianceAuditLog, DataSensitivityLevel } from '../compliance/data-protection';
 import { SecurityEvent } from '../security/encryption';
 
 /**
@@ -125,7 +125,7 @@ export interface PerformanceErrorContext {
  */
 export interface ComplianceErrorContext {
   /** PHI data types involved */
-  phiTypesInvolved: PHIClassification[];
+  phiTypesInvolved: DataSensitivityLevel[];
   /** Consent status */
   consentStatus: 'valid' | 'expired' | 'missing' | 'withdrawn';
   /** Audit requirements */
@@ -343,7 +343,7 @@ export interface ErrorComplianceInfo {
   /** PHI potentially exposed */
   phiExposed: boolean;
   /** PHI types involved */
-  phiTypes: PHIClassification[];
+  phiTypes: DataSensitivityLevel[];
   /** Audit logging required */
   auditRequired: boolean;
   /** Notification requirements */
@@ -665,7 +665,7 @@ export const ERROR_CODES = {
   
   // Compliance Errors
   COMP_CONSENT_REQUIRED: 'COMP_001',
-  COMP_PHI_EXPOSURE: 'COMP_002',
+  COMP_DATA_EXPOSURE: 'COMP_002',
   COMP_AUDIT_FAILED: 'COMP_003',
   
   // Security Errors
