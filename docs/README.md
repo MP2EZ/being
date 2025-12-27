@@ -12,8 +12,9 @@ This folder contains ALL documentation related to the Being mobile app.
 - **`/architecture/`** - System design, data models, technical patterns, Stoic architecture
 - **`/development/`** - Implementation guides, coding standards, accessibility
 
-### Legal
+### Legal & Compliance
 - **`/legal/`** - Privacy policy, terms of service, medical disclaimer (source of truth for app + website)
+- **`/legal/regulatory-applicability.md`** - **COMPLIANCE SOURCE OF TRUTH** - Authoritative reference for what regulations apply (and don't)
 - **`/security/`** - Privacy-first security architecture (Being is NOT HIPAA-covered)
 
 ### Testing
@@ -41,7 +42,8 @@ This folder contains ALL documentation related to the Being mobile app.
 - [Local Testing Guide](testing/LOCAL_TESTING_GUIDE.md) - Quick validation workflows
 - [Clinical Testing](testing/clinical-testing-implementation.md) - PHQ-9/GAD-7 accuracy testing
 
-### Legal (Source of Truth for App + Website)
+### Legal & Compliance (Source of Truth)
+- [Regulatory Applicability](legal/regulatory-applicability.md) - **START HERE** for compliance decisions
 - [Privacy Policy](legal/privacy-policy.md)
 - [Terms of Service](legal/terms-of-service.md)
 - [Medical Disclaimer](legal/medical-disclaimer.md)
@@ -66,9 +68,10 @@ This folder contains ALL documentation related to the Being mobile app.
 - Offline-first architecture
 
 ### Privacy & Compliance
+- **NOT a HIPAA-covered entity** - See [Regulatory Applicability](legal/regulatory-applicability.md)
 - **BAA-free design** - NO PHI transmitted to cloud
 - **On-device encryption** for all wellness data
-- CCPA, VCDPA, GDPR compliance
+- FTC, CCPA, VCDPA, GDPR compliance
 
 ## Critical Safety Requirements
 
