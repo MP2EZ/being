@@ -48,7 +48,7 @@ const ProfileScreen: React.FC = () => {
   const [showEducationModal, setShowEducationModal] = useState(false);
   const [phq9Metadata, setPhq9Metadata] = useState<AssessmentMetadata>({ status: 'never' });
   const [gad7Metadata, setGad7Metadata] = useState<AssessmentMetadata>({ status: 'never' });
-  const { trackScreenView, trackSettingsOpened } = useAnalytics();
+  const { trackScreenView } = useAnalytics();
 
   // Get assessment history from encrypted store
   const completedAssessments = useAssessmentStore(state => state.completedAssessments);
@@ -58,8 +58,7 @@ const ProfileScreen: React.FC = () => {
   useFocusEffect(
     useCallback(() => {
       trackScreenView('ProfileScreen');
-      trackSettingsOpened();
-    }, [trackScreenView, trackSettingsOpened])
+    }, [trackScreenView])
   );
 
   const handleStartOnboarding = () => {
