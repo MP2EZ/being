@@ -4,7 +4,7 @@
  * Provides access to settings, virtue dashboard, wellbeing tracking, and onboarding
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -14,7 +14,7 @@ import {
   Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 // OnboardingScreen no longer embedded - navigation to LegalGate handles full flow
 import AppSettingsScreen from './AppSettingsScreen';
@@ -54,10 +54,13 @@ const ProfileScreen: React.FC = () => {
   const completedAssessments = useAssessmentStore(state => state.completedAssessments);
 
   // Track screen view for analytics (FEAT-40)
-  useEffect(() => {
-    trackScreenView('ProfileScreen');
-    trackSettingsOpened();
-  }, [trackScreenView, trackSettingsOpened]);
+  // useFocusEffect tracks on every focus, not just mount (handles consent timing)
+  useFocusEffect(
+    useCallback(() => {
+      trackScreenView('ProfileScreen');
+      trackSettingsOpened();
+    }, [trackScreenView, trackSettingsOpened])
+  );
 
   const handleStartOnboarding = () => {
     // Navigate to LegalGate for full first-time experience (age + ToS + onboarding)

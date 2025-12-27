@@ -4,10 +4,10 @@
  * Integrated with check-in flow navigation
  */
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import { colorSystem, getTheme, spacing, borderRadius, typography } from '@/core/theme';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
@@ -32,9 +32,12 @@ const CleanHomeScreen: React.FC = () => {
   const { trackScreenView } = useAnalytics();
 
   // Track screen view for analytics (FEAT-40)
-  useEffect(() => {
-    trackScreenView('HomeScreen');
-  }, [trackScreenView]);
+  // useFocusEffect tracks on every focus, not just mount (handles consent timing)
+  useFocusEffect(
+    useCallback(() => {
+      trackScreenView('HomeScreen');
+    }, [trackScreenView])
+  );
 
   // Determine if intro animation should show
   const shouldShowIntroInitially = useMemo(() => {
