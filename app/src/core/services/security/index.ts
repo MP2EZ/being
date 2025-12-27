@@ -5,7 +5,7 @@
  * - Centralized security service management and orchestration
  * - End-to-end protection for PHQ-9/GAD-7 assessment data
  * - Crisis intervention data special security protocols
- * - HIPAA-compliant incident response and breach notification
+ * - Privacy-compliant incident response and breach notification
  * - Real-time security monitoring and vulnerability assessment
  *
  * SECURITY LAYERS:

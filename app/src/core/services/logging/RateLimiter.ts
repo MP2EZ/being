@@ -8,7 +8,7 @@
  * - Refill Rate: Tokens added per interval
  * - Priority Bypass: Crisis events always allowed
  *
- * HIPAA Compliance: Prevents log storage exhaustion attacks
+ * Privacy Compliance: Prevents log storage exhaustion attacks
  * Performance: O(1) time complexity, minimal memory overhead
  */
 

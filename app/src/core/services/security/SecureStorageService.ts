@@ -22,8 +22,8 @@
  * - Background sync: <1000ms for data export
  *
  * MENTAL HEALTH COMPLIANCE:
- * - HIPAA-compliant storage with audit trails
- * - 7-year retention for clinical records
+ * - Privacy-compliant storage with audit trails
+ * - 3-year retention for crisis intervention records (liability protection)
  * - Secure data deletion and device cleanup
  * - Emergency data access protocols
  */

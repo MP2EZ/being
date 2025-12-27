@@ -10,7 +10,7 @@
  *
  * COMPLIANCE REQUIREMENTS:
  * - PCI DSS: N/A (Apple/Google handle payment data)
- * - HIPAA: Subscription metadata stored with encrypted health data
+ * - Privacy: Subscription metadata stored with encrypted health data
  * - Subscription status correlation with PHI = treat as PHI
  * - No payment data stored locally
  *
@@ -70,7 +70,7 @@ export interface SubscriptionProductIds {
 /**
  * Subscription Metadata
  * Stored in Supabase alongside encrypted health data
- * HIPAA: Treat as PHI due to correlation with mental health data
+ * Privacy: Treat as PHI due to correlation with mental health data
  */
 export interface SubscriptionMetadata {
   // Subscription Identity

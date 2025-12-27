@@ -10,7 +10,7 @@
  * - Notification scheduling integration (expo-notifications?)
  * - Analytics integration point
  * - Global accessibility feature control
- * - HIPAA compliance validation for privacy settings
+ * - Privacy compliance validation for privacy settings
  *
  * ACCESSIBILITY:
  * - WCAG AA compliant

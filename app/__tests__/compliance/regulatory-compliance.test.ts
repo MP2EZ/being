@@ -1,14 +1,14 @@
 /**
- * HIPAA AND REGULATORY COMPLIANCE TESTING SUITE
+ * REGULATORY COMPLIANCE TESTING SUITE
  * Week 2 Orchestration Plan - Compliance-Critical Validation
- * 
- * HIPAA COMPLIANCE REQUIREMENTS:
- * - PHI protection and audit logging for all clinical assessments
+ *
+ * DATA PROTECTION REQUIREMENTS:
+ * - Sensitive data protection and audit logging for all clinical assessments
  * - Consent management workflows and validation
- * - Data retention and breach response protocols
+ * - Data retention and breach response protocols (state law compliance)
  * - Encryption at rest and in transit validation
  * - Access control and user authentication verification
- * 
+ *
  * REGULATORY COMPLIANCE:
  * - Clinical assessment accuracy validation (FDA/CE requirements)
  * - Therapeutic intervention documentation requirements

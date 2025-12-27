@@ -1,9 +1,9 @@
 /**
- * HIPAA DATA MINIMIZATION ENGINE - DRD-FLOW-005 Assessment System
+ * Privacy DATA MINIMIZATION ENGINE - DRD-FLOW-005 Assessment System
  *
  * COMPREHENSIVE DATA MINIMIZATION:
- * - Implementation of HIPAA Minimum Necessary Rule (45 CFR 164.502(b))
- * - PHI classification and sensitivity-based access controls
+ * - Implementation of data minimization principles (CCPA, GDPR)
+ * - Sensitivity classification and sensitivity-based access controls
  * - Purpose-limited data collection and processing
  * - Automated data lifecycle management and retention policies
  * - Real-time data access validation and audit trails
@@ -17,8 +17,8 @@
  * - Professional sharing protocols that maintain therapeutic boundaries
  *
  * REGULATORY FOUNDATIONS:
- * - HIPAA Privacy Rule Minimum Necessary Standard
- * - HIPAA Security Rule Administrative Safeguards
+ * - Privacy Privacy Rule Minimum Necessary Standard
+ * - Privacy Security Rule Administrative Safeguards
  * - 42 CFR Part 2 (Substance Abuse Records) compatibility
  * - State mental health privacy laws compliance
  * - Crisis intervention legal requirements
@@ -28,11 +28,11 @@
 import { logSecurity, logPerformance, logError, LogCategory } from '@/core/services/logging';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
-import HIPAAComplianceEngine, { 
-  PHIClassification,
-  HIPAAComplianceAuditEvent,
-  HIPAA_COMPLIANCE_CONFIG 
-} from './HIPAAComplianceEngine';
+import DataProtectionEngine, { 
+  DataSensitivityLevel,
+  ComplianceAuditEvent,
+  DATA_PROTECTION_CONFIG 
+} from './DataProtectionEngine';
 import type {
   AssessmentAnswer,
   PHQ9Result,
@@ -216,7 +216,7 @@ export interface DataAccessEvaluation {
   /** Compliance notes */
   compliance: {
     /** Minimum necessary rule satisfied */
-    minimumNecessarySatisfied: boolean;
+    dataMinimizationSatisfied: boolean;
     /** Purpose limitation satisfied */
     purposeLimitationSatisfied: boolean;
     /** Role authorization satisfied */
@@ -235,8 +235,8 @@ export interface DataElementMetadata {
   elementId: string;
   /** Human-readable name */
   displayName: string;
-  /** PHI classification */
-  classification: PHIClassification;
+  /** Sensitivity classification */
+  classification: DataSensitivityLevel;
   /** Data sensitivity level */
   sensitivityLevel: 'low' | 'medium' | 'high' | 'critical';
   /** Collection requirements */
@@ -297,24 +297,24 @@ export interface DataElementMetadata {
 }
 
 /**
- * HIPAA DATA MINIMIZATION ENGINE
+ * Privacy DATA MINIMIZATION ENGINE
  */
-export class HIPAADataMinimizationEngine {
-  private static instance: HIPAADataMinimizationEngine;
+export class DataMinimizationEngine {
+  private static instance: DataMinimizationEngine;
   private dataElementRegistry: Map<string, DataElementMetadata> = new Map();
   private activeAccessGrants: Map<string, DataAccessEvaluation> = new Map();
   private collectionHistory: Map<string, Array<{ timestamp: number; elements: string[] }>> = new Map();
-  private complianceEngine = HIPAAComplianceEngine;
+  private complianceEngine = DataProtectionEngine;
 
   private constructor() {
     this.initializeDataElementRegistry();
   }
 
-  public static getInstance(): HIPAADataMinimizationEngine {
-    if (!HIPAADataMinimizationEngine.instance) {
-      HIPAADataMinimizationEngine.instance = new HIPAADataMinimizationEngine();
+  public static getInstance(): DataMinimizationEngine {
+    if (!DataMinimizationEngine.instance) {
+      DataMinimizationEngine.instance = new DataMinimizationEngine();
     }
-    return HIPAADataMinimizationEngine.instance;
+    return DataMinimizationEngine.instance;
   }
 
   /**
@@ -339,7 +339,7 @@ export class HIPAADataMinimizationEngine {
           notifications: []
         },
         compliance: {
-          minimumNecessarySatisfied: false,
+          dataMinimizationSatisfied: false,
           purposeLimitationSatisfied: false,
           roleAuthorizationSatisfied: false,
           notes: []
@@ -397,7 +397,7 @@ export class HIPAADataMinimizationEngine {
       }
 
       // Validate minimum necessary compliance
-      evaluation.compliance.minimumNecessarySatisfied = await this.validateMinimumNecessary(
+      evaluation.compliance.dataMinimizationSatisfied = await this.validateDataMinimization(
         request,
         evaluation.approvedElements
       );
@@ -432,7 +432,7 @@ export class HIPAADataMinimizationEngine {
           notifications: ['System administrator notification required']
         },
         compliance: {
-          minimumNecessarySatisfied: false,
+          dataMinimizationSatisfied: false,
           purposeLimitationSatisfied: false,
           roleAuthorizationSatisfied: false,
           notes: ['System error during evaluation']
@@ -811,7 +811,7 @@ export class HIPAADataMinimizationEngine {
 
     return {
       applied: true,
-      legalBasis: 'HIPAA Privacy Rule emergency care exception (45 CFR 164.510(a))',
+      legalBasis: 'State privacy law emergency care exception',
       limitations: [
         'Access limited to information necessary for emergency care',
         'Access expires when emergency ends',
@@ -850,7 +850,7 @@ export class HIPAADataMinimizationEngine {
   /**
    * Validates minimum necessary rule compliance
    */
-  private async validateMinimumNecessary(
+  private async validateDataMinimization(
     request: DataAccessRequest,
     approvedElements: string[]
   ): Promise<boolean> {
@@ -957,7 +957,7 @@ export class HIPAADataMinimizationEngine {
       {
         elementId: 'phq9_responses',
         displayName: 'PHQ-9 Depression Assessment Responses',
-        classification: PHIClassification.SENSITIVE_PHI,
+        classification: DataSensitivityLevel.SENSITIVE,
         sensitivityLevel: 'high',
         collection: {
           justifiedPurposes: [DataPurpose.TREATMENT, DataPurpose.OPERATIONS],
@@ -977,7 +977,7 @@ export class HIPAADataMinimizationEngine {
           }
         },
         lifecycle: {
-          retentionYears: HIPAA_COMPLIANCE_CONFIG.DATA_RETENTION.ASSESSMENT_DATA_YEARS,
+          retentionYears: DATA_PROTECTION_CONFIG.DATA_RETENTION.ASSESSMENT_DATA_YEARS,
           autoDelete: true,
           legalHoldCapable: true,
           agingNotifications: true
@@ -994,7 +994,7 @@ export class HIPAADataMinimizationEngine {
       {
         elementId: 'gad7_responses',
         displayName: 'GAD-7 Anxiety Assessment Responses',
-        classification: PHIClassification.SENSITIVE_PHI,
+        classification: DataSensitivityLevel.SENSITIVE,
         sensitivityLevel: 'high',
         collection: {
           justifiedPurposes: [DataPurpose.TREATMENT, DataPurpose.OPERATIONS],
@@ -1014,7 +1014,7 @@ export class HIPAADataMinimizationEngine {
           }
         },
         lifecycle: {
-          retentionYears: HIPAA_COMPLIANCE_CONFIG.DATA_RETENTION.ASSESSMENT_DATA_YEARS,
+          retentionYears: DATA_PROTECTION_CONFIG.DATA_RETENTION.ASSESSMENT_DATA_YEARS,
           autoDelete: true,
           legalHoldCapable: true,
           agingNotifications: true
@@ -1031,7 +1031,7 @@ export class HIPAADataMinimizationEngine {
       {
         elementId: 'suicidal_ideation_data',
         displayName: 'Suicidal Ideation Assessment Data',
-        classification: PHIClassification.CRITICAL_PHI,
+        classification: DataSensitivityLevel.CRITICAL,
         sensitivityLevel: 'critical',
         collection: {
           justifiedPurposes: [DataPurpose.TREATMENT, DataPurpose.EMERGENCY],
@@ -1060,7 +1060,7 @@ export class HIPAADataMinimizationEngine {
           }
         },
         lifecycle: {
-          retentionYears: HIPAA_COMPLIANCE_CONFIG.DATA_RETENTION.CRISIS_RECORDS_YEARS,
+          retentionYears: DATA_PROTECTION_CONFIG.DATA_RETENTION.CRISIS_RECORDS_YEARS,
           autoDelete: false, // Manual review required
           legalHoldCapable: true,
           agingNotifications: true
@@ -1081,7 +1081,7 @@ export class HIPAADataMinimizationEngine {
       {
         elementId: 'crisis_intervention_records',
         displayName: 'Crisis Intervention Records',
-        classification: PHIClassification.CRITICAL_PHI,
+        classification: DataSensitivityLevel.CRITICAL,
         sensitivityLevel: 'critical',
         collection: {
           justifiedPurposes: [DataPurpose.EMERGENCY, DataPurpose.TREATMENT, DataPurpose.QUALITY_ASSURANCE],
@@ -1116,7 +1116,7 @@ export class HIPAADataMinimizationEngine {
           }
         },
         lifecycle: {
-          retentionYears: HIPAA_COMPLIANCE_CONFIG.DATA_RETENTION.CRISIS_RECORDS_YEARS,
+          retentionYears: DATA_PROTECTION_CONFIG.DATA_RETENTION.CRISIS_RECORDS_YEARS,
           autoDelete: false,
           legalHoldCapable: true,
           agingNotifications: true
@@ -1154,16 +1154,16 @@ export class HIPAADataMinimizationEngine {
     evaluation: DataAccessEvaluation
   ): Promise<void> {
     try {
-      const auditEvent: HIPAAComplianceAuditEvent = {
+      const auditEvent: ComplianceAuditEvent = {
         eventId: `access_eval_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         timestamp: Date.now(),
         type: 'authorization_check',
         userId: request.targetUserId,
         sessionId: request.sessionContext.sessionId,
         dataElements: request.requestedElements,
-        phiClassification: PHIClassification.SENSITIVE_PHI, // Most restrictive
+        sensitivityLevel: DataSensitivityLevel.SENSITIVE, // Most restrictive
         purpose: request.purposes[0] as any,
-        minimumNecessaryCompliant: evaluation.compliance.minimumNecessarySatisfied,
+        dataMinimizationCompliant: evaluation.compliance.dataMinimizationSatisfied,
         authorization: {
           type: 'user_request',
           reference: request.requestId
@@ -1180,7 +1180,7 @@ export class HIPAADataMinimizationEngine {
           securityLevel: evaluation.emergencyOverride?.applied ? 'critical' : 'high'
         },
         compliance: {
-          hipaaCompliant: evaluation.approved && evaluation.compliance.minimumNecessarySatisfied,
+          privacyCompliant: evaluation.approved && evaluation.compliance.dataMinimizationSatisfied,
           privacyRuleCompliant: evaluation.compliance.purposeLimitationSatisfied,
           securityRuleCompliant: evaluation.compliance.roleAuthorizationSatisfied,
           violations: evaluation.deniedElements.map(d => d.reason)
@@ -1347,4 +1347,4 @@ export class HIPAADataMinimizationEngine {
 }
 
 // Export singleton instance
-export default HIPAADataMinimizationEngine.getInstance();
+export default DataMinimizationEngine.getInstance();

@@ -21,21 +21,21 @@ This implementation provides complete TypeScript type safety for all crisis dete
 - `CrisisResource` - Emergency contact resources
 - `CrisisSafetyPlan` - User safety planning
 
-## 🔒 HIPAA Compliance Types
+## 🔒 Data Protection Types
 
-### Location: `./compliance/hipaa.ts`
+### Location: `./compliance/data-protection.ts`
 
 **Key Features:**
-- Protected Health Information (PHI) classification
+- Data sensitivity classification
 - Granular consent management
 - Audit logging with <10ms performance
-- Data retention policies
-- Breach incident tracking
+- Data retention policies (purpose-based)
+- Breach incident tracking (state law compliance)
 
 **Critical Types:**
-- `HIPAAConsent` - User consent management
-- `PHIClassification` - Data type classification
-- `HIPAAAuditLog` - Compliance audit trails
+- `DataProtectionConsent` - User consent management
+- `DataSensitivityLevel` - Data type classification
+- `ComplianceAuditLog` - Compliance audit trails
 - `DataBreachIncident` - Security incident handling
 
 ## 🛡️ Security Types
@@ -79,7 +79,7 @@ This implementation provides complete TypeScript type safety for all crisis dete
 **Key Features:**
 - Crisis-safe error handling
 - Automatic recovery strategies
-- HIPAA-compliant error logging
+- Privacy-compliant error logging
 - Graceful degradation patterns
 - Emergency mode preservation
 
@@ -162,13 +162,13 @@ if (crisis?.isTriggered) {
 }
 ```
 
-### HIPAA Compliance
+### Data Protection
 ```typescript
-import { validateConsent, PHIClassification } from '@/types';
+import { validateConsent, DataSensitivityLevel } from '@/types';
 
 const canProcess = await validateConsent(
-  userId, 
-  'assessment_scores' as PHIClassification,
+  userId,
+  'assessment_scores' as DataSensitivityLevel,
   'therapeutic_assessment'
 );
 ```
@@ -188,7 +188,7 @@ const result = await monitorOperation(
 ## 🔍 Type Coverage
 
 - **Crisis Workflows**: 100% type coverage
-- **HIPAA Compliance**: 100% type coverage  
+- **Data Protection**: 100% type coverage  
 - **Security Operations**: 100% type coverage
 - **Performance Monitoring**: 100% type coverage
 - **Error Handling**: 100% type coverage
@@ -200,13 +200,13 @@ const result = await monitorOperation(
 1. **Strict Mode**: All types must compile with TypeScript strict mode
 2. **Performance**: All operations must meet timing constraints
 3. **Crisis Safety**: Crisis functionality must never be compromised
-4. **HIPAA Compliance**: PHI must be properly classified and protected
+4. **Data Protection**: Sensitive data must be properly classified and protected
 5. **Error Handling**: All operations must have recovery strategies
 
 ### Integration Patterns
 1. Use `CrisisAwareProps` for crisis-sensitive components
 2. Implement `PerformanceConstrainedProps` for timing-critical operations
-3. Apply `HIPAAComponentContext` for PHI-handling components
+3. Apply `DataProtectionContext` for sensitive data components
 4. Utilize `SecurityComponentContext` for authenticated operations
 
 ## 📝 Next Steps
@@ -214,7 +214,7 @@ const result = await monitorOperation(
 1. **Runtime Validation**: Implement runtime type validation for production
 2. **Performance Testing**: Validate timing constraints under load
 3. **Security Auditing**: Regular security type review
-4. **Compliance Monitoring**: Continuous HIPAA compliance checking
+4. **Compliance Monitoring**: Continuous privacy compliance checking
 
 ## 🔗 Related Files
 

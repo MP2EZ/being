@@ -8,7 +8,7 @@
  * - Fallback on encryption failure
  * - Performance requirements (<200ms)
  *
- * COMPLIANCE: HIPAA encryption at rest requirement
+ * COMPLIANCE: Privacy encryption at rest requirement
  */
 
 import { ProductionLogger, LogCategory } from '../ProductionLogger';

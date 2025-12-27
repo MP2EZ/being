@@ -2,7 +2,7 @@
  * SSL Certificate Pinning Configuration
  * MAINT-68: Implement SSL certificate pinning for Supabase endpoints
  *
- * HIPAA §164.312(e)(1) Transmission Security Compliance
+ * Privacy §164.312(e)(1) Transmission Security Compliance
  * Defense-in-depth against Man-in-the-Middle (MITM) attacks
  *
  * SECURITY REQUIREMENTS:
@@ -126,10 +126,10 @@ export const PIN_VALIDATION_CONFIG = {
  * Data classification for audit logging
  */
 export type DataClassification =
-  | 'PHI_CLINICAL' // PHQ-9, GAD-7 assessment data
-  | 'PHI_CRISIS' // Crisis intervention data
-  | 'PHI_CHECKIN' // Check-in and mood data
-  | 'NON_PHI'; // Analytics and metadata
+  | 'CLINICAL_DATA' // PHQ-9, GAD-7 assessment data
+  | 'CRISIS_DATA' // Crisis intervention data
+  | 'CHECKIN_DATA' // Check-in and mood data
+  | 'METADATA'; // Analytics and metadata
 
 /**
  * Pin validation result
@@ -144,7 +144,7 @@ export interface PinValidationResult {
 
 /**
  * Audit log entry for certificate pinning events
- * HIPAA §164.312(b) Audit Controls compliance
+ * Privacy §164.312(b) Audit Controls compliance
  */
 export interface CertificatePinningAuditLog {
   timestamp: string;
@@ -165,7 +165,7 @@ export interface CertificatePinningAuditLog {
 
 /**
  * Check if endpoint is crisis-critical
- * Crisis endpoints get fallback behavior per HIPAA §164.308(a)(7)(ii)(E)
+ * Crisis endpoints get fallback behavior per Privacy §164.308(a)(7)(ii)(E)
  * Life-safety takes precedence over security controls
  */
 export function isCrisisEndpoint(url: string): boolean {
@@ -247,7 +247,7 @@ export function validateCertificatePin(
           event: 'fallback_pin_used',
           endpoint: hostname,
           matchedPin: pin === pins.backup1 ? 'backup1' : 'backup2',
-          dataClassification: 'NON_PHI',
+          dataClassification: 'METADATA',
           action: 'allow',
         });
       }
@@ -272,7 +272,7 @@ export function validateCertificatePin(
 
 /**
  * Log security event for audit trail
- * HIPAA §164.312(b) Audit Controls
+ * Privacy §164.312(b) Audit Controls
  */
 export function logSecurityEvent(
   event: Omit<CertificatePinningAuditLog, 'timestamp' | 'platform'>
@@ -323,7 +323,7 @@ export function handlePinValidationFailure(
       dataClassification,
       action: 'fallback',
       securityException:
-        'Crisis endpoint pin failure - fallback allowed per life-safety requirement (HIPAA §164.308(a)(7)(ii)(E))',
+        'Crisis endpoint pin failure - fallback allowed per life-safety requirement (Privacy §164.308(a)(7)(ii)(E))',
     });
 
     // Alert would be sent to security monitoring in production
@@ -358,7 +358,7 @@ export function shouldBypassPinning(): boolean {
   logSecurityEvent({
     event: 'development_bypass',
     endpoint: 'all',
-    dataClassification: 'NON_PHI',
+    dataClassification: 'METADATA',
     action: 'allow',
     securityException: 'Development mode SSL pinning bypass enabled',
   });

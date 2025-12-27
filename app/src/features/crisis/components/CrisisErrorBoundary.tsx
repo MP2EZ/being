@@ -6,7 +6,7 @@
  * - <3 taps to 988 crisis line regardless of app state
  * - Automatic error reporting for clinical safety
  * - Graceful degradation while preserving therapeutic value
- * - HIPAA-compliant error logging without PHI exposure
+ * - Privacy-compliant error logging without PHI exposure
  * 
  * ERROR SCENARIOS HANDLED:
  * - Assessment component crashes
@@ -160,7 +160,7 @@ export class CrisisErrorBoundary extends Component<
   }
 
   /**
-   * HIPAA-compliant error reporting (no PHI exposure)
+   * Privacy-compliant error reporting (no PHI exposure)
    */
   private reportError(error: Error, errorInfo: ErrorInfo) {
     try {

@@ -16,7 +16,7 @@
  * - Automated security incident escalation
  *
  * MENTAL HEALTH COMPLIANCE:
- * - HIPAA emergency disclosure protocols
+ * - Privacy emergency disclosure protocols
  * - Crisis intervention documentation security
  * - Professional responsibility data protection
  * - Legal compliance for crisis reporting

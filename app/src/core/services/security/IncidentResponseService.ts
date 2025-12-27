@@ -4,7 +4,7 @@
  * COMPREHENSIVE INCIDENT RESPONSE FOR MENTAL HEALTH DATA BREACHES:
  * - Immediate incident detection and classification
  * - Automated containment and mitigation procedures
- * - HIPAA-compliant breach notification protocols
+ * - Privacy-compliant breach notification protocols
  * - Crisis intervention data special handling
  * - Professional notification and coordination
  *
@@ -16,7 +16,7 @@
  * - Therapeutic continuity protection
  *
  * REGULATORY COMPLIANCE:
- * - HIPAA breach notification (within 60 days to HHS, 60 days to individuals)
+ * - Privacy breach notification (within 60 days to HHS, 60 days to individuals)
  * - State mental health authority reporting
  * - Professional licensing board notifications
  * - Law enforcement coordination for criminal breaches
@@ -80,7 +80,7 @@ export const INCIDENT_RESPONSE_CONFIG = {
   
   /** Legal reporting thresholds */
   LEGAL_REPORTING_THRESHOLDS: {
-    hipaa_breach: 500,              // 500+ individuals requires media notification
+    state_breach: 500,              // 500+ individuals requires media notification
     state_authority: 100,           // 100+ individuals requires state notification
     law_enforcement: 1000,          // 1000+ individuals requires FBI notification
     professional_board: 50         // 50+ professionals requires licensing board notification
@@ -154,8 +154,8 @@ export interface IncidentRecord {
   
   // Regulatory reporting
   regulatoryReporting: {
-    hipaaReportingRequired: boolean;
-    hipaaReportDeadline?: number;
+    stateReportingRequired: boolean;
+    stateReportDeadline?: number;
     stateAuthorityReportingRequired: boolean;
     lawEnforcementNotificationRequired: boolean;
     professionalBoardNotificationRequired: boolean;
@@ -702,9 +702,9 @@ export class IncidentResponseService {
       // Assess regulatory reporting requirements
       await this.assessRegulatoryReportingRequirements(incident);
 
-      // Prepare HIPAA breach notification if required
-      if (incident.regulatoryReporting.hipaaReportingRequired) {
-        await this.prepareHIPAABreachNotification(incident);
+      // Prepare Privacy breach notification if required
+      if (incident.regulatoryReporting.stateReportingRequired) {
+        await this.prepareDataBreachNotification(incident);
       }
 
       // Prepare state authority notification if required
@@ -732,7 +732,7 @@ export class IncidentResponseService {
         actor: 'automated_response',
         outcome: 'success',
         evidence: [
-          `hipaa_required: ${incident.regulatoryReporting.hipaaReportingRequired}`,
+          `state_required: ${incident.regulatoryReporting.stateReportingRequired}`,
           `state_authority_required: ${incident.regulatoryReporting.stateAuthorityReportingRequired}`,
           `law_enforcement_required: ${incident.regulatoryReporting.lawEnforcementNotificationRequired}`
         ]
@@ -865,7 +865,7 @@ export class IncidentResponseService {
       }],
       notificationsSent: [],
       regulatoryReporting: {
-        hipaaReportingRequired: false,
+        stateReportingRequired: false,
         stateAuthorityReportingRequired: false,
         lawEnforcementNotificationRequired: false,
         professionalBoardNotificationRequired: false,
@@ -936,7 +936,7 @@ export class IncidentResponseService {
       }
 
       // Assess regulatory risk
-      if (incident.affectedData.userCount > INCIDENT_RESPONSE_CONFIG.LEGAL_REPORTING_THRESHOLDS.hipaa_breach) {
+      if (incident.affectedData.userCount > INCIDENT_RESPONSE_CONFIG.LEGAL_REPORTING_THRESHOLDS.state_breach) {
         incident.impactAssessment.regulatoryRisk = 'critical';
       } else if (incident.affectedData.userCount > INCIDENT_RESPONSE_CONFIG.LEGAL_REPORTING_THRESHOLDS.state_authority) {
         incident.impactAssessment.regulatoryRisk = 'high';
@@ -1194,7 +1194,7 @@ export class IncidentResponseService {
     }
 
     // Large breaches require all stakeholders
-    if (incident.affectedData.userCount > INCIDENT_RESPONSE_CONFIG.LEGAL_REPORTING_THRESHOLDS.hipaa_breach) {
+    if (incident.affectedData.userCount > INCIDENT_RESPONSE_CONFIG.LEGAL_REPORTING_THRESHOLDS.state_breach) {
       groups.push('all_stakeholders', 'regulatory_authorities', 'media_relations');
     }
 
@@ -1419,13 +1419,13 @@ export class IncidentResponseService {
       const userCount = incident.affectedData.userCount;
       const professionalCount = incident.affectedData.professionalCount;
 
-      // HIPAA breach notification (500+ individuals)
-      incident.regulatoryReporting.hipaaReportingRequired = 
-        userCount >= INCIDENT_RESPONSE_CONFIG.LEGAL_REPORTING_THRESHOLDS.hipaa_breach ||
+      // Privacy breach notification (500+ individuals)
+      incident.regulatoryReporting.stateReportingRequired = 
+        userCount >= INCIDENT_RESPONSE_CONFIG.LEGAL_REPORTING_THRESHOLDS.state_breach ||
         incident.affectedData.dataTypes.some(type => ['crisis_responses', 'assessment_data'].includes(type));
 
-      if (incident.regulatoryReporting.hipaaReportingRequired) {
-        incident.regulatoryReporting.hipaaReportDeadline = 
+      if (incident.regulatoryReporting.stateReportingRequired) {
+        incident.regulatoryReporting.stateReportDeadline = 
           incident.detectionTimestamp + INCIDENT_RESPONSE_CONFIG.REGULATORY_NOTIFICATION_MS;
       }
 
@@ -1447,15 +1447,15 @@ export class IncidentResponseService {
     }
   }
 
-  private async prepareHIPAABreachNotification(incident: IncidentRecord): Promise<void> {
+  private async prepareDataBreachNotification(incident: IncidentRecord): Promise<void> {
     try {
-      console.log(`📋 Preparing HIPAA breach notification for incident: ${incident.incidentId}`);
+      console.log(`📋 Preparing Privacy breach notification for incident: ${incident.incidentId}`);
 
-      // HIPAA breach notification preparation would be implemented here
+      // Privacy breach notification preparation would be implemented here
       // For now, log the preparation
 
     } catch (error) {
-      logError(LogCategory.SECURITY, '🚨 HIPAA BREACH NOTIFICATION PREPARATION ERROR:', error instanceof Error ? error : new Error(String(error)));
+      logError(LogCategory.SECURITY, '🚨 Privacy BREACH NOTIFICATION PREPARATION ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -1602,7 +1602,7 @@ export class IncidentResponseService {
       communications.push('Patient notification within 24 hours');
     }
 
-    if (incident.affectedData.userCount > INCIDENT_RESPONSE_CONFIG.LEGAL_REPORTING_THRESHOLDS.hipaa_breach) {
+    if (incident.affectedData.userCount > INCIDENT_RESPONSE_CONFIG.LEGAL_REPORTING_THRESHOLDS.state_breach) {
       communications.push('Public media notification required');
     }
 
@@ -1612,7 +1612,7 @@ export class IncidentResponseService {
   private async generateMediaResponse(incident: IncidentRecord): Promise<string[]> {
     const mediaResponse: string[] = [];
 
-    if (incident.affectedData.userCount > INCIDENT_RESPONSE_CONFIG.LEGAL_REPORTING_THRESHOLDS.hipaa_breach) {
+    if (incident.affectedData.userCount > INCIDENT_RESPONSE_CONFIG.LEGAL_REPORTING_THRESHOLDS.state_breach) {
       mediaResponse.push('Prepare public statement');
       mediaResponse.push('Coordinate with legal team');
       mediaResponse.push('Schedule media briefing');

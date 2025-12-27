@@ -1,19 +1,26 @@
 /**
- * HIPAA COMPLIANCE SERVICE INDEX - DRD-FLOW-005 Assessment System
+ * DATA PROTECTION COMPLIANCE SERVICE INDEX - DRD-FLOW-005 Assessment System
  *
  * COMPREHENSIVE COMPLIANCE ORCHESTRATION:
- * - Unified API for all HIPAA compliance components
+ * - Unified API for all privacy compliance components
  * - Centralized compliance validation and monitoring
  * - Assessment system integration point
  * - Crisis detection compliance coordination
  * - Real-time compliance status monitoring
  *
  * COMPLIANCE COMPONENTS:
- * - HIPAAComplianceEngine: Core compliance validation and PHI classification
- * - HIPAAConsentManager: Consent collection, validation, and withdrawal
- * - HIPAADataMinimizationEngine: Minimum necessary rule enforcement
- * - HIPAABreachResponseEngine: Breach detection and response protocols
- * - HIPAAAssessmentIntegration: Assessment-specific compliance validation
+ * - DataProtectionEngine: Core compliance validation and sensitive data classification
+ * - ConsentManager: Consent collection, validation, and withdrawal
+ * - DataMinimizationEngine: Data minimization enforcement
+ * - BreachResponseEngine: Breach detection and response protocols
+ * - PrivacyAssessmentIntegration: Assessment-specific compliance validation
+ *
+ * APPLICABLE REGULATIONS:
+ * - CCPA/CPRA (California Consumer Privacy Act)
+ * - FTC Health Breach Notification Rule (16 CFR 318)
+ * - CA SB 446 (effective Jan 1, 2026)
+ * - NY SHIELD Act
+ * - TX TDPSA (Texas Data Privacy and Security Act)
  *
  * INTEGRATION POINTS:
  * - Assessment Store (DRD-FLOW-005)
@@ -24,34 +31,34 @@
  */
 
 // Import for internal use
-import HIPAAComplianceEngine from './HIPAAComplianceEngine';
-import HIPAAConsentManager from './HIPAAConsentManager';
-import HIPAADataMinimizationEngine from './HIPAADataMinimization';
-import HIPAABreachResponseEngine from './HIPAABreachResponseEngine';
-import HIPAAAssessmentIntegration from './HIPAAAssessmentIntegration';
+import DataProtectionEngine from './DataProtectionEngine';
+import ConsentManager from './ConsentManager';
+import DataMinimizationEngine from './DataMinimization';
+import BreachResponseEngine from './BreachResponseEngine';
+import PrivacyAssessmentIntegration from './PrivacyAssessmentIntegration';
 import { logError, LogCategory } from '@/core/services/logging';
 
 // Core compliance engines - Re-export
-export { default as HIPAAComplianceEngine } from './HIPAAComplianceEngine';
-export { default as HIPAAConsentManager } from './HIPAAConsentManager';
-export { default as HIPAADataMinimizationEngine } from './HIPAADataMinimization';
-export { default as HIPAABreachResponseEngine } from './HIPAABreachResponseEngine';
-export { default as HIPAAAssessmentIntegration } from './HIPAAAssessmentIntegration';
+export { default as DataProtectionEngine } from './DataProtectionEngine';
+export { default as ConsentManager } from './ConsentManager';
+export { default as DataMinimizationEngine } from './DataMinimization';
+export { default as BreachResponseEngine } from './BreachResponseEngine';
+export { default as PrivacyAssessmentIntegration } from './PrivacyAssessmentIntegration';
 
-// Type exports
+// Type exports from DataProtectionEngine
 export type {
-  HIPAAConsent,
-  PHIClassification,
-  HIPAAComplianceAuditEvent,
-  HIPAABreach
-} from './HIPAAComplianceEngine';
+  DataProtectionConsent,
+  DataSensitivityLevel,
+  ComplianceAuditEvent,
+  DataBreach
+} from './DataProtectionEngine';
 
 export type {
   ConsentScope,
   ConsentCollectionContext,
   ConsentValidationResult,
   ConsentCollectionWorkflow
-} from './HIPAAConsentManager';
+} from './ConsentManager';
 
 export type {
   DataPurpose,
@@ -59,7 +66,7 @@ export type {
   DataAccessRequest,
   DataAccessEvaluation,
   DataElementMetadata
-} from './HIPAADataMinimization';
+} from './DataMinimization';
 
 export type {
   BreachSeverity,
@@ -67,34 +74,35 @@ export type {
   BreachIncident,
   BreachNotificationRequirements,
   BreachRemediationPlan
-} from './HIPAABreachResponseEngine';
+} from './BreachResponseEngine';
 
 export type {
   ComplianceValidationResult,
   CrisisInterventionCompliance
-} from './HIPAAAssessmentIntegration';
+} from './PrivacyAssessmentIntegration';
 
 /**
  * UNIFIED COMPLIANCE SERVICE
- * Single entry point for all HIPAA compliance operations
+ * Single entry point for all privacy compliance operations
+ * Implements CCPA/CPRA, FTC Health Breach Rule, CA SB 446, NY SHIELD, TX TDPSA
  */
-export class HIPAAComplianceService {
-  private static instance: HIPAAComplianceService;
+export class DataProtectionService {
+  private static instance: DataProtectionService;
 
   // Component instances
-  private complianceEngine = HIPAAComplianceEngine;
-  private consentManager = HIPAAConsentManager;
-  private dataMinimization = HIPAADataMinimizationEngine;
-  private breachResponse = HIPAABreachResponseEngine;
-  private assessmentIntegration = HIPAAAssessmentIntegration;
+  private complianceEngine = DataProtectionEngine;
+  private consentManager = ConsentManager;
+  private dataMinimization = DataMinimizationEngine;
+  private breachResponse = BreachResponseEngine;
+  private assessmentIntegration = PrivacyAssessmentIntegration;
 
   private constructor() {}
 
-  public static getInstance(): HIPAAComplianceService {
-    if (!HIPAAComplianceService.instance) {
-      HIPAAComplianceService.instance = new HIPAAComplianceService();
+  public static getInstance(): DataProtectionService {
+    if (!DataProtectionService.instance) {
+      DataProtectionService.instance = new DataProtectionService();
     }
-    return HIPAAComplianceService.instance;
+    return DataProtectionService.instance;
   }
 
   /**
@@ -102,7 +110,8 @@ export class HIPAAComplianceService {
    */
 
   /**
-   * Validates comprehensive HIPAA compliance for assessment operations
+   * Validates comprehensive privacy compliance for assessment operations
+   * Checks CCPA/CPRA, TX TDPSA, and other applicable regulations
    */
   public async validateAssessmentCompliance(
     userId: string,
@@ -617,5 +626,6 @@ export class HIPAAComplianceService {
 }
 
 // Export singleton instance
-export const complianceService = HIPAAComplianceService.getInstance();
-export default complianceService;
+export const dataProtectionService = DataProtectionService.getInstance();
+
+export default dataProtectionService;

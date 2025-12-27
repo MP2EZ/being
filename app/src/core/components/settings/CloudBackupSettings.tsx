@@ -306,7 +306,7 @@ export default function CloudBackupSettings({
         </View>
       )}
 
-      {/* Privacy Notice - HIPAA Compliance (MAINT-117) */}
+      {/* Privacy Notice - Privacy Compliance (MAINT-117) */}
       <View style={styles.privacyNotice}>
         <Text style={styles.privacyNoticeTitle}>
           Privacy Protection
@@ -681,7 +681,7 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.bold,
   },
 
-  // Privacy Notice - HIPAA Compliance (MAINT-117)
+  // Privacy Notice - Privacy Compliance (MAINT-117)
   privacyNotice: {
     backgroundColor: '#f3f8f4', // Light green tint for privacy/trust
     padding: spacing[16],

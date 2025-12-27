@@ -1,8 +1,8 @@
 /**
- * HIPAA CONSENT MANAGER - DRD-FLOW-005 Assessment System
+ * Privacy CONSENT MANAGER - DRD-FLOW-005 Assessment System
  *
  * COMPREHENSIVE CONSENT MANAGEMENT:
- * - HIPAA-compliant consent collection and validation
+ * - Privacy-compliant consent collection and validation
  * - Granular consent scopes for different data types
  * - Consent withdrawal and data deletion workflows
  * - Electronic signature validation and legal compliance
@@ -17,8 +17,8 @@
  * - Capacity assessment for consent validity
  *
  * REGULATORY COMPLIANCE:
- * - 45 CFR 164.508 (HIPAA Authorization Requirements)
- * - 45 CFR 164.522 (Rights to Request Privacy Protection)
+ * - State privacy law authorization requirements (CCPA, CPRA)
+ * - Consumer rights to privacy protection
  * - 21 CFR Part 11 (Electronic Records and Signatures)
  * - State mental health privacy laws
  * - Crisis intervention legal requirements
@@ -30,11 +30,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { Alert, Platform } from 'react-native';
-import HIPAAComplianceEngine, { 
-  HIPAAConsent, 
-  PHIClassification,
-  HIPAA_COMPLIANCE_CONFIG 
-} from './HIPAAComplianceEngine';
+import DataProtectionEngine, { 
+  DataProtectionConsent, 
+  DataSensitivityLevel,
+  DATA_PROTECTION_CONFIG 
+} from './DataProtectionEngine';
 
 /**
  * CONSENT SCOPE DEFINITIONS
@@ -129,7 +129,7 @@ export interface ConsentValidationResult {
   /** Consent status */
   status: 'valid' | 'expired' | 'revoked' | 'insufficient_scope' | 'capacity_concerns' | 'not_found';
   /** Current consent details */
-  consent?: HIPAAConsent;
+  consent?: DataProtectionConsent;
   /** Missing consent scopes */
   missingScopes: string[];
   /** Consent expiry information */
@@ -203,21 +203,21 @@ export type ConsentCollectionStep =
   | 'confirmation';
 
 /**
- * HIPAA CONSENT MANAGER IMPLEMENTATION
+ * Privacy CONSENT MANAGER IMPLEMENTATION
  */
-export class HIPAAConsentManager {
-  private static instance: HIPAAConsentManager;
+export class DataProtectionConsentManager {
+  private static instance: DataProtectionConsentManager;
   private activeWorkflows: Map<string, ConsentCollectionWorkflow> = new Map();
-  private consentCache: Map<string, HIPAAConsent> = new Map();
-  private complianceEngine = HIPAAComplianceEngine;
+  private consentCache: Map<string, DataProtectionConsent> = new Map();
+  private complianceEngine = DataProtectionEngine;
 
   private constructor() {}
 
-  public static getInstance(): HIPAAConsentManager {
-    if (!HIPAAConsentManager.instance) {
-      HIPAAConsentManager.instance = new HIPAAConsentManager();
+  public static getInstance(): DataProtectionConsentManager {
+    if (!DataProtectionConsentManager.instance) {
+      DataProtectionConsentManager.instance = new DataProtectionConsentManager();
     }
-    return HIPAAConsentManager.instance;
+    return DataProtectionConsentManager.instance;
   }
 
   /**
@@ -660,7 +660,7 @@ export class HIPAAConsentManager {
       // Update compliance engine
       await this.complianceEngine.obtainUserConsent(
         workflow.context.assessmentContext?.type || 'system',
-        this.convertToHIPAAConsentScope(workflow.requestedScope),
+        this.convertToDataProtectionConsentScope(workflow.requestedScope),
         workflow.evidence as any
       );
 
@@ -746,7 +746,7 @@ export class HIPAAConsentManager {
       await this.complianceEngine.revokeUserConsent(userId, revocationReason, requestDataDeletion);
 
       // Update local consent record
-      const revokedConsent: HIPAAConsent = {
+      const revokedConsent: DataProtectionConsent = {
         ...currentConsent,
         type: 'revoked',
         revocation: {
@@ -785,7 +785,7 @@ export class HIPAAConsentManager {
    * UTILITY METHODS
    */
 
-  private async loadCurrentConsent(userId: string): Promise<HIPAAConsent | null> {
+  private async loadCurrentConsent(userId: string): Promise<DataProtectionConsent | null> {
     // Check cache first
     const cached = this.consentCache.get(userId);
     if (cached) {
@@ -809,7 +809,7 @@ export class HIPAAConsentManager {
         return null;
       }
 
-      const consent = JSON.parse(consentData) as HIPAAConsent;
+      const consent = JSON.parse(consentData) as DataProtectionConsent;
       
       // Cache if not revoked
       if (!consent.revocation) {
@@ -825,7 +825,7 @@ export class HIPAAConsentManager {
   }
 
   private validateConsentScope(
-    consent: HIPAAConsent,
+    consent: DataProtectionConsent,
     operation: {
       type: string;
       dataTypes: string[];
@@ -896,12 +896,12 @@ export class HIPAAConsentManager {
 
   private async assessEmergencyOverride(
     operation: any,
-    consent: HIPAAConsent
+    consent: DataProtectionConsent
   ): Promise<ConsentValidationResult['emergencyOverride']> {
     if (operation.purpose === 'emergency') {
       return {
         applicable: true,
-        legalBasis: 'Emergency medical care exception under HIPAA Privacy Rule',
+        legalBasis: 'Emergency medical care exception under Privacy Privacy Rule',
         limitations: [
           'Limited to information necessary for emergency care',
           'Must notify individual when emergency ends',
@@ -967,7 +967,7 @@ We are committed to protecting your mental health information. This notice expla
 - Right to file a complaint
 
 ### Security
-All your health information is encrypted and stored securely according to HIPAA requirements.
+All your health information is encrypted and stored securely according to Privacy requirements.
 
 For our complete privacy policy, visit: [Privacy Policy Link]
     `.trim();
@@ -1131,14 +1131,14 @@ You can customize these choices or change them anytime in your settings.
     };
   }
 
-  private async createConsentRecord(workflow: ConsentCollectionWorkflow): Promise<HIPAAConsent> {
+  private async createConsentRecord(workflow: ConsentCollectionWorkflow): Promise<DataProtectionConsent> {
     return {
       consentId: `consent_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       userId: workflow.context.assessmentContext?.type || 'user',
       timestamp: Date.now(),
       version: '1.0',
       type: 'initial',
-      scope: this.convertToHIPAAConsentScope(workflow.requestedScope),
+      scope: this.convertToDataProtectionConsentScope(workflow.requestedScope),
       evidence: {
         ipAddress: '127.0.0.1', // Would get actual IP
         deviceInfo: JSON.stringify(workflow.evidence.deviceInfo),
@@ -1148,7 +1148,7 @@ You can customize these choices or change them anytime in your settings.
     };
   }
 
-  private convertToHIPAAConsentScope(scope: ConsentScope): HIPAAConsent['scope'] {
+  private convertToDataProtectionConsentScope(scope: ConsentScope): DataProtectionConsent['scope'] {
     return {
       assessmentDataCollection: scope.assessmentData.phq9Responses && scope.assessmentData.gad7Responses,
       crisisInterventionData: scope.crisisIntervention.crisisDetectionData,
@@ -1158,14 +1158,14 @@ You can customize these choices or change them anytime in your settings.
     };
   }
 
-  private async storeConsentRecord(consent: HIPAAConsent): Promise<void> {
-    const storageKey = `hipaa_consent_${consent.userId}_${consent.timestamp}`;
+  private async storeConsentRecord(consent: DataProtectionConsent): Promise<void> {
+    const storageKey = `privacy_consent_${consent.userId}_${consent.timestamp}`;
     await SecureStore.setItemAsync(storageKey, JSON.stringify(consent));
   }
 
   private async getConsentKeys(userId: string): Promise<string[]> {
     const allKeys = await AsyncStorage.getAllKeys();
-    return allKeys.filter(key => key.startsWith(`hipaa_consent_${userId}_`));
+    return allKeys.filter(key => key.startsWith(`privacy_consent_${userId}_`));
   }
 
   private generateConsentSummary(scope: ConsentScope): string {
@@ -1278,4 +1278,4 @@ You can customize these choices or change them anytime in your settings.
 }
 
 // Export singleton instance
-export default HIPAAConsentManager.getInstance();
+export default DataProtectionConsentManager.getInstance();

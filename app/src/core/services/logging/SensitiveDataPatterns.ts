@@ -26,7 +26,7 @@
  * COMPREHENSIVE PHI PATTERNS
  * These patterns are applied to all log messages before storage or transmission
  */
-export const PHI_PATTERNS: RegExp[] = [
+export const SENSITIVE_DATA_PATTERNS: RegExp[] = [
   // ============================================
   // 1. USER IDENTIFIERS (8 patterns)
   // ============================================
@@ -187,14 +187,14 @@ export const SAFE_SCREEN_NAMES = [
 /**
  * Sanitize a string by applying all PHI patterns
  */
-export function sanitizeWithPHIPatterns(input: string): string {
+export function sanitizeWithSensitiveDataPatterns(input: string): string {
   if (!input || typeof input !== 'string') {
     return String(input ?? '');
   }
 
   let sanitized = input;
-  PHI_PATTERNS.forEach((pattern, index) => {
-    sanitized = sanitized.replace(pattern, `[PHI_${index}]`);
+  SENSITIVE_DATA_PATTERNS.forEach((pattern, index) => {
+    sanitized = sanitized.replace(pattern, `[SENSITIVE_${index}]`);
   });
 
   return sanitized;
@@ -215,7 +215,7 @@ export function isSensitiveKey(key: string): boolean {
  */
 export function sanitizeObject(obj: unknown): unknown {
   if (typeof obj === 'string') {
-    return sanitizeWithPHIPatterns(obj);
+    return sanitizeWithSensitiveDataPatterns(obj);
   }
 
   if (Array.isArray(obj)) {
@@ -225,7 +225,7 @@ export function sanitizeObject(obj: unknown): unknown {
   if (obj instanceof Error) {
     return {
       name: obj.name,
-      message: sanitizeWithPHIPatterns(obj.message),
+      message: sanitizeWithSensitiveDataPatterns(obj.message),
       stack: obj.stack ? sanitizeStackTrace(obj.stack) : undefined,
     };
   }

@@ -1,26 +1,27 @@
 /**
- * HIPAA BREACH RESPONSE ENGINE - DRD-FLOW-005 Assessment System
+ * DATA BREACH RESPONSE ENGINE - DRD-FLOW-005 Assessment System
  *
  * COMPREHENSIVE BREACH RESPONSE:
  * - Automated breach detection and risk assessment
- * - HIPAA Breach Notification Rule compliance (45 CFR 164.400-414)
+ * - State-by-state breach notification compliance
  * - Incident response workflows and escalation procedures
  * - Forensic investigation and evidence preservation
- * - Notification management for individuals, HHS, and media
+ * - Notification management for individuals, regulators, and media
  * - Breach remediation and prevention measures
  *
  * MENTAL HEALTH SPECIFIC CONSIDERATIONS:
- * - Enhanced sensitivity for mental health PHI breaches
+ * - Enhanced sensitivity for mental health data breaches
  * - Crisis intervention data breach handling
  * - Professional relationship impact assessment
  * - Therapeutic continuity during breach response
- * - Specialized notification requirements for mental health data
+ * - Specialized notification requirements for sensitive wellness data
  *
- * REGULATORY COMPLIANCE:
- * - 60-day individual notification requirement
- * - 60-day HHS notification requirement  
- * - Media notification for breaches affecting 500+ individuals
- * - State breach notification law compliance
+ * APPLICABLE REGULATIONS (State Law Matrix):
+ * - CA SB 446: 30-day consumer notification (effective Jan 1, 2026)
+ * - NY SHIELD Act: 30-day consumer notification
+ * - FTC Health Breach Notification Rule: 60-day FTC notification (16 CFR 318)
+ * - TX TDPSA: "Without unreasonable delay" + 30-day AG notification
+ * - Media notification for breaches affecting 500+ individuals (CA/NY)
  * - Crisis intervention legal requirements during breaches
  */
 
@@ -29,12 +30,12 @@ import { logSecurity, logPerformance, logError, LogCategory } from '@/core/servi
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import { Alert, Linking } from 'react-native';
-import HIPAAComplianceEngine, { 
-  HIPAABreach,
-  PHIClassification,
-  HIPAAComplianceAuditEvent,
-  HIPAA_COMPLIANCE_CONFIG 
-} from './HIPAAComplianceEngine';
+import DataProtectionEngine, { 
+  DataBreach,
+  DataSensitivityLevel,
+  ComplianceAuditEvent,
+  DATA_PROTECTION_CONFIG 
+} from './DataProtectionEngine';
 
 /**
  * BREACH SEVERITY LEVELS
@@ -102,7 +103,7 @@ export interface BreachIncident {
     /** Number of individuals affected */
     affectedIndividuals: number;
     /** Types of PHI involved */
-    phiTypesInvolved: PHIClassification[];
+    dataTypesInvolved: DataSensitivityLevel[];
     /** Geographic scope */
     geographicScope: string[];
   };
@@ -121,8 +122,8 @@ export interface BreachIncident {
     };
     /** Sensitivity analysis */
     sensitivityAnalysis: {
-      /** Highest PHI classification */
-      highestClassification: PHIClassification;
+      /** Highest Sensitivity classification */
+      highestClassification: DataSensitivityLevel;
       /** Contains crisis data */
       containsCrisisData: boolean;
       /** Contains suicidal ideation data */
@@ -166,47 +167,86 @@ export type BreachResponsePhase =
   | 'closure';
 
 /**
+ * STATE BREACH NOTIFICATION MATRIX
+ * Notification deadlines by applicable state law
+ */
+export const STATE_NOTIFICATION_MATRIX = {
+  /** California SB 446 (effective Jan 1, 2026) */
+  CA: {
+    consumerDeadlineDays: 30,
+    agThreshold: 500,
+    agDeadlineDays: 30,
+    mediaThreshold: 500,
+    mediaDeadlineDays: 30
+  },
+  /** New York SHIELD Act */
+  NY: {
+    consumerDeadlineDays: 30,
+    agThreshold: 500,
+    agDeadlineDays: 30,
+    mediaThreshold: 500,
+    mediaDeadlineDays: 30
+  },
+  /** Texas TDPSA */
+  TX: {
+    consumerDeadlineDays: 30, // "without unreasonable delay"
+    agThreshold: 250,
+    agDeadlineDays: 30,
+    mediaThreshold: 500,
+    mediaDeadlineDays: 30
+  },
+  /** FTC Health Breach Notification Rule (16 CFR 318) */
+  FTC: {
+    ftcDeadlineDays: 60,
+    mediaThreshold: 500,
+    mediaDeadlineDays: 10
+  }
+} as const;
+
+/**
  * BREACH NOTIFICATION REQUIREMENTS
- * Legal notification obligations
+ * Legal notification obligations under applicable state laws
  */
 export interface BreachNotificationRequirements {
-  /** Individual notification required */
-  individualNotification: {
+  /** Individual/Consumer notification required */
+  consumerNotification: {
     /** Required */
     required: boolean;
-    /** Deadline */
+    /** Deadline (strictest applicable: 30 days per CA/NY) */
     deadline: number;
     /** Notification method */
     method: 'written' | 'email' | 'substitute' | 'phone';
     /** Urgency level */
     urgency: 'standard' | 'expedited' | 'immediate';
   };
-  /** HHS notification required */
-  hhsNotification: {
+  /** FTC notification (16 CFR 318 Health Breach Rule) */
+  ftcNotification: {
     /** Required */
     required: boolean;
-    /** Deadline */
+    /** Deadline (60 days per FTC rule) */
     deadline: number;
     /** Submission method */
-    method: 'annual' | 'immediate';
+    method: 'online_portal';
   };
-  /** Media notification required */
-  mediaNotification: {
-    /** Required */
-    required: boolean;
-    /** Threshold met */
-    thresholdMet: boolean;
-    /** Affected individuals count */
-    affectedCount: number;
-  };
-  /** State notification required */
-  stateNotification: {
-    /** Required */
+  /** State Attorney General notification */
+  stateAgNotification: {
+    /** Required (CA: 500+, TX: 250+) */
     required: boolean;
     /** Applicable states */
     applicableStates: string[];
     /** Deadlines by state */
     stateDeadlines: Record<string, number>;
+    /** Thresholds by state */
+    thresholds: Record<string, number>;
+  };
+  /** Media notification required */
+  mediaNotification: {
+    /** Required (500+ individuals per CA/NY/FTC) */
+    required: boolean;
+    /** Threshold met */
+    thresholdMet: boolean;
+    /** Affected individuals count */
+    affectedCount: number;
   };
   /** Law enforcement notification */
   lawEnforcement: {
@@ -303,24 +343,24 @@ export interface BreachRemediationPlan {
 }
 
 /**
- * HIPAA BREACH RESPONSE ENGINE
+ * Privacy BREACH RESPONSE ENGINE
  */
-export class HIPAABreachResponseEngine {
-  private static instance: HIPAABreachResponseEngine;
+export class DataBreachResponseEngine {
+  private static instance: DataBreachResponseEngine;
   private activeIncidents: Map<string, BreachIncident> = new Map();
   private remediationPlans: Map<string, BreachRemediationPlan> = new Map();
   private notificationQueue: Map<string, BreachNotificationRequirements> = new Map();
-  private complianceEngine = HIPAAComplianceEngine;
+  private complianceEngine = DataProtectionEngine;
 
   private constructor() {
     this.initializeBreachDetection();
   }
 
-  public static getInstance(): HIPAABreachResponseEngine {
-    if (!HIPAABreachResponseEngine.instance) {
-      HIPAABreachResponseEngine.instance = new HIPAABreachResponseEngine();
+  public static getInstance(): DataBreachResponseEngine {
+    if (!DataBreachResponseEngine.instance) {
+      DataBreachResponseEngine.instance = new DataBreachResponseEngine();
     }
-    return HIPAABreachResponseEngine.instance;
+    return DataBreachResponseEngine.instance;
   }
 
   /**
@@ -589,28 +629,42 @@ export class HIPAABreachResponseEngine {
         scheduledTime: number;
       }> = [];
 
-      // Prepare individual notifications
-      if (notificationRequirements.individualNotification.required) {
-        await this.prepareIndividualNotifications(incident);
-        notificationsPrepared.push('Individual notifications');
-        
+      // Prepare consumer notifications (30 days per CA SB 446 / NY SHIELD)
+      if (notificationRequirements.consumerNotification.required) {
+        await this.prepareConsumerNotifications(incident);
+        notificationsPrepared.push('Consumer notifications');
+
         scheduledDelivery.push({
-          recipient: 'affected_individuals',
-          method: notificationRequirements.individualNotification.method,
-          scheduledTime: notificationRequirements.individualNotification.deadline
+          recipient: 'affected_consumers',
+          method: notificationRequirements.consumerNotification.method,
+          scheduledTime: notificationRequirements.consumerNotification.deadline
         });
       }
 
-      // Prepare HHS notification
-      if (notificationRequirements.hhsNotification.required) {
-        await this.prepareHHSNotification(incident);
-        notificationsPrepared.push('HHS notification');
-        
+      // Prepare FTC notification (60 days per 16 CFR 318)
+      if (notificationRequirements.ftcNotification.required) {
+        await this.prepareFTCNotification(incident);
+        notificationsPrepared.push('FTC notification');
+
         scheduledDelivery.push({
-          recipient: 'hhs_ocr',
-          method: notificationRequirements.hhsNotification.method,
-          scheduledTime: notificationRequirements.hhsNotification.deadline
+          recipient: 'ftc',
+          method: notificationRequirements.ftcNotification.method,
+          scheduledTime: notificationRequirements.ftcNotification.deadline
         });
+      }
+
+      // Prepare State AG notifications (CA: 500+, TX: 250+)
+      if (notificationRequirements.stateAgNotification.required) {
+        await this.prepareStateAgNotifications(incident);
+        notificationsPrepared.push('State AG notifications');
+
+        for (const state of notificationRequirements.stateAgNotification.applicableStates) {
+          scheduledDelivery.push({
+            recipient: `${state}_ag`,
+            method: 'official_submission',
+            scheduledTime: notificationRequirements.stateAgNotification.stateDeadlines[state] || Date.now() + (30 * 24 * 60 * 60 * 1000)
+          });
+        }
       }
 
       // Prepare media notification
@@ -810,7 +864,7 @@ export class HIPAABreachResponseEngine {
    * Determines if event constitutes a breach
    */
   private determineBreachStatus(riskAssessment: any): boolean {
-    // HIPAA breach determination criteria
+    // Privacy breach determination criteria
     return riskAssessment.phiCompromised && 
            (riskAssessment.severity === BreachSeverity.HIGH || 
             riskAssessment.severity === BreachSeverity.CRITICAL ||
@@ -836,7 +890,7 @@ export class HIPAABreachResponseEngine {
         compromiseLikelihood: riskAssessment.phiCompromised ? 'high' : 'medium',
         harmPotential: riskAssessment.criticalDataInvolved ? 'severe' : 'moderate',
         affectedIndividuals: riskAssessment.affectedIndividuals,
-        phiTypesInvolved: [PHIClassification.SENSITIVE_PHI],
+        dataTypesInvolved: [DataSensitivityLevel.SENSITIVE],
         geographicScope: ['US']
       },
       affectedData: {
@@ -847,7 +901,7 @@ export class HIPAABreachResponseEngine {
           estimatedSizeBytes: 1024
         },
         sensitivityAnalysis: {
-          highestClassification: PHIClassification.SENSITIVE_PHI,
+          highestClassification: DataSensitivityLevel.SENSITIVE,
           containsCrisisData: riskAssessment.criticalDataInvolved,
           containsSuicidalIdeationData: riskAssessment.criticalDataInvolved,
           specialCategories: riskAssessment.criticalDataInvolved ? ['mental_health'] : []
@@ -916,7 +970,7 @@ export class HIPAABreachResponseEngine {
   }
 
   private async assessNotificationRequirements(incident: BreachIncident): Promise<boolean> {
-    // HIPAA requires notification for confirmed breaches
+    // Privacy requires notification for confirmed breaches
     return incident.riskAssessment.compromiseLikelihood === 'high' || 
            incident.riskAssessment.compromiseLikelihood === 'certain';
   }
@@ -954,29 +1008,53 @@ export class HIPAABreachResponseEngine {
 
   private async determineNotificationRequirements(incident: BreachIncident): Promise<BreachNotificationRequirements> {
     const now = Date.now();
-    const sixtyDays = 60 * 24 * 60 * 60 * 1000;
-    
+    const thirtyDays = 30 * 24 * 60 * 60 * 1000;  // CA SB 446, NY SHIELD strictest deadline
+    const sixtyDays = 60 * 24 * 60 * 60 * 1000;   // FTC Health Breach Rule
+    const affectedCount = incident.riskAssessment.affectedIndividuals;
+
+    // Determine which state AGs need notification based on thresholds
+    const applicableStates: string[] = [];
+    const stateDeadlines: Record<string, number> = {};
+    const thresholds: Record<string, number> = {};
+
+    if (affectedCount >= STATE_NOTIFICATION_MATRIX.CA.agThreshold) {
+      applicableStates.push('CA');
+      stateDeadlines['CA'] = now + (STATE_NOTIFICATION_MATRIX.CA.agDeadlineDays * 24 * 60 * 60 * 1000);
+      thresholds['CA'] = STATE_NOTIFICATION_MATRIX.CA.agThreshold;
+    }
+    if (affectedCount >= STATE_NOTIFICATION_MATRIX.NY.agThreshold) {
+      applicableStates.push('NY');
+      stateDeadlines['NY'] = now + (STATE_NOTIFICATION_MATRIX.NY.agDeadlineDays * 24 * 60 * 60 * 1000);
+      thresholds['NY'] = STATE_NOTIFICATION_MATRIX.NY.agThreshold;
+    }
+    if (affectedCount >= STATE_NOTIFICATION_MATRIX.TX.agThreshold) {
+      applicableStates.push('TX');
+      stateDeadlines['TX'] = now + (STATE_NOTIFICATION_MATRIX.TX.agDeadlineDays * 24 * 60 * 60 * 1000);
+      thresholds['TX'] = STATE_NOTIFICATION_MATRIX.TX.agThreshold;
+    }
+
     return {
-      individualNotification: {
+      consumerNotification: {
         required: true,
-        deadline: now + sixtyDays,
+        deadline: now + thirtyDays, // Strictest: CA SB 446 / NY SHIELD = 30 days
         method: 'written',
         urgency: incident.severity === BreachSeverity.CRITICAL ? 'immediate' : 'standard'
       },
-      hhsNotification: {
-        required: true,
-        deadline: now + sixtyDays,
-        method: incident.riskAssessment.affectedIndividuals >= 500 ? 'immediate' : 'annual'
+      ftcNotification: {
+        required: true, // FTC Health Breach Rule applies to wellness apps
+        deadline: now + sixtyDays, // 16 CFR 318 = 60 days
+        method: 'online_portal'
+      },
+      stateAgNotification: {
+        required: applicableStates.length > 0,
+        applicableStates,
+        stateDeadlines,
+        thresholds
       },
       mediaNotification: {
-        required: incident.riskAssessment.affectedIndividuals >= 500,
-        thresholdMet: incident.riskAssessment.affectedIndividuals >= 500,
-        affectedCount: incident.riskAssessment.affectedIndividuals
-      },
-      stateNotification: {
-        required: true,
-        applicableStates: ['US'],
-        stateDeadlines: { 'US': now + sixtyDays }
+        required: affectedCount >= 500, // CA/NY/FTC threshold
+        thresholdMet: affectedCount >= 500,
+        affectedCount
       },
       lawEnforcement: {
         required: incident.trigger === BreachTrigger.UNAUTHORIZED_ACCESS,
@@ -993,29 +1071,39 @@ export class HIPAABreachResponseEngine {
 
   private getEmergencyNotificationRequirements(): BreachNotificationRequirements {
     const now = Date.now();
-    const sixtyDays = 60 * 24 * 60 * 60 * 1000;
-    
+    const thirtyDays = 30 * 24 * 60 * 60 * 1000;  // Strictest consumer deadline
+    const sixtyDays = 60 * 24 * 60 * 60 * 1000;   // FTC deadline
+
     return {
-      individualNotification: {
+      consumerNotification: {
         required: true,
-        deadline: now + sixtyDays,
+        deadline: now + thirtyDays, // CA SB 446 / NY SHIELD = 30 days
         method: 'written',
         urgency: 'immediate'
       },
-      hhsNotification: {
+      ftcNotification: {
         required: true,
-        deadline: now + sixtyDays,
-        method: 'immediate'
+        deadline: now + sixtyDays, // 16 CFR 318 = 60 days
+        method: 'online_portal'
+      },
+      stateAgNotification: {
+        required: true,
+        applicableStates: ['CA', 'NY', 'TX'],
+        stateDeadlines: {
+          'CA': now + thirtyDays,
+          'NY': now + thirtyDays,
+          'TX': now + thirtyDays
+        },
+        thresholds: {
+          'CA': STATE_NOTIFICATION_MATRIX.CA.agThreshold,
+          'NY': STATE_NOTIFICATION_MATRIX.NY.agThreshold,
+          'TX': STATE_NOTIFICATION_MATRIX.TX.agThreshold
+        }
       },
       mediaNotification: {
         required: true,
         thresholdMet: true,
         affectedCount: 1000
-      },
-      stateNotification: {
-        required: true,
-        applicableStates: ['US'],
-        stateDeadlines: { 'US': now + sixtyDays }
       },
       lawEnforcement: {
         required: true,
@@ -1035,20 +1123,40 @@ export class HIPAABreachResponseEngine {
     scheduledDelivery: any[]
   ): 'compliant' | 'at_risk' | 'violation' {
     const now = Date.now();
-    
-    // Check if any required notifications are overdue
-    if (requirements.individualNotification.required && 
-        requirements.individualNotification.deadline < now) {
+    const oneWeek = 7 * 24 * 60 * 60 * 1000;
+
+    // Check consumer notification deadline (strictest: 30 days per CA SB 446/NY SHIELD)
+    if (requirements.consumerNotification.required &&
+        requirements.consumerNotification.deadline < now) {
       return 'violation';
     }
-    
-    // Check if deadlines are approaching
-    const oneWeek = 7 * 24 * 60 * 60 * 1000;
-    if (requirements.individualNotification.required && 
-        requirements.individualNotification.deadline < (now + oneWeek)) {
+
+    // Check FTC notification deadline (60 days per 16 CFR 318)
+    if (requirements.ftcNotification.required &&
+        requirements.ftcNotification.deadline < now) {
+      return 'violation';
+    }
+
+    // Check state AG notification deadlines
+    if (requirements.stateAgNotification.required) {
+      for (const [state, deadline] of Object.entries(requirements.stateAgNotification.stateDeadlines)) {
+        if (deadline < now) {
+          return 'violation';
+        }
+      }
+    }
+
+    // Check if any deadlines are approaching (within 1 week)
+    if (requirements.consumerNotification.required &&
+        requirements.consumerNotification.deadline < (now + oneWeek)) {
       return 'at_risk';
     }
-    
+
+    if (requirements.ftcNotification.required &&
+        requirements.ftcNotification.deadline < (now + oneWeek)) {
+      return 'at_risk';
+    }
+
     return 'compliant';
   }
 
@@ -1085,7 +1193,7 @@ export class HIPAABreachResponseEngine {
     return [
       'Security awareness training',
       'Incident response training',
-      'HIPAA compliance training',
+      'Data protection compliance training',
       'Crisis intervention training'
     ];
   }
@@ -1160,12 +1268,22 @@ export class HIPAABreachResponseEngine {
         responsible: 'security_team'
       },
       {
-        milestone: 'Finish investigation',
-        targetDate: now + (30 * 24 * 60 * 60 * 1000), // 30 days
+        milestone: 'Complete investigation',
+        targetDate: now + (14 * 24 * 60 * 60 * 1000), // 14 days (to allow time for notifications)
         responsible: 'forensics_team'
       },
       {
-        milestone: 'Complete notifications',
+        milestone: 'Consumer notifications (CA SB 446/NY SHIELD)',
+        targetDate: now + (30 * 24 * 60 * 60 * 1000), // 30 days - strictest deadline
+        responsible: 'compliance_team'
+      },
+      {
+        milestone: 'State AG notifications',
+        targetDate: now + (30 * 24 * 60 * 60 * 1000), // 30 days
+        responsible: 'legal_team'
+      },
+      {
+        milestone: 'FTC notification (16 CFR 318)',
         targetDate: now + (60 * 24 * 60 * 60 * 1000), // 60 days
         responsible: 'compliance_team'
       }
@@ -1177,16 +1295,30 @@ export class HIPAABreachResponseEngine {
     // Set up automated triggers and monitoring
   }
 
-  private async prepareIndividualNotifications(incident: BreachIncident): Promise<void> {
-    // Prepare individual breach notifications
+  private async prepareConsumerNotifications(incident: BreachIncident): Promise<void> {
+    // Prepare consumer breach notifications per CA SB 446 / NY SHIELD requirements
+    // - Clear description of the breach
+    // - Types of personal information involved
+    // - Steps the company is taking to address the breach
+    // - Steps consumers can take to protect themselves
   }
 
-  private async prepareHHSNotification(incident: BreachIncident): Promise<void> {
-    // Prepare HHS breach notification
+  private async prepareFTCNotification(incident: BreachIncident): Promise<void> {
+    // Prepare FTC notification per 16 CFR 318 Health Breach Notification Rule
+    // - Submit via FTC online portal
+    // - Include breach details and affected consumers
+  }
+
+  private async prepareStateAgNotifications(incident: BreachIncident): Promise<void> {
+    // Prepare State Attorney General notifications
+    // CA: Submit to CA AG if 500+ affected
+    // NY: Submit to NY AG if 500+ affected
+    // TX: Submit to TX AG if 250+ affected
   }
 
   private async prepareMediaNotification(incident: BreachIncident): Promise<void> {
-    // Prepare media breach notification
+    // Prepare media breach notification for 500+ affected individuals
+    // Per CA SB 446 / NY SHIELD / FTC requirements
   }
 
   private async logBreachDetection(incident: BreachIncident): Promise<void> {
@@ -1324,4 +1456,4 @@ export class HIPAABreachResponseEngine {
 }
 
 // Export singleton instance
-export default HIPAABreachResponseEngine.getInstance();
+export default DataBreachResponseEngine.getInstance();
