@@ -41,7 +41,7 @@ interface AppSettingsScreenProps {
 
 const AppSettingsScreen: React.FC<AppSettingsScreenProps> = ({ onReturn }) => {
   const settingsStore = useSettingsStore();
-  const { loadConsent, currentConsent } = useConsentStore();
+  const { loadConsent, currentConsent, updateConsent } = useConsentStore();
   const [isSaving, setIsSaving] = useState(false);
   const [showConsentScreen, setShowConsentScreen] = useState(false);
 
@@ -62,6 +62,10 @@ const AppSettingsScreen: React.FC<AppSettingsScreenProps> = ({ onReturn }) => {
         await settingsStore.updateNotificationSettings({ [key]: value });
       } else if (category === 'privacy') {
         await settingsStore.updatePrivacySettings({ [key]: value });
+        // Sync analytics consent with consentStore for PostHog (FEAT-40)
+        if (key === 'analyticsEnabled' && typeof value === 'boolean') {
+          await updateConsent({ analyticsEnabled: value });
+        }
       } else if (category === 'accessibility') {
         await settingsStore.updateAccessibilitySettings({ [key]: value });
       }
