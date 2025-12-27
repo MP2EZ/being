@@ -1,8 +1,8 @@
 # Privacy Policy
 
-**Version:** 1.0
+**Version:** 1.1
 **Effective Date:** December 12, 2025
-**Last Updated:** December 12, 2025
+**Last Updated:** December 26, 2025
 
 ---
 
@@ -13,6 +13,8 @@
 3. [How We Use Your Information](#3-how-we-use-your-information)
 4. [Data Storage & Security](#4-data-storage--security)
 5. [Data Sharing & Third Parties](#5-data-sharing--third-parties)
+   - [5.1 Service Providers](#51-service-providers)
+   - [5.2 Analytics](#52-analytics)
 6. [Your Privacy Rights](#6-your-privacy-rights)
 7. [Data Retention](#7-data-retention)
 8. [Children's Privacy](#8-childrens-privacy)
@@ -111,12 +113,43 @@ You may optionally enable encrypted cloud backup to sync data across devices. Cl
 We use the following third-party service providers to operate our Services:
 
 - **[Supabase](https://supabase.com/privacy):** Database, authentication, and cloud storage (SOC 2 Type II certified, US data region). If you enable optional cloud backup, your encrypted data is stored on Supabase infrastructure.
+- **[PostHog](https://posthog.com/privacy):** Product analytics (EU data residency, Frankfurt). See Section 5.2 for details.
 - **Expo:** Mobile app framework and over-the-air updates (anonymized crash reports only)
 - **Apple/Google:** App distribution and in-app purchases (no health data shared)
 
 All service providers are contractually bound to protect your data and may only use it to provide services to us.
 
 > **No Advertising Partners:** We do not share data with advertising networks, data brokers, or marketing platforms. Ever.
+
+### 5.2 Analytics
+
+Being uses PostHog (EU data residency) to collect anonymous product analytics. **Analytics is disabled by default and requires your explicit opt-in.**
+
+**What We Collect (when opted in):**
+
+- Screen views and navigation patterns
+- Feature usage counts (e.g., "check-in completed")
+- App performance metrics
+- Session duration
+- Device type and OS version
+
+**What We NEVER Collect:**
+
+- Assessment scores (PHQ-9, GAD-7)
+- Mood check-in values or notes
+- Journal entries
+- Crisis contact information
+- Any mental health data
+
+**Your Control:**
+
+- Analytics is **OFF by default**
+- Opt-in via Settings > Privacy > Analytics
+- Request deletion via Settings > Privacy > Delete Analytics Data
+
+**Data Residency:** EU (Frankfurt, Germany)
+
+**Third Party:** [PostHog Inc.](https://posthog.com/privacy)
 
 ---
 
