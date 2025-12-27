@@ -209,7 +209,7 @@ const CleanHomeScreen: React.FC = () => {
           <CheckInCard
             type="midday"
             title="Midday Reset"
-            description="Take a moment to reconnect with the present and reset your energy."
+            description="Take a moment to reconnect with the present through mindful awareness."
             duration="3 min"
           />
 
