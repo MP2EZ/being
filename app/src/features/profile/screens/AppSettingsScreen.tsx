@@ -18,7 +18,7 @@
  * - Clear section organization
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -30,8 +30,10 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { useSettingsStore } from '@/core/stores/settingsStore';
 import { useConsentStore } from '@/core/stores/consentStore';
+import { useAnalytics } from '@/core/analytics';
 import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
 
 interface AppSettingsScreenProps {
@@ -41,7 +43,16 @@ interface AppSettingsScreenProps {
 const AppSettingsScreen: React.FC<AppSettingsScreenProps> = ({ onReturn }) => {
   const settingsStore = useSettingsStore();
   const { loadConsent, currentConsent, updateConsent } = useConsentStore();
+  const { trackScreenView, trackSettingsOpened, trackConsentChanged } = useAnalytics();
   const [isSaving, setIsSaving] = useState(false);
+
+  // Track screen view and settings opened for analytics (FEAT-137)
+  useFocusEffect(
+    useCallback(() => {
+      trackScreenView('AppSettingsScreen');
+      trackSettingsOpened();
+    }, [trackScreenView, trackSettingsOpened])
+  );
 
   // Consent preferences from consentStore (source of truth)
   const analyticsEnabled = currentConsent?.preferences?.analyticsEnabled ?? false;
@@ -85,6 +96,8 @@ const AppSettingsScreen: React.FC<AppSettingsScreenProps> = ({ onReturn }) => {
     setIsSaving(true);
     try {
       await updateConsent({ [key]: value });
+      // Track consent changed for analytics (FEAT-137)
+      trackConsentChanged();
     } catch (error) {
       Alert.alert(
         'Save Failed',

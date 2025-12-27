@@ -15,7 +15,7 @@
  * - Accessibility: WCAG AA compliant
  */
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -27,8 +27,9 @@ import {
   Platform
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { useNavigation, useRoute, useFocusEffect, RouteProp } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
+import { useAnalytics } from '@/core/analytics';
 import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
 import { logPerformance, logSecurity, logError, LogCategory } from '@/core/services/logging';
 import {
@@ -220,7 +221,16 @@ const ResourceCard: React.FC<ResourceCardProps> = ({ resource, onPress }) => {
 export default function CrisisResourcesScreen() {
   const navigation = useNavigation<CrisisResourcesScreenNavigationProp>();
   const route = useRoute<CrisisResourcesScreenRouteProp>();
+  const { trackScreenView, trackCrisisResourcesViewed, trackCrisisHotlineTapped } = useAnalytics();
   const startTime = performance.now();
+
+  // Track screen view for analytics (FEAT-137)
+  useFocusEffect(
+    useCallback(() => {
+      trackScreenView('CrisisResourcesScreen');
+      trackCrisisResourcesViewed();
+    }, [trackScreenView, trackCrisisResourcesViewed])
+  );
 
   // Track screen load performance
   useEffect(() => {
@@ -263,6 +273,9 @@ export default function CrisisResourcesScreen() {
       resourceName: resource.name,
       contactType: 'phone'
     });
+
+    // Track hotline tap for analytics (FEAT-137)
+    trackCrisisHotlineTapped();
 
     Linking.canOpenURL(phoneUrl)
       .then(supported => {
