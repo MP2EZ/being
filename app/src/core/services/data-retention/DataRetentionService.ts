@@ -33,6 +33,7 @@
 import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { logSecurity, logError, LogCategory } from '@/core/services/logging';
+import { generateTimestampedId } from '@/core/utils/id';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // CONFIGURATION
@@ -133,7 +134,7 @@ export interface UserDeletionResult {
  * Generate unique ID for audit entries
  */
 const generateAuditId = (): string => {
-  return `audit_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  return generateTimestampedId('audit');
 };
 
 /**

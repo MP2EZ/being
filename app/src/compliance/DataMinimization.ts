@@ -26,6 +26,7 @@
 
 
 import { logSecurity, logPerformance, logError, LogCategory } from '@/core/services/logging';
+import { generateTimestampedId } from '@/core/utils/id';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import DataProtectionEngine, { 
@@ -1155,7 +1156,7 @@ export class DataMinimizationEngine {
   ): Promise<void> {
     try {
       const auditEvent: ComplianceAuditEvent = {
-        eventId: `access_eval_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        eventId: generateTimestampedId('access_eval'),
         timestamp: Date.now(),
         type: 'authorization_check',
         userId: request.targetUserId,
@@ -1217,7 +1218,7 @@ export class DataMinimizationEngine {
         timestamp: Date.now()
       };
 
-      const logKey = `collection_log_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const logKey = generateTimestampedId('collection_log');
       await AsyncStorage.setItem(logKey, JSON.stringify(logEntry));
 
     } catch (error) {
@@ -1276,7 +1277,7 @@ export class DataMinimizationEngine {
     emergency: boolean = false
   ): Promise<DataAccessEvaluation> {
     const request: DataAccessRequest = {
-      requestId: `crisis_access_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      requestId: generateTimestampedId('crisis_access'),
       requesterId,
       requesterRole,
       targetUserId,

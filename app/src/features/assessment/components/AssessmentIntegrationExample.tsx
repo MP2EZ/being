@@ -17,6 +17,7 @@
 
 
 import { logSecurity, logPerformance, logError, LogCategory } from '@/core/services/logging';
+import { generateTimestampedId } from '@/core/utils/id';
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import {
   View,
@@ -62,7 +63,7 @@ interface DemoSettings {
 const AssessmentIntegrationExample: React.FC = () => {
   // Demo state
   const [isRunning, setIsRunning] = useState(false);
-  const [sessionId] = useState(() => `demo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
+  const [sessionId] = useState(() => generateTimestampedId('demo'));
   const [consentStatus, setConsentStatus] = useState<DataProtectionConsentStatus>({
     dataProcessingConsent: true,
     clinicalDataConsent: true,

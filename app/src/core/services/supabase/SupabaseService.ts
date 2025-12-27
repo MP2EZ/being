@@ -20,6 +20,7 @@
 
 
 import { logSecurity, logPerformance, logError, LogCategory } from '../logging';
+import { generateTimestampedId, generateSessionId, generateRandomString } from '@/core/utils/id';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import * as Crypto from 'expo-crypto';
 import { AppState } from 'react-native';
@@ -237,7 +238,7 @@ class SupabaseService {
   private async generateDeviceIdHash(): Promise<string> {
     // Use expo-crypto to get a device-specific value
     const deviceIdBase = await AsyncStorage.getItem('@being/device_id') ||
-                        `device_${Date.now()}_${Math.random()}`;
+                        generateTimestampedId('device');
 
     // Save device ID if it doesn't exist
     await AsyncStorage.setItem('@being/device_id', deviceIdBase);
@@ -254,7 +255,7 @@ class SupabaseService {
    */
   private generateSessionId(): string {
     const today = new Date().toISOString().split('T')[0];
-    return `session_${today}_${Math.random().toString(36).substr(2, 9)}`;
+    return generateSessionId();
   }
 
   /**

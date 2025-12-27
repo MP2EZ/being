@@ -22,6 +22,7 @@
 
 
 import { logSecurity, logPerformance, logError, LogCategory } from '@/core/services/logging';
+import { generateTimestampedId } from '@/core/utils/id';
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
 import { persist, createJSONStorage } from 'zustand/middleware';
@@ -258,7 +259,7 @@ class CrisisDetectionService {
         primaryTrigger: triggerType,
         triggerValue,
         timestamp: Date.now(),
-        assessmentId: `${type}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+        assessmentId: generateTimestampedId(type)
       } as Partial<CrisisDetection> as CrisisDetection;
 
       // Validate response time (must be <200ms)
@@ -419,7 +420,7 @@ export const useAssessmentStore = create<AssessmentStore>()(
           set({ isLoading: true, error: null });
 
           try {
-            const sessionId = `${type}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            const sessionId = generateTimestampedId(type);
             const totalQuestions = type === 'phq9' ? 9 : 7;
 
             const session: AssessmentSession = {
