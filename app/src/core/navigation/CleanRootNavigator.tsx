@@ -514,7 +514,7 @@ const CleanRootNavigator: React.FC = () => {
             options={{
               title: 'Subscription',
               headerShown: false, // PurchaseOptionsScreen has its own SubMenuHeader
-              presentation: 'modal',
+              presentation: 'card', // Full-screen like other submenus
               gestureEnabled: true
             }}
           />

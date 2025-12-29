@@ -30,6 +30,7 @@ import {
   LegalDocumentType,
 } from '../content/legalDocuments';
 import LegalDocumentScreen from './LegalDocumentScreen';
+import SubMenuHeader from '../components/SubMenuHeader';
 
 interface LegalDocumentsListScreenProps {
   onReturn: () => void;
@@ -51,17 +52,15 @@ const LegalDocumentsListScreen: React.FC<LegalDocumentsListScreenProps> = ({
 
   return (
     <SafeAreaView style={styles.container}>
+      <SubMenuHeader title="Legal Documents" onClose={onReturn} />
       <ScrollView
         style={styles.scrollContainer}
         contentContainerStyle={styles.scrollContent}
       >
-        <View style={styles.header}>
-          <Text style={styles.title}>Legal Documents</Text>
-          <Text style={styles.subtitle}>
-            Review our policies and legal information. All documents are available
-            offline for your convenience.
-          </Text>
-        </View>
+        <Text style={styles.subtitle}>
+          Review our policies and legal information. All documents are available
+          offline for your convenience.
+        </Text>
 
         <View style={styles.documentList}>
           {legalDocumentsList.map((doc) => (
@@ -88,15 +87,6 @@ const LegalDocumentsListScreen: React.FC<LegalDocumentsListScreenProps> = ({
             without an internet connection.
           </Text>
         </View>
-
-        <Pressable
-          style={styles.returnButton}
-          onPress={onReturn}
-          accessibilityRole="button"
-          accessibilityLabel="Return to Profile"
-        >
-          <Text style={styles.returnButtonText}>Return to Profile</Text>
-        </Pressable>
       </ScrollView>
     </SafeAreaView>
   );
@@ -114,23 +104,12 @@ const styles = StyleSheet.create({
     padding: spacing[24],
     paddingBottom: spacing[32],
   },
-  header: {
-    marginBottom: spacing[24],
-    alignItems: 'center',
-  },
-  title: {
-    fontSize: typography.headline2.size,
-    fontWeight: typography.fontWeight.bold,
-    color: colorSystem.base.black,
-    marginBottom: spacing[8],
-    textAlign: 'center',
-  },
   subtitle: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
     color: colorSystem.gray[600],
-    textAlign: 'center',
     lineHeight: 24,
+    marginBottom: spacing[24],
   },
   documentList: {
     marginBottom: spacing[24],
@@ -180,19 +159,6 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.regular,
     color: colorSystem.gray[600],
     lineHeight: 20,
-  },
-  returnButton: {
-    backgroundColor: colorSystem.base.midnightBlue,
-    paddingVertical: spacing[16],
-    paddingHorizontal: spacing[32],
-    borderRadius: borderRadius.large,
-    alignItems: 'center',
-    minHeight: 56,
-  },
-  returnButtonText: {
-    fontSize: typography.bodyLarge.size,
-    fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.white,
   },
 });
 

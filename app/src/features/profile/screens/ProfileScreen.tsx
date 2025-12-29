@@ -29,6 +29,7 @@ import ThresholdEducationModal from '@/core/components/ThresholdEducationModal';
 import { useAssessmentStore } from '@/features/assessment/stores/assessmentStore';
 import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
 import { useAnalytics } from '@/core/analytics';
+import SubMenuHeader from '../components/SubMenuHeader';
 
 type ProfileScreenNavigationProp = StackNavigationProp<RootStackParamList>;
 
@@ -435,34 +436,26 @@ const ProfileScreen: React.FC = () => {
 
   const renderPlaceholder = (title: string, description: string) => (
     <SafeAreaView style={styles.container}>
+      <SubMenuHeader title={title} onClose={handleReturnToMenu} />
       <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
-        <View style={styles.header}>
-          <Text style={styles.title}>{title}</Text>
-          <Text style={styles.subtitle}>{description}</Text>
-        </View>
+        <Text style={styles.subtitle}>{description}</Text>
 
         <View style={styles.placeholderContent}>
           <Text style={styles.placeholderText}>
             This feature is coming soon. We're working hard to bring you the best experience.
           </Text>
         </View>
-
-        <Pressable style={styles.primaryButton} onPress={handleReturnToMenu}>
-          <Text style={styles.primaryButtonText}>Return to Profile</Text>
-        </Pressable>
       </ScrollView>
     </SafeAreaView>
   );
 
   const renderAboutStoicMindfulness = () => (
     <SafeAreaView style={styles.container}>
+      <SubMenuHeader title="About Stoic Mindfulness" onClose={handleReturnToMenu} />
       <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
-        <View style={styles.header}>
-          <Text style={styles.title}>About Stoic Mindfulness</Text>
-          <Text style={styles.subtitle}>
-            A comprehensive integration of ancient Stoic philosophy with modern mindfulness practice
-          </Text>
-        </View>
+        <Text style={styles.subtitle}>
+          A comprehensive integration of ancient Stoic philosophy with modern mindfulness practice
+        </Text>
 
         {/* Introduction Section */}
         <View style={styles.section}>
@@ -570,10 +563,6 @@ const ProfileScreen: React.FC = () => {
             <Text style={{ fontWeight: typography.fontWeight.semibold }}>Seneca</Text> (4 BCE-65 CE) - Statesman and advisor whose Letters provide practical guidance for living well.
           </Text>
         </View>
-
-        <Pressable style={styles.primaryButton} onPress={handleReturnToMenu}>
-          <Text style={styles.primaryButtonText}>Return to Profile</Text>
-        </Pressable>
       </ScrollView>
     </SafeAreaView>
   );
