@@ -438,7 +438,7 @@ const ProfileScreen: React.FC = () => {
     <SafeAreaView style={styles.container}>
       <SubMenuHeader title={title} onClose={handleReturnToMenu} />
       <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.subtitle}>{description}</Text>
+        <Text style={[styles.subtitle, styles.subtitleSpacing]}>{description}</Text>
 
         <View style={styles.placeholderContent}>
           <Text style={styles.placeholderText}>
@@ -453,7 +453,7 @@ const ProfileScreen: React.FC = () => {
     <SafeAreaView style={styles.container}>
       <SubMenuHeader title="About Stoic Mindfulness" onClose={handleReturnToMenu} />
       <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.subtitle}>
+        <Text style={[styles.subtitle, styles.subtitleSpacing]}>
           A comprehensive integration of ancient Stoic philosophy with modern mindfulness practice
         </Text>
 
@@ -644,6 +644,9 @@ const styles = StyleSheet.create({
     color: colorSystem.gray[600],
     textAlign: 'center',
     lineHeight: 24,
+  },
+  subtitleSpacing: {
+    marginBottom: spacing[24],
   },
   section: {
     marginBottom: spacing[32],
