@@ -18,7 +18,6 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  Pressable,
   Switch,
   ActivityIndicator,
   Alert,
@@ -30,6 +29,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useConsentStore } from '@/core/stores/consentStore';
 import { useAnalytics } from '@/core/analytics';
 import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
+import SubMenuHeader from '../components/SubMenuHeader';
 
 interface PrivacyDataScreenProps {
   onReturn: () => void;
@@ -210,21 +210,14 @@ const PrivacyDataScreen: React.FC<PrivacyDataScreenProps> = ({ onReturn }) => {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['bottom']}>
+      <SubMenuHeader title="Privacy & Data" onClose={onReturn} />
       <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.title}>Privacy & Data</Text>
-          <Text style={styles.subtitle}>
-            Control how your data is used and stored
-          </Text>
-        </View>
-
         {/* Data Sharing Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Data Sharing</Text>
           <Text style={styles.sectionDescription}>
-            Choose what anonymous data you share to help improve Being (privacy-first by default)
+            Control how your data is used and stored. Privacy-first by default.
           </Text>
 
           <View style={styles.settingCard}>
@@ -349,13 +342,6 @@ const PrivacyDataScreen: React.FC<PrivacyDataScreenProps> = ({ onReturn }) => {
             Device data survives reinstall. App data is lost if you delete the app.
           </Text>
         </View>
-
-        {/* Return Button */}
-        <View style={styles.actionContainer}>
-          <Pressable style={styles.primaryButton} onPress={onReturn}>
-            <Text style={styles.primaryButtonText}>Return to Profile</Text>
-          </Pressable>
-        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -372,24 +358,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: spacing[24],
     paddingBottom: spacing[32],
-  },
-  header: {
-    marginBottom: spacing[32],
-    alignItems: 'center',
-  },
-  title: {
-    fontSize: typography.headline2.size,
-    fontWeight: typography.fontWeight.bold,
-    color: colorSystem.base.black,
-    marginBottom: spacing[8],
-    textAlign: 'center',
-  },
-  subtitle: {
-    fontSize: typography.bodyLarge.size,
-    fontWeight: typography.fontWeight.regular,
-    color: colorSystem.gray[600],
-    textAlign: 'center',
-    lineHeight: 24,
   },
   loadingContainer: {
     flex: 1,
@@ -487,22 +455,6 @@ const styles = StyleSheet.create({
     marginTop: spacing[12],
     lineHeight: 18,
     textAlign: 'center',
-  },
-  actionContainer: {
-    marginTop: spacing[24],
-  },
-  primaryButton: {
-    backgroundColor: colorSystem.base.midnightBlue,
-    paddingVertical: spacing[16],
-    paddingHorizontal: spacing[32],
-    borderRadius: borderRadius.large,
-    alignItems: 'center',
-    marginBottom: spacing[16],
-  },
-  primaryButtonText: {
-    fontSize: typography.bodyLarge.size,
-    fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.white,
   },
 });
 

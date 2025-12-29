@@ -30,6 +30,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useSettingsStore } from '@/core/stores/settingsStore';
 import { useAnalytics } from '@/core/analytics';
 import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
+import SubMenuHeader from '../components/SubMenuHeader';
 
 interface AppSettingsScreenProps {
   onReturn: () => void;
@@ -119,8 +120,8 @@ const AppSettingsScreen: React.FC<AppSettingsScreenProps> = ({ onReturn }) => {
       <SafeAreaView style={styles.container}>
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>Failed to load settings</Text>
-          <Pressable style={styles.primaryButton} onPress={() => settingsStore.loadSettings()}>
-            <Text style={styles.primaryButtonText}>Retry</Text>
+          <Pressable style={styles.retryButton} onPress={() => settingsStore.loadSettings()}>
+            <Text style={styles.retryButtonText}>Retry</Text>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -131,16 +132,9 @@ const AppSettingsScreen: React.FC<AppSettingsScreenProps> = ({ onReturn }) => {
   if (!settings) return null;
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['bottom']}>
+      <SubMenuHeader title="App Settings" onClose={onReturn} />
       <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.title}>App Settings</Text>
-          <Text style={styles.subtitle}>
-            Manage notifications and accessibility preferences
-          </Text>
-        </View>
-
         {/* Notifications Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Notifications</Text>
@@ -299,7 +293,7 @@ const AppSettingsScreen: React.FC<AppSettingsScreenProps> = ({ onReturn }) => {
           </View>
         </View>
 
-        {/* Action Buttons */}
+        {/* Reset Button */}
         <View style={styles.actionContainer}>
           <Pressable
             style={[styles.dangerButton, isSaving && styles.buttonDisabled]}
@@ -307,10 +301,6 @@ const AppSettingsScreen: React.FC<AppSettingsScreenProps> = ({ onReturn }) => {
             disabled={isSaving}
           >
             <Text style={styles.dangerButtonText}>Reset to Defaults</Text>
-          </Pressable>
-
-          <Pressable style={styles.primaryButton} onPress={onReturn}>
-            <Text style={styles.primaryButtonText}>Return to Profile</Text>
           </Pressable>
         </View>
       </ScrollView>
@@ -329,24 +319,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: spacing[24],
     paddingBottom: spacing[32],
-  },
-  header: {
-    marginBottom: spacing[32],
-    alignItems: 'center',
-  },
-  title: {
-    fontSize: typography.headline2.size,
-    fontWeight: typography.fontWeight.bold,
-    color: colorSystem.base.black,
-    marginBottom: spacing[8],
-    textAlign: 'center',
-  },
-  subtitle: {
-    fontSize: typography.bodyLarge.size,
-    fontWeight: typography.fontWeight.regular,
-    color: colorSystem.gray[600],
-    textAlign: 'center',
-    lineHeight: 24,
   },
   loadingContainer: {
     flex: 1,
@@ -371,6 +343,18 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.regular,
     color: '#EF4444',
     marginBottom: spacing[24],
+  },
+  retryButton: {
+    backgroundColor: colorSystem.base.midnightBlue,
+    paddingVertical: spacing[12],
+    paddingHorizontal: spacing[24],
+    borderRadius: borderRadius.medium,
+    alignItems: 'center',
+  },
+  retryButtonText: {
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.semibold,
+    color: colorSystem.base.white,
   },
   section: {
     marginBottom: spacing[32],
@@ -479,19 +463,6 @@ const styles = StyleSheet.create({
   },
   actionContainer: {
     marginTop: spacing[24],
-  },
-  primaryButton: {
-    backgroundColor: colorSystem.base.midnightBlue,
-    paddingVertical: spacing[16],
-    paddingHorizontal: spacing[32],
-    borderRadius: borderRadius.large,
-    alignItems: 'center',
-    marginBottom: spacing[16],
-  },
-  primaryButtonText: {
-    fontSize: typography.bodyLarge.size,
-    fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.white,
   },
   dangerButton: {
     backgroundColor: colorSystem.base.white,
