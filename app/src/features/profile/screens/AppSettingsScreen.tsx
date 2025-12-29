@@ -1,16 +1,12 @@
 /**
  * APP SETTINGS SCREEN
- * Configure app preferences: notifications, privacy, accessibility
+ * Configure app preferences: notifications, accessibility, and app info
  *
- * PRIVACY:
- * - Privacy-first defaults (analytics opt-out)
- * - Non-sensitive settings → AsyncStorage (no encryption)
+ * NOTE: Privacy & Data settings have been moved to PrivacyDataScreen.tsx
  *
  * TODO (FEAT-6 Open Questions):
  * - Notification scheduling integration (expo-notifications?)
- * - Analytics integration point
  * - Global accessibility feature control
- * - Privacy compliance validation for privacy settings
  *
  * ACCESSIBILITY:
  * - WCAG AA compliant
@@ -32,7 +28,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSettingsStore } from '@/core/stores/settingsStore';
-import { useConsentStore } from '@/core/stores/consentStore';
 import { useAnalytics } from '@/core/analytics';
 import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
 
@@ -42,11 +37,10 @@ interface AppSettingsScreenProps {
 
 const AppSettingsScreen: React.FC<AppSettingsScreenProps> = ({ onReturn }) => {
   const settingsStore = useSettingsStore();
-  const { loadConsent, currentConsent, updateConsent } = useConsentStore();
-  const { trackScreenView, trackSettingsOpened, trackConsentChanged } = useAnalytics();
+  const { trackScreenView, trackSettingsOpened } = useAnalytics();
   const [isSaving, setIsSaving] = useState(false);
 
-  // Track screen view and settings opened for analytics (FEAT-137)
+  // Track screen view and settings opened for analytics
   useFocusEffect(
     useCallback(() => {
       trackScreenView('AppSettingsScreen');
@@ -54,20 +48,13 @@ const AppSettingsScreen: React.FC<AppSettingsScreenProps> = ({ onReturn }) => {
     }, [trackScreenView, trackSettingsOpened])
   );
 
-  // Consent preferences from consentStore (source of truth)
-  const analyticsEnabled = currentConsent?.preferences?.analyticsEnabled ?? false;
-  const crashReportsEnabled = currentConsent?.preferences?.crashReportsEnabled ?? false;
-  const cloudSyncEnabled = currentConsent?.preferences?.cloudSyncEnabled ?? false;
-  const researchEnabled = currentConsent?.preferences?.researchEnabled ?? false;
-
-  // Load settings and consent on mount
+  // Load settings on mount
   useEffect(() => {
     settingsStore.loadSettings();
-    loadConsent();
-  }, [loadConsent]);
+  }, []);
 
   const handleToggleSetting = async (
-    category: 'notifications' | 'privacy' | 'accessibility',
+    category: 'notifications' | 'accessibility',
     key: string,
     value: boolean | string
   ) => {
@@ -75,8 +62,6 @@ const AppSettingsScreen: React.FC<AppSettingsScreenProps> = ({ onReturn }) => {
     try {
       if (category === 'notifications') {
         await settingsStore.updateNotificationSettings({ [key]: value });
-      } else if (category === 'privacy') {
-        await settingsStore.updatePrivacySettings({ [key]: value });
       } else if (category === 'accessibility') {
         await settingsStore.updateAccessibilitySettings({ [key]: value });
       }
@@ -84,24 +69,6 @@ const AppSettingsScreen: React.FC<AppSettingsScreenProps> = ({ onReturn }) => {
       Alert.alert(
         'Save Failed',
         'Failed to save setting. Please try again.',
-        [{ text: 'OK' }]
-      );
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  // Consent toggles write directly to consentStore (source of truth)
-  const handleConsentToggle = async (key: string, value: boolean) => {
-    setIsSaving(true);
-    try {
-      await updateConsent({ [key]: value });
-      // Track consent changed for analytics (FEAT-137)
-      trackConsentChanged();
-    } catch (error) {
-      Alert.alert(
-        'Save Failed',
-        'Failed to save preference. Please try again.',
         [{ text: 'OK' }]
       );
     } finally {
@@ -170,7 +137,7 @@ const AppSettingsScreen: React.FC<AppSettingsScreenProps> = ({ onReturn }) => {
         <View style={styles.header}>
           <Text style={styles.title}>App Settings</Text>
           <Text style={styles.subtitle}>
-            Manage notifications, privacy, and accessibility preferences
+            Manage notifications and accessibility preferences
           </Text>
         </View>
 
@@ -240,98 +207,6 @@ const AppSettingsScreen: React.FC<AppSettingsScreenProps> = ({ onReturn }) => {
               📝 Note: Notification scheduling will be integrated in a future update. Your preferences are saved.
             </Text>
           </View>
-        </View>
-
-        {/* Privacy Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Privacy & Data</Text>
-          <Text style={styles.sectionDescription}>
-            Control how your data is used (privacy-first by default)
-          </Text>
-
-          <View style={styles.settingCard}>
-            <View style={styles.settingRow}>
-              <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>Anonymous Usage Analytics</Text>
-                <Text style={styles.settingDescription}>
-                  Help improve Being. by sharing anonymous usage data (NO personal or health information)
-                </Text>
-              </View>
-              <Switch
-                value={analyticsEnabled}
-                onValueChange={(value) => handleConsentToggle('analyticsEnabled', value)}
-                trackColor={{ false: colorSystem.gray[300], true: colorSystem.base.midnightBlue }}
-                thumbColor={colorSystem.base.white}
-                disabled={isSaving}
-              />
-            </View>
-          </View>
-
-          <View style={styles.settingCard}>
-            <View style={styles.settingRow}>
-              <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>Crash Reports</Text>
-                <Text style={styles.settingDescription}>
-                  Automatically report errors to fix bugs faster
-                </Text>
-              </View>
-              <Switch
-                value={crashReportsEnabled}
-                onValueChange={(value) => handleConsentToggle('crashReportsEnabled', value)}
-                trackColor={{ false: colorSystem.gray[300], true: colorSystem.base.midnightBlue }}
-                thumbColor={colorSystem.base.white}
-                disabled={isSaving}
-              />
-            </View>
-          </View>
-
-          <View style={styles.settingCard}>
-            <View style={styles.settingRow}>
-              <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>Cloud Backup</Text>
-                <Text style={styles.settingDescription}>
-                  Securely sync your data across devices
-                </Text>
-              </View>
-              <Switch
-                value={cloudSyncEnabled}
-                onValueChange={(value) => handleConsentToggle('cloudSyncEnabled', value)}
-                trackColor={{ false: colorSystem.gray[300], true: colorSystem.base.midnightBlue }}
-                thumbColor={colorSystem.base.white}
-                disabled={isSaving}
-              />
-            </View>
-          </View>
-
-          <View style={styles.settingCard}>
-            <View style={styles.settingRow}>
-              <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>Research Participation</Text>
-                <Text style={styles.settingDescription}>
-                  Help improve mental health care (fully anonymous)
-                </Text>
-              </View>
-              <Switch
-                value={researchEnabled}
-                onValueChange={(value) => handleConsentToggle('researchEnabled', value)}
-                trackColor={{ false: colorSystem.gray[300], true: colorSystem.base.midnightBlue }}
-                thumbColor={colorSystem.base.white}
-                disabled={isSaving}
-              />
-            </View>
-          </View>
-
-          <View style={styles.infoBox}>
-            <Text style={styles.infoText}>
-              Your check-in responses, therapeutic values, and health data are NEVER shared. Analytics are limited to app usage patterns only.
-            </Text>
-          </View>
-
-          {currentConsent && (
-            <Text style={styles.consentLastUpdated}>
-              Last updated: {new Date(currentConsent.updatedAt).toLocaleDateString()}
-            </Text>
-          )}
         </View>
 
         {/* Accessibility Section */}
@@ -635,13 +510,6 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.5,
-  },
-  consentLastUpdated: {
-    fontSize: typography.bodySmall.size,
-    fontWeight: typography.fontWeight.regular,
-    color: colorSystem.gray[400],
-    textAlign: 'center',
-    marginTop: spacing[8],
   },
 });
 

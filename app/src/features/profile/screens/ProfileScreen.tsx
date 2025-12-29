@@ -18,6 +18,7 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 // OnboardingScreen no longer embedded - navigation to LegalGate handles full flow
 import AppSettingsScreen from './AppSettingsScreen';
+import PrivacyDataScreen from './PrivacyDataScreen';
 import AccountSettingsScreen from './AccountSettingsScreen';
 import LegalDocumentsListScreen from './LegalDocumentsListScreen';
 import { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
@@ -39,7 +40,7 @@ interface AssessmentMetadata {
   status: 'recent' | 'due' | 'recommended' | 'never';
 }
 
-type Screen = 'menu' | 'account' | 'privacy' | 'about' | 'stoicMindfulness' | 'legal';
+type Screen = 'menu' | 'account' | 'privacy' | 'appSettings' | 'about' | 'stoicMindfulness' | 'legal';
 
 const ProfileScreen: React.FC = () => {
   const [currentScreen, setCurrentScreen] = useState<Screen>('menu');
@@ -217,6 +218,20 @@ const ProfileScreen: React.FC = () => {
               Complete your initial assessment and configure your therapeutic preferences for a personalized experience.
             </Text>
             <Text style={styles.cardAction} importantForAccessibility="no">Start Setup →</Text>
+          </Pressable>
+
+          <Pressable
+            style={styles.profileCard}
+            onPress={() => setCurrentScreen('appSettings')}
+            accessibilityRole="button"
+            accessibilityLabel="App Settings"
+            accessibilityHint="Configure notifications and accessibility preferences"
+          >
+            <Text style={styles.cardTitle}>App Settings</Text>
+            <Text style={styles.cardDescription}>
+              Configure notifications, accessibility options, and view app information.
+            </Text>
+            <Text style={styles.cardAction} importantForAccessibility="no">Configure →</Text>
           </Pressable>
         </View>
 
@@ -572,6 +587,10 @@ const ProfileScreen: React.FC = () => {
     }
 
     if (currentScreen === 'privacy') {
+      return <PrivacyDataScreen onReturn={handleReturnToMenu} />;
+    }
+
+    if (currentScreen === 'appSettings') {
       return <AppSettingsScreen onReturn={handleReturnToMenu} />;
     }
 
