@@ -90,7 +90,7 @@ const AccountSettingsScreen: React.FC<AccountSettingsScreenProps> = ({ onReturn 
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <SafeAreaView style={styles.container}>
       <SubMenuHeader title="Account Settings" onClose={onReturn} />
       <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
         {/* Account Information Section */}

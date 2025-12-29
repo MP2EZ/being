@@ -210,7 +210,7 @@ const PrivacyDataScreen: React.FC<PrivacyDataScreenProps> = ({ onReturn }) => {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <SafeAreaView style={styles.container}>
       <SubMenuHeader title="Privacy & Data" onClose={onReturn} />
       <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
         {/* Data Sharing Section */}
