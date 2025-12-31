@@ -171,7 +171,7 @@ const ProfileScreen: React.FC = () => {
   const devMode = isDevMode();
 
   const renderMenu = () => (
-    <SafeAreaView style={styles.container} testID="profile-screen">
+    <SafeAreaView key="menu-screen" style={styles.container} testID="profile-screen">
       {devMode && (
         <View style={styles.devModeBanner}>
           <Text style={styles.devModeText}>
@@ -435,9 +435,12 @@ const ProfileScreen: React.FC = () => {
   );
 
   const renderPlaceholder = (title: string, description: string) => (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView key={`placeholder-${title}`} style={styles.container}>
       <SubMenuHeader title={title} onClose={handleReturnToMenu} />
-      <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        style={styles.scrollContainer}
+        contentContainerStyle={styles.scrollContent}
+      >
         <Text style={[styles.subtitle, styles.subtitleSpacing]}>{description}</Text>
 
         <View style={styles.placeholderContent}>
@@ -450,9 +453,12 @@ const ProfileScreen: React.FC = () => {
   );
 
   const renderAboutStoicMindfulness = () => (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView key="stoicMindfulness-screen" style={styles.container}>
       <SubMenuHeader title="About Stoic Mindfulness" onClose={handleReturnToMenu} />
-      <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        style={styles.scrollContainer}
+        contentContainerStyle={styles.scrollContent}
+      >
         <Text style={[styles.subtitle, styles.subtitleSpacing]}>
           A comprehensive integration of ancient Stoic philosophy with modern mindfulness practice
         </Text>

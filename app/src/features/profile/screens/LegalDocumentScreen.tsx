@@ -14,7 +14,7 @@
  */
 
 import React from 'react';
-import { View, StyleSheet, ScrollView, Pressable, Text } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Markdown from 'react-native-markdown-display';
 import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
@@ -32,15 +32,15 @@ const LegalDocumentScreen: React.FC<LegalDocumentScreenProps> = ({
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Pressable
-          style={styles.backButton}
+        <TouchableOpacity
           onPress={onReturn}
+          style={styles.backButton}
+          accessibilityLabel="Back to Legal Documents"
           accessibilityRole="button"
-          accessibilityLabel="Return to legal documents"
         >
           <Text style={styles.backButtonText}>← Back</Text>
-        </Pressable>
-        <Text style={styles.headerTitle}>{document.shortTitle}</Text>
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Legal Documents</Text>
         <View style={styles.headerSpacer} />
       </View>
 
@@ -63,35 +63,37 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     paddingHorizontal: spacing[16],
     paddingVertical: spacing[12],
     borderBottomWidth: 1,
     borderBottomColor: colorSystem.gray[200],
   },
   backButton: {
-    padding: spacing[8],
+    minWidth: 44,
     minHeight: 44,
     justifyContent: 'center',
   },
   backButtonText: {
     fontSize: typography.bodyRegular.size,
-    fontWeight: typography.fontWeight.medium,
+    fontWeight: typography.fontWeight.medium as '500',
     color: colorSystem.base.midnightBlue,
   },
   headerTitle: {
-    fontSize: typography.bodyLarge.size,
-    fontWeight: typography.fontWeight.semibold,
+    flex: 1,
+    fontSize: typography.headline3.size,
+    fontWeight: typography.fontWeight.semibold as '600',
     color: colorSystem.base.black,
+    textAlign: 'center',
   },
   headerSpacer: {
-    width: 60,
+    minWidth: 44,
   },
   scrollContainer: {
     flex: 1,
   },
   scrollContent: {
-    padding: spacing[16],
+    paddingHorizontal: spacing[16],
+    paddingTop: spacing[20],
     paddingBottom: spacing[32],
   },
 });
@@ -105,8 +107,9 @@ const markdownStyles = StyleSheet.create({
   heading1: {
     fontSize: typography.headline2.size,
     fontWeight: typography.fontWeight.bold as '700',
+    lineHeight: 36,
     color: colorSystem.base.black,
-    marginTop: spacing[24],
+    marginTop: 0,
     marginBottom: spacing[16],
   },
   heading2: {
