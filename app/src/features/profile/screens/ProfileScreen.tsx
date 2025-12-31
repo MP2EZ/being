@@ -18,6 +18,7 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 // OnboardingScreen no longer embedded - navigation to LegalGate handles full flow
 import AppSettingsScreen from './AppSettingsScreen';
+import PrivacyDataScreen from './PrivacyDataScreen';
 import AccountSettingsScreen from './AccountSettingsScreen';
 import LegalDocumentsListScreen from './LegalDocumentsListScreen';
 import { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
@@ -28,6 +29,7 @@ import ThresholdEducationModal from '@/core/components/ThresholdEducationModal';
 import { useAssessmentStore } from '@/features/assessment/stores/assessmentStore';
 import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
 import { useAnalytics } from '@/core/analytics';
+import SubMenuHeader from '../components/SubMenuHeader';
 
 type ProfileScreenNavigationProp = StackNavigationProp<RootStackParamList>;
 
@@ -39,7 +41,7 @@ interface AssessmentMetadata {
   status: 'recent' | 'due' | 'recommended' | 'never';
 }
 
-type Screen = 'menu' | 'account' | 'privacy' | 'about' | 'stoicMindfulness' | 'legal';
+type Screen = 'menu' | 'account' | 'privacy' | 'appSettings' | 'about' | 'stoicMindfulness' | 'legal';
 
 const ProfileScreen: React.FC = () => {
   const [currentScreen, setCurrentScreen] = useState<Screen>('menu');
@@ -169,7 +171,7 @@ const ProfileScreen: React.FC = () => {
   const devMode = isDevMode();
 
   const renderMenu = () => (
-    <SafeAreaView style={styles.container} testID="profile-screen">
+    <SafeAreaView key="menu-screen" style={styles.container} testID="profile-screen">
       {devMode && (
         <View style={styles.devModeBanner}>
           <Text style={styles.devModeText}>
@@ -217,6 +219,20 @@ const ProfileScreen: React.FC = () => {
               Complete your initial assessment and configure your therapeutic preferences for a personalized experience.
             </Text>
             <Text style={styles.cardAction} importantForAccessibility="no">Start Setup →</Text>
+          </Pressable>
+
+          <Pressable
+            style={styles.profileCard}
+            onPress={() => setCurrentScreen('appSettings')}
+            accessibilityRole="button"
+            accessibilityLabel="App Settings"
+            accessibilityHint="Configure notifications and accessibility preferences"
+          >
+            <Text style={styles.cardTitle}>App Settings</Text>
+            <Text style={styles.cardDescription}>
+              Configure notifications, accessibility options, and view app information.
+            </Text>
+            <Text style={styles.cardAction} importantForAccessibility="no">Configure →</Text>
           </Pressable>
         </View>
 
@@ -419,35 +435,33 @@ const ProfileScreen: React.FC = () => {
   );
 
   const renderPlaceholder = (title: string, description: string) => (
-    <SafeAreaView style={styles.container}>
-      <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
-        <View style={styles.header}>
-          <Text style={styles.title}>{title}</Text>
-          <Text style={styles.subtitle}>{description}</Text>
-        </View>
+    <SafeAreaView key={`placeholder-${title}`} style={styles.container}>
+      <SubMenuHeader title={title} onClose={handleReturnToMenu} />
+      <ScrollView
+        style={styles.scrollContainer}
+        contentContainerStyle={styles.scrollContent}
+      >
+        <Text style={[styles.subtitle, styles.subtitleSpacing]}>{description}</Text>
 
         <View style={styles.placeholderContent}>
           <Text style={styles.placeholderText}>
             This feature is coming soon. We're working hard to bring you the best experience.
           </Text>
         </View>
-
-        <Pressable style={styles.primaryButton} onPress={handleReturnToMenu}>
-          <Text style={styles.primaryButtonText}>Return to Profile</Text>
-        </Pressable>
       </ScrollView>
     </SafeAreaView>
   );
 
   const renderAboutStoicMindfulness = () => (
-    <SafeAreaView style={styles.container}>
-      <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
-        <View style={styles.header}>
-          <Text style={styles.title}>About Stoic Mindfulness</Text>
-          <Text style={styles.subtitle}>
-            A comprehensive integration of ancient Stoic philosophy with modern mindfulness practice
-          </Text>
-        </View>
+    <SafeAreaView key="stoicMindfulness-screen" style={styles.container}>
+      <SubMenuHeader title="About Stoic Mindfulness" onClose={handleReturnToMenu} />
+      <ScrollView
+        style={styles.scrollContainer}
+        contentContainerStyle={styles.scrollContent}
+      >
+        <Text style={[styles.subtitle, styles.subtitleSpacing]}>
+          A comprehensive integration of ancient Stoic philosophy with modern mindfulness practice
+        </Text>
 
         {/* Introduction Section */}
         <View style={styles.section}>
@@ -555,10 +569,6 @@ const ProfileScreen: React.FC = () => {
             <Text style={{ fontWeight: typography.fontWeight.semibold }}>Seneca</Text> (4 BCE-65 CE) - Statesman and advisor whose Letters provide practical guidance for living well.
           </Text>
         </View>
-
-        <Pressable style={styles.primaryButton} onPress={handleReturnToMenu}>
-          <Text style={styles.primaryButtonText}>Return to Profile</Text>
-        </Pressable>
       </ScrollView>
     </SafeAreaView>
   );
@@ -572,6 +582,10 @@ const ProfileScreen: React.FC = () => {
     }
 
     if (currentScreen === 'privacy') {
+      return <PrivacyDataScreen onReturn={handleReturnToMenu} />;
+    }
+
+    if (currentScreen === 'appSettings') {
       return <AppSettingsScreen onReturn={handleReturnToMenu} />;
     }
 
@@ -636,6 +650,9 @@ const styles = StyleSheet.create({
     color: colorSystem.gray[600],
     textAlign: 'center',
     lineHeight: 24,
+  },
+  subtitleSpacing: {
+    marginBottom: spacing[24],
   },
   section: {
     marginBottom: spacing[32],

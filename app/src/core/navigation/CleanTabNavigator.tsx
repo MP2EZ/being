@@ -197,6 +197,7 @@ const CleanTabNavigator: React.FC = () => {
         component={ProfileScreen}
         options={{
           headerTitle: 'Profile',
+          headerShown: false, // ProfileScreen has its own SafeAreaView
           tabBarIcon: ({ focused }) => (
             <BrainIcon
               color={focused ? colorSystem.base.midnightBlue : colorSystem.gray[500]}

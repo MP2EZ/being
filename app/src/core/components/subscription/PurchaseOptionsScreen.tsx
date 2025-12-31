@@ -33,7 +33,10 @@ import {
   Alert,
   Linking,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 import { IAPService, useIAPService } from '@/core/services/subscription/IAPService';
+import SubMenuHeader from '@/features/profile/components/SubMenuHeader';
 import { useSubscriptionStore } from '@/core/stores/subscriptionStore';
 import {
   SubscriptionInterval,
@@ -50,12 +53,21 @@ export default function PurchaseOptionsScreen({
   onPurchaseComplete,
   onClose,
 }: PurchaseOptionsScreenProps) {
+  const navigation = useNavigation();
   const { isReady, service } = useIAPService();
   const subscriptionStore = useSubscriptionStore();
 
   const [selectedInterval, setSelectedInterval] = React.useState<SubscriptionInterval>('yearly');
   const [isPurchasing, setIsPurchasing] = React.useState(false);
   const [isRestoring, setIsRestoring] = React.useState(false);
+
+  const handleClose = () => {
+    if (onClose) {
+      onClose();
+    } else {
+      navigation.goBack();
+    }
+  };
 
   // Get available products
   const products = service.getProducts();
@@ -227,17 +239,22 @@ export default function PurchaseOptionsScreen({
 
   if (!isReady) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#4A90E2" />
-        <Text style={styles.loadingText}>Loading subscription options...</Text>
-      </View>
+      <SafeAreaView style={styles.safeArea}>
+        <SubMenuHeader title="Subscription" onClose={handleClose} />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#4A90E2" />
+          <Text style={styles.loadingText}>Loading subscription options...</Text>
+        </View>
+      </SafeAreaView>
     );
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* Header */}
-      <View style={styles.header}>
+    <SafeAreaView style={styles.safeArea}>
+      <SubMenuHeader title="Subscription" onClose={handleClose} />
+      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+        {/* Header */}
+        <View style={styles.header}>
         <Text style={styles.title}>Choose Your Plan</Text>
         <Text style={styles.subtitle}>
           Start with a free trial, then continue your journey
@@ -371,23 +388,16 @@ export default function PurchaseOptionsScreen({
           <Text style={styles.legalLink}>Privacy Policy</Text>
         </TouchableOpacity>
       </View>
-
-      {/* Close Button */}
-      {onClose && (
-        <TouchableOpacity
-          style={styles.closeButton}
-          onPress={onClose}
-          accessibilityLabel="Close"
-          accessibilityRole="button"
-        >
-          <Text style={styles.closeButtonText}>Not Now</Text>
-        </TouchableOpacity>
-      )}
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
   container: {
     flex: 1,
     backgroundColor: '#F5F5F5',
@@ -582,13 +592,5 @@ const styles = StyleSheet.create({
     fontSize: typography.micro.size,
     color: '#999999',
     marginHorizontal: spacing[8],
-  },
-  closeButton: {
-    padding: spacing[16],
-    alignItems: 'center',
-  },
-  closeButtonText: {
-    fontSize: typography.bodyRegular.size,
-    color: '#999999',
   },
 });
