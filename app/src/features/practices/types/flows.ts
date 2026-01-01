@@ -5,14 +5,16 @@
 
 // Flow Navigation Types
 
-// Stoic Mindfulness Morning Flow (FEAT-45) - DRD v2.0.0
+// Stoic Mindfulness Morning Flow - FEAT-139 Refactored 4-Screen Flow
+// Philosopher validated (9/10) - All 5 principles represented
+// Flow: Grounded Presence → Gratitude+Intention → Principle Focus → Relational Close
+// @see ~/dtemp/morning-checkin-ux-refactor-design.md
 export type MorningFlowParamList = {
-  Gratitude: undefined;
-  Intention: undefined;
-  Preparation: undefined;
-  PrincipleFocus: undefined;
-  PhysicalGrounding: undefined;
-  MorningCompletion: undefined;
+  GroundedPresence: undefined;     // Screen 1: Physical grounding FIRST (Aware Presence)
+  GratitudeIntention: undefined;   // Screen 2: Combined gratitude + intention with impermanence framing
+  PrincipleFocus: undefined;       // Screen 3: Principle selection (SM pedagogy)
+  RelationalClose: undefined;      // Screen 4: NEW - Interconnected Living (was missing)
+  MorningCompletion: undefined;    // Completion card
 };
 
 // Stoic Mindfulness Midday Flow (MAINT-65) - Refactored 4-Screen Flow
@@ -192,6 +194,64 @@ export interface EveningFlowData {
  */
 
 import type { CardinalVirtue, PracticeDomain, StoicPrinciple, VirtueInstance, VirtueChallenge } from './stoic';
+
+// ──────────────────────────────────────────────────────────────────────────────
+// FEAT-139: MORNING FLOW UX REFACTOR - NEW 4-SCREEN DATA TYPES
+// Philosopher validated (9/10) - All 5 Stoic Mindfulness principles represented
+// Flow: Grounded Presence → Gratitude+Intention → Principle Focus → Relational Close
+// @see ~/dtemp/morning-checkin-ux-refactor-design.md
+// ──────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Screen 1: Grounded Presence (Aware Presence principle)
+ * Physical grounding FIRST - 60s minimum presence time
+ * Classical: "Begin at once to live" (Seneca, Letters 101)
+ */
+export interface GroundedPresenceData {
+  completed: boolean;
+  duration: number; // seconds spent in grounding
+  skipped: boolean;
+  timestamp?: Date;
+}
+
+/**
+ * Screen 2: Gratitude + Intention (Combined screen)
+ * Impermanence framing: "This day isn't guaranteed"
+ * Reserve clause: "fate permitting" on intention
+ * Classical: Marcus Aurelius, Meditations 2:1
+ */
+export interface GratitudeIntentionData {
+  gratitudes: string[]; // min 1 required, max 3
+  intention: string | null; // optional, includes reserve clause context
+  timestamp: Date;
+}
+
+/**
+ * Screen 4: Relational Close (Interconnected Living principle)
+ * NEW screen adding missing principle to morning flow
+ * All inputs optional - respects user agency
+ * Classical: "We were born to work together" (Marcus Aurelius, Meditations 2:1)
+ */
+export interface RelationalCloseData {
+  encounters: string | null; // Who might you encounter?
+  practice: string | null; // How will you show up?
+  timestamp: Date;
+}
+
+/**
+ * Complete FEAT-139 Morning Flow Session Data
+ * Refactored from 6 screens to 4 screens for improved UX
+ * Target: ~70% completion rate (up from 35%)
+ */
+export interface MorningFlowSessionData {
+  groundedPresence?: GroundedPresenceData;
+  gratitudeIntention?: GratitudeIntentionData;
+  principleFocus?: PrincipleFocusData;
+  relationalClose?: RelationalCloseData;
+  completedAt?: Date;
+  timeSpentSeconds?: number;
+  flowVersion: 'feat-139-v1';
+}
 
 // ──────────────────────────────────────────────────────────────────────────────
 // MORNING FLOW TYPES
@@ -516,7 +576,8 @@ export interface SleepTransitionData {
 // FEAT-134: Evening flow breathing screen data
 export interface EveningBreathingData {
   completed: boolean;
-  durationSeconds: 60;  // Fixed 60s duration
+  durationSeconds: number;
+  skipped?: boolean;
   timestamp: Date;
 }
 

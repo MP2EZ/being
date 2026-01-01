@@ -1,21 +1,26 @@
 /**
- * Morning Flow Navigator (Stoic Mindfulness - FEAT-45)
- * Handles navigation for Stoic morning practice with progress tracking
- * Standard stack navigation with philosophical UX
+ * Morning Flow Navigator - FEAT-139 UX Refactor
  *
- * FEAT-23: Session resumption with philosopher-validated Stoic language
+ * Handles navigation for Stoic Mindfulness morning practice with progress tracking.
+ * Refactored from 6 screens to 4 screens for improved UX (~70% projected completion rate).
+ *
+ * FEAT-139: Morning Check-in UX Refactor
+ * - 4 screens (down from 6): Grounded Presence → Gratitude+Intention → Principle Focus → Relational Close
+ * - Physical grounding FIRST (Aware Presence principle)
+ * - All 5 Stoic Mindfulness principles now represented
+ * - Reduced required inputs from 7+ to 2-3
+ * - 3-5 minute completion time (down from 5-10 min)
+ *
+ * FEAT-23: Session resumption preserved
  * - Supports resuming interrupted sessions (24hr TTL)
  * - Automatic session saving on screen navigation
- * - Sphere Sovereignty: Both resume and fresh start equally virtuous
- *
- * INFRA-135: Uses shared FlowProgressIndicator and useFlowSessionResumption hook
  *
  * Classical Stoic Foundation:
  * - Marcus Aurelius: Daily morning preparation (Meditations 2:1)
  * - Epictetus: Begin the day with right principles (Enchiridion 21)
  * - Seneca: "Begin at once to live" (Letters 101)
  *
- * @see /docs/architecture/Stoic-Mindfulness-Architecture-v1.0.md
+ * @see ~/dtemp/morning-checkin-ux-refactor-design.md
  */
 
 import React, { useState } from 'react';
@@ -29,12 +34,11 @@ import { useFlowSessionResumption } from '../shared/hooks';
 import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 
-// Import Stoic Mindfulness screens (DRD v2.0.0)
-import GratitudeScreen from './screens/GratitudeScreen';
-import IntentionScreen from './screens/IntentionScreen';
-import ProtectedPreparationScreen from './screens/ProtectedPreparationScreen';
+// Import new FEAT-139 screens
+import GroundedPresenceScreen from './screens/GroundedPresenceScreen';
+import GratitudeIntentionScreen from './screens/GratitudeIntentionScreen';
 import PrincipleFocusScreen from './screens/PrincipleFocusScreen';
-import PhysicalGroundingScreen from './screens/PhysicalGroundingScreen';
+import RelationalCloseScreen from './screens/RelationalCloseScreen';
 import MorningCompletionScreen from './screens/MorningCompletionScreen';
 
 const Stack = createStackNavigator<MorningFlowParamList>();
@@ -44,14 +48,13 @@ interface MorningFlowNavigatorProps {
   onExit: () => void;
 }
 
-// Screen order mapping for progress calculation (Stoic Mindfulness Flow - DRD v2.0.0)
+// FEAT-139: New 4-screen order (+ completion)
 const SCREEN_ORDER = [
-  'Gratitude',
-  'Intention',
-  'Preparation',
-  'PrincipleFocus',
-  'PhysicalGrounding',
-  'MorningCompletion',
+  'GroundedPresence',    // Screen 1: Physical grounding FIRST (Aware Presence)
+  'GratitudeIntention',  // Screen 2: Combined gratitude + intention
+  'PrincipleFocus',      // Screen 3: Principle selection
+  'RelationalClose',     // Screen 4: Interconnected Living (NEW)
+  'MorningCompletion',   // Completion card
 ] as const;
 
 type MorningScreenName = (typeof SCREEN_ORDER)[number];
@@ -63,7 +66,7 @@ const MorningFlowNavigator: React.FC<MorningFlowNavigatorProps> = ({
   // Navigation for crisis button
   const rootNavigation = useNavigation<StackNavigationProp<RootStackParamList>>();
   const [currentStep, setCurrentStep] = useState(1);
-  const totalSteps = SCREEN_ORDER.length - 1; // Exclude MorningCompletion from count
+  const totalSteps = SCREEN_ORDER.length - 1; // Exclude MorningCompletion from count (4 steps)
 
   // FEAT-23 + INFRA-135: Use shared session resumption hook
   const {
@@ -72,7 +75,6 @@ const MorningFlowNavigator: React.FC<MorningFlowNavigatorProps> = ({
     resumableSession,
     initialNavigationState,
     shouldResetNav,
-    lastSavedStep,
     hasResetNav,
     screenData,
     handleResumeSession,
@@ -86,60 +88,56 @@ const MorningFlowNavigator: React.FC<MorningFlowNavigatorProps> = ({
   });
 
   // Screen wrappers with data persistence
-  const GratitudeScreenWrapper = ({ navigation, route }: any) => (
-    <GratitudeScreen
+
+  // Screen 1: Grounded Presence (Aware Presence principle)
+  const GroundedPresenceWrapper = ({ navigation, route }: any) => (
+    <GroundedPresenceScreen
       navigation={navigation}
       route={route}
       onSave={(data) => {
-        updateScreenData('Gratitude', data, 'Intention');
+        updateScreenData('GroundedPresence', data, 'GratitudeIntention');
       }}
     />
   );
 
-  const IntentionScreenWrapper = ({ navigation, route }: any) => (
-    <IntentionScreen
+  // Screen 2: Gratitude + Intention (combined)
+  const GratitudeIntentionWrapper = ({ navigation, route }: any) => (
+    <GratitudeIntentionScreen
       navigation={navigation}
       route={route}
       onSave={(data) => {
-        updateScreenData('Intention', data, 'Preparation');
+        updateScreenData('GratitudeIntention', data, 'PrincipleFocus');
       }}
     />
   );
 
-  const PreparationScreenWrapper = ({ navigation, route }: any) => (
-    <ProtectedPreparationScreen
-      {...({ navigation, route } as any)}
-      onSave={(data: any) => {
-        updateScreenData('Preparation', data, 'PrincipleFocus');
-      }}
-    />
-  );
-
-  const PrincipleFocusScreenWrapper = ({ navigation, route }: any) => (
+  // Screen 3: Principle Focus
+  const PrincipleFocusWrapper = ({ navigation, route }: any) => (
     <PrincipleFocusScreen
       navigation={navigation}
       route={route}
       onSave={(data) => {
-        updateScreenData('PrincipleFocus', data, 'PhysicalGrounding');
+        updateScreenData('PrincipleFocus', data, 'RelationalClose');
       }}
     />
   );
 
-  const PhysicalGroundingScreenWrapper = ({ navigation, route }: any) => (
-    <PhysicalGroundingScreen
+  // Screen 4: Relational Close (NEW - Interconnected Living)
+  const RelationalCloseWrapper = ({ navigation, route }: any) => (
+    <RelationalCloseScreen
       navigation={navigation}
       route={route}
       onSave={(data) => {
-        updateScreenData('PhysicalGrounding', data, 'MorningCompletion');
+        updateScreenData('RelationalClose', data, 'MorningCompletion');
       }}
     />
   );
 
-  // Custom header with flow name + progress (screen titles are in cards)
+  // Custom header with flow name + progress indicator
   const getHeaderOptions = () => ({
     headerTitle: () => (
       <View style={styles.headerContainer}>
-        <Text style={styles.headerTitle}>Morning Awareness</Text>
+        <Text style={styles.headerTitle}>Morning Check-in</Text>
         <FlowProgressIndicator
           currentStep={currentStep}
           totalSteps={totalSteps}
@@ -152,7 +150,7 @@ const MorningFlowNavigator: React.FC<MorningFlowNavigatorProps> = ({
       <TouchableOpacity
         onPress={onExit}
         style={styles.closeButton}
-        accessibilityLabel="Close morning flow"
+        accessibilityLabel="Close morning check-in"
         accessibilityRole="button"
         accessibilityHint="Returns to home screen"
       >
@@ -161,12 +159,12 @@ const MorningFlowNavigator: React.FC<MorningFlowNavigatorProps> = ({
     ),
   });
 
-  // Don't render anything until we've checked for a session
+  // Loading state while checking for resumable session
   if (isCheckingSession) {
-    return null; // Could show a loading spinner here if desired
+    return null;
   }
 
-  // Don't render navigator until resume modal is dismissed to prevent premature saves
+  // Show resume modal if there's a resumable session
   if (showResumeModal) {
     return (
       <ResumeSessionModal
@@ -181,22 +179,18 @@ const MorningFlowNavigator: React.FC<MorningFlowNavigatorProps> = ({
   return (
     <>
       <Stack.Navigator
-        initialRouteName="Gratitude"
+        initialRouteName="GroundedPresence"
         screenOptions={{
           headerStyle: {
             backgroundColor: colorSystem.themes.morning.background,
-            // Colored accent bar at bottom (matches midday/evening pattern)
             borderBottomColor: colorSystem.themes.morning.primary,
             borderBottomWidth: 1,
             shadowColor: '#000',
-            shadowOffset: {
-              width: 0,
-              height: 1,
-            },
+            shadowOffset: { width: 0, height: 1 },
             shadowOpacity: 0.05,
             shadowRadius: 2,
             elevation: 4,
-            height: 100, // Increased height for progress indicator
+            height: 100,
           },
           headerTintColor: colorSystem.base.black,
           cardStyle: {
@@ -210,12 +204,10 @@ const MorningFlowNavigator: React.FC<MorningFlowNavigatorProps> = ({
             if (shouldResetNav && !hasResetNav.current && initialNavigationState) {
               hasResetNav.current = true;
               console.log('[MorningFlow] Triggering imperative reset with state:', initialNavigationState);
-
-              // Reset navigation state
               navigation.reset(initialNavigationState);
               clearResetNav();
               console.log('[MorningFlow] Imperative reset complete');
-              return; // Don't process state update this cycle
+              return;
             }
 
             // Update progress based on current screen
@@ -226,43 +218,39 @@ const MorningFlowNavigator: React.FC<MorningFlowNavigatorProps> = ({
               if (stepIndex !== -1) {
                 setCurrentStep(stepIndex + 1);
               }
-
-              // FEAT-23: Session saving is handled by updateScreenData in screen wrappers
-              // The screenListeners state change is only used for progress updates and reset handling
             }
           },
         })}
       >
+        {/* Screen 1: Grounded Presence */}
         <Stack.Screen
-          name="Gratitude"
-          component={GratitudeScreenWrapper}
+          name="GroundedPresence"
+          component={GroundedPresenceWrapper}
           options={getHeaderOptions()}
         />
 
+        {/* Screen 2: Gratitude + Intention */}
         <Stack.Screen
-          name="Intention"
-          component={IntentionScreenWrapper}
+          name="GratitudeIntention"
+          component={GratitudeIntentionWrapper}
           options={getHeaderOptions()}
         />
 
-        <Stack.Screen
-          name="Preparation"
-          component={PreparationScreenWrapper}
-          options={getHeaderOptions()}
-        />
-
+        {/* Screen 3: Principle Focus */}
         <Stack.Screen
           name="PrincipleFocus"
-          component={PrincipleFocusScreenWrapper}
+          component={PrincipleFocusWrapper}
           options={getHeaderOptions()}
         />
 
+        {/* Screen 4: Relational Close (NEW) */}
         <Stack.Screen
-          name="PhysicalGrounding"
-          component={PhysicalGroundingScreenWrapper}
+          name="RelationalClose"
+          component={RelationalCloseWrapper}
           options={getHeaderOptions()}
         />
 
+        {/* Completion Screen */}
         <Stack.Screen
           name="MorningCompletion"
           options={{ headerShown: false }}
@@ -272,15 +260,13 @@ const MorningFlowNavigator: React.FC<MorningFlowNavigatorProps> = ({
               {...props}
               route={{
                 ...props.route,
-                // Cast params to any - MorningCompletionScreen extracts via (route.params as any)
-                // Transform screenData keys from PascalCase to camelCase to match StoicMorningFlowData
                 params: {
                   flowData: {
-                    gratitude: screenData['Gratitude'],
-                    intention: screenData['Intention'],
-                    preparation: screenData['Preparation'],
+                    // FEAT-139: Map new screen data structure
+                    groundedPresence: screenData['GroundedPresence'],
+                    gratitudeIntention: screenData['GratitudeIntention'],
                     principleFocus: screenData['PrincipleFocus'],
-                    physicalGrounding: screenData['PhysicalGrounding'],
+                    relationalClose: screenData['RelationalClose'],
                   },
                   startTime: new Date().toISOString(),
                 } as any,
@@ -291,7 +277,7 @@ const MorningFlowNavigator: React.FC<MorningFlowNavigatorProps> = ({
         </Stack.Screen>
       </Stack.Navigator>
 
-      {/* Crisis Button - Single instance for entire flow, maintains fade state */}
+      {/* Crisis Button - Always accessible, maintains fade state */}
       <CollapsibleCrisisButton
         mode="immersive"
         onNavigate={() => rootNavigation.navigate('CrisisResources')}

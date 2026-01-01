@@ -5,7 +5,7 @@
  * - 8-second breathing cycle (4s inhale, 4s exhale)
  * - 60fps performance for therapeutic smoothness
  * - Non-directive guidance (follows natural rhythm)
- * - Midday theme (#40B5AD)
+ * - Therapeutic blue-gray (#6B8BA8) - flow-agnostic color
  * - Accessibility compliant with audio cues
  * - Reduced motion support
  */
@@ -360,10 +360,10 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: borderRadius.full,
-    backgroundColor: colorSystem.themes.midday.primary, // #40B5AD
+    backgroundColor: colorSystem.therapeutic.breathing, // #6B8BA8 - flow-agnostic
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: colorSystem.themes.midday.primary,
+    shadowColor: colorSystem.therapeutic.breathing,
     shadowOffset: {
       width: 0,
       height: spacing[4],
@@ -376,7 +376,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: borderRadius.full,
-    backgroundColor: colorSystem.themes.midday.light, // #5EC4BC
+    backgroundColor: colorSystem.therapeutic.breathingLight, // #8EAFC9 - flow-agnostic
     opacity: 0.6,
   },
   guidanceContainer: {

@@ -15,5 +15,14 @@ export { ResumeSessionModal } from './ResumeSessionModal';
 export { FlowProgressIndicator } from './FlowProgressIndicator';
 export type { FlowType } from './FlowProgressIndicator';
 
+// FEAT-139: DRY flow components
+export { FlowBackButton } from './FlowBackButton';
+export { SkipLink } from './SkipLink';
+export { FlowHeader } from './FlowHeader';
+export { StoicQuoteCard } from './StoicQuoteCard';
+export { PreviousAnswerCard } from './PreviousAnswerCard';
+export { default as GuidanceCard } from './GuidanceCard';
+export type { FlowTheme } from './FlowBackButton';
+
 // Note: BodyAreaGrid exports BODY_AREAS constant used by Learn tab
 // Import directly: import { BODY_AREAS } from '@/features/practices/shared/components/BodyAreaGrid';

@@ -30,7 +30,7 @@ import {
 } from 'react-native';
 import type { StackScreenProps } from '@react-navigation/stack';
 import { colorSystem, spacing, borderRadius, typography, getTheme } from '@/core/theme';
-import { PreviousAnswerCard } from '@/features/practices/shared/components/PreviousAnswerCard';
+import { PreviousAnswerCard, FlowBackButton } from '@/features/practices/shared/components';
 import type { MiddayFlowParamList, VirtueResponseData } from '@/features/practices/types/flows';
 
 type Props = StackScreenProps<MiddayFlowParamList, 'VirtueResponse'> & {
@@ -81,15 +81,7 @@ const VirtueResponseScreen: React.FC<Props> = ({
         testID="virtue-response-screen"
       >
         {/* Back Button */}
-        <Pressable
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-          accessibilityRole="button"
-          accessibilityLabel="Go back"
-          testID="back-button"
-        >
-          <Text style={[styles.backButtonText, { color: themeColors.primary }]}>← Back</Text>
-        </Pressable>
+        <FlowBackButton onPress={() => navigation.goBack()} theme="midday" />
 
         {/* Section Header */}
         <Text style={styles.sectionTitle}>Virtue Response</Text>
@@ -166,14 +158,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: spacing[20],
     paddingBottom: spacing[40],
-  },
-
-  // Back button
-  backButton: {
-    marginBottom: spacing[20],
-  },
-  backButtonText: {
-    fontSize: typography.bodyRegular.size,
   },
 
   // Section header

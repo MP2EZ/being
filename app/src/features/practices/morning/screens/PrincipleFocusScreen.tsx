@@ -34,12 +34,14 @@ import {
   TouchableOpacity,
   ScrollView,
   StyleSheet,
-  Switch,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import type { StackScreenProps } from '@react-navigation/stack';
 import type { MorningFlowParamList, PrincipleFocusData } from '@/features/practices/types/flows';
 import type { StoicPrinciple } from '@/features/practices/types/stoic';
-import { spacing, borderRadius, typography } from '@/core/theme';
+import { FlowBackButton, SkipLink, FlowHeader } from '../../shared/components';
+import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
 
 type Props = StackScreenProps<MorningFlowParamList, 'PrincipleFocus'> & {
   onSave?: (data: PrincipleFocusData) => void;
@@ -118,8 +120,7 @@ const PrincipleFocusScreen: React.FC<Props> = ({ navigation, route, onSave }) =>
   const [personalInterpretation, setPersonalInterpretation] = useState(
     initialData?.personalInterpretation || ''
   );
-  const [reminderEnabled, setReminderEnabled] = useState(!!initialData?.reminderTime);
-  const [reminderTime, setReminderTime] = useState(initialData?.reminderTime || '12:00');
+  // FEAT-139: Reminder feature removed - simplifying flow
 
   const selectedPrincipleInfo = PRINCIPLES.find(p => p.key === selectedPrinciple);
 
@@ -131,7 +132,7 @@ const PrincipleFocusScreen: React.FC<Props> = ({ navigation, route, onSave }) =>
     const principleFocusData: PrincipleFocusData = {
       principleKey: selectedPrinciple,
       personalInterpretation: personalInterpretation.trim() || undefined,
-      reminderTime: reminderEnabled ? reminderTime : undefined,
+      reminderTime: undefined, // FEAT-139: Reminder removed
       timestamp: new Date(),
     };
 
@@ -139,33 +140,49 @@ const PrincipleFocusScreen: React.FC<Props> = ({ navigation, route, onSave }) =>
       onSave(principleFocusData);
     }
 
-    navigation.navigate('PhysicalGrounding' as never);
+    // FEAT-139: Navigate to RelationalClose instead of PhysicalGrounding
+    navigation.navigate('RelationalClose' as never);
+  };
+
+  const handleSkip = () => {
+    // Save empty data when skipping
+    const principleFocusData: PrincipleFocusData = {
+      principleKey: 'aware_presence', // Default principle when skipping
+      personalInterpretation: undefined,
+      reminderTime: undefined,
+      timestamp: new Date(),
+    };
+
+    if (onSave) {
+      onSave(principleFocusData);
+    }
+
+    navigation.navigate('RelationalClose' as never);
   };
 
   return (
-    <View style={{ flex: 1 }}>
-      <ScrollView style={styles.container} testID="principle-focus-screen">
-      {/* Back Button */}
-      <TouchableOpacity
-        style={styles.backButton}
-        onPress={() => navigation.goBack()}
-        testID="back-button"
-        accessibilityLabel="Go back"
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        testID="principle-focus-screen"
+        keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.backButtonText}>← Back</Text>
-      </TouchableOpacity>
+      {/* Back Button */}
+      <FlowBackButton onPress={() => navigation.goBack()} theme="morning" />
 
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.title}>Principle Focus</Text>
-        <Text style={styles.subtitle}>
-          Choose one principle to guide your day
-        </Text>
-      </View>
+      {/* Header - FEAT-139: Simplified pedagogical framing */}
+      <FlowHeader
+        title="Principle Focus"
+        subtitle="Which principle will you practice today?"
+        large
+      />
 
-      {/* Principles List (Flat - Option A) */}
+      {/* Principles List (Flat - WCAG AA accessible) */}
       <View style={styles.principlesSection}>
-        <Text style={styles.principlesHeader}>Choose a Principle to Focus On Today</Text>
         {PRINCIPLES.map((principle, index) => (
           <TouchableOpacity
             key={principle.key}
@@ -214,35 +231,14 @@ const PrincipleFocusScreen: React.FC<Props> = ({ navigation, route, onSave }) =>
                 value={personalInterpretation}
                 onChangeText={setPersonalInterpretation}
                 placeholder="How will you apply this principle today?"
-                placeholderTextColor="#999"
+                placeholderTextColor={colorSystem.gray[500]}
                 testID="personal-interpretation"
                 accessibilityLabel="Personal interpretation of principle"
                 multiline
               />
             </View>
 
-            {/* Reminder Toggle */}
-            <View style={styles.reminderSection}>
-              <View style={styles.reminderRow}>
-                <Text style={styles.reminderLabel}>Remind me later today</Text>
-                <Switch
-                  value={reminderEnabled}
-                  onValueChange={setReminderEnabled}
-                  testID="reminder-toggle"
-                  accessibilityLabel="Toggle reminder"
-                />
-              </View>
-              {reminderEnabled && (
-                <TextInput
-                  style={styles.timeInput}
-                  value={reminderTime}
-                  onChangeText={setReminderTime}
-                  placeholder="12:00"
-                  testID="reminder-time-input"
-                  accessibilityLabel="Select reminder time"
-                />
-              )}
-            </View>
+            {/* FEAT-139: Reminder toggle removed - simplifying flow per UX review */}
           </View>
         </View>
       )}
@@ -254,38 +250,37 @@ const PrincipleFocusScreen: React.FC<Props> = ({ navigation, route, onSave }) =>
         disabled={!selectedPrinciple}
         accessibilityRole="button"
         accessibilityState={{ disabled: !selectedPrinciple }}
+        accessibilityHint={
+          selectedPrinciple
+            ? 'Continue to relational close'
+            : 'Select a principle to continue'
+        }
+        testID="continue-button"
       >
         <Text style={styles.continueButtonText}>Continue</Text>
       </TouchableOpacity>
+
+      {/* Skip Link - FEAT-139 */}
+      <SkipLink
+        onPress={handleSkip}
+        accessibilityLabel="Skip principle focus"
+      />
       </ScrollView>
-    </View>
+    </KeyboardAvoidingView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: colorSystem.base.white, // Match other check-in flows
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
     padding: spacing[20],
-  },
-  backButton: {
-    marginBottom: spacing[20],
-  },
-  backButtonText: {
-    fontSize: typography.bodyRegular.size,
-    color: '#007AFF',
-  },
-  header: {
-    marginBottom: spacing[20],
-  },
-  title: {
-    fontSize: typography.headline2.size,
-    fontWeight: typography.fontWeight.bold,
-    marginBottom: spacing[8],
-  },
-  subtitle: {
-    fontSize: typography.bodyRegular.size,
-    color: '#666',
+    paddingBottom: spacing[40],
   },
   principlesSection: {
     marginBottom: spacing[24],
@@ -294,19 +289,21 @@ const styles = StyleSheet.create({
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
     marginBottom: spacing[16],
-    color: '#333',
+    color: colorSystem.base.black,
   },
   principleCard: {
     padding: spacing[16],
-    backgroundColor: '#f5f5f5',
+    backgroundColor: colorSystem.gray[100],
     borderRadius: borderRadius.medium,
     marginBottom: spacing[12],
     borderWidth: 2,
     borderColor: 'transparent',
+    // Touch target
+    minHeight: 56,
   },
   principleCardSelected: {
-    borderColor: '#007AFF',
-    backgroundColor: '#E3F2FD',
+    borderColor: colorSystem.themes.morning.primary,
+    backgroundColor: colorSystem.themes.morning.background,
   },
   principleHeader: {
     flexDirection: 'row',
@@ -316,22 +313,22 @@ const styles = StyleSheet.create({
   principleNumber: {
     fontSize: typography.title.size,
     fontWeight: typography.fontWeight.bold,
-    color: '#007AFF',
+    color: colorSystem.themes.morning.primary,
     marginRight: spacing[12],
-    width: 28,
+    width: spacing[28],
   },
   principleTitle: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.semibold,
-    color: '#333',
+    color: colorSystem.base.black,
     flex: 1,
   },
   principleTitleSelected: {
-    color: '#007AFF',
+    color: colorSystem.themes.morning.primary,
   },
   principleDescription: {
     fontSize: typography.bodySmall.size,
-    color: '#666',
+    color: colorSystem.gray[600],
     lineHeight: 20,
   },
   selectedSection: {
@@ -342,29 +339,30 @@ const styles = StyleSheet.create({
     fontSize: typography.title.size,
     fontWeight: typography.fontWeight.semibold,
     marginBottom: spacing[12],
+    color: colorSystem.base.black,
   },
   selectedCard: {
     padding: spacing[20],
-    backgroundColor: '#f9f9f9',
+    backgroundColor: colorSystem.gray[100],
     borderRadius: borderRadius.medium,
     borderLeftWidth: 4,
-    borderLeftColor: '#007AFF',
+    borderLeftColor: colorSystem.themes.morning.primary,
   },
   selectedPrincipleTitle: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
     marginBottom: spacing[8],
-    color: '#007AFF',
+    color: colorSystem.themes.morning.primary,
   },
   selectedPrincipleDescription: {
     fontSize: typography.bodyRegular.size,
     marginBottom: spacing[8],
-    color: '#333',
+    color: colorSystem.base.black,
   },
   selectedPrincipleSource: {
     fontSize: typography.bodySmall.size,
     fontStyle: 'italic',
-    color: '#666',
+    color: colorSystem.gray[600],
     marginBottom: spacing[16],
   },
   interpretationSection: {
@@ -374,16 +372,17 @@ const styles = StyleSheet.create({
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.medium,
     marginBottom: spacing[8],
-    color: '#333',
+    color: colorSystem.base.black,
   },
   interpretationInput: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: colorSystem.gray[300],
     borderRadius: borderRadius.small,
     padding: spacing[12],
     fontSize: typography.bodySmall.size,
-    backgroundColor: '#fff',
+    backgroundColor: colorSystem.base.white,
     minHeight: 60,
+    color: colorSystem.base.black,
   },
   reminderSection: {
     marginTop: spacing[16],
@@ -395,30 +394,33 @@ const styles = StyleSheet.create({
   },
   reminderLabel: {
     fontSize: typography.bodySmall.size,
-    color: '#333',
+    color: colorSystem.base.black,
   },
   timeInput: {
     marginTop: spacing[12],
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: colorSystem.gray[300],
     borderRadius: borderRadius.small,
     padding: spacing[12],
     fontSize: typography.bodySmall.size,
-    backgroundColor: '#fff',
+    backgroundColor: colorSystem.base.white,
+    color: colorSystem.base.black,
   },
   continueButton: {
-    backgroundColor: '#007AFF',
+    backgroundColor: colorSystem.themes.morning.primary,
     padding: spacing[16],
     borderRadius: borderRadius.medium,
     alignItems: 'center',
     marginTop: spacing[20],
-    marginBottom: spacing[40],
+    marginBottom: spacing[16],
+    minHeight: 48,
+    justifyContent: 'center',
   },
   continueButtonDisabled: {
-    backgroundColor: '#ccc',
+    backgroundColor: colorSystem.gray[300],
   },
   continueButtonText: {
-    color: '#fff',
+    color: colorSystem.base.white,
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
   },

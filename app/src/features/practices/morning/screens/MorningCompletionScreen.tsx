@@ -14,6 +14,7 @@
 
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
+import { colorSystem } from '@/core/theme';
 import type { StackScreenProps } from '@react-navigation/stack';
 import type { MorningFlowParamList, StoicMorningFlowData } from '@/features/practices/types/flows';
 import { SessionStorageService } from '@/core/services/session/SessionStorageService';
@@ -68,7 +69,7 @@ const MorningCompletionScreen: React.FC<Props> = ({ route, onSave }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: colorSystem.base.white,
   },
 });
 
