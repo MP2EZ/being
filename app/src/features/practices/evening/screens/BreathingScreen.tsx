@@ -26,6 +26,7 @@ import type { StackScreenProps } from '@react-navigation/stack';
 import type { EveningFlowParamList, EveningBreathingData } from '@/features/practices/types/flows';
 import BreathingCircle from '../../shared/components/BreathingCircle';
 import Timer from '../../shared/components/Timer';
+import { SkipLink, GuidanceCard } from '../../shared/components';
 import { AccessibleButton } from '@/core/components/accessibility/AccessibleButton';
 import { spacing, typography, colorSystem } from '@/core/theme';
 
@@ -70,11 +71,27 @@ const BreathingScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
     navigation.navigate('Gratitude');
   };
 
+  const handleSkip = () => {
+    const breathingData: EveningBreathingData = {
+      completed: false,
+      durationSeconds: 0,
+      skipped: true,
+      timestamp: new Date(),
+    };
+
+    if (onSave) {
+      onSave(breathingData);
+    }
+
+    navigation.navigate('Gratitude');
+  };
+
   return (
     <View style={styles.container} testID="evening-breathing-screen">
-      {/* Header - minimal, breathing circle has instructions */}
+      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>Let's settle into evening</Text>
+        <Text style={styles.subtitle}>Let the day's activity settle.</Text>
       </View>
 
       {/* Breathing Circle - uses shared 60fps component */}
@@ -106,6 +123,21 @@ const BreathingScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
             />
           </View>
         )}
+
+        {/* Guidance Card */}
+        {!isComplete && (
+          <View style={styles.guidanceWrapper}>
+            <GuidanceCard
+              title="Before reflecting, notice:"
+              items={[
+                "Where you hold the day's tension",
+                'The rhythm of your breath',
+                'The body settling',
+              ]}
+              testID="evening-breathing-guidance"
+            />
+          </View>
+        )}
       </View>
 
       {/* Continue button - fades in after 60s */}
@@ -121,6 +153,14 @@ const BreathingScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
           />
         )}
       </Animated.View>
+
+      {/* Skip Link - accessibility */}
+      {!isComplete && (
+        <SkipLink
+          onPress={handleSkip}
+          accessibilityLabel="Skip breathing exercise"
+        />
+      )}
     </View>
   );
 };
@@ -142,6 +182,12 @@ const styles = StyleSheet.create({
     color: colorSystem.base.black,
     textAlign: 'center',
   },
+  subtitle: {
+    fontSize: typography.bodyRegular.size,
+    color: colorSystem.gray[600],
+    textAlign: 'center',
+    marginTop: spacing[8],
+  },
   breathingContainer: {
     alignItems: 'center',
     marginTop: spacing[24], // Close to title, not centered in full space
@@ -149,6 +195,10 @@ const styles = StyleSheet.create({
   timerWrapper: {
     marginTop: spacing[24],
     opacity: 0.6, // Dim timer - not the focus
+  },
+  guidanceWrapper: {
+    marginTop: spacing[24],
+    marginHorizontal: spacing[20],
   },
   buttonContainer: {
     flex: 1,

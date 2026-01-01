@@ -29,7 +29,7 @@ import {
 } from 'react-native';
 import type { StackScreenProps } from '@react-navigation/stack';
 import { colorSystem, spacing, borderRadius, typography, getTheme } from '@/core/theme';
-import { BreathingCircle, Timer } from '@/features/practices/shared/components';
+import { BreathingCircle, Timer, GuidanceCard } from '@/features/practices/shared/components';
 import type { MiddayFlowParamList, PauseAcknowledgeData } from '@/features/practices/types/flows';
 
 type Props = StackScreenProps<MiddayFlowParamList, 'PauseAcknowledge'> & {
@@ -123,6 +123,19 @@ const PauseAcknowledgeScreen: React.FC<Props> = ({ navigation, route, onSave }) 
               theme="midday"
               testID="pause-breath-timer"
             />
+
+            {/* Guidance Card */}
+            <View style={styles.guidanceWrapper}>
+              <GuidanceCard
+                title="Pause and notice:"
+                items={[
+                  'Your posture right now',
+                  'The rhythm of your breath',
+                  "What's asking for your attention",
+                ]}
+                testID="midday-pause-guidance"
+              />
+            </View>
           </View>
         )}
 
@@ -144,10 +157,10 @@ const PauseAcknowledgeScreen: React.FC<Props> = ({ navigation, route, onSave }) 
 
             {/* Input section */}
             <Text style={styles.inputLabel}>
-              What's weighing on you right now?
+              What's present right now?
             </Text>
             <Text style={styles.inputHint}>
-              Name the situation, thought, or feeling that's present.
+              Name the situation, thought, or feeling you notice.
             </Text>
 
             <TextInput
@@ -232,6 +245,10 @@ const styles = StyleSheet.create({
   },
   breathCircleContainer: {
     marginBottom: spacing[24],
+  },
+  guidanceWrapper: {
+    marginTop: spacing[24],
+    width: '100%',
   },
 
   // Section header (input phase)

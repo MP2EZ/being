@@ -38,6 +38,7 @@ export const colorSystem = {
   status: dsColors.status,
   accessibility: dsColors.accessibility,
   navigation: dsColors.navigation,
+  therapeutic: dsColors.therapeutic,
 };
 
 // Export as 'colors' for backward compatibility

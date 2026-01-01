@@ -30,6 +30,7 @@ import type { StackScreenProps } from '@react-navigation/stack';
 import type { EveningFlowParamList, SelfCompassionData } from '@/features/practices/types/flows';
 import { AccessibleInput } from '@/core/components/accessibility/AccessibleInput';
 import { AccessibleButton } from '@/core/components/accessibility/AccessibleButton';
+import { FlowBackButton } from '@/features/practices/shared/components';
 import { spacing, borderRadius, typography, colorSystem } from '@/core/theme';
 
 type Props = StackScreenProps<EveningFlowParamList, 'SelfCompassion'> & {
@@ -81,14 +82,7 @@ const SelfCompassionScreen: React.FC<Props> = ({ navigation, route, onSave }) =>
         keyboardShouldPersistTaps="handled"
       >
         {/* Back Button */}
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-          testID="back-button"
-          accessibilityLabel="Go back"
-        >
-          <Text style={styles.backButtonText}>← Back</Text>
-        </TouchableOpacity>
+        <FlowBackButton onPress={() => navigation.goBack()} theme="evening" />
 
         {/* Header */}
         <View style={styles.header}>
@@ -168,13 +162,6 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     padding: spacing[20],
-  },
-  backButton: {
-    marginBottom: spacing[20],
-  },
-  backButtonText: {
-    fontSize: typography.bodyRegular.size,
-    color: colorSystem.themes.evening.primary,
   },
   header: {
     marginBottom: spacing[24],
