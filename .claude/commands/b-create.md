@@ -357,139 +357,32 @@ Dimension Scores - adjust any? (specify dimension and new value, or Enter to ski
 
 ## Phase 7: Create Page in Notion
 
-NOTE: The Notion API update-block endpoint does not support updating block content. To update acceptance criteria or other block content after creation, blocks must be deleted and recreated using patch-block-children.
+NOTE: The new Notion API uses Notion-flavored Markdown for page content. To update content after creation, use `notion-update-page` with `replace_content` or `replace_content_range` commands.
 
 ```
-mcp__notionApi__API-post-page
+mcp__notion__notion-create-pages
 parent: {
-  "type": "database_id",
-  "database_id": "277a1108-c208-805c-810b-000b0f0aae22"
+  "data_source_id": "277a1108-c208-805c-810b-000b0f0aae22"
 }
-properties: {
-  "Name": {
-    "title": [
-      {
-        "text": {
-          "content": [Name from Phase 1]
-        }
-      }
-    ]
-  },
-  "Type": {
-    "select": {
-      "name": [TYPE from Phase 1]
-    }
-  },
-  "Status": {
-    "status": {
-      "name": "Not started"
-    }
-  },
-  "Impact": {
-    "number": [Impact score from Phase 6]
-  },
-  "Value": {
-    "number": [Value score from Phase 6]
-  },
-  "Strat Fit": {
-    "number": [Strategic Fit score from Phase 6]
-  },
-  "Urgency": {
-    "number": [Urgency score from Phase 6]
-  },
-  "Risk": {
-    "number": [Risk score from Phase 6]
-  },
-  "Effort": {
-    "select": {
-      "name": [Effort size from Phase 6]
-    }
-  }
-}
-children: [
+pages: [
   {
-    "object": "block",
-    "type": "heading_2",
-    "heading_2": {
-      "rich_text": [{ "text": { "content": "User Story" } }]
-    }
-  },
-  {
-    "object": "block",
-    "type": "paragraph",
-    "paragraph": {
-      "rich_text": [{ "text": { "content": [User Story from Phase 3 confirmation, or "(Add user story here)"] } }]
-    }
-  },
-  {
-    "object": "block",
-    "type": "heading_2",
-    "heading_2": {
-      "rich_text": [{ "text": { "content": "Acceptance Criteria" } }]
-    }
-  },
-  {
-    "object": "block",
-    "type": "paragraph",
-    "paragraph": {
-      "rich_text": [{ "text": { "content": [Acceptance Criteria from Phase 3 confirmation, or "(Add acceptance criteria here)"] } }]
-    }
-  },
-  {
-    "object": "block",
-    "type": "heading_2",
-    "heading_2": {
-      "rich_text": [{ "text": { "content": "Technical Notes" } }]
-    }
-  },
-  {
-    "object": "block",
-    "type": "paragraph",
-    "paragraph": {
-      "rich_text": [{ "text": { "content": [Technical Notes from Phase 3 confirmation, or "(Add technical notes here)"] } }]
-    }
-  },
-  {
-    "object": "block",
-    "type": "heading_2",
-    "heading_2": {
-      "rich_text": [{ "text": { "content": "AGENTS REQUIRED" } }]
-    }
-  },
-  {
-    "object": "block",
-    "type": "paragraph",
-    "paragraph": {
-      "rich_text": [{ "text": { "content": [AGENTS REQUIRED from Phase 6 confirmation, or "(Determine based on work type)"] } }]
-    }
-  },
-  {
-    "object": "block",
-    "type": "heading_2",
-    "heading_2": {
-      "rich_text": [{ "text": { "content": "Dimension Scores" } }]
-    }
-  },
-  {
-    "object": "block",
-    "type": "paragraph",
-    "paragraph": {
-      "rich_text": [{
-        "text": {
-          "content": [Format dimension scores from Phase 6:
-            "Impact: [score] - [rationale]\n" +
-            "Value: [score] - [rationale]\n" +
-            "Strategic Fit: [score] - [rationale]\n" +
-            "Urgency: [score] - [rationale]\n" +
-            "Effort: [size] - [rationale]\n" +
-            "Risk: [score] - [rationale]" +
-            (if REVIEW_FLAG: "\n\nProduct validation: [validation summary]")]
-        }
-      }]
-    }
+    "properties": {
+      "Name": "[Name from Phase 1]",
+      "Type": "[TYPE from Phase 1]",
+      "Status": "Not started",
+      "Impact": [Impact score from Phase 6],
+      "Value": [Value score from Phase 6],
+      "Strat Fit": [Strategic Fit score from Phase 6],
+      "Urgency": [Urgency score from Phase 6],
+      "Risk": [Risk score from Phase 6],
+      "Effort": "[Effort size from Phase 6]"
+    },
+    "content": "## User Story\n[User Story from Phase 3 confirmation, or \"(Add user story here)\"]\n\n## Acceptance Criteria\n[Acceptance Criteria from Phase 3 confirmation, or \"(Add acceptance criteria here)\"]\n\n## Technical Notes\n[Technical Notes from Phase 3 confirmation, or \"(Add technical notes here)\"]\n\n## AGENTS REQUIRED\n[AGENTS REQUIRED from Phase 6 confirmation, or \"(Determine based on work type)\"]\n\n## Dimension Scores\nImpact: [score] - [rationale]\nValue: [score] - [rationale]\nStrategic Fit: [score] - [rationale]\nUrgency: [score] - [rationale]\nEffort: [size] - [rationale]\nRisk: [score] - [rationale]\n[if REVIEW_FLAG: \"\\n\\nProduct validation: [validation summary]\"]"
   }
 ]
 ```
+
+**Content Format**: Uses Notion-flavored Markdown with `##` for headings. The content string should be formatted with proper newlines (`\n`).
 
 **Note**: Work Item ID and Work Item Name will be auto-generated by Notion based on TYPE and Name, returned in response.
 

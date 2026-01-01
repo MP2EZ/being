@@ -40,31 +40,30 @@ Parse `$ARGUMENTS` to extract two components:
 Query the Notion database to find the page with matching Work Item ID:
 
 ```
-mcp__notionApi__API-post-database-query
-database_id: "277a1108-c208-805c-810b-000b0f0aae22"
-filter: {
-  "property": "Work Item ID",
-  "title": {
-    "equals": "[WORK_ITEM_ID from Phase 0]"
-  }
-}
+mcp__notion__notion-search
+query: "[WORK_ITEM_ID from Phase 0]"
+data_source_url: "collection://277a1108-c208-805c-810b-000b0f0aae22"
 ```
+
+**Important**: This is a semantic search, not exact property matching. Work Item IDs (e.g., "FEAT-42") are unique identifiers that should return correct results. Verify the returned page's Work Item ID matches exactly before proceeding.
+
+**Extract page_id** (URL or UUID) from the search results.
 
 **Error handling**:
 - If no results: Report "Work item [WORK_ITEM_ID] not found"
-- If multiple results: Report "Multiple items found - contact admin"
-- If query fails: Report error and suggest retry or use direct command
-
-**Extract page_id** from the first result.
+- If multiple results: Verify Work Item ID property matches exactly, use the correct one
+- If query fails: Report error and suggest manual Notion lookup
 
 ---
 
 ### Step 1.2: Retrieve Full Page Details
 
 ```
-mcp__notionApi__API-retrieve-a-page
-page_id: [page_id from Step 1.1]
+mcp__notion__notion-fetch
+id: [page_id or URL from Step 1.1]
 ```
+
+**Note**: Returns page properties and content in Notion-flavored Markdown format.
 
 ---
 
@@ -349,13 +348,12 @@ fi
 ### Step 2.8: Mark Work Item as In Progress
 
 ```
-mcp__notionApi__API-patch-page
-page_id: [page_id from Phase 1]
-properties: {
-  "Status": {
-    "status": {
-      "name": "In progress"
-    }
+mcp__notion__notion-update-page
+data: {
+  "page_id": "[page_id from Phase 1]",
+  "command": "update_properties",
+  "properties": {
+    "Status": "In progress"
   }
 }
 ```
@@ -550,13 +548,12 @@ Display:
 ### Step 7.1: Update Status to Testing
 
 ```
-mcp__notionApi__API-patch-page
-page_id: [page_id from Phase 1]
-properties: {
-  "Status": {
-    "status": {
-      "name": "Testing"
-    }
+mcp__notion__notion-update-page
+data: {
+  "page_id": "[page_id from Phase 1]",
+  "command": "update_properties",
+  "properties": {
+    "Status": "Testing"
   }
 }
 ```
@@ -564,12 +561,13 @@ properties: {
 ### Step 7.2: Add Testing Comment
 
 ```
-mcp__notionApi__API-create-a-comment
-parent: { page_id: [page_id from Phase 1] }
+mcp__notion__notion-create-comment
+parent: { "page_id": "[page_id from Phase 1]" }
 rich_text: [
   {
-    text: {
-      content: "🔬 Ready for testing via /b-work\n\nTemplate: [TEMPLATE] [→ PATH]\nAgents: [List]\nValidations: [Summary]\n\nImplementation: [Brief summary]\nDeliverables: [List]\n\n⏭️  Next: Test and run /b-close [WORK_ITEM_ID] when complete"
+    "type": "text",
+    "text": {
+      "content": "Ready for testing via /b-work\n\nTemplate: [TEMPLATE] [→ PATH]\nAgents: [List]\nValidations: [Summary]\n\nImplementation: [Brief summary]\nDeliverables: [List]\n\nNext: Test and run /b-close [WORK_ITEM_ID] when complete"
     }
   }
 ]

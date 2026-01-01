@@ -50,18 +50,17 @@ git branch --show-current
 ### Step 1.2: Query Notion for Work Item
 
 ```
-mcp__notionApi__API-post-database-query
-database_id: "277a1108-c208-805c-810b-000b0f0aae22"
-filter: {
-  "property": "Work Item ID",
-  "title": {
-    "equals": "[WORK_ITEM_ID]"
-  }
-}
+mcp__notion__notion-search
+query: "[WORK_ITEM_ID]"
+data_source_url: "collection://277a1108-c208-805c-810b-000b0f0aae22"
 ```
 
+**Note**: Search returns pages matching the Work Item ID. Use `mcp__notion__notion-fetch` with the page URL/ID to get full details if needed.
+
+**Important**: This is a semantic search, not exact property matching. Work Item IDs (e.g., "FEAT-42") are unique identifiers that should return correct results. Verify the returned page's Work Item ID matches exactly before proceeding.
+
 **Extract from response**:
-- page_id
+- page_id (or URL)
 - Work Item Name
 - Current Status
 - Type
@@ -262,13 +261,12 @@ Closes FEAT-42
 ### Step 4.1: Update Status to "Done"
 
 ```
-mcp__notionApi__API-patch-page
-page_id: [page_id from Phase 1]
-properties: {
-  "Status": {
-    "status": {
-      "name": "Done"
-    }
+mcp__notion__notion-update-page
+data: {
+  "page_id": "[page_id from Phase 1]",
+  "command": "update_properties",
+  "properties": {
+    "Status": "Done"
   }
 }
 ```
@@ -296,12 +294,13 @@ properties: {
 
 **Create comment**:
 ```
-mcp__notionApi__API-create-a-comment
-parent: { page_id: [page_id from Phase 1] }
+mcp__notion__notion-create-comment
+parent: { "page_id": "[page_id from Phase 1]" }
 rich_text: [
   {
-    text: {
-      content: [comment content above]
+    "type": "text",
+    "text": {
+      "content": "[comment content above]"
     }
   }
 ]
