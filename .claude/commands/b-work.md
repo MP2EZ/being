@@ -35,39 +35,80 @@ Parse `$ARGUMENTS` to extract two components:
 
 ## Phase 1: Fetch & Parse Work Item
 
-### Step 1.1: Query Database for Work Item
+### Step 1.1: Parse Work Item ID
 
-Query the Notion database to find the page with matching Work Item ID:
+Parse the WORK_ITEM_ID from Phase 0 into components:
+
+**Extract:**
+- **TYPE**: Everything before `-` (e.g., "MAINT" from "MAINT-140")
+- **ID_NUMBER**: Everything after `-` as integer (e.g., 140 from "MAINT-140")
+
+**Validation:**
+- TYPE must be one of: FEAT, DEBUG, INFRA, MAINT, AGENT
+- ID_NUMBER must be a positive integer
+
+**Error handling:**
+- If format invalid: Report "Invalid Work Item ID format. Expected: TYPE-NUMBER (e.g., FEAT-42)"
+
+---
+
+### Step 1.2: Search for Work Item
+
+Search using the content-based format (added by `/b-create`):
 
 ```
 mcp__notion__notion-search
-query: "[WORK_ITEM_ID from Phase 0]"
+query: "Work Item ID: [WORK_ITEM_ID]"
 data_source_url: "collection://277a1108-c208-805c-810b-000b0f0aae22"
 ```
 
-**Important**: This is a semantic search, not exact property matching. Work Item IDs (e.g., "FEAT-42") are unique identifiers that should return correct results. Verify the returned page's Work Item ID matches exactly before proceeding.
+**Note**: This searches for the `## Work Item ID: MAINT-140` header that b-create adds to page content.
 
-**Extract page_id** (URL or UUID) from the search results.
+**If no results**, try fallback search for legacy items:
+```
+mcp__notion__notion-search
+query: "[WORK_ITEM_ID]"
+data_source_url: "collection://277a1108-c208-805c-810b-000b0f0aae22"
+```
 
-**Error handling**:
-- If no results: Report "Work item [WORK_ITEM_ID] not found"
-- If multiple results: Verify Work Item ID property matches exactly, use the correct one
+---
+
+### Step 1.3: Verify & Select Result
+
+For each search result, verify properties match the parsed components from Step 1.1:
+
+```
+mcp__notion__notion-fetch
+id: [candidate page_id from Step 1.2]
+```
+
+**Check properties:**
+- `Type` property equals parsed TYPE (e.g., "MAINT")
+- `userDefined:ID` property equals parsed ID_NUMBER (e.g., 140)
+
+**If match found**: Use this page_id, proceed to Step 1.4
+
+**If no match in results**:
+- Report "Work item [WORK_ITEM_ID] not found in database"
+- Suggest: "Check Notion directly or verify the Work Item ID"
+
+**Error handling:**
 - If query fails: Report error and suggest manual Notion lookup
 
 ---
 
-### Step 1.2: Retrieve Full Page Details
+### Step 1.4: Retrieve Full Page Details
 
 ```
 mcp__notion__notion-fetch
-id: [page_id or URL from Step 1.1]
+id: [verified page_id from Step 1.3]
 ```
 
 **Note**: Returns page properties and content in Notion-flavored Markdown format.
 
 ---
 
-### Step 1.3: Incorporate Additional Context
+### Step 1.5: Incorporate Additional Context
 
 **If ADDITIONAL_CONTEXT exists** (from Phase 0):
 
@@ -84,11 +125,11 @@ Display the additional context to inform planning:
 
 **If ADDITIONAL_CONTEXT is null**:
 - Skip this step
-- Proceed to Step 1.4 with Notion data only
+- Proceed to Step 1.6 with Notion data only
 
 ---
 
-### Step 1.4: Parse & Extract Classification Signals
+### Step 1.6: Parse & Extract Classification Signals
 
 **Parse fields**:
 - Type (FEAT, DEBUG, INFRA, MAINT, AGENT)
@@ -373,7 +414,7 @@ data: {
 ## Phase 3: Classify Template
 
 **Classification considers**:
-- Signals from Notion fields (from Step 1.4)
+- Signals from Notion fields (from Step 1.6)
 - ADDITIONAL_CONTEXT (from Phase 0, if provided)
 
 **HIGH Confidence (95%+)** - Auto-proceed:

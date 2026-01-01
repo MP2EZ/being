@@ -390,6 +390,34 @@ pages: [
 
 ---
 
+## Phase 7.5: Add Searchable Work Item ID
+
+After page creation, update the content to include the Work Item ID for search discoverability.
+
+**Extract from response:**
+- page_id: From the create-pages response
+- Work Item ID: From `properties["Work Item ID"]` (formula result like "MAINT-140")
+
+**Update page content:**
+
+```
+mcp__notion__notion-update-page
+data: {
+  "page_id": "[page_id from Phase 7 response]",
+  "command": "insert_content_after",
+  "selection_with_ellipsis": "",
+  "new_str": "## Work Item ID: [WORK_ITEM_ID]\n\n"
+}
+```
+
+**Note**: This inserts the Work Item ID header at the beginning of the page content, making it discoverable via semantic search in `/b-work`.
+
+**Error handling**:
+- If update fails: Log warning, continue (page still created, just less searchable)
+- Display: "⚠️ Could not add searchable ID (page created successfully)"
+
+---
+
 ## Phase 8: Extract & Display Result
 
 From the Notion API response, extract:
