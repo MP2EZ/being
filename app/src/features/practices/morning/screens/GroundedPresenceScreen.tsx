@@ -139,8 +139,8 @@ const GroundedPresenceScreen: React.FC<Props> = ({ navigation, route, onSave }) 
               isActive={isTimerActive}
               testID="morning-grounded-breathing"
               phaseText={{
-                inhale: 'breathe in... 4 seconds',
-                exhale: 'breathe out... 4 seconds',
+                inhale: 'Breathe in...',
+                exhale: 'Breathe out...',
               }}
             />
           )}

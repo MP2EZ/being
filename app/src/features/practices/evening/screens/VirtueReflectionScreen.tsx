@@ -153,6 +153,12 @@ const VirtueReflectionScreen: React.FC<Props> = ({ navigation, route, onSave }) 
             containerStyle={styles.inputContainer}
             inputStyle={styles.input}
           />
+          {/* Character counter for validation feedback */}
+          {showedUpWell.length > 0 && showedUpWell.length < MIN_CHARS_FOR_PICKER && (
+            <Text style={styles.charCount}>
+              {showedUpWell.length}/{MIN_CHARS_FOR_PICKER} characters
+            </Text>
+          )}
         </View>
 
         {/* Quick-tap examples */}
@@ -359,6 +365,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: spacing[8],
     fontStyle: 'italic',
+  },
+  charCount: {
+    fontSize: typography.caption.size,
+    color: colorSystem.gray[500],
+    textAlign: 'right',
+    marginTop: spacing[4],
   },
 });
 

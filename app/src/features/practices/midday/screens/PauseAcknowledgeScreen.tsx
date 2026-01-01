@@ -29,7 +29,7 @@ import {
 } from 'react-native';
 import type { StackScreenProps } from '@react-navigation/stack';
 import { colorSystem, spacing, borderRadius, typography, getTheme } from '@/core/theme';
-import { BreathingCircle, Timer, GuidanceCard } from '@/features/practices/shared/components';
+import { BreathingCircle, Timer, GuidanceCard, SkipLink } from '@/features/practices/shared/components';
 import type { MiddayFlowParamList, PauseAcknowledgeData } from '@/features/practices/types/flows';
 
 type Props = StackScreenProps<MiddayFlowParamList, 'PauseAcknowledge'> & {
@@ -116,12 +116,18 @@ const PauseAcknowledgeScreen: React.FC<Props> = ({ navigation, route, onSave }) 
               onComplete={handleBreathComplete}
               onPause={() => setIsBreathActive(false)}
               onResume={() => setIsBreathActive(true)}
-              onSkip={handleSkipBreath}
               showProgress
               showControls
-              showSkip
+              showSkip={false}
               theme="midday"
               testID="pause-breath-timer"
+            />
+
+            {/* Skip Link - Consistent with morning/evening flows */}
+            <SkipLink
+              onPress={handleSkipBreath}
+              accessibilityLabel="Skip breathing exercise"
+              testID="midday-skip-breath"
             />
 
             {/* Guidance Card */}

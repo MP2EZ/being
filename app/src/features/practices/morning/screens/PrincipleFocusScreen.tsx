@@ -63,6 +63,35 @@ interface PrincipleInfo {
  *
  * @see /docs/product/stoic-mindfulness/principles/ for full documentation
  */
+// Quick-tap examples for personal interpretation (reduces typing friction)
+const QUICK_INTERPRETATIONS: Record<StoicPrinciple, string[]> = {
+  aware_presence: [
+    'Stay present in meetings',
+    'Notice stress before reacting',
+    'Feel my feet on the ground',
+  ],
+  radical_acceptance: [
+    'Accept traffic delays calmly',
+    'Work with what I have',
+    'Let go of yesterday',
+  ],
+  sphere_sovereignty: [
+    'Focus on my effort, not outcome',
+    'Release what I can\'t control',
+    'Own my responses today',
+  ],
+  virtuous_response: [
+    'Respond with patience',
+    'Choose kindness over frustration',
+    'See challenges as practice',
+  ],
+  interconnected_living: [
+    'Listen fully in conversations',
+    'Contribute to team success',
+    'Help without expecting return',
+  ],
+};
+
 const PRINCIPLES: PrincipleInfo[] = [
   {
     key: 'aware_presence',
@@ -236,6 +265,26 @@ const PrincipleFocusScreen: React.FC<Props> = ({ navigation, route, onSave }) =>
                 accessibilityLabel="Personal interpretation of principle"
                 multiline
               />
+
+              {/* Quick-tap examples - shown when interpretation is empty */}
+              {!personalInterpretation && selectedPrinciple && (
+                <View style={styles.quickExamplesSection}>
+                  <Text style={styles.quickExamplesLabel}>Quick examples:</Text>
+                  <View style={styles.quickExamplesRow}>
+                    {QUICK_INTERPRETATIONS[selectedPrinciple].map((example) => (
+                      <TouchableOpacity
+                        key={example}
+                        style={styles.quickExampleChip}
+                        onPress={() => setPersonalInterpretation(example)}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Use example: ${example}`}
+                      >
+                        <Text style={styles.quickExampleText}>{example}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+              )}
             </View>
 
             {/* FEAT-139: Reminder toggle removed - simplifying flow per UX review */}
@@ -423,6 +472,31 @@ const styles = StyleSheet.create({
     color: colorSystem.base.white,
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
+  },
+  quickExamplesSection: {
+    marginTop: spacing[12],
+  },
+  quickExamplesLabel: {
+    fontSize: typography.caption.size,
+    color: colorSystem.gray[500],
+    marginBottom: spacing[8],
+  },
+  quickExamplesRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing[8],
+  },
+  quickExampleChip: {
+    paddingVertical: spacing[8],
+    paddingHorizontal: spacing[12],
+    backgroundColor: colorSystem.base.white,
+    borderRadius: borderRadius.medium,
+    borderWidth: 1,
+    borderColor: colorSystem.gray[300],
+  },
+  quickExampleText: {
+    fontSize: typography.bodySmall.size,
+    color: colorSystem.gray[600],
   },
 });
 
