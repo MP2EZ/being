@@ -188,27 +188,27 @@ export const SharedBreathingScreen: React.FC<SharedBreathingScreenProps> = ({
         )}
       </View>
 
-      {/* Continue button - fades in after timer completes */}
-      <Animated.View style={[styles.buttonContainer, { opacity: buttonOpacity }]}>
-        {isComplete && (
-          <AccessibleButton
-            onPress={handleContinue}
-            label="Continue"
-            variant="primary"
-            size="large"
-            testID="continue-button"
-            accessibilityHint="Continue to next step"
+      {/* Footer - either Continue button or Skip link */}
+      <View style={styles.footer}>
+        {isComplete ? (
+          <Animated.View style={[styles.buttonContainer, { opacity: buttonOpacity }]}>
+            <AccessibleButton
+              onPress={handleContinue}
+              label="Continue"
+              variant="primary"
+              size="large"
+              theme={theme}
+              testID="continue-button"
+              accessibilityHint="Continue to next step"
+            />
+          </Animated.View>
+        ) : (
+          <SkipLink
+            onPress={handleSkip}
+            accessibilityLabel="Skip breathing exercise"
           />
         )}
-      </Animated.View>
-
-      {/* Skip Link - accessibility option */}
-      {!isComplete && (
-        <SkipLink
-          onPress={handleSkip}
-          accessibilityLabel="Skip breathing exercise"
-        />
-      )}
+      </View>
     </View>
   );
 };
@@ -260,14 +260,16 @@ const styles = StyleSheet.create({
     opacity: 0.6, // Dim timer - not the focus
   },
   guidanceWrapper: {
-    marginTop: spacing[24],
+    marginTop: spacing[16],
     marginHorizontal: spacing[20],
   },
+  footer: {
+    marginTop: 'auto',
+    paddingBottom: spacing[32],
+    paddingTop: spacing[16],
+  },
   buttonContainer: {
-    flex: 1,
-    justifyContent: 'flex-end',
     width: '100%',
-    paddingBottom: spacing[48],
   },
 });
 

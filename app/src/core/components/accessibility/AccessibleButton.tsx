@@ -37,7 +37,10 @@ import {
   FOCUS_STYLES,
   A11Y_ROLES,
 } from '@/core/theme/accessibility';
-import { typography } from '@/core/theme';
+import { typography, colorSystem } from '@/core/theme';
+
+/** Flow theme type for theme-aware styling */
+type FlowTheme = 'morning' | 'midday' | 'evening';
 
 export interface AccessibleButtonProps {
   /** Button press handler */
@@ -57,7 +60,10 @@ export interface AccessibleButtonProps {
   
   /** Button size */
   size?: 'small' | 'medium' | 'large';
-  
+
+  /** Flow theme for primary button color (morning=orange, midday=teal, evening=green) */
+  theme?: FlowTheme;
+
   /** Icon text (emoji or symbol) - shown instead of label for icon variant */
   icon?: string;
   
@@ -84,6 +90,7 @@ export const AccessibleButton: React.FC<AccessibleButtonProps> = ({
   disabled = false,
   variant = 'primary',
   size = 'medium',
+  theme,
   icon,
   testID,
   style,
@@ -101,6 +108,11 @@ export const AccessibleButton: React.FC<AccessibleButtonProps> = ({
   // Determine if button should show icon or text
   const isIconButton = variant === 'icon' || !!icon;
 
+  // Theme-aware primary button color
+  const themeBackgroundStyle = variant === 'primary' && theme
+    ? { backgroundColor: colorSystem.themes[theme].primary }
+    : undefined;
+
   return (
     <TouchableOpacity
       accessible={true}
@@ -117,6 +129,7 @@ export const AccessibleButton: React.FC<AccessibleButtonProps> = ({
         styles.base,
         styles[`size_${size}`],
         isIconButton ? styles.icon : styles[`variant_${variant}`],
+        themeBackgroundStyle,
         disabled && styles.disabled,
         focused && styles.focused,
         style,
