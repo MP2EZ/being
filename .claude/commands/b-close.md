@@ -33,11 +33,20 @@ args = [MAINT-79, --push]
 → Check remaining args for --push flag
 
 **If no WORK_ITEM_ID provided**:
-→ Auto-detect from current branch name
+→ Auto-detect from current branch or worktree
+
+**Option A: From branch name** (when in worktree):
 ```bash
 git branch --show-current
 # Example: feat/FEAT-42-easy-navigation-home
 # Extract: FEAT-42
+```
+
+**Option B: From worktree list** (when on bare repo):
+```bash
+git worktree list
+# Find worktree matching context (e.g., maint-140)
+# Uppercase: MAINT-140
 ```
 → Check args for --push flag
 
@@ -49,25 +58,39 @@ git branch --show-current
 
 ### Step 1.2: Query Notion for Work Item
 
+**Derive Work Item ID from worktree**:
+- Worktree name (lowercase): `maint-140`, `feat-42`
+- Work Item ID (uppercase): `MAINT-140`, `FEAT-42`
+
+**Search with explicit Work Item ID**:
 ```
 mcp__notion__notion-search
-query: "[WORK_ITEM_ID]"
-data_source_url: "collection://277a1108-c208-805c-810b-000b0f0aae22"
+query: "Work Item ID: [WORK_ITEM_ID]"
+query_type: "internal"
 ```
 
-**Note**: Search returns pages matching the Work Item ID. Use `mcp__notion__notion-fetch` with the page URL/ID to get full details if needed.
+**Example**: For worktree `maint-140`:
+```
+query: "Work Item ID: MAINT-140"
+```
 
-**Important**: This is a semantic search, not exact property matching. Work Item IDs (e.g., "FEAT-42") are unique identifiers that should return correct results. Verify the returned page's Work Item ID matches exactly before proceeding.
+**Fetch full details**:
+```
+mcp__notion__notion-fetch
+id: [page_id or URL from search result]
+```
 
-**Extract from response**:
-- page_id (or URL)
-- Work Item Name
+**Extract from fetch response**:
+- page_id (from URL)
+- Work Item Name (from properties)
 - Current Status
 - Type
 
+**Validation**: Verify the page content contains `## Work Item ID:\n[WORK_ITEM_ID]` to confirm exact match.
+
 **Error handling**:
 - If not found: "Work item [WORK_ITEM_ID] not found in Notion"
-- If multiple: "Multiple items found - contact admin"
+- If multiple results: Fetch each and verify Work Item ID matches exactly
 
 ---
 
