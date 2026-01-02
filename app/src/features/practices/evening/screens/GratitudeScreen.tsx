@@ -99,6 +99,12 @@ const GratitudeScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
             containerStyle={styles.inputContainer}
             inputStyle={styles.input}
           />
+          {/* Character counter for validation feedback */}
+          {gratitude1.length > 0 && gratitude1.length < MIN_CHARS && (
+            <Text style={styles.charCount}>
+              {gratitude1.length}/{MIN_CHARS} characters
+            </Text>
+          )}
         </View>
 
         {/* Gratitude 2 - Optional */}
@@ -232,6 +238,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: spacing[8],
     fontStyle: 'italic',
+  },
+  charCount: {
+    fontSize: typography.caption.size,
+    color: colorSystem.gray[500],
+    textAlign: 'right',
+    marginTop: spacing[4],
   },
 });
 

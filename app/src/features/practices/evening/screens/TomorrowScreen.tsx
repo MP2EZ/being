@@ -2,6 +2,7 @@
  * TOMORROW SCREEN - FEAT-134 Evening Flow Redesign
  *
  * Screen 5 of 6: Optional intention (skippable)
+ * MAINT-140: Enhanced "letting go" discoverability with subtext hint.
  * Uses shared AccessibleInput and AccessibleButton components
  *
  * Design Philosophy:
@@ -14,6 +15,8 @@
  * - Marcus Aurelius: "Confine yourself to the present" (Meditations 7:29)
  * - Seneca: "True happiness is to enjoy the present, without anxious
  *   dependence upon the future" (Letters 23)
+ * - Epictetus: "Make the best use of what is in your power, and take the rest
+ *   as it happens" (Enchiridion 1) - Release what's not in your control
  *
  * @see /docs/architecture/Stoic-Mindfulness-Architecture-v1.0.md
  */
@@ -92,15 +95,19 @@ const TomorrowScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
           />
         </View>
 
-        {/* Letting go - collapsed by default */}
+        {/* Letting go - collapsed by default, MAINT-140: enhanced discoverability */}
         {!showLettingGo ? (
           <TouchableOpacity
             style={styles.addLettingGoButton}
             onPress={() => setShowLettingGo(true)}
             accessibilityRole="button"
-            accessibilityLabel="Add what you want to let go of"
+            accessibilityLabel="Add what you want to let go of tonight"
+            accessibilityHint="Release what's outside your control for more peaceful rest"
           >
-            <Text style={styles.addLettingGoText}>+ Anything you want to let go of tonight?</Text>
+            <Text style={styles.addLettingGoText}>+ Anything to let go of tonight?</Text>
+            <Text style={styles.addLettingGoHint}>
+              Release what's outside your control for more peaceful rest
+            </Text>
           </TouchableOpacity>
         ) : (
           <View style={styles.inputSection}>
@@ -192,7 +199,15 @@ const styles = StyleSheet.create({
   },
   addLettingGoText: {
     fontSize: typography.bodyRegular.size,
+    color: colorSystem.themes.evening.primary,
+    fontWeight: typography.fontWeight.medium,
+    marginBottom: spacing[4],
+  },
+  addLettingGoHint: {
+    fontSize: typography.bodySmall.size,
     color: colorSystem.gray[500],
+    fontStyle: 'italic',
+    textAlign: 'center',
   },
   spacer: {
     height: spacing[24], // Small buffer, not excessive scroll space

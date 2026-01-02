@@ -24,5 +24,13 @@ export { PreviousAnswerCard } from './PreviousAnswerCard';
 export { default as GuidanceCard } from './GuidanceCard';
 export type { FlowTheme } from './FlowBackButton';
 
+// MAINT-140: Consolidated breathing screen for morning/evening flows
+export { SharedBreathingScreen } from './SharedBreathingScreen';
+export type { SharedBreathingScreenProps, BreathingPattern, FlowThemeType } from './SharedBreathingScreen';
+
+// MAINT-140: Consolidated gratitude input section for morning/evening flows
+export { GratitudeInputSection } from './GratitudeInputSection';
+export type { GratitudeInputSectionProps, GratitudeTheme } from './GratitudeInputSection';
+
 // Note: BodyAreaGrid exports BODY_AREAS constant used by Learn tab
 // Import directly: import { BODY_AREAS } from '@/features/practices/shared/components/BodyAreaGrid';

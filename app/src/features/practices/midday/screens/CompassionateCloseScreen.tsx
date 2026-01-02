@@ -2,6 +2,7 @@
  * COMPASSIONATE CLOSE SCREEN (Screen 4 of 4)
  *
  * MAINT-65: Stoic Mindfulness Midday Flow - Simplified
+ * MAINT-140: Enhanced with action reinforcement + "return anytime" reminder.
  * Principle: Interconnected Living (Self-compassion)
  *
  * Purpose: Single integration prompt + completion
@@ -14,7 +15,7 @@
  * @see /docs/design/midday-flow-wireframes-v2.md
  */
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -29,6 +30,12 @@ import type { StackScreenProps } from '@react-navigation/stack';
 import { colorSystem, spacing, borderRadius, typography, getTheme } from '@/core/theme';
 import { CelebrationToast } from '@/core/components/CelebrationToast';
 import type { MiddayFlowParamList, CompassionateCloseData } from '@/features/practices/types/flows';
+
+// MAINT-140: Midday completion enhancement content
+const MIDDAY_ENHANCEMENT = {
+  message: 'Take a moment of calm with you',
+  subtext: 'This pause is always available. Return anytime.',
+};
 
 type Props = StackScreenProps<MiddayFlowParamList, 'CompassionateClose'> & {
   onComplete?: (data: CompassionateCloseData) => void;
@@ -134,7 +141,7 @@ const CompassionateCloseScreen: React.FC<Props> = ({
         </Pressable>
       </ScrollView>
 
-      {/* Celebration Toast */}
+      {/* Celebration Toast - MAINT-140: Enhanced with action reinforcement */}
       {showToast && (
         <CelebrationToast
           flowType="midday"
@@ -142,6 +149,7 @@ const CompassionateCloseScreen: React.FC<Props> = ({
           duration={getDurationMinutes()}
           streak={1} // TODO: Get actual streak from user data
           onComplete={handleToastComplete}
+          enhancement={MIDDAY_ENHANCEMENT}
         />
       )}
     </KeyboardAvoidingView>

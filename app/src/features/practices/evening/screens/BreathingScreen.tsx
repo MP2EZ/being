@@ -1,8 +1,8 @@
 /**
- * BREATHING SCREEN - FEAT-134 Evening Flow Redesign
+ * EVENING BREATHING SCREEN - FEAT-134 Evening Flow Redesign
  *
  * Screen 1 of 6: Pure settling breath (no decisions)
- * Uses shared BreathingCircle (60fps) and Timer components
+ * MAINT-140: Now uses SharedBreathingScreen for consistency.
  *
  * Design Philosophy:
  * - NO cognitive load - just breathe
@@ -15,20 +15,10 @@
  * - Seneca: The mind must be prepared before examination
  */
 
-import React, { useState, useRef } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Animated,
-} from 'react-native';
+import React from 'react';
 import type { StackScreenProps } from '@react-navigation/stack';
 import type { EveningFlowParamList, EveningBreathingData } from '@/features/practices/types/flows';
-import BreathingCircle from '../../shared/components/BreathingCircle';
-import Timer from '../../shared/components/Timer';
-import { SkipLink, GuidanceCard } from '../../shared/components';
-import { AccessibleButton } from '@/core/components/accessibility/AccessibleButton';
-import { spacing, typography, colorSystem } from '@/core/theme';
+import { SharedBreathingScreen } from '../../shared/components';
 
 type Props = StackScreenProps<EveningFlowParamList, 'Breathing'> & {
   onSave?: (data: EveningBreathingData) => void;
@@ -41,23 +31,7 @@ const BreathingScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
   const initialData = (route.params as { initialData?: any } | undefined)?.initialData;
   const wasCompleted = !!initialData?.completed;
 
-  const [isTimerActive, setIsTimerActive] = useState(!wasCompleted);
-  const [isComplete, setIsComplete] = useState(wasCompleted);
-  // Start at 1 if already completed, otherwise fade in later
-  const buttonOpacity = useRef(new Animated.Value(wasCompleted ? 1 : 0)).current;
-
-  const handleTimerComplete = () => {
-    setIsTimerActive(false);
-    setIsComplete(true);
-    // Fade in the continue button
-    Animated.timing(buttonOpacity, {
-      toValue: 1,
-      duration: 800,
-      useNativeDriver: true,
-    }).start();
-  };
-
-  const handleContinue = () => {
+  const handleComplete = () => {
     const breathingData: EveningBreathingData = {
       completed: true,
       durationSeconds: 60,
@@ -87,125 +61,29 @@ const BreathingScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
   };
 
   return (
-    <View style={styles.container} testID="evening-breathing-screen">
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.title}>Let's settle into evening</Text>
-        <Text style={styles.subtitle}>Let the day's activity settle.</Text>
-      </View>
-
-      {/* Breathing Circle - uses shared 60fps component */}
-      <View style={styles.breathingContainer}>
-        <BreathingCircle
-          isActive={isTimerActive}
-          pattern={{ inhale: 4000, hold: 4000, exhale: 6000 }}
-          showCountdown={false}
-          phaseText={{
-            inhale: 'Breathe in...',
-            hold: 'Hold...',
-            exhale: 'Release...',
-          }}
-          testID="evening-breathing-circle"
-        />
-
-        {/* Timer - dim display, evening theme */}
-        {!isComplete && (
-          <View style={styles.timerWrapper}>
-            <Timer
-              duration={BREATHING_DURATION_MS}
-              isActive={isTimerActive}
-              onComplete={handleTimerComplete}
-              showProgress={false}
-              showControls={false}
-              showSkip={false}
-              theme="evening"
-              testID="evening-breathing-timer"
-            />
-          </View>
-        )}
-
-        {/* Guidance Card */}
-        {!isComplete && (
-          <View style={styles.guidanceWrapper}>
-            <GuidanceCard
-              title="Before reflecting, notice:"
-              items={[
-                "Where you hold the day's tension",
-                'The rhythm of your breath',
-                'The body settling',
-              ]}
-              testID="evening-breathing-guidance"
-            />
-          </View>
-        )}
-      </View>
-
-      {/* Continue button - fades in after 60s */}
-      <Animated.View style={[styles.buttonContainer, { opacity: buttonOpacity }]}>
-        {isComplete && (
-          <AccessibleButton
-            onPress={handleContinue}
-            label="Continue"
-            variant="primary"
-            size="large"
-            testID="continue-button"
-            accessibilityHint="Continue to gratitude reflection"
-          />
-        )}
-      </Animated.View>
-
-      {/* Skip Link - accessibility */}
-      {!isComplete && (
-        <SkipLink
-          onPress={handleSkip}
-          accessibilityLabel="Skip breathing exercise"
-        />
-      )}
-    </View>
+    <SharedBreathingScreen
+      theme="evening"
+      title="Let's settle into evening"
+      subtitle="Let the day's activity settle."
+      duration={BREATHING_DURATION_MS}
+      breathingPattern={{ inhale: 4000, hold: 4000, exhale: 6000 }}
+      phaseText={{
+        inhale: 'Breathe in...',
+        hold: 'Hold...',
+        exhale: 'Release...',
+      }}
+      guidanceTitle="Before reflecting, notice:"
+      guidanceItems={[
+        "Where you hold the day's tension",
+        'The rhythm of your breath',
+        'The body settling',
+      ]}
+      wasCompleted={wasCompleted}
+      onComplete={handleComplete}
+      onSkip={handleSkip}
+      testID="evening-breathing-screen"
+    />
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colorSystem.base.white,
-    paddingHorizontal: spacing[20],
-  },
-  header: {
-    paddingTop: spacing[16],
-    paddingBottom: spacing[8],
-    alignItems: 'center',
-  },
-  title: {
-    fontSize: typography.headline3.size,
-    fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
-    textAlign: 'center',
-  },
-  subtitle: {
-    fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[600],
-    textAlign: 'center',
-    marginTop: spacing[8],
-  },
-  breathingContainer: {
-    alignItems: 'center',
-    marginTop: spacing[24], // Close to title, not centered in full space
-  },
-  timerWrapper: {
-    marginTop: spacing[24],
-    opacity: 0.6, // Dim timer - not the focus
-  },
-  guidanceWrapper: {
-    marginTop: spacing[24],
-    marginHorizontal: spacing[20],
-  },
-  buttonContainer: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    width: '100%',
-    paddingBottom: spacing[48],
-  },
-});
 
 export default BreathingScreen;
