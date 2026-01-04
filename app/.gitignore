@@ -54,3 +54,8 @@ service-account*.json
 test-results/
 .env
 .jest-cache-quick/
+
+# Source maps - never commit to repo (security)
+*.map
+*.js.map
+*.hbc.map
