@@ -38,6 +38,7 @@ import {
 import type { StackScreenProps } from '@react-navigation/stack';
 import type { MorningFlowParamList, GratitudeIntentionData } from '@/features/practices/types/flows';
 import { FlowBackButton, SkipLink } from '../../shared/components';
+import { AccessibleButton } from '@/core/components/accessibility/AccessibleButton';
 import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
 
 // Re-export for backward compatibility
@@ -205,21 +206,21 @@ const GratitudeIntentionScreen: React.FC<Props> = ({ navigation, route, onSave }
         </View>
 
         {/* Continue Button */}
-        <TouchableOpacity
-          style={[styles.continueButton, !isValid && styles.continueButtonDisabled]}
+        <AccessibleButton
           onPress={handleContinue}
+          label="Continue"
+          variant="primary"
+          size="large"
+          theme="morning"
           disabled={!isValid}
-          accessibilityRole="button"
-          accessibilityState={{ disabled: !isValid }}
+          testID="continue-button"
           accessibilityHint={
             isValid
               ? 'Continue to principle focus'
               : 'Enter at least one gratitude to continue'
           }
-          testID="continue-button"
-        >
-          <Text style={styles.continueButtonText}>Continue</Text>
-        </TouchableOpacity>
+          style={{ marginBottom: spacing[16] }}
+        />
 
         {/* Skip Link */}
         <SkipLink
@@ -345,23 +346,6 @@ const styles = StyleSheet.create({
     fontSize: typography.caption.size,
     color: colorSystem.gray[500],
     marginTop: spacing[8],
-  },
-  continueButton: {
-    backgroundColor: colorSystem.themes.morning.primary,
-    padding: spacing[16],
-    borderRadius: borderRadius.medium,
-    alignItems: 'center',
-    marginBottom: spacing[16],
-    minHeight: 48,
-    justifyContent: 'center',
-  },
-  continueButtonDisabled: {
-    backgroundColor: colorSystem.gray[300],
-  },
-  continueButtonText: {
-    color: colorSystem.base.white,
-    fontSize: typography.bodyLarge.size,
-    fontWeight: typography.fontWeight.semibold,
   },
 });
 

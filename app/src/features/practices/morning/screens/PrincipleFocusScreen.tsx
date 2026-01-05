@@ -41,6 +41,7 @@ import type { StackScreenProps } from '@react-navigation/stack';
 import type { MorningFlowParamList, PrincipleFocusData } from '@/features/practices/types/flows';
 import type { StoicPrinciple } from '@/features/practices/types/stoic';
 import { FlowBackButton, SkipLink, FlowHeader } from '../../shared/components';
+import { AccessibleButton } from '@/core/components/accessibility/AccessibleButton';
 import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
 
 type Props = StackScreenProps<MorningFlowParamList, 'PrincipleFocus'> & {
@@ -244,21 +245,20 @@ const PrincipleFocusScreen: React.FC<Props> = ({ navigation, route, onSave }) =>
       )}
 
       {/* Continue Button */}
-      <TouchableOpacity
-        style={[styles.continueButton, !selectedPrinciple && styles.continueButtonDisabled]}
+      <AccessibleButton
         onPress={handleContinue}
+        label="Continue"
+        variant="primary"
+        size="large"
+        theme="morning"
         disabled={!selectedPrinciple}
-        accessibilityRole="button"
-        accessibilityState={{ disabled: !selectedPrinciple }}
+        testID="continue-button"
         accessibilityHint={
           selectedPrinciple
             ? 'Continue to relational close'
             : 'Select a principle to continue'
         }
-        testID="continue-button"
-      >
-        <Text style={styles.continueButtonText}>Continue</Text>
-      </TouchableOpacity>
+      />
 
       {/* Skip Link - FEAT-139 */}
       <SkipLink
@@ -405,24 +405,6 @@ const styles = StyleSheet.create({
     fontSize: typography.bodySmall.size,
     backgroundColor: colorSystem.base.white,
     color: colorSystem.base.black,
-  },
-  continueButton: {
-    backgroundColor: colorSystem.themes.morning.primary,
-    padding: spacing[16],
-    borderRadius: borderRadius.medium,
-    alignItems: 'center',
-    marginTop: spacing[20],
-    marginBottom: spacing[16],
-    minHeight: 48,
-    justifyContent: 'center',
-  },
-  continueButtonDisabled: {
-    backgroundColor: colorSystem.gray[300],
-  },
-  continueButtonText: {
-    color: colorSystem.base.white,
-    fontSize: typography.bodyLarge.size,
-    fontWeight: typography.fontWeight.semibold,
   },
 });
 

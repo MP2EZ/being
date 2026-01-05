@@ -23,12 +23,12 @@ import {
   TextInput,
   ScrollView,
   StyleSheet,
-  Pressable,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
 import type { StackScreenProps } from '@react-navigation/stack';
-import { colorSystem, spacing, borderRadius, typography, getTheme } from '@/core/theme';
+import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
+import { AccessibleButton } from '@/core/components/accessibility/AccessibleButton';
 import { PreviousAnswerCard, FlowBackButton } from '@/features/practices/shared/components';
 import type { MiddayFlowParamList, RealityCheckData } from '@/features/practices/types/flows';
 
@@ -48,8 +48,6 @@ const RealityCheckScreen: React.FC<Props> = ({
 
   // State - single text input (simplified from acceptance selector + input)
   const [withinPower, setWithinPower] = useState(initialData?.withinPower || '');
-
-  const themeColors = getTheme('midday');
 
   // Handle continue
   const handleContinue = useCallback(() => {
@@ -110,7 +108,7 @@ const RealityCheckScreen: React.FC<Props> = ({
           <TextInput
             style={[
               styles.textInput,
-              { borderColor: withinPower ? themeColors.primary : colorSystem.gray[300] },
+              { borderColor: withinPower ? colorSystem.themes.midday.primary : colorSystem.gray[300] },
             ]}
             value={withinPower}
             onChangeText={setWithinPower}
@@ -126,21 +124,16 @@ const RealityCheckScreen: React.FC<Props> = ({
         </View>
 
         {/* Continue Button */}
-        <Pressable
-          style={({ pressed }) => [
-            styles.continueButton,
-            { backgroundColor: canContinue ? themeColors.primary : colorSystem.gray[300] },
-            pressed && canContinue && styles.continueButtonPressed,
-          ]}
+        <AccessibleButton
           onPress={handleContinue}
+          label="Continue"
+          variant="primary"
+          size="large"
+          theme="midday"
           disabled={!canContinue}
-          accessibilityRole="button"
-          accessibilityState={{ disabled: !canContinue }}
-          accessibilityLabel="Continue to next step"
           testID="continue-button"
-        >
-          <Text style={styles.continueButtonText}>Continue</Text>
-        </Pressable>
+          accessibilityHint="Continue to next step"
+        />
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -196,21 +189,6 @@ const styles = StyleSheet.create({
     color: colorSystem.base.black,
     backgroundColor: colorSystem.base.white,
     minHeight: 120,
-  },
-
-  // Continue button
-  continueButton: {
-    padding: spacing[16],
-    borderRadius: borderRadius.medium,
-    alignItems: 'center',
-  },
-  continueButtonPressed: {
-    opacity: 0.8,
-  },
-  continueButtonText: {
-    fontSize: typography.bodyLarge.size,
-    fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.white,
   },
 });
 

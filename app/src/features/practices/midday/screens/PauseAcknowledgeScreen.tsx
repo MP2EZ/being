@@ -23,12 +23,12 @@ import {
   TextInput,
   ScrollView,
   StyleSheet,
-  Pressable,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
 import type { StackScreenProps } from '@react-navigation/stack';
 import { colorSystem, spacing, borderRadius, typography, getTheme } from '@/core/theme';
+import { AccessibleButton } from '@/core/components/accessibility/AccessibleButton';
 import { BreathingCircle, Timer, GuidanceCard, SkipLink } from '@/features/practices/shared/components';
 import type { MiddayFlowParamList, PauseAcknowledgeData } from '@/features/practices/types/flows';
 
@@ -197,21 +197,17 @@ const PauseAcknowledgeScreen: React.FC<Props> = ({ navigation, route, onSave }) 
 
         {/* Continue Button */}
         {breathCompleted && (
-          <Pressable
-            style={({ pressed }) => [
-              styles.continueButton,
-              { backgroundColor: canContinue ? themeColors.primary : colorSystem.gray[300] },
-              pressed && canContinue && styles.continueButtonPressed,
-            ]}
+          <AccessibleButton
             onPress={handleContinue}
+            label="Continue"
+            variant="primary"
+            size="large"
+            theme="midday"
             disabled={!canContinue}
-            accessibilityRole="button"
-            accessibilityState={{ disabled: !canContinue }}
-            accessibilityLabel="Continue to next step"
             testID="continue-button"
-          >
-            <Text style={styles.continueButtonText}>Continue</Text>
-          </Pressable>
+            accessibilityHint="Continue to next step"
+            style={{ marginTop: spacing[24] }}
+          />
         )}
       </ScrollView>
     </KeyboardAvoidingView>
@@ -309,22 +305,6 @@ const styles = StyleSheet.create({
     color: colorSystem.gray[500],
     textAlign: 'right',
     marginTop: spacing[4],
-  },
-
-  // Continue button
-  continueButton: {
-    padding: spacing[16],
-    borderRadius: borderRadius.medium,
-    alignItems: 'center',
-    marginTop: spacing[24],
-  },
-  continueButtonPressed: {
-    opacity: 0.8,
-  },
-  continueButtonText: {
-    fontSize: typography.bodyLarge.size,
-    fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.white,
   },
 });
 
