@@ -184,8 +184,11 @@ describe('USER AUTONOMY VALIDATION', () => {
       currentScore = store.answers.reduce((s, a) => s + a.response, 0);
       expect(currentScore).toBe(4); // 3+0+1=4
 
-      // Validate the change was respected
-      const modifiedAnswer = store.currentSession?.answers.find(a => a.questionId === 'phq9_2');
+      // Validate the change was respected. Per production AssessmentSession,
+      // answers live on the top-level store state (`store.answers`) — the
+      // session itself holds them under `progress.answers` but the store-level
+      // ref is the canonical mutable copy that answerQuestion writes to.
+      const modifiedAnswer = store.answers.find(a => a.questionId === 'phq9_2');
       expect(modifiedAnswer?.response).toBe(0);
       expect(modifiedAnswer?.timestamp).toBeGreaterThan(0);
 
@@ -480,9 +483,10 @@ describe('USER AUTONOMY VALIDATION', () => {
       const finalHistory = store.getAssessmentHistory();
       expect(finalHistory).toHaveLength(2);
       
-      // Each assessment reflects user's autonomous choices
-      expect(finalHistory[0].reason).toBe('multi_autonomy_test_0');
-      expect(finalHistory[1].reason).toBe('multi_autonomy_test_1');
+      // Each assessment reflects user's autonomous choices. Production stores
+      // the second startAssessment arg as `context`, not `reason`.
+      expect(finalHistory[0].context).toBe('multi_autonomy_test_0');
+      expect(finalHistory[1].context).toBe('multi_autonomy_test_1');
     });
   });
 });
