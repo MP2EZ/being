@@ -83,9 +83,10 @@ const SPRING_CONFIG = {
 };
 
 // Mode-dependent button sizes (crisis-agent validated)
-// Standard/Immersive: 40px - more subtle, maintains 44pt touch via hitSlop
+// Standard/Immersive: 44px - WCAG 2.5.5 minimum visible target (was 40px relying
+// on hitSlop, which met functional but not visual requirement)
 // Prominent: 56px - 40% larger for assessments (PHQ>=15)
-const COLLAPSED_WIDTH_STANDARD = 40;
+const COLLAPSED_WIDTH_STANDARD = 44;
 const COLLAPSED_WIDTH_PROMINENT = 56;
 const EXPANDED_WIDTH = 260; // Full button width
 
