@@ -59,35 +59,12 @@ jest.mock('react-native', () => ({
   },
 }));
 
-/**
- * `store` accessor — always returns the current state of the assessment
- * store at the moment of property access.
- *
- * The original test file used a bare `store` identifier 30+ times without
- * declaring it (audit finding TEST-01). The fix is a Proxy that delegates
- * every property read to `useAssessmentStore.getState()`, so:
- *
- *   await store.startAssessment(...)    // resolves the action from fresh state
- *   expect(store.crisisDetection)...    // reads fresh state at assertion time
- *
- * The earlier `updatedStore`/`finalStore` patterns in this file remain valid
- * (they're explicit getState captures at known sync points); this Proxy fills
- * in the gap where the bare `store` is used inline.
- *
- * Zustand actions are stable function references, so reading them via the
- * Proxy is safe even though the underlying state object is replaced.
- */
-type AssessmentStoreState = ReturnType<typeof useAssessmentStore.getState>;
-const store = new Proxy({} as AssessmentStoreState, {
-  get(_target, prop: string | symbol) {
-    const state = useAssessmentStore.getState() as Record<string | symbol, unknown>;
-    const value = state[prop];
-    // Bind methods to the current state so `this` resolves correctly. Zustand
-    // actions don't depend on `this` today (they use closures), but binding
-    // makes the Proxy safe against future store implementations that do.
-    return typeof value === 'function' ? value.bind(state) : value;
-  },
-});
+// Shared `store` accessor — see app/__tests__/utils/assessmentStoreAccessor.ts
+// for the Proxy implementation and rationale. Originally introduced for
+// audit finding TEST-01 (this file's missing `store` declaration); also
+// applied to the four sibling clinical test files which had the same
+// observable bug via a different mechanism (declared-but-never-assigned).
+import { store } from '../../utils/assessmentStoreAccessor';
 
 describe('COMPREHENSIVE CLINICAL SCORING VALIDATION - ALL 48 COMBINATIONS', () => {
   beforeEach(async () => {
