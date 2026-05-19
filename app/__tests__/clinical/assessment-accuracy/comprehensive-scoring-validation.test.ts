@@ -145,7 +145,7 @@ describe('COMPREHENSIVE CLINICAL SCORING VALIDATION - ALL 48 COMBINATIONS', () =
 
         if (expectCrisis) {
           expect(finalStore.crisisDetection).toBeTruthy();
-          expect(finalStore.crisisDetection?.triggerType).toBe('phq9_score');
+          expect(finalStore.crisisDetection?.primaryTrigger).toBe('phq9_moderate_severe_score');
           expect(finalStore.crisisDetection?.triggerValue).toBe(score);
 
           // Full-flow budget: nine sequential answer awaits + complete.
@@ -222,7 +222,7 @@ describe('COMPREHENSIVE CLINICAL SCORING VALIDATION - ALL 48 COMBINATIONS', () =
 
         // Validate immediate crisis detection for suicidal ideation
         expect(store.crisisDetection).toBeTruthy();
-        expect(store.crisisDetection?.triggerType).toBe('phq9_suicidal');
+        expect(store.crisisDetection?.primaryTrigger).toBe('phq9_suicidal_ideation');
         expect(store.crisisDetection?.triggerValue).toBe(testCase.suicidalResponse);
         expect(crisisDetectionTime).toBeLessThan(200); // <200ms requirement
 
@@ -295,7 +295,7 @@ describe('COMPREHENSIVE CLINICAL SCORING VALIDATION - ALL 48 COMBINATIONS', () =
 
         if (expectCrisis) {
           expect(finalStore.crisisDetection).toBeTruthy();
-          expect(finalStore.crisisDetection?.triggerType).toBe('gad7_score');
+          expect(finalStore.crisisDetection?.primaryTrigger).toBe('gad7_severe_score');
           expect(finalStore.crisisDetection?.triggerValue).toBe(score);
 
           // Full-flow budget — see PHQ-9 comment above.

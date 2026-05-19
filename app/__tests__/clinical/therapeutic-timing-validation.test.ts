@@ -203,7 +203,7 @@ describe('THERAPEUTIC TIMING VALIDATION', () => {
             expect(crisisDetectionTime).toBeLessThan(200);
             const updatedStore = useAssessmentStore.getState();
             expect(updatedStore.crisisDetection).toBeTruthy();
-            expect(updatedStore.crisisDetection?.triggerType).toBe('phq9_suicidal');
+            expect(updatedStore.crisisDetection?.primaryTrigger).toBe('phq9_suicidal_ideation');
             break;
           }
         }
