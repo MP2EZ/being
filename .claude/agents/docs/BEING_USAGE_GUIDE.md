@@ -1,5 +1,7 @@
 # Being. Agent Usage Guide
 
+> **STALE 2026-05**: References to the `clinician` agent in this guide are historical. The agent was retired; `crisis` now covers assessment work (PHQ-9/GAD-7) and `philosopher` covers therapeutic content (Stoic Mindfulness, virtue ethics). The "MBCT" framework references below also predate the migration to Stoic Mindfulness. See `.claude/CLAUDE.md` for the current agent hierarchy and product framework.
+
 ## Project Overview
 
 Being. is a React Native MBCT (Mindfulness-Based Cognitive Therapy) mental health app featuring:

@@ -1,6 +1,6 @@
 # Being Project - Claude Code Configuration
 
-**Last updated**: 2025-09-30
+**Last updated**: 2025-09-30 (clinician agent references below are STALE — retired 2026-05; replaced by `crisis` for assessment work and `philosopher` for therapeutic content. See `CLAUDE.md` for the current hierarchy.)
 **System version**: Consolidated Template System v1.0
 
 ---

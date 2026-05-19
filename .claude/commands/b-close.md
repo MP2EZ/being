@@ -2,7 +2,7 @@
 
 **WORK_ITEM_ID**: $ARGUMENTS (optional - will auto-detect from current branch if not provided)
 
-**Database ID**: 277a1108-c208-805c-810b-000b0f0aae22
+**Database ID**: `${NOTION_WORK_DB}` (defined in `.claude/CLAUDE.md`)
 
 ---
 
@@ -146,7 +146,7 @@ git branch --list "*FEAT-42*"
 
 ```
 mcp__git__git_status
-repo_path: "/Users/max/Development/active/being/.git"
+repo_path: "/Users/max/dev/being/.git"
 ```
 
 **Scenarios**:
@@ -178,7 +178,7 @@ Commit these changes? (y/n/view)
 **Stage all changes**:
 ```
 mcp__git__git_add
-repo_path: "/Users/max/Development/active/being/.git"
+repo_path: "/Users/max/dev/being/.git"
 files: ["."]
 ```
 
@@ -201,7 +201,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 **Commit**:
 ```
 mcp__git__git_commit
-repo_path: "/Users/max/Development/active/being/.git"
+repo_path: "/Users/max/dev/being/.git"
 message: [generated message]
 ```
 
@@ -219,7 +219,7 @@ message: [generated message]
 ### Step 3.1: Switch to Development Branch
 
 ```bash
-cd /Users/max/Development/active/being/development
+cd /Users/max/dev/being/development
 git checkout development
 ```
 
@@ -348,7 +348,7 @@ Worktree: ~/being/[worktree-dir]/
 
 **If user chooses "y"**:
 ```bash
-cd /Users/max/Development/active/being
+cd /Users/max/dev/being
 git worktree remove [worktree-dir] --force
 ```
 
@@ -371,7 +371,7 @@ Add to Notion comment:
 **If --push flag was provided**:
 
 ```bash
-cd /Users/max/Development/active/being/development
+cd /Users/max/dev/being/development
 git push
 ```
 

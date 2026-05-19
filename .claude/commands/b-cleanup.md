@@ -93,7 +93,8 @@ rg "filename" README.md 2>/dev/null
 |-----------------|-------|-------|--------|
 | PHQ/GAD scoring, crisis detection, 988, safety protocols | crisis | L3-Complex | REQUIRED |
 | HIPAA, encryption, privacy, consent, data storage | compliance | L3-Complex | REQUIRED |
-| MBCT content, therapeutic language, clinical assessment | clinician | L2-Standard | REQUIRED |
+| Stoic Mindfulness content, therapeutic language, virtue ethics | philosopher | L2-Standard | REQUIRED |
+| Assessment scoring, PHQ-9/GAD-7, DSM-5 thresholds | crisis | L2-Standard | REQUIRED |
 | Security patterns, auth, encryption implementation | security | L2-Standard | RECOMMENDED |
 
 **How to validate**:
@@ -258,7 +259,8 @@ git commit --amend
 **DOMAIN TRIGGERS** (MUST consult agents):
 - Any file containing: PHQ-9, GAD-7, crisis, 988, suicide, intervention → **crisis agent**
 - Any file containing: HIPAA, encryption, privacy, AsyncStorage, secure → **compliance agent**
-- Any file containing: MBCT, therapeutic, mindfulness, clinical → **clinician agent**
+- Any file containing: Stoic Mindfulness, therapeutic, mindfulness, virtue → **philosopher agent**
+- Any file containing: assessment, PHQ-9, GAD-7, scoring, DSM-5 → **crisis agent**
 - Any file containing: security patterns, auth, crypto → **security agent**
 
 **VERIFY NECESSITY** before moving docs:
@@ -267,7 +269,7 @@ git commit --amend
 3. Confirm destination is appropriate category
 
 **DO NOT DELETE**:
-- Files in `/docs/clinical/` without clinician approval
+- Files in `/docs/clinical/` without crisis + philosopher approval
 - Files in `/docs/security/` without security approval
 - Crisis-related docs without crisis agent approval
 - Any file with references in active code

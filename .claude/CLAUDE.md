@@ -93,7 +93,8 @@ Prefer: colorSystem.* (hierarchical) | semantic.* (intent-based)
 Docs: /docs/{product,architecture,development,testing,security,legal}/
 Key: /docs/README.md (navigation) | /docs/architecture/README.md (codebase structure)
 Compliance: /docs/legal/regulatory-applicability.md (SOURCE OF TRUTH - what applies, what doesn't)
-PM, planning, backlog: Notion database (MCP) 277a1108-c208-805c-810b-000b0f0aae22
+PM, planning, backlog: Notion (MCP) — `NOTION_WORK_DB = 277a1108-c208-805c-810b-000b0f0aae22`
+  ↳ Commands reference this as `${NOTION_WORK_DB}`. Rotate here; do not duplicate elsewhere.
 
 ### Policies
 PROHIBIT: /app/*.md | duplicates | phase-reports
@@ -102,3 +103,13 @@ DELETE: completed-work | old-validations (after-merge)
 ## Operations
 Branches: main(philosopher-validated)\|release(full-review)\|hotfix(crisis-expedited)
 Commands: validate:clinical-authority\|validate:accessibility\|perf:breathing\|perf:crisis
+
+### Crisis work
+Non-negotiables: detection<200ms\|encrypted-at-rest\|audit-log\|988<3taps\|WCAG-AA\|zero-false-negatives
+Validation: crisis + compliance + accessibility (parallel)
+Template: B-CRISIS in ./.claude/templates/being-templates.md
+
+### Hotfix work
+Scope: <30min\|single-change\|NO-refactor\|NO-features\|NO-scope-creep
+Use-for: crisis-button-broken\|988-broken\|assessment-scoring-crash
+Template: B-HOTFIX in ./.claude/templates/being-templates.md

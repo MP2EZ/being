@@ -39,7 +39,7 @@ Validates Stoic Mindfulness framework integrity, philosophical accuracy of class
 
 ## Primary Documentation
 
-**Source of Truth:** `/Users/max/Development/active/being/feat-45/docs/product/stoic-mindfulness/INDEX.md`
+**Source of Truth:** `/Users/max/dev/being/main/docs/product/stoic-mindfulness/INDEX.md`
 
 When validating Stoic Mindfulness accuracy:
 1. **Read INDEX.md first** for the Quick Reference Map showing which file contains what content

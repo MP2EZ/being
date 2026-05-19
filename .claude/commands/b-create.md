@@ -8,7 +8,7 @@
 - `/b-create FEAT - Simple subscription flow`
 - `/b-create FEAT - Medication tracking --review`
 
-**Database ID**: 277a1108-c208-805c-810b-000b0f0aae22
+**Database ID**: `${NOTION_WORK_DB}` (defined in `.claude/CLAUDE.md`)
 
 ---
 
@@ -80,11 +80,11 @@ Analyze the **Name** and **extracted context** for keywords and suggest agents:
 **Crisis/Safety keywords**: `crisis`, `PHQ`, `GAD`, `threshold`, `988`, `suicide`, `safety plan`, `emergency`
 → Suggest: `crisis, compliance`
 
-**Assessment keywords**: `assessment`, `PHQ-9`, `GAD-7`, `DSM-5`, `scoring`, `questionnaire`
-→ Suggest: `clinician, crisis`
+**Assessment keywords**: `assessment`, `PHQ-9`, `GAD-7`, `scoring`, `questionnaire`
+→ Suggest: `crisis, philosopher`
 
-**Therapeutic keywords**: `therapeutic`, `MBCT`, `mindfulness`, `meditation`, `breathing`, `exercise`, `body scan`
-→ Suggest: `clinician`
+**Therapeutic keywords**: `therapeutic`, `Stoic Mindfulness`, `mindfulness`, `virtue`, `breathing`, `exercise`, `body scan`
+→ Suggest: `philosopher`
 
 **Privacy/PHI keywords**: `privacy`, `HIPAA`, `PHI`, `encryption`, `payment`, `PCI`, `consent`, `data export`
 → Suggest: `compliance, security`
@@ -362,7 +362,7 @@ NOTE: The new Notion API uses Notion-flavored Markdown for page content. To upda
 ```
 mcp__notion__notion-create-pages
 parent: {
-  "data_source_id": "277a1108-c208-805c-810b-000b0f0aae22"
+  "data_source_id": "${NOTION_WORK_DB}"
 }
 pages: [
   {
@@ -454,7 +454,7 @@ Ready to work on it? Use: /b-work FEAT-27
 
 ```
 ✅ Created FEAT-28: Medication tracking (product-validated)
-Suggested agents: compliance, security, clinician
+Suggested agents: compliance, security, philosopher
 Dimension scores validated and captured
 
 Ready to work on it? Use: /b-work FEAT-28
