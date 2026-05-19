@@ -76,7 +76,7 @@ describe('USER AUTONOMY VALIDATION', () => {
       expect(!!store.currentSession).toBe(true);
 
       // User maintains control - can see current state
-      expect(session?.currentQuestion).toBe(0);
+      expect(session?.progress?.currentQuestionIndex).toBe(0);
       expect(session?.progress?.totalQuestions).toBe(9);
       expect(store.getCurrentProgress()).toBe(0);
     });
@@ -90,8 +90,8 @@ describe('USER AUTONOMY VALIDATION', () => {
       await store.answerQuestion('phq9_2', 1);
       await store.answerQuestion('phq9_3', 3);
 
-      const beforePauseProgress = store.currentSession?.progress;
-      expect(beforePauseProgress).toBe(3/9);
+      const beforePauseProgress = store.getCurrentProgress();
+      expect(beforePauseProgress).toBe(3/9 * 100);
 
       // User chooses to pause (simulated by not continuing)
       const sessionSnapshot = { ...store.currentSession };
@@ -406,20 +406,20 @@ describe('USER AUTONOMY VALIDATION', () => {
       // User can see their progress at any time
       expect(store.currentSession?.type).toBe('phq9');
       expect(store.currentSession?.totalQuestions).toBe(9);
-      expect(store.currentSession?.currentQuestion).toBe(0);
+      expect(store.currentSession?.progress?.currentQuestionIndex).toBe(0);
 
       // User answers and can see score building
       await store.answerQuestion('phq9_1', 2);
       expect(store.answers.reduce((s, a) => s + a.response, 0)).toBe(2);
-      expect(store.getCurrentProgress()).toBe(1/9);
+      expect(store.getCurrentProgress()).toBe(1/9 * 100);
 
       await store.answerQuestion('phq9_2', 3);
       expect(store.answers.reduce((s, a) => s + a.response, 0)).toBe(5);
-      expect(store.getCurrentProgress()).toBe(2/9);
+      expect(store.getCurrentProgress()).toBe(2/9 * 100);
 
       await store.answerQuestion('phq9_3', 1);
       expect(store.answers.reduce((s, a) => s + a.response, 0)).toBe(6);
-      expect(store.getCurrentProgress()).toBe(3/9);
+      expect(store.getCurrentProgress()).toBe(3/9 * 100);
 
       // Complete remaining questions
       for (let i = 4; i <= 9; i++) {
@@ -463,7 +463,7 @@ describe('USER AUTONOMY VALIDATION', () => {
             await store.answerQuestion(`${assessment.type}_${q + 1}`, 1);
             
             // User can see progress at each step
-            expect(store.getCurrentProgress()).toBe((q + 1) / questionCount);
+            expect(store.getCurrentProgress()).toBe(((q + 1) / questionCount) * 100);
           }
 
           await store.completeAssessment();
