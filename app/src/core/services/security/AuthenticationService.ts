@@ -761,73 +761,32 @@ export class AuthenticationService {
   }
 
   /**
-   * CREDENTIAL AUTHENTICATION
+   * CREDENTIAL AUTHENTICATION — DISABLED
+   *
+   * The original implementation was a stub that returned success for any
+   * credentials after a 100ms sleep, then minted a session with assessment +
+   * therapeutic-content permissions. Audit SEC-03 flagged this as a complete
+   * auth bypass on rooted/jailbroken devices.
+   *
+   * The product uses anonymous local + Supabase anon auth — there is no
+   * credential auth in scope. This method is preserved as a hard refusal so
+   * the `authenticate()` fallback chain compiles, but it can never grant
+   * access. Remove entirely once the auth flow is redesigned (audit roadmap
+   * Phase 2c rewrites the trust model on top of Supabase auth.uid).
    */
   private async authenticateWithCredentials(
-    credentials: {
+    _credentials: {
       username?: string | undefined;
       password?: string;
       useStoredCredentials?: boolean;
     }
   ): Promise<AuthenticationResult> {
-    try {
-      // In a real implementation, this would validate against a backend
-      // For now, simulate authentication process
-
-      if (!credentials.username && !credentials.useStoredCredentials) {
-        throw new Error('Username required');
-      }
-
-      if (!credentials.password && !credentials.useStoredCredentials) {
-        throw new Error('Password required');
-      }
-
-      // Simulate authentication delay
-      await new Promise(resolve => setTimeout(resolve, 100));
-
-      // Create authenticated user context
-      const deviceId = await this.getDeviceId();
-      const authenticatedUser: UserAuthenticationContext = {
-        userId: credentials.username || `user_${Date.now()}`,
-        username: credentials.username,
-        authenticationLevel: 'basic',
-        authenticationMethod: 'password',
-        deviceId,
-        sessionId: await this.generateSecureId(),
-        authenticatedAt: Date.now(),
-        expiresAt: Date.now() + AUTH_CONFIG.ACCESS_TOKEN_EXPIRY_MS,
-        lastActivityAt: Date.now(),
-        permissions: ['assessment_access', 'data_view', 'therapeutic_content'],
-        isCrisisAccess: false,
-        isProfessionalAccess: false,
-        biometricEnabled: await this.isBiometricAvailable()
-      };
-
-      // Generate authentication token
-      const authToken = await this.generateAuthenticationToken(authenticatedUser);
-
-      // Store session
-      await this.storeUserSession(authenticatedUser);
-      await this.storeAuthenticationToken(authToken);
-
-      this.currentUser = authenticatedUser;
-
-      return {
-        success: true,
-        user: authenticatedUser,
-        token: authToken,
-        authenticationMethod: 'password',
-        authenticationTimeMs: 0 // Will be set by caller
-      };
-
-    } catch (error) {
-      return {
-        success: false,
-        authenticationMethod: 'password',
-        authenticationTimeMs: 0,
-        error: (error instanceof Error ? error.message : String(error))
-      };
-    }
+    return {
+      success: false,
+      authenticationMethod: 'password',
+      authenticationTimeMs: 0,
+      error: 'Credential authentication is not supported in this build (SEC-03)'
+    };
   }
 
   /**
