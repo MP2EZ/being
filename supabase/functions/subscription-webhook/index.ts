@@ -27,6 +27,7 @@
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+import { verifyAppleJWS } from './verifyAppleJWS.ts';
 
 // Apple notification types
 const APPLE_NOTIFICATION_TYPES = {
@@ -71,21 +72,21 @@ interface GoogleWebhookPayload {
 }
 
 /**
- * Verify Apple webhook signature (JWS)
+ * Verify Apple webhook signature (JWS).
+ *
+ * Delegates to `verifyAppleJWS` in ./verifyAppleJWS.ts which:
+ * - Parses the JWS header for the x5c cert chain
+ * - Anchors the chain to a pinned Apple Root CA - G3 SPKI (rejects forged
+ *   chains not terminating in Apple's root)
+ * - Verifies the ES256 signature using the leaf cert's public key
+ * - Rejects payloads older than 24h or signed >5 min in the future
+ *
+ * Replaces the prior stub that decoded the payload without any verification
+ * (audit SEC-01). The Sec-01 follow-up adds full per-cert cryptographic
+ * chain verification (currently only the anchor SPKI is checked).
  */
 async function verifyAppleSignature(signedPayload: string): Promise<any> {
-  // TODO: Implement JWS verification
-  // 1. Decode JWS header and payload
-  // 2. Get Apple public key from Apple's server
-  // 3. Verify signature
-  // For now, decode payload without verification (INSECURE - fix in production)
-
-  const parts = signedPayload.split('.');
-  if (parts.length !== 3) {
-    throw new Error('Invalid JWS format');
-  }
-
-  const payload = JSON.parse(atob(parts[1]));
+  const { payload } = await verifyAppleJWS(signedPayload);
   return payload;
 }
 
