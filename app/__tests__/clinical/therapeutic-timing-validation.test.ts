@@ -16,6 +16,7 @@
  */
 
 import { useAssessmentStore } from '../../src/features/assessment/stores/assessmentStore';
+import { store } from '../utils/assessmentStoreAccessor';
 import { 
   AssessmentType, 
   AssessmentResponse, 
@@ -45,10 +46,8 @@ jest.mock('react-native', () => ({
 }));
 
 describe('THERAPEUTIC TIMING VALIDATION', () => {
-  let store: ReturnType<typeof useAssessmentStore>;
 
   beforeEach(async () => {
-    store = useAssessmentStore.getState();
     store.resetAssessment();
     await store.clearHistory();
     store.enableAutoSave();

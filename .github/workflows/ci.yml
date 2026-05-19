@@ -13,6 +13,17 @@ on:
 
 env:
   NODE_VERSION: '20'
+  # The app's package.json depends on @mp2ez/being-design-system (private
+  # GitHub Packages release). The app/.npmrc references ${GITHUB_TOKEN}
+  # which we surface from the workflow's automatic token here. Read-only
+  # `packages: read` permission is sufficient for `npm ci`.
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+# Default token permissions. `packages: read` lets npm ci pull from
+# GitHub Packages without an explicit per-step env or PAT.
+permissions:
+  contents: read
+  packages: read
 
 # Cancel in-progress runs for the same ref when a new commit lands.
 concurrency:
@@ -106,11 +117,16 @@ jobs:
         run: cd app && npm run validate:crisis-authority
 
   # Clinical accuracy — PHQ-9 / GAD-7 / Stoic content validation.
+  # Decoupled from crisis-validation: the original `needs: crisis-validation`
+  # dependency was aspirational (crisis-first gating), but clinical and
+  # crisis test suites are independent and clinical should run regardless
+  # of crisis's status. With both as parallel siblings of `prepare`, a
+  # broken crisis script no longer hides clinical-suite regressions.
   clinical-validation:
     name: Clinical authority validation
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: crisis-validation
+    needs: prepare
 
     steps:
       - uses: actions/checkout@v4
