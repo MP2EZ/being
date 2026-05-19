@@ -405,7 +405,7 @@ describe('USER AUTONOMY VALIDATION', () => {
 
       // User can see their progress at any time
       expect(store.currentSession?.type).toBe('phq9');
-      expect(store.currentSession?.totalQuestions).toBe(9);
+      expect(store.currentSession?.progress?.totalQuestions).toBe(9);
       expect(store.currentSession?.progress?.currentQuestionIndex).toBe(0);
 
       // User answers and can see score building
