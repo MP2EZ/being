@@ -59,10 +59,24 @@ export const AUTH_CONFIG = {
   STANDARD_AUTH_THRESHOLD_MS: 500,
   CRISIS_AUTH_THRESHOLD_MS: 200,
   SESSION_CHECK_THRESHOLD_MS: 100,
-  /** Security keys */
-  ACCESS_TOKEN_KEY: 'auth_access_token',
-  REFRESH_TOKEN_KEY: 'auth_refresh_token',
-  USER_SESSION_KEY: 'auth_user_session',
+  /**
+   * Security keys.
+   *
+   * Versioned (suffix `_v2`) as of SEC-03 follow-up: the prior stubbed
+   * credential-auth path could persist sessions to the v1 keys with
+   * unconditional success. Bumping the key prefix makes those legacy
+   * sessions unreadable. A one-time cleanup in `initialize()` deletes the
+   * v1 entries to avoid leaving stale ciphertext in SecureStore.
+   */
+  ACCESS_TOKEN_KEY: 'auth_access_token_v2',
+  REFRESH_TOKEN_KEY: 'auth_refresh_token_v2',
+  USER_SESSION_KEY: 'auth_user_session_v2',
+  /** Legacy keys deleted on init to invalidate stub-minted sessions. */
+  LEGACY_KEYS_V1: [
+    'auth_access_token',
+    'auth_refresh_token',
+    'auth_user_session'
+  ],
   DEVICE_ID_KEY: 'auth_device_id',
   AUTH_ATTEMPTS_KEY: 'auth_attempts'
 } as const;
@@ -215,6 +229,17 @@ export class AuthenticationService {
 
       // Initialize secure storage
       await this.secureStorage.initialize();
+
+      // SEC-03 follow-up: delete legacy v1 session keys that may have been
+      // populated by the now-disabled credential-auth stub. Failure here is
+      // non-fatal (key may not exist on fresh installs).
+      for (const legacyKey of AUTH_CONFIG.LEGACY_KEYS_V1) {
+        try {
+          await SecureStore.deleteItemAsync(legacyKey);
+        } catch {
+          // Expected on fresh installs; nothing to clean up.
+        }
+      }
 
       // Check for existing session
       await this.restoreSession();

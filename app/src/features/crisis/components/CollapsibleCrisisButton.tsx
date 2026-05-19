@@ -22,8 +22,8 @@
  * - Motor: Large touch targets, no complex gestures required
  *
  * MODES:
- * - 'standard': 40px, persistent, full opacity (Learn, check-ins)
- * - 'immersive': 40px, starts faded (50%), tap reveals briefly (practices)
+ * - 'standard': 44px, persistent, full opacity (Learn, check-ins)
+ * - 'immersive': 44px, starts faded (50%), tap reveals briefly (practices)
  * - 'prominent': 56px, full emphasis (assessments, PHQ>=15)
  *
  * Usage:
@@ -318,7 +318,7 @@ export const CollapsibleCrisisButton: React.FC<CollapsibleCrisisButtonProps> = (
 
   /**
    * Get mode-specific collapsed width
-   * Standard/Immersive: 40px (subtle)
+   * Standard/Immersive: 44px (WCAG 2.5.5 minimum)
    * Prominent: 56px (assessments, PHQ>=15)
    */
   const collapsedWidth = mode === 'prominent' ? COLLAPSED_WIDTH_PROMINENT : COLLAPSED_WIDTH_STANDARD;
