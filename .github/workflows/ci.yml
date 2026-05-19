@@ -13,6 +13,17 @@ on:
 
 env:
   NODE_VERSION: '20'
+  # The app's package.json depends on @mp2ez/being-design-system (private
+  # GitHub Packages release). The app/.npmrc references ${GITHUB_TOKEN}
+  # which we surface from the workflow's automatic token here. Read-only
+  # `packages: read` permission is sufficient for `npm ci`.
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+# Default token permissions. `packages: read` lets npm ci pull from
+# GitHub Packages without an explicit per-step env or PAT.
+permissions:
+  contents: read
+  packages: read
 
 # Cancel in-progress runs for the same ref when a new commit lands.
 concurrency:
