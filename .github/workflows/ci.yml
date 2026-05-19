@@ -117,11 +117,16 @@ jobs:
         run: cd app && npm run validate:crisis-authority
 
   # Clinical accuracy — PHQ-9 / GAD-7 / Stoic content validation.
+  # Decoupled from crisis-validation: the original `needs: crisis-validation`
+  # dependency was aspirational (crisis-first gating), but clinical and
+  # crisis test suites are independent and clinical should run regardless
+  # of crisis's status. With both as parallel siblings of `prepare`, a
+  # broken crisis script no longer hides clinical-suite regressions.
   clinical-validation:
     name: Clinical authority validation
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: crisis-validation
+    needs: prepare
 
     steps:
       - uses: actions/checkout@v4
