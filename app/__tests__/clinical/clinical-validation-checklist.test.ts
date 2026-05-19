@@ -108,7 +108,7 @@ describe('CLINICAL VALIDATION CHECKLIST - CLOUD SYNC INTEGRATION', () => {
         // Crisis should be detected immediately on question 9
         if (i === 8 && answers[i] > 0) {
           expect(store.crisisDetection).toBeTruthy();
-          expect(store.crisisDetection?.triggerType).toBe('phq9_suicidal');
+          expect(store.crisisDetection?.primaryTrigger).toBe('phq9_suicidal_ideation');
           break;
         }
       }
@@ -235,7 +235,7 @@ describe('CLINICAL VALIDATION CHECKLIST - CLOUD SYNC INTEGRATION', () => {
 
       // Validate crisis detection integrity
       expect(store.crisisDetection).toBeTruthy();
-      expect(store.crisisDetection?.triggerType).toBe('gad7_score');
+      expect(store.crisisDetection?.primaryTrigger).toBe('gad7_severe_score');
       expect(store.crisisDetection?.triggerValue).toBe(15);
       expect(store.crisisDetection?.isTriggered).toBe(true);
 
@@ -385,7 +385,7 @@ describe('CLINICAL VALIDATION CHECKLIST - CLOUD SYNC INTEGRATION', () => {
       await store.completeAssessment();
 
       // Validate crisis data is properly structured for sync
-      expect(store.crisisDetection?.triggerType).toBe('gad7_score');
+      expect(store.crisisDetection?.primaryTrigger).toBe('gad7_severe_score');
       expect(store.crisisDetection?.triggerValue).toBe(15);
       expect(store.crisisDetection?.isTriggered).toBe(true);
       expect(typeof store.crisisDetection?.detectedAt).toBe('number');

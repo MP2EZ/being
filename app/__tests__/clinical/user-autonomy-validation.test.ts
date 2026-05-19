@@ -63,7 +63,7 @@ describe('USER AUTONOMY VALIDATION', () => {
     it('User can start assessment voluntarily', async () => {
       // Initially no active assessment
       expect(store.currentSession).toBeNull();
-      expect(store.isAssessmentActive).toBe(false);
+      expect(!!store.currentSession).toBe(false);
 
       // User chooses to start assessment
       await store.startAssessment('phq9', 'voluntary_start_test');
@@ -73,7 +73,7 @@ describe('USER AUTONOMY VALIDATION', () => {
       expect(session).toBeTruthy();
       expect(session?.type).toBe('phq9');
       expect(session?.reason).toBe('voluntary_start_test');
-      expect(store.isAssessmentActive).toBe(true);
+      expect(!!store.currentSession).toBe(true);
 
       // User maintains control - can see current state
       expect(session?.currentQuestion).toBe(0);
@@ -110,7 +110,7 @@ describe('USER AUTONOMY VALIDATION', () => {
 
       // Assessment remains paused state (not completed)
       expect(store.currentResult).toBeNull();
-      expect(store.isAssessmentActive).toBe(true);
+      expect(!!store.currentSession).toBe(true);
     });
 
     it('User can resume paused assessment', async () => {
@@ -160,7 +160,7 @@ describe('USER AUTONOMY VALIDATION', () => {
       // Validate user's autonomous decision is respected
       expect(store.currentSession).toBeNull();
       expect(store.currentResult).toBeNull();
-      expect(store.isAssessmentActive).toBe(false);
+      expect(!!store.currentSession).toBe(false);
       
       // No completed assessment was saved (user's choice)
       expect(store.completedAssessments).toHaveLength(0);
@@ -319,7 +319,7 @@ describe('USER AUTONOMY VALIDATION', () => {
       // Validate crisis intervention while respecting autonomy
       expect(store.crisisDetection).toBeTruthy();
       expect(store.crisisDetection?.isTriggered).toBe(true);
-      expect(store.crisisDetection?.triggerType).toBe('phq9_suicidal');
+      expect(store.crisisDetection?.primaryTrigger).toBe('phq9_suicidal_ideation');
 
       // User still completed assessment (maintained control)
       const result = store.currentResult;
@@ -346,7 +346,7 @@ describe('USER AUTONOMY VALIDATION', () => {
       await store.completeAssessment();
 
       expect(store.crisisDetection).toBeTruthy();
-      expect(store.crisisDetection?.triggerType).toBe('gad7_score');
+      expect(store.crisisDetection?.primaryTrigger).toBe('gad7_severe_score');
 
       // User maintains access to their assessment results
       const result = store.currentResult;

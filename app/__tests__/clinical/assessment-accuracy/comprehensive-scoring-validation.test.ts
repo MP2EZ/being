@@ -143,10 +143,29 @@ describe('COMPREHENSIVE CLINICAL SCORING VALIDATION - ALL 48 COMBINATIONS', () =
         const expectCrisis = score >= CRISIS_THRESHOLDS.PHQ9_CRISIS_SCORE;
         expect(assessmentResult.isCrisis).toBe(expectCrisis);
 
+        // Suicidal ideation detection (Question 9) — computed first because it
+        // takes precedence in CrisisDetectionService.detectCrisis (the production
+        // code checks Q9 before falling through to the moderate-severe-score
+        // branch). For high scores (25-27), the answer generator distributes
+        // points across all 9 questions including Q9 — so suicidalIdeation
+        // is true and the trigger is phq9_suicidal_ideation rather than
+        // phq9_moderate_severe_score. Earlier this expectation was unconditional;
+        // moving the suicidal check up and conditionalizing the trigger fixes
+        // PHQ-9 scores 25/26/27.
+        const suicidalResponse = answers[8]; // PHQ9_9 is index 8
+        expect(assessmentResult.suicidalIdeation).toBe(suicidalResponse > 0);
+
         if (expectCrisis) {
           expect(finalStore.crisisDetection).toBeTruthy();
-          expect(finalStore.crisisDetection?.triggerType).toBe('phq9_score');
-          expect(finalStore.crisisDetection?.triggerValue).toBe(score);
+          const expectedTrigger = suicidalResponse > 0
+            ? 'phq9_suicidal_ideation'
+            : 'phq9_moderate_severe_score';
+          expect(finalStore.crisisDetection?.primaryTrigger).toBe(expectedTrigger);
+          // triggerValue: production sets this to 1 for suicidal-ideation
+          // triggers, or the totalScore for score-based triggers (see
+          // CrisisDetectionService.detectCrisis in assessmentStore.ts).
+          const expectedTriggerValue = suicidalResponse > 0 ? 1 : score;
+          expect(finalStore.crisisDetection?.triggerValue).toBe(expectedTriggerValue);
 
           // Full-flow budget: nine sequential answer awaits + complete.
           // The CLAUDE.md <200ms target is for the crisis-detection
@@ -155,10 +174,6 @@ describe('COMPREHENSIVE CLINICAL SCORING VALIDATION - ALL 48 COMBINATIONS', () =
           // honest about full-flow latency without flaking on slow CI.
           expect(completionTime).toBeLessThan(500);
         }
-
-        // Suicidal ideation detection (Question 9)
-        const suicidalResponse = answers[8]; // PHQ9_9 is index 8
-        expect(assessmentResult.suicidalIdeation).toBe(suicidalResponse > 0);
 
         if (suicidalResponse > 0) {
           expect(assessmentResult.isCrisis).toBe(true); // Should trigger crisis regardless of total score
@@ -222,7 +237,7 @@ describe('COMPREHENSIVE CLINICAL SCORING VALIDATION - ALL 48 COMBINATIONS', () =
 
         // Validate immediate crisis detection for suicidal ideation
         expect(store.crisisDetection).toBeTruthy();
-        expect(store.crisisDetection?.triggerType).toBe('phq9_suicidal');
+        expect(store.crisisDetection?.primaryTrigger).toBe('phq9_suicidal_ideation');
         expect(store.crisisDetection?.triggerValue).toBe(testCase.suicidalResponse);
         expect(crisisDetectionTime).toBeLessThan(200); // <200ms requirement
 
@@ -295,7 +310,7 @@ describe('COMPREHENSIVE CLINICAL SCORING VALIDATION - ALL 48 COMBINATIONS', () =
 
         if (expectCrisis) {
           expect(finalStore.crisisDetection).toBeTruthy();
-          expect(finalStore.crisisDetection?.triggerType).toBe('gad7_score');
+          expect(finalStore.crisisDetection?.primaryTrigger).toBe('gad7_severe_score');
           expect(finalStore.crisisDetection?.triggerValue).toBe(score);
 
           // Full-flow budget — see PHQ-9 comment above.
