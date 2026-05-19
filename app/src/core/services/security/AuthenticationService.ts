@@ -59,10 +59,24 @@ export const AUTH_CONFIG = {
   STANDARD_AUTH_THRESHOLD_MS: 500,
   CRISIS_AUTH_THRESHOLD_MS: 200,
   SESSION_CHECK_THRESHOLD_MS: 100,
-  /** Security keys */
-  ACCESS_TOKEN_KEY: 'auth_access_token',
-  REFRESH_TOKEN_KEY: 'auth_refresh_token',
-  USER_SESSION_KEY: 'auth_user_session',
+  /**
+   * Security keys.
+   *
+   * Versioned (suffix `_v2`) as of SEC-03 follow-up: the prior stubbed
+   * credential-auth path could persist sessions to the v1 keys with
+   * unconditional success. Bumping the key prefix makes those legacy
+   * sessions unreadable. A one-time cleanup in `initialize()` deletes the
+   * v1 entries to avoid leaving stale ciphertext in SecureStore.
+   */
+  ACCESS_TOKEN_KEY: 'auth_access_token_v2',
+  REFRESH_TOKEN_KEY: 'auth_refresh_token_v2',
+  USER_SESSION_KEY: 'auth_user_session_v2',
+  /** Legacy keys deleted on init to invalidate stub-minted sessions. */
+  LEGACY_KEYS_V1: [
+    'auth_access_token',
+    'auth_refresh_token',
+    'auth_user_session'
+  ],
   DEVICE_ID_KEY: 'auth_device_id',
   AUTH_ATTEMPTS_KEY: 'auth_attempts'
 } as const;
@@ -215,6 +229,17 @@ export class AuthenticationService {
 
       // Initialize secure storage
       await this.secureStorage.initialize();
+
+      // SEC-03 follow-up: delete legacy v1 session keys that may have been
+      // populated by the now-disabled credential-auth stub. Failure here is
+      // non-fatal (key may not exist on fresh installs).
+      for (const legacyKey of AUTH_CONFIG.LEGACY_KEYS_V1) {
+        try {
+          await SecureStore.deleteItemAsync(legacyKey);
+        } catch {
+          // Expected on fresh installs; nothing to clean up.
+        }
+      }
 
       // Check for existing session
       await this.restoreSession();
@@ -761,73 +786,32 @@ export class AuthenticationService {
   }
 
   /**
-   * CREDENTIAL AUTHENTICATION
+   * CREDENTIAL AUTHENTICATION — DISABLED
+   *
+   * The original implementation was a stub that returned success for any
+   * credentials after a 100ms sleep, then minted a session with assessment +
+   * therapeutic-content permissions. Audit SEC-03 flagged this as a complete
+   * auth bypass on rooted/jailbroken devices.
+   *
+   * The product uses anonymous local + Supabase anon auth — there is no
+   * credential auth in scope. This method is preserved as a hard refusal so
+   * the `authenticate()` fallback chain compiles, but it can never grant
+   * access. Remove entirely once the auth flow is redesigned (audit roadmap
+   * Phase 2c rewrites the trust model on top of Supabase auth.uid).
    */
   private async authenticateWithCredentials(
-    credentials: {
+    _credentials: {
       username?: string | undefined;
       password?: string;
       useStoredCredentials?: boolean;
     }
   ): Promise<AuthenticationResult> {
-    try {
-      // In a real implementation, this would validate against a backend
-      // For now, simulate authentication process
-
-      if (!credentials.username && !credentials.useStoredCredentials) {
-        throw new Error('Username required');
-      }
-
-      if (!credentials.password && !credentials.useStoredCredentials) {
-        throw new Error('Password required');
-      }
-
-      // Simulate authentication delay
-      await new Promise(resolve => setTimeout(resolve, 100));
-
-      // Create authenticated user context
-      const deviceId = await this.getDeviceId();
-      const authenticatedUser: UserAuthenticationContext = {
-        userId: credentials.username || `user_${Date.now()}`,
-        username: credentials.username,
-        authenticationLevel: 'basic',
-        authenticationMethod: 'password',
-        deviceId,
-        sessionId: await this.generateSecureId(),
-        authenticatedAt: Date.now(),
-        expiresAt: Date.now() + AUTH_CONFIG.ACCESS_TOKEN_EXPIRY_MS,
-        lastActivityAt: Date.now(),
-        permissions: ['assessment_access', 'data_view', 'therapeutic_content'],
-        isCrisisAccess: false,
-        isProfessionalAccess: false,
-        biometricEnabled: await this.isBiometricAvailable()
-      };
-
-      // Generate authentication token
-      const authToken = await this.generateAuthenticationToken(authenticatedUser);
-
-      // Store session
-      await this.storeUserSession(authenticatedUser);
-      await this.storeAuthenticationToken(authToken);
-
-      this.currentUser = authenticatedUser;
-
-      return {
-        success: true,
-        user: authenticatedUser,
-        token: authToken,
-        authenticationMethod: 'password',
-        authenticationTimeMs: 0 // Will be set by caller
-      };
-
-    } catch (error) {
-      return {
-        success: false,
-        authenticationMethod: 'password',
-        authenticationTimeMs: 0,
-        error: (error instanceof Error ? error.message : String(error))
-      };
-    }
+    return {
+      success: false,
+      authenticationMethod: 'password',
+      authenticationTimeMs: 0,
+      error: 'Credential authentication is not supported in this build (SEC-03)'
+    };
   }
 
   /**

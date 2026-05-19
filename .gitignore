@@ -14,7 +14,8 @@ Thumbs.db
 .env
 .env.*
 !.env.example
-!.env.production
+# NOTE: .env.production is intentionally NOT whitelisted (SEC-04). Production
+# secrets belong in EAS Secrets / expo-constants runtime config, not in git.
 *.pem
 *.key
 *.jks
