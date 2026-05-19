@@ -72,13 +72,13 @@ describe('USER AUTONOMY VALIDATION', () => {
       const session = store.currentSession;
       expect(session).toBeTruthy();
       expect(session?.type).toBe('phq9');
-      expect(session?.reason).toBe('voluntary_start_test');
+      expect(session?.context).toBe('voluntary_start_test');
       expect(!!store.currentSession).toBe(true);
 
       // User maintains control - can see current state
       expect(session?.currentQuestion).toBe(0);
-      expect(session?.totalQuestions).toBe(9);
-      expect(session?.progress).toBe(0);
+      expect(session?.progress?.totalQuestions).toBe(9);
+      expect(store.getCurrentProgress()).toBe(0);
     });
 
     it('User can pause assessment at any point', async () => {
@@ -97,16 +97,16 @@ describe('USER AUTONOMY VALIDATION', () => {
       const sessionSnapshot = { ...store.currentSession };
       
       // Validate user can access current progress at any time
-      expect(sessionSnapshot?.answers).toHaveLength(3);
-      expect(sessionSnapshot?.currentScore).toBe(6); // 2+1+3
+      expect(store.answers).toHaveLength(3);
+      expect(store.answers.reduce((s, a) => s + a.response, 0)).toBe(6); // 2+1+3
       
       // User autonomy: can see exactly what they've answered
-      expect(sessionSnapshot?.answers[0].questionId).toBe('phq9_1');
-      expect(sessionSnapshot?.answers[0].response).toBe(2);
-      expect(sessionSnapshot?.answers[1].questionId).toBe('phq9_2');
-      expect(sessionSnapshot?.answers[1].response).toBe(1);
-      expect(sessionSnapshot?.answers[2].questionId).toBe('phq9_3');
-      expect(sessionSnapshot?.answers[2].response).toBe(3);
+      expect(store.answers[0].questionId).toBe('phq9_1');
+      expect(store.answers[0].response).toBe(2);
+      expect(store.answers[1].questionId).toBe('phq9_2');
+      expect(store.answers[1].response).toBe(1);
+      expect(store.answers[2].questionId).toBe('phq9_3');
+      expect(store.answers[2].response).toBe(3);
 
       // Assessment remains paused state (not completed)
       expect(store.currentResult).toBeNull();
@@ -123,8 +123,8 @@ describe('USER AUTONOMY VALIDATION', () => {
       await store.answerQuestion('gad7_3', 2);
 
       const pausedState = store.currentSession;
-      expect(pausedState?.answers).toHaveLength(3);
-      expect(pausedState?.currentScore).toBe(5);
+      expect(store.answers).toHaveLength(3);
+      expect(store.answers.reduce((s, a) => s + a.response, 0)).toBe(5);
 
       // Simulate resuming (user continues answering)
       await store.answerQuestion('gad7_4', 1);
@@ -152,7 +152,7 @@ describe('USER AUTONOMY VALIDATION', () => {
       await store.answerQuestion('phq9_2', 2);
 
       const partialState = { ...store.currentSession };
-      expect(partialState?.answers).toHaveLength(2);
+      expect(store.answers).toHaveLength(2);
 
       // User chooses to reset/exit
       store.resetAssessment();
@@ -175,13 +175,13 @@ describe('USER AUTONOMY VALIDATION', () => {
       await store.answerQuestion('phq9_2', 2);
       await store.answerQuestion('phq9_3', 1);
 
-      let currentScore = store.currentSession?.currentScore;
+      let currentScore = store.answers.reduce((s, a) => s + a.response, 0);
       expect(currentScore).toBe(6);
 
       // User realizes they want to change an answer (autonomy)
       await store.answerQuestion('phq9_2', 0); // Change from 2 to 0
 
-      currentScore = store.currentSession?.currentScore;
+      currentScore = store.answers.reduce((s, a) => s + a.response, 0);
       expect(currentScore).toBe(4); // 3+0+1=4
 
       // Validate the change was respected
@@ -366,9 +366,13 @@ describe('USER AUTONOMY VALIDATION', () => {
       await store.startAssessment('phq9', 'high_score_autonomy_test');
       await new Promise(resolve => setTimeout(resolve, 10));
 
-      // High but non-crisis score (19 - just below crisis threshold of 20)
-      const highAnswers = [3, 3, 3, 2, 2, 2, 2, 2, 0]; // Score 19, no suicidal ideation
-      
+      // High but non-crisis score. The production crisis threshold is 15 (not 20
+      // — the test was previously written assuming the older 20-floor). Score 14
+      // is the highest non-crisis PHQ-9 score (severity = 'moderate', the 10-14
+      // band). At 15+, isCrisis flips to true and autonomy is overlaid with
+      // crisis-intervention prompts — a different test scenario.
+      const highAnswers = [3, 2, 2, 2, 2, 1, 1, 1, 0]; // Score 14, no suicidal ideation
+
       for (let i = 0; i < highAnswers.length; i++) {
         await store.answerQuestion(`phq9_${i + 1}`, highAnswers[i]);
       }
@@ -376,8 +380,8 @@ describe('USER AUTONOMY VALIDATION', () => {
       await store.completeAssessment();
 
       const result = store.currentResult;
-      expect(result?.totalScore).toBe(19);
-      expect(result?.severity).toBe('moderately_severe');
+      expect(result?.totalScore).toBe(14);
+      expect(result?.severity).toBe('moderate');
       expect(result?.isCrisis).toBe(false);
       expect(result?.suicidalIdeation).toBe(false);
 
@@ -390,7 +394,7 @@ describe('USER AUTONOMY VALIDATION', () => {
 
       // User can access and review their results autonomously
       const history = store.getAssessmentHistory('phq9');
-      expect(history[0].result?.totalScore).toBe(19);
+      expect(history[0].result?.totalScore).toBe(14);
     });
   });
 
@@ -406,16 +410,16 @@ describe('USER AUTONOMY VALIDATION', () => {
 
       // User answers and can see score building
       await store.answerQuestion('phq9_1', 2);
-      expect(store.currentSession?.currentScore).toBe(2);
-      expect(store.currentSession?.progress).toBe(1/9);
+      expect(store.answers.reduce((s, a) => s + a.response, 0)).toBe(2);
+      expect(store.getCurrentProgress()).toBe(1/9);
 
       await store.answerQuestion('phq9_2', 3);
-      expect(store.currentSession?.currentScore).toBe(5);
-      expect(store.currentSession?.progress).toBe(2/9);
+      expect(store.answers.reduce((s, a) => s + a.response, 0)).toBe(5);
+      expect(store.getCurrentProgress()).toBe(2/9);
 
       await store.answerQuestion('phq9_3', 1);
-      expect(store.currentSession?.currentScore).toBe(6);
-      expect(store.currentSession?.progress).toBe(3/9);
+      expect(store.answers.reduce((s, a) => s + a.response, 0)).toBe(6);
+      expect(store.getCurrentProgress()).toBe(3/9);
 
       // Complete remaining questions
       for (let i = 4; i <= 9; i++) {
@@ -459,7 +463,7 @@ describe('USER AUTONOMY VALIDATION', () => {
             await store.answerQuestion(`${assessment.type}_${q + 1}`, 1);
             
             // User can see progress at each step
-            expect(store.currentSession?.progress).toBe((q + 1) / questionCount);
+            expect(store.getCurrentProgress()).toBe((q + 1) / questionCount);
           }
 
           await store.completeAssessment();
