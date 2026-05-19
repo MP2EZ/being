@@ -161,10 +161,12 @@ describe('CLINICAL VALIDATION SUMMARY - CONDITIONAL APPROVAL', () => {
       const finalStore = useAssessmentStore.getState();
 
       expect(finalStore.completedAssessments).toHaveLength(1);
-      
-      // User owns and can delete their data
+
+      // User owns and can delete their data. After clearHistory(), re-read
+      // fresh state — `finalStore` captured the pre-clear snapshot and
+      // doesn't auto-update.
       await finalStore.clearHistory();
-      expect(finalStore.completedAssessments).toHaveLength(0);
+      expect(useAssessmentStore.getState().completedAssessments).toHaveLength(0);
 
       console.log('✅ User Autonomy: User maintains full control over assessment process and data');
     });
