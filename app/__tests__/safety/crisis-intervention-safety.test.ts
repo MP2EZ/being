@@ -45,45 +45,14 @@ import { Alert, Linking } from 'react-native';
 // API and works in the Jest environment without native module setup.
 import { performance } from 'perf_hooks';
 
-// Mock React Native for safety testing
-jest.mock('react-native', () => ({
-  Alert: {
-    alert: jest.fn((title, message, buttons, options) => {
-      // Track all emergency alert calls for safety validation
-      const emergencyCall = {
-        title,
-        message,
-        buttons: buttons?.map(b => ({ text: b.text, style: b.style })),
-        options,
-        timestamp: Date.now()
-      };
-      
-      // Store for later validation
-      if (!global.emergencyAlertCalls) {
-        global.emergencyAlertCalls = [];
-      }
-      global.emergencyAlertCalls.push(emergencyCall);
-
-      // Auto-trigger first button for testing
-      if (buttons && buttons.length > 0 && buttons[0].onPress) {
-        setTimeout(() => buttons[0].onPress(), 5);
-      }
-    }),
-  },
-  Linking: {
-    openURL: jest.fn().mockImplementation((url) => {
-      // Track all emergency contact attempts
-      if (!global.emergencyLinkingCalls) {
-        global.emergencyLinkingCalls = [];
-      }
-      global.emergencyLinkingCalls.push({
-        url,
-        timestamp: Date.now()
-      });
-      return Promise.resolve(true);
-    }),
-  },
-}));
+// Note: react-native is globally mocked in __tests__/setup/jest.setup.js with
+// a bare `Alert.alert: jest.fn()` (no impl). A file-level `jest.mock` here used
+// to define a tracking impl but the setup-file mock won the registration race,
+// so every Alert.alert call vanished into a no-op and global.emergencyAlertCalls
+// stayed empty. We now monkey-patch Alert.alert / Linking.openURL in beforeEach
+// instead — that mutates the same mock object production code already imported,
+// sidestepping Jest's mock resolution order entirely. (The passing "Fallback"
+// test in this file already uses the same direct-reassignment pattern.)
 
 // Mock secure storage with failure simulation capabilities
 let mockStorageFailureSimulation = false;
@@ -181,6 +150,22 @@ class CrisisSafetyMonitor {
   }
 }
 
+// Distribute a target score across `questionCount` questions, capping each
+// answer at 3 (the PHQ-9 / GAD-7 max). Used by tests that need a known total
+// score without caring about per-question distribution.
+function distributeScore(targetScore: number, questionCount: number): AssessmentResponse[] {
+  const answers: AssessmentResponse[] = new Array(questionCount).fill(0);
+  let remainingScore = targetScore;
+
+  for (let i = 0; i < questionCount && remainingScore > 0; i++) {
+    const maxForQuestion = Math.min(remainingScore, 3);
+    answers[i] = maxForQuestion as AssessmentResponse;
+    remainingScore -= maxForQuestion;
+  }
+
+  return answers;
+}
+
 describe('CRISIS INTERVENTION SAFETY TESTING SUITE', () => {
   let safetyMonitor: CrisisSafetyMonitor;
 
@@ -198,6 +183,27 @@ describe('CRISIS INTERVENTION SAFETY TESTING SUITE', () => {
     jest.clearAllMocks();
     global.emergencyAlertCalls = [];
     global.emergencyLinkingCalls = [];
+
+    // Monkey-patch Alert.alert / Linking.openURL with tracking impls. See note
+    // at the top of this file: the global jest.setup.js mock wins module-mock
+    // registration, so we mutate its Alert/Linking objects directly instead.
+    Alert.alert = jest.fn((title, message, buttons, options) => {
+      global.emergencyAlertCalls.push({
+        title,
+        message,
+        buttons: buttons?.map(b => ({ text: b.text, style: b.style, onPress: b.onPress })),
+        options,
+        timestamp: Date.now()
+      });
+      if (buttons && buttons.length > 0 && buttons[0].onPress) {
+        setTimeout(() => buttons[0].onPress(), 5);
+      }
+    }) as typeof Alert.alert;
+
+    Linking.openURL = jest.fn((url: string) => {
+      global.emergencyLinkingCalls.push({ url, timestamp: Date.now() });
+      return Promise.resolve(true);
+    }) as typeof Linking.openURL;
   });
 
   afterEach(() => {
@@ -285,7 +291,7 @@ describe('CRISIS INTERVENTION SAFETY TESTING SUITE', () => {
         await store.startAssessment(test.type, `crisis_score_test_${test.score}`);
 
         const questionCount = test.type === 'phq9' ? 9 : 7;
-        const answers = this.distributeScore(test.score, questionCount);
+        const answers = distributeScore(test.score, questionCount);
 
         // Answer all questions
         for (let i = 0; i < questionCount; i++) {
@@ -313,21 +319,6 @@ describe('CRISIS INTERVENTION SAFETY TESTING SUITE', () => {
       }
     });
 
-    /**
-     * Helper function to distribute score across questions
-     */
-    function distributeScore(targetScore: number, questionCount: number): AssessmentResponse[] {
-      const answers: AssessmentResponse[] = new Array(questionCount).fill(0);
-      let remainingScore = targetScore;
-
-      for (let i = 0; i < questionCount && remainingScore > 0; i++) {
-        const maxForQuestion = Math.min(remainingScore, 3);
-        answers[i] = maxForQuestion as AssessmentResponse;
-        remainingScore -= maxForQuestion;
-      }
-
-      return answers;
-    }
   });
 
   describe('EMERGENCY CONTACT SYSTEM VALIDATION', () => {
@@ -630,7 +621,7 @@ describe('CRISIS INTERVENTION SAFETY TESTING SUITE', () => {
         await store.startAssessment(test.type, `boundary_safety_${test.score}`);
 
         const questionCount = test.type === 'phq9' ? 9 : 7;
-        const answers = this.distributeScore(test.score, questionCount);
+        const answers = distributeScore(test.score, questionCount);
 
         for (let i = 0; i < questionCount; i++) {
           await store.answerQuestion(`${test.type}_${i + 1}`, answers[i]);
