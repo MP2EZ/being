@@ -25,11 +25,19 @@
  */
 
 import { useAssessmentStore } from '../../src/features/assessment/stores/assessmentStore';
-import { 
-  AssessmentType, 
-  AssessmentResponse, 
+// Shared Proxy-based store accessor: always returns fresh state at the
+// moment of property access. The previous `let store: ReturnType<typeof
+// useAssessmentStore>` + `store = useAssessmentStore.getState()` in
+// beforeEach captured a snapshot that went stale immediately after the
+// first await; state reads (store.crisisDetection, etc.) returned null
+// from the pre-action state. Same pattern fixed in 4 other clinical
+// test files during Phase 2a.5b — this is the 5th.
+import { store } from '../utils/assessmentStoreAccessor';
+import {
+  AssessmentType,
+  AssessmentResponse,
   CrisisDetection,
-  CRISIS_THRESHOLDS 
+  CRISIS_THRESHOLDS
 } from '../../src/features/assessment/types/index';
 import { Alert, Linking } from 'react-native';
 // `react-native-performance` is not installed in this codebase; other crisis
@@ -174,11 +182,12 @@ class CrisisSafetyMonitor {
 }
 
 describe('CRISIS INTERVENTION SAFETY TESTING SUITE', () => {
-  let store: ReturnType<typeof useAssessmentStore>;
   let safetyMonitor: CrisisSafetyMonitor;
 
   beforeEach(async () => {
-    store = useAssessmentStore.getState();
+    // `store` is the shared Proxy from assessmentStoreAccessor — no longer
+    // captured here. The Proxy reads useAssessmentStore.getState() on every
+    // property access, so state reads stay fresh after async actions.
     store.resetAssessment();
     await store.clearHistory();
     
@@ -230,7 +239,7 @@ describe('CRISIS INTERVENTION SAFETY TESTING SUITE', () => {
         
         // Crisis must be detected immediately
         expect(store.crisisDetection).toBeTruthy();
-        expect(store.crisisDetection?.triggerType).toBe('phq9_suicidal');
+        expect(store.crisisDetection?.primaryTrigger).toBe('phq9_suicidal_ideation');
         expect(store.crisisDetection?.triggerValue).toBe(response);
 
         // Emergency response must be triggered
@@ -468,7 +477,7 @@ describe('CRISIS INTERVENTION SAFETY TESTING SUITE', () => {
 
       // Crisis detection must still work despite storage failures
       expect(store.crisisDetection).toBeTruthy();
-      expect(store.crisisDetection?.triggerType).toBe('phq9_suicidal');
+      expect(store.crisisDetection?.primaryTrigger).toBe('phq9_suicidal_ideation');
 
       // Emergency response must still be triggered
       expect(global.emergencyAlertCalls.length).toBeGreaterThan(0);
@@ -534,7 +543,7 @@ describe('CRISIS INTERVENTION SAFETY TESTING SUITE', () => {
 
       // Crisis should still be detected
       expect(store.crisisDetection).toBeTruthy();
-      expect(store.crisisDetection?.triggerType).toBe('gad7_score');
+      expect(store.crisisDetection?.primaryTrigger).toBe('gad7_severe_score');
 
       // Alert should still be shown (even if phone calls fail)
       expect(global.emergencyAlertCalls.length).toBeGreaterThan(0);
@@ -666,7 +675,7 @@ describe('CRISIS INTERVENTION SAFETY TESTING SUITE', () => {
       // Must trigger crisis despite low total score
       expect(responseTime).toBeLessThan(100);
       expect(store.crisisDetection).toBeTruthy();
-      expect(store.crisisDetection?.triggerType).toBe('phq9_suicidal');
+      expect(store.crisisDetection?.primaryTrigger).toBe('phq9_suicidal_ideation');
 
       await store.completeAssessment();
 
