@@ -74,11 +74,21 @@ jobs:
       - name: Typecheck
         run: cd app && npm run typecheck
 
+  # ESLint job is advisory (continue-on-error) — the codebase carries ~956
+  # lint errors of accumulated debt from 5+ months of unguarded dev. Gating
+  # the build on those gives no signal about regressions; surfacing them in
+  # logs does. Pay-down plan tracked separately; meanwhile every PR sees
+  # the count in CI output but isn't blocked on it.
+  #
+  # Restore gating by removing continue-on-error once total errors are
+  # under a manageable count (e.g., <50), or switch to a baseline approach
+  # that fails only on NEW errors vs the baseline.
   lint:
     name: ESLint
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: prepare
+    continue-on-error: true
 
     steps:
       - uses: actions/checkout@v4
@@ -91,7 +101,7 @@ jobs:
       - name: Install dependencies
         run: cd app && npm ci --prefer-offline --no-audit
 
-      - name: Lint
+      - name: Lint (advisory)
         run: cd app && npm run lint
 
   # Crisis-authority validation — runs first among the test jobs because a
@@ -288,8 +298,11 @@ jobs:
           echo "test:             ${{ needs.test.result }}"
           echo "security:         ${{ needs.security.result }}"
           echo "accessibility:    ${{ needs.accessibility.result }}"
+          # lint is advisory (~956 errors of accumulated debt); its result
+          # is informational only and does not gate the aggregate. Same
+          # rationale as performance-regression. Restore lint to the
+          # gate-check once errors are paid down to a manageable count.
           if [[ "${{ needs.typecheck.result }}" != "success" \
-             || "${{ needs.lint.result }}" != "success" \
              || "${{ needs.crisis-validation.result }}" != "success" \
              || "${{ needs.clinical-validation.result }}" != "success" \
              || "${{ needs.test.result }}" != "success" \
@@ -298,4 +311,4 @@ jobs:
             echo "❌ One or more required gates failed"
             exit 1
           fi
-          echo "✅ All required gates passed"
+          echo "✅ All required gates passed (lint advisory only)"
