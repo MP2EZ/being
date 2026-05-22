@@ -67,7 +67,14 @@ module.exports = {
   },
 
   transformIgnorePatterns: [
-    'node_modules/(?!(react-native|@react-native|react-native-vector-icons|@react-navigation|react-navigation|expo|@expo|expo-in-app-purchases|expo-modules-core|zustand|react-native-gesture-handler|react-native-reanimated|uuid)/)'
+    // Note on the negative lookahead pattern: each alternation entry must
+    // be followed by `/` (see the trailing `/)` outside the alternation).
+    // That means `expo` matches `node_modules/expo/...` but NOT
+    // `node_modules/expo-font/...` — the hyphen breaks the `/` match.
+    // We have to enumerate each `expo-*` ESM package explicitly. (Or use
+    // a regex like `expo[a-z-]*` — but the explicit list is more grep-able
+    // when a new module starts failing to parse.)
+    'node_modules/(?!(react-native|@react-native|react-native-vector-icons|@react-navigation|react-navigation|expo|@expo|expo-font|expo-asset|expo-constants|expo-in-app-purchases|expo-modules-core|zustand|react-native-gesture-handler|react-native-reanimated|uuid)/)'
   ],
 
   // Enhanced module mapping

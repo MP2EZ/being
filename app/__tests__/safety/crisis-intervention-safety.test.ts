@@ -32,7 +32,10 @@ import {
   CRISIS_THRESHOLDS 
 } from '../../src/features/assessment/types/index';
 import { Alert, Linking } from 'react-native';
-import { performance } from 'react-native-performance';
+// `react-native-performance` is not installed in this codebase; other crisis
+// tests use Node's `perf_hooks` which provides the same `performance.now()`
+// API and works in the Jest environment without native module setup.
+import { performance } from 'perf_hooks';
 
 // Mock React Native for safety testing
 jest.mock('react-native', () => ({
