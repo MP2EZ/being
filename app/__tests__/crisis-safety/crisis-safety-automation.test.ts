@@ -147,16 +147,21 @@ describe('Crisis Safety Testing Automation', () => {
         expect(detectedCrisis).toHaveCorrectCrisisDetection(calculatedPHQ9, calculatedGAD7);
         expect(detectedCrisis).toBe(expectedCrisis);
         
-        // Clinical threshold validation
+        // Clinical threshold validation. Crisis threshold is >=15 for BOTH
+        // PHQ-9 and GAD-7 (per crisis.md and CRISIS_THRESHOLDS in
+        // app/src/features/assessment/types/index.ts). The previous code
+        // used 20 for PHQ-9 — that's the SEVERE band start, not the crisis
+        // threshold. The dual-threshold model is: ≥15 = crisis (support
+        // recommended), ≥20 = severe (immediate intervention).
         if (expectedCrisis) {
-          expect(calculatedPHQ9 >= 20 || calculatedGAD7 >= 15).toBe(true);
-          
+          expect(calculatedPHQ9 >= 15 || calculatedGAD7 >= 15).toBe(true);
+
           // Crisis recommendations must be generated
           const recommendations = mockClinicalCalculationService.generateRecommendations(calculatedPHQ9, calculatedGAD7);
           expect(recommendations.priority).toBe('CRISIS');
           expect(recommendations.immediateActions).toContain('Contact 988 Suicide & Crisis Lifeline immediately');
         } else {
-          expect(calculatedPHQ9 < 20 && calculatedGAD7 < 15).toBe(true);
+          expect(calculatedPHQ9 < 15 && calculatedGAD7 < 15).toBe(true);
         }
       }
     );
@@ -178,12 +183,14 @@ describe('Crisis Safety Testing Automation', () => {
     });
 
     test('boundary value precision testing', () => {
-      // Test exact boundary values
+      // Crisis threshold is ≥15 for BOTH PHQ-9 and GAD-7 (the 20 threshold
+      // tested previously is the SEVERE band start, not the crisis floor).
+      // The "below threshold" case must be at 14 for both.
       const boundaryTests = [
-        { phq9: 19, gad7: 14, expected: false, description: 'Just below both thresholds' },
-        { phq9: 20, gad7: 14, expected: true, description: 'PHQ-9 at threshold' },
-        { phq9: 19, gad7: 15, expected: true, description: 'GAD-7 at threshold' },
-        { phq9: 20, gad7: 15, expected: true, description: 'Both at threshold' }
+        { phq9: 14, gad7: 14, expected: false, description: 'Just below both thresholds' },
+        { phq9: 15, gad7: 14, expected: true, description: 'PHQ-9 at threshold' },
+        { phq9: 14, gad7: 15, expected: true, description: 'GAD-7 at threshold' },
+        { phq9: 15, gad7: 15, expected: true, description: 'Both at threshold' }
       ];
       
       boundaryTests.forEach(({ phq9, gad7, expected, description }) => {
