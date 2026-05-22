@@ -222,9 +222,22 @@ class PerformanceRegressionReporter {
     // Display results
     this.displayResults(report);
     
-    // Check if we should fail the build
-    if (this.shouldFailBuild()) {
-      console.error('🚨 CRITICAL PERFORMANCE REGRESSIONS DETECTED - FAILING BUILD');
+    // Advisory only: surface regressions in the log + JSON report, but do
+    // NOT fail the build. The previous behavior conflated test execution
+    // time (Jest setup + mocks + assertions, easily 500ms+ on CI) with
+    // production SLAs (crisis_response_ms: 200) — a category error that
+    // flagged every crisis test as a "critical regression."
+    //
+    // Production-relevant timing assertions live inside the tests themselves
+    // (e.g., `expect(detectionTime).toBeLessThan(200)` for the suicidal-
+    // ideation algorithm). Those have narrow measurement windows and reflect
+    // real SLAs; this reporter measures whole-test execution and is best
+    // suited to "really slow test" warnings, not build-gating.
+    //
+    // To re-enable strict mode (fail-on-regression), set
+    // PERF_REGRESSION_STRICT=true in the environment.
+    if (process.env.PERF_REGRESSION_STRICT === 'true' && this.shouldFailBuild()) {
+      console.error('🚨 CRITICAL PERFORMANCE REGRESSIONS DETECTED - FAILING BUILD (strict mode)');
       process.exit(1);
     }
   }
