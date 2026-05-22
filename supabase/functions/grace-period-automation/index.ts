@@ -26,21 +26,18 @@
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+import { timingSafeEqual } from 'node:crypto';
 
 /**
- * Constant-time string comparison for secret verification. Iterates over the
- * longer of the two strings so the loop count doesn't leak the secret length.
- * The actual byte comparison is bitwise-OR'd into a running accumulator —
- * any single mismatched byte permanently sets the accumulator non-zero
- * without short-circuiting.
+ * Constant-time string comparison via node:crypto's timingSafeEqual.
+ * Returns false (without timing leak) when the byte-lengths differ, so the
+ * secret length itself isn't a side channel.
  */
 function constantTimeEqual(a: string, b: string): boolean {
-  const maxLen = Math.max(a.length, b.length);
-  let diff = a.length ^ b.length;
-  for (let i = 0; i < maxLen; i++) {
-    diff |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0);
-  }
-  return diff === 0;
+  const aBytes = new TextEncoder().encode(a);
+  const bBytes = new TextEncoder().encode(b);
+  if (aBytes.byteLength !== bBytes.byteLength) return false;
+  return timingSafeEqual(aBytes, bBytes);
 }
 
 interface AutomationResult {

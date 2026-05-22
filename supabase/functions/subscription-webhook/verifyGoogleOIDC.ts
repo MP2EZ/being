@@ -37,7 +37,13 @@ const GOOGLE_JWKS_URL = new URL('https://www.googleapis.com/oauth2/v3/certs');
  */
 const JWKS = createRemoteJWKSet(GOOGLE_JWKS_URL);
 
-const ACCEPTED_ISSUERS = ['https://accounts.google.com', 'accounts.google.com'];
+// Per https://accounts.google.com/.well-known/openid-configuration, Google's
+// declared OIDC issuer is exactly `https://accounts.google.com`. Older docs
+// sometimes show a bare `accounts.google.com` form, but current Google-issued
+// service-account tokens carry the URL form. Pinning to the single canonical
+// value tightens the verification against tokens that happen to carry a
+// nonstandard variant.
+const EXPECTED_ISSUER = 'https://accounts.google.com';
 
 export interface VerifiedGoogleOIDCPayload {
   /** Decoded OIDC token claims. */
@@ -72,7 +78,7 @@ export async function verifyGoogleOIDC(
   }
 
   const { payload } = await jwtVerify(token, JWKS, {
-    issuer: ACCEPTED_ISSUERS,
+    issuer: EXPECTED_ISSUER,
     audience: expectedAudience,
     algorithms: ['RS256'],
   });

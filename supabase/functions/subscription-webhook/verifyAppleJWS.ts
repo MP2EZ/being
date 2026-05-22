@@ -41,12 +41,18 @@ import { X509Certificate } from 'node:crypto';
  * comment below makes drift detectable.
  */
 export const APPLE_ROOT_CA_G3_SPKI = `-----BEGIN PUBLIC KEY-----
-MHYwEAYHKoZIzj0CAQYFK4EEACIDYgAEJjytgwAOomtwseN6h+sIDqQE2iPjJ8gG
-3+B9PYDIa0jbDDxv+kBYcSjfPGAVUiNzS9LcQB9sP+EYK9aIaQElW72zKL3SI8jH
-QjuYa3nQRwh+OFmiBzpkS31xeOJfQRRP
+MHYwEAYHKoZIzj0CAQYFK4EEACIDYgAEmOkvPUBypO2TInKBExzdEJXxxaNOcdwU
+FtkO5aYFKndke19OONO7HES1f/UftjJiXcnphFtPME8RWgD9WFgMpfUPLE0HRxN1
+2peXl28xXO0rnXsgO9i5VNlemaQ6UQox
 -----END PUBLIC KEY-----`;
-// Apple Root CA - G3 SHA-256 fingerprint:
+// Apple Root CA - G3 SHA-256 fingerprint (verify when rotating this constant):
 // 63:34:3A:BF:B8:9A:6A:03:EB:B5:7E:9B:3F:5F:A7:BE:7C:4F:5C:75:6F:30:17:B3:A8:C4:88:C3:65:3E:91:79
+//
+// Re-extract via:
+//   curl https://www.apple.com/certificateauthority/AppleRootCA-G3.cer \
+//     -o apple-root-g3.cer
+//   openssl x509 -inform DER -in apple-root-g3.cer -pubkey -noout
+//   openssl x509 -inform DER -in apple-root-g3.cer -noout -fingerprint -sha256
 
 interface VerifiedApplePayload {
   /** Decoded JWS payload (the notification body). */
