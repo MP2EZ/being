@@ -55,7 +55,7 @@ Being is a mindfulness and wellness application that combines Stoic philosophy w
 - In crisis, use 988 or 911—do not rely solely on Being
 - Always consult licensed healthcare providers for medical concerns
 
-By using Being, you acknowledge that you understand and agree to this Medical Disclaimer. For full details, see our [Medical Disclaimer](/disclaimer).
+By using Being, you acknowledge that you understand and agree to this Medical Disclaimer.
 
 ---
 
