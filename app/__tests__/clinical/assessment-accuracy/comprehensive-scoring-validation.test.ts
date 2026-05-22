@@ -161,10 +161,12 @@ describe('COMPREHENSIVE CLINICAL SCORING VALIDATION - ALL 48 COMBINATIONS', () =
             ? 'phq9_suicidal_ideation'
             : 'phq9_moderate_severe_score';
           expect(finalStore.crisisDetection?.primaryTrigger).toBe(expectedTrigger);
-          // triggerValue: production sets this to 1 for suicidal-ideation
-          // triggers, or the totalScore for score-based triggers (see
-          // CrisisDetectionService.detectCrisis in assessmentStore.ts).
-          const expectedTriggerValue = suicidalResponse > 0 ? 1 : score;
+          // triggerValue: when answerQuestion fires inline crisis for phq9_9 > 0,
+          // the detection carries the *actual response value* (1, 2, or 3) — that
+          // detection wins the per-session dedup in handleCrisisDetection and is
+          // what store.crisisDetection ends up holding. For score-based triggers
+          // (phq9_9 = 0 but totalScore >= 15), triggerValue is the totalScore.
+          const expectedTriggerValue = suicidalResponse > 0 ? suicidalResponse : score;
           expect(finalStore.crisisDetection?.triggerValue).toBe(expectedTriggerValue);
 
           // Full-flow budget: nine sequential answer awaits + complete.
