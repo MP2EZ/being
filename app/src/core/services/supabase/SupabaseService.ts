@@ -631,6 +631,18 @@ class SupabaseService {
   }
 
   /**
+   * Get the underlying Supabase client for direct invocations like
+   * `functions.invoke(...)`. Returns null if the service isn't initialized.
+   * Most callers should use the dedicated public methods on this class
+   * (saveBackup, getBackup, etc.); this escape hatch exists for cases like
+   * edge-function invocations where the caller needs the client's session
+   * JWT auto-attached.
+   */
+  getClient(): SupabaseClient | null {
+    return this.client;
+  }
+
+  /**
    * Cleanup service (call on app shutdown)
    */
   async cleanup(): Promise<void> {
