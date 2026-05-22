@@ -9,16 +9,22 @@
  *
  * Verification chain:
  * 1. Parse the JWS to extract header (containing x5c) and signature.
- * 2. Validate the cert chain: each cert signed by the next.
- * 3. Anchor the chain to a pinned Apple Root CA - G3 public key.
+ * 2. Validate the cert chain cryptographically — each cert's signature
+ *    verifies against the next cert's public key, validity periods are
+ *    in range, CA flags are correct on intermediates and root.
+ * 3. Anchor the chain to a pinned Apple Root CA - G3 public key (SPKI
+ *    comparison) and confirm the root is self-signed.
  * 4. Use the leaf cert's public key to verify the JWS signature against
- *    the payload.
- * 5. Validate basic claims (exp, iat, replay window).
+ *    the payload (jose's jwtVerify with the ES256 algorithm allowlist).
+ * 5. Validate signedDate freshness (rejects payloads >24h old or signed
+ *    in the future beyond a 5-minute skew tolerance).
  *
- * Audit reference: SEC-01 in ~/dev/being/.audit-report.md.
+ * Audit reference: SEC-01 (closed) + SEC-01-FOLLOWUP (closed) — see
+ * ~/dev/being/.audit-report.md and ~/.claude/plans/audit-roadmap.md.
  */
 
 import { importX509, jwtVerify, JWTPayload, errors } from 'https://esm.sh/jose@5.9.6';
+import { X509Certificate } from 'node:crypto';
 
 /**
  * Apple Root CA - G3 public key (P-384, sha384WithECDSAEncryption).
@@ -102,56 +108,109 @@ function x5cToPem(x5cEntry: string): string {
 }
 
 /**
- * INCOMPLETE: anchor-only cert-chain check.
+ * Maximum accepted x5c chain length. Apple's real chain is 3 (leaf, AWWDR
+ * intermediate, root). A cap rejects pathological inputs that would force
+ * us into a long verification loop.
+ */
+const MAX_CHAIN_LENGTH = 5;
+
+/**
+ * Full cryptographic chain verification.
  *
- * This function verifies that the topmost cert in the x5c chain has the same
- * SPKI as the pinned Apple Root CA - G3 public key. It does NOT verify that
- * each cert in the chain is cryptographically signed by the next. This is a
- * REAL security gap:
+ * For each cert in the chain except the root:
+ *   1. The cert's issuer DN matches the next cert's subject DN.
+ *   2. The next cert is marked as a CA.
+ *   3. The cert's signature verifies against the next cert's public key
+ *      (this is the actual cryptographic chain check that closes SEC-01).
+ *   4. The cert is within its validity period (not expired, not yet-to-be-valid).
  *
- *   Attack vector: an attacker constructs a JWS whose x5c is
- *   [attacker_leaf, attacker_intermediate, apple_root_cert]. They sign the
- *   JWS with attacker_leaf's private key. This function's anchor check
- *   succeeds (apple_root is at the end), and the JWS signature verifies
- *   against attacker_leaf's public key. Forgery accepted.
+ * For the top-of-chain cert (the claimed root):
+ *   5. Its SPKI matches the pinned Apple Root CA - G3 public key (anchor).
+ *   6. It is self-signed (issuer == subject AND signature verifies against
+ *      its own public key) — a soundness check on top of the SPKI pin.
+ *   7. It is within its validity period.
  *
- *   The only defense is full per-cert cryptographic chain verification:
- *   for each i in [0..chain.length-2], cert[i] must be signed by the public
- *   key in cert[i+1]. WebCrypto's `subtle` API can verify ECDSA signatures
- *   given a TBSCertificate (the cert's contents-being-signed) and the
- *   signature bytes — but extracting those from a DER X.509 cert requires
- *   ASN.1 parsing, which jose's `importX509` doesn't expose. A dedicated
- *   Deno X.509 library is needed (e.g., https://deno.land/x/x509@0.5.0).
+ * This closes the SEC-01-FOLLOWUP attack vector where an adversary could
+ * append Apple's root cert to a forged chain and pass the prior anchor-only
+ * check. With per-cert sig verification, every link must be cryptographically
+ * vouched for by the next link, terminating in a key we explicitly pinned.
  *
- * Current state: this is BETTER than the prior stub (which decoded payloads
- * with zero verification), but NOT production-secure. The audit's SEC-01
- * finding is partially closed: payload tampering by a non-cert-holder is
- * detected, but cert-chain forgery is not. Tracked as SEC-01-FOLLOWUP.
- *
- * Pre-launch context: webhook endpoint is currently not connected to a real
- * Apple App Store account, so the practical risk is low until TestFlight.
- * MUST complete chain verification before TestFlight invite.
+ * Implementation note: Deno's node:crypto compat ships X509Certificate which
+ * knows how to extract a cert's TBSCertificate bytes, parse its signature,
+ * and verify(publicKey) cryptographically. That removes the need for a
+ * third-party ASN.1 / X.509 library, which is the path the earlier
+ * partial-implementation comment was anticipating.
  */
 async function verifyCertChain(x5c: string[]): Promise<void> {
   if (x5c.length < 2) {
     throw new Error('Cert chain too short: need leaf + at least one CA');
   }
+  if (x5c.length > MAX_CHAIN_LENGTH) {
+    throw new Error(`Cert chain too long: ${x5c.length} > ${MAX_CHAIN_LENGTH}`);
+  }
 
-  // Import the topmost cert (claimed root) and extract its SPKI.
-  const claimedRootKey = await importX509(x5cToPem(x5c[x5c.length - 1]), 'ES256');
-  const claimedRootSpki = await crypto.subtle.exportKey('spki', claimedRootKey);
-  const pinnedSpki = pemToArrayBuffer(APPLE_ROOT_CA_G3_SPKI);
+  // Parse every cert. X509Certificate accepts a PEM string and throws on
+  // malformed input.
+  const certs = x5c.map((entry) => {
+    try {
+      return new X509Certificate(x5cToPem(entry));
+    } catch (err) {
+      throw new Error(
+        `Cert chain entry is not a valid X.509 cert: ${err instanceof Error ? err.message : String(err)}`
+      );
+    }
+  });
 
-  if (!arrayBuffersEqual(claimedRootSpki, pinnedSpki)) {
+  const now = new Date();
+
+  // Walk pairs: cert[i] must be signed by cert[i+1].
+  for (let i = 0; i < certs.length - 1; i++) {
+    const cert = certs[i];
+    const issuerCert = certs[i + 1];
+
+    if (new Date(cert.validFrom).getTime() > now.getTime()) {
+      throw new Error(`Cert[${i}] not yet valid (validFrom: ${cert.validFrom})`);
+    }
+    if (new Date(cert.validTo).getTime() < now.getTime()) {
+      throw new Error(`Cert[${i}] expired (validTo: ${cert.validTo})`);
+    }
+    if (cert.issuer !== issuerCert.subject) {
+      throw new Error(
+        `Cert[${i}] issuer DN does not match cert[${i + 1}] subject DN`
+      );
+    }
+    if (!issuerCert.ca) {
+      throw new Error(`Cert[${i + 1}] is not marked as a CA but signs cert[${i}]`);
+    }
+    if (!cert.verify(issuerCert.publicKey)) {
+      throw new Error(
+        `Cert[${i}] signature does not verify against cert[${i + 1}]'s public key`
+      );
+    }
+  }
+
+  // Anchor: top-of-chain SPKI must match the pinned Apple Root CA - G3.
+  const topCert = certs[certs.length - 1];
+  if (new Date(topCert.validFrom).getTime() > now.getTime() ||
+      new Date(topCert.validTo).getTime() < now.getTime()) {
+    throw new Error('Top-of-chain (root) cert is outside its validity period');
+  }
+  const topSpkiBytes = new Uint8Array(
+    topCert.publicKey.export({ type: 'spki', format: 'der' }) as Buffer
+  );
+  const pinnedSpkiBytes = new Uint8Array(pemToArrayBuffer(APPLE_ROOT_CA_G3_SPKI));
+  if (!uint8ArraysEqual(topSpkiBytes, pinnedSpkiBytes)) {
     throw new Error(
       'Cert chain anchor mismatch: top-of-chain SPKI does not match pinned Apple Root CA - G3'
     );
   }
 
-  // Sanity-check that every cert in the chain parses as a valid X.509 cert.
-  // This doesn't validate the chain cryptographically (see function docstring)
-  // but does catch garbage entries.
-  await Promise.all(x5c.map((entry) => importX509(x5cToPem(entry), 'ES256')));
+  // Self-signature soundness check: the root cert should verify against its
+  // own public key. Combined with the SPKI pin, this means the root key
+  // we trust is the one that vouches for the chain.
+  if (topCert.issuer !== topCert.subject || !topCert.verify(topCert.publicKey)) {
+    throw new Error('Top-of-chain cert is not self-signed');
+  }
 }
 
 function pemToArrayBuffer(pem: string): ArrayBuffer {
@@ -165,12 +224,10 @@ function pemToArrayBuffer(pem: string): ArrayBuffer {
   return buf.buffer;
 }
 
-function arrayBuffersEqual(a: ArrayBuffer, b: ArrayBuffer): boolean {
+function uint8ArraysEqual(a: Uint8Array, b: Uint8Array): boolean {
   if (a.byteLength !== b.byteLength) return false;
-  const av = new Uint8Array(a);
-  const bv = new Uint8Array(b);
-  for (let i = 0; i < av.length; i++) {
-    if (av[i] !== bv[i]) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) return false;
   }
   return true;
 }
