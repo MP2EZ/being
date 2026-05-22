@@ -56,7 +56,7 @@ Run `scripts/validate-gitignore-security.sh` to verify:
 
 The `.env.production` file contains **client-side keys only**:
 - `EXPO_PUBLIC_SUPABASE_URL` - Public API endpoint
-- `EXPO_PUBLIC_SUPABASE_ANON_KEY` - Row-Level Security protected
+- `EXPO_PUBLIC_SUPABASE_KEY` - publishable (or legacy anon) key; Row-Level Security protected
 - `EXPO_PUBLIC_SENTRY_DSN` - Error reporting endpoint
 
 These are designed to be in client code and protected by:

@@ -32,7 +32,9 @@ import {
 
 // Environment configuration
 const SUPABASE_URL = process.env['EXPO_PUBLIC_SUPABASE_URL'] || '';
-const SUPABASE_ANON_KEY = process.env['EXPO_PUBLIC_SUPABASE_ANON_KEY'] || '';
+// The project's publishable (or legacy anon) key — whichever the new
+// Supabase project hands out. supabase-js doesn't care which.
+const SUPABASE_KEY = process.env['EXPO_PUBLIC_SUPABASE_KEY'] || '';
 
 // Storage keys
 const STORAGE_KEYS = {
@@ -135,7 +137,7 @@ class SupabaseService {
 
     try {
       // Validate environment
-      if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+      if (!SUPABASE_URL || !SUPABASE_KEY) {
         throw new Error('Supabase configuration missing. Check environment variables.');
       }
 
@@ -151,7 +153,7 @@ class SupabaseService {
 
       // Create client with SSL certificate pinning
       // MAINT-68: All Supabase requests now use pinned fetch for MITM protection
-      this.client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      this.client = createClient(SUPABASE_URL, SUPABASE_KEY, {
         auth: {
           autoRefreshToken: false,
           persistSession: false,

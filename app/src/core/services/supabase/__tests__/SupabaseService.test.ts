@@ -62,7 +62,7 @@ describe('SupabaseService', () => {
     it('should initialize successfully with valid configuration', async () => {
       // Mock environment variables
       process.env.EXPO_PUBLIC_SUPABASE_URL = 'https://test.supabase.co';
-      process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY = 'test_key';
+      process.env.EXPO_PUBLIC_SUPABASE_KEY = 'test_key';
 
       // Mock user creation
       mockSupabaseClient.from().single.mockResolvedValueOnce({
@@ -79,14 +79,14 @@ describe('SupabaseService', () => {
     it('should throw error with missing configuration', async () => {
       // Clear environment variables
       delete process.env.EXPO_PUBLIC_SUPABASE_URL;
-      delete process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+      delete process.env.EXPO_PUBLIC_SUPABASE_KEY;
 
       await expect(service.initialize()).rejects.toThrow('Supabase configuration missing');
     });
 
     it('should create new anonymous user if none exists', async () => {
       process.env.EXPO_PUBLIC_SUPABASE_URL = 'https://test.supabase.co';
-      process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY = 'test_key';
+      process.env.EXPO_PUBLIC_SUPABASE_KEY = 'test_key';
 
       // Mock no existing user
       mockSupabaseClient.from().single
@@ -104,7 +104,7 @@ describe('SupabaseService', () => {
     beforeEach(async () => {
       // Setup initialized service
       process.env.EXPO_PUBLIC_SUPABASE_URL = 'https://test.supabase.co';
-      process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY = 'test_key';
+      process.env.EXPO_PUBLIC_SUPABASE_KEY = 'test_key';
 
       mockSupabaseClient.from().single.mockResolvedValue({
         data: { id: 'user_123' },
@@ -186,7 +186,7 @@ describe('SupabaseService', () => {
     beforeEach(async () => {
       // Setup initialized service
       process.env.EXPO_PUBLIC_SUPABASE_URL = 'https://test.supabase.co';
-      process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY = 'test_key';
+      process.env.EXPO_PUBLIC_SUPABASE_KEY = 'test_key';
 
       mockSupabaseClient.from().single.mockResolvedValue({
         data: { id: 'user_123' },
@@ -257,7 +257,7 @@ describe('SupabaseService', () => {
   describe('Circuit Breaker', () => {
     beforeEach(async () => {
       process.env.EXPO_PUBLIC_SUPABASE_URL = 'https://test.supabase.co';
-      process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY = 'test_key';
+      process.env.EXPO_PUBLIC_SUPABASE_KEY = 'test_key';
 
       mockSupabaseClient.from().single.mockResolvedValue({
         data: { id: 'user_123' },
@@ -312,7 +312,7 @@ describe('SupabaseService', () => {
   describe('Offline Queue', () => {
     beforeEach(async () => {
       process.env.EXPO_PUBLIC_SUPABASE_URL = 'https://test.supabase.co';
-      process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY = 'test_key';
+      process.env.EXPO_PUBLIC_SUPABASE_KEY = 'test_key';
 
       mockSupabaseClient.from().single.mockResolvedValue({
         data: { id: 'user_123' },
@@ -376,7 +376,7 @@ describe('SupabaseService', () => {
   describe('Error Handling', () => {
     it('should handle network errors gracefully', async () => {
       process.env.EXPO_PUBLIC_SUPABASE_URL = 'https://test.supabase.co';
-      process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY = 'test_key';
+      process.env.EXPO_PUBLIC_SUPABASE_KEY = 'test_key';
 
       mockSupabaseClient.from().single.mockRejectedValue(new Error('Network error'));
 
@@ -386,7 +386,7 @@ describe('SupabaseService', () => {
 
     it('should handle Supabase errors', async () => {
       process.env.EXPO_PUBLIC_SUPABASE_URL = 'https://test.supabase.co';
-      process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY = 'test_key';
+      process.env.EXPO_PUBLIC_SUPABASE_KEY = 'test_key';
 
       mockSupabaseClient.from().single.mockResolvedValue({
         data: { id: 'user_123' },
@@ -410,7 +410,7 @@ describe('SupabaseService', () => {
   describe('Service Status', () => {
     it('should return accurate service status', async () => {
       process.env.EXPO_PUBLIC_SUPABASE_URL = 'https://test.supabase.co';
-      process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY = 'test_key';
+      process.env.EXPO_PUBLIC_SUPABASE_KEY = 'test_key';
 
       mockSupabaseClient.from().single.mockResolvedValue({
         data: { id: 'user_123' },
@@ -436,7 +436,7 @@ describe('SupabaseService', () => {
   describe('Cleanup', () => {
     it('should cleanup service properly', async () => {
       process.env.EXPO_PUBLIC_SUPABASE_URL = 'https://test.supabase.co';
-      process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY = 'test_key';
+      process.env.EXPO_PUBLIC_SUPABASE_KEY = 'test_key';
 
       mockSupabaseClient.from().single.mockResolvedValue({
         data: { id: 'user_123' },

@@ -19,7 +19,7 @@ This implementation provides encrypted cloud backup and privacy-preserving analy
 
 1. Go to [supabase.com](https://supabase.com)
 2. Create new project
-3. Copy URL and anon key from Settings > API
+3. Copy URL and project API key (publishable on new projects, anon on legacy) from Settings > API
 
 ### 2. Setup Database
 
@@ -33,7 +33,7 @@ This implementation provides encrypted cloud backup and privacy-preserving analy
 
 ```env
 EXPO_PUBLIC_SUPABASE_URL=https://your-project-id.supabase.co
-EXPO_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
+EXPO_PUBLIC_SUPABASE_KEY=your-publishable-or-anon-key-here
 ```
 
 ### 4. Initialize Services

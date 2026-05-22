@@ -10,8 +10,8 @@ Audit finding SEC-04: `.env.production` was previously tracked in git via a `.gi
 
 | Secret | Where it lives now | Rotation surface |
 |---|---|---|
-| Supabase anon JWT (`EXPO_PUBLIC_SUPABASE_ANON_KEY`) | Local `app/.env.production` (untracked); EAS Secrets for production builds | Supabase dashboard → Project Settings → API → "Reset anon key" |
-| Supabase project URL | Same | Not rotated (the URL itself isn't sensitive); just ensure the new anon key is paired with the same project |
+| Supabase client key (`EXPO_PUBLIC_SUPABASE_KEY`) — publishable on new projects, legacy anon JWT on old ones | Local `app/.env.production` (untracked); EAS Secrets for production builds | Supabase dashboard → Project Settings → API → "Reset" / "Roll" key |
+| Supabase project URL | Same | Not rotated (the URL itself isn't sensitive); just ensure the new key is paired with the same project |
 | Sentry DSN (`SENTRY_DSN` or `EXPO_PUBLIC_SENTRY_DSN`) | Same | Intentionally public — do not rotate unless Sentry flags abuse |
 
 ## Rotation procedure (Supabase anon JWT)
@@ -19,10 +19,10 @@ Audit finding SEC-04: `.env.production` was previously tracked in git via a `.gi
 1. **Supabase dashboard**: log in, open the Being project, navigate to *Project Settings → API*.
 2. **Reset anon key**: click the reset/rotate button. Confirm. The old key is immediately invalidated.
 3. **Copy the new key** to a temporary scratchpad. It will not be shown again in full after this view.
-4. **Update local working copy**: edit `app/.env.production` and replace `EXPO_PUBLIC_SUPABASE_ANON_KEY=...` with the new value.
+4. **Update local working copy**: edit `app/.env.production` and replace `EXPO_PUBLIC_SUPABASE_KEY=...` with the new value.
 5. **Update EAS Secrets** (production builds):
    ```bash
-   eas secret:create --scope project --name EXPO_PUBLIC_SUPABASE_ANON_KEY --value '<new-key>' --force
+   eas secret:create --scope project --name EXPO_PUBLIC_SUPABASE_KEY --value '<new-key>' --force
    ```
    The `--force` flag overwrites the existing secret.
 6. **Verify**: trigger an EAS build preview, confirm the app initializes Supabase successfully.
