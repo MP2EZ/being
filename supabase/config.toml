@@ -1,13 +1,14 @@
 # SUPABASE PROJECT CONFIGURATION
 # Being MBCT App - Subscription Management
-
-[project]
-name = "being-mbct-app"
+#
+# Supabase CLI v2 schema. Project ref is passed via --project-ref on link
+# (no [project] section needed). Per-function blocks define verify_jwt;
+# the bare [functions] section is no longer required.
 
 # DATABASE CONFIGURATION
 [db]
 port = 54322
-major_version = 15
+major_version = 17
 
 # API CONFIGURATION
 [api]
@@ -18,19 +19,19 @@ extra_search_path = ["public", "extensions"]
 max_rows = 1000
 
 # EDGE FUNCTIONS CONFIGURATION
-[functions]
-enabled = true
+# Per-function verify_jwt settings below. v2 dropped the umbrella
+# `[functions] enabled = true` toggle.
 
 # Verify Apple Receipt Function
 # User-initiated from the mobile app during a purchase flow. Requires the
 # user's Supabase JWT so the verified receipt can be tied to auth.uid().
 # The function itself talks to Apple's receipt-verification endpoint with
-# the shared secret — the JWT gate is for caller identity, not Apple auth.
+# the shared secret -- the JWT gate is for caller identity, not Apple auth.
 [functions.verify-apple-receipt]
 verify_jwt = true
 
 # Verify Google Receipt Function
-# Same pattern as Apple — user-initiated, must tie receipt to auth.uid().
+# Same pattern as Apple -- user-initiated, must tie receipt to auth.uid().
 [functions.verify-google-receipt]
 verify_jwt = true
 
@@ -46,10 +47,17 @@ verify_jwt = false
 verify_jwt = false
 
 # CRON JOB CONFIGURATION
-# Daily automation at 2:00 AM UTC
-[[functions.grace-period-automation.schedule]]
-cron = "0 2 * * *"  # Every day at 2:00 AM UTC
-payload = { "source": "cron" }
+#
+# TODO: re-schedule grace-period-automation in v2. The CLI v2 dropped the
+# inline [[functions.X.schedule]] block. Two paths:
+#   1) Create a pg_cron migration that schedules `net.http_post` against
+#      the function's endpoint with the X-Cron-Secret header.
+#   2) Set up via Supabase Dashboard -> Database -> Cron.
+#
+# Until one of those lands, the daily 2 AM UTC run will not fire.
+# Original intent preserved here for reference:
+#   schedule = "0 2 * * *"   (every day at 2:00 AM UTC)
+#   payload  = { "source": "cron" }
 
 # AUTH CONFIGURATION
 [auth]
