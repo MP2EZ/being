@@ -555,12 +555,17 @@ export const useAssessmentStore = create<AssessmentStore>()(
             set({
               currentResult: result,
               completedAssessments: updatedHistory,
-              crisisDetection: detection,
               isLoading: false,
               hasRecoverableSession: false
             });
 
-            // Handle crisis if detected
+            // Handle crisis if detected. handleCrisisDetection is now the
+            // single writer of crisisDetection — it dedups against an inline
+            // detection from earlier in the same session (which carries the
+            // more specific 'phq9_suicidal_ideation' trigger and the real
+            // response value), so overwriting it here with the score-based
+            // detection would break the audit-trail invariant
+            // crisisIntervention.detection === crisisDetection.
             if (detection) {
               await get().handleCrisisDetection(detection);
             }
