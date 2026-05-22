@@ -28,6 +28,7 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 import { verifyAppleJWS } from './verifyAppleJWS.ts';
+import { verifyGoogleOIDC } from './verifyGoogleOIDC.ts';
 
 // Apple notification types
 const APPLE_NOTIFICATION_TYPES = {
@@ -321,8 +322,21 @@ serve(async (req) => {
       const payload = await verifyAppleSignature(body.signedPayload);
       await handleAppleWebhook(supabase, payload);
     } else if (body.message?.data) {
-      // Google webhook
+      // Google webhook — verify the OIDC token before trusting the body.
+      // Pub/Sub push subscriptions deliver an Authorization: Bearer <jwt>
+      // header signed by Google for the configured service account.
       console.log('[Webhook] Processing Google webhook');
+      const expectedAudience = Deno.env.get('GOOGLE_PUBSUB_AUDIENCE');
+      if (!expectedAudience) {
+        throw new Error('GOOGLE_PUBSUB_AUDIENCE env var is not configured');
+      }
+      const pinnedServiceAccount = Deno.env.get('GOOGLE_PUBSUB_SERVICE_ACCOUNT');
+      const { serviceAccountEmail } = await verifyGoogleOIDC(
+        req.headers.get('Authorization'),
+        expectedAudience,
+        pinnedServiceAccount || undefined
+      );
+      console.log('[Google Webhook] OIDC verified, sa:', serviceAccountEmail);
       await handleGoogleWebhook(supabase, body);
     } else {
       console.error('[Webhook] Unknown webhook format');
