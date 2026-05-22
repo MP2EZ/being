@@ -24,6 +24,7 @@ import { calculateFeatureAccess } from '../../../types/subscription';
 // Mock dependencies
 jest.mock('expo-in-app-purchases');
 jest.mock('expo-secure-store');
+const mockInvoke = jest.fn();
 jest.mock('../../supabase/SupabaseService', () => ({
   supabaseService: {
     getStatus: jest.fn(() => ({
@@ -33,6 +34,9 @@ jest.mock('../../supabase/SupabaseService', () => ({
       offlineQueueSize: 0,
       analyticsQueueSize: 0,
       lastSyncTime: new Date().toISOString(),
+    })),
+    getClient: jest.fn(() => ({
+      functions: { invoke: mockInvoke },
     })),
   },
 }));
@@ -80,7 +84,7 @@ describe('Subscription Integration - Full Lifecycle', () => {
     mockSecureStore.setItemAsync.mockResolvedValue(undefined);
     mockSecureStore.getItemAsync.mockResolvedValue(null);
 
-    global.fetch = jest.fn();
+    mockInvoke.mockReset();
   });
 
   it('CRITICAL: Full trial → subscription → verification flow', async () => {
@@ -128,13 +132,13 @@ describe('Subscription Integration - Full Lifecycle', () => {
     console.log('✅ STEP 5: Purchase initiated successfully');
 
     // Step 6: Simulate receipt verification
-    (global.fetch as jest.Mock).mockResolvedValue({
-      ok: true,
-      json: async () => ({
+    mockInvoke.mockResolvedValue({
+      data: {
         valid: true,
         subscriptionId: 'test-sub-id-integration',
         expiresDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
-      }),
+      },
+      error: null,
     });
 
     const receiptResult = await IAPService.verifyReceipt('base64-receipt', 'apple');
@@ -368,13 +372,13 @@ describe('Subscription Integration - Full Lifecycle', () => {
     console.log('✅ STEP 1: Purchase history retrieved');
 
     // Verify receipt
-    (global.fetch as jest.Mock).mockResolvedValue({
-      ok: true,
-      json: async () => ({
+    mockInvoke.mockResolvedValue({
+      data: {
         valid: true,
         subscriptionId: 'restored-sub-id',
         expiresDate: new Date(Date.now() + 335 * 24 * 60 * 60 * 1000).toISOString(),
-      }),
+      },
+      error: null,
     });
 
     const receiptResult = await IAPService.verifyReceipt('restored-receipt-data', 'apple');
@@ -441,8 +445,8 @@ describe('Subscription Integration - Full Lifecycle', () => {
     expect(store.getCrisisAccessStatus()).toBe(true);
     console.log('✅ Crisis access maintained after IAP failure');
 
-    // Simulate receipt verification failure
-    (global.fetch as jest.Mock).mockRejectedValue(new Error('Network error'));
+    // Simulate receipt verification failure (invoke returns an error)
+    mockInvoke.mockResolvedValue({ data: null, error: { message: 'Network error' } });
 
     const receiptResult = await IAPService.verifyReceipt('base64-receipt', 'apple');
     expect(receiptResult.valid).toBe(false);
@@ -472,32 +476,26 @@ describe('Subscription Integration - Platform Specifics', () => {
       results: [],
     });
 
-    global.fetch = jest.fn();
+    mockInvoke.mockReset();
   });
 
   it('Apple receipt verification flow', async () => {
     await IAPService.initialize();
 
-    (global.fetch as jest.Mock).mockResolvedValue({
-      ok: true,
-      json: async () => ({
+    mockInvoke.mockResolvedValue({
+      data: {
         valid: true,
         subscriptionId: 'apple-sub-id',
         expiresDate: '2025-11-01T00:00:00Z',
-      }),
+      },
+      error: null,
     });
 
     const result = await IAPService.verifyReceipt('apple-receipt-data', 'apple');
 
-    expect(global.fetch).toHaveBeenCalledWith(
-      expect.stringContaining('/functions/v1/verify-apple-receipt'),
-      expect.objectContaining({
-        method: 'POST',
-        headers: expect.objectContaining({
-          'Content-Type': 'application/json',
-        }),
-        body: expect.stringContaining('apple-receipt-data'),
-      })
+    expect(mockInvoke).toHaveBeenCalledWith(
+      'verify-apple-receipt',
+      { body: { receiptData: 'apple-receipt-data' } }
     );
 
     expect(result.valid).toBe(true);
@@ -509,13 +507,13 @@ describe('Subscription Integration - Platform Specifics', () => {
   it('Google receipt verification flow', async () => {
     await IAPService.initialize();
 
-    (global.fetch as jest.Mock).mockResolvedValue({
-      ok: true,
-      json: async () => ({
+    mockInvoke.mockResolvedValue({
+      data: {
         valid: true,
         subscriptionId: 'google-order-id',
         expiresDate: '2025-11-01T00:00:00Z',
-      }),
+      },
+      error: null,
     });
 
     const result = await IAPService.verifyReceipt(
@@ -524,15 +522,15 @@ describe('Subscription Integration - Platform Specifics', () => {
       'google-purchase-token'
     );
 
-    expect(global.fetch).toHaveBeenCalledWith(
-      expect.stringContaining('/functions/v1/verify-google-receipt'),
-      expect.objectContaining({
-        method: 'POST',
-        headers: expect.objectContaining({
-          'Content-Type': 'application/json',
-        }),
-        body: expect.stringContaining('google-purchase-token'),
-      })
+    expect(mockInvoke).toHaveBeenCalledWith(
+      'verify-google-receipt',
+      {
+        body: {
+          packageName: 'com.being.app',
+          subscriptionId: 'com.being.subscription.monthly',
+          purchaseToken: 'google-purchase-token',
+        },
+      }
     );
 
     expect(result.valid).toBe(true);
