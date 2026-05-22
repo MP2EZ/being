@@ -609,7 +609,23 @@ export const useAssessmentStore = create<AssessmentStore>()(
 
         // Crisis management
         handleCrisisDetection: async (detection: CrisisDetection) => {
+          const currentIntervention = get().crisisIntervention;
+          const alreadyTriggeredForSession =
+            currentIntervention?.interventionStarted === true &&
+            currentIntervention?.detection?.assessmentId === detection.assessmentId;
+
+          // Always update detection state — completeAssessment's score-based
+          // detection may carry richer trigger info (e.g. 'phq9_moderate_severe_score')
+          // than the inline 'phq9_suicidal_ideation' detection that fired first.
           set({ crisisDetection: detection });
+
+          if (alreadyTriggeredForSession) {
+            // Dedup: the user has already seen the crisis support modal for this
+            // session (typically inline phq9_9 detection in answerQuestion).
+            // Re-firing Alert.alert here would stack a second identical modal
+            // on top of the active one — user-hostile during an active crisis.
+            return;
+          }
 
           const interventionTimestamp = Date.now();
           const intervention: CrisisIntervention = {
