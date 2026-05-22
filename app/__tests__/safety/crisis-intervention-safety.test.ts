@@ -225,6 +225,11 @@ describe('CRISIS INTERVENTION SAFETY TESTING SUITE', () => {
 
       for (const response of suicidalResponses) {
         store.resetAssessment();
+        // Inner-loop reset: resetAssessment clears store state but not the
+        // global tracking array, and each iteration's phq9_9 answer fires
+        // exactly one Alert.alert. Without this, the array accumulates
+        // across iterations and toHaveLength(1) fails on iter 2+.
+        global.emergencyAlertCalls = [];
         await store.startAssessment('phq9', `suicidal_test_${response}`);
 
         // Answer first 8 questions
@@ -607,9 +612,13 @@ describe('CRISIS INTERVENTION SAFETY TESTING SUITE', () => {
 
   describe('BOUNDARY CONDITION SAFETY TESTING', () => {
     it('Safety at exact crisis thresholds', async () => {
+      // Clinical thresholds per being CLAUDE.md: PHQ-9 ≥15 = crisis (support),
+      // PHQ-9 ≥20 = severe (intervention); GAD-7 ≥15 = crisis. The boundary
+      // we're verifying is the crisis-detection threshold, not the severity
+      // upgrade — so PHQ-9 14/15 is the right pair, not 19/20.
       const boundaryTests = [
-        { type: 'phq9' as AssessmentType, score: 19, expectCrisis: false },
-        { type: 'phq9' as AssessmentType, score: 20, expectCrisis: true },
+        { type: 'phq9' as AssessmentType, score: 14, expectCrisis: false },
+        { type: 'phq9' as AssessmentType, score: 15, expectCrisis: true },
         { type: 'gad7' as AssessmentType, score: 14, expectCrisis: false },
         { type: 'gad7' as AssessmentType, score: 15, expectCrisis: true },
       ];
