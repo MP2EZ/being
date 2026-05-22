@@ -29,6 +29,7 @@ import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 import { verifyAppleJWS } from './verifyAppleJWS.ts';
 import { verifyGoogleOIDC } from './verifyGoogleOIDC.ts';
+import { wasProcessed, markProcessed } from './replayCache.ts';
 
 // Apple notification types
 const APPLE_NOTIFICATION_TYPES = {
@@ -320,7 +321,16 @@ serve(async (req) => {
       // Apple webhook
       console.log('[Webhook] Processing Apple webhook');
       const payload = await verifyAppleSignature(body.signedPayload);
+      const notificationUUID = payload.notificationUUID;
+      if (await wasProcessed(supabase, 'apple', notificationUUID)) {
+        console.log('[Apple Webhook] Replay detected, no-op:', notificationUUID);
+        return new Response(
+          JSON.stringify({ success: true, replay: true }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
       await handleAppleWebhook(supabase, payload);
+      await markProcessed(supabase, 'apple', notificationUUID);
     } else if (body.message?.data) {
       // Google webhook — verify the OIDC token before trusting the body.
       // Pub/Sub push subscriptions deliver an Authorization: Bearer <jwt>
@@ -337,7 +347,16 @@ serve(async (req) => {
         pinnedServiceAccount || undefined
       );
       console.log('[Google Webhook] OIDC verified, sa:', serviceAccountEmail);
+      const messageId = body.message.messageId;
+      if (await wasProcessed(supabase, 'google', messageId)) {
+        console.log('[Google Webhook] Replay detected, no-op:', messageId);
+        return new Response(
+          JSON.stringify({ success: true, replay: true }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
       await handleGoogleWebhook(supabase, body);
+      await markProcessed(supabase, 'google', messageId);
     } else {
       console.error('[Webhook] Unknown webhook format');
       return new Response(
