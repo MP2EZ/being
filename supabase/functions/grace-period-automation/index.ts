@@ -27,6 +27,22 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 
+/**
+ * Constant-time string comparison for secret verification. Iterates over the
+ * longer of the two strings so the loop count doesn't leak the secret length.
+ * The actual byte comparison is bitwise-OR'd into a running accumulator —
+ * any single mismatched byte permanently sets the accumulator non-zero
+ * without short-circuiting.
+ */
+function constantTimeEqual(a: string, b: string): boolean {
+  const maxLen = Math.max(a.length, b.length);
+  let diff = a.length ^ b.length;
+  for (let i = 0; i < maxLen; i++) {
+    diff |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0);
+  }
+  return diff === 0;
+}
+
 interface AutomationResult {
   trialsExpired: number;
   gracePeriodsExpired: number;
@@ -256,11 +272,14 @@ serve(async (req) => {
   };
 
   try {
-    // Verify this is a cron job or authorized request
-    const authHeader = req.headers.get('authorization');
-    const cronSecret = Deno.env.get('CRON_SECRET');
+    // Authenticate via X-Cron-Secret header with constant-time comparison.
+    // Replaces the previous `Authorization.includes(cronSecret)` substring
+    // check, which would accept anything like `Bearer leak-<secret>-trailing`
+    // and didn't defend against timing-based secret extraction.
+    const providedSecret = req.headers.get('x-cron-secret');
+    const expectedSecret = Deno.env.get('CRON_SECRET');
 
-    if (!authHeader || !cronSecret || !authHeader.includes(cronSecret)) {
+    if (!expectedSecret || !providedSecret || !constantTimeEqual(providedSecret, expectedSecret)) {
       return new Response(
         JSON.stringify({ error: 'Unauthorized' }),
         { status: 401, headers: { 'Content-Type': 'application/json' } }
