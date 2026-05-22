@@ -228,7 +228,8 @@ class ClinicalScoringService {
 class CrisisDetectionService {
   static async detectCrisis(
     type: AssessmentType,
-    result: PHQ9Result | GAD7Result
+    result: PHQ9Result | GAD7Result,
+    assessmentId: string
   ): Promise<CrisisDetection | null> {
     const startTime = Date.now();
 
@@ -259,7 +260,7 @@ class CrisisDetectionService {
         primaryTrigger: triggerType,
         triggerValue,
         timestamp: Date.now(),
-        assessmentId: generateTimestampedId(type)
+        assessmentId
       } as Partial<CrisisDetection> as CrisisDetection;
 
       // Validate response time (must be <200ms)
@@ -529,10 +530,13 @@ export const useAssessmentStore = create<AssessmentStore>()(
               result = ClinicalScoringService.calculateGAD7Score(state.answers);
             }
 
-            // Check for crisis
+            // Check for crisis. Pass the active session id so handleCrisisDetection's
+            // per-session dedup can recognize this as the same session that may have
+            // already fired an inline (phq9_9) crisis alert during answering.
             const detection = await CrisisDetectionService.detectCrisis(
               state.currentSession.type,
-              result
+              result,
+              state.currentSession.id
             );
 
             // Complete session
