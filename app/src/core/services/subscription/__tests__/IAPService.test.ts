@@ -20,7 +20,9 @@ import { supabaseService } from '../../supabase/SupabaseService';
 // Mock expo-in-app-purchases
 jest.mock('expo-in-app-purchases');
 
-// Mock SupabaseService
+// Mock SupabaseService. We expose a getClient() returning a stub whose
+// functions.invoke is a jest.fn — tests assert against that.
+const mockInvoke = jest.fn();
 jest.mock('../../supabase/SupabaseService', () => ({
   supabaseService: {
     getStatus: jest.fn(() => ({
@@ -30,6 +32,11 @@ jest.mock('../../supabase/SupabaseService', () => ({
       offlineQueueSize: 0,
       analyticsQueueSize: 0,
       lastSyncTime: new Date().toISOString(),
+    })),
+    getClient: jest.fn(() => ({
+      functions: {
+        invoke: mockInvoke,
+      },
     })),
   },
 }));
@@ -173,29 +180,26 @@ describe('IAPService - Purchase Flow', () => {
 describe('IAPService - Receipt Verification', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    global.fetch = jest.fn();
   });
 
-  it('CRITICAL: verifyReceipt() calls Apple Edge Function', async () => {
+  it('CRITICAL: verifyReceipt() calls Apple Edge Function via invoke', async () => {
     const service = IAPService;
 
-    (global.fetch as jest.Mock).mockResolvedValue({
-      ok: true,
-      json: async () => ({
+    mockInvoke.mockResolvedValue({
+      data: {
         valid: true,
         subscriptionId: 'test-sub-id',
         expiresDate: '2025-11-01T00:00:00Z',
-      }),
+      },
+      error: null,
     });
 
     const result = await service.verifyReceipt('base64-receipt', 'apple');
 
-    expect(global.fetch).toHaveBeenCalledWith(
-      expect.stringContaining('/functions/v1/verify-apple-receipt'),
-      expect.objectContaining({
-        method: 'POST',
-        body: expect.stringContaining('base64-receipt'),
-      })
+    // Body must NOT include userId — that's derived from auth.uid() server-side now.
+    expect(mockInvoke).toHaveBeenCalledWith(
+      'verify-apple-receipt',
+      { body: { receiptData: 'base64-receipt' } }
     );
 
     expect(result.valid).toBe(true);
@@ -204,26 +208,29 @@ describe('IAPService - Receipt Verification', () => {
     console.log('✅ RECEIPT VERIFICATION VERIFIED: Apple receipt verified successfully');
   });
 
-  it('CRITICAL: verifyReceipt() calls Google Edge Function', async () => {
+  it('CRITICAL: verifyReceipt() calls Google Edge Function via invoke', async () => {
     const service = IAPService;
 
-    (global.fetch as jest.Mock).mockResolvedValue({
-      ok: true,
-      json: async () => ({
+    mockInvoke.mockResolvedValue({
+      data: {
         valid: true,
         subscriptionId: 'test-order-id',
         expiresDate: '2025-11-01T00:00:00Z',
-      }),
+      },
+      error: null,
     });
 
     const result = await service.verifyReceipt('subscription_monthly', 'google', 'purchase-token-123');
 
-    expect(global.fetch).toHaveBeenCalledWith(
-      expect.stringContaining('/functions/v1/verify-google-receipt'),
-      expect.objectContaining({
-        method: 'POST',
-        body: expect.stringContaining('purchase-token-123'),
-      })
+    expect(mockInvoke).toHaveBeenCalledWith(
+      'verify-google-receipt',
+      {
+        body: {
+          packageName: 'com.being.app',
+          subscriptionId: 'subscription_monthly',
+          purchaseToken: 'purchase-token-123',
+        },
+      }
     );
 
     expect(result.valid).toBe(true);
@@ -234,11 +241,11 @@ describe('IAPService - Receipt Verification', () => {
   it('PERFORMANCE: Receipt verification completes in <2s', async () => {
     const service = IAPService;
 
-    (global.fetch as jest.Mock).mockImplementation(
+    mockInvoke.mockImplementation(
       () => new Promise(resolve =>
         setTimeout(() => resolve({
-          ok: true,
-          json: async () => ({ valid: true, subscriptionId: 'test', expiresDate: '2025-11-01' }),
+          data: { valid: true, subscriptionId: 'test', expiresDate: '2025-11-01' },
+          error: null,
         }), 100)
       )
     );
@@ -253,17 +260,32 @@ describe('IAPService - Receipt Verification', () => {
     console.log(`✅ PERFORMANCE VERIFIED: Receipt verified in ${verifyTime.toFixed(0)}ms (target: <2s)`);
   });
 
-  it('Receipt verification handles network errors', async () => {
+  it('Receipt verification handles invoke errors (gateway 401, network failures)', async () => {
     const service = IAPService;
 
-    (global.fetch as jest.Mock).mockRejectedValue(new Error('Network error'));
+    // supabase-js returns { data: null, error: FunctionsHttpError } on failures
+    mockInvoke.mockResolvedValue({
+      data: null,
+      error: { message: 'Network error' },
+    });
 
     const result = await service.verifyReceipt('base64-receipt', 'apple');
 
     expect(result.valid).toBe(false);
     expect(result.error).toBeDefined();
 
-    console.log('✅ ERROR HANDLING VERIFIED: Network errors handled gracefully');
+    console.log('✅ ERROR HANDLING VERIFIED: invoke errors handled gracefully');
+  });
+
+  it('Receipt verification rejects when client is uninitialized', async () => {
+    const service = IAPService;
+    const { supabaseService } = jest.requireMock('../../supabase/SupabaseService') as { supabaseService: { getClient: jest.Mock } };
+    supabaseService.getClient.mockReturnValueOnce(null);
+
+    const result = await service.verifyReceipt('base64-receipt', 'apple');
+
+    expect(result.valid).toBe(false);
+    expect(result.error).toContain('not initialized');
   });
 });
 
