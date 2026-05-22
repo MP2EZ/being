@@ -570,7 +570,12 @@ describe('CRISIS INTERVENTION SAFETY TESTING SUITE', () => {
 
       // Verify crisis detection audit trail
       expect(store.crisisDetection).toBeTruthy();
-      expect(store.crisisDetection?.timestamp).toBeGreaterThan(testStartTime);
+      // toBeGreaterThanOrEqual (not Greater): mocked storage makes the whole
+      // 9-answer + completeAssessment flow finish inside a single millisecond
+      // on fast CI runners, so Date.now() at testStartTime equals Date.now()
+      // at crisis detection. The assertion's intent is "timestamp is from
+      // this test run, not stale" — equality satisfies that.
+      expect(store.crisisDetection?.timestamp).toBeGreaterThanOrEqual(testStartTime);
       expect(store.crisisDetection?.assessmentId).toBeTruthy();
 
       // Verify crisis intervention audit trail
