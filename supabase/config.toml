@@ -22,16 +22,24 @@ max_rows = 1000
 enabled = true
 
 # Verify Apple Receipt Function
+# User-initiated from the mobile app during a purchase flow. Requires the
+# user's Supabase JWT so the verified receipt can be tied to auth.uid().
+# The function itself talks to Apple's receipt-verification endpoint with
+# the shared secret — the JWT gate is for caller identity, not Apple auth.
 [functions.verify-apple-receipt]
-verify_jwt = false  # We verify JWS manually
+verify_jwt = true
 
 # Verify Google Receipt Function
+# Same pattern as Apple — user-initiated, must tie receipt to auth.uid().
 [functions.verify-google-receipt]
-verify_jwt = false
+verify_jwt = true
 
 # Subscription Webhook Handler
+# Apple/Google call this directly; they don't carry a Supabase JWT. The
+# function verifies their own signatures (Apple JWS via verifyAppleJWS.ts,
+# Google Pub/Sub OIDC via verifyGoogleOIDC.ts) before mutating state.
 [functions.subscription-webhook]
-verify_jwt = false  # Webhooks have their own signature verification
+verify_jwt = false
 
 # Grace Period Automation (Cron Job)
 [functions.grace-period-automation]
