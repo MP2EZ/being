@@ -33,7 +33,12 @@ const mockAlert = jest.spyOn(Alert, 'alert');
 const mockLogSecurity = jest.fn();
 const mockLogPerformance = jest.fn();
 
-jest.mock('../../../../services/logging', () => ({
+// Logging service lives at src/core/services/logging. The prior path
+// '../../../../services/logging' (from the file's previous location under
+// practices/shared/components/__tests__/) resolved to features/services/
+// logging, which doesn't exist. From the new location next to the component,
+// 4 levels up reaches src/, then core/services/logging.
+jest.mock('../../../../core/services/logging', () => ({
   logSecurity: mockLogSecurity,
   logPerformance: mockLogPerformance,
 }));
