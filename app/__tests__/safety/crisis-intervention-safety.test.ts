@@ -75,16 +75,16 @@ jest.mock('react-native', () => ({
 }));
 
 // Mock secure storage with failure simulation capabilities
-let storageFailureSimulation = false;
+let mockStorageFailureSimulation = false;
 jest.mock('expo-secure-store', () => ({
   setItemAsync: jest.fn().mockImplementation((key, value) => {
-    if (storageFailureSimulation) {
+    if (mockStorageFailureSimulation) {
       return Promise.reject(new Error('Storage encryption failure'));
     }
     return Promise.resolve();
   }),
   getItemAsync: jest.fn().mockImplementation((key) => {
-    if (storageFailureSimulation) {
+    if (mockStorageFailureSimulation) {
       return Promise.reject(new Error('Storage decryption failure'));
     }
     return Promise.resolve(null);
@@ -180,7 +180,7 @@ describe('CRISIS INTERVENTION SAFETY TESTING SUITE', () => {
     await store.clearHistory();
     
     safetyMonitor = new CrisisSafetyMonitor();
-    storageFailureSimulation = false;
+    mockStorageFailureSimulation = false;
     
     // Clear all mocks and tracking
     jest.clearAllMocks();
@@ -436,7 +436,7 @@ describe('CRISIS INTERVENTION SAFETY TESTING SUITE', () => {
   describe('SYSTEM FAILURE RESILIENCE TESTING', () => {
     it('Crisis detection during storage failure', async () => {
       // Enable storage failure simulation
-      storageFailureSimulation = true;
+      mockStorageFailureSimulation = true;
 
       await store.startAssessment('phq9', 'storage_failure_test');
 
@@ -476,7 +476,7 @@ describe('CRISIS INTERVENTION SAFETY TESTING SUITE', () => {
       console.log('Crisis Detection with Storage Failure:', responseTime.toFixed(2) + 'ms');
 
       // Disable failure simulation
-      storageFailureSimulation = false;
+      mockStorageFailureSimulation = false;
     });
 
     it('Fallback emergency contact during Alert failure', async () => {
