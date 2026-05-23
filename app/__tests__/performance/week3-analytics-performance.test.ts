@@ -40,6 +40,10 @@ import { useAssessmentStore } from '@/features/assessment/stores/assessmentStore
 jest.mock('@react-native-async-storage/async-storage');
 jest.mock('@react-native-community/netinfo');
 jest.mock('expo-crypto');
+// Mock the assessment store as a jest.fn so .mockImplementation(...) works.
+jest.mock('@/features/assessment/stores/assessmentStore', () => ({
+  useAssessmentStore: Object.assign(jest.fn(), { getState: jest.fn() }),
+}));
 
 const mockAsyncStorage = AsyncStorage as jest.Mocked<typeof AsyncStorage>;
 const mockNetInfo = NetInfo as jest.Mocked<typeof NetInfo>;
@@ -253,9 +257,10 @@ describe('⚡ WEEK 3 ANALYTICS PERFORMANCE VALIDATION', () => {
     (useAssessmentStore as any).getState = jest.fn(() => mockAssessmentStore);
     (useAssessmentStore as any).subscribe = jest.fn();
 
-    // Initialize services
+    // Initialize services (SyncCoordinator default export is the singleton
+    // instance, not the class — use as-is, no `new`).
     analyticsService = AnalyticsService;
-    syncCoordinator = new SyncCoordinator();
+    syncCoordinator = SyncCoordinator;
 
     await profiler.profile('service_initialization', async () => {
       await analyticsService.initialize();

@@ -796,14 +796,18 @@ useAssessmentStore.subscribe(
       (current.answers.length !== previous.answers.length ||
        current.currentSession?.id !== previous.currentSession?.id)
     ) {
-      // Debounced auto-save
-      setTimeout(async () => {
+      // Debounced auto-save. .unref() so the pending timer doesn't keep
+      // the Node runtime alive past test completion (open-handle warning
+      // in Jest). Safe in production: app lifecycle isn't gated on Node
+      // event loop in React Native.
+      const t = setTimeout(async () => {
         try {
           await useAssessmentStore.getState().saveProgress();
         } catch (error) {
           logError(LogCategory.SYSTEM, 'Auto-save failed:', error instanceof Error ? error : new Error(String(error)));
         }
       }, 1000);
+      if (typeof (t as any).unref === 'function') (t as any).unref();
     }
   }
 );
