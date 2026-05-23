@@ -74,21 +74,18 @@ jobs:
       - name: Typecheck
         run: cd app && npm run typecheck
 
-  # ESLint job is advisory (continue-on-error) — the codebase carries ~956
-  # lint errors of accumulated debt from 5+ months of unguarded dev. Gating
-  # the build on those gives no signal about regressions; surfacing them in
-  # logs does. Pay-down plan tracked separately; meanwhile every PR sees
-  # the count in CI output but isn't blocked on it.
-  #
-  # Restore gating by removing continue-on-error once total errors are
-  # under a manageable count (e.g., <50), or switch to a baseline approach
-  # that fails only on NEW errors vs the baseline.
+  # ESLint job gates on the per-file baseline ratchet (W4 paydown).
+  # The codebase carries ~955 errors of accumulated debt from 5+ months
+  # of unguarded dev. Rather than blocking PRs on all of them, the
+  # `lint:baseline` script compares each file's current error count to
+  # the snapshot in app/.eslint-baseline.json. New errors fail; existing
+  # errors don't. Improvements are reported and can be ratcheted in via
+  # `npm run lint:baseline -- --update`.
   lint:
-    name: ESLint
+    name: ESLint (baseline ratchet)
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: prepare
-    continue-on-error: true
 
     steps:
       - uses: actions/checkout@v4
@@ -101,8 +98,8 @@ jobs:
       - name: Install dependencies
         run: cd app && npm ci --prefer-offline --no-audit
 
-      - name: Lint (advisory)
-        run: cd app && npm run lint
+      - name: Lint (baseline ratchet)
+        run: cd app && npm run lint:baseline
 
   # Crisis-authority validation — runs first among the test jobs because a
   # crisis-flow regression is the highest-severity failure. Gates the rest.
@@ -332,16 +329,17 @@ jobs:
           echo "security:         ${{ needs.security.result }}"
           echo "accessibility:    ${{ needs.accessibility.result }}"
           # Advisory jobs (informational only — not gating):
-          #   lint                   — ~956 errors of accumulated debt
-          #   accessibility          — Jest parse + setup failures (14/24 tests fail)
+          #   accessibility          — 27 a11y implementation gaps remain
           #   performance-regression — already advisory pre-2026-05
           #
           # Real gates that must pass:
-          #   typecheck, clinical-validation, crisis-validation, security, test
+          #   typecheck, lint (baseline ratchet), crisis-validation,
+          #   clinical-validation, security, test
           #
           # Restore advisory jobs to gate status by removing
           # continue-on-error on the job AND re-adding to the check below.
           if [[ "${{ needs.typecheck.result }}" != "success" \
+             || "${{ needs.lint.result }}" != "success" \
              || "${{ needs.crisis-validation.result }}" != "success" \
              || "${{ needs.clinical-validation.result }}" != "success" \
              || "${{ needs.security.result }}" != "success" \
