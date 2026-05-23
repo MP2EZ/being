@@ -229,22 +229,18 @@ jobs:
         # --coverage omitted on subset runs (see Unit tests rationale).
         run: cd app && npm run test:security -- --ci --testTimeout=15000
 
-      - name: npm audit (advisory)
-        # Step-level continue-on-error: the lockfile is 5+ months stale
-        # and carries multiple high-severity vulns in transitive deps
-        # (@xmldom/xmldom XML injection, brace-expansion DoS, fast-uri,
-        # diff DoS, etc.) — all fixable via `npm audit fix` as a dedicated
-        # dependency-refresh task, not a CI quick-win. Surfacing the vulns
-        # in logs gives the signal; gating on them blocks every PR until
-        # the refresh lands.
+      - name: npm audit
+        # Gating after the W3 paydown: `npm audit fix` cleared all 11
+        # high+critical vulns (xmldom, brace-expansion, fast-uri, flatted,
+        # handlebars, lodash, minimatch, node-forge, picomatch, tar,
+        # undici) via package-lock.json updates only — package.json
+        # untouched, no breaking changes.
         #
-        # The other Security job steps (compliance, encryption tests,
-        # security tests) DO gate, so the job overall enforces real
-        # security checks; only the dep-audit is advisory.
-        #
-        # Bump threshold back to `moderate` and remove continue-on-error
-        # after the dependency refresh.
-        continue-on-error: true
+        # 20 moderate vulns remain (markdown-it, postcss, expo-* chain).
+        # ~14 of those require expo 54 → 56 semver-major bump, which
+        # is blocked by the React Native 0.81.4 / React 19.1.0 pinning
+        # constraints in CLAUDE.md. Threshold stays at `high` until the
+        # Expo upgrade lands as a dedicated task.
         run: cd app && npm audit --audit-level=high
 
   # Accessibility — WCAG AA validation + a11y test suite. Catches
