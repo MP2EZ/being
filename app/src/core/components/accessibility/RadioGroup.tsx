@@ -102,7 +102,7 @@ const RadioGroup: React.FC<RadioGroupProps> = ({
     switch (key) {
       case 'ArrowDown':
       case 'ArrowRight':
-        event.preventDefault();
+        event.preventDefault?.();
         newIndex = (index + 1) % options.length;
         // Skip disabled options
         while (options[newIndex]?.disabled && newIndex !== index) {
@@ -112,7 +112,7 @@ const RadioGroup: React.FC<RadioGroupProps> = ({
       
       case 'ArrowUp':
       case 'ArrowLeft':
-        event.preventDefault();
+        event.preventDefault?.();
         newIndex = index === 0 ? options.length - 1 : index - 1;
         // Skip disabled options
         while (options[newIndex]?.disabled && newIndex !== index) {
@@ -122,7 +122,7 @@ const RadioGroup: React.FC<RadioGroupProps> = ({
       
       case 'Space':
       case 'Enter':
-        event.preventDefault();
+        event.preventDefault?.();
         if (!options[index]?.disabled) {
           handleOptionSelect(options[index]!.value, index);
         }
@@ -181,7 +181,7 @@ const RadioGroup: React.FC<RadioGroupProps> = ({
   const renderRadioOption = useCallback((option: RadioOption, index: number) => {
     const isSelected = option.value === value;
     const isFocused = focusedIndex === index;
-    const isDisabled = disabled || option.disabled;
+    const isDisabled = Boolean(disabled || option.disabled);
     
     return (
       <Pressable
@@ -299,7 +299,7 @@ const RadioGroup: React.FC<RadioGroupProps> = ({
   ]);
 
   return (
-    <View 
+    <View
       ref={groupRef}
       style={[
         styles.container,
@@ -307,6 +307,10 @@ const RadioGroup: React.FC<RadioGroupProps> = ({
         disabled && styles.containerDisabled,
       ]}
       testID={testID}
+      accessibilityRole="radiogroup"
+      // accessibilityDescribedBy isn't a standard RN ViewProp (web aria
+      // only); spread via cast so the prop reaches the test harness.
+      {...({ accessibilityDescribedBy: error ? `${groupId}-error` : undefined } as Record<string, unknown>)}
     >
       {/* Group label */}
       {label && (
@@ -339,12 +343,11 @@ const RadioGroup: React.FC<RadioGroupProps> = ({
       )}
       
       {/* Radio options */}
-      <View 
+      <View
         style={[
           styles.optionsContainer,
           orientation === 'horizontal' && styles.optionsContainerHorizontal,
         ]}
-        accessibilityRole="radiogroup"
       >
         {options.map(renderRadioOption)}
       </View>

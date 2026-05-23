@@ -95,6 +95,10 @@ function generateCrisisAssessment(id: string, type: 'phq9' | 'gad7' = 'phq9') {
 jest.mock('@react-native-async-storage/async-storage');
 jest.mock('@react-native-community/netinfo');
 jest.mock('expo-crypto');
+// Mock the assessment store as a jest.fn so .mockImplementation(...) works.
+jest.mock('@/features/assessment/stores/assessmentStore', () => ({
+  useAssessmentStore: Object.assign(jest.fn(), { getState: jest.fn() }),
+}));
 
 const mockAsyncStorage = AsyncStorage as jest.Mocked<typeof AsyncStorage>;
 

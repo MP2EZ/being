@@ -782,6 +782,13 @@ export const useAssessmentStore = create<AssessmentStore>()(
   )
 );
 
+// Helper: call .unref() on a setTimeout handle when running in Node
+// (Jest). In browser/RN, setTimeout returns a number that has no unref.
+function unrefTimeout(handle: ReturnType<typeof setTimeout>): void {
+  const h = handle as unknown as { unref?: () => void };
+  if (typeof h.unref === 'function') h.unref();
+}
+
 // Auto-save subscription for real-time persistence
 useAssessmentStore.subscribe(
   (state) => ({
@@ -796,14 +803,15 @@ useAssessmentStore.subscribe(
       (current.answers.length !== previous.answers.length ||
        current.currentSession?.id !== previous.currentSession?.id)
     ) {
-      // Debounced auto-save
-      setTimeout(async () => {
+      // Debounced auto-save; unref the timer in Node so it doesn't keep
+      // Jest alive past test completion. Safe in RN production.
+      unrefTimeout(setTimeout(async () => {
         try {
           await useAssessmentStore.getState().saveProgress();
         } catch (error) {
           logError(LogCategory.SYSTEM, 'Auto-save failed:', error instanceof Error ? error : new Error(String(error)));
         }
-      }, 1000);
+      }, 1000));
     }
   }
 );

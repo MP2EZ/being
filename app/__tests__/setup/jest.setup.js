@@ -197,6 +197,30 @@ jest.mock('react-native', () => {
       getInitialURL: jest.fn(() => Promise.resolve(null))
     },
 
+    // Accessibility APIs (SAFE)
+    AccessibilityInfo: {
+      announceForAccessibility: jest.fn(),
+      isReduceMotionEnabled: jest.fn(() => Promise.resolve(false)),
+      isScreenReaderEnabled: jest.fn(() => Promise.resolve(false)),
+      isReduceTransparencyEnabled: jest.fn(() => Promise.resolve(false)),
+      isBoldTextEnabled: jest.fn(() => Promise.resolve(false)),
+      isGrayscaleEnabled: jest.fn(() => Promise.resolve(false)),
+      isInvertColorsEnabled: jest.fn(() => Promise.resolve(false)),
+      addEventListener: jest.fn(() => ({ remove: jest.fn() })),
+      removeEventListener: jest.fn(),
+      setAccessibilityFocus: jest.fn(),
+    },
+
+    // UIManager — minimal mock so getViewManagerConfig() returns an object
+    // instead of undefined (needed by @react-navigation/elements MaskedView).
+    UIManager: {
+      getViewManagerConfig: jest.fn(() => ({ Commands: {}, Constants: {} })),
+      hasViewManagerConfig: jest.fn(() => true),
+      measure: jest.fn(),
+      measureInWindow: jest.fn(),
+      dispatchViewManagerCommand: jest.fn(),
+    },
+
     // Animation (SAFE)
     Animated: RN.Animated,
     Easing: RN.Easing,
