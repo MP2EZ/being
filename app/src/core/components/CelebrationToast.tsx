@@ -28,7 +28,7 @@ import {
   StyleSheet,
   Animated,
 } from 'react-native';
-import { spacing, borderRadius, typography } from '@/core/theme';
+import { spacing, borderRadius, typography, getTheme } from '@/core/theme';
 
 export interface CelebrationToastProps {
   flowType: 'morning' | 'midday' | 'evening';
@@ -47,22 +47,10 @@ export interface CelebrationToastProps {
   } | undefined;
 }
 
-const FLOW_CONFIG = {
-  morning: {
-    title: 'Morning Practice Complete',
-    color: '#FF9F43',
-    bgColor: '#FFF8F0',
-  },
-  midday: {
-    title: 'Midday Check-In Complete',
-    color: '#40B5AD',
-    bgColor: '#F0F8FF',
-  },
-  evening: {
-    title: 'Evening Examination Complete',
-    color: '#4A7C59',
-    bgColor: '#F0F5F1',
-  },
+const FLOW_TITLES: Record<CelebrationToastProps['flowType'], string> = {
+  morning: 'Morning Practice Complete',
+  midday: 'Midday Check-In Complete',
+  evening: 'Evening Examination Complete',
 };
 
 export const CelebrationToast: React.FC<CelebrationToastProps> = ({
@@ -74,7 +62,8 @@ export const CelebrationToast: React.FC<CelebrationToastProps> = ({
   enhancement,
 }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const config = FLOW_CONFIG[flowType];
+  const themeColors = getTheme(flowType);
+  const title = FLOW_TITLES[flowType];
 
   useEffect(() => {
     // Fade in: 200ms
@@ -126,7 +115,7 @@ export const CelebrationToast: React.FC<CelebrationToastProps> = ({
             <Animated.View
               style={[
                 styles.card,
-                { backgroundColor: config.bgColor },
+                { backgroundColor: themeColors.background },
                 {
                   opacity: fadeAnim,
                   transform: [
@@ -144,13 +133,13 @@ export const CelebrationToast: React.FC<CelebrationToastProps> = ({
               <Text style={styles.emoji}>✨</Text>
 
               {/* Title */}
-              <Text style={[styles.title, { color: config.color }]}>
-                {config.title}
+              <Text style={[styles.title, { color: themeColors.primaryFallback }]}>
+                {title}
               </Text>
 
               {/* Enhancement Content (optional) */}
               {enhancement?.message && (
-                <Text style={[styles.enhancementMessage, { color: config.color }]}>
+                <Text style={[styles.enhancementMessage, { color: themeColors.primaryFallback }]}>
                   {enhancement.message}
                 </Text>
               )}
