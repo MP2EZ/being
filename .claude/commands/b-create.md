@@ -8,7 +8,7 @@
 - `/b-create FEAT - Simple subscription flow`
 - `/b-create FEAT - Medication tracking --review`
 
-**Database ID**: `${NOTION_WORK_DB}` (defined in `.claude/CLAUDE.md`)
+**Database ID**: `${NOTION_WORK_DB}` (defined in `CLAUDE.md`)
 
 ---
 
@@ -111,9 +111,9 @@ Based on conversation context and extracted information, score each dimension us
 - Score: [1-5]
 - Rationale: [1 sentence - safety, therapeutic effectiveness, functional value, experience quality]
 
-**Strategic Fit (1-5)**: MBCT/mission alignment
+**Strategic Fit (1-5)**: Stoic Mindfulness / mission alignment
 - Score: [1-5]
-- Rationale: [1 sentence - how well this aligns with Being's MBCT-based mental health mission]
+- Rationale: [1 sentence - how well this aligns with Being's Stoic Mindfulness mental wellness mission]
 
 **Urgency (1-5)**: Deadline urgency
 - Score: [1-5]
@@ -191,7 +191,7 @@ REVIEW TASKS:
 
 3. **Dimension Scores**:
    - Validate against /docs/product/prioritization-framework.md
-   - Check calibration with Being's context (safety-first, MBCT, pre-launch)
+   - Check calibration with Being's context (safety-first, Stoic Mindfulness, pre-launch)
    - Compare to framework examples
    - Suggest adjustments with specific reasoning
 
@@ -529,4 +529,4 @@ Please try again or create manually in Notion.
 
 ---
 
-*File location: ~/Development/active/being/.claude/commands/b-create.md*
+*File location: /Users/max/dev/being/.claude/commands/b-create.md*

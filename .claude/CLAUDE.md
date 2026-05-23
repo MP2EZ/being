@@ -1,115 +1,144 @@
-# Being. [requires: ~/.claude/CLAUDE.md]
+# Being.
 
-## Agents
+## What This Is
 
-### Domain Authorities
-| Agent | Pri | Function | Triggers | Override |
-|-------|-----|----------|----------|----------|
-| crisis | !! | safety protocols\|988\|emergency response\|intervention workflows | PHQ≥15\|PHQ≥20\|GAD≥15\|button\|risk | ALL |
-| compliance | ! | regulatory validation\|privacy law\|FTC/CCPA/GDPR\|legal requirements | data\|encrypt\|consent\|network | technical |
-| philosopher | ! | Stoic Mindfulness validation\|philosophical accuracy\|principle integrity\|virtue ethics | Stoic principles\|Marcus Aurelius\|Epictetus\|dichotomy of control\|virtue | UX |
+Stoic Mindfulness mental wellness app. Consumer wellness — not a healthcare provider, medical device, or HIPAA-covered entity. PHQ-9 and GAD-7 are wellness self-screening tools, not clinical assessments. Solo-founder project under Palouse Labs LLC.
 
-Hierarchy: crisis>compliance>philosopher>ux>technical
+## Repo Layout
 
-### Intern Boundaries
-PROHIBIT: clinical\|crisis\|compliance\|PHI\|PHQ-9\|GAD-7\|Stoic philosophy\|principles\|virtue\|AsyncStorage\|security
-ALLOW: formatting\|imports\|scaffolding(non-philosophical)\|file-org\|config(non-security)
-ESCALATE: healthcare-terms\|/assessment/\|/crisis/\|Stoic terminology\|/principles/\|virtue practices
+Bare git repo at `~/dev/being/` with worktrees at `~/dev/being/{main,development,phase-2b}/` plus feature worktrees created by `/b-work`. Always launch `claude` from `~/dev/being/` (the bare-repo root). The app code lives under each worktree's `app/` directory.
 
-### Auto-Triggers
-CRITICAL: PHQ≥15\|PHQ≥20\|GAD≥15\|crisis-button\|safety-risk\|emergency-features
-COMPLIANCE: data-encrypt\|storage\|consent\|network\|app-store
-PHILOSOPHICAL: Stoic principles\|virtue ethics\|Marcus Aurelius\|Epictetus\|dichotomy of control\|educational modules
-UX: therapeutic user flows\|check-in interactions\|assessment UI design\|onboarding
+## Tech Stack
 
-### Templates
-Detailed templates: ./.claude/templates/
+- React Native `0.81.4`, Expo `54`, React `19.1.0` (pinned — see version-check script)
+- Supabase (auth + DB), Zustand `5` (state), Stripe (subscriptions), Sentry (monitoring), expo-secure-store + react-native-aes-crypto (encryption)
+- TypeScript strict, Jest + Detox (e2e)
 
-**Quick Reference**:
+## Setup & Run
 
-**Being Templates**:
-B-CRISIS: Crisis/safety → (crisis+compliance)→main→(crisis+compliance+accessibility)
-  - Use for: crisis detection, PHQ/GAD thresholds, 988, safety protocols
-B-HOTFIX: Emergency bugs → crisis→main[rapid]→crisis-validate→deploy
-  - Use for: urgent safety bugs, <30min rapid response
-B-DEV: Being development
-  - Use for: features, Stoic Mindfulness content, assessment UI, privacy features
-  - Paths: philosophical (philosopher), assessment (philosopher→crisis), privacy (compliance+security), general
-B-DEBUG: Being debugging
-  - Use for: non-emergency bugs with Being domain awareness
-  - Domain validation: philosophical (philosopher), assessment (philosopher+crisis), privacy (compliance)
+```bash
+cd app
+npm start                  # Expo dev server
+npm run ios                # iOS simulator
+npm run android            # Android emulator
+```
 
-Read ./.claude/templates/being-templates.md when uncertain about pattern details.
+## Source Architecture
 
-### Conflicts
-Technical vs Domain: architect mediates, domain-veto-power
-Performance vs Safety: safety priority, architect finds solution
+```
+app/src/
+├── core/         # Infrastructure: analytics, security, services, stores, types
+└── features/     # Domain features: assessment, crisis, practices, learn, ...
+```
 
-### Handoff Requirements
-Domain work: L3-Complex required | Technical-only: L1/L2 acceptable
+Path aliases: `@/core/*`, `@/features/*`. Prefer aliases over relative imports. Types co-located with their consumers.
 
-## Product [!!]
+## Protected Paths → Specialist Agent
 
-### Config
-RN/Expo/TS/Zustand
+Editing these areas should invoke the matching agent for a planning pass before implementing:
 
-### Standards
-PHQ/GAD: exact-words\|100%-accuracy\|thresholds(PHQ≥15/≥20,GAD≥15)
-  ↳ PHQ≥15=support, PHQ≥20=intervention
-Crisis: 988\|<3s-access\|auto-trigger | Breathing: 60s×3=180s-exact
-Storage: encrypt\|auto-save\|validate\|offline
+| Path | Agent(s) |
+|---|---|
+| `app/src/features/crisis/` | `crisis` |
+| `app/src/features/assessment/` | `crisis` + `philosopher` |
+| `app/src/features/practices/` | `philosopher` |
+| `app/src/core/services/security/` | `compliance` |
 
-### Performance
-Launch<2s | Crisis<200ms | Check-in<500ms | Breath@60fps | Assessment<300ms
+Specialist agents live in `.claude/agents/{crisis,compliance,philosopher}.md` and self-describe via frontmatter.
 
-### Testing
-Clinical: PHQ(27-combos)\|GAD(21-combos)\|scoring-100%
-Crisis: <3s-all-screens\|988-works\|contacts
-Platform: iOS=Android\|WCAG-AA\|offline-complete
-Therapeutic: 60s-exact\|mood-algorithms\|progress
+## Safety Facts (non-negotiable)
 
-### State [Zustand]
-user→profile\|prefs | checkIn→mood[encrypted] | assessment→PHQ/GAD[!!] | crisis→contacts[!!]
+- **PHQ-9 thresholds**: ≥15 = support resources offered; ≥20 = active intervention. Q9 (self-harm) >0 = immediate intervention regardless of total.
+- **GAD-7 threshold**: ≥15 = support resources offered.
+- **988 access**: <3 taps from any screen, <3 seconds load.
+- **Crisis detection**: <200ms, zero false negatives, audit-logged.
+- **Wellness data encryption**: AES-256 at rest via `expo-secure-store` / `react-native-aes-crypto`. (Terminology: "wellness data," not "PHI" — Being is not a HIPAA entity.)
 
-## Design System [!]
-Theme: @/core/theme
+## Performance Budgets
 
-### Exports
-colorSystem: themes(morning|midday|evening)|base|gray[100-700]|status|accessibility|navigation
-semantic: text(primary|secondary|muted|inverse)|background(primary|secondary)|border(default|strong)
-spacing: pixel-value keys (spacing[4]=4px, spacing[8]=8px... spacing[128]=128px)
-borderRadius: small|medium|large|xl|xxl
-typography: micro|caption|bodySmall|bodyRegular|bodyLarge|headline2-4|title|display + fontWeight.*
-getTheme(flowType): returns theme colors for morning|midday|evening
+| Metric | Target |
+|---|---|
+| App launch | <2s |
+| Crisis button response | <200ms |
+| Check-in flow transition | <500ms |
+| Assessment load | <300ms |
+| Breathing circle animation | 60fps |
 
-### Rules
-UI-work → import from @/core/theme
-PROHIBIT: hardcoded hex|magic-numbers|inline-fontSize
-Prefer: colorSystem.* (hierarchical) | semantic.* (intent-based)
+## Test & Validate Commands
 
-## Documentation
+```bash
+npm run typecheck                  # tsc --noEmit
+npm run lint                       # eslint src
+npm run lint:clinical              # stricter rules for clinical/safety code
+npm run test                       # full jest suite
+npm run test:clinical              # PHQ/GAD scoring + thresholds
+npm run test:crisis-detection      # crisis detection validation
+npm run test:accessibility         # WCAG AA
+npm run test:offline-crisis        # offline 988 access
+npm run perf:crisis                # crisis button <200ms
+npm run perf:breathing             # 60fps animation
+npm run perf:launch                # <2s launch
+npm run validate:accessibility     # accessibility validation
+```
 
-### Structure
-Docs: /docs/{product,architecture,development,testing,security,legal}/
-Key: /docs/README.md (navigation) | /docs/architecture/README.md (codebase structure)
-Compliance: /docs/legal/regulatory-applicability.md (SOURCE OF TRUTH - what applies, what doesn't)
-PM, planning, backlog: Notion (MCP) — `NOTION_WORK_DB = 277a1108-c208-805c-810b-000b0f0aae22`
-  ↳ Commands reference this as `${NOTION_WORK_DB}`. Rotate here; do not duplicate elsewhere.
+## Validation Matrix
 
-### Policies
-PROHIBIT: /app/*.md | duplicates | phase-reports
-DELETE: completed-work | old-validations (after-merge)
+Which validators are required for which work type. `crisis`, `compliance`, `philosopher` are specialist agents. Accessibility/performance are validated via the corresponding `npm run test:*` and `perf:*` commands.
 
-## Operations
-Branches: main(philosopher-validated)\|release(full-review)\|hotfix(crisis-expedited)
-Commands: validate:clinical-authority\|validate:accessibility\|perf:breathing\|perf:crisis
+| Work Type | crisis | compliance | philosopher | accessibility | performance |
+|---|---|---|---|---|---|
+| Crisis features | required | required | — | required | <200ms required |
+| Assessment UI | required (thresholds) | — | — | required | — |
+| Therapeutic content (Stoic) | — | — | required | required | 60fps if animation |
+| Privacy / wellness data export | — | required | — | if UI | — |
+| General UI | — | — | — | required | — |
+| Backend-only | — | — | — | — | — |
 
-### Crisis work
-Non-negotiables: detection<200ms\|encrypted-at-rest\|audit-log\|988<3taps\|WCAG-AA\|zero-false-negatives
-Validation: crisis + compliance + accessibility (parallel)
-Template: B-CRISIS in ./.claude/templates/being-templates.md
+## State (Zustand)
 
-### Hotfix work
-Scope: <30min\|single-change\|NO-refactor\|NO-features\|NO-scope-creep
-Use-for: crisis-button-broken\|988-broken\|assessment-scoring-crash
-Template: B-HOTFIX in ./.claude/templates/being-templates.md
+- `user` — profile, preferences
+- `checkIn` — mood (encrypted at rest)
+- `assessment` — PHQ/GAD results (critical: encrypted, validated)
+- `crisis` — emergency contacts, safety plan (critical: encrypted)
+
+## Design System
+
+Uses the `@mp2ez/being-design-system` npm package. Theme tokens imported from `@/core/theme`. UI work imports `colorSystem`, `semantic`, `spacing`, `borderRadius`, `typography` from there. **No hardcoded hex colors, magic-number spacing, or inline fontSize.** Themes vary by time of day (`morning|midday|evening`) via `getTheme(flowType)`.
+
+## Workflow Commands
+
+| Command | Purpose |
+|---|---|
+| `/b-create [TYPE] - [Name]` | Create Notion work item from conversation context with dimension scores |
+| `/b-work [WORK_ITEM_ID]` | Fetch work item, create worktree, install deps, implement |
+| `/b-close [WORK_ITEM_ID]` | Commit, merge to development, update Notion to Done. Use `--push` to push remote. |
+
+Branch naming: `feat/*`, `fix/*`, `chore/*` (mapped from work item TYPE). Conventional commits. Aim for <400 LOC per PR.
+
+**Notion work-items DB**: `NOTION_WORK_DB = 277a1108-c208-805c-810b-000b0f0aae22`. Single source of truth — referenced by slash commands as `${NOTION_WORK_DB}`. Rotate here only.
+
+## Docs Map
+
+- `docs/product/` — PRD, TRD, DRD, roadmap, Stoic Mindfulness framework (`stoic-mindfulness/INDEX.md`)
+- `docs/architecture/` — system design
+- `docs/development/` — dev guides
+- `docs/legal/regulatory-applicability.md` — **source of truth for what regulations apply** (FTC, CCPA, TDPSA, GDPR; NOT HIPAA/FDA)
+- `docs/security/` — encryption, secure storage
+- `docs/testing/` — test strategy
+- Source architecture detail: `app/src/README.md`
+- Full dev command reference: `QUICKSTART_COMMANDS.md` (at worktree root)
+
+## Known Gotchas
+
+- React must stay at `19.1.0` for RN 0.81.4 compatibility — `version-check` script enforces.
+- `AsyncStorage` is unencrypted by design; wellness data must use `expo-secure-store` + AES-256.
+- Encryption tests are slow (`test:encryption`, `test:secure-storage`) — run during pre-push, not pre-commit.
+- iOS and Android behavior must match (use `npm run platform:both` to verify).
+- Slash commands in `.claude/commands/` must use **absolute paths** (`/Users/max/dev/being/.claude/...`) for any internal file references — never relative `./.claude/...`. This avoids the symlink dance.
+- Compliance terminology: "wellness data" not "PHI"; "AES-256 encryption" not "HIPAA-compliant encryption"; "wellness screening" not "clinical assessment."
+
+## Convention Reminders
+
+- TDD for: bug fixes, pure logic, stateful algorithms, complex edge cases. Test-after for: API integrations, UI, glue code.
+- When making multi-file or architectural changes: outline approach, get approval, then build.
+- Push back with reasoning when something is wrong; no performative agreement.

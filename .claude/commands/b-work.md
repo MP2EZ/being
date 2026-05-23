@@ -4,8 +4,6 @@
 
 **Format**: `[Work Item ID] - [Additional context]`
 
-**Database ID**: `${NOTION_WORK_DB}` (defined in `.claude/CLAUDE.md`)
-
 ---
 
 ## Phase 0: Parse Arguments
@@ -26,7 +24,6 @@ Parse `$ARGUMENTS` to extract two components:
 - Input: `FEAT-42 - Fix navigation issues on iOS`
   - WORK_ITEM_ID: `FEAT-42`
   - ADDITIONAL_CONTEXT: `Fix navigation issues on iOS`
-
 - Input: `DEBUG-13`
   - WORK_ITEM_ID: `DEBUG-13`
   - ADDITIONAL_CONTEXT: null
@@ -37,11 +34,9 @@ Parse `$ARGUMENTS` to extract two components:
 
 ### Step 1.1: Parse Work Item ID
 
-Parse the WORK_ITEM_ID from Phase 0 into components:
-
-**Extract:**
+Parse WORK_ITEM_ID into components:
 - **TYPE**: Everything before `-` (e.g., "MAINT" from "MAINT-140")
-- **ID_NUMBER**: Everything after `-` as integer (e.g., 140 from "MAINT-140")
+- **ID_NUMBER**: Everything after `-` as integer
 
 **Validation:**
 - TYPE must be one of: FEAT, DEBUG, INFRA, MAINT, AGENT
@@ -62,9 +57,9 @@ query: "Work Item ID: [WORK_ITEM_ID]"
 data_source_url: "collection://${NOTION_WORK_DB}"
 ```
 
-**Note**: This searches for the `## Work Item ID: MAINT-140` header that b-create adds to page content.
+This matches the `## Work Item ID: MAINT-140` header that `/b-create` adds to page content.
 
-**If no results**, try fallback search for legacy items:
+**If no results**, fallback search for legacy items:
 ```
 mcp__notion__notion-search
 query: "[WORK_ITEM_ID]"
@@ -75,7 +70,7 @@ data_source_url: "collection://${NOTION_WORK_DB}"
 
 ### Step 1.3: Verify & Select Result
 
-For each search result, verify properties match the parsed components from Step 1.1:
+For each search result, verify properties match the parsed components:
 
 ```
 mcp__notion__notion-fetch
@@ -83,17 +78,14 @@ id: [candidate page_id from Step 1.2]
 ```
 
 **Check properties:**
-- `Type` property equals parsed TYPE (e.g., "MAINT")
-- `userDefined:ID` property equals parsed ID_NUMBER (e.g., 140)
+- `Type` equals parsed TYPE
+- `userDefined:ID` equals parsed ID_NUMBER
 
 **If match found**: Use this page_id, proceed to Step 1.4
 
-**If no match in results**:
+**If no match**:
 - Report "Work item [WORK_ITEM_ID] not found in database"
 - Suggest: "Check Notion directly or verify the Work Item ID"
-
-**Error handling:**
-- If query fails: Report error and suggest manual Notion lookup
 
 ---
 
@@ -104,7 +96,7 @@ mcp__notion__notion-fetch
 id: [verified page_id from Step 1.3]
 ```
 
-**Note**: Returns page properties and content in Notion-flavored Markdown format.
+Returns page properties and content in Notion-flavored Markdown.
 
 ---
 
@@ -112,41 +104,28 @@ id: [verified page_id from Step 1.3]
 
 **If ADDITIONAL_CONTEXT exists** (from Phase 0):
 
-Display the additional context to inform planning:
+Display:
 ```
 📝 Additional Context: [ADDITIONAL_CONTEXT]
    This will be considered alongside work item details for planning.
 ```
 
-**Actions**:
-- Use ADDITIONAL_CONTEXT to guide template selection
-- Consider context when analyzing classification signals
-- Incorporate into planning decisions in subsequent phases
-
-**If ADDITIONAL_CONTEXT is null**:
-- Skip this step
-- Proceed to Step 1.6 with Notion data only
+Use ADDITIONAL_CONTEXT to inform safety-scan and implementation in subsequent phases.
 
 ---
 
-### Step 1.6: Parse & Extract Classification Signals
+### Step 1.6: Extract Context
 
-**Parse fields**:
+Parse from Notion page:
 - Type (FEAT, DEBUG, INFRA, MAINT, AGENT)
 - Name
 - User Story
 - Acceptance Criteria
 - Technical Notes
-- AGENTS REQUIRED
+- AGENTS REQUIRED (suggested by `/b-create`; may be empty)
 - Priority
 
-**Extract signals**:
-- Crisis keywords: `crisis`, `PHQ`, `GAD`, `threshold`, `988`, `suicide`, `safety plan`
-- Emergency keywords: `broken`, `urgent`, `critical`, `crash`, `hotfix`
-- Assessment keywords: `PHQ-9`, `GAD-7`, `assessment`, `DSM-5`, `scoring`
-- Therapeutic keywords: `MBCT`, `mindfulness`, `meditation`, `breathing`, `exercise`
-- Privacy keywords: `HIPAA`, `PHI`, `privacy`, `encryption`, `payment`, `PCI DSS`
-- Agent requirements from AGENTS REQUIRED field
+These feed the safety scan in Phase 3.
 
 ---
 
@@ -161,7 +140,7 @@ Display the additional context to inform planning:
 - MAINT → `chore/`
 - AGENT → `chore/`
 
-**Exception**: If classified as **B-HOTFIX** → use `hotfix/` prefix regardless of Type
+**Exception**: For emergency safety/crisis fixes (Priority=URGENT or explicit `--hotfix` intent in ADDITIONAL_CONTEXT), use `hotfix/` prefix.
 
 **Branch name format**: `[prefix][work-item-id]-[slugified-name]`
 
@@ -169,19 +148,17 @@ Example: `feat/WI-123-add-crisis-detection`
 
 **Directory name format**: `[work-item-id-short]` (for easy typing)
 
-Example: `wi-123` or just the number portion
+Example: `wi-123`
 
 **Slugify name rules**:
 - Convert to lowercase
 - Replace spaces with hyphens
 - Remove special characters (keep only alphanumeric and hyphens)
-- Limit slugified portion to ~40 chars for readability
+- Limit slugified portion to ~40 chars
 
 ---
 
 ### Step 2.2: Check for Existing Worktree
-
-**Check if worktree or branch already exists:**
 
 ```bash
 cd /Users/max/dev/being
@@ -191,16 +168,12 @@ git worktree list | grep "[branch-name]"
 **Three scenarios:**
 
 **A) Worktree exists for this branch:**
-```
-/Users/max/dev/being/feat-42  abc123 [feat/FEAT-42-easy-navigation-home]
-```
 → Skip to Step 2.4 (cd into existing worktree)
 → Display: `ℹ️  Using existing worktree: feat-42`
 
 **B) Branch exists but no worktree (orphaned branch):**
 ```bash
 git branch --list "[branch-name]"
-# Returns: feat/FEAT-42-easy-navigation-home
 ```
 → Create worktree from existing branch (without `-b` flag)
 → Proceed to Step 2.3
@@ -226,66 +199,16 @@ cd /Users/max/dev/being
 git worktree add [dir-name] -b [branch-name] development
 ```
 
-Example (new branch):
-```bash
-git worktree add wi-123 -b feat/WI-123-add-crisis-detection development
-```
-
-Example (existing branch):
-```bash
-git worktree add wi-123 feat/WI-123-add-crisis-detection
-```
-
 **Error handling**:
 - If git error: Report error details and suggest manual resolution
 - If directory exists but not in worktree list: Report conflict, suggest `git worktree remove --force [dir-name]`
 
 ---
 
-### Step 2.4: Verify/Create .claude Symlink
-
-**Check if .claude symlink exists:**
-
-```bash
-cd /Users/max/dev/being
-ls -la [dir-name]/.claude
-```
-
-**If symlink exists and points correctly:**
-→ Display: `✅ .claude symlink verified`
-→ Proceed to Step 2.5
-
-**If symlink missing or broken:**
-```bash
-cd /Users/max/dev/being
-rm -f [dir-name]/.claude  # Remove if broken
-ln -s /Users/max/dev/being/.claude [dir-name]/.claude
-```
-
-Example:
-```bash
-ln -s /Users/max/dev/being/.claude wi-123/.claude
-```
-
-**Verify symlink:**
-```bash
-ls -la [dir-name]/.claude
-```
-Should show symlink pointing to correct location.
-
----
-
-### Step 2.5: Change to Worktree Directory
-
-**Change working directory to new worktree:**
+### Step 2.4: Change to Worktree Directory
 
 ```bash
 cd /Users/max/dev/being/[dir-name]
-```
-
-Example:
-```bash
-cd /Users/max/dev/being/wi-123
 ```
 
 **Verify location:**
@@ -299,32 +222,18 @@ Should show:
 
 ---
 
-### Step 2.6: Setup Dependencies (Conditional)
-
-**Check if dependencies are needed:**
+### Step 2.5: Setup Dependencies (Conditional)
 
 ```bash
 cd /Users/max/dev/being/[dir-name]
 
-# Check if app/node_modules exists
 if [ -d "app/node_modules" ]; then
   echo "✅ Dependencies already installed"
 else
   echo "📦 Installing dependencies..."
-  echo "   This may take 1-2 minutes on first setup"
-  cd app
-  npm install
-  if [ $? -eq 0 ]; then
-    echo "✅ Dependencies installed successfully"
-  else
-    echo "❌ Dependency installation failed"
-    echo "   You may need to run 'cd app && npm install' manually"
-  fi
-  cd ..
+  cd app && npm install
 fi
 ```
-
-**Display messages:**
 
 **If dependencies already exist:**
 ```
@@ -332,36 +241,22 @@ fi
    Skipping npm install
 ```
 
-**If installing dependencies:**
+**If installing:**
 ```
 📦 Installing dependencies...
    Location: ~/being/[dir-name]/app
-   Packages: ~400 dependencies
    ⏱️  Estimated time: 1-2 minutes
-
-[npm install output]
-
-✅ Dependencies installed successfully
-   Ready to run: npm start, npm test, etc.
 ```
 
 **If installation fails:**
 ```
 ❌ Dependency installation failed
    Please run manually: cd ~/being/[dir-name]/app && npm install
-   Then run /b-work again or continue manually
 ```
-
-**Error handling:**
-- If npm install fails, display error but continue to next phase
-- User can manually install dependencies later if needed
-- Log the error for debugging
-
-**Note**: This step ensures the worktree is immediately usable for development. It only runs when node_modules is missing, making it fast for existing worktrees.
 
 ---
 
-### Step 2.7: Confirm Worktree Status & Context
+### Step 2.6: Confirm Worktree Status
 
 **If worktree was created (new):**
 ```
@@ -371,22 +266,20 @@ fi
    Type: [TYPE] → [prefix]/
 
 📁 Working directory: ~/being/[dir-name]
-✅ All subsequent work will happen in this worktree
 ```
 
 **If using existing worktree:**
 ```
 ℹ️  Using existing worktree: [dir-name]
    Branch: [branch-name]
-   Status: [clean/modified - from git status]
+   Status: [clean/modified]
 
 📁 Working directory: ~/being/[dir-name]
-✅ All subsequent work will happen in this worktree
 ```
 
 ---
 
-### Step 2.8: Mark Work Item as In Progress
+### Step 2.7: Mark Work Item as In Progress
 
 ```
 mcp__notion__notion-update-page
@@ -399,123 +292,51 @@ data: {
 }
 ```
 
-**Display confirmation:**
+**Display:**
 ```
 📝 Notion updated: Status → In progress
    Work item: [WORK_ITEM_ID]
 ```
 
-**Error handling**:
-- If update fails: Log warning but continue (non-blocking)
-- Display: "⚠️  Could not update Notion status (continuing anyway)"
+---
+
+## Phase 3: Safety Scan & Implement
+
+### Step 3.1: Safety Scan
+
+Scan the work item's **Name**, **User Story**, **Acceptance Criteria**, **AGENTS REQUIRED**, and **ADDITIONAL_CONTEXT** for the signals below. If matches are found, invoke the corresponding specialist agent for a planning pass *before* writing code. The agent's job is to set non-negotiable constraints; the main agent implements within them.
+
+| Signal | Agent | Examples |
+|---|---|---|
+| `crisis`, `988`, `PHQ`, `GAD`, `threshold`, `suicide`, `safety plan`, `emergency` | `crisis` | Crisis detection, threshold logic, 988 integration |
+| `Stoic`, `Marcus Aurelius`, `Epictetus`, `Seneca`, `virtue`, `dichotomy of control`, `mindfulness`, `breathing`, `prosoche` | `philosopher` | Stoic Mindfulness content, exercises, principles |
+| `consent`, `privacy`, `data export`, `encryption`, `wellness data`, `payment`, `CCPA`, `TDPSA`, `GDPR` | `compliance` | Privacy/data flows, consent UI, regulatory questions |
+
+Multiple signals → invoke multiple specialists in parallel.
+
+Reference `CLAUDE.md` for safety facts (PHQ/GAD thresholds, 988 access budget, performance budgets, validation matrix). Specialist agent specs are at:
+- `/Users/max/dev/being/.claude/agents/crisis.md`
+- `/Users/max/dev/being/.claude/agents/compliance.md`
+- `/Users/max/dev/being/.claude/agents/philosopher.md`
+
+**If no signals match**: proceed directly to Step 3.2. General UI work and backend changes don't require a planning pass.
 
 ---
 
-## Phase 3: Classify Template
+### Step 3.2: Implement
 
-**Classification considers**:
-- Signals from Notion fields (from Step 1.6)
-- ADDITIONAL_CONTEXT (from Phase 0, if provided)
+Implement per the Acceptance Criteria. Constraints from any specialist planning pass are non-negotiable. Enforce performance budgets and safety facts from `CLAUDE.md`.
 
-**HIGH Confidence (95%+)** - Auto-proceed:
-
-→ **B-CRISIS** if:
-- AGENTS REQUIRED contains: `crisis` AND `compliance`
-- Crisis keywords + threshold patterns (≥15, ≥20)
-- Name mentions: "crisis detection", "PHQ/GAD threshold", "988"
-- ADDITIONAL_CONTEXT mentions crisis/safety/threshold patterns
-
-→ **B-HOTFIX** if:
-- Type: DEBUG + Priority: URGENT/CRITICAL
-- Keywords: `broken`, `crash`, `emergency`
-- Context: crisis/assessment/safety features
-- ADDITIONAL_CONTEXT indicates urgency or emergency
-
-→ **B-DEV (Assessment)** if:
-- AGENTS REQUIRED: `crisis`
-- Keywords: `PHQ-9`, `GAD-7`, `assessment`
-- ADDITIONAL_CONTEXT mentions assessment features
-
-→ **B-DEV (Therapeutic)** if:
-- AGENTS REQUIRED: `philosopher`
-- Keywords: `Stoic Mindfulness`, `mindfulness`, `breathing`, `virtue`
-- ADDITIONAL_CONTEXT mentions therapeutic features
-
-→ **B-DEV (Privacy)** if:
-- AGENTS REQUIRED: `compliance` AND `security`
-- Keywords: `HIPAA`, `PHI`, `encryption`, `payment`
-- ADDITIONAL_CONTEXT mentions privacy/compliance
-
-**MEDIUM Confidence (80-94%)** - Quick confirmation:
-- Display classification and reason
-- Ask: "This looks like [template/path]. Proceed? (y/n)"
-
-**LOW Confidence (<80%)** - User chooses:
-- Display: "Choose template: 1) B-DEV, 2) B-CRISIS, 3) B-DEBUG"
+- **UI changes**: design tokens from `@/core/theme` only; no hardcoded colors/spacing/fontSize.
+- **Wellness data**: AES-256 encryption at rest via `expo-secure-store` or `react-native-aes-crypto`. Use "wellness data" terminology, not "PHI."
+- **Crisis-adjacent code**: `crisis` agent validates timing budget (<200ms) and threshold logic before commit.
+- **Stoic content**: `philosopher` agent validates classical accuracy and framework coherence before commit.
 
 ---
 
-## Phase 4: Display Classification
+## Phase 4: Commit Changes
 
-**HIGH confidence**:
-```
-📋 [WORK_ITEM_ID]: [Name]
-🔍 Classification: [TEMPLATE] [→ PATH] (95%+ confidence)
-Reason: [Brief explanation]
-Proceeding with [TEMPLATE] workflow...
-```
-
-**MEDIUM confidence**:
-```
-📋 [WORK_ITEM_ID]: [Name]
-🔍 Classification: [TEMPLATE] (XX% confidence)
-Reason: [Brief explanation]
-Proceed? (y/n)
-```
-
-**LOW confidence**:
-```
-🤔 Unable to confidently classify
-Choose template: 1) B-DEV, 2) B-CRISIS, 3) B-DEBUG
-```
-
----
-
-## Phase 5: Execute Template
-
-Read the appropriate template file and execute:
-
-**If B-CRISIS**:
-```
-Read ./.claude/templates/being-templates.md → "B-CRISIS: Crisis/Safety Features"
-Execute exactly as documented.
-```
-
-**If B-HOTFIX**:
-```
-Read ./.claude/templates/being-templates.md → "B-HOTFIX: Safety Bug Hotfixes"
-Execute exactly as documented.
-```
-
-**If B-DEV**:
-```
-Read ./.claude/templates/being-templates.md → "B-DEV: Being Development"
-Execute the appropriate path (therapeutic/assessment/privacy/general).
-```
-
-**If B-DEBUG**:
-```
-Read ./.claude/templates/being-templates.md → "B-DEBUG: Being Debugging"
-Execute exactly as documented.
-```
-
-**Note**: `./.claude/` is the symlink in the worktree pointing to `/Users/max/dev/being/.claude/`
-
----
-
-## Phase 6: Commit Changes
-
-### Step 6.1: Review Changes
+### Step 4.1: Review Changes
 
 ```
 mcp__git__git_status
@@ -526,7 +347,7 @@ Display summary of changed files for user awareness.
 
 ---
 
-### Step 6.2: Stage All Changes
+### Step 4.2: Stage All Changes
 
 ```
 mcp__git__git_add
@@ -536,7 +357,7 @@ files: ["."]
 
 ---
 
-### Step 6.3: Create Commit
+### Step 4.3: Create Commit
 
 **Commit message format**: `[type]: [work-item-id] [brief description]`
 
@@ -547,7 +368,7 @@ files: ["."]
 - MAINT → `chore:`
 - AGENT → `chore:`
 
-**Exception**: If classified as **B-HOTFIX** → use `fix:` prefix with `[HOTFIX]` tag
+**Exception**: For emergency safety/crisis hotfixes, use `fix:` with `[HOTFIX]` tag.
 
 **Examples**:
 - `feat: WI-123 Add crisis detection with PHQ≥20 threshold`
@@ -568,14 +389,13 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 ```
 
 **Error handling**:
-- If no changes to commit: Report "No changes to commit" and skip to Phase 7
+- If no changes to commit: Report "No changes to commit" and skip to Phase 5
 - If commit fails: Report error and ask user to resolve before continuing
 
 ---
 
-### Step 6.4: Confirm Commit
+### Step 4.4: Confirm Commit
 
-Display:
 ```
 ✅ Changes committed
    Message: [commit message first line]
@@ -584,9 +404,9 @@ Display:
 
 ---
 
-## Phase 7: Update Notion
+## Phase 5: Update Notion
 
-### Step 7.1: Update Status to Testing
+### Step 5.1: Update Status to Testing
 
 ```
 mcp__notion__notion-update-page
@@ -599,7 +419,7 @@ data: {
 }
 ```
 
-### Step 7.2: Add Testing Comment
+### Step 5.2: Add Testing Comment
 
 ```
 mcp__notion__notion-create-comment
@@ -608,17 +428,16 @@ rich_text: [
   {
     "type": "text",
     "text": {
-      "content": "Ready for testing via /b-work\n\nTemplate: [TEMPLATE] [→ PATH]\nAgents: [List]\nValidations: [Summary]\n\nImplementation: [Brief summary]\nDeliverables: [List]\n\nNext: Test and run /b-close [WORK_ITEM_ID] when complete"
+      "content": "Ready for testing via /b-work\n\nAgents invoked: [List or 'none']\n\nImplementation: [Brief summary]\nDeliverables: [List]\n\nNext: Test and run /b-close [WORK_ITEM_ID] when complete"
     }
   }
 ]
 ```
 
-### Step 7.3: Report Testing Status
+### Step 5.3: Report Testing Status
 
 ```
 ✅ [WORK_ITEM_ID] implementation complete
-Template: [TEMPLATE] [→ PATH]
 Notion updated: Status → Testing
 
 ⏭️  Next steps:
@@ -629,20 +448,11 @@ Notion updated: Status → Testing
 
 ---
 
-## Classification Bias
-
-When uncertain, bias toward safety:
-1. B-CRISIS over B-DEV (if crisis keywords present)
-2. B-HOTFIX over B-DEBUG (if urgency + safety features)
-3. B-DEV with domain validation over general
-
----
-
 ## Worktree Workflow Notes
 
 ### Existing Worktree Detection
 
-This command **intelligently handles existing worktrees**:
+`/b-work` intelligently handles existing worktrees:
 
 **Scenario 1: Worktree already exists**
 ```bash
@@ -652,49 +462,23 @@ cd ~/being
 
 # Result:
 # ℹ️  Using existing worktree: feat-42
-# ✅ .claude symlink verified
 # → cd feat-42
-# → Continues with template execution
+# → Continues with safety scan & implementation
 ```
 
 **Scenario 2: Fresh start**
 ```bash
 # No worktree exists
-cd ~/being/development
+cd ~/being
 /b-work FEAT-42
 
 # Result:
 # 🌿 Worktree created: feat-42
-# ✅ .claude symlink created
 # → cd feat-42
-# → Continues with template execution
+# → Continues with safety scan & implementation
 ```
 
-**Key benefit**: You can run `/b-work FEAT-42` multiple times safely. If the worktree exists, it uses it. If not, it creates it.
-
-### After This Command Completes
-
-This command:
-1. Detects or creates worktree directory
-2. Verifies/creates `.claude` symlink
-3. **Automatically changes into worktree** (`cd ~/being/[work-item-dir]`)
-4. Executes all template work in that worktree
-5. Commits changes to the branch
-
-**Result**: All work happens in the dedicated worktree for this work item.
-
-### Working Directory Context
-
-After `/b-work` completes, your working directory will be:
-```
-~/being/[work-item-dir]
-```
-
-You can continue working in this worktree, or return to a different worktree:
-```bash
-cd ~/being/development  # Return to development
-cd ~/being/feat-23      # Switch to different feature
-```
+You can run `/b-work FEAT-42` multiple times safely.
 
 ### Parallel Work
 
@@ -703,7 +487,7 @@ The worktree structure allows:
 - Each terminal can work on different features simultaneously
 - No branch switching conflicts
 
-### Important: Git Operations
+### Git Operations
 
 All git MCP calls use:
 ```
@@ -712,8 +496,6 @@ repo_path: "/Users/max/dev/being/.git"
 
 This points to the bare repository, which manages all worktrees.
 
-Git operations will affect whichever worktree corresponds to the current branch context.
-
 ---
 
-*File location: ~/Development/active/being/.claude/commands/b-work.md*
+*File location: /Users/max/dev/being/.claude/commands/b-work.md*

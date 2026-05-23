@@ -2,7 +2,7 @@
 
 **WORK_ITEM_ID**: $ARGUMENTS (optional - will auto-detect from current branch if not provided)
 
-**Database ID**: `${NOTION_WORK_DB}` (defined in `.claude/CLAUDE.md`)
+**Database ID**: `${NOTION_WORK_DB}` (defined in `CLAUDE.md`)
 
 ---
 
@@ -440,4 +440,4 @@ Next steps:
 
 ---
 
-*File location: ~/Development/active/being/.claude/commands/b-close.md*
+*File location: /Users/max/dev/being/.claude/commands/b-close.md*
