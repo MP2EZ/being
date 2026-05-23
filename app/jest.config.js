@@ -87,11 +87,20 @@ module.exports = {
     //    receives null). Production assessment-store API likely diverged
     //    from test expectations during a refactor. Needs assertion-level
     //    audit, not import-level fix.
+    //  - PracticeTimerScreen.test.tsx, ReflectionTimerScreen.test.tsx,
+    //    BodyScanScreen.test.tsx: pass locally on macOS but exceed the
+    //    30s test timeout on Ubuntu CI runners. Mock Timer component
+    //    uses real `setInterval(...)` rather than jest fake timers, so
+    //    multi-second test cases compound. Fix: convert to
+    //    jest.useFakeTimers() with jest.advanceTimersByTime().
     'subscription\\.integration\\.test\\.ts$',
     'sync-coordinator-integration\\.test\\.ts$',
     'analytics-service-integration\\.test\\.ts$',
     'practices-flows-integration\\.test\\.tsx$',
     'comprehensive-assessment-integration\\.test\\.ts$',
+    'PracticeTimerScreen\\.test\\.tsx$',
+    'ReflectionTimerScreen\\.test\\.tsx$',
+    'BodyScanScreen\\.test\\.tsx$',
   ],
 
   // Module extensions and transformations
