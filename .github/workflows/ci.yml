@@ -279,9 +279,21 @@ jobs:
       - name: Accessibility test suite
         run: cd app && npm run test:accessibility -- --ci --testTimeout=20000
 
-  # Performance regression sweep. Less strict than the others — failures
-  # don't block merges automatically (set continue-on-error: true) but
-  # surface for review.
+  # Performance regression sweep. Stays advisory after W5 paydown:
+  # the load-time failures (3 broken imports, 1 obsolete test referencing
+  # the deleted CrisisDetectionEngine, 1 reporter file mis-classified as
+  # a test) are fixed, but 30 assertion failures remain across the 3
+  # surviving suites:
+  #   - assessment-store API drift (same root cause as the deferred
+  #     comprehensive-assessment-integration test): startAssessment()
+  #     returns null currentSession in the Jest env.
+  #   - week3-analytics-performance: useAssessmentStore needs a top-level
+  #     jest.mock() to support .mockImplementation() calls.
+  #   - 2 perf thresholds marginally over (auto-save 78ms vs <75ms,
+  #     memory 13MB vs <10MB) — likely CI runner variance, may need
+  #     threshold loosening or it.flaky.
+  # Restore gating by addressing the assessment-store mock issue
+  # (unblocks most), then per-threshold calibration.
   performance:
     name: Performance regression
     runs-on: ubuntu-latest

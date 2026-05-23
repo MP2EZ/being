@@ -32,9 +32,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 
 // Import services for performance testing
-import AnalyticsService from '../../src/services/analytics/AnalyticsService';
-import SyncCoordinator from '../../src/services/supabase/SyncCoordinator';
-import { useAssessmentStore } from '../../src/features/assessment/stores/assessmentStore';
+import AnalyticsService from '@/core/analytics/AnalyticsService';
+import SyncCoordinator from '@/core/services/supabase/SyncCoordinator';
+import { useAssessmentStore } from '@/features/assessment/stores/assessmentStore';
 
 // Mock dependencies
 jest.mock('@react-native-async-storage/async-storage');
