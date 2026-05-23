@@ -77,7 +77,7 @@ jobs:
           echo "✅ Emergency deployment systems: READY"
 
       - name: 📊 Upload Crisis Validation Report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: always()
         with:
           name: crisis-authority-report
@@ -154,7 +154,7 @@ jobs:
           echo "✅ COMPLIANCE AUTHORITY VALIDATION: PASSED"
 
       - name: 📊 Upload Healthcare Validation Report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: always()
         with:
           name: healthcare-authority-report
@@ -219,7 +219,7 @@ jobs:
           fi
 
       - name: 📊 Upload Platform Test Report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: always()
         with:
           name: platform-test-report-${{ matrix.platform }}-node${{ matrix.node-version }}
@@ -272,7 +272,7 @@ jobs:
           npm run perf:validate-improvement-target
 
       - name: 📊 Upload Performance Report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: new-architecture-performance-report
           path: app/reports/new-architecture-*
@@ -324,7 +324,7 @@ jobs:
           npm run security:dependency-check
 
       - name: 📊 Upload Security & Accessibility Report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: always()
         with:
           name: security-accessibility-report
@@ -370,7 +370,7 @@ jobs:
           fi
 
       - name: 📊 Upload CI Summary Report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ci-summary-report
           path: ci-summary.md

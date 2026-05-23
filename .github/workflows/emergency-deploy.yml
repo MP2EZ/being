@@ -185,7 +185,7 @@ jobs:
           echo "✅ Emergency build completed for ${{ matrix.platform }}"
 
       - name: 📊 Upload Emergency Build Artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: emergency-build-artifacts-${{ matrix.platform }}
           path: |
@@ -402,7 +402,7 @@ jobs:
           echo "- **Rollback Capability**: <30 seconds verified" >> emergency-audit-report.md
 
       - name: 📊 Upload Emergency Audit Report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: emergency-deployment-audit-report
           path: emergency-audit-report.md
