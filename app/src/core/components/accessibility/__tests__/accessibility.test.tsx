@@ -12,7 +12,7 @@
 
 import React from 'react';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
-import { AccessibilityInfo } from 'react-native';
+import { AccessibilityInfo, Pressable, Text, View } from 'react-native';
 import RadioGroup from '../RadioGroup';
 import { FocusProvider, Focusable, useFocusManager } from '../FocusManager';
 import type { RadioOption } from '../RadioGroup';
@@ -27,23 +27,23 @@ jest.mock('react-native', () => ({
 
 const mockAccessibilityInfo = AccessibilityInfo as jest.Mocked<typeof AccessibilityInfo>;
 
+const mockOptions: RadioOption[] = [
+  { value: 0, label: 'Not at all', description: 'No symptoms experienced' },
+  { value: 1, label: 'Several days', description: 'Symptoms on some days' },
+  { value: 2, label: 'More than half the days', description: 'Symptoms most days' },
+  { value: 3, label: 'Nearly every day', description: 'Symptoms almost daily' },
+];
+
+const defaultProps = {
+  options: mockOptions,
+  value: undefined,
+  onValueChange: jest.fn(),
+  label: 'PHQ-9 Question 1',
+  description: 'Over the last 2 weeks, how often have you been bothered by this problem?',
+  testID: 'test-radio-group',
+};
+
 describe('RadioGroup Accessibility', () => {
-  const mockOptions: RadioOption[] = [
-    { value: 0, label: 'Not at all', description: 'No symptoms experienced' },
-    { value: 1, label: 'Several days', description: 'Symptoms on some days' },
-    { value: 2, label: 'More than half the days', description: 'Symptoms most days' },
-    { value: 3, label: 'Nearly every day', description: 'Symptoms almost daily' },
-  ];
-
-  const defaultProps = {
-    options: mockOptions,
-    value: undefined,
-    onValueChange: jest.fn(),
-    label: 'PHQ-9 Question 1',
-    description: 'Over the last 2 weeks, how often have you been bothered by this problem?',
-    testID: 'test-radio-group',
-  };
-
   beforeEach(() => {
     jest.clearAllMocks();
   });
@@ -281,17 +281,23 @@ describe('RadioGroup Accessibility', () => {
 describe('FocusManager Accessibility', () => {
   const TestFocusComponent = () => {
     const { focusNext, focusPrevious, focusFirst } = useFocusManager();
-    
+
     return (
       <>
         <Focusable id="first" priority={10}>
-          <button onPress={focusNext}>First Button</button>
+          <Pressable onPress={focusNext}>
+            <Text>First Button</Text>
+          </Pressable>
         </Focusable>
         <Focusable id="second" priority={20}>
-          <button onPress={focusPrevious}>Second Button</button>
+          <Pressable onPress={focusPrevious}>
+            <Text>Second Button</Text>
+          </Pressable>
         </Focusable>
         <Focusable id="third" priority={30}>
-          <button onPress={focusFirst}>Third Button</button>
+          <Pressable onPress={focusFirst}>
+            <Text>Third Button</Text>
+          </Pressable>
         </Focusable>
       </>
     );
@@ -350,7 +356,7 @@ describe('Focus Visual Indicators', () => {
     const { getByTestId } = render(
       <FocusProvider>
         <Focusable id="test-focusable" testID="test-focusable">
-          <div>Focusable content</div>
+          <View><Text>Focusable content</Text></View>
         </Focusable>
       </FocusProvider>
     );
