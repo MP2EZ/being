@@ -22,10 +22,83 @@ import { useAnalytics } from '@/core/analytics';
 const INTRO_THRESHOLD_MS = 30 * 60 * 1000;
 
 type CleanHomeScreenNavigationProp = StackNavigationProp<RootStackParamList>;
+type FlowType = 'morning' | 'midday' | 'evening';
+
+// PERF-04: hoisted out of CleanHomeScreen's render — defining components inside
+// a function component creates a NEW component type on every render, forcing
+// React to unmount/remount the entire subtree (loses state, fires effects).
+interface CheckInCardProps {
+  type: FlowType;
+  title: string;
+  description: string;
+  duration: string;
+  isCurrent: boolean;
+  isCompleted: boolean;
+  onPress: (type: FlowType) => void;
+}
+
+const CheckInCard: React.FC<CheckInCardProps> = ({
+  type,
+  title,
+  description,
+  duration,
+  isCurrent,
+  isCompleted,
+  onPress,
+}) => {
+  const themeColors = getTheme(type);
+  const handlePress = useCallback(() => onPress(type), [onPress, type]);
+
+  return (
+    <Pressable
+      style={({ pressed }) => [
+        styles.checkInCard,
+        {
+          backgroundColor: themeColors.background,
+          // WCAG AA: gray[400] for 3:1 contrast ratio on borders
+          borderColor: isCurrent ? themeColors.primary : colorSystem.gray[400],
+          borderWidth: isCurrent ? 2 : 1,
+          opacity: pressed ? 0.9 : isCompleted ? 0.5 : 1,
+        }
+      ]}
+      onPress={handlePress}
+      accessibilityRole="button"
+      accessibilityLabel={`${title} check-in, ${duration}${isCompleted ? ', completed today' : ''}`}
+      accessibilityHint={
+        isCompleted
+          ? 'Tap to start this check-in again'
+          : `Start your ${type} mindfulness check-in`
+      }
+    >
+      <View>
+        <View style={styles.cardHeader}>
+          <Text
+            style={[styles.cardTitle, { color: themeColors.primary }]}
+            accessibilityRole="header"
+            // @ts-expect-error - accessibilityLevel is valid for header role
+            accessibilityLevel={3}
+          >
+            {title}
+          </Text>
+          <Text style={styles.durationBadge} importantForAccessibility="no">
+            {duration}
+          </Text>
+        </View>
+        <Text style={styles.cardDescription} numberOfLines={2}>{description}</Text>
+      </View>
+
+      <View style={[styles.startButton, { backgroundColor: themeColors.primary }]}>
+        <Text style={styles.startButtonText}>{isCompleted ? 'Complete' : 'Start'}</Text>
+      </View>
+    </Pressable>
+  );
+};
 
 const CleanHomeScreen: React.FC = () => {
   const navigation = useNavigation<CleanHomeScreenNavigationProp>();
-  const { isCheckInCompletedToday } = useStoicPracticeStore();
+  // PERF-03: selector instead of whole-store destructure — subscribe only to
+  // this single function reference.
+  const isCheckInCompletedToday = useStoicPracticeStore((s) => s.isCheckInCompletedToday);
   const accessibilitySettings = useAccessibilitySettings();
   const getLastActiveTimestamp = useSettingsStore((state) => state.getLastActiveTimestamp);
   const currentHour = new Date().getHours();
@@ -78,95 +151,19 @@ const CleanHomeScreen: React.FC = () => {
 
   const currentPeriod = getCurrentPeriod();
 
-  const handleCheckInPress = (type: 'morning' | 'midday' | 'evening') => {
+  const handleCheckInPress = useCallback((type: FlowType) => {
     switch (type) {
       case 'morning':
-        // Navigate to Morning Flow (6-screen body scan & awareness)
         navigation.navigate('MorningFlow');
         break;
       case 'midday':
-        // Navigate to 3-Minute Breathing Space
         navigation.navigate('MiddayFlow');
         break;
       case 'evening':
-        // Navigate to Evening Flow (4-screen reflection & preparation)
         navigation.navigate('EveningFlow');
         break;
     }
-  };
-
-  const CheckInCard: React.FC<{
-    type: 'morning' | 'midday' | 'evening';
-    title: string;
-    description: string;
-    duration: string;
-  }> = ({ type, title, description, duration }) => {
-    const isCurrent = type === currentPeriod;
-    const themeColors = getTheme(type);
-    const isImplemented = true; // All flows are now implemented
-    const isCompleted = isCheckInCompletedToday(type);
-
-    return (
-      <Pressable
-        style={({ pressed }) => [
-          styles.checkInCard,
-          {
-            backgroundColor: themeColors.background,
-            // WCAG AA: Use gray[400] for 3:1 contrast ratio on borders
-            borderColor: isCurrent ? themeColors.primary : colorSystem.gray[400],
-            borderWidth: isCurrent ? 2 : 1,
-            opacity: pressed ? 0.9 : (!isImplemented ? 0.6 : isCompleted ? 0.5 : 1),
-          }
-        ]}
-        onPress={() => handleCheckInPress(type)}
-        disabled={!isImplemented}
-        accessibilityRole="button"
-        accessibilityLabel={`${title} check-in, ${duration}${isCompleted ? ', completed today' : ''}`}
-        accessibilityHint={isImplemented
-          ? isCompleted
-            ? 'Tap to start this check-in again'
-            : `Start your ${type} mindfulness check-in`
-          : 'Coming soon'
-        }
-        accessibilityState={{ disabled: !isImplemented }}
-      >
-        <View>
-          <View style={styles.cardHeader}>
-            <Text
-              style={[styles.cardTitle, { color: themeColors.primary }]}
-              accessibilityRole="header"
-              // @ts-expect-error - accessibilityLevel is valid for header role
-              accessibilityLevel={3}
-            >
-              {title}
-            </Text>
-            {/* Duration included in parent's accessibilityLabel */}
-            <Text style={styles.durationBadge} importantForAccessibility="no">
-              {duration}
-            </Text>
-          </View>
-          <Text style={styles.cardDescription} numberOfLines={2}>{description}</Text>
-        </View>
-
-        <View style={[
-          styles.startButton,
-          {
-            backgroundColor: isImplemented
-              ? themeColors.primary
-              : colorSystem.gray[400]
-          }
-        ]}>
-          <Text style={styles.startButtonText}>
-            {!isImplemented
-              ? 'Coming Soon'
-              : isCompleted
-                ? 'Complete'
-                : 'Start'}
-          </Text>
-        </View>
-      </Pressable>
-    );
-  };
+  }, [navigation]);
 
   return (
     <SafeAreaView style={styles.container} testID="home-screen">
@@ -204,6 +201,9 @@ const CleanHomeScreen: React.FC = () => {
             title="Morning Awareness"
             description="Start your day with mindful awareness of your body, emotions, and intentions."
             duration="5-7 min"
+            isCurrent={currentPeriod === 'morning'}
+            isCompleted={isCheckInCompletedToday('morning')}
+            onPress={handleCheckInPress}
           />
 
           <CheckInCard
@@ -211,6 +211,9 @@ const CleanHomeScreen: React.FC = () => {
             title="Midday Reset"
             description="Take a moment to reconnect with the present through mindful awareness."
             duration="3 min"
+            isCurrent={currentPeriod === 'midday'}
+            isCompleted={isCheckInCompletedToday('midday')}
+            onPress={handleCheckInPress}
           />
 
           <CheckInCard
@@ -218,6 +221,9 @@ const CleanHomeScreen: React.FC = () => {
             title="Evening Reflection"
             description="Reflect on your day with gratitude and intention. Release what's done and rest peacefully."
             duration="5-6 min"
+            isCurrent={currentPeriod === 'evening'}
+            isCompleted={isCheckInCompletedToday('evening')}
+            onPress={handleCheckInPress}
           />
         </View>
       </View>
