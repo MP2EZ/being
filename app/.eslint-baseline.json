@@ -93,7 +93,7 @@
   "src/features/assessment/hooks/useAssessmentPerformance.ts": 13,
   "src/features/assessment/stores/__tests__/assessmentStore.basic.test.ts": 1,
   "src/features/assessment/stores/__tests__/assessmentStore.test.ts": 1,
-  "src/features/assessment/stores/assessmentStore.ts": 31,
+  "src/features/assessment/stores/assessmentStore.ts": 26,
   "src/features/assessment/types/__tests__/schemas.test.ts": 1,
   "src/features/assessment/types/scoring.ts": 2,
   "src/features/assessment/types/validation.ts": 1,
