@@ -129,6 +129,20 @@ const logger = {
 };
 
 /**
+ * Crisis-features lookup set. O(1) membership check on the paywall-bypass
+ * hot path (every checkFeatureAccess call hits this). Constructed once
+ * at module load — `as Set<string>` is the only cast and it's safe:
+ * CRISIS_FEATURES is `readonly` and its element type is a subset of
+ * `keyof FeatureAccess`, but Set.has(x: string) doesn't care about the
+ * narrower literal type for membership testing.
+ *
+ * Audit TS-02 paydown: replaces `CRISIS_FEATURES.includes(feature as any)`
+ * which defeated the type system on the exact branch that guarantees
+ * crisis-feature access (988, crisisButton, etc.).
+ */
+const CRISIS_FEATURE_SET = new Set<string>(CRISIS_FEATURES);
+
+/**
  * Subscription Zustand Store
  */
 export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
@@ -445,15 +459,17 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
    * CRITICAL: Crisis features ALWAYS return true (hardcoded)
    */
   checkFeatureAccess: (feature: keyof FeatureAccess): boolean => {
-    // CRISIS ACCESS GUARANTEE: Hardcoded to always return true
-    if (CRISIS_FEATURES.includes(feature as any)) {
+    // CRISIS ACCESS GUARANTEE: Hardcoded to always return true.
+    // O(1) Set lookup on the crisis hot path; the `as Set<string>` cast
+    // is at the construction site below, so this branch is fully typed.
+    if (CRISIS_FEATURE_SET.has(feature)) {
       return true;
     }
 
     const { featureAccess } = get();
     if (!featureAccess) {
       // No subscription loaded: Allow crisis features, block others
-      return CRISIS_FEATURES.includes(feature as any);
+      return CRISIS_FEATURE_SET.has(feature);
     }
 
     return featureAccess[feature];
