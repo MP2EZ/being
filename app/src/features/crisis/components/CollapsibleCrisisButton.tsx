@@ -55,7 +55,7 @@ import Animated, {
   interpolate,
 } from 'react-native-reanimated';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { logSecurity } from '@/core/services/logging';
+import { logSecurity, logPerformance, logCrisis } from '@/core/services/logging';
 import { spacing, borderRadius, typography, colorSystem } from '@/core/theme';
 
 /** Display mode for the crisis button */
@@ -199,7 +199,7 @@ export const CollapsibleCrisisButton: React.FC<CollapsibleCrisisButtonProps> = (
         threshold: 200
       });
     } else {
-      console.log(`✅ Crisis button response: ${responseTime}ms`);
+      logPerformance('crisis_button_response', responseTime);
     }
   }, [onNavigate, resetFade]);
 
@@ -209,7 +209,7 @@ export const CollapsibleCrisisButton: React.FC<CollapsibleCrisisButtonProps> = (
   const expand = useCallback(() => {
     resetFade();
     setIsExpanded(true);
-    console.log('Crisis button expanded via swipe');
+    logCrisis('Crisis button expanded via swipe');
 
     // Announce for screen readers
     if (Platform.OS === 'ios') {
@@ -223,7 +223,7 @@ export const CollapsibleCrisisButton: React.FC<CollapsibleCrisisButtonProps> = (
   const collapse = useCallback(() => {
     resetFade();
     setIsExpanded(false);
-    console.log('Crisis button collapsed');
+    logCrisis('Crisis button collapsed');
   }, [resetFade]);
 
   /**
@@ -294,7 +294,7 @@ export const CollapsibleCrisisButton: React.FC<CollapsibleCrisisButtonProps> = (
   const accessibilityActions = [
     {
       name: 'activate' as const,
-      label: 'Get crisis support',
+      label: 'I need support',
     },
     {
       name: 'expand' as const,
@@ -378,11 +378,11 @@ export const CollapsibleCrisisButton: React.FC<CollapsibleCrisisButtonProps> = (
               onPress={handleTap}
               accessible={true}
               accessibilityRole="button"
-              accessibilityLabel="Get crisis support"
+              accessibilityLabel="I need support"
               accessibilityHint="Tap for immediate access to crisis resources"
               accessibilityActions={accessibilityActions}
               onAccessibilityAction={onAccessibilityAction}
-              testID={`${testID}-icon`}
+              testID={testID}
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             >
               <MaterialCommunityIcons

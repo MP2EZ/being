@@ -5,6 +5,97 @@
 
 import '@testing-library/jest-native/extend-expect';
 
+// react-native-reanimated: inline minimal mock. The library's shipped
+// mock (require('react-native-reanimated/mock')) pulls in src/index.ts
+// which transitively loads react-native-worklets and hits native binding
+// gaps in the Jest env. This shim covers the imports the codebase uses
+// without loading the runtime: Animated.View → RN View, worklets → no-op,
+// useAnimatedStyle returns the style object directly.
+jest.mock('react-native-reanimated', () => {
+  const React = require('react');
+  const RN = jest.requireActual('react-native');
+  const Animated = {
+    View: RN.View,
+    Text: RN.Text,
+    Image: RN.Image,
+    ScrollView: RN.ScrollView,
+    createAnimatedComponent: (C) => C,
+  };
+  return {
+    __esModule: true,
+    default: Animated,
+    ...Animated,
+    useSharedValue: (init) => ({ value: init }),
+    useAnimatedStyle: (fn) => {
+      try { return fn() || {}; } catch { return {}; }
+    },
+    useAnimatedProps: (fn) => {
+      try { return fn() || {}; } catch { return {}; }
+    },
+    withTiming: (val) => val,
+    withRepeat: (val) => val,
+    withDelay: (_d, val) => val,
+    withSequence: (val) => val,
+    withSpring: (val) => val,
+    runOnJS: (fn) => fn,
+    runOnUI: (fn) => fn,
+    cancelAnimation: jest.fn(),
+    Easing: {
+      ease: () => 0,
+      linear: () => 0,
+      bezier: () => () => 0,
+      inOut: () => () => 0,
+      in: () => () => 0,
+      out: () => () => 0,
+    },
+    interpolate: (val) => val,
+    Extrapolate: { CLAMP: 'clamp', EXTEND: 'extend', IDENTITY: 'identity' },
+  };
+});
+
+// react-native-gesture-handler: inline stub. Gesture/GestureDetector
+// become passthrough containers.
+jest.mock('react-native-gesture-handler', () => {
+  const React = require('react');
+  const RN = jest.requireActual('react-native');
+  const passthrough = ({ children }) => children;
+  return {
+    __esModule: true,
+    GestureDetector: passthrough,
+    GestureHandlerRootView: ({ children }) => React.createElement(RN.View, null, children),
+    PanGestureHandler: passthrough,
+    TapGestureHandler: passthrough,
+    LongPressGestureHandler: passthrough,
+    // Fluent gesture API: every method returns the same object so chains
+    // like Gesture.Pan().onUpdate(fn).onEnd(fn).onFinalize(fn) compose
+    // without errors. Each handler is a no-op in the test env.
+    Gesture: (() => {
+      const chain = new Proxy({}, {
+        get: (_, prop) => {
+          if (prop === 'then') return undefined; // not a thenable
+          return (..._args) => chain;
+        },
+      });
+      const factory = () => chain;
+      return {
+        Pan: factory,
+        Tap: factory,
+        LongPress: factory,
+        Fling: factory,
+        Pinch: factory,
+        Rotation: factory,
+        Native: factory,
+        Manual: factory,
+        Race: factory,
+        Simultaneous: factory,
+        Exclusive: factory,
+      };
+    })(),
+    State: { UNDETERMINED: 0, FAILED: 1, BEGAN: 2, CANCELLED: 3, ACTIVE: 4, END: 5 },
+    Directions: { RIGHT: 1, LEFT: 2, UP: 4, DOWN: 8 },
+  };
+});
+
 // Performance monitoring for local development
 global.performance = global.performance || {
   now: () => Date.now(),

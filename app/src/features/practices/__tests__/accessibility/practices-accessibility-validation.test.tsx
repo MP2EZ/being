@@ -22,17 +22,10 @@ import BreathingCircle from '../../shared/components/BreathingCircle';
 import Timer from '../../shared/components/Timer';
 // MAINT-65: EmotionGrid, NeedsGrid, EveningValueSlider removed as unused legacy components
 
-// Mock accessibility APIs
-jest.mock('react-native', () => ({
-  ...jest.requireActual('react-native'),
-  AccessibilityInfo: {
-    announceForAccessibility: jest.fn(),
-    addEventListener: jest.fn(),
-    removeEventListener: jest.fn(),
-    isScreenReaderEnabled: jest.fn(() => Promise.resolve(true)),
-    isReduceMotionEnabled: jest.fn(() => Promise.resolve(false)),
-  },
-}));
+// AccessibilityInfo is already mocked globally in __tests__/setup/jest.setup.js.
+// A local jest.mock('react-native', ...) here would override the carefully-tuned
+// global mock (which exposes safe RN primitives + AccessibilityInfo + UIManager)
+// and re-introduce TurboModule errors via jest.requireActual.
 
 describe('DRD Check-in Flows Accessibility Validation', () => {
   beforeEach(() => {
@@ -54,11 +47,11 @@ describe('DRD Check-in Flows Accessibility Validation', () => {
       });
 
       it('CRITICAL: Crisis chevron is accessible', () => {
-        const { getByTestID } = render(
+        const { getByTestId } = render(
           <CollapsibleCrisisButton testID="collapsible-crisis" />
         );
 
-        const chevron = getByTestID('collapsible-crisis');
+        const chevron = getByTestId('collapsible-crisis');
 
         expect(chevron.props.accessibilityRole).toBe('button');
         expect(chevron.props.accessibilityLabel).toBeTruthy();
@@ -166,12 +159,16 @@ describe('DRD Check-in Flows Accessibility Validation', () => {
         <CollapsibleCrisisButton testID="collapsible-crisis-button" />
       );
 
-      const button = getByTestId('safety-button');
+      // Query by the testID prop (not a hardcoded literal) — that's the
+      // actual interactive Pressable. 44pt visible button + 12pt hitSlop
+      // on each side = 68pt effective target, comfortably above the WCAG
+      // 2.5.5 minimum.
+      const button = getByTestId('collapsible-crisis-button');
       expect(button.props.hitSlop).toEqual({
-        top: 10,
-        bottom: 10,
-        left: 10,
-        right: 10
+        top: 12,
+        bottom: 12,
+        left: 12,
+        right: 12,
       });
     });
 
