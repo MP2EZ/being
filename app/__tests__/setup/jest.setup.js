@@ -279,6 +279,73 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
   removeItem: jest.fn(() => Promise.resolve())
 }));
 
+// NetInfo: factory mock — bare jest.mock(...) still loads the real native
+// binding (RNCNetInfo TurboModule) before applying surface replacement.
+jest.mock('@react-native-community/netinfo', () => ({
+  __esModule: true,
+  default: {
+    fetch: jest.fn(() => Promise.resolve({ isConnected: true, isInternetReachable: true, type: 'wifi' })),
+    addEventListener: jest.fn(() => jest.fn()),
+    configure: jest.fn(),
+  },
+  fetch: jest.fn(() => Promise.resolve({ isConnected: true, isInternetReachable: true, type: 'wifi' })),
+  addEventListener: jest.fn(() => jest.fn()),
+  useNetInfo: jest.fn(() => ({ isConnected: true, isInternetReachable: true, type: 'wifi' })),
+  NetInfoStateType: { wifi: 'wifi', cellular: 'cellular', none: 'none', unknown: 'unknown' },
+}));
+
+// @expo/vector-icons: factory mock — pulls in expo-font → expo-modules-core
+// which fails on EventEmitter native binding outside the device runtime.
+jest.mock('@expo/vector-icons', () => {
+  const React = require('react');
+  const { Text } = require('react-native');
+  const Icon = ({ name, testID, ...rest }) =>
+    React.createElement(Text, { testID: testID || `icon-${name}`, ...rest }, name);
+  return new Proxy({}, { get: () => Icon });
+});
+
+// expo-local-authentication: same expo-modules-core EventEmitter pitfall.
+jest.mock('expo-local-authentication', () => ({
+  hasHardwareAsync: jest.fn(() => Promise.resolve(false)),
+  isEnrolledAsync: jest.fn(() => Promise.resolve(false)),
+  authenticateAsync: jest.fn(() => Promise.resolve({ success: false })),
+  supportedAuthenticationTypesAsync: jest.fn(() => Promise.resolve([])),
+  AuthenticationType: { FINGERPRINT: 1, FACIAL_RECOGNITION: 2, IRIS: 3 },
+  SecurityLevel: { NONE: 0, SECRET: 1, BIOMETRIC_WEAK: 2, BIOMETRIC_STRONG: 3 },
+}));
+
+// react-native-aes-crypto: native TurboModule, undefined in Jest env.
+jest.mock('react-native-aes-crypto', () => ({
+  __esModule: true,
+  default: {
+    randomKey: jest.fn(() => Promise.resolve('mock-random-key-32-bytes-hex')),
+    encrypt: jest.fn(() => Promise.resolve('mock-ciphertext')),
+    decrypt: jest.fn(() => Promise.resolve('mock-plaintext')),
+    hmac256: jest.fn(() => Promise.resolve('mock-hmac')),
+    sha256: jest.fn(() => Promise.resolve('mock-sha256')),
+    pbkdf2: jest.fn(() => Promise.resolve('mock-derived-key')),
+  },
+}));
+
+// react-native-safe-area-context: hits NativeSafeAreaContext TurboModule when
+// imported transitively via @react-navigation/elements.
+jest.mock('react-native-safe-area-context', () => {
+  const React = require('react');
+  const inset = { top: 0, right: 0, bottom: 0, left: 0 };
+  const frame = { x: 0, y: 0, width: 390, height: 844 };
+  const passthrough = ({ children }) => children;
+  return {
+    SafeAreaProvider: passthrough,
+    SafeAreaConsumer: ({ children }) => children(inset),
+    SafeAreaView: passthrough,
+    useSafeAreaInsets: () => inset,
+    useSafeAreaFrame: () => frame,
+    SafeAreaInsetsContext: { Consumer: ({ children }) => children(inset), Provider: passthrough },
+    SafeAreaFrameContext: { Consumer: ({ children }) => children(frame), Provider: passthrough },
+    initialWindowMetrics: { insets: inset, frame },
+  };
+});
+
 // Global teardown for performance reporting
 afterAll(() => {
   if (global.testPerformance?.results?.length > 0) {

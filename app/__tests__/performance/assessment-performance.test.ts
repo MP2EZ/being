@@ -18,28 +18,12 @@
  * Week 2 Orchestration Plan - Performance Critical Validation
  */
 
-import { useAssessmentStore } from '../../src/features/assessment/stores/assessmentStore';
-import { AssessmentType, AssessmentResponse } from '../../src/features/assessment/types/index';
-import { performance } from 'react-native-performance';
+import { useAssessmentStore } from '@/features/assessment/stores/assessmentStore';
+import { AssessmentType, AssessmentResponse } from '@/features/assessment/types';
 
-// Mock performance monitoring
-const mockPerformanceObserver = {
-  observe: jest.fn(),
-  disconnect: jest.fn(),
-};
-
-// Mock React Native Performance
-jest.mock('react-native-performance', () => ({
-  performance: {
-    now: () => Date.now(),
-    mark: jest.fn(),
-    measure: jest.fn(),
-    getEntriesByType: jest.fn(),
-    clearMarks: jest.fn(),
-    clearMeasures: jest.fn(),
-  },
-  PerformanceObserver: jest.fn(() => mockPerformanceObserver),
-}));
+// `performance` is available globally in the Jest runtime (Node perf_hooks).
+// react-native-performance was never installed; removed the dead import
+// and its companion jest.mock factory.
 
 // Mock storage with timing simulation
 jest.mock('expo-secure-store', () => ({

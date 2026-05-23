@@ -71,6 +71,7 @@
     "platform:setup": "node scripts/cross-platform-testing.js setup",
     "platform:parallel": "node scripts/cross-platform-testing.js both --parallel",
     "lint": "eslint src --ext .ts,.tsx",
+    "lint:baseline": "node scripts/lint-baseline.js",
     "lint:clinical": "eslint src --ext .ts,.tsx --config .eslintrc.clinical.js",
     "lint:fix": "eslint src --ext .ts,.tsx --fix",
     "typecheck": "npx tsc --noEmit --incremental",

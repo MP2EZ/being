@@ -20,7 +20,7 @@ import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 import BodyScanScreen from '@/features/learn/practices/BodyScanScreen';
 
 // Mock Phase 2 shared components
-jest.mock('../../../../src/screens/learn/practices/shared/PracticeScreenLayout', () => {
+jest.mock('@/features/learn/practices/shared/PracticeScreenLayout', () => {
   const React = require('react');
   return ({ children, title, onBack, testID, scrollable }: any) => {
     const { View, Text, TouchableOpacity, ScrollView } = require('react-native');
@@ -39,7 +39,7 @@ jest.mock('../../../../src/screens/learn/practices/shared/PracticeScreenLayout',
   };
 });
 
-jest.mock('../../../../src/screens/learn/practices/shared/PracticeInstructions', () => {
+jest.mock('@/features/learn/practices/shared/PracticeInstructions', () => {
   const React = require('react');
   return ({ text, isActive, testID }: any) => {
     const { Text } = require('react-native');
@@ -51,7 +51,7 @@ jest.mock('../../../../src/screens/learn/practices/shared/PracticeInstructions',
   };
 });
 
-jest.mock('../../../../src/screens/learn/practices/shared/PracticeToggleButton', () => {
+jest.mock('@/features/learn/practices/shared/PracticeToggleButton', () => {
   const React = require('react');
   return ({ isActive, onToggle, testID }: any) => {
     const { TouchableOpacity, Text } = require('react-native');
@@ -70,7 +70,7 @@ jest.mock('../../../../src/screens/learn/practices/shared/PracticeToggleButton',
 });
 
 // Mock ProgressiveBodyScanList
-jest.mock('../../../../src/flows/shared/components/ProgressiveBodyScanList', () => {
+jest.mock('@/features/practices/shared/components/ProgressiveBodyScanList', () => {
   const React = require('react');
   return ({ areas, currentIndex, currentGuidance, testID }: any) => {
     const { View, Text } = require('react-native');
@@ -96,7 +96,7 @@ jest.mock('../../../../src/flows/shared/components/ProgressiveBodyScanList', () 
 });
 
 // Mock BODY_AREAS
-jest.mock('../../../../src/flows/shared/components/BodyAreaGrid', () => ({
+jest.mock('@/features/practices/shared/components/BodyAreaGrid', () => ({
   BODY_AREAS: [
     'Head & Neck',
     'Shoulders & Chest',
@@ -108,7 +108,7 @@ jest.mock('../../../../src/flows/shared/components/BodyAreaGrid', () => ({
 }));
 
 // Mock Timer component
-jest.mock('../../../../src/flows/shared/components/Timer', () => {
+jest.mock('@/features/practices/shared/components/Timer', () => {
   const React = require('react');
   const { useState, useEffect } = React;
   return ({ duration, isActive, onComplete, onTick, testID }: any) => {
@@ -143,7 +143,7 @@ jest.mock('../../../../src/flows/shared/components/Timer', () => {
 });
 
 // Mock usePracticeCompletion hook
-jest.mock('../../../../src/screens/learn/practices/shared/usePracticeCompletion', () => ({
+jest.mock('@/features/learn/practices/shared/usePracticeCompletion', () => ({
   usePracticeCompletion: ({ onComplete, testID }: any) => {
     const React = require('react');
     const { useState } = React;
