@@ -156,18 +156,16 @@ jobs:
   # in Phase 0 (CollapsibleCrisisButton.a11y.test.ts and
   # AuthenticationService.sec03.test.ts) via Jest auto-discovery.
   #
-  # Currently advisory due to pre-existing test infrastructure debt: broken
-  # imports in __tests__/unit/* files (Cannot find module '../../src/stores/
-  # stoicPracticeStore', premeditationSafetyService, etc.) where production
-  # files moved during the 5-month dev period without test refs being
-  # updated. Restore strict-gate by removing continue-on-error after the
-  # broken-import paydown.
+  # Gating: as of the W1 debt paydown, broken-import failures are fixed and
+  # the running suites enforce. 5 integration tests are temporarily ignored
+  # via testPathIgnorePatterns in jest.config.js (see TODO comments there)
+  # pending separate fixes for SecureStorageService singleton timers,
+  # MaskedView native mock, and assessment-store API drift.
   test:
     name: Unit + integration tests
     runs-on: ubuntu-latest
     timeout-minutes: 20
     needs: prepare
-    continue-on-error: true
 
     steps:
       - uses: actions/checkout@v4
@@ -332,20 +330,20 @@ jobs:
           echo "security:         ${{ needs.security.result }}"
           echo "accessibility:    ${{ needs.accessibility.result }}"
           # Advisory jobs (informational only — not gating):
-          #   lint                 — ~956 errors of accumulated debt
-          #   accessibility        — Jest parse + setup failures (14/24 tests fail)
-          #   test (unit+integ)    — broken module imports in __tests__/unit
+          #   lint                   — ~956 errors of accumulated debt
+          #   accessibility          — Jest parse + setup failures (14/24 tests fail)
           #   performance-regression — already advisory pre-2026-05
           #
           # Real gates that must pass:
-          #   typecheck, clinical-validation, crisis-validation, security
+          #   typecheck, clinical-validation, crisis-validation, security, test
           #
           # Restore advisory jobs to gate status by removing
           # continue-on-error on the job AND re-adding to the check below.
           if [[ "${{ needs.typecheck.result }}" != "success" \
              || "${{ needs.crisis-validation.result }}" != "success" \
              || "${{ needs.clinical-validation.result }}" != "success" \
-             || "${{ needs.security.result }}" != "success" ]]; then
+             || "${{ needs.security.result }}" != "success" \
+             || "${{ needs.test.result }}" != "success" ]]; then
             echo "❌ One or more required gates failed"
             exit 1
           fi

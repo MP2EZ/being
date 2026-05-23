@@ -18,14 +18,14 @@ import * as SecureStore from 'expo-secure-store';
 import {
   useStoicPracticeStore,
   StoicPracticeState,
-} from '../../src/stores/stoicPracticeStore';
+} from '@/features/practices/stores/stoicPracticeStore';
 import type {
   CardinalVirtue,
   DevelopmentalStage,
   PracticeDomain,
   VirtueInstance,
   VirtueChallenge,
-} from '../../src/types/stoic';
+} from '@/features/practices/types/stoic';
 
 // Mock SecureStore
 jest.mock('expo-secure-store', () => ({

@@ -33,7 +33,6 @@ import {
   CrisisDetection,
   CRISIS_THRESHOLDS 
 } from '../../src/features/assessment/types/index';
-import { performance } from 'react-native-performance';
 import { Alert, Linking } from 'react-native';
 
 // Mock React Native components for integration testing
@@ -363,7 +362,7 @@ describe('COMPREHENSIVE ASSESSMENT INTEGRATION TESTING', () => {
         await store.startAssessment(test.type, 'boundary_test');
 
         const questionCount = test.type === 'phq9' ? 9 : 7;
-        const answers = this.distributeScore(test.score, questionCount);
+        const answers = distributeScore(test.score, questionCount);
 
         for (let i = 0; i < questionCount; i++) {
           await store.answerQuestion(`${test.type}_${i + 1}`, answers[i]);
@@ -390,22 +389,22 @@ describe('COMPREHENSIVE ASSESSMENT INTEGRATION TESTING', () => {
       }
     });
 
-    /**
-     * Helper method to distribute score across questions
-     */
-    distributeScore(targetScore: number, questionCount: number): AssessmentResponse[] {
-      const answers: AssessmentResponse[] = new Array(questionCount).fill(0);
-      let remainingScore = targetScore;
-      
-      for (let i = 0; i < questionCount && remainingScore > 0; i++) {
-        const maxForQuestion = Math.min(remainingScore, 3);
-        answers[i] = maxForQuestion as AssessmentResponse;
-        remainingScore -= maxForQuestion;
-      }
-      
-      return answers;
-    }
   });
+
+  // Helper to distribute a target score across N questions (each question
+  // capped at 3, the max for PHQ-9/GAD-7 per-item severity).
+  function distributeScore(targetScore: number, questionCount: number): AssessmentResponse[] {
+    const answers: AssessmentResponse[] = new Array(questionCount).fill(0);
+    let remainingScore = targetScore;
+
+    for (let i = 0; i < questionCount && remainingScore > 0; i++) {
+      const maxForQuestion = Math.min(remainingScore, 3);
+      answers[i] = maxForQuestion as AssessmentResponse;
+      remainingScore -= maxForQuestion;
+    }
+
+    return answers;
+  }
 
   describe('DATA INTEGRITY AND PERSISTENCE INTEGRATION', () => {
     it('Assessment persistence through interruption and recovery', async () => {
@@ -695,7 +694,7 @@ describe('COMPREHENSIVE ASSESSMENT INTEGRATION TESTING', () => {
           await store.startAssessment(scenario.type, 'performance_test');
           
           const questionCount = scenario.type === 'phq9' ? 9 : 7;
-          const answers = this.distributeScore(score, questionCount);
+          const answers = distributeScore(score, questionCount);
           
           for (let i = 0; i < questionCount; i++) {
             await store.answerQuestion(`${scenario.type}_${i + 1}`, answers[i]);

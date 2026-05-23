@@ -21,7 +21,7 @@ import {
   ObstacleInput,
   PremeditationSession,
   SafetyFlags,
-} from '../../src/services/premeditationSafetyService';
+} from '@/core/services/premeditationSafetyService';
 
 describe('PremeditationSafetyService', () => {
   let service: PremeditationSafetyService;

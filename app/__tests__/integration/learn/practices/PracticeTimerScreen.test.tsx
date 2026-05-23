@@ -18,7 +18,7 @@ import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 import PracticeTimerScreen from '@/features/learn/practices/PracticeTimerScreen';
 
 // Mock Phase 2 shared components
-jest.mock('../../../../src/screens/learn/practices/shared/PracticeScreenLayout', () => {
+jest.mock('@/features/learn/practices/shared/PracticeScreenLayout', () => {
   const React = require('react');
   return ({ children, title, onBack, testID }: any) => {
     const { View, Text, TouchableOpacity } = require('react-native');
@@ -36,7 +36,7 @@ jest.mock('../../../../src/screens/learn/practices/shared/PracticeScreenLayout',
   };
 });
 
-jest.mock('../../../../src/screens/learn/practices/shared/PracticeInstructions', () => {
+jest.mock('@/features/learn/practices/shared/PracticeInstructions', () => {
   const React = require('react');
   return ({ text, isActive, testID }: any) => {
     const { Text } = require('react-native');
@@ -48,7 +48,7 @@ jest.mock('../../../../src/screens/learn/practices/shared/PracticeInstructions',
   };
 });
 
-jest.mock('../../../../src/screens/learn/practices/shared/PracticeToggleButton', () => {
+jest.mock('@/features/learn/practices/shared/PracticeToggleButton', () => {
   const React = require('react');
   return ({ isActive, onToggle, testID }: any) => {
     const { TouchableOpacity, Text } = require('react-native');
@@ -67,7 +67,7 @@ jest.mock('../../../../src/screens/learn/practices/shared/PracticeToggleButton',
 });
 
 // Mock shared components
-jest.mock('../../../../src/flows/shared/components/BreathingCircle', () => {
+jest.mock('@/features/practices/shared/components/BreathingCircle', () => {
   const React = require('react');
   return ({ isActive, testID }: any) => {
     const { View, Text } = require('react-native');
@@ -79,7 +79,7 @@ jest.mock('../../../../src/flows/shared/components/BreathingCircle', () => {
   };
 });
 
-jest.mock('../../../../src/flows/shared/components/Timer', () => {
+jest.mock('@/features/practices/shared/components/Timer', () => {
   const React = require('react');
   const { useState, useEffect } = React;
   return ({ duration, isActive, onComplete, onTick, testID }: any) => {
@@ -114,7 +114,7 @@ jest.mock('../../../../src/flows/shared/components/Timer', () => {
 });
 
 // Mock usePracticeCompletion hook
-jest.mock('../../../../src/screens/learn/practices/shared/usePracticeCompletion', () => ({
+jest.mock('@/features/learn/practices/shared/usePracticeCompletion', () => ({
   usePracticeCompletion: ({ onComplete, testID }: any) => {
     const React = require('react');
     const { useState } = React;

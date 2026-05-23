@@ -30,10 +30,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 
 // Import the services and stores
-import SyncCoordinator from '../../src/services/supabase/SyncCoordinator';
-import { useAssessmentStore } from '../../src/features/assessment/stores/assessmentStore';
-import { cloudBackupService } from '../../src/services/supabase/CloudBackupService';
-import supabaseService from '../../src/services/supabase/SupabaseService';
+import SyncCoordinator from '@/core/services/supabase/SyncCoordinator';
+import { useAssessmentStore } from '@/features/assessment/stores/assessmentStore';
+import { cloudBackupService } from '@/core/services/supabase/CloudBackupService';
+import supabaseService from '@/core/services/supabase/SupabaseService';
 
 // Mock external dependencies
 jest.mock('@react-native-async-storage/async-storage');
