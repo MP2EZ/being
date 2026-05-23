@@ -29,11 +29,37 @@ import {
 } from '@/core/types/subscription';
 import { Platform } from 'react-native';
 import { supabaseService } from '../supabase/SupabaseService';
+import { logSystem, logPerformance } from '@/core/services/logging';
 
 /**
  * IAP Product Configuration
  */
 const PRODUCT_IDS: SubscriptionProductIds = DEFAULT_SUBSCRIPTION_CONFIG.products;
+
+/**
+ * Android package name. Must match `expo.android.package` in app.json
+ * (currently "com.being.app"). Used by the Google Play receipt verification
+ * Edge Function to identify which Play Console app the purchase belongs to.
+ *
+ * Drift detection: if app.json's android.package changes, this must change
+ * too. Worth adding a runtime guard test that fails CI on mismatch.
+ */
+const ANDROID_PACKAGE_NAME = 'com.being.app';
+
+/**
+ * Map a product ID (from a Purchase) back to its SubscriptionInterval.
+ * Used by the async purchase listener (deferred purchases, restore, family
+ * approval flows) to determine which subscription tier the user bought.
+ */
+function intervalFromProductId(productId: string): SubscriptionInterval | null {
+  if (productId === PRODUCT_IDS.apple.monthly || productId === PRODUCT_IDS.google.monthly) {
+    return 'monthly';
+  }
+  if (productId === PRODUCT_IDS.apple.yearly || productId === PRODUCT_IDS.google.yearly) {
+    return 'yearly';
+  }
+  return null;
+}
 
 /**
  * Get platform-specific product IDs
@@ -84,12 +110,12 @@ class IAPServiceClass {
    */
   async initialize(): Promise<void> {
     if (this.isInitialized) {
-      console.log('[IAP] Already initialized');
+      logSystem('[IAP] Already initialized');
       return;
     }
 
     try {
-      console.log('[IAP] Initializing...');
+      logSystem('[IAP] Initializing...');
 
       // Connect to store
       await InAppPurchases.connectAsync();
@@ -103,13 +129,13 @@ class IAPServiceClass {
 
       if (responseCode === InAppPurchases.IAPResponseCode.OK) {
         this.products = results || [];
-        console.log('[IAP] Products loaded:', this.products.length);
+        logSystem(`[IAP] Products loaded: ${this.products.length}`);
       } else {
         console.error('[IAP] Failed to fetch products:', responseCode);
       }
 
       this.isInitialized = true;
-      console.log('[IAP] Initialization complete');
+      logSystem('[IAP] Initialization complete');
     } catch (error) {
       console.error('[IAP] Initialization failed:', error);
       throw error;
@@ -126,7 +152,7 @@ class IAPServiceClass {
     try {
       await InAppPurchases.disconnectAsync();
       this.isInitialized = false;
-      console.log('[IAP] Disconnected');
+      logSystem('[IAP] Disconnected');
     } catch (error) {
       console.error('[IAP] Disconnect failed:', error);
     }
@@ -160,11 +186,11 @@ class IAPServiceClass {
 
     try {
       const productId = getProductId(interval);
-      console.log('[IAP] Purchasing subscription:', { interval, productId, mockMode: this.mockMode });
+      logSystem(`[IAP] Purchasing subscription: interval=${interval} productId=${productId} mockMode=${this.mockMode}`);
 
       // MOCK MODE: Simulate purchase flow for development
       if (this.mockMode) {
-        console.log('[IAP] Mock purchase flow activated');
+        logSystem('[IAP] Mock purchase flow activated');
 
         // Simulate network delay (1-2 seconds)
         await new Promise(resolve => setTimeout(resolve, 1500));
@@ -181,7 +207,7 @@ class IAPServiceClass {
         };
 
         const purchaseTime = performance.now() - startTime;
-        console.log(`[IAP] Mock purchase completed in ${purchaseTime}ms`);
+        logPerformance('iap_mock_purchase', purchaseTime);
 
         return mockPurchase;
       }
@@ -190,7 +216,7 @@ class IAPServiceClass {
       await InAppPurchases.purchaseItemAsync(productId);
 
       const purchaseTime = performance.now() - startTime;
-      console.log(`[IAP] Purchase completed in ${purchaseTime}ms`);
+      logPerformance('iap_purchase_initiated', purchaseTime);
 
       // Purchase result will come via handlePurchase listener
       return null;
@@ -210,11 +236,11 @@ class IAPServiceClass {
     }
 
     try {
-      console.log('[IAP] Restoring purchases...');
+      logSystem('[IAP] Restoring purchases...');
 
       const { results } = await InAppPurchases.getPurchaseHistoryAsync();
 
-      console.log('[IAP] Purchases restored:', results?.length || 0);
+      logSystem(`[IAP] Purchases restored: ${results?.length || 0}`);
 
       return results || [];
     } catch (error) {
@@ -230,7 +256,7 @@ class IAPServiceClass {
   async finishTransaction(purchase: InAppPurchases.InAppPurchase): Promise<void> {
     try {
       await InAppPurchases.finishTransactionAsync(purchase, true);
-      console.log('[IAP] Transaction finished:', purchase.orderId);
+      logSystem(`[IAP] Transaction finished: ${purchase.orderId}`);
     } catch (error) {
       console.error('[IAP] Failed to finish transaction:', error);
       throw error;
@@ -239,28 +265,63 @@ class IAPServiceClass {
 
   /**
    * Handle purchase event
-   * Called automatically when purchase completes
+   *
+   * Fires for async purchase resolutions that bypass the direct
+   * purchaseSubscription() call path: parent-approval (Family Sharing),
+   * deferred payments resolving later, restore flows, and multi-device
+   * subscription propagation. The direct mock-mode purchase flow
+   * resolves synchronously and is processed by the store; this listener
+   * handles everything else.
+   *
+   * Each purchase is verified, persisted to the subscription store, and
+   * the platform transaction is acknowledged. Failures are logged but
+   * don't throw — the listener fires fire-and-forget, and a re-emit on
+   * next app start will retry.
    */
   private handlePurchase = (result: InAppPurchases.IAPQueryResponse<InAppPurchases.InAppPurchase>) => {
-    console.log('[IAP] Purchase event:', { responseCode: result.responseCode });
+    logSystem(`[IAP] Purchase event: responseCode=${result.responseCode}`);
 
     if (result.responseCode === InAppPurchases.IAPResponseCode.OK) {
       result.results?.forEach((purchase: InAppPurchases.InAppPurchase) => {
-        console.log('[IAP] Purchase received:', {
-          productId: purchase.productId,
-          orderId: purchase.orderId
-        });
-
-        // TODO: Verify receipt server-side
-        // TODO: Update subscription store
-        // TODO: Finish transaction after verification
+        void this.processAsyncPurchase(purchase);
       });
     } else if (result.responseCode === InAppPurchases.IAPResponseCode.USER_CANCELED) {
-      console.log('[IAP] Purchase cancelled by user');
+      logSystem('[IAP] Purchase cancelled by user');
     } else {
       console.error('[IAP] Purchase error:', { responseCode: result.responseCode });
     }
   };
+
+  /**
+   * Process a single purchase from the async listener: verify receipt,
+   * update the subscription store, and finish the platform transaction.
+   * Dynamically imports the store to avoid a circular module dependency.
+   */
+  private async processAsyncPurchase(purchase: InAppPurchases.InAppPurchase): Promise<void> {
+    try {
+      logSystem(`[IAP] Processing async purchase: productId=${purchase.productId} orderId=${purchase.orderId}`);
+
+      const interval = intervalFromProductId(purchase.productId);
+      if (!interval) {
+        console.error('[IAP] Unknown productId from listener:', purchase.productId);
+        return;
+      }
+
+      // Lazy require to break the circular dep: subscriptionStore imports
+      // IAPService (also lazily) so a top-level import on either side
+      // would form a cycle. require() executes synchronously when called
+      // here (post-init), which is safe — the store is fully loaded by
+      // the time any IAP listener fires. Avoids the `await import()`
+      // dynamic-callback path that Jest CJS can't intercept cleanly.
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { useSubscriptionStore } = require('@/core/stores/subscriptionStore');
+      await useSubscriptionStore.getState().processVerifiedPurchase(purchase, interval);
+    } catch (err) {
+      console.error('[IAP] Async purchase processing failed:', err);
+      // Don't rethrow — the listener fires fire-and-forget and a retry
+      // happens naturally on the next platform re-emit.
+    }
+  }
 
   /**
    * Verify receipt server-side
@@ -273,11 +334,11 @@ class IAPServiceClass {
     error?: string | undefined;
   }> {
     try {
-      console.log('[IAP] Verifying receipt...', { platform, mockMode: this.mockMode });
+      logSystem(`[IAP] Verifying receipt: platform=${platform} mockMode=${this.mockMode}`);
 
       // MOCK MODE: Accept mock receipts
       if (this.mockMode && receiptData.startsWith('mock_receipt_')) {
-        console.log('[IAP] Mock receipt verification - auto-approving');
+        logSystem('[IAP] Mock receipt verification - auto-approving');
 
         // Simulate network delay
         await new Promise(resolve => setTimeout(resolve, 500));
@@ -292,7 +353,7 @@ class IAPServiceClass {
           ? now + (365 * 24 * 60 * 60 * 1000) // 1 year
           : now + (30 * 24 * 60 * 60 * 1000);  // 1 month
 
-        console.log('[IAP] Mock receipt verified successfully');
+        logSystem('[IAP] Mock receipt verified successfully');
 
         return {
           valid: true,
@@ -338,7 +399,7 @@ class IAPServiceClass {
         }
 
         const verifyTime = performance.now() - startTime;
-        console.log(`[IAP] Receipt verified in ${verifyTime}ms`);
+        logPerformance('iap_receipt_verified', verifyTime);
 
         return {
           valid: data.valid,
@@ -355,7 +416,7 @@ class IAPServiceClass {
           'verify-google-receipt',
           {
             body: {
-              packageName: 'com.being.app', // TODO: Make configurable
+              packageName: ANDROID_PACKAGE_NAME,
               subscriptionId: receiptData, // For Google, this is the product ID
               purchaseToken,
             },
@@ -370,7 +431,7 @@ class IAPServiceClass {
         }
 
         const verifyTime = performance.now() - startTime;
-        console.log(`[IAP] Receipt verified in ${verifyTime}ms`);
+        logPerformance('iap_receipt_verified', verifyTime);
 
         return {
           valid: data.valid,

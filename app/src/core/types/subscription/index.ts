@@ -214,6 +214,15 @@ export interface SubscriptionStore {
 
   // Purchase Actions
   purchaseSubscription: (interval: SubscriptionInterval) => Promise<void>;
+  /**
+   * Process a verified-or-pending-verification purchase coming from either
+   * the direct purchase flow (mock mode) or the async IAP listener
+   * (real-mode deferred purchases, family approval, restore). Verifies the
+   * receipt server-side, persists subscription metadata, and acknowledges
+   * the platform transaction. Idempotent: safe to call repeatedly with the
+   * same purchase (verifyReceipt server side will dedupe on orderId).
+   */
+  processVerifiedPurchase: (purchase: unknown, interval: SubscriptionInterval) => Promise<void>;
   restorePurchases: () => Promise<void>;
   cancelSubscription: () => Promise<void>;
 
