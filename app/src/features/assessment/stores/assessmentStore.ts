@@ -38,6 +38,7 @@ import {
   AssessmentAnswer,
   AssessmentProgress,
   AssessmentSession,
+  AssessmentContext,
   PHQ9Result,
   GAD7Result,
   CrisisDetection,
@@ -73,6 +74,23 @@ const GAD7_SEVERITY_THRESHOLDS = {
 } as const;
 
 /**
+ * Shape of state persisted by the assessment store. Used to narrow
+ * EncryptedAssessmentStorage.load()'s `unknown` return at the recovery
+ * call site (audit TS-01).
+ */
+interface PersistedAssessmentState {
+  currentSession?: AssessmentSession | null;
+  currentQuestionIndex?: number;
+  answers?: AssessmentAnswer[];
+  completedAssessments?: AssessmentSession[];
+  lastSavedAt?: number;
+}
+
+function isPersistedAssessmentState(value: unknown): value is PersistedAssessmentState {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+/**
  * Encrypted storage service for clinical data
  * Uses CLINICAL sensitivity level for PHQ-9/GAD-7 responses
  */
@@ -80,26 +98,52 @@ class EncryptedAssessmentStorage {
   private static readonly STORAGE_KEY = 'assessment_store_encrypted';
   private static readonly AUDIT_KEY = 'assessment_audit_trail';
 
-  static async save(data: any): Promise<void> {
+  /**
+   * Persist arbitrary serializable state for the assessment store.
+   * The shape is determined by the caller (saveProgress / Zustand
+   * persist middleware) — the storage layer doesn't constrain it.
+   * Narrowing to a specific PHQ-9 / GAD-7 shape happens at use
+   * sites via the type guards in `features/assessment/types/validation.ts`.
+   *
+   * Audit TS-01 paydown: was `save(data: any)`, which was the only
+   * `any` in the clinical persistence path. `unknown` forces callers
+   * to think about what they're handing us, without constraining
+   * the shape (the persist middleware needs flexibility).
+   */
+  static async save(data: unknown): Promise<void> {
     try {
       const encrypted = JSON.stringify(data);
       await SecureStore.setItemAsync(this.STORAGE_KEY, encrypted);
-      
-      // Audit trail for clinical compliance
-      await this.logAccess('SAVE', Object.keys(data).length);
+
+      // Audit trail for clinical compliance. Object.keys requires an
+      // object — guard so primitives/null/arrays don't crash the audit.
+      const keyCount =
+        data !== null && typeof data === 'object' && !Array.isArray(data)
+          ? Object.keys(data as Record<string, unknown>).length
+          : 0;
+      await this.logAccess('SAVE', keyCount);
     } catch (error) {
       logError(LogCategory.SYSTEM, 'Assessment storage save failed:', error instanceof Error ? error : new Error(String(error)));
       throw new Error('Failed to save assessment data securely');
     }
   }
 
-  static async load(): Promise<any> {
+  /**
+   * Load persisted state. Returns `unknown` — callers narrow via the
+   * type guards in `features/assessment/types/validation.ts` (e.g.,
+   * `isPHQ9ResultShape`, `isGAD7ResultShape`) before reading fields.
+   */
+  static async load(): Promise<unknown> {
     try {
       const encrypted = await SecureStore.getItemAsync(this.STORAGE_KEY);
       if (!encrypted) return null;
-      
-      const data = JSON.parse(encrypted);
-      await this.logAccess('LOAD', Object.keys(data).length);
+
+      const data: unknown = JSON.parse(encrypted);
+      const keyCount =
+        data !== null && typeof data === 'object' && !Array.isArray(data)
+          ? Object.keys(data as Record<string, unknown>).length
+          : 0;
+      await this.logAccess('LOAD', keyCount);
       return data;
     } catch (error) {
       logError(LogCategory.SYSTEM, 'Assessment storage load failed:', error instanceof Error ? error : new Error(String(error)));
@@ -366,7 +410,7 @@ export interface AssessmentStoreState {
  */
 export interface AssessmentStoreActions {
   // Session management
-  startAssessment: (type: AssessmentType, context?: string) => Promise<void>;
+  startAssessment: (type: AssessmentType, context?: AssessmentContext) => Promise<void>;
   answerQuestion: (questionId: string, response: AssessmentResponse) => Promise<void>;
   completeAssessment: () => Promise<void>;
   resetAssessment: () => void;
@@ -417,7 +461,7 @@ export const useAssessmentStore = create<AssessmentStore>()(
         lastSyncAt: null,
 
         // Session management actions
-        startAssessment: async (type: AssessmentType, context = 'standalone') => {
+        startAssessment: async (type: AssessmentType, context: AssessmentContext = 'standalone') => {
           set({ isLoading: true, error: null });
 
           try {
@@ -427,7 +471,7 @@ export const useAssessmentStore = create<AssessmentStore>()(
             const session: AssessmentSession = {
               id: sessionId,
               type,
-              context: context as any,
+              context,
               progress: {
                 type,
                 currentQuestionIndex: 0,
@@ -597,7 +641,9 @@ export const useAssessmentStore = create<AssessmentStore>()(
         recoverSession: async (): Promise<boolean> => {
           try {
             const savedData = await EncryptedAssessmentStorage.load();
-            if (!savedData?.currentSession) {
+            // TS-01: load() returns unknown; narrow via type guard
+            // before reading fields.
+            if (!isPersistedAssessmentState(savedData) || !savedData.currentSession) {
               return false;
             }
 
@@ -748,14 +794,21 @@ export const useAssessmentStore = create<AssessmentStore>()(
       {
         name: 'assessment-store-v2',
         storage: createJSONStorage(() => ({
-          getItem: async (name: string) => {
+          getItem: async (_name: string): Promise<string | null> => {
             try {
-              return await EncryptedAssessmentStorage.load();
+              // createJSONStorage expects a string and will JSON.parse it.
+              // EncryptedAssessmentStorage.load() returns the parsed object
+              // (it parses internally), so re-stringify here to match the
+              // contract. The double-encode is wasted work but preserves
+              // pre-paydown behavior — refactoring the layered storage
+              // is out of T4's TS-fix scope.
+              const data = await EncryptedAssessmentStorage.load();
+              return data === null ? null : JSON.stringify(data);
             } catch {
               return null;
             }
           },
-          setItem: async (name: string, value: string) => {
+          setItem: async (_name: string, value: string) => {
             try {
               await EncryptedAssessmentStorage.save(JSON.parse(value));
             } catch (error) {

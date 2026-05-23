@@ -69,12 +69,19 @@ export interface AssessmentProgress {
   isComplete: boolean;
 }
 
+/**
+ * Where the assessment was initiated from. Propagates into crisis
+ * detection metadata so triggers fired during onboarding vs an
+ * in-app check-in can be distinguished downstream.
+ */
+export type AssessmentContext = 'standalone' | 'onboarding' | 'checkin';
+
 export interface AssessmentSession {
   id: string;
   type: AssessmentType;
   progress: AssessmentProgress;
   result?: PHQ9Result | GAD7Result;
-  context: 'standalone' | 'onboarding' | 'checkin';
+  context: AssessmentContext;
 }
 
 // Crisis Intervention Types - Re-export comprehensive types from crisis/safety.ts
@@ -109,7 +116,7 @@ export interface AssessmentResultsProps {
 
 // Legacy Store Actions (see store/actions.ts for comprehensive)
 export interface AssessmentActions {
-  startAssessment: (type: AssessmentType, context?: string) => void;
+  startAssessment: (type: AssessmentType, context?: AssessmentContext) => void;
   answerQuestion: (questionId: string, response: AssessmentResponse) => void;
   completeAssessment: () => void;
   resetAssessment: () => void;
