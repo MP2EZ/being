@@ -13,6 +13,7 @@
  */
 
 import { useAssessmentStore } from '../../src/features/assessment/stores/assessmentStore';
+import { store } from '../utils/assessmentStoreAccessor';
 import { 
   AssessmentType, 
   AssessmentResponse,
@@ -42,10 +43,8 @@ jest.mock('react-native', () => ({
 }));
 
 describe('CLINICAL VALIDATION CHECKLIST - CLOUD SYNC INTEGRATION', () => {
-  let store: ReturnType<typeof useAssessmentStore>;
 
   beforeEach(async () => {
-    store = useAssessmentStore.getState();
     store.resetAssessment();
     await store.clearHistory();
     store.enableAutoSave();
@@ -58,9 +57,14 @@ describe('CLINICAL VALIDATION CHECKLIST - CLOUD SYNC INTEGRATION', () => {
   describe('✅ Assessment Accuracy Validation', () => {
     it('PHQ-9 and GAD-7 scoring maintains 100% clinical accuracy', async () => {
       // Test critical boundary scores for accuracy
+      // PHQ-9 thresholds (per CRISIS_THRESHOLDS in app/src/features/assessment/
+      // types/index.ts and crisis.md): crisis at score >=15. Score 19 is
+      // moderately-severe AND crisis-triggering. Score 14 is the highest
+      // non-crisis PHQ-9. Same logic for GAD-7 (crisis at >=15).
       const testCases = [
         { type: 'phq9' as AssessmentType, targetScore: 20, expectedSeverity: 'severe', isCrisis: true },
-        { type: 'phq9' as AssessmentType, targetScore: 19, expectedSeverity: 'moderately_severe', isCrisis: false },
+        { type: 'phq9' as AssessmentType, targetScore: 19, expectedSeverity: 'moderately_severe', isCrisis: true },
+        { type: 'phq9' as AssessmentType, targetScore: 14, expectedSeverity: 'moderate', isCrisis: false },
         { type: 'gad7' as AssessmentType, targetScore: 15, expectedSeverity: 'severe', isCrisis: true },
         { type: 'gad7' as AssessmentType, targetScore: 14, expectedSeverity: 'moderate', isCrisis: false }
       ];
@@ -109,7 +113,7 @@ describe('CLINICAL VALIDATION CHECKLIST - CLOUD SYNC INTEGRATION', () => {
         // Crisis should be detected immediately on question 9
         if (i === 8 && answers[i] > 0) {
           expect(store.crisisDetection).toBeTruthy();
-          expect(store.crisisDetection?.triggerType).toBe('phq9_suicidal');
+          expect(store.crisisDetection?.primaryTrigger).toBe('phq9_suicidal_ideation');
           break;
         }
       }
@@ -236,7 +240,7 @@ describe('CLINICAL VALIDATION CHECKLIST - CLOUD SYNC INTEGRATION', () => {
 
       // Validate crisis detection integrity
       expect(store.crisisDetection).toBeTruthy();
-      expect(store.crisisDetection?.triggerType).toBe('gad7_score');
+      expect(store.crisisDetection?.primaryTrigger).toBe('gad7_severe_score');
       expect(store.crisisDetection?.triggerValue).toBe(15);
       expect(store.crisisDetection?.isTriggered).toBe(true);
 
@@ -355,11 +359,13 @@ describe('CLINICAL VALIDATION CHECKLIST - CLOUD SYNC INTEGRATION', () => {
       const result = store.currentResult;
       const history = store.getAssessmentHistory();
 
-      // Validate data structure includes all required sync fields
+      // Validate data structure includes all required sync fields.
+      // Production: completedAt is on the result, not directly on the session;
+      // sessions are AssessmentSession { id, type, progress, result?, context }.
       expect(result?.completedAt).toBeGreaterThan(0);
       expect(history[0].id).toBeTruthy();
       expect(history[0].type).toBe('phq9');
-      expect(history[0].completedAt).toBeGreaterThan(0);
+      expect(history[0].result?.completedAt).toBeGreaterThan(0);
       
       // Validate session metadata for sync
       expect(history[0].progress?.startedAt).toBeGreaterThan(0);
@@ -385,11 +391,13 @@ describe('CLINICAL VALIDATION CHECKLIST - CLOUD SYNC INTEGRATION', () => {
 
       await store.completeAssessment();
 
-      // Validate crisis data is properly structured for sync
-      expect(store.crisisDetection?.triggerType).toBe('gad7_score');
+      // Validate crisis data is properly structured for sync.
+      // Production CrisisDetection interface uses `timestamp`, not `detectedAt`
+      // (per app/src/features/crisis/types/safety.ts:83).
+      expect(store.crisisDetection?.primaryTrigger).toBe('gad7_severe_score');
       expect(store.crisisDetection?.triggerValue).toBe(15);
       expect(store.crisisDetection?.isTriggered).toBe(true);
-      expect(typeof store.crisisDetection?.detectedAt).toBe('number');
+      expect(typeof store.crisisDetection?.timestamp).toBe('number');
 
       // Crisis information preserved in assessment result
       const result = store.currentResult;

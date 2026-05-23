@@ -24,6 +24,7 @@
  */
 
 import { logSecurity, logPerformance, logError, LogCategory } from '../logging';
+import { generateTimestampedId } from '@/core/utils/id';
 import { trackError, trackPerformanceError, ErrorCategory } from '../monitoring';
 import { resilienceOrchestrator, ProtectedService } from '../resilience';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -234,7 +235,7 @@ export class DeploymentService {
       throw new Error('Another deployment is already in progress');
     }
 
-    const deploymentId = `deploy_${Date.now()}_${Math.random().toString(36).substr(2, 8)}`;
+    const deploymentId = generateTimestampedId('deploy');
     const fullConfig = this.buildDeploymentConfig(config);
 
     const deployment: DeploymentRecord = {

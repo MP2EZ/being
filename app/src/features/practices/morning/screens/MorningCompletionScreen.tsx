@@ -2,6 +2,7 @@
  * MORNING COMPLETION SCREEN
  *
  * FEAT-46: Converted to auto-toast pattern for reduced friction.
+ * MAINT-140: Enhanced with principle restatement + Marcus Aurelius quote.
  * Displays celebration toast, clears session, and navigates home.
  *
  * Classical Stoic Practice:
@@ -12,12 +13,48 @@
  * @see /docs/architecture/Stoic-Mindfulness-Architecture-v1.0.md
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
+import { colorSystem } from '@/core/theme';
 import type { StackScreenProps } from '@react-navigation/stack';
 import type { MorningFlowParamList, StoicMorningFlowData } from '@/features/practices/types/flows';
+import type { StoicPrinciple } from '@/features/practices/types/stoic';
 import { SessionStorageService } from '@/core/services/session/SessionStorageService';
 import { CelebrationToast } from '@/core/components/CelebrationToast';
+
+// MAINT-140: Principle display names for completion restatement
+const PRINCIPLE_NAMES: Record<StoicPrinciple, string> = {
+  aware_presence: 'Aware Presence',
+  radical_acceptance: 'Radical Acceptance',
+  sphere_sovereignty: 'Sphere Sovereignty',
+  virtuous_response: 'Virtuous Response',
+  interconnected_living: 'Interconnected Living',
+};
+
+// MAINT-140: Marcus Aurelius quotes for morning completion
+// Matched to each principle for philosophical reinforcement
+const PRINCIPLE_QUOTES: Record<StoicPrinciple, { text: string; citation: string }> = {
+  aware_presence: {
+    text: 'Dwell on the beauty of life. Watch the stars, and see yourself running with them.',
+    citation: '— Marcus Aurelius, Meditations 7:47',
+  },
+  radical_acceptance: {
+    text: 'Accept the things to which fate binds you, and love the people with whom fate brings you together.',
+    citation: '— Marcus Aurelius, Meditations 6:39',
+  },
+  sphere_sovereignty: {
+    text: 'You have power over your mind — not outside events. Realize this, and you will find strength.',
+    citation: '— Marcus Aurelius, Meditations 4:3',
+  },
+  virtuous_response: {
+    text: 'Waste no more time arguing about what a good man should be. Be one.',
+    citation: '— Marcus Aurelius, Meditations 10:16',
+  },
+  interconnected_living: {
+    text: 'What injures the hive, injures the bee.',
+    citation: '— Marcus Aurelius, Meditations 6:54',
+  },
+};
 
 type Props = StackScreenProps<MorningFlowParamList, 'MorningCompletion'> & {
   onSave?: (data: StoicMorningFlowData) => void;
@@ -25,6 +62,23 @@ type Props = StackScreenProps<MorningFlowParamList, 'MorningCompletion'> & {
 
 const MorningCompletionScreen: React.FC<Props> = ({ route, onSave }) => {
   const { flowData, startTime } = (route.params as any) || {};
+
+  // MAINT-140: Extract principle for completion enhancement
+  const selectedPrinciple = flowData?.principleFocus?.principleKey as StoicPrinciple | undefined;
+
+  // MAINT-140: Build enhancement content based on selected principle
+  const enhancement = useMemo(() => {
+    if (!selectedPrinciple || !PRINCIPLE_NAMES[selectedPrinciple]) {
+      return undefined;
+    }
+
+    const quote = PRINCIPLE_QUOTES[selectedPrinciple];
+    return {
+      message: `Today's focus: ${PRINCIPLE_NAMES[selectedPrinciple]}`,
+      subtext: quote.text,
+      attribution: quote.citation,
+    };
+  }, [selectedPrinciple]);
 
   const handleComplete = async () => {
     const timeSpent = startTime
@@ -60,6 +114,7 @@ const MorningCompletionScreen: React.FC<Props> = ({ route, onSave }) => {
         duration={8}
         streak={1}
         onComplete={handleComplete}
+        enhancement={enhancement}
       />
     </View>
   );
@@ -68,7 +123,7 @@ const MorningCompletionScreen: React.FC<Props> = ({ route, onSave }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: colorSystem.base.white,
   },
 });
 

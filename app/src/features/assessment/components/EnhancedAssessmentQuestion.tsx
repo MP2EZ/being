@@ -3,7 +3,7 @@
  * 
  * INTEGRATIONS:
  * - Crisis detection with <200ms response time
- * - HIPAA compliance with consent validation
+ * - Privacy compliance with consent validation
  * - AES-256-GCM encryption for all responses
  * - Real-time monitoring and audit logging
  * - Error boundaries for crisis scenarios
@@ -50,7 +50,7 @@ interface CrisisDetection {
   severity?: 'low' | 'moderate' | 'high' | 'critical' | 'emergency';
 }
 
-interface HIPAAConsentStatus {
+interface DataProtectionConsentStatus {
   dataProcessingConsent: boolean;
   clinicalDataConsent: boolean;
   consentTimestamp: number;
@@ -86,7 +86,7 @@ interface EnhancedAssessmentQuestionProps {
   totalSteps: number;
   theme?: ('morning' | 'midday' | 'evening' | 'neutral') | undefined;
   sessionId: string;
-  consentStatus: HIPAAConsentStatus;
+  consentStatus: DataProtectionConsentStatus;
   onCrisisDetected?: ((detection: CrisisDetection) => void) | undefined;
   onError?: ((error: Error) => void) | undefined;
 }
@@ -143,7 +143,7 @@ const mockCrisisEngine = {
 };
 
 const mockComplianceEngine = {
-  validateConsent: async (sessionId: string, status: HIPAAConsentStatus, action: string) => {
+  validateConsent: async (sessionId: string, status: DataProtectionConsentStatus, action: string) => {
     const isValid = status.dataProcessingConsent && status.clinicalDataConsent;
     return {
       isValid,
@@ -266,7 +266,7 @@ const EnhancedAssessmentQuestion: React.FC<EnhancedAssessmentQuestionProps> = ({
       // Performance tracking start
       mockPerformanceMonitor.startMeasurement('response_processing');
 
-      // 1. HIPAA Compliance Validation (Critical First Step)
+      // 1. Privacy Compliance Validation (Critical First Step)
       const consentValidation = await mockComplianceEngine.validateConsent(
         sessionId,
         consentStatus,
@@ -274,7 +274,7 @@ const EnhancedAssessmentQuestion: React.FC<EnhancedAssessmentQuestionProps> = ({
       );
 
       if (!consentValidation.isValid) {
-        throw new Error(`HIPAA compliance violation: ${consentValidation.reason}`);
+        throw new Error(`Privacy compliance violation: ${consentValidation.reason}`);
       }
 
       // 2. Response Encryption (Clinical Data Protection)
@@ -459,7 +459,7 @@ const EnhancedAssessmentQuestion: React.FC<EnhancedAssessmentQuestionProps> = ({
           </Focusable>
         )}
 
-        {/* HIPAA Consent Status */}
+        {/* Privacy Consent Status */}
         {!consentStatus.dataProcessingConsent && (
           <Focusable
             id="consent-warning"

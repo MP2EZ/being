@@ -8,7 +8,7 @@
  * - Token refill mechanism
  * - Memory efficiency
  *
- * COMPLIANCE: HIPAA requirement for DoS protection
+ * COMPLIANCE: Privacy requirement for DoS protection
  */
 
 import {

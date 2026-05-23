@@ -7,7 +7,7 @@
  * - Circuit breaker status monitoring
  * - Error tracking visualization
  * - Crisis intervention system monitoring
- * - HIPAA-compliant metrics display
+ * - Privacy-compliant metrics display
  *
  * SAFETY-CRITICAL MONITORING FEATURES:
  * - Crisis detection system status (highest priority)

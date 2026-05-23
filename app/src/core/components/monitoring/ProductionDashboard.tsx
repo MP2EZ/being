@@ -7,7 +7,7 @@
  * - Performance metrics against baselines
  * - Circuit breaker states and error rates
  * - Crisis intervention monitoring (safety-critical)
- * - HIPAA-compliant metrics display
+ * - Privacy-compliant metrics display
  *
  * SAFETY-CRITICAL MONITORING:
  * - Crisis detection system status (highest priority)
@@ -450,7 +450,7 @@ export const ProductionDashboard: React.FC = () => {
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>
-            🔒 All metrics are PHI-sanitized and HIPAA compliant
+            🔒 All metrics are PHI-sanitized and Privacy compliant
           </Text>
         </View>
       </ScrollView>

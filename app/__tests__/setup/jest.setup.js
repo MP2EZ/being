@@ -21,9 +21,19 @@ global.CLINICAL_SAFETY = {
 };
 
 // Test performance tracking
+// MEMORY FIX (DEBUG-48): Limited results array to prevent unbounded growth
+const MAX_PERFORMANCE_RESULTS = 100;
+
 const testPerformance = {
   startTimes: new Map(),
-  results: []
+  results: [],
+  // Add result with size limit
+  addResult(result) {
+    if (this.results.length >= MAX_PERFORMANCE_RESULTS) {
+      this.results.shift();
+    }
+    this.results.push(result);
+  }
 };
 
 global.testPerformance = testPerformance;
@@ -43,21 +53,25 @@ beforeEach(() => {
 afterEach(() => {
   const testName = expect.getState().currentTestName;
   const startTime = testPerformance.startTimes.get(testName);
-  
+
   if (startTime) {
     const duration = performance.now() - startTime;
-    testPerformance.results.push({
+    // MEMORY FIX (DEBUG-48): Use addResult with size limit
+    testPerformance.addResult({
       testName,
       duration,
       timestamp: new Date().toISOString(),
       category: categorizeTest(testName)
     });
-    
-    // Performance warnings for local development
-    if (duration > 5000) {
+
+    // Clean up startTime entry (DEBUG-48 memory fix)
+    testPerformance.startTimes.delete(testName);
+
+    // Performance warnings for local development (only in verbose mode)
+    if (process.env.JEST_VERBOSE && duration > 5000) {
       console.warn(`⚠️  SLOW TEST: ${testName} took ${duration.toFixed(2)}ms`);
     }
-    
+
     // Crisis test performance validation
     if (testName?.includes('crisis') && duration > 3000) {
       console.error(`🚨 CRISIS PERFORMANCE VIOLATION: ${testName} took ${duration.toFixed(2)}ms (max: 3000ms)`);
@@ -240,6 +254,23 @@ jest.mock('expo-haptics', () => ({
   ImpactFeedbackStyle: {
     Heavy: 'heavy'
   }
+}));
+
+// Mock expo-crypto for cryptographic ID generation
+jest.mock('expo-crypto', () => ({
+  getRandomBytes: jest.fn((length) => {
+    // Generate pseudo-random bytes for testing (NOT cryptographically secure)
+    const bytes = new Uint8Array(length);
+    for (let i = 0; i < length; i++) {
+      bytes[i] = Math.floor(Math.random() * 256);
+    }
+    return bytes;
+  }),
+  digestStringAsync: jest.fn(() => Promise.resolve('mockedhash123')),
+  CryptoDigestAlgorithm: {
+    SHA256: 'SHA-256',
+    SHA512: 'SHA-512',
+  },
 }));
 
 jest.mock('@react-native-async-storage/async-storage', () => ({

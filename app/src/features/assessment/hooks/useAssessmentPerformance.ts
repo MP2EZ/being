@@ -18,6 +18,7 @@
 
 
 import { logSecurity, logPerformance, logError, LogCategory } from '@/core/services/logging';
+import { generateTimestampedId } from '@/core/utils/id';
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { Alert, AppState, AppStateStatus } from 'react-native';
 
@@ -254,7 +255,7 @@ export const useAssessmentPerformance = (): UseAssessmentPerformanceReturn => {
 
   // Start measurement
   const startMeasurement = useCallback((operation: string): string => {
-    const measurementId = `${operation}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const measurementId = generateTimestampedId(operation);
     measurementTracker.current.set(measurementId, {
       start: performance.now(),
       operation,

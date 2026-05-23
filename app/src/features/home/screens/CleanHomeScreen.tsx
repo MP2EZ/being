@@ -4,10 +4,10 @@
  * Integrated with check-in flow navigation
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import { colorSystem, getTheme, spacing, borderRadius, typography } from '@/core/theme';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
@@ -16,6 +16,7 @@ import { useSettingsStore, useAccessibilitySettings } from '@/core/stores/settin
 import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
 import AssessmentStatusBadge from '@/features/assessment/components/AssessmentStatusBadge';
 import { IntroOverlay } from '../components/IntroOverlay';
+import { useAnalytics } from '@/core/analytics';
 
 // 30 minutes in milliseconds
 const INTRO_THRESHOLD_MS = 30 * 60 * 1000;
@@ -28,6 +29,15 @@ const CleanHomeScreen: React.FC = () => {
   const accessibilitySettings = useAccessibilitySettings();
   const getLastActiveTimestamp = useSettingsStore((state) => state.getLastActiveTimestamp);
   const currentHour = new Date().getHours();
+  const { trackScreenView } = useAnalytics();
+
+  // Track screen view for analytics (FEAT-40)
+  // useFocusEffect tracks on every focus, not just mount (handles consent timing)
+  useFocusEffect(
+    useCallback(() => {
+      trackScreenView('HomeScreen');
+    }, [trackScreenView])
+  );
 
   // Determine if intro animation should show
   const shouldShowIntroInitially = useMemo(() => {
@@ -199,14 +209,14 @@ const CleanHomeScreen: React.FC = () => {
           <CheckInCard
             type="midday"
             title="Midday Reset"
-            description="Take a moment to reconnect with the present and reset your energy."
+            description="Take a moment to reconnect with the present through mindful awareness."
             duration="3 min"
           />
 
           <CheckInCard
             type="evening"
             title="Evening Reflection"
-            description="Reflect on your day and prepare your mind for restful sleep."
+            description="Reflect on your day with gratitude and intention. Release what's done and rest peacefully."
             duration="5-6 min"
           />
         </View>
@@ -268,9 +278,11 @@ const styles = StyleSheet.create({
   checkInCard: {
     flex: 1,
     justifyContent: 'space-between',
-    padding: spacing[16],
+    paddingTop: spacing[16],
+    paddingHorizontal: spacing[16],
+    paddingBottom: spacing[20], // Extra to optically balance with title line-height
     borderRadius: borderRadius.large,
-    marginBottom: spacing[40],
+    marginBottom: spacing[16],
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -303,6 +315,7 @@ const styles = StyleSheet.create({
     fontSize: typography.bodySmall.size,
     color: colorSystem.gray[600],
     lineHeight: typography.title.size,
+    marginBottom: spacing[12], // Space before button
   },
   startButton: {
     paddingVertical: spacing[12],

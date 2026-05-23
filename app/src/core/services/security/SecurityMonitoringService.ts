@@ -12,7 +12,7 @@
  * - Crisis data access pattern analysis
  * - PHQ-9/GAD-7 assessment data protection monitoring
  * - Professional access compliance tracking
- * - HIPAA compliance monitoring and reporting
+ * - Privacy compliance monitoring and reporting
  * - Emergency access pattern validation
  *
  * MONITORING SCOPE:
@@ -153,7 +153,7 @@ export interface SecurityRecommendation {
  */
 export interface ComplianceStatus {
   overallScore: number;
-  hipaaCompliance: {
+  privacyCompliance: {
     score: number;
     status: 'compliant' | 'non_compliant' | 'partial';
     violations: string[];
@@ -239,7 +239,7 @@ export interface SecurityMetrics {
   };
   
   complianceMetrics: {
-    hipaaComplianceScore: number;
+    privacyComplianceScore: number;
     auditTrailCompleteness: number;
     dataRetentionCompliance: number;
     incidentResponseEffectiveness: number;
@@ -478,7 +478,7 @@ export class SecurityMonitoringService {
         recommendations: [],
         complianceStatus: {
           overallScore: 0,
-          hipaaCompliance: { score: 0, status: 'non_compliant', violations: [(error instanceof Error ? error.message : String(error))], recommendations: [] },
+          privacyCompliance: { score: 0, status: 'non_compliant', violations: [(error instanceof Error ? error.message : String(error))], recommendations: [] },
           dataProtectionCompliance: { score: 0, encryptionCompliance: false, storageCompliance: false, transmissionCompliance: false, accessControlCompliance: false },
           clinicalCompliance: { score: 0, crisisProtocolCompliance: false, professionalAccessCompliance: false, auditTrailCompliance: false, documentationCompliance: false },
           lastComplianceCheck: Date.now()
@@ -628,8 +628,8 @@ export class SecurityMonitoringService {
         throw new Error('Security monitoring service not initialized');
       }
 
-      // HIPAA Compliance Check
-      const hipaaCompliance = await this.checkHIPAACompliance();
+      // Privacy Compliance Check
+      const privacyCompliance = await this.checkPrivacyCompliance();
 
       // Data Protection Compliance Check
       const dataProtectionCompliance = await this.checkDataProtectionCompliance();
@@ -639,14 +639,14 @@ export class SecurityMonitoringService {
 
       // Calculate overall compliance score
       const overallScore = (
-        hipaaCompliance.score + 
+        privacyCompliance.score + 
         dataProtectionCompliance.score + 
         clinicalCompliance.score
       ) / 3;
 
       const complianceStatus: ComplianceStatus = {
         overallScore,
-        hipaaCompliance,
+        privacyCompliance,
         dataProtectionCompliance,
         clinicalCompliance,
         lastComplianceCheck: Date.now()
@@ -694,7 +694,7 @@ export class SecurityMonitoringService {
       // Return failed compliance status
       return {
         overallScore: 0,
-        hipaaCompliance: { score: 0, status: 'non_compliant', violations: [(error instanceof Error ? error.message : String(error))], recommendations: [] },
+        privacyCompliance: { score: 0, status: 'non_compliant', violations: [(error instanceof Error ? error.message : String(error))], recommendations: [] },
         dataProtectionCompliance: { score: 0, encryptionCompliance: false, storageCompliance: false, transmissionCompliance: false, accessControlCompliance: false },
         clinicalCompliance: { score: 0, crisisProtocolCompliance: false, professionalAccessCompliance: false, auditTrailCompliance: false, documentationCompliance: false },
         lastComplianceCheck: Date.now()
@@ -1326,7 +1326,7 @@ export class SecurityMonitoringService {
    * COMPLIANCE CHECK METHODS
    */
 
-  private async checkHIPAACompliance(): Promise<ComplianceStatus['hipaaCompliance']> {
+  private async checkPrivacyCompliance(): Promise<ComplianceStatus['privacyCompliance']> {
     try {
       const violations: string[] = [];
       const recommendations: string[] = [];
@@ -1352,7 +1352,7 @@ export class SecurityMonitoringService {
         score -= 20;
       }
 
-      const status: ComplianceStatus['hipaaCompliance']['status'] = 
+      const status: ComplianceStatus['privacyCompliance']['status'] = 
         score >= 95 ? 'compliant' :
         score >= 80 ? 'partial' : 'non_compliant';
 
@@ -1364,12 +1364,12 @@ export class SecurityMonitoringService {
       };
 
     } catch (error) {
-      logError(LogCategory.SECURITY, '🚨 HIPAA COMPLIANCE CHECK ERROR:', error instanceof Error ? error : new Error(String(error)));
+      logError(LogCategory.SECURITY, '🚨 Privacy COMPLIANCE CHECK ERROR:', error instanceof Error ? error : new Error(String(error)));
       return {
         score: 0,
         status: 'non_compliant',
         violations: [(error instanceof Error ? error.message : String(error))],
-        recommendations: ['Fix HIPAA compliance check errors']
+        recommendations: ['Fix Privacy compliance check errors']
       };
     }
   }
@@ -1540,7 +1540,7 @@ export class SecurityMonitoringService {
                 'Update security documentation'
               ],
               dependencies: [],
-              complianceImpact: ['HIPAA', 'Data Protection']
+              complianceImpact: ['Privacy', 'Data Protection']
             });
           }
         }
@@ -1776,7 +1776,7 @@ export class SecurityMonitoringService {
       },
       
       complianceMetrics: {
-        hipaaComplianceScore: 100,
+        privacyComplianceScore: 100,
         auditTrailCompleteness: 100,
         dataRetentionCompliance: 100,
         incidentResponseEffectiveness: 100

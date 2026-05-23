@@ -9,7 +9,7 @@
  * - Section title: "Wellness Screening Trends"
  * - Disclaimer displayed ABOVE charts (non-dismissible)
  * - Include 988 crisis reference
- * - Non-HIPAA wellness positioning
+ * - Non-Privacy wellness positioning
  *
  * @see /docs/product/FEAT-28-insights-design-plan.md
  * @see /docs/legal/Medical-Disclaimer.md

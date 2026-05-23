@@ -71,11 +71,23 @@ Supabase Backend
 
 **Endpoint:** `/functions/v1/verify-apple-receipt`
 
-**Request:**
+**Auth:** `verify_jwt = true`. Caller must send the authenticated user's
+Supabase session JWT as the `Authorization: Bearer <jwt>` header. The
+function extracts the user id via `auth.uid()` — `userId` is **not** a
+request field (closes audit finding SEC-VERIFY-RECEIPT-ANON).
+
+**Preferred invocation (client side):**
+```ts
+const { data, error } = await supabase.functions.invoke('verify-apple-receipt', {
+  body: { receiptData: '<base64_encoded_receipt>' },
+});
+```
+`supabase-js` automatically attaches the signed-in user's JWT.
+
+**Request body:**
 ```json
 {
-  "receiptData": "base64_encoded_receipt",
-  "userId": "user_uuid"
+  "receiptData": "base64_encoded_receipt"
 }
 ```
 
@@ -101,13 +113,15 @@ Supabase Backend
 
 **Endpoint:** `/functions/v1/verify-google-receipt`
 
-**Request:**
+**Auth:** same as verify-apple-receipt — requires the user's session JWT;
+`userId` is derived from `auth.uid()` server-side.
+
+**Request body:**
 ```json
 {
   "packageName": "com.being.app",
   "subscriptionId": "subscription_monthly",
-  "purchaseToken": "google_purchase_token",
-  "userId": "user_uuid"
+  "purchaseToken": "google_purchase_token"
 }
 ```
 
@@ -253,45 +267,55 @@ supabase secrets set CRON_SECRET=your_random_secret
 # Start Supabase locally
 supabase start
 
-# Serve function locally
+# Serve function locally. --no-verify-jwt skips the gateway JWT check
+# so you can test with curl + a synthesized JWT below.
 supabase functions serve verify-apple-receipt --no-verify-jwt
 
-# Test function
+# Local test (no real user JWT). When --no-verify-jwt is passed at the
+# gateway, the function's getAuthUidFromRequest helper will still expect
+# a Bearer JWT in the header — synthesize one with a fake sub claim or
+# pass an actual session token from a real Supabase project.
 curl -X POST http://localhost:54321/functions/v1/verify-apple-receipt \
   -H "Content-Type: application/json" \
-  -d '{"receiptData": "test", "userId": "test-user"}'
+  -H "Authorization: Bearer <test-jwt-with-sub-claim>" \
+  -d '{"receiptData": "test"}'
 ```
 
 ### Test Receipt Verification
 
+The canonical client-side invocation is `supabase.functions.invoke('verify-apple-receipt', { body: { receiptData } })` — see the Functions section above. For direct curl testing against a deployed function, you need a real user's session JWT (obtain via `supabase.auth.signInAnonymously()` or any signed-in session):
+
 ```bash
-# Test Apple receipt
+# Test Apple receipt — USER_JWT is the signed-in user's access_token
+USER_JWT="<paste user access token here>"
+
 curl -X POST https://your-project-ref.supabase.co/functions/v1/verify-apple-receipt \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer your_anon_key" \
-  -d '{
-    "receiptData": "base64_receipt",
-    "userId": "user_uuid"
-  }'
+  -H "apikey: your_publishable_key" \
+  -H "Authorization: Bearer $USER_JWT" \
+  -d '{"receiptData": "base64_receipt"}'
 
 # Test Google receipt
 curl -X POST https://your-project-ref.supabase.co/functions/v1/verify-google-receipt \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer your_anon_key" \
+  -H "apikey: your_publishable_key" \
+  -H "Authorization: Bearer $USER_JWT" \
   -d '{
     "packageName": "com.being.app",
     "subscriptionId": "subscription_monthly",
-    "purchaseToken": "google_token",
-    "userId": "user_uuid"
+    "purchaseToken": "google_token"
   }'
 ```
+
+Note: `userId` is no longer accepted in the body — it's derived from
+`auth.uid()` extracted from the Authorization JWT server-side.
 
 ### Test Cron Job
 
 ```bash
-# Manually trigger cron job
+# Manually trigger cron job (use X-Cron-Secret header — not Authorization)
 curl -X POST https://your-project-ref.supabase.co/functions/v1/grace-period-automation \
-  -H "Authorization: Bearer your_cron_secret"
+  -H "X-Cron-Secret: your_cron_secret"
 ```
 
 ## Monitoring
@@ -334,9 +358,13 @@ supabase functions logs grace-period-automation
 - [x] Audit logging for all state changes
 - [x] Input validation on SECURITY DEFINER functions (MAINT-116)
 - [x] Ownership validation on subscription event logging (MAINT-116)
-- [ ] TODO: Implement receipt data encryption (currently stored as-is)
-- [ ] TODO: Implement Apple JWS signature verification (currently placeholder)
-- [ ] TODO: Implement Google JWT signing (currently placeholder)
+- [ ] TODO: Implement receipt data encryption at rest (currently stored as-is)
+- [x] Apple JWS signature verification implemented in subscription-webhook
+      (verifyAppleJWS.ts) with full cert chain validation — closes SEC-01.
+- [x] Google Pub/Sub OIDC signature verification implemented in
+      subscription-webhook (verifyGoogleOIDC.ts).
+- [x] Receipt-verification functions extract auth.uid() from caller JWT
+      (no userId-from-body trust) — closes SEC-VERIFY-RECEIPT-ANON.
 
 ## Rate Limiting (MAINT-116 LOW-02)
 

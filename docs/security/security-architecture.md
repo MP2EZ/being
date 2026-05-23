@@ -898,6 +898,7 @@ optimization:
 - ✅ Jailbreak/root detection
 - ✅ Memory protection
 - ✅ Secure export mechanisms
+- ✅ Cryptographic ID generation (no Math.random() - see `@/core/utils/id`)
 
 ### Privacy Requirements
 - ✅ No network transmission of personal data
@@ -957,6 +958,93 @@ describe('Security Test Suite', () => {
   });
 });
 ```
+
+---
+
+## 10. JavaScript Bundle Security
+
+### Technical Specifications
+
+#### A. Hermes Bytecode Obfuscation
+```typescript
+interface BundleSecurityConfig {
+  // Primary obfuscation via Hermes bytecode compilation
+  hermes: {
+    enabled: true,                          // Configured in app.json: jsEngine: "hermes"
+    bytecodeCompilation: true,              // JS compiled to optimized bytecode
+    securityBenefit: "defense-in-depth",    // Bytecode harder to reverse engineer than JS
+    limitation: "can be decompiled with hermes-dec tools"
+  },
+
+  // Production minification via Terser
+  minification: {
+    enabled: true,                          // NODE_ENV=production
+    dropConsole: true,                      // Remove all console.* statements
+    dropDebugger: true,                     // Remove debugger statements
+    deadCodeElimination: true,              // Remove unreachable code
+    variableMangling: true,                 // Shorten variable names
+    commentRemoval: true                    // Strip all comments
+  },
+
+  // Source map protection
+  sourceMaps: {
+    productionBuilds: "excluded",           // Never in production bundles
+    gitIgnored: ["*.map", "*.js.map", "*.hbc.map"],
+    errorMonitoring: "uploaded to Sentry only (not bundled)"
+  }
+}
+```
+
+#### B. Build Configuration
+```javascript
+// metro.config.js - Production minification settings
+const isProduction = process.env.NODE_ENV === 'production';
+
+if (isProduction) {
+  config.transformer.minifierConfig = {
+    compress: {
+      drop_console: true,     // Remove console.* calls
+      drop_debugger: true,    // Remove debugger statements
+      dead_code: true,        // Eliminate unreachable code
+      conditionals: true,     // Optimize conditionals
+      evaluate: true,         // Evaluate constant expressions
+      unused: true            // Remove unused variables
+    },
+    mangle: {
+      toplevel: true          // Shorten top-level variable names
+    },
+    output: {
+      comments: false         // Remove all comments
+    }
+  };
+}
+```
+
+### Security Analysis
+
+#### What Hermes Bytecode Provides
+1. **Bytecode Compilation**: JavaScript is compiled to Hermes bytecode (.hbc)
+2. **Code Transformation**: Original source is not directly accessible
+3. **Increased Effort**: Reverse engineering requires specialized tools
+4. **Defense in Depth**: Complements other security measures
+
+#### Limitations
+1. **Not True Obfuscation**: Bytecode can be decompiled using tools like hermes-dec
+2. **Determined Attackers**: Security researchers can still analyze app logic
+3. **No Secret Storage**: Don't rely on bytecode to hide API keys or secrets
+
+#### Security Recommendations
+1. Store secrets in secure storage (expo-secure-store), not in code
+2. Use Hermes as part of defense-in-depth strategy
+3. Consider additional obfuscation (Jscrambler) for high-value apps
+4. Enable ProGuard/R8 for native code on Android
+
+### User-Facing Description
+**"Protected Application Code"**
+- App code is compiled to optimized bytecode format
+- Production builds exclude debugging information
+- No source maps included in production releases
+- Defense-in-depth approach to code protection
 
 ---
 

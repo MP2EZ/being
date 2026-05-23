@@ -15,6 +15,8 @@ import PracticeCompletionScreen, {
   PRACTICE_QUOTES,
 } from '../PracticeCompletionScreen';
 import { useEducationStore } from '../../stores/educationStore';
+import { useStoicPracticeStore } from '@/features/practices/stores/stoicPracticeStore';
+import { getPrincipleForModuleId } from '@/features/learn/utils/principleMapping';
 import type { ModuleId } from '@/features/learn/types/education';
 
 interface UsePracticeCompletionOptions {
@@ -43,14 +45,22 @@ export function usePracticeCompletion({
   const incrementPracticeCount = useEducationStore(
     (state) => state.incrementPracticeCount
   );
+  const recordPrincipleEngagement = useStoicPracticeStore(
+    (state) => state.recordPrincipleEngagement
+  );
 
   /**
-   * Mark practice as complete and increment count
+   * Mark practice as complete, increment count, and record principle engagement
+   * FEAT-133: Learn module practices now count toward Principle Embodiment chart
    */
   const markComplete = useCallback(() => {
     setIsComplete(true);
     incrementPracticeCount(moduleId);
-  }, [moduleId, incrementPracticeCount]);
+
+    // Record engagement for Insights dashboard (FEAT-133)
+    const principle = getPrincipleForModuleId(moduleId);
+    recordPrincipleEngagement(principle, 'learn', 'practiced');
+  }, [moduleId, incrementPracticeCount, recordPrincipleEngagement]);
 
   /**
    * Render completion screen with philosopher-validated quote

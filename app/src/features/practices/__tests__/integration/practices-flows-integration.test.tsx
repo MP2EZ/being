@@ -19,9 +19,6 @@ import { NavigationContainer } from '@react-navigation/native';
 import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
 import BreathingCircle from '../../shared/components/BreathingCircle';
 import Timer from '../../shared/components/Timer';
-import EmotionGrid from '../../shared/components/EmotionGrid';
-import NeedsGrid from '../../shared/components/NeedsGrid';
-import EveningValueSlider from '../../shared/components/EveningValueSlider';
 import MorningFlowNavigator from '../../morning/MorningFlowNavigator';
 
 // Mock performance and linking
@@ -239,106 +236,10 @@ describe('DRD Check-in Flows Integration Testing', () => {
     });
   });
 
-  describe('4. COMPONENT INTEGRATION BEHAVIOR', () => {
-    describe('EmotionGrid Multi-Selection', () => {
-      it('Handles multiple emotion selection correctly', async () => {
-        const onSelectionChange = jest.fn();
-        const { getByTestId } = render(
-          <EmotionGrid
-            selectedEmotions={[]}
-            onSelectionChange={onSelectionChange}
-            maxSelections={3}
-          />
-        );
+  // MAINT-65: Section 4 (Component Integration Behavior) removed
+  // EmotionGrid, NeedsGrid, EveningValueSlider were deleted as unused legacy components
 
-        // Select first emotion
-        const stressedButton = getByTestId('emotion-stressed');
-        await act(async () => {
-          fireEvent.press(stressedButton);
-        });
-
-        expect(onSelectionChange).toHaveBeenCalledWith(['stressed']);
-
-        // Verify accessibility state
-        expect(stressedButton.props.accessibilityState).toEqual({ selected: false });
-      });
-
-      it('Enforces maximum selection limit', async () => {
-        const onSelectionChange = jest.fn();
-        const { getByTestId } = render(
-          <EmotionGrid
-            selectedEmotions={['stressed', 'anxious', 'tired']}
-            onSelectionChange={onSelectionChange}
-            maxSelections={3}
-          />
-        );
-
-        // Try to select fourth emotion
-        const calmButton = getByTestId('emotion-calm');
-        await act(async () => {
-          fireEvent.press(calmButton);
-        });
-
-        // Should replace oldest selection
-        expect(onSelectionChange).toHaveBeenCalledWith(['anxious', 'tired', 'calm']);
-      });
-    });
-
-    describe('NeedsGrid Single-Selection', () => {
-      it('Handles single selection correctly', async () => {
-        const onSelectionChange = jest.fn();
-        const { getByTestId } = render(
-          <NeedsGrid
-            selectedNeed={null}
-            onSelectionChange={onSelectionChange}
-          />
-        );
-
-        const restButton = getByTestId('need-rest');
-        await act(async () => {
-          fireEvent.press(restButton);
-        });
-
-        expect(onSelectionChange).toHaveBeenCalledWith('rest');
-      });
-
-      it('Toggles selection on repeated press', async () => {
-        const onSelectionChange = jest.fn();
-        const { getByTestId } = render(
-          <NeedsGrid
-            selectedNeed="rest"
-            onSelectionChange={onSelectionChange}
-          />
-        );
-
-        const restButton = getByTestId('need-rest');
-        await act(async () => {
-          fireEvent.press(restButton);
-        });
-
-        expect(onSelectionChange).toHaveBeenCalledWith(null);
-      });
-    });
-
-    describe('EveningValueSlider Distress Detection', () => {
-      it('CRITICAL: Triggers distress detection for values < 4', async () => {
-        const onDistressDetected = jest.fn();
-
-        render(
-          <EveningValueSlider
-            onMoodChange={jest.fn()}
-            onDistressDetected={onDistressDetected}
-          />
-        );
-
-        // This would require more complex testing setup for slider interaction
-        // Placeholder for distress detection validation
-        expect(onDistressDetected).toBeDefined();
-      });
-    });
-  });
-
-  describe('5. PERFORMANCE VALIDATION', () => {
+  describe('4. PERFORMANCE VALIDATION', () => {
     describe('App Launch Performance', () => {
       it('CRITICAL: App launch time under 2s requirement', async () => {
         const startTime = Date.now();
@@ -376,7 +277,7 @@ describe('DRD Check-in Flows Integration Testing', () => {
     });
   });
 
-  describe('6. ACCESSIBILITY INTEGRATION', () => {
+  describe('5. ACCESSIBILITY INTEGRATION', () => {
     describe('Screen Reader Navigation', () => {
       it('CRITICAL: All interactive elements have proper accessibility labels', () => {
         const { getByTestId } = render(

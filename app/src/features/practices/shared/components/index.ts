@@ -1,25 +1,36 @@
 /**
- * Shared Components Index - Check-in Flow Components
+ * Shared Components Index - Practice Flow Components
  * Export all reusable components for flows
+ *
+ * MAINT-65: Cleaned up 9 unused legacy components
  */
 
 export { default as BreathingCircle } from './BreathingCircle';
 export { default as Timer } from './Timer';
-export { default as EmotionGrid } from './EmotionGrid';
-export { default as NeedsGrid } from './NeedsGrid';
-export { default as ValueSlider } from './ValueSlider';
-export { default as EveningValueSlider } from './EveningValueSlider';
-export { default as ThoughtPatternGrid } from './ThoughtPatternGrid';
-export { default as ThoughtBubbles } from './ThoughtBubbles';
-export { default as DreamJournal } from './DreamJournal';
-
-// DEPRECATED: SafetyButton replaced by CollapsibleCrisisButton
-// DEPRECATED: OverflowSupport unused
 
 // FEAT-23: Session resumption
 export { ResumeSessionModal } from './ResumeSessionModal';
 
-// Type exports
-export type { Emotion } from './EmotionGrid';
-export type { Need } from './NeedsGrid';
-export type { ThoughtPattern } from './ThoughtPatternGrid';
+// INFRA-135: Shared flow navigator components
+export { FlowProgressIndicator } from './FlowProgressIndicator';
+export type { FlowType } from './FlowProgressIndicator';
+
+// FEAT-139: DRY flow components
+export { FlowBackButton } from './FlowBackButton';
+export { SkipLink } from './SkipLink';
+export { FlowHeader } from './FlowHeader';
+export { StoicQuoteCard } from './StoicQuoteCard';
+export { PreviousAnswerCard } from './PreviousAnswerCard';
+export { default as GuidanceCard } from './GuidanceCard';
+export type { FlowTheme } from './FlowBackButton';
+
+// MAINT-140: Consolidated breathing screen for morning/evening flows
+export { SharedBreathingScreen } from './SharedBreathingScreen';
+export type { SharedBreathingScreenProps, BreathingPattern, FlowThemeType } from './SharedBreathingScreen';
+
+// MAINT-140: Consolidated gratitude input section for morning/evening flows
+export { GratitudeInputSection } from './GratitudeInputSection';
+export type { GratitudeInputSectionProps, GratitudeTheme } from './GratitudeInputSection';
+
+// Note: BodyAreaGrid exports BODY_AREAS constant used by Learn tab
+// Import directly: import { BODY_AREAS } from '@/features/practices/shared/components/BodyAreaGrid';

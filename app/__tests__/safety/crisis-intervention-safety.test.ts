@@ -25,66 +25,46 @@
  */
 
 import { useAssessmentStore } from '../../src/features/assessment/stores/assessmentStore';
-import { 
-  AssessmentType, 
-  AssessmentResponse, 
+// Shared Proxy-based store accessor: always returns fresh state at the
+// moment of property access. The previous `let store: ReturnType<typeof
+// useAssessmentStore>` + `store = useAssessmentStore.getState()` in
+// beforeEach captured a snapshot that went stale immediately after the
+// first await; state reads (store.crisisDetection, etc.) returned null
+// from the pre-action state. Same pattern fixed in 4 other clinical
+// test files during Phase 2a.5b — this is the 5th.
+import { store } from '../utils/assessmentStoreAccessor';
+import {
+  AssessmentType,
+  AssessmentResponse,
   CrisisDetection,
-  CRISIS_THRESHOLDS 
+  CRISIS_THRESHOLDS
 } from '../../src/features/assessment/types/index';
 import { Alert, Linking } from 'react-native';
-import { performance } from 'react-native-performance';
+// `react-native-performance` is not installed in this codebase; other crisis
+// tests use Node's `perf_hooks` which provides the same `performance.now()`
+// API and works in the Jest environment without native module setup.
+import { performance } from 'perf_hooks';
 
-// Mock React Native for safety testing
-jest.mock('react-native', () => ({
-  Alert: {
-    alert: jest.fn((title, message, buttons, options) => {
-      // Track all emergency alert calls for safety validation
-      const emergencyCall = {
-        title,
-        message,
-        buttons: buttons?.map(b => ({ text: b.text, style: b.style })),
-        options,
-        timestamp: Date.now()
-      };
-      
-      // Store for later validation
-      if (!global.emergencyAlertCalls) {
-        global.emergencyAlertCalls = [];
-      }
-      global.emergencyAlertCalls.push(emergencyCall);
-
-      // Auto-trigger first button for testing
-      if (buttons && buttons.length > 0 && buttons[0].onPress) {
-        setTimeout(() => buttons[0].onPress(), 5);
-      }
-    }),
-  },
-  Linking: {
-    openURL: jest.fn().mockImplementation((url) => {
-      // Track all emergency contact attempts
-      if (!global.emergencyLinkingCalls) {
-        global.emergencyLinkingCalls = [];
-      }
-      global.emergencyLinkingCalls.push({
-        url,
-        timestamp: Date.now()
-      });
-      return Promise.resolve(true);
-    }),
-  },
-}));
+// Note: react-native is globally mocked in __tests__/setup/jest.setup.js with
+// a bare `Alert.alert: jest.fn()` (no impl). A file-level `jest.mock` here used
+// to define a tracking impl but the setup-file mock won the registration race,
+// so every Alert.alert call vanished into a no-op and global.emergencyAlertCalls
+// stayed empty. We now monkey-patch Alert.alert / Linking.openURL in beforeEach
+// instead — that mutates the same mock object production code already imported,
+// sidestepping Jest's mock resolution order entirely. (The passing "Fallback"
+// test in this file already uses the same direct-reassignment pattern.)
 
 // Mock secure storage with failure simulation capabilities
-let storageFailureSimulation = false;
+let mockStorageFailureSimulation = false;
 jest.mock('expo-secure-store', () => ({
   setItemAsync: jest.fn().mockImplementation((key, value) => {
-    if (storageFailureSimulation) {
+    if (mockStorageFailureSimulation) {
       return Promise.reject(new Error('Storage encryption failure'));
     }
     return Promise.resolve();
   }),
   getItemAsync: jest.fn().mockImplementation((key) => {
-    if (storageFailureSimulation) {
+    if (mockStorageFailureSimulation) {
       return Promise.reject(new Error('Storage decryption failure'));
     }
     return Promise.resolve(null);
@@ -170,22 +150,60 @@ class CrisisSafetyMonitor {
   }
 }
 
+// Distribute a target score across `questionCount` questions, capping each
+// answer at 3 (the PHQ-9 / GAD-7 max). Used by tests that need a known total
+// score without caring about per-question distribution.
+function distributeScore(targetScore: number, questionCount: number): AssessmentResponse[] {
+  const answers: AssessmentResponse[] = new Array(questionCount).fill(0);
+  let remainingScore = targetScore;
+
+  for (let i = 0; i < questionCount && remainingScore > 0; i++) {
+    const maxForQuestion = Math.min(remainingScore, 3);
+    answers[i] = maxForQuestion as AssessmentResponse;
+    remainingScore -= maxForQuestion;
+  }
+
+  return answers;
+}
+
 describe('CRISIS INTERVENTION SAFETY TESTING SUITE', () => {
-  let store: ReturnType<typeof useAssessmentStore>;
   let safetyMonitor: CrisisSafetyMonitor;
 
   beforeEach(async () => {
-    store = useAssessmentStore.getState();
+    // `store` is the shared Proxy from assessmentStoreAccessor — no longer
+    // captured here. The Proxy reads useAssessmentStore.getState() on every
+    // property access, so state reads stay fresh after async actions.
     store.resetAssessment();
     await store.clearHistory();
     
     safetyMonitor = new CrisisSafetyMonitor();
-    storageFailureSimulation = false;
+    mockStorageFailureSimulation = false;
     
     // Clear all mocks and tracking
     jest.clearAllMocks();
     global.emergencyAlertCalls = [];
     global.emergencyLinkingCalls = [];
+
+    // Monkey-patch Alert.alert / Linking.openURL with tracking impls. See note
+    // at the top of this file: the global jest.setup.js mock wins module-mock
+    // registration, so we mutate its Alert/Linking objects directly instead.
+    Alert.alert = jest.fn((title, message, buttons, options) => {
+      global.emergencyAlertCalls.push({
+        title,
+        message,
+        buttons: buttons?.map(b => ({ text: b.text, style: b.style, onPress: b.onPress })),
+        options,
+        timestamp: Date.now()
+      });
+      if (buttons && buttons.length > 0 && buttons[0].onPress) {
+        setTimeout(() => buttons[0].onPress(), 5);
+      }
+    }) as typeof Alert.alert;
+
+    Linking.openURL = jest.fn((url: string) => {
+      global.emergencyLinkingCalls.push({ url, timestamp: Date.now() });
+      return Promise.resolve(true);
+    }) as typeof Linking.openURL;
   });
 
   afterEach(() => {
@@ -207,6 +225,11 @@ describe('CRISIS INTERVENTION SAFETY TESTING SUITE', () => {
 
       for (const response of suicidalResponses) {
         store.resetAssessment();
+        // Inner-loop reset: resetAssessment clears store state but not the
+        // global tracking array, and each iteration's phq9_9 answer fires
+        // exactly one Alert.alert. Without this, the array accumulates
+        // across iterations and toHaveLength(1) fails on iter 2+.
+        global.emergencyAlertCalls = [];
         await store.startAssessment('phq9', `suicidal_test_${response}`);
 
         // Answer first 8 questions
@@ -227,7 +250,7 @@ describe('CRISIS INTERVENTION SAFETY TESTING SUITE', () => {
         
         // Crisis must be detected immediately
         expect(store.crisisDetection).toBeTruthy();
-        expect(store.crisisDetection?.triggerType).toBe('phq9_suicidal');
+        expect(store.crisisDetection?.primaryTrigger).toBe('phq9_suicidal_ideation');
         expect(store.crisisDetection?.triggerValue).toBe(response);
 
         // Emergency response must be triggered
@@ -273,7 +296,7 @@ describe('CRISIS INTERVENTION SAFETY TESTING SUITE', () => {
         await store.startAssessment(test.type, `crisis_score_test_${test.score}`);
 
         const questionCount = test.type === 'phq9' ? 9 : 7;
-        const answers = this.distributeScore(test.score, questionCount);
+        const answers = distributeScore(test.score, questionCount);
 
         // Answer all questions
         for (let i = 0; i < questionCount; i++) {
@@ -301,21 +324,6 @@ describe('CRISIS INTERVENTION SAFETY TESTING SUITE', () => {
       }
     });
 
-    /**
-     * Helper function to distribute score across questions
-     */
-    function distributeScore(targetScore: number, questionCount: number): AssessmentResponse[] {
-      const answers: AssessmentResponse[] = new Array(questionCount).fill(0);
-      let remainingScore = targetScore;
-
-      for (let i = 0; i < questionCount && remainingScore > 0; i++) {
-        const maxForQuestion = Math.min(remainingScore, 3);
-        answers[i] = maxForQuestion as AssessmentResponse;
-        remainingScore -= maxForQuestion;
-      }
-
-      return answers;
-    }
   });
 
   describe('EMERGENCY CONTACT SYSTEM VALIDATION', () => {
@@ -436,7 +444,7 @@ describe('CRISIS INTERVENTION SAFETY TESTING SUITE', () => {
   describe('SYSTEM FAILURE RESILIENCE TESTING', () => {
     it('Crisis detection during storage failure', async () => {
       // Enable storage failure simulation
-      storageFailureSimulation = true;
+      mockStorageFailureSimulation = true;
 
       await store.startAssessment('phq9', 'storage_failure_test');
 
@@ -465,7 +473,7 @@ describe('CRISIS INTERVENTION SAFETY TESTING SUITE', () => {
 
       // Crisis detection must still work despite storage failures
       expect(store.crisisDetection).toBeTruthy();
-      expect(store.crisisDetection?.triggerType).toBe('phq9_suicidal');
+      expect(store.crisisDetection?.primaryTrigger).toBe('phq9_suicidal_ideation');
 
       // Emergency response must still be triggered
       expect(global.emergencyAlertCalls.length).toBeGreaterThan(0);
@@ -476,7 +484,7 @@ describe('CRISIS INTERVENTION SAFETY TESTING SUITE', () => {
       console.log('Crisis Detection with Storage Failure:', responseTime.toFixed(2) + 'ms');
 
       // Disable failure simulation
-      storageFailureSimulation = false;
+      mockStorageFailureSimulation = false;
     });
 
     it('Fallback emergency contact during Alert failure', async () => {
@@ -531,7 +539,7 @@ describe('CRISIS INTERVENTION SAFETY TESTING SUITE', () => {
 
       // Crisis should still be detected
       expect(store.crisisDetection).toBeTruthy();
-      expect(store.crisisDetection?.triggerType).toBe('gad7_score');
+      expect(store.crisisDetection?.primaryTrigger).toBe('gad7_severe_score');
 
       // Alert should still be shown (even if phone calls fail)
       expect(global.emergencyAlertCalls.length).toBeGreaterThan(0);
@@ -562,7 +570,12 @@ describe('CRISIS INTERVENTION SAFETY TESTING SUITE', () => {
 
       // Verify crisis detection audit trail
       expect(store.crisisDetection).toBeTruthy();
-      expect(store.crisisDetection?.timestamp).toBeGreaterThan(testStartTime);
+      // toBeGreaterThanOrEqual (not Greater): mocked storage makes the whole
+      // 9-answer + completeAssessment flow finish inside a single millisecond
+      // on fast CI runners, so Date.now() at testStartTime equals Date.now()
+      // at crisis detection. The assertion's intent is "timestamp is from
+      // this test run, not stale" — equality satisfies that.
+      expect(store.crisisDetection?.timestamp).toBeGreaterThanOrEqual(testStartTime);
       expect(store.crisisDetection?.assessmentId).toBeTruthy();
 
       // Verify crisis intervention audit trail
@@ -604,9 +617,13 @@ describe('CRISIS INTERVENTION SAFETY TESTING SUITE', () => {
 
   describe('BOUNDARY CONDITION SAFETY TESTING', () => {
     it('Safety at exact crisis thresholds', async () => {
+      // Clinical thresholds per being CLAUDE.md: PHQ-9 ≥15 = crisis (support),
+      // PHQ-9 ≥20 = severe (intervention); GAD-7 ≥15 = crisis. The boundary
+      // we're verifying is the crisis-detection threshold, not the severity
+      // upgrade — so PHQ-9 14/15 is the right pair, not 19/20.
       const boundaryTests = [
-        { type: 'phq9' as AssessmentType, score: 19, expectCrisis: false },
-        { type: 'phq9' as AssessmentType, score: 20, expectCrisis: true },
+        { type: 'phq9' as AssessmentType, score: 14, expectCrisis: false },
+        { type: 'phq9' as AssessmentType, score: 15, expectCrisis: true },
         { type: 'gad7' as AssessmentType, score: 14, expectCrisis: false },
         { type: 'gad7' as AssessmentType, score: 15, expectCrisis: true },
       ];
@@ -618,7 +635,7 @@ describe('CRISIS INTERVENTION SAFETY TESTING SUITE', () => {
         await store.startAssessment(test.type, `boundary_safety_${test.score}`);
 
         const questionCount = test.type === 'phq9' ? 9 : 7;
-        const answers = this.distributeScore(test.score, questionCount);
+        const answers = distributeScore(test.score, questionCount);
 
         for (let i = 0; i < questionCount; i++) {
           await store.answerQuestion(`${test.type}_${i + 1}`, answers[i]);
@@ -663,7 +680,7 @@ describe('CRISIS INTERVENTION SAFETY TESTING SUITE', () => {
       // Must trigger crisis despite low total score
       expect(responseTime).toBeLessThan(100);
       expect(store.crisisDetection).toBeTruthy();
-      expect(store.crisisDetection?.triggerType).toBe('phq9_suicidal');
+      expect(store.crisisDetection?.primaryTrigger).toBe('phq9_suicidal_ideation');
 
       await store.completeAssessment();
 

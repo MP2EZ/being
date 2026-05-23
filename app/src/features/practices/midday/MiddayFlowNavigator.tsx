@@ -1,378 +1,170 @@
 /**
- * MiddayFlowNavigator - Stoic Mindfulness Midday Reset
+ * MiddayFlowNavigator - Stoic Mindfulness Midday Reset (MAINT-65)
  *
- * DRD v2.0.0 SPECIFICATION (DRD-FLOW-003):
- * - 4 practices: Control → Embodiment → Reappraisal → Affirmation
- * - 3-7 minutes flexible duration
- * - Interrupt-friendly (can pause/resume)
- * - Modal presentation from CleanHomeScreen
- * - Midday theme throughout (#40B5AD)
+ * MAINT-65: Simplified 4-Screen Flow (UX + Philosopher validated 9/10)
+ *
+ * FLOW ORDER (action-focused, reduced cognitive load):
+ * 1. Pause & Acknowledge → 30s breath + situation input
+ * 2. Reality Check → Single input: "What can you control?"
+ * 3. Virtue Response → Single input: "What virtuous action?"
+ * 4. Compassionate Close → Optional integration note + completion
+ *
+ * UX SIMPLIFICATIONS (validated by philosopher):
+ * - Removed 3-way acceptance selector (Screen 2)
+ * - Removed principle picker + Cardinal Virtues card (Screen 3)
+ * - Removed previous answer card + second input (Screen 4)
+ * - Quote moved to post-completion success state
+ * - Virtue demonstrated through action, not by naming
+ * - Duration: 2-3 minutes (down from 3-5 minutes)
+ *
+ * NON-NEGOTIABLES:
  * - Crisis-accessible (<3s from any screen)
+ * - Dichotomy of control embedded in helper text
+ * - Previous answer cards on Screens 2-3 for continuity
  *
  * FEAT-23: Session resumption with philosopher-validated Stoic language
- * - Supports resuming interrupted sessions (24hr TTL)
- * - Automatic session saving on screen navigation
- * - Sphere Sovereignty: Both resume and fresh start equally virtuous
+ * INFRA-135: Uses shared FlowProgressIndicator and useFlowSessionResumption hook
  *
- * PHILOSOPHY:
- * - Mindfulness-first with Stoic wisdom enrichment
- * - NOT toxic positivity - realistic perspective shift
- * - Grounded affirmations (capability within control)
- * - Oikeiôsis framework (self-compassion as foundation)
+ * @see /docs/design/midday-flow-wireframes-v2.md
  */
 
-import { logSecurity, logPerformance, logError, LogCategory } from '@/core/services/logging';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 import { View, Pressable, Text, StyleSheet } from 'react-native';
-import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
-import { SessionStorageService } from '@/core/services/session/SessionStorageService';
-import { SessionMetadata } from '@/core/types/session';
-import { ResumeSessionModal } from '../shared/components/ResumeSessionModal';
-import ControlCheckScreen from './screens/ControlCheckScreen';
-import EmbodimentScreen from './screens/EmbodimentScreen';
-import ReappraisalScreen from './screens/ReappraisalScreen';
-import AffirmationScreen from './screens/AffirmationScreen';
-import MiddayCompletionScreen from './screens/MiddayCompletionScreen';
+import { colorSystem, spacing, typography } from '@/core/theme';
+import { ResumeSessionModal, FlowProgressIndicator } from '../shared/components';
+import { useFlowSessionResumption } from '../shared/hooks';
+import PauseAcknowledgeScreen from './screens/PauseAcknowledgeScreen';
+import RealityCheckScreen from './screens/RealityCheckScreen';
+import VirtueResponseScreen from './screens/VirtueResponseScreen';
+import CompassionateCloseScreen from './screens/CompassionateCloseScreen';
 import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
 import { useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
-
-// Navigation types (DRD v2.0.0 compliant)
-export type MiddayFlowParamList = {
-  ControlCheck: undefined;
-  Embodiment: undefined;
-  Reappraisal: undefined;
-  Affirmation: undefined;
-  MiddayCompletion: undefined;
-};
+import type { MiddayFlowParamList, StoicMiddayFlowData } from '@/features/practices/types/flows';
 
 interface MiddayFlowNavigatorProps {
-  onComplete: (sessionData: any) => void;
+  onComplete: (sessionData: StoicMiddayFlowData) => void;
   onExit: () => void;
 }
 
 const Stack = createStackNavigator<MiddayFlowParamList>();
 
-// Progress indicator component (consistent with Evening/Morning)
-const ProgressIndicator: React.FC<{ currentStep: number; totalSteps: number }> = ({
-  currentStep,
-  totalSteps
-}) => {
-  const progress = (currentStep / totalSteps) * 100;
+// Screen order mapping for progress calculation (MAINT-65: 4 screens)
+const SCREEN_ORDER = [
+  'PauseAcknowledge',
+  'RealityCheck',
+  'VirtueResponse',
+  'CompassionateClose',
+] as const;
 
-  return (
-    <View style={styles.progressContainer}>
-      <View style={styles.progressBar}>
-        <View
-          style={[
-            styles.progressFill,
-            {
-              width: `${progress}%`,
-              backgroundColor: colorSystem.themes.midday.primary
-            }
-          ]}
-        />
-      </View>
-      <Text style={styles.progressText}>
-        {currentStep} of {totalSteps}
-      </Text>
-    </View>
-  );
-};
-
-// Screen order mapping for progress calculation (DRD v2.0.0)
-const SCREEN_ORDER: (keyof MiddayFlowParamList)[] = [
-  'ControlCheck',
-  'Embodiment',
-  'Reappraisal',
-  'Affirmation',
-  'MiddayCompletion'
-];
+type MiddayScreenName = (typeof SCREEN_ORDER)[number];
 
 const MiddayFlowNavigator: React.FC<MiddayFlowNavigatorProps> = ({
   onComplete,
-  onExit
+  onExit,
 }) => {
   // Navigation for crisis button
   const rootNavigation = useNavigation<StackNavigationProp<RootStackParamList>>();
-  const [sessionData, setSessionData] = useState<{
-    startTime: number;
-    controlCheckData?: any;
-    embodimentData?: any;
-    reappraisalData?: any;
-    affirmationData?: any;
-  }>({
-    startTime: Date.now()
-  });
+  const [sessionData, setSessionData] = useState<Partial<StoicMiddayFlowData>>({});
+  const [startTime] = useState(() => Date.now());
 
   const [currentStep, setCurrentStep] = useState(1);
-  const totalSteps = SCREEN_ORDER.length - 1; // 4 steps (exclude MiddayCompletion)
+  const totalSteps = SCREEN_ORDER.length; // 4 steps
 
-  // FEAT-23: Accumulated screen data for session persistence
-  const [screenData, setScreenData] = useState<Record<string, any>>({});
-  const loadedScreenData = useRef<Record<string, any>>({}); // Store loaded data immediately for handleResumeSession
+  // FEAT-23 + INFRA-135: Use shared session resumption hook
+  const {
+    isCheckingSession,
+    showResumeModal,
+    resumableSession,
+    initialNavigationState,
+    shouldResetNav,
+    hasResetNav,
+    handleResumeSession,
+    handleBeginFresh,
+    updateScreenData,
+    clearResetNav,
+  } = useFlowSessionResumption<MiddayScreenName>({
+    flowType: 'midday',
+    screenOrder: SCREEN_ORDER,
+    logPrefix: '[MiddayFlow]',
+  });
 
-  // FEAT-23: Session resumption state
-  const [isCheckingSession, setIsCheckingSession] = useState(true); // Prevent navigator mounting until checked
-  const [showResumeModal, setShowResumeModal] = useState(false);
-  const [resumableSession, setResumableSession] = useState<SessionMetadata | null>(null);
-  const [initialNavigationState, setInitialNavigationState] = useState<any>(undefined);
-  const [shouldResetNav, setShouldResetNav] = useState(false); // Trigger navigation reset
-  const hasCheckedSession = useRef(false);
-  const lastSavedStep = useRef(0); // Track last saved step to prevent backward saves
-  const hasResetNav = useRef(false); // Track if we've already reset to prevent loops
-
-  // FEAT-23: Check for resumable session on mount
-  useEffect(() => {
-    const checkForResumableSession = async () => {
-      if (hasCheckedSession.current) return;
-      hasCheckedSession.current = true;
-
-      try {
-        const fullSession = await SessionStorageService.loadSession('midday');
-        if (fullSession) {
-          const { flowState, ...metadata } = fullSession;
-
-          // Don't show resume modal if we're at the first screen
-          if (metadata.currentScreen === SCREEN_ORDER[0]) {
-            console.log('[MiddayFlow] Session at first screen, clearing and starting fresh');
-            await SessionStorageService.clearSession('midday');
-            setIsCheckingSession(false);
-            return;
-          }
-
-          setResumableSession(metadata);
-          setShowResumeModal(true);
-
-          // Restore screen data if available
-          if (flowState?.['screenData']) {
-            loadedScreenData.current = flowState["screenData"]; // Store in ref immediately
-            setScreenData(flowState["screenData"]); // Also update state for UI
-            console.log(`[MiddayFlow] Restored screen data for ${Object.keys(flowState["screenData"]).length} screens`);
-          }
-        }
-      } catch (error) {
-        console.error('[MiddayFlow] Failed to check for resumable session:', error);
-      } finally {
-        setIsCheckingSession(false); // Done checking, safe to render navigator
-      }
-    };
-
-    checkForResumableSession();
-  }, []);
-
-  // FEAT-23: Handle resume session
-  const handleResumeSession = () => {
-    if (!resumableSession) return;
-
-    try {
-      // Build navigation state with full stack up to resumed screen
-      const screenName = resumableSession.currentScreen as keyof MiddayFlowParamList;
-      const screenIndex = SCREEN_ORDER.indexOf(screenName);
-
-      if (screenIndex === -1) {
-        console.error(`[MiddayFlow] Invalid screen name: ${screenName}`);
-        return;
-      }
-
-      // Create navigation state with all screens up to and including the resumed screen
-      // Use loadedScreenData.current (not screenData state) because state hasn't updated yet
-      const routes = SCREEN_ORDER.slice(0, screenIndex + 1).map((name, idx) => ({
-        key: `${name}-${idx}`,
-        name,
-        params: {
-          initialData: loadedScreenData.current[name] // Use ref, not state
-        }
-      }));
-
-      const navState = {
-        type: 'stack',
-        index: screenIndex,
-        routes,
-        key: `stack-${Date.now()}`
-      };
-
-      // Set lastSavedStep to resumed screen index to prevent earlier screens from saving
-      lastSavedStep.current = screenIndex;
-
-      setInitialNavigationState(navState);
-      setShowResumeModal(false);
-      setShouldResetNav(true); // Trigger imperative reset after navigator mounts
-
-      // Debug logging
-      const screensWithData = routes.filter(r => r.params?.initialData).map(r => r.name);
-      console.log(`[MiddayFlow] Resumed at ${screenName} (index ${screenIndex}) with ${routes.length} screens in stack`);
-      console.log(`[MiddayFlow] Screens with data: ${screensWithData.join(', ')}`);
-      console.log(`[MiddayFlow] Initial state:`, JSON.stringify(navState, null, 2));
-    } catch (error) {
-      console.error('[MiddayFlow] Failed to resume session:', error);
-    }
-  };
-
-  // FEAT-23: Handle begin fresh (clear old session)
-  const handleBeginFresh = async () => {
-    try {
-      await SessionStorageService.clearSession('midday');
-      setInitialNavigationState(undefined); // undefined = use default initialRouteName
-      setShowResumeModal(false);
-      setResumableSession(null);
-      lastSavedStep.current = 0; // Reset saved step tracking
-      hasResetNav.current = false; // Reset the flag
-      console.log('[MiddayFlow] Starting fresh midday session');
-    } catch (error) {
-      console.error('[MiddayFlow] Failed to clear session:', error);
-    }
-  };
-
-  // Custom header with progress
-  const getHeaderOptions = (routeName: keyof MiddayFlowParamList, title: string) => ({
+  // Custom header with flow name + progress (screen titles are in cards)
+  const getHeaderOptions = () => ({
     headerTitle: () => (
       <View style={styles.headerContainer}>
-        <Text style={styles.headerTitle}>{title}</Text>
-        <ProgressIndicator currentStep={currentStep} totalSteps={totalSteps} />
+        <Text style={styles.headerTitle}>Midday Reset</Text>
+        <FlowProgressIndicator
+          currentStep={currentStep}
+          totalSteps={totalSteps}
+          flowType="midday"
+        />
       </View>
     ),
     headerTitleAlign: 'center' as const,
   });
 
   // Screen wrappers with data persistence
-  const ControlCheckScreenWrapper = ({ navigation, route }: any) => (
-    <ControlCheckScreen
+  const PauseAcknowledgeScreenWrapper = ({ navigation, route }: any) => (
+    <PauseAcknowledgeScreen
       navigation={navigation}
       route={route}
       onSave={(data) => {
-        // Update state
-        const newScreenData = { ...screenData, ControlCheck: data };
-        setScreenData(newScreenData);
-
-        // Also update sessionData for completion screen
-        const updatedSessionData = {
-          ...sessionData,
-          controlCheckData: data
-        };
-        setSessionData(updatedSessionData);
-
-        // Save immediately with updated data (don't wait for navigation)
-        const nextScreen = 'Embodiment';
-        const nextIndex = SCREEN_ORDER.indexOf(nextScreen);
-        if (nextIndex > lastSavedStep.current) {
-          lastSavedStep.current = nextIndex;
-          SessionStorageService.saveSession('midday', nextScreen, { screenData: newScreenData })
-            .catch(error => console.error('[MiddayFlow] Failed to save from ControlCheck:', error));
-        }
-
-        console.log('✅ ControlCheck completed');
+        updateScreenData('PauseAcknowledge', data, 'RealityCheck');
+        setSessionData((prev) => ({ ...prev, pauseAcknowledge: data }));
+        console.log('✅ PauseAcknowledge completed');
       }}
     />
   );
 
-  const EmbodimentScreenWrapper = ({ navigation, route }: any) => (
-    <EmbodimentScreen
+  const RealityCheckScreenWrapper = ({ navigation, route }: any) => (
+    <RealityCheckScreen
       navigation={navigation}
       route={route}
+      previousSituation={sessionData.pauseAcknowledge?.situation}
       onSave={(data) => {
-        // Update state
-        const newScreenData = { ...screenData, Embodiment: data };
-        setScreenData(newScreenData);
-
-        // Also update sessionData for completion screen
-        const updatedSessionData = {
-          ...sessionData,
-          embodimentData: data
-        };
-        setSessionData(updatedSessionData);
-
-        // Save immediately with updated data
-        const nextScreen = 'Reappraisal';
-        const nextIndex = SCREEN_ORDER.indexOf(nextScreen);
-        if (nextIndex > lastSavedStep.current) {
-          lastSavedStep.current = nextIndex;
-          SessionStorageService.saveSession('midday', nextScreen, { screenData: newScreenData })
-            .catch(error => console.error('[MiddayFlow] Failed to save from Embodiment:', error));
-        }
-
-        console.log('✅ Embodiment completed');
+        updateScreenData('RealityCheck', data, 'VirtueResponse');
+        setSessionData((prev) => ({ ...prev, realityCheck: data }));
+        console.log('✅ RealityCheck completed');
       }}
     />
   );
 
-  const ReappraisalScreenWrapper = ({ navigation, route }: any) => (
-    <ReappraisalScreen
+  const VirtueResponseScreenWrapper = ({ navigation, route }: any) => (
+    <VirtueResponseScreen
       navigation={navigation}
       route={route}
+      previousWithinPower={sessionData.realityCheck?.withinPower}
       onSave={(data) => {
-        // Update state
-        const newScreenData = { ...screenData, Reappraisal: data };
-        setScreenData(newScreenData);
-
-        // Also update sessionData for completion screen
-        const updatedSessionData = {
-          ...sessionData,
-          reappraisalData: data
-        };
-        setSessionData(updatedSessionData);
-
-        // Save immediately with updated data
-        const nextScreen = 'Affirmation';
-        const nextIndex = SCREEN_ORDER.indexOf(nextScreen);
-        if (nextIndex > lastSavedStep.current) {
-          lastSavedStep.current = nextIndex;
-          SessionStorageService.saveSession('midday', nextScreen, { screenData: newScreenData })
-            .catch(error => console.error('[MiddayFlow] Failed to save from Reappraisal:', error));
-        }
-
-        console.log('✅ Reappraisal completed');
+        updateScreenData('VirtueResponse', data, 'CompassionateClose');
+        setSessionData((prev) => ({ ...prev, virtueResponse: data }));
+        console.log('✅ VirtueResponse completed');
       }}
     />
   );
 
-  const AffirmationScreenWrapper = ({ navigation, route }: any) => (
-    <AffirmationScreen
-      navigation={navigation}
-      route={route}
-      onSave={(data) => {
-        // Update state
-        const newScreenData = { ...screenData, Affirmation: data };
-        setScreenData(newScreenData);
+  const CompassionateCloseScreenWrapper = ({ navigation, route }: any) => {
+    const handleComplete = (data: any) => {
+      const finalSessionData: StoicMiddayFlowData = {
+        ...sessionData,
+        compassionateClose: data,
+        completedAt: new Date(),
+        timeSpentSeconds: Math.round((Date.now() - startTime) / 1000),
+        flowVersion: 'stoic_midday_v2',
+      };
 
-        // Also update sessionData for completion screen
-        const updatedSessionData = {
-          ...sessionData,
-          affirmationData: data
-        };
-        setSessionData(updatedSessionData);
-
-        // Save immediately with updated data
-        const nextScreen = 'MiddayCompletion';
-        const nextIndex = SCREEN_ORDER.indexOf(nextScreen);
-        if (nextIndex > lastSavedStep.current) {
-          lastSavedStep.current = nextIndex;
-          SessionStorageService.saveSession('midday', nextScreen, { screenData: newScreenData })
-            .catch(error => console.error('[MiddayFlow] Failed to save from Affirmation:', error));
-        }
-
-        console.log('✅ Affirmation completed');
-      }}
-    />
-  );
-
-  const MiddayCompletionScreenWrapper = ({ navigation }: any) => {
-    const finalSessionData = {
-      ...sessionData,
-      completedAt: Date.now(),
-      duration: Date.now() - sessionData.startTime
+      console.log('✅ Midday flow completed');
+      onComplete(finalSessionData);
     };
 
     return (
-      <MiddayCompletionScreen
+      <CompassionateCloseScreen
         navigation={navigation}
-        route={{ params: {} } as any}
-        onComplete={() => {
-          console.log('✅ Midday flow completed');
-          onComplete(finalSessionData);
-        }}
+        route={route}
+        onComplete={handleComplete}
+        startTime={startTime}
       />
     );
   };
@@ -397,7 +189,7 @@ const MiddayFlowNavigator: React.FC<MiddayFlowNavigatorProps> = ({
   return (
     <>
       <Stack.Navigator
-        initialRouteName="ControlCheck"
+        initialRouteName="PauseAcknowledge"
         screenOptions={{
           headerShown: true,
           gestureEnabled: true, // Allow swipe back for safety
@@ -430,7 +222,7 @@ const MiddayFlowNavigator: React.FC<MiddayFlowNavigatorProps> = ({
 
               // Reset navigation state
               navigation.reset(initialNavigationState);
-              setShouldResetNav(false);
+              clearResetNav();
               console.log('[MiddayFlow] Imperative reset complete');
               return; // Don't process state update this cycle
             }
@@ -439,62 +231,40 @@ const MiddayFlowNavigator: React.FC<MiddayFlowNavigatorProps> = ({
             const state = e.data.state;
             if (state) {
               const currentRouteName = state.routes[state.index]?.name;
-              const stepIndex = SCREEN_ORDER.indexOf(currentRouteName as keyof MiddayFlowParamList);
+              const stepIndex = SCREEN_ORDER.indexOf(currentRouteName as MiddayScreenName);
               if (stepIndex !== -1) {
                 setCurrentStep(stepIndex + 1);
               }
 
-              // FEAT-23: Save session progress only on forward navigation
-              // Only save if we're moving to a new screen or staying on the same screen
-              // Don't save if moving backward (exit/back button pressed)
-              if (currentRouteName &&
-                  currentRouteName !== 'MiddayCompletion' &&
-                  stepIndex >= lastSavedStep.current) {
-                console.log(`[MiddayFlow] Saving session: stepIndex=${stepIndex}, lastSavedStep=${lastSavedStep.current}, screen=${currentRouteName}`);
-                lastSavedStep.current = stepIndex;
-                SessionStorageService.saveSession('midday', currentRouteName as string, {
-                  screenData // Save accumulated screen data
-                })
-                  .catch(error => {
-                    console.error('[MiddayFlow] Failed to save session:', error);
-                  });
-              } else if (currentRouteName && currentRouteName !== 'MiddayCompletion') {
-                console.log(`[MiddayFlow] NOT saving (backward nav): stepIndex=${stepIndex}, lastSavedStep=${lastSavedStep.current}, screen=${currentRouteName}`);
-              }
+              // FEAT-23: Session saving is handled by updateScreenData in screen wrappers
             }
           },
         })}
       >
-      <Stack.Screen
-        name="ControlCheck"
-        component={ControlCheckScreenWrapper}
-        options={getHeaderOptions('ControlCheck', 'Pause & Center')}
-      />
+        <Stack.Screen
+          name="PauseAcknowledge"
+          component={PauseAcknowledgeScreenWrapper}
+          options={getHeaderOptions()}
+        />
 
-      <Stack.Screen
-        name="Embodiment"
-        component={EmbodimentScreenWrapper}
-        options={getHeaderOptions('Embodiment', 'Ground in Your Body')}
-      />
+        <Stack.Screen
+          name="RealityCheck"
+          component={RealityCheckScreenWrapper}
+          options={getHeaderOptions()}
+        />
 
-      <Stack.Screen
-        name="Reappraisal"
-        component={ReappraisalScreenWrapper}
-        options={getHeaderOptions('Reappraisal', 'Reframe with Wisdom')}
-      />
+        <Stack.Screen
+          name="VirtueResponse"
+          component={VirtueResponseScreenWrapper}
+          options={getHeaderOptions()}
+        />
 
-      <Stack.Screen
-        name="Affirmation"
-        component={AffirmationScreenWrapper}
-        options={getHeaderOptions('Affirmation', 'Self-Compassion')}
-      />
-
-      <Stack.Screen
-        name="MiddayCompletion"
-        component={MiddayCompletionScreenWrapper}
-        options={{ headerShown: false }}
-      />
-    </Stack.Navigator>
+        <Stack.Screen
+          name="CompassionateClose"
+          component={CompassionateCloseScreenWrapper}
+          options={getHeaderOptions()}
+        />
+      </Stack.Navigator>
 
       {/* Crisis Button - Single instance for entire flow, maintains fade state */}
       <CollapsibleCrisisButton
@@ -507,7 +277,7 @@ const MiddayFlowNavigator: React.FC<MiddayFlowNavigatorProps> = ({
 };
 
 const styles = StyleSheet.create({
-  // Header container and title
+  // Header
   headerContainer: {
     alignItems: 'center',
     width: '100%',
@@ -517,28 +287,6 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.black,
     marginBottom: spacing[4],
-  },
-
-  // Progress indicator styles
-  progressContainer: {
-    alignItems: 'center',
-    width: '100%',
-  },
-  progressBar: {
-    width: 120,
-    height: spacing[4],
-    backgroundColor: colorSystem.gray[200],
-    borderRadius: borderRadius.xs,
-    marginBottom: spacing[4],
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: borderRadius.xs,
-  },
-  progressText: {
-    fontSize: typography.micro.size,
-    color: colorSystem.gray[600],
-    fontWeight: typography.fontWeight.medium,
   },
 
   // Exit button (consistent with Evening/Morning)

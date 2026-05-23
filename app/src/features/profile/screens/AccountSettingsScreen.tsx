@@ -9,7 +9,7 @@
  *
  * COMPLIANCE:
  * - Account deletion must be app store compliant
- * - Data export for HIPAA compliance (right to access)
+ * - Data export for Privacy compliance (right to access)
  * - Clear explanation of what gets deleted
  * - Confirmation flow for destructive actions
  *
@@ -37,6 +37,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getCurrentUserEmail, getUserCreatedAt, isDevMode } from '@/core/constants/devMode';
 import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
+import SubMenuHeader from '../components/SubMenuHeader';
 
 interface AccountSettingsScreenProps {
   onReturn: () => void;
@@ -74,7 +75,7 @@ const AccountSettingsScreen: React.FC<AccountSettingsScreenProps> = ({ onReturn 
     // MVP: Disabled until FEAT-29 (export & sharing) ships
     Alert.alert(
       'Feature Not Available',
-      '⚠️ Development Mode\n\nData export is blocked by FEAT-29 (Export & Sharing). This feature has been validated and will use client-side PDF generation to comply with HIPAA requirements.',
+      '⚠️ Development Mode\n\nData export is blocked by FEAT-29 (Export & Sharing). This feature has been validated and will use client-side PDF generation to comply with Privacy requirements.',
       [{ text: 'OK' }]
     );
   };
@@ -83,22 +84,15 @@ const AccountSettingsScreen: React.FC<AccountSettingsScreenProps> = ({ onReturn 
     // MVP: Disabled until FEAT-59 (account deletion with grace period) ships
     Alert.alert(
       'Feature Not Available',
-      '⚠️ Development Mode\n\nAccount deletion is blocked by FEAT-59 (Account Deletion with Grace Period). This feature will include:\n\n• 30-day recovery period\n• App store compliance\n• Pre-deletion data export\n• Full HIPAA compliance\n\nThis feature will be available in V2.',
+      '⚠️ Development Mode\n\nAccount deletion is blocked by FEAT-59 (Account Deletion with Grace Period). This feature will include:\n\n• 30-day recovery period\n• App store compliance\n• Pre-deletion data export\n• Full Privacy compliance\n\nThis feature will be available in V2.',
       [{ text: 'OK' }]
     );
   };
 
   return (
     <SafeAreaView style={styles.container}>
+      <SubMenuHeader title="Account Settings" onClose={onReturn} />
       <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.title}>Account Settings</Text>
-          <Text style={styles.subtitle}>
-            Manage your account details and security
-          </Text>
-        </View>
-
         {/* Account Information Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Account Information</Text>
@@ -191,13 +185,6 @@ const AccountSettingsScreen: React.FC<AccountSettingsScreenProps> = ({ onReturn 
           </View>
         </View>
 
-        {/* Return Button */}
-        <View style={styles.actionContainer}>
-          <Pressable style={styles.primaryButton} onPress={onReturn}>
-            <Text style={styles.primaryButtonText}>Return to Profile</Text>
-          </Pressable>
-        </View>
-
         {/* Implementation Notice */}
         <View style={styles.todoBox}>
           <Text style={styles.todoTitle}>🚧 Implementation Status</Text>
@@ -231,24 +218,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: spacing[24],
     paddingBottom: spacing[32],
-  },
-  header: {
-    marginBottom: spacing[32],
-    alignItems: 'center',
-  },
-  title: {
-    fontSize: typography.headline2.size,
-    fontWeight: typography.fontWeight.bold,
-    color: colorSystem.base.black,
-    marginBottom: spacing[8],
-    textAlign: 'center',
-  },
-  subtitle: {
-    fontSize: typography.bodyLarge.size,
-    fontWeight: typography.fontWeight.regular,
-    color: colorSystem.gray[600],
-    textAlign: 'center',
-    lineHeight: 24,
   },
   section: {
     marginBottom: spacing[32],
@@ -422,22 +391,6 @@ const styles = StyleSheet.create({
     color: colorSystem.gray[600],
     lineHeight: 20,
     marginBottom: spacing[8],
-  },
-  actionContainer: {
-    marginTop: spacing[24],
-  },
-  primaryButton: {
-    backgroundColor: colorSystem.base.midnightBlue,
-    paddingVertical: spacing[16],
-    paddingHorizontal: spacing[32],
-    borderRadius: borderRadius.large,
-    alignItems: 'center',
-    marginBottom: spacing[16],
-  },
-  primaryButtonText: {
-    fontSize: typography.bodyLarge.size,
-    fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.white,
   },
   dangerButton: {
     backgroundColor: colorSystem.status.error,

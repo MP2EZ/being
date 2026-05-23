@@ -3,7 +3,7 @@
  * 
  * COMPREHENSIVE INTEGRATIONS:
  * - Crisis detection with real-time monitoring (<200ms)
- * - HIPAA compliance with dynamic consent validation
+ * - Privacy compliance with dynamic consent validation
  * - AES-256-GCM encryption for all clinical data
  * - Performance monitoring with therapeutic optimization
  * - Error boundaries with crisis-safe fallbacks
@@ -59,7 +59,7 @@ interface CrisisDetection {
   severity?: 'low' | 'moderate' | 'high' | 'critical' | 'emergency';
 }
 
-interface HIPAAConsentStatus {
+interface DataProtectionConsentStatus {
   dataProcessingConsent: boolean;
   clinicalDataConsent: boolean;
   consentTimestamp: number;
@@ -93,7 +93,7 @@ interface EnhancedAssessmentFlowProps {
   theme?: 'morning' | 'midday' | 'evening' | 'neutral';
   context?: 'standalone' | 'onboarding' | 'checkin';
   showIntroduction?: boolean;
-  consentStatus: HIPAAConsentStatus;
+  consentStatus: DataProtectionConsentStatus;
   sessionId: string;
 }
 

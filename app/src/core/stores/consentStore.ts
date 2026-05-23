@@ -9,7 +9,7 @@
  * - Emergency override for crisis intervention only
  *
  * COMPLIANCE:
- * - HIPAA: Granular consent scopes with audit trail
+ * - Privacy: Granular consent scopes with audit trail
  * - COPPA: Age verification gate (13+ years)
  * - CCPA/VCDPA: Opt-out defaults, export capability
  * - Dark pattern prevention: No pre-checked boxes
@@ -21,6 +21,7 @@
  */
 
 import { create } from 'zustand';
+import { generateRandomString } from '@/core/utils/id';
 import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getCurrentUserId } from '@/core/constants/devMode';
@@ -183,7 +184,7 @@ const CONSENT_VERSION = '1.0.0';
  */
 const generateConsentId = (): string => {
   const timestamp = Date.now().toString(36);
-  const randomPart = Math.random().toString(36).substring(2, 8);
+  const randomPart = generateRandomString(6);
   return `consent_${timestamp}_${randomPart}`;
 };
 
@@ -334,7 +335,7 @@ export const useConsentStore = create<ConsentStore>((set, get) => ({
         timestamp: now,
       };
 
-      // Persist history to SecureStore (HIPAA audit trail requirement)
+      // Persist history to SecureStore (Privacy audit trail requirement)
       const updatedHistory = [historyEntry];
       await SecureStore.setItemAsync(CONSENT_HISTORY_KEY, JSON.stringify(updatedHistory));
 
@@ -406,7 +407,7 @@ export const useConsentStore = create<ConsentStore>((set, get) => ({
         timestamp: now,
       };
 
-      // Persist history to SecureStore (HIPAA audit trail requirement)
+      // Persist history to SecureStore (Privacy audit trail requirement)
       const updatedHistory = [...consentHistory, historyEntry];
       await SecureStore.setItemAsync(CONSENT_HISTORY_KEY, JSON.stringify(updatedHistory));
 
@@ -474,7 +475,7 @@ export const useConsentStore = create<ConsentStore>((set, get) => ({
         timestamp: now,
       };
 
-      // Persist history to SecureStore (HIPAA audit trail requirement)
+      // Persist history to SecureStore (Privacy audit trail requirement)
       const updatedHistory = [...consentHistory, historyEntry];
       await SecureStore.setItemAsync(CONSENT_HISTORY_KEY, JSON.stringify(updatedHistory));
 
@@ -640,6 +641,6 @@ export const useAgeVerification = () => useConsentStore((state) => state.current
  */
 export const canPerformCrisisIntervention = (): boolean => {
   // Emergency override - crisis access ALWAYS allowed
-  // This is a HIPAA vital interests exception
+  // This is a Privacy vital interests exception
   return true;
 };

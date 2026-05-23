@@ -25,6 +25,7 @@
  */
 
 import type { CardinalVirtue } from '@/features/practices/types/stoic';
+import { generateTimestampedId } from '@/core/utils/id';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // TYPE DEFINITIONS
@@ -352,13 +353,13 @@ export class PremeditationSafetyService {
    * Generate unique session ID
    */
   private generateSessionId(): string {
-    return `premeditation_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return generateTimestampedId('premeditation');
   }
 
   /**
    * Generate unique obstacle ID
    */
   private generateObstacleId(): string {
-    return `obstacle_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return generateTimestampedId('obstacle');
   }
 }

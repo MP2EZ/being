@@ -6,7 +6,7 @@
  * PURPOSE:
  * - Prevent PHI leakage in error messages and logs
  * - Provide user-friendly error messages without exposing sensitive data
- * - Support debugging while maintaining HIPAA compliance
+ * - Support debugging while maintaining Privacy compliance
  *
  * SECURITY:
  * - Strip all user data from error messages

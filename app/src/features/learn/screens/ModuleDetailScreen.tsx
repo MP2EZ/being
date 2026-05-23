@@ -13,7 +13,7 @@
  * - Learning-focused (not gamified)
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -22,7 +22,8 @@ import {
   SafeAreaView,
   ActivityIndicator,
 } from 'react-native';
-import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
+import { useRoute, useNavigation, useFocusEffect, RouteProp } from '@react-navigation/native';
+import { useAnalytics } from '@/core/analytics';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 import { CollapsibleCrisisButton } from '@/features/crisis/components';
@@ -48,11 +49,20 @@ const ModuleDetailScreen: React.FC = () => {
   const { moduleId } = route.params;
 
   const { setCurrentModule, getModuleProgress } = useEducationStore();
+  const { trackScreenView, trackLearnContentViewed } = useAnalytics();
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [moduleContent, setModuleContent] = useState<ModuleContent | null>(null);
   const [loading, setLoading] = useState(true);
 
   const moduleProgress = getModuleProgress(moduleId);
+
+  // Track screen view for analytics (FEAT-137)
+  useFocusEffect(
+    useCallback(() => {
+      trackScreenView('ModuleDetailScreen');
+      trackLearnContentViewed(moduleId);
+    }, [trackScreenView, trackLearnContentViewed, moduleId])
+  );
 
   // Load module content on mount
   useEffect(() => {

@@ -20,9 +20,7 @@ import { AccessibilityInfo } from 'react-native';
 import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
 import BreathingCircle from '../../shared/components/BreathingCircle';
 import Timer from '../../shared/components/Timer';
-import EmotionGrid from '../../shared/components/EmotionGrid';
-import NeedsGrid from '../../shared/components/NeedsGrid';
-import EveningValueSlider from '../../shared/components/EveningValueSlider';
+// MAINT-65: EmotionGrid, NeedsGrid, EveningValueSlider removed as unused legacy components
 
 // Mock accessibility APIs
 jest.mock('react-native', () => ({
@@ -105,60 +103,15 @@ describe('DRD Check-in Flows Accessibility Validation', () => {
       });
     });
 
-    describe('Interactive Grid Accessibility', () => {
-      it('EmotionGrid buttons have proper accessibility states', () => {
-        const { getByTestId } = render(
-          <EmotionGrid
-            selectedEmotions={['stressed']}
-            onSelectionChange={jest.fn()}
-          />
-        );
-
-        const stressedButton = getByTestId('emotion-stressed');
-
-        expect(stressedButton.props.accessibilityRole).toBe('button');
-        expect(stressedButton.props.accessibilityLabel).toBe('Stressed');
-        expect(stressedButton.props.accessibilityHint).toContain('Tap to');
-        expect(stressedButton.props.accessibilityState).toEqual({ selected: false });
-      });
-
-      it('NeedsGrid buttons have descriptive accessibility labels', () => {
-        const { getByTestId } = render(
-          <NeedsGrid
-            selectedNeed="rest"
-            onSelectionChange={jest.fn()}
-          />
-        );
-
-        const restButton = getByTestId('need-rest');
-
-        expect(restButton.props.accessibilityRole).toBe('button');
-        expect(restButton.props.accessibilityLabel).toContain('Rest');
-        expect(restButton.props.accessibilityHint).toContain('support need');
-      });
-    });
+    // MAINT-65: Interactive Grid Accessibility tests removed
+    // EmotionGrid and NeedsGrid were deleted as unused legacy components
   });
 
   describe('2. VOICE CONTROL COMPATIBILITY', () => {
     it('CRITICAL: All interactive elements support voice activation', () => {
       const components = [
         { component: CollapsibleCrisisButton, props: { testID: 'collapsible-crisis' } },
-        {
-          component: EmotionGrid,
-          props: {
-            selectedEmotions: [],
-            onSelectionChange: jest.fn(),
-            testID: 'emotions'
-          }
-        },
-        {
-          component: NeedsGrid,
-          props: {
-            selectedNeed: null,
-            onSelectionChange: jest.fn(),
-            testID: 'needs'
-          }
-        },
+        // MAINT-65: EmotionGrid and NeedsGrid removed as unused legacy components
       ];
 
       components.forEach(({ component: Component, props }) => {
@@ -190,21 +143,19 @@ describe('DRD Check-in Flows Accessibility Validation', () => {
     });
 
     it('Component colors adapt to high contrast preferences', () => {
-      // High contrast mode testing
+      // High contrast mode testing with BreathingCircle
       const themes = ['morning', 'midday', 'evening'] as const;
 
       themes.forEach(theme => {
         const { getByTestId } = render(
-          <EmotionGrid
-            selectedEmotions={[]}
-            onSelectionChange={jest.fn()}
-            theme={theme}
-            testID={`emotion-${theme}`}
+          <BreathingCircle
+            isActive={true}
+            testID={`breathing-${theme}`}
           />
         );
 
-        const grid = getByTestId(`emotion-${theme}`);
-        expect(grid).toBeTruthy();
+        const circle = getByTestId(`breathing-${theme}`);
+        expect(circle).toBeTruthy();
       });
     });
   });
@@ -224,28 +175,23 @@ describe('DRD Check-in Flows Accessibility Validation', () => {
       });
     });
 
-    it('Grid components have adequate touch targets', () => {
+    it('Timer controls have adequate touch targets', () => {
       const { getByTestId } = render(
-        <EmotionGrid
-          selectedEmotions={[]}
-          onSelectionChange={jest.fn()}
+        <Timer
+          duration={60000}
+          isActive={true}
+          onComplete={jest.fn()}
+          testID="timer"
         />
       );
 
-      const stressedButton = getByTestId('emotion-stressed');
+      const timer = getByTestId('timer');
 
       // Touch targets should be large enough for accessibility
-      expect(stressedButton).toBeTruthy();
+      expect(timer).toBeTruthy();
     });
 
-    it('Slider components accommodate touch accessibility needs', () => {
-      render(
-        <EveningValueSlider />
-      );
-
-      // Slider touch targets should be accessible
-      expect(true).toBe(true); // Placeholder for slider testing
-    });
+    // MAINT-65: EmotionGrid and EveningValueSlider tests removed (unused legacy components)
   });
 
   describe('5. AUDIO ANNOUNCEMENTS FOR BREATHING EXERCISES', () => {
@@ -308,15 +254,15 @@ describe('DRD Check-in Flows Accessibility Validation', () => {
   describe('7. FOCUS MANAGEMENT', () => {
     it('Focus moves logically through interactive elements', () => {
       const { getByTestId } = render(
-        <EmotionGrid
-          selectedEmotions={[]}
-          onSelectionChange={jest.fn()}
+        <BreathingCircle
+          isActive={true}
+          testID="breathing-focus"
         />
       );
 
       // Focus management validation
-      const grid = getByTestId('emotion-grid');
-      expect(grid).toBeTruthy();
+      const circle = getByTestId('breathing-focus');
+      expect(circle).toBeTruthy();
     });
 
     it('Modal presentation maintains proper focus', () => {

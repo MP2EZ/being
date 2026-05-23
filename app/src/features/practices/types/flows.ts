@@ -5,34 +5,41 @@
 
 // Flow Navigation Types
 
-// Stoic Mindfulness Morning Flow (FEAT-45) - DRD v2.0.0
+// Stoic Mindfulness Morning Flow - FEAT-139 Refactored 4-Screen Flow
+// Philosopher validated (9/10) - All 5 principles represented
+// Flow: Grounded Presence → Gratitude+Intention → Principle Focus → Relational Close
+// @see ~/dtemp/morning-checkin-ux-refactor-design.md
 export type MorningFlowParamList = {
-  Gratitude: undefined;
-  Intention: undefined;
-  Preparation: undefined;
-  PrincipleFocus: undefined;
-  PhysicalGrounding: undefined;
-  MorningCompletion: undefined;
+  GroundedPresence: undefined;     // Screen 1: Physical grounding FIRST (Aware Presence)
+  GratitudeIntention: undefined;   // Screen 2: Combined gratitude + intention with impermanence framing
+  PrincipleFocus: undefined;       // Screen 3: Principle selection (SM pedagogy)
+  RelationalClose: undefined;      // Screen 4: NEW - Interconnected Living (was missing)
+  MorningCompletion: undefined;    // Completion card
 };
 
-// Stoic Mindfulness Midday Flow (FEAT-45) - DRD v2.0.0
+// Stoic Mindfulness Midday Flow (MAINT-65) - Refactored 4-Screen Flow
+// Aligned with 5 Stoic Mindfulness Principles (Philosopher validated 8.5/10)
+// Flow: Pause & Acknowledge → Reality Check → Virtue Response → Compassionate Close
+// @see /docs/design/midday-flow-wireframes-v2.md
 export type MiddayFlowParamList = {
-  ControlCheck: undefined;
-  Embodiment: undefined;
-  Reappraisal: undefined;
-  Affirmation: undefined;
-  MiddayCompletion: undefined;
+  PauseAcknowledge: undefined;   // Screen 1: Aware Presence (30s micro-breath + situation)
+  RealityCheck: undefined;       // Screen 2: Radical Acceptance + Sphere Sovereignty
+  VirtueResponse: undefined;     // Screen 3: Virtuous Response (principle picker)
+  CompassionateClose: undefined; // Screen 4: Interconnected Living (completion)
 };
 
-// Stoic Mindfulness Evening Flow (FEAT-45) - DRD v2.0.0
-// Streamlined to 6 core screens (virtue tracking moved to VirtueDashboardScreen)
+// Stoic Mindfulness Evening Flow (FEAT-134) - UX-Optimized 6-Screen Flow
+// Redesigned for reduced cognitive load: 3 required fields (down from 8)
+// Flow order: Breathe → Gratitude → Reflection → Compassion → Tomorrow → Sleep
 export type EveningFlowParamList = {
-  VirtueReflection: undefined;
-  Gratitude: undefined;
-  Tomorrow: undefined;
-  SelfCompassion: undefined;
-  SleepTransition: undefined;
-  EveningCompletion: undefined;
+  Breathing: undefined;           // Screen 1: Pure 60s breathing (no decisions)
+  Gratitude: undefined;           // Screen 2: 1 required, up to 3 optional
+  VirtueReflection: undefined;    // Screen 3: Reflection + inline principle picker
+  SelfCompassion: undefined;      // Screen 4: Dedicated self-kindness (required)
+  Tomorrow: undefined;            // Screen 5: Optional intention (skippable)
+  SleepTransition: {              // Screen 6: Breathing + completion card
+    summary?: EveningCompletionSummary;
+  } | undefined;
 };
 
 // Common Flow Data Types
@@ -186,7 +193,65 @@ export interface EveningFlowData {
  * @see /docs/architecture/Stoic-Mindfulness-Architecture-v1.0.md
  */
 
-import type { CardinalVirtue, PracticeDomain, VirtueInstance, VirtueChallenge } from './stoic';
+import type { CardinalVirtue, PracticeDomain, StoicPrinciple, VirtueInstance, VirtueChallenge } from './stoic';
+
+// ──────────────────────────────────────────────────────────────────────────────
+// FEAT-139: MORNING FLOW UX REFACTOR - NEW 4-SCREEN DATA TYPES
+// Philosopher validated (9/10) - All 5 Stoic Mindfulness principles represented
+// Flow: Grounded Presence → Gratitude+Intention → Principle Focus → Relational Close
+// @see ~/dtemp/morning-checkin-ux-refactor-design.md
+// ──────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Screen 1: Grounded Presence (Aware Presence principle)
+ * Physical grounding FIRST - 60s minimum presence time
+ * Classical: "Begin at once to live" (Seneca, Letters 101)
+ */
+export interface GroundedPresenceData {
+  completed: boolean;
+  duration: number; // seconds spent in grounding
+  skipped: boolean;
+  timestamp?: Date;
+}
+
+/**
+ * Screen 2: Gratitude + Intention (Combined screen)
+ * Impermanence framing: "This day isn't guaranteed"
+ * Reserve clause: "fate permitting" on intention
+ * Classical: Marcus Aurelius, Meditations 2:1
+ */
+export interface GratitudeIntentionData {
+  gratitudes: string[]; // min 1 required, max 3
+  intention: string | null; // optional, includes reserve clause context
+  timestamp: Date;
+}
+
+/**
+ * Screen 4: Relational Close (Interconnected Living principle)
+ * NEW screen adding missing principle to morning flow
+ * All inputs optional - respects user agency
+ * Classical: "We were born to work together" (Marcus Aurelius, Meditations 2:1)
+ */
+export interface RelationalCloseData {
+  encounters: string | null; // Who might you encounter?
+  practice: string | null; // How will you show up?
+  timestamp: Date;
+}
+
+/**
+ * Complete FEAT-139 Morning Flow Session Data
+ * Refactored from 6 screens to 4 screens for improved UX
+ * Target: ~70% completion rate (up from 35%)
+ */
+export interface MorningFlowSessionData {
+  groundedPresence?: GroundedPresenceData;
+  gratitudeIntention?: GratitudeIntentionData;
+  principleFocus?: PrincipleFocusData;
+  relationalClose?: RelationalCloseData;
+  completedAt?: Date;
+  timeSpentSeconds?: number;
+  flowVersion: 'feat-139-v1';
+}
 
 // ──────────────────────────────────────────────────────────────────────────────
 // MORNING FLOW TYPES
@@ -259,35 +324,118 @@ export interface PrincipleFocusData {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// MIDDAY FLOW TYPES
+// MIDDAY FLOW TYPES (MAINT-65 - Refactored 4-Screen Flow)
+// Aligned with 5 Stoic Mindfulness Principles
+// @see /docs/design/midday-flow-wireframes-v2.md
 // ──────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Complete Midday Flow Session Data (MAINT-65)
+ *
+ * 4-screen flow: Pause & Acknowledge → Reality Check → Virtue Response → Compassionate Close
+ * Duration: 3-5 minutes
+ * Philosopher validated: 8.5/10
+ */
 export interface StoicMiddayFlowData {
-  // Stoic practices
+  // Screen 1: Pause & Acknowledge (Aware Presence)
+  pauseAcknowledge?: PauseAcknowledgeData;
+
+  // Screen 2: Reality Check (Radical Acceptance + Sphere Sovereignty)
+  realityCheck?: RealityCheckData;
+
+  // Screen 3: Virtue Response (Virtuous Response principle)
+  virtueResponse?: VirtueResponseData;
+
+  // Screen 4: Compassionate Close (Interconnected Living)
+  compassionateClose?: CompassionateCloseData;
+
+  // Metadata
+  completedAt: Date;
+  timeSpentSeconds: number;
+  flowVersion: 'stoic_midday_v2';  // Version identifier
+  screenTimes?: {
+    screen1: number;
+    screen2: number;
+    screen3: number;
+    screen4: number;
+  };
+}
+
+/**
+ * Screen 1: Pause & Acknowledge
+ * Principle: Aware Presence
+ * Purpose: Transition from "doing" to "being" + name what's present
+ */
+export interface PauseAcknowledgeData {
+  breathCompleted: boolean;
+  breathDuration: 30;  // Fixed 30s micro-breath
+  situation: string;   // "What's weighing on you right now?"
+  timestamp: Date;
+}
+
+/**
+ * Screen 2: Reality Check
+ * Principles: Radical Acceptance + Sphere Sovereignty
+ * Purpose: Focus on what's controllable (simplified per UX/Philosopher validation)
+ * @see MAINT-65 UX simplification - removed acceptance selector
+ */
+export interface RealityCheckData {
+  withinPower: string;  // "What can you actually control or influence here?"
+  timestamp: Date;
+}
+
+/**
+ * Screen 3: Virtue Response
+ * Principle: Virtuous Response
+ * Purpose: Choose virtuous action (simplified per UX/Philosopher validation)
+ * @see MAINT-65 UX simplification - removed principle picker (virtue demonstrated through action)
+ */
+export interface VirtueResponseData {
+  virtuousResponse: string;  // "What's one small, virtuous action you could take?"
+  timestamp: Date;
+}
+
+/**
+ * Screen 4: Compassionate Close
+ * Principle: Interconnected Living
+ * Purpose: Single integration prompt before completion (simplified per UX validation)
+ * @see MAINT-65 UX simplification - merged two inputs into one, removed previous answer card
+ */
+export interface CompassionateCloseData {
+  integrationNote?: string | undefined;  // "What do you need to remember as you return to your day?" (optional)
+  timestamp: Date;
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// LEGACY MIDDAY FLOW TYPES (Deprecated - kept for backward compatibility)
+// These types support the old 5-screen flow. New implementations should use
+// the MAINT-65 types above.
+// ──────────────────────────────────────────────────────────────────────────────
+
+/** @deprecated Use StoicMiddayFlowData instead */
+export interface LegacyMiddayFlowData {
   currentSituation?: CurrentSituationData;
   controlCheck?: ControlCheckData;
   reappraisal?: ReappraisalData;
   intentionProgress?: IntentionProgressData;
-
-  // Retained from original evidence-based protocol (60fps breathing)
   embodiment?: EmbodimentData;
-
-  // Metadata
   completedAt: Date;
   timeSpentSeconds: number;
   flowVersion: string;
 }
 
+/** @deprecated Use PauseAcknowledgeData instead */
 export interface CurrentSituationData {
   situation: string;
   emotionalState: string;
-  energyLevel: number;  // 1-10
+  energyLevel: number;
   timestamp: Date;
 }
 
+/** @deprecated Use RealityCheckData instead */
 export interface ControlCheckData {
   aspect: string;
-  controlType: 'fully_in_control' | 'can_influence' | 'not_in_control';  // Three-tier
+  controlType: 'fully_in_control' | 'can_influence' | 'not_in_control';
   whatIControl?: string | undefined;
   whatICannotControl?: string | undefined;
   actionIfControllable?: string | undefined;
@@ -295,6 +443,7 @@ export interface ControlCheckData {
   timestamp: Date;
 }
 
+/** @deprecated Use VirtueResponseData instead */
 export interface ReappraisalData {
   obstacle: string;
   virtueOpportunity: string;
@@ -303,6 +452,7 @@ export interface ReappraisalData {
   timestamp: Date;
 }
 
+/** @deprecated No longer used in new flow */
 export interface IntentionProgressData {
   morningIntention: string;
   practiced: boolean;
@@ -311,17 +461,19 @@ export interface IntentionProgressData {
   timestamp: Date;
 }
 
+/** @deprecated Breathing now integrated into PauseAcknowledgeData */
 export interface EmbodimentData {
-  breathingDuration: 60;  // EXACTLY 60 seconds (60fps critical)
-  breathingQuality: number;  // 1-10
+  breathingDuration: 60;
+  breathingQuality: number;
   bodyAwareness: string;
   timestamp: Date;
 }
 
+/** @deprecated Use CompassionateCloseData instead */
 export interface AffirmationData {
-  selectedAffirmation?: string | undefined;  // Pre-defined grounded affirmation
-  personalAffirmation?: string | undefined;  // User's own affirmation
-  selfCompassionNote?: string | undefined;   // Optional self-compassion reflection
+  selectedAffirmation?: string | undefined;
+  personalAffirmation?: string | undefined;
+  selfCompassionNote?: string | undefined;
   timestamp: Date;
 }
 
@@ -393,8 +545,9 @@ export interface SenecaQuestionsData {
 }
 
 export interface VirtueReflectionData {
-  showedUpWell?: string | undefined;  // Where did I show up well today?
-  growthArea?: string | undefined;    // Where could I grow?
+  showedUpWell: string;                              // Where did I show up well today? (REQUIRED)
+  growthArea?: string | undefined;                   // Where could I grow? (optional)
+  principleReflected?: StoicPrinciple | undefined;   // Inline principle picker (optional, feeds Insights)
   timestamp: Date;
 }
 
@@ -418,6 +571,28 @@ export interface SelfCompassionData {
 export interface SleepTransitionData {
   breathingCompleted: boolean;  // Optional tracking of breathing practice completion
   timestamp: Date;
+}
+
+// FEAT-134: Evening flow breathing screen data
+export interface EveningBreathingData {
+  completed: boolean;
+  durationSeconds: number;
+  skipped?: boolean;
+  timestamp: Date;
+}
+
+// FEAT-134: Updated gratitude data for evening flow (1 required, up to 3 optional)
+export interface EveningGratitudeData {
+  items: string[];  // 1-3 items, first is required
+  timestamp: Date;
+}
+
+// FEAT-134: Evening flow completion summary for completion card
+export interface EveningCompletionSummary {
+  gratitudeCount: number;
+  principleReflected?: StoicPrinciple | undefined;
+  selfCompassionCompleted: boolean;
+  tomorrowIntentionSet: boolean;
 }
 
 export interface MeditationData {

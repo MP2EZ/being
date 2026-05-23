@@ -89,22 +89,27 @@ export const AccessibleInput: React.FC<AccessibleInputProps> = ({
   const accessibilityHint = textInputProps.accessibilityHint || 
     (helperText ? helperText : undefined);
 
+  // Only show label container if there's a label or it's required
+  const showLabel = label.trim().length > 0 || required;
+
   return (
     <View style={[styles.container, containerStyle]}>
-      {/* Label */}
-      <View style={styles.labelContainer}>
-        <Text
-          style={[styles.label, labelStyle]}
-          accessibilityRole={A11Y_ROLES.text}
-        >
-          {label}
-        </Text>
-        {required && (
-          <Text style={styles.required} accessibilityLabel="required">
-            {' '}*
+      {/* Label - only render if label has content or field is required */}
+      {showLabel && (
+        <View style={styles.labelContainer}>
+          <Text
+            style={[styles.label, labelStyle]}
+            accessibilityRole={A11Y_ROLES.text}
+          >
+            {label}
           </Text>
-        )}
-      </View>
+          {required && (
+            <Text style={styles.required} accessibilityLabel="required">
+              {' '}*
+            </Text>
+          )}
+        </View>
+      )}
 
       {/* Helper Text */}
       {helperText && !hasError && (

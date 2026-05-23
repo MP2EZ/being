@@ -1,14 +1,23 @@
 /**
- * Midday Flow Export Index - DRD v2.0.0
- * Stoic Mindfulness Midday Flow
+ * Midday Flow Export Index - MAINT-65
+ * Stoic Mindfulness Midday Flow (Refactored 4-Screen)
+ *
+ * MAINT-65: Refactored from 5 screens to 4 screens
+ * - PauseAcknowledge (Aware Presence)
+ * - RealityCheck (Radical Acceptance + Sphere Sovereignty)
+ * - VirtueResponse (Virtuous Response)
+ * - CompassionateClose (Interconnected Living)
  */
 
 export { default as MiddayFlowNavigator } from './MiddayFlowNavigator';
-export type { MiddayFlowParamList } from '@/features/practices/types/flows';
+export type { MiddayFlowParamList, StoicMiddayFlowData } from '@/features/practices/types/flows';
 
-// DRD v2.0.0 Screens
-export { default as ControlCheckScreen } from './screens/ControlCheckScreen';
-export { default as EmbodimentScreen } from './screens/EmbodimentScreen';
-export { default as ReappraisalScreen } from './screens/ReappraisalScreen';
-export { default as AffirmationScreen } from './screens/AffirmationScreen';
-export { default as MiddayCompletionScreen } from './screens/MiddayCompletionScreen';
+// MAINT-65: New 4-Screen Flow
+export { default as PauseAcknowledgeScreen } from './screens/PauseAcknowledgeScreen';
+export { default as RealityCheckScreen } from './screens/RealityCheckScreen';
+export { default as VirtueResponseScreen } from './screens/VirtueResponseScreen';
+export { default as CompassionateCloseScreen } from './screens/CompassionateCloseScreen';
+
+// Legacy screens (deprecated - kept for backward compatibility)
+// These screens are no longer used by MiddayFlowNavigator
+// @deprecated Use the new 4-screen flow instead

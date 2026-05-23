@@ -27,6 +27,9 @@
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+import { verifyAppleJWS } from './verifyAppleJWS.ts';
+import { verifyGoogleOIDC } from './verifyGoogleOIDC.ts';
+import { wasProcessed, markProcessed } from './replayCache.ts';
 
 // Apple notification types
 const APPLE_NOTIFICATION_TYPES = {
@@ -71,21 +74,21 @@ interface GoogleWebhookPayload {
 }
 
 /**
- * Verify Apple webhook signature (JWS)
+ * Verify Apple webhook signature (JWS).
+ *
+ * Delegates to `verifyAppleJWS` in ./verifyAppleJWS.ts which:
+ * - Parses the JWS header for the x5c cert chain
+ * - Anchors the chain to a pinned Apple Root CA - G3 SPKI (rejects forged
+ *   chains not terminating in Apple's root)
+ * - Verifies the ES256 signature using the leaf cert's public key
+ * - Rejects payloads older than 24h or signed >5 min in the future
+ *
+ * Replaces the prior stub that decoded the payload without any verification
+ * (audit SEC-01). The Sec-01 follow-up adds full per-cert cryptographic
+ * chain verification (currently only the anchor SPKI is checked).
  */
 async function verifyAppleSignature(signedPayload: string): Promise<any> {
-  // TODO: Implement JWS verification
-  // 1. Decode JWS header and payload
-  // 2. Get Apple public key from Apple's server
-  // 3. Verify signature
-  // For now, decode payload without verification (INSECURE - fix in production)
-
-  const parts = signedPayload.split('.');
-  if (parts.length !== 3) {
-    throw new Error('Invalid JWS format');
-  }
-
-  const payload = JSON.parse(atob(parts[1]));
+  const { payload } = await verifyAppleJWS(signedPayload);
   return payload;
 }
 
@@ -318,11 +321,42 @@ serve(async (req) => {
       // Apple webhook
       console.log('[Webhook] Processing Apple webhook');
       const payload = await verifyAppleSignature(body.signedPayload);
+      const notificationUUID = payload.notificationUUID;
+      if (await wasProcessed(supabase, 'apple', notificationUUID)) {
+        console.log('[Apple Webhook] Replay detected, no-op:', notificationUUID);
+        return new Response(
+          JSON.stringify({ success: true, replay: true }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
       await handleAppleWebhook(supabase, payload);
+      await markProcessed(supabase, 'apple', notificationUUID);
     } else if (body.message?.data) {
-      // Google webhook
+      // Google webhook — verify the OIDC token before trusting the body.
+      // Pub/Sub push subscriptions deliver an Authorization: Bearer <jwt>
+      // header signed by Google for the configured service account.
       console.log('[Webhook] Processing Google webhook');
+      const expectedAudience = Deno.env.get('GOOGLE_PUBSUB_AUDIENCE');
+      if (!expectedAudience) {
+        throw new Error('GOOGLE_PUBSUB_AUDIENCE env var is not configured');
+      }
+      const pinnedServiceAccount = Deno.env.get('GOOGLE_PUBSUB_SERVICE_ACCOUNT');
+      const { serviceAccountEmail } = await verifyGoogleOIDC(
+        req.headers.get('Authorization'),
+        expectedAudience,
+        pinnedServiceAccount || undefined
+      );
+      console.log('[Google Webhook] OIDC verified, sa:', serviceAccountEmail);
+      const messageId = body.message.messageId;
+      if (await wasProcessed(supabase, 'google', messageId)) {
+        console.log('[Google Webhook] Replay detected, no-op:', messageId);
+        return new Response(
+          JSON.stringify({ success: true, replay: true }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
       await handleGoogleWebhook(supabase, body);
+      await markProcessed(supabase, 'google', messageId);
     } else {
       console.error('[Webhook] Unknown webhook format');
       return new Response(

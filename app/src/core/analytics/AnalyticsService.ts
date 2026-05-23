@@ -27,7 +27,9 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Crypto from 'expo-crypto';
 import { useAssessmentStore } from '@/features/assessment/stores/assessmentStore';
+import { useConsentStore, canPerformCrisisIntervention } from '@/core/stores/consentStore';
 
 // Security service integrations (Tier 1 requirements)
 import type {
@@ -40,6 +42,34 @@ import networkSecurityInstance from '@/core/services/security/NetworkSecuritySer
 import securityMonitoringInstance from '@/core/services/security/SecurityMonitoringService';
 
 import { logError, logSecurity, logPerformance, LogCategory } from '@/core/services/logging';
+
+/**
+ * COMPREHENSIVE PHI DETECTION PATTERNS
+ * Enhanced patterns with Unicode normalization and broader coverage
+ * HIPAA Safe Harbor: Block transmission of these identifiers
+ */
+const PHI_DETECTION_PATTERNS: RegExp[] = [
+  // Assessment scores (PHQ-9/GAD-7) - with Unicode normalization support
+  /\b(?:PHQ|GAD)[-\s]?[79]\s*[:=]?\s*\d{1,2}\b/gi,
+  // SSN patterns (various formats)
+  /\b\d{3}[-.\s]?\d{2}[-.\s]?\d{4}\b/g,
+  // Long numeric sequences (potential identifiers)
+  /\b\d{10,}\b/g,
+  // Email addresses
+  /\b[\w._%+-]+@[\w.-]+\.[A-Z|a-z]{2,}\b/gi,
+  // US phone numbers (various formats)
+  /\b(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b/g,
+  // International phone numbers
+  /\b\+\d{1,3}[-.\s]?\(?\d{1,4}\)?[-.\s]?\d{1,4}[-.\s]?\d{1,9}\b/g,
+  // IPv4 addresses (user tracking vector)
+  /\b(?:\d{1,3}\.){3}\d{1,3}\b/g,
+  // UUIDs (device/user identifiers)
+  /\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b/g,
+  // Crisis content keywords (mental health PHI)
+  /\b(?:suicide|suicidal|kill\s+(?:myself|yourself)|self[- ]?harm|end\s+(?:my|it\s+all))\b/gi,
+  // Raw numeric scores in context
+  /\b(?:score|total|result)\s*[:=]?\s*\d{1,2}\b/gi,
+];
 
 /**
  * ANALYTICS PRIVACY ENGINE
@@ -57,16 +87,16 @@ class AnalyticsPrivacyEngine {
     severityBuckets: Record<string, number>
   ): Promise<Record<string, number>> {
     const noisedBuckets: Record<string, number> = {};
-    
+
     for (const [bucket, count] of Object.entries(severityBuckets)) {
       // Add Laplace noise for differential privacy
       const sensitivity = 1; // Each user contributes at most 1 to any bucket
       const scale = sensitivity / this.DIFFERENTIAL_PRIVACY_EPSILON;
-      const noise = this.generateLaplaceNoise(scale);
-      
+      const noise = await this.generateLaplaceNoise(scale);
+
       noisedBuckets[bucket] = Math.max(0, Math.round(count + noise));
     }
-    
+
     return noisedBuckets;
   }
 
@@ -85,28 +115,34 @@ class AnalyticsPrivacyEngine {
    * Prevent correlation attacks through temporal obfuscation
    */
   async preventCorrelationAttacks(events: AnalyticsEvent[]): Promise<AnalyticsEvent[]> {
-    return events.map(event => ({
-      ...event,
-      timestamp: this.addTemporalNoise(event.timestamp, this.MAX_TEMPORAL_NOISE)
-    }));
+    const obfuscatedEvents: AnalyticsEvent[] = [];
+    for (const event of events) {
+      obfuscatedEvents.push({
+        ...event,
+        timestamp: await this.addTemporalNoise(event.timestamp, this.MAX_TEMPORAL_NOISE)
+      });
+    }
+    return obfuscatedEvents;
   }
 
   /**
    * Validate privacy protection for an event
+   * Uses enhanced PHI detection with Unicode normalization
    */
   async validatePrivacyProtection(event: AnalyticsEvent): Promise<boolean> {
-    // Check for PHI patterns
+    // Serialize and normalize event data for PHI detection
     const eventString = JSON.stringify(event);
-    const phiPatterns = [
-      /\b(PHQ-?9|GAD-?7)\s*:?\s*([0-9]{1,2})\b/gi, // Raw scores
-      /\b\d{3}-\d{2}-\d{4}\b/, // SSN patterns
-      /\b\d{10}\b/, // Long numeric identifiers
-      /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2}\b/ // Email patterns
-    ];
+    // Normalize Unicode to prevent bypass attacks (e.g., full-width characters)
+    const normalizedEventString = eventString.normalize('NFKC');
 
-    for (const pattern of phiPatterns) {
-      if (pattern.test(eventString)) {
-        logSecurity('⚠️ Privacy violation detected in analytics event', 'low');
+    for (const pattern of PHI_DETECTION_PATTERNS) {
+      // Reset regex state for global patterns
+      pattern.lastIndex = 0;
+      if (pattern.test(normalizedEventString)) {
+        logSecurity('⚠️ Privacy violation detected in analytics event', 'high', {
+          patternSource: pattern.source.substring(0, 50), // Truncate for logging
+          eventType: event.eventType
+        });
         return false;
       }
     }
@@ -114,15 +150,41 @@ class AnalyticsPrivacyEngine {
     return true;
   }
 
-  // Private utility methods
-  private generateLaplaceNoise(scale: number): number {
-    // Generate Laplace-distributed noise for differential privacy
-    const u = Math.random() - 0.5;
+  // Private utility methods using crypto-secure random
+  private cryptoRandomBuffer: Uint8Array | null = null;
+  private cryptoRandomIndex = 0;
+
+  /**
+   * Get crypto-secure random value [0, 1)
+   * Uses pre-generated buffer for performance
+   */
+  private async getCryptoRandom(): Promise<number> {
+    // Refill buffer if needed (256 random bytes at a time for efficiency)
+    if (!this.cryptoRandomBuffer || this.cryptoRandomIndex >= this.cryptoRandomBuffer.length - 4) {
+      this.cryptoRandomBuffer = await Crypto.getRandomBytesAsync(256);
+      this.cryptoRandomIndex = 0;
+    }
+
+    // Convert 4 bytes to a float [0, 1)
+    const buffer = this.cryptoRandomBuffer!; // Guaranteed non-null after check above
+    const byte0 = buffer[this.cryptoRandomIndex] ?? 0;
+    const byte1 = buffer[this.cryptoRandomIndex + 1] ?? 0;
+    const byte2 = buffer[this.cryptoRandomIndex + 2] ?? 0;
+    const byte3 = buffer[this.cryptoRandomIndex + 3] ?? 0;
+    this.cryptoRandomIndex += 4;
+
+    const uint32 = (byte0 << 24) | (byte1 << 16) | (byte2 << 8) | byte3;
+    return (uint32 >>> 0) / 0xFFFFFFFF;
+  }
+
+  private async generateLaplaceNoise(scale: number): Promise<number> {
+    // Generate Laplace-distributed noise for differential privacy using crypto-secure RNG
+    const u = (await this.getCryptoRandom()) - 0.5;
     return -scale * Math.sign(u) * Math.log(1 - 2 * Math.abs(u));
   }
 
-  private addTemporalNoise(timestamp: number, maxDelayMs: number): number {
-    const delay = Math.random() * maxDelayMs;
+  private async addTemporalNoise(timestamp: number, maxDelayMs: number): Promise<number> {
+    const delay = (await this.getCryptoRandom()) * maxDelayMs;
     return Math.round(timestamp + delay);
   }
 
@@ -509,13 +571,37 @@ class AnalyticsService {
   private sanitizeEventData(data: any): any {
     // Remove any potential PHI from security event data
     const sanitized = { ...data };
-    
+
     // Remove raw scores, user IDs, or other sensitive data
     delete sanitized.userId;
     delete sanitized.assessmentScores;
     delete sanitized.personalInfo;
 
     return sanitized;
+  }
+
+  /**
+   * Sanitize error messages to prevent PHI leakage in logs
+   * Redacts any numeric values and assessment references
+   */
+  private sanitizeErrorMessage(message: string): string {
+    return message
+      // Redact any numeric values that could be scores
+      .replace(/\b\d{1,2}\b/g, '[REDACTED]')
+      // Redact PHQ-9/GAD-7 references
+      .replace(/\b(?:PHQ|GAD)[-\s]?[79]\b/gi, '[ASSESSMENT]')
+      // Redact email addresses
+      .replace(/\b[\w._%+-]+@[\w.-]+\.[A-Z|a-z]{2,}\b/gi, '[EMAIL]')
+      // Redact phone numbers
+      .replace(/\b(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b/g, '[PHONE]');
+  }
+
+  /**
+   * Create a sanitized error for logging that won't contain PHI
+   */
+  private createSanitizedError(error: unknown): Error {
+    const rawMessage = error instanceof Error ? error.message : String(error);
+    return new Error(this.sanitizeErrorMessage(rawMessage));
   }
 
   /**
@@ -526,12 +612,14 @@ class AnalyticsService {
     const currentDate = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
 
     if (this.lastSessionDate !== currentDate || !this.currentSessionId) {
-      // Generate new session ID for the day
-      const randomComponent = this.generateSecureRandom(9);
+      // Generate new session ID for the day using crypto-secure RNG
+      const randomComponent = await this.generateSecureRandom(12);
       this.currentSessionId = `session_${currentDate}_${randomComponent}`;
       this.lastSessionDate = currentDate ?? null;
 
-      console.log(`🔄 Session rotated for ${currentDate}`);
+      if (__DEV__) {
+        console.log(`🔄 Session rotated for ${currentDate}`);
+      }
       
       await this.logSecurityEvent('session_rotated', {
         date: currentDate,
@@ -544,11 +632,19 @@ class AnalyticsService {
     return this.currentSessionId || 'session_unknown';
   }
 
-  private generateSecureRandom(length: number): string {
+  /**
+   * Generate cryptographically secure random string
+   * Uses expo-crypto for unpredictable session IDs
+   */
+  private async generateSecureRandom(length: number): Promise<string> {
     const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    const randomBytes = await Crypto.getRandomBytesAsync(length);
+
     let result = '';
     for (let i = 0; i < length; i++) {
-      result += chars.charAt(Math.floor(Math.random() * chars.length));
+      const byte = randomBytes[i] ?? 0;
+      const randomIndex = byte % chars.length;
+      result += chars.charAt(randomIndex);
     }
     return result;
   }
@@ -567,10 +663,28 @@ class AnalyticsService {
         throw new Error('Analytics access denied');
       }
 
-      // 2. Rotate session if needed
+      // 2. CRITICAL: Validate consent before tracking (HIPAA/GDPR compliance)
+      // Crisis events bypass consent (vital interests exception)
+      const isCrisisEvent = eventType === 'crisis_intervention_triggered';
+      if (isCrisisEvent) {
+        // Crisis intervention NEVER gated by consent
+        if (!canPerformCrisisIntervention()) {
+          // This should never happen - function always returns true
+          throw new Error('Crisis intervention blocked unexpectedly');
+        }
+      } else {
+        // All non-crisis events require explicit consent
+        const consentStore = useConsentStore.getState();
+        if (!consentStore.canPerformOperation('analytics')) {
+          // Fail silently - do not track without consent (privacy-first)
+          return;
+        }
+      }
+
+      // 3. Rotate session if needed
       await this.rotateSessionIfNeeded();
 
-      // 3. Sanitize and validate event
+      // 4. Sanitize and validate event
       const sanitizedEvent = await this.sanitizeEvent({
         eventType,
         timestamp: Date.now(),
@@ -578,12 +692,12 @@ class AnalyticsService {
         data: eventData
       });
 
-      // 4. Add to processing queue
+      // 5. Add to processing queue
       await this.addToQueue(sanitizedEvent);
 
       const processingTime = performance.now() - startTime;
 
-      // 5. Validate performance requirements
+      // 6. Validate performance requirements
       if (processingTime > 10) {
         logSecurity('Analytics event processing slow', 'low', {
           processingTime,
@@ -591,7 +705,7 @@ class AnalyticsService {
         });
       }
 
-      // 6. Special handling for crisis events
+      // 7. Special handling for crisis events
       if (eventType === 'crisis_intervention_triggered' && processingTime > 200) {
         logError(LogCategory.SYSTEM, `Crisis event processing exceeded 200ms: ${processingTime.toFixed(2)}ms`);
         await this.logSecurityEvent('crisis_performance_violation', {
@@ -601,25 +715,25 @@ class AnalyticsService {
       }
 
     } catch (error) {
-      logError(LogCategory.ANALYTICS, '📊 Analytics event tracking failed:', error instanceof Error ? error : new Error(String(error)));
+      // Sanitize error to prevent any PHI leakage through error messages
+      logError(LogCategory.ANALYTICS, '📊 Analytics event tracking failed:', this.createSanitizedError(error));
       await this.logSecurityEvent('event_tracking_failure', {
         eventType,
-        error: (error instanceof Error ? error.message : String(error))
+        error: this.sanitizeErrorMessage(error instanceof Error ? error.message : String(error))
       });
     }
   }
 
   private async sanitizeEvent(rawEvent: AnalyticsEvent): Promise<AnalyticsEvent> {
-    // 1. Apply PHI detection and blocking
-    // TODO: Implement detectPHI on SecurityMonitoringService
-    // For now, use simple regex-based PHI detection
-    const phiPatterns = [
-      /\b(PHQ-?9|GAD-?7)\s*:?\s*([0-9]{1,2})\b/gi,
-      /\b\d{3}-\d{2}-\d{4}\b/g, // SSN
-      /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi // Email
-    ];
+    // 1. Apply PHI detection and blocking using enhanced patterns
     const eventString = JSON.stringify(rawEvent);
-    const phiDetected = phiPatterns.some(pattern => pattern.test(eventString));
+    // Normalize Unicode to prevent bypass attacks
+    const normalizedEventString = eventString.normalize('NFKC');
+
+    const phiDetected = PHI_DETECTION_PATTERNS.some(pattern => {
+      pattern.lastIndex = 0; // Reset regex state for global patterns
+      return pattern.test(normalizedEventString);
+    });
 
     if (phiDetected) {
       await this.logSecurityEvent('phi_exposure_attempt', { eventType: rawEvent.eventType });
@@ -724,10 +838,11 @@ class AnalyticsService {
       }
 
     } catch (error) {
-      logError(LogCategory.ANALYTICS, '🚨 Crisis event processing failed:', error instanceof Error ? error : new Error(String(error)));
+      // Sanitize error for crisis event processing
+      logError(LogCategory.ANALYTICS, '🚨 Crisis event processing failed:', this.createSanitizedError(error));
       await this.logSecurityEvent('crisis_processing_failure', {
         eventType: event.eventType,
-        error: (error instanceof Error ? error.message : String(error))
+        error: this.sanitizeErrorMessage(error instanceof Error ? error.message : String(error))
       });
     }
   }
@@ -789,10 +904,11 @@ class AnalyticsService {
       });
 
     } catch (error) {
-      logError(LogCategory.ANALYTICS, '📊 Batch processing failed:', error instanceof Error ? error : new Error(String(error)));
+      // Sanitize error for batch processing
+      logError(LogCategory.ANALYTICS, '📊 Batch processing failed:', this.createSanitizedError(error));
       await this.logSecurityEvent('batch_processing_failure', {
         queueSize: this.eventQueue.length,
-        error: (error instanceof Error ? error.message : String(error))
+        error: this.sanitizeErrorMessage(error instanceof Error ? error.message : String(error))
       });
     } finally {
       this.isProcessing = false;
@@ -854,9 +970,11 @@ class AnalyticsService {
       });
 
     } catch (error) {
-      logError(LogCategory.ANALYTICS, '📋 Assessment completion tracking failed:', error instanceof Error ? error : new Error(String(error)));
+      // CRITICAL: Sanitize error to prevent PHI leakage in logs
+      logError(LogCategory.ANALYTICS, '📋 Assessment completion tracking failed:', this.createSanitizedError(error));
       await this.logSecurityEvent('assessment_tracking_failure', {
-        error: (error instanceof Error ? error.message : String(error))
+        error: this.sanitizeErrorMessage(error instanceof Error ? error.message : String(error)),
+        eventType: 'assessment_completed' // Metadata only, no scores
       });
     }
   }

@@ -15,6 +15,9 @@ if (!global.performance) {
 }
 
 // Performance monitoring state
+// MEMORY FIX: Limited array sizes to prevent unbounded growth (DEBUG-48)
+const MAX_METRICS_ENTRIES = 50;
+
 global.performanceMonitor = {
   testMetrics: new Map(),
   crisisMetrics: [],
@@ -26,7 +29,7 @@ global.performanceMonitor = {
     integration: 10000,
     e2e: 30000
   },
-  
+
   // Start monitoring a test
   startTest(testName) {
     const startTime = performance.now();
@@ -36,22 +39,22 @@ global.performanceMonitor = {
       isCrisis: /crisis|emergency|988/i.test(testName),
       isClinical: /clinical|phq|gad|assessment/i.test(testName)
     });
-    
-    // Mark start for crisis tests
-    if (this.testMetrics.get(testName).isCrisis) {
+
+    // Mark start for crisis tests (only in verbose mode)
+    if (this.testMetrics.get(testName).isCrisis && process.env.JEST_VERBOSE) {
       console.log(`🔒 Crisis test started: ${testName}`);
     }
   },
-  
+
   // End monitoring and record metrics
   endTest(testName, status = 'passed') {
     const testData = this.testMetrics.get(testName);
     if (!testData) return null;
-    
+
     const endTime = performance.now();
     const duration = endTime - testData.startTime;
     const threshold = this.thresholds[testData.category] || this.thresholds.unit;
-    
+
     const result = {
       testName,
       duration,
@@ -63,26 +66,30 @@ global.performanceMonitor = {
       isSlowTest: duration > threshold,
       timestamp: new Date().toISOString()
     };
-    
-    // Store in appropriate category
+
+    // Store in appropriate category with size limits (DEBUG-48 memory fix)
     if (testData.isCrisis) {
+      if (this.crisisMetrics.length >= MAX_METRICS_ENTRIES) {
+        this.crisisMetrics.shift(); // Remove oldest entry
+      }
       this.crisisMetrics.push(result);
-      
-      // Immediate feedback for crisis tests
+
+      // Immediate feedback for crisis tests (only violations, to reduce console spam)
       if (duration > this.thresholds.crisis) {
         console.error(`🚨 CRISIS PERFORMANCE VIOLATION: ${testName} - ${duration.toFixed(2)}ms > ${this.thresholds.crisis}ms`);
-      } else {
-        console.log(`✅ Crisis test performance OK: ${testName} - ${duration.toFixed(2)}ms`);
       }
     }
-    
+
     if (testData.isClinical) {
+      if (this.clinicalMetrics.length >= MAX_METRICS_ENTRIES) {
+        this.clinicalMetrics.shift(); // Remove oldest entry
+      }
       this.clinicalMetrics.push(result);
     }
-    
+
     // Clean up
     this.testMetrics.delete(testName);
-    
+
     return result;
   },
   
@@ -115,12 +122,19 @@ global.performanceMonitor = {
 };
 
 // Memory monitoring for performance tests
+// MEMORY FIX: Limited measurements array to prevent unbounded growth (DEBUG-48)
+const MAX_MEMORY_MEASUREMENTS = 100;
+
 global.memoryMonitor = {
   measurements: [],
-  
+
   // Record memory usage
   record(label = 'test') {
     if (typeof process !== 'undefined' && process.memoryUsage) {
+      // Limit array size to prevent memory leak (DEBUG-48)
+      if (this.measurements.length >= MAX_MEMORY_MEASUREMENTS) {
+        this.measurements.shift();
+      }
       const usage = process.memoryUsage();
       this.measurements.push({
         label,
@@ -132,21 +146,21 @@ global.memoryMonitor = {
       });
     }
   },
-  
+
   // Get memory delta between two points
   getDelta(startLabel, endLabel) {
     const start = this.measurements.find(m => m.label === startLabel);
     const end = this.measurements.find(m => m.label === endLabel);
-    
+
     if (!start || !end) return null;
-    
+
     return {
       heapUsedDelta: end.heapUsed - start.heapUsed,
       heapTotalDelta: end.heapTotal - start.heapTotal,
       timeDelta: end.timestamp - start.timestamp
     };
   },
-  
+
   // Clear measurements
   clear() {
     this.measurements = [];
@@ -212,37 +226,22 @@ global.perfUtils = {
   }
 };
 
-// Automatic performance monitoring hooks
-const originalBeforeEach = global.beforeEach;
-const originalAfterEach = global.afterEach;
+/**
+ * MEMORY FIX (DEBUG-48): Removed global beforeEach/afterEach wrapping
+ *
+ * The previous implementation wrapped ALL beforeEach/afterEach calls globally,
+ * which created additional closures and memory overhead for every test.
+ * This contributed to the heap exhaustion crash.
+ *
+ * Instead, performance monitoring is now opt-in via perfUtils functions.
+ * Tests that need performance monitoring should use:
+ *   - global.perfUtils.measureAsync(fn, label)
+ *   - global.perfUtils.measureSync(fn, label)
+ *
+ * The automatic monitoring hooks have been removed to prevent memory issues.
+ */
 
-global.beforeEach = function(fn) {
-  return originalBeforeEach(() => {
-    const testName = expect.getState().currentTestName;
-    if (testName) {
-      global.performanceMonitor.startTest(testName);
-      global.memoryMonitor.record(`${testName}-start`);
-    }
-    
-    if (fn) return fn();
-  });
-};
-
-global.afterEach = function(fn) {
-  return originalAfterEach(() => {
-    const testName = expect.getState().currentTestName;
-    if (testName) {
-      global.memoryMonitor.record(`${testName}-end`);
-      const perfResult = global.performanceMonitor.endTest(testName);
-      
-      // Store performance result for potential use in test
-      if (perfResult) {
-        global.lastTestPerformance = perfResult;
-      }
-    }
-    
-    if (fn) return fn();
-  });
-};
-
-console.log('🔍 Performance monitoring enabled for local testing');
+// Only log in development mode
+if (process.env.NODE_ENV !== 'test' || process.env.JEST_VERBOSE) {
+  console.log('🔍 Performance monitoring available (opt-in via perfUtils)');
+}

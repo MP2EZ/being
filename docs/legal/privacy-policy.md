@@ -1,8 +1,8 @@
 # Privacy Policy
 
-**Version:** 1.0
+**Version:** 1.1
 **Effective Date:** December 12, 2025
-**Last Updated:** December 12, 2025
+**Last Updated:** December 26, 2025
 
 ---
 
@@ -13,6 +13,8 @@
 3. [How We Use Your Information](#3-how-we-use-your-information)
 4. [Data Storage & Security](#4-data-storage--security)
 5. [Data Sharing & Third Parties](#5-data-sharing--third-parties)
+   - [5.1 Service Providers](#51-service-providers)
+   - [5.2 Analytics](#52-analytics)
 6. [Your Privacy Rights](#6-your-privacy-rights)
 7. [Data Retention](#7-data-retention)
 8. [Children's Privacy](#8-childrens-privacy)
@@ -111,12 +113,43 @@ You may optionally enable encrypted cloud backup to sync data across devices. Cl
 We use the following third-party service providers to operate our Services:
 
 - **[Supabase](https://supabase.com/privacy):** Database, authentication, and cloud storage (SOC 2 Type II certified, US data region). If you enable optional cloud backup, your encrypted data is stored on Supabase infrastructure.
+- **[PostHog](https://posthog.com/privacy):** Product analytics (EU data residency, Frankfurt). See Section 5.2 for details.
 - **Expo:** Mobile app framework and over-the-air updates (anonymized crash reports only)
 - **Apple/Google:** App distribution and in-app purchases (no health data shared)
 
 All service providers are contractually bound to protect your data and may only use it to provide services to us.
 
 > **No Advertising Partners:** We do not share data with advertising networks, data brokers, or marketing platforms. Ever.
+
+### 5.2 Analytics
+
+Being uses PostHog (EU data residency) to collect anonymous product analytics. **Analytics is disabled by default and requires your explicit opt-in.**
+
+**What We Collect (when opted in):**
+
+- Screen views and navigation patterns
+- Feature usage counts (e.g., "check-in completed")
+- App performance metrics
+- Session duration
+- Device type and OS version
+
+**What We NEVER Collect:**
+
+- Assessment scores (PHQ-9, GAD-7)
+- Mood check-in values or notes
+- Journal entries
+- Crisis contact information
+- Any mental health data
+
+**Your Control:**
+
+- Analytics is **OFF by default**
+- Opt-in via Settings > Privacy > Analytics
+- Request deletion via Settings > Privacy > Delete Analytics Data
+
+**Data Residency:** EU (Frankfurt, Germany)
+
+**Third Party:** [PostHog Inc.](https://posthog.com/privacy)
 
 ---
 
@@ -138,10 +171,35 @@ To exercise these rights, email [privacy@being.fyi](mailto:privacy@being.fyi) or
 
 We retain your information as follows:
 
+### 7.1 General Wellness Data (90 Days)
+
+- **Daily Check-Ins:** Mood logs, mindfulness completions
+- **Principle Engagements:** Stoic practice progress tracking
+- **Non-Crisis Assessments:** PHQ-9 and GAD-7 results below crisis thresholds
+
+This data is automatically deleted after 90 days to minimize data collection while still enabling meaningful progress tracking.
+
+### 7.2 Crisis-Related Data (3 Years)
+
+For your safety and our liability protection, we retain crisis-related data for 3 years:
+
+- **High-Severity Assessments:** PHQ-9 scores ≥ 20, GAD-7 scores ≥ 15
+- **Suicidal Ideation Responses:** Any non-zero response to PHQ-9 question 9
+- **Crisis Intervention Records:** When you accessed 988 or emergency resources
+
+This extended retention ensures continuity of care information and protects both you and us in case of legal proceedings.
+
+### 7.3 Other Data
+
 - **Local Data:** Stored on your device until you delete the app or clear data
 - **Cloud Backup:** Retained until you delete your account or disable backup
 - **Account Deletion:** All data permanently deleted within 30 days
-- **Legal/Financial Records:** May be retained longer to comply with legal obligations
+- **Audit Logs:** 3 years (for security and compliance)
+- **Consent Records:** Retained indefinitely as proof of lawful data processing
+
+### 7.4 Your Right to Delete
+
+You can delete your data at any time in Settings, including crisis-related data. We will honor deletion requests within 30 days, though we may retain anonymized records for legal compliance.
 
 ---
 

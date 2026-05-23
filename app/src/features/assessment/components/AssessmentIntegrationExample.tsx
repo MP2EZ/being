@@ -3,7 +3,7 @@
  * 
  * DEMONSTRATES COMPLETE INTEGRATION:
  * - Crisis detection with <200ms response
- * - HIPAA compliance with consent management
+ * - Privacy compliance with consent management
  * - AES-256-GCM encryption for all data
  * - Real-time performance monitoring
  * - Error boundaries with crisis-safe fallbacks
@@ -17,6 +17,7 @@
 
 
 import { logSecurity, logPerformance, logError, LogCategory } from '@/core/services/logging';
+import { generateTimestampedId } from '@/core/utils/id';
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import {
   View,
@@ -42,7 +43,7 @@ import type {
   GAD7Result
 } from '@/features/assessment/types';
 
-interface HIPAAConsentStatus {
+interface DataProtectionConsentStatus {
   dataProcessingConsent: boolean;
   clinicalDataConsent: boolean;
   consentTimestamp: number;
@@ -62,8 +63,8 @@ interface DemoSettings {
 const AssessmentIntegrationExample: React.FC = () => {
   // Demo state
   const [isRunning, setIsRunning] = useState(false);
-  const [sessionId] = useState(() => `demo_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
-  const [consentStatus, setConsentStatus] = useState<HIPAAConsentStatus>({
+  const [sessionId] = useState(() => generateTimestampedId('demo'));
+  const [consentStatus, setConsentStatus] = useState<DataProtectionConsentStatus>({
     dataProcessingConsent: true,
     clinicalDataConsent: true,
     consentTimestamp: Date.now(),
@@ -155,7 +156,7 @@ const AssessmentIntegrationExample: React.FC = () => {
   const toggleConsent = useCallback((type: 'dataProcessing' | 'clinicalData') => {
     setConsentStatus(prev => ({
       ...prev,
-      [`${type}Consent`]: !prev[`${type}Consent` as keyof HIPAAConsentStatus],
+      [`${type}Consent`]: !prev[`${type}Consent` as keyof DataProtectionConsentStatus],
       consentTimestamp: Date.now(),
     }));
   }, []);
@@ -238,9 +239,9 @@ const AssessmentIntegrationExample: React.FC = () => {
           </View>
         )}
 
-        {/* HIPAA Compliance Status */}
+        {/* Privacy Compliance Status */}
         <View style={styles.complianceSection}>
-          <Text style={styles.sectionTitle}>🛡️ HIPAA Compliance</Text>
+          <Text style={styles.sectionTitle}>🛡️ Privacy Compliance</Text>
           <View style={styles.complianceGrid}>
             <View style={styles.complianceItem}>
               <Text style={styles.complianceLabel}>Data Processing</Text>

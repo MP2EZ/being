@@ -21,6 +21,35 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 
+/**
+ * Extract the authenticated user's id from the request's Authorization header.
+ *
+ * The function's verify_jwt=true config means Supabase's gateway has already
+ * cryptographically verified this JWT against the project's auth secret
+ * before invoking us. We just decode the payload and read `sub`. No
+ * additional signature verification is needed — and crucially, no
+ * userId-from-body trust is needed either.
+ *
+ * Closes SEC-VERIFY-RECEIPT-ANON: the prior contract trusted a userId field
+ * in the request body, which any caller holding the project's public key
+ * could forge.
+ */
+function getAuthUidFromRequest(req: Request): string {
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader?.startsWith('Bearer ')) {
+    throw new Error('Missing or malformed Authorization header');
+  }
+  const jwt = authHeader.slice('Bearer '.length);
+  const [, payloadB64] = jwt.split('.');
+  if (!payloadB64) throw new Error('Malformed JWT: missing payload segment');
+  const padded = payloadB64.replace(/-/g, '+').replace(/_/g, '/');
+  const payload = JSON.parse(atob(padded));
+  if (typeof payload.sub !== 'string' || !payload.sub) {
+    throw new Error('JWT missing or invalid sub claim');
+  }
+  return payload.sub;
+}
+
 // Apple receipt verification endpoints
 const APPLE_PRODUCTION_URL = 'https://buy.itunes.apple.com/verifyReceipt';
 const APPLE_SANDBOX_URL = 'https://sandbox.itunes.apple.com/verifyReceipt';
@@ -34,7 +63,6 @@ const APPLE_STATUS = {
 
 interface AppleReceiptRequest {
   receiptData: string;
-  userId: string;
   productId?: string;
 }
 
@@ -241,23 +269,37 @@ serve(async (req) => {
       );
     }
 
+    // Extract user identity from the gateway-verified JWT. The userId field
+    // formerly in the request body was forgeable by any caller holding the
+    // project's public key; auth.uid() is cryptographically tied to the
+    // signed-in user's session.
+    let authUid: string;
+    try {
+      authUid = getAuthUidFromRequest(req);
+    } catch (err) {
+      return new Response(
+        JSON.stringify({ error: err instanceof Error ? err.message : 'Unauthorized' }),
+        { status: 401, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Parse request body
     const body: AppleReceiptRequest = await req.json();
-    const { receiptData, userId } = body;
+    const { receiptData } = body;
 
-    if (!receiptData || !userId) {
+    if (!receiptData) {
       return new Response(
-        JSON.stringify({ error: 'Missing required fields: receiptData, userId' }),
+        JSON.stringify({ error: 'Missing required field: receiptData' }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
       );
     }
 
-    // Initialize Supabase client
+    // Initialize Supabase client (service role for DB writes; bypasses RLS).
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    console.log('[Apple Receipt Verification] Starting verification for user:', userId);
+    console.log('[Apple Receipt Verification] Starting verification for user:', authUid);
 
     // MOCK MODE: Handle mock receipts for local development
     if (receiptData.startsWith('mock_receipt_')) {
@@ -309,7 +351,7 @@ serve(async (req) => {
 
       // Log failed verification
       await supabase.rpc('log_subscription_event', {
-        p_user_id: userId,
+        p_user_id: authUid,
         p_subscription_id: null,
         p_event_type: 'receipt_verification_failed',
         p_metadata: {
@@ -333,7 +375,7 @@ serve(async (req) => {
 
     if (verification.valid) {
       // Update subscription in database
-      await updateSubscription(supabase, userId, verification, receiptData);
+      await updateSubscription(supabase, authUid, verification, receiptData);
 
       console.log('[Apple Receipt Verification] Success:', verification.subscriptionId);
 
@@ -346,7 +388,7 @@ serve(async (req) => {
 
       // Log failed verification
       await supabase.rpc('log_subscription_event', {
-        p_user_id: userId,
+        p_user_id: authUid,
         p_subscription_id: null,
         p_event_type: 'receipt_verification_failed',
         p_metadata: {

@@ -16,6 +16,7 @@
  */
 
 import { logSecurity, logPerformance, logError, LogCategory } from '../logging';
+import { generateTimestampedId } from '@/core/utils/id';
 import { resilienceOrchestrator, ProtectedService, CircuitBreakerState } from '../resilience';
 import performanceService from '../performance';
 
@@ -465,7 +466,7 @@ export class CrisisMonitoringService {
    */
   private async generateAlert(alertData: Partial<CrisisAlert>): Promise<void> {
     const alert: CrisisAlert = {
-      id: `alert_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      id: generateTimestampedId('alert'),
       timestamp: Date.now(),
       severity: alertData.severity || 'medium',
       type: alertData.type || 'infrastructure',

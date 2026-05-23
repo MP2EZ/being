@@ -1,12 +1,12 @@
 /**
- * Onboarding Screen - HIPAA Compliant Implementation
+ * Onboarding Screen - Privacy Compliant Implementation
  * 7-screen onboarding flow with comprehensive privacy protection
  * Provides user consent, privacy settings, and crisis resources
  * Crisis button integration on every screen (<3s access)
  *
  * COMPLIANCE FEATURES:
  * - PHI data classification and protection
- * - Granular HIPAA consent management
+ * - Granular Privacy consent management
  * - Data minimization validation
  * - Comprehensive audit trail logging
  * - Patient rights implementation (access, amendment, restriction, portability)
@@ -16,7 +16,8 @@
 
 
 import { logSecurity, logPerformance, logError, LogCategory } from '@/core/services/logging';
-import React, { useState, useRef, useEffect } from 'react';
+import { generateTimestampedId } from '@/core/utils/id';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -29,9 +30,10 @@ import {
   Platform,
   Image,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
+import { useAnalytics } from '@/core/analytics';
 import NotificationTimePicker from '@/core/components/NotificationTimePicker';
 import CollapsibleCrisisButton from '@/features/crisis/components/CollapsibleCrisisButton';
 import BrainIcon from '@/core/components/shared/BrainIcon';
@@ -82,14 +84,14 @@ const ACCESSIBILITY = {
 // NOTE: PHQ9_QUESTIONS and GAD7_QUESTIONS now imported from shared assessment types
 // This eliminates duplication and ensures clinical accuracy across the app
 
-// Therapeutic Values (15 evidence-based values) with HIPAA compliance
+// Therapeutic Values (15 evidence-based values) with Privacy compliance
 
 // TypeScript strict mode interfaces and types
 type Screen = 'welcome' | 'stoicIntro' | 'notifications' | 'privacy' | 'celebration';
 
-// HIPAA COMPLIANCE TYPES
-// PHI Data Classification - 45 CFR 164.514
-type PHIClassification = 'assessment_response' | 'therapeutic_preference' | 'crisis_data' | 'consent_record' | 'metadata';
+// Privacy COMPLIANCE TYPES
+// PHI Data Classification
+type DataSensitivityLevel = 'assessment_response' | 'therapeutic_preference' | 'crisis_data' | 'consent_record' | 'metadata';
 type DataProcessingPurpose = 'treatment' | 'payment' | 'operations' | 'emergency';
 type PatientRightType = 'access' | 'amendment' | 'restriction' | 'portability' | 'revocation';
 type ConsentScope = 'assessment_data' | 'therapeutic_data' | 'crisis_intervention' | 'data_analytics' | 'emergency_contact';
@@ -107,7 +109,7 @@ interface NotificationTime {
   period: 'morning' | 'midday' | 'evening';
   time: string;
   enabled: boolean;
-  // HIPAA: Non-PHI preference data
+  // Privacy: Non-PHI preference data
   dataMinimization: DataMinimizationStatus;
   retentionPeriod: RetentionPeriod;
 }
@@ -115,9 +117,9 @@ interface NotificationTime {
 
 // NOTE: Question and Answer interfaces removed - assessments now handled by EnhancedAssessmentFlow
 
-// HIPAA COMPLIANCE INTERFACES
-// Comprehensive consent management - 45 CFR 164.508
-interface HIPAAConsent {
+// Privacy COMPLIANCE INTERFACES
+// Comprehensive consent management
+interface DataProtectionConsent {
   consentId: string;
   scope: ConsentScope[];
   purposes: DataProcessingPurpose[];
@@ -130,13 +132,13 @@ interface HIPAAConsent {
   witnessSignature?: string; // For high-risk consents
 }
 
-// Audit trail for PHI access - 45 CFR 164.312(b)
+// Audit trail for PHI access
 interface AuditEntry {
   auditId: string;
   eventType: AuditEventType;
   timestamp: number;
   userId?: string | undefined;
-  phiClassification: PHIClassification;
+  sensitivityLevel: DataSensitivityLevel;
   dataAccessed: string; // Description of data accessed
   component: DataProcessingComponent;
   riskLevel: ComplianceRisk;
@@ -144,7 +146,7 @@ interface AuditEntry {
   reason?: string | undefined; // For failures or blocks
 }
 
-// Patient rights implementation - 45 CFR 164.524-528
+// Patient rights implementation
 interface PatientRightsRequest {
   requestId: string;
   rightType: PatientRightType;
@@ -156,12 +158,12 @@ interface PatientRightsRequest {
   responseDate?: number;
 }
 
-// Data minimization compliance - 45 CFR 164.514(d)
+// Data minimization compliance
 interface DataMinimizationReport {
   reportId: string;
   timestamp: number;
   dataCollected: {
-    classification: PHIClassification;
+    classification: DataSensitivityLevel;
     status: DataMinimizationStatus;
     justification: string;
     retentionPeriod: RetentionPeriod;
@@ -174,19 +176,19 @@ interface DataMinimizationReport {
 interface BusinessAssociateActivity {
   activityId: string;
   component: DataProcessingComponent;
-  phiProcessed: PHIClassification[];
+  phiProcessed: DataSensitivityLevel[];
   timestamp: number;
   riskAssessment: ComplianceRisk;
   safeguardsApplied: string[];
   breachRisk: ComplianceRisk;
 }
 
-// Breach notification tracking - 45 CFR 164.400-414
+// Breach notification tracking
 interface BreachIncident {
   incidentId: string;
   detectedAt: number;
   riskLevel: ComplianceRisk;
-  phiAffected: PHIClassification[];
+  phiAffected: DataSensitivityLevel[];
   estimatedRecords: number;
   mitigationSteps: string[];
   notificationRequired: boolean;
@@ -206,7 +208,7 @@ interface CrisisDetectionResult {
   isCrisis: boolean;
   reason: 'phq_total' | 'gad_total' | 'suicidal_ideation' | 'none';
   score?: number;
-  // HIPAA: Crisis events require special audit trail
+  // Privacy: Crisis events require special audit trail
   emergencyOverride: boolean; // Crisis can override privacy restrictions
   auditRequired: boolean;
 }
@@ -288,6 +290,12 @@ const CONSENT_DETAILS = {
 
 const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbedded = false }) => {
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
+  const {
+    trackScreenView,
+    trackOnboardingStarted,
+    trackOnboardingStepCompleted,
+    trackOnboardingCompleted,
+  } = useAnalytics();
 
   // Primary state (following ExercisesScreen pattern)
   const [currentScreen, setCurrentScreen] = useState<Screen>('welcome');
@@ -329,6 +337,17 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
   const primaryButtonRef = useRef<View>(null);
   const crisisButtonRef = useRef<View>(null);
   const currentQuestionRef = useRef<View>(null);
+
+  // Track screen view and onboarding start for analytics (FEAT-137)
+  useFocusEffect(
+    useCallback(() => {
+      trackScreenView('OnboardingScreen');
+      // Track onboarding started only on the welcome screen (first entry)
+      if (currentScreen === 'welcome') {
+        trackOnboardingStarted();
+      }
+    }, [trackScreenView, trackOnboardingStarted, currentScreen])
+  );
 
   // Screen reader detection and announcement management
   useEffect(() => {
@@ -391,7 +410,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
       AccessibilityInfo.announceForAccessibility(text);
     }
 
-    // Log accessibility interaction for HIPAA compliance
+    // Log accessibility interaction for Privacy compliance
     logAuditEvent(
       'phi_access',
       'metadata',
@@ -473,15 +492,15 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
     announceToScreenReader(progressText);
   };
 
-  // HIPAA COMPLIANCE STATE
-  // Granular consent management - 45 CFR 164.508
-  const [hipaaConsents, setHipaaConsents] = useState<HIPAAConsent[]>([]);
+  // Privacy COMPLIANCE STATE
+  // Granular consent management
+  const [hipaaConsents, setHipaaConsents] = useState<DataProtectionConsent[]>([]);
   const [consentScope, setConsentScope] = useState<ConsentScope[]>([]);
 
-  // Audit trail management - 45 CFR 164.312(b)
+  // Audit trail management
   const [auditTrail, setAuditTrail] = useState<AuditEntry[]>([]);
 
-  // Patient rights tracking - 45 CFR 164.524-528
+  // Patient rights tracking
   const [patientRightsRequests, setPatientRightsRequests] = useState<PatientRightsRequest[]>([]);
 
   // Data minimization compliance
@@ -490,7 +509,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
   // Business Associate Activities
   const [businessAssociateActivities, setBusinessAssociateActivities] = useState<BusinessAssociateActivity[]>([]);
 
-  // Breach incident tracking - 45 CFR 164.400-414
+  // Breach incident tracking
   const [breachIncidents, setBreachIncidents] = useState<BreachIncident[]>([]);
 
   // Compliance monitoring
@@ -516,11 +535,11 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
            times.every(t => ['morning', 'midday', 'evening'].includes(t.period));
   };
 
-  // HIPAA COMPLIANCE UTILITY FUNCTIONS
-  // Audit trail logging - 45 CFR 164.312(b)
+  // Privacy COMPLIANCE UTILITY FUNCTIONS
+  // Audit trail logging
   const logAuditEvent = (
     eventType: AuditEventType,
-    phiClassification: PHIClassification,
+    sensitivityLevel: DataSensitivityLevel,
     dataAccessed: string,
     component: DataProcessingComponent,
     riskLevel: ComplianceRisk = 'low',
@@ -528,10 +547,10 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
     reason?: string
   ): void => {
     const auditEntry: AuditEntry = {
-      auditId: `audit_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      auditId: generateTimestampedId('audit'),
       eventType,
       timestamp: Date.now(),
-      phiClassification,
+      sensitivityLevel,
       dataAccessed,
       component,
       riskLevel,
@@ -548,12 +567,12 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
 
     // Development logging for compliance monitoring
     if (__DEV__) {
-      console.log(`[HIPAA-Audit] ${eventType}:`, auditEntry);
+      console.log(`[Privacy-Audit] ${eventType}:`, auditEntry);
     }
   };
 
   // PHI data classification helper
-  const classifyPHI = (dataType: string): PHIClassification => {
+  const classifyPHI = (dataType: string): DataSensitivityLevel => {
     if (dataType.includes('phq9') || dataType.includes('gad7')) {
       return 'assessment_response';
     } else if (dataType.includes('crisis') || dataType.includes('emergency')) {
@@ -566,9 +585,9 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
     return 'metadata';
   };
 
-  // Data minimization validation - 45 CFR 164.514(d)
+  // Data minimization validation
   const validateDataMinimization = (
-    classification: PHIClassification,
+    classification: DataSensitivityLevel,
     purpose: DataProcessingPurpose,
     retentionPeriod: RetentionPeriod
   ): DataMinimizationStatus => {
@@ -596,13 +615,13 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
     return 'necessary';
   };
 
-  // Consent management - 45 CFR 164.508
-  const grantHIPAAConsent = (
+  // Consent management
+  const grantDataProtectionConsent = (
     scope: ConsentScope[],
     purposes: DataProcessingPurpose[]
   ): void => {
-    const consent: HIPAAConsent = {
-      consentId: `consent_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    const consent: DataProtectionConsent = {
+      consentId: generateTimestampedId('consent'),
       scope,
       purposes,
       granted: true,
@@ -629,13 +648,13 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
     }));
   };
 
-  // Patient rights implementation - 45 CFR 164.524-528
+  // Patient rights implementation
   const handlePatientRightsRequest = (
     rightType: PatientRightType,
     requestDetails: string
   ): void => {
     const request: PatientRightsRequest = {
-      requestId: `rights_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      requestId: generateTimestampedId('rights'),
       rightType,
       requestDate: Date.now(),
       status: 'pending',
@@ -658,12 +677,12 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
   // Business Associate Activity tracking
   const logBusinessAssociateActivity = (
     component: DataProcessingComponent,
-    phiProcessed: PHIClassification[],
+    phiProcessed: DataSensitivityLevel[],
     riskAssessment: ComplianceRisk,
     safeguardsApplied: string[]
   ): void => {
     const activity: BusinessAssociateActivity = {
-      activityId: `ba_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      activityId: generateTimestampedId('ba'),
       component,
       phiProcessed,
       timestamp: Date.now(),
@@ -675,14 +694,14 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
     setBusinessAssociateActivities(prev => [...prev, activity]);
   };
 
-  // Breach detection and notification - 45 CFR 164.400-414
+  // Breach detection and notification
   const detectPotentialBreach = (
-    phiAffected: PHIClassification[],
+    phiAffected: DataSensitivityLevel[],
     estimatedRecords: number,
     riskLevel: ComplianceRisk
   ): void => {
     const incident: BreachIncident = {
-      incidentId: `breach_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      incidentId: generateTimestampedId('breach'),
       detectedAt: Date.now(),
       riskLevel,
       phiAffected,
@@ -707,7 +726,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
 
     // In production, this would trigger immediate notification protocols
     if (__DEV__) {
-      logSecurity('[HIPAA-Breach] Potential breach detected:', 'critical', { incident });
+      logSecurity('[Privacy-Breach] Potential breach detected:', 'critical', { incident });
     }
   };
 
@@ -811,12 +830,14 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
                   // Modal already dismissed, continue to Stoic intro
                   setCurrentScreen('stoicIntro');
                   logStateChange('navigateNext:assessments->stoicIntro');
+                  trackOnboardingStepCompleted(1); // Track step completion (FEAT-137)
                   announceToScreenReader('Assessments complete. Learning about Stoic Mindfulness.');
                 },
                 onSkip: () => {
                   // Modal already dismissed, continue to Stoic intro
                   setCurrentScreen('stoicIntro');
                   logStateChange('navigateNext:gad7-skipped->stoicIntro');
+                  trackOnboardingStepCompleted(1); // Track step completion (FEAT-137)
                 },
               });
             }, 50);
@@ -833,11 +854,13 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
                   // Modal already dismissed, continue to Stoic intro
                   setCurrentScreen('stoicIntro');
                   logStateChange('navigateNext:gad7->stoicIntro');
+                  trackOnboardingStepCompleted(1); // Track step completion (FEAT-137)
                 },
                 onSkip: () => {
                   // Modal already dismissed, continue to Stoic intro
                   setCurrentScreen('stoicIntro');
                   logStateChange('navigateNext:assessments-skipped->stoicIntro');
+                  trackOnboardingStepCompleted(1); // Track step completion (FEAT-137)
                 },
               });
             }, 50);
@@ -851,6 +874,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
         // No validation needed - educational screen only
         setCurrentScreen('notifications');
         logStateChange('navigateNext:stoicIntro->notifications');
+        trackOnboardingStepCompleted(2); // Track step completion (FEAT-137)
 
         // Accessibility: Announce transition
         announceToScreenReader(screenTransitions.stoicIntro);
@@ -868,6 +892,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
         }
         setCurrentScreen('privacy');
         logStateChange('navigateNext:notifications->privacy');
+        trackOnboardingStepCompleted(3); // Track step completion (FEAT-137)
 
         // Accessibility: Announce transition
         announceToScreenReader(screenTransitions.notifications);
@@ -879,6 +904,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
         // ToS consent was already given in CombinedLegalGateScreen
         setCurrentScreen('celebration');
         logStateChange('navigateNext:privacy->celebration');
+        trackOnboardingStepCompleted(4); // Track step completion (FEAT-137)
 
         // Accessibility: Announce transition
         announceToScreenReader(screenTransitions.privacy);
@@ -888,6 +914,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
       case 'celebration':
         // Complete onboarding with state persistence
         logStateChange('navigateNext:celebration:complete', getStateDebugInfo());
+        trackOnboardingCompleted(); // Track onboarding completion (FEAT-137)
 
         // Accessibility: Announce completion
         announceToScreenReader(screenTransitions.celebration);
@@ -996,14 +1023,14 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
     logStateChange('handleTimePickerCancel', { period: showTimePicker });
   };
 
-  // Enhanced HIPAA consent handler with granular consent management
+  // Enhanced Privacy consent handler with granular consent management
   const handleConsentToggle = (): void => {
     const newConsent = !consentProvided;
     setConsentProvided(newConsent);
     logStateChange('handleConsentToggle', { consentProvided: newConsent });
 
     if (newConsent) {
-      // HIPAA: Grant comprehensive consent for onboarding data
+      // Privacy: Grant comprehensive consent for onboarding data
       const consentScopes: ConsentScope[] = [
         'assessment_data',
         'therapeutic_data',
@@ -1014,9 +1041,9 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
         'emergency'
       ];
 
-      grantHIPAAConsent(consentScopes, purposes);
+      grantDataProtectionConsent(consentScopes, purposes);
 
-      // HIPAA: Log Business Associate activity for consent
+      // Privacy: Log Business Associate activity for consent
       logBusinessAssociateActivity(
         'onboarding_screen',
         ['consent_record'],
@@ -1024,9 +1051,9 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
         ['granular_consent', 'revocation_rights', 'audit_logging', 'patient_rights']
       );
 
-      // HIPAA: Create data minimization report
+      // Privacy: Create data minimization report
       const minimizationReport: DataMinimizationReport = {
-        reportId: `report_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        reportId: generateTimestampedId('report'),
         timestamp: Date.now(),
         dataCollected: [
           {
@@ -1050,7 +1077,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
           {
             classification: 'consent_record',
             status: 'necessary',
-            justification: 'Consent records required for HIPAA compliance and legal protection',
+            justification: 'Consent records required for Privacy compliance and legal protection',
             retentionPeriod: '7_years'
           }
         ],
@@ -1066,7 +1093,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
       setDataMinimizationReport(minimizationReport);
 
     } else {
-      // HIPAA: Log consent revocation
+      // Privacy: Log consent revocation
       logAuditEvent(
         'consent_change',
         'consent_record',
@@ -1076,9 +1103,9 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
         'success'
       );
 
-      // HIPAA: Handle right to revocation - 45 CFR 164.508(b)(5)
+      // Privacy: Handle right to revocation
       const revocationRequest: PatientRightsRequest = {
-        requestId: `revoke_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        requestId: generateTimestampedId('revoke'),
         rightType: 'revocation',
         requestDate: Date.now(),
         status: 'pending',
@@ -1105,7 +1132,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
     navigateNext();
   };
 
-  // Development-only state inspector with HIPAA compliance monitoring
+  // Development-only state inspector with Privacy compliance monitoring
   const renderStateInspector = (): React.ReactElement | null => {
     if (!__DEV__) return null;
 
@@ -1114,7 +1141,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
     return (
       <View style={{ position: 'absolute', bottom: 50, right: 10, backgroundColor: 'rgba(0,0,0,0.9)', padding: 8, borderRadius: borderRadius.small, maxWidth: 300 }}>
         <Text style={{ color: 'white', fontSize: 10, fontWeight: 'bold' }}>
-          🏥 HIPAA COMPLIANCE MONITOR
+          🏥 Privacy COMPLIANCE MONITOR
         </Text>
         <Text style={{ color: 'white', fontSize: 9, marginTop: 4 }}>
           State: {currentScreen} | Progress: {getProgressPercentage()}%

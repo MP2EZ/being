@@ -10,14 +10,14 @@
  *
  * LIMITATIONS:
  * - Single user only (no multi-user data isolation)
- * - NOT HIPAA compliant (testing only)
+ * - NOT Privacy compliant (testing only)
  * - No production use
  *
  * V2 REQUIREMENTS (FEAT-57):
  * - Replace with real auth service (FEAT-16)
  * - Implement multi-user data isolation
  * - Add audit trail (INFRA-60)
- * - Full HIPAA compliance
+ * - Full Privacy compliance
  */
 
 /**

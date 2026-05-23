@@ -10,7 +10,7 @@
  *
  * COMPLIANCE:
  * - PCI DSS: N/A (Apple/Google handle payment data)
- * - HIPAA: Subscription metadata stored with encrypted health data
+ * - Privacy: Subscription metadata stored with encrypted health data
  * - Treat subscription status as PHI (correlation with mental health data)
  * - No payment data stored locally
  *
@@ -27,6 +27,7 @@
  */
 
 import { create } from 'zustand';
+import { generateInternalId } from '@/core/utils/id';
 import * as SecureStore from 'expo-secure-store';
 import {
   SubscriptionStore,
@@ -48,7 +49,7 @@ const SECURE_STORAGE_KEY = 'subscription_secure_v1';
  * Generate unique ID
  */
 function generateId(): string {
-  return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  return generateInternalId();
 }
 
 /**

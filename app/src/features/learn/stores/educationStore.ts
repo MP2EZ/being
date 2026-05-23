@@ -34,6 +34,12 @@ import type {
 const STORAGE_KEY = '@education:state';
 
 /**
+ * Insight tip IDs that can be dismissed
+ * FEAT-133: Principle Engagement Insights Enhancement
+ */
+export type InsightTipId = 'principle-engagement-beginner';
+
+/**
  * Default progress for a module
  */
 const createDefaultProgress = (): ModuleProgress => ({
@@ -58,13 +64,26 @@ const initializeModules = (): Record<ModuleId, ModuleProgress> => ({
 });
 
 /**
+ * Extended Education State with FEAT-133 additions
+ */
+interface ExtendedEducationState extends EducationState {
+  /** Permanently dismissed insight tips (FEAT-133) */
+  dismissedInsightTips: InsightTipId[];
+  /** Dismiss an insight tip permanently */
+  dismissInsightTip: (tipId: InsightTipId) => void;
+  /** Check if a tip is dismissed */
+  isInsightTipDismissed: (tipId: InsightTipId) => boolean;
+}
+
+/**
  * Education Store
  */
-export const useEducationStore = create<EducationState>((set, get) => ({
+export const useEducationStore = create<ExtendedEducationState>((set, get) => ({
   // Initial State
   modules: initializeModules(),
   currentModule: null,
   recommendedNext: 'aware-presence', // Default recommendation for new users
+  dismissedInsightTips: [], // FEAT-133: No tips dismissed by default
 
   // Actions
 
@@ -312,6 +331,30 @@ export const useEducationStore = create<EducationState>((set, get) => ({
   },
 
   /**
+   * Dismiss an insight tip permanently (FEAT-133)
+   */
+  dismissInsightTip: (tipId: InsightTipId) => {
+    set((state) => {
+      if (state.dismissedInsightTips.includes(tipId)) {
+        return state; // Already dismissed
+      }
+      return {
+        dismissedInsightTips: [...state.dismissedInsightTips, tipId],
+      };
+    });
+
+    // Persist to AsyncStorage
+    get().persistState();
+  },
+
+  /**
+   * Check if an insight tip is dismissed (FEAT-133)
+   */
+  isInsightTipDismissed: (tipId: InsightTipId): boolean => {
+    return get().dismissedInsightTips.includes(tipId);
+  },
+
+  /**
    * Persist state to AsyncStorage (encrypted)
    * Private method (not in interface)
    */
@@ -324,6 +367,7 @@ export const useEducationStore = create<EducationState>((set, get) => ({
         modules: state.modules,
         currentModule: state.currentModule,
         recommendedNext: state.recommendedNext,
+        dismissedInsightTips: state.dismissedInsightTips, // FEAT-133
         updatedAt: Date.now(),
       };
 
@@ -365,6 +409,7 @@ export const useEducationStore = create<EducationState>((set, get) => ({
         modules: parsed.modules,
         currentModule: parsed.currentModule,
         recommendedNext: parsed.recommendedNext,
+        dismissedInsightTips: parsed.dismissedInsightTips || [], // FEAT-133
       });
     } catch (error) {
       console.error('[EducationStore] Failed to load state:', error);

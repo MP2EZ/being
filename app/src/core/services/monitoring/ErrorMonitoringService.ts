@@ -16,12 +16,13 @@
  *
  * COMPLIANCE FEATURES:
  * - Zero PHI in error reports
- * - HIPAA-compliant error aggregation
+ * - Privacy-compliant error aggregation
  * - Privacy-preserving error classification
  * - Secure audit trail integration
  */
 
 import { logError, logSecurity, logCrisis, LogCategory } from '../logging';
+import { generateTimestampedId } from '@/core/utils/id';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Alert } from 'react-native';
 
@@ -232,7 +233,7 @@ export class ErrorMonitoringService {
       } else {
         // Create new error event
         const errorEvent: ErrorEvent = {
-          id: `error_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          id: generateTimestampedId('error'),
           timestamp: Date.now(),
           category,
           severity,

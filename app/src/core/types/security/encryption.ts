@@ -18,7 +18,7 @@
  * - Security monitoring: <5ms impact on operations
  */
 
-import { PHIClassification } from '../compliance/hipaa';
+import { DataSensitivityLevel } from '../compliance/data-protection';
 
 /**
  * Encryption Algorithm Types
@@ -93,7 +93,7 @@ export interface EncryptionKey {
   /** Allowed operations for this key */
   allowedOperations: KeyOperation[];
   /** Data types this key can encrypt */
-  allowedDataTypes: PHIClassification[];
+  allowedDataTypes: DataSensitivityLevel[];
   /** Key usage statistics */
   usageStats: KeyUsageStats;
   /** Access control for key operations */
@@ -235,7 +235,7 @@ export interface KeyAuditEntry {
  */
 export interface EncryptionContext {
   /** Data type being encrypted */
-  dataType: PHIClassification;
+  dataType: DataSensitivityLevel;
   /** Purpose of encryption */
   purpose: 'storage' | 'transit' | 'backup' | 'export' | 'sharing';
   /** User context */

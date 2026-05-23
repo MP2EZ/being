@@ -1,16 +1,12 @@
 /**
  * APP SETTINGS SCREEN
- * Configure app preferences: notifications, privacy, accessibility
+ * Configure app preferences: notifications, accessibility, and app info
  *
- * PRIVACY:
- * - Privacy-first defaults (analytics opt-out)
- * - Non-sensitive settings → AsyncStorage (no encryption)
+ * NOTE: Privacy & Data settings have been moved to PrivacyDataScreen.tsx
  *
  * TODO (FEAT-6 Open Questions):
  * - Notification scheduling integration (expo-notifications?)
- * - Analytics integration point
  * - Global accessibility feature control
- * - HIPAA compliance validation for privacy settings
  *
  * ACCESSIBILITY:
  * - WCAG AA compliant
@@ -18,7 +14,7 @@
  * - Clear section organization
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -30,10 +26,11 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { useSettingsStore } from '@/core/stores/settingsStore';
-import { useConsentStore } from '@/core/stores/consentStore';
-import { ConsentManagementScreen } from '@/features/consent';
+import { useAnalytics } from '@/core/analytics';
 import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
+import SubMenuHeader from '../components/SubMenuHeader';
 
 interface AppSettingsScreenProps {
   onReturn: () => void;
@@ -41,18 +38,24 @@ interface AppSettingsScreenProps {
 
 const AppSettingsScreen: React.FC<AppSettingsScreenProps> = ({ onReturn }) => {
   const settingsStore = useSettingsStore();
-  const { loadConsent, currentConsent } = useConsentStore();
+  const { trackScreenView, trackSettingsOpened } = useAnalytics();
   const [isSaving, setIsSaving] = useState(false);
-  const [showConsentScreen, setShowConsentScreen] = useState(false);
 
-  // Load settings and consent on mount
+  // Track screen view and settings opened for analytics
+  useFocusEffect(
+    useCallback(() => {
+      trackScreenView('AppSettingsScreen');
+      trackSettingsOpened();
+    }, [trackScreenView, trackSettingsOpened])
+  );
+
+  // Load settings on mount
   useEffect(() => {
     settingsStore.loadSettings();
-    loadConsent();
-  }, [loadConsent]);
+  }, []);
 
   const handleToggleSetting = async (
-    category: 'notifications' | 'privacy' | 'accessibility',
+    category: 'notifications' | 'accessibility',
     key: string,
     value: boolean | string
   ) => {
@@ -60,8 +63,6 @@ const AppSettingsScreen: React.FC<AppSettingsScreenProps> = ({ onReturn }) => {
     try {
       if (category === 'notifications') {
         await settingsStore.updateNotificationSettings({ [key]: value });
-      } else if (category === 'privacy') {
-        await settingsStore.updatePrivacySettings({ [key]: value });
       } else if (category === 'accessibility') {
         await settingsStore.updateAccessibilitySettings({ [key]: value });
       }
@@ -119,8 +120,8 @@ const AppSettingsScreen: React.FC<AppSettingsScreenProps> = ({ onReturn }) => {
       <SafeAreaView style={styles.container}>
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>Failed to load settings</Text>
-          <Pressable style={styles.primaryButton} onPress={() => settingsStore.loadSettings()}>
-            <Text style={styles.primaryButtonText}>Retry</Text>
+          <Pressable style={styles.retryButton} onPress={() => settingsStore.loadSettings()}>
+            <Text style={styles.retryButtonText}>Retry</Text>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -130,27 +131,10 @@ const AppSettingsScreen: React.FC<AppSettingsScreenProps> = ({ onReturn }) => {
   const settings = settingsStore.settings;
   if (!settings) return null;
 
-  // Render consent management screen if selected
-  if (showConsentScreen) {
-    return (
-      <ConsentManagementScreen
-        mode="settings"
-        onComplete={() => setShowConsentScreen(false)}
-      />
-    );
-  }
-
   return (
     <SafeAreaView style={styles.container}>
+      <SubMenuHeader title="App Settings" onClose={onReturn} />
       <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.title}>App Settings</Text>
-          <Text style={styles.subtitle}>
-            Manage notifications, privacy, and accessibility preferences
-          </Text>
-        </View>
-
         {/* Notifications Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Notifications</Text>
@@ -217,63 +201,6 @@ const AppSettingsScreen: React.FC<AppSettingsScreenProps> = ({ onReturn }) => {
               📝 Note: Notification scheduling will be integrated in a future update. Your preferences are saved.
             </Text>
           </View>
-        </View>
-
-        {/* Privacy Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Privacy & Data</Text>
-          <Text style={styles.sectionDescription}>
-            Control how your data is used (privacy-first by default)
-          </Text>
-
-          <View style={styles.settingCard}>
-            <View style={styles.settingRow}>
-              <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>Anonymous Usage Analytics</Text>
-                <Text style={styles.settingDescription}>
-                  Help improve Being. by sharing anonymous usage data (NO personal or health information)
-                </Text>
-              </View>
-              <Switch
-                value={settings.privacy.analyticsEnabled}
-                onValueChange={(value) => handleToggleSetting('privacy', 'analyticsEnabled', value)}
-                trackColor={{ false: colorSystem.gray[300], true: colorSystem.base.midnightBlue }}
-                thumbColor={colorSystem.base.white}
-                disabled={isSaving}
-              />
-            </View>
-          </View>
-
-          <View style={styles.infoBox}>
-            <Text style={styles.infoText}>
-              Your check-in responses, therapeutic values, and health data are NEVER shared. Analytics are limited to app usage patterns only.
-            </Text>
-          </View>
-
-          {/* Manage Consent Preferences Button */}
-          <Pressable
-            style={styles.consentButton}
-            onPress={() => setShowConsentScreen(true)}
-            accessibilityRole="button"
-            accessibilityLabel="Manage consent preferences"
-            accessibilityHint="Opens detailed privacy consent settings"
-          >
-            <View style={styles.consentButtonContent}>
-              <View style={styles.consentButtonInfo}>
-                <Text style={styles.consentButtonLabel}>Manage Consent Preferences</Text>
-                <Text style={styles.consentButtonDescription}>
-                  Control analytics, crash reports, cloud sync, and research participation
-                </Text>
-              </View>
-              <Text style={styles.consentButtonArrow}>→</Text>
-            </View>
-          </Pressable>
-
-          {currentConsent && (
-            <Text style={styles.consentLastUpdated}>
-              Last updated: {new Date(currentConsent.updatedAt).toLocaleDateString()}
-            </Text>
-          )}
         </View>
 
         {/* Accessibility Section */}
@@ -366,7 +293,7 @@ const AppSettingsScreen: React.FC<AppSettingsScreenProps> = ({ onReturn }) => {
           </View>
         </View>
 
-        {/* Action Buttons */}
+        {/* Reset Button */}
         <View style={styles.actionContainer}>
           <Pressable
             style={[styles.dangerButton, isSaving && styles.buttonDisabled]}
@@ -374,10 +301,6 @@ const AppSettingsScreen: React.FC<AppSettingsScreenProps> = ({ onReturn }) => {
             disabled={isSaving}
           >
             <Text style={styles.dangerButtonText}>Reset to Defaults</Text>
-          </Pressable>
-
-          <Pressable style={styles.primaryButton} onPress={onReturn}>
-            <Text style={styles.primaryButtonText}>Return to Profile</Text>
           </Pressable>
         </View>
       </ScrollView>
@@ -396,24 +319,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: spacing[24],
     paddingBottom: spacing[32],
-  },
-  header: {
-    marginBottom: spacing[32],
-    alignItems: 'center',
-  },
-  title: {
-    fontSize: typography.headline2.size,
-    fontWeight: typography.fontWeight.bold,
-    color: colorSystem.base.black,
-    marginBottom: spacing[8],
-    textAlign: 'center',
-  },
-  subtitle: {
-    fontSize: typography.bodyLarge.size,
-    fontWeight: typography.fontWeight.regular,
-    color: colorSystem.gray[600],
-    textAlign: 'center',
-    lineHeight: 24,
   },
   loadingContainer: {
     flex: 1,
@@ -438,6 +343,18 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.regular,
     color: '#EF4444',
     marginBottom: spacing[24],
+  },
+  retryButton: {
+    backgroundColor: colorSystem.base.midnightBlue,
+    paddingVertical: spacing[12],
+    paddingHorizontal: spacing[24],
+    borderRadius: borderRadius.medium,
+    alignItems: 'center',
+  },
+  retryButtonText: {
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.semibold,
+    color: colorSystem.base.white,
   },
   section: {
     marginBottom: spacing[32],
@@ -547,19 +464,6 @@ const styles = StyleSheet.create({
   actionContainer: {
     marginTop: spacing[24],
   },
-  primaryButton: {
-    backgroundColor: colorSystem.base.midnightBlue,
-    paddingVertical: spacing[16],
-    paddingHorizontal: spacing[32],
-    borderRadius: borderRadius.large,
-    alignItems: 'center',
-    marginBottom: spacing[16],
-  },
-  primaryButtonText: {
-    fontSize: typography.bodyLarge.size,
-    fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.white,
-  },
   dangerButton: {
     backgroundColor: colorSystem.base.white,
     paddingVertical: spacing[16],
@@ -577,48 +481,6 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.5,
-  },
-  consentButton: {
-    backgroundColor: colorSystem.base.white,
-    borderRadius: borderRadius.large,
-    padding: spacing[24],
-    marginTop: spacing[16],
-    borderWidth: 2,
-    borderColor: colorSystem.base.midnightBlue,
-    minHeight: 56,
-  },
-  consentButtonContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  consentButtonInfo: {
-    flex: 1,
-    marginRight: spacing[16],
-  },
-  consentButtonLabel: {
-    fontSize: typography.bodyRegular.size,
-    fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.midnightBlue,
-    marginBottom: spacing[8],
-  },
-  consentButtonDescription: {
-    fontSize: typography.bodySmall.size,
-    fontWeight: typography.fontWeight.regular,
-    color: colorSystem.gray[600],
-    lineHeight: 20,
-  },
-  consentButtonArrow: {
-    fontSize: typography.title.size,
-    fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.midnightBlue,
-  },
-  consentLastUpdated: {
-    fontSize: typography.bodySmall.size,
-    fontWeight: typography.fontWeight.regular,
-    color: colorSystem.gray[400],
-    textAlign: 'center',
-    marginTop: spacing[8],
   },
 });
 

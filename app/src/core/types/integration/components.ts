@@ -15,13 +15,13 @@
  * 
  * CONTEXT TYPES (Lines 238-297):
  * - CrisisComponentContext: Crisis-aware component state
- * - HIPAAComponentContext: HIPAA compliance requirements
+ * - PrivacyComponentContext: Privacy compliance requirements
  * - SecurityComponentContext: Security and authentication context
  * 
  * COMPONENT PROPS (Lines 299-458):
  * - CrisisButtonProps: Emergency contact and crisis intervention
  * - AssessmentComponentProps: PHQ-9/GAD-7 assessment components
- * - ConsentManagementProps: HIPAA consent handling
+ * - ConsentManagementProps: Privacy consent handling
  * - SecurityAuthProps: Authentication and biometric security
  * - MonitoringComponentProps: Performance and compliance monitoring
  * - PerformanceConstrainedProps: Performance-critical components
@@ -35,7 +35,7 @@
  * - Performance-constrained render cycles (<16ms for 60fps)
  * - Crisis-aware component state management
  * - Accessibility-compliant prop interfaces
- * - HIPAA-compliant data handling in components
+ * - Privacy-compliant data handling in components
  * - Real-time state synchronization types
  * 
  * PERFORMANCE CONSTRAINTS:
@@ -55,11 +55,11 @@ import {
   CrisisResource 
 } from '@/features/crisis/types/safety';
 import { 
-  HIPAAConsent, 
+  DataProtectionConsent, 
   ConsentStatus, 
-  PHIClassification,
+  DataSensitivityLevel,
   DataProcessingPurpose 
-} from '../compliance/hipaa';
+} from '../compliance/data-protection';
 import { 
   AuthenticationSession, 
   SecurityEvent, 
@@ -93,8 +93,8 @@ export interface BaseComponentProps {
   performanceMonitoring?: boolean;
   /** Crisis context awareness */
   crisisContext?: CrisisComponentContext;
-  /** HIPAA compliance context */
-  hipaaContext?: HIPAAComponentContext;
+  /** Privacy compliance context */
+  privacyContext?: PrivacyComponentContext;
   /** Security context */
   securityContext?: SecurityComponentContext;
 }
@@ -149,7 +149,7 @@ export interface ComponentColorPalette {
     critical: string;
     emergency: string;
   };
-  /** HIPAA compliance colors */
+  /** Privacy compliance colors */
   compliance: {
     compliant: string;
     warning: string;
@@ -286,11 +286,11 @@ export interface CrisisComponentContext {
 }
 
 /**
- * HIPAA Component Context
+ * Privacy Component Context
  */
-export interface HIPAAComponentContext {
+export interface PrivacyComponentContext {
   /** PHI data types in component */
-  phiTypes: PHIClassification[];
+  phiTypes: DataSensitivityLevel[];
   /** Required consents for component */
   requiredConsents: ConsentStatus[];
   /** Data processing purposes */
@@ -394,13 +394,13 @@ export interface ConsentManagementProps extends BaseComponentProps {
   /** Required consent types */
   requiredConsents: ConsentStatus[];
   /** Current consent state */
-  currentConsents?: HIPAAConsent[];
+  currentConsents?: DataProtectionConsent[];
   /** PHI data types requiring consent */
-  phiTypes: PHIClassification[];
+  phiTypes: DataSensitivityLevel[];
   /** Data processing purposes */
   processingPurposes: DataProcessingPurpose[];
   /** Consent update handler */
-  onConsentUpdate: (consent: HIPAAConsent) => Promise<void>;
+  onConsentUpdate: (consent: DataProtectionConsent) => Promise<void>;
   /** Consent validation handler */
   onConsentValidation?: (isValid: boolean) => void;
   /** Emergency disclosure override */
@@ -503,12 +503,12 @@ export function isSecureComponent(props: BaseComponentProps): props is BaseCompo
 }
 
 /**
- * Check if component is HIPAA compliant
+ * Check if component is Privacy compliant
  */
 export function isCompliantComponent(props: BaseComponentProps): props is BaseComponentProps & {
-  hipaaContext: HIPAAComponentContext;
+  privacyContext: PrivacyComponentContext;
 } {
-  return props.hipaaContext !== undefined;
+  return props.privacyContext !== undefined;
 }
 
 /**

@@ -23,6 +23,7 @@
 
 
 import { logSecurity, logPerformance, logError, LogCategory } from '../logging';
+import { generateTimestampedId } from '@/core/utils/id';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Error categories
@@ -101,7 +102,7 @@ class CloudSyncErrorHandler {
     const originalError = error instanceof Error ? error : new Error(String(error));
 
     // Generate unique error ID
-    const errorId = `err_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const errorId = generateTimestampedId('err');
 
     // Categorize error
     const category = this.categorizeError(originalError);

@@ -22,6 +22,7 @@
 
 
 import { logSecurity, logPerformance, logError, LogCategory } from '@/core/services/logging';
+import { generateTimestampedId } from '@/core/utils/id';
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
 import { persist, createJSONStorage } from 'zustand/middleware';
@@ -227,7 +228,8 @@ class ClinicalScoringService {
 class CrisisDetectionService {
   static async detectCrisis(
     type: AssessmentType,
-    result: PHQ9Result | GAD7Result
+    result: PHQ9Result | GAD7Result,
+    assessmentId: string
   ): Promise<CrisisDetection | null> {
     const startTime = Date.now();
 
@@ -258,7 +260,7 @@ class CrisisDetectionService {
         primaryTrigger: triggerType,
         triggerValue,
         timestamp: Date.now(),
-        assessmentId: `${type}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+        assessmentId
       } as Partial<CrisisDetection> as CrisisDetection;
 
       // Validate response time (must be <200ms)
@@ -419,7 +421,7 @@ export const useAssessmentStore = create<AssessmentStore>()(
           set({ isLoading: true, error: null });
 
           try {
-            const sessionId = `${type}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            const sessionId = generateTimestampedId(type);
             const totalQuestions = type === 'phq9' ? 9 : 7;
 
             const session: AssessmentSession = {
@@ -528,10 +530,13 @@ export const useAssessmentStore = create<AssessmentStore>()(
               result = ClinicalScoringService.calculateGAD7Score(state.answers);
             }
 
-            // Check for crisis
+            // Check for crisis. Pass the active session id so handleCrisisDetection's
+            // per-session dedup can recognize this as the same session that may have
+            // already fired an inline (phq9_9) crisis alert during answering.
             const detection = await CrisisDetectionService.detectCrisis(
               state.currentSession.type,
-              result
+              result,
+              state.currentSession.id
             );
 
             // Complete session
@@ -550,12 +555,17 @@ export const useAssessmentStore = create<AssessmentStore>()(
             set({
               currentResult: result,
               completedAssessments: updatedHistory,
-              crisisDetection: detection,
               isLoading: false,
               hasRecoverableSession: false
             });
 
-            // Handle crisis if detected
+            // Handle crisis if detected. handleCrisisDetection is now the
+            // single writer of crisisDetection — it dedups against an inline
+            // detection from earlier in the same session (which carries the
+            // more specific 'phq9_suicidal_ideation' trigger and the real
+            // response value), so overwriting it here with the score-based
+            // detection would break the audit-trail invariant
+            // crisisIntervention.detection === crisisDetection.
             if (detection) {
               await get().handleCrisisDetection(detection);
             }
@@ -608,6 +618,22 @@ export const useAssessmentStore = create<AssessmentStore>()(
 
         // Crisis management
         handleCrisisDetection: async (detection: CrisisDetection) => {
+          const currentIntervention = get().crisisIntervention;
+          const alreadyTriggeredForSession =
+            currentIntervention?.interventionStarted === true &&
+            currentIntervention?.detection?.assessmentId === detection.assessmentId;
+
+          if (alreadyTriggeredForSession) {
+            // Dedup: the user has already seen the crisis support modal for this
+            // session (typically inline phq9_9 detection in answerQuestion). The
+            // first detection is also the more clinically specific one — inline
+            // catches 'phq9_suicidal_ideation' which we'd rather preserve than
+            // overwrite with completeAssessment's 'phq9_moderate_severe_score'.
+            // Re-firing Alert.alert here would also stack a second identical
+            // modal on top of the active one — user-hostile during an active crisis.
+            return;
+          }
+
           set({ crisisDetection: detection });
 
           const interventionTimestamp = Date.now();

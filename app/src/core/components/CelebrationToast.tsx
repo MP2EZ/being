@@ -36,6 +36,15 @@ export interface CelebrationToastProps {
   duration: number;
   streak: number;
   onComplete: () => void;
+  /** Optional enhancement content for the toast */
+  enhancement?: {
+    /** Primary message (e.g., principle restatement or action reinforcement) */
+    message?: string;
+    /** Secondary text (e.g., quote or reminder) */
+    subtext?: string;
+    /** Attribution for quote (e.g., "— Marcus Aurelius") */
+    attribution?: string;
+  } | undefined;
 }
 
 const FLOW_CONFIG = {
@@ -62,6 +71,7 @@ export const CelebrationToast: React.FC<CelebrationToastProps> = ({
   duration,
   streak,
   onComplete,
+  enhancement,
 }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const config = FLOW_CONFIG[flowType];
@@ -138,6 +148,23 @@ export const CelebrationToast: React.FC<CelebrationToastProps> = ({
                 {config.title}
               </Text>
 
+              {/* Enhancement Content (optional) */}
+              {enhancement?.message && (
+                <Text style={[styles.enhancementMessage, { color: config.color }]}>
+                  {enhancement.message}
+                </Text>
+              )}
+              {enhancement?.subtext && (
+                <Text style={styles.enhancementSubtext}>
+                  "{enhancement.subtext}"
+                </Text>
+              )}
+              {enhancement?.attribution && (
+                <Text style={styles.enhancementAttribution}>
+                  {enhancement.attribution}
+                </Text>
+              )}
+
               {/* Stats */}
               <Text style={styles.stats}>
                 {screenCount} practices • {duration}m • Day {streak}
@@ -184,5 +211,26 @@ const styles = StyleSheet.create({
     fontSize: typography.bodySmall.size,
     color: '#666',
     textAlign: 'center',
+  },
+  enhancementMessage: {
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.medium,
+    textAlign: 'center',
+    marginBottom: spacing[8],
+    paddingHorizontal: spacing[8],
+  },
+  enhancementSubtext: {
+    fontSize: typography.bodySmall.size,
+    fontStyle: 'italic',
+    color: '#555',
+    textAlign: 'center',
+    marginBottom: spacing[4],
+    paddingHorizontal: spacing[8],
+  },
+  enhancementAttribution: {
+    fontSize: typography.caption.size,
+    color: '#777',
+    textAlign: 'center',
+    marginBottom: spacing[12],
   },
 });

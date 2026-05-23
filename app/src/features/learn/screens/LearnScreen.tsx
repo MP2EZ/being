@@ -10,7 +10,7 @@
  * - Module 3 (Sphere Sovereignty) emphasized as MOST ESSENTIAL
  */
 
-import React from 'react';
+import React, { useCallback } from 'react';
 import {
   View,
   Text,
@@ -19,7 +19,8 @@ import {
   StyleSheet,
   SafeAreaView,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useAnalytics } from '@/core/analytics';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 import { CollapsibleCrisisButton } from '@/features/crisis/components';
@@ -73,10 +74,20 @@ const MODULE_INFO: Record<
 const LearnScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
   const { modules, getRecommendedModule } = useEducationStore();
+  const { trackScreenView, trackLearnModuleStarted } = useAnalytics();
+
+  // Track screen view for analytics (FEAT-137)
+  useFocusEffect(
+    useCallback(() => {
+      trackScreenView('LearnScreen');
+    }, [trackScreenView])
+  );
 
   const recommendedModuleId = getRecommendedModule();
 
   const handleModulePress = (moduleId: ModuleId) => {
+    // Track module start for analytics (FEAT-137)
+    trackLearnModuleStarted(moduleId);
     // Navigate to ModuleDetailScreen
     navigation.navigate('ModuleDetail', { moduleId });
   };

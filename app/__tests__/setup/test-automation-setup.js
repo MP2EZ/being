@@ -157,7 +157,10 @@ const safetyValidator = {
   },
   
   validateAssessmentAccuracy: (phqScore, gadScore, expectedCrisis) => {
-    const actualCrisis = phqScore >= 20 || gadScore >= 15;
+    // Crisis threshold is >=15 for BOTH PHQ-9 and GAD-7 (per crisis.md
+    // and CRISIS_THRESHOLDS in app/src/features/assessment/types/index.ts).
+    // Previous code used PHQ-9 >= 20 — that's the SEVERE band, not crisis.
+    const actualCrisis = phqScore >= 15 || gadScore >= 15;
     if (actualCrisis !== expectedCrisis) {
       testMetrics.securityIssues++;
       throw new Error(`🏥 CLINICAL ACCURACY ERROR: PHQ-9=${phqScore}, GAD-7=${gadScore}, Expected Crisis=${expectedCrisis}, Actual=${actualCrisis}`);
@@ -216,7 +219,8 @@ expect.extend({
   },
   
   toHaveCorrectCrisisDetection(received, phqScore, gadScore) {
-    const expectedCrisis = phqScore >= 20 || gadScore >= 15;
+    // Crisis threshold: PHQ-9 >=15 (not 20 — that's severe), GAD-7 >=15.
+    const expectedCrisis = phqScore >= 15 || gadScore >= 15;
     const pass = received === expectedCrisis;
     
     if (!pass) {

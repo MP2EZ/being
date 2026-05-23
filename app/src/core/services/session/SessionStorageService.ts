@@ -5,7 +5,7 @@
  * Handles saving/loading/clearing session data with encryption and 24-hour TTL.
  *
  * FEATURES:
- * - AES-256-GCM encrypted storage for HIPAA compliance
+ * - AES-256-GCM encrypted storage for Privacy compliance
  * - Automatic 24-hour expiration to prevent guilt accumulation
  * - Type-safe session data handling
  * - Simple API for session management

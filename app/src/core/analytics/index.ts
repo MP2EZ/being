@@ -1,27 +1,21 @@
 /**
-
- * ANALYTICS SERVICES INDEX - Week 3 Privacy-Preserving Analytics
+ * ANALYTICS SERVICES INDEX
  *
- * SECURITY-INTEGRATED ANALYTICS ARCHITECTURE:
- * - Zero PHI exposure through severity buckets and sanitization
- * - Daily session rotation preventing user tracking
- * - Differential privacy (ε=0.1) and k-anonymity (k≥5) protection
- * - Full integration with existing security services (Tier 1 compliance)
- * - Crisis detection compatibility with <200ms performance requirements
+ * Privacy-first analytics using PostHog EU with PHI protection.
  *
- * ANALYTICS CAPABILITIES:
- * 1. Clinical Event Tracking - Assessment completions, crisis interventions, therapeutic exercises
- * 2. Technical Event Tracking - Sync operations, app lifecycle, error monitoring
- * 3. Privacy Protection - Advanced privacy algorithms and compliance validation
- * 4. Security Integration - Authentication, network security, monitoring, incident response
- * 5. Performance Optimization - Efficient batching, crisis prioritization, memory management
+ * ARCHITECTURE:
+ * - PostHog EU (Frankfurt) for GDPR compliance
+ * - Whitelist-based PHI filtering (no health data transmitted)
+ * - Consent-gated (opt-in, default OFF)
+ * - No autocapture, no session replay
  *
- * INTEGRATION POINTS:
- * - Assessment store monitoring for real-time event capture
- * - Security services integration for comprehensive protection
- * - Sync coordinator integration for performance metrics
- * - Crisis detection system integration for emergency prioritization
- * - User consent management for privacy compliance
+ * KEY EXPORTS:
+ * - PostHogProvider: Wraps app with analytics context
+ * - PHIFilter: Validates events before transmission
+ * - AnalyticsEvents: Type-safe event constants
+ * - handleAnalyticsDeletion: GDPR/CCPA deletion workflow
+ *
+ * @see docs/architecture/analytics-architecture.md
  */
 
 // Import for internal use
@@ -30,6 +24,19 @@ import type { AnalyticsEvent } from './AnalyticsService';
 
 // Core Analytics Service
 export { default as AnalyticsService } from './AnalyticsService';
+
+// PostHog Integration (FEAT-40)
+export { PostHogProvider, usePostHogConfigured } from './PostHogProvider';
+export { PHIFilter, AnalyticsEvents } from './PHIFilter';
+export { useAnalytics } from './useAnalytics';
+export type { PHIValidationResult, AnalyticsEventType } from './PHIFilter';
+export {
+  handleAnalyticsDeletion,
+  showDeletionConfirmation,
+  getDeletionRequestHistory,
+  hasPendingDeletionRequests,
+} from './AnalyticsDeletion';
+export type { DeletionRequestType } from './AnalyticsDeletion';
 
 // Import secure logging
 import {

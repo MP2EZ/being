@@ -10,6 +10,7 @@
  */
 
 import { useAssessmentStore } from '../../src/features/assessment/stores/assessmentStore';
+import { store } from '../utils/assessmentStoreAccessor';
 import { 
   AssessmentType, 
   AssessmentResponse,
@@ -41,10 +42,8 @@ jest.mock('react-native', () => ({
 }));
 
 describe('CLINICAL VALIDATION SUMMARY - CONDITIONAL APPROVAL', () => {
-  let store: ReturnType<typeof useAssessmentStore>;
 
   beforeEach(async () => {
-    store = useAssessmentStore.getState();
     store.resetAssessment();
     await store.clearHistory();
     store.enableAutoSave();
@@ -150,21 +149,24 @@ describe('CLINICAL VALIDATION SUMMARY - CONDITIONAL APPROVAL', () => {
       // User can see progress
       expect(updatedStore.getCurrentProgress()).toBe(0);
 
-      // User answers questions by choice
+      // User answers questions by choice. getCurrentProgress() returns 0-100
+      // (percentage), not 0-1 (fraction).
       for (let i = 0; i < 9; i++) {
         await updatedStore.answerQuestion(`phq9_${i + 1}`, 1);
         const progress = updatedStore.getCurrentProgress();
-        expect(progress).toBe((i + 1) / 9);
+        expect(progress).toBe(((i + 1) / 9) * 100);
       }
 
       await updatedStore.completeAssessment();
       const finalStore = useAssessmentStore.getState();
 
       expect(finalStore.completedAssessments).toHaveLength(1);
-      
-      // User owns and can delete their data
+
+      // User owns and can delete their data. After clearHistory(), re-read
+      // fresh state — `finalStore` captured the pre-clear snapshot and
+      // doesn't auto-update.
       await finalStore.clearHistory();
-      expect(finalStore.completedAssessments).toHaveLength(0);
+      expect(useAssessmentStore.getState().completedAssessments).toHaveLength(0);
 
       console.log('✅ User Autonomy: User maintains full control over assessment process and data');
     });
@@ -190,13 +192,15 @@ describe('CLINICAL VALIDATION SUMMARY - CONDITIONAL APPROVAL', () => {
       const result = finalStore.currentResult as PHQ9Result;
       const history = finalStore.getAssessmentHistory();
 
-      // Validate all required fields for cloud sync are present
+      // Validate all required fields for cloud sync are present. completedAt
+      // is on the result, not the session (production AssessmentSession is
+      // { id, type, progress, result?, context }).
       expect(result.totalScore).toBe(13);
       expect(result.completedAt).toBeGreaterThan(0);
       expect(result.answers).toHaveLength(9);
       expect(history[0].id).toBeTruthy();
       expect(history[0].type).toBe('phq9');
-      expect(history[0].completedAt).toBeGreaterThan(0);
+      expect(history[0].result?.completedAt).toBeGreaterThan(0);
 
       // Validate each answer has required sync fields
       result.answers.forEach(answer => {

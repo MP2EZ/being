@@ -28,13 +28,14 @@
  * @see /docs/product/FEAT-28-insights-design-plan.md
  */
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import { View, Text, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useStoicPracticeStore } from '@/features/practices/stores/stoicPracticeStore';
 import { useAssessmentStore } from '@/features/assessment/stores/assessmentStore';
 import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useAnalytics } from '@/core/analytics';
 import { StackNavigationProp } from '@react-navigation/stack';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
@@ -92,16 +93,32 @@ const getDailyQuote = () => {
 
 const InsightsScreen: React.FC = () => {
   const navigation = useNavigation<NavigationProp>();
+  const { trackScreenView } = useAnalytics();
 
-  // Store hooks
-  const { getCheckInHistory, getPrincipleEngagements } = useStoicPracticeStore();
+  // Track screen view for analytics (FEAT-137)
+  useFocusEffect(
+    useCallback(() => {
+      trackScreenView('InsightsScreen');
+    }, [trackScreenView])
+  );
+
+  // Store hooks - subscribe to raw data arrays for reactivity
+  const {
+    getCheckInHistory,
+    getPrincipleEngagements,
+    checkInCompletions,
+    principleEngagements: rawPrincipleEngagements,
+  } = useStoicPracticeStore();
   const { completedAssessments } = useAssessmentStore();
 
-  // Get data for components
-  const checkInHistory = useMemo(() => getCheckInHistory(90), [getCheckInHistory]);
+  // Get data for components - depend on raw arrays for proper reactivity
+  const checkInHistory = useMemo(
+    () => getCheckInHistory(90),
+    [getCheckInHistory, checkInCompletions]
+  );
   const principleEngagements = useMemo(
     () => getPrincipleEngagements(90),
-    [getPrincipleEngagements]
+    [getPrincipleEngagements, rawPrincipleEngagements]
   );
 
   // Get daily quote

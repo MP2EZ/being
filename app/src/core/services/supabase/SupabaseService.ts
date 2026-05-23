@@ -20,14 +20,21 @@
 
 
 import { logSecurity, logPerformance, logError, LogCategory } from '../logging';
+import { generateTimestampedId, generateSessionId, generateRandomString } from '@/core/utils/id';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import * as Crypto from 'expo-crypto';
 import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  createSupabasePinnedFetch,
+  validatePinningConfiguration,
+} from '../security/pinned-fetch';
 
 // Environment configuration
 const SUPABASE_URL = process.env['EXPO_PUBLIC_SUPABASE_URL'] || '';
-const SUPABASE_ANON_KEY = process.env['EXPO_PUBLIC_SUPABASE_ANON_KEY'] || '';
+// The project's publishable (or legacy anon) key — whichever the new
+// Supabase project hands out. supabase-js doesn't care which.
+const SUPABASE_KEY = process.env['EXPO_PUBLIC_SUPABASE_KEY'] || '';
 
 // Storage keys
 const STORAGE_KEYS = {
@@ -130,15 +137,31 @@ class SupabaseService {
 
     try {
       // Validate environment
-      if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+      if (!SUPABASE_URL || !SUPABASE_KEY) {
         throw new Error('Supabase configuration missing. Check environment variables.');
       }
 
-      // Create client
-      this.client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      // Validate SSL pinning configuration
+      const pinningValidation = validatePinningConfiguration();
+      if (!pinningValidation.valid) {
+        logSecurity(
+          '[SupabaseService] SSL pinning configuration issues detected',
+          'high',
+          { errors: pinningValidation.errors }
+        );
+      }
+
+      // Create client with SSL certificate pinning
+      // MAINT-68: All Supabase requests now use pinned fetch for MITM protection
+      this.client = createClient(SUPABASE_URL, SUPABASE_KEY, {
         auth: {
           autoRefreshToken: false,
           persistSession: false,
+        },
+        global: {
+          // Use pinned fetch for all requests
+          // Data classification defaults to 'METADATA' - override per-request if needed
+          fetch: createSupabasePinnedFetch('METADATA'),
         },
       });
 
@@ -217,7 +240,7 @@ class SupabaseService {
   private async generateDeviceIdHash(): Promise<string> {
     // Use expo-crypto to get a device-specific value
     const deviceIdBase = await AsyncStorage.getItem('@being/device_id') ||
-                        `device_${Date.now()}_${Math.random()}`;
+                        generateTimestampedId('device');
 
     // Save device ID if it doesn't exist
     await AsyncStorage.setItem('@being/device_id', deviceIdBase);
@@ -234,7 +257,7 @@ class SupabaseService {
    */
   private generateSessionId(): string {
     const today = new Date().toISOString().split('T')[0];
-    return `session_${today}_${Math.random().toString(36).substr(2, 9)}`;
+    return generateSessionId();
   }
 
   /**
@@ -607,6 +630,18 @@ class SupabaseService {
       analyticsQueueSize: this.analyticsQueue.length,
       lastSyncTime: AsyncStorage.getItem(STORAGE_KEYS.LAST_SYNC) as any,
     };
+  }
+
+  /**
+   * Get the underlying Supabase client for direct invocations like
+   * `functions.invoke(...)`. Returns null if the service isn't initialized.
+   * Most callers should use the dedicated public methods on this class
+   * (saveBackup, getBackup, etc.); this escape hatch exists for cases like
+   * edge-function invocations where the caller needs the client's session
+   * JWT auto-attached.
+   */
+  getClient(): SupabaseClient | null {
+    return this.client;
   }
 
   /**

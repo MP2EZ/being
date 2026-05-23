@@ -7,7 +7,9 @@
 import React, { useState, useEffect } from 'react';
 import { View, ActivityIndicator, StyleSheet, TouchableOpacity, Text } from 'react-native';
 import { logPerformance } from '@/core/services/logging';
+import { generateTimestampedId } from '@/core/utils/id';
 import { NavigationContainer } from '@react-navigation/native';
+import { linkingConfig } from './linking';
 import { createStackNavigator } from '@react-navigation/stack';
 import { spacing, typography } from '@/core/theme';
 import CleanTabNavigator from './CleanTabNavigator';
@@ -155,7 +157,14 @@ const CleanRootNavigator: React.FC = () => {
     console.log('🌙 Evening flow completed:', sessionData);
     await markCheckInComplete('evening');
 
-    // FEAT-28: Record principle engagements from virtue instances for Insights Dashboard
+    // FEAT-134: Record principle engagement from VirtueReflection screen (new path)
+    // Note: The EveningFlowNavigator now records principle engagement directly via
+    // recordPrincipleEngagement prop when the user selects a principle on VirtueReflection.
+    // This is the primary engagement tracking path for FEAT-134.
+    // The principle is recorded in real-time when selected, not at flow completion.
+
+    // FEAT-28: Legacy path - Record principle engagements from virtue instances
+    // Kept for backward compatibility with older session data format
     if (sessionData?.virtueInstances?.length) {
       const principlesReflected = new Set<string>();
       for (const instance of sessionData.virtueInstances) {
@@ -169,7 +178,7 @@ const CleanRootNavigator: React.FC = () => {
         }
       }
       if (principlesReflected.size > 0) {
-        console.log('📊 Recorded principle engagements:', Array.from(principlesReflected).join(', '));
+        console.log('📊 Recorded principle engagements (legacy path):', Array.from(principlesReflected).join(', '));
       }
     }
   };
@@ -192,7 +201,7 @@ const CleanRootNavigator: React.FC = () => {
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer linking={linkingConfig}>
       <Stack.Navigator
         initialRouteName={initialRoute}
         screenOptions={{
@@ -433,6 +442,8 @@ const CleanRootNavigator: React.FC = () => {
                 onExit={() => {
                   navigation.goBack();
                 }}
+                // FEAT-134: Pass recordPrincipleEngagement for Insights dashboard
+                recordPrincipleEngagement={recordPrincipleEngagement}
               />
             )}
           </Stack.Screen>
@@ -462,7 +473,7 @@ const CleanRootNavigator: React.FC = () => {
                   theme="neutral"
                   showIntroduction={route.params.context === 'standalone'}
                   consentStatus={consentStatus}
-                  sessionId={`session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`}
+                  sessionId={generateTimestampedId('session')}
                   onComplete={(result) => {
                     console.log(`✅ Assessment ${route.params.assessmentType} completed:`, result);
                     // Always dismiss the modal first
@@ -503,8 +514,8 @@ const CleanRootNavigator: React.FC = () => {
             component={PurchaseOptionsScreen}
             options={{
               title: 'Subscription',
-              headerShown: true,
-              presentation: 'modal',
+              headerShown: false, // PurchaseOptionsScreen has its own SubMenuHeader
+              presentation: 'card', // Full-screen like other submenus
               gestureEnabled: true
             }}
           />

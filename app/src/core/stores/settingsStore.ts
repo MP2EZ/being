@@ -10,7 +10,7 @@
  * - [ ] Notification system integration: How to schedule notifications?
  * - [ ] Analytics opt-in/out: Where does this integrate?
  * - [ ] Accessibility preferences: Should this control global app accessibility features?
- * - [ ] HIPAA compliance validation needed for privacy settings
+ * - [ ] Privacy compliance validation needed for privacy settings
  */
 
 import { create } from 'zustand';

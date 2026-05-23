@@ -1,5 +1,5 @@
 /**
- * PRODUCTION-SAFE LOGGING SERVICE - HIPAA Compliant
+ * PRODUCTION-SAFE LOGGING SERVICE - Privacy Compliant
  *
  * SECURITY REQUIREMENTS:
  * - Zero PHI exposure in any environment
@@ -13,7 +13,7 @@
  * - Audit trail with tamper protection
  * - Role-based log access control
  * - Automated PII detection and removal
- * - GDPR/HIPAA deletion support
+ * - GDPR/Privacy deletion support
  */
 
 
@@ -55,7 +55,7 @@ export enum LogCategory {
  *
  * INFRA-61: Extended patterns for PHI, clinical data, and philosophical content
  */
-const PHI_PATTERNS = [
+const SENSITIVE_DATA_PATTERNS = [
   // User identifiers
   /user[_-]?id[:\s]*[a-zA-Z0-9-]+/gi,
   /userId[:\s]*[a-zA-Z0-9-]+/gi,
@@ -112,7 +112,7 @@ export class ProductionLogger {
   private readonly maxAuditEntries = 1000;
 
   // Hash salt for consistent PHI replacement
-  private readonly phiSalt = 'fullmind_logging_salt_2024';
+  private readonly phiSalt = 'being_logging_salt_2024';
 
   // INFRA-61: Rate limiter for log throughput control
   private rateLimiter: TokenBucketRateLimiter;
@@ -277,8 +277,8 @@ export class ProductionLogger {
     let sanitized = input;
 
     // Apply all PHI patterns
-    PHI_PATTERNS.forEach((pattern, index) => {
-      sanitized = sanitized.replace(pattern, `[PHI_REDACTED_${index}]`);
+    SENSITIVE_DATA_PATTERNS.forEach((pattern, index) => {
+      sanitized = sanitized.replace(pattern, `[SENSITIVE_REDACTED_${index}]`);
     });
 
     return sanitized;

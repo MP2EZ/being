@@ -12,6 +12,7 @@
 
 
 import { logSecurity, logPerformance, logError, LogCategory } from '@/core/services/logging';
+import { generateComponentId } from '@/core/utils/id';
 import React, { useCallback, useMemo, useRef, useState, useEffect } from 'react';
 import {
   View,
@@ -82,7 +83,7 @@ const RadioGroup: React.FC<RadioGroupProps> = ({
   }, [theme]);
 
   // Generate unique group ID for ARIA
-  const groupId = useMemo(() => `radio-group-${Math.random().toString(36).substr(2, 9)}`, []);
+  const groupId = useMemo(() => generateComponentId('radio-group'), []);
   
   // Find current selected index
   const selectedIndex = useMemo(() => {

@@ -11,6 +11,7 @@
  */
 
 import { AssessmentType, PHQ9Result, GAD7Result, AssessmentAnswer } from '@/features/assessment/types';
+import { generateTimestampedId } from '@/core/utils/id';
 
 /**
  * Crisis Detection Thresholds - IMMUTABLE CLINICAL CONSTANTS
@@ -364,7 +365,7 @@ export function detectCrisis(
   }
 
   return {
-    id: `crisis_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    id: generateTimestampedId('crisis'),
     isTriggered: true,
     primaryTrigger: primaryTrigger!,
     secondaryTriggers: triggers.filter(t => t !== primaryTrigger),

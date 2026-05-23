@@ -301,80 +301,82 @@ class IAPServiceClass {
         };
       }
 
-      // Get user ID from Supabase service
+      // Get the Supabase client. We use functions.invoke() so the user's
+      // session JWT is auto-attached as the Bearer token; the function then
+      // extracts auth.uid() from that JWT instead of trusting a userId from
+      // the body. Closes SEC-VERIFY-RECEIPT-ANON.
       const status = supabaseService.getStatus();
       if (!status.userId) {
         throw new Error('User not authenticated');
       }
+      const client = supabaseService.getClient();
+      if (!client) {
+        throw new Error('Supabase client not initialized');
+      }
 
       const startTime = performance.now();
 
+      type VerifyReceiptResponse = {
+        valid: boolean;
+        subscriptionId?: string;
+        expiresDate?: string;
+        error?: string;
+      };
+
       // Call appropriate Edge Function based on platform
       if (platform === 'apple') {
-        const response = await fetch(
-          `${process.env['EXPO_PUBLIC_SUPABASE_URL']}/functions/v1/verify-apple-receipt`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${process.env['EXPO_PUBLIC_SUPABASE_ANON_KEY']}`,
-            },
-            body: JSON.stringify({
-              receiptData,
-              userId: status.userId,
-            }),
-          }
+        const { data, error } = await client.functions.invoke<VerifyReceiptResponse>(
+          'verify-apple-receipt',
+          { body: { receiptData } }
         );
 
-        if (!response.ok) {
-          throw new Error(`Receipt verification failed: ${response.status}`);
+        if (error) {
+          throw new Error(`Receipt verification failed: ${error.message}`);
+        }
+        if (!data) {
+          throw new Error('Receipt verification returned no data');
         }
 
-        const result = await response.json();
         const verifyTime = performance.now() - startTime;
         console.log(`[IAP] Receipt verified in ${verifyTime}ms`);
 
         return {
-          valid: result.valid,
-          subscriptionId: result.subscriptionId,
-          expiresDate: result.expiresDate ? new Date(result.expiresDate).getTime() : undefined,
-          error: result.error,
+          valid: data.valid,
+          subscriptionId: data.subscriptionId,
+          expiresDate: data.expiresDate ? new Date(data.expiresDate).getTime() : undefined,
+          error: data.error,
         };
       } else if (platform === 'google') {
         if (!purchaseToken) {
           throw new Error('Purchase token required for Google verification');
         }
 
-        const response = await fetch(
-          `${process.env['EXPO_PUBLIC_SUPABASE_URL']}/functions/v1/verify-google-receipt`,
+        const { data, error } = await client.functions.invoke<VerifyReceiptResponse>(
+          'verify-google-receipt',
           {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${process.env['EXPO_PUBLIC_SUPABASE_ANON_KEY']}`,
-            },
-            body: JSON.stringify({
+            body: {
               packageName: 'com.being.app', // TODO: Make configurable
               subscriptionId: receiptData, // For Google, this is the product ID
               purchaseToken,
-              userId: status.userId,
-            }),
+            },
           }
         );
 
-        if (!response.ok) {
-          throw new Error(`Receipt verification failed: ${response.status}`);
+        if (error) {
+          throw new Error(`Receipt verification failed: ${error.message}`);
+        }
+        if (!data) {
+          throw new Error('Receipt verification returned no data');
         }
 
-        const result = await response.json();
         const verifyTime = performance.now() - startTime;
         console.log(`[IAP] Receipt verified in ${verifyTime}ms`);
 
         return {
-          valid: result.valid,
-          subscriptionId: result.subscriptionId,
-          expiresDate: result.expiresDate ? new Date(result.expiresDate).getTime() : undefined,
-          error: result.error,
+          valid: data.valid,
+          subscriptionId: data.subscriptionId,
+          expiresDate: data.expiresDate ? new Date(data.expiresDate).getTime() : undefined,
+          error: data.error,
         };
       } else {
         throw new Error('Unsupported platform');

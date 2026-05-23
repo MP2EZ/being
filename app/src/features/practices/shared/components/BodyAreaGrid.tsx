@@ -2,6 +2,11 @@
  * Body Area Grid Component
  * DRD-compliant interactive body area selection for body scan exercises
  * Clinical: Inclusive language, gentle awareness, evidence-based
+ *
+ * USAGE:
+ * - BODY_AREAS constant: @/features/learn/practices/GuidedBodyScanScreen.tsx
+ * - BODY_AREAS constant: @/features/learn/practices/BodyScanScreen.tsx
+ * - Referenced by: ProgressiveBodyScanList.tsx (comparison docs)
  */
 
 import React from 'react';
