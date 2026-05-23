@@ -441,7 +441,7 @@ jobs:
           echo "- **Lightning Rollback**: <30s emergency rollback capability" >> emergency-report.md
 
       - name: ⚡ Upload Emergency Report (5s)
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: lightning-emergency-report
           path: emergency-report.md
