@@ -57,6 +57,7 @@
   "src/core/services/security/SecureStorageService.ts": 15,
   "src/core/services/security/SecurityMonitoringService.ts": 34,
   "src/core/services/security/__tests__/AuthenticationService.sec03.test.ts": 1,
+  "src/core/services/security/__tests__/EncryptionService.test.ts": 1,
   "src/core/services/security/__tests__/pinned-fetch.test.ts": 1,
   "src/core/services/security/certificate-pinning.ts": 6,
   "src/core/services/security/index.ts": 37,
