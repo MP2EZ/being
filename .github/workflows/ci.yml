@@ -251,11 +251,17 @@ jobs:
   # CollapsibleCrisisButton.a11y.test.ts via Jest auto-discovery and the
   # broader accessibility tests via test:accessibility.
   #
-  # Currently advisory: 14/24 accessibility tests fail with Jest parse
-  # errors and broken setup files (e.g., __tests__/setup/accessibility-
-  # setup.js syntax issues, practices-accessibility-validation.test.tsx
-  # parse failure). Same accumulated-debt-under-a-resurrected-gate pattern
-  # as ESLint and Unit+integration.
+  # Currently advisory. W2 paydown fixed the setup-file load failure
+  # (accessibility-setup.js was being matched by testMatch as a test file
+  # with no test() blocks). 27 assertion failures remain across 2 suites:
+  #   - accessibility.test.tsx (14 fail): RadioGroup/FocusManager
+  #     structural mismatch — accessibilityRole sits on an inner wrapper
+  #     View but tests query the outer testID-bearing View.
+  #   - practices-accessibility-validation.test.tsx (13 fail): crisis
+  #     button + breathing-circle a11y gaps (labels, contrast, reduced-
+  #     motion alternatives) — real implementation work, not config.
+  # Restore strict-gate by fixing each component's a11y surface to match
+  # WCAG AA expectations, then remove continue-on-error.
   accessibility:
     name: Accessibility (WCAG AA)
     runs-on: ubuntu-latest

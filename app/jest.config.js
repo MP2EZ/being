@@ -59,6 +59,12 @@ module.exports = {
     '/_archive_[^/]*/',
     '/.to_delete_removed/',
 
+    // Support files under __tests__/ that match the broad testMatch
+    // pattern but contain no test() blocks. Without ignoring, jest
+    // reports "Your test suite must contain at least one test."
+    '/__tests__/setup/',
+    '/__tests__/utils/',
+
     // TODO: integration test backlog — these load but fail for reasons
     // beyond the "fix broken imports" scope of the W1 paydown PR. Re-enable
     // by fixing each underlying issue:
