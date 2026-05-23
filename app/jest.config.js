@@ -127,7 +127,7 @@ module.exports = {
     // We have to enumerate each `expo-*` ESM package explicitly. (Or use
     // a regex like `expo[a-z-]*` — but the explicit list is more grep-able
     // when a new module starts failing to parse.)
-    'node_modules/(?!(react-native|@react-native|react-native-vector-icons|react-native-aes-crypto|@react-navigation|react-navigation|expo|@expo|expo-font|expo-asset|expo-constants|expo-in-app-purchases|expo-local-authentication|expo-modules-core|zustand|react-native-gesture-handler|react-native-reanimated|uuid)/)'
+    'node_modules/(?!(react-native|@react-native|react-native-vector-icons|react-native-aes-crypto|@react-navigation|react-navigation|expo|@expo|expo-font|expo-asset|expo-constants|expo-in-app-purchases|expo-local-authentication|expo-modules-core|zustand|react-native-gesture-handler|react-native-reanimated|react-native-worklets|uuid)/)'
   ],
 
   // Enhanced module mapping

@@ -98,7 +98,7 @@
   "src/features/assessment/types/validation.ts": 1,
   "src/features/consent/screens/AgeVerificationScreen.tsx": 2,
   "src/features/consent/screens/CombinedLegalGateScreen.tsx": 3,
-  "src/features/crisis/components/CollapsibleCrisisButton.tsx": 4,
+  "src/features/crisis/components/CollapsibleCrisisButton.tsx": 1,
   "src/features/crisis/components/CrisisAccessibility.tsx": 11,
   "src/features/crisis/components/CrisisErrorBoundary.tsx": 4,
   "src/features/crisis/components/__tests__/CollapsibleCrisisButton.accessibility.test.ts": 1,

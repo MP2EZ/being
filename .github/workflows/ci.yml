@@ -240,27 +240,23 @@ jobs:
         # Expo upgrade lands as a dedicated task.
         run: cd app && npm audit --audit-level=high
 
-  # Accessibility — WCAG AA validation + a11y test suite. Catches
-  # CollapsibleCrisisButton.a11y.test.ts via Jest auto-discovery and the
-  # broader accessibility tests via test:accessibility.
-  #
-  # Currently advisory. W2 paydown fixed the setup-file load failure
-  # (accessibility-setup.js was being matched by testMatch as a test file
-  # with no test() blocks). 27 assertion failures remain across 2 suites:
-  #   - accessibility.test.tsx (14 fail): RadioGroup/FocusManager
-  #     structural mismatch — accessibilityRole sits on an inner wrapper
-  #     View but tests query the outer testID-bearing View.
-  #   - practices-accessibility-validation.test.tsx (13 fail): crisis
-  #     button + breathing-circle a11y gaps (labels, contrast, reduced-
-  #     motion alternatives) — real implementation work, not config.
-  # Restore strict-gate by fixing each component's a11y surface to match
-  # WCAG AA expectations, then remove continue-on-error.
+  # Accessibility — WCAG AA validation + a11y test suite. Strict gate
+  # as of Phase B+C paydown. Root causes addressed:
+  #   - Global Jest mocks for react-native-reanimated and gesture-handler
+  #     (both blocked component rendering with TurboModule errors).
+  #   - RadioGroup structural a11y (Phase A: accessibilityRole moved to
+  #     outer testID-bearing View; Boolean(isDisabled); preventDefault?.()).
+  #   - CollapsibleCrisisButton testID propagation (now reaches the
+  #     interactive Pressable, not just its -icon child).
+  #   - Crisis button label updated to "I need support" (per crisis
+  #     specialist guidance — first-person agency, gentler for repeated
+  #     screen-reader exposure).
+  # 45/45 accessibility tests pass.
   accessibility:
     name: Accessibility (WCAG AA)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs: prepare
-    continue-on-error: true
 
     steps:
       - uses: actions/checkout@v4
@@ -340,20 +336,20 @@ jobs:
           echo "security:         ${{ needs.security.result }}"
           echo "performance:      ${{ needs.performance.result }}"
           echo "accessibility:    ${{ needs.accessibility.result }}"
-          # Advisory jobs (informational only — not gating):
-          #   accessibility — 12 a11y impl gaps in CollapsibleCrisisButton
-          #                   + BreathingCircle. Phase B+C of paydown plan.
+          # All 8 jobs are now strict gates after the Phase B+C paydown.
+          # Advisory list: (empty)
           #
           # Real gates that must pass:
           #   typecheck, lint (baseline ratchet), crisis-validation,
-          #   clinical-validation, security, test, performance
+          #   clinical-validation, security, test, performance, accessibility
           if [[ "${{ needs.typecheck.result }}" != "success" \
              || "${{ needs.lint.result }}" != "success" \
              || "${{ needs.crisis-validation.result }}" != "success" \
              || "${{ needs.clinical-validation.result }}" != "success" \
              || "${{ needs.security.result }}" != "success" \
              || "${{ needs.test.result }}" != "success" \
-             || "${{ needs.performance.result }}" != "success" ]]; then
+             || "${{ needs.performance.result }}" != "success" \
+             || "${{ needs.accessibility.result }}" != "success" ]]; then
             echo "❌ One or more required gates failed"
             exit 1
           fi
