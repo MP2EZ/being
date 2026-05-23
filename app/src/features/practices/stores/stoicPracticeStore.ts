@@ -24,7 +24,9 @@
 
 import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
+import { AppState } from 'react-native';
 import { generateInternalId } from '@/core/utils/id';
+import { logError, LogCategory } from '@/core/services/logging';
 import type {
   CardinalVirtue,
   DevelopmentalStage,
@@ -322,6 +324,84 @@ const cleanOldPrincipleEngagements = (engagements: PrincipleEngagement[]): Princ
   return engagements.filter(engagement => cutoffString && engagement.date >= cutoffString);
 };
 
+// ──────────────────────────────────────────────────────────────────────────────
+// DEBOUNCED PERSISTENCE (audit PERF-01 paydown)
+//
+// Pre-paydown: every check-in completion / virtue instance / engagement
+// triggered a synchronous full-state JSON.stringify + SecureStore.setItemAsync
+// write — 50-200ms+ on Android, growing linearly with retention. On the
+// crisis/check-in <500ms transition budget that's a visible stall.
+//
+// Strategy: collapse mutation bursts into a single trailing-edge write.
+// State updates remain synchronous (UI stays responsive); persistence
+// batches over a 500ms quiet window. The latest state at flush time wins,
+// so dropped intermediate writes don't lose data — they're just superseded.
+//
+// Safety: an AppState listener flushes pending writes on background/
+// inactive transitions, so a backgrounded app doesn't lose the last
+// 500ms of mutations. Force-quit during the window IS still a loss
+// vector (no signal arrives), accepted as the cost of UI responsiveness.
+// ──────────────────────────────────────────────────────────────────────────────
+
+const PERSIST_DEBOUNCE_MS = 500;
+
+let pendingPersistTimeout: ReturnType<typeof setTimeout> | null = null;
+let pendingPersistPromise: Promise<void> | null = null;
+
+/** Unref the handle when running in Node (Jest) so a pending timer
+ * doesn't keep the runtime alive past test completion. */
+function unrefTimeout(handle: ReturnType<typeof setTimeout>): void {
+  const h = handle as unknown as { unref?: () => void };
+  if (typeof h.unref === 'function') h.unref();
+}
+
+/**
+ * Schedule a debounced persist of the current store state. Multiple
+ * calls within the window collapse into one write of the latest snapshot.
+ * Errors are logged but never throw — persistence failure shouldn't
+ * crash a mutation that already updated in-memory state.
+ */
+function schedulePersist(): void {
+  if (pendingPersistTimeout) {
+    clearTimeout(pendingPersistTimeout);
+  }
+  pendingPersistTimeout = setTimeout(() => {
+    pendingPersistTimeout = null;
+    const snapshot = useStoicPracticeStore.getState();
+    pendingPersistPromise = persistToSecureStore(snapshot)
+      .catch((err) => {
+        logError(
+          LogCategory.SYSTEM,
+          'stoicPracticeStore.schedulePersist failed',
+          err instanceof Error ? err : new Error(String(err))
+        );
+      })
+      .finally(() => {
+        pendingPersistPromise = null;
+      });
+  }, PERSIST_DEBOUNCE_MS);
+  unrefTimeout(pendingPersistTimeout);
+}
+
+/**
+ * Flush any pending debounced write immediately. Called by the AppState
+ * listener on background/inactive transitions so the last 500ms of
+ * mutations aren't lost when the user switches apps. Awaitable for
+ * callers that want strict before-quit ordering (e.g., tests, lifecycle
+ * cleanup).
+ */
+export async function flushStoicPracticePersist(): Promise<void> {
+  if (pendingPersistTimeout) {
+    clearTimeout(pendingPersistTimeout);
+    pendingPersistTimeout = null;
+    const snapshot = useStoicPracticeStore.getState();
+    pendingPersistPromise = persistToSecureStore(snapshot);
+  }
+  if (pendingPersistPromise) {
+    await pendingPersistPromise;
+  }
+}
+
 /**
  * Persist state to SecureStore (encrypted)
  */
@@ -463,7 +543,7 @@ export const useStoicPracticeStore = create<StoicPracticeState>((set, get) => ({
     };
 
     set(newState);
-    await persistToSecureStore({ ...state, ...newState });
+    schedulePersist();
 
     // Auto-calculate developmental stage
     const calculatedStage = calculateDevelopmentalStage(
@@ -493,7 +573,7 @@ export const useStoicPracticeStore = create<StoicPracticeState>((set, get) => ({
     };
 
     set(newState);
-    await persistToSecureStore({ ...state, ...newState });
+    schedulePersist();
   },
 
   /**
@@ -517,7 +597,7 @@ export const useStoicPracticeStore = create<StoicPracticeState>((set, get) => ({
     const newTotalDays = state.totalPracticeDays + 1;
 
     set({ totalPracticeDays: newTotalDays });
-    await persistToSecureStore({ ...state, totalPracticeDays: newTotalDays });
+    schedulePersist();
 
     // Auto-calculate developmental stage
     const calculatedStage = calculateDevelopmentalStage(
@@ -617,7 +697,7 @@ export const useStoicPracticeStore = create<StoicPracticeState>((set, get) => ({
     const updatedCompletions = cleanOldCheckInCompletions([...filteredCompletions, newCompletion]);
 
     set({ checkInCompletions: updatedCompletions });
-    await persistToSecureStore({ ...get(), checkInCompletions: updatedCompletions });
+    schedulePersist();
   },
 
   /**
@@ -664,7 +744,7 @@ export const useStoicPracticeStore = create<StoicPracticeState>((set, get) => ({
     ]);
 
     set({ principleEngagements: updatedEngagements });
-    await persistToSecureStore({ ...get(), principleEngagements: updatedEngagements });
+    schedulePersist();
   },
 
   /**
@@ -708,3 +788,19 @@ export const useStoicPracticeStore = create<StoicPracticeState>((set, get) => ({
 
 // Auto-load persisted state on first import
 useStoicPracticeStore.getState().loadPersistedState();
+
+// Flush pending debounced writes on app background/inactive so a
+// backgrounded app doesn't lose the last ≤500ms of mutations (audit
+// PERF-01 risk mitigation). Skipped in test env: NODE_ENV=test (Jest)
+// would hold the listener registration forever and trigger open-handle
+// warnings; tests exercise flushStoicPracticePersist() directly.
+if (process.env['NODE_ENV'] !== 'test') {
+  AppState.addEventListener('change', (nextState) => {
+    if (nextState === 'background' || nextState === 'inactive') {
+      flushStoicPracticePersist().catch(() => {
+        // schedulePersist's catch already logged the underlying error;
+        // swallow here so the lifecycle handler can't reject.
+      });
+    }
+  });
+}

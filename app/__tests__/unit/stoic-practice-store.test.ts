@@ -18,6 +18,7 @@ import * as SecureStore from 'expo-secure-store';
 import {
   useStoicPracticeStore,
   StoicPracticeState,
+  flushStoicPracticePersist,
 } from '@/features/practices/stores/stoicPracticeStore';
 import type {
   CardinalVirtue,
@@ -129,6 +130,10 @@ describe('StoicPracticeStore', () => {
         principleApplied: null,
       });
 
+      // PERF-01: persistence is now debounced (500ms trailing); flush
+      // explicitly so we verify the eventual write happens.
+      await flushStoicPracticePersist();
+
       // Should call SecureStore.setItemAsync to encrypt and persist
       expect(SecureStore.setItemAsync).toHaveBeenCalled();
     });
@@ -168,6 +173,8 @@ describe('StoicPracticeStore', () => {
         whatWillIPractice: 'Test',
         selfCompassion: 'Test',
       });
+
+      await flushStoicPracticePersist();
 
       expect(SecureStore.setItemAsync).toHaveBeenCalled();
     });
@@ -440,6 +447,8 @@ describe('StoicPracticeStore', () => {
         principleApplied: null,
       });
 
+      await flushStoicPracticePersist();
+
       // Should call SecureStore.setItemAsync with encrypted data
       expect(SecureStore.setItemAsync).toHaveBeenCalledWith(
         'stoic_practice_state',
@@ -461,9 +470,44 @@ describe('StoicPracticeStore', () => {
         principleApplied: null,
       });
 
+      await flushStoicPracticePersist();
+
       const state = useStoicPracticeStore.getState();
       // Should not throw error, should log error
       expect(state.virtueInstances).toHaveLength(1); // State updated locally
+    });
+
+    it('PERF-01: debounces multiple mutations into a single SecureStore write', async () => {
+      const store = useStoicPracticeStore.getState();
+      (SecureStore.setItemAsync as jest.Mock).mockClear();
+
+      // Three rapid mutations within the 500ms debounce window
+      await store.addVirtueInstance({
+        virtue: 'wisdom',
+        context: 'a',
+        domain: 'work',
+        principleApplied: null,
+      });
+      await store.addVirtueInstance({
+        virtue: 'courage',
+        context: 'b',
+        domain: 'work',
+        principleApplied: null,
+      });
+      await store.addVirtueInstance({
+        virtue: 'justice',
+        context: 'c',
+        domain: 'work',
+        principleApplied: null,
+      });
+
+      // Before flush: writes are scheduled but haven't fired yet
+      expect(SecureStore.setItemAsync).not.toHaveBeenCalled();
+
+      // Flush coalesces into one write of the latest state
+      await flushStoicPracticePersist();
+
+      expect(SecureStore.setItemAsync).toHaveBeenCalledTimes(1);
     });
   });
 
