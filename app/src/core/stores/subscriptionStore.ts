@@ -109,21 +109,22 @@ function createTrialSubscription(userId: string): SubscriptionMetadata {
 }
 
 /**
- * Simple logger (placeholder for future logging service)
+ * Local logger — routes to the canonical logging service (INFRA-61).
+ * Wrapping here keeps callsites terse; consolidates the subscription
+ * domain into a single LogCategory.
  */
+import { logSystem, logPerformance, logError, LogCategory } from '@/core/services/logging';
 const logger = {
-  info: (message: string, meta?: any) => {
-    if (__DEV__) {
-      console.log(`[Subscription] ${message}`, meta);
-    }
+  info: (message: string, meta?: Record<string, unknown>) => {
+    logSystem(`[Subscription] ${message}${meta ? ` ${JSON.stringify(meta)}` : ''}`);
   },
-  error: (message: string, meta?: any) => {
-    console.error(`[Subscription Error] ${message}`, meta);
+  error: (message: string, meta?: Record<string, unknown>) => {
+    const metaErr = meta?.['error'];
+    const err = metaErr instanceof Error ? metaErr : new Error(`${message}${meta ? ` ${JSON.stringify(meta)}` : ''}`);
+    logError(LogCategory.SYSTEM, `[Subscription Error] ${message}`, err);
   },
   performance: (message: string, timeMs: number) => {
-    if (__DEV__) {
-      console.log(`[Subscription Performance] ${message}: ${timeMs}ms`);
-    }
+    logPerformance(`subscription_${message.replace(/\s+/g, '_').toLowerCase()}`, timeMs);
   }
 };
 
@@ -240,7 +241,10 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
 
   /**
    * Purchase subscription
-   * Initiates IAP flow (Apple/Google)
+   * Initiates IAP flow (Apple/Google). In mock mode the purchase resolves
+   * synchronously and is processed here. In real mode, purchaseSubscription
+   * returns null (the platform pushes the result via the IAP listener) and
+   * the listener calls processVerifiedPurchase directly.
    */
   purchaseSubscription: async (interval: SubscriptionInterval) => {
     set({ isLoading: true, error: null });
@@ -251,22 +255,52 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
       // Import IAPService dynamically to avoid circular dependency
       const { IAPService } = await import('@/core/services/subscription/IAPService');
 
-      // 1. Initiate platform IAP purchase
       const purchase = await IAPService.purchaseSubscription(interval);
 
       if (!purchase) {
-        throw new Error('Purchase was cancelled or failed');
+        // Real platform IAP — result arrives via the async listener which
+        // calls processVerifiedPurchase. Clear loading; UI listens to the
+        // store for the subscription transition.
+        set({ isLoading: false });
+        return;
       }
 
-      // 2. Verify receipt server-side
-      const platform = IAPService.getPlatform();
+      // Mock mode resolves synchronously — process inline.
+      await get().processVerifiedPurchase(purchase, interval);
+      set({ isLoading: false });
+    } catch (error) {
+      logger.error('Purchase failed', { error });
+      set({ error: 'Purchase failed', isLoading: false });
+      throw error; // Re-throw so UI can handle it
+    }
+  },
 
+  /**
+   * Process a purchase (from either purchaseSubscription's mock path or
+   * the async IAP listener): verify receipt server-side, persist
+   * subscription metadata, acknowledge the platform transaction, track
+   * the event. Errors thrown here propagate to the caller — the listener
+   * catches them so it can stay fire-and-forget.
+   */
+  processVerifiedPurchase: async (purchase: unknown, interval: SubscriptionInterval) => {
+    set({ isVerifyingReceipt: true });
+
+    try {
+      const { IAPService } = await import('@/core/services/subscription/IAPService');
+
+      const platform = IAPService.getPlatform();
       if (platform === 'none') {
         throw new Error('IAP not available on this platform');
       }
 
-      const receiptData = purchase.transactionReceipt || '';
-      const purchaseToken = purchase.purchaseToken;
+      // The purchase shape is platform-dependent — narrow defensively.
+      const p = purchase as {
+        transactionReceipt?: string;
+        purchaseToken?: string;
+        orderId?: string;
+      };
+      const receiptData = p.transactionReceipt || '';
+      const purchaseToken = p.purchaseToken;
 
       logger.info('Verifying receipt', { platform, hasReceipt: !!receiptData });
 
@@ -280,7 +314,6 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
         throw new Error(verification.error || 'Receipt verification failed');
       }
 
-      // 3. Update subscription metadata
       const { subscription } = get();
       const now = Date.now();
 
@@ -292,11 +325,11 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
           createdAt: now,
         }),
         platform,
-        platformSubscriptionId: verification.subscriptionId || purchase.orderId,
+        platformSubscriptionId: verification.subscriptionId || p.orderId,
         status: 'active',
         tier: 'standard',
         interval,
-        priceUsd: interval === 'yearly' ? 79.99 : 7.99, // Default prices, should come from product
+        priceUsd: interval === 'yearly' ? 79.99 : 7.99,
         currency: 'USD',
         trialStartDate: null,
         trialEndDate: null,
@@ -312,30 +345,25 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
 
       const featureAccess = calculateFeatureAccess('active');
 
-      // Save to secure storage
       await SecureStore.setItemAsync(SECURE_STORAGE_KEY, JSON.stringify(updatedSubscription));
 
       set({
         subscription: updatedSubscription,
         featureAccess,
-        isLoading: false
       });
 
-      // 4. Finish transaction (acknowledge with platform)
-      await IAPService.finishTransaction(purchase);
+      // Acknowledge with the platform so it stops re-emitting.
+      await IAPService.finishTransaction(purchase as Parameters<typeof IAPService.finishTransaction>[0]);
 
-      // 5. Track event
       await get().trackSubscriptionEvent('subscription_started', {
         interval,
         platform,
-        subscriptionId: verification.subscriptionId
+        subscriptionId: verification.subscriptionId,
       });
 
       logger.info('Purchase completed successfully', { subscriptionId: verification.subscriptionId });
-    } catch (error) {
-      logger.error('Purchase failed', { error });
-      set({ error: 'Purchase failed', isLoading: false });
-      throw error; // Re-throw so UI can handle it
+    } finally {
+      set({ isVerifyingReceipt: false });
     }
   },
 
