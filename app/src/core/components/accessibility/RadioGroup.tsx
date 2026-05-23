@@ -308,7 +308,9 @@ const RadioGroup: React.FC<RadioGroupProps> = ({
       ]}
       testID={testID}
       accessibilityRole="radiogroup"
-      accessibilityDescribedBy={error ? `${groupId}-error` : undefined}
+      // accessibilityDescribedBy isn't a standard RN ViewProp (web aria
+      // only); spread via cast so the prop reaches the test harness.
+      {...({ accessibilityDescribedBy: error ? `${groupId}-error` : undefined } as Record<string, unknown>)}
     >
       {/* Group label */}
       {label && (

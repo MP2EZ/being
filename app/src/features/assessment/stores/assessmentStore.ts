@@ -782,6 +782,13 @@ export const useAssessmentStore = create<AssessmentStore>()(
   )
 );
 
+// Helper: call .unref() on a setTimeout handle when running in Node
+// (Jest). In browser/RN, setTimeout returns a number that has no unref.
+function unrefTimeout(handle: ReturnType<typeof setTimeout>): void {
+  const h = handle as unknown as { unref?: () => void };
+  if (typeof h.unref === 'function') h.unref();
+}
+
 // Auto-save subscription for real-time persistence
 useAssessmentStore.subscribe(
   (state) => ({
@@ -796,18 +803,15 @@ useAssessmentStore.subscribe(
       (current.answers.length !== previous.answers.length ||
        current.currentSession?.id !== previous.currentSession?.id)
     ) {
-      // Debounced auto-save. .unref() so the pending timer doesn't keep
-      // the Node runtime alive past test completion (open-handle warning
-      // in Jest). Safe in production: app lifecycle isn't gated on Node
-      // event loop in React Native.
-      const t = setTimeout(async () => {
+      // Debounced auto-save; unref the timer in Node so it doesn't keep
+      // Jest alive past test completion. Safe in RN production.
+      unrefTimeout(setTimeout(async () => {
         try {
           await useAssessmentStore.getState().saveProgress();
         } catch (error) {
           logError(LogCategory.SYSTEM, 'Auto-save failed:', error instanceof Error ? error : new Error(String(error)));
         }
-      }, 1000);
-      if (typeof (t as any).unref === 'function') (t as any).unref();
+      }, 1000));
     }
   }
 );

@@ -1,5 +1,4 @@
 {
-  "src/__tests__/performance/week4-comprehensive-performance-regression.test.ts": 1,
   "src/compliance/BreachResponseEngine.ts": 31,
   "src/compliance/ConsentManager.ts": 12,
   "src/compliance/DataMinimization.ts": 8,
@@ -55,7 +54,7 @@
   "src/core/services/security/EncryptionService.ts": 28,
   "src/core/services/security/IncidentResponseService.ts": 53,
   "src/core/services/security/NetworkSecurityService.ts": 41,
-  "src/core/services/security/SecureStorageService.ts": 23,
+  "src/core/services/security/SecureStorageService.ts": 15,
   "src/core/services/security/SecurityMonitoringService.ts": 34,
   "src/core/services/security/__tests__/AuthenticationService.sec03.test.ts": 1,
   "src/core/services/security/__tests__/pinned-fetch.test.ts": 1,
