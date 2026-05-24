@@ -4,6 +4,14 @@
 
 **Database ID**: `${NOTION_WORK_DB}` (defined in `CLAUDE.md`)
 
+**GitHub Flow note (INFRA-145)**: Closes the work item to `development` via PR
+(no longer local-merge + push, because dev branch protection now requires PRs).
+Does NOT promote to `main` — use `/b-release` for that. The `--push` flag is
+deprecated (PR merge always pushes); accepted as a no-op for backward compat.
+
+> 💡 For best flow: ensure Accept Edits mode is active (Shift+Tab to cycle).
+> This skill makes multiple tool calls (Notion + git + gh CLI) per run.
+
 ---
 
 ## Phase 1: Validate & Align Context
@@ -214,68 +222,175 @@ message: [generated message]
 
 ---
 
-## Phase 3: Merge to Development
+## Phase 3: PR + Merge to Development
 
-### Step 3.1: Switch to Development Branch
+**GitHub Flow note** (INFRA-145): `development` branch protection requires PRs.
+Direct local-merge-then-push is no longer possible. b-close now opens a PR,
+waits for CI, then merges via `gh pr merge`.
+
+### Step 3.1: Push Feature Branch
+
+From the feature worktree (where the implementation work happened):
 
 ```bash
-cd /Users/max/dev/being/development
-git checkout development
+cd /Users/max/dev/being/[worktree-dir]
+git push -u origin [feature-branch-name]
 ```
 
-**Verify**:
-```bash
-git branch --show-current
-# Should output: development
+**Display**:
+```
+🚀 Pushed feature branch to origin
+   Branch: [feature-branch-name]
 ```
 
 ---
 
-### Step 3.2: Merge Feature Branch
+### Step 3.2: Open PR Targeting Development
 
 ```bash
-git merge [feature-branch-name] --no-ff -m "Merge [WORK_ITEM_ID]: [Name]
-
+gh pr create \
+  --base development \
+  --head [feature-branch-name] \
+  --title "[type]: [WORK_ITEM_ID] [Name from Notion]" \
+  --body "$(cat <<'EOF'
 Closes [WORK_ITEM_ID]
 
-🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+[Brief description from work item User Story or Acceptance Criteria]
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+EOF
+)"
 ```
 
-**Example**:
+**Type-to-prefix mapping** (same as commit message):
+- FEAT → `feat:`
+- DEBUG → `fix:`
+- INFRA/MAINT/AGENT → `chore:`
+
+**Capture PR number** from the output URL (e.g., `https://github.com/MP2EZ/being/pull/42` → PR #42).
+
+**Display**:
+```
+📬 PR opened: #[PR_NUMBER]
+   URL: [PR URL]
+   Base: development
+   Head: [feature-branch-name]
+```
+
+---
+
+### Step 3.3: Wait for CI
+
 ```bash
-git merge feat/FEAT-42-easy-navigation-home --no-ff -m "Merge FEAT-42: Ensure easy navigation to home
+gh pr checks [PR_NUMBER] --watch
+```
 
-Closes FEAT-42
+This blocks until all 9 strict CI gates complete. Typical: 2-4 minutes.
 
-🤖 Generated with [Claude Code](https://claude.com/claude-code)"
+**Display while waiting**:
+```
+⏳ Waiting for CI (9 strict gates)...
+```
+
+**On success**:
+```
+✅ All CI gates passed
+```
+
+**On failure**:
+```
+❌ CI failed on PR #[PR_NUMBER]
+   Investigate: [PR URL]/checks
+
+   To re-trigger after a fix:
+   1. Push another commit to [feature-branch-name]
+   2. Re-run /b-close [WORK_ITEM_ID]
+```
+
+(STOP here on failure — do not proceed to merge.)
+
+---
+
+### Step 3.4: Merge via gh pr merge
+
+Use **merge commit** strategy (preserves feature branch history, matches the
+prior `--no-ff` behavior). Use `--admin` to bypass the "branch up-to-date with
+base" requirement for solo workflow speed.
+
+```bash
+gh pr merge [PR_NUMBER] \
+  --merge \
+  --delete-branch \
+  --admin
+```
+
+**Display**:
+```
+✅ Merged PR #[PR_NUMBER] to development
+   Strategy: merge commit (preserves feature branch history)
+   Feature branch deleted on remote
+```
+
+**Capture merge commit SHA**:
+```bash
+MERGE_SHA=$(gh pr view [PR_NUMBER] --json mergeCommit -q '.mergeCommit.oid')
+```
+
+---
+
+### Step 3.5: Sync Bare-Repo + Worktree (POST-MERGE)
+
+After GitHub merges, the local bare-repo's `refs/heads/development` is stale.
+Update it explicitly + pull the development worktree into sync.
+
+```bash
+# Sync the development worktree to match origin.
+# Because dev is checked out in a worktree, refs/heads/development IS the
+# worktree's branch ref; the pull updates the bare-repo's ref as a side
+# effect, so no explicit update-ref is needed.
+# Use --ff-only: after a remote merge of a fresh feature branch the worktree
+# is strictly behind origin, so fast-forward is the only correct outcome.
+# --rebase would silently replay any unexpected local dev commits, which is
+# never what we want here.
+git -C /Users/max/dev/being/development fetch origin
+git -C /Users/max/dev/being/development pull --ff-only origin development
+```
+
+**Display**:
+```
+🔄 Synced bare-repo + development worktree
+   refs/heads/development → [MERGE_SHA]
 ```
 
 **Error handling**:
-- If merge conflicts:
-  ```
-  ⚠️  Merge conflicts detected
-     Files with conflicts: [list]
+- If `pull --ff-only` fails (not a fast-forward): ABORT with message
+  "development worktree has unrelated local commits; resolve manually before
+  next b-close". Do NOT auto-rebase — unexpected dev commits should be
+  surfaced, not silently absorbed.
 
-  Please resolve conflicts manually:
-  1. cd ~/being/development
-  2. Resolve conflicts in listed files
-  3. git add [resolved-files]
-  4. git commit
-  5. Run /b-close [WORK_ITEM_ID] again (will skip merge step)
-  ```
+---
 
-- If already merged:
-  ```
-  ℹ️  Branch already merged to development
-     Skipping merge step
-  ```
+### Step 3.6: Verify remote feature branch was deleted
 
-**Success**:
+`gh pr merge --delete-branch` (Step 3.4) silently skips its branch-delete API
+call when its local-checkout step fails — which it always does in our
+bare-repo + worktrees setup because `development` is held by the dev worktree
+(`fatal: 'development' is already used by worktree at …`). This defensive
+check catches that and cleans up.
+
+```bash
+if git ls-remote origin "refs/heads/[feature-branch-name]" | grep -q .; then
+  echo "ℹ️  Feature branch still on origin (gh --delete-branch skipped); cleaning up"
+  git push origin --delete [feature-branch-name]
+  echo "🗑️  Deleted [feature-branch-name] from origin"
+else
+  echo "✓ Feature branch already removed from origin"
+fi
 ```
-✅ Merged to development
-   Branch: [feature-branch-name]
-   Strategy: --no-ff (preserves feature branch history)
-```
+
+Idempotent — safe to re-run. Do NOT remove the `--delete-branch` flag from
+Step 3.4: in workflows where gh's local-checkout succeeds (no worktree on the
+base branch), the flag still works and this step becomes a confirmation.
 
 ---
 
@@ -366,38 +481,15 @@ Add to Notion comment:
 
 ---
 
-### Step 5.2: Push to Remote (Optional)
+### Step 5.2: Push to Remote (DEPRECATED — kept for backward compat)
 
-**If --push flag was provided**:
+**INFRA-145 GitHub Flow note**: This step is now a no-op. The PR merge in
+Phase 3.4 already pushes development to origin via the GitHub API. The
+`--push` flag is accepted as a no-op for backward compatibility with prior
+invocations.
 
-```bash
-cd /Users/max/dev/being/development
-git push
 ```
-
-**Display**:
-```
-🚀 Pushing to remote...
-   Branch: development
-```
-
-**Success**:
-```
-✅ Pushed to remote
-   development: [old-commit]...[new-commit]
-```
-
-**Error handling**:
-```
-⚠️  Push failed: [error message]
-
-   Push manually when ready:
-   cd ~/being/development && git push
-```
-
-**If --push flag was NOT provided**:
-```
-ℹ️  Skip push (use --push flag to auto-push)
+ℹ️  Push handled automatically by gh pr merge (Phase 3.4). No action needed.
 ```
 
 ---
@@ -432,6 +524,7 @@ Next steps:
 **If command interrupted mid-execution**:
 - Phase 1-2 interruption: Safe to re-run (idempotent)
 - Phase 3 interruption (merge conflicts): User resolves, re-runs command
+- Phase 3.6 interruption (branch cleanup): Safe to re-run; check is idempotent
 - Phase 4 interruption (Notion): Re-run will update status/comment
 - Phase 5.1 interruption (worktree): Manual cleanup if needed
 - Phase 5.2 interruption (push): Re-run will attempt push again (idempotent)
