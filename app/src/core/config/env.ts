@@ -110,8 +110,13 @@ export const envSchema = z
     // === Sentry & PostHog ===
     // Both keys are client-public by design (they ship in the JS bundle).
     // Empty string == disabled (intentional: dev env runs with no DSN).
+    // Empty string == disabled (intentional: dev env runs with no DSN). Expo's
+    // env loader strips empty values from the export list, so we receive
+    // `undefined` rather than `''`; `.default('')` normalizes both shapes to
+    // the same disabled sentinel before the refine runs.
     EXPO_PUBLIC_SENTRY_DSN: z
       .string()
+      .default('')
       .refine((v) => v === '' || /^https:\/\/[^@]+@[^/]+\/\d+$/.test(v), {
         message: 'must be empty or a valid Sentry DSN (https://KEY@HOST/PROJECT_ID)',
       }),
