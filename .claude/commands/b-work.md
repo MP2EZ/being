@@ -222,7 +222,26 @@ Should show:
 
 ---
 
-### Step 2.5: Setup Dependencies (Conditional)
+### Step 2.5: Setup Env Symlinks (Idempotent)
+
+Worktrees do not store their own env files. Both `.env.production` and `.env.development` symlink to canonical files at `~/dev/being/.config/`. See CLAUDE.md "Known Gotchas" for details.
+
+```bash
+cd /Users/max/dev/being/[dir-name]
+
+if [ ! -L "app/.env.production" ]; then
+  ln -s ../../.config/env.production app/.env.production
+  echo "✅ Symlinked app/.env.production -> ~/dev/being/.config/env.production"
+fi
+if [ ! -L "app/.env.development" ]; then
+  ln -s ../../.config/env.development app/.env.development
+  echo "✅ Symlinked app/.env.development -> ~/dev/being/.config/env.development"
+fi
+```
+
+If the canonical files at `~/dev/being/.config/` don't exist, the symlinks will be broken (dangling). The app will start but env vars will be undefined — schema validation (when added) will catch this loudly.
+
+### Step 2.6: Setup Dependencies (Conditional)
 
 ```bash
 cd /Users/max/dev/being/[dir-name]
