@@ -22,9 +22,7 @@
 const privacyPolicyContent: string = require('../../../../../docs/legal/privacy-policy.md').default;
 const termsOfServiceContent: string = require('../../../../../docs/legal/terms-of-service.md').default;
 const medicalDisclaimerContent: string = require('../../../../../docs/legal/medical-disclaimer.md').default;
-const noticeOfPrivacyPracticesContent: string = require('../../../../../docs/legal/notice-of-privacy-practices.md').default;
 const californiaPrivacyContent: string = require('../../../../../docs/legal/california-privacy.md').default;
-const doNotSellContent: string = require('../../../../../docs/legal/do-not-sell.md').default;
 const supportContent: string = require('../../../../../docs/legal/support.md').default;
 /* eslint-enable @typescript-eslint/no-require-imports */
 
@@ -32,9 +30,7 @@ export type LegalDocumentType =
   | 'privacy-policy'
   | 'terms-of-service'
   | 'medical-disclaimer'
-  | 'notice-of-privacy-practices'
   | 'california-privacy'
-  | 'do-not-sell'
   | 'support';
 
 export interface LegalDocument {
@@ -67,26 +63,12 @@ export const legalDocuments: Record<LegalDocumentType, LegalDocument> = {
     description: 'Important limitations on wellness guidance',
     content: medicalDisclaimerContent,
   },
-  'notice-of-privacy-practices': {
-    id: 'notice-of-privacy-practices',
-    title: 'Notice of Privacy Practices',
-    shortTitle: 'Privacy Notice',
-    description: 'Your rights under health privacy laws',
-    content: noticeOfPrivacyPracticesContent,
-  },
   'california-privacy': {
     id: 'california-privacy',
     title: 'California Privacy Rights',
     shortTitle: 'California',
     description: 'Additional rights for California residents',
     content: californiaPrivacyContent,
-  },
-  'do-not-sell': {
-    id: 'do-not-sell',
-    title: 'Do Not Sell My Personal Information',
-    shortTitle: 'Do Not Sell',
-    description: 'Opt-out of data sales (we never sell)',
-    content: doNotSellContent,
   },
   'support': {
     id: 'support',
