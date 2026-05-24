@@ -348,6 +348,81 @@ describe('IAPService - Receipt Verification', () => {
     expect(result.valid).toBe(false);
     expect(result.error).toContain('not initialized');
   });
+
+  // TEST-06 audit: expand error matrix beyond happy path. The Edge Function
+  // can return valid:false with an explanatory error string (function ran ok
+  // but the receipt itself is invalid/expired/mismatched). These cases must
+  // surface back to the caller intact so the subscription store doesn't
+  // grant entitlement on a rejected receipt.
+
+  it('Receipt verification preserves valid:false with error field (invalid receipt)', async () => {
+    const service = IAPService;
+
+    mockInvoke.mockResolvedValue({
+      data: { valid: false, error: 'INVALID_RECEIPT' },
+      error: null,
+    });
+
+    const result = await service.verifyReceipt('tampered-receipt', 'apple');
+
+    expect(result.valid).toBe(false);
+    expect(result.error).toBe('INVALID_RECEIPT');
+    expect(result.subscriptionId).toBeUndefined();
+    expect(result.expiresDate).toBeUndefined();
+  });
+
+  it('Receipt verification preserves expiresDate accurately (round-trip for expired receipts)', async () => {
+    const service = IAPService;
+    // Past expiry date — function returns valid:true but consumer should detect expiry
+    const pastIso = '2020-01-01T00:00:00Z';
+    const expectedMs = new Date(pastIso).getTime();
+
+    mockInvoke.mockResolvedValue({
+      data: { valid: true, subscriptionId: 'sub-expired', expiresDate: pastIso },
+      error: null,
+    });
+
+    const result = await service.verifyReceipt('past-receipt', 'apple');
+
+    expect(result.valid).toBe(true);
+    expect(result.subscriptionId).toBe('sub-expired');
+    expect(result.expiresDate).toBe(expectedMs);
+    expect(result.expiresDate).toBeLessThan(Date.now()); // sanity: actually in the past
+  });
+
+  it('Receipt verification surfaces user-mismatch errors from the Edge Function', async () => {
+    const service = IAPService;
+    // Edge Function detected receipt belongs to a different auth.uid()
+    mockInvoke.mockResolvedValue({
+      data: null,
+      error: { message: 'User mismatch: receipt does not belong to authenticated user' },
+    });
+
+    const result = await service.verifyReceipt('other-user-receipt', 'apple');
+
+    expect(result.valid).toBe(false);
+    expect(result.error).toContain('User mismatch');
+  });
+
+  it('Receipt verification handles empty/whitespace receiptData via the Edge Function', async () => {
+    const service = IAPService;
+    // Empty receipt — Edge Function should reject. The client doesn't pre-validate
+    // (deliberate — server is the source of truth on receipt format), so the
+    // request flows through and we assert the rejection round-trips intact.
+    mockInvoke.mockResolvedValue({
+      data: { valid: false, error: 'EMPTY_RECEIPT' },
+      error: null,
+    });
+
+    const result = await service.verifyReceipt('', 'apple');
+
+    expect(result.valid).toBe(false);
+    expect(result.error).toBe('EMPTY_RECEIPT');
+    expect(mockInvoke).toHaveBeenCalledWith(
+      'verify-apple-receipt',
+      { body: { receiptData: '' } }
+    );
+  });
 });
 
 describe('IAPService - Restore Purchases', () => {
