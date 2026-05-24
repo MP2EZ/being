@@ -127,7 +127,6 @@ const LearnScreen: React.FC = () => {
           <Text
             style={styles.headerTitle}
             accessibilityRole="header"
-            // @ts-expect-error - accessibilityLevel is valid for header role
             accessibilityLevel={1}
           >
             Learn
@@ -149,7 +148,6 @@ const LearnScreen: React.FC = () => {
               <Text
                 style={styles.recommendationTitle}
                 accessibilityRole="header"
-                // @ts-expect-error - accessibilityLevel is valid for header role
                 accessibilityLevel={2}
               >
                 {MODULE_INFO[recommendedModuleId].title}
@@ -174,7 +172,6 @@ const LearnScreen: React.FC = () => {
             <Text
               style={styles.sectionTitle}
               accessibilityRole="header"
-              // @ts-expect-error - accessibilityLevel is valid for header role
               accessibilityLevel={2}
             >
               All Modules
@@ -228,7 +225,6 @@ const LearnScreen: React.FC = () => {
                   <Text
                     style={styles.moduleTitle}
                     accessibilityRole="header"
-                    // @ts-expect-error - accessibilityLevel is valid for header role
                     accessibilityLevel={3}
                   >
                     {info.title}

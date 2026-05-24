@@ -18,7 +18,7 @@
  */
 
 
-import { logSecurity, logPerformance, logError, LogCategory } from '@/core/services/logging';
+import { logSecurity, logPerformance, logError, logSystem, LogCategory } from '@/core/services/logging';
 import React, { Component, ReactNode, ErrorInfo } from 'react';
 import {
   View,
@@ -207,7 +207,7 @@ export class CrisisErrorBoundary extends Component<
     }
 
     const newRetryCount = this.state.retryCount + 1;
-    console.log(`🔄 Attempting recovery (attempt ${newRetryCount}/3)`);
+    logSystem(`CrisisErrorBoundary: attempting recovery (attempt ${newRetryCount}/3)`);
 
     this.setState({
       hasError: false,
@@ -257,7 +257,7 @@ export class CrisisErrorBoundary extends Component<
           text: 'Send Report',
           onPress: () => {
             // In production, this would open support form or email
-            console.log('📧 Support report requested');
+            logSystem('Support report requested');
           },
         },
         { text: 'Cancel', style: 'cancel' },

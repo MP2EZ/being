@@ -24,6 +24,7 @@
 
 import { Platform } from 'react-native';
 import { LogCategory, logger } from './ProductionLogger';
+import { env } from '@/core/config/env';
 
 /**
  * CONFIGURATION
@@ -195,15 +196,18 @@ export class ExternalErrorReporter {
       return false;
     }
 
-    // Expo requires EXPO_PUBLIC_ prefix for client-side env vars
-    const envDsn = process.env['EXPO_PUBLIC_SENTRY_DSN'];
-    if (!dsn && !envDsn) {
+    // Expo requires EXPO_PUBLIC_ prefix for client-side env vars.
+    // Schema-validated at startup (core/config/env.ts) — empty string is
+    // the documented "Sentry disabled" sentinel (treated falsy below).
+    const envDsn = env.EXPO_PUBLIC_SENTRY_DSN;
+    const resolvedDsn = dsn || envDsn;
+    if (!resolvedDsn) {
       logger.info(LogCategory.SYSTEM, 'External error reporting not configured (no DSN)');
       return false;
     }
 
     try {
-      this.config.dsn = dsn || envDsn;
+      this.config.dsn = resolvedDsn;
       this.config.enabled = true;
 
       // Dynamic import of Sentry (only load if needed)

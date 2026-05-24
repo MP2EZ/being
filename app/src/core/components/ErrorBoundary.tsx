@@ -94,7 +94,13 @@ export class ErrorBoundary extends Component<Props, State> {
             <Text style={styles.description}>
               We're sorry for the inconvenience. Your data is safe.
             </Text>
-            <Pressable style={styles.button} onPress={this.handleReset}>
+            <Pressable
+              style={styles.button}
+              onPress={this.handleReset}
+              accessibilityRole="button"
+              accessibilityLabel="Try again"
+              accessibilityHint="Resets the error and reloads the screen"
+            >
               <Text style={styles.buttonText}>Try Again</Text>
             </Pressable>
           </View>

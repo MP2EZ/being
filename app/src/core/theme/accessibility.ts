@@ -20,8 +20,36 @@ import { colors as dsColors } from '@mp2ez/being-design-system/native';
 /**
  * WCAG 2.1 AA Compliant Color Palette
  *
- * Color contrast tested with WebAIM Contrast Checker
- * All ratios verified against white (#FFFFFF) background
+ * Color contrast tested with WebAIM Contrast Checker.
+ * All ratios verified against white (#FFFFFF) background.
+ *
+ * UX-03 audit note (2026-05-17): the original audit flagged this file as a
+ * "duplicate of colors.accessibility from the DS package." On inspection
+ * that framing was incorrect:
+ *
+ *   - The 6 flow-specific entries (morningPrimary, eveningPrimary/Accent/
+ *     Border, borderSelected, bgEveningAccent) DO re-export DS tokens
+ *     directly via `dsColors.themes.*`. They are intentional semantic
+ *     aliases over the canonical palette, not drifting copies.
+ *
+ *   - The remaining 17 entries are project-specific WCAG-tuned values
+ *     (e.g., textHelper '#6B6B6B' replaces the original '#999' which
+ *     failed at 2.85:1; borderDefault '#B0B0B0' replaces '#DDD' which
+ *     failed at 1.36:1; error '#C92A2A' replaces '#D64545' which failed
+ *     at 3.88:1). The DS package's `colors.accessibility` does not expose
+ *     equivalents — it covers `highContrast`, `focus`, `text`, and
+ *     `notification` shapes only. Replacing these locals with DS tokens
+ *     would regress documented contrast compliance.
+ *
+ *   - Touch targets, A11y roles, live-region patterns, focus styles, and
+ *     spacing/border-radius scales below are likewise project-specific
+ *     extensions that the DS does not provide.
+ *
+ * Conclusion: this file extends the DS rather than duplicating it. UX-03
+ * closed with rationale rather than refactor. Audit doc updated 2026-05-24.
+ *
+ * @see WCAG 2.1 Level AA Guidelines
+ * @see /docs/accessibility/wcag-compliance.md
  */
 export const ACCESSIBLE_COLORS = {
   // ========================================
