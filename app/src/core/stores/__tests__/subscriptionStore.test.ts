@@ -45,7 +45,6 @@ describe('Subscription Store - Crisis Access Guarantee', () => {
     expect(store.checkFeatureAccess('nineEightEightAccess')).toBe(true);
     expect(store.getCrisisAccessStatus()).toBe(true);
 
-    console.log('✅ LEGAL COMPLIANCE VERIFIED: Crisis access guaranteed with no subscription');
   });
 
   it('CRITICAL: Crisis access returns true even with expired subscription', async () => {
@@ -87,7 +86,6 @@ describe('Subscription Store - Crisis Access Guarantee', () => {
     expect(store.checkFeatureAccess('nineEightEightAccess')).toBe(true);
     expect(store.getCrisisAccessStatus()).toBe(true);
 
-    console.log('✅ LEGAL COMPLIANCE VERIFIED: Crisis access guaranteed with expired subscription');
   });
 
   it('CRITICAL: getCrisisAccessStatus() type is hardcoded to return true', () => {
@@ -100,7 +98,6 @@ describe('Subscription Store - Crisis Access Guarantee', () => {
     // Verify it's the literal true, not just truthy
     expect(result === true).toBe(true);
 
-    console.log('✅ TYPE SAFETY VERIFIED: getCrisisAccessStatus() returns literal true');
   });
 });
 
@@ -156,7 +153,6 @@ describe('Subscription Store - Feature Access', () => {
     expect(store.checkFeatureAccess('progressInsights')).toBe(true);
     expect(store.checkFeatureAccess('assessments')).toBe(true);
 
-    console.log('✅ FEATURE ACCESS VERIFIED: Trial grants access to all features');
   });
 
   it('Active status grants access to non-crisis features', async () => {
@@ -197,7 +193,6 @@ describe('Subscription Store - Feature Access', () => {
     expect(store.checkFeatureAccess('breathingExercises')).toBe(true);
     expect(store.checkFeatureAccess('therapeuticContent')).toBe(true);
 
-    console.log('✅ FEATURE ACCESS VERIFIED: Active subscription grants full access');
   });
 
   it('Expired status blocks non-crisis features but allows crisis features', async () => {
@@ -244,7 +239,6 @@ describe('Subscription Store - Feature Access', () => {
     expect(store.checkFeatureAccess('crisisContacts')).toBe(true);
     expect(store.checkFeatureAccess('safetyPlan')).toBe(true);
 
-    console.log('✅ FEATURE GATING VERIFIED: Expired subscription blocks non-crisis, allows crisis');
   });
 
   it('Grace period continues access to non-crisis features', async () => {
@@ -284,7 +278,6 @@ describe('Subscription Store - Feature Access', () => {
     expect(store.checkFeatureAccess('checkIns')).toBe(true);
     expect(store.checkFeatureAccess('breathingExercises')).toBe(true);
 
-    console.log('✅ GRACE PERIOD VERIFIED: Non-crisis features remain accessible');
   });
 });
 
@@ -317,7 +310,6 @@ describe('Subscription Store - Trial Management', () => {
     const trialDurationDays = trialDurationMs / (24 * 60 * 60 * 1000);
     expect(trialDurationDays).toBeCloseTo(28, 0);
 
-    console.log('✅ TRIAL CREATION VERIFIED: 28-day trial created successfully');
   });
 
   it('getTrialDaysRemaining() returns correct countdown', async () => {
@@ -332,7 +324,6 @@ describe('Subscription Store - Trial Management', () => {
     expect(daysRemaining).toBeGreaterThan(27);
     expect(daysRemaining).toBeLessThanOrEqual(28);
 
-    console.log('✅ TRIAL COUNTDOWN VERIFIED:', daysRemaining, 'days remaining');
   });
 
   it('isTrialActive() returns true during trial', async () => {
@@ -345,7 +336,6 @@ describe('Subscription Store - Trial Management', () => {
     expect(updatedStore.isTrialActive()).toBe(true);
     expect(updatedStore.isSubscriptionActive()).toBe(false);
 
-    console.log('✅ TRIAL STATUS VERIFIED: Trial is active');
   });
 });
 
@@ -403,7 +393,6 @@ describe('Subscription Store - Performance', () => {
 
     expect(avgTime).toBeLessThan(100); // <100ms per check
 
-    console.log(`✅ PERFORMANCE VERIFIED: Feature access check: ${avgTime.toFixed(2)}ms (target: <100ms)`);
   });
 
   it('PERFORMANCE: Crisis access check is instant (0 lookups)', async () => {
@@ -419,6 +408,5 @@ describe('Subscription Store - Performance', () => {
 
     expect(avgTime).toBeLessThan(1); // Should be microseconds, not milliseconds
 
-    console.log(`✅ PERFORMANCE VERIFIED: Crisis access check: ${avgTime.toFixed(4)}ms (hardcoded, no lookup)`);
   });
 });
