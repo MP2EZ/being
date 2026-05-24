@@ -221,7 +221,6 @@ We implement strong security because it's the right thing to do for users entrus
 | Document | Purpose |
 |----------|---------|
 | `privacy-policy.md` | User-facing privacy commitments |
-| `notice-of-privacy-practices.md` | Detailed privacy practices |
 | `medical-disclaimer.md` | Medical/clinical disclaimers |
 | `california-privacy.md` | CCPA-specific disclosures |
 | `terms-of-service.md` | User agreement |
