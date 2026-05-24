@@ -8,3 +8,10 @@ development/websitev2/
 
 # Canonical env location (per-machine, never committed)
 .config/
+
+# Worktree directories — git worktrees at bare root, not regular subdirs.
+# Suppresses untracked-file noise for the long-lived worktrees and any
+# /b-work-created feature worktree ([type-prefix]-[id]/, e.g. infra-142/).
+development/
+main/
+[a-z]*-[0-9]*/
