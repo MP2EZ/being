@@ -1,8 +1,8 @@
 # Privacy Policy
 
-**Version:** 1.1
+**Version:** 1.2
 **Effective Date:** December 12, 2025
-**Last Updated:** December 26, 2025
+**Last Updated:** May 23, 2026
 
 ---
 
@@ -12,6 +12,10 @@
 2. [Information We Collect](#2-information-we-collect)
 3. [How We Use Your Information](#3-how-we-use-your-information)
 4. [Data Storage & Security](#4-data-storage--security)
+   - [4.1 Local-First Architecture](#41-local-first-architecture)
+   - [4.2 Optional Cloud Backup](#42-optional-cloud-backup)
+   - [4.3 Security Measures](#43-security-measures)
+   - [4.4 Breach Notification](#44-breach-notification)
 5. [Data Sharing & Third Parties](#5-data-sharing--third-parties)
    - [5.1 Service Providers](#51-service-providers)
    - [5.2 Analytics](#52-analytics)
@@ -97,6 +101,20 @@ You may optionally enable encrypted cloud backup to sync data across devices. Cl
 - Regular security audits and penetration testing
 - Limited employee access to encrypted data
 - Two-factor authentication for accounts
+
+### 4.4 Breach Notification
+
+In the unlikely event of a breach affecting your wellness or mental-health information, Being will notify affected users without unreasonable delay, and in no case later than 60 calendar days after discovery, in accordance with the Federal Trade Commission's Health Breach Notification Rule (16 CFR Part 318).
+
+Notifications will include:
+
+- A description of what happened and when it was discovered
+- The types of information involved
+- Steps you can take to protect yourself
+- What we are doing to investigate the breach and prevent recurrence
+- How to contact us for more information
+
+Notifications will be delivered by email (if you provided one) and by prominent in-app notice.
 
 ---
 
