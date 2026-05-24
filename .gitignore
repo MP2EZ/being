@@ -5,3 +5,6 @@
 
 # Website moved to separate repository
 development/websitev2/
+
+# Canonical env location (per-machine, never committed)
+.config/
