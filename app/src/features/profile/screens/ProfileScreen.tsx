@@ -187,7 +187,6 @@ const ProfileScreen: React.FC = () => {
           <Text
             style={styles.title}
             accessibilityRole="header"
-            // @ts-expect-error - accessibilityLevel is valid for header role
             accessibilityLevel={1}
           >
             Your Profile
@@ -201,7 +200,6 @@ const ProfileScreen: React.FC = () => {
           <Text
             style={styles.sectionTitle}
             accessibilityRole="header"
-            // @ts-expect-error - accessibilityLevel is valid for header role
             accessibilityLevel={2}
           >
             Setup & Configuration
@@ -240,7 +238,6 @@ const ProfileScreen: React.FC = () => {
           <Text
             style={styles.sectionTitle}
             accessibilityRole="header"
-            // @ts-expect-error - accessibilityLevel is valid for header role
             accessibilityLevel={2}
           >
             Wellbeing Tracking
@@ -310,7 +307,6 @@ const ProfileScreen: React.FC = () => {
           <Text
             style={styles.sectionTitle}
             accessibilityRole="header"
-            // @ts-expect-error - accessibilityLevel is valid for header role
             accessibilityLevel={2}
           >
             Subscription
@@ -337,7 +333,6 @@ const ProfileScreen: React.FC = () => {
           <Text
             style={styles.sectionTitle}
             accessibilityRole="header"
-            // @ts-expect-error - accessibilityLevel is valid for header role
             accessibilityLevel={2}
           >
             Account Management
@@ -376,7 +371,6 @@ const ProfileScreen: React.FC = () => {
           <Text
             style={styles.sectionTitle}
             accessibilityRole="header"
-            // @ts-expect-error - accessibilityLevel is valid for header role
             accessibilityLevel={2}
           >
             Information
