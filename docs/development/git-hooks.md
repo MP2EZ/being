@@ -6,10 +6,18 @@ Wired in INFRA-155. Husky v9 sits in `app/devDependencies` and bootstraps on eve
 
 | Hook | npm chain | Fires on |
 |---|---|---|
-| `pre-push` (`app/.husky/pre-push`) | `npm run prepush` → `check:crisis-hotline && test:ci && validate:clinical-complete` | every `git push` |
+| `pre-push` (`app/.husky/pre-push`) | `npm run prepush` → `check:crisis-hotline` (~1 sec) | every `git push` |
 | `pre-commit` | *(not wired)* | — |
 
-The pre-commit hook is intentionally absent. The `precommit` npm chain references `lint:clinical`, which expects `.eslintrc.clinical.js` — a config file that doesn't exist anywhere in the repo (pre-existing bit-rot, surfaced by INFRA-155's wiring work). Wiring the hook today would block every commit on a useless ENOENT error. A separate ticket will restore the missing config and wire the pre-commit hook.
+### Why pre-push runs only `check:crisis-hotline`
+
+The `prepush` chain originally also ran `test:ci && validate:clinical-complete`. Real-world testing during INFRA-155 showed that chain takes 20+ minutes locally (vs. ~40 seconds on GitHub Actions). A 20-minute interactive `git push` hook trains exactly one habit — `--no-verify` every time — which is strictly worse than no hook. Worse still, the same checks already run on every PR via the 9-gate CI workflow, so the local invocation was duplicative.
+
+The hook now runs only the **fast, local, non-redundant** check: the 988 env-regression guard (`check:crisis-hotline`), ~1 second. CI handles the heavy validation. If you want to run the full local validation on demand, invoke the underlying npm scripts directly: `npm run test:ci`, `npm run validate:clinical-complete`.
+
+### Why pre-commit isn't wired
+
+The `precommit` npm chain references `lint:clinical`, which expects `.eslintrc.clinical.js` — a config file that doesn't exist anywhere in the repo (pre-existing bit-rot, surfaced by INFRA-155's wiring work). Wiring the hook today would block every commit on a useless ENOENT error. INFRA-156 restores the missing config and wires the pre-commit hook.
 
 ## Bypass policy
 
@@ -38,4 +46,4 @@ Husky depends on the `prepare` npm lifecycle, which only runs after `npm install
 
 ## CI
 
-`CI=true` (set automatically by GitHub Actions) causes husky to skip installation entirely. The same `prepush` chain runs as the 9-gate CI workflow, so the safety check runs there too — just by a different trigger.
+`CI=true` (set automatically by GitHub Actions) causes husky to skip installation entirely. The 9-gate CI workflow runs the full validation (typecheck, lint, test:ci, clinical, edge functions, etc.) on every PR, so the heavy checks are still enforced — just at PR time rather than local push time. The local pre-push hook covers the fast 988 check that benefits from catching regressions before they leave the developer's machine.
