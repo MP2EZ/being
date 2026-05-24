@@ -19,6 +19,7 @@
 5. [Data Sharing & Third Parties](#5-data-sharing--third-parties)
    - [5.1 Service Providers](#51-service-providers)
    - [5.2 Analytics](#52-analytics)
+   - [5.3 No Sale or Sharing of Personal Information](#53-no-sale-or-sharing-of-personal-information)
 6. [Your Privacy Rights](#6-your-privacy-rights)
 7. [Data Retention](#7-data-retention)
 8. [Children's Privacy](#8-childrens-privacy)
@@ -168,6 +169,18 @@ Being uses PostHog (EU data residency) to collect anonymous product analytics. *
 **Data Residency:** EU (Frankfurt, Germany)
 
 **Third Party:** [PostHog Inc.](https://posthog.com/privacy)
+
+### 5.3 No Sale or Sharing of Personal Information
+
+**Being does not sell or share your personal information.** Under the California Consumer Privacy Act (CCPA/CPRA), "sale" means disclosing personal information to a third party for monetary or other valuable consideration, and "sharing" means disclosing personal information for cross-context behavioral advertising. Being does neither.
+
+In accordance with CCPA §1798.135(b)(1), we satisfy our opt-out obligation by publishing this notice in our privacy policy in lieu of maintaining a separate "Do Not Sell or Share My Personal Information" link.
+
+**Global Privacy Control (GPC):** We honor the Global Privacy Control (GPC) browser signal as a valid opt-out request under CCPA, the Texas Data Privacy and Security Act (TDPSA), and the Colorado Privacy Act (CPA). If your browser or device sends a GPC signal, we treat it as an opt-out request even though no sale or sharing is occurring.
+
+To submit a formal opt-out request by email, write to [privacy@being.fyi](mailto:privacy@being.fyi) with the subject line "Do Not Sell or Share My Personal Information." We will confirm receipt and document your request.
+
+For complete California privacy rights, see our [California Privacy Rights](/privacy/california) page.
 
 ---
 

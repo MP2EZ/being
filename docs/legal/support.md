@@ -67,7 +67,7 @@ Go to Settings > Privacy > Export Data in the app. You'll receive a JSON file co
 
 **Do you sell my data?**
 
-No. We never sell your personal information. See our [Do Not Sell](/do-not-sell) page for details.
+No. We never sell your personal information. See the "No Sale or Sharing of Personal Information" section of our [Privacy Policy](/privacy#5-data-sharing--third-parties) for details.
 
 ### App Issues
 
