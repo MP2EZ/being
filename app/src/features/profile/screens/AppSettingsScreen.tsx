@@ -120,7 +120,12 @@ const AppSettingsScreen: React.FC<AppSettingsScreenProps> = ({ onReturn }) => {
       <SafeAreaView style={styles.container}>
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>Failed to load settings</Text>
-          <Pressable style={styles.retryButton} onPress={() => settingsStore.loadSettings()}>
+          <Pressable
+            style={styles.retryButton}
+            onPress={() => settingsStore.loadSettings()}
+            accessibilityRole="button"
+            accessibilityLabel="Retry loading settings"
+          >
             <Text style={styles.retryButtonText}>Retry</Text>
           </Pressable>
         </View>
@@ -214,26 +219,36 @@ const AppSettingsScreen: React.FC<AppSettingsScreenProps> = ({ onReturn }) => {
           <View style={styles.settingCard}>
             <Text style={styles.settingLabel}>Text Size</Text>
             <View style={styles.textSizeContainer}>
-              {(['small', 'medium', 'large', 'xlarge'] as const).map((size) => (
-                <Pressable
-                  key={size}
-                  style={[
-                    styles.textSizeButton,
-                    settings.accessibility.textSize === size && styles.textSizeButtonActive,
-                  ]}
-                  onPress={() => handleToggleSetting('accessibility', 'textSize', size)}
-                  disabled={isSaving}
-                >
-                  <Text
+              {(['small', 'medium', 'large', 'xlarge'] as const).map((size) => {
+                const label = size === 'xlarge' ? 'extra large' : size;
+                return (
+                  <Pressable
+                    key={size}
                     style={[
-                      styles.textSizeButtonText,
-                      settings.accessibility.textSize === size && styles.textSizeButtonTextActive,
+                      styles.textSizeButton,
+                      settings.accessibility.textSize === size && styles.textSizeButtonActive,
                     ]}
+                    onPress={() => handleToggleSetting('accessibility', 'textSize', size)}
+                    disabled={isSaving}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Text size: ${label}`}
+                    accessibilityState={{
+                      selected: settings.accessibility.textSize === size,
+                      disabled: isSaving,
+                    }}
                   >
-                    {size === 'xlarge' ? 'XL' : size.charAt(0).toUpperCase()}
-                  </Text>
-                </Pressable>
-              ))}
+                    <Text
+                      style={[
+                        styles.textSizeButtonText,
+                        settings.accessibility.textSize === size && styles.textSizeButtonTextActive,
+                      ]}
+                      importantForAccessibility="no"
+                    >
+                      {size === 'xlarge' ? 'XL' : size.charAt(0).toUpperCase()}
+                    </Text>
+                  </Pressable>
+                );
+              })}
             </View>
           </View>
 
@@ -299,6 +314,10 @@ const AppSettingsScreen: React.FC<AppSettingsScreenProps> = ({ onReturn }) => {
             style={[styles.dangerButton, isSaving && styles.buttonDisabled]}
             onPress={handleResetSettings}
             disabled={isSaving}
+            accessibilityRole="button"
+            accessibilityLabel="Reset to defaults"
+            accessibilityHint="Resets all settings to their default values"
+            accessibilityState={{ disabled: isSaving }}
           >
             <Text style={styles.dangerButtonText}>Reset to Defaults</Text>
           </Pressable>

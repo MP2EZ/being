@@ -291,3 +291,44 @@ describe('EncryptionService — key derivation determinism', () => {
     expect(await service.decryptData(pkg2, 'crisis_key_shared-episode')).toEqual(data);
   });
 });
+
+describe('EncryptionService — error branches (TEST-20)', () => {
+  // The audit asked for 5-6 targeted error-branch tests on the ~20 distinct
+  // throw sites in EncryptionService. Existing suite covers init-guard,
+  // tamper detection (×2), and destroy-prevents-encrypt. Adding the
+  // remaining gaps below.
+
+  it('decryptData rejects malformed package (missing required field)', async () => {
+    const service = EncryptionService.getInstance();
+    await service.initialize();
+
+    const valid = await service.encryptData('hello', 'level_5_general_data');
+    // Strip the auth tag — package is structurally invalid for decryption
+    const malformed = { ...valid, tag: '' };
+
+    await expect(service.decryptData(malformed)).rejects.toThrow();
+  });
+
+  it('decryptData rejects package with empty encryptedData', async () => {
+    const service = EncryptionService.getInstance();
+    await service.initialize();
+
+    const valid = await service.encryptData('hello', 'level_5_general_data');
+    const empty = { ...valid, encryptedData: '' };
+
+    await expect(service.decryptData(empty)).rejects.toThrow();
+  });
+
+  it('preserves error message text (surfaces in Sentry)', async () => {
+    const service = EncryptionService.getInstance();
+    await service.destroy(); // ensure uninit state
+
+    try {
+      await service.encryptData('x', 'level_5_general_data');
+      throw new Error('should have thrown');
+    } catch (e) {
+      // The error message must mention initialization for Sentry triage
+      expect(String((e as Error).message)).toMatch(/initialized|initialize/i);
+    }
+  });
+});
