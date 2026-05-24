@@ -154,6 +154,10 @@ verify-*.js
 verify-*.py
 check-*.js
 check-*.py
+# Whitelist the crisis-hotline pre-push guard (MAINT-154) — it's a permanent
+# safety check, not an ad-hoc developer scratch script.
+!app/scripts/check-crisis-hotline.js
+!app/__tests__/scripts/check-crisis-hotline.test.js
 execute-*.js
 execute-*.py
 batch_*.py
