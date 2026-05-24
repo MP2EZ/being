@@ -105,17 +105,68 @@ Which validators are required for which work type. `crisis`, `compliance`, `phil
 
 Uses the `@mp2ez/being-design-system` npm package. Theme tokens imported from `@/core/theme`. UI work imports `colorSystem`, `semantic`, `spacing`, `borderRadius`, `typography` from there. **No hardcoded hex colors, magic-number spacing, or inline fontSize.** Themes vary by time of day (`morning|midday|evening`) via `getTheme(flowType)`.
 
+## Branch Model (GitHub Flow — INFRA-145)
+
+Two long-lived branches:
+- **`main`** — last-shipped state. Updated only via `development → main` release PRs (created by `/b-release`) or `hotfix/* → main` PRs. TestFlight + App Store build from this branch.
+- **`development`** — integration branch. All feature / chore / fix branches PR into this. Each merge is "ready to release"; multiple can accumulate before a release.
+
+Short-lived branches:
+- `feat/*`, `fix/*`, `chore/*` — branched off `development`, PR'd to `development`, deleted on merge.
+- `hotfix/*` — branched off `main` (NOT dev), PR'd to `main`. After merge: **cherry-pick** the hotfix commit onto `development` (decision: cherry-pick over rebase, keeps dev's force-push protection on).
+
+**Branch protection**: both `main` and `development` require `CI pass` (9 strict gates), enforce admins, prevent force-push and deletion, and require PRs (no direct push). Use `gh pr merge --admin` for solo workflow speed.
+
+**Multi-agent rule**: each Claude agent runs in its own worktree on its own feature branch. All agents converge on `development` via PRs. This is why `development` exists — it's the convergence point for parallel work streams.
+
+## Release Process (INFRA-145)
+
+1. Tranches land on `development` via `/b-close [WORK_ITEM_ID]` (which PRs to dev, waits for CI, merges via merge-commit).
+2. When ready to ship to TestFlight, run `/b-release` from the development worktree:
+   - Interactive prompt for bump type (patch / minor / major) — pass as arg to skip.
+   - Skill auto-generates release notes from squash commits since last semver tag.
+   - Bumps version across **FOUR sources** (INFRA-141): `app/package.json`, `app/app.json`, `~/dev/being/.config/env.production`, `~/dev/being/.config/env.development`. Refuses to run if any source disagrees.
+   - Opens PR `development → main` (CI runs the same 9 gates).
+   - Merges via **merge commit** (NOT squash — preserves per-tranche history visible on main).
+3. After GitHub merges, run `/b-release --finish` to tag and push.
+
+Tag scheme: `vX.Y.Z` semver. Pre-launch: `v0.x.y`. App Store launch: `v1.0.0`. Legacy `v2.x` tags from earlier development phases are filtered out by the b-release `--match 'v[0-9]*.[0-9]*.[0-9]*'` pattern.
+
+## Hotfix Process
+
+For bugs found in production (or TestFlight) that need to ship without waiting on in-progress dev work:
+
+1. `git checkout main && git pull`
+2. `git checkout -b hotfix/<short-description>`
+3. Fix + commit
+4. PR `hotfix/* → main` (NOT to development). CI runs against main.
+5. After merge:
+   - Tag main with patch bump (e.g., `v1.0.1`).
+   - **Cherry-pick** the hotfix commit onto development:
+     ```bash
+     git -C ~/dev/being/development fetch origin
+     git -C ~/dev/being/development checkout development
+     git -C ~/dev/being/development cherry-pick origin/main
+     # (or specifically pick the hotfix sha if main has multiple new commits)
+     git -C ~/dev/being/development push origin development
+     ```
+
+Cherry-pick is preferred over rebase to keep dev's "prevent force-push" protection on. The duplicate commit content is fine — git handles identical content gracefully on the next release PR.
+
 ## Workflow Commands
 
 | Command | Purpose |
 |---|---|
 | `/b-create [TYPE] - [Name]` | Create Notion work item from conversation context with dimension scores |
-| `/b-work [WORK_ITEM_ID]` | Fetch work item, create worktree, install deps, implement |
-| `/b-close [WORK_ITEM_ID]` | Commit, merge to development, update Notion to Done. Use `--push` to push remote. |
+| `/b-work [WORK_ITEM_ID]` | Fetch work item, create worktree off `development` (with env symlinks per INFRA-141), install deps, implement |
+| `/b-close [WORK_ITEM_ID]` | Push feature branch, open PR to `development`, wait for CI, merge via merge-commit (INFRA-145), update Notion to Done. `--push` flag deprecated (PR merge always pushes). |
+| `/b-release [BUMP] [--finish]` | Promote `development → main` as a release. Interactive bump prompt + FOUR-place version bump (INFRA-141) + env schema pre-flight + auto release notes. Run with `--finish` after the PR merges to tag + push. |
 
 Branch naming: `feat/*`, `fix/*`, `chore/*` (mapped from work item TYPE). Conventional commits. Aim for <400 LOC per PR.
 
 **Notion work-items DB**: `NOTION_WORK_DB = 277a1108-c208-805c-810b-000b0f0aae22`. Single source of truth — referenced by slash commands as `${NOTION_WORK_DB}`. Rotate here only.
+
+💡 **Recommended mode**: enable Accept Edits (Shift+Tab to cycle) for `/b-work` / `/b-close` / `/b-release` runs. These skills make many sequential tool calls (Notion + git + gh CLI + version bumps). For complex architectural work, consider Plan mode first.
 
 ## Docs Map
 
