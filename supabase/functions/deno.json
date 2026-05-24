@@ -13,7 +13,8 @@
     "serve:verify-apple": "deno run --allow-net --allow-env --allow-read verify-apple-receipt/index.ts",
     "serve:verify-google": "deno run --allow-net --allow-env --allow-read verify-google-receipt/index.ts",
     "serve:webhook": "deno run --allow-net --allow-env --allow-read subscription-webhook/index.ts",
-    "serve:automation": "deno run --allow-net --allow-env --allow-read grace-period-automation/index.ts"
+    "serve:automation": "deno run --allow-net --allow-env --allow-read grace-period-automation/index.ts",
+    "test": "deno test --allow-net --allow-env --allow-read --no-check _tests/"
   },
   "fmt": {
     "options": {

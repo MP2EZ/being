@@ -75,7 +75,6 @@ const CheckInCard: React.FC<CheckInCardProps> = ({
           <Text
             style={[styles.cardTitle, { color: themeColors.primary }]}
             accessibilityRole="header"
-            // @ts-expect-error - accessibilityLevel is valid for header role
             accessibilityLevel={3}
           >
             {title}
@@ -173,7 +172,6 @@ const CleanHomeScreen: React.FC = () => {
           <Text
             style={styles.appTitle}
             accessibilityRole="header"
-            // @ts-expect-error - accessibilityLevel is valid for header role
             accessibilityLevel={1}
           >
             Being.
@@ -181,7 +179,6 @@ const CleanHomeScreen: React.FC = () => {
           <Text
             style={styles.greeting}
             accessibilityRole="header"
-            // @ts-expect-error - accessibilityLevel is valid for header role
             accessibilityLevel={2}
           >
             {getGreeting()}

@@ -104,9 +104,12 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                 style={styles.conceptHeader}
                 onPress={() => toggleConcept(index)}
                 activeOpacity={0.7}
+                accessibilityRole="button"
+                accessibilityLabel={`${isExpanded ? 'Collapse' : 'Expand'} concept: ${concept.title}`}
+                accessibilityState={{ expanded: isExpanded }}
               >
                 <Text style={styles.conceptTitle}>{concept.title}</Text>
-                <Text style={styles.conceptIcon}>
+                <Text style={styles.conceptIcon} importantForAccessibility="no">
                   {isExpanded ? '−' : '+'}
                 </Text>
               </TouchableOpacity>
@@ -221,11 +224,14 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
                   style={styles.obstacleHeader}
                   onPress={() => toggleObstacle(index)}
                   activeOpacity={0.7}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${isExpanded ? 'Collapse' : 'Expand'} question: ${obstacle.question}`}
+                  accessibilityState={{ expanded: isExpanded }}
                 >
                   <Text style={styles.obstacleQuestion}>
                     {obstacle.question}
                   </Text>
-                  <Text style={styles.obstacleIcon}>
+                  <Text style={styles.obstacleIcon} importantForAccessibility="no">
                     {isExpanded ? '−' : '+'}
                   </Text>
                 </TouchableOpacity>

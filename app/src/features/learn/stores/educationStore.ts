@@ -22,6 +22,7 @@
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getCurrentUserId } from '@/core/constants/devMode';
+import { logSecurity } from '@/core/services/logging';
 import type {
   ModuleId,
   ModuleStatus,
@@ -313,6 +314,10 @@ export const useEducationStore = create<ExtendedEducationState>((set, get) => ({
         },
       }));
     }
+
+    // Persist so the user's last-viewed module survives reload.
+    // Bug pre-fix surfaced by TEST-19b.
+    get().persistState();
   },
 
   /**
@@ -400,7 +405,7 @@ export const useEducationStore = create<ExtendedEducationState>((set, get) => ({
       // Validate userId matches current user
       const currentUserId = getCurrentUserId();
       if (parsed.userId !== currentUserId) {
-        console.warn('[EducationStore] UserId mismatch, ignoring stored data');
+        logSecurity('[EducationStore] UserId mismatch, ignoring stored data', 'medium');
         return;
       }
 

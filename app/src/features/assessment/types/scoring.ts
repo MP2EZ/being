@@ -97,6 +97,28 @@ export type AssessmentScoringFunction<T extends AssessmentType> =
   T extends 'phq9' ? PHQ9ScoringFunction : GAD7ScoringFunction;
 
 /**
+ * Branded total-score types (TS-04 audit). Plain `number` permits −1, 42, NaN
+ * on clinical interfaces. Branding forces construction through the validators
+ * below so out-of-range values can't slip into PHQ9ScoringResult / GAD7ScoringResult.
+ */
+export type PHQ9TotalScore = number & { readonly __brand: 'PHQ9TotalScore' };
+export type GAD7TotalScore = number & { readonly __brand: 'GAD7TotalScore' };
+
+export const toPHQ9TotalScore = (n: number): PHQ9TotalScore => {
+  if (!Number.isInteger(n) || n < 0 || n > 27) {
+    throw new Error(`Invalid PHQ-9 total score: ${n} (expected integer 0–27)`);
+  }
+  return n as PHQ9TotalScore;
+};
+
+export const toGAD7TotalScore = (n: number): GAD7TotalScore => {
+  if (!Number.isInteger(n) || n < 0 || n > 21) {
+    throw new Error(`Invalid GAD-7 total score: ${n} (expected integer 0–21)`);
+  }
+  return n as GAD7TotalScore;
+};
+
+/**
  * Scoring Result Types
  */
 
@@ -105,8 +127,8 @@ export type AssessmentScoringFunction<T extends AssessmentType> =
  * Complete result with validation and clinical interpretation
  */
 export interface PHQ9ScoringResult {
-  /** Final calculated score (0-27) */
-  totalScore: number;
+  /** Final calculated score (0-27), branded — constructed via toPHQ9TotalScore */
+  totalScore: PHQ9TotalScore;
   /** Individual question scores */
   questionScores: Record<string, AssessmentResponse>;
   /** Clinical severity interpretation */
@@ -130,8 +152,8 @@ export interface PHQ9ScoringResult {
  * Complete result with validation and clinical interpretation
  */
 export interface GAD7ScoringResult {
-  /** Final calculated score (0-21) */
-  totalScore: number;
+  /** Final calculated score (0-21), branded — constructed via toGAD7TotalScore */
+  totalScore: GAD7TotalScore;
   /** Individual question scores */
   questionScores: Record<string, AssessmentResponse>;
   /** Clinical severity interpretation */
