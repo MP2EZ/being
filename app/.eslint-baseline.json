@@ -27,7 +27,7 @@
   "src/core/components/subscription/SubscriptionStatusCard.tsx": 4,
   "src/core/components/subscription/__tests__/FeatureGate.test.tsx": 1,
   "src/core/components/sync/SyncStatusIndicator.tsx": 2,
-  "src/core/navigation/CleanRootNavigator.tsx": 10,
+  "src/core/navigation/CleanRootNavigator.tsx": 3,
   "src/core/navigation/CleanTabNavigator.tsx": 5,
   "src/core/services/data-retention/DataRetentionService.ts": 1,
   "src/core/services/data-retention/__tests__/DataRetentionService.test.ts": 1,

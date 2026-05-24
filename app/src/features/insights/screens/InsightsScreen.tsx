@@ -102,14 +102,13 @@ const InsightsScreen: React.FC = () => {
     }, [trackScreenView])
   );
 
-  // Store hooks - subscribe to raw data arrays for reactivity
-  const {
-    getCheckInHistory,
-    getPrincipleEngagements,
-    checkInCompletions,
-    principleEngagements: rawPrincipleEngagements,
-  } = useStoicPracticeStore();
-  const { completedAssessments } = useAssessmentStore();
+  // PERF-03: selectors instead of whole-store destructure — subscribe ONLY
+  // to the slices this screen reads, not every change in the store.
+  const getCheckInHistory = useStoicPracticeStore((s) => s.getCheckInHistory);
+  const getPrincipleEngagements = useStoicPracticeStore((s) => s.getPrincipleEngagements);
+  const checkInCompletions = useStoicPracticeStore((s) => s.checkInCompletions);
+  const rawPrincipleEngagements = useStoicPracticeStore((s) => s.principleEngagements);
+  const completedAssessments = useAssessmentStore((s) => s.completedAssessments);
 
   // Get data for components - depend on raw arrays for proper reactivity
   const checkInHistory = useMemo(

@@ -25,30 +25,34 @@ export default function App() {
       try {
         logSystem('App initialization started');
 
-        logSystem('Initializing encryption service');
+        // EncryptionService must initialize first — downstream secure-storage
+        // services (wellness data) depend on its keys being ready.
         await EncryptionService.initialize();
         logSystem('Encryption service initialized');
 
-        // Initialize external error reporting (Sentry) - INFRA-61
-        // Only active in production when EXPO_PUBLIC_SENTRY_DSN is set
-        await initializeExternalReporting();
+        // Remaining init tasks are independent. allSettled (not all) so one
+        // best-effort failure doesn't abort the others (Sentry init, retention
+        // cleanup, etc. are non-blocking for app usability). IAP init only runs
+        // when the platform supports it.
+        const results = await Promise.allSettled([
+          initializeExternalReporting(),
+          useSubscriptionStore.getState().loadSubscription(),
+          IAPService.isAvailable()
+            ? IAPService.initialize()
+            : Promise.resolve(),
+          DataRetentionService.runRetentionCleanup(),
+        ]);
 
-        logSystem('Initializing subscription system');
-        await useSubscriptionStore.getState().loadSubscription();
-
-        if (IAPService.isAvailable()) {
-          await IAPService.initialize();
-          logSystem('IAP service initialized');
-        } else {
-          logSystem('IAP not available on this platform');
-        }
-
-        // MAINT-123: data retention is safe to call on every launch (max once/day internally)
-        logSystem('Running data retention cleanup');
-        const cleanupResult = await DataRetentionService.runRetentionCleanup();
-        logSystem(
-          `Data retention cleanup complete: ${cleanupResult.totalRecordsDeleted} records deleted`
-        );
+        results.forEach((result, idx) => {
+          if (result.status === 'rejected') {
+            const task = ['externalReporting', 'loadSubscription', 'IAPService', 'dataRetention'][idx];
+            logError(
+              LogCategory.SYSTEM,
+              `Init task '${task}' failed (non-blocking)`,
+              result.reason as Error
+            );
+          }
+        });
 
         setIsInitialized(true);
         logSystem('App initialization complete');

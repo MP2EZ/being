@@ -6,7 +6,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { View, ActivityIndicator, StyleSheet, TouchableOpacity, Text } from 'react-native';
-import { logPerformance } from '@/core/services/logging';
+import { logPerformance, logSystem } from '@/core/services/logging';
 import { generateTimestampedId } from '@/core/utils/id';
 import { NavigationContainer } from '@react-navigation/native';
 import { linkingConfig } from './linking';
@@ -105,8 +105,8 @@ const CleanRootNavigator: React.FC = () => {
 
   useEffect(() => {
     async function checkInitialRoute() {
-      const settings = await loadSettings();
-      const consent = await loadConsent();
+      // Both reads are independent AsyncStorage gets — parallelize.
+      const [settings, consent] = await Promise.all([loadSettings(), loadConsent()]);
 
       // Determine initial route based on onboarding and consent status
       if (settings?.onboardingCompleted) {
@@ -124,7 +124,7 @@ const CleanRootNavigator: React.FC = () => {
   }, [loadSettings, loadConsent, consentStatus]);
 
   const handleMorningFlowComplete = async (sessionData: any) => {
-    console.log('🌅 Morning flow completed:', sessionData);
+    logSystem('Morning flow completed');
     await markCheckInComplete('morning');
 
     // FEAT-28: Record principle engagement for Insights Dashboard
@@ -134,12 +134,12 @@ const CleanRootNavigator: React.FC = () => {
         'morning',
         'selected'
       );
-      console.log('📊 Recorded principle engagement:', sessionData.principleFocus.principleKey);
+      logSystem('Recorded principle engagement (morning)');
     }
   };
 
   const handleMiddayFlowComplete = async (sessionData: any) => {
-    console.log('🧘 Midday flow completed:', sessionData);
+    logSystem('Midday flow completed');
     await markCheckInComplete('midday');
 
     // FEAT-28: Record principle engagement for Insights Dashboard
@@ -149,12 +149,12 @@ const CleanRootNavigator: React.FC = () => {
         'midday',
         'applied'
       );
-      console.log('📊 Recorded principle engagement:', sessionData.reappraisal.principleApplied);
+      logSystem('Recorded principle engagement (midday)');
     }
   };
 
   const handleEveningFlowComplete = async (sessionData: any) => {
-    console.log('🌙 Evening flow completed:', sessionData);
+    logSystem('Evening flow completed');
     await markCheckInComplete('evening');
 
     // FEAT-134: Record principle engagement from VirtueReflection screen (new path)
@@ -178,7 +178,9 @@ const CleanRootNavigator: React.FC = () => {
         }
       }
       if (principlesReflected.size > 0) {
-        console.log('📊 Recorded principle engagements (legacy path):', Array.from(principlesReflected).join(', '));
+        logSystem(
+          `Recorded principle engagements (legacy path): ${Array.from(principlesReflected).join(', ')}`
+        );
       }
     }
   };
@@ -475,7 +477,7 @@ const CleanRootNavigator: React.FC = () => {
                   consentStatus={consentStatus}
                   sessionId={generateTimestampedId('session')}
                   onComplete={(result) => {
-                    console.log(`✅ Assessment ${route.params.assessmentType} completed:`, result);
+                    logSystem(`Assessment ${route.params.assessmentType} completed`);
                     // Always dismiss the modal first
                     navigation.goBack();
                     // Then notify parent after brief delay to allow modal dismissal animation
