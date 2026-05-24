@@ -124,10 +124,10 @@ jobs:
           echo "⚖️ COMPLIANCE AUTHORITY VALIDATION"
           echo "=================================="
 
-          # HIPAA compliance validation
-          HIPAA_MODE=$(grep "EXPO_PUBLIC_HIPAA_COMPLIANCE_MODE=" .env.production | cut -d'=' -f2)
-          if [ "$HIPAA_MODE" != "ready" ] && [ "$HIPAA_MODE" != "production" ]; then
-            echo "❌ COMPLIANCE FAILURE: HIPAA mode must be 'ready' or 'production'"
+          # Wellness-data mode validation
+          WELLNESS_DATA_MODE=$(grep "EXPO_PUBLIC_WELLNESS_DATA_MODE=" .env.production | cut -d'=' -f2)
+          if [ "$WELLNESS_DATA_MODE" != "ready" ] && [ "$WELLNESS_DATA_MODE" != "production" ]; then
+            echo "❌ COMPLIANCE FAILURE: Wellness data mode must be 'ready' or 'production'"
             exit 1
           fi
 

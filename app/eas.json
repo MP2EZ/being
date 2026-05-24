@@ -10,12 +10,10 @@
       "distribution": "internal",
       "ios": {
         "simulator": false,
-        "buildConfiguration": "Debug",
-        "newArchEnabled": true
+        "buildConfiguration": "Debug"
       },
       "android": {
-        "buildType": "apk",
-        "newArchEnabled": true
+        "buildType": "apk"
       },
       "env": {
         "BUILD_TYPE": "development",
@@ -29,7 +27,7 @@
       "env": {
         "BUILD_TYPE": "preview",
         "CLINICAL_VALIDATION": "true",
-        "HEALTHCARE_COMPLIANCE_MONITORING": "true",
+        "WELLNESS_MONITORING_ENABLED": "true",
         "PERFORMANCE_MONITORING": "true",
         "NEW_ARCHITECTURE": "true",
         "CRISIS_MONITORING": "true",
@@ -45,32 +43,22 @@
       "ios": {
         "simulator": false,
         "buildConfiguration": "Release",
-        "newArchEnabled": true,
-        "resourceClass": "m1-medium",
-        "config": {
-          "usesNonExemptEncryption": false
-        },
-        "entitlements": {
-          "com.apple.security.application-groups": [
-            "group.com.being.app.widgets"
-          ]
-        }
+        "resourceClass": "m1-medium"
       },
       "android": {
-        "buildType": "aab",
-        "newArchEnabled": true,
+        "buildType": "app-bundle",
         "resourceClass": "medium"
       },
       "env": {
         "BUILD_TYPE": "production",
         "CLINICAL_VALIDATION": "true",
-        "HEALTHCARE_COMPLIANCE_MONITORING": "true",
+        "WELLNESS_MONITORING_ENABLED": "true",
         "PERFORMANCE_MONITORING": "true",
         "NEW_ARCHITECTURE": "true",
         "CRISIS_MONITORING": "true",
         "PRODUCTION_MONITORING": "true",
-        "HIPAA_COMPLIANCE": "true",
-        "THERAPEUTIC_MONITORING": "true"
+        "WELLNESS_DATA_PROTECTION": "true",
+        "WELLNESS_PRACTICES_MONITORING": "true"
       },
       "cache": {
         "disabled": false,
@@ -87,18 +75,17 @@
         "BUILD_TYPE": "production",
         "EMERGENCY_DEPLOYMENT": "true",
         "CRISIS_OVERRIDE": "true",
-        "HEALTHCARE_COMPLIANCE_MONITORING": "true",
+        "WELLNESS_MONITORING_ENABLED": "true",
         "PERFORMANCE_MONITORING": "true",
         "NEW_ARCHITECTURE": "true",
         "PRODUCTION_MONITORING": "true",
-        "HIPAA_COMPLIANCE": "true"
+        "WELLNESS_DATA_PROTECTION": "true"
       }
     }
   },
   "submit": {
     "production": {
       "ios": {
-        "appId": "com.being.app",
         "ascAppId": "PLACEHOLDER_APP_ID",
         "appleTeamId": "PLACEHOLDER_TEAM_ID"
       },
@@ -110,7 +97,6 @@
     },
     "preview": {
       "ios": {
-        "appId": "com.being.app",
         "ascAppId": "PLACEHOLDER_APP_ID",
         "appleTeamId": "PLACEHOLDER_TEAM_ID"
       },
@@ -120,11 +106,5 @@
         "releaseStatus": "draft"
       }
     }
-  },
-  "updates": {
-    "url": "https://u.expo.dev/75ab182c-82f1-4f22-bd9c-d57358950bc6"
-  },
-  "experimental": {
-    "prebuildCommand": "node scripts/prebuild-health-check.js"
   }
 }

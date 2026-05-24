@@ -24,8 +24,8 @@
  *     received values; USER_CONSENT_REQUIRED has no `.default('false')`
  *     escape; ALLOW_INSECURE_SSL refuses boot in production.
  *
- * Stale-name vars (`HIPAA_COMPLIANCE_MODE`, `CLINICAL_*`) are accepted as-is
- * for schema compatibility; renaming is INFRA-142.
+ * Stale-name vars (`CLINICAL_*`) are accepted as-is for schema compatibility;
+ * renaming is out of scope here (INFRA-142 covered `HIPAA_COMPLIANCE_MODE`).
  */
 
 import { z } from 'zod';
@@ -141,10 +141,7 @@ export const envSchema = z
     EXPO_PUBLIC_THERAPEUTIC_TIMING_STRICT: booleanString,
 
     // === Compliance ===
-    // Stale-naming: HIPAA_COMPLIANCE_MODE retained for compatibility. Being is
-    // NOT a HIPAA-covered entity (see docs/legal/regulatory-applicability.md).
-    // Rename tracked in INFRA-142.
-    EXPO_PUBLIC_HIPAA_COMPLIANCE_MODE: z.string().min(1),
+    EXPO_PUBLIC_WELLNESS_DATA_MODE: z.string().min(1),
     EXPO_PUBLIC_GDPR_COMPLIANCE: booleanString,
     // 30 days minimum (operational floor + GDPR erasure-window compatibility);
     // 730 days (2 years) maximum (beyond is a misconfig signal and conflicts
@@ -252,7 +249,7 @@ function readRawEnv(): Record<string, string | undefined> {
     EXPO_PUBLIC_GAD7_CRISIS_THRESHOLD: process.env['EXPO_PUBLIC_GAD7_CRISIS_THRESHOLD'],
     EXPO_PUBLIC_BREATHING_TIMER_PRECISION: process.env['EXPO_PUBLIC_BREATHING_TIMER_PRECISION'],
     EXPO_PUBLIC_THERAPEUTIC_TIMING_STRICT: process.env['EXPO_PUBLIC_THERAPEUTIC_TIMING_STRICT'],
-    EXPO_PUBLIC_HIPAA_COMPLIANCE_MODE: process.env['EXPO_PUBLIC_HIPAA_COMPLIANCE_MODE'],
+    EXPO_PUBLIC_WELLNESS_DATA_MODE: process.env['EXPO_PUBLIC_WELLNESS_DATA_MODE'],
     EXPO_PUBLIC_GDPR_COMPLIANCE: process.env['EXPO_PUBLIC_GDPR_COMPLIANCE'],
     EXPO_PUBLIC_DATA_RETENTION_DAYS: process.env['EXPO_PUBLIC_DATA_RETENTION_DAYS'],
     EXPO_PUBLIC_ANONYMOUS_ANALYTICS: process.env['EXPO_PUBLIC_ANONYMOUS_ANALYTICS'],
