@@ -13,10 +13,11 @@
 import React from 'react';
 import { PostHogProvider as PHProvider } from 'posthog-react-native';
 import { useConsentStore } from '@/core/stores/consentStore';
+import { env } from '@/core/config/env';
 
-// Environment configuration
-const POSTHOG_API_KEY = process.env['EXPO_PUBLIC_POSTHOG_API_KEY'] || '';
-const POSTHOG_HOST = process.env['EXPO_PUBLIC_POSTHOG_HOST'] || 'https://eu.i.posthog.com';
+// Environment configuration (validated at startup — see core/config/env.ts)
+const POSTHOG_API_KEY = env.EXPO_PUBLIC_POSTHOG_API_KEY;
+const POSTHOG_HOST = env.EXPO_PUBLIC_POSTHOG_HOST;
 
 interface PostHogProviderProps {
   children: React.ReactNode;
@@ -69,8 +70,7 @@ export function PostHogProvider({ children }: PostHogProviderProps): React.React
  * Useful for conditional rendering of analytics UI
  */
 export function usePostHogConfigured(): boolean {
-  const apiKey = process.env['EXPO_PUBLIC_POSTHOG_API_KEY'] || '';
-  return Boolean(apiKey && apiKey !== 'phc_your_api_key_here');
+  return Boolean(POSTHOG_API_KEY && POSTHOG_API_KEY !== 'phc_your_api_key_here');
 }
 
 export default PostHogProvider;
