@@ -3,9 +3,8 @@
  * Shows all legal documents with navigation to individual document views
  *
  * COMPLIANCE:
- * - All 7 required documents accessible: privacy policy, terms of service,
- *   medical disclaimer, notice of privacy practices, California privacy,
- *   do-not-sell, and support
+ * - All required legal documents accessible from this screen.
+ *   The canonical list is defined in ../content/legalDocuments.ts.
  * - Documents available offline (bundled at build time)
  *
  * ACCESSIBILITY:
