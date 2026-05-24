@@ -29,11 +29,20 @@
  */
 
 
-import { logSecurity, logPerformance, logError, LogCategory } from '../logging';
+import { logSecurity, logSystem, logPerformance, logError, LogCategory } from '../logging';
 import * as Crypto from 'expo-crypto';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 import AesCrypto from 'react-native-aes-crypto';
+
+// react-native-aes-crypto's type union doesn't include GCM modes (CBC + CTR
+// only), but the native lib supports them at runtime. Local supertype lets us
+// pass 'aes-256-gcm' without resorting to `as any`.
+type AesAlgorithmExt =
+  | 'aes-128-cbc' | 'aes-192-cbc' | 'aes-256-cbc'
+  | 'aes-128-ctr' | 'aes-192-ctr' | 'aes-256-ctr'
+  | 'aes-256-gcm';
+const AES_256_GCM: AesAlgorithmExt = 'aes-256-gcm';
 import { v4 as uuidv4 } from 'uuid';
 
 /**
@@ -163,7 +172,7 @@ export class EncryptionService {
     const startTime = performance.now();
 
     try {
-      console.log('🔐 Initializing Encryption Service...');
+      logSystem('Initializing encryption service');
 
       // Initialize master key
       await this.initializeMasterKey(userPassphrase);
@@ -492,7 +501,7 @@ export class EncryptionService {
         assessmentKeyId
       );
 
-      console.log(`📋 Assessment data encrypted (${assessmentData.type}, score: ${assessmentData.totalScore})`);
+      logSystem(`Assessment data encrypted (${assessmentData.type}, score: ${assessmentData.totalScore})`);
 
       return encryptedPackage;
 
@@ -512,12 +521,12 @@ export class EncryptionService {
       const existingKey = await SecureStore.getItemAsync(ENCRYPTION_CONFIG.MASTER_KEY_ID);
       
       if (existingKey) {
-        console.log('🔑 Master key found, verifying...');
+        logSecurity('Master key found, verifying', 'low');
         await this.verifyMasterKey(existingKey);
         return;
       }
 
-      console.log('🔑 Generating new master key...');
+      logSecurity('Generating new master key', 'medium');
 
       // Generate or derive master key
       let masterKey: ArrayBuffer;
@@ -546,7 +555,7 @@ export class EncryptionService {
 
       this.keyMetadata.set(ENCRYPTION_CONFIG.MASTER_KEY_ID, keyMetadata);
 
-      console.log('✅ Master key initialized successfully');
+      logSecurity('Master key initialized successfully', 'low');
 
     } catch (error) {
       logError(LogCategory.SECURITY, '🚨 MASTER KEY INITIALIZATION ERROR:', error instanceof Error ? error : new Error(String(error)));
@@ -666,7 +675,7 @@ export class EncryptionService {
           dataB64,
           keyB64,
           ivB64,
-          'aes-256-gcm' as any
+          AES_256_GCM as Parameters<typeof AesCrypto.encrypt>[3]
         );
 
         // react-native-aes-crypto returns ciphertext+tag as single base64 string
@@ -747,7 +756,7 @@ export class EncryptionService {
           encryptedDataB64,
           keyB64,
           ivB64,
-          'aes-256-gcm' as any
+          AES_256_GCM as Parameters<typeof AesCrypto.decrypt>[3]
         );
 
         return this.base64ToArrayBuffer(decryptedB64);
@@ -823,7 +832,7 @@ export class EncryptionService {
     warnings: string[];
   }> {
     try {
-      console.log('🔄 Checking for legacy encrypted data...');
+      logSystem('Checking for legacy encrypted data');
 
       const migrationStatus = {
         migrationRequired: false,
@@ -838,7 +847,7 @@ export class EncryptionService {
         const migrationFlag = await SecureStore.getItemAsync(migrationFlagKey);
         if (migrationFlag === 'completed') {
           migrationStatus.migrationCompleted = true;
-          console.log('✅ Encryption migration already completed');
+          logSystem('Encryption migration already completed');
           return migrationStatus;
         }
       } catch (error) {
@@ -851,7 +860,7 @@ export class EncryptionService {
       try {
         await SecureStore.setItemAsync(migrationFlagKey, 'completed');
         migrationStatus.migrationCompleted = true;
-        console.log('✅ Legacy data migration skipped (invalid key format) - marked completed');
+        logSystem('Legacy data migration skipped (invalid key format) — marked completed');
       } catch (error) {
         logError(LogCategory.SECURITY, 'Failed to set migration flag:', error instanceof Error ? error : new Error(String(error)));
         // Don't fail initialization if we can't set the flag
@@ -876,7 +885,7 @@ export class EncryptionService {
       const existingDeviceId = await SecureStore.getItemAsync('@being/device_id');
 
       if (existingDeviceId) {
-        console.log('🔑 Device ID found');
+        logSystem('Device ID found');
         return existingDeviceId;
       }
 
@@ -886,7 +895,7 @@ export class EncryptionService {
       // Store securely
       await SecureStore.setItemAsync('@being/device_id', deviceId);
 
-      console.log('🔑 New device ID generated');
+      logSystem('New device ID generated');
       return deviceId;
 
     } catch (error) {
@@ -1027,7 +1036,7 @@ export class EncryptionService {
       
       for (const [keyId, metadata] of this.keyMetadata.entries()) {
         if (currentTime > metadata.expiresAt) {
-          console.log(`🔄 Key rotation required for: ${keyId}`);
+          logSecurity(`Key rotation required for: ${keyId}`, 'medium');
           await this.rotateKey(keyId);
         }
       }
@@ -1040,7 +1049,7 @@ export class EncryptionService {
     const startTime = performance.now();
 
     try {
-      console.log(`🔄 Rotating key: ${keyId}`);
+      logSecurity(`Rotating key: ${keyId}`, 'high');
 
       // Generate new key
       const newKey = await this.generateSecureRandomBytes(ENCRYPTION_CONFIG.KEY_LENGTH);
@@ -1094,7 +1103,7 @@ export class EncryptionService {
 
   private async verifyEncryptionCapabilities(): Promise<void> {
     try {
-      console.log('🔍 Verifying encryption capabilities...');
+      logSystem('Verifying encryption capabilities');
 
       // Test encryption/decryption cycle
       const testData = 'encryption_test_data';
@@ -1105,7 +1114,7 @@ export class EncryptionService {
         throw new Error('Encryption verification failed');
       }
 
-      console.log('✅ Encryption capabilities verified');
+      logSystem('Encryption capabilities verified');
 
     } catch (error) {
       logError(LogCategory.SECURITY, '🚨 ENCRYPTION VERIFICATION ERROR:', error instanceof Error ? error : new Error(String(error)));
@@ -1121,7 +1130,7 @@ export class EncryptionService {
         throw new Error('Invalid master key length');
       }
 
-      console.log('✅ Master key verified');
+      logSecurity('Master key verified', 'low');
 
     } catch (error) {
       logError(LogCategory.SECURITY, '🚨 MASTER KEY VERIFICATION ERROR:', error instanceof Error ? error : new Error(String(error)));
@@ -1174,7 +1183,7 @@ export class EncryptionService {
 
   public async clearSensitiveData(): Promise<void> {
     try {
-      console.log('🧹 Clearing sensitive encryption data...');
+      logSecurity('Clearing sensitive encryption data', 'high');
 
       // Clear key cache
       this.keyCache.clear();
@@ -1190,7 +1199,7 @@ export class EncryptionService {
         this.keyMetadata.set(ENCRYPTION_CONFIG.MASTER_KEY_ID, masterKeyMetadata);
       }
 
-      console.log('✅ Sensitive data cleared');
+      logSecurity('Sensitive data cleared', 'medium');
 
     } catch (error) {
       logError(LogCategory.SECURITY, '🚨 SENSITIVE DATA CLEARING ERROR:', error instanceof Error ? error : new Error(String(error)));
@@ -1200,7 +1209,7 @@ export class EncryptionService {
 
   public async destroy(): Promise<void> {
     try {
-      console.log('🗑️  Destroying encryption service...');
+      logSystem('Destroying encryption service');
 
       // Clear timers
       if (this.keyRotationTimer) {
@@ -1214,7 +1223,7 @@ export class EncryptionService {
       // Reset initialization flag
       this.masterKeyInitialized = false;
 
-      console.log('✅ Encryption service destroyed');
+      logSystem('Encryption service destroyed');
 
     } catch (error) {
       logError(LogCategory.SECURITY, '🚨 ENCRYPTION SERVICE DESTRUCTION ERROR:', error instanceof Error ? error : new Error(String(error)));
