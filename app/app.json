@@ -25,6 +25,9 @@
       "icon": "./assets/icon.png",
       "jsEngine": "hermes",
       "newArchEnabled": true,
+      "config": {
+        "usesNonExemptEncryption": false
+      },
       "associatedDomains": [
         "applinks:being.fyi",
         "applinks:www.being.fyi"
@@ -65,7 +68,19 @@
       "shortName": "Being."
     },
     "plugins": [
-      "expo-localization"
+      "expo-localization",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "entitlements": {
+              "com.apple.security.application-groups": [
+                "group.com.being.app.widgets"
+              ]
+            }
+          }
+        }
+      ]
     ],
     "extra": {
       "clinicalVersion": "1.0",
