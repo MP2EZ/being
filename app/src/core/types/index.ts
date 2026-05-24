@@ -282,6 +282,12 @@ export {
  * - EnhancedError, ErrorRecoveryStrategy, ErrorContext (need to be created)
  * - BaseComponentProps, ComponentTheme (from integration/components)
  * - StoreConfig, StoreActions (from integration/store)
+ *
+ * AUDIT NOTE (TS-11, 2026-05-17): validateComplianceState (line 300 below)
+ * has a typo `(state: any) => consent is ComplianceStoreState` — should be
+ * `state is ComplianceStoreState`. Fix on re-enable. Full re-enable deferred
+ * because the cascade of missing types is much larger than the audit
+ * implied (~16 types need to be created/exported first). See audit doc.
  */
 
 /*

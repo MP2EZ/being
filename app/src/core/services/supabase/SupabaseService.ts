@@ -29,12 +29,13 @@ import {
   createSupabasePinnedFetch,
   validatePinningConfiguration,
 } from '../security/pinned-fetch';
+import { env } from '@/core/config/env';
 
 // Environment configuration
-const SUPABASE_URL = process.env['EXPO_PUBLIC_SUPABASE_URL'] || '';
+const SUPABASE_URL = env.EXPO_PUBLIC_SUPABASE_URL;
 // The project's publishable (or legacy anon) key — whichever the new
 // Supabase project hands out. supabase-js doesn't care which.
-const SUPABASE_KEY = process.env['EXPO_PUBLIC_SUPABASE_KEY'] || '';
+const SUPABASE_KEY = env.EXPO_PUBLIC_SUPABASE_KEY;
 
 // Storage keys
 const STORAGE_KEYS = {
@@ -175,7 +176,7 @@ class SupabaseService {
       await this.loadOfflineQueue();
 
       this.isInitialized = true;
-      console.log('[SupabaseService] Initialized with user ID:', this.userId);
+      logSecurity('[SupabaseService] Initialized', 'low', { userId: this.userId });
 
     } catch (error) {
       logError(LogCategory.SYSTEM, '[SupabaseService] Initialization failed:', error instanceof Error ? error : new Error(String(error)));
@@ -565,7 +566,9 @@ class SupabaseService {
   async processOfflineQueue(): Promise<void> {
     if (this.offlineQueue.length === 0 || !this.isInitialized) return;
 
-    console.log(`[SupabaseService] Processing ${this.offlineQueue.length} offline operations`);
+    logSecurity('[SupabaseService] Processing offline queue', 'low', {
+      pendingOperations: this.offlineQueue.length,
+    });
 
     const processedOperations: number[] = [];
 

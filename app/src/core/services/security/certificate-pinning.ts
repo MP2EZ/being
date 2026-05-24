@@ -23,6 +23,7 @@
 
 import { Platform } from 'react-native';
 import { logSecurity, logError, LogCategory } from '../logging';
+import { env } from '@/core/config/env';
 
 /**
  * Certificate pins for Supabase endpoints
@@ -97,11 +98,12 @@ export const PIN_VALIDATION_CONFIG = {
    * 1. __DEV__ is true
    * 2. EXPO_PUBLIC_ALLOW_INSECURE_SSL env var is 'true'
    *
-   * CRITICAL: Never enable in production builds
+   * CRITICAL: Never enable in production builds (env schema enforces this
+   * at startup — see `app/src/core/config/env.ts` superRefine).
    */
   get allowDebugBypass(): boolean {
     if (!__DEV__) return false;
-    return process.env['EXPO_PUBLIC_ALLOW_INSECURE_SSL'] === 'true';
+    return env.EXPO_PUBLIC_ALLOW_INSECURE_SSL === 'true';
   },
 
   /**
@@ -327,8 +329,9 @@ export function handlePinValidationFailure(
     });
 
     // Alert would be sent to security monitoring in production
-    console.warn(
-      '[SECURITY ALERT] Crisis endpoint pin failure - using fallback'
+    logSecurity(
+      '[SECURITY ALERT] Crisis endpoint pin failure - using fallback',
+      'high'
     );
 
     return 'fallback';
@@ -364,11 +367,10 @@ export function shouldBypassPinning(): boolean {
   });
 
   if (__DEV__) {
-    console.warn('━'.repeat(60));
-    console.warn('⚠️  SSL CERTIFICATE PINNING BYPASSED');
-    console.warn('⚠️  THIS IS ONLY ALLOWED IN DEVELOPMENT');
-    console.warn('⚠️  NEVER USE IN PRODUCTION');
-    console.warn('━'.repeat(60));
+    logSecurity(
+      'SSL CERTIFICATE PINNING BYPASSED — DEVELOPMENT ONLY, NEVER USE IN PRODUCTION',
+      'high'
+    );
   }
 
   return true;

@@ -42,6 +42,16 @@ declare global {
   }
 }
 
+// React Native AccessibilityProps augmentation: `accessibilityLevel` is valid
+// on the `header` accessibilityRole per the W3C ARIA spec but RN's typings
+// omit it. Augmenting here removes 13 @ts-expect-error suppressions in
+// features/{home,learn,profile}/screens/*.tsx.
+declare module 'react-native' {
+  interface AccessibilityProps {
+    accessibilityLevel?: 1 | 2 | 3 | 4 | 5 | 6;
+  }
+}
+
 // Typography interface augmentation for missing bodySmall
 declare module '@/styles/typography' {
   interface TypographyStyles {

@@ -235,7 +235,7 @@ export default function CrisisResourcesScreen() {
   // Track screen load performance
   useEffect(() => {
     const loadTime = performance.now() - startTime;
-    console.log('Crisis Resources Screen loaded', { loadTime }, LogCategory.CRISIS);
+    logPerformance('Crisis Resources Screen loaded', loadTime);
 
     // Track crisis resources access
     logSecurity('Crisis resources accessed', 'high', {
@@ -245,7 +245,7 @@ export default function CrisisResourcesScreen() {
 
     return () => {
       const sessionTime = performance.now() - startTime;
-      console.log('Crisis Resources Screen session ended', { sessionTime }, LogCategory.CRISIS);
+      logPerformance('Crisis Resources Screen session', sessionTime);
     };
   }, []);
 
