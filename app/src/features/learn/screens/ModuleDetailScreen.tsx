@@ -136,7 +136,13 @@ const ModuleDetailScreen: React.FC = () => {
         <View style={styles.container}>
         {/* Header */}
         <View style={[styles.header, isMostEssential && styles.headerEssential]}>
-          <TouchableOpacity onPress={handleBack} style={styles.backButton}>
+          <TouchableOpacity
+            onPress={handleBack}
+            style={styles.backButton}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+            accessibilityHint="Returns to the previous screen"
+          >
             <Text style={styles.backButtonText}>← Back</Text>
           </TouchableOpacity>
 
@@ -167,10 +173,13 @@ const ModuleDetailScreen: React.FC = () => {
         </View>
 
         {/* Tab Navigation */}
-        <View style={styles.tabBar}>
+        <View style={styles.tabBar} accessibilityRole="tablist">
           <TouchableOpacity
             style={[styles.tab, activeTab === 'overview' && styles.tabActive]}
             onPress={() => setActiveTab('overview')}
+            accessibilityRole="tab"
+            accessibilityLabel="Overview tab"
+            accessibilityState={{ selected: activeTab === 'overview' }}
           >
             <Text
               style={[
@@ -185,6 +194,9 @@ const ModuleDetailScreen: React.FC = () => {
           <TouchableOpacity
             style={[styles.tab, activeTab === 'practice' && styles.tabActive]}
             onPress={() => setActiveTab('practice')}
+            accessibilityRole="tab"
+            accessibilityLabel="Practice tab"
+            accessibilityState={{ selected: activeTab === 'practice' }}
           >
             <Text
               style={[
