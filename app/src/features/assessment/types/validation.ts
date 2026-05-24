@@ -398,47 +398,47 @@ export function validateCrisisDetection(detection: unknown): ValidationResult {
  * Type Guard Functions
  */
 function isValidAssessmentAnswer(value: unknown): value is AssessmentAnswer {
-  return typeof value === 'object' &&
-         value !== null &&
-         'questionId' in value &&
-         'response' in value &&
-         'timestamp' in value &&
-         typeof (value as any).questionId === 'string' &&
-         validateAssessmentResponse((value as any).response) &&
-         typeof (value as any).timestamp === 'number';
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  return 'questionId' in v &&
+         'response' in v &&
+         'timestamp' in v &&
+         typeof v['questionId'] === 'string' &&
+         validateAssessmentResponse(v['response']) &&
+         typeof v['timestamp'] === 'number';
 }
 
 function isPHQ9ResultShape(value: unknown): value is PHQ9Result {
-  return typeof value === 'object' &&
-         value !== null &&
-         'totalScore' in value &&
-         'severity' in value &&
-         'isCrisis' in value &&
-         'suicidalIdeation' in value &&
-         'completedAt' in value &&
-         'answers' in value &&
-         typeof (value as any).totalScore === 'number' &&
-         typeof (value as any).severity === 'string' &&
-         typeof (value as any).isCrisis === 'boolean' &&
-         typeof (value as any).suicidalIdeation === 'boolean' &&
-         typeof (value as any).completedAt === 'number' &&
-         Array.isArray((value as any).answers);
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  return 'totalScore' in v &&
+         'severity' in v &&
+         'isCrisis' in v &&
+         'suicidalIdeation' in v &&
+         'completedAt' in v &&
+         'answers' in v &&
+         typeof v['totalScore'] === 'number' &&
+         typeof v['severity'] === 'string' &&
+         typeof v['isCrisis'] === 'boolean' &&
+         typeof v['suicidalIdeation'] === 'boolean' &&
+         typeof v['completedAt'] === 'number' &&
+         Array.isArray(v['answers']);
 }
 
 function isGAD7ResultShape(value: unknown): value is GAD7Result {
-  return typeof value === 'object' &&
-         value !== null &&
-         'totalScore' in value &&
-         'severity' in value &&
-         'isCrisis' in value &&
-         'completedAt' in value &&
-         'answers' in value &&
-         !('suicidalIdeation' in value) && // GAD-7 should not have this field
-         typeof (value as any).totalScore === 'number' &&
-         typeof (value as any).severity === 'string' &&
-         typeof (value as any).isCrisis === 'boolean' &&
-         typeof (value as any).completedAt === 'number' &&
-         Array.isArray((value as any).answers);
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  return 'totalScore' in v &&
+         'severity' in v &&
+         'isCrisis' in v &&
+         'completedAt' in v &&
+         'answers' in v &&
+         !('suicidalIdeation' in v) && // GAD-7 should not have this field
+         typeof v['totalScore'] === 'number' &&
+         typeof v['severity'] === 'string' &&
+         typeof v['isCrisis'] === 'boolean' &&
+         typeof v['completedAt'] === 'number' &&
+         Array.isArray(v['answers']);
 }
 
 function isCrisisDetectionShape(value: unknown): value is CrisisDetection {
