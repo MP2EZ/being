@@ -17,6 +17,7 @@ module.exports = {
 
   // Setup files for different test types
   setupFiles: [
+    '<rootDir>/__tests__/setup/env.mock.js',
     '<rootDir>/__tests__/setup/polyfills.js'
   ],
 
