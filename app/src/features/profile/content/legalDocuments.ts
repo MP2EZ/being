@@ -22,7 +22,6 @@
 const privacyPolicyContent: string = require('../../../../../docs/legal/privacy-policy.md').default;
 const termsOfServiceContent: string = require('../../../../../docs/legal/terms-of-service.md').default;
 const medicalDisclaimerContent: string = require('../../../../../docs/legal/medical-disclaimer.md').default;
-const noticeOfPrivacyPracticesContent: string = require('../../../../../docs/legal/notice-of-privacy-practices.md').default;
 const californiaPrivacyContent: string = require('../../../../../docs/legal/california-privacy.md').default;
 const supportContent: string = require('../../../../../docs/legal/support.md').default;
 /* eslint-enable @typescript-eslint/no-require-imports */
@@ -31,7 +30,6 @@ export type LegalDocumentType =
   | 'privacy-policy'
   | 'terms-of-service'
   | 'medical-disclaimer'
-  | 'notice-of-privacy-practices'
   | 'california-privacy'
   | 'support';
 
@@ -64,13 +62,6 @@ export const legalDocuments: Record<LegalDocumentType, LegalDocument> = {
     shortTitle: 'Medical',
     description: 'Important limitations on wellness guidance',
     content: medicalDisclaimerContent,
-  },
-  'notice-of-privacy-practices': {
-    id: 'notice-of-privacy-practices',
-    title: 'Notice of Privacy Practices',
-    shortTitle: 'Privacy Notice',
-    description: 'Your rights under health privacy laws',
-    content: noticeOfPrivacyPracticesContent,
   },
   'california-privacy': {
     id: 'california-privacy',
