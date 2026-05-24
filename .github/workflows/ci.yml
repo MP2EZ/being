@@ -215,6 +215,15 @@ jobs:
       - name: Install dependencies
         run: cd app && npm ci --prefer-offline --no-audit
 
+      - name: Legal docs registry drift check
+        # Verifies docs/legal/*.md filenames match the require() calls and
+        # LegalDocumentType registry in app/src/features/profile/content/
+        # legalDocuments.ts. The app statically requires every legal doc via
+        # Metro; drift breaks the bundle silently. CI does not run Metro,
+        # so this guard is the only structural protection against the bug
+        # class. See scripts/legal-registry.js for the comparison rules.
+        run: node scripts/legal-registry.js
+
       - name: Compliance authority validation
         run: cd app && npm run validate:compliance-authority
 
