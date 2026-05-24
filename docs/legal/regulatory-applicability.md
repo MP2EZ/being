@@ -76,7 +76,7 @@ As of 2025, 20 US states have comprehensive consumer privacy laws. The following
 
 **States without comprehensive privacy law:** New York (only sector-specific health privacy law S929 as of Jan 2025, plus NY SHIELD Act for data security).
 
-**Compliance Approach:** Provide data access, deletion, and export features. Maintain transparent privacy notices. Honor universal opt-out mechanisms. See `california-privacy.md` and `do-not-sell.md`.
+**Compliance Approach:** Provide data access, deletion, and export features. Maintain transparent privacy notices. Honor universal opt-out mechanisms (including Global Privacy Control signals). See `california-privacy.md` and the "No Sale or Sharing of Personal Information" section of `privacy-policy.md`.
 
 ### 3. International Privacy Laws
 
