@@ -309,6 +309,24 @@ jobs:
       - name: Performance test suite
         run: cd app && npm run test:performance -- --ci --testTimeout=30000
 
+  # T17 (TEST-10): Deno-based tests for Supabase Edge Functions. Closes
+  # the audit's largest unprotected security surface — webhook JWS chain
+  # validation, Google OIDC verification, replay protection, and
+  # constant-time auth comparison. Runs independently of the Node suite
+  # (different runtime). Required for ci-pass.
+  edge-functions:
+    name: Edge Functions (Deno)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # No `needs: prepare` because Deno doesn't share Node's npm cache.
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v1
+        with:
+          deno-version: v1.x
+      - name: Edge Functions test suite
+        run: cd supabase/functions && deno task test
+
   # Aggregate gate. Required jobs must pass; perf and lint can be
   # advisory if needed. Keeps PR review surface tight.
   ci-pass:
@@ -324,6 +342,7 @@ jobs:
       - security
       - accessibility
       - performance
+      - edge-functions
 
     steps:
       - name: Aggregate gate status
@@ -336,12 +355,15 @@ jobs:
           echo "security:         ${{ needs.security.result }}"
           echo "performance:      ${{ needs.performance.result }}"
           echo "accessibility:    ${{ needs.accessibility.result }}"
-          # All 8 jobs are now strict gates after the Phase B+C paydown.
+          echo "edge-functions:   ${{ needs.edge-functions.result }}"
+          # All 9 jobs are strict gates after T17 (TEST-10) added the
+          # Edge Functions Deno suite.
           # Advisory list: (empty)
           #
           # Real gates that must pass:
           #   typecheck, lint (baseline ratchet), crisis-validation,
-          #   clinical-validation, security, test, performance, accessibility
+          #   clinical-validation, security, test, performance, accessibility,
+          #   edge-functions
           if [[ "${{ needs.typecheck.result }}" != "success" \
              || "${{ needs.lint.result }}" != "success" \
              || "${{ needs.crisis-validation.result }}" != "success" \
@@ -349,7 +371,8 @@ jobs:
              || "${{ needs.security.result }}" != "success" \
              || "${{ needs.test.result }}" != "success" \
              || "${{ needs.performance.result }}" != "success" \
-             || "${{ needs.accessibility.result }}" != "success" ]]; then
+             || "${{ needs.accessibility.result }}" != "success" \
+             || "${{ needs.edge-functions.result }}" != "success" ]]; then
             echo "❌ One or more required gates failed"
             exit 1
           fi

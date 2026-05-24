@@ -14,6 +14,7 @@
     "test:clinical": "jest --testPathPattern=clinical --verbose",
     "test:crisis-detection": "NODE_OPTIONS='--max-old-space-size=8192' jest src/features/crisis/services/__tests__/CrisisDetectionValidation.test.ts --verbose --testTimeout=60000",
     "test:unit": "jest --testPathPattern=unit",
+    "test:edge-functions": "cd ../supabase/functions && deno task test",
     "test:integration": "jest --testPathPattern=integration --verbose --testTimeout=30000",
     "test:performance": "jest --testPathPattern=performance --verbose",
     "test:accessibility": "jest --testPathPattern=accessibility --verbose",
