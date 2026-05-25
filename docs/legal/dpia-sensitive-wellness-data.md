@@ -62,7 +62,9 @@ Where this DPIA refers to "sensitive wellness data" without qualification, all s
 
 ## 4. Purposes of Processing
 
-| Purpose | Categories used | Lawful basis (where applicable) |
+Each of TDPSA, CPA, VCDPA, and CTDPA requires opt-in consent for processing of sensitive personal information. That state-law sensitive-data consent is the operative basis for each purpose involving categories enumerated in §3; tracking is described in the consent-records entry of §3. The "GDPR Art. 6 equivalent" column below maps each purpose to the corresponding GDPR lawful basis for cross-jurisdictional clarity — it is the equivalent, not a substitute for state-law consent.
+
+| Purpose | Categories used | GDPR Art. 6 equivalent (where applicable) |
 |---|---|---|
 | Wellness self-monitoring — present a user's own screening history and trends to themselves | Wellness screening responses, mood check-ins, journal | User consent; service provision |
 | Personal insights — derive aggregated, on-device patterns to support self-reflection | Wellness screening responses, mood check-ins | User consent; service provision |
@@ -94,7 +96,7 @@ Local-first storage is the primary proportionality control: sensitive wellness d
 
 Scored on a qualitative 3×3 likelihood × impact matrix (Low / Med / High). "Pre-mitigation" assumes only baseline operating-system controls (no Being-specific protections). "Post-mitigation" reflects the controls inventoried in §7.
 
-| # | Threat scenario | Pre-mitigation L × I | Post-mitigation L × I | Residual |
+| # | Threat scenario | Pre-mitigation (Likelihood × Impact) | Post-mitigation (Likelihood × Impact) | Residual |
 |---|---|---|---|---|
 | 1 | Re-identification of an individual from in-app analytics aggregates | Med × Med | Low × Low | **Low** |
 | 2 | Unauthorized access to sensitive wellness data via a lost, stolen, or shared device | High × High | Low × High | **Low** (likelihood) — see rationale |
@@ -109,7 +111,7 @@ Scored on a qualitative 3×3 likelihood × impact matrix (Low / Med / High). "Pr
 
 **Scenario 3 — Cloud backup breach.** Optional cloud backups are stored as opaque encrypted blobs in the `encrypted_backups` table. The decryption key never leaves the user's device. Supabase Row-Level Security prevents cross-user access at the database layer (see `docs/security/supabase-rls-verification.md`, Encrypted Backups Table within RLS Policy Analysis). Even in the event of a full Supabase compromise, attacker yield is encrypted blobs without accompanying keys. Residual: Low.
 
-**Scenario 4 — Sentry telemetry leakage.** React Native error boundaries can capture local variable state into error payloads. Mitigations: Sentry's data-scrubbing configuration is enabled; sensitive-data variables are never passed into log lines or exception messages by convention; the development-environment Sentry DSN is empty so local debugging cannot leak through misconfiguration (see `CLAUDE.md`, "Known Gotchas" — env files). Residual: Low. This scenario warrants explicit attention at every annual review since the React Native error-boundary surface area can grow with new features.
+**Scenario 4 — Sentry telemetry leakage.** React Native error boundaries can capture local variable state into error payloads. Production mitigations: a `beforeSend` hook in `app/src/core/services/logging/ExternalErrorReporter.ts` (line 226) sanitizes every event before transmission via the `scrubPHI` path (line 333); sensitive-data variables are never passed into log lines or exception messages by convention. Defense-in-depth for the development environment: the dev-environment Sentry DSN is empty (configured in `app/src/core/config/env.ts`), so a developer's local debugging cannot transmit at all — this is a developer-side safeguard, not a production control. Residual: Low. This scenario warrants explicit attention at every annual review since the React Native error-boundary surface area can grow with new features.
 
 ---
 
@@ -128,8 +130,9 @@ This table inventories the controls in place and cites the authoritative referen
 | 7 | End-to-end encrypted backup blobs (decryption key never leaves the device) | `docs/security/supabase-rls-verification.md` | RLS Policy Analysis — Encrypted Backups Table |
 | 8 | Audit logging on subscription events | `docs/security/supabase-rls-verification.md` | RLS Policy Analysis — Subscription Events Table |
 | 9 | Analytics severity-bucketing (no raw scores transmitted) | `docs/security/supabase-rls-verification.md` | RLS Policy Analysis — Analytics Events Table |
-| 10 | Sentry payload scrubbing; empty development DSN | `CLAUDE.md` | Known Gotchas — env files |
-| 11 | Secure data export and complete data deletion | `docs/security/security-architecture.md` | §5 Secure Export Mechanisms; §6 Complete Data Deletion |
+| 10 | Sentry `beforeSend` payload scrubbing applied to every transmitted event | `app/src/core/services/logging/ExternalErrorReporter.ts` | `beforeSendHook` (line 226); `scrubPHI` (line 333) |
+| 11 | Sentry disabled in development environment via empty DSN (defense-in-depth) | `app/src/core/config/env.ts` | `EXPO_PUBLIC_SENTRY_DSN` handling |
+| 12 | Secure data export and complete data deletion | `docs/security/security-architecture.md` | §5 Secure Export Mechanisms; §6 Complete Data Deletion |
 
 ---
 
@@ -164,7 +167,7 @@ After applying the controls inventoried in §7, residual **likelihood** for all 
 
 ## 10. GDPR Article 35 Scope Note
 
-A full GDPR Article 35 DPIA has been intentionally scoped out of this document. Being's EU/EEA user base is below the threshold at which an Art. 35 DPIA is warranted as a standalone artifact. This DPIA will be promoted into a GDPR-conformant DPIA before EU/EEA user count exceeds 500, or before any feature that constitutes "large-scale processing of special category data" under Art. 9 is enabled — whichever occurs first. The above is itself a material-change trigger per §1.
+A full GDPR Article 35 DPIA has been intentionally scoped out of this document. Being currently has minimal EU/EEA user presence. GDPR Art. 35 has no numeric threshold for when a DPIA is required — the test is qualitative ("high risk to the rights and freedoms of natural persons," with the WP29/EDPB nine-criterion guidance). Being has adopted the following self-imposed conservative triggers, which are stricter than the GDPR qualitative test alone: promote this DPIA into a GDPR-conformant artifact (a) before EU/EEA user count exceeds 500, or (b) before any feature constituting "large-scale processing of special category data" under Art. 9 is enabled — whichever occurs first. The above is itself a material-change trigger per §1.
 
 ---
 
