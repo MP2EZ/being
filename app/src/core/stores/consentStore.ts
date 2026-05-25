@@ -40,7 +40,8 @@ const LEGAL_GATE_CONSENTS_KEY = 'legal_gate_consents_v1';
  * where the full ConsentRecord is granted.
  *
  * `mentalHealthProcessingConsent` is the GDPR Art. 9(2)(a) explicit consent
- * for processing health data (PHQ-9, GAD-7, mood, journal).
+ * for processing wellness data (mood check-ins, anxiety/depression
+ * self-screening responses, journal entries).
  */
 export interface LegalGateConsents {
   tosAccepted: boolean;
@@ -87,8 +88,9 @@ export interface ConsentPreferences {
   /** Research participation (default: false) */
   researchEnabled: boolean;
   /**
-   * Explicit consent for processing mental-health data (PHQ-9, GAD-7, mood,
-   * journal) for wellness support. Required under GDPR Art. 9(2)(a) for the
+   * Explicit consent for processing personal wellness data (mood check-ins,
+   * anxiety/depression self-screening responses, journal entries) for
+   * wellness support features. Required under GDPR Art. 9(2)(a) for the
    * special category of "data concerning health." Must be ticked separately —
    * bundled consent does not satisfy "explicit."
    */

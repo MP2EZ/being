@@ -317,13 +317,13 @@ const CombinedLegalGateScreen: React.FC<CombinedLegalGateScreenProps> = ({
             }}
             accessibilityRole="checkbox"
             accessibilityState={{ checked: mentalHealthProcessingConsented }}
-            accessibilityLabel="I explicitly consent to Being processing my mental-health data for wellness support, GDPR Article 9"
+            accessibilityLabel="I explicitly consent to Being processing my personal wellness data including mood check-ins, anxiety and depression self-screenings, and journal entries, to provide wellness support features"
           >
             <View style={styles.checkboxIndicator}>
               {mentalHealthProcessingConsented && <Text style={styles.checkboxCheck}>✓</Text>}
             </View>
             <Text style={styles.checkboxText}>
-              I explicitly consent to Being processing my mental-health data (PHQ-9, GAD-7, mood, journal) for wellness support purposes. (GDPR Art. 9)
+              I explicitly consent to Being processing my personal wellness data — including mood check-ins, anxiety and depression self-screenings, and journal entries — to provide wellness support features.
             </Text>
           </Pressable>
         </View>
