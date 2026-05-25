@@ -1,17 +1,20 @@
 /**
- * Consent Store regression tests (TEST-11)
+ * Consent Store regression tests (TEST-11, extended for DEBUG-150)
  *
- * Validates the GDPR / CCPA / VCDPA / COPPA invariants documented in
+ * Validates the GDPR / CCPA / VCDPA invariants documented in
  * consentStore.ts:
  *   1. All consent categories default to false (opt-out)
  *   2. Crisis access is NEVER gated by consent (vital interests exception)
- *   3. Age verification: <13 marks ineligible; year validation rejects garbage
+ *   3. Age verification: <18 marks ineligible; year validation rejects garbage
+ *      (gate flipped from 13+ → 18+ to match ToS §4 / Privacy §8; DEBUG-150)
  *   4. fail-safe defaults: missing key → 'missing'; corrupted → 'invalid'
  *   5. Round-trip persistence: grant → reload (fresh store) → preferences survive
  *   6. Update propagates to cache synchronously
  *   7. Revoke clears the cache and marks status invalid
  *   8. History persists across reload
  *   9. Reset wipes all keys cleanly
+ *  10. GDPR Art. 9(2)(a) explicit consent persists in ConsentRecord (DEBUG-150)
+ *  11. Legal-gate consents record persists across screens (DEBUG-150)
  */
 
 // In-memory SecureStore + AsyncStorage mocks — pattern from T2.2.
@@ -48,6 +51,8 @@ jest.mock('@/core/constants/devMode', () => ({
 import {
   useConsentStore,
   canPerformCrisisIntervention,
+  recordLegalGateConsents,
+  getLegalGateConsents,
   type ConsentPreferences,
   type AgeVerification,
 } from '../consentStore';
@@ -65,6 +70,7 @@ const ALL_OPT_IN: ConsentPreferences = {
   crashReportsEnabled: true,
   cloudSyncEnabled: true,
   researchEnabled: true,
+  mentalHealthProcessingConsent: true,
 };
 
 const ALL_OPT_OUT: ConsentPreferences = {
@@ -72,6 +78,7 @@ const ALL_OPT_OUT: ConsentPreferences = {
   crashReportsEnabled: false,
   cloudSyncEnabled: false,
   researchEnabled: false,
+  mentalHealthProcessingConsent: false,
 };
 
 // Fresh-snapshot accessor (avoids stale-closure issues in tests)
@@ -132,18 +139,32 @@ describe('consentStore', () => {
     });
   });
 
-  describe('age verification (COPPA)', () => {
-    test('age >= 13 is eligible', async () => {
-      const result = await state().verifyAge(2010); // 16 in 2026
+  describe('age verification (18+ gate per ToS §4 / Privacy §8)', () => {
+    test('age >= 18 is eligible', async () => {
+      const result = await state().verifyAge(2000); // 26 in 2026
       expect(result.eligible).toBe(true);
-      expect(result.age).toBeGreaterThanOrEqual(13);
+      expect(result.age).toBeGreaterThanOrEqual(18);
     });
 
-    test('age < 13 is ineligible', async () => {
+    test('age < 18 is ineligible', async () => {
       const currentYear = new Date().getFullYear();
       const result = await state().verifyAge(currentYear - 10);
       expect(result.eligible).toBe(false);
       expect(result.age).toBe(10);
+    });
+
+    test('age 17 is ineligible (boundary, formerly eligible under 13+ gate)', async () => {
+      const currentYear = new Date().getFullYear();
+      const result = await state().verifyAge(currentYear - 17);
+      expect(result.eligible).toBe(false);
+      expect(result.age).toBe(17);
+    });
+
+    test('age 18 is eligible (boundary)', async () => {
+      const currentYear = new Date().getFullYear();
+      const result = await state().verifyAge(currentYear - 18);
+      expect(result.eligible).toBe(true);
+      expect(result.age).toBe(18);
     });
 
     test('non-integer birth year throws', async () => {
@@ -160,10 +181,10 @@ describe('consentStore', () => {
     });
 
     test('verifyAge persists to SecureStore for pre-consent re-read', async () => {
-      await state().verifyAge(2000);
+      await state().verifyAge(1995); // 31 in 2026 — eligible under 18+ gate
       const stored = await state().getStoredAgeVerification();
       expect(stored).not.toBeNull();
-      expect(stored?.birthYear).toBe(2000);
+      expect(stored?.birthYear).toBe(1995);
       expect(stored?.isEligible).toBe(true);
     });
 
@@ -247,6 +268,24 @@ describe('consentStore', () => {
       await state().loadConsent();
       expect(state().consentStatus).toBe('invalid');
     });
+
+    test('stored version mismatch (legacy 1.0.0 record) → status = "invalid" forces re-grant', async () => {
+      mockSecureStore['consent_record_v1'] = JSON.stringify({
+        consentId: 'c1',
+        userId: 'u1',
+        version: '1.0.0',
+        revoked: false,
+        preferences: {
+          analyticsEnabled: false,
+          crashReportsEnabled: false,
+          cloudSyncEnabled: false,
+          researchEnabled: false,
+        },
+        ageVerification: ELIGIBLE_AGE,
+      });
+      await state().loadConsent();
+      expect(state().consentStatus).toBe('invalid');
+    });
   });
 
   describe('revocation', () => {
@@ -286,6 +325,83 @@ describe('consentStore', () => {
       expect(exported.currentConsent).not.toBeNull();
       expect(exported.history.length).toBeGreaterThanOrEqual(2);
       expect(exported.exportedAt).toBeLessThanOrEqual(Date.now());
+    });
+  });
+
+  describe('GDPR Art. 9(2)(a) explicit mental-health-processing consent', () => {
+    test('granted record persists mentalHealthProcessingConsent = true', async () => {
+      await state().grantConsent(ALL_OPT_IN, ELIGIBLE_AGE);
+      expect(state().currentConsent?.preferences.mentalHealthProcessingConsent).toBe(true);
+    });
+
+    test('granted record persists mentalHealthProcessingConsent = false when unticked', async () => {
+      await state().grantConsent(ALL_OPT_OUT, ELIGIBLE_AGE);
+      expect(state().currentConsent?.preferences.mentalHealthProcessingConsent).toBe(false);
+    });
+
+    test('canPerformOperation("mental_health_processing") reflects the granted flag', async () => {
+      await state().grantConsent(ALL_OPT_IN, ELIGIBLE_AGE);
+      expect(state().canPerformOperation('mental_health_processing')).toBe(true);
+      await state().updateConsent({ mentalHealthProcessingConsent: false });
+      expect(state().canPerformOperation('mental_health_processing')).toBe(false);
+    });
+
+    test('reload round-trip preserves the Art. 9 flag', async () => {
+      await state().grantConsent(ALL_OPT_IN, ELIGIBLE_AGE);
+      useConsentStore.setState({
+        currentConsent: null,
+        consentHistory: [],
+        consentStatus: 'loading',
+      });
+      const reloaded = await state().loadConsent();
+      expect(reloaded?.preferences.mentalHealthProcessingConsent).toBe(true);
+    });
+
+    test('record version is "1.1.0" after grant (GDPR Art. 7(1) policy-version capture)', async () => {
+      await state().grantConsent(ALL_OPT_IN, ELIGIBLE_AGE);
+      expect(state().currentConsent?.version).toBe('1.1.0');
+    });
+
+    test('revoke clears the Art. 9 consent from fast-validation cache', async () => {
+      await state().grantConsent(ALL_OPT_IN, ELIGIBLE_AGE);
+      expect(state().canPerformOperation('mental_health_processing')).toBe(true);
+      await state().revokeConsent('user revoked health-data consent');
+      expect(state().canPerformOperation('mental_health_processing')).toBe(false);
+    });
+  });
+
+  describe('legal-gate consents (CombinedLegalGateScreen → OnboardingScreen hand-off)', () => {
+    test('record + retrieve round-trip preserves all four flags + version + timestamp', async () => {
+      const before = Date.now();
+      await recordLegalGateConsents({
+        tosAccepted: true,
+        privacyAccepted: true,
+        wellnessDisclaimerAcknowledged: true,
+        mentalHealthProcessingConsent: true,
+      });
+      const stored = await getLegalGateConsents();
+      expect(stored).not.toBeNull();
+      expect(stored?.tosAccepted).toBe(true);
+      expect(stored?.privacyAccepted).toBe(true);
+      expect(stored?.wellnessDisclaimerAcknowledged).toBe(true);
+      expect(stored?.mentalHealthProcessingConsent).toBe(true);
+      expect(stored?.version).toBe('1.1.0');
+      expect(stored?.timestamp).toBeGreaterThanOrEqual(before);
+    });
+
+    test('getLegalGateConsents returns null when no record present', async () => {
+      expect(await getLegalGateConsents()).toBeNull();
+    });
+
+    test('resetConsent wipes legal-gate consents', async () => {
+      await recordLegalGateConsents({
+        tosAccepted: true,
+        privacyAccepted: true,
+        wellnessDisclaimerAcknowledged: true,
+        mentalHealthProcessingConsent: true,
+      });
+      await state().resetConsent();
+      expect(await getLegalGateConsents()).toBeNull();
     });
   });
 });
