@@ -408,7 +408,7 @@ export class EncryptionService {
       // Validate decryption performance for crisis scenarios
       if (encryptedPackage.metadata.sensitivityLevel === 'level_1_crisis_responses') {
         if (decryptionTime > ENCRYPTION_CONFIG.PERFORMANCE_THRESHOLD_MS) {
-          logSecurity('⚠️  Crisis data decryption slow: ${decryptionTime.toFixed(2)}ms', 'medium', { component: 'SecurityService' });
+          logSecurity(`⚠️  Crisis data decryption slow: ${decryptionTime.toFixed(2)}ms`, 'medium', { component: 'SecurityService' });
         }
       }
 
@@ -1005,7 +1005,7 @@ export class EncryptionService {
     const threshold = performanceThresholds[sensitivityLevel];
     
     if (operationTimeMs > threshold) {
-      logSecurity('⚠️  Encryption performance warning: ${operationTimeMs.toFixed(2)}ms > ${threshold}ms for ${sensitivityLevel}', 'medium', { component: 'SecurityService' });
+      logSecurity(`⚠️  Encryption performance warning: ${operationTimeMs.toFixed(2)}ms > ${threshold}ms for ${sensitivityLevel}`, 'medium', { component: 'SecurityService' });
       
       // Critical for crisis data
       if (sensitivityLevel === 'level_1_crisis_responses' && operationTimeMs > ENCRYPTION_CONFIG.PERFORMANCE_THRESHOLD_MS) {
@@ -1029,7 +1029,7 @@ export class EncryptionService {
       }
 
       if (metrics.operationTimeMs > ENCRYPTION_CONFIG.PERFORMANCE_THRESHOLD_MS) {
-        logSecurity('⚠️  ENCRYPTION PERFORMANCE WARNING: ${metrics.operationTimeMs.toFixed(2)}ms', 'medium', { component: 'SecurityService' });
+        logSecurity(`⚠️  ENCRYPTION PERFORMANCE WARNING: ${metrics.operationTimeMs.toFixed(2)}ms`, 'medium', { component: 'SecurityService' });
       }
 
     } catch (error) {

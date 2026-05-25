@@ -450,7 +450,7 @@ export class SecurityMonitoringService {
 
       // Validate scan performance
       if (scanDuration > MONITORING_CONFIG.SCAN_DURATION_THRESHOLD_MS) {
-        logSecurity('⚠️  Vulnerability scan slow: ${scanDuration.toFixed(2)}ms > ${MONITORING_CONFIG.SCAN_DURATION_THRESHOLD_MS}ms', 'medium', { component: 'SecurityService' });
+        logSecurity(`⚠️  Vulnerability scan slow: ${scanDuration.toFixed(2)}ms > ${MONITORING_CONFIG.SCAN_DURATION_THRESHOLD_MS}ms`, 'medium', { component: 'SecurityService' });
       }
 
       // Store assessment for historical tracking
@@ -537,7 +537,7 @@ export class SecurityMonitoringService {
 
       // Validate detection performance
       if (detectionTime > MONITORING_CONFIG.DETECTION_LATENCY_THRESHOLD_MS) {
-        logSecurity('⚠️  Threat detection slow: ${detectionTime.toFixed(2)}ms > ${MONITORING_CONFIG.DETECTION_LATENCY_THRESHOLD_MS}ms', 'medium', { component: 'SecurityService' });
+        logSecurity(`⚠️  Threat detection slow: ${detectionTime.toFixed(2)}ms > ${MONITORING_CONFIG.DETECTION_LATENCY_THRESHOLD_MS}ms`, 'medium', { component: 'SecurityService' });
       }
 
       logPerformance('SecurityMonitoringService.detectThreats', detectionTime, {
@@ -656,7 +656,7 @@ export class SecurityMonitoringService {
 
       // Validate compliance check performance
       if (checkTime > MONITORING_CONFIG.COMPLIANCE_CHECK_THRESHOLD_MS) {
-        logSecurity('⚠️  Compliance check slow: ${checkTime.toFixed(2)}ms > ${MONITORING_CONFIG.COMPLIANCE_CHECK_THRESHOLD_MS}ms', 'medium', { component: 'SecurityService' });
+        logSecurity(`⚠️  Compliance check slow: ${checkTime.toFixed(2)}ms > ${MONITORING_CONFIG.COMPLIANCE_CHECK_THRESHOLD_MS}ms`, 'medium', { component: 'SecurityService' });
       }
 
       // Log compliance violations
