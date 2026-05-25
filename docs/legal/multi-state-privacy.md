@@ -32,7 +32,7 @@ Four of the five laws above (CCPA, TDPSA, CPA, CTDPA) mandate technical recognit
 
 **How Being honors these signals:**
 
-- **In the app**: enable *Settings → Privacy & Data → Honor Universal Opt-Out*. When on, Being treats your account as opted out of all non-essential analytics, crash reporting, cloud sync, and research participation, regardless of any granular preferences previously granted. The setting is persisted on-device alongside your consent record (AES-256 encrypted via `expo-secure-store`).
+- **In the app**: enable *Settings → Privacy & Data → Honor Universal Opt-Out*. When on, Being treats your in-app session as opted out of all non-essential analytics, crash reporting, settings backup, and research participation, regardless of any granular preferences previously granted. The setting is persisted on-device alongside your consent record (AES-256 encrypted via `expo-secure-store`).
 - **On the web**: our privacy and support pages at `being.fyi` honor the `Sec-GPC: 1` request header sent by browsers and extensions implementing the [Global Privacy Control specification](https://globalprivacycontrol.org/). *(Web-side detection is rolling out — tracked separately. The in-app universal opt-out ships in the next TestFlight release.)*
 
 Universal opt-out does **not** affect your explicit consent for mental-health data processing (mood check-ins, PHQ-9 / GAD-7 self-screening responses, journal entries) — that consent is governed separately by GDPR Article 9(2)(a) and your active use of the wellness features. Universal opt-out targets analytics and tracking, not the wellness data you actively consented to during onboarding.
@@ -47,7 +47,7 @@ California residents have rights under the California Consumer Privacy Act and C
 
 - **Response timing**: 45 days, with a 45-day extension when reasonably necessary.
 - **Cure period**: the 30-day right-to-cure under the original CCPA was eliminated for general violations effective January 1, 2023 (per CPRA amendments to Cal. Civ. Code §1798.155). The California Attorney General and the California Privacy Protection Agency retain discretion to provide notice and a cure opportunity in limited circumstances.
-- **Verification**: confirm your registered email, provide identifying information matching your account, and confirm via account-bound action. Authorized agents must provide a signed permission and proof of identity.
+- **Verification**: see the [Verification Procedures](#verification-procedures) section below for v1's account-free verification process. Authorized agents must provide signed authorization and proof of identity.
 
 ---
 
@@ -66,7 +66,7 @@ The Texas Data Privacy and Security Act (TDPSA), effective July 1, 2024 with uni
 
 - **Response timing**: 45 days, with a 45-day extension when reasonably necessary.
 - **Cure period**: removed effective January 1, 2025; the Texas Attorney General may now bring an enforcement action without first providing notice and an opportunity to cure.
-- **Verification**: confirm your registered email and provide identifying information matching your account.
+- **Verification**: see the [Verification Procedures](#verification-procedures) section below for v1's account-free verification process.
 
 ---
 
@@ -76,7 +76,7 @@ The Colorado Privacy Act (CPA), effective July 1, 2023, grants Colorado resident
 
 - **Response timing**: 45 days, with a 45-day extension when reasonably necessary.
 - **Cure period**: 60 days following written notice from the Colorado Attorney General. The cure period sunset on January 1, 2025 for violations occurring after that date (C.R.S. §6-1-1311(1)(d)).
-- **Verification**: same as TDPSA.
+- **Verification**: see the [Verification Procedures](#verification-procedures) section below for v1's account-free verification process.
 
 **How to exercise**: in-app via *Settings → Privacy & Data*, or by email to [privacy@being.fyi](mailto:privacy@being.fyi) with the subject line "Colorado Privacy Request."
 
@@ -88,7 +88,7 @@ The Connecticut Data Privacy Act (CTDPA), effective July 1, 2023, grants Connect
 
 - **Response timing**: 45 days, with a 45-day extension when reasonably necessary.
 - **Cure period**: 60 days following written notice from the Connecticut Attorney General, at the AG's discretion (Conn. Gen. Stat. §42-525(b)). The discretionary cure period sunset on December 31, 2024 for violations occurring after that date.
-- **Verification**: same as TDPSA.
+- **Verification**: see the [Verification Procedures](#verification-procedures) section below for v1's account-free verification process.
 
 **How to exercise**: in-app via *Settings → Privacy & Data*, or by email to [privacy@being.fyi](mailto:privacy@being.fyi) with the subject line "Connecticut Privacy Request."
 
@@ -100,7 +100,7 @@ The Virginia Consumer Data Protection Act (VCDPA), effective January 1, 2023, gr
 
 - **Response timing**: 45 days, with a 45-day extension when reasonably necessary.
 - **Cure period**: 30 days following written notice from the Virginia Attorney General (Va. Code §59.1-580). The Virginia cure period remains a statutory right — it has not been sunset.
-- **Verification**: same as TDPSA.
+- **Verification**: see the [Verification Procedures](#verification-procedures) section below for v1's account-free verification process.
 
 **How to exercise**: in-app via *Settings → Privacy & Data*, or by email to [privacy@being.fyi](mailto:privacy@being.fyi) with the subject line "Virginia Privacy Request." Virginia residents who wish to apply an opt-out without sending individual requests can use the in-app *Honor Universal Opt-Out* toggle, which Being will treat as a binding opt-out request even though VCDPA does not require it.
 
@@ -120,11 +120,12 @@ The Virginia Consumer Data Protection Act (VCDPA), effective January 1, 2023, gr
 
 ## Verification Procedures
 
-To prevent fraudulent access to your account, Being verifies all privacy requests using the following procedure:
+In v1, Being operates in anonymous local-only mode: we do not collect email addresses, usernames, or account records that could be matched to a privacy request. We verify privacy requests using a usage-pattern fallback rather than account-record matching:
 
-1. **Match the request** to a Being account using the email address from which the request was sent.
-2. **Confirm identity** by asking you to (a) confirm details of your account that only the account-holder would know (e.g., approximate account creation date, last check-in timestamp), and (b) confirm the request via an in-app action or a link sent to your verified email.
-3. **Authorized agents** (CCPA only): provide a signed authorization from the consumer, plus proof of the agent's identity. Being may contact the consumer directly to confirm the agent's authority.
+1. **In-app fulfillment is preferred.** Most rights (access, deletion, export, opt-out) can be exercised directly from *Settings → Privacy & Data* without sending us a request — your device is the authoritative copy of your data.
+2. **Email requests are accepted.** If you email [privacy@being.fyi](mailto:privacy@being.fyi), we will respond within 45 days. For requests we can fulfill through in-app controls, we will direct you to those controls and confirm completion. For requests we cannot fulfill in-app, we will work with you manually.
+3. **Usage-pattern matching** in lieu of account verification: where verification of identity is required (for example, before purging settings backup data tied to a specific device), we may ask for information describing your use of the app (approximate first-use date, device type, time zone) to help us locate the relevant data.
+4. **Authorized agents** (CCPA only): provide a signed authorization from the consumer, plus proof of the agent's identity. Being may attempt to confirm the agent's authority via in-app controls.
 
 If we cannot verify your identity within a reasonable time, we will inform you and decline to act on the request, without charge.
 

@@ -13,7 +13,7 @@
 3. [How We Use Your Information](#3-how-we-use-your-information)
 4. [Data Storage & Security](#4-data-storage--security)
    - [4.1 Local-First Architecture](#41-local-first-architecture)
-   - [4.2 Optional Cloud Backup](#42-optional-cloud-backup)
+   - [4.2 Optional Settings Backup](#42-optional-settings-backup)
    - [4.3 Security Measures](#43-security-measures)
    - [4.4 Breach Notification](#44-breach-notification)
 5. [Data Sharing & Third Parties](#5-data-sharing--third-parties)
@@ -48,7 +48,6 @@ Being ("we," "us," or "our") is committed to protecting your privacy. This Priva
 
 - **Check-In Data:** Daily mindfulness check-ins, mood tracking, journal entries
 - **Wellness Assessments:** PHQ-9 and GAD-7 responses and scores (for self-monitoring, not clinical diagnosis)
-- **Account Information:** Email, username (optional for cloud backup)
 - **Emergency Contacts:** Contact information for crisis support (stored locally only)
 
 ### 2.2 Automatically Collected Information
@@ -87,13 +86,13 @@ We use your information solely to provide and improve the Being app:
 
 All your mental health data is stored locally on your device by default. We use AES-256 encryption to protect your data at rest.
 
-### 4.2 Optional Cloud Backup
+### 4.2 Optional Settings Backup
 
-You may optionally enable encrypted cloud backup to sync data across devices. Cloud backups are:
+You may optionally enable an encrypted settings backup. This is a narrow, opt-in feature that backs up a small set of non-wellness app preferences (such as autosave configuration and last-sync timestamps) to encrypted cloud storage. It does **not** back up your mental-health data — PHQ-9 / GAD-7 responses, mood check-ins, journal entries, and crisis records always stay on your device. Settings backups are:
 
-- Encrypted end-to-end (we cannot read your data)
-- Stored on secure cloud infrastructure (Supabase, SOC 2 Type II certified)
-- Deletable at any time from your account settings
+- Encrypted in transit (TLS 1.2+) and at rest (AES-256) on Supabase infrastructure (SOC 2 Type II certified)
+- Scoped to a strict allowlist of non-sensitive preference fields
+- Deletable at any time from in-app *Settings → Privacy & Data*
 
 ### 4.3 Security Measures
 
@@ -101,7 +100,6 @@ You may optionally enable encrypted cloud backup to sync data across devices. Cl
 - TLS 1.2+ encryption for data in transit
 - Regular security audits and penetration testing
 - Limited employee access to encrypted data
-- Two-factor authentication for accounts
 - A documented Data Protection Impact Assessment covering our processing of sensitive wellness data is maintained as an internal compliance artifact in accordance with applicable state privacy laws
 
 ### 4.4 Breach Notification
@@ -116,7 +114,7 @@ Notifications will include:
 - What we are doing to investigate the breach and prevent recurrence
 - How to contact us for more information
 
-Notifications will be delivered by email (if you provided one) and by prominent in-app notice.
+Notifications will be delivered by prominent in-app notice. (Being does not collect email addresses in v1, so email notifications are not available; if email collection is introduced in a future release, this section will be updated accordingly.)
 
 ---
 
@@ -191,9 +189,9 @@ You have the following rights regarding your personal information:
 
 - **Access:** Request a copy of your data at any time
 - **Correction:** Update or correct your information
-- **Deletion:** Delete your account and all associated data
+- **Deletion:** Delete all of your in-app and backed-up data
 - **Export:** Download your data in portable JSON format
-- **Opt-Out:** Disable cloud backup, analytics, or crash reporting
+- **Opt-Out:** Disable settings backup, analytics, or crash reporting
 
 To exercise these rights, email [privacy@being.fyi](mailto:privacy@being.fyi) or use the in-app settings.
 
@@ -224,8 +222,8 @@ This extended retention ensures continuity of care information and protects both
 ### 7.3 Other Data
 
 - **Local Data:** Stored on your device until you delete the app or clear data
-- **Cloud Backup:** Retained until you delete your account or disable backup
-- **Account Deletion:** All data permanently deleted within 30 days
+- **Settings Backup:** Retained until you disable backup or request deletion via in-app *Privacy & Data* settings
+- **Data Deletion Requests:** Honored within 30 days of request
 - **Audit Logs:** 3 years (for security and compliance)
 - **Consent Records:** Retained indefinitely as proof of lawful data processing
 
@@ -251,7 +249,7 @@ Being is based in the United States. If you access our Services from outside the
 
 ## 10. Changes to This Policy
 
-We may update this Privacy Policy from time to time. We will notify you of material changes via email (if you provided one) or in-app notification. Your continued use of Being after changes take effect constitutes acceptance of the updated policy.
+We may update this Privacy Policy from time to time. We will notify you of material changes via in-app notification. Your continued use of Being after changes take effect constitutes acceptance of the updated policy.
 
 ---
 

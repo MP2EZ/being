@@ -192,7 +192,7 @@ const ProfileScreen: React.FC = () => {
             Your Profile
           </Text>
           <Text style={styles.subtitle}>
-            Manage your account and personalize your Being. experience
+            Personalize your Being. experience
           </Text>
         </View>
 
@@ -335,19 +335,19 @@ const ProfileScreen: React.FC = () => {
             accessibilityRole="header"
             accessibilityLevel={2}
           >
-            Account Management
+            Preferences
           </Text>
 
           <Pressable
             style={styles.profileCard}
             onPress={() => setCurrentScreen('account')}
             accessibilityRole="button"
-            accessibilityLabel="Account Settings"
-            accessibilityHint="Manage your email, password, and account preferences"
+            accessibilityLabel="App Preferences"
+            accessibilityHint="Manage app preferences and privacy settings"
           >
-            <Text style={styles.cardTitle}>Account Settings</Text>
+            <Text style={styles.cardTitle}>App Preferences</Text>
             <Text style={styles.cardDescription}>
-              Manage your email, password, and account preferences.
+              Manage notifications, accessibility, and privacy options.
             </Text>
             <Text style={styles.cardAction} importantForAccessibility="no">Manage →</Text>
           </Pressable>
