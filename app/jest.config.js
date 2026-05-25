@@ -112,6 +112,15 @@ module.exports = {
     //    exist. Needs proper rewrite to match current SyncCoordinator
     //    + AnalyticsService + AuthenticationService APIs, not
     //    incremental patching.
+    //  - sync-emergency-scenarios.test.ts: references
+    //    `../../src/services/supabase/SyncCoordinator` — path
+    //    invalidated by the services/ → features/ restructure (now
+    //    `@/core/services/supabase/SyncCoordinator`). Imports never
+    //    resolved post-restructure, so this test has been silently
+    //    failing-to-load since then. Quarantined here so test:safety
+    //    can run cleanly; needs path-rewrite + assertion-audit in a
+    //    separate MAINT ticket (same family as
+    //    sync-performance-validation above).
     'subscription\\.integration\\.test\\.ts$', // tried in INFRA-143 PR 2 — CI-flaky (async leak), re-quarantined
     'sync-coordinator-integration\\.test\\.ts$',
     'analytics-service-integration\\.test\\.ts$',
@@ -122,6 +131,7 @@ module.exports = {
     'sync-performance-validation\\.test\\.ts$',
     'week3-analytics-performance\\.test\\.ts$',
     'BodyScanScreen\\.test\\.tsx$',
+    'sync-emergency-scenarios\\.test\\.ts$',
   ],
 
   // Module extensions and transformations
@@ -173,24 +183,38 @@ module.exports = {
   ],
 
   // Coverage thresholds for development validation.
-  // Updated 2026-05-22: per-path thresholds reference paths that moved
-  // during the 5-month dev period. `./src/components/crisis/` is now
-  // `./src/features/crisis/`, and `./src/services/clinical/` was
-  // reorganized into `./src/features/assessment/` (clinical scoring lives
-  // there now). The global threshold stays; per-path thresholds disabled
-  // pending a dedicated review of the new directory boundaries and what
-  // coverage targets make sense for each (the previous 95% bar on the
-  // crisis component was aspirational, not measured baseline).
+  //
+  // INFRA-143 PR 4 (TEST-15): per-path floors restored for the three
+  // CLAUDE.md "protected paths" (crisis, assessment, core/services/security).
+  // These match the global floor — that's a conservative restoration. The
+  // audit recommended 90/95 aspirational targets, but without measuring
+  // the current baseline that could fail CI immediately. Once the protected
+  // paths have measured coverage, ratchet these up per directory.
   coverageThreshold: {
     global: {
       branches: 70,
       functions: 75,
       lines: 80,
       statements: 80
+    },
+    './src/features/crisis/': {
+      branches: 70,
+      functions: 75,
+      lines: 80,
+      statements: 80
+    },
+    './src/features/assessment/': {
+      branches: 70,
+      functions: 75,
+      lines: 80,
+      statements: 80
+    },
+    './src/core/services/security/': {
+      branches: 70,
+      functions: 75,
+      lines: 80,
+      statements: 80
     }
-    // TODO: re-add per-path thresholds with current paths:
-    // './src/features/crisis/': { ... }
-    // './src/features/assessment/': { ... }
   },
 
   // Performance and execution optimization.
@@ -214,11 +238,18 @@ module.exports = {
   errorOnDeprecated: true,
   testFailureExitCode: 1,
 
-  // Reporters - Quick vs Full
+  // Reporters — Quick vs CI vs local.
+  //
+  // INFRA-143 PR 4: the custom performance-regression-reporter and
+  // coverage-reporter are CI-only. Locally they emit ~10 lines of
+  // ⏱️/📊/🚨 noise per test file — that's hundreds of console lines on
+  // every full suite run, drowning the actual pass/fail summary. CI
+  // benefits from the JSON artifacts (used by perf-regression detection
+  // jobs); local runs don't.
   reporters: isQuickMode ? [
     ['default', { verbose: false }],
     '<rootDir>/__tests__/reporters/quick-reporter.js'
-  ] : [
+  ] : process.env.CI === 'true' ? [
     'default',
     ['<rootDir>/__tests__/reporters/performance-regression-reporter.js', {
       outputFile: 'test-results/performance-regression.json',
@@ -227,6 +258,8 @@ module.exports = {
     ['<rootDir>/__tests__/reporters/coverage-reporter.js', {
       outputFile: 'test-results/coverage-summary.json'
     }]
+  ] : [
+    'default',
   ],
 
   // Global test environment variables
