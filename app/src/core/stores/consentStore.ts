@@ -655,7 +655,7 @@ export const useConsentStore = create<ConsentStore>((set, get) => ({
         timestamp: now,
       };
       const updatedHistory = [...consentHistory, historyEntry];
-      await SecureStore.setItemAsync(CONSENT_HISTORY_KEY, JSON.stringify(updatedHistory));
+      await persistConsentHistory(updatedHistory);
 
       const cache = {
         canCollectAnalytics: value ? false : updatedConsent.preferences.analyticsEnabled,
