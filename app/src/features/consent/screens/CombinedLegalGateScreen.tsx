@@ -1,11 +1,15 @@
 /**
  * COMBINED LEGAL GATE SCREEN
- * Consolidates age verification + ToS acceptance into one screen
+ * Consolidates age verification + four separate legal consents into one screen
  *
  * COMPLIANCE:
- * - COPPA: Age verification BEFORE any data collection
- * - ToS: Legal agreement separate from granular consent
- * - Crisis resources visible to ALL users (not just under-13)
+ * - Age verification BEFORE any data collection (18+ per ToS §4 / Privacy §8)
+ * - Four separated checkboxes:
+ *     1. Terms of Service acceptance
+ *     2. Privacy Policy acceptance
+ *     3. Wellness Disclaimer acknowledgment (not medical care; crisis = 911/988)
+ *     4. GDPR Art. 9(2)(a) explicit consent for mental-health data processing
+ * - Crisis resources visible to ALL users (not just under-18)
  *
  * UX OPTIMIZATION:
  * - Single legal gate reduces cognitive load
@@ -31,13 +35,13 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Picker } from '@react-native-picker/picker';
-import { useConsentStore } from '@/core/stores/consentStore';
+import { useConsentStore, recordLegalGateConsents } from '@/core/stores/consentStore';
 import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
 
 interface CombinedLegalGateScreenProps {
-  /** Called when user passes legal gate (age verified + ToS accepted) */
+  /** Called when user passes legal gate (age verified + four consents accepted) */
   onComplete: () => void;
-  /** Called when user is under 13 */
+  /** Called when user is under 18 */
   onUnderAge: () => void;
 }
 
@@ -49,9 +53,15 @@ const CombinedLegalGateScreen: React.FC<CombinedLegalGateScreenProps> = ({
 
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
   const [tosAccepted, setTosAccepted] = useState(false);
+  const [privacyAccepted, setPrivacyAccepted] = useState(false);
+  const [wellnessDisclaimerAcknowledged, setWellnessDisclaimerAcknowledged] = useState(false);
+  const [mentalHealthProcessingConsented, setMentalHealthProcessingConsented] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showUnderAge, setShowUnderAge] = useState(false);
+
+  const allConsentsTicked =
+    tosAccepted && privacyAccepted && wellnessDisclaimerAcknowledged && mentalHealthProcessingConsented;
 
   // Generate years for picker (100 years back from current year)
   const currentYear = new Date().getFullYear();
@@ -69,10 +79,10 @@ const CombinedLegalGateScreen: React.FC<CombinedLegalGateScreenProps> = ({
       return;
     }
 
-    // Validate ToS accepted
-    if (!tosAccepted) {
-      setError('Please accept the Terms of Service and Privacy Policy');
-      AccessibilityInfo.announceForAccessibility('Error: Please accept the Terms of Service');
+    // Validate all four consents accepted
+    if (!allConsentsTicked) {
+      setError('Please accept all four consent items to continue');
+      AccessibilityInfo.announceForAccessibility('Error: Please accept all four consent items');
       return;
     }
 
@@ -83,12 +93,20 @@ const CombinedLegalGateScreen: React.FC<CombinedLegalGateScreenProps> = ({
       const { eligible, age } = await verifyAge(selectedYear);
 
       if (eligible) {
+        // Persist the four legal-gate consents for OnboardingScreen to merge
+        // into the ConsentRecord at grant time (GDPR Art. 7(1) record requirement)
+        await recordLegalGateConsents({
+          tosAccepted,
+          privacyAccepted,
+          wellnessDisclaimerAcknowledged,
+          mentalHealthProcessingConsent: mentalHealthProcessingConsented,
+        });
         AccessibilityInfo.announceForAccessibility('Verification complete. Proceeding to app.');
         onComplete();
       } else {
         setShowUnderAge(true);
         AccessibilityInfo.announceForAccessibility(
-          `We're sorry. Being is available for ages 13 and older. You appear to be ${age} years old. Crisis resources are available if you need support.`
+          `We're sorry. Being is available for ages 18 and older. You appear to be ${age} years old. Crisis resources are available if you need support.`
         );
         onUnderAge();
       }
@@ -98,7 +116,17 @@ const CombinedLegalGateScreen: React.FC<CombinedLegalGateScreenProps> = ({
     } finally {
       setIsLoading(false);
     }
-  }, [selectedYear, tosAccepted, verifyAge, onComplete, onUnderAge]);
+  }, [
+    selectedYear,
+    allConsentsTicked,
+    tosAccepted,
+    privacyAccepted,
+    wellnessDisclaimerAcknowledged,
+    mentalHealthProcessingConsented,
+    verifyAge,
+    onComplete,
+    onUnderAge,
+  ]);
 
   const handleCall988 = () => {
     Linking.openURL('tel:988');
@@ -114,10 +142,10 @@ const CombinedLegalGateScreen: React.FC<CombinedLegalGateScreenProps> = ({
       <SafeAreaView style={styles.container}>
         <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
           <View style={styles.header}>
-            <Text style={styles.title}>We're Sorry</Text>
+            <Text style={styles.title}>Being is for ages 18+</Text>
             <Text style={styles.subtitle}>
-              Being is designed for ages 13 and older.{'\n'}
-              If you're under 13, please talk to a parent or trusted adult about your feelings.
+              We hope to support you when you're older.{'\n'}
+              If you're going through a difficult time right now, the resources below are available to you 24/7.
             </Text>
           </View>
 
@@ -151,7 +179,7 @@ const CombinedLegalGateScreen: React.FC<CombinedLegalGateScreenProps> = ({
           </View>
 
           <View style={styles.resourcesSection}>
-            <Text style={styles.resourcesTitle}>Resources for Young People</Text>
+            <Text style={styles.resourcesTitle}>More Resources</Text>
             <Pressable
               onPress={() => Linking.openURL('https://www.childmind.org')}
               accessibilityRole="link"
@@ -212,13 +240,18 @@ const CombinedLegalGateScreen: React.FC<CombinedLegalGateScreenProps> = ({
             </Picker>
           </View>
           <Text style={styles.helperText}>
-            We ask this to comply with privacy laws protecting children's data.
+            We use your age only to confirm eligibility. Being is for adults 18 and older.
           </Text>
         </View>
 
-        {/* Legal Agreement Section */}
+        {/* Legal Agreement Section — four separate explicit consents */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>2. Legal Agreement</Text>
+          <Text style={styles.sectionTitle}>2. Your Consent</Text>
+          <Text style={styles.sectionDescription}>
+            Please review and accept each item separately:
+          </Text>
+
+          {/* 1. Terms of Service */}
           <Pressable
             style={[styles.checkbox, tosAccepted && styles.checkboxChecked]}
             onPress={() => {
@@ -227,34 +260,72 @@ const CombinedLegalGateScreen: React.FC<CombinedLegalGateScreenProps> = ({
             }}
             accessibilityRole="checkbox"
             accessibilityState={{ checked: tosAccepted }}
-            accessibilityLabel="Terms of Service and Privacy Policy agreement"
+            accessibilityLabel="I agree to the Terms of Service"
           >
             <View style={styles.checkboxIndicator}>
               {tosAccepted && <Text style={styles.checkboxCheck}>✓</Text>}
             </View>
             <Text style={styles.checkboxText}>
-              I confirm:{'\n'}
-              • I am 13 or older (or have parental permission if under 18){'\n'}
-              • I agree to the Terms of Service and Privacy Policy{'\n'}
-              • I understand this app provides wellness support, not medical care{'\n'}
-              • In a crisis, I should call 911 (emergency) or 988 (mental health crisis)
+              I agree to the <Text style={styles.checkboxLink} onPress={() => Linking.openURL('https://being.fyi/terms')}>Terms of Service</Text>.
             </Text>
           </Pressable>
 
-          <View style={styles.linkRow}>
-            <Pressable
-              onPress={() => Linking.openURL('https://being.fyi/terms')}
-              accessibilityRole="link"
-            >
-              <Text style={styles.linkText}>View Terms</Text>
-            </Pressable>
-            <Pressable
-              onPress={() => Linking.openURL('https://being.fyi/privacy')}
-              accessibilityRole="link"
-            >
-              <Text style={styles.linkText}>View Privacy Policy</Text>
-            </Pressable>
-          </View>
+          {/* 2. Privacy Policy */}
+          <Pressable
+            style={[styles.checkbox, privacyAccepted && styles.checkboxChecked, styles.checkboxStacked]}
+            onPress={() => {
+              setPrivacyAccepted(!privacyAccepted);
+              setError(null);
+            }}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: privacyAccepted }}
+            accessibilityLabel="I agree to the Privacy Policy"
+          >
+            <View style={styles.checkboxIndicator}>
+              {privacyAccepted && <Text style={styles.checkboxCheck}>✓</Text>}
+            </View>
+            <Text style={styles.checkboxText}>
+              I agree to the <Text style={styles.checkboxLink} onPress={() => Linking.openURL('https://being.fyi/privacy')}>Privacy Policy</Text>.
+            </Text>
+          </Pressable>
+
+          {/* 3. Wellness Disclaimer */}
+          <Pressable
+            style={[styles.checkbox, wellnessDisclaimerAcknowledged && styles.checkboxChecked, styles.checkboxStacked]}
+            onPress={() => {
+              setWellnessDisclaimerAcknowledged(!wellnessDisclaimerAcknowledged);
+              setError(null);
+            }}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: wellnessDisclaimerAcknowledged }}
+            accessibilityLabel="I understand Being provides wellness support, not medical care, and in a crisis I will call 911 or 988"
+          >
+            <View style={styles.checkboxIndicator}>
+              {wellnessDisclaimerAcknowledged && <Text style={styles.checkboxCheck}>✓</Text>}
+            </View>
+            <Text style={styles.checkboxText}>
+              I understand Being provides wellness support, not medical care. In a crisis I will call 911 (emergency) or 988 (mental health crisis).
+            </Text>
+          </Pressable>
+
+          {/* 4. GDPR Art. 9(2)(a) explicit consent for mental-health data processing */}
+          <Pressable
+            style={[styles.checkbox, mentalHealthProcessingConsented && styles.checkboxChecked, styles.checkboxStacked]}
+            onPress={() => {
+              setMentalHealthProcessingConsented(!mentalHealthProcessingConsented);
+              setError(null);
+            }}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: mentalHealthProcessingConsented }}
+            accessibilityLabel="I explicitly consent to Being processing my mental-health data for wellness support, GDPR Article 9"
+          >
+            <View style={styles.checkboxIndicator}>
+              {mentalHealthProcessingConsented && <Text style={styles.checkboxCheck}>✓</Text>}
+            </View>
+            <Text style={styles.checkboxText}>
+              I explicitly consent to Being processing my mental-health data (PHQ-9, GAD-7, mood, journal) for wellness support purposes. (GDPR Art. 9)
+            </Text>
+          </Pressable>
         </View>
 
         {/* Essential Services Info */}
@@ -279,13 +350,13 @@ const CombinedLegalGateScreen: React.FC<CombinedLegalGateScreenProps> = ({
         <Pressable
           style={[
             styles.continueButton,
-            (!selectedYear || !tosAccepted || isLoading) && styles.continueButtonDisabled,
+            (!selectedYear || !allConsentsTicked || isLoading) && styles.continueButtonDisabled,
           ]}
           onPress={handleContinue}
-          disabled={!selectedYear || !tosAccepted || isLoading}
+          disabled={!selectedYear || !allConsentsTicked || isLoading}
           accessibilityRole="button"
           accessibilityLabel="Continue"
-          accessibilityState={{ disabled: !selectedYear || !tosAccepted || isLoading }}
+          accessibilityState={{ disabled: !selectedYear || !allConsentsTicked || isLoading }}
         >
           <Text style={styles.continueButtonText}>
             {isLoading ? 'Verifying...' : 'Continue'}
@@ -390,9 +461,17 @@ const styles = StyleSheet.create({
     borderColor: colorSystem.gray[200],
     minHeight: 56,
   },
+  checkboxStacked: {
+    marginTop: spacing[16],
+  },
   checkboxChecked: {
     borderColor: colorSystem.base.midnightBlue,
     backgroundColor: '#F0F4FF',
+  },
+  checkboxLink: {
+    color: colorSystem.base.midnightBlue,
+    textDecorationLine: 'underline',
+    fontWeight: typography.fontWeight.medium,
   },
   checkboxIndicator: {
     width: spacing[24],

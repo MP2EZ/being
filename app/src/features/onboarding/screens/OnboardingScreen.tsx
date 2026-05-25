@@ -37,7 +37,7 @@ import { useAnalytics } from '@/core/analytics';
 import NotificationTimePicker from '@/core/components/NotificationTimePicker';
 import CollapsibleCrisisButton from '@/features/crisis/components/CollapsibleCrisisButton';
 import BrainIcon from '@/core/components/shared/BrainIcon';
-import { useConsentStore, ConsentPreferences } from '@/core/stores/consentStore';
+import { useConsentStore, ConsentPreferences, getLegalGateConsents } from '@/core/stores/consentStore';
 import { ConsentToggleCard } from '@/features/consent';
 import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
 
@@ -313,6 +313,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
     crashReportsEnabled: false,
     cloudSyncEnabled: false,
     researchEnabled: false,
+    mentalHealthProcessingConsent: false,
   });
 
   // Get consent store functions
@@ -1565,10 +1566,18 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
       // Get stored age verification (from CombinedLegalGateScreen)
       const ageVerification = await getStoredAgeVerification();
 
+      // Read back the four legal-gate consents (recorded on CombinedLegalGateScreen)
+      // so the GDPR Art. 9 explicit-consent flag lands in the granted ConsentRecord.
+      const legalGate = await getLegalGateConsents();
+
+      const mergedPreferences: ConsentPreferences = {
+        ...consentPreferences,
+        mentalHealthProcessingConsent: legalGate?.mentalHealthProcessingConsent ?? false,
+      };
+
       if (ageVerification) {
-        // Grant consent with preferences and age verification
-        await grantConsent(consentPreferences, ageVerification);
-        logStateChange('handlePrivacyContinue', { consentPreferences });
+        await grantConsent(mergedPreferences, ageVerification);
+        logStateChange('handlePrivacyContinue', { consentPreferences: mergedPreferences });
       } else {
         // This shouldn't happen if flow is correct, but log it
         logError(LogCategory.SECURITY, 'No age verification found during consent save');

@@ -10,8 +10,9 @@
  *
  * COMPLIANCE:
  * - Privacy: Granular consent scopes with audit trail
- * - COPPA: Age verification gate (13+ years)
+ * - Age verification gate (18+ years, per ToS §4 / Privacy Policy §8)
  * - CCPA/VCDPA: Opt-out defaults, export capability
+ * - GDPR Art. 9(2)(a): Explicit consent for mental-health data processing
  * - Dark pattern prevention: No pre-checked boxes
  *
  * NON-NEGOTIABLE:
@@ -31,6 +32,46 @@ const CONSENT_SECURE_KEY = 'consent_record_v1';
 const CONSENT_CACHE_KEY = 'consent_cache_v1';
 const AGE_VERIFICATION_KEY = 'age_verification_v1';
 const CONSENT_HISTORY_KEY = 'consent_history_v1';
+const LEGAL_GATE_CONSENTS_KEY = 'legal_gate_consents_v1';
+
+/**
+ * Legal-gate consents captured on CombinedLegalGateScreen — persisted between
+ * the legal-gate step and the granular-preferences step in OnboardingScreen,
+ * where the full ConsentRecord is granted.
+ *
+ * `mentalHealthProcessingConsent` is the GDPR Art. 9(2)(a) explicit consent
+ * for processing health data (PHQ-9, GAD-7, mood, journal).
+ */
+export interface LegalGateConsents {
+  tosAccepted: boolean;
+  privacyAccepted: boolean;
+  wellnessDisclaimerAcknowledged: boolean;
+  mentalHealthProcessingConsent: boolean;
+  /** Timestamp of acceptance (GDPR Art. 7(1) consent record) */
+  timestamp: number;
+  /** Policy version at acceptance time (for re-consent on policy changes) */
+  version: string;
+}
+
+export const recordLegalGateConsents = async (
+  consents: Omit<LegalGateConsents, 'timestamp' | 'version'>,
+): Promise<void> => {
+  const record: LegalGateConsents = {
+    ...consents,
+    timestamp: Date.now(),
+    version: CONSENT_VERSION,
+  };
+  await SecureStore.setItemAsync(LEGAL_GATE_CONSENTS_KEY, JSON.stringify(record));
+};
+
+export const getLegalGateConsents = async (): Promise<LegalGateConsents | null> => {
+  try {
+    const stored = await SecureStore.getItemAsync(LEGAL_GATE_CONSENTS_KEY);
+    return stored ? (JSON.parse(stored) as LegalGateConsents) : null;
+  } catch {
+    return null;
+  }
+};
 
 /**
  * Consent categories (FEAT-90 requirements)
@@ -45,10 +86,17 @@ export interface ConsentPreferences {
   cloudSyncEnabled: boolean;
   /** Research participation (default: false) */
   researchEnabled: boolean;
+  /**
+   * Explicit consent for processing mental-health data (PHQ-9, GAD-7, mood,
+   * journal) for wellness support. Required under GDPR Art. 9(2)(a) for the
+   * special category of "data concerning health." Must be ticked separately —
+   * bundled consent does not satisfy "explicit."
+   */
+  mentalHealthProcessingConsent: boolean;
 }
 
 /**
- * Age verification data (COPPA compliance)
+ * Age verification data (18+ gate per ToS §4 / Privacy Policy §8)
  */
 export interface AgeVerification {
   /** Whether age has been verified */
@@ -59,7 +107,7 @@ export interface AgeVerification {
   ageAtVerification?: number;
   /** Timestamp of verification */
   verifiedAt?: number;
-  /** Whether user is eligible (13+) */
+  /** Whether user is eligible (18+) */
   isEligible?: boolean;
 }
 
@@ -122,6 +170,7 @@ export interface ConsentStore {
     canCollectCrashReports: boolean;
     canSyncToCloud: boolean;
     canParticipateInResearch: boolean;
+    canProcessMentalHealthData: boolean;
     ageVerified: boolean;
     isEligible: boolean;
     cacheTimestamp: number;
@@ -136,7 +185,9 @@ export interface ConsentStore {
   getStoredAgeVerification: () => Promise<AgeVerification | null>;
 
   // Fast validation (uses cache, <5ms)
-  canPerformOperation: (operation: 'analytics' | 'crash_reports' | 'cloud_sync' | 'research') => boolean;
+  canPerformOperation: (
+    operation: 'analytics' | 'crash_reports' | 'cloud_sync' | 'research' | 'mental_health_processing',
+  ) => boolean;
   hasValidConsent: () => boolean;
   isAgeVerified: () => boolean;
 
@@ -159,6 +210,7 @@ const DEFAULT_PREFERENCES: ConsentPreferences = {
   crashReportsEnabled: false,
   cloudSyncEnabled: false,
   researchEnabled: false,
+  mentalHealthProcessingConsent: false,
 };
 
 /**
@@ -169,6 +221,7 @@ const DEFAULT_CACHE = {
   canCollectCrashReports: false,
   canSyncToCloud: false,
   canParticipateInResearch: false,
+  canProcessMentalHealthData: false,
   ageVerified: false,
   isEligible: false,
   cacheTimestamp: 0,
@@ -177,7 +230,7 @@ const DEFAULT_CACHE = {
 /**
  * Current consent version (update when policy changes)
  */
-const CONSENT_VERSION = '1.0.0';
+const CONSENT_VERSION = '1.1.0';
 
 /**
  * Generate unique consent ID
@@ -230,8 +283,15 @@ export const useConsentStore = create<ConsentStore>((set, get) => ({
 
       const consent = JSON.parse(storedConsent) as ConsentRecord;
 
-      // Validate consent integrity
-      if (!consent.consentId || !consent.userId || consent.revoked) {
+      // Validate consent integrity.
+      // version !== CONSENT_VERSION forces re-grant when the policy shape changes
+      // (e.g., DEBUG-150 added Art. 9 explicit consent at version 1.1.0).
+      if (
+        !consent.consentId ||
+        !consent.userId ||
+        consent.revoked ||
+        consent.version !== CONSENT_VERSION
+      ) {
         set({
           currentConsent: null,
           consentStatus: 'invalid',
@@ -273,6 +333,7 @@ export const useConsentStore = create<ConsentStore>((set, get) => ({
         canCollectCrashReports: consent.preferences.crashReportsEnabled,
         canSyncToCloud: consent.preferences.cloudSyncEnabled,
         canParticipateInResearch: consent.preferences.researchEnabled,
+        canProcessMentalHealthData: consent.preferences.mentalHealthProcessingConsent ?? false,
         ageVerified: consent.ageVerification.verified,
         isEligible: consent.ageVerification.isEligible ?? false,
         cacheTimestamp: Date.now(),
@@ -345,6 +406,7 @@ export const useConsentStore = create<ConsentStore>((set, get) => ({
         canCollectCrashReports: preferences.crashReportsEnabled,
         canSyncToCloud: preferences.cloudSyncEnabled,
         canParticipateInResearch: preferences.researchEnabled,
+        canProcessMentalHealthData: preferences.mentalHealthProcessingConsent,
         ageVerified: ageVerification.verified,
         isEligible: ageVerification.isEligible ?? false,
         cacheTimestamp: now,
@@ -417,6 +479,7 @@ export const useConsentStore = create<ConsentStore>((set, get) => ({
         canCollectCrashReports: updatedPreferences.crashReportsEnabled,
         canSyncToCloud: updatedPreferences.cloudSyncEnabled,
         canParticipateInResearch: updatedPreferences.researchEnabled,
+        canProcessMentalHealthData: updatedPreferences.mentalHealthProcessingConsent,
         ageVerified: updatedConsent.ageVerification.verified,
         isEligible: updatedConsent.ageVerification.isEligible ?? false,
         cacheTimestamp: now,
@@ -503,7 +566,7 @@ export const useConsentStore = create<ConsentStore>((set, get) => ({
   },
 
   /**
-   * Verify age (COPPA compliance)
+   * Verify age (18+ gate per ToS §4 / Privacy Policy §8)
    * Validates birth year is within acceptable range before processing
    */
   verifyAge: async (birthYear: number) => {
@@ -518,7 +581,7 @@ export const useConsentStore = create<ConsentStore>((set, get) => ({
     }
 
     const age = calculateAge(birthYear);
-    const eligible = age >= 13;
+    const eligible = age >= 18;
 
     const verification: AgeVerification = {
       verified: true,
@@ -569,6 +632,8 @@ export const useConsentStore = create<ConsentStore>((set, get) => ({
         return consentCache.canSyncToCloud;
       case 'research':
         return consentCache.canParticipateInResearch;
+      case 'mental_health_processing':
+        return consentCache.canProcessMentalHealthData;
       default:
         return false;
     }
@@ -610,6 +675,7 @@ export const useConsentStore = create<ConsentStore>((set, get) => ({
     try {
       await SecureStore.deleteItemAsync(CONSENT_SECURE_KEY);
       await SecureStore.deleteItemAsync(AGE_VERIFICATION_KEY);
+      await SecureStore.deleteItemAsync(LEGAL_GATE_CONSENTS_KEY);
       await AsyncStorage.removeItem(CONSENT_CACHE_KEY);
 
       set({
