@@ -1,13 +1,13 @@
 # Git Hooks (Husky)
 
-Wired in INFRA-155. Husky v9 sits in `app/devDependencies` and bootstraps on every `npm install` via the `prepare` lifecycle script.
+Wired in INFRA-155 (pre-push) and INFRA-156 (pre-commit). Husky v9 sits in `app/devDependencies` and bootstraps on every `npm install` via the `prepare` lifecycle script.
 
 ## What fires when
 
 | Hook | npm chain | Fires on |
 |---|---|---|
+| `pre-commit` (`app/.husky/pre-commit`) | `npm run precommit` → `typecheck && lint:baseline && test:clinical && test:unit` (~16 sec) | every `git commit` |
 | `pre-push` (`app/.husky/pre-push`) | `npm run prepush` → `check:crisis-hotline` (~1 sec) | every `git push` |
-| `pre-commit` | *(not wired)* | — |
 
 ### Why pre-push runs only `check:crisis-hotline`
 
@@ -15,13 +15,15 @@ The `prepush` chain originally also ran `test:ci && validate:clinical-complete`.
 
 The hook now runs only the **fast, local, non-redundant** check: the 988 env-regression guard (`check:crisis-hotline`), ~1 second. CI handles the heavy validation. If you want to run the full local validation on demand, invoke the underlying npm scripts directly: `npm run test:ci`, `npm run validate:clinical-complete`.
 
-### Why pre-commit isn't wired
+### Pre-commit chain notes
 
-The `precommit` npm chain references `lint:clinical`, which expects `.eslintrc.clinical.js` — a config file that doesn't exist anywhere in the repo (pre-existing bit-rot, surfaced by INFRA-155's wiring work). Wiring the hook today would block every commit on a useless ENOENT error. INFRA-156 restores the missing config and wires the pre-commit hook.
+The original `precommit` chain referenced a stale `lint:clinical` script which pointed at a non-existent `.eslintrc.clinical.js`. INFRA-156 investigation revealed the clinical-strict rules had already been merged into the unified `app/eslint.config.js:74-107` during Phase 7A consolidation — the script reference was the only leftover. The fix was a one-line swap (`lint:clinical` → `lint:baseline`).
+
+The full chain measures ~16 sec end-to-end on this codebase: typecheck (3.5s, incremental) + lint:baseline (3.5s, ratchet over 860 baseline errors) + test:clinical + test:unit (~9s combined). Fast enough that the pre-commit hook is non-annoying for typical commit cadence. If the chain ever balloons past ~30s during normal codebase growth, revisit (same INFRA-155 rightsize playbook).
 
 ## Bypass policy
 
-`git push --no-verify` is permitted **only on `hotfix/*` branches**.
+Both `git commit --no-verify` and `git push --no-verify` are permitted **only on `hotfix/*` branches**.
 
 For everything else — `feat/*`, `fix/*`, `chore/*` — `--no-verify` is banned. If a gate is wrong, fix the gate; don't bypass it.
 
