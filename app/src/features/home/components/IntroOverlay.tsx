@@ -1,6 +1,6 @@
 /**
  * IntroOverlay Component
- * Animated intro screen that shows "Being." centered, then scrolls up to reveal home screen.
+ * Animated intro screen that shows "Being" centered, then scrolls up to reveal home screen.
  * Triggers when app has been inactive for 30+ minutes.
  */
 
@@ -110,7 +110,7 @@ export const IntroOverlay: React.FC<IntroOverlayProps> = ({
       <Animated.View style={[styles.textContainer, contentAnimatedStyle]}>
         <BrainIcon size={160} />
         <Text style={styles.logo}>
-          Being.
+          Being
         </Text>
         <Text style={styles.greeting}>{greeting}</Text>
         <Text style={styles.subtitle}>Take a moment for mindful awareness</Text>

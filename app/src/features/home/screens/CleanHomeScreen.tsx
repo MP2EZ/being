@@ -174,7 +174,7 @@ const CleanHomeScreen: React.FC = () => {
             accessibilityRole="header"
             accessibilityLevel={1}
           >
-            Being.
+            Being
           </Text>
           <Text
             style={styles.greeting}

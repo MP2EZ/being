@@ -154,7 +154,7 @@ const CleanTabNavigator: React.FC = () => {
         name="Home"
         component={CleanHomeScreen}
         options={{
-          headerTitle: 'Being.',
+          headerTitle: 'Being',
           headerShown: false, // CleanHomeScreen has its own SafeAreaView
           tabBarIcon: ({ focused }) => (
             <TriangleIcon
