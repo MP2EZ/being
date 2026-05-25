@@ -121,7 +121,7 @@ export const IntroOverlay: React.FC<IntroOverlayProps> = ({
 
 const styles = StyleSheet.create({
   overlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: colorSystem.base.white,
     zIndex: 10,
   },

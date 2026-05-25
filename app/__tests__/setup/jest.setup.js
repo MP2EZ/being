@@ -252,6 +252,9 @@ jest.mock('react-native', () => {
     TouchableOpacity: RN.TouchableOpacity,
     TouchableHighlight: RN.TouchableHighlight,
     TouchableWithoutFeedback: RN.TouchableWithoutFeedback,
+    // Touchable (with Mixin) — required by react-native-svg 15.x's SvgTouchableMixin
+    // until upstream drops the legacy mixin pattern.
+    Touchable: RN.Touchable,
     Pressable: RN.Pressable,
     Image: RN.Image,
     ImageBackground: RN.ImageBackground,
@@ -409,9 +412,16 @@ jest.mock('@react-native-community/netinfo', () => ({
   NetInfoStateType: { wifi: 'wifi', cellular: 'cellular', none: 'none', unknown: 'unknown' },
 }));
 
-// @expo/vector-icons: factory mock — pulls in expo-font → expo-modules-core
-// which fails on EventEmitter native binding outside the device runtime.
-jest.mock('@expo/vector-icons', () => {
+// @react-native-vector-icons/*: factory mock — same expo-modules-core pitfall
+// as @expo/vector-icons in pre-SDK-56 setup (migrated in INFRA-158).
+jest.mock('@react-native-vector-icons/material-design-icons', () => {
+  const React = require('react');
+  const { Text } = require('react-native');
+  const Icon = ({ name, testID, ...rest }) =>
+    React.createElement(Text, { testID: testID || `icon-${name}`, ...rest }, name);
+  return new Proxy({}, { get: () => Icon });
+});
+jest.mock('@react-native-vector-icons/ionicons', () => {
   const React = require('react');
   const { Text } = require('react-native');
   const Icon = ({ name, testID, ...rest }) =>

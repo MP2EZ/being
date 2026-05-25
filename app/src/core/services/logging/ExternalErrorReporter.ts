@@ -588,7 +588,7 @@ export class ExternalErrorReporter {
    */
   private detectEnvironment(): 'development' | 'staging' | 'production' {
     if (__DEV__) return 'development';
-    if (process.env.NODE_ENV === 'staging') return 'staging';
+    if ((process.env.NODE_ENV as string) === 'staging') return 'staging';
     return 'production';
   }
 
