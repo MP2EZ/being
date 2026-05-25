@@ -16,14 +16,32 @@
 
 import { useSubscriptionStore } from '../../../stores/subscriptionStore';
 import { IAPService } from '../IAPService';
-import * as InAppPurchases from 'expo-in-app-purchases';
+import * as RNIap from 'react-native-iap';
 import * as SecureStore from 'expo-secure-store';
-import { supabaseService } from '../../supabase/SupabaseService';
 import { calculateFeatureAccess } from '../../../types/subscription';
 
-// Mock dependencies
-jest.mock('expo-in-app-purchases');
+// Mock react-native-iap with an explicit factory. An auto-mock would
+// introspect the real module's shape and trigger react-native-nitro-modules'
+// native binding load — fatal in the Jest env. Factory mock avoids it.
+jest.mock('react-native-iap', () => ({
+  __esModule: true,
+  initConnection: jest.fn(),
+  endConnection: jest.fn(),
+  purchaseUpdatedListener: jest.fn(() => ({ remove: jest.fn() })),
+  purchaseErrorListener: jest.fn(() => ({ remove: jest.fn() })),
+  fetchProducts: jest.fn(),
+  requestPurchase: jest.fn(),
+  getAvailablePurchases: jest.fn(),
+  finishTransaction: jest.fn(),
+  getReceiptIOS: jest.fn(),
+  ErrorCode: {
+    UserCancelled: 'E_USER_CANCELLED',
+    Unknown: 'E_UNKNOWN',
+  },
+}));
+
 jest.mock('expo-secure-store');
+
 const mockInvoke = jest.fn();
 jest.mock('../../supabase/SupabaseService', () => ({
   supabaseService: {
@@ -41,11 +59,25 @@ jest.mock('../../supabase/SupabaseService', () => ({
   },
 }));
 
-const mockInAppPurchases = InAppPurchases as jest.Mocked<typeof InAppPurchases>;
+const mockRNIap = RNIap as jest.Mocked<typeof RNIap>;
 const mockSecureStore = SecureStore as jest.Mocked<typeof SecureStore>;
 
+// Helper: v15 ProductSubscription fixture (iOS subset).
+function makeIOSSubscription(productId: string, displayPrice: string) {
+  return {
+    id: productId,
+    type: 'subs' as const,
+    platform: 'ios' as const,
+    title: `Sub ${productId}`,
+    description: `Sub description ${productId}`,
+    displayPrice,
+    currency: 'USD',
+    price: parseFloat(displayPrice.replace(/[^0-9.]/g, '')),
+  } as unknown as RNIap.ProductSubscription;
+}
+
 describe('Subscription Integration - Full Lifecycle', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     // Reset all state
     useSubscriptionStore.setState({
       subscription: null,
@@ -55,31 +87,16 @@ describe('Subscription Integration - Full Lifecycle', () => {
     });
 
     jest.clearAllMocks();
+    await IAPService.disconnect();
 
     // Setup IAP mocks
-    mockInAppPurchases.connectAsync.mockResolvedValue(undefined);
-    mockInAppPurchases.setPurchaseListener.mockImplementation(() => {});
-    mockInAppPurchases.getProductsAsync.mockResolvedValue({
-      responseCode: InAppPurchases.IAPResponseCode.OK,
-      results: [
-        {
-          productId: 'com.being.subscription.monthly',
-          price: '9.99',
-          localizedPrice: '$9.99',
-          title: 'Monthly Subscription',
-          description: 'Monthly subscription to Being',
-          type: InAppPurchases.IAPItemType.SUBSCRIPTION,
-        },
-        {
-          productId: 'com.being.subscription.yearly',
-          price: '79.99',
-          localizedPrice: '$79.99',
-          title: 'Yearly Subscription',
-          description: 'Yearly subscription to Being',
-          type: InAppPurchases.IAPItemType.SUBSCRIPTION,
-        },
-      ],
-    });
+    mockRNIap.initConnection.mockResolvedValue(true);
+    mockRNIap.endConnection.mockResolvedValue(true);
+    mockRNIap.fetchProducts.mockResolvedValue([
+      makeIOSSubscription('com.being.subscription.monthly', '$9.99'),
+      makeIOSSubscription('com.being.subscription.yearly', '$79.99'),
+    ]);
+    mockRNIap.getReceiptIOS.mockResolvedValue('mock-ios-receipt-blob');
 
     mockSecureStore.setItemAsync.mockResolvedValue(undefined);
     mockSecureStore.getItemAsync.mockResolvedValue(null);
@@ -123,13 +140,14 @@ describe('Subscription Integration - Full Lifecycle', () => {
     expect(storeWithFeatures.checkFeatureAccess('therapeuticContent')).toBe(true);
     console.log('✅ STEP 4: Non-crisis features accessible during trial');
 
-    // Step 5: Simulate purchase
-    mockInAppPurchases.purchaseItemAsync.mockResolvedValue(undefined);
+    // Step 5: Simulate purchase (mock-mode short-circuits the platform call;
+    // result is a synthetic Purchase object — assert on its shape, not on
+    // the native requestPurchase call which is skipped in __DEV__).
     const purchaseResult = await IAPService.purchaseSubscription('yearly');
-    expect(mockInAppPurchases.purchaseItemAsync).toHaveBeenCalledWith(
-      'com.being.subscription.yearly'
-    );
-    console.log('✅ STEP 5: Purchase initiated successfully');
+    expect(purchaseResult).not.toBeNull();
+    expect(purchaseResult!.productId).toBe('com.being.subscription.yearly');
+    expect(purchaseResult!.transactionReceipt).toMatch(/^mock_receipt_yearly_/);
+    console.log('✅ STEP 5: Purchase initiated successfully (mock mode)');
 
     // Step 6: Simulate receipt verification
     mockInvoke.mockResolvedValue({
@@ -256,7 +274,7 @@ describe('Subscription Integration - Full Lifecycle', () => {
 
   it('CRITICAL: Feature gating works correctly across subscription states', async () => {
     const store = useSubscriptionStore.getState();
-    const { calculateFeatureAccess } = await import('../../../types/subscription');
+    // calculateFeatureAccess imported at top of file (dynamic import required --experimental-vm-modules).
 
     // No subscription - only crisis features accessible
     expect(store.checkFeatureAccess('crisisButton')).toBe(true);
@@ -325,7 +343,7 @@ describe('Subscription Integration - Full Lifecycle', () => {
     console.log(`✅ Trial creation: ${trialTime.toFixed(2)}ms (target: <100ms)`);
 
     // Measure feature access calculation
-    const { calculateFeatureAccess } = await import('../../../types/subscription');
+    // calculateFeatureAccess imported at top of file (dynamic import required --experimental-vm-modules).
 
     const calcStart = performance.now();
     const featureAccess = calculateFeatureAccess('active');
@@ -351,27 +369,33 @@ describe('Subscription Integration - Full Lifecycle', () => {
   it('CRITICAL: Restore purchases flow works correctly', async () => {
     await IAPService.initialize();
 
-    // Mock purchase history
-    mockInAppPurchases.getPurchaseHistoryAsync.mockResolvedValue({
-      responseCode: InAppPurchases.IAPResponseCode.OK,
-      results: [
-        {
-          productId: 'com.being.subscription.yearly',
-          transactionReceipt: 'restored-receipt-data',
-          orderId: 'restored-order-123',
-          purchaseTime: Date.now() - 30 * 24 * 60 * 60 * 1000, // 30 days ago
-          acknowledged: true,
-        },
-      ],
-    });
+    // v15: getAvailablePurchases returns active entitlements (replaces v14
+    // getPurchaseHistoryAsync which returned the full history).
+    mockRNIap.getAvailablePurchases.mockResolvedValue([
+      {
+        id: 'restored-order-123',
+        productId: 'com.being.subscription.yearly',
+        transactionDate: Date.now() - 30 * 24 * 60 * 60 * 1000, // 30 days ago
+        purchaseState: 'purchased',
+        purchaseToken: 'restored-purchase-token',
+        isAutoRenewing: true,
+        quantity: 1,
+        platform: 'ios',
+        store: 'app-store',
+        transactionId: 'restored-order-123',
+      } as unknown as RNIap.Purchase,
+    ]);
 
     // Restore purchases
     const purchases = await IAPService.restorePurchases();
     expect(purchases).toHaveLength(1);
-    expect(purchases[0].productId).toBe('com.being.subscription.yearly');
-    console.log('✅ STEP 1: Purchase history retrieved');
+    expect(purchases[0]!.productId).toBe('com.being.subscription.yearly');
+    expect(purchases[0]!.orderId).toBe('restored-order-123');
+    // iOS receipt blob is fetched via getReceiptIOS during augmentation
+    expect(purchases[0]!.transactionReceipt).toBe('mock-ios-receipt-blob');
+    console.log('✅ STEP 1: Active entitlements retrieved');
 
-    // Verify receipt
+    // Verify receipt (server-side)
     mockInvoke.mockResolvedValue({
       data: {
         valid: true,
@@ -381,7 +405,7 @@ describe('Subscription Integration - Full Lifecycle', () => {
       error: null,
     });
 
-    const receiptResult = await IAPService.verifyReceipt('restored-receipt-data', 'apple');
+    const receiptResult = await IAPService.verifyReceipt('mock-ios-receipt-blob', 'apple');
     expect(receiptResult.valid).toBe(true);
     console.log('✅ STEP 2: Receipt verified');
 
@@ -405,7 +429,7 @@ describe('Subscription Integration - Full Lifecycle', () => {
         subscriptionEndDate: Date.now() + 335 * 24 * 60 * 60 * 1000,
         gracePeriodEnd: null,
         lastReceiptVerified: Date.now(),
-        receiptData: 'restored-receipt-data',
+        receiptData: 'mock-ios-receipt-blob',
         lastPaymentDate: Date.now() - 30 * 24 * 60 * 60 * 1000,
         paymentFailureCount: 0,
         crisisAccessEnabled: true,
@@ -433,7 +457,7 @@ describe('Subscription Integration - Full Lifecycle', () => {
     expect(store.getCrisisAccessStatus()).toBe(true);
 
     // Simulate IAP initialization failure
-    mockInAppPurchases.connectAsync.mockRejectedValue(new Error('IAP connection failed'));
+    mockRNIap.initConnection.mockRejectedValue(new Error('IAP connection failed'));
 
     try {
       await IAPService.initialize();
@@ -460,7 +484,7 @@ describe('Subscription Integration - Full Lifecycle', () => {
 });
 
 describe('Subscription Integration - Platform Specifics', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     useSubscriptionStore.setState({
       subscription: null,
       featureAccess: null,
@@ -468,13 +492,12 @@ describe('Subscription Integration - Platform Specifics', () => {
       error: null,
     });
     jest.clearAllMocks();
+    await IAPService.disconnect();
 
-    mockInAppPurchases.connectAsync.mockResolvedValue(undefined);
-    mockInAppPurchases.setPurchaseListener.mockImplementation(() => {});
-    mockInAppPurchases.getProductsAsync.mockResolvedValue({
-      responseCode: InAppPurchases.IAPResponseCode.OK,
-      results: [],
-    });
+    mockRNIap.initConnection.mockResolvedValue(true);
+    mockRNIap.endConnection.mockResolvedValue(true);
+    mockRNIap.fetchProducts.mockResolvedValue([]);
+    mockRNIap.getReceiptIOS.mockResolvedValue('mock-ios-receipt-blob');
 
     mockInvoke.mockReset();
   });

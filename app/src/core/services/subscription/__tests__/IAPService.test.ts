@@ -1,6 +1,6 @@
 /**
  * IAP SERVICE TESTS
- * Tests for In-App Purchase service integration
+ * Tests for In-App Purchase service integration (react-native-iap Nitro v15)
  *
  * CRITICAL TESTS:
  * - Initialization and product loading
@@ -14,50 +14,31 @@
  */
 
 import { IAPService } from '../IAPService';
-import * as InAppPurchases from 'expo-in-app-purchases';
-import { supabaseService } from '../../supabase/SupabaseService';
+import * as RNIap from 'react-native-iap';
+import type { Purchase, PurchaseError } from 'react-native-iap';
 
-// Mock expo-in-app-purchases with an explicit factory. An auto-mock
-// (`jest.mock('expo-in-app-purchases')`) still introspects the real
-// module's shape and that introspection triggers expo-modules-core's
+// Mock react-native-iap with an explicit factory. An auto-mock would
+// introspect the real module's shape and trigger react-native-nitro-modules'
 // native binding load — fatal in the Jest env. Factory mock avoids it.
-jest.mock('expo-in-app-purchases', () => ({
-  __esModule: true,
-  connectAsync: jest.fn(),
-  disconnectAsync: jest.fn(),
-  setPurchaseListener: jest.fn(),
-  getProductsAsync: jest.fn(),
-  purchaseItemAsync: jest.fn(),
-  getPurchaseHistoryAsync: jest.fn(),
-  finishTransactionAsync: jest.fn(),
-  IAPResponseCode: {
-    OK: 0,
-    USER_CANCELED: 1,
-    PAYMENT_INVALID: 2,
-    PAYMENT_NOT_ALLOWED: 3,
-    ITEM_UNAVAILABLE: 4,
-    REMOTE_COMMUNICATION_FAILED: 5,
-    BILLING_RESPONSE_JSON_PARSE_ERROR: 6,
-    ITEM_ALREADY_OWNED: 7,
-    ITEM_NOT_OWNED: 8,
-    SERVICE_DISCONNECTED: 9,
-    USER_CANCELLED: 1, // alias
-    UNKNOWN: 10,
-    DEFERRED: 11,
-    ERROR: -1,
-  },
-  InAppPurchaseState: {
-    PURCHASING: 0,
-    PURCHASED: 1,
-    FAILED: 2,
-    RESTORED: 3,
-    DEFERRED: 4,
-  },
-  IAPItemType: {
-    SUBSCRIPTION: 'subs',
-    INAPP: 'inapp',
-  },
-}));
+jest.mock('react-native-iap', () => {
+  return {
+    __esModule: true,
+    initConnection: jest.fn(),
+    endConnection: jest.fn(),
+    purchaseUpdatedListener: jest.fn(() => ({ remove: jest.fn() })),
+    purchaseErrorListener: jest.fn(() => ({ remove: jest.fn() })),
+    fetchProducts: jest.fn(),
+    requestPurchase: jest.fn(),
+    getAvailablePurchases: jest.fn(),
+    finishTransaction: jest.fn(),
+    getReceiptIOS: jest.fn(),
+    ErrorCode: {
+      UserCancelled: 'E_USER_CANCELLED',
+      Unknown: 'E_UNKNOWN',
+      ServiceError: 'E_SERVICE_ERROR',
+    },
+  };
+});
 
 // Mock SupabaseService. We expose a getClient() returning a stub whose
 // functions.invoke is a jest.fn — tests assert against that.
@@ -80,11 +61,11 @@ jest.mock('../../supabase/SupabaseService', () => ({
   },
 }));
 
-const mockInAppPurchases = InAppPurchases as jest.Mocked<typeof InAppPurchases>;
+const mockRNIap = RNIap as jest.Mocked<typeof RNIap>;
 
 // Mock the subscription store so we can assert that the async IAP
 // listener routes purchases to processVerifiedPurchase. The store is
-// loaded via dynamic import inside IAPService.processAsyncPurchase to
+// loaded via dynamic require inside IAPService.handlePurchaseSuccess to
 // avoid a circular dependency at module load — this mock intercepts.
 const mockProcessVerifiedPurchase = jest.fn(async () => undefined);
 jest.mock('@/core/stores/subscriptionStore', () => ({
@@ -95,35 +76,49 @@ jest.mock('@/core/stores/subscriptionStore', () => ({
   },
 }));
 
+// Helper: build a v15-shaped ProductSubscription test fixture (iOS subset).
+function makeIOSSubscription(productId: string, displayPrice: string) {
+  return {
+    id: productId,
+    type: 'subs' as const,
+    platform: 'ios' as const,
+    title: `Sub ${productId}`,
+    description: `Sub description ${productId}`,
+    displayPrice,
+    currency: 'USD',
+    price: parseFloat(displayPrice.replace(/[^0-9.]/g, '')),
+  } as unknown as RNIap.ProductSubscription;
+}
+
+// Helper: build a v15-shaped Purchase test fixture (iOS subset).
+function makeIOSPurchase(productId: string, idSuffix: string) {
+  return {
+    id: `platform-order-${idSuffix}`,
+    productId,
+    transactionDate: Date.now(),
+    purchaseState: 'purchased',
+    purchaseToken: `platform-token-${idSuffix}`,
+    isAutoRenewing: true,
+    quantity: 1,
+    platform: 'ios',
+    store: 'app-store',
+    transactionId: `platform-order-${idSuffix}`,
+  } as unknown as Purchase;
+}
+
 describe('IAPService - Initialization', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
     // IAPService is a module-level singleton — disconnect to reset
     // `isInitialized` so each test starts from a clean state.
     await IAPService.disconnect();
-    mockInAppPurchases.connectAsync.mockResolvedValue(undefined);
-    mockInAppPurchases.setPurchaseListener.mockImplementation(() => {});
-    mockInAppPurchases.getProductsAsync.mockResolvedValue({
-      responseCode: InAppPurchases.IAPResponseCode.OK,
-      results: [
-        {
-          productId: 'com.being.subscription.monthly',
-          price: '9.99',
-          localizedPrice: '$9.99',
-          title: 'Monthly Subscription',
-          description: 'Monthly subscription to Being',
-          type: InAppPurchases.IAPItemType.SUBSCRIPTION,
-        },
-        {
-          productId: 'com.being.subscription.yearly',
-          price: '79.99',
-          localizedPrice: '$79.99',
-          title: 'Yearly Subscription',
-          description: 'Yearly subscription to Being',
-          type: InAppPurchases.IAPItemType.SUBSCRIPTION,
-        },
-      ],
-    });
+    mockRNIap.initConnection.mockResolvedValue(true);
+    mockRNIap.endConnection.mockResolvedValue(true);
+    mockRNIap.fetchProducts.mockResolvedValue([
+      makeIOSSubscription('com.being.subscription.monthly', '$9.99'),
+      makeIOSSubscription('com.being.subscription.yearly', '$79.99'),
+    ]);
+    mockRNIap.getReceiptIOS.mockResolvedValue('mock-ios-receipt-blob');
   });
 
   it('CRITICAL: Service initializes and loads products', async () => {
@@ -131,14 +126,18 @@ describe('IAPService - Initialization', () => {
 
     await service.initialize();
 
-    expect(mockInAppPurchases.connectAsync).toHaveBeenCalledTimes(1);
-    expect(mockInAppPurchases.setPurchaseListener).toHaveBeenCalledTimes(1);
-    expect(mockInAppPurchases.getProductsAsync).toHaveBeenCalledTimes(1);
+    expect(mockRNIap.initConnection).toHaveBeenCalledTimes(1);
+    expect(mockRNIap.purchaseUpdatedListener).toHaveBeenCalledTimes(1);
+    expect(mockRNIap.purchaseErrorListener).toHaveBeenCalledTimes(1);
+    expect(mockRNIap.fetchProducts).toHaveBeenCalledWith({
+      skus: ['com.being.subscription.monthly', 'com.being.subscription.yearly'],
+      type: 'subs',
+    });
 
     const products = service.getProducts();
     expect(products).toHaveLength(2);
-    expect(products[0].productId).toBe('com.being.subscription.monthly');
-    expect(products[1].productId).toBe('com.being.subscription.yearly');
+    expect(products[0]!.id).toBe('com.being.subscription.monthly');
+    expect(products[1]!.id).toBe('com.being.subscription.yearly');
 
     console.log('✅ IAP INITIALIZATION VERIFIED: Products loaded successfully');
   });
@@ -151,8 +150,8 @@ describe('IAPService - Initialization', () => {
     const monthlyProduct = service.getProduct('monthly');
     const yearlyProduct = service.getProduct('yearly');
 
-    expect(monthlyProduct?.productId).toBe('com.being.subscription.monthly');
-    expect(yearlyProduct?.productId).toBe('com.being.subscription.yearly');
+    expect(monthlyProduct?.id).toBe('com.being.subscription.monthly');
+    expect(yearlyProduct?.id).toBe('com.being.subscription.yearly');
 
     console.log('✅ PRODUCT LOOKUP VERIFIED: Correct products returned by interval');
   });
@@ -160,11 +159,21 @@ describe('IAPService - Initialization', () => {
   it('Service handles initialization failure gracefully', async () => {
     const service = IAPService;
 
-    mockInAppPurchases.connectAsync.mockRejectedValue(new Error('Connection failed'));
+    mockRNIap.initConnection.mockRejectedValue(new Error('Connection failed'));
 
     await expect(service.initialize()).rejects.toThrow('Connection failed');
 
     console.log('✅ ERROR HANDLING VERIFIED: Initialization failure handled');
+  });
+
+  it('Service tolerates fetchProducts failure (initializes with empty product list)', async () => {
+    const service = IAPService;
+
+    mockRNIap.fetchProducts.mockRejectedValueOnce(new Error('Network down'));
+
+    await service.initialize();
+
+    expect(service.getProducts()).toHaveLength(0);
   });
 });
 
@@ -172,21 +181,12 @@ describe('IAPService - Purchase Flow', () => {
   beforeEach(async () => {
     jest.clearAllMocks();
     await IAPService.disconnect();
-    mockInAppPurchases.connectAsync.mockResolvedValue(undefined);
-    mockInAppPurchases.setPurchaseListener.mockImplementation(() => {});
-    mockInAppPurchases.getProductsAsync.mockResolvedValue({
-      responseCode: InAppPurchases.IAPResponseCode.OK,
-      results: [
-        {
-          productId: 'com.being.subscription.monthly',
-          price: '9.99',
-          localizedPrice: '$9.99',
-          title: 'Monthly Subscription',
-          description: 'Monthly subscription to Being',
-          type: InAppPurchases.IAPItemType.SUBSCRIPTION,
-        },
-      ],
-    });
+    mockRNIap.initConnection.mockResolvedValue(true);
+    mockRNIap.endConnection.mockResolvedValue(true);
+    mockRNIap.fetchProducts.mockResolvedValue([
+      makeIOSSubscription('com.being.subscription.monthly', '$9.99'),
+    ]);
+    mockRNIap.getReceiptIOS.mockResolvedValue('mock-ios-receipt-blob');
   });
 
   it('CRITICAL: purchaseSubscription() in mock mode resolves synchronously', async () => {
@@ -196,12 +196,10 @@ describe('IAPService - Purchase Flow', () => {
 
     // __DEV__ is true in the Jest env → IAPService is in mock mode.
     // Mock mode short-circuits the platform IAP and returns a synthetic
-    // Purchase object directly (no setPurchaseListener callback fires).
-    // The real-mode path (purchaseItemAsync → listener) is exercised by
-    // the "Async purchase listener" describe block below.
+    // Purchase object directly (no purchaseUpdatedListener callback fires).
     const result = await service.purchaseSubscription('monthly');
 
-    expect(mockInAppPurchases.purchaseItemAsync).not.toHaveBeenCalled();
+    expect(mockRNIap.requestPurchase).not.toHaveBeenCalled();
     expect(result).not.toBeNull();
     expect(result!.productId).toBe('com.being.subscription.monthly');
     expect(result!.transactionReceipt).toMatch(/^mock_receipt_monthly_/);
@@ -223,16 +221,14 @@ describe('IAPService - Purchase Flow', () => {
 
     await service.initialize();
 
-    mockInAppPurchases.purchaseItemAsync.mockImplementation(
-      () => new Promise(resolve => setTimeout(() => resolve(undefined), 100))
-    );
-
     const startTime = performance.now();
-    await service.purchaseSubscription('yearly');
+    await service.purchaseSubscription('monthly');
     const endTime = performance.now();
 
     const purchaseTime = endTime - startTime;
-    expect(purchaseTime).toBeLessThan(60000); // <60s (acceptance criteria)
+    // Mock-mode includes a 1.5s simulated network delay; still well under
+    // the <60s acceptance criterion.
+    expect(purchaseTime).toBeLessThan(60000);
 
     console.log(`✅ PERFORMANCE VERIFIED: Purchase initiated in ${purchaseTime.toFixed(0)}ms (target: <60s)`);
   });
@@ -426,52 +422,45 @@ describe('IAPService - Receipt Verification', () => {
 });
 
 describe('IAPService - Restore Purchases', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     jest.clearAllMocks();
-    mockInAppPurchases.connectAsync.mockResolvedValue(undefined);
-    mockInAppPurchases.setPurchaseListener.mockImplementation(() => {});
-    mockInAppPurchases.getProductsAsync.mockResolvedValue({
-      responseCode: InAppPurchases.IAPResponseCode.OK,
-      results: [],
-    });
+    await IAPService.disconnect();
+    mockRNIap.initConnection.mockResolvedValue(true);
+    mockRNIap.endConnection.mockResolvedValue(true);
+    mockRNIap.fetchProducts.mockResolvedValue([]);
+    mockRNIap.getReceiptIOS.mockResolvedValue('mock-ios-receipt-blob');
   });
 
-  it('CRITICAL: restorePurchases() retrieves purchase history', async () => {
+  it('CRITICAL: restorePurchases() retrieves active entitlements', async () => {
     const service = IAPService;
 
     await service.initialize();
 
-    mockInAppPurchases.getPurchaseHistoryAsync.mockResolvedValue({
-      responseCode: InAppPurchases.IAPResponseCode.OK,
-      results: [
-        {
-          productId: 'com.being.subscription.yearly',
-          transactionReceipt: 'receipt-data',
-          orderId: 'order-123',
-          purchaseTime: Date.now(),
-          acknowledged: true,
-        },
-      ],
-    });
+    mockRNIap.getAvailablePurchases.mockResolvedValue([
+      makeIOSPurchase('com.being.subscription.yearly', 'restore-1'),
+    ]);
 
     const purchases = await service.restorePurchases();
 
-    expect(mockInAppPurchases.getPurchaseHistoryAsync).toHaveBeenCalledTimes(1);
+    expect(mockRNIap.getAvailablePurchases).toHaveBeenCalledTimes(1);
+    expect(mockRNIap.getAvailablePurchases).toHaveBeenCalledWith({
+      onlyIncludeActiveItemsIOS: true,
+    });
     expect(purchases).toHaveLength(1);
-    expect(purchases[0].productId).toBe('com.being.subscription.yearly');
+    expect(purchases[0]!.productId).toBe('com.being.subscription.yearly');
+    // Augmented compat fields populated
+    expect(purchases[0]!.orderId).toBe('platform-order-restore-1');
+    expect(purchases[0]!.transactionReceipt).toBe('mock-ios-receipt-blob');
 
-    console.log('✅ RESTORE PURCHASES VERIFIED: Purchase history retrieved successfully');
+    console.log('✅ RESTORE PURCHASES VERIFIED: Entitlements retrieved + augmented');
   });
 
-  it('restorePurchases() returns empty array when no purchases found', async () => {
+  it('restorePurchases() returns empty array when no entitlements active', async () => {
     const service = IAPService;
 
     await service.initialize();
 
-    mockInAppPurchases.getPurchaseHistoryAsync.mockResolvedValue({
-      responseCode: InAppPurchases.IAPResponseCode.OK,
-      results: [],
-    });
+    mockRNIap.getAvailablePurchases.mockResolvedValue([]);
 
     const purchases = await service.restorePurchases();
 
@@ -503,175 +492,129 @@ describe('IAPService - Platform Detection', () => {
 });
 
 /**
- * Async purchase listener — TEST-03 paydown
+ * Async purchase listener — TEST-03 paydown (migrated to v15 split listeners)
  *
  * Real-mode IAP doesn't return the purchase synchronously from
  * purchaseSubscription(); the platform pushes it later via the listener
- * registered by setPurchaseListener. Pre-paydown that listener was 3
- * TODOs (verify, update store, finish). Now it routes each purchase to
- * subscriptionStore.processVerifiedPurchase, which does verify →
- * persist → finish → track-event.
+ * registered by purchaseUpdatedListener. User-cancellation and other
+ * errors flow through the separate purchaseErrorListener (v15 split
+ * what v14 dispatched on responseCode).
  *
  * These tests:
- *  - Capture the listener callback from setPurchaseListener
- *  - Invoke it with synthetic purchase events
+ *  - Capture both listener callbacks at registration time
+ *  - Invoke them with synthetic purchase/error events
  *  - Assert the store's processVerifiedPurchase gets called with the
- *    right purchase + interval (derived from productId)
- *  - Verify USER_CANCELED + error response codes don't dispatch
+ *    right augmented purchase + interval (derived from productId)
+ *  - Verify USER_CANCELLED + generic errors don't dispatch to the store
  */
-describe('IAPService - Async purchase listener (TEST-03)', () => {
-  // Capture the listener callback registered by setPurchaseListener so
-  // we can drive it directly. The IAPService is a singleton; we reset
-  // jest mocks per test but the singleton's isInitialized flag persists.
-  let capturedListener:
-    | ((result: InAppPurchases.IAPQueryResponse<InAppPurchases.InAppPurchase>) => void)
-    | null = null;
+describe('IAPService - Async purchase listener (v15 split listeners)', () => {
+  let capturedSuccessListener: ((purchase: Purchase) => void) | null = null;
+  let capturedErrorListener: ((error: PurchaseError) => void) | null = null;
 
   beforeEach(async () => {
     jest.clearAllMocks();
     mockProcessVerifiedPurchase.mockClear();
-    capturedListener = null;
+    capturedSuccessListener = null;
+    capturedErrorListener = null;
 
-    mockInAppPurchases.connectAsync.mockResolvedValue(undefined);
-    mockInAppPurchases.setPurchaseListener.mockImplementation((cb) => {
-      capturedListener = cb;
+    mockRNIap.initConnection.mockResolvedValue(true);
+    mockRNIap.endConnection.mockResolvedValue(true);
+    mockRNIap.fetchProducts.mockResolvedValue([]);
+    mockRNIap.getReceiptIOS.mockResolvedValue('async-receipt-blob');
+
+    (mockRNIap.purchaseUpdatedListener as jest.Mock).mockImplementation((cb) => {
+      capturedSuccessListener = cb;
+      return { remove: jest.fn() };
     });
-    mockInAppPurchases.getProductsAsync.mockResolvedValue({
-      responseCode: InAppPurchases.IAPResponseCode.OK,
-      results: [],
+    (mockRNIap.purchaseErrorListener as jest.Mock).mockImplementation((cb) => {
+      capturedErrorListener = cb;
+      return { remove: jest.fn() };
     });
 
-    // Force re-init so setPurchaseListener registers our capturing mock
-    // (the singleton's isInitialized would otherwise skip).
+    // Force re-init so listeners register our capturing mocks (the
+    // singleton's isInitialized would otherwise skip).
     await IAPService.disconnect();
     await IAPService.initialize();
   });
 
   function flushAsync(): Promise<void> {
-    // The listener fires fire-and-forget (`void this.processAsyncPurchase`).
-    // Wait for microtasks + dynamic import + any setTimeout(0)-style work.
+    // The listener fires fire-and-forget (`void this.handlePurchaseSuccess`).
+    // Wait for microtasks + augmentPurchase (async) + setImmediate.
     return new Promise((resolve) => setImmediate(resolve));
   }
 
   it('routes a successful monthly purchase to processVerifiedPurchase with interval=monthly', async () => {
-    expect(capturedListener).not.toBeNull();
+    expect(capturedSuccessListener).not.toBeNull();
 
-    const purchase: InAppPurchases.InAppPurchase = {
-      productId: 'com.being.subscription.monthly',
-      orderId: 'platform-order-1',
-      purchaseTime: Date.now(),
-      purchaseState: InAppPurchases.InAppPurchaseState.PURCHASED,
-      purchaseToken: 'platform-token-1',
-      transactionReceipt: 'apple-receipt-blob',
-      acknowledged: false,
-    };
-
-    capturedListener!({
-      responseCode: InAppPurchases.IAPResponseCode.OK,
-      results: [purchase],
-    });
+    capturedSuccessListener!(makeIOSPurchase('com.being.subscription.monthly', '1'));
 
     await flushAsync();
 
     expect(mockProcessVerifiedPurchase).toHaveBeenCalledTimes(1);
-    const [calledPurchase, calledInterval] = mockProcessVerifiedPurchase.mock.calls[0];
+    const [calledPurchase, calledInterval] = mockProcessVerifiedPurchase.mock.calls[0]!;
     expect(calledInterval).toBe('monthly');
-    expect((calledPurchase as InAppPurchases.InAppPurchase).orderId).toBe('platform-order-1');
+    expect((calledPurchase as { orderId: string }).orderId).toBe('platform-order-1');
+    expect((calledPurchase as { transactionReceipt: string }).transactionReceipt).toBe('async-receipt-blob');
   });
 
   it('routes a successful yearly purchase with interval=yearly', async () => {
-    capturedListener!({
-      responseCode: InAppPurchases.IAPResponseCode.OK,
-      results: [
-        {
-          productId: 'com.being.subscription.yearly',
-          orderId: 'platform-order-2',
-          purchaseTime: Date.now(),
-          purchaseState: InAppPurchases.InAppPurchaseState.PURCHASED,
-          purchaseToken: 'tok-2',
-          transactionReceipt: 'receipt-2',
-          acknowledged: false,
-        },
-      ],
-    });
+    capturedSuccessListener!(makeIOSPurchase('com.being.subscription.yearly', '2'));
 
     await flushAsync();
 
     expect(mockProcessVerifiedPurchase).toHaveBeenCalledTimes(1);
-    expect(mockProcessVerifiedPurchase.mock.calls[0][1]).toBe('yearly');
+    expect(mockProcessVerifiedPurchase.mock.calls[0]![1]).toBe('yearly');
   });
 
-  it('handles multiple purchases in one event (each routed separately)', async () => {
-    capturedListener!({
-      responseCode: InAppPurchases.IAPResponseCode.OK,
-      results: [
-        {
-          productId: 'com.being.subscription.monthly',
-          orderId: 'a',
-          purchaseTime: Date.now(),
-          purchaseState: InAppPurchases.InAppPurchaseState.PURCHASED,
-          purchaseToken: 'tok-a',
-          transactionReceipt: 'r-a',
-          acknowledged: false,
-        },
-        {
-          productId: 'com.being.subscription.yearly',
-          orderId: 'b',
-          purchaseTime: Date.now(),
-          purchaseState: InAppPurchases.InAppPurchaseState.PURCHASED,
-          purchaseToken: 'tok-b',
-          transactionReceipt: 'r-b',
-          acknowledged: false,
-        },
-      ],
-    });
+  it('handles multiple sequential purchases (each routed separately)', async () => {
+    // v15 emits one purchase per listener invocation (no batched results
+    // array like v14's IAPQueryResponse). Drive the listener twice.
+    capturedSuccessListener!(makeIOSPurchase('com.being.subscription.monthly', 'a'));
+    capturedSuccessListener!(makeIOSPurchase('com.being.subscription.yearly', 'b'));
 
     await flushAsync();
 
     expect(mockProcessVerifiedPurchase).toHaveBeenCalledTimes(2);
-    expect(mockProcessVerifiedPurchase.mock.calls[0][1]).toBe('monthly');
-    expect(mockProcessVerifiedPurchase.mock.calls[1][1]).toBe('yearly');
+    expect(mockProcessVerifiedPurchase.mock.calls[0]![1]).toBe('monthly');
+    expect(mockProcessVerifiedPurchase.mock.calls[1]![1]).toBe('yearly');
   });
 
-  it('USER_CANCELED response does not dispatch to the store', async () => {
-    capturedListener!({
-      responseCode: InAppPurchases.IAPResponseCode.USER_CANCELED,
-      results: undefined,
-    });
+  it('USER_CANCELLED error does not dispatch to the store', async () => {
+    expect(capturedErrorListener).not.toBeNull();
+
+    capturedErrorListener!({
+      code: RNIap.ErrorCode.UserCancelled,
+      message: 'User cancelled',
+    } as PurchaseError);
 
     await flushAsync();
 
     expect(mockProcessVerifiedPurchase).not.toHaveBeenCalled();
   });
 
-  it('non-OK error response does not dispatch to the store', async () => {
-    capturedListener!({
-      responseCode: InAppPurchases.IAPResponseCode.ERROR,
-      results: undefined,
-    });
+  it('Generic error does not dispatch to the store', async () => {
+    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    capturedErrorListener!({
+      code: 'E_UNKNOWN' as RNIap.ErrorCode,
+      message: 'Billing failure',
+    } as PurchaseError);
 
     await flushAsync();
 
     expect(mockProcessVerifiedPurchase).not.toHaveBeenCalled();
+    expect(consoleError).toHaveBeenCalledWith(
+      '[IAP] Purchase error:',
+      expect.objectContaining({ code: 'E_UNKNOWN', message: 'Billing failure' })
+    );
+
+    consoleError.mockRestore();
   });
 
   it('unknown productId is logged but does NOT crash or dispatch', async () => {
     const consoleError = jest.spyOn(console, 'error').mockImplementation(() => undefined);
 
-    capturedListener!({
-      responseCode: InAppPurchases.IAPResponseCode.OK,
-      results: [
-        {
-          productId: 'com.being.subscription.unknown_tier',
-          orderId: 'x',
-          purchaseTime: Date.now(),
-          purchaseState: InAppPurchases.InAppPurchaseState.PURCHASED,
-          purchaseToken: 't',
-          transactionReceipt: 'r',
-          acknowledged: false,
-        },
-      ],
-    });
+    capturedSuccessListener!(makeIOSPurchase('com.being.subscription.unknown_tier', 'x'));
 
     await flushAsync();
 
@@ -688,20 +631,7 @@ describe('IAPService - Async purchase listener (TEST-03)', () => {
     const consoleError = jest.spyOn(console, 'error').mockImplementation(() => undefined);
     mockProcessVerifiedPurchase.mockRejectedValueOnce(new Error('verification network failure'));
 
-    capturedListener!({
-      responseCode: InAppPurchases.IAPResponseCode.OK,
-      results: [
-        {
-          productId: 'com.being.subscription.monthly',
-          orderId: 'y',
-          purchaseTime: Date.now(),
-          purchaseState: InAppPurchases.InAppPurchaseState.PURCHASED,
-          purchaseToken: 't',
-          transactionReceipt: 'r',
-          acknowledged: false,
-        },
-      ],
-    });
+    capturedSuccessListener!(makeIOSPurchase('com.being.subscription.monthly', 'y'));
 
     await flushAsync();
 
