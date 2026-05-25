@@ -77,7 +77,7 @@
     "typecheck": "npx tsc --noEmit --incremental",
     "precommit": "npm run typecheck && npm run lint:baseline && npm run test:clinical && npm run test:unit",
     "check:crisis-hotline": "node scripts/check-crisis-hotline.js",
-    "prepare": "cd .. && husky app/.husky",
+    "prepare": "[ ! -e ../.git ] && exit 0; cd .. && husky app/.husky",
     "prepush": "npm run check:crisis-hotline",
     "version-check": "node -e \"const pkg=require('./package.json'); if(pkg.dependencies.react !== '19.1.0') throw new Error('React must be 19.1.0 for RN 0.81.4 compatibility')\"",
     "security:sast": "echo \"🔍 Running SAST Analysis...\" && npm audit --audit-level moderate && echo \"✅ SAST Analysis completed\"",
