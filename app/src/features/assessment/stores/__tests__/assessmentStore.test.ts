@@ -29,6 +29,28 @@ import {
 jest.mock('@react-native-async-storage/async-storage');
 jest.mock('expo-secure-store');
 
+// INFRA-144: assessment store state now flows through SecureStorageService
+// (AES-256-GCM ciphertext in AsyncStorage). Passthrough mock so the existing
+// state-based assertions stay meaningful without invoking real crypto.
+// NOTE: the `mock` prefix is required for jest's babel-plugin-jest-hoist
+// exception so the factory can reference this variable after hoisting.
+const mockWellnessBlobs: Record<string, unknown> = {};
+jest.mock('@/core/services/security/SecureStorageService', () => ({
+  __esModule: true,
+  default: {
+    storeWellnessBlob: jest.fn(async (key: string, data: unknown) => {
+      mockWellnessBlobs[key] = data;
+      return { success: true, operationType: 'store' as const, storageKey: `wellness_async_${key}`, operationTimeMs: 0, dataSize: 0 };
+    }),
+    retrieveWellnessBlob: jest.fn(async (key: string) => mockWellnessBlobs[key] ?? null),
+    deleteWellnessBlob: jest.fn(async (key: string) => {
+      delete mockWellnessBlobs[key];
+    }),
+  },
+}));
+import SecureStorageService from '@/core/services/security/SecureStorageService';
+const mockStoreWellnessBlob = SecureStorageService.storeWellnessBlob as jest.Mock;
+
 // Mock React Native modules
 const mockAlert = {
   alert: jest.fn()
@@ -48,6 +70,7 @@ const mockSecureStore = SecureStore as jest.Mocked<typeof SecureStore>;
 describe('Assessment Store - Clinical Validation', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    for (const k of Object.keys(mockWellnessBlobs)) delete mockWellnessBlobs[k];
     useAssessmentStore.getState().resetAssessment();
 
     // Mock SecureStore for testing
@@ -327,7 +350,7 @@ describe('Assessment Store - Clinical Validation', () => {
   });
 
   describe('Encrypted Storage and Persistence', () => {
-    it('saves assessment data to encrypted storage', async () => {
+    it('saves assessment data to encrypted storage (hybrid path, INFRA-144)', async () => {
       const { result } = renderHook(() => useAssessmentStore());
 
       await act(async () => {
@@ -336,9 +359,10 @@ describe('Assessment Store - Clinical Validation', () => {
         await result.current.saveProgress();
       });
 
-      expect(mockSecureStore.setItemAsync).toHaveBeenCalledWith(
-        'assessment_store_encrypted',
-        expect.any(String)
+      expect(mockStoreWellnessBlob).toHaveBeenCalledWith(
+        'assessment_store',
+        expect.any(Object),
+        'level_2_assessment_data'
       );
     });
 
@@ -380,7 +404,9 @@ describe('Assessment Store - Clinical Validation', () => {
         completedAssessments: []
       };
 
-      mockSecureStore.getItemAsync.mockResolvedValue(JSON.stringify(savedSession));
+      // Seed the SecureStorageService passthrough so EncryptedAssessmentStorage
+      // returns this session on load.
+      mockWellnessBlobs['assessment_store'] = savedSession;
 
       const { result } = renderHook(() => useAssessmentStore());
 
@@ -430,7 +456,7 @@ describe('Assessment Store - Clinical Validation', () => {
         await Promise.resolve();
       });
 
-      expect(mockSecureStore.setItemAsync).toHaveBeenCalled();
+      expect(mockStoreWellnessBlob).toHaveBeenCalled();
     });
 
     it('respects auto-save disabled state', async () => {
@@ -458,10 +484,10 @@ describe('Assessment Store - Clinical Validation', () => {
       });
 
       // Check that auto-save was not triggered by the answer
-      const autosaveCalls = mockSecureStore.setItemAsync.mock.calls.filter(call =>
-        call[0] === 'assessment_store_encrypted' &&
-        call[1].includes('phq9_1')
-      );
+      const autosaveCalls = mockStoreWellnessBlob.mock.calls.filter((call) => {
+        const data = call[1] as { answers?: Array<{ questionId?: string }> } | undefined;
+        return call[0] === 'assessment_store' && (data?.answers ?? []).some((a) => a.questionId === 'phq9_1');
+      });
       expect(autosaveCalls).toHaveLength(0);
     });
   });

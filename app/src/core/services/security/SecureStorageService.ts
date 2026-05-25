@@ -1,19 +1,25 @@
 /**
  * SECURE STORAGE SERVICE - DRD-FLOW-005 Security Implementation
  *
- * COMPREHENSIVE SECURE STORAGE FOR MENTAL HEALTH DATA:
- * - React Native SecureStore integration with encryption layers
+ * Comprehensive secure storage for wellness data:
+ * - Hybrid: AES-256-GCM ciphertext in AsyncStorage; master key in platform Keychain (expo-secure-store)
  * - Tiered storage based on data sensitivity (PHQ-9/GAD-7/Crisis)
  * - Automatic encryption/decryption with performance optimization
- * - Secure data lifecycle management and cleanup
- * - Audit trails and access logging for compliance
+ * - Wellness data lifecycle management and cleanup
+ * - Audit trails and access logging
  *
- * STORAGE ARCHITECTURE:
- * - Level 1: Crisis responses (SecureStore + AES-256-GCM)
- * - Level 2: Assessment data (SecureStore + AES-256-GCM)
+ * STORAGE ARCHITECTURE (INFRA-144):
+ * - Level 1: Crisis responses (AsyncStorage ciphertext + AES-256-GCM)
+ * - Level 2: Assessment data (AsyncStorage ciphertext + AES-256-GCM)
  * - Level 3: Intervention metadata (SecureStore + AES-256)
  * - Level 4: Performance data (AsyncStorage + basic encryption)
  * - Level 5: General data (AsyncStorage, unencrypted)
+ *
+ * Plaintext is never written to disk. AES-256-GCM ciphertext is opaque;
+ * confidentiality derives from the key (held in Keychain), not the
+ * substrate. Removing SecureStore as the substrate for crisis/assessment
+ * escapes the iOS Keychain 2KB per-attribute limit without weakening the
+ * encryption boundary.
  *
  * PERFORMANCE REQUIREMENTS:
  * - Crisis data access: <200ms (includes decryption)
@@ -21,7 +27,7 @@
  * - Bulk operations: <500ms for up to 100 records
  * - Background sync: <1000ms for data export
  *
- * MENTAL HEALTH COMPLIANCE:
+ * DATA PROTECTION STANDARDS:
  * - Privacy-compliant storage with audit trails
  * - 3-year retention for crisis intervention records (liability protection)
  * - Secure data deletion and device cleanup
@@ -42,16 +48,25 @@ import EncryptionService, {
  * SECURE STORAGE CONFIGURATION
  */
 export const SECURE_STORAGE_CONFIG = {
-  /** Storage tier prefixes */
+  /** Storage tier prefixes — legacy SecureStore (kept for migration fallback) */
   CRISIS_PREFIX: 'crisis_secure_',
   ASSESSMENT_PREFIX: 'assessment_secure_',
   INTERVENTION_PREFIX: 'intervention_secure_',
   PERFORMANCE_PREFIX: 'performance_',
   GENERAL_PREFIX: 'general_',
-  
+
+  /** AsyncStorage prefixes for hybrid wellness storage (INFRA-144) */
+  CRISIS_ASYNC_PREFIX: 'crisis_async_',
+  ASSESSMENT_ASYNC_PREFIX: 'assessment_async_',
+  WELLNESS_ASYNC_PREFIX: 'wellness_async_',
+  /** Marker namespace so re-running migration is O(1) per record */
+  MIGRATION_MARKER_PREFIX: 'wellness_migrated:',
+  MIGRATION_MARKER_VERSION: 'v1',
+
   /** Storage limits */
-  MAX_SECURE_STORE_SIZE: 2048, // 2KB limit for SecureStore
-  MAX_ASYNC_STORAGE_SIZE: 6 * 1024 * 1024, // 6MB limit
+  MAX_SECURE_STORE_SIZE: 2048, // 2KB limit for SecureStore (legacy path)
+  MAX_WELLNESS_PAYLOAD_SIZE: 256 * 1024, // 256KB cap for wellness ciphertext in AsyncStorage
+  MAX_ASYNC_STORAGE_SIZE: 6 * 1024 * 1024, // 6MB total AsyncStorage budget
   BULK_OPERATION_LIMIT: 100,
   
   /** Performance thresholds */
@@ -73,12 +88,24 @@ export const SECURE_STORAGE_CONFIG = {
 /**
  * STORAGE TIER DEFINITIONS
  */
-export type StorageTier = 
-  | 'crisis_tier'        // Highest security - SecureStore + Level 1 encryption
-  | 'assessment_tier'    // High security - SecureStore + Level 2 encryption  
+export type StorageTier =
+  | 'crisis_tier'        // Highest security - AsyncStorage ciphertext + AES-256-GCM (master key in Keychain)
+  | 'assessment_tier'    // High security - AsyncStorage ciphertext + AES-256-GCM (master key in Keychain)
   | 'intervention_tier'  // Medium security - SecureStore + Level 3 encryption
   | 'performance_tier'   // Low security - AsyncStorage + basic encryption
   | 'general_tier';      // Minimal security - AsyncStorage, unencrypted
+
+/**
+ * Legacy SecureStore data format. INFRA-144 migration handles two shapes:
+ * - 'encrypted_package': existing AES-256-GCM ciphertext (crisis safety plan
+ *   via storeCrisisData was always encrypted). Migration decrypt-verifies under
+ *   the current master key before moving to AsyncStorage.
+ * - 'plaintext_json': pre-INFRA-144 plain JSON written directly to SecureStore
+ *   (assessment_store_encrypted and consent_history_v1 — the variable was named
+ *   "encrypted" but the data was JSON-stringified plaintext relying solely on
+ *   Keychain hardware encryption). Migration encrypts on the fly.
+ */
+export type LegacyFormat = 'encrypted_package' | 'plaintext_json';
 
 /**
  * SECURE STORAGE METADATA
@@ -94,7 +121,7 @@ export interface SecureStorageMetadata {
   encrypted: boolean;
   dataSize: number;
   expiresAt?: number;
-  retentionPolicy: 'temporary' | 'session' | 'persistent' | 'clinical_record';
+  retentionPolicy: 'temporary' | 'session' | 'persistent' | 'wellness_record';
 }
 
 /**
@@ -229,25 +256,32 @@ export class SecureStorageService {
     const startTime = performance.now();
 
     try {
-      if (!this.initialized) {
-        throw new Error('Secure storage not initialized');
-      }
+      // Lazy-init the encryption layer so callers can hit these methods
+      // before app-startup ordering completes (e.g. Zustand persist rehydration
+      // for the assessment store fires at module load, ahead of App.tsx's
+      // SecureStorageService.initialize() call). encryptionService.initialize
+      // is idempotent and shares the in-flight promise across concurrent calls.
+      await this.encryptionService.initialize();
 
-      const storageKey = `${SECURE_STORAGE_CONFIG.CRISIS_PREFIX}${key}`;
+      const storageKey = `${SECURE_STORAGE_CONFIG.CRISIS_ASYNC_PREFIX}${key}`;
 
-      // Encrypt crisis data with highest security
       const encryptedPackage = await this.encryptionService.encryptCrisisData(
         crisisData,
         crisisEpisodeId
       );
 
-      // Validate size constraints
       await this.validateStorageSize(encryptedPackage, 'crisis_tier');
 
-      // Store in SecureStore
-      await SecureStore.setItemAsync(storageKey, JSON.stringify(encryptedPackage));
+      // Hybrid storage: ciphertext to AsyncStorage; AES master key remains
+      // in Keychain via EncryptionService. Plaintext never touches disk.
+      await AsyncStorage.setItem(storageKey, JSON.stringify(encryptedPackage));
 
-      // Create metadata
+      // Mark legacy SecureStore key as migrated so retrieve won't fall back
+      // for new writes. Idempotent: this records "we have a fresh write at the
+      // async key" so any stale SecureStore copy under the legacy prefix is
+      // ignored on read.
+      await this.markMigrated(`${SECURE_STORAGE_CONFIG.CRISIS_PREFIX}${key}`);
+
       const metadata: SecureStorageMetadata = {
         storageKey,
         storageTier: 'crisis_tier',
@@ -258,7 +292,7 @@ export class SecureStorageService {
         accessCount: 1,
         encrypted: true,
         dataSize: JSON.stringify(encryptedPackage).length,
-        retentionPolicy: 'clinical_record'
+        retentionPolicy: 'wellness_record'
       };
 
       // Cache metadata
@@ -310,7 +344,7 @@ export class SecureStorageService {
       await this.logStorageAccess({
         timestamp: Date.now(),
         operationType: 'store',
-        storageKey: `${SECURE_STORAGE_CONFIG.CRISIS_PREFIX}${key}`,
+        storageKey: `${SECURE_STORAGE_CONFIG.CRISIS_ASYNC_PREFIX}${key}`,
         storageTier: 'crisis_tier',
         dataType: 'crisis_intervention',
         success: false,
@@ -323,7 +357,7 @@ export class SecureStorageService {
       return {
         success: false,
         operationType: 'store',
-        storageKey: `${SECURE_STORAGE_CONFIG.CRISIS_PREFIX}${key}`,
+        storageKey: `${SECURE_STORAGE_CONFIG.CRISIS_ASYNC_PREFIX}${key}`,
         operationTimeMs: operationTime,
         dataSize: 0,
         error: (error instanceof Error ? error.message : String(error))
@@ -349,25 +383,25 @@ export class SecureStorageService {
     const startTime = performance.now();
 
     try {
-      if (!this.initialized) {
-        throw new Error('Secure storage not initialized');
-      }
+      // Lazy-init the encryption layer so callers can hit these methods
+      // before app-startup ordering completes (e.g. Zustand persist rehydration
+      // for the assessment store fires at module load, ahead of App.tsx's
+      // SecureStorageService.initialize() call). encryptionService.initialize
+      // is idempotent and shares the in-flight promise across concurrent calls.
+      await this.encryptionService.initialize();
 
-      const storageKey = `${SECURE_STORAGE_CONFIG.ASSESSMENT_PREFIX}${assessmentId}`;
+      const storageKey = `${SECURE_STORAGE_CONFIG.ASSESSMENT_ASYNC_PREFIX}${assessmentId}`;
 
-      // Encrypt assessment data
       const encryptedPackage = await this.encryptionService.encryptAssessmentData(
         assessmentData,
         assessmentId
       );
 
-      // Validate size constraints
       await this.validateStorageSize(encryptedPackage, 'assessment_tier');
 
-      // Store in SecureStore
-      await SecureStore.setItemAsync(storageKey, JSON.stringify(encryptedPackage));
+      await AsyncStorage.setItem(storageKey, JSON.stringify(encryptedPackage));
+      await this.markMigrated(`${SECURE_STORAGE_CONFIG.ASSESSMENT_PREFIX}${assessmentId}`);
 
-      // Create metadata
       const metadata: SecureStorageMetadata = {
         storageKey,
         storageTier: 'assessment_tier',
@@ -378,7 +412,7 @@ export class SecureStorageService {
         accessCount: 1,
         encrypted: true,
         dataSize: JSON.stringify(encryptedPackage).length,
-        retentionPolicy: 'clinical_record'
+        retentionPolicy: 'wellness_record'
       };
 
       // Cache metadata
@@ -430,7 +464,7 @@ export class SecureStorageService {
       await this.logStorageAccess({
         timestamp: Date.now(),
         operationType: 'store',
-        storageKey: `${SECURE_STORAGE_CONFIG.ASSESSMENT_PREFIX}${assessmentId}`,
+        storageKey: `${SECURE_STORAGE_CONFIG.ASSESSMENT_ASYNC_PREFIX}${assessmentId}`,
         storageTier: 'assessment_tier',
         dataType: 'assessment_data',
         success: false,
@@ -443,7 +477,7 @@ export class SecureStorageService {
       return {
         success: false,
         operationType: 'store',
-        storageKey: `${SECURE_STORAGE_CONFIG.ASSESSMENT_PREFIX}${assessmentId}`,
+        storageKey: `${SECURE_STORAGE_CONFIG.ASSESSMENT_ASYNC_PREFIX}${assessmentId}`,
         operationTimeMs: operationTime,
         dataSize: 0,
         error: (error instanceof Error ? error.message : String(error))
@@ -462,25 +496,24 @@ export class SecureStorageService {
     const startTime = performance.now();
 
     try {
-      if (!this.initialized) {
-        throw new Error('Secure storage not initialized');
-      }
+      // Lazy-init the encryption layer so callers can hit these methods
+      // before app-startup ordering completes (e.g. Zustand persist rehydration
+      // for the assessment store fires at module load, ahead of App.tsx's
+      // SecureStorageService.initialize() call). encryptionService.initialize
+      // is idempotent and shares the in-flight promise across concurrent calls.
+      await this.encryptionService.initialize();
 
-      const storageKey = `${SECURE_STORAGE_CONFIG.CRISIS_PREFIX}${key}`;
+      const storageKey = `${SECURE_STORAGE_CONFIG.CRISIS_ASYNC_PREFIX}${key}`;
+      const legacyKey = `${SECURE_STORAGE_CONFIG.CRISIS_PREFIX}${key}`;
 
-      // Retrieve from SecureStore
-      const encryptedDataString = await SecureStore.getItemAsync(storageKey);
+      const encryptedDataString = await this.readWithLegacyFallback(storageKey, legacyKey);
       if (!encryptedDataString) {
         return null;
       }
 
-      // Parse encrypted package
       const encryptedPackage: EncryptedDataPackage = JSON.parse(encryptedDataString);
-
-      // Decrypt data
       const decryptedData = await this.encryptionService.decryptData(encryptedPackage);
 
-      // Update metadata access tracking
       const metadata = this.metadataCache.get(storageKey);
       if (metadata) {
         metadata.lastAccessedAt = Date.now();
@@ -490,12 +523,10 @@ export class SecureStorageService {
 
       const operationTime = performance.now() - startTime;
 
-      // Critical: Crisis data access must be fast
       if (operationTime > SECURE_STORAGE_CONFIG.CRISIS_ACCESS_THRESHOLD_MS) {
         logError(LogCategory.SYSTEM, `CRISIS DATA ACCESS TOO SLOW: ${operationTime.toFixed(2)}ms > ${SECURE_STORAGE_CONFIG.CRISIS_ACCESS_THRESHOLD_MS}ms`);
       }
 
-      // Log access
       await this.logStorageAccess({
         timestamp: Date.now(),
         operationType: 'retrieve',
@@ -525,7 +556,7 @@ export class SecureStorageService {
           accessCount: 1,
           encrypted: true,
           dataSize: encryptedDataString.length,
-          retentionPolicy: 'clinical_record'
+          retentionPolicy: 'wellness_record'
         }
       };
 
@@ -537,7 +568,7 @@ export class SecureStorageService {
       await this.logStorageAccess({
         timestamp: Date.now(),
         operationType: 'retrieve',
-        storageKey: `${SECURE_STORAGE_CONFIG.CRISIS_PREFIX}${key}`,
+        storageKey: `${SECURE_STORAGE_CONFIG.CRISIS_ASYNC_PREFIX}${key}`,
         storageTier: 'crisis_tier',
         dataType: 'crisis_intervention',
         success: false,
@@ -562,19 +593,21 @@ export class SecureStorageService {
     const startTime = performance.now();
 
     try {
-      if (!this.initialized) {
-        throw new Error('Secure storage not initialized');
-      }
+      // Lazy-init the encryption layer so callers can hit these methods
+      // before app-startup ordering completes (e.g. Zustand persist rehydration
+      // for the assessment store fires at module load, ahead of App.tsx's
+      // SecureStorageService.initialize() call). encryptionService.initialize
+      // is idempotent and shares the in-flight promise across concurrent calls.
+      await this.encryptionService.initialize();
 
-      const storageKey = `${SECURE_STORAGE_CONFIG.ASSESSMENT_PREFIX}${assessmentId}`;
+      const storageKey = `${SECURE_STORAGE_CONFIG.ASSESSMENT_ASYNC_PREFIX}${assessmentId}`;
+      const legacyKey = `${SECURE_STORAGE_CONFIG.ASSESSMENT_PREFIX}${assessmentId}`;
 
-      // Retrieve from SecureStore
-      const encryptedDataString = await SecureStore.getItemAsync(storageKey);
+      const encryptedDataString = await this.readWithLegacyFallback(storageKey, legacyKey);
       if (!encryptedDataString) {
         return null;
       }
 
-      // Parse and decrypt
       const encryptedPackage: EncryptedDataPackage = JSON.parse(encryptedDataString);
       const decryptedData = await this.encryptionService.decryptData(encryptedPackage);
 
@@ -618,7 +651,7 @@ export class SecureStorageService {
           accessCount: 1,
           encrypted: true,
           dataSize: encryptedDataString.length,
-          retentionPolicy: 'clinical_record'
+          retentionPolicy: 'wellness_record'
         }
       };
 
@@ -630,7 +663,7 @@ export class SecureStorageService {
       await this.logStorageAccess({
         timestamp: Date.now(),
         operationType: 'retrieve',
-        storageKey: `${SECURE_STORAGE_CONFIG.ASSESSMENT_PREFIX}${assessmentId}`,
+        storageKey: `${SECURE_STORAGE_CONFIG.ASSESSMENT_ASYNC_PREFIX}${assessmentId}`,
         storageTier: 'assessment_tier',
         dataType: 'assessment_data',
         success: false,
@@ -655,9 +688,12 @@ export class SecureStorageService {
     const startTime = performance.now();
 
     try {
-      if (!this.initialized) {
-        throw new Error('Secure storage not initialized');
-      }
+      // Lazy-init the encryption layer so callers can hit these methods
+      // before app-startup ordering completes (e.g. Zustand persist rehydration
+      // for the assessment store fires at module load, ahead of App.tsx's
+      // SecureStorageService.initialize() call). encryptionService.initialize
+      // is idempotent and shares the in-flight promise across concurrent calls.
+      await this.encryptionService.initialize();
 
       if (operation.items.length > SECURE_STORAGE_CONFIG.BULK_OPERATION_LIMIT) {
         throw new Error(`Bulk operation limit exceeded: ${operation.items.length} > ${SECURE_STORAGE_CONFIG.BULK_OPERATION_LIMIT}`);
@@ -877,34 +913,36 @@ export class SecureStorageService {
     const startTime = performance.now();
 
     try {
-      if (!this.initialized) {
-        throw new Error('Secure storage not initialized');
-      }
+      // Lazy-init the encryption layer so callers can hit these methods
+      // before app-startup ordering completes (e.g. Zustand persist rehydration
+      // for the assessment store fires at module load, ahead of App.tsx's
+      // SecureStorageService.initialize() call). encryptionService.initialize
+      // is idempotent and shares the in-flight promise across concurrent calls.
+      await this.encryptionService.initialize();
 
-      // Try all possible storage tiers
-      const possibleKeys = [
+      // Hybrid storage (INFRA-144): wellness data lives under *_ASYNC_PREFIX
+      // in AsyncStorage; legacy *_PREFIX keys remain in SecureStore until
+      // first-read migration. Enumerate both. Always also clear the migration
+      // marker so a future write under the legacy key would re-migrate if
+      // needed.
+      const asyncPossibleKeys = [
+        `${SECURE_STORAGE_CONFIG.CRISIS_ASYNC_PREFIX}${key}`,
+        `${SECURE_STORAGE_CONFIG.ASSESSMENT_ASYNC_PREFIX}${key}`,
+        `${SECURE_STORAGE_CONFIG.WELLNESS_ASYNC_PREFIX}${key}`,
+        `${SECURE_STORAGE_CONFIG.PERFORMANCE_PREFIX}${key}`,
+        `${SECURE_STORAGE_CONFIG.GENERAL_PREFIX}${key}`,
+      ];
+      const secureStorePossibleKeys = [
         `${SECURE_STORAGE_CONFIG.CRISIS_PREFIX}${key}`,
         `${SECURE_STORAGE_CONFIG.ASSESSMENT_PREFIX}${key}`,
         `${SECURE_STORAGE_CONFIG.INTERVENTION_PREFIX}${key}`,
-        `${SECURE_STORAGE_CONFIG.PERFORMANCE_PREFIX}${key}`,
-        `${SECURE_STORAGE_CONFIG.GENERAL_PREFIX}${key}`
       ];
 
       let deletedKey: string | null = null;
       let dataSize = 0;
 
-      for (const storageKey of possibleKeys) {
+      for (const storageKey of asyncPossibleKeys) {
         try {
-          // Check SecureStore
-          const secureData = await SecureStore.getItemAsync(storageKey);
-          if (secureData) {
-            await SecureStore.deleteItemAsync(storageKey);
-            deletedKey = storageKey;
-            dataSize = secureData.length;
-            break;
-          }
-
-          // Check AsyncStorage
           const asyncData = await AsyncStorage.getItem(storageKey);
           if (asyncData) {
             await AsyncStorage.removeItem(storageKey);
@@ -912,9 +950,24 @@ export class SecureStorageService {
             dataSize = asyncData.length;
             break;
           }
-        } catch (error) {
-          // Continue checking other keys
+        } catch {
           continue;
+        }
+      }
+
+      if (!deletedKey) {
+        for (const storageKey of secureStorePossibleKeys) {
+          try {
+            const secureData = await SecureStore.getItemAsync(storageKey);
+            if (secureData) {
+              await SecureStore.deleteItemAsync(storageKey);
+              deletedKey = storageKey;
+              dataSize = secureData.length;
+              break;
+            }
+          } catch {
+            continue;
+          }
         }
       }
 
@@ -1085,14 +1138,259 @@ export class SecureStorageService {
     const packageSize = JSON.stringify(encryptedPackage).length;
 
     if (storageTier === 'crisis_tier' || storageTier === 'assessment_tier') {
-      if (packageSize > SECURE_STORAGE_CONFIG.MAX_SECURE_STORE_SIZE) {
-        throw new Error(`SecureStore size limit exceeded: ${packageSize} > ${SECURE_STORAGE_CONFIG.MAX_SECURE_STORE_SIZE}`);
+      // Hybrid: ciphertext sits in AsyncStorage now. Cap at 256KB per record
+      // to keep AsyncStorage performant and force pagination on unbounded
+      // growth (assessment history, consent audit trail) rather than allowing
+      // single records to grow without limit.
+      if (packageSize > SECURE_STORAGE_CONFIG.MAX_WELLNESS_PAYLOAD_SIZE) {
+        throw new Error(`Wellness payload size limit exceeded: ${packageSize} > ${SECURE_STORAGE_CONFIG.MAX_WELLNESS_PAYLOAD_SIZE}`);
       }
     } else {
       if (packageSize > SECURE_STORAGE_CONFIG.MAX_ASYNC_STORAGE_SIZE) {
         throw new Error(`AsyncStorage size limit exceeded: ${packageSize} > ${SECURE_STORAGE_CONFIG.MAX_ASYNC_STORAGE_SIZE}`);
       }
     }
+  }
+
+  /**
+   * Hybrid storage: AES-256-GCM ciphertext written to AsyncStorage;
+   * master key stored in platform Keychain (expo-secure-store).
+   * Plaintext is never written to disk. This architecture removes the 2KB
+   * per-attribute size limit of Keychain without reducing the encryption boundary.
+   *
+   * Migration: on first read of a legacy Keychain key, ciphertext is moved to
+   * AsyncStorage and deleted from Keychain. Idempotent; safe to re-run.
+   */
+  public async storeWellnessBlob(
+    key: string,
+    data: unknown,
+    sensitivityLevel: DataSensitivityLevel,
+    userContext?: string
+  ): Promise<StorageOperationResult> {
+    const startTime = performance.now();
+    const storageKey = `${SECURE_STORAGE_CONFIG.WELLNESS_ASYNC_PREFIX}${key}`;
+
+    try {
+      // Lazy-init the encryption layer so callers can hit these methods
+      // before app-startup ordering completes (e.g. Zustand persist rehydration
+      // for the assessment store fires at module load, ahead of App.tsx's
+      // SecureStorageService.initialize() call). encryptionService.initialize
+      // is idempotent and shares the in-flight promise across concurrent calls.
+      await this.encryptionService.initialize();
+
+      const encryptedPackage = await this.encryptionService.encryptData(data, sensitivityLevel);
+      await this.validateStorageSize(encryptedPackage, 'assessment_tier');
+      await AsyncStorage.setItem(storageKey, JSON.stringify(encryptedPackage));
+
+      const dataSize = JSON.stringify(encryptedPackage).length;
+      const operationTime = performance.now() - startTime;
+
+      await this.logStorageAccess({
+        timestamp: Date.now(),
+        operationType: 'store',
+        storageKey,
+        storageTier: 'assessment_tier',
+        dataType: 'wellness_blob',
+        success: true,
+        operationTimeMs: operationTime,
+        dataSize,
+        userContext,
+        securityContext: 'wellness_blob_storage'
+      });
+
+      return {
+        success: true,
+        operationType: 'store',
+        storageKey,
+        operationTimeMs: operationTime,
+        dataSize
+      };
+    } catch (error) {
+      const operationTime = performance.now() - startTime;
+      logError(LogCategory.SECURITY, '🚨 WELLNESS BLOB STORAGE ERROR:', error instanceof Error ? error : new Error(String(error)));
+      return {
+        success: false,
+        operationType: 'store',
+        storageKey,
+        operationTimeMs: operationTime,
+        dataSize: 0,
+        error: (error instanceof Error ? error.message : String(error))
+      };
+    }
+  }
+
+  /**
+   * Retrieve a wellness blob written via storeWellnessBlob.
+   *
+   * Migration: if no AsyncStorage value is found and a `legacySecureStoreKey`
+   * is provided, the legacy SecureStore key is read, verified decryptable,
+   * written to AsyncStorage, then deleted from SecureStore. Idempotent via
+   * per-record migration marker.
+   */
+  public async retrieveWellnessBlob<T = unknown>(
+    key: string,
+    legacySecureStoreKey?: string,
+    options?: { legacyFormat?: LegacyFormat; sensitivityLevel?: DataSensitivityLevel },
+    userContext?: string
+  ): Promise<T | null> {
+    await this.encryptionService.initialize();
+
+    const storageKey = `${SECURE_STORAGE_CONFIG.WELLNESS_ASYNC_PREFIX}${key}`;
+    const encryptedDataString = await this.readWithLegacyFallback(
+      storageKey,
+      legacySecureStoreKey,
+      options?.legacyFormat ?? 'encrypted_package',
+      options?.sensitivityLevel ?? 'level_2_assessment_data'
+    );
+
+    if (!encryptedDataString) {
+      return null;
+    }
+
+    const encryptedPackage: EncryptedDataPackage = JSON.parse(encryptedDataString);
+    const decryptedData = await this.encryptionService.decryptData(encryptedPackage);
+
+    await this.logStorageAccess({
+      timestamp: Date.now(),
+      operationType: 'retrieve',
+      storageKey,
+      storageTier: 'assessment_tier',
+      dataType: 'wellness_blob',
+      success: true,
+      operationTimeMs: 0,
+      dataSize: encryptedDataString.length,
+      userContext,
+      securityContext: 'wellness_blob_retrieval'
+    });
+
+    return decryptedData as T;
+  }
+
+  /**
+   * Delete a wellness blob (both AsyncStorage copy and any lingering legacy
+   * SecureStore copy). Idempotent — succeeds even if no value exists.
+   */
+  public async deleteWellnessBlob(
+    key: string,
+    legacySecureStoreKey?: string
+  ): Promise<void> {
+    const storageKey = `${SECURE_STORAGE_CONFIG.WELLNESS_ASYNC_PREFIX}${key}`;
+    await AsyncStorage.removeItem(storageKey);
+    if (legacySecureStoreKey) {
+      try {
+        await SecureStore.deleteItemAsync(legacySecureStoreKey);
+      } catch {
+        // No-op: legacy key may not exist
+      }
+      await this.markMigrated(legacySecureStoreKey);
+    }
+  }
+
+  /**
+   * Hybrid-storage read helper: AsyncStorage first, falling back to a legacy
+   * SecureStore key for unmigrated existing users. On legacy hit, we
+   * decrypt-verify (proving the data is recoverable under the current master
+   * key), write the ciphertext to AsyncStorage, verify the AsyncStorage
+   * read-back matches, then delete the SecureStore copy. Write-before-delete
+   * is intentional: a crash between write and delete leaves duplicate
+   * ciphertext (harmless); a crash between delete and write would lose data.
+   */
+  private async readWithLegacyFallback(
+    asyncKey: string,
+    legacySecureStoreKey?: string,
+    legacyFormat: LegacyFormat = 'encrypted_package',
+    plaintextSensitivity: DataSensitivityLevel = 'level_2_assessment_data'
+  ): Promise<string | null> {
+    const fromAsync = await AsyncStorage.getItem(asyncKey);
+    if (fromAsync !== null) {
+      return fromAsync;
+    }
+
+    if (!legacySecureStoreKey || (await this.isMigrated(legacySecureStoreKey))) {
+      return null;
+    }
+
+    const legacyData = await SecureStore.getItemAsync(legacySecureStoreKey);
+    if (legacyData === null) {
+      await this.markMigrated(legacySecureStoreKey);
+      return null;
+    }
+
+    let ciphertext: string;
+    if (legacyFormat === 'plaintext_json') {
+      // Pre-INFRA-144 callers (assessment_store, consent_history) wrote plain
+      // JSON to SecureStore. Encrypt it on the fly so the migrated AsyncStorage
+      // copy is genuine AES-256-GCM ciphertext — this is also the data-layer
+      // security upgrade INFRA-144 quietly delivers.
+      const parsed: unknown = JSON.parse(legacyData);
+      const encryptedPackage = await this.encryptionService.encryptData(
+        parsed,
+        plaintextSensitivity
+      );
+      ciphertext = JSON.stringify(encryptedPackage);
+    } else {
+      // Decrypt-verify: confirm the legacy ciphertext is well-formed and
+      // recoverable under the current master key before we lose the SecureStore
+      // copy. Throws on tampered, corrupted, or unparseable data — caller's
+      // try/catch surfaces the failure and the SecureStore copy stays intact.
+      const parsed: EncryptedDataPackage = JSON.parse(legacyData);
+      await this.encryptionService.decryptData(parsed);
+      ciphertext = legacyData;
+    }
+
+    await AsyncStorage.setItem(asyncKey, ciphertext);
+
+    // Verify read-back: catastrophic data loss if we delete legacy before
+    // confirming the new copy is durable.
+    const verify = await AsyncStorage.getItem(asyncKey);
+    if (verify !== ciphertext) {
+      throw new Error('Wellness migration write verification failed');
+    }
+
+    await SecureStore.deleteItemAsync(legacySecureStoreKey);
+    await this.markMigrated(legacySecureStoreKey);
+
+    logSystem(`Wellness storage migrated (${legacyFormat}): ${legacySecureStoreKey} → ${asyncKey}`);
+    return ciphertext;
+  }
+
+  private migrationMarkerKey(legacySecureStoreKey: string): string {
+    return `${SECURE_STORAGE_CONFIG.MIGRATION_MARKER_PREFIX}${legacySecureStoreKey}`;
+  }
+
+  private async isMigrated(legacySecureStoreKey: string): Promise<boolean> {
+    const marker = await AsyncStorage.getItem(this.migrationMarkerKey(legacySecureStoreKey));
+    return marker === SECURE_STORAGE_CONFIG.MIGRATION_MARKER_VERSION;
+  }
+
+  private async markMigrated(legacySecureStoreKey: string): Promise<void> {
+    await AsyncStorage.setItem(
+      this.migrationMarkerKey(legacySecureStoreKey),
+      SECURE_STORAGE_CONFIG.MIGRATION_MARKER_VERSION
+    );
+  }
+
+  /**
+   * Wipe all wellness data on logout/account deletion. Sweeps both AsyncStorage
+   * (hybrid path) and SecureStore (legacy + unmigrated). Required for CCPA/TDPSA
+   * right-to-delete + GDPR Art. 17 (right to erasure).
+   */
+  public async clearAllWellnessData(): Promise<void> {
+    const asyncKeys = await AsyncStorage.getAllKeys();
+    const toRemove = asyncKeys.filter((k) =>
+      k.startsWith(SECURE_STORAGE_CONFIG.CRISIS_ASYNC_PREFIX) ||
+      k.startsWith(SECURE_STORAGE_CONFIG.ASSESSMENT_ASYNC_PREFIX) ||
+      k.startsWith(SECURE_STORAGE_CONFIG.WELLNESS_ASYNC_PREFIX) ||
+      k.startsWith(SECURE_STORAGE_CONFIG.MIGRATION_MARKER_PREFIX)
+    );
+    if (toRemove.length > 0) {
+      await AsyncStorage.multiRemove(toRemove);
+    }
+
+    // SecureStore has no enumerate API. Caller is responsible for clearing
+    // known legacy keys via deleteSecureData / deleteWellnessBlob when wiping
+    // specific records. clearSensitiveData on EncryptionService handles the
+    // master key.
   }
 
   private async verifyStorageCapabilities(): Promise<void> {
