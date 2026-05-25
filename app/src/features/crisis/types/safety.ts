@@ -236,7 +236,7 @@ export interface CrisisFollowUp {
   /** Urgency level of follow-up */
   urgency: 'immediate' | 'within_24h' | 'within_48h' | 'within_week';
   /** Type of follow-up needed */
-  type: 'clinical_assessment' | 'safety_check' | 'therapy_appointment' | 'medication_review';
+  type: 'wellness_follow_up' | 'safety_check' | 'therapy_appointment' | 'medication_review';
   /** Recommended follow-up actions */
   recommendations: string[];
   /** Follow-up contacts */

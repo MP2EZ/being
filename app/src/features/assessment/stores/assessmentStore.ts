@@ -1,33 +1,33 @@
 /**
  * DRD-FLOW-005 Assessment Store - Production-Ready Implementation
- * Clinical accuracy validated and regulatory compliant
+ * Validated for accuracy, privacy-compliant
  * Designed for reusability in DRD-FLOW-001 onboarding
  *
- * CLINICAL REQUIREMENTS (Updated 2025-01-27 - Dual-Threshold System):
+ * ASSESSMENT REQUIREMENTS (Updated 2025-01-27 - Dual-Threshold System):
  * - PHQ-9: 27 possible scores (0-27)
  *   - Crisis threshold ≥15 (moderately severe - support recommended)
  *   - Severe threshold ≥20 (immediate intervention)
  * - GAD-7: 21 possible scores (0-21), crisis threshold ≥15
  * - Suicidal ideation detection (PHQ-9 question 9 > 0)
  * - Crisis intervention trigger time <200ms
- * - 100% scoring accuracy (regulatory requirement)
+ * - 100% scoring accuracy
  *
  * SAFETY PROTOCOLS:
- * - Encrypted storage with CLINICAL sensitivity level
+ * - Encrypted wellness-data storage at level_2_assessment_data sensitivity
  * - Auto-save every answer with persistence
  * - Session recovery for interrupted assessments
  * - Real-time crisis detection with immediate intervention
- * - Audit trail for clinical compliance
+ * - Audit trail for privacy compliance
  */
 
 
 import { logSecurity, logPerformance, logError, LogCategory } from '@/core/services/logging';
 import { generateTimestampedId } from '@/core/utils/id';
+import SecureStorageService from '@/core/services/security/SecureStorageService';
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as SecureStore from 'expo-secure-store';
 import { Alert, Linking } from 'react-native';
 
 // Import types from assessment flow
@@ -57,7 +57,7 @@ const GAD7_QUESTIONS = [
   'gad7_1', 'gad7_2', 'gad7_3', 'gad7_4', 'gad7_5', 'gad7_6', 'gad7_7'
 ];
 
-// Clinical severity mappings (validated against clinical standards)
+// Severity mappings (validated scoring algorithm)
 const PHQ9_SEVERITY_THRESHOLDS = {
   minimal: [0, 4],
   mild: [5, 9],
@@ -91,54 +91,46 @@ function isPersistedAssessmentState(value: unknown): value is PersistedAssessmen
 }
 
 /**
- * Encrypted storage service for clinical data
- * Uses CLINICAL sensitivity level for PHQ-9/GAD-7 responses
+ * Encrypted wellness-data storage for assessment state.
+ * Delegates to SecureStorageService.storeWellnessBlob — AES-256-GCM
+ * ciphertext in AsyncStorage; master key in platform Keychain.
+ *
+ * INFRA-144: previously this class JSON-stringified data and wrote
+ * plaintext directly to SecureStore (relying only on Keychain hardware
+ * encryption). Real AES-256 encryption now applies. Existing data
+ * migrates lazily on first read via SecureStorageService's legacy
+ * fallback.
  */
 class EncryptedAssessmentStorage {
-  private static readonly STORAGE_KEY = 'assessment_store_encrypted';
+  /** Logical blob name (used as the hybrid AsyncStorage suffix). */
+  private static readonly BLOB_KEY = 'assessment_store';
+  /** Legacy SecureStore key for the unencrypted-JSON-in-Keychain era. */
+  private static readonly LEGACY_SECURE_STORE_KEY = 'assessment_store_encrypted';
   private static readonly AUDIT_KEY = 'assessment_audit_trail';
 
-  /**
-   * Persist arbitrary serializable state for the assessment store.
-   * The shape is determined by the caller (saveProgress / Zustand
-   * persist middleware) — the storage layer doesn't constrain it.
-   * Narrowing to a specific PHQ-9 / GAD-7 shape happens at use
-   * sites via the type guards in `features/assessment/types/validation.ts`.
-   *
-   * Audit TS-01 paydown: was `save(data: any)`, which was the only
-   * `any` in the clinical persistence path. `unknown` forces callers
-   * to think about what they're handing us, without constraining
-   * the shape (the persist middleware needs flexibility).
-   */
   static async save(data: unknown): Promise<void> {
-    try {
-      const encrypted = JSON.stringify(data);
-      await SecureStore.setItemAsync(this.STORAGE_KEY, encrypted);
-
-      // Audit trail for clinical compliance. Object.keys requires an
-      // object — guard so primitives/null/arrays don't crash the audit.
-      const keyCount =
-        data !== null && typeof data === 'object' && !Array.isArray(data)
-          ? Object.keys(data as Record<string, unknown>).length
-          : 0;
-      await this.logAccess('SAVE', keyCount);
-    } catch (error) {
-      logError(LogCategory.SYSTEM, 'Assessment storage save failed:', error instanceof Error ? error : new Error(String(error)));
+    const result = await SecureStorageService.storeWellnessBlob(
+      this.BLOB_KEY,
+      data,
+      'level_2_assessment_data'
+    );
+    if (!result.success) {
+      logError(LogCategory.SYSTEM, 'Assessment storage save failed:', new Error(result.error || 'unknown'));
       throw new Error('Failed to save assessment data securely');
     }
+    const keyCount =
+      data !== null && typeof data === 'object' && !Array.isArray(data)
+        ? Object.keys(data as Record<string, unknown>).length
+        : 0;
+    await this.logAccess('SAVE', keyCount);
   }
 
-  /**
-   * Load persisted state. Returns `unknown` — callers narrow via the
-   * type guards in `features/assessment/types/validation.ts` (e.g.,
-   * `isPHQ9ResultShape`, `isGAD7ResultShape`) before reading fields.
-   */
   static async load(): Promise<unknown> {
     try {
-      const encrypted = await SecureStore.getItemAsync(this.STORAGE_KEY);
-      if (!encrypted) return null;
-
-      const data: unknown = JSON.parse(encrypted);
+      const data = await SecureStorageService.retrieveWellnessBlob<unknown>(
+        this.BLOB_KEY,
+        this.LEGACY_SECURE_STORE_KEY
+      );
       const keyCount =
         data !== null && typeof data === 'object' && !Array.isArray(data)
           ? Object.keys(data as Record<string, unknown>).length
@@ -153,7 +145,7 @@ class EncryptedAssessmentStorage {
 
   static async clear(): Promise<void> {
     try {
-      await SecureStore.deleteItemAsync(this.STORAGE_KEY);
+      await SecureStorageService.deleteWellnessBlob(this.BLOB_KEY, this.LEGACY_SECURE_STORE_KEY);
       await this.logAccess('CLEAR', 0);
     } catch (error) {
       logError(LogCategory.SYSTEM, 'Assessment storage clear failed:', error instanceof Error ? error : new Error(String(error)));
@@ -186,7 +178,7 @@ class EncryptedAssessmentStorage {
 }
 
 /**
- * Clinical scoring service with 100% accuracy validation
+ * Wellness-screening scoring service with 100% accuracy validation
  */
 class ClinicalScoringService {
   static calculatePHQ9Score(answers: AssessmentAnswer[]): PHQ9Result {
@@ -695,7 +687,7 @@ export const useAssessmentStore = create<AssessmentStore>()(
             followUp: {
               required: true,
               urgency: 'within_24h',
-              type: 'clinical_assessment',
+              type: 'wellness_follow_up',
               recommendations: ['Contact mental health professional', 'Monitor safety'],
               contacts: [],
               completed: false

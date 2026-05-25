@@ -25,13 +25,23 @@ import { create } from 'zustand';
 import { generateRandomString } from '@/core/utils/id';
 import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import SecureStorageService from '@/core/services/security/SecureStorageService';
 import { getCurrentUserId } from '@/core/constants/devMode';
 
 // Storage keys
 const CONSENT_SECURE_KEY = 'consent_record_v1';
 const CONSENT_CACHE_KEY = 'consent_cache_v1';
 const AGE_VERIFICATION_KEY = 'age_verification_v1';
-const CONSENT_HISTORY_KEY = 'consent_history_v1';
+/** Legacy SecureStore key — left in place for the read-old/write-new migration. */
+const LEGACY_CONSENT_HISTORY_KEY = 'consent_history_v1';
+/**
+ * Logical blob name passed to SecureStorageService.storeWellnessBlob. The
+ * service maps this to its WELLNESS_ASYNC_PREFIX in AsyncStorage. AES-256-GCM
+ * ciphertext only — master key remains in platform Keychain.
+ */
+const CONSENT_HISTORY_BLOB_KEY = 'consent_history_v1';
+/** Per-keystore-migration idempotency flag, separate from EncryptionService's. */
+const CONSENT_HISTORY_MIGRATION_FLAG = 'being.consent_history_migration_v2';
 const LEGAL_GATE_CONSENTS_KEY = 'legal_gate_consents_v1';
 
 /**
@@ -153,6 +163,13 @@ export interface ConsentHistoryEntry {
   changes: Partial<ConsentPreferences>;
   /** Timestamp */
   timestamp: number;
+  /**
+   * Optional note documenting non-user actions on the audit chain
+   * (e.g., the INFRA-144 storage-substrate migration). Lets the audit
+   * chain stay unbroken across maintenance events without inventing
+   * new action types.
+   */
+  note?: string;
 }
 
 /**
@@ -252,6 +269,62 @@ const calculateAge = (birthYear: number): number => {
 };
 
 /**
+ * Persist consent history via SecureStorageService hybrid path (INFRA-144).
+ * AES-256-GCM ciphertext in AsyncStorage; master key in platform Keychain.
+ */
+async function persistConsentHistory(history: ConsentHistoryEntry[]): Promise<void> {
+  const result = await SecureStorageService.storeWellnessBlob(
+    CONSENT_HISTORY_BLOB_KEY,
+    history,
+    'level_2_assessment_data'
+  );
+  if (!result.success) {
+    throw new Error(`Failed to persist consent history: ${result.error ?? 'unknown'}`);
+  }
+}
+
+/**
+ * Load consent history with one-time legacy migration. On first read after
+ * INFRA-144 ships: if `consent_history_v1` exists in SecureStore but not in
+ * AsyncStorage, the underlying SecureStorageService moves the ciphertext to
+ * AsyncStorage and deletes the SecureStore copy. We then append a single
+ * `note`-annotated `ConsentHistoryEntry` so the audit chain documents the
+ * substrate transition (compliance requirement, INFRA-144 sign-off).
+ *
+ * Idempotency: a separate flag (`being.consent_history_migration_v2`) ensures
+ * the migration audit entry is appended exactly once across reruns.
+ */
+async function loadConsentHistoryWithMigration(): Promise<ConsentHistoryEntry[]> {
+  const migrationFlag = await AsyncStorage.getItem(CONSENT_HISTORY_MIGRATION_FLAG);
+  const isFirstRun = migrationFlag !== '1';
+
+  const history = await SecureStorageService.retrieveWellnessBlob<ConsentHistoryEntry[]>(
+    CONSENT_HISTORY_BLOB_KEY,
+    LEGACY_CONSENT_HISTORY_KEY
+  );
+
+  if (!isFirstRun || !history || history.length === 0) {
+    // No legacy data to annotate, or migration audit entry already appended.
+    if (isFirstRun) {
+      await AsyncStorage.setItem(CONSENT_HISTORY_MIGRATION_FLAG, '1');
+    }
+    return history ?? [];
+  }
+
+  // Append migration audit entry (only on the run that actually migrated data).
+  const migrationEntry: ConsentHistoryEntry = {
+    action: 'updated',
+    changes: {},
+    timestamp: Date.now(),
+    note: 'storage_migration_v2: ciphertext moved to AsyncStorage, encryption boundary preserved',
+  };
+  const annotated = [...history, migrationEntry];
+  await persistConsentHistory(annotated);
+  await AsyncStorage.setItem(CONSENT_HISTORY_MIGRATION_FLAG, '1');
+  return annotated;
+}
+
+/**
  * Consent Zustand Store
  */
 export const useConsentStore = create<ConsentStore>((set, get) => ({
@@ -325,9 +398,10 @@ export const useConsentStore = create<ConsentStore>((set, get) => ({
         return consent;
       }
 
-      // Load consent history from SecureStore (for audit trail persistence)
-      const storedHistory = await SecureStore.getItemAsync(CONSENT_HISTORY_KEY);
-      const history: ConsentHistoryEntry[] = storedHistory ? JSON.parse(storedHistory) : [];
+      // Load consent history via hybrid path (AES-256-GCM ciphertext in
+      // AsyncStorage; master key in Keychain). Legacy SecureStore key is
+      // migrated on first read. INFRA-144.
+      const history = await loadConsentHistoryWithMigration();
 
       // Update cache for fast validation
       const cache = {
@@ -398,9 +472,9 @@ export const useConsentStore = create<ConsentStore>((set, get) => ({
         timestamp: now,
       };
 
-      // Persist history to SecureStore (Privacy audit trail requirement)
+      // Persist history via hybrid path (encrypted AsyncStorage). INFRA-144.
       const updatedHistory = [historyEntry];
-      await SecureStore.setItemAsync(CONSENT_HISTORY_KEY, JSON.stringify(updatedHistory));
+      await persistConsentHistory(updatedHistory);
 
       // Update cache
       const cache = {
@@ -471,9 +545,9 @@ export const useConsentStore = create<ConsentStore>((set, get) => ({
         timestamp: now,
       };
 
-      // Persist history to SecureStore (Privacy audit trail requirement)
+      // Persist history via hybrid path (encrypted AsyncStorage). INFRA-144.
       const updatedHistory = [...consentHistory, historyEntry];
-      await SecureStore.setItemAsync(CONSENT_HISTORY_KEY, JSON.stringify(updatedHistory));
+      await persistConsentHistory(updatedHistory);
 
       // Update cache
       const cache = {
@@ -540,9 +614,9 @@ export const useConsentStore = create<ConsentStore>((set, get) => ({
         timestamp: now,
       };
 
-      // Persist history to SecureStore (Privacy audit trail requirement)
+      // Persist history via hybrid path (encrypted AsyncStorage). INFRA-144.
       const updatedHistory = [...consentHistory, historyEntry];
-      await SecureStore.setItemAsync(CONSENT_HISTORY_KEY, JSON.stringify(updatedHistory));
+      await persistConsentHistory(updatedHistory);
 
       // Clear cache
       await AsyncStorage.removeItem(CONSENT_CACHE_KEY);
@@ -679,6 +753,13 @@ export const useConsentStore = create<ConsentStore>((set, get) => ({
       await SecureStore.deleteItemAsync(AGE_VERIFICATION_KEY);
       await SecureStore.deleteItemAsync(LEGAL_GATE_CONSENTS_KEY);
       await AsyncStorage.removeItem(CONSENT_CACHE_KEY);
+      // Hybrid storage cleanup (INFRA-144): remove encrypted history blob and
+      // its legacy SecureStore copy + migration flag.
+      await SecureStorageService.deleteWellnessBlob(
+        CONSENT_HISTORY_BLOB_KEY,
+        LEGACY_CONSENT_HISTORY_KEY
+      );
+      await AsyncStorage.removeItem(CONSENT_HISTORY_MIGRATION_FLAG);
 
       set({
         currentConsent: null,

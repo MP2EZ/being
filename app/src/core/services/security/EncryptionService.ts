@@ -154,7 +154,12 @@ export class EncryptionService {
   private keyRotationTimer: NodeJS.Timeout | null = null;
 
   private constructor() {
-    this.initializeKeyRotationScheduler();
+    // Match SecureStorageService.ts:159 — skip the long-lived setInterval
+    // under Jest so the runtime can exit cleanly. The scheduler is only
+    // meaningful in the running app (cold-boot → 24h rotation cadence).
+    if (process.env.NODE_ENV !== 'test') {
+      this.initializeKeyRotationScheduler();
+    }
   }
 
   public static getInstance(): EncryptionService {

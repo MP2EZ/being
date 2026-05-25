@@ -33,6 +33,17 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
   removeItem: jest.fn().mockResolvedValue(undefined),
 }));
 
+// INFRA-144: assessmentStore now persists via SecureStorageService.
+// Passthrough so the existing assertions (which probe state, not storage) hold.
+jest.mock('@/core/services/security/SecureStorageService', () => ({
+  __esModule: true,
+  default: {
+    storeWellnessBlob: jest.fn().mockResolvedValue({ success: true, operationType: 'store', storageKey: '', operationTimeMs: 0, dataSize: 0 }),
+    retrieveWellnessBlob: jest.fn().mockResolvedValue(null),
+    deleteWellnessBlob: jest.fn().mockResolvedValue(undefined),
+  },
+}));
+
 jest.mock('react-native', () => ({
   Alert: {
     alert: jest.fn(),
