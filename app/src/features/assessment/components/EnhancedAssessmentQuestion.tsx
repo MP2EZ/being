@@ -17,16 +17,13 @@
  */
 
 
-import { logSecurity, logPerformance, logError, LogCategory } from '@/core/services/logging';
-import React, { useCallback, useMemo, useEffect, useState, useRef } from 'react';
+import { logSecurity, logError, LogCategory } from '@/core/services/logging';
+import React, { useCallback, useMemo, useState, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   AccessibilityInfo,
-  Alert,
-  AppState,
-  AppStateStatus,
 } from 'react-native';
 import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
 import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
@@ -35,27 +32,11 @@ import type { StackNavigationProp } from '@react-navigation/stack';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 import { RadioGroup, FocusProvider, Focusable } from '@/core/components/accessibility';
 import type { RadioOption } from '@/core/components/accessibility';
-import type { 
-  AssessmentQuestion as AssessmentQuestionType, 
+import type {
+  AssessmentQuestion as AssessmentQuestionType,
   AssessmentResponse
 } from '@/features/assessment/types';
-
-// Enhanced interfaces for comprehensive integration
-
-/**
- * ⚠️ MOCK-SHAPE — see matching warning in `EnhancedAssessmentFlow.tsx`.
- * Diverges from canonical `CrisisDetection` in `@/features/crisis/types/safety`.
- * Used by the local `mockCrisisEngine` below; must be unified with the
- * canonical type when the mock is replaced with real store wiring.
- */
-interface CrisisDetection {
-  isTriggered: boolean;
-  triggerType: 'phq9_suicidal' | 'phq9_score' | 'gad7_score' | 'system_error';
-  triggerValue: number;
-  timestamp: number;
-  assessmentId: string;
-  severity?: 'low' | 'moderate' | 'high' | 'critical' | 'emergency';
-}
+import { useAssessmentStore } from '@/features/assessment/stores/assessmentStore';
 
 interface DataProtectionConsentStatus {
   dataProcessingConsent: boolean;
@@ -80,7 +61,6 @@ interface ResponseMetadata {
   performanceMetrics: {
     responseTime: number;
     encryptionTime: number;
-    crisisCheckTime: number;
   };
 }
 
@@ -94,7 +74,6 @@ interface EnhancedAssessmentQuestionProps {
   theme?: ('morning' | 'midday' | 'evening' | 'neutral') | undefined;
   sessionId: string;
   consentStatus: DataProtectionConsentStatus;
-  onCrisisDetected?: ((detection: CrisisDetection) => void) | undefined;
   onError?: ((error: Error) => void) | undefined;
 }
 
@@ -113,41 +92,6 @@ const RESPONSE_OPTIONS: RadioOption[] = [
   { value: 2, label: RESPONSE_LABELS[2] },
   { value: 3, label: RESPONSE_LABELS[3] },
 ];
-
-// Mock services for demonstration (in real implementation, these would be proper imports)
-const mockCrisisEngine = {
-  prepareEmergencyResources: () => Promise.resolve(),
-  detectImmediateCrisis: async (data: any): Promise<CrisisDetection | null> => {
-    const startTime = performance.now();
-    
-    if (data.questionId === 'phq9_9' && data.response > 0) {
-      const detectionTime = performance.now() - startTime;
-      console.log(`🚨 Crisis detection time: ${detectionTime}ms`);
-      
-      return {
-        isTriggered: true,
-        triggerType: 'phq9_suicidal',
-        triggerValue: data.response,
-        timestamp: Date.now(),
-        assessmentId: data.sessionId,
-        severity: 'critical'
-      };
-    }
-    return null;
-  },
-  triggerImmediateIntervention: async (detection: CrisisDetection) => {
-    Alert.alert(
-      '🚨 Crisis Support Available',
-      'You\'re not alone. Crisis support is available 24/7.',
-      [
-        { text: 'Call 988 Now', onPress: () => {}, style: 'default' },
-        { text: 'View Resources', onPress: () => {}, style: 'cancel' }
-      ],
-      { cancelable: false }
-    );
-  },
-  maintainBackgroundCrisisSupport: () => Promise.resolve()
-};
 
 const mockComplianceEngine = {
   validateConsent: async (sessionId: string, status: DataProtectionConsentStatus, action: string) => {
@@ -180,9 +124,6 @@ const mockEncryptionService = {
 };
 
 const mockAuditLogger = {
-  logHighRiskAccess: (data: any) => {
-    console.log('🔍 High-risk question access logged:', data);
-  },
   logAssessmentResponse: async (data: any) => {
     console.log('📋 Assessment response logged:', data);
     return { auditId: `audit_${Date.now()}` };
@@ -204,17 +145,21 @@ const EnhancedAssessmentQuestion: React.FC<EnhancedAssessmentQuestionProps> = ({
   theme = 'neutral',
   sessionId,
   consentStatus,
-  onCrisisDetected,
   onError,
 }) => {
   // Navigation for crisis button
   const rootNavigation = useNavigation<StackNavigationProp<RootStackParamList>>();
 
+  // Crisis-banner state is sourced from the assessment store — the store's
+  // `answerQuestion` action runs the canonical inline Q9 detection and the
+  // `CrisisDetectionService.triggerEmergencyResponse` Alert. This component
+  // just observes the result so it can render the always-on banner.
+  const crisisAlert = useAssessmentStore((state) => state.crisisDetection);
+
   // State management
   const [isProcessing, setIsProcessing] = useState(false);
-  const [crisisAlert, setCrisisAlert] = useState<CrisisDetection | null>(null);
   const [encryptionStatus, setEncryptionStatus] = useState<'idle' | 'encrypting' | 'success' | 'error'>('idle');
-  
+
   // Performance monitoring
   const responseStartTime = useRef<number>(0);
 
@@ -229,37 +174,6 @@ const EnhancedAssessmentQuestion: React.FC<EnhancedAssessmentQuestionProps> = ({
     }
     return colorSystem.themes[theme];
   }, [theme]);
-
-  // Crisis monitoring for specific questions
-  useEffect(() => {
-    const isSuicidalIdeationQuestion = question.id === 'phq9_9';
-    
-    if (isSuicidalIdeationQuestion) {
-      // Pre-position crisis resources for immediate response
-      mockCrisisEngine.prepareEmergencyResources();
-      
-      // Log high-risk question access
-      mockAuditLogger.logHighRiskAccess({
-        questionId: question.id,
-        sessionId,
-        timestamp: Date.now(),
-        questionType: 'suicidal_ideation'
-      });
-    }
-  }, [question.id, sessionId]);
-
-  // App state monitoring for crisis scenarios
-  useEffect(() => {
-    const handleAppStateChange = (nextAppState: AppStateStatus) => {
-      if (nextAppState === 'background' && crisisAlert) {
-        // Maintain crisis resources even when app is backgrounded
-        mockCrisisEngine.maintainBackgroundCrisisSupport();
-      }
-    };
-
-    const subscription = AppState.addEventListener('change', handleAppStateChange);
-    return () => subscription?.remove();
-  }, [crisisAlert]);
 
   // Comprehensive answer handling with full integration
   const handleAnswerSelection = useCallback(async (response: string | number) => {
@@ -301,46 +215,20 @@ const EnhancedAssessmentQuestion: React.FC<EnhancedAssessmentQuestionProps> = ({
 
       setEncryptionStatus('success');
 
-      // 3. Real-time Crisis Detection (Critical Safety Check)
-      const crisisCheckStart = performance.now();
-      let crisisDetection: CrisisDetection | null = null;
-
-      // Immediate crisis check for suicidal ideation
-      if (question.id === 'phq9_9' && assessmentResponse > 0) {
-        crisisDetection = await mockCrisisEngine.detectImmediateCrisis({
-          questionId: question.id,
-          response: assessmentResponse,
-          sessionId,
-          assessmentType: 'phq9'
-        });
-
-        if (crisisDetection) {
-          setCrisisAlert(crisisDetection);
-          onCrisisDetected?.(crisisDetection);
-          
-          // Immediate intervention display
-          await mockCrisisEngine.triggerImmediateIntervention(crisisDetection);
-        }
-      }
-
-      const crisisCheckTime = performance.now() - crisisCheckStart;
-
-      // 4. Audit Logging
+      // 3. Audit Logging
       const auditEntry = await mockAuditLogger.logAssessmentResponse({
         sessionId,
         questionId: question.id,
         responseEncrypted: encryptedResponse.encryptedData,
         consentValidated: consentValidation.isValid,
-        crisisDetected: !!crisisDetection,
         timestamp: Date.now(),
         performanceMetrics: {
           responseTime: performance.now() - responseStartTime.current,
-          encryptionTime,
-          crisisCheckTime
+          encryptionTime
         }
       });
 
-      // 5. Performance Metrics
+      // 4. Performance Metrics
       const totalResponseTime = performance.now() - responseStartTime.current;
       mockPerformanceMonitor.endMeasurement('response_processing');
 
@@ -352,11 +240,7 @@ const EnhancedAssessmentQuestion: React.FC<EnhancedAssessmentQuestionProps> = ({
         });
       }
 
-      if (crisisDetection && crisisCheckTime > 200) {
-        logError(LogCategory.SYSTEM, `Crisis detection time: ${crisisCheckTime}ms (target: <200ms)`);
-      }
-
-      // 6. Create comprehensive metadata
+      // 5. Create comprehensive metadata
       const metadata: ResponseMetadata = {
         encryptedResponse,
         timestamp: Date.now(),
@@ -365,37 +249,29 @@ const EnhancedAssessmentQuestion: React.FC<EnhancedAssessmentQuestionProps> = ({
         auditTrail: auditEntry.auditId,
         performanceMetrics: {
           responseTime: totalResponseTime,
-          encryptionTime,
-          crisisCheckTime
+          encryptionTime
         }
       };
 
-      // 7. Call parent handler with encrypted data and metadata
+      // 6. Call parent handler — the parent forwards to
+      // `useAssessmentStore.answerQuestion`, which runs canonical inline
+      // crisis detection on PHQ-9 Q9 and triggers the support Alert via
+      // `CrisisDetectionService.triggerEmergencyResponse`.
       onAnswer(assessmentResponse, metadata);
 
-      // 8. Accessibility announcement
+      // 7. Accessibility announcement
       AccessibilityInfo.announceForAccessibility(
-        `Selected: ${RESPONSE_LABELS[assessmentResponse]}${crisisDetection ? '. Crisis support resources are available.' : ''}`
+        `Selected: ${RESPONSE_LABELS[assessmentResponse]}`
       );
 
     } catch (error) {
       logError(LogCategory.SYSTEM, 'Enhanced assessment response error:', error instanceof Error ? error : new Error(String(error)));
       setEncryptionStatus('error');
       onError?.(error as Error);
-      
-      // Crisis fallback - always provide safety resources on error
-      setCrisisAlert({
-        isTriggered: true,
-        triggerType: 'system_error',
-        triggerValue: 0,
-        timestamp: Date.now(),
-        assessmentId: sessionId,
-        severity: 'high'
-      });
     } finally {
       setIsProcessing(false);
     }
-  }, [question, sessionId, consentStatus, onAnswer, onCrisisDetected, onError]);
+  }, [question, sessionId, consentStatus, onAnswer, onError]);
 
   // Empty label - progress is shown at top, no need for duplicate text
   const radioGroupLabel = useMemo(() => {

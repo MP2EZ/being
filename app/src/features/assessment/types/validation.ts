@@ -445,7 +445,7 @@ function isCrisisDetectionShape(value: unknown): value is CrisisDetection {
   return typeof value === 'object' &&
          value !== null &&
          'isTriggered' in value &&
-         'triggerType' in value &&
+         'primaryTrigger' in value &&
          'triggerValue' in value &&
          'timestamp' in value &&
          'assessmentId' in value;
