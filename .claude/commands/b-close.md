@@ -228,7 +228,46 @@ message: [generated message]
 Direct local-merge-then-push is no longer possible. b-close now opens a PR,
 waits for CI, then merges via `gh pr merge`.
 
-### Step 3.1: Push Feature Branch
+### Step 3.1: Sync Feature Branch with origin/development
+
+GitHub branch protection requires "branches up to date before merging." If the
+feature branch is behind `origin/development` at merge time, GitHub invalidates
+the existing CI checks (treats them as having run against a stale base) and
+refuses the merge with `Required status check "CI pass" is expected` — **even
+with `--admin`** (admin bypasses approvals but not stale-check invalidation).
+Sync locally first so the push in Step 3.2 carries the merge commit and CI
+runs once against the correct base.
+
+```bash
+cd /Users/max/dev/being/[worktree-dir]
+git fetch origin
+
+BEHIND=$(git rev-list --count HEAD..origin/development)
+if [ "$BEHIND" -gt 0 ]; then
+  echo "🔄 Feature branch is $BEHIND commits behind origin/development; merging..."
+  if ! git merge origin/development --no-edit; then
+    echo "❌ Merge conflict with origin/development."
+    echo "   Resolve conflicts in the worktree, then:"
+    echo "     git add <resolved files>"
+    echo "     git commit              # accept default 'Merge branch ...' subject"
+    echo "     /b-close [WORK_ITEM_ID] # idempotent — re-runs from here"
+    exit 1
+  fi
+  echo "✅ Synced (merge commit created locally; will be pushed in Step 3.2)"
+else
+  echo "✓ Already up to date with origin/development"
+fi
+```
+
+**Why local-merge over `gh pr update-branch` post-PR:**
+- Surfaces conflicts in the worktree *before* opening a noisy PR.
+- One CI cycle instead of two — saves ~3–4 minutes per BEHIND occurrence.
+- The push in Step 3.2 carries both the feature commit(s) and the merge
+  commit in a single shot.
+
+---
+
+### Step 3.2: Push Feature Branch
 
 From the feature worktree (where the implementation work happened):
 
@@ -245,7 +284,7 @@ git push -u origin [feature-branch-name]
 
 ---
 
-### Step 3.2: Open PR Targeting Development
+### Step 3.3: Open PR Targeting Development
 
 ```bash
 gh pr create \
@@ -279,7 +318,7 @@ EOF
 
 ---
 
-### Step 3.3: Wait for CI
+### Step 3.4: Wait for CI
 
 ```bash
 gh pr checks [PR_NUMBER] --watch
@@ -311,7 +350,7 @@ This blocks until all 9 strict CI gates complete. Typical: 2-4 minutes.
 
 ---
 
-### Step 3.4: Merge via gh pr merge
+### Step 3.5: Merge via gh pr merge
 
 Use **merge commit** strategy (preserves feature branch history, matches the
 prior `--no-ff` behavior). Use `--admin` to bypass the "branch up-to-date with
@@ -338,7 +377,7 @@ MERGE_SHA=$(gh pr view [PR_NUMBER] --json mergeCommit -q '.mergeCommit.oid')
 
 ---
 
-### Step 3.5: Sync Bare-Repo + Worktree (POST-MERGE)
+### Step 3.6: Sync Bare-Repo + Worktree (POST-MERGE)
 
 After GitHub merges, the local bare-repo's `refs/heads/development` is stale.
 Update it explicitly + pull the development worktree into sync.
@@ -370,9 +409,9 @@ git -C /Users/max/dev/being/development pull --ff-only origin development
 
 ---
 
-### Step 3.6: Verify remote feature branch was deleted
+### Step 3.7: Verify remote feature branch was deleted
 
-`gh pr merge --delete-branch` (Step 3.4) silently skips its branch-delete API
+`gh pr merge --delete-branch` (Step 3.5) silently skips its branch-delete API
 call when its local-checkout step fails — which it always does in our
 bare-repo + worktrees setup because `development` is held by the dev worktree
 (`fatal: 'development' is already used by worktree at …`). This defensive
@@ -389,7 +428,7 @@ fi
 ```
 
 Idempotent — safe to re-run. Do NOT remove the `--delete-branch` flag from
-Step 3.4: in workflows where gh's local-checkout succeeds (no worktree on the
+Step 3.5: in workflows where gh's local-checkout succeeds (no worktree on the
 base branch), the flag still works and this step becomes a confirmation.
 
 ---
@@ -484,12 +523,12 @@ Add to Notion comment:
 ### Step 5.2: Push to Remote (DEPRECATED — kept for backward compat)
 
 **INFRA-145 GitHub Flow note**: This step is now a no-op. The PR merge in
-Phase 3.4 already pushes development to origin via the GitHub API. The
+Phase 3.5 already pushes development to origin via the GitHub API. The
 `--push` flag is accepted as a no-op for backward compatibility with prior
 invocations.
 
 ```
-ℹ️  Push handled automatically by gh pr merge (Phase 3.4). No action needed.
+ℹ️  Push handled automatically by gh pr merge (Phase 3.5). No action needed.
 ```
 
 ---
@@ -523,8 +562,9 @@ Next steps:
 
 **If command interrupted mid-execution**:
 - Phase 1-2 interruption: Safe to re-run (idempotent)
-- Phase 3 interruption (merge conflicts): User resolves, re-runs command
-- Phase 3.6 interruption (branch cleanup): Safe to re-run; check is idempotent
+- Step 3.1 interruption (conflict merging origin/development): User resolves conflicts in the worktree, commits the merge with the default `Merge branch ...` subject, then re-runs `/b-close` — sync step will see BEHIND=0 and continue from Step 3.2
+- Phase 3 interruption (PR merge conflicts): User resolves on GitHub or locally, re-runs command
+- Phase 3.7 interruption (branch cleanup): Safe to re-run; check is idempotent
 - Phase 4 interruption (Notion): Re-run will update status/comment
 - Phase 5.1 interruption (worktree): Manual cleanup if needed
 - Phase 5.2 interruption (push): Re-run will attempt push again (idempotent)
