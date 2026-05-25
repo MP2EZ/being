@@ -10,9 +10,9 @@ Bare git repo at `~/dev/being/` with worktrees at `~/dev/being/{main,development
 
 ## Tech Stack
 
-- React Native `0.81.4`, Expo `54`, React `19.1.0` (pinned — see version-check script)
+- React Native `0.85.3`, Expo `56`, React `19.2.3` (pinned — see version-check script in `app/package.json`)
 - Supabase (auth + DB), Zustand `5` (state), Stripe (subscriptions), Sentry (monitoring), expo-secure-store + react-native-aes-crypto (encryption)
-- TypeScript strict, Jest + Detox (e2e)
+- TypeScript `5.9.x` strict (kept on 5.9 via `expo.install.exclude`; TS 6 deferred — see follow-up work item), Jest + Detox (e2e)
 
 ## Setup & Run
 
@@ -181,7 +181,11 @@ Branch naming: `feat/*`, `fix/*`, `chore/*` (mapped from work item TYPE). Conven
 
 ## Known Gotchas
 
-- React must stay at `19.1.0` for RN 0.81.4 compatibility — `version-check` script enforces.
+- React must stay at `19.2.3` for RN 0.85.x compatibility — `version-check` script enforces.
+- iOS minimum is `16.4` (SDK 56). New Architecture and edge-to-edge are mandatory and cannot be disabled.
+- Vector icons use scoped `@react-native-vector-icons/*` packages (migrated from `@expo/vector-icons` in INFRA-158). On the crisis path, keep `import { MaterialDesignIcons } from '@react-native-vector-icons/material-design-icons'` eager at module top — do not lazy-import.
+- App Groups entitlement for the iOS widget is injected via a local config plugin at `app/plugins/withAppGroupsEntitlement.js` (was previously `expo-build-properties`'s `ios.entitlements`, removed in SDK 56).
+- TypeScript stays on `5.9.x` and `globalThis.fetch` stays as RN's `fetch` (via `EXPO_PUBLIC_USE_RN_FETCH=1`) — both SDK 56 default-changes were deliberately opted out in INFRA-158 to keep upgrade scope tight; see follow-up work items.
 - `AsyncStorage` is unencrypted by design; wellness data must use `expo-secure-store` + AES-256.
 - Encryption tests are slow (`test:encryption`, `test:secure-storage`) — run during pre-push, not pre-commit.
 - iOS and Android behavior must match (use `npm run platform:both` to verify).
