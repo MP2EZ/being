@@ -300,7 +300,8 @@ async function loadConsentHistoryWithMigration(): Promise<ConsentHistoryEntry[]>
 
   const history = await SecureStorageService.retrieveWellnessBlob<ConsentHistoryEntry[]>(
     CONSENT_HISTORY_BLOB_KEY,
-    LEGACY_CONSENT_HISTORY_KEY
+    LEGACY_CONSENT_HISTORY_KEY,
+    { legacyFormat: 'plaintext_json', sensitivityLevel: 'level_2_assessment_data' }
   );
 
   if (!isFirstRun || !history || history.length === 0) {

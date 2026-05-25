@@ -129,7 +129,8 @@ class EncryptedAssessmentStorage {
     try {
       const data = await SecureStorageService.retrieveWellnessBlob<unknown>(
         this.BLOB_KEY,
-        this.LEGACY_SECURE_STORE_KEY
+        this.LEGACY_SECURE_STORE_KEY,
+        { legacyFormat: 'plaintext_json', sensitivityLevel: 'level_2_assessment_data' }
       );
       const keyCount =
         data !== null && typeof data === 'object' && !Array.isArray(data)

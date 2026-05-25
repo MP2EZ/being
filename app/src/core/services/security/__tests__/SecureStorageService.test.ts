@@ -240,12 +240,15 @@ describe('SecureStorageService — audit log', () => {
 });
 
 describe('SecureStorageService — lifecycle and metrics', () => {
-  it('storeCrisisData before initialize() returns a failure result', async () => {
+  it('storeCrisisData lazily auto-initializes if called before initialize() (INFRA-144 boot-order fix)', async () => {
     await service.destroy();
 
-    const result = await service.storeCrisisData('no-init', { a: 1 }, 'no-init');
-    expect(result.success).toBe(false);
-    expect(result.error).toMatch(/not initialized/i);
+    // Pre-INFRA-144 this returned a failure result. Post-fix, store/retrieve
+    // methods await encryptionService.initialize() (idempotent) so that
+    // Zustand-persist rehydration paths that fire at module load can
+    // succeed without depending on App.tsx ordering.
+    const result = await service.storeCrisisData('lazy-init', { a: 1 }, 'lazy-init');
+    expect(result.success).toBe(true);
   });
 
   it('getStorageMetrics returns structured shape', async () => {
@@ -482,5 +485,50 @@ describe('SecureStorageService — INFRA-144 hybrid storage', () => {
     expect(mockAsyncStorageMap.has('wellness_async_del-blob')).toBe(false);
     expect(mockSecureStoreMap.has('consent_history_v1')).toBe(false);
     expect(mockAsyncStorageMap.get('wellness_migrated:consent_history_v1')).toBe('v1');
+  });
+
+  it("migrates plaintext_json legacy data by encrypting on the fly (assessment + consent path)", async () => {
+    await service.initialize();
+
+    // Pre-INFRA-144 assessment/consent wrote plain JSON to SecureStore.
+    // Migration must encrypt the JSON, not try to decrypt-verify it.
+    const legacyKey = 'assessment_store_encrypted';
+    const legacyPayload = JSON.stringify({
+      completedAssessments: [{ id: 'a1', score: 12 }, { id: 'a2', score: 8 }],
+      currentQuestionIndex: 0,
+    });
+    mockSecureStoreMap.set(legacyKey, legacyPayload);
+
+    const retrieved = await service.retrieveWellnessBlob<{
+      completedAssessments: Array<{ id: string; score: number }>;
+    }>('assessment_store', legacyKey, {
+      legacyFormat: 'plaintext_json',
+      sensitivityLevel: 'level_2_assessment_data',
+    });
+
+    expect(retrieved?.completedAssessments).toHaveLength(2);
+    expect(retrieved?.completedAssessments[0]).toEqual({ id: 'a1', score: 12 });
+
+    // After migration: legacy SecureStore key gone, migration marker set,
+    // AsyncStorage now contains a wrapped EncryptedDataPackage (not the
+    // original JSON — the migration upgraded it to ciphertext).
+    expect(mockSecureStoreMap.has(legacyKey)).toBe(false);
+    expect(mockAsyncStorageMap.get(`wellness_migrated:${legacyKey}`)).toBe('v1');
+    const asyncStored = mockAsyncStorageMap.get('wellness_async_assessment_store');
+    expect(asyncStored).toBeDefined();
+    expect(asyncStored).not.toBe(legacyPayload); // not the original plaintext
+    expect(JSON.parse(asyncStored!).encryptedData).toBeDefined();
+  });
+
+  it('rehydration paths firing before initialize() succeed via lazy init (INFRA-144 boot-order fix)', async () => {
+    await service.destroy();
+
+    // Simulates Zustand persist rehydration at module load, ahead of
+    // App.tsx's SecureStorageService.initialize(). Must not throw.
+    const result = await service.storeWellnessBlob('rehydrate', { a: 1 }, 'level_2_assessment_data');
+    expect(result.success).toBe(true);
+
+    const back = await service.retrieveWellnessBlob('rehydrate');
+    expect(back).toEqual({ a: 1 });
   });
 });
