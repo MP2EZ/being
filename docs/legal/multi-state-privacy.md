@@ -1,8 +1,10 @@
 # Multi-State Privacy Rights
 
 **Version:** 1.0
-**Effective Date:** May 24, 2026
-**Last Updated:** May 24, 2026
+**Effective Date:** May 25, 2026
+**Last Updated:** May 25, 2026
+
+> **Not legal advice.** This page is informational and reflects our understanding of the named laws as of the Last Updated date. State privacy law is changing quickly; rules, deadlines, and cure periods may have changed since this page was written. For authoritative and current information, consult your state Attorney General (links in the [Escalation](#escalation) section) or a qualified attorney.
 
 ---
 
@@ -31,9 +33,11 @@ Four of the five laws above (CCPA, TDPSA, CPA, CTDPA) mandate technical recognit
 **How Being honors these signals:**
 
 - **In the app**: enable *Settings → Privacy & Data → Honor Universal Opt-Out*. When on, Being treats your account as opted out of all non-essential analytics, crash reporting, cloud sync, and research participation, regardless of any granular preferences previously granted. The setting is persisted on-device alongside your consent record (AES-256 encrypted via `expo-secure-store`).
-- **On the web**: our privacy and support pages at `being.fyi` honor the `Sec-GPC: 1` request header sent by browsers and extensions implementing the [Global Privacy Control specification](https://globalprivacycontrol.org/). *(Web-side detection is rolling out — tracked separately. The in-app universal opt-out is live as of app version 1.0.1.)*
+- **On the web**: our privacy and support pages at `being.fyi` honor the `Sec-GPC: 1` request header sent by browsers and extensions implementing the [Global Privacy Control specification](https://globalprivacycontrol.org/). *(Web-side detection is rolling out — tracked separately. The in-app universal opt-out ships in the next TestFlight release.)*
 
 Universal opt-out does **not** affect your explicit consent for mental-health data processing (mood check-ins, PHQ-9 / GAD-7 self-screening responses, journal entries) — that consent is governed separately by GDPR Article 9(2)(a) and your active use of the wellness features. Universal opt-out targets analytics and tracking, not the wellness data you actively consented to during onboarding.
+
+**Crisis intervention is never gated by opt-out.** The 988 Suicide & Crisis Lifeline button, crisis resources, and offline safety information remain fully accessible regardless of whether Universal Opt-Out is enabled. This is a non-negotiable invariant in the codebase (`canPerformCrisisIntervention()` always returns true) — opt-out controls analytics and tracking, not access to safety features.
 
 ---
 
@@ -42,7 +46,7 @@ Universal opt-out does **not** affect your explicit consent for mental-health da
 California residents have rights under the California Consumer Privacy Act and California Privacy Rights Act, including the right to know, delete, correct, opt out, and limit use of sensitive personal information. See the dedicated [California Privacy Rights](/privacy/california) page for the full enumeration, verification procedures, and authorized-agent process.
 
 - **Response timing**: 45 days, with a 45-day extension when reasonably necessary.
-- **Cure period**: 30 days following written notice from the California Attorney General (Cal. Civ. Code §1798.155(b), as amended; the cure period sunset for general CCPA violations on January 1, 2023, but remains available in specific circumstances).
+- **Cure period**: the 30-day right-to-cure under the original CCPA was eliminated for general violations effective January 1, 2023 (per CPRA amendments to Cal. Civ. Code §1798.155). The California Attorney General and the California Privacy Protection Agency retain discretion to provide notice and a cure opportunity in limited circumstances.
 - **Verification**: confirm your registered email, provide identifying information matching your account, and confirm via account-bound action. Authorized agents must provide a signed permission and proof of identity.
 
 ---
@@ -107,10 +111,10 @@ The Virginia Consumer Data Protection Act (VCDPA), effective January 1, 2023, gr
 | | CA (CCPA/CPRA) | TX (TDPSA) | CO (CPA) | CT (CTDPA) | VA (VCDPA) |
 |---|---|---|---|---|---|
 | Response window | 45 + 45 days | 45 + 45 days | 45 + 45 days | 45 + 45 days | 45 + 45 days |
-| Appeal right | Yes (right-to-cure) | Yes (60 days) | Yes (45 days) | Yes (60 days) | Yes (60 days) |
+| Appeal response | Not specified | 60 days | 45 days | 60 days | 60 days |
 | Universal opt-out mandate | Yes | Yes (Jan 2025) | Yes (Jul 2024) | Yes (Jan 2025) | No |
-| Cure period (post-2025) | Limited | None | None | None | 30 days |
-| Sensitive-PI consent | Required | Required | Required | Required | Required |
+| Cure period (post-2025) | AG discretion only | None | None | None | 30 days (statutory) |
+| Sensitive-PI default | Opt-out (right to limit) | Opt-in (consent required) | Opt-in (consent required) | Opt-in (consent required) | Opt-in (consent required) |
 
 ---
 
@@ -131,12 +135,12 @@ If we cannot verify your identity within a reasonable time, we will inform you a
 If you are dissatisfied with our response to a privacy request, you may:
 
 1. **Appeal in writing** to [privacy@being.fyi](mailto:privacy@being.fyi) within 60 days. Being will respond within 60 days of the appeal.
-2. **Contact your state Attorney General**:
+2. **Contact your state Attorney General** for authoritative current law and to file a complaint:
    - California: [oag.ca.gov/privacy](https://oag.ca.gov/privacy)
-   - Texas: [texasattorneygeneral.gov/consumer-protection](https://www.texasattorneygeneral.gov/consumer-protection)
-   - Colorado: [coag.gov/office-sections/consumer-protection](https://coag.gov/office-sections/consumer-protection/)
-   - Connecticut: [portal.ct.gov/ag/sections/privacy](https://portal.ct.gov/ag/sections/privacy/the-connecticut-data-privacy-act)
-   - Virginia: [oag.state.va.us/consumer-protection](https://www.oag.state.va.us/consumer-protection)
+   - Texas: [texasattorneygeneral.gov](https://www.texasattorneygeneral.gov/)
+   - Colorado: [coag.gov](https://coag.gov/)
+   - Connecticut: [portal.ct.gov/AG](https://portal.ct.gov/AG)
+   - Virginia: [oag.state.va.us](https://www.oag.state.va.us/)
 
 ---
 
