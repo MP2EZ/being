@@ -50,6 +50,20 @@ import type {
   AssessmentSession
 } from '@/features/assessment/types';
 
+/**
+ * ⚠️ MOCK-SHAPE — diverges from canonical `CrisisDetection` in
+ * `@/features/crisis/types/safety` (`primaryTrigger` not `triggerType`,
+ * `severityLevel` not `severity`, plus more required fields).
+ *
+ * This shape exists because `EnhancedAssessmentQuestion` currently uses a
+ * local `mockCrisisEngine` that produces this shape. When that mock is
+ * replaced with the real `useAssessmentStore` crisis-detection wiring,
+ * this interface MUST be deleted and the canonical type imported.
+ *
+ * Until then: do NOT route the canonical store's `crisisDetection` through
+ * `handleCrisisDetected` — it has `primaryTrigger` not `triggerType` and
+ * the telemetry at line 251 would silently log `undefined`.
+ */
 interface CrisisDetection {
   isTriggered: boolean;
   triggerType: 'phq9_suicidal' | 'phq9_score' | 'gad7_score' | 'system_error';

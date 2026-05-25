@@ -145,15 +145,32 @@ export const ASSESSMENT_RESPONSE_LABELS = {
   3: "Nearly every day"
 } as const;
 
-// Crisis Thresholds (Clinically Validated - Updated 2025-01-27)
-// DUAL-THRESHOLD SYSTEM:
-// - PHQ-9 ≥15: Moderately severe depression (support recommended)
-// - PHQ-9 ≥20: Severe depression (immediate intervention)
-// - GAD-7 ≥15: Severe anxiety (immediate intervention)
+/**
+ * Crisis Thresholds (Clinically Validated - Updated 2025-01-27)
+ *
+ * DUAL-THRESHOLD SYSTEM:
+ * - PHQ-9 ≥15: Moderately severe depression (support recommended)
+ * - PHQ-9 ≥20: Severe depression (immediate intervention)
+ * - GAD-7 ≥15: Severe anxiety (immediate intervention)
+ *
+ * ⚠️ DIVERGENCE WARNING — `PHQ9_CRISIS_SCORE` means DIFFERENT THINGS in this
+ * module vs `CRISIS_SAFETY_THRESHOLDS` in `@/features/crisis/types/safety`:
+ *
+ *   | constant                                     | PHQ9_CRISIS_SCORE | semantics                |
+ *   | -------------------------------------------- | ----------------- | ------------------------ |
+ *   | CRISIS_THRESHOLDS (here)                     | 15                | support floor            |
+ *   | CRISIS_SAFETY_THRESHOLDS (safety.ts)         | 20                | active-intervention floor|
+ *
+ * The dual-threshold contract is pinned by
+ * `src/features/crisis/types/__tests__/crisis-thresholds.test.ts` — touching
+ * either value will fail that test. Pick the constant that matches your call
+ * site's semantic: the assessment store's `isCrisis` boolean uses the 15-floor
+ * (support); crisis-safety validation uses the 20-floor (active intervention).
+ */
 export const CRISIS_THRESHOLDS = {
   PHQ9_MODERATE_SEVERE_THRESHOLD: 15,
   PHQ9_SEVERE_THRESHOLD: 20,
-  PHQ9_CRISIS_SCORE: 15, // Primary crisis threshold (support recommended)
+  PHQ9_CRISIS_SCORE: 15, // Support floor (see DIVERGENCE WARNING above)
   GAD7_CRISIS_SCORE: 15,
   GAD7_SEVERE_THRESHOLD: 15,
   PHQ9_SUICIDAL_QUESTION_ID: 'phq9_9', // Question 9: Suicidal ideation

@@ -137,7 +137,7 @@ describe('Assessment Store - Clinical Validation', () => {
 
       expect(result.current.currentResult!.isCrisis).toBe(true);
       expect(result.current.crisisDetection).toBeTruthy();
-      expect(result.current.crisisDetection!.triggerType).toBe('phq9_score');
+      expect(result.current.crisisDetection!.primaryTrigger).toBe('phq9_moderate_severe_score');
     });
 
     it('detects suicidal ideation immediately on question 9', async () => {
@@ -153,7 +153,7 @@ describe('Assessment Store - Clinical Validation', () => {
       });
 
       expect(result.current.crisisDetection).toBeTruthy();
-      expect(result.current.crisisDetection!.triggerType).toBe('phq9_suicidal');
+      expect(result.current.crisisDetection!.primaryTrigger).toBe('phq9_suicidal_ideation');
       expect(result.current.crisisDetection!.triggerValue).toBe(1);
       
       // Verify crisis intervention was triggered
@@ -270,7 +270,7 @@ describe('Assessment Store - Clinical Validation', () => {
 
       expect(result.current.currentResult!.isCrisis).toBe(true);
       expect(result.current.crisisDetection).toBeTruthy();
-      expect(result.current.crisisDetection!.triggerType).toBe('gad7_score');
+      expect(result.current.crisisDetection!.primaryTrigger).toBe('gad7_severe_score');
     });
   });
 

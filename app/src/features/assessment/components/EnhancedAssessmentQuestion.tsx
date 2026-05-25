@@ -41,6 +41,13 @@ import type {
 } from '@/features/assessment/types';
 
 // Enhanced interfaces for comprehensive integration
+
+/**
+ * ⚠️ MOCK-SHAPE — see matching warning in `EnhancedAssessmentFlow.tsx`.
+ * Diverges from canonical `CrisisDetection` in `@/features/crisis/types/safety`.
+ * Used by the local `mockCrisisEngine` below; must be unified with the
+ * canonical type when the mock is replaced with real store wiring.
+ */
 interface CrisisDetection {
   isTriggered: boolean;
   triggerType: 'phq9_suicidal' | 'phq9_score' | 'gad7_score' | 'system_error';

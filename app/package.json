@@ -24,7 +24,7 @@
     "test:crisis-quick": "jest --testPathPattern=\"[Cc]risis\" --ci --silent --testTimeout=5000 --maxWorkers=4",
     "test:clinical-quick": "JEST_QUICK=true jest --testNamePattern=\"clinical|phq|gad\"",
     "test:offline": "jest --testPathPattern=offline --verbose --testTimeout=60000",
-    "test:offline-crisis": "jest --testNamePattern=\"Offline Crisis Management\" --verbose --testTimeout=30000",
+    "test:offline-crisis": "jest --testPathPattern=\"offline-crisis\" --testNamePattern=\"Offline Crisis Management\" --verbose --testTimeout=30000",
     "validate:clinical": "npm run test:clinical && echo '✅ Clinical accuracy tests passed'",
     "validate:accessibility": "npm run test:accessibility && echo '✅ Accessibility tests passed'",
     "validate:performance": "npm run test:performance && echo '✅ Performance tests passed'",

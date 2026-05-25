@@ -33,6 +33,30 @@ jest.mock('@/core/services/security/EncryptionService', () => ({
     initialize: jest.fn().mockResolvedValue(undefined),
     encrypt: jest.fn(async (data: string) => `mock_ct_${data}`),
     decrypt: jest.fn(async (ct: string) => ct.replace(/^mock_ct_/, '')),
+    // Production methods used by CrisisSecurityProtocol; previously omitted
+    // (TEST-12 from the test-coverage audit) so any test exercising
+    // `protectCrisisData` at `crisis_intervention` or higher protection level
+    // would crash with `encryptionService.encryptData is not a function`.
+    encryptData: jest.fn(async (data: unknown) => ({
+      encryptedData: `mock_encrypted_${typeof data === 'string' ? data : JSON.stringify(data)}`,
+      iv: 'mock_iv',
+      authTag: 'mock_authtag',
+      algorithm: 'AES-256-GCM',
+      timestamp: Date.now(),
+    })),
+    encryptCrisisData: jest.fn(async (data: unknown, episodeId: string) => ({
+      encryptedData: `mock_crisis_encrypted_${episodeId}`,
+      iv: 'mock_crisis_iv',
+      authTag: 'mock_crisis_authtag',
+      algorithm: 'AES-256-GCM',
+      episodeId,
+      timestamp: Date.now(),
+    })),
+    getEncryptionStatus: jest.fn(() => ({
+      keyVersion: 1,
+      keyRotationDue: false,
+      lastRotation: Date.now(),
+    })),
   },
 }));
 
