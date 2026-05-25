@@ -301,7 +301,7 @@ class DeepLinkValidationService {
 
       // Validate host (only for https scheme, being:// scheme doesn't have a real host)
       if (scheme === 'https') {
-        // For being:// URLs converted to https://being.app/, skip host check
+        // For being:// URLs converted to https://being.fyi/, skip host check
         const originalUrl = url.toLowerCase();
         const isBeinglUrl = originalUrl.startsWith('being://');
 
@@ -476,9 +476,9 @@ class DeepLinkValidationService {
   // ==================== PRIVATE METHODS ====================
 
   private normalizeCustomScheme(url: string): string {
-    // Convert being:// to https://being.app/ for URL parsing
+    // Convert being:// to https://being.fyi/ for URL parsing
     if (url.startsWith('being://')) {
-      return url.replace('being://', 'https://being.app/');
+      return url.replace('being://', 'https://being.fyi/');
     }
     return url;
   }

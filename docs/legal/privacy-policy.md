@@ -102,6 +102,7 @@ You may optionally enable encrypted cloud backup to sync data across devices. Cl
 - Regular security audits and penetration testing
 - Limited employee access to encrypted data
 - Two-factor authentication for accounts
+- A documented Data Protection Impact Assessment covering our processing of sensitive wellness data is maintained as an internal compliance artifact in accordance with applicable state privacy laws
 
 ### 4.4 Breach Notification
 
