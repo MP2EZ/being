@@ -252,6 +252,9 @@ jest.mock('react-native', () => {
     TouchableOpacity: RN.TouchableOpacity,
     TouchableHighlight: RN.TouchableHighlight,
     TouchableWithoutFeedback: RN.TouchableWithoutFeedback,
+    // Touchable (with Mixin) — required by react-native-svg 15.x's SvgTouchableMixin
+    // until upstream drops the legacy mixin pattern.
+    Touchable: RN.Touchable,
     Pressable: RN.Pressable,
     Image: RN.Image,
     ImageBackground: RN.ImageBackground,
