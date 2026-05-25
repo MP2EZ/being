@@ -18,6 +18,8 @@
 
 import { performance } from 'perf_hooks';
 import { PERFORMANCE_MONITOR, SAFETY_VALIDATOR } from '../setup/test-automation-setup';
+import { ClinicalScoringService } from '@/features/assessment/stores/assessmentStore';
+import type { AssessmentAnswer } from '@/features/assessment/types';
 
 // Crisis detection test data - All 27 PHQ-9 + 21 GAD-7 combinations
 const CRISIS_TEST_SCENARIOS = [
@@ -72,41 +74,69 @@ const mockCrisisServices = {
   }
 };
 
-// Mock clinical calculation service
-const mockClinicalCalculationService = {
+// Bridge between the test's number[] scenario data and the production
+// `ClinicalScoringService` (which expects `AssessmentAnswer[]` with question
+// IDs). Previously this file used a `mockClinicalCalculationService` that
+// re-implemented scoring as `reduce + >= 15` — tautological, since the test
+// asserted the mock matched its own logic. Per TEST-03 in the test-coverage
+// audit, we exercise production scoring directly so a regression in
+// `ClinicalScoringService` actually fails this gate.
+function toPHQ9Answers(responses: number[]): AssessmentAnswer[] {
+  // Production scoring requires exactly 9 PHQ-9 answers
+  const padded = [...responses, ...Array(Math.max(0, 9 - responses.length)).fill(0)].slice(0, 9);
+  return padded.map((response, i) => ({
+    questionId: `phq9_${i + 1}`,
+    response: response as AssessmentAnswer['response'],
+    timestamp: Date.now(),
+  }));
+}
+
+function toGAD7Answers(responses: number[]): AssessmentAnswer[] {
+  const padded = [...responses, ...Array(Math.max(0, 7 - responses.length)).fill(0)].slice(0, 7);
+  return padded.map((response, i) => ({
+    questionId: `gad7_${i + 1}`,
+    response: response as AssessmentAnswer['response'],
+    timestamp: Date.now(),
+  }));
+}
+
+const clinicalCalculationService = {
   calculatePHQ9Score: (responses: number[]): number => {
-    return responses.reduce((sum, response) => sum + response, 0);
+    return ClinicalScoringService.calculatePHQ9Score(toPHQ9Answers(responses)).totalScore;
   },
-  
+
   calculateGAD7Score: (responses: number[]): number => {
-    return responses.reduce((sum, response) => sum + response, 0);
+    return ClinicalScoringService.calculateGAD7Score(toGAD7Answers(responses)).totalScore;
   },
-  
+
   detectCrisisLevel: (phq9Score: number, gad7Score: number): boolean => {
-    return phq9Score >= 15 || gad7Score >= 15;  // Updated 2025-01-27: PHQ-9≥15
+    // Mirror the production isCrisis semantics in assessmentStore: ≥15 = crisis
+    // (support recommended). Q9-driven crisis is exercised in the
+    // suicidal-ideation test path; this helper covers score-only crisis.
+    return phq9Score >= 15 || gad7Score >= 15;
   },
 
   generateRecommendations: (phq9Score: number, gad7Score: number) => {
-    const isCrisis = phq9Score >= 15 || gad7Score >= 15;  // Updated 2025-01-27: PHQ-9≥15
-    
+    const isCrisis = phq9Score >= 15 || gad7Score >= 15;
+
     if (isCrisis) {
       return {
         priority: 'CRISIS',
         immediateActions: [
           'Contact 988 Suicide & Crisis Lifeline immediately',
           'Reach out to emergency contacts',
-          'Consider going to nearest emergency room'
+          'Consider going to nearest emergency room',
         ],
-        resources: ['988 Hotline', 'Emergency Contacts', 'Crisis Text Line']
+        resources: ['988 Hotline', 'Emergency Contacts', 'Crisis Text Line'],
       };
     }
-    
+
     return {
       priority: 'STANDARD',
       recommendedActions: ['Continue monitoring', 'Practice coping strategies'],
-      resources: ['Self-help tools', 'Breathing exercises']
+      resources: ['Self-help tools', 'Breathing exercises'],
     };
-  }
+  },
 };
 
 describe('Crisis Safety Testing Automation', () => {
@@ -131,9 +161,9 @@ describe('Crisis Safety Testing Automation', () => {
           i < gad7 ? Math.min(3, Math.floor(gad7 / 7) + (gad7 % 7 > i ? 1 : 0)) : 0
         );
         
-        const calculatedPHQ9 = mockClinicalCalculationService.calculatePHQ9Score(phq9Responses);
-        const calculatedGAD7 = mockClinicalCalculationService.calculateGAD7Score(gad7Responses);
-        const detectedCrisis = mockClinicalCalculationService.detectCrisisLevel(calculatedPHQ9, calculatedGAD7);
+        const calculatedPHQ9 = clinicalCalculationService.calculatePHQ9Score(phq9Responses);
+        const calculatedGAD7 = clinicalCalculationService.calculateGAD7Score(gad7Responses);
+        const detectedCrisis = clinicalCalculationService.detectCrisisLevel(calculatedPHQ9, calculatedGAD7);
         
         const duration = timer.end();
         
@@ -157,7 +187,7 @@ describe('Crisis Safety Testing Automation', () => {
           expect(calculatedPHQ9 >= 15 || calculatedGAD7 >= 15).toBe(true);
 
           // Crisis recommendations must be generated
-          const recommendations = mockClinicalCalculationService.generateRecommendations(calculatedPHQ9, calculatedGAD7);
+          const recommendations = clinicalCalculationService.generateRecommendations(calculatedPHQ9, calculatedGAD7);
           expect(recommendations.priority).toBe('CRISIS');
           expect(recommendations.immediateActions).toContain('Contact 988 Suicide & Crisis Lifeline immediately');
         } else {
@@ -172,7 +202,7 @@ describe('Crisis Safety Testing Automation', () => {
       const results: boolean[] = [];
       
       for (let i = 0; i < 100; i++) {
-        const crisis = mockClinicalCalculationService.detectCrisisLevel(testScenario.phq9, testScenario.gad7);
+        const crisis = clinicalCalculationService.detectCrisisLevel(testScenario.phq9, testScenario.gad7);
         results.push(crisis);
       }
       
@@ -194,7 +224,7 @@ describe('Crisis Safety Testing Automation', () => {
       ];
       
       boundaryTests.forEach(({ phq9, gad7, expected, description }) => {
-        const result = mockClinicalCalculationService.detectCrisisLevel(phq9, gad7);
+        const result = clinicalCalculationService.detectCrisisLevel(phq9, gad7);
         expect(result).toBe(expected);
       });
     });
@@ -222,9 +252,9 @@ describe('Crisis Safety Testing Automation', () => {
       const phq9Responses = new Array(9).fill(3); // Maximum scores
       const gad7Responses = new Array(7).fill(3);
       
-      const phq9Score = mockClinicalCalculationService.calculatePHQ9Score(phq9Responses);
-      const gad7Score = mockClinicalCalculationService.calculateGAD7Score(gad7Responses);
-      const crisisDetected = mockClinicalCalculationService.detectCrisisLevel(phq9Score, gad7Score);
+      const phq9Score = clinicalCalculationService.calculatePHQ9Score(phq9Responses);
+      const gad7Score = clinicalCalculationService.calculateGAD7Score(gad7Responses);
+      const crisisDetected = clinicalCalculationService.detectCrisisLevel(phq9Score, gad7Score);
       
       const duration = timer.end();
       
@@ -250,7 +280,7 @@ describe('Crisis Safety Testing Automation', () => {
       const concurrentTests = Array.from({ length: 10 }, async (_, i) => {
         const timer = PERFORMANCE_MONITOR.startTimer(`concurrent-crisis-${i}`);
         
-        const crisisDetected = mockClinicalCalculationService.detectCrisisLevel(21, 16);
+        const crisisDetected = clinicalCalculationService.detectCrisisLevel(21, 16);
         const hotlineCall = await mockCrisisServices.hotline988.call();
         
         const duration = timer.end();
@@ -399,7 +429,7 @@ describe('Crisis Safety Testing Automation', () => {
             throw new Error('Invalid assessment data');
           }
           
-          mockClinicalCalculationService.detectCrisisLevel(phq9, gad7);
+          clinicalCalculationService.detectCrisisLevel(phq9, gad7);
         }).toThrow('Invalid assessment data');
       });
     });
@@ -432,7 +462,7 @@ describe('Crisis Safety Testing Automation', () => {
       
       const results = concurrentCrises.map(crisis => ({
         userId: crisis.userId,
-        detected: mockClinicalCalculationService.detectCrisisLevel(crisis.phq9, crisis.gad7),
+        detected: clinicalCalculationService.detectCrisisLevel(crisis.phq9, crisis.gad7),
         phq9: crisis.phq9,
         gad7: crisis.gad7
       }));
@@ -453,7 +483,7 @@ describe('Crisis Safety Testing Automation', () => {
       }));
       
       const crisisDetections = largeCrisisDataset.map(data => 
-        mockClinicalCalculationService.detectCrisisLevel(data.phq9, data.gad7)
+        clinicalCalculationService.detectCrisisLevel(data.phq9, data.gad7)
       );
       
       // All should be detected as crisis (scores are all above threshold)
@@ -551,7 +581,7 @@ describe('Crisis Safety Testing Automation', () => {
 
     test('crisis detection accuracy metrics', () => {
       const testResults = CRISIS_TEST_SCENARIOS.map(scenario => {
-        const detected = mockClinicalCalculationService.detectCrisisLevel(scenario.phq9, scenario.gad7);
+        const detected = clinicalCalculationService.detectCrisisLevel(scenario.phq9, scenario.gad7);
         return {
           expected: scenario.expectedCrisis,
           actual: detected,
@@ -584,8 +614,8 @@ describe('Crisis Safety Testing Automation', () => {
     const validationResults = criticalScenarios.map(scenario => {
       const timer = PERFORMANCE_MONITOR.startTimer(`comprehensive-${scenario.description}`);
       
-      const crisisDetected = mockClinicalCalculationService.detectCrisisLevel(scenario.phq9, scenario.gad7);
-      const recommendations = mockClinicalCalculationService.generateRecommendations(scenario.phq9, scenario.gad7);
+      const crisisDetected = clinicalCalculationService.detectCrisisLevel(scenario.phq9, scenario.gad7);
+      const recommendations = clinicalCalculationService.generateRecommendations(scenario.phq9, scenario.gad7);
       
       const duration = timer.end();
       

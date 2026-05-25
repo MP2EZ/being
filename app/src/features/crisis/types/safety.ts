@@ -16,6 +16,12 @@ import { generateTimestampedId } from '@/core/utils/id';
 /**
  * Crisis Detection Thresholds - IMMUTABLE CLINICAL CONSTANTS
  * These values MUST NOT be modified as they represent clinical standards
+ *
+ * ⚠️ DIVERGENCE WARNING — `PHQ9_CRISIS_SCORE` here is 20 (active-intervention
+ * floor); `CRISIS_THRESHOLDS.PHQ9_CRISIS_SCORE` in
+ * `@/features/assessment/types` is 15 (support floor). Both are correct for
+ * their respective semantics. The dual-threshold contract is pinned by
+ * `src/features/crisis/types/__tests__/crisis-thresholds.test.ts`.
  */
 export const CRISIS_SAFETY_THRESHOLDS = {
   /** PHQ-9 Moderately Severe Depression Score - Support Recommended */
@@ -24,7 +30,7 @@ export const CRISIS_SAFETY_THRESHOLDS = {
   PHQ9_SEVERE_THRESHOLD: 20,
   /** GAD-7 Severe Anxiety Score - Immediate Intervention */
   GAD7_SEVERE_THRESHOLD: 15,
-  /** PHQ-9 Crisis Score (alias for severe threshold) - Backward Compatibility */
+  /** PHQ-9 Crisis Score (alias for severe threshold = 20) - see DIVERGENCE WARNING above */
   PHQ9_CRISIS_SCORE: 20,
   /** GAD-7 Crisis Score (alias for severe threshold) - Backward Compatibility */
   GAD7_CRISIS_SCORE: 15,

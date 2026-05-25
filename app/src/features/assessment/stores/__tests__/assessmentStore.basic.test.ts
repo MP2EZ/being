@@ -100,7 +100,7 @@ describe('Assessment Store - Basic Session Creation', () => {
 
     const updatedStore = useAssessmentStore.getState();
     expect(updatedStore.crisisDetection).toBeTruthy();
-    expect(updatedStore.crisisDetection?.triggerType).toBe('phq9_suicidal');
+    expect(updatedStore.crisisDetection?.primaryTrigger).toBe('phq9_suicidal_ideation');
     expect(updatedStore.crisisIntervention).toBeTruthy();
 
     console.log('🚨 CRISIS DETECTION VERIFIED: Suicidal ideation pathway active');

@@ -180,8 +180,12 @@ class EncryptedAssessmentStorage {
 
 /**
  * Wellness-screening scoring service with 100% accuracy validation
+ *
+ * Exported so safety/automation tests can exercise production scoring rather
+ * than re-implementing it in mocks (per TEST-03 in the test-coverage audit —
+ * mock-shaped tests are tautological).
  */
-class ClinicalScoringService {
+export class ClinicalScoringService {
   static calculatePHQ9Score(answers: AssessmentAnswer[]): PHQ9Result {
     const phqAnswers = answers.filter(a => a.questionId.startsWith('phq9_'));
     
