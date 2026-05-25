@@ -48,6 +48,26 @@ jest.mock('@/core/constants/devMode', () => ({
   getCurrentUserId: () => 'test-user-id',
 }));
 
+// INFRA-144: consent_history now flows through SecureStorageService.storeWellnessBlob
+// (AES-256-GCM ciphertext in AsyncStorage). Mock with a passthrough that stores
+// the plaintext under the same WELLNESS_ASYNC_PREFIX key shape so existing
+// state-based assertions (consentHistory.length, action values) still hold
+// without exercising real crypto.
+const mockWellnessBlobs: Record<string, unknown> = {};
+jest.mock('@/core/services/security/SecureStorageService', () => ({
+  __esModule: true,
+  default: {
+    storeWellnessBlob: jest.fn(async (key: string, data: unknown) => {
+      mockWellnessBlobs[key] = data;
+      return { success: true, operationType: 'store', storageKey: `wellness_async_${key}`, operationTimeMs: 0, dataSize: 0 };
+    }),
+    retrieveWellnessBlob: jest.fn(async (key: string) => mockWellnessBlobs[key] ?? null),
+    deleteWellnessBlob: jest.fn(async (key: string) => {
+      delete mockWellnessBlobs[key];
+    }),
+  },
+}));
+
 import {
   useConsentStore,
   canPerformCrisisIntervention,
@@ -89,6 +109,7 @@ describe('consentStore', () => {
     // Wipe both stores between tests
     for (const k of Object.keys(mockSecureStore)) delete mockSecureStore[k];
     for (const k of Object.keys(mockAsyncStorage)) delete mockAsyncStorage[k];
+    for (const k of Object.keys(mockWellnessBlobs)) delete mockWellnessBlobs[k];
 
     // Reset zustand store to its default in-memory shape
     await state().resetConsent();

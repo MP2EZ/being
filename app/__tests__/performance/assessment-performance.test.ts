@@ -39,15 +39,27 @@ jest.mock('expo-secure-store', () => ({
 }));
 
 jest.mock('@react-native-async-storage/async-storage', () => ({
-  setItem: jest.fn().mockImplementation(() => 
+  setItem: jest.fn().mockImplementation(() =>
     new Promise(resolve => setTimeout(resolve, Math.random() * 15)) // 0-15ms
   ),
-  getItem: jest.fn().mockImplementation(() => 
+  getItem: jest.fn().mockImplementation(() =>
     new Promise(resolve => setTimeout(resolve, Math.random() * 10)) // 0-10ms
   ),
-  removeItem: jest.fn().mockImplementation(() => 
+  removeItem: jest.fn().mockImplementation(() =>
     new Promise(resolve => setTimeout(resolve, Math.random() * 5)) // 0-5ms
   ),
+}));
+
+// INFRA-144: assessmentStore now persists via SecureStorageService.
+// Passthrough so the perf test doesn't drag in real EncryptionService
+// (which retries getRandomBytesAsync in jsdom and balloons memory).
+jest.mock('@/core/services/security/SecureStorageService', () => ({
+  __esModule: true,
+  default: {
+    storeWellnessBlob: jest.fn().mockResolvedValue({ success: true, operationType: 'store', storageKey: '', operationTimeMs: 0, dataSize: 0 }),
+    retrieveWellnessBlob: jest.fn().mockResolvedValue(null),
+    deleteWellnessBlob: jest.fn().mockResolvedValue(undefined),
+  },
 }));
 
 jest.mock('react-native', () => ({

@@ -152,9 +152,21 @@ export class EncryptionService {
   private performanceMetrics: EncryptionPerformanceMetrics[] = [];
   private masterKeyInitialized: boolean = false;
   private keyRotationTimer: NodeJS.Timeout | null = null;
+  /**
+   * In-flight initialize promise. Concurrent callers (e.g. several Zustand
+   * persist rehydration paths racing during boot, each via
+   * SecureStorageService.storeWellnessBlob's lazy init) share this so we run
+   * the key-derivation + capability-verify dance exactly once per cold start.
+   */
+  private initPromise: Promise<void> | null = null;
 
   private constructor() {
-    this.initializeKeyRotationScheduler();
+    // Match SecureStorageService.ts:159 — skip the long-lived setInterval
+    // under Jest so the runtime can exit cleanly. The scheduler is only
+    // meaningful in the running app (cold-boot → 24h rotation cadence).
+    if (process.env.NODE_ENV !== 'test') {
+      this.initializeKeyRotationScheduler();
+    }
   }
 
   public static getInstance(): EncryptionService {
@@ -169,6 +181,23 @@ export class EncryptionService {
    * Sets up master key and encryption infrastructure
    */
   public async initialize(userPassphrase?: string): Promise<void> {
+    // Already done — short-circuit. Without this, lazy-init callers from
+    // SecureStorageService would re-run the full ~150ms verifyEncryption
+    // round-trip on every wellness read/write.
+    if (this.masterKeyInitialized) {
+      return;
+    }
+    // In-flight — share the promise so concurrent callers don't fan out.
+    if (this.initPromise) {
+      return this.initPromise;
+    }
+    this.initPromise = this.doInitialize(userPassphrase).finally(() => {
+      this.initPromise = null;
+    });
+    return this.initPromise;
+  }
+
+  private async doInitialize(userPassphrase?: string): Promise<void> {
     const startTime = performance.now();
 
     try {
@@ -379,7 +408,7 @@ export class EncryptionService {
       // Validate decryption performance for crisis scenarios
       if (encryptedPackage.metadata.sensitivityLevel === 'level_1_crisis_responses') {
         if (decryptionTime > ENCRYPTION_CONFIG.PERFORMANCE_THRESHOLD_MS) {
-          logSecurity('⚠️  Crisis data decryption slow: ${decryptionTime.toFixed(2)}ms', 'medium', { component: 'SecurityService' });
+          logSecurity(`⚠️  Crisis data decryption slow: ${decryptionTime.toFixed(2)}ms`, 'medium', { component: 'SecurityService' });
         }
       }
 
@@ -976,7 +1005,7 @@ export class EncryptionService {
     const threshold = performanceThresholds[sensitivityLevel];
     
     if (operationTimeMs > threshold) {
-      logSecurity('⚠️  Encryption performance warning: ${operationTimeMs.toFixed(2)}ms > ${threshold}ms for ${sensitivityLevel}', 'medium', { component: 'SecurityService' });
+      logSecurity(`⚠️  Encryption performance warning: ${operationTimeMs.toFixed(2)}ms > ${threshold}ms for ${sensitivityLevel}`, 'medium', { component: 'SecurityService' });
       
       // Critical for crisis data
       if (sensitivityLevel === 'level_1_crisis_responses' && operationTimeMs > ENCRYPTION_CONFIG.PERFORMANCE_THRESHOLD_MS) {
@@ -1000,7 +1029,7 @@ export class EncryptionService {
       }
 
       if (metrics.operationTimeMs > ENCRYPTION_CONFIG.PERFORMANCE_THRESHOLD_MS) {
-        logSecurity('⚠️  ENCRYPTION PERFORMANCE WARNING: ${metrics.operationTimeMs.toFixed(2)}ms', 'medium', { component: 'SecurityService' });
+        logSecurity(`⚠️  ENCRYPTION PERFORMANCE WARNING: ${metrics.operationTimeMs.toFixed(2)}ms`, 'medium', { component: 'SecurityService' });
       }
 
     } catch (error) {

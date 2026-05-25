@@ -125,10 +125,15 @@ jest.mock('react-native', () => ({
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { EncryptionService } = require('../EncryptionService');
 
-beforeEach(() => {
+beforeEach(async () => {
   mockCipherRegistry.clear();
   mockSecureStoreMap.clear();
   mockRandomCounter = 0;
+  // INFRA-144 followup: initialize() is now idempotent (singleton trusts its
+  // masterKeyInitialized flag). Wiping mockSecureStoreMap clears the stored
+  // master key but not the in-memory flag, so the singleton must be reset
+  // explicitly between tests.
+  await EncryptionService.getInstance().destroy();
 });
 
 describe('EncryptionService — round-trip integrity (audit TEST-02)', () => {

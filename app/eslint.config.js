@@ -34,6 +34,10 @@ module.exports = [
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
       '@typescript-eslint/explicit-function-return-type': 'warn',
       '@typescript-eslint/no-explicit-any': 'warn',
+      // MAINT-164: catches single-quoted strings containing ${...} template
+      // syntax — they don't interpolate, so the literal text ships to logs.
+      // 16 instances landed silently in security services before this rule.
+      'no-template-curly-in-string': 'error',
       // Remove unsafe rules that don't exist in current version
       // '@typescript-eslint/no-unsafe-any': 'warn',
       // '@typescript-eslint/no-unsafe-assignment': 'warn',

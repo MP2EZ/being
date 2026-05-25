@@ -396,7 +396,7 @@ export class IncidentResponseService {
 
       // Validate detection and response time
       if (detectionTime > INCIDENT_RESPONSE_CONFIG.DETECTION_THRESHOLD_MS) {
-        logSecurity('⚠️  Incident detection slow: ${detectionTime.toFixed(2)}ms > ${INCIDENT_RESPONSE_CONFIG.DETECTION_THRESHOLD_MS}ms', 'medium', { component: 'SecurityService' });
+        logSecurity(`⚠️  Incident detection slow: ${detectionTime.toFixed(2)}ms > ${INCIDENT_RESPONSE_CONFIG.DETECTION_THRESHOLD_MS}ms`, 'medium', { component: 'SecurityService' });
       }
 
       // Log incident detection
@@ -595,7 +595,7 @@ export class IncidentResponseService {
 
       // Validate containment performance
       if (containmentTime > INCIDENT_RESPONSE_CONFIG.CONTAINMENT_THRESHOLD_MS) {
-        logSecurity('⚠️  Containment slow: ${containmentTime.toFixed(2)}ms > ${INCIDENT_RESPONSE_CONFIG.CONTAINMENT_THRESHOLD_MS}ms', 'medium', { component: 'SecurityService' });
+        logSecurity(`⚠️  Containment slow: ${containmentTime.toFixed(2)}ms > ${INCIDENT_RESPONSE_CONFIG.CONTAINMENT_THRESHOLD_MS}ms`, 'medium', { component: 'SecurityService' });
       }
 
       // Log containment completion
@@ -1230,7 +1230,7 @@ export class IncidentResponseService {
       notification.deliveryStatus = 'delivered';
 
     } catch (error) {
-      logError(LogCategory.SECURITY, '🚨 NOTIFICATION DELIVERY ERROR (${group}):', error instanceof Error ? error : new Error(String(error)));
+      logError(LogCategory.SECURITY, `🚨 NOTIFICATION DELIVERY ERROR (${group}):`, error instanceof Error ? error : new Error(String(error)));
       notification.deliveryStatus = 'failed';
     }
 

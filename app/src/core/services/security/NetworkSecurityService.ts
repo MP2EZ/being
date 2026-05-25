@@ -942,7 +942,7 @@ export class NetworkSecurityService {
         mitigationAction: 'performance_monitoring_alert'
       });
 
-      logSecurity('⚠️  Performance violation: ${category} took ${responseTime.toFixed(2)}ms > ${threshold}ms', 'medium', { component: 'SecurityService' });
+      logSecurity(`⚠️  Performance violation: ${category} took ${responseTime.toFixed(2)}ms > ${threshold}ms`, 'medium', { component: 'SecurityService' });
     }
   }
 
@@ -1244,7 +1244,7 @@ export class NetworkSecurityService {
       );
 
       if (recentViolations.length > 10) {
-        logSecurity('⚠️  High security violation rate: ${recentViolations.length} in last 5 minutes', 'medium', { component: 'SecurityService' });
+        logSecurity(`⚠️  High security violation rate: ${recentViolations.length} in last 5 minutes`, 'medium', { component: 'SecurityService' });
       }
 
       // Check active requests for timeouts
