@@ -36,6 +36,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Picker } from '@react-native-picker/picker';
 import { useConsentStore, recordLegalGateConsents } from '@/core/stores/consentStore';
+import { logSecurity } from '@/core/services/logging';
 import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
 
 interface CombinedLegalGateScreenProps {
@@ -136,6 +137,20 @@ const CombinedLegalGateScreen: React.FC<CombinedLegalGateScreenProps> = ({
     Linking.openURL('sms:741741?body=HELLO');
   };
 
+  const handleReEnterAge = useCallback(() => {
+    // Audit trail: re-entry from the under-age screen. Compliance per DEBUG-150
+    // — captures "gate was invoked and re-entered, not bypassed invisibly."
+    logSecurity('age_re_entry', 'low', {
+      component: 'CombinedLegalGateScreen',
+      action: 'under_age_back',
+      result: 'success',
+    });
+    setShowUnderAge(false);
+    setSelectedYear(null);
+    setError(null);
+    AccessibilityInfo.announceForAccessibility('Returned to birth year selection.');
+  }, []);
+
   // Under-age screen with crisis resources
   if (showUnderAge) {
     return (
@@ -197,6 +212,16 @@ const CombinedLegalGateScreen: React.FC<CombinedLegalGateScreenProps> = ({
               <Text style={styles.linkText}>Teen Mental Health</Text>
             </Pressable>
           </View>
+
+          <Pressable
+            style={styles.reEnterAgeButton}
+            onPress={handleReEnterAge}
+            accessibilityRole="button"
+            accessibilityLabel="Re-enter birth year"
+            accessibilityHint="Returns to the birth year selection screen"
+          >
+            <Text style={styles.reEnterAgeButtonText}>Re-enter birth year</Text>
+          </Pressable>
         </ScrollView>
       </SafeAreaView>
     );
@@ -661,6 +686,18 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.black,
     marginBottom: spacing[16],
+  },
+  reEnterAgeButton: {
+    marginTop: spacing[24],
+    paddingVertical: spacing[16],
+    alignItems: 'center',
+    minHeight: 44,
+  },
+  reEnterAgeButtonText: {
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.medium,
+    color: colorSystem.gray[600],
+    textDecorationLine: 'underline',
   },
 });
 
