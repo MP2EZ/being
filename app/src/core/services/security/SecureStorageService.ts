@@ -305,7 +305,7 @@ export class SecureStorageService {
 
       // Validate crisis performance requirement
       if (operationTime > SECURE_STORAGE_CONFIG.CRISIS_ACCESS_THRESHOLD_MS) {
-        logSecurity('⚠️  Crisis storage slow: ${operationTime.toFixed(2)}ms > ${SECURE_STORAGE_CONFIG.CRISIS_ACCESS_THRESHOLD_MS}ms', 'medium', { component: 'SecurityService' });
+        logSecurity(`⚠️  Crisis storage slow: ${operationTime.toFixed(2)}ms > ${SECURE_STORAGE_CONFIG.CRISIS_ACCESS_THRESHOLD_MS}ms`, 'medium', { component: 'SecurityService' });
       }
 
       // Log access
@@ -425,7 +425,7 @@ export class SecureStorageService {
 
       // Validate assessment performance requirement
       if (operationTime > SECURE_STORAGE_CONFIG.ASSESSMENT_ACCESS_THRESHOLD_MS) {
-        logSecurity('⚠️  Assessment storage slow: ${operationTime.toFixed(2)}ms > ${SECURE_STORAGE_CONFIG.ASSESSMENT_ACCESS_THRESHOLD_MS}ms', 'medium', { component: 'SecurityService' });
+        logSecurity(`⚠️  Assessment storage slow: ${operationTime.toFixed(2)}ms > ${SECURE_STORAGE_CONFIG.ASSESSMENT_ACCESS_THRESHOLD_MS}ms`, 'medium', { component: 'SecurityService' });
       }
 
       // Log access
@@ -780,7 +780,7 @@ export class SecureStorageService {
 
       // Validate bulk operation performance
       if (totalOperationTime > SECURE_STORAGE_CONFIG.BULK_OPERATION_THRESHOLD_MS) {
-        logSecurity('⚠️  Bulk operation slow: ${totalOperationTime.toFixed(2)}ms > ${SECURE_STORAGE_CONFIG.BULK_OPERATION_THRESHOLD_MS}ms', 'medium', { component: 'SecurityService' });
+        logSecurity(`⚠️  Bulk operation slow: ${totalOperationTime.toFixed(2)}ms > ${SECURE_STORAGE_CONFIG.BULK_OPERATION_THRESHOLD_MS}ms`, 'medium', { component: 'SecurityService' });
       }
 
       // Log bulk operation

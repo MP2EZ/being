@@ -337,7 +337,7 @@ export class AuthenticationService {
 
       // Validate authentication performance
       if (authenticationTime > AUTH_CONFIG.STANDARD_AUTH_THRESHOLD_MS) {
-        logSecurity('⚠️  Authentication slow: ${authenticationTime.toFixed(2)}ms > ${AUTH_CONFIG.STANDARD_AUTH_THRESHOLD_MS}ms', 'medium', { component: 'SecurityService' });
+        logSecurity(`⚠️  Authentication slow: ${authenticationTime.toFixed(2)}ms > ${AUTH_CONFIG.STANDARD_AUTH_THRESHOLD_MS}ms`, 'medium', { component: 'SecurityService' });
       }
 
       // Log authentication attempt
@@ -609,7 +609,7 @@ export class AuthenticationService {
 
       // Validate session check performance
       if (validationTime > AUTH_CONFIG.SESSION_CHECK_THRESHOLD_MS) {
-        logSecurity('⚠️  Session validation slow: ${validationTime.toFixed(2)}ms > ${AUTH_CONFIG.SESSION_CHECK_THRESHOLD_MS}ms', 'medium', { component: 'SecurityService' });
+        logSecurity(`⚠️  Session validation slow: ${validationTime.toFixed(2)}ms > ${AUTH_CONFIG.SESSION_CHECK_THRESHOLD_MS}ms`, 'medium', { component: 'SecurityService' });
       }
 
       // Log session check (only for significant events)
