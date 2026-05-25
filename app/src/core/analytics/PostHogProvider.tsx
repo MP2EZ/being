@@ -34,10 +34,19 @@ export function PostHogProvider({ children }: PostHogProviderProps): React.React
   const analyticsEnabled = useConsentStore(
     (state) => state.currentConsent?.preferences?.analyticsEnabled ?? false
   );
+  // INFRA-151: GPC-equivalent universal opt-out overrides granular analytics consent.
+  const universalOptOut = useConsentStore(
+    (state) => state.currentConsent?.universalOptOut ?? false
+  );
 
-  // Don't render PostHog if no API key configured or no consent
-  if (!POSTHOG_API_KEY || POSTHOG_API_KEY === 'phc_your_api_key_here' || !analyticsEnabled) {
-    // Development mode or no consent - just render children without PostHog
+  // Don't render PostHog if no API key configured, no consent, or universal opt-out is active
+  if (
+    !POSTHOG_API_KEY ||
+    POSTHOG_API_KEY === 'phc_your_api_key_here' ||
+    !analyticsEnabled ||
+    universalOptOut
+  ) {
+    // Development mode, no consent, or honoring universal opt-out — render children without PostHog
     return <>{children}</>;
   }
 

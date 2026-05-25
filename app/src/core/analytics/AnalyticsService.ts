@@ -673,7 +673,10 @@ class AnalyticsService {
           throw new Error('Crisis intervention blocked unexpectedly');
         }
       } else {
-        // All non-crisis events require explicit consent
+        // All non-crisis events require explicit consent.
+        // INFRA-151: canPerformOperation also short-circuits to false when the
+        // user has enabled universal opt-out (GPC-equivalent) — that override
+        // cascades through this gate without a separate check here.
         const consentStore = useConsentStore.getState();
         if (!consentStore.canPerformOperation('analytics')) {
           // Fail silently - do not track without consent (privacy-first)

@@ -23,6 +23,7 @@ const privacyPolicyContent: string = require('../../../../../docs/legal/privacy-
 const termsOfServiceContent: string = require('../../../../../docs/legal/terms-of-service.md').default;
 const medicalDisclaimerContent: string = require('../../../../../docs/legal/medical-disclaimer.md').default;
 const californiaPrivacyContent: string = require('../../../../../docs/legal/california-privacy.md').default;
+const multiStatePrivacyContent: string = require('../../../../../docs/legal/multi-state-privacy.md').default;
 const supportContent: string = require('../../../../../docs/legal/support.md').default;
 /* eslint-enable @typescript-eslint/no-require-imports */
 
@@ -31,6 +32,7 @@ export type LegalDocumentType =
   | 'terms-of-service'
   | 'medical-disclaimer'
   | 'california-privacy'
+  | 'multi-state-privacy'
   | 'support';
 
 export interface LegalDocument {
@@ -69,6 +71,13 @@ export const legalDocuments: Record<LegalDocumentType, LegalDocument> = {
     shortTitle: 'California',
     description: 'Additional rights for California residents',
     content: californiaPrivacyContent,
+  },
+  'multi-state-privacy': {
+    id: 'multi-state-privacy',
+    title: 'Multi-State Privacy Rights',
+    shortTitle: 'Multi-State',
+    description: 'Rights for TX, CO, CT, VA residents (and CA summary)',
+    content: multiStatePrivacyContent,
   },
   'support': {
     id: 'support',

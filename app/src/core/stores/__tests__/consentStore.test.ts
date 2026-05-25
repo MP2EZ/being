@@ -391,6 +391,129 @@ describe('consentStore', () => {
     });
   });
 
+  describe('universalOptOut (INFRA-151) — GPC-equivalent universal opt-out', () => {
+    test('defaults to false after grantConsent', async () => {
+      await state().grantConsent(ALL_OPT_IN, ELIGIBLE_AGE);
+      expect(state().currentConsent?.universalOptOut).toBe(false);
+      expect(state().consentCache.honorUniversalOptOut).toBe(false);
+    });
+
+    test('setUniversalOptOut(true) persists to SecureStore and refreshes cache', async () => {
+      await state().grantConsent(ALL_OPT_IN, ELIGIBLE_AGE);
+      await state().setUniversalOptOut(true);
+
+      expect(state().currentConsent?.universalOptOut).toBe(true);
+      expect(state().consentCache.honorUniversalOptOut).toBe(true);
+
+      // Persisted to SecureStore (read directly, simulating a cold start)
+      const stored = JSON.parse(mockSecureStore['consent_record_v1']);
+      expect(stored.universalOptOut).toBe(true);
+
+      // AsyncStorage cache also reflects it
+      const cached = JSON.parse(mockAsyncStorage['consent_cache_v1']);
+      expect(cached.honorUniversalOptOut).toBe(true);
+    });
+
+    test('when universalOptOut is true, analytics/crash/sync/research all return false', async () => {
+      await state().grantConsent(ALL_OPT_IN, ELIGIBLE_AGE);
+      // Confirm baseline: ALL_OPT_IN means every category allowed
+      expect(state().canPerformOperation('analytics')).toBe(true);
+      expect(state().canPerformOperation('crash_reports')).toBe(true);
+      expect(state().canPerformOperation('cloud_sync')).toBe(true);
+      expect(state().canPerformOperation('research')).toBe(true);
+
+      // Flip universalOptOut on — every non-essential category must short-circuit
+      await state().setUniversalOptOut(true);
+      expect(state().canPerformOperation('analytics')).toBe(false);
+      expect(state().canPerformOperation('crash_reports')).toBe(false);
+      expect(state().canPerformOperation('cloud_sync')).toBe(false);
+      expect(state().canPerformOperation('research')).toBe(false);
+    });
+
+    test('mental_health_processing is NOT short-circuited by universalOptOut (GDPR Art. 9(2)(a) governs it separately)', async () => {
+      await state().grantConsent(ALL_OPT_IN, ELIGIBLE_AGE);
+      await state().setUniversalOptOut(true);
+      // Art. 9 consent is the user's primary purpose for using Being; universal
+      // opt-out targets analytics/tracking, not the wellness data they actively
+      // consented to during onboarding.
+      expect(state().canPerformOperation('mental_health_processing')).toBe(true);
+    });
+
+    test('setUniversalOptOut(false) restores granular preference values to the cache', async () => {
+      await state().grantConsent(ALL_OPT_IN, ELIGIBLE_AGE);
+      await state().setUniversalOptOut(true);
+      expect(state().canPerformOperation('analytics')).toBe(false);
+
+      await state().setUniversalOptOut(false);
+      expect(state().canPerformOperation('analytics')).toBe(true);
+      expect(state().canPerformOperation('research')).toBe(true);
+    });
+
+    test('appends an "updated" ConsentHistoryEntry for audit trail (GDPR Art. 7)', async () => {
+      await state().grantConsent(ALL_OPT_OUT, ELIGIBLE_AGE);
+      const historyBefore = state().consentHistory.length;
+      await state().setUniversalOptOut(true);
+      const historyAfter = state().consentHistory.length;
+      expect(historyAfter).toBe(historyBefore + 1);
+      expect(state().consentHistory[historyAfter - 1].action).toBe('updated');
+    });
+
+    test('round-trip persistence: universalOptOut survives a reload', async () => {
+      await state().grantConsent(ALL_OPT_IN, ELIGIBLE_AGE);
+      await state().setUniversalOptOut(true);
+
+      // Drop in-memory state to force a SecureStore read
+      useConsentStore.setState({
+        currentConsent: null,
+        consentHistory: [],
+        consentStatus: 'loading',
+      });
+      await state().loadConsent();
+
+      expect(state().currentConsent?.universalOptOut).toBe(true);
+      expect(state().consentCache.honorUniversalOptOut).toBe(true);
+      expect(state().canPerformOperation('analytics')).toBe(false);
+    });
+
+    test('legacy record missing universalOptOut field migrates to false (no re-grant required)', async () => {
+      // Simulate a pre-INFRA-151 record (no universalOptOut field). The record
+      // still uses the current CONSENT_VERSION so it should load valid — only
+      // the additive field is missing.
+      mockSecureStore['consent_record_v1'] = JSON.stringify({
+        consentId: 'legacy-c1',
+        userId: 'test-user-id',
+        version: '1.1.0',
+        revoked: false,
+        preferences: ALL_OPT_IN,
+        ageVerification: ELIGIBLE_AGE,
+        timestamp: Date.now(),
+        updatedAt: Date.now(),
+        // universalOptOut intentionally absent
+      });
+
+      await state().loadConsent();
+      expect(state().consentStatus).toBe('valid');
+      expect(state().currentConsent?.universalOptOut).toBe(false);
+      expect(state().consentCache.honorUniversalOptOut).toBe(false);
+      // And the user's existing preferences are honored
+      expect(state().canPerformOperation('analytics')).toBe(true);
+    });
+
+    test('updateConsent while opt-out is on does NOT allow analytics to slip through the cache', async () => {
+      // Regression guard: if a user has universalOptOut on and toggles a
+      // granular preference, the cache must still reflect the override.
+      await state().grantConsent(ALL_OPT_OUT, ELIGIBLE_AGE);
+      await state().setUniversalOptOut(true);
+      await state().updateConsent({ analyticsEnabled: true });
+
+      expect(state().consentCache.canCollectAnalytics).toBe(false);
+      expect(state().canPerformOperation('analytics')).toBe(false);
+      // The underlying preference is still recorded (so toggling opt-out off
+      // restores the user's intent)
+      expect(state().currentConsent?.preferences.analyticsEnabled).toBe(true);
+    });
+  });
+
   describe('legal-gate consents (CombinedLegalGateScreen → OnboardingScreen hand-off)', () => {
     test('record + retrieve round-trip preserves all four flags + version + timestamp', async () => {
       const before = Date.now();
