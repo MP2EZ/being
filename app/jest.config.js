@@ -71,10 +71,13 @@ module.exports = {
     // beyond the "fix broken imports" scope of the W1 paydown PR. Re-enable
     // by fixing each underlying issue:
     //
-    //  - subscription.integration.test.ts: RE-ENABLED in INFRA-143 PR 2.
-    //    SecureStorageService's cleanup-scheduler setInterval now has a
-    //    NODE_ENV=test guard, so the runtime exits cleanly. Test passes
-    //    8/8.
+    //  - subscription.integration.test.ts: tried to re-enable in INFRA-143
+    //    PR 2 — passes locally (8/8) but fails on CI with "Cannot log
+    //    after tests are done" async-leak errors. SecureStorageService's
+    //    setInterval is now guarded so the test loads cleanly, but the
+    //    test itself has un-awaited async work (IAP connection / receipt
+    //    verification mocks). Needs a proper async-cleanup pass before
+    //    re-enabling. Kept quarantined for now.
     //  - sync-coordinator-integration.test.ts: the singleton chain
     //    (EncryptionService → SecureStorageService) is now guarded, but
     //    the test ALSO needs `jest.mock('@/features/assessment/stores/
@@ -109,7 +112,7 @@ module.exports = {
     //    exist. Needs proper rewrite to match current SyncCoordinator
     //    + AnalyticsService + AuthenticationService APIs, not
     //    incremental patching.
-    // 'subscription\\.integration\\.test\\.ts$', // RE-ENABLED — INFRA-143 PR 2 (8/8 passes)
+    'subscription\\.integration\\.test\\.ts$', // tried in INFRA-143 PR 2 — CI-flaky (async leak), re-quarantined
     'sync-coordinator-integration\\.test\\.ts$',
     'analytics-service-integration\\.test\\.ts$',
     'practices-flows-integration\\.test\\.tsx$',
