@@ -73,6 +73,15 @@ jest.mock('@/core/services/security/SecureStorageService', () => ({
     initialize: jest.fn().mockResolvedValue(undefined),
     storeSecureData: jest.fn().mockResolvedValue(undefined),
     retrieveSecureData: jest.fn().mockResolvedValue(null),
+    // Production methods used by CrisisSecurityProtocol for audit trails +
+    // access-control + monitoring-state persistence. Previously omitted —
+    // protectCrisisData() at any level beyond emergency would throw
+    // "storeGeneralData is not a function" or "storeCrisisData is not a
+    // function" mid-call, masking the encryption-layer-count assertions
+    // (TEST-05). Added in INFRA-143 PR 3.
+    storeCrisisData: jest.fn().mockResolvedValue(undefined),
+    storeGeneralData: jest.fn().mockResolvedValue(undefined),
+    storeWellnessData: jest.fn().mockResolvedValue(undefined),
   },
 }));
 
@@ -178,6 +187,113 @@ describe('CrisisSecurityProtocol', () => {
 
     test('isMonitoringActive returns a boolean', () => {
       expect(typeof protocol.isMonitoringActive()).toBe('boolean');
+    });
+  });
+
+  describe('protectCrisisData — encryption-layer-count contract (TEST-05)', () => {
+    // The CrisisSecurityProtocol.protectCrisisData switch (lines 458-494)
+    // applies a different number of encryption layers per protection level.
+    // The "triple_encryption for suicidal_ideation" contract documented in
+    // the source header (line 13) is enforced by THIS switch — if it ever
+    // degrades silently (e.g. a case label deleted), the audit-trail still
+    // reports success but the data isn't actually multi-encrypted.
+    //
+    // These tests count mock invocations on encryptCrisisData + encryptData
+    // to lock the contract. They are intentionally count-based, not
+    // ciphertext-distinct-based — the "exact 3 distinct ciphertexts" check
+    // is still deferred (see file header line 9-12) because it requires
+    // deeper EncryptionService mock fidelity.
+
+    let encryptionMock: any;
+
+    beforeAll(async () => {
+      await protocol.initialize();
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      encryptionMock = require('@/core/services/security/EncryptionService').default;
+    });
+
+    beforeEach(() => {
+      encryptionMock.encryptCrisisData.mockClear();
+      encryptionMock.encryptData.mockClear();
+    });
+
+    test('emergency_override applies exactly 1 encryption layer (basic crisis)', async () => {
+      const result = await protocol.protectCrisisData(
+        { phq9: 27 },
+        'episode-emergency',
+        'emergency_override',
+      );
+      expect(result.protected).toBe(true);
+      expect(encryptionMock.encryptCrisisData).toHaveBeenCalledTimes(1);
+      expect(encryptionMock.encryptData).toHaveBeenCalledTimes(0);
+    });
+
+    test('crisis_detection applies exactly 1 encryption layer (standard)', async () => {
+      const result = await protocol.protectCrisisData(
+        { gad7: 21 },
+        'episode-detection',
+        'crisis_detection',
+      );
+      expect(result.protected).toBe(true);
+      expect(encryptionMock.encryptCrisisData).toHaveBeenCalledTimes(1);
+      expect(encryptionMock.encryptData).toHaveBeenCalledTimes(0);
+    });
+
+    test('crisis_intervention applies at least 2 encryption layers (standard + enhanced)', async () => {
+      const result = await protocol.protectCrisisData(
+        { phq9: 22, suicidal: true },
+        'episode-intervention',
+        'crisis_intervention',
+      );
+      expect(result.protected).toBe(true);
+      expect(encryptionMock.encryptCrisisData).toHaveBeenCalledTimes(1);
+      // applyEnhancedEncryption → encryptData (≥1 call)
+      expect(encryptionMock.encryptData.mock.calls.length).toBeGreaterThanOrEqual(1);
+    });
+
+    test('professional_access applies at least 3 encryption layers (standard + enhanced + professional)', async () => {
+      // The headline TEST-05 assertion — "≥3 layers" for professional_access.
+      const result = await protocol.protectCrisisData(
+        { phq9: 27, suicidal_ideation: true },
+        'episode-professional',
+        'professional_access',
+      );
+      expect(result.protected).toBe(true);
+      expect(encryptionMock.encryptCrisisData).toHaveBeenCalledTimes(1);
+      // applyEnhancedEncryption + applyProfessionalEncryption → ≥2 encryptData calls
+      expect(encryptionMock.encryptData.mock.calls.length).toBeGreaterThanOrEqual(2);
+      // Total encryption-related calls ≥3 = triple-encryption contract met
+      const totalEncryptionCalls =
+        encryptionMock.encryptCrisisData.mock.calls.length +
+        encryptionMock.encryptData.mock.calls.length;
+      expect(totalEncryptionCalls).toBeGreaterThanOrEqual(3);
+    });
+
+    test('legal_audit applies at least 4 encryption layers (standard + enhanced + professional + immutable)', async () => {
+      const result = await protocol.protectCrisisData(
+        { phq9: 27, legal_hold: true },
+        'episode-legal',
+        'legal_audit',
+      );
+      expect(result.protected).toBe(true);
+      expect(encryptionMock.encryptCrisisData).toHaveBeenCalledTimes(1);
+      // 3 distinct apply* helpers each call encryptData ≥1 time
+      expect(encryptionMock.encryptData.mock.calls.length).toBeGreaterThanOrEqual(3);
+    });
+
+    test('professional_access result reports multi_layer_encryption + audit-trail metadata', async () => {
+      // Lock the result-shape contract too — a regression that calls all the
+      // encryption layers but then forgets to report them would be silent.
+      const result = await protocol.protectCrisisData(
+        { phq9: 27 },
+        'episode-professional-2',
+        'professional_access',
+      );
+      expect(result.encryptionApplied).toEqual(
+        expect.arrayContaining(['multi_layer_encryption']),
+      );
+      expect(result.auditTrailCreated).toBe(true);
+      expect(result.monitoringEnabled).toBe(true);
     });
   });
 

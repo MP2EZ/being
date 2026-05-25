@@ -116,4 +116,87 @@ describe('AuthenticationService', () => {
       expect(result.success).toBe(false);
     }, 5000);
   });
+
+  describe('authenticateCrisisAccess happy-path (TEST-10)', () => {
+    // Documented 1-hour crisis-access bypass — previously only tested at
+    // init-guard level (audit TEST-10). These tests cover the actual
+    // success path: returns crisis_access user, 1-hour expiry, fast.
+    // Must run AFTER the init-guard describe above — the singleton's
+    // `initialized` flag persists across tests once set.
+
+    let service: AuthenticationService;
+
+    beforeAll(async () => {
+      service = AuthenticationService.getInstance();
+      await service.initialize();
+    });
+
+    test('returns success with crisis_access user when initialized', async () => {
+      const result = await service.authenticateCrisisAccess({
+        emergencyType: 'crisis_intervention',
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.user).toBeTruthy();
+      expect(result.user!.authenticationLevel).toBe('crisis_access');
+      expect(result.user!.isCrisisAccess).toBe(true);
+      expect(result.user!.isProfessionalAccess).toBe(false);
+    });
+
+    test('crisis-access user has crisis_intervention + emergency_contact + assessment_access permissions', async () => {
+      const result = await service.authenticateCrisisAccess({
+        emergencyType: 'crisis_intervention',
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.user!.permissions).toEqual(
+        expect.arrayContaining([
+          'crisis_intervention',
+          'emergency_contact',
+          'assessment_access',
+        ]),
+      );
+    });
+
+    test('crisis-access session expires exactly 1 hour (AUTH_CONFIG.CRISIS_ACCESS_EXPIRY_MS) after auth', async () => {
+      // Pin the documented "1-hour bypass" window — a regression that
+      // shortened it (e.g. to 15 min, matching ACCESS_TOKEN_EXPIRY_MS) or
+      // extended it would silently change the security boundary.
+      expect(AUTH_CONFIG.CRISIS_ACCESS_EXPIRY_MS).toBe(60 * 60 * 1000);
+
+      const result = await service.authenticateCrisisAccess({
+        emergencyType: 'crisis_intervention',
+      });
+
+      expect(result.success).toBe(true);
+      const window = result.user!.expiresAt - result.user!.authenticatedAt;
+      expect(window).toBe(AUTH_CONFIG.CRISIS_ACCESS_EXPIRY_MS);
+    });
+
+    test('crisis-access auth completes within <200ms safety budget', async () => {
+      // CLAUDE.md non-negotiable: <200ms crisis-button response. Auth path
+      // is part of that budget. CRISIS_AUTH_THRESHOLD_MS pins the same
+      // value in AUTH_CONFIG.
+      expect(AUTH_CONFIG.CRISIS_AUTH_THRESHOLD_MS).toBe(200);
+
+      const result = await service.authenticateCrisisAccess({
+        emergencyType: 'crisis_intervention',
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.authenticationTimeMs).toBeLessThan(
+        AUTH_CONFIG.CRISIS_AUTH_THRESHOLD_MS,
+      );
+    });
+
+    test('returns a token (regression guard: empty token would silently break downstream access)', async () => {
+      const result = await service.authenticateCrisisAccess({
+        emergencyType: 'crisis_intervention',
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.token).toBeTruthy();
+      expect(typeof result.token).toBe('object');
+    });
+  });
 });
