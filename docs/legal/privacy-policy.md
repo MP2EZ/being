@@ -1,8 +1,8 @@
 # Privacy Policy
 
-**Version:** 1.2
+**Version:** 1.3
 **Effective Date:** December 12, 2025
-**Last Updated:** May 23, 2026
+**Last Updated:** May 24, 2026
 
 ---
 
@@ -176,11 +176,11 @@ Being uses PostHog (EU data residency) to collect anonymous product analytics. *
 
 In accordance with CCPA §1798.135(b)(1), we satisfy our opt-out obligation by publishing this notice in our privacy policy in lieu of maintaining a separate "Do Not Sell or Share My Personal Information" link.
 
-**Global Privacy Control (GPC):** We honor the Global Privacy Control (GPC) browser signal as a valid opt-out request under CCPA, the Texas Data Privacy and Security Act (TDPSA), and the Colorado Privacy Act (CPA). If your browser or device sends a GPC signal, we treat it as an opt-out request even though no sale or sharing is occurring.
+**Global Privacy Control (GPC) and Universal Opt-Out:** Being honors universal opt-out signals as required under CCPA, the Texas Data Privacy and Security Act (TDPSA), the Colorado Privacy Act (CPA), and the Connecticut Data Privacy Act (CTDPA). In the app, you can enable *Settings → Privacy & Data → Honor Universal Opt-Out*, which immediately suppresses all non-essential analytics, crash reporting, cloud sync, and research participation regardless of any granular consent previously granted — the in-app equivalent of a GPC signal. On the web, our privacy and support pages at `being.fyi` honor the `Sec-GPC: 1` request header sent by browsers and extensions implementing the Global Privacy Control specification. *(Web-side detection is rolling out and tracked separately; the in-app universal opt-out is live as of v1.3 of this policy.)*
 
 To submit a formal opt-out request by email, write to [privacy@being.fyi](mailto:privacy@being.fyi) with the subject line "Do Not Sell or Share My Personal Information." We will confirm receipt and document your request.
 
-For complete California privacy rights, see our [California Privacy Rights](/privacy/california) page.
+For complete California privacy rights, see our [California Privacy Rights](/privacy/california) page. For Texas, Colorado, Connecticut, and Virginia rights, see our [Multi-State Privacy Rights](/privacy/multi-state) page.
 
 ---
 
