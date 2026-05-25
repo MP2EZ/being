@@ -191,7 +191,7 @@ describe('CLINICAL VALIDATION CHECKLIST - CLOUD SYNC INTEGRATION', () => {
 
       // Should complete in reasonable therapeutic timeframe
       expect(completionTime).toBeLessThan(5000); // Under 5 seconds
-      expect(completionTime).toBeGreaterThan(90); // At least 90ms for realistic timing
+      expect(completionTime).toBeGreaterThanOrEqual(90); // At least 90ms for realistic timing (setTimeout(10) × 9 lands exactly at 90ms on fast CI runners)
 
       const result = store.currentResult;
       expect(result?.totalScore).toBe(9);
