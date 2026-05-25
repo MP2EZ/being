@@ -36,7 +36,7 @@ A "breach of unsecured PHR identifiable health information" triggers the HBNR pr
 | Lost/stolen device with local AES-256-GCM-encrypted store, device PIN compromised or known | ✅ YES | Compromised authentication = data effectively unsecured |
 | Internal staff (founder, contractor) accesses data without authorization | ✅ YES | "Unauthorized acquisition" per §318.2; even insider misuse counts |
 | Vendor breach (Supabase, Sentry, Stripe) exposing wellness data | ✅ YES if Being's data is implicated | Vendor must notify Being; Being then has its own HBNR clock |
-| Vendor breach exposing only billing/email (no wellness data) | ❌ NO HBNR | Standard state breach law may still apply — see section 9 |
+| Vendor breach exposing only billing/email (no wellness data) | ❌ NO HBNR | Standard state breach law may still apply — see §7 |
 | Ransomware on systems holding wellness data, no proven exfiltration | ⚠️ ESCALATE | Per FTC 2023 guidance, ransomware that touches PHR data is presumed a breach unless investigation rebuts |
 
 **"Unsecured" definition (operational):** wellness data that is **not** protected by encryption that meets `docs/security/security-architecture.md` §1 (AES-256-GCM, NIST-aligned key management). If any of these are true at incident time, the data is unsecured:
@@ -64,10 +64,10 @@ Federal deadlines run from the **date of discovery**, defined as the day the bre
 | Internal containment + counsel notification | 1 | This runbook §3 |
 | State AG notification (CA/NY 500+, TX 250+) | 30 | `STATE_NOTIFICATION_MATRIX` |
 | State consumer notification (CA/NY/TX) | 30 | strictest applicable state law |
-| Media notification if 500+ residents of any state | 30 (state) / 10 (FTC) | see §8 |
+| Media notification if 500+ residents of any state | 30 (state) / 10 (FTC) | see §6 |
 | **FTC notification** | **60** | **16 CFR §318.4** |
 | **Affected-individual notification** | **60** | **16 CFR §318.5(a)** |
-| Post-incident review filed | 90 | This runbook §10 |
+| Post-incident review filed | 90 | This runbook §3 Step F |
 
 > **The strictest applicable deadline wins.** If state law requires 30-day consumer notification and federal allows 60, you have 30 days. The runbook is structured so the 30-day state deadlines come first.
 
@@ -91,7 +91,7 @@ Execute in order. Each step has a checklist; tick before advancing.
 ### Step C — Assessment (Day 0–1)
 - [ ] Confirm trigger criteria match §1 (HBNR applies / does not apply)
 - [ ] Count affected individuals (exact, not estimate, before notifications go out)
-- [ ] Map affected individuals to state of residence (for state-law matrix in §9)
+- [ ] Map affected individuals to state of residence (for state-law matrix in §7)
 - [ ] Classify breach severity per `BreachSeverity` enum
 
 ### Step D — Counsel Notification (Day 1, within 24 hours of discovery)
@@ -100,16 +100,16 @@ Execute in order. Each step has a checklist; tick before advancing.
 - [ ] Counsel reviews notification templates before they go out
 
 ### Step E — Notifications (deadlines per §2 table)
-- [ ] State AG notifications (§9 matrix)
-- [ ] Consumer notifications (§7)
-- [ ] FTC notification (§6) — submitted via FTC online form
-- [ ] Media notification if 500+ in any state (§8)
+- [ ] State AG notifications (§7 matrix)
+- [ ] Consumer notifications (§5)
+- [ ] FTC notification (§4) — submitted via FTC online form
+- [ ] Media notification if 500+ in any state (§6)
 
 ### Step F — Post-Incident Review (within 90 days)
 - [ ] Root-cause analysis written and stored with the incident record
 - [ ] Mitigation measures implemented (code changes, policy changes, vendor changes)
 - [ ] Update this runbook if procedural gaps were discovered
-- [ ] Update `STATE_NOTIFICATION_MATRIX` and §9 of this runbook if statute changed
+- [ ] Update `STATE_NOTIFICATION_MATRIX` and §7 of this runbook if statute changed
 
 ---
 
@@ -133,7 +133,7 @@ Execute in order. Each step has a checklist; tick before advancing.
 | Description of unsecured PHR identifiable health information involved | Itemize: PHQ-9 responses, GAD-7 responses, mood check-ins, journal entries, etc. — match `DataSensitivityLevel` taxonomy in `DataProtectionEngine.ts` |
 | Description of the breach | What happened, how it was discovered, sequence of events |
 | Mitigation steps taken | Containment actions from §3 Step B + any user-protective measures |
-| Steps individuals can take to protect themselves | Mirror the language used in user notification (§7) — must be consistent |
+| Steps individuals can take to protect themselves | Mirror the language used in user notification (§5) — must be consistent |
 
 **After submission:**
 - [ ] Save submission confirmation (PDF or screenshot) to incident record
@@ -144,7 +144,7 @@ Execute in order. Each step has a checklist; tick before advancing.
 
 ## 5. User Notification Step (§318.5(a))
 
-**Deadline:** 60 calendar days from discovery — **but state law often requires 30 days** (see §9). Default to 30 days to satisfy both.
+**Deadline:** 60 calendar days from discovery — **but state law often requires 30 days** (see §7). Default to 30 days to satisfy both.
 
 **Language requirement:** Plain language. Match the user-facing voice in `privacy-policy.md` §4.4 — short sentences, no legalese, no compliance jargon.
 
