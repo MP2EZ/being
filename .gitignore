@@ -15,3 +15,10 @@ development/websitev2/
 development/
 main/
 [a-z]*-[0-9]*/
+
+# Process artifacts (per-machine, never committed)
+.claude/scheduled_tasks.lock
+
+# Working scratchpad from /m:audit runs (not for version history;
+# move to docs/audits/ if a snapshot is worth preserving)
+.audit-report.md
