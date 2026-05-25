@@ -73,6 +73,7 @@
     "platform:parallel": "node scripts/cross-platform-testing.js both --parallel",
     "lint": "eslint src --ext .ts,.tsx",
     "lint:baseline": "node scripts/lint-baseline.js",
+    "lint:clinical": "eslint --max-warnings=0 src/core/analytics/PostHogProvider.tsx",
     "lint:fix": "eslint src --ext .ts,.tsx --fix",
     "typecheck": "npx tsc --noEmit --incremental",
     "precommit": "npm run typecheck && npm run lint:baseline && npm run test:clinical && npm run test:unit",

@@ -80,6 +80,13 @@ module.exports = [
       '**/services/security/**/*.ts',
       '**/*crisis*.ts',
       '**/*assessment*.ts',
+      // INFRA-151: PostHogProvider is the GPC consumer of the universalOptOut
+      // signal — small, console-free, fits cleanly under strict rules. Other
+      // compliance-adjacent files (consentStore, AnalyticsService, the privacy
+      // settings screen) pre-date this ruleset and have complexity / console
+      // patterns that would require separate refactor work to satisfy strict
+      // rules. They're linted by the regular config until that cleanup lands.
+      '**/analytics/PostHogProvider.tsx',
     ],
     rules: {
       '@typescript-eslint/no-explicit-any': 'error',

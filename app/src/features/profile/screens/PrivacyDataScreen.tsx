@@ -152,7 +152,7 @@ const storageRowStyles = StyleSheet.create({
 });
 
 const PrivacyDataScreen: React.FC<PrivacyDataScreenProps> = ({ onReturn }) => {
-  const { loadConsent, currentConsent, updateConsent } = useConsentStore();
+  const { loadConsent, currentConsent, updateConsent, setUniversalOptOut } = useConsentStore();
   const { trackScreenView, trackSettingsOpened, trackConsentChanged } = useAnalytics();
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -170,6 +170,8 @@ const PrivacyDataScreen: React.FC<PrivacyDataScreenProps> = ({ onReturn }) => {
   const crashReportsEnabled = currentConsent?.preferences?.crashReportsEnabled ?? false;
   const cloudSyncEnabled = currentConsent?.preferences?.cloudSyncEnabled ?? false;
   const researchEnabled = currentConsent?.preferences?.researchEnabled ?? false;
+  // INFRA-151: GPC-equivalent universal opt-out flag
+  const universalOptOut = currentConsent?.universalOptOut ?? false;
 
   // Load consent on mount
   useEffect(() => {
@@ -197,6 +199,22 @@ const PrivacyDataScreen: React.FC<PrivacyDataScreenProps> = ({ onReturn }) => {
     }
   };
 
+  const handleUniversalOptOutToggle = async (value: boolean): Promise<void> => {
+    setIsSaving(true);
+    try {
+      await setUniversalOptOut(value);
+      trackConsentChanged();
+    } catch {
+      Alert.alert(
+        'Save Failed',
+        'Failed to save preference. Please try again.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   // Render loading state
   if (isLoading) {
     return (
@@ -213,11 +231,39 @@ const PrivacyDataScreen: React.FC<PrivacyDataScreenProps> = ({ onReturn }) => {
     <SafeAreaView style={styles.container}>
       <SubMenuHeader title="Privacy & Data" onClose={onReturn} />
       <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
+        {/* Universal Opt-Out Section (INFRA-151) */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Universal Opt-Out</Text>
+          <Text style={styles.sectionDescription}>
+            A single switch that opts you out of all non-essential data collection — the in-app equivalent of the Global Privacy Control (GPC) browser signal.
+          </Text>
+
+          <View style={styles.settingCard}>
+            <View style={styles.settingRow}>
+              <View style={styles.settingInfo}>
+                <Text style={styles.settingLabel}>Honor Universal Opt-Out</Text>
+                <Text style={styles.settingDescription}>
+                  When enabled, Being treats your account as opted out of all analytics, crash reports, cloud sync, and research participation — overriding the individual toggles below. Honored under CCPA, TDPSA, CPA, and CTDPA.
+                </Text>
+              </View>
+              <Switch
+                value={universalOptOut}
+                onValueChange={handleUniversalOptOutToggle}
+                trackColor={{ false: colorSystem.gray[300], true: colorSystem.base.midnightBlue }}
+                thumbColor={colorSystem.base.white}
+                disabled={isSaving}
+                accessibilityLabel="Honor Universal Opt-Out"
+                accessibilityHint="Enables the Global Privacy Control equivalent — overrides all non-essential analytics and tracking preferences"
+              />
+            </View>
+          </View>
+        </View>
+
         {/* Data Sharing Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Data Sharing</Text>
           <Text style={styles.sectionDescription}>
-            Control how your data is used and stored. Privacy-first by default.
+            Control how your data is used and stored. Privacy-first by default.{universalOptOut ? ' These toggles are overridden while Universal Opt-Out is on.' : ''}
           </Text>
 
           <View style={styles.settingCard}>
@@ -229,11 +275,11 @@ const PrivacyDataScreen: React.FC<PrivacyDataScreenProps> = ({ onReturn }) => {
                 </Text>
               </View>
               <Switch
-                value={analyticsEnabled}
+                value={analyticsEnabled && !universalOptOut}
                 onValueChange={(value) => handleConsentToggle('analyticsEnabled', value)}
                 trackColor={{ false: colorSystem.gray[300], true: colorSystem.base.midnightBlue }}
                 thumbColor={colorSystem.base.white}
-                disabled={isSaving}
+                disabled={isSaving || universalOptOut}
               />
             </View>
           </View>
@@ -247,11 +293,11 @@ const PrivacyDataScreen: React.FC<PrivacyDataScreenProps> = ({ onReturn }) => {
                 </Text>
               </View>
               <Switch
-                value={crashReportsEnabled}
+                value={crashReportsEnabled && !universalOptOut}
                 onValueChange={(value) => handleConsentToggle('crashReportsEnabled', value)}
                 trackColor={{ false: colorSystem.gray[300], true: colorSystem.base.midnightBlue }}
                 thumbColor={colorSystem.base.white}
-                disabled={isSaving}
+                disabled={isSaving || universalOptOut}
               />
             </View>
           </View>
@@ -265,11 +311,11 @@ const PrivacyDataScreen: React.FC<PrivacyDataScreenProps> = ({ onReturn }) => {
                 </Text>
               </View>
               <Switch
-                value={cloudSyncEnabled}
+                value={cloudSyncEnabled && !universalOptOut}
                 onValueChange={(value) => handleConsentToggle('cloudSyncEnabled', value)}
                 trackColor={{ false: colorSystem.gray[300], true: colorSystem.base.midnightBlue }}
                 thumbColor={colorSystem.base.white}
-                disabled={isSaving}
+                disabled={isSaving || universalOptOut}
               />
             </View>
           </View>
@@ -283,11 +329,11 @@ const PrivacyDataScreen: React.FC<PrivacyDataScreenProps> = ({ onReturn }) => {
                 </Text>
               </View>
               <Switch
-                value={researchEnabled}
+                value={researchEnabled && !universalOptOut}
                 onValueChange={(value) => handleConsentToggle('researchEnabled', value)}
                 trackColor={{ false: colorSystem.gray[300], true: colorSystem.base.midnightBlue }}
                 thumbColor={colorSystem.base.white}
-                disabled={isSaving}
+                disabled={isSaving || universalOptOut}
               />
             </View>
           </View>
@@ -334,7 +380,7 @@ const PrivacyDataScreen: React.FC<PrivacyDataScreenProps> = ({ onReturn }) => {
             <StorageLocationRow
               label="Preferences"
               description="App settings and customizations"
-              location={cloudSyncEnabled ? 'cloud' : 'app'}
+              location={cloudSyncEnabled && !universalOptOut ? 'cloud' : 'app'}
             />
           </View>
 
