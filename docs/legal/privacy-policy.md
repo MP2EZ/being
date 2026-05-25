@@ -118,8 +118,6 @@ Notifications will include:
 
 Notifications will be delivered by email (if you provided one) and by prominent in-app notice.
 
-*Internal procedure: see `docs/legal/breach-notification-runbook.md` (founder + counsel only).*
-
 ---
 
 ## 5. Data Sharing & Third Parties
