@@ -6,14 +6,8 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "description": "Evidence-based Stoic Mindfulness practices for mental wellness and virtue development.",
     "primaryColor": "#4A7C59",
-    "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
-    },
     "assetBundlePatterns": [
       "**/*"
     ],
@@ -23,8 +17,7 @@
       "bundleIdentifier": "com.being.app",
       "buildNumber": "2",
       "icon": "./assets/icon.png",
-      "jsEngine": "hermes",
-      "newArchEnabled": true,
+      "deploymentTarget": "16.4",
       "config": {
         "usesNonExemptEncryption": false
       },
@@ -37,8 +30,6 @@
       "package": "com.being.app",
       "versionCode": 2,
       "icon": "./assets/icon.png",
-      "jsEngine": "hermes",
-      "newArchEnabled": true,
       "intentFilters": [
         {
           "action": "VIEW",
@@ -70,15 +61,17 @@
     "plugins": [
       "expo-localization",
       [
-        "expo-build-properties",
+        "./plugins/withAppGroupsEntitlement",
         {
-          "ios": {
-            "entitlements": {
-              "com.apple.security.application-groups": [
-                "group.com.being.app.widgets"
-              ]
-            }
-          }
+          "groups": ["group.com.being.app.widgets"]
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#ffffff"
         }
       ]
     ],

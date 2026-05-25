@@ -23,7 +23,7 @@ import {
   Alert,
   Platform,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons } from '@react-native-vector-icons/ionicons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { useConsentStore } from '@/core/stores/consentStore';
@@ -52,7 +52,9 @@ interface StorageLocationRowProps {
   location: StorageLocation;
 }
 
-const getStorageDisplay = (location: StorageLocation): { icon: keyof typeof Ionicons.glyphMap; text: string; accessibilityText: string } => {
+type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
+
+const getStorageDisplay = (location: StorageLocation): { icon: IoniconName; text: string; accessibilityText: string } => {
   const isIOS = Platform.OS === 'ios';
 
   switch (location) {
