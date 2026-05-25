@@ -33,6 +33,8 @@ const REGISTRY_PATH = path.join(
 // internal-reference doc (humans + agents read it, users don't see it).
 const EXCLUDED_FROM_REGISTRY = new Set([
   'regulatory-applicability', // Source-of-truth doc for compliance decisions.
+  'dpia-sensitive-wellness-data', // Internal/regulator-facing DPIA; not user-facing (INFRA-153).
+  'breach-notification-runbook', // Internal FTC HBNR operational runbook; founder + counsel only (INFRA-152).
 ]);
 
 function fail(msg) {

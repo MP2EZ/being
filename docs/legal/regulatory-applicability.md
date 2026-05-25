@@ -78,6 +78,8 @@ As of 2025, 20 US states have comprehensive consumer privacy laws. The following
 
 **Compliance Approach:** Provide data access, deletion, and export features. Maintain transparent privacy notices. Honor universal opt-out mechanisms (including Global Privacy Control signals). See `california-privacy.md` and the "No Sale or Sharing of Personal Information" section of `privacy-policy.md`.
 
+**Sensitive-data processing assessment.** TDPSA (Tex. Bus. & Com. Code §541.105(a)), CPA (C.R.S. §6-1-1309), VCDPA (Va. Code §59.1-580), and CTDPA (Conn. Pub. Act 22-15 §6) each require a documented data protection assessment for processing of sensitive personal information — including mental health condition data. See [`dpia-sensitive-wellness-data.md`](dpia-sensitive-wellness-data.md) for the assessment covering Being's processing of PHQ-9, GAD-7, mood check-ins, journal entries, crisis safety plans, consent records, and subscription metadata.
+
 ### 3. International Privacy Laws
 
 | Law | Applicability | Key Requirements |
@@ -224,6 +226,7 @@ We implement strong security because it's the right thing to do for users entrus
 | `medical-disclaimer.md` | Medical/clinical disclaimers |
 | `california-privacy.md` | CCPA-specific disclosures |
 | `terms-of-service.md` | User agreement |
+| `dpia-sensitive-wellness-data.md` | Documented data protection assessment for sensitive wellness data processing (TDPSA, CPA, VCDPA, CTDPA) — internal/regulator-facing |
 | `/docs/security/security-architecture.md` | Technical security implementation |
 
 ---

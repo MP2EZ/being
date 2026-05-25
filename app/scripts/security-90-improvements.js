@@ -156,13 +156,13 @@ const certificatePinningConfig = `/**
 
 export const CERTIFICATE_PINS = {
   // Production API certificate pins (SHA-256)
-  'api.being.app': [
+  'api.being.fyi': [
     'sha256/PLACEHOLDER_PRIMARY_CERT_PIN_HERE',
     'sha256/PLACEHOLDER_BACKUP_CERT_PIN_HERE'
   ],
-  
+
   // Analytics endpoint pins
-  'analytics.being.app': [
+  'analytics.being.fyi': [
     'sha256/PLACEHOLDER_ANALYTICS_CERT_PIN_HERE'
   ]
 };
