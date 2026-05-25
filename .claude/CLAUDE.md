@@ -174,6 +174,8 @@ Branch naming: `feat/*`, `fix/*`, `chore/*` (mapped from work item TYPE). Conven
 - `docs/architecture/` — system design
 - `docs/development/` — dev guides
 - `docs/legal/regulatory-applicability.md` — **source of truth for what regulations apply** (FTC, CCPA, TDPSA, GDPR; NOT HIPAA/FDA)
+- `docs/legal/breach-notification-runbook.md` — **internal operational procedure** for FTC HBNR (16 CFR Part 318) breach response; founder + counsel only, NOT user-facing (operationalizes the public commitment in `privacy-policy.md` §4.4)
+- `docs/legal/dpia-sensitive-wellness-data.md` — **internal DPIA** for sensitive wellness-data processing (TDPSA/CPA/VCDPA/CTDPA); regulator-facing, NOT user-facing
 - `docs/security/` — encryption, secure storage
 - `docs/testing/` — test strategy
 - Source architecture detail: `app/src/README.md`
