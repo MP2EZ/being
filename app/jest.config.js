@@ -71,14 +71,24 @@ module.exports = {
     // beyond the "fix broken imports" scope of the W1 paydown PR. Re-enable
     // by fixing each underlying issue:
     //
-    //  - subscription.integration.test.ts: SecureStorageService singleton
-    //    starts a setInterval in its constructor (line 156), which keeps
-    //    the jest runtime alive past test completion. Fix: skip the
-    //    cleanup scheduler in NODE_ENV=test, or mock SecureStorageService.
-    //  - sync-coordinator-integration.test.ts: same root cause (loads
-    //    EncryptionService → SecureStorageService via CloudBackupService).
-    //  - analytics-service-integration.test.ts: same root cause (loads
-    //    AuthenticationService → SecureStorageService).
+    //  - subscription.integration.test.ts: tried to re-enable in INFRA-143
+    //    PR 2 — passes locally (8/8) but fails on CI with "Cannot log
+    //    after tests are done" async-leak errors. SecureStorageService's
+    //    setInterval is now guarded so the test loads cleanly, but the
+    //    test itself has un-awaited async work (IAP connection / receipt
+    //    verification mocks). Needs a proper async-cleanup pass before
+    //    re-enabling. Kept quarantined for now.
+    //  - sync-coordinator-integration.test.ts: the singleton chain
+    //    (EncryptionService → SecureStorageService) is now guarded, but
+    //    the test ALSO needs `jest.mock('@/features/assessment/stores/
+    //    assessmentStore')` AND proper EncryptionService master-key mock
+    //    setup. Adding the jest.mock alone surfaces a "Master key not
+    //    found" deeper failure. Needs a proper rewrite — separate
+    //    MAINT ticket.
+    //  - analytics-service-integration.test.ts: same as sync-coordinator
+    //    above. The jest.mock declaration was added by INFRA-143 PR 2 as
+    //    a doc-as-code breadcrumb, but the test still fails on "Master
+    //    key not found" — needs proper test rewrite.
     //  - practices-flows-integration.test.tsx: @react-navigation/elements
     //    MaskedViewNative.tsx calls UIManager.getViewManagerConfig() on
     //    a native view manager that's undefined in Jest. Fix: provide a
@@ -102,7 +112,7 @@ module.exports = {
     //    exist. Needs proper rewrite to match current SyncCoordinator
     //    + AnalyticsService + AuthenticationService APIs, not
     //    incremental patching.
-    'subscription\\.integration\\.test\\.ts$',
+    'subscription\\.integration\\.test\\.ts$', // tried in INFRA-143 PR 2 — CI-flaky (async leak), re-quarantined
     'sync-coordinator-integration\\.test\\.ts$',
     'analytics-service-integration\\.test\\.ts$',
     'practices-flows-integration\\.test\\.tsx$',
@@ -183,13 +193,18 @@ module.exports = {
     // './src/features/assessment/': { ... }
   },
 
-  // Performance and execution optimization
-  // MEMORY FIX (DEBUG-48): Added workerIdleMemoryLimit to help with garbage collection
+  // Performance and execution optimization.
+  // DEBUG-48 had previously added `workerIdleMemoryLimit: '512MB'` as a
+  // band-aid for OOMs caused by leaking singleton timers (setInterval in
+  // service constructors). Those leaks are now guarded under NODE_ENV=test
+  // for EncryptionService + SecureStorageService (INFRA-144), and the
+  // `test` / `test:ci` scripts add `--forceExit` to ensure workers exit
+  // even when a transient open handle remains. Band-aid removed
+  // (INFRA-143 PR 2 AC #2).
   cache: true,
   cacheDirectory: isQuickMode ? '<rootDir>/.jest-cache-quick' : '<rootDir>/.jest-cache',
   maxWorkers: isQuickMode ? 1 : '50%',
   testTimeout: isQuickMode ? 5000 : 10000,
-  workerIdleMemoryLimit: '512MB', // Restart workers that exceed memory limit
 
   // Feedback and monitoring
   bail: false, // Continue on failures for comprehensive feedback

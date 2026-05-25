@@ -55,6 +55,13 @@ jest.mock('@react-native-async-storage/async-storage');
 jest.mock('@react-native-community/netinfo');
 jest.mock('expo-crypto');
 
+// The test calls `(useAssessmentStore as any).mockImplementation(...)` etc.
+// — that only works when the module is auto-mocked. Previously omitted;
+// caused `useAssessmentStore.mockImplementation is not a function` at every
+// test setup. The audit's quarantine note misattributed this to the
+// singleton chain — root cause is the missing jest.mock declaration.
+jest.mock('@/features/assessment/stores/assessmentStore');
+
 const mockAsyncStorage = AsyncStorage as jest.Mocked<typeof AsyncStorage>;
 const mockNetInfo = NetInfo as jest.Mocked<typeof NetInfo>;
 
