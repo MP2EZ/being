@@ -189,6 +189,10 @@ Branch naming: `feat/*`, `fix/*`, `chore/*` (mapped from work item TYPE). Conven
 - Compliance terminology: "wellness data" not "PHI"; "AES-256 encryption" not "HIPAA-compliant encryption"; "wellness screening" not "clinical assessment."
 - Env files live canonically at `~/dev/being/.config/{env.production,env.development}` (gitignored at bare root). Worktree `app/.env.{production,development}` are symlinks to those. `/b-work` creates the symlinks automatically; manual `git worktree add` requires creating them by hand (`ln -s ../../.config/env.production app/.env.production` and same for development). Dev env has empty `EXPO_PUBLIC_SENTRY_DSN` so Sentry no-ops locally; production env carries the real DSN. Back up the canonical files in 1Password — deleting `.config/` breaks all worktrees.
 
+## Git Hooks (INFRA-155)
+
+Husky v9 wires two hooks. **pre-commit** (INFRA-156) runs `npm run precommit` → `typecheck && lint:baseline && test:clinical && test:unit` (~16s); fires on every `git commit`. **pre-push** (INFRA-155) runs `npm run prepush` → `check:crisis-hotline` (~1s); fires on every `git push`. Heavy CI-class checks (test:ci, full clinical-complete) run on CI, not locally — running them on every push would train `--no-verify`. **Bypass policy**: `--no-verify` (commit or push) permitted *only on `hotfix/*` branches*. For `feat/*`, `fix/*`, `chore/*` — never. Full rationale: `docs/development/git-hooks.md`.
+
 ## Convention Reminders
 
 - TDD for: bug fixes, pure logic, stateful algorithms, complex edge cases. Test-after for: API integrations, UI, glue code.
