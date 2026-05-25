@@ -54,7 +54,7 @@ import Animated, {
   runOnJS,
   interpolate,
 } from 'react-native-reanimated';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { MaterialDesignIcons } from '@react-native-vector-icons/material-design-icons';
 import { logSecurity, logPerformance, logCrisis } from '@/core/services/logging';
 import { spacing, borderRadius, typography, colorSystem } from '@/core/theme';
 
@@ -385,7 +385,7 @@ export const CollapsibleCrisisButton: React.FC<CollapsibleCrisisButtonProps> = (
               testID={testID}
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             >
-              <MaterialCommunityIcons
+              <MaterialDesignIcons
                 name="lifebuoy"
                 size={iconSize}
                 color={colorSystem.base.white}
@@ -408,7 +408,7 @@ export const CollapsibleCrisisButton: React.FC<CollapsibleCrisisButtonProps> = (
                 accessibilityHint="Open crisis support resources"
                 testID={`${testID}-action`}
               >
-                <MaterialCommunityIcons
+                <MaterialDesignIcons
                   name="lifebuoy"
                   size={20}
                   color={colorSystem.base.white}
@@ -428,7 +428,7 @@ export const CollapsibleCrisisButton: React.FC<CollapsibleCrisisButtonProps> = (
                 testID={`${testID}-collapse`}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
-                <MaterialCommunityIcons
+                <MaterialDesignIcons
                   name="close"
                   size={20}
                   color={colorSystem.base.white}
