@@ -1,4 +1,4 @@
-# Being.
+# Being
 
 ## What This Is
 
