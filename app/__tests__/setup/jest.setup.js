@@ -1,6 +1,30 @@
 /**
  * Jest Setup for Local Development Testing
  * Enhanced setup with performance monitoring and clinical safety validation
+ *
+ * AUDIT TRAIL (INFRA-143 PR 4, post-audit):
+ * All jest.mock() calls below are load-bearing — each one was added because
+ * its target module either (a) imports an Expo/RN TurboModule whose binding
+ * is undefined in the Jest env, or (b) calls native crypto / native storage
+ * that has no JS-side implementation. Removing any of these mocks will
+ * cause cascading "is not a function" or "Cannot find module" failures
+ * across hundreds of tests. If a mock looks "dead" because nothing in
+ * production calls it directly, verify the transitive import chain
+ * (e.g., react-native-safe-area-context is pulled in by
+ * @react-navigation/elements → MaskedView → NativeSafeAreaContext).
+ *
+ * Post-INFRA-158 specifics:
+ *   - Touchable is re-exposed from the RN mock (commit 431fc0c) because
+ *     react-native-svg@15.15.4 still uses Touchable.Mixin.
+ *   - @expo/vector-icons is fully removed (migrated to
+ *     @react-native-vector-icons/* — see lines 426 + 433).
+ *   - expo-crypto exposes BOTH getRandomBytes and getRandomBytesAsync
+ *     (EncryptionService.ts:948 uses the async variant).
+ *
+ * Any new mock added should follow these patterns:
+ *   1. Comment explaining WHY (which TurboModule, which transitive chain)
+ *   2. Cover all members the production code uses (no whack-a-mole)
+ *   3. Add to quick-setup.js too if the mock is needed for *.quick.test.* files
  */
 
 import '@testing-library/jest-native/extend-expect';
