@@ -13,8 +13,6 @@
 
 // Screens
 export { default as CombinedLegalGateScreen } from './screens/CombinedLegalGateScreen';
-// AgeVerificationScreen kept for backwards compatibility but deprecated
-export { default as AgeVerificationScreen } from './screens/AgeVerificationScreen';
 
 // Components
 export { default as ConsentToggleCard } from './components/ConsentToggleCard';

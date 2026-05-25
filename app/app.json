@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Being.",
+    "name": "Being",
     "slug": "being",
     "version": "1.0.1",
     "orientation": "portrait",
@@ -64,8 +64,8 @@
     },
     "web": {
       "favicon": "./assets/favicon.png",
-      "name": "Being.",
-      "shortName": "Being."
+      "name": "Being",
+      "shortName": "Being"
     },
     "plugins": [
       "expo-localization",
