@@ -283,6 +283,7 @@ const CombinedLegalGateScreen: React.FC<CombinedLegalGateScreenProps> = ({
               setTosAccepted(!tosAccepted);
               setError(null);
             }}
+            testID="legal-consent-tos"
             accessibilityRole="checkbox"
             accessibilityState={{ checked: tosAccepted }}
             accessibilityLabel="I agree to the Terms of Service"
@@ -302,6 +303,7 @@ const CombinedLegalGateScreen: React.FC<CombinedLegalGateScreenProps> = ({
               setPrivacyAccepted(!privacyAccepted);
               setError(null);
             }}
+            testID="legal-consent-privacy"
             accessibilityRole="checkbox"
             accessibilityState={{ checked: privacyAccepted }}
             accessibilityLabel="I agree to the Privacy Policy"
@@ -321,6 +323,7 @@ const CombinedLegalGateScreen: React.FC<CombinedLegalGateScreenProps> = ({
               setWellnessDisclaimerAcknowledged(!wellnessDisclaimerAcknowledged);
               setError(null);
             }}
+            testID="legal-consent-wellness"
             accessibilityRole="checkbox"
             accessibilityState={{ checked: wellnessDisclaimerAcknowledged }}
             accessibilityLabel="I understand Being provides wellness support, not medical care, and in a crisis I will call 911 or 988"
@@ -340,6 +343,7 @@ const CombinedLegalGateScreen: React.FC<CombinedLegalGateScreenProps> = ({
               setMentalHealthProcessingConsented(!mentalHealthProcessingConsented);
               setError(null);
             }}
+            testID="legal-consent-mh-processing"
             accessibilityRole="checkbox"
             accessibilityState={{ checked: mentalHealthProcessingConsented }}
             accessibilityLabel="I explicitly consent to Being processing my personal wellness data including mood check-ins, anxiety and depression self-screenings, and journal entries, to provide wellness support features"
