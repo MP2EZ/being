@@ -137,9 +137,9 @@ Being collects **sensitive personal information** as defined under CPRA, specifi
 - NOT for profiling, advertising, or secondary purposes
 
 **Your control:**
-- All sensitive data is stored locally by default
-- Cloud backup requires your explicit consent
-- You can delete this data at any time
+- All sensitive personal information is stored locally on your device only — Being does not transmit PHQ-9 / GAD-7 responses, mood check-ins, or journal entries to any server
+- The optional settings backup (see Privacy Policy §4.2) is scoped to non-sensitive app preferences only and does not include any sensitive personal information
+- You can delete this data at any time via in-app *Settings → Privacy & Data*
 
 ---
 

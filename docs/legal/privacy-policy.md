@@ -130,7 +130,7 @@ Notifications will be delivered by prominent in-app notice. (Being does not coll
 
 We use the following third-party service providers to operate our Services:
 
-- **[Supabase](https://supabase.com/privacy):** Database, authentication, and cloud storage (SOC 2 Type II certified, US data region). If you enable optional cloud backup, your encrypted data is stored on Supabase infrastructure.
+- **[Supabase](https://supabase.com/privacy):** Database, authentication, and cloud storage (SOC 2 Type II certified, US data region). If you enable optional settings backup, your encrypted preference data is stored on Supabase infrastructure.
 - **[PostHog](https://posthog.com/privacy):** Product analytics (EU data residency, Frankfurt). See Section 5.2 for details.
 - **Expo:** Mobile app framework and over-the-air updates (anonymized crash reports only)
 - **Apple/Google:** App distribution and in-app purchases (no health data shared)
@@ -175,7 +175,7 @@ Being uses PostHog (EU data residency) to collect anonymous product analytics. *
 
 In accordance with CCPA §1798.135(b)(1), we satisfy our opt-out obligation by publishing this notice in our privacy policy in lieu of maintaining a separate "Do Not Sell or Share My Personal Information" link.
 
-**Global Privacy Control (GPC) and Universal Opt-Out:** Being honors universal opt-out signals as required under CCPA, the Texas Data Privacy and Security Act (TDPSA), the Colorado Privacy Act (CPA), and the Connecticut Data Privacy Act (CTDPA). In the app, you can enable *Settings → Privacy & Data → Honor Universal Opt-Out*, which immediately suppresses all non-essential analytics, crash reporting, cloud sync, and research participation regardless of any granular consent previously granted — the in-app equivalent of a GPC signal. On the web, our privacy and support pages at `being.fyi` honor the `Sec-GPC: 1` request header sent by browsers and extensions implementing the Global Privacy Control specification. *(Web-side detection is rolling out and tracked separately; the in-app universal opt-out is live as of v1.3 of this policy.)*
+**Global Privacy Control (GPC) and Universal Opt-Out:** Being honors universal opt-out signals as required under CCPA, the Texas Data Privacy and Security Act (TDPSA), the Colorado Privacy Act (CPA), and the Connecticut Data Privacy Act (CTDPA). In the app, you can enable *Settings → Privacy & Data → Honor Universal Opt-Out*, which immediately suppresses all non-essential analytics, crash reporting, settings backup, and research participation regardless of any granular consent previously granted — the in-app equivalent of a GPC signal. On the web, our privacy and support pages at `being.fyi` honor the `Sec-GPC: 1` request header sent by browsers and extensions implementing the Global Privacy Control specification. *(Web-side detection is rolling out and tracked separately; the in-app universal opt-out is live as of v1.3 of this policy.)*
 
 To submit a formal opt-out request by email, write to [privacy@being.fyi](mailto:privacy@being.fyi) with the subject line "Do Not Sell or Share My Personal Information." We will confirm receipt and document your request.
 
