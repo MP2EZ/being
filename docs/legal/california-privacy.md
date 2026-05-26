@@ -16,9 +16,9 @@ This page supplements our [Privacy Policy](/privacy) and provides additional inf
 
 | Category | Examples | Collected |
 |----------|----------|-----------|
-| **Identifiers** | Email address, username | Yes (if you create an account) |
-| **Sensitive Personal Information** | Mental health information (PHQ-9, GAD-7 scores, mood data) | Yes |
-| **Internet Activity** | App usage patterns, feature engagement | Yes (anonymized) |
+| **Identifiers** | Email address, username | No (v1 operates anonymously; no account creation) |
+| **Sensitive Personal Information** | Mental health information (PHQ-9, GAD-7 scores, mood data) | Yes (stored locally on your device by default) |
+| **Internet Activity** | App usage patterns, feature engagement | Yes (anonymized; opt-in only) |
 | **Geolocation** | Location data | No |
 | **Professional/Employment** | Job title, employer | No |
 | **Education** | School, degrees | No |
@@ -100,23 +100,24 @@ Go to **Settings > Privacy** to:
 Send your request to [privacy@being.fyi](mailto:privacy@being.fyi)
 
 Include:
-- Your name and email associated with your account
 - Which right you want to exercise
-- Any details that help us locate your information
+- Approximate first-use date, device type, and time zone (to help us locate the relevant data — v1 operates anonymously, so we cannot match by email or account)
+- Any other details that help us understand your request
 
 ### Verification
 
-To protect your privacy, we will verify your identity before fulfilling requests. We may ask you to:
-- Confirm your email address
-- Provide information that matches our records
-- Confirm through your registered account
+In v1, Being operates anonymously and does not maintain account records that could be matched to a verification request. To protect your privacy while still fulfilling requests:
+
+- **In-app fulfillment is preferred.** Most rights (access, deletion, export, opt-out) can be exercised directly from *Settings → Privacy & Data* without verification, because your device is the authoritative copy of your data.
+- **For email requests** to [privacy@being.fyi](mailto:privacy@being.fyi), we may ask for usage-pattern information (approximate first-use date, device type, time zone) to help us locate any relevant settings-backup data tied to your device.
+- **Email requests will receive a response within 45 days** as required by CCPA §1798.130(a)(2), even where in-app fulfillment is the appropriate path.
 
 ### Authorized Agents
 
 You may designate an authorized agent to make requests on your behalf. We require:
 - Written authorization from you
 - Verification of the agent's identity
-- Verification of your identity
+- For consumer verification: usage-pattern information about the consumer's use of the app (in lieu of account-based verification, which is unavailable in v1)
 
 ### Response Timing
 
@@ -136,9 +137,9 @@ Being collects **sensitive personal information** as defined under CPRA, specifi
 - NOT for profiling, advertising, or secondary purposes
 
 **Your control:**
-- All sensitive data is stored locally by default
-- Cloud backup requires your explicit consent
-- You can delete this data at any time
+- All sensitive personal information is stored locally on your device only — Being does not transmit PHQ-9 / GAD-7 responses, mood check-ins, or journal entries to any server
+- The optional settings backup (see Privacy Policy §4.2) is scoped to non-sensitive app preferences only and does not include any sensitive personal information
+- You can delete this data at any time via in-app *Settings → Privacy & Data*
 
 ---
 
@@ -148,10 +149,9 @@ We retain your personal information only as long as necessary for the purposes d
 
 | Data Type | Retention |
 |-----------|-----------|
-| Account information | Until you delete your account |
-| Wellness data (local) | Until you delete it or uninstall the app |
-| Wellness data (cloud) | Until you disable backup or delete account |
-| Usage analytics | 12 months, anonymized after 30 days |
+| Wellness data (local, on your device) | Until you delete it via in-app settings, or uninstall the app |
+| Settings backup (cloud, optional) | Until you disable backup or request deletion via in-app *Privacy & Data* settings |
+| Usage analytics (opt-in only) | 12 months, anonymized after 30 days |
 
 ---
 
@@ -163,7 +163,7 @@ We do not offer financial incentives for the collection, sale, or deletion of pe
 
 ## Changes to This Notice
 
-We may update this California-specific notice periodically. Material changes will be communicated via email or in-app notification.
+We may update this California-specific notice periodically. Material changes will be communicated via in-app notification.
 
 ---
 
