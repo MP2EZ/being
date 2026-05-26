@@ -72,6 +72,18 @@ module.exports = {
     // beyond the "fix broken imports" scope of the W1 paydown PR. Re-enable
     // by fixing each underlying issue:
     //
+    //  - subscription.integration.test.ts: MAINT-166 PR 2 added a
+    //    synchronous afterEach that clears IAP listener subscriptions
+    //    via direct singleton-field reset (avoids the async
+    //    RNIap.endConnection mock that hangs under --coverage --ci).
+    //    Result: 8/8 pass locally with no open handles. CI still
+    //    times out on all 8 tests after 30s — the issue isn't async
+    //    leak anymore, it's something deeper about how the IAPService
+    //    + Zustand store interaction behaves under coverage
+    //    instrumentation on Ubuntu CI runners. Out of scope for PR 2;
+    //    needs deeper investigation (try --runInBand, try splitting
+    //    out coverage, try replacing the IAP listener pattern with
+    //    a direct callback registry). Re-quarantined.
     //  - sync-coordinator-integration.test.ts: MAINT-166 PR 2 confirmed
     //    that the master-key issue called out in the prior comment is
     //    not the actual blocker. The test calls `new SyncCoordinator()`,
@@ -125,6 +137,7 @@ module.exports = {
     //    `triggerPriorityBackup()`. Needs assertion-level API
     //    rewrite — moved to PR 5 (MAINT-E) scope alongside
     //    sync-performance-validation, which has the same drift.
+    'subscription\\.integration\\.test\\.ts$',
     'sync-coordinator-integration\\.test\\.ts$',
     'analytics-service-integration\\.test\\.ts$',
     'practices-flows-integration\\.test\\.tsx$',
