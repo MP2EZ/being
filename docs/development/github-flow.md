@@ -194,6 +194,37 @@ ln -s ../../.config/env.production app/.env.production
 ln -s ../../.config/env.development app/.env.development
 ```
 
+## Release automation (INFRA-146)
+
+`/b-release` promotes `development → main` and tags the merge commit. The actual TestFlight build is produced by `.github/workflows/release.yml`, which fires on every push to `main`:
+
+- **Trigger**: `push: main` (release PR merge) or manual `workflow_dispatch`.
+- **Action**: a single `eas build --platform ios --profile production --auto-submit --submit-profile production --non-interactive --no-wait` step. EAS chains build → TestFlight submission server-side; the workflow itself exits in under two minutes while the ~20-30 min build runs asynchronously on EAS.
+- **Platform scope**: iOS only. Android Play Store submission is out of scope; add a parallel workflow when it's needed.
+
+### Required GitHub Actions secret
+
+`EXPO_TOKEN` — generate with `eas user:tokens:create --name release-yml` from any worktree's `app/` directory, then add to repo secrets:
+
+```bash
+gh secret set EXPO_TOKEN --body "$(cd app && eas user:tokens:create --name release-yml)"
+```
+
+Rotate the token by repeating the same command; the new value overwrites the old.
+
+### Pre-flight placeholder check
+
+The workflow refuses to build if `app/eas.json`'s `submit.production.ios` block still contains the `PLACEHOLDER_APP_ID` / `PLACEHOLDER_TEAM_ID` literal strings (INFRA-82 carried real credentials into EAS but didn't reconcile them into the `eas.json` text). The grep fires before the EAS step so you don't burn 20+ Actions-minutes on a build whose submission would have been rejected.
+
+### Manual re-run
+
+For transient EAS or App Store Connect failures, re-run without retagging: GitHub → Actions → "Release - iOS TestFlight" → Run workflow → select `main`. Same `EXPO_TOKEN` + `eas build` step, no `git tag` churn.
+
+### What still requires manual work
+
+- **Beta App Review** for external testers: enable in App Store Connect once the TestFlight build finishes processing.
+- **App Store production submission**: separate path. TestFlight is gated by `release.yml`; production release is operator-initiated in ASC.
+
 ## Skill cheat sheet
 
 | Command | Purpose | Typical duration |

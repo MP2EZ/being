@@ -1,0 +1,82 @@
+name: Release - iOS TestFlight
+
+# Triggered when development → main release PRs merge (per INFRA-145 GitHub
+# Flow). Produces a TestFlight build via EAS and chains submission server-side
+# using --auto-submit, so this workflow exits in <2 min while EAS does the
+# heavy lifting asynchronously.
+#
+# workflow_dispatch lets you manually re-run a release (without retagging) if
+# a transient EAS or App Store Connect error needs a retry.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '20'
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+permissions:
+  contents: read
+  packages: read
+
+# Never cancel a release mid-flight. If a hotfix lands on main while a build
+# is queued on EAS, both should proceed; cancelling would orphan the in-flight
+# build on EAS with no submission step ever queued.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-and-submit:
+    name: EAS build + auto-submit to TestFlight
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: 'app/package-lock.json'
+
+      - name: Install dependencies
+        run: cd app && npm ci --prefer-offline --no-audit
+
+      # Pre-flight: app/eas.json's submit.production.ios block still contains
+      # PLACEHOLDER_APP_ID and PLACEHOLDER_TEAM_ID strings even though INFRA-82
+      # marked Apple Developer credentials as Done. Real values live in EAS
+      # credentials, but until they're reconciled into eas.json text, EAS
+      # Submit will reject the submission after burning ~20 min of Actions
+      # time on the build. Fail fast instead.
+      - name: Pre-flight - reject placeholder credentials in eas.json
+        run: |
+          if grep -q 'PLACEHOLDER_' app/eas.json; then
+            echo "::error::app/eas.json submit.production.ios still contains PLACEHOLDER_ credentials. Replace ascAppId and appleTeamId with real values from EAS credentials before releasing (follow-up to INFRA-82)."
+            exit 1
+          fi
+
+      - name: Setup EAS CLI
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      # --auto-submit chains submission server-side on EAS once the build
+      # finishes. --no-wait lets this workflow exit quickly while EAS does
+      # the 20-30 min build + submit asynchronously. Failures surface in
+      # the EAS dashboard, in App Store Connect, and (for EAS-side errors)
+      # in this job's logs.
+      - name: Build + auto-submit to TestFlight
+        run: |
+          cd app
+          eas build \
+            --platform ios \
+            --profile production \
+            --auto-submit \
+            --submit-profile production \
+            --non-interactive \
+            --no-wait
