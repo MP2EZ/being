@@ -76,6 +76,33 @@ function makeIOSSubscription(productId: string, displayPrice: string) {
   } as unknown as RNIap.ProductSubscription;
 }
 
+// MAINT-166 PR 2: synchronous cleanup of IAPService listener subscriptions
+// between tests. The original quarantine reason was "Cannot log after
+// tests are done" — purchaseUpdatedListener / purchaseErrorListener
+// survived test boundaries and fired callbacks against a torn-down test
+// runner.
+//
+// First attempt used `await IAPService.disconnect()`, which hung in CI
+// (--coverage + --ci environment, the mocked RNIap.endConnection
+// occasionally lost its resolved value between tests). The robust fix
+// is to clear the listener refs directly via the singleton's private
+// state — no async, no RNIap mock dependency.
+//
+// `IAPService` is the singleton instance exported as `IAPService = new
+// IAPServiceClass()`. Accessing private fields through `as any` is a
+// deliberate test-only escape hatch; reaching into the class avoids the
+// mock-resolution edge case while keeping the listeners from leaking.
+//
+// Applies to BOTH describe blocks below so we don't have to duplicate.
+afterEach(() => {
+  const iap = IAPService as any;
+  iap.purchaseUpdateSub?.remove?.();
+  iap.purchaseErrorSub?.remove?.();
+  iap.purchaseUpdateSub = null;
+  iap.purchaseErrorSub = null;
+  iap.isInitialized = false;
+});
+
 describe('Subscription Integration - Full Lifecycle', () => {
   beforeEach(async () => {
     // Reset all state
