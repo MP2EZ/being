@@ -224,6 +224,17 @@ jobs:
         # class. See scripts/legal-registry.js for the comparison rules.
         run: node scripts/legal-registry.js
 
+      - name: Service-singleton setInterval guard check
+        # INFRA-177: Verifies every setInterval call in service files is
+        # guarded by `process.env.NODE_ENV === 'test'` (either at the call
+        # site or at the calling method). Prevents the bug class that
+        # required INFRA-144 (2 services) and INFRA-175 (5 services) fixes
+        # — unguarded singleton init timers leak into Jest's event loop
+        # and hang CI at the 15-min wall. Escape hatch via
+        # `// interval-guard-skip: <reason>` comment for stress-test or
+        # other self-clearing patterns.
+        run: node scripts/check-service-interval-guards.js
+
       - name: Compliance authority validation
         run: cd app && npm run validate:compliance-authority
 
