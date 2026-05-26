@@ -186,6 +186,13 @@ export class ErrorMonitoringService {
     if (this.isInitialized) return;
 
     try {
+      // INFRA-177: Skip interval setup in test environment to prevent Jest
+      // worker hang from unguarded timers (INFRA-144/175 pattern).
+      if (process.env.NODE_ENV === 'test') {
+        this.isInitialized = true;
+        return;
+      }
+
       // Start periodic flushing
       this.flushTimer = setInterval(() => {
         this.flushErrorEvents();
