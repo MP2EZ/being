@@ -4,10 +4,12 @@
 -- =====================================================
 
 -- LEGAL COMPLIANCE:
--- - No PHI stored (only encrypted blobs)
+-- - Being is a consumer wellness app under Palouse Labs LLC, NOT a HIPAA covered entity
+--   (see docs/legal/regulatory-applicability.md).
+-- - No sensitive wellness data stored server-side in plaintext (only client-encrypted blobs)
 -- - Anonymous users only (no PII)
--- - HIPAA compliant under "conduit exception"
--- - No BAA required
+-- - Applicable regulations: FTC HBNR (16 CFR Part 318), state privacy laws
+--   (CCPA / TDPSA / CPA / VCDPA / CTDPA), GDPR for EEA users
 
 -- PERFORMANCE TARGETS:
 -- - <200ms for backup operations
@@ -71,7 +73,7 @@ CREATE INDEX IF NOT EXISTS idx_encrypted_backups_created_at ON encrypted_backups
 CREATE INDEX IF NOT EXISTS idx_encrypted_backups_size ON encrypted_backups(size_bytes);
 
 -- =====================================================
--- 3. ANALYTICS EVENTS TABLE (NO PHI)
+-- 3. ANALYTICS EVENTS TABLE (NO SENSITIVE WELLNESS DATA)
 -- =====================================================
 
 CREATE TABLE IF NOT EXISTS analytics_events (
@@ -309,21 +311,23 @@ GRANT EXECUTE ON FUNCTION get_or_create_user(TEXT) TO authenticated;
 
 COMMENT ON TABLE users IS 'Anonymous users identified only by hashed device ID. No PII stored.';
 COMMENT ON TABLE encrypted_backups IS 'Client-side encrypted data backups. Server cannot decrypt contents.';
-COMMENT ON TABLE analytics_events IS 'Privacy-preserving analytics with no PHI. Severity buckets only.';
+COMMENT ON TABLE analytics_events IS 'Privacy-preserving analytics with no sensitive wellness data. Severity buckets only.';
 
 COMMENT ON COLUMN users.device_id IS 'SHA256 hash of device identifier. No PII.';
 COMMENT ON COLUMN encrypted_backups.encrypted_data IS 'AES-256-GCM encrypted JSON blob. Server has no decryption keys.';
 COMMENT ON COLUMN encrypted_backups.checksum IS 'SHA256 checksum for integrity verification.';
-COMMENT ON COLUMN analytics_events.properties IS 'Anonymous event metadata. No scores or PHI allowed.';
+COMMENT ON COLUMN analytics_events.properties IS 'Anonymous event metadata. No scores or sensitive wellness data allowed.';
 
 -- =====================================================
--- 11. SUBSCRIPTION TABLES (TREAT AS PHI)
+-- 11. SUBSCRIPTION TABLES (SENSITIVE WELLNESS DATA)
 -- =====================================================
 
 -- COMPLIANCE NOTE:
--- Subscription metadata is treated as PHI because it correlates with mental health data.
--- A user's subscription status + encrypted health data = PHI correlation.
--- Therefore, same security standards as encrypted_backups apply.
+-- Subscription metadata is treated as sensitive wellness data because it correlates
+-- with mental health activity: a user's subscription status combined with their
+-- encrypted wellness data forms a sensitive-data set under state privacy laws
+-- (TDPSA §541.001(b)(28), CPA §6-1-1303(24), VCDPA / CTDPA equivalents).
+-- Therefore, the same security standards as encrypted_backups apply.
 
 CREATE TABLE IF NOT EXISTS subscriptions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -701,7 +705,7 @@ GRANT EXECUTE ON FUNCTION get_expiring_grace_periods(INTEGER) TO authenticated;
 -- 17. COMMENTS (SUBSCRIPTIONS)
 -- =====================================================
 
-COMMENT ON TABLE subscriptions IS 'Subscription metadata (treated as PHI due to correlation with mental health data). IAP-only (Apple/Google).';
+COMMENT ON TABLE subscriptions IS 'Subscription metadata (treated as sensitive wellness data due to correlation with mental health activity, per state privacy laws). IAP-only (Apple/Google).';
 COMMENT ON TABLE subscription_events IS 'Audit log for subscription lifecycle events.';
 
 COMMENT ON COLUMN subscriptions.platform_subscription_id IS 'Opaque reference to Apple/Google subscription. No payment data stored.';
@@ -724,4 +728,4 @@ COMMENT ON COLUMN subscriptions.crisis_access_enabled IS 'ALWAYS TRUE - crisis f
 -- ✅ Data retention policies
 -- ✅ Performance optimization
 -- ✅ Row Level Security
--- ✅ HIPAA compliance (subscription metadata treated as PHI)
+-- ✅ Sensitive wellness data protections (subscription metadata treated as sensitive data per state privacy laws)
