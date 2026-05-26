@@ -87,12 +87,12 @@
     "security:deps": "npm audit --audit-level high",
     "security:full": "npm run security:sast && npm run security:deps",
     "deploy:validate-rollback": "echo \"🔄 Validating rollback safety...\" && node -e \"console.log('Rollback validation would run here in production')\"",
-    "e2e:build": "detox build --configuration ios.sim.debug",
-    "e2e:build:release": "detox build --configuration ios.sim.release",
-    "e2e:test": "detox test --configuration ios.sim.debug",
-    "e2e:test:release": "detox test --configuration ios.sim.release",
-    "e2e:crisis": "detox test --configuration ios.sim.debug --testNamePattern='Crisis Access'",
-    "e2e:crisis:ci": "detox test --configuration ios.sim.release --testNamePattern='Crisis Access' --cleanup"
+    "e2e:safety": "maestro test .maestro/ --include-tags=safety",
+    "e2e:safety:q9": "maestro test .maestro/q9-single-alert.yaml",
+    "e2e:safety:phq9": "maestro test .maestro/phq9-severe-completion.yaml",
+    "e2e:safety:gad7": "maestro test .maestro/gad7-severe.yaml",
+    "e2e:safety:crisis-button": "maestro test .maestro/crisis-button-reachability.yaml",
+    "e2e:safety:988-dial": "maestro test .maestro/crisis-988-dial.yaml"
   },
   "expo": {
     "install": {
@@ -173,7 +173,6 @@
     "@typescript-eslint/eslint-plugin": "^8.42.0",
     "@typescript-eslint/parser": "^8.42.0",
     "babel-preset-expo": "~56.0.0",
-    "detox": "^20.13.5",
     "eslint": "^9.34.0",
     "eslint-config-universe": "^15.0.3",
     "eslint-plugin-react": "^7.37.5",

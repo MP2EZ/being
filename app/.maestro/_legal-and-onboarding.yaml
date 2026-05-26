@@ -1,0 +1,107 @@
+appId: com.being.app
+tags:
+  - helper
+name: "Helper: traverse LegalGate + Onboarding"
+---
+# Reusable subflow. Called via `- runFlow: _legal-and-onboarding.yaml`
+# from each top-level safety flow after a fresh launchApp { clearState: true }.
+#
+# Goal: get the app from the cold-start LegalGate to the main tab navigator
+# as fast as possible, without driving any safety surface.
+#
+# This subflow exists because the LegalGate (age picker + 4 consent toggles)
+# and Onboarding (5 sub-screens) are non-safety UI ceremony that would
+# otherwise dominate flow runtime and brittleness. Safety surfaces (crisis
+# detection, threshold alerts, 988 dial) are tested by the calling flows.
+
+# ── Step 0: Expo dev launcher → load Being app ──────────────────
+# In dev builds, launchApp lands in the Expo dev-client launcher with a
+# "DEVELOPMENT SERVERS" list. Tap the Metro server entry to load the
+# JS bundle. In release builds these steps are no-ops (optional: true).
+# Dismiss any "Open in 'Being'?" system prompt first.
+- tapOn:
+    text: "Open"
+    optional: true
+# Wait briefly for the dev launcher to populate its server list.
+- extendedWaitUntil:
+    visible:
+      text: "DEVELOPMENT SERVERS"
+    timeout: 15000
+    optional: true
+# Tap the Metro server row by location (50% x, ~20% y) since text-based
+# selectors on the dev launcher are unreliable. The row is fixed in the
+# layout — first item under DEVELOPMENT SERVERS header.
+- tapOn:
+    point: "50%, 20%"
+    optional: true
+# Wait for the actual Being app to load from Metro (LegalGate appears).
+- extendedWaitUntil:
+    visible:
+      text: "Select year..."
+    timeout: 60000
+# Dev-client may stack overlays on top of LegalGate (first-launch tutorial,
+# Reload/Go home menu). Dismiss by tapping the backdrop area near the top
+# of the screen — bottom-sheet overlays dismiss on backdrop tap.
+- tapOn:
+    point: "50%, 5%"
+- tapOn:
+    text: "Continue"
+    optional: true
+
+# ── Step 1: LegalGate ────────────────────────────────────────────
+# Age verification picker (iOS native wheel). Tap the default placeholder
+# to open it, then tap a year that satisfies >=18 (any year up to
+# current_year - 19 is safe).
+- tapOn: "Select year..."
+- tapOn:
+    text: "1995"
+    optional: true # picker may already show 1995; this tap is best-effort
+
+# Four consent checkboxes via testID. Cannot use text-based selectors here
+# because the legal copy contains inline `Linking.openURL` links (e.g. "Terms
+# of Service" is a tappable substring inside the label) — text taps would
+# fire the link, not toggle the consent.
+- tapOn:
+    id: "legal-consent-tos"
+- tapOn:
+    id: "legal-consent-privacy"
+- tapOn:
+    id: "legal-consent-wellness"
+- tapOn:
+    id: "legal-consent-mh-processing"
+
+# Continue
+- tapOn:
+    id: "legal-gate-continue"
+
+# ── Step 2: Onboarding ────────────────────────────────────────────
+# Onboarding is a 5-screen flow (welcome → stoicIntro → notifications →
+# privacy → celebration). The Explore App button on the celebration
+# screen routes straight to Main tabs without setting up morning practice.
+#
+# Each intermediate screen has a primary CTA (commonly labelled "Continue"
+# or "Next" — exact copy may vary). We use Maestro's text+optional pattern
+# to tolerate copy drift while making progress.
+- tapOn:
+    text: "Continue"
+    optional: true
+- tapOn:
+    text: "Next"
+    optional: true
+- tapOn:
+    text: "Continue"
+    optional: true
+- tapOn:
+    text: "Next"
+    optional: true
+- tapOn:
+    text: "Continue"
+    optional: true
+
+# Final screen — Explore App routes to Main tabs.
+- tapOn:
+    id: "onboarding-explore-app"
+
+# ── Step 3: Verify we landed on Main ─────────────────────────────
+- assertVisible:
+    text: "Home" # bottom tab label

@@ -1,0 +1,31 @@
+appId: com.being.app
+tags:
+  - safety
+name: "GAD-7 score >=15 shows crisis results"
+---
+# Pins GAD-7 severe-threshold completion path. Score 21 (7 questions x 3)
+# passes the >=15 severe threshold. GAD-7 has no Q9-equivalent inline
+# trigger; only the completion banner is in scope here.
+#
+# Threshold source: app/src/core/constants/safety.ts (GAD7_SEVERE_THRESHOLD)
+
+- launchApp:
+    clearState: true
+- runFlow: _legal-and-onboarding.yaml
+
+- tapOn:
+    text: "Profile"
+- tapOn:
+    id: "take-gad7-button"
+- tapOn:
+    id: "assessment-begin-button"
+
+# All 7 questions: "Nearly every day" (option 3 = score 3) = 21 total
+- repeat:
+    times: 7
+    commands:
+      - tapOn:
+          id: "assessment-response-group-option-3"
+
+- assertVisible:
+    id: "results-crisis-banner"
