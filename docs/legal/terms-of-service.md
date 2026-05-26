@@ -12,7 +12,7 @@
 2. [Description of Service](#2-description-of-service)
 3. [Medical Disclaimer](#3-medical-disclaimer)
 4. [Eligibility](#4-eligibility)
-5. [User Accounts](#5-user-accounts)
+5. [Use of Being](#5-use-of-being)
 6. [Subscription & Payment](#6-subscription--payment)
 7. [Acceptable Use Policy](#7-acceptable-use-policy)
 8. [Intellectual Property](#8-intellectual-property)
@@ -69,19 +69,9 @@ To use Being, you must:
 
 ---
 
-## 5. User Accounts
+## 5. Use of Being
 
-### 5.1 Account Creation
-
-You may use Being without creating an account (local-only mode). To enable cloud backup, you must create an account with a valid email address.
-
-### 5.2 Account Security
-
-You are responsible for:
-
-- Maintaining the confidentiality of your login credentials
-- All activities that occur under your account
-- Notifying us immediately of unauthorized access
+Being currently operates in local-only mode. We do not require account creation, and we do not collect email addresses or passwords as part of normal use. Some future features may introduce optional accounts (for example, to enable cross-device sync or web-based subscriptions); this section will be updated at that time.
 
 ---
 
@@ -120,7 +110,6 @@ You agree NOT to:
 - Reverse engineer, decompile, or disassemble the app
 - Use Being for any illegal or unauthorized purpose
 - Interfere with or disrupt the Services
-- Share your account credentials with others
 - Attempt to gain unauthorized access to any portion of the Services
 
 ---
@@ -147,7 +136,7 @@ We may suspend or terminate your access to Being at any time, with or without ca
 
 - Your right to use Being immediately ceases
 - You retain your local data stored on your device
-- Cloud backups may be deleted after 30 days
+- Any settings backup data you previously enabled may be purged within 30 days
 - No refunds will be provided for remaining subscription time
 
 ---
@@ -186,7 +175,7 @@ You agree to indemnify, defend, and hold harmless Being and its officers, direct
 
 ### Changes to Terms
 
-We reserve the right to modify these Terms at any time. We will notify you of material changes via email or in-app notification. Continued use after changes constitutes acceptance.
+We reserve the right to modify these Terms at any time. We will notify you of material changes via in-app notification. Continued use after changes constitutes acceptance.
 
 ### Severability
 

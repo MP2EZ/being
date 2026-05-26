@@ -245,7 +245,7 @@ const PrivacyDataScreen: React.FC<PrivacyDataScreenProps> = ({ onReturn }) => {
               <View style={styles.settingInfo}>
                 <Text style={styles.settingLabel}>Honor Universal Opt-Out</Text>
                 <Text style={styles.settingDescription}>
-                  When enabled, Being treats your account as opted out of all analytics, crash reports, cloud sync, and research participation — overriding the individual toggles below. Honored under CCPA, TDPSA, CPA, and CTDPA.
+                  When enabled, Being treats your in-app session as opted out of all analytics, crash reports, settings backup, and research participation — overriding the individual toggles below. Honored under CCPA, TDPSA, CPA, and CTDPA.
                 </Text>
               </View>
               <Switch
@@ -307,9 +307,9 @@ const PrivacyDataScreen: React.FC<PrivacyDataScreenProps> = ({ onReturn }) => {
           <View style={styles.settingCard}>
             <View style={styles.settingRow}>
               <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>Cloud Backup</Text>
+                <Text style={styles.settingLabel}>Settings Backup</Text>
                 <Text style={styles.settingDescription}>
-                  Securely sync your preferences across devices
+                  Back up app preferences to encrypted cloud storage
                 </Text>
               </View>
               <Switch
