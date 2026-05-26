@@ -338,6 +338,14 @@ Reference `CLAUDE.md` for safety facts (PHQ/GAD thresholds, 988 access budget, p
 - `/Users/max/dev/being/.claude/agents/compliance.md`
 - `/Users/max/dev/being/.claude/agents/philosopher.md`
 
+**Maestro flow-authoring advisory** (INFRA-171): if the signals matched include any of `crisis`, `988`, `PHQ`, `GAD`, `threshold`, `assessment`, `safety plan`, or `emergency`, the implementation deliverable extends to include a Maestro safety flow:
+
+> 🛡️  Safety-surface signals matched. Before commit:
+> - [ ] Specialist agent planning pass complete (per table above)
+> - [ ] New or updated Maestro flow exists in `app/.maestro/` that pins the user-visible contract this work changes (or this work's changes are already covered by an existing flow — confirm which)
+> - [ ] Scoped flow passes locally: `npm run e2e:safety:<flow>` (full suite: `npm run e2e:safety`)
+> The `/b-close` Phase 2.5 gate will block push when safety-surface paths change and Maestro fails. This is advisory; the hard gate is in `/b-close`.
+
 **If no signals match**: proceed directly to Step 3.2. General UI work and backend changes don't require a planning pass.
 
 ---

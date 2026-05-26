@@ -20,13 +20,14 @@ deprecated (PR merge always pushes); accepted as a no-op for backward compat.
 
 **Parse command arguments**:
 - Extract WORK_ITEM_ID (if provided)
-- Extract flags: `--push`
+- Extract flags: `--push`, `--skip-e2e`
 
 **Examples**:
 ```bash
 /b-close MAINT-79           # Close without push
-/b-close MAINT-79 --push    # Close and push
+/b-close MAINT-79 --push    # Close and push (--push is a no-op, kept for backcompat)
 /b-close --push             # Auto-detect work item, push
+/b-close MAINT-79 --skip-e2e  # Bypass Phase 2.5 Maestro gate (HOTFIX BRANCHES ONLY)
 ```
 
 **Flag detection**:
@@ -34,7 +35,15 @@ deprecated (PR merge always pushes); accepted as a no-op for backward compat.
 args = [MAINT-79, --push]
 → WORK_ITEM_ID = MAINT-79
 → SHOULD_PUSH = true
+
+args = [MAINT-79, --skip-e2e]
+→ WORK_ITEM_ID = MAINT-79
+→ SKIP_E2E = true
 ```
+
+**`--skip-e2e` policy** (INFRA-171): mirrors `--no-verify` from CLAUDE.md. The
+Phase 2.5 Maestro gate refuses to bypass on `feat/*`, `fix/*`, or `chore/*`
+branches; only `hotfix/*` accepts it (with a loud warning). See Phase 2.5 below.
 
 **If WORK_ITEM_ID provided as argument**:
 → Use provided WORK_ITEM_ID (excluding --push flag)
@@ -219,6 +228,110 @@ message: [generated message]
    Message: [first line of commit]
    Files: [count] files changed
 ```
+
+---
+
+## Phase 2.5: Safety e2e Gate (Maestro)
+
+**INFRA-171**: Block push if the branch touches a user-visible safety surface
+and the corresponding Maestro flow(s) fail. Local-only — no CI integration.
+The gate is the only mechanical enforcement that the safety-surface contracts
+(PHQ-9 Q9 single-alert, score-threshold completion banners, GAD-7 severe
+handoff, crisis-button reachability, 988 dial path) hold end-to-end. Every
+Jest test mocks `Alert.alert` and `Linking.canOpenURL`, so these contracts
+are invisible to the rest of the test stack.
+
+### Step 2.5.1: Detect safety-surface changes
+
+```bash
+SAFETY_CHANGED=$(git diff --name-only origin/development...HEAD | \
+  grep -E '^app/(src/features/(assessment|crisis)|src/core/services/security|src/core/navigation/CleanRootNavigator|app\.json|ios/.*Info\.plist)' || true)
+```
+
+If empty → skip the gate:
+```
+ℹ️  No safety-surface changes detected — skipping Maestro e2e gate
+```
+Proceed to Step 3.1.
+
+### Step 2.5.2: Honor `--skip-e2e` flag (hotfix-only)
+
+If `SAFETY_CHANGED` is non-empty AND `SKIP_E2E=true`:
+
+```bash
+CURRENT_BRANCH=$(git branch --show-current)
+case "$CURRENT_BRANCH" in
+  hotfix/*)
+    echo "⚠️  --skip-e2e on hotfix/* — bypassing Maestro gate."
+    echo "   Document the reason in the PR body."
+    # proceed to Step 3.1
+    ;;
+  *)
+    echo "❌ --skip-e2e is only permitted on hotfix/* branches"
+    echo "   (mirror of --no-verify policy from CLAUDE.md)."
+    echo "   Run Maestro flows (npm run e2e:safety) or rebase onto a"
+    echo "   hotfix/* branch if this is genuinely urgent."
+    exit 1
+    ;;
+esac
+```
+
+### Step 2.5.3: Map changed paths to scoped flow(s)
+
+Avoids running all 5 flows on every safety touch (~3-4 min full run trains
+`--skip-e2e` reflex). Match changed paths to the minimal set of flows that
+pin the surfaces affected.
+
+```bash
+SCRIPTS=()
+echo "$SAFETY_CHANGED" | grep -q 'src/features/crisis/' && \
+  SCRIPTS+=("e2e:safety:crisis-button" "e2e:safety:988-dial")
+echo "$SAFETY_CHANGED" | grep -q 'src/features/assessment/' && \
+  SCRIPTS+=("e2e:safety:q9" "e2e:safety:phq9" "e2e:safety:gad7")
+echo "$SAFETY_CHANGED" | grep -qE 'app\.json|Info\.plist' && \
+  SCRIPTS+=("e2e:safety:988-dial")
+echo "$SAFETY_CHANGED" | grep -qE 'src/core/services/security|CleanRootNavigator' && \
+  SCRIPTS=("e2e:safety")  # full suite — cross-cutting change, override scope
+
+# Dedupe
+SCRIPTS=($(printf "%s\n" "${SCRIPTS[@]}" | sort -u))
+```
+
+### Step 2.5.4: Verify simulator readiness
+
+```bash
+if ! xcrun simctl list devices booted | grep -qE '\([A-F0-9-]+\) \(Booted\)'; then
+  echo "❌ No iOS simulator booted."
+  echo "   Run 'npm run ios' first to build + install Being on a sim, then retry /b-close."
+  exit 1
+fi
+if ! xcrun simctl listapps booted 2>/dev/null | grep -q com.being.app; then
+  echo "❌ com.being.app not installed on booted sim."
+  echo "   Run 'npm run ios' first, then retry /b-close."
+  exit 1
+fi
+```
+
+Do NOT auto-boot or auto-build — these are 60-90s detours mid-close. Defer
+to the user.
+
+### Step 2.5.5: Run the scoped flows
+
+```bash
+cd /Users/max/dev/being/[worktree-dir]/app
+for script in "${SCRIPTS[@]}"; do
+  echo "🛡️  Running: npm run $script"
+  if ! npm run "$script"; then
+    echo "❌ Maestro flow '$script' failed."
+    echo "   Fix the issue, or — on a hotfix/* branch only — re-run with --skip-e2e."
+    echo "   Debug a single flow with: maestro test .maestro/<flow>.yaml --debug"
+    exit 1
+  fi
+done
+echo "✅ All scoped Maestro safety flows passed (${#SCRIPTS[@]} script(s))"
+```
+
+Proceed to Step 3.1 only on success.
 
 ---
 

@@ -12,7 +12,7 @@ Bare git repo at `~/dev/being/` with worktrees at `~/dev/being/{main,development
 
 - React Native `0.85.3`, Expo `56`, React `19.2.3` (pinned — see version-check script in `app/package.json`)
 - Supabase (auth + DB), Zustand `5` (state), Stripe (subscriptions), Sentry (monitoring), expo-secure-store + react-native-aes-crypto (encryption)
-- TypeScript `5.9.x` strict (kept on 5.9 via `expo.install.exclude`; TS 6 deferred — see follow-up work item), Jest + Detox (e2e)
+- TypeScript `5.9.x` strict (kept on 5.9 via `expo.install.exclude`; TS 6 deferred — see follow-up work item), Jest (unit/integration) + Maestro (safety-path e2e, local-only — INFRA-171)
 
 ## Setup & Run
 
@@ -79,20 +79,30 @@ npm run perf:crisis                # crisis button <200ms
 npm run perf:breathing             # 60fps animation
 npm run perf:launch                # <2s launch
 npm run validate:accessibility     # accessibility validation
+
+# Safety-path e2e (Maestro, local-only — INFRA-171)
+npm run e2e:safety                 # all 5 Maestro safety flows
+npm run e2e:safety:q9              # PHQ-9 Q9 single-alert pinning
+npm run e2e:safety:phq9            # PHQ-9 ≥20 completion path
+npm run e2e:safety:gad7            # GAD-7 ≥15 severe handoff
+npm run e2e:safety:crisis-button   # crisis button reachability from each tab
+npm run e2e:safety:988-dial        # 988 dial does not fall back (pins LSApplicationQueriesSchemes)
 ```
 
 ## Validation Matrix
 
 Which validators are required for which work type. `crisis`, `compliance`, `philosopher` are specialist agents. Accessibility/performance are validated via the corresponding `npm run test:*` and `perf:*` commands.
 
-| Work Type | crisis | compliance | philosopher | accessibility | performance |
-|---|---|---|---|---|---|
-| Crisis features | required | required | — | required | <200ms required |
-| Assessment UI | required (thresholds) | — | — | required | — |
-| Therapeutic content (Stoic) | — | — | required | required | 60fps if animation |
-| Privacy / wellness data export | — | required | — | if UI | — |
-| General UI | — | — | — | required | — |
-| Backend-only | — | — | — | — | — |
+| Work Type | crisis | compliance | philosopher | accessibility | performance | safety e2e |
+|---|---|---|---|---|---|---|
+| Crisis features | required | required | — | required | <200ms required | required |
+| Assessment UI | required (thresholds) | — | — | required | — | required |
+| Therapeutic content (Stoic) | — | — | required | required | 60fps if animation | — |
+| Privacy / wellness data export | — | required | — | if UI | — | — |
+| General UI | — | — | — | required | — | — |
+| Backend-only | — | — | — | — | — | — |
+
+Safety e2e = Maestro flow in `app/.maestro/` pinning the user-visible contract. Gated by `/b-close` Phase 2.5 when safety paths change. Authoring guide: `docs/testing/e2e-maestro.md`.
 
 ## State (Zustand)
 
@@ -159,7 +169,7 @@ Cherry-pick is preferred over rebase to keep dev's "prevent force-push" protecti
 |---|---|
 | `/b-create [TYPE] - [Name]` | Create Notion work item from conversation context with dimension scores |
 | `/b-work [WORK_ITEM_ID]` | Fetch work item, create worktree off `development` (with env symlinks per INFRA-141), install deps, implement |
-| `/b-close [WORK_ITEM_ID]` | Push feature branch, open PR to `development`, wait for CI, merge via merge-commit (INFRA-145), update Notion to Done. `--push` flag deprecated (PR merge always pushes). |
+| `/b-close [WORK_ITEM_ID]` | Push feature branch, open PR to `development`, wait for CI, merge via merge-commit (INFRA-145), update Notion to Done. Phase 2.5 Maestro safety-e2e gate runs scoped flow(s) when safety paths change (INFRA-171). `--push` deprecated (PR merge always pushes). `--skip-e2e` hotfix-only. |
 | `/b-release [BUMP] [--finish]` | Promote `development → main` as a release. Interactive bump prompt + FOUR-place version bump (INFRA-141) + env schema pre-flight + auto release notes. Run with `--finish` after the PR merges to tag + push. |
 
 Branch naming: `feat/*`, `fix/*`, `chore/*` (mapped from work item TYPE). Conventional commits. Aim for <400 LOC per PR.
@@ -186,7 +196,7 @@ Branch naming: `feat/*`, `fix/*`, `chore/*` (mapped from work item TYPE). Conven
 - React must stay at `19.2.3` for RN 0.85.x compatibility — `version-check` script enforces.
 - iOS minimum is `16.4` (SDK 56). New Architecture and edge-to-edge are mandatory and cannot be disabled.
 - Vector icons use scoped `@react-native-vector-icons/*` packages (migrated from `@expo/vector-icons` in INFRA-158). On the crisis path, keep `import { MaterialDesignIcons } from '@react-native-vector-icons/material-design-icons'` eager at module top — do not lazy-import.
-- `LSApplicationQueriesSchemes` in `app/app.json` (`tel`, `sms`) is **required** on iOS 13+ for the crisis dial path. Without it, `Linking.canOpenURL('tel:988')` returns `false` and `CrisisResourcesScreen` falls back to an "Unable to Call — please manually dial" alert during a crisis. Tests mock `canOpenURL`, so Jest cannot catch a regression here — only a Detox e2e against a simulator/device or a real-device smoke test catches it. If you add a new scheme to the crisis path (e.g., `mailto:`), add it to this array too.
+- `LSApplicationQueriesSchemes` in `app/app.json` (`tel`, `sms`) is **required** on iOS 13+ for the crisis dial path. Without it, `Linking.canOpenURL('tel:988')` returns `false` and `CrisisResourcesScreen` falls back to an "Unable to Call — please manually dial" alert during a crisis. Tests mock `canOpenURL`, so Jest cannot catch a regression here — the Maestro flow `app/.maestro/crisis-988-dial.yaml` (INFRA-171) is the only mechanical pin, asserting absence of the "Unable to Call" fallback after tapping the 988 button. The `/b-close` Phase 2.5 gate runs this flow automatically when `app.json` or `Info.plist` change. If you add a new scheme to the crisis path (e.g., `mailto:`), add it to this array AND extend the Maestro flow to inverse-assert the matching fallback.
 - App Groups entitlement for the iOS widget is injected via a local config plugin at `app/plugins/withAppGroupsEntitlement.js` (was previously `expo-build-properties`'s `ios.entitlements`, removed in SDK 56).
 - TypeScript stays on `5.9.x` and `globalThis.fetch` stays as RN's `fetch` (via `EXPO_PUBLIC_USE_RN_FETCH=1`) — both SDK 56 default-changes were deliberately opted out in INFRA-158 to keep upgrade scope tight; see follow-up work items.
 - `AsyncStorage` is unencrypted by design; wellness data must use `expo-secure-store` + AES-256.
@@ -195,6 +205,7 @@ Branch naming: `feat/*`, `fix/*`, `chore/*` (mapped from work item TYPE). Conven
 - Slash commands in `.claude/commands/` must use **absolute paths** (`/Users/max/dev/being/.claude/...`) for any internal file references — never relative `./.claude/...`. This avoids the symlink dance.
 - Compliance terminology: "wellness data" not "PHI"; "AES-256 encryption" not "HIPAA-compliant encryption"; "wellness screening" not "clinical assessment."
 - Env files live canonically at `~/dev/being/.config/{env.production,env.development}` (gitignored at bare root). Worktree `app/.env.{production,development}` are symlinks to those. `/b-work` creates the symlinks automatically; manual `git worktree add` requires creating them by hand (`ln -s ../../.config/env.production app/.env.production` and same for development). Dev env has empty `EXPO_PUBLIC_SENTRY_DSN` so Sentry no-ops locally; production env carries the real DSN. Back up the canonical files in 1Password — deleting `.config/` breaks all worktrees.
+- Maestro safety-e2e (INFRA-171) is **local-only** — no CI macOS runners. Install with `brew install maestro`. Prereq per run: an iOS sim must be booted and `com.being.app` installed (`npm run ios` once per worktree). Flows live in `app/.maestro/`. The `/b-close` Phase 2.5 gate runs scoped flows when safety paths change. `--skip-e2e` bypass mirrors the `--no-verify` policy below: **`hotfix/*` only** — refused on `feat/*`, `fix/*`, `chore/*`. Authoring + debugging guide: `docs/testing/e2e-maestro.md`.
 
 ## Git Hooks (INFRA-155)
 
