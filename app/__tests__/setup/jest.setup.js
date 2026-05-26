@@ -504,6 +504,37 @@ jest.mock('react-native-safe-area-context', () => {
   };
 });
 
+// @sentry/react-native: the runtime require chain hits the RNSentry native
+// TurboModule (devicecontext integration), which is undefined in Jest. We use
+// Sentry for performance spans on the crisis button + encryption init (INFRA-62);
+// production code calls startSpan/captureException/init/close. The mock invokes
+// span callbacks so wrapped code still runs under test.
+jest.mock('@sentry/react-native', () => ({
+  init: jest.fn(),
+  close: jest.fn(() => Promise.resolve()),
+  captureException: jest.fn(),
+  captureMessage: jest.fn(),
+  addBreadcrumb: jest.fn(),
+  setUser: jest.fn(),
+  setTag: jest.fn(),
+  setContext: jest.fn(),
+  startSpan: jest.fn((_spanOptions, callback) => {
+    const span = {
+      setAttribute: jest.fn(),
+      setAttributes: jest.fn(),
+      setStatus: jest.fn(),
+      end: jest.fn(),
+    };
+    return callback(span);
+  }),
+  startInactiveSpan: jest.fn(() => ({
+    setAttribute: jest.fn(),
+    setAttributes: jest.fn(),
+    setStatus: jest.fn(),
+    end: jest.fn(),
+  })),
+}));
+
 // Global teardown for performance reporting
 afterAll(() => {
   if (global.testPerformance?.results?.length > 0) {

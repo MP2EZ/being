@@ -7,12 +7,14 @@ import React, { useEffect, useState, useRef } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import * as Sentry from '@sentry/react-native';
 import CleanRootNavigator from './src/core/navigation/CleanRootNavigator';
 import { IAPService } from './src/core/services/subscription/IAPService';
 import { useSubscriptionStore } from './src/core/stores/subscriptionStore';
 import EncryptionService from './src/core/services/security/EncryptionService';
 import { useSettingsStore } from './src/core/stores/settingsStore';
 import { initializeExternalReporting, logSystem, logError, LogCategory } from './src/core/services/logging';
+import { initializeCrisisMonitoring } from './src/core/services/monitoring';
 import { DataRetentionService } from './src/core/services/data-retention';
 import { PostHogProvider } from './src/core/analytics';
 
@@ -25,17 +27,31 @@ export default function App() {
       try {
         logSystem('App initialization started');
 
-        // EncryptionService must initialize first — downstream secure-storage
-        // services (wellness data) depend on its keys being ready.
-        await EncryptionService.initialize();
+        // Sentry first so subsequent spans (encryption health, crisis button
+        // latency) reach the dashboard. Wrapped in try/catch: a Sentry init
+        // failure must not block encryption init.
+        try {
+          await initializeExternalReporting();
+        } catch (err) {
+          logError(LogCategory.SYSTEM, 'Sentry init failed (non-blocking)', err as Error);
+        }
+
+        // EncryptionService must initialize before downstream secure-storage
+        // services (wellness data) depend on its keys. Sentry span captures
+        // launch-time duration against the <2s app-launch budget.
+        await Sentry.startSpan(
+          { name: 'encryption.init', op: 'app.launch.encryption' },
+          async () => {
+            await EncryptionService.initialize();
+          }
+        );
         logSystem('Encryption service initialized');
 
         // Remaining init tasks are independent. allSettled (not all) so one
-        // best-effort failure doesn't abort the others (Sentry init, retention
-        // cleanup, etc. are non-blocking for app usability). IAP init only runs
+        // best-effort failure doesn't abort the others. IAP init only runs
         // when the platform supports it.
         const results = await Promise.allSettled([
-          initializeExternalReporting(),
+          initializeCrisisMonitoring(),
           useSubscriptionStore.getState().loadSubscription(),
           IAPService.isAvailable()
             ? IAPService.initialize()
@@ -45,7 +61,7 @@ export default function App() {
 
         results.forEach((result, idx) => {
           if (result.status === 'rejected') {
-            const task = ['externalReporting', 'loadSubscription', 'IAPService', 'dataRetention'][idx];
+            const task = ['crisisMonitoring', 'loadSubscription', 'IAPService', 'dataRetention'][idx];
             logError(
               LogCategory.SYSTEM,
               `Init task '${task}' failed (non-blocking)`,
