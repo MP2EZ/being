@@ -187,6 +187,7 @@ const ResourceCard: React.FC<ResourceCardProps> = ({ resource, onPress }) => {
               }
             ]}
             onPress={onPress}
+            testID={resource.id === '988_lifeline' ? 'crisis-call-988-button' : `crisis-call-${resource.id}-button`}
             accessibilityRole="button"
             accessibilityLabel={`Call ${resource.name}`}
           >

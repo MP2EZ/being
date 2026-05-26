@@ -278,7 +278,8 @@ const AssessmentResults: React.FC<AssessmentResultsProps> = ({
             id="crisis-banner"
             priority={5}
           >
-            <View 
+            <View
+              testID="results-crisis-banner"
               style={styles.crisisBanner}
               accessibilityRole="alert"
               accessibilityLiveRegion="assertive"

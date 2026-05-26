@@ -1740,6 +1740,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
           <Pressable
             style={[styles.secondaryButton, styles.accessibleTouchTarget, { marginTop: spacing[16] }]}
             onPress={handleExploreApp}
+            testID="onboarding-explore-app"
             accessible={true}
             accessibilityRole="button"
             accessibilityLabel="Explore App"

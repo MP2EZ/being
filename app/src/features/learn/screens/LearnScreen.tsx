@@ -270,7 +270,7 @@ const LearnScreen: React.FC = () => {
         <CollapsibleCrisisButton
           mode="standard"
           onNavigate={() => navigation.navigate('CrisisResources')}
-          testID="crisis-button"
+          testID="crisis-learn"
         />
       </View>
     </SafeAreaView>

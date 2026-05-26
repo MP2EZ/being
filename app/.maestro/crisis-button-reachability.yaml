@@ -1,0 +1,51 @@
+appId: com.being.app
+tags:
+  - safety
+name: "Crisis button reaches CrisisResources from every tab"
+---
+# Pins the safety fact: 988 access <3 taps from any screen. Asserts that
+# the crisis button on each of the 4 main tabs successfully navigates
+# to CrisisResources. Replaces the dormant Detox crisis-access.e2e.ts.
+#
+# Maestro's default assertVisible timeout (~10s) covers the <3s SLA from
+# CLAUDE.md. Strict timing assertions remain in Jest perf hooks
+# (npm run perf:crisis).
+
+- launchApp:
+    clearState: true
+- runFlow: _legal-and-onboarding.yaml
+
+# ── Home tab ─────────────────────────────────────────────────────
+- tapOn:
+    text: "Home"
+- tapOn:
+    id: "crisis-home"
+- assertVisible:
+    id: "crisis-resources-screen"
+- back
+
+# ── Learn tab ────────────────────────────────────────────────────
+- tapOn:
+    text: "Learn"
+- tapOn:
+    id: "crisis-learn"
+- assertVisible:
+    id: "crisis-resources-screen"
+- back
+
+# ── Insights tab ─────────────────────────────────────────────────
+- tapOn:
+    text: "Insights"
+- tapOn:
+    id: "crisis-insights"
+- assertVisible:
+    id: "crisis-resources-screen"
+- back
+
+# ── Profile tab ──────────────────────────────────────────────────
+- tapOn:
+    text: "Profile"
+- tapOn:
+    id: "crisis-profile"
+- assertVisible:
+    id: "crisis-resources-screen"

@@ -1,0 +1,43 @@
+appId: com.being.app
+tags:
+  - safety
+name: "988 dial does not surface 'Unable to Call' fallback"
+---
+# Pins INFRA-147's LSApplicationQueriesSchemes contract. The Info.plist
+# / app.json LSApplicationQueriesSchemes array must include "tel" so that
+# Linking.canOpenURL('tel:988') returns true. If that config is stripped,
+# CrisisResourcesScreen falls back to an Alert "Unable to Call — please
+# manually dial 988 for support." — terrible UX mid-crisis.
+#
+# Maestro cannot observe the iOS dialer once the app backgrounds, but it
+# can observe the absence of the in-app fallback alert. Alert absence
+# is mechanically equivalent to canOpenURL returning true, which is
+# exactly what LSApplicationQueriesSchemes controls.
+#
+# All Jest tests mock Linking.canOpenURL so this contract has no other
+# mechanical enforcement. This flow is the only mechanical pin.
+
+- launchApp:
+    clearState: true
+- runFlow: _legal-and-onboarding.yaml
+
+# Reach CrisisResources from Home tab
+- tapOn:
+    text: "Home"
+- tapOn:
+    id: "crisis-home"
+- assertVisible:
+    id: "crisis-resources-screen"
+
+# Tap the 988 Call Now button. With tel: in LSApplicationQueriesSchemes,
+# Linking.openURL('tel:988') succeeds → iOS dial prompt; no in-app alert.
+# Without it, canOpenURL returns false → fallback alert appears.
+- tapOn:
+    id: "crisis-call-988-button"
+
+# Poll for fallback-alert ABSENCE over 3s. extendedWaitUntil is required
+# because the openURL → canOpenURL race resolves async; an immediate
+# assertNotVisible could pass before the alert had a chance to render.
+- extendedWaitUntil:
+    notVisible: "Unable to Call"
+    timeout: 3000
