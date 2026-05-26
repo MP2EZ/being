@@ -1,0 +1,38 @@
+appId: com.being.app
+tags:
+  - safety
+name: "PHQ-9 score >=20 completion shows crisis results"
+---
+# Pins the score-based completion path (orthogonal to the Q9 inline
+# trigger). Score 24 (8 questions x 3) passes the >=20 severe threshold;
+# Q9 stays at 0 so the inline alert does NOT fire — completion banner
+# is what we're testing.
+#
+# Threshold source: app/src/core/constants/safety.ts (PHQ9_SEVERE_THRESHOLD)
+
+- launchApp:
+    clearState: true
+- runFlow: _legal-and-onboarding.yaml
+
+- tapOn:
+    text: "Profile"
+- tapOn:
+    id: "take-phq9-button"
+- tapOn:
+    id: "assessment-begin-button"
+
+# Q1–Q8: "Nearly every day" (option 3 = score 3) = 24 total
+- repeat:
+    times: 8
+    commands:
+      - tapOn:
+          id: "assessment-response-group-option-3"
+
+# Q9: option 0 (suppress inline trigger so we exercise the completion path)
+- tapOn:
+    id: "assessment-response-group-option-0"
+
+# Assessment completes → AssessmentResults screen. Crisis banner renders
+# because the computed severity is severe (>=20).
+- assertVisible:
+    id: "results-crisis-banner"
