@@ -31,8 +31,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 import { Alert, Linking } from 'react-native';
 
-import SyncCoordinator from '../../src/services/supabase/SyncCoordinator';
-import { useAssessmentStore } from '../../src/features/assessment/stores/assessmentStore';
+import SyncCoordinator from '@/core/services/supabase/SyncCoordinator';
+import { useAssessmentStore } from '@/features/assessment/stores/assessmentStore';
+import { EncryptionService } from '@/core/services/security/EncryptionService';
+import { resetEncryptionMocks } from '../helpers/mockEncryption';
 
 // Mock React Native components
 jest.mock('react-native', () => ({
@@ -43,6 +45,23 @@ jest.mock('react-native', () => ({
     openURL: jest.fn().mockResolvedValue(true)
   }
 }));
+
+// Encryption-stack mocks — SyncCoordinator transitively depends on
+// EncryptionService → SecureStorageService. Without these, master-key
+// initialization throws.
+jest.mock('react-native-aes-crypto', () => {
+  const { createAesCryptoMock } = require('../helpers/mockEncryption');
+  return createAesCryptoMock();
+});
+jest.mock('expo-secure-store', () => {
+  const { createExpoSecureStoreMock } = require('../helpers/mockEncryption');
+  return createExpoSecureStoreMock();
+});
+
+// Auto-mock the assessment store so (useAssessmentStore as any).mockImplementation
+// in beforeEach works. Without this, useAssessmentStore is the real module and
+// has no .mockImplementation method.
+jest.mock('@/features/assessment/stores/assessmentStore');
 
 // Emergency scenario simulation utilities
 class EmergencySimulator {
@@ -152,7 +171,10 @@ const EMERGENCY_GAD7_ASSESSMENT = {
 // Mock dependencies
 jest.mock('@react-native-async-storage/async-storage');
 jest.mock('@react-native-community/netinfo');
-jest.mock('expo-crypto');
+jest.mock('expo-crypto', () => {
+  const { createExpoCryptoMock } = require('../helpers/mockEncryption');
+  return createExpoCryptoMock();
+});
 
 const mockAsyncStorage = AsyncStorage as jest.Mocked<typeof AsyncStorage>;
 const mockNetInfo = NetInfo as jest.Mocked<typeof NetInfo>;
@@ -165,6 +187,10 @@ describe('🚨 SYNC EMERGENCY SCENARIO TESTING', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    resetEncryptionMocks();
+    // Reset the EncryptionService singleton between tests so the
+    // master-key flag doesn't survive across files (idempotent destroy).
+    await EncryptionService.getInstance().destroy();
 
     // Initialize with normal conditions
     EmergencySimulator.restoreNormalConditions();
