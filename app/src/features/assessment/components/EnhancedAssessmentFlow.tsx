@@ -41,7 +41,7 @@ import CrisisErrorBoundary from '@/features/crisis/components/CrisisErrorBoundar
 import { useAssessmentStore } from '../stores/assessmentStore';
 
 // Types and interfaces
-import type { 
+import type {
   AssessmentType,
   AssessmentResponse,
   AssessmentQuestion,
@@ -49,29 +49,7 @@ import type {
   GAD7Result,
   AssessmentSession
 } from '@/features/assessment/types';
-
-/**
- * ⚠️ MOCK-SHAPE — diverges from canonical `CrisisDetection` in
- * `@/features/crisis/types/safety` (`primaryTrigger` not `triggerType`,
- * `severityLevel` not `severity`, plus more required fields).
- *
- * This shape exists because `EnhancedAssessmentQuestion` currently uses a
- * local `mockCrisisEngine` that produces this shape. When that mock is
- * replaced with the real `useAssessmentStore` crisis-detection wiring,
- * this interface MUST be deleted and the canonical type imported.
- *
- * Until then: do NOT route the canonical store's `crisisDetection` through
- * `handleCrisisDetected` — it has `primaryTrigger` not `triggerType` and
- * the telemetry at line 251 would silently log `undefined`.
- */
-interface CrisisDetection {
-  isTriggered: boolean;
-  triggerType: 'phq9_suicidal' | 'phq9_score' | 'gad7_score' | 'system_error';
-  triggerValue: number;
-  timestamp: number;
-  assessmentId: string;
-  severity?: 'low' | 'moderate' | 'high' | 'critical' | 'emergency';
-}
+import type { CrisisDetection } from '@/features/crisis/types/safety';
 
 interface DataProtectionConsentStatus {
   dataProcessingConsent: boolean;
@@ -96,7 +74,6 @@ interface ResponseMetadata {
   performanceMetrics: {
     responseTime: number;
     encryptionTime: number;
-    crisisCheckTime: number;
   };
 }
 
@@ -148,7 +125,6 @@ const EnhancedAssessmentFlow: React.FC<EnhancedAssessmentFlowProps> = ({
   const [flowState, setFlowState] = useState<'introduction' | 'questions' | 'results' | 'completing'>('introduction');
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Map<string, { response: AssessmentResponse; metadata: ResponseMetadata }>>(new Map());
-  const [crisisDetected, setCrisisDetected] = useState<CrisisDetection | null>(null);
   const [result, setResult] = useState<PHQ9Result | GAD7Result | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [performanceMetrics, setPerformanceMetrics] = useState<any>({});
@@ -157,7 +133,11 @@ const EnhancedAssessmentFlow: React.FC<EnhancedAssessmentFlowProps> = ({
   const flowStartTime = useRef<number>(Date.now());
   const questionStartTime = useRef<number>(Date.now());
 
-  // Assessment store integration
+  // Assessment store integration. `crisisDetection` is the single canonical
+  // source of crisis state — the store's `answerQuestion` (inline Q9) and
+  // `completeAssessment` (score-based) actions write to it, and dedup is
+  // handled inside `handleCrisisDetection`. We subscribe here so the flow
+  // can render crisis-aware result UI and log timing metrics.
   const {
     startAssessment,
     answerQuestion,
@@ -166,6 +146,7 @@ const EnhancedAssessmentFlow: React.FC<EnhancedAssessmentFlowProps> = ({
     error,
     resetAssessment,
   } = useAssessmentStore();
+  const crisisDetected = useAssessmentStore((state) => state.crisisDetection);
 
   // Get questions based on assessment type
   const questions = useMemo(() => {
@@ -246,37 +227,27 @@ const EnhancedAssessmentFlow: React.FC<EnhancedAssessmentFlowProps> = ({
     return () => subscription?.remove();
   }, [flowState]);
 
-  // Crisis detection handler
-  const handleCrisisDetected = useCallback(async (detection: CrisisDetection) => {
-    console.log('🚨 Crisis detected in assessment flow:', detection);
-    setCrisisDetected(detection);
+  // Crisis-detection telemetry. The store is the writer; this effect runs
+  // exactly once per detected crisis (on the rising edge) to capture
+  // response-time metrics and log. The store's `handleCrisisDetection` has
+  // already fired `CrisisDetectionService.triggerEmergencyResponse` (the
+  // user-facing Alert) by the time this runs.
+  useEffect(() => {
+    if (!crisisDetected) return;
 
-    // Performance monitoring for crisis response
     const crisisResponseTime = Date.now() - questionStartTime.current;
     logPerformance('EnhancedAssessmentFlow.crisisResponse', crisisResponseTime, {
-      threshold: 200
+      threshold: 200,
     });
 
-    // Update performance metrics
     setPerformanceMetrics((prev: any) => ({
       ...prev,
       crisisResponseTime,
       crisisDetected: true,
-      crisisType: detection.triggerType,
+      crisisType: crisisDetected.primaryTrigger,
+      crisisSeverity: crisisDetected.severityLevel,
     }));
-
-    // Maintain assessment flow - don't interrupt unless user chooses to
-    if (detection.severity === 'emergency') {
-      Alert.alert(
-        '🚨 Emergency Support',
-        'Crisis resources are immediately available. You can continue the assessment or access support now.',
-        [
-          { text: 'Continue Assessment', style: 'cancel' },
-          { text: 'Access Support Now', onPress: () => {}, style: 'default' },
-        ]
-      );
-    }
-  }, []);
+  }, [crisisDetected]);
 
   // Enhanced answer handler
   const handleAnswer = useCallback(async (response: AssessmentResponse, metadata: ResponseMetadata) => {
@@ -296,7 +267,6 @@ const EnhancedAssessmentFlow: React.FC<EnhancedAssessmentFlowProps> = ({
         ...prev,
         [`question_${currentQuestionIndex + 1}_time`]: questionResponseTime,
         totalEncryptionTime: (prev.totalEncryptionTime || 0) + metadata.performanceMetrics.encryptionTime,
-        totalCrisisCheckTime: (prev.totalCrisisCheckTime || 0) + metadata.performanceMetrics.crisisCheckTime,
       }));
 
       // Validate performance targets
@@ -446,7 +416,6 @@ const EnhancedAssessmentFlow: React.FC<EnhancedAssessmentFlowProps> = ({
             theme={theme}
             sessionId={sessionId}
             consentStatus={consentStatus}
-            onCrisisDetected={handleCrisisDetected}
             onError={handleError}
           />
         )}
@@ -457,11 +426,12 @@ const EnhancedAssessmentFlow: React.FC<EnhancedAssessmentFlowProps> = ({
             result={result}
             onComplete={handleFlowComplete}
             onRetake={() => {
+              // resetAssessment() clears the store's crisisDetection, which
+              // flows back into our subscription on the next render.
               resetAssessment();
               setFlowState('introduction');
               setCurrentQuestionIndex(0);
               setAnswers(new Map());
-              setCrisisDetected(null);
               setResult(null);
               flowStartTime.current = Date.now();
             }}
