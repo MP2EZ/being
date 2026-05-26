@@ -379,6 +379,7 @@ const CombinedLegalGateScreen: React.FC<CombinedLegalGateScreenProps> = ({
           ]}
           onPress={handleContinue}
           disabled={!selectedYear || !allConsentsTicked || isLoading}
+          testID="legal-gate-continue"
           accessibilityRole="button"
           accessibilityLabel="Continue"
           accessibilityState={{ disabled: !selectedYear || !allConsentsTicked || isLoading }}

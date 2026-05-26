@@ -249,6 +249,7 @@ const ProfileScreen: React.FC = () => {
           <Pressable
             style={styles.assessmentCard}
             onPress={() => handleStartAssessment('phq9')}
+            testID="take-phq9-button"
             accessibilityRole="button"
             accessibilityLabel={`Depression Assessment PHQ-9, 3 to 5 minutes, ${
               phq9Metadata.status === 'never' ? 'recommended' :
@@ -271,6 +272,7 @@ const ProfileScreen: React.FC = () => {
           <Pressable
             style={styles.assessmentCard}
             onPress={() => handleStartAssessment('gad7')}
+            testID="take-gad7-button"
             accessibilityRole="button"
             accessibilityLabel={`Anxiety Assessment GAD-7, 2 to 4 minutes, ${
               gad7Metadata.status === 'never' ? 'recommended' :

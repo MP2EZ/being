@@ -1,0 +1,51 @@
+appId: com.being.app
+tags:
+  - safety
+name: "PHQ-9 Q9 single canonical alert"
+---
+# Pins MAINT-166 PR 1: PHQ-9 Q9 response >0 fires exactly one canonical
+# alert with three correct buttons. The old mockCrisisEngine alert
+# ("View Resources" / "Call 988 Now") must NOT appear — that mismatch
+# is what shipped the double-alert bug.
+#
+# Canonical alert (from assessmentStore.triggerEmergencyResponse):
+#   Title:   "🚨 Crisis Support Available"
+#   Button1: "Call 988 (Crisis Lifeline)"
+#   Button2: "Text 741741 (Crisis Text)"
+#   Button3: "Emergency 911"
+
+- launchApp:
+    clearState: true
+- runFlow: _legal-and-onboarding.yaml
+
+# Navigate to Profile → PHQ-9 entry point
+- tapOn:
+    text: "Profile"
+- tapOn:
+    id: "take-phq9-button"
+- tapOn:
+    id: "assessment-begin-button"
+
+# Q1–Q8: "Not at all" (option 0 = score 0).
+# Auto-advance: each answer tap triggers handleAnswer which advances.
+- repeat:
+    times: 8
+    commands:
+      - tapOn:
+          id: "assessment-response-group-option-0"
+
+# Q9 (self-harm): "Several days" (option 1, score 1, >0).
+# This is the trigger — assessmentStore.checkQ9Crisis fires the canonical
+# alert in response.
+- tapOn:
+    id: "assessment-response-group-option-1"
+
+# Pin the canonical alert contract
+- assertVisible: "Crisis Support Available"
+- assertVisible: "Call 988 (Crisis Lifeline)"
+- assertVisible: "Text 741741 (Crisis Text)"
+- assertVisible: "Emergency 911"
+
+# Pin the regression — old mockCrisisEngine alert copy must be gone
+- assertNotVisible: "View Resources"
+- assertNotVisible: "Call 988 Now"
