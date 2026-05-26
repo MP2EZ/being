@@ -1690,6 +1690,12 @@ export class IncidentResponseService {
 
       this.responseMonitoringActive = true;
 
+      // INFRA-175: Skip interval setup in test environment to prevent Jest
+      // worker hang from unguarded timers (INFRA-144 pattern).
+      if (process.env.NODE_ENV === 'test') {
+        return;
+      }
+
       // Setup escalation monitoring
       setInterval(() => {
         this.checkEscalationRequirements();

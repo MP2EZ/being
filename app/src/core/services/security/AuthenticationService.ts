@@ -831,6 +831,14 @@ export class AuthenticationService {
   }
 
   private setupSessionMonitoring(): void {
+    // INFRA-175: Skip interval setup in test environment to prevent Jest
+    // worker hang from unguarded timers (INFRA-144 pattern). Teardown sites
+    // at lines ~763 and ~1220 are guarded by `if (this.sessionTimer)`, so
+    // leaving sessionTimer as null under test is safe.
+    if (process.env.NODE_ENV === 'test') {
+      return;
+    }
+
     // Check session status every minute
     this.sessionTimer = setInterval(async () => {
       try {
