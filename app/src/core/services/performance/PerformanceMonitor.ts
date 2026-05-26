@@ -501,6 +501,10 @@ export class PerformanceMonitor {
    * Start monitoring loop
    */
   private static startMonitoringLoop(): void {
+    // INFRA-177: Skip interval setup in test environment to prevent Jest
+    // worker hang from unguarded timers (INFRA-144/175 pattern).
+    if (process.env.NODE_ENV === 'test') return;
+
     this.monitoringTimer = setInterval(() => {
       this.collectPerformanceReport();
     }, this.config.reportingInterval);

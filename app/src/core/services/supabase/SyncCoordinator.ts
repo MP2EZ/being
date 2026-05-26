@@ -1109,6 +1109,10 @@ class SyncCoordinator {
 
   private startSyncScheduler(): void {
     try {
+      // INFRA-177: Skip interval setup in test environment to prevent Jest
+      // worker hang from unguarded timers (INFRA-144/175 pattern).
+      if (process.env.NODE_ENV === 'test') return;
+
       // Clear any existing scheduler
       if (this.syncScheduler) {
         clearInterval(this.syncScheduler);
