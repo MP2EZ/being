@@ -717,6 +717,15 @@ export class SecurityMonitoringService {
 
       this.monitoringActive = true;
 
+      // INFRA-175: Skip interval setup in test environment to prevent Jest
+      // worker hang from unguarded timers (INFRA-144 pattern). Production
+      // continuous-monitoring is unaffected — guards only fire under
+      // NODE_ENV === 'test'.
+      if (process.env.NODE_ENV === 'test') {
+        logSecurity('Continuous security monitoring active (intervals skipped under NODE_ENV=test per INFRA-175)', 'low');
+        return;
+      }
+
       // Real-time monitoring (every 5 seconds)
       this.realTimeMonitoringTimer = setInterval(async () => {
         try {
