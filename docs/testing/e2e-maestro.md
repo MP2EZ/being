@@ -74,13 +74,25 @@ behind a cascade of dev-mode-only overlays that block flow execution:
 
 **Release builds disable LogBox and skip the dev launcher entirely** — the
 embedded bundle launches directly into the Being app. This is the canonical
-target for Maestro safety-e2e. Currently blocked by an unrelated `.md`
-resolver bug in `legalDocuments.ts` (separate work item — see Notion).
+target for Maestro safety-e2e.
 
-Until the `.md` resolver is fixed, dev-mode verification requires manually
-dismissing each overlay before running flows. The traversal subflow
-(`_legal-and-onboarding.yaml`) makes a best-effort attempt with `optional`
-taps but cannot guarantee reliability in dev mode.
+Build a Release-configured install once per worktree before running flows:
+
+```bash
+cd app && npx expo run:ios --configuration Release
+```
+
+That replaces the simulator's Debug install with a Release one (no Metro
+server, no dev launcher, no LogBox). The `_legal-and-onboarding.yaml`
+subflow's dev-launcher steps become no-ops in Release mode via the
+`optional: true` markers, so the same flows run unmodified.
+
+Dev-mode verification (`expo run:ios` without `--configuration Release`)
+is still possible but unreliable: the `_legal-and-onboarding.yaml`
+subflow makes a best-effort attempt to dismiss the 4-overlay dev-mode
+chain (Expo dev launcher, first-launch tutorial, dev menu sheet, LogBox)
+with `optional` taps. If a flow drifts in dev mode, rebuild Release
+before debugging the flow itself.
 
 ## Running the flows
 

@@ -2,18 +2,23 @@
 /**
  * Verify legal-docs registry consistency.
  *
- * The app at `app/src/features/profile/content/legalDocuments.ts` statically
- * `require()`s every file in `docs/legal/*.md` via Metro's markdown
- * transformer. When the two drift, Metro bundle fails — and being CI does
- * not run a Metro bundle gate, so the drift is invisible until the next
- * app build.
+ * The app exposes legal documents via three loosely-coupled surfaces:
+ *   1. Canonical sources: `docs/legal/*.md` (minus internal-only docs)
+ *   2. Codegen bridge: `SOURCES` in `app/scripts/generate-legal-content.js`
+ *      — emits `legalContent.generated.ts` from the .md files
+ *   3. Consumer: imports in `app/src/features/profile/content/legalDocuments.ts`
+ *      from `./legalContent.generated`, plus the `LegalDocumentType` union
+ *      and `legalDocuments` Record keys
  *
- * This script catches the drift at CI time by comparing three sources:
- *   1. The filenames in docs/legal/*.md
- *   2. The require() calls in legalDocuments.ts
- *   3. The LegalDocumentType union members AND the legalDocuments Record keys
+ * Drift between any pair is invisible at runtime in dev mode (Metro lazily
+ * resolves what's imported) and only surfaces in Release-mode bundling or at
+ * the screen that wants the missing content. This script catches drift at
+ * CI time so it never reaches a build.
  *
- * Any mismatch exits non-zero with a clear diff.
+ * (Prior version of this script — pre-DEBUG-178 — parsed cross-tree
+ * `require('../../../../../docs/legal/*.md')` calls. That import shape was
+ * removed when the loader switched to a generated TS module; the check now
+ * walks the new three-surface wiring.)
  */
 
 'use strict';
@@ -23,6 +28,7 @@ const path = require('path');
 
 const REPO_ROOT = path.resolve(__dirname, '..');
 const LEGAL_DIR = path.join(REPO_ROOT, 'docs/legal');
+const GENERATOR_PATH = path.join(REPO_ROOT, 'app/scripts/generate-legal-content.js');
 const REGISTRY_PATH = path.join(
   REPO_ROOT,
   'app/src/features/profile/content/legalDocuments.ts',
@@ -44,6 +50,14 @@ function fail(msg) {
   process.exit(1);
 }
 
+function readFile(p) {
+  try {
+    return fs.readFileSync(p, 'utf-8');
+  } catch (e) {
+    fail(`could not read ${p}: ${e.message}`);
+  }
+}
+
 // 1. Markdown filenames on disk (without extension), minus intentional exclusions.
 const mdFiles = fs
   .readdirSync(LEGAL_DIR)
@@ -52,24 +66,40 @@ const mdFiles = fs
   .filter((name) => !EXCLUDED_FROM_REGISTRY.has(name))
   .sort();
 
-// 2. Parse legalDocuments.ts.
-let registrySrc;
-try {
-  registrySrc = fs.readFileSync(REGISTRY_PATH, 'utf-8');
-} catch (e) {
-  fail(`could not read registry at ${REGISTRY_PATH}: ${e.message}`);
+// 2. Parse SOURCES from the generator script.
+const generatorSrc = readFile(GENERATOR_PATH);
+const sourcesMatch = generatorSrc.match(/const SOURCES = \[([\s\S]*?)\];/);
+if (!sourcesMatch) {
+  fail(`could not locate \`const SOURCES = [ … ];\` in ${GENERATOR_PATH}`);
 }
-
-// 2a. require('../../../../../docs/legal/<name>.md')
-const requiredFiles = [
-  ...registrySrc.matchAll(
-    /require\(['"]\.\.\/\.\.\/\.\.\/\.\.\/\.\.\/docs\/legal\/([^'"\\]+)\.md['"]\)/g,
+const sourceEntries = [
+  ...sourcesMatch[1].matchAll(
+    /\{\s*key:\s*'([A-Za-z0-9_]+)'\s*,\s*file:\s*'([^']+\.md)'\s*\}/g,
   ),
-]
+];
+if (sourceEntries.length === 0) {
+  fail(`SOURCES block found but no { key, file } entries parsed in ${GENERATOR_PATH}`);
+}
+const sourceKeys = sourceEntries.map((m) => m[1]).sort();
+const sourceFiles = sourceEntries.map((m) => m[2].replace(/\.md$/, '')).sort();
+
+// 3. Parse legalDocuments.ts.
+const registrySrc = readFile(REGISTRY_PATH);
+
+// 3a. Imports from ./legalContent.generated.
+const importMatch = registrySrc.match(
+  /import\s*\{([\s\S]*?)\}\s*from\s*['"]\.\/legalContent\.generated['"]/,
+);
+if (!importMatch) {
+  fail(
+    `could not locate \`import { … } from './legalContent.generated'\` in registry`,
+  );
+}
+const importNames = [...importMatch[1].matchAll(/([A-Za-z_][A-Za-z0-9_]*)/g)]
   .map((m) => m[1])
   .sort();
 
-// 2b. LegalDocumentType union members.
+// 3b. LegalDocumentType union members.
 const unionMatch = registrySrc.match(
   /export type LegalDocumentType =([\s\S]*?);/,
 );
@@ -80,7 +110,7 @@ const unionMembers = [...unionMatch[1].matchAll(/'([^']+)'/g)]
   .map((m) => m[1])
   .sort();
 
-// 2c. legalDocuments Record keys.
+// 3c. legalDocuments Record keys.
 const recordMatch = registrySrc.match(
   /export const legalDocuments[^{]*\{([\s\S]*?)^\};/m,
 );
@@ -93,16 +123,23 @@ const recordKeys = [
   .map((m) => m[1])
   .sort();
 
-// 3. Compare.
+// 4. Compare.
 const arrEqual = (a, b) =>
   a.length === b.length && a.every((v, i) => v === b[i]);
 
 const errors = [];
-if (!arrEqual(mdFiles, requiredFiles)) {
+if (!arrEqual(mdFiles, sourceFiles)) {
   errors.push(
-    `docs/legal/*.md filenames vs require() calls disagree:\n` +
+    `docs/legal/*.md filenames vs generator SOURCES.file disagree:\n` +
       `  on disk:   ${JSON.stringify(mdFiles)}\n` +
-      `  required:  ${JSON.stringify(requiredFiles)}`,
+      `  generator: ${JSON.stringify(sourceFiles)}`,
+  );
+}
+if (!arrEqual(sourceKeys, importNames)) {
+  errors.push(
+    `generator SOURCES.key vs legalDocuments.ts imports disagree:\n` +
+      `  generator: ${JSON.stringify(sourceKeys)}\n` +
+      `  imports:   ${JSON.stringify(importNames)}`,
   );
 }
 if (!arrEqual(unionMembers, recordKeys)) {
