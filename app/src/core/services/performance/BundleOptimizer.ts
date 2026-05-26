@@ -431,6 +431,10 @@ export class BundleOptimizer {
    * Start bundle monitoring
    */
   private static startBundleMonitoring(): void {
+    // INFRA-177: Skip interval setup in test environment to prevent Jest
+    // worker hang from unguarded timers (INFRA-144/175 pattern).
+    if (process.env.NODE_ENV === 'test') return;
+
     setInterval(() => {
       this.collectBundleMetrics();
     }, 30000); // Every 30 seconds

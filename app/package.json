@@ -19,7 +19,7 @@
     "test:integration": "jest --testPathPattern=integration --verbose --testTimeout=30000 --forceExit",
     "test:performance": "jest --testPathPattern=performance --verbose --forceExit",
     "test:accessibility": "jest --testPathPattern=accessibility --verbose --forceExit",
-    "test:security": "jest --testPathPattern=security --verbose --forceExit",
+    "test:security": "jest --testPathPattern=security --verbose --forceExit --detectOpenHandles",
     "test:encryption": "jest --testPathPattern=EncryptionService --verbose --passWithNoTests",
     "test:secure-storage": "jest --testPathPattern=SecureDataStore --verbose --passWithNoTests",
     "test:crisis-quick": "jest --testPathPattern=\"[Cc]risis\" --ci --silent --testTimeout=5000 --maxWorkers=4",

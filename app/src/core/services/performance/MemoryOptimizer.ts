@@ -266,6 +266,10 @@ export class MemoryOptimizer {
    * Start continuous memory monitoring
    */
   private static startMemoryMonitoring(): void {
+    // INFRA-177: Skip interval setup in test environment to prevent Jest
+    // worker hang from unguarded timers (INFRA-144/175 pattern).
+    if (process.env.NODE_ENV === 'test') return;
+
     this.memoryMonitor = setInterval(() => {
       this.collectMemoryMetrics();
     }, 5000); // Check every 5 seconds
@@ -489,6 +493,10 @@ export class MemoryOptimizer {
    * Start periodic garbage collection
    */
   private static startPeriodicGC(): void {
+    // INFRA-177: Skip interval setup in test environment to prevent Jest
+    // worker hang from unguarded timers (INFRA-144/175 pattern).
+    if (process.env.NODE_ENV === 'test') return;
+
     if (this.gcTimer) {
       clearInterval(this.gcTimer);
     }
