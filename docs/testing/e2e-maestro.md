@@ -26,8 +26,19 @@ Detox was previously in the repo (`MAINT-119`) with one real test and zero commi
 ## One-time install (per developer Mac)
 
 ```bash
-brew install maestro
-maestro --version    # confirm
+# IMPORTANT: do NOT use `brew install maestro` (that's a different cask —
+# Maestro.app, the AI desktop tool). Use the explicit tap-scoped formula:
+brew tap mobile-dev-inc/tap
+brew install mobile-dev-inc/tap/maestro
+maestro --version    # confirm — should print 2.x.x
+```
+
+Maestro is a Java tool. If `which java` is empty, `brew install openjdk` and
+export `JAVA_HOME` before invoking maestro (or add to your shell profile):
+
+```bash
+export JAVA_HOME=/opt/homebrew/opt/openjdk
+export PATH="$JAVA_HOME/bin:$PATH"
 ```
 
 ## Per-session prereq
@@ -36,10 +47,40 @@ Maestro drives an already-installed app on an already-booted sim. It does **not*
 
 ```bash
 cd app
-npm run ios          # builds + installs Being on the default sim
+npm run ios --configuration Release   # see "Dev-mode caveats" below — Release is the canonical target
 ```
 
 After that, the sim can stay open across multiple flow runs.
+
+### Dev-mode caveats (INFRA-171 verification findings)
+
+Maestro flows target the user-visible safety surface. In **dev builds**
+(`npm run ios` without `--configuration Release`), the surface is hidden
+behind a cascade of dev-mode-only overlays that block flow execution:
+
+1. **Expo Dev Launcher** — `clearState: true` reinstalls the app, which then
+   opens the launcher's "DEVELOPMENT SERVERS" screen. Maestro must tap the
+   Metro server row to actually load the JS bundle. The traversal subflow
+   handles this with a point-based tap (text-based selectors are unreliable
+   because "Being" appears multiple times on that screen).
+2. **Dev tools first-launch tutorial** — appears on every fresh install,
+   has a "Continue" button to dismiss.
+3. **Dev menu bottom sheet** (Reload / Go home) — pops up unpredictably;
+   no reliable dismissal gesture from headless Maestro.
+4. **RN LogBox red-screen** — `core/services/security/` uses `console.error`
+   for routine info logs ("Master key found, verifying"); in dev mode the
+   LogBox catches these and renders a full-screen error stack covering
+   the LegalGate.
+
+**Release builds disable LogBox and skip the dev launcher entirely** — the
+embedded bundle launches directly into the Being app. This is the canonical
+target for Maestro safety-e2e. Currently blocked by an unrelated `.md`
+resolver bug in `legalDocuments.ts` (separate work item — see Notion).
+
+Until the `.md` resolver is fixed, dev-mode verification requires manually
+dismissing each overlay before running flows. The traversal subflow
+(`_legal-and-onboarding.yaml`) makes a best-effort attempt with `optional`
+taps but cannot guarantee reliability in dev mode.
 
 ## Running the flows
 

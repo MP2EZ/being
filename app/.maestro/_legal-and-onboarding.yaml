@@ -22,24 +22,31 @@ name: "Helper: traverse LegalGate + Onboarding"
 - tapOn:
     text: "Open"
     optional: true
-# Tap the Metro server row. The dev launcher renders "Being" twice (header
-# + row); index:1 targets the second occurrence which is the tappable row.
+# Wait briefly for the dev launcher to populate its server list.
+- extendedWaitUntil:
+    visible:
+      text: "DEVELOPMENT SERVERS"
+    timeout: 15000
+    optional: true
+# Tap the Metro server row by location (50% x, ~20% y) since text-based
+# selectors on the dev launcher are unreliable. The row is fixed in the
+# layout — first item under DEVELOPMENT SERVERS header.
 - tapOn:
-    text: "Being"
-    index: 1
+    point: "50%, 20%"
     optional: true
 # Wait for the actual Being app to load from Metro (LegalGate appears).
-# Dev-client overlays (first-launch tutorial, dev menu sheet) may stack on
-# top; we dismiss aggressively by tapping outside their bounds.
 - extendedWaitUntil:
     visible:
       text: "Select year..."
     timeout: 60000
-# If a dev-client bottom-sheet overlay is up (e.g. Reload/Go home menu),
-# swipe down from its top edge to dismiss it. Idempotent if no sheet shown.
-- swipe:
-    start: "50%, 60%"
-    end: "50%, 100%"
+# Dev-client may stack overlays on top of LegalGate (first-launch tutorial,
+# Reload/Go home menu). Dismiss by tapping the backdrop area near the top
+# of the screen — bottom-sheet overlays dismiss on backdrop tap.
+- tapOn:
+    point: "50%, 5%"
+- tapOn:
+    text: "Continue"
+    optional: true
 
 # ── Step 1: LegalGate ────────────────────────────────────────────
 # Age verification picker (iOS native wheel). Tap the default placeholder
