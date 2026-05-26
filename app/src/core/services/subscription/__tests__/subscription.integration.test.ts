@@ -76,6 +76,19 @@ function makeIOSSubscription(productId: string, displayPrice: string) {
   } as unknown as RNIap.ProductSubscription;
 }
 
+// MAINT-166 PR 2: top-level afterEach ensures IAP listener subscriptions
+// (purchaseUpdatedListener / purchaseErrorListener) are removed between
+// tests. Without this, the test would pass locally but fail on CI with
+// "Cannot log after tests are done" — the listeners survived the test
+// boundary and fired callbacks against an already-torn-down test runner.
+// Applies to BOTH describe blocks below so we don't have to duplicate.
+afterEach(async () => {
+  await IAPService.disconnect();
+  // Flush any pending microtasks from in-flight Zustand updates so they
+  // don't fire after the test runner moves on.
+  await new Promise((resolve) => setImmediate(resolve));
+});
+
 describe('Subscription Integration - Full Lifecycle', () => {
   beforeEach(async () => {
     // Reset all state

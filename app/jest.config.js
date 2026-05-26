@@ -66,29 +66,30 @@ module.exports = {
     '/__tests__/setup/',
     '/__tests__/utils/',
     '/__tests__/reporters/',
+    '/__tests__/helpers/',
 
     // TODO: integration test backlog — these load but fail for reasons
     // beyond the "fix broken imports" scope of the W1 paydown PR. Re-enable
     // by fixing each underlying issue:
     //
-    //  - subscription.integration.test.ts: tried to re-enable in INFRA-143
-    //    PR 2 — passes locally (8/8) but fails on CI with "Cannot log
-    //    after tests are done" async-leak errors. SecureStorageService's
-    //    setInterval is now guarded so the test loads cleanly, but the
-    //    test itself has un-awaited async work (IAP connection / receipt
-    //    verification mocks). Needs a proper async-cleanup pass before
-    //    re-enabling. Kept quarantined for now.
-    //  - sync-coordinator-integration.test.ts: the singleton chain
-    //    (EncryptionService → SecureStorageService) is now guarded, but
-    //    the test ALSO needs `jest.mock('@/features/assessment/stores/
-    //    assessmentStore')` AND proper EncryptionService master-key mock
-    //    setup. Adding the jest.mock alone surfaces a "Master key not
-    //    found" deeper failure. Needs a proper rewrite — separate
-    //    MAINT ticket.
-    //  - analytics-service-integration.test.ts: same as sync-coordinator
-    //    above. The jest.mock declaration was added by INFRA-143 PR 2 as
-    //    a doc-as-code breadcrumb, but the test still fails on "Master
-    //    key not found" — needs proper test rewrite.
+    //  - sync-coordinator-integration.test.ts: MAINT-166 PR 2 confirmed
+    //    that the master-key issue called out in the prior comment is
+    //    not the actual blocker. The test calls `new SyncCoordinator()`,
+    //    `.shutdown()`, `.performSync('manual')`, and `.getStatus()` —
+    //    all of which reference the pre-singleton API. Current module
+    //    is `export default getInstance()` with `initialize()` /
+    //    `cleanup()` / `performFullSync()` / `triggerPriorityBackup()` /
+    //    `getSyncStatus()`. Adding `jest.mock(assessmentStore)` +
+    //    encryption mocks is necessary but not sufficient. Moved to
+    //    PR 5 (MAINT-E) scope — same SyncCoordinator API rewrite as
+    //    sync-performance-validation. PR 5 can reuse the encryption
+    //    helper at `__tests__/helpers/mockEncryption.ts`.
+    //  - analytics-service-integration.test.ts: same root cause as
+    //    sync-coordinator above. Test also uses `new SyncCoordinator()`,
+    //    `.shutdown()`, `.performSync()`, `.getStatus()`. Has
+    //    `jest.mock(assessmentStore)` in place from INFRA-143 PR 2 but
+    //    needs the SyncCoordinator API rewrite to actually pass. Moved
+    //    to PR 5 (MAINT-E) scope.
     //  - practices-flows-integration.test.tsx: @react-navigation/elements
     //    MaskedViewNative.tsx calls UIManager.getViewManagerConfig() on
     //    a native view manager that's undefined in Jest. Fix: provide a
@@ -112,16 +113,18 @@ module.exports = {
     //    exist. Needs proper rewrite to match current SyncCoordinator
     //    + AnalyticsService + AuthenticationService APIs, not
     //    incremental patching.
-    //  - sync-emergency-scenarios.test.ts: references
-    //    `../../src/services/supabase/SyncCoordinator` — path
-    //    invalidated by the services/ → features/ restructure (now
-    //    `@/core/services/supabase/SyncCoordinator`). Imports never
-    //    resolved post-restructure, so this test has been silently
-    //    failing-to-load since then. Quarantined here so test:safety
-    //    can run cleanly; needs path-rewrite + assertion-audit in a
-    //    separate MAINT ticket (same family as
-    //    sync-performance-validation above).
-    'subscription\\.integration\\.test\\.ts$', // tried in INFRA-143 PR 2 — CI-flaky (async leak), re-quarantined
+    //  - sync-emergency-scenarios.test.ts: MAINT-166 PR 2 fixed the
+    //    import path (now `@/core/services/supabase/SyncCoordinator`)
+    //    and added the encryption-mock helper + assessmentStore
+    //    auto-mock. Remaining blocker: SyncCoordinator's public API
+    //    has drifted since the test was written. The test calls
+    //    `new SyncCoordinator()`, `syncCoordinator.shutdown()`, and
+    //    `syncCoordinator.performSync('crisis')`, but the current
+    //    module is a singleton (`export default getInstance()`) with
+    //    `initialize()` / `cleanup()` / `performFullSync()` /
+    //    `triggerPriorityBackup()`. Needs assertion-level API
+    //    rewrite — moved to PR 5 (MAINT-E) scope alongside
+    //    sync-performance-validation, which has the same drift.
     'sync-coordinator-integration\\.test\\.ts$',
     'analytics-service-integration\\.test\\.ts$',
     'practices-flows-integration\\.test\\.tsx$',
