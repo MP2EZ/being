@@ -896,6 +896,16 @@ export class CrisisSecurityProtocol {
     try {
       logSystem('Initializing crisis security monitoring');
 
+      // INFRA-175: Skip interval setup in test environment to prevent Jest
+      // worker hang from unguarded timers. Mirrors INFRA-144 pattern applied
+      // to EncryptionService + SecureStorageService. The intervals are real
+      // production work (health check, expired-access cleanup, suspicious-
+      // activity detection) — they MUST run in dev and prod. Test-only skip.
+      if (process.env.NODE_ENV === 'test') {
+        logSystem('Crisis security monitoring initialized (intervals skipped under NODE_ENV=test per INFRA-175)');
+        return;
+      }
+
       // Setup monitoring intervals
       setInterval(() => {
         this.performSecurityHealthCheck();
