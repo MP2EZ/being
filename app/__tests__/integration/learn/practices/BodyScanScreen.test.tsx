@@ -185,6 +185,14 @@ describe('BodyScanScreen Integration Tests', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    // MAINT-166 PR 3: see PracticeTimerScreen.test.tsx for rationale —
+    // the inline mock Timer uses setInterval(100), which compounds to
+    // 30s+ timeouts on CI without fake-timer interception.
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
   });
 
   describe('1. Screen Rendering', () => {
@@ -269,7 +277,7 @@ describe('BodyScanScreen Integration Tests', () => {
 
       // Wait for area advancement (simplified test - checking state changes)
       await act(async () => {
-        await new Promise(resolve => setTimeout(resolve, 150)); // Allow ticks to process
+        jest.advanceTimersByTime(150); // Allow ticks to process
       });
     });
 
@@ -308,7 +316,7 @@ describe('BodyScanScreen Integration Tests', () => {
       fireEvent.press(toggleButton);
 
       await act(async () => {
-        await new Promise(resolve => setTimeout(resolve, 800)); // Near completion
+        jest.advanceTimersByTime(800); // Near completion
       });
 
       // Should be on last area or completed
@@ -389,7 +397,7 @@ describe('BodyScanScreen Integration Tests', () => {
     });
 
     it('should complete timer after full duration', async () => {
-      const shortDuration = 1; // 1 second for faster test
+      const shortDuration = 1; // 1 second
       const { getByTestId } = render(
         <BodyScanScreen {...defaultProps} duration={shortDuration} />
       );
@@ -397,12 +405,11 @@ describe('BodyScanScreen Integration Tests', () => {
       const toggleButton = getByTestId('body-scan-screen-toggle-button');
       fireEvent.press(toggleButton);
 
-      await waitFor(
-        () => {
-          expect(getByTestId('body-scan-screen-completion')).toBeTruthy();
-        },
-        { timeout: 2000 }
-      );
+      await act(async () => {
+        jest.advanceTimersByTime(1000);
+      });
+
+      expect(getByTestId('body-scan-screen-completion')).toBeTruthy();
     });
 
     it('should display correct total duration', () => {
@@ -457,12 +464,11 @@ describe('BodyScanScreen Integration Tests', () => {
       const toggleButton = getByTestId('body-scan-screen-toggle-button');
       fireEvent.press(toggleButton);
 
-      await waitFor(
-        () => {
-          expect(getByText('Practice Complete!')).toBeTruthy();
-        },
-        { timeout: 2000 }
-      );
+      await act(async () => {
+        jest.advanceTimersByTime(1000);
+      });
+
+      expect(getByText('Practice Complete!')).toBeTruthy();
     });
 
     it('should display philosopher quote on completion', async () => {
@@ -474,12 +480,11 @@ describe('BodyScanScreen Integration Tests', () => {
       const toggleButton = getByTestId('body-scan-screen-toggle-button');
       fireEvent.press(toggleButton);
 
-      await waitFor(
-        () => {
-          expect(getByText(/Marcus Aurelius/)).toBeTruthy();
-        },
-        { timeout: 2000 }
-      );
+      await act(async () => {
+        jest.advanceTimersByTime(1000);
+      });
+
+      expect(getByText(/Marcus Aurelius/)).toBeTruthy();
     });
 
     it('should call onComplete callback when completion done is pressed', async () => {
@@ -496,12 +501,11 @@ describe('BodyScanScreen Integration Tests', () => {
       const toggleButton = getByTestId('body-scan-screen-toggle-button');
       fireEvent.press(toggleButton);
 
-      await waitFor(
-        () => {
-          expect(getByTestId('completion-done-button')).toBeTruthy();
-        },
-        { timeout: 2000 }
-      );
+      await act(async () => {
+        jest.advanceTimersByTime(1000);
+      });
+
+      expect(getByTestId('completion-done-button')).toBeTruthy();
 
       fireEvent.press(getByTestId('completion-done-button'));
       expect(onComplete).toHaveBeenCalledTimes(1);
@@ -586,12 +590,11 @@ describe('BodyScanScreen Integration Tests', () => {
       const toggleButton = getByTestId('body-scan-screen-toggle-button');
       fireEvent.press(toggleButton);
 
-      await waitFor(
-        () => {
-          expect(getByTestId('body-scan-screen-completion')).toBeTruthy();
-        },
-        { timeout: 2000 }
-      );
+      await act(async () => {
+        jest.advanceTimersByTime(1000);
+      });
+
+      expect(getByTestId('body-scan-screen-completion')).toBeTruthy();
     });
 
     it('should pass custom testID correctly', () => {
@@ -630,7 +633,7 @@ describe('BodyScanScreen Integration Tests', () => {
       for (let i = 0; i < 5; i++) {
         fireEvent.press(toggleButton);
         await act(async () => {
-          await new Promise(resolve => setTimeout(resolve, 10));
+          jest.advanceTimersByTime(10);
         });
       }
 
@@ -646,7 +649,7 @@ describe('BodyScanScreen Integration Tests', () => {
 
       // Multiple ticks should not cause performance issues
       await act(async () => {
-        await new Promise(resolve => setTimeout(resolve, 300));
+        jest.advanceTimersByTime(300);
       });
 
       expect(getByTestId('body-scan-screen')).toBeTruthy();
@@ -686,7 +689,7 @@ describe('BodyScanScreen Integration Tests', () => {
 
       // onTick should be called and update area index
       await act(async () => {
-        await new Promise(resolve => setTimeout(resolve, 200));
+        jest.advanceTimersByTime(200);
       });
 
       // Verify areas are accessible

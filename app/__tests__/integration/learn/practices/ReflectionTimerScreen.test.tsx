@@ -142,6 +142,14 @@ describe('ReflectionTimerScreen Integration Tests', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    // MAINT-166 PR 3: see PracticeTimerScreen.test.tsx for rationale —
+    // the inline mock Timer uses setInterval(100), which compounds to
+    // 30s+ timeouts on CI without fake-timer interception.
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
   });
 
   describe('1. Screen Rendering', () => {
@@ -305,7 +313,7 @@ describe('ReflectionTimerScreen Integration Tests', () => {
     });
 
     it('should complete timer after duration', async () => {
-      const shortDuration = 1; // 1 second for faster test
+      const shortDuration = 1; // 1 second
       const { getByTestId } = render(
         <ReflectionTimerScreen {...defaultProps} duration={shortDuration} />
       );
@@ -313,12 +321,11 @@ describe('ReflectionTimerScreen Integration Tests', () => {
       const toggleButton = getByTestId('reflection-timer-screen-toggle-button');
       fireEvent.press(toggleButton);
 
-      await waitFor(
-        () => {
-          expect(getByTestId('reflection-timer-screen-completion')).toBeTruthy();
-        },
-        { timeout: 2000 }
-      );
+      await act(async () => {
+        jest.advanceTimersByTime(1000);
+      });
+
+      expect(getByTestId('reflection-timer-screen-completion')).toBeTruthy();
     });
 
     it('should display correct duration in timer', () => {
@@ -536,7 +543,7 @@ describe('ReflectionTimerScreen Integration Tests', () => {
       for (let i = 0; i < 5; i++) {
         fireEvent.press(toggleButton);
         await act(async () => {
-          await new Promise(resolve => setTimeout(resolve, 10));
+          jest.advanceTimersByTime(10);
         });
       }
 

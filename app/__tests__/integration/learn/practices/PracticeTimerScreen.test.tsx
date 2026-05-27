@@ -157,6 +157,16 @@ describe('PracticeTimerScreen Integration Tests', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    // MAINT-166 PR 3: fake timers so the mocked Timer's setInterval(100)
+    // is intercepted and `jest.advanceTimersByTime` can flush its ticks
+    // synchronously. Without this, every timer-completion test waits on
+    // real time (10+ setInterval ticks at 100ms = 1s minimum per test);
+    // the accumulation pushes Ubuntu CI past its 30s test-suite timeout.
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
   });
 
   describe('1. Screen Rendering', () => {
@@ -272,7 +282,7 @@ describe('PracticeTimerScreen Integration Tests', () => {
     });
 
     it('should complete timer after duration', async () => {
-      const shortDuration = 1; // 1 second for faster test
+      const shortDuration = 1; // 1 second
       const { getByTestId } = render(
         <PracticeTimerScreen {...defaultProps} duration={shortDuration} />
       );
@@ -280,12 +290,13 @@ describe('PracticeTimerScreen Integration Tests', () => {
       const toggleButton = getByTestId('practice-timer-screen-toggle-button');
       fireEvent.press(toggleButton);
 
-      await waitFor(
-        () => {
-          expect(getByTestId('practice-timer-screen-completion')).toBeTruthy();
-        },
-        { timeout: 2000 }
-      );
+      // Advance fake timer to fire the mock Timer's setInterval ticks.
+      // Duration=1 second; mock fires every 100ms so 10 ticks reach completion.
+      await act(async () => {
+        jest.advanceTimersByTime(1000);
+      });
+
+      expect(getByTestId('practice-timer-screen-completion')).toBeTruthy();
     });
   });
 
@@ -337,12 +348,11 @@ describe('PracticeTimerScreen Integration Tests', () => {
       const toggleButton = getByTestId('practice-timer-screen-toggle-button');
       fireEvent.press(toggleButton);
 
-      await waitFor(
-        () => {
-          expect(getByText('Practice Complete!')).toBeTruthy();
-        },
-        { timeout: 2000 }
-      );
+      await act(async () => {
+        jest.advanceTimersByTime(1000);
+      });
+
+      expect(getByText('Practice Complete!')).toBeTruthy();
     });
 
     it('should display philosopher quote on completion', async () => {
@@ -354,12 +364,11 @@ describe('PracticeTimerScreen Integration Tests', () => {
       const toggleButton = getByTestId('practice-timer-screen-toggle-button');
       fireEvent.press(toggleButton);
 
-      await waitFor(
-        () => {
-          expect(getByText(/Marcus Aurelius/)).toBeTruthy();
-        },
-        { timeout: 2000 }
-      );
+      await act(async () => {
+        jest.advanceTimersByTime(1000);
+      });
+
+      expect(getByText(/Marcus Aurelius/)).toBeTruthy();
     });
 
     it('should call onComplete callback when completion done is pressed', async () => {
@@ -376,12 +385,11 @@ describe('PracticeTimerScreen Integration Tests', () => {
       const toggleButton = getByTestId('practice-timer-screen-toggle-button');
       fireEvent.press(toggleButton);
 
-      await waitFor(
-        () => {
-          expect(getByTestId('completion-done-button')).toBeTruthy();
-        },
-        { timeout: 2000 }
-      );
+      await act(async () => {
+        jest.advanceTimersByTime(1000);
+      });
+
+      expect(getByTestId('completion-done-button')).toBeTruthy();
 
       fireEvent.press(getByTestId('completion-done-button'));
       expect(onComplete).toHaveBeenCalledTimes(1);
@@ -460,12 +468,11 @@ describe('PracticeTimerScreen Integration Tests', () => {
       const toggleButton = getByTestId('practice-timer-screen-toggle-button');
       fireEvent.press(toggleButton);
 
-      await waitFor(
-        () => {
-          expect(getByTestId('practice-timer-screen-completion')).toBeTruthy();
-        },
-        { timeout: 2000 }
-      );
+      await act(async () => {
+        jest.advanceTimersByTime(1000);
+      });
+
+      expect(getByTestId('practice-timer-screen-completion')).toBeTruthy();
     });
 
     it('should pass custom testID correctly', () => {
@@ -499,7 +506,7 @@ describe('PracticeTimerScreen Integration Tests', () => {
       for (let i = 0; i < 5; i++) {
         fireEvent.press(toggleButton);
         await act(async () => {
-          await new Promise(resolve => setTimeout(resolve, 10));
+          jest.advanceTimersByTime(10);
         });
       }
 

@@ -111,12 +111,12 @@ module.exports = {
     //    receives null). Production assessment-store API likely diverged
     //    from test expectations during a refactor. Needs assertion-level
     //    audit, not import-level fix.
-    //  - PracticeTimerScreen.test.tsx, ReflectionTimerScreen.test.tsx,
-    //    BodyScanScreen.test.tsx: pass locally on macOS but exceed the
-    //    30s test timeout on Ubuntu CI runners. Mock Timer component
-    //    uses real `setInterval(...)` rather than jest fake timers, so
-    //    multi-second test cases compound. Fix: convert to
-    //    jest.useFakeTimers() with jest.advanceTimersByTime().
+    //  - PracticeTimerScreen / ReflectionTimerScreen / BodyScanScreen:
+    //    MAINT-166 PR 3 converted these from real timers to
+    //    jest.useFakeTimers() + jest.advanceTimersByTime() per
+    //    `__tests__/screens/midday/EmbodimentScreen.test.tsx`. Now
+    //    re-enabled — 31 + 40 + 45 tests passing in ~4s each (was 30s+
+    //    timeouts on Ubuntu CI).
     //  - sync-performance-validation.test.ts, week3-analytics-
     //    performance.test.ts: tests written against older service APIs
     //    that have since refactored. They call `new SyncCoordinator()`
@@ -142,11 +142,8 @@ module.exports = {
     'analytics-service-integration\\.test\\.ts$',
     'practices-flows-integration\\.test\\.tsx$',
     'comprehensive-assessment-integration\\.test\\.ts$',
-    'PracticeTimerScreen\\.test\\.tsx$',
-    'ReflectionTimerScreen\\.test\\.tsx$',
     'sync-performance-validation\\.test\\.ts$',
     'week3-analytics-performance\\.test\\.ts$',
-    'BodyScanScreen\\.test\\.tsx$',
     'sync-emergency-scenarios\\.test\\.ts$',
   ],
 
