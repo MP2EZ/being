@@ -145,7 +145,7 @@ describe('ReflectionTimerScreen Integration Tests', () => {
     // MAINT-166 PR 3: see PracticeTimerScreen.test.tsx for rationale —
     // the inline mock Timer uses setInterval(100), which compounds to
     // 30s+ timeouts on CI without fake-timer interception.
-    jest.useFakeTimers();
+    jest.useFakeTimers({ legacyFakeTimers: true });
   });
 
   afterEach(() => {

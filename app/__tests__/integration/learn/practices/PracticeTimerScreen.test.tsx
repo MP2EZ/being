@@ -162,7 +162,7 @@ describe('PracticeTimerScreen Integration Tests', () => {
     // synchronously. Without this, every timer-completion test waits on
     // real time (10+ setInterval ticks at 100ms = 1s minimum per test);
     // the accumulation pushes Ubuntu CI past its 30s test-suite timeout.
-    jest.useFakeTimers();
+    jest.useFakeTimers({ legacyFakeTimers: true });
   });
 
   afterEach(() => {
