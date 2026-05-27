@@ -149,6 +149,7 @@ describe('ReflectionTimerScreen Integration Tests', () => {
   });
 
   afterEach(() => {
+    jest.clearAllTimers();
     jest.useRealTimers();
   });
 

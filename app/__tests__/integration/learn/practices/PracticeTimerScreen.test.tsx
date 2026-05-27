@@ -166,6 +166,7 @@ describe('PracticeTimerScreen Integration Tests', () => {
   });
 
   afterEach(() => {
+    jest.clearAllTimers();
     jest.useRealTimers();
   });
 

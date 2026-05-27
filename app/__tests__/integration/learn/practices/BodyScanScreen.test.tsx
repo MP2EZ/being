@@ -192,6 +192,7 @@ describe('BodyScanScreen Integration Tests', () => {
   });
 
   afterEach(() => {
+    jest.clearAllTimers();
     jest.useRealTimers();
   });
 
