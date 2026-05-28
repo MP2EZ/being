@@ -119,30 +119,75 @@ name: "Helper: traverse LegalGate + Onboarding"
     id: "legal-gate-continue"
 
 # ── Step 2: Onboarding ────────────────────────────────────────────
-# Onboarding sequence (per OnboardingScreen.navigateNext):
+# Onboarding sequence (per OnboardingScreen.navigateNext + CleanRootNavigator
+# AssessmentFlow stack screen):
 #   1. Welcome           → "Begin Your Practice"  → opens PHQ-9 modal
-#   2. PHQ-9 (9 questions, modal) → onComplete → GAD-7 modal
-#   3. GAD-7 (7 questions, modal) → onComplete → Stoic Intro
+#   2. PHQ-9 (9 q's, Q1 direct — no intro in onboarding context)
+#   3. GAD-7 (7 q's, Q1 direct — same)
 #   4. Stoic Intro       → "Continue"
 #   5. Notifications     → "Continue" (or "Set up later" — both navigateNext)
 #   6. Privacy           → "Continue"
 #   7. Celebration       → "Explore App" (testID="onboarding-explore-app")
 #
-# KNOWN LIMITATION (INFRA-183): the helper currently stops at the PHQ-9
-# introduction modal that opens when "Begin Your Practice" is tapped.
-# Traversing the in-onboarding PHQ-9 + GAD-7 assessments (16 questions,
-# answer + auto-advance pattern) is the next blocker. For now this helper
-# only validates LegalGate traversal works; downstream safety flows that
-# depend on reaching Main (e.g. crisis-button reachability, 988 dial) will
-# still fail at this point until INFRA-183 lands.
+# INFRA-183: AssessmentFlow modal jumps STRAIGHT to Q1 in onboarding context
+# — CleanRootNavigator.tsx sets `showIntroduction={route.params.context ===
+# 'standalone'}`, so onboarding suppresses the intro screen (and its
+# Skip-for-Now button). The only way through is to answer all 16 questions.
+# Each tap fires onAnswer → setCurrentQuestionIndex(prev + 1) auto-advance
+# (EnhancedAssessmentFlow.tsx:284-285), so no Next/Continue button between
+# questions. Tap option-0 ("Not at all" / "Never") to keep all scores at 0
+# and avoid any crisis-threshold side effects.
 - tapOn:
     text: "Begin Your Practice"
     optional: true
+
+# PHQ-9 — 9 questions, "Not at all" each. After Q9 onComplete dismisses
+# the modal and a 50ms setTimeout (OnboardingScreen.tsx:824) launches
+# GAD-7 → GAD-7 Q1 mounts → next iteration finds the new option-0 radio.
+- repeat:
+    times: 9
+    commands:
+      - tapOn:
+          id: "assessment-response-group-option-0"
+
+# GAD-7 — 7 questions, same pattern. After Q7 → stoicIntro.
+- repeat:
+    times: 7
+    commands:
+      - tapOn:
+          id: "assessment-response-group-option-0"
+
+# Stoic Intro → Notifications → Privacy: each has a "Continue" CTA at the
+# bottom of a scrollable section that may be below the fold (5-principle
+# list on Stoic Intro is the tallest). scrollUntilVisible is a no-op when
+# the element is already in viewport, so safe to apply uniformly.
+- scrollUntilVisible:
+    element:
+      text: "Continue"
+    direction: DOWN
+- tapOn:
+    text: "Continue"
+- scrollUntilVisible:
+    element:
+      text: "Continue"
+    direction: DOWN
+- tapOn:
+    text: "Continue"
+- scrollUntilVisible:
+    element:
+      text: "Continue"
+    direction: DOWN
+- tapOn:
+    text: "Continue"
 
 # Final screen — Explore App routes to Main tabs.
 - tapOn:
     id: "onboarding-explore-app"
 
 # ── Step 3: Verify we landed on Main ─────────────────────────────
+# Use testID rather than text: the bottom Home tab label is rendered with
+# accessibilityText "Home, tab, 1 of 4" (per iOS Tab Bar conventions) and
+# Maestro's `text:` selector doesn't match against accessibilityText. The
+# home-screen testID is the canonical "we are on Main" signal.
 - assertVisible:
-    text: "Home" # bottom tab label
+    id: "home-screen"

@@ -156,6 +156,11 @@ const CleanTabNavigator: React.FC = () => {
         options={{
           headerTitle: 'Being',
           headerShown: false, // CleanHomeScreen has its own SafeAreaView
+          // INFRA-183: tabBarButtonTestID is the only mechanically reliable
+          // way for Maestro to target bottom tabs — tab labels render as
+          // `text: ""` with `accessibilityText: "Home, tab, 1 of 4"` and
+          // Maestro's `text:` selector doesn't match against accessibilityText.
+          tabBarButtonTestID: 'tab-home',
           tabBarIcon: ({ focused }) => (
             <TriangleIcon
               color={focused ? colorSystem.navigation.home : colorSystem.gray[500]}
@@ -170,6 +175,7 @@ const CleanTabNavigator: React.FC = () => {
         options={{
           headerTitle: 'Learn',
           headerShown: false, // LearnScreen has its own SafeAreaView
+          tabBarButtonTestID: 'tab-learn',
           tabBarIcon: ({ focused }) => (
             <BookIcon
               color={focused ? colorSystem.navigation.learn : colorSystem.gray[500]}
@@ -184,6 +190,7 @@ const CleanTabNavigator: React.FC = () => {
         options={{
           headerTitle: 'Insights',
           headerShown: false, // InsightsScreen has its own SafeAreaView
+          tabBarButtonTestID: 'tab-insights',
           tabBarIcon: ({ focused }) => (
             <CircleIcon
               color={focused ? colorSystem.navigation.insights : colorSystem.gray[500]}
@@ -198,6 +205,7 @@ const CleanTabNavigator: React.FC = () => {
         options={{
           headerTitle: 'Profile',
           headerShown: false, // ProfileScreen has its own SafeAreaView
+          tabBarButtonTestID: 'tab-profile',
           tabBarIcon: ({ focused }) => (
             <BrainIcon
               color={focused ? colorSystem.base.midnightBlue : colorSystem.gray[500]}

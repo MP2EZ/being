@@ -15,7 +15,7 @@ name: "GAD-7 score >=15 shows crisis results"
 - runFlow: _legal-and-onboarding.yaml
 
 - tapOn:
-    text: "Profile"
+    id: "tab-profile"
 - tapOn:
     id: "take-gad7-button"
 - tapOn:

@@ -21,7 +21,7 @@ name: "PHQ-9 Q9 single canonical alert"
 
 # Navigate to Profile → PHQ-9 entry point
 - tapOn:
-    text: "Profile"
+    id: "tab-profile"
 - tapOn:
     id: "take-phq9-button"
 - tapOn:

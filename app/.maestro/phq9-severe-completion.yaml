@@ -16,7 +16,7 @@ name: "PHQ-9 score >=20 completion shows crisis results"
 - runFlow: _legal-and-onboarding.yaml
 
 - tapOn:
-    text: "Profile"
+    id: "tab-profile"
 - tapOn:
     id: "take-phq9-button"
 - tapOn:
