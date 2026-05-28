@@ -2,6 +2,24 @@
  * SYNC PERFORMANCE VALIDATION TESTING
  * Phase 5.2 - Load Testing and Performance Benchmarks
  *
+ * STATUS (MAINT-166 PR 5 / MAINT-E):
+ *   - SyncCoordinator API drift fixed: `new SyncCoordinator()` → singleton,
+ *     `.shutdown()` → `.cleanup()`, `.performSync('manual'|'background')`
+ *     → `.performFullSync()`, `.performSync('crisis'|'assessment')` →
+ *     `.triggerPriorityBackup(reason)`. Note: the old 'background' reason
+ *     no longer exists in the API; mapped to `performFullSync()` for
+ *     routine sync semantics.
+ *   - File remains quarantined under jest.config.js. Performance tests in
+ *     Jest are flaky by construction (coverage instrumentation distorts
+ *     timing; worker scheduling adds noise). The honest home for sync
+ *     perf validation is `npm run perf:crisis` / `perf:launch` / etc.,
+ *     which exercise the real device profiling rather than mocked unit
+ *     code.
+ *   - Follow-up: if solving the INFRA-180 CI flake doesn't unblock this
+ *     file, delete it and replace its unique coverage with either (a) a
+ *     perf:* script entry or (b) a Maestro flow that pins the
+ *     user-visible latency contract.
+ *
  * PERFORMANCE VALIDATION REQUIREMENTS:
  * - Crisis assessment sync: <200ms response time
  * - Routine sync operations: <5s completion time
@@ -103,7 +121,7 @@ jest.mock('@/features/assessment/stores/assessmentStore', () => ({
 const mockAsyncStorage = AsyncStorage as jest.Mocked<typeof AsyncStorage>;
 
 describe('⚡ SYNC PERFORMANCE VALIDATION', () => {
-  let syncCoordinator: SyncCoordinator;
+  let syncCoordinator: typeof SyncCoordinator;
   let performanceMonitor: PerformanceMonitor;
   let mockAssessmentStore: any;
 
@@ -138,13 +156,13 @@ describe('⚡ SYNC PERFORMANCE VALIDATION', () => {
     (useAssessmentStore as any).getState = jest.fn(() => mockAssessmentStore);
     (useAssessmentStore as any).subscribe = jest.fn();
 
-    syncCoordinator = new SyncCoordinator();
+    syncCoordinator = SyncCoordinator;
     await syncCoordinator.initialize();
   });
 
   afterEach(async () => {
     if (syncCoordinator) {
-      await syncCoordinator.shutdown();
+      await syncCoordinator.cleanup();
     }
   });
 
@@ -226,7 +244,7 @@ describe('⚡ SYNC PERFORMANCE VALIDATION', () => {
 
       performanceMonitor.start();
 
-      const result = await syncCoordinator.performSync('manual');
+      const result = await syncCoordinator.performFullSync();
 
       const { duration, memoryGrowth } = performanceMonitor.stop();
 
@@ -244,7 +262,7 @@ describe('⚡ SYNC PERFORMANCE VALIDATION', () => {
 
       performanceMonitor.start();
 
-      const result = await syncCoordinator.performSync('manual');
+      const result = await syncCoordinator.performFullSync();
 
       const { duration, memoryGrowth } = performanceMonitor.stop();
 
@@ -264,7 +282,7 @@ describe('⚡ SYNC PERFORMANCE VALIDATION', () => {
         mockAssessmentStore.completedAssessments = generateLargeAssessmentHistory(size);
 
         performanceMonitor.start();
-        await syncCoordinator.performSync('manual');
+        await syncCoordinator.performFullSync();
         const { duration, memoryGrowth } = performanceMonitor.stop();
 
         results.push({ size, duration, memoryGrowth });
@@ -291,7 +309,7 @@ describe('⚡ SYNC PERFORMANCE VALIDATION', () => {
       performanceMonitor.start();
 
       const syncPromises = Array(concurrentOperations).fill(0).map(() =>
-        syncCoordinator.performSync('manual')
+        syncCoordinator.performFullSync()
       );
 
       const results = await Promise.allSettled(syncPromises);
@@ -319,7 +337,7 @@ describe('⚡ SYNC PERFORMANCE VALIDATION', () => {
         mockAssessmentStore.completedAssessments = generateLargeAssessmentHistory(20);
 
         performanceMonitor.start();
-        await syncCoordinator.performSync('manual');
+        await syncCoordinator.performFullSync();
         const { duration } = performanceMonitor.stop();
 
         durations.push(duration);
@@ -345,7 +363,7 @@ describe('⚡ SYNC PERFORMANCE VALIDATION', () => {
       // Perform multiple sync operations
       for (let i = 0; i < 5; i++) {
         mockAssessmentStore.completedAssessments = generateLargeAssessmentHistory(100);
-        await syncCoordinator.performSync('manual');
+        await syncCoordinator.performFullSync();
       }
 
       const finalMemory = process.memoryUsage?.()?.heapUsed || 0;
@@ -363,7 +381,7 @@ describe('⚡ SYNC PERFORMANCE VALIDATION', () => {
 
       const beforeMemory = process.memoryUsage?.()?.heapUsed || 0;
 
-      await syncCoordinator.performSync('manual');
+      await syncCoordinator.performFullSync();
 
       // Simulate garbage collection opportunity
       if (global.gc) {
@@ -388,7 +406,7 @@ describe('⚡ SYNC PERFORMANCE VALIDATION', () => {
       const backgroundSyncPromise = new Promise(async (resolve) => {
         setTimeout(async () => {
           performanceMonitor.start();
-          const result = await syncCoordinator.performSync('background');
+          const result = await syncCoordinator.performFullSync();
           const { duration } = performanceMonitor.stop();
           resolve({ result, duration });
         }, 100); // Delayed start to simulate background scheduling
@@ -406,11 +424,11 @@ describe('⚡ SYNC PERFORMANCE VALIDATION', () => {
       mockAssessmentStore.completedAssessments = generateLargeAssessmentHistory(30);
 
       // Start background sync
-      const backgroundPromise = syncCoordinator.performSync('background');
+      const backgroundPromise = syncCoordinator.performFullSync();
 
       // Immediately start user-initiated sync
       performanceMonitor.start();
-      const userSync = await syncCoordinator.performSync('manual');
+      const userSync = await syncCoordinator.performFullSync();
       const { duration } = performanceMonitor.stop();
 
       await backgroundPromise;
@@ -437,7 +455,7 @@ describe('⚡ SYNC PERFORMANCE VALIDATION', () => {
         mockAssessmentStore.completedAssessments = scenario.data;
 
         performanceMonitor.start();
-        const result = await syncCoordinator.performSync('manual');
+        const result = await syncCoordinator.performFullSync();
         const { duration } = performanceMonitor.stop();
 
         expect(result.success).toBe(true);

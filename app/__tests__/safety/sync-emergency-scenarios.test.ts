@@ -2,6 +2,25 @@
  * SYNC EMERGENCY SCENARIO TESTING
  * Phase 5.3 - Crisis Safety and Emergency Protocol Validation
  *
+ * STATUS (MAINT-166 PR 5 / MAINT-E):
+ *   - SyncCoordinator API drift fixed: `new SyncCoordinator()` → singleton
+ *     default import, `.shutdown()` → `.cleanup()`, `.performSync('crisis')`
+ *     → `.triggerPriorityBackup('crisis')`, `.performSync('manual')` →
+ *     `.performFullSync()`.
+ *   - `EmergencySimulator.simulateAppTermination()` no longer throws inside
+ *     a bare setTimeout (which used to kill the Jest worker). Now rejects
+ *     the returned promise so the suite stays alive.
+ *   - 2 of 15 tests pass locally. The other 13 assert that `Alert.alert`
+ *     was called during sync operations — but Alert is fired by UI
+ *     components (e.g. `CrisisAssessmentAlert`), not by SyncCoordinator's
+ *     subscription callback. That's a layer mismatch in the original test
+ *     design; fixing it requires moving the assertions into UI-level tests
+ *     (or stubbing the UI dispatch from the sync side, which doesn't exist
+ *     today). Out of scope for the API-drift PR.
+ *   - File remains quarantined under jest.config.js's
+ *     `testPathIgnorePatterns` for the INFRA-180 CI flake family until a
+ *     proper test rewrite happens.
+ *
  * EMERGENCY SCENARIO REQUIREMENTS:
  * - Crisis assessment sync during network failures
  * - Data preservation during app crashes during sync
@@ -88,13 +107,12 @@ class EmergencySimulator {
   }
 
   static simulateAppTermination(): Promise<void> {
-    return new Promise((resolve) => {
-      // Simulate abrupt termination during operation
-      setTimeout(() => {
-        throw new Error('App terminated');
-      }, 50);
-
-      setTimeout(resolve, 100);
+    // NOTE: previously threw inside a bare setTimeout, which escapes Jest
+    // and kills the worker. Reworded to reject the returned promise — the
+    // test can catch it like any other async failure, and the runner stays
+    // alive for the remaining tests.
+    return new Promise((_resolve, reject) => {
+      setTimeout(() => reject(new Error('App terminated')), 50);
     });
   }
 
@@ -182,15 +200,18 @@ const mockAlert = Alert.alert as jest.MockedFunction<typeof Alert.alert>;
 const mockLinking = Linking.openURL as jest.MockedFunction<typeof Linking.openURL>;
 
 describe('🚨 SYNC EMERGENCY SCENARIO TESTING', () => {
-  let syncCoordinator: SyncCoordinator;
+  // SyncCoordinator is a singleton (default export is the instance). Using
+  // `typeof SyncCoordinator` to type the local alias for the imported instance.
+  let syncCoordinator: typeof SyncCoordinator;
   let mockAssessmentStore: any;
 
   beforeEach(async () => {
     jest.clearAllMocks();
     resetEncryptionMocks();
-    // Reset the EncryptionService singleton between tests so the
-    // master-key flag doesn't survive across files (idempotent destroy).
-    await EncryptionService.getInstance().destroy();
+    // NOTE: `await EncryptionService.getInstance().destroy()` is intentionally
+    // omitted. It hangs under `--coverage --ci` on Ubuntu (same INFRA-180
+    // family seen in PR 4 comprehensive-assessment). `resetEncryptionMocks()`
+    // alone is sufficient because the mock backing is a fresh Map each call.
 
     // Initialize with normal conditions
     EmergencySimulator.restoreNormalConditions();
@@ -212,16 +233,16 @@ describe('🚨 SYNC EMERGENCY SCENARIO TESTING', () => {
     (useAssessmentStore as any).getState = jest.fn(() => mockAssessmentStore);
     (useAssessmentStore as any).subscribe = jest.fn();
 
-    syncCoordinator = new SyncCoordinator();
+    syncCoordinator = SyncCoordinator;
     await syncCoordinator.initialize();
   });
 
   afterEach(async () => {
     if (syncCoordinator) {
       try {
-        await syncCoordinator.shutdown();
+        await syncCoordinator.cleanup();
       } catch (error) {
-        // Ignore shutdown errors in emergency scenarios
+        // Ignore cleanup errors in emergency scenarios
       }
     }
     EmergencySimulator.restoreNormalConditions();
@@ -243,7 +264,7 @@ describe('🚨 SYNC EMERGENCY SCENARIO TESTING', () => {
         if (mockSubscribeCallback) {
           await mockSubscribeCallback(mockAssessmentStore, { currentResult: null });
         }
-        syncResult = await syncCoordinator.performSync('crisis');
+        syncResult = await syncCoordinator.triggerPriorityBackup('crisis');
       } catch (error) {
         // Expected to fail due to network
       }
@@ -320,7 +341,7 @@ describe('🚨 SYNC EMERGENCY SCENARIO TESTING', () => {
       EmergencySimulator.restoreNormalConditions();
 
       // Attempt sync recovery
-      const result = await syncCoordinator.performSync('manual');
+      const result = await syncCoordinator.performFullSync();
 
       expect(result.success).toBe(true);
       // Verify queued crisis data is processed
@@ -471,13 +492,17 @@ describe('🚨 SYNC EMERGENCY SCENARIO TESTING', () => {
         return null;
       });
 
-      // Restart SyncCoordinator (simulating app restart)
-      await syncCoordinator.shutdown();
-      syncCoordinator = new SyncCoordinator();
+      // Restart SyncCoordinator (simulating app restart).
+      // NOTE: SyncCoordinator is a process-singleton — re-assigning the
+      // imported default is a no-op. The cleanup()+initialize() cycle
+      // does reset isInitialized + reload persisted queue, which is what
+      // the test actually exercises.
+      await syncCoordinator.cleanup();
+      syncCoordinator = SyncCoordinator;
       await syncCoordinator.initialize();
 
       // Should recover and handle persisted crisis data
-      const result = await syncCoordinator.performSync('manual');
+      const result = await syncCoordinator.performFullSync();
       expect(result.success).toBe(true);
     });
   });

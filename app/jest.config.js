@@ -84,24 +84,23 @@ module.exports = {
     //    needs deeper investigation (try --runInBand, try splitting
     //    out coverage, try replacing the IAP listener pattern with
     //    a direct callback registry). Re-quarantined.
-    //  - sync-coordinator-integration.test.ts: MAINT-166 PR 2 confirmed
-    //    that the master-key issue called out in the prior comment is
-    //    not the actual blocker. The test calls `new SyncCoordinator()`,
-    //    `.shutdown()`, `.performSync('manual')`, and `.getStatus()` —
-    //    all of which reference the pre-singleton API. Current module
-    //    is `export default getInstance()` with `initialize()` /
-    //    `cleanup()` / `performFullSync()` / `triggerPriorityBackup()` /
-    //    `getSyncStatus()`. Adding `jest.mock(assessmentStore)` +
-    //    encryption mocks is necessary but not sufficient. Moved to
-    //    PR 5 (MAINT-E) scope — same SyncCoordinator API rewrite as
-    //    sync-performance-validation. PR 5 can reuse the encryption
-    //    helper at `__tests__/helpers/mockEncryption.ts`.
-    //  - analytics-service-integration.test.ts: same root cause as
-    //    sync-coordinator above. Test also uses `new SyncCoordinator()`,
-    //    `.shutdown()`, `.performSync()`, `.getStatus()`. Has
-    //    `jest.mock(assessmentStore)` in place from INFRA-143 PR 2 but
-    //    needs the SyncCoordinator API rewrite to actually pass. Moved
-    //    to PR 5 (MAINT-E) scope.
+    //  - sync-coordinator-integration.test.ts: MAINT-166 PR 5 fixed all
+    //    31 SyncCoordinator API drift sites (singleton import, cleanup,
+    //    performFullSync, triggerPriorityBackup, getSyncStatus) and
+    //    wired the encryption-mock helper + assessmentStore auto-mock.
+    //    14/26 tests pass locally; remaining 12 assert
+    //    `status.isInitialized` on the SyncStatus shape — that field
+    //    doesn't exist on the current shape (we have `globalState`
+    //    instead). Future rewrite needs to project the new shape into
+    //    the assertions. File-level note at the top of the test pins
+    //    this state. Re-quarantined for the INFRA-180 CI flake.
+    //  - analytics-service-integration.test.ts: MAINT-166 PR 5 fixed
+    //    the SyncCoordinator API drift and wired the encryption-mock
+    //    helper. 10/18 tests pass locally; remaining 8 assert
+    //    `analyticsService.getStatus().initialized` and similar
+    //    AnalyticsService return-shape fields that have also drifted.
+    //    AnalyticsService API surface itself needs an audit pass.
+    //    Re-quarantined for the INFRA-180 CI flake.
     //  - practices-flows-integration.test.tsx: MAINT-166 PR 4
     //    confirmed the UIManager mock issue called out previously is
     //    already resolved (jest.setup.js:335 provides the mock). The
@@ -129,25 +128,28 @@ module.exports = {
     //    multi-second test cases compound. Fix: convert to
     //    jest.useFakeTimers() with jest.advanceTimersByTime().
     //  - sync-performance-validation.test.ts, week3-analytics-
-    //    performance.test.ts: tests written against older service APIs
-    //    that have since refactored. They call `new SyncCoordinator()`
-    //    (now a singleton via getInstance), `.shutdown()` (renamed/
-    //    removed), and assume crypto/auth API shapes that no longer
-    //    exist. Needs proper rewrite to match current SyncCoordinator
-    //    + AnalyticsService + AuthenticationService APIs, not
-    //    incremental patching.
-    //  - sync-emergency-scenarios.test.ts: MAINT-166 PR 2 fixed the
-    //    import path (now `@/core/services/supabase/SyncCoordinator`)
-    //    and added the encryption-mock helper + assessmentStore
-    //    auto-mock. Remaining blocker: SyncCoordinator's public API
-    //    has drifted since the test was written. The test calls
-    //    `new SyncCoordinator()`, `syncCoordinator.shutdown()`, and
-    //    `syncCoordinator.performSync('crisis')`, but the current
-    //    module is a singleton (`export default getInstance()`) with
-    //    `initialize()` / `cleanup()` / `performFullSync()` /
-    //    `triggerPriorityBackup()`. Needs assertion-level API
-    //    rewrite — moved to PR 5 (MAINT-E) scope alongside
-    //    sync-performance-validation, which has the same drift.
+    //    performance.test.ts: MAINT-166 PR 5 fixed the SyncCoordinator
+    //    API drift mechanically. File-level notes capture the
+    //    follow-up: performance assertions in Jest are flaky by
+    //    construction (coverage instrumentation distorts timing).
+    //    Honest home for sync/analytics perf validation is the
+    //    `npm run perf:*` scripts on a real device. If solving the
+    //    INFRA-180 CI flake doesn't unblock these files, the
+    //    follow-up is to delete them and replace coverage with a
+    //    perf:* script entry or Maestro flow.
+    //  - sync-emergency-scenarios.test.ts: MAINT-166 PR 5 fixed the 7
+    //    SyncCoordinator API drift sites (new SyncCoordinator →
+    //    singleton, .shutdown → .cleanup, .performSync(reason) →
+    //    .triggerPriorityBackup(reason)/.performFullSync()) and
+    //    repaired EmergencySimulator.simulateAppTermination(), which
+    //    was throwing inside a bare setTimeout and killing the Jest
+    //    worker. 2/15 tests pass locally; remaining 13 assert that
+    //    `Alert.alert` was called during sync operations — but Alert
+    //    is fired by UI components (e.g. CrisisAssessmentAlert), not
+    //    by SyncCoordinator's subscription callback. That's a layer
+    //    mismatch in the original test design; fixing it requires
+    //    moving the assertions into UI-level tests. Re-quarantined
+    //    for the INFRA-180 CI flake.
     'subscription\\.integration\\.test\\.ts$',
     'sync-coordinator-integration\\.test\\.ts$',
     'analytics-service-integration\\.test\\.ts$',
