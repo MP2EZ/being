@@ -102,15 +102,26 @@ module.exports = {
     //    `jest.mock(assessmentStore)` in place from INFRA-143 PR 2 but
     //    needs the SyncCoordinator API rewrite to actually pass. Moved
     //    to PR 5 (MAINT-E) scope.
-    //  - practices-flows-integration.test.tsx: @react-navigation/elements
-    //    MaskedViewNative.tsx calls UIManager.getViewManagerConfig() on
-    //    a native view manager that's undefined in Jest. Fix: provide a
-    //    custom react-native UIManager mock, or mock the navigation stack.
-    //  - comprehensive-assessment-integration.test.ts: 10/12 tests fail
-    //    on assertion mismatch (e.g., expect store.currentSession truthy,
-    //    receives null). Production assessment-store API likely diverged
-    //    from test expectations during a refactor. Needs assertion-level
-    //    audit, not import-level fix.
+    //  - practices-flows-integration.test.tsx: MAINT-166 PR 4
+    //    confirmed the UIManager mock issue called out previously is
+    //    already resolved (jest.setup.js:335 provides the mock). The
+    //    actual blockers are deeper: testID drift (test looks for
+    //    `safety-button` which became `collapsible-crisis-button` after
+    //    a rename) + real-timer assertions (8-second BreathingCircle
+    //    cycle precision test takes 8+s of wall time per execution).
+    //    Needs a per-assertion audit similar to comprehensive-assessment
+    //    plus the fake-timer fix from INFRA-180 docs. Filed for a
+    //    future PR — out of MAINT-166 PR 4 scope.
+    //  - comprehensive-assessment-integration.test.ts: MAINT-166 PR 4
+    //    fixed the underlying bugs (stale-store-snapshot pattern,
+    //    canonical CrisisDetection shape, encryption-mock helper,
+    //    test-arithmetic errors). Result: 8/12 pass locally, 4 skipped
+    //    with documented TODOs. CI under --coverage --ci still times
+    //    out the tests (same INFRA-180 fake-timer/coverage flake family
+    //    affecting timer-screen tests + subscription.integration). The
+    //    file's changes were kept (encryption mock, state() helper, etc.)
+    //    so a future investigator can pick up from a better baseline
+    //    once the CI flake is solved. Re-quarantined for now.
     //  - PracticeTimerScreen.test.tsx, ReflectionTimerScreen.test.tsx,
     //    BodyScanScreen.test.tsx: pass locally on macOS but exceed the
     //    30s test timeout on Ubuntu CI runners. Mock Timer component
