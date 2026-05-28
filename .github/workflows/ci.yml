@@ -247,18 +247,26 @@ jobs:
         run: cd app && npm run test:security -- --ci --testTimeout=15000
 
       - name: npm audit
-        # Gating after the W3 paydown: `npm audit fix` cleared all 11
-        # high+critical vulns (xmldom, brace-expansion, fast-uri, flatted,
-        # handlebars, lodash, minimatch, node-forge, picomatch, tar,
-        # undici) via package-lock.json updates only — package.json
-        # untouched, no breaking changes.
+        # MAINT-182: switched from raw `npm audit --audit-level=high` to
+        # `audit-ci` with an explicit allowlist at app/.audit-ci.json.
+        # Three transitive CVEs in @expo/config-plugins@56.0.8 are
+        # allowlisted (GHSA-ph9p-34f9-6g65 tmp path traversal,
+        # GHSA-6vfc-qv3f-vr6c markdown-it ReDoS, GHSA-w5hq-g745-h8pq
+        # uuid bounds check) — all build-time only, no patched stable
+        # version available. Threshold is `moderate` (tightened from the
+        # prior `high`) since the allowlist gives precise control.
+        # Drop the GHSAs from .audit-ci.json when @expo/config-plugins
+        # >=56.0.9 ships as stable.
         #
-        # 20 moderate vulns remain (markdown-it, postcss, expo-* chain).
-        # ~14 of those require expo 54 → 56 semver-major bump, which
-        # is blocked by the React Native 0.81.4 / React 19.1.0 pinning
-        # constraints in CLAUDE.md. Threshold stays at `high` until the
-        # Expo upgrade lands as a dedicated task.
-        run: cd app && npm audit --audit-level=high
+        # Historical context (kept for archaeology): the W3 paydown's
+        # `npm audit fix` cleared 11 high+critical vulns (xmldom,
+        # brace-expansion, fast-uri, flatted, handlebars, lodash,
+        # minimatch, node-forge, picomatch, tar, undici) via lockfile
+        # updates only. The remaining moderate floor was the Expo
+        # transitive chain; threshold was raised to `high` as an interim
+        # measure pending the Expo upgrade. audit-ci with an explicit
+        # allowlist replaces that interim.
+        run: cd app && npx audit-ci --config .audit-ci.json
 
   # Accessibility — WCAG AA validation + a11y test suite. Strict gate
   # as of Phase B+C paydown. Root causes addressed:
