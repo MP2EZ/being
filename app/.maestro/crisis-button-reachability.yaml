@@ -18,9 +18,13 @@ name: "Crisis button reaches CrisisResources from every tab"
     clearKeychain: true # SecureStore-backed consent persists across clearState — wipe keychain too (INFRA-179)
 - runFlow: _legal-and-onboarding.yaml
 
+# Tabs are addressed via tabBarTestID (INFRA-183, CleanTabNavigator.tsx) —
+# Maestro's text: selector doesn't match the bottom-tab accessibilityText
+# "X, tab, N of 4" patterns because the text field itself is empty.
+
 # ── Home tab ─────────────────────────────────────────────────────
 - tapOn:
-    text: "Home"
+    id: "tab-home"
 - tapOn:
     id: "crisis-home"
 - assertVisible:
@@ -29,7 +33,7 @@ name: "Crisis button reaches CrisisResources from every tab"
 
 # ── Learn tab ────────────────────────────────────────────────────
 - tapOn:
-    text: "Learn"
+    id: "tab-learn"
 - tapOn:
     id: "crisis-learn"
 - assertVisible:
@@ -38,7 +42,7 @@ name: "Crisis button reaches CrisisResources from every tab"
 
 # ── Insights tab ─────────────────────────────────────────────────
 - tapOn:
-    text: "Insights"
+    id: "tab-insights"
 - tapOn:
     id: "crisis-insights"
 - assertVisible:
@@ -47,7 +51,7 @@ name: "Crisis button reaches CrisisResources from every tab"
 
 # ── Profile tab ──────────────────────────────────────────────────
 - tapOn:
-    text: "Profile"
+    id: "tab-profile"
 - tapOn:
     id: "crisis-profile"
 - assertVisible:

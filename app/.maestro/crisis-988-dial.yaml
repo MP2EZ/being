@@ -22,9 +22,11 @@ name: "988 dial does not surface 'Unable to Call' fallback"
     clearKeychain: true # SecureStore-backed consent persists across clearState — wipe keychain too (INFRA-179)
 - runFlow: _legal-and-onboarding.yaml
 
-# Reach CrisisResources from Home tab
+# Reach CrisisResources from Home tab. INFRA-183: tab-home testID is the
+# mechanically reliable selector — Maestro's `text:` doesn't match the
+# bottom-tab `accessibilityText: "Home, tab, 1 of 4"` (text field is empty).
 - tapOn:
-    text: "Home"
+    id: "tab-home"
 - tapOn:
     id: "crisis-home"
 - assertVisible:
