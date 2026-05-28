@@ -2,6 +2,23 @@
  * COMPREHENSIVE SYNC COORDINATOR INTEGRATION TESTING
  * Phase 5.1 - Week 2 Sync Validation Suite
  *
+ * STATUS (MAINT-166 PR 5 / MAINT-E):
+ *   - SyncCoordinator API drift fixed: `new SyncCoordinator()` → singleton
+ *     default import, `.shutdown()` → `.cleanup()`, `.performSync('manual')`
+ *     → `.performFullSync()`, `.performSync('assessment'|'crisis')` →
+ *     `.triggerPriorityBackup(reason)`, `.getStatus()` → `.getSyncStatus()`.
+ *   - Encryption-stack mocks wired in via __tests__/helpers/mockEncryption
+ *     (PR 2). assessmentStore auto-mocked so per-test `.mockImplementation`
+ *     works.
+ *   - 14 of 26 tests pass locally. The remaining 12 assert
+ *     `status.isInitialized` on the SyncStatus shape — that field doesn't
+ *     exist on the current shape (we have `globalState: SyncState`
+ *     instead). Future rewrite needs to project the new shape into the
+ *     test assertions (e.g. `status.globalState === 'idle'` instead of
+ *     `status.isInitialized === true`). Out of scope for the API-drift PR.
+ *   - File remains quarantined under jest.config.js's
+ *     `testPathIgnorePatterns` for the INFRA-180 CI flake family.
+ *
  * CRITICAL SYNC INTEGRATION TESTING:
  * - End-to-end sync orchestration (SyncCoordinator ↔ CloudBackup ↔ Supabase)
  * - Crisis assessment sync with <200ms requirement validation
@@ -38,8 +55,27 @@ import supabaseService from '@/core/services/supabase/SupabaseService';
 // Mock external dependencies
 jest.mock('@react-native-async-storage/async-storage');
 jest.mock('@react-native-community/netinfo');
-jest.mock('expo-crypto');
-jest.mock('expo-secure-store');
+
+// Encryption-stack mocks — SyncCoordinator transitively depends on
+// EncryptionService → SecureStorageService. Without these, master-key
+// initialization throws "Master key not found" during initialize().
+jest.mock('react-native-aes-crypto', () => {
+  const { createAesCryptoMock } = require('../helpers/mockEncryption');
+  return createAesCryptoMock();
+});
+jest.mock('expo-secure-store', () => {
+  const { createExpoSecureStoreMock } = require('../helpers/mockEncryption');
+  return createExpoSecureStoreMock();
+});
+jest.mock('expo-crypto', () => {
+  const { createExpoCryptoMock } = require('../helpers/mockEncryption');
+  return createExpoCryptoMock();
+});
+
+// Auto-mock the assessment store so the per-test
+// `(useAssessmentStore as any).mockImplementation` calls have a mock to
+// attach to.
+jest.mock('@/features/assessment/stores/assessmentStore');
 
 // Mock network states for testing
 const mockNetInfo = NetInfo as jest.Mocked<typeof NetInfo>;
@@ -73,7 +109,9 @@ const mockSuicidalIdeationResult = {
 };
 
 describe('🔄 SYNC COORDINATOR INTEGRATION TESTING', () => {
-  let syncCoordinator: SyncCoordinator;
+  // SyncCoordinator is a singleton — default export is the instance. Type
+  // with `typeof SyncCoordinator` since the class itself isn't exported.
+  let syncCoordinator: typeof SyncCoordinator;
   let mockAssessmentStore: any;
 
   beforeEach(async () => {
@@ -109,25 +147,25 @@ describe('🔄 SYNC COORDINATOR INTEGRATION TESTING', () => {
     (useAssessmentStore as any).getState = jest.fn(() => mockAssessmentStore);
     (useAssessmentStore as any).subscribe = jest.fn();
 
-    // Initialize SyncCoordinator
-    syncCoordinator = new SyncCoordinator();
+    // Initialize SyncCoordinator (singleton)
+    syncCoordinator = SyncCoordinator;
     await syncCoordinator.initialize();
   });
 
   afterEach(async () => {
     if (syncCoordinator) {
-      await syncCoordinator.shutdown();
+      await syncCoordinator.cleanup();
     }
   });
 
   describe('🚀 BASIC SYNC OPERATIONS', () => {
     it('should initialize sync coordinator with all services', async () => {
       expect(syncCoordinator).toBeDefined();
-      expect(syncCoordinator.getStatus().isInitialized).toBe(true);
+      expect(syncCoordinator.getSyncStatus().isInitialized).toBe(true);
     });
 
     it('should perform manual sync operation successfully', async () => {
-      const result = await syncCoordinator.performSync('manual');
+      const result = await syncCoordinator.performFullSync();
 
       expect(result.success).toBe(true);
       expect(result.operationsCompleted).toBeGreaterThan(0);
@@ -139,7 +177,7 @@ describe('🔄 SYNC COORDINATOR INTEGRATION TESTING', () => {
       mockAssessmentStore.completedAssessments = [];
       mockAssessmentStore.currentResult = null;
 
-      const result = await syncCoordinator.performSync('manual');
+      const result = await syncCoordinator.performFullSync();
 
       expect(result.success).toBe(true);
       expect(result.operationsCompleted).toBeGreaterThanOrEqual(0);
@@ -234,7 +272,7 @@ describe('🔄 SYNC COORDINATOR INTEGRATION TESTING', () => {
         isInternetReachable: false
       } as any);
 
-      const result = await syncCoordinator.performSync('manual');
+      const result = await syncCoordinator.performFullSync();
 
       // Should queue operations for later
       expect(result.success).toBe(true);
@@ -246,7 +284,7 @@ describe('🔄 SYNC COORDINATOR INTEGRATION TESTING', () => {
       mockNetInfo.fetch.mockRejectedValue(new Error('Network timeout'));
 
       const startTime = Date.now();
-      const result = await syncCoordinator.performSync('manual');
+      const result = await syncCoordinator.performFullSync();
       const duration = Date.now() - startTime;
 
       // Should implement retry delay
@@ -263,7 +301,7 @@ describe('🔄 SYNC COORDINATOR INTEGRATION TESTING', () => {
         isInternetReachable: false
       } as any);
 
-      await syncCoordinator.performSync('manual');
+      await syncCoordinator.performFullSync();
 
       // Then, simulate network recovery
       mockNetInfo.fetch.mockResolvedValue({
@@ -272,7 +310,7 @@ describe('🔄 SYNC COORDINATOR INTEGRATION TESTING', () => {
         isInternetReachable: true
       } as any);
 
-      const result = await syncCoordinator.performSync('manual');
+      const result = await syncCoordinator.performFullSync();
 
       expect(result.success).toBe(true);
     });
@@ -288,7 +326,7 @@ describe('🔄 SYNC COORDINATOR INTEGRATION TESTING', () => {
         }
       } as any);
 
-      const result = await syncCoordinator.performSync('manual');
+      const result = await syncCoordinator.performFullSync();
 
       // Should still complete but may take longer
       expect(result.success).toBe(true);
@@ -304,7 +342,7 @@ describe('🔄 SYNC COORDINATOR INTEGRATION TESTING', () => {
       // Mock conflicting data
       mockAsyncStorage.getItem.mockResolvedValue(JSON.stringify(localData));
 
-      const result = await syncCoordinator.performSync('manual');
+      const result = await syncCoordinator.performFullSync();
 
       expect(result.success).toBe(true);
       expect(result.conflictsResolved).toBeGreaterThanOrEqual(0);
@@ -316,7 +354,7 @@ describe('🔄 SYNC COORDINATOR INTEGRATION TESTING', () => {
         { id: 'crisis-assessment', result: mockPHQ9CrisisResult }
       ];
 
-      const result = await syncCoordinator.performSync('manual');
+      const result = await syncCoordinator.performFullSync();
 
       expect(result.success).toBe(true);
       // Crisis data should be preserved regardless of conflicts
@@ -332,7 +370,7 @@ describe('🔄 SYNC COORDINATOR INTEGRATION TESTING', () => {
 
       mockAssessmentStore.completedAssessments = assessmentData.completedAssessments;
 
-      const result = await syncCoordinator.performSync('manual');
+      const result = await syncCoordinator.performFullSync();
 
       expect(result.success).toBe(true);
       // Assessment data integrity should be maintained
@@ -343,7 +381,7 @@ describe('🔄 SYNC COORDINATOR INTEGRATION TESTING', () => {
     it('should complete routine sync within performance thresholds', async () => {
       const startTime = Date.now();
 
-      const result = await syncCoordinator.performSync('manual');
+      const result = await syncCoordinator.performFullSync();
 
       const duration = Date.now() - startTime;
 
@@ -354,9 +392,9 @@ describe('🔄 SYNC COORDINATOR INTEGRATION TESTING', () => {
 
     it('should handle concurrent sync operations safely', async () => {
       const syncPromises = [
-        syncCoordinator.performSync('manual'),
-        syncCoordinator.performSync('assessment'),
-        syncCoordinator.performSync('manual')
+        syncCoordinator.performFullSync(),
+        syncCoordinator.triggerPriorityBackup('assessment'),
+        syncCoordinator.performFullSync()
       ];
 
       const results = await Promise.allSettled(syncPromises);
@@ -374,7 +412,7 @@ describe('🔄 SYNC COORDINATOR INTEGRATION TESTING', () => {
       const startTime = Date.now();
 
       const syncPromises = Array(operations).fill(0).map(() =>
-        syncCoordinator.performSync('manual')
+        syncCoordinator.performFullSync()
       );
 
       await Promise.all(syncPromises);
@@ -392,7 +430,7 @@ describe('🔄 SYNC COORDINATOR INTEGRATION TESTING', () => {
         { id: 'test', result: mockPHQ9CrisisResult }
       ];
 
-      const result = await syncCoordinator.performSync('manual');
+      const result = await syncCoordinator.performFullSync();
 
       expect(result.success).toBe(true);
 
@@ -411,14 +449,14 @@ describe('🔄 SYNC COORDINATOR INTEGRATION TESTING', () => {
         { id: 'sensitive', result: mockPHQ9CrisisResult }
       ];
 
-      const result = await syncCoordinator.performSync('manual');
+      const result = await syncCoordinator.performFullSync();
 
       expect(result.success).toBe(true);
       // Sync should complete with encrypted data transmission
     });
 
     it('should maintain audit trail for sync operations', async () => {
-      const result = await syncCoordinator.performSync('manual');
+      const result = await syncCoordinator.performFullSync();
 
       expect(result.success).toBe(true);
       expect(result.timestamp).toBeDefined();
@@ -436,7 +474,7 @@ describe('🔄 SYNC COORDINATOR INTEGRATION TESTING', () => {
         new Error('Service unavailable')
       );
 
-      const result = await syncCoordinator.performSync('manual');
+      const result = await syncCoordinator.performFullSync();
 
       expect(result.success).toBe(false);
       expect(result.errors).toContain('Service unavailable');
@@ -450,11 +488,11 @@ describe('🔄 SYNC COORDINATOR INTEGRATION TESTING', () => {
 
       // Multiple failed attempts
       for (let i = 0; i < 5; i++) {
-        await syncCoordinator.performSync('manual');
+        await syncCoordinator.performFullSync();
       }
 
       // Should implement circuit breaker logic
-      const status = syncCoordinator.getStatus();
+      const status = syncCoordinator.getSyncStatus();
       expect(status.isInitialized).toBe(true);
     });
 
@@ -465,7 +503,7 @@ describe('🔄 SYNC COORDINATOR INTEGRATION TESTING', () => {
         .mockRejectedValueOnce(new Error('Partial failure'))
         .mockResolvedValue(true);
 
-      const result = await syncCoordinator.performSync('manual');
+      const result = await syncCoordinator.performFullSync();
 
       // Should handle partial failures gracefully
       expect(result.operationsCompleted).toBeGreaterThanOrEqual(0);
@@ -474,13 +512,13 @@ describe('🔄 SYNC COORDINATOR INTEGRATION TESTING', () => {
 
   describe('📊 SYNC STATE MANAGEMENT', () => {
     it('should track sync state accurately', async () => {
-      const initialStatus = syncCoordinator.getStatus();
+      const initialStatus = syncCoordinator.getSyncStatus();
       expect(initialStatus.isInitialized).toBe(true);
       expect(initialStatus.lastSyncTime).toBeNull();
 
-      await syncCoordinator.performSync('manual');
+      await syncCoordinator.performFullSync();
 
-      const updatedStatus = syncCoordinator.getStatus();
+      const updatedStatus = syncCoordinator.getSyncStatus();
       expect(updatedStatus.lastSyncTime).not.toBeNull();
     });
 
@@ -494,14 +532,14 @@ describe('🔄 SYNC COORDINATOR INTEGRATION TESTING', () => {
       }
 
       // Manual sync should still work
-      const result = await syncCoordinator.performSync('manual');
+      const result = await syncCoordinator.performFullSync();
       expect(result.success).toBe(true);
     });
 
     it('should cleanup resources properly on shutdown', async () => {
-      await syncCoordinator.shutdown();
+      await syncCoordinator.cleanup();
 
-      const status = syncCoordinator.getStatus();
+      const status = syncCoordinator.getSyncStatus();
       expect(status.isInitialized).toBe(false);
     });
   });

@@ -249,29 +249,16 @@ jobs:
           npx tsc --noEmit src/services/cloud/ZeroKnowledgeCloudSync.ts
 
           # Encryption service tests
-          npm run test:encryption -- --passWithNoTests
-
-          # Secure storage tests
-          npm run test:secure-storage -- --passWithNoTests
+          npm run test:encryption
 
           echo "✅ Zero-knowledge encryption validated"
 
-      - name: Performance Baseline Validation
-        working-directory: app
-        run: |
-          echo "⚡ Performance Baseline Validation"
-          echo "================================="
-
-          # Crisis response time tests
-          npm run perf:crisis -- --passWithNoTests
-
-          # UI performance tests
-          npm run perf:breathing -- --passWithNoTests
-
-          # App launch performance
-          npm run perf:launch -- --passWithNoTests
-
-          echo "✅ Performance baselines validated"
+      # MAINT-166 PR 7 (TEST-17): the jest-side perf:crisis / perf:breathing /
+      # perf:launch scripts were removed because they ran zero matching
+      # tests. Real perf gating lives in the Maestro safety flows
+      # (app/.maestro/) and the CLAUDE.md "Performance Budgets" section.
+      # If a CI-side perf gate is needed, it should plug into real on-device
+      # measurement (e.g. a hosted Maestro runner) rather than --passWithNoTests.
 
       - name: P0-CLOUD Infrastructure Validation
         working-directory: app
@@ -514,14 +501,15 @@ jobs:
           echo "🚨 Crisis Safety Pre-deployment Check"
           echo "====================================="
 
-          # Final crisis response validation
-          npm run perf:crisis -- --passWithNoTests --testTimeout=5000
+          # MAINT-166 PR 7: perf:crisis was removed (zero matching tests).
+          # Crisis response time is enforced on-device via the Maestro flow
+          # app/.maestro/crisis-button-reachability.yaml.
 
           # Verify 988 hotline integration
           grep -q "EXPO_PUBLIC_CRISIS_HOTLINE=988" .env || (echo "❌ 988 hotline not configured" && exit 1)
 
           # Validate offline crisis functionality
-          npm run test -- --testPathPattern="crisis.*offline" --passWithNoTests --testTimeout=5000
+          npm run test -- --testPathPattern="crisis.*offline" --testTimeout=5000
 
           echo "✅ Crisis safety validated for deployment"
 

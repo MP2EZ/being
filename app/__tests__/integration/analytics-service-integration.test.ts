@@ -2,6 +2,20 @@
  * ANALYTICS SERVICE INTEGRATION TESTING
  * Week 3 Phase 4 - Comprehensive Analytics Integration Validation
  *
+ * STATUS (MAINT-166 PR 5 / MAINT-E):
+ *   - SyncCoordinator API drift fixed: singleton default import,
+ *     `.shutdown()` → `.cleanup()`, `.performSync('manual')` →
+ *     `.performFullSync()`, `.getStatus()` → `.getSyncStatus()`.
+ *   - Encryption-stack mocks wired in via __tests__/helpers/mockEncryption
+ *     (PR 2). AnalyticsService is unchanged — already uses the right API.
+ *   - 10 of 18 tests pass locally. The remaining 8 assert
+ *     `analyticsService.getStatus().initialized` and similar return-shape
+ *     fields that have drifted on the AnalyticsService side. Out of scope
+ *     for the SyncCoordinator API-drift PR — needs a separate audit of
+ *     AnalyticsService's public surface.
+ *   - File remains quarantined under jest.config.js's
+ *     `testPathIgnorePatterns` for the INFRA-180 CI flake family.
+ *
  * CRITICAL INTEGRATION TESTING SCENARIOS:
  * - End-to-end analytics workflow (event capture → sanitization → transmission)
  * - Security services integration (Auth → Network → Monitoring → Privacy)
@@ -53,7 +67,22 @@ import CloudBackupSettings from '@/core/components/settings/CloudBackupSettings'
 // Mock external dependencies
 jest.mock('@react-native-async-storage/async-storage');
 jest.mock('@react-native-community/netinfo');
-jest.mock('expo-crypto');
+
+// Encryption-stack mocks — SyncCoordinator transitively depends on
+// EncryptionService → SecureStorageService. Without these, master-key
+// initialization throws during initialize().
+jest.mock('react-native-aes-crypto', () => {
+  const { createAesCryptoMock } = require('../helpers/mockEncryption');
+  return createAesCryptoMock();
+});
+jest.mock('expo-secure-store', () => {
+  const { createExpoSecureStoreMock } = require('../helpers/mockEncryption');
+  return createExpoSecureStoreMock();
+});
+jest.mock('expo-crypto', () => {
+  const { createExpoCryptoMock } = require('../helpers/mockEncryption');
+  return createExpoCryptoMock();
+});
 
 // The test calls `(useAssessmentStore as any).mockImplementation(...)` etc.
 // — that only works when the module is auto-mocked. Previously omitted;
@@ -133,7 +162,8 @@ class IntegrationPerformanceMonitor {
 
 describe('📊 ANALYTICS SERVICE INTEGRATION TESTING', () => {
   let analyticsService: typeof AnalyticsService;
-  let syncCoordinator: SyncCoordinator;
+  // SyncCoordinator is a singleton — default export is the instance.
+  let syncCoordinator: typeof SyncCoordinator;
   let performanceMonitor: IntegrationPerformanceMonitor;
   let mockAssessmentStore: any;
 
@@ -169,9 +199,9 @@ describe('📊 ANALYTICS SERVICE INTEGRATION TESTING', () => {
     (useAssessmentStore as any).getState = jest.fn(() => mockAssessmentStore);
     (useAssessmentStore as any).subscribe = jest.fn();
 
-    // Initialize services
+    // Initialize services (both singletons)
     analyticsService = AnalyticsService;
-    syncCoordinator = new SyncCoordinator();
+    syncCoordinator = SyncCoordinator;
 
     // Initialize analytics service
     await analyticsService.initialize();
@@ -183,7 +213,7 @@ describe('📊 ANALYTICS SERVICE INTEGRATION TESTING', () => {
       await analyticsService.shutdown();
     }
     if (syncCoordinator) {
-      await syncCoordinator.shutdown();
+      await syncCoordinator.cleanup();
     }
   });
 
@@ -502,7 +532,7 @@ describe('📊 ANALYTICS SERVICE INTEGRATION TESTING', () => {
       // This would be a React component test in a real scenario
       // Here we verify that the component can successfully call service methods
 
-      const syncStatus = await syncCoordinator.getStatus();
+      const syncStatus = await syncCoordinator.getSyncStatus();
       const analyticsStatus = analyticsService.getStatus();
 
       expect(syncStatus).toBeDefined();
@@ -587,7 +617,7 @@ describe('📊 ANALYTICS SERVICE INTEGRATION TESTING', () => {
       // Concurrent operations: analytics + sync + assessment monitoring
       const operations = [
         analyticsService.trackEvent('assessment_completed', { assessment_type: 'phq9', totalScore: 12 }),
-        syncCoordinator.performSync('manual'),
+        syncCoordinator.performFullSync(),
         analyticsService.trackExerciseCompletion('breathing', 60000, 1.0),
         analyticsService.trackSyncOperation('auto', 2500, true, 150000),
         analyticsService.trackAppLifecycle('resume', 500),

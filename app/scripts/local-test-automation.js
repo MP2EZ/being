@@ -54,22 +54,20 @@ class LocalTestAutomation {
   }
 
   // Performance regression testing
+  //
+  // MAINT-166 PR 7 (TEST-17) note: the jest-based perf scripts
+  // (perf:crisis / perf:launch / perf:breathing / test:memory) were
+  // removed because none ran real tests — they relied on
+  // --passWithNoTests or testNamePattern matches that resolved to zero
+  // describe blocks. On-device performance validation lives in the
+  // Maestro safety flows + the perf budgets documented in CLAUDE.md
+  // ("Performance Budgets" section). When real jest-side perf tests
+  // exist, this method should be repopulated with them.
   async runPerformanceRegression() {
-    console.log('📊 Starting Performance Regression Testing...\n');
-    
-    const tests = [
-      { name: 'Crisis Performance', command: 'npm run perf:crisis', critical: true },
-      { name: 'App Launch Performance', command: 'npm run perf:launch', critical: false },
-      { name: 'Breathing Performance', command: 'npm run perf:breathing', critical: false },
-      { name: 'Memory Usage Tests', command: 'npm run test:memory', critical: false }
-    ];
-
-    const result = await this.runTestSuite(tests, 'performance-regression');
-    
-    // Generate performance comparison report
-    await this.generatePerformanceReport();
-    
-    return result;
+    console.log('📊 Performance Regression Testing is currently a no-op.');
+    console.log('   See CLAUDE.md "Performance Budgets" + the Maestro flows');
+    console.log('   under app/.maestro/ for the actual perf surface.\n');
+    return { success: true, results: [], suite: 'performance-regression' };
   }
 
   // Pre-commit validation
