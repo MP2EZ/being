@@ -12,13 +12,13 @@
  *   - File remains quarantined under jest.config.js. Performance tests in
  *     Jest are flaky by construction (coverage instrumentation distorts
  *     timing; worker scheduling adds noise). The honest home for sync
- *     perf validation is `npm run perf:crisis` / `perf:launch` / etc.,
- *     which exercise the real device profiling rather than mocked unit
- *     code.
+ *     perf validation is the on-device Maestro flows (`app/.maestro/`)
+ *     and the CLAUDE.md "Performance Budgets" section. (MAINT-166 PR 7
+ *     removed the jest-side `perf:*` scripts because they ran zero
+ *     matching tests.)
  *   - Follow-up: if solving the INFRA-180 CI flake doesn't unblock this
- *     file, delete it and replace its unique coverage with either (a) a
- *     perf:* script entry or (b) a Maestro flow that pins the
- *     user-visible latency contract.
+ *     file, delete it and replace its unique coverage with a Maestro
+ *     flow that pins the user-visible latency contract.
  *
  * PERFORMANCE VALIDATION REQUIREMENTS:
  * - Crisis assessment sync: <200ms response time

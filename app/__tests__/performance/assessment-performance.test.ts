@@ -156,8 +156,8 @@ describe('ASSESSMENT PERFORMANCE TESTING SUITE', () => {
         expect(state().crisisDetection?.isTriggered).toBe(true);
         
         // Test env budget: <500ms (mocked storage adds random 0-30ms × 9 answers
-        // = 135ms variance baseline). Production <200ms budget is enforced by
-        // npm run perf:crisis using real device timings.
+        // = 135ms variance baseline). Production <200ms budget is documented
+        // in CLAUDE.md "Performance Budgets" and validated on-device.
         expect(detectionTime).toBeLessThan(500);
 
         console.log(`PHQ-9 Score ${targetScore}: Crisis detected in ${detectionTime.toFixed(2)}ms`);
@@ -239,7 +239,7 @@ describe('ASSESSMENT PERFORMANCE TESTING SUITE', () => {
         expect(state().crisisDetection?.primaryTrigger).toBe('phq9_suicidal_ideation');
 
         // Critical: Suicidal ideation must be detected immediately
-        expect(immediateDetectionTime).toBeLessThan(300); // Test env; <100ms production via perf:crisis
+        expect(immediateDetectionTime).toBeLessThan(300); // Test env; <100ms production budget on-device
 
         console.log(`Suicidal Response ${suicidalResponse}: Detected in ${immediateDetectionTime.toFixed(2)}ms`);
       }

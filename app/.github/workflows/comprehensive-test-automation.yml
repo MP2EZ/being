@@ -385,12 +385,13 @@ jobs:
       - name: Performance baseline establishment
         working-directory: app
         run: |
-          echo "📊 Establishing performance baselines..."
-          
-          # Run performance tests and capture metrics
-          npm run perf:crisis -- --json --outputFile=crisis-performance.json --silent || true
-          npm run perf:breathing -- --json --outputFile=breathing-performance.json --silent || true
-          npm run perf:launch -- --json --outputFile=launch-performance.json --silent || true
+          echo "📊 Performance baseline establishment is currently a no-op."
+          echo "   MAINT-166 PR 7 (TEST-17) removed perf:crisis / perf:breathing /"
+          echo "   perf:launch because they ran zero matching tests. Real perf"
+          echo "   gating lives in the Maestro safety flows (app/.maestro/) and"
+          echo "   the CLAUDE.md 'Performance Budgets' section. When CI-side"
+          echo "   on-device perf measurement exists, this step should be"
+          echo "   repopulated with it."
 
       - name: Crisis response time validation
         working-directory: app

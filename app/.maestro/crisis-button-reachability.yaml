@@ -8,8 +8,10 @@ name: "Crisis button reaches CrisisResources from every tab"
 # to CrisisResources. Replaces the dormant Detox crisis-access.e2e.ts.
 #
 # Maestro's default assertVisible timeout (~10s) covers the <3s SLA from
-# CLAUDE.md. Strict timing assertions remain in Jest perf hooks
-# (npm run perf:crisis).
+# CLAUDE.md. The jest-side `perf:crisis` script was removed in MAINT-166
+# PR 7 (it ran zero matching tests); on-device timing budgets live in
+# CLAUDE.md's "Performance Budgets" section and are validated by hand
+# until a real perf harness exists.
 
 - launchApp:
     clearState: true
