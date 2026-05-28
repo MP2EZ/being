@@ -102,15 +102,16 @@ module.exports = {
     //    `jest.mock(assessmentStore)` in place from INFRA-143 PR 2 but
     //    needs the SyncCoordinator API rewrite to actually pass. Moved
     //    to PR 5 (MAINT-E) scope.
-    //  - practices-flows-integration.test.tsx: @react-navigation/elements
-    //    MaskedViewNative.tsx calls UIManager.getViewManagerConfig() on
-    //    a native view manager that's undefined in Jest. Fix: provide a
-    //    custom react-native UIManager mock, or mock the navigation stack.
-    //  - comprehensive-assessment-integration.test.ts: 10/12 tests fail
-    //    on assertion mismatch (e.g., expect store.currentSession truthy,
-    //    receives null). Production assessment-store API likely diverged
-    //    from test expectations during a refactor. Needs assertion-level
-    //    audit, not import-level fix.
+    //  - practices-flows-integration.test.tsx: MAINT-166 PR 4
+    //    confirmed the UIManager mock issue called out previously is
+    //    already resolved (jest.setup.js:335 provides the mock). The
+    //    actual blockers are deeper: testID drift (test looks for
+    //    `safety-button` which became `collapsible-crisis-button` after
+    //    a rename) + real-timer assertions (8-second BreathingCircle
+    //    cycle precision test takes 8+s of wall time per execution).
+    //    Needs a per-assertion audit similar to comprehensive-assessment
+    //    plus the fake-timer fix from INFRA-180 docs. Filed for a
+    //    future PR — out of MAINT-166 PR 4 scope.
     //  - PracticeTimerScreen.test.tsx, ReflectionTimerScreen.test.tsx,
     //    BodyScanScreen.test.tsx: pass locally on macOS but exceed the
     //    30s test timeout on Ubuntu CI runners. Mock Timer component
@@ -141,7 +142,6 @@ module.exports = {
     'sync-coordinator-integration\\.test\\.ts$',
     'analytics-service-integration\\.test\\.ts$',
     'practices-flows-integration\\.test\\.tsx$',
-    'comprehensive-assessment-integration\\.test\\.ts$',
     'PracticeTimerScreen\\.test\\.tsx$',
     'ReflectionTimerScreen\\.test\\.tsx$',
     'sync-performance-validation\\.test\\.ts$',
