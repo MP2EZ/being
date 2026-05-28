@@ -362,7 +362,8 @@ describe('COMPREHENSIVE ASSESSMENT INTEGRATION TESTING', () => {
     // (startAssessment + N answerQuestion + completeAssessment ≈ 11
     // awaited ops × ~20ms encryption-mock latency ≈ 500ms), not the
     // crisis-detection-specific time it claims. Either the assertion
-    // should be removed (perf is covered by perf:crisis script), or
+    // should be removed (perf is covered by on-device Maestro + the
+    // CLAUDE.md "Performance Budgets" section, not by a jest test), or
     // it should measure JUST the question-9 answer time. Skipping
     // until that intent is clarified — the threshold-detection logic
     // is exercised by other tests in this suite.
