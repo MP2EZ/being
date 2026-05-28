@@ -2,6 +2,18 @@
  * WEEK 3 ANALYTICS PERFORMANCE VALIDATION
  * Phase 4 - Comprehensive Performance Benchmarking
  *
+ * STATUS (MAINT-166 PR 5 / MAINT-E):
+ *   - SyncCoordinator API drift fixed: `let syncCoordinator: SyncCoordinator`
+ *     → `typeof SyncCoordinator`, `.shutdown()` → `.cleanup()`,
+ *     `.getStatus()` → `.getSyncStatus()`.
+ *   - File remains quarantined under jest.config.js. Performance tests in
+ *     Jest are flaky by construction (coverage instrumentation distorts
+ *     timing). The honest home for analytics-pipeline perf validation is
+ *     `npm run perf:*` scripts on a real device.
+ *   - Follow-up: same as sync-performance-validation — delete and replace
+ *     coverage with a perf:* script or Maestro flow if INFRA-180 fix
+ *     doesn't unblock this file.
+ *
  * CRITICAL PERFORMANCE REQUIREMENTS:
  * - Crisis event processing: <200ms end-to-end (BLOCKING requirement)
  * - Regular event processing: <10ms per event
@@ -215,7 +227,7 @@ function generateAssessmentLoad(count: number, crisisPercentage: number = 0.1) {
 
 describe('⚡ WEEK 3 ANALYTICS PERFORMANCE VALIDATION', () => {
   let analyticsService: typeof AnalyticsService;
-  let syncCoordinator: SyncCoordinator;
+  let syncCoordinator: typeof SyncCoordinator;
   let profiler: AnalyticsPerformanceProfiler;
   let mockAssessmentStore: any;
 
@@ -274,7 +286,7 @@ describe('⚡ WEEK 3 ANALYTICS PERFORMANCE VALIDATION', () => {
         await analyticsService.shutdown();
       }
       if (syncCoordinator) {
-        await syncCoordinator.shutdown();
+        await syncCoordinator.cleanup();
       }
     });
 
@@ -677,7 +689,7 @@ describe('⚡ WEEK 3 ANALYTICS PERFORMANCE VALIDATION', () => {
         // Simulate UI status check (like SyncStatusIndicator would do)
         const uiStart = performance.now();
         
-        const syncStatus = await syncCoordinator.getStatus();
+        const syncStatus = await syncCoordinator.getSyncStatus();
         const analyticsStatus = analyticsService.getStatus();
         
         // Simulate UI rendering time
