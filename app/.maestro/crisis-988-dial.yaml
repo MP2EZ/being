@@ -19,6 +19,7 @@ name: "988 dial does not surface 'Unable to Call' fallback"
 
 - launchApp:
     clearState: true
+    clearKeychain: true # SecureStore-backed consent persists across clearState — wipe keychain too (INFRA-179)
 - runFlow: _legal-and-onboarding.yaml
 
 # Reach CrisisResources from Home tab

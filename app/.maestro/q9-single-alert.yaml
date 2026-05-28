@@ -16,6 +16,7 @@ name: "PHQ-9 Q9 single canonical alert"
 
 - launchApp:
     clearState: true
+    clearKeychain: true # SecureStore-backed consent persists across clearState — wipe keychain too (INFRA-179)
 - runFlow: _legal-and-onboarding.yaml
 
 # Navigate to Profile → PHQ-9 entry point

@@ -13,6 +13,7 @@ name: "Crisis button reaches CrisisResources from every tab"
 
 - launchApp:
     clearState: true
+    clearKeychain: true # SecureStore-backed consent persists across clearState — wipe keychain too (INFRA-179)
 - runFlow: _legal-and-onboarding.yaml
 
 # ── Home tab ─────────────────────────────────────────────────────

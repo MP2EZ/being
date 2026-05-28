@@ -12,6 +12,7 @@ name: "PHQ-9 score >=20 completion shows crisis results"
 
 - launchApp:
     clearState: true
+    clearKeychain: true # SecureStore-backed consent persists across clearState — wipe keychain too (INFRA-179)
 - runFlow: _legal-and-onboarding.yaml
 
 - tapOn:

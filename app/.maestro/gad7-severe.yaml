@@ -11,6 +11,7 @@ name: "GAD-7 score >=15 shows crisis results"
 
 - launchApp:
     clearState: true
+    clearKeychain: true # SecureStore-backed consent persists across clearState — wipe keychain too (INFRA-179)
 - runFlow: _legal-and-onboarding.yaml
 
 - tapOn:
