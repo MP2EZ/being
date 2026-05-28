@@ -128,13 +128,13 @@ name: "Helper: traverse LegalGate + Onboarding"
 #   6. Privacy           → "Continue"
 #   7. Celebration       → "Explore App" (testID="onboarding-explore-app")
 #
-# KNOWN LIMITATION (INFRA-181 follow-up): the helper currently stops at the
-# PHQ-9 introduction modal that opens when "Begin Your Practice" is tapped.
+# KNOWN LIMITATION (INFRA-183): the helper currently stops at the PHQ-9
+# introduction modal that opens when "Begin Your Practice" is tapped.
 # Traversing the in-onboarding PHQ-9 + GAD-7 assessments (16 questions,
-# answer + auto-advance pattern) is the next blocker — tracked in a separate
-# follow-up. For now this helper only validates LegalGate traversal works;
-# downstream safety flows that depend on reaching Main (e.g. crisis-button
-# reachability, 988 dial) will still fail until the follow-up lands.
+# answer + auto-advance pattern) is the next blocker. For now this helper
+# only validates LegalGate traversal works; downstream safety flows that
+# depend on reaching Main (e.g. crisis-button reachability, 988 dial) will
+# still fail at this point until INFRA-183 lands.
 - tapOn:
     text: "Begin Your Practice"
     optional: true
