@@ -155,7 +155,10 @@ module.exports = {
     'analytics-service-integration\\.test\\.ts$',
     'practices-flows-integration\\.test\\.tsx$',
     'comprehensive-assessment-integration\\.test\\.ts$',
-    'PracticeTimerScreen\\.test\\.tsx$',
+    // INFRA-180 follow-through: PracticeTimerScreen temporarily
+    // de-quarantined as the canary for the Node-20-vs-22 hypothesis.
+    // Will re-quarantine if the fix doesn't pan out.
+    // 'PracticeTimerScreen\\.test\\.tsx$',
     'ReflectionTimerScreen\\.test\\.tsx$',
     'sync-performance-validation\\.test\\.ts$',
     'week3-analytics-performance\\.test\\.ts$',
