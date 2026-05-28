@@ -4,7 +4,7 @@
  */
 
 import React, { useEffect, useState, useRef } from 'react';
-import { AppState, AppStateStatus } from 'react-native';
+import { AppState, AppStateStatus, LogBox } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as Sentry from '@sentry/react-native';
@@ -17,6 +17,17 @@ import { initializeExternalReporting, logSystem, logError, LogCategory } from '.
 import { initializeCrisisMonitoring } from './src/core/services/monitoring';
 import { DataRetentionService } from './src/core/services/data-retention';
 import { PostHogProvider } from './src/core/analytics';
+import { closeMenu as closeDevMenu } from 'expo-dev-menu';
+
+// INFRA-181: hide RN LogBox during Maestro runs. The dev warning toast (e.g.
+// posthog-react-native's "usePostHog was called without a client" notice when
+// the dev env has no API key) renders an overlay that monopolizes iOS'
+// accessibility tree, hiding underlying onboarding buttons from Maestro's
+// view-hierarchy queries. Console logs still print; only the on-screen UI is
+// suppressed. Gated by the same E2E flag so normal dev iteration keeps LogBox.
+if (__DEV__ && process.env['EXPO_PUBLIC_E2E_SUPPRESS_DEV_MENU'] === '1') {
+  LogBox.ignoreAllLogs(true);
+}
 
 export default function App() {
   const [isInitialized, setIsInitialized] = useState(false);
@@ -79,6 +90,20 @@ export default function App() {
     }
 
     initializeApp();
+  }, []);
+
+  // INFRA-181: dismiss Expo's first-launch dev-menu tutorial when Maestro
+  // safety-e2e is running. `launchApp { clearState: true }` wipes the
+  // "tutorial shown" flag every run, and the resurfaced tutorial covers
+  // LegalGate so Maestro's accessibility-tree check treats it as hidden.
+  // Gated by env flag so normal dev iteration still gets the tutorial on
+  // first install (devs can summon the menu via Cmd+D anytime).
+  useEffect(() => {
+    if (!__DEV__) return;
+    if (process.env['EXPO_PUBLIC_E2E_SUPPRESS_DEV_MENU'] !== '1') return;
+    closeDevMenu();
+    const t = setTimeout(closeDevMenu, 1000);
+    return () => clearTimeout(t);
   }, []);
 
   // Track app state changes to update lastActiveTimestamp for intro animation

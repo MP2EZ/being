@@ -1193,12 +1193,11 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
   // Render Functions (7 screens) - all typed with JSX.Element return
 
   const renderWelcome = (): React.ReactElement => (
-    <SafeAreaView
-      style={styles.container}
-      accessible={true}
-      
-      accessibilityLabel="Welcome to Being mental health onboarding"
-    >
+    // INFRA-181: dropped `accessible={true}` from the SafeAreaView — on iOS,
+    // it collapsed the entire screen into one a11y element and hid the inner
+    // "Begin Your Practice" Pressable from VoiceOver AND Maestro. The header
+    // Text below provides the screen-level announcement.
+    <SafeAreaView style={styles.container}>
       <ScrollView
         ref={scrollViewRef}
         style={styles.scrollContainer}
@@ -1324,12 +1323,9 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
   // Assessments now handled by EnhancedAssessmentFlow modal
 
   const renderStoicIntro = (): React.ReactElement => (
-    <SafeAreaView
-      style={styles.container}
-      accessible={true}
-      
-      accessibilityLabel="Stoic Mindfulness introduction"
-    >
+    // INFRA-181: same fix as renderWelcome — collapsing the screen as one
+    // a11y element hides interior buttons from VoiceOver and Maestro.
+    <SafeAreaView style={styles.container}>
       <ScrollView
         ref={scrollViewRef}
         style={styles.scrollContainer}
