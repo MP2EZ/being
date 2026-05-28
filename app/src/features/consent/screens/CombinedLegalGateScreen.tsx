@@ -245,6 +245,7 @@ const CombinedLegalGateScreen: React.FC<CombinedLegalGateScreenProps> = ({
           </Text>
           <View style={styles.pickerContainer}>
             <Picker
+              testID="legal-dob-picker"
               selectedValue={selectedYear}
               onValueChange={(value: number | null) => {
                 setSelectedYear(value);

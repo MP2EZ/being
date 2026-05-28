@@ -4,7 +4,8 @@ tags:
 name: "Helper: traverse LegalGate + Onboarding"
 ---
 # Reusable subflow. Called via `- runFlow: _legal-and-onboarding.yaml`
-# from each top-level safety flow after a fresh launchApp { clearState: true }.
+# from each top-level safety flow after a fresh
+# launchApp { clearState: true, clearKeychain: true }.
 #
 # Goal: get the app from the cold-start LegalGate to the main tab navigator
 # as fast as possible, without driving any safety surface.
@@ -13,6 +14,15 @@ name: "Helper: traverse LegalGate + Onboarding"
 # and Onboarding (5 sub-screens) are non-safety UI ceremony that would
 # otherwise dominate flow runtime and brittleness. Safety surfaces (crisis
 # detection, threshold alerts, 988 dial) are tested by the calling flows.
+#
+# KNOWN LIMITATION (INFRA-179 follow-up): on a fresh-state dev build the
+# Expo dev-client tutorial sheet ("This is the developer menu...") covers
+# LegalGate as a modal. Maestro's accessibility-tree check treats LegalGate
+# as hidden when this overlay is present, even though it is pixel-visible
+# underneath. The `tapOn: text "Continue"` dismissal below works in some
+# states but not all (the dismiss has non-deterministic side effects across
+# runs). Reliable resolution requires release-mode builds (no dev menu) or
+# a more invasive dismissal strategy. Tracked separately.
 
 # ── Step 0: Expo dev launcher → load Being app ──────────────────
 # In dev builds, launchApp lands in the Expo dev-client launcher with a
@@ -34,28 +44,68 @@ name: "Helper: traverse LegalGate + Onboarding"
 - tapOn:
     point: "50%, 20%"
     optional: true
-# Wait for the actual Being app to load from Metro (LegalGate appears).
+# Wait for the bundle to load + first render. The dev-menu tutorial appears
+# right after the bundle loads — wait on its "Continue" button as a signal
+# that we've passed the dev launcher and rendered SOMETHING. Optional
+# because if the dev menu doesn't appear, we're already at LegalGate.
 - extendedWaitUntil:
     visible:
-      text: "Select year..."
-    timeout: 60000
-# Dev-client may stack overlays on top of LegalGate (first-launch tutorial,
-# Reload/Go home menu). Dismiss by tapping the backdrop area near the top
-# of the screen — bottom-sheet overlays dismiss on backdrop tap.
-- tapOn:
-    point: "50%, 5%"
+      text: "Continue"
+    timeout: 30000
+    optional: true
+# Dismiss dev-client tutorial overlay. INFRA-179: this was AFTER the
+# LegalGate assert in INFRA-171's version of the helper, but the dev menu
+# is an accessibility-modal that hides LegalGate from Maestro's
+# view-hierarchy check even when LegalGate is pixel-visible underneath.
+# Moved here so the dismiss happens before the readiness assertion.
 - tapOn:
     text: "Continue"
     optional: true
+# LegalGate must now be foreground. Use the testID added in INFRA-179
+# (legal-dob-picker on CombinedLegalGateScreen.tsx:247) as the readiness
+# signal — testID is more deterministic than text and survives copy drift.
+- extendedWaitUntil:
+    visible:
+      id: "legal-dob-picker"
+    timeout: 30000
 
-# ── Step 1: LegalGate ────────────────────────────────────────────
-# Age verification picker (iOS native wheel). Tap the default placeholder
-# to open it, then tap a year that satisfies >=18 (any year up to
-# current_year - 19 is safe).
-- tapOn: "Select year..."
+# ── Step 1: LegalGate — date-of-birth picker (INFRA-179) ─────────
+# @react-native-picker/picker renders inline UIPickerView on iOS. Wheel
+# items aren't tappable as text in the accessibility tree, so the prior
+# `tapOn: text "1995" optional` was a silent no-op. Swipe the wheel
+# instead. Years are sorted descending (newest first) — see
+# CombinedLegalGateScreen.tsx:69 `currentYear - i`. Placeholder
+# (value=null) is at index 0. 5 upward swipes lands the wheel well
+# past 18 years of age. The specific year doesn't matter as long as
+# it's ≥18.
 - tapOn:
-    text: "1995"
-    optional: true # picker may already show 1995; this tap is best-effort
+    id: "legal-dob-picker"
+- swipe:
+    start: "50%, 70%"
+    end: "50%, 30%"
+    duration: 800
+- swipe:
+    start: "50%, 70%"
+    end: "50%, 30%"
+    duration: 800
+- swipe:
+    start: "50%, 70%"
+    end: "50%, 30%"
+    duration: 800
+- swipe:
+    start: "50%, 70%"
+    end: "50%, 30%"
+    duration: 800
+- swipe:
+    start: "50%, 70%"
+    end: "50%, 30%"
+    duration: 800
+# Regression guard: fail fast if the wheel didn't actually scroll
+# (placeholder still visible = no year selected, Continue would stay
+# disabled and the downstream `assertVisible: text "Home"` failure
+# would take ~90s to surface).
+- assertNotVisible:
+    text: "Select year..."
 
 # Four consent checkboxes via testID. Cannot use text-based selectors here
 # because the legal copy contains inline `Linking.openURL` links (e.g. "Terms
