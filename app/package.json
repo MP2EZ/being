@@ -20,7 +20,7 @@
     "test:unit": "jest --testPathPattern=unit --forceExit",
     "test:safety": "jest --testPathPattern=\"(__tests__/safety|__tests__/crisis-safety)\" --verbose --forceExit",
     "test:edge-functions": "cd ../supabase/functions && deno task test",
-    "test:integration": "jest --testPathPattern=integration --verbose --testTimeout=30000 --forceExit --runInBand",
+    "test:integration": "jest --testPathPattern=integration --verbose --forceExit",
     "test:performance": "jest --testPathPattern=performance --verbose --forceExit",
     "test:accessibility": "jest --testPathPattern=accessibility --verbose --forceExit",
     "test:security": "jest --testPathPattern=security --verbose --forceExit --detectOpenHandles",
