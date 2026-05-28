@@ -75,9 +75,6 @@ npm run test:clinical              # PHQ/GAD scoring + thresholds
 npm run test:crisis-detection      # crisis detection validation
 npm run test:accessibility         # WCAG AA
 npm run test:offline-crisis        # offline 988 access
-npm run perf:crisis                # crisis button <200ms
-npm run perf:breathing             # 60fps animation
-npm run perf:launch                # <2s launch
 npm run validate:accessibility     # accessibility validation
 
 # Safety-path e2e (Maestro, local-only — INFRA-171)
@@ -91,7 +88,7 @@ npm run e2e:safety:988-dial        # 988 dial does not fall back (pins LSApplica
 
 ## Validation Matrix
 
-Which validators are required for which work type. `crisis`, `compliance`, `philosopher` are specialist agents. Accessibility/performance are validated via the corresponding `npm run test:*` and `perf:*` commands.
+Which validators are required for which work type. `crisis`, `compliance`, `philosopher` are specialist agents. Accessibility is validated via `npm run test:accessibility` / `validate:accessibility`. Performance budgets (see "Performance Budgets" section) are enforced on-device via the Maestro flows under `app/.maestro/` — the jest-side `perf:*` scripts were removed in MAINT-166 PR 7 because they ran zero matching tests.
 
 | Work Type | crisis | compliance | philosopher | accessibility | performance | safety e2e |
 |---|---|---|---|---|---|---|
@@ -200,7 +197,7 @@ Branch naming: `feat/*`, `fix/*`, `chore/*` (mapped from work item TYPE). Conven
 - App Groups entitlement for the iOS widget is injected via a local config plugin at `app/plugins/withAppGroupsEntitlement.js` (was previously `expo-build-properties`'s `ios.entitlements`, removed in SDK 56).
 - TypeScript stays on `5.9.x` and `globalThis.fetch` stays as RN's `fetch` (via `EXPO_PUBLIC_USE_RN_FETCH=1`) — both SDK 56 default-changes were deliberately opted out in INFRA-158 to keep upgrade scope tight; see follow-up work items.
 - `AsyncStorage` is unencrypted by design; wellness data must use `expo-secure-store` + AES-256.
-- Encryption tests are slow (`test:encryption`, `test:secure-storage`) — run during pre-push, not pre-commit.
+- Encryption tests are slow (`test:encryption`) — run during pre-push, not pre-commit.
 - iOS and Android behavior must match (use `npm run platform:both` to verify).
 - Slash commands in `.claude/commands/` must use **absolute paths** (`/Users/max/dev/being/.claude/...`) for any internal file references — never relative `./.claude/...`. This avoids the symlink dance.
 - Compliance terminology: "wellness data" not "PHI"; "AES-256 encryption" not "HIPAA-compliant encryption"; "wellness screening" not "clinical assessment."
@@ -208,6 +205,7 @@ Branch naming: `feat/*`, `fix/*`, `chore/*` (mapped from work item TYPE). Conven
 - Maestro safety-e2e (INFRA-171) is **local-only** — no CI macOS runners. Install with `brew install maestro`. Prereq per run: an iOS sim must be booted and `com.being.app` installed (`npm run ios` once per worktree). Flows live in `app/.maestro/`. The `/b-close` Phase 2.5 gate runs scoped flows when safety paths change. `--skip-e2e` bypass mirrors the `--no-verify` policy below: **`hotfix/*` only** — refused on `feat/*`, `fix/*`, `chore/*`. Authoring + debugging guide: `docs/testing/e2e-maestro.md`.
 - **`patch-package` is wired into `app/package.json` (INFRA-176)** with a `postinstall: patch-package` script. Currently one patch: `app/patches/expo-modules-jsi+56.0.7.patch` rewrites `weak let` → `weak var` in 14 Swift files because Xcode 26.0.1's Swift 6.2 promoted `weak let` from warning to hard error and the SDK 56 pin of `expo-modules-jsi@56.0.7` predates that. **Every `npm install` reapplies the patch automatically** — do not manually edit `node_modules/expo-modules-jsi/` because the next install will overwrite. When the next Expo SDK upgrade lands, check whether `expo-modules-jsi` ships `weak var` natively; if so, delete the patch file and remove the postinstall script. New patches go alongside this one and stack automatically — no further wiring needed.
 - **After back-merging dev when `app/ios/Podfile.lock` checksums shift** (typically `hermes-engine`, `React-Core-prebuilt`, `ExpoModulesCore`, or anything `expo-modules-jsi`-adjacent): the simulator's existing native binary and the worktree's CocoaPods integration are stale against the new lockfile, and the app throws `[runtime not ready]: ReferenceError: Property 'MessageQueue' doesn't exist` immediately after the JS bundle loads. This is **not** a JS-side issue — Sentry, Detox, and the other usual suspects don't access `MessageQueue` at runtime; the error is Hermes / bridge init failing because the native binary was compiled before the patched `expo-modules-jsi` (INFRA-176) reached the Pods integration. Fix sequence: `cd app/ios && pod deintegrate && pod install` (rewires the Xcode project against the patched source), `rm -rf ~/Library/Developer/Xcode/DerivedData/Being-*` (kills stale build artifacts), delete the Being app from the simulator (removes the pre-patch native binary), then `npm run ios`. Metro cache clear alone does not fix this — the binary mismatch is native-side. Discovered during the INFRA-62 → dev back-merge.
+- **CI fake-timer + coverage flake on Ubuntu (INFRA-180)**: ~15 jest tests pass cleanly on macOS Node 22 but exceed the 30s hook timeout on GitHub Actions Ubuntu Node 20 under `--coverage --ci`. The failure mode is the test or `beforeEach` hook never resolving (hook returns "Exceeded timeout of 30000 ms"), not an assertion failure. Locally the same tests can also flake intermittently — `crisis-intervention-safety.test.ts` was the canary that exposed it during MAINT-166 PR 6's precommit. Affected (all quarantined under `app/jest.config.js`'s `testPathIgnorePatterns` with per-file notes): `subscription.integration`, `comprehensive-assessment-integration`, all 5 sync/analytics tests from MAINT-166 PR 5, the 3 timer screens that closed MAINT-166 PR 3 unmerged, and the chronic `EmbodimentScreen.test.tsx`. **Triage steps**: (1) if a precommit run fails on a safety/clinical test you haven't touched, re-run — single-run flakes are this family; (2) running an individual file with `npx jest <path> --no-coverage` almost always passes, confirming the flake; (3) for a real fix, follow the path in `docs/development/test-fake-timer-ci-flake.md` (Node 20 Docker repro recommended — hypotheses around Node version, Ubuntu kernel timer resolution, and coverage instrumentation are documented there). **Do not** mask with `--testTimeout` bumps or `--passWithNoTests` — those were the PR 7 honesty-sweep targets.
 
 ## Git Hooks (INFRA-155)
 
