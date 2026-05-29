@@ -111,16 +111,15 @@ module.exports = {
     //    Needs a per-assertion audit similar to comprehensive-assessment
     //    plus the fake-timer fix from INFRA-180 docs. Filed for a
     //    future PR — out of MAINT-166 PR 4 scope.
-    //  - comprehensive-assessment-integration.test.ts: MAINT-166 PR 4
-    //    fixed the underlying bugs (stale-store-snapshot pattern,
-    //    canonical CrisisDetection shape, encryption-mock helper,
-    //    test-arithmetic errors). Result: 8/12 pass locally, 4 skipped
-    //    with documented TODOs. CI under --coverage --ci still times
-    //    out the tests (same INFRA-180 fake-timer/coverage flake family
-    //    affecting timer-screen tests + subscription.integration). The
-    //    file's changes were kept (encryption mock, state() helper, etc.)
-    //    so a future investigator can pick up from a better baseline
-    //    once the CI flake is solved. Re-quarantined for now.
+    //  - comprehensive-assessment-integration.test.ts: UN-QUARANTINED
+    //    in MAINT-188 PR 1 (2026-05-29). The "INFRA-180 CI flake"
+    //    rationale in the PR-4 comment was wrong — INFRA-180 turned
+    //    out to be a duplicate --testTimeout=30000 CLI flag (yargs
+    //    array → NaN), not a fake-timer/coverage interaction. With
+    //    INFRA-180 shipped (commit 8a9b39e), this file now runs on
+    //    CI with 8 of 12 tests passing and 4 retaining their
+    //    PR-4 it.skip TODOs (each is its own follow-up under
+    //    MAINT-188's AC list).
     //  - PracticeTimerScreen.test.tsx, ReflectionTimerScreen.test.tsx,
     //    BodyScanScreen.test.tsx: pass locally on macOS but exceed the
     //    30s test timeout on Ubuntu CI runners. Mock Timer component
@@ -163,7 +162,6 @@ module.exports = {
     'sync-coordinator-integration\\.test\\.ts$',
     'analytics-service-integration\\.test\\.ts$',
     'practices-flows-integration\\.test\\.tsx$',
-    'comprehensive-assessment-integration\\.test\\.ts$',
     'sync-performance-validation\\.test\\.ts$',
     'week3-analytics-performance\\.test\\.ts$',
     'sync-emergency-scenarios\\.test\\.ts$',
