@@ -1,8 +1,8 @@
 # Terms of Service
 
-**Version:** 1.0
+**Version:** 1.1
 **Effective Date:** December 12, 2025
-**Last Updated:** December 12, 2025
+**Last Updated:** May 29, 2026
 
 ---
 
@@ -79,7 +79,7 @@ Being currently operates in local-only mode. We do not require account creation,
 
 ### 6.1 Free Trial
 
-Being offers a 28-day free trial. No credit card is required. At the end of the trial, you may choose to subscribe or continue with limited free features.
+Being offers a 28-day free trial. You won't be charged until the trial ends. At the end of the trial, you may choose to subscribe or continue with limited free features.
 
 ### 6.2 Subscription Plans
 
