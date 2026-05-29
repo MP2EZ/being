@@ -1,8 +1,8 @@
 # Privacy Policy
 
-**Version:** 1.3
+**Version:** 1.4
 **Effective Date:** December 12, 2025
-**Last Updated:** May 24, 2026
+**Last Updated:** May 29, 2026
 
 ---
 
@@ -38,7 +38,7 @@ Being ("we," "us," or "our") is committed to protecting your privacy. This Priva
 - **Local-First:** Your mental health data stays on your device by default
 - **Never Sold:** We will never sell your personal information to third parties
 - **Strong Security:** We use AES-256 encryption to protect your data
-- **You're in Control:** Export, delete, or transfer your data at any time
+- **You're in Control:** Export or delete your data at any time
 
 ---
 
@@ -60,7 +60,7 @@ Being ("we," "us," or "our") is committed to protecting your privacy. This Priva
 
 - Location data or GPS tracking
 - Contacts or address book access
-- Camera or microphone access (except for optional features you explicitly enable)
+- Camera or microphone access
 - Third-party advertising identifiers
 
 ---
@@ -243,7 +243,7 @@ Being is intended for users age 18 and older. We do not knowingly collect person
 
 Being is based in the United States. If you access our Services from outside the U.S., your data may be transferred to and processed in the U.S. or other countries where our service providers operate.
 
-**GDPR Compliance:** For European users, we comply with GDPR requirements, including data portability, right to erasure, and lawful processing bases. See our [California Privacy Rights](/privacy/california) page for additional state-specific rights.
+**GDPR Compliance:** For European users, we comply with GDPR requirements, including data portability, right to erasure, and lawful processing bases.
 
 ---
 
