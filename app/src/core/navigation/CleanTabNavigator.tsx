@@ -20,12 +20,6 @@ import ProfileScreen from '@/features/profile/screens/ProfileScreen';
 import InsightsScreen from '@/features/insights/screens/InsightsScreen';
 import LearnScreen from '@/features/learn/screens/LearnScreen';
 import BrainIcon from '@/core/components/shared/BrainIcon';
-import FeatureGate from '@/core/components/subscription/FeatureGate';
-import { useNavigation } from '@react-navigation/native';
-import { StackNavigationProp } from '@react-navigation/stack';
-import type { RootStackParamList } from './CleanRootNavigator';
-
-type NavigationProp = StackNavigationProp<RootStackParamList>;
 
 const Tab = createBottomTabNavigator();
 
@@ -86,20 +80,6 @@ const PlaceholderScreen: React.FC<{ name: string; description: string }> = ({ na
 
 // Create proper component references to avoid inline functions
 // ExercisesScreen now imported from separate file
-
-// Wrap InsightsScreen with FeatureGate
-const InsightsScreenWrapper = () => {
-  const navigation = useNavigation<NavigationProp>();
-
-  return (
-    <FeatureGate
-      feature="progressInsights"
-      onUpgrade={() => navigation.navigate('Subscription')}
-    >
-      <InsightsScreen />
-    </FeatureGate>
-  );
-};
 
 // ProfileScreen now imported from separate file
 
@@ -184,9 +164,18 @@ const CleanTabNavigator: React.FC = () => {
         }}
       />
 
+      {/* DEBUG-189: Insights renders directly (no FeatureGate wrap) so the
+          in-screen `CollapsibleCrisisButton` (testID="crisis-insights") stays
+          accessible. CLAUDE.md Safety Fact: "Crisis features ALWAYS accessible,
+          regardless of subscription." The earlier paywall was incidental
+          FEAT-16-deferral debris (FEAT-16 rescoped 2026-05-25 to V2). When
+          FEAT-16 lands the real subscription UX, the gating decision (which
+          screens, when in trial vs after trial, crisis-overlay placement on
+          paywalls) gets designed end-to-end — don't reintroduce the wrapper
+          without an explicit product call there. */}
       <Tab.Screen
         name="Insights"
-        component={InsightsScreenWrapper}
+        component={InsightsScreen}
         options={{
           headerTitle: 'Insights',
           headerShown: false, // InsightsScreen has its own SafeAreaView
