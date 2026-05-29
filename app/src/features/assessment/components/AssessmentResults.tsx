@@ -13,16 +13,14 @@
  */
 
 
-import { logSecurity, logPerformance, logError, LogCategory } from '@/core/services/logging';
-import React, { useCallback, useMemo, useEffect } from 'react';
+import { logSecurity } from '@/core/services/logging';
+import React, { useCallback, useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   Pressable,
-  Alert,
-  Linking,
 } from 'react-native';
 import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
 import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
@@ -45,7 +43,10 @@ const AssessmentResults: React.FC<AssessmentResultsProps> = ({
   result,
   onComplete,
   onRetake,
-  showCrisisIntervention = true,
+  // showCrisisIntervention is accepted for API compatibility but no longer
+  // consumed (DEBUG-187 deleted the imperative-alert useEffect that gated
+  // on it). The interface keeps the prop so existing callers don't need to
+  // change.
   theme = 'neutral',
   context = 'standalone',
 }) => {
@@ -205,41 +206,13 @@ const AssessmentResults: React.FC<AssessmentResultsProps> = ({
     }
   }, [result, assessmentType]);
 
-  // Crisis intervention effect (CRITICAL - immediate response)
-  useEffect(() => {
-    if (crisisDetection.isCrisis && showCrisisIntervention) {
-      const startTime = performance.now();
-      
-      // Immediate crisis alert
-      setTimeout(() => {
-        Alert.alert(
-          '🚨 Immediate Support Available',
-          'Your responses indicate you may benefit from immediate support. Crisis resources are available 24/7.',
-          [
-            { 
-              text: 'Call 988 Now', 
-              onPress: () => Linking.openURL('tel:988'),
-              style: 'default'
-            },
-            { 
-              text: 'View Resources', 
-              onPress: () => {},
-              style: 'cancel'
-            }
-          ],
-          { cancelable: false }
-        );
-        
-        const alertTime = performance.now() - startTime;
-        if (alertTime > 200) {
-          logSecurity('Crisis alert time exceeded', 'high', {
-            alertTime,
-            threshold: 200
-          });
-        }
-      }, 100); // Small delay for UI rendering
-    }
-  }, [crisisDetection.isCrisis, showCrisisIntervention]);
+  // Crisis intervention alert is fired by the store's `handleCrisisDetection`
+  // (assessmentStore.ts:663-708), which is the single writer guaranteeing the
+  // `crisisIntervention.detection === crisisDetection` audit-trail invariant
+  // and per-session dedup. The previous bypass useEffect here (DEBUG-187)
+  // rendered the OLD MAINT-166 mockCrisisEngine copy and double-fired on the
+  // Q9 path; deleted. The in-page `results-crisis-banner` below remains the
+  // visible severity affordance.
 
   // Handle completion
   const handleComplete = useCallback(() => {
