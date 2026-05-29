@@ -213,14 +213,13 @@ describe('AssessmentResults — crisis banner visibility (TEST-09)', () => {
 
   describe('showCrisisIntervention prop scope', () => {
     test('banner ALWAYS renders on crisis, regardless of showCrisisIntervention prop', () => {
-      // Surprising-but-intentional: per `AssessmentResults.tsx:276`, the
-      // rendered crisis banner is gated ONLY by `crisisDetection.isCrisis`
-      // — the `showCrisisIntervention` prop only suppresses the imperative
-      // `Alert.alert` popup at line 210, not the always-on banner. The
-      // banner is the "always-visible" safety surface; the popup is the
-      // additional intervention that can be suppressed (e.g. for an
-      // onboarding preview context). This test pins that boundary so a
-      // future refactor doesn't conflate the two.
+      // The rendered crisis banner is gated ONLY by `crisisDetection.isCrisis`
+      // — `showCrisisIntervention` was historically also gating an imperative
+      // `Alert.alert` popup, which DEBUG-187 deleted (it bypassed the store's
+      // `handleCrisisDetection` and rendered the OLD MAINT-166 mockCrisisEngine
+      // copy). Today the prop is effectively a no-op; this test still pins the
+      // banner-always-renders behavior so a future cleanup doesn't accidentally
+      // gate the banner behind the prop too.
       const { queryByText } = render(
         <AssessmentResults
           result={phqResult(27, true)}
@@ -230,5 +229,87 @@ describe('AssessmentResults — crisis banner visibility (TEST-09)', () => {
       );
       expect(queryByText(CRISIS_BANNER)).not.toBeNull();
     });
+  });
+});
+
+// DEBUG-187 regression guard: the AssessmentResults component MUST NOT fire
+// its own `Alert.alert` or `Linking.openURL` on a crisis result. The store's
+// `handleCrisisDetection` (assessmentStore.ts:663-708) is the single writer
+// of the canonical "Crisis Support Available" alert and the audit-trail
+// `crisisIntervention` record. Any component-level alert bypass defeats
+// per-session dedup and the `crisisIntervention.detection === crisisDetection`
+// invariant. This block pins the absence of that bypass.
+describe('AssessmentResults — no Alert / Linking bypass (DEBUG-187 regression guard)', () => {
+  let alertSpy: jest.SpyInstance;
+  let linkingSpy: jest.SpyInstance;
+
+  beforeEach(() => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { Alert, Linking } = require('react-native');
+    alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    linkingSpy = jest.spyOn(Linking, 'openURL').mockResolvedValue(undefined);
+  });
+
+  afterEach(() => {
+    alertSpy.mockRestore();
+    linkingSpy.mockRestore();
+  });
+
+  test('PHQ-9 with suicidalIdeation=true: component fires no Alert.alert', () => {
+    render(
+      <AssessmentResults
+        result={phqResult(0, /* suicidalIdeation */ true)}
+        onComplete={jest.fn()}
+        showCrisisIntervention={true}
+      />,
+    );
+    expect(alertSpy).not.toHaveBeenCalled();
+  });
+
+  test('PHQ-9 with suicidalIdeation=true: component opens no tel:/sms: URL', () => {
+    render(
+      <AssessmentResults
+        result={phqResult(0, true)}
+        onComplete={jest.fn()}
+        showCrisisIntervention={true}
+      />,
+    );
+    expect(linkingSpy).not.toHaveBeenCalled();
+  });
+
+  test('PHQ-9 score 27 (severe): component fires no Alert.alert', () => {
+    render(
+      <AssessmentResults
+        result={phqResult(27)}
+        onComplete={jest.fn()}
+        showCrisisIntervention={true}
+      />,
+    );
+    expect(alertSpy).not.toHaveBeenCalled();
+  });
+
+  test('GAD-7 score 21 (severe): component fires no Alert.alert', () => {
+    render(
+      <AssessmentResults
+        result={gad7Result(21)}
+        onComplete={jest.fn()}
+        showCrisisIntervention={true}
+      />,
+    );
+    expect(alertSpy).not.toHaveBeenCalled();
+  });
+
+  test('crisis-button (CollapsibleCrisisButton) renders on crisis result', () => {
+    // Positive assertion: the component still owes the user a visible crisis
+    // affordance even though it no longer fires the modal alert. The
+    // CollapsibleCrisisButton with testID="crisis-button" is that affordance.
+    const { getByTestId } = render(
+      <AssessmentResults
+        result={phqResult(0, true)}
+        onComplete={jest.fn()}
+        showCrisisIntervention={true}
+      />,
+    );
+    expect(getByTestId('crisis-button')).toBeTruthy();
   });
 });
