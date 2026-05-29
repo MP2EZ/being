@@ -237,9 +237,17 @@ message: [generated message]
 and the corresponding Maestro flow(s) fail. Local-only — no CI integration.
 The gate is the only mechanical enforcement that the safety-surface contracts
 (PHQ-9 Q9 single-alert, score-threshold completion banners, GAD-7 severe
-handoff, crisis-button reachability, 988 dial path) hold end-to-end. Every
-Jest test mocks `Alert.alert` and `Linking.canOpenURL`, so these contracts
-are invisible to the rest of the test stack.
+handoff, crisis-button reachability) hold end-to-end. Every Jest test mocks
+`Alert.alert` and `Linking.canOpenURL`, so these contracts are invisible to
+the rest of the test stack.
+
+**INFRA-184 note**: the `LSApplicationQueriesSchemes` (tel/sms) contract is
+no longer Maestro-gated here. It's pinned by the jest static-config test at
+`app/__tests__/safety/lsApplicationQueriesSchemes.config.test.ts`, which runs
+in `npm run precommit` on every commit. A config regression fails the commit,
+never reaches Phase 2.5. The `crisis-988-dial.yaml` flow is now tagged
+`safety-device-only` and excluded from `npm run e2e:safety` — it's runnable
+only against a real device for supplementary runtime verification.
 
 ### Step 2.5.1: Detect safety-surface changes
 
@@ -285,11 +293,13 @@ pin the surfaces affected.
 ```bash
 SCRIPTS=()
 echo "$SAFETY_CHANGED" | grep -q 'src/features/crisis/' && \
-  SCRIPTS+=("e2e:safety:crisis-button" "e2e:safety:988-dial")
+  SCRIPTS+=("e2e:safety:crisis-button")
 echo "$SAFETY_CHANGED" | grep -q 'src/features/assessment/' && \
   SCRIPTS+=("e2e:safety:q9" "e2e:safety:phq9" "e2e:safety:gad7")
-echo "$SAFETY_CHANGED" | grep -qE 'app\.json|Info\.plist' && \
-  SCRIPTS+=("e2e:safety:988-dial")
+# INFRA-184: app.json / Info.plist changes are caught by the jest
+# static-config test in precommit (lsApplicationQueriesSchemes.config.test.ts);
+# no Maestro flow needs to run here. crisis-988-dial.yaml is tagged
+# safety-device-only and not part of the sim suite.
 echo "$SAFETY_CHANGED" | grep -qE 'src/core/services/security|CleanRootNavigator' && \
   SCRIPTS=("e2e:safety")  # full suite — cross-cutting change, override scope
 
