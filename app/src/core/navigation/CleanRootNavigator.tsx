@@ -11,6 +11,7 @@ import { generateTimestampedId } from '@/core/utils/id';
 import { NavigationContainer } from '@react-navigation/native';
 import { linkingConfig } from './linking';
 import { createStackNavigator } from '@react-navigation/stack';
+import { HeaderBackButton } from '@react-navigation/elements';
 import { spacing, typography } from '@/core/theme';
 import CleanTabNavigator from './CleanTabNavigator';
 import MorningFlowNavigator from '@/features/practices/morning/MorningFlowNavigator';
@@ -506,7 +507,20 @@ const CleanRootNavigator: React.FC = () => {
               headerShown: true,
               headerBackTitle: 'Back',
               presentation: 'modal',
-              gestureEnabled: true
+              gestureEnabled: true,
+              // INFRA-185: wrap the default HeaderBackButton with a testID so
+              // Maestro's `crisis-button-reachability.yaml` flow can pop the
+              // modal between tab iterations. Maestro v2.6's `- back` action
+              // doesn't honor modal-presentation stack screens on iOS sim,
+              // and `text:` doesn't match the iOS header chevron's
+              // accessibilityText. Native HeaderBackButton, just with the
+              // testID prop — same visual UX as every other stack screen.
+              headerLeft: (headerLeftProps) => (
+                <HeaderBackButton
+                  {...headerLeftProps}
+                  testID="nav-back-button"
+                />
+              ),
             }}
           />
 
