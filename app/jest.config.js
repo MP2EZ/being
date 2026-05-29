@@ -150,16 +150,22 @@ module.exports = {
     //    mismatch in the original test design; fixing it requires
     //    moving the assertions into UI-level tests. Re-quarantined
     //    for the INFRA-180 CI flake.
-    'subscription\\.integration\\.test\\.ts$',
+    // INFRA-180 follow-through: PracticeTimerScreen, ReflectionTimerScreen,
+    // BodyScanScreen, and subscription.integration were quarantined for
+    // the "fake-timer + coverage CI flake." The actual root cause turned
+    // out to be a duplicated `--testTimeout=30000` flag (script + CI yaml)
+    // that yargs joined into an array `[30000, 30000]`, which Jest
+    // formatted as "30000,30000 ms" and coerced via Number() to NaN →
+    // setTimeout(NaN) ≡ setTimeout(0) → tests with async waitFor
+    // failed in ~10ms. Fix: removed --testTimeout=30000 from the
+    // package.json `test:integration` script (CI yaml still supplies it).
+    // All four files now pass on CI.
     'sync-coordinator-integration\\.test\\.ts$',
     'analytics-service-integration\\.test\\.ts$',
     'practices-flows-integration\\.test\\.tsx$',
     'comprehensive-assessment-integration\\.test\\.ts$',
-    'PracticeTimerScreen\\.test\\.tsx$',
-    'ReflectionTimerScreen\\.test\\.tsx$',
     'sync-performance-validation\\.test\\.ts$',
     'week3-analytics-performance\\.test\\.ts$',
-    'BodyScanScreen\\.test\\.tsx$',
     'sync-emergency-scenarios\\.test\\.ts$',
   ],
 
