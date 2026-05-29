@@ -55,14 +55,18 @@ name: "Crisis button reaches CrisisResources from every tab"
     id: "nav-back-button"
 
 # ── Insights tab ─────────────────────────────────────────────────
-# SKIPPED — Insights is wrapped by `FeatureGate(feature="progressInsights")`
-# in CleanTabNavigator.tsx:90-102 and renders a "Premium Feature" paywall
-# instead of InsightsScreen when the user has no subscription. The paywall
-# completely hides `CollapsibleCrisisButton` (testID="crisis-insights") —
-# a Safety Fact violation per CLAUDE.md "Crisis features ALWAYS accessible,
-# regardless of subscription." Re-add this iteration once DEBUG-189 lands
-# the FeatureGate change that renders the crisis affordance on paywalled
-# screens.
+# DEBUG-189: re-enabled. The FeatureGate wrapper around InsightsScreen was
+# removed (CleanTabNavigator.tsx) — it was incidental FEAT-16-deferral debris,
+# not an intentional v1 paywall. CollapsibleCrisisButton (testID="crisis-insights")
+# now renders unconditionally on this tab like the other three.
+- tapOn:
+    id: "tab-insights"
+- tapOn:
+    id: "crisis-insights"
+- assertVisible:
+    id: "crisis-resources-screen"
+- tapOn:
+    id: "nav-back-button"
 
 # ── Profile tab ──────────────────────────────────────────────────
 - tapOn:
