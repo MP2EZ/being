@@ -556,6 +556,32 @@ base branch), the flag still works and this step becomes a confirmation.
 
 ---
 
+### Step 3.8: Delete local feature branch
+
+After the PR is merged and the worktree is synced, the local feature branch
+sits as an orphan ref (`gh pr merge --delete-branch` deletes only the remote
+ref, and even that fails on the bare-repo worktree-conflict pattern from
+Step 3.7). Clean it up so `git branch` listings stay accurate.
+
+```bash
+if git rev-parse --verify --quiet [feature-branch-name] >/dev/null; then
+  git branch -D [feature-branch-name]
+  echo "🗑️  Deleted local branch: [feature-branch-name]"
+else
+  echo "✓ Local branch already absent"
+fi
+```
+
+Idempotent — safe to re-run.
+
+**Note**: `-D` (force) is intentional. `-d` would check upstream-merged
+status, which fails after Step 3.7 since the remote ref is gone. The merge
+commit being in `origin/development` (verified by Step 3.6's `pull --ff-only`
+success) is the sufficient safety check; if Step 3.6 succeeded, the work is
+preserved on remote.
+
+---
+
 ## Phase 4: Update Notion
 
 ### Step 4.1: Update Status to "Done"
