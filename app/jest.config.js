@@ -95,13 +95,18 @@ module.exports = {
     //    needs getBackupStatus mock plumbing). This file is THE only
     //    SyncCoordinator test coverage so the file-level note at the
     //    top has the full audit trail.
-    //  - analytics-service-integration.test.ts: MAINT-166 PR 5 fixed
-    //    the SyncCoordinator API drift and wired the encryption-mock
-    //    helper. 10/18 tests pass locally; remaining 8 assert
-    //    `analyticsService.getStatus().initialized` and similar
-    //    AnalyticsService return-shape fields that have also drifted.
-    //    AnalyticsService API surface itself needs an audit pass.
-    //    Re-quarantined for the INFRA-180 CI flake.
+    //  - analytics-service-integration.test.ts: UN-QUARANTINED in
+    //    MAINT-188 PR 5 (2026-05-29). Audit found two failure groups:
+    //    (A) 4 aspirational security-integration tests spying on
+    //    methods that don't exist on the production services —
+    //    AnalyticsService.ts itself has matching production-code TODOs
+    //    for the same integration; (B) 4 behavior tests with
+    //    test-mock-vs-impl mismatches (crisis logging path, Date mock
+    //    not advancing session, sync trackEvent draining queue,
+    //    audit-trail key pattern absent). All 8 skipped with per-test
+    //    TODOs explaining the specific gap. This file is THE only
+    //    AnalyticsService test coverage so the file-level note at the
+    //    top has the full audit trail.
     //  - practices-flows-integration.test.tsx: DELETED in MAINT-188 PR 2
     //    (2026-05-29). Audit revealed the file was redundant/broken:
     //    (1) Crisis safety tests asserted on a `safety-button` testID
@@ -166,7 +171,6 @@ module.exports = {
     // failed in ~10ms. Fix: removed --testTimeout=30000 from the
     // package.json `test:integration` script (CI yaml still supplies it).
     // All four files now pass on CI.
-    'analytics-service-integration\\.test\\.ts$',
     'sync-performance-validation\\.test\\.ts$',
     'week3-analytics-performance\\.test\\.ts$',
   ],
