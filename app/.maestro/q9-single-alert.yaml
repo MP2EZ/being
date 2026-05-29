@@ -19,11 +19,26 @@ name: "PHQ-9 Q9 single canonical alert"
     clearKeychain: true # SecureStore-backed consent persists across clearState — wipe keychain too (INFRA-179)
 - runFlow: _legal-and-onboarding.yaml
 
-# Navigate to Profile → PHQ-9 entry point
+# Navigate to Profile → PHQ-9 entry point. INFRA-186: the PHQ-9 card sits
+# below the fold on iPhone 16 Plus (its bounds extend past screen height),
+# and Maestro's center-of-bounds tap on the unsacrolled card lands at
+# (215, 917) — exactly inside the Insights tab button (x=216-323, y=857-924).
+# That silently switches tabs to Insights (which is FeatureGate-paywalled)
+# instead of navigating to AssessmentFlow. scrollUntilVisible brings the
+# card into view so the tap lands inside its visible region.
 - tapOn:
     id: "tab-profile"
+- scrollUntilVisible:
+    element:
+      id: "take-phq9-button"
+    direction: DOWN
 - tapOn:
     id: "take-phq9-button"
+# Intro screen scrolls — Begin button sits below the fold.
+- scrollUntilVisible:
+    element:
+      id: "assessment-begin-button"
+    direction: DOWN
 - tapOn:
     id: "assessment-begin-button"
 

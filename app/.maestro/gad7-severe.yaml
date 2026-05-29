@@ -14,10 +14,21 @@ name: "GAD-7 score >=15 shows crisis results"
     clearKeychain: true # SecureStore-backed consent persists across clearState — wipe keychain too (INFRA-179)
 - runFlow: _legal-and-onboarding.yaml
 
+# INFRA-186: scrollUntilVisible required before take-gad7-button —
+# the card sits further below the fold than take-phq9-button. See
+# q9-single-alert.yaml for the geometry rationale.
 - tapOn:
     id: "tab-profile"
+- scrollUntilVisible:
+    element:
+      id: "take-gad7-button"
+    direction: DOWN
 - tapOn:
     id: "take-gad7-button"
+- scrollUntilVisible:
+    element:
+      id: "assessment-begin-button"
+    direction: DOWN
 - tapOn:
     id: "assessment-begin-button"
 
