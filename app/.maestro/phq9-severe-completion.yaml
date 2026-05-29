@@ -15,10 +15,21 @@ name: "PHQ-9 score >=20 completion shows crisis results"
     clearKeychain: true # SecureStore-backed consent persists across clearState — wipe keychain too (INFRA-179)
 - runFlow: _legal-and-onboarding.yaml
 
+# INFRA-186: scrollUntilVisible required before take-phq9-button —
+# see q9-single-alert.yaml for the geometry rationale (card overflows the
+# fold; un-scrolled center-of-bounds tap lands in the Insights tab button).
 - tapOn:
     id: "tab-profile"
+- scrollUntilVisible:
+    element:
+      id: "take-phq9-button"
+    direction: DOWN
 - tapOn:
     id: "take-phq9-button"
+- scrollUntilVisible:
+    element:
+      id: "assessment-begin-button"
+    direction: DOWN
 - tapOn:
     id: "assessment-begin-button"
 
