@@ -101,16 +101,20 @@ module.exports = {
     //    AnalyticsService return-shape fields that have also drifted.
     //    AnalyticsService API surface itself needs an audit pass.
     //    Re-quarantined for the INFRA-180 CI flake.
-    //  - practices-flows-integration.test.tsx: MAINT-166 PR 4
-    //    confirmed the UIManager mock issue called out previously is
-    //    already resolved (jest.setup.js:335 provides the mock). The
-    //    actual blockers are deeper: testID drift (test looks for
-    //    `safety-button` which became `collapsible-crisis-button` after
-    //    a rename) + real-timer assertions (8-second BreathingCircle
-    //    cycle precision test takes 8+s of wall time per execution).
-    //    Needs a per-assertion audit similar to comprehensive-assessment
-    //    plus the fake-timer fix from INFRA-180 docs. Filed for a
-    //    future PR — out of MAINT-166 PR 4 scope.
+    //  - practices-flows-integration.test.tsx: DELETED in MAINT-188 PR 2
+    //    (2026-05-29). Audit revealed the file was redundant/broken:
+    //    (1) Crisis safety tests asserted on a `safety-button` testID
+    //    that has never existed in CollapsibleCrisisButton AND assumed
+    //    the button calls `Linking.openURL('tel:988')` directly when in
+    //    reality it only calls `onNavigate()`. (2) Three of 15 tests
+    //    were `expect(true).toBe(true)` placeholders. (3) Three timer
+    //    tests called `jest.advanceTimersByTime` without any
+    //    `jest.useFakeTimers()` setup, so they silently no-op'd. The
+    //    user-visible contracts the file claimed to cover are tested
+    //    correctly elsewhere: CollapsibleCrisisButton.behavioral +
+    //    .accessibility unit tests, plus the 5 Maestro safety flows
+    //    (crisis-button-reachability, crisis-988-dial, q9-single-alert,
+    //    phq9-severe-completion, gad7-severe).
     //  - comprehensive-assessment-integration.test.ts: UN-QUARANTINED
     //    in MAINT-188 PR 1 (2026-05-29). The "INFRA-180 CI flake"
     //    rationale in the PR-4 comment was wrong — INFRA-180 turned
@@ -161,7 +165,6 @@ module.exports = {
     // All four files now pass on CI.
     'sync-coordinator-integration\\.test\\.ts$',
     'analytics-service-integration\\.test\\.ts$',
-    'practices-flows-integration\\.test\\.tsx$',
     'sync-performance-validation\\.test\\.ts$',
     'week3-analytics-performance\\.test\\.ts$',
     'sync-emergency-scenarios\\.test\\.ts$',
