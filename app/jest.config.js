@@ -137,15 +137,21 @@ module.exports = {
     //    multi-second test cases compound. Fix: convert to
     //    jest.useFakeTimers() with jest.advanceTimersByTime().
     //  - sync-performance-validation.test.ts, week3-analytics-
-    //    performance.test.ts: MAINT-166 PR 5 fixed the SyncCoordinator
-    //    API drift mechanically. File-level notes capture the
-    //    follow-up: performance assertions in Jest are flaky by
-    //    construction (coverage instrumentation distorts timing).
-    //    Honest home for sync/analytics perf validation is the
-    //    `npm run perf:*` scripts on a real device. If solving the
-    //    INFRA-180 CI flake doesn't unblock these files, the
-    //    follow-up is to delete them and replace coverage with a
-    //    perf:* script entry or Maestro flow.
+    //    performance.test.ts: DELETED in MAINT-188 PR 6 (2026-05-29).
+    //    Both files had STATUS docstrings (added in MAINT-166 PR 5)
+    //    that explicitly prescribed: "if solving the INFRA-180 CI flake
+    //    doesn't unblock this file, delete and replace with a Maestro
+    //    flow / perf:* script." INFRA-180 was solved (PR 80) and these
+    //    didn't unblock — perf-budget assertions in Jest are
+    //    deterministically broken (PR 5's Group C found analytics
+    //    workflow tests asserting <1000ms consistently take ~4500ms).
+    //    PR 7's TEST-17 audit already removed the perf:* scripts the
+    //    prescribed replacement was supposed to use. The user-visible
+    //    perf budgets ARE covered: CLAUDE.md "Performance Budgets"
+    //    section + Maestro flows (crisis-988-dial,
+    //    crisis-button-reachability) + crisis-intervention-safety
+    //    (<100ms crisis) + assessment-performance.test.ts (documented
+    //    <500ms test-env / <200ms production validated on-device).
     //  - sync-emergency-scenarios.test.ts: DELETED in MAINT-188 PR 3
     //    (2026-05-29). Audit (vs the MAINT-188 AC's "migrate to
     //    Maestro flow" framing): the file's 15 tests broke down as
@@ -171,8 +177,6 @@ module.exports = {
     // failed in ~10ms. Fix: removed --testTimeout=30000 from the
     // package.json `test:integration` script (CI yaml still supplies it).
     // All four files now pass on CI.
-    'sync-performance-validation\\.test\\.ts$',
-    'week3-analytics-performance\\.test\\.ts$',
   ],
 
   // Module extensions and transformations
