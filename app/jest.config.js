@@ -140,19 +140,21 @@ module.exports = {
     //    INFRA-180 CI flake doesn't unblock these files, the
     //    follow-up is to delete them and replace coverage with a
     //    perf:* script entry or Maestro flow.
-    //  - sync-emergency-scenarios.test.ts: MAINT-166 PR 5 fixed the 7
-    //    SyncCoordinator API drift sites (new SyncCoordinator →
-    //    singleton, .shutdown → .cleanup, .performSync(reason) →
-    //    .triggerPriorityBackup(reason)/.performFullSync()) and
-    //    repaired EmergencySimulator.simulateAppTermination(), which
-    //    was throwing inside a bare setTimeout and killing the Jest
-    //    worker. 2/15 tests pass locally; remaining 13 assert that
-    //    `Alert.alert` was called during sync operations — but Alert
-    //    is fired by UI components (e.g. CrisisAssessmentAlert), not
-    //    by SyncCoordinator's subscription callback. That's a layer
-    //    mismatch in the original test design; fixing it requires
-    //    moving the assertions into UI-level tests. Re-quarantined
-    //    for the INFRA-180 CI flake.
+    //  - sync-emergency-scenarios.test.ts: DELETED in MAINT-188 PR 3
+    //    (2026-05-29). Audit (vs the MAINT-188 AC's "migrate to
+    //    Maestro flow" framing): the file's 15 tests broke down as
+    //    9 wrong-layer (asserted Alert.alert from sync code, but
+    //    Alert is fired by UI components not SyncCoordinator), 5
+    //    redundant with existing safety tests + Maestro flows
+    //    (offline-crisis-management, crisis-intervention-safety,
+    //    crisis-resources-integration, plus the 5 Maestro flows),
+    //    and 2 reliant on a broken EmergencySimulator pattern. No
+    //    new Maestro flow is needed — q9-single-alert,
+    //    phq9-severe-completion, gad7-severe, crisis-button-
+    //    reachability, and crisis-988-dial already pin the user-
+    //    visible alert + dial contracts the file claimed to cover.
+    //    Sync-queue-specific assertions belong in
+    //    sync-coordinator-integration.test.ts (MAINT-188 PR 4).
     // INFRA-180 follow-through: PracticeTimerScreen, ReflectionTimerScreen,
     // BodyScanScreen, and subscription.integration were quarantined for
     // the "fake-timer + coverage CI flake." The actual root cause turned
@@ -167,7 +169,6 @@ module.exports = {
     'analytics-service-integration\\.test\\.ts$',
     'sync-performance-validation\\.test\\.ts$',
     'week3-analytics-performance\\.test\\.ts$',
-    'sync-emergency-scenarios\\.test\\.ts$',
   ],
 
   // Module extensions and transformations
