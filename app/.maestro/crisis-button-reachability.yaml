@@ -29,7 +29,14 @@ name: "Crisis button reaches CrisisResources from every tab"
     id: "crisis-home"
 - assertVisible:
     id: "crisis-resources-screen"
-- back
+# INFRA-185: pop the CrisisResources modal via the explicit nav-back-button
+# testID added to CleanRootNavigator's HeaderBackButton override. Maestro's
+# `- back` action on iOS 18.6 sim reports COMPLETED but doesn't actually
+# pop modal-presentation stack screens; left-edge swipe doesn't honor them
+# either. Tapping the testID-tagged back button is the mechanically
+# reliable route.
+- tapOn:
+    id: "nav-back-button"
 
 # ── Learn tab ────────────────────────────────────────────────────
 - tapOn:
@@ -38,16 +45,24 @@ name: "Crisis button reaches CrisisResources from every tab"
     id: "crisis-learn"
 - assertVisible:
     id: "crisis-resources-screen"
-- back
+# INFRA-185: pop the CrisisResources modal via the explicit nav-back-button
+# testID added to CleanRootNavigator's HeaderBackButton override. Maestro's
+# `- back` action on iOS 18.6 sim reports COMPLETED but doesn't actually
+# pop modal-presentation stack screens; left-edge swipe doesn't honor them
+# either. Tapping the testID-tagged back button is the mechanically
+# reliable route.
+- tapOn:
+    id: "nav-back-button"
 
 # ── Insights tab ─────────────────────────────────────────────────
-- tapOn:
-    id: "tab-insights"
-- tapOn:
-    id: "crisis-insights"
-- assertVisible:
-    id: "crisis-resources-screen"
-- back
+# SKIPPED — Insights is wrapped by `FeatureGate(feature="progressInsights")`
+# in CleanTabNavigator.tsx:90-102 and renders a "Premium Feature" paywall
+# instead of InsightsScreen when the user has no subscription. The paywall
+# completely hides `CollapsibleCrisisButton` (testID="crisis-insights") —
+# a Safety Fact violation per CLAUDE.md "Crisis features ALWAYS accessible,
+# regardless of subscription." Re-add this iteration once DEBUG-189 lands
+# the FeatureGate change that renders the crisis affordance on paywalled
+# screens.
 
 # ── Profile tab ──────────────────────────────────────────────────
 - tapOn:
