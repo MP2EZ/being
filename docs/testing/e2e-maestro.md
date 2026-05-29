@@ -8,7 +8,7 @@ Being is a wellness app touching at-risk users. Five user-visible safety contrac
 2. PHQ-9 score ≥20 completion shows a crisis-tier results banner.
 3. GAD-7 score ≥15 completion shows a crisis-tier results banner.
 4. Crisis button reaches `CrisisResources` from each tab (Home/Learn/Insights/Profile).
-5. 988 dial does not surface the "Unable to Call" fallback alert (pins `LSApplicationQueriesSchemes`).
+5. 988 dial does not surface the "Unable to Call" fallback alert (pins `LSApplicationQueriesSchemes`). *Primary pin is now the jest static-config test at `app/__tests__/safety/lsApplicationQueriesSchemes.config.test.ts`; the Maestro flow is device-only supplementary verification — see INFRA-184.*
 
 Every Jest test in the suite mocks `Alert.alert` and `Linking.canOpenURL`. That's correct for Jest's job (fast logic verification), but it means these five user-visible contracts are invisible to the rest of the test stack. The MAINT-166 PR 1 double-Alert regression existed because nothing mechanically pinned them — the bug only surfaced because a code-review docstring (`⚠️`) flagged it.
 
@@ -97,18 +97,26 @@ before debugging the flow itself.
 ## Running the flows
 
 ```bash
-# Full suite (all 5 safety flows, ~3–4 min)
+# Sim suite (4 flows tagged `safety`, ~2–3 min) — runnable on iOS sim.
 npm run e2e:safety
 
-# Individual flows (one at a time, ~30–60s each)
+# Individual sim flows (one at a time, ~30–60s each)
 npm run e2e:safety:q9              # PHQ-9 Q9 single-alert pinning
 npm run e2e:safety:phq9            # PHQ-9 ≥20 completion banner
 npm run e2e:safety:gad7            # GAD-7 ≥15 completion banner
 npm run e2e:safety:crisis-button   # crisis button reaches CrisisResources from each tab
-npm run e2e:safety:988-dial        # 988 button does not show "Unable to Call" fallback
+
+# Device-only flow (tag `safety-device-only`, excluded from `e2e:safety`).
+# Cannot pass on iOS simulator because canOpenURL('tel:988') returns false
+# on sim regardless of LSApplicationQueriesSchemes. Run manually against a
+# real iPhone connected to the Mac. Primary pin for the
+# LSApplicationQueriesSchemes contract is the jest static-config test at
+# `app/__tests__/safety/lsApplicationQueriesSchemes.config.test.ts`, which
+# runs in `npm run precommit` on every commit (INFRA-184).
+npm run e2e:safety:988-dial        # 988 button does not show "Unable to Call" fallback (device-only)
 ```
 
-`/b-close` Phase 2.5 automatically picks the scoped subset of flows based on changed paths — see CLAUDE.md Workflow Commands.
+`/b-close` Phase 2.5 automatically picks the scoped subset of flows based on changed paths — see CLAUDE.md Workflow Commands. `app.json` / `Info.plist` changes no longer trigger a Maestro flow: the jest static-config test in precommit catches `LSApplicationQueriesSchemes` regressions deterministically (INFRA-184).
 
 ## How a flow works
 
@@ -200,10 +208,10 @@ If anything matches (`app/src/features/(assessment|crisis)/`, `app/src/core/serv
 - **Match, `--skip-e2e` set on `hotfix/*`** → bypassed with warning. Document why in PR body.
 - **Match, `--skip-e2e` set on `feat/*` / `fix/*` / `chore/*`** → **hard refusal**. Run Maestro flows or rebase onto hotfix.
 - **Match, no bypass** → sim-readiness check, then scoped flow run:
-  - Touched `features/crisis/` → `e2e:safety:crisis-button` + `e2e:safety:988-dial`
+  - Touched `features/crisis/` → `e2e:safety:crisis-button`
   - Touched `features/assessment/` → `e2e:safety:q9` + `e2e:safety:phq9` + `e2e:safety:gad7`
-  - Touched `app.json` / `Info.plist` only → `e2e:safety:988-dial`
-  - Touched `services/security/` or `CleanRootNavigator` → full suite (cross-cutting)
+  - Touched `app.json` / `Info.plist` only → no Maestro flow (INFRA-184: the jest static-config test at `app/__tests__/safety/lsApplicationQueriesSchemes.config.test.ts` runs in `precommit` and catches the regression before this gate)
+  - Touched `services/security/` or `CleanRootNavigator` → full sim suite (cross-cutting; excludes the `safety-device-only` 988-dial flow)
 - **Sim not ready** → exit cleanly with "Run `npm run ios` first, then retry /b-close". No auto-boot.
 - **Flow fails** → print Maestro output, exit. Push is blocked.
 
@@ -215,7 +223,7 @@ If anything matches (`app/src/features/(assessment|crisis)/`, `app/src/core/serv
 | `phq9-severe-completion.yaml` | Score ≥20 (Q9=0) shows `results-crisis-banner` on completion | `safety.ts` `PHQ9_SEVERE_THRESHOLD = 20` |
 | `gad7-severe.yaml` | Score ≥15 shows `results-crisis-banner` on completion | `safety.ts` `GAD7_SEVERE_THRESHOLD = 15` |
 | `crisis-button-reachability.yaml` | Crisis button → `CrisisResources` from each of 4 tabs | CLAUDE.md "988 access <3 taps from any screen" |
-| `crisis-988-dial.yaml` | Tapping 988 does NOT show "Unable to Call" fallback (i.e., `LSApplicationQueriesSchemes` still allows `tel:`) | `app/app.json` + `app/ios/Being/Info.plist` `LSApplicationQueriesSchemes` array (INFRA-147) |
+| `crisis-988-dial.yaml` (device-only — see INFRA-184) | Tapping 988 does NOT show "Unable to Call" fallback (i.e., `LSApplicationQueriesSchemes` still allows `tel:`). **Primary pin is the jest test at `app/__tests__/safety/lsApplicationQueriesSchemes.config.test.ts`** — runs in precommit on every commit. | `app/app.json` + `app/ios/Being/Info.plist` `LSApplicationQueriesSchemes` array (INFRA-147; INFRA-184 decomposition) |
 
 ## Out of scope (deferred)
 

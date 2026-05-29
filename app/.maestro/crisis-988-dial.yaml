@@ -1,21 +1,28 @@
 appId: com.being.app
 tags:
-  - safety
-name: "988 dial does not surface 'Unable to Call' fallback"
+  - safety-device-only
+name: "988 dial does not surface 'Unable to Call' fallback (device-only)"
 ---
-# Pins INFRA-147's LSApplicationQueriesSchemes contract. The Info.plist
-# / app.json LSApplicationQueriesSchemes array must include "tel" so that
-# Linking.canOpenURL('tel:988') returns true. If that config is stripped,
-# CrisisResourcesScreen falls back to an Alert "Unable to Call — please
-# manually dial 988 for support." — terrible UX mid-crisis.
+# DEVICE-ONLY (INFRA-184). Cannot pass on iOS simulator: the sim's
+# Linking.canOpenURL('tel:988') returns false unconditionally because the
+# simulator has no phone app — independent of LSApplicationQueriesSchemes.
+# Run only against a real iPhone:
+#   npm run e2e:safety:988-dial
+# The `safety-device-only` tag excludes this flow from `npm run e2e:safety`
+# (which uses --include-tags=safety) so the sim suite stays passable.
 #
-# Maestro cannot observe the iOS dialer once the app backgrounds, but it
-# can observe the absence of the in-app fallback alert. Alert absence
-# is mechanically equivalent to canOpenURL returning true, which is
-# exactly what LSApplicationQueriesSchemes controls.
+# PRIMARY pin for the LSApplicationQueriesSchemes contract is the jest test
+# at app/__tests__/safety/lsApplicationQueriesSchemes.config.test.ts. That
+# test runs in `npm run precommit` on every commit on every machine — it
+# catches a regression before a build is even produced. This flow is the
+# SUPPLEMENTARY device-only check that the runtime dial path still behaves
+# correctly when canOpenURL returns true (which only happens on real iOS).
 #
-# All Jest tests mock Linking.canOpenURL so this contract has no other
-# mechanical enforcement. This flow is the only mechanical pin.
+# Contract pinned: with `tel` in app.json's LSApplicationQueriesSchemes,
+# tapping the 988 button on a device hands off to the iOS dialer; no
+# in-app "Unable to Call" fallback alert appears. Absence of the alert is
+# what this flow asserts (Maestro cannot observe the iOS dialer once the
+# app backgrounds, but it can observe the absence of the in-app fallback).
 
 - launchApp:
     clearState: true
