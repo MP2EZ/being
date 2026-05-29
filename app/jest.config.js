@@ -101,26 +101,29 @@ module.exports = {
     //    AnalyticsService return-shape fields that have also drifted.
     //    AnalyticsService API surface itself needs an audit pass.
     //    Re-quarantined for the INFRA-180 CI flake.
-    //  - practices-flows-integration.test.tsx: MAINT-166 PR 4
-    //    confirmed the UIManager mock issue called out previously is
-    //    already resolved (jest.setup.js:335 provides the mock). The
-    //    actual blockers are deeper: testID drift (test looks for
-    //    `safety-button` which became `collapsible-crisis-button` after
-    //    a rename) + real-timer assertions (8-second BreathingCircle
-    //    cycle precision test takes 8+s of wall time per execution).
-    //    Needs a per-assertion audit similar to comprehensive-assessment
-    //    plus the fake-timer fix from INFRA-180 docs. Filed for a
-    //    future PR — out of MAINT-166 PR 4 scope.
-    //  - comprehensive-assessment-integration.test.ts: MAINT-166 PR 4
-    //    fixed the underlying bugs (stale-store-snapshot pattern,
-    //    canonical CrisisDetection shape, encryption-mock helper,
-    //    test-arithmetic errors). Result: 8/12 pass locally, 4 skipped
-    //    with documented TODOs. CI under --coverage --ci still times
-    //    out the tests (same INFRA-180 fake-timer/coverage flake family
-    //    affecting timer-screen tests + subscription.integration). The
-    //    file's changes were kept (encryption mock, state() helper, etc.)
-    //    so a future investigator can pick up from a better baseline
-    //    once the CI flake is solved. Re-quarantined for now.
+    //  - practices-flows-integration.test.tsx: DELETED in MAINT-188 PR 2
+    //    (2026-05-29). Audit revealed the file was redundant/broken:
+    //    (1) Crisis safety tests asserted on a `safety-button` testID
+    //    that has never existed in CollapsibleCrisisButton AND assumed
+    //    the button calls `Linking.openURL('tel:988')` directly when in
+    //    reality it only calls `onNavigate()`. (2) Three of 15 tests
+    //    were `expect(true).toBe(true)` placeholders. (3) Three timer
+    //    tests called `jest.advanceTimersByTime` without any
+    //    `jest.useFakeTimers()` setup, so they silently no-op'd. The
+    //    user-visible contracts the file claimed to cover are tested
+    //    correctly elsewhere: CollapsibleCrisisButton.behavioral +
+    //    .accessibility unit tests, plus the 5 Maestro safety flows
+    //    (crisis-button-reachability, crisis-988-dial, q9-single-alert,
+    //    phq9-severe-completion, gad7-severe).
+    //  - comprehensive-assessment-integration.test.ts: UN-QUARANTINED
+    //    in MAINT-188 PR 1 (2026-05-29). The "INFRA-180 CI flake"
+    //    rationale in the PR-4 comment was wrong — INFRA-180 turned
+    //    out to be a duplicate --testTimeout=30000 CLI flag (yargs
+    //    array → NaN), not a fake-timer/coverage interaction. With
+    //    INFRA-180 shipped (commit 8a9b39e), this file now runs on
+    //    CI with 8 of 12 tests passing and 4 retaining their
+    //    PR-4 it.skip TODOs (each is its own follow-up under
+    //    MAINT-188's AC list).
     //  - PracticeTimerScreen.test.tsx, ReflectionTimerScreen.test.tsx,
     //    BodyScanScreen.test.tsx: pass locally on macOS but exceed the
     //    30s test timeout on Ubuntu CI runners. Mock Timer component
@@ -137,19 +140,21 @@ module.exports = {
     //    INFRA-180 CI flake doesn't unblock these files, the
     //    follow-up is to delete them and replace coverage with a
     //    perf:* script entry or Maestro flow.
-    //  - sync-emergency-scenarios.test.ts: MAINT-166 PR 5 fixed the 7
-    //    SyncCoordinator API drift sites (new SyncCoordinator →
-    //    singleton, .shutdown → .cleanup, .performSync(reason) →
-    //    .triggerPriorityBackup(reason)/.performFullSync()) and
-    //    repaired EmergencySimulator.simulateAppTermination(), which
-    //    was throwing inside a bare setTimeout and killing the Jest
-    //    worker. 2/15 tests pass locally; remaining 13 assert that
-    //    `Alert.alert` was called during sync operations — but Alert
-    //    is fired by UI components (e.g. CrisisAssessmentAlert), not
-    //    by SyncCoordinator's subscription callback. That's a layer
-    //    mismatch in the original test design; fixing it requires
-    //    moving the assertions into UI-level tests. Re-quarantined
-    //    for the INFRA-180 CI flake.
+    //  - sync-emergency-scenarios.test.ts: DELETED in MAINT-188 PR 3
+    //    (2026-05-29). Audit (vs the MAINT-188 AC's "migrate to
+    //    Maestro flow" framing): the file's 15 tests broke down as
+    //    9 wrong-layer (asserted Alert.alert from sync code, but
+    //    Alert is fired by UI components not SyncCoordinator), 5
+    //    redundant with existing safety tests + Maestro flows
+    //    (offline-crisis-management, crisis-intervention-safety,
+    //    crisis-resources-integration, plus the 5 Maestro flows),
+    //    and 2 reliant on a broken EmergencySimulator pattern. No
+    //    new Maestro flow is needed — q9-single-alert,
+    //    phq9-severe-completion, gad7-severe, crisis-button-
+    //    reachability, and crisis-988-dial already pin the user-
+    //    visible alert + dial contracts the file claimed to cover.
+    //    Sync-queue-specific assertions belong in
+    //    sync-coordinator-integration.test.ts (MAINT-188 PR 4).
     // INFRA-180 follow-through: PracticeTimerScreen, ReflectionTimerScreen,
     // BodyScanScreen, and subscription.integration were quarantined for
     // the "fake-timer + coverage CI flake." The actual root cause turned
@@ -162,11 +167,8 @@ module.exports = {
     // All four files now pass on CI.
     'sync-coordinator-integration\\.test\\.ts$',
     'analytics-service-integration\\.test\\.ts$',
-    'practices-flows-integration\\.test\\.tsx$',
-    'comprehensive-assessment-integration\\.test\\.ts$',
     'sync-performance-validation\\.test\\.ts$',
     'week3-analytics-performance\\.test\\.ts$',
-    'sync-emergency-scenarios\\.test\\.ts$',
   ],
 
   // Module extensions and transformations
