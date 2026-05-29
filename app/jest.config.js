@@ -84,16 +84,17 @@ module.exports = {
     //    needs deeper investigation (try --runInBand, try splitting
     //    out coverage, try replacing the IAP listener pattern with
     //    a direct callback registry). Re-quarantined.
-    //  - sync-coordinator-integration.test.ts: MAINT-166 PR 5 fixed all
-    //    31 SyncCoordinator API drift sites (singleton import, cleanup,
-    //    performFullSync, triggerPriorityBackup, getSyncStatus) and
-    //    wired the encryption-mock helper + assessmentStore auto-mock.
-    //    14/26 tests pass locally; remaining 12 assert
-    //    `status.isInitialized` on the SyncStatus shape — that field
-    //    doesn't exist on the current shape (we have `globalState`
-    //    instead). Future rewrite needs to project the new shape into
-    //    the assertions. File-level note at the top of the test pins
-    //    this state. Re-quarantined for the INFRA-180 CI flake.
+    //  - sync-coordinator-integration.test.ts: UN-QUARANTINED in
+    //    MAINT-188 PR 4 (2026-05-29). The MAINT-166 PR 5 framing as
+    //    "12 tests assert isInitialized" was right on count but only
+    //    on one of three failure modes. Actual breakdown was 4
+    //    isInitialized shape drift + 4 prevState shape (mock
+    //    completedAssessments missing) + 4 behavior assertions that
+    //    didn't match impl. All three categories fixed; 25/26 tests
+    //    pass, 1 skipped with TODO (service-unavailability test
+    //    needs getBackupStatus mock plumbing). This file is THE only
+    //    SyncCoordinator test coverage so the file-level note at the
+    //    top has the full audit trail.
     //  - analytics-service-integration.test.ts: MAINT-166 PR 5 fixed
     //    the SyncCoordinator API drift and wired the encryption-mock
     //    helper. 10/18 tests pass locally; remaining 8 assert
@@ -165,7 +166,6 @@ module.exports = {
     // failed in ~10ms. Fix: removed --testTimeout=30000 from the
     // package.json `test:integration` script (CI yaml still supplies it).
     // All four files now pass on CI.
-    'sync-coordinator-integration\\.test\\.ts$',
     'analytics-service-integration\\.test\\.ts$',
     'sync-performance-validation\\.test\\.ts$',
     'week3-analytics-performance\\.test\\.ts$',
