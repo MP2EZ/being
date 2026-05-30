@@ -25,6 +25,7 @@ jest.mock('react-native-svg', () => {
       ReactLib.createElement(View, null, children),
     Polyline: () => null,
     Circle: () => null,
+    Line: () => null,
     Rect: () => null,
     Text: ({ children }: { children?: React.ReactNode }) =>
       ReactLib.createElement(Text, null, children),

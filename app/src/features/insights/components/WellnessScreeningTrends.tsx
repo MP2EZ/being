@@ -26,7 +26,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, Linking, TouchableOpacity } from 'react-native';
-import Svg, { Polyline, Circle, Rect, Text as SvgText } from 'react-native-svg';
+import Svg, { Polyline, Circle, Line, Text as SvgText } from 'react-native-svg';
 import {
   colorSystem,
   spacing,
@@ -104,9 +104,12 @@ const GAD7_BANDS: ReferenceBand[] = [
 const VB_W = 300;
 const VB_H = 132;
 const PLOT_LEFT = 8;
-const PLOT_RIGHT = 244; // right gutter (244–300) holds band labels
-const PLOT_TOP = 10;
+const PLOT_RIGHT = 292; // full width — severity labels ride above their gridlines, not in a gutter
+const PLOT_TOP = 14; // headroom for the top gridline's label
 const PLOT_BOTTOM = 108; // below this is the x-axis label row
+
+/** Brand accent for the data line/dots (the Insights amber — same token as DotCalendar). NOT severity-coded. */
+const ACCENT = colorSystem.themes.morning.primary;
 
 // ──────────────────────────────────────────────────────────────────────────────
 // HELPERS
@@ -218,55 +221,55 @@ const TrendLine: React.FC<TrendLineProps> = ({ points, maxScore, bands, title })
   return (
     <View accessible accessibilityRole="image" accessibilityLabel={summary}>
       <Svg width="100%" height={160} viewBox={`0 0 ${VB_W} ${VB_H}`}>
-        {/* Neutral reference bands (depth, not a stoplight). */}
-        {bands.map((band, i) => {
-          const upper = i < bands.length - 1 ? bands[i + 1]!.min : maxScore;
-          const yTop = mapY(upper, maxScore);
-          const yBottom = mapY(band.min, maxScore);
+        {/* Neutral reference grid: a hairline at each clinical-range boundary, with
+            the range name riding just above it. Depth/context, not a stoplight. */}
+        {bands.map((band) => {
+          if (band.min === 0) return null; // the floor needs no boundary line
+          const y = mapY(band.min, maxScore);
           return (
             <React.Fragment key={band.severity}>
-              <Rect
-                x={PLOT_LEFT}
-                y={yTop}
-                width={PLOT_RIGHT - PLOT_LEFT}
-                height={Math.max(yBottom - yTop, 0)}
-                fill={severityBands.fill}
-                fillOpacity={severityBands.opacity[band.severity]}
+              <Line
+                x1={PLOT_LEFT}
+                y1={y}
+                x2={PLOT_RIGHT}
+                y2={y}
+                stroke={severityBands.gridline}
+                strokeWidth={1}
               />
-              <SvgText
-                x={PLOT_RIGHT + 6}
-                y={(yTop + yBottom) / 2 + 2}
-                fontSize={6.5}
-                fill={severityBands.label}
-              >
+              <SvgText x={PLOT_LEFT} y={y - 3} fontSize={7} fill={severityBands.label}>
                 {band.label}
               </SvgText>
             </React.Fragment>
           );
         })}
 
-        {/* Connecting line. */}
+        {/* Connecting line (brand amber). */}
         {points.length > 1 && (
           <Polyline
             points={polyline}
             fill="none"
-            stroke={colorSystem.gray[700]}
-            strokeWidth={1.5}
+            stroke={ACCENT}
+            strokeWidth={2}
             strokeLinejoin="round"
             strokeLinecap="round"
           />
         )}
 
-        {/* Data points. */}
-        {points.map((p, i) => (
-          <Circle
-            key={p.timestamp}
-            cx={mapX(i, points.length)}
-            cy={mapY(p.score, maxScore)}
-            r={2.5}
-            fill={colorSystem.gray[700]}
-          />
-        ))}
+        {/* Data points: hollow amber rings; the most recent is filled to anchor the eye. */}
+        {points.map((p, i) => {
+          const isLast = i === points.length - 1;
+          return (
+            <Circle
+              key={p.timestamp}
+              cx={mapX(i, points.length)}
+              cy={mapY(p.score, maxScore)}
+              r={3}
+              fill={isLast ? ACCENT : colorSystem.base.white}
+              stroke={ACCENT}
+              strokeWidth={2}
+            />
+          );
+        })}
 
         {/* First/last date anchors only (avoids crowding; full dates are in the list). */}
         {points.length > 0 && (
@@ -368,7 +371,10 @@ const TrendChart: React.FC<TrendChartProps> = ({
                 accessible
                 accessibilityLabel={`${formatDate(p.timestamp)}: score ${p.score} of ${maxScore}, ${p.severity} range.`}
               >
-                <Text style={styles.dataRowDate}>{formatDate(p.timestamp)}</Text>
+                <View style={styles.dataRowLeft}>
+                  <View style={styles.dataRowDot} />
+                  <Text style={styles.dataRowDate}>{formatDate(p.timestamp)}</Text>
+                </View>
                 <Text style={styles.dataRowScore}>
                   {p.score} of {maxScore} · {p.severity}
                 </Text>
@@ -438,6 +444,8 @@ const WellnessScreeningTrends: React.FC<WellnessScreeningTrendsProps> = ({ sessi
         />
       )}
 
+      {hasPhq9 && hasGad7 && <View style={styles.instrumentDivider} />}
+
       {hasGad7 && (
         <TrendChart
           title={LABELS.gad7}
@@ -465,7 +473,7 @@ const WellnessScreeningTrends: React.FC<WellnessScreeningTrendsProps> = ({ sessi
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: colorSystem.gray[50],
+    backgroundColor: colorSystem.base.white,
     borderRadius: borderRadius.medium,
     padding: spacing[16],
     marginBottom: spacing[16],
@@ -477,7 +485,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing[12],
   },
   disclaimerContainer: {
-    backgroundColor: colorSystem.base.white,
+    backgroundColor: colorSystem.gray[50],
     borderRadius: borderRadius.small,
     padding: spacing[12],
     marginBottom: spacing[16],
@@ -498,33 +506,45 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.semibold,
     textDecorationLine: 'underline',
   },
+  // Segmented control — matches DotCalendar / PrincipleEngagementChart exactly.
   timeRangeContainer: {
     flexDirection: 'row',
-    marginBottom: spacing[12],
-    gap: spacing[8],
+    backgroundColor: colorSystem.gray[100],
+    borderRadius: borderRadius.small,
+    padding: spacing[4],
+    marginBottom: spacing[16],
   },
   timeRangeButton: {
+    flex: 1,
     paddingVertical: spacing[8],
     paddingHorizontal: spacing[12],
     borderRadius: borderRadius.small,
-    backgroundColor: colorSystem.base.white,
+    alignItems: 'center',
   },
   timeRangeButtonSelected: {
-    backgroundColor: colorSystem.gray[700],
+    backgroundColor: colorSystem.base.white,
+    shadowColor: colorSystem.base.black,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
   timeRangeText: {
-    fontSize: typography.caption.size,
-    color: semantic.text.secondary,
+    fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.medium,
+    color: colorSystem.gray[500],
   },
   timeRangeTextSelected: {
-    color: semantic.text.inverse,
+    color: semantic.text.primary,
+    fontWeight: typography.fontWeight.semibold,
   },
   chartContainer: {
-    backgroundColor: colorSystem.base.white,
-    borderRadius: borderRadius.medium,
-    padding: spacing[16],
-    marginBottom: spacing[12],
+    marginBottom: spacing[8],
+  },
+  instrumentDivider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colorSystem.gray[300],
+    marginVertical: spacing[16],
   },
   chartTitle: {
     fontSize: typography.bodySmall.size,
@@ -541,8 +561,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     minHeight: 44, // ≥44pt tap/focus target (WCAG)
     paddingVertical: spacing[4],
-    borderBottomWidth: 1,
-    borderBottomColor: colorSystem.gray[100],
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colorSystem.gray[300],
+  },
+  dataRowLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[8],
+  },
+  dataRowDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: ACCENT,
   },
   dataRowDate: {
     fontSize: typography.caption.size,
@@ -557,7 +588,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing[8],
-    marginTop: spacing[12],
+    marginTop: spacing[16],
   },
   chip: {
     fontSize: typography.caption.size,
@@ -585,7 +616,7 @@ const styles = StyleSheet.create({
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: colorSystem.gray[700],
+    backgroundColor: ACCENT,
   },
   singlePointScore: {
     fontSize: typography.bodySmall.size,

@@ -79,8 +79,10 @@ export const semantic = {
  * the design-system gray scale.
  */
 export const severityBands = {
-  /** Single neutral fill for every reference band. */
+  /** Single neutral fill for every reference band (legacy filled-band style). */
   fill: colorSystem.gray[700],
+  /** Hairline colour for reference-boundary gridlines (neutral, matches list dividers). */
+  gridline: colorSystem.gray[300],
   /** Neutral colour for band range labels. */
   label: semantic.text.muted,
   /**
