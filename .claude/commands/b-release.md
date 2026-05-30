@@ -138,11 +138,11 @@ APP_VERSION=$(jq -r '.expo.version' /Users/max/dev/being/development/app/app.jso
 IOS_BUILD=$(jq -r '.expo.ios.buildNumber' /Users/max/dev/being/development/app/app.json)
 ANDROID_VERSION_CODE=$(jq -r '.expo.android.versionCode' /Users/max/dev/being/development/app/app.json)
 
-# Source 3: .config/env.production
+# Source 3: .config/.env.production
 ENV_PROD_VERSION=$(grep '^EXPO_PUBLIC_APP_VERSION=' /Users/max/dev/being/.config/.env.production | cut -d'=' -f2)
 ENV_PROD_BUILD=$(grep '^EXPO_PUBLIC_BUILD_NUMBER=' /Users/max/dev/being/.config/.env.production | cut -d'=' -f2)
 
-# Source 4: .config/env.development
+# Source 4: .config/.env.development
 ENV_DEV_VERSION=$(grep '^EXPO_PUBLIC_APP_VERSION=' /Users/max/dev/being/.config/.env.development | cut -d'=' -f2)
 ENV_DEV_BUILD=$(grep '^EXPO_PUBLIC_BUILD_NUMBER=' /Users/max/dev/being/.config/.env.development | cut -d'=' -f2)
 ```
@@ -156,8 +156,8 @@ All four version strings (`PKG_VERSION`, `APP_VERSION`, `ENV_PROD_VERSION`, `ENV
 
   app/package.json:                 [PKG_VERSION]
   app/app.json:                     [APP_VERSION]
-  .config/env.production:           [ENV_PROD_VERSION]
-  .config/env.development:          [ENV_DEV_VERSION]
+  .config/.env.production:           [ENV_PROD_VERSION]
+  .config/.env.development:          [ENV_DEV_VERSION]
 
 This is the canary INFRA-141 was built for. Reconcile manually:
   1. Decide the correct current version
@@ -245,11 +245,11 @@ jq --arg v "$NEXT_VERSION" --arg b "$NEXT_BUILD" \
    '.expo.version = $v | .expo.ios.buildNumber = $b | .expo.android.versionCode = ($b | tonumber)' \
    app.json > app.json.tmp && mv app.json.tmp app.json
 
-# 3. .config/env.production
+# 3. .config/.env.production
 sed -i '' "s/^EXPO_PUBLIC_APP_VERSION=.*/EXPO_PUBLIC_APP_VERSION=$NEXT_VERSION/" /Users/max/dev/being/.config/.env.production
 sed -i '' "s/^EXPO_PUBLIC_BUILD_NUMBER=.*/EXPO_PUBLIC_BUILD_NUMBER=$NEXT_BUILD/" /Users/max/dev/being/.config/.env.production
 
-# 4. .config/env.development
+# 4. .config/.env.development
 sed -i '' "s/^EXPO_PUBLIC_APP_VERSION=.*/EXPO_PUBLIC_APP_VERSION=$NEXT_VERSION/" /Users/max/dev/being/.config/.env.development
 sed -i '' "s/^EXPO_PUBLIC_BUILD_NUMBER=.*/EXPO_PUBLIC_BUILD_NUMBER=$NEXT_BUILD/" /Users/max/dev/being/.config/.env.development
 ```
@@ -327,8 +327,8 @@ git commit -m "chore(release): v$NEXT_VERSION version bump
 Bump version across all four INFRA-141 sources:
 - app/package.json
 - app/app.json (Expo manifest + iOS buildNumber + Android versionCode)
-- .config/env.production (untracked, edited in place)
-- .config/env.development (untracked, edited in place)
+- .config/.env.production (untracked, edited in place)
+- .config/.env.development (untracked, edited in place)
 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)"
 ```
