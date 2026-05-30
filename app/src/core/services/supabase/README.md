@@ -51,12 +51,15 @@ useEffect(() => {
 
 ### 5. Add Settings UI
 
-Import and use the settings component:
+`CloudBackupSettings` is mounted (MAINT-173) as the `CloudBackupScreen`
+sub-screen of `PrivacyDataScreen`, reached via a "Manage Cloud Backup" row
+that is gated behind the `cloud_sync` feature flag (ships dark until enabled).
+To embed the controls elsewhere, render the component directly:
 
 ```typescript
-import CloudBackupSettings from './src/components/settings/CloudBackupSettings';
+import CloudBackupSettings from '@/core/components/settings/CloudBackupSettings';
 
-// In your Settings screen
+// Inside a screen (gate on isFeatureEnabled('cloud_sync') for dark-ship parity)
 <CloudBackupSettings
   onRestoreComplete={(stores) => {
     console.log('Restored:', stores);
