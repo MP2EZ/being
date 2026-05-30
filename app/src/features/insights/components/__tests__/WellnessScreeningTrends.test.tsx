@@ -8,7 +8,8 @@
  */
 
 import React from 'react';
-import { render } from '@testing-library/react-native';
+import { render, fireEvent } from '@testing-library/react-native';
+import { severityBands } from '@/core/theme';
 
 // react-native-svg isn't in the jest transform allowlist; mock it as plain
 // host components so the chart renders. Svg <Text> children (band/date labels)
@@ -145,5 +146,71 @@ describe('WellnessScreeningTrends', () => {
     for (const pattern of FORBIDDEN) {
       expect(tree).not.toMatch(pattern);
     }
+  });
+
+  describe('time-range tabs', () => {
+    // 5 of 27 is 4 days ago (in every window); 17 of 27 is 20 days ago (in
+    // month/quarter/all but NOT week).
+    const sessions = [
+      session('phq9', 17, 'moderately_severe', 20),
+      session('phq9', 5, 'mild', 4),
+    ];
+
+    it('shows both points in the default month window', () => {
+      const { getByText } = render(<WellnessScreeningTrends sessions={sessions} now={NOW} />);
+      expect(getByText(/17 of 27/)).toBeTruthy();
+      expect(getByText(/5 of 27/)).toBeTruthy();
+    });
+
+    it('re-filters the rendered data when a narrower range is selected', () => {
+      const { getByLabelText, queryByText } = render(
+        <WellnessScreeningTrends sessions={sessions} now={NOW} />
+      );
+      fireEvent.press(getByLabelText('View week'));
+      expect(queryByText(/17 of 27/)).toBeNull(); // 20 days ago drops out of the week
+      expect(queryByText(/5 of 27/)).toBeTruthy(); // 4 days ago remains
+    });
+  });
+
+  describe('comparison chips', () => {
+    it('render counts + raw ranges for both 30-day windows, with no delta/direction', () => {
+      // current window (≤30d): scores 6 and 11; previous window (30–60d): score 9.
+      const sessions = [
+        session('phq9', 6, 'mild', 2),
+        session('phq9', 11, 'moderate', 20),
+        session('phq9', 9, 'mild', 45),
+      ];
+      const { getByText } = render(<WellnessScreeningTrends sessions={sessions} now={NOW} />);
+      expect(getByText(/Last 30 days: 2 check-ins · scores 6–11/)).toBeTruthy();
+      expect(getByText(/Previous 30 days: 1 check-in · score 9/)).toBeTruthy();
+    });
+
+    it('uses singular "check-in" and a single score when a window has one point', () => {
+      const sessions = [session('phq9', 8, 'mild', 3), session('phq9', 12, 'moderate', 80)];
+      const { getByText, queryByText } = render(
+        <WellnessScreeningTrends sessions={sessions} now={NOW} />
+      );
+      expect(getByText(/Last 30 days: 1 check-in · score 8/)).toBeTruthy();
+      // The 80-days-ago point is outside both windows, so no previous chip.
+      expect(queryByText(/Previous 30 days/)).toBeNull();
+    });
+  });
+});
+
+describe('severityBands token (philosopher red line: no moralized colour)', () => {
+  it('uses a single neutral fill for every band (not a green→red ramp)', () => {
+    expect(typeof severityBands.fill).toBe('string');
+    // One fill colour shared by all bands — severity is depth, not hue.
+    expect(Object.keys(severityBands.opacity).length).toBeGreaterThanOrEqual(4);
+  });
+
+  it('encodes severity as monotonically increasing opacity (depth)', () => {
+    const order = ['minimal', 'mild', 'moderate', 'moderately_severe', 'severe'] as const;
+    const present = order.filter((k) => k in severityBands.opacity);
+    const values = present.map((k) => severityBands.opacity[k]);
+    const ascending = values.every((v, i) => i === 0 || v > values[i - 1]!);
+    expect(ascending).toBe(true);
+    // Subtle background shading, never an opaque alarm block.
+    expect(Math.max(...values)).toBeLessThanOrEqual(0.3);
   });
 });
