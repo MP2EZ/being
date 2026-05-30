@@ -2,8 +2,10 @@ name: Supabase Keep-Alive
 
 # Free-tier Supabase projects pause after 7 consecutive days with no API/DB
 # activity. This sends a lightweight external request every 3 days to reset the
-# inactivity timer. A read against the REST root exercises the PostgREST ->
-# Postgres path without writing any data. See QUICKSTART_COMMANDS.md / CLAUDE.md.
+# inactivity timer. It hits the GoTrue auth health endpoint, which returns a
+# clean 200 with just the apikey header (no RLS, no table assumptions) — so a
+# green run also means "project is up and the anon key works," not merely
+# "something answered." See QUICKSTART_COMMANDS.md / CLAUDE.md.
 
 on:
   schedule:
@@ -22,7 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Ping Supabase REST API
+      - name: Ping Supabase Auth health endpoint
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
@@ -32,14 +34,16 @@ jobs:
             exit 1
           fi
           code=$(curl -s -o /dev/null -w "%{http_code}" \
-            "$SUPABASE_URL/rest/v1/" \
+            "$SUPABASE_URL/auth/v1/health" \
             -H "apikey: $SUPABASE_ANON_KEY")
-          echo "Supabase REST responded HTTP $code"
-          # Any 2xx/3xx/4xx means the project is awake and served the request.
-          # Only a 5xx or connection failure indicates a real problem.
-          if [ "$code" -ge 200 ] && [ "$code" -lt 500 ]; then
+          echo "Supabase auth health responded HTTP $code"
+          # Require a clean 200: the project is awake AND the anon key works.
+          # The request reaches the project regardless of status (resetting the
+          # inactivity timer), but anything other than 200 is a real signal worth
+          # failing on — a rotated/broken key, misconfig, or outage.
+          if [ "$code" -eq 200 ]; then
             echo "Keep-alive ping succeeded."
           else
-            echo "::error::Keep-alive ping failed with HTTP $code"
+            echo "::error::Keep-alive ping failed with HTTP $code (expected 200)"
             exit 1
           fi
