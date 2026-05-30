@@ -75,7 +75,8 @@ const WeeklyReflectionCard: React.FC = () => {
 
   return (
     <View style={styles.container} testID="weekly-reflection-card">
-      <Text style={styles.framing}>{FRAMING}</Text>
+      <Text style={styles.title}>Reflection</Text>
+      <Text style={styles.subtitle}>{FRAMING}</Text>
 
       {reflection ? (
         <View style={styles.savedSection}>
@@ -99,6 +100,7 @@ const WeeklyReflectionCard: React.FC = () => {
           testID="weekly-reflection-prompt"
         >
           <Text style={styles.promptText}>{PROMPT_LABEL}</Text>
+          <Text style={styles.promptChevron}>›</Text>
         </Pressable>
       )}
 
@@ -119,22 +121,39 @@ const styles = StyleSheet.create({
     padding: spacing[16],
     marginBottom: spacing[16],
   },
-  framing: {
+  title: {
+    fontSize: typography.headline4.size,
+    fontWeight: typography.fontWeight.semibold,
+    color: semantic.text.primary,
+    marginBottom: spacing[4],
+  },
+  subtitle: {
     fontSize: typography.bodySmall.size,
     color: colorSystem.gray[500],
     fontStyle: 'italic',
-    marginBottom: spacing[12],
+    marginBottom: spacing[16],
   },
   promptButton: {
-    paddingVertical: spacing[12],
-    paddingHorizontal: spacing[12],
-    backgroundColor: colorSystem.gray[50],
-    borderRadius: borderRadius.small,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing[16],
+    paddingHorizontal: spacing[16],
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: semantic.border.default,
+    borderRadius: borderRadius.medium,
   },
   promptText: {
     fontSize: typography.bodyRegular.size,
-    fontWeight: typography.fontWeight.medium,
-    color: semantic.text.primary,
+    fontWeight: typography.fontWeight.regular,
+    color: semantic.text.secondary,
+    flex: 1,
+  },
+  promptChevron: {
+    marginLeft: spacing[8],
+    fontSize: typography.bodyRegular.size,
+    color: semantic.text.muted,
   },
   savedSection: {
     gap: spacing[12],
