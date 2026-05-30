@@ -210,6 +210,50 @@ export class CrisisSecurityProtocol {
   }
 
   /**
+   * MAINT-190: Test-only escape hatch for singleton state isolation.
+   *
+   * Clears all mutable instance state and nulls the static `instance` pointer,
+   * forcing the next `getInstance()` call to produce a fresh instance. This is
+   * the resolution for the `CrisisSecurityProtocol not initialized` CI flake
+   * that INFRA-175 partially fixed: INFRA-175 guarded the setInterval calls
+   * (preventing the orphan-timer family) but the `private static instance` +
+   * `private initialized: boolean` still survived across Jest test files —
+   * any test that grabbed the default-export reference before another test
+   * reset `instance` saw a stale `initialized: false` view, producing the
+   * "not initialized" error on the next public method call.
+   *
+   * Production safety: the `NODE_ENV !== 'test'` throw is non-negotiable.
+   * Per the MAINT-190 crisis-agent planning pass: a production caller hitting
+   * this would silently disable the audit trail and crisis monitoring
+   * mid-session. Throwing is the only safe failure mode.
+   *
+   * What this does NOT touch:
+   * - Master encryption key (lives in expo-secure-store, owned by
+   *   EncryptionService — never wiped by reset)
+   * - Production `destroy()` lifecycle (line ~1540, app-shutdown-only)
+   * - `securityViolations` cap logic (production audit-trail invariant)
+   * - Singleton service handles (encryptionService etc. — those are
+   *   references to other singletons, not owned state)
+   */
+  public static __resetForTesting__(): void {
+    if (process.env.NODE_ENV !== 'test') {
+      throw new Error(
+        'CrisisSecurityProtocol.__resetForTesting__() called outside NODE_ENV=test — refusing to clear crisis-monitoring state in production'
+      );
+    }
+    if (CrisisSecurityProtocol.instance) {
+      CrisisSecurityProtocol.instance.activeCrisisAccess.clear();
+      CrisisSecurityProtocol.instance.emergencyOverrides.clear();
+      CrisisSecurityProtocol.instance.professionalAccess.clear();
+      CrisisSecurityProtocol.instance.securityViolations = [];
+      CrisisSecurityProtocol.instance.monitoringActive = false;
+      CrisisSecurityProtocol.instance.initialized = false;
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- intentional: nulling private static reset target
+    CrisisSecurityProtocol.instance = undefined as any;
+  }
+
+  /**
    * INITIALIZE CRISIS SECURITY PROTOCOL
    */
   public async initialize(): Promise<void> {

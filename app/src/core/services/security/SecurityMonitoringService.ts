@@ -323,6 +323,51 @@ export class SecurityMonitoringService {
   }
 
   /**
+   * MAINT-190: Test-only escape hatch for singleton state isolation.
+   * Clears all monitoring timers + threat/incident/vulnerability lists.
+   *
+   * Production safety: throws if NODE_ENV !== 'test'. A production reset
+   * would silently disable real-time threat detection mid-session — the
+   * monitoringActive flag flips back to false without firing the normal
+   * shutdown audit, so the security operations dashboard would show
+   * green while monitoring is actually offline.
+   */
+  public static __resetForTesting__(): void {
+    if (process.env.NODE_ENV !== 'test') {
+      throw new Error(
+        'SecurityMonitoringService.__resetForTesting__() called outside NODE_ENV=test — refusing to clear monitoring state in production'
+      );
+    }
+    if (SecurityMonitoringService.instance) {
+      const inst = SecurityMonitoringService.instance;
+      if (inst.realTimeMonitoringTimer) {
+        clearInterval(inst.realTimeMonitoringTimer);
+        inst.realTimeMonitoringTimer = null;
+      }
+      if (inst.vulnerabilityScanTimer) {
+        clearInterval(inst.vulnerabilityScanTimer);
+        inst.vulnerabilityScanTimer = null;
+      }
+      if (inst.complianceCheckTimer) {
+        clearInterval(inst.complianceCheckTimer);
+        inst.complianceCheckTimer = null;
+      }
+      if (inst.threatAnalysisTimer) {
+        clearInterval(inst.threatAnalysisTimer);
+        inst.threatAnalysisTimer = null;
+      }
+      inst.monitoringActive = false;
+      inst.lastVulnerabilityAssessment = null;
+      inst.detectedThreats = [];
+      inst.detectedIncidents = [];
+      inst.vulnerabilities = [];
+      inst.initialized = false;
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- intentional: nulling private static reset target
+    SecurityMonitoringService.instance = undefined as any;
+  }
+
+  /**
    * INITIALIZE SECURITY MONITORING
    */
   public async initialize(): Promise<void> {

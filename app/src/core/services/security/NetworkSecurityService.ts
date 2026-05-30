@@ -233,6 +233,37 @@ export class NetworkSecurityService {
   }
 
   /**
+   * MAINT-190: Test-only escape hatch for singleton state isolation.
+   * Aborts any in-flight requests (clears AbortController map) and resets
+   * rate-limit + violation tracking. The setInterval calls in
+   * initializeSecurityMonitoring are NODE_ENV='test'-guarded (INFRA-175) so
+   * no timer cleanup needed here.
+   *
+   * Production safety: throws if NODE_ENV !== 'test'. A production call
+   * would abort in-flight network requests mid-flight (corrupting partial
+   * uploads) and reset rate-limit tracking, masking abuse patterns.
+   */
+  public static __resetForTesting__(): void {
+    if (process.env.NODE_ENV !== 'test') {
+      throw new Error(
+        'NetworkSecurityService.__resetForTesting__() called outside NODE_ENV=test — refusing to clear network state in production'
+      );
+    }
+    if (NetworkSecurityService.instance) {
+      const inst = NetworkSecurityService.instance;
+      inst.activeRequests.forEach((controller) => {
+        try { controller.abort(); } catch { /* already aborted */ }
+      });
+      inst.activeRequests.clear();
+      inst.rateLimitTracker.clear();
+      inst.securityViolations = [];
+      inst.initialized = false;
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- intentional: nulling private static reset target
+    NetworkSecurityService.instance = undefined as any;
+  }
+
+  /**
    * INITIALIZE NETWORK SECURITY
    */
   public async initialize(): Promise<void> {
