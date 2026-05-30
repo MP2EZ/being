@@ -12,6 +12,8 @@ import {
   getTrendPoints,
   compareWindows,
   downsample,
+  buildTrendSnapshot,
+  WELLNESS_LABELS,
   PHQ9_MAX_SCORE,
   GAD7_MAX_SCORE,
   type TrendPoint,
@@ -223,5 +225,49 @@ describe('downsample', () => {
   it('keeps points in chronological order', () => {
     const ts = downsample(many, 60).map((p) => p.timestamp);
     expect(ts).toEqual([...ts].sort((a, b) => a - b));
+  });
+});
+
+describe('buildTrendSnapshot (FEAT-29 export contract)', () => {
+  it('includes only instruments with at least one completed screening', () => {
+    const snap = buildTrendSnapshot([makeSession('phq9', 10, 'moderate', 5)], NOW);
+    expect(snap.instruments.map((i) => i.type)).toEqual(['phq9']);
+    expect(snap.instruments[0]!.label).toBe(WELLNESS_LABELS.phq9);
+  });
+
+  it('orders instruments phq9 then gad7 and carries full chronological history', () => {
+    const snap = buildTrendSnapshot(
+      [
+        makeSession('gad7', 8, 'mild', 3),
+        makeSession('phq9', 4, 'minimal', 30),
+        makeSession('phq9', 12, 'moderate', 2),
+      ],
+      NOW
+    );
+    expect(snap.instruments.map((i) => i.type)).toEqual(['phq9', 'gad7']);
+    expect(snap.instruments[0]!.points.map((p) => p.score)).toEqual([4, 12]);
+  });
+
+  it('stamps generatedAt and carries the compliance disclaimer', () => {
+    const snap = buildTrendSnapshot([makeSession('phq9', 6, 'mild', 1)], NOW);
+    expect(snap.generatedAt).toBe(NOW);
+    expect(snap.disclaimer).toMatch(/not clinical assessments or diagnoses/i);
+    expect(snap.disclaimer).toMatch(/988/);
+  });
+
+  it('is plain serializable JSON with no verdict fields', () => {
+    const snap = buildTrendSnapshot(
+      [makeSession('phq9', 9, 'mild', 5), makeSession('gad7', 14, 'moderate', 2)],
+      NOW
+    );
+    // Round-trips with no loss (no functions/symbols).
+    expect(JSON.parse(JSON.stringify(snap))).toEqual(snap);
+    const serialized = JSON.stringify(snap);
+    expect(serialized).not.toMatch(/trend|direction|interpretation|delta|improv|declin/i);
+  });
+
+  it('returns an empty instruments list when there is no history', () => {
+    const snap = buildTrendSnapshot([], NOW);
+    expect(snap.instruments).toEqual([]);
   });
 });

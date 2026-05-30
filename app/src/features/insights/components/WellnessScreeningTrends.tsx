@@ -44,6 +44,7 @@ import {
   downsample,
   PHQ9_MAX_SCORE,
   GAD7_MAX_SCORE,
+  WELLNESS_LABELS,
   type TrendTimeRange,
   type TrendPoint,
   type WindowSummary,
@@ -64,12 +65,8 @@ interface WellnessScreeningTrendsProps {
 // CONSTANTS
 // ──────────────────────────────────────────────────────────────────────────────
 
-/** Compliance-approved labels (from legal review — do not alter). */
-const LABELS = {
-  sectionTitle: 'Wellness Screening Trends',
-  phq9: 'Mood Wellness Screening (PHQ-9)',
-  gad7: 'Stress Wellness Screening (GAD-7)',
-};
+/** Compliance-approved labels live in the util as the single source of truth. */
+const LABELS = WELLNESS_LABELS;
 
 const TIME_RANGES: TrendTimeRange[] = ['week', 'month', 'quarter', 'all'];
 const TIME_RANGE_LABELS: Record<TrendTimeRange, string> = {

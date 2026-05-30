@@ -26,6 +26,23 @@ export const PHQ9_MAX_SCORE = 27;
 /** GAD-7 spans 0–21. */
 export const GAD7_MAX_SCORE = 21;
 
+/**
+ * Compliance-approved user-facing copy (single source of truth — the legal
+ * review pins these exact strings; do not fork them per-screen). Consumed by
+ * the trends component AND the export snapshot so they can never diverge.
+ */
+export const WELLNESS_LABELS = {
+  sectionTitle: 'Wellness Screening Trends',
+  phq9: 'Mood Wellness Screening (PHQ-9)',
+  gad7: 'Stress Wellness Screening (GAD-7)',
+} as const;
+
+/** Plain-text disclaimer carried into any exported artifact (mirrors the in-app disclaimer). */
+export const WELLNESS_DISCLAIMER_TEXT =
+  'These are wellness screening tools for personal awareness, not clinical ' +
+  'assessments or diagnoses. Always consult a licensed healthcare provider to ' +
+  'discuss your mental health. If you are in crisis, call or text 988.';
+
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 /** Time windows offered by the trends UI. Mirrors PrincipleEngagementChart's tabs (+ 'all'). */
@@ -160,4 +177,50 @@ export function downsample(points: TrendPoint[], cap = 60): TrendPoint[] {
     out.push(points[Math.round(i * step)]!);
   }
   return out;
+}
+
+/** One instrument's full history in a serializable, export-ready shape. */
+export interface TrendSnapshotInstrument {
+  type: AssessmentType;
+  /** Compliance-approved label for the instrument. */
+  label: string;
+  /** Full chronological history (verdict-free raw points). */
+  points: TrendPoint[];
+}
+
+/**
+ * The complete export payload FEAT-29 consumes to render a PDF/share artifact.
+ * Plain JSON only (no functions, no verdict fields) and carries the mandated
+ * disclaimer so any exported copy stays compliant.
+ */
+export interface WellnessTrendSnapshot {
+  generatedAt: number;
+  disclaimer: string;
+  instruments: TrendSnapshotInstrument[];
+}
+
+/**
+ * Build the serializable trend snapshot for export (FEAT-30 → FEAT-29 contract).
+ * This is the ENTIRE interface FEAT-29 depends on — a pure function over
+ * sessions. Only instruments with at least one completed screening are
+ * included. No analytics, no device I/O, no verdict fields.
+ *
+ * @param now generation timestamp (ms); defaults to Date.now() in app use.
+ */
+export function buildTrendSnapshot(
+  sessions: AssessmentSession[],
+  now: number = Date.now()
+): WellnessTrendSnapshot {
+  const instruments: TrendSnapshotInstrument[] = [];
+  for (const type of ['phq9', 'gad7'] as AssessmentType[]) {
+    const points = getTrendPoints(sessions, type, 'all', now);
+    if (points.length === 0) continue;
+    instruments.push({
+      type,
+      label: type === 'phq9' ? WELLNESS_LABELS.phq9 : WELLNESS_LABELS.gad7,
+      points,
+    });
+  }
+
+  return { generatedAt: now, disclaimer: WELLNESS_DISCLAIMER_TEXT, instruments };
 }
