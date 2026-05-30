@@ -132,6 +132,7 @@ We use the following third-party service providers to operate our Services:
 
 - **[Supabase](https://supabase.com/privacy):** Database, authentication, and cloud storage (SOC 2 Type II certified, US data region). If you enable optional settings backup, your encrypted preference data is stored on Supabase infrastructure.
 - **[PostHog](https://posthog.com/privacy):** Product analytics (EU data residency, Frankfurt). See Section 5.2 for details.
+- **[Notion](https://www.notion.so/privacy):** Waitlist email storage for the being.fyi marketing website. When you submit your email via the pre-launch waitlist form, we store it (along with your A/B variant assignment, where applicable) in an internal Notion database. We do not transfer mental-health data, app usage, or any other personal data to Notion.
 - **Expo:** Mobile app framework and over-the-air updates (anonymized crash reports only)
 - **Apple/Google:** App distribution and in-app purchases (no health data shared)
 
