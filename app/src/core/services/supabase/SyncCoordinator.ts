@@ -187,6 +187,59 @@ class SyncCoordinator {
   }
 
   /**
+   * MAINT-190: Test-only escape hatch for singleton state isolation.
+   * Direct fix for the `lastSyncTime` pollution flake observed in
+   * MAINT-188 PR 5 Group C: timestamps from prior tests bled into
+   * subsequent tests because the singleton instance survived across
+   * Jest files. Clears both timers (syncTimer, syncScheduler) and the
+   * unsubscribe handles to prevent orphan listener leaks across tests.
+   *
+   * Production safety: throws if NODE_ENV !== 'test'. A production reset
+   * here would silently drop queued sync operations + listener handles
+   * mid-session, breaking offline-recovery and freezing the UI's sync
+   * status indicator.
+   */
+  public static __resetForTesting__(): void {
+    if (process.env.NODE_ENV !== 'test') {
+      throw new Error(
+        'SyncCoordinator.__resetForTesting__() called outside NODE_ENV=test — refusing to clear sync state in production'
+      );
+    }
+    if (SyncCoordinator.instance) {
+      const inst = SyncCoordinator.instance;
+      if (inst.syncTimer) {
+        clearInterval(inst.syncTimer);
+        inst.syncTimer = null;
+      }
+      if (inst.syncScheduler) {
+        clearInterval(inst.syncScheduler);
+        inst.syncScheduler = null;
+      }
+      inst.networkUnsubscribe?.();
+      inst.networkUnsubscribe = null;
+      inst.storeUnsubscribe?.();
+      inst.storeUnsubscribe = null;
+      inst.appStateCleanup?.();
+      inst.appStateCleanup = null;
+      inst.isInitialized = false;
+      inst.syncQueue = [];
+      inst.conflictHistory = [];
+      inst.stateChangeListeners = [];
+      inst.lastSuccessfulSync = 0;
+      inst.lastSyncOperationStart = 0;
+      inst.lastSyncOperationEnd = 0;
+      inst.operationMetrics = { successful: 0, failed: 0 };
+      inst.performanceMetrics = [];
+      inst.retryAttempts.clear();
+      inst.failureBackoff.clear();
+      inst.circuitBreakerFailures = 0;
+      inst.circuitBreakerLastFailure = 0;
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- intentional: nulling private static reset target
+    SyncCoordinator.instance = undefined as any;
+  }
+
+  /**
    * INITIALIZATION
    */
   public async initialize(): Promise<void> {

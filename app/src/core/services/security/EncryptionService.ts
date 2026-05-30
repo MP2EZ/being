@@ -177,6 +177,47 @@ export class EncryptionService {
   }
 
   /**
+   * MAINT-190: Test-only escape hatch for singleton state isolation.
+   *
+   * Clears in-memory caches and the rotation timer so the next test gets a
+   * fresh instance. **Does NOT delete the master key in expo-secure-store**
+   * — that key is hardware-backed (Keychain / Keystore) and shared across
+   * the entire app; wiping it would silently brick subsequent tests' ability
+   * to decrypt anything written by earlier tests. Tests that need a fresh
+   * master key must `await this.deleteMasterKey()` explicitly.
+   *
+   * Also nulls `initPromise` so the in-flight-init race-guard doesn't hold
+   * a stale resolved promise across tests.
+   *
+   * Production safety: throws if NODE_ENV !== 'test'. The compliance agent
+   * called out specifically that a production call here would invalidate
+   * the AES key cache mid-session, causing all subsequent wellness-data
+   * reads to round-trip through key derivation again — a multi-hundred-ms
+   * performance regression invisible to users until they hit a slow flow.
+   */
+  public static __resetForTesting__(): void {
+    if (process.env.NODE_ENV !== 'test') {
+      throw new Error(
+        'EncryptionService.__resetForTesting__() called outside NODE_ENV=test — refusing to clear encryption caches in production'
+      );
+    }
+    if (EncryptionService.instance) {
+      const inst = EncryptionService.instance;
+      if (inst.keyRotationTimer) {
+        clearInterval(inst.keyRotationTimer);
+        inst.keyRotationTimer = null;
+      }
+      inst.keyCache.clear();
+      inst.keyMetadata.clear();
+      inst.performanceMetrics = [];
+      inst.masterKeyInitialized = false;
+      inst.initPromise = null;
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- intentional: nulling private static reset target
+    EncryptionService.instance = undefined as any;
+  }
+
+  /**
    * INITIALIZE ENCRYPTION SYSTEM
    * Sets up master key and encryption infrastructure
    */

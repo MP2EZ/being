@@ -219,6 +219,40 @@ export class AuthenticationService {
   }
 
   /**
+   * MAINT-190: Test-only escape hatch for singleton state isolation.
+   * Clears in-memory session state + timers. Does NOT touch persisted
+   * sessions in expo-secure-store (use deleteCurrentSession() for that).
+   *
+   * Production safety: throws if NODE_ENV !== 'test'. A production call
+   * here would silently log the user out mid-session without firing the
+   * normal sign-out audit event.
+   */
+  public static __resetForTesting__(): void {
+    if (process.env.NODE_ENV !== 'test') {
+      throw new Error(
+        'AuthenticationService.__resetForTesting__() called outside NODE_ENV=test — refusing to clear auth state in production'
+      );
+    }
+    if (AuthenticationService.instance) {
+      const inst = AuthenticationService.instance;
+      if (inst.sessionTimer) {
+        clearTimeout(inst.sessionTimer);
+        inst.sessionTimer = null;
+      }
+      if (inst.tokenRefreshTimer) {
+        clearTimeout(inst.tokenRefreshTimer);
+        inst.tokenRefreshTimer = null;
+      }
+      inst.currentUser = null;
+      inst.authenticationAttempts.clear();
+      inst.auditLog = [];
+      inst.initialized = false;
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- intentional: nulling private static reset target
+    AuthenticationService.instance = undefined as any;
+  }
+
+  /**
    * INITIALIZE AUTHENTICATION SERVICE
    */
   public async initialize(): Promise<void> {
