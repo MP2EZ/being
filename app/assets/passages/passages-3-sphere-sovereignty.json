@@ -1,0 +1,38 @@
+{
+  "principle": "sphere-sovereignty",
+  "passages": [
+    {
+      "id": "epictetus-enchiridion-1",
+      "principle": "sphere-sovereignty",
+      "author": "Epictetus",
+      "work": "Enchiridion",
+      "citation": "Enchiridion 1",
+      "translation": "Elizabeth Carter",
+      "text": "Some things are in our control and others not. Things in our control are opinion, pursuit, desire, aversion, and, in a word, whatever are our own actions. Things not in our control are body, property, reputation, command, and, in one word, whatever are not our own actions. The things in our control are by nature free, unrestrained, unhindered; but those not in our control are weak, slavish, restrained, belonging to others. Remember, then, that if you suppose that things which are slavish by nature are also free, and that what belongs to others is your own, then you will be hindered. You will lament, you will be disturbed, and you will find fault both with gods and men.",
+      "context": "The opening of the Handbook and the founding statement of the dichotomy of control.",
+      "order": 1
+    },
+    {
+      "id": "epictetus-enchiridion-2",
+      "principle": "sphere-sovereignty",
+      "author": "Epictetus",
+      "work": "Enchiridion",
+      "citation": "Enchiridion 2",
+      "translation": "Elizabeth Carter",
+      "text": "Remember that following desire promises the attainment of that of which you are desirous; and aversion promises the avoiding that to which you are averse. However, he who fails to obtain the object of his desire is disappointed, and he who incurs the object of his aversion wretched. If, then, you confine your aversion to those objects only which are contrary to the natural use of your faculties, which you have in your own control, you will never incur anything to which you are averse.",
+      "context": "Epictetus applies the dichotomy to desire and aversion, directing them only toward what lies within our power.",
+      "order": 2
+    },
+    {
+      "id": "seneca-on-tranquility-13",
+      "principle": "sphere-sovereignty",
+      "author": "Seneca",
+      "work": "On Tranquility",
+      "citation": "On Tranquility of Mind 13",
+      "translation": "Aubrey Stewart",
+      "text": "Nothing, however, gives a mind so much trouble as that we never know what is our own and what is not. The wise man undertakes nothing in the doing of which he fears to be interrupted by fortune. Nothing happens to the wise man against his expectation, nor do all things turn out for him as he wished, but as he reckoned, and above all he reckoned that something might block his plans.",
+      "context": "Seneca describes the wise man acting always with a reserve clause, expecting that fortune may interrupt.",
+      "order": 3
+    }
+  ]
+}

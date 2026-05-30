@@ -6,8 +6,9 @@
   "description": "Learn to observe your thoughts and emotions without judgment.",
   "estimatedMinutes": 15,
   "classicalQuote": {
-    "text": "The primary indication, to my thinking, of a well-ordered mind is a person's ability to remain in one place and linger in their own company.",
-    "author": "Seneca"
+    "text": "The primary indication, to my thinking, of a well-ordered mind is a man's ability to remain in one place and linger in his own company.",
+    "author": "Seneca",
+    "source": "Letters from a Stoic, 2.1 (trans. Richard Mott Gummere)"
   },
   "whatItIs": {
     "summary": "Be fully here now, observing thoughts as mental events rather than truth, and feeling what's happening in your body.",
