@@ -26,6 +26,7 @@ import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
 import { AppState } from 'react-native';
 import { generateInternalId } from '@/core/utils/id';
+import { getIsoWeekStart } from '@/core/utils/isoWeek';
 import { logError, LogCategory } from '@/core/services/logging';
 import type {
   CardinalVirtue,
@@ -74,6 +75,25 @@ export interface PrincipleEngagement {
   timestamp: Date;
 }
 
+/**
+ * Weekly Reflection (FEAT-194)
+ *
+ * One free-text reflection per ISO week, captured from the Weekly
+ * Reflection card on the Insights tab. Replaces FEAT-53's standalone
+ * weekly-review feature. Anchored on Seneca, Letters 84: "for deepening,
+ * not catching up. Daily practice remains the work."
+ *
+ * Anti-scope (do not extend this shape):
+ *   - No frequency counts, no principle suggestions, no algorithmic prompts.
+ *   - The card must never show principle-engagement data as input to a choice.
+ */
+export interface WeeklyReflection {
+  id: string;
+  weekStartIso: string; // 'YYYY-MM-DD' Monday of the ISO week (local-tz)
+  text: string;
+  savedAt: string; // ISO datetime string
+}
+
 export interface StoicPracticeState {
   // Developmental tracking
   developmentalStage: DevelopmentalStage;
@@ -100,6 +120,10 @@ export interface StoicPracticeState {
   // Records which principles users engage with during check-in flows
   principleEngagements: PrincipleEngagement[];
 
+  // Weekly reflections (FEAT-194: Weekly Reflection card on Insights)
+  // One free-text entry per ISO week; upserted on re-save in the same week.
+  weeklyReflections: WeeklyReflection[];
+
   // Loading state
   isLoading: boolean;
 
@@ -124,6 +148,9 @@ export interface StoicPracticeState {
   ) => Promise<void>;
   getPrincipleEngagements: (days: number) => PrincipleEngagement[];
   getCheckInHistory: (days: number) => CheckInCompletion[];
+  // Weekly reflection (FEAT-194) - upsert by current ISO week
+  addWeeklyReflection: (text: string) => Promise<void>;
+  getWeeklyReflectionForWeek: (weekStartIso: string) => WeeklyReflection | undefined;
   loadPersistedState: () => Promise<void>;
   persistState: () => Promise<void>;
   resetStore: () => Promise<void>;
@@ -169,7 +196,7 @@ const initialDomainProgress: DomainProgress = {
   lastPracticeDate: null,
 };
 
-const getInitialState = (): Omit<StoicPracticeState, 'isLoading' | 'addVirtueInstance' | 'addVirtueChallenge' | 'updateStreak' | 'incrementPracticeDays' | 'setPracticeStartDate' | 'setDevelopmentalStage' | 'getVirtueInstancesByDomain' | 'getVirtueInstancesByVirtue' | 'getRecentVirtueInstances' | 'markCheckInComplete' | 'isCheckInCompletedToday' | 'recordPrincipleEngagement' | 'getPrincipleEngagements' | 'getCheckInHistory' | 'loadPersistedState' | 'persistState' | 'resetStore'> => ({
+const getInitialState = (): Omit<StoicPracticeState, 'isLoading' | 'addVirtueInstance' | 'addVirtueChallenge' | 'updateStreak' | 'incrementPracticeDays' | 'setPracticeStartDate' | 'setDevelopmentalStage' | 'getVirtueInstancesByDomain' | 'getVirtueInstancesByVirtue' | 'getRecentVirtueInstances' | 'markCheckInComplete' | 'isCheckInCompletedToday' | 'recordPrincipleEngagement' | 'getPrincipleEngagements' | 'getCheckInHistory' | 'addWeeklyReflection' | 'getWeeklyReflectionForWeek' | 'loadPersistedState' | 'persistState' | 'resetStore'> => ({
   developmentalStage: 'fragmented',
   practiceStartDate: null,
   totalPracticeDays: 0,
@@ -179,6 +206,7 @@ const getInitialState = (): Omit<StoicPracticeState, 'isLoading' | 'addVirtueIns
   virtueChallenges: [],
   checkInCompletions: [],
   principleEngagements: [],
+  weeklyReflections: [],
   domainProgress: {
     work: { ...initialDomainProgress, domain: 'work' },
     relationships: { ...initialDomainProgress, domain: 'relationships' },
@@ -429,6 +457,7 @@ const persistToSecureStore = async (state: Partial<StoicPracticeState>): Promise
         ...pe,
         timestamp: pe.timestamp.toISOString(),
       })) ?? [],
+      weeklyReflections: state.weeklyReflections ?? [],
       domainProgress: {
         work: {
           ...state.domainProgress?.work,
@@ -484,6 +513,7 @@ const loadFromSecureStore = async (): Promise<Partial<StoicPracticeState> | null
         ...pe,
         timestamp: new Date(pe.timestamp),
       })) ?? [],
+      weeklyReflections: parsed.weeklyReflections ?? [],
       domainProgress: {
         work: {
           ...parsed.domainProgress.work,
@@ -767,6 +797,39 @@ export const useStoicPracticeStore = create<StoicPracticeState>((set, get) => ({
     const cutoffDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
     const cutoffString = cutoffDate.toISOString().split('T')[0];
     return completions.filter(c => cutoffString && c.date >= cutoffString);
+  },
+
+  /**
+   * Add or replace this week's reflection (FEAT-194)
+   *
+   * Upsert-by-current-ISO-week semantics: if a reflection already exists
+   * for this week, replace its text + savedAt in place (same id). The
+   * Edit affordance on the card calls this same action.
+   */
+  addWeeklyReflection: async (text: string) => {
+    const weekStartIso = getIsoWeekStart();
+    const savedAt = new Date().toISOString();
+    const reflections = get().weeklyReflections;
+    const existing = reflections.find(r => r.weekStartIso === weekStartIso);
+
+    const updated: WeeklyReflection[] = existing
+      ? reflections.map(r =>
+          r.weekStartIso === weekStartIso ? { ...r, text, savedAt } : r
+        )
+      : [
+          ...reflections,
+          { id: generateId(), weekStartIso, text, savedAt },
+        ];
+
+    set({ weeklyReflections: updated });
+    schedulePersist();
+  },
+
+  /**
+   * Get the reflection (if any) for a given ISO-week-start string
+   */
+  getWeeklyReflectionForWeek: (weekStartIso: string): WeeklyReflection | undefined => {
+    return get().weeklyReflections.find(r => r.weekStartIso === weekStartIso);
   },
 
   /**
