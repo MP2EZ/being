@@ -1,0 +1,38 @@
+{
+  "principle": "interconnected-living",
+  "passages": [
+    {
+      "id": "marcus-meditations-2-1",
+      "principle": "interconnected-living",
+      "author": "Marcus Aurelius",
+      "work": "Meditations",
+      "citation": "Meditations 2.1",
+      "translation": "George Long",
+      "text": "Begin the morning by saying to thyself, I shall meet with the busy-body, the ungrateful, arrogant, deceitful, envious, unsocial. All these things happen to them by reason of their ignorance of what is good and evil. We are made for co-operation, like feet, like hands, like eyelids, like the rows of the upper and lower teeth. To act against one another then is contrary to nature; and it is acting against one another to be vexed and to turn away.",
+      "context": "The opening of Book 2, written in camp; Marcus prepares for difficult people by recalling that humans are made for cooperation.",
+      "order": 1
+    },
+    {
+      "id": "marcus-meditations-4-4",
+      "principle": "interconnected-living",
+      "author": "Marcus Aurelius",
+      "work": "Meditations",
+      "citation": "Meditations 4.4",
+      "translation": "George Long",
+      "text": "If our intellectual part is common, the reason also, in respect of which we are rational beings, is common: if this is so, common also is the reason which commands us what to do, and what not to do; if this is so, there is a common law also; if this is so, we are fellow-citizens; if this is so, we are members of some political community; if this is so, the world is in a manner a state.",
+      "context": "Marcus reasons step by step to the cosmopolitan conclusion that the world is a single commonwealth.",
+      "order": 2
+    },
+    {
+      "id": "marcus-meditations-7-13",
+      "principle": "interconnected-living",
+      "author": "Marcus Aurelius",
+      "work": "Meditations",
+      "citation": "Meditations 7.13",
+      "translation": "George Long",
+      "text": "As the members of one body, so rational beings in their separate states constituted to co-operate in one work. The perception of this will be more apparent to thee if thou often sayest to thyself, I am a member of the system of rational beings. But if thou sayest that thou art a part, thou dost not yet love men from thy heart; beneficence does not yet delight thee for its own sake; thou still doest it merely as a thing of propriety, and not yet as doing good to thyself.",
+      "context": "Marcus draws the distinction between being a mere 'part' and being a living 'member' of the body of rational beings.",
+      "order": 3
+    }
+  ]
+}

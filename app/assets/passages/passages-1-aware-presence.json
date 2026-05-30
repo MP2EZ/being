@@ -1,0 +1,38 @@
+{
+  "principle": "aware-presence",
+  "passages": [
+    {
+      "id": "marcus-meditations-8-36",
+      "principle": "aware-presence",
+      "author": "Marcus Aurelius",
+      "work": "Meditations",
+      "citation": "Meditations 8.36",
+      "translation": "George Long",
+      "text": "Do not disturb thyself by thinking of the whole of thy life. Let not thy thoughts at once embrace all the various troubles which thou mayest expect to befall thee: but on every occasion ask thyself, What is there in this which is intolerable and past bearing? For thou wilt be ashamed to confess. In the next place remember that neither the future nor the past pains thee, but only the present. But this is reduced to a very little, if thou only circumscribest it, and chidest thy mind, if it is unable to hold out against even this.",
+      "context": "A note Marcus makes to himself, narrowing the scope of attention from the imagined whole of a life down to the bearable present moment.",
+      "order": 1
+    },
+    {
+      "id": "marcus-meditations-7-29",
+      "principle": "aware-presence",
+      "author": "Marcus Aurelius",
+      "work": "Meditations",
+      "citation": "Meditations 7.29",
+      "translation": "George Long",
+      "text": "Wipe out the imagination. Stop the pulling of the strings. Confine thyself to the present. Understand well what happens either to thee or to another. Divide and distribute every object into the causal and the material. Think of thy last hour. Let the wrong which is done by a man stay there where the wrong was done.",
+      "context": "A sequence of terse self-commands; the line 'Confine thyself to the present' anchors the others.",
+      "order": 2
+    },
+    {
+      "id": "epictetus-enchiridion-5",
+      "principle": "aware-presence",
+      "author": "Epictetus",
+      "work": "Enchiridion",
+      "citation": "Enchiridion 5",
+      "translation": "Elizabeth Carter",
+      "text": "Men are disturbed, not by things, but by the principles and notions which they form concerning things. Death, for instance, is not terrible, else it would have appeared so to Socrates. But the terror consists in our notion of death that it is terrible. When therefore we are hindered, or disturbed, or grieved, let us never attribute it to others, but to ourselves; that is, to our own principles. An uninstructed person will lay the fault of his own bad condition upon others. Someone just starting instruction will lay the fault on himself. Some who is perfectly instructed will place blame neither on others nor on himself.",
+      "context": "From the Handbook; Epictetus separates the bare impression of an event from the judgment we add to it.",
+      "order": 3
+    }
+  ]
+}
