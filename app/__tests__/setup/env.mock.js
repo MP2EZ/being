@@ -49,7 +49,7 @@ const ENV = {
   EXPO_PUBLIC_SUPABASE_REGION: 'us-west-2',
 
   // Auth
-  EXPO_PUBLIC_AUTH_APPLE_CLIENT_ID: 'com.being.mbct',
+  EXPO_PUBLIC_AUTH_APPLE_CLIENT_ID: 'com.being.app',
   EXPO_PUBLIC_AUTH_GOOGLE_CLIENT_ID: 'test-google-client-id.apps.googleusercontent.com',
   EXPO_PUBLIC_AUTH_EMAIL_SIGNUP_ENABLED: 'true',
   EXPO_PUBLIC_AUTH_BIOMETRIC_ENABLED: 'true',
