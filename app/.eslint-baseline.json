@@ -73,7 +73,6 @@
   "src/core/services/supabase/ErrorHandler.ts": 9,
   "src/core/services/supabase/SupabaseService.ts": 4,
   "src/core/services/supabase/SyncCoordinator.ts": 41,
-  "src/core/services/supabase/__tests__/CloudBackupService.test.ts": 1,
   "src/core/services/supabase/__tests__/SupabaseService.test.ts": 1,
   "src/core/services/supabase/hooks/useCloudSync.ts": 3,
   "src/core/services/supabase/index.ts": 3,
