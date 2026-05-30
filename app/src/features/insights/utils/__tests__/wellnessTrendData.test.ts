@@ -12,6 +12,7 @@ import {
   getTrendPoints,
   compareWindows,
   downsample,
+  spansMultipleWindows,
   buildTrendSnapshot,
   WELLNESS_LABELS,
   PHQ9_MAX_SCORE,
@@ -225,6 +226,30 @@ describe('downsample', () => {
   it('keeps points in chronological order', () => {
     const ts = downsample(many, 60).map((p) => p.timestamp);
     expect(ts).toEqual([...ts].sort((a, b) => a - b));
+  });
+});
+
+describe('spansMultipleWindows', () => {
+  it('is false when every screening is within the last 7 days (selector is a no-op)', () => {
+    const sessions = [makeSession('phq9', 5, 'mild', 1), makeSession('gad7', 8, 'mild', 6)];
+    expect(spansMultipleWindows(sessions, NOW)).toBe(false);
+  });
+
+  it('is true once any screening is older than 7 days (week differs from all)', () => {
+    const sessions = [makeSession('phq9', 5, 'mild', 2), makeSession('phq9', 9, 'mild', 8)];
+    expect(spansMultipleWindows(sessions, NOW)).toBe(true);
+  });
+
+  it('treats exactly 7 days ago as still within the week (boundary inclusive)', () => {
+    expect(spansMultipleWindows([makeSession('phq9', 5, 'mild', 7)], NOW)).toBe(false);
+  });
+
+  it('ignores interrupted sessions with no result', () => {
+    expect(spansMultipleWindows([makeIncompleteSession('phq9', 60)], NOW)).toBe(false);
+  });
+
+  it('is false with no sessions', () => {
+    expect(spansMultipleWindows([], NOW)).toBe(false);
   });
 });
 

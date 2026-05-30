@@ -151,13 +151,14 @@ describe('WellnessScreeningTrends', () => {
 
   describe('time-range tabs', () => {
     // 5 of 27 is 4 days ago (in every window); 17 of 27 is 20 days ago (in
-    // month/quarter/all but NOT week).
+    // month/quarter/all but NOT week). This history spans >1 window, so the
+    // selector is shown.
     const sessions = [
       session('phq9', 17, 'moderately_severe', 20),
       session('phq9', 5, 'mild', 4),
     ];
 
-    it('shows both points in the default month window', () => {
+    it('defaults to the full history (All), showing every point', () => {
       const { getByText } = render(<WellnessScreeningTrends sessions={sessions} now={NOW} />);
       expect(getByText(/17 of 27/)).toBeTruthy();
       expect(getByText(/5 of 27/)).toBeTruthy();
@@ -170,6 +171,23 @@ describe('WellnessScreeningTrends', () => {
       fireEvent.press(getByLabelText('View week'));
       expect(queryByText(/17 of 27/)).toBeNull(); // 20 days ago drops out of the week
       expect(queryByText(/5 of 27/)).toBeTruthy(); // 4 days ago remains
+    });
+
+    it('hides the selector when all history is within one window (it would be a no-op)', () => {
+      const recent = [session('phq9', 5, 'mild', 1), session('phq9', 9, 'mild', 5)];
+      const { queryByLabelText } = render(
+        <WellnessScreeningTrends sessions={recent} now={NOW} />
+      );
+      expect(queryByLabelText('View week')).toBeNull();
+      expect(queryByLabelText('View all')).toBeNull();
+    });
+
+    it('shows the selector once history spans more than the smallest window', () => {
+      const { getByLabelText } = render(
+        <WellnessScreeningTrends sessions={sessions} now={NOW} />
+      );
+      expect(getByLabelText('View week')).toBeTruthy();
+      expect(getByLabelText('View all')).toBeTruthy();
     });
   });
 

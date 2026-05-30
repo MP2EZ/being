@@ -42,6 +42,7 @@ import {
   getTrendPoints,
   compareWindows,
   downsample,
+  spansMultipleWindows,
   PHQ9_MAX_SCORE,
   GAD7_MAX_SCORE,
   WELLNESS_LABELS,
@@ -415,10 +416,13 @@ const TrendChart: React.FC<TrendChartProps> = ({
 
 const WellnessScreeningTrends: React.FC<WellnessScreeningTrendsProps> = ({ sessions, now }) => {
   const clock = now ?? Date.now();
-  const [range, setRange] = useState<TrendTimeRange>('month');
+  // Default to the full history; narrowing is opt-in via the selector.
+  const [range, setRange] = useState<TrendTimeRange>('all');
 
   const hasPhq9 = useMemo(() => sessions.some((s) => s.type === 'phq9' && s.result), [sessions]);
   const hasGad7 = useMemo(() => sessions.some((s) => s.type === 'gad7' && s.result), [sessions]);
+  // Only surface the selector once it would actually change what's shown.
+  const showSelector = useMemo(() => spansMultipleWindows(sessions, clock), [sessions, clock]);
 
   // Don't show the section until there's at least one completed screening.
   if (!hasPhq9 && !hasGad7) return null;
@@ -430,7 +434,7 @@ const WellnessScreeningTrends: React.FC<WellnessScreeningTrendsProps> = ({ sessi
       {/* Disclaimer — REQUIRED above charts, non-dismissible. */}
       <WellnessDisclaimer />
 
-      <TimeRangeSelector selected={range} onSelect={setRange} />
+      {showSelector && <TimeRangeSelector selected={range} onSelect={setRange} />}
 
       {hasPhq9 && (
         <TrendChart

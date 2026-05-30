@@ -179,6 +179,22 @@ export function downsample(points: TrendPoint[], cap = 60): TrendPoint[] {
   return out;
 }
 
+/**
+ * Whether the time-range selector would actually change what's shown — i.e. the
+ * history spans more than the smallest window. If every completed screening is
+ * within the last 7 days, week/month/quarter/all all render the same points, so
+ * the selector is a no-op and the UI hides it.
+ *
+ * @param now reference instant (ms); defaults to Date.now() in app use.
+ */
+export function spansMultipleWindows(
+  sessions: AssessmentSession[],
+  now: number = Date.now()
+): boolean {
+  const cutoff = now - TIME_RANGE_DAYS.week * MS_PER_DAY;
+  return sessions.some((s) => s.result != null && s.progress.startedAt < cutoff);
+}
+
 /** One instrument's full history in a serializable, export-ready shape. */
 export interface TrendSnapshotInstrument {
   type: AssessmentType;
