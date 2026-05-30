@@ -20,7 +20,7 @@
   "src/core/components/accessibility/advanced/MotorAccessibility.tsx": 6,
   "src/core/components/accessibility/advanced/SensoryAccessibility.tsx": 7,
   "src/core/components/accessibility/advanced/UnifiedProvider.tsx": 5,
-  "src/core/components/settings/CloudBackupSettings.tsx": 8,
+  "src/core/components/settings/CloudBackupSettings.tsx": 1,
   "src/core/components/subscription/PurchaseOptionsScreen.tsx": 6,
   "src/core/components/subscription/SubscriptionStatusCard.tsx": 4,
   "src/core/components/subscription/__tests__/FeatureGate.test.tsx": 1,

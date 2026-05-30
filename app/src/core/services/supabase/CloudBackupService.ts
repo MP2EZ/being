@@ -3,12 +3,12 @@
  *
  * PRIVACY-FIRST DESIGN:
  * - Uses existing EncryptionService for client-side encryption
- * - Only stores encrypted blobs in cloud (no PHI)
+ * - Only stores encrypted blobs in cloud (no wellness data in plaintext)
  * - Integrity verification with checksums
  * - Anonymous user association only
  *
  * Privacy COMPLIANCE (MAINT-117):
- * Cloud backup MUST NOT include Protected Health Information (PHI).
+ * Cloud backup MUST NOT include sensitive wellness data.
  *
  * SENSITIVE FIELDS EXCLUDED (privacy protection):
  * - Individual PHQ-9/GAD-7 question responses (answers[])
@@ -17,13 +17,13 @@
  * - Crisis detection/intervention records
  * - Completed assessment history
  *
- * PERMITTED DATA (Non-PHI settings only):
+ * PERMITTED DATA (non-sensitive settings only):
  * - autoSaveEnabled (boolean preference)
  * - lastSyncAt (backup metadata timestamp)
  *
  * FILTERING APPROACH: STRICT ALLOWLIST
  * Only explicitly permitted fields are backed up. Unknown fields
- * are automatically excluded for fail-safe PHI protection.
+ * are automatically excluded for fail-safe wellness-data protection.
  *
  * FEATURES:
  * - Automated backup on significant events

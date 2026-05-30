@@ -8,10 +8,10 @@ This implementation provides encrypted cloud backup and privacy-preserving analy
 
 - ✅ **Anonymous Authentication** - Device-based, no PII
 - ✅ **Encrypted Backups** - Client-side AES-256-GCM encryption
-- ✅ **Privacy-Preserving Analytics** - Severity buckets only, no PHI
+- ✅ **Privacy-Preserving Analytics** - Severity buckets only, no wellness data in plaintext
 - ✅ **Offline Support** - Works without internet connection
 - ✅ **Free Tier Optimized** - Supports ~5,000 users
-- ✅ **HIPAA Compliant** - "Conduit exception" approach
+- ✅ **FTC / State-Privacy Compliant** - AES-256-GCM encrypted blobs, no wellness data in plaintext cloud storage
 
 ## Quick Start
 
