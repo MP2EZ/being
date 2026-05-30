@@ -123,35 +123,6 @@ const InsightsScreen: React.FC = () => {
   // Get daily quote
   const dailyQuote = useMemo(() => getDailyQuote(), []);
 
-  // Process assessment history for wellness trends
-  const { phq9History, gad7History } = useMemo(() => {
-    const phq9: { score: number; date: Date; severity: string }[] = [];
-    const gad7: { score: number; date: Date; severity: string }[] = [];
-
-    for (const session of completedAssessments) {
-      if (!session.result) continue;
-
-      // Get date from progress.startedAt (timestamp in ms)
-      const date = new Date(session.progress.startedAt);
-
-      if (session.type === 'phq9') {
-        phq9.push({
-          score: session.result.totalScore,
-          date,
-          severity: session.result.severity,
-        });
-      } else if (session.type === 'gad7') {
-        gad7.push({
-          score: session.result.totalScore,
-          date,
-          severity: session.result.severity,
-        });
-      }
-    }
-
-    return { phq9History: phq9, gad7History: gad7 };
-  }, [completedAssessments]);
-
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <ScrollView
@@ -184,11 +155,8 @@ const InsightsScreen: React.FC = () => {
           initialTimeRange="month"
         />
 
-        {/* Wellness Screening Trends (Clinical Context) */}
-        <WellnessScreeningTrends
-          phq9History={phq9History}
-          gad7History={gad7History}
-        />
+        {/* Wellness Screening Trends (wellness context) */}
+        <WellnessScreeningTrends sessions={completedAssessments} />
 
         {/* Bottom Padding */}
         <View style={styles.bottomPadding} />
