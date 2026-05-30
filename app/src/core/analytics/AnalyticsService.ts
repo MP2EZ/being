@@ -352,6 +352,39 @@ class AnalyticsService {
   }
 
   /**
+   * MAINT-190: Test-only escape hatch for singleton state isolation.
+   * See CrisisSecurityProtocol.__resetForTesting__ for the full pattern
+   * rationale. Production safety: throws if NODE_ENV !== 'test'.
+   *
+   * Resets: initialized flag, session state, event queue, processing flag,
+   * batch timer (cleared if active).
+   *
+   * Does NOT reset: BATCH_SIZE/BATCH_TIMEOUT/MAX_QUEUE_SIZE (config constants),
+   * authService/networkSecurity/securityMonitoring (singleton references owned
+   * by other services), privacyEngine (stateless instance).
+   */
+  public static __resetForTesting__(): void {
+    if (process.env.NODE_ENV !== 'test') {
+      throw new Error(
+        'AnalyticsService.__resetForTesting__() called outside NODE_ENV=test — refusing to clear analytics state in production'
+      );
+    }
+    if (AnalyticsService.instance) {
+      if (AnalyticsService.instance.batchTimer) {
+        clearInterval(AnalyticsService.instance.batchTimer);
+        AnalyticsService.instance.batchTimer = null;
+      }
+      AnalyticsService.instance.initialized = false;
+      AnalyticsService.instance.currentSessionId = null;
+      AnalyticsService.instance.lastSessionDate = null;
+      AnalyticsService.instance.eventQueue = [];
+      AnalyticsService.instance.isProcessing = false;
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- intentional: nulling private static reset target
+    AnalyticsService.instance = undefined as any;
+  }
+
+  /**
    * INITIALIZE ANALYTICS SERVICE
    * Sets up security integrations and monitoring
    */
