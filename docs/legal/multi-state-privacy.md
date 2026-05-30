@@ -2,7 +2,7 @@
 
 **Version:** 1.0
 **Effective Date:** May 25, 2026
-**Last Updated:** May 25, 2026
+**Last Updated:** May 29, 2026
 
 > **Not legal advice.** This page is informational and reflects our understanding of the named laws as of the Last Updated date. State privacy law is changing quickly; rules, deadlines, and cure periods may have changed since this page was written. For authoritative and current information, consult your state Attorney General (links in the [Escalation](#escalation) section) or a qualified attorney.
 
@@ -33,7 +33,7 @@ Four of the five laws above (CCPA, TDPSA, CPA, CTDPA) mandate technical recognit
 **How Being honors these signals:**
 
 - **In the app**: enable *Settings → Privacy & Data → Honor Universal Opt-Out*. When on, Being treats your in-app session as opted out of all non-essential analytics, crash reporting, settings backup, and research participation, regardless of any granular preferences previously granted. The setting is persisted on-device alongside your consent record (AES-256 encrypted via `expo-secure-store`).
-- **On the web**: our privacy and support pages at `being.fyi` honor the `Sec-GPC: 1` request header sent by browsers and extensions implementing the [Global Privacy Control specification](https://globalprivacycontrol.org/). *(Web-side detection is rolling out — tracked separately. The in-app universal opt-out ships in the next TestFlight release.)*
+- **On the web**: our privacy and support pages at `being.fyi` honor the `Sec-GPC: 1` request header sent by browsers and extensions implementing the [Global Privacy Control specification](https://globalprivacycontrol.org/). *(Web-side detection is rolling out and tracked separately.)*
 
 Universal opt-out does **not** affect your explicit consent for mental-health data processing (mood check-ins, PHQ-9 / GAD-7 self-screening responses, journal entries) — that consent is governed separately by GDPR Article 9(2)(a) and your active use of the wellness features. Universal opt-out targets analytics and tracking, not the wellness data you actively consented to during onboarding.
 
