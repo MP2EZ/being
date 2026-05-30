@@ -129,6 +129,7 @@
   "src/features/learn/stores/__tests__/educationStore.test.ts": 1,
   "src/features/learn/stores/educationStore.ts": 1,
   "src/features/learn/tabs/PracticeTab.tsx": 4,
+  "src/features/library/__tests__/passagesContent.test.ts": 1,
   "src/features/onboarding/screens/OnboardingScreen.tsx": 28,
   "src/features/onboarding/screens/__tests__/OnboardingScreen.test.tsx": 1,
   "src/features/practices/__tests__/accessibility/practices-accessibility-validation.test.tsx": 1,

@@ -23,6 +23,8 @@ import SubscriptionStatusCard from '@/core/components/subscription/SubscriptionS
 import OnboardingScreen from '@/features/onboarding/screens/OnboardingScreen';
 import EnhancedAssessmentFlow from '@/features/assessment/components/EnhancedAssessmentFlow';
 import ModuleDetailScreen from '@/features/learn/screens/ModuleDetailScreen';
+import ClassicalLibraryScreen from '@/features/library/screens/ClassicalLibraryScreen';
+import PassageReaderScreen from '@/features/library/screens/PassageReaderScreen';
 import {
   PracticeTimerScreen,
   ReflectionTimerScreen,
@@ -36,6 +38,7 @@ import { useConsentStore } from '@/core/stores/consentStore';
 import { CombinedLegalGateScreen } from '@/features/consent';
 import type { AssessmentType, PHQ9Result, GAD7Result } from '@/features/assessment/types';
 import type { ModuleId, SortingScenario } from '@/features/learn/types/education';
+import type { PassageAuthor } from '@/features/library/types/library';
 
 export type RootStackParamList = {
   LegalGate: undefined;
@@ -45,6 +48,8 @@ export type RootStackParamList = {
   MiddayFlow: undefined;
   EveningFlow: undefined;
   ModuleDetail: { moduleId: ModuleId };
+  ClassicalLibrary: { principle?: ModuleId; author?: PassageAuthor } | undefined;
+  PassageReader: { passageId: string };
   PracticeTimer: {
     practiceId: string;
     moduleId: ModuleId;
@@ -280,6 +285,24 @@ const CleanRootNavigator: React.FC = () => {
           component={ModuleDetailScreen}
           options={{
             headerShown: false, // ModuleDetailScreen has its own header
+            presentation: 'card',
+          }}
+        />
+
+        {/* Classical Resources Library (FEAT-54) */}
+        <Stack.Screen
+          name="ClassicalLibrary"
+          component={ClassicalLibraryScreen}
+          options={{
+            headerShown: false, // ClassicalLibraryScreen has its own header
+            presentation: 'card',
+          }}
+        />
+        <Stack.Screen
+          name="PassageReader"
+          component={PassageReaderScreen}
+          options={{
+            headerShown: false, // PassageReaderScreen has its own header
             presentation: 'card',
           }}
         />

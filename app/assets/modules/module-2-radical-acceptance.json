@@ -6,8 +6,9 @@
   "description": "This is what's happening. What do I do from here?",
   "estimatedMinutes": 18,
   "classicalQuote": {
-    "text": "Welcome with affection what comes to us, treating each event as if we had wished for it ourselves.",
-    "author": "Marcus Aurelius"
+    "text": "Everything harmonizes with me, which is harmonious to thee, O Universe. Nothing for me is too early nor too late, which is in due time for thee.",
+    "author": "Marcus Aurelius",
+    "source": "Meditations 4.23 (trans. George Long)"
   },
   "whatItIs": {
     "summary": "This is what's happening right now. I may not like it, prefer it, or want it, but it is the reality I face. What do I do from here?",
