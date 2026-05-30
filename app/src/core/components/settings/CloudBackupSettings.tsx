@@ -4,25 +4,30 @@
  * FEATURES:
  * - Backup status display
  * - Manual sync controls
- * - Configuration options
+ * - Configuration options (auto-backup, compression)
  * - Error handling and recovery
- * - Restore prompt for new devices
+ * - Restore prompt for same-device recovery
+ *
+ * SCOPE (MAINT-173):
+ * - Analytics consent + data-rights controls were removed from this surface.
+ *   Analytics consent lives in PrivacyDataScreen (the single authoritative
+ *   consent surface); a second toggle here bypassed the consent store and
+ *   the "Delete Analytics Data" control was a non-functional stub.
+ * - Cloud-sync consent is enforced in the service layer (CloudBackupService),
+ *   so these controls operate only when the user has consented.
  *
  * ACCESSIBILITY:
- * - Screen reader support
- * - High contrast mode
- * - Large touch targets
+ * - Screen reader support (button roles + labels)
+ * - Large touch targets (≥44pt)
  * - Clear error messaging
  *
  * PERFORMANCE:
  * - Non-blocking operations
  * - Loading states
- * - Optimistic updates
  */
 
 
-import { logSecurity, logPerformance, logError, LogCategory } from '@/core/services/logging';
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -31,24 +36,21 @@ import {
   StyleSheet,
   Alert,
   ActivityIndicator,
+  StyleProp,
+  ViewStyle,
 } from 'react-native';
 import { useCloudSync, useCloudBackupConfig } from '@/core/services/supabase/hooks/useCloudSync';
 import SyncStatusIndicator from '../sync/SyncStatusIndicator';
-import AnalyticsService from '@/core/analytics/AnalyticsService';
-import { spacing, borderRadius, typography } from '@/core/theme';
+import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
 
 interface CloudBackupSettingsProps {
-  style?: any;
+  style?: StyleProp<ViewStyle>;
   onRestoreComplete?: (restoredStores: string[]) => void;
-  showAnalytics?: boolean;
-  onAnalyticsToggle?: (enabled: boolean) => void;
 }
 
-export default function CloudBackupSettings({ 
-  style, 
-  onRestoreComplete, 
-  showAnalytics = true,
-  onAnalyticsToggle 
+export default function CloudBackupSettings({
+  style,
+  onRestoreComplete,
 }: CloudBackupSettingsProps) {
   const {
     status,
@@ -57,7 +59,6 @@ export default function CloudBackupSettings({
     isOnline,
     isLoading,
     error,
-    createBackup,
     restoreFromBackup,
     forceSync,
     hasCloudBackup,
@@ -66,6 +67,7 @@ export default function CloudBackupSettings({
     testConnectivity,
     clearError,
     refreshStatus,
+    createBackup,
   } = useCloudSync();
 
   const {
@@ -77,27 +79,6 @@ export default function CloudBackupSettings({
   } = useCloudBackupConfig();
 
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const [analyticsEnabled, setAnalyticsEnabled] = useState(false);
-  const [analyticsStatus, setAnalyticsStatus] = useState<any>(null);
-  const [analyticsLoading, setAnalyticsLoading] = useState(false);
-
-  // Analytics status monitoring
-  useEffect(() => {
-    const updateAnalyticsStatus = async () => {
-      try {
-        const status = await AnalyticsService.getStatus();
-        setAnalyticsStatus(status);
-        setAnalyticsEnabled(status.initialized);
-      } catch (error) {
-        logError(LogCategory.SYSTEM, 'Failed to get analytics status:', error instanceof Error ? error : new Error(String(error)));
-      }
-    };
-
-    updateAnalyticsStatus();
-    const interval = setInterval(updateAnalyticsStatus, 30000); // Every 30 seconds
-    
-    return () => clearInterval(interval);
-  }, []);
 
   // Format date for display
   const formatDate = (date: Date | null): string => {
@@ -120,12 +101,12 @@ export default function CloudBackupSettings({
     try {
       await createBackup();
       Alert.alert('Success', 'Backup completed successfully');
-    } catch (error) {
+    } catch {
       Alert.alert('Backup Failed', 'Please check your connection and try again');
     }
   };
 
-  // Handle restore with confirmation
+  // Handle restore with confirmation (destructive — overwrites local data)
   const handleRestore = async () => {
     Alert.alert(
       'Restore Data',
@@ -151,7 +132,7 @@ export default function CloudBackupSettings({
                   result.errors.join('\n')
                 );
               }
-            } catch (error) {
+            } catch {
               Alert.alert('Restore Failed', 'Please try again later');
             }
           },
@@ -165,88 +146,17 @@ export default function CloudBackupSettings({
     try {
       await testConnectivity();
       Alert.alert('Connection Test', 'Successfully connected to cloud');
-    } catch (error) {
+    } catch {
       Alert.alert('Connection Failed', 'Unable to connect to cloud services');
     }
   };
 
-  // Handle analytics toggle
-  const handleAnalyticsToggle = async (enabled: boolean) => {
-    try {
-      setAnalyticsLoading(true);
-      
-      if (enabled) {
-        await AnalyticsService.initialize();
-        Alert.alert(
-          'Analytics Enabled',
-          'Privacy-preserving analytics are now active. Only anonymized data is collected.'
-        );
-      } else {
-        await AnalyticsService.shutdown();
-        Alert.alert(
-          'Analytics Disabled',
-          'Analytics have been disabled. No data will be collected.'
-        );
-      }
-      
-      setAnalyticsEnabled(enabled);
-      onAnalyticsToggle?.(enabled);
-      
-    } catch (error) {
-      Alert.alert(
-        'Analytics Error',
-        `Failed to ${enabled ? 'enable' : 'disable'} analytics: ${(error instanceof Error ? error.message : String(error))}`
-      );
-    } finally {
-      setAnalyticsLoading(false);
-    }
-  };
-
-  // Handle analytics flush
-  const handleFlushAnalytics = async () => {
-    try {
-      setAnalyticsLoading(true);
-      await AnalyticsService.flush();
-      Alert.alert('Analytics Flushed', 'All pending analytics data has been processed.');
-    } catch (error) {
-      Alert.alert('Flush Failed', 'Unable to flush analytics data.');
-    } finally {
-      setAnalyticsLoading(false);
-    }
-  };
-
-  // Handle data deletion request
-  const handleDeleteAnalyticsData = async () => {
-    Alert.alert(
-      'Delete Analytics Data',
-      'This will permanently delete all your analytics data. This action cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              setAnalyticsLoading(true);
-              // Would implement actual data deletion
-              Alert.alert('Data Deleted', 'Your analytics data has been permanently deleted.');
-            } catch (error) {
-              Alert.alert('Deletion Failed', 'Unable to delete analytics data.');
-            } finally {
-              setAnalyticsLoading(false);
-            }
-          },
-        },
-      ]
-    );
-  };
-
   // Get status color
   const getStatusColor = (): string => {
-    if (!isInitialized) return '#666';
-    if (!isOnline) return '#ff6b6b';
-    if (status.circuitBreakerState === 'open') return '#ffa726';
-    return '#4caf50';
+    if (!isInitialized) return colorSystem.gray[600];
+    if (!isOnline) return colorSystem.status.error;
+    if (status.circuitBreakerState === 'open') return colorSystem.status.warning;
+    return colorSystem.status.success;
   };
 
   // Get status text
@@ -277,28 +187,32 @@ export default function CloudBackupSettings({
               clearConfigError();
             }}
             style={styles.errorDismiss}
+            accessibilityRole="button"
+            accessibilityLabel="Dismiss error"
           >
             <Text style={styles.errorDismissText}>Dismiss</Text>
           </TouchableOpacity>
         </View>
       )}
 
-      {/* Restore Prompt */}
+      {/* Restore Prompt (same-device recovery) */}
       {shouldPromptRestore && (
         <View style={styles.restorePrompt}>
           <Text style={styles.restorePromptTitle}>
             Backup Found
           </Text>
           <Text style={styles.restorePromptText}>
-            We found your data backup. Would you like to restore it?
+            We found a backup of your settings on this device. Would you like to restore it?
           </Text>
           <TouchableOpacity
             onPress={handleRestore}
             style={styles.restoreButton}
             disabled={isLoading}
+            accessibilityRole="button"
+            accessibilityLabel="Restore data from backup"
           >
             {isLoading ? (
-              <ActivityIndicator color="#fff" size="small" />
+              <ActivityIndicator color={colorSystem.base.white} size="small" />
             ) : (
               <Text style={styles.restoreButtonText}>Restore Data</Text>
             )}
@@ -317,23 +231,23 @@ export default function CloudBackupSettings({
         </Text>
         <Text style={styles.privacyNoticeText}>
           <Text style={styles.privacyBold}>What stays on your device: </Text>
-          Your mental health assessment responses (PHQ-9, GAD-7), scores, and crisis data are never backed up to the cloud.
+          Your wellness check-in responses, self-screening results, and crisis data are never backed up to the cloud.
         </Text>
         <Text style={styles.privacyNoticeNote}>
-          Your assessment data stays on this device only, protected by device-level encryption. If you uninstall the app or lose your device, assessment history cannot be recovered.
+          Your wellness data stays on this device only, protected by device-level encryption. If you uninstall the app or lose your device, that history cannot be recovered.
         </Text>
       </View>
 
-      {/* Enhanced Status Section with Analytics */}
+      {/* Status Section */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>System Status</Text>
-        
+
         {/* Integrated Status Indicator */}
-        <SyncStatusIndicator 
+        <SyncStatusIndicator
           showDetailed={showAdvanced}
           style={styles.statusIndicator}
-          onStatusChange={(status) => {
-            console.log('Overall system status:', status);
+          onStatusChange={(syncStatus) => {
+            console.log('Overall system status:', syncStatus);
           }}
         />
 
@@ -361,21 +275,6 @@ export default function CloudBackupSettings({
                 </Text>
               </View>
             )}
-            
-            {/* Analytics Status Preview */}
-            {showAnalytics && analyticsStatus && (
-              <View style={styles.statusRow}>
-                <Text style={styles.statusLabel}>Analytics:</Text>
-                <Text style={[styles.statusValue, { 
-                  color: analyticsStatus.initialized ? '#4caf50' : '#757575' 
-                }]}>
-                  {analyticsStatus.initialized ? 
-                    `Active (${analyticsStatus.queueSize} queued)` : 
-                    'Inactive'
-                  }
-                </Text>
-              </View>
-            )}
           </>
         )}
       </View>
@@ -388,9 +287,11 @@ export default function CloudBackupSettings({
           onPress={handleManualBackup}
           style={[styles.button, styles.primaryButton]}
           disabled={isLoading || !isOnline}
+          accessibilityRole="button"
+          accessibilityLabel="Back up now"
         >
           {isLoading ? (
-            <ActivityIndicator color="#fff" size="small" />
+            <ActivityIndicator color={colorSystem.base.white} size="small" />
           ) : (
             <Text style={styles.primaryButtonText}>Backup Now</Text>
           )}
@@ -401,6 +302,8 @@ export default function CloudBackupSettings({
             onPress={handleRestore}
             style={[styles.button, styles.secondaryButton]}
             disabled={isLoading}
+            accessibilityRole="button"
+            accessibilityLabel="Restore from cloud"
           >
             <Text style={styles.secondaryButtonText}>Restore from Cloud</Text>
           </TouchableOpacity>
@@ -410,6 +313,8 @@ export default function CloudBackupSettings({
           onPress={forceSync}
           style={[styles.button, styles.secondaryButton]}
           disabled={isLoading || !isOnline}
+          accessibilityRole="button"
+          accessibilityLabel="Force sync"
         >
           <Text style={styles.secondaryButtonText}>Force Sync</Text>
         </TouchableOpacity>
@@ -418,33 +323,6 @@ export default function CloudBackupSettings({
       {/* Configuration Section */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Settings</Text>
-
-        {/* Analytics Configuration */}
-        {showAnalytics && (
-          <>
-            <View style={styles.configRow}>
-              <View style={styles.configLabelContainer}>
-                <Text style={styles.configLabel}>Privacy Analytics</Text>
-                <Text style={styles.configDescription}>
-                  Anonymized usage data for app improvement
-                </Text>
-              </View>
-              <Switch
-                value={analyticsEnabled}
-                onValueChange={handleAnalyticsToggle}
-                disabled={analyticsLoading}
-              />
-            </View>
-
-            {analyticsEnabled && analyticsStatus?.securityValidation === false && (
-              <View style={styles.warningContainer}>
-                <Text style={styles.warningText}>
-                  ⚠️ Analytics security validation failed. Data collection paused.
-                </Text>
-              </View>
-            )}
-          </>
-        )}
 
         <View style={styles.configRow}>
           <Text style={styles.configLabel}>Automatic Backup</Text>
@@ -468,6 +346,8 @@ export default function CloudBackupSettings({
         <TouchableOpacity
           onPress={() => setShowAdvanced(!showAdvanced)}
           style={styles.advancedToggle}
+          accessibilityRole="button"
+          accessibilityLabel={`${showAdvanced ? 'Hide' : 'Show'} advanced settings`}
         >
           <Text style={styles.advancedToggleText}>
             {showAdvanced ? 'Hide' : 'Show'} Advanced Settings
@@ -488,6 +368,8 @@ export default function CloudBackupSettings({
               onPress={handleTestConnection}
               style={[styles.button, styles.tertiaryButton]}
               disabled={isLoading}
+              accessibilityRole="button"
+              accessibilityLabel="Test connection"
             >
               <Text style={styles.tertiaryButtonText}>Test Connection</Text>
             </TouchableOpacity>
@@ -496,34 +378,11 @@ export default function CloudBackupSettings({
               onPress={refreshStatus}
               style={[styles.button, styles.tertiaryButton]}
               disabled={isLoading}
+              accessibilityRole="button"
+              accessibilityLabel="Refresh status"
             >
               <Text style={styles.tertiaryButtonText}>Refresh Status</Text>
             </TouchableOpacity>
-
-            {/* Analytics Advanced Controls */}
-            {showAnalytics && analyticsEnabled && (
-              <>
-                <TouchableOpacity
-                  onPress={handleFlushAnalytics}
-                  style={[styles.button, styles.tertiaryButton]}
-                  disabled={analyticsLoading}
-                >
-                  {analyticsLoading ? (
-                    <ActivityIndicator size="small" color="#666" />
-                  ) : (
-                    <Text style={styles.tertiaryButtonText}>Flush Analytics</Text>
-                  )}
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  onPress={handleDeleteAnalyticsData}
-                  style={[styles.button, styles.dangerButton]}
-                  disabled={analyticsLoading}
-                >
-                  <Text style={styles.dangerButtonText}>Delete Analytics Data</Text>
-                </TouchableOpacity>
-              </>
-            )}
           </View>
         )}
       </View>
@@ -555,45 +414,6 @@ export default function CloudBackupSettings({
               </Text>
             </View>
           </View>
-
-          {/* Analytics Statistics */}
-          {showAnalytics && analyticsStatus && (
-            <View style={styles.subsection}>
-              <Text style={styles.subsectionTitle}>Analytics</Text>
-              
-              <View style={styles.statusRow}>
-                <Text style={styles.statusLabel}>Current Session:</Text>
-                <Text style={styles.statusValue}>
-                  {analyticsStatus.currentSession.split('_')[1] || 'N/A'}
-                </Text>
-              </View>
-
-              <View style={styles.statusRow}>
-                <Text style={styles.statusLabel}>Queued Events:</Text>
-                <Text style={[styles.statusValue, {
-                  color: analyticsStatus.queueSize > 20 ? '#ffa726' : '#495057'
-                }]}>
-                  {analyticsStatus.queueSize}
-                </Text>
-              </View>
-
-              <View style={styles.statusRow}>
-                <Text style={styles.statusLabel}>Privacy Status:</Text>
-                <Text style={[styles.statusValue, { color: '#4caf50' }]}>
-                  ✓ Compliant
-                </Text>
-              </View>
-
-              <View style={styles.statusRow}>
-                <Text style={styles.statusLabel}>Security Status:</Text>
-                <Text style={[styles.statusValue, {
-                  color: analyticsStatus.securityValidation ? '#4caf50' : '#f44336'
-                }]}>
-                  {analyticsStatus.securityValidation ? '✓ Valid' : '⚠ Issues'}
-                </Text>
-              </View>
-            </View>
-          )}
         </View>
       )}
     </View>
@@ -615,7 +435,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: typography.headline4.size,
     fontWeight: typography.fontWeight.bold,
-    color: '#333',
+    color: colorSystem.base.black,
   },
 
   statusIndicator: {
@@ -626,7 +446,7 @@ const styles = StyleSheet.create({
   },
 
   errorContainer: {
-    backgroundColor: '#ffebee',
+    backgroundColor: colorSystem.status.errorBackground,
     padding: spacing[12],
     borderRadius: borderRadius.medium,
     marginBottom: spacing[16],
@@ -636,7 +456,7 @@ const styles = StyleSheet.create({
   },
 
   errorText: {
-    color: '#c62828',
+    color: colorSystem.status.error,
     flex: 1,
   },
 
@@ -645,12 +465,12 @@ const styles = StyleSheet.create({
   },
 
   errorDismissText: {
-    color: '#c62828',
+    color: colorSystem.status.error,
     fontWeight: typography.fontWeight.bold,
   },
 
   restorePrompt: {
-    backgroundColor: '#e3f2fd',
+    backgroundColor: colorSystem.status.infoBackground,
     padding: spacing[16],
     borderRadius: borderRadius.medium,
     marginBottom: spacing[16],
@@ -659,17 +479,17 @@ const styles = StyleSheet.create({
   restorePromptTitle: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.bold,
-    color: '#1976d2',
+    color: colorSystem.base.midnightBlue,
     marginBottom: spacing[8],
   },
 
   restorePromptText: {
-    color: '#1976d2',
+    color: colorSystem.base.midnightBlue,
     marginBottom: spacing[12],
   },
 
   restoreButton: {
-    backgroundColor: '#1976d2',
+    backgroundColor: colorSystem.base.midnightBlue,
     padding: spacing[12],
     borderRadius: borderRadius.medium,
     alignItems: 'center',
@@ -677,29 +497,29 @@ const styles = StyleSheet.create({
   },
 
   restoreButtonText: {
-    color: '#fff',
+    color: colorSystem.base.white,
     fontWeight: typography.fontWeight.bold,
   },
 
   // Privacy Notice - Privacy Compliance (MAINT-117)
   privacyNotice: {
-    backgroundColor: '#f3f8f4', // Light green tint for privacy/trust
+    backgroundColor: colorSystem.status.successBackground, // green tint for privacy/trust
     padding: spacing[16],
     borderRadius: borderRadius.medium,
     marginBottom: spacing[16],
     borderWidth: 1,
-    borderColor: '#e0efe2',
+    borderColor: colorSystem.status.success,
   },
 
   privacyNoticeTitle: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.bold,
-    color: '#2e7d32', // Green for privacy/security
+    color: colorSystem.status.success, // green for privacy/security
     marginBottom: spacing[12],
   },
 
   privacyNoticeText: {
-    color: '#495057',
+    color: colorSystem.gray[700],
     fontSize: typography.bodySmall.size,
     marginBottom: spacing[8],
     lineHeight: 20,
@@ -707,11 +527,11 @@ const styles = StyleSheet.create({
 
   privacyBold: {
     fontWeight: typography.fontWeight.bold,
-    color: '#333',
+    color: colorSystem.base.black,
   },
 
   privacyNoticeNote: {
-    color: '#6c757d',
+    color: colorSystem.gray[600],
     fontSize: typography.micro.size,
     marginTop: spacing[8],
     fontStyle: 'italic',
@@ -725,7 +545,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.bold,
-    color: '#333',
+    color: colorSystem.base.black,
     marginBottom: spacing[12],
   },
 
@@ -736,11 +556,11 @@ const styles = StyleSheet.create({
   },
 
   statusLabel: {
-    color: '#666',
+    color: colorSystem.gray[600],
   },
 
   statusValue: {
-    color: '#333',
+    color: colorSystem.base.black,
     fontWeight: typography.fontWeight.medium,
   },
 
@@ -753,80 +573,44 @@ const styles = StyleSheet.create({
   },
 
   primaryButton: {
-    backgroundColor: '#4caf50',
+    backgroundColor: colorSystem.status.success,
   },
 
   primaryButtonText: {
-    color: '#fff',
+    color: colorSystem.base.white,
     fontWeight: typography.fontWeight.bold,
   },
 
   secondaryButton: {
-    backgroundColor: '#fff',
+    backgroundColor: colorSystem.base.white,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: colorSystem.gray[300],
   },
 
   secondaryButtonText: {
-    color: '#333',
+    color: colorSystem.base.black,
     fontWeight: typography.fontWeight.medium,
   },
 
   tertiaryButton: {
-    backgroundColor: '#f5f5f5',
+    backgroundColor: colorSystem.gray[100],
   },
 
   tertiaryButtonText: {
-    color: '#666',
-  },
-
-  dangerButton: {
-    backgroundColor: '#ffebee',
-    borderWidth: 1,
-    borderColor: '#ffcdd2',
-  },
-
-  dangerButtonText: {
-    color: '#c62828',
-    fontWeight: typography.fontWeight.medium,
-  },
-
-  configLabelContainer: {
-    flex: 1,
-    marginRight: spacing[12],
-  },
-
-  configDescription: {
-    fontSize: typography.micro.size,
-    color: '#6c757d',
-    marginTop: spacing[4],
-  },
-
-  warningContainer: {
-    backgroundColor: '#fff3cd',
-    padding: spacing[12],
-    borderRadius: borderRadius.medium,
-    marginBottom: spacing[12],
-    borderWidth: 1,
-    borderColor: '#ffeaa7',
-  },
-
-  warningText: {
-    color: '#856404',
-    fontSize: typography.bodySmall.size,
+    color: colorSystem.gray[600],
   },
 
   subsection: {
     marginBottom: spacing[16],
     paddingBottom: spacing[16],
     borderBottomWidth: 1,
-    borderBottomColor: '#f8f9fa',
+    borderBottomColor: colorSystem.gray[100],
   },
 
   subsectionTitle: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.bold,
-    color: '#6c757d',
+    color: colorSystem.gray[600],
     marginBottom: spacing[8],
     textTransform: 'uppercase',
   },
@@ -841,12 +625,12 @@ const styles = StyleSheet.create({
 
   configLabel: {
     fontSize: typography.bodyRegular.size,
-    color: '#333',
+    color: colorSystem.base.black,
   },
 
   configValue: {
     fontSize: typography.bodyRegular.size,
-    color: '#666',
+    color: colorSystem.gray[600],
   },
 
   advancedToggle: {
@@ -855,7 +639,7 @@ const styles = StyleSheet.create({
   },
 
   advancedToggleText: {
-    color: '#1976d2',
+    color: colorSystem.base.midnightBlue,
     fontWeight: typography.fontWeight.medium,
   },
 
@@ -863,7 +647,7 @@ const styles = StyleSheet.create({
     marginTop: spacing[12],
     paddingTop: spacing[12],
     borderTopWidth: 1,
-    borderTopColor: '#eee',
+    borderTopColor: colorSystem.gray[200],
   },
 });
 

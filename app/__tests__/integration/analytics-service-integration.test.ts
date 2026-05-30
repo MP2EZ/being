@@ -91,7 +91,6 @@ import {
 
 // Import UI components for integration testing
 import SyncStatusIndicator from '@/core/components/sync/SyncStatusIndicator';
-import CloudBackupSettings from '@/core/components/settings/CloudBackupSettings';
 
 // Mock external dependencies
 jest.mock('@react-native-async-storage/async-storage');
@@ -629,15 +628,17 @@ describe('📊 ANALYTICS SERVICE INTEGRATION TESTING', () => {
       console.log('📱 SyncStatusIndicator service integration validated');
     });
 
-    it('should handle analytics toggle in CloudBackupSettings', async () => {
-      // Simulate analytics service initialization from UI
+    it('should handle analytics enable/disable lifecycle from a UI toggle', async () => {
+      // Analytics consent is owned by PrivacyDataScreen (MAINT-173 removed the
+      // duplicate toggle from CloudBackupSettings); this pins the underlying
+      // AnalyticsService shutdown/initialize lifecycle a UI toggle drives.
       await analyticsService.shutdown();
       expect(analyticsService.getStatus().initialized).toBe(false);
 
       await analyticsService.initialize();
       expect(analyticsService.getStatus().initialized).toBe(true);
 
-      console.log('⚙️ CloudBackupSettings analytics toggle integration validated');
+      console.log('⚙️ AnalyticsService enable/disable lifecycle validated');
     });
 
     // MAINT-188 PR 5 deferral: After 2 `trackEvent` calls, the test

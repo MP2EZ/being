@@ -19,6 +19,7 @@ import {
   StyleSheet,
   ScrollView,
   Switch,
+  TouchableOpacity,
   ActivityIndicator,
   Alert,
   Platform,
@@ -29,7 +30,9 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useConsentStore } from '@/core/stores/consentStore';
 import { useAnalytics } from '@/core/analytics';
 import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
+import { isFeatureEnabled } from '@/core/services/featureFlags';
 import SubMenuHeader from '../components/SubMenuHeader';
+import CloudBackupScreen from './CloudBackupScreen';
 
 interface PrivacyDataScreenProps {
   onReturn: () => void;
@@ -158,6 +161,8 @@ const PrivacyDataScreen: React.FC<PrivacyDataScreenProps> = ({ onReturn }) => {
   const { trackScreenView, trackSettingsOpened, trackConsentChanged } = useAnalytics();
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  // Sub-screen navigation for the (flag-gated) comprehensive cloud-backup UI.
+  const [showCloudBackup, setShowCloudBackup] = useState(false);
 
   // Track screen view and settings opened for analytics
   useFocusEffect(
@@ -216,6 +221,11 @@ const PrivacyDataScreen: React.FC<PrivacyDataScreenProps> = ({ onReturn }) => {
       setIsSaving(false);
     }
   };
+
+  // Flag-gated cloud-backup sub-screen
+  if (showCloudBackup) {
+    return <CloudBackupScreen onReturn={() => setShowCloudBackup(false)} />;
+  }
 
   // Render loading state
   if (isLoading) {
@@ -321,6 +331,29 @@ const PrivacyDataScreen: React.FC<PrivacyDataScreenProps> = ({ onReturn }) => {
               />
             </View>
           </View>
+
+          {/* Manage Cloud Backup — flag-gated entry to the comprehensive
+              controls (backup now, restore, status). Ships dark: hidden
+              until the cloud_sync feature flag is enabled. */}
+          {isFeatureEnabled('cloud_sync') && (
+            <TouchableOpacity
+              style={styles.settingCard}
+              onPress={() => setShowCloudBackup(true)}
+              accessibilityRole="button"
+              accessibilityLabel="Manage Cloud Backup"
+              accessibilityHint="Opens cloud backup status, manual backup, and restore controls"
+            >
+              <View style={styles.settingRow}>
+                <View style={styles.settingInfo}>
+                  <Text style={styles.settingLabel}>Manage Cloud Backup</Text>
+                  <Text style={styles.settingDescription}>
+                    Back up now, restore, and view sync status
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color={colorSystem.gray[400]} />
+              </View>
+            </TouchableOpacity>
+          )}
 
           <View style={styles.settingCard}>
             <View style={styles.settingRow}>

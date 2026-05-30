@@ -3,12 +3,12 @@
  *
  * PRIVACY-FIRST DESIGN:
  * - Uses existing EncryptionService for client-side encryption
- * - Only stores encrypted blobs in cloud (no PHI)
+ * - Only stores encrypted blobs in cloud (no wellness data in plaintext)
  * - Integrity verification with checksums
  * - Anonymous user association only
  *
  * Privacy COMPLIANCE (MAINT-117):
- * Cloud backup MUST NOT include Protected Health Information (PHI).
+ * Cloud backup MUST NOT include sensitive wellness data.
  *
  * SENSITIVE FIELDS EXCLUDED (privacy protection):
  * - Individual PHQ-9/GAD-7 question responses (answers[])
@@ -17,13 +17,13 @@
  * - Crisis detection/intervention records
  * - Completed assessment history
  *
- * PERMITTED DATA (Non-PHI settings only):
+ * PERMITTED DATA (non-sensitive settings only):
  * - autoSaveEnabled (boolean preference)
  * - lastSyncAt (backup metadata timestamp)
  *
  * FILTERING APPROACH: STRICT ALLOWLIST
  * Only explicitly permitted fields are backed up. Unknown fields
- * are automatically excluded for fail-safe PHI protection.
+ * are automatically excluded for fail-safe wellness-data protection.
  *
  * FEATURES:
  * - Automated backup on significant events
@@ -56,6 +56,7 @@ import supabaseService from './SupabaseService';
 
 // Store imports
 import { useAssessmentStore as assessmentStore } from '@/features/assessment/stores/assessmentStore';
+import { useConsentStore } from '@/core/stores/consentStore';
 
 // Types
 interface BackupData {
@@ -196,6 +197,18 @@ class CloudBackupService {
     if (!this.isInitialized) {
       logSecurity('[CloudBackupService] Not initialized', 'low');
       return { success: false, error: 'Service not initialized' };
+    }
+
+    // Consent gate (MAINT-173): cloud backup is opt-in. This is the single
+    // chokepoint for all backup egress — the auto-backup timer, store
+    // listener, and app-state foreground listener all route through
+    // createBackup(), so guarding here enforces consent on every path
+    // without per-caller checks. Without this, toggling cloudSyncEnabled off
+    // in Privacy & Data settings did NOT stop backups (the consent flag had
+    // no consumer in this service).
+    if (!this.cloudSyncConsented()) {
+      logSecurity('[CloudBackupService] Backup skipped — cloud_sync consent absent', 'low');
+      return { success: false, error: 'cloud_sync_consent_absent' };
     }
 
     try {
@@ -501,6 +514,16 @@ class CloudBackupService {
    *
    * @security Uses allowlist pattern - only explicitly safe fields are included
    */
+  /**
+   * Whether the user has consented to cloud sync (MAINT-173).
+   * Reads the consent store at call time so a mid-session toggle takes
+   * effect immediately. Returns false unless consent is valid AND cloud
+   * sync is enabled (and no universal opt-out is in force).
+   */
+  private cloudSyncConsented(): boolean {
+    return useConsentStore.getState().canPerformOperation('cloud_sync');
+  }
+
   private async collectStoreData(): Promise<BackupData> {
     // Get full assessment state for filtering
     const fullAssessmentState = assessmentStore.getState();
