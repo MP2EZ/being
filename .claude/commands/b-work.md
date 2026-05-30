@@ -229,17 +229,28 @@ Worktrees do not store their own env files. Both `.env.production` and `.env.dev
 ```bash
 cd /Users/max/dev/being/[dir-name]
 
-if [ ! -L "app/.env.production" ]; then
-  ln -s ../../.config/.env.production app/.env.production
-  echo "✅ Symlinked app/.env.production -> ~/dev/being/.config/.env.production"
+# Use -e (follows the link) not -L (true for ANY symlink, including a
+# dangling one) so a stale/broken link is repaired, not just an absent one.
+# -f overwrites an existing dangling symlink (`ln -s` alone errors "File exists").
+if [ ! -e "app/.env.production" ]; then
+  ln -sf ../../.config/.env.production app/.env.production
+  [ -e "app/.env.production" ] \
+    && echo "✅ Symlinked app/.env.production -> ~/dev/being/.config/.env.production" \
+    || echo "⚠️  app/.env.production target missing — create ~/dev/being/.config/.env.production"
+else
+  echo "✓ app/.env.production already resolves"
 fi
-if [ ! -L "app/.env.development" ]; then
-  ln -s ../../.config/.env.development app/.env.development
-  echo "✅ Symlinked app/.env.development -> ~/dev/being/.config/.env.development"
+if [ ! -e "app/.env.development" ]; then
+  ln -sf ../../.config/.env.development app/.env.development
+  [ -e "app/.env.development" ] \
+    && echo "✅ Symlinked app/.env.development -> ~/dev/being/.config/.env.development" \
+    || echo "⚠️  app/.env.development target missing — create ~/dev/being/.config/.env.development"
+else
+  echo "✓ app/.env.development already resolves"
 fi
 ```
 
-If the canonical files at `~/dev/being/.config/` don't exist, the symlinks will be broken (dangling). The app will start but env vars will be undefined — schema validation (when added) will catch this loudly.
+The guard uses `-e` (which follows the symlink), not `-L`, so re-running `/b-work` **self-repairs** a previously-dangling link (e.g. one left pointing at a renamed canonical file) instead of silently skipping it. If the canonical files at `~/dev/being/.config/` don't exist, you get a loud `⚠️` at setup time rather than a silent dangling link — the app would otherwise start with undefined env vars (and break the iOS Metro build, per CLAUDE.md "Known Gotchas").
 
 ### Step 2.6: Setup Dependencies (Conditional)
 
