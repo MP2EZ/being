@@ -287,6 +287,13 @@ jest.mock('react-native', () => {
     ActivityIndicator: RN.ActivityIndicator,
     Modal: RN.Modal,
     StatusBar: RN.StatusBar,
+    // MAINT-191: missing from the original curated whitelist. Used by
+    // form-input screens (PrincipleFocusScreen, etc.) to dodge keyboard
+    // overlap. Safe + non-deprecated; omission caused
+    // `Element type is invalid: ... got: undefined` on first render of
+    // any screen that uses it.
+    KeyboardAvoidingView: RN.KeyboardAvoidingView,
+    SafeAreaView: RN.SafeAreaView,
 
     // Layout & Styling (SAFE)
     StyleSheet: RN.StyleSheet,
