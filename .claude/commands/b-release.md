@@ -139,12 +139,12 @@ IOS_BUILD=$(jq -r '.expo.ios.buildNumber' /Users/max/dev/being/development/app/a
 ANDROID_VERSION_CODE=$(jq -r '.expo.android.versionCode' /Users/max/dev/being/development/app/app.json)
 
 # Source 3: .config/env.production
-ENV_PROD_VERSION=$(grep '^EXPO_PUBLIC_APP_VERSION=' /Users/max/dev/being/.config/env.production | cut -d'=' -f2)
-ENV_PROD_BUILD=$(grep '^EXPO_PUBLIC_BUILD_NUMBER=' /Users/max/dev/being/.config/env.production | cut -d'=' -f2)
+ENV_PROD_VERSION=$(grep '^EXPO_PUBLIC_APP_VERSION=' /Users/max/dev/being/.config/.env.production | cut -d'=' -f2)
+ENV_PROD_BUILD=$(grep '^EXPO_PUBLIC_BUILD_NUMBER=' /Users/max/dev/being/.config/.env.production | cut -d'=' -f2)
 
 # Source 4: .config/env.development
-ENV_DEV_VERSION=$(grep '^EXPO_PUBLIC_APP_VERSION=' /Users/max/dev/being/.config/env.development | cut -d'=' -f2)
-ENV_DEV_BUILD=$(grep '^EXPO_PUBLIC_BUILD_NUMBER=' /Users/max/dev/being/.config/env.development | cut -d'=' -f2)
+ENV_DEV_VERSION=$(grep '^EXPO_PUBLIC_APP_VERSION=' /Users/max/dev/being/.config/.env.development | cut -d'=' -f2)
+ENV_DEV_BUILD=$(grep '^EXPO_PUBLIC_BUILD_NUMBER=' /Users/max/dev/being/.config/.env.development | cut -d'=' -f2)
 ```
 
 ### 4.1 Drift check
@@ -246,12 +246,12 @@ jq --arg v "$NEXT_VERSION" --arg b "$NEXT_BUILD" \
    app.json > app.json.tmp && mv app.json.tmp app.json
 
 # 3. .config/env.production
-sed -i '' "s/^EXPO_PUBLIC_APP_VERSION=.*/EXPO_PUBLIC_APP_VERSION=$NEXT_VERSION/" /Users/max/dev/being/.config/env.production
-sed -i '' "s/^EXPO_PUBLIC_BUILD_NUMBER=.*/EXPO_PUBLIC_BUILD_NUMBER=$NEXT_BUILD/" /Users/max/dev/being/.config/env.production
+sed -i '' "s/^EXPO_PUBLIC_APP_VERSION=.*/EXPO_PUBLIC_APP_VERSION=$NEXT_VERSION/" /Users/max/dev/being/.config/.env.production
+sed -i '' "s/^EXPO_PUBLIC_BUILD_NUMBER=.*/EXPO_PUBLIC_BUILD_NUMBER=$NEXT_BUILD/" /Users/max/dev/being/.config/.env.production
 
 # 4. .config/env.development
-sed -i '' "s/^EXPO_PUBLIC_APP_VERSION=.*/EXPO_PUBLIC_APP_VERSION=$NEXT_VERSION/" /Users/max/dev/being/.config/env.development
-sed -i '' "s/^EXPO_PUBLIC_BUILD_NUMBER=.*/EXPO_PUBLIC_BUILD_NUMBER=$NEXT_BUILD/" /Users/max/dev/being/.config/env.development
+sed -i '' "s/^EXPO_PUBLIC_APP_VERSION=.*/EXPO_PUBLIC_APP_VERSION=$NEXT_VERSION/" /Users/max/dev/being/.config/.env.development
+sed -i '' "s/^EXPO_PUBLIC_BUILD_NUMBER=.*/EXPO_PUBLIC_BUILD_NUMBER=$NEXT_BUILD/" /Users/max/dev/being/.config/.env.development
 ```
 
 **Note**: env files are NOT in any git worktree — they live at `~/dev/being/.config/`. Worktree symlinks point to these canonical files. Editing them affects every worktree's resolved env at once. That's intentional per CLAUDE.md "Known Gotchas".

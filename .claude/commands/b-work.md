@@ -230,12 +230,12 @@ Worktrees do not store their own env files. Both `.env.production` and `.env.dev
 cd /Users/max/dev/being/[dir-name]
 
 if [ ! -L "app/.env.production" ]; then
-  ln -s ../../.config/env.production app/.env.production
-  echo "✅ Symlinked app/.env.production -> ~/dev/being/.config/env.production"
+  ln -s ../../.config/.env.production app/.env.production
+  echo "✅ Symlinked app/.env.production -> ~/dev/being/.config/.env.production"
 fi
 if [ ! -L "app/.env.development" ]; then
-  ln -s ../../.config/env.development app/.env.development
-  echo "✅ Symlinked app/.env.development -> ~/dev/being/.config/env.development"
+  ln -s ../../.config/.env.development app/.env.development
+  echo "✅ Symlinked app/.env.development -> ~/dev/being/.config/.env.development"
 fi
 ```
 
