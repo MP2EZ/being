@@ -45,6 +45,7 @@ import {
   DotCalendar,
   PrincipleEngagementChart,
   WellnessScreeningTrends,
+  WeeklyReflectionCard,
 } from '../components';
 
 type NavigationProp = StackNavigationProp<RootStackParamList>;
@@ -183,6 +184,9 @@ const InsightsScreen: React.FC = () => {
           engagements={principleEngagements}
           initialTimeRange="month"
         />
+
+        {/* Weekly Reflection (FEAT-194) - replaces FEAT-53 standalone weekly review */}
+        <WeeklyReflectionCard />
 
         {/* Wellness Screening Trends (Clinical Context) */}
         <WellnessScreeningTrends
