@@ -1,0 +1,45 @@
+name: Supabase Keep-Alive
+
+# Free-tier Supabase projects pause after 7 consecutive days with no API/DB
+# activity. This sends a lightweight external request every 3 days to reset the
+# inactivity timer. A read against the REST root exercises the PostgREST ->
+# Postgres path without writing any data. See QUICKSTART_COMMANDS.md / CLAUDE.md.
+
+on:
+  schedule:
+    - cron: '0 9 */3 * *'   # every 3 days at 09:00 UTC (well under the 7-day window)
+  workflow_dispatch:          # manual "Run workflow" button for ad-hoc pings
+
+concurrency:
+  group: supabase-keepalive
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ping Supabase REST API
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "::error::Missing SUPABASE_URL or SUPABASE_ANON_KEY repo secret."
+            exit 1
+          fi
+          code=$(curl -s -o /dev/null -w "%{http_code}" \
+            "$SUPABASE_URL/rest/v1/" \
+            -H "apikey: $SUPABASE_ANON_KEY")
+          echo "Supabase REST responded HTTP $code"
+          # Any 2xx/3xx/4xx means the project is awake and served the request.
+          # Only a 5xx or connection failure indicates a real problem.
+          if [ "$code" -ge 200 ] && [ "$code" -lt 500 ]; then
+            echo "Keep-alive ping succeeded."
+          else
+            echo "::error::Keep-alive ping failed with HTTP $code"
+            exit 1
+          fi
