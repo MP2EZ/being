@@ -8,9 +8,14 @@
  * release-level feature availability (e.g. `cloud_sync`), not per-user
  * rollout. An env-backed flag is offline-safe, deterministic, and adds no
  * network dependency — which matters in an app with crisis/safety surfaces
- * where feature availability must never hinge on a network round-trip. If
- * remote runtime control (kill-switch, %-rollout, A/B) is ever needed, swap
- * the backing source here; the `isFeatureEnabled` call sites stay identical.
+ * where feature availability must never hinge on a network round-trip.
+ *
+ * This sync API remains the source of truth for safety/structural flags. For
+ * runtime control (kill-switch, %-rollout, A/B) of *product* flags, use the
+ * PostHog-backed `useFeatureFlag` hook in `@/core/analytics` (INFRA-199): it
+ * layers on top of this build-time default (which stays the fail-safe floor)
+ * and only resolves remotely for the explicit `PRODUCT_FLAGS` allow-list, under
+ * granted analytics consent.
  *
  * Blob format: comma-separated `key:value` pairs, e.g.
  *   "cloud_sync:false,widget_support:true". Only the literal string "true"
