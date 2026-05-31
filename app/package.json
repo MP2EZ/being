@@ -84,13 +84,6 @@
     "e2e:safety:crisis-button": "maestro test .maestro/crisis-button-reachability.yaml",
     "e2e:safety:988-dial": "maestro test .maestro/crisis-988-dial.yaml"
   },
-  "expo": {
-    "install": {
-      "exclude": [
-        "typescript"
-      ]
-    }
-  },
   "overrides": {
     "react": "19.2.3",
     "react-test-renderer": "19.2.3",
@@ -175,7 +168,7 @@
     "prettier": "^3.6.2",
     "ts-jest": "^29.4.6",
     "ts-node": "^10.9.2",
-    "typescript": "~5.9.2"
+    "typescript": "~6.0.3"
   },
   "private": true
 }
