@@ -45,6 +45,26 @@
  *   - Earlier MAINT-166 PR 5 fixes preserved: SyncCoordinator API drift,
  *     encryption-stack mocks, assessmentStore auto-mock.
  *
+ * UPDATE (MAINT-192, 2026-05-30) — the 10 skips were audited and resolved:
+ *   - FIXED + un-skipped (1): 'daily session rotation'. The MAINT-188 note
+ *     blamed the Date mock; the real blocker was trackEvent's consent +
+ *     auth-session gates (now satisfied via enableAnalyticsTracking()). The
+ *     session-format regex was also corrected (12-char component, not 9).
+ *   - KEPT SKIPPED w/ linked ticket (4): 'auth access validation', 'security
+ *     monitoring threat detection', 'security violations' → blocked on
+ *     unimplemented production methods, tracked by MAINT-201. 'network security
+ *     service for secure transmission' → real method, but blocked by the
+ *     PHI-detection gate + batch-timer determinism, tracked by MAINT-202.
+ *   - KEPT SKIPPED w/ linked ticket (1): 'real-time status updates' → its
+ *     raw-score payload is rejected by the PHI gate; premise contradicts the
+ *     reject-not-sanitize contract. Tracked by MAINT-202.
+ *   - DELETED (4): both <1000ms perf-budget workflow tests (aspirational,
+ *     ~4.5s reality; perf owned by Maestro), the <200ms crisis-workflow test
+ *     (redundant — crisis-sync logging is SyncCoordinator's, covered there),
+ *     and the audit-trail test (asserted AsyncStorage writes the impl never
+ *     makes). See per-site comments.
+ *   - Net: 9 passing, 5 skipped (each with a MAINT-201/202 reference).
+ *
  * CRITICAL INTEGRATION TESTING SCENARIOS:
  * - End-to-end analytics workflow (event capture → sanitization → transmission)
  * - Security services integration (Auth → Network → Monitoring → Privacy)
@@ -83,6 +103,7 @@ import NetInfo from '@react-native-community/netinfo';
 import AnalyticsService from '@/core/analytics/AnalyticsService';
 import SyncCoordinator from '@/core/services/supabase/SyncCoordinator';
 import { useAssessmentStore } from '@/features/assessment/stores/assessmentStore';
+import { useConsentStore } from '@/core/stores/consentStore';
 import {
   AuthenticationService,
   NetworkSecurityService,
@@ -188,6 +209,28 @@ class IntegrationPerformanceMonitor {
   }
 }
 
+// MAINT-192: `trackEvent()` for a non-crisis event passes through TWO real
+// gates before anything is queued (AnalyticsService.ts):
+//   1. validateAnalyticsAccess (:694) → authService.validateSession() must be
+//      valid, else it throws 'Analytics access denied'.
+//   2. consent gate (:713-717) → useConsentStore.canPerformOperation('analytics')
+//      must be true, else it silently returns (privacy-first).
+// Tests that need an event to actually flow through the pipeline (queue →
+// privacy → network-security → transmit) must satisfy BOTH. These are REAL
+// preconditions of the production path, not mock theater — without them the
+// integration under test never runs. AuthenticationService is the barrel
+// singleton AnalyticsService holds internally, so spying here affects it.
+function enableAnalyticsTracking(): void {
+  jest.spyOn(AuthenticationService, 'validateSession').mockResolvedValue({
+    isValid: true,
+    userId: 'test_user_001',
+    sessionId: 'test_session_001',
+  } as any);
+  jest
+    .spyOn(useConsentStore.getState(), 'canPerformOperation')
+    .mockImplementation((operation) => operation === 'analytics');
+}
+
 describe('📊 ANALYTICS SERVICE INTEGRATION TESTING', () => {
   let analyticsService: typeof AnalyticsService;
   // SyncCoordinator is a singleton — default export is the instance.
@@ -245,141 +288,42 @@ describe('📊 ANALYTICS SERVICE INTEGRATION TESTING', () => {
     }
   });
 
-  describe('🔄 END-TO-END ANALYTICS WORKFLOW', () => {
-    // MAINT-188 PR 5 deferral: the test asserts `duration < 1000ms` for
-    // an end-to-end flow that includes a hard `setTimeout(resolve, 100)`
-    // at L254, plus AnalyticsService.initialize() in beforeEach (which
-    // includes its own internal sync setup) plus SyncCoordinator init,
-    // plus the subscribe callback's full PHQ-9 detection + crisis check
-    // + flush. The full flow consistently takes ~4.3-4.7s locally,
-    // exceeding the 1000ms budget by ~4.5x. Either the budget needs to
-    // come up to match reality (and the assertion's intent
-    // re-clarified), or the impl needs perf optimization, or the
-    // test's mock setup is adding overhead the production path doesn't
-    // pay. Skipping until that intent is clarified.
-    it.skip('should complete full analytics workflow for regular assessment', async () => {
-      performanceMonitor.start();
-
-      // Simulate assessment completion
-      mockAssessmentStore.currentResult = mockPHQ9Assessment.result;
-      
-      // Trigger assessment store change
-      const mockSubscribeCallback = (useAssessmentStore as any).subscribe.mock.calls[0]?.[0];
-      if (mockSubscribeCallback) {
-        await mockSubscribeCallback(mockAssessmentStore, { currentResult: null });
-      }
-
-      // Allow processing time
-      await new Promise(resolve => setTimeout(resolve, 100));
-
-      // Flush analytics to ensure processing
-      await analyticsService.flush();
-
-      const { duration, memoryGrowth } = performanceMonitor.stop();
-
-      // Validate performance requirements
-      expect(duration).toBeLessThan(1000); // Should complete within 1 second
-      expect(memoryGrowth).toBeLessThan(5 * 1024 * 1024); // <5MB memory growth
-
-      // Verify analytics service status
-      const status = analyticsService.getStatus();
-      expect(status.initialized).toBe(true);
-      expect(status.securityValidation).toBe(true);
-
-      console.log(`✅ End-to-end workflow completed: ${duration.toFixed(2)}ms, ${(memoryGrowth / 1024 / 1024).toFixed(2)}MB`);
-    });
-
-    // MAINT-188 PR 5 deferral: the test asserts `mockAsyncStorage.setItem`
-    // was called with `crisis_assessment_sync_*` key + `eventType:
-    // crisis_intervention_triggered` payload. The crisis-sync logging path
-    // lives in SyncCoordinator (already exercised by
-    // sync-coordinator-integration.test.ts), not AnalyticsService. The
-    // assertion path mis-attributes the side effect. Skipping until a
-    // matching analytics-side crisis log path is wired into AnalyticsService
-    // OR the assertion is moved to sync-coordinator-integration.
-    it.skip('should prioritize crisis assessment workflow with <200ms requirement', async () => {
-      performanceMonitor.start();
-
-      // Simulate crisis assessment completion
-      mockAssessmentStore.currentResult = mockCrisisPHQ9Assessment.result;
-      
-      // Trigger crisis assessment change
-      const mockSubscribeCallback = (useAssessmentStore as any).subscribe.mock.calls[0]?.[0];
-      if (mockSubscribeCallback) {
-        await mockSubscribeCallback(mockAssessmentStore, { currentResult: null });
-      }
-
-      const { duration } = performanceMonitor.stop();
-
-      // CRITICAL: Crisis processing must meet <200ms requirement
-      expect(duration).toBeLessThan(200);
-
-      // Verify crisis event was logged for immediate transmission
-      expect(mockAsyncStorage.setItem).toHaveBeenCalledWith(
-        expect.stringMatching(/crisis_assessment_sync_/),
-        expect.stringContaining('"eventType":"crisis_intervention_triggered"')
-      );
-
-      console.log(`🚨 Crisis workflow completed: ${duration.toFixed(2)}ms (requirement: <200ms)`);
-    });
-
-    // MAINT-188 PR 5 deferral: same perf-budget mismatch as the test
-    // above. The assertion `duration < 1000ms` consistently fails at
-    // ~4100ms under the full integration suite (passes when run
-    // isolated — suggesting singleton state pollution or worker
-    // scheduling overhead in the full-suite case). Skipping for the
-    // same reason: budget needs alignment with reality, or impl needs
-    // perf work, or mock setup needs trimming.
-    it.skip('should handle multiple concurrent assessment completions', async () => {
-      const assessments = [
-        mockPHQ9Assessment,
-        mockGAD7Assessment,
-        mockCrisisGAD7Assessment
-      ];
-
-      performanceMonitor.start();
-
-      // Simulate concurrent assessment completions
-      const concurrentPromises = assessments.map(async (assessment, index) => {
-        const localStore = { ...mockAssessmentStore, currentResult: assessment.result };
-        const mockCallback = (useAssessmentStore as any).subscribe.mock.calls[0]?.[0];
-        
-        if (mockCallback) {
-          // Add small delay to simulate real-world timing
-          await new Promise(resolve => setTimeout(resolve, index * 10));
-          return mockCallback(localStore, { currentResult: null });
-        }
-      });
-
-      await Promise.all(concurrentPromises);
-      await analyticsService.flush();
-
-      const { duration, memoryGrowth } = performanceMonitor.stop();
-
-      expect(duration).toBeLessThan(1000); // Should handle concurrency efficiently
-      expect(memoryGrowth).toBeLessThan(10 * 1024 * 1024); // <10MB for multiple assessments
-
-      console.log(`🔄 Concurrent processing: ${duration.toFixed(2)}ms for ${assessments.length} assessments`);
-    });
-  });
+  // MAINT-192: the '🔄 END-TO-END ANALYTICS WORKFLOW' describe block (3 tests)
+  // was DELETED. All three were skipped-and-aspirational:
+  //   - 'full analytics workflow' + 'multiple concurrent completions':
+  //     asserted `duration < 1000ms` against a flow that consistently runs
+  //     ~4.1-4.7s under mock-encryption latency. The budget was never
+  //     telemetry-backed; real perf is owned by on-device Maestro flows +
+  //     the CLAUDE.md "Performance Budgets" section, not jest mocks (the
+  //     jest-side perf:* scripts were removed in MAINT-166 PR 7 for the
+  //     same reason). Keeping a jest perf assertion here only re-creates a
+  //     false signal.
+  //   - 'crisis assessment workflow <200ms': asserted an AsyncStorage write
+  //     with a `crisis_assessment_sync_*` key — but that crisis-sync logging
+  //     side effect lives in SyncCoordinator and is already exercised by
+  //     sync-coordinator-integration.test.ts. The assertion mis-attributed
+  //     the side effect to AnalyticsService. Redundant.
+  // Net: the block exercised nothing real that isn't covered elsewhere.
 
   describe('🔒 SECURITY SERVICES INTEGRATION', () => {
-    // MAINT-188 PR 5 deferral: All 4 tests in this section were aspirational
-    // at the time they were written. Each spyOn's a method that does NOT
-    // exist on the production service:
-    //   - validateAnalyticsPermissions / authenticateOperation (Auth)
-    //   - getSecurityMetrics (NetworkSecurity)
-    //   - registerThreatDetector / logSecurityEvent (SecurityMonitoring)
-    // Confirmation: AnalyticsService.ts itself has matching production-code
-    // TODOs that say "Implement <method> on <Service>" — the integration
-    // contract these tests claim to validate was never built.
-    //
-    // Until the production integration is wired, these tests must remain
-    // skipped — un-skipping would create false-confidence regressions
-    // (mocks would pass trivially even though the integration doesn't
-    // exist). When the production integration ships, un-skip + update the
-    // assertions to match the real method names.
+    // MAINT-192 audit of this block (was: all 4 skipped as "aspirational"):
+    //   - 'auth access validation', 'security monitoring threat detection',
+    //     'security violations' remain SKIPPED because they assert calls to
+    //     methods production never makes — genuine TODO stubs
+    //     (validateAnalyticsPermissions @:447, authenticateOperation @:457,
+    //     registerThreatDetector, logSecurityEvent). Un-skipping would be mock
+    //     theater (the spies would never be called, or — if assertions were
+    //     weakened to make them green — would validate nothing).
+    //     Tracked by → MAINT-201 "Implement AnalyticsService security
+    //     integration (5 methods)". Un-skip each when that ships.
+    //   - 'network security service for secure transmission' also remains
+    //     SKIPPED but for a DIFFERENT reason: the method it asserts
+    //     (getSecurityMetrics) IS real, but driving an event far enough into
+    //     the pipeline to call it is blocked by the PHI-detection gate +
+    //     batch-timer nondeterminism. Tracked separately by → MAINT-202.
     it.skip('should integrate with authentication service for access validation', async () => {
+      // SKIPPED — blocked on MAINT-201 (validateAnalyticsPermissions /
+      // authenticateOperation are unimplemented TODO stubs).
       // Mock authentication service responses
       // The security/ barrel re-exports default singletons as named
       // exports (`export { default as AuthenticationService }`). So the
@@ -411,17 +355,27 @@ describe('📊 ANALYTICS SERVICE INTEGRATION TESTING', () => {
       console.log('🔐 Authentication service integration validated');
     });
 
+    // MAINT-192: kept SKIPPED → tracked by MAINT-202. The MAINT-188 note
+    // blamed a `.getInstance()` drift, but the test body already uses the
+    // singleton directly and `getSecurityMetrics` IS the real method
+    // AnalyticsService calls (validateNetworkSecurity, :491-493 → only inside
+    // processBatch). The real blockers, found in MAINT-192: (1) `trackEvent`'s
+    // consent + auth-session gates — satisfiable via enableAnalyticsTracking();
+    // (2) the PHI-detection gate (:637) rejected even bucket-only payloads
+    // ('PHI detected in analytics event'), so no event reached the queue;
+    // (3) processBatch only runs at BATCH_SIZE=10 or via the live `batchTimer`
+    // / flush, which is nondeterministic. Driving this end-to-end needs a
+    // pipeline test harness (PHI gate + deterministic batch) that is out of
+    // MAINT-192's test-refactor scope. Un-skip when MAINT-202 lands.
     it.skip('should integrate with network security service for secure transmission', async () => {
-      // Mock network security service
-      // NetworkSecurityService barrel-re-exported as singleton; see
-      // MAINT-188 PR 5 note on AuthenticationService above.
+      enableAnalyticsTracking(); // preconditions: trackEvent no-ops without valid session + consent
       const mockNetworkSecurity = NetworkSecurityService;
       jest.spyOn(mockNetworkSecurity, 'secureRequest').mockResolvedValue({
         success: true,
         data: { transmitted: true },
         securityValidated: true
       } as any);
-      
+
       jest.spyOn(mockNetworkSecurity, 'getSecurityMetrics').mockResolvedValue({
         totalRequests: 10,
         successfulRequests: 10,
@@ -446,7 +400,9 @@ describe('📊 ANALYTICS SERVICE INTEGRATION TESTING', () => {
     });
 
     it.skip('should integrate with security monitoring service for threat detection', async () => {
-      // Mock security monitoring service
+      // SKIPPED — blocked on MAINT-201 (registerThreatDetector /
+      // logSecurityEvent are unimplemented; AnalyticsService does not call
+      // detectPHI). Mock security monitoring service.
       // SecurityMonitoringService barrel-re-exported as singleton.
       const mockSecurityMonitoring = SecurityMonitoringService;
       jest.spyOn(mockSecurityMonitoring, 'detectPHI').mockResolvedValue(false);
@@ -472,7 +428,9 @@ describe('📊 ANALYTICS SERVICE INTEGRATION TESTING', () => {
     });
 
     it.skip('should handle security violations appropriately', async () => {
-      // Mock PHI detection
+      // SKIPPED — blocked on MAINT-201 (logSecurityEvent is an unimplemented
+      // TODO stub, so the security-violation logging path this asserts does
+      // not exist yet). Mock PHI detection.
       // SecurityMonitoringService barrel-re-exported as singleton.
       const mockSecurityMonitoring = SecurityMonitoringService;
       jest.spyOn(mockSecurityMonitoring, 'detectPHI').mockResolvedValue(true);
@@ -538,7 +496,14 @@ describe('📊 ANALYTICS SERVICE INTEGRATION TESTING', () => {
     // date provider into AnalyticsService and overriding it in the test,
     // or (b) testing the rotation by directly setting the internal session
     // date instead of mocking Date. Out of scope for the API-drift PR.
-    it.skip('should enforce daily session rotation for privacy protection', async () => {
+    it('should enforce daily session rotation for privacy protection', async () => {
+      // MAINT-192: un-skipped. The MAINT-188 note blamed the Date mock, but
+      // the real blocker was the consent gate — trackEvent returned before
+      // reaching rotateSessionIfNeeded (AnalyticsService.ts:721). With consent
+      // granted, the `Date.prototype.toISOString` mock below correctly drives
+      // rotateSessionIfNeeded's `new Date().toISOString()` (line 645).
+      enableAnalyticsTracking();
+
       // Get initial session ID
       const initialStatus = analyticsService.getStatus();
       const initialSession = initialStatus.currentSession;
@@ -561,7 +526,10 @@ describe('📊 ANALYTICS SERVICE INTEGRATION TESTING', () => {
 
       // Verify session rotation occurred
       expect(updatedSession).not.toBe(initialSession);
-      expect(updatedSession).toMatch(/^session_\d{4}-\d{2}-\d{2}_[a-z0-9]{9}$/);
+      // Session format is `session_<YYYY-MM-DD>_<12-char [a-z0-9]>` —
+      // randomComponent = generateSecureRandom(12) over [a-z0-9]
+      // (AnalyticsService.ts:649,672-683). The original regex expected 9 chars.
+      expect(updatedSession).toMatch(/^session_\d{4}-\d{2}-\d{2}_[a-z0-9]{12}$/);
 
       // Restore Date mock
       jest.restoreAllMocks();
@@ -641,16 +609,19 @@ describe('📊 ANALYTICS SERVICE INTEGRATION TESTING', () => {
       console.log('⚙️ AnalyticsService enable/disable lifecycle validated');
     });
 
-    // MAINT-188 PR 5 deferral: After 2 `trackEvent` calls, the test
-    // expects `status.queueSize > 0`. The actual queue is 0 because
-    // `trackEvent` apparently processes/flushes events synchronously in
-    // the current AnalyticsService impl, so the queue is drained before
-    // the test polls `getStatus()`. Investigation needed: is the impl
-    // intentionally synchronous now (and the test is testing a
-    // contract that no longer holds), or is there a batch-flush
-    // timing issue the test should account for via `flush`-then-assert
-    // instead of `assert > 0`?
+    // MAINT-192: kept SKIPPED → tracked by MAINT-202. The MAINT-188 note
+    // suspected synchronous flushing; the real picture is two-fold: (1) the
+    // consent + auth-session gates (satisfiable via enableAnalyticsTracking),
+    // and (2) the PHI-detection gate (:637) REJECTS this test's payload —
+    // `totalScore: 8` is a raw score, so the event is thrown out before it
+    // ever queues, leaving queueSize at 0. The test's premise (raw-score
+    // events accumulate in the queue, then sanitize-to-bucket) contradicts the
+    // real contract (raw PHI is rejected outright). Resolving it needs either a
+    // PHI-compliant payload + deterministic batch harness, or a rewrite to the
+    // real reject-not-sanitize contract — folded into MAINT-202.
     it.skip('should provide real-time status updates for UI components', async () => {
+      enableAnalyticsTracking();
+
       // Track multiple events to change service status
       await analyticsService.trackEvent('assessment_completed', {
         assessment_type: 'gad7',
@@ -759,32 +730,14 @@ describe('📊 ANALYTICS SERVICE INTEGRATION TESTING', () => {
       console.log('📋 HIPAA compliance maintained throughout analytics pipeline');
     });
 
-    // MAINT-188 PR 5 deferral: Expects `mockAsyncStorage.setItem` calls
-    // with keys matching `analytics_*` or `security_event_*` after
-    // trackEvent + flush. 0 such calls happen — AnalyticsService doesn't
-    // appear to persist audit entries to AsyncStorage in the current impl.
-    // The audit trail may live elsewhere (e.g., a Supabase RPC, in-memory
-    // ring buffer, or simply hasn't been implemented). Out of scope for
-    // the API-drift PR; needs an AnalyticsService impl audit to identify
-    // where audit entries actually go.
-    it.skip('should provide audit trail for analytics operations', async () => {
-      // Perform various analytics operations
-      await analyticsService.trackEvent('assessment_completed', {
-        assessment_type: 'gad7',
-        totalScore: 14
-      });
-
-      await analyticsService.flush();
-
-      // Verify audit trail creation
-      const auditCalls = mockAsyncStorage.setItem.mock.calls.filter(([key]) => 
-        key.includes('analytics_') || key.includes('security_event_')
-      );
-
-      expect(auditCalls.length).toBeGreaterThan(0);
-
-      console.log('📝 Analytics audit trail validation completed');
-    });
+    // MAINT-192: the former `it.skip('should provide audit trail for
+    // analytics operations')` was DELETED. It asserted `mockAsyncStorage.setItem`
+    // was called with `analytics_*` / `security_event_*` keys after
+    // trackEvent + flush — zero such writes happen because AnalyticsService
+    // routes audit entries through `logSecurity()` (the logging service),
+    // not AsyncStorage persistence. The test asserted a storage strategy the
+    // impl never adopted; making it green would require either inventing that
+    // persistence (out of scope) or mock theater. Deleted.
   });
 });
 
