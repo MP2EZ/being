@@ -12,3 +12,5 @@
 export { default as DotCalendar } from './DotCalendar';
 export { default as PrincipleEngagementChart } from './PrincipleEngagementChart';
 export { default as WellnessScreeningTrends } from './WellnessScreeningTrends';
+export { default as WeeklyReflectionCard } from './WeeklyReflectionCard';
+export { default as WeeklyReflectionComposer } from './WeeklyReflectionComposer';

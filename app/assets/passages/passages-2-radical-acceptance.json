@@ -1,0 +1,38 @@
+{
+  "principle": "radical-acceptance",
+  "passages": [
+    {
+      "id": "marcus-meditations-4-23",
+      "principle": "radical-acceptance",
+      "author": "Marcus Aurelius",
+      "work": "Meditations",
+      "citation": "Meditations 4.23",
+      "translation": "George Long",
+      "text": "Everything harmonizes with me, which is harmonious to thee, O Universe. Nothing for me is too early nor too late, which is in due time for thee. Everything is fruit to me which thy seasons bring, O Nature: from thee are all things, in thee are all things, to thee all things return.",
+      "context": "An address to Nature, the classic expression of the Stoic acceptance of fate (amor fati).",
+      "order": 1
+    },
+    {
+      "id": "epictetus-enchiridion-8",
+      "principle": "radical-acceptance",
+      "author": "Epictetus",
+      "work": "Enchiridion",
+      "citation": "Enchiridion 8",
+      "translation": "Elizabeth Carter",
+      "text": "Don't demand that things happen as you wish, but wish that they happen as they do happen, and you will go on well.",
+      "context": "One of the Handbook's shortest maxims, stating non-resistance to events directly.",
+      "order": 2
+    },
+    {
+      "id": "marcus-meditations-10-6",
+      "principle": "radical-acceptance",
+      "author": "Marcus Aurelius",
+      "work": "Meditations",
+      "citation": "Meditations 10.6",
+      "translation": "George Long",
+      "text": "Whatever may happen to thee, it was prepared for thee from all eternity; and the implication of causes was from eternity spinning the thread of thy being, and of that which is incident to it.",
+      "context": "Marcus frames each event as woven into the order of the whole, a ground for welcoming what comes.",
+      "order": 3
+    }
+  ]
+}

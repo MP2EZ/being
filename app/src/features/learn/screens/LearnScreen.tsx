@@ -265,6 +265,25 @@ const LearnScreen: React.FC = () => {
               );
             })}
           </View>
+
+          {/* Classical Library entry (FEAT-54) */}
+          <Pressable
+            style={({ pressed }) => [styles.libraryEntry, pressed && { opacity: 0.7 }]}
+            onPress={() => navigation.navigate('ClassicalLibrary')}
+            accessibilityRole="button"
+            accessibilityLabel="Browse the Classical Library"
+            accessibilityHint="Curated passages from Marcus Aurelius, Epictetus, and Seneca"
+          >
+            <View style={styles.libraryEntryMain}>
+              <Text style={styles.libraryEntryTitle}>Classical Library</Text>
+              <Text style={styles.libraryEntryDescription}>
+                Read curated passages from Marcus Aurelius, Epictetus, and Seneca.
+              </Text>
+            </View>
+            <Text style={styles.libraryEntryArrow} importantForAccessibility="no">
+              →
+            </Text>
+          </Pressable>
         </ScrollView>
         </View>
         <CollapsibleCrisisButton
@@ -454,6 +473,37 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing[16],
+  },
+  libraryEntry: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colorSystem.gray[50],
+    borderRadius: borderRadius.xl,
+    padding: spacing[20],
+    marginTop: spacing[24],
+    borderWidth: 1,
+    borderColor: colorSystem.gray[400],
+    minHeight: 76,
+  },
+  libraryEntryMain: {
+    flex: 1,
+    marginRight: spacing[12],
+  },
+  libraryEntryTitle: {
+    fontSize: typography.bodyLarge.size,
+    fontWeight: typography.fontWeight.semibold,
+    color: colorSystem.base.black,
+    marginBottom: spacing[4],
+  },
+  libraryEntryDescription: {
+    fontSize: typography.bodySmall.size,
+    color: colorSystem.gray[600],
+    lineHeight: 20,
+  },
+  libraryEntryArrow: {
+    fontSize: typography.bodyLarge.size,
+    fontWeight: typography.fontWeight.semibold,
+    color: colorSystem.base.midnightBlue,
   },
   moduleTime: {
     fontSize: typography.bodySmall.size,
