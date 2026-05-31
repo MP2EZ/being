@@ -1,12 +1,20 @@
 # Create Work Item in Notion
 
-**ARGUMENTS**: `[TYPE] - [Name] [--review]`
+**ARGUMENTS**: `[TYPE] - [Name] [--depth quick|design|full]`
 
 **Types**: FEAT | DEBUG | INFRA | MAINT | AGENT
 
+**Depth** (planning rigor — see Phase 3):
+- `quick` *(default)* — orchestrator extracts, scores, creates. No product agent.
+- `design` — product agent runs a segmentation + JTBD pass, then authors the story / AC / score proposals. Orchestrator ratifies.
+- `full` — `design` pass **plus** an independent product critique before creation.
+
 **Examples**:
 - `/b-create FEAT - Simple subscription flow`
-- `/b-create FEAT - Medication tracking --review`
+- `/b-create FEAT - Medication tracking --depth design`
+- `/b-create FEAT - Crisis check-in redesign --depth full`
+
+**Deprecated**: `--review` is a soft alias for `--depth full` (still works; prefer `--depth full`).
 
 **Database ID**: `${NOTION_WORK_DB}` (defined in `CLAUDE.md`)
 
@@ -14,273 +22,230 @@
 
 ## Phase 1: Parse Arguments
 
-Parse `$ARGUMENTS` using pattern: `[TYPE] - [Name] [--review]`
+Parse `$ARGUMENTS` using pattern: `[TYPE] - [Name] [--depth <level>]`
 
 **Extract**:
 - TYPE: First word before ` - `
-- Name: Everything after ` - ` (excluding `--review` flag if present)
-- REVIEW_FLAG: `true` if `--review` present at end, `false` otherwise
+- Name: Everything after ` - ` (excluding any flag tokens)
+- DEPTH: value of `--depth` (accepts `--depth design` or `--depth=design`); default `quick`
 
 **Parsing logic**:
-1. Check if arguments end with `--review` (strip and set flag)
-2. Split remaining by ` - ` delimiter
-3. Extract TYPE (before ` - `) and Name (after ` - `)
+1. Detect a depth flag anywhere in the arguments:
+   - `--depth <level>` or `--depth=<level>` → DEPTH = `<level>`
+   - `--review` (deprecated) → DEPTH = `full`
+   - none present → DEPTH = `quick`
+2. Strip all flag tokens from the argument string.
+3. Split the remainder by ` - ` delimiter → TYPE (before), Name (after).
 
 **Validate TYPE**:
 - Must be one of: FEAT, DEBUG, INFRA, MAINT, AGENT
 - If invalid, error: "Invalid TYPE. Use: FEAT, DEBUG, INFRA, MAINT, or AGENT"
 
+**Validate DEPTH**:
+- Must be one of: quick, design, full
+- If invalid, error: "Invalid --depth. Use: quick, design, or full"
+
 **Examples**:
 ```
 Input: "FEAT - Simple subscription flow"
-→ TYPE: "FEAT"
-→ Name: "Simple subscription flow"
-→ REVIEW_FLAG: false
+→ TYPE: "FEAT" | Name: "Simple subscription flow" | DEPTH: "quick"
 
-Input: "FEAT - Medication tracking --review"
-→ TYPE: "FEAT"
-→ Name: "Medication tracking"
-→ REVIEW_FLAG: true
+Input: "FEAT - Medication tracking --depth design"
+→ TYPE: "FEAT" | Name: "Medication tracking" | DEPTH: "design"
+
+Input: "FEAT - Crisis check-in redesign --review"   (deprecated)
+→ TYPE: "FEAT" | Name: "Crisis check-in redesign" | DEPTH: "full"
 ```
 
 ---
 
-## Phase 2: Extract from Conversation Context
+## Phase 2: Gather Context from Conversation
 
-**Analyze recent conversation** (last 10-20 messages) to extract:
+**Always performed.** Analyze the last 10-20 messages and distill a **brief**. In `quick` mode the orchestrator authors directly from this; in `design`/`full` this brief is the raw material handed to the product agent (which is context-isolated and cannot see the conversation).
 
-### User Story
-Look for:
-- Problem statements: "I need to...", "Users want to...", "The issue is..."
-- Feature requests: "Add ability to...", "Create a way to..."
-- Pain points: "Currently X is difficult...", "Users can't..."
+Extract:
 
-**Extract**: 2-4 sentences describing what and why
+### User Story signals
+Problem statements ("I need to…", "Users want to…"), feature requests ("Add ability to…"), pain points ("Currently X is difficult…").
 
-### Acceptance Criteria
-Look for:
-- Success conditions: "It should...", "When X happens...", "Users can..."
-- Requirements: "Must include...", "Needs to...", "Should validate..."
-- Test scenarios: "If...", "When...", "Given..."
-
-**Extract**: Bulleted list of 3-5 criteria
+### Acceptance Criteria signals
+Success conditions ("It should…", "When X happens…"), requirements ("Must include…"), test scenarios ("If…", "Given…").
 
 ### Technical Notes
-Look for:
-- Implementation details: "Use X library", "Store in Y", "Call Z API"
-- Constraints: "Must be <200ms", "Needs encryption", "Mobile-first"
-- Technical decisions: "Use zustand", "React Native", "Server-side"
-- Dependencies: "Requires X first", "Blocks Y", "Depends on Z"
+Implementation details, constraints (perf budgets, encryption), technical decisions, dependencies / blockers.
 
-**Extract**: Bulleted list of relevant technical context
-
-### AGENTS REQUIRED
-Analyze the **Name** and **extracted context** for keywords and suggest agents:
-
-**Crisis/Safety keywords**: `crisis`, `PHQ`, `GAD`, `threshold`, `988`, `suicide`, `safety plan`, `emergency`
-→ Suggest: `crisis, compliance`
-
-**Assessment keywords**: `assessment`, `PHQ-9`, `GAD-7`, `scoring`, `questionnaire`
-→ Suggest: `crisis, philosopher`
-
-**Therapeutic keywords**: `therapeutic`, `Stoic Mindfulness`, `mindfulness`, `virtue`, `breathing`, `exercise`, `body scan`
-→ Suggest: `philosopher`
-
-**Privacy/PHI keywords**: `privacy`, `HIPAA`, `PHI`, `encryption`, `payment`, `PCI`, `consent`, `data export`
-→ Suggest: `compliance, security`
-
-**Performance keywords**: `performance`, `optimize`, `slow`, `lag`, `bundle size`
-→ Suggest: `performance`
-
-**Default**: No strong matches
-→ Suggest: (leave empty - user can add later)
+### AGENTS REQUIRED (keyword suggestion)
+Scan Name + context:
+- **Crisis/Safety** (`crisis`, `PHQ`, `GAD`, `threshold`, `988`, `suicide`, `safety plan`, `emergency`) → `crisis, compliance`
+- **Assessment** (`assessment`, `PHQ-9`, `GAD-7`, `scoring`, `questionnaire`) → `crisis, philosopher`
+- **Therapeutic** (`therapeutic`, `Stoic Mindfulness`, `mindfulness`, `virtue`, `breathing`, `body scan`) → `philosopher`
+- **Privacy/Data** (`privacy`, `encryption`, `payment`, `PCI`, `consent`, `data export`) → `compliance, security`
+- **Performance** (`performance`, `optimize`, `slow`, `lag`, `bundle size`) → `performance`
+- **Default**: none (user can add later)
 
 ---
 
-## Phase 3: Main Agent Dimension Scoring
+## Dimension Reference (shared by Phase 3)
 
-**Always performed** (regardless of REVIEW_FLAG)
+Score each dimension using Being's prioritization framework (`docs/product/prioritization-framework.md`). Notion calculates Priority via `(I × V^1.5 × SF × U) / (E × R)`.
 
-Based on conversation context and extracted information, score each dimension using Being's prioritization framework (`/docs/product/prioritization-framework.md`):
+- **Impact (1-5)** — business outcome magnitude: 5=Transformative, 4=Significant, 3=Moderate, 2=Minor, 1=Negligible
+- **Value (1-5)** — user benefit (weighted 1.5×): 5=Critical Need, 4=Significant Need, 3=Noticeable Benefit, 2=Quality of Life, 1=Cosmetic
+- **Strategic Fit (1-5)** — Stoic Mindfulness / mission alignment: 5=Mission Essential, 4=Core Strategy, 3=Aligned, 2=Peripheral, 1=Tangential
+- **Urgency (1-5)** — deadline pressure: 5=Critical Blocker, 4=Hard Deadline, 3=Target Window, 2=Opportunistic, 1=No Deadline
+- **Effort (XS/S/M/L/XL/XXL)** — XS=1pt (~1wk), S=2pt (1-2wk), M=3pt (2-3wk), L=5pt (3-5wk), XL=8pt (5-8wk), XXL=13pt (8+wk)
+- **Risk (1-5)** — technical/domain/operational: 5=Critical Risk, 4=High Risk, 3=Moderate Complexity, 2=Some Unknowns, 1=Low Risk
 
-**Impact (1-5)**: Business outcome magnitude
-- Score: [1-5]
-- Rationale: [1 sentence - effect on retention, conversion, market position, revenue potential]
-
-**Value (1-5)**: User benefit (weighted 1.5× in Priority formula)
-- Score: [1-5]
-- Rationale: [1 sentence - safety, therapeutic effectiveness, functional value, experience quality]
-
-**Strategic Fit (1-5)**: Stoic Mindfulness / mission alignment
-- Score: [1-5]
-- Rationale: [1 sentence - how well this aligns with Being's Stoic Mindfulness mental wellness mission]
-
-**Urgency (1-5)**: Deadline urgency
-- Score: [1-5]
-- Rationale: [1 sentence - external deadlines, dependencies, blockers, market windows]
-
-**Effort (XS/S/M/L/XL/XXL)**: Development complexity
-- Size: [XS/S/M/L/XL/XXL]
-- Rationale: [1 sentence - engineering, design, testing, clinical validation, documentation scope]
-
-**Risk (1-5)**: Technical/domain/operational risk
-- Score: [1-5]
-- Rationale: [1 sentence - uncertainty, dependencies, safety implications, compliance complexity]
-
-**Quick Reference**:
-- Impact: 5=Transformative, 4=Significant, 3=Moderate, 2=Minor, 1=Negligible
-- Value: 5=Critical Need, 4=Significant Need, 3=Noticeable Benefit, 2=Quality of Life, 1=Cosmetic
-- Strategic Fit: 5=Mission Essential, 4=Core Strategy, 3=Aligned, 2=Peripheral, 1=Tangential
-- Urgency: 5=Critical Blocker, 4=Hard Deadline, 3=Target Window, 2=Opportunistic, 1=No Deadline
-- Effort: XS=1pt (~1wk), S=2pt (1-2wk), M=3pt (2-3wk), L=5pt (3-5wk), XL=8pt (5-8wk), XXL=13pt (8+wk)
-- Risk: 5=Critical Risk, 4=High Risk, 3=Moderate Complexity, 2=Some Unknowns, 1=Low Risk
+Each dimension gets a 1-sentence rationale.
 
 ---
 
-## Phase 4: Product Validation (Optional)
+## Phase 3: Author the Work Item — branches by DEPTH
 
-**Only if REVIEW_FLAG = true**
+### Phase 3A — DEPTH = quick
 
-Invoke product agent to perform comprehensive review of work item:
+The orchestrator authors directly from the Phase 2 brief:
+- **User Story**, **Acceptance Criteria** (3-5, measurable), **Technical Notes**, **AGENTS REQUIRED**.
+- **Dimension Scores** — all six (see Dimension Reference) with rationale.
+
+Then go to Phase 6.
+
+### Phase 3B — DEPTH = design or full (the Design Pass)
+
+Spawn the **product** agent for a segmentation + JTBD pass that authors the work item. The product agent is context-isolated, so the prompt MUST carry: (1) the distilled conversation brief, (2) the Dimension Reference rubric, (3) TYPE + Name.
 
 **Prompt to product agent**:
 ```
-Review this work item for product quality and calibration:
+Run a design-thinking pass for this work item, then author it.
 
 WORK ITEM: [TYPE] - [Name]
-CONVERSATION CONTEXT: [Summary of last 10-20 messages]
 
-EXTRACTED BY MAIN AGENT:
+CONVERSATION BRIEF (distilled by orchestrator — this is your only window into the conversation):
+[Phase 2 brief: user-story signals, AC signals, technical notes, suggested agents]
 
-**User Story**:
-[extracted user story from Phase 2]
+SCORING RUBRIC (score against this — Being is pre-launch, safety-first, Stoic Mindfulness):
+[paste the Dimension Reference block]
+
+TASKS:
+
+1. SEGMENTATION — Identify 1-3 user segment(s) this serves. For each: a short name + 1-line defining traits.
+
+2. JOBS (JTBD) — For each segment, state 1-3 jobs in the form:
+   "When [situation], I want to [motivation], so I can [expected outcome]."
+   Give ONE success metric per job (how we'd know the job is done well). Keep it lean — no forces analysis.
+
+3. USER STORY — Author an "As a [user], I want [goal], so that [benefit]" story grounded in the jobs.
+
+4. ACCEPTANCE CRITERIA — 3-6 measurable, testable criteria. Each must trace to a job above. Include safety/therapeutic criteria where the domain demands it.
+
+5. TECHNICAL NOTES — Carry/refine technical context from the brief.
+
+6. AGENTS REQUIRED — Suggested specialist agents (crisis/compliance/philosopher/security/performance) or "none".
+
+7. PROPOSED DIMENSION SCORES — All six per the rubric, each with a 1-sentence rationale.
+
+RETURN FORMAT (structured):
+
+**Segments**:
+- [Name]: [traits]
+
+**Jobs**:
+- [Segment] — When [situation], I want to [motivation], so I can [outcome].  ↳ success: [metric]
+
+**User Story**: [story]
 
 **Acceptance Criteria**:
-[extracted criteria from Phase 2]
+- [criterion]  (job: [which job])
 
-**Technical Notes**:
-[extracted notes from Phase 2]
+**Technical Notes**: [notes]
 
-**AGENTS REQUIRED**:
-[suggested agents from Phase 2]
+**AGENTS REQUIRED**: [list or none]
 
-**Dimension Scores**:
-- Impact: [score] - [rationale]
-- Value: [score] - [rationale]
-- Strategic Fit: [score] - [rationale]
-- Urgency: [score] - [rationale]
-- Effort: [size] - [rationale]
-- Risk: [score] - [rationale]
+**Proposed Dimension Scores**:
+- Impact: [1-5] — [rationale]
+- Value: [1-5] — [rationale]
+- Strategic Fit: [1-5] — [rationale]
+- Urgency: [1-5] — [rationale]
+- Effort: [XS-XXL] — [rationale]
+- Risk: [1-5] — [rationale]
+```
+
+**If DEPTH = design** → go to Phase 5 (orchestrator ratification).
+**If DEPTH = full** → go to Phase 4 (validation pass) first.
 
 ---
+
+## Phase 4: Validation Pass — DEPTH = full only
+
+Spawn a **fresh** `product` agent (independent context — it did NOT write the draft, so it critiques rather than defends) to stress-test the authored artifacts.
+
+**Prompt to product agent**:
+```
+Critique this authored work item for product quality and calibration. You are an independent reviewer — be skeptical.
+
+WORK ITEM: [TYPE] - [Name]
+
+AUTHORED ARTIFACTS (from the design pass):
+[Segments, Jobs, User Story, Acceptance Criteria, Technical Notes, AGENTS REQUIRED, Proposed Dimension Scores]
+
+SCORING RUBRIC:
+[paste the Dimension Reference block]
 
 REVIEW TASKS:
-
-1. **User Story**:
-   - Check "As a [user], I want [goal], so that [benefit]" format
-   - Ensure clarity and user-centric framing
-   - Validate benefit aligns with Being's therapeutic mission
-   - Suggest refinements if needed
-
-2. **Acceptance Criteria**:
-   - Ensure measurable and testable
-   - Check completeness (happy path + edge cases)
-   - Identify missing criteria based on user story
-   - Validate therapeutic/safety considerations if applicable
-   - Suggest additions or refinements
-
-3. **Dimension Scores**:
-   - Validate against /docs/product/prioritization-framework.md
-   - Check calibration with Being's context (safety-first, Stoic Mindfulness, pre-launch)
-   - Compare to framework examples
-   - Suggest adjustments with specific reasoning
-
----
+1. Segments & Jobs — Are the segments distinct and real? Does each job follow the JTBD form with a meaningful success metric? Any missing job?
+2. User Story — Correct format, user-centric, benefit aligned to Being's therapeutic mission?
+3. Acceptance Criteria — Measurable, testable, complete (happy path + edge cases)? Each traceable to a job? Safety/therapeutic gaps?
+4. Dimension Scores — Calibrated to the rubric and Being's pre-launch, safety-first context?
 
 RETURN FORMAT:
-
-**User Story Review**:
-[APPROVE / REFINE: suggested improvement with reasoning]
-
-**Acceptance Criteria Review**:
-[APPROVE / ENHANCE: suggested additions/changes with reasoning]
-
+**Segments & Jobs Review**: [APPROVE / REFINE: …]
+**User Story Review**: [APPROVE / REFINE: …]
+**Acceptance Criteria Review**: [APPROVE / ENHANCE: …]
 **Dimension Score Reviews**:
-- Impact: [AGREE / ADJUST to X because...]
-- Value: [AGREE / ADJUST to X because...]
-- Strategic Fit: [AGREE / ADJUST to X because...]
-- Urgency: [AGREE / ADJUST to X because...]
-- Effort: [AGREE / ADJUST to X because...]
-- Risk: [AGREE / ADJUST to X because...]
-
-**Cross-Cutting Notes**:
-[Any observations about technical notes or required agents based on refined requirements]
-```
-
-**Product agent returns comprehensive feedback for all components.**
-
----
-
-## Phase 5: Main Agent Incorporates Feedback (Optional)
-
-**Only if REVIEW_FLAG = true**
-
-Main agent processes product validation feedback and updates all components:
-
-1. **Refine User Story** based on product feedback
-2. **Enhance Acceptance Criteria** based on product feedback
-3. **Reconsider Technical Notes** based on refined user story and acceptance criteria
-4. **Reconsider Agents Required** based on refined user story and acceptance criteria
-5. **Adjust Dimension Scores** based on product validation
-
-**Output format**:
-```
-REFINED WORK ITEM (after product validation):
-
-**User Story**:
-[Final user story]
-[If changed: "✓ Refined from: [original snippet]"]
-
-**Acceptance Criteria**:
-[Final criteria with all items]
-[If enhanced: "✓ Added: [list new criteria]"]
-
-**Technical Notes**:
-[Final technical notes]
-[If reconsidered: "✓ Updated based on refined requirements"]
-
-**AGENTS REQUIRED**:
-[Final agent list]
-[If adjusted: "✓ Adjusted: [note changes and why]"]
-
-**Dimension Scores**:
-- Impact: [final score] - [rationale, note if adjusted]
-- Value: [final score] - [rationale, note if adjusted]
-- Strategic Fit: [final score] - [rationale, note if adjusted]
-- Urgency: [final score] - [rationale, note if adjusted]
-- Effort: [final size] - [rationale, note if adjusted]
-- Risk: [final score] - [rationale, note if adjusted]
+- Impact: [AGREE / ADJUST to X because…]
+- Value: [AGREE / ADJUST to X because…]
+- Strategic Fit: [AGREE / ADJUST to X because…]
+- Urgency: [AGREE / ADJUST to X because…]
+- Effort: [AGREE / ADJUST to X because…]
+- Risk: [AGREE / ADJUST to X because…]
+**Cross-Cutting Notes**: […]
 ```
 
 ---
 
-## Phase 6: Display Extracted Content & Confirm
+## Phase 5: Orchestrator Ratification — DEPTH = design or full
 
-**If REVIEW_FLAG = false** (standard workflow):
+The orchestrator is the authority on Being-specific calibration. Reconcile the authored artifacts (and the Phase 4 critique, if `full`) into a final work item:
+
+1. **Ratify scores** against the rubric + Being's pre-launch, safety-first context. Override any proposed score with a 1-sentence reason if mis-calibrated.
+2. **Finalize AC wording** — ensure measurable and traceable.
+3. **Enforce terminology** — "wellness data" not "PHI"; "AES-256 encryption" not "HIPAA-compliant encryption"; "wellness screening" not "clinical assessment".
+4. **Confirm AGENTS REQUIRED** against the Validation Matrix in `CLAUDE.md`.
+
+Carry forward the final **Segments** and **Jobs** for display + persistence.
+
+---
+
+## Phase 6: Display & Confirm
 
 ```
-📋 Work Item: [TYPE] - [Name]
+📋 Work Item: [TYPE] - [Name]  (depth: [quick|design|full])
+
+[If depth ≥ design:]
+**Segments & Jobs**:
+- [Segment]: [traits]
+  - When [situation], I want to [motivation], so I can [outcome].  ↳ success: [metric]
 
 **User Story**:
-[Extracted user story, or "(No clear user story found in conversation)"]
+[final user story, or "(No clear user story found in conversation)"]
 
 **Acceptance Criteria**:
-[Extracted criteria as bulleted list, or "(No criteria found in conversation)"]
+[final criteria as bulleted list, or "(No criteria found in conversation)"]
 
 **Technical Notes**:
-[Extracted technical context, or "(No technical notes found in conversation)"]
+[final technical notes, or "(No technical notes found in conversation)"]
 
-**AGENTS REQUIRED**: [Suggested agents, or "none"]
+**AGENTS REQUIRED**: [agents, or "none"]
 
 **Dimension Scores**:
 - Impact: [score] - [rationale]
@@ -290,44 +255,8 @@ REFINED WORK ITEM (after product validation):
 - Effort: [size] - [rationale]
 - Risk: [score] - [rationale]
 
----
-Does this look correct? (y/n/edit)
-- y: Create work item as shown
-- n: Cancel creation
-- edit: Provide corrections (Claude will prompt for each field)
-```
-
-**If REVIEW_FLAG = true** (with product validation):
-
-```
-📋 Work Item: [TYPE] - [Name] (product-validated)
-
-**User Story**:
-[Final user story after product validation]
-[If refined: "✓ Refined from: [original snippet]"]
-
-**Acceptance Criteria**:
-[Final criteria with all items after product validation]
-[If enhanced: "✓ Added: [list new criteria]"]
-
-**Technical Notes**:
-[Final technical notes]
-[If reconsidered: "✓ Updated based on refined requirements"]
-
-**AGENTS REQUIRED**: [Final agent list]
-[If adjusted: "✓ Adjusted: [note changes and why]"]
-
-**Dimension Scores**:
-- Impact: [final score] - [rationale]
-- Value: [final score] - [rationale]
-- Strategic Fit: [final score] - [rationale]
-- Urgency: [final score] - [rationale]
-- Effort: [final size] - [rationale]
-- Risk: [final score] - [rationale]
-
----
-Product Validation Summary:
-[Concise bullet list of what was refined/enhanced/validated]
+[If depth = full:]
+Validation summary: [concise bullets of what was refined/enhanced/validated]
 
 ---
 Does this look correct? (y/n/edit)
@@ -336,28 +265,17 @@ Does this look correct? (y/n/edit)
 - edit: Provide corrections (Claude will prompt for each field)
 ```
 
-**If user selects "edit"**:
-Prompt for each field individually:
-```
-User Story (or press Enter to skip):
-Acceptance Criteria (or press Enter to skip):
-Technical Notes (or press Enter to skip):
-AGENTS REQUIRED (or press Enter to use suggested):
-Dimension Scores - adjust any? (specify dimension and new value, or Enter to skip):
-```
+**If user selects "edit"**: prompt per field (User Story / Acceptance Criteria / Technical Notes / AGENTS REQUIRED / Segments & Jobs / Dimension Scores — Enter to skip each).
 
-**If user selects "n"**:
-```
-❌ Work item creation cancelled.
-```
+**If "n"**: `❌ Work item creation cancelled.`
 
-**If user selects "y"**: Proceed to Phase 7
+**If "y"**: proceed to Phase 7.
 
 ---
 
 ## Phase 7: Create Page in Notion
 
-NOTE: The new Notion API uses Notion-flavored Markdown for page content. To update content after creation, use `notion-update-page` with `replace_content` or `replace_content_range` commands.
+NOTE: The Notion API uses Notion-flavored Markdown for page content. To update content after creation, use `notion-update-page` with `replace_content` / `replace_content_range`.
 
 ```
 mcp__notion__notion-create-pages
@@ -370,92 +288,90 @@ pages: [
       "Name": "[Name from Phase 1]",
       "Type": "[TYPE from Phase 1]",
       "Status": "Not started",
-      "Impact": [Impact score from Phase 6],
-      "Value": [Value score from Phase 6],
-      "Strat Fit": [Strategic Fit score from Phase 6],
-      "Urgency": [Urgency score from Phase 6],
-      "Risk": [Risk score from Phase 6],
-      "Effort": "[Effort size from Phase 6]"
+      "Impact": [Impact score],
+      "Value": [Value score],
+      "Strat Fit": [Strategic Fit score],
+      "Urgency": [Urgency score],
+      "Risk": [Risk score],
+      "Effort": "[Effort size]"
     },
-    "content": "## User Story\n[User Story from Phase 3 confirmation, or \"(Add user story here)\"]\n\n## Acceptance Criteria\n[Acceptance Criteria from Phase 3 confirmation, or \"(Add acceptance criteria here)\"]\n\n## Technical Notes\n[Technical Notes from Phase 3 confirmation, or \"(Add technical notes here)\"]\n\n## AGENTS REQUIRED\n[AGENTS REQUIRED from Phase 6 confirmation, or \"(Determine based on work type)\"]\n\n## Dimension Scores\nImpact: [score] - [rationale]\nValue: [score] - [rationale]\nStrategic Fit: [score] - [rationale]\nUrgency: [score] - [rationale]\nEffort: [size] - [rationale]\nRisk: [score] - [rationale]\n[if REVIEW_FLAG: \"\\n\\nProduct validation: [validation summary]\"]"
+    "content": "[See content template below]"
   }
 ]
 ```
 
-**Content Format**: Uses Notion-flavored Markdown with `##` for headings. The content string should be formatted with proper newlines (`\n`).
+**Content template** (Notion-flavored Markdown, `\n` newlines). Include the `## Segments & Jobs` section **only when DEPTH ≥ design**:
 
-**Note**: Work Item ID and Work Item Name will be auto-generated by Notion based on TYPE and Name, returned in response.
+```
+[if depth ≥ design:]## Segments & Jobs
+**Segment:** [name] — [traits]
+**Job:** When [situation], I want to [motivation], so I can [outcome].
+  ↳ success: [metric]
+(repeat per job)
 
-**Dimension Scores**: Always included (from Phase 3 if no review, from Phase 5 if reviewed)
+## User Story
+[User Story, or "(Add user story here)"]
+
+## Acceptance Criteria
+[Acceptance Criteria, or "(Add acceptance criteria here)"]
+
+## Technical Notes
+[Technical Notes, or "(Add technical notes here)"]
+
+## AGENTS REQUIRED
+[AGENTS REQUIRED, or "(Determine based on work type)"]
+
+## Dimension Scores
+Impact: [score] - [rationale]
+Value: [score] - [rationale]
+Strategic Fit: [score] - [rationale]
+Urgency: [score] - [rationale]
+Effort: [size] - [rationale]
+Risk: [score] - [rationale]
+[if depth = full: "\n\nProduct validation: [validation summary]"]
+```
+
+**Note**: Work Item ID and Work Item Name are auto-generated by Notion based on TYPE and Name, returned in the response.
 
 ---
 
 ## Phase 7.5: Add Searchable Work Item ID
 
-After page creation, update the content to include the Work Item ID for search discoverability.
+After page creation, insert the Work Item ID header so `/b-work` can find it via semantic search.
 
-**Extract from response:**
-- page_id: From the create-pages response
-- Work Item ID: From `properties["Work Item ID"]` (formula result like "MAINT-140")
-
-**Update page content:**
+**Extract from response**: `page_id`; Work Item ID from `properties["Work Item ID"]` (formula, e.g. "MAINT-140").
 
 ```
 mcp__notion__notion-update-page
 data: {
-  "page_id": "[page_id from Phase 7 response]",
+  "page_id": "[page_id]",
   "command": "insert_content_after",
   "selection_with_ellipsis": "",
   "new_str": "## Work Item ID: [WORK_ITEM_ID]\n\n"
 }
 ```
 
-**Note**: This inserts the Work Item ID header at the beginning of the page content, making it discoverable via semantic search in `/b-work`.
-
-**Error handling**:
-- If update fails: Log warning, continue (page still created, just less searchable)
-- Display: "⚠️ Could not add searchable ID (page created successfully)"
+**Error handling**: if update fails, log a warning and continue (page still created): "⚠️ Could not add searchable ID (page created successfully)".
 
 ---
 
 ## Phase 8: Extract & Display Result
 
-From the Notion API response, extract:
-- **Work Item Name**: `properties["Work Item Name"]` (auto-generated by Notion)
+From the response, extract **Work Item Name** (`properties["Work Item Name"]`).
 
-**Display to user**:
-
-**If REVIEW_FLAG = false**:
 ```
-✅ Created [Work Item Name]
+✅ Created [Work Item Name]  (depth: [quick|design|full])
 Suggested agents: [AGENTS REQUIRED or "none"]
-Dimension scores captured for prioritization
+[if depth ≥ design: "Segments & jobs captured · "]Dimension scores captured for prioritization
 
 Ready to work on it? Use: /b-work [WORK_ITEM_ID]
 ```
 
-**If REVIEW_FLAG = true**:
+**Example**:
 ```
-✅ Created [Work Item Name] (product-validated)
-Suggested agents: [AGENTS REQUIRED or "none"]
-Dimension scores validated and captured
-
-Ready to work on it? Use: /b-work [WORK_ITEM_ID]
-```
-
-**Example outputs**:
-```
-✅ Created FEAT-27: Simple subscription flow
+✅ Created FEAT-28: Medication tracking  (depth: design)
 Suggested agents: compliance, security
-Dimension scores captured for prioritization
-
-Ready to work on it? Use: /b-work FEAT-27
-```
-
-```
-✅ Created FEAT-28: Medication tracking (product-validated)
-Suggested agents: compliance, security, philosopher
-Dimension scores validated and captured
+Segments & jobs captured · Dimension scores captured for prioritization
 
 Ready to work on it? Use: /b-work FEAT-28
 ```
@@ -470,9 +386,15 @@ Ready to work on it? Use: /b-work FEAT-28
 Valid types: FEAT, DEBUG, INFRA, MAINT, AGENT
 ```
 
+**Invalid --depth**:
+```
+❌ Invalid --depth: "deep"
+Valid levels: quick, design, full
+```
+
 **Missing Name**:
 ```
-❌ Invalid format. Use: /b-create [TYPE] - [Name]
+❌ Invalid format. Use: /b-create [TYPE] - [Name] [--depth quick|design|full]
 Example: /b-create FEAT - Simple subscription flow
 ```
 
@@ -487,45 +409,28 @@ Please try again or create manually in Notion.
 
 ## Notes
 
-**Dimension Scoring** (NEW):
-- Main agent **always** scores all work items using Being's prioritization framework
-- Scores: Impact, Value, Strategic Fit, Urgency, Effort, Risk
-- Captures rationale for each dimension
-- Scores stored in Notion for prioritization (Notion calculates Priority Score via formula)
+**Depth ladder**:
+- `quick` (default) — orchestrator authors + scores from conversation context. No product agent. Fast capture.
+- `design` — product agent runs segmentation + JTBD, then authors the story / AC / proposed scores. Orchestrator ratifies against Being's framework. Use for features where *who it's for* and *what job it does* genuinely shape the design.
+- `full` — `design` plus an independent product critique (a fresh agent that did not write the draft) before creation. Use for strategic / high-risk / safety-adjacent work wanting maximum rigor.
+- `--review` is a deprecated alias for `--depth full`.
 
-**Product Validation** (--review flag):
-- Optional comprehensive review by product agent
-- Validates user story format and benefit alignment
-- Enhances acceptance criteria (measurability, completeness, edge cases)
-- Calibrates dimension scores against framework examples
-- Main agent incorporates feedback and refines work item
-- Use when: complex features, strategic work, want extra rigor
+**Authoring ownership**:
+- In `design`/`full`, the **product agent authors** the story, AC, and proposed scores — it carries the JTBD lens straight through to the criteria, with no handoff fidelity loss.
+- The **orchestrator ratifies**: it owns Being-framework calibration, terminology compliance, AGENTS REQUIRED against the Validation Matrix, and page creation. The product agent proposes; the orchestrator decides.
+- The product subagent is **context-isolated** — the orchestrator must pass it the distilled conversation brief and the scoring rubric in the prompt, or it flies blind.
 
-**Context Extraction**:
-- Command analyzes last 10-20 messages in conversation
-- Extracts User Story, Acceptance Criteria, Technical Notes
-- Suggests AGENTS REQUIRED based on keyword analysis
-- Scores dimensions based on conversation context
-- User confirms/edits before creation (no surprises)
+**Segments & Jobs persistence**:
+- Captured into a `## Segments & Jobs` section in the Notion page (design/full only), so the design thinking carries into `/b-work`.
 
-**Fallback Behavior**:
-- If no context found, placeholders are used (e.g., "(Add user story here)")
-- Dimension scoring still performed (best effort from conversation)
-- User can edit during confirmation or add details later in Notion UI
+**Work Item structure**:
+- Work Item ID pattern: `[TYPE]-[NN]` (e.g. FEAT-27). Name auto-generated by Notion.
+- Priority Score via Notion formula: `(I × V^1.5 × SF × U) / (E × R)`. Status defaults to "Not started".
 
-**Work Item Structure**:
-- Work Item ID follows pattern: `[TYPE]-[NN]` (e.g., FEAT-27, DEBUG-15)
-- Work Item Name is auto-generated by Notion
-- Dimension scores captured in page content
-- Priority Score calculated by Notion formula: `(I × V^1.5 × SF × U) / (E × R)`
-- Status defaults to "Not started"
-
-**Best Practice**:
-- Discuss feature/bug in conversation first
-- Use `/b-create [TYPE] - [Name]` for quick capture with scoring
-- Use `/b-create [TYPE] - [Name] --review` for strategic work needing validation
-- Confirm and create → dimension scores available for prioritization
-- Use `/b-work [WORK_ITEM_ID]` to begin implementation
+**Best practice**:
+- Discuss the feature/bug in conversation first.
+- `quick` for fast capture; `--depth design` when the design benefits from segmentation + JTBD; `--depth full` for strategic work needing an independent critique.
+- Confirm → create → `/b-work [WORK_ITEM_ID]` to implement.
 
 ---
 

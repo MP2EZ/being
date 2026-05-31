@@ -330,7 +330,7 @@ data: {
 
 ---
 
-## Phase 3: Safety Scan & Implement
+## Phase 3: Safety Scan, Flag Decision, Test Strategy & Implement
 
 ### Step 3.1: Safety Scan
 
@@ -357,11 +357,172 @@ Reference `CLAUDE.md` for safety facts (PHQ/GAD thresholds, 988 access budget, p
 > - [ ] Scoped flow passes locally: `npm run e2e:safety:<flow>` (full suite: `npm run e2e:safety`)
 > The `/b-close` Phase 2.5 gate will block push when safety-surface paths change and Maestro fails. This is advisory; the hard gate is in `/b-close`.
 
-**If no signals match**: proceed directly to Step 3.2. General UI work and backend changes don't require a planning pass.
+**If no signals match**: proceed to Step 3.2 (Feature-Flag Decision). General UI work and backend changes don't require a *specialist* planning pass, but they still pass through the flag and TDD decisions below.
 
 ---
 
-### Step 3.2: Implement
+### Step 3.2: Feature-Flag Decision
+
+Decide whether this work item should **ship behind a feature flag**, driven by the
+authored story extracted in Step 1.6 (`Name`, `User Story`, `Acceptance Criteria`,
+`Technical Notes`, `## Segments & Jobs` if present, `ADDITIONAL_CONTEXT`). Being has a
+two-tier flag system (INFRA-199): a runtime PostHog-backed tier and a build-time tier.
+Classify into one **lane**:
+
+| Lane | Use when | Mechanism |
+|---|---|---|
+| **No flag** *(default)* | `DEBUG-*` fixes, `INFRA`/`MAINT`, backend-only, trivial/cosmetic — any story with no net-new user-facing surface | — |
+| **Runtime flag** | user-facing `FEAT` whose story wants to ship dark / enable after release / roll out gradually / A-B test / kill-switch | `useFeatureFlag('name')` from `@/core/analytics` + add `'name'` to `PRODUCT_FLAGS` |
+| **Build-time flag** | ship-dark that must stay deterministic/offline, or where runtime/network gating — or coupling availability to analytics consent — is unacceptable (safety/structural) | `isFeatureEnabled('name')` + key in the `FeatureFlag` union + env blob |
+
+**Signals to read from the story:**
+- **Type** — `FEAT` is the primary candidate; `DEBUG`/`INFRA`/`MAINT` default to No flag.
+- **Rollout language** in Name / AC / Technical Notes / ADDITIONAL_CONTEXT: "ship dark",
+  "enable after", "gradual", "rollout", "beta", "A/B", "experiment", "kill-switch",
+  "behind a flag".
+- **New user-facing surface** (a new screen, row, entry point) vs. internal/backend.
+- **Effort ≥ M or Risk ≥ 3** (from the work item's dimension scores) → a flag is more
+  valuable for de-risking the rollout.
+- **`## Segments & Jobs`** (present when created at `--depth design|full`): a feature
+  serving a distinct/at-risk segment or a high-uncertainty job is a stronger
+  gradual-rollout candidate. Additional context, not a gate.
+
+**Guardrails (non-negotiable — INFRA-199 ruling):**
+- Safety-critical *availability* → **build-time tier only**, never a runtime/network
+  flag. Runtime flags are exactly the `PRODUCT_FLAGS` allow-list; anything
+  safety/structural stays build-time (mirrors the SAFETY carve-out).
+- A flag gating a data feature must **never substitute for the data-operation consent
+  gate** (`useConsentStore.canPerformOperation(...)`). The flag governs UI visibility only.
+- Runtime (PostHog) flags couple availability to analytics consent; for a *core* feature
+  that can't be consent-gated, prefer the build-time tier (or plan a build-time-default
+  flip for full rollout).
+- Flags are debt. Default to **No flag** unless the story earns one. No flag-for-flag's-sake.
+
+**If Runtime flag — execution:**
+1. Gate call sites with `useFeatureFlag('flag_name')` (UI visibility only).
+2. Add `'flag_name'` to `PRODUCT_FLAGS` in `app/src/core/analytics/useFeatureFlag.ts`.
+3. Add the fail-safe floor `flag_name:false` to `EXPO_PUBLIC_FEATURE_FLAGS` in both
+   `~/dev/being/.config/.env.production` and `.env.development`.
+4. Tests (Step 3.4) cover flag-on **and** flag-off paths; for data-gated features, assert
+   the consent gate still holds independently.
+5. **Create the flag in PostHog via MCP — best-effort, ships dark:**
+   - Discover before calling (mandatory MCP protocol): `posthog:exec "search feature-flag"`
+     → `posthog:exec "info feature-flag-create"` / `info feature-flag-get-all` BEFORE any
+     `call`. Never guess the schema.
+   - **Verify the active project is the app's EU PostHog project** (the one
+     `EXPO_PUBLIC_POSTHOG_HOST` + key target) before creating — switch via the
+     project-switch tool if it doesn't match. A flag created in the wrong project silently
+     never resolves.
+   - **Idempotent**: look the key up via `feature-flag-get-all` first; if it exists, skip
+     creation and report "already existed."
+   - **Create disabled / 0% rollout**, boolean, key `flag_name`, description citing the
+     work item ID. No release conditions referencing wellness-derived properties (DPIA
+     boundary; a plain 0% boolean satisfies this).
+   - **Never auto-enable or ramp** — enabling and raising rollout % is always a deliberate
+     human ops decision, never automated here.
+   - **Graceful fallback**: if the PostHog MCP is unavailable (e.g. a headless/cron run
+     where the server isn't authenticated) or the call fails, do NOT block the work — emit
+     a ⚠️ and leave the manual note ("create the flag in the PostHog dashboard at 0% before
+     enabling").
+
+**If Build-time flag — execution:** consume via `isFeatureEnabled('flag_name')`; add the
+key to the `FeatureFlag` union and the env blob; ships dark via env default `false`.
+
+**Emit the decision:**
+
+```
+🚩 Feature-Flag Decision
+   Lane:         [No flag | Runtime (useFeatureFlag) | Build-time (isFeatureEnabled)]
+   Rationale:    [why this lane; cite the story signals that drove it]
+   If flagged:   name `flag_name` · tier · build-time default false
+   PostHog flag: [created at 0% via MCP | already existed | deferred — manual at 0%]   (Runtime lane only)
+```
+
+The chosen lane feeds the test strategy below: if a flag was added, the Step 3.4 tests
+must exercise both flag states.
+
+---
+
+### Step 3.3: Pass 1 — TDD Decision
+
+Classify the work into one **lane** using the global testing policy
+(`~/.claude/CLAUDE.md` → Testing) and the work item's Type + nature. This is a
+fast decision step; its output sets the execution order for everything below.
+
+| Lane | Use when (global policy) | Typical signals in a Being work item |
+|---|---|---|
+| **Test-first (TDD)** | bug fixes, pure logic, stateful algorithms, complex edge cases | `DEBUG-*`; PHQ-9/GAD-7 scoring or thresholds; crisis detection; Zustand reducers; streak/date math |
+| **Test-after** | API integrations, UI, glue code, exploratory | `FEAT-*` screens, component wiring, Supabase/Stripe/Sentry integration |
+| **Skip** | one-off scripts, spikes, throwaway prototypes | `INFRA`/`MAINT` tooling/config with no runtime logic |
+
+**Hard overrides (non-negotiable):**
+- Any change to **clinical/safety logic** — PHQ-9/GAD-7 scoring, thresholds, Q9
+  handling, crisis detection — is **Test-first regardless of Type**. Zero false
+  negatives (CLAUDE.md → Safety Facts).
+- **Skip is forbidden** for any Protected Path (CLAUDE.md table) or any work type
+  with a non-`—` cell in the Validation Matrix. If safety signals matched in
+  Step 3.1, Skip is off the table.
+
+**Emit the decision (and the fork):**
+
+```
+🧪 Test Strategy — Pass 1
+   Work type:  [TYPE] — [one-line nature]
+   Lane:       [Test-first (TDD) | Test-after | Skip]
+   Rationale:  [why this lane; cite override if applied]
+   Order:      [3.3 → 3.4 → 3.5 | 3.3 → 3.5 → 3.4 | 3.3 → 3.5]
+```
+
+**Execution order by lane** — follow this, do not blindly read top-to-bottom:
+
+| Lane | Order | Loop |
+|---|---|---|
+| **Test-first** | 3.3 → **3.4 (write failing tests)** → 3.5 (implement to green) | red → green → refactor |
+| **Test-after** | 3.3 → 3.5 (implement) → **3.4 (write tests, confirm green)** | implement-then-verify |
+| **Skip** | 3.3 → 3.5 only | record skip rationale in Step 5.2; no 3.4 |
+
+---
+
+### Step 3.4: Pass 2 — Identify & Write Tests
+
+> Skip this step entirely only if Pass 1 returned **Skip**. For **Test-after**,
+> you reach this step *after* Step 3.5.
+
+**3.4a — Identify (what tests).** Translate the Validation Matrix (CLAUDE.md) row
+for this work type into concrete jest targets. This covers the *jest-side* suite
+only — Maestro safety e2e stays owned by Step 3.1's advisory and the `/b-close`
+Phase 2.5 gate; do not re-author Maestro flows here.
+
+| Validation Matrix validator | Concrete jest command(s) | Notes |
+|---|---|---|
+| crisis (thresholds) | `npm run test:clinical`, `npm run test:crisis-detection` | boundary cases mandatory |
+| accessibility | `npm run test:accessibility` | every UI change |
+| compliance (wellness data) | targeted unit/integration on the export/consent path | "wellness data" terminology |
+| general logic / backend | `npm run test:unit`, `npm run test:integration` | co-locate with consumer |
+
+- **Bug fixes (`DEBUG-*`)**: 3.4a's first deliverable is a **regression test that
+  reproduces the bug** (must fail before the fix exists).
+- **Boundary obligations** for clinical work: test at the threshold edges —
+  PHQ-9 14/15 and 19/20, GAD-7 14/15, Q9 `=0` vs `>0` — not just a happy path.
+
+**3.4b — Write (author the tests).**
+- **Test-first lane:** write the 3.4a tests now as **failing specs (red)**.
+  Co-locate per repo convention; clinical/safety specs must land in the suites
+  wired into `test:clinical` / `test:crisis-detection`. Then drive the
+  red → green → refactor loop via the **`/tdd` skill** through Step 3.5.
+- **Test-after lane:** author the 3.4a tests against the now-built code and run
+  them to **green**.
+- **Quality bar (both lanes):** assert behavior and edge cases, not implementation
+  detail. End with the relevant `npm run test:*` command(s) passing — paste the
+  actual result line into the Step 5.2 Notion comment.
+
+---
+
+### Step 3.5: Implement
+
+> Ordering follows Pass 1: **Test-first** arrives here with failing specs already
+> written (implement to green, then refactor); **Test-after** runs this step
+> first, then returns to Step 3.4.
 
 Implement per the Acceptance Criteria. Constraints from any specialist planning pass are non-negotiable. Enforce performance budgets and safety facts from `CLAUDE.md`.
 
@@ -466,7 +627,7 @@ rich_text: [
   {
     "type": "text",
     "text": {
-      "content": "Ready for testing via /b-work\n\nAgents invoked: [List or 'none']\n\nImplementation: [Brief summary]\nDeliverables: [List]\n\nNext: Test and run /b-close [WORK_ITEM_ID] when complete"
+      "content": "Ready for testing via /b-work\n\nAgents invoked: [List or 'none']\nFeature flag: [No flag | Runtime: <name> | Build-time: <name>] — [rationale]; [Runtime lane: PostHog flag created at 0% via MCP | already existed | deferred to manual]\nTest lane: [Test-first | Test-after | Skip] — [rationale]\nTests written: [files/commands, or 'none — skip rationale']\nTest result: [paste passing npm run test:* line]\n\nImplementation: [Brief summary]\nDeliverables: [List]\n\nNext: Test and run /b-close [WORK_ITEM_ID] when complete"
     }
   }
 ]

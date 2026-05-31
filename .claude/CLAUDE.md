@@ -165,7 +165,7 @@ Cherry-pick is preferred over rebase to keep dev's "prevent force-push" protecti
 | Command | Purpose |
 |---|---|
 | `/b-create [TYPE] - [Name]` | Create Notion work item from conversation context with dimension scores |
-| `/b-work [WORK_ITEM_ID]` | Fetch work item, create worktree off `development` (with env symlinks per INFRA-141), install deps, implement |
+| `/b-work [WORK_ITEM_ID]` | Fetch work item, create worktree off `development` (with env symlinks per INFRA-141), install deps, then Phase 3 runs two test passes — Pass 1 picks the lane (test-first / test-after / skip; clinical/safety logic forced test-first), Pass 2 identifies tests via the Validation Matrix and writes them — before/around implement |
 | `/b-close [WORK_ITEM_ID]` | Push feature branch, open PR to `development`, wait for CI, merge via merge-commit (INFRA-145), update Notion to Done. Phase 2.5 Maestro safety-e2e gate runs scoped flow(s) when safety paths change (INFRA-171). `--push` deprecated (PR merge always pushes). `--skip-e2e` hotfix-only. |
 | `/b-release [BUMP] [--finish]` | Promote `development → main` as a release. Interactive bump prompt + FOUR-place version bump (INFRA-141) + env schema pre-flight + auto release notes. Run with `--finish` after the PR merges to tag + push. |
 
