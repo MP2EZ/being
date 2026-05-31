@@ -1,8 +1,47 @@
+> # ⚠️ SUPERSEDED — DO NOT IMPLEMENT AS-IS (annotated 2026-05-29; archived via MAINT-170, banner folded in via MAINT-206)
+>
+> This 2025-12-23 spec predates the FEAT-16 epic rewrite (deferred to "Could-Have V2")
+> and the **deferred-prompt** account-model decision. It is kept for the reusable
+> low-level detail below, **not** as a current design. The live sources of truth are:
+> - **FEAT-16 epic** (Notion) — the deferred parent + locked decisions (Supabase `auth.users`;
+>   anonymous→named is one-way, non-destructive; **wellness data NEVER syncs**).
+> - **Account model = deferred-prompt** — anonymous-first; the "long trial" runs as an
+>   **Apple StoreKit intro offer** (no account/card required to start); the account is
+>   prompted at a *value moment* (save trial / cross-device prefs / cheaper web price),
+>   **never** as a wall at app open.
+> - The two child stories that replace §2–§3 of this doc: **"Account sheet"**
+>   (presentation shell + value-moment triggers, Apple/Google shells only, email/password)
+>   and **"Create-account flow"** (anon→named migration, trial-aware). IDs TBD once `/b-create`'d.
+>
+> ## What is WRONG here (corrected by current doctrine)
+> - **"HIPAA-compliant" / "HIPAA Compliance" / "mental health data"** → Being is NOT a HIPAA
+>   entity. Use **"wellness data"** and drop all HIPAA framing (CLAUDE.md terminology rule).
+> - **Pricing "$12.99/mo • $79.99/yr"** → PRD is **$10/mo**; final pricing is *deferred to
+>   post-launch experimentation* (the PostHog flag's A/B payload), not fixed here.
+> - **Mandatory 5-screen subscription flow gated behind a premium feature wall** → superseded
+>   by deferred-prompt. There is **no account wall** and no required pre-payment screen sequence.
+> - **Premium-feature-gating of breathing/journal/Insights** → that paywall was FEAT-16 deferral
+>   debris and was **removed in DEBUG-189** (it was hiding the crisis button — a Safety Fact
+>   violation). Crisis access is always available, no gate.
+> - **Account creation "Web Subscribers Only"** is partially right (web/Stripe needs an account)
+>   but the framing is stale — iOS trial/sub is StoreKit/IAP and account is optional/deferred.
+>
+> ## What is still USEFUL (salvage into FEAT-16a / 16b when built)
+> Token TTLs (15-min access / 7-day refresh, silent refresh 60s pre-expiry, SecureStore) · login
+> rate-limit policy (5 attempts / 15-min lockout + countdown) · biometric unlock + post-first-signin
+> setup modal · subscription status caching (4h active / 1h inactive) + 7-day offline grace ·
+> Stripe Checkout + Customer Portal config & deep links (`being://subscription/...`) · email
+> verification w/ 60s resend cooldown · performance targets table (§7) · Zustand store interfaces
+> (§9.1) · auth/subscription API endpoint list (§9.3) · accessibility patterns (§6) · design-token
+> reference (Appendix B). Re-validate copy/pricing/terminology against current doctrine before reuse.
+
+---
+
 # FEAT-16: Account & Web Subscription UX Specifications
 
 **Version**: 1.0
 **Date**: 2025-12-23
-**Status**: Final Specification
+**Status**: ~~Final Specification~~ → **SUPERSEDED (see banner above)**
 
 ---
 
