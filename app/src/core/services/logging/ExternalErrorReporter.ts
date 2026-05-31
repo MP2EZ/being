@@ -78,7 +78,9 @@ const ALLOWED_ERROR_FIELDS = [
  * BLOCKLIST: Fields that must NEVER be sent externally
  * Defense-in-depth: blocked even if somehow bypasses allowlist
  */
-const BLOCKED_FIELDS = [
+// Exported (read-only) so privacy regression tests can pin the contract that
+// sensitive fields — e.g. wellness scores — are never sent to Sentry.
+export const BLOCKED_FIELDS = [
   // User identifiers
   'userId', 'user_id', 'userIdentifier', 'id', 'email', 'phone',
 
@@ -106,7 +108,7 @@ const BLOCKED_FIELDS = [
 /**
  * SENSITIVE-DATA PATTERNS: Regex patterns for additional sensitive-identifier detection
  */
-const SENSITIVE_DATA_PATTERNS = [
+export const SENSITIVE_DATA_PATTERNS = [
   // UUIDs (could be user IDs)
   /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi,
 

@@ -1,6 +1,6 @@
 # Privacy Policy
 
-**Version:** 1.4
+**Version:** 1.5
 **Effective Date:** December 12, 2025
 **Last Updated:** May 29, 2026
 
@@ -132,6 +132,7 @@ We use the following third-party service providers to operate our Services:
 
 - **[Supabase](https://supabase.com/privacy):** Database, authentication, and cloud storage (SOC 2 Type II certified, US data region). If you enable optional settings backup, your encrypted preference data is stored on Supabase infrastructure.
 - **[PostHog](https://posthog.com/privacy):** Product analytics (EU data residency, Frankfurt). See Section 5.2 for details.
+- **[Notion](https://www.notion.so/privacy):** Waitlist email storage for the being.fyi marketing website. When you submit your email via the pre-launch waitlist form, we store it (along with your A/B variant assignment, where applicable) in an internal Notion database. We do not transfer mental-health data, app usage, or any other personal data to Notion.
 - **Expo:** Mobile app framework and over-the-air updates (anonymized crash reports only)
 - **Apple/Google:** App distribution and in-app purchases (no health data shared)
 
@@ -141,9 +142,13 @@ All service providers are contractually bound to protect your data and may only 
 
 ### 5.2 Analytics
 
-Being uses PostHog (EU data residency) to collect anonymous product analytics. **Analytics is disabled by default and requires your explicit opt-in.**
+Being uses PostHog (EU data residency, Frankfurt) for product analytics. We use it on two separate surfaces with different defaults: the **mobile app** (opt-in) and the **marketing website** at being.fyi (opt-out, GPC-honored).
 
-**What We Collect (when opted in):**
+#### Mobile app: opt-in only
+
+**Analytics is OFF by default in the app and requires your explicit opt-in.**
+
+What we collect (when opted in):
 
 - Screen views and navigation patterns
 - Feature usage counts (e.g., "check-in completed")
@@ -151,7 +156,7 @@ Being uses PostHog (EU data residency) to collect anonymous product analytics. *
 - Session duration
 - Device type and OS version
 
-**What We NEVER Collect:**
+What we **NEVER** collect in-app:
 
 - Assessment scores (PHQ-9, GAD-7)
 - Mood check-in values or notes
@@ -159,11 +164,29 @@ Being uses PostHog (EU data residency) to collect anonymous product analytics. *
 - Crisis contact information
 - Any mental health data
 
-**Your Control:**
+Your control:
 
 - Analytics is **OFF by default**
 - Opt-in via Settings > Privacy > Analytics
 - Request deletion via Settings > Privacy > Delete Analytics Data
+
+#### Marketing website (being.fyi): opt-out, GPC-honored
+
+The marketing site uses PostHog for aggregate visitor measurement, scoped tightly:
+
+- **Pageviews** (path, referrer, UTM parameters)
+- **Waitlist signup events** (submission success, submission failure with reason)
+
+What we **NEVER** do on the website:
+
+- Autocapture (we do not record all clicks, form keystrokes, or DOM interactions)
+- Session replay (we do not record video of your sessions)
+- Heatmaps, surveys, or behavioral profiling
+- Transmit raw email addresses or any other personally identifying information to PostHog
+
+**Global Privacy Control (GPC) hard kill:** if your browser sends `Sec-GPC: 1` (Brave, DuckDuckGo, Firefox with an extension, etc.), PostHog does not load, no analytics cookie is set, and no event is transmitted. This is structurally enforced server-side and is independent of any in-app preference.
+
+The website's reduced collection scope and GPC honoring is what allows opt-out-default on the web surface while preserving opt-in-only for the app. Both surfaces share the same data residency (EU, Frankfurt) and the same vendor.
 
 **Data Residency:** EU (Frankfurt, Germany)
 
