@@ -482,28 +482,31 @@ describe('Crisis Safety Testing Automation', () => {
         timestamp: Date.now() + i
       }));
       
-      const crisisDetections = largeCrisisDataset.map(data => 
+      // Measure the heap GROWTH of this test's own workload, not the
+      // absolute Jest-worker heap. The previous check asserted
+      // PERFORMANCE_MONITOR.checkMemoryUsage() (total worker heapUsed),
+      // which climbs with every test file sharing the worker and so
+      // false-failed under parallel load regardless of this test's behavior.
+      // Sampling heapUsed immediately before and after the 1000-detection
+      // loop (nothing allocates between the samples) isolates this test's
+      // incremental allocation. A negative delta (GC ran between samples) is
+      // fine and passes — only the upper bound is asserted.
+      const heapBefore = process.memoryUsage().heapUsed;
+      const crisisDetections = largeCrisisDataset.map(data =>
         clinicalCalculationService.detectCrisisLevel(data.phq9, data.gad7)
       );
-      
-      // All should be detected as crisis (scores are all above threshold)
+      const deltaMB = (process.memoryUsage().heapUsed - heapBefore) / 1024 / 1024;
+
+      // All should be detected as crisis. The dataset is intentionally
+      // all-above-threshold (PHQ-9 20-27, GAD-7 15-21) so this stays a real
+      // crisis-path check — do not "simplify" the ranges below threshold.
       expect(crisisDetections.every(detected => detected === true)).toBe(true);
-      
-      // Memory usage should remain within reasonable test limits.
-      // PERFORMANCE_MONITOR.checkMemoryUsage() returns total Jest-worker
-      // heap (not the test's incremental memory), which on GitHub Actions
-      // runners with Node 20 + Jest + react-native preset routinely
-      // exceeds 150MB before the test code even runs. The 150 figure was
-      // a category error — the 50MB production memory limit conflated
-      // with the test environment limit. A 400MB ceiling catches genuine
-      // runaway growth (millions of items, leaks) without flaking on the
-      // baseline Jest worker overhead.
-      //
-      // For a sharper check, measure DELTA (heap before vs heap after the
-      // 1000-detection loop). That's tracked as a follow-up; the current
-      // ceiling is the quick fix.
-      const memoryUsage = PERFORMANCE_MONITOR.checkMemoryUsage();
-      expect(memoryUsage).toBeLessThan(400);
+
+      // 1000 detections grow the heap ~0.008MB (observed locally). The 5MB
+      // ceiling is padded headroom over that observation — absorbs GC/jitter
+      // across machines while still tripping on a genuine leak or runaway
+      // growth (orders of magnitude beyond the observed delta).
+      expect(deltaMB).toBeLessThan(5);
     });
   });
 
