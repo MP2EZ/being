@@ -330,7 +330,7 @@ Source of truth: `docs/legal/regulatory-applicability.md` (FTC Act §5, FTC HBNR
 - **Consent-gate independence** — UI visibility/grouping MUST NEVER substitute for the data-operation consent gate (`CloudBackupScreen.tsx:28-31`: `cloud_sync` flag gates UI; `CloudBackupService` independently checks `cloudSyncEnabled` before egress). A reorg may simplify UI but the consent value stays user-settable and is evaluated at the data operation.
 - **Six legal docs** — all remain reachable from Profile, **offline** (bundled, `LegalDocumentsListScreen.tsx:7-9`); no refactor introduces a network dependency. Keep the "Medical Disclaimer" title (it correctly signals non-clinical nature).
 - **FEAT-29 / FEAT-59 placeholders** — "Export Your Data" and "Delete Account" are regulatory rights (CCPA §1798.100 / §1798.105 + state analogues). They must keep named, first-class entry points in the final IA (Delete retains "Danger Zone" prominence); evaluate every grouping against "does this still work when FEAT-29/59 ship?" FEAT-16/58 (logout/password) are security controls and may be regrouped under "Security."
-- **Terminology drift to fix** (flag, fix alongside copy changes): `PrivacyDataScreen.tsx:383` "health data are NEVER shared" → **"wellness data"**; `:289` "personal or health information" → **"personal or wellness data"**; `AccountSettingsScreen.tsx:159` generic "encrypted" → cite **AES-256** when expanded. Prohibited everywhere: "PHI", "HIPAA-compliant", "clinical assessment", "patient data".
+- **Terminology drift to fix** (flag, fix alongside copy changes): `PrivacyDataScreen.tsx:380` "health data are NEVER shared" → **"wellness data"**; `:288` "personal or health information" → **"personal or wellness data"**; `AccountSettingsScreen.tsx:159` generic "encrypted" → cite **AES-256** when expanded. Prohibited everywhere: "PHI", "HIPAA-compliant", "clinical assessment", "patient data".
 
 ### 5.3 Stoic Mindfulness content (`philosopher` agent)
 
@@ -379,7 +379,7 @@ M4 + L2/L3. Clarify Cloud Backup vs Settings Backup; reframe assessment task fra
 - `app/src/features/profile/screens/ProfileScreen.tsx` (root, 849 lines — state machine L:44-47, 573-604; inline Stoic content L:451-570; crisis overlay L:606-617; assessment cards L:249-293)
 - `app/src/features/profile/screens/AccountSettingsScreen.tsx` (dead-ends L:56-90, 122-179; TODO box L:189-204; header title "Account Settings" L:94)
 - `app/src/features/profile/screens/AppSettingsScreen.tsx` (header title "App Settings" L:141)
-- `app/src/features/profile/screens/PrivacyDataScreen.tsx` (opt-out L:248-274; toggles L:283-376; nested cloud-backup machine L:164, 228-230; storage L:391-427; terminology L:289, 383)
+- `app/src/features/profile/screens/PrivacyDataScreen.tsx` (opt-out L:248-274; toggles L:283-376; nested cloud-backup machine L:164, 228-230; storage L:391-427; terminology L:288, 380)
 - `app/src/features/profile/screens/LegalDocumentsListScreen.tsx` (offline bundle L:7-9; nested doc machine L:41-50)
 - `app/src/features/profile/screens/CloudBackupScreen.tsx` (flag/consent independence L:28-31)
 - `app/src/features/profile/components/SubMenuHeader.tsx` (`✕` close affordance, L:28, 44px target L:48-53)
