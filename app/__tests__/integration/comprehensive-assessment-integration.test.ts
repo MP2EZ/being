@@ -48,7 +48,6 @@ import {
   CrisisDetection,
   CRISIS_THRESHOLDS
 } from '../../src/features/assessment/types/index';
-import { EncryptionService } from '../../src/core/services/security/EncryptionService';
 import { resetEncryptionMocks } from '../helpers/mockEncryption';
 import { Alert, Linking } from 'react-native';
 
@@ -86,17 +85,15 @@ jest.mock('expo-crypto', () => {
   return createExpoCryptoMock();
 });
 
-jest.mock('@react-native-async-storage/async-storage', () => ({
-  setItem: jest.fn().mockImplementation((key, value) =>
-    new Promise(resolve => setTimeout(resolve, Math.random() * 20 + 5))
-  ),
-  getItem: jest.fn().mockImplementation((key) =>
-    new Promise(resolve => setTimeout(() => resolve(null), Math.random() * 15 + 5))
-  ),
-  removeItem: jest.fn().mockImplementation((key) =>
-    new Promise(resolve => setTimeout(resolve, Math.random() * 10 + 5))
-  ),
-}));
+// MAINT-204: the hybrid wellness-data path stores the encrypted assessment
+// blob in AsyncStorage (master key stays in the Keychain mock above). The
+// previous inline mock was a no-op (getItem always resolved null), so the
+// blob never round-tripped and recoverSession() could never succeed. Use the
+// shared functional in-memory mock so save→recover genuinely round-trips.
+jest.mock('@react-native-async-storage/async-storage', () => {
+  const { createAsyncStorageMock } = require('../helpers/mockEncryption');
+  return createAsyncStorageMock();
+});
 
 /**
  * Integration Test Performance Monitor
@@ -170,11 +167,15 @@ describe('COMPREHENSIVE ASSESSMENT INTEGRATION TESTING', () => {
   const state = () => useAssessmentStore.getState();
 
   beforeEach(async () => {
-    // Reset the in-memory secure-store map so storage starts clean
-    // per test. Skipping EncryptionService.destroy() here because it
-    // hangs on CI under --coverage --ci (same INFRA-180 flake family).
-    // The cached EncryptionService singleton + cleared mock-store is
-    // sufficient for test isolation in practice.
+    // MAINT-204: resetEncryptionMocks() clears the cipher registry and the
+    // wellness-blob AsyncStorage map per test, but PRESERVES the master key in
+    // the mock Keychain — mirroring real hardware, where the key survives app
+    // "restarts" (test cases). EncryptionService.destroy() is intentionally NOT
+    // called (it hangs under --coverage --ci, INFRA-180 family), so the
+    // singleton's `masterKeyInitialized` flag persists; preserving the master
+    // key keeps the flag and the Keychain in sync, so encrypt AND decrypt both
+    // resolve the key (previously the wipe desynced them → "Master key not
+    // found" at the save→reset→recover decrypt step).
     resetEncryptionMocks();
 
     store = useAssessmentStore.getState();
@@ -436,18 +437,16 @@ describe('COMPREHENSIVE ASSESSMENT INTEGRATION TESTING', () => {
   }
 
   describe('DATA INTEGRITY AND PERSISTENCE INTEGRATION', () => {
-    // MAINT-192: kept SKIPPED → tracked by MAINT-204. The MAINT-188 note
-    // guessed at a serialization / isPersistedAssessmentState drift; MAINT-192
-    // found the real, two-layer root cause: (1) the AsyncStorage mock above is
-    // a no-op (drops writes, returns null), so the hybrid SecureStorageService
-    // blob never round-trips and recoverSession() returns false — fixable with
-    // an in-memory mock; but that exposes (2) EncryptionService can't find the
-    // master key at decrypt ('Master key not found', EncryptionService.ts:655)
-    // under the save→reset→recover sequence. Layer (2) is encryption-mock-infra
-    // work touching the shared mockEncryption helper (4 files) — out of
-    // MAINT-192's scope. Un-skip when MAINT-204 lands (and drop the jest perf
-    // assertion then — perf is Maestro's, not jest's).
-    it.skip('Assessment persistence through interruption and recovery', async () => {
+    // MAINT-204: un-skipped. Fixed the two-layer round-trip blocker MAINT-192
+    // diagnosed: (1) the AsyncStorage mock is now functional + in-memory (the
+    // hybrid SecureStorageService blob round-trips), and (2) resetEncryptionMocks
+    // now PRESERVES the master key in the mock Keychain across tests (mirroring
+    // real hardware), keeping it in sync with the EncryptionService singleton's
+    // persisted `masterKeyInitialized` flag — so both encrypt (save) and decrypt
+    // (recover) resolve the key (no more 'Master key not found'). Exercises the
+    // real encrypt→write→read→decrypt path. Perf assertion intentionally omitted
+    // — jest is the wrong layer; Maestro owns recovery perf budgets.
+    it('Assessment persistence through interruption and recovery', async () => {
       // Start assessment and answer some questions
       await store.startAssessment('phq9', 'persistence_test');
       
@@ -469,10 +468,8 @@ describe('COMPREHENSIVE ASSESSMENT INTEGRATION TESTING', () => {
       expect(state().currentSession).toBeFalsy();
       expect(state().answers).toHaveLength(0);
 
-      // Recover session
-      performanceMonitor.startMeasurement('session_recovery');
+      // Recover session (simulate restart) — real read + decrypt round-trip
       const recovered = await store.recoverSession();
-      const recoveryTime = performanceMonitor.endMeasurement('session_recovery');
 
       expect(recovered).toBe(true);
       expect(state().currentSession?.id).toBe(partialSession?.id);
@@ -491,10 +488,8 @@ describe('COMPREHENSIVE ASSESSMENT INTEGRATION TESTING', () => {
       await store.completeAssessment();
 
       const result = state().currentResult as PHQ9Result;
-      expect(result.totalScore).toBe(11); // 2+1+3+1+1+1+1+1 = 11
+      expect(result.totalScore).toBe(12); // Q1-3: 2+1+3=6, Q4-9: 1×6=6 → 12
       expect(result.answers).toHaveLength(9);
-
-      console.log('Session Recovery Time:', recoveryTime.toFixed(2) + 'ms');
     });
 
     // MAINT-192: this test previously asserted ONLY jest perf budgets
