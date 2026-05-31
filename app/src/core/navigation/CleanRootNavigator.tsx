@@ -23,6 +23,7 @@ import SubscriptionStatusCard from '@/core/components/subscription/SubscriptionS
 import OnboardingScreen from '@/features/onboarding/screens/OnboardingScreen';
 import EnhancedAssessmentFlow from '@/features/assessment/components/EnhancedAssessmentFlow';
 import ModuleDetailScreen from '@/features/learn/screens/ModuleDetailScreen';
+import WellnessTrendsDetailScreen from '@/features/insights/screens/WellnessTrendsDetailScreen';
 import ClassicalLibraryScreen from '@/features/library/screens/ClassicalLibraryScreen';
 import PassageReaderScreen from '@/features/library/screens/PassageReaderScreen';
 import {
@@ -92,6 +93,7 @@ export type RootStackParamList = {
   } | undefined;
   Subscription: undefined;
   SubscriptionStatus: undefined;
+  WellnessTrendsDetail: undefined;
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -285,6 +287,16 @@ const CleanRootNavigator: React.FC = () => {
           component={ModuleDetailScreen}
           options={{
             headerShown: false, // ModuleDetailScreen has its own header
+            presentation: 'card',
+          }}
+        />
+
+        {/* Wellness Trends full-history detail (FEAT-196) */}
+        <Stack.Screen
+          name="WellnessTrendsDetail"
+          component={WellnessTrendsDetailScreen}
+          options={{
+            headerShown: false, // screen renders its own header + back affordance
             presentation: 'card',
           }}
         />
