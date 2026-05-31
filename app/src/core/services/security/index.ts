@@ -84,7 +84,8 @@ export type {
   ComplianceStatus,
   ThreatDetectionResult,
   SecurityMetrics,
-  IncidentDetectionEvent
+  IncidentDetectionEvent,
+  ThreatDetectorConfig
 } from './SecurityMonitoringService';
 
 // Type exports — Deep Link Validation Service
