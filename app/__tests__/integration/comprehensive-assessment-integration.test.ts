@@ -22,6 +22,21 @@
  * - Performance benchmarks met at every integration point
  * - HIPAA compliance verified during data flow transitions
  * - Security encryption validated during storage operations
+ *
+ * UPDATE (MAINT-192, 2026-05-30) — the 4 inherited skips were audited:
+ *   - FIXED + un-skipped (1): 'Crisis boundary testing at thresholds'. Sound
+ *     clinical coverage (PHQ-9/GAD-7 isCrisis flip at 14→15); only its
+ *     mismeasured `<200ms` jest perf assertion was removed (Maestro owns that
+ *     budget). Cleared by a `crisis` specialist-agent planning pass.
+ *   - KEPT SKIPPED w/ linked ticket (1): 'Assessment persistence through
+ *     interruption and recovery' → two-layer mock round-trip blocker
+ *     (AsyncStorage no-op + EncryptionService master-key), tracked by MAINT-204.
+ *   - DELETED (2): 'Concurrent assessment handling and data isolation'
+ *     (asserts isolation a singleton store can't provide; sequential case is
+ *     covered) and 'Performance consistency across all scoring combinations'
+ *     (asserts low variance against deliberately-random mock latency). See
+ *     per-site comments.
+ *   - Net: 9 passing, 1 skipped (MAINT-204).
  */
 
 import { useAssessmentStore } from '../../src/features/assessment/stores/assessmentStore';
@@ -72,13 +87,13 @@ jest.mock('expo-crypto', () => {
 });
 
 jest.mock('@react-native-async-storage/async-storage', () => ({
-  setItem: jest.fn().mockImplementation((key, value) => 
+  setItem: jest.fn().mockImplementation((key, value) =>
     new Promise(resolve => setTimeout(resolve, Math.random() * 20 + 5))
   ),
-  getItem: jest.fn().mockImplementation((key) => 
+  getItem: jest.fn().mockImplementation((key) =>
     new Promise(resolve => setTimeout(() => resolve(null), Math.random() * 15 + 5))
   ),
-  removeItem: jest.fn().mockImplementation((key) => 
+  removeItem: jest.fn().mockImplementation((key) =>
     new Promise(resolve => setTimeout(resolve, Math.random() * 10 + 5))
   ),
 }));
@@ -357,17 +372,16 @@ describe('COMPREHENSIVE ASSESSMENT INTEGRATION TESTING', () => {
       console.log('Suicidal Ideation Response Time:', responseTime.toFixed(2) + 'ms');
     });
 
-    // MAINT-166 PR 4 deferral: the test's "Crisis response <200ms"
-    // assertion (line ~392) measures the FULL assessment flow time
-    // (startAssessment + N answerQuestion + completeAssessment ≈ 11
-    // awaited ops × ~20ms encryption-mock latency ≈ 500ms), not the
-    // crisis-detection-specific time it claims. Either the assertion
-    // should be removed (perf is covered by on-device Maestro + the
-    // CLAUDE.md "Performance Budgets" section, not by a jest test), or
-    // it should measure JUST the question-9 answer time. Skipping
-    // until that intent is clarified — the threshold-detection logic
-    // is exercised by other tests in this suite.
-    it.skip('Crisis boundary testing at thresholds', async () => {
+    // MAINT-192: un-skipped after a `crisis` specialist-agent planning pass
+    // (GO). The boundary assertions (totalScore + isCrisis flip at 14→15 for
+    // PHQ-9 AND GAD-7) are correct clinical coverage that matches the
+    // production CRISIS_THRESHOLDS (PHQ9/GAD7 support floor = 15). The only
+    // defect was the `expect(testTime).toBeLessThan(200)` line, which measured
+    // the FULL assessment cycle (~11 awaited ops), not crisis-detection time —
+    // a mismeasurement. Per CLAUDE.md, the <200ms budget is enforced on-device
+    // via Maestro, not jest, so that one line was removed; the clinical
+    // boundary coverage is now active. Boundary values are NOT changed.
+    it('Crisis boundary testing at thresholds', async () => {
       // Tests the ≥15 / ≥15 support-floor thresholds (PHQ-9 + GAD-7).
       // Note: PHQ-9 has a dual-threshold (≥15 = support, ≥20 = active
       // intervention). `result.isCrisis` flips at the lower bound (≥15)
@@ -405,7 +419,9 @@ describe('COMPREHENSIVE ASSESSMENT INTEGRATION TESTING', () => {
         if (test.expectCrisis) {
           expect(state().crisisDetection).toBeTruthy();
           expect(Alert.alert).toHaveBeenCalled();
-          expect(testTime).toBeLessThan(200); // Crisis response <200ms
+          // MAINT-192: removed `expect(testTime).toBeLessThan(200)` — it timed
+          // the full assessment cycle, not crisis detection. The <200ms budget
+          // is enforced on-device via Maestro (CLAUDE.md Performance Budgets).
         } else {
           expect(state().crisisDetection).toBeFalsy();
           expect(Alert.alert).not.toHaveBeenCalled();
@@ -433,15 +449,17 @@ describe('COMPREHENSIVE ASSESSMENT INTEGRATION TESTING', () => {
   }
 
   describe('DATA INTEGRITY AND PERSISTENCE INTEGRATION', () => {
-    // MAINT-166 PR 4 deferral: `recoverSession()` returns false despite a
-    // prior `saveProgress()`. The encryption mock writes succeed (in-memory
-    // map persists), but EncryptedAssessmentStorage.load() returns
-    // something that fails `isPersistedAssessmentState` validation —
-    // suggesting either the storage layer's key/path changed since this
-    // test was written, or the serialization shape drifted. Needs an
-    // audit of the storage round-trip, not a test fix. Filed for future
-    // PR. See state-snapshot fix (PR 4) for the easy bug; this is the
-    // hard one.
+    // MAINT-192: kept SKIPPED → tracked by MAINT-204. The MAINT-188 note
+    // guessed at a serialization / isPersistedAssessmentState drift; MAINT-192
+    // found the real, two-layer root cause: (1) the AsyncStorage mock above is
+    // a no-op (drops writes, returns null), so the hybrid SecureStorageService
+    // blob never round-trips and recoverSession() returns false — fixable with
+    // an in-memory mock; but that exposes (2) EncryptionService can't find the
+    // master key at decrypt ('Master key not found', EncryptionService.ts:655)
+    // under the save→reset→recover sequence. Layer (2) is encryption-mock-infra
+    // work touching the shared mockEncryption helper (4 files) — out of
+    // MAINT-192's scope. Un-skip when MAINT-204 lands (and drop the jest perf
+    // assertion then — perf is Maestro's, not jest's).
     it.skip('Assessment persistence through interruption and recovery', async () => {
       // Start assessment and answer some questions
       await store.startAssessment('phq9', 'persistence_test');
@@ -579,60 +597,16 @@ describe('COMPREHENSIVE ASSESSMENT INTEGRATION TESTING', () => {
       console.log('Sequential Assessments Time:', totalSequentialTime.toFixed(2) + 'ms');
     });
 
-    // MAINT-166 PR 4 deferral: tests parallel assessments via
-    // Promise.all, but the assessment store is a SINGLETON with one
-    // `currentSession`. The test's expectation that 3 contexts each
-    // produce isolated results never made sense for a singleton store —
-    // either the test needs to be rewritten to test sequential
-    // assessments only, OR the store needs context-scoped sessions
-    // (architectural change, not a test fix). Filed for future PR.
-    it.skip('Concurrent assessment handling and data isolation', async () => {
-      // This tests the store's ability to handle multiple assessment contexts
-      // without data corruption or interference
-
-      const assessmentPromises: Promise<void>[] = [];
-      const results: { [key: string]: PHQ9Result | GAD7Result | null } = {};
-
-      // Simulate multiple assessment contexts
-      const contexts = ['context_1', 'context_2', 'context_3'];
-
-      for (const context of contexts) {
-        const assessmentPromise = (async () => {
-          const localStore = useAssessmentStore.getState();
-          
-          await localStore.startAssessment('phq9', context);
-          
-          // Each context answers differently
-          const baseScore = contexts.indexOf(context) + 1; // 1, 2, 3
-          for (let i = 1; i <= 9; i++) {
-            await localStore.answerQuestion(`phq9_${i}`, baseScore as AssessmentResponse);
-          }
-          
-          await localStore.completeAssessment();
-          results[context] = localStore.currentResult;
-        })();
-        
-        assessmentPromises.push(assessmentPromise);
-      }
-
-      performanceMonitor.startMeasurement('concurrent_handling');
-      await Promise.all(assessmentPromises);
-      const concurrentTime = performanceMonitor.endMeasurement('concurrent_handling');
-
-      expect(concurrentTime).toBeLessThan(2000); // Concurrent handling <2s
-
-      // Verify each context produced correct results
-      expect(results['context_1']).toBeTruthy();
-      expect(results['context_2']).toBeTruthy();
-      expect(results['context_3']).toBeTruthy();
-
-      // Verify data isolation (each should have different scores)
-      expect((results['context_1'] as PHQ9Result).totalScore).toBe(9);  // 1 * 9 = 9
-      expect((results['context_2'] as PHQ9Result).totalScore).toBe(18); // 2 * 9 = 18
-      expect((results['context_3'] as PHQ9Result).totalScore).toBe(27); // 3 * 9 = 27
-
-      console.log('Concurrent Assessment Handling:', concurrentTime.toFixed(2) + 'ms');
-    });
+    // MAINT-192: the former `it.skip('Concurrent assessment handling and data
+    // isolation')` was DELETED. It ran three assessments via Promise.all and
+    // asserted each `context_N` produced an isolated result (scores 9/18/27),
+    // but the assessment store is a SINGLETON with one `currentSession` — the
+    // three contexts necessarily clobber each other, so the isolation the test
+    // asserts is architecturally impossible without context-scoped sessions (a
+    // production redesign, explicitly out of scope). The legitimate
+    // multiple-assessments-in-turn case is already covered by 'Sequential
+    // PHQ-9 and GAD-7 assessments with crisis escalation' (above). Deleted
+    // rather than kept as a skip for a contract the architecture can't satisfy.
   });
 
   describe('ERROR BOUNDARY AND RECOVERY INTEGRATION', () => {
@@ -713,73 +687,15 @@ describe('COMPREHENSIVE ASSESSMENT INTEGRATION TESTING', () => {
     });
   });
 
-  describe('PERFORMANCE REGRESSION INTEGRATION', () => {
-    // MAINT-166 PR 4 deferral: the test asserts `stdDev < avg * 0.3`
-    // (low variance) but the encryption mocks use random latency
-    // (10-40ms per call × ~11 calls/cycle), which gives natural
-    // stdDev > 30% by design. Either rewrite the encryption mock to
-    // be deterministic, OR loosen the variance bound. The intent
-    // (regression detection) is questionable under any mock setup —
-    // perf regression is better measured in CI with realistic
-    // workloads, not unit-test mocks.
-    it.skip('Performance consistency across all scoring combinations', async () => {
-      const performanceResults: { [key: string]: number[] } = {
-        phq9_crisis: [],
-        phq9_normal: [],
-        gad7_crisis: [],
-        gad7_normal: []
-      };
-
-      // Test performance across different score ranges
-      const testScenarios = [
-        { type: 'phq9' as AssessmentType, scores: [20, 25, 27], category: 'phq9_crisis' },
-        { type: 'phq9' as AssessmentType, scores: [5, 10, 15], category: 'phq9_normal' },
-        { type: 'gad7' as AssessmentType, scores: [15, 18, 21], category: 'gad7_crisis' },
-        { type: 'gad7' as AssessmentType, scores: [5, 10, 12], category: 'gad7_normal' },
-      ];
-
-      for (const scenario of testScenarios) {
-        for (const score of scenario.scores) {
-          store.resetAssessment();
-
-          performanceMonitor.startMeasurement('assessment_cycle');
-          
-          await store.startAssessment(scenario.type, 'performance_test');
-          
-          const questionCount = scenario.type === 'phq9' ? 9 : 7;
-          const answers = distributeScore(score, questionCount);
-          
-          for (let i = 0; i < questionCount; i++) {
-            await store.answerQuestion(`${scenario.type}_${i + 1}`, answers[i]);
-          }
-          
-          await store.completeAssessment();
-          
-          const cycleTime = performanceMonitor.endMeasurement('assessment_cycle');
-          performanceResults[scenario.category].push(cycleTime);
-
-          // Each complete cycle should meet timing requirements.
-          // 5s is the per-cycle budget under encryption mocks.
-          expect(cycleTime).toBeLessThan(5000);
-        }
-      }
-
-      // Analyze performance consistency
-      for (const [category, times] of Object.entries(performanceResults)) {
-        const avg = times.reduce((sum, time) => sum + time, 0) / times.length;
-        const max = Math.max(...times);
-        const min = Math.min(...times);
-        const variance = times.reduce((sum, time) => sum + Math.pow(time - avg, 2), 0) / times.length;
-        const stdDev = Math.sqrt(variance);
-
-        console.log(`${category}: Avg=${avg.toFixed(2)}ms, Min=${min.toFixed(2)}ms, Max=${max.toFixed(2)}ms, StdDev=${stdDev.toFixed(2)}ms`);
-
-        // Performance should be consistent (low variance)
-        expect(stdDev).toBeLessThan(avg * 0.3); // Standard deviation <30% of average
-        expect(max).toBeLessThan(5000); // No cycle exceeds 5s
-      }
-    }, 30000); // 30s test timeout — 12 full cycles × encryption mocks ≈ 15s
-  });
+  // MAINT-192: the 'PERFORMANCE REGRESSION INTEGRATION' describe block (1 test,
+  // 'Performance consistency across all scoring combinations') was DELETED. It
+  // asserted `stdDev < avg * 0.3` across 12 assessment cycles, but the
+  // encryption mocks inject `Math.random()` latency BY DESIGN (10-40ms × ~11
+  // calls/cycle), so >30% variance is guaranteed — the test could only pass by
+  // luck. Per CLAUDE.md, perf-regression detection belongs on-device (Maestro)
+  // and in CI with realistic workloads, not jest mocks; the jest-side perf:*
+  // scripts were already removed in MAINT-166 PR 7 for the same reason. Deleted
+  // rather than kept as a skip for an assertion that contradicts its own mocks.
 
   afterAll(() => {
     // Print comprehensive performance summary
