@@ -9,7 +9,7 @@
 | Field | Value |
 |---|---|
 | Document title | Data Protection Impact Assessment — Sensitive Wellness Data |
-| Version | 1.0 |
+| Version | 1.1 |
 | Effective date | 2026-05-24 |
 | Next scheduled review | 2027-05-24 |
 | Owner | Palouse Labs LLC (sole proprietor) — responsibility is non-delegable |
@@ -162,6 +162,7 @@ After applying the controls inventoried in §7, residual **likelihood** for all 
 | Version | Date | Author | Change |
 |---|---|---|---|
 | 1.0 | 2026-05-24 | Palouse Labs LLC | Initial assessment surfaced by INFRA-83 |
+| 1.1 | 2026-05-30 | Palouse Labs LLC | INFRA-199: PostHog now evaluates feature flags (`cloud_sync`, `cross_device_sync`, `emergency_sync`) in addition to capturing behavioral events. Flag evaluation payload confirmed to contain only anonymous `distinct_id` and `surface: 'app'` super-property — no sensitive wellness data categories from §3 are transmitted as targeting properties. Data scope of PostHog as sub-processor is unchanged. Analytics-consent gate remains the condition for PostHog provider mounting; cloud_sync consent gate remains the independent condition for data transmission to Supabase. Reviewed under INFRA-199 compliance pass. |
 
 ---
 
