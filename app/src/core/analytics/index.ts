@@ -29,6 +29,8 @@ export { default as AnalyticsService } from './AnalyticsService';
 export { PostHogProvider, usePostHogConfigured } from './PostHogProvider';
 export { PHIFilter, AnalyticsEvents } from './PHIFilter';
 export { useAnalytics } from './useAnalytics';
+// Runtime (PostHog-backed) feature-flag tier (INFRA-199)
+export { useFeatureFlag, PRODUCT_FLAGS } from './useFeatureFlag';
 export type { PHIValidationResult, AnalyticsEventType } from './PHIFilter';
 export {
   handleAnalyticsDeletion,

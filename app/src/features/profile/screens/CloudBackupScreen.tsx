@@ -4,14 +4,18 @@
  * Wraps the comprehensive CloudBackupSettings controls as a profile sub-screen,
  * reached from the "Manage Cloud Backup" row in PrivacyDataScreen. Ships dark:
  * the entry row and this screen are both gated by the `cloud_sync` feature
- * flag (currently false), so users see nothing until the feature is enabled.
+ * flag, so users see nothing until the feature is enabled. As of INFRA-199 the
+ * flag resolves through the runtime `useFeatureFlag` tier (PostHog promotes,
+ * build-time default is the floor) — this gates UI visibility only; actual
+ * backup egress stays gated independently by the cloud_sync consent in
+ * CloudBackupService.
  */
 import React from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import SubMenuHeader from '../components/SubMenuHeader';
 import CloudBackupSettings from '@/core/components/settings/CloudBackupSettings';
-import { isFeatureEnabled } from '@/core/services/featureFlags';
+import { useFeatureFlag } from '@/core/analytics';
 import { colorSystem, spacing } from '@/core/theme';
 
 interface CloudBackupScreenProps {
@@ -21,7 +25,8 @@ interface CloudBackupScreenProps {
 const CloudBackupScreen: React.FC<CloudBackupScreenProps> = ({ onReturn }) => {
   // Belt-and-suspenders: never render when the feature flag is off, even if
   // reached by some path other than the (already flag-gated) entry row.
-  if (!isFeatureEnabled('cloud_sync')) {
+  const cloudSyncAvailable = useFeatureFlag('cloud_sync');
+  if (!cloudSyncAvailable) {
     return null;
   }
 

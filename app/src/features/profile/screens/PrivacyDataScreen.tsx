@@ -28,9 +28,8 @@ import { Ionicons } from '@react-native-vector-icons/ionicons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { useConsentStore } from '@/core/stores/consentStore';
-import { useAnalytics } from '@/core/analytics';
+import { useAnalytics, useFeatureFlag } from '@/core/analytics';
 import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
-import { isFeatureEnabled } from '@/core/services/featureFlags';
 import SubMenuHeader from '../components/SubMenuHeader';
 import CloudBackupScreen from './CloudBackupScreen';
 
@@ -163,6 +162,9 @@ const PrivacyDataScreen: React.FC<PrivacyDataScreenProps> = ({ onReturn }) => {
   const [isLoading, setIsLoading] = useState(true);
   // Sub-screen navigation for the (flag-gated) comprehensive cloud-backup UI.
   const [showCloudBackup, setShowCloudBackup] = useState(false);
+  // Runtime flag (INFRA-199): gates UI visibility of the cloud-backup entry.
+  // PostHog promotes post-consent; build-time default is the fail-safe floor.
+  const cloudSyncAvailable = useFeatureFlag('cloud_sync');
 
   // Track screen view and settings opened for analytics
   useFocusEffect(
@@ -335,7 +337,7 @@ const PrivacyDataScreen: React.FC<PrivacyDataScreenProps> = ({ onReturn }) => {
           {/* Manage Cloud Backup — flag-gated entry to the comprehensive
               controls (backup now, restore, status). Ships dark: hidden
               until the cloud_sync feature flag is enabled. */}
-          {isFeatureEnabled('cloud_sync') && (
+          {cloudSyncAvailable && (
             <TouchableOpacity
               style={styles.settingCard}
               onPress={() => setShowCloudBackup(true)}
