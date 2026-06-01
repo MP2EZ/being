@@ -1223,6 +1223,58 @@ export class AuthenticationService {
     return this.currentUser?.permissions.includes(permission) || false;
   }
 
+  /**
+   * ANALYTICS PERMISSION CHECK (MAINT-201)
+   *
+   * Defence-in-depth gate for the analytics pipeline (NOT the consent gate — that
+   * remains `useConsentStore.canPerformOperation('analytics')` in AnalyticsService).
+   * Fail-closed and strictly narrower than the prior session-only check: crisis
+   * sessions are now rejected. The anonymous device-trust session (the product's
+   * default identity) is analytics-eligible so this does not silently disable
+   * analytics; an explicit `analytics_access` permission also qualifies.
+   *
+   * `userId` is accepted only for call-site/spy signature symmetry; the decision is
+   * made entirely from the current session.
+   */
+  public validateAnalyticsPermissions(userId?: string): boolean {
+    void userId;
+    const user = this.getCurrentUser();
+    if (!user) return false;
+    if (user.isCrisisAccess) return false;
+    if (user.authenticationLevel === 'crisis_access') return false;
+    if (user.permissions.includes('analytics_access')) return true;
+    return user.authenticationMethod === 'device_trust' && user.authenticationLevel === 'anonymous';
+  }
+
+  /**
+   * OPERATION AUTHENTICATION (MAINT-201)
+   *
+   * Authenticates a named analytics operation by delegating to `validateSession`.
+   * Returns a real `AuthenticationResult` (replacing the prior `'session_validation'
+   * as any` stub in AnalyticsService). Never routes through credential auth (SEC-03).
+   */
+  public async authenticateOperation(operation: string): Promise<AuthenticationResult> {
+    void operation;
+    const startTime = performance.now();
+    const session = await this.validateSession();
+
+    if (!session.isValid || !session.user) {
+      return {
+        success: false,
+        authenticationMethod: 'device_trust',
+        authenticationTimeMs: performance.now() - startTime,
+        error: session.error ?? 'Session invalid',
+      };
+    }
+
+    return {
+      success: true,
+      user: session.user,
+      authenticationMethod: session.user.authenticationMethod,
+      authenticationTimeMs: performance.now() - startTime,
+    };
+  }
+
   public isCrisisAccess(): boolean {
     return this.currentUser?.isCrisisAccess || false;
   }

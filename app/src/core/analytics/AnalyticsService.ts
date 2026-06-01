@@ -415,8 +415,16 @@ class AnalyticsService {
         return false;
       }
 
-      // TODO: Implement validateAnalyticsPermissions on AuthenticationService
-      // For now, rely on session validation only
+      // MAINT-201: additive permission gate (defence-in-depth). Fail-closed if the
+      // session lacks analytics eligibility (e.g. a crisis-access session).
+      if (!this.authService.validateAnalyticsPermissions()) {
+        logSecurity('Analytics permission denied for current session', 'high', {
+          timestamp: Date.now(),
+          sessionId: this.getCurrentSessionId()
+        });
+        return false;
+      }
+
       return authResult.isValid;
     } catch (error) {
       logError(LogCategory.ANALYTICS, '🔐 Analytics authentication failed:', error instanceof Error ? error : new Error(String(error)));
@@ -425,16 +433,8 @@ class AnalyticsService {
   }
 
   private async authenticateAnalyticsOperation(operation: string): Promise<AuthenticationResult> {
-    // TODO: Implement authenticateOperation on AuthenticationService
-    // For now, validate session and return result
-    const sessionResult = await this.authService.validateSession();
-    const result: AuthenticationResult = {
-      success: sessionResult.isValid,
-      ...(sessionResult.user && { user: sessionResult.user }),
-      authenticationMethod: 'session_validation' as any, // Using session validation as method
-      authenticationTimeMs: sessionResult.validationTimeMs
-    };
-    return result;
+    // MAINT-201: delegate to the real AuthenticationService operation authenticator.
+    return this.authService.authenticateOperation(operation);
   }
 
   /**
@@ -474,32 +474,28 @@ class AnalyticsService {
    */
   private async initializeSecurityMonitoring(): Promise<void> {
     try {
-      // TODO: Implement registerThreatDetector on SecurityMonitoringService
-      // For now, security monitoring is handled through logging
+      // MAINT-201: register the analytics threat detectors with the monitoring service.
+      this.securityMonitoring.registerThreatDetector('analytics_phi_exposure', {
+        pattern: /\b(PHQ-?9|GAD-?7)\s*:?\s*([0-9]{1,2})\b/gi,
+        severity: 'critical',
+        action: 'block_and_alert'
+      });
+
+      this.securityMonitoring.registerThreatDetector('analytics_correlation_attack', {
+        pattern: this.detectCorrelationPatterns.bind(this),
+        severity: 'high',
+        action: 'alert_and_obfuscate'
+      });
+
+      this.securityMonitoring.registerThreatDetector('analytics_session_tracking', {
+        pattern: this.detectSessionTrackingAttempts.bind(this),
+        severity: 'medium',
+        action: 'rotate_sessions'
+      });
+
       logSecurity('Analytics security monitoring initialized', 'low', {
         monitors: ['phi_exposure', 'correlation_attack', 'session_tracking']
       });
-
-      // TODO: Restore when registerThreatDetector is implemented:
-      // await this.securityMonitoring.registerThreatDetector('analytics_phi_exposure', {
-      //   pattern: /\b(PHQ-?9|GAD-?7)\s*:?\s*([0-9]{1,2})\b/gi,
-      //   severity: 'critical',
-      //   action: 'block_and_alert'
-      // });
-      //
-      // await this.securityMonitoring.registerThreatDetector('analytics_correlation_attack', {
-      //   pattern: this.detectCorrelationPatterns.bind(this),
-      //   severity: 'high',
-      //   action: 'alert_and_obfuscate'
-      // });
-      //
-      // await this.securityMonitoring.registerThreatDetector('analytics_session_tracking', {
-      //   pattern: this.detectSessionTrackingAttempts.bind(this),
-      //   severity: 'medium',
-      //   action: 'rotate_sessions'
-      // });
-
-      // Removed informational log
 
     } catch (error) {
       logError(LogCategory.ANALYTICS, '🚨 Security monitoring initialization failed:', error instanceof Error ? error : new Error(String(error)));
@@ -509,12 +505,16 @@ class AnalyticsService {
 
   private async logSecurityEvent(eventType: string, data: any): Promise<void> {
     try {
-      // TODO: Implement logSecurityEvent on SecurityMonitoringService
-      // For now, use logging service directly
       const severity = this.determineEventSeverity(eventType);
+      const sanitized = this.sanitizeEventData(data);
+
+      // MAINT-201: route through SecurityMonitoringService (which re-sanitizes and
+      // records critical/high incidents); keep the local structured log too.
+      await this.securityMonitoring.logSecurityEvent(eventType, sanitized);
+
       logSecurity(`Analytics security event: ${eventType}`, severity, {
         eventType: `analytics_${eventType}`,
-        data: this.sanitizeEventData(data),
+        data: sanitized,
         timestamp: Date.now(),
         source: 'AnalyticsService'
       });
@@ -661,15 +661,21 @@ class AnalyticsService {
     const startTime = performance.now();
 
     try {
-      // 1. Validate analytics access
-      const authValid = await this.validateAnalyticsAccess();
-      if (!authValid) {
-        throw new Error('Analytics access denied');
+      // MAINT-201: crisis events bypass the analytics auth gate, mirroring the
+      // consent bypass below (vital-interests exception). A crisis-access session
+      // would otherwise fail validateAnalyticsPermissions and drop the event.
+      const isCrisisEvent = eventType === 'crisis_intervention_triggered';
+
+      // 1. Validate analytics access (non-crisis events only)
+      if (!isCrisisEvent) {
+        const authValid = await this.validateAnalyticsAccess();
+        if (!authValid) {
+          throw new Error('Analytics access denied');
+        }
       }
 
       // 2. CRITICAL: Validate consent before tracking (HIPAA/GDPR compliance)
       // Crisis events bypass consent (vital interests exception)
-      const isCrisisEvent = eventType === 'crisis_intervention_triggered';
       if (isCrisisEvent) {
         // Crisis intervention NEVER gated by consent
         if (!canPerformCrisisIntervention()) {
