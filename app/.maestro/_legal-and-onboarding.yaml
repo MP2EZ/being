@@ -141,21 +141,125 @@ name: "Helper: traverse LegalGate + Onboarding"
     text: "Begin Your Practice"
     optional: true
 
-# PHQ-9 — 9 questions, "Not at all" each. After Q9 onComplete dismisses
-# the modal and a 50ms setTimeout (OnboardingScreen.tsx:824) launches
-# GAD-7 → GAD-7 Q1 mounts → next iteration finds the new option-0 radio.
-- repeat:
-    times: 9
-    commands:
-      - tapOn:
-          id: "assessment-response-group-option-0"
+# PHQ-9 — 9 questions, "Not at all" (option-0) each.
+#
+# INFRA-208: the prior blind `repeat: { times: 9 }` fired 9 taps with NO
+# settle between them. Each tap auto-advances (onAnswer →
+# setCurrentQuestionIndex(prev+1), EnhancedAssessmentFlow.tsx:284-285); on a
+# slower/loaded sim a tap landed mid-transition (before the next question's
+# radio mounted) and was dropped, leaving the assessment short so onboarding
+# never reached Stoic Intro — the non-deterministic Phase 2.5 gate failure.
+#
+# Fix: unroll the loop and wait for each question's progress counter before
+# tapping, so the prior auto-advance has settled (radio mounted) first. The
+# counter is a single text node — "Question {currentStep} of {totalSteps}"
+# (EnhancedAssessmentQuestion.tsx:313-318) — so it's a reliable per-question
+# settle signal that adapts to sim speed (no fixed sleeps). A static `repeat`
+# can't express this because the post-condition changes every iteration.
+# Each `timeout` is a failure ceiling only — the wait returns the instant the
+# counter is visible, so the assessment section stays well within ≤45s.
+- extendedWaitUntil:
+    visible:
+      text: "Question 1 of 9"
+    timeout: 10000
+- tapOn:
+    id: "assessment-response-group-option-0"
+- extendedWaitUntil:
+    visible:
+      text: "Question 2 of 9"
+    timeout: 10000
+- tapOn:
+    id: "assessment-response-group-option-0"
+- extendedWaitUntil:
+    visible:
+      text: "Question 3 of 9"
+    timeout: 10000
+- tapOn:
+    id: "assessment-response-group-option-0"
+- extendedWaitUntil:
+    visible:
+      text: "Question 4 of 9"
+    timeout: 10000
+- tapOn:
+    id: "assessment-response-group-option-0"
+- extendedWaitUntil:
+    visible:
+      text: "Question 5 of 9"
+    timeout: 10000
+- tapOn:
+    id: "assessment-response-group-option-0"
+- extendedWaitUntil:
+    visible:
+      text: "Question 6 of 9"
+    timeout: 10000
+- tapOn:
+    id: "assessment-response-group-option-0"
+- extendedWaitUntil:
+    visible:
+      text: "Question 7 of 9"
+    timeout: 10000
+- tapOn:
+    id: "assessment-response-group-option-0"
+- extendedWaitUntil:
+    visible:
+      text: "Question 8 of 9"
+    timeout: 10000
+- tapOn:
+    id: "assessment-response-group-option-0"
+- extendedWaitUntil:
+    visible:
+      text: "Question 9 of 9"
+    timeout: 10000
+# Answers PHQ-9 Q9 → onComplete dismisses the modal → a 50ms setTimeout
+# (OnboardingScreen.tsx:824) launches GAD-7. The next wait below bridges that
+# gap (and the brief `completing` ActivityIndicator) deterministically:
+# "Question 1 of 7" can't appear until GAD-7 Q1 has mounted.
+- tapOn:
+    id: "assessment-response-group-option-0"
 
-# GAD-7 — 7 questions, same pattern. After Q7 → stoicIntro.
-- repeat:
-    times: 7
-    commands:
-      - tapOn:
-          id: "assessment-response-group-option-0"
+# GAD-7 — 7 questions, same wait-then-tap pattern. After Q7 → Stoic Intro.
+- extendedWaitUntil:
+    visible:
+      text: "Question 1 of 7"
+    timeout: 10000
+- tapOn:
+    id: "assessment-response-group-option-0"
+- extendedWaitUntil:
+    visible:
+      text: "Question 2 of 7"
+    timeout: 10000
+- tapOn:
+    id: "assessment-response-group-option-0"
+- extendedWaitUntil:
+    visible:
+      text: "Question 3 of 7"
+    timeout: 10000
+- tapOn:
+    id: "assessment-response-group-option-0"
+- extendedWaitUntil:
+    visible:
+      text: "Question 4 of 7"
+    timeout: 10000
+- tapOn:
+    id: "assessment-response-group-option-0"
+- extendedWaitUntil:
+    visible:
+      text: "Question 5 of 7"
+    timeout: 10000
+- tapOn:
+    id: "assessment-response-group-option-0"
+- extendedWaitUntil:
+    visible:
+      text: "Question 6 of 7"
+    timeout: 10000
+- tapOn:
+    id: "assessment-response-group-option-0"
+- extendedWaitUntil:
+    visible:
+      text: "Question 7 of 7"
+    timeout: 10000
+- tapOn:
+    id: "assessment-response-group-option-0"
 
 # Stoic Intro → Notifications → Privacy: each has a "Continue" CTA at the
 # bottom of a scrollable section that may be below the fold (5-principle
