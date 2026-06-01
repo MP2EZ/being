@@ -54,6 +54,10 @@ export const PRODUCT_FLAGS: ReadonlySet<string> = new Set<string>([
   'cloud_sync',
   'cross_device_sync',
   'emergency_sync',
+  // FEAT-195 — gates the "Your note" annotation surface on Wellness Trends.
+  // UI-visibility only; the note's encryption/consent/delete paths are
+  // independent and always-on. Ships dark (build-time floor false).
+  'wellness_trend_notes',
 ]);
 
 /**

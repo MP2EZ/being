@@ -375,6 +375,13 @@ class CrisisDetectionService {
 }
 
 /**
+ * Max length of a per-check-in "Your note" annotation (FEAT-195). Enforced at
+ * the store action (the write boundary) and mirrored by the UI composer's
+ * `maxLength`. Single source of truth — import it, don't re-literal 140.
+ */
+export const SESSION_NOTE_MAX_LENGTH = 140;
+
+/**
  * Assessment Store State Interface
  */
 export interface AssessmentStoreState {
@@ -426,6 +433,10 @@ export interface AssessmentStoreActions {
   getAssessmentHistory: (type?: AssessmentType) => AssessmentSession[];
   getLastResult: (type: AssessmentType) => PHQ9Result | GAD7Result | null;
   clearHistory: () => Promise<void>;
+
+  // Life-event annotations (FEAT-195) — opaque free-text "Your note" per check-in.
+  setSessionNote: (sessionId: string, note: string) => Promise<void>;
+  clearSessionNote: (sessionId: string) => Promise<void>;
 
   // Utilities
   getCurrentProgress: () => number;
@@ -758,6 +769,37 @@ export const useAssessmentStore = create<AssessmentStore>()(
         clearHistory: async () => {
           set({ completedAssessments: [] });
           await get().saveProgress();
+        },
+
+        // Life-event annotations (FEAT-195). The note is opaque: clamped to
+        // SESSION_NOTE_MAX_LENGTH and stored verbatim on the matching session —
+        // never inferred on, never sent to analytics. Persisted through the same
+        // encrypted saveProgress() path as every other assessment write.
+        setSessionNote: async (sessionId: string, note: string): Promise<void> => {
+          const trimmed = note.trim();
+          // Empty/whitespace clears the note rather than storing "".
+          const next = trimmed.length === 0
+            ? undefined
+            : trimmed.slice(0, SESSION_NOTE_MAX_LENGTH);
+
+          const apply = (s: AssessmentSession): AssessmentSession => {
+            if (s.id !== sessionId) return s;
+            // Omit the key entirely when clearing (exactOptionalPropertyTypes:
+            // a present `note: undefined` is not a valid AssessmentSession).
+            const { note: _prev, ...rest } = s;
+            return next === undefined ? rest : { ...rest, note: next };
+          };
+
+          const state = get();
+          set({
+            completedAssessments: state.completedAssessments.map(apply),
+            currentSession: state.currentSession ? apply(state.currentSession) : null,
+          });
+          await get().saveProgress();
+        },
+
+        clearSessionNote: async (sessionId: string): Promise<void> => {
+          await get().setSessionNote(sessionId, '');
         },
 
         // Utilities

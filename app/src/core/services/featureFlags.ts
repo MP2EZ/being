@@ -36,7 +36,8 @@ export type FeatureFlag =
   | 'data_encryption'
   | 'biometric_auth'
   | 'offline_mode'
-  | 'widget_support';
+  | 'widget_support'
+  | 'wellness_trend_notes';
 
 /**
  * Parse a feature-flag blob into a boolean lookup.
