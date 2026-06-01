@@ -42,34 +42,12 @@ import networkSecurityInstance from '@/core/services/security/NetworkSecuritySer
 import securityMonitoringInstance from '@/core/services/security/SecurityMonitoringService';
 
 import { logError, logSecurity, logPerformance, LogCategory } from '@/core/services/logging';
+import { containsPHI } from '@/core/analytics/phiDetection';
 
-/**
- * COMPREHENSIVE PHI DETECTION PATTERNS
- * Enhanced patterns with Unicode normalization and broader coverage
- * HIPAA Safe Harbor: Block transmission of these identifiers
- */
-const PHI_DETECTION_PATTERNS: RegExp[] = [
-  // Assessment scores (PHQ-9/GAD-7) - with Unicode normalization support
-  /\b(?:PHQ|GAD)[-\s]?[79]\s*[:=]?\s*\d{1,2}\b/gi,
-  // SSN patterns (various formats)
-  /\b\d{3}[-.\s]?\d{2}[-.\s]?\d{4}\b/g,
-  // Long numeric sequences (potential identifiers)
-  /\b\d{10,}\b/g,
-  // Email addresses
-  /\b[\w._%+-]+@[\w.-]+\.[A-Z|a-z]{2,}\b/gi,
-  // US phone numbers (various formats)
-  /\b(?:\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b/g,
-  // International phone numbers
-  /\b\+\d{1,3}[-.\s]?\(?\d{1,4}\)?[-.\s]?\d{1,4}[-.\s]?\d{1,9}\b/g,
-  // IPv4 addresses (user tracking vector)
-  /\b(?:\d{1,3}\.){3}\d{1,3}\b/g,
-  // UUIDs (device/user identifiers)
-  /\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b/g,
-  // Crisis content keywords (mental health PHI)
-  /\b(?:suicide|suicidal|kill\s+(?:myself|yourself)|self[- ]?harm|end\s+(?:my|it\s+all))\b/gi,
-  // Raw numeric scores in context
-  /\b(?:score|total|result)\s*[:=]?\s*\d{1,2}\b/gi,
-];
+// PHI detection patterns + the `containsPHI(data)` predicate were extracted to
+// `./phiDetection` (MAINT-202) so the pure logic is unit-testable in isolation
+// and shared by both scan sites below. It scans the user-supplied `data`
+// payload only — never the service-injected envelope. See that module's note.
 
 /**
  * ANALYTICS PRIVACY ENGINE
@@ -130,21 +108,14 @@ class AnalyticsPrivacyEngine {
    * Uses enhanced PHI detection with Unicode normalization
    */
   async validatePrivacyProtection(event: AnalyticsEvent): Promise<boolean> {
-    // Serialize and normalize event data for PHI detection
-    const eventString = JSON.stringify(event);
-    // Normalize Unicode to prevent bypass attacks (e.g., full-width characters)
-    const normalizedEventString = eventString.normalize('NFKC');
-
-    for (const pattern of PHI_DETECTION_PATTERNS) {
-      // Reset regex state for global patterns
-      pattern.lastIndex = 0;
-      if (pattern.test(normalizedEventString)) {
-        logSecurity('⚠️ Privacy violation detected in analytics event', 'high', {
-          patternSource: pattern.source.substring(0, 50), // Truncate for logging
-          eventType: event.eventType
-        });
-        return false;
-      }
+    // MAINT-202: scan the user-supplied `data` payload only. Scanning the full
+    // envelope here previously false-matched the numeric `timestamp` against the
+    // `\d{10,}` pattern (the same bug as sanitizeEvent). See ./phiDetection.
+    if (containsPHI(event.data)) {
+      logSecurity('⚠️ Privacy violation detected in analytics event', 'high', {
+        eventType: event.eventType
+      });
+      return false;
     }
 
     return true;
@@ -767,17 +738,12 @@ class AnalyticsService {
   }
 
   private async sanitizeEvent(rawEvent: AnalyticsEvent): Promise<AnalyticsEvent> {
-    // 1. Apply PHI detection and blocking using enhanced patterns
-    const eventString = JSON.stringify(rawEvent);
-    // Normalize Unicode to prevent bypass attacks
-    const normalizedEventString = eventString.normalize('NFKC');
-
-    const phiDetected = PHI_DETECTION_PATTERNS.some(pattern => {
-      pattern.lastIndex = 0; // Reset regex state for global patterns
-      return pattern.test(normalizedEventString);
-    });
-
-    if (phiDetected) {
+    // 1. Apply PHI detection over the user-supplied `data` payload only — before
+    //    any bucketing. The service-injected envelope (eventType/timestamp/
+    //    sessionId) must NOT be scanned: its 13-digit `Date.now()` timestamp
+    //    would false-match the `\d{10,}` pattern and drop every event
+    //    (MAINT-202). See ./phiDetection.
+    if (containsPHI(rawEvent.data)) {
       await this.logSecurityEvent('phi_exposure_attempt', { eventType: rawEvent.eventType });
       throw new Error('PHI detected in analytics event');
     }
@@ -1219,6 +1185,12 @@ class AnalyticsService {
       this.initialized = false;
       this.currentSessionId = null;
       this.lastSessionDate = null;
+      // Reset the batch guard too: a shutdown that leaves isProcessing=true would
+      // permanently early-return processBatch after the next initialize() (the
+      // guard at the top of processBatch), silently wedging the pipeline. The
+      // other reset state above already covers everything except this flag
+      // (MAINT-202).
+      this.isProcessing = false;
 
       // Removed informational log
 

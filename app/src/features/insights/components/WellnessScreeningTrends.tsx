@@ -60,6 +60,14 @@ interface WellnessScreeningTrendsProps {
   sessions: AssessmentSession[];
   /** Injectable clock for deterministic tests; defaults to now. */
   now?: number;
+  /**
+   * When true, the accessible per-point data list lists EVERY check-in in the
+   * range instead of the downsampled subset (FEAT-196 full-history detail screen).
+   * The chart polyline + its accessible summary stay downsampled regardless — only
+   * the list expands, so "Each value is listed below" stays true and the SVG render
+   * cost is unchanged. Default (false) keeps the in-dashboard card capped at 60.
+   */
+  fullHistory?: boolean;
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -304,6 +312,8 @@ interface TrendChartProps {
   maxScore: number;
   bands: ReferenceBand[];
   now: number;
+  /** List every check-in (skip the list downsample); chart stays downsampled. */
+  fullHistory?: boolean;
 }
 
 const TrendChart: React.FC<TrendChartProps> = ({
@@ -314,14 +324,24 @@ const TrendChart: React.FC<TrendChartProps> = ({
   maxScore,
   bands,
   now,
+  fullHistory = false,
 }) => {
   const allPoints = useMemo(
     () => getTrendPoints(sessions, type, 'all', now),
     [sessions, type, now]
   );
+  // Chart geometry + its accessible summary always render the downsampled series
+  // (render cost is fixed; the SVG can't legibly show hundreds of points anyway).
   const rangePoints = useMemo(
     () => downsample(getTrendPoints(sessions, type, range, now)),
     [sessions, type, range, now]
+  );
+  // The accessible data list shows every point when fullHistory is set (FEAT-196),
+  // otherwise it mirrors the charted subset. A superset of rangePoints either way,
+  // so the chart summary's "Each value is listed below" stays accurate.
+  const listPoints = useMemo(
+    () => (fullHistory ? getTrendPoints(sessions, type, range, now) : rangePoints),
+    [fullHistory, sessions, type, range, now, rangePoints]
   );
   const comparison = useMemo(() => compareWindows(allPoints, now), [allPoints, now]);
 
@@ -363,9 +383,10 @@ const TrendChart: React.FC<TrendChartProps> = ({
         <>
           <TrendLine points={rangePoints} maxScore={maxScore} bands={bands} title={title} />
 
-          {/* Accessible per-point data list (the screen-reader path + the detail surface). */}
+          {/* Accessible per-point data list (the screen-reader path + the detail surface).
+              Lists every check-in when fullHistory is set; the charted subset otherwise. */}
           <View style={styles.dataList}>
-            {[...rangePoints].reverse().map((p) => (
+            {[...listPoints].reverse().map((p) => (
               <View
                 key={p.timestamp}
                 style={styles.dataRow}
@@ -414,7 +435,11 @@ const TrendChart: React.FC<TrendChartProps> = ({
 // MAIN COMPONENT
 // ──────────────────────────────────────────────────────────────────────────────
 
-const WellnessScreeningTrends: React.FC<WellnessScreeningTrendsProps> = ({ sessions, now }) => {
+const WellnessScreeningTrends: React.FC<WellnessScreeningTrendsProps> = ({
+  sessions,
+  now,
+  fullHistory = false,
+}) => {
   const clock = now ?? Date.now();
   // Default to the full history; narrowing is opt-in via the selector.
   const [range, setRange] = useState<TrendTimeRange>('all');
@@ -445,6 +470,7 @@ const WellnessScreeningTrends: React.FC<WellnessScreeningTrendsProps> = ({ sessi
           maxScore={PHQ9_MAX_SCORE}
           bands={PHQ9_BANDS}
           now={clock}
+          fullHistory={fullHistory}
         />
       )}
 
@@ -459,6 +485,7 @@ const WellnessScreeningTrends: React.FC<WellnessScreeningTrendsProps> = ({ sessi
           maxScore={GAD7_MAX_SCORE}
           bands={GAD7_BANDS}
           now={clock}
+          fullHistory={fullHistory}
         />
       )}
 

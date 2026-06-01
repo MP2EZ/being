@@ -216,6 +216,42 @@ describe('WellnessScreeningTrends', () => {
   });
 });
 
+describe('fullHistory prop (FEAT-196 full-history detail screen)', () => {
+  // A long history that exceeds the 60-point downsample cap, so the default
+  // (capped) and fullHistory (uncapped) renders are distinguishable.
+  const longHistory = Array.from({ length: 80 }, (_, i) =>
+    session('phq9', (i % 27) + 0, 'mild', 80 - i)
+  );
+  // Row labels look like "Mon D: score N of 27, mild range."; the chart's single
+  // accessibilityRole="image" summary does NOT contain ": score", so this regex
+  // counts data-list rows only.
+  const ROW_LABEL = /: score \d+ of 27, .+ range\.$/;
+
+  it('caps the accessible list at the downsample limit by default', () => {
+    const { getAllByLabelText } = render(
+      <WellnessScreeningTrends sessions={longHistory} now={NOW} />
+    );
+    expect(getAllByLabelText(ROW_LABEL)).toHaveLength(60);
+  });
+
+  it('lists every check-in when fullHistory is set (no downsample on the list)', () => {
+    const { getAllByLabelText } = render(
+      <WellnessScreeningTrends sessions={longHistory} now={NOW} fullHistory />
+    );
+    expect(getAllByLabelText(ROW_LABEL)).toHaveLength(80);
+  });
+
+  it('keeps the chart + its accessible summary downsampled even under fullHistory', () => {
+    const { getByLabelText, queryByLabelText } = render(
+      <WellnessScreeningTrends sessions={longHistory} now={NOW} fullHistory />
+    );
+    // Chart geometry/summary describes the 60-point downsampled series — only the
+    // list expands, so "Each value is listed below" stays accurate.
+    expect(getByLabelText(/60 check-ins shown/)).toBeTruthy();
+    expect(queryByLabelText(/80 check-ins shown/)).toBeNull();
+  });
+});
+
 describe('severityBands token (philosopher red line: no moralized colour)', () => {
   it('uses a single neutral fill for every band (not a green→red ramp)', () => {
     expect(typeof severityBands.fill).toBe('string');
