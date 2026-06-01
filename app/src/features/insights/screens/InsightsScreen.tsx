@@ -29,7 +29,7 @@
  */
 
 import React, { useMemo, useCallback } from 'react';
-import { View, Text, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useStoicPracticeStore } from '@/features/practices/stores/stoicPracticeStore';
 import { useAssessmentStore } from '@/features/assessment/stores/assessmentStore';
@@ -124,6 +124,13 @@ const InsightsScreen: React.FC = () => {
   // Get daily quote
   const dailyQuote = useMemo(() => getDailyQuote(), []);
 
+  // Only offer the full-history detail screen (FEAT-196) once there's a
+  // completed screening to show — mirrors WellnessScreeningTrends' own guard.
+  const hasWellnessHistory = useMemo(
+    () => completedAssessments.some((s) => (s.type === 'phq9' || s.type === 'gad7') && s.result),
+    [completedAssessments]
+  );
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <ScrollView
@@ -161,6 +168,22 @@ const InsightsScreen: React.FC = () => {
 
         {/* Wellness Screening Trends (wellness context) */}
         <WellnessScreeningTrends sessions={completedAssessments} />
+
+        {/* Full-history detail entry point (FEAT-196) */}
+        {hasWellnessHistory && (
+          <TouchableOpacity
+            style={styles.fullHistoryLink}
+            onPress={() => navigation.navigate('WellnessTrendsDetail')}
+            accessibilityRole="button"
+            accessibilityLabel="See full history"
+            accessibilityHint="Opens the full wellness screening trend history"
+          >
+            <Text style={styles.fullHistoryLinkText}>See full history</Text>
+            <Text style={styles.fullHistoryLinkArrow} accessibilityElementsHidden importantForAccessibility="no">
+              →
+            </Text>
+          </TouchableOpacity>
+        )}
 
         {/* Bottom Padding */}
         <View style={styles.bottomPadding} />
@@ -228,6 +251,24 @@ const styles = StyleSheet.create({
   },
   bottomPadding: {
     height: spacing[32],
+  },
+  fullHistoryLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 44, // ≥44pt tap target (WCAG 2.5.5)
+    marginBottom: spacing[16],
+  },
+  fullHistoryLinkText: {
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.medium,
+    color: colorSystem.themes.morning.primary,
+  },
+  fullHistoryLinkArrow: {
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.medium,
+    color: colorSystem.themes.morning.primary,
+    marginLeft: spacing[4],
   },
 });
 
