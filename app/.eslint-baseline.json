@@ -4,7 +4,7 @@
   "src/compliance/DataMinimization.ts": 8,
   "src/compliance/DataProtectionEngine.ts": 10,
   "src/compliance/PrivacyAssessmentIntegration.ts": 22,
-  "src/core/analytics/AnalyticsService.ts": 6,
+  "src/core/analytics/AnalyticsService.ts": 5,
   "src/core/analytics/PHIFilter.ts": 1,
   "src/core/analytics/index.ts": 8,
   "src/core/components/CelebrationToast.tsx": 2,
@@ -157,5 +157,6 @@
   "src/features/profile/screens/AppSettingsScreen.tsx": 3,
   "src/features/profile/screens/LegalDocumentsListScreen.tsx": 1,
   "src/features/profile/screens/PrivacyDataScreen.tsx": 1,
-  "src/features/profile/screens/ProfileScreen.tsx": 2
+  "src/features/profile/screens/ProfileScreen.tsx": 2,
+  "src/features/profile/screens/__tests__/ProfileScreen.accessibility.test.tsx": 1
 }

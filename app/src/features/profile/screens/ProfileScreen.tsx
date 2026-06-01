@@ -25,6 +25,7 @@ import { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 import { useSubscriptionStore } from '@/core/stores/subscriptionStore';
 import { isDevMode } from '@/core/constants/devMode';
 import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
+import { MaterialDesignIcons } from '@react-native-vector-icons/material-design-icons';
 import ThresholdEducationModal from '@/core/components/ThresholdEducationModal';
 import { useAssessmentStore } from '@/features/assessment/stores/assessmentStore';
 import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
@@ -42,6 +43,11 @@ interface AssessmentMetadata {
 }
 
 type Screen = 'menu' | 'account' | 'privacy' | 'appSettings' | 'about' | 'stoicMindfulness' | 'legal';
+
+// FEAT-209 H2: gate the "About Being." card until real content exists, so we
+// stop shipping a "coming soon" placeholder as a first-class menu affordance.
+// Build-time constant (not a feature flag) — flip to true when content lands.
+const ABOUT_BEING_CONTENT_READY = false;
 
 const ProfileScreen: React.FC = () => {
   const [currentScreen, setCurrentScreen] = useState<Screen>('menu');
@@ -196,52 +202,33 @@ const ProfileScreen: React.FC = () => {
           </Text>
         </View>
 
+        {/* FEAT-209 H3/L2: Wellbeing Check-ins promoted to the top — assessments
+            are the most common reason users open Profile. L3: the scoring-education
+            trigger is now an inline ⓘ beside the heading (stays co-located → AS-5). */}
         <View style={styles.section}>
-          <Text
-            style={styles.sectionTitle}
-            accessibilityRole="header"
-            accessibilityLevel={2}
-          >
-            Setup & Configuration
-          </Text>
-
-          <Pressable
-            style={styles.profileCard}
-            onPress={handleStartOnboarding}
-            accessibilityRole="button"
-            accessibilityLabel="Onboarding Setup"
-            accessibilityHint="Complete your initial assessment and configure preferences"
-          >
-            <Text style={styles.cardTitle}>Onboarding Setup</Text>
-            <Text style={styles.cardDescription}>
-              Complete your initial assessment and configure your therapeutic preferences for a personalized experience.
+          <View style={styles.sectionHeaderRow}>
+            <Text
+              style={[styles.sectionTitle, styles.sectionTitleFlush]}
+              accessibilityRole="header"
+              accessibilityLevel={2}
+            >
+              Wellbeing Check-ins
             </Text>
-            <Text style={styles.cardAction} importantForAccessibility="no">Start Setup →</Text>
-          </Pressable>
-
-          <Pressable
-            style={styles.profileCard}
-            onPress={() => setCurrentScreen('appSettings')}
-            accessibilityRole="button"
-            accessibilityLabel="App Settings"
-            accessibilityHint="Configure notifications and accessibility preferences"
-          >
-            <Text style={styles.cardTitle}>App Settings</Text>
-            <Text style={styles.cardDescription}>
-              Configure notifications, accessibility options, and view app information.
-            </Text>
-            <Text style={styles.cardAction} importantForAccessibility="no">Configure →</Text>
-          </Pressable>
-        </View>
-
-        <View style={styles.section}>
-          <Text
-            style={styles.sectionTitle}
-            accessibilityRole="header"
-            accessibilityLevel={2}
-          >
-            Wellbeing Tracking
-          </Text>
+            <Pressable
+              style={styles.infoIconButton}
+              onPress={() => setShowEducationModal(true)}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              accessibilityRole="button"
+              accessibilityLabel="Learn about assessment scoring"
+              accessibilityHint="Opens educational information about how assessments are scored"
+            >
+              <MaterialDesignIcons
+                name="information-outline"
+                size={22}
+                color={colorSystem.themes.morning.primary}
+              />
+            </Pressable>
+          </View>
           <Text style={styles.sectionDescription}>
             Periodic self-assessments to observe patterns in your mental wellbeing. Recommended every 2 weeks.
           </Text>
@@ -292,26 +279,16 @@ const ProfileScreen: React.FC = () => {
             </View>
           </Pressable>
 
-          <Pressable
-            style={styles.educationLink}
-            onPress={() => setShowEducationModal(true)}
-            accessibilityRole="button"
-            accessibilityLabel="Learn about assessment scoring"
-            accessibilityHint="Opens educational information about how assessments are scored"
-          >
-            <Text style={styles.educationLinkText}>
-              Learn about assessment scoring
-            </Text>
-          </Pressable>
         </View>
 
+        {/* FEAT-209 C1: "Subscription" → "Your Plan" */}
         <View style={styles.section}>
           <Text
             style={styles.sectionTitle}
             accessibilityRole="header"
             accessibilityLevel={2}
           >
-            Subscription
+            Your Plan
           </Text>
 
           <Pressable
@@ -331,27 +308,30 @@ const ProfileScreen: React.FC = () => {
           </Pressable>
         </View>
 
+        {/* FEAT-209 C1/H3: single "Settings" hub merging the old "Setup &
+            Configuration" + "Preferences" sections; resolves the App Settings /
+            App Preferences / Account Settings naming collision. */}
         <View style={styles.section}>
           <Text
             style={styles.sectionTitle}
             accessibilityRole="header"
             accessibilityLevel={2}
           >
-            Preferences
+            Settings
           </Text>
 
           <Pressable
             style={styles.profileCard}
-            onPress={() => setCurrentScreen('account')}
+            onPress={() => setCurrentScreen('appSettings')}
             accessibilityRole="button"
-            accessibilityLabel="App Preferences"
-            accessibilityHint="Manage app preferences and privacy settings"
+            accessibilityLabel="Notifications & Display"
+            accessibilityHint="Configure notifications and accessibility preferences"
           >
-            <Text style={styles.cardTitle}>App Preferences</Text>
+            <Text style={styles.cardTitle}>Notifications & Display</Text>
             <Text style={styles.cardDescription}>
-              Manage notifications, accessibility, and privacy options.
+              Configure notifications, accessibility options, and view app information.
             </Text>
-            <Text style={styles.cardAction} importantForAccessibility="no">Manage →</Text>
+            <Text style={styles.cardAction} importantForAccessibility="no">Configure →</Text>
           </Pressable>
 
           <Pressable
@@ -367,30 +347,31 @@ const ProfileScreen: React.FC = () => {
             </Text>
             <Text style={styles.cardAction} importantForAccessibility="no">Review →</Text>
           </Pressable>
+
+          <Pressable
+            style={styles.profileCard}
+            onPress={() => setCurrentScreen('account')}
+            accessibilityRole="button"
+            accessibilityLabel="Account"
+            accessibilityHint="Manage your account details and preferences"
+          >
+            <Text style={styles.cardTitle}>Account</Text>
+            <Text style={styles.cardDescription}>
+              Manage your account details and preferences.
+            </Text>
+            <Text style={styles.cardAction} importantForAccessibility="no">Manage →</Text>
+          </Pressable>
         </View>
 
+        {/* FEAT-209 C1: "Information" → "About" */}
         <View style={styles.section}>
           <Text
             style={styles.sectionTitle}
             accessibilityRole="header"
             accessibilityLevel={2}
           >
-            Information
+            About
           </Text>
-
-          <Pressable
-            style={styles.profileCard}
-            onPress={() => setCurrentScreen('about')}
-            accessibilityRole="button"
-            accessibilityLabel="About Being"
-            accessibilityHint="Learn about our mission and how Being supports your mental wellbeing"
-          >
-            <Text style={styles.cardTitle}>About Being.</Text>
-            <Text style={styles.cardDescription}>
-              Learn about our mission, the philosophy and practice of Stoic Mindfulness, and how Being. supports your mental wellbeing.
-            </Text>
-            <Text style={styles.cardAction} importantForAccessibility="no">Learn More →</Text>
-          </Pressable>
 
           <Pressable
             style={styles.profileCard}
@@ -406,6 +387,23 @@ const ProfileScreen: React.FC = () => {
             <Text style={styles.cardAction} importantForAccessibility="no">Learn More →</Text>
           </Pressable>
 
+          {/* FEAT-209 H2: "About Being." stays hidden until real content exists. */}
+          {ABOUT_BEING_CONTENT_READY && (
+            <Pressable
+              style={styles.profileCard}
+              onPress={() => setCurrentScreen('about')}
+              accessibilityRole="button"
+              accessibilityLabel="About Being"
+              accessibilityHint="Learn about our mission and how Being supports your mental wellbeing"
+            >
+              <Text style={styles.cardTitle}>About Being.</Text>
+              <Text style={styles.cardDescription}>
+                Learn about our mission, the philosophy and practice of Stoic Mindfulness, and how Being. supports your mental wellbeing.
+              </Text>
+              <Text style={styles.cardAction} importantForAccessibility="no">Learn More →</Text>
+            </Pressable>
+          )}
+
           <Pressable
             style={styles.profileCard}
             onPress={() => setCurrentScreen('legal')}
@@ -420,6 +418,17 @@ const ProfileScreen: React.FC = () => {
             <Text style={styles.cardAction} importantForAccessibility="no">View Documents →</Text>
           </Pressable>
         </View>
+
+        {/* FEAT-209 H3: Onboarding Setup demoted from a top card to a footer link. */}
+        <Pressable
+          style={styles.footerLink}
+          onPress={handleStartOnboarding}
+          accessibilityRole="button"
+          accessibilityLabel="Onboarding Setup"
+          accessibilityHint="Complete your initial assessment and configure preferences"
+        >
+          <Text style={styles.footerLinkText}>Onboarding Setup</Text>
+        </Pressable>
       </ScrollView>
 
       {/* Education Modal */}
@@ -659,6 +668,24 @@ const styles = StyleSheet.create({
     color: colorSystem.base.black,
     marginBottom: spacing[16],
   },
+  // Row that pairs a section heading with a trailing inline action (the ⓘ).
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing[16],
+  },
+  // The heading already supplies the row's bottom margin, so drop its own.
+  sectionTitleFlush: {
+    marginBottom: 0,
+    flexShrink: 1,
+  },
+  // ⓘ scoring trigger. hitSlop expands the 22pt glyph past the 44pt WCAG 2.5.5
+  // minimum touch target without enlarging the visual icon.
+  infoIconButton: {
+    padding: spacing[4],
+    marginLeft: spacing[8],
+  },
   sectionDescription: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
@@ -833,13 +860,14 @@ const styles = StyleSheet.create({
     marginTop: spacing[8],
     marginBottom: spacing[8],
   },
-  educationLink: {
+  // FEAT-209 H3: low-emphasis footer link for the demoted Onboarding Setup entry.
+  footerLink: {
     paddingVertical: spacing[8],
     paddingHorizontal: spacing[16],
     alignItems: 'center',
     marginTop: spacing[8],
   },
-  educationLinkText: {
+  footerLinkText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.medium,
     color: colorSystem.themes.morning.primary,
