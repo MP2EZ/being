@@ -158,57 +158,63 @@ name: "Helper: traverse LegalGate + Onboarding"
 # can't express this because the post-condition changes every iteration.
 # Each `timeout` is a failure ceiling only — the wait returns the instant the
 # counter is visible, so the assessment section stays well within ≤45s.
+# NOTE: Maestro's `text:` is a FULL-MATCH regex, and RN merges this counter's
+# Text with the sibling progress-bar accessibilityLabel into one node whose
+# accessibility string is "Question N of M, Progress: N of M questions
+# completed" (verified via `maestro hierarchy`, INFRA-208). A bare
+# "Question N of M" therefore does NOT match — wrap in `.*…*` to full-match
+# the merged string.
 - extendedWaitUntil:
     visible:
-      text: "Question 1 of 9"
+      text: ".*Question 1 of 9.*"
     timeout: 10000
 - tapOn:
     id: "assessment-response-group-option-0"
 - extendedWaitUntil:
     visible:
-      text: "Question 2 of 9"
+      text: ".*Question 2 of 9.*"
     timeout: 10000
 - tapOn:
     id: "assessment-response-group-option-0"
 - extendedWaitUntil:
     visible:
-      text: "Question 3 of 9"
+      text: ".*Question 3 of 9.*"
     timeout: 10000
 - tapOn:
     id: "assessment-response-group-option-0"
 - extendedWaitUntil:
     visible:
-      text: "Question 4 of 9"
+      text: ".*Question 4 of 9.*"
     timeout: 10000
 - tapOn:
     id: "assessment-response-group-option-0"
 - extendedWaitUntil:
     visible:
-      text: "Question 5 of 9"
+      text: ".*Question 5 of 9.*"
     timeout: 10000
 - tapOn:
     id: "assessment-response-group-option-0"
 - extendedWaitUntil:
     visible:
-      text: "Question 6 of 9"
+      text: ".*Question 6 of 9.*"
     timeout: 10000
 - tapOn:
     id: "assessment-response-group-option-0"
 - extendedWaitUntil:
     visible:
-      text: "Question 7 of 9"
+      text: ".*Question 7 of 9.*"
     timeout: 10000
 - tapOn:
     id: "assessment-response-group-option-0"
 - extendedWaitUntil:
     visible:
-      text: "Question 8 of 9"
+      text: ".*Question 8 of 9.*"
     timeout: 10000
 - tapOn:
     id: "assessment-response-group-option-0"
 - extendedWaitUntil:
     visible:
-      text: "Question 9 of 9"
+      text: ".*Question 9 of 9.*"
     timeout: 10000
 # Answers PHQ-9 Q9 → onComplete dismisses the modal → a 50ms setTimeout
 # (OnboardingScreen.tsx:824) launches GAD-7. The next wait below bridges that
@@ -220,43 +226,43 @@ name: "Helper: traverse LegalGate + Onboarding"
 # GAD-7 — 7 questions, same wait-then-tap pattern. After Q7 → Stoic Intro.
 - extendedWaitUntil:
     visible:
-      text: "Question 1 of 7"
+      text: ".*Question 1 of 7.*"
     timeout: 10000
 - tapOn:
     id: "assessment-response-group-option-0"
 - extendedWaitUntil:
     visible:
-      text: "Question 2 of 7"
+      text: ".*Question 2 of 7.*"
     timeout: 10000
 - tapOn:
     id: "assessment-response-group-option-0"
 - extendedWaitUntil:
     visible:
-      text: "Question 3 of 7"
+      text: ".*Question 3 of 7.*"
     timeout: 10000
 - tapOn:
     id: "assessment-response-group-option-0"
 - extendedWaitUntil:
     visible:
-      text: "Question 4 of 7"
+      text: ".*Question 4 of 7.*"
     timeout: 10000
 - tapOn:
     id: "assessment-response-group-option-0"
 - extendedWaitUntil:
     visible:
-      text: "Question 5 of 7"
+      text: ".*Question 5 of 7.*"
     timeout: 10000
 - tapOn:
     id: "assessment-response-group-option-0"
 - extendedWaitUntil:
     visible:
-      text: "Question 6 of 7"
+      text: ".*Question 6 of 7.*"
     timeout: 10000
 - tapOn:
     id: "assessment-response-group-option-0"
 - extendedWaitUntil:
     visible:
-      text: "Question 7 of 7"
+      text: ".*Question 7 of 7.*"
     timeout: 10000
 - tapOn:
     id: "assessment-response-group-option-0"
