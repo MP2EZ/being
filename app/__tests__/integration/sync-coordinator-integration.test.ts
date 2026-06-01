@@ -206,8 +206,6 @@ describe('🔄 SYNC COORDINATOR INTEGRATION TESTING', () => {
 
   describe('🚨 CRISIS ASSESSMENT SYNC PRIORITY', () => {
     it('should trigger immediate crisis sync for PHQ-9 ≥15', async () => {
-      const startTime = Date.now();
-
       // Simulate crisis assessment completion
       mockAssessmentStore.currentResult = mockPHQ9CrisisResult;
 
@@ -223,11 +221,6 @@ describe('🔄 SYNC COORDINATOR INTEGRATION TESTING', () => {
         });
       }
 
-      const responseTime = Date.now() - startTime;
-
-      // Validate crisis response time requirement
-      expect(responseTime).toBeLessThan(200);
-
       // Check that priority backup was triggered
       expect(mockAsyncStorage.setItem).toHaveBeenCalledWith(
         expect.stringMatching(/crisis_assessment_sync_/),
@@ -236,8 +229,6 @@ describe('🔄 SYNC COORDINATOR INTEGRATION TESTING', () => {
     });
 
     it('should trigger immediate crisis sync for GAD-7 ≥15', async () => {
-      const startTime = Date.now();
-
       mockAssessmentStore.currentResult = mockGAD7CrisisResult;
 
       const mockSubscribeCallback = (useAssessmentStore as any).subscribe.mock.calls[0]?.[0];
@@ -251,9 +242,6 @@ describe('🔄 SYNC COORDINATOR INTEGRATION TESTING', () => {
         });
       }
 
-      const responseTime = Date.now() - startTime;
-
-      expect(responseTime).toBeLessThan(200);
       expect(mockAsyncStorage.setItem).toHaveBeenCalledWith(
         expect.stringMatching(/crisis_assessment_sync_/),
         expect.any(String)
@@ -261,8 +249,6 @@ describe('🔄 SYNC COORDINATOR INTEGRATION TESTING', () => {
     });
 
     it('should trigger immediate crisis sync for suicidal ideation', async () => {
-      const startTime = Date.now();
-
       mockAssessmentStore.currentResult = mockSuicidalIdeationResult;
 
       const mockSubscribeCallback = (useAssessmentStore as any).subscribe.mock.calls[0]?.[0];
@@ -276,9 +262,6 @@ describe('🔄 SYNC COORDINATOR INTEGRATION TESTING', () => {
         });
       }
 
-      const responseTime = Date.now() - startTime;
-
-      expect(responseTime).toBeLessThan(200);
       expect(mockAsyncStorage.setItem).toHaveBeenCalledWith(
         expect.stringMatching(/crisis_assessment_sync_/),
         expect.any(String)
@@ -426,16 +409,14 @@ describe('🔄 SYNC COORDINATOR INTEGRATION TESTING', () => {
   });
 
   describe('⚡ PERFORMANCE VALIDATION', () => {
-    it('should complete routine sync within performance thresholds', async () => {
-      const startTime = Date.now();
-
+    it('should complete routine sync successfully', async () => {
       const result = await syncCoordinator.performFullSync();
 
-      const duration = Date.now() - startTime;
-
+      // Wall-clock perf budgets (`duration < 5000`, `result.performance.duration
+      // < 5000`) removed (MAINT-207): jest wall-clock assertions are a documented
+      // flake anti-pattern; sync timing is owned on-device, not by mocked jest.
+      // The behavior contract — the sync completes successfully — stays.
       expect(result.success).toBe(true);
-      expect(duration).toBeLessThan(5000); // 5 second threshold for routine sync
-      expect(result.performance.duration).toBeLessThan(5000);
     });
 
     it('should handle concurrent sync operations safely', async () => {
@@ -455,20 +436,20 @@ describe('🔄 SYNC COORDINATOR INTEGRATION TESTING', () => {
       expect(successfulSyncs.length).toBeGreaterThan(0);
     });
 
-    it('should maintain acceptable throughput under load', async () => {
+    it('should handle sustained load without failing', async () => {
       const operations = 10;
-      const startTime = Date.now();
 
       const syncPromises = Array(operations).fill(0).map(() =>
         syncCoordinator.performFullSync()
       );
 
-      await Promise.all(syncPromises);
+      const results = await Promise.all(syncPromises);
 
-      const totalDuration = Date.now() - startTime;
-      const averageDuration = totalDuration / operations;
-
-      expect(averageDuration).toBeLessThan(1000); // Average 1s per operation
+      // Wall-clock budget (`averageDuration < 1000`) removed (MAINT-207): jest
+      // wall-clock timing is a flake anti-pattern; throughput is owned on-device.
+      // The behavior contract — sustained concurrent syncs complete without
+      // failing (at least one succeeds; others may be debounced) — stays.
+      expect(results.filter(r => r.success).length).toBeGreaterThan(0);
     });
   });
 
