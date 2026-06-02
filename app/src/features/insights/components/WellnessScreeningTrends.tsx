@@ -38,6 +38,8 @@ import {
   type SeverityBandKey,
 } from '@/core/theme';
 import type { AssessmentSession, AssessmentType } from '@/features/assessment/types';
+import { useAssessmentStore } from '@/features/assessment/stores/assessmentStore';
+import { useFeatureFlag } from '@/core/analytics';
 import {
   getTrendPoints,
   compareWindows,
@@ -50,6 +52,7 @@ import {
   type TrendPoint,
   type WindowSummary,
 } from '../utils/wellnessTrendData';
+import SessionNoteComposer from './SessionNoteComposer';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // TYPES & PROPS
@@ -314,6 +317,10 @@ interface TrendChartProps {
   now: number;
   /** List every check-in (skip the list downsample); chart stays downsampled. */
   fullHistory?: boolean;
+  /** FEAT-195: when true, each data row exposes the "Your note" affordance. */
+  notesEnabled?: boolean;
+  /** Opens the note composer for a given check-in's session. */
+  onEditNote?: (session: AssessmentSession, subtitle: string) => void;
 }
 
 const TrendChart: React.FC<TrendChartProps> = ({
@@ -325,7 +332,19 @@ const TrendChart: React.FC<TrendChartProps> = ({
   bands,
   now,
   fullHistory = false,
+  notesEnabled = false,
+  onEditNote,
 }) => {
+  // Map a charted point back to its source session (for the note id + text).
+  // Keyed by startedAt, which is exactly TrendPoint.timestamp — keeps notes off
+  // the verdict-free TrendPoint while still resolving per-row.
+  const sessionByTimestamp = useMemo(() => {
+    const m = new Map<number, AssessmentSession>();
+    for (const s of sessions) {
+      if (s.type === type && s.result) m.set(s.progress.startedAt, s);
+    }
+    return m;
+  }, [sessions, type]);
   const allPoints = useMemo(
     () => getTrendPoints(sessions, type, 'all', now),
     [sessions, type, now]
@@ -384,24 +403,68 @@ const TrendChart: React.FC<TrendChartProps> = ({
           <TrendLine points={rangePoints} maxScore={maxScore} bands={bands} title={title} />
 
           {/* Accessible per-point data list (the screen-reader path + the detail surface).
-              Lists every check-in when fullHistory is set; the charted subset otherwise. */}
+              Lists every check-in when fullHistory is set; the charted subset otherwise.
+              FEAT-195: when notesEnabled, each row also exposes a "Your note" affordance. */}
           <View style={styles.dataList}>
-            {[...listPoints].reverse().map((p) => (
-              <View
-                key={p.timestamp}
-                style={styles.dataRow}
-                accessible
-                accessibilityLabel={`${formatDate(p.timestamp)}: score ${p.score} of ${maxScore}, ${p.severity} range.`}
-              >
-                <View style={styles.dataRowLeft}>
-                  <View style={styles.dataRowDot} />
-                  <Text style={styles.dataRowDate}>{formatDate(p.timestamp)}</Text>
-                </View>
-                <Text style={styles.dataRowScore}>
-                  {p.score} of {maxScore} · {p.severity}
-                </Text>
-              </View>
-            ))}
+            {[...listPoints].reverse().map((p) => {
+              const scoreLabel = `${formatDate(p.timestamp)}: score ${p.score} of ${maxScore}, ${p.severity} range.`;
+              const session = notesEnabled ? sessionByTimestamp.get(p.timestamp) : undefined;
+              const note = session?.note;
+
+              const rowBody = (
+                <>
+                  <View style={styles.dataRowTop}>
+                    <View style={styles.dataRowLeft}>
+                      <View style={styles.dataRowDot} />
+                      <Text style={styles.dataRowDate}>{formatDate(p.timestamp)}</Text>
+                    </View>
+                    <Text style={styles.dataRowScore}>
+                      {p.score} of {maxScore} · {p.severity}
+                    </Text>
+                  </View>
+                  {session && (
+                    note ? (
+                      <Text style={styles.noteText} numberOfLines={2}>
+                        {note}
+                      </Text>
+                    ) : (
+                      <Text style={styles.addNoteText}>Add a note</Text>
+                    )
+                  )}
+                </>
+              );
+
+              // Notes off, or (defensively) no session resolved → original static row.
+              if (!session || !onEditNote) {
+                return (
+                  <View
+                    key={p.timestamp}
+                    style={styles.dataRow}
+                    accessible
+                    accessibilityLabel={scoreLabel}
+                  >
+                    {rowBody}
+                  </View>
+                );
+              }
+
+              return (
+                <TouchableOpacity
+                  key={p.timestamp}
+                  style={styles.dataRow}
+                  onPress={() => onEditNote(session, formatDate(p.timestamp))}
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    note
+                      ? `${scoreLabel} Your note: ${note}.`
+                      : `${scoreLabel} No note yet.`
+                  }
+                  accessibilityHint={note ? 'Edit your note' : 'Add a note'}
+                >
+                  {rowBody}
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </>
       )}
@@ -444,10 +507,22 @@ const WellnessScreeningTrends: React.FC<WellnessScreeningTrendsProps> = ({
   // Default to the full history; narrowing is opt-in via the selector.
   const [range, setRange] = useState<TrendTimeRange>('all');
 
+  // FEAT-195 — "Your note" annotations (runtime flag, ships dark; UI visibility
+  // only — the note's encryption/consent/delete paths are independent).
+  const notesEnabled = useFeatureFlag('wellness_trend_notes');
+  const setSessionNote = useAssessmentStore((s) => s.setSessionNote);
+  const clearSessionNote = useAssessmentStore((s) => s.clearSessionNote);
+  const [editing, setEditing] = useState<{ session: AssessmentSession; subtitle: string } | null>(
+    null
+  );
+
   const hasPhq9 = useMemo(() => sessions.some((s) => s.type === 'phq9' && s.result), [sessions]);
   const hasGad7 = useMemo(() => sessions.some((s) => s.type === 'gad7' && s.result), [sessions]);
   // Only surface the selector once it would actually change what's shown.
   const showSelector = useMemo(() => spansMultipleWindows(sessions, clock), [sessions, clock]);
+
+  const handleEditNote = (session: AssessmentSession, subtitle: string): void =>
+    setEditing({ session, subtitle });
 
   // Don't show the section until there's at least one completed screening.
   if (!hasPhq9 && !hasGad7) return null;
@@ -471,6 +546,8 @@ const WellnessScreeningTrends: React.FC<WellnessScreeningTrendsProps> = ({
           bands={PHQ9_BANDS}
           now={clock}
           fullHistory={fullHistory}
+          notesEnabled={notesEnabled}
+          onEditNote={handleEditNote}
         />
       )}
 
@@ -486,6 +563,8 @@ const WellnessScreeningTrends: React.FC<WellnessScreeningTrendsProps> = ({
           bands={GAD7_BANDS}
           now={clock}
           fullHistory={fullHistory}
+          notesEnabled={notesEnabled}
+          onEditNote={handleEditNote}
         />
       )}
 
@@ -494,6 +573,23 @@ const WellnessScreeningTrends: React.FC<WellnessScreeningTrendsProps> = ({
         Looking at this, what stands out to you? What was happening in your life around these
         check-ins?
       </Text>
+
+      {notesEnabled && (
+        <SessionNoteComposer
+          visible={editing !== null}
+          initialText={editing?.session.note ?? ''}
+          subtitle={editing?.subtitle}
+          onSave={async (text) => {
+            if (editing) await setSessionNote(editing.session.id, text);
+            setEditing(null);
+          }}
+          onDelete={async () => {
+            if (editing) await clearSessionNote(editing.session.id);
+            setEditing(null);
+          }}
+          onCancel={() => setEditing(null)}
+        />
+      )}
     </View>
   );
 };
@@ -587,13 +683,28 @@ const styles = StyleSheet.create({
     marginTop: spacing[12],
   },
   dataRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    justifyContent: 'center',
     minHeight: 44, // ≥44pt tap/focus target (WCAG)
     paddingVertical: spacing[4],
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colorSystem.gray[300],
+  },
+  dataRowTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  noteText: {
+    fontSize: typography.caption.size,
+    color: semantic.text.secondary,
+    marginTop: spacing[4],
+    lineHeight: 18,
+  },
+  addNoteText: {
+    fontSize: typography.caption.size,
+    color: semantic.text.muted,
+    marginTop: spacing[4],
+    fontStyle: 'italic',
   },
   dataRowLeft: {
     flexDirection: 'row',

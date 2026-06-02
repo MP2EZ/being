@@ -99,7 +99,7 @@ export const BLOCKED_FIELDS = [
   // Personal data
   'data', 'userData', 'profile', 'profileData', 'private',
   'therapeutic', 'mood', 'emotion', 'feeling', 'thought',
-  'journal', 'reflection', 'note', 'content',
+  'journal', 'reflection', 'note', 'content', 'annotation',
 
   // Stoic/philosophical content
   'principle', 'virtue', 'practice', 'exercise',

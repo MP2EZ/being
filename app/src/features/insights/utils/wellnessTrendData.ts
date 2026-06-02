@@ -205,6 +205,29 @@ export interface TrendSnapshotInstrument {
 }
 
 /**
+ * Compliance-pinned label for a user-authored note in any exported artifact.
+ * Never "clinical context" / "provider note" / "annotation" (FEAT-195).
+ */
+export const WELLNESS_NOTE_LABEL = 'Your note' as const;
+
+/**
+ * A user-authored "Your note" annotation (FEAT-195) carried into the export.
+ * Kept in a SEPARATE structure from `TrendPoint` on purpose: `TrendPoint` must
+ * stay verdict-free and analytics-safe (no free-text), so the note never rides
+ * on the raw score series. The note text is opaque — no field here is derived
+ * from it (compliance + philosopher red line).
+ */
+export interface TrendNote {
+  type: AssessmentType;
+  /** Matches the annotated check-in's `TrendPoint.timestamp` (session startedAt). */
+  timestamp: number;
+  /** Always WELLNESS_NOTE_LABEL — self-describing for the export artifact. */
+  label: typeof WELLNESS_NOTE_LABEL;
+  /** Verbatim user text (≤140 chars, enforced upstream at the store). */
+  note: string;
+}
+
+/**
  * The complete export payload FEAT-29 consumes to render a PDF/share artifact.
  * Plain JSON only (no functions, no verdict fields) and carries the mandated
  * disclaimer so any exported copy stays compliant.
@@ -213,6 +236,12 @@ export interface WellnessTrendSnapshot {
   generatedAt: number;
   disclaimer: string;
   instruments: TrendSnapshotInstrument[];
+  /**
+   * User-authored notes, labeled "Your note", one per annotated check-in
+   * (FEAT-195). Empty when no check-in has a note. Separate from `instruments`
+   * so the raw score series stays free of free-text.
+   */
+  notes: TrendNote[];
 }
 
 /**
@@ -228,6 +257,7 @@ export function buildTrendSnapshot(
   now: number = Date.now()
 ): WellnessTrendSnapshot {
   const instruments: TrendSnapshotInstrument[] = [];
+  const notes: TrendNote[] = [];
   for (const type of ['phq9', 'gad7'] as AssessmentType[]) {
     const points = getTrendPoints(sessions, type, 'all', now);
     if (points.length === 0) continue;
@@ -236,7 +266,22 @@ export function buildTrendSnapshot(
       label: type === 'phq9' ? WELLNESS_LABELS.phq9 : WELLNESS_LABELS.gad7,
       points,
     });
-  }
 
-  return { generatedAt: now, disclaimer: WELLNESS_DISCLAIMER_TEXT, instruments };
+    // Carry each annotated check-in's note into the export, verbatim and labeled
+    // "Your note". No inference, no derivation — the note string is copied as-is.
+    for (const session of sessions) {
+      if (session.type !== type || !session.result) continue;
+      const note = session.note?.trim();
+      if (!note) continue;
+      notes.push({
+        type,
+        timestamp: session.progress.startedAt,
+        label: WELLNESS_NOTE_LABEL,
+        note,
+      });
+    }
+  }
+  notes.sort((a, b) => a.timestamp - b.timestamp);
+
+  return { generatedAt: now, disclaimer: WELLNESS_DISCLAIMER_TEXT, instruments, notes };
 }

@@ -8,9 +8,9 @@ import { isFeatureEnabled, __parseFlagsForTest } from '@/core/services/featureFl
 
 describe('featureFlags — parseFlags', () => {
   it('parses key:value pairs into booleans', () => {
-    const flags = __parseFlagsForTest('cloud_sync:false,widget_support:true');
+    const flags = __parseFlagsForTest('cloud_sync:false,cross_device_sync:true');
     expect(flags.cloud_sync).toBe(false);
-    expect(flags.widget_support).toBe(true);
+    expect(flags.cross_device_sync).toBe(true);
   });
 
   it('treats only the literal "true" as enabled', () => {
@@ -23,16 +23,16 @@ describe('featureFlags — parseFlags', () => {
   });
 
   it('tolerates surrounding whitespace in keys and values', () => {
-    const flags = __parseFlagsForTest(' cloud_sync : true , widget_support:false ');
+    const flags = __parseFlagsForTest(' cloud_sync : true , cross_device_sync:false ');
     expect(flags.cloud_sync).toBe(true);
-    expect(flags.widget_support).toBe(false);
+    expect(flags.cross_device_sync).toBe(false);
   });
 
   it('skips malformed segments without throwing', () => {
-    expect(() => __parseFlagsForTest('cloud_sync,:,widget_support:true,,')).not.toThrow();
-    const flags = __parseFlagsForTest('cloud_sync,:,widget_support:true,,');
+    expect(() => __parseFlagsForTest('cloud_sync,:,cross_device_sync:true,,')).not.toThrow();
+    const flags = __parseFlagsForTest('cloud_sync,:,cross_device_sync:true,,');
     expect(flags.cloud_sync).toBeUndefined(); // no colon → skipped
-    expect(flags.widget_support).toBe(true);
+    expect(flags.cross_device_sync).toBe(true);
   });
 });
 
