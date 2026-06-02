@@ -31,10 +31,12 @@ import { env } from '@/core/config/env';
  * family — `cloud_sync` flows through `isFeatureEnabled` via the runtime
  * `useFeatureFlag` hook (it is in `PRODUCT_FLAGS`), and `emergency_sync` /
  * `cross_device_sync` are reserved allow-list placeholders for upcoming sync
- * features. MAINT-213 removed eight keys that lived here but were never read as
- * flags (`production_mode`, `performance_monitoring`, `crisis_detection`,
- * `clinical_accuracy`, `data_encryption`, `biometric_auth`, `offline_mode`,
- * `widget_support`).
+ * features — plus `wellness_trend_notes` (FEAT-195), read via the runtime
+ * `useFeatureFlag` hook to gate the Wellness Trends "Your note" surface
+ * (in `PRODUCT_FLAGS`; ships dark, build-time floor false). MAINT-213 removed
+ * eight keys that lived here but were never read as flags (`production_mode`,
+ * `performance_monitoring`, `crisis_detection`, `clinical_accuracy`,
+ * `data_encryption`, `biometric_auth`, `offline_mode`, `widget_support`).
  *
  * NOTE — name collisions: several of those removed names still appear as string
  * literals elsewhere (`crisis_detection` in CircuitBreakerService /
@@ -45,7 +47,11 @@ import { env } from '@/core/config/env';
  * `isFeatureEnabled(...)` consumer; otherwise you re-introduce a decorative
  * env entry that gates nothing and reads like a live safety toggle.
  */
-export type FeatureFlag = 'cloud_sync' | 'emergency_sync' | 'cross_device_sync';
+export type FeatureFlag =
+  | 'cloud_sync'
+  | 'emergency_sync'
+  | 'cross_device_sync'
+  | 'wellness_trend_notes';
 
 /**
  * Parse a feature-flag blob into a boolean lookup.

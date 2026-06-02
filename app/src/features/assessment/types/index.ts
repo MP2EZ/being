@@ -82,6 +82,30 @@ export interface AssessmentSession {
   progress: AssessmentProgress;
   result?: PHQ9Result | GAD7Result;
   context: AssessmentContext;
+  /**
+   * Optional user-authored free-text note ("Your note") attached to this
+   * check-in (FEAT-195). Captured on the Wellness Screening Trends surface so a
+   * user can recall the life context around a score. ≤140 chars, enforced at the
+   * store action.
+   *
+   * OPAQUE — no inference, ever. The note is stored, rendered verbatim, and
+   * exported. It must never be fed to sentiment analysis, auto-categorization,
+   * scoring, summarization, search-ranking, or crisis detection. The score path
+   * remains the sole safety signal (philosopher + crisis red line).
+   *
+   * It rides inside `completedAssessments[]` — already in the encrypted
+   * `partialize` slice (AES-256 via `storeWellnessBlob(..., 'level_2_assessment_data')`)
+   * — so encryption, cascade-delete, and export portability are inherited; no
+   * new crypto / retention / export wiring.
+   *
+   * DPIA boundary (docs/legal/dpia-sensitive-wellness-data.md): a plain ≤140-char
+   * note needs NO DPIA revision (it is a sub-category of "reflective writing").
+   * A revision IS required before shipping if ANY of these flip:
+   *   1. inference/sentiment/derivation is performed on the note text, OR
+   *   2. the note is sent to a new sub-processor (PostHog/Sentry/AI API/plaintext Supabase), OR
+   *   3. the note is used for anything beyond showing the user their own history.
+   */
+  note?: string;
 }
 
 // Crisis Intervention Types - Re-export comprehensive types from crisis/safety.ts

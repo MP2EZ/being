@@ -296,3 +296,49 @@ describe('buildTrendSnapshot (FEAT-29 export contract)', () => {
     expect(snap.instruments).toEqual([]);
   });
 });
+
+describe('buildTrendSnapshot — Your note annotations (FEAT-195)', () => {
+  const withNote = (s: AssessmentSession, note: string): AssessmentSession => ({ ...s, note });
+
+  it('carries a session note into the export, labeled "Your note"', () => {
+    const snap = buildTrendSnapshot(
+      [withNote(makeSession('phq9', 9, 'mild', 5), 'Started a new job')],
+      NOW
+    );
+    expect(snap.notes).toHaveLength(1);
+    expect(snap.notes[0]).toEqual({
+      type: 'phq9',
+      timestamp: NOW - 5 * DAY,
+      label: 'Your note',
+      note: 'Started a new job',
+    });
+  });
+
+  it('keeps notes OUT of TrendPoint — the raw score series stays free-text-free', () => {
+    const snap = buildTrendSnapshot(
+      [withNote(makeSession('phq9', 9, 'mild', 5), 'private context')],
+      NOW
+    );
+    const point = snap.instruments[0]!.points[0]! as TrendPoint & Record<string, unknown>;
+    expect(point).toEqual({ score: 9, timestamp: NOW - 5 * DAY, severity: 'mild', max: PHQ9_MAX_SCORE });
+    expect(point.note).toBeUndefined();
+  });
+
+  it('emits no notes when no check-in is annotated', () => {
+    const snap = buildTrendSnapshot([makeSession('phq9', 6, 'mild', 1)], NOW);
+    expect(snap.notes).toEqual([]);
+  });
+
+  it('orders notes chronologically and copies text verbatim (no inference/derivation)', () => {
+    const snap = buildTrendSnapshot(
+      [
+        withNote(makeSession('gad7', 8, 'mild', 2), 'recent'),
+        withNote(makeSession('phq9', 9, 'mild', 10), 'older'),
+      ],
+      NOW
+    );
+    expect(snap.notes.map((n) => n.note)).toEqual(['older', 'recent']);
+    // No derived/sentiment field exists on a note — only {type,timestamp,label,note}.
+    expect(Object.keys(snap.notes[0]!).sort()).toEqual(['label', 'note', 'timestamp', 'type']);
+  });
+});

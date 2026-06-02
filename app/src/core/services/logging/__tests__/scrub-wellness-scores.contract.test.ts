@@ -34,7 +34,7 @@ describe('Sentry scrub contract — wellness scores never leave the device', () 
   });
 
   it('blocks free-text note/journal fields (annotation phase forward-guard)', () => {
-    for (const field of ['note', 'content', 'journal', 'reflection']) {
+    for (const field of ['note', 'content', 'journal', 'reflection', 'annotation']) {
       expect(BLOCKED_FIELDS).toContain(field);
     }
   });
