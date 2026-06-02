@@ -37,6 +37,8 @@ jest.mock('@react-navigation/native', () => ({
 const mockTrackScreenView = jest.fn();
 jest.mock('@/core/analytics', () => ({
   useAnalytics: () => ({ trackScreenView: mockTrackScreenView }),
+  // FEAT-195 — notes ship dark; this screen exercises the flag-off contract.
+  useFeatureFlag: () => false,
 }));
 
 // react-native-svg isn't in the jest transform allowlist; mock as host components
