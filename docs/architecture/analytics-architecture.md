@@ -4,6 +4,76 @@
 
 ---
 
+## Routing Model & Current-State Audit (INFRA-214)
+
+> Added 2026-06 by **INFRA-214** after an audit found the analytics layer had drifted into
+> three disjoint sinks, with crisis-detection telemetry reaching none of them reliably. This
+> section is the **authoritative routing model**; the detailed sections below describe the
+> PostHog / PHIFilter path. The target model is implemented across INFRA-214 tranches T2–T6.
+
+### Target routing model (decided — Option 1)
+
+| Sink | Role | Gate |
+|---|---|---|
+| **PostHog (EU)** | Single product-analytics **and** crisis-telemetry sink. All app events — including the canonical crisis-detection event — flow `useAnalytics` → `PHIFilter.validate()` → `posthog.capture()`. | PHIFilter is the **single source of truth** for what may be transmitted. Consent-gated, except the crisis-detection event's vital-interests bypass. |
+| **Supabase `analytics_events`** | Operational telemetry **only** (backup/sync events from `CloudBackupService` / `SyncCoordinator`). NOT a product-analytics or crisis sink. | `canPerformOperation('cloud_sync'/'analytics')` (consent gate added in INFRA-214 T4). |
+| **Custom REST API (`api.being.fyi`)** | **REMOVED** (INFRA-214 T2). Was never deployed. | — |
+
+### Current-state audit (what INFRA-214 found, verified 2026-06-01/02)
+
+1. **PostHog-direct — LIVE, the only working path.** Crisis events limited to
+   `crisis_resources_viewed` / `crisis_hotline_tapped` (no properties). No crisis-detection
+   event existed. PostHog project "Being" (111221) had zero product events (pre-launch + dev
+   no-ops PostHog).
+2. **Supabase `analytics_events` — table live, crisis emitters orphaned.** Only backup/sync
+   ops wrote to it; the `useCloudSync` `crisis_intervention` / `assessment_completed` emitters
+   were defined but never called. Its own `sanitizeAnalyticsProperties` / `scoreToSeverityBucket`
+   bypassed PHIFilter and had no analytics-consent gate (only a `userId` check).
+3. **Custom-API (`AnalyticsService` → `api.being.fyi`) — fully orphaned dead code.** Never
+   `initialize()`d (so the `crisis_intervention_triggered` subscription never wired); host
+   never resolved (DNS); placeholder certs; `NETWORK_CONFIG` self-described as "placeholders
+   for future." The k-anonymity (k≥5) / differential-privacy (ε=0.1) / session-rotation engine
+   (`AnalyticsPrivacyEngine`) lived **only** here — so it never protected any shipped data.
+
+### Decision (Option 1 — PostHog-direct + DPIA re-scope)
+
+Consolidate on PostHog-direct; delete the dead custom-API path; route the canonical
+crisis-detection event through PostHog under the vital-interests bypass with bucketed,
+PII-free properties whitelisted in PHIFilter.
+
+**Rationale:** neither the DPIA nor the privacy policy ever committed to k-anonymity or
+differential privacy — they commit to **severity-bucketing + no quasi-identifiers + EU
+residency** (DPIA §6.1 and §7 control #9; Privacy Policy §5.2). k≥5 is meaningless at
+pre-launch scale (no population to anonymize across), and client-side k-anon/DP was never
+sound. The DPIA is honestly re-scoped (v1.2; INFRA-214 T5) to describe the controls that
+actually run. **Rejected:** Option 2 (Supabase EU edge function applying server-side
+k-anon/DP — builds infra for an uncommitted control) and Option 3 (Supabase store-of-record —
+would force the crisis dashboard off PostHog's native tooling, blocking FEAT-129).
+
+### Privacy controls actually in force (post-INFRA-214)
+
+- PHIFilter allow-list (`SAFE_EVENT_TYPES`) + numeric-key block (`SAFE_NUMERIC_KEYS`) on every PostHog event.
+- Severity-bucketing — raw PHQ-9/GAD-7 scores never transmitted; only `low`/`medium`/`high`/`critical` buckets.
+- PostHog EU data residency (Frankfurt).
+- Consent gate for non-crisis events; vital-interests bypass (GDPR Art. 6(1)(f) / 9(2)(c)) for the
+  crisis-detection event only, with an anonymous session-rotated `distinct_id`.
+- k-anonymity / differential privacy: **not claimed** (never ran; not meaningful at this scale).
+
+### Migration note
+
+Pre-launch v0.x, no users, no historical data → **no data migration**. Tranche order:
+T1 (this doc) → T2 (delete dead path) → T3 (wire crisis-detection event) → T4 (reconcile
+sanitizers + Supabase consent gate) → T5 (DPIA v1.2) → T6 (verifiable crisis-landing test).
+Each tranche keeps the build green; rollback = revert that tranche's PR (no stateful migration
+to unwind).
+
+> **Terminology follow-up (INFRA-214 T5):** the legacy sections below use "PHI" / "HIPAA BAA"
+> framing. Per project standards Being is a consumer-wellness app (not HIPAA-covered); the
+> compliance pass in T5 re-terms these to "wellness data" and removes the HIPAA-applicability
+> framing.
+
+---
+
 ## Design Principle
 
 Being's analytics follows a simple rule: **track feature usage, never health data**.
