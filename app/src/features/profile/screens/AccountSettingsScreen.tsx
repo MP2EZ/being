@@ -48,7 +48,7 @@ const AccountSettingsScreen: React.FC<AccountSettingsScreenProps> = ({ onReturn 
 
   return (
     <SafeAreaView style={styles.container}>
-      <SubMenuHeader title="Account Settings" onClose={onReturn} />
+      <SubMenuHeader title="Account" onClose={onReturn} />
       <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
         {/* Account Information Section */}
         <View style={styles.section}>
