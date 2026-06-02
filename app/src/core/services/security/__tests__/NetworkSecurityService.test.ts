@@ -40,10 +40,6 @@ describe('NetworkSecurityService', () => {
       const service = NetworkSecurityService.getInstance();
       expect(typeof service.initialize).toBe('function');
       expect(typeof service.secureRequest).toBe('function');
-      expect(typeof service.crisisApiRequest).toBe('function');
-      expect(typeof service.uploadAssessmentData).toBe('function');
-      expect(typeof service.professionalApiRequest).toBe('function');
-      expect(typeof service.bulkDataOperation).toBe('function');
       expect(typeof service.getSecurityMetrics).toBe('function');
       expect(typeof service.getSecurityViolations).toBe('function');
       expect(typeof service.destroy).toBe('function');

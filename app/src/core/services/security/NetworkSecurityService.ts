@@ -39,15 +39,6 @@ import { logPerformance, logError, logSecurity, LogCategory } from '../logging';
  * NETWORK SECURITY CONFIGURATION
  */
 export const NETWORK_CONFIG = {
-  /** API base URLs
-   * NOTE: Currently using Supabase as the only backend.
-   * These URLs are placeholders for future custom API endpoints.
-   * See certificate-pinning.ts for SSL pinning configuration.
-   */
-  PRODUCTION_API_URL: 'https://api.being.fyi',
-  STAGING_API_URL: 'https://staging-api.being.fyi',
-  DEVELOPMENT_API_URL: 'https://dev-api.being.fyi',
-  
   /** Security headers */
   REQUIRED_SECURITY_HEADERS: [
     'X-Content-Type-Options',
@@ -64,18 +55,6 @@ export const NETWORK_CONFIG = {
     'TLS_CHACHA20_POLY1305_SHA256',
     'TLS_AES_128_GCM_SHA256'
   ] as const,
-  
-  /** Certificate pinning
-   * NOTE: Certificate pins are now managed in certificate-pinning.ts
-   * This configuration is kept for reference and legacy compatibility.
-   * For Supabase pinning, see SUPABASE_CERTIFICATE_PINS in certificate-pinning.ts
-   */
-  CERTIFICATE_PINS: {
-    'api.being.fyi': [
-      'sha256/PLACEHOLDER_UPDATE_WHEN_API_DEPLOYED', // Primary cert
-      'sha256/PLACEHOLDER_UPDATE_WHEN_API_DEPLOYED'  // Backup cert
-    ]
-  },
   
   /** Rate limiting */
   RATE_LIMITS: {
@@ -211,7 +190,6 @@ export class NetworkSecurityService {
   private static instance: NetworkSecurityService;
   private encryptionService: typeof EncryptionService;
   private authenticationService: typeof AuthenticationService;
-  private apiBaseUrl: string;
   private securityMetrics: NetworkSecurityMetrics;
   private rateLimitTracker: Map<string, { count: number; resetTime: number }> = new Map();
   private securityViolations: SecurityViolationEvent[] = [];
@@ -221,7 +199,6 @@ export class NetworkSecurityService {
   private constructor() {
     this.encryptionService = EncryptionService;
     this.authenticationService = AuthenticationService;
-    this.apiBaseUrl = this.determineApiBaseUrl();
     this.securityMetrics = this.initializeMetrics();
   }
 
@@ -284,9 +261,6 @@ export class NetworkSecurityService {
 
       // Initialize security monitoring
       this.initializeSecurityMonitoring();
-
-      // Validate API connectivity
-      await this.validateAPIConnectivity();
 
       this.initialized = true;
 
@@ -402,219 +376,6 @@ export class NetworkSecurityService {
         },
         error: (error instanceof Error ? error.message : String(error))
       };
-    }
-  }
-
-  /**
-   * CRISIS API REQUEST
-   * High-priority, fast secure requests for crisis interventions
-   */
-  public async crisisApiRequest<T = any>(
-    endpoint: string,
-    method: 'GET' | 'POST' | 'PUT' = 'POST',
-    data?: any
-  ): Promise<SecureResponse<T>> {
-    const startTime = performance.now();
-
-    try {
-      console.log('🚨 Crisis API request initiated');
-
-      const options: SecureRequestOptions = {
-        method,
-        url: `${this.apiBaseUrl}/crisis/${endpoint}`,
-        body: data,
-        securityContext: {
-          endpointCategory: 'crisis_intervention',
-          sensitivityLevel: 'crisis',
-          requiresAuthentication: true,
-          requiresEncryption: true,
-          allowRetries: true,
-          timeoutMs: NETWORK_CONFIG.PERFORMANCE_THRESHOLDS.crisis_api_ms,
-          maxResponseSize: 1024 * 1024 // 1MB max for crisis responses
-        },
-        customTimeout: NETWORK_CONFIG.PERFORMANCE_THRESHOLDS.crisis_api_ms
-      };
-
-      const response = await this.secureRequest<T>(options);
-
-      const totalTime = performance.now() - startTime;
-
-      // Critical: Crisis API must be fast
-      if (totalTime > NETWORK_CONFIG.PERFORMANCE_THRESHOLDS.crisis_api_ms) {
-        logError(LogCategory.SYSTEM, `CRISIS API TOO SLOW: ${totalTime.toFixed(2)}ms > ${NETWORK_CONFIG.PERFORMANCE_THRESHOLDS.crisis_api_ms}ms`);
-        
-        await this.logSecurityEvent({
-          timestamp: Date.now(),
-          violationType: 'timeout_violation',
-          endpoint: options.url,
-          endpointCategory: 'crisis_intervention',
-          severity: 'critical',
-          details: `Crisis API response time violation: ${totalTime.toFixed(2)}ms`,
-          requestId: await this.generateRequestId(),
-          mitigationAction: 'performance_alert_triggered'
-        });
-      }
-
-      logPerformance('NetworkSecurityService.crisisAPI', totalTime, {
-        category: 'network'
-      });
-
-      return response;
-
-    } catch (error) {
-      logError(LogCategory.SECURITY, '🚨 CRISIS API REQUEST ERROR:', error instanceof Error ? error : new Error(String(error)));
-      throw error;
-    }
-  }
-
-  /**
-   * ASSESSMENT DATA UPLOAD
-   * Secure upload for PHQ-9/GAD-7 assessment data
-   */
-  public async uploadAssessmentData(
-    assessmentData: {
-      type: 'PHQ-9' | 'GAD-7';
-      responses: number[];
-      totalScore: number;
-      timestamp: number;
-    },
-    assessmentId: string
-  ): Promise<SecureResponse<{ assessmentId: string; uploaded: boolean }>> {
-    try {
-      console.log(`📋 Uploading ${assessmentData.type} assessment data`);
-
-      // Encrypt assessment data before transmission
-      const encryptedData = await this.encryptionService.encryptAssessmentData(
-        { ...assessmentData, userId: 'current_user' },
-        assessmentId
-      );
-
-      const options: SecureRequestOptions = {
-        method: 'POST',
-        url: `${this.apiBaseUrl}/assessments/upload`,
-        body: {
-          assessmentId,
-          encryptedData,
-          assessmentType: assessmentData.type,
-          dataHash: await this.calculateDataHash(assessmentData)
-        },
-        securityContext: {
-          endpointCategory: 'assessment_data',
-          sensitivityLevel: 'restricted',
-          requiresAuthentication: true,
-          requiresEncryption: true,
-          allowRetries: true,
-          timeoutMs: NETWORK_CONFIG.PERFORMANCE_THRESHOLDS.assessment_upload_ms,
-          maxResponseSize: 512 * 1024 // 512KB max
-        }
-      };
-
-      const response = await this.secureRequest<{ assessmentId: string; uploaded: boolean }>(options);
-
-      logPerformance('NetworkSecurityService.uploadAssessment', response.responseTimeMs, {
-        assessmentType: assessmentData.type
-      });
-
-      return response;
-
-    } catch (error) {
-      logError(LogCategory.SECURITY, '🚨 ASSESSMENT UPLOAD ERROR:', error instanceof Error ? error : new Error(String(error)));
-      throw error;
-    }
-  }
-
-  /**
-   * PROFESSIONAL ACCESS API
-   * Secure API access for healthcare professionals
-   */
-  public async professionalApiRequest<T = any>(
-    endpoint: string,
-    method: 'GET' | 'POST' | 'PUT' | 'DELETE' = 'GET',
-    data?: any,
-    professionalToken?: string
-  ): Promise<SecureResponse<T>> {
-    try {
-      console.log('👩‍⚕️ Professional API request');
-
-      const options: SecureRequestOptions = {
-        method,
-        url: `${this.apiBaseUrl}/professional/${endpoint}`,
-        body: data,
-        headers: {
-          'X-Professional-Token': professionalToken || '',
-          'X-Access-Level': 'professional'
-        },
-        securityContext: {
-          endpointCategory: 'professional_access',
-          sensitivityLevel: 'restricted',
-          requiresAuthentication: true,
-          requiresEncryption: true,
-          allowRetries: false, // No retries for professional access
-          timeoutMs: NETWORK_CONFIG.PERFORMANCE_THRESHOLDS.standard_api_ms,
-          maxResponseSize: 5 * 1024 * 1024 // 5MB max for professional data
-        }
-      };
-
-      const response = await this.secureRequest<T>(options);
-
-      logPerformance('NetworkSecurityService.professionalAPI', response.responseTimeMs, {
-        category: 'network'
-      });
-
-      return response;
-
-    } catch (error) {
-      logError(LogCategory.SECURITY, '🚨 PROFESSIONAL API ERROR:', error instanceof Error ? error : new Error(String(error)));
-      throw error;
-    }
-  }
-
-  /**
-   * BULK DATA OPERATIONS
-   * Secure bulk upload/download for data synchronization
-   */
-  public async bulkDataOperation<T = any>(
-    operation: 'upload' | 'download' | 'sync',
-    data?: any,
-    options?: {
-      compressionEnabled?: boolean;
-      chunkSize?: number;
-    }
-  ): Promise<SecureResponse<T>> {
-    try {
-      console.log(`📦 Bulk ${operation} operation initiated`);
-
-      const requestOptions: SecureRequestOptions = {
-        method: operation === 'download' ? 'GET' : 'POST',
-        url: `${this.apiBaseUrl}/bulk/${operation}`,
-        body: data,
-        headers: {
-          'X-Compression-Enabled': options?.compressionEnabled ? 'true' : 'false',
-          'X-Chunk-Size': (options?.chunkSize || 1024 * 1024).toString()
-        },
-        securityContext: {
-          endpointCategory: 'bulk_operations',
-          sensitivityLevel: 'confidential',
-          requiresAuthentication: true,
-          requiresEncryption: true,
-          allowRetries: true,
-          timeoutMs: NETWORK_CONFIG.PERFORMANCE_THRESHOLDS.bulk_operation_ms,
-          maxResponseSize: 50 * 1024 * 1024 // 50MB max for bulk operations
-        },
-        customTimeout: NETWORK_CONFIG.PERFORMANCE_THRESHOLDS.bulk_operation_ms
-      };
-
-      const response = await this.secureRequest<T>(requestOptions);
-
-      logPerformance('NetworkSecurityService.bulkOperation', response.responseTimeMs, {
-        operation
-      });
-
-      return response;
-
-    } catch (error) {
-      logError(LogCategory.SECURITY, '🚨 BULK OPERATION ERROR:', error instanceof Error ? error : new Error(String(error)));
-      throw error;
     }
   }
 
@@ -981,16 +742,6 @@ export class NetworkSecurityService {
    * UTILITY METHODS
    */
 
-  private determineApiBaseUrl(): string {
-    // Determine environment and return appropriate URL
-    if (__DEV__) {
-      return NETWORK_CONFIG.DEVELOPMENT_API_URL;
-    }
-    
-    // Would check environment variables or build configuration
-    return NETWORK_CONFIG.PRODUCTION_API_URL;
-  }
-
   private initializeMetrics(): NetworkSecurityMetrics {
     return {
       totalRequests: 0,
@@ -1247,30 +998,6 @@ export class NetworkSecurityService {
     setInterval(() => {
       this.cleanupExpiredRateLimits();
     }, 300000); // Every 5 minutes
-  }
-
-  private async validateAPIConnectivity(): Promise<void> {
-    try {
-      console.log('🔍 Validating API connectivity...');
-
-      // Test basic connectivity
-      const testResponse = await fetch(`${this.apiBaseUrl}/health`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-
-      if (!testResponse.ok) {
-        throw new Error(`API connectivity test failed: ${testResponse.status}`);
-      }
-
-      console.log('✅ API connectivity validated');
-
-    } catch (error) {
-      logError(LogCategory.SECURITY, '🚨 API CONNECTIVITY VALIDATION ERROR:', error instanceof Error ? error : new Error(String(error)));
-      // Don't throw - allow initialization to continue
-    }
   }
 
   private async performSecurityHealthCheck(): Promise<void> {
