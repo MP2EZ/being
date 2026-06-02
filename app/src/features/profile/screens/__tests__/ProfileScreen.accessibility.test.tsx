@@ -48,13 +48,9 @@ jest.mock('@/core/stores/subscriptionStore', () => ({
   }),
 }));
 
-// Sub-screens are imported at module top but only rendered for non-menu states.
-// Stub them so the menu test doesn't pull their heavy transitive deps
-// (e.g. react-native-markdown-display, which ships untransformed ESM).
-jest.mock('../AppSettingsScreen', () => () => null);
-jest.mock('../PrivacyDataScreen', () => () => null);
-jest.mock('../AccountSettingsScreen', () => () => null);
-jest.mock('../LegalDocumentsListScreen', () => () => null);
+// FEAT-212: ProfileScreen is now the "ProfileMenu" route component — the
+// subscreens are sibling routes on ProfileStackNavigator and are no longer
+// imported here, so no stubbing of their heavy transitive deps is needed.
 
 // Stand-in modal that surfaces its `visible` prop so we can assert the inline
 // ⓘ trigger opens the scoring education (AS-5) without depending on RN Modal.
@@ -119,10 +115,9 @@ describe('ProfileScreen — FEAT-209 information architecture', () => {
 });
 
 describe('ProfileScreen — safety invariants preserved (audit §5.1)', () => {
-  it('CB-7: keeps the persistent crisis button on the Profile screen', () => {
-    const { getByTestId } = render(<ProfileScreen />);
-    expect(getByTestId('crisis-profile')).toBeTruthy();
-  });
+  // CB-7 (persistent crisis button) moved to ProfileStackNavigator in FEAT-212 —
+  // the overlay is now hosted above the stack so it covers every Profile route.
+  // It is pinned in ProfileStackNavigator.test.tsx, not here.
 
   it('AS-1: PHQ-9 and GAD-7 stay separate, instrument-named, actionable entries', () => {
     const { getByTestId } = render(<ProfileScreen />);

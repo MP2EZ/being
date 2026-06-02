@@ -37,13 +37,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getCurrentUserEmail, getUserCreatedAt, isDevMode } from '@/core/constants/devMode';
 import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
-import SubMenuHeader from '../components/SubMenuHeader';
 
-interface AccountSettingsScreenProps {
-  onReturn: () => void;
-}
-
-const AccountSettingsScreen: React.FC<AccountSettingsScreenProps> = ({ onReturn }) => {
+// FEAT-212: rendered as a route on ProfileStackNavigator; the native stack header
+// supplies the back chevron (SubMenuHeader's ✕ removed).
+const AccountSettingsScreen: React.FC = () => {
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -91,7 +88,6 @@ const AccountSettingsScreen: React.FC<AccountSettingsScreenProps> = ({ onReturn 
 
   return (
     <SafeAreaView style={styles.container}>
-      <SubMenuHeader title="Account" onClose={onReturn} />
       <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
         {/* Account Information Section */}
         <View style={styles.section}>

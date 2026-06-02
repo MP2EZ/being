@@ -69,9 +69,121 @@ name: "Crisis button reaches CrisisResources from every tab"
     id: "nav-back-button"
 
 # ── Profile tab ──────────────────────────────────────────────────
+# FEAT-212: Profile migrated from a local currentScreen state machine to a nested
+# React Navigation stack (ProfileStackNavigator), and CollapsibleCrisisButton was
+# re-hosted from inside ProfileScreen to the navigator wrapper (sibling above the
+# stack). The overlay must therefore stay reachable not just on the Profile tab
+# landing (menu route) but on EVERY pushed subscreen — the precise regression this
+# migration risks. We traverse each depth-1 route + one depth-2 route and assert
+# crisis-profile → crisis-resources-screen from each.
+#
+# Pops use two distinct testIDs:
+#   - nav-back-button     → pops the root CrisisResources modal (INFRA-185)
+#   - profile-back-button → pops a Profile-stack route (FEAT-212 header back)
+#
+# NOTE: the Privacy → CloudBackup depth-2 route is gated by the cloud_sync feature
+# flag (dark by default), so its entry row is not present in this default-build
+# run; that route's overlay hosting is pinned by ProfileStackNavigator.test.tsx.
+# Legal → LegalDocument (ungated) provides the on-device depth-2 assertion here.
+
+# menu route (Profile tab landing)
 - tapOn:
     id: "tab-profile"
 - tapOn:
     id: "crisis-profile"
 - assertVisible:
     id: "crisis-resources-screen"
+- tapOn:
+    id: "nav-back-button"
+
+# depth-1: Notifications & Display
+- scrollUntilVisible:
+    element:
+      id: "profile-card-appsettings"
+    direction: DOWN
+- tapOn:
+    id: "profile-card-appsettings"
+- tapOn:
+    id: "crisis-profile"
+- assertVisible:
+    id: "crisis-resources-screen"
+- tapOn:
+    id: "nav-back-button"
+- tapOn:
+    id: "profile-back-button"
+
+# depth-1: Privacy & Data
+- scrollUntilVisible:
+    element:
+      id: "profile-card-privacy"
+    direction: DOWN
+- tapOn:
+    id: "profile-card-privacy"
+- tapOn:
+    id: "crisis-profile"
+- assertVisible:
+    id: "crisis-resources-screen"
+- tapOn:
+    id: "nav-back-button"
+- tapOn:
+    id: "profile-back-button"
+
+# depth-1: Account
+- scrollUntilVisible:
+    element:
+      id: "profile-card-account"
+    direction: DOWN
+- tapOn:
+    id: "profile-card-account"
+- tapOn:
+    id: "crisis-profile"
+- assertVisible:
+    id: "crisis-resources-screen"
+- tapOn:
+    id: "nav-back-button"
+- tapOn:
+    id: "profile-back-button"
+
+# depth-1: About Stoic Mindfulness
+- scrollUntilVisible:
+    element:
+      id: "profile-card-stoic"
+    direction: DOWN
+- tapOn:
+    id: "profile-card-stoic"
+- tapOn:
+    id: "crisis-profile"
+- assertVisible:
+    id: "crisis-resources-screen"
+- tapOn:
+    id: "nav-back-button"
+- tapOn:
+    id: "profile-back-button"
+
+# depth-1: Legal Documents
+- scrollUntilVisible:
+    element:
+      id: "profile-card-legal"
+    direction: DOWN
+- tapOn:
+    id: "profile-card-legal"
+- tapOn:
+    id: "crisis-profile"
+- assertVisible:
+    id: "crisis-resources-screen"
+- tapOn:
+    id: "nav-back-button"
+
+# depth-2: Legal Documents → an individual document (real push, depth 2)
+- tapOn:
+    id: "profile-legal-doc-privacy-policy"
+- tapOn:
+    id: "crisis-profile"
+- assertVisible:
+    id: "crisis-resources-screen"
+- tapOn:
+    id: "nav-back-button"
+- tapOn:
+    id: "profile-back-button"
+- tapOn:
+    id: "profile-back-button"

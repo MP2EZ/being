@@ -26,16 +26,12 @@ import {
 } from 'react-native';
 import { Ionicons } from '@react-native-vector-icons/ionicons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
 import { useConsentStore } from '@/core/stores/consentStore';
 import { useAnalytics, useFeatureFlag } from '@/core/analytics';
 import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
-import SubMenuHeader from '../components/SubMenuHeader';
-import CloudBackupScreen from './CloudBackupScreen';
-
-interface PrivacyDataScreenProps {
-  onReturn: () => void;
-}
+import type { ProfileStackParamList } from '../ProfileStackNavigator';
 
 /**
  * Storage Location Row Component
@@ -155,13 +151,15 @@ const storageRowStyles = StyleSheet.create({
   },
 });
 
-const PrivacyDataScreen: React.FC<PrivacyDataScreenProps> = ({ onReturn }) => {
+const PrivacyDataScreen: React.FC = () => {
+  // FEAT-212: rendered as a route on ProfileStackNavigator. The cloud-backup
+  // sub-screen is now a pushed route (Privacy → CloudBackup), not an in-component
+  // state machine; the native stack header supplies the back chevron.
+  const navigation = useNavigation<StackNavigationProp<ProfileStackParamList>>();
   const { loadConsent, currentConsent, updateConsent, setUniversalOptOut } = useConsentStore();
   const { trackScreenView, trackSettingsOpened, trackConsentChanged } = useAnalytics();
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  // Sub-screen navigation for the (flag-gated) comprehensive cloud-backup UI.
-  const [showCloudBackup, setShowCloudBackup] = useState(false);
   // Runtime flag (INFRA-199): gates UI visibility of the cloud-backup entry.
   // PostHog promotes post-consent; build-time default is the fail-safe floor.
   const cloudSyncAvailable = useFeatureFlag('cloud_sync');
@@ -224,11 +222,6 @@ const PrivacyDataScreen: React.FC<PrivacyDataScreenProps> = ({ onReturn }) => {
     }
   };
 
-  // Flag-gated cloud-backup sub-screen
-  if (showCloudBackup) {
-    return <CloudBackupScreen onReturn={() => setShowCloudBackup(false)} />;
-  }
-
   // Render loading state
   if (isLoading) {
     return (
@@ -243,7 +236,6 @@ const PrivacyDataScreen: React.FC<PrivacyDataScreenProps> = ({ onReturn }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <SubMenuHeader title="Privacy & Data" onClose={onReturn} />
       <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
         {/* Universal Opt-Out Section (INFRA-151) */}
         <View style={styles.section}>
@@ -340,7 +332,8 @@ const PrivacyDataScreen: React.FC<PrivacyDataScreenProps> = ({ onReturn }) => {
           {cloudSyncAvailable && (
             <TouchableOpacity
               style={styles.settingCard}
-              onPress={() => setShowCloudBackup(true)}
+              onPress={() => navigation.navigate('CloudBackup')}
+              testID="profile-cloud-backup"
               accessibilityRole="button"
               accessibilityLabel="Manage Cloud Backup"
               accessibilityHint="Opens cloud backup status, manual backup, and restore controls"

@@ -13,16 +13,13 @@
 import React from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import SubMenuHeader from '../components/SubMenuHeader';
 import CloudBackupSettings from '@/core/components/settings/CloudBackupSettings';
 import { useFeatureFlag } from '@/core/analytics';
 import { colorSystem, spacing } from '@/core/theme';
 
-interface CloudBackupScreenProps {
-  onReturn: () => void;
-}
-
-const CloudBackupScreen: React.FC<CloudBackupScreenProps> = ({ onReturn }) => {
+// FEAT-212: rendered as a route (Privacy → CloudBackup) on ProfileStackNavigator;
+// the native stack header supplies the back chevron (SubMenuHeader's ✕ removed).
+const CloudBackupScreen: React.FC = () => {
   // Belt-and-suspenders: never render when the feature flag is off, even if
   // reached by some path other than the (already flag-gated) entry row.
   const cloudSyncAvailable = useFeatureFlag('cloud_sync');
@@ -32,7 +29,6 @@ const CloudBackupScreen: React.FC<CloudBackupScreenProps> = ({ onReturn }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <SubMenuHeader title="Cloud Backup" onClose={onReturn} />
       <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
         <CloudBackupSettings />
       </ScrollView>

@@ -16,7 +16,7 @@ import { View, Text } from 'react-native';
 import Svg, { Path, Circle, Rect, ClipPath, Defs, G } from 'react-native-svg';
 import { colorSystem, spacing, typography } from '@/core/theme';
 import CleanHomeScreen from '@/features/home/screens/CleanHomeScreen';
-import ProfileScreen from '@/features/profile/screens/ProfileScreen';
+import ProfileStackNavigator from '@/features/profile/ProfileStackNavigator';
 import InsightsScreen from '@/features/insights/screens/InsightsScreen';
 import LearnScreen from '@/features/learn/screens/LearnScreen';
 import BrainIcon from '@/core/components/shared/BrainIcon';
@@ -190,10 +190,12 @@ const CleanTabNavigator: React.FC = () => {
 
       <Tab.Screen
         name="Profile"
-        component={ProfileScreen}
+        component={ProfileStackNavigator}
         options={{
           headerTitle: 'Profile',
-          headerShown: false, // ProfileScreen has its own SafeAreaView
+          // FEAT-212: the Profile tab now hosts a nested stack (ProfileStackNavigator)
+          // which owns its own headers; keep the tab header hidden to avoid doubling.
+          headerShown: false,
           tabBarButtonTestID: 'tab-profile',
           tabBarIcon: ({ focused }) => (
             <BrainIcon
