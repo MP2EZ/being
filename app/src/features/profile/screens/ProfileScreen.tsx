@@ -11,29 +11,29 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
-  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useNavigation, useFocusEffect, CompositeNavigationProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
+// FEAT-212: subscreens are now routes on ProfileStackNavigator. This component is
+// the "ProfileMenu" route — it only renders the menu and navigates to the others.
 // OnboardingScreen no longer embedded - navigation to LegalGate handles full flow
-import AppSettingsScreen from './AppSettingsScreen';
-import PrivacyDataScreen from './PrivacyDataScreen';
-import AccountSettingsScreen from './AccountSettingsScreen';
-import LegalDocumentsListScreen from './LegalDocumentsListScreen';
-import AboutStoicMindfulnessScreen from './AboutStoicMindfulnessScreen';
 import { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
+import type { ProfileStackParamList } from '../ProfileStackNavigator';
 import { useSubscriptionStore } from '@/core/stores/subscriptionStore';
 import { isDevMode } from '@/core/constants/devMode';
-import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
 import { MaterialDesignIcons } from '@react-native-vector-icons/material-design-icons';
 import ThresholdEducationModal from '@/core/components/ThresholdEducationModal';
 import { useAssessmentStore } from '@/features/assessment/stores/assessmentStore';
 import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
 import { useAnalytics } from '@/core/analytics';
-import SubMenuHeader from '../components/SubMenuHeader';
 
-type ProfileScreenNavigationProp = StackNavigationProp<RootStackParamList>;
+// Navigates within the Profile stack (Privacy, Account, …) AND up to root-stack
+// routes (Subscription, LegalGate, AssessmentFlow, CrisisResources).
+type ProfileScreenNavigationProp = CompositeNavigationProp<
+  StackNavigationProp<ProfileStackParamList>,
+  StackNavigationProp<RootStackParamList>
+>;
 
 type AssessmentType = 'phq9' | 'gad7';
 
@@ -43,15 +43,12 @@ interface AssessmentMetadata {
   status: 'recent' | 'due' | 'recommended' | 'never';
 }
 
-type Screen = 'menu' | 'account' | 'privacy' | 'appSettings' | 'about' | 'stoicMindfulness' | 'legal';
-
 // FEAT-209 H2: gate the "About Being." card until real content exists, so we
 // stop shipping a "coming soon" placeholder as a first-class menu affordance.
 // Build-time constant (not a feature flag) — flip to true when content lands.
 const ABOUT_BEING_CONTENT_READY = false;
 
 const ProfileScreen: React.FC = () => {
-  const [currentScreen, setCurrentScreen] = useState<Screen>('menu');
   const navigation = useNavigation<ProfileScreenNavigationProp>();
   const subscriptionStore = useSubscriptionStore();
   const [showEducationModal, setShowEducationModal] = useState(false);
@@ -73,10 +70,6 @@ const ProfileScreen: React.FC = () => {
   const handleStartOnboarding = () => {
     // Navigate to LegalGate for full first-time experience (age + ToS + onboarding)
     navigation.navigate('LegalGate');
-  };
-
-  const handleReturnToMenu = () => {
-    setCurrentScreen('menu');
   };
 
   const handleSubscriptionPress = () => {
@@ -323,7 +316,8 @@ const ProfileScreen: React.FC = () => {
 
           <Pressable
             style={styles.profileCard}
-            onPress={() => setCurrentScreen('appSettings')}
+            onPress={() => navigation.navigate('AppSettings')}
+            testID="profile-card-appsettings"
             accessibilityRole="button"
             accessibilityLabel="Notifications & Display"
             accessibilityHint="Configure notifications and accessibility preferences"
@@ -337,7 +331,8 @@ const ProfileScreen: React.FC = () => {
 
           <Pressable
             style={styles.profileCard}
-            onPress={() => setCurrentScreen('privacy')}
+            onPress={() => navigation.navigate('Privacy')}
+            testID="profile-card-privacy"
             accessibilityRole="button"
             accessibilityLabel="Privacy and Data"
             accessibilityHint="Control your data, export information, and manage privacy settings"
@@ -351,7 +346,8 @@ const ProfileScreen: React.FC = () => {
 
           <Pressable
             style={styles.profileCard}
-            onPress={() => setCurrentScreen('account')}
+            onPress={() => navigation.navigate('Account')}
+            testID="profile-card-account"
             accessibilityRole="button"
             accessibilityLabel="Account"
             accessibilityHint="Manage your account details and preferences"
@@ -376,7 +372,8 @@ const ProfileScreen: React.FC = () => {
 
           <Pressable
             style={styles.profileCard}
-            onPress={() => setCurrentScreen('stoicMindfulness')}
+            onPress={() => navigation.navigate('StoicMindfulness')}
+            testID="profile-card-stoic"
             accessibilityRole="button"
             accessibilityLabel="About Stoic Mindfulness"
             accessibilityHint="Explore the 5 core principles and developmental stages"
@@ -392,7 +389,8 @@ const ProfileScreen: React.FC = () => {
           {ABOUT_BEING_CONTENT_READY && (
             <Pressable
               style={styles.profileCard}
-              onPress={() => setCurrentScreen('about')}
+              onPress={() => navigation.navigate('About')}
+              testID="profile-card-about-being"
               accessibilityRole="button"
               accessibilityLabel="About Being"
               accessibilityHint="Learn about our mission and how Being supports your mental wellbeing"
@@ -407,7 +405,8 @@ const ProfileScreen: React.FC = () => {
 
           <Pressable
             style={styles.profileCard}
-            onPress={() => setCurrentScreen('legal')}
+            onPress={() => navigation.navigate('Legal')}
+            testID="profile-card-legal"
             accessibilityRole="button"
             accessibilityLabel="Legal Documents"
             accessibilityHint="View Privacy Policy, Terms of Service, and Medical Disclaimer"
@@ -440,70 +439,10 @@ const ProfileScreen: React.FC = () => {
     </SafeAreaView>
   );
 
-  const renderPlaceholder = (title: string, description: string) => (
-    <SafeAreaView key={`placeholder-${title}`} style={styles.container}>
-      <SubMenuHeader title={title} onClose={handleReturnToMenu} />
-      <ScrollView
-        style={styles.scrollContainer}
-        contentContainerStyle={styles.scrollContent}
-      >
-        <Text style={[styles.subtitle, styles.subtitleSpacing]}>{description}</Text>
-
-        <View style={styles.placeholderContent}>
-          <Text style={styles.placeholderText}>
-            This feature is coming soon. We're working hard to bring you the best experience.
-          </Text>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
-  );
-
-  // Render different screens based on state with crisis button overlay
-  const renderContent = () => {
-    if (currentScreen === 'menu') return renderMenu();
-
-    if (currentScreen === 'account') {
-      return <AccountSettingsScreen onReturn={handleReturnToMenu} />;
-    }
-
-    if (currentScreen === 'privacy') {
-      return <PrivacyDataScreen onReturn={handleReturnToMenu} />;
-    }
-
-    if (currentScreen === 'appSettings') {
-      return <AppSettingsScreen onReturn={handleReturnToMenu} />;
-    }
-
-    if (currentScreen === 'about') {
-      return renderPlaceholder(
-        'About Being.',
-        'Our mission and the science of mindfulness'
-      );
-    }
-
-    if (currentScreen === 'stoicMindfulness') {
-      return <AboutStoicMindfulnessScreen onReturn={handleReturnToMenu} />;
-    }
-
-    if (currentScreen === 'legal') {
-      return <LegalDocumentsListScreen onReturn={handleReturnToMenu} />;
-    }
-
-    return null;
-  };
-
-  return (
-    <>
-      {renderContent()}
-      {/* Crisis Button Overlay - accessible across all profile screens */}
-      <CollapsibleCrisisButton
-        mode="standard"
-        onNavigate={() => navigation.navigate('CrisisResources')}
-        testID="crisis-profile"
-        position="right"
-      />
-    </>
-  );
+  // FEAT-212: this component is the ProfileMenu route. The crisis overlay is now
+  // hosted by ProfileStackNavigator (sibling above the stack), so it is no longer
+  // rendered here — it covers every Profile route including this one.
+  return renderMenu();
 };
 
 const styles = StyleSheet.create({
@@ -535,9 +474,6 @@ const styles = StyleSheet.create({
     color: colorSystem.gray[600],
     textAlign: 'center',
     lineHeight: 24,
-  },
-  subtitleSpacing: {
-    marginBottom: spacing[24],
   },
   section: {
     marginBottom: spacing[32],
@@ -599,22 +535,6 @@ const styles = StyleSheet.create({
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.medium,
     color: colorSystem.base.midnightBlue,
-  },
-  placeholderContent: {
-    backgroundColor: colorSystem.gray[100],
-    borderRadius: borderRadius.large,
-    padding: spacing[32],
-    marginVertical: spacing[32],
-    minHeight: 200,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  placeholderText: {
-    fontSize: typography.bodyRegular.size,
-    fontWeight: typography.fontWeight.regular,
-    color: colorSystem.gray[500],
-    textAlign: 'center',
-    lineHeight: 24,
   },
   primaryButton: {
     backgroundColor: colorSystem.base.midnightBlue,

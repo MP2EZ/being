@@ -14,15 +14,11 @@ import React from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
-import SubMenuHeader from '../components/SubMenuHeader';
 
-interface AboutStoicMindfulnessScreenProps {
-  onReturn: () => void;
-}
-
-const AboutStoicMindfulnessScreen: React.FC<AboutStoicMindfulnessScreenProps> = ({ onReturn }) => (
+// FEAT-212: rendered as a route on ProfileStackNavigator; the native stack header
+// supplies the back chevron (SubMenuHeader's ✕ removed).
+const AboutStoicMindfulnessScreen: React.FC = () => (
   <SafeAreaView key="stoicMindfulness-screen" style={styles.container}>
-    <SubMenuHeader title="About Stoic Mindfulness" onClose={onReturn} />
     <ScrollView
       style={styles.scrollContainer}
       contentContainerStyle={styles.scrollContent}

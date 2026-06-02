@@ -30,13 +30,10 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useSettingsStore } from '@/core/stores/settingsStore';
 import { useAnalytics } from '@/core/analytics';
 import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
-import SubMenuHeader from '../components/SubMenuHeader';
 
-interface AppSettingsScreenProps {
-  onReturn: () => void;
-}
-
-const AppSettingsScreen: React.FC<AppSettingsScreenProps> = ({ onReturn }) => {
+// FEAT-212: rendered as a route on ProfileStackNavigator; the native stack header
+// supplies the back chevron (SubMenuHeader's ✕ removed).
+const AppSettingsScreen: React.FC = () => {
   const settingsStore = useSettingsStore();
   const { trackScreenView, trackSettingsOpened } = useAnalytics();
   const [isSaving, setIsSaving] = useState(false);
@@ -138,7 +135,6 @@ const AppSettingsScreen: React.FC<AppSettingsScreenProps> = ({ onReturn }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <SubMenuHeader title="App Settings" onClose={onReturn} />
       <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
         {/* Notifications Section */}
         <View style={styles.section}>
