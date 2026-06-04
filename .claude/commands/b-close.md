@@ -252,11 +252,22 @@ only against a real device for supplementary runtime verification.
 ### Step 2.5.1: Detect safety-surface changes
 
 ```bash
+# Path-based: dirs/files that obviously host safety contracts. Navigation is
+# matched at the whole-dir level (not just CleanRootNavigator) so tab/stack
+# re-points like CleanTabNavigator and feature-level navigators are caught.
 SAFETY_CHANGED=$(git diff --name-only origin/development...HEAD | \
-  grep -E '^app/(src/features/(assessment|crisis)|src/core/services/security|src/core/navigation/CleanRootNavigator|app\.json|ios/.*Info\.plist)' || true)
+  grep -E '^app/(src/features/(assessment|crisis)|src/core/services/security|src/core/navigation/|app\.json|ios/.*Info\.plist)' || true)
+
+# Content-based (FEAT-212 gap fix): the crisis overlay (CollapsibleCrisisButton)
+# can be re-hosted from ANY feature dir — FEAT-212 moved it into features/profile's
+# ProfileStackNavigator, which the path grep above did not match, silently skipping
+# the reachability gate on a crisis-surface change. If the diff adds/removes a line
+# referencing the overlay anywhere, treat it as a crisis-surface change.
+CRISIS_HOST_CHANGED=$(git diff origin/development...HEAD -- 'app/**/*.tsx' 'app/**/*.ts' \
+  | grep -E '^[+-].*CollapsibleCrisisButton' || true)
 ```
 
-If empty → skip the gate:
+If BOTH `SAFETY_CHANGED` and `CRISIS_HOST_CHANGED` are empty → skip the gate:
 ```
 ℹ️  No safety-surface changes detected — skipping Maestro e2e gate
 ```
@@ -264,7 +275,7 @@ Proceed to Step 3.1.
 
 ### Step 2.5.2: Honor `--skip-e2e` flag (hotfix-only)
 
-If `SAFETY_CHANGED` is non-empty AND `SKIP_E2E=true`:
+If the gate is active (`SAFETY_CHANGED` OR `CRISIS_HOST_CHANGED` non-empty) AND `SKIP_E2E=true`:
 
 ```bash
 CURRENT_BRANCH=$(git branch --show-current)
@@ -292,8 +303,11 @@ pin the surfaces affected.
 
 ```bash
 SCRIPTS=()
-echo "$SAFETY_CHANGED" | grep -q 'src/features/crisis/' && \
+# Crisis dir touched OR the overlay re-hosted/edited anywhere (FEAT-212 content
+# detection) → run the reachability flow.
+if echo "$SAFETY_CHANGED" | grep -q 'src/features/crisis/' || [ -n "$CRISIS_HOST_CHANGED" ]; then
   SCRIPTS+=("e2e:safety:crisis-button")
+fi
 echo "$SAFETY_CHANGED" | grep -q 'src/features/assessment/' && \
   SCRIPTS+=("e2e:safety:q9" "e2e:safety:phq9" "e2e:safety:gad7")
 # INFRA-184: app.json / Info.plist changes are caught by the jest
@@ -303,26 +317,45 @@ echo "$SAFETY_CHANGED" | grep -q 'src/features/assessment/' && \
 echo "$SAFETY_CHANGED" | grep -qE 'src/core/services/security|CleanRootNavigator' && \
   SCRIPTS=("e2e:safety")  # full suite — cross-cutting change, override scope
 
+# Safety net: the gate was entered (e.g. a src/core/navigation/ change) but
+# nothing mapped above → the most likely affected contract is crisis-button
+# reachability. Never enter the gate and run zero flows.
+[ ${#SCRIPTS[@]} -eq 0 ] && SCRIPTS=("e2e:safety:crisis-button")
+
 # Dedupe
 SCRIPTS=($(printf "%s\n" "${SCRIPTS[@]}" | sort -u))
 ```
 
 ### Step 2.5.4: Verify simulator readiness
 
+The gate requires a **no-dev-client** build on the sim (INFRA-216), NOT a dev
+build and NOT a plain `--configuration Release` build. `expo-dev-client` is a
+project dependency, so BOTH `npm run ios` and `expo run:ios --configuration
+Release` still ship the Expo dev launcher, which the flows can only navigate by a
+guessed-coordinate tap — the gate flakes badly and trains `--skip-e2e` reflexes.
+Only the EAS `e2e-sim` profile (`developmentClient:false`) removes the launcher;
+`npm run e2e:safety:build` produces + installs it. The check below can't tell
+which build is installed, so this is guidance, not enforcement — if flows flake
+in the launcher/onboarding preamble, reinstall via `e2e:safety:build` before
+suspecting a real regression. (Known INFRA-216 follow-up: even on the no-dev-client
+build the slower Release boot leaves the long preamble timing-fragile — not yet
+≥5/5 consecutive; expect occasional retries until the seed-state follow-up lands.)
+
 ```bash
 if ! xcrun simctl list devices booted | grep -qE '\([A-F0-9-]+\) \(Booted\)'; then
   echo "❌ No iOS simulator booted."
-  echo "   Run 'npm run ios' first to build + install Being on a sim, then retry /b-close."
+  echo "   Run 'npm run e2e:safety:build' first (no-dev-client EAS build, INFRA-216) to build +"
+  echo "   install Being on a sim, then retry /b-close. Do NOT use 'npm run ios' (dev build → flaky gate)."
   exit 1
 fi
 if ! xcrun simctl listapps booted 2>/dev/null | grep -q com.being.app; then
   echo "❌ com.being.app not installed on booted sim."
-  echo "   Run 'npm run ios' first, then retry /b-close."
+  echo "   Run 'npm run e2e:safety:build' first (no-dev-client EAS build, INFRA-216), then retry /b-close."
   exit 1
 fi
 ```
 
-Do NOT auto-boot or auto-build — these are 60-90s detours mid-close. Defer
+Do NOT auto-boot or auto-build — these are multi-minute detours mid-close. Defer
 to the user.
 
 ### Step 2.5.5: Run the scoped flows
