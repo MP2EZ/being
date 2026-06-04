@@ -2,7 +2,7 @@
  * SupabaseService analytics_events gate + sanitizer (INFRA-214 T4) — UNIT
  *
  * Pins two privacy invariants for the operational-telemetry path (trackEvent):
- *  - nothing reaches analytics_events without analytics consent (honors universal opt-out)
+ *  - nothing reaches analytics_events without cloud_sync consent (honors universal opt-out)
  *  - any clinically-named numeric is severity-bucketed (no raw PHQ/GAD integer), while
  *    operational numerics pass through.
  *
@@ -42,13 +42,13 @@ describe('SupabaseService analytics_events gate + sanitizer (INFRA-214 T4)', () 
     service.userId = 'user_t4';
   });
 
-  it('drops ops telemetry when analytics consent is absent', async () => {
+  it('drops ops telemetry when cloud_sync consent is absent', async () => {
     mockCanPerform.mockReturnValue(false);
     await service.trackEvent('backup_completed', { size_mb: 5 });
     expect(service.analyticsQueue).toHaveLength(0);
   });
 
-  it('records ops telemetry when analytics consent is present', async () => {
+  it('records ops telemetry when cloud_sync consent is present', async () => {
     await service.trackEvent('backup_completed', { size_mb: 5 });
     expect(service.analyticsQueue).toHaveLength(1);
   });

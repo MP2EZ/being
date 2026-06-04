@@ -73,6 +73,7 @@
   "src/core/services/supabase/SyncCoordinator.ts": 41,
   "src/core/services/supabase/__tests__/SupabaseService.test.ts": 1,
   "src/core/services/supabase/__tests__/analyticsGate.unit.test.ts": 1,
+  "src/core/services/supabase/__tests__/crisisTelemetryDurable.unit.test.ts": 1,
   "src/core/services/supabase/hooks/useCloudSync.ts": 3,
   "src/core/services/supabase/index.ts": 3,
   "src/core/stores/__tests__/consentStore.test.ts": 1,

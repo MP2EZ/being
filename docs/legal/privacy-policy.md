@@ -1,8 +1,8 @@
 # Privacy Policy
 
-**Version:** 1.5
+**Version:** 1.6
 **Effective Date:** December 12, 2025
-**Last Updated:** May 29, 2026
+**Last Updated:** June 3, 2026
 
 ---
 
@@ -71,7 +71,7 @@ We use your information solely to provide and improve the Being app:
 
 - **Core Functionality:** Enable mindfulness check-ins, mood tracking, and progress visualization
 - **Wellness Tools:** Calculate PHQ-9 and GAD-7 scores for self-monitoring, recommend crisis resources when wellness screening thresholds are reached
-- **Safety Features:** Provide crisis support resources when wellness screening thresholds are met
+- **Safety Features:** Provide crisis support resources when wellness screening thresholds are met. When a PHQ-9 score of 20 or higher, a non-zero PHQ-9 Q9 (self-harm) response, or a GAD-7 score of 15 or higher is detected, Being also records an aggregate, PII-free crisis-detection event to our own first-party secure storage (Supabase). This recording happens under a vital-interests basis and is **not** gated on your analytics consent — crisis-safety monitoring is not something you can inadvertently disable. The event contains only a category label, a severity bucket, whether an intervention was surfaced, and the assessment type — **no** raw score, no Q9 value, no device identifier, and nothing that identifies you.
 - **App Improvement:** Analyze anonymized usage patterns to improve user experience
 - **Technical Support:** Debug issues, provide customer support
 - **Legal Compliance:** Comply with applicable laws and regulations
@@ -169,6 +169,8 @@ Your control:
 - Analytics is **OFF by default**
 - Opt-in via Settings > Privacy > Analytics
 - Request deletion via Settings > Privacy > Delete Analytics Data
+
+**Note on crisis-safety recording:** The analytics opt-in above controls what is sent to PostHog. It does **not** control the separate crisis-detection event described in §3 (Safety Features), which is recorded to Being's own first-party storage under a vital-interests basis and is not suppressible by analytics opt-out or universal opt-out. That event contains no raw scores and no identifying information — only aggregate category labels.
 
 #### Marketing website (being.fyi): opt-out, GPC-honored
 

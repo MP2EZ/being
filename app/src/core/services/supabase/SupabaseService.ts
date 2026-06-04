@@ -451,11 +451,12 @@ class SupabaseService {
       return;
     }
 
-    // INFRA-214 T4: operational telemetry to analytics_events requires analytics consent
-    // (canPerformOperation also honors universal opt-out / GPC). Invariant: nothing reaches
-    // analytics_events without analytics consent EXCEPT the vital-interest crisis-detection
-    // event, which uses the separate trackCrisisDetection() bypass — never this path.
-    if (!useConsentStore.getState().canPerformOperation('analytics')) {
+    // INFRA-214 T4/T5: trackEvent carries OPERATIONAL telemetry (backup/sync bookkeeping) —
+    // a side-effect of the cloud-sync service the user enabled, not product analytics. Gate on
+    // `cloud_sync` consent (the matching legal basis; also honors universal opt-out / GPC), per
+    // the T5 compliance ruling. Product analytics go to PostHog (consent-gated there); the
+    // vital-interest crisis-detection event uses the separate trackCrisisDetection() bypass.
+    if (!useConsentStore.getState().canPerformOperation('cloud_sync')) {
       return;
     }
 
