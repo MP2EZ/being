@@ -24,6 +24,7 @@
 import { logSecurity, logPerformance, logError, LogCategory } from '@/core/services/logging';
 import { generateTimestampedId } from '@/core/utils/id';
 import SecureStorageService from '@/core/services/security/SecureStorageService';
+import supabaseService from '@/core/services/supabase/SupabaseService';
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
 import { persist, createJSONStorage } from 'zustand/middleware';
@@ -716,6 +717,21 @@ export const useAssessmentStore = create<AssessmentStore>()(
 
           // Trigger emergency response
           await CrisisDetectionService.triggerEmergencyResponse(detection);
+
+          // INFRA-214 T3: vital-interest crisis-detection telemetry → Supabase.
+          // Fire-and-forget, emitted AFTER the dedup guard + emergency response so it
+          // can never block or suppress the 988 path. PII-free / pre-bucketed — only
+          // the trigger category + severity bucket, NEVER the raw triggerValue/score.
+          try {
+            supabaseService.trackCrisisDetection({
+              trigger_type: detection.primaryTrigger,
+              severity_bucket: detection.severityLevel,
+              intervention_surfaced: true,
+              assessment_type: detection.assessmentType,
+            });
+          } catch {
+            // Telemetry must never affect the crisis intervention flow.
+          }
         },
 
         acknowledgeCrisis: () => {
