@@ -11,13 +11,21 @@
 > section is the **authoritative routing model**; the detailed sections below describe the
 > PostHog / PHIFilter path. The target model is implemented across INFRA-214 tranches T2–T6.
 
-### Target routing model (decided — Option 1)
+### Target routing model (decided — Option 1, refined in T3: legal-basis partition)
 
-| Sink | Role | Gate |
-|---|---|---|
-| **PostHog (EU)** | Single product-analytics **and** crisis-telemetry sink. All app events — including the canonical crisis-detection event — flow `useAnalytics` → `PHIFilter.validate()` → `posthog.capture()`. | PHIFilter is the **single source of truth** for what may be transmitted. Consent-gated, except the crisis-detection event's vital-interests bypass. |
-| **Supabase `analytics_events`** | Operational telemetry **only** (backup/sync events from `CloudBackupService` / `SyncCoordinator`). NOT a product-analytics or crisis sink. | `canPerformOperation('cloud_sync'/'analytics')` (consent gate added in INFRA-214 T4). |
-| **Custom REST API (`api.being.fyi`)** | **REMOVED** (INFRA-214 T2). Was never deployed. | — |
+Every analytics event has exactly **one** sink, fixed at design time by its **legal basis** —
+not by runtime consent state or call-site convenience. No event is eligible for both sinks;
+there is **no dual-write**. (Verdict from the crisis + compliance + architect planning passes.)
+
+| Sink | Carries | Legal basis / gate | Sanitizer | Identity |
+|---|---|---|---|---|
+| **PostHog (EU)** | Consent-gated **product** analytics only (screen views, feature counts, lifecycle, errors). **Never** crisis or wellness-derived signal. | User opt-in (`analyticsEnabled` && !universalOptOut); SDK not even initialized without consent. | `PHIFilter` — whitelist **reject-gate** (drops anything score-shaped or PHI-keyworded). | device-persistent `distinct_id`; deletable on request. |
+| **Supabase `analytics_events`** | **Vital-interest** safety telemetry (the crisis-detection event) **+ operational** telemetry (backup/sync ops). | Crisis: GDPR Art. 6(1)(d) vital interests — fires regardless of analytics consent **and** universal opt-out. Ops: legitimate-interest + `canPerformOperation` (T4). | `sanitizeAnalyticsProperties` — **bucket-transform** (accepts severity, down-converts; never raw scores). | schema-enforced daily-rotated anonymous `session_id`. |
+| **Custom REST API (`api.being.fyi`)** | **REMOVED** (INFRA-214 T2). Was never deployed. | — | — | — |
+
+**Shared invariant (both sinks):** no raw PHQ-9/GAD-7 integer ever leaves the device — PostHog
+enforces by rejection, Supabase by bucketing. The two sanitizers are intentionally **not**
+unified: they enforce opposite contracts (reject-gate vs. accept-and-bucket).
 
 ### Current-state audit (what INFRA-214 found, verified 2026-06-01/02)
 
@@ -35,28 +43,50 @@
    for future." The k-anonymity (k≥5) / differential-privacy (ε=0.1) / session-rotation engine
    (`AnalyticsPrivacyEngine`) lived **only** here — so it never protected any shipped data.
 
-### Decision (Option 1 — PostHog-direct + DPIA re-scope)
+### Decision (Option 1 + T3 sink correction)
 
-Consolidate on PostHog-direct; delete the dead custom-API path; route the canonical
-crisis-detection event through PostHog under the vital-interests bypass with bucketed,
-PII-free properties whitelisted in PHIFilter.
+Consolidate analytics; delete the dead custom-API path (T2); route the canonical
+crisis-detection event (fires on PHQ-9 ≥20 / Q9>0 / GAD-7 ≥15) to **Supabase `analytics_events`
+under the vital-interests basis** — NOT PostHog. PostHog stays the consent-gated
+product-analytics sink only.
 
-**Rationale:** neither the DPIA nor the privacy policy ever committed to k-anonymity or
-differential privacy — they commit to **severity-bucketing + no quasi-identifiers + EU
-residency** (DPIA §6.1 and §7 control #9; Privacy Policy §5.2). k≥5 is meaningless at
-pre-launch scale (no population to anonymize across), and client-side k-anon/DP was never
-sound. The DPIA is honestly re-scoped (v1.2; INFRA-214 T5) to describe the controls that
-actually run. **Rejected:** Option 2 (Supabase EU edge function applying server-side
-k-anon/DP — builds infra for an uncommitted control) and Option 3 (Supabase store-of-record —
-would force the crisis dashboard off PostHog's native tooling, blocking FEAT-129).
+**Why Supabase, not PostHog, for the crisis event** (crisis + compliance + architect agents,
+unanimous): (1) PostHog's SDK does not initialize without analytics consent, so a crisis user
+who never opted into analytics — the common case — would emit nothing → a false "all-clear"
+safety-monitoring gap. (2) The privacy policy makes an unconditional promise that analytics is
+opt-in and that Being **never collects** PHQ-9/GAD-7 or mental-health data in-app; a
+crisis-detection event is a PHQ/GAD-derived signal, so routing it to PostHog (a third-party
+processor) without consent is an FTC §5 deceptive-practice exposure — and `PHIFilter` would
+itself reject the payload. (3) PostHog's `distinct_id` is device-persistent; the compliance
+non-negotiable requires a session-rotated anonymous id, which the Supabase `analytics_events`
+schema enforces. (4) Supabase is first-party, already in the DPA/DPIA (no material-change
+trigger), and always available. This is the cleanest realization of Option 1's intent, not a
+reversal of it.
+
+**Re k-anon/DP:** neither the DPIA nor the privacy policy ever committed to k-anonymity or
+differential privacy — they commit to severity-bucketing + no quasi-identifiers + EU residency
+(DPIA §6.1, §7 #9; Privacy Policy §5.2). k≥5 is meaningless at pre-launch scale; client-side
+k-anon/DP was never sound. The DPIA is honestly re-scoped (v1.2; T5).
+
+**FEAT-129:** queries Supabase directly for v1 (a daily-aggregate `analytics_events` view
+already exists in `schema.sql`). The **Supabase→PostHog forward (old "Option 2") is deferred** —
+it would re-introduce wellness-derived signal into PostHog (complicating the "never collect"
+promise + DPIA) and is unnecessary for v1. The crisis event is shaped as a pure projection so a
+future forward stays a no-migration add; that forward requires its own DPIA before it ships.
 
 ### Privacy controls actually in force (post-INFRA-214)
 
-- PHIFilter allow-list (`SAFE_EVENT_TYPES`) + numeric-key block (`SAFE_NUMERIC_KEYS`) on every PostHog event.
-- Severity-bucketing — raw PHQ-9/GAD-7 scores never transmitted; only `low`/`medium`/`high`/`critical` buckets.
-- PostHog EU data residency (Frankfurt).
-- Consent gate for non-crisis events; vital-interests bypass (GDPR Art. 6(1)(f) / 9(2)(c)) for the
-  crisis-detection event only, with an anonymous session-rotated `distinct_id`.
+- **PostHog path:** PHIFilter allow-list (`SAFE_EVENT_TYPES`) + numeric-key block
+  (`SAFE_NUMERIC_KEYS`); consent-gated; EU residency (Frankfurt). Never receives crisis/wellness signal.
+- **Supabase crisis path:** severity-bucketing (`sanitizeAnalyticsProperties` — raw PHQ-9/GAD-7
+  scores never transmitted; only `low`/`medium`/`high`/`critical`); schema-enforced daily-rotated
+  anonymous `session_id`; PII-free JSONB (`CHECK` constraints). Vital-interests basis (GDPR Art.
+  6(1)(d) / 9(2)(c)) — fires without analytics consent.
+- **Crisis event must be durably enqueued at fire-time** (survives restart, independent of
+  network / `userId` provisioning) — otherwise a first-run/offline crisis silently drops,
+  relocating the very safety-monitoring gap this work closes. The local crisis **audit log**
+  (`logCrisisIntervention`) is separate, mandatory, and not discharged by this telemetry; an
+  undeliverable telemetry event is recorded to the local security log.
 - k-anonymity / differential privacy: **not claimed** (never ran; not meaningful at this scale).
 
 ### Migration note
