@@ -38,11 +38,6 @@ const ENV = {
   EXPO_PUBLIC_GDPR_URL: 'https://being.fyi/gdpr',
   EXPO_PUBLIC_ACCESSIBILITY_URL: 'https://being.fyi/accessibility',
 
-  // API
-  EXPO_PUBLIC_API_URL: 'https://api.being.fyi',
-  EXPO_PUBLIC_CDN_URL: 'https://cdn.being.fyi',
-  EXPO_PUBLIC_STATIC_ASSETS_URL: 'https://assets.being.fyi',
-
   // Supabase
   EXPO_PUBLIC_SUPABASE_URL: 'https://test.supabase.co',
   EXPO_PUBLIC_SUPABASE_KEY: 'sb_publishable_test_key_value_for_jest_env',
