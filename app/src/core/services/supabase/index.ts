@@ -295,29 +295,6 @@ export async function configureCloudBackup(config: {
 }
 
 /**
- * Track analytics event
- */
-export async function trackAnalyticsEvent(
-  eventType: string,
-  properties: Record<string, any> = {}
-): Promise<void> {
-  try {
-    // Initialize services if needed (non-blocking)
-    if (!isInitialized) {
-      initializeCloudServices().catch(() => {
-        // Ignore errors - analytics is non-critical
-      });
-    }
-
-    await supabaseService.trackEvent(eventType, properties);
-
-  } catch (error) {
-    // Analytics failures should not affect app functionality
-    logSecurity('[CloudServices] Analytics tracking failed:', 'medium', { error });
-  }
-}
-
-/**
  * Cleanup services (call on app shutdown)
  */
 export async function cleanupCloudServices(): Promise<void> {
@@ -395,7 +372,6 @@ export default {
   checkForCloudRestore,
   restoreFromCloud,
   configureCloudBackup,
-  trackAnalyticsEvent,
   cleanupCloudServices,
   testCloudConnectivity,
 };

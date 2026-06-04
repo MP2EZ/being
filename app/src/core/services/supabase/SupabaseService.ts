@@ -30,6 +30,7 @@ import {
   validatePinningConfiguration,
 } from '../security/pinned-fetch';
 import { env } from '@/core/config/env';
+import { useConsentStore } from '@/core/stores/consentStore';
 
 // Environment configuration
 const SUPABASE_URL = env.EXPO_PUBLIC_SUPABASE_URL;
@@ -119,6 +120,11 @@ class SupabaseService {
   private sessionId: string;
   private analyticsFlushTimer: NodeJS.Timeout | null = null;
   private isInitialized = false;
+
+  // INFRA-214 T4: keys whose numeric values are wellness-derived and must be severity-bucketed
+  // before transmission (closes the "only score/result was bucketed" hole). Operational keys
+  // (size_mb, duration_ms, operation_count, …) do not match and pass through.
+  private static readonly CLINICAL_NUMERIC_KEY = /score|result|phq|gad|severity|ideation|suicid/i;
 
   private readonly config: SupabaseServiceConfig = {
     circuitBreaker: {
@@ -445,6 +451,14 @@ class SupabaseService {
       return;
     }
 
+    // INFRA-214 T4: operational telemetry to analytics_events requires analytics consent
+    // (canPerformOperation also honors universal opt-out / GPC). Invariant: nothing reaches
+    // analytics_events without analytics consent EXCEPT the vital-interest crisis-detection
+    // event, which uses the separate trackCrisisDetection() bypass — never this path.
+    if (!useConsentStore.getState().canPerformOperation('analytics')) {
+      return;
+    }
+
     // Sanitize properties to ensure no PHI
     const sanitizedProperties = this.sanitizeAnalyticsProperties(properties);
 
@@ -472,10 +486,17 @@ class SupabaseService {
     for (const [key, value] of Object.entries(properties)) {
       // Allow only safe property types
       if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
-        // Convert actual scores to severity buckets
-        if (key.includes('score') || key.includes('result')) {
+        // INFRA-214 T4: bucket any CLINICALLY-named numeric (not just `score`/`result`), so a
+        // raw PHQ-9/GAD-7 value can't leak through a key like `phq9_total` or `severity`.
+        // Operational numerics (size_mb, duration_ms, operation_count, …) are NOT clinical and
+        // pass through normally. Shared invariant: no raw PHQ/GAD integer leaves the device.
+        if (SupabaseService.CLINICAL_NUMERIC_KEY.test(key)) {
           if (typeof value === 'number') {
             sanitized[`${key}_bucket`] = this.scoreToSeverityBucket(value, key);
+          }
+          // A clinically-named string/boolean (already a bucket/label) passes through.
+          else {
+            sanitized[key] = value;
           }
         } else {
           sanitized[key] = value;
