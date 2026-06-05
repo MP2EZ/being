@@ -41,58 +41,75 @@ export JAVA_HOME=/opt/homebrew/opt/openjdk
 export PATH="$JAVA_HOME/bin:$PATH"
 ```
 
-## Per-session prereq
+## Per-session prereq — build a NO-DEV-CLIENT install (INFRA-216)
 
-Maestro drives an already-installed app on an already-booted sim. It does **not** build the app. Once per worktree session, run:
+Maestro drives an already-installed app on an already-booted sim. It does **not** build the app. Build a **no-dev-client** install once per worktree session:
 
 ```bash
 cd app
-npm run ios --configuration Release   # see "Dev-mode caveats" below — Release is the canonical target
+npm run e2e:safety:build   # EAS local build (e2e-sim profile) + install on the booted sim
 ```
 
-After that, the sim can stay open across multiple flow runs.
+> ⚠️ **The gate target is a build that EXCLUDES `expo-dev-client`, not just a
+> Release build.** This is the load-bearing INFRA-216 finding, and it corrects
+> earlier guidance in this doc:
+>
+> - `expo-dev-client` is a project dependency, so it is linked into **both**
+>   `npm run ios` **and** `expo run:ios --configuration Release`. Both therefore
+>   still show the Expo dev launcher ("DEVELOPMENT SERVERS" screen) after
+>   `clearState: true`. The flows can only navigate that launcher by tapping a
+>   guessed screen coordinate, which flakes badly (INFRA-216: every sim flow hit
+>   0–1/5 on a dev build *and* on a plain `--configuration Release` build — the
+>   launcher is present on both).
+> - Only a build with `developmentClient: false` removes the launcher. That is
+>   the EAS **`e2e-sim`** profile (`eas.json`: `developmentClient:false`,
+>   `simulator:true`, Release), which `npm run e2e:safety:build` produces and
+>   installs. With it, the app boots straight to the LegalGate (validated: the
+>   `_legal-and-onboarding.yaml` launcher steps simply `WARN`+skip). This is also
+>   effectively what TestFlight/App Store users get.
 
-### Dev-mode caveats (INFRA-171 verification findings)
+**Prereqs** (one-time per machine, checked by the build script):
+- `eas-cli` logged in — `npx eas whoami` (else `npx eas login`).
+- `fastlane` — `brew install fastlane`. *(Heads-up: on some setups `brew install
+  fastlane` upgrades Ruby and can orphan CocoaPods' `ffi` gem — if `pod --version`
+  then errors, run `brew reinstall cocoapods`.)*
+- A booted iOS simulator.
+- First build is ~10–15 min (EAS local). After that the sim can stay open across
+  many flow runs.
 
-Maestro flows target the user-visible safety surface. In **dev builds**
-(`npm run ios` without `--configuration Release`), the surface is hidden
-behind a cascade of dev-mode-only overlays that block flow execution:
+> 🟡 **Known limitation (INFRA-216 follow-up).** The no-dev-client build removes
+> the dev launcher — the dominant flake — but the no-dev-client **Release build
+> boots/transitions noticeably slower** than a dev build, and the long
+> LegalGate + 16-question onboarding preamble in `_legal-and-onboarding.yaml` is
+> still timing-fragile at several points on it (cold-boot, the DOB picker, the
+> Welcome→assessment modal). Single warm runs pass clean end-to-end, but
+> consecutive ≥5/5 is not yet there. The robust fix — seeding post-onboarding
+> state behind an **`e2e-sim`-profile-only env var** (so the flows start at the
+> home screen and skip the fragile preamble entirely; gated to that build profile,
+> never production, with a compliance review) — is tracked as the INFRA-216
+> follow-up. Until then, expect occasional retries on the preamble.
 
-1. **Expo Dev Launcher** — `clearState: true` reinstalls the app, which then
-   opens the launcher's "DEVELOPMENT SERVERS" screen. Maestro must tap the
-   Metro server row to actually load the JS bundle. The traversal subflow
-   handles this with a point-based tap (text-based selectors are unreliable
-   because "Being" appears multiple times on that screen).
-2. **Dev tools first-launch tutorial** — appears on every fresh install,
-   has a "Continue" button to dismiss.
-3. **Dev menu bottom sheet** (Reload / Go home) — pops up unpredictably;
-   no reliable dismissal gesture from headless Maestro.
-4. **RN LogBox red-screen** — `core/services/security/` uses `console.error`
-   for routine info logs ("Master key found, verifying"); in dev mode the
-   LogBox catches these and renders a full-screen error stack covering
-   the LegalGate.
+### Dev-mode caveats (INFRA-171 / INFRA-216 verification findings)
 
-**Release builds disable LogBox and skip the dev launcher entirely** — the
-embedded bundle launches directly into the Being app. This is the canonical
-target for Maestro safety-e2e.
+In **dev builds** (`npm run ios`), the safety surface is hidden behind a cascade
+of dev-mode-only overlays that block flow execution:
 
-Build a Release-configured install once per worktree before running flows:
+1. **Expo Dev Launcher** — `clearState: true` resets the dev-client's launch
+   preference, so it opens the "DEVELOPMENT SERVERS" screen. The flow can only
+   pick the server by a guessed coordinate tap — the dominant flake.
+2. **Dev tools first-launch tutorial** — "Continue" to dismiss.
+3. **Dev menu bottom sheet** — pops up unpredictably; no reliable headless dismiss.
+4. **RN LogBox red-screen** — `core/services/security/` uses `console.error` for
+   routine info logs; in dev mode LogBox renders a full-screen stack over the
+   LegalGate.
 
-```bash
-cd app && npx expo run:ios --configuration Release
-```
-
-That replaces the simulator's Debug install with a Release one (no Metro
-server, no dev launcher, no LogBox). The `_legal-and-onboarding.yaml`
-subflow's dev-launcher steps become no-ops in Release mode via the
-`optional: true` markers, so the same flows run unmodified.
-
-Dev-mode verification (`expo run:ios` without `--configuration Release`)
-is still possible but unreliable: the `_legal-and-onboarding.yaml`
-subflow makes a best-effort attempt to dismiss the 4-overlay dev-mode
-chain (Expo dev launcher, first-launch tutorial, dev menu sheet, LogBox)
-with `optional` taps. If a flow drifts in dev mode, rebuild Release
-before debugging the flow itself.
+**A plain `expo run:ios --configuration Release` does NOT escape #1** — because
+`expo-dev-client` is still linked, the launcher is present on Release too
+(verified INFRA-216). #4 (LogBox) is gone on Release (`__DEV__` false), but the
+launcher is the killer. The **`e2e-sim` no-dev-client build** is the only thing
+that removes the launcher; `npm run e2e:safety:build` is the supported entry
+point. CLAUDE.md "Known Gotchas" and `/b-close` Phase 2.5 were reconciled to this
+in INFRA-216.
 
 ## Running the flows
 
