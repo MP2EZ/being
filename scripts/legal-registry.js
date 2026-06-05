@@ -41,6 +41,7 @@ const EXCLUDED_FROM_REGISTRY = new Set([
   'regulatory-applicability', // Source-of-truth doc for compliance decisions.
   'dpia-sensitive-wellness-data', // Internal/regulator-facing DPIA; not user-facing (INFRA-153).
   'breach-notification-runbook', // Internal FTC HBNR operational runbook; founder + counsel only (INFRA-152).
+  'lia-crisis-telemetry', // Internal vital-interests assessment for crisis-detection telemetry; regulator-facing only (INFRA-214 T5).
 ]);
 
 function fail(msg) {

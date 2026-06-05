@@ -318,48 +318,11 @@ export function useCloudBackupConfig() {
   };
 }
 
-/**
- * Hook for analytics tracking
- */
-export function useCloudAnalytics() {
-  const trackEvent = useCallback(async (eventType: string, properties: Record<string, any> = {}) => {
-    try {
-      await CloudServices.trackAnalyticsEvent(eventType, properties);
-    } catch (error) {
-      // Analytics failures should not affect UX
-      logSecurity('Analytics tracking failed:', 'medium', { error });
-    }
-  }, []);
-
-  const trackAssessmentCompletion = useCallback(async (assessmentType: 'PHQ9' | 'GAD7', score: number) => {
-    await trackEvent('assessment_completed', {
-      assessment_type: assessmentType,
-      score_bucket: score, // Will be converted to severity bucket automatically
-      completion_time: Date.now(),
-    });
-  }, [trackEvent]);
-
-  const trackCrisisEvent = useCallback(async (triggered: boolean, userAction: string) => {
-    await trackEvent('crisis_intervention', {
-      triggered,
-      user_action: userAction,
-      timestamp: Date.now(),
-    });
-  }, [trackEvent]);
-
-  const trackFeatureUse = useCallback(async (feature: string, metadata?: Record<string, any>) => {
-    await trackEvent('feature_use', {
-      feature_name: feature,
-      ...metadata,
-    });
-  }, [trackEvent]);
-
-  return {
-    trackEvent,
-    trackAssessmentCompletion,
-    trackCrisisEvent,
-    trackFeatureUse,
-  };
-}
+// INFRA-214 T4: the `useCloudAnalytics` hook (trackEvent / trackAssessmentCompletion /
+// trackCrisisEvent / trackFeatureUse) was removed. It routed PRODUCT analytics to Supabase
+// `analytics_events` — but per the legal-basis routing model (see analytics-architecture.md),
+// product analytics belong on PostHog (consent-gated, PHIFilter), and the vital-interest
+// crisis-detection event uses SupabaseService.trackCrisisDetection(). The hook was orphaned
+// (never called) and its emitters duplicated those sinks, so it is deleted rather than rewired.
 
 export default useCloudSync;

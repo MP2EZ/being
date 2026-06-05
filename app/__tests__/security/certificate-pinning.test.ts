@@ -37,7 +37,6 @@ jest.mock('../../src/core/services/logging', () => ({
 // Import after mocks
 import {
   SUPABASE_CERTIFICATE_PINS,
-  API_CERTIFICATE_PINS,
   PIN_VALIDATION_CONFIG,
   getPinsForHost,
   validateCertificatePin,
@@ -87,13 +86,6 @@ describe('Certificate Pinning Configuration', () => {
       expect(specificPins.backup2).toBe(wildcardPins.backup2);
     });
 
-    it('should have placeholder pins for future API endpoint', () => {
-      const apiPins = API_CERTIFICATE_PINS['api.being.fyi'];
-
-      expect(apiPins.primary).toBe('PLACEHOLDER_UPDATE_BEFORE_USE');
-      expect(apiPins.backup1).toBe('PLACEHOLDER_UPDATE_BEFORE_USE');
-      expect(apiPins.backup2).toBe('PLACEHOLDER_UPDATE_BEFORE_USE');
-    });
   });
 
   describe('Pin Validation Config', () => {
@@ -145,10 +137,10 @@ describe('getPinsForHost', () => {
     expect(pins).toBeNull();
   });
 
-  it('should return null for placeholder API pins', () => {
+  it('should return null for an unconfigured host (e.g. removed api.being.fyi)', () => {
     const pins = getPinsForHost('api.being.fyi');
 
-    // Should not return placeholder pins
+    // api.being.fyi was removed in INFRA-214; unknown hosts return null
     expect(pins).toBeNull();
   });
 });
