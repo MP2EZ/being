@@ -84,11 +84,6 @@ export const envSchema = z
     EXPO_PUBLIC_GDPR_URL: httpsUrl,
     EXPO_PUBLIC_ACCESSIBILITY_URL: httpsUrl,
 
-    // === API ===
-    EXPO_PUBLIC_API_URL: httpsUrl,
-    EXPO_PUBLIC_CDN_URL: httpsUrl,
-    EXPO_PUBLIC_STATIC_ASSETS_URL: httpsUrl,
-
     // === Supabase ===
     EXPO_PUBLIC_SUPABASE_URL: httpsUrl,
     EXPO_PUBLIC_SUPABASE_KEY: z.string().min(1),
@@ -224,9 +219,6 @@ function readRawEnv(): Record<string, string | undefined> {
     EXPO_PUBLIC_LEGAL_URL: process.env['EXPO_PUBLIC_LEGAL_URL'],
     EXPO_PUBLIC_GDPR_URL: process.env['EXPO_PUBLIC_GDPR_URL'],
     EXPO_PUBLIC_ACCESSIBILITY_URL: process.env['EXPO_PUBLIC_ACCESSIBILITY_URL'],
-    EXPO_PUBLIC_API_URL: process.env['EXPO_PUBLIC_API_URL'],
-    EXPO_PUBLIC_CDN_URL: process.env['EXPO_PUBLIC_CDN_URL'],
-    EXPO_PUBLIC_STATIC_ASSETS_URL: process.env['EXPO_PUBLIC_STATIC_ASSETS_URL'],
     EXPO_PUBLIC_SUPABASE_URL: process.env['EXPO_PUBLIC_SUPABASE_URL'],
     EXPO_PUBLIC_SUPABASE_KEY: process.env['EXPO_PUBLIC_SUPABASE_KEY'],
     EXPO_PUBLIC_SUPABASE_REGION: process.env['EXPO_PUBLIC_SUPABASE_REGION'],
