@@ -68,6 +68,15 @@
         ]
       }
     },
+    "e2e-sim": {
+      "extends": "production",
+      "developmentClient": false,
+      "distribution": "internal",
+      "ios": {
+        "simulator": true,
+        "buildConfiguration": "Release"
+      }
+    },
     "production-emergency": {
       "extends": "production",
       "distribution": "store",
