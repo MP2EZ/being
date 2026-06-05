@@ -29,17 +29,15 @@ import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getCurrentUserEmail, getUserCreatedAt, isDevMode } from '@/core/constants/devMode';
 import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
-import SubMenuHeader from '../components/SubMenuHeader';
 
-interface AccountSettingsScreenProps {
-  onReturn: () => void;
-}
+// FEAT-212: rendered as a route on ProfileStackNavigator; the native stack header
+// supplies the back chevron (SubMenuHeader's ✕ removed).
 
 const DATA_RIGHTS_TITLE = 'Your data rights';
 const DATA_RIGHTS_DESCRIPTION =
   'Data export and account deletion are coming soon. You have the right to access and delete your personal wellness data.';
 
-const AccountSettingsScreen: React.FC<AccountSettingsScreenProps> = ({ onReturn }) => {
+const AccountSettingsScreen: React.FC = () => {
   // MVP: Use dev mode utilities for user information
   // V2 (FEAT-16): Replace with actual auth service
   const userEmail = getCurrentUserEmail();
@@ -48,7 +46,6 @@ const AccountSettingsScreen: React.FC<AccountSettingsScreenProps> = ({ onReturn 
 
   return (
     <SafeAreaView style={styles.container}>
-      <SubMenuHeader title="Account" onClose={onReturn} />
       <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
         {/* Account Information Section */}
         <View style={styles.section}>
