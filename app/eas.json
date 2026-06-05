@@ -31,7 +31,6 @@
         "PERFORMANCE_MONITORING": "true",
         "NEW_ARCHITECTURE": "true",
         "CRISIS_MONITORING": "true",
-        "EXPO_PUBLIC_API_URL": "http://localhost:3000",
         "EXPO_PUBLIC_SUPABASE_URL": "$SUPABASE_URL_STAGING"
       },
       "cache": {
