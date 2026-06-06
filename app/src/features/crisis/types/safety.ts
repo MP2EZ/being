@@ -347,15 +347,26 @@ export function detectCrisis(
       primaryTrigger = 'phq9_suicidal_ideation';
     }
     
-    // Check for severe depression score
-    if (result.totalScore >= CRISIS_SAFETY_THRESHOLDS.PHQ9_CRISIS_SCORE) {
+    // Score tier (DEBUG-229 / MAINT-226 Decision E — dual-threshold contract):
+    //   ≥20 → active-intervention tier (phq9_severe_score, critical)
+    //   15–19 → support tier (phq9_moderate_severe_score, high) — "≥15 = support
+    //     resources offered". Omitting this band was the zero-false-negative bug.
+    // Q9>0 keeps precedence as primaryTrigger; the score tier is recorded as a
+    // secondary trigger so both signals are preserved end-to-end.
+    if (result.totalScore >= CRISIS_SAFETY_THRESHOLDS.PHQ9_SEVERE_THRESHOLD) {
       triggers.push('phq9_severe_score');
       if (!primaryTrigger!) {
         primaryTrigger = 'phq9_severe_score';
+        severityLevel = 'critical';
+      }
+    } else if (result.totalScore >= CRISIS_SAFETY_THRESHOLDS.PHQ9_MODERATE_SEVERE_THRESHOLD) {
+      triggers.push('phq9_moderate_severe_score');
+      if (!primaryTrigger!) {
+        primaryTrigger = 'phq9_moderate_severe_score';
         severityLevel = 'high';
       }
     }
-  } 
+  }
   // GAD-7 Crisis Detection
   else {
     if (result.totalScore >= CRISIS_SAFETY_THRESHOLDS.GAD7_CRISIS_SCORE) {

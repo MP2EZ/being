@@ -47,6 +47,10 @@ import {
   CRISIS_THRESHOLDS,
   ASSESSMENT_RESPONSE_LABELS,
 } from '../types/index';
+// DEBUG-229 / MAINT-226 Decision E: pure detectCrisis is the single source of
+// truth for crisis thresholds + trigger taxonomy; the store delegates to it.
+import { detectCrisis as detectCrisisPure } from '@/features/crisis/types/safety';
+import { validateSingleResponse } from '../types/schemas';
 
 // Clinical scoring algorithms (validated for 100% accuracy)
 const PHQ9_QUESTIONS = [
@@ -309,35 +313,25 @@ class CrisisDetectionService {
     const startTime = Date.now();
 
     try {
-      let triggerType: CrisisDetection['primaryTrigger'] | null = null;
-      let triggerValue = result.totalScore;
-
-      if (type === 'phq9') {
-        const phqResult = result as PHQ9Result;
-        if (phqResult.suicidalIdeation) {
-          triggerType = 'phq9_suicidal_ideation';
-          triggerValue = 1; // Indicates suicidal ideation present
-        } else if (phqResult.totalScore >= CRISIS_THRESHOLDS.PHQ9_CRISIS_SCORE) {
-          triggerType = 'phq9_moderate_severe_score';
-        }
-      } else if (type === 'gad7') {
-        if (result.totalScore >= CRISIS_THRESHOLDS.GAD7_CRISIS_SCORE) {
-          triggerType = 'gad7_severe_score';
-        }
-      }
-
-      if (!triggerType) {
+      // DEBUG-229 / MAINT-226 Decision E: delegate threshold + trigger logic to the
+      // pure detectCrisis (single source of truth). This fixes the store's previous
+      // divergence — it emitted `phq9_moderate_severe_score` even at ≥20 and never
+      // the intervention-tier `phq9_severe_score`. userId is not part of the
+      // store-side detection (pass ''); assessmentId is overridden below with the
+      // live session id so handleCrisisDetection's per-session dedup works.
+      const pure = detectCrisisPure(result, '');
+      if (!pure) {
         return null;
       }
 
       const detection = {
         isTriggered: true,
-        primaryTrigger: triggerType,
-        secondaryTriggers: [],
-        // DEBUG-218: populate severityLevel + assessmentType so the score-based
-        // crisis_detected telemetry carries real buckets (never "undefined").
-        severityLevel: crisisSeverityLevel(type, result.totalScore),
-        triggerValue,
+        primaryTrigger: pure.primaryTrigger,
+        secondaryTriggers: pure.secondaryTriggers,
+        // severityLevel + assessmentType populate the score-based crisis_detected
+        // telemetry buckets (DEBUG-218) — now sourced from the pure function.
+        severityLevel: pure.severityLevel,
+        triggerValue: pure.triggerValue,
         assessmentType: type,
         timestamp: Date.now(),
         assessmentId
@@ -556,6 +550,15 @@ export const useAssessmentStore = create<AssessmentStore>()(
           const state = get();
           if (!state.currentSession) {
             throw new Error('No active assessment session');
+          }
+
+          // DEBUG-229 (TEST-08 / SEC-06): validate the per-question response against
+          // the 0–3 clinical scale BEFORE storing/scoring. Reject fail-loud — a
+          // corrupt value must never reach scoring or the inline Q9 crisis check.
+          const responseCheck = validateSingleResponse(response);
+          if (!responseCheck.success) {
+            set({ error: `Invalid response (must be 0–3): ${responseCheck.error}` });
+            return;
           }
 
           try {

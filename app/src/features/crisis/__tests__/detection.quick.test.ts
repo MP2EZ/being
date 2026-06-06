@@ -30,15 +30,33 @@ const gad = (totalScore: number): GAD7Result => ({
 });
 
 describe('detectCrisis — quick branch coverage', () => {
-  it('PHQ-9 score below 20 with no Q9 → no crisis', () => {
-    expect(detectCrisis(phq(19), 'u1')).toBeNull();
+  // DEBUG-229 / MAINT-226 Decision E — dual-threshold support-vs-intervention tiers.
+  // The "≥15 = support resources offered" contract requires 15–19 to FIRE a distinct
+  // support tier; the old assertion `detectCrisis(phq(19)) === null` actively pinned
+  // the zero-false-negative bug and has been inverted.
+  it('PHQ-9 14 with no Q9 → no crisis (below support floor)', () => {
+    expect(detectCrisis(phq(14), 'u1')).toBeNull();
   });
 
-  it('PHQ-9 score at 20 with no Q9 → crisis with phq9_severe_score primaryTrigger', () => {
+  it('PHQ-9 15 with no Q9 → support tier (phq9_moderate_severe_score, high)', () => {
+    const d = detectCrisis(phq(15), 'u1');
+    expect(d).not.toBeNull();
+    expect(d!.primaryTrigger).toBe('phq9_moderate_severe_score');
+    expect(d!.severityLevel).toBe('high');
+  });
+
+  it('PHQ-9 19 with no Q9 → support tier (phq9_moderate_severe_score, high)', () => {
+    const d = detectCrisis(phq(19), 'u1');
+    expect(d).not.toBeNull();
+    expect(d!.primaryTrigger).toBe('phq9_moderate_severe_score');
+    expect(d!.severityLevel).toBe('high');
+  });
+
+  it('PHQ-9 score at 20 with no Q9 → intervention tier (phq9_severe_score, critical)', () => {
     const d = detectCrisis(phq(20), 'u1');
     expect(d).not.toBeNull();
     expect(d!.primaryTrigger).toBe('phq9_severe_score');
-    expect(d!.severityLevel).toBe('high');
+    expect(d!.severityLevel).toBe('critical');
   });
 
   it('PHQ-9 with Q9>0 (suicidal) and low total → crisis with phq9_suicidal_ideation primaryTrigger', () => {
@@ -54,6 +72,14 @@ describe('detectCrisis — quick branch coverage', () => {
     expect(d).not.toBeNull();
     expect(d!.severityLevel).toBe('critical');
     expect(d!.secondaryTriggers).toContain('phq9_severe_score');
+  });
+
+  it('PHQ-9 with Q9>0 (suicidal) in the 15–19 band → suicidal primary, support tier retained as secondary', () => {
+    const d = detectCrisis(phq(17, true), 'u1');
+    expect(d).not.toBeNull();
+    expect(d!.primaryTrigger).toBe('phq9_suicidal_ideation');
+    expect(d!.severityLevel).toBe('high'); // 17 < 20
+    expect(d!.secondaryTriggers).toContain('phq9_moderate_severe_score');
   });
 
   it('GAD-7 score below 15 → no crisis', () => {
