@@ -7,6 +7,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, ActivityIndicator, StyleSheet, TouchableOpacity, Text } from 'react-native';
 import { logPerformance, logSystem } from '@/core/services/logging';
+import { whenE2ESeedComplete } from '@/core/config/e2eSeed';
 import { generateTimestampedId } from '@/core/utils/id';
 import { NavigationContainer } from '@react-navigation/native';
 import { linkingConfig } from './linking';
@@ -113,6 +114,12 @@ const CleanRootNavigator: React.FC = () => {
 
   useEffect(() => {
     async function checkInitialRoute() {
+      // INFRA-217: in the e2e-sim build, wait for the launch-time seed to write
+      // onboarding + consent before reading state, so the FIRST resolved route is
+      // already Main (initialRouteName only applies on first navigator mount).
+      // Resolves immediately in every real build.
+      await whenE2ESeedComplete();
+
       // Both reads are independent AsyncStorage gets — parallelize.
       const [settings, consent] = await Promise.all([loadSettings(), loadConsent()]);
 

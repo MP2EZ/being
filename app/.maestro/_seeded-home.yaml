@@ -1,0 +1,25 @@
+appId: com.being.app
+tags:
+  - helper
+name: "Helper: wait for seeded Main tab (e2e-sim)"
+---
+# Reusable subflow for the no-dev-client e2e-sim build (INFRA-217). Called via
+# `- runFlow: _seeded-home.yaml` from each sim safety flow after a fresh
+# launchApp { clearState: true, clearKeychain: true }.
+#
+# The e2e-sim EAS profile sets EXPO_PUBLIC_E2E_SEED_ONBOARDED=true, so App.tsx
+# seeds legal consents + age verification + onboarding-complete at launch and
+# CleanRootNavigator routes straight to Main. There is therefore NO LegalGate /
+# onboarding preamble to traverse — we just wait for the home screen.
+#
+# Replaces the long `_legal-and-onboarding.yaml` traversal for the sim flows.
+# That file is intentionally retained, unchanged, for the device-only
+# `crisis-988-dial.yaml` flow, which runs on a non-seeded real-device build and
+# still needs the full LegalGate + onboarding walk.
+#
+# The 90s timeout absorbs cold boot + encryption init + the async seed writes
+# (SecureStore consent + AsyncStorage onboarding flag) on the slower Release build.
+- extendedWaitUntil:
+    visible:
+      id: "home-screen"
+    timeout: 90000

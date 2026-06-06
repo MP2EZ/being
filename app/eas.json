@@ -74,6 +74,9 @@
       "ios": {
         "simulator": true,
         "buildConfiguration": "Release"
+      },
+      "env": {
+        "EXPO_PUBLIC_E2E_SEED_ONBOARDED": "true"
       }
     },
     "production-emergency": {

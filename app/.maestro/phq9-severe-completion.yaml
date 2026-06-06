@@ -13,7 +13,7 @@ name: "PHQ-9 score >=20 completion shows crisis results"
 - launchApp:
     clearState: true
     clearKeychain: true # SecureStore-backed consent persists across clearState — wipe keychain too (INFRA-179)
-- runFlow: _legal-and-onboarding.yaml
+- runFlow: _seeded-home.yaml # INFRA-217: e2e-sim seeds onboarding; start at home
 
 # INFRA-186: scrollUntilVisible required before take-phq9-button —
 # see q9-single-alert.yaml for the geometry rationale (card overflows the

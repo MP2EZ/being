@@ -218,6 +218,25 @@ describe('env schema (INFRA-141, clinical safety)', () => {
     });
   });
 
+  describe('INFRA-217: e2e-sim onboarding-seed flag', () => {
+    it('defaults EXPO_PUBLIC_E2E_SEED_ONBOARDED to "false" when absent (real builds)', () => {
+      const parsed = envSchema.parse(validEnv);
+      expect(parsed.EXPO_PUBLIC_E2E_SEED_ONBOARDED).toBe('false');
+    });
+    it('accepts an explicit "true" (e2e-sim profile) even under ENV=production', () => {
+      // The e2e-sim profile extends production, so it resolves ENV=production.
+      // The seed flag must parse there — there is deliberately no production
+      // superRefine guarding it (see env.ts / e2eSeedGate.config.test.ts).
+      const result = envSchema.safeParse({ ...validEnv, EXPO_PUBLIC_E2E_SEED_ONBOARDED: 'true' });
+      expect(result.success).toBe(true);
+    });
+    it('rejects a non-boolean value', () => {
+      expect(
+        envSchema.safeParse({ ...validEnv, EXPO_PUBLIC_E2E_SEED_ONBOARDED: '1' }).success,
+      ).toBe(false);
+    });
+  });
+
   describe('error messages do not leak received values', () => {
     it('SUICIDE_PREVENTION_URL rejection names the var and constraint, not the bad value', () => {
       const badValue = 'https://attacker.example.com/credentials?token=secret';

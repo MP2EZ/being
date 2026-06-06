@@ -174,6 +174,21 @@ export const envSchema = z
     // Read by certificate-pinning.ts. Absent from .env files (default = false).
     // Schema refuses boot if set truthy in production env (see superRefine).
     EXPO_PUBLIC_ALLOW_INSECURE_SSL: booleanString.default('false'),
+
+    // === E2E onboarding seed (INFRA-217) ===
+    // When 'true', App.tsx seeds post-onboarding state at launch (consent +
+    // onboarding-complete) so the Maestro safety flows start at the Main tab
+    // instead of traversing the 16-question onboarding preamble on the slow
+    // no-dev-client e2e-sim Release build. Set ONLY in the `e2e-sim` EAS profile
+    // (eas.json build.e2e-sim.env); absent → default 'false' in every real build.
+    //
+    // Deliberately NO `EXPO_PUBLIC_ENV==='production'` superRefine (unlike
+    // ALLOW_INSECURE_SSL above): the e2e-sim profile `extends: production` and
+    // resolves EXPO_PUBLIC_ENV=production, so such a guard would refuse to boot
+    // the very build the safety gate needs. The compliance boundary instead rests
+    // solely on eas.json profile scoping, pinned by the static-config test at
+    // `__tests__/safety/e2eSeedGate.config.test.ts`.
+    EXPO_PUBLIC_E2E_SEED_ONBOARDED: booleanString.default('false'),
   })
   .superRefine((env, ctx) => {
     // Insecure SSL must not be enabled in production builds.
@@ -263,6 +278,7 @@ function readRawEnv(): Record<string, string | undefined> {
     EXPO_PUBLIC_PERFORMANCE_BREATHING_FPS_MIN: process.env['EXPO_PUBLIC_PERFORMANCE_BREATHING_FPS_MIN'],
     EXPO_PUBLIC_PERFORMANCE_CHECKIN_TRANSITION_MAX_MS: process.env['EXPO_PUBLIC_PERFORMANCE_CHECKIN_TRANSITION_MAX_MS'],
     EXPO_PUBLIC_ALLOW_INSECURE_SSL: process.env['EXPO_PUBLIC_ALLOW_INSECURE_SSL'],
+    EXPO_PUBLIC_E2E_SEED_ONBOARDED: process.env['EXPO_PUBLIC_E2E_SEED_ONBOARDED'],
   };
 }
 
