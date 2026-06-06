@@ -13,6 +13,11 @@
  * Alert that the store's `CrisisDetectionService` fires via the parent flow.
  * After MAINT-G: only the store's path fires an Alert; the component just
  * delegates and reads detection state.
+ *
+ * PERF-03 (/m:audit --perf): the decorative mock encryption/audit/compliance
+ * pipeline was removed, so `onAnswer` now receives just the response — real
+ * AES-256 encryption + consent run downstream in the store. These tests pin
+ * that the delegating call still happens unconditionally.
  */
 const mockNavigate = jest.fn();
 const mockGoBack = jest.fn();
@@ -55,7 +60,6 @@ const baseProps = {
   onAnswer: jest.fn(),
   currentStep: 9,
   totalSteps: 9,
-  sessionId: 'test-session-1',
   consentStatus: {
     dataProcessingConsent: true,
     clinicalDataConsent: true,
@@ -106,7 +110,8 @@ describe('EnhancedAssessmentQuestion', () => {
     fireEvent.press(getByTestId('assessment-response-group-option-1'));
 
     await waitFor(() => expect(onAnswer).toHaveBeenCalledTimes(1));
-    expect(onAnswer).toHaveBeenCalledWith(1, expect.objectContaining({ sessionId: 'test-session-1' }));
+    // onAnswer receives only the response now (no decorative metadata).
+    expect(onAnswer).toHaveBeenCalledWith(1);
     expect(Alert.alert).not.toHaveBeenCalled();
   });
 
@@ -118,7 +123,7 @@ describe('EnhancedAssessmentQuestion', () => {
 
     fireEvent.press(getByTestId('assessment-response-group-option-2'));
 
-    await waitFor(() => expect(onAnswer).toHaveBeenCalledWith(2, expect.any(Object)));
+    await waitFor(() => expect(onAnswer).toHaveBeenCalledWith(2));
     expect(Alert.alert).not.toHaveBeenCalled();
   });
 
