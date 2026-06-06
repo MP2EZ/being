@@ -48,6 +48,13 @@ const Timer: React.FC<TimerProps> = ({
   const pausedTimeRef = useRef<number>(0);
   const pauseStartTimeRef = useRef<number | null>(null); // Track when pause started
   const previousIsActiveRef = useRef<boolean>(isActive); // Track previous isActive state
+  const lastSecondRef = useRef<number | null>(null); // Last whole-second value reported to parent
+
+  // The interval drives the local display/progress; parent-facing onTick and
+  // a11y announcements are gated to whole-second changes (see startTimer). Keep
+  // this a clean divisor of 1000ms and <=500ms so no trigger second
+  // (30/10/5/4/3/2/1) is ever skipped. 250ms = 4 ticks/sec for a smooth bar.
+  const TICK_INTERVAL_MS = 250;
 
   const themeColors = colorSystem.themes[theme];
 
@@ -91,6 +98,7 @@ const Timer: React.FC<TimerProps> = ({
       const remaining = duration - elapsed;
 
       if (remaining <= 0) {
+        lastSecondRef.current = 0;
         setTimeRemaining(0);
         if (intervalRef.current) {
           clearInterval(intervalRef.current);
@@ -98,11 +106,23 @@ const Timer: React.FC<TimerProps> = ({
         }
         onComplete();
       } else {
+        // Local display + progress bar update at the tick cadence. This
+        // re-render is isolated to Timer (memoized below), so it does not
+        // cascade to the parent screen or its siblings (e.g. BreathingCircle).
         setTimeRemaining(remaining);
-        announceTimeRemaining(remaining);
-        onTick?.(remaining); // Report remaining time to parent
+
+        // Parent-facing onTick and accessibility announcements fire only when
+        // the displayed whole-second changes — keeps the parent screen at
+        // ~1 render/sec instead of cascading at the tick rate, and prevents
+        // duplicate "N seconds remaining" utterances within the same second.
+        const second = Math.ceil(remaining / 1000);
+        if (second !== lastSecondRef.current) {
+          lastSecondRef.current = second;
+          announceTimeRemaining(remaining);
+          onTick?.(remaining); // Report remaining time to parent
+        }
       }
-    }, 16); // ~60fps for smooth progress updates
+    }, TICK_INTERVAL_MS);
   }, [duration, onComplete, announceTimeRemaining, onTick]);
 
   // Pause timer - just notify parent, parent controls isActive
@@ -130,6 +150,7 @@ const Timer: React.FC<TimerProps> = ({
     startTimeRef.current = null;
     pausedTimeRef.current = 0;
     pauseStartTimeRef.current = null;
+    lastSecondRef.current = null;
   }, [duration]);
 
   // Effect to manage timer lifecycle based on isActive prop
@@ -295,4 +316,8 @@ const styles = StyleSheet.create({
   },
 });
 
-export default Timer;
+// Memoized: with stable props (duration, isActive, and the now-stable
+// onTick/onComplete from useTimerPractice) Timer only re-renders when those
+// change, so a parent re-render does not reconcile it. Its own per-tick
+// display updates remain internal.
+export default React.memo(Timer);
