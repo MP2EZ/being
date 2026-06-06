@@ -557,6 +557,20 @@ class SupabaseService {
   }
 
   /**
+   * DEBUG-218: coerce a required crisis-telemetry categorical field. A missing/empty
+   * value degrades to an explicit 'unknown' sentinel + a high-severity log (queryable
+   * degradation) rather than silently coercing to the literal "undefined". The
+   * vital-interest event is still emitted — never dropped on a field-validation miss.
+   */
+  private requireCrisisField(value: string | undefined | null, field: string): string {
+    if (value === undefined || value === null || value === '') {
+      logSecurity('[SupabaseService] crisis telemetry missing required field', 'high', { field });
+      return 'unknown';
+    }
+    return String(value);
+  }
+
+  /**
    * INFRA-214 T3 — Vital-interest crisis-detection telemetry.
    *
    * Fire-and-forget: synchronous durable enqueue + best-effort async flush. NEVER
@@ -579,9 +593,11 @@ class SupabaseService {
         event_type: 'crisis_detected',
         properties: {
           trigger_type: String(telemetry.trigger_type),
-          severity_bucket: String(telemetry.severity_bucket),
+          // DEBUG-218: degrade a missing field to an explicit 'unknown' sentinel + a
+          // high-severity log instead of String(undefined) → the literal "undefined".
+          severity_bucket: this.requireCrisisField(telemetry.severity_bucket, 'severity_bucket'),
           intervention_surfaced: Boolean(telemetry.intervention_surfaced),
-          assessment_type: String(telemetry.assessment_type),
+          assessment_type: this.requireCrisisField(telemetry.assessment_type, 'assessment_type'),
         },
         session_id: this.sessionId,
         enqueued_at: Date.now(),

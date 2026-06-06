@@ -85,6 +85,11 @@ const ReflectionTimerScreen: React.FC<ReflectionTimerScreenProps> = ({
     onComplete: markComplete,
   });
 
+  // Stable pause/resume handlers so the memoized Timer is not re-rendered
+  // by new inline closures on every parent render.
+  const handlePause = React.useCallback(() => setIsTimerActive(false), [setIsTimerActive]);
+  const handleResume = React.useCallback(() => setIsTimerActive(true), [setIsTimerActive]);
+
   // Show completion screen after timer finishes
   const completionScreen = renderCompletion();
   if (completionScreen) {
@@ -129,8 +134,8 @@ const ReflectionTimerScreen: React.FC<ReflectionTimerScreenProps> = ({
           isActive={isTimerActive}
           onComplete={handleTimerComplete}
           onTick={handleTimerTick}
-          onPause={() => setIsTimerActive(false)}
-          onResume={() => setIsTimerActive(true)}
+          onPause={handlePause}
+          onResume={handleResume}
           showProgress={true}
           showControls={false} // Hide built-in controls, using custom button below
           showSkip={false}
