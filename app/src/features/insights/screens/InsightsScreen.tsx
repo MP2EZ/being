@@ -235,7 +235,7 @@ const styles = StyleSheet.create({
     padding: spacing[16],
     marginBottom: spacing[16],
     borderLeftWidth: 3,
-    borderLeftColor: colorSystem.themes.morning.primary,
+    borderLeftColor: colorSystem.navigation.insights,
   },
   quoteText: {
     fontSize: typography.bodyRegular.size,
@@ -262,12 +262,12 @@ const styles = StyleSheet.create({
   fullHistoryLinkText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.medium,
-    color: colorSystem.themes.morning.primary,
+    color: colorSystem.base.midnightBlue,
   },
   fullHistoryLinkArrow: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.medium,
-    color: colorSystem.themes.morning.primary,
+    color: colorSystem.base.midnightBlue,
     marginLeft: spacing[4],
   },
 });
