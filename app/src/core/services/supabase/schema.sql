@@ -242,6 +242,87 @@ GROUP BY event_type, DATE_TRUNC('day', created_at)
 ORDER BY event_date DESC, event_count DESC;
 
 -- =====================================================
+-- 6b. CRISIS-DETECTION ANALYTICS VIEWS (FEAT-129)
+-- =====================================================
+-- Operator-only aggregate views over the vital-interests `crisis_detected` event
+-- (routed to analytics_events by INFRA-214, GDPR Art. 6(1)(d)/9(2)(c) basis) for
+-- release-health safety monitoring — "did the crisis safety net survive this release?"
+--
+-- PRIVACY (PII-free by construction; reviewed by crisis + compliance, FEAT-129):
+--   Re-identification is managed by (1) severity-bucketing — no raw PHQ-9/GAD-7 scores
+--   or Q9 values; (2) absence of quasi-identifiers — no device id, name, IP, geo;
+--   (3) daily session rotation — session_id cannot be joined to a user identity; and
+--   (4) operator-only access — these views are NOT granted to `authenticated`/`anon`
+--   (service-role only, via the Supabase SQL editor / MCP), matching analytics_summary
+--   and subscription_metrics. k-anonymity / differential privacy are NOT claimed; at
+--   pre-launch scale such thresholds are not operationally meaningful, AND a safety
+--   monitor must never suppress the FIRST detected crisis.
+--
+-- SAFETY INVARIANTS (do not "optimize" these away):
+--   * NO `HAVING COUNT(*) >= N` / k-anon suppression — it would hide a single/rare crisis.
+--   * `COUNT(*)` is the AUTHORITATIVE crisis count. `COUNT(DISTINCT session_id)` is a
+--     secondary same-day episode proxy and UNDER-counts (daily-rotated session_id
+--     collapses repeat same-day detections on one device); never treat it as the floor.
+--   * Rows whose severity_bucket / assessment_type are the literal text 'undefined' are
+--     NOT filtered. The inline PHQ-9 Q9 (suicidal-ideation) path currently emits
+--     String(undefined) for those fields; dropping them would launder away the
+--     highest-acuity detections. The breakdown groups by the raw value so the mis-tag is
+--     VISIBLE. (Emit-path fix tracked as a follow-up; see crisis-analytics-runbook.md.)
+--   * Monitoring-only. These views MUST NOT be referenced by any detection / 988 /
+--     intervention code path, and are NOT the safety mechanism — the on-device crisis
+--     audit log remains the accountability record.
+--
+-- No time-window filter is applied: the 90-day analytics retention (cleanup_old_analytics)
+-- already bounds the rows, and a window would drop durably-queued events that flush late
+-- with an older created_at (offline / first-run reconciliation).
+
+-- (a) Detection mix — per-day breakdown by assessment, trigger, and severity bucket.
+CREATE OR REPLACE VIEW crisis_detection_daily AS
+SELECT
+  DATE_TRUNC('day', created_at)                                       AS event_date,
+  properties->>'assessment_type'                                      AS assessment_type,
+  properties->>'trigger_type'                                         AS trigger_type,
+  properties->>'severity_bucket'                                      AS severity_bucket,
+  COUNT(*)                                                            AS detection_count,
+  COUNT(*) FILTER (WHERE properties->>'intervention_surfaced' = 'true')
+                                                                      AS intervention_surfaced_count
+FROM analytics_events
+WHERE event_type = 'crisis_detected'
+GROUP BY 1, 2, 3, 4
+ORDER BY event_date DESC, detection_count DESC;
+
+-- (b) Detection volume — per-day total for spike/drift monitoring.
+CREATE OR REPLACE VIEW crisis_detection_volume_daily AS
+SELECT
+  DATE_TRUNC('day', created_at)  AS event_date,
+  COUNT(*)                       AS detection_count,
+  COUNT(DISTINCT session_id)     AS distinct_sessions
+FROM analytics_events
+WHERE event_type = 'crisis_detected'
+GROUP BY 1
+ORDER BY event_date DESC;
+
+-- (c) Liveness / reconciliation — supports the post-release check that distinguishes
+--     "zero crises (healthy)" from "pipeline dead (no events landing)". A count alone
+--     cannot tell these apart; the runbook pairs `last_detection_at` with an ACTIVE
+--     synthetic-detection assertion in staging after each release.
+CREATE OR REPLACE VIEW crisis_detection_liveness AS
+SELECT
+  COUNT(*)         AS total_detections_retained,
+  MAX(created_at)  AS last_detection_at,
+  MIN(created_at)  AS first_detection_retained_at
+FROM analytics_events
+WHERE event_type = 'crisis_detected';
+
+-- Intentionally NO GRANT to authenticated/anon — operator/service-role access only.
+COMMENT ON VIEW crisis_detection_daily IS
+  'FEAT-129 operator-only aggregate: crisis_detected counts per day x assessment_type x trigger_type x severity_bucket. PII-free (bucketed counts; no user_id/session_id). No k-anon suppression — safety monitor must not hide the first crisis. severity_bucket=''undefined'' rows are surfaced, not filtered (inline-Q9 emit bug).';
+COMMENT ON VIEW crisis_detection_volume_daily IS
+  'FEAT-129 operator-only aggregate: per-day crisis_detected volume. COUNT(*) is authoritative; distinct_sessions under-counts (daily-rotated session_id).';
+COMMENT ON VIEW crisis_detection_liveness IS
+  'FEAT-129 operator-only: total retained crisis_detected + last_detection_at, for the post-release safety-pipeline liveness check (distinguish zero-crises from pipeline-dead).';
+
+-- =====================================================
 -- 7. DATA RETENTION POLICIES
 -- =====================================================
 

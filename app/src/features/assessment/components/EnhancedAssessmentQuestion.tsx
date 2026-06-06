@@ -1,14 +1,14 @@
 /**
- * Enhanced Assessment Question Component - Comprehensive Integration
- * 
- * INTEGRATIONS:
- * - Crisis detection with <200ms response time
- * - Privacy compliance with consent validation
- * - AES-256-GCM encryption for all responses
- * - Real-time monitoring and audit logging
- * - Error boundaries for crisis scenarios
- * - Performance optimization for therapeutic flow
- * 
+ * Enhanced Assessment Question Component
+ *
+ * Renders a single PHQ-9/GAD-7 question and forwards the selected response to
+ * the parent via `onAnswer`. All clinical-data handling — AES-256 encryption,
+ * consent enforcement, audit logging, and crisis detection (inline PHQ-9 Q9 and
+ * score-based thresholds) — happens downstream in
+ * `assessmentStore.answerQuestion` → `SecureStorageService`, NOT in this
+ * component. The component only renders the always-on crisis button and the
+ * store-sourced crisis banner.
+ *
  * CLINICAL SPECIFICATIONS:
  * - PHQ-9/GAD-7 validated response handling
  * - Suicidal ideation immediate intervention (PHQ-9 Q9 >0)
@@ -45,34 +45,14 @@ interface DataProtectionConsentStatus {
   consentVersion: string;
 }
 
-interface EncryptionResult {
-  success: boolean;
-  encryptedData: string;
-  encryptionMethod: string;
-  timestamp: number;
-}
-
-interface ResponseMetadata {
-  encryptedResponse: EncryptionResult;
-  timestamp: number;
-  sessionId: string;
-  consentValidated: boolean;
-  auditTrail: string;
-  performanceMetrics: {
-    responseTime: number;
-    encryptionTime: number;
-  };
-}
-
 interface EnhancedAssessmentQuestionProps {
   question: AssessmentQuestionType;
   currentAnswer?: AssessmentResponse | undefined;
-  onAnswer: (response: AssessmentResponse, metadata: ResponseMetadata) => void;
+  onAnswer: (response: AssessmentResponse) => void;
   showProgress?: boolean | undefined;
   currentStep: number;
   totalSteps: number;
   theme?: ('morning' | 'midday' | 'evening' | 'neutral') | undefined;
-  sessionId: string;
   consentStatus: DataProtectionConsentStatus;
   onError?: ((error: Error) => void) | undefined;
 }
@@ -93,48 +73,6 @@ const RESPONSE_OPTIONS: RadioOption[] = [
   { value: 3, label: RESPONSE_LABELS[3] },
 ];
 
-const mockComplianceEngine = {
-  validateConsent: async (sessionId: string, status: DataProtectionConsentStatus, action: string) => {
-    const isValid = status.dataProcessingConsent && status.clinicalDataConsent;
-    return {
-      isValid,
-      reason: isValid ? 'Valid consent' : 'Missing required consent',
-      consentId: `consent_${sessionId}_${Date.now()}`
-    };
-  }
-};
-
-const mockEncryptionService = {
-  encryptClinicalData: async (data: any): Promise<EncryptionResult> => {
-    const encryptionStart = performance.now();
-    
-    // Simulate AES-256-GCM encryption
-    await new Promise(resolve => setTimeout(resolve, 10));
-    
-    const encryptionTime = performance.now() - encryptionStart;
-    console.log(`🔒 Encryption time: ${encryptionTime}ms`);
-    
-    return {
-      success: true,
-      encryptedData: `encrypted_${JSON.stringify(data)}_${Date.now()}`,
-      encryptionMethod: 'AES-256-GCM',
-      timestamp: Date.now()
-    };
-  }
-};
-
-const mockAuditLogger = {
-  logAssessmentResponse: async (data: any) => {
-    console.log('📋 Assessment response logged:', data);
-    return { auditId: `audit_${Date.now()}` };
-  }
-};
-
-const mockPerformanceMonitor = {
-  startMeasurement: (name: string) => console.log(`📊 Started measuring: ${name}`),
-  endMeasurement: (name: string) => console.log(`📊 Ended measuring: ${name}`)
-};
-
 const EnhancedAssessmentQuestion: React.FC<EnhancedAssessmentQuestionProps> = ({
   question,
   currentAnswer,
@@ -143,7 +81,6 @@ const EnhancedAssessmentQuestion: React.FC<EnhancedAssessmentQuestionProps> = ({
   currentStep,
   totalSteps,
   theme = 'neutral',
-  sessionId,
   consentStatus,
   onError,
 }) => {
@@ -158,7 +95,6 @@ const EnhancedAssessmentQuestion: React.FC<EnhancedAssessmentQuestionProps> = ({
 
   // State management
   const [isProcessing, setIsProcessing] = useState(false);
-  const [encryptionStatus, setEncryptionStatus] = useState<'idle' | 'encrypting' | 'success' | 'error'>('idle');
 
   // Performance monitoring
   const responseStartTime = useRef<number>(0);
@@ -175,103 +111,40 @@ const EnhancedAssessmentQuestion: React.FC<EnhancedAssessmentQuestionProps> = ({
     return colorSystem.themes[theme];
   }, [theme]);
 
-  // Comprehensive answer handling with full integration
-  const handleAnswerSelection = useCallback(async (response: string | number) => {
+  // Forward the selected answer to the parent, which delegates to
+  // `assessmentStore.answerQuestion` — the canonical path that runs inline
+  // crisis detection (PHQ-9 Q9) and AES-256 encryption via SecureStorageService.
+  const handleAnswerSelection = useCallback((response: string | number) => {
     responseStartTime.current = performance.now();
     const assessmentResponse = Number(response) as AssessmentResponse;
-    
+
     setIsProcessing(true);
-    setEncryptionStatus('encrypting');
 
     try {
-      // Performance tracking start
-      mockPerformanceMonitor.startMeasurement('response_processing');
+      // Call the parent unconditionally and before anything that can throw, so
+      // a downstream error can never suppress the store call — and with it,
+      // crisis detection on a self-harm response.
+      onAnswer(assessmentResponse);
 
-      // 1. Privacy Compliance Validation (Critical First Step)
-      const consentValidation = await mockComplianceEngine.validateConsent(
-        sessionId,
-        consentStatus,
-        'assessment_response'
-      );
-
-      if (!consentValidation.isValid) {
-        throw new Error(`Privacy compliance violation: ${consentValidation.reason}`);
-      }
-
-      // 2. Response Encryption (Clinical Data Protection)
-      const encryptionStart = performance.now();
-      const encryptedResponse = await mockEncryptionService.encryptClinicalData({
-        questionId: question.id,
-        response: assessmentResponse,
-        sessionId,
-        timestamp: Date.now(),
-        questionText: question.text // For audit trail only
-      });
-      const encryptionTime = performance.now() - encryptionStart;
-
-      if (!encryptedResponse.success) {
-        throw new Error('Failed to encrypt assessment response');
-      }
-
-      setEncryptionStatus('success');
-
-      // 3. Audit Logging
-      const auditEntry = await mockAuditLogger.logAssessmentResponse({
-        sessionId,
-        questionId: question.id,
-        responseEncrypted: encryptedResponse.encryptedData,
-        consentValidated: consentValidation.isValid,
-        timestamp: Date.now(),
-        performanceMetrics: {
-          responseTime: performance.now() - responseStartTime.current,
-          encryptionTime
-        }
-      });
-
-      // 4. Performance Metrics
-      const totalResponseTime = performance.now() - responseStartTime.current;
-      mockPerformanceMonitor.endMeasurement('response_processing');
-
-      // Validate performance requirements
-      if (totalResponseTime > 300) {
-        logSecurity('Assessment response time exceeded', 'medium', {
-          totalResponseTime,
-          threshold: 300
-        });
-      }
-
-      // 5. Create comprehensive metadata
-      const metadata: ResponseMetadata = {
-        encryptedResponse,
-        timestamp: Date.now(),
-        sessionId,
-        consentValidated: consentValidation.isValid,
-        auditTrail: auditEntry.auditId,
-        performanceMetrics: {
-          responseTime: totalResponseTime,
-          encryptionTime
-        }
-      };
-
-      // 6. Call parent handler — the parent forwards to
-      // `useAssessmentStore.answerQuestion`, which runs canonical inline
-      // crisis detection on PHQ-9 Q9 and triggers the support Alert via
-      // `CrisisDetectionService.triggerEmergencyResponse`.
-      onAnswer(assessmentResponse, metadata);
-
-      // 7. Accessibility announcement
       AccessibilityInfo.announceForAccessibility(
         `Selected: ${RESPONSE_LABELS[assessmentResponse]}`
       );
 
+      // Surface unexpectedly slow handling against the 300ms assessment budget.
+      const totalResponseTime = performance.now() - responseStartTime.current;
+      if (totalResponseTime > 300) {
+        logSecurity('Assessment response time exceeded', 'medium', {
+          totalResponseTime,
+          threshold: 300,
+        });
+      }
     } catch (error) {
       logError(LogCategory.SYSTEM, 'Enhanced assessment response error:', error instanceof Error ? error : new Error(String(error)));
-      setEncryptionStatus('error');
       onError?.(error as Error);
     } finally {
       setIsProcessing(false);
     }
-  }, [question, sessionId, consentStatus, onAnswer, onError]);
+  }, [onAnswer, onError]);
 
   // Empty label - progress is shown at top, no need for duplicate text
   const radioGroupLabel = useMemo(() => {
