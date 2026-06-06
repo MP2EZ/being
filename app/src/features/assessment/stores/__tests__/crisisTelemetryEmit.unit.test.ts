@@ -27,21 +27,29 @@ jest.mock('@/core/services/supabase/SupabaseService', () => {
 
 import { useAssessmentStore } from '../assessmentStore';
 import supabaseService from '@/core/services/supabase/SupabaseService';
+import type { CrisisDetection } from '@/features/crisis/types/safety';
 
 // Same reference assessmentStore calls (default import → default.trackCrisisDetection).
 const mockTrackCrisisDetection = (supabaseService as any).trackCrisisDetection as jest.Mock;
 
-const baseDetection = {
+// DEBUG-218: fully-typed CrisisDetection (no `as any`) so the type-checker enforces the
+// shape — in particular `assessmentType` is the lowercase `AssessmentType` union
+// ('phq9'/'gad7'), matching what the store now emits and what the FEAT-129
+// crisis_detection_daily view groups on.
+const baseDetection: CrisisDetection = {
   id: 'detect_1',
   isTriggered: true,
   primaryTrigger: 'phq9_suicidal_ideation',
   secondaryTriggers: [],
   severityLevel: 'critical',
   triggerValue: 3, // raw Q9 value present on the detection object — MUST NOT be emitted
-  assessmentType: 'PHQ-9',
+  assessmentType: 'phq9',
   timestamp: Date.now(),
   assessmentId: 'assess_1',
-} as any;
+  userId: 'user_1',
+  detectionResponseTimeMs: 0,
+  context: { triggeringAnswers: [], timeOfDay: 'morning' },
+};
 
 describe('handleCrisisDetection → crisis telemetry emit (INFRA-214 T3)', () => {
   beforeEach(() => {
@@ -58,7 +66,7 @@ describe('handleCrisisDetection → crisis telemetry emit (INFRA-214 T3)', () =>
       trigger_type: 'phq9_suicidal_ideation',
       severity_bucket: 'critical',
       intervention_surfaced: true,
-      assessment_type: 'PHQ-9',
+      assessment_type: 'phq9',
     });
     // The raw clinical value must never be forwarded.
     expect('triggerValue' in payload).toBe(false);
