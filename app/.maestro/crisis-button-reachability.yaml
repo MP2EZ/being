@@ -16,7 +16,7 @@ name: "Crisis button reaches CrisisResources from every tab"
 - launchApp:
     clearState: true
     clearKeychain: true # SecureStore-backed consent persists across clearState — wipe keychain too (INFRA-179)
-- runFlow: _legal-and-onboarding.yaml
+- runFlow: _seeded-home.yaml # INFRA-217: e2e-sim seeds onboarding; start at home
 
 # Tabs are addressed via tabBarTestID (INFRA-183, CleanTabNavigator.tsx) —
 # Maestro's text: selector doesn't match the bottom-tab accessibilityText

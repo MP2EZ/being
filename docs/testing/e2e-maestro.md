@@ -77,17 +77,28 @@ npm run e2e:safety:build   # EAS local build (e2e-sim profile) + install on the 
 - First build is ~10–15 min (EAS local). After that the sim can stay open across
   many flow runs.
 
-> 🟡 **Known limitation (INFRA-216 follow-up).** The no-dev-client build removes
-> the dev launcher — the dominant flake — but the no-dev-client **Release build
-> boots/transitions noticeably slower** than a dev build, and the long
-> LegalGate + 16-question onboarding preamble in `_legal-and-onboarding.yaml` is
-> still timing-fragile at several points on it (cold-boot, the DOB picker, the
-> Welcome→assessment modal). Single warm runs pass clean end-to-end, but
-> consecutive ≥5/5 is not yet there. The robust fix — seeding post-onboarding
-> state behind an **`e2e-sim`-profile-only env var** (so the flows start at the
-> home screen and skip the fragile preamble entirely; gated to that build profile,
-> never production, with a compliance review) — is tracked as the INFRA-216
-> follow-up. Until then, expect occasional retries on the preamble.
+> ✅ **Resolved (INFRA-217): the sim flows skip the preamble via a seeded state.**
+> The no-dev-client Release build boots/transitions slowly, and the long LegalGate
+> + 16-question onboarding preamble in `_legal-and-onboarding.yaml` was too
+> timing-fragile for consecutive ≥5/5. The robust fix shipped: the `e2e-sim` EAS
+> profile sets **`EXPO_PUBLIC_E2E_SEED_ONBOARDED=true`** (eas.json
+> `build.e2e-sim.env`), which makes `App.tsx` seed post-onboarding state at launch
+> — legal consents + age verification (≥18) + onboarding-complete, written via the
+> real store APIs (`grantConsent` / `verifyAge` / `recordLegalGateConsents`). With
+> that state present, `CleanRootNavigator` routes straight to Main, so the four sim
+> flows (`q9`, `phq9`, `gad7`, `crisis-button`) now `runFlow: _seeded-home.yaml`
+> (just `extendedWaitUntil home-screen`) instead of traversing the preamble.
+>
+> **Compliance boundary.** The seed is impossible in any shipping build: the env
+> var lives ONLY in the `e2e-sim` profile (absent from production / preview /
+> production-emergency / development) and defaults to `'false'` in `env.ts`. There
+> is deliberately no `EXPO_PUBLIC_ENV==='production'` guard — the `e2e-sim` profile
+> `extends: production` and resolves `EXPO_PUBLIC_ENV=production`, so such a guard
+> would refuse to boot the gate's own build. The boundary is pinned in CI by
+> `app/__tests__/safety/e2eSeedGate.config.test.ts`. The seed does NOT weaken the
+> canonical `useConsentStore.canPerformOperation(...)` gate. The device-only
+> `crisis-988-dial.yaml` runs on a non-seeded real-device build and still uses the
+> full `_legal-and-onboarding.yaml` traversal (left unchanged).
 
 ### Dev-mode caveats (INFRA-171 / INFRA-216 verification findings)
 
@@ -140,11 +151,18 @@ npm run e2e:safety:988-dial        # 988 button does not show "Unable to Call" f
 Each flow under `app/.maestro/`:
 
 1. Starts with `appId: com.being.app` and `tags: [safety]`.
-2. Calls `- launchApp: { clearState: true }` for a fresh install.
-3. Runs `- runFlow: _legal-and-onboarding.yaml` to traverse the LegalGate (age picker + 4 consent toggles) and the 5-screen Onboarding flow before reaching the main tab navigator. This traversal is shared via the underscore-prefixed helper subflow.
+2. Calls `- launchApp: { clearState: true, clearKeychain: true }` for a fresh install.
+3. Reaches the main tab navigator. The path differs by build:
+   - **Sim flows** (`q9`, `phq9`, `gad7`, `crisis-button`) run on the seeded `e2e-sim`
+     build and call `- runFlow: _seeded-home.yaml` — a one-line helper that just waits
+     for the `home-screen` testID. The app self-seeds onboarding state at launch
+     (INFRA-217), so there is no LegalGate / onboarding to traverse.
+   - **Device-only** `crisis-988-dial.yaml` runs on a non-seeded real-device build and
+     still calls `- runFlow: _legal-and-onboarding.yaml` to traverse the LegalGate (age
+     picker + 4 consent toggles) and the 5-screen Onboarding flow.
 4. Drives the safety surface (taps testIDs, asserts visible/notVisible).
 
-The traversal subflow uses text-based selectors for legal-gate consent text (more robust than testIDs for legal copy that may rotate). It uses `optional: true` for onboarding intermediate Next/Continue taps so minor copy changes don't break flows — if a button isn't found, Maestro skips that step and continues.
+The `_legal-and-onboarding.yaml` traversal subflow uses text-based selectors for legal-gate consent text (more robust than testIDs for legal copy that may rotate). It uses `optional: true` for onboarding intermediate Next/Continue taps so minor copy changes don't break flows — if a button isn't found, Maestro skips that step and continues.
 
 ## Anatomy of one flow
 

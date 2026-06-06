@@ -12,7 +12,7 @@ name: "GAD-7 score >=15 shows crisis results"
 - launchApp:
     clearState: true
     clearKeychain: true # SecureStore-backed consent persists across clearState — wipe keychain too (INFRA-179)
-- runFlow: _legal-and-onboarding.yaml
+- runFlow: _seeded-home.yaml # INFRA-217: e2e-sim seeds onboarding; start at home
 
 # INFRA-186: scrollUntilVisible required before take-gad7-button —
 # the card sits further below the fold than take-phq9-button. See
