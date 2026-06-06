@@ -264,6 +264,39 @@ export class ClinicalScoringService {
 }
 
 /**
+ * DEBUG-218: severity bucket for the `crisis_detected` telemetry event.
+ *
+ * PHQ-9 (suicidal-ideation OR ≥15 score): `critical` at the active-intervention
+ * floor (≥20 — `PHQ9_SEVERE_THRESHOLD`), else `high`. GAD-7 severe: `high` (no
+ * validated `critical` tier — mirrors the canonical mapping in
+ * `@/features/crisis/types/safety`). Kept additive: it derives the bucket from the
+ * existing total, it does NOT change any detection threshold or trigger taxonomy.
+ */
+function crisisSeverityLevel(
+  type: AssessmentType,
+  totalScore: number,
+): CrisisDetection['severityLevel'] {
+  if (type === 'gad7') return 'high';
+  return totalScore >= CRISIS_THRESHOLDS.PHQ9_SEVERE_THRESHOLD ? 'critical' : 'high';
+}
+
+/**
+ * DEBUG-218: severity bucket for the INLINE Q9 detection, derived mid-assessment.
+ * `calculatePHQ9Score` needs all 9 answers; `phq9_9` is the last question so they are
+ * normally present, but out-of-order answering can leave them incomplete and throw —
+ * fall back to the safe 'high' floor (Q9>0 is never below 'high'). Never throws.
+ * Extracted so the inline `answerQuestion` branch stays within its complexity budget.
+ */
+function inlineQ9SeverityLevel(answers: AssessmentAnswer[]): CrisisDetection['severityLevel'] {
+  try {
+    const { totalScore } = ClinicalScoringService.calculatePHQ9Score(answers);
+    return crisisSeverityLevel('phq9', totalScore);
+  } catch {
+    return 'high';
+  }
+}
+
+/**
  * Crisis detection and intervention service
  * Meets <200ms response time requirement
  */
@@ -300,7 +333,12 @@ class CrisisDetectionService {
       const detection = {
         isTriggered: true,
         primaryTrigger: triggerType,
+        secondaryTriggers: [],
+        // DEBUG-218: populate severityLevel + assessmentType so the score-based
+        // crisis_detected telemetry carries real buckets (never "undefined").
+        severityLevel: crisisSeverityLevel(type, result.totalScore),
         triggerValue,
+        assessmentType: type,
         timestamp: Date.now(),
         assessmentId
       } as Partial<CrisisDetection> as CrisisDetection;
@@ -548,10 +586,15 @@ export const useAssessmentStore = create<AssessmentStore>()(
 
             // Check for real-time crisis detection on specific questions
             if (questionId === CRISIS_THRESHOLDS.PHQ9_SUICIDAL_QUESTION_ID && response > 0) {
+              // DEBUG-218: populate severityLevel + assessmentType so the inline Q9
+              // crisis_detected telemetry carries real buckets (never "undefined").
               const detection = {
                 isTriggered: true,
                 primaryTrigger: 'phq9_suicidal_ideation' as const,
+                secondaryTriggers: [],
+                severityLevel: inlineQ9SeverityLevel(updatedAnswers),
                 triggerValue: response,
+                assessmentType: 'phq9' as const,
                 timestamp: Date.now(),
                 assessmentId: state.currentSession.id
               } as Partial<CrisisDetection> as CrisisDetection;
