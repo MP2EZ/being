@@ -142,6 +142,51 @@ describe('CircuitBreakerService', () => {
     });
   });
 
+  describe('CRISIS_DETECTION is non-breakable (DEBUG-230 / SEC-07)', () => {
+    // Safety contract: crisis detection must NEVER fail open to a false
+    // negative. A tripped or failing breaker must escalate (reject) so the
+    // caller's own error handling fires — it must not silently resolve to a
+    // "no crisis" value. Zero false negatives (CLAUDE.md Safety Facts).
+    beforeAll(async () => {
+      await circuitBreakerService.initialize();
+    });
+
+    afterEach(() => {
+      // Restore to CLOSED so each test starts from a known state.
+      circuitBreakerService.forceCircuitState(
+        ProtectedService.CRISIS_DETECTION,
+        CircuitBreakerState.CLOSED
+      );
+    });
+
+    test('a failed crisis-detection op rejects with the original error (never resolves to a false negative)', async () => {
+      const call = circuitBreakerService.executeProtected(
+        ProtectedService.CRISIS_DETECTION,
+        async () => {
+          throw new Error('detector down');
+        }
+      );
+      await expect(call).rejects.toThrow('detector down');
+    });
+
+    test('an OPEN crisis breaker escalates (rejects) rather than returning a fail-open value', async () => {
+      circuitBreakerService.forceCircuitState(
+        ProtectedService.CRISIS_DETECTION,
+        CircuitBreakerState.OPEN
+      );
+
+      // An OPEN non-breakable crisis breaker must escalate (reject) rather
+      // than short-circuit to a swallowed { isCrisis: false } fallback — so
+      // executeProtected never resolves to a false negative.
+      await expect(
+        circuitBreakerService.executeProtected(
+          ProtectedService.CRISIS_DETECTION,
+          async () => ({ isTriggered: true })
+        )
+      ).rejects.toThrow(/escalat/i);
+    });
+  });
+
   describe('emergencyShutdown', () => {
     test('emergencyShutdown clears state safely', async () => {
       await expect(circuitBreakerService.emergencyShutdown()).resolves.toBeUndefined();
