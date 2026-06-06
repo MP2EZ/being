@@ -255,7 +255,13 @@ only against a real device for supplementary runtime verification.
 # Path-based: dirs/files that obviously host safety contracts. Navigation is
 # matched at the whole-dir level (not just CleanRootNavigator) so tab/stack
 # re-points like CleanTabNavigator and feature-level navigators are caught.
+# Exclude test-only files: a jest-test-only change (under __tests__/ or *.test.* /
+# *.spec.*) cannot affect what the Maestro flows exercise (they drive the running
+# app), so it must not trip the sim gate. The clinical/crisis jest suites still run
+# in precommit/CI regardless. (A test-assertion repair under features/assessment/ —
+# e.g. assessmentStore.test.ts — was otherwise mis-triggering the assessment flows.)
 SAFETY_CHANGED=$(git diff --name-only origin/development...HEAD | \
+  grep -vE '(__tests__/|\.test\.|\.spec\.)' | \
   grep -E '^app/(src/features/(assessment|crisis)|src/core/services/security|src/core/navigation/|app\.json|ios/.*Info\.plist)' || true)
 
 # Content-based (FEAT-212 gap fix): the crisis overlay (CollapsibleCrisisButton)
