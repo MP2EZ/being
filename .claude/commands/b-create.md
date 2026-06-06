@@ -1,6 +1,6 @@
 # Create Work Item in Notion
 
-**ARGUMENTS**: `[TYPE] - [Name] [--depth quick|design|full]`
+**ARGUMENTS**: `[TYPE] - [Name] [--depth quick|design|full] [--blocked-by ID[,ID...]]`
 
 **Types**: FEAT | DEBUG | INFRA | MAINT | AGENT
 
@@ -34,8 +34,11 @@ Parse `$ARGUMENTS` using pattern: `[TYPE] - [Name] [--depth <level>]`
    - `--depth <level>` or `--depth=<level>` → DEPTH = `<level>`
    - `--review` (deprecated) → DEPTH = `full`
    - none present → DEPTH = `quick`
-2. Strip all flag tokens from the argument string.
-3. Split the remainder by ` - ` delimiter → TYPE (before), Name (after).
+2. Detect a blocked-by flag anywhere in the arguments:
+   - `--blocked-by <ID[,ID...]>` or `--blocked-by=<...>` → BLOCKED_BY = the list of work item IDs (e.g. `["FEAT-130","MAINT-99"]`)
+   - none present → BLOCKED_BY = `[]` (Phase 2 may still infer prerequisites from the conversation)
+3. Strip all flag tokens from the argument string.
+4. Split the remainder by ` - ` delimiter → TYPE (before), Name (after).
 
 **Validate TYPE**:
 - Must be one of: FEAT, DEBUG, INFRA, MAINT, AGENT
@@ -73,6 +76,16 @@ Success conditions ("It should…", "When X happens…"), requirements ("Must in
 
 ### Technical Notes
 Implementation details, constraints (perf budgets, encryption), technical decisions, dependencies / blockers.
+
+### Prerequisites (Blocked by)
+Identify any **work items that must land before this one**. Sources, unioned:
+- The `--blocked-by` flag (explicit, authoritative).
+- Conversation phrasing: "after X lands", "depends on X", "blocked by X", "builds on X",
+  "needs X first", or a bare work item ID cited as a precondition.
+Collect these as a list of work item IDs (e.g. `MAINT-237`, `INFRA-232`). This becomes the
+structured **`Blocked by`** relation in Phase 7.6 — not just prose in Technical Notes, so
+`/b-batch` can read it directly. If a true dependency is only describable in prose, still
+note it in Technical Notes *and* list the ID here. Empty is fine — most items have no prereqs.
 
 ### AGENTS REQUIRED (keyword suggestion)
 Scan Name + context:
@@ -247,6 +260,8 @@ Carry forward the final **Segments** and **Jobs** for display + persistence.
 
 **AGENTS REQUIRED**: [agents, or "none"]
 
+**Blocked by**: [intended prereq IDs, or "none"]  (resolved + linked in Phase 7.6; unresolved IDs warned there)
+
 **Dimension Scores**:
 - Impact: [score] - [rationale]
 - Value: [score] - [rationale]
@@ -352,6 +367,44 @@ data: {
 ```
 
 **Error handling**: if update fails, log a warning and continue (page still created): "⚠️ Could not add searchable ID (page created successfully)".
+
+---
+
+## Phase 7.6: Link `Blocked by` Prerequisites (Conditional)
+
+**Skip entirely if BLOCKED_BY (Phase 2) is empty.**
+
+For each prerequisite work item ID in BLOCKED_BY:
+1. **Resolve to a page** — reuse `/b-work`'s lookup: search `Work Item ID: <ID>` in
+   `collection://${NOTION_WORK_DB}`, `notion-fetch` the candidate, verify its
+   `userDefined:ID` + `Type` match the parsed ID. Collect the resolved page URL.
+2. **Not found** → emit `⚠️ Blocked-by prerequisite <ID> not found — recorded in
+   Technical Notes only, relation NOT set` and skip that one. Never block creation.
+
+Then set the **`Blocked by`** relation in one update (array of resolved page URLs):
+
+```
+mcp__notion__notion-update-page
+data: {
+  "page_id": "[page_id from Phase 7.5]",
+  "command": "update_properties",
+  "properties": {
+    "Blocked by": ["[resolved prereq page URL]", "…"]
+  }
+}
+```
+
+`Blocked by` is a **two-way** relation, so Notion auto-populates the reciprocal
+`Blocking` on each prerequisite — do **not** set `Blocking` yourself. Only set what was
+clearly identified; never invent an edge.
+
+**Emit:**
+```
+🔗 Blocked by: <ID> (linked) · <ID> (⚠️ not found — notes only)   [or "none"]
+```
+
+**Error handling**: if the relation update fails, warn and continue (page is already
+created): "⚠️ Could not set Blocked by relation (page created; link manually in Notion)".
 
 ---
 

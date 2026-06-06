@@ -1,0 +1,302 @@
+# Batch Work Executor [META-COMMAND]
+
+**ARGUMENTS**: $ARGUMENTS
+
+**Format**: `ID1, ID2, ID3, …` (comma- or space-separated work item IDs) — or `--resume`
+
+Orchestrates a sequence of work items through plan → approve → implement → test →
+close, with as few human prompts as possible. Wraps `/b-work` and `/b-close` — it
+does **not** reimplement them, and requires **no changes** to either skill (it uses
+their existing argument and status seams). Reads like your manual loop (plan in plan
+mode, approve, auto-run, test, close, next), but batches the human decisions up front
+and walks the list itself.
+
+---
+
+## Run-mode prerequisite (read first)
+
+**Run `/b-batch` in Accept-Edits mode, NOT plan mode.** This skill *is* the
+plan-and-approve mechanism: Stage 1 plans, Stage 2 gets your approval via a single
+batched prompt, Stage 3 executes. Launching it inside plan mode would block Stage 3's
+edits behind a separate plan approval and defeat the batching. If the session is in
+plan mode, say so and stop — ask the user to switch (Shift+Tab) and re-invoke.
+
+**Guardrails inherited from CLAUDE.md (non-negotiable, the loop hits the same walls you would):**
+- Never `--no-verify` (commit/push) and never `--skip-e2e` on `feat/*`/`fix/*`/`chore/*`. Hotfix-only, and this skill never creates hotfixes.
+- Never make CI green by deleting/weakening a failing assertion. Fixes must re-run the suite locally to green first.
+- A safety-surface story is **never** auto-closed. It is implemented, tested headless, and queued for a simulator-attended close.
+
+---
+
+## Phase 0: Parse & Mode
+
+### Step 0.1: Resume vs. fresh
+- If `$ARGUMENTS` contains `--resume` → go to **Phase 5 (Resume)**.
+- Otherwise parse the remaining text into an ordered list of WORK_ITEM_IDs (split on commas and/or whitespace; uppercase; validate each against `TYPE-NUMBER` where TYPE ∈ {FEAT, DEBUG, INFRA, MAINT, AGENT}). Drop and report any malformed token; abort only if the list is empty.
+
+### Step 0.2: Confirm the list
+Echo the parsed list back so the user sees what will run:
+```
+📋 Batch queue (N items): FEAT-130, MAINT-191, DEBUG-44, …
+   Mode: Accept-Edits ✓
+```
+
+---
+
+## Phase 1: Parallel Planning Sweep (no human)
+
+For **each** work item, in parallel across items, run a *diverse* planning panel via
+the Agent tool. Diversity is the point — three clones of one agent agree by
+construction and give false confidence. The panel must be able to actually disagree:
+
+| Lens | Agent | Job |
+|---|---|---|
+| Architecture | `Plan` | Produce the implementation approach + the files it expects to touch. |
+| Constraint | Validation-Matrix specialist (`crisis` / `compliance` / `philosopher`) — only if the item's story text matches that domain | Set non-negotiable constraints; flag safety/compliance blockers. |
+| Skeptic | `general-purpose` (or `Explore`) | **Manufacture an ambiguity.** Explicitly prompted to find a reason the acceptance criteria are under-specified or could be misread. If it can't, the story is genuinely clear. |
+
+**Panel scaling (cost control):** `MAINT-*` / `INFRA-*` with no domain match → 2 lenses
+(Architecture + Skeptic). `FEAT-*` / `DEBUG-*` or any domain match → 3 lenses.
+
+First fetch each item's Notion page (reuse `/b-work` Phase 1 logic: search
+`Work Item ID: <ID>` in `collection://${NOTION_WORK_DB}`, verify `Type` +
+`userDefined:ID`) so the panel plans against the real story, AC, and technical notes.
+
+**Each panel agent returns a structured verdict** (force via schema):
+```
+{ approach: string,
+  confidence: "high" | "medium" | "low",
+  blocking_constraints: string[],
+  ambiguities: string[],
+  files_touched: string[],     // best-effort prediction
+  declared_deps: string[] }    // supplementary body-text prerequisites (see below)
+```
+
+**Dependencies are structured, not free text.** The `Being. Product Backlog` data
+source has two reciprocal **relation** properties:
+- **`Blocked by`** — this item's prerequisites (JSON array of page URLs).
+- **`Blocking`** — this item's dependents (the reciprocal).
+
+The orchestrator reads `Blocked by` **directly from each page** during the Phase 1
+fetch — it's structured, authoritative, and needs no agent. Map the related page URLs
+back to work item IDs (resolve via `userDefined:ID` + `Type`). This relation is the
+**primary** hard-edge source.
+
+`declared_deps` from the panel is a **supplement only** — it catches a real dependency
+the author described in the body ("after X lands", "builds on") but hasn't recorded in
+the `Blocked by` relation yet. Also capture user-stated ordering from `$ARGUMENTS`
+(e.g. "FEAT-131 after FEAT-130"). Union all three into the item's hard-edge set.
+
+---
+
+## Phase 2: Classify, Decide, Checkpoint
+
+### Step 2.1: Deterministic classification
+Apply per item — this is a mechanical rule, not a judgment call (judgment in-context is
+exactly where drift creeps in):
+
+- **RED (sim-attended close)** if any agent's `files_touched` hits a safety path
+  (`features/assessment`, `features/crisis`, `core/services/security`,
+  `core/navigation/`, `app.json`, `Info.plist`) or mentions `CollapsibleCrisisButton`.
+  RED is decided first and overrides confidence.
+- **GREEN (auto)** if **all** of: every lens returns `confidence: high`; their
+  `files_touched` sets substantially overlap (same problem, same place); zero
+  `blocking_constraints`; combined `ambiguities` empty; not RED.
+- **AMBER (ask)** otherwise.
+
+### Step 2.2: Dependency resolution & tranche ordering
+Build a directed graph over the batch from these edge sources:
+- **Hard edges (logical):** the union of each item's `Blocked by` relation (primary),
+  panel `declared_deps`, and user-stated ordering. B depends on A ⇒ A must reach `done`
+  before B runs, so B branches off a `development` that already contains A's merged code.
+- **Soft edges (conflict-risk):** two items whose predicted `files_touched` overlap.
+  These don't force a logical order, but the second to run will have to merge-resolve.
+  Serial execution + `/b-close` Step 3.1's sync-to-`origin/development` already handles
+  the conflict; soft edges only bias the ordering to minimize churn.
+
+Then:
+1. **Topologically sort** the items; hard edges define the order, soft edges break ties.
+   The sorted order *is* the tranche order — each item branches off the dev state its
+   predecessors produced.
+2. **Cycle detection:** if hard edges form a cycle, abort with the cycle printed and ask
+   the user to break it — do not guess an order.
+3. **Cross-batch deps:** if a `declared_dep` is **not** in this batch, check its Notion
+   `Status`. `Done` ⇒ satisfied. Anything else ⇒ the dependent is **deferred** with a
+   warning (its base wouldn't contain the prerequisite).
+4. **Cascade-block:** if A is AMBER-unresolved, RED, parked, deferred, or otherwise not
+   going to reach `done` this run, every item with a hard edge to A is **deferred** too,
+   `blocked_by: A`, and set Notion **`Status: Blocked`**. A dependent can never run ahead
+   of its prerequisite.
+
+Record `depends_on` (hard), `blocked_by`, and `tranche` index on each manifest item.
+
+### Step 2.3: One batched decision pass
+For all AMBER items, ask in a **single** `AskUserQuestion` round (up to 4 per call;
+batch into as few calls as possible). Each amber's options must include:
+- the synthesized approach + the specific ambiguity/divergence, and
+- **an "I'm giving you the missing context — treat as GREEN" upgrade option** so your
+  answer promotes it to auto-run in this same batch rather than dropping it to manual.
+
+An amber you don't resolve → leave for a later manual run (record in manifest as `deferred`).
+
+### Step 2.4: Soft cap
+If GREEN count > **4**, run the first 4 **in tranche order** this session and mark the
+rest `pending`. A hard chain longer than the cap is fine: the prefix lands and merges
+to `development` this run, so on `--resume` the prerequisites read as `Done` in Notion
+and the tail branches off them cleanly — never split a chain in a way that runs a
+dependent before its prerequisite is `done`. Tell the user explicitly:
+```
+⚠️  N greens exceed the per-run cap of 4 (context hygiene).
+   Running 4 now; run `/b-batch --resume` after `/clear` to continue.
+```
+The cap is a tunable default reflecting the context ceiling, not a hard limit of the system.
+
+### Step 2.5: Write the manifest
+Persist to `/Users/max/dev/being/.config/.b-batch-state.json` (gitignored, survives `/clear`):
+```json
+{
+  "created": "<date passed in by user or omitted>",
+  "items": [
+    { "id": "FEAT-130", "verdict": "green", "tranche": 0,
+      "approach": "<synthesized approved approach>",
+      "depends_on": [], "blocked_by": null,
+      "state": "pending", "pr": null, "notes": "" }
+  ]
+}
+```
+`state` ∈ `pending | running | done | parked | queued_red | deferred`. The approach
+string and the dependency graph (`tranche`/`depends_on`/`blocked_by`) are the parts
+Notion can't reconstruct, so they live here.
+
+---
+
+## Phase 3: Serial Execution (greens, ≤4)
+
+Walk GREEN items **one at a time, in tranche order** (serial — the merge serializes on
+`origin/development` anyway, and the simulator is a single serial resource). **Before
+each item, assert its `depends_on` are all satisfied** — each must be `done` in this
+run's manifest **or** already `Done` in Notion. If any prerequisite is not satisfied
+(it parked, queued_red, deferred, or hasn't run), **skip the dependent**, mark it
+`deferred` with `blocked_by`, and set Notion `Status: Blocked` — never branch a
+dependent off a `development` that lacks its prerequisite. Set the item's manifest
+`state: running` before each.
+
+### Step 3.1: Implement via /b-work
+Invoke with the approved approach fed through the existing `ADDITIONAL_CONTEXT` seam:
+```
+/b-work <ID> - Approved approach: <approach from manifest>
+```
+Keep the approach string free of stray safety keywords (`crisis`, `encryption`, `PHQ`,
+…) for non-safety stories — `/b-work` Step 3.1 scans `ADDITIONAL_CONTEXT` and would
+spuriously invoke a specialist. `/b-work` already writes and runs the relevant
+`npm run test:*` suite in its Phase 3.4 — **do not re-run a separate test pass**;
+confirm the green result it reports. If `/b-work`'s tests are not green, treat it as an
+implementation failure → park (Step 3.4).
+
+### Step 3.2: Authoritative safety re-check (predict → verify)
+The Phase-1 classification was a *prediction*. Now that code exists, re-run
+`/b-close`'s **own** detection against the real diff (from the worktree):
+```bash
+git -C /Users/max/dev/being/<worktree-dir> fetch origin
+# Exclude test-only files: a jest-test-only change cannot affect what the Maestro
+# gate exercises (Maestro drives the running app), so a change confined to
+# __tests__/.test./.spec. is NOT a safety-surface change for gate purposes — the
+# clinical/crisis jest suites still run in precommit/CI regardless. (Finding A from
+# the dry run: MAINT-250, a test-assertion repair under features/assessment/, was
+# being mis-queued for a sim-attended run. b-close's own Phase 2.5 grep has the same
+# blind spot — see the b-close follow-up note.)
+SAFETY=$(git -C /Users/max/dev/being/<worktree-dir> diff --name-only origin/development...HEAD \
+  | grep -vE '(__tests__/|\.test\.|\.spec\.)' \
+  | grep -E 'app/(src/features/(assessment|crisis)|src/core/services/security|src/core/navigation/|app\.json|ios/.*Info\.plist)' || true)
+CRISIS=$(git -C /Users/max/dev/being/<worktree-dir> diff origin/development...HEAD -- 'app/**/*.tsx' 'app/**/*.ts' \
+  | grep -E '^[+-].*CollapsibleCrisisButton' || true)
+```
+
+The same test-file exclusion applies to the **Phase 1 prediction** (Step 2.1's RED
+rule): a predicted `files_touched` set that hits a safety path *only* via test files
+(`__tests__/`, `.test.`, `.spec.`) is **not** RED on that basis alone.
+If either is non-empty → **reclassify GREEN→RED**: set manifest `state: queued_red`,
+leave the worktree intact and the work committed (do NOT run `/b-close` — it would
+stall on the Maestro sim gate that isn't satisfiable unattended). Continue to the next
+green. This is the fix for the "a green turned out to touch navigation" stall.
+
+### Step 3.3: Close via /b-close (pre-answer its human prompts)
+`/b-close` is written to ask a human at three points; in this unattended loop, answer
+them yourself rather than surfacing them:
+- **Step 1.3 branch alignment** → continue (the branch is aligned; `/b-work` created it).
+- **Phase 2.1 uncommitted changes** → commit them.
+- **Phase 5.1 worktree cleanup** → **remove** (the user wants worktrees cleaned on close).
+
+Then run `/b-close <ID>`. Phase 2.5 will correctly self-skip (Step 3.2 already proved
+no safety paths changed). On success, manifest `state: done`, capture the PR number.
+
+### Step 3.4: CI failure handling (flake-first, then bounded auto-fix)
+`/b-close` Step 3.4 watches CI and STOPs on red. Wrap that:
+1. **Attempt 0 — flake check (free, no fix budget):** the repo has a documented
+   intermittent safety-test flake. Re-run CI once (`gh run rerun --failed` on the PR's
+   latest run, or push an empty recommit only if necessary). If green → continue.
+2. **Attempts 1–2 — auto-fix:** route the failing job log through the `/rca` skill,
+   apply the fix, **re-run the relevant `npm run test:*` locally to green**, then push
+   to re-trigger CI. Max 2 such attempts.
+3. Still red after 2 → **park**: manifest `state: parked`, set Notion **`Status: Blocked`**
+   (the status exists — it surfaces the item on the board), add a Notion comment
+   summarizing the failure + PR link, leave the PR open, continue to the next green.
+
+---
+
+## Phase 4: Reds, Pending, and Report
+
+### Step 4.1: Surface the sim-attended queue
+For every `queued_red` item: `/b-work` + headless tests have run and the work is
+committed in its worktree, stopped before close. List them for a single
+simulator-attended session:
+```
+🛡️  Needs simulator-attended close (safety surface):
+   FEAT-211  worktree: feat-211   — run `npm run e2e:safety:build` then `/b-close FEAT-211`
+```
+
+### Step 4.2: Final report
+```
+✅ Batch summary
+   Done:     FEAT-130, MAINT-191
+   Parked:   DEBUG-44 (CI red ×2 — see Notion comment + PR #NN)
+   Queued (sim): FEAT-211
+   Pending (cap/clear): INFRA-77, MAINT-192
+   Deferred (amber unresolved): —
+   Blocked (dependency unlanded): MAINT-193 ← blocked_by DEBUG-44 (parked)
+
+   Resume the rest:  /clear  then  /b-batch --resume
+```
+
+---
+
+## Phase 5: Resume (`--resume`)
+
+Reconstruct state from disk + Notion + manifest — no in-context memory required.
+
+1. Read `/Users/max/dev/being/.config/.b-batch-state.json`.
+2. For each item, reconcile against ground truth:
+   - Notion `Status`: `Done` → `done` (skip); `Cancelled` → drop; `Testing` → work implemented, resume at `/b-close` (Step 3.3); `In progress` → resume at Step 3.1's tail (verify/commit); `Not started` → run from Step 3.1; `Blocked` → consult the manifest: `parked` (CI ×2) needs a human triage decision — surface it, don't silently retry; `deferred`/`blocked_by` re-evaluates in step 3 below.
+   - `git worktree list` → confirms what's mid-flight on disk.
+   - `gh pr list` → confirms what's awaiting/failed CI.
+   - Manifest `queued_red` → still belongs in the sim queue, never auto-close.
+3. **Recompute dependency satisfaction** from current Notion `Done` status: a previously
+   `Blocked`/`deferred`/`blocked_by` item whose prerequisite is now `Done` becomes
+   runnable again (running it via `/b-work` Step 2.7 flips its `Status` off `Blocked` to
+   `In progress` automatically); one whose prerequisite is still unlanded stays
+   `Blocked`. Re-apply the soft cap to the remaining runnable greens **in tranche
+   order**, then continue Phase 3.
+4. If the manifest is missing, fall back to: derive the queue from any worktrees +
+   open PRs + Notion `Testing` items, and tell the user the approach strings were lost
+   (so `/b-work` will re-plan those from scratch).
+
+---
+
+## Error Recovery
+- Safe to re-run: every phase reconciles against Notion + git + the manifest before acting.
+- Interrupted mid-`/b-work` or mid-`/b-close`: those skills are individually idempotent (see their Error Recovery sections); `/b-batch --resume` re-enters at the right step from status.
+- Manifest corrupted/missing: Phase 5 step 4 fallback.
+
+---
+
+*File location: /Users/max/dev/being/.claude/commands/b-batch.md*
