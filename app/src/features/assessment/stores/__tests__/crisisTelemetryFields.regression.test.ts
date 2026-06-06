@@ -159,14 +159,17 @@ describe('DEBUG-218 — crisis_detected carries real severity_bucket + assessmen
   });
 
   describe('score-based completed path (completeAssessment) — non-Q9 crises', () => {
-    it('PHQ-9 ≥20 without Q9 → phq9_moderate_severe_score, severity_bucket "critical", assessment_type "phq9"', async () => {
+    // DEBUG-229 / MAINT-226 Decision E: ≥20 now emits the intervention-tier
+    // trigger `phq9_severe_score` (was `phq9_moderate_severe_score` — the store's
+    // missing-severe-tier bug this work item fixes). severity_bucket stays "critical".
+    it('PHQ-9 ≥20 without Q9 → phq9_severe_score, severity_bucket "critical", assessment_type "phq9"', async () => {
       await useAssessmentStore.getState().startAssessment('phq9');
       await answer(phq9(20)); // greedy fill leaves phq9_9 = 0
       await useAssessmentStore.getState().completeAssessment();
 
       expect(mockTrack).toHaveBeenCalledTimes(1);
       const p = lastPayload();
-      expect(p.trigger_type).toBe('phq9_moderate_severe_score');
+      expect(p.trigger_type).toBe('phq9_severe_score');
       expect(p.severity_bucket).toBe('critical');
       expect(p.assessment_type).toBe('phq9');
       expectNoUndefinedString(p);
