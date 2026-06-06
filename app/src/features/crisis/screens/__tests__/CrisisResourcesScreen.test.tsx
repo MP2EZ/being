@@ -115,6 +115,26 @@ describe('CrisisResourcesScreen', () => {
     });
   });
 
+  describe('Crisis Text Line SMS deeplink (DEBUG-230 / SEC-08)', () => {
+    test('Texting Crisis Text Line opens sms:741741?body=HOME (encoded, ? not &)', async () => {
+      const { getByLabelText } = render(<CrisisResourcesScreen />);
+      const textButton = getByLabelText('Text Crisis Text Line');
+
+      await act(async () => {
+        fireEvent.press(textButton);
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      expect(Linking.openURL).toHaveBeenCalledWith('sms:741741?body=HOME');
+      // Regression guard: the old malformed `&body=` delimiter must be gone.
+      const smsCall = (Linking.openURL as jest.Mock).mock.calls.find(
+        ([url]: [string]) => typeof url === 'string' && url.startsWith('sms:')
+      );
+      expect(smsCall?.[0]).not.toContain('&body=');
+    });
+  });
+
   describe('911 emergency dial path', () => {
     test('Pressing 911 button shows confirmation Alert with destructive option', () => {
       const { getByLabelText } = render(<CrisisResourcesScreen />);
