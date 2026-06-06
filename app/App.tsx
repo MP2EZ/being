@@ -18,6 +18,7 @@ import { initializeCrisisMonitoring } from './src/core/services/monitoring';
 import { DataRetentionService } from './src/core/services/data-retention';
 import { PostHogProvider } from './src/core/analytics';
 import { closeMenu as closeDevMenu } from 'expo-dev-menu';
+import { maybeSeedE2EOnboardedState } from './src/core/config/e2eSeed';
 
 // INFRA-181: hide RN LogBox during Maestro runs. The dev warning toast (e.g.
 // posthog-react-native's "usePostHog was called without a client" notice when
@@ -57,6 +58,18 @@ export default function App() {
           }
         );
         logSystem('Encryption service initialized');
+
+        // INFRA-217: seed post-onboarding state for the e2e-sim safety gate.
+        // No-op unless EXPO_PUBLIC_E2E_SEED_ONBOARDED==='true' (e2e-sim profile
+        // only). Runs after EncryptionService.initialize() because the seeded
+        // consent record persists to SecureStore. Self-contained try/catch, so
+        // it never blocks init; gate the navigator render on its completion.
+        // INFRA-217: seed post-onboarding state for the e2e-sim safety gate.
+        // No-op unless EXPO_PUBLIC_E2E_SEED_ONBOARDED==='true' (e2e-sim profile
+        // only). Runs after EncryptionService.initialize() because the seeded
+        // consent record persists to SecureStore. Releases the seed gate that
+        // CleanRootNavigator awaits before resolving its initial route.
+        await maybeSeedE2EOnboardedState();
 
         // Remaining init tasks are independent. allSettled (not all) so one
         // best-effort failure doesn't abort the others. IAP init only runs

@@ -17,7 +17,7 @@ name: "PHQ-9 Q9 single canonical alert"
 - launchApp:
     clearState: true
     clearKeychain: true # SecureStore-backed consent persists across clearState — wipe keychain too (INFRA-179)
-- runFlow: _legal-and-onboarding.yaml
+- runFlow: _seeded-home.yaml # INFRA-217: e2e-sim seeds onboarding; start at home
 
 # Navigate to Profile → PHQ-9 entry point. INFRA-186: the PHQ-9 card sits
 # below the fold on iPhone 16 Plus (its bounds extend past screen height),
