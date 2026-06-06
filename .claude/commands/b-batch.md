@@ -139,14 +139,24 @@ batch into as few calls as possible). Each amber's options must include:
 
 An amber you don't resolve → leave for a later manual run (record in manifest as `deferred`).
 
+**Scoped upgrade (partial green).** Often an amber can only be *partially* upgraded:
+part is auto-runnable, part is blocked / cross-repo / out-of-scope (a design-system
+release, or a half whose premise the panel disproved). When the user picks a "scope it
+down and run the rest" option, record the item as `green` with a **narrowed** `approach`
+string, plus `scoped: true` and a `defer_note` describing the carved-off remainder. The
+split is *materialized* in Phase 3 (Step 3.0) — a follow-up Notion item for the remainder
++ a scope-down comment on the original — so the narrowed item closes honestly as `Done`.
+
 ### Step 2.4: Soft cap
-If GREEN count > **4**, run the first 4 **in tranche order** this session and mark the
-rest `pending`. A hard chain longer than the cap is fine: the prefix lands and merges
+The cap counts **every item that will run `/b-work` this session — GREEN and RED both**
+(a RED is implemented headless, then queued; it consumes the same context budget as a
+green). If that count > **4**, run the first 4 **in tranche order** this session and mark
+the rest `pending`. A hard chain longer than the cap is fine: the prefix lands and merges
 to `development` this run, so on `--resume` the prerequisites read as `Done` in Notion
 and the tail branches off them cleanly — never split a chain in a way that runs a
 dependent before its prerequisite is `done`. Tell the user explicitly:
 ```
-⚠️  N greens exceed the per-run cap of 4 (context hygiene).
+⚠️  N items to implement (greens + reds) exceed the per-run cap of 4 (context hygiene).
    Running 4 now; run `/b-batch --resume` after `/clear` to continue.
 ```
 The cap is a tunable default reflecting the context ceiling, not a hard limit of the system.
@@ -158,7 +168,8 @@ Persist to `/Users/max/dev/being/.config/.b-batch-state.json` (gitignored, survi
   "created": "<date passed in by user or omitted>",
   "items": [
     { "id": "FEAT-130", "verdict": "green", "tranche": 0,
-      "approach": "<synthesized approved approach>",
+      "approach": "<synthesized (possibly narrowed) approved approach>",
+      "scoped": false, "defer_note": null,
       "depends_on": [], "blocked_by": null,
       "state": "pending", "pr": null, "notes": "" }
   ]
@@ -170,16 +181,45 @@ Notion can't reconstruct, so they live here.
 
 ---
 
-## Phase 3: Serial Execution (greens, ≤4)
+## Phase 3: Serial Execution (greens + reds, ≤ cap)
 
-Walk GREEN items **one at a time, in tranche order** (serial — the merge serializes on
-`origin/development` anyway, and the simulator is a single serial resource). **Before
-each item, assert its `depends_on` are all satisfied** — each must be `done` in this
-run's manifest **or** already `Done` in Notion. If any prerequisite is not satisfied
+Walk GREEN **and RED** items **one at a time, in tranche order** (serial — the merge
+serializes on `origin/development` anyway, and the simulator is a single serial
+resource).
+
+**RED items are NOT skipped — they are implemented, then queued.** This is the design's
+guarantee (run-mode guardrail): a safety-surface story is *implemented + headless-tested*
+but never auto-closed. So **both** GREEN and RED items run `/b-work` (Step 3.1) and the
+safety re-check (Step 3.2); the only difference is the close — GREEN → `/b-close`
+(Step 3.3); RED (whether classified RED at Phase 2.1 or reclassified at Step 3.2) →
+**stop before close**, mark `queued_red`, leave the worktree intact for a sim-attended
+close (Phase 4.1). A common bug to avoid: leaving a Phase-2.1 RED un-implemented and
+then trying to `/b-close` it — there is nothing to close until `/b-work` has run.
+
+**Before each item, assert its `depends_on` are all satisfied** — each must be `done` in
+this run's manifest **or** already `Done` in Notion. If any prerequisite is not satisfied
 (it parked, queued_red, deferred, or hasn't run), **skip the dependent**, mark it
 `deferred` with `blocked_by`, and set Notion `Status: Blocked` — never branch a
 dependent off a `development` that lacks its prerequisite. Set the item's manifest
 `state: running` before each.
+
+### Step 3.0: Scope-down bookkeeping (scoped items only)
+If the manifest marks this item `scoped: true`, make the eventual close honest **before**
+implementing:
+1. **Create a follow-up Notion item** for the carved-off remainder via
+   `notion-create-pages` into `collection://${NOTION_WORK_DB}`: set `Name`, `Type`,
+   `Status: "Not started"`, dimension scores, and a body with `## User Story` /
+   `## Acceptance Criteria` / `## Technical Notes` / `## AGENTS REQUIRED` /
+   `## Dimension Scores`. Then `notion-fetch` it to read the auto-generated Work Item ID
+   and **insert a `## Work Item ID: <ID>` header at the start** (so `/b-work` can find it
+   later — mirrors `/b-create` Phase 7.5). If the remainder has a known prerequisite, set
+   its `Blocked by` relation.
+2. **Comment the scope-down on the original item**: what's done now vs deferred, why, and
+   a link to the follow-up. This makes the eventual `Done` truthful — the work matches the
+   narrowed scope, and the deferred part is tracked, not lost.
+3. The **narrowed** `approach` (not the original AC) is what feeds `/b-work` in Step 3.1.
+
+Established by the first live run: MAINT-245 → deployment-delete now / MAINT-252 perf-pruning deferred; MAINT-225 → app-side accents now / MAINT-253 cross-repo palette deferred.
 
 ### Step 3.1: Implement via /b-work
 Invoke with the approved approach fed through the existing `ADDITIONAL_CONTEXT` seam:
@@ -215,10 +255,15 @@ CRISIS=$(git -C /Users/max/dev/being/<worktree-dir> diff origin/development...HE
 The same test-file exclusion applies to the **Phase 1 prediction** (Step 2.1's RED
 rule): a predicted `files_touched` set that hits a safety path *only* via test files
 (`__tests__/`, `.test.`, `.spec.`) is **not** RED on that basis alone.
-If either is non-empty → **reclassify GREEN→RED**: set manifest `state: queued_red`,
-leave the worktree intact and the work committed (do NOT run `/b-close` — it would
-stall on the Maestro sim gate that isn't satisfiable unattended). Continue to the next
-green. This is the fix for the "a green turned out to touch navigation" stall.
+**Routing after the re-check:**
+- **RED** — either a **Phase-2.1 RED** (expected to be RED here; `/b-work` has now
+  implemented + headless-tested it) **or** a GREEN the re-check just flipped
+  (`SAFETY`/`CRISIS` non-empty): set manifest `state: queued_red`, leave the worktree
+  intact and the work committed, and **do NOT run `/b-close`** (it would stall on the
+  Maestro sim gate that isn't satisfiable unattended). Continue to the next item. This is
+  both the "a green turned out to touch navigation" fix **and** the normal path every
+  Phase-2.1 RED takes — implemented, then queued for Phase 4.1.
+- **GREEN** (re-check clean) → proceed to Step 3.3.
 
 ### Step 3.3: Close via /b-close (pre-answer its human prompts)
 `/b-close` is written to ask a human at three points; in this unattended loop, answer
