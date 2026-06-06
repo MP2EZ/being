@@ -219,7 +219,7 @@ const ProfileScreen: React.FC = () => {
               <MaterialDesignIcons
                 name="information-outline"
                 size={22}
-                color={colorSystem.themes.morning.primary}
+                color={colorSystem.base.midnightBlue}
               />
             </Pressable>
           </View>
@@ -643,7 +643,7 @@ const styles = StyleSheet.create({
   footerLinkText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.medium,
-    color: colorSystem.themes.morning.primary,
+    color: colorSystem.base.midnightBlue,
     textDecorationLine: 'underline',
   },
 });

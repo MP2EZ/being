@@ -423,6 +423,7 @@ const styles = StyleSheet.create({
   },
   textSizeButton: {
     flex: 1,
+    minHeight: 44, // ≥44pt tap target (WCAG 2.5.5), verified on iPhone SE
     paddingVertical: spacing[16],
     marginHorizontal: 4,
     backgroundColor: colorSystem.base.white,
