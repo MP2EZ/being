@@ -58,24 +58,6 @@ interface DataProtectionConsentStatus {
   consentVersion: string;
 }
 
-interface EncryptionResult {
-  success: boolean;
-  encryptedData: string;
-  encryptionMethod: string;
-  timestamp: number;
-}
-
-interface ResponseMetadata {
-  encryptedResponse: EncryptionResult;
-  timestamp: number;
-  sessionId: string;
-  consentValidated: boolean;
-  auditTrail: string;
-  performanceMetrics: {
-    responseTime: number;
-    encryptionTime: number;
-  };
-}
 
 interface EnhancedAssessmentFlowProps {
   assessmentType: AssessmentType;
@@ -124,7 +106,7 @@ const EnhancedAssessmentFlow: React.FC<EnhancedAssessmentFlowProps> = ({
   // State management
   const [flowState, setFlowState] = useState<'introduction' | 'questions' | 'results' | 'completing'>('introduction');
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [answers, setAnswers] = useState<Map<string, { response: AssessmentResponse; metadata: ResponseMetadata }>>(new Map());
+  const [answers, setAnswers] = useState<Map<string, AssessmentResponse>>(new Map());
   const [result, setResult] = useState<PHQ9Result | GAD7Result | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [performanceMetrics, setPerformanceMetrics] = useState<any>({});
@@ -250,7 +232,7 @@ const EnhancedAssessmentFlow: React.FC<EnhancedAssessmentFlowProps> = ({
   }, [crisisDetected]);
 
   // Enhanced answer handler
-  const handleAnswer = useCallback(async (response: AssessmentResponse, metadata: ResponseMetadata) => {
+  const handleAnswer = useCallback(async (response: AssessmentResponse) => {
     if (!currentQuestion) return;
 
     const questionId = currentQuestion.id;
@@ -258,15 +240,14 @@ const EnhancedAssessmentFlow: React.FC<EnhancedAssessmentFlowProps> = ({
     try {
       setIsProcessing(true);
 
-      // Store answer with metadata
-      setAnswers(prev => new Map(prev).set(questionId, { response, metadata }));
+      // Store answer (encryption + crisis detection happen in the store below)
+      setAnswers(prev => new Map(prev).set(questionId, response));
 
       // Track performance
       const questionResponseTime = Date.now() - questionStartTime.current;
       setPerformanceMetrics((prev: any) => ({
         ...prev,
         [`question_${currentQuestionIndex + 1}_time`]: questionResponseTime,
-        totalEncryptionTime: (prev.totalEncryptionTime || 0) + metadata.performanceMetrics.encryptionTime,
       }));
 
       // Validate performance targets
@@ -408,13 +389,12 @@ const EnhancedAssessmentFlow: React.FC<EnhancedAssessmentFlowProps> = ({
         {flowState === 'questions' && currentQuestion && (
           <EnhancedAssessmentQuestion
             question={currentQuestion}
-            currentAnswer={answers.get(currentQuestion.id)?.response}
+            currentAnswer={answers.get(currentQuestion.id)}
             onAnswer={handleAnswer}
             showProgress={true}
             currentStep={currentQuestionIndex + 1}
             totalSteps={questions.length}
             theme={theme}
-            sessionId={sessionId}
             consentStatus={consentStatus}
             onError={handleError}
           />
