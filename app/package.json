@@ -77,7 +77,7 @@
     "security:deps": "npm audit --audit-level high",
     "security:full": "npm run security:sast && npm run security:deps",
     "deploy:validate-rollback": "echo \"🔄 Validating rollback safety...\" && node -e \"console.log('Rollback validation would run here in production')\"",
-    "e2e:safety": "maestro test .maestro/ --include-tags=safety",
+    "e2e:safety": "bash scripts/e2e-safety.sh",
     "e2e:safety:build": "bash scripts/e2e-sim-build.sh",
     "e2e:safety:q9": "maestro test .maestro/q9-single-alert.yaml",
     "e2e:safety:phq9": "maestro test .maestro/phq9-severe-completion.yaml",

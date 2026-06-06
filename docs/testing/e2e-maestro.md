@@ -125,7 +125,13 @@ in INFRA-216.
 ## Running the flows
 
 ```bash
-# Sim suite (4 flows tagged `safety`, ~2–3 min) — runnable on iOS sim.
+# Sim suite (4 flows tagged `safety`, ~3–5 min) — runnable on iOS sim.
+# INFRA-220: runs each flow as a SEPARATE maestro invocation with an XCUITest-
+# driver reset between (scripts/e2e-safety.sh), NOT one batch
+# `maestro test .maestro/` session. A shared session degrades across the suite
+# and the 4th/longest flow (crisis-button) over-pops + desyncs; isolated
+# invocations give each flow a fresh driver. New `safety`-tagged flows are
+# auto-included; `safety-device-only` + `_helper` flows are excluded.
 npm run e2e:safety
 
 # Individual sim flows (one at a time, ~30–60s each)
@@ -222,7 +228,7 @@ Maestro's output names the failing step. Three common causes:
    ```bash
    pkill -9 -f "test-without-building"   # then sleep ~8s and re-run
    ```
-   A single `npm run e2e:safety` (the real `/b-close` usage) starts a fresh driver and is unaffected — this only bites tight local loops. Verified during INFRA-208: a no-reset 5× loop gave **1/5**; the same loop with a driver reset between runs gave a clean **5/5 (20/20 flows)**. A related **dev-build-only** flake: the Expo dev launcher can time out at the `legal-dob-picker` wait while the JS bundle is still loading from Metro (the failure screenshot shows the bundle spinner, not the LegalGate). Mitigate by raising `MAESTRO_DRIVER_STARTUP_TIMEOUT` (e.g. `120000`) and/or warming the bundle (`curl -s -o /dev/null "http://localhost:8081/index.bundle?platform=ios&dev=true"`) before the run. Absent in Release builds (no Metro, no dev launcher).
+   Verified during INFRA-208: a no-reset 5× loop gave **1/5**; the same loop with a driver reset between runs gave a clean **5/5 (20/20 flows)**. **INFRA-220 update:** the degradation also accumulates *within a single batch session* — the old `npm run e2e:safety` (`maestro test .maestro/`, all 4 flows in one driver) failed on the 4th/longest flow (`crisis-button`) as the driver slowed and `nav-back-button` over-popped. `npm run e2e:safety` now runs each flow as a separate invocation with a driver reset between (`scripts/e2e-safety.sh`), so the real `/b-close` usage gets a fresh driver per flow and is unaffected. A related **dev-build-only** flake: the Expo dev launcher can time out at the `legal-dob-picker` wait while the JS bundle is still loading from Metro (the failure screenshot shows the bundle spinner, not the LegalGate). Mitigate by raising `MAESTRO_DRIVER_STARTUP_TIMEOUT` (e.g. `120000`) and/or warming the bundle (`curl -s -o /dev/null "http://localhost:8081/index.bundle?platform=ios&dev=true"`) before the run. Absent in Release builds (no Metro, no dev launcher).
 
 > One more selector gotcha (INFRA-208): Maestro's `text:` selector is a **full-match** regex, and React Native merges a `Focusable`/`accessible` container's child `Text` with a sibling's `accessibilityLabel` into one node. The assessment progress counter renders as "Question 1 of 9" but its accessibility text is `"Question 1 of 9, Progress: 1 of 9 questions completed"`, so a bare `text: "Question 1 of 9"` silently fails to match. Wrap such selectors in `.*…*` (e.g. `text: ".*Question 1 of 9.*"`). Confirm the real accessibility string with `maestro hierarchy`.
 
