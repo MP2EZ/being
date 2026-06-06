@@ -74,12 +74,22 @@ name: "Crisis button reaches CrisisResources from every tab"
 # re-hosted from inside ProfileScreen to the navigator wrapper (sibling above the
 # stack). The overlay must therefore stay reachable not just on the Profile tab
 # landing (menu route) but on EVERY pushed subscreen — the precise regression this
-# migration risks. We traverse each depth-1 route + one depth-2 route and assert
+# migration risks. We visit each depth-1 route + one depth-2 route and assert
 # crisis-profile → crisis-resources-screen from each.
 #
-# Pops use two distinct testIDs:
-#   - nav-back-button     → pops the root CrisisResources modal (INFRA-185)
-#   - profile-back-button → pops a Profile-stack route (FEAT-212 header back)
+# INFRA-220: each subscreen check is self-contained and starts from the Profile
+# menu root via a `tab-profile` re-tap. React Navigation's default bottom-tab
+# behavior pops the focused tab's stack to root (CleanTabNavigator sets no
+# tabPress override), so re-tapping the already-focused Profile tab returns to the
+# menu regardless of current depth. This replaces the previous `nav-back-button` +
+# `profile-back-button` pop pairs, which were fragile: on a non-pristine sim the
+# CrisisResources modal's `nav-back-button` intermittently OVER-pops (dismissing
+# the modal AND the underlying subscreen), landing on the menu where
+# `profile-back-button` doesn't exist — failing "profile-back-button not visible"
+# (observed in the INFRA-217 /b-close gate). The tab re-tap resets to a known
+# state no matter how far nav-back-button popped, so the flow is immune to the
+# over-pop. nav-back-button still dismisses the modal (which covers the tab bar)
+# before each tab-reset.
 #
 # NOTE: the Privacy → CloudBackup depth-2 route is gated by the cloud_sync feature
 # flag (dark by default), so its entry row is not present in this default-build
@@ -97,6 +107,8 @@ name: "Crisis button reaches CrisisResources from every tab"
     id: "nav-back-button"
 
 # depth-1: Notifications & Display
+- tapOn:
+    id: "tab-profile" # re-tap → pop ProfileStack to menu root (immune to over-pop)
 - scrollUntilVisible:
     element:
       id: "profile-card-appsettings"
@@ -109,10 +121,10 @@ name: "Crisis button reaches CrisisResources from every tab"
     id: "crisis-resources-screen"
 - tapOn:
     id: "nav-back-button"
-- tapOn:
-    id: "profile-back-button"
 
 # depth-1: Privacy & Data
+- tapOn:
+    id: "tab-profile"
 - scrollUntilVisible:
     element:
       id: "profile-card-privacy"
@@ -125,10 +137,10 @@ name: "Crisis button reaches CrisisResources from every tab"
     id: "crisis-resources-screen"
 - tapOn:
     id: "nav-back-button"
-- tapOn:
-    id: "profile-back-button"
 
 # depth-1: Account
+- tapOn:
+    id: "tab-profile"
 - scrollUntilVisible:
     element:
       id: "profile-card-account"
@@ -141,10 +153,10 @@ name: "Crisis button reaches CrisisResources from every tab"
     id: "crisis-resources-screen"
 - tapOn:
     id: "nav-back-button"
-- tapOn:
-    id: "profile-back-button"
 
 # depth-1: About Stoic Mindfulness
+- tapOn:
+    id: "tab-profile"
 - scrollUntilVisible:
     element:
       id: "profile-card-stoic"
@@ -157,10 +169,10 @@ name: "Crisis button reaches CrisisResources from every tab"
     id: "crisis-resources-screen"
 - tapOn:
     id: "nav-back-button"
-- tapOn:
-    id: "profile-back-button"
 
 # depth-1: Legal Documents
+- tapOn:
+    id: "tab-profile"
 - scrollUntilVisible:
     element:
       id: "profile-card-legal"
@@ -174,7 +186,17 @@ name: "Crisis button reaches CrisisResources from every tab"
 - tapOn:
     id: "nav-back-button"
 
-# depth-2: Legal Documents → an individual document (real push, depth 2)
+# depth-2: Legal Documents → an individual document (real push, depth 2).
+# Re-navigate menu → legal → legal-doc from scratch so the depth-2 assertion
+# never depends on where the prior nav-back-button landed.
+- tapOn:
+    id: "tab-profile"
+- scrollUntilVisible:
+    element:
+      id: "profile-card-legal"
+    direction: DOWN
+- tapOn:
+    id: "profile-card-legal"
 - tapOn:
     id: "profile-legal-doc-privacy-policy"
 - tapOn:
@@ -183,7 +205,3 @@ name: "Crisis button reaches CrisisResources from every tab"
     id: "crisis-resources-screen"
 - tapOn:
     id: "nav-back-button"
-- tapOn:
-    id: "profile-back-button"
-- tapOn:
-    id: "profile-back-button"
