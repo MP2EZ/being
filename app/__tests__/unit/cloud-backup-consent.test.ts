@@ -74,8 +74,6 @@ describe('CloudBackupService — cloud_sync consent gate (MAINT-173)', () => {
     (cloudBackupService as unknown as { isInitialized: boolean }).isInitialized = true;
     // Force "changed data" so createBackup doesn't no-op as unchanged.
     (cloudBackupService as unknown as { lastBackupHash?: string }).lastBackupHash = undefined;
-    // Skip the compression branch — not under test here.
-    (cloudBackupService as unknown as { config: { compressionEnabled: boolean } }).config.compressionEnabled = false;
   });
 
   it('skips backup (no egress) when cloud_sync consent is absent', async () => {

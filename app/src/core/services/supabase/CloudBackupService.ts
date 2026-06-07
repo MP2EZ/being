@@ -130,7 +130,6 @@ interface BackupConfig {
   autoBackupEnabled: boolean;
   autoBackupIntervalMs: number;
   maxBackupSizeMB: number;
-  compressionEnabled: boolean;
   integrityCheckEnabled: boolean;
 }
 
@@ -152,7 +151,6 @@ class CloudBackupService {
       autoBackupEnabled: true,
       autoBackupIntervalMs: 4 * 60 * 60 * 1000, // 4 hours
       maxBackupSizeMB: 10,
-      compressionEnabled: true,
       integrityCheckEnabled: true,
     };
   }
@@ -224,14 +222,11 @@ class CloudBackupService {
         return { success: true, timestamp: Date.now() };
       }
 
-      // Serialize and optionally compress
-      let serializedData = JSON.stringify(backupData);
-      let originalSize = new Blob([serializedData]).size;
-
-      if (this.config.compressionEnabled) {
-        serializedData = await this.compressData(serializedData);
-      }
-
+      // Serialize backup payload (compression intentionally not applied — see
+      // DEBUG-233: the previous compressData/decompressData were no-op
+      // placeholders, and config-only backups are <500 bytes so there is
+      // nothing to compress).
+      const serializedData = JSON.stringify(backupData);
       const finalSize = new Blob([serializedData]).size;
 
       // Check size limits
@@ -268,14 +263,11 @@ class CloudBackupService {
         timestamp: Date.now(),
         hash: dataHash,
         size: finalSize,
-        originalSize,
-        compressed: this.config.compressionEnabled,
       }));
 
       // Track analytics
       await supabaseService.trackEvent('backup_completed', {
         size_mb: Math.round(finalSize / 1024 / 1024 * 100) / 100,
-        compression_ratio: originalSize > 0 ? Math.round(originalSize / finalSize * 100) / 100 : 1,
         duration_ms: Date.now() - startTime,
       });
 
@@ -339,14 +331,10 @@ class CloudBackupService {
         'level_3_intervention_metadata'
       );
 
-      // Decompress if needed
-      let restoredDataString = decryptedData;
-      if (this.config.compressionEnabled) {
-        restoredDataString = await this.decompressData(decryptedData);
-      }
-
-      // Parse backup data
-      const backupData: BackupData = JSON.parse(restoredDataString);
+      // Parse backup data. Compression was never actually applied (the old
+      // compressData was a no-op), so existing records are plaintext JSON and
+      // need no decompression step — DEBUG-233.
+      const backupData: BackupData = JSON.parse(decryptedData);
 
       // Validate backup structure
       if (!this.validateBackupStructure(backupData)) {
@@ -628,26 +616,6 @@ class CloudBackupService {
       Crypto.CryptoDigestAlgorithm.SHA256,
       data
     );
-  }
-
-  /**
-   * Compress data using simple algorithm
-   */
-  private async compressData(data: string): Promise<string> {
-    // For React Native, we'll use a simple compression
-    // In a real implementation, you might use pako or similar
-
-    // Simple run-length encoding for demonstration
-    // This is a placeholder - use proper compression library
-    return data; // TODO: Implement actual compression
-  }
-
-  /**
-   * Decompress data
-   */
-  private async decompressData(data: string): Promise<string> {
-    // Placeholder for decompression
-    return data; // TODO: Implement actual decompression
   }
 
   /**
