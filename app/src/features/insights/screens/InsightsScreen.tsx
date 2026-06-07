@@ -140,7 +140,13 @@ const InsightsScreen: React.FC = () => {
       >
         {/* Header Section */}
         <View style={styles.header}>
-          <Text style={styles.screenTitle}>Insights</Text>
+          <Text
+            style={styles.screenTitle}
+            accessibilityRole="header"
+            accessibilityLevel={1}
+          >
+            Insights
+          </Text>
           <Text style={styles.headerSubtitle}>
             Here is what your practice looks like.{'\n'}What do you notice?
           </Text>
