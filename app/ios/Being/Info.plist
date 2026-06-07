@@ -30,7 +30,7 @@
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>being</string>
-				<string>com.being.app</string>
+				<string>fyi.being.app</string>
 			</array>
 		</dict>
 		<dict>

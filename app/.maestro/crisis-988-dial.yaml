@@ -1,4 +1,4 @@
-appId: com.being.app
+appId: fyi.being.app
 tags:
   - safety-device-only
 name: "988 dial does not surface 'Unable to Call' fallback (device-only)"

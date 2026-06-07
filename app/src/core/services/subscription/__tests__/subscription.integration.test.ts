@@ -576,7 +576,7 @@ describe('Subscription Integration - Platform Specifics', () => {
       'verify-google-receipt',
       {
         body: {
-          packageName: 'com.being.app',
+          packageName: 'fyi.being.app',
           subscriptionId: 'com.being.subscription.monthly',
           purchaseToken: 'google-purchase-token',
         },

@@ -1,4 +1,4 @@
-appId: com.being.app
+appId: fyi.being.app
 tags:
   - safety
 name: "Crisis button reaches CrisisResources from every tab"

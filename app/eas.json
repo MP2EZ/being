@@ -97,8 +97,8 @@
   "submit": {
     "production": {
       "ios": {
-        "ascAppId": "PLACEHOLDER_APP_ID",
-        "appleTeamId": "PLACEHOLDER_TEAM_ID"
+        "ascAppId": "6777579207",
+        "appleTeamId": "KN6FDLG98K"
       },
       "android": {
         "serviceAccountKeyPath": "./android-service-account.json",
@@ -108,8 +108,8 @@
     },
     "preview": {
       "ios": {
-        "ascAppId": "PLACEHOLDER_APP_ID",
-        "appleTeamId": "PLACEHOLDER_TEAM_ID"
+        "ascAppId": "6777579207",
+        "appleTeamId": "KN6FDLG98K"
       },
       "android": {
         "serviceAccountKeyPath": "./android-service-account.json",

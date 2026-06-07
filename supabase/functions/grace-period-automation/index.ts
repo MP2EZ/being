@@ -231,7 +231,7 @@ async function verifyStaleReceipts(supabase: any): Promise<number> {
               'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
             },
             body: JSON.stringify({
-              packageName: 'com.being.app', // TODO: Make configurable
+              packageName: 'fyi.being.app', // TODO: Make configurable
               subscriptionId: subscription.platform_subscription_id,
               purchaseToken: subscription.receipt_data_encrypted,
               userId: subscription.user_id,

@@ -156,7 +156,7 @@ npm run e2e:safety:988-dial        # 988 button does not show "Unable to Call" f
 
 Each flow under `app/.maestro/`:
 
-1. Starts with `appId: com.being.app` and `tags: [safety]`.
+1. Starts with `appId: fyi.being.app` and `tags: [safety]`.
 2. Calls `- launchApp: { clearState: true, clearKeychain: true }` for a fresh install.
 3. Reaches the main tab navigator. The path differs by build:
    - **Sim flows** (`q9`, `phq9`, `gad7`, `crisis-button`) run on the seeded `e2e-sim`
@@ -175,7 +175,7 @@ The `_legal-and-onboarding.yaml` traversal subflow uses text-based selectors for
 Take `q9-single-alert.yaml` as the canonical example:
 
 ```yaml
-appId: com.being.app
+appId: fyi.being.app
 tags:
   - safety
 ---
@@ -204,7 +204,7 @@ The `assertNotVisible` lines pin the MAINT-166 PR 1 fix: the old `mockCrisisEngi
 When a work item touches the safety surface (signals: `crisis`, `988`, `PHQ`, `GAD`, `threshold`, `assessment`, `safety plan`, `emergency`), the deliverable extends to include a Maestro flow pinning the new contract.
 
 1. Copy the closest existing flow as a starting point.
-2. Use `maestro studio` (`maestro studio com.being.app`) to record taps against the sim — gives you exact testID / accessibility selectors.
+2. Use `maestro studio` (`maestro studio fyi.being.app`) to record taps against the sim — gives you exact testID / accessibility selectors.
 3. Update the `name:` and `tags:` lines.
 4. Wire it into `app/package.json`: add `e2e:safety:<name>` script.
 5. Extend `/b-close` Phase 2.5 path-to-flow mapping if the new flow pins a contract not already covered by the path globs.
@@ -237,7 +237,7 @@ To debug interactively:
 ```bash
 cd app
 maestro test .maestro/q9-single-alert.yaml --debug
-maestro studio com.being.app
+maestro studio fyi.being.app
 ```
 
 `maestro studio` opens a recorder window where each tap on the sim is captured and shown as YAML. Copy the captured YAML into a flow.

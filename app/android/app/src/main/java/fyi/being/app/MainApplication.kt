@@ -1,4 +1,4 @@
-package com.being.app
+package fyi.being.app
 
 import android.app.Application
 import android.content.res.Configuration

@@ -119,7 +119,7 @@ const { data, error } = await supabase.functions.invoke('verify-apple-receipt', 
 **Request body:**
 ```json
 {
-  "packageName": "com.being.app",
+  "packageName": "fyi.being.app",
   "subscriptionId": "subscription_monthly",
   "purchaseToken": "google_purchase_token"
 }
@@ -301,7 +301,7 @@ curl -X POST https://your-project-ref.supabase.co/functions/v1/verify-google-rec
   -H "apikey: your_publishable_key" \
   -H "Authorization: Bearer $USER_JWT" \
   -d '{
-    "packageName": "com.being.app",
+    "packageName": "fyi.being.app",
     "subscriptionId": "subscription_monthly",
     "purchaseToken": "google_token"
   }'
