@@ -1335,44 +1335,56 @@ class SyncCoordinator {
 
       this.lastConnectionTest = now;
 
-      // Test connection speed with small payload
-      const startTime = performance.now();
+      // MAINT-241 (SEC-W3 / BLOAT): derive network quality from the in-process
+      // NetInfo connection details instead of beaconing the device IP to an
+      // unaffiliated third-party echo host on every assessment (an undisclosed
+      // data leak). NetInfo already reports the connection type + radio
+      // generation locally; no outbound probe is needed.
+      const connectionType = networkState?.type;
+      const details = networkState?.details ?? {};
 
-      try {
-        // Simple ping test to Supabase
-        const testStart = Date.now();
-        await fetch('https://httpbin.org/get', {
-          method: 'GET',
-          cache: 'no-cache',
-          signal: AbortSignal.timeout(5000), // 5 second timeout
-        });
-        const responseTime = Date.now() - testStart;
-
-        // Estimate quality based on response time
-        if (responseTime < 200) {
-          this.networkQuality = 'excellent';
-          this.connectionSpeed = 10; // Estimate fast connection
-        } else if (responseTime < 500) {
-          this.networkQuality = 'good';
-          this.connectionSpeed = 5;
-        } else if (responseTime < 2000) {
+      if (connectionType === 'wifi' || connectionType === 'ethernet') {
+        // linkSpeed (Mbps) is present on some Android wifi states; otherwise
+        // treat a wired/wifi link as strong.
+        const linkSpeed =
+          typeof details.linkSpeed === 'number' ? details.linkSpeed : undefined;
+        if (linkSpeed !== undefined && linkSpeed < 5) {
           this.networkQuality = 'poor';
-          this.connectionSpeed = 1;
+          this.connectionSpeed = Math.max(linkSpeed, 0.5);
         } else {
-          this.networkQuality = 'poor';
-          this.connectionSpeed = 0.5;
+          this.networkQuality = 'excellent';
+          this.connectionSpeed = linkSpeed ?? 10;
         }
-
-        logPerformance('SyncCoordinator.networkQualityTest', responseTime, {
-          networkQuality: this.networkQuality
-        });
-
-      } catch (error) {
-        // Network test failed, assume poor quality
-        this.networkQuality = 'poor';
-        this.connectionSpeed = 0.1;
-        logSecurity('[SyncCoordinator] Network quality test failed, assuming poor connection', 'low', { component: 'SyncCoordinator' });
+      } else if (connectionType === 'cellular') {
+        switch (details.cellularGeneration) {
+          case '5g':
+            this.networkQuality = 'excellent';
+            this.connectionSpeed = 10;
+            break;
+          case '4g':
+            this.networkQuality = 'good';
+            this.connectionSpeed = 5;
+            break;
+          case '3g':
+            this.networkQuality = 'poor';
+            this.connectionSpeed = 1;
+            break;
+          case '2g':
+          default:
+            this.networkQuality = 'poor';
+            this.connectionSpeed = 0.5;
+            break;
+        }
+      } else {
+        // Connected via an unclassified transport (vpn/other): assume usable.
+        this.networkQuality = 'good';
+        this.connectionSpeed = 5;
       }
+
+      logPerformance('SyncCoordinator.networkQualityAssessment', this.connectionSpeed, {
+        networkQuality: this.networkQuality,
+        connectionType: connectionType ?? 'unknown',
+      });
 
     } catch (error) {
       logError(LogCategory.SYNC, 'Failed to assess network quality', error instanceof Error ? error : new Error(String(error)));

@@ -86,6 +86,7 @@ jest.mock('../EncryptionService', () => {
     encryptAssessmentData: jest.fn(async (data: any) => wrap(data, 'level_2_assessment_data')),
     initialize: jest.fn(async () => undefined),
     destroy: jest.fn(async () => undefined),
+    deleteMasterKey: jest.fn(async () => undefined),
     getInstance: jest.fn(),
   };
   stub.getInstance.mockReturnValue(stub);
@@ -472,6 +473,67 @@ describe('SecureStorageService — INFRA-144 hybrid storage', () => {
     expect(keysAfter.some((k) => k.startsWith('assessment_async_'))).toBe(false);
     expect(keysAfter.some((k) => k.startsWith('wellness_async_'))).toBe(false);
     expect(keysAfter.some((k) => k.startsWith('wellness_migrated:'))).toBe(false);
+  });
+
+  // MAINT-241 right-to-erasure key sweep: SecureStore has no enumerate API, so
+  // clearAllWellnessData must explicitly delete the fixed wellness keys that
+  // live outside the sweepable AsyncStorage prefixes.
+  it('clearAllWellnessData sweeps fixed legacy SecureStore wellness keys', async () => {
+    await service.initialize();
+    mockSecureStoreMap.set('stoic_practice_state', 'cipher');
+    mockSecureStoreMap.set('assessment_store_encrypted', 'cipher');
+    mockSecureStoreMap.set('subscription_secure_v1', 'cipher');
+    mockSecureStoreMap.set('stoic_session_morning', 'cipher');
+    mockSecureStoreMap.set('stoic_session_midday', 'cipher');
+    mockSecureStoreMap.set('stoic_session_evening', 'cipher');
+
+    await service.clearAllWellnessData();
+
+    expect(mockSecureStoreMap.has('stoic_practice_state')).toBe(false);
+    expect(mockSecureStoreMap.has('assessment_store_encrypted')).toBe(false);
+    expect(mockSecureStoreMap.has('subscription_secure_v1')).toBe(false);
+    expect(mockSecureStoreMap.has('stoic_session_morning')).toBe(false);
+    expect(mockSecureStoreMap.has('stoic_session_midday')).toBe(false);
+    expect(mockSecureStoreMap.has('stoic_session_evening')).toBe(false);
+  });
+
+  // Consent audit-trail keys (lawful-basis evidence) and the device-identity
+  // anchor must SURVIVE erasure — deleting them is itself a compliance defect.
+  it('clearAllWellnessData preserves consent + identity keys (audit trail / identity anchor)', async () => {
+    await service.initialize();
+    mockSecureStoreMap.set('consent_record_v1', 'consent');
+    mockSecureStoreMap.set('consent_history_v1', 'history');
+    mockSecureStoreMap.set('legal_gate_consents_v1', 'legal');
+    mockSecureStoreMap.set('age_verification_v1', 'age');
+    mockSecureStoreMap.set('auth_device_id', 'device-anchor');
+    mockSecureStoreMap.set('stoic_practice_state', 'cipher'); // wellness key — SHOULD be swept
+
+    await service.clearAllWellnessData();
+
+    expect(mockSecureStoreMap.has('consent_record_v1')).toBe(true);
+    expect(mockSecureStoreMap.has('consent_history_v1')).toBe(true);
+    expect(mockSecureStoreMap.has('legal_gate_consents_v1')).toBe(true);
+    expect(mockSecureStoreMap.has('age_verification_v1')).toBe(true);
+    expect(mockSecureStoreMap.has('auth_device_id')).toBe(true);
+    expect(mockSecureStoreMap.has('stoic_practice_state')).toBe(false); // sanity
+  });
+
+  // The master key destroys access to ALL wellness ciphertext, so it is only
+  // deleted on a full account-deletion wipe — never on logout/partial clears.
+  it('clearAllWellnessData deletes the master key ONLY on full account-deletion wipe', async () => {
+    await service.initialize();
+    const enc = jest.requireMock('../EncryptionService').default;
+    enc.deleteMasterKey.mockClear();
+
+    // Default (logout / partial wipe): master key preserved.
+    await service.clearAllWellnessData();
+    expect(enc.deleteMasterKey).not.toHaveBeenCalled();
+
+    // Full account-deletion wipe: master key deleted, after the wellness sweep.
+    mockSecureStoreMap.set('stoic_practice_state', 'cipher');
+    await service.clearAllWellnessData({ deleteMasterKey: true });
+    expect(enc.deleteMasterKey).toHaveBeenCalledTimes(1);
+    expect(mockSecureStoreMap.has('stoic_practice_state')).toBe(false);
   });
 
   it('deleteWellnessBlob removes both AsyncStorage copy and legacy SecureStore copy', async () => {

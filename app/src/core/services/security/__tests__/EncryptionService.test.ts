@@ -337,3 +337,22 @@ describe('EncryptionService — error branches (TEST-20)', () => {
     }
   });
 });
+
+describe('EncryptionService — master key deletion (MAINT-241 right-to-erasure)', () => {
+  it('deleteMasterKey removes the master key from SecureStore and resets init state', async () => {
+    const service = EncryptionService.getInstance();
+    await service.initialize();
+    expect(mockSecureStoreMap.has('mental_health_master_key')).toBe(true);
+
+    await service.deleteMasterKey();
+
+    // Master key gone from hardware-backed store — wellness ciphertext is now
+    // cryptographically unrecoverable (the point of account-deletion erasure).
+    expect(mockSecureStoreMap.has('mental_health_master_key')).toBe(false);
+
+    // Init state was reset: a fresh initialize() re-provisions a new master key
+    // rather than short-circuiting on a stale masterKeyInitialized flag.
+    await service.initialize();
+    expect(mockSecureStoreMap.has('mental_health_master_key')).toBe(true);
+  });
+});
