@@ -330,7 +330,7 @@ const styles = StyleSheet.create({
     paddingBottom: spacing[48],
   },
   recommendationCard: {
-    backgroundColor: '#F8F5FF', // Light purple background
+    backgroundColor: colorSystem.themes.learn.background,
     borderRadius: borderRadius.xl,
     padding: spacing[24],
     marginBottom: spacing[32],
@@ -394,7 +394,7 @@ const styles = StyleSheet.create({
   moduleCardEssential: {
     borderWidth: 2,
     borderColor: colorSystem.navigation.learn,
-    backgroundColor: '#FEFAFF', // Very light purple tint
+    backgroundColor: colorSystem.themes.learn.background,
   },
   moduleHeader: {
     flexDirection: 'row',

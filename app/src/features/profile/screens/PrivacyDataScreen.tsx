@@ -493,7 +493,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   infoBox: {
-    backgroundColor: '#F0F4FF',
+    backgroundColor: colorSystem.status.infoBackground,
     borderRadius: borderRadius.medium,
     padding: spacing[16],
     marginTop: spacing[8],

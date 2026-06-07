@@ -356,7 +356,7 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
-    color: '#EF4444',
+    color: colorSystem.status.error,
     marginBottom: spacing[24],
   },
   retryButton: {
@@ -445,7 +445,7 @@ const styles = StyleSheet.create({
     color: colorSystem.base.white,
   },
   infoBox: {
-    backgroundColor: '#F0F4FF',
+    backgroundColor: colorSystem.status.infoBackground,
     borderRadius: borderRadius.medium,
     padding: spacing[16],
     marginTop: spacing[8],
@@ -487,13 +487,13 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.large,
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#EF4444',
+    borderColor: colorSystem.status.error,
     marginBottom: spacing[16],
   },
   dangerButtonText: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
-    color: '#EF4444',
+    color: colorSystem.status.error,
   },
   buttonDisabled: {
     opacity: 0.5,
