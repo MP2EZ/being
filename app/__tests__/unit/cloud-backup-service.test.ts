@@ -160,13 +160,13 @@ describe('CloudBackupService (MAINT-193)', () => {
 
     it('loads persisted configuration from storage', async () => {
       mockAsyncStorage.getItem.mockResolvedValueOnce(
-        JSON.stringify({ autoBackupEnabled: false, compressionEnabled: false })
+        JSON.stringify({ autoBackupEnabled: false, integrityCheckEnabled: false })
       );
 
       await service.initialize();
 
       expect(service.getConfig().autoBackupEnabled).toBe(false);
-      expect(service.getConfig().compressionEnabled).toBe(false);
+      expect(service.getConfig().integrityCheckEnabled).toBe(false);
     });
 
     it('subscribes to the assessment store for change-triggered backups', async () => {
@@ -396,10 +396,10 @@ describe('CloudBackupService (MAINT-193)', () => {
 
   describe('Configuration', () => {
     it('persists updated configuration to storage', async () => {
-      await service.updateConfig({ autoBackupEnabled: false, compressionEnabled: true });
+      await service.updateConfig({ autoBackupEnabled: false, integrityCheckEnabled: false });
 
       expect(service.getConfig().autoBackupEnabled).toBe(false);
-      expect(service.getConfig().compressionEnabled).toBe(true);
+      expect(service.getConfig().integrityCheckEnabled).toBe(false);
       expect(mockAsyncStorage.setItem).toHaveBeenCalledWith(
         '@being/cloud_backup/config',
         JSON.stringify(service.getConfig())
@@ -414,7 +414,6 @@ describe('CloudBackupService (MAINT-193)', () => {
           autoBackupEnabled: expect.any(Boolean),
           autoBackupIntervalMs: expect.any(Number),
           maxBackupSizeMB: expect.any(Number),
-          compressionEnabled: expect.any(Boolean),
           integrityCheckEnabled: expect.any(Boolean),
         })
       );

@@ -315,15 +315,33 @@ const updateDomainProgressForInstance = (
 };
 
 /**
+ * Format a Date as YYYY-MM-DD in the LOCAL timezone.
+ * Single source of truth for date-stamping AND retention cutoffs so the
+ * two never disagree (MAINT-242: a prior UTC-based cutoff drifted one day
+ * ahead of these local stamps in non-UTC zones near midnight, pruning
+ * records that were exactly 90 local days old).
+ */
+const toLocalDateString = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+/**
  * Get today's date in YYYY-MM-DD format (local timezone)
  * Used for check-in completion tracking
  */
-const getTodayString = (): string => {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+const getTodayString = (): string => toLocalDateString(new Date());
+
+/**
+ * Compute the 90-day retention cutoff as a LOCAL-tz YYYY-MM-DD string.
+ * MUST use the same local basis as getTodayString() (see toLocalDateString).
+ */
+const getRetentionCutoffString = (): string => {
+  const cutoffDate = new Date();
+  cutoffDate.setDate(cutoffDate.getDate() - 90);
+  return toLocalDateString(cutoffDate);
 };
 
 /**
@@ -332,9 +350,7 @@ const getTodayString = (): string => {
  * Storage impact: ~3KB/user (negligible)
  */
 const cleanOldCheckInCompletions = (completions: CheckInCompletion[]): CheckInCompletion[] => {
-  const cutoffDate = new Date();
-  cutoffDate.setDate(cutoffDate.getDate() - 90);
-  const cutoffString = cutoffDate.toISOString().split('T')[0];
+  const cutoffString = getRetentionCutoffString();
 
   return completions.filter(completion => cutoffString && completion.date >= cutoffString);
 };
@@ -345,9 +361,7 @@ const cleanOldCheckInCompletions = (completions: CheckInCompletion[]): CheckInCo
  * Storage impact: ~5KB/user (negligible, encrypted)
  */
 const cleanOldPrincipleEngagements = (engagements: PrincipleEngagement[]): PrincipleEngagement[] => {
-  const cutoffDate = new Date();
-  cutoffDate.setDate(cutoffDate.getDate() - 90);
-  const cutoffString = cutoffDate.toISOString().split('T')[0];
+  const cutoffString = getRetentionCutoffString();
 
   return engagements.filter(engagement => cutoffString && engagement.date >= cutoffString);
 };

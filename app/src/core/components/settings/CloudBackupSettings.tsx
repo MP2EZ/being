@@ -333,15 +333,6 @@ export default function CloudBackupSettings({
           />
         </View>
 
-        <View style={styles.configRow}>
-          <Text style={styles.configLabel}>Compression</Text>
-          <Switch
-            value={config.compressionEnabled}
-            onValueChange={(value) => updateConfig({ compressionEnabled: value })}
-            disabled={isConfigLoading}
-          />
-        </View>
-
         {/* Advanced Settings Toggle */}
         <TouchableOpacity
           onPress={() => setShowAdvanced(!showAdvanced)}
