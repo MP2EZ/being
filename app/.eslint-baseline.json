@@ -71,6 +71,7 @@
   "src/core/services/supabase/SupabaseService.ts": 4,
   "src/core/services/supabase/SyncCoordinator.ts": 41,
   "src/core/services/supabase/__tests__/SupabaseService.test.ts": 1,
+  "src/core/services/supabase/__tests__/SupabaseServiceResilience.unit.test.ts": 1,
   "src/core/services/supabase/__tests__/analyticsGate.unit.test.ts": 1,
   "src/core/services/supabase/__tests__/crisisTelemetryDurable.unit.test.ts": 1,
   "src/core/services/supabase/__tests__/crisisTelemetryGuard.unit.test.ts": 1,
