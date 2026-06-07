@@ -284,7 +284,6 @@ export async function restoreFromCloud(): Promise<{
 export async function configureCloudBackup(config: {
   autoBackupEnabled?: boolean;
   autoBackupIntervalMs?: number;
-  compressionEnabled?: boolean;
 }): Promise<void> {
   try {
     await initializeCloudServices();

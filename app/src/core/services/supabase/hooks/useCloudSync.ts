@@ -287,7 +287,6 @@ export function useCloudBackupConfig() {
   const [config, setConfig] = useState({
     autoBackupEnabled: true,
     autoBackupIntervalMs: 4 * 60 * 60 * 1000, // 4 hours
-    compressionEnabled: true,
   });
 
   const [isLoading, setIsLoading] = useState(false);
