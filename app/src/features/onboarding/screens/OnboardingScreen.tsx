@@ -1,22 +1,12 @@
 /**
- * Onboarding Screen - Privacy Compliant Implementation
- * 7-screen onboarding flow with comprehensive privacy protection
- * Provides user consent, privacy settings, and crisis resources
+ * Onboarding Screen
+ * 5-screen onboarding flow (welcome, stoicIntro, notifications, privacy, celebration)
+ * Provides user consent (via consentStore), notification preferences, and crisis resources
  * Crisis button integration on every screen (<3s access)
- *
- * COMPLIANCE FEATURES:
- * - PHI data classification and protection
- * - Granular Privacy consent management
- * - Data minimization validation
- * - Comprehensive audit trail logging
- * - Patient rights implementation (access, amendment, restriction, portability)
- * - Business associate safeguards
- * - Breach notification protocols
  */
 
 
 import { logSecurity, logPerformance, logError, LogCategory } from '@/core/services/logging';
-import { generateTimestampedId } from '@/core/utils/id';
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   View,
@@ -89,19 +79,7 @@ const ACCESSIBILITY = {
 // TypeScript strict mode interfaces and types
 type Screen = 'welcome' | 'stoicIntro' | 'notifications' | 'privacy' | 'celebration';
 
-// Privacy COMPLIANCE TYPES
-// PHI Data Classification
-type DataSensitivityLevel = 'assessment_response' | 'therapeutic_preference' | 'crisis_data' | 'consent_record' | 'metadata';
-type DataProcessingPurpose = 'treatment' | 'payment' | 'operations' | 'emergency';
-type PatientRightType = 'access' | 'amendment' | 'restriction' | 'portability' | 'revocation';
-type ConsentScope = 'assessment_data' | 'therapeutic_data' | 'crisis_intervention' | 'data_analytics' | 'emergency_contact';
-type AuditEventType = 'phi_access' | 'phi_creation' | 'phi_modification' | 'consent_change' | 'crisis_detection' | 'data_export' | 'breach_detection';
-
-// Business Associate Compliance
-type DataProcessingComponent = 'onboarding_screen' | 'assessment_processor' | 'crisis_detector' | 'data_storage' | 'export_service';
-type ComplianceRisk = 'low' | 'medium' | 'high' | 'critical';
-
-// Data Retention and Minimization
+// Data Retention and Minimization (used by NotificationTime)
 type RetentionPeriod = '30_days' | '90_days' | '1_year' | '7_years' | 'indefinite';
 type DataMinimizationStatus = 'necessary' | 'optional' | 'excessive' | 'prohibited';
 
@@ -109,93 +87,12 @@ interface NotificationTime {
   period: 'morning' | 'midday' | 'evening';
   time: string;
   enabled: boolean;
-  // Privacy: Non-PHI preference data
   dataMinimization: DataMinimizationStatus;
   retentionPeriod: RetentionPeriod;
 }
 
 
 // NOTE: Question and Answer interfaces removed - assessments now handled by EnhancedAssessmentFlow
-
-// Privacy COMPLIANCE INTERFACES
-// Comprehensive consent management
-interface DataProtectionConsent {
-  consentId: string;
-  scope: ConsentScope[];
-  purposes: DataProcessingPurpose[];
-  granted: boolean;
-  timestamp: number;
-  ipAddress?: string; // For legal audit trail
-  userAgent?: string; // For verification
-  canRevoke: boolean;
-  expirationDate?: number;
-  witnessSignature?: string; // For high-risk consents
-}
-
-// Audit trail for PHI access
-interface AuditEntry {
-  auditId: string;
-  eventType: AuditEventType;
-  timestamp: number;
-  userId?: string | undefined;
-  sensitivityLevel: DataSensitivityLevel;
-  dataAccessed: string; // Description of data accessed
-  component: DataProcessingComponent;
-  riskLevel: ComplianceRisk;
-  outcome: 'success' | 'failure' | 'blocked';
-  reason?: string | undefined; // For failures or blocks
-}
-
-// Patient rights implementation
-interface PatientRightsRequest {
-  requestId: string;
-  rightType: PatientRightType;
-  requestDate: number;
-  status: 'pending' | 'approved' | 'denied' | 'completed';
-  processingDeadline: number;
-  requestDetails: string;
-  response?: string;
-  responseDate?: number;
-}
-
-// Data minimization compliance
-interface DataMinimizationReport {
-  reportId: string;
-  timestamp: number;
-  dataCollected: {
-    classification: DataSensitivityLevel;
-    status: DataMinimizationStatus;
-    justification: string;
-    retentionPeriod: RetentionPeriod;
-  }[];
-  complianceScore: number; // 0-100
-  recommendations: string[];
-}
-
-// Business Associate Agreement compliance
-interface BusinessAssociateActivity {
-  activityId: string;
-  component: DataProcessingComponent;
-  phiProcessed: DataSensitivityLevel[];
-  timestamp: number;
-  riskAssessment: ComplianceRisk;
-  safeguardsApplied: string[];
-  breachRisk: ComplianceRisk;
-}
-
-// Breach notification tracking
-interface BreachIncident {
-  incidentId: string;
-  detectedAt: number;
-  riskLevel: ComplianceRisk;
-  phiAffected: DataSensitivityLevel[];
-  estimatedRecords: number;
-  mitigationSteps: string[];
-  notificationRequired: boolean;
-  reportedToHHS: boolean;
-  reportedToIndividuals: boolean;
-  status: 'investigating' | 'contained' | 'resolved';
-}
 
 // Component props interface for embedded mode support
 interface OnboardingScreenProps {
@@ -304,7 +201,6 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
     { period: 'midday', time: '13:00', enabled: true, dataMinimization: 'necessary', retentionPeriod: '90_days' },
     { period: 'evening', time: '19:00', enabled: true, dataMinimization: 'necessary', retentionPeriod: '90_days' },
   ]);
-  const [consentProvided, setConsentProvided] = useState<boolean>(false);
   const [completionDestination, setCompletionDestination] = useState<'home' | 'morning'>('home');
 
   // Granular consent preferences (FEAT-90: all default to false for privacy)
@@ -328,10 +224,6 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
   const [announceText, setAnnounceText] = useState<string>('');
   const [lastAnnouncementTime, setLastAnnouncementTime] = useState<number>(0);
   const [focusedElementId, setFocusedElementId] = useState<string | null>(null);
-  const [assessmentStartTime, setAssessmentStartTime] = useState<number>(0);
-  const [isAssessmentPaused, setIsAssessmentPaused] = useState<boolean>(false);
-  const [pauseStartTime, setPauseStartTime] = useState<number>(0);
-  const [totalPausedTime, setTotalPausedTime] = useState<number>(0);
 
   // Refs for programmatic focus management
   const scrollViewRef = useRef<ScrollView>(null);
@@ -356,17 +248,6 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
       try {
         const screenReaderEnabled = await AccessibilityInfo.isScreenReaderEnabled();
         setIsScreenReaderEnabled(screenReaderEnabled);
-
-        if (screenReaderEnabled) {
-          logAuditEvent(
-            'phi_access',
-            'metadata',
-            'Screen reader detected - enabling accessibility accommodations',
-            'onboarding_screen',
-            'low',
-            'success'
-          );
-        }
       } catch (error) {
         if (__DEV__) {
           logSecurity('[Accessibility] Failed to detect screen reader:', 'medium', { error });
@@ -410,16 +291,6 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
     if (Platform.OS === 'ios') {
       AccessibilityInfo.announceForAccessibility(text);
     }
-
-    // Log accessibility interaction for Privacy compliance
-    logAuditEvent(
-      'phi_access',
-      'metadata',
-      `Screen reader announcement: ${text.substring(0, 50)}...`,
-      'onboarding_screen',
-      'low',
-      'success'
-    );
   };
 
   // Focus management for keyboard navigation
@@ -458,32 +329,6 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
     }
   };
 
-  // Assessment pause/resume for cognitive accessibility
-  const pauseAssessment = (): void => {
-    setIsAssessmentPaused(true);
-    setPauseStartTime(Date.now());
-    announceToScreenReader('Assessment paused. You can resume whenever you are ready.');
-
-    logAuditEvent(
-      'phi_access',
-      'assessment_response',
-      'User paused assessment for cognitive accessibility',
-      'assessment_processor',
-      'low',
-      'success'
-    );
-  };
-
-  const resumeAssessment = (): void => {
-    if (isAssessmentPaused && pauseStartTime > 0) {
-      const pauseDuration = Date.now() - pauseStartTime;
-      setTotalPausedTime(prev => prev + pauseDuration);
-      setIsAssessmentPaused(false);
-      setPauseStartTime(0);
-      announceToScreenReader('Assessment resumed. Take your time with each question.');
-    }
-  };
-
   // Progress announcement for screen readers
   const announceProgress = (): void => {
     if (!isScreenReaderEnabled) return;
@@ -492,35 +337,6 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
     const progressText = `Onboarding progress: ${progress}% complete.`;
     announceToScreenReader(progressText);
   };
-
-  // Privacy COMPLIANCE STATE
-  // Granular consent management
-  const [hipaaConsents, setHipaaConsents] = useState<DataProtectionConsent[]>([]);
-  const [consentScope, setConsentScope] = useState<ConsentScope[]>([]);
-
-  // Audit trail management
-  const [auditTrail, setAuditTrail] = useState<AuditEntry[]>([]);
-
-  // Patient rights tracking
-  const [patientRightsRequests, setPatientRightsRequests] = useState<PatientRightsRequest[]>([]);
-
-  // Data minimization compliance
-  const [dataMinimizationReport, setDataMinimizationReport] = useState<DataMinimizationReport | null>(null);
-
-  // Business Associate Activities
-  const [businessAssociateActivities, setBusinessAssociateActivities] = useState<BusinessAssociateActivity[]>([]);
-
-  // Breach incident tracking
-  const [breachIncidents, setBreachIncidents] = useState<BreachIncident[]>([]);
-
-  // Compliance monitoring
-  const [complianceMetrics, setComplianceMetrics] = useState({
-    phiAccessCount: 0,
-    consentChanges: 0,
-    auditEventsToday: 0,
-    complianceScore: 0,
-    lastComplianceCheck: 0,
-  });
 
   // NOTE: Assessment handler functions removed (~236 lines):
   // - validateAssessmentAnswer() - now handled by EnhancedAssessmentFlow
@@ -536,231 +352,6 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
            times.every(t => ['morning', 'midday', 'evening'].includes(t.period));
   };
 
-  // Privacy COMPLIANCE UTILITY FUNCTIONS
-  // Audit trail logging
-  const logAuditEvent = (
-    eventType: AuditEventType,
-    sensitivityLevel: DataSensitivityLevel,
-    dataAccessed: string,
-    component: DataProcessingComponent,
-    riskLevel: ComplianceRisk = 'low',
-    outcome: 'success' | 'failure' | 'blocked' = 'success',
-    reason?: string
-  ): void => {
-    const auditEntry: AuditEntry = {
-      auditId: generateTimestampedId('audit'),
-      eventType,
-      timestamp: Date.now(),
-      sensitivityLevel,
-      dataAccessed,
-      component,
-      riskLevel,
-      outcome,
-      reason,
-    };
-
-    setAuditTrail(prev => [...prev, auditEntry]);
-    setComplianceMetrics(prev => ({
-      ...prev,
-      auditEventsToday: prev.auditEventsToday + 1,
-      phiAccessCount: eventType === 'phi_access' ? prev.phiAccessCount + 1 : prev.phiAccessCount,
-    }));
-
-    // Development logging for compliance monitoring
-    if (__DEV__) {
-      console.log(`[Privacy-Audit] ${eventType}:`, auditEntry);
-    }
-  };
-
-  // PHI data classification helper
-  const classifyPHI = (dataType: string): DataSensitivityLevel => {
-    if (dataType.includes('phq9') || dataType.includes('gad7')) {
-      return 'assessment_response';
-    } else if (dataType.includes('crisis') || dataType.includes('emergency')) {
-      return 'crisis_data';
-    } else if (dataType.includes('value') || dataType.includes('preference')) {
-      return 'therapeutic_preference';
-    } else if (dataType.includes('consent')) {
-      return 'consent_record';
-    }
-    return 'metadata';
-  };
-
-  // Data minimization validation
-  const validateDataMinimization = (
-    classification: DataSensitivityLevel,
-    purpose: DataProcessingPurpose,
-    retentionPeriod: RetentionPeriod
-  ): DataMinimizationStatus => {
-    // Assessment data for treatment is necessary
-    if (classification === 'assessment_response' && purpose === 'treatment') {
-      return 'necessary';
-    }
-    // Crisis data for emergency is always necessary
-    if (classification === 'crisis_data' && purpose === 'emergency') {
-      return 'necessary';
-    }
-    // Therapeutic preferences for treatment are necessary
-    if (classification === 'therapeutic_preference' && purpose === 'treatment') {
-      return 'necessary';
-    }
-    // Analytics purposes are optional for most data
-    if (purpose === 'operations') {
-      return 'optional';
-    }
-    // Payment purposes should be minimal for mental health apps
-    if (purpose === 'payment') {
-      return 'optional';
-    }
-    // Default to necessary to be conservative
-    return 'necessary';
-  };
-
-  // Consent management
-  const grantDataProtectionConsent = (
-    scope: ConsentScope[],
-    purposes: DataProcessingPurpose[]
-  ): void => {
-    const consent: DataProtectionConsent = {
-      consentId: generateTimestampedId('consent'),
-      scope,
-      purposes,
-      granted: true,
-      timestamp: Date.now(),
-      canRevoke: true,
-      expirationDate: Date.now() + (365 * 24 * 60 * 60 * 1000), // 1 year
-    };
-
-    setHipaaConsents(prev => [...prev, consent]);
-    setConsentScope(scope);
-
-    // Log consent event
-    logAuditEvent(
-      'consent_change',
-      'consent_record',
-      `Consent granted for: ${scope.join(', ')}`,
-      'onboarding_screen',
-      'medium'
-    );
-
-    setComplianceMetrics(prev => ({
-      ...prev,
-      consentChanges: prev.consentChanges + 1,
-    }));
-  };
-
-  // Patient rights implementation
-  const handlePatientRightsRequest = (
-    rightType: PatientRightType,
-    requestDetails: string
-  ): void => {
-    const request: PatientRightsRequest = {
-      requestId: generateTimestampedId('rights'),
-      rightType,
-      requestDate: Date.now(),
-      status: 'pending',
-      processingDeadline: Date.now() + (30 * 24 * 60 * 60 * 1000), // 30 days for most rights
-      requestDetails,
-    };
-
-    setPatientRightsRequests(prev => [...prev, request]);
-
-    // Log patient rights request
-    logAuditEvent(
-      'phi_access',
-      'metadata',
-      `Patient rights request: ${rightType}`,
-      'onboarding_screen',
-      'medium'
-    );
-  };
-
-  // Business Associate Activity tracking
-  const logBusinessAssociateActivity = (
-    component: DataProcessingComponent,
-    phiProcessed: DataSensitivityLevel[],
-    riskAssessment: ComplianceRisk,
-    safeguardsApplied: string[]
-  ): void => {
-    const activity: BusinessAssociateActivity = {
-      activityId: generateTimestampedId('ba'),
-      component,
-      phiProcessed,
-      timestamp: Date.now(),
-      riskAssessment,
-      safeguardsApplied,
-      breachRisk: riskAssessment,
-    };
-
-    setBusinessAssociateActivities(prev => [...prev, activity]);
-  };
-
-  // Breach detection and notification
-  const detectPotentialBreach = (
-    phiAffected: DataSensitivityLevel[],
-    estimatedRecords: number,
-    riskLevel: ComplianceRisk
-  ): void => {
-    const incident: BreachIncident = {
-      incidentId: generateTimestampedId('breach'),
-      detectedAt: Date.now(),
-      riskLevel,
-      phiAffected,
-      estimatedRecords,
-      mitigationSteps: [],
-      notificationRequired: riskLevel === 'high' || riskLevel === 'critical',
-      reportedToHHS: false,
-      reportedToIndividuals: false,
-      status: 'investigating',
-    };
-
-    setBreachIncidents(prev => [...prev, incident]);
-
-    // Log breach detection
-    logAuditEvent(
-      'breach_detection',
-      phiAffected[0] || 'metadata',
-      `Potential breach detected affecting ${estimatedRecords} records`,
-      'onboarding_screen',
-      'critical'
-    );
-
-    // In production, this would trigger immediate notification protocols
-    if (__DEV__) {
-      logSecurity('[Privacy-Breach] Potential breach detected:', 'critical', { incident });
-    }
-  };
-
-  // Compliance score calculation
-  const calculateComplianceScore = (): number => {
-    const totalAudits = auditTrail.length;
-    const successfulAudits = auditTrail.filter(a => a.outcome === 'success').length;
-    const validConsents = hipaaConsents.filter(c => c.granted && c.timestamp > Date.now() - (365 * 24 * 60 * 60 * 1000)).length;
-    const pendingRights = patientRightsRequests.filter(r => r.status === 'pending').length;
-    const criticalBreaches = breachIncidents.filter(b => b.riskLevel === 'critical').length;
-
-    let score = 100;
-
-    // Deduct for audit failures
-    if (totalAudits > 0) {
-      score -= ((totalAudits - successfulAudits) / totalAudits) * 20;
-    }
-
-    // Deduct for missing consents
-    if (validConsents === 0 && consentScope.length > 0) {
-      score -= 30;
-    }
-
-    // Deduct for overdue patient rights requests
-    score -= pendingRights * 5;
-
-    // Deduct heavily for critical breaches
-    score -= criticalBreaches * 25;
-
-    return Math.max(0, Math.min(100, score));
-  };
-
-
   // State reset/cleanup functions (following ExercisesScreen pattern)
 
   const resetOnboardingState = (): void => {
@@ -770,7 +361,6 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
       { period: 'midday', time: '13:00', enabled: true, dataMinimization: 'necessary', retentionPeriod: '90_days' },
       { period: 'evening', time: '19:00', enabled: true, dataMinimization: 'necessary', retentionPeriod: '90_days' },
     ]);
-    setConsentProvided(false);
   };
 
   // State debugging helpers (development only)
@@ -779,7 +369,6 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
       return {
         currentScreen,
         notificationSettings: notificationTimes.map(n => `${n.period}:${n.enabled}`),
-        consentProvided,
         progressPercentage: getProgressPercentage(),
       };
     }
@@ -1024,102 +613,6 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
     logStateChange('handleTimePickerCancel', { period: showTimePicker });
   };
 
-  // Enhanced Privacy consent handler with granular consent management
-  const handleConsentToggle = (): void => {
-    const newConsent = !consentProvided;
-    setConsentProvided(newConsent);
-    logStateChange('handleConsentToggle', { consentProvided: newConsent });
-
-    if (newConsent) {
-      // Privacy: Grant comprehensive consent for onboarding data
-      const consentScopes: ConsentScope[] = [
-        'assessment_data',
-        'therapeutic_data',
-        'crisis_intervention'
-      ];
-      const purposes: DataProcessingPurpose[] = [
-        'treatment',
-        'emergency'
-      ];
-
-      grantDataProtectionConsent(consentScopes, purposes);
-
-      // Privacy: Log Business Associate activity for consent
-      logBusinessAssociateActivity(
-        'onboarding_screen',
-        ['consent_record'],
-        'medium',
-        ['granular_consent', 'revocation_rights', 'audit_logging', 'patient_rights']
-      );
-
-      // Privacy: Create data minimization report
-      const minimizationReport: DataMinimizationReport = {
-        reportId: generateTimestampedId('report'),
-        timestamp: Date.now(),
-        dataCollected: [
-          {
-            classification: 'assessment_response',
-            status: 'necessary',
-            justification: 'PHQ-9 and GAD-7 responses required for mental health treatment assessment',
-            retentionPeriod: '1_year'
-          },
-          {
-            classification: 'therapeutic_preference',
-            status: 'necessary',
-            justification: 'User values selection required for personalized therapeutic interventions',
-            retentionPeriod: '1_year'
-          },
-          {
-            classification: 'crisis_data',
-            status: 'necessary',
-            justification: 'Crisis detection data required for emergency safety protocols',
-            retentionPeriod: '7_years'
-          },
-          {
-            classification: 'consent_record',
-            status: 'necessary',
-            justification: 'Consent records required for Privacy compliance and legal protection',
-            retentionPeriod: '7_years'
-          }
-        ],
-        complianceScore: calculateComplianceScore(),
-        recommendations: [
-          'Regular consent renewal (annually)',
-          'Automated data purging after retention periods',
-          'Patient rights access portal implementation',
-          'Breach notification automation'
-        ]
-      };
-
-      setDataMinimizationReport(minimizationReport);
-
-    } else {
-      // Privacy: Log consent revocation
-      logAuditEvent(
-        'consent_change',
-        'consent_record',
-        'User consent revoked during onboarding',
-        'onboarding_screen',
-        'high',
-        'success'
-      );
-
-      // Privacy: Handle right to revocation
-      const revocationRequest: PatientRightsRequest = {
-        requestId: generateTimestampedId('revoke'),
-        rightType: 'revocation',
-        requestDate: Date.now(),
-        status: 'pending',
-        processingDeadline: Date.now() + (24 * 60 * 60 * 1000), // 24 hours for revocation
-        requestDetails: 'User revoked consent during onboarding process',
-      };
-
-      setPatientRightsRequests(prev => [...prev, revocationRequest]);
-    }
-  };
-
-
-
   // Celebration screen button handlers for destination-aware navigation
   const handleStartMorningPractice = (): void => {
     logStateChange('handleStartMorningPractice', { currentScreen });
@@ -1133,44 +626,11 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
     navigateNext();
   };
 
-  // Development-only state inspector with Privacy compliance monitoring
-  const renderStateInspector = (): React.ReactElement | null => {
-    if (!__DEV__) return null;
-
-    const complianceScore = calculateComplianceScore();
-
-    return (
-      <View style={{ position: 'absolute', bottom: 50, right: 10, backgroundColor: 'rgba(0,0,0,0.9)', padding: 8, borderRadius: borderRadius.small, maxWidth: 300 }}>
-        <Text style={{ color: 'white', fontSize: 10, fontWeight: 'bold' }}>
-          🏥 Privacy COMPLIANCE MONITOR
-        </Text>
-        <Text style={{ color: 'white', fontSize: 9, marginTop: 4 }}>
-          State: {currentScreen} | Progress: {getProgressPercentage()}%
-        </Text>
-        <Text style={{ color: 'white', fontSize: 9, marginTop: 2 }}>
-          📊 Compliance: {complianceScore.toFixed(1)}% | 📋 Audits: {auditTrail.length}
-        </Text>
-        <Text style={{ color: 'white', fontSize: 9, marginTop: 2 }}>
-          ✅ Consents: {hipaaConsents.filter(c => c.granted).length} | 🔧 BA Activities: {businessAssociateActivities.length}
-        </Text>
-        <Text style={{ color: 'white', fontSize: 9, marginTop: 2 }}>
-          ⚠️ Breaches: {breachIncidents.length} | 📝 Rights Reqs: {patientRightsRequests.length}
-        </Text>
-        {complianceScore < 80 && (
-          <Text style={{ color: '#ff4444', fontSize: 9, marginTop: 2, fontWeight: 'bold' }}>
-            🚨 COMPLIANCE RISK: Score below 80%
-          </Text>
-        )}
-      </View>
-    );
-  };
-
   // State persistence helpers (following ExercisesScreen pattern)
   const getOnboardingSnapshot = (): object => {
     return {
       currentScreen,
       notificationTimes,
-      consentProvided,
       timestamp: Date.now(),
     };
   };
@@ -1179,7 +639,6 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
     const isValid = {
       screen: ['welcome', 'stoicIntro', 'notifications', 'privacy', 'celebration'].includes(currentScreen),
       notifications: validateNotificationTimes(notificationTimes),
-      consent: typeof consentProvided === 'boolean',
     };
 
     const hasErrors = Object.values(isValid).some(v => !v);
@@ -1772,7 +1231,6 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
   return (
     <View style={{ flex: 1 }}>
       {renderCurrentScreen()}
-      {/* {renderStateInspector()} */}
     </View>
   );
 };
