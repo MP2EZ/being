@@ -12,7 +12,6 @@ The project uses TypeScript path aliases for clean, maintainable imports.
 // Configured in tsconfig.json
 "@/core/*"        → "src/core/*"
 "@/features/*"    → "src/features/*"
-"@/compliance/*"  → "src/compliance/*"
 "@/analytics/*"   → "src/analytics/*"
 "@/types/*"       → "src/types/*"
 ```
@@ -23,7 +22,6 @@ The project uses TypeScript path aliases for clean, maintainable imports.
 // ✅ Good - use path aliases
 import { theme } from '@/core/theme';
 import { CrisisButton } from '@/features/crisis';
-import { HIPAAComplianceEngine } from '@/compliance';
 import { AnalyticsService } from '@/analytics';
 
 // ❌ Bad - relative paths get messy
