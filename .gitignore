@@ -253,3 +253,6 @@ monitoring-*.js
 monitoring-*.py
 # Local test results
 app/test-results/local-performance.json
+
+# Supabase CLI local state (per-worktree link cache: project-ref, pooler-url, etc.)
+supabase/.temp/
