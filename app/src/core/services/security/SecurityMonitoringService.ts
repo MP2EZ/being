@@ -1206,7 +1206,7 @@ export class SecurityMonitoringService {
       const crisisProtocolCompliance = crisisMetrics.securityViolations === 0;
 
       // Check professional access compliance
-      const professionalAccessCompliance = crisisMetrics.professionalAccess >= 0; // Any professional access is compliant
+      const professionalAccessCompliance = true; // MAINT-237: professional-access machinery removed (was always-allow theater); no such feature → trivially compliant
 
       // Check audit trail compliance
       const auditTrailCompliance = crisisMetrics.averageAccessTime < 1000; // Reasonable access time
