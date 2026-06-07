@@ -465,6 +465,12 @@ class CircuitBreaker {
 
     if (state === CircuitBreakerState.CLOSED) {
       this.metrics.circuitOpenTime = null;
+    } else if (state === CircuitBreakerState.OPEN) {
+      // MAINT-242 fix: stamp circuitOpenTime when force-opening (mirrors
+      // transitionToOpen). Without this, shouldAttemptRecovery() — which
+      // compares Date.now() - circuitOpenTime against recoveryTimeout —
+      // never becomes true for a force-opened circuit, wedging it OPEN.
+      this.metrics.circuitOpenTime = Date.now();
     }
   }
 }
