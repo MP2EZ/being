@@ -326,7 +326,6 @@ export class SecurityMonitoringService {
   private realTimeMonitoringTimer: NodeJS.Timeout | null = null;
   private vulnerabilityScanTimer: NodeJS.Timeout | null = null;
   private complianceCheckTimer: NodeJS.Timeout | null = null;
-  private threatAnalysisTimer: NodeJS.Timeout | null = null;
   
   private initialized: boolean = false;
 
@@ -375,10 +374,6 @@ export class SecurityMonitoringService {
       if (inst.complianceCheckTimer) {
         clearInterval(inst.complianceCheckTimer);
         inst.complianceCheckTimer = null;
-      }
-      if (inst.threatAnalysisTimer) {
-        clearInterval(inst.threatAnalysisTimer);
-        inst.threatAnalysisTimer = null;
       }
       inst.monitoringActive = false;
       inst.lastVulnerabilityAssessment = null;
@@ -559,71 +554,6 @@ export class SecurityMonitoringService {
   }
 
   /**
-   * THREAT DETECTION
-   * Real-time threat detection and analysis
-   */
-  public async performThreatDetection(): Promise<ThreatDetectionResult[]> {
-    const startTime = performance.now();
-
-    try {
-      console.log('🔍 Performing threat detection analysis...');
-
-      if (!this.initialized) {
-        throw new Error('Security monitoring service not initialized');
-      }
-
-      const threats: ThreatDetectionResult[] = [];
-
-      // Behavioral analysis
-      const behavioralThreats = await this.detectBehavioralThreats();
-      threats.push(...behavioralThreats);
-
-      // Anomaly detection
-      const anomalyThreats = await this.detectAnomalies();
-      threats.push(...anomalyThreats);
-
-      // Signature-based detection
-      const signatureThreats = await this.detectSignatureBasedThreats();
-      threats.push(...signatureThreats);
-
-      // ML-based detection
-      const mlThreats = await this.detectMLBasedThreats();
-      threats.push(...mlThreats);
-
-      // Store detected threats
-      this.detectedThreats.push(...threats);
-
-      // Keep only recent threats
-      const cutoffTime = Date.now() - (24 * 60 * 60 * 1000); // 24 hours
-      this.detectedThreats = this.detectedThreats.filter(threat => threat.timestamp > cutoffTime);
-
-      // Trigger automated responses for high-confidence threats
-      for (const threat of threats) {
-        if (threat.confidence > 0.8 && (threat.severity === 'critical' || threat.severity === 'high')) {
-          await this.triggerAutomatedThreatResponse(threat);
-        }
-      }
-
-      const detectionTime = performance.now() - startTime;
-
-      // Validate detection performance
-      if (detectionTime > MONITORING_CONFIG.DETECTION_LATENCY_THRESHOLD_MS) {
-        logSecurity(`⚠️  Threat detection slow: ${detectionTime.toFixed(2)}ms > ${MONITORING_CONFIG.DETECTION_LATENCY_THRESHOLD_MS}ms`, 'medium', { component: 'SecurityService' });
-      }
-
-      logPerformance('SecurityMonitoringService.detectThreats', detectionTime, {
-        threatCount: threats.length
-      });
-
-      return threats;
-
-    } catch (error) {
-      logError(LogCategory.SECURITY, '🚨 THREAT DETECTION ERROR:', error instanceof Error ? error : new Error(String(error)));
-      return [];
-    }
-  }
-
-  /**
    * INCIDENT DETECTION AND RESPONSE
    * Automated incident detection and response system
    */
@@ -639,21 +569,9 @@ export class SecurityMonitoringService {
 
       const incidents: IncidentDetectionEvent[] = [];
 
-      // Security breach detection
-      const securityBreaches = await this.detectSecurityBreaches();
-      incidents.push(...securityBreaches);
-
-      // Data leak detection
-      const dataLeaks = await this.detectDataLeaks();
-      incidents.push(...dataLeaks);
-
       // Authentication failure pattern detection
       const authFailures = await this.detectAuthenticationFailures();
       incidents.push(...authFailures);
-
-      // Malware detection
-      const malwareIncidents = await this.detectMalware();
-      incidents.push(...malwareIncidents);
 
       // Compliance violation detection
       const complianceViolations = await this.detectComplianceViolations();
@@ -824,15 +742,6 @@ export class SecurityMonitoringService {
         }
       }, MONITORING_CONFIG.COMPLIANCE_CHECK_MS);
 
-      // Threat analysis (every minute)
-      this.threatAnalysisTimer = setInterval(async () => {
-        try {
-          await this.performThreatDetection();
-        } catch (error) {
-          logError(LogCategory.SECURITY, '🚨 THREAT ANALYSIS ERROR:', error instanceof Error ? error : new Error(String(error)));
-        }
-      }, MONITORING_CONFIG.THREAT_ANALYSIS_MS);
-
       console.log('✅ Continuous security monitoring started');
 
     } catch (error) {
@@ -849,21 +758,9 @@ export class SecurityMonitoringService {
     const vulnerabilities: SecurityVulnerability[] = [];
 
     try {
-      // Check for component vulnerabilities
-      const componentVulns = await this.checkComponentVulnerabilities();
-      vulnerabilities.push(...componentVulns);
-
-      // Check secure configuration
+      // Check secure configuration (real __DEV__ vulnerability surface)
       const configVulns = await this.checkSecureConfiguration();
       vulnerabilities.push(...configVulns);
-
-      // Check code quality
-      const codeQualityVulns = await this.checkCodeQuality();
-      vulnerabilities.push(...codeQualityVulns);
-
-      // Check dependency vulnerabilities
-      const dependencyVulns = await this.checkDependencyVulnerabilities();
-      vulnerabilities.push(...dependencyVulns);
 
     } catch (error) {
       logError(LogCategory.SECURITY, '🚨 APPLICATION SECURITY ASSESSMENT ERROR:', error instanceof Error ? error : new Error(String(error)));
@@ -1095,39 +992,6 @@ export class SecurityMonitoringService {
    * COMPONENT VULNERABILITY CHECKS
    */
 
-  private async checkComponentVulnerabilities(): Promise<SecurityVulnerability[]> {
-    const vulnerabilities: SecurityVulnerability[] = [];
-
-    try {
-      // Check React Native components for common vulnerabilities
-      // This would integrate with actual vulnerability databases
-      
-      // Placeholder vulnerability check
-      vulnerabilities.push({
-        vulnerabilityId: await this.generateVulnerabilityId(),
-        category: 'application_security',
-        severity: 'info',
-        title: 'Component Security Analysis Complete',
-        description: 'All React Native components have been analyzed for security vulnerabilities',
-        affectedComponents: ['React Native Components'],
-        riskScore: 1.0,
-        exploitability: 'low',
-        impact: { confidentiality: 'none', integrity: 'none', availability: 'none' },
-        detectionMethod: 'static_analysis',
-        firstDetected: Date.now(),
-        lastSeen: Date.now(),
-        mitigationStatus: 'mitigated',
-        mitigationSteps: ['Continue regular security analysis'],
-        estimatedFixTime: 0
-      });
-
-    } catch (error) {
-      logError(LogCategory.SECURITY, '🚨 COMPONENT VULNERABILITY CHECK ERROR:', error instanceof Error ? error : new Error(String(error)));
-    }
-
-    return vulnerabilities;
-  }
-
   private async checkSecureConfiguration(): Promise<SecurityVulnerability[]> {
     const vulnerabilities: SecurityVulnerability[] = [];
 
@@ -1160,161 +1024,9 @@ export class SecurityMonitoringService {
     return vulnerabilities;
   }
 
-  private async checkCodeQuality(): Promise<SecurityVulnerability[]> {
-    const vulnerabilities: SecurityVulnerability[] = [];
-
-    try {
-      // Code quality analysis would be implemented here
-      // For now, return positive result
-      
-      vulnerabilities.push({
-        vulnerabilityId: await this.generateVulnerabilityId(),
-        category: 'application_security',
-        severity: 'info',
-        title: 'Code Quality Analysis Complete',
-        description: 'Code quality analysis has been performed',
-        affectedComponents: ['Application Code'],
-        riskScore: 1.0,
-        exploitability: 'low',
-        impact: { confidentiality: 'none', integrity: 'none', availability: 'none' },
-        detectionMethod: 'static_analysis',
-        firstDetected: Date.now(),
-        lastSeen: Date.now(),
-        mitigationStatus: 'mitigated',
-        mitigationSteps: ['Continue regular code quality analysis'],
-        estimatedFixTime: 0
-      });
-
-    } catch (error) {
-      logError(LogCategory.SECURITY, '🚨 CODE QUALITY CHECK ERROR:', error instanceof Error ? error : new Error(String(error)));
-    }
-
-    return vulnerabilities;
-  }
-
-  private async checkDependencyVulnerabilities(): Promise<SecurityVulnerability[]> {
-    const vulnerabilities: SecurityVulnerability[] = [];
-
-    try {
-      // Dependency vulnerability analysis would be implemented here
-      // This would check package.json and node_modules for known vulnerabilities
-      
-      vulnerabilities.push({
-        vulnerabilityId: await this.generateVulnerabilityId(),
-        category: 'application_security',
-        severity: 'info',
-        title: 'Dependency Analysis Complete',
-        description: 'All dependencies have been analyzed for security vulnerabilities',
-        affectedComponents: ['Dependencies'],
-        riskScore: 1.0,
-        exploitability: 'low',
-        impact: { confidentiality: 'none', integrity: 'none', availability: 'none' },
-        detectionMethod: 'static_analysis',
-        firstDetected: Date.now(),
-        lastSeen: Date.now(),
-        mitigationStatus: 'mitigated',
-        mitigationSteps: ['Keep dependencies updated', 'Regular vulnerability scanning'],
-        estimatedFixTime: 0
-      });
-
-    } catch (error) {
-      logError(LogCategory.SECURITY, '🚨 DEPENDENCY VULNERABILITY CHECK ERROR:', error instanceof Error ? error : new Error(String(error)));
-    }
-
-    return vulnerabilities;
-  }
-
-  /**
-   * THREAT DETECTION METHODS
-   */
-
-  private async detectBehavioralThreats(): Promise<ThreatDetectionResult[]> {
-    const threats: ThreatDetectionResult[] = [];
-
-    try {
-      // Behavioral analysis would be implemented here
-      // For now, return empty array
-
-    } catch (error) {
-      logError(LogCategory.SECURITY, '🚨 BEHAVIORAL THREAT DETECTION ERROR:', error instanceof Error ? error : new Error(String(error)));
-    }
-
-    return threats;
-  }
-
-  private async detectAnomalies(): Promise<ThreatDetectionResult[]> {
-    const threats: ThreatDetectionResult[] = [];
-
-    try {
-      // Anomaly detection would be implemented here
-      // For now, return empty array
-
-    } catch (error) {
-      logError(LogCategory.SECURITY, '🚨 ANOMALY DETECTION ERROR:', error instanceof Error ? error : new Error(String(error)));
-    }
-
-    return threats;
-  }
-
-  private async detectSignatureBasedThreats(): Promise<ThreatDetectionResult[]> {
-    const threats: ThreatDetectionResult[] = [];
-
-    try {
-      // Signature-based detection would be implemented here
-      // For now, return empty array
-
-    } catch (error) {
-      logError(LogCategory.SECURITY, '🚨 SIGNATURE THREAT DETECTION ERROR:', error instanceof Error ? error : new Error(String(error)));
-    }
-
-    return threats;
-  }
-
-  private async detectMLBasedThreats(): Promise<ThreatDetectionResult[]> {
-    const threats: ThreatDetectionResult[] = [];
-
-    try {
-      // ML-based detection would be implemented here
-      // For now, return empty array
-
-    } catch (error) {
-      logError(LogCategory.SECURITY, '🚨 ML THREAT DETECTION ERROR:', error instanceof Error ? error : new Error(String(error)));
-    }
-
-    return threats;
-  }
-
   /**
    * INCIDENT DETECTION METHODS
    */
-
-  private async detectSecurityBreaches(): Promise<IncidentDetectionEvent[]> {
-    const incidents: IncidentDetectionEvent[] = [];
-
-    try {
-      // Security breach detection would be implemented here
-      // For now, return empty array
-
-    } catch (error) {
-      logError(LogCategory.SECURITY, '🚨 SECURITY BREACH DETECTION ERROR:', error instanceof Error ? error : new Error(String(error)));
-    }
-
-    return incidents;
-  }
-
-  private async detectDataLeaks(): Promise<IncidentDetectionEvent[]> {
-    const incidents: IncidentDetectionEvent[] = [];
-
-    try {
-      // Data leak detection would be implemented here
-      // For now, return empty array
-
-    } catch (error) {
-      logError(LogCategory.SECURITY, '🚨 DATA LEAK DETECTION ERROR:', error instanceof Error ? error : new Error(String(error)));
-    }
-
-    return incidents;
-  }
 
   private async detectAuthenticationFailures(): Promise<IncidentDetectionEvent[]> {
     const incidents: IncidentDetectionEvent[] = [];
@@ -1347,20 +1059,6 @@ export class SecurityMonitoringService {
 
     } catch (error) {
       logError(LogCategory.SECURITY, '🚨 AUTHENTICATION FAILURE DETECTION ERROR:', error instanceof Error ? error : new Error(String(error)));
-    }
-
-    return incidents;
-  }
-
-  private async detectMalware(): Promise<IncidentDetectionEvent[]> {
-    const incidents: IncidentDetectionEvent[] = [];
-
-    try {
-      // Malware detection would be implemented here
-      // For now, return empty array
-
-    } catch (error) {
-      logError(LogCategory.SECURITY, '🚨 MALWARE DETECTION ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
 
     return incidents;
@@ -1655,66 +1353,6 @@ export class SecurityMonitoringService {
     return recommendations;
   }
 
-  private async triggerAutomatedThreatResponse(threat: ThreatDetectionResult): Promise<void> {
-    try {
-      console.log(`🚨 Triggering automated response for threat: ${threat.detectionId}`);
-
-      // Implement automated response based on threat type
-      switch (threat.threatType) {
-        case 'unauthorized_access':
-          await this.blockUnauthorizedAccess(threat);
-          break;
-        case 'data_exfiltration':
-          await this.preventDataExfiltration(threat);
-          break;
-        case 'malware':
-          await this.quarantineMalware(threat);
-          break;
-        default:
-          await this.defaultThreatResponse(threat);
-      }
-
-    } catch (error) {
-      logError(LogCategory.SECURITY, '🚨 AUTOMATED THREAT RESPONSE ERROR:', error instanceof Error ? error : new Error(String(error)));
-    }
-  }
-
-  private async blockUnauthorizedAccess(threat: ThreatDetectionResult): Promise<void> {
-    try {
-      // Implementation would block unauthorized access
-      console.log(`🔒 Blocking unauthorized access: ${threat.detectionId}`);
-    } catch (error) {
-      logError(LogCategory.SECURITY, '🚨 BLOCK UNAUTHORIZED ACCESS ERROR:', error instanceof Error ? error : new Error(String(error)));
-    }
-  }
-
-  private async preventDataExfiltration(threat: ThreatDetectionResult): Promise<void> {
-    try {
-      // Implementation would prevent data exfiltration
-      console.log(`🛡️  Preventing data exfiltration: ${threat.detectionId}`);
-    } catch (error) {
-      logError(LogCategory.SECURITY, '🚨 PREVENT DATA EXFILTRATION ERROR:', error instanceof Error ? error : new Error(String(error)));
-    }
-  }
-
-  private async quarantineMalware(threat: ThreatDetectionResult): Promise<void> {
-    try {
-      // Implementation would quarantine malware
-      console.log(`🦠 Quarantining malware: ${threat.detectionId}`);
-    } catch (error) {
-      logError(LogCategory.SECURITY, '🚨 QUARANTINE MALWARE ERROR:', error instanceof Error ? error : new Error(String(error)));
-    }
-  }
-
-  private async defaultThreatResponse(threat: ThreatDetectionResult): Promise<void> {
-    try {
-      // Default threat response
-      console.log(`⚠️  Default threat response: ${threat.detectionId}`);
-    } catch (error) {
-      logError(LogCategory.SECURITY, '🚨 DEFAULT THREAT RESPONSE ERROR:', error instanceof Error ? error : new Error(String(error)));
-    }
-  }
-
   private async processIncident(incident: IncidentDetectionEvent): Promise<void> {
     try {
       console.log(`🚨 Processing incident: ${incident.incidentId}`);
@@ -1722,11 +1360,6 @@ export class SecurityMonitoringService {
       // Execute automatic response actions
       for (const action of incident.responseActions) {
         await this.executeResponseAction(action, incident);
-      }
-
-      // Escalate if required
-      if (incident.escalationRequired) {
-        await this.escalateIncident(incident);
       }
 
       // Update containment status
@@ -1757,20 +1390,10 @@ export class SecurityMonitoringService {
     }
   }
 
-  private async escalateIncident(incident: IncidentDetectionEvent): Promise<void> {
-    try {
-      console.log(`🚨 Escalating incident: ${incident.incidentId}`);
-      // Implementation would escalate to security team
-    } catch (error) {
-      logError(LogCategory.SECURITY, '🚨 INCIDENT ESCALATION ERROR:', error instanceof Error ? error : new Error(String(error)));
-    }
-  }
-
   private async performRealTimeMonitoring(): Promise<void> {
     try {
       // Perform lightweight real-time checks
       await this.checkSystemHealth();
-      await this.detectActiveThreats();
       await this.updateSecurityMetrics();
     } catch (error) {
       logError(LogCategory.SECURITY, '🚨 REAL-TIME MONITORING ERROR:', error instanceof Error ? error : new Error(String(error)));
@@ -1787,15 +1410,6 @@ export class SecurityMonitoringService {
       this.securityMetrics.timestamp = Date.now();
     } catch (error) {
       logError(LogCategory.SECURITY, '🚨 SYSTEM HEALTH CHECK ERROR:', error instanceof Error ? error : new Error(String(error)));
-    }
-  }
-
-  private async detectActiveThreats(): Promise<void> {
-    try {
-      // Detect active threats in real-time
-      // Implementation would be lightweight for real-time operation
-    } catch (error) {
-      logError(LogCategory.SECURITY, '🚨 ACTIVE THREAT DETECTION ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -2071,11 +1685,6 @@ export class SecurityMonitoringService {
       if (this.complianceCheckTimer) {
         clearInterval(this.complianceCheckTimer);
         this.complianceCheckTimer = null;
-      }
-
-      if (this.threatAnalysisTimer) {
-        clearInterval(this.threatAnalysisTimer);
-        this.threatAnalysisTimer = null;
       }
 
       console.log('✅ Continuous security monitoring stopped');
