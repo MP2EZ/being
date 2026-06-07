@@ -26,6 +26,7 @@
 import { Platform } from 'react-native';
 import { LogCategory, logger } from './ProductionLogger';
 import { env } from '@/core/config/env';
+import { isSensitiveRoute, sanitizeScreenName } from '@/core/utils/sensitiveScreens';
 
 /**
  * CONFIGURATION
@@ -354,7 +355,7 @@ export class ExternalErrorReporter {
       // Block navigation breadcrumbs to assessment/crisis screens
       if (breadcrumb.category === 'navigation') {
         const route = breadcrumb.data?.to || breadcrumb.message || '';
-        if (this.isSensitiveRoute(route)) {
+        if (isSensitiveRoute(route)) {
           return null;
         }
       }
@@ -477,7 +478,7 @@ export class ExternalErrorReporter {
   private sanitizeError(error: Error, context?: any): SanitizedErrorEvent {
     const sanitizedContext: SanitizedErrorEvent['context'] = {};
 
-    const screenName = this.sanitizeScreenName(context?.screenName);
+    const screenName = sanitizeScreenName(context?.screenName);
     if (screenName !== undefined) {
       sanitizedContext.screenName = screenName;
     }
@@ -527,39 +528,6 @@ export class ExternalErrorReporter {
       .replace(/\/Users\/[^/]+\//gi, '/~/')
       .replace(/C:\\Users\\[^\\]+\\/gi, 'C:\\~\\')
       .replace(/node_modules/gi, 'nm');
-  }
-
-  /**
-   * Sanitize screen name
-   */
-  private sanitizeScreenName(name?: string): string | undefined {
-    if (!name) return undefined;
-
-    // Only allow generic screen names
-    const allowedScreens = [
-      'Home', 'Settings', 'Profile', 'Learn', 'Practice',
-      'Morning', 'Midday', 'Evening', 'CheckIn', 'Progress',
-    ];
-
-    const genericName = name.replace(/Screen$/, '');
-    if (allowedScreens.some(s => genericName.toLowerCase().includes(s.toLowerCase()))) {
-      return genericName;
-    }
-
-    return 'App'; // Default for sensitive screens
-  }
-
-  /**
-   * Check if route is sensitive
-   */
-  private isSensitiveRoute(route: string): boolean {
-    const sensitiveRoutes = [
-      'assessment', 'phq', 'gad', 'crisis', 'emergency',
-      'safety', 'intervention', 'journal', 'reflection'
-    ];
-
-    const routeLower = route.toLowerCase();
-    return sensitiveRoutes.some(r => routeLower.includes(r));
   }
 
   /**
