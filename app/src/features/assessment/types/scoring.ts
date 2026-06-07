@@ -420,13 +420,6 @@ export function isGAD7ScoringResult(
   return !('suicidalIdeation' in result);
 }
 
-export function isCrisisScore(
-  score: number,
-  type: AssessmentType
-): boolean {
-  return type === 'phq9' ? score >= 15 : score >= 15;
-}
-
 export function isValidAssessmentScore(
   score: number, 
   type: AssessmentType
