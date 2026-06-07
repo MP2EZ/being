@@ -198,23 +198,27 @@ ln -s ../../.config/env.development app/.env.development
 
 `/b-release` promotes `development → main` and tags the merge commit. The actual TestFlight build is produced by `.github/workflows/release.yml`, which fires on every push to `main`:
 
-- **Trigger**: `push: main` (release PR merge) or manual `workflow_dispatch`.
+- **Trigger**: `push: main` (release PR merge) or manual `workflow_dispatch` (with an optional `dry_run` input — see "Dry-run validation" below).
 - **Action**: a single `eas build --platform ios --profile production --auto-submit --submit-profile production --non-interactive --no-wait` step. EAS chains build → TestFlight submission server-side; the workflow itself exits in under two minutes while the ~20-30 min build runs asynchronously on EAS.
 - **Platform scope**: iOS only. Android Play Store submission is out of scope; add a parallel workflow when it's needed.
 
 ### Required GitHub Actions secret
 
-`EXPO_TOKEN` — generate with `eas user:tokens:create --name release-yml` from any worktree's `app/` directory, then add to repo secrets:
+`EXPO_TOKEN` — eas-cli has **no** token-create command; mint a **Personal Access Token** (or a Robot user's token) on the web at <https://expo.dev/settings/access-tokens>, then add it to repo secrets:
 
 ```bash
-gh secret set EXPO_TOKEN --body "$(cd app && eas user:tokens:create --name release-yml)"
+gh secret set EXPO_TOKEN --body "<paste-token-from-expo.dev>"
 ```
 
-Rotate the token by repeating the same command; the new value overwrites the old.
+Rotate by creating a new token on the website and re-running `gh secret set` (the new value overwrites the old).
+
+### Dry-run validation
+
+`workflow_dispatch` accepts a `dry_run` boolean input. With `dry_run=true` the job runs checkout → install → pre-flight grep → `eas whoami` (proving the `EXPO_TOKEN` resolves) and then **skips** the `eas build` step — so you can verify the whole pipeline without producing a build or touching TestFlight. Run it from GitHub → Actions → "Release - iOS TestFlight" → Run workflow → tick `dry_run`. A green job means the next real `main` push will build cleanly.
 
 ### Pre-flight placeholder check
 
-The workflow refuses to build if `app/eas.json`'s `submit.production.ios` block still contains the `PLACEHOLDER_APP_ID` / `PLACEHOLDER_TEAM_ID` literal strings (INFRA-82 carried real credentials into EAS but didn't reconcile them into the `eas.json` text). The grep fires before the EAS step so you don't burn 20+ Actions-minutes on a build whose submission would have been rejected.
+The workflow refuses to build if `app/eas.json`'s `submit.*.ios` blocks contain the `PLACEHOLDER_APP_ID` / `PLACEHOLDER_TEAM_ID` literal strings. MAINT-161 reconciled the real `ascAppId` / `appleTeamId` (and the `fyi.being.app` bundle ID) into `eas.json`, so this grep is now a regression safety net — it fires before the EAS step so a future reintroduction of a placeholder can't burn 20+ Actions-minutes on a build whose submission would be rejected.
 
 ### Manual re-run
 
