@@ -6,7 +6,6 @@
  * - Certificate pins are valid SHA-256 SPKI hashes
  * - Minimum 3 pins per endpoint (primary + 2 backups)
  * - Fail-closed policy (block on mismatch)
- * - Crisis endpoint fallback for life-safety
  * - Development bypass requires explicit opt-in
  * - Audit logging for HIPAA compliance
  *
@@ -40,9 +39,7 @@ import {
   PIN_VALIDATION_CONFIG,
   getPinsForHost,
   validateCertificatePin,
-  handlePinValidationFailure,
   shouldBypassPinning,
-  isCrisisEndpoint,
   logSecurityEvent,
   DataClassification,
   PinValidationResult,
@@ -228,82 +225,11 @@ describe('validateCertificatePin', () => {
   });
 });
 
-describe('Crisis Endpoint Detection', () => {
-  it('should identify crisis endpoints', () => {
-    expect(isCrisisEndpoint('/api/crisis/intervention')).toBe(true);
-    expect(isCrisisEndpoint('/api/emergency/call')).toBe(true);
-    expect(isCrisisEndpoint('/api/intervention/start')).toBe(true);
-    expect(isCrisisEndpoint('/api/safety-plan/view')).toBe(true);
-    expect(isCrisisEndpoint('/api/988/redirect')).toBe(true);
-  });
-
-  it('should not flag non-crisis endpoints', () => {
-    expect(isCrisisEndpoint('/api/checkin/submit')).toBe(false);
-    expect(isCrisisEndpoint('/api/users/profile')).toBe(false);
-    expect(isCrisisEndpoint('/api/analytics/events')).toBe(false);
-  });
-
-  it('should be case-insensitive', () => {
-    expect(isCrisisEndpoint('/api/CRISIS/test')).toBe(true);
-    expect(isCrisisEndpoint('/api/Crisis/Test')).toBe(true);
-  });
-});
-
-describe('handlePinValidationFailure', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
-
-  it('should return fallback for crisis endpoints', () => {
-    const action = handlePinValidationFailure(
-      '/api/crisis/intervention',
-      'PHI_CRISIS',
-      'Pin mismatch error'
-    );
-
-    expect(action).toBe('fallback');
-    expect(mockLogSecurity).toHaveBeenCalledWith(
-      expect.stringContaining('crisis_fallback'),
-      expect.any(String),
-      expect.objectContaining({
-        audit: expect.objectContaining({
-          event: 'crisis_fallback',
-          action: 'fallback',
-        }),
-      })
-    );
-  });
-
-  it('should return block for non-crisis endpoints', () => {
-    const action = handlePinValidationFailure(
-      '/api/checkin/submit',
-      'PHI_CHECKIN',
-      'Pin mismatch error'
-    );
-
-    expect(action).toBe('block');
-    expect(mockLogSecurity).toHaveBeenCalledWith(
-      expect.stringContaining('pin_validation_failure'),
-      expect.any(String),
-      expect.objectContaining({
-        audit: expect.objectContaining({
-          event: 'pin_validation_failure',
-          action: 'block',
-        }),
-      })
-    );
-  });
-
-  it('should log error for validation failures', () => {
-    handlePinValidationFailure('/api/data', 'PHI_CLINICAL', 'Test error');
-
-    expect(mockLogError).toHaveBeenCalledWith(
-      'security',
-      expect.stringContaining('Certificate pin validation failed'),
-      expect.any(Error)
-    );
-  });
-});
+// INFRA-231: the crisis-endpoint detection + pin-failure fallback apparatus
+// (isCrisisEndpoint / handlePinValidationFailure) was removed — it logged a
+// crisis_fallback "security downgrade" that never actually validated a pin.
+// Crisis endpoints now use the same standard OS-validated HTTPS as every other
+// request, so there is no crisis-specific branch left to test.
 
 describe('Security Event Logging', () => {
   beforeEach(() => {
@@ -312,18 +238,18 @@ describe('Security Event Logging', () => {
 
   it('should log events with required audit fields', () => {
     logSecurityEvent({
-      event: 'pin_validation_success',
+      event: 'development_bypass',
       endpoint: 'test.supabase.co',
       dataClassification: 'PHI_CLINICAL',
       action: 'allow',
     });
 
     expect(mockLogSecurity).toHaveBeenCalledWith(
-      expect.stringContaining('pin_validation_success'),
-      'low',
+      expect.stringContaining('development_bypass'),
+      'medium',
       expect.objectContaining({
         audit: expect.objectContaining({
-          event: 'pin_validation_success',
+          event: 'development_bypass',
           endpoint: 'test.supabase.co',
           dataClassification: 'PHI_CLINICAL',
           action: 'allow',
@@ -341,21 +267,6 @@ describe('Security Event Logging', () => {
       dataClassification: 'PHI_CLINICAL',
       action: 'block',
       securityException: 'Pin mismatch',
-    });
-
-    expect(mockLogSecurity).toHaveBeenCalledWith(
-      expect.any(String),
-      'high',
-      expect.any(Object)
-    );
-  });
-
-  it('should log crisis fallback as high severity', () => {
-    logSecurityEvent({
-      event: 'crisis_fallback',
-      endpoint: '/crisis/help',
-      dataClassification: 'PHI_CRISIS',
-      action: 'fallback',
     });
 
     expect(mockLogSecurity).toHaveBeenCalledWith(
@@ -396,7 +307,7 @@ describe('Data Classification Types', () => {
 
     classifications.forEach((classification) => {
       logSecurityEvent({
-        event: 'pin_validation_success',
+        event: 'development_bypass',
         endpoint: 'test',
         dataClassification: classification,
         action: 'allow',
@@ -420,7 +331,7 @@ describe('HIPAA Compliance Requirements', () => {
   it('should have audit controls (§164.312(b))', () => {
     // Verify logging is called with audit structure
     logSecurityEvent({
-      event: 'pin_validation_success',
+      event: 'development_bypass',
       endpoint: 'test',
       dataClassification: 'PHI_CLINICAL',
       action: 'allow',
@@ -438,16 +349,6 @@ describe('HIPAA Compliance Requirements', () => {
     );
   });
 
-  it('should support crisis fallback per §164.308(a)(7)(ii)(E)', () => {
-    // Emergency access provision - crisis endpoints should have fallback
-    const action = handlePinValidationFailure(
-      '/crisis/988',
-      'PHI_CRISIS',
-      'Error'
-    );
-
-    expect(action).toBe('fallback');
-  });
 });
 
 describe('Security Edge Cases', () => {

@@ -138,35 +138,16 @@ export interface PinValidationResult {
 export interface CertificatePinningAuditLog {
   timestamp: string;
   event:
-    | 'pin_validation_success'
     | 'pin_validation_failure'
     | 'certificate_rotation'
     | 'fallback_pin_used'
-    | 'development_bypass'
-    | 'crisis_fallback';
+    | 'development_bypass';
   endpoint: string;
   matchedPin?: string;
   dataClassification: DataClassification;
   action: 'allow' | 'block' | 'fallback';
   securityException?: string;
   platform: string;
-}
-
-/**
- * Check if endpoint is crisis-critical
- * Crisis endpoints get fallback behavior per Privacy §164.308(a)(7)(ii)(E)
- * Life-safety takes precedence over security controls
- */
-export function isCrisisEndpoint(url: string): boolean {
-  const crisisPatterns = [
-    '/crisis/',
-    '/emergency/',
-    '/intervention/',
-    '/safety-plan/',
-    '/988/', // National Suicide Prevention Lifeline
-  ];
-
-  return crisisPatterns.some((pattern) => url.toLowerCase().includes(pattern));
 }
 
 /**
@@ -263,8 +244,7 @@ export function logSecurityEvent(
 
   // Determine severity based on event type
   const severity =
-    event.event === 'pin_validation_failure' ||
-    event.event === 'crisis_fallback'
+    event.event === 'pin_validation_failure'
       ? 'high'
       : event.event === 'development_bypass'
         ? 'medium'
@@ -282,47 +262,6 @@ export function logSecurityEvent(
       new Error(event.securityException || 'Pin mismatch')
     );
   }
-}
-
-/**
- * Handle pin validation failure
- * Returns action to take: 'block' or 'fallback' (crisis only)
- */
-export function handlePinValidationFailure(
-  url: string,
-  dataClassification: DataClassification,
-  error: string
-): 'block' | 'fallback' {
-  // COMPLIANCE: Crisis endpoints get fallback per life-safety requirement
-  if (isCrisisEndpoint(url)) {
-    logSecurityEvent({
-      event: 'crisis_fallback',
-      endpoint: url,
-      dataClassification,
-      action: 'fallback',
-      securityException:
-        'Crisis endpoint pin failure - fallback allowed per life-safety requirement (Privacy §164.308(a)(7)(ii)(E))',
-    });
-
-    // Alert would be sent to security monitoring in production
-    logSecurity(
-      '[SECURITY ALERT] Crisis endpoint pin failure - using fallback',
-      'high'
-    );
-
-    return 'fallback';
-  }
-
-  // All other endpoints: fail-closed
-  logSecurityEvent({
-    event: 'pin_validation_failure',
-    endpoint: url,
-    dataClassification,
-    action: 'block',
-    securityException: error,
-  });
-
-  return 'block';
 }
 
 /**
@@ -372,8 +311,6 @@ export default {
   PIN_VALIDATION_CONFIG,
   getPinsForHost,
   validateCertificatePin,
-  handlePinValidationFailure,
   shouldBypassPinning,
-  isCrisisEndpoint,
   logSecurityEvent,
 };
