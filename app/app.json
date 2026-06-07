@@ -14,7 +14,7 @@
     "scheme": "being",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.being.app",
+      "bundleIdentifier": "fyi.being.app",
       "buildNumber": "2",
       "icon": "./assets/icon.png",
       "deploymentTarget": "16.4",
@@ -30,7 +30,7 @@
       ]
     },
     "android": {
-      "package": "com.being.app",
+      "package": "fyi.being.app",
       "versionCode": 2,
       "icon": "./assets/icon.png",
       "intentFilters": [
@@ -66,7 +66,7 @@
       [
         "./plugins/withAppGroupsEntitlement",
         {
-          "groups": ["group.com.being.app.widgets"]
+          "groups": ["group.fyi.being.app.widgets"]
         }
       ],
       [

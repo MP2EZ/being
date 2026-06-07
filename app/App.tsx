@@ -4,17 +4,31 @@
  */
 
 import React, { useEffect, useState, useRef } from 'react';
-import { AppState, AppStateStatus } from 'react-native';
+import { AppState, AppStateStatus, LogBox } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import * as Sentry from '@sentry/react-native';
 import CleanRootNavigator from './src/core/navigation/CleanRootNavigator';
 import { IAPService } from './src/core/services/subscription/IAPService';
 import { useSubscriptionStore } from './src/core/stores/subscriptionStore';
 import EncryptionService from './src/core/services/security/EncryptionService';
 import { useSettingsStore } from './src/core/stores/settingsStore';
 import { initializeExternalReporting, logSystem, logError, LogCategory } from './src/core/services/logging';
+import { initializeCrisisMonitoring } from './src/core/services/monitoring';
 import { DataRetentionService } from './src/core/services/data-retention';
 import { PostHogProvider } from './src/core/analytics';
+import { closeMenu as closeDevMenu } from 'expo-dev-menu';
+import { maybeSeedE2EOnboardedState } from './src/core/config/e2eSeed';
+
+// INFRA-181: hide RN LogBox during Maestro runs. The dev warning toast (e.g.
+// posthog-react-native's "usePostHog was called without a client" notice when
+// the dev env has no API key) renders an overlay that monopolizes iOS'
+// accessibility tree, hiding underlying onboarding buttons from Maestro's
+// view-hierarchy queries. Console logs still print; only the on-screen UI is
+// suppressed. Gated by the same E2E flag so normal dev iteration keeps LogBox.
+if (__DEV__ && process.env['EXPO_PUBLIC_E2E_SUPPRESS_DEV_MENU'] === '1') {
+  LogBox.ignoreAllLogs(true);
+}
 
 export default function App() {
   const [isInitialized, setIsInitialized] = useState(false);
@@ -25,17 +39,43 @@ export default function App() {
       try {
         logSystem('App initialization started');
 
-        // EncryptionService must initialize first — downstream secure-storage
-        // services (wellness data) depend on its keys being ready.
-        await EncryptionService.initialize();
+        // Sentry first so subsequent spans (encryption health, crisis button
+        // latency) reach the dashboard. Wrapped in try/catch: a Sentry init
+        // failure must not block encryption init.
+        try {
+          await initializeExternalReporting();
+        } catch (err) {
+          logError(LogCategory.SYSTEM, 'Sentry init failed (non-blocking)', err as Error);
+        }
+
+        // EncryptionService must initialize before downstream secure-storage
+        // services (wellness data) depend on its keys. Sentry span captures
+        // launch-time duration against the <2s app-launch budget.
+        await Sentry.startSpan(
+          { name: 'encryption.init', op: 'app.launch.encryption' },
+          async () => {
+            await EncryptionService.initialize();
+          }
+        );
         logSystem('Encryption service initialized');
 
+        // INFRA-217: seed post-onboarding state for the e2e-sim safety gate.
+        // No-op unless EXPO_PUBLIC_E2E_SEED_ONBOARDED==='true' (e2e-sim profile
+        // only). Runs after EncryptionService.initialize() because the seeded
+        // consent record persists to SecureStore. Self-contained try/catch, so
+        // it never blocks init; gate the navigator render on its completion.
+        // INFRA-217: seed post-onboarding state for the e2e-sim safety gate.
+        // No-op unless EXPO_PUBLIC_E2E_SEED_ONBOARDED==='true' (e2e-sim profile
+        // only). Runs after EncryptionService.initialize() because the seeded
+        // consent record persists to SecureStore. Releases the seed gate that
+        // CleanRootNavigator awaits before resolving its initial route.
+        await maybeSeedE2EOnboardedState();
+
         // Remaining init tasks are independent. allSettled (not all) so one
-        // best-effort failure doesn't abort the others (Sentry init, retention
-        // cleanup, etc. are non-blocking for app usability). IAP init only runs
+        // best-effort failure doesn't abort the others. IAP init only runs
         // when the platform supports it.
         const results = await Promise.allSettled([
-          initializeExternalReporting(),
+          initializeCrisisMonitoring(),
           useSubscriptionStore.getState().loadSubscription(),
           IAPService.isAvailable()
             ? IAPService.initialize()
@@ -45,7 +85,7 @@ export default function App() {
 
         results.forEach((result, idx) => {
           if (result.status === 'rejected') {
-            const task = ['externalReporting', 'loadSubscription', 'IAPService', 'dataRetention'][idx];
+            const task = ['crisisMonitoring', 'loadSubscription', 'IAPService', 'dataRetention'][idx];
             logError(
               LogCategory.SYSTEM,
               `Init task '${task}' failed (non-blocking)`,
@@ -63,6 +103,20 @@ export default function App() {
     }
 
     initializeApp();
+  }, []);
+
+  // INFRA-181: dismiss Expo's first-launch dev-menu tutorial when Maestro
+  // safety-e2e is running. `launchApp { clearState: true }` wipes the
+  // "tutorial shown" flag every run, and the resurfaced tutorial covers
+  // LegalGate so Maestro's accessibility-tree check treats it as hidden.
+  // Gated by env flag so normal dev iteration still gets the tutorial on
+  // first install (devs can summon the menu via Cmd+D anytime).
+  useEffect(() => {
+    if (!__DEV__) return;
+    if (process.env['EXPO_PUBLIC_E2E_SUPPRESS_DEV_MENU'] !== '1') return;
+    closeDevMenu();
+    const t = setTimeout(closeDevMenu, 1000);
+    return () => clearTimeout(t);
   }, []);
 
   // Track app state changes to update lastActiveTimestamp for intro animation

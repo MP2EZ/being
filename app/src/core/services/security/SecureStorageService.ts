@@ -196,6 +196,35 @@ export class SecureStorageService {
   }
 
   /**
+   * MAINT-190: Test-only escape hatch for singleton state isolation.
+   * Clears the in-memory metadata cache + access log + cleanup timer.
+   * Does NOT delete persisted secure-store entries — those belong to the
+   * underlying expo-secure-store and survive process restarts. Tests that
+   * need a clean store must call the explicit clear/erase APIs.
+   *
+   * Production safety: throws if NODE_ENV !== 'test'.
+   */
+  public static __resetForTesting__(): void {
+    if (process.env.NODE_ENV !== 'test') {
+      throw new Error(
+        'SecureStorageService.__resetForTesting__() called outside NODE_ENV=test — refusing to clear secure storage state in production'
+      );
+    }
+    if (SecureStorageService.instance) {
+      const inst = SecureStorageService.instance;
+      if (inst.cleanupTimer) {
+        clearInterval(inst.cleanupTimer);
+        inst.cleanupTimer = null;
+      }
+      inst.metadataCache.clear();
+      inst.accessLog = [];
+      inst.initialized = false;
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- intentional: nulling private static reset target
+    SecureStorageService.instance = undefined as any;
+  }
+
+  /**
    * INITIALIZE SECURE STORAGE
    */
   public async initialize(): Promise<void> {

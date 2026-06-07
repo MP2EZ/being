@@ -178,6 +178,9 @@ export const linkingConfig: LinkingOptions<RootStackParamList> = {
       // Subscription
       Subscription: 'subscription',
       SubscriptionStatus: 'subscription/status',
+
+      // Wellness trends full-history detail (FEAT-196)
+      WellnessTrendsDetail: 'wellness-trends',
     },
   },
 };

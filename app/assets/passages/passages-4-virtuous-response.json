@@ -1,0 +1,50 @@
+{
+  "principle": "virtuous-response",
+  "passages": [
+    {
+      "id": "marcus-meditations-5-20",
+      "principle": "virtuous-response",
+      "author": "Marcus Aurelius",
+      "work": "Meditations",
+      "citation": "Meditations 5.20",
+      "translation": "George Long",
+      "text": "In one respect man is the nearest thing to me, so far as I must do good to men and endure them. But so far as some men make themselves obstacles to my proper acts, man becomes to me one of the things which are indifferent, no less than the sun or wind or a wild beast. Now it is true that these may impede my action, but they are no impediments to my affects and disposition, which have the power of acting conditionally and changing: for the mind converts and changes every hindrance to its activity into an aid; and so that which is a hindrance is made a furtherance to an act; and that which is an obstacle on the road helps us on this road.",
+      "context": "George Long's rendering of the 'obstacle' passage; note the wording differs from the modern paraphrase 'what stands in the way becomes the way.'",
+      "order": 1
+    },
+    {
+      "id": "marcus-meditations-10-16",
+      "principle": "virtuous-response",
+      "author": "Marcus Aurelius",
+      "work": "Meditations",
+      "citation": "Meditations 10.16",
+      "translation": "George Long",
+      "text": "No longer talk at all about the kind of man that a good man ought to be, but be such.",
+      "context": "Marcus turns from theorizing about virtue to simply enacting it.",
+      "order": 2
+    },
+    {
+      "id": "seneca-letters-13",
+      "principle": "virtuous-response",
+      "author": "Seneca",
+      "work": "Letters from a Stoic",
+      "citation": "Letters 13.4",
+      "translation": "Richard Mott Gummere",
+      "text": "We are more often frightened than hurt; and we suffer more from imagination than from reality.",
+      "fullText": "There are more things, Lucilius, likely to frighten us than there are to crush us; we suffer more often in imagination than in reality. I am not speaking with you in the Stoic strain but in my milder style. For it is our Stoic fashion to speak of all those things, which provoke cries and groans, as unimportant and beneath notice; but you and I must drop such great-sounding words, although, heaven knows, they are true enough. What I advise you to do is, not to be unhappy before the crisis comes; since it may be that the dangers before which you paled as if they were threatening you, will never come upon you; they certainly have not yet come.",
+      "context": "From a letter to Lucilius on anticipated troubles; a classic line of Stoic literature on the work of the imagination.",
+      "order": 3
+    },
+    {
+      "id": "seneca-letters-107",
+      "principle": "virtuous-response",
+      "author": "Seneca",
+      "work": "Letters from a Stoic",
+      "citation": "Letters 107.11",
+      "translation": "Richard Mott Gummere",
+      "text": "Lead me, O Master of the lofty heavens, My Father, whithersoever thou shalt wish. I shall not falter, but obey with speed. And though I would not, I shall go, and suffer, in sin and sorrow what I might have done in noble virtue. Aye, the willing soul Fate leads, but the unwilling drags along.",
+      "context": "Seneca's Latin rendering of a hymn of the Stoic Cleanthes, closing a letter on accepting what is not in our control.",
+      "order": 4
+    }
+  ]
+}

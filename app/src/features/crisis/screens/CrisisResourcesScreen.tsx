@@ -32,6 +32,7 @@ import type { StackNavigationProp } from '@react-navigation/stack';
 import { useAnalytics } from '@/core/analytics';
 import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
 import { logPerformance, logSecurity, logError, LogCategory } from '@/core/services/logging';
+import { openCrisisUrl } from '@/features/crisis/utils/openCrisisUrl';
 import {
   CRISIS_RESOURCE_CATEGORIES,
   getPriorityCrisisResources,
@@ -88,7 +89,12 @@ const ResourceCard: React.FC<ResourceCardProps> = ({ resource, onPress }) => {
 
   const handleSecondaryAction = () => {
     if (resource.textNumber) {
-      const smsUrl = `sms:${resource.textNumber}${resource.textMessage ? `&body=${resource.textMessage}` : ''}`;
+      // Correct SMS deeplink: `?body=` delimiter + encoded keyword (e.g.
+      // sms:741741?body=HOME). The old `&body=` form broke the Crisis Text
+      // Line handoff. (DEBUG-230 / SEC-08.)
+      const smsUrl = resource.textMessage
+        ? `sms:${resource.textNumber}?body=${encodeURIComponent(resource.textMessage)}`
+        : `sms:${resource.textNumber}`;
 
       // Validate SMS protocol
       if (!validateUrlProtocol(smsUrl, ['sms'])) {
@@ -96,9 +102,9 @@ const ResourceCard: React.FC<ResourceCardProps> = ({ resource, onPress }) => {
         return;
       }
 
-      Linking.openURL(smsUrl).catch(error => {
-        logError(LogCategory.CRISIS, 'Failed to open SMS', error instanceof Error ? error : new Error(String(error)));
-        Alert.alert('Error', 'Unable to open messaging app');
+      void openCrisisUrl(smsUrl, {
+        fallbackTitle: 'Unable to Text',
+        fallbackMessage: `Please text ${resource.textMessage ?? ''} to ${resource.textNumber} for support.`.replace(/\s+/g, ' '),
       });
     } else if (resource.website) {
       // Validate HTTP/HTTPS protocol
@@ -187,6 +193,7 @@ const ResourceCard: React.FC<ResourceCardProps> = ({ resource, onPress }) => {
               }
             ]}
             onPress={onPress}
+            testID={resource.id === '988_lifeline' ? 'crisis-call-988-button' : `crisis-call-${resource.id}-button`}
             accessibilityRole="button"
             accessibilityLabel={`Call ${resource.name}`}
           >
@@ -274,28 +281,12 @@ export default function CrisisResourcesScreen() {
       contactType: 'phone'
     });
 
-    // Track hotline tap for analytics (FEAT-137)
-    trackCrisisHotlineTapped();
-
-    Linking.canOpenURL(phoneUrl)
-      .then(supported => {
-        if (supported) {
-          return Linking.openURL(phoneUrl);
-        } else {
-          throw new Error('Phone calling not supported');
-        }
-      })
-      .catch(error => {
-        logError(LogCategory.CRISIS, 'Failed to initiate crisis resource contact', error instanceof Error ? error : new Error(String(error)));
-
-        Alert.alert(
-          'Unable to Call',
-          `Please manually dial ${resource.phone} for support.`,
-          [
-            { text: 'OK', style: 'default' }
-          ]
-        );
-      });
+    // Guarded dial + manual-dial fallback via shared helper. The hotline-tap
+    // analytics (FEAT-137) is injected as onTap so it fires exactly once.
+    void openCrisisUrl(phoneUrl, {
+      manualLabel: resource.phone,
+      onTap: trackCrisisHotlineTapped,
+    });
   };
 
   const priorityResources = getPriorityCrisisResources();

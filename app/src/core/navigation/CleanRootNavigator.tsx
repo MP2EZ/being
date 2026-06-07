@@ -7,10 +7,12 @@
 import React, { useState, useEffect } from 'react';
 import { View, ActivityIndicator, StyleSheet, TouchableOpacity, Text } from 'react-native';
 import { logPerformance, logSystem } from '@/core/services/logging';
+import { whenE2ESeedComplete } from '@/core/config/e2eSeed';
 import { generateTimestampedId } from '@/core/utils/id';
 import { NavigationContainer } from '@react-navigation/native';
 import { linkingConfig } from './linking';
 import { createStackNavigator } from '@react-navigation/stack';
+import { HeaderBackButton } from '@react-navigation/elements';
 import { spacing, typography } from '@/core/theme';
 import CleanTabNavigator from './CleanTabNavigator';
 import MorningFlowNavigator from '@/features/practices/morning/MorningFlowNavigator';
@@ -22,6 +24,9 @@ import SubscriptionStatusCard from '@/core/components/subscription/SubscriptionS
 import OnboardingScreen from '@/features/onboarding/screens/OnboardingScreen';
 import EnhancedAssessmentFlow from '@/features/assessment/components/EnhancedAssessmentFlow';
 import ModuleDetailScreen from '@/features/learn/screens/ModuleDetailScreen';
+import WellnessTrendsDetailScreen from '@/features/insights/screens/WellnessTrendsDetailScreen';
+import ClassicalLibraryScreen from '@/features/library/screens/ClassicalLibraryScreen';
+import PassageReaderScreen from '@/features/library/screens/PassageReaderScreen';
 import {
   PracticeTimerScreen,
   ReflectionTimerScreen,
@@ -35,6 +40,7 @@ import { useConsentStore } from '@/core/stores/consentStore';
 import { CombinedLegalGateScreen } from '@/features/consent';
 import type { AssessmentType, PHQ9Result, GAD7Result } from '@/features/assessment/types';
 import type { ModuleId, SortingScenario } from '@/features/learn/types/education';
+import type { PassageAuthor } from '@/features/library/types/library';
 
 export type RootStackParamList = {
   LegalGate: undefined;
@@ -44,6 +50,8 @@ export type RootStackParamList = {
   MiddayFlow: undefined;
   EveningFlow: undefined;
   ModuleDetail: { moduleId: ModuleId };
+  ClassicalLibrary: { principle?: ModuleId; author?: PassageAuthor } | undefined;
+  PassageReader: { passageId: string };
   PracticeTimer: {
     practiceId: string;
     moduleId: ModuleId;
@@ -86,6 +94,7 @@ export type RootStackParamList = {
   } | undefined;
   Subscription: undefined;
   SubscriptionStatus: undefined;
+  WellnessTrendsDetail: undefined;
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -105,6 +114,12 @@ const CleanRootNavigator: React.FC = () => {
 
   useEffect(() => {
     async function checkInitialRoute() {
+      // INFRA-217: in the e2e-sim build, wait for the launch-time seed to write
+      // onboarding + consent before reading state, so the FIRST resolved route is
+      // already Main (initialRouteName only applies on first navigator mount).
+      // Resolves immediately in every real build.
+      await whenE2ESeedComplete();
+
       // Both reads are independent AsyncStorage gets — parallelize.
       const [settings, consent] = await Promise.all([loadSettings(), loadConsent()]);
 
@@ -279,6 +294,34 @@ const CleanRootNavigator: React.FC = () => {
           component={ModuleDetailScreen}
           options={{
             headerShown: false, // ModuleDetailScreen has its own header
+            presentation: 'card',
+          }}
+        />
+
+        {/* Wellness Trends full-history detail (FEAT-196) */}
+        <Stack.Screen
+          name="WellnessTrendsDetail"
+          component={WellnessTrendsDetailScreen}
+          options={{
+            headerShown: false, // screen renders its own header + back affordance
+            presentation: 'card',
+          }}
+        />
+
+        {/* Classical Resources Library (FEAT-54) */}
+        <Stack.Screen
+          name="ClassicalLibrary"
+          component={ClassicalLibraryScreen}
+          options={{
+            headerShown: false, // ClassicalLibraryScreen has its own header
+            presentation: 'card',
+          }}
+        />
+        <Stack.Screen
+          name="PassageReader"
+          component={PassageReaderScreen}
+          options={{
+            headerShown: false, // PassageReaderScreen has its own header
             presentation: 'card',
           }}
         />
@@ -506,7 +549,20 @@ const CleanRootNavigator: React.FC = () => {
               headerShown: true,
               headerBackTitle: 'Back',
               presentation: 'modal',
-              gestureEnabled: true
+              gestureEnabled: true,
+              // INFRA-185: wrap the default HeaderBackButton with a testID so
+              // Maestro's `crisis-button-reachability.yaml` flow can pop the
+              // modal between tab iterations. Maestro v2.6's `- back` action
+              // doesn't honor modal-presentation stack screens on iOS sim,
+              // and `text:` doesn't match the iOS header chevron's
+              // accessibilityText. Native HeaderBackButton, just with the
+              // testID prop — same visual UX as every other stack screen.
+              headerLeft: (headerLeftProps) => (
+                <HeaderBackButton
+                  {...headerLeftProps}
+                  testID="nav-back-button"
+                />
+              ),
             }}
           />
 

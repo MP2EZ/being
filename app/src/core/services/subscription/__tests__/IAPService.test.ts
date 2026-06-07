@@ -283,7 +283,7 @@ describe('IAPService - Receipt Verification', () => {
       'verify-google-receipt',
       {
         body: {
-          packageName: 'com.being.app',
+          packageName: 'fyi.being.app',
           subscriptionId: 'subscription_monthly',
           purchaseToken: 'purchase-token-123',
         },

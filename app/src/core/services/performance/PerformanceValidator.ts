@@ -157,6 +157,7 @@ class PerformanceStressTester {
     MemoryOptimizer.initialize();
 
     return new Promise((resolve) => {
+      // interval-guard-skip: stress-test runtime self-clears on line ~187 (clearInterval(interval) when duration elapses); not a singleton-init leak pattern
       const interval = setInterval(() => {
         // Simulate memory-intensive operations
         const largeData = new Array(10000).fill(0).map(() => ({

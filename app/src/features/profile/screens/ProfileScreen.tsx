@@ -11,27 +11,29 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
-  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useNavigation, useFocusEffect, CompositeNavigationProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
+// FEAT-212: subscreens are now routes on ProfileStackNavigator. This component is
+// the "ProfileMenu" route — it only renders the menu and navigates to the others.
 // OnboardingScreen no longer embedded - navigation to LegalGate handles full flow
-import AppSettingsScreen from './AppSettingsScreen';
-import PrivacyDataScreen from './PrivacyDataScreen';
-import AccountSettingsScreen from './AccountSettingsScreen';
-import LegalDocumentsListScreen from './LegalDocumentsListScreen';
 import { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
+import type { ProfileStackParamList } from '../ProfileStackNavigator';
 import { useSubscriptionStore } from '@/core/stores/subscriptionStore';
 import { isDevMode } from '@/core/constants/devMode';
-import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
+import { MaterialDesignIcons } from '@react-native-vector-icons/material-design-icons';
 import ThresholdEducationModal from '@/core/components/ThresholdEducationModal';
 import { useAssessmentStore } from '@/features/assessment/stores/assessmentStore';
 import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
 import { useAnalytics } from '@/core/analytics';
-import SubMenuHeader from '../components/SubMenuHeader';
 
-type ProfileScreenNavigationProp = StackNavigationProp<RootStackParamList>;
+// Navigates within the Profile stack (Privacy, Account, …) AND up to root-stack
+// routes (Subscription, LegalGate, AssessmentFlow, CrisisResources).
+type ProfileScreenNavigationProp = CompositeNavigationProp<
+  StackNavigationProp<ProfileStackParamList>,
+  StackNavigationProp<RootStackParamList>
+>;
 
 type AssessmentType = 'phq9' | 'gad7';
 
@@ -41,10 +43,12 @@ interface AssessmentMetadata {
   status: 'recent' | 'due' | 'recommended' | 'never';
 }
 
-type Screen = 'menu' | 'account' | 'privacy' | 'appSettings' | 'about' | 'stoicMindfulness' | 'legal';
+// FEAT-209 H2: gate the "About Being." card until real content exists, so we
+// stop shipping a "coming soon" placeholder as a first-class menu affordance.
+// Build-time constant (not a feature flag) — flip to true when content lands.
+const ABOUT_BEING_CONTENT_READY = false;
 
 const ProfileScreen: React.FC = () => {
-  const [currentScreen, setCurrentScreen] = useState<Screen>('menu');
   const navigation = useNavigation<ProfileScreenNavigationProp>();
   const subscriptionStore = useSubscriptionStore();
   const [showEducationModal, setShowEducationModal] = useState(false);
@@ -66,10 +70,6 @@ const ProfileScreen: React.FC = () => {
   const handleStartOnboarding = () => {
     // Navigate to LegalGate for full first-time experience (age + ToS + onboarding)
     navigation.navigate('LegalGate');
-  };
-
-  const handleReturnToMenu = () => {
-    setCurrentScreen('menu');
   };
 
   const handleSubscriptionPress = () => {
@@ -192,56 +192,37 @@ const ProfileScreen: React.FC = () => {
             Your Profile
           </Text>
           <Text style={styles.subtitle}>
-            Manage your account and personalize your Being. experience
+            Personalize your Being. experience
           </Text>
         </View>
 
+        {/* FEAT-209 H3/L2: Wellbeing Check-ins promoted to the top — assessments
+            are the most common reason users open Profile. L3: the scoring-education
+            trigger is now an inline ⓘ beside the heading (stays co-located → AS-5). */}
         <View style={styles.section}>
-          <Text
-            style={styles.sectionTitle}
-            accessibilityRole="header"
-            accessibilityLevel={2}
-          >
-            Setup & Configuration
-          </Text>
-
-          <Pressable
-            style={styles.profileCard}
-            onPress={handleStartOnboarding}
-            accessibilityRole="button"
-            accessibilityLabel="Onboarding Setup"
-            accessibilityHint="Complete your initial assessment and configure preferences"
-          >
-            <Text style={styles.cardTitle}>Onboarding Setup</Text>
-            <Text style={styles.cardDescription}>
-              Complete your initial assessment and configure your therapeutic preferences for a personalized experience.
+          <View style={styles.sectionHeaderRow}>
+            <Text
+              style={[styles.sectionTitle, styles.sectionTitleFlush]}
+              accessibilityRole="header"
+              accessibilityLevel={2}
+            >
+              Wellbeing Check-ins
             </Text>
-            <Text style={styles.cardAction} importantForAccessibility="no">Start Setup →</Text>
-          </Pressable>
-
-          <Pressable
-            style={styles.profileCard}
-            onPress={() => setCurrentScreen('appSettings')}
-            accessibilityRole="button"
-            accessibilityLabel="App Settings"
-            accessibilityHint="Configure notifications and accessibility preferences"
-          >
-            <Text style={styles.cardTitle}>App Settings</Text>
-            <Text style={styles.cardDescription}>
-              Configure notifications, accessibility options, and view app information.
-            </Text>
-            <Text style={styles.cardAction} importantForAccessibility="no">Configure →</Text>
-          </Pressable>
-        </View>
-
-        <View style={styles.section}>
-          <Text
-            style={styles.sectionTitle}
-            accessibilityRole="header"
-            accessibilityLevel={2}
-          >
-            Wellbeing Tracking
-          </Text>
+            <Pressable
+              style={styles.infoIconButton}
+              onPress={() => setShowEducationModal(true)}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              accessibilityRole="button"
+              accessibilityLabel="Learn about assessment scoring"
+              accessibilityHint="Opens educational information about how assessments are scored"
+            >
+              <MaterialDesignIcons
+                name="information-outline"
+                size={22}
+                color={colorSystem.base.midnightBlue}
+              />
+            </Pressable>
+          </View>
           <Text style={styles.sectionDescription}>
             Periodic self-assessments to observe patterns in your mental wellbeing. Recommended every 2 weeks.
           </Text>
@@ -249,6 +230,7 @@ const ProfileScreen: React.FC = () => {
           <Pressable
             style={styles.assessmentCard}
             onPress={() => handleStartAssessment('phq9')}
+            testID="take-phq9-button"
             accessibilityRole="button"
             accessibilityLabel={`Depression Assessment PHQ-9, 3 to 5 minutes, ${
               phq9Metadata.status === 'never' ? 'recommended' :
@@ -271,6 +253,7 @@ const ProfileScreen: React.FC = () => {
           <Pressable
             style={styles.assessmentCard}
             onPress={() => handleStartAssessment('gad7')}
+            testID="take-gad7-button"
             accessibilityRole="button"
             accessibilityLabel={`Anxiety Assessment GAD-7, 2 to 4 minutes, ${
               gad7Metadata.status === 'never' ? 'recommended' :
@@ -290,26 +273,16 @@ const ProfileScreen: React.FC = () => {
             </View>
           </Pressable>
 
-          <Pressable
-            style={styles.educationLink}
-            onPress={() => setShowEducationModal(true)}
-            accessibilityRole="button"
-            accessibilityLabel="Learn about assessment scoring"
-            accessibilityHint="Opens educational information about how assessments are scored"
-          >
-            <Text style={styles.educationLinkText}>
-              Learn about assessment scoring
-            </Text>
-          </Pressable>
         </View>
 
+        {/* FEAT-209 C1: "Subscription" → "Your Plan" */}
         <View style={styles.section}>
           <Text
             style={styles.sectionTitle}
             accessibilityRole="header"
             accessibilityLevel={2}
           >
-            Subscription
+            Your Plan
           </Text>
 
           <Pressable
@@ -329,32 +302,37 @@ const ProfileScreen: React.FC = () => {
           </Pressable>
         </View>
 
+        {/* FEAT-209 C1/H3: single "Settings" hub merging the old "Setup &
+            Configuration" + "Preferences" sections; resolves the App Settings /
+            App Preferences / Account Settings naming collision. */}
         <View style={styles.section}>
           <Text
             style={styles.sectionTitle}
             accessibilityRole="header"
             accessibilityLevel={2}
           >
-            Account Management
+            Settings
           </Text>
 
           <Pressable
             style={styles.profileCard}
-            onPress={() => setCurrentScreen('account')}
+            onPress={() => navigation.navigate('AppSettings')}
+            testID="profile-card-appsettings"
             accessibilityRole="button"
-            accessibilityLabel="Account Settings"
-            accessibilityHint="Manage your email, password, and account preferences"
+            accessibilityLabel="Notifications & Display"
+            accessibilityHint="Configure notifications and accessibility preferences"
           >
-            <Text style={styles.cardTitle}>Account Settings</Text>
+            <Text style={styles.cardTitle}>Notifications & Display</Text>
             <Text style={styles.cardDescription}>
-              Manage your email, password, and account preferences.
+              Configure notifications, accessibility options, and view app information.
             </Text>
-            <Text style={styles.cardAction} importantForAccessibility="no">Manage →</Text>
+            <Text style={styles.cardAction} importantForAccessibility="no">Configure →</Text>
           </Pressable>
 
           <Pressable
             style={styles.profileCard}
-            onPress={() => setCurrentScreen('privacy')}
+            onPress={() => navigation.navigate('Privacy')}
+            testID="profile-card-privacy"
             accessibilityRole="button"
             accessibilityLabel="Privacy and Data"
             accessibilityHint="Control your data, export information, and manage privacy settings"
@@ -365,34 +343,37 @@ const ProfileScreen: React.FC = () => {
             </Text>
             <Text style={styles.cardAction} importantForAccessibility="no">Review →</Text>
           </Pressable>
+
+          <Pressable
+            style={styles.profileCard}
+            onPress={() => navigation.navigate('Account')}
+            testID="profile-card-account"
+            accessibilityRole="button"
+            accessibilityLabel="Account"
+            accessibilityHint="Manage your account details and preferences"
+          >
+            <Text style={styles.cardTitle}>Account</Text>
+            <Text style={styles.cardDescription}>
+              Manage your account details and preferences.
+            </Text>
+            <Text style={styles.cardAction} importantForAccessibility="no">Manage →</Text>
+          </Pressable>
         </View>
 
+        {/* FEAT-209 C1: "Information" → "About" */}
         <View style={styles.section}>
           <Text
             style={styles.sectionTitle}
             accessibilityRole="header"
             accessibilityLevel={2}
           >
-            Information
+            About
           </Text>
 
           <Pressable
             style={styles.profileCard}
-            onPress={() => setCurrentScreen('about')}
-            accessibilityRole="button"
-            accessibilityLabel="About Being"
-            accessibilityHint="Learn about our mission and how Being supports your mental wellbeing"
-          >
-            <Text style={styles.cardTitle}>About Being.</Text>
-            <Text style={styles.cardDescription}>
-              Learn about our mission, the philosophy and practice of Stoic Mindfulness, and how Being. supports your mental wellbeing.
-            </Text>
-            <Text style={styles.cardAction} importantForAccessibility="no">Learn More →</Text>
-          </Pressable>
-
-          <Pressable
-            style={styles.profileCard}
-            onPress={() => setCurrentScreen('stoicMindfulness')}
+            onPress={() => navigation.navigate('StoicMindfulness')}
+            testID="profile-card-stoic"
             accessibilityRole="button"
             accessibilityLabel="About Stoic Mindfulness"
             accessibilityHint="Explore the 5 core principles and developmental stages"
@@ -404,9 +385,28 @@ const ProfileScreen: React.FC = () => {
             <Text style={styles.cardAction} importantForAccessibility="no">Learn More →</Text>
           </Pressable>
 
+          {/* FEAT-209 H2: "About Being." stays hidden until real content exists. */}
+          {ABOUT_BEING_CONTENT_READY && (
+            <Pressable
+              style={styles.profileCard}
+              onPress={() => navigation.navigate('About')}
+              testID="profile-card-about-being"
+              accessibilityRole="button"
+              accessibilityLabel="About Being"
+              accessibilityHint="Learn about our mission and how Being supports your mental wellbeing"
+            >
+              <Text style={styles.cardTitle}>About Being.</Text>
+              <Text style={styles.cardDescription}>
+                Learn about our mission, the philosophy and practice of Stoic Mindfulness, and how Being. supports your mental wellbeing.
+              </Text>
+              <Text style={styles.cardAction} importantForAccessibility="no">Learn More →</Text>
+            </Pressable>
+          )}
+
           <Pressable
             style={styles.profileCard}
-            onPress={() => setCurrentScreen('legal')}
+            onPress={() => navigation.navigate('Legal')}
+            testID="profile-card-legal"
             accessibilityRole="button"
             accessibilityLabel="Legal Documents"
             accessibilityHint="View Privacy Policy, Terms of Service, and Medical Disclaimer"
@@ -418,6 +418,17 @@ const ProfileScreen: React.FC = () => {
             <Text style={styles.cardAction} importantForAccessibility="no">View Documents →</Text>
           </Pressable>
         </View>
+
+        {/* FEAT-209 H3: Onboarding Setup demoted from a top card to a footer link. */}
+        <Pressable
+          style={styles.footerLink}
+          onPress={handleStartOnboarding}
+          accessibilityRole="button"
+          accessibilityLabel="Onboarding Setup"
+          accessibilityHint="Complete your initial assessment and configure preferences"
+        >
+          <Text style={styles.footerLinkText}>Onboarding Setup</Text>
+        </Pressable>
       </ScrollView>
 
       {/* Education Modal */}
@@ -428,191 +439,10 @@ const ProfileScreen: React.FC = () => {
     </SafeAreaView>
   );
 
-  const renderPlaceholder = (title: string, description: string) => (
-    <SafeAreaView key={`placeholder-${title}`} style={styles.container}>
-      <SubMenuHeader title={title} onClose={handleReturnToMenu} />
-      <ScrollView
-        style={styles.scrollContainer}
-        contentContainerStyle={styles.scrollContent}
-      >
-        <Text style={[styles.subtitle, styles.subtitleSpacing]}>{description}</Text>
-
-        <View style={styles.placeholderContent}>
-          <Text style={styles.placeholderText}>
-            This feature is coming soon. We're working hard to bring you the best experience.
-          </Text>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
-  );
-
-  const renderAboutStoicMindfulness = () => (
-    <SafeAreaView key="stoicMindfulness-screen" style={styles.container}>
-      <SubMenuHeader title="About Stoic Mindfulness" onClose={handleReturnToMenu} />
-      <ScrollView
-        style={styles.scrollContainer}
-        contentContainerStyle={styles.scrollContent}
-      >
-        <Text style={[styles.subtitle, styles.subtitleSpacing]}>
-          A comprehensive integration of ancient Stoic philosophy with modern mindfulness practice
-        </Text>
-
-        {/* Introduction Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>What is Stoic Mindfulness?</Text>
-          <Text style={styles.bodyText}>
-            Stoic Mindfulness is a comprehensive integration of ancient Stoic philosophy with contemporary mindfulness practice, creating a comprehensive path to human flourishing through the transformation of consciousness.
-          </Text>
-          <Text style={styles.bodyText}>
-            It combines the present-moment awareness of mindfulness with Stoic wisdom about what we control, how to respond virtuously, and how to live well in community with others.
-          </Text>
-        </View>
-
-        {/* Five Principles Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>The Five Principles</Text>
-          <Text style={styles.sectionDescription}>
-            These integrative principles guide daily practice and long-term development:
-          </Text>
-
-          <View style={styles.principleCard}>
-            <Text style={styles.principleTitle}>1. Aware Presence</Text>
-            <Text style={styles.principleDescription}>
-              Be fully here now, observing thoughts as mental events rather than truth, and feeling what's happening in your body. Integrates present perception, metacognitive space, and embodied awareness.
-            </Text>
-          </View>
-
-          <View style={styles.principleCard}>
-            <Text style={styles.principleTitle}>2. Radical Acceptance</Text>
-            <Text style={styles.principleDescription}>
-              Accept reality as it is, without resistance. "This is what's happening right now. I may not like it, but it is the reality I face. What do I do from here?" (Marcus Aurelius, Meditations 10:6)
-            </Text>
-          </View>
-
-          <View style={styles.principleCard}>
-            <Text style={styles.principleTitle}>3. Sphere Sovereignty</Text>
-            <Text style={styles.principleDescription}>
-              Distinguish what you control (your intentions, judgments, character, responses) from what you don't (outcomes, others' choices, externals). Focus energy only within your sphere. (Epictetus, Enchiridion 1)
-            </Text>
-          </View>
-
-          <View style={styles.principleCard}>
-            <Text style={styles.principleTitle}>4. Virtuous Response</Text>
-            <Text style={styles.principleDescription}>
-              In every situation, ask "What does wisdom, courage, justice, or temperance require here?" View obstacles as opportunities for practicing virtue. (Marcus Aurelius, Meditations 5:1)
-            </Text>
-          </View>
-
-          <View style={styles.principleCard}>
-            <Text style={styles.principleTitle}>5. Interconnected Living</Text>
-            <Text style={styles.principleDescription}>
-              Bring full presence to others. Recognize that we're all members of one human community. Act for the common good, not just personal benefit. (Marcus Aurelius, Meditations 8:59)
-            </Text>
-          </View>
-        </View>
-
-        {/* Developmental Stages Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Developmental Stages</Text>
-          <Text style={styles.sectionDescription}>
-            Stoic practice develops through four natural stages over time:
-          </Text>
-
-          <View style={styles.principleCard}>
-            <Text style={styles.principleTitle}>Fragmented (1-6 months)</Text>
-            <Text style={styles.principleDescription}>
-              Building basic infrastructure - learning principles, inconsistent practice, conscious effort required.
-            </Text>
-          </View>
-
-          <View style={styles.principleCard}>
-            <Text style={styles.principleTitle}>Effortful (6-18 months)</Text>
-            <Text style={styles.principleDescription}>
-              Principles begin influencing behavior with conscious effort. More consistent practice across multiple domains.
-            </Text>
-          </View>
-
-          <View style={styles.principleCard}>
-            <Text style={styles.principleTitle}>Fluid (2-5 years)</Text>
-            <Text style={styles.principleDescription}>
-              Spontaneous application with less effort. Principles naturally arise in challenging moments.
-            </Text>
-          </View>
-
-          <View style={styles.principleCard}>
-            <Text style={styles.principleTitle}>Integrated (5+ years)</Text>
-            <Text style={styles.principleDescription}>
-              Embodied wisdom - practice becomes a natural way of being rather than something you do.
-            </Text>
-          </View>
-        </View>
-
-        {/* Philosophical Foundations Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Philosophical Foundations</Text>
-          <Text style={styles.bodyText}>
-            Stoic Mindfulness draws on the wisdom of three major Stoic philosophers:
-          </Text>
-          <Text style={styles.bodyText}>
-            <Text style={{ fontWeight: typography.fontWeight.semibold }}>Marcus Aurelius</Text> (121-180 CE) - Roman Emperor whose Meditations provide intimate reflections on applying Stoic principles to daily challenges.
-          </Text>
-          <Text style={styles.bodyText}>
-            <Text style={{ fontWeight: typography.fontWeight.semibold }}>Epictetus</Text> (50-135 CE) - Former slave who taught that true freedom comes from focusing only on what we control.
-          </Text>
-          <Text style={styles.bodyText}>
-            <Text style={{ fontWeight: typography.fontWeight.semibold }}>Seneca</Text> (4 BCE-65 CE) - Statesman and advisor whose Letters provide practical guidance for living well.
-          </Text>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
-  );
-
-  // Render different screens based on state with crisis button overlay
-  const renderContent = () => {
-    if (currentScreen === 'menu') return renderMenu();
-
-    if (currentScreen === 'account') {
-      return <AccountSettingsScreen onReturn={handleReturnToMenu} />;
-    }
-
-    if (currentScreen === 'privacy') {
-      return <PrivacyDataScreen onReturn={handleReturnToMenu} />;
-    }
-
-    if (currentScreen === 'appSettings') {
-      return <AppSettingsScreen onReturn={handleReturnToMenu} />;
-    }
-
-    if (currentScreen === 'about') {
-      return renderPlaceholder(
-        'About Being.',
-        'Our mission and the science of mindfulness'
-      );
-    }
-
-    if (currentScreen === 'stoicMindfulness') {
-      return renderAboutStoicMindfulness();
-    }
-
-    if (currentScreen === 'legal') {
-      return <LegalDocumentsListScreen onReturn={handleReturnToMenu} />;
-    }
-
-    return null;
-  };
-
-  return (
-    <>
-      {renderContent()}
-      {/* Crisis Button Overlay - accessible across all profile screens */}
-      <CollapsibleCrisisButton
-        mode="standard"
-        onNavigate={() => navigation.navigate('CrisisResources')}
-        testID="crisis-profile"
-        position="right"
-      />
-    </>
-  );
+  // FEAT-212: this component is the ProfileMenu route. The crisis overlay is now
+  // hosted by ProfileStackNavigator (sibling above the stack), so it is no longer
+  // rendered here — it covers every Profile route including this one.
+  return renderMenu();
 };
 
 const styles = StyleSheet.create({
@@ -645,9 +475,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 24,
   },
-  subtitleSpacing: {
-    marginBottom: spacing[24],
-  },
   section: {
     marginBottom: spacing[32],
   },
@@ -656,6 +483,24 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.black,
     marginBottom: spacing[16],
+  },
+  // Row that pairs a section heading with a trailing inline action (the ⓘ).
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing[16],
+  },
+  // The heading already supplies the row's bottom margin, so drop its own.
+  sectionTitleFlush: {
+    marginBottom: 0,
+    flexShrink: 1,
+  },
+  // ⓘ scoring trigger. hitSlop expands the 22pt glyph past the 44pt WCAG 2.5.5
+  // minimum touch target without enlarging the visual icon.
+  infoIconButton: {
+    padding: spacing[4],
+    marginLeft: spacing[8],
   },
   sectionDescription: {
     fontSize: typography.bodyRegular.size,
@@ -691,22 +536,6 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.medium,
     color: colorSystem.base.midnightBlue,
   },
-  placeholderContent: {
-    backgroundColor: colorSystem.gray[100],
-    borderRadius: borderRadius.large,
-    padding: spacing[32],
-    marginVertical: spacing[32],
-    minHeight: 200,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  placeholderText: {
-    fontSize: typography.bodyRegular.size,
-    fontWeight: typography.fontWeight.regular,
-    color: colorSystem.gray[500],
-    textAlign: 'center',
-    lineHeight: 24,
-  },
   primaryButton: {
     backgroundColor: colorSystem.base.midnightBlue,
     paddingVertical: spacing[16],
@@ -720,50 +549,23 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.white,
   },
-  bodyText: {
-    fontSize: typography.bodyRegular.size,
-    fontWeight: typography.fontWeight.regular,
-    color: colorSystem.gray[600],
-    lineHeight: 24,
-    marginBottom: spacing[16],
-  },
-  principleCard: {
-    backgroundColor: colorSystem.gray[100],
-    borderRadius: borderRadius.medium,
-    padding: spacing[16],
-    marginBottom: spacing[16],
-    borderLeftWidth: 3,
-    borderLeftColor: colorSystem.base.midnightBlue,
-  },
-  principleTitle: {
-    fontSize: typography.bodyRegular.size,
-    fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
-    marginBottom: spacing[8],
-  },
-  principleDescription: {
-    fontSize: typography.bodySmall.size,
-    fontWeight: typography.fontWeight.regular,
-    color: colorSystem.gray[600],
-    lineHeight: 20,
-  },
   devModeBanner: {
-    backgroundColor: '#FEF3C7',
+    backgroundColor: colorSystem.status.warningBackground,
     padding: spacing[16],
     borderBottomWidth: 2,
-    borderBottomColor: '#F59E0B',
+    borderBottomColor: colorSystem.status.warning,
   },
   devModeText: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.semibold,
-    color: '#92400E',
+    color: colorSystem.status.warning,
     textAlign: 'center',
     marginBottom: 4,
   },
   devModeSubtext: {
     fontSize: typography.micro.size,
     fontWeight: typography.fontWeight.regular,
-    color: '#92400E',
+    color: colorSystem.status.warning,
     textAlign: 'center',
   },
   assessmentCard: {
@@ -798,8 +600,8 @@ const styles = StyleSheet.create({
   statusRecent: {
     fontSize: typography.micro.size,
     fontWeight: typography.fontWeight.semibold,
-    color: '#065F46',
-    backgroundColor: '#D1FAE5',
+    color: colorSystem.status.success,
+    backgroundColor: colorSystem.status.successBackground,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: borderRadius.small,
@@ -810,8 +612,8 @@ const styles = StyleSheet.create({
   statusDue: {
     fontSize: typography.micro.size,
     fontWeight: typography.fontWeight.semibold,
-    color: '#374151',
-    backgroundColor: '#F3F4F6',
+    color: colorSystem.gray[700],
+    backgroundColor: colorSystem.gray[100],
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: borderRadius.small,
@@ -822,8 +624,8 @@ const styles = StyleSheet.create({
   statusRecommended: {
     fontSize: typography.micro.size,
     fontWeight: typography.fontWeight.semibold,
-    color: '#92400E',
-    backgroundColor: '#FEF3C7',
+    color: colorSystem.status.warning,
+    backgroundColor: colorSystem.status.warningBackground,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: borderRadius.small,
@@ -831,16 +633,17 @@ const styles = StyleSheet.create({
     marginTop: spacing[8],
     marginBottom: spacing[8],
   },
-  educationLink: {
+  // FEAT-209 H3: low-emphasis footer link for the demoted Onboarding Setup entry.
+  footerLink: {
     paddingVertical: spacing[8],
     paddingHorizontal: spacing[16],
     alignItems: 'center',
     marginTop: spacing[8],
   },
-  educationLinkText: {
+  footerLinkText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.medium,
-    color: colorSystem.themes.morning.primary,
+    color: colorSystem.base.midnightBlue,
     textDecorationLine: 'underline',
   },
 });

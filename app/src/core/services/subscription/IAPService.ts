@@ -52,13 +52,13 @@ const PRODUCT_IDS: SubscriptionProductIds = DEFAULT_SUBSCRIPTION_CONFIG.products
 
 /**
  * Android package name. Must match `expo.android.package` in app.json
- * (currently "com.being.app"). Used by the Google Play receipt verification
+ * (currently "fyi.being.app"). Used by the Google Play receipt verification
  * Edge Function to identify which Play Console app the purchase belongs to.
  *
  * Drift detection: if app.json's android.package changes, this must change
  * too. Worth adding a runtime guard test that fails CI on mismatch.
  */
-const ANDROID_PACKAGE_NAME = 'com.being.app';
+const ANDROID_PACKAGE_NAME = 'fyi.being.app';
 
 /**
  * Augmented purchase shape forwarded to the subscription store.

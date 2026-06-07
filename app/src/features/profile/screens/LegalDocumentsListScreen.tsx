@@ -13,7 +13,7 @@
  * - 44px+ touch targets
  */
 
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -22,36 +22,20 @@ import {
   Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
 import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
-import {
-  legalDocumentsList,
-  LegalDocument,
-  LegalDocumentType,
-} from '../content/legalDocuments';
-import LegalDocumentScreen from './LegalDocumentScreen';
-import SubMenuHeader from '../components/SubMenuHeader';
+import { legalDocumentsList } from '../content/legalDocuments';
+import type { ProfileStackParamList } from '../ProfileStackNavigator';
 
-interface LegalDocumentsListScreenProps {
-  onReturn: () => void;
-}
-
-const LegalDocumentsListScreen: React.FC<LegalDocumentsListScreenProps> = ({
-  onReturn,
-}) => {
-  const [selectedDocument, setSelectedDocument] = useState<LegalDocument | null>(null);
-
-  if (selectedDocument) {
-    return (
-      <LegalDocumentScreen
-        document={selectedDocument}
-        onReturn={() => setSelectedDocument(null)}
-      />
-    );
-  }
+// FEAT-212: rendered as a route on ProfileStackNavigator. Selecting a document is
+// now a pushed route (Legal → LegalDocument) carrying a serializable documentType,
+// not an in-component state machine; the native stack header supplies the back chevron.
+const LegalDocumentsListScreen: React.FC = () => {
+  const navigation = useNavigation<StackNavigationProp<ProfileStackParamList>>();
 
   return (
     <SafeAreaView style={styles.container}>
-      <SubMenuHeader title="Legal Documents" onClose={onReturn} />
       <ScrollView
         style={styles.scrollContainer}
         contentContainerStyle={styles.scrollContent}
@@ -66,7 +50,8 @@ const LegalDocumentsListScreen: React.FC<LegalDocumentsListScreenProps> = ({
             <Pressable
               key={doc.id}
               style={styles.documentCard}
-              onPress={() => setSelectedDocument(doc)}
+              onPress={() => navigation.navigate('LegalDocument', { documentType: doc.id })}
+              testID={`profile-legal-doc-${doc.id}`}
               accessibilityRole="button"
               accessibilityLabel={`View ${doc.title}`}
               accessibilityHint={doc.description}

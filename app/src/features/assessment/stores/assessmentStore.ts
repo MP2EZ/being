@@ -24,6 +24,7 @@
 import { logSecurity, logPerformance, logError, LogCategory } from '@/core/services/logging';
 import { generateTimestampedId } from '@/core/utils/id';
 import SecureStorageService from '@/core/services/security/SecureStorageService';
+import supabaseService from '@/core/services/supabase/SupabaseService';
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
 import { persist, createJSONStorage } from 'zustand/middleware';
@@ -46,6 +47,10 @@ import {
   CRISIS_THRESHOLDS,
   ASSESSMENT_RESPONSE_LABELS,
 } from '../types/index';
+// DEBUG-229 / MAINT-226 Decision E: pure detectCrisis is the single source of
+// truth for crisis thresholds + trigger taxonomy; the store delegates to it.
+import { detectCrisis as detectCrisisPure } from '@/features/crisis/types/safety';
+import { validateSingleResponse } from '../types/schemas';
 
 // Clinical scoring algorithms (validated for 100% accuracy)
 const PHQ9_QUESTIONS = [
@@ -263,6 +268,39 @@ export class ClinicalScoringService {
 }
 
 /**
+ * DEBUG-218: severity bucket for the `crisis_detected` telemetry event.
+ *
+ * PHQ-9 (suicidal-ideation OR ≥15 score): `critical` at the active-intervention
+ * floor (≥20 — `PHQ9_SEVERE_THRESHOLD`), else `high`. GAD-7 severe: `high` (no
+ * validated `critical` tier — mirrors the canonical mapping in
+ * `@/features/crisis/types/safety`). Kept additive: it derives the bucket from the
+ * existing total, it does NOT change any detection threshold or trigger taxonomy.
+ */
+function crisisSeverityLevel(
+  type: AssessmentType,
+  totalScore: number,
+): CrisisDetection['severityLevel'] {
+  if (type === 'gad7') return 'high';
+  return totalScore >= CRISIS_THRESHOLDS.PHQ9_SEVERE_THRESHOLD ? 'critical' : 'high';
+}
+
+/**
+ * DEBUG-218: severity bucket for the INLINE Q9 detection, derived mid-assessment.
+ * `calculatePHQ9Score` needs all 9 answers; `phq9_9` is the last question so they are
+ * normally present, but out-of-order answering can leave them incomplete and throw —
+ * fall back to the safe 'high' floor (Q9>0 is never below 'high'). Never throws.
+ * Extracted so the inline `answerQuestion` branch stays within its complexity budget.
+ */
+function inlineQ9SeverityLevel(answers: AssessmentAnswer[]): CrisisDetection['severityLevel'] {
+  try {
+    const { totalScore } = ClinicalScoringService.calculatePHQ9Score(answers);
+    return crisisSeverityLevel('phq9', totalScore);
+  } catch {
+    return 'high';
+  }
+}
+
+/**
  * Crisis detection and intervention service
  * Meets <200ms response time requirement
  */
@@ -275,31 +313,26 @@ class CrisisDetectionService {
     const startTime = Date.now();
 
     try {
-      let triggerType: CrisisDetection['primaryTrigger'] | null = null;
-      let triggerValue = result.totalScore;
-
-      if (type === 'phq9') {
-        const phqResult = result as PHQ9Result;
-        if (phqResult.suicidalIdeation) {
-          triggerType = 'phq9_suicidal_ideation';
-          triggerValue = 1; // Indicates suicidal ideation present
-        } else if (phqResult.totalScore >= CRISIS_THRESHOLDS.PHQ9_CRISIS_SCORE) {
-          triggerType = 'phq9_moderate_severe_score';
-        }
-      } else if (type === 'gad7') {
-        if (result.totalScore >= CRISIS_THRESHOLDS.GAD7_CRISIS_SCORE) {
-          triggerType = 'gad7_severe_score';
-        }
-      }
-
-      if (!triggerType) {
+      // DEBUG-229 / MAINT-226 Decision E: delegate threshold + trigger logic to the
+      // pure detectCrisis (single source of truth). This fixes the store's previous
+      // divergence — it emitted `phq9_moderate_severe_score` even at ≥20 and never
+      // the intervention-tier `phq9_severe_score`. userId is not part of the
+      // store-side detection (pass ''); assessmentId is overridden below with the
+      // live session id so handleCrisisDetection's per-session dedup works.
+      const pure = detectCrisisPure(result, '');
+      if (!pure) {
         return null;
       }
 
       const detection = {
         isTriggered: true,
-        primaryTrigger: triggerType,
-        triggerValue,
+        primaryTrigger: pure.primaryTrigger,
+        secondaryTriggers: pure.secondaryTriggers,
+        // severityLevel + assessmentType populate the score-based crisis_detected
+        // telemetry buckets (DEBUG-218) — now sourced from the pure function.
+        severityLevel: pure.severityLevel,
+        triggerValue: pure.triggerValue,
+        assessmentType: type,
         timestamp: Date.now(),
         assessmentId
       } as Partial<CrisisDetection> as CrisisDetection;
@@ -375,6 +408,13 @@ class CrisisDetectionService {
 }
 
 /**
+ * Max length of a per-check-in "Your note" annotation (FEAT-195). Enforced at
+ * the store action (the write boundary) and mirrored by the UI composer's
+ * `maxLength`. Single source of truth — import it, don't re-literal 140.
+ */
+export const SESSION_NOTE_MAX_LENGTH = 140;
+
+/**
  * Assessment Store State Interface
  */
 export interface AssessmentStoreState {
@@ -426,6 +466,10 @@ export interface AssessmentStoreActions {
   getAssessmentHistory: (type?: AssessmentType) => AssessmentSession[];
   getLastResult: (type: AssessmentType) => PHQ9Result | GAD7Result | null;
   clearHistory: () => Promise<void>;
+
+  // Life-event annotations (FEAT-195) — opaque free-text "Your note" per check-in.
+  setSessionNote: (sessionId: string, note: string) => Promise<void>;
+  clearSessionNote: (sessionId: string) => Promise<void>;
 
   // Utilities
   getCurrentProgress: () => number;
@@ -508,6 +552,15 @@ export const useAssessmentStore = create<AssessmentStore>()(
             throw new Error('No active assessment session');
           }
 
+          // DEBUG-229 (TEST-08 / SEC-06): validate the per-question response against
+          // the 0–3 clinical scale BEFORE storing/scoring. Reject fail-loud — a
+          // corrupt value must never reach scoring or the inline Q9 crisis check.
+          const responseCheck = validateSingleResponse(response);
+          if (!responseCheck.success) {
+            set({ error: `Invalid response (must be 0–3): ${responseCheck.error}` });
+            return;
+          }
+
           try {
             const answer: AssessmentAnswer = {
               questionId,
@@ -536,10 +589,15 @@ export const useAssessmentStore = create<AssessmentStore>()(
 
             // Check for real-time crisis detection on specific questions
             if (questionId === CRISIS_THRESHOLDS.PHQ9_SUICIDAL_QUESTION_ID && response > 0) {
+              // DEBUG-218: populate severityLevel + assessmentType so the inline Q9
+              // crisis_detected telemetry carries real buckets (never "undefined").
               const detection = {
                 isTriggered: true,
                 primaryTrigger: 'phq9_suicidal_ideation' as const,
+                secondaryTriggers: [],
+                severityLevel: inlineQ9SeverityLevel(updatedAnswers),
                 triggerValue: response,
+                assessmentType: 'phq9' as const,
                 timestamp: Date.now(),
                 assessmentId: state.currentSession.id
               } as Partial<CrisisDetection> as CrisisDetection;
@@ -705,6 +763,21 @@ export const useAssessmentStore = create<AssessmentStore>()(
 
           // Trigger emergency response
           await CrisisDetectionService.triggerEmergencyResponse(detection);
+
+          // INFRA-214 T3: vital-interest crisis-detection telemetry → Supabase.
+          // Fire-and-forget, emitted AFTER the dedup guard + emergency response so it
+          // can never block or suppress the 988 path. PII-free / pre-bucketed — only
+          // the trigger category + severity bucket, NEVER the raw triggerValue/score.
+          try {
+            supabaseService.trackCrisisDetection({
+              trigger_type: detection.primaryTrigger,
+              severity_bucket: detection.severityLevel,
+              intervention_surfaced: true,
+              assessment_type: detection.assessmentType,
+            });
+          } catch {
+            // Telemetry must never affect the crisis intervention flow.
+          }
         },
 
         acknowledgeCrisis: () => {
@@ -758,6 +831,37 @@ export const useAssessmentStore = create<AssessmentStore>()(
         clearHistory: async () => {
           set({ completedAssessments: [] });
           await get().saveProgress();
+        },
+
+        // Life-event annotations (FEAT-195). The note is opaque: clamped to
+        // SESSION_NOTE_MAX_LENGTH and stored verbatim on the matching session —
+        // never inferred on, never sent to analytics. Persisted through the same
+        // encrypted saveProgress() path as every other assessment write.
+        setSessionNote: async (sessionId: string, note: string): Promise<void> => {
+          const trimmed = note.trim();
+          // Empty/whitespace clears the note rather than storing "".
+          const next = trimmed.length === 0
+            ? undefined
+            : trimmed.slice(0, SESSION_NOTE_MAX_LENGTH);
+
+          const apply = (s: AssessmentSession): AssessmentSession => {
+            if (s.id !== sessionId) return s;
+            // Omit the key entirely when clearing (exactOptionalPropertyTypes:
+            // a present `note: undefined` is not a valid AssessmentSession).
+            const { note: _prev, ...rest } = s;
+            return next === undefined ? rest : { ...rest, note: next };
+          };
+
+          const state = get();
+          set({
+            completedAssessments: state.completedAssessments.map(apply),
+            currentSession: state.currentSession ? apply(state.currentSession) : null,
+          });
+          await get().saveProgress();
+        },
+
+        clearSessionNote: async (sessionId: string): Promise<void> => {
+          await get().setSessionNote(sessionId, '');
         },
 
         // Utilities

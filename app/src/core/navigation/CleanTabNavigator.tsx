@@ -16,16 +16,10 @@ import { View, Text } from 'react-native';
 import Svg, { Path, Circle, Rect, ClipPath, Defs, G } from 'react-native-svg';
 import { colorSystem, spacing, typography } from '@/core/theme';
 import CleanHomeScreen from '@/features/home/screens/CleanHomeScreen';
-import ProfileScreen from '@/features/profile/screens/ProfileScreen';
+import ProfileStackNavigator from '@/features/profile/ProfileStackNavigator';
 import InsightsScreen from '@/features/insights/screens/InsightsScreen';
 import LearnScreen from '@/features/learn/screens/LearnScreen';
 import BrainIcon from '@/core/components/shared/BrainIcon';
-import FeatureGate from '@/core/components/subscription/FeatureGate';
-import { useNavigation } from '@react-navigation/native';
-import { StackNavigationProp } from '@react-navigation/stack';
-import type { RootStackParamList } from './CleanRootNavigator';
-
-type NavigationProp = StackNavigationProp<RootStackParamList>;
 
 const Tab = createBottomTabNavigator();
 
@@ -87,20 +81,6 @@ const PlaceholderScreen: React.FC<{ name: string; description: string }> = ({ na
 // Create proper component references to avoid inline functions
 // ExercisesScreen now imported from separate file
 
-// Wrap InsightsScreen with FeatureGate
-const InsightsScreenWrapper = () => {
-  const navigation = useNavigation<NavigationProp>();
-
-  return (
-    <FeatureGate
-      feature="progressInsights"
-      onUpgrade={() => navigation.navigate('Subscription')}
-    >
-      <InsightsScreen />
-    </FeatureGate>
-  );
-};
-
 // ProfileScreen now imported from separate file
 
 const CleanTabNavigator: React.FC = () => {
@@ -156,6 +136,11 @@ const CleanTabNavigator: React.FC = () => {
         options={{
           headerTitle: 'Being',
           headerShown: false, // CleanHomeScreen has its own SafeAreaView
+          // INFRA-183: tabBarButtonTestID is the only mechanically reliable
+          // way for Maestro to target bottom tabs — tab labels render as
+          // `text: ""` with `accessibilityText: "Home, tab, 1 of 4"` and
+          // Maestro's `text:` selector doesn't match against accessibilityText.
+          tabBarButtonTestID: 'tab-home',
           tabBarIcon: ({ focused }) => (
             <TriangleIcon
               color={focused ? colorSystem.navigation.home : colorSystem.gray[500]}
@@ -170,6 +155,7 @@ const CleanTabNavigator: React.FC = () => {
         options={{
           headerTitle: 'Learn',
           headerShown: false, // LearnScreen has its own SafeAreaView
+          tabBarButtonTestID: 'tab-learn',
           tabBarIcon: ({ focused }) => (
             <BookIcon
               color={focused ? colorSystem.navigation.learn : colorSystem.gray[500]}
@@ -178,12 +164,22 @@ const CleanTabNavigator: React.FC = () => {
         }}
       />
 
+      {/* DEBUG-189: Insights renders directly (no FeatureGate wrap) so the
+          in-screen `CollapsibleCrisisButton` (testID="crisis-insights") stays
+          accessible. CLAUDE.md Safety Fact: "Crisis features ALWAYS accessible,
+          regardless of subscription." The earlier paywall was incidental
+          FEAT-16-deferral debris (FEAT-16 rescoped 2026-05-25 to V2). When
+          FEAT-16 lands the real subscription UX, the gating decision (which
+          screens, when in trial vs after trial, crisis-overlay placement on
+          paywalls) gets designed end-to-end — don't reintroduce the wrapper
+          without an explicit product call there. */}
       <Tab.Screen
         name="Insights"
-        component={InsightsScreenWrapper}
+        component={InsightsScreen}
         options={{
           headerTitle: 'Insights',
           headerShown: false, // InsightsScreen has its own SafeAreaView
+          tabBarButtonTestID: 'tab-insights',
           tabBarIcon: ({ focused }) => (
             <CircleIcon
               color={focused ? colorSystem.navigation.insights : colorSystem.gray[500]}
@@ -194,10 +190,13 @@ const CleanTabNavigator: React.FC = () => {
 
       <Tab.Screen
         name="Profile"
-        component={ProfileScreen}
+        component={ProfileStackNavigator}
         options={{
           headerTitle: 'Profile',
-          headerShown: false, // ProfileScreen has its own SafeAreaView
+          // FEAT-212: the Profile tab now hosts a nested stack (ProfileStackNavigator)
+          // which owns its own headers; keep the tab header hidden to avoid doubling.
+          headerShown: false,
+          tabBarButtonTestID: 'tab-profile',
           tabBarIcon: ({ focused }) => (
             <BrainIcon
               color={focused ? colorSystem.base.midnightBlue : colorSystem.gray[500]}

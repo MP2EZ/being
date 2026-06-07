@@ -12,6 +12,12 @@ All notable infrastructure and tooling changes that affect contributors. App-sto
 - **Reanimated** 4.3.x with new animation backend (`react-native-worklets` is now a required peer dep — added)
 - **Vector icons** migrated from `@expo/vector-icons` to scoped `@react-native-vector-icons/*` packages. `MaterialCommunityIcons` → `MaterialDesignIcons` (same glyphs, new component name).
 
+### Changed (MAINT-162 — TypeScript 5.9 → 6.0)
+
+- **TypeScript** `~5.9.2` → `~6.0.3` — lands the Expo SDK 56 default deferred by INFRA-158. Removed the `expo.install.exclude: ["typescript"]` opt-out from `app/package.json`.
+- `tsconfig.json`: added explicit `types: ["node", "react"]` because TS 6 stopped auto-including `@types/node`'s ambient globals (`NodeJS.Timeout`, `global`); and added `ignoreDeprecations: "6.0"` to defer the `baseUrl` removal to the eventual TS 7 migration.
+- **No source/behavioral changes** — TS 6's stricter discriminated-union narrowing surfaced no new errors in the existing strict-typed clinical/crisis code; clinical, crisis-detection, unit, and safety suites all pass unchanged.
+
 ### Removed
 
 - `newArchEnabled` config field (removed by SDK 55; New Architecture is mandatory)
@@ -28,7 +34,6 @@ All notable infrastructure and tooling changes that affect contributors. App-sto
 - `@react-native-vector-icons/material-design-icons`, `@react-native-vector-icons/ionicons`
 - `app/plugins/withAppGroupsEntitlement.js` — local Expo config plugin for App Groups
 
-### Opted out (follow-up work items)
+### Changed (MAINT-163 — `expo/fetch` as `globalThis.fetch`)
 
-- **TypeScript 6.0.3** as the default. Kept on TS 5.9.x via `expo.install.exclude: ["typescript"]` in `package.json`. Migrate in a follow-up.
-- **`expo/fetch` as `globalThis.fetch`**. Kept on RN's native fetch via `EXPO_PUBLIC_USE_RN_FETCH=1` in both env files. Migrate in a follow-up after Supabase/Stripe/Sentry/PostHog clients are explicitly validated against `expo/fetch`.
+- Dropped the `EXPO_PUBLIC_USE_RN_FETCH=1` opt-out from both `.config/.env.production` and `.config/.env.development`. `globalThis.fetch` is now Expo's `expo/fetch` (the SDK 56 default) instead of React Native's native `fetch`. This lands the second half of the INFRA-158 deferral. Validation is **manual end-to-end on a TestFlight build** — the work item AC covers Supabase auth + RLS queries, Stripe receipt verification via Supabase Edge Function, PostHog event ingestion, Sentry error capture, and react-native-iap sandbox receipt round-trip.

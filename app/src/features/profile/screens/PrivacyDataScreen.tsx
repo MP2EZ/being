@@ -19,21 +19,19 @@ import {
   StyleSheet,
   ScrollView,
   Switch,
+  TouchableOpacity,
   ActivityIndicator,
   Alert,
   Platform,
 } from 'react-native';
 import { Ionicons } from '@react-native-vector-icons/ionicons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
 import { useConsentStore } from '@/core/stores/consentStore';
-import { useAnalytics } from '@/core/analytics';
+import { useAnalytics, useFeatureFlag } from '@/core/analytics';
 import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
-import SubMenuHeader from '../components/SubMenuHeader';
-
-interface PrivacyDataScreenProps {
-  onReturn: () => void;
-}
+import type { ProfileStackParamList } from '../ProfileStackNavigator';
 
 /**
  * Storage Location Row Component
@@ -153,11 +151,18 @@ const storageRowStyles = StyleSheet.create({
   },
 });
 
-const PrivacyDataScreen: React.FC<PrivacyDataScreenProps> = ({ onReturn }) => {
+const PrivacyDataScreen: React.FC = () => {
+  // FEAT-212: rendered as a route on ProfileStackNavigator. The cloud-backup
+  // sub-screen is now a pushed route (Privacy → CloudBackup), not an in-component
+  // state machine; the native stack header supplies the back chevron.
+  const navigation = useNavigation<StackNavigationProp<ProfileStackParamList>>();
   const { loadConsent, currentConsent, updateConsent, setUniversalOptOut } = useConsentStore();
   const { trackScreenView, trackSettingsOpened, trackConsentChanged } = useAnalytics();
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  // Runtime flag (INFRA-199): gates UI visibility of the cloud-backup entry.
+  // PostHog promotes post-consent; build-time default is the fail-safe floor.
+  const cloudSyncAvailable = useFeatureFlag('cloud_sync');
 
   // Track screen view and settings opened for analytics
   useFocusEffect(
@@ -231,7 +236,6 @@ const PrivacyDataScreen: React.FC<PrivacyDataScreenProps> = ({ onReturn }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <SubMenuHeader title="Privacy & Data" onClose={onReturn} />
       <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
         {/* Universal Opt-Out Section (INFRA-151) */}
         <View style={styles.section}>
@@ -245,7 +249,7 @@ const PrivacyDataScreen: React.FC<PrivacyDataScreenProps> = ({ onReturn }) => {
               <View style={styles.settingInfo}>
                 <Text style={styles.settingLabel}>Honor Universal Opt-Out</Text>
                 <Text style={styles.settingDescription}>
-                  When enabled, Being treats your account as opted out of all analytics, crash reports, cloud sync, and research participation — overriding the individual toggles below. Honored under CCPA, TDPSA, CPA, and CTDPA.
+                  When enabled, Being treats your in-app session as opted out of all analytics, crash reports, settings backup, and research participation — overriding the individual toggles below. Honored under CCPA, TDPSA, CPA, and CTDPA.
                 </Text>
               </View>
               <Switch
@@ -307,9 +311,9 @@ const PrivacyDataScreen: React.FC<PrivacyDataScreenProps> = ({ onReturn }) => {
           <View style={styles.settingCard}>
             <View style={styles.settingRow}>
               <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>Cloud Backup</Text>
+                <Text style={styles.settingLabel}>Settings Backup</Text>
                 <Text style={styles.settingDescription}>
-                  Securely sync your preferences across devices
+                  Back up app preferences to encrypted cloud storage
                 </Text>
               </View>
               <Switch
@@ -321,6 +325,30 @@ const PrivacyDataScreen: React.FC<PrivacyDataScreenProps> = ({ onReturn }) => {
               />
             </View>
           </View>
+
+          {/* Manage Cloud Backup — flag-gated entry to the comprehensive
+              controls (backup now, restore, status). Ships dark: hidden
+              until the cloud_sync feature flag is enabled. */}
+          {cloudSyncAvailable && (
+            <TouchableOpacity
+              style={styles.settingCard}
+              onPress={() => navigation.navigate('CloudBackup')}
+              testID="profile-cloud-backup"
+              accessibilityRole="button"
+              accessibilityLabel="Manage Cloud Backup"
+              accessibilityHint="Opens cloud backup status, manual backup, and restore controls"
+            >
+              <View style={styles.settingRow}>
+                <View style={styles.settingInfo}>
+                  <Text style={styles.settingLabel}>Manage Cloud Backup</Text>
+                  <Text style={styles.settingDescription}>
+                    Back up now, restore, and view sync status
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color={colorSystem.gray[400]} />
+              </View>
+            </TouchableOpacity>
+          )}
 
           <View style={styles.settingCard}>
             <View style={styles.settingRow}>
@@ -465,7 +493,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   infoBox: {
-    backgroundColor: '#F0F4FF',
+    backgroundColor: colorSystem.status.infoBackground,
     borderRadius: borderRadius.medium,
     padding: spacing[16],
     marginTop: spacing[8],

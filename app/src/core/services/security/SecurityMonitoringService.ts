@@ -38,6 +38,7 @@ import NetworkSecurityService from './NetworkSecurityService';
 import CrisisSecurityProtocol from '@/features/crisis/services/CrisisSecurityProtocol';
 import * as Crypto from 'expo-crypto';
 import { Platform } from 'react-native';
+import { sanitizeWellnessData } from '@/core/services/security/wellnessDataPatterns';
 
 /**
  * SECURITY MONITORING CONFIGURATION
@@ -280,6 +281,18 @@ export interface IncidentDetectionEvent {
  * COMPREHENSIVE SECURITY MONITORING SERVICE
  * Provides real-time security monitoring and vulnerability assessment
  */
+/**
+ * THREAT DETECTOR REGISTRATION (MAINT-201)
+ * Consumers (e.g. AnalyticsService) register named detectors that the monitoring
+ * service holds in-memory. `pattern` may be a RegExp or a predicate closure — both
+ * are memory-only and intentionally NOT persisted.
+ */
+export interface ThreatDetectorConfig {
+  pattern: RegExp | ((data: unknown) => boolean);
+  severity: 'critical' | 'high' | 'medium' | 'low' | 'info';
+  action: 'block_and_alert' | 'alert_and_obfuscate' | 'rotate_sessions';
+}
+
 export class SecurityMonitoringService {
   private static instance: SecurityMonitoringService;
   
@@ -297,6 +310,17 @@ export class SecurityMonitoringService {
   private detectedThreats: ThreatDetectionResult[] = [];
   private detectedIncidents: IncidentDetectionEvent[] = [];
   private vulnerabilities: SecurityVulnerability[] = [];
+  // MAINT-201: in-memory registry of named threat detectors. Never persisted —
+  // pattern values may be RegExp or closures.
+  private threatDetectors: Map<string, ThreatDetectorConfig> = new Map();
+  // MAINT-201: sanitized, in-memory record of critical/high analytics security
+  // events. Holds NO durable wellness data (sanitizeWellnessData runs first).
+  private analyticsSecurityEvents: Array<{
+    eventType: string;
+    severity: 'critical' | 'high' | 'medium' | 'low' | 'info';
+    timestamp: number;
+    data: Record<string, unknown>;
+  }> = [];
   
   // Monitoring timers
   private realTimeMonitoringTimer: NodeJS.Timeout | null = null;
@@ -320,6 +344,53 @@ export class SecurityMonitoringService {
       SecurityMonitoringService.instance = new SecurityMonitoringService();
     }
     return SecurityMonitoringService.instance;
+  }
+
+  /**
+   * MAINT-190: Test-only escape hatch for singleton state isolation.
+   * Clears all monitoring timers + threat/incident/vulnerability lists.
+   *
+   * Production safety: throws if NODE_ENV !== 'test'. A production reset
+   * would silently disable real-time threat detection mid-session — the
+   * monitoringActive flag flips back to false without firing the normal
+   * shutdown audit, so the security operations dashboard would show
+   * green while monitoring is actually offline.
+   */
+  public static __resetForTesting__(): void {
+    if (process.env.NODE_ENV !== 'test') {
+      throw new Error(
+        'SecurityMonitoringService.__resetForTesting__() called outside NODE_ENV=test — refusing to clear monitoring state in production'
+      );
+    }
+    if (SecurityMonitoringService.instance) {
+      const inst = SecurityMonitoringService.instance;
+      if (inst.realTimeMonitoringTimer) {
+        clearInterval(inst.realTimeMonitoringTimer);
+        inst.realTimeMonitoringTimer = null;
+      }
+      if (inst.vulnerabilityScanTimer) {
+        clearInterval(inst.vulnerabilityScanTimer);
+        inst.vulnerabilityScanTimer = null;
+      }
+      if (inst.complianceCheckTimer) {
+        clearInterval(inst.complianceCheckTimer);
+        inst.complianceCheckTimer = null;
+      }
+      if (inst.threatAnalysisTimer) {
+        clearInterval(inst.threatAnalysisTimer);
+        inst.threatAnalysisTimer = null;
+      }
+      inst.monitoringActive = false;
+      inst.lastVulnerabilityAssessment = null;
+      inst.detectedThreats = [];
+      inst.detectedIncidents = [];
+      inst.vulnerabilities = [];
+      inst.threatDetectors = new Map();
+      inst.analyticsSecurityEvents = [];
+      inst.initialized = false;
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- intentional: nulling private static reset target
+    SecurityMonitoringService.instance = undefined as any;
   }
 
   /**
@@ -716,6 +787,15 @@ export class SecurityMonitoringService {
       }
 
       this.monitoringActive = true;
+
+      // INFRA-175: Skip interval setup in test environment to prevent Jest
+      // worker hang from unguarded timers (INFRA-144 pattern). Production
+      // continuous-monitoring is unaffected — guards only fire under
+      // NODE_ENV === 'test'.
+      if (process.env.NODE_ENV === 'test') {
+        logSecurity('Continuous security monitoring active (intervals skipped under NODE_ENV=test per INFRA-175)', 'low');
+        return;
+      }
 
       // Real-time monitoring (every 5 seconds)
       this.realTimeMonitoringTimer = setInterval(async () => {
@@ -1898,6 +1978,69 @@ export class SecurityMonitoringService {
 
   public getDetectedIncidents(): IncidentDetectionEvent[] {
     return [...this.detectedIncidents];
+  }
+
+  /**
+   * THREAT DETECTOR REGISTRATION (MAINT-201)
+   * Stores a named detector in-memory. Re-registering an existing name overwrites it.
+   */
+  public registerThreatDetector(name: string, config: ThreatDetectorConfig): void {
+    this.threatDetectors.set(name, config);
+  }
+
+  /** Names of currently-registered threat detectors (no pattern/closure exposure). */
+  public getThreatDetectorNames(): string[] {
+    return [...this.threatDetectors.keys()];
+  }
+
+  /** Recorded analytics security events (critical/high; sanitized, in-memory). */
+  public getAnalyticsSecurityEvents(): ReadonlyArray<{
+    eventType: string;
+    severity: 'critical' | 'high' | 'medium' | 'low' | 'info';
+    timestamp: number;
+    data: Record<string, unknown>;
+  }> {
+    return [...this.analyticsSecurityEvents];
+  }
+
+  /**
+   * SECURITY EVENT LOGGING (MAINT-201)
+   *
+   * Records a security event reported by the analytics pipeline. The `data` may carry
+   * wellness data (e.g. a `rawText: 'PHQ-9: 18'`), so it is sanitized via
+   * `sanitizeWellnessData` BEFORE it reaches any log sink or storage. Severity is
+   * derived from `eventType` here — callers cannot downgrade it. Only critical/high
+   * events are recorded (in-memory, sanitized); lower severities are log-only.
+   * Never throws.
+   */
+  public async logSecurityEvent(eventType: string, data: unknown): Promise<void> {
+    try {
+      const severity = this.deriveSecurityEventSeverity(eventType);
+      const safeData = sanitizeWellnessData(data);
+
+      if (severity === 'critical' || severity === 'high') {
+        this.analyticsSecurityEvents.push({ eventType, severity, timestamp: Date.now(), data: safeData });
+        if (this.analyticsSecurityEvents.length > 100) {
+          this.analyticsSecurityEvents.shift();
+        }
+      }
+
+      logSecurity(`Analytics security event: ${eventType}`, severity, {
+        eventType: `analytics_${eventType}`,
+        data: safeData,
+      });
+    } catch (error) {
+      logError(LogCategory.SECURITY, '📝 SecurityMonitoring logSecurityEvent failed:', error instanceof Error ? error : new Error(String(error)));
+    }
+  }
+
+  /** Map an analytics security-event type to a severity. Caller cannot override. */
+  private deriveSecurityEventSeverity(eventType: string): 'critical' | 'high' | 'medium' | 'low' {
+    const map: Record<string, 'critical' | 'high' | 'medium' | 'low'> = {
+      phi_exposure_attempt: 'critical',
+      unauthorized_access: 'high',
+    };
+    return map[eventType] ?? 'medium';
   }
 
   public getVulnerabilities(): SecurityVulnerability[] {

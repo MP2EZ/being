@@ -4,21 +4,22 @@
  * Privacy-first external error reporting service.
  *
  * PRIVACY PRINCIPLES:
- * - Being is NOT a Privacy covered entity (wellness app, not healthcare)
+ * - Being is NOT a HIPAA-covered entity (wellness app, not healthcare). See
+ *   docs/legal/regulatory-applicability.md for the applicable regulatory frame.
  * - We voluntarily implement strong privacy practices per our privacy policy
  * - Local-first data architecture: wellness data never leaves device
- * - Only crash/error metadata sent externally (no PHI, no wellness data)
+ * - Only crash/error metadata sent externally (no wellness data, no sensitive
+ *   identifiers)
  *
  * DESIGN:
  * - Abstracted interface supporting any error reporting backend (Sentry, etc.)
  * - Allowlist-based sanitization: only explicitly allowed fields transmitted
- * - Multi-layer PHI scrubbing before any external transmission
+ * - Multi-layer sensitive-data scrubbing before any external transmission
  * - Kill switch for immediate disable in production
  * - Crisis events logged locally only (never external)
  *
  * ACTIVATION:
  * - Set SENTRY_DSN environment variable when ready
- * - No BAA required (Being is not Privacy covered entity)
  * - Any Sentry tier is sufficient (including free)
  */
 
@@ -49,7 +50,7 @@ const ALLOWED_ERROR_FIELDS = [
   'name',
   'errorCode',
 
-  // Context (no PHI)
+  // Context (no sensitive data)
   'platform',
   'version',
   'buildNumber',
@@ -62,11 +63,11 @@ const ALLOWED_ERROR_FIELDS = [
   'lineno',
   'colno',
 
-  // Performance (no PHI)
+  // Performance (no sensitive data)
   'duration',
   'operationType',
 
-  // App state (no PHI)
+  // App state (no sensitive data)
   'screenName',       // Generic screen names only
   'flowType',         // morning/midday/evening only
   'networkStatus',
@@ -77,7 +78,9 @@ const ALLOWED_ERROR_FIELDS = [
  * BLOCKLIST: Fields that must NEVER be sent externally
  * Defense-in-depth: blocked even if somehow bypasses allowlist
  */
-const BLOCKED_FIELDS = [
+// Exported (read-only) so privacy regression tests can pin the contract that
+// sensitive fields — e.g. wellness scores — are never sent to Sentry.
+export const BLOCKED_FIELDS = [
   // User identifiers
   'userId', 'user_id', 'userIdentifier', 'id', 'email', 'phone',
 
@@ -96,16 +99,16 @@ const BLOCKED_FIELDS = [
   // Personal data
   'data', 'userData', 'profile', 'profileData', 'private',
   'therapeutic', 'mood', 'emotion', 'feeling', 'thought',
-  'journal', 'reflection', 'note', 'content',
+  'journal', 'reflection', 'note', 'content', 'annotation',
 
   // Stoic/philosophical content
   'principle', 'virtue', 'practice', 'exercise',
 ] as const;
 
 /**
- * PHI PATTERNS: Regex patterns for additional PHI detection
+ * SENSITIVE-DATA PATTERNS: Regex patterns for additional sensitive-identifier detection
  */
-const SENSITIVE_DATA_PATTERNS = [
+export const SENSITIVE_DATA_PATTERNS = [
   // UUIDs (could be user IDs)
   /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi,
 
@@ -126,7 +129,7 @@ const SENSITIVE_DATA_PATTERNS = [
   // JWT tokens
   /eyJ[A-Za-z0-9_-]*\.eyJ[A-Za-z0-9_-]*\.[A-Za-z0-9_-]*/g,
 
-  // Base64 encoded data (potential PHI)
+  // Base64 encoded data (potential sensitive payload)
   /(?:[A-Za-z0-9+/]{4}){10,}(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?/g,
 
   // Therapeutic content patterns
@@ -229,7 +232,7 @@ export class ExternalErrorReporter {
             // CRITICAL: Privacy-first beforeBreadcrumb hook
             beforeBreadcrumb: (breadcrumb: any) => this.beforeBreadcrumbHook(breadcrumb),
 
-            // Disable features that could leak PHI
+            // Disable features that could leak sensitive data
             autoSessionTracking: false,
             enableAutoPerformanceTracing: false,
             attachStacktrace: true,
@@ -329,8 +332,8 @@ export class ExternalErrorReporter {
       // Apply allowlist filtering
       const sanitized = this.applyAllowlist(event);
 
-      // Apply PHI pattern scrubbing
-      return this.scrubPHI(sanitized);
+      // Apply sensitive-data pattern scrubbing
+      return this.scrubSensitiveData(sanitized);
     } catch {
       // On any error, drop the event (fail-safe)
       logger.error(LogCategory.SECURITY, 'beforeSend sanitization failed - dropping event');
@@ -444,13 +447,13 @@ export class ExternalErrorReporter {
   }
 
   /**
-   * Scrub PHI patterns from event
+   * Scrub sensitive-data patterns from event
    */
-  private scrubPHI(event: any): any {
+  private scrubSensitiveData(event: any): any {
     const eventStr = JSON.stringify(event);
     let scrubbed = eventStr;
 
-    // Apply all PHI patterns
+    // Apply all sensitive-data patterns
     for (const pattern of SENSITIVE_DATA_PATTERNS) {
       scrubbed = scrubbed.replace(pattern, '[REDACTED]');
     }
@@ -499,7 +502,7 @@ export class ExternalErrorReporter {
   }
 
   /**
-   * Sanitize string by removing PHI patterns
+   * Sanitize string by removing sensitive-data patterns
    */
   private sanitizeString(str: string): string {
     if (!str || typeof str !== 'string') return '';

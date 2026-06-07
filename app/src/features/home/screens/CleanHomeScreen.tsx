@@ -326,7 +326,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   startButtonText: {
-    color: 'white',
+    color: colorSystem.base.white,
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.semibold,
   },

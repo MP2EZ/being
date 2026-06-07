@@ -59,3 +59,7 @@ test-results/
 *.map
 *.js.map
 *.hbc.map
+
+# Generated legal content (synced from docs/legal/*.md via scripts/generate-legal-content.js)
+# Regenerated on postinstall, prestart, preios, preandroid. See DEBUG-178.
+src/features/profile/content/legalContent.generated.ts

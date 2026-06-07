@@ -70,19 +70,6 @@ export const SUPABASE_CERTIFICATE_PINS = {
 } as const;
 
 /**
- * Future API endpoint pins (being.fyi)
- * Placeholder for when custom API is implemented
- */
-export const API_CERTIFICATE_PINS = {
-  'api.being.fyi': {
-    // Placeholder - update when API is deployed
-    primary: 'PLACEHOLDER_UPDATE_BEFORE_USE',
-    backup1: 'PLACEHOLDER_UPDATE_BEFORE_USE',
-    backup2: 'PLACEHOLDER_UPDATE_BEFORE_USE',
-  },
-} as const;
-
-/**
  * Pin validation configuration
  */
 export const PIN_VALIDATION_CONFIG = {
@@ -198,17 +185,6 @@ export function getPinsForHost(
   // Wildcard match for *.supabase.co
   if (hostname.endsWith('.supabase.co')) {
     return SUPABASE_CERTIFICATE_PINS['*.supabase.co'];
-  }
-
-  // Future: API endpoint match
-  if (hostname in API_CERTIFICATE_PINS) {
-    const pins =
-      API_CERTIFICATE_PINS[hostname as keyof typeof API_CERTIFICATE_PINS];
-    // Don't return placeholder pins
-    if (pins.primary === 'PLACEHOLDER_UPDATE_BEFORE_USE') {
-      return null;
-    }
-    return pins;
   }
 
   return null;
@@ -393,7 +369,6 @@ if (
 
 export default {
   SUPABASE_CERTIFICATE_PINS,
-  API_CERTIFICATE_PINS,
   PIN_VALIDATION_CONFIG,
   getPinsForHost,
   validateCertificatePin,

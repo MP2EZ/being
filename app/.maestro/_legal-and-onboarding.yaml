@@ -1,0 +1,303 @@
+appId: fyi.being.app
+tags:
+  - helper
+name: "Helper: traverse LegalGate + Onboarding"
+---
+# Reusable subflow. Called via `- runFlow: _legal-and-onboarding.yaml`
+# from each top-level safety flow after a fresh
+# launchApp { clearState: true, clearKeychain: true }.
+#
+# Goal: get the app from the cold-start LegalGate to the main tab navigator
+# as fast as possible, without driving any safety surface.
+#
+# This subflow exists because the LegalGate (age picker + 4 consent toggles)
+# and Onboarding (5 sub-screens) are non-safety UI ceremony that would
+# otherwise dominate flow runtime and brittleness. Safety surfaces (crisis
+# detection, threshold alerts, 988 dial) are tested by the calling flows.
+#
+# INFRA-181: the prior dev-menu tutorial dismiss step (tapOn text "Continue"
+# optional) was non-deterministic — sometimes opening a secondary dev-tools
+# panel that bounced the app back to the Expo dev launcher. App.tsx now
+# calls DevMenu.closeMenu() on mount when EXPO_PUBLIC_E2E_SUPPRESS_DEV_MENU=1
+# (set in .env.development), so the tutorial is dismissed JS-side before
+# Maestro polls the view hierarchy. No flow-level dismiss needed.
+
+# ── Step 0: Expo dev launcher → load Being app ──────────────────
+# In dev builds, launchApp lands in the Expo dev-client launcher with a
+# "DEVELOPMENT SERVERS" list. Tap the Metro server entry to load the
+# JS bundle. In release builds these steps are no-ops (optional: true).
+# Dismiss any "Open in 'Being'?" system prompt first.
+- tapOn:
+    text: "Open"
+    optional: true
+# Wait briefly for the dev launcher to populate its server list.
+- extendedWaitUntil:
+    visible:
+      text: "DEVELOPMENT SERVERS"
+    timeout: 15000
+    optional: true
+# Tap the Metro server row by location (50% x, ~20% y) since text-based
+# selectors on the dev launcher are unreliable. The row is fixed in the
+# layout — first item under DEVELOPMENT SERVERS header.
+- tapOn:
+    point: "50%, 20%"
+    optional: true
+# LegalGate readiness signal. Use the testID added in INFRA-179
+# (legal-dob-picker on CombinedLegalGateScreen.tsx:247) — testID is more
+# deterministic than text and survives copy drift. App.tsx's dev-menu
+# suppression (INFRA-181) runs before Maestro reaches this poll, so no
+# tutorial-dismiss step is needed.
+- extendedWaitUntil:
+    visible:
+      id: "legal-dob-picker"
+    timeout: 30000
+
+# ── Step 1: LegalGate — date-of-birth picker (INFRA-179, INFRA-181) ─
+# @react-native-picker/picker renders inline UIPickerView on iOS. Wheel
+# items aren't tappable as text in the accessibility tree, so swiping is
+# the only option. Years are sorted descending (newest first) — see
+# CombinedLegalGateScreen.tsx:69 `currentYear - i`. Placeholder (value=null)
+# at index 0. The specific year doesn't matter as long as it's ≥18.
+#
+# INFRA-181: swipe coords must START AND END INSIDE the picker's y-range
+# (currently ~25%–48% of screen height — see bounds in hierarchy dump).
+# Earlier coords started at 70% (below the picker) so the parent ScrollView
+# claimed the gesture and the wheel never scrolled. Use the picker's id as
+# the swipe anchor so coords don't drift with layout changes.
+- tapOn:
+    id: "legal-dob-picker"
+- swipe:
+    from:
+      id: "legal-dob-picker"
+    direction: UP
+- swipe:
+    from:
+      id: "legal-dob-picker"
+    direction: UP
+- swipe:
+    from:
+      id: "legal-dob-picker"
+    direction: UP
+- swipe:
+    from:
+      id: "legal-dob-picker"
+    direction: UP
+- swipe:
+    from:
+      id: "legal-dob-picker"
+    direction: UP
+# Regression guard: fail fast if the wheel didn't actually scroll
+# (placeholder still visible = no year selected, Continue would stay
+# disabled and the downstream `assertVisible: text "Home"` failure
+# would take ~90s to surface).
+- assertNotVisible:
+    text: "Select year..."
+
+# Four consent checkboxes via testID. testIDs sit on the 24px indicator View,
+# NOT the outer Pressable (INFRA-181): the Pressable's bounding-box center
+# falls in the text region, where the inline `Linking.openURL` link substring
+# (e.g. "Terms of Service") would intercept the tap and navigate away.
+# Tapping the small indicator forces the touch into a link-free zone — the
+# parent Pressable still receives the event via RN tap propagation.
+- tapOn:
+    id: "legal-consent-tos"
+- tapOn:
+    id: "legal-consent-privacy"
+- tapOn:
+    id: "legal-consent-wellness"
+- tapOn:
+    id: "legal-consent-mh-processing"
+
+# Continue. INFRA-181: Continue button sits below the consents; on smaller
+# screens it's offscreen until scrolled. scrollUntilVisible is more durable
+# than blind swipes — adapts to layout shifts across SDK upgrades.
+- scrollUntilVisible:
+    element:
+      id: "legal-gate-continue"
+    direction: DOWN
+- tapOn:
+    id: "legal-gate-continue"
+
+# ── Step 2: Onboarding ────────────────────────────────────────────
+# Onboarding sequence (per OnboardingScreen.navigateNext + CleanRootNavigator
+# AssessmentFlow stack screen):
+#   1. Welcome           → "Begin Your Practice"  → opens PHQ-9 modal
+#   2. PHQ-9 (9 q's, Q1 direct — no intro in onboarding context)
+#   3. GAD-7 (7 q's, Q1 direct — same)
+#   4. Stoic Intro       → "Continue"
+#   5. Notifications     → "Continue" (or "Set up later" — both navigateNext)
+#   6. Privacy           → "Continue"
+#   7. Celebration       → "Explore App" (testID="onboarding-explore-app")
+#
+# INFRA-183: AssessmentFlow modal jumps STRAIGHT to Q1 in onboarding context
+# — CleanRootNavigator.tsx sets `showIntroduction={route.params.context ===
+# 'standalone'}`, so onboarding suppresses the intro screen (and its
+# Skip-for-Now button). The only way through is to answer all 16 questions.
+# Each tap fires onAnswer → setCurrentQuestionIndex(prev + 1) auto-advance
+# (EnhancedAssessmentFlow.tsx:284-285), so no Next/Continue button between
+# questions. Tap option-0 ("Not at all" / "Never") to keep all scores at 0
+# and avoid any crisis-threshold side effects.
+- tapOn:
+    text: "Begin Your Practice"
+    optional: true
+
+# PHQ-9 — 9 questions, "Not at all" (option-0) each.
+#
+# INFRA-208: the prior blind `repeat: { times: 9 }` fired 9 taps with NO
+# settle between them. Each tap auto-advances (onAnswer →
+# setCurrentQuestionIndex(prev+1), EnhancedAssessmentFlow.tsx:284-285); on a
+# slower/loaded sim a tap landed mid-transition (before the next question's
+# radio mounted) and was dropped, leaving the assessment short so onboarding
+# never reached Stoic Intro — the non-deterministic Phase 2.5 gate failure.
+#
+# Fix: unroll the loop and wait for each question's progress counter before
+# tapping, so the prior auto-advance has settled (radio mounted) first. The
+# counter is a single text node — "Question {currentStep} of {totalSteps}"
+# (EnhancedAssessmentQuestion.tsx:313-318) — so it's a reliable per-question
+# settle signal that adapts to sim speed (no fixed sleeps). A static `repeat`
+# can't express this because the post-condition changes every iteration.
+# Each `timeout` is a failure ceiling only — the wait returns the instant the
+# counter is visible, so the assessment section stays well within ≤45s.
+# NOTE: Maestro's `text:` is a FULL-MATCH regex, and RN merges this counter's
+# Text with the sibling progress-bar accessibilityLabel into one node whose
+# accessibility string is "Question N of M, Progress: N of M questions
+# completed" (verified via `maestro hierarchy`, INFRA-208). A bare
+# "Question N of M" therefore does NOT match — wrap in `.*…*` to full-match
+# the merged string.
+- extendedWaitUntil:
+    visible:
+      text: ".*Question 1 of 9.*"
+    timeout: 10000
+- tapOn:
+    id: "assessment-response-group-option-0"
+- extendedWaitUntil:
+    visible:
+      text: ".*Question 2 of 9.*"
+    timeout: 10000
+- tapOn:
+    id: "assessment-response-group-option-0"
+- extendedWaitUntil:
+    visible:
+      text: ".*Question 3 of 9.*"
+    timeout: 10000
+- tapOn:
+    id: "assessment-response-group-option-0"
+- extendedWaitUntil:
+    visible:
+      text: ".*Question 4 of 9.*"
+    timeout: 10000
+- tapOn:
+    id: "assessment-response-group-option-0"
+- extendedWaitUntil:
+    visible:
+      text: ".*Question 5 of 9.*"
+    timeout: 10000
+- tapOn:
+    id: "assessment-response-group-option-0"
+- extendedWaitUntil:
+    visible:
+      text: ".*Question 6 of 9.*"
+    timeout: 10000
+- tapOn:
+    id: "assessment-response-group-option-0"
+- extendedWaitUntil:
+    visible:
+      text: ".*Question 7 of 9.*"
+    timeout: 10000
+- tapOn:
+    id: "assessment-response-group-option-0"
+- extendedWaitUntil:
+    visible:
+      text: ".*Question 8 of 9.*"
+    timeout: 10000
+- tapOn:
+    id: "assessment-response-group-option-0"
+- extendedWaitUntil:
+    visible:
+      text: ".*Question 9 of 9.*"
+    timeout: 10000
+# Answers PHQ-9 Q9 → onComplete dismisses the modal → a 50ms setTimeout
+# (OnboardingScreen.tsx:824) launches GAD-7. The next wait below bridges that
+# gap (and the brief `completing` ActivityIndicator) deterministically:
+# "Question 1 of 7" can't appear until GAD-7 Q1 has mounted.
+- tapOn:
+    id: "assessment-response-group-option-0"
+
+# GAD-7 — 7 questions, same wait-then-tap pattern. After Q7 → Stoic Intro.
+- extendedWaitUntil:
+    visible:
+      text: ".*Question 1 of 7.*"
+    timeout: 10000
+- tapOn:
+    id: "assessment-response-group-option-0"
+- extendedWaitUntil:
+    visible:
+      text: ".*Question 2 of 7.*"
+    timeout: 10000
+- tapOn:
+    id: "assessment-response-group-option-0"
+- extendedWaitUntil:
+    visible:
+      text: ".*Question 3 of 7.*"
+    timeout: 10000
+- tapOn:
+    id: "assessment-response-group-option-0"
+- extendedWaitUntil:
+    visible:
+      text: ".*Question 4 of 7.*"
+    timeout: 10000
+- tapOn:
+    id: "assessment-response-group-option-0"
+- extendedWaitUntil:
+    visible:
+      text: ".*Question 5 of 7.*"
+    timeout: 10000
+- tapOn:
+    id: "assessment-response-group-option-0"
+- extendedWaitUntil:
+    visible:
+      text: ".*Question 6 of 7.*"
+    timeout: 10000
+- tapOn:
+    id: "assessment-response-group-option-0"
+- extendedWaitUntil:
+    visible:
+      text: ".*Question 7 of 7.*"
+    timeout: 10000
+- tapOn:
+    id: "assessment-response-group-option-0"
+
+# Stoic Intro → Notifications → Privacy: each has a "Continue" CTA at the
+# bottom of a scrollable section that may be below the fold (5-principle
+# list on Stoic Intro is the tallest). scrollUntilVisible is a no-op when
+# the element is already in viewport, so safe to apply uniformly.
+- scrollUntilVisible:
+    element:
+      text: "Continue"
+    direction: DOWN
+- tapOn:
+    text: "Continue"
+- scrollUntilVisible:
+    element:
+      text: "Continue"
+    direction: DOWN
+- tapOn:
+    text: "Continue"
+- scrollUntilVisible:
+    element:
+      text: "Continue"
+    direction: DOWN
+- tapOn:
+    text: "Continue"
+
+# Final screen — Explore App routes to Main tabs.
+- tapOn:
+    id: "onboarding-explore-app"
+
+# ── Step 3: Verify we landed on Main ─────────────────────────────
+# Use testID rather than text: the bottom Home tab label is rendered with
+# accessibilityText "Home, tab, 1 of 4" (per iOS Tab Bar conventions) and
+# Maestro's `text:` selector doesn't match against accessibilityText. The
+# home-screen testID is the canonical "we are on Main" signal.
+- assertVisible:
+    id: "home-screen"

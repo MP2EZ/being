@@ -245,6 +245,7 @@ const CombinedLegalGateScreen: React.FC<CombinedLegalGateScreenProps> = ({
           </Text>
           <View style={styles.pickerContainer}>
             <Picker
+              testID="legal-dob-picker"
               selectedValue={selectedYear}
               onValueChange={(value: number | null) => {
                 setSelectedYear(value);
@@ -287,7 +288,9 @@ const CombinedLegalGateScreen: React.FC<CombinedLegalGateScreenProps> = ({
             accessibilityState={{ checked: tosAccepted }}
             accessibilityLabel="I agree to the Terms of Service"
           >
-            <View style={styles.checkboxIndicator}>
+            {/* testID on the 24px indicator (INFRA-181): outer Pressable center
+                falls in the text region and overlaps the inline TOS link. */}
+            <View testID="legal-consent-tos" style={styles.checkboxIndicator}>
               {tosAccepted && <Text style={styles.checkboxCheck}>✓</Text>}
             </View>
             <Text style={styles.checkboxText}>
@@ -306,7 +309,7 @@ const CombinedLegalGateScreen: React.FC<CombinedLegalGateScreenProps> = ({
             accessibilityState={{ checked: privacyAccepted }}
             accessibilityLabel="I agree to the Privacy Policy"
           >
-            <View style={styles.checkboxIndicator}>
+            <View testID="legal-consent-privacy" style={styles.checkboxIndicator}>
               {privacyAccepted && <Text style={styles.checkboxCheck}>✓</Text>}
             </View>
             <Text style={styles.checkboxText}>
@@ -325,7 +328,7 @@ const CombinedLegalGateScreen: React.FC<CombinedLegalGateScreenProps> = ({
             accessibilityState={{ checked: wellnessDisclaimerAcknowledged }}
             accessibilityLabel="I understand Being provides wellness support, not medical care, and in a crisis I will call 911 or 988"
           >
-            <View style={styles.checkboxIndicator}>
+            <View testID="legal-consent-wellness" style={styles.checkboxIndicator}>
               {wellnessDisclaimerAcknowledged && <Text style={styles.checkboxCheck}>✓</Text>}
             </View>
             <Text style={styles.checkboxText}>
@@ -344,7 +347,7 @@ const CombinedLegalGateScreen: React.FC<CombinedLegalGateScreenProps> = ({
             accessibilityState={{ checked: mentalHealthProcessingConsented }}
             accessibilityLabel="I explicitly consent to Being processing my personal wellness data including mood check-ins, anxiety and depression self-screenings, and journal entries, to provide wellness support features"
           >
-            <View style={styles.checkboxIndicator}>
+            <View testID="legal-consent-mh-processing" style={styles.checkboxIndicator}>
               {mentalHealthProcessingConsented && <Text style={styles.checkboxCheck}>✓</Text>}
             </View>
             <Text style={styles.checkboxText}>
@@ -379,6 +382,7 @@ const CombinedLegalGateScreen: React.FC<CombinedLegalGateScreenProps> = ({
           ]}
           onPress={handleContinue}
           disabled={!selectedYear || !allConsentsTicked || isLoading}
+          testID="legal-gate-continue"
           accessibilityRole="button"
           accessibilityLabel="Continue"
           accessibilityState={{ disabled: !selectedYear || !allConsentsTicked || isLoading }}

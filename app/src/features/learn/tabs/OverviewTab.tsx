@@ -23,6 +23,7 @@ import {
 import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
 import { useEducationStore } from '../stores/educationStore';
 import type { ModuleContent, ModuleId } from '@/features/learn/types/education';
+import FromTheSourceSection from '@/features/library/components/FromTheSourceSection';
 
 interface OverviewTabProps {
   moduleContent: ModuleContent;
@@ -255,6 +256,9 @@ const OverviewTab: React.FC<OverviewTabProps> = ({
           })}
         </View>
       </View>
+
+      {/* From the Source - classical passages for this principle (FEAT-54) */}
+      <FromTheSourceSection principle={moduleId} />
 
       {/* Bottom Padding */}
       <View style={{ height: spacing[64] }} />

@@ -30,6 +30,7 @@ import {
   validatePinningConfiguration,
 } from '../security/pinned-fetch';
 import { env } from '@/core/config/env';
+import { useConsentStore } from '@/core/stores/consentStore';
 
 // Environment configuration
 const SUPABASE_URL = env.EXPO_PUBLIC_SUPABASE_URL;
@@ -43,6 +44,7 @@ const STORAGE_KEYS = {
   DEVICE_ID: '@being/supabase/device_id_hash',
   LAST_SYNC: '@being/supabase/last_sync',
   OFFLINE_QUEUE: '@being/supabase/offline_queue',
+  CRISIS_ANALYTICS_QUEUE: '@being/supabase/crisis_analytics_queue',
 } as const;
 
 // Circuit breaker configuration
@@ -103,9 +105,26 @@ class SupabaseService {
   private circuitBreaker: CircuitBreakerState;
   private offlineQueue: any[] = [];
   private analyticsQueue: AnalyticsEvent[] = [];
+  /**
+   * INFRA-214 T3: durable vital-interest crisis-detection telemetry queue.
+   * Persisted to AsyncStorage at fire-time so a crisis event survives restart and
+   * does NOT depend on the lazily network-provisioned userId. Kept SEPARATE from
+   * `offlineQueue` so a backlog of backup ops can never evict a crisis safety event.
+   */
+  private crisisAnalyticsQueue: Array<{
+    event_type: string;
+    properties: Record<string, any>;
+    session_id: string;
+    enqueued_at: number;
+  }> = [];
   private sessionId: string;
   private analyticsFlushTimer: NodeJS.Timeout | null = null;
   private isInitialized = false;
+
+  // INFRA-214 T4: keys whose numeric values are wellness-derived and must be severity-bucketed
+  // before transmission (closes the "only score/result was bucketed" hole). Operational keys
+  // (size_mb, duration_ms, operation_count, …) do not match and pass through.
+  private static readonly CLINICAL_NUMERIC_KEY = /score|result|phq|gad|severity|ideation|suicid/i;
 
   private readonly config: SupabaseServiceConfig = {
     circuitBreaker: {
@@ -174,6 +193,11 @@ class SupabaseService {
 
       // Load offline queue
       await this.loadOfflineQueue();
+
+      // INFRA-214 T3: load any crisis-detection telemetry enqueued before this run
+      // (or before a user was provisioned) and reconcile/flush it now that userId exists.
+      await this.loadCrisisAnalyticsQueue();
+      void this.flushCrisisAnalytics();
 
       this.isInitialized = true;
       logSecurity('[SupabaseService] Initialized', 'low', { userId: this.userId });
@@ -427,6 +451,15 @@ class SupabaseService {
       return;
     }
 
+    // INFRA-214 T4/T5: trackEvent carries OPERATIONAL telemetry (backup/sync bookkeeping) —
+    // a side-effect of the cloud-sync service the user enabled, not product analytics. Gate on
+    // `cloud_sync` consent (the matching legal basis; also honors universal opt-out / GPC), per
+    // the T5 compliance ruling. Product analytics go to PostHog (consent-gated there); the
+    // vital-interest crisis-detection event uses the separate trackCrisisDetection() bypass.
+    if (!useConsentStore.getState().canPerformOperation('cloud_sync')) {
+      return;
+    }
+
     // Sanitize properties to ensure no PHI
     const sanitizedProperties = this.sanitizeAnalyticsProperties(properties);
 
@@ -454,10 +487,17 @@ class SupabaseService {
     for (const [key, value] of Object.entries(properties)) {
       // Allow only safe property types
       if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
-        // Convert actual scores to severity buckets
-        if (key.includes('score') || key.includes('result')) {
+        // INFRA-214 T4: bucket any CLINICALLY-named numeric (not just `score`/`result`), so a
+        // raw PHQ-9/GAD-7 value can't leak through a key like `phq9_total` or `severity`.
+        // Operational numerics (size_mb, duration_ms, operation_count, …) are NOT clinical and
+        // pass through normally. Shared invariant: no raw PHQ/GAD integer leaves the device.
+        if (SupabaseService.CLINICAL_NUMERIC_KEY.test(key)) {
           if (typeof value === 'number') {
             sanitized[`${key}_bucket`] = this.scoreToSeverityBucket(value, key);
+          }
+          // A clinically-named string/boolean (already a bucket/label) passes through.
+          else {
+            sanitized[key] = value;
           }
         } else {
           sanitized[key] = value;
@@ -517,9 +557,129 @@ class SupabaseService {
   }
 
   /**
+   * DEBUG-218: coerce a required crisis-telemetry categorical field. A missing/empty
+   * value degrades to an explicit 'unknown' sentinel + a high-severity log (queryable
+   * degradation) rather than silently coercing to the literal "undefined". The
+   * vital-interest event is still emitted — never dropped on a field-validation miss.
+   */
+  private requireCrisisField(value: string | undefined | null, field: string): string {
+    if (value === undefined || value === null || value === '') {
+      logSecurity('[SupabaseService] crisis telemetry missing required field', 'high', { field });
+      return 'unknown';
+    }
+    return String(value);
+  }
+
+  /**
+   * INFRA-214 T3 — Vital-interest crisis-detection telemetry.
+   *
+   * Fire-and-forget: synchronous durable enqueue + best-effort async flush. NEVER
+   * awaited by and NEVER throws into the crisis-intervention path. The payload is
+   * already bucketed + PII-free (caller passes only the trigger category, a severity
+   * bucket and booleans — never a raw PHQ-9/GAD-7 score or Q9 value). Enqueued
+   * durably regardless of analytics consent or userId provisioning (vital-interests
+   * basis), so a first-run/offline crisis is not silently dropped.
+   */
+  trackCrisisDetection(telemetry: {
+    trigger_type: string;
+    severity_bucket: string;
+    intervention_surfaced: boolean;
+    assessment_type: string;
+  }): void {
+    try {
+      // Explicit allow-list — NEVER spread the detection object (it carries the raw
+      // triggerValue / score). Only the four bucketed/categorical fields below.
+      this.crisisAnalyticsQueue.push({
+        event_type: 'crisis_detected',
+        properties: {
+          trigger_type: String(telemetry.trigger_type),
+          // DEBUG-218: degrade a missing field to an explicit 'unknown' sentinel + a
+          // high-severity log instead of String(undefined) → the literal "undefined".
+          severity_bucket: this.requireCrisisField(telemetry.severity_bucket, 'severity_bucket'),
+          intervention_surfaced: Boolean(telemetry.intervention_surfaced),
+          assessment_type: this.requireCrisisField(telemetry.assessment_type, 'assessment_type'),
+        },
+        session_id: this.sessionId,
+        enqueued_at: Date.now(),
+      });
+      // Durable persist immediately (own key — never evicted by the ops queue).
+      void AsyncStorage.setItem(
+        STORAGE_KEYS.CRISIS_ANALYTICS_QUEUE,
+        JSON.stringify(this.crisisAnalyticsQueue)
+      );
+      // Best-effort flush now; never awaited, never throws out of here.
+      void this.flushCrisisAnalytics();
+    } catch (error) {
+      // Telemetry must never affect the crisis flow. Record locally so a future
+      // dashboard gap is explainable from on-device records.
+      logSecurity('[SupabaseService] crisis telemetry enqueue failed', 'medium', { error });
+    }
+  }
+
+  /**
+   * Reconcile + flush durably-queued crisis-detection telemetry to analytics_events.
+   * user_id is resolved at flush time; if not yet provisioned (first-run/offline) or
+   * the client is unavailable, the events stay durably queued for a later attempt.
+   */
+  private async flushCrisisAnalytics(): Promise<void> {
+    if (this.crisisAnalyticsQueue.length === 0) return;
+    if (!this.client || !this.userId) return; // reconcile on a later flush
+
+    const pending = [...this.crisisAnalyticsQueue];
+    const rows: AnalyticsEvent[] = pending.map((e) => ({
+      user_id: this.userId!,
+      event_type: e.event_type,
+      properties: e.properties,
+      session_id: e.session_id,
+    }));
+
+    const result = await this.executeWithResilience(async () => {
+      const resp: any = await this.client!.from('analytics_events').insert(rows);
+      // executeWithResilience keys success off throwing, so surface a Supabase
+      // error response as a retryable failure rather than a false success.
+      if (resp?.error) throw resp.error;
+      return resp;
+    }, 'flushCrisisAnalytics');
+
+    if (result.success) {
+      // Drop the flushed prefix; keep anything enqueued during the flight.
+      this.crisisAnalyticsQueue = this.crisisAnalyticsQueue.slice(pending.length);
+      await AsyncStorage.setItem(
+        STORAGE_KEYS.CRISIS_ANALYTICS_QUEUE,
+        JSON.stringify(this.crisisAnalyticsQueue)
+      );
+    } else {
+      // Retained for retry. Escalate to the local audit/security log so the gap is visible.
+      logSecurity(
+        '[SupabaseService] crisis telemetry flush failed — retained for retry',
+        'medium',
+        { pending: pending.length }
+      );
+    }
+  }
+
+  /**
+   * Load durably-persisted crisis-detection telemetry on startup.
+   */
+  private async loadCrisisAnalyticsQueue(): Promise<void> {
+    try {
+      const data = await AsyncStorage.getItem(STORAGE_KEYS.CRISIS_ANALYTICS_QUEUE);
+      if (data) {
+        this.crisisAnalyticsQueue = JSON.parse(data);
+      }
+    } catch (error) {
+      logSecurity('[SupabaseService] Failed to load crisis telemetry queue', 'medium', { error });
+    }
+  }
+
+  /**
    * Setup analytics timer for periodic flushing
    */
   private setupAnalyticsTimer(): void {
+    // INFRA-177: Skip interval setup in test environment to prevent Jest
+    // worker hang from unguarded timers (INFRA-144/175 pattern).
+    if (process.env.NODE_ENV === 'test') return;
+
     this.analyticsFlushTimer = setInterval(
       () => this.flushAnalytics(),
       this.config.analyticsFlushIntervalMs
@@ -608,8 +768,9 @@ class SupabaseService {
   private setupAppStateListener(): void {
     AppState.addEventListener('change', (nextAppState) => {
       if (nextAppState === 'active') {
-        // App came to foreground, process offline queue
+        // App came to foreground, process offline queue + retry crisis telemetry
         this.processOfflineQueue();
+        void this.flushCrisisAnalytics();
       }
     });
   }

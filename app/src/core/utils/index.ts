@@ -6,3 +6,4 @@
 
 export * from './errorSanitization';
 export * from './id';
+export * from './isoWeek';

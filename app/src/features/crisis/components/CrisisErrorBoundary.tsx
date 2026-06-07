@@ -27,12 +27,12 @@ import {
   ScrollView,
   Pressable,
   Alert,
-  Linking,
   AppState,
   AppStateStatus,
 } from 'react-native';
 import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
 import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
+import { openCrisisUrl } from '@/features/crisis/utils/openCrisisUrl';
 
 interface CrisisErrorBoundaryProps {
   children: ReactNode;
@@ -227,17 +227,22 @@ export class CrisisErrorBoundary extends Component<
       [
         {
           text: 'Call 988 Crisis Line',
-          onPress: () => Linking.openURL('tel:988'),
+          onPress: () => { void openCrisisUrl('tel:988', { manualLabel: '988' }); },
           style: 'default',
         },
         {
           text: 'Text 741741',
-          onPress: () => Linking.openURL('sms:741741'),
+          onPress: () => {
+            void openCrisisUrl('sms:741741?body=HOME', {
+              fallbackTitle: 'Unable to Text',
+              fallbackMessage: 'Please text HOME to 741741 for support.',
+            });
+          },
           style: 'default',
         },
         {
           text: 'Emergency 911',
-          onPress: () => Linking.openURL('tel:911'),
+          onPress: () => { void openCrisisUrl('tel:911', { manualLabel: '911' }); },
           style: 'destructive',
         },
       ],
@@ -272,10 +277,10 @@ export class CrisisErrorBoundary extends Component<
         return (
           <View style={styles.container}>
             {this.props.fallbackComponent}
-            {/* CollapsibleCrisisButton is globally available - uses direct tel:988 in error state */}
+            {/* CollapsibleCrisisButton is globally available - guarded tel:988 in error state */}
             <CollapsibleCrisisButton
               mode="prominent"
-              onNavigate={() => Linking.openURL('tel:988')}
+              onNavigate={() => { void openCrisisUrl('tel:988', { manualLabel: '988' }); }}
             />
           </View>
         );

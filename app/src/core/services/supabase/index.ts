@@ -28,6 +28,7 @@ import { AppState } from 'react-native';
 // Service imports
 import supabaseService from './SupabaseService';
 import cloudBackupService from './CloudBackupService';
+import { useConsentStore } from '@/core/stores/consentStore';
 
 // Type definitions
 export interface CloudSyncStatus {
@@ -188,6 +189,14 @@ export async function getCloudSyncStats(): Promise<CloudSyncStats> {
  */
 export async function forceSync(): Promise<{ success: boolean; error?: string | undefined }> {
   try {
+    // Consent gate (MAINT-173): defense in depth. createBackup() self-guards,
+    // but bail before initializing/connecting to Supabase or processing the
+    // offline queue when cloud sync is not consented.
+    if (!useConsentStore.getState().canPerformOperation('cloud_sync')) {
+      logSecurity('[CloudServices] forceSync skipped — cloud_sync consent absent', 'low');
+      return { success: false, error: 'cloud_sync_consent_absent' };
+    }
+
     // Ensure services are initialized
     await initializeCloudServices();
 
@@ -286,29 +295,6 @@ export async function configureCloudBackup(config: {
 }
 
 /**
- * Track analytics event
- */
-export async function trackAnalyticsEvent(
-  eventType: string,
-  properties: Record<string, any> = {}
-): Promise<void> {
-  try {
-    // Initialize services if needed (non-blocking)
-    if (!isInitialized) {
-      initializeCloudServices().catch(() => {
-        // Ignore errors - analytics is non-critical
-      });
-    }
-
-    await supabaseService.trackEvent(eventType, properties);
-
-  } catch (error) {
-    // Analytics failures should not affect app functionality
-    logSecurity('[CloudServices] Analytics tracking failed:', 'medium', { error });
-  }
-}
-
-/**
  * Cleanup services (call on app shutdown)
  */
 export async function cleanupCloudServices(): Promise<void> {
@@ -364,11 +350,18 @@ export async function testCloudConnectivity(): Promise<{
 // Export services for direct access if needed
 export { supabaseService, cloudBackupService };
 
-// Auto-initialize on module load (non-blocking)
-// This ensures services are ready when the app needs them
-initializeCloudServices().catch(() => {
-  // Ignore initialization errors - app should work offline
-});
+// Auto-initialize on module load (non-blocking).
+// Consent gate (MAINT-173): only eagerly connect to Supabase when the user
+// has consented to cloud sync. Without consent we skip the eager connection
+// entirely rather than silently opening a backend session. Services still
+// initialize lazily on demand for user-initiated recovery (checkForCloudRestore
+// / restoreFromCloud call initializeCloudServices() directly), which is exempt
+// from the cloud_sync egress gate.
+if (useConsentStore.getState().canPerformOperation('cloud_sync')) {
+  initializeCloudServices().catch(() => {
+    // Ignore initialization errors - app should work offline
+  });
+}
 
 // Default export with main functions
 export default {
@@ -379,7 +372,6 @@ export default {
   checkForCloudRestore,
   restoreFromCloud,
   configureCloudBackup,
-  trackAnalyticsEvent,
   cleanupCloudServices,
   testCloudConnectivity,
 };

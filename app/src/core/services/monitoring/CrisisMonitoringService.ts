@@ -155,6 +155,13 @@ export class CrisisMonitoringService {
       this.isMonitoring = true;
       this.currentMetrics.monitoringActive = true;
 
+      // INFRA-177: Skip interval setup in test environment to prevent Jest
+      // worker hang from unguarded timers (INFRA-144/175 pattern).
+      if (process.env.NODE_ENV === 'test') {
+        await this.performMonitoringCycle();
+        return;
+      }
+
       // Start continuous monitoring
       this.monitoringInterval = setInterval(() => {
         this.performMonitoringCycle();

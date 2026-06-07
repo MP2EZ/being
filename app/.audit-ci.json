@@ -1,0 +1,11 @@
+{
+  "$schema": "https://raw.githubusercontent.com/IBM/audit-ci/main/docs/schema.json",
+  "moderate": true,
+  "report-type": "summary",
+  "allowlist": [
+    "GHSA-ph9p-34f9-6g65",
+    "GHSA-6vfc-qv3f-vr6c",
+    "GHSA-w5hq-g745-h8pq"
+  ],
+  "$comment": "MAINT-182. All three CVEs are transitive through @expo/config-plugins@56.0.8 (build-time only, no patched stable available as of 2026-05-27). GHSA-ph9p (tmp path traversal) and GHSA-6vfc (markdown-it ReDoS) only run during prebuild/codegen. GHSA-w5hq (uuid buffer bounds) is in dev tooling. Review when Expo ships @expo/config-plugins >=56.0.9 stable: drop these GHSAs and verify `npm audit --audit-level moderate` passes."
+}

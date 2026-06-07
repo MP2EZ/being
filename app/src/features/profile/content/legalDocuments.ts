@@ -1,31 +1,24 @@
 /**
  * Legal Documents Content
- * Imports all legal documents from docs/legal/ and exports them
- * for use in the LegalDocumentScreen component.
  *
- * COMPLIANCE:
- * - Single source of truth: Same files used by website and app
- * - Offline available: Bundled at build time via Metro transformer
- * - Always accessible: No network dependency
+ * Wraps the auto-generated string exports in `./legalContent.generated.ts` with
+ * the metadata (title, description, etc.) used by the LegalDocumentScreen.
  *
- * IMPLEMENTATION NOTE:
- * Uses require() instead of import because TypeScript's module resolution
- * can't find files outside the app/ directory. Metro handles the actual
- * bundling at build time, so this still works correctly at runtime.
- * The files remain in docs/legal/ (single source of truth).
+ * The generator (`scripts/generate-legal-content.js`) syncs from the canonical
+ * sources at `docs/legal/*.md` (worktree root, outside `app/`) into a TS module
+ * inside `app/src/` so Metro can resolve it in Release-mode bundling. Edit the
+ * `.md` sources, not the generated file — `postinstall` and `prestart`/`preios`/
+ * `preandroid` regenerate. The generated file is gitignored.
  */
 
-// Import markdown files as raw text strings using require()
-// This bypasses TypeScript module resolution and lets Metro handle it at runtime
-// Path: app/src/features/profile/content -> ../../../../../docs/legal/
-/* eslint-disable @typescript-eslint/no-require-imports */
-const privacyPolicyContent: string = require('../../../../../docs/legal/privacy-policy.md').default;
-const termsOfServiceContent: string = require('../../../../../docs/legal/terms-of-service.md').default;
-const medicalDisclaimerContent: string = require('../../../../../docs/legal/medical-disclaimer.md').default;
-const californiaPrivacyContent: string = require('../../../../../docs/legal/california-privacy.md').default;
-const multiStatePrivacyContent: string = require('../../../../../docs/legal/multi-state-privacy.md').default;
-const supportContent: string = require('../../../../../docs/legal/support.md').default;
-/* eslint-enable @typescript-eslint/no-require-imports */
+import {
+  privacyPolicyContent,
+  termsOfServiceContent,
+  medicalDisclaimerContent,
+  californiaPrivacyContent,
+  multiStatePrivacyContent,
+  supportContent,
+} from './legalContent.generated';
 
 export type LegalDocumentType =
   | 'privacy-policy'

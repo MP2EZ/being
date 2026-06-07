@@ -30,13 +30,10 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useSettingsStore } from '@/core/stores/settingsStore';
 import { useAnalytics } from '@/core/analytics';
 import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
-import SubMenuHeader from '../components/SubMenuHeader';
 
-interface AppSettingsScreenProps {
-  onReturn: () => void;
-}
-
-const AppSettingsScreen: React.FC<AppSettingsScreenProps> = ({ onReturn }) => {
+// FEAT-212: rendered as a route on ProfileStackNavigator; the native stack header
+// supplies the back chevron (SubMenuHeader's ✕ removed).
+const AppSettingsScreen: React.FC = () => {
   const settingsStore = useSettingsStore();
   const { trackScreenView, trackSettingsOpened } = useAnalytics();
   const [isSaving, setIsSaving] = useState(false);
@@ -138,7 +135,6 @@ const AppSettingsScreen: React.FC<AppSettingsScreenProps> = ({ onReturn }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <SubMenuHeader title="App Settings" onClose={onReturn} />
       <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
         {/* Notifications Section */}
         <View style={styles.section}>
@@ -360,7 +356,7 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
-    color: '#EF4444',
+    color: colorSystem.status.error,
     marginBottom: spacing[24],
   },
   retryButton: {
@@ -427,6 +423,7 @@ const styles = StyleSheet.create({
   },
   textSizeButton: {
     flex: 1,
+    minHeight: 44, // ≥44pt tap target (WCAG 2.5.5), verified on iPhone SE
     paddingVertical: spacing[16],
     marginHorizontal: 4,
     backgroundColor: colorSystem.base.white,
@@ -448,7 +445,7 @@ const styles = StyleSheet.create({
     color: colorSystem.base.white,
   },
   infoBox: {
-    backgroundColor: '#F0F4FF',
+    backgroundColor: colorSystem.status.infoBackground,
     borderRadius: borderRadius.medium,
     padding: spacing[16],
     marginTop: spacing[8],
@@ -490,13 +487,13 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.large,
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#EF4444',
+    borderColor: colorSystem.status.error,
     marginBottom: spacing[16],
   },
   dangerButtonText: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
-    color: '#EF4444',
+    color: colorSystem.status.error,
   },
   buttonDisabled: {
     opacity: 0.5,
