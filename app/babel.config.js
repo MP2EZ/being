@@ -7,5 +7,14 @@ module.exports = {
     production: {
       plugins: [['transform-remove-console', { exclude: ['error', 'warn'] }]],
     },
+    // Jest's Node VM can't execute native dynamic `import()`. This test-only
+    // plugin rewrites dynamic imports to `Promise.resolve().then(() =>
+    // require(...))` so `await import(...)` (used to break circular deps,
+    // e.g. subscriptionStore -> IAPService) resolves through Jest's module
+    // registry and honors jest.mock. Static imports are untouched. Metro/EAS
+    // use their own env and are unaffected. (MAINT-242)
+    test: {
+      plugins: ['./scripts/babel-plugin-jest-dynamic-import.js'],
+    },
   },
 };
