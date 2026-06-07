@@ -320,7 +320,26 @@ echo "$SAFETY_CHANGED" | grep -q 'src/features/assessment/' && \
 # static-config test in precommit (lsApplicationQueriesSchemes.config.test.ts);
 # no Maestro flow needs to run here. crisis-988-dial.yaml is tagged
 # safety-device-only and not part of the sim suite.
-echo "$SAFETY_CHANGED" | grep -qE 'src/core/services/security|CleanRootNavigator' && \
+#
+# core/services/security is a PURE service layer (encryption, secure-store, network,
+# monitoring). The Maestro flows drive the UI and cannot validate a service change
+# directly — correctness there is owned by the jest crisis/clinical/security/
+# encryption suites (CI + precommit) plus the device-only 988-dial flow. The only
+# UI-observable failure mode is "a broken/deleted service crashes app boot or the
+# crisis overlay fails to render", so run ONLY crisis-button reachability as a
+# boot/render smoke test — NOT the full suite. (Refinement: full-suite-on-any-
+# security-edit over-fired and trained the skip reflex; e.g. MAINT-238/241/231 were
+# pure service-layer changes touching zero UI yet each pulled all 5 flows.)
+# TRADEOFF: a security change that breaks an assessment-flow UI in a way the jest
+# assessment/encryption suites miss would not be caught by crisis-button alone — if a
+# change touches EncryptionService/SecureStorageService AND assessment persistence,
+# run `npm run e2e:safety` (full suite) manually.
+echo "$SAFETY_CHANGED" | grep -q 'src/core/services/security' && \
+  SCRIPTS+=("e2e:safety:crisis-button")
+# core/navigation (incl. CleanRootNavigator) is genuinely cross-cutting UI/nav — a
+# tab/stack re-point can break ANY flow's reachability. Keep the full suite, LAST so
+# this replace-override wins over the += clauses above when combined.
+echo "$SAFETY_CHANGED" | grep -qE 'src/core/navigation/|CleanRootNavigator' && \
   SCRIPTS=("e2e:safety")  # full suite — cross-cutting change, override scope
 
 # Safety net: the gate was entered (e.g. a src/core/navigation/ change) but
