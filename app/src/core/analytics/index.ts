@@ -4,9 +4,14 @@
  * Privacy-first analytics using PostHog EU with PHI protection.
  *
  * ARCHITECTURE (INFRA-214):
- * - PostHog EU (Frankfurt) is the single product-analytics + crisis-telemetry sink.
- * - Whitelist-based PHIFilter validation (no health data transmitted).
- * - Consent-gated (opt-in, default OFF); crisis-detection events use a vital-interests bypass.
+ * - PostHog EU (Frankfurt) is the CONSENT-GATED PRODUCT-ANALYTICS sink ONLY.
+ *   Crisis/safety telemetry (e.g. crisis_detected) routes to Supabase under a
+ *   vital-interests legal basis — NOT PostHog. The two sinks are partitioned by
+ *   legal basis (consent vs vital-interest); do not route crisis events here.
+ * - Whitelist-based PHIFilter validation (no wellness/health data transmitted);
+ *   sensitive screen names are coarsened to a generic bucket before transmission
+ *   (DEBUG-239), mirroring the Sentry path via a shared sensitive-route list.
+ * - Consent-gated (opt-in, default OFF).
  * - No autocapture, no session replay.
  * - The former custom-API AnalyticsService / AnalyticsOrchestrator (→ api.being.fyi) was
  *   confirmed-dead and removed in INFRA-214 T2.
