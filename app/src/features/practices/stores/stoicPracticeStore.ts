@@ -797,8 +797,13 @@ export const useStoicPracticeStore = create<StoicPracticeState>((set, get) => ({
    */
   getPrincipleEngagements: (days: number): PrincipleEngagement[] => {
     const engagements = get().principleEngagements;
-    const cutoffDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
-    const cutoffString = cutoffDate.toISOString().split('T')[0];
+    // Local-calendar decrement (DEBUG-259): match how records are stamped
+    // (getTodayString → toLocalDateString) and the MAINT-242 retention
+    // cutoff (getRetentionCutoffString). A UTC ms-window cutoff drifted one
+    // day off the local `date` stamps near midnight in non-UTC zones.
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - days);
+    const cutoffString = toLocalDateString(cutoffDate);
     return engagements.filter(pe => cutoffString && pe.date >= cutoffString);
   },
 
@@ -808,8 +813,13 @@ export const useStoicPracticeStore = create<StoicPracticeState>((set, get) => ({
    */
   getCheckInHistory: (days: number): CheckInCompletion[] => {
     const completions = get().checkInCompletions;
-    const cutoffDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
-    const cutoffString = cutoffDate.toISOString().split('T')[0];
+    // Local-calendar decrement (DEBUG-259): match how records are stamped
+    // (getTodayString → toLocalDateString) and the MAINT-242 retention
+    // cutoff (getRetentionCutoffString). A UTC ms-window cutoff drifted one
+    // day off the local `date` stamps near midnight in non-UTC zones.
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - days);
+    const cutoffString = toLocalDateString(cutoffDate);
     return completions.filter(c => cutoffString && c.date >= cutoffString);
   },
 
