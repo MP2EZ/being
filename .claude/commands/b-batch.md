@@ -30,14 +30,61 @@ plan mode, say so and stop — ask the user to switch (Shift+Tab) and re-invoke.
 
 ## Phase 0: Parse & Mode
 
+> **Concurrent runs are supported.** Multiple `/b-batch` sessions can run at once
+> (separate Claude chats), provided their item lists are **disjoint** — each batch owns
+> its own manifest (per-batch slug, Step 0.1b), refuses IDs already live in a sibling
+> batch (Step 0.1c), and self-recovers from the `origin/development` merge race
+> (Phase 3.4). The one resource that is *not* parallelizable is the **human-attended
+> simulator close** (Phase 4.1) — but a single human serializes that naturally, so no
+> lock is needed. **Do not** run two simultaneous batches that each carry a Supabase
+> DB-migration item (one shared live DB).
+
 ### Step 0.1: Resume vs. fresh
-- If `$ARGUMENTS` contains `--resume` → go to **Phase 5 (Resume)**.
+- If `$ARGUMENTS` contains `--resume` → go to **Phase 5 (Resume)** (it handles both
+  `--resume` alone and `--resume <IDs>`).
 - Otherwise parse the remaining text into an ordered list of WORK_ITEM_IDs (split on commas and/or whitespace; uppercase; validate each against `TYPE-NUMBER` where TYPE ∈ {FEAT, DEBUG, INFRA, MAINT, AGENT}). Drop and report any malformed token; abort only if the list is empty.
+
+### Step 0.1b: Compute the batch slug (per-batch manifest key)
+The manifest path is **per-batch**, keyed by a slug derived **deterministically from the
+sorted item list** — so a later `--resume <same IDs>` recomputes the same slug and finds
+the same file with nothing to remember. Compute it from the validated IDs:
+```bash
+# Sorted, lowercased, internal hyphen stripped, joined by '-':
+#   FEAT-130, MAINT-191, DEBUG-44  →  debug44-feat130-maint191
+SLUG=$(printf '%s\n' "${IDS[@]}" | tr 'A-Z' 'a-z' | tr -d '-' | sort | paste -sd- -)
+# Keep filenames sane: if >50 chars, use first two IDs + an 8-char hash of the full slug.
+if [ "${#SLUG}" -gt 50 ]; then
+  HASH=$(printf '%s' "$SLUG" | shasum | cut -c1-8)
+  SLUG=$(printf '%s\n' "${IDS[@]}" | tr 'A-Z' 'a-z' | tr -d '-' | sort | head -2 | paste -sd- -)-$HASH
+fi
+MANIFEST="/Users/max/dev/being/.config/.b-batch-state.$SLUG.json"
+```
+Use `$MANIFEST` everywhere the manifest is read/written (Phase 2.5, Phase 3, Phase 5).
+
+### Step 0.1c: Overlap guard (refuse IDs already live in a sibling batch)
+Concurrent batches must be disjoint. Glob sibling manifests and collect every `id` whose
+`state ∉ {done, deferred}` (those are in-flight elsewhere):
+```bash
+for f in /Users/max/dev/being/.config/.b-batch-state.*.json; do
+  [ "$f" = "$MANIFEST" ] && continue
+  [ -e "$f" ] || continue
+  # emit "<id> <slug-of-f>" for each in-flight item
+done
+```
+If any **incoming** ID matches an in-flight ID in another batch, **drop that ID** from
+this batch and report it, naming the owning batch slug:
+```
+⛔ FEAT-130 is already in-flight in batch `debug44-feat130-maint191` — dropped from this batch.
+   Co-locate overlapping work in one batch, or wait for the other to finish.
+```
+Abort only if dropping leaves the list empty. (This makes the disjoint-list rule a guard,
+not just discipline — it closes the Notion-status race on shared items.)
 
 ### Step 0.2: Confirm the list
 Echo the parsed list back so the user sees what will run:
 ```
 📋 Batch queue (N items): FEAT-130, MAINT-191, DEBUG-44, …
+   Batch slug: debug44-feat130-maint191
    Mode: Accept-Edits ✓
 ```
 
@@ -120,9 +167,20 @@ Then:
    predecessors produced.
 2. **Cycle detection:** if hard edges form a cycle, abort with the cycle printed and ask
    the user to break it — do not guess an order.
-3. **Cross-batch deps:** if a `declared_dep` is **not** in this batch, check its Notion
-   `Status`. `Done` ⇒ satisfied. Anything else ⇒ the dependent is **deferred** with a
-   warning (its base wouldn't contain the prerequisite).
+3. **Cross-batch deps:** if a `declared_dep` (or `Blocked by` relation) is **not** in this
+   batch, resolve it against **two** sources — Notion `Status` *and* sibling live
+   manifests (a one-shot Notion check alone is a TOCTOU race when another batch is
+   mid-flight):
+   - Notion `Status: Done` ⇒ satisfied.
+   - Else if the dep is an item in a **sibling `.b-batch-state.*.json`** whose `state ≠
+     done` ⇒ it is an **in-flight cross-batch dependency**: the dependent is **deferred**
+     with a precise message —
+     ```
+     ⏸️  FEAT-131 ⟂ FEAT-130 (in-flight in batch `debug44-feat130-maint191`) — deferred.
+        Co-locate them in one batch, or resume after that batch lands FEAT-130.
+     ```
+   - Else (not Done, not in any sibling batch) ⇒ **deferred** with the original warning
+     (its base wouldn't contain the prerequisite).
 4. **Cascade-block:** if A is AMBER-unresolved, RED, parked, deferred, or otherwise not
    going to reach `done` this run, every item with a hard edge to A is **deferred** too,
    `blocked_by: A`, and set Notion **`Status: Blocked`**. A dependent can never run ahead
@@ -162,9 +220,14 @@ dependent before its prerequisite is `done`. Tell the user explicitly:
 The cap is a tunable default reflecting the context ceiling, not a hard limit of the system.
 
 ### Step 2.5: Write the manifest
-Persist to `/Users/max/dev/being/.config/.b-batch-state.json` (gitignored, survives `/clear`):
+Persist to the **per-batch** path `$MANIFEST`
+(`/Users/max/dev/being/.config/.b-batch-state.<slug>.json` from Step 0.1b — gitignored,
+survives `/clear`). The per-batch slug is what lets two concurrent batches coexist without
+clobbering each other's `approach` strings + dependency graph (the parts Notion can't
+reconstruct):
 ```json
 {
+  "slug": "<batch slug from Step 0.1b>",
   "created": "<date passed in by user or omitted>",
   "items": [
     { "id": "FEAT-130", "verdict": "green", "tranche": 0,
@@ -236,8 +299,16 @@ implementation failure → park (Step 3.4).
 ### Step 3.2: Authoritative safety re-check (predict → verify)
 The Phase-1 classification was a *prediction*. Now that code exists, re-run
 `/b-close`'s **own** detection against the real diff (from the worktree):
+**Bare-repo lock retry (B2):** under concurrent batches, `git fetch` / `git worktree add`
+against the shared bare repo can transiently fail with
+`Unable to create '.../packed-refs.lock': File exists` (a sibling batch holds the ref
+lock). This is not a real error — wrap any such bare-repo git call to retry 2–3× with a
+short backoff (e.g. `for i in 1 2 3; do git ... && break; sleep 2; done`) before treating
+it as a failure. Applies here and to the `git fetch origin` in Step 3.3's close path
+(b-close performs its own fetches; this note covers b-batch's own direct calls).
+
 ```bash
-git -C /Users/max/dev/being/<worktree-dir> fetch origin
+git -C /Users/max/dev/being/<worktree-dir> fetch origin   # retry-on-lock per B2 above
 # Exclude test-only files: a jest-test-only change cannot affect what the Maestro
 # gate exercises (Maestro drives the running app), so a change confined to
 # __tests__/.test./.spec. is NOT a safety-surface change for gate purposes — the
@@ -275,8 +346,22 @@ them yourself rather than surfacing them:
 Then run `/b-close <ID>`. Phase 2.5 will correctly self-skip (Step 3.2 already proved
 no safety paths changed). On success, manifest `state: done`, capture the PR number.
 
-### Step 3.4: CI failure handling (flake-first, then bounded auto-fix)
-`/b-close` Step 3.4 watches CI and STOPs on red. Wrap that:
+### Step 3.4: Close-failure handling (distinguish the two failure modes)
+`/b-close` can fail at two different points; **route by the failure signature** — they
+have different fixes and conflating them parks items that would self-heal.
+
+**(a) Stale-merge refusal (concurrent-batch race — B1).** When a sibling batch advances
+`origin/development` between this batch's push and merge, `/b-close` Step 3.5's
+`gh pr merge --admin` is refused with `Required status check "CI pass" is expected` (admin
+bypasses approvals but **not** stale-check invalidation). This is **not** a CI failure and
+must **not** be parked or RCA'd. `/b-close` is idempotent: **re-invoke `/b-close <ID>`** —
+it re-enters Step 3.1, sees the feature branch is now BEHIND, merges `origin/development`
+in, re-pushes, re-runs CI once against the correct base, and merges. Bound to **2**
+re-invokes (matching the auto-fix cap); if still racing after 2, fall through to park with
+a note that it lost the merge race repeatedly (rare — implies very high contention).
+
+**(b) CI red (flake-first, then bounded auto-fix).** When `/b-close` Step 3.4 STOPs
+because CI actually went red:
 1. **Attempt 0 — flake check (free, no fix budget):** the repo has a documented
    intermittent safety-test flake. Re-run CI once (`gh run rerun --failed` on the PR's
    latest run, or push an empty recommit only if necessary). If green → continue.
@@ -286,6 +371,10 @@ no safety paths changed). On success, manifest `state: done`, capture the PR num
 3. Still red after 2 → **park**: manifest `state: parked`, set Notion **`Status: Blocked`**
    (the status exists — it surfaces the item on the board), add a Notion comment
    summarizing the failure + PR link, leave the PR open, continue to the next green.
+
+Tell the two apart by the error text: the stale-check refusal names `Required status
+check`/branch-not-up-to-date at **merge** time; CI-red surfaces as a failed check in
+`gh pr checks`. Route (a) → re-invoke; route (b) → flake/RCA/park.
 
 ---
 
@@ -299,6 +388,13 @@ simulator-attended session:
 🛡️  Needs simulator-attended close (safety surface):
    FEAT-211  worktree: feat-211   — run `npm run e2e:safety:build` then `/b-close FEAT-211`
 ```
+**Concurrent-batch note (C3):** the simulator is a single serial resource and the *only*
+shared resource the unattended loop never touches — it is reached **only here**, at the
+human-attended close. If multiple concurrent batches each surfaced `queued_red` items,
+their sim-attended closes all converge on this one simulator: **close them one at a time**
+(a single human is doing it, so this serializes naturally — no lock needed). Each
+`e2e:safety:build` installs the same `fyi.being.app` bundle, so overlapping builds/closes
+would fight over one install; sequential is mandatory.
 
 ### Step 4.2: Final report
 ```
@@ -319,18 +415,30 @@ simulator-attended session:
 
 Reconstruct state from disk + Notion + manifest — no in-context memory required.
 
-1. Read `/Users/max/dev/being/.config/.b-batch-state.json`.
+0. **Select which batch to resume** (manifests are per-batch since Step 0.1b):
+   - **`--resume <IDs>`** — recompute the slug from those IDs (Step 0.1b) and load that
+     exact `$MANIFEST`. (Deterministic-from-list means the same IDs always map to the same
+     file.)
+   - **`--resume` alone** — glob `/Users/max/dev/being/.config/.b-batch-state.*.json`:
+     - **0 files** → nothing to resume; tell the user and stop.
+     - **1 file** → use it.
+     - **>1 file** → there are multiple live batches (expected under concurrent use).
+       Present each (slug, `created`, and pending/done counts read from the file) via
+       `AskUserQuestion` and resume the one the user picks. Never silently pick one.
+
+1. Read the selected `$MANIFEST`.
 2. For each item, reconcile against ground truth:
    - Notion `Status`: `Done` → `done` (skip); `Cancelled` → drop; `Testing` → work implemented, resume at `/b-close` (Step 3.3); `In progress` → resume at Step 3.1's tail (verify/commit); `Not started` → run from Step 3.1; `Blocked` → consult the manifest: `parked` (CI ×2) needs a human triage decision — surface it, don't silently retry; `deferred`/`blocked_by` re-evaluates in step 3 below.
    - `git worktree list` → confirms what's mid-flight on disk.
    - `gh pr list` → confirms what's awaiting/failed CI.
    - Manifest `queued_red` → still belongs in the sim queue, never auto-close.
-3. **Recompute dependency satisfaction** from current Notion `Done` status: a previously
-   `Blocked`/`deferred`/`blocked_by` item whose prerequisite is now `Done` becomes
-   runnable again (running it via `/b-work` Step 2.7 flips its `Status` off `Blocked` to
-   `In progress` automatically); one whose prerequisite is still unlanded stays
-   `Blocked`. Re-apply the soft cap to the remaining runnable greens **in tranche
-   order**, then continue Phase 3.
+3. **Recompute dependency satisfaction** from current Notion `Done` status **and sibling
+   manifests** (per Step 2.2.3): a previously `Blocked`/`deferred`/`blocked_by` item whose
+   prerequisite is now `Done` becomes runnable again (running it via `/b-work` Step 2.7
+   flips its `Status` off `Blocked` to `In progress` automatically); one whose
+   prerequisite is still unlanded — or still in-flight in a sibling
+   `.b-batch-state.*.json` (`state ≠ done`) — stays `Blocked`. Re-apply the soft cap to
+   the remaining runnable greens **in tranche order**, then continue Phase 3.
 4. If the manifest is missing, fall back to: derive the queue from any worktrees +
    open PRs + Notion `Testing` items, and tell the user the approach strings were lost
    (so `/b-work` will re-plan those from scratch).
