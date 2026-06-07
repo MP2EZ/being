@@ -23,8 +23,6 @@ import {
   SUPABASE_CERTIFICATE_PINS,
   PIN_VALIDATION_CONFIG,
   shouldBypassPinning,
-  handlePinValidationFailure,
-  logSecurityEvent,
   DataClassification,
 } from './certificate-pinning';
 import { logSecurity, logPerformance, logError, LogCategory } from '../logging';
@@ -204,13 +202,11 @@ export async function pinnedFetch(
 
     const duration = Date.now() - startTime;
 
-    // Log successful pinned request
-    logSecurityEvent({
-      event: 'pin_validation_success',
-      endpoint: hostname,
-      dataClassification,
-      action: 'allow',
-    });
+    // INFRA-231: no application-layer pin validation is performed here (native
+    // TLS pinning is deferred per MAINT-226/T0b), so we do NOT emit a
+    // `pin_validation_success` audit signal — that was a false assurance,
+    // logged on every request without any validation having occurred. The
+    // request relies on the platform's standard OS certificate validation.
 
     // Performance monitoring for crisis endpoints
     if (url.includes('/crisis/') || url.includes('/emergency/')) {
@@ -231,47 +227,20 @@ export async function pinnedFetch(
     return response;
   } catch (error: unknown) {
     const duration = Date.now() - startTime;
-
-    // Check if this is an SSL/certificate error
     const errorMessage =
       error instanceof Error ? error.message : String(error);
-    const isSSLError =
-      errorMessage.includes('SSL') ||
-      errorMessage.includes('certificate') ||
-      errorMessage.includes('TLS');
 
-    if (isSSLError) {
-      // Handle pin validation failure
-      const action = handlePinValidationFailure(
-        url,
-        dataClassification,
-        errorMessage
-      );
-
-      if (action === 'fallback') {
-        // Crisis endpoint - allow fallback
-        logSecurity(
-          `[PinnedFetch] Crisis fallback for ${url} after SSL error`,
-          'high',
-          { url, error: errorMessage }
-        );
-
-        // Retry without strict SSL validation (crisis only)
-        return fetchWithTimeout(url, fetchOptions, timeout);
-      }
-
-      // Block - throw SSL pinning error
-      throw new SSLPinningError(
-        'SSL certificate pin validation failed. Connection blocked for security.',
-        url,
-        dataClassification
-      );
-    }
-
-    // Non-SSL error - propagate
+    // INFRA-231: no application-layer pin validation happens here (native TLS
+    // pinning is deferred), so there is no "pin validation failure" to handle
+    // and no crisis-endpoint security-downgrade fallback. A transport error —
+    // including a genuine TLS/certificate failure surfaced by the OS — is
+    // propagated UNCHANGED. Crisis endpoints get no special insecure retry or
+    // downgrade: they use the same standard OS-validated HTTPS as every other
+    // request (no new fail-closed behavior is introduced for traffic that
+    // succeeds today).
     logError(
       LogCategory.SYSTEM,
-      `[PinnedFetch] Request failed: ${url}`,
+      `[PinnedFetch] Request failed: ${url} (${duration}ms)`,
       error instanceof Error ? error : new Error(errorMessage)
     );
     throw error;

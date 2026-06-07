@@ -171,16 +171,20 @@ class SupabaseService {
         );
       }
 
-      // Create client with SSL certificate pinning
-      // MAINT-68: All Supabase requests now use pinned fetch for MITM protection
+      // Create client with the application-layer fetch wrapper.
+      // INFRA-231 (MAINT-226/T0b): native TLS certificate pinning is NOT yet
+      // implemented — real pinning is deferred to a separate tranche. This
+      // wrapper performs standard OS-validated HTTPS only and does NOT provide
+      // pin-based MITM protection, so we no longer claim it does here.
       this.client = createClient(SUPABASE_URL, SUPABASE_KEY, {
         auth: {
           autoRefreshToken: false,
           persistSession: false,
         },
         global: {
-          // Use pinned fetch for all requests
-          // Data classification defaults to 'METADATA' - override per-request if needed
+          // Application-layer fetch wrapper (OS-validated HTTPS; no pin
+          // validation performed yet). Data classification defaults to
+          // 'METADATA' — override per-request if needed.
           fetch: createSupabasePinnedFetch('METADATA'),
         },
       });
