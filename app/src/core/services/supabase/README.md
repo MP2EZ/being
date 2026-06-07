@@ -192,7 +192,7 @@ const {
 // Update settings
 await updateConfig({
   autoBackupEnabled: true,
-  compressionEnabled: false,
+  autoBackupIntervalMs: 4 * 60 * 60 * 1000,
 });
 ```
 

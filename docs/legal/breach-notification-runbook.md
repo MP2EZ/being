@@ -62,7 +62,7 @@ Federal deadlines run from the **date of discovery**, defined as the day the bre
 | Deadline | Days | Reference |
 |---|---|---|
 | Internal containment + counsel notification | 1 | This runbook §3 |
-| State AG notification (CA/NY 500+, TX 250+) | 30 | `STATE_NOTIFICATION_MATRIX` |
+| State AG notification (CA/NY 500+, TX 250+) | 30 | This runbook §7 |
 | State consumer notification (CA/NY/TX) | 30 | strictest applicable state law |
 | Media notification if 500+ residents of any state | 30 (state) / 10 (FTC) | see §6 |
 | **FTC notification** | **60** | **16 CFR §318.4** |
@@ -81,7 +81,7 @@ Execute in order. Each step has a checklist; tick before advancing.
 - [ ] Incident captured in `IncidentResponseService.ts` with severity, affected data classes, estimated user count
 - [ ] Discovery timestamp recorded in founder ops log
 - [ ] Incident ID assigned
-- [ ] Preliminary scope: which data sensitivity levels affected (see `DataProtectionEngine.ts` `DataSensitivityLevel`)
+- [ ] Preliminary scope: which data sensitivity levels affected (see the `DataSensitivityLevel` taxonomy in `app/src/core/services/security/EncryptionService.ts`)
 
 ### Step B — Containment (Day 0, within 5 minutes for automated triggers; within 1 hour for manual)
 - [ ] Affected systems isolated (revoke compromised credentials, rotate keys via `docs/security/key-rotation.md`, suspend impacted endpoints)
@@ -109,7 +109,7 @@ Execute in order. Each step has a checklist; tick before advancing.
 - [ ] Root-cause analysis written and stored with the incident record
 - [ ] Mitigation measures implemented (code changes, policy changes, vendor changes)
 - [ ] Update this runbook if procedural gaps were discovered
-- [ ] Update `STATE_NOTIFICATION_MATRIX` and §7 of this runbook if statute changed
+- [ ] Update §7 of this runbook if statute changed
 
 ---
 
@@ -130,7 +130,7 @@ Execute in order. Each step has a checklist; tick before advancing.
 | Type of entity | "Vendor of personal health records" (non-HIPAA) |
 | Date(s) of breach | Both **breach occurrence** date and **discovery** date |
 | Number of individuals affected | Exact count from §3 Step C |
-| Description of unsecured PHR identifiable health information involved | Itemize: PHQ-9 responses, GAD-7 responses, mood check-ins, journal entries, etc. — match `DataSensitivityLevel` taxonomy in `DataProtectionEngine.ts` |
+| Description of unsecured PHR identifiable health information involved | Itemize: PHQ-9 responses, GAD-7 responses, mood check-ins, journal entries, etc. — match the `DataSensitivityLevel` taxonomy in `app/src/core/services/security/EncryptionService.ts` |
 | Description of the breach | What happened, how it was discovered, sequence of events |
 | Mitigation steps taken | Containment actions from §3 Step B + any user-protective measures |
 | Steps individuals can take to protect themselves | Mirror the language used in user notification (§5) — must be consistent |
@@ -197,7 +197,7 @@ We are sorry this happened. Your trust matters to us.
 
 **Trigger:** Breach affects **500 or more residents of any single state, U.S. territory, District of Columbia, or possession**.
 
-**Deadline:** Prominent media notice in the affected jurisdiction, provided **without unreasonable delay** and in no case later than 60 days from discovery. *Note: `STATE_NOTIFICATION_MATRIX.FTC.mediaDeadlineDays` in code is set to 10 — that's the operational target this runbook adopts to stay well inside the federal deadline.*
+**Deadline:** Prominent media notice in the affected jurisdiction, provided **without unreasonable delay** and in no case later than 60 days from discovery. *Note: this runbook's §7 sets the FTC media-notice operational target to 10 days to stay well inside the federal "without unreasonable delay" deadline.*
 
 **Outlet selection:** at least one prominent media outlet serving the geographic area. Reasonable choices:
 - Major daily newspaper in the affected state's largest metro
@@ -212,7 +212,7 @@ We are sorry this happened. Your trust matters to us.
 
 ## 7. State-Specific Timelines
 
-The following table mirrors `STATE_NOTIFICATION_MATRIX` in `app/src/compliance/BreachResponseEngine.ts:174`. **That code constant is the authoritative source — if it changes, update this table in the same PR.** Code-side `BreachResponseEngine.computeStateDeadlines()` enforces these values at runtime.
+This table is the **authoritative source** for Being's state breach-notification deadlines and thresholds — update it when statute changes. (These values were previously also encoded in `app/src/compliance/BreachResponseEngine.ts` as the `STATE_NOTIFICATION_MATRIX` constant; that module was never invoked at runtime and was removed as dead code in MAINT-236, with the operative values preserved here.)
 
 | State | Consumer deadline | AG threshold | AG deadline | Media threshold | Media deadline | Statute |
 |---|---|---|---|---|---|---|
@@ -223,7 +223,7 @@ The following table mirrors `STATE_NOTIFICATION_MATRIX` in `app/src/compliance/B
 
 **Notes that affect execution:**
 - **TX has the strictest AG threshold (250).** Any breach affecting more than 250 Texas residents triggers Texas AG notification at 30 days even if no other state is implicated.
-- **NY SHIELD Act §899-aa(8).** The statute requires notification to **four New York agencies**: the NY Attorney General, NY Department of State, NY Division of State Police, and NY Division of Consumer Protection. Counsel files all four contemporaneously. *(Code constant `STATE_NOTIFICATION_MATRIX.NY` currently models only AG notification — file a follow-up MAINT ticket to extend the matrix to enumerate all four agencies and surface them in `computeStateDeadlines()` output.)*
+- **NY SHIELD Act §899-aa(8).** The statute requires notification to **four New York agencies**: the NY Attorney General, NY Department of State, NY Division of State Police, and NY Division of Consumer Protection. Counsel files all four contemporaneously. *(The §7 table above models only the AG-notification deadline; counsel files all four NY agencies regardless of what the table enumerates.)*
 - **CA SB 446 (effective Jan 1, 2026)** extended California's existing breach notification to cover "personal health information" held by non-HIPAA entities — the rule Being is most clearly subject to at the state level.
 - **Other states.** This matrix covers CA/NY/TX because those are the states with the most stringent / earliest-triggering requirements. For breaches affecting residents of other states, counsel consults state-by-state. The 60-day federal floor covers any state without its own faster timeline.
 
@@ -233,8 +233,8 @@ The following table mirrors `STATE_NOTIFICATION_MATRIX` in `app/src/compliance/B
 
 | Concern | Code reference |
 |---|---|
-| 60-day FTC enforcement, state matrix | `app/src/compliance/BreachResponseEngine.ts` (`STATE_NOTIFICATION_MATRIX` at line 174, `computeStateDeadlines()`) |
-| Encryption state (determines "secured" vs "unsecured") | `app/src/compliance/DataProtectionEngine.ts`, `app/src/core/services/security/EncryptionService.ts` |
+| 60-day FTC enforcement, state matrix | §2 and §7 of this runbook (authoritative; the former `STATE_NOTIFICATION_MATRIX` code constant was removed as dead code in MAINT-236) |
+| Encryption state (determines "secured" vs "unsecured") | `app/src/core/services/security/EncryptionService.ts` |
 | Detection + incident creation hooks | `app/src/core/services/security/IncidentResponseService.ts` (`INCIDENT_RESPONSE_CONFIG`) |
 | Crisis-data special handling | `app/src/features/crisis/services/CrisisSecurityProtocol.ts` |
 | Key rotation procedure (containment step) | `docs/security/key-rotation.md` |
@@ -245,7 +245,7 @@ The following table mirrors `STATE_NOTIFICATION_MATRIX` in `app/src/compliance/B
 
 - [ ] Review trigger criteria (§1) against current 16 CFR Part 318 text and FTC guidance
 - [ ] Confirm FTC form URL (`https://www.ftc.gov/HBNR`) still resolves; capture any field changes
-- [ ] Confirm `STATE_NOTIFICATION_MATRIX` in `BreachResponseEngine.ts` still mirrors current statute for CA / NY / TX
+- [ ] Confirm §7 of this runbook still mirrors current statute for CA / NY / TX
 - [ ] Confirm contact paths (`legal@being.fyi`, `privacy@being.fyi`) still active
 - [ ] Confirm `docs/security/security-architecture.md` encryption posture unchanged; if changed, update §1 "unsecured" definition
 - [ ] Run a tabletop exercise: simulate a hypothetical breach; walk through every step end-to-end; record gaps
