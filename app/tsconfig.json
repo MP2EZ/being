@@ -36,7 +36,6 @@
       // New feature-based path aliases
       "@/core/*": ["src/core/*"],
       "@/features/*": ["src/features/*"],
-      "@/compliance/*": ["src/compliance/*"],
       "@/analytics/*": ["src/analytics/*"],
       // Legacy path aliases (kept during migration, will be removed in Phase 10)
       "@/components/*": ["src/components/*"],
