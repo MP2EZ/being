@@ -238,6 +238,31 @@ export class EncryptionService {
     return this.initPromise;
   }
 
+  /**
+   * MAINT-241: Delete the master key from SecureStore for a full
+   * account-deletion wipe (CCPA/TDPSA right-to-delete + GDPR Art. 17). After
+   * this returns, every piece of wellness ciphertext is cryptographically
+   * unrecoverable — which is the point of erasure. Resets in-memory init state
+   * so a subsequent `initialize()` provisions a fresh key rather than
+   * short-circuiting on a stale `masterKeyInitialized` flag.
+   *
+   * Unlike `__resetForTesting__`, this is a real production operation: it must
+   * be called LAST in the account-deletion sequence (after all dependent
+   * ciphertext has been removed), and ONLY on full account deletion — never on
+   * logout or a partial clear, or remaining encrypted data becomes permanently
+   * unreadable.
+   */
+  public async deleteMasterKey(): Promise<void> {
+    await SecureStore.deleteItemAsync(ENCRYPTION_CONFIG.MASTER_KEY_ID);
+    this.keyCache.delete(ENCRYPTION_CONFIG.MASTER_KEY_ID);
+    this.keyMetadata.delete(ENCRYPTION_CONFIG.MASTER_KEY_ID);
+    this.masterKeyInitialized = false;
+    this.initPromise = null;
+    logSecurity('Master key deleted (account-deletion erasure)', 'high', {
+      component: 'EncryptionService',
+    });
+  }
+
   private async doInitialize(userPassphrase?: string): Promise<void> {
     const startTime = performance.now();
 

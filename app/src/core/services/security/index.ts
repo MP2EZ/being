@@ -59,12 +59,7 @@ export type {
 
 // Type exports — Network Security Service
 export type {
-  APIEndpointCategory,
-  RequestSecurityContext,
-  SecureRequestOptions,
-  SecureResponse,
-  NetworkSecurityMetrics,
-  SecurityViolationEvent
+  NetworkSecurityMetrics
 } from './NetworkSecurityService';
 
 // Type exports — Crisis Security Protocol

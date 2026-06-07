@@ -86,6 +86,40 @@ export const SECURE_STORAGE_CONFIG = {
 } as const;
 
 /**
+ * MAINT-241 — right-to-erasure manifest.
+ *
+ * SecureStore has no enumerate API, so a full wipe must explicitly name every
+ * fixed wellness key that lives OUTSIDE the sweepable AsyncStorage prefixes.
+ * Keep this in sync whenever a new SecureStore-backed wellness key is added.
+ */
+export const WELLNESS_SECURE_STORE_KEYS = [
+  'stoic_practice_state',        // stoicPracticeStore — check-ins, virtue progress
+  'assessment_store_encrypted',  // assessmentStore — PHQ-9 / GAD-7 history
+  'subscription_secure_v1',      // subscriptionStore — entitlement state
+  'stoic_session_morning',       // SessionStorageService — per-flow session blobs
+  'stoic_session_midday',
+  'stoic_session_evening',
+] as const;
+
+/**
+ * Keys DELIBERATELY EXCLUDED from the erasure sweep (documented so the
+ * exclusion is a reviewable decision, not an accidental omission):
+ *  - consent_record_v1 / consent_history_v1 / legal_gate_consents_v1 /
+ *    age_verification_v1 — consent audit trail (lawful-basis evidence;
+ *    DataRetentionService already refuses to delete consent records).
+ *  - auth_device_id — anonymous device-identity anchor; deleting it would
+ *    de-authenticate the device with no recovery path and holds no wellness
+ *    content.
+ */
+export const ERASURE_EXCLUDED_SECURE_STORE_KEYS = [
+  'consent_record_v1',
+  'consent_history_v1',
+  'legal_gate_consents_v1',
+  'age_verification_v1',
+  'auth_device_id',
+] as const;
+
+/**
  * STORAGE TIER DEFINITIONS
  */
 export type StorageTier =
@@ -1400,11 +1434,22 @@ export class SecureStorageService {
   }
 
   /**
-   * Wipe all wellness data on logout/account deletion. Sweeps both AsyncStorage
-   * (hybrid path) and SecureStore (legacy + unmigrated). Required for CCPA/TDPSA
-   * right-to-delete + GDPR Art. 17 (right to erasure).
+   * Wipe all wellness data on logout/account deletion. Sweeps AsyncStorage
+   * (hybrid path) AND the fixed legacy SecureStore wellness keys
+   * (`WELLNESS_SECURE_STORE_KEYS`). Consent audit-trail + device-identity keys
+   * are deliberately preserved (`ERASURE_EXCLUDED_SECURE_STORE_KEYS`).
+   *
+   * Required for CCPA/TDPSA right-to-delete + GDPR Art. 17 (right to erasure).
+   *
+   * @param options.deleteMasterKey  Full account-deletion wipe ONLY. Deletes
+   *   the AES master key LAST (after all dependent ciphertext above is gone),
+   *   rendering all wellness ciphertext cryptographically unrecoverable. NEVER
+   *   pass this on logout / partial clears, or remaining encrypted data becomes
+   *   permanently unreadable.
    */
-  public async clearAllWellnessData(): Promise<void> {
+  public async clearAllWellnessData(
+    options: { deleteMasterKey?: boolean } = {}
+  ): Promise<void> {
     const asyncKeys = await AsyncStorage.getAllKeys();
     const toRemove = asyncKeys.filter((k) =>
       k.startsWith(SECURE_STORAGE_CONFIG.CRISIS_ASYNC_PREFIX) ||
@@ -1416,10 +1461,18 @@ export class SecureStorageService {
       await AsyncStorage.multiRemove(toRemove);
     }
 
-    // SecureStore has no enumerate API. Caller is responsible for clearing
-    // known legacy keys via deleteSecureData / deleteWellnessBlob when wiping
-    // specific records. clearSensitiveData on EncryptionService handles the
-    // master key.
+    // SecureStore has no enumerate API: explicitly delete the fixed wellness
+    // keys from the manifest. Consent/identity keys are intentionally NOT in
+    // the manifest (see ERASURE_EXCLUDED_SECURE_STORE_KEYS) and are preserved.
+    await Promise.all(
+      WELLNESS_SECURE_STORE_KEYS.map((key) => SecureStore.deleteItemAsync(key))
+    );
+
+    // Full account-deletion wipe only: delete the master key LAST, after all
+    // dependent wellness ciphertext above has been removed.
+    if (options.deleteMasterKey) {
+      await EncryptionService.deleteMasterKey();
+    }
   }
 
   private async verifyStorageCapabilities(): Promise<void> {

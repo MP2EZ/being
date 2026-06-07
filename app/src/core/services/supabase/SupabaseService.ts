@@ -392,7 +392,7 @@ class SupabaseService {
     }
 
     const result = await this.executeWithResilience(async () => {
-      return await this.client!
+      const resp: any = await this.client!
         .from('encrypted_backups')
         .upsert({
           user_id: this.userId,
@@ -400,6 +400,14 @@ class SupabaseService {
           checksum,
           version,
         });
+      // DEBUG-255: supabase-js RESOLVES with { error } for most failures (RLS
+      // denial, PostgREST errors, constraint violations) rather than throwing.
+      // executeWithResilience keys success off NOT throwing, so surface a
+      // resolved error as a retryable failure — otherwise a failed backup is
+      // reported as success, last_sync is written, and the op is never queued.
+      // (Same guard flushCrisisAnalytics/getBackup already use.)
+      if (resp?.error) throw resp.error;
+      return resp;
     }, 'saveBackup');
 
     if (!result.success) {
@@ -547,9 +555,14 @@ class SupabaseService {
     this.analyticsQueue = [];
 
     const result = await this.executeWithResilience(async () => {
-      return await this.client!
+      const resp: any = await this.client!
         .from('analytics_events')
         .insert(eventsToFlush);
+      // DEBUG-255: surface a resolved { error } as a retryable failure (see
+      // saveBackup) so a failed flush re-queues the events below instead of
+      // silently dropping them.
+      if (resp?.error) throw resp.error;
+      return resp;
     }, 'flushAnalytics');
 
     if (!result.success) {
