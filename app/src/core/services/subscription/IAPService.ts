@@ -16,8 +16,16 @@
  *
  * COMPLIANCE (MAINT-157):
  * - PCI DSS: N/A — Apple/Google handle payment data.
- * - Auth identity is derived from auth.uid() inside Edge Functions; we never
- *   send userId in the request body.
+ * - We never send userId in the request body; the Edge Functions read
+ *   identity from the request's JWT (`auth.uid()`).
+ *   ⚠️ KNOWN GAP (INFRA-232 → tracked in INFRA-260): the client does NOT yet
+ *   establish a per-user Supabase session — it runs with `persistSession`
+ *   disabled and never calls `signInAnonymously`, so `functions.invoke`
+ *   attaches only the anon publishable key. `auth.uid()` is therefore the
+ *   shared anon role (or null), NOT a per-user principal — so receipt
+ *   verification is not yet bound to a verified identity and the previous
+ *   "Closes SEC-VERIFY-RECEIPT-ANON" claim does not hold. Establishing the
+ *   anon session + auth.uid()-based RLS + receipt-replay binding is INFRA-260.
  * - Persisted subscription metadata (incl. receipt strings) goes to
  *   expo-secure-store with AES-256 backing. Only fields with a verification
  *   need are propagated to the store — see `augmentPurchase` for the
@@ -56,7 +64,9 @@ const PRODUCT_IDS: SubscriptionProductIds = DEFAULT_SUBSCRIPTION_CONFIG.products
  * Edge Function to identify which Play Console app the purchase belongs to.
  *
  * Drift detection: if app.json's android.package changes, this must change
- * too. Worth adding a runtime guard test that fails CI on mismatch.
+ * too. Pinned by `__tests__/unit/iapAndroidPackage.config.test.ts` (INFRA-232),
+ * which fails on mismatch with app.json's expo.android.package in either
+ * direction.
  */
 const ANDROID_PACKAGE_NAME = 'fyi.being.app';
 
@@ -488,10 +498,16 @@ class IAPServiceClass {
         };
       }
 
-      // Get the Supabase client. We use functions.invoke() so the user's
-      // session JWT is auto-attached as the Bearer token; the function then
-      // extracts auth.uid() from that JWT instead of trusting a userId from
-      // the body. Closes SEC-VERIFY-RECEIPT-ANON.
+      // We use functions.invoke() so that whatever auth token the Supabase
+      // client holds is auto-attached as the Bearer token, and the Edge
+      // Function reads identity from the JWT (auth.uid()) rather than trusting
+      // a userId from the body.
+      // ⚠️ KNOWN GAP (INFRA-232 → INFRA-260): no per-user session is
+      // established yet (no signInAnonymously; persistSession off), so the
+      // attached token is the anon publishable key and auth.uid() is the
+      // shared anon role, not a verified per-user principal. The status.userId
+      // guard below is a device-derived id, NOT auth.uid(). Binding the
+      // receipt to a verified identity is tracked in INFRA-260.
       const status = supabaseService.getStatus();
       if (!status.userId) {
         throw new Error('User not authenticated');
