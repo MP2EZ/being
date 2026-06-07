@@ -44,7 +44,7 @@ if [ -z "$APP" ]; then
 fi
 
 echo "📲 Installing $(basename "$APP") on the booted sim (replacing any dev-client build)…"
-xcrun simctl uninstall booted com.being.app 2>/dev/null || true
+xcrun simctl uninstall booted fyi.being.app 2>/dev/null || true
 xcrun simctl install booted "$APP"
 
 echo "✅ No-dev-client build installed. The app now boots straight past the dev launcher."

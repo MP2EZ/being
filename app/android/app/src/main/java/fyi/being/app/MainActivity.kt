@@ -1,4 +1,4 @@
-package com.being.app
+package fyi.being.app
 import expo.modules.splashscreen.SplashScreenManager
 
 import android.os.Build

@@ -1,9 +1,18 @@
 # Bundle Identifier Migration Runbook — `com.being.mbct` → `com.being.app`
 
-> **Work item:** MAINT-159. **Status:** in-code portion complete; external coordination **blocked on
-> account provisioning** (Apple Developer + Google Play approval pending — see the "Provision iOS Apple
-> credentials" work item). This is a forward checklist for the founder to execute once those accounts exist,
-> and **before any production / TestFlight submission**.
+> ⚠️ **SUPERSEDED (MAINT-161, 2026-06-06).** The target `com.being.app` was **unavailable** — a third
+> party had already registered it in Apple's global App ID namespace, and the legacy `com.being.mbct` was
+> registered under a now-defunct Apple account. On the fresh Apple Developer account (Team ID `KN6FDLG98K`)
+> the canonical identifier is now **`fyi.being.app`** (reverse-DNS of the owned `being.fyi` domain). MAINT-161
+> re-pointed all in-code references (`com.being.app` → `fyi.being.app`) and updated the native
+> `DEVELOPMENT_TEAM` from the old `7XUNCS8VMA` to `KN6FDLG98K`. The external-coordination checklist below
+> still applies, but **read every `com.being.app` as `fyi.being.app`** and every team reference as
+> `KN6FDLG98K`. The lesson: a bundle ID in `app.json` reserves nothing — confirm availability by registering
+> it with Apple *before* standardizing the codebase on it.
+
+> **Work item:** MAINT-159 (in-code rename), superseded by MAINT-161 (re-point to `fyi.being.app` + Apple
+> credential provisioning). **Status:** in-code portion complete. This is a forward checklist for the founder
+> to execute against the live accounts, **before any production / TestFlight submission**.
 
 ## Why this exists
 

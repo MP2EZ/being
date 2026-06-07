@@ -168,7 +168,7 @@
 				TargetAttributes = {
 					13B07F861A680F5B00A75B9A = {
 						LastSwiftMigration = 1250;
-						DevelopmentTeam = "7XUNCS8VMA";
+						DevelopmentTeam = "KN6FDLG98K";
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -426,14 +426,14 @@
 					"-lc++",
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_DEBUG";
-				PRODUCT_BUNDLE_IDENTIFIER = com.being.app;
+				PRODUCT_BUNDLE_IDENTIFIER = fyi.being.app;
 				PRODUCT_NAME = Being;
 				SWIFT_OBJC_BRIDGING_HEADER = "Being/Being-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VERSIONING_SYSTEM = "apple-generic";
-				DEVELOPMENT_TEAM = "7XUNCS8VMA";
+				DEVELOPMENT_TEAM = "KN6FDLG98K";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 			};
@@ -461,13 +461,13 @@
 					"-lc++",
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_RELEASE";
-				PRODUCT_BUNDLE_IDENTIFIER = com.being.app;
+				PRODUCT_BUNDLE_IDENTIFIER = fyi.being.app;
 				PRODUCT_NAME = Being;
 				SWIFT_OBJC_BRIDGING_HEADER = "Being/Being-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VERSIONING_SYSTEM = "apple-generic";
-				DEVELOPMENT_TEAM = "7XUNCS8VMA";
+				DEVELOPMENT_TEAM = "KN6FDLG98K";
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 			};
