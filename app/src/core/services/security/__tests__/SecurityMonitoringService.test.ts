@@ -5,9 +5,19 @@
  * Deep alert dedup + threshold escalation tests deferred — they need time
  * control + mocked downstream services out of proportion to value.
  *
+ * MAINT-238 rewrite: the prior guard suite pinned the empty-stub threat
+ * pipeline (`performThreatDetection` returning []). That method and its
+ * detectors were deleted as dead code, so its guards were removed. The guards
+ * now pin the SURVIVING real-work surface instead:
+ * - performVulnerabilityAssessment → exercises assessNetworkSecurity +
+ *   checkSecureConfiguration (real metric-driven + __DEV__ vuln)
+ * - performComplianceCheck → exercises checkDataProtectionCompliance (real)
+ * - detectIncidents → exercises the real auth-failure / compliance branches
+ * - registerThreatDetector / logSecurityEvent → MAINT-201 detector registry
+ *
  * Coverage:
  * - Singleton getInstance returns same instance
- * - Required public methods exist
+ * - Surviving public methods exist
  * - MONITORING_CONFIG exports documented values
  * - performComplianceCheck returns documented shape
  */
@@ -101,9 +111,12 @@ describe('SecurityMonitoringService', () => {
       const service = SecurityMonitoringService.getInstance();
       expect(typeof service.initialize).toBe('function');
       expect(typeof service.performVulnerabilityAssessment).toBe('function');
-      expect(typeof service.performThreatDetection).toBe('function');
       expect(typeof service.detectIncidents).toBe('function');
       expect(typeof service.performComplianceCheck).toBe('function');
+      // MAINT-201 detector registry (surviving real-work API)
+      expect(typeof service.registerThreatDetector).toBe('function');
+      expect(typeof service.getThreatDetectorNames).toBe('function');
+      expect(typeof service.logSecurityEvent).toBe('function');
     });
   });
 
@@ -128,32 +141,50 @@ describe('SecurityMonitoringService', () => {
       await service.initialize();
     });
 
-    test('performVulnerabilityAssessment returns a truthy result (does not silently no-op)', async () => {
-      // Deeper shape assertions (id, vulnerabilities[]) require fully-faithful
-      // mocks for the 5 internal sub-assessments (data, auth, network, ...).
-      // The audit's TEST-06 contract is "doesn't silently no-op" — locking
-      // that the orchestration runs to completion + returns SOMETHING is
-      // the minimum useful regression guard. Deeper assessments are best
-      // tested by isolated unit tests of each sub-assessment method.
+    test('performVulnerabilityAssessment runs the real sub-assessments (assessNetworkSecurity + checkSecureConfiguration)', async () => {
+      // Pins the surviving real-work path: the orchestration runs to completion
+      // and returns a shaped assessment with a vulnerabilities array. Under
+      // __DEV__/test, checkSecureConfiguration emits a real "Development Mode
+      // Enabled" vuln, so the array is the live aggregation of the kept
+      // metric-driven sub-assessments (not a deleted stub's []).
       const assessment = await service.performVulnerabilityAssessment();
       expect(assessment).toBeTruthy();
       expect(typeof assessment).toBe('object');
+      expect(Array.isArray(assessment.vulnerabilities)).toBe(true);
+      expect(typeof assessment.overallScore).toBe('number');
     });
 
-    test('performThreatDetection returns an array of ThreatDetectionResult', async () => {
-      const threats = await service.performThreatDetection();
-      expect(Array.isArray(threats)).toBe(true);
-    });
-
-    test('detectIncidents returns an array of IncidentDetectionEvent', async () => {
+    test('detectIncidents returns an array (real auth-failure + compliance branches)', async () => {
       const incidents = await service.detectIncidents();
       expect(Array.isArray(incidents)).toBe(true);
     });
 
-    test('performComplianceCheck returns a ComplianceStatus shape', async () => {
+    test('performComplianceCheck returns a ComplianceStatus with the real dataProtectionCompliance shape', async () => {
       const status = await service.performComplianceCheck();
       expect(status).toBeTruthy();
       expect(typeof status).toBe('object');
+      // checkDataProtectionCompliance (surviving real metric-driven check)
+      expect(status.dataProtectionCompliance).toBeTruthy();
+      expect(typeof status.dataProtectionCompliance.encryptionCompliance).toBe('boolean');
+      expect(typeof status.dataProtectionCompliance.transmissionCompliance).toBe('boolean');
+    });
+
+    test('registerThreatDetector + getThreatDetectorNames round-trips (MAINT-201 registry)', () => {
+      service.registerThreatDetector('test_detector_maint238', {
+        pattern: /abc/,
+        severity: 'high',
+        action: 'block_and_alert',
+      });
+      expect(service.getThreatDetectorNames()).toContain('test_detector_maint238');
+    });
+
+    test('logSecurityEvent records sanitized critical/high events (MAINT-201)', async () => {
+      const before = service.getAnalyticsSecurityEvents().length;
+      await service.logSecurityEvent('phi_exposure_attempt', { rawText: 'PHQ-9: 18' });
+      const after = service.getAnalyticsSecurityEvents();
+      expect(after.length).toBe(before + 1);
+      // severity is derived by the service; caller cannot downgrade
+      expect(after[after.length - 1].severity).toBe('critical');
     });
 
     test('isMonitoringActive returns a boolean (data-contract guard)', () => {
