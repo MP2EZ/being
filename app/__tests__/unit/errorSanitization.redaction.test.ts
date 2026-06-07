@@ -84,17 +84,24 @@ describe('errorSanitization — redaction (MAINT-242)', () => {
       }
     });
 
-    it('KNOWN LIMITATION: a space between key and value leaves the value un-redacted', () => {
-      // Documents (does not endorse) the `[:\s=]?\S+` shortcoming: with a
-      // space, `\S+` matches nothing after the optional separator, so the
-      // value survives. Out of scope for MAINT-242 (the two named bugs are
-      // CircuitBreaker.forceState + stoicPracticeStore TZ cutoff). Tracked
-      // here so a future tightening of SENSITIVE_PATTERNS has a failing
-      // canary to flip.
-      // TODO(MAINT-242 follow-up): harden SENSITIVE_PATTERNS to redact the
-      // space-separated `key: value` form too.
-      expect(sanitizeErrorMessage('token: secret-value-here')).toBe('[REDACTED] secret-value-here');
-      expect(sanitizeErrorMessage('email: jane@example.com')).toBe('email: jane@example.com');
+    it('redacts space-separated key/value forms (DEBUG-258)', () => {
+      // Flipped from the MAINT-242 known-limitation canary. The named-key
+      // patterns now accept a ":"/"=" separator that is space-padded, plus a
+      // bare-space separator when the value is sensitively shaped (digit/@).
+      expect(sanitizeErrorMessage('token: secret-value-here')).toBe('[REDACTED]');
+      expect(sanitizeErrorMessage('email: jane@example.com')).toBe('[REDACTED]');
+      expect(sanitizeErrorMessage('user id 12345')).toBe('[REDACTED]');
+    });
+
+    it('does NOT over-redact ordinary prose that opens with a key word (DEBUG-258)', () => {
+      // The bare-space separator only fires on a sensitively-shaped value
+      // (contains a digit or "@"), so prose beginning with a key word and
+      // followed by a non-sensitive word is left intact. No generic
+      // "<word> <word> <number>" rule is introduced.
+      expect(sanitizeErrorMessage('token expired')).toBe('token expired');
+      expect(sanitizeErrorMessage('the email was sent')).toBe('the email was sent');
+      expect(sanitizeErrorMessage('user id required')).toBe('user id required');
+      expect(sanitizeErrorMessage('question 1 of 9')).toBe('question 1 of 9');
     });
   });
 

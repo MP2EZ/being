@@ -24,10 +24,20 @@
  * Patterns that might contain PHI or sensitive data
  * These will be redacted from error messages
  */
+// Named-key/value redaction (DEBUG-258).
+// Each named-key pattern matches the value via two alternatives:
+//   1. an explicit ":" / "=" separator, optionally space-padded, followed by
+//      any non-space value — redacts regardless of the value's shape
+//      (e.g. "token:ey.Jh.bG", "token: secret-value-here", "user-id=abc123");
+//   2. a bare-space separator followed by a sensitively-shaped value (one that
+//      contains a digit or "@") — e.g. "user id 12345".
+// The bare-space alternative is gated on the value shape so ordinary prose that
+// opens with a key word ("token expired", "user id required") is NOT redacted.
+// This deliberately avoids any generic "<word> <word> <number>" rule.
 const SENSITIVE_PATTERNS = [
   // User IDs and emails
-  /user[_-]?id[:\s=]?\S+/gi,
-  /email[:\s=]?\S+@\S+/gi,
+  /user[\s_-]?id(?:\s*[:=]\s*\S+|\s+\S*\d\S*)/gi,
+  /email\s*[:=]?\s*\S+@\S+/gi,
   /dev-user-\d+/gi,
 
   // Therapeutic values and settings
@@ -36,9 +46,9 @@ const SENSITIVE_PATTERNS = [
   /therapeuticValue/gi,
 
   // Auth tokens and credentials
-  /token[:\s=]?\S+/gi,
-  /password[:\s=]?\S+/gi,
-  /auth[:\s=]?\S+/gi,
+  /token(?:\s*[:=]\s*\S+|\s+\S*\d\S*)/gi,
+  /password(?:\s*[:=]\s*\S+|\s+\S*\d\S*)/gi,
+  /auth(?:\s*[:=]\s*\S+|\s+\S*\d\S*)/gi,
   /bearer\s+\S+/gi,
 
   // Storage keys
