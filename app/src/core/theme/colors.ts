@@ -42,6 +42,7 @@ export const colorSystem = {
   accessibility: dsColors.accessibility,
   navigation: dsColors.navigation,
   therapeutic: dsColors.therapeutic,
+  principles: dsColors.principles, // MAINT-253: principle category colours for the Insights chart
 };
 
 // Export as 'colors' for backward compatibility
