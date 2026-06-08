@@ -43,14 +43,6 @@ export type EveningFlowParamList = {
 };
 
 // Common Flow Data Types
-export interface FlowProgress {
-  currentStep: number;
-  totalSteps: number;
-  flowType: 'morning' | 'midday' | 'evening';
-  startTime: Date;
-  isComplete: boolean;
-}
-
 export interface BodyAreaData {
   area: string;
   sensation: string;
@@ -147,18 +139,6 @@ export interface TomorrowPrepData {
   priorities: string[];
   selfCare: string[];
   gratitude: string;
-}
-
-// Complete Flow Session Data
-export interface FlowSessionData {
-  id: string;
-  type: 'morning' | 'midday' | 'evening';
-  date: Date;
-  startTime: Date;
-  endTime?: Date;
-  progress: FlowProgress;
-  data: MorningFlowData | MiddayFlowData | EveningFlowData;
-  isComplete: boolean;
 }
 
 export interface MorningFlowData {
@@ -403,77 +383,6 @@ export interface VirtueResponseData {
  */
 export interface CompassionateCloseData {
   integrationNote?: string | undefined;  // "What do you need to remember as you return to your day?" (optional)
-  timestamp: Date;
-}
-
-// ──────────────────────────────────────────────────────────────────────────────
-// LEGACY MIDDAY FLOW TYPES (Deprecated - kept for backward compatibility)
-// These types support the old 5-screen flow. New implementations should use
-// the MAINT-65 types above.
-// ──────────────────────────────────────────────────────────────────────────────
-
-/** @deprecated Use StoicMiddayFlowData instead */
-export interface LegacyMiddayFlowData {
-  currentSituation?: CurrentSituationData;
-  controlCheck?: ControlCheckData;
-  reappraisal?: ReappraisalData;
-  intentionProgress?: IntentionProgressData;
-  embodiment?: EmbodimentData;
-  completedAt: Date;
-  timeSpentSeconds: number;
-  flowVersion: string;
-}
-
-/** @deprecated Use PauseAcknowledgeData instead */
-export interface CurrentSituationData {
-  situation: string;
-  emotionalState: string;
-  energyLevel: number;
-  timestamp: Date;
-}
-
-/** @deprecated Use RealityCheckData instead */
-export interface ControlCheckData {
-  aspect: string;
-  controlType: 'fully_in_control' | 'can_influence' | 'not_in_control';
-  whatIControl?: string | undefined;
-  whatICannotControl?: string | undefined;
-  actionIfControllable?: string | undefined;
-  acceptanceIfUncontrollable?: string | undefined;
-  timestamp: Date;
-}
-
-/** @deprecated Use VirtueResponseData instead */
-export interface ReappraisalData {
-  obstacle: string;
-  virtueOpportunity: string;
-  reframedPerspective: string;
-  principleApplied?: string | undefined;
-  timestamp: Date;
-}
-
-/** @deprecated No longer used in new flow */
-export interface IntentionProgressData {
-  morningIntention: string;
-  practiced: boolean;
-  howApplied?: string | undefined;
-  adjustment?: string | undefined;
-  timestamp: Date;
-}
-
-/** @deprecated Breathing now integrated into PauseAcknowledgeData */
-export interface EmbodimentData {
-  breathingDuration: 60;
-  breathingQuality: number;
-  bodyAwareness: string;
-  timestamp: Date;
-}
-
-/** @deprecated Use CompassionateCloseData instead */
-export interface AffirmationData {
-  selectedAffirmation?: string | undefined;
-  personalAffirmation?: string | undefined;
-  selfCompassionNote?: string | undefined;
   timestamp: Date;
 }
 
