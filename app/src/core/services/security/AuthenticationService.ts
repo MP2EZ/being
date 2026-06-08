@@ -1057,9 +1057,13 @@ export class AuthenticationService {
 
   private async generateAuthenticationToken(user: UserAuthenticationContext): Promise<AuthenticationToken> {
     try {
-      // In a real implementation, this would use proper JWT generation
+      // Unsecured JWT (alg:"none", RFC 7519 §6). No signature is computed or
+      // verified anywhere in the app — the previous keyless truncated-SHA-256
+      // labeled "HS256" was forgeable security theater (MAINT-244/SEC-W4).
+      // Real per-user session signing + verification is deferred to INFRA-260's
+      // auth-model session; until a verifier exists, claiming HS256 is dishonest.
       const header = {
-        alg: 'HS256',
+        alg: 'none',
         typ: 'JWT'
       };
 
@@ -1074,12 +1078,12 @@ export class AuthenticationService {
         permissions: user.permissions
       };
 
-      // Simple token generation (would use proper JWT library in production)
+      // Unsecured serialization: header.payload with an empty signature segment
+      // (RFC 7519 §6). A real JWT library + verifier arrives with INFRA-260.
       const headerB64 = btoa(JSON.stringify(header));
       const payloadB64 = btoa(JSON.stringify(payload));
-      const signature = await this.generateTokenSignature(`${headerB64}.${payloadB64}`);
 
-      const accessToken = `${headerB64}.${payloadB64}.${signature}`;
+      const accessToken = `${headerB64}.${payloadB64}.`;
       const refreshToken = await this.generateSecureId();
 
       return {
@@ -1096,20 +1100,6 @@ export class AuthenticationService {
 
     } catch (error) {
       logError(LogCategory.SECURITY, '🚨 TOKEN GENERATION ERROR:', error instanceof Error ? error : new Error(String(error)));
-      throw error;
-    }
-  }
-
-  private async generateTokenSignature(data: string): Promise<string> {
-    try {
-      const digest = await Crypto.digestStringAsync(
-        Crypto.CryptoDigestAlgorithm.SHA256,
-        data,
-        { encoding: Crypto.CryptoEncoding.HEX }
-      );
-      return digest.substring(0, 32);
-    } catch (error) {
-      logError(LogCategory.SECURITY, '🚨 TOKEN SIGNATURE ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
