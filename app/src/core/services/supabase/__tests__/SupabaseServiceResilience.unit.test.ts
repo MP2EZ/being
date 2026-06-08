@@ -37,7 +37,16 @@ const mockChain: any = {
   limit: jest.fn(() => mockChain),
   single: jest.fn(() => Promise.resolve({ data: null, error: null })),
 };
-const mockSupabaseClient = { from: jest.fn(() => mockChain) };
+// INFRA-260: identity is the Supabase anonymous session — initialize() calls
+// auth.signInAnonymously() to set userId (== auth.uid()). Without this mock the
+// write paths under test would early-return on a null userId.
+const mockAuth: any = {
+  getSession: jest.fn(() => Promise.resolve({ data: { session: null }, error: null })),
+  signInAnonymously: jest.fn(() =>
+    Promise.resolve({ data: { user: { id: 'user_123' }, session: {} }, error: null }),
+  ),
+};
+const mockSupabaseClient = { from: jest.fn(() => mockChain), auth: mockAuth };
 
 jest.mock('@supabase/supabase-js', () => ({
   createClient: jest.fn(() => mockSupabaseClient),
@@ -84,6 +93,14 @@ describe('SupabaseService resilience — resolved {error} is a failure (DEBUG-25
     mockChain.limit.mockImplementation(() => mockChain);
     mockChain.single.mockResolvedValue({ data: { id: 'user_123' }, error: null });
     mockSupabaseClient.from.mockImplementation(() => mockChain);
+
+    mockAuth.getSession.mockReset();
+    mockAuth.signInAnonymously.mockReset();
+    mockAuth.getSession.mockResolvedValue({ data: { session: null }, error: null });
+    mockAuth.signInAnonymously.mockResolvedValue({
+      data: { user: { id: 'user_123' }, session: {} },
+      error: null,
+    });
 
     (AsyncStorage.getItem as jest.Mock).mockResolvedValue(null);
     (AsyncStorage.setItem as jest.Mock).mockResolvedValue(undefined);

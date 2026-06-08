@@ -2,9 +2,16 @@
  * Supabase Service - Anonymous Cloud Storage for Encrypted Backups
  *
  * LEGAL COMPLIANCE:
- * - Stores only encrypted blobs (no PHI)
- * - Anonymous users only (no PII)
- * - No BAA required (conduit exception)
+ * - Stores only client-encrypted blobs (no plaintext wellness data server-side)
+ * - Anonymous Supabase auth sessions only (no PII; no email/phone)
+ * - No BAA required — Being is not a HIPAA covered entity
+ *
+ * IDENTITY (INFRA-260 / MAINT-226 T0b):
+ * - A real Supabase anonymous session (`signInAnonymously`) is established at boot,
+ *   persisted in expo-secure-store (Keychain/Keystore) via the chunking adapter —
+ *   NOT AsyncStorage. `auth.uid()` is therefore a non-null per-user principal on
+ *   every request, and all RLS policies key on it. `userId` is the session user id
+ *   (== auth.uid()), no longer a device-hash-derived row id.
  *
  * FEATURES:
  * - Anonymous authentication
@@ -19,16 +26,16 @@
  */
 
 
-import { logSecurity, logPerformance, logError, LogCategory } from '../logging';
-import { generateTimestampedId, generateSessionId, generateRandomString } from '@/core/utils/id';
+import { logSecurity, logError, LogCategory } from '../logging';
+import { generateSessionId } from '@/core/utils/id';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import * as Crypto from 'expo-crypto';
 import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   createSupabasePinnedFetch,
   validatePinningConfiguration,
 } from '../security/pinned-fetch';
+import { createSecureStoreSessionAdapter } from './secureStoreSessionAdapter';
 import { env } from '@/core/config/env';
 import { useConsentStore } from '@/core/stores/consentStore';
 
@@ -38,10 +45,11 @@ const SUPABASE_URL = env.EXPO_PUBLIC_SUPABASE_URL;
 // Supabase project hands out. supabase-js doesn't care which.
 const SUPABASE_KEY = env.EXPO_PUBLIC_SUPABASE_KEY;
 
-// Storage keys
+// Storage keys.
+// INFRA-260: USER_ID / DEVICE_ID identity keys removed — identity is now the
+// Supabase anonymous session (persisted in expo-secure-store via the chunking
+// adapter), not a device-hash row id cached in AsyncStorage.
 const STORAGE_KEYS = {
-  USER_ID: '@being/supabase/user_id',
-  DEVICE_ID: '@being/supabase/device_id_hash',
   LAST_SYNC: '@being/supabase/last_sync',
   OFFLINE_QUEUE: '@being/supabase/offline_queue',
   CRISIS_ANALYTICS_QUEUE: '@being/supabase/crisis_analytics_queue',
@@ -58,14 +66,6 @@ interface CircuitBreakerState {
   failures: number;
   lastFailureTime: number;
   state: 'closed' | 'open' | 'half-open';
-}
-
-// Anonymous user interface
-interface AnonymousUser {
-  id: string;
-  device_id: string;
-  created_at: string;
-  last_sync?: string;
 }
 
 // Backup data interface
@@ -100,8 +100,8 @@ interface SupabaseServiceConfig {
 
 class SupabaseService {
   private client: SupabaseClient | null = null;
+  // INFRA-260: the Supabase anonymous session user id (== auth.uid() server-side).
   private userId: string | null = null;
-  private deviceIdHash: string | null = null;
   private circuitBreaker: CircuitBreakerState;
   private offlineQueue: any[] = [];
   private analyticsQueue: AnalyticsEvent[] = [];
@@ -178,8 +178,16 @@ class SupabaseService {
       // pin-based MITM protection, so we no longer claim it does here.
       this.client = createClient(SUPABASE_URL, SUPABASE_KEY, {
         auth: {
-          autoRefreshToken: false,
-          persistSession: false,
+          // INFRA-260: a real anonymous session must persist + auto-refresh.
+          // Without autoRefresh the access JWT expires (~1h) and the client
+          // silently reverts to the unauthenticated `anon` role → auth.uid()
+          // goes NULL → every RLS-protected query starts failing mid-session.
+          autoRefreshToken: true,
+          persistSession: true,
+          detectSessionInUrl: false,
+          // Persist the session JWT/refresh token in expo-secure-store
+          // (Keychain/Keystore) via the chunking adapter — never AsyncStorage.
+          storage: createSecureStoreSessionAdapter(),
         },
         global: {
           // Application-layer fetch wrapper (OS-validated HTTPS; no pin
@@ -189,8 +197,10 @@ class SupabaseService {
         },
       });
 
-      // Load or create anonymous user
-      await this.ensureAnonymousUser();
+      // Establish (or restore) the anonymous session BEFORE anything that writes —
+      // crisis telemetry flushes into analytics_events under auth.uid() RLS and
+      // needs a non-null principal to satisfy WITH CHECK.
+      await this.ensureAnonymousSession();
 
       // Setup analytics flushing
       this.setupAnalyticsTimer();
@@ -199,7 +209,9 @@ class SupabaseService {
       await this.loadOfflineQueue();
 
       // INFRA-214 T3: load any crisis-detection telemetry enqueued before this run
-      // (or before a user was provisioned) and reconcile/flush it now that userId exists.
+      // and reconcile/flush it now that the session (and thus userId == auth.uid())
+      // exists. If the session could not be established, the flush no-ops and the
+      // events stay durably queued for a later attempt (never dropped).
       await this.loadCrisisAnalyticsQueue();
       void this.flushCrisisAnalytics();
 
@@ -213,79 +225,48 @@ class SupabaseService {
   }
 
   /**
-   * Get or create anonymous user
+   * Establish or restore the anonymous Supabase auth session (INFRA-260 / MAINT-226 T0b).
+   *
+   * Replaces the legacy device-hash identity. The session (access JWT + refresh
+   * token) is persisted by the secure-store chunking adapter; on a returning
+   * device `getSession()` restores it, otherwise `signInAnonymously()` mints a
+   * fresh one. `this.userId` is set to the session user id, which IS `auth.uid()`
+   * server-side — so every RLS policy keys on a non-null per-user principal.
+   *
+   * Failure is non-fatal: a network-offline first run leaves `userId` null, the
+   * service degrades to its offline queues (backups + the durable crisis queue),
+   * and a later flush / AppState-active retry establishes the session. We must NOT
+   * throw here — initialization continuing is what keeps the offline-first
+   * never-drop guarantees intact.
    */
-  private async ensureAnonymousUser(): Promise<void> {
+  private async ensureAnonymousSession(): Promise<void> {
     try {
-      // Try to load existing user
-      const savedUserId = await AsyncStorage.getItem(STORAGE_KEYS.USER_ID);
-      const savedDeviceId = await AsyncStorage.getItem(STORAGE_KEYS.DEVICE_ID);
+      const { data: existing } = await this.client!.auth.getSession();
+      let user = existing.session?.user ?? null;
 
-      if (savedUserId && savedDeviceId) {
-        this.userId = savedUserId;
-        this.deviceIdHash = savedDeviceId;
-        return;
-      }
-
-      // Generate device ID hash
-      this.deviceIdHash = await this.generateDeviceIdHash();
-
-      // Check if user exists in database
-      const { data: existingUser } = await this.client!
-        .from('users')
-        .select('*')
-        .eq('device_id', this.deviceIdHash)
-        .single();
-
-      if (existingUser) {
-        this.userId = existingUser.id;
-      } else {
-        // Create new anonymous user
-        const { data: newUser, error } = await this.client!
-          .from('users')
-          .insert({
-            device_id: this.deviceIdHash,
-          })
-          .select()
-          .single();
-
+      if (!user) {
+        const { data, error } = await this.client!.auth.signInAnonymously();
         if (error) throw error;
-        this.userId = newUser.id;
+        user = data.user ?? null;
       }
 
-      // Save to local storage
-      await AsyncStorage.setItem(STORAGE_KEYS.USER_ID, this.userId!);
-      await AsyncStorage.setItem(STORAGE_KEYS.DEVICE_ID, this.deviceIdHash);
-
+      this.userId = user?.id ?? null;
+      if (this.userId) {
+        logSecurity('[SupabaseService] Anonymous session established', 'low');
+      }
     } catch (error) {
-      logError(LogCategory.SYSTEM, '[SupabaseService] Failed to ensure anonymous user:', error instanceof Error ? error : new Error(String(error)));
-      throw error;
+      // Non-fatal: degrade to offline queues; a later flush retries the session.
+      this.userId = null;
+      logSecurity('[SupabaseService] Anonymous session not yet established (will retry)', 'medium', {
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
-  }
-
-  /**
-   * Generate device ID hash for privacy
-   */
-  private async generateDeviceIdHash(): Promise<string> {
-    // Use expo-crypto to get a device-specific value
-    const deviceIdBase = await AsyncStorage.getItem('@being/device_id') ||
-                        generateTimestampedId('device');
-
-    // Save device ID if it doesn't exist
-    await AsyncStorage.setItem('@being/device_id', deviceIdBase);
-
-    // Hash it for privacy
-    return await Crypto.digestStringAsync(
-      Crypto.CryptoDigestAlgorithm.SHA256,
-      deviceIdBase
-    );
   }
 
   /**
    * Generate session ID (rotated daily for privacy)
    */
   private generateSessionId(): string {
-    const today = new Date().toISOString().split('T')[0];
     return generateSessionId();
   }
 
@@ -640,7 +621,18 @@ class SupabaseService {
    */
   private async flushCrisisAnalytics(): Promise<void> {
     if (this.crisisAnalyticsQueue.length === 0) return;
-    if (!this.client || !this.userId) return; // reconcile on a later flush
+    if (!this.client) return; // reconcile on a later flush
+
+    // INFRA-260: crisis telemetry inserts into analytics_events under auth.uid()
+    // RLS (WITH CHECK user_id = auth.uid()). If the session wasn't established at
+    // boot (offline first run), try once more now — this runs off the crisis path
+    // (fire-and-forget), never blocking detection. Still no session → retain &
+    // retry later (AppState-active / next flush); the durable queue means the
+    // event is never dropped.
+    if (!this.userId) {
+      await this.ensureAnonymousSession();
+      if (!this.userId) return;
+    }
 
     const pending = [...this.crisisAnalyticsQueue];
     const rows: AnalyticsEvent[] = pending.map((e) => ({

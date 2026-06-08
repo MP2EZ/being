@@ -22,17 +22,15 @@
  *
  * COVERAGE:
  * - Service initialization (incl. missing-config guard)
- * - Anonymous user creation
+ * - Anonymous session establishment (INFRA-260: restore vs. mint; offline degrade)
  * - Encrypted backup save/retrieve
  * - Analytics: cloud_sync consent gate, PHI-stripping + severity bucketing
  * - Circuit breaker open / prevent / half-open
  * - Offline queue: queue-on-failure, drain, size cap
- * - Device ID hashing
  */
 
 import { jest } from '@jest/globals';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Crypto from 'expo-crypto';
 
 // Deliberately do NOT mock expo-crypto here — the global jest.setup mock
 // supplies BOTH getRandomBytes (used by the import-time singleton's session-id
@@ -62,7 +60,16 @@ const mockChain: any = {
   limit: jest.fn(() => mockChain),
   single: jest.fn(() => Promise.resolve({ data: null, error: null })),
 };
-const mockSupabaseClient = { from: jest.fn(() => mockChain) };
+// INFRA-260: identity is now the Supabase anonymous session, not a device-hash
+// `users` row. `ensureAnonymousSession()` calls auth.getSession() then, if absent,
+// auth.signInAnonymously(); userId == the session user id (== auth.uid()).
+const mockAuth: any = {
+  getSession: jest.fn(() => Promise.resolve({ data: { session: null }, error: null })),
+  signInAnonymously: jest.fn(() =>
+    Promise.resolve({ data: { user: { id: 'user_123' }, session: {} }, error: null }),
+  ),
+};
+const mockSupabaseClient = { from: jest.fn(() => mockChain), auth: mockAuth };
 
 jest.mock('@supabase/supabase-js', () => ({
   createClient: jest.fn(() => mockSupabaseClient),
@@ -117,6 +124,16 @@ beforeEach(() => {
   mockChain.single.mockResolvedValue({ data: null, error: null });
   mockSupabaseClient.from.mockImplementation(() => mockChain);
 
+  // INFRA-260: re-seed the anonymous-session auth mocks (no existing session →
+  // signInAnonymously mints user_123) so each init establishes userId == auth.uid().
+  mockAuth.getSession.mockReset();
+  mockAuth.signInAnonymously.mockReset();
+  mockAuth.getSession.mockResolvedValue({ data: { session: null }, error: null });
+  mockAuth.signInAnonymously.mockResolvedValue({
+    data: { user: { id: 'user_123' }, session: {} },
+    error: null,
+  });
+
   (AsyncStorage.getItem as jest.Mock).mockResolvedValue(null);
   (AsyncStorage.setItem as jest.Mock).mockResolvedValue(undefined);
 });
@@ -129,17 +146,19 @@ describe('SupabaseService', () => {
   });
 
   describe('Initialization', () => {
-    it('should initialize successfully with valid configuration', async () => {
-      // Anonymous-user lookup resolves to an existing user.
-      mockChain.single.mockResolvedValueOnce({
-        data: { id: 'user_123', device_id: 'device_hash' },
+    it('should initialize and restore an existing anonymous session', async () => {
+      // A returning device: getSession() restores the persisted anon session;
+      // signInAnonymously must NOT be called (no new auth.users row minted).
+      mockAuth.getSession.mockResolvedValueOnce({
+        data: { session: { user: { id: 'returning_user' } } },
         error: null,
       });
 
       await service.initialize();
 
       expect(service.isInitialized).toBe(true);
-      expect(service.userId).toBe('user_123');
+      expect(service.userId).toBe('returning_user');
+      expect(mockAuth.signInAnonymously).not.toHaveBeenCalled();
     });
 
     it('should throw error with missing configuration', async () => {
@@ -159,16 +178,18 @@ describe('SupabaseService', () => {
       });
     });
 
-    it('should create new anonymous user if none exists', async () => {
-      mockChain.single
-        // existing-user lookup → none
-        .mockResolvedValueOnce({ data: null, error: { message: 'No rows found' } })
-        // insert(...).select().single() → created user
-        .mockResolvedValueOnce({ data: { id: 'new_user_123' }, error: null });
+    it('should mint a new anonymous session when none is persisted', async () => {
+      // Fresh install: no session → signInAnonymously() establishes one and
+      // userId becomes the new session principal (== auth.uid()).
+      mockAuth.getSession.mockResolvedValueOnce({ data: { session: null }, error: null });
+      mockAuth.signInAnonymously.mockResolvedValueOnce({
+        data: { user: { id: 'new_user_123' }, session: {} },
+        error: null,
+      });
 
       await service.initialize();
 
-      expect(mockSupabaseClient.from).toHaveBeenCalledWith('users');
+      expect(mockAuth.signInAnonymously).toHaveBeenCalled();
       expect(service.userId).toBe('new_user_123');
     });
   });
@@ -412,11 +433,16 @@ describe('SupabaseService', () => {
   });
 
   describe('Error Handling', () => {
-    it('should handle network errors gracefully', async () => {
-      mockChain.single.mockRejectedValue(new Error('Network error'));
+    it('should handle session network errors gracefully (degrade, do not throw)', async () => {
+      // INFRA-260: a network failure establishing the anonymous session is
+      // non-fatal — init completes so the offline queues survive; userId stays
+      // null and a later flush / AppState-active retry re-establishes it.
+      mockAuth.getSession.mockRejectedValue(new Error('Network error'));
+      mockAuth.signInAnonymously.mockRejectedValue(new Error('Network error'));
 
-      await expect(service.initialize()).rejects.toThrow('Network error');
-      expect(service.isInitialized).toBe(false);
+      await expect(service.initialize()).resolves.toBeUndefined();
+      expect(service.isInitialized).toBe(true);
+      expect(service.userId).toBeNull();
     });
 
     it('should treat a thrown Supabase error as a failed backup', async () => {
@@ -473,34 +499,34 @@ describe('SupabaseService', () => {
   });
 });
 
-describe('Device ID Generation', () => {
-  it('should generate consistent device ID hash', async () => {
+// INFRA-260: the device-hash identity is gone — identity is the Supabase
+// anonymous session. These pin the session-establishment contract that replaced
+// generateDeviceIdHash().
+describe('Anonymous session establishment (INFRA-260)', () => {
+  it('prefers a restored session over minting a new one', async () => {
     const service = new (SupabaseService as any).constructor();
+    service.client = mockSupabaseClient; // ensureAnonymousSession() uses this.client.auth
+    mockAuth.getSession.mockResolvedValueOnce({
+      data: { session: { user: { id: 'restored' } } },
+      error: null,
+    });
 
-    // Same stored device ID → same hash
-    (AsyncStorage.getItem as jest.Mock).mockResolvedValue('device_123');
+    await service.ensureAnonymousSession();
 
-    const hash1 = await service.generateDeviceIdHash();
-    const hash2 = await service.generateDeviceIdHash();
-
-    expect(hash1).toBe(hash2);
-    expect(Crypto.digestStringAsync).toHaveBeenCalledWith(
-      expect.any(String),
-      'device_123'
-    );
+    expect(service.userId).toBe('restored');
+    expect(mockAuth.signInAnonymously).not.toHaveBeenCalled();
   });
 
-  it('should create new device ID if none exists', async () => {
+  it('does NOT persist the session identity to AsyncStorage (secure-store only)', async () => {
     const service = new (SupabaseService as any).constructor();
+    service.client = mockSupabaseClient;
 
-    // No stored device ID → a new one is generated and persisted
-    (AsyncStorage.getItem as jest.Mock).mockResolvedValue(null);
+    await service.ensureAnonymousSession();
 
-    await service.generateDeviceIdHash();
-
-    expect(AsyncStorage.setItem).toHaveBeenCalledWith(
-      '@being/device_id',
-      expect.any(String)
-    );
+    // No legacy device_id / user_id identity writes to the unencrypted store.
+    const asyncKeys = (AsyncStorage.setItem as jest.Mock).mock.calls.map((c) => c[0]);
+    expect(asyncKeys).not.toContain('@being/device_id');
+    expect(asyncKeys).not.toContain('@being/supabase/user_id');
+    expect(asyncKeys).not.toContain('@being/supabase/device_id_hash');
   });
 });
