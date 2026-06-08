@@ -110,6 +110,22 @@ describe('AssessmentResults — crisis banner visibility (TEST-09)', () => {
       expect(queryByText(CRISIS_BANNER)).toBeNull();
     });
 
+    test('score 15 (support tier floor, 15–19) → no crisis banner (MAINT-251 ratified 15–19 UX)', () => {
+      // PHQ-9 15–19 is the support tier: detectCrisis returns a non-null
+      // detection (primaryTrigger 'phq9_moderate_severe_score'), but the
+      // assertive banner is reserved for the intervention tier (≥20 / Q9>0 /
+      // GAD≥15). The severity-driven Professional Support surface still offers
+      // resources at this band; this pins that the red banner does NOT fire.
+      const { queryByText } = render(
+        <AssessmentResults
+          result={phqResult(15)}
+          onComplete={jest.fn()}
+          showCrisisIntervention={true}
+        />,
+      );
+      expect(queryByText(CRISIS_BANNER)).toBeNull();
+    });
+
     test('score 19 (moderately severe, JUST below crisis threshold) → no crisis banner', () => {
       // Boundary test — the cutoff is ≥20 for PHQ-9, not ≥15. A regression
       // that flipped the comparator to >15 would over-trigger the banner;

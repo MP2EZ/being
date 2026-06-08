@@ -440,8 +440,30 @@ export function validateCrisisDetection(detection: CrisisDetection): boolean {
  * Type Guards
  */
 export function isCriticalCrisis(detection: CrisisDetection): boolean {
-  return detection.severityLevel === 'critical' || 
+  return detection.severityLevel === 'critical' ||
          detection.severityLevel === 'emergency';
+}
+
+/**
+ * Intervention-tier predicate (MAINT-251).
+ *
+ * Separates the active-intervention tier (PHQ-9 ≥20 / Q9>0 / GAD-7 ≥15 →
+ * primaryTrigger phq9_severe_score | phq9_suicidal_ideation | gad7_severe_score)
+ * from the PHQ-9 15–19 support tier (primaryTrigger 'phq9_moderate_severe_score').
+ * The support tier offers resources via the severity-driven support surface but
+ * does NOT fire the assertive crisis banner.
+ *
+ * detectCrisis's ONLY non-intervention output is the 15–19 support tier, so the
+ * predicate is "triggered AND not the support tier."
+ *
+ * NOT equivalent to isCriticalCrisis: a Q9>0 detection with totalScore<20 is
+ * severityLevel 'high' (not 'critical') yet IS intervention tier — gating the
+ * banner on severity alone would drop the suicidal-ideation signal (this is the
+ * zero-false-negative guarantee; see crisis-thresholds.test.ts).
+ */
+export function isInterventionTier(detection: CrisisDetection): boolean {
+  return detection.isTriggered &&
+         detection.primaryTrigger !== 'phq9_moderate_severe_score';
 }
 
 export function requiresImmediateIntervention(detection: CrisisDetection): boolean {
