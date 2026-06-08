@@ -10,8 +10,8 @@
  *
  * COMPLIANCE:
  * - PCI DSS: N/A (Apple/Google handle payment data)
- * - Privacy: Subscription metadata stored with encrypted health data
- * - Treat subscription status as PHI (correlation with mental health data)
+ * - Privacy: Subscription metadata stored with encrypted wellness data
+ * - Treat subscription status as sensitive wellness data (correlation with mental health data)
  * - No payment data stored locally
  *
  * SECURITY:

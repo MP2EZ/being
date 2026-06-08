@@ -1,8 +1,8 @@
 /**
- * Performance Validation Service - Week 3 Target Validation
+ * Performance Validation Service - Target Validation
  *
  * TARGET VALIDATION:
- * - Crisis detection: <50ms (enhanced from <200ms)
+ * - Crisis detection: <50ms
  * - Assessment flow: <200ms per question (enhanced from <300ms)
  * - Memory usage: <150MB during extended sessions
  * - Frame rate: 60fps maintained (16.67ms per frame)

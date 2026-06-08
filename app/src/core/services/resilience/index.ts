@@ -1,8 +1,5 @@
 /**
-
-
  * SYSTEM RESILIENCE SERVICES
- * Week 4 Phase 2a - Critical Production Infrastructure
  *
  * FAULT TOLERANCE AND SYSTEM RESILIENCE:
  * - Circuit breaker patterns for external service protection

@@ -1,9 +1,9 @@
 /**
- * Week 3 Performance Optimization System - Main Index
+ * Performance Optimization System - Main Index
  *
- * Comprehensive performance optimization for assessment systems with enhanced targets:
- * - Crisis detection: <50ms (enhanced from <200ms)
- * - Assessment flow: <200ms per question (enhanced from <300ms)
+ * Comprehensive performance optimization for assessment systems with targets:
+ * - Crisis detection: <50ms
+ * - Assessment flow: <200ms per question
  * - Memory usage: <150MB during extended sessions
  * - Frame rate: 60fps maintained
  * - Bundle optimization: <2MB initial, <500KB chunks

@@ -1,6 +1,6 @@
 /**
  * FROM THE SOURCE - In-module classical passages section
- * FEAT-54: Classical Resources Library (Phase 1)
+ * FEAT-54: Classical Resources Library
  *
  * Appended to each module's Overview tab. Surfaces the curated primary-source
  * passages for that principle as an expandable accordion (same +/− pattern as

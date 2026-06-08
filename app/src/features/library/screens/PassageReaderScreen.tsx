@@ -1,6 +1,6 @@
 /**
  * PASSAGE READER SCREEN - Single classical passage, distraction-reduced
- * FEAT-54: Classical Resources Library (Phase 2)
+ * FEAT-54: Classical Resources Library
  *
  * Sustained-reading view for one passage. Body is upright (not italic) — italic
  * fatigues over long passages (e.g. Seneca letters). Long passages show an

@@ -4,7 +4,7 @@
  *
  * STORAGE:
  * - Standard AsyncStorage (non-sensitive preferences)
- * - NO encryption needed (no PHI data)
+ * - NO encryption needed (no sensitive wellness data)
  *
  * TODO (FEAT-6 Open Questions):
  * - [ ] Notification system integration: How to schedule notifications?
