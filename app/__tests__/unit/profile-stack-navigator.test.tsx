@@ -26,13 +26,17 @@ jest.mock('@react-navigation/native', () => ({
 
 // Stub the stack so <Stack.Navigator> just renders its children and screens are
 // inert — keeps the overlay (the sibling we care about) rendering without a
-// NavigationContainer (unsupported in this jest env).
+// NavigationContainer (unsupported in this jest env). Also capture the Navigator
+// props so we can assert the header contract (MAINT-257 restyle).
+const mockNavigatorProps = jest.fn();
 jest.mock('@react-navigation/stack', () => {
   const ReactLib = require('react');
   return {
     createStackNavigator: () => ({
-      Navigator: ({ children }: { children: React.ReactNode }) =>
-        ReactLib.createElement(ReactLib.Fragment, null, children),
+      Navigator: (props: Record<string, unknown>) => {
+        mockNavigatorProps(props);
+        return ReactLib.createElement(ReactLib.Fragment, null, props.children);
+      },
       Screen: () => null,
     }),
   };
@@ -70,6 +74,7 @@ import ProfileStackNavigator from '@/features/profile/ProfileStackNavigator';
 beforeEach(() => {
   mockNavigate.mockClear();
   mockCrisisProps.mockClear();
+  mockNavigatorProps.mockClear();
 });
 
 describe('ProfileStackNavigator — crisis overlay re-host (FEAT-212)', () => {
@@ -92,5 +97,20 @@ describe('ProfileStackNavigator — crisis overlay re-host (FEAT-212)', () => {
     const props = mockCrisisProps.mock.calls[0][0];
     (props.onNavigate as () => void)();
     expect(mockNavigate).toHaveBeenCalledWith('CrisisResources');
+  });
+});
+
+describe('ProfileStackNavigator — header contract (MAINT-257 restyle)', () => {
+  it('preserves the back affordance and centered title under the header restyle', () => {
+    render(<ProfileStackNavigator />);
+    const navProps = mockNavigatorProps.mock.calls[0][0];
+    const opts = navProps.screenOptions as Record<string, unknown>;
+    // Back-button label the screen reader announces (also a Maestro pin).
+    expect(opts.headerBackTitle).toBe('Profile');
+    // Native nav convention with a back chevron — must stay centered.
+    expect(opts.headerTitleAlign).toBe('center');
+    // headerLeft renders the HeaderBackButton carrying the Maestro back testID.
+    const backEl = (opts.headerLeft as (p: object) => React.ReactElement)({});
+    expect((backEl.props as { testID?: string }).testID).toBe('profile-back-button');
   });
 });
