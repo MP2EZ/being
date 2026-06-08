@@ -51,18 +51,18 @@ jest.mock('@/core/services/security/SecureStorageService', () => ({
 import SecureStorageService from '@/core/services/security/SecureStorageService';
 const mockStoreWellnessBlob = SecureStorageService.storeWellnessBlob as jest.Mock;
 
-// Mock React Native modules
-const mockAlert = {
-  alert: jest.fn()
-};
-const mockLinking = {
-  openURL: jest.fn()
-};
-
-jest.mock('react-native', () => ({
-  Alert: mockAlert,
-  Linking: mockLinking
-}));
+// React Native is mocked globally by __tests__/setup/jest.setup.js with a FULL
+// shape (Alert, Linking, Platform, AppState, …). MAINT-250: this file previously
+// declared a bespoke partial mock — `jest.mock('react-native', () => ({ Alert, Linking }))`
+// — which stripped AppState/Platform from transitive importers (SupabaseService's
+// constructor calls AppState.addEventListener; ProductionLogger reads Platform.OS).
+// Under that broken environment, triggerEmergencyResponse's pre-Alert awaits threw and
+// were swallowed by answerQuestion's try/catch, so Alert.alert was never reached and the
+// Q9 crisis-alert assertions failed with 0 calls (the green sibling assessmentStore.notes.test.ts
+// has no partial mock and passes). Use the global mock's spies instead — Alert.alert and
+// Linking.openURL are jest.fn()s, reset by jest.clearAllMocks() in beforeEach.
+const mockAlert = Alert as jest.Mocked<typeof Alert>;
+const mockLinking = Linking as jest.Mocked<typeof Linking>;
 
 const mockAsyncStorage = AsyncStorage as jest.Mocked<typeof AsyncStorage>;
 const mockSecureStore = SecureStore as jest.Mocked<typeof SecureStore>;

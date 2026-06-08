@@ -352,6 +352,185 @@ describe('StoicPracticeStore — behavior (MAINT-242)', () => {
   });
 
   // ──────────────────────────────────────────────────────────────────
+  // N-DAY INSIGHTS GETTERS — TIMEZONE OFF-BY-ONE BUG (TDD, DEBUG-259)
+  // ──────────────────────────────────────────────────────────────────
+  describe('N-day Insights getters — timezone off-by-one (DEBUG-259 bug fix)', () => {
+    // ────────────────────────────────────────────────────────────────
+    // MIRRORS the MAINT-242 retention harness above: the same synthetic
+    // UTC-minus-7h LOCAL frame (monkeypatch local Date getters + setDate;
+    // leave UTC primitives / toISOString unpatched), the same fixed
+    // setSystemTime, so a UTC CI worker still observes local ≠ UTC.
+    //
+    // getCheckInHistory(days) / getPrincipleEngagements(days) stamp/compare
+    // against the LOCAL-date `date` strings (getTodayString → toLocalDateString),
+    // but the pre-fix getters computed their cutoff via
+    // `new Date(Date.now() - days*86400000).toISOString().split('T')[0]`
+    // (a 24h-multiple ms window read in UTC). In a UTC-minus zone whose
+    // local time-of-day is early-morning, that UTC cutoff lands one
+    // calendar day AHEAD of the local calendar-decrement cutoff, so a
+    // record stamped exactly `days` LOCAL days ago is wrongly DROPPED.
+    // ────────────────────────────────────────────────────────────────
+    const OFFSET_MS = 7 * 60 * 60 * 1000; // simulate UTC-7 (local = UTC - 7h)
+
+    type DateProtoSaves = {
+      getFullYear: typeof Date.prototype.getFullYear;
+      getMonth: typeof Date.prototype.getMonth;
+      getDate: typeof Date.prototype.getDate;
+      setDate: typeof Date.prototype.setDate;
+    };
+    let savedProto: DateProtoSaves | null = null;
+
+    const installUtcMinusZone = (): void => {
+      savedProto = {
+        getFullYear: Date.prototype.getFullYear,
+        getMonth: Date.prototype.getMonth,
+        getDate: Date.prototype.getDate,
+        setDate: Date.prototype.setDate,
+      };
+      /* eslint-disable no-extend-native */
+      Date.prototype.getFullYear = function getFullYear(this: Date): number {
+        return new Date(this.getTime() - OFFSET_MS).getUTCFullYear();
+      };
+      Date.prototype.getMonth = function getMonth(this: Date): number {
+        return new Date(this.getTime() - OFFSET_MS).getUTCMonth();
+      };
+      Date.prototype.getDate = function getDate(this: Date): number {
+        return new Date(this.getTime() - OFFSET_MS).getUTCDate();
+      };
+      Date.prototype.setDate = function setDate(this: Date, day: number): number {
+        const shifted = new Date(this.getTime() - OFFSET_MS);
+        shifted.setUTCDate(day);
+        this.setTime(shifted.getTime() + OFFSET_MS);
+        return this.getTime();
+      };
+      /* eslint-enable no-extend-native */
+    };
+
+    const restoreZone = (): void => {
+      if (!savedProto) return;
+      /* eslint-disable no-extend-native */
+      Date.prototype.getFullYear = savedProto.getFullYear;
+      Date.prototype.getMonth = savedProto.getMonth;
+      Date.prototype.getDate = savedProto.getDate;
+      Date.prototype.setDate = savedProto.setDate;
+      /* eslint-enable no-extend-native */
+      savedProto = null;
+    };
+
+    afterEach(restoreZone);
+
+    // Fixed instant whose UTC time-of-day (05:30Z) is before the 7h offset,
+    // so the synthetic LOCAL date sits one calendar day behind UTC:
+    //   2026-06-07T05:30:00Z  → local frame (−7h) = 2026-06-06 22:30
+    //   local today = 2026-06-06
+    //   DAYS = 30 (Insights "Month" view):
+    //     local calendar cutoff (today − 30) = 2026-05-07   (fix: RETAINS boundary)
+    //     old ms-window UTC cutoff: (2026-06-07T05:30Z − 30d) = 2026-05-08T05:30Z
+    //       → toISOString().split('T')[0] = 2026-05-08  (bug: one day ahead, DROPS boundary)
+    const NOW_INSTANT = new Date('2026-06-07T05:30:00Z').getTime();
+    const DAYS = 30;
+    const N_DAYS_AGO_LOCAL = '2026-05-07'; // exactly DAYS local days ago (boundary)
+    const N_PLUS_1_DAYS_AGO_LOCAL = '2026-05-06'; // DAYS+1 local days ago (must be excluded)
+    const RECENT_LOCAL = '2026-06-05'; // well within window (sanity / unchanged behavior)
+
+    it('getCheckInHistory(N) INCLUDES a check-in stamped exactly N LOCAL days ago', () => {
+      jest.useFakeTimers();
+      jest.setSystemTime(NOW_INSTANT);
+      installUtcMinusZone();
+
+      const boundary: CheckInCompletion = {
+        type: 'morning',
+        completedAt: new Date(NOW_INSTANT),
+        date: N_DAYS_AGO_LOCAL,
+      };
+      const recent: CheckInCompletion = {
+        type: 'evening',
+        completedAt: new Date(NOW_INSTANT),
+        date: RECENT_LOCAL,
+      };
+      useStoicPracticeStore.setState({ checkInCompletions: [boundary, recent] });
+
+      const dates = useStoicPracticeStore
+        .getState()
+        .getCheckInHistory(DAYS)
+        .map((c) => c.date);
+      // Pre-fix: UTC cutoff 2026-05-08 drops the 2026-05-07 boundary.
+      expect(dates).toContain(N_DAYS_AGO_LOCAL);
+      expect(dates).toContain(RECENT_LOCAL);
+    });
+
+    it('getCheckInHistory(N) EXCLUDES a check-in stamped N+1 LOCAL days ago', () => {
+      jest.useFakeTimers();
+      jest.setSystemTime(NOW_INSTANT);
+      installUtcMinusZone();
+
+      const tooOld: CheckInCompletion = {
+        type: 'morning',
+        completedAt: new Date(NOW_INSTANT),
+        date: N_PLUS_1_DAYS_AGO_LOCAL,
+      };
+      useStoicPracticeStore.setState({ checkInCompletions: [tooOld] });
+
+      const dates = useStoicPracticeStore
+        .getState()
+        .getCheckInHistory(DAYS)
+        .map((c) => c.date);
+      expect(dates).not.toContain(N_PLUS_1_DAYS_AGO_LOCAL);
+    });
+
+    it('getPrincipleEngagements(N) INCLUDES an engagement stamped exactly N LOCAL days ago', () => {
+      jest.useFakeTimers();
+      jest.setSystemTime(NOW_INSTANT);
+      installUtcMinusZone();
+
+      const boundary: PrincipleEngagement = {
+        principle: 'dichotomy_of_control' as PrincipleEngagement['principle'],
+        flowType: 'morning',
+        engagementType: 'selected',
+        date: N_DAYS_AGO_LOCAL,
+        timestamp: new Date(NOW_INSTANT),
+      };
+      const recent: PrincipleEngagement = {
+        principle: 'dichotomy_of_control' as PrincipleEngagement['principle'],
+        flowType: 'evening',
+        engagementType: 'reflected',
+        date: RECENT_LOCAL,
+        timestamp: new Date(NOW_INSTANT),
+      };
+      useStoicPracticeStore.setState({ principleEngagements: [boundary, recent] });
+
+      const dates = useStoicPracticeStore
+        .getState()
+        .getPrincipleEngagements(DAYS)
+        .map((e) => e.date);
+      // Pre-fix: UTC cutoff 2026-05-08 drops the 2026-05-07 boundary.
+      expect(dates).toContain(N_DAYS_AGO_LOCAL);
+      expect(dates).toContain(RECENT_LOCAL);
+    });
+
+    it('getPrincipleEngagements(N) EXCLUDES an engagement stamped N+1 LOCAL days ago', () => {
+      jest.useFakeTimers();
+      jest.setSystemTime(NOW_INSTANT);
+      installUtcMinusZone();
+
+      const tooOld: PrincipleEngagement = {
+        principle: 'dichotomy_of_control' as PrincipleEngagement['principle'],
+        flowType: 'morning',
+        engagementType: 'selected',
+        date: N_PLUS_1_DAYS_AGO_LOCAL,
+        timestamp: new Date(NOW_INSTANT),
+      };
+      useStoicPracticeStore.setState({ principleEngagements: [tooOld] });
+
+      const dates = useStoicPracticeStore
+        .getState()
+        .getPrincipleEngagements(DAYS)
+        .map((e) => e.date);
+      expect(dates).not.toContain(N_PLUS_1_DAYS_AGO_LOCAL);
+    });
+  });
+
+  // ──────────────────────────────────────────────────────────────────
   // WEEKLY REFLECTION — UPSERT BY ISO WEEK
   // ──────────────────────────────────────────────────────────────────
   describe('addWeeklyReflection — upsert by current ISO week', () => {
