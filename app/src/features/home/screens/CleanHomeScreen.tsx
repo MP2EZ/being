@@ -167,7 +167,11 @@ const CleanHomeScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.container} testID="home-screen">
       <View style={styles.content}>
-        {/* Header */}
+        {/* Header — MAINT-257: Home is the SOLE intentional exception to the
+            shared BodyHeader idiom. The centered display2 "Being" wordmark is the
+            brand/landing treatment; Learn/Insights/Profile use the left-aligned
+            BodyHeader. Only the appTitle is the screen heading (h1); the greeting
+            is a plain text line (not a heading), so each screen has exactly one h1. */}
         <View style={styles.header}>
           <Text
             style={styles.appTitle}
@@ -176,11 +180,7 @@ const CleanHomeScreen: React.FC = () => {
           >
             Being
           </Text>
-          <Text
-            style={styles.greeting}
-            accessibilityRole="header"
-            accessibilityLevel={2}
-          >
+          <Text style={styles.greeting}>
             {getGreeting()}
           </Text>
           <Text style={styles.subtitle}>

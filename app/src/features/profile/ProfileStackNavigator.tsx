@@ -62,12 +62,21 @@ const ProfileStackNavigator: React.FC = () => {
       <Stack.Navigator
         initialRouteName="ProfileMenu"
         screenOptions={{
+          // MAINT-257: borderless to match the harmonized in-body header idiom.
+          // headerShadowVisible:false removes the default @react-navigation/stack
+          // hairline/elevation so the edge is truly borderless (verified on-sim —
+          // dropping only the explicit border left a residual shadow line).
           headerStyle: {
             backgroundColor: colorSystem.base.white,
-            borderBottomColor: colorSystem.gray[200],
-            borderBottomWidth: 1,
           },
+          headerShadowVisible: false,
           headerTitleStyle: {
+            // Nav title stays headline3 (semibold, centered). A native nav bar
+            // with a back chevron has less room than a content header: headline2
+            // truncated the longer titles ("Notifications & Display", "About Stoic
+            // Mindfulness") on-sim. Content headers use headline2; the nav bar
+            // stays one tier below per iOS convention. Borderless is the
+            // harmonization that lands here.
             fontSize: typography.headline3.size,
             fontWeight: typography.fontWeight.semibold,
             color: colorSystem.base.black,
