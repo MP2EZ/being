@@ -79,11 +79,15 @@ git worktree list
 - Worktree name (lowercase): `maint-140`, `feat-42`
 - Work Item ID (uppercase): `MAINT-140`, `FEAT-42`
 
-**Search with explicit Work Item ID**:
+**Search with explicit Work Item ID** (semantic search has **no exact-ID match** — it
+returns a recency-weighted set, so widen the page size and match by property, never by rank):
 ```
 mcp__notion__notion-search
 query: "Work Item ID: [WORK_ITEM_ID]"
+data_source_url: "collection://${NOTION_WORK_DB}"
 query_type: "internal"
+page_size: 25
+max_highlight_length: 0
 ```
 
 **Example**: For worktree `maint-140`:
@@ -91,7 +95,7 @@ query_type: "internal"
 query: "Work Item ID: MAINT-140"
 ```
 
-**Fetch full details**:
+**Fetch + verify each candidate** (match on `userDefined:ID` — the real unique key — and `Type`):
 ```
 mcp__notion__notion-fetch
 id: [page_id or URL from search result]
@@ -103,11 +107,15 @@ id: [page_id or URL from search result]
 - Current Status
 - Type
 
-**Validation**: Verify the page content contains `## Work Item ID:\n[WORK_ITEM_ID]` to confirm exact match.
+**Validation**: confirm the candidate's `userDefined:ID` equals the parsed ID number and
+`Type` matches; the page content's `## Work Item ID: [WORK_ITEM_ID]` header is a secondary check.
 
 **Error handling**:
-- If not found: "Work item [WORK_ITEM_ID] not found in Notion"
-- If multiple results: Fetch each and verify Work Item ID matches exactly
+- If multiple results: fetch each and verify `userDefined:ID` matches exactly — do not pick by rank.
+- If no candidate matches: retry the search **once**, recency-biased (`content_search_mode: "ai_search"`,
+  add topic words, keep `page_size: 25`), re-scan by property. If still unresolved, STOP and ask:
+  *"Couldn't resolve [WORK_ITEM_ID] via search (the Notion MCP has no exact-ID query). Paste the
+  Notion page link and I'll fetch it directly."* — then `notion-fetch` the URL and verify the ID.
 
 ---
 
@@ -260,18 +268,102 @@ only against a real device for supplementary runtime verification.
 # app), so it must not trip the sim gate. The clinical/crisis jest suites still run
 # in precommit/CI regardless. (A test-assertion repair under features/assessment/ —
 # e.g. assessmentStore.test.ts — was otherwise mis-triggering the assessment flows.)
-SAFETY_CHANGED=$(git diff --name-only origin/development...HEAD | \
+SAFETY_CANDIDATES=$(git diff --name-only origin/development...HEAD | \
   grep -vE '(__tests__/|\.test\.|\.spec\.)' | \
   grep -E '^app/(src/features/(assessment|crisis)|src/core/services/security|src/core/navigation/|app\.json|ios/.*Info\.plist)' || true)
+
+# INFRA-256: drop INERT candidates — diffs that cannot change runtime behavior, so
+# the Maestro flows (which drive the running app) have nothing to validate. Discovered
+# closing MAINT-254: a 7-line deletion of a zero-call-site function under
+# features/assessment/types/scoring.ts tripped q9/phq9/gad7 even though it provably
+# cannot affect runtime — friction that trains the --skip-e2e reflex this gate exists
+# to prevent. The path grep above is intentionally coarse (file PATH only); this loop
+# refines it by INSPECTING each candidate's diff.
+#
+# Two inert classes are skipped (see the decision table below); EVERYTHING ELSE stays
+# gated. The failure modes are asymmetric — UNDER-triggering (a real safety change
+# merges ungated) is high-severity; over-triggering (a pointless build) is just
+# friction — so every ambiguity biases toward KEEPING the file gated:
+#   (a) deletion-only      — ≥1 removed line, 0 added lines (pure dead-code removal).
+#   (b) comment/whitespace — every changed (+/-) content line is blank or a comment.
+# NOT auto-skipped (consciously, to stay safe): pure type-only edits (bash can't
+# distinguish a type annotation from a value without parsing TS) and config files
+# app.json / Info.plist (their contracts are pinned elsewhere — the INFRA-184 jest
+# static-config test — but a key removal IS a real regression, so keep them gated as
+# today). A mixed comment+code line (e.g. `const x = 1 // note`) stays gated.
+SAFETY_CHANGED=""
+INERT_SKIPS=()
+while IFS= read -r f; do
+  [ -z "$f" ] && continue
+  # Config files bypass the inert filter — always gated if they changed at all.
+  case "$f" in
+    *app.json|*Info.plist) SAFETY_CHANGED+="${f}"$'\n'; continue ;;
+  esac
+  # Changed content lines (added + removed), excluding the +++/--- file headers.
+  CHANGED_LINES=$(git diff origin/development...HEAD -- "$f" \
+    | grep -E '^[+-]' | grep -vE '^(\+\+\+|---)' || true)
+  ADD_CT=$(printf '%s\n' "$CHANGED_LINES" | grep -cE '^\+' || true)
+  DEL_CT=$(printf '%s\n' "$CHANGED_LINES" | grep -cE '^-'  || true)
+  # (a) deletion-only: at least one removal, zero additions.
+  if [ "$ADD_CT" -eq 0 ] && [ "$DEL_CT" -gt 0 ]; then
+    INERT_SKIPS+=("$f — deletion-only ($DEL_CT line(s) removed, 0 added)")
+    continue
+  fi
+  # (b) comment/whitespace-only: there ARE changed lines, and stripping blanks +
+  # whole-line comments (//…, /*…, /**…, * …, exact */, single-line /*…*/) leaves
+  # nothing. A line bearing any executable code survives and keeps the file gated.
+  if [ -n "$CHANGED_LINES" ]; then
+    NONCOMMENT=$(printf '%s\n' "$CHANGED_LINES" \
+      | sed -E 's/^[+-]//' \
+      | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//' \
+      | grep -vE '^$' \
+      | grep -vE '^//' \
+      | grep -vE '^\*([[:space:]].*)?$' \
+      | grep -vE '^/\*\*?([[:space:]].*)?$' \
+      | grep -vE '^\*/$' \
+      | grep -vE '^/\*.*\*/$' \
+      || true)
+    if [ -z "$NONCOMMENT" ]; then
+      INERT_SKIPS+=("$f — comment/whitespace-only (no executable line changed)")
+      continue
+    fi
+  fi
+  # Live (or ambiguous) change → keep gated.
+  SAFETY_CHANGED+="${f}"$'\n'
+done <<< "$SAFETY_CANDIDATES"
+SAFETY_CHANGED=$(printf '%s' "$SAFETY_CHANGED" | grep -vE '^$' || true)
+
+# A skipped gate is NEVER silent (AC): log every inert-skip decision with its reason.
+if [ ${#INERT_SKIPS[@]} -gt 0 ]; then
+  echo "ℹ️  INFRA-256: ${#INERT_SKIPS[@]} safety-path file(s) skipped as inert (cannot affect runtime):"
+  printf '      • %s\n' "${INERT_SKIPS[@]}"
+fi
 
 # Content-based (FEAT-212 gap fix): the crisis overlay (CollapsibleCrisisButton)
 # can be re-hosted from ANY feature dir — FEAT-212 moved it into features/profile's
 # ProfileStackNavigator, which the path grep above did not match, silently skipping
 # the reachability gate on a crisis-surface change. If the diff adds/removes a line
-# referencing the overlay anywhere, treat it as a crisis-surface change.
+# referencing the overlay anywhere, treat it as a crisis-surface change. NOTE: this
+# is deliberately NOT subject to the INFRA-256 inert filter — it is an independent,
+# paranoid over-trigger signal; a CollapsibleCrisisButton line moving at all re-arms
+# the reachability flow regardless of how "inert" the surrounding diff looks.
 CRISIS_HOST_CHANGED=$(git diff origin/development...HEAD -- 'app/**/*.tsx' 'app/**/*.ts' \
   | grep -E '^[+-].*CollapsibleCrisisButton' || true)
 ```
+
+**INFRA-256 decision table** — which safety-path change classes skip the gate vs. trigger it (the implementer/maintainer's quick reference; the bash above is the source of truth):
+
+| Change class under a safety path | Gate? | Why |
+|---|---|---|
+| Dead-code deletion (≥1 removed, 0 added) | **skip** | Removing unreachable code can't change a running flow (MAINT-254 case). |
+| Comment / JSDoc / whitespace-only | **skip** | No executable line changed. |
+| Real threshold / scoring edit (assessment) | **trigger** q9/phq9/gad7 | Added executable line → live. |
+| Crisis-dir UI / screen / component change | **trigger** crisis-button | Added executable line under `features/crisis/`. |
+| `CollapsibleCrisisButton` re-host in ANY dir | **trigger** crisis-button | Content detection (`CRISIS_HOST_CHANGED`), exempt from inert filter. |
+| `core/services/security` (non-encryption) / `core/navigation` change | **full suite** | Cross-cutting; existing override in Step 2.5.3. |
+| Test-only file (`__tests__/`, `.test.`, `.spec.`) | **skip** | Drives nothing in the running app (pre-existing exclusion). |
+| `app.json` / `Info.plist` change (incl. deletions) | **gated as today** | Bypasses inert filter; contracts pinned by the INFRA-184 jest test, but keep the coarse net. |
+| Mixed comment + code on one line / pure type-only edit | **trigger** | Bash can't safely prove inert → bias safe. |
 
 If BOTH `SAFETY_CHANGED` and `CRISIS_HOST_CHANGED` are empty → skip the gate:
 ```
