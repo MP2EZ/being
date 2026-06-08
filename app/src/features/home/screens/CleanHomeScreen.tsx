@@ -284,16 +284,12 @@ const styles = StyleSheet.create({
     paddingTop: spacing[16],
     paddingHorizontal: spacing[16],
     paddingBottom: spacing[20], // Extra to optically balance with title line-height
-    borderRadius: borderRadius.large,
+    borderRadius: borderRadius.xl,
     marginBottom: spacing[16],
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.08,
-    shadowRadius: borderRadius.xs,
-    elevation: 2,
+    // MAINT-222: border-preferred elevation (DS guidance), replacing the
+    // hand-rolled black-shadow recipe. Matches the unified card system.
+    borderWidth: 1,
+    borderColor: colorSystem.gray[400],
   },
   cardHeader: {
     flexDirection: 'row',
@@ -309,8 +305,9 @@ const styles = StyleSheet.create({
     fontSize: typography.micro.size,
     color: colorSystem.gray[600],
     backgroundColor: colorSystem.gray[100],
-    paddingHorizontal: borderRadius.medium,
-    paddingVertical: borderRadius.xs,
+    // MAINT-222: use spacing tokens for padding (was borderRadius.medium/.xs misuse)
+    paddingHorizontal: spacing[8],
+    paddingVertical: spacing[4],
     borderRadius: borderRadius.medium,
     fontWeight: typography.fontWeight.medium,
   },
@@ -322,7 +319,8 @@ const styles = StyleSheet.create({
   },
   startButton: {
     paddingVertical: spacing[12],
-    borderRadius: spacing[12],
+    // MAINT-222: use a borderRadius token (was spacing[12] misuse); same 12px value
+    borderRadius: borderRadius.large,
     alignItems: 'center',
   },
   startButtonText: {

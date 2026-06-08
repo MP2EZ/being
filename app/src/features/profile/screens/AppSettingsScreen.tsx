@@ -389,7 +389,8 @@ const styles = StyleSheet.create({
   },
   settingCard: {
     backgroundColor: colorSystem.gray[100],
-    borderRadius: borderRadius.large,
+    // MAINT-222: unified content-card radius (xl=16)
+    borderRadius: borderRadius.xl,
     padding: spacing[24],
     marginBottom: spacing[16],
     borderWidth: 1,
@@ -463,7 +464,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     backgroundColor: colorSystem.gray[100],
-    borderRadius: borderRadius.medium,
+    // MAINT-222: unified content-card radius (xl=16)
+    borderRadius: borderRadius.xl,
     padding: spacing[16],
     marginBottom: spacing[8],
   },

@@ -109,7 +109,8 @@ const styles = StyleSheet.create({
   },
   infoCard: {
     backgroundColor: colorSystem.gray[100],
-    borderRadius: borderRadius.large,
+    // MAINT-222: unified content-card radius (xl=16)
+    borderRadius: borderRadius.xl,
     padding: spacing[24],
     marginBottom: spacing[16],
     borderWidth: 1,
@@ -135,7 +136,8 @@ const styles = StyleSheet.create({
   },
   dataRightsCard: {
     backgroundColor: colorSystem.gray[100],
-    borderRadius: borderRadius.large,
+    // MAINT-222: unified content-card radius (xl=16)
+    borderRadius: borderRadius.xl,
     padding: spacing[24],
     borderWidth: 1,
     borderColor: colorSystem.gray[200],

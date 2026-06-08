@@ -511,7 +511,8 @@ const styles = StyleSheet.create({
   },
   profileCard: {
     backgroundColor: colorSystem.gray[100],
-    borderRadius: borderRadius.large,
+    // MAINT-222: unified content-card radius (xl=16)
+    borderRadius: borderRadius.xl,
     padding: spacing[24],
     marginBottom: spacing[16],
     borderWidth: 1,
@@ -573,14 +574,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
 // WCAG AA: Use gray400 for 3:1 minimum contrast ratio on borders
     borderColor: colorSystem.gray[400],
-    borderRadius: borderRadius.large,
+    // MAINT-222: unified content-card radius (xl=16); border-preferred elevation,
+    // dropped the hand-rolled #000 shadow (the gray[400] border is the elevation).
+    borderRadius: borderRadius.xl,
     padding: spacing[24],
     marginBottom: spacing[16],
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
   cardFooter: {
     flexDirection: 'row',

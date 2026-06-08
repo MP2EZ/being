@@ -117,7 +117,8 @@ const WeeklyReflectionCard: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     backgroundColor: colorSystem.base.white,
-    borderRadius: borderRadius.medium,
+    // MAINT-222: unified content-card radius (xl=16)
+    borderRadius: borderRadius.xl,
     padding: spacing[16],
     marginBottom: spacing[16],
   },
