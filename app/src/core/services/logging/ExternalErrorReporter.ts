@@ -27,6 +27,9 @@ import { Platform } from 'react-native';
 import { LogCategory, logger } from './ProductionLogger';
 import { env } from '@/core/config/env';
 import { isSensitiveRoute, sanitizeScreenName } from '@/core/utils/sensitiveScreens';
+// MAINT-248: canonical sensitive-data patterns single source of truth. The
+// reporter keeps only its two reporter-specific extras (JWT, base64) below.
+import { SENSITIVE_DATA_PATTERNS as CORE_SENSITIVE_DATA_PATTERNS } from './SensitiveDataPatterns';
 
 /**
  * CONFIGURATION
@@ -107,36 +110,28 @@ export const BLOCKED_FIELDS = [
 ] as const;
 
 /**
- * SENSITIVE-DATA PATTERNS: Regex patterns for additional sensitive-identifier detection
+ * REPORTER-SPECIFIC SENSITIVE-DATA PATTERNS
+ *
+ * MAINT-248: only the two patterns that are NOT in the canonical
+ * SensitiveDataPatterns set live here. The UUID / PHQ / GAD / score / email /
+ * phone / SSN / mood / feeling / thought patterns the reporter used inline are
+ * all covered by the canonical set, so they were removed (zero coverage loss).
  */
-export const SENSITIVE_DATA_PATTERNS = [
-  // UUIDs (could be user IDs)
-  /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi,
-
-  // Assessment scores (PHQ-9: 0-27, GAD-7: 0-21)
-  /phq[_-]?9?[:\s]*\d+/gi,
-  /gad[_-]?7?[:\s]*\d+/gi,
-  /score[:\s]*\d+/gi,
-
-  // Email patterns
-  /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/gi,
-
-  // Phone numbers
-  /\b\d{3}[-.]?\d{3}[-.]?\d{4}\b/g,
-
-  // SSN patterns
-  /\b\d{3}-?\d{2}-?\d{4}\b/g,
-
-  // JWT tokens
+const REPORTER_EXTRA_PATTERNS = [
+  // JWT tokens — reporter-specific (Sentry events can carry auth headers)
   /eyJ[A-Za-z0-9_-]*\.eyJ[A-Za-z0-9_-]*\.[A-Za-z0-9_-]*/g,
 
-  // Base64 encoded data (potential sensitive payload)
+  // Base64-encoded data (potential sensitive payload) — reporter-specific
   /(?:[A-Za-z0-9+/]{4}){10,}(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?/g,
+];
 
-  // Therapeutic content patterns
-  /mood[:\s]*["']?[a-zA-Z]+["']?/gi,
-  /feeling[:\s]*["']?[a-zA-Z]+["']?/gi,
-  /thought[:\s]*["']?[^"'\n]{5,}["']?/gi,
+/**
+ * SENSITIVE-DATA PATTERNS: canonical patterns + the two reporter-specific extras.
+ * Exported (read-only) so privacy regression tests can pin the scrub contract.
+ */
+export const SENSITIVE_DATA_PATTERNS = [
+  ...CORE_SENSITIVE_DATA_PATTERNS,
+  ...REPORTER_EXTRA_PATTERNS,
 ];
 
 /**

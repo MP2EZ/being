@@ -24,6 +24,7 @@
   "src/core/services/data-retention/__tests__/DataRetentionService.test.ts": 1,
   "src/core/services/logging/__tests__/LogEncryption.test.ts": 1,
   "src/core/services/logging/__tests__/RateLimiter.test.ts": 1,
+  "src/core/services/logging/__tests__/SensitiveDataPatterns.consolidation.test.ts": 1,
   "src/core/services/logging/__tests__/scrub-wellness-scores.contract.test.ts": 1,
   "src/core/services/monitoring/CrisisMonitoringService.ts": 4,
   "src/core/services/monitoring/ErrorMonitoringService.ts": 2,

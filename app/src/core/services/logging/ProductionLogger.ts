@@ -22,6 +22,13 @@ import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 import { TokenBucketRateLimiter } from './RateLimiter';
 import type { EncryptionService, DataSensitivityLevel } from '../security/EncryptionService';
+// MAINT-248: single source of truth for sensitive-data sanitization. The inline
+// pattern array / isSensitiveKey copy that lived here was deleted — these are the
+// canonical implementations every logging service shares.
+import {
+  sanitizeWithSensitiveDataPatterns,
+  sanitizeObject as sanitizeObjectShared,
+} from './SensitiveDataPatterns';
 
 /**
  * LOG LEVELS - Production Safe
@@ -49,42 +56,6 @@ export enum LogCategory {
   ACCESSIBILITY = 'accessibility',
   SYSTEM = 'system'
 }
-
-/**
- * SANITIZATION PATTERNS - PHI Detection
- *
- * INFRA-61: Extended patterns for PHI, clinical data, and philosophical content
- */
-const SENSITIVE_DATA_PATTERNS = [
-  // User identifiers
-  /user[_-]?id[:\s]*[a-zA-Z0-9-]+/gi,
-  /userId[:\s]*[a-zA-Z0-9-]+/gi,
-  /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi, // UUIDs
-
-  // Assessment data
-  /phq[_-]?9?[:\s]*[0-9]+/gi,
-  /gad[_-]?7?[:\s]*[0-9]+/gi,
-  /score[:\s]*[0-9]+/gi,
-  /assessment[_-]?result[:\s]*[^}]+/gi,
-  /crisis[_-]?data[:\s]*[^}]+/gi,
-
-  // Session/Auth
-  /token[:\s]*[a-zA-Z0-9\.\-_]+/gi,
-  /session[_-]?id[:\s]*[a-zA-Z0-9-]+/gi,
-  /password[:\s]*[^\s}]+/gi,
-  /auth[_-]?key[:\s]*[a-zA-Z0-9\.\-_]+/gi,
-
-  // Email/Personal
-  /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2}\b/gi,
-  /\b\d{3}-?\d{2}-?\d{4}\b/gi, // SSN pattern
-
-  // INFRA-61: Philosophical/therapeutic content patterns
-  /reflection[:\s]*["']?[^"'}\n]{10,}/gi,      // Reflection text
-  /journal[:\s]*["']?[^"'}\n]{10,}/gi,          // Journal entries
-  /intention[:\s]*["']?[^"'}\n]{10,}/gi,        // Daily intentions
-  /gratitude[:\s]*["']?[^"'}\n]{10,}/gi,        // Gratitude entries
-  /virtue[_-]?practice[:\s]*["']?[^"'}\n]{10,}/gi, // Virtue practice content
-];
 
 /**
  * ENVIRONMENT CONFIGURATION
@@ -262,100 +233,19 @@ export class ProductionLogger {
   }
 
   /**
-   * PHI SANITIZATION ENGINE
+   * SANITIZATION ENGINE
+   *
+   * MAINT-248: delegates to the canonical SensitiveDataPatterns single source of
+   * truth. The inline pattern array, isSensitiveKey, and recursive sanitizeObject
+   * that used to live here were deleted; these thin wrappers keep the class API
+   * stable for every existing call site.
    */
   private sanitizeString(input: string): string {
-    // Handle non-string inputs gracefully
-    if (typeof input !== 'string') {
-      if (input === null || input === undefined) {
-        return String(input);
-      }
-      // Convert to string for other types
-      input = String(input);
-    }
-
-    let sanitized = input;
-
-    // Apply all PHI patterns
-    SENSITIVE_DATA_PATTERNS.forEach((pattern, index) => {
-      sanitized = sanitized.replace(pattern, `[SENSITIVE_REDACTED_${index}]`);
-    });
-
-    return sanitized;
+    return sanitizeWithSensitiveDataPatterns(input);
   }
 
   private sanitizeObject(obj: any): any {
-    if (typeof obj === 'string') {
-      return this.sanitizeString(obj);
-    }
-
-    if (Array.isArray(obj)) {
-      return obj.map(item => this.sanitizeObject(item));
-    }
-
-    // Handle Error objects specially (they have non-enumerable properties)
-    if (obj instanceof Error) {
-      return {
-        name: obj.name,
-        message: this.sanitizeString(obj.message),
-        stack: obj.stack ? this.sanitizeString(obj.stack) : undefined
-      };
-    }
-
-    if (obj && typeof obj === 'object') {
-      const sanitized: any = {};
-
-      for (const [key, value] of Object.entries(obj)) {
-        // Skip sensitive keys entirely
-        if (this.isSensitiveKey(key)) {
-          sanitized[key] = '[REDACTED]';
-          continue;
-        }
-
-        sanitized[key] = this.sanitizeObject(value);
-      }
-
-      return sanitized;
-    }
-
-    return obj;
-  }
-
-  private isSensitiveKey(key: string): boolean {
-    const sensitiveKeys = [
-      // User identifiers
-      'userId', 'user_id', 'userIdentifier', 'id',
-      // Authentication
-      'token', 'authToken', 'accessToken', 'refreshToken',
-      'password', 'secret', 'key', 'apiKey',
-      'session', 'sessionId', 'session_id',
-      // Clinical/Assessment data
-      'phq9', 'gad7', 'score', 'scores', 'responses',
-      'assessment', 'assessmentData', 'result', 'results',
-      'crisis', 'crisisData', 'detection', 'intervention',
-      // Personal identifiers
-      'email', 'phone', 'ssn', 'personal', 'private',
-      'data', 'userData', 'profile', 'profileData',
-      // INFRA-61: Philosophical/Therapeutic content protection
-      'journal', 'journalEntry', 'entry', 'entries',
-      'reflection', 'reflections', 'personalReflection',
-      'virtue', 'virtueResponse', 'virtuePractice', 'virtueScore',
-      'principle', 'principles', 'stoicPrinciple',
-      'quote', 'quotes', 'citation',
-      'practice', 'dailyPractice', 'morningPractice', 'eveningPractice',
-      'meditation', 'meditationContent', 'breathingContent',
-      'educational', 'moduleContent', 'lessonContent', 'content',
-      'insight', 'insights', 'personalInsight',
-      'gratitude', 'gratitudeEntry',
-      'intention', 'dailyIntention',
-      'examen', 'eveningExamen',
-      'thought', 'thoughts', 'thoughtContent',
-      'emotion', 'emotions', 'emotionData', 'mood', 'moodData'
-    ];
-
-    return sensitiveKeys.some(sensitive =>
-      key.toLowerCase().includes(sensitive.toLowerCase())
-    );
+    return sanitizeObjectShared(obj);
   }
 
   /**
