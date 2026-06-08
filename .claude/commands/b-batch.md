@@ -106,8 +106,13 @@ construction and give false confidence. The panel must be able to actually disag
 (Architecture + Skeptic). `FEAT-*` / `DEBUG-*` or any domain match → 3 lenses.
 
 First fetch each item's Notion page (reuse `/b-work` Phase 1 logic: search
-`Work Item ID: <ID>` in `collection://${NOTION_WORK_DB}`, verify `Type` +
-`userDefined:ID`) so the panel plans against the real story, AC, and technical notes.
+`Work Item ID: <ID>` in `collection://${NOTION_WORK_DB}` with `page_size: 25`, then verify
+`Type` + `userDefined:ID` **by property, not rank** — semantic search has no exact-ID match
+and the right row is often not the top hit) so the panel plans against the real story, AC,
+and technical notes. **Unattended-miss rule:** if an ID still won't resolve after b-work's
+one recency-biased retry, do **not** stop to ask for a link (no human in this loop) — record
+the item in the manifest as `deferred` (reason: `unresolved-id`) and surface it in the
+end-of-run summary for manual lookup. Never guess a page or proceed on the wrong one.
 
 **Each panel agent returns a structured verdict** (force via schema):
 ```
@@ -346,6 +351,35 @@ them yourself rather than surfacing them:
 Then run `/b-close <ID>`. Phase 2.5 will correctly self-skip (Step 3.2 already proved
 no safety paths changed). On success, manifest `state: done`, capture the PR number.
 
+**Cleanup guard (B1 corollary — NEVER delete a branch/worktree on an unconfirmed merge).**
+`/b-close` Phases 3.6–3.8 remove the worktree and delete the feature branch (local +
+remote). Those steps are destructive and must be **gated on a verified merge** — if you
+drive the merge+cleanup yourself (or inline the bash), assert success *between* the merge
+and any cleanup:
+```bash
+gh pr merge <PR> --merge --delete-branch --admin   # may print, on success:
+#   "failed to run git: fatal: 'development' is already used by worktree at ..."
+# ^ THIS IS NOT A MERGE FAILURE. It is gh's local-checkout step failing because the dev
+#   worktree holds `development` (the documented bare-repo+worktrees skip). The merge
+#   itself still went through. NEVER judge merge success by gh's stderr — judge it by:
+STATE=$(gh pr view <PR> --json state -q '.state')
+MERGE_SHA=$(gh pr view <PR> --json mergeCommit -q '.mergeCommit.oid')
+if [ "$STATE" != "MERGED" ] || [ -z "$MERGE_SHA" ]; then
+  echo "❌ merge NOT confirmed — preserve branch + worktree, route to Step 3.4(a)"
+  # do NOT git worktree remove / git branch -D / git push --delete here
+else
+  # only now: sync dev worktree, delete remote+local branch, remove worktree
+fi
+```
+Why this is its own rule: the B1 stale-check race (Step 3.4a) refuses the merge **at merge
+time**, but a naively-chained cleanup block runs the deletions anyway — orphaning the PR's
+head branch (GitHub closes the PR) and forcing a from-commit reconstruction. The commit
+object survives (recoverable via `git worktree add <dir> -b <branch> <sha>`), but the clean
+fix is to never delete on an unconfirmed merge: leave the branch+worktree intact so Step
+3.4(a)'s `/b-close` re-invoke can finish the merge. (Learned the hard way on a live run:
+MAINT-244 lost the race to a sibling PR, the cleanup ran regardless, and the branch had to
+be rebuilt from the dangling commit before re-closing.)
+
 ### Step 3.4: Close-failure handling (distinguish the two failure modes)
 `/b-close` can fail at two different points; **route by the failure signature** — they
 have different fixes and conflating them parks items that would self-heal.
@@ -359,6 +393,12 @@ it re-enters Step 3.1, sees the feature branch is now BEHIND, merges `origin/dev
 in, re-pushes, re-runs CI once against the correct base, and merges. Bound to **2**
 re-invokes (matching the auto-fix cap); if still racing after 2, fall through to park with
 a note that it lost the merge race repeatedly (rare — implies very high contention).
+**Before re-invoking, confirm the branch + worktree still exist** (Step 3.3's cleanup guard
+should have preserved them). If an earlier run deleted them despite the race (the bug that
+guard prevents), the feature commit is still a dangling object — reconstruct first:
+`git -C /Users/max/dev/being worktree add <dir> -b <branch> <commit-sha>` (find the sha via
+`git reflog` or the manifest `notes`), re-create the env symlinks + `npm install`, then
+`/b-close <ID>`.
 
 **(b) CI red (flake-first, then bounded auto-fix).** When `/b-close` Step 3.4 STOPs
 because CI actually went red:
