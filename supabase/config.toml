@@ -46,6 +46,12 @@ verify_jwt = false
 [functions.grace-period-automation]
 verify_jwt = false
 
+# Crisis-Detection Alerting (INFRA-219, Cron Job)
+# verify_jwt=false is REQUIRED: pg_cron -> net.http_post carries no user JWT. The
+# X-Cron-Secret constant-time check inside index.ts is the sole compensating control.
+[functions.crisis-detection-alerting]
+verify_jwt = false
+
 # CRON JOB CONFIGURATION
 #
 # TODO: re-schedule grace-period-automation in v2. The CLI v2 dropped the
