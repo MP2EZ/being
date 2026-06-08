@@ -309,46 +309,73 @@ pin the surfaces affected.
 
 ```bash
 SCRIPTS=()
-# Crisis dir touched OR the overlay re-hosted/edited anywhere (FEAT-212 content
-# detection) → run the reachability flow.
-if echo "$SAFETY_CHANGED" | grep -q 'src/features/crisis/' || [ -n "$CRISIS_HOST_CHANGED" ]; then
+# --- Classify: which safety changes are RENDER/BOOT-relevant vs SERVICE-LAYER-only? ---
+# The sim flows drive the UI; they can ONLY validate render / boot / navigation surfaces.
+# Pure service-layer code is jest-owned (precommit + CI's crisis/clinical/security/
+# encryption suites + the CollapsibleCrisisButton render tests) and must not pull a slow
+# no-dev-client EAS build. Two carve-outs, both fail SAFE (a file leaves the sim-relevant
+# set only when unambiguously non-UI):
+#   1. features/crisis/services/**  — crisis BACKEND services (e.g. CrisisSecurityProtocol),
+#      not the overlay / screens / components the crisis-button flow renders.
+#   2. core/services/security/** EXCEPT EncryptionService / SecureStorageService —
+#      monitoring / metrics / network / protocol layer. Encryption + SecureStorage ARE
+#      boot/render-critical (wellness data decrypts at assessment render; encryption init
+#      gates app boot), so they STAY in the sim-relevant set.
+# If you ever wire a NEW security/crisis service into app boot or the crisis overlay's
+# import graph, DROP it from the carve-out so its changes re-arm the smoke test.
+RENDER_BOOT_RELEVANT=$(echo "$SAFETY_CHANGED" | awk '
+  /src\/features\/crisis\/services\// { next }
+  /src\/core\/services\/security\// {
+    if ($0 ~ /EncryptionService|SecureStorageService/) { print }
+    next
+  }
+  { print }
+')
+# Crisis UI dir touched (overlay/screens/components — services/ already carved out) OR the
+# overlay re-hosted/edited anywhere (FEAT-212 content detection) → reachability flow.
+if echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/features/crisis/' || [ -n "$CRISIS_HOST_CHANGED" ]; then
   SCRIPTS+=("e2e:safety:crisis-button")
 fi
-echo "$SAFETY_CHANGED" | grep -q 'src/features/assessment/' && \
+echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/features/assessment/' && \
   SCRIPTS+=("e2e:safety:q9" "e2e:safety:phq9" "e2e:safety:gad7")
-# INFRA-184: app.json / Info.plist changes are caught by the jest
-# static-config test in precommit (lsApplicationQueriesSchemes.config.test.ts);
-# no Maestro flow needs to run here. crisis-988-dial.yaml is tagged
-# safety-device-only and not part of the sim suite.
+# INFRA-184: app.json / Info.plist changes are caught by the precommit jest static-config
+# test (lsApplicationQueriesSchemes.config.test.ts); no Maestro flow runs here. The device-
+# only crisis-988-dial.yaml is tagged safety-device-only and not part of the sim suite.
 #
-# core/services/security is a PURE service layer (encryption, secure-store, network,
-# monitoring). The Maestro flows drive the UI and cannot validate a service change
-# directly — correctness there is owned by the jest crisis/clinical/security/
-# encryption suites (CI + precommit) plus the device-only 988-dial flow. The only
-# UI-observable failure mode is "a broken/deleted service crashes app boot or the
-# crisis overlay fails to render", so run ONLY crisis-button reachability as a
-# boot/render smoke test — NOT the full suite. (Refinement: full-suite-on-any-
-# security-edit over-fired and trained the skip reflex; e.g. MAINT-238/241/231 were
-# pure service-layer changes touching zero UI yet each pulled all 5 flows.)
-# TRADEOFF: a security change that breaks an assessment-flow UI in a way the jest
-# assessment/encryption suites miss would not be caught by crisis-button alone — if a
-# change touches EncryptionService/SecureStorageService AND assessment persistence,
-# run `npm run e2e:safety` (full suite) manually.
-echo "$SAFETY_CHANGED" | grep -q 'src/core/services/security' && \
+# Boot/render-critical security service: only EncryptionService / SecureStorageService
+# survive the RENDER_BOOT_RELEVANT carve-out above (wellness data decrypts at assessment
+# render; encryption init gates app boot) → crisis-button boot/render smoke. Every OTHER
+# core/services/security change (monitoring / metrics / network / protocol) was stripped
+# from RENDER_BOOT_RELEVANT and is jest-owned — see the MAINT-237 narrowing note above.
+# TRADEOFF (unchanged): if such a change ALSO touches assessment persistence, run
+# `npm run e2e:safety` (full suite) manually.
+echo "$RENDER_BOOT_RELEVANT" | grep -qE 'src/core/services/security' && \
   SCRIPTS+=("e2e:safety:crisis-button")
 # core/navigation (incl. CleanRootNavigator) is genuinely cross-cutting UI/nav — a
 # tab/stack re-point can break ANY flow's reachability. Keep the full suite, LAST so
 # this replace-override wins over the += clauses above when combined.
-echo "$SAFETY_CHANGED" | grep -qE 'src/core/navigation/|CleanRootNavigator' && \
+echo "$RENDER_BOOT_RELEVANT" | grep -qE 'src/core/navigation/|CleanRootNavigator' && \
   SCRIPTS=("e2e:safety")  # full suite — cross-cutting change, override scope
 
-# Safety net: the gate was entered (e.g. a src/core/navigation/ change) but
-# nothing mapped above → the most likely affected contract is crisis-button
-# reachability. Never enter the gate and run zero flows.
-[ ${#SCRIPTS[@]} -eq 0 ] && SCRIPTS=("e2e:safety:crisis-button")
+# Safety net / clean-skip split: if nothing mapped, decide WHY via RENDER_BOOT_RELEVANT.
+#  • render/boot-relevant change we failed to map → fail SAFE to crisis-button (never
+#    enter the gate on a render/boot change and run zero flows).
+#  • ONLY service-layer carve-outs changed → deliberate, LOGGED skip (no silent cap):
+#    jest owns the surface; no sim build needed (this is the MAINT-237 narrowing payoff).
+if [ ${#SCRIPTS[@]} -eq 0 ]; then
+  if [ -n "$RENDER_BOOT_RELEVANT" ]; then
+    SCRIPTS=("e2e:safety:crisis-button")
+  else
+    echo "ℹ️  Safety-surface change is SERVICE-LAYER ONLY (MAINT-237 narrowing) — no sim flow:"
+    echo "$SAFETY_CHANGED" | sed 's/^/      /'
+    echo "    The sim flows only validate render/boot/nav; this change touches none. jest"
+    echo "    crisis/clinical/security/encryption suites + CollapsibleCrisisButton render"
+    echo "    tests (precommit + CI) own it. Proceeding to close with no sim build."
+  fi
+fi
 
-# Dedupe
-SCRIPTS=($(printf "%s\n" "${SCRIPTS[@]}" | sort -u))
+# Dedupe (only when non-empty — a clean service-layer skip leaves SCRIPTS intentionally empty)
+[ ${#SCRIPTS[@]} -gt 0 ] && SCRIPTS=($(printf "%s\n" "${SCRIPTS[@]}" | sort -u))
 ```
 
 ### Step 2.5.4: Verify simulator readiness
@@ -367,16 +394,20 @@ build the slower Release boot leaves the long preamble timing-fragile — not ye
 ≥5/5 consecutive; expect occasional retries until the seed-state follow-up lands.)
 
 ```bash
-if ! xcrun simctl list devices booted | grep -qE '\([A-F0-9-]+\) \(Booted\)'; then
-  echo "❌ No iOS simulator booted."
-  echo "   Run 'npm run e2e:safety:build' first (no-dev-client EAS build, INFRA-216) to build +"
-  echo "   install Being on a sim, then retry /b-close. Do NOT use 'npm run ios' (dev build → flaky gate)."
-  exit 1
-fi
-if ! xcrun simctl listapps booted 2>/dev/null | grep -q com.being.app; then
-  echo "❌ com.being.app not installed on booted sim."
-  echo "   Run 'npm run e2e:safety:build' first (no-dev-client EAS build, INFRA-216), then retry /b-close."
-  exit 1
+# Only require a simulator when there are flows to run. A service-layer-only safety
+# change (Step 2.5.3) resolves to zero flows and closes with no sim build at all.
+if [ ${#SCRIPTS[@]} -gt 0 ]; then
+  if ! xcrun simctl list devices booted | grep -qE '\([A-F0-9-]+\) \(Booted\)'; then
+    echo "❌ No iOS simulator booted."
+    echo "   Run 'npm run e2e:safety:build' first (no-dev-client EAS build, INFRA-216) to build +"
+    echo "   install Being on a sim, then retry /b-close. Do NOT use 'npm run ios' (dev build → flaky gate)."
+    exit 1
+  fi
+  if ! xcrun simctl listapps booted 2>/dev/null | grep -q com.being.app; then
+    echo "❌ com.being.app not installed on booted sim."
+    echo "   Run 'npm run e2e:safety:build' first (no-dev-client EAS build, INFRA-216), then retry /b-close."
+    exit 1
+  fi
 fi
 ```
 
@@ -387,16 +418,20 @@ to the user.
 
 ```bash
 cd /Users/max/dev/being/[worktree-dir]/app
-for script in "${SCRIPTS[@]}"; do
-  echo "🛡️  Running: npm run $script"
-  if ! npm run "$script"; then
-    echo "❌ Maestro flow '$script' failed."
-    echo "   Fix the issue, or — on a hotfix/* branch only — re-run with --skip-e2e."
-    echo "   Debug a single flow with: maestro test .maestro/<flow>.yaml --debug"
-    exit 1
-  fi
-done
-echo "✅ All scoped Maestro safety flows passed (${#SCRIPTS[@]} script(s))"
+if [ ${#SCRIPTS[@]} -eq 0 ]; then
+  echo "✅ No sim flows required (service-layer-only safety change, Step 2.5.3) — proceeding to close."
+else
+  for script in "${SCRIPTS[@]}"; do
+    echo "🛡️  Running: npm run $script"
+    if ! npm run "$script"; then
+      echo "❌ Maestro flow '$script' failed."
+      echo "   Fix the issue, or — on a hotfix/* branch only — re-run with --skip-e2e."
+      echo "   Debug a single flow with: maestro test .maestro/<flow>.yaml --debug"
+      exit 1
+    fi
+  done
+  echo "✅ All scoped Maestro safety flows passed (${#SCRIPTS[@]} script(s))"
+fi
 ```
 
 Proceed to Step 3.1 only on success.
