@@ -13,13 +13,17 @@
  * - Caches valid receipts for 24 hours
  *
  * COMPLIANCE:
- * - Subscription metadata treated as PHI
+ * - Subscription transaction history (sensitive under state privacy laws; not PHI —
+ *   Being is not a HIPAA covered entity)
+ * - Receipt encrypted at rest (AES-256-GCM); transaction bound to one auth.uid()
  * - Audit logging for all verification attempts
  * - RLS ensures users only access their own data
  */
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+import { encryptReceipt, receiptHash } from '../_shared/receiptCrypto.ts';
+import { assertNoCrossIdentityReplay, ReceiptReplayError, isUniqueViolation } from '../_shared/receiptBinding.ts';
 
 /**
  * Extract the authenticated user's id from the request's Authorization header.
@@ -209,6 +213,15 @@ async function updateSubscription(
   // Parse product ID to determine interval
   const interval = verification.productId?.includes('yearly') ? 'yearly' : 'monthly';
 
+  // Replay guard: reject if this transaction is already bound to another user
+  // (service-role writes bypass RLS, so this check is the gate). Same-user
+  // re-verification (restore-purchases) passes through as an idempotent refresh.
+  await assertNoCrossIdentityReplay(supabase, 'apple', verification.subscriptionId, userId);
+
+  // Encrypt the receipt at rest + hash it for dedup (was a plaintext TODO).
+  const receipt_data_encrypted = await encryptReceipt(receiptData, Deno.env.get('RECEIPT_ENCRYPTION_KEY'));
+  const receipt_hash = await receiptHash(receiptData);
+
   // Upsert subscription
   const { error: upsertError } = await supabase
     .from('subscriptions')
@@ -216,19 +229,26 @@ async function updateSubscription(
       user_id: userId,
       platform: 'apple',
       platform_subscription_id: verification.subscriptionId,
+      original_transaction_id: verification.subscriptionId,
+      receipt_hash,
       status,
       tier: 'standard',
       interval,
       subscription_start_date: now,
       subscription_end_date: verification.expiresDate,
       last_receipt_verified: now,
-      receipt_data_encrypted: receiptData, // TODO: Encrypt this
+      receipt_data_encrypted,
       updated_at: now,
     }, {
       onConflict: 'user_id'
     });
 
   if (upsertError) {
+    // The uniq_txn_per_platform index is the TOCTOU backstop behind the
+    // ownership check above — surface a race as a replay, not a 500.
+    if (isUniqueViolation(upsertError)) {
+      throw new ReceiptReplayError('apple', verification.subscriptionId ?? '');
+    }
     throw new Error(`Failed to update subscription: ${upsertError.message}`);
   }
 
@@ -375,7 +395,26 @@ serve(async (req) => {
 
     if (verification.valid) {
       // Update subscription in database
-      await updateSubscription(supabase, authUid, verification, receiptData);
+      try {
+        await updateSubscription(supabase, authUid, verification, receiptData);
+      } catch (err) {
+        if (err instanceof ReceiptReplayError) {
+          // Cross-identity replay: the receipt's transaction is bound to another
+          // account. Reject without mutating state; audit the attempt.
+          console.warn('[Apple Receipt Verification] Replay rejected for user:', authUid);
+          await supabase.rpc('log_subscription_event', {
+            p_user_id: authUid,
+            p_subscription_id: null,
+            p_event_type: 'receipt_verification_failed',
+            p_metadata: { platform: 'apple', reason: 'txn_bound_to_other_user', timestamp: new Date().toISOString() },
+          });
+          return new Response(
+            JSON.stringify({ valid: false, error: 'Receipt already bound to another account' }),
+            { status: 409, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
+        throw err;
+      }
 
       console.log('[Apple Receipt Verification] Success:', verification.subscriptionId);
 

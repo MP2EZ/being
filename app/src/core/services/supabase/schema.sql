@@ -413,7 +413,11 @@ CREATE TABLE IF NOT EXISTS subscriptions (
 
   -- Receipt Verification
   last_receipt_verified TIMESTAMPTZ,
-  receipt_data_encrypted TEXT, -- Encrypted receipt for re-verification
+  receipt_data_encrypted TEXT, -- AES-256-GCM-encrypted receipt for re-verification (INFRA-260 PR2)
+  -- INFRA-260 PR2: replay binding. Holds Apple original_transaction_id / Google
+  -- purchaseToken; UNIQUE per platform binds the txn to one auth.uid().
+  original_transaction_id TEXT,
+  receipt_hash TEXT, -- SHA-256 of the raw receipt/token (dedup; non-reversible)
 
   -- Payment History (minimal)
   last_payment_date TIMESTAMPTZ,
@@ -444,6 +448,10 @@ CREATE INDEX IF NOT EXISTS idx_subscriptions_user_id ON subscriptions(user_id);
 CREATE INDEX IF NOT EXISTS idx_subscriptions_platform ON subscriptions(platform);
 CREATE INDEX IF NOT EXISTS idx_subscriptions_status ON subscriptions(status);
 CREATE INDEX IF NOT EXISTS idx_subscriptions_platform_subscription_id ON subscriptions(platform_subscription_id);
+-- INFRA-260 PR2: one IAP transaction binds to one row (one auth.uid()) per platform.
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_txn_per_platform
+  ON subscriptions (platform, original_transaction_id)
+  WHERE original_transaction_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_subscriptions_trial_end_date ON subscriptions(trial_end_date) WHERE status = 'trial';
 CREATE INDEX IF NOT EXISTS idx_subscriptions_grace_period_end ON subscriptions(grace_period_end) WHERE status = 'grace';
 CREATE INDEX IF NOT EXISTS idx_subscriptions_updated_at ON subscriptions(updated_at);
