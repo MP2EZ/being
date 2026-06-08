@@ -1,6 +1,6 @@
 /**
  * CLASSICAL LIBRARY SCREEN - Browsable primary-source passage library
- * FEAT-54: Classical Resources Library (Phase 2)
+ * FEAT-54: Classical Resources Library
  *
  * Standalone browse view reachable from LearnScreen. Lists every curated
  * passage, filterable by principle and author (MVP filters — no search).

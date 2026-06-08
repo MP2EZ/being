@@ -1,5 +1,5 @@
 /**
- * SYNC STATUS INDICATOR - Week 3 UI Enhancement
+ * SYNC STATUS INDICATOR
  *
  * SYNC STATUS DISPLAY:
  * - Real-time sync coordinator status monitoring

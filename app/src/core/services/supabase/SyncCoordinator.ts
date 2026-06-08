@@ -1,10 +1,10 @@
 /**
- * Sync Coordinator - Week 2 Orchestration Layer
+ * Sync Coordinator - Orchestration Layer
  *
  * ARCHITECTURAL PATTERN: Facade Pattern
  * - Orchestrates CloudBackupService & SupabaseService
  * - Enhances existing services without replacement
- * - Maintains Week 1 encryption and performance guarantees
+ * - Maintains encryption and performance guarantees
  *
  * CORE RESPONSIBILITIES:
  * - Last-write-wins conflict resolution

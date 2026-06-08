@@ -1,6 +1,5 @@
 /**
  * CIRCUIT BREAKER SERVICE - System Resilience
- * Week 4 Phase 2a - Critical Production Infrastructure
  *
  * FAULT TOLERANCE FOR SAFETY-CRITICAL SYSTEMS:
  * - Prevent cascading failures in external service dependencies

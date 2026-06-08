@@ -1,8 +1,11 @@
 /**
- * CENTRALIZED PHI PATTERNS - INFRA-61
+ * CENTRALIZED SENSITIVE-DATA PATTERNS - INFRA-61, consolidated MAINT-248
  *
- * Single source of truth for PHI (Protected Health Information) detection patterns.
- * All logging services MUST import from here to ensure consistent sanitization.
+ * Single source of truth for sensitive-wellness-data detection patterns.
+ * All logging services (ProductionLogger, ExternalErrorReporter) MUST import
+ * from here to ensure consistent sanitization — no inline copies. Being is a
+ * consumer wellness app, NOT a HIPAA-covered entity; this scrubs "wellness data"
+ * (self-screening scores, free-text reflections, identifiers), not "PHI."
  *
  * PATTERN CATEGORIES:
  * 1. User Identifiers (8 patterns)
@@ -12,18 +15,18 @@
  * 5. Storage/System Paths (4 patterns)
  * 6. Device Fingerprinting (6 patterns)
  * 7. Crisis-Specific Data (6 patterns)
- * 8. Stoic Mindfulness Data (8 patterns) - Per philosopher domain recommendation
+ * 8. Stoic Mindfulness Data (12 patterns) - Per philosopher domain recommendation
  *
- * TOTAL: 62 patterns (up from 14 in original implementation)
+ * TOTAL: 66 patterns
  *
  * MAINTENANCE:
- * - Add new patterns here when new PHI types are identified
+ * - Add new patterns here when new sensitive-data types are identified
  * - Run tests after adding patterns to verify no false positives
  * - Update pattern count in this header when modified
  */
 
 /**
- * COMPREHENSIVE PHI PATTERNS
+ * COMPREHENSIVE SENSITIVE-DATA PATTERNS
  * These patterns are applied to all log messages before storage or transmission
  */
 export const SENSITIVE_DATA_PATTERNS: RegExp[] = [
@@ -121,6 +124,13 @@ export const SENSITIVE_DATA_PATTERNS: RegExp[] = [
   /mental[_-]?state[:\s]*[^,}]+/gi,
   /check[_-]?in[_-]?data[:\s]*[^,}]+/gi,
   /thought[_-]?content[:\s]*[^,}]+/gi,
+  // MAINT-248: consolidated inline string-scrub patterns from ProductionLogger
+  // (journal/intention) and ExternalErrorReporter (feeling, bare thought) so the
+  // canonical set covers everything the inline copies did.
+  /journal[:\s]*[^,}]+/gi,
+  /intention[:\s]*[^,}]+/gi,
+  /feeling[:\s]*[^,}]+/gi,
+  /thought[:\s]*[^,}]+/gi,
 ];
 
 /**
@@ -155,6 +165,11 @@ export const SENSITIVE_KEYS = [
   // Stoic/philosophical content
   'principle', 'virtue', 'practice', 'exercise',
   'gratitude', 'wisdom', 'courage', 'justice', 'temperance',
+  // MAINT-248: consolidated from ProductionLogger's inline list — these had no
+  // existing substring cover in the canonical set (e.g. 'journal' already covers
+  // 'journalEntry', but bare 'entry'/'quote'/'meditation'/'examen' did not match).
+  'entry', 'entries', 'quote', 'citation', 'meditation',
+  'educational', 'insight', 'intention', 'examen',
 
   // Device/location
   'ipAddress', 'ip', 'location', 'coordinates', 'geoLocation',
