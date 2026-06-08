@@ -1,6 +1,5 @@
 /**
  * PRODUCTION ERROR MONITORING SERVICE
- * Week 4 Phase 1c - Critical Production Infrastructure
  *
  * SAFETY-CRITICAL ERROR MONITORING:
  * - Real-time error aggregation without PHI exposure

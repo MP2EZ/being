@@ -1,24 +1,9 @@
 /**
  * Accessibility Components - Unified Export
- * 
- * WEEK 3 ENHANCED ACCESSIBILITY SYSTEM:
- * Comprehensive accessibility support for diverse user needs while maintaining
- * therapeutic effectiveness and crisis safety requirements.
- * 
- * FOUNDATIONAL COMPONENTS (Week 2):
- * - WCAG AA compliant radio groups with proper ARIA semantics
- * - Focus management and keyboard navigation
- * - Visible focus indicators with proper contrast ratios
- * - Screen reader support and announcements
- * 
- * ADVANCED FEATURES (Week 3):
- * - Advanced screen reader support with therapeutic context
- * - Cognitive accessibility for users with cognitive impairments
- * - Motor accessibility for users with limited mobility
- * - Sensory accessibility for hearing/vision impairments
- * - Crisis intervention accessibility with <200ms response
- * - Automated accessibility testing and validation
- * - Performance optimization maintaining crisis readiness
+ *
+ * Foundational (WCAG AA radio groups, focus management, screen reader support)
+ * plus advanced accessibility (cognitive, motor, sensory, crisis-intervention)
+ * providers and testing utilities.
  */
 
 // === FOUNDATIONAL ACCESSIBILITY COMPONENTS ===

@@ -4,7 +4,7 @@
  *
  * STORAGE:
  * - AsyncStorage with encryption (contains learning progress, reflections)
- * - Encrypted because reflection data may contain PHI-adjacent content
+ * - Encrypted because reflection data may contain sensitive wellness content
  *
  * PHILOSOPHER VALIDATION:
  * - 9.5/10 philosophical integrity rating
@@ -376,8 +376,7 @@ export const useEducationStore = create<ExtendedEducationState>((set, get) => ({
         updatedAt: Date.now(),
       };
 
-      // TODO: Use encryption service for sensitive data
-      // For now, storing as JSON (encryption will be added in Phase 6)
+      // TODO: Use encryption service for sensitive data (currently stored as JSON)
       await AsyncStorage.setItem(
         STORAGE_KEY,
         JSON.stringify(dataToStore)

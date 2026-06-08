@@ -1,13 +1,12 @@
 /**
  * Reflection Timer Screen - Educational Reflection & Contemplation Exercises
- * FEAT-81: Interactive Practice Screens
  *
- * Phase 2 Migration: Uses DRY abstractions
+ * Uses shared abstractions:
  * - PracticeScreenLayout: Unified layout wrapper
  * - useTimerPractice: Shared timer state management
  * - sharedPracticeStyles: Reusable layout styles
  *
- * Reuses shared components for DRY compliance:
+ * Reuses shared components:
  * - Timer: Timestamp-based timer with pause/resume and accessibility
  * - PracticeCompletionScreen: Philosopher-validated completion
  *
