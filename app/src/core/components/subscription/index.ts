@@ -5,4 +5,3 @@
 
 export { default as SubscriptionStatusCard } from './SubscriptionStatusCard';
 export { default as PurchaseOptionsScreen } from './PurchaseOptionsScreen';
-export { default as FeatureGate, useFeatureAccess, withFeatureGate } from './FeatureGate';
