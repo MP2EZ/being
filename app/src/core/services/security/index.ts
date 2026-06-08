@@ -62,14 +62,10 @@ export type {
   NetworkSecurityMetrics
 } from './NetworkSecurityService';
 
-// Type exports — Crisis Security Protocol
-export type {
-  CrisisSecurityLevel,
-  CrisisAccessContext,
-  CrisisDataProtectionResult,
-  CrisisSecurityViolation,
-  EmergencyAccessCredentials
-} from '@/features/crisis/services/CrisisSecurityProtocol';
+// Type exports — Crisis Security Protocol: all five public types
+// (CrisisSecurityLevel, CrisisAccessContext, CrisisDataProtectionResult,
+// CrisisSecurityViolation, EmergencyAccessCredentials) were removed in
+// MAINT-237 along with the unreachable machinery that referenced them.
 
 // Type exports — Security Monitoring Service
 export type {
