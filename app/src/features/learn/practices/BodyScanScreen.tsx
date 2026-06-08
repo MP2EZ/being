@@ -1,9 +1,7 @@
 /**
  * Body Scan Practice Screen - Educational Body Awareness Exercise
- * FEAT-81: Interactive Practice Screens
- * PHASE 2: Migrated to DRY abstractions
  *
- * Reuses shared components for DRY compliance:
+ * Reuses shared components:
  * - PracticeScreenLayout: Unified screen wrapper with header
  * - PracticeInstructions: Standardized fade-in/out instructions
  * - PracticeToggleButton: Begin/Pause/Resume control
