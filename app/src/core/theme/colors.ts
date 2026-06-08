@@ -10,12 +10,15 @@ import {
   borderRadius,
   typography,
   getTheme,
+  shadows,
 } from '@mp2ez/being-design-system/native';
-import type { Theme, ThemeKey } from '@mp2ez/being-design-system/native';
+import type { Theme, ThemeKey, Shadows, ShadowKey } from '@mp2ez/being-design-system/native';
 
-// Re-export spacing, borderRadius, typography, getTheme directly
-export { spacing, borderRadius, typography, getTheme };
-export type { Theme, ThemeKey };
+// Re-export spacing, borderRadius, typography, getTheme, shadows directly.
+// MAINT-222: shadows is now re-exported here so UI uses the DS elevation token
+// instead of hand-rolled shadowColor:'#000' literals (DS guidance: prefer borders).
+export { spacing, borderRadius, typography, getTheme, shadows };
+export type { Theme, ThemeKey, Shadows, ShadowKey };
 
 // Create themes object with Proxy for safe access (maintains backward compatibility)
 const themesHandler: ProxyHandler<typeof dsColors.themes> = {

@@ -384,11 +384,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     // WCAG AA: Use gray[400] for 3:1 minimum contrast ratio on borders
     borderColor: colorSystem.gray[400],
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    // MAINT-222: border-preferred elevation; dropped the hand-rolled #000 shadow
+    // (the gray[400] border above is now the single elevation approach).
     marginBottom: spacing[16],
   },
   moduleCardEssential: {
