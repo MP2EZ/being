@@ -38,7 +38,7 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useAnalytics } from '@/core/analytics';
 import { StackNavigationProp } from '@react-navigation/stack';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
-import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
+import { colorSystem, semantic, spacing, borderRadius, typography } from '@/core/theme';
 import { BodyHeader } from '@/core/components/BodyHeader';
 
 // Import components
@@ -206,7 +206,8 @@ const InsightsScreen: React.FC = () => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: colorSystem.gray[100],
+    // MAINT-263: unified tab-screen surface (was gray[100]).
+    backgroundColor: semantic.background.screen,
   },
   scrollView: {
     flex: 1,
@@ -222,6 +223,9 @@ const styles = StyleSheet.create({
     backgroundColor: colorSystem.base.white,
     // MAINT-222: unified content-card radius (xl=16)
     borderRadius: borderRadius.xl,
+    // MAINT-263: hairline so the card stays defined on the now-white screen surface.
+    borderWidth: 1,
+    borderColor: semantic.border.default,
     padding: spacing[16],
     marginBottom: spacing[16],
     borderLeftWidth: 3,

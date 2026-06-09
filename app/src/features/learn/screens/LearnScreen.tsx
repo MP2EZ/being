@@ -24,7 +24,7 @@ import { useAnalytics } from '@/core/analytics';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 import { CollapsibleCrisisButton } from '@/features/crisis/components';
-import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
+import { colorSystem, semantic, spacing, typography, borderRadius } from '@/core/theme';
 import { BodyHeader } from '@/core/components/BodyHeader';
 import { useEducationStore } from '@/features/learn/stores/educationStore';
 import type { ModuleId } from '@/features/learn/types/education';
@@ -293,7 +293,8 @@ const LearnScreen: React.FC = () => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: colorSystem.base.white,
+    // MAINT-263: shared tab-screen surface token (value unchanged: white).
+    backgroundColor: semantic.background.screen,
   },
   container: {
     flex: 1,

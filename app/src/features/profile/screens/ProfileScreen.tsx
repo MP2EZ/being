@@ -26,7 +26,7 @@ import { MaterialDesignIcons } from '@react-native-vector-icons/material-design-
 import ThresholdEducationModal from '@/core/components/ThresholdEducationModal';
 import { BodyHeader } from '@/core/components/BodyHeader';
 import { useAssessmentStore } from '@/features/assessment/stores/assessmentStore';
-import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
+import { colorSystem, semantic, spacing, borderRadius, typography } from '@/core/theme';
 import { useAnalytics } from '@/core/analytics';
 
 // Navigates within the Profile stack (Privacy, Account, …) AND up to root-stack
@@ -444,7 +444,8 @@ const ProfileScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colorSystem.base.white,
+    // MAINT-263: shared tab-screen surface token (value unchanged: white).
+    backgroundColor: semantic.background.screen,
   },
   scrollContainer: {
     flex: 1,

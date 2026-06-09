@@ -119,7 +119,8 @@ const WellnessTrendsDetailScreen: React.FC = () => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: colorSystem.gray[100],
+    // MAINT-263: unified tab-screen surface (was gray[100]); matches Insights.
+    backgroundColor: semantic.background.screen,
   },
   flex: {
     flex: 1,
@@ -158,6 +159,9 @@ const styles = StyleSheet.create({
   emptyState: {
     backgroundColor: colorSystem.base.white,
     borderRadius: spacing[8],
+    // MAINT-263: hairline so the card stays defined on the now-white screen surface.
+    borderWidth: 1,
+    borderColor: semantic.border.default,
     padding: spacing[16],
   },
   emptyStateText: {
