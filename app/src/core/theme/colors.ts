@@ -62,6 +62,14 @@ export const semantic = {
   background: {
     primary: colorSystem.base.white,
     secondary: colorSystem.gray[100],
+    // MAINT-263: single tab-screen surface token. Home/Learn/Insights/Profile (and the
+    // Insights "full history" detail screen) all read from this so the cross-tab
+    // background decision lives in one place. Unified to white (was: Insights gray[100])
+    // after MAINT-257 made tab headers borderless — the screen background is now the
+    // visual separator, so one surface keeps the tabs reading as a single coherent space.
+    // Insights content cards take a 1px semantic.border.default hairline to stay defined
+    // on white (they previously relied on the gray backdrop).
+    screen: colorSystem.base.white,
   },
   border: {
     default: colorSystem.gray[200],
