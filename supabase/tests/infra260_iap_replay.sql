@@ -12,6 +12,9 @@
 \set A '11111111-1111-1111-1111-111111111111'
 \set B '22222222-2222-2222-2222-222222222222'
 
+-- Self-cleaning: order-independent + re-runnable (cascade clears child rows).
+DELETE FROM auth.users WHERE id IN (:'A', :'B');
+
 INSERT INTO auth.users (id, instance_id, aud, role, is_anonymous, created_at, updated_at)
 VALUES
   (:'A', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', true, now(), now()),

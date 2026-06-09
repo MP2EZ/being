@@ -68,8 +68,13 @@ const mockAuth: any = {
   signInAnonymously: jest.fn(() =>
     Promise.resolve({ data: { user: { id: 'user_123' }, session: {} }, error: null }),
   ),
+  signOut: jest.fn(() => Promise.resolve({ error: null })),
 };
-const mockSupabaseClient = { from: jest.fn(() => mockChain), auth: mockAuth };
+// INFRA-260 PR3: deleteAccount() invokes the delete-account edge function.
+const mockFunctions: any = {
+  invoke: jest.fn(() => Promise.resolve({ data: { success: true }, error: null })),
+};
+const mockSupabaseClient = { from: jest.fn(() => mockChain), auth: mockAuth, functions: mockFunctions };
 
 jest.mock('@supabase/supabase-js', () => ({
   createClient: jest.fn(() => mockSupabaseClient),
@@ -133,6 +138,10 @@ beforeEach(() => {
     data: { user: { id: 'user_123' }, session: {} },
     error: null,
   });
+  mockAuth.signOut.mockReset();
+  mockAuth.signOut.mockResolvedValue({ error: null });
+  mockFunctions.invoke.mockReset();
+  mockFunctions.invoke.mockResolvedValue({ data: { success: true }, error: null });
 
   (AsyncStorage.getItem as jest.Mock).mockResolvedValue(null);
   (AsyncStorage.setItem as jest.Mock).mockResolvedValue(undefined);
@@ -260,6 +269,47 @@ describe('SupabaseService', () => {
       const result = await withFakeTimers(() => service.getBackup());
 
       expect(result).toBeNull();
+    });
+  });
+
+  describe('Account deletion — DSR erasure (INFRA-260 PR3)', () => {
+    beforeEach(async () => {
+      await service.initialize(); // establishes session → userId = 'user_123'
+    });
+
+    it('invokes delete-account, signs out, clears userId, returns true on success', async () => {
+      const ok = await service.deleteAccount();
+
+      expect(ok).toBe(true);
+      expect(mockFunctions.invoke).toHaveBeenCalledWith('delete-account', { body: {} });
+      expect(mockAuth.signOut).toHaveBeenCalled();
+      expect(service.userId).toBeNull();
+    });
+
+    it('returns false and PRESERVES the session when the edge function errors', async () => {
+      mockFunctions.invoke.mockResolvedValueOnce({ data: null, error: { message: 'boom' } });
+
+      const ok = await service.deleteAccount();
+
+      expect(ok).toBe(false);
+      expect(mockAuth.signOut).not.toHaveBeenCalled(); // data may still exist server-side
+      expect(service.userId).toBe('user_123');
+    });
+
+    it('returns false when the function resolves without success:true', async () => {
+      mockFunctions.invoke.mockResolvedValueOnce({ data: { success: false }, error: null });
+
+      expect(await service.deleteAccount()).toBe(false);
+      expect(mockAuth.signOut).not.toHaveBeenCalled();
+    });
+
+    it('is a no-op (true) when there is no established session', async () => {
+      service.userId = null;
+
+      const ok = await service.deleteAccount();
+
+      expect(ok).toBe(true);
+      expect(mockFunctions.invoke).not.toHaveBeenCalled();
     });
   });
 

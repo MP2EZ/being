@@ -818,6 +818,59 @@ class SupabaseService {
   }
 
   /**
+   * Data-subject right to erasure (INFRA-260 PR3): delete the server-side account.
+   *
+   * Invokes the `delete-account` edge function, which (service-role) hard-deletes
+   * the caller's auth.users row; the FK ON DELETE CASCADE removes every uid-keyed
+   * row (encrypted_backups, analytics_events, subscriptions, subscription_events).
+   * On success the local session is torn down so the next boot mints a fresh
+   * anonymous identity rather than reusing a deleted uid.
+   *
+   * Returns true if the server account was erased (or there was none to erase).
+   * Returns false on failure WITHOUT tearing down the session — the caller must
+   * NOT proceed to wipe local data if the server copy still exists. The caller
+   * pairs a true result with SecureStorageService.clearAllWellnessData({
+   * deleteMasterKey: true }) for the on-device half of erasure.
+   */
+  async deleteAccount(): Promise<boolean> {
+    // No established session → no server-side account exists to erase.
+    if (!this.client || !this.userId) {
+      return true;
+    }
+
+    try {
+      // The client's session JWT is auto-attached; the function reads auth.uid()
+      // from it and deletes only that principal.
+      const { data, error } = await this.client.functions.invoke<{ success?: boolean }>(
+        'delete-account',
+        { body: {} },
+      );
+      if (error || !data?.success) {
+        logError(
+          LogCategory.SYSTEM,
+          '[SupabaseService] Account deletion failed',
+          error instanceof Error ? error : new Error(String(error ?? 'no success flag')),
+        );
+        return false;
+      }
+
+      // Server data gone — clear the local session (removes the secure-store
+      // session chunks) so we don't reuse the now-deleted uid.
+      await this.client.auth.signOut();
+      this.userId = null;
+      logSecurity('[SupabaseService] Account erased (server cascade + session cleared)', 'low');
+      return true;
+    } catch (error) {
+      logError(
+        LogCategory.SYSTEM,
+        '[SupabaseService] Account deletion error',
+        error instanceof Error ? error : new Error(String(error)),
+      );
+      return false;
+    }
+  }
+
+  /**
    * Cleanup service (call on app shutdown)
    */
   async cleanup(): Promise<void> {

@@ -35,6 +35,12 @@ verify_jwt = true
 [functions.verify-google-receipt]
 verify_jwt = true
 
+# Account Deletion (data-subject erasure, INFRA-260 PR3)
+# User-initiated; the gateway-verified JWT scopes deletion to the caller's own
+# auth.uid(). MUST stay true — a forged sub would let any caller delete any account.
+[functions.delete-account]
+verify_jwt = true
+
 # Subscription Webhook Handler
 # Apple/Google call this directly; they don't carry a Supabase JWT. The
 # function verifies their own signatures (Apple JWS via verifyAppleJWS.ts,

@@ -32,7 +32,7 @@ function verifyJwtFor(fnName: string): string | null {
 }
 
 describe('Edge function verify_jwt pin (INFRA-260)', () => {
-  it.each(['verify-apple-receipt', 'verify-google-receipt'])(
+  it.each(['verify-apple-receipt', 'verify-google-receipt', 'delete-account'])(
     '%s has verify_jwt = true (auth.uid() is gateway-verified, not forgeable)',
     (fn) => {
       expect(verifyJwtFor(fn)).toBe('true');
