@@ -30,6 +30,7 @@ import BrainIcon from '@/core/components/shared/BrainIcon';
 import { useConsentStore, ConsentPreferences, getLegalGateConsents } from '@/core/stores/consentStore';
 import { ConsentToggleCard } from '@/features/consent';
 import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
+import { PRINCIPLES } from '@/features/practices/shared/constants/principles';
 
 // Local colors for onboarding (flat access for convenience in this large file)
 const localColors = {
@@ -808,41 +809,14 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Five Core Principles</Text>
-          
-          <View style={styles.principleCard}>
-            <Text style={styles.principleTitle}>1. Aware Presence</Text>
-            <Text style={styles.principleDescription}>
-              Be fully here now, observing thoughts without judgment
-            </Text>
-          </View>
 
-          <View style={styles.principleCard}>
-            <Text style={styles.principleTitle}>2. Radical Acceptance</Text>
-            <Text style={styles.principleDescription}>
-              Accept reality as it is, without resistance
-            </Text>
-          </View>
-
-          <View style={styles.principleCard}>
-            <Text style={styles.principleTitle}>3. Sphere Sovereignty</Text>
-            <Text style={styles.principleDescription}>
-              Focus on what you control (your responses, character, intentions)
-            </Text>
-          </View>
-
-          <View style={styles.principleCard}>
-            <Text style={styles.principleTitle}>4. Virtuous Response</Text>
-            <Text style={styles.principleDescription}>
-              In every situation, act with wisdom, courage, justice, or temperance
-            </Text>
-          </View>
-
-          <View style={styles.principleCard}>
-            <Text style={styles.principleTitle}>5. Interconnected Living</Text>
-            <Text style={styles.principleDescription}>
-              Recognize our shared humanity and act for the common good
-            </Text>
-          </View>
+          {/* FEAT-268: principle copy single-sourced from the canonical constant (short form). */}
+          {PRINCIPLES.map((principle, index) => (
+            <View key={principle.key} style={styles.principleCard}>
+              <Text style={styles.principleTitle}>{`${index + 1}. ${principle.title}`}</Text>
+              <Text style={styles.principleDescription}>{principle.shortDescription}</Text>
+            </View>
+          ))}
         </View>
 
         <View style={styles.section}>
