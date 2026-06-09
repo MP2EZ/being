@@ -328,7 +328,7 @@ const styles = StyleSheet.create({
   dot: {
     width: 12,
     height: 12,
-    borderRadius: 6,
+    borderRadius: borderRadius.full,
   },
   dotEmpty: {
     backgroundColor: colorSystem.gray[200],
@@ -357,7 +357,7 @@ const styles = StyleSheet.create({
   legendDot: {
     width: 10,
     height: 10,
-    borderRadius: 5,
+    borderRadius: borderRadius.full,
   },
   legendText: {
     fontSize: typography.caption.size,

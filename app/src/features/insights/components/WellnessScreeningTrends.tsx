@@ -622,6 +622,9 @@ const styles = StyleSheet.create({
   disclaimerText: {
     fontSize: typography.caption.size,
     color: colorSystem.gray[600],
+    // MAINT-224: absolute lineHeight literals (here and below) left as-is — DS gap.
+    // No standalone line-height token scale exists in the design system (typography
+    // variants expose only unitless multipliers); not forced onto another token.
     lineHeight: 18,
     marginBottom: spacing[8],
   },
@@ -714,7 +717,7 @@ const styles = StyleSheet.create({
   dataRowDot: {
     width: 6,
     height: 6,
-    borderRadius: 3,
+    borderRadius: borderRadius.full,
     backgroundColor: ACCENT,
   },
   dataRowDate: {
@@ -757,7 +760,7 @@ const styles = StyleSheet.create({
   singleDot: {
     width: 12,
     height: 12,
-    borderRadius: 6,
+    borderRadius: borderRadius.full,
     backgroundColor: ACCENT,
   },
   singlePointScore: {
