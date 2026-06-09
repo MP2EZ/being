@@ -13,13 +13,17 @@
  * - Caches valid receipts for 24 hours
  *
  * COMPLIANCE:
- * - Subscription metadata treated as PHI
+ * - Subscription transaction history (sensitive under state privacy laws; not PHI —
+ *   Being is not a HIPAA covered entity)
+ * - Purchase token encrypted at rest (AES-256-GCM); bound to one auth.uid()
  * - Audit logging for all verification attempts
  * - RLS ensures users only access their own data
  */
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+import { encryptReceipt, receiptHash } from '../_shared/receiptCrypto.ts';
+import { assertNoCrossIdentityReplay, ReceiptReplayError, isUniqueViolation } from '../_shared/receiptBinding.ts';
 
 /**
  * Extract the authenticated user's id from the request's Authorization header.
@@ -206,6 +210,15 @@ async function updateSubscription(
   // Parse product ID to determine interval
   const interval = verification.productId?.includes('yearly') ? 'yearly' : 'monthly';
 
+  // Replay guard binds on the purchaseToken — the Google bearer credential that
+  // could be replayed across identities (orderId is not the replay vector).
+  // Same-user re-verification (restore-purchases) passes through idempotently.
+  await assertNoCrossIdentityReplay(supabase, 'google', purchaseToken, userId);
+
+  // Encrypt the purchase token at rest + hash it for dedup (was a plaintext TODO).
+  const receipt_data_encrypted = await encryptReceipt(purchaseToken, Deno.env.get('RECEIPT_ENCRYPTION_KEY'));
+  const receipt_hash = await receiptHash(purchaseToken);
+
   // Upsert subscription
   const { error: upsertError } = await supabase
     .from('subscriptions')
@@ -213,19 +226,25 @@ async function updateSubscription(
       user_id: userId,
       platform: 'google',
       platform_subscription_id: verification.subscriptionId,
+      original_transaction_id: purchaseToken,
+      receipt_hash,
       status,
       tier: 'standard',
       interval,
       subscription_start_date: now,
       subscription_end_date: verification.expiresDate,
       last_receipt_verified: now,
-      receipt_data_encrypted: purchaseToken, // TODO: Encrypt this
+      receipt_data_encrypted,
       updated_at: now,
     }, {
       onConflict: 'user_id'
     });
 
   if (upsertError) {
+    // uniq_txn_per_platform is the TOCTOU backstop behind the ownership check.
+    if (isUniqueViolation(upsertError)) {
+      throw new ReceiptReplayError('google', purchaseToken);
+    }
     throw new Error(`Failed to update subscription: ${upsertError.message}`);
   }
 
@@ -359,7 +378,24 @@ serve(async (req) => {
 
     if (verification.valid) {
       // Update subscription in database
-      await updateSubscription(supabase, authUid, verification, purchaseToken);
+      try {
+        await updateSubscription(supabase, authUid, verification, purchaseToken);
+      } catch (err) {
+        if (err instanceof ReceiptReplayError) {
+          console.warn('[Google Receipt Verification] Replay rejected for user:', authUid);
+          await supabase.rpc('log_subscription_event', {
+            p_user_id: authUid,
+            p_subscription_id: null,
+            p_event_type: 'receipt_verification_failed',
+            p_metadata: { platform: 'google', reason: 'txn_bound_to_other_user', timestamp: new Date().toISOString() },
+          });
+          return new Response(
+            JSON.stringify({ valid: false, error: 'Receipt already bound to another account' }),
+            { status: 409, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
+        throw err;
+      }
 
       console.log('[Google Receipt Verification] Success:', verification.subscriptionId);
 

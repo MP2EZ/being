@@ -9,8 +9,9 @@
 | Field | Value |
 |---|---|
 | Document title | Data Protection Impact Assessment — Sensitive Wellness Data |
-| Version | 1.1 |
+| Version | 1.3 |
 | Effective date | 2026-05-24 |
+| Last amended | 2026-06-08 (INFRA-260 — see §9 change log) |
 | Next scheduled review | 2027-05-24 |
 | Owner | Palouse Labs LLC (sole proprietor) — responsibility is non-delegable |
 | Application | Being (Stoic Mindfulness wellness app) |
@@ -113,7 +114,7 @@ Scored on a qualitative 3×3 likelihood × impact matrix (Low / Med / High). "Pr
 
 **Scenario 3 — Cloud backup breach.** Optional cloud backups are stored as opaque encrypted blobs in the `encrypted_backups` table. The decryption key never leaves the user's device. Supabase Row-Level Security prevents cross-user access at the database layer (see `docs/security/supabase-rls-verification.md`, Encrypted Backups Table within RLS Policy Analysis). Even in the event of a full Supabase compromise, attacker yield is encrypted blobs without accompanying keys. Residual: Low.
 
-**Scenario 4 — Sentry telemetry leakage.** React Native error boundaries can capture local variable state into error payloads. Production mitigations: a `beforeSend` hook in `app/src/core/services/logging/ExternalErrorReporter.ts` (line 226) sanitizes every event before transmission via the `scrubPHI` path (line 333); sensitive-data variables are never passed into log lines or exception messages by convention. Defense-in-depth for the development environment: the dev-environment Sentry DSN is empty (configured in `app/src/core/config/env.ts`), so a developer's local debugging cannot transmit at all — this is a developer-side safeguard, not a production control. Residual: Low. This scenario warrants explicit attention at every annual review since the React Native error-boundary surface area can grow with new features.
+**Scenario 4 — Sentry telemetry leakage.** React Native error boundaries can capture local variable state into error payloads. Production mitigations: a `beforeSend` hook in `app/src/core/services/logging/ExternalErrorReporter.ts` (line 226) sanitizes every event before transmission via a dedicated wellness-data scrubbing path (line 333); sensitive-data variables are never passed into log lines or exception messages by convention. Defense-in-depth for the development environment: the dev-environment Sentry DSN is empty (configured in `app/src/core/config/env.ts`), so a developer's local debugging cannot transmit at all — this is a developer-side safeguard, not a production control. Residual: Low. This scenario warrants explicit attention at every annual review since the React Native error-boundary surface area can grow with new features.
 
 ---
 
@@ -128,13 +129,13 @@ This table inventories the controls in place and cites the authoritative referen
 | 3 | Biometric / passcode authentication for sensitive data views | `docs/security/security-architecture.md` | §3 Biometric Authentication Implementation |
 | 4 | Auto-timeout and session lock | `docs/security/security-architecture.md` | §4 Auto-Timeout and Session Management |
 | 5 | TLS 1.2+ in transit | `docs/legal/privacy-policy.md` | §4.3 Security Measures |
-| 6 | Row-Level Security on all Supabase tables containing user data | `docs/security/supabase-rls-verification.md` | RLS Policy Analysis (all five tables) |
+| 6 | Row-Level Security on all Supabase tables containing user data — keyed on `auth.uid()` and **runtime-enforced** (INFRA-260). The prior `device_id`-GUC policies were SQL-editor-verified only and inert on the runtime path; INFRA-260 re-verified isolation via the authenticated API path with `WITH CHECK` on writes. | `docs/security/supabase-rls-verification.md` v2.0 | RLS Policy Analysis (all five tables) + Runtime Verification |
 | 7 | End-to-end encrypted backup blobs (decryption key never leaves the device) | `docs/security/supabase-rls-verification.md` | RLS Policy Analysis — Encrypted Backups Table |
 | 8 | Audit logging on subscription events | `docs/security/supabase-rls-verification.md` | RLS Policy Analysis — Subscription Events Table |
 | 9 | Analytics severity-bucketing (no raw scores transmitted) | `docs/security/supabase-rls-verification.md` | RLS Policy Analysis — Analytics Events Table |
-| 10 | Sentry `beforeSend` payload scrubbing applied to every transmitted event | `app/src/core/services/logging/ExternalErrorReporter.ts` | `beforeSendHook` (line 226); `scrubPHI` (line 333) |
+| 10 | Sentry `beforeSend` payload scrubbing applied to every transmitted event | `app/src/core/services/logging/ExternalErrorReporter.ts` | `beforeSendHook` (line 226); wellness-data scrubbing (line 333) |
 | 11 | Sentry disabled in development environment via empty DSN (defense-in-depth) | `app/src/core/config/env.ts` | `EXPO_PUBLIC_SENTRY_DSN` handling |
-| 12 | Secure data export and complete data deletion | `docs/security/security-architecture.md` | §5 Secure Export Mechanisms; §6 Complete Data Deletion |
+| 12 | Secure data export and complete data deletion — on-device wipe plus, post-INFRA-260, server-side erasure: the `delete-account` edge function hard-deletes the user's `auth.users` row and the FK `ON DELETE CASCADE` removes every `auth.uid()`-keyed row (backups, analytics, subscriptions). | `docs/security/security-architecture.md`; `supabase/functions/delete-account` | §5 Secure Export Mechanisms; §6 Complete Data Deletion |
 | 13 | Crisis-detection telemetry: PII-free payload (no raw score, no Q9 value, no device identifier; daily-rotated anonymous `session_id`), enforced by the emitter's explicit allow-list + a DB CHECK constraint | `docs/legal/lia-crisis-telemetry.md` | §4 Safeguards |
 | 14 | Crisis-detection telemetry: durable lossless capture (enqueued at fire-time, reconciled to anonymous user on connectivity) so a first-run/offline crisis is recorded, not silently dropped; separate mandatory on-device audit log | `app/src/core/services/supabase/SupabaseService.ts` | `trackCrisisDetection` / `flushCrisisAnalytics` |
 
@@ -170,6 +171,8 @@ After applying the controls inventoried in §7, residual **likelihood** for all 
 | 1.2 | 2026-06-03 | Palouse Labs LLC | INFRA-214 T5: analytics consolidation. (1) Added crisis-detection telemetry as a new processing activity (§2, §4): the `crisis_detected` event (PHQ-9 ≥20 / Q9>0 / GAD-7 ≥15) is recorded to first-party Supabase `analytics_events` under GDPR Art. 6(1)(d)/9(2)(c) vital interests, without analytics consent, with a PII-free bucketed payload (no raw score/Q9). Full lawful-basis record: `lia-crisis-telemetry.md`. (2) Revised §6.1 Scenario 1 to reflect the two-sink model and to state explicitly that k-anonymity / differential privacy are NOT claimed (the dead engine that notionally provided them was deleted in INFRA-214). (3) Added §7 controls 13–14 (PII-free crisis payload; durable lossless capture). (4) Material-change assessment recorded below. |
 
 **INFRA-214 T5 material-change assessment (2026-06-03).** Assessed against the §1 triggers: *new derived category of sensitive wellness data* — **yes** (`crisis_detected` encodes a trigger/severity category derived from PHQ-9/GAD-7; a new processing activity within the §3 categories); *new third-party processor* — **no** (Supabase `analytics_events` is first-party, already in scope per §2/§5); *local-first architecture change* — **no** (raw PHQ-9/GAD-7 responses remain local-only; this is a server-side write of a derived category); *new jurisdiction* — **no**. **Conclusion:** the revise-trigger is met; this v1.2 amendment is the required pre-activity assessment under TDPSA §541.105(a), CPA §6-1-1309, VCDPA §59.1-580, and CTDPA §6. **Founder self-certification** suffices pre-launch (no EU/EEA base near the §10 500-user threshold); counsel review of the Art. 6(1)(d)/9(2)(c) basis is required before that threshold per §10.
+
+| 1.3 | 2026-06-08 | Palouse Labs LLC | INFRA-260: identity hardening + control-status correction. (1) **Control 6 correction** — the device-hash RLS credited as a *live* isolation control in v1.0–v1.2 was SQL-editor-verified only and inert on the runtime path (the app never set the `app.device_id` GUC). INFRA-260 replaced it with a Supabase anonymous session so `auth.uid()` is non-null, rewrote all policies to key on it with `WITH CHECK` on writes, and re-verified isolation against the runtime API path (`supabase-rls-verification.md` v2.0). Control 6 is now genuinely live. (2) Control 12 extended: server-side erasure (`delete-account` → `auth.admin.deleteUser` → FK cascade) now backs the right-to-deletion. (3) Subscription receipts encrypted at rest (AES-256-GCM) + IAP transactions bound to one `auth.uid()`. **Material-change assessment:** NOT a §1 trigger — no new data category, no new processor, no local-first change, no new jurisdiction. This is a control-status correction (a credited mitigation made genuinely effective) + a security improvement, not a new processing activity. Founder self-certification. |
 
 ---
 
