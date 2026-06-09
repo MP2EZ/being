@@ -6,7 +6,7 @@
  * - <3 taps to 988 crisis line regardless of app state
  * - Automatic error reporting for clinical safety
  * - Graceful degradation while preserving therapeutic value
- * - Privacy-compliant error logging without PHI exposure
+ * - Privacy-compliant error logging without wellness-data exposure
  * 
  * ERROR SCENARIOS HANDLED:
  * - Assessment component crashes
@@ -160,11 +160,11 @@ export class CrisisErrorBoundary extends Component<
   }
 
   /**
-   * Privacy-compliant error reporting (no PHI exposure)
+   * Privacy-compliant error reporting (no wellness-data exposure)
    */
   private reportError(error: Error, errorInfo: ErrorInfo) {
     try {
-      // Sanitize error data to remove any potential PHI
+      // Sanitize error data to remove any potential wellness data
       const sanitizedError = {
         message: error.message.replace(/\b\d{3}-\d{2}-\d{4}\b/g, '[SSN]'), // Remove SSN patterns
         stack: error.stack?.split('\n').slice(0, 5).join('\n'), // Limit stack trace
