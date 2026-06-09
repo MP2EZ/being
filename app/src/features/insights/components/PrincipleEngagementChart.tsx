@@ -95,27 +95,27 @@ const PRINCIPLE_METADATA: Record<StoicPrinciple, { name: string; shortName: stri
   aware_presence: {
     name: 'Aware Presence',
     shortName: 'Presence',
-    color: '#FF9F43', // Morning primary (warm orange)
+    color: colorSystem.principles.awarePresence, // warm orange
   },
   radical_acceptance: {
     name: 'Radical Acceptance',
     shortName: 'Acceptance',
-    color: '#6C5CE7', // Purple (contemplative)
+    color: colorSystem.principles.radicalAcceptance, // brand-family purple (MAINT-253)
   },
   sphere_sovereignty: {
     name: 'Sphere Sovereignty',
     shortName: 'Sovereignty',
-    color: '#00CEC9', // Teal (control/clarity)
+    color: colorSystem.principles.sphereSovereignty, // teal (control/clarity)
   },
   virtuous_response: {
     name: 'Virtuous Response',
     shortName: 'Virtue',
-    color: '#E17055', // Evening primary (warm coral)
+    color: colorSystem.principles.virtuousResponse, // coral (virtue)
   },
   interconnected_living: {
     name: 'Interconnected Living',
     shortName: 'Connection',
-    color: '#00B894', // Green (growth/community)
+    color: colorSystem.principles.interconnectedLiving, // green (growth/community)
   },
 };
 
@@ -589,13 +589,13 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.semibold,
     color: semantic.text.primary,
   },
-  // FEAT-133: Beginner Tip styles (light purple tint with left border)
+  // FEAT-133: Beginner Tip styles (soft brand-purple callout) — MAINT-253: brand Learn-theme tokens
   beginnerTipContainer: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: 'rgba(108, 92, 231, 0.08)', // Light purple tint
+    backgroundColor: colorSystem.themes.learn.background, // light purple tint
     borderLeftWidth: 3,
-    borderLeftColor: '#6C5CE7', // Purple
+    borderLeftColor: colorSystem.themes.learn.primary, // brand purple
     borderRadius: borderRadius.small,
     padding: spacing[12],
     marginTop: spacing[12],
@@ -609,7 +609,7 @@ const styles = StyleSheet.create({
     width: 18,
     height: 18,
     borderRadius: 9,
-    backgroundColor: '#6C5CE7',
+    backgroundColor: colorSystem.themes.learn.primary, // brand purple (MAINT-253)
     color: colorSystem.base.white,
     fontSize: 12,
     fontWeight: typography.fontWeight.bold,

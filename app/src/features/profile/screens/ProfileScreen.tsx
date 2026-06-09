@@ -24,6 +24,7 @@ import { useSubscriptionStore } from '@/core/stores/subscriptionStore';
 import { isDevMode } from '@/core/constants/devMode';
 import { MaterialDesignIcons } from '@react-native-vector-icons/material-design-icons';
 import ThresholdEducationModal from '@/core/components/ThresholdEducationModal';
+import { BodyHeader } from '@/core/components/BodyHeader';
 import { useAssessmentStore } from '@/features/assessment/stores/assessmentStore';
 import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
 import { useAnalytics } from '@/core/analytics';
@@ -183,18 +184,13 @@ const ProfileScreen: React.FC = () => {
         </View>
       )}
       <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
-        <View style={styles.header}>
-          <Text
-            style={styles.title}
-            accessibilityRole="header"
-            accessibilityLevel={1}
-          >
-            Your Profile
-          </Text>
-          <Text style={styles.subtitle}>
-            Personalize your Being. experience
-          </Text>
-        </View>
+        {/* MAINT-257: shared BodyHeader idiom — now left-aligned to match
+            Learn/Insights (Home is the sole centered brand exception). */}
+        <BodyHeader
+          title="Your Profile"
+          subtitle="Personalize your Being. experience"
+          containerStyle={styles.header}
+        />
 
         {/* FEAT-209 H3/L2: Wellbeing Check-ins promoted to the top — assessments
             are the most common reason users open Profile. L3: the scoring-education
@@ -457,23 +453,9 @@ const styles = StyleSheet.create({
     padding: spacing[24],
     paddingBottom: spacing[32],
   },
+  // MAINT-257: left-aligned (alignItems removed) to match the shared idiom.
   header: {
     marginBottom: spacing[32],
-    alignItems: 'center',
-  },
-  title: {
-    fontSize: typography.headline2.size,
-    fontWeight: typography.fontWeight.bold,
-    color: colorSystem.base.midnightBlue,
-    marginBottom: spacing[8],
-    textAlign: 'center',
-  },
-  subtitle: {
-    fontSize: typography.bodyLarge.size,
-    fontWeight: typography.fontWeight.regular,
-    color: colorSystem.gray[600],
-    textAlign: 'center',
-    lineHeight: 24,
   },
   section: {
     marginBottom: spacing[32],

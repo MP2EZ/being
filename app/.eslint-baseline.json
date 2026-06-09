@@ -120,6 +120,7 @@
   "src/features/crisis/types/__tests__/crisis-thresholds.test.ts": 1,
   "src/features/crisis/types/safety.ts": 1,
   "src/features/crisis/utils/__tests__/openCrisisUrl.test.ts": 1,
+  "src/features/home/screens/__tests__/CleanHomeScreen.accessibility.test.tsx": 1,
   "src/features/insights/components/__tests__/SessionNoteComposer.test.tsx": 1,
   "src/features/insights/components/__tests__/WellnessScreeningTrends.notes.test.tsx": 1,
   "src/features/insights/components/__tests__/WellnessScreeningTrends.test.tsx": 1,
