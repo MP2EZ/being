@@ -1,7 +1,7 @@
 /**
  * ENCRYPTION SERVICE - DRD-FLOW-005 Security Implementation
  *
- * COMPREHENSIVE ENCRYPTION FOR MENTAL HEALTH DATA:
+ * COMPREHENSIVE ENCRYPTION FOR WELLNESS DATA:
  * - End-to-end encryption for PHQ-9/GAD-7 assessment responses
  * - Crisis intervention data protection with AES-256-GCM
  * - Key derivation and management with PBKDF2
@@ -15,7 +15,7 @@
  * - Perfect forward secrecy with ephemeral keys
  * - Memory-safe key handling and cleanup
  *
- * MENTAL HEALTH DATA CATEGORIES:
+ * WELLNESS DATA CATEGORIES:
  * - Level 1: PHQ-9/GAD-7 responses (highest security)
  * - Level 2: Crisis intervention metadata
  * - Level 3: Performance and audit data
@@ -143,7 +143,7 @@ export interface EncryptionPerformanceMetrics {
 
 /**
  * COMPREHENSIVE ENCRYPTION SERVICE
- * Handles all mental health data encryption requirements
+ * Handles all wellness data encryption requirements
  */
 export class EncryptionService {
   private static instance: EncryptionService;
@@ -312,7 +312,7 @@ export class EncryptionService {
   }
 
   /**
-   * ENCRYPT MENTAL HEALTH DATA
+   * ENCRYPT WELLNESS DATA
    * Encrypts sensitive data with appropriate security level
    */
   public async encryptData(
@@ -417,7 +417,7 @@ export class EncryptionService {
   }
 
   /**
-   * DECRYPT MENTAL HEALTH DATA
+   * DECRYPT WELLNESS DATA
    * Decrypts data with verification and integrity checking
    */
   public async decryptData(

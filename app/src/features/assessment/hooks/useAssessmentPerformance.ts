@@ -1,7 +1,7 @@
 /**
- * Assessment Performance Hook - Week 3 Enhanced Performance Monitoring
+ * Assessment Performance Hook - Enhanced Performance Monitoring
  *
- * ENHANCED PERFORMANCE TARGETS (Week 3):
+ * ENHANCED PERFORMANCE TARGETS:
  * - Crisis detection: <50ms (enhanced from <200ms)
  * - Assessment response: <200ms (enhanced from <300ms)
  * - Memory usage: <150MB during extended sessions
@@ -22,7 +22,7 @@ import { generateTimestampedId } from '@/core/utils/id';
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { Alert, AppState, AppStateStatus } from 'react-native';
 
-// Import Week 3 Performance Optimizers
+// Import Performance Optimizers
 import { CrisisPerformanceOptimizer } from '@/core/services/performance/CrisisPerformanceOptimizer';
 import { AssessmentFlowOptimizer } from '@/core/services/performance/AssessmentFlowOptimizer';
 import { MemoryOptimizer } from '@/core/services/performance/MemoryOptimizer';
@@ -96,12 +96,12 @@ interface UseAssessmentPerformanceReturn {
   getPerformanceReport: () => string;
   resetMetrics: () => void;
 
-  // Week 3 Enhanced Methods
+  // Enhanced Methods
   validatePerformanceTargets: () => boolean;
   getPerformanceSummary: () => any;
 }
 
-// Enhanced Week 3 clinical safety thresholds
+// Enhanced clinical safety thresholds
 const PERFORMANCE_THRESHOLDS: PerformanceThresholds = {
   crisisDetection: 50,   // <50ms for enhanced crisis safety (Week 3 target)
   assessment: 200,       // <200ms for enhanced therapeutic flow (Week 3 target)
@@ -111,7 +111,7 @@ const PERFORMANCE_THRESHOLDS: PerformanceThresholds = {
   network: 1000,        // <1s network operations
 };
 
-// Enhanced Week 3 performance budget allocations
+// Enhanced performance budget allocations
 const PERFORMANCE_BUDGETS = [
   { operation: 'Crisis Detection', allocated: 50 },   // Enhanced target
   { operation: 'Assessment Response', allocated: 200 }, // Enhanced target
@@ -160,7 +160,7 @@ export const useAssessmentPerformance = (): UseAssessmentPerformanceReturn => {
   // Memory monitoring
   const memoryMonitor = useRef<NodeJS.Timeout | null>(null);
 
-  // Initialize Week 3 Performance Systems
+  // Initialize Performance Systems
   useEffect(() => {
     const initializePerformanceSystems = async () => {
       try {
@@ -318,7 +318,7 @@ export const useAssessmentPerformance = (): UseAssessmentPerformanceReturn => {
     return duration;
   }, [updateMetrics]);
 
-  // Enhanced crisis detection with Week 3 optimizations
+  // Enhanced crisis detection
   const recordCrisisDetection = useCallback(async (detectionTime: number, assessmentData?: any) => {
     // Use optimized crisis detection if assessment data is provided
     if (assessmentData) {
@@ -337,7 +337,7 @@ export const useAssessmentPerformance = (): UseAssessmentPerformanceReturn => {
           crisisDetectedCount: metrics.crisisDetectedCount + 1
         });
 
-        // Enhanced safety validation with Week 3 targets
+        // Enhanced safety validation
         if (actualDetectionTime > PERFORMANCE_THRESHOLDS.crisisDetection) {
           logError(LogCategory.SYSTEM, `Crisis detection time: ${actualDetectionTime}ms (CRITICAL THRESHOLD EXCEEDED - Week 3 target: <${PERFORMANCE_THRESHOLDS.crisisDetection}ms)`);
           setAlertLevel('critical');
@@ -470,7 +470,7 @@ export const useAssessmentPerformance = (): UseAssessmentPerformanceReturn => {
     return generatePerformanceReport();
   }, [generatePerformanceReport]);
 
-  // Week 3 Performance Validation
+  // Performance Validation
   const validatePerformanceTargets = useCallback(async () => {
     try {
       console.log('🎯 Running Week 3 performance validation...');
@@ -601,7 +601,7 @@ export const useAssessmentPerformance = (): UseAssessmentPerformanceReturn => {
     prioritizeAssessment,
     getPerformanceReport,
     resetMetrics,
-    // Week 3 Enhanced Methods
+    // Enhanced Methods
     validatePerformanceTargets: validatePerformanceTargets as any,
     getPerformanceSummary,
   };

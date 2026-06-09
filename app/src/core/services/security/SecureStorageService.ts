@@ -202,7 +202,7 @@ export interface StorageAccessLogEntry {
 
 /**
  * COMPREHENSIVE SECURE STORAGE SERVICE
- * Handles all mental health data storage with appropriate security levels
+ * Handles all wellness data storage with appropriate security levels
  */
 export class SecureStorageService {
   private static instance: SecureStorageService;

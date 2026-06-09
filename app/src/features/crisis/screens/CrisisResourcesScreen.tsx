@@ -10,7 +10,7 @@
  * - Crisis detection context-aware display
  *
  * COMPLIANCE:
- * - Privacy: No PHI transmitted to external services
+ * - Privacy: No wellness data transmitted to external services
  * - Terms: User acknowledges referral-only service
  * - Accessibility: WCAG AA compliant
  */
