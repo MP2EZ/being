@@ -560,12 +560,12 @@ const styles = StyleSheet.create({
   barTrack: {
     height: 8,
     backgroundColor: colorSystem.gray[200],
-    borderRadius: 4,
+    borderRadius: borderRadius.small,
     overflow: 'hidden',
   },
   barFill: {
     height: '100%',
-    borderRadius: 4,
+    borderRadius: borderRadius.small,
   },
   summaryText: {
     fontSize: typography.bodySmall.size,
@@ -583,6 +583,9 @@ const styles = StyleSheet.create({
     fontSize: typography.bodySmall.size,
     color: colorSystem.gray[700],
     textAlign: 'center',
+    // MAINT-224: absolute lineHeight literals (here and below) left as-is — DS gap.
+    // The design system has no standalone line-height token scale (typography variants
+    // expose only unitless multipliers), so these are not forced onto another token.
     lineHeight: 20,
   },
   insightPrincipleName: {
@@ -608,10 +611,10 @@ const styles = StyleSheet.create({
   beginnerTipIcon: {
     width: 18,
     height: 18,
-    borderRadius: 9,
+    borderRadius: borderRadius.full,
     backgroundColor: colorSystem.themes.learn.primary, // brand purple (MAINT-253)
     color: colorSystem.base.white,
-    fontSize: 12,
+    fontSize: typography.micro.size,
     fontWeight: typography.fontWeight.bold,
     textAlign: 'center',
     lineHeight: 18,
@@ -628,7 +631,7 @@ const styles = StyleSheet.create({
     padding: spacing[4],
   },
   beginnerTipDismissText: {
-    fontSize: 18,
+    fontSize: typography.bodyLarge.size,
     color: colorSystem.gray[500],
     fontWeight: typography.fontWeight.light,
   },
