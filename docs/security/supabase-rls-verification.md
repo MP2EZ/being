@@ -1,487 +1,204 @@
 # Supabase Row-Level Security (RLS) Verification
 
-**Work Item**: MAINT-116
-**Created**: 2025-12-13
-**Status**: VERIFIED
+**Work Item**: INFRA-260 (supersedes MAINT-116)
+**Last verified**: 2026-06-08
+**Status**: VERIFIED — runtime-enforced
 
 ---
 
 ## Executive Summary
 
-This document provides comprehensive verification of Row-Level Security (RLS) policies on all Supabase tables containing user data. All tables have been audited to ensure users cannot access each other's sensitive health data through API manipulation.
+This document verifies Row-Level Security (RLS) on all Supabase tables containing
+user data. It verifies user isolation against the **runtime application path**, not
+just the SQL editor.
 
-### Verification Result: PASS
+### Correction over the prior (MAINT-116) verification
 
-All 5 user data tables have:
-- RLS enabled
-- Policies enforcing user isolation via device_id
-- No tables with disabled RLS containing user data
+The 2025-12-13 verification marked RLS "PASS", but it only ever exercised policies
+via `SET LOCAL app.device_id = …` in the SQL editor. The app **never set that GUC**
+on a real request, so at runtime `current_setting('app.device_id', true)` was always
+NULL and every policy evaluated `device_id = NULL` → matched nothing. RLS was enabled
+but **operationally inert**: isolation was not actually enforced on the runtime path.
+The DPIA (§7 Control 6) had credited this as a *live* mitigation — it was not.
+
+### What changed (INFRA-260 / MAINT-226 T0b)
+
+The device-hash identity was replaced with a real Supabase **anonymous session**
+(`signInAnonymously`). `auth.uid()` is now a non-null per-user principal on every
+request, set by PostgREST from the JWT `sub` claim — no app-layer `SET LOCAL`. All
+policies were rewritten to key on `auth.uid()`, split into explicit verbs with
+`WITH CHECK` on writes. `users.id` **is** `auth.uid()` (FK → `auth.users`), and an
+`on_auth_user_created` trigger provisions the `public.users` row on sign-in.
+
+### Verification Result: PASS (runtime)
+
+Verified by a committed, reproducible SQL suite
+(`supabase/tests/infra260_rls_negative.sql`) run against a real Postgres + GoTrue
+stack, asserting policy behavior via `request.jwt.claims` (what `auth.uid()` reads at
+runtime). See **Runtime Verification** below for the verbatim result.
 
 ---
 
 ## Table Inventory
 
-### Tables with User Data (All RLS Enabled)
+| Table | RLS | Policy key | Data sensitivity |
+|-------|-----|-----------|------------------|
+| `users` | ENABLED | `id = auth.uid()` | Low (anonymous; id == auth principal) |
+| `encrypted_backups` | ENABLED | `user_id = auth.uid()` | HIGH (encrypted wellness data) |
+| `analytics_events` | ENABLED | `user_id = auth.uid()` | Low (bucketed metrics; no raw scores) |
+| `subscriptions` | ENABLED | `user_id = auth.uid()` | MEDIUM (subscription transaction history) |
+| `subscription_events` | ENABLED | `user_id = auth.uid()` | MEDIUM (subscription transaction history) |
 
-| Table | RLS Status | Policy | Data Sensitivity |
-|-------|------------|--------|------------------|
-| `users` | ENABLED | device_id match | Low (anonymous) |
-| `encrypted_backups` | ENABLED | user_id via device_id | HIGH (encrypted PHI) |
-| `analytics_events` | ENABLED | user_id via device_id | Low (anonymous metrics) |
-| `subscriptions` | ENABLED | user_id via device_id | MEDIUM (treated as PHI) |
-| `subscription_events` | ENABLED | user_id via device_id | MEDIUM (audit log) |
+### Tables NOT in Supabase (local only)
 
-### Tables NOT in Supabase (Local Only)
-
-The following tables mentioned in technical notes do NOT exist in Supabase because they use **encrypted blob storage** (client-side encryption):
-
-- `check_ins` - Stored locally, encrypted in `encrypted_backups` blob
-- `assessments` - Stored locally, encrypted in `encrypted_backups` blob
-- `crisis_plans` - Stored locally, encrypted in `encrypted_backups` blob
-- `user_profiles` - Stored locally, encrypted in `encrypted_backups` blob
-
-This is the correct privacy-first approach where Supabase acts as a pass-through for encrypted blobs and has no ability to decrypt contents.
+`check_ins`, `assessments`, `crisis_plans`, `user_profiles` do not exist server-side —
+they are client-encrypted and, when synced, live inside the `encrypted_backups` blob.
+Supabase cannot decrypt their contents (no server-side keys).
 
 ---
 
-## RLS Policy Analysis
+## RLS Policy Analysis (post-INFRA-260)
 
-### 1. Users Table
-
-```sql
-ALTER TABLE users ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Users can only access own data"
-  ON users
-  FOR ALL
-  USING (device_id = current_setting('app.device_id', true));
-```
-
-**Analysis**:
-- Policy applies to ALL operations (SELECT, INSERT, UPDATE, DELETE)
-- Uses `current_setting('app.device_id', true)` - the `true` parameter returns NULL if setting doesn't exist (prevents errors)
-- Direct device_id comparison - efficient single-column check
-- **Risk**: If `app.device_id` is not set, policy evaluates to `device_id = NULL` which returns no rows (secure default)
-
-**Verification**: PASS
-
-### 2. Encrypted Backups Table
+Every write-capable policy carries `WITH CHECK (… = auth.uid())` so a client cannot
+insert/update a row bearing another principal's id. `FOR ALL` was deliberately split
+into explicit verbs so DELETE is granted or withheld per table.
 
 ```sql
-ALTER TABLE encrypted_backups ENABLE ROW LEVEL SECURITY;
+-- users (the row id IS the principal)
+CREATE POLICY users_select ON users FOR SELECT USING (id = auth.uid());
+CREATE POLICY users_insert ON users FOR INSERT WITH CHECK (id = auth.uid());
+CREATE POLICY users_update ON users FOR UPDATE USING (id = auth.uid()) WITH CHECK (id = auth.uid());
 
-CREATE POLICY "Users can only access own backups"
-  ON encrypted_backups
-  FOR ALL
-  USING (user_id = (
-    SELECT id FROM users
-    WHERE device_id = current_setting('app.device_id', true)
-  ));
+-- encrypted_backups (own row only; DELETE allowed — re-backup + erasure)
+CREATE POLICY backups_select ON encrypted_backups FOR SELECT USING (user_id = auth.uid());
+CREATE POLICY backups_insert ON encrypted_backups FOR INSERT WITH CHECK (user_id = auth.uid());
+CREATE POLICY backups_update ON encrypted_backups FOR UPDATE USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+CREATE POLICY backups_delete ON encrypted_backups FOR DELETE USING (user_id = auth.uid());
+
+-- analytics_events (SELECT + INSERT only; client DELETE withheld — crisis-audit integrity)
+CREATE POLICY analytics_select ON analytics_events FOR SELECT USING (user_id = auth.uid());
+CREATE POLICY analytics_insert ON analytics_events FOR INSERT WITH CHECK (user_id = auth.uid());
+
+-- subscriptions / subscription_events (own rows only)
+CREATE POLICY subscriptions_select ON subscriptions FOR SELECT USING (user_id = auth.uid());
+CREATE POLICY subscriptions_insert ON subscriptions FOR INSERT WITH CHECK (user_id = auth.uid());
+CREATE POLICY subscriptions_update ON subscriptions FOR UPDATE USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+CREATE POLICY subscription_events_select ON subscription_events FOR SELECT USING (user_id = auth.uid());
+CREATE POLICY subscription_events_insert ON subscription_events FOR INSERT WITH CHECK (user_id = auth.uid());
 ```
 
-**Analysis**:
-- Subquery lookup ensures user_id matches authenticated device_id
-- If subquery returns NULL (device not found), comparison fails safely
-- Double-layer protection: RLS + server has no decryption keys
+**`auth.uid()` is NULL for the bare `anon` (unauthenticated) role** → every policy
+fails closed (0 rows). Broad `anon` grants on these tables are revoked; the anonymous
+*session* runs as the `authenticated` role and keeps the existing grants.
 
-**Verification**: PASS
-
-### 3. Analytics Events Table
-
-```sql
-ALTER TABLE analytics_events ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Users can only access own analytics"
-  ON analytics_events
-  FOR ALL
-  USING (user_id = (
-    SELECT id FROM users
-    WHERE device_id = current_setting('app.device_id', true)
-  ));
-```
-
-**Analysis**:
-- Same pattern as encrypted_backups
-- Analytics are privacy-preserving (severity buckets only, no actual scores)
-- Even if accessed, no PHI present
-
-**Verification**: PASS
-
-### 4. Subscriptions Table
-
-```sql
-ALTER TABLE subscriptions ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Users can only access own subscription"
-  ON subscriptions
-  FOR ALL
-  USING (user_id = (
-    SELECT id FROM users
-    WHERE device_id = current_setting('app.device_id', true)
-  ));
-```
-
-**Analysis**:
-- Subscription metadata is treated as PHI (correlates with mental health data)
-- Same user isolation pattern
-- Crisis access hardcoded to TRUE (never gated by subscription)
-
-**Verification**: PASS
-
-### 5. Subscription Events Table
-
-```sql
-ALTER TABLE subscription_events ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Users can only access own subscription events"
-  ON subscription_events
-  FOR ALL
-  USING (user_id = (
-    SELECT id FROM users
-    WHERE device_id = current_setting('app.device_id', true)
-  ));
-```
-
-**Analysis**:
-- Audit log for subscription lifecycle
-- User can only see their own subscription events
-- Provides transparency for billing audit trail
-
-**Verification**: PASS
+Source: `app/src/core/services/supabase/schema.sql` + migration
+`supabase/migrations/20260607120000_auth_uid_rls.sql`.
 
 ---
 
-## Security Definer Functions Analysis
+## SECURITY DEFINER functions
 
-Functions with `SECURITY DEFINER` run with elevated privileges and can bypass RLS. These require careful review:
+`SECURITY DEFINER` functions bypass RLS and need review.
 
-### 1. get_or_create_user(device_id_hash TEXT)
+- **`handle_new_auth_user()`** *(new, INFRA-260)* — `AFTER INSERT ON auth.users`
+  trigger; inserts the matching `public.users` row (`id = NEW.id`). `search_path`
+  pinned to `public`; `ON CONFLICT DO NOTHING`. Only ever writes the caller's own id.
+  **SAFE.**
+- **`get_or_create_user(device_id)`** — **REMOVED** in INFRA-260 (identity is no
+  longer device-hash-minted).
+- **`log_subscription_event(...)`** — insert-only audit logging called by the receipt
+  edge functions; ownership-validates `subscription_id` against `user_id`. **SAFE.**
+- **Subscription expiry functions** (`get_expiring_trials`, `expire_old_trials`, …) —
+  server-side cron automation; minimal data; no user-facing endpoint. **SAFE.**
 
-```sql
-CREATE OR REPLACE FUNCTION get_or_create_user(device_id_hash TEXT)
-RETURNS UUID
-LANGUAGE plpgsql
-SECURITY DEFINER
-```
-
-**Purpose**: Creates new user or returns existing user_id for device
-**RLS Bypass**: INTENTIONAL - Required for user registration
-**Risk Assessment**: LOW
-- Only creates users with provided device_id
-- Cannot access other users' data
-- No sensitive data returned (only UUID)
-
-**Verification**: SAFE
-
-### 2. log_subscription_event(...)
-
-```sql
-CREATE OR REPLACE FUNCTION log_subscription_event(
-  p_user_id UUID,
-  p_subscription_id UUID,
-  p_event_type TEXT,
-  p_metadata JSONB DEFAULT '{}'
-)
-SECURITY DEFINER
-```
-
-**Purpose**: Creates subscription audit log entries
-**RLS Bypass**: INTENTIONAL - Server-side event logging
-**Risk Assessment**: LOW
-- Only inserts, no reads
-- Called by Edge Functions with validated user context
-- Cannot read other users' data
-
-**Verification**: SAFE
-
-### 3. Expiration Functions
-
-- `get_expiring_trials(days_until_expiry INTEGER)`
-- `get_expiring_grace_periods(days_until_expiry INTEGER)`
-- `expire_old_trials()`
-- `expire_grace_periods()`
-
-**Purpose**: Cron job automation for subscription lifecycle
-**RLS Bypass**: INTENTIONAL - Server-side automation
-**Risk Assessment**: LOW
-- Only accessible via cron job with CRON_SECRET
-- No user-facing endpoint
-- Returns minimal data (user_id only)
-
-**Verification**: SAFE
+Note: the receipt-verification edge functions use the **service-role** key (bypassing
+RLS). Their per-user guarantee (one IAP transaction → one `auth.uid()`) is enforced by
+a DB UNIQUE index (`uniq_txn_per_platform`) + an in-function ownership check, not RLS
+(INFRA-260 PR2). The `delete-account` function (PR3) likewise uses the admin API and
+deletes only the JWT-verified caller's `auth.uid()`.
 
 ---
 
-## Cross-User Access Test Cases
+## Runtime Verification
 
-### Test Suite: RLS Policy Enforcement
+Reproducible suite (committed): `supabase/tests/infra260_rls_negative.sql`. It seeds two
+anonymous principals, sets `request.jwt.claims` (the value `auth.uid()` reads at
+runtime — NOT `SET LOCAL app.device_id`) and asserts isolation via real table access.
 
-These SQL queries can be run in Supabase SQL Editor to verify RLS:
-
-```sql
--- =====================================================
--- RLS VERIFICATION TEST CASES
--- Run these in Supabase SQL Editor as authenticated user
--- =====================================================
-
--- SETUP: Create two test users
--- (Run as service role first to set up test data)
-
--- Test User A
-SET LOCAL app.device_id = 'a'.repeat(64); -- 64-char hex hash
-SELECT get_or_create_user(repeat('a', 64)) AS user_a_id;
-
--- Test User B
-SET LOCAL app.device_id = 'b'.repeat(64);
-SELECT get_or_create_user(repeat('b', 64)) AS user_b_id;
-
--- =====================================================
--- TEST 1: Users table - Cross-user access blocked
--- =====================================================
-
--- As User A, try to read User B's data
-SET LOCAL app.device_id = repeat('a', 64);
-
--- Should return only User A's row
-SELECT COUNT(*) AS user_a_visible_count FROM users;
--- Expected: 1
-
--- Try to read all users (should be blocked by RLS)
-SELECT id, device_id FROM users WHERE device_id = repeat('b', 64);
--- Expected: 0 rows
-
--- =====================================================
--- TEST 2: Encrypted Backups - Cross-user access blocked
--- =====================================================
-
--- Create backup for User A
-INSERT INTO encrypted_backups (user_id, encrypted_data, checksum, size_bytes)
-SELECT
-  id,
-  'encrypted_data_user_a',
-  repeat('a', 64),
-  1000
-FROM users WHERE device_id = repeat('a', 64);
-
--- Switch to User B
-SET LOCAL app.device_id = repeat('b', 64);
-
--- Create backup for User B
-INSERT INTO encrypted_backups (user_id, encrypted_data, checksum, size_bytes)
-SELECT
-  id,
-  'encrypted_data_user_b',
-  repeat('b', 64),
-  1000
-FROM users WHERE device_id = repeat('b', 64);
-
--- As User B, try to read User A's backup
-SELECT COUNT(*) AS visible_backups FROM encrypted_backups;
--- Expected: 1 (only User B's backup)
-
--- Try to read by User A's user_id directly (should fail)
-SELECT * FROM encrypted_backups WHERE user_id = (
-  SELECT id FROM users WHERE device_id = repeat('a', 64)
-);
--- Expected: 0 rows (RLS blocks even with correct user_id)
-
--- =====================================================
--- TEST 3: Subscriptions - Cross-user access blocked
--- =====================================================
-
--- As User A
-SET LOCAL app.device_id = repeat('a', 64);
-
-INSERT INTO subscriptions (user_id, platform, status, interval)
-SELECT id, 'apple', 'trial', 'monthly'
-FROM users WHERE device_id = repeat('a', 64);
-
--- As User B, try to read User A's subscription
-SET LOCAL app.device_id = repeat('b', 64);
-
-SELECT COUNT(*) AS visible_subscriptions FROM subscriptions;
--- Expected: 0 (User B has no subscription)
-
--- =====================================================
--- TEST 4: No device_id set - Secure default behavior
--- =====================================================
-
--- Unset device_id (simulates unauthenticated request)
-RESET app.device_id;
-
--- All queries should return 0 rows
-SELECT COUNT(*) AS count_with_no_auth FROM users;
--- Expected: 0
-
-SELECT COUNT(*) AS backups_with_no_auth FROM encrypted_backups;
--- Expected: 0
-
-SELECT COUNT(*) AS subs_with_no_auth FROM subscriptions;
--- Expected: 0
-
--- =====================================================
--- CLEANUP
--- =====================================================
--- Run as service role to clean up test data
-DELETE FROM subscription_events;
-DELETE FROM subscriptions;
-DELETE FROM analytics_events;
-DELETE FROM encrypted_backups;
-DELETE FROM users WHERE device_id IN (repeat('a', 64), repeat('b', 64));
+Run:
+```
+supabase start && supabase db reset
+docker exec -i supabase_db_$(basename "$PWD") psql -U postgres -d postgres \
+  -v ON_ERROR_STOP=1 < supabase/tests/infra260_rls_negative.sql
 ```
 
----
+Result (2026-06-08, local stack):
+```
+PASS: on_auth_user_created provisioned public.users for both principals
+PASS: A inserted + reads its own backup
+PASS: WITH CHECK rejected A inserting a forged user_id (B)
+PASS: B sees 0 rows of A's backups
+PASS: anon role denied table access entirely (grants revoked)
+PASS: client DELETE on analytics_events affected 0 rows (no DELETE policy)
+ALL RLS NEGATIVE TESTS PASSED
+```
 
-## Security Review Checklist
+Evidence captured:
+- An unauthenticated request (no JWT) returns 0 rows (fail-closed), not an error.
+- Principal A cannot read principal B's `encrypted_backups` via the user session.
+- `WITH CHECK` rejects an insert bearing a forged `user_id` — the hole the old
+  `FOR ALL` / null-`WITH CHECK` policies left open.
+- The erasure cascade (`supabase/tests/infra260_account_deletion_cascade.sql`) and the
+  IAP replay backstop (`supabase/tests/infra260_iap_replay.sql`) pass alongside it.
 
-### RLS Configuration
-
-- [x] RLS enabled on `users` table
-- [x] RLS enabled on `encrypted_backups` table
-- [x] RLS enabled on `analytics_events` table
-- [x] RLS enabled on `subscriptions` table
-- [x] RLS enabled on `subscription_events` table
-- [x] No tables with disabled RLS contain user data
-- [x] All policies use `FOR ALL` (covers SELECT, INSERT, UPDATE, DELETE)
-
-### Policy Logic
-
-- [x] Policies use device_id for user isolation
-- [x] Subquery pattern correctly links user_id to device_id
-- [x] NULL device_id returns no rows (secure default)
-- [x] No wildcard policies (`USING (true)`) on user data tables
-
-### Security Definer Functions
-
-- [x] All SECURITY DEFINER functions reviewed
-- [x] No functions expose cross-user data access
-- [x] Insert-only functions don't read sensitive data
-- [x] Cron functions protected by CRON_SECRET
-
-### Views
-
-- [x] `free_tier_usage` - Aggregate only, no per-user data
-- [x] `analytics_summary` - Aggregate only, no per-user data
-- [x] `subscription_metrics` - Aggregate only, no per-user data
-- [x] `subscription_events_summary` - Aggregate only, no per-user data
-
-### Grants
-
-- [x] `authenticated` role has appropriate permissions
-- [x] No excessive permissions (DELETE only on encrypted_backups)
-- [x] Function execute grants are appropriate
+**Crisis-telemetry note:** `crisis_detected` events are a direct *client* insert into
+`analytics_events` under the user session, so they pass `analytics_insert`
+(`user_id = auth.uid()`). They are NOT written by the service role. The never-drop
+durable queue (INFRA-214) holds an event until a session exists, then it lands.
 
 ---
 
-## Security Best Practices Summary
-
-### Data Protection Controls
+## Data Protection Controls
 
 | Control | Implementation | Status |
 |---------|----------------|--------|
-| Access Control | RLS policies enforce user isolation | ✅ IMPLEMENTED |
-| User Identification | Device-based anonymous IDs | ✅ IMPLEMENTED |
-| Session Security | Session management in app | ✅ App-level |
-| Encryption | Client-side AES-256-GCM | ✅ IMPLEMENTED |
-| Audit Trail | subscription_events table | ✅ IMPLEMENTED |
+| Access Control | RLS policies keyed on `auth.uid()`, runtime-verified | ✅ |
+| User Identification | Supabase anonymous auth sessions (`auth.uid()`) | ✅ |
+| Write integrity | `WITH CHECK (= auth.uid())` on every INSERT/UPDATE | ✅ |
+| Session Security | JWT persisted in expo-secure-store (chunked), auto-refresh | ✅ |
+| Encryption | Client-side AES-256-GCM (backups); receipts AES-256-GCM at rest | ✅ |
+| Erasure | `delete-account` → `auth.admin.deleteUser` → FK cascade | ✅ |
 
-### Data Breach Prevention
+### Data-breach prevention
 
 | Vector | Mitigation | Status |
 |--------|------------|--------|
-| SQL Injection | Parameterized queries + RLS | PROTECTED |
-| Horizontal Privilege Escalation | RLS user isolation | PROTECTED |
-| Vertical Privilege Escalation | No admin roles exposed | PROTECTED |
-| Insecure Direct Object Reference | RLS prevents cross-user access | PROTECTED |
-
----
-
-## Security Findings
-
-### Critical Issues: 0
-### High Severity Issues: 0
-### Medium Severity Issues: 0 (1 resolved)
-### Low Severity Issues: 0 (2 resolved)
-
-#### MED-01: Subscription Event Logging Lacks Ownership Validation
-
-**Location**: `log_subscription_event()` function
-**Impact**: Incorrect audit trails if called with mismatched user_id/subscription_id
-**Likelihood**: LOW (only called by trusted Edge Functions)
-**Recommendation**: Add FK validation before INSERT
-**Status**: ✅ RESOLVED - Ownership validation added to schema.sql
-
-#### LOW-01: Missing Input Validation in get_or_create_user()
-
-**Location**: `get_or_create_user()` function
-**Impact**: Relies on constraint errors rather than explicit validation
-**Recommendation**: Add explicit format validation at function entry
-**Status**: ✅ RESOLVED - Input validation added to schema.sql
-
-#### LOW-02: No Rate Limiting on SECURITY DEFINER Functions
-
-**Location**: All SECURITY DEFINER functions
-**Impact**: Potential resource exhaustion
-**Recommendation**: Implement rate limiting at Edge Function layer
-**Status**: ✅ RESOLVED - Documentation added to supabase/README.md
-
----
-
-## Recommendations
-
-### Current Status: PRODUCTION READY ✅ (All Issues Resolved)
-
-All critical security requirements are met. All recommended improvements have been implemented.
-
-### Implemented Improvements
-
-1. ✅ **Ownership validation in log_subscription_event()** (MED-01)
-   - Added user_id/subscription_id relationship validation
-   - Location: `app/src/core/services/supabase/schema.sql`
-
-2. ✅ **Input validation in get_or_create_user()** (LOW-01)
-   - Added NULL check, length validation, and regex format check
-   - Location: `app/src/core/services/supabase/schema.sql`
-
-3. ✅ **Rate limiting documentation** (LOW-02)
-   - Documented Supabase built-in limits
-   - Added Edge Function rate limiting example
-   - Location: `supabase/README.md`
-
-### Optional Future Improvements
-
-1. **Automated RLS Testing in CI/CD**
-   - Add database migration tests that verify RLS policies
-   - Run cross-user access tests on schema changes
-
-2. **Monitoring**
-   - Add alerts for RLS policy changes
-   - Monitor for unusual query patterns
-
-3. **Policy Versioning**
-   - Track policy changes in migration history
-   - Document policy rationale in schema comments
+| Horizontal privilege escalation | `auth.uid()` RLS isolation (runtime-verified) | PROTECTED |
+| Forged `user_id` on write | `WITH CHECK (= auth.uid())` | PROTECTED |
+| IDOR | RLS denies cross-user access | PROTECTED |
+| IAP receipt replay across identities | UNIQUE `(platform, original_transaction_id)` + in-fn check | PROTECTED |
+| Forged JWT `sub` | Edge functions `verify_jwt = true` (gateway-verified) | PROTECTED |
 
 ---
 
 ## Verification Sign-off
 
-| Role | Name | Date | Signature |
-|------|------|------|-----------|
-| Security Review | Claude (Security Agent) | 2025-12-13 | ✅ APPROVED |
-| Compliance Review | Claude (Compliance Agent) | 2025-12-13 | ✅ APPROVED |
-| Technical Review | Implementation | 2025-12-13 | COMPLETE |
+| Role | Name | Date | Result |
+|------|------|------|--------|
+| Security Review | Claude (Security Agent) | 2026-06-08 | ✅ APPROVED (runtime) |
+| Compliance Review | Claude (Compliance Agent) | 2026-06-08 | ✅ APPROVED (runtime) |
 
 ---
 
 ## References
 
-- Schema Source: `app/src/core/services/supabase/schema.sql`
-- Supabase RLS Docs: https://supabase.com/docs/guides/auth/row-level-security
-- Being Security Architecture: `/docs/security/security-architecture.md`
+- Schema: `app/src/core/services/supabase/schema.sql`
+- Migrations: `supabase/migrations/20260607120000_auth_uid_rls.sql`, `…130000_iap_receipt_binding.sql`
+- Runtime tests: `supabase/tests/infra260_{rls_negative,iap_replay,account_deletion_cascade}.sql`
+- Supabase RLS docs: https://supabase.com/docs/guides/auth/row-level-security
 
 ---
 
-**Document Version**: 1.0
-**Last Updated**: 2025-12-13
-**Work Item**: MAINT-116
+**Document Version**: 2.0
+**Last Updated**: 2026-06-08
+**Work Item**: INFRA-260 (supersedes MAINT-116 v1.0)

@@ -70,8 +70,13 @@ verify_jwt = false
 enabled = true
 site_url = "exp://localhost:8081"  # Expo development URL
 additional_redirect_urls = ["exp://being.app"]
+# INFRA-260: the app's identity is a Supabase anonymous session (signInAnonymously).
+# This MUST be enabled for auth.uid() to be non-null and for RLS to enforce isolation.
+# config.toml governs the LOCAL stack; the shared project (yliycxslzdsgjtpxggtf) also
+# needs Anonymous Sign-Ins toggled ON in the dashboard (Authentication → Providers).
+enable_anonymous_sign_ins = true
 
-# Anonymous sign-in enabled (no email/password required)
+# Email signup stays disabled — no email/password accounts (no PII).
 [auth.email]
 enable_signup = false
 
