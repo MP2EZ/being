@@ -479,6 +479,30 @@ jest.mock('expo-local-authentication', () => ({
   SecurityLevel: { NONE: 0, SECRET: 1, BIOMETRIC_WEAK: 2, BIOMETRIC_STRONG: 3 },
 }));
 
+// expo-file-system (SDK 56 new API): its package entry is TypeScript src that
+// Jest's transformIgnorePatterns skips, so a bare import throws "Unexpected
+// token 'export'". Stub the File/Paths surface (FEAT-267 export path); tests
+// that exercise the write/share behavior override this with a local jest.mock.
+jest.mock('expo-file-system', () => ({
+  __esModule: true,
+  Paths: { cache: '/mock-cache', document: '/mock-document' },
+  File: jest.fn().mockImplementation((...uris) => ({
+    uri: `file:///mock-cache/${String(uris[uris.length - 1] ?? 'file')}`,
+    create: jest.fn(),
+    write: jest.fn(),
+    delete: jest.fn(),
+    exists: false,
+  })),
+  Directory: jest.fn(),
+}));
+
+// expo-sharing: native module, no-op in Jest. Local mocks override per-test.
+jest.mock('expo-sharing', () => ({
+  __esModule: true,
+  isAvailableAsync: jest.fn(() => Promise.resolve(true)),
+  shareAsync: jest.fn(() => Promise.resolve()),
+}));
+
 // react-native-aes-crypto: native TurboModule, undefined in Jest env.
 jest.mock('react-native-aes-crypto', () => ({
   __esModule: true,

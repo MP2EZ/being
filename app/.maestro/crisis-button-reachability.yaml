@@ -138,6 +138,82 @@ name: "Crisis button reaches CrisisResources from every tab"
 - tapOn:
     id: "nav-back-button"
 
+# depth-2: Privacy & Data → Export My Data (FEAT-267). The data-subject-rights
+# screens are pushed routes inside ProfileStackNavigator, so the sibling crisis
+# overlay must remain reachable on them — the exact regression a new pushed
+# subscreen risks. Placed in the Privacy menu slot (NOT appended after Legal):
+# `scrollUntilVisible direction:DOWN` is one-directional and the `tab-profile`
+# re-tap pops the stack without resetting the menu ScrollView offset, so a
+# segment whose card sits ABOVE the prior segment's would never scroll back up.
+# centerElement:true is required on these card scrolls: scrollUntilVisible
+# otherwise stops with the card at the screen's bottom edge (near the floating
+# crisis button), where the subsequent tap doesn't land cleanly enough to fire
+# navigation — it silently stays on the menu. Centering the card before the tap
+# makes the push reliable. (The existing depth-1 segments don't need this only
+# because their crisis assertion is satisfiable by the menu's own overlay.)
+- tapOn:
+    id: "tab-profile"
+- scrollUntilVisible:
+    element:
+      id: "profile-card-privacy"
+    direction: DOWN
+    centerElement: true
+- tapOn:
+    id: "profile-card-privacy"
+- scrollUntilVisible:
+    element:
+      id: "profile-card-export"
+    direction: DOWN
+    centerElement: true
+- tapOn:
+    id: "profile-card-export"
+- assertVisible:
+    id: "export-data-screen"
+- tapOn:
+    id: "crisis-profile"
+- assertVisible:
+    id: "crisis-resources-screen"
+- tapOn:
+    id: "nav-back-button"
+
+# depth-2: Privacy & Data → Delete Account (FEAT-267). The DeleteAccount
+# confirmation screen is the most crisis-sensitive surface in this feature, so
+# we assert crisis reachability HERE — landing on the confirmation screen
+# (pre-typed-confirmation) and backing out. We deliberately do NOT type DELETE
+# or press the destructive button: driving the real erasure would wipe the
+# seeded sim state. Crisis reachability is the only contract under test here.
+- tapOn:
+    id: "tab-profile"
+- scrollUntilVisible:
+    element:
+      id: "profile-card-privacy"
+    direction: DOWN
+    centerElement: true
+- tapOn:
+    id: "profile-card-privacy"
+# profile-card-delete is the BOTTOM-MOST element on the Privacy screen, so its
+# right edge sits under the always-on-top crisis button (bottom-right overlay).
+# centerElement can't center a last element (no content below to scroll past it),
+# so it never reaches 100% visibility — drop the threshold to 60% (the card is
+# substantially visible; only the chevron corner is occluded). That the
+# destructive control is partly under the crisis button while 988 stays
+# reachable is itself the contract this segment pins.
+- scrollUntilVisible:
+    element:
+      id: "profile-card-delete"
+    direction: DOWN
+    visibilityPercentage: 60
+- tapOn:
+    id: "profile-card-delete"
+- assertVisible:
+    id: "delete-account-screen"
+- tapOn:
+    id: "crisis-profile"
+- assertVisible:
+    id: "crisis-resources-screen"
+- tapOn:
+    id: "nav-back-button"
+
 # depth-1: Account
 - tapOn:
     id: "tab-profile"

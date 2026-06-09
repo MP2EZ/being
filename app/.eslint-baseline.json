@@ -39,6 +39,8 @@
   "src/core/services/performance/RenderingOptimizer.ts": 9,
   "src/core/services/performance/ZustandStoreOptimizer.ts": 7,
   "src/core/services/performance/index.ts": 8,
+  "src/core/services/privacy/__tests__/AccountDeletionService.unit.test.ts": 1,
+  "src/core/services/privacy/__tests__/DataExportService.unit.test.ts": 1,
   "src/core/services/resilience/CircuitBreakerService.ts": 1,
   "src/core/services/resilience/__tests__/CircuitBreakerService.test.ts": 1,
   "src/core/services/resilience/index.ts": 1,
@@ -158,5 +160,7 @@
   "src/features/profile/screens/PrivacyDataScreen.tsx": 1,
   "src/features/profile/screens/ProfileScreen.tsx": 1,
   "src/features/profile/screens/__tests__/AccountSettingsScreen.accessibility.test.tsx": 1,
+  "src/features/profile/screens/__tests__/DeleteAccountScreen.accessibility.test.tsx": 1,
+  "src/features/profile/screens/__tests__/ExportDataScreen.accessibility.test.tsx": 1,
   "src/features/profile/screens/__tests__/ProfileScreen.accessibility.test.tsx": 1
 }

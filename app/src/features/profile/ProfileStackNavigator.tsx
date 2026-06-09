@@ -36,6 +36,8 @@ import AboutBeingScreen from './screens/AboutBeingScreen';
 import LegalDocumentsListScreen from './screens/LegalDocumentsListScreen';
 import LegalDocumentScreen from './screens/LegalDocumentScreen';
 import CloudBackupScreen from './screens/CloudBackupScreen';
+import ExportDataScreen from './screens/ExportDataScreen';
+import DeleteAccountScreen from './screens/DeleteAccountScreen';
 
 export type ProfileStackParamList = {
   ProfileMenu: undefined;
@@ -47,6 +49,11 @@ export type ProfileStackParamList = {
   Legal: undefined;
   CloudBackup: undefined;
   LegalDocument: { documentType: LegalDocumentType };
+  // FEAT-267: data-subject-rights surfaces. Registered HERE (inside the Profile
+  // stack) so they inherit the sibling CollapsibleCrisisButton overlay below —
+  // never on the root stack, which has no crisis overlay.
+  ExportData: undefined;
+  DeleteAccount: undefined;
 };
 
 const Stack = createStackNavigator<ProfileStackParamList>();
@@ -107,6 +114,8 @@ const ProfileStackNavigator: React.FC = () => {
         <Stack.Screen name="About" component={AboutBeingScreen} options={{ title: 'About Being.' }} />
         <Stack.Screen name="Legal" component={LegalDocumentsListScreen} options={{ title: 'Legal Documents' }} />
         <Stack.Screen name="CloudBackup" component={CloudBackupScreen} options={{ title: 'Cloud Backup' }} />
+        <Stack.Screen name="ExportData" component={ExportDataScreen} options={{ title: 'Export My Data' }} />
+        <Stack.Screen name="DeleteAccount" component={DeleteAccountScreen} options={{ title: 'Delete Account' }} />
         <Stack.Screen
           name="LegalDocument"
           component={LegalDocumentScreen}

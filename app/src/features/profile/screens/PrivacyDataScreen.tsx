@@ -418,6 +418,54 @@ const PrivacyDataScreen: React.FC = () => {
             Device data survives reinstall. App data is lost if you delete the app.
           </Text>
         </View>
+
+        {/* Your Data Rights Section (FEAT-267) — data-portability + erasure.
+            Both rows push routes registered inside ProfileStackNavigator, which
+            keeps the crisis-button overlay reachable on the destination screens. */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Your Data Rights</Text>
+          <Text style={styles.sectionDescription}>
+            Export a copy of your data or permanently delete your account, under CCPA, TDPSA, and GDPR.
+          </Text>
+
+          <TouchableOpacity
+            style={styles.settingCard}
+            onPress={() => navigation.navigate('ExportData')}
+            testID="profile-card-export"
+            accessibilityRole="button"
+            accessibilityLabel="Export my data"
+            accessibilityHint="Opens a screen to download a JSON copy of your on-device data"
+          >
+            <View style={styles.settingRow}>
+              <View style={styles.settingInfo}>
+                <Text style={styles.settingLabel}>Export my data</Text>
+                <Text style={styles.settingDescription}>
+                  Download a portable JSON copy of your on-device data
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={colorSystem.gray[400]} />
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.settingCard}
+            onPress={() => navigation.navigate('DeleteAccount')}
+            testID="profile-card-delete"
+            accessibilityRole="button"
+            accessibilityLabel="Delete account"
+            accessibilityHint="Opens a screen to permanently delete your account and wellness data"
+          >
+            <View style={styles.settingRow}>
+              <View style={styles.settingInfo}>
+                <Text style={[styles.settingLabel, styles.destructiveLabel]}>Delete account</Text>
+                <Text style={styles.settingDescription}>
+                  Permanently erase your account and wellness data
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={colorSystem.gray[400]} />
+            </View>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -485,6 +533,9 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.black,
     marginBottom: spacing[8],
+  },
+  destructiveLabel: {
+    color: colorSystem.status.error,
   },
   settingDescription: {
     fontSize: typography.bodySmall.size,
