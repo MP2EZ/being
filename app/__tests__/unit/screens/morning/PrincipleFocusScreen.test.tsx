@@ -185,7 +185,7 @@ describe('PrincipleFocusScreen', () => {
   // Source citations are the bridge from product copy to classical text.
   // They MUST be exact — a wrong citation misrepresents Stoicism to users.
   describe('selection + source citations', () => {
-    it('selecting a principle reveals the Selected Principle detail with classical source', () => {
+    it('selecting a principle reveals the Selected Principle detail', () => {
       const { getByTestId, getByText, queryByText } = render(
         <PrincipleFocusScreen {...makeProps()} />
       );
@@ -196,7 +196,6 @@ describe('PrincipleFocusScreen', () => {
       fireEvent.press(getByTestId('principle-aware_presence'));
 
       expect(getByText('Selected Principle')).toBeTruthy();
-      expect(getByText('Marcus Aurelius, Meditations 2:1')).toBeTruthy();
     });
 
     it('Sphere Sovereignty cites Epictetus Enchiridion 1 (the foundational prohairesis text)', () => {
@@ -205,22 +204,18 @@ describe('PrincipleFocusScreen', () => {
       expect(getByText('Epictetus, Enchiridion 1')).toBeTruthy();
     });
 
-    it('Radical Acceptance cites Meditations 10:6 (amor fati)', () => {
-      const { getByTestId, getByText } = render(<PrincipleFocusScreen {...makeProps()} />);
-      fireEvent.press(getByTestId('principle-radical_acceptance'));
-      expect(getByText('Marcus Aurelius, Meditations 10:6')).toBeTruthy();
-    });
-
-    it('Virtuous Response cites Meditations 5:20 (impediment-to-action)', () => {
-      const { getByTestId, getByText } = render(<PrincipleFocusScreen {...makeProps()} />);
-      fireEvent.press(getByTestId('principle-virtuous_response'));
-      expect(getByText('Marcus Aurelius, Meditations 5:20')).toBeTruthy();
-    });
-
-    it('Interconnected Living cites Meditations 8:59 (oikeiosis / "men exist for one another")', () => {
-      const { getByTestId, getByText } = render(<PrincipleFocusScreen {...makeProps()} />);
-      fireEvent.press(getByTestId('principle-interconnected_living'));
-      expect(getByText('Marcus Aurelius, Meditations 8:59')).toBeTruthy();
+    // FEAT-268: after single-sourcing, only Sphere Sovereignty carries a citation. The four
+    // other `source` verse numbers were unverified or fabricated and were dropped (consistent
+    // with FEAT-76's deletion of the same verses on the Profile screen) — they must NOT render.
+    it.each([
+      ['aware_presence', /Meditations\s+2:1/],
+      ['radical_acceptance', /Meditations\s+10:6/],
+      ['virtuous_response', /Meditations\s+5:20/],
+      ['interconnected_living', /Meditations\s+8:59/],
+    ])('renders no unverified verse citation for %s (FEAT-268 / FEAT-76)', (key, verse) => {
+      const { getByTestId, queryByText } = render(<PrincipleFocusScreen {...makeProps()} />);
+      fireEvent.press(getByTestId(`principle-${key}`));
+      expect(queryByText(verse)).toBeNull();
     });
 
     it('flips accessibilityState.selected on the chosen card', () => {
