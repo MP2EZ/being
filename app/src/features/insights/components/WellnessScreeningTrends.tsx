@@ -602,6 +602,9 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: colorSystem.base.white,
     borderRadius: borderRadius.medium,
+    // MAINT-263: hairline so the card stays defined on the now-white screen surface.
+    borderWidth: 1,
+    borderColor: semantic.border.default,
     padding: spacing[16],
     marginBottom: spacing[16],
   },
