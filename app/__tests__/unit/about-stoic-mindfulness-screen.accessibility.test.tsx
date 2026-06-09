@@ -1,22 +1,30 @@
 /**
- * about-stoic-mindfulness-screen.accessibility.test.tsx — FEAT-211 (FEAT-203 Slice 3).
+ * about-stoic-mindfulness-screen.accessibility.test.tsx — FEAT-211 (FEAT-203 Slice 3) + FEAT-76.
  *
- * The audit's §5.3 a11y improvement: on extraction, the in-content section titles
- * (previously plain Text with no role) gain `accessibilityRole="header"` /
- * `accessibilityLevel={2}` so screen readers expose the article's structure under
- * the screen's level-1 heading. Verifies all four section headers carry the role
- * and level.
+ * The audit's §5.3 a11y improvement: the in-content section titles carry
+ * `accessibilityRole="header"` / `accessibilityLevel={2}` so screen readers expose the
+ * article's structure under the screen's level-1 heading. Verifies all four section
+ * headers carry the role and level.
  *
- * FEAT-212: the back affordance is now the native stack header (ProfileStackNavigator),
- * so the in-content close-button label test was removed.
+ * FEAT-76 invariant: the principle/stage cards are now progressive-disclosure accordions,
+ * but their toggles are buttons — there must STILL be exactly four header nodes (the four
+ * document sections), not one-per-card.
+ *
+ * FEAT-212: the back affordance is the native stack header (ProfileStackNavigator).
  */
 import React from 'react';
 import { render } from '@testing-library/react-native';
 
 import AboutStoicMindfulnessScreen from '@/features/profile/screens/AboutStoicMindfulnessScreen';
 
-describe('AboutStoicMindfulnessScreen — accessibility (FEAT-211)', () => {
-  it('exposes all four section titles as level-2 headers', () => {
+const mockNavigate = jest.fn();
+jest.mock('@react-navigation/native', () => ({
+  ...jest.requireActual('@react-navigation/native'),
+  useNavigation: () => ({ navigate: mockNavigate }),
+}));
+
+describe('AboutStoicMindfulnessScreen — accessibility (FEAT-211 / FEAT-76)', () => {
+  it('exposes exactly the four section titles as level-2 headers', () => {
     const { getAllByRole } = render(<AboutStoicMindfulnessScreen />);
 
     const headers = getAllByRole('header');
