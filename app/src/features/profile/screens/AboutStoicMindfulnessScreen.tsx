@@ -13,8 +13,12 @@
  * Marcus Aurelius did not write); the unverified bare verse numbers on Virtuous Response (5:1)
  * and Interconnected Living (8:59) were dropped as well. Epictetus, Enchiridion 1 stays
  * (canonical). Each principle card deep-links to its Learn module, and the principle/stage
- * cards are now progressive-disclosure accordions. Single-sourcing the principle copy into a
- * canonical constant is deferred to FEAT-268.
+ * cards are now progressive-disclosure accordions.
+ *
+ * FEAT-268: the five-principle copy is now single-sourced from the canonical constant at
+ * @/features/practices/shared/constants/principles (philosopher-signed, byte-pinned by its
+ * spec). The developmental stages and dated attributions remain inline below — they are not
+ * principle data and are not duplicated elsewhere, so they stay here, byte-identical.
  */
 
 import React, { useState } from 'react';
@@ -26,6 +30,7 @@ import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 import type { StoicPrinciple } from '@/features/practices/types/stoic';
 import { getModuleIdForPrinciple } from '@/features/learn/utils/principleMapping';
+import { PRINCIPLES } from '@/features/practices/shared/constants/principles';
 
 type AboutNavigation = StackNavigationProp<RootStackParamList>;
 
@@ -116,35 +121,21 @@ const AboutStoicMindfulnessScreen: React.FC = () => {
             These integrative principles guide daily practice and long-term development:
           </Text>
 
-          <CollapsibleCard title="1. Aware Presence" defaultExpanded onLearnMore={() => openModule('aware_presence')}>
-            <Text style={styles.principleDescription}>
-              Be fully here now, observing thoughts as mental events rather than truth, and feeling what's happening in your body. Integrates present perception, metacognitive space, and embodied awareness.
-            </Text>
-          </CollapsibleCard>
-
-          <CollapsibleCard title="2. Radical Acceptance" defaultExpanded onLearnMore={() => openModule('radical_acceptance')}>
-            <Text style={styles.principleDescription}>
-              Accept reality as it is, without resistance. Meet the present moment honestly: this is what's happening right now; I may not like it, but it is the reality I face — what do I do from here?
-            </Text>
-          </CollapsibleCard>
-
-          <CollapsibleCard title="3. Sphere Sovereignty" defaultExpanded onLearnMore={() => openModule('sphere_sovereignty')}>
-            <Text style={styles.principleDescription}>
-              Distinguish what you control (your intentions, judgments, character, responses) from what you don't (outcomes, others' choices, externals). Focus energy only within your sphere. (Epictetus, Enchiridion 1)
-            </Text>
-          </CollapsibleCard>
-
-          <CollapsibleCard title="4. Virtuous Response" defaultExpanded onLearnMore={() => openModule('virtuous_response')}>
-            <Text style={styles.principleDescription}>
-              In every situation, ask "What does wisdom, courage, justice, or temperance require here?" View obstacles as opportunities for practicing virtue.
-            </Text>
-          </CollapsibleCard>
-
-          <CollapsibleCard title="5. Interconnected Living" defaultExpanded onLearnMore={() => openModule('interconnected_living')}>
-            <Text style={styles.principleDescription}>
-              Bring full presence to others. Recognize that we're all members of one human community. Act for the common good, not just personal benefit.
-            </Text>
-          </CollapsibleCard>
+          {/* FEAT-268: principle copy single-sourced from the canonical constant. */}
+          {PRINCIPLES.map((principle, index) => (
+            <CollapsibleCard
+              key={principle.key}
+              title={`${index + 1}. ${principle.title}`}
+              defaultExpanded
+              onLearnMore={() => openModule(principle.key)}
+            >
+              <Text style={styles.principleDescription}>
+                {principle.citation
+                  ? `${principle.description} (${principle.citation})`
+                  : principle.description}
+              </Text>
+            </CollapsibleCard>
+          ))}
         </View>
 
         {/* Developmental Stages Section */}
