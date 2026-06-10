@@ -548,4 +548,35 @@ describe('consentStore', () => {
       expect(await getLegalGateConsents()).toBeNull();
     });
   });
+
+  // FEAT-267: the account-deletion audit attestation must land in the plaintext
+  // consent_history_v1 SecureStore key so it survives clearAllWellnessData (it is
+  // in ERASURE_EXCLUDED and not master-key encrypted). It is minimized to a
+  // single terminal record — never the full history chain (Art. 5(1)(e)).
+  describe('recordAccountDeletionAttestation (FEAT-267)', () => {
+    test('writes a minimized terminal attestation to the preserved plaintext key', async () => {
+      await state().grantConsent(ALL_OPT_IN, ELIGIBLE_AGE);
+
+      await state().recordAccountDeletionAttestation();
+
+      const raw = mockSecureStore['consent_history_v1'];
+      expect(raw).toBeTruthy();
+      const entries = JSON.parse(raw);
+      expect(Array.isArray(entries)).toBe(true);
+      expect(entries).toHaveLength(1); // minimized — terminal record only
+      expect(entries[0].action).toBe('revoked');
+      expect(entries[0].note).toMatch(/account_deletion_requested/);
+      expect(entries[0].timestamp).toEqual(expect.any(Number));
+      // Final consent-state snapshot (booleans only — proves lawful basis).
+      expect(entries[0].changes.mentalHealthProcessingConsent).toBe(true);
+    });
+
+    test('records an attestation even when no consent was ever granted', async () => {
+      await state().recordAccountDeletionAttestation();
+
+      const entries = JSON.parse(mockSecureStore['consent_history_v1']);
+      expect(entries).toHaveLength(1);
+      expect(entries[0].note).toMatch(/prior_entries=0/);
+    });
+  });
 });
