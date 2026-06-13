@@ -49,6 +49,20 @@ function constantTimeEqual(a: string, b: string): boolean {
   return timingSafeEqual(aBytes, bBytes);
 }
 
+/**
+ * Extract a human message from any thrown value. Supabase JS client errors are plain
+ * objects ({message, details, hint, code}), NOT Error instances, so `String(e)` yields
+ * the useless "[object Object]" — pull `.message` (or the next-best field) first.
+ */
+function errMsg(e: unknown): string {
+  if (e instanceof Error) return e.message;
+  if (e && typeof e === 'object') {
+    const o = e as Record<string, unknown>;
+    return String(o.message ?? o.error_description ?? o.error ?? JSON.stringify(e));
+  }
+  return String(e);
+}
+
 /** Integer env with a default; never throws on absent/garbage. */
 function envInt(name: string, fallback: number): number {
   const raw = Deno.env.get(name);
@@ -108,7 +122,7 @@ serve(async (req) => {
     totalDetectionsRetained = data?.total_detections_retained ?? 0;
     lastDetectionAt = data?.last_detection_at ?? null;
   } catch (e) {
-    errors.push(`liveness view read failed: ${e instanceof Error ? e.message : String(e)}`);
+    errors.push(`liveness view read failed: ${errMsg(e)}`);
   }
 
   try {
@@ -120,7 +134,7 @@ serve(async (req) => {
     if (error) throw error;
     volumeRows = (data ?? []) as VolumeRow[];
   } catch (e) {
-    errors.push(`volume view read failed: ${e instanceof Error ? e.message : String(e)}`);
+    errors.push(`volume view read failed: ${errMsg(e)}`);
   }
 
   try {
@@ -141,7 +155,7 @@ serve(async (req) => {
         detection_count: r.detection_count,
       }));
   } catch (e) {
-    errors.push(`daily view read failed: ${e instanceof Error ? e.message : String(e)}`);
+    errors.push(`daily view read failed: ${errMsg(e)}`);
   }
 
   // Build a gap-filled per-day count map (a quiet day is a real 0, not a missing row).
@@ -192,7 +206,7 @@ serve(async (req) => {
       await sendResendAlert(payload);
       alertSent = true;
     } catch (e) {
-      errors.push(`alert delivery failed: ${e instanceof Error ? e.message : String(e)}`);
+      errors.push(`alert delivery failed: ${errMsg(e)}`);
     }
   }
 
@@ -200,7 +214,9 @@ serve(async (req) => {
   //     any error → 'error' (never a healthy heartbeat). ---
   const status = errors.length > 0 ? 'error' : alertSent ? 'alerted' : 'ok';
   try {
-    await supabase.from('crisis_alert_runs').insert({
+    // .insert() does NOT throw on a DB/permission error — it returns { error }. Check it,
+    // or a failed heartbeat write silently looks like success (and the row never lands).
+    const { error: insErr } = await supabase.from('crisis_alert_runs').insert({
       status,
       reason: shouldAlert ? reason : null,
       liveness_status: liveness.status,
@@ -210,10 +226,11 @@ serve(async (req) => {
       errors: errors.length ? errors : null,
       duration_ms: Date.now() - startedMs,
     });
+    if (insErr) throw insErr;
   } catch (e) {
     // If we cannot even record the run, surface it in the response; the watchdog will
     // see no fresh heartbeat and escalate.
-    errors.push(`run-record insert failed: ${e instanceof Error ? e.message : String(e)}`);
+    errors.push(`run-record insert failed: ${errMsg(e)}`);
   }
 
   return json(errors.length ? 500 : 200, {

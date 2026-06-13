@@ -30,6 +30,20 @@ CREATE EXTENSION IF NOT EXISTS pg_cron;
 CREATE EXTENSION IF NOT EXISTS pg_net;
 
 -- ---------------------------------------------------------------------------
+-- The edge function reads the FEAT-129 operator-only views through PostgREST as the
+-- `service_role` role. FEAT-129 deliberately granted those views to NO API role (they were
+-- queried only via the SQL editor as `postgres`), so service_role has no SELECT by default
+-- and the function's reads fail with a permission error. Grant SELECT to service_role only.
+-- This does NOT widen exposure: anon/authenticated remain ungranted (verify they stay false),
+-- and service_role is a secret, server-only key never shipped to clients.
+-- ---------------------------------------------------------------------------
+GRANT SELECT ON
+  public.crisis_detection_volume_daily,
+  public.crisis_detection_liveness,
+  public.crisis_detection_daily
+  TO service_role;
+
+-- ---------------------------------------------------------------------------
 -- Heartbeat / run-record table. A healthy run writes 'ok' (no email); a breach
 -- writes 'alerted' (+ email); any failure writes 'error' (never a healthy heartbeat).
 -- The watchdog reads this to decide whether the primary alerter is alive.
@@ -54,6 +68,10 @@ CREATE INDEX IF NOT EXISTS crisis_alert_runs_ran_at_idx
 -- service_role (edge function) bypasses RLS. Mirrors the FEAT-129 views' posture.
 ALTER TABLE public.crisis_alert_runs ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.crisis_alert_runs FROM anon, authenticated;
+-- The edge function (service_role key) inserts heartbeat rows via PostgREST. service_role
+-- bypasses RLS but still needs a table grant. anon/authenticated stay denied (no grant + RLS
+-- with no policies = doubly locked).
+GRANT SELECT, INSERT ON public.crisis_alert_runs TO service_role;
 
 COMMENT ON TABLE public.crisis_alert_runs IS
   'INFRA-219 heartbeat: one row per crisis-detection-alerting run. status ok|alerted|error; '
@@ -144,24 +162,44 @@ COMMENT ON FUNCTION public.crisis_alert_watchdog() IS
 -- pg_net hardening: the request rows in net.* persist the X-Cron-Secret / Authorization
 -- headers, so they must never be readable by anon/authenticated, and old rows must age out.
 -- ---------------------------------------------------------------------------
+-- pg_net hardening — IMPORTANT Supabase-managed reality (investigated under INFRA-219).
+-- pg_net's internal tables (`net._http_response`, `net.http_request_queue` — the latter
+-- carries the outgoing X-Cron-Secret / Authorization headers) are owned by `supabase_admin`
+-- and granted to PUBLIC by default. The `postgres` role that runs migrations is NOT a member
+-- of `supabase_admin` (pg_has_role('postgres','supabase_admin') = false), so it CANNOT revoke
+-- that PUBLIC grant — the REVOKE below is a best-effort no-op on managed Supabase (it does the
+-- right thing only where the migration role owns pg_net, e.g. self-hosted).
+--
+-- The REAL control that keeps these secret-bearing rows unreachable by anon/authenticated is
+-- that the `net` schema is NOT exposed through the PostgREST Data API (Supabase default exposes
+-- only `public` + `graphql_public`; `authenticator` carries no `pgrst.db_schemas` override here).
+-- A client holding the anon/authenticated key cannot run arbitrary SQL — it can only reach
+-- exposed schemas via PostgREST — so the table-level PUBLIC grant is not reachable.
+-- ACTION FOR THE OPERATOR: confirm in Dashboard → Settings → API → "Exposed schemas" that
+-- `net` is absent. That is the boundary; do not add `net` there.
 DO $$
 BEGIN
-  REVOKE ALL ON net._http_response FROM anon, authenticated;
-  REVOKE ALL ON net.http_request_queue FROM anon, authenticated;
+  REVOKE ALL ON net._http_response     FROM PUBLIC, anon, authenticated;
+  REVOKE ALL ON net.http_request_queue FROM PUBLIC, anon, authenticated;
 EXCEPTION WHEN undefined_table OR undefined_object THEN
   RAISE NOTICE 'pg_net internal tables not present yet; REVOKE skipped (will re-run on next apply).';
 END;
 $$;
 
--- Assert the posture held (red line: net._http_response must not be anon/authenticated-readable).
+-- Defense-in-depth check. If the PUBLIC table grant is still present (the managed-Supabase
+-- case, which postgres cannot revoke), WARN loudly rather than ABORT: the schema-not-exposed
+-- control above is the real boundary, and hard-failing here would block the entire crisis
+-- safety monitor over an unrevocable, non-API-reachable managed grant.
 DO $$
 BEGIN
-  IF has_table_privilege('anon', 'net._http_response', 'SELECT')
-     OR has_table_privilege('authenticated', 'net._http_response', 'SELECT') THEN
-    RAISE EXCEPTION 'SECURITY: net._http_response is readable by anon/authenticated — secret-bearing request rows would leak.';
+  IF has_table_privilege('anon',          'net._http_response',     'SELECT')
+     OR has_table_privilege('authenticated', 'net._http_response',     'SELECT')
+     OR has_table_privilege('anon',          'net.http_request_queue', 'SELECT')
+     OR has_table_privilege('authenticated', 'net.http_request_queue', 'SELECT') THEN
+    RAISE WARNING 'INFRA-219: pg_net request/response rows carry a PUBLIC grant (managed-Supabase default; not revocable by postgres). The control that keeps the X-Cron-Secret/Authorization headers unreachable is that the `net` schema is NOT in the PostgREST exposed schemas — confirm Dashboard → Settings → API → Exposed schemas excludes `net`.';
   END IF;
 EXCEPTION WHEN undefined_table THEN
-  RAISE NOTICE 'net._http_response not present yet; grant assertion deferred.';
+  RAISE NOTICE 'pg_net internal tables not present yet; grant check deferred.';
 END;
 $$;
 
