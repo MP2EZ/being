@@ -38,7 +38,8 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useAnalytics } from '@/core/analytics';
 import { StackNavigationProp } from '@react-navigation/stack';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
-import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
+import { colorSystem, semantic, spacing, borderRadius, typography } from '@/core/theme';
+import { BodyHeader } from '@/core/components/BodyHeader';
 
 // Import components
 import {
@@ -138,19 +139,12 @@ const InsightsScreen: React.FC = () => {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header Section */}
-        <View style={styles.header}>
-          <Text
-            style={styles.screenTitle}
-            accessibilityRole="header"
-            accessibilityLevel={1}
-          >
-            Insights
-          </Text>
-          <Text style={styles.headerSubtitle}>
-            Here is what your practice looks like.{'\n'}What do you notice?
-          </Text>
-        </View>
+        {/* Header (MAINT-257: shared BodyHeader idiom — borderless, left headline2) */}
+        <BodyHeader
+          title="Insights"
+          subtitle={'Here is what your practice looks like.\nWhat do you notice?'}
+          containerStyle={styles.header}
+        />
 
         {/* Marcus Aurelius Quote */}
         {dailyQuote && (
@@ -212,7 +206,8 @@ const InsightsScreen: React.FC = () => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: colorSystem.gray[100],
+    // MAINT-263: unified tab-screen surface (was gray[100]).
+    backgroundColor: semantic.background.screen,
   },
   scrollView: {
     flex: 1,
@@ -224,21 +219,13 @@ const styles = StyleSheet.create({
   header: {
     marginBottom: spacing[16],
   },
-  screenTitle: {
-    fontSize: typography.headline2.size,
-    fontWeight: typography.fontWeight.bold,
-    color: colorSystem.base.midnightBlue,
-    marginBottom: spacing[4],
-  },
-  headerSubtitle: {
-    fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[600],
-    lineHeight: 22,
-  },
   quoteContainer: {
     backgroundColor: colorSystem.base.white,
     // MAINT-222: unified content-card radius (xl=16)
     borderRadius: borderRadius.xl,
+    // MAINT-263: hairline so the card stays defined on the now-white screen surface.
+    borderWidth: 1,
+    borderColor: semantic.border.default,
     padding: spacing[16],
     marginBottom: spacing[16],
     borderLeftWidth: 3,

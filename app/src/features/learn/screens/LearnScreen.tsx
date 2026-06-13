@@ -24,7 +24,8 @@ import { useAnalytics } from '@/core/analytics';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 import { CollapsibleCrisisButton } from '@/features/crisis/components';
-import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
+import { colorSystem, semantic, spacing, typography, borderRadius } from '@/core/theme';
+import { BodyHeader } from '@/core/components/BodyHeader';
 import { useEducationStore } from '@/features/learn/stores/educationStore';
 import type { ModuleId } from '@/features/learn/types/education';
 
@@ -122,19 +123,12 @@ const LearnScreen: React.FC = () => {
     <SafeAreaView style={styles.safeArea} testID="learn-screen">
       <View style={{ flex: 1 }}>
         <View style={styles.container}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text
-            style={styles.headerTitle}
-            accessibilityRole="header"
-            accessibilityLevel={1}
-          >
-            Learn
-          </Text>
-          <Text style={styles.headerSubtitle}>
-            Explore the 5 Stoic Mindfulness principles
-          </Text>
-        </View>
+        {/* Header (MAINT-257: shared BodyHeader idiom — borderless, left headline2) */}
+        <BodyHeader
+          title="Learn"
+          subtitle="Explore the 5 Stoic Mindfulness principles"
+          containerStyle={styles.header}
+        />
 
         <ScrollView
           style={styles.scrollView}
@@ -299,28 +293,17 @@ const LearnScreen: React.FC = () => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: colorSystem.base.white,
+    // MAINT-263: shared tab-screen surface token (value unchanged: white).
+    backgroundColor: semantic.background.screen,
   },
   container: {
     flex: 1,
   },
+  // MAINT-257: borderless to match the harmonized in-body header idiom.
   header: {
     paddingHorizontal: spacing[24],
     paddingTop: spacing[24],
     paddingBottom: spacing[16],
-    borderBottomWidth: 1,
-    borderBottomColor: colorSystem.gray[200],
-  },
-  headerTitle: {
-    fontSize: typography.headline2.size,
-    fontWeight: typography.fontWeight.bold,
-    color: colorSystem.base.midnightBlue,
-    marginBottom: spacing[4],
-  },
-  headerSubtitle: {
-    fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[600],
-    lineHeight: 20,
   },
   scrollView: {
     flex: 1,

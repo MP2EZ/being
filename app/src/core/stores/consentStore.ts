@@ -235,6 +235,18 @@ export interface ConsentStore {
     exportedAt: number;
   }>;
 
+  /**
+   * Write a minimized terminal audit attestation of an account-deletion request
+   * to the plaintext `consent_history_v1` SecureStore key (FEAT-267). That key
+   * is in ERASURE_EXCLUDED_SECURE_STORE_KEYS (survives clearAllWellnessData) and
+   * is NOT master-key encrypted (survives deleteMasterKey:true), so it remains
+   * readable as GDPR Art. 17(3)(b) demonstrability evidence after erasure. Only
+   * the attestation (timestamp, action, prior-entry count, final consent
+   * snapshot) is retained — not the full mutable history (Art. 5(1)(e)
+   * minimization). Called by AccountDeletionService before the on-device wipe.
+   */
+  recordAccountDeletionAttestation: () => Promise<void>;
+
   // Reset (for testing/development)
   resetConsent: () => Promise<void>;
 }
@@ -742,6 +754,26 @@ export const useConsentStore = create<ConsentStore>((set, get) => ({
         isLoading: false,
       });
     }
+  },
+
+  /**
+   * Record a terminal account-deletion attestation (FEAT-267). See interface
+   * doc. Written as plaintext JSON to the legacy consent_history_v1 SecureStore
+   * key — the pre-INFRA-144 substrate — chosen deliberately because it is
+   * preserved by erasure AND independent of the master key (which the wipe
+   * deletes). Minimized to a single attestation entry, not the full chain.
+   */
+  recordAccountDeletionAttestation: async () => {
+    const { currentConsent, consentHistory } = get();
+    const attestation: ConsentHistoryEntry = {
+      action: 'revoked',
+      // Final consent-state snapshot (booleans only — no wellness content):
+      // proves the lawful basis that existed at the moment of erasure.
+      changes: currentConsent?.preferences ?? {},
+      timestamp: Date.now(),
+      note: `account_deletion_requested; prior_entries=${consentHistory.length}`,
+    };
+    await SecureStore.setItemAsync(LEGACY_CONSENT_HISTORY_KEY, JSON.stringify([attestation]));
   },
 
   /**

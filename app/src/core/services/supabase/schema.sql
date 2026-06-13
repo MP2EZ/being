@@ -20,23 +20,20 @@
 -- 1. ANONYMOUS USERS TABLE
 -- =====================================================
 
+-- INFRA-260: identity is the Supabase anonymous session. `id` IS auth.uid()
+-- (FK → auth.users), provisioned by the on_auth_user_created trigger below. No
+-- device_id column — the device-hash model was retired in INFRA-260.
 CREATE TABLE IF NOT EXISTS users (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  device_id TEXT UNIQUE NOT NULL, -- Hashed device identifier (no PII)
+  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   last_sync TIMESTAMPTZ DEFAULT NOW(),
 
   -- Metadata for free tier monitoring
   backup_count INTEGER DEFAULT 0,
-  total_backup_size_bytes BIGINT DEFAULT 0,
-
-  -- Constraints
-  CONSTRAINT device_id_length CHECK (length(device_id) = 64), -- SHA256 hash length
-  CONSTRAINT device_id_format CHECK (device_id ~ '^[a-f0-9]{64}$') -- Hex format
+  total_backup_size_bytes BIGINT DEFAULT 0
 );
 
 -- Indexes for performance
-CREATE INDEX IF NOT EXISTS idx_users_device_id ON users(device_id);
 CREATE INDEX IF NOT EXISTS idx_users_created_at ON users(created_at);
 CREATE INDEX IF NOT EXISTS idx_users_last_sync ON users(last_sync);
 
@@ -116,78 +113,58 @@ ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE encrypted_backups ENABLE ROW LEVEL SECURITY;
 ALTER TABLE analytics_events ENABLE ROW LEVEL SECURITY;
 
--- Users can only access their own data
-CREATE POLICY "Users can only access own data"
-  ON users
-  FOR ALL
-  USING (device_id = current_setting('app.device_id', true));
+-- INFRA-260: RLS keys on auth.uid() (the anonymous-session principal), split into
+-- explicit verbs with WITH CHECK on writes so a forged user_id cannot be inserted.
+-- users: the row id IS the principal.
+CREATE POLICY users_select ON users
+  FOR SELECT USING (id = auth.uid());
+CREATE POLICY users_insert ON users
+  FOR INSERT WITH CHECK (id = auth.uid());
+CREATE POLICY users_update ON users
+  FOR UPDATE USING (id = auth.uid()) WITH CHECK (id = auth.uid());
 
--- Users can only access their own backups
-CREATE POLICY "Users can only access own backups"
-  ON encrypted_backups
-  FOR ALL
-  USING (user_id = (
-    SELECT id FROM users
-    WHERE device_id = current_setting('app.device_id', true)
-  ));
+-- encrypted_backups: own row only; DELETE supports re-backup + data-subject erasure.
+CREATE POLICY backups_select ON encrypted_backups
+  FOR SELECT USING (user_id = auth.uid());
+CREATE POLICY backups_insert ON encrypted_backups
+  FOR INSERT WITH CHECK (user_id = auth.uid());
+CREATE POLICY backups_update ON encrypted_backups
+  FOR UPDATE USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+CREATE POLICY backups_delete ON encrypted_backups
+  FOR DELETE USING (user_id = auth.uid());
 
--- Users can only access their own analytics
-CREATE POLICY "Users can only access own analytics"
-  ON analytics_events
-  FOR ALL
-  USING (user_id = (
-    SELECT id FROM users
-    WHERE device_id = current_setting('app.device_id', true)
-  ));
+-- analytics_events: SELECT + INSERT only. Client DELETE withheld to preserve
+-- crisis-audit integrity (INFRA-214); retention cleanup runs as the service role.
+CREATE POLICY analytics_select ON analytics_events
+  FOR SELECT USING (user_id = auth.uid());
+CREATE POLICY analytics_insert ON analytics_events
+  FOR INSERT WITH CHECK (user_id = auth.uid());
 
 -- =====================================================
 -- 5. FUNCTIONS FOR COMMON OPERATIONS
 -- =====================================================
 
--- Function to get or create user by device ID
--- SECURITY: Input validation added per MAINT-116 security review (LOW-01)
-CREATE OR REPLACE FUNCTION get_or_create_user(device_id_hash TEXT)
-RETURNS UUID
+-- INFRA-260: auto-provision the public.users row when an anonymous auth user is
+-- created (signInAnonymously), so child-table FKs to users(id) always resolve and
+-- the client never inserts the row itself. SECURITY DEFINER to bypass RLS;
+-- search_path pinned to public.
+CREATE OR REPLACE FUNCTION handle_new_auth_user()
+RETURNS TRIGGER
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
-DECLARE
-  user_uuid UUID;
 BEGIN
-  -- Input validation: Verify device_id format before database operations
-  -- Must be exactly 64 hex characters (SHA-256 hash)
-  IF device_id_hash IS NULL THEN
-    RAISE EXCEPTION 'device_id_hash cannot be NULL';
-  END IF;
-
-  IF length(device_id_hash) != 64 THEN
-    RAISE EXCEPTION 'device_id_hash must be exactly 64 characters (got %)', length(device_id_hash);
-  END IF;
-
-  IF device_id_hash !~ '^[a-f0-9]{64}$' THEN
-    RAISE EXCEPTION 'device_id_hash must be lowercase hex format (a-f, 0-9)';
-  END IF;
-
-  -- Try to find existing user
-  SELECT id INTO user_uuid
-  FROM users
-  WHERE device_id = device_id_hash;
-
-  -- Create user if not exists
-  IF user_uuid IS NULL THEN
-    INSERT INTO users (device_id)
-    VALUES (device_id_hash)
-    RETURNING id INTO user_uuid;
-  ELSE
-    -- Update last_sync for existing user
-    UPDATE users
-    SET last_sync = NOW()
-    WHERE id = user_uuid;
-  END IF;
-
-  RETURN user_uuid;
+  INSERT INTO public.users (id) VALUES (NEW.id) ON CONFLICT (id) DO NOTHING;
+  RETURN NEW;
 END;
 $$;
+
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW
+  EXECUTE FUNCTION handle_new_auth_user();
 
 -- Function to update backup statistics
 CREATE OR REPLACE FUNCTION update_backup_stats()
@@ -375,26 +352,25 @@ ANALYZE analytics_events;
 -- 9. GRANTS AND PERMISSIONS
 -- =====================================================
 
--- Grant necessary permissions to authenticated role
+-- Grant necessary permissions to authenticated role.
+-- INFRA-260: the anonymous SESSION is the `authenticated` role; the bare `anon`
+-- (unauthenticated) role gets nothing on user tables.
 GRANT SELECT, INSERT, UPDATE ON users TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON encrypted_backups TO authenticated;
 GRANT SELECT, INSERT ON analytics_events TO authenticated;
+REVOKE ALL PRIVILEGES ON users, encrypted_backups, analytics_events FROM anon;
 
 -- Grant usage on sequences
 GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO authenticated;
-
--- Grant execute on functions
-GRANT EXECUTE ON FUNCTION get_or_create_user(TEXT) TO authenticated;
 
 -- =====================================================
 -- 10. COMMENTS FOR DOCUMENTATION
 -- =====================================================
 
-COMMENT ON TABLE users IS 'Anonymous users identified only by hashed device ID. No PII stored.';
+COMMENT ON TABLE users IS 'Anonymous users; id = auth.uid() (Supabase anonymous session). No PII stored.';
 COMMENT ON TABLE encrypted_backups IS 'Client-side encrypted data backups. Server cannot decrypt contents.';
 COMMENT ON TABLE analytics_events IS 'Privacy-preserving analytics with no sensitive wellness data. Severity buckets only.';
 
-COMMENT ON COLUMN users.device_id IS 'SHA256 hash of device identifier. No PII.';
 COMMENT ON COLUMN encrypted_backups.encrypted_data IS 'AES-256-GCM encrypted JSON blob. Server has no decryption keys.';
 COMMENT ON COLUMN encrypted_backups.checksum IS 'SHA256 checksum for integrity verification.';
 COMMENT ON COLUMN analytics_events.properties IS 'Anonymous event metadata. No scores or sensitive wellness data allowed.';
@@ -437,7 +413,11 @@ CREATE TABLE IF NOT EXISTS subscriptions (
 
   -- Receipt Verification
   last_receipt_verified TIMESTAMPTZ,
-  receipt_data_encrypted TEXT, -- Encrypted receipt for re-verification
+  receipt_data_encrypted TEXT, -- AES-256-GCM-encrypted receipt for re-verification (INFRA-260 PR2)
+  -- INFRA-260 PR2: replay binding. Holds Apple original_transaction_id / Google
+  -- purchaseToken; UNIQUE per platform binds the txn to one auth.uid().
+  original_transaction_id TEXT,
+  receipt_hash TEXT, -- SHA-256 of the raw receipt/token (dedup; non-reversible)
 
   -- Payment History (minimal)
   last_payment_date TIMESTAMPTZ,
@@ -468,6 +448,10 @@ CREATE INDEX IF NOT EXISTS idx_subscriptions_user_id ON subscriptions(user_id);
 CREATE INDEX IF NOT EXISTS idx_subscriptions_platform ON subscriptions(platform);
 CREATE INDEX IF NOT EXISTS idx_subscriptions_status ON subscriptions(status);
 CREATE INDEX IF NOT EXISTS idx_subscriptions_platform_subscription_id ON subscriptions(platform_subscription_id);
+-- INFRA-260 PR2: one IAP transaction binds to one row (one auth.uid()) per platform.
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_txn_per_platform
+  ON subscriptions (platform, original_transaction_id)
+  WHERE original_transaction_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_subscriptions_trial_end_date ON subscriptions(trial_end_date) WHERE status = 'trial';
 CREATE INDEX IF NOT EXISTS idx_subscriptions_grace_period_end ON subscriptions(grace_period_end) WHERE status = 'grace';
 CREATE INDEX IF NOT EXISTS idx_subscriptions_updated_at ON subscriptions(updated_at);
@@ -521,23 +505,20 @@ CREATE INDEX IF NOT EXISTS idx_subscription_events_created_at ON subscription_ev
 ALTER TABLE subscriptions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE subscription_events ENABLE ROW LEVEL SECURITY;
 
--- Users can only access their own subscription
-CREATE POLICY "Users can only access own subscription"
-  ON subscriptions
-  FOR ALL
-  USING (user_id = (
-    SELECT id FROM users
-    WHERE device_id = current_setting('app.device_id', true)
-  ));
+-- INFRA-260: own rows only via auth.uid(). Edge-function writes use the service
+-- role (bypass RLS); the IAP replay guard is a UNIQUE constraint + in-function
+-- ownership check (PR2), not an RLS policy.
+CREATE POLICY subscriptions_select ON subscriptions
+  FOR SELECT USING (user_id = auth.uid());
+CREATE POLICY subscriptions_insert ON subscriptions
+  FOR INSERT WITH CHECK (user_id = auth.uid());
+CREATE POLICY subscriptions_update ON subscriptions
+  FOR UPDATE USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
 
--- Users can only access their own subscription events
-CREATE POLICY "Users can only access own subscription events"
-  ON subscription_events
-  FOR ALL
-  USING (user_id = (
-    SELECT id FROM users
-    WHERE device_id = current_setting('app.device_id', true)
-  ));
+CREATE POLICY subscription_events_select ON subscription_events
+  FOR SELECT USING (user_id = auth.uid());
+CREATE POLICY subscription_events_insert ON subscription_events
+  FOR INSERT WITH CHECK (user_id = auth.uid());
 
 -- =====================================================
 -- 14. SUBSCRIPTION FUNCTIONS

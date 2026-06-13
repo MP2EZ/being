@@ -86,6 +86,8 @@ We use your information solely to provide and improve the Being app:
 
 All your mental health data is stored locally on your device by default. We use AES-256 encryption to protect your data at rest.
 
+To keep any data that does reach our servers (optional settings backup; the PII-free crisis-detection event described in §3) isolated to you and to you alone, the app creates — at startup — an **anonymous account identifier** with our database provider (Supabase). This identifier is a randomly generated value — it contains **no** email address, name, phone number, or other personal information, and you are never asked to sign in. It exists only to enforce that one device's data cannot be read by another. It is removed when you delete your account or data (§7.4).
+
 ### 4.2 Optional Settings Backup
 
 You may optionally enable an encrypted settings backup. This is a narrow, opt-in feature that backs up a small set of non-wellness app preferences (such as autosave configuration and last-sync timestamps) to encrypted cloud storage. It does **not** back up your mental-health data — PHQ-9 / GAD-7 responses, mood check-ins, journal entries, and crisis records always stay on your device. Settings backups are:
@@ -254,7 +256,7 @@ This extended retention ensures continuity of care information and protects both
 
 ### 7.4 Your Right to Delete
 
-You can delete your data at any time in Settings, including crisis-related data. We will honor deletion requests within 30 days, though we may retain anonymized records for legal compliance.
+You can delete your data at any time in Settings, including crisis-related data. Deletion removes your data both on your device and on our servers: it erases your anonymous account identifier (§4.1), which automatically and permanently deletes every record tied to it (any settings backup, subscription records, and crisis-detection events). We will honor deletion requests within 30 days, though we may retain anonymized records for legal compliance.
 
 ---
 

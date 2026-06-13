@@ -40,6 +40,7 @@ import {
 import type { StackScreenProps } from '@react-navigation/stack';
 import type { MorningFlowParamList, PrincipleFocusData } from '@/features/practices/types/flows';
 import type { StoicPrinciple } from '@/features/practices/types/stoic';
+import { PRINCIPLES } from '@/features/practices/shared/constants/principles';
 import { FlowBackButton, SkipLink, FlowHeader } from '../../shared/components';
 import { AccessibleButton } from '@/core/components/accessibility/AccessibleButton';
 import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
@@ -48,59 +49,10 @@ type Props = StackScreenProps<MorningFlowParamList, 'PrincipleFocus'> & {
   onSave?: (data: PrincipleFocusData) => void;
 };
 
-interface PrincipleInfo {
-  key: StoicPrinciple;
-  title: string;
-  description: string;
-  integrates: string; // Which legacy principles this consolidates
-  source: string;
-}
-
-/**
- * 5 Stoic Mindfulness Principles (Philosopher-Validated 9.7/10)
- *
- * FEAT-45: Consolidated from 12 principles to 5 integrative principles.
- * Each principle now integrates multiple legacy practices into a cohesive whole.
- *
- * @see /docs/product/stoic-mindfulness/principles/ for full documentation
- */
-const PRINCIPLES: PrincipleInfo[] = [
-  {
-    key: 'aware_presence',
-    title: 'Aware Presence',
-    description: 'Be fully here now, observing thoughts as mental events rather than truth, and feeling what\'s happening in your body.',
-    integrates: 'Present Perception + Metacognitive Space + Embodied Awareness',
-    source: 'Marcus Aurelius, Meditations 2:1',
-  },
-  {
-    key: 'radical_acceptance',
-    title: 'Radical Acceptance',
-    description: 'This is what\'s happening right now. I may not like it, prefer it, or want it, but it is the reality I face. What do I do from here?',
-    integrates: 'Amor Fati (standalone principle)',
-    source: 'Marcus Aurelius, Meditations 10:6',
-  },
-  {
-    key: 'sphere_sovereignty',
-    title: 'Sphere Sovereignty',
-    description: 'Distinguish what you control (your intentions, judgments, character, responses) from what you don\'t (outcomes, others\' choices, externals). Focus energy only within your sphere.',
-    integrates: 'Dichotomy of Control + Intention Over Outcome',
-    source: 'Epictetus, Enchiridion 1',
-  },
-  {
-    key: 'virtuous_response',
-    title: 'Virtuous Response',
-    description: 'In every situation, ask "What does wisdom, courage, justice, or temperance require here?" View obstacles as opportunities for practicing virtue.',
-    integrates: 'Virtuous Reappraisal + Negative Visualization + Character Cultivation',
-    source: 'Marcus Aurelius, Meditations 5:20',
-  },
-  {
-    key: 'interconnected_living',
-    title: 'Interconnected Living',
-    description: 'Bring full presence to others. Recognize that we\'re all members of one human community. Act for the common good, not just personal benefit.',
-    integrates: 'Relational Presence + Interconnected Action + Contemplative Praxis',
-    source: 'Marcus Aurelius, Meditations 8:59',
-  },
-];
+// FEAT-268: The five-principle copy is now single-sourced from
+// @/features/practices/shared/constants/principles. The previous private PRINCIPLES
+// array lived here and had drifted (it still carried the verse citations FEAT-76
+// deleted); the canonical constant is philosopher-signed and byte-pinned by its spec.
 
 const PrincipleFocusScreen: React.FC<Props> = ({ navigation, route, onSave }) => {
   // FEAT-23: Restore initial data if resuming session
@@ -222,7 +174,9 @@ const PrincipleFocusScreen: React.FC<Props> = ({ navigation, route, onSave }) =>
             <Text style={styles.selectedPrincipleDescription}>
               {selectedPrincipleInfo.description}
             </Text>
-            <Text style={styles.selectedPrincipleSource}>{selectedPrincipleInfo.source}</Text>
+            {selectedPrincipleInfo.citation && (
+              <Text style={styles.selectedPrincipleSource}>{selectedPrincipleInfo.citation}</Text>
+            )}
 
             {/* Personal Interpretation */}
             <View style={styles.interpretationSection}>

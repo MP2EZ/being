@@ -22,7 +22,10 @@
         "usesNonExemptEncryption": false
       },
       "infoPlist": {
-        "LSApplicationQueriesSchemes": ["tel", "sms"]
+        "LSApplicationQueriesSchemes": [
+          "tel",
+          "sms"
+        ]
       },
       "associatedDomains": [
         "applinks:being.fyi",
@@ -66,7 +69,9 @@
       [
         "./plugins/withAppGroupsEntitlement",
         {
-          "groups": ["group.fyi.being.app.widgets"]
+          "groups": [
+            "group.fyi.being.app.widgets"
+          ]
         }
       ],
       [
@@ -76,7 +81,8 @@
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
         }
-      ]
+      ],
+      "expo-sharing"
     ],
     "extra": {
       "clinicalVersion": "1.0",

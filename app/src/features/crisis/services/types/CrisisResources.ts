@@ -10,7 +10,7 @@
  * - <200ms load time requirement
  *
  * COMPLIANCE:
- * - Privacy: No PHI transmitted to external resources
+ * - Privacy: No wellness data transmitted to external resources
  * - Terms of Service: User acknowledges referral-only service
  * - External services operate independently of Being.
  */
