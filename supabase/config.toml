@@ -58,6 +58,14 @@ verify_jwt = false
 [functions.crisis-detection-alerting]
 verify_jwt = false
 
+# Crisis-Detection Synthetic Liveness Probe (INFRA-265, Cron Job)
+# Same posture as the alerter: pg_cron -> net.http_post carries no user JWT, so
+# verify_jwt=false and the X-Cron-Secret constant-time check inside index.ts is the sole
+# compensating control. Shares CRON_SECRET with crisis-detection-alerting (same
+# crisis-monitoring trust domain). Writes a synthetic marker to crisis_liveness_probe only.
+[functions.crisis-liveness-probe]
+verify_jwt = false
+
 # CRON JOB CONFIGURATION
 #
 # TODO: re-schedule grace-period-automation in v2. The CLI v2 dropped the

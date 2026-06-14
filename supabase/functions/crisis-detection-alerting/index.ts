@@ -35,9 +35,10 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 import { timingSafeEqual } from 'node:crypto';
 import {
   evaluateLiveness,
+  evaluateProbeLiveness,
   evaluateSpike,
   buildAlertPayload,
-  type AlertReason,
+  composeReason,
   type BucketRow,
 } from './alertLogic.ts';
 
@@ -101,6 +102,9 @@ serve(async (req) => {
   const minAbsoluteForSpike = envInt('CRISIS_ALERT_SPIKE_MIN', 5);
   const bucketFloor = envInt('CRISIS_ALERT_BUCKET_FLOOR', 3);
   const baselineDays = envInt('CRISIS_ALERT_BASELINE_DAYS', 7);
+  // INFRA-265: the synthetic probe runs every 6h; alert when the latest marker is older
+  // than this (default 12h tolerates one missed run + slack). Authoritative dead page.
+  const probeStalenessHours = envInt('CRISIS_PROBE_STALENESS_HOURS', 12);
 
   const supabase = createClient(
     Deno.env.get('SUPABASE_URL')!,
@@ -158,6 +162,23 @@ serve(async (req) => {
     errors.push(`daily view read failed: ${errMsg(e)}`);
   }
 
+  // INFRA-265: read the latest synthetic-probe marker (MAX(probed_at)). Independent input
+  // from a SEPARATE table — it can never alter any real-detection number (todayCount,
+  // baseline, lastDetectionAt). A failed read becomes an 'error' run → watchdog escalates.
+  let lastProbeAt: string | null = null;
+  try {
+    const { data, error } = await supabase
+      .from('crisis_liveness_probe')
+      .select('probed_at')
+      .order('probed_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    lastProbeAt = data?.probed_at ?? null;
+  } catch (e) {
+    errors.push(`probe marker read failed: ${errMsg(e)}`);
+  }
+
   // Build a gap-filled per-day count map (a quiet day is a real 0, not a missing row).
   const countByDay = new Map<string, number>();
   for (const r of volumeRows) {
@@ -183,15 +204,23 @@ serve(async (req) => {
     spikeMultiplier,
     minAbsoluteForSpike,
   });
+  // INFRA-265 probe axis — authoritative dead-pipeline for the ingest/cron/edge leg.
+  const probe = evaluateProbeLiveness({
+    lastProbeAt,
+    nowMs: startedMs,
+    stalenessThresholdHours: probeStalenessHours,
+  });
 
-  const shouldAlert = liveness.alert || spike.alert;
-  const reason: AlertReason =
-    liveness.alert && spike.alert ? 'liveness+spike' : liveness.alert ? 'liveness' : 'spike';
+  // STRICTLY ADDITIVE (crisis specialist C3/C4): the probe can RAISE a page but NEVER
+  // suppress a real verdict — three independent axes OR'd together, never gated.
+  const shouldAlert = liveness.alert || spike.alert || probe.alert;
+  const reason = composeReason(liveness.alert, spike.alert, probe.alert);
 
   const payload = buildAlertPayload({
     reason,
     liveness,
     spike,
+    probe,
     todayVolume: todayCount,
     buckets: bucketRows,
     bucketFloor,
@@ -221,6 +250,7 @@ serve(async (req) => {
       reason: shouldAlert ? reason : null,
       liveness_status: liveness.status,
       spike_status: spike.status,
+      probe_status: probe.status,
       today_volume: todayCount,
       alert_sent: alertSent,
       errors: errors.length ? errors : null,
@@ -236,7 +266,12 @@ serve(async (req) => {
   return json(errors.length ? 500 : 200, {
     success: errors.length === 0,
     status,
-    evaluated: { liveness: liveness.status, spike: spike.status, todayVolume: todayCount },
+    evaluated: {
+      liveness: liveness.status,
+      spike: spike.status,
+      probe: probe.status,
+      todayVolume: todayCount,
+    },
     alertSent,
     errors,
   });
@@ -263,6 +298,8 @@ async function sendResendAlert(payload: ReturnType<typeof buildAlertPayload>): P
       (payload.lastDetectionDate ? ` [last detection day ${payload.lastDetectionDate}]` : ' [no detection retained]'),
     `Volume: today ${payload.todayVolume}, spike status ${payload.spike.status}` +
       (payload.spike.baselineMean != null ? `, baseline mean ${payload.spike.baselineMean}` : ' (cold start)'),
+    `Probe (INFRA-265, ingest/cron/edge leg only — NOT the on-device emit leg): ${payload.probe.status}` +
+      (payload.probe.ageHours != null ? ` (last probe ~${payload.probe.ageHours}h ago)` : ' (no probe recorded)'),
     '',
     'Detection mix (buckets at or above the reporting floor):',
     ...payload.buckets.map(
@@ -275,14 +312,25 @@ async function sendResendAlert(payload: ReturnType<typeof buildAlertPayload>): P
         `${payload.suppressedDetectionTotal} detection(s) total, withheld at row granularity)`,
     );
   }
+  if (payload.probe.alert) {
+    lines.push(
+      '',
+      'NOTE: the synthetic probe is stale/missing — the ingest/cron/edge leg appears DEAD. ' +
+        'This does NOT cover the on-device emit leg; run the manual active-liveness assertion ' +
+        '(runbook step 1) to confirm the app path.',
+    );
+  }
   lines.push('', 'Monitoring-only. Confirm via the Supabase SQL editor; see crisis-analytics-runbook.md.');
 
+  // Subject derived from the tripped axes (reason is a '+'-composed string). Liveness and
+  // probe are both pipeline-dead-flavored; spike is volume.
+  const pipelineAlert = payload.liveness.alert || payload.probe.alert;
   const subject =
-    payload.reason === 'liveness'
-      ? '[Being] Crisis-detection LIVENESS alert — possible dead pipeline'
-      : payload.reason === 'spike'
+    pipelineAlert && payload.spike.alert
+      ? '[Being] Crisis-detection LIVENESS + VOLUME alert'
+      : payload.spike.alert
         ? '[Being] Crisis-detection VOLUME spike alert'
-        : '[Being] Crisis-detection LIVENESS + VOLUME alert';
+        : '[Being] Crisis-detection LIVENESS alert — possible dead pipeline';
 
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
