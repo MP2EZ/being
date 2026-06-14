@@ -1,8 +1,8 @@
 # Privacy Policy
 
-**Version:** 1.6
+**Version:** 1.7
 **Effective Date:** December 12, 2025
-**Last Updated:** June 3, 2026
+**Last Updated:** June 13, 2026
 
 ---
 
@@ -135,7 +135,9 @@ We use the following third-party service providers to operate our Services:
 - **[Supabase](https://supabase.com/privacy):** Database, authentication, and cloud storage (SOC 2 Type II certified, US data region). If you enable optional settings backup, your encrypted preference data is stored on Supabase infrastructure.
 - **[PostHog](https://posthog.com/privacy):** Product analytics (EU data residency, Frankfurt). See Section 5.2 for details.
 - **[Notion](https://www.notion.so/privacy):** Waitlist email storage for the being.fyi marketing website. When you submit your email via the pre-launch waitlist form, we store it (along with your A/B variant assignment, where applicable) in an internal Notion database. We do not transfer mental-health data, app usage, or any other personal data to Notion.
-- **Expo:** Mobile app framework and over-the-air updates (anonymized crash reports only)
+- **[Sentry](https://sentry.io/privacy/):** Crash, error, and performance diagnostics. Event payloads are scrubbed of wellness data and identifiers before transmission — no PHQ-9 / GAD-7 responses or scores, no journal content, and no device identifier are sent.
+- **[Resend](https://resend.com/legal/privacy-policy):** Transactional email delivery for internal operational alerts only — for example, automated notifications to our operators about the health of the crisis-detection pipeline. These alerts contain aggregate, non-personal operational data; no user personal data is sent to Resend.
+- **Expo:** Mobile app framework and over-the-air updates
 - **Apple/Google:** App distribution and in-app purchases (no health data shared)
 
 All service providers are contractually bound to protect your data and may only use it to provide services to us.
