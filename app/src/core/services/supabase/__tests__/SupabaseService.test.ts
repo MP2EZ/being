@@ -222,6 +222,19 @@ describe('SupabaseService', () => {
       );
     });
 
+    it('DEBUG-274: upsert includes a numeric size_bytes (NOT NULL column)', async () => {
+      // encrypted_backups.size_bytes is NOT NULL (CHECK <= 10MB). Omitting it made
+      // every real write fail "null value in column size_bytes ... violates not-null
+      // constraint" once the auth.uid() path actually reached the table (INFRA-260).
+      mockChain.upsert.mockResolvedValueOnce({ data: { id: 'backup_123' }, error: null });
+
+      await service.saveBackup('encrypted_test_data', 'test_checksum', 1);
+
+      expect(mockChain.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({ size_bytes: 'encrypted_test_data'.length })
+      );
+    });
+
     it('should handle backup failure gracefully', async () => {
       // A thrown error is what the resilience layer treats as failure (a
       // resolved `{ error }` is NOT — see the file header note).

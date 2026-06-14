@@ -380,6 +380,10 @@ class SupabaseService {
           encrypted_data: encryptedData,
           checksum,
           version,
+          // DEBUG-274: size_bytes is NOT NULL (CHECK <= 10MB). Omitting it failed every
+          // write "null value in column size_bytes violates not-null constraint" — a
+          // latent bug only reachable once the auth.uid() write path went live (INFRA-260).
+          size_bytes: encryptedData.length,
         });
       // DEBUG-255: supabase-js RESOLVES with { error } for most failures (RLS
       // denial, PostgREST errors, constraint violations) rather than throwing.
