@@ -230,8 +230,22 @@ describe('SupabaseService', () => {
 
       await service.saveBackup('encrypted_test_data', 'test_checksum', 1);
 
-      expect(mockChain.upsert).toHaveBeenCalledWith(
+      // Assert the payload (first arg) regardless of any upsert options (2nd arg).
+      expect(mockChain.upsert.mock.calls[0][0]).toEqual(
         expect.objectContaining({ size_bytes: 'encrypted_test_data'.length })
+      );
+    });
+
+    it('DEBUG-275: upserts onConflict user_id (one_backup_per_user) so repeats UPDATE', async () => {
+      // Without onConflict, supabase-js conflicts on the PK (fresh uuid each call) →
+      // always INSERT → the 2nd backup violates UNIQUE(user_id) one_backup_per_user.
+      mockChain.upsert.mockResolvedValueOnce({ data: { id: 'backup_123' }, error: null });
+
+      await service.saveBackup('encrypted_test_data', 'test_checksum', 1);
+
+      expect(mockChain.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({ user_id: 'user_123' }),
+        { onConflict: 'user_id' }
       );
     });
 
