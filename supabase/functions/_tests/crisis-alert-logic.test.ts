@@ -28,6 +28,7 @@ import {
   evaluateProbeLiveness,
   evaluateSpike,
   buildAlertPayload,
+  shouldPingHealthcheck,
   type BucketRow,
 } from '../crisis-detection-alerting/alertLogic.ts';
 
@@ -259,4 +260,26 @@ Deno.test('payload: last_detection granularity is day-level only (no sub-day tim
   // would surface as HH:MM). Checking for a time pattern is robust against camelCase
   // keys, unlike a bare 'T' substring test.
   assertFalse(/\d{2}:\d{2}/.test(JSON.stringify(p)), 'no sub-day time component should appear');
+});
+
+// ---------------------------------------------------------------------------
+// shouldPingHealthcheck — external dead-man's-switch gate (INFRA-264)
+// ---------------------------------------------------------------------------
+// The safety property is in the SILENCE: a ping fires ONLY on a fully clean run, so any
+// error suppresses it and healthchecks.io pages on the missed expected ping. These pin
+// the two failure modes that silently break the switch in the no-page direction.
+
+Deno.test('healthcheck gate: clean run (0 errors) → ping', () => {
+  assert(shouldPingHealthcheck({ errorCount: 0 }));
+});
+
+Deno.test('healthcheck gate: an alerted-but-clean run still pings (orthogonal to alert)', () => {
+  // An 'alerted' run has errorCount 0 (the breach email is not an error); it must ping —
+  // gating must be on errors, never entangled with alertSent/status.
+  assert(shouldPingHealthcheck({ errorCount: 0 }));
+});
+
+Deno.test('healthcheck gate: ANY error → no ping (dead-man fires)', () => {
+  assertFalse(shouldPingHealthcheck({ errorCount: 1 }));
+  assertFalse(shouldPingHealthcheck({ errorCount: 3 }));
 });

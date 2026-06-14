@@ -216,7 +216,7 @@ same aggregate views and never sits in a detection / 988 / intervention path.
 
 | Job (pg_cron) | Cadence | Does |
 |---|---|---|
-| `crisis-detection-alerting` | daily 14:15 UTC | `net.http_post` → the `crisis-detection-alerting` edge function, which reads the views, evaluates spike + liveness, and emails the founder (Resend) **only on a breach**. Every run writes a heartbeat row to `crisis_alert_runs` (`ok` / `alerted` / `error`). |
+| `crisis-detection-alerting` | daily 14:15 UTC | `net.http_post` → the `crisis-detection-alerting` edge function, which reads the views, evaluates spike + liveness, and emails the founder (Resend) **only on a breach**. Every run writes a heartbeat row to `crisis_alert_runs` (`ok` / `alerted` / `error`); on a clean run (`ok`/`alerted`, never `error`) it also fires the **external dead-man's-switch ping** (INFRA-264 → see below). |
 | `crisis-alerter-watchdog` | every 6h | `crisis_alert_watchdog()` — escalates via an **independent direct Resend POST** if no clean run landed in 26h or the latest run `error`ed (catches cron-unscheduled / edge-erroring / project-paused / alert-delivery-failed). |
 | `crisis-alert-runs-prune` | daily 03:30 UTC | prunes `crisis_alert_runs` older than 90 days. |
 | `crisis-liveness-probe` (INFRA-265) | every 6h | `net.http_post` → the `crisis-liveness-probe` edge function, which writes a tagged **synthetic** marker to `crisis_liveness_probe` (drives the real cron→edge→PostgREST write leg). The daily alerter reads `MAX(probed_at)` as the authoritative ingest-leg liveness signal. |
@@ -292,6 +292,48 @@ secret + `crisis_alert_cron_secret` Vault value; add one Vault secret `crisis_pr
 `supabase functions deploy crisis-liveness-probe`. After `supabase db push`, confirm the first
 probe row lands: `SELECT * FROM crisis_liveness_probe ORDER BY probed_at DESC LIMIT 3;`.
 
+### External dead-man's-switch (INFRA-264)
+
+The INFRA-219 watchdog and the alerter both live inside Supabase, so a **total Supabase/project
+outage blinds both** — no email gets sent about the thing that can't send email. INFRA-264 closes
+that shared-failure-domain gap with an **out-of-Supabase** watcher: on every **clean** run
+(`ok`/`alerted`, never `error`), the `crisis-detection-alerting` edge function fires a success
+ping (GET, no body, no PII) to an external [healthchecks.io](https://healthchecks.io) check. The
+signal is the **silence** — if Supabase/edge is down (or the run errors), no ping arrives, and
+healthchecks.io pages the founder once the check's grace window lapses.
+
+> [!IMPORTANT]
+> **Scope / honesty — the layer map.** A healthchecks.io ping proves ONLY that *this cron
+> function executed cleanly and persisted its heartbeat*. It is NOT end-to-end. Each layer covers
+> a different leg; none alone is proof the crisis path works:
+> - **on-device emit leg** → manual release-time active-liveness assertion (step 1).
+> - **ingest/cron/edge leg** → INFRA-265 synthetic probe.
+> - **detection→Supabase staleness** → `evaluateLiveness`.
+> - **alerter-ran-at-all, incl. total-outage blind spot** → this INFRA-264 healthchecks.io switch.
+>
+> A green healthchecks.io dashboard with a dead on-device crisis path is entirely possible. Do not
+> read it as "crisis path healthy."
+
+**Setup additions** (alongside the INFRA-219 setup):
+
+1. **healthchecks.io:** create a check. Set its **period + grace** to tolerate the alerter cadence
+   plus one missed run — the alerter runs daily (every ~24h), so a period of 1 day with a grace of
+   ~26h matches the in-Supabase watchdog's 26h window (a single transient skipped run must not page).
+   Copy the check's ping URL (`https://hc-ping.com/<uuid>` — a **capability URL**, treat as a secret).
+2. **Supabase Edge secret** (read by the edge function, by name only):
+   `supabase secrets set CRISIS_HEALTHCHECK_PING_URL='https://hc-ping.com/<uuid>'`. Leaving it unset
+   simply disables the external switch (the alerter skips the ping silently) — provision it before
+   relying on the dead-man's-switch.
+3. After deploy, test-fire the function with a valid `x-cron-secret` and confirm the check flips to
+   **up** in the healthchecks.io dashboard. Then intentionally let a period lapse (or pause the cron)
+   to confirm it pages.
+
+The ping URL is **never** committed, logged, echoed in a response/heartbeat row, or appended with
+run details — it is read via `Deno.env.get('CRISIS_HEALTHCHECK_PING_URL')` and used only as the
+`fetch` target. The committed-secret static pin (`app/__tests__/safety/crisisAlertNoSecrets.config.test.ts`)
+greps the Supabase tree for a populated `hc-ping.com/<uuid>` (and `healthchecks.io/ping/<token>`) URL
+and fails the commit if one is ever pasted in.
+
 ### Residual limitations (accepted pre-launch; tracked as follow-ups)
 
 - **Passive staleness ≠ true liveness (now backstopped for the ingest leg by INFRA-265).** A
@@ -300,17 +342,21 @@ probe row lands: `SELECT * FROM crisis_liveness_probe ORDER BY probed_at DESC LI
   signal for the **ingest/cron/edge leg** (a missed probe pages), but it does NOT run the app code,
   so the **on-device emit leg** is still covered only by the manual active-liveness assertion
   (step 1), which remains the gold-standard end-to-end gate.
-- **Watchdog shares Supabase's failure domain.** A total Supabase/project outage takes down both
-  the alerter and its watchdog. An **external dead-man's-switch (healthchecks.io)** is the tracked
-  follow-up that closes this gap.
+- **Watchdog shares Supabase's failure domain (now backstopped by INFRA-264).** A total
+  Supabase/project outage still takes down both the in-Supabase alerter and its watchdog — but the
+  **external healthchecks.io dead-man's-switch (INFRA-264)** now lives in an independent failure
+  domain and pages on the resulting missed ping (see "External dead-man's-switch" above). The
+  in-Supabase watchdog remains as the second, finer-grained layer (it distinguishes `error` runs and
+  delivery failures, which a pure missed-ping cannot).
 
 ---
 
 ## Out of scope (follow-ups)
 
 - **Automated alerting** — ✅ **shipped in INFRA-219** (see the section above).
-- **External dead-man's-switch (healthchecks.io).** Close the watchdog's shared-failure-domain
-  gap with an out-of-Supabase watcher. _(Tracked: follow-up work item.)_
+- **External dead-man's-switch (healthchecks.io)** — ✅ **shipped in INFRA-264** (out-of-Supabase
+  watcher; see "External dead-man's-switch (INFRA-264)" above). Closes the watchdog's
+  shared-failure-domain gap with an independent failure domain.
 - **Synthetic end-to-end liveness probe** — ✅ **shipped in INFRA-265** (server-side probe; see
   "Synthetic liveness probe (INFRA-265)" above). Covered by DPIA v1.5. Residual: it exercises the
   ingest/cron/edge leg only — the on-device emit leg stays covered by the manual active-liveness

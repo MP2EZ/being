@@ -393,6 +393,33 @@ export function buildAlertPayload(input: AlertPayloadInput): AlertPayload {
   };
 }
 
+// ---------------------------------------------------------------------------
+// External dead-man's-switch gate (INFRA-264)
+// ---------------------------------------------------------------------------
+
+/**
+ * Decide whether this run may emit a success ping to the external healthchecks.io
+ * dead-man's-switch (INFRA-264). Pure by design (no network, no Deno.env) so the
+ * load-bearing gate is unit-tested, not buried in the edge glue — the actual GET ping
+ * lives in index.ts.
+ *
+ * The contract is the whole point of a dead-man's-switch: a success ping means ONLY
+ * "this alerting run completed cleanly AND persisted its own heartbeat" — i.e. the SAME
+ * clean-evaluation condition as a `crisis_alert_runs` 'ok'/'alerted' heartbeat. It pings
+ * iff `errorCount === 0`, where `errorCount` is the run's FINAL error tally *after* the
+ * heartbeat insert (so a failed heartbeat write also suppresses the ping). An 'alerted'
+ * run is still a clean run → it pings (the email and the heartbeat ping are orthogonal).
+ *
+ * The safety property is in the SILENCE: any error → no ping → healthchecks.io sees a
+ * missed expected ping within its grace window → it pages the founder. This is the only
+ * layer that survives a total Supabase/edge outage that blinds both the alerter and its
+ * in-Supabase watchdog (which share Supabase's failure domain). It proves NOTHING about
+ * crisis detection, the on-device emit leg, or ingest — only that this cron ran clean.
+ */
+export function shouldPingHealthcheck(input: { errorCount: number }): boolean {
+  return input.errorCount === 0;
+}
+
 function round1(n: number): number {
   return Math.round(n * 10) / 10;
 }

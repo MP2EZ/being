@@ -27,6 +27,19 @@ const SECRET_PATTERNS: ReadonlyArray<{ name: string; re: RegExp }> = [
   { name: 'Supabase secret token (sb_secret_… / sbp_…)', re: /\b(sb_secret_[A-Za-z0-9]{8,}|sbp_[A-Za-z0-9]{20,})\b/ },
   { name: 'Slack webhook URL (with token)', re: /hooks\.slack\.com\/services\/[A-Z0-9]/ },
   { name: 'Discord webhook URL (with token)', re: /discord(?:app)?\.com\/api\/webhooks\/\d/ },
+  // INFRA-264: a healthchecks.io ping/check URL is a CAPABILITY URL (anyone holding it can
+  // ping the check) → the URL WITH its token path segment is a secret. The bare hostname
+  // MUST stay match-free so setup docs/comments can name `hc-ping.com` without a token.
+  // Standard form: hc-ping.com/<8-4-4-4-12 uuid> (strict uuid shape avoids matching a
+  // hc-ping.com/docs-style path). Self-hosted/slug form: healthchecks.io/ping/<token>.
+  {
+    name: 'healthchecks.io ping URL (hc-ping.com/<uuid>)',
+    re: /hc-ping\.com\/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/,
+  },
+  {
+    name: 'healthchecks.io ping URL (healthchecks.io/ping/<token>)',
+    re: /healthchecks\.io\/ping\/[0-9a-fA-F-]{8,}/,
+  },
 ];
 
 function collectFiles(dir: string, predicate: (f: string) => boolean): string[] {
@@ -62,4 +75,34 @@ describe('Supabase deploy surface carries no committed secrets (INFRA-219)', () 
       expect(hits).toEqual([]);
     },
   );
+
+  // Anti-rot self-check (INFRA-264): an absence-only scan is trivially satisfied by a
+  // BROKEN regex. Prove the healthchecks.io patterns actually match a populated capability
+  // URL (so a future edit can't silently make them vacuous) AND do NOT match a bare
+  // hostname (so setup docs can name the host without a token). The samples below use a
+  // SYNTHETIC, obviously-fake UUID (aaaaaaaa-…) and live ONLY in this test — never under
+  // supabase/, so the scan above can never trip on them.
+  describe('healthchecks.io secret pattern is non-vacuous (INFRA-264)', () => {
+    const hcPing = SECRET_PATTERNS.find((p) => p.name.includes('hc-ping.com'))!;
+    const hcSelfHosted = SECRET_PATTERNS.find((p) => p.name.includes('healthchecks.io/ping'))!;
+    const SYNTHETIC_UUID = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee'; // not a real check token
+
+    it('both healthchecks.io patterns are registered', () => {
+      expect(hcPing).toBeDefined();
+      expect(hcSelfHosted).toBeDefined();
+    });
+
+    it('matches a populated hc-ping.com capability URL', () => {
+      expect(hcPing.re.test(`https://hc-ping.com/${SYNTHETIC_UUID}`)).toBe(true);
+    });
+
+    it('matches a populated healthchecks.io/ping capability URL', () => {
+      expect(hcSelfHosted.re.test(`https://healthchecks.io/ping/${SYNTHETIC_UUID}`)).toBe(true);
+    });
+
+    it('does NOT match a bare hostname (setup docs/comments stay allowed)', () => {
+      expect(hcPing.re.test('set CRISIS_HEALTHCHECK_PING_URL to your hc-ping.com URL')).toBe(false);
+      expect(hcSelfHosted.re.test('see healthchecks.io for setup')).toBe(false);
+    });
+  });
 });

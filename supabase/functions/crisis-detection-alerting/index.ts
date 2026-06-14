@@ -39,6 +39,7 @@ import {
   evaluateSpike,
   buildAlertPayload,
   composeReason,
+  shouldPingHealthcheck,
   type BucketRow,
 } from './alertLogic.ts';
 
@@ -263,6 +264,19 @@ serve(async (req) => {
     errors.push(`run-record insert failed: ${errMsg(e)}`);
   }
 
+  // --- External dead-man's-switch (INFRA-264). LAST action before return, gated on the
+  //     FINAL error tally (post heartbeat-insert): ping the external healthchecks.io check
+  //     ONLY on a fully clean run, so a failed heartbeat write ALSO suppresses the ping.
+  //     The safety property is in the SILENCE — any error → no ping → healthchecks.io pages
+  //     on the missed expected ping. This is the only layer that survives a total
+  //     Supabase/edge outage that blinds both this alerter and its in-Supabase watchdog
+  //     (they share Supabase's failure domain). Fire-and-forget: a ping failure (or an
+  //     unset secret) NEVER flips `status`, NEVER enters `errors`, NEVER throws. It proves
+  //     ONLY that this cron ran clean — not detection, the on-device emit leg, or ingest. ---
+  if (shouldPingHealthcheck({ errorCount: errors.length })) {
+    await pingExternalHealthcheck();
+  }
+
   return json(errors.length ? 500 : 200, {
     success: errors.length === 0,
     status,
@@ -276,6 +290,44 @@ serve(async (req) => {
     errors,
   });
 });
+
+/**
+ * Fire the external healthchecks.io dead-man's-switch success ping (INFRA-264).
+ *
+ * The check URL (e.g. https://hc-ping.com/<uuid>) is a CAPABILITY URL — treat it as a
+ * secret. It is read BY NAME from the `CRISIS_HEALTHCHECK_PING_URL` Edge secret and used
+ * ONLY as the fetch target; it is NEVER interpolated into a logged/thrown/response string,
+ * never written to the heartbeat row, never appended with run details (no PII, no counts —
+ * GET, no body, no query params).
+ *
+ * Fully best-effort and bounded:
+ *   - Unset/blank secret → skip silently (the switch is simply not provisioned yet; the
+ *     runbook setup checklist confirms the first ping lands). It must NOT page through the
+ *     internal watchdog for a missing-config state.
+ *   - GET with `redirect: 'error'` (a capability URL resolves directly to the known host;
+ *     following an unexpected redirect would be an exfiltration vector) and a 5s timeout
+ *     (a hung endpoint must never stall the function or bleed into the next cron tick).
+ *   - Any failure is swallowed (a generic, URL-free console line only) so a healthchecks.io
+ *     outage can never flip this run to 'error' or falsely trip the in-Supabase watchdog.
+ */
+async function pingExternalHealthcheck(): Promise<void> {
+  const pingUrl = Deno.env.get('CRISIS_HEALTHCHECK_PING_URL');
+  if (!pingUrl) return; // not provisioned — skip silently (see runbook setup checklist)
+  try {
+    const res = await fetch(pingUrl, {
+      method: 'GET',
+      redirect: 'error',
+      signal: AbortSignal.timeout(5000),
+    });
+    // Drain/close the body; outcome recorded as status only, never the URL.
+    if (!res.ok) {
+      console.warn(`healthcheck ping returned non-2xx (${res.status})`);
+    }
+  } catch {
+    // URL-free by construction — never echo the capability URL into logs.
+    console.warn('healthcheck ping failed (network/timeout)');
+  }
+}
 
 /**
  * Send the alert via Resend. Composes the human-readable subject/body from the
