@@ -37,20 +37,19 @@ import {
 
 // Import services
 import SyncCoordinator from '@/core/services/supabase/SyncCoordinator';
+import type { SyncIndicatorStatus } from '@/core/services/supabase/SyncCoordinator';
 import { spacing, borderRadius, typography } from '@/core/theme';
 
 /**
  * SYNC STATUS TYPES
+ *
+ * DEBUG-276: the indicator's display shape is now owned by SyncCoordinator
+ * (`SyncIndicatorStatus`) and read via its real `getStatus()` method. The former
+ * local `SyncStatus` interface paired with a `(SyncCoordinator as any).getStatus()`
+ * call against a method that did not exist — the `as any` hid the missing method,
+ * which threw on every poll. Aliased here to preserve the public export.
  */
-interface SyncStatus {
-  isInitialized: boolean;
-  lastSyncTime: number | null;
-  pendingOperations: number;
-  isConnected: boolean;
-  circuitBreakerState: 'closed' | 'open' | 'half-open';
-  errorCount: number;
-  retryScheduled: boolean;
-}
+type SyncStatus = SyncIndicatorStatus;
 
 interface SyncStatusIndicatorProps {
   showDetailed?: boolean;
@@ -86,17 +85,9 @@ export default function SyncStatusIndicator({
       setIsLoading(true);
       setError(null);
 
-      // Get sync coordinator status
-      const syncCoordinatorStatus = await (SyncCoordinator as any).getStatus();
-      setSyncStatus({
-        isInitialized: syncCoordinatorStatus.isInitialized,
-        lastSyncTime: syncCoordinatorStatus.lastSyncTime,
-        pendingOperations: syncCoordinatorStatus.pendingOperations || 0,
-        isConnected: syncCoordinatorStatus.isConnected || false,
-        circuitBreakerState: syncCoordinatorStatus.circuitBreakerState || 'closed',
-        errorCount: syncCoordinatorStatus.errorCount || 0,
-        retryScheduled: syncCoordinatorStatus.retryScheduled || false
-      });
+      // Get sync coordinator status (DEBUG-276: real, typed, synchronous method)
+      const syncCoordinatorStatus = SyncCoordinator.getStatus();
+      setSyncStatus(syncCoordinatorStatus);
 
       setLastUpdated(Date.now());
 
