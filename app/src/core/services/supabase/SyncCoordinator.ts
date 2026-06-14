@@ -75,6 +75,22 @@ export interface StoreSyncState {
   priority: SyncPriority;
 }
 
+/**
+ * Flattened, display-oriented status the SyncStatusIndicator UI reads
+ * (DEBUG-276). Distinct from the rich internal `SyncStatus`: this is the
+ * minimal projection the indicator needs, with the circuit-breaker narrowed to a
+ * strict union so the UI's colour/severity mapping can switch on it exhaustively.
+ */
+export interface SyncIndicatorStatus {
+  isInitialized: boolean;
+  lastSyncTime: number | null;
+  pendingOperations: number;
+  isConnected: boolean;
+  circuitBreakerState: 'closed' | 'open' | 'half-open';
+  errorCount: number;
+  retryScheduled: boolean;
+}
+
 export interface SyncOperation {
   id: string;
   type: OperationType;
@@ -608,6 +624,36 @@ class SyncCoordinator {
    */
   public getSyncStatus(): SyncStatus {
     return { ...this.currentSyncStatus };
+  }
+
+  /**
+   * Flattened status for the SyncStatusIndicator UI (DEBUG-276).
+   *
+   * Composes the indicator's display shape from the coordinator's own live
+   * state (initialised / connectivity / pending queue / recent-failure count /
+   * pending retries) and delegates the circuit-breaker tri-state to
+   * SupabaseService, whose breaker is the authoritative
+   * 'closed' | 'open' | 'half-open' machine. An unrecognised breaker string
+   * narrows to 'closed' so the UI's strict union is never violated.
+   *
+   * Synchronous and side-effect-free — a status read, safe to call on the
+   * indicator's 30s poll. `lastSyncTime` of 0 (never synced) normalises to null
+   * so the UI renders "Never" rather than the epoch.
+   */
+  public getStatus(): SyncIndicatorStatus {
+    const breakerState = this.supabaseService.getStatus().circuitBreakerState;
+    const circuitBreakerState: SyncIndicatorStatus['circuitBreakerState'] =
+      breakerState === 'open' || breakerState === 'half-open' ? breakerState : 'closed';
+
+    return {
+      isInitialized: this.isInitialized,
+      lastSyncTime: this.currentSyncStatus.lastSyncTime || null,
+      pendingOperations: this.currentSyncStatus.pendingOperations,
+      isConnected: this.isConnected,
+      circuitBreakerState,
+      errorCount: this.circuitBreakerFailures,
+      retryScheduled: this.retryAttempts.size > 0,
+    };
   }
 
   /**
