@@ -25,10 +25,20 @@ import {
 } from 'https://deno.land/std@0.177.0/testing/asserts.ts';
 import {
   evaluateLiveness,
+  evaluateProbeLiveness,
   evaluateSpike,
   buildAlertPayload,
   type BucketRow,
 } from '../crisis-detection-alerting/alertLogic.ts';
+
+// A live synthetic-probe verdict to satisfy buildAlertPayload's required `probe` axis
+// (INFRA-265). buildAlertPayload only passes it through; these tests assert on the real
+// liveness/spike/bucket-floor behavior, so a constant live probe is sufficient here.
+const PROBE_LIVE = evaluateProbeLiveness({
+  lastProbeAt: new Date(Date.parse('2026-06-07T11:00:00.000Z')).toISOString(),
+  nowMs: Date.parse('2026-06-07T12:00:00.000Z'),
+  stalenessThresholdHours: 12,
+});
 
 // Anchor "now" deterministically. 2026-06-07T12:00:00Z.
 const NOW = Date.parse('2026-06-07T12:00:00.000Z');
@@ -200,6 +210,7 @@ Deno.test('payload: per-bucket rows below the ≥3 floor are suppressed from bre
     reason: 'spike',
     liveness: evaluateLiveness({ lastDetectionAt: new Date(NOW - HOUR).toISOString(), totalDetectionsRetained: 11, nowMs: NOW, stalenessThresholdHours: STALE_HOURS }),
     spike: evaluateSpike({ todayCount: 11, baselineCounts: [2, 2, 2], spikeMultiplier: SPIKE_X, minAbsoluteForSpike: SPIKE_MIN }),
+    probe: PROBE_LIVE,
     todayVolume: 11,
     buckets: BUCKETS,
     bucketFloor: 3,
@@ -217,6 +228,7 @@ Deno.test('payload: never contains PII / forbidden keys (denylist over serialize
     reason: 'liveness+spike',
     liveness: evaluateLiveness({ lastDetectionAt: null, totalDetectionsRetained: 0, nowMs: NOW, stalenessThresholdHours: STALE_HOURS }),
     spike: evaluateSpike({ todayCount: 11, baselineCounts: [2, 2, 2], spikeMultiplier: SPIKE_X, minAbsoluteForSpike: SPIKE_MIN }),
+    probe: PROBE_LIVE,
     todayVolume: 11,
     buckets: BUCKETS,
     bucketFloor: 3,
@@ -235,6 +247,7 @@ Deno.test('payload: last_detection granularity is day-level only (no sub-day tim
     reason: 'liveness',
     liveness: evaluateLiveness({ lastDetectionAt: new Date(NOW - 60 * HOUR).toISOString(), totalDetectionsRetained: 4, nowMs: NOW, stalenessThresholdHours: STALE_HOURS }),
     spike: evaluateSpike({ todayCount: 0, baselineCounts: [0, 0], spikeMultiplier: SPIKE_X, minAbsoluteForSpike: SPIKE_MIN }),
+    probe: PROBE_LIVE,
     todayVolume: 0,
     buckets: [],
     bucketFloor: 3,
