@@ -119,6 +119,10 @@ enabled = false  # Not needed for this app
 # Required for cron job:
 # - CRON_SECRET
 #
+# Optional for crisis-detection-alerting external dead-man's-switch (INFRA-264):
+# - CRISIS_HEALTHCHECK_PING_URL  (capability URL, e.g. https://hc-ping.com/<uuid> — secret;
+#   set by name only, never committed. Unset = external switch not provisioned.)
+#
 # Required for all functions:
 # - SUPABASE_URL
 # - SUPABASE_SERVICE_ROLE_KEY
