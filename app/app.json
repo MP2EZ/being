@@ -25,12 +25,29 @@
         "LSApplicationQueriesSchemes": [
           "tel",
           "sms"
-        ]
+        ],
+        "NSFaceIDUsageDescription": "Allow Being to use Face ID to protect your wellness data."
       },
       "associatedDomains": [
         "applinks:being.fyi",
         "applinks:www.being.fyi"
-      ]
+      ],
+      "privacyManifests": {
+        "NSPrivacyAccessedAPITypes": [
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryFileTimestamp",
+            "NSPrivacyAccessedAPITypeReasons": ["C617.1"]
+          },
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults",
+            "NSPrivacyAccessedAPITypeReasons": ["CA92.1"]
+          },
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategorySystemBootTime",
+            "NSPrivacyAccessedAPITypeReasons": ["35F9.1"]
+          }
+        ]
+      }
     },
     "android": {
       "package": "fyi.being.app",
@@ -66,6 +83,7 @@
     },
     "plugins": [
       "expo-localization",
+      "expo-notifications",
       [
         "./plugins/withAppGroupsEntitlement",
         {
