@@ -384,6 +384,11 @@ class SupabaseService {
           // write "null value in column size_bytes violates not-null constraint" — a
           // latent bug only reachable once the auth.uid() write path went live (INFRA-260).
           size_bytes: encryptedData.length,
+        }, {
+          // DEBUG-275: conflict on user_id (one_backup_per_user UNIQUE), not the PK.
+          // Without this, each call mints a fresh id → always INSERT → the 2nd backup
+          // violates one_backup_per_user. Keyed on user_id, a repeat backup UPDATEs.
+          onConflict: 'user_id',
         });
       // DEBUG-255: supabase-js RESOLVES with { error } for most failures (RLS
       // denial, PostgREST errors, constraint violations) rather than throwing.
