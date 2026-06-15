@@ -120,6 +120,10 @@ PHASE_*.json
 *-draft.md
 *-working.md
 
+# Audit reports — /m:audit output (regenerable; never commit). Matches repo-root
+# (.audit-report.md, .audit-report-perf.md) and app/ (app/.audit-report.md).
+.audit-report*.md
+
 # Performance and Validation Artifacts
 *performance-report*
 *baseline-report*

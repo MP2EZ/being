@@ -34,15 +34,14 @@
         "EXPO_PUBLIC_SUPABASE_URL": "$SUPABASE_URL_STAGING"
       },
       "cache": {
-        "disabled": false,
-        "cacheDefaultPaths": true
+        "disabled": false
       }
     },
     "production": {
       "ios": {
         "simulator": false,
         "buildConfiguration": "Release",
-        "resourceClass": "m1-medium"
+        "resourceClass": "m-medium"
       },
       "android": {
         "buildType": "app-bundle",
@@ -61,8 +60,7 @@
       },
       "cache": {
         "disabled": false,
-        "cacheDefaultPaths": true,
-        "customPaths": [
+        "paths": [
           "app/node_modules"
         ]
       }
