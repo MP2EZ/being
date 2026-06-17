@@ -1,546 +1,279 @@
 /**
- * OnboardingScreen Simple Test Validation
- * Following ExercisesScreen test patterns for basic validation
+ * OnboardingScreen — consent-wizard coverage (MAINT-279)
  *
- * SIMPLE TESTING REQUIREMENTS:
- * ✓ PHQ-9: Test 4 representative score combinations (not all 512)
- * ✓ GAD-7: Test 4 representative score combinations (not all 16,384)
- * ✓ Crisis thresholds: PHQ≥20, GAD≥15, Q9>0
- * ✓ Basic accessibility: 44pt targets, screen reader labels, crisis button
- * ✓ Simple performance: Crisis detection <200ms, navigation works
+ * Rewritten to test the CURRENT screen: a 5-step onboarding wizard
+ * (welcome → stoicIntro → notifications → privacy → celebration) whose
+ * privacy step hosts the FEAT-90 granular-consent toggles. The previous
+ * suite tested a removed welcome→PHQ-9→GAD-7 assessment flow (testIDs
+ * `welcome-next-button`, `phq9-screen`, `gad7-screen`, `crisis-button`)
+ * and never executed — a Jest ESM transform failure on react-native-svg
+ * made the whole file fail to load, masking 19 stale tests.
+ *
+ * SCOPE (onboarding-UI only):
+ *  - consent toggles mutate local state and persist via grantConsent() on
+ *    "Continue" (not per-toggle), with the GDPR Art. 9 mental-health flag
+ *    merged from the legal gate;
+ *  - explore-app completion navigation;
+ *  - accessibility (roles, labels, ≥44pt targets);
+ *  - safety-net reachability — the current screen renders NO interactive
+ *    crisis button on any onboarding step (removed by design — "only on
+ *    assessment screens for safety"); the privacy step carries the static
+ *    988 / 911 lifeline disclaimer, which is what we pin here.
+ *
+ * NOT covered here (already owned elsewhere — no duplication):
+ *  - PHQ-9 / GAD-7 scoring, severity thresholds, Q9 handling, crisis
+ *    detection → __tests__/clinical/** and crisis-thresholds.test.ts.
  */
 
 import React from 'react';
-import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
-import { Alert, Linking, AccessibilityInfo } from 'react-native';
-import OnboardingScreen from '../OnboardingScreen';
+import { render, fireEvent, waitFor, within } from '@testing-library/react-native';
+import { StyleSheet } from 'react-native';
 
-// Mock dependencies
-jest.mock('react-native', () => ({
-  ...jest.requireActual('react-native'),
-  Alert: {
-    alert: jest.fn()
-  },
-  Linking: {
-    openURL: jest.fn()
-  },
-  AccessibilityInfo: {
-    announceForAccessibility: jest.fn()
-  }
+// --- Mocks ---------------------------------------------------------------
+// `mock`-prefixed names are read lazily inside the returned closures (at
+// render time), so the babel-jest-hoist whitelist + TDZ both stay happy.
+
+const mockNavigate = jest.fn();
+jest.mock('@react-navigation/native', () => ({
+  // The screen reads navigation via the useNavigation() hook, not the
+  // `navigation` prop — passing a prop (as the stale suite did) is ignored.
+  useNavigation: () => ({ navigate: mockNavigate }),
+  // useFocusEffect only drives analytics screen-view tracking here; no-op it.
+  useFocusEffect: jest.fn(),
 }));
 
-const mockAlert = Alert.alert as jest.MockedFunction<typeof Alert.alert>;
-const mockLinking = Linking.openURL as jest.MockedFunction<typeof Linking.openURL>;
-const mockAccessibilityInfo = AccessibilityInfo.announceForAccessibility as jest.MockedFunction<typeof AccessibilityInfo.announceForAccessibility>;
+const mockGrantConsent = jest.fn<Promise<void>, unknown[]>().mockResolvedValue(undefined);
+const mockGetStoredAgeVerification = jest.fn();
+const mockGetLegalGateConsents = jest.fn();
+jest.mock('@/core/stores/consentStore', () => ({
+  useConsentStore: () => ({
+    grantConsent: mockGrantConsent,
+    getStoredAgeVerification: mockGetStoredAgeVerification,
+  }),
+  getLegalGateConsents: (...args: unknown[]) => mockGetLegalGateConsents(...args),
+}));
 
-// Mock navigation
-const mockNavigation = {
-  navigate: jest.fn(),
-  goBack: jest.fn(),
-  canGoBack: jest.fn(() => true),
-  reset: jest.fn()
-};
+jest.mock('@/core/analytics', () => ({
+  useAnalytics: () => ({
+    trackScreenView: jest.fn(),
+    trackOnboardingStarted: jest.fn(),
+    trackOnboardingStepCompleted: jest.fn(),
+    trackOnboardingCompleted: jest.fn(),
+  }),
+}));
 
-describe('OnboardingScreen.simple - Basic Test Validation', () => {
+// react-native-svg / datetimepicker are not in transformIgnorePatterns, so
+// mock the consumers (not the raw ESM modules) to keep the seam small.
+jest.mock('@/core/components/shared/BrainIcon', () => {
+  const React_ = require('react');
+  const { View } = require('react-native');
+  return { __esModule: true, default: () => React_.createElement(View, { testID: 'brain-icon' }) };
+});
+jest.mock('@/core/components/NotificationTimePicker', () => ({
+  __esModule: true,
+  default: () => null,
+}));
+// Imported at module-top but never rendered on any onboarding step.
+jest.mock('@/features/crisis/components/CollapsibleCrisisButton', () => ({
+  __esModule: true,
+  default: () => null,
+}));
+
+jest.mock('@/core/services/logging', () => ({
+  logSecurity: jest.fn(),
+  logPerformance: jest.fn(),
+  logError: jest.fn(),
+  LogCategory: { SECURITY: 'security' },
+}));
+
+import OnboardingScreen from '../OnboardingScreen';
+
+// --- Helpers -------------------------------------------------------------
+
+type Api = ReturnType<typeof render>;
+
+/** Drive the wizard welcome → privacy. The welcome "Begin" button opens the
+ *  PHQ-9 then GAD-7 assessment modals via navigation.navigate; the mock skips
+ *  both (onSkip), which advances the wizard to stoicIntro. */
+async function advanceToPrivacy(api: Api): Promise<void> {
+  fireEvent.press(api.getByLabelText('Begin Your Practice'));
+  await waitFor(() => expect(api.getByText('Welcome to Stoic Mindfulness')).toBeTruthy());
+  // Press by text and let the event bubble to the parent Pressable — the
+  // notifications-step "Continue" carries no accessibilityLabel.
+  fireEvent.press(api.getByText('Continue')); // stoicIntro → notifications
+  await waitFor(() => expect(api.getByText('Mindfulness Practice Reminders')).toBeTruthy());
+  fireEvent.press(api.getByText('Continue')); // notifications → privacy
+  await waitFor(() => expect(api.getByText('Privacy Settings')).toBeTruthy());
+}
+
+/** Continue past privacy (persists consent) → celebration. */
+async function advanceToCelebration(api: Api): Promise<void> {
+  await advanceToPrivacy(api);
+  fireEvent.press(api.getByLabelText('Continue')); // privacy → celebration
+  await waitFor(() => expect(api.getByText('Your Mindfulness Journey Begins')).toBeTruthy());
+}
+
+function consentSwitch(api: Api, testID: string) {
+  return within(api.getByTestId(testID)).getByRole('switch');
+}
+
+describe('OnboardingScreen — consent wizard (MAINT-279)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-  });
-
-  afterEach(() => {
-    jest.clearAllTimers();
-  });
-
-  describe('PHQ-9 Basic Scoring Tests (4 Representative Combinations)', () => {
-    const testCases = [
-      { description: 'Low score (5)', targetScore: 5, expectedSeverity: 'minimal', isCrisis: false },
-      { description: 'Moderate score (12)', targetScore: 12, expectedSeverity: 'moderate', isCrisis: false },
-      { description: 'High non-crisis score (19)', targetScore: 19, expectedSeverity: 'moderately_severe', isCrisis: false },
-      { description: 'Crisis threshold score (20)', targetScore: 20, expectedSeverity: 'severe', isCrisis: true }
-    ];
-
-    testCases.forEach(({ description, targetScore, isCrisis }) => {
-      it(`correctly calculates ${description}`, async () => {
-        const { getByTestId, getAllByTestId } = render(
-          <OnboardingScreen navigation={mockNavigation} />
-        );
-
-        // Navigate to PHQ-9 screen
-        fireEvent.press(getByTestId('welcome-next-button'));
-        await waitFor(() => {
-          expect(getByTestId('phq9-screen')).toBeTruthy();
-        });
-
-        // Generate answers for target score
-        const answers = generatePHQ9Answers(targetScore);
-
-        // Answer all PHQ-9 questions
-        for (let i = 0; i < answers.length; i++) {
-          const responseButtons = getAllByTestId(`phq9-response-${answers[i].response}`);
-          if (responseButtons[i]) {
-            fireEvent.press(responseButtons[i]);
-          }
-
-          // Move to next question if not the last
-          if (i < answers.length - 1) {
-            const nextButton = getByTestId('phq9-next-button');
-            fireEvent.press(nextButton);
-          }
-        }
-
-        // Complete PHQ-9
-        const completeButton = getByTestId('phq9-complete-button');
-        fireEvent.press(completeButton);
-
-        if (isCrisis) {
-          // Verify crisis detection was triggered
-          expect(mockAlert.alert).toHaveBeenCalledWith(
-            expect.stringContaining('Crisis'),
-            expect.any(String),
-            expect.arrayContaining([
-              expect.objectContaining({ text: expect.stringContaining('988') })
-            ]),
-            { cancelable: false }
-          );
-        } else {
-          // Verify no crisis alert for non-crisis scores
-          expect(mockAlert.alert).not.toHaveBeenCalled();
-        }
-      });
-    });
-  });
-
-  describe('GAD-7 Basic Scoring Tests (4 Representative Combinations)', () => {
-    const testCases = [
-      { description: 'Low score (4)', targetScore: 4, expectedSeverity: 'mild', isCrisis: false },
-      { description: 'Moderate score (9)', targetScore: 9, expectedSeverity: 'moderate', isCrisis: false },
-      { description: 'High non-crisis score (14)', targetScore: 14, expectedSeverity: 'moderate', isCrisis: false },
-      { description: 'Crisis threshold score (15)', targetScore: 15, expectedSeverity: 'severe', isCrisis: true }
-    ];
-
-    testCases.forEach(({ description, targetScore, isCrisis }) => {
-      it(`correctly calculates ${description}`, async () => {
-        const { getByTestId, getAllByTestId } = render(
-          <OnboardingScreen navigation={mockNavigation} />
-        );
-
-        // Navigate through welcome and PHQ-9 to reach GAD-7
-        fireEvent.press(getByTestId('welcome-next-button'));
-
-        // Skip through PHQ-9 with minimal answers
-        await waitFor(() => {
-          expect(getByTestId('phq9-screen')).toBeTruthy();
-        });
-
-        const minimalPHQ9Answers = generatePHQ9Answers(0);
-        for (let i = 0; i < minimalPHQ9Answers.length; i++) {
-          const responseButtons = getAllByTestId(`phq9-response-0`);
-          if (responseButtons[i]) {
-            fireEvent.press(responseButtons[i]);
-          }
-          if (i < minimalPHQ9Answers.length - 1) {
-            fireEvent.press(getByTestId('phq9-next-button'));
-          }
-        }
-        fireEvent.press(getByTestId('phq9-complete-button'));
-
-        // Now on GAD-7 screen
-        await waitFor(() => {
-          expect(getByTestId('gad7-screen')).toBeTruthy();
-        });
-
-        // Generate answers for target score
-        const answers = generateGAD7Answers(targetScore);
-
-        // Answer all GAD-7 questions
-        for (let i = 0; i < answers.length; i++) {
-          const responseButtons = getAllByTestId(`gad7-response-${answers[i].response}`);
-          if (responseButtons[i]) {
-            fireEvent.press(responseButtons[i]);
-          }
-
-          if (i < answers.length - 1) {
-            fireEvent.press(getByTestId('gad7-next-button'));
-          }
-        }
-
-        // Complete GAD-7
-        fireEvent.press(getByTestId('gad7-complete-button'));
-
-        if (isCrisis) {
-          // Verify crisis detection was triggered
-          expect(mockAlert.alert).toHaveBeenCalledWith(
-            expect.stringContaining('Crisis'),
-            expect.any(String),
-            expect.arrayContaining([
-              expect.objectContaining({ text: expect.stringContaining('988') })
-            ]),
-            { cancelable: false }
-          );
-        } else {
-          // Verify no crisis alert for non-crisis scores
-          expect(mockAlert.alert).not.toHaveBeenCalled();
-        }
-      });
-    });
-  });
-
-  describe('Crisis Detection Threshold Tests', () => {
-    it('detects PHQ-9 suicidal ideation (Q9 > 0) immediately', async () => {
-      const { getByTestId, getAllByTestId } = render(
-        <OnboardingScreen navigation={mockNavigation} />
-      );
-
-      // Navigate to PHQ-9
-      fireEvent.press(getByTestId('welcome-next-button'));
-      await waitFor(() => {
-        expect(getByTestId('phq9-screen')).toBeTruthy();
-      });
-
-      // Answer first 8 questions with 0
-      for (let i = 0; i < 8; i++) {
-        const responseButtons = getAllByTestId('phq9-response-0');
-        if (responseButtons[i]) {
-          fireEvent.press(responseButtons[i]);
-        }
-        fireEvent.press(getByTestId('phq9-next-button'));
+    // navigate() skips the assessment modals so the wizard can advance.
+    mockNavigate.mockImplementation((routeName: string, params?: { onSkip?: () => void }) => {
+      if (routeName === 'AssessmentFlow' && params?.onSkip) {
+        params.onSkip();
       }
-
-      // Answer Q9 with 1 (suicidal ideation)
-      const startTime = Date.now();
-      const q9ResponseButtons = getAllByTestId('phq9-response-1');
-      fireEvent.press(q9ResponseButtons[8]); // Question 9, response 1
-
-      const responseTime = Date.now() - startTime;
-
-      // Verify immediate crisis detection
-      await waitFor(() => {
-        expect(mockAlert.alert).toHaveBeenCalledWith(
-          expect.stringContaining('Crisis'),
-          expect.any(String),
-          expect.arrayContaining([
-            expect.objectContaining({ text: expect.stringContaining('988') })
-          ]),
-          { cancelable: false }
-        );
-      });
-
-      // Verify response time <200ms
-      expect(responseTime).toBeLessThan(200);
     });
-
-    it('detects PHQ-9 total score ≥20 crisis threshold', async () => {
-      const { getByTestId, getAllByTestId } = render(
-        <OnboardingScreen navigation={mockNavigation} />
-      );
-
-      // Navigate to PHQ-9
-      fireEvent.press(getByTestId('welcome-next-button'));
-      await waitFor(() => {
-        expect(getByTestId('phq9-screen')).toBeTruthy();
-      });
-
-      // Generate answers for score exactly 20
-      const answers = generatePHQ9Answers(20);
-
-      for (let i = 0; i < answers.length; i++) {
-        const responseButtons = getAllByTestId(`phq9-response-${answers[i].response}`);
-        if (responseButtons[i]) {
-          fireEvent.press(responseButtons[i]);
-        }
-        if (i < answers.length - 1) {
-          fireEvent.press(getByTestId('phq9-next-button'));
-        }
-      }
-
-      // Complete assessment should trigger crisis
-      fireEvent.press(getByTestId('phq9-complete-button'));
-
-      await waitFor(() => {
-        expect(mockAlert.alert).toHaveBeenCalled();
-      });
+    mockGetStoredAgeVerification.mockResolvedValue({
+      verified: true,
+      isEligible: true,
+      birthYear: 1990,
+      ageAtVerification: 35,
+      verifiedAt: 0,
     });
-
-    it('detects GAD-7 total score ≥15 crisis threshold', async () => {
-      const { getByTestId, getAllByTestId } = render(
-        <OnboardingScreen navigation={mockNavigation} />
-      );
-
-      // Navigate through to GAD-7
-      fireEvent.press(getByTestId('welcome-next-button'));
-
-      // Skip PHQ-9 with minimal score
-      await waitFor(() => {
-        expect(getByTestId('phq9-screen')).toBeTruthy();
-      });
-
-      const minimalAnswers = generatePHQ9Answers(0);
-      for (let i = 0; i < minimalAnswers.length; i++) {
-        const responseButtons = getAllByTestId('phq9-response-0');
-        if (responseButtons[i]) {
-          fireEvent.press(responseButtons[i]);
-        }
-        if (i < minimalAnswers.length - 1) {
-          fireEvent.press(getByTestId('phq9-next-button'));
-        }
-      }
-      fireEvent.press(getByTestId('phq9-complete-button'));
-
-      // Now on GAD-7
-      await waitFor(() => {
-        expect(getByTestId('gad7-screen')).toBeTruthy();
-      });
-
-      // Generate answers for score exactly 15
-      const answers = generateGAD7Answers(15);
-
-      for (let i = 0; i < answers.length; i++) {
-        const responseButtons = getAllByTestId(`gad7-response-${answers[i].response}`);
-        if (responseButtons[i]) {
-          fireEvent.press(responseButtons[i]);
-        }
-        if (i < answers.length - 1) {
-          fireEvent.press(getByTestId('gad7-next-button'));
-        }
-      }
-
-      // Complete assessment should trigger crisis
-      fireEvent.press(getByTestId('gad7-complete-button'));
-
-      await waitFor(() => {
-        expect(mockAlert.alert).toHaveBeenCalled();
-      });
+    mockGetLegalGateConsents.mockResolvedValue({
+      tosAccepted: true,
+      privacyAccepted: true,
+      wellnessDisclaimerAcknowledged: true,
+      mentalHealthProcessingConsent: true,
+      timestamp: 0,
+      version: '1.1.0',
     });
   });
 
-  describe('Basic Accessibility Tests', () => {
-    it('ensures crisis button has minimum 44pt touch target', async () => {
-      const { getByTestId } = render(
-        <OnboardingScreen navigation={mockNavigation} />
-      );
+  describe('current screen, not the removed assessment flow', () => {
+    it('renders the welcome step and none of the removed assessment-flow surface', () => {
+      const api = render(<OnboardingScreen />);
 
-      const crisisButton = getByTestId('crisis-button');
-      expect(crisisButton).toBeTruthy();
-
-      const { style } = crisisButton.props;
-      const minSize = 44;
-
-      // Check that button meets minimum touch target size
-      expect(style.minHeight >= minSize || style.height >= minSize).toBe(true);
-      expect(style.minWidth >= minSize || style.width >= minSize).toBe(true);
-    });
-
-    it('provides proper accessibility labels for screen readers', async () => {
-      const { getByTestId } = render(
-        <OnboardingScreen navigation={mockNavigation} />
-      );
-
-      // Check welcome screen accessibility
-      const welcomeScreen = getByTestId('welcome-screen');
-      expect(welcomeScreen.props.accessibilityLabel).toBeTruthy();
-
-      // Check crisis button accessibility
-      const crisisButton = getByTestId('crisis-button');
-      expect(crisisButton.props.accessibilityLabel).toBeTruthy();
-      expect(crisisButton.props.accessibilityRole).toBe('button');
-      expect(crisisButton.props.accessibilityHint).toContain('crisis');
-    });
-
-    it('ensures crisis button is accessible on all screens', async () => {
-      const { getByTestId } = render(
-        <OnboardingScreen navigation={mockNavigation} />
-      );
-
-      // Crisis button should be present on welcome screen
-      expect(getByTestId('crisis-button')).toBeTruthy();
-
-      // Navigate to PHQ-9 and check crisis button still present
-      fireEvent.press(getByTestId('welcome-next-button'));
-      await waitFor(() => {
-        expect(getByTestId('phq9-screen')).toBeTruthy();
-        expect(getByTestId('crisis-button')).toBeTruthy();
-      });
-
-      // Crisis button should be accessible and properly labeled
-      const crisisButton = getByTestId('crisis-button');
-      expect(crisisButton.props.accessible).toBe(true);
-      expect(crisisButton.props.accessibilityLabel).toContain('Crisis');
-    });
-
-    it('announces screen transitions to screen readers', async () => {
-      const { getByTestId } = render(
-        <OnboardingScreen navigation={mockNavigation} />
-      );
-
-      // Navigate to next screen
-      fireEvent.press(getByTestId('welcome-next-button'));
-
-      await waitFor(() => {
-        expect(mockAccessibilityInfo.announceForAccessibility).toHaveBeenCalledWith(
-          expect.stringContaining('PHQ-9')
-        );
-      });
+      expect(api.getByLabelText('Begin Your Practice')).toBeTruthy();
+      // The removed welcome→PHQ-9→GAD-7 testIDs must no longer resolve.
+      expect(api.queryByTestId('welcome-next-button')).toBeNull();
+      expect(api.queryByTestId('phq9-screen')).toBeNull();
+      expect(api.queryByTestId('gad7-screen')).toBeNull();
+      // No interactive crisis button is rendered on onboarding by design.
+      expect(api.queryByTestId('crisis-button')).toBeNull();
     });
   });
 
-  describe('Simple Performance Tests', () => {
-    it('crisis detection responds within 200ms', async () => {
-      const { getByTestId, getAllByTestId } = render(
-        <OnboardingScreen navigation={mockNavigation} />
-      );
+  describe('granular consent toggles', () => {
+    it('defaults every consent toggle to OFF (privacy-first, no pre-checked boxes)', async () => {
+      const api = render(<OnboardingScreen />);
+      await advanceToPrivacy(api);
 
-      // Navigate to PHQ-9
-      fireEvent.press(getByTestId('welcome-next-button'));
-      await waitFor(() => {
-        expect(getByTestId('phq9-screen')).toBeTruthy();
-      });
-
-      // Skip to question 9
-      for (let i = 0; i < 8; i++) {
-        const responseButtons = getAllByTestId('phq9-response-0');
-        if (responseButtons[i]) {
-          fireEvent.press(responseButtons[i]);
-        }
-        fireEvent.press(getByTestId('phq9-next-button'));
+      for (const id of ['consent-analytics', 'consent-crash-reports', 'consent-cloud-sync', 'consent-research']) {
+        expect(consentSwitch(api, id).props.value).toBe(false);
       }
-
-      // Measure crisis detection time
-      const startTime = performance.now();
-
-      const q9ResponseButtons = getAllByTestId('phq9-response-1');
-      fireEvent.press(q9ResponseButtons[8]);
-
-      const endTime = performance.now();
-      const responseTime = endTime - startTime;
-
-      // Verify crisis alert appeared
-      await waitFor(() => {
-        expect(mockAlert.alert).toHaveBeenCalled();
-      });
-
-      // Verify response time
-      expect(responseTime).toBeLessThan(200);
     });
 
-    it('navigation between screens works smoothly', async () => {
-      const { getByTestId } = render(
-        <OnboardingScreen navigation={mockNavigation} />
-      );
+    it('reflects a toggle in local UI state without persisting until Continue', async () => {
+      const api = render(<OnboardingScreen />);
+      await advanceToPrivacy(api);
 
-      // Test forward navigation
-      const startTime = performance.now();
+      fireEvent(consentSwitch(api, 'consent-analytics'), 'valueChange', true);
 
-      fireEvent.press(getByTestId('welcome-next-button'));
-
-      await waitFor(() => {
-        expect(getByTestId('phq9-screen')).toBeTruthy();
-      });
-
-      const navigationTime = performance.now() - startTime;
-      expect(navigationTime).toBeLessThan(500); // Navigation should be fast
+      // UI reflects the change…
+      expect(consentSwitch(api, 'consent-analytics').props.value).toBe(true);
+      // …but nothing is persisted on the toggle itself.
+      expect(mockGrantConsent).not.toHaveBeenCalled();
     });
 
-    it('state management functions correctly', async () => {
-      const { getByTestId, getAllByTestId } = render(
-        <OnboardingScreen navigation={mockNavigation} />
+    it('persists the merged preferences once on Continue, with the Art. 9 flag from the legal gate', async () => {
+      const api = render(<OnboardingScreen />);
+      await advanceToPrivacy(api);
+
+      fireEvent(consentSwitch(api, 'consent-analytics'), 'valueChange', true);
+      fireEvent(consentSwitch(api, 'consent-research'), 'valueChange', true);
+      fireEvent.press(api.getByLabelText('Continue'));
+
+      await waitFor(() => expect(mockGrantConsent).toHaveBeenCalledTimes(1));
+      expect(mockGrantConsent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          analyticsEnabled: true,
+          researchEnabled: true,
+          crashReportsEnabled: false,
+          cloudSyncEnabled: false,
+          // Sourced from getLegalGateConsents(), not a toggle.
+          mentalHealthProcessingConsent: true,
+        }),
+        expect.objectContaining({ verified: true, isEligible: true }),
       );
+    });
 
-      // Navigate to PHQ-9
-      fireEvent.press(getByTestId('welcome-next-button'));
-      await waitFor(() => {
-        expect(getByTestId('phq9-screen')).toBeTruthy();
-      });
+    it('still advances (consent is optional) when no age verification is stored', async () => {
+      mockGetStoredAgeVerification.mockResolvedValue(null);
+      const api = render(<OnboardingScreen />);
+      await advanceToPrivacy(api);
 
-      // Answer a question
-      const responseButtons = getAllByTestId('phq9-response-2');
-      fireEvent.press(responseButtons[0]);
+      fireEvent.press(api.getByLabelText('Continue'));
 
-      // Move to next question
-      fireEvent.press(getByTestId('phq9-next-button'));
-
-      // Verify state was maintained (next question should be visible)
-      await waitFor(() => {
-        expect(getByTestId('phq9-question-1')).toBeTruthy();
-      });
+      // grantConsent is gated on stored age verification; absent it, the
+      // flow logs and proceeds without granting.
+      await waitFor(() => expect(api.getByText('Your Mindfulness Journey Begins')).toBeTruthy());
+      expect(mockGrantConsent).not.toHaveBeenCalled();
     });
   });
 
-  describe('Crisis Button Integration Tests', () => {
-    it('triggers 988 call when crisis button pressed', async () => {
-      const { getByTestId } = render(
-        <OnboardingScreen navigation={mockNavigation} />
-      );
+  describe('completion navigation', () => {
+    it('invokes the embedded completion handler with "home" when Explore App is pressed', async () => {
+      const onComplete = jest.fn();
+      const api = render(<OnboardingScreen isEmbedded onComplete={onComplete} />);
+      await advanceToCelebration(api);
 
-      const crisisButton = getByTestId('crisis-button');
-      fireEvent.press(crisisButton);
+      fireEvent.press(api.getByTestId('onboarding-explore-app'));
 
-      expect(mockAlert.alert).toHaveBeenCalledWith(
-        expect.stringContaining('Crisis'),
-        expect.any(String),
-        expect.arrayContaining([
-          expect.objectContaining({
-            text: expect.stringContaining('988'),
-            onPress: expect.any(Function)
-          })
-        ]),
-        { cancelable: false }
-      );
+      await waitFor(() => expect(onComplete).toHaveBeenCalledWith('home'));
+    });
+  });
 
-      // Simulate pressing 988 button
-      const alertCall = mockAlert.alert.mock.calls[0];
-      const buttons = alertCall[2] as any[];
-      const call988Button = buttons.find(b => b.text.includes('988'));
+  describe('accessibility', () => {
+    it('exposes the welcome CTA as a labelled button with a ≥44pt touch target', () => {
+      const api = render(<OnboardingScreen />);
+      const begin = api.getByLabelText('Begin Your Practice');
 
-      call988Button.onPress();
-      expect(mockLinking.openURL).toHaveBeenCalledWith('tel:988');
+      expect(begin.props.accessibilityRole).toBe('button');
+      expect(begin.props.accessibilityHint).toBeTruthy();
+
+      const flat = StyleSheet.flatten(begin.props.style) as { minHeight?: number; minWidth?: number };
+      expect(flat.minHeight).toBeGreaterThanOrEqual(44);
+      expect(flat.minWidth).toBeGreaterThanOrEqual(44);
+    });
+
+    it('gives each consent toggle a screen-reader role and label', async () => {
+      const api = render(<OnboardingScreen />);
+      await advanceToPrivacy(api);
+
+      for (const id of ['consent-analytics', 'consent-crash-reports', 'consent-cloud-sync', 'consent-research']) {
+        const sw = consentSwitch(api, id);
+        expect(sw.props.accessibilityRole).toBe('switch');
+        expect(sw.props.accessibilityLabel).toBeTruthy();
+      }
+    });
+
+    it('exposes the Explore App control as a labelled button with a ≥44pt touch target', async () => {
+      const api = render(<OnboardingScreen isEmbedded onComplete={jest.fn()} />);
+      await advanceToCelebration(api);
+
+      const explore = api.getByTestId('onboarding-explore-app');
+      expect(explore.props.accessibilityRole).toBe('button');
+      expect(explore.props.accessibilityLabel).toBe('Explore App');
+      const flat = StyleSheet.flatten(explore.props.style) as { minHeight?: number; minWidth?: number };
+      expect(flat.minHeight).toBeGreaterThanOrEqual(44);
+      expect(flat.minWidth).toBeGreaterThanOrEqual(44);
+    });
+  });
+
+  describe('safety-net reachability', () => {
+    it('shows the static 988 / 911 lifeline disclaimer on the privacy step', async () => {
+      const api = render(<OnboardingScreen />);
+      await advanceToPrivacy(api);
+
+      // The current onboarding screens render no interactive crisis button
+      // (removed by design); the privacy step carries this static disclaimer.
+      expect(api.getByText(/988 Suicide & Crisis Lifeline/)).toBeTruthy();
+      expect(api.getByText(/call 911/)).toBeTruthy();
+      expect(api.queryByTestId('crisis-button')).toBeNull();
     });
   });
 });
-
-// Helper functions from ExercisesScreen test patterns
-function generatePHQ9Answers(targetScore: number): Array<{ questionId: string; response: 0 | 1 | 2 | 3 }> {
-  const questions = ['phq9_1', 'phq9_2', 'phq9_3', 'phq9_4', 'phq9_5', 'phq9_6', 'phq9_7', 'phq9_8', 'phq9_9'];
-  const answers: Array<{ questionId: string; response: 0 | 1 | 2 | 3 }> = [];
-
-  let remainingScore = targetScore;
-
-  for (let i = 0; i < questions.length; i++) {
-    const maxForThisQuestion = Math.min(3, remainingScore);
-    const questionsLeft = questions.length - i;
-    const minNeeded = Math.max(0, remainingScore - (questionsLeft - 1) * 3);
-
-    const response = Math.max(minNeeded, Math.min(maxForThisQuestion, remainingScore)) as 0 | 1 | 2 | 3;
-
-    answers.push({
-      questionId: questions[i],
-      response
-    });
-
-    remainingScore -= response;
-  }
-
-  return answers;
-}
-
-function generateGAD7Answers(targetScore: number): Array<{ questionId: string; response: 0 | 1 | 2 | 3 }> {
-  const questions = ['gad7_1', 'gad7_2', 'gad7_3', 'gad7_4', 'gad7_5', 'gad7_6', 'gad7_7'];
-  const answers: Array<{ questionId: string; response: 0 | 1 | 2 | 3 }> = [];
-
-  let remainingScore = targetScore;
-
-  for (let i = 0; i < questions.length; i++) {
-    const maxForThisQuestion = Math.min(3, remainingScore);
-    const questionsLeft = questions.length - i;
-    const minNeeded = Math.max(0, remainingScore - (questionsLeft - 1) * 3);
-
-    const response = Math.max(minNeeded, Math.min(maxForThisQuestion, remainingScore)) as 0 | 1 | 2 | 3;
-
-    answers.push({
-      questionId: questions[i],
-      response
-    });
-
-    remainingScore -= response;
-  }
-
-  return answers;
-}
