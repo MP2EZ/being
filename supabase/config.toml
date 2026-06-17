@@ -49,6 +49,10 @@ verify_jwt = true
 verify_jwt = false
 
 # Grace Period Automation (Cron Job)
+# verify_jwt=false is REQUIRED: pg_cron -> net.http_post carries no user JWT. The
+# X-Cron-Secret constant-time check inside index.ts is the sole compensating control.
+# Scheduled via 20260616000000_grace_period_automation_cron.sql (INFRA-266). Uses its OWN
+# Vault secret (grace_period_cron_secret) — a trust domain DISTINCT from the crisis alerter.
 [functions.grace-period-automation]
 verify_jwt = false
 
@@ -68,16 +72,17 @@ verify_jwt = false
 
 # CRON JOB CONFIGURATION
 #
-# TODO: re-schedule grace-period-automation in v2. The CLI v2 dropped the
-# inline [[functions.X.schedule]] block. Two paths:
-#   1) Create a pg_cron migration that schedules `net.http_post` against
-#      the function's endpoint with the X-Cron-Secret header.
-#   2) Set up via Supabase Dashboard -> Database -> Cron.
-#
-# Until one of those lands, the daily 2 AM UTC run will not fire.
-# Original intent preserved here for reference:
-#   schedule = "0 2 * * *"   (every day at 2:00 AM UTC)
-#   payload  = { "source": "cron" }
+# RESOLVED (INFRA-266): grace-period-automation is scheduled via the pg_cron migration
+# 20260616000000_grace_period_automation_cron.sql (path 1 below) — CLI v2 dropped the inline
+# [[functions.X.schedule]] block, so the cron now lives in a migration, not this file.
+#   job name : 'grace-period-automation'
+#   schedule : '0 2 * * *'   (daily 2:00 AM UTC — the original intent)
+#   payload  : { "source": "pg_cron" }
+#   command  : net.http_post to the Vault `grace_period_function_url`, with the
+#              X-Cron-Secret header read from the Vault `grace_period_cron_secret`
+#              (a secret DISTINCT from the crisis alerter's). Bootstrap both Vault
+#              secrets + the edge CRON_SECRET out of band (see the migration header).
+# A heartbeat row lands in public.grace_period_automation_runs per run (observability).
 
 # AUTH CONFIGURATION
 [auth]
