@@ -259,6 +259,12 @@ The migration references all secrets BY NAME — bootstrap the values out of ban
 3. **Supabase Vault secrets** (dashboard → Vault, or non-committed psql), read by the cron/watchdog SQL: `crisis_alert_cron_secret` (must equal the edge `CRON_SECRET`), `crisis_alert_function_url`, `crisis_alert_resend_key`, `crisis_alert_from`, `crisis_alert_to`. (The Resend key/from/to are duplicated in Vault deliberately so the watchdog is an independent send path.)
 4. Deploy: `supabase functions deploy crisis-detection-alerting` and `supabase db push`. Test-fire the function with a valid `x-cron-secret` and confirm a `crisis_alert_runs` row appears and (if forcing a breach) an email arrives.
 
+> [!WARNING]
+> **Merged ≠ deployed.** There is no CI auto-deploy for Supabase functions, migrations, or secrets —
+> a PR merging to `development`/`main` does not touch the live project. After **every** deploy or
+> secret rotation, run the [Deploy-state verification (INFRA-278)](#deploy-state-verification-infra-278)
+> checklist below. The whole stack sat dormant in prod because this step was implicit.
+
 ### Synthetic liveness probe (INFRA-265)
 
 A scheduled edge function (`crisis-liveness-probe`, pg_cron every 6h) writes a clearly-tagged
@@ -288,9 +294,12 @@ table the FEAT-129 views cannot reference (R2 boundary), with a belt-and-suspend
 
 **Setup additions** (alongside the INFRA-219 setup): the probe shares the `CRON_SECRET` edge
 secret + `crisis_alert_cron_secret` Vault value; add one Vault secret `crisis_probe_function_url`
-(= `https://<project-ref>.functions.supabase.co/crisis-liveness-probe`); deploy with
-`supabase functions deploy crisis-liveness-probe`. After `supabase db push`, confirm the first
-probe row lands: `SELECT * FROM crisis_liveness_probe ORDER BY probed_at DESC LIMIT 3;`.
+(= `https://<project-ref>.supabase.co/functions/v1/crisis-liveness-probe` — the same URL form as
+`crisis_alert_function_url`); deploy with `supabase functions deploy crisis-liveness-probe
+--no-verify-jwt` (the function authenticates by `x-cron-secret`, not JWT). After `supabase db push`,
+confirm the first probe row lands: `SELECT * FROM crisis_liveness_probe ORDER BY probed_at DESC LIMIT 3;`.
+Both the Vault secret **and** the function deploy must be bootstrapped before the cron can fire —
+verify via the [Deploy-state verification (INFRA-278)](#deploy-state-verification-infra-278) checklist.
 
 ### External dead-man's-switch (INFRA-264)
 
@@ -351,6 +360,94 @@ and fails the commit if one is ever pasted in.
 
 ---
 
+## Deploy-state verification (INFRA-278)
+
+> [!WARNING]
+> **Merged ≠ deployed. There is NO CI auto-deploy for Supabase edge functions, migrations, or
+> secrets.** A PR merging to `development`/`main` does **not** touch the live project
+> (`yliycxslzdsgjtpxggtf`). Every release, every secret rotation, and every new migration must be
+> followed by a **manual** `supabase functions deploy …` / `supabase db push` / `supabase secrets
+> set …` **and** a run of this checklist. The entire crisis-monitoring stack sat dormant in prod
+> precisely because this step was implicit — see the recorded evidence below.
+
+This checklist answers one question — *"is the crisis-monitoring stack actually alive in production
+right now?"* — and answers it **only with fresh, timestamped artifacts**, never with inventory ("the
+function file exists", "the secret is set", "the job is scheduled"). An inventory check renders
+*deployed-and-firing* and *never-deployed-silently-dormant* identical; that false-equivalence is
+exactly what hid the outage. Each leg's gold-standard proof is **a row/ping whose timestamp
+advanced**, not the presence of config. Run it after every release, every secret rotation, every
+migration, and before App Store launch.
+
+**Acceptance bar (zero-false-negative, applied to observability):** if any one check below cannot be
+confirmed by a fresh artifact, the crisis monitoring is **NOT alive** — treat it as a
+release/operational blocker, never "probably fine." No check may be marked pass by inference. Every
+check reads the **live project**, never the worktree.
+
+| # | Leg | Verify | Pass bar |
+|---|---|---|---|
+| 1 | Edge functions deployed | `supabase functions list --project-ref yliycxslzdsgjtpxggtf` | `crisis-detection-alerting` **and** `crisis-liveness-probe` both `ACTIVE`; record the version/`updated_at` (a *stale* deploy is as bad as an absent one). |
+| 2 | pg_cron jobs scheduled + active | `SELECT jobname, schedule, active FROM cron.job ORDER BY jobname;` | all five present (`crisis-detection-alerting`, `crisis-alerter-watchdog`, `crisis-alert-runs-prune`, `crisis-liveness-probe`, `crisis-liveness-probe-prune`) with **`active = true`**. A scheduled-but-`active=false` job is the silent killer. |
+| 3 | Migrations applied in prod | `supabase migration list --project-ref …` | the crisis migrations show applied **remotely** — not merely present in `supabase/migrations/`. Confirm the objects exist: `crisis_liveness_probe` table, `crisis_alert_runs.probe_status` column, the FEAT-129 views. |
+| 4 | **Secret parity, proven by a fresh heartbeat** | Re-run the `crisis-detection-alerting` cron body (reads Vault, posts to the function), then `SELECT ran_at, status FROM crisis_alert_runs ORDER BY ran_at DESC LIMIT 1;` | a row newer than the fire, `status = 'ok'`/`'alerted'`, **never** `error`. A 401 (Edge≠Vault) writes **no row at all** — "no fresh row" *is* the failure. Parity is **never** asserted by reading the two secret values (Vault is write-only in practice). |
+| 5 | Probe ingest leg alive | Re-run the `crisis-liveness-probe` cron body, then `SELECT probed_at, status FROM crisis_liveness_probe ORDER BY probed_at DESC LIMIT 1;` | a fresh `status = 'ok'` row within the 6h cadence. Absent/stale ⇒ the cron→edge→PostgREST write leg is dead. |
+| 6 | External dead-man's-switch armed | `supabase secrets list …` shows `CRISIS_HEALTHCHECK_PING_URL` set, **and** the healthchecks.io check shows a recent ping / **up** | an unset ping URL makes the alerter skip the ping *silently* — a never-pinged check looks identical to a newly-created one. Confirm a real ping landed. |
+
+The exact cron command bodies for checks 4–5 are the `command` columns of the `crisis-detection-alerting` /
+`crisis-liveness-probe` rows in `cron.job`; re-run them verbatim via `SELECT net.http_post(…)` so the
+test exercises the **scheduled** path (Vault→function), not just a direct header, and read
+`net._http_response` for the `200`.
+
+> [!IMPORTANT]
+> **Secret-parity rule — rotate both together, always.** Edge `CRON_SECRET` and Vault
+> `crisis_alert_cron_secret` are two copies of one shared secret read from two contexts (the edge
+> function reads `CRON_SECRET`; the pg_cron SQL reads the Vault value to sign its `x-cron-secret`
+> header) — and the **same** pair also gates the probe. They **must hold the identical value and must
+> be rotated in the same action.** Any drift makes every scheduled run authenticate with the wrong
+> header and return **401**; on a 401 the function rejects *before* writing, so **no heartbeat row
+> lands**. This is a silent failure — nothing errors loudly, the table simply shows stale/absent
+> rows. Parity is therefore proven **only** by a post-rotation test-fire producing a fresh
+> `ok`/`alerted` heartbeat (check 4) **and** a fresh probe row (check 5); "rotated the secret" is
+> incomplete until both rows exist. To rotate without leaking the value: generate it server-side and
+> set the Edge copy to match, or set both from one shell — **never** paste the value into a commit,
+> the runbook, a Notion record, or recorded evidence (the `crisisAlertNoSecrets.config.test.ts`
+> static pin fails the commit if a capability URL/secret leaks). Recorded evidence carries
+> timestamps, statuses, and `active` flags only.
+
+> **pg_cron "succeeded" ≠ the HTTP call succeeded.** `net.http_post` is async (pg_net): the cron job
+> reports success when it *enqueues* the request, so `cron.job_run_details` shows `succeeded` even
+> when the downstream function 401s or the URL is NULL. Only a fresh row / a `net._http_response`
+> `200` proves the call landed. This is why checks 4–5 are row-based, not job-status-based.
+
+### Recorded verification — 2026-06-17 (INFRA-278)
+
+A full live verification of `being-production` (`yliycxslzdsgjtpxggtf`) found the stack **still
+partially dormant two days after the 2026-06-14 hand-fix** — confirming the dormancy hypothesis and
+extending it:
+
+- **Before 2026-06-14** (surfaced by INFRA-264's manual test-fire): the alerter function was
+  undeployed (`404`), the Edge `CRON_SECRET` had drifted from Vault (`401`), and INFRA-265's
+  migration was unapplied (`500`). The whole stack was dormant; the hand-fix addressed the alerter
+  but not the rest.
+- **2026-06-17 (this verification) — two latent failures survived the hand-fix:**
+  - **Liveness probe had never run in prod.** `crisis-liveness-probe` edge function was **not
+    deployed**, and the Vault secret `crisis_probe_function_url` was **missing**, so every 6-hourly
+    probe cron failed at the SQL layer (`null value in column "url" … violates not-null
+    constraint` — a NULL secret → NULL URL). `crisis_liveness_probe` held **0 rows, ever**.
+  - **Scheduled alerter heartbeat was not landing.** `crisis_alert_runs` held only manual-fire rows
+    (latest `2026-06-14 07:00:17`); the daily cron "succeeded" (pg_net *enqueue*) on 06-15/06-16 but
+    no heartbeat row appeared and no `error` row either — a pre-write **401**, i.e. Vault
+    `crisis_alert_cron_secret` ≠ Edge `CRON_SECRET` (the hand-fix reset the Edge copy and test-fired
+    by hand but never re-synced Vault). The in-Supabase **watchdog correctly caught this** and was
+    emailing the founder (a Resend `200` at `2026-06-17 00:00:00`).
+- **Remediation (this work item).** Deployed `crisis-liveness-probe` (v1, `verify_jwt=false`);
+  created Vault `crisis_probe_function_url`; rotated `CRON_SECRET` (Edge) ↔ `crisis_alert_cron_secret`
+  (Vault) together to a fresh matching value. Re-verified on the **scheduled path** (the exact
+  pg_cron bodies): both functions returned `200`; `crisis_liveness_probe` wrote its **first-ever**
+  `ok` row (`2026-06-17 06:30:11`, `source=edge`); `crisis_alert_runs` wrote a fresh `ok` heartbeat
+  (`2026-06-17 06:30:11`, `today_volume=0`, `alert_sent=false`). Checks 1–6 all pass. (`probe_status`
+  read `future_skew` on the heartbeat — a benign same-instant clock-skew artifact of firing probe +
+  alerter together; it does not alert and resolves on the normal cadence.)
+
 ## Out of scope (follow-ups)
 
 - **Automated alerting** — ✅ **shipped in INFRA-219** (see the section above).
@@ -361,6 +458,11 @@ and fails the commit if one is ever pasted in.
   "Synthetic liveness probe (INFRA-265)" above). Covered by DPIA v1.5. Residual: it exercises the
   ingest/cron/edge leg only — the on-device emit leg stays covered by the manual active-liveness
   assertion (step 1).
+- **Deploy-state verification** — ✅ **shipped in INFRA-278** (see
+  "[Deploy-state verification (INFRA-278)](#deploy-state-verification-infra-278)" above). Closes the
+  merged-≠-deployed observability gap with an evidence-based checklist; the 2026-06-17 run found and
+  remediated the probe (undeployed + missing Vault URL) and the scheduled-alerter 401 (Edge/Vault
+  secret drift) that survived the 2026-06-14 hand-fix.
 - **Inline-Q9 emit fix.** Correct `assessmentStore.ts` so the inline Q9 / suicidal-ideation
   path sets `severityLevel` and `assessmentType` before emit. _(Tracked: create a follow-up
   work item.)_
