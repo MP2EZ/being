@@ -1,18 +1,21 @@
 # Create Work Item in Notion
 
-**ARGUMENTS**: `[TYPE] - [Name] [--depth quick|design|full] [--blocked-by ID[,ID...]]`
+**ARGUMENTS**: `[TYPE] - [Name] [--depth auto|quick|design|full] [--blocked-by ID[,ID...]]`
 
 **Types**: FEAT | DEBUG | INFRA | MAINT | AGENT
 
 **Depth** (planning rigor — see Phase 3):
-- `quick` *(default)* — orchestrator extracts, scores, creates. No product agent.
+- `auto` *(default)* — orchestrator **deterministically selects** quick/design/full from a keyword/rule table after gathering context (see Phase 2.6). The chosen depth + reason is shown at the confirm step and can be overridden there.
+- `quick` — orchestrator extracts, scores, creates. No product agent.
 - `design` — product agent runs a segmentation + JTBD pass, then authors the story / AC / score proposals. Orchestrator ratifies.
 - `full` — `design` pass **plus** an independent product critique before creation.
 
+Passing any of `quick|design|full` explicitly **forces** that level and skips the Phase 2.6 auto-resolution.
+
 **Examples**:
-- `/b-create FEAT - Simple subscription flow`
-- `/b-create FEAT - Medication tracking --depth design`
-- `/b-create FEAT - Crisis check-in redesign --depth full`
+- `/b-create FEAT - Simple subscription flow`            (auto → resolves in Phase 2.6)
+- `/b-create FEAT - Medication tracking --depth design`  (forced)
+- `/b-create FEAT - Crisis check-in redesign --depth full` (forced)
 
 **Deprecated**: `--review` is a soft alias for `--depth full` (still works; prefer `--depth full`).
 
@@ -27,13 +30,13 @@ Parse `$ARGUMENTS` using pattern: `[TYPE] - [Name] [--depth <level>]`
 **Extract**:
 - TYPE: First word before ` - `
 - Name: Everything after ` - ` (excluding any flag tokens)
-- DEPTH: value of `--depth` (accepts `--depth design` or `--depth=design`); default `quick`
+- DEPTH: value of `--depth` (accepts `--depth design` or `--depth=design`); default `auto`
 
 **Parsing logic**:
 1. Detect a depth flag anywhere in the arguments:
-   - `--depth <level>` or `--depth=<level>` → DEPTH = `<level>`
-   - `--review` (deprecated) → DEPTH = `full`
-   - none present → DEPTH = `quick`
+   - `--depth <level>` or `--depth=<level>` → DEPTH = `<level>` (an explicit `quick|design|full` **forces** and skips Phase 2.6)
+   - `--review` (deprecated) → DEPTH = `full` (forced)
+   - none present → DEPTH = `auto` (resolved deterministically in Phase 2.6)
 2. Detect a blocked-by flag anywhere in the arguments:
    - `--blocked-by <ID[,ID...]>` or `--blocked-by=<...>` → BLOCKED_BY = the list of work item IDs (e.g. `["FEAT-130","MAINT-99"]`)
    - none present → BLOCKED_BY = `[]` (Phase 2 may still infer prerequisites from the conversation)
@@ -45,19 +48,20 @@ Parse `$ARGUMENTS` using pattern: `[TYPE] - [Name] [--depth <level>]`
 - If invalid, error: "Invalid TYPE. Use: FEAT, DEBUG, INFRA, MAINT, or AGENT"
 
 **Validate DEPTH**:
-- Must be one of: quick, design, full
-- If invalid, error: "Invalid --depth. Use: quick, design, or full"
+- Must be one of: auto, quick, design, full
+- If invalid, error: "Invalid --depth. Use: auto, quick, design, or full"
+- `auto` is resolved to a concrete level in Phase 2.6 before Phase 3 branches.
 
 **Examples**:
 ```
 Input: "FEAT - Simple subscription flow"
-→ TYPE: "FEAT" | Name: "Simple subscription flow" | DEPTH: "quick"
+→ TYPE: "FEAT" | Name: "Simple subscription flow" | DEPTH: "auto"  (resolved in Phase 2.6)
 
 Input: "FEAT - Medication tracking --depth design"
-→ TYPE: "FEAT" | Name: "Medication tracking" | DEPTH: "design"
+→ TYPE: "FEAT" | Name: "Medication tracking" | DEPTH: "design"  (forced)
 
 Input: "FEAT - Crisis check-in redesign --review"   (deprecated)
-→ TYPE: "FEAT" | Name: "Crisis check-in redesign" | DEPTH: "full"
+→ TYPE: "FEAT" | Name: "Crisis check-in redesign" | DEPTH: "full"  (forced)
 ```
 
 ---
@@ -95,6 +99,29 @@ Scan Name + context:
 - **Privacy/Data** (`privacy`, `encryption`, `payment`, `PCI`, `consent`, `data export`) → `compliance, security`
 - **Performance** (`performance`, `optimize`, `slow`, `lag`, `bundle size`) → `performance`
 - **Default**: none (user can add later)
+
+---
+
+## Phase 2.6: Resolve Depth (only when DEPTH = `auto`)
+
+**Skip entirely if DEPTH was forced** (`quick|design|full` passed explicitly, or `--review`). A forced level carries straight into Phase 3.
+
+When DEPTH = `auto`, select a concrete level **deterministically** from the table below. Scan TYPE, Name, and the Phase 2 brief (user-story signals, AC signals, **Technical Notes**). Evaluate **top-down; first match wins**. Record the matched tier + the literal token/path that triggered it as `DEPTH_REASON` (shown in Phase 6).
+
+Matching is **case-insensitive, substring** against Name + brief text (same convention as the AGENTS REQUIRED scan).
+
+| # | Match condition (first to fire wins) | → DEPTH | Rationale |
+|---|---|---|---|
+| 1 | **Safety / regulated.** Any keyword: `crisis`, `PHQ`, `PHQ-9`, `GAD`, `GAD-7`, `threshold`, `988`, `suicide`, `self-harm`, `safety plan`, `emergency`, `intervention`, `assessment`, `scoring`, `questionnaire`, `encryption`, `consent`, `data export`, `privacy`, `PCI`, `payment` — **OR** Technical Notes reference a protected path (`features/crisis/`, `features/assessment/`, `core/services/security/`) | `full` | Highest-stakes / compliance-adjacent — warrants an independent product critique. |
+| 2 | **User-facing FEAT.** TYPE = `FEAT` **AND** any user-facing-surface keyword: `practices`, `breathing`, `body scan`, `mindfulness`, `learn`, `onboarding`, `check-in`, `journal`, `reflection`, `profile`, `settings`, `paywall`, `subscription`, `UI`, `screen`, `flow`, `experience`, `notification` | `design` | Audience + JTBD genuinely shape the design — run segmentation. |
+| 3 | **Default.** Anything else — `INFRA`, `MAINT`, `DEBUG`, `AGENT`, or a `FEAT` with no user-facing signal (backend/mechanical) | `quick` | Fast capture; no product agent needed. |
+
+**Notes on determinism**:
+- The table is the *only* input — do not let conversational tone or perceived importance override a tier. If you believe the table mis-fired, surface it in Phase 6 (the user can `edit` the depth), don't silently deviate.
+- Tier 1 keywords are a **superset-aligned** subset of the AGENTS REQUIRED Crisis/Safety + Assessment + Privacy/Data groups, so depth and agent-suggestion never disagree on what's "safety-adjacent."
+- A bare `FEAT` with no Tier-1 or Tier-2 keyword falls to `quick` (Tier 3) by design — purely backend features don't need a JTBD pass.
+
+After resolving, set DEPTH to the matched level and continue. Everything downstream (Phase 3 branch, Phase 6 display, Phase 7 content) keys on the resolved `quick|design|full`.
 
 ---
 
@@ -242,7 +269,7 @@ Carry forward the final **Segments** and **Jobs** for display + persistence.
 ## Phase 6: Display & Confirm
 
 ```
-📋 Work Item: [TYPE] - [Name]  (depth: [quick|design|full])
+📋 Work Item: [TYPE] - [Name]  (depth: [quick|design|full][if auto-resolved: " — auto: [DEPTH_REASON]"][if forced: " — forced"])
 
 [If depth ≥ design:]
 **Segments & Jobs**:
@@ -277,10 +304,12 @@ Validation summary: [concise bullets of what was refined/enhanced/validated]
 Does this look correct? (y/n/edit)
 - y: Create work item as shown
 - n: Cancel creation
-- edit: Provide corrections (Claude will prompt for each field)
+- edit: Provide corrections (Claude will prompt for each field, including Depth)
 ```
 
-**If user selects "edit"**: prompt per field (User Story / Acceptance Criteria / Technical Notes / AGENTS REQUIRED / Segments & Jobs / Dimension Scores — Enter to skip each).
+**If user selects "edit"**: prompt per field (Depth / User Story / Acceptance Criteria / Technical Notes / AGENTS REQUIRED / Segments & Jobs / Dimension Scores — Enter to skip each).
+
+**Depth override at edit**: if the user changes Depth to a level that requires a pass not yet run (`auto`/`quick` → `design`/`full`), re-enter Phase 3B (and Phase 4 if `full`) before re-displaying. Lowering depth just drops the unused artifacts.
 
 **If "n"**: `❌ Work item creation cancelled.`
 
@@ -442,12 +471,12 @@ Valid types: FEAT, DEBUG, INFRA, MAINT, AGENT
 **Invalid --depth**:
 ```
 ❌ Invalid --depth: "deep"
-Valid levels: quick, design, full
+Valid levels: auto, quick, design, full
 ```
 
 **Missing Name**:
 ```
-❌ Invalid format. Use: /b-create [TYPE] - [Name] [--depth quick|design|full]
+❌ Invalid format. Use: /b-create [TYPE] - [Name] [--depth auto|quick|design|full]
 Example: /b-create FEAT - Simple subscription flow
 ```
 
@@ -463,10 +492,13 @@ Please try again or create manually in Notion.
 ## Notes
 
 **Depth ladder**:
-- `quick` (default) — orchestrator authors + scores from conversation context. No product agent. Fast capture.
+- `auto` (default) — Phase 2.6 deterministically resolves to one of the levels below via a keyword/rule table (Tier 1 safety/regulated → `full`; Tier 2 user-facing FEAT → `design`; Tier 3 everything else → `quick`), first-match-wins. The resolution + reason is shown at the confirm step and is overridable via `edit`.
+- `quick` — orchestrator authors + scores from conversation context. No product agent. Fast capture.
 - `design` — product agent runs segmentation + JTBD, then authors the story / AC / proposed scores. Orchestrator ratifies against Being's framework. Use for features where *who it's for* and *what job it does* genuinely shape the design.
 - `full` — `design` plus an independent product critique (a fresh agent that did not write the draft) before creation. Use for strategic / high-risk / safety-adjacent work wanting maximum rigor.
-- `--review` is a deprecated alias for `--depth full`.
+- Passing `quick|design|full` explicitly **forces** that level (skips Phase 2.6). `--review` is a deprecated alias for `--depth full`.
+
+**Why a keyword/rule table (not LLM judgment)**: "deterministic" here means *same input → same depth, every run, auditable*. The table is the sole input; the orchestrator does not let tone or perceived importance override a tier. Brittleness on novel phrasing is the accepted trade-off — the confirm-step `edit` is the escape hatch.
 
 **Authoring ownership**:
 - In `design`/`full`, the **product agent authors** the story, AC, and proposed scores — it carries the JTBD lens straight through to the criteria, with no handoff fidelity loss.
@@ -482,7 +514,7 @@ Please try again or create manually in Notion.
 
 **Best practice**:
 - Discuss the feature/bug in conversation first.
-- `quick` for fast capture; `--depth design` when the design benefits from segmentation + JTBD; `--depth full` for strategic work needing an independent critique.
+- Leave depth on `auto` (default) and let Phase 2.6 pick; override with `--depth quick|design|full` only when you want to force a level against the table.
 - Confirm → create → `/b-work [WORK_ITEM_ID]` to implement.
 
 ---
