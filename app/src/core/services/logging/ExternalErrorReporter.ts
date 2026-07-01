@@ -135,6 +135,118 @@ export const SENSITIVE_DATA_PATTERNS = [
 ];
 
 /**
+ * CRISIS / WELLNESS CONTENT SUBSTRINGS
+ *
+ * Content that must never reach an external processor (Sentry) — assessment
+ * identifiers, crisis terms, the 988 hotline. Single-sourced so the error path
+ * (`containsCrisisContent`) and the FEAT-284 feedback path
+ * (`feedbackContainsCrisisContent`) enforce the identical set.
+ */
+const CRISIS_CONTENT_PATTERNS = [
+  'phq-9', 'phq9', 'gad-7', 'gad7',
+  'crisis', 'suicid', 'self-harm',
+  'emergency', 'intervention', '988',
+] as const;
+
+/* ------------------------------------------------------------------------- *
+ * FEAT-284 — in-app bug/feedback reporting (Sentry `captureFeedback`)
+ *
+ * These are pure, exported so the precommit privacy contract
+ * (__tests__/privacy/feedbackScrub.contract.test.ts) can pin them directly.
+ *
+ * WHY A SEPARATE PATH: `captureFeedback` emits a `type:'feedback'` event that
+ * BYPASSES `beforeSend` (verified in @sentry/core@10.x: client.js runs
+ * beforeSend only when `event.type === undefined`). So none of the class's
+ * beforeSendHook allowlist/denylist scrub runs for feedback. `scrubFeedbackEvent`
+ * is registered as a global event processor (which DOES run for feedback via
+ * prepareEvent) and is the enforcement point that both scrubs and can drop.
+ * ------------------------------------------------------------------------- */
+
+/**
+ * True if any crisis/wellness content appears anywhere in `value` (deep, via
+ * JSON serialization). Used as the pre-submit guard (block + prompt-rephrase)
+ * and as the event-processor drop backstop.
+ */
+export function feedbackContainsCrisisContent(value: unknown): boolean {
+  let str: string;
+  try {
+    str = JSON.stringify(value ?? '').toLowerCase();
+  } catch {
+    return true; // Unserializable → treat as unsafe (fail-safe).
+  }
+  return CRISIS_CONTENT_PATTERNS.some((p) => str.includes(p));
+}
+
+/**
+ * Pattern-scrub + truncate a user-authored feedback string. Redacts inline
+ * scores, emails, tokens, etc. via the shared SENSITIVE_DATA_PATTERNS and caps
+ * length at 500 (matching the reporter's `sanitizeString` contract).
+ */
+export function sanitizeFeedbackMessage(message: string): string {
+  if (!message || typeof message !== 'string') return '';
+  let out = message;
+  for (const pattern of SENSITIVE_DATA_PATTERNS) {
+    out = out.replace(pattern, '[REDACTED]');
+  }
+  return out.substring(0, 500);
+}
+
+/**
+ * Global Sentry event processor for FEAT-284 feedback events.
+ *
+ * - Non-feedback events pass through untouched (beforeSend still owns them).
+ * - Feedback events: drop entirely on any surviving crisis content; strip the
+ *   merged-scope leak vectors (breadcrumbs, extra, tags, request, rich device
+ *   context); reduce `user` to the anonymous uid ONLY (never email/ip/username);
+ *   never carry an `associated_event_id`; pattern-scrub the message. Preserves
+ *   top-level release/environment/platform for triage.
+ * - Fail-safe: any throw → return null (drop), never fail-open.
+ */
+export function scrubFeedbackEvent(event: any): any | null {
+  if (!event || event.type !== 'feedback') return event;
+  try {
+    // Strip scope data that prepareEvent merges onto feedback events FIRST.
+    // Breadcrumbs/tags/extra routinely carry screen names (PHQ9ResultsScreen);
+    // removing them means an otherwise-clean report isn't force-dropped just for
+    // having navigated a sensitive screen earlier in the session.
+    delete event.breadcrumbs;
+    delete event.extra;
+    delete event.tags;
+    delete event.request;
+    delete event.server_name;
+
+    // Identity: keep ONLY the anonymous Supabase uid; drop email/ip/username.
+    if (event.user) {
+      event.user = event.user.id ? { id: event.user.id } : undefined;
+    }
+
+    // Contexts: keep only the (scrubbed) feedback block — drop device/os/app,
+    // which can carry a personal device name.
+    if (event.contexts) {
+      const fb = event.contexts.feedback;
+      if (fb) {
+        delete fb.associated_event_id;
+        if (fb.message) fb.message = sanitizeFeedbackMessage(fb.message);
+        if (fb.name) fb.name = sanitizeFeedbackMessage(fb.name);
+      }
+      event.contexts = fb ? { feedback: fb } : {};
+    }
+
+    // Backstop drop: after stripping + scrubbing, if crisis/wellness content
+    // still survives (only possible in the user message), drop the whole event.
+    // The pre-submit guard in submitFeedback is the primary, user-visible gate.
+    if (feedbackContainsCrisisContent(event)) return null;
+
+    return event;
+  } catch {
+    return null; // Fail-safe: drop on any error.
+  }
+}
+
+/** Outcome of a feedback submission (maps to the screen's confirmation UI). */
+export type FeedbackResult = 'submitted' | 'blocked' | 'noop' | 'error';
+
+/**
  * Sanitized error event structure
  */
 interface SanitizedErrorEvent {
@@ -235,6 +347,13 @@ export class ExternalErrorReporter {
             normalizeDepth: 3, // Limit depth to prevent deep object exposure
           });
 
+          // FEAT-284: feedback events (captureFeedback) BYPASS beforeSend, so
+          // register a global event processor as the enforcement point. It is a
+          // no-op for non-feedback events (which beforeSend still scrubs).
+          if (typeof this.sentryModule.addEventProcessor === 'function') {
+            this.sentryModule.addEventProcessor(scrubFeedbackEvent);
+          }
+
           this.initialized = true;
           logger.info(LogCategory.SYSTEM, 'External error reporting initialized');
           return true;
@@ -306,6 +425,60 @@ export class ExternalErrorReporter {
     } catch {
       // Never let reporting errors break the app
       logger.error(LogCategory.SYSTEM, 'External error reporting failed silently');
+    }
+  }
+
+  /**
+   * FEAT-284: Submit an in-app bug report / feedback via Sentry captureFeedback.
+   *
+   * Privacy contract (enforced here + by the scrubFeedbackEvent processor):
+   * - Empty DSN / not active / killed → silent no-op ('noop'), never throws.
+   * - Pre-submit guard: a message with crisis/wellness content is BLOCKED
+   *   ('blocked') so the screen can prompt the user to rephrase — nothing is
+   *   sent. This is stricter (and more honest) than a silent drop.
+   * - The message is pattern-scrubbed before send; identity is the anonymous
+   *   Supabase uid ONLY (caller supplies it — this module must not import the
+   *   Supabase service). No attachments, no associated event id.
+   */
+  async submitFeedback(input: {
+    message: string;
+    name?: string;
+    email?: string;
+    userId?: string | null;
+  }): Promise<FeedbackResult> {
+    // Empty-DSN (dev/sim) and killed states short-circuit before any Sentry call.
+    if (!this.isActive() || !this.sentryModule) {
+      return 'noop';
+    }
+
+    const message = (input.message ?? '').trim();
+    if (!message) return 'blocked';
+
+    // Primary gate: never let crisis/wellness content reach the processor.
+    if (feedbackContainsCrisisContent(message) || feedbackContainsCrisisContent(input.name ?? '')) {
+      logger.warn(LogCategory.SECURITY, 'Feedback blocked pre-submit: wellness/crisis content');
+      return 'blocked';
+    }
+
+    try {
+      // Reporter identity: anonymous uid only, never an SDK default / PII.
+      if (input.userId && typeof this.sentryModule.setUser === 'function') {
+        this.sentryModule.setUser({ id: input.userId });
+      }
+
+      const payload: { message: string; name?: string; email?: string } = {
+        message: sanitizeFeedbackMessage(message),
+      };
+      if (input.name) payload.name = sanitizeFeedbackMessage(input.name);
+      // Email is an intentional contact field — truncate only (pattern-scrubbing
+      // would redact the address itself). It is user-typed and opt-in.
+      if (input.email) payload.email = input.email.trim().substring(0, 254);
+
+      this.sentryModule.captureFeedback(payload);
+      return 'submitted';
+    } catch {
+      logger.error(LogCategory.SYSTEM, 'Feedback submission failed silently');
+      return 'error';
     }
   }
 
@@ -394,13 +567,7 @@ export class ExternalErrorReporter {
    */
   private containsCrisisContent(event: any): boolean {
     const eventStr = JSON.stringify(event).toLowerCase();
-    const crisisPatterns = [
-      'phq-9', 'phq9', 'gad-7', 'gad7',
-      'crisis', 'suicid', 'self-harm',
-      'emergency', 'intervention', '988'
-    ];
-
-    return crisisPatterns.some(pattern => eventStr.includes(pattern));
+    return CRISIS_CONTENT_PATTERNS.some(pattern => eventStr.includes(pattern));
   }
 
   /**
@@ -618,3 +785,15 @@ export const killExternalReporting = () =>
 
 export const isExternalReportingActive = () =>
   externalErrorReporter.isActive();
+
+/**
+ * FEAT-284: Submit an in-app bug report / feedback. Caller supplies the anonymous
+ * Supabase uid (this module must not import the Supabase service — would create a
+ * dependency cycle, since Supabase imports the logger).
+ */
+export const submitExternalFeedback = (input: {
+  message: string;
+  name?: string;
+  email?: string;
+  userId?: string | null;
+}): Promise<FeedbackResult> => externalErrorReporter.submitFeedback(input);

@@ -199,7 +199,9 @@ export {
   reportExternalError,
   killExternalReporting,
   isExternalReportingActive,
+  submitExternalFeedback,
 } from './ExternalErrorReporter';
+export type { FeedbackResult } from './ExternalErrorReporter';
 
 /**
  * INFRA-61: Initialize external error reporting

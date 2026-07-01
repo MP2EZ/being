@@ -38,6 +38,7 @@ import LegalDocumentScreen from './screens/LegalDocumentScreen';
 import CloudBackupScreen from './screens/CloudBackupScreen';
 import ExportDataScreen from './screens/ExportDataScreen';
 import DeleteAccountScreen from './screens/DeleteAccountScreen';
+import BugReportScreen from './screens/BugReportScreen';
 
 export type ProfileStackParamList = {
   ProfileMenu: undefined;
@@ -54,6 +55,10 @@ export type ProfileStackParamList = {
   // never on the root stack, which has no crisis overlay.
   ExportData: undefined;
   DeleteAccount: undefined;
+  // FEAT-284: internal-only bug/feedback surface. Gated at the ProfileScreen
+  // entry point by isFeatureEnabled('bug_reporting'); registered here (inside the
+  // Profile stack) so it inherits the sibling CollapsibleCrisisButton overlay.
+  BugReport: undefined;
 };
 
 const Stack = createStackNavigator<ProfileStackParamList>();
@@ -116,6 +121,7 @@ const ProfileStackNavigator: React.FC = () => {
         <Stack.Screen name="CloudBackup" component={CloudBackupScreen} options={{ title: 'Cloud Backup' }} />
         <Stack.Screen name="ExportData" component={ExportDataScreen} options={{ title: 'Export My Data' }} />
         <Stack.Screen name="DeleteAccount" component={DeleteAccountScreen} options={{ title: 'Delete Account' }} />
+        <Stack.Screen name="BugReport" component={BugReportScreen} options={{ title: 'Report a Bug' }} />
         <Stack.Screen
           name="LegalDocument"
           component={LegalDocumentScreen}

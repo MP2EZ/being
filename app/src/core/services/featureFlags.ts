@@ -51,7 +51,14 @@ export type FeatureFlag =
   | 'cloud_sync'
   | 'emergency_sync'
   | 'cross_device_sync'
-  | 'wellness_trend_notes';
+  | 'wellness_trend_notes'
+  // FEAT-284: gates the internal-only "Report a bug / Send feedback" surface.
+  // Build-time (not runtime/PostHog) by design: internal-vs-App-Store
+  // availability must be deterministic, offline, fail-closed, and NOT coupled to
+  // analytics consent (INFRA-199 safety carve-out). ON in dev + the `preview`
+  // EAS profile; OFF (false) in `.env.production` so the App Store binary never
+  // shows it. Pinned in __tests__/privacy/feedbackScrub.contract.test.ts.
+  | 'bug_reporting';
 
 /**
  * Parse a feature-flag blob into a boolean lookup.
