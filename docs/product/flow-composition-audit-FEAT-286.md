@@ -275,18 +275,22 @@ bet in R3; R4 is the depth layer; R5 is a secondary discoverability fix; the ful
 
 | Rank | Recommendation | I | V | SF | U | E | R | Priority | Tier |
 |---|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|---|
-| 1 | **Clarify daily-practice first-run comprehension** (interim Home primer) | 5 | 3 | 3 | 4 | 2 (S) | 1 | **156** | Must |
+| 1 | **Clarify daily-practice first-run comprehension** (interim Home primer) | 5 | 3 | 3 | 3 | 2 (S) | 1 | **117** | Must † |
 | 2 | **Crisis button → persistent root-level mount** (safety hardening + loop prereq) | 5 | 5 | 5 | 4 | 3 (M) | 4 | **93** | Should |
 | 3 | **Single-loop daily-practice prototype behind a flag** (the headline bet) | 5 | 4 | 5 | 3 | 3 (M) | 3 | **67** | Should |
 | 4 | **Wire developmental-stage adaptivity into daily practice** (Finding 1) | 5 | 4 | 5 | 3 | 5 (L) | 2 | **60** | Should |
 | 5 | **Improve standalone-practice discoverability** | 3 | 3 | 3 | 2 | 2 (S) | 1 | **47** | Should |
 | 6 | **Full morning/midday/evening → single-loop migration** (epic; gated on R3) | 5 | 4 | 5 | 3 | 8 (XL) | 4 | **19** | Could |
 
-### R1 — Clarify daily-practice first-run comprehension *(Priority 156 · Must)*
+### R1 — Clarify daily-practice first-run comprehension *(Priority 117 · Must †)*
 Small copy/UX change on the Home three-card surface: explain what a check-in is, that the
-user only needs the *current* one, and what the underlying practice is. Worth doing **now**,
-independent of the loop's fate (launch-hygiene). *Superseded by R3/R6 if the loop ships* —
-scope it XS so the two don't overlap wastefully. Addresses Finding 2.
+user only needs the *current* one, and what the underlying practice is. **† Conditional
+hedge** (founder-review decision): this polishes the exact 3-card layout the single-loop
+(R3) *deletes*, and "the 3 cards cause churn" is an unvalidated hypothesis (no usage data).
+Only worth building **if launch precedes the loop** — if R3 ships first, close this. Urgency
+downgraded 4→3 to reflect that; it still computes >100 as a genuinely cheap fix, but treat
+it as a conditional hedge, not a committed Must, and do not sequence it ahead of R3 unless a
+launch date is set before the loop lands. Addresses Finding 2.
 
 ### R2 — Crisis button → persistent root-level mount *(Priority 93 · Should)*
 Replace the per-navigator/per-screen crisis-button mounts with one root-level persistent
@@ -296,11 +300,18 @@ extend `e2e:safety:crisis-button`. Addresses Finding 5. *Do this before or with 
 
 ### R3 — Single-loop daily-practice prototype behind a flag *(Priority 67 · Should)*
 Build **one** loop (Aware Presence → Radical Acceptance → Sphere Sovereignty → Virtue →
-Connection) with a **tense parameter** (morning-prospective / evening-retrospective,
-Finding 3 table), behind a build-time flag, reusing the existing Midday flow as the base
-(it is already this loop in miniature). This is the de-risking slice of the epic — validate
-the founder's thesis against today's three-flow structure *before* the full migration.
-Conditions from Finding 4 apply (defend steps 4–5 copy; do not go tenseless). Requires
+Connection), behind a build-time flag, extending the existing Midday flow as the closest
+base (note: Midday is *missing* explicit acceptance + social steps — the loop adds beats,
+it doesn't just rename). This is the de-risking slice of the epic — validate the founder's
+thesis against today's three-flow structure *before* the full migration.
+
+**Flat vs. tensed is the prototype's open question** (founder-review decision): rather than
+mandating the morning-prospective / evening-retrospective tense (Finding 3), the prototype
+ships an **optional tense toggle** and compares both modes head-to-head. The philosopher's
+position — that a *flat* tenseless loop discards genuine classical substance (Marcus's
+morning *praemeditatio*, Seneca's evening *examen*) — is the hypothesis to validate by feel,
+not a precondition. Condition from Finding 4 still holds unconditionally: defend steps 4–5
+copy (keep the cardinal virtues + reappraisal; keep *oikeiōsis*/justice). Requires
 `philosopher` sign-off on copy and `crisis` sign-off on button coverage. Addresses Findings
 2, 3, 4.
 
@@ -341,3 +352,31 @@ change-surface is catalogued in the audit's architecture appendix.
   III.10; Marcus Aurelius *Meditations* II.1, IV.23, V.20, VI.54, VII.9; Seneca *De Ira*
   III.36; Pythagorean *Golden Verses*; Hierocles (concentric circles); Hadot on *prosochē*
   and the three disciplines.
+
+---
+
+## 7. Post-Audit Verification & Founder-Review Adjustments
+
+A verification pass after the first draft checked the load-bearing assumptions against the
+code and reconciled two recommendations with founder intent.
+
+**Verified — "no mood check-in" (§2.2).** Confirmed against the codebase: there is **no
+`checkInStore`, no mood store, and no mood-capture screen.** The only Zustand stores are
+`consentStore`, `settingsStore`, `subscriptionStore`, `assessmentStore`, `educationStore`,
+`stoicPracticeStore`. `educationStore.ts:263` carries a `TODO: Integrate with checkInStore`
+— i.e. the store is referenced as *not-yet-existing*. **Corollary finding:** CLAUDE.md's
+State section (`checkIn — mood (encrypted at rest)`) and this work item's own AC ("daily
+check-in (mood)") both describe a store that was never built — a stale spec, worth
+correcting in CLAUDE.md.
+
+**Decision 1 — flat vs. tensed is the prototype's question, not a mandate.** The founder's
+original framing ("get rid of morning/midday/evening") and the philosopher's
+"keep-the-tense" recommendation are left for R3's prototype to resolve empirically: build
+the loop with an optional tense toggle and compare flat vs. tensed by feel. Finding 3/4's
+philosophical analysis stands as the *argument for* tensed, not a precondition. R3's AC
+updated accordingly.
+
+**Decision 2 — R1 downgraded to a conditional hedge.** R1 polishes the 3-card Home that R3
+deletes, and rests on an unvalidated churn hypothesis; Urgency lowered 4→3 and it is flagged
+"only if launch precedes the loop; close if R3 ships." It should not be sequenced ahead of
+R3 absent a pre-loop launch date.
