@@ -195,13 +195,13 @@ Seneca's backward *examen*), **not** decoration. The current app encodes this co
 pays for it with three separate flows, three screen counts, and a confusing front door. The
 resolution is to keep the **tense** and drop the **triplication** — one loop, two postures:
 
-| Lens (loop step) | Morning (prospective) | Evening (retrospective) |
+| Lens (loop step — canonical Five Principles term) | Morning (prospective) | Evening (retrospective) |
 |---|---|---|
-| Aware presence | arrive in the body to begin | settle the body to close |
-| Radical acceptance | accept the day as it will come (reserve clause) | accept the day as it was |
-| Sphere sovereignty | what will be up to me today | where did I confuse control today |
-| Virtue | which virtue will I rehearse (*Med.* II.1) | where did I express / miss virtue (*De Ira* III.36) |
-| Social connection | who will I meet, how will I show up | how did I affect others today |
+| Aware Presence | arrive in the body to begin | settle the body to close |
+| Radical Acceptance | accept the day as it will come (reserve clause) | accept the day as it was |
+| Sphere Sovereignty | what will be up to me today | where did I confuse control today |
+| Virtuous Response | which virtue will I rehearse (*Med.* II.1) | where did I express / miss virtue (*De Ira* III.36) |
+| Interconnected Living | who will I meet, how will I show up | how did I affect others today |
 
 ### Finding 4 — The single-loop is a *conditional* philosophical upgrade
 
@@ -299,8 +299,9 @@ loop restructure safe (guaranteed 988 coverage on every step). Must keep 988 <3 
 extend `e2e:safety:crisis-button`. Addresses Finding 5. *Do this before or with R3.*
 
 ### R3 — Single-loop daily-practice prototype behind a flag *(Priority 67 · Should)*
-Build **one** loop (Aware Presence → Radical Acceptance → Sphere Sovereignty → Virtue →
-Connection), behind a build-time flag, extending the existing Midday flow as the closest
+Build **one** loop of the canonical Five Principles (Aware Presence → Radical Acceptance →
+Sphere Sovereignty → Virtuous Response → Interconnected Living — the Stoic knowledge-base
+terms, not narrowed shorthand), behind a build-time flag, extending the existing Midday flow as the closest
 base (note: Midday is *missing* explicit acceptance + social steps — the loop adds beats,
 it doesn't just rename). This is the de-risking slice of the epic — validate the founder's
 thesis against today's three-flow structure *before* the full migration.
