@@ -32,10 +32,12 @@ name: "988 dial does not surface 'Unable to Call' fallback (device-only)"
 # Reach CrisisResources from Home tab. INFRA-183: tab-home testID is the
 # mechanically reliable selector — Maestro's `text:` doesn't match the
 # bottom-tab `accessibilityText: "Home, tab, 1 of 4"` (text field is empty).
+# MAINT-290: the crisis button is now the single root overlay (crisis-button-root),
+# not the removed per-screen "crisis-home".
 - tapOn:
     id: "tab-home"
 - tapOn:
-    id: "crisis-home"
+    id: "crisis-button-root"
 - assertVisible:
     id: "crisis-resources-screen"
 

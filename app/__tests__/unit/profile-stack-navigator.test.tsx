@@ -1,19 +1,18 @@
 /**
- * profile-stack-navigator.test.tsx — FEAT-212 crisis-overlay re-host (audit §5.1).
+ * profile-stack-navigator.test.tsx
  *
- * FEAT-212 moved CollapsibleCrisisButton from inside ProfileScreen up to the
- * ProfileStackNavigator wrapper (sibling above <Stack.Navigator>). This spec pins
- * the frozen crisis contract at the jest layer by capturing the props the navigator
- * passes to the overlay:
- *   - CB-7: testID="crisis-profile" (the safety e2e + reachability target)
- *   - CB-6: mode="standard" (full opacity — never downgraded to immersive)
- *   - CB-4: position="right"
- *   - CB-1: onNavigate routes to the ROOT CrisisResources modal, not the local
- *           Profile stack — the failure mode where the dial path silently no-ops.
+ * FEAT-212 once hosted CollapsibleCrisisButton as a sibling of <Stack.Navigator>
+ * inside ProfileStackNavigator (testID="crisis-profile"). MAINT-290 SUPERSEDED that:
+ * the crisis button was promoted to a single persistent root overlay
+ * (RootCrisisButton, testID="crisis-button-root") mounted once in CleanRootNavigator,
+ * so the Profile stack no longer hosts its own — a per-navigator mount would now
+ * double-render over the root overlay. This spec now pins:
+ *   - the MAINT-290 regression guard: the Profile stack mounts NO crisis overlay,
+ *   - the MAINT-257 header contract (back affordance + centered title), unchanged.
  *
- * The navigator machinery and screen modules are stubbed: this test is about WHAT
- * the navigator wires into the overlay. On-device reachability across every route
- * (depth-1 + depth-2) is the Maestro crisis-button-reachability flow.
+ * Route→mode/suppression and the onNavigate('CrisisResources') payload for the single
+ * root overlay are pinned by RootCrisisButton.test.tsx; on-device reachability across
+ * every Profile route (depth-1 + depth-2) is the Maestro crisis-button-reachability flow.
  */
 import React from 'react';
 import { render } from '@testing-library/react-native';
@@ -77,26 +76,15 @@ beforeEach(() => {
   mockNavigatorProps.mockClear();
 });
 
-describe('ProfileStackNavigator — crisis overlay re-host (FEAT-212)', () => {
-  it('hosts the crisis overlay as a sibling of the stack (testID="crisis-profile")', () => {
-    const { getByTestId } = render(<ProfileStackNavigator />);
-    expect(getByTestId('crisis-profile')).toBeTruthy();
-  });
-
-  it('passes the frozen crisis props: standard mode, right position, pinned testID', () => {
-    render(<ProfileStackNavigator />);
-    expect(mockCrisisProps).toHaveBeenCalledTimes(1);
-    const props = mockCrisisProps.mock.calls[0][0];
-    expect(props.mode).toBe('standard'); // CB-6: never immersive
-    expect(props.position).toBe('right'); // CB-4
-    expect(props.testID).toBe('crisis-profile'); // CB-7
-  });
-
-  it('CB-1: onNavigate routes to the ROOT CrisisResources modal', () => {
-    render(<ProfileStackNavigator />);
-    const props = mockCrisisProps.mock.calls[0][0];
-    (props.onNavigate as () => void)();
-    expect(mockNavigate).toHaveBeenCalledWith('CrisisResources');
+describe('ProfileStackNavigator — crisis overlay delegated to root (MAINT-290)', () => {
+  // The single persistent RootCrisisButton (mounted in CleanRootNavigator) now covers
+  // every Profile route. The Profile stack must NOT mount its own crisis button — a
+  // per-navigator mount would double-render over the root overlay. This guards against
+  // reintroducing the removed FEAT-212 sibling mount.
+  it('no longer hosts its own crisis overlay (delegated to the root mount)', () => {
+    const { queryByTestId } = render(<ProfileStackNavigator />);
+    expect(queryByTestId('crisis-profile')).toBeNull();
+    expect(mockCrisisProps).not.toHaveBeenCalled();
   });
 });
 

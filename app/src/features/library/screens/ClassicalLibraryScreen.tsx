@@ -23,7 +23,6 @@ import {
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
-import { CollapsibleCrisisButton } from '@/features/crisis/components';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 import type { ModuleId } from '@/features/learn/types/education';
 import type { PassageAuthor } from '@/features/library/types/library';
@@ -176,11 +175,6 @@ const ClassicalLibraryScreen: React.FC = () => {
             </View>
           </ScrollView>
         </View>
-        <CollapsibleCrisisButton
-          mode="standard"
-          onNavigate={() => navigation.navigate('CrisisResources')}
-          testID="crisis-library"
-        />
       </View>
     </SafeAreaView>
   );

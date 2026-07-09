@@ -11,6 +11,7 @@ import { whenE2ESeedComplete } from '@/core/config/e2eSeed';
 import { generateTimestampedId } from '@/core/utils/id';
 import { NavigationContainer } from '@react-navigation/native';
 import { linkingConfig } from './linking';
+import { navigationRef, getActiveRootRouteName } from './navigationRef';
 import { createStackNavigator } from '@react-navigation/stack';
 import { HeaderBackButton } from '@react-navigation/elements';
 import { spacing, typography } from '@/core/theme';
@@ -19,6 +20,7 @@ import MorningFlowNavigator from '@/features/practices/morning/MorningFlowNaviga
 import MiddayFlowNavigator from '@/features/practices/midday/MiddayFlowNavigator';
 import EveningFlowNavigator from '@/features/practices/evening/EveningFlowNavigator';
 import CrisisResourcesScreen from '@/features/crisis/screens/CrisisResourcesScreen';
+import RootCrisisButton from '@/features/crisis/components/RootCrisisButton';
 import PurchaseOptionsScreen from '@/core/components/subscription/PurchaseOptionsScreen';
 import SubscriptionStatusCard from '@/core/components/subscription/SubscriptionStatusCard';
 import OnboardingScreen from '@/features/onboarding/screens/OnboardingScreen';
@@ -111,6 +113,9 @@ const CleanRootNavigator: React.FC = () => {
   const { loadSettings, markOnboardingComplete } = useSettingsStore();
   const { loadConsent, consentStatus } = useConsentStore();
   const [initialRoute, setInitialRoute] = useState<'LegalGate' | 'Onboarding' | 'Main' | null>(null);
+  // MAINT-290: active root-stack route drives the single RootCrisisButton overlay
+  // (suppression + immersive/standard mode). Tracked via NavigationContainer below.
+  const [activeRootRoute, setActiveRootRoute] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     async function checkInitialRoute() {
@@ -218,9 +223,15 @@ const CleanRootNavigator: React.FC = () => {
   }
 
   return (
-    <NavigationContainer linking={linkingConfig}>
-      <Stack.Navigator
-        initialRouteName={initialRoute}
+    <NavigationContainer
+      ref={navigationRef}
+      linking={linkingConfig}
+      onReady={() => setActiveRootRoute(getActiveRootRouteName() ?? initialRoute)}
+      onStateChange={() => setActiveRootRoute(getActiveRootRouteName())}
+    >
+      <View style={styles.root}>
+        <Stack.Navigator
+          initialRouteName={initialRoute}
         screenOptions={{
           headerShown: false,
           headerStyle: {
@@ -589,12 +600,22 @@ const CleanRootNavigator: React.FC = () => {
             }}
           />
         </Stack.Group>
-      </Stack.Navigator>
+        </Stack.Navigator>
+
+        {/* MAINT-290: single persistent crisis-button overlay. Sibling of the root
+            Stack.Navigator (JS stack → renders above stack modals too), so 988 access
+            is guaranteed on every screen/step and can't regress per-screen. Mode +
+            suppression are driven by the active root-stack route. */}
+        <RootCrisisButton routeName={activeRootRoute ?? initialRoute} />
+      </View>
     </NavigationContainer>
   );
 };
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',

@@ -13,7 +13,6 @@ import { colorSystem, semantic, getTheme, spacing, borderRadius, typography } fr
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 import { useStoicPracticeStore } from '@/features/practices/stores/stoicPracticeStore';
 import { useSettingsStore, useAccessibilitySettings } from '@/core/stores/settingsStore';
-import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
 import AssessmentStatusBadge from '@/features/assessment/components/AssessmentStatusBadge';
 import { IntroOverlay } from '../components/IntroOverlay';
 import { useAnalytics } from '@/core/analytics';
@@ -224,13 +223,6 @@ const CleanHomeScreen: React.FC = () => {
           />
         </View>
       </View>
-
-      {/* Crisis Button Overlay */}
-      <CollapsibleCrisisButton
-        mode="standard"
-        onNavigate={() => navigation.navigate('CrisisResources')}
-        testID="crisis-home"
-      />
 
       {/* Intro Animation Overlay */}
       {showIntro && (

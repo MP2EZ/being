@@ -38,10 +38,6 @@ import PauseAcknowledgeScreen from './screens/PauseAcknowledgeScreen';
 import RealityCheckScreen from './screens/RealityCheckScreen';
 import VirtueResponseScreen from './screens/VirtueResponseScreen';
 import CompassionateCloseScreen from './screens/CompassionateCloseScreen';
-import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
-import { useNavigation } from '@react-navigation/native';
-import type { StackNavigationProp } from '@react-navigation/stack';
-import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 import type { MiddayFlowParamList, StoicMiddayFlowData } from '@/features/practices/types/flows';
 
 interface MiddayFlowNavigatorProps {
@@ -65,8 +61,6 @@ const MiddayFlowNavigator: React.FC<MiddayFlowNavigatorProps> = ({
   onComplete,
   onExit,
 }) => {
-  // Navigation for crisis button
-  const rootNavigation = useNavigation<StackNavigationProp<RootStackParamList>>();
   const [sessionData, setSessionData] = useState<Partial<StoicMiddayFlowData>>({});
   const [startTime] = useState(() => Date.now());
 
@@ -187,92 +181,83 @@ const MiddayFlowNavigator: React.FC<MiddayFlowNavigatorProps> = ({
   }
 
   return (
-    <>
-      <Stack.Navigator
-        initialRouteName="PauseAcknowledge"
-        screenOptions={{
-          headerShown: true,
-          gestureEnabled: true, // Allow swipe back for safety
-          cardStyle: { backgroundColor: 'transparent' },
-          headerStyle: {
-            backgroundColor: colorSystem.themes.midday.background,
-            borderBottomColor: colorSystem.themes.midday.primary,
-            borderBottomWidth: 1,
-            height: 100, // Increased height for progress indicator
-          },
-          headerTintColor: colorSystem.themes.midday.primary,
-          headerLeft: () => (
-            <Pressable
-              onPress={onExit}
-              style={styles.closeButton}
-              accessibilityRole="button"
-              accessibilityLabel="Close midday flow"
-              accessibilityHint="Returns to home screen"
-            >
-              <Text style={styles.closeButtonText}>✕</Text>
-            </Pressable>
-          ),
-        }}
-        screenListeners={({ navigation }) => ({
-          state: (e) => {
-            // FEAT-23: Trigger imperative reset if needed (on first mount after resume)
-            if (shouldResetNav && !hasResetNav.current && initialNavigationState) {
-              hasResetNav.current = true;
-              console.log('[MiddayFlow] Triggering imperative reset with state:', initialNavigationState);
+    <Stack.Navigator
+      initialRouteName="PauseAcknowledge"
+      screenOptions={{
+        headerShown: true,
+        gestureEnabled: true, // Allow swipe back for safety
+        cardStyle: { backgroundColor: 'transparent' },
+        headerStyle: {
+          backgroundColor: colorSystem.themes.midday.background,
+          borderBottomColor: colorSystem.themes.midday.primary,
+          borderBottomWidth: 1,
+          height: 100, // Increased height for progress indicator
+        },
+        headerTintColor: colorSystem.themes.midday.primary,
+        headerLeft: () => (
+          <Pressable
+            onPress={onExit}
+            style={styles.closeButton}
+            accessibilityRole="button"
+            accessibilityLabel="Close midday flow"
+            accessibilityHint="Returns to home screen"
+          >
+            <Text style={styles.closeButtonText}>✕</Text>
+          </Pressable>
+        ),
+      }}
+      screenListeners={({ navigation }) => ({
+        state: (e) => {
+          // FEAT-23: Trigger imperative reset if needed (on first mount after resume)
+          if (shouldResetNav && !hasResetNav.current && initialNavigationState) {
+            hasResetNav.current = true;
+            console.log('[MiddayFlow] Triggering imperative reset with state:', initialNavigationState);
 
-              // Reset navigation state
-              navigation.reset(initialNavigationState);
-              clearResetNav();
-              console.log('[MiddayFlow] Imperative reset complete');
-              return; // Don't process state update this cycle
+            // Reset navigation state
+            navigation.reset(initialNavigationState);
+            clearResetNav();
+            console.log('[MiddayFlow] Imperative reset complete');
+            return; // Don't process state update this cycle
+          }
+
+          // Update progress based on current screen
+          const state = e.data.state;
+          if (state) {
+            const currentRouteName = state.routes[state.index]?.name;
+            const stepIndex = SCREEN_ORDER.indexOf(currentRouteName as MiddayScreenName);
+            if (stepIndex !== -1) {
+              setCurrentStep(stepIndex + 1);
             }
 
-            // Update progress based on current screen
-            const state = e.data.state;
-            if (state) {
-              const currentRouteName = state.routes[state.index]?.name;
-              const stepIndex = SCREEN_ORDER.indexOf(currentRouteName as MiddayScreenName);
-              if (stepIndex !== -1) {
-                setCurrentStep(stepIndex + 1);
-              }
-
-              // FEAT-23: Session saving is handled by updateScreenData in screen wrappers
-            }
-          },
-        })}
-      >
-        <Stack.Screen
-          name="PauseAcknowledge"
-          component={PauseAcknowledgeScreenWrapper}
-          options={getHeaderOptions()}
-        />
-
-        <Stack.Screen
-          name="RealityCheck"
-          component={RealityCheckScreenWrapper}
-          options={getHeaderOptions()}
-        />
-
-        <Stack.Screen
-          name="VirtueResponse"
-          component={VirtueResponseScreenWrapper}
-          options={getHeaderOptions()}
-        />
-
-        <Stack.Screen
-          name="CompassionateClose"
-          component={CompassionateCloseScreenWrapper}
-          options={getHeaderOptions()}
-        />
-      </Stack.Navigator>
-
-      {/* Crisis Button - Single instance for entire flow, maintains fade state */}
-      <CollapsibleCrisisButton
-        mode="immersive"
-        onNavigate={() => rootNavigation.navigate('CrisisResources')}
-        testID="crisis-midday-flow"
+            // FEAT-23: Session saving is handled by updateScreenData in screen wrappers
+          }
+        },
+      })}
+    >
+      <Stack.Screen
+        name="PauseAcknowledge"
+        component={PauseAcknowledgeScreenWrapper}
+        options={getHeaderOptions()}
       />
-    </>
+
+      <Stack.Screen
+        name="RealityCheck"
+        component={RealityCheckScreenWrapper}
+        options={getHeaderOptions()}
+      />
+
+      <Stack.Screen
+        name="VirtueResponse"
+        component={VirtueResponseScreenWrapper}
+        options={getHeaderOptions()}
+      />
+
+      <Stack.Screen
+        name="CompassionateClose"
+        component={CompassionateCloseScreenWrapper}
+        options={getHeaderOptions()}
+      />
+    </Stack.Navigator>
   );
 };
 

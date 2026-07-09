@@ -28,7 +28,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useAssessmentStore } from '@/features/assessment/stores/assessmentStore';
-import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
 import { useAnalytics } from '@/core/analytics';
 import { colorSystem, spacing, typography, semantic } from '@/core/theme';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
@@ -100,13 +99,6 @@ const WellnessTrendsDetailScreen: React.FC = () => {
 
           <View style={styles.bottomPadding} />
         </ScrollView>
-
-        {/* Always-reachable crisis button — sibling OUTSIDE the ScrollView. */}
-        <CollapsibleCrisisButton
-          mode="standard"
-          onNavigate={() => navigation.navigate('CrisisResources')}
-          testID="crisis-wellness-trends-detail"
-        />
       </View>
     </SafeAreaView>
   );
