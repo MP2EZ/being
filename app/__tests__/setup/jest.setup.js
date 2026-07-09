@@ -503,6 +503,17 @@ jest.mock('expo-sharing', () => ({
   shareAsync: jest.fn(() => Promise.resolve()),
 }));
 
+// expo-sensors (FEAT-284 shake-to-report): native module, no-op in Jest. Local
+// mocks override per-test.
+jest.mock('expo-sensors', () => ({
+  __esModule: true,
+  Accelerometer: {
+    setUpdateInterval: jest.fn(),
+    addListener: jest.fn(() => ({ remove: jest.fn() })),
+    removeAllListeners: jest.fn(),
+  },
+}));
+
 // react-native-aes-crypto: native TurboModule, undefined in Jest env.
 jest.mock('react-native-aes-crypto', () => ({
   __esModule: true,

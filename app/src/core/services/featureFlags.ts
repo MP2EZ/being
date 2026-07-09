@@ -52,12 +52,14 @@ export type FeatureFlag =
   | 'emergency_sync'
   | 'cross_device_sync'
   | 'wellness_trend_notes'
-  // FEAT-284: gates the internal-only "Report a bug / Send feedback" surface.
-  // Build-time (not runtime/PostHog) by design: internal-vs-App-Store
-  // availability must be deterministic, offline, fail-closed, and NOT coupled to
-  // analytics consent (INFRA-199 safety carve-out). ON in dev + the `preview`
-  // EAS profile; OFF (false) in `.env.production` so the App Store binary never
-  // shows it. Pinned in __tests__/privacy/feedbackScrub.contract.test.ts.
+  // FEAT-284: gates the internal-only "Report a bug / Send feedback" surface
+  // (shake-to-report + Sentry feedback widget with screenshot). Build-time (not
+  // runtime/PostHog) by design: availability must be deterministic, offline, and
+  // NOT coupled to analytics consent (INFRA-199 safety carve-out). ON in dev +
+  // `.env.production` PRE-LAUNCH so it ships to TestFlight (same binary as the
+  // App Store — no build-time way to distinguish). ⚠️ LAUNCH GATE: flip OFF in
+  // `.env.production` before the public v1.0.0 release. Pinned in
+  // __tests__/privacy/feedbackScrub.contract.test.ts.
   | 'bug_reporting';
 
 /**

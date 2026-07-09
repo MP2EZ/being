@@ -149,38 +149,32 @@ const CRISIS_CONTENT_PATTERNS = [
 ] as const;
 
 /* ------------------------------------------------------------------------- *
- * FEAT-284 — in-app bug/feedback reporting (Sentry `captureFeedback`)
+ * FEAT-284 — in-app bug/feedback reporting (Sentry feedback widget)
  *
- * These are pure, exported so the precommit privacy contract
- * (__tests__/privacy/feedbackScrub.contract.test.ts) can pin them directly.
+ * The surface is Sentry's native feedback widget (message + screenshot),
+ * triggered by shake-to-report or the Profile entry. It is INTERNAL-ONLY: the
+ * whole thing is gated behind the build-time `bug_reporting` flag, which is ON
+ * for TestFlight/dev and MUST be flipped OFF before the public App Store launch
+ * (there is no build-time TestFlight-vs-App-Store distinction — same binary).
  *
- * WHY A SEPARATE PATH: `captureFeedback` emits a `type:'feedback'` event that
- * BYPASSES `beforeSend` (verified in @sentry/core@10.x: client.js runs
- * beforeSend only when `event.type === undefined`). So none of the class's
- * beforeSendHook allowlist/denylist scrub runs for feedback. `scrubFeedbackEvent`
- * is registered as a global event processor (which DOES run for feedback via
- * prepareEvent) and is the enforcement point that both scrubs and can drop.
+ * PRIVACY POSTURE (deliberately useful, not maximal — internal tool, owner's
+ * own data): the screenshot is intentional and never scrubbed. Breadcrumbs ride
+ * along because they are ALREADY sanitized app-wide by `beforeBreadcrumbHook`
+ * (drops ui-interaction and sensitive-route nav, scrubs messages) and are the trail
+ * a bug report needs. `scrubFeedbackEvent` (a global event processor) applies
+ * light identity hygiene + a message pattern-scrub as defense-in-depth.
+ *
+ * WHY A PROCESSOR: `captureFeedback` (which the widget calls) emits a
+ * `type:'feedback'` event that BYPASSES `beforeSend` (verified in
+ * @sentry/core@10.x: beforeSend runs only when `event.type === undefined`). A
+ * global event processor DOES run for feedback (via prepareEvent), so it is the
+ * only place to touch the outbound feedback event.
  * ------------------------------------------------------------------------- */
 
 /**
- * True if any crisis/wellness content appears anywhere in `value` (deep, via
- * JSON serialization). Used as the pre-submit guard (block + prompt-rephrase)
- * and as the event-processor drop backstop.
- */
-export function feedbackContainsCrisisContent(value: unknown): boolean {
-  let str: string;
-  try {
-    str = JSON.stringify(value ?? '').toLowerCase();
-  } catch {
-    return true; // Unserializable → treat as unsafe (fail-safe).
-  }
-  return CRISIS_CONTENT_PATTERNS.some((p) => str.includes(p));
-}
-
-/**
  * Pattern-scrub + truncate a user-authored feedback string. Redacts inline
- * scores, emails, tokens, etc. via the shared SENSITIVE_DATA_PATTERNS and caps
- * length at 500 (matching the reporter's `sanitizeString` contract).
+ * secrets/scores/emails via the shared SENSITIVE_DATA_PATTERNS and caps length
+ * at 500 (matching the reporter's `sanitizeString` contract).
  */
 export function sanitizeFeedbackMessage(message: string): string {
   if (!message || typeof message !== 'string') return '';
@@ -195,56 +189,32 @@ export function sanitizeFeedbackMessage(message: string): string {
  * Global Sentry event processor for FEAT-284 feedback events.
  *
  * - Non-feedback events pass through untouched (beforeSend still owns them).
- * - Feedback events: drop entirely on any surviving crisis content; strip the
- *   merged-scope leak vectors (breadcrumbs, extra, tags, request, rich device
- *   context); reduce `user` to the anonymous uid ONLY (never email/ip/username);
- *   never carry an `associated_event_id`; pattern-scrub the message. Preserves
- *   top-level release/environment/platform for triage.
+ * - Feedback events: keep the useful debugging context (screenshot attachment,
+ *   already-sanitized breadcrumbs, device, release) but apply light hygiene —
+ *   reduce `user` to the anonymous uid ONLY (never email/ip/username), never
+ *   cross-link via `associated_event_id`, and pattern-scrub the typed message.
  * - Fail-safe: any throw → return null (drop), never fail-open.
  */
 export function scrubFeedbackEvent(event: any): any | null {
   if (!event || event.type !== 'feedback') return event;
   try {
-    // Strip scope data that prepareEvent merges onto feedback events FIRST.
-    // Breadcrumbs/tags/extra routinely carry screen names (PHQ9ResultsScreen);
-    // removing them means an otherwise-clean report isn't force-dropped just for
-    // having navigated a sensitive screen earlier in the session.
-    delete event.breadcrumbs;
-    delete event.extra;
-    delete event.tags;
-    delete event.request;
-    delete event.server_name;
-
-    // Identity: keep ONLY the anonymous Supabase uid; drop email/ip/username.
+    // Identity hygiene: keep ONLY the anonymous Supabase uid; never email/ip.
     if (event.user) {
       event.user = event.user.id ? { id: event.user.id } : undefined;
     }
 
-    // Contexts: keep only the (scrubbed) feedback block — drop device/os/app,
-    // which can carry a personal device name.
-    if (event.contexts) {
-      const fb = event.contexts.feedback;
-      if (fb) {
-        delete fb.associated_event_id;
-        if (fb.message) fb.message = sanitizeFeedbackMessage(fb.message);
-        if (fb.name) fb.name = sanitizeFeedbackMessage(fb.name);
-      }
-      event.contexts = fb ? { feedback: fb } : {};
+    const fb = event.contexts?.feedback;
+    if (fb) {
+      // Don't link a feedback report to a prior (possibly wellness-context) error.
+      delete fb.associated_event_id;
+      if (fb.message) fb.message = sanitizeFeedbackMessage(fb.message);
     }
-
-    // Backstop drop: after stripping + scrubbing, if crisis/wellness content
-    // still survives (only possible in the user message), drop the whole event.
-    // The pre-submit guard in submitFeedback is the primary, user-visible gate.
-    if (feedbackContainsCrisisContent(event)) return null;
 
     return event;
   } catch {
     return null; // Fail-safe: drop on any error.
   }
 }
-
-/** Outcome of a feedback submission (maps to the screen's confirmation UI). */
-export type FeedbackResult = 'submitted' | 'blocked' | 'noop' | 'error';
 
 /**
  * Sanitized error event structure
@@ -340,6 +310,28 @@ export class ExternalErrorReporter {
             // CRITICAL: Privacy-first beforeBreadcrumb hook
             beforeBreadcrumb: (breadcrumb: any) => this.beforeBreadcrumbHook(breadcrumb),
 
+            // FEAT-284: register the in-app feedback widget (shake-to-report /
+            // Profile entry → Sentry's native form + screenshot). Only wired
+            // when a DSN is present, so the dev/sim (empty DSN) build never gets
+            // it. Screenshot is intentional (a bug reporter needs it) — the
+            // wellness-data guardrail is that the whole surface is gated OFF for
+            // the public App Store build (bug_reporting flag). Feedback events
+            // are still sanitized by scrubFeedbackEvent (registered below).
+            integrations: (defaultIntegrations: any[]) => [
+              ...defaultIntegrations,
+              this.sentryModule.feedbackIntegration({
+                enableScreenshot: true,
+                enableTakeScreenshot: true,
+                showName: false,
+                showEmail: false,
+                showBranding: false,
+                formTitle: 'Report a bug',
+                submitButtonLabel: 'Send report',
+                messagePlaceholder:
+                  "What happened? A screenshot is attached — avoid typing personal wellness details here.",
+              }),
+            ],
+
             // Disable features that could leak sensitive data
             autoSessionTracking: false,
             enableAutoPerformanceTracing: false,
@@ -429,56 +421,22 @@ export class ExternalErrorReporter {
   }
 
   /**
-   * FEAT-284: Submit an in-app bug report / feedback via Sentry captureFeedback.
+   * FEAT-284: Open Sentry's in-app feedback widget (message + screenshot).
    *
-   * Privacy contract (enforced here + by the scrubFeedbackEvent processor):
-   * - Empty DSN / not active / killed → silent no-op ('noop'), never throws.
-   * - Pre-submit guard: a message with crisis/wellness content is BLOCKED
-   *   ('blocked') so the screen can prompt the user to rephrase — nothing is
-   *   sent. This is stricter (and more honest) than a silent drop.
-   * - The message is pattern-scrubbed before send; identity is the anonymous
-   *   Supabase uid ONLY (caller supplies it — this module must not import the
-   *   Supabase service). No attachments, no associated event id.
+   * No-ops safely when reporting is inactive (empty DSN on dev/sim, killed, or
+   * the feedback integration never registered), so the shake gesture and Profile
+   * entry are harmless in dev. The widget itself requires `Sentry.wrap(App)` —
+   * see App.tsx. Feedback events are sanitized by the scrubFeedbackEvent
+   * processor registered in initialize().
    */
-  async submitFeedback(input: {
-    message: string;
-    name?: string;
-    email?: string;
-    userId?: string | null;
-  }): Promise<FeedbackResult> {
-    // Empty-DSN (dev/sim) and killed states short-circuit before any Sentry call.
-    if (!this.isActive() || !this.sentryModule) {
-      return 'noop';
-    }
-
-    const message = (input.message ?? '').trim();
-    if (!message) return 'blocked';
-
-    // Primary gate: never let crisis/wellness content reach the processor.
-    if (feedbackContainsCrisisContent(message) || feedbackContainsCrisisContent(input.name ?? '')) {
-      logger.warn(LogCategory.SECURITY, 'Feedback blocked pre-submit: wellness/crisis content');
-      return 'blocked';
-    }
-
+  showFeedbackForm(): void {
+    if (!this.isActive() || !this.sentryModule) return;
     try {
-      // Reporter identity: anonymous uid only, never an SDK default / PII.
-      if (input.userId && typeof this.sentryModule.setUser === 'function') {
-        this.sentryModule.setUser({ id: input.userId });
+      if (typeof this.sentryModule.showFeedbackWidget === 'function') {
+        this.sentryModule.showFeedbackWidget();
       }
-
-      const payload: { message: string; name?: string; email?: string } = {
-        message: sanitizeFeedbackMessage(message),
-      };
-      if (input.name) payload.name = sanitizeFeedbackMessage(input.name);
-      // Email is an intentional contact field — truncate only (pattern-scrubbing
-      // would redact the address itself). It is user-typed and opt-in.
-      if (input.email) payload.email = input.email.trim().substring(0, 254);
-
-      this.sentryModule.captureFeedback(payload);
-      return 'submitted';
     } catch {
-      logger.error(LogCategory.SYSTEM, 'Feedback submission failed silently');
-      return 'error';
+      logger.warn(LogCategory.SYSTEM, 'showFeedbackWidget failed');
     }
   }
 
@@ -787,13 +745,8 @@ export const isExternalReportingActive = () =>
   externalErrorReporter.isActive();
 
 /**
- * FEAT-284: Submit an in-app bug report / feedback. Caller supplies the anonymous
- * Supabase uid (this module must not import the Supabase service — would create a
- * dependency cycle, since Supabase imports the logger).
+ * FEAT-284: Open the in-app bug/feedback widget (Sentry). Safe no-op when
+ * reporting is inactive (dev/sim empty DSN). Gated at call sites by
+ * isFeatureEnabled('bug_reporting').
  */
-export const submitExternalFeedback = (input: {
-  message: string;
-  name?: string;
-  email?: string;
-  userId?: string | null;
-}): Promise<FeedbackResult> => externalErrorReporter.submitFeedback(input);
+export const showFeedbackForm = (): void => externalErrorReporter.showFeedbackForm();
