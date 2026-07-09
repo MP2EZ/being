@@ -6,7 +6,9 @@
  * WellnessScreeningTrends component:
  * - the back control is a labelled, ≥44pt button that goes back,
  * - the screen title is an accessibility header,
- * - the always-reachable crisis button renders (988 < 3 taps),
+ * - crisis access: the screen's OWN direct 988 path is the embedded disclaimer's
+ *   tap target; the floating crisis button is now the single persistent root
+ *   overlay (MAINT-290), so this screen no longer mounts its own (asserted below),
  * - fullHistory is passed through so the accessible list shows every check-in.
  */
 
@@ -139,9 +141,15 @@ describe('WellnessTrendsDetailScreen accessibility', () => {
     expect(title.props.accessibilityRole).toBe('header');
   });
 
-  it('always renders the reachable crisis button (988 path)', () => {
-    const { getByTestId } = render(<WellnessTrendsDetailScreen />);
-    expect(getByTestId('crisis-wellness-trends-detail')).toBeTruthy();
+  // MAINT-290: the floating crisis button was promoted to a single persistent root
+  // overlay (RootCrisisButton, testID "crisis-button-root"). This screen no longer
+  // mounts its own — re-adding one would double-render over the root overlay. The
+  // root overlay's reachability is pinned by RootCrisisButton.test.tsx + the
+  // crisis-button-reachability.yaml Maestro flow; this screen's OWN direct 988 path
+  // (the embedded disclaimer tap target) is pinned by the disclaimer test below.
+  it('does not mount its own floating crisis button (delegated to the root overlay)', () => {
+    const { queryByTestId } = render(<WellnessTrendsDetailScreen />);
+    expect(queryByTestId('crisis-wellness-trends-detail')).toBeNull();
   });
 
   it('renders the embedded non-dismissible disclaimer with its 988 tap target', () => {
@@ -161,9 +169,9 @@ describe('WellnessTrendsDetailScreen accessibility', () => {
 
   it('shows a neutral, no-pressure empty state when there is no history', () => {
     mockSessions = [];
-    const { getByText, queryByTestId } = render(<WellnessTrendsDetailScreen />);
+    const { getByText } = render(<WellnessTrendsDetailScreen />);
     expect(getByText(/No screenings yet/i)).toBeTruthy();
-    // Crisis button stays reachable even with no history.
-    expect(queryByTestId('crisis-wellness-trends-detail')).toBeTruthy();
+    // 988 access is unconditional and independent of history — provided by the root
+    // overlay (RootCrisisButton.test.tsx) + the embedded disclaimer (test above).
   });
 });

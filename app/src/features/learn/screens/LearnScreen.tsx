@@ -23,7 +23,6 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useAnalytics } from '@/core/analytics';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
-import { CollapsibleCrisisButton } from '@/features/crisis/components';
 import { colorSystem, semantic, spacing, typography, borderRadius } from '@/core/theme';
 import { BodyHeader } from '@/core/components/BodyHeader';
 import { useEducationStore } from '@/features/learn/stores/educationStore';
@@ -280,11 +279,6 @@ const LearnScreen: React.FC = () => {
           </Pressable>
         </ScrollView>
         </View>
-        <CollapsibleCrisisButton
-          mode="standard"
-          onNavigate={() => navigation.navigate('CrisisResources')}
-          testID="crisis-learn"
-        />
       </View>
     </SafeAreaView>
   );

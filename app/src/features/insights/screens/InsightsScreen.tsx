@@ -33,7 +33,6 @@ import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useStoicPracticeStore } from '@/features/practices/stores/stoicPracticeStore';
 import { useAssessmentStore } from '@/features/assessment/stores/assessmentStore';
-import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useAnalytics } from '@/core/analytics';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -188,13 +187,6 @@ const InsightsScreen: React.FC = () => {
         {/* Bottom Padding */}
         <View style={styles.bottomPadding} />
       </ScrollView>
-
-      {/* Crisis Button */}
-      <CollapsibleCrisisButton
-        mode="standard"
-        onNavigate={() => navigation.navigate('CrisisResources')}
-        testID="crisis-insights"
-      />
     </SafeAreaView>
   );
 };

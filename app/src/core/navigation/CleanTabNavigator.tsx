@@ -165,8 +165,8 @@ const CleanTabNavigator: React.FC = () => {
       />
 
       {/* DEBUG-189: Insights renders directly (no FeatureGate wrap) so the
-          in-screen `CollapsibleCrisisButton` (testID="crisis-insights") stays
-          accessible. CLAUDE.md Safety Fact: "Crisis features ALWAYS accessible,
+          single root-level crisis overlay (MAINT-290) stays accessible over it.
+          CLAUDE.md Safety Fact: "Crisis features ALWAYS accessible,
           regardless of subscription." The earlier paywall was incidental
           FEAT-16-deferral debris (FEAT-16 rescoped 2026-05-25 to V2). When
           FEAT-16 lands the real subscription UX, the gating decision (which
