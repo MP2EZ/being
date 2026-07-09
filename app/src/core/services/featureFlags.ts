@@ -51,7 +51,12 @@ export type FeatureFlag =
   | 'cloud_sync'
   | 'emergency_sync'
   | 'cross_device_sync'
-  | 'wellness_trend_notes';
+  | 'wellness_trend_notes'
+  // FEAT-291: single-loop daily-practice prototype. Build-time (safety/structural —
+  // gates a whole navigator + Home entry, not a per-user rollout), read via
+  // isFeatureEnabled('daily_loop'). Ships dark (false in production; on in dev so the
+  // prototype is exercisable). NOT in PRODUCT_FLAGS — no PostHog/runtime control.
+  | 'daily_loop';
 
 /**
  * Parse a feature-flag blob into a boolean lookup.

@@ -16,12 +16,16 @@ import { useSettingsStore, useAccessibilitySettings } from '@/core/stores/settin
 import AssessmentStatusBadge from '@/features/assessment/components/AssessmentStatusBadge';
 import { IntroOverlay } from '../components/IntroOverlay';
 import { useAnalytics } from '@/core/analytics';
+import { isFeatureEnabled } from '@/core/services/featureFlags';
 
 // 30 minutes in milliseconds
 const INTRO_THRESHOLD_MS = 30 * 60 * 1000;
 
 type CleanHomeScreenNavigationProp = StackNavigationProp<RootStackParamList>;
-type FlowType = 'morning' | 'midday' | 'evening';
+// FEAT-291: 'daily-loop' is the local card type for the flag-gated Daily Practice
+// (Beta) entry. It is themed as 'midday' (getTheme below) — NOT added to the closed
+// ThemeKey/CheckInType unions (the FlowType unification is the deferred step-5 migration).
+type FlowType = 'morning' | 'midday' | 'evening' | 'daily-loop';
 
 // PERF-04: hoisted out of CleanHomeScreen's render — defining components inside
 // a function component creates a NEW component type on every render, forcing
@@ -45,7 +49,8 @@ const CheckInCard: React.FC<CheckInCardProps> = ({
   isCompleted,
   onPress,
 }) => {
-  const themeColors = getTheme(type);
+  // FEAT-291: the daily-loop prototype card themes as midday (no ThemeKey union change).
+  const themeColors = getTheme(type === 'daily-loop' ? 'midday' : type);
   const handlePress = useCallback(() => onPress(type), [onPress, type]);
 
   return (
@@ -160,6 +165,10 @@ const CleanHomeScreen: React.FC = () => {
       case 'evening':
         navigation.navigate('EveningFlow');
         break;
+      case 'daily-loop':
+        // FEAT-291: no mode param → the loop shows its in-flow mode picker (flat/morning/evening).
+        navigation.navigate('DailyLoop');
+        break;
     }
   }, [navigation]);
 
@@ -221,6 +230,21 @@ const CleanHomeScreen: React.FC = () => {
             isCompleted={isCheckInCompletedToday('evening')}
             onPress={handleCheckInPress}
           />
+
+          {/* FEAT-291: single-loop daily-practice prototype. Flag-gated (build-time
+              `daily_loop`, dark in production) — with the flag OFF this card is not
+              rendered and Home is the unchanged 3-card layout. */}
+          {isFeatureEnabled('daily_loop') && (
+            <CheckInCard
+              type="daily-loop"
+              title="Daily Practice (Beta)"
+              description="One loop through the Five Principles: Aware Presence, Radical Acceptance, Sphere Sovereignty, Virtuous Response, Interconnected Living."
+              duration="5-6 min"
+              isCurrent={false}
+              isCompleted={false}
+              onPress={handleCheckInPress}
+            />
+          )}
         </View>
       </View>
 

@@ -510,3 +510,59 @@ export interface MeditationData {
   reflection: string;
   timestamp: Date;
 }
+
+// ──────────────────────────────────────────────────────────────────────────────
+// FEAT-291: SINGLE-LOOP DAILY PRACTICE PROTOTYPE (build-time flag `daily_loop`)
+// The Five Principles in canonical order as ONE loop. Ships dark. Themed as
+// 'midday' so it adds NO new FlowType/CheckInType/ThemeKey union member — the
+// full flow unification is the deferred step-5 migration, not this prototype.
+// @see docs/product/stoic-mindfulness (canonical principle names + sources)
+// ──────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Tense mode — the prototype compares these head-to-head (deciding flat-vs-tensed
+ * is the experiment's GOAL, so all three are authored to equal fidelity):
+ *  - 'flat'    : time-agnostic voice
+ *  - 'morning' : prospective (praemeditatio / intention — Marcus, Meditations 2.1)
+ *  - 'evening' : retrospective (Senecan examen — De Ira III.36)
+ */
+export type DailyLoopMode = 'flat' | 'morning' | 'evening';
+
+export type DailyLoopParamList = {
+  AwarePresence: undefined;        // Step 1: Aware Presence (30s breath + what's present)
+  RadicalAcceptance: undefined;    // Step 2: Radical Acceptance (NEW beat vs. Midday)
+  SphereSovereignty: undefined;    // Step 3: Sphere Sovereignty (dichotomy of control)
+  VirtuousResponse: undefined;     // Step 4: Virtuous Response (four cardinal virtues + reappraisal)
+  InterconnectedLiving: undefined; // Step 5: Interconnected Living (NEW beat vs. Midday)
+  DailyLoopComplete: undefined;    // Completion — NOT a principle beat
+};
+
+/**
+ * One text-input beat's captured data. `virtue` / `adversityRehearsal` are only
+ * populated on step 4 (Virtuous Response); both are optional scaffolding, never
+ * required gates (preserves prohairesis).
+ */
+export interface DailyLoopStepData {
+  response: string;
+  virtue?: CardinalVirtue | undefined;      // step 4: optionally-named cardinal virtue
+  adversityRehearsal?: string | undefined;  // step 4 morning-tensed: optional guardrailed premeditatio
+  timestamp: Date;
+}
+
+export interface DailyLoopCompleteData {
+  integrationNote?: string | undefined;
+  timestamp: Date;
+}
+
+export interface DailyLoopSessionData {
+  mode: DailyLoopMode;
+  awarePresence?: DailyLoopStepData;
+  radicalAcceptance?: DailyLoopStepData;
+  sphereSovereignty?: DailyLoopStepData;
+  virtuousResponse?: DailyLoopStepData;
+  interconnectedLiving?: DailyLoopStepData;
+  complete?: DailyLoopCompleteData;
+  completedAt?: Date;
+  timeSpentSeconds?: number;
+  flowVersion: 'feat-291-daily-loop-v1';
+}

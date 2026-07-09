@@ -43,6 +43,7 @@ const IMMERSIVE = [
   'MorningFlow',
   'MiddayFlow',
   'EveningFlow',
+  'DailyLoop', // FEAT-291: single-loop daily-practice prototype (flag-independent pin)
   'PracticeTimer',
   'ReflectionTimer',
   'SortingPractice',
