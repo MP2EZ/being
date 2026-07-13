@@ -25,7 +25,6 @@ import type { StackNavigationProp } from '@react-navigation/stack';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 import { useAnalytics } from '@/core/analytics';
 import NotificationTimePicker from '@/core/components/NotificationTimePicker';
-import CollapsibleCrisisButton from '@/features/crisis/components/CollapsibleCrisisButton';
 import BrainIcon from '@/core/components/shared/BrainIcon';
 import { useConsentStore, ConsentPreferences, getLegalGateConsents } from '@/core/stores/consentStore';
 import { ConsentToggleCard } from '@/features/consent';
@@ -345,7 +344,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
   // - resetAssessmentState() - no longer needed
   // - handleAssessmentAnswer() - now handled by EnhancedAssessmentFlow modal
   // - showCrisisAlert() - now handled by EnhancedAssessmentFlow
-  // - handleCrisisButtonPress() - not used (CollapsibleCrisisButton handles crisis)
+  // - handleCrisisButtonPress() - not used (the root-level crisis overlay handles crisis access)
   // Assessments now presented via AssessmentFlow modal (see navigateNext welcome case)
 
   const validateNotificationTimes = (times: NotificationTime[]): boolean => {

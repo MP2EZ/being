@@ -49,10 +49,6 @@ import type { StoicPrinciple } from '@/features/practices/types/stoic';
 import { SessionStorageService } from '@/core/services/session/SessionStorageService';
 import { ResumeSessionModal, FlowProgressIndicator } from '../shared/components';
 import { useFlowSessionResumption } from '../shared/hooks';
-import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
-import { useNavigation } from '@react-navigation/native';
-import type { StackNavigationProp } from '@react-navigation/stack';
-import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 
 // Import FEAT-134 UX-Optimized screens
 import BreathingScreen from './screens/BreathingScreen';
@@ -103,8 +99,6 @@ const EveningFlowNavigator: React.FC<EveningFlowNavigatorProps> = ({
   onExit,
   recordPrincipleEngagement,
 }) => {
-  // Navigation for crisis button
-  const rootNavigation = useNavigation<StackNavigationProp<RootStackParamList>>();
   const [currentStep, setCurrentStep] = useState(1);
   const totalSteps = SCREEN_ORDER.length;
 
@@ -298,97 +292,88 @@ const EveningFlowNavigator: React.FC<EveningFlowNavigatorProps> = ({
   }
 
   return (
-    <>
-      <Stack.Navigator
-        initialRouteName="Breathing"
-        screenOptions={{
-          headerStyle: {
-            // Light background matching morning/midday pattern
-            backgroundColor: colorSystem.themes.evening.background,
-            // Colored accent bar at bottom (matches midday pattern)
-            borderBottomColor: colorSystem.themes.evening.primary,
-            borderBottomWidth: 1,
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 1 },
-            shadowOpacity: 0.05,
-            shadowRadius: 2,
-            elevation: 4,
-            height: 100, // Increased height for progress indicator
-          },
-          headerTintColor: colorSystem.base.black, // Dark text on light header
-          cardStyle: {
-            backgroundColor: colorSystem.base.white, // White content area (matches morning/midday)
-          },
-          gestureEnabled: true,
-        }}
-        screenListeners={({ navigation }) => ({
-          state: (e) => {
-            // FEAT-23: Trigger imperative reset if needed
-            if (shouldResetNav && !hasResetNav.current && initialNavigationState) {
-              hasResetNav.current = true;
-              navigation.reset(initialNavigationState);
-              clearResetNav();
-              return;
+    <Stack.Navigator
+      initialRouteName="Breathing"
+      screenOptions={{
+        headerStyle: {
+          // Light background matching morning/midday pattern
+          backgroundColor: colorSystem.themes.evening.background,
+          // Colored accent bar at bottom (matches midday pattern)
+          borderBottomColor: colorSystem.themes.evening.primary,
+          borderBottomWidth: 1,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 1 },
+          shadowOpacity: 0.05,
+          shadowRadius: 2,
+          elevation: 4,
+          height: 100, // Increased height for progress indicator
+        },
+        headerTintColor: colorSystem.base.black, // Dark text on light header
+        cardStyle: {
+          backgroundColor: colorSystem.base.white, // White content area (matches morning/midday)
+        },
+        gestureEnabled: true,
+      }}
+      screenListeners={({ navigation }) => ({
+        state: (e) => {
+          // FEAT-23: Trigger imperative reset if needed
+          if (shouldResetNav && !hasResetNav.current && initialNavigationState) {
+            hasResetNav.current = true;
+            navigation.reset(initialNavigationState);
+            clearResetNav();
+            return;
+          }
+
+          // Update progress based on current screen
+          const state = e.data.state;
+          if (state) {
+            const currentRouteName = state.routes[state.index]?.name;
+            const stepIndex = SCREEN_ORDER.indexOf(currentRouteName as EveningScreenName);
+            if (stepIndex !== -1) {
+              setCurrentStep(stepIndex + 1);
             }
 
-            // Update progress based on current screen
-            const state = e.data.state;
-            if (state) {
-              const currentRouteName = state.routes[state.index]?.name;
-              const stepIndex = SCREEN_ORDER.indexOf(currentRouteName as EveningScreenName);
-              if (stepIndex !== -1) {
-                setCurrentStep(stepIndex + 1);
-              }
-
-              // FEAT-23: Session saving is handled by updateScreenData in screen wrappers
-            }
-          },
-        })}
-      >
-        <Stack.Screen
-          name="Breathing"
-          component={BreathingScreenWrapper}
-          options={getHeaderOptions()}
-        />
-
-        <Stack.Screen
-          name="Gratitude"
-          component={GratitudeScreenWrapper}
-          options={getHeaderOptions()}
-        />
-
-        <Stack.Screen
-          name="VirtueReflection"
-          component={VirtueReflectionScreenWrapper}
-          options={getHeaderOptions()}
-        />
-
-        <Stack.Screen
-          name="SelfCompassion"
-          component={SelfCompassionScreenWrapper}
-          options={getHeaderOptions()}
-        />
-
-        <Stack.Screen
-          name="Tomorrow"
-          component={TomorrowScreenWrapper}
-          options={getHeaderOptions()}
-        />
-
-        <Stack.Screen
-          name="SleepTransition"
-          component={SleepTransitionScreenWrapper}
-          options={getHeaderOptions()}
-        />
-      </Stack.Navigator>
-
-      {/* Crisis Button - Single instance for entire flow */}
-      <CollapsibleCrisisButton
-        mode="immersive"
-        onNavigate={() => rootNavigation.navigate('CrisisResources')}
-        testID="crisis-evening-flow"
+            // FEAT-23: Session saving is handled by updateScreenData in screen wrappers
+          }
+        },
+      })}
+    >
+      <Stack.Screen
+        name="Breathing"
+        component={BreathingScreenWrapper}
+        options={getHeaderOptions()}
       />
-    </>
+
+      <Stack.Screen
+        name="Gratitude"
+        component={GratitudeScreenWrapper}
+        options={getHeaderOptions()}
+      />
+
+      <Stack.Screen
+        name="VirtueReflection"
+        component={VirtueReflectionScreenWrapper}
+        options={getHeaderOptions()}
+      />
+
+      <Stack.Screen
+        name="SelfCompassion"
+        component={SelfCompassionScreenWrapper}
+        options={getHeaderOptions()}
+      />
+
+      <Stack.Screen
+        name="Tomorrow"
+        component={TomorrowScreenWrapper}
+        options={getHeaderOptions()}
+      />
+
+      <Stack.Screen
+        name="SleepTransition"
+        component={SleepTransitionScreenWrapper}
+        options={getHeaderOptions()}
+      />
+    </Stack.Navigator>
   );
 };
 

@@ -1,0 +1,106 @@
+/**
+ * RootCrisisButton — MAINT-290
+ *
+ * Deterministic guard for the single persistent crisis-button overlay. This is
+ * the "988 access can never regress" pin that runs in CI (the Maestro
+ * crisis-button-reachability flow is local-only). It asserts the route→behavior
+ * contract that the on-device flow cannot cheaply cover for every route:
+ *   - suppression on routes that own their own crisis affordance,
+ *   - immersive mode during meditative practice flows/timers,
+ *   - standard mode everywhere else,
+ *   - navigation via the root ref (guarded on isReady).
+ */
+import React from 'react';
+import { render } from '@testing-library/react-native';
+
+// Capture the props handed to the (heavy, animation-driven) CollapsibleCrisisButton
+// without mounting it for real.
+const receivedProps: Array<Record<string, any>> = [];
+jest.mock('../CollapsibleCrisisButton', () => {
+  const ReactActual = require('react');
+  const { Text } = require('react-native');
+  const Stub = (props: any) => {
+    receivedProps.push(props);
+    return ReactActual.createElement(Text, { testID: props.testID }, `mode:${props.mode}`);
+  };
+  return { __esModule: true, CollapsibleCrisisButton: Stub, default: Stub };
+});
+
+const mockNavigate = jest.fn();
+let mockReady = true;
+jest.mock('@/core/navigation/navigationRef', () => ({
+  navigationRef: {
+    isReady: () => mockReady,
+    navigate: (...args: any[]) => mockNavigate(...args),
+  },
+  getActiveRootRouteName: jest.fn(),
+}));
+
+import { RootCrisisButton, ROOT_CRISIS_BUTTON_TEST_ID } from '../RootCrisisButton';
+
+const SUPPRESSED = ['CrisisResources', 'AssessmentFlow', 'LegalGate'];
+const IMMERSIVE = [
+  'MorningFlow',
+  'MiddayFlow',
+  'EveningFlow',
+  'PracticeTimer',
+  'ReflectionTimer',
+  'SortingPractice',
+  'BodyScan',
+  'GuidedBodyScan',
+];
+const STANDARD = [
+  'Main',
+  'Onboarding',
+  'ModuleDetail',
+  'ClassicalLibrary',
+  'PassageReader',
+  'WellnessTrendsDetail',
+  'Subscription',
+  'SubscriptionStatus',
+];
+
+describe('RootCrisisButton (MAINT-290 single root mount)', () => {
+  beforeEach(() => {
+    receivedProps.length = 0;
+    mockNavigate.mockClear();
+    mockReady = true;
+  });
+
+  it.each(SUPPRESSED)('renders nothing on suppressed route %s (owns its own crisis affordance)', (route) => {
+    const { queryByTestId } = render(<RootCrisisButton routeName={route} />);
+    expect(queryByTestId(ROOT_CRISIS_BUTTON_TEST_ID)).toBeNull();
+    expect(receivedProps).toHaveLength(0);
+  });
+
+  it.each(IMMERSIVE)('uses immersive mode on practice route %s', (route) => {
+    render(<RootCrisisButton routeName={route} />);
+    expect(receivedProps[0]?.mode).toBe('immersive');
+    expect(receivedProps[0]?.testID).toBe(ROOT_CRISIS_BUTTON_TEST_ID);
+  });
+
+  it.each(STANDARD)('uses standard mode on route %s', (route) => {
+    render(<RootCrisisButton routeName={route} />);
+    expect(receivedProps[0]?.mode).toBe('standard');
+    expect(receivedProps[0]?.testID).toBe(ROOT_CRISIS_BUTTON_TEST_ID);
+  });
+
+  it('renders in standard mode when route is undefined (pre-ready)', () => {
+    const { getByTestId } = render(<RootCrisisButton />);
+    expect(getByTestId(ROOT_CRISIS_BUTTON_TEST_ID)).toBeTruthy();
+    expect(receivedProps[0]?.mode).toBe('standard');
+  });
+
+  it('navigates to CrisisResources via the root ref when ready', () => {
+    render(<RootCrisisButton routeName="Main" />);
+    receivedProps[0]?.onNavigate();
+    expect(mockNavigate).toHaveBeenCalledWith('CrisisResources', { source: 'crisis_button' });
+  });
+
+  it('does not throw or navigate when the nav container is not ready', () => {
+    mockReady = false;
+    render(<RootCrisisButton routeName="Main" />);
+    expect(() => receivedProps[0]?.onNavigate()).not.toThrow();
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+});

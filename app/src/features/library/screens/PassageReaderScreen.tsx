@@ -21,7 +21,6 @@ import {
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
-import { CollapsibleCrisisButton } from '@/features/crisis/components';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 import { PRINCIPLE_LABELS } from '@/features/library/types/library';
 import { getPassageById } from '@/core/services/passagesContent';
@@ -125,11 +124,6 @@ const PassageReaderScreen: React.FC = () => {
               </View>
             </ScrollView>
           </View>
-          <CollapsibleCrisisButton
-            mode="standard"
-            onNavigate={() => navigation.navigate('CrisisResources')}
-            testID="crisis-reader"
-          />
         </View>
       </SafeAreaView>
     );

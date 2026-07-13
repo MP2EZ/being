@@ -25,14 +25,11 @@
 
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { createStackNavigator, StackNavigationProp } from '@react-navigation/stack';
-import { useNavigation } from '@react-navigation/native';
+import { createStackNavigator } from '@react-navigation/stack';
 import { colorSystem, spacing, typography } from '@/core/theme';
 import { MorningFlowParamList } from '@/features/practices/types/flows';
 import { ResumeSessionModal, FlowProgressIndicator } from '../shared/components';
 import { useFlowSessionResumption } from '../shared/hooks';
-import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
-import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 
 // Import new FEAT-139 screens
 import GroundedPresenceScreen from './screens/GroundedPresenceScreen';
@@ -63,8 +60,6 @@ const MorningFlowNavigator: React.FC<MorningFlowNavigatorProps> = ({
   onComplete,
   onExit,
 }) => {
-  // Navigation for crisis button
-  const rootNavigation = useNavigation<StackNavigationProp<RootStackParamList>>();
   const [currentStep, setCurrentStep] = useState(1);
   const totalSteps = SCREEN_ORDER.length - 1; // Exclude MorningCompletion from count (4 steps)
 
@@ -177,113 +172,104 @@ const MorningFlowNavigator: React.FC<MorningFlowNavigatorProps> = ({
   }
 
   return (
-    <>
-      <Stack.Navigator
-        initialRouteName="GroundedPresence"
-        screenOptions={{
-          headerStyle: {
-            backgroundColor: colorSystem.themes.morning.background,
-            borderBottomColor: colorSystem.themes.morning.primary,
-            borderBottomWidth: 1,
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 1 },
-            shadowOpacity: 0.05,
-            shadowRadius: 2,
-            elevation: 4,
-            height: 100,
-          },
-          headerTintColor: colorSystem.base.black,
-          cardStyle: {
-            backgroundColor: colorSystem.themes.morning.background,
-          },
-          gestureEnabled: true,
-        }}
-        screenListeners={({ navigation }) => ({
-          state: (e) => {
-            // FEAT-23: Trigger imperative reset if needed (on first mount after resume)
-            if (shouldResetNav && !hasResetNav.current && initialNavigationState) {
-              hasResetNav.current = true;
-              console.log('[MorningFlow] Triggering imperative reset with state:', initialNavigationState);
-              navigation.reset(initialNavigationState);
-              clearResetNav();
-              console.log('[MorningFlow] Imperative reset complete');
-              return;
+    <Stack.Navigator
+      initialRouteName="GroundedPresence"
+      screenOptions={{
+        headerStyle: {
+          backgroundColor: colorSystem.themes.morning.background,
+          borderBottomColor: colorSystem.themes.morning.primary,
+          borderBottomWidth: 1,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 1 },
+          shadowOpacity: 0.05,
+          shadowRadius: 2,
+          elevation: 4,
+          height: 100,
+        },
+        headerTintColor: colorSystem.base.black,
+        cardStyle: {
+          backgroundColor: colorSystem.themes.morning.background,
+        },
+        gestureEnabled: true,
+      }}
+      screenListeners={({ navigation }) => ({
+        state: (e) => {
+          // FEAT-23: Trigger imperative reset if needed (on first mount after resume)
+          if (shouldResetNav && !hasResetNav.current && initialNavigationState) {
+            hasResetNav.current = true;
+            console.log('[MorningFlow] Triggering imperative reset with state:', initialNavigationState);
+            navigation.reset(initialNavigationState);
+            clearResetNav();
+            console.log('[MorningFlow] Imperative reset complete');
+            return;
+          }
+
+          // Update progress based on current screen
+          const state = e.data.state;
+          if (state) {
+            const currentRouteName = state.routes[state.index]?.name;
+            const stepIndex = SCREEN_ORDER.indexOf(currentRouteName as MorningScreenName);
+            if (stepIndex !== -1) {
+              setCurrentStep(stepIndex + 1);
             }
-
-            // Update progress based on current screen
-            const state = e.data.state;
-            if (state) {
-              const currentRouteName = state.routes[state.index]?.name;
-              const stepIndex = SCREEN_ORDER.indexOf(currentRouteName as MorningScreenName);
-              if (stepIndex !== -1) {
-                setCurrentStep(stepIndex + 1);
-              }
-            }
-          },
-        })}
-      >
-        {/* Screen 1: Grounded Presence */}
-        <Stack.Screen
-          name="GroundedPresence"
-          component={GroundedPresenceWrapper}
-          options={getHeaderOptions()}
-        />
-
-        {/* Screen 2: Gratitude + Intention */}
-        <Stack.Screen
-          name="GratitudeIntention"
-          component={GratitudeIntentionWrapper}
-          options={getHeaderOptions()}
-        />
-
-        {/* Screen 3: Principle Focus */}
-        <Stack.Screen
-          name="PrincipleFocus"
-          component={PrincipleFocusWrapper}
-          options={getHeaderOptions()}
-        />
-
-        {/* Screen 4: Relational Close (NEW) */}
-        <Stack.Screen
-          name="RelationalClose"
-          component={RelationalCloseWrapper}
-          options={getHeaderOptions()}
-        />
-
-        {/* Completion Screen */}
-        <Stack.Screen
-          name="MorningCompletion"
-          options={{ headerShown: false }}
-        >
-          {(props) => (
-            <MorningCompletionScreen
-              {...props}
-              route={{
-                ...props.route,
-                params: {
-                  flowData: {
-                    // FEAT-139: Map new screen data structure
-                    groundedPresence: screenData['GroundedPresence'],
-                    gratitudeIntention: screenData['GratitudeIntention'],
-                    principleFocus: screenData['PrincipleFocus'],
-                    relationalClose: screenData['RelationalClose'],
-                  },
-                  startTime: new Date().toISOString(),
-                } as any,
-              }}
-              onSave={onComplete}
-            />
-          )}
-        </Stack.Screen>
-      </Stack.Navigator>
-
-      {/* Crisis Button - Always accessible, maintains fade state */}
-      <CollapsibleCrisisButton
-        mode="immersive"
-        onNavigate={() => rootNavigation.navigate('CrisisResources')}
-        testID="crisis-morning-flow"
+          }
+        },
+      })}
+    >
+      {/* Screen 1: Grounded Presence */}
+      <Stack.Screen
+        name="GroundedPresence"
+        component={GroundedPresenceWrapper}
+        options={getHeaderOptions()}
       />
-    </>
+
+      {/* Screen 2: Gratitude + Intention */}
+      <Stack.Screen
+        name="GratitudeIntention"
+        component={GratitudeIntentionWrapper}
+        options={getHeaderOptions()}
+      />
+
+      {/* Screen 3: Principle Focus */}
+      <Stack.Screen
+        name="PrincipleFocus"
+        component={PrincipleFocusWrapper}
+        options={getHeaderOptions()}
+      />
+
+      {/* Screen 4: Relational Close (NEW) */}
+      <Stack.Screen
+        name="RelationalClose"
+        component={RelationalCloseWrapper}
+        options={getHeaderOptions()}
+      />
+
+      {/* Completion Screen */}
+      <Stack.Screen
+        name="MorningCompletion"
+        options={{ headerShown: false }}
+      >
+        {(props) => (
+          <MorningCompletionScreen
+            {...props}
+            route={{
+              ...props.route,
+              params: {
+                flowData: {
+                  // FEAT-139: Map new screen data structure
+                  groundedPresence: screenData['GroundedPresence'],
+                  gratitudeIntention: screenData['GratitudeIntention'],
+                  principleFocus: screenData['PrincipleFocus'],
+                  relationalClose: screenData['RelationalClose'],
+                },
+                startTime: new Date().toISOString(),
+              } as any,
+            }}
+            onSave={onComplete}
+          />
+        )}
+      </Stack.Screen>
+    </Stack.Navigator>
   );
 };
 
