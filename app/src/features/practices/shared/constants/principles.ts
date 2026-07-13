@@ -1,80 +1,87 @@
 /**
- * STOIC MINDFULNESS PRINCIPLES - Shared Constants
+ * Canonical Stoic Mindfulness principles (FEAT-268).
  *
- * 5 Stoic Mindfulness Principles (Philosopher-Validated 9.7/10)
- * FEAT-45: Consolidated from 12 principles to 5 integrative principles.
+ * Single source of truth for the five-principle copy consumed by the Profile
+ * "About Stoic Mindfulness" screen, the onboarding Stoic intro, and the morning
+ * PrincipleFocus screen. Created to end the prose/citation drift those three
+ * surfaces had accumulated (the original FEAT-76 AC assumed this file already
+ * existed; it did not — single-sourcing was deferred to FEAT-268).
  *
- * MAINT-65: Extracted from PrincipleFocusScreen for reuse across flows.
- * Used by: PrincipleFocusScreen (morning), Learn tab principle screens
+ * Content is a protected therapeutic path. The values below are philosopher-signed
+ * and reconciled against docs/product/stoic-mindfulness/INDEX.md + principles/01-05*.md:
+ *  - Citations: only Sphere Sovereignty carries one (Epictetus, Enchiridion 1).
+ *    FEAT-76 deleted the other bare verse numbers as mis-anchored/fabricated; they
+ *    are NOT restored here (see principles.test.ts which pins their absence).
+ *  - Aware Presence uses the Stoic-correct "observing thoughts as mental events
+ *    rather than truth" — onboarding's "without judgment" reframe is retired.
+ *  - `integrates` reconciled to the docs' Integration: headers (no authoring notes).
  *
- * @see /docs/architecture/Stoic-Mindfulness-Architecture-v1.0.md (v1.1 LOCKED)
- * @see /docs/product/stoic-mindfulness/principles/ for detailed documentation
+ * moduleId is intentionally NOT stored: derive it from `key` via
+ * `getModuleIdForPrinciple` (@/features/learn/utils/principleMapping) to avoid
+ * duplicating the snake_case -> kebab-case map.
+ *
+ * Byte-parity is enforced by src/features/practices/shared/constants/__tests__/principles.test.ts.
  */
-
 import type { StoicPrinciple } from '@/features/practices/types/stoic';
 
-export interface PrincipleInfo {
+export interface CanonicalPrinciple {
+  /** Stable key; also the input to getModuleIdForPrinciple() for Learn deep-links. */
   key: StoicPrinciple;
+  /** Bare display title, e.g. "Aware Presence". Consumers prepend the ordinal where shown. */
   title: string;
+  /** One-line framing for space-constrained surfaces (onboarding). */
+  shortDescription: string;
+  /** Full framing for the Profile About screen and PrincipleFocus. */
   description: string;
-  integrates: string; // Which legacy principles this consolidates
-  source: string;
+  /** Verified classical citation. Present only where one survives FEAT-76 verification. */
+  citation?: string;
+  /** Legacy practices this integrative principle consolidates (docs Integration: header). */
+  integrates: string;
 }
 
-/**
- * 5 Stoic Mindfulness Principles (Philosopher-Validated 9.7/10)
- *
- * Each principle integrates multiple legacy practices into a cohesive whole.
- * Order is intentional: presence → acceptance → agency → response → connection
- */
-export const PRINCIPLES: PrincipleInfo[] = [
+export const PRINCIPLES: readonly CanonicalPrinciple[] = [
   {
     key: 'aware_presence',
     title: 'Aware Presence',
-    description: 'Be fully here now, observing thoughts as mental events rather than truth, and feeling what\'s happening in your body.',
+    shortDescription:
+      'Be fully here now, observing thoughts as mental events rather than truth.',
+    description:
+      "Be fully here now, observing thoughts as mental events rather than truth, and feeling what's happening in your body.",
     integrates: 'Present Perception + Metacognitive Space + Embodied Awareness',
-    source: 'Marcus Aurelius, Meditations 2:1',
   },
   {
     key: 'radical_acceptance',
     title: 'Radical Acceptance',
-    description: 'This is what\'s happening right now. I may not like it, prefer it, or want it, but it is the reality I face. What do I do from here?',
-    integrates: 'Amor Fati (standalone principle)',
-    source: 'Marcus Aurelius, Meditations 10:6',
+    shortDescription: 'Accept reality as it is, without resistance.',
+    description:
+      "This is what's happening right now. I may not like it, prefer it, or want it, but it is the reality I face. What do I do from here?",
+    integrates: 'Amor Fati',
   },
   {
     key: 'sphere_sovereignty',
     title: 'Sphere Sovereignty',
-    description: 'Distinguish what you control (your intentions, judgments, character, responses) from what you don\'t (outcomes, others\' choices, externals). Focus energy only within your sphere.',
+    shortDescription:
+      'Focus on what you control (your responses, character, intentions).',
+    description:
+      "Distinguish what you control (your intentions, judgments, character, responses) from what you don't (outcomes, others' choices, externals). Focus energy only within your sphere.",
+    citation: 'Epictetus, Enchiridion 1',
     integrates: 'Dichotomy of Control + Intention Over Outcome',
-    source: 'Epictetus, Enchiridion 1',
   },
   {
     key: 'virtuous_response',
     title: 'Virtuous Response',
-    description: 'In every situation, ask "What does wisdom, courage, justice, or temperance require here?" View obstacles as opportunities for practicing virtue.',
+    shortDescription:
+      'In every situation, act with wisdom, courage, justice, or temperance.',
+    description:
+      'In every situation, ask "What does wisdom, courage, justice, or temperance require here?" View obstacles as opportunities for practicing virtue.',
     integrates: 'Virtuous Reappraisal + Negative Visualization + Character Cultivation',
-    source: 'Marcus Aurelius, Meditations 5:20',
   },
   {
     key: 'interconnected_living',
     title: 'Interconnected Living',
-    description: 'Bring full presence to others. Recognize that we\'re all members of one human community. Act for the common good, not just personal benefit.',
-    integrates: 'Relational Presence + Interconnected Action + Contemplative Praxis',
-    source: 'Marcus Aurelius, Meditations 8:59',
+    shortDescription: 'Recognize our shared humanity and act for the common good.',
+    description:
+      "Bring full presence to others. Recognize that we're all members of one human community. Act for the common good, not just personal benefit.",
+    integrates: 'Relational Presence + Interconnected Action',
   },
 ];
-
-/**
- * Get principle info by key
- */
-export const getPrincipleByKey = (key: StoicPrinciple): PrincipleInfo | undefined => {
-  return PRINCIPLES.find(p => p.key === key);
-};
-
-/**
- * Get principle title by key (for display purposes)
- */
-export const getPrincipleTitle = (key: StoicPrinciple): string => {
-  return getPrincipleByKey(key)?.title ?? key;
-};

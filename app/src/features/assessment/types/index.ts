@@ -82,6 +82,30 @@ export interface AssessmentSession {
   progress: AssessmentProgress;
   result?: PHQ9Result | GAD7Result;
   context: AssessmentContext;
+  /**
+   * Optional user-authored free-text note ("Your note") attached to this
+   * check-in (FEAT-195). Captured on the Wellness Screening Trends surface so a
+   * user can recall the life context around a score. ≤140 chars, enforced at the
+   * store action.
+   *
+   * OPAQUE — no inference, ever. The note is stored, rendered verbatim, and
+   * exported. It must never be fed to sentiment analysis, auto-categorization,
+   * scoring, summarization, search-ranking, or crisis detection. The score path
+   * remains the sole safety signal (philosopher + crisis red line).
+   *
+   * It rides inside `completedAssessments[]` — already in the encrypted
+   * `partialize` slice (AES-256 via `storeWellnessBlob(..., 'level_2_assessment_data')`)
+   * — so encryption, cascade-delete, and export portability are inherited; no
+   * new crypto / retention / export wiring.
+   *
+   * DPIA boundary (docs/legal/dpia-sensitive-wellness-data.md): a plain ≤140-char
+   * note needs NO DPIA revision (it is a sub-category of "reflective writing").
+   * A revision IS required before shipping if ANY of these flip:
+   *   1. inference/sentiment/derivation is performed on the note text, OR
+   *   2. the note is sent to a new sub-processor (PostHog/Sentry/AI API/plaintext Supabase), OR
+   *   3. the note is used for anything beyond showing the user their own history.
+   */
+  note?: string;
 }
 
 // Crisis Intervention Types - Re-export comprehensive types from crisis/safety.ts
@@ -145,15 +169,32 @@ export const ASSESSMENT_RESPONSE_LABELS = {
   3: "Nearly every day"
 } as const;
 
-// Crisis Thresholds (Clinically Validated - Updated 2025-01-27)
-// DUAL-THRESHOLD SYSTEM:
-// - PHQ-9 ≥15: Moderately severe depression (support recommended)
-// - PHQ-9 ≥20: Severe depression (immediate intervention)
-// - GAD-7 ≥15: Severe anxiety (immediate intervention)
+/**
+ * Crisis Thresholds (Clinically Validated - Updated 2025-01-27)
+ *
+ * DUAL-THRESHOLD SYSTEM:
+ * - PHQ-9 ≥15: Moderately severe depression (support recommended)
+ * - PHQ-9 ≥20: Severe depression (immediate intervention)
+ * - GAD-7 ≥15: Severe anxiety (immediate intervention)
+ *
+ * ⚠️ DIVERGENCE WARNING — `PHQ9_CRISIS_SCORE` means DIFFERENT THINGS in this
+ * module vs `CRISIS_SAFETY_THRESHOLDS` in `@/features/crisis/types/safety`:
+ *
+ *   | constant                                     | PHQ9_CRISIS_SCORE | semantics                |
+ *   | -------------------------------------------- | ----------------- | ------------------------ |
+ *   | CRISIS_THRESHOLDS (here)                     | 15                | support floor            |
+ *   | CRISIS_SAFETY_THRESHOLDS (safety.ts)         | 20                | active-intervention floor|
+ *
+ * The dual-threshold contract is pinned by
+ * `src/features/crisis/types/__tests__/crisis-thresholds.test.ts` — touching
+ * either value will fail that test. Pick the constant that matches your call
+ * site's semantic: the assessment store's `isCrisis` boolean uses the 15-floor
+ * (support); crisis-safety validation uses the 20-floor (active intervention).
+ */
 export const CRISIS_THRESHOLDS = {
   PHQ9_MODERATE_SEVERE_THRESHOLD: 15,
   PHQ9_SEVERE_THRESHOLD: 20,
-  PHQ9_CRISIS_SCORE: 15, // Primary crisis threshold (support recommended)
+  PHQ9_CRISIS_SCORE: 15, // Support floor (see DIVERGENCE WARNING above)
   GAD7_CRISIS_SCORE: 15,
   GAD7_SEVERE_THRESHOLD: 15,
   PHQ9_SUICIDAL_QUESTION_ID: 'phq9_9', // Question 9: Suicidal ideation

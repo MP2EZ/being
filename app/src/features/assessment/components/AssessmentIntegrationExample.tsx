@@ -11,7 +11,7 @@
  * - Accessibility with WCAG AA compliance
  * - Smooth therapeutic user experience
  * 
- * This component showcases how all Week 2 systems work together
+ * This component showcases how all systems work together
  * to create a production-ready, safety-first assessment experience.
  */
 

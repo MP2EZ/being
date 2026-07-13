@@ -50,6 +50,35 @@ interface AutomationResult {
 }
 
 /**
+ * Write one heartbeat row to grace_period_automation_runs so a successful (or failed)
+ * scheduled run is observable (INFRA-266). PII-free counters only — no user/receipt data.
+ * Best-effort: a heartbeat-write failure is logged but NEVER changes the function's HTTP
+ * result, so observability can't take down the automation it observes.
+ */
+async function recordRun(
+  supabase: any,
+  status: 'ok' | 'error',
+  result: AutomationResult,
+  durationMs: number,
+  errors: string[],
+): Promise<void> {
+  try {
+    await supabase.from('grace_period_automation_runs').insert({
+      status,
+      trials_expired: result.trialsExpired,
+      grace_periods_expired: result.gracePeriodsExpired,
+      trials_expiring_soon: result.trialsExpiringSoon,
+      grace_periods_expiring_soon: result.gracePeriodsExpiringSoon,
+      receipts_verified: result.receiptsVerified,
+      errors: errors.length > 0 ? errors : null,
+      duration_ms: durationMs,
+    });
+  } catch (e) {
+    console.error('[Automation] Failed to write heartbeat run-record:', e);
+  }
+}
+
+/**
  * Expire old trials
  */
 async function expireTrials(supabase: any): Promise<number> {
@@ -231,7 +260,7 @@ async function verifyStaleReceipts(supabase: any): Promise<number> {
               'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
             },
             body: JSON.stringify({
-              packageName: 'com.being.app', // TODO: Make configurable
+              packageName: 'fyi.being.app', // TODO: Make configurable
               subscriptionId: subscription.platform_subscription_id,
               purchaseToken: subscription.receipt_data_encrypted,
               userId: subscription.user_id,
@@ -267,6 +296,8 @@ serve(async (req) => {
     receiptsVerified: 0,
     errors: [],
   };
+  // Hoisted so the outer catch can still write an 'error' heartbeat (INFRA-266).
+  let supabase: any = null;
 
   try {
     // Authenticate via X-Cron-Secret header with constant-time comparison.
@@ -286,7 +317,7 @@ serve(async (req) => {
     // Initialize Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    supabase = createClient(supabaseUrl, supabaseKey);
 
     console.log('[Automation] Starting daily automation run...');
 
@@ -333,6 +364,10 @@ serve(async (req) => {
       ...result,
     });
 
+    // Heartbeat: a per-step failure is collected in `errors` but still returns 200, so
+    // the run is 'error' only when at least one step failed; otherwise 'ok' (INFRA-266).
+    await recordRun(supabase, errors.length > 0 ? 'error' : 'ok', result, duration, errors);
+
     return new Response(
       JSON.stringify({
         success: true,
@@ -343,6 +378,13 @@ serve(async (req) => {
     );
   } catch (error) {
     console.error('[Automation] Unexpected error:', error);
+
+    // Best-effort 'error' heartbeat for a top-level failure (e.g. an RPC threw before the
+    // per-step try/catch). Skipped only when the client wasn't initialized (auth-fail path
+    // returns 401 before this and writes no heartbeat — an unauthorized probe is not a run).
+    if (supabase) {
+      await recordRun(supabase, 'error', result, Date.now() - startTime, [...errors, error.message]);
+    }
 
     return new Response(
       JSON.stringify({

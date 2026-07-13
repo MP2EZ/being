@@ -13,18 +13,17 @@
  */
 
 
-import { logSecurity, logPerformance, logError, LogCategory } from '@/core/services/logging';
-import React, { useCallback, useMemo, useEffect } from 'react';
+import { logSecurity } from '@/core/services/logging';
+import React, { useCallback, useMemo } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   Pressable,
-  Alert,
-  Linking,
 } from 'react-native';
 import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
+import { detectCrisis, isInterventionTier } from '@/features/crisis/types/safety';
 import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
 import { useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
@@ -45,7 +44,10 @@ const AssessmentResults: React.FC<AssessmentResultsProps> = ({
   result,
   onComplete,
   onRetake,
-  showCrisisIntervention = true,
+  // showCrisisIntervention is accepted for API compatibility but no longer
+  // consumed (DEBUG-187 deleted the imperative-alert useEffect that gated
+  // on it). The interface keeps the prop so existing callers don't need to
+  // change.
   theme = 'neutral',
   context = 'standalone',
 }) => {
@@ -75,31 +77,21 @@ const AssessmentResults: React.FC<AssessmentResultsProps> = ({
     return 'suicidalIdeation' in result ? 'phq9' : 'gad7';
   }, [result]);
 
-  // Crisis detection logic (CRITICAL - <200ms response)
+  // Crisis detection (CRITICAL - <200ms response).
+  // MAINT-251: route through the single canonical pure detectCrisis instead of a
+  // hand-rolled threshold copy, so the dual-threshold contract has one owner and
+  // the 15–19 vs ≥20 tiers cannot diverge. This is a render-only read — the
+  // assessment store remains the sole crisis audit-log writer (the placeholder
+  // userId here writes no audit record). The banner gates on the INTERVENTION
+  // tier only (PHQ-9 ≥20 / Q9>0 / GAD-7 ≥15); the PHQ-9 15–19 support tier keeps
+  // the calmer severity-driven Professional Support surface below and does NOT
+  // fire this assertive banner (ratified 15–19 UX decision).
   const crisisDetection = useMemo(() => {
     const startTime = performance.now();
-    
-    let isCrisis = false;
-    let crisisType: string[] = [];
-    
-    if (assessmentType === 'phq9') {
-      const phq9Result = result as PHQ9Result;
-      if (phq9Result.totalScore >= 20) {
-        isCrisis = true;
-        crisisType.push('severe_depression');
-      }
-      if (phq9Result.suicidalIdeation) {
-        isCrisis = true;
-        crisisType.push('suicidal_ideation');
-      }
-    } else if (assessmentType === 'gad7') {
-      const gad7Result = result as GAD7Result;
-      if (gad7Result.totalScore >= 15) {
-        isCrisis = true;
-        crisisType.push('severe_anxiety');
-      }
-    }
-    
+
+    const detection = detectCrisis(result, 'self');
+    const isCrisis = detection !== null && isInterventionTier(detection);
+
     const responseTime = performance.now() - startTime;
     if (responseTime > 50) {
       logSecurity('Crisis detection time exceeded', 'high', {
@@ -107,9 +99,9 @@ const AssessmentResults: React.FC<AssessmentResultsProps> = ({
         threshold: 50
       });
     }
-    
-    return { isCrisis, crisisType, responseTime };
-  }, [result, assessmentType]);
+
+    return { isCrisis, detection, responseTime };
+  }, [result]);
 
   // Score interpretation and guidance
   const scoreInterpretation = useMemo(() => {
@@ -205,41 +197,13 @@ const AssessmentResults: React.FC<AssessmentResultsProps> = ({
     }
   }, [result, assessmentType]);
 
-  // Crisis intervention effect (CRITICAL - immediate response)
-  useEffect(() => {
-    if (crisisDetection.isCrisis && showCrisisIntervention) {
-      const startTime = performance.now();
-      
-      // Immediate crisis alert
-      setTimeout(() => {
-        Alert.alert(
-          '🚨 Immediate Support Available',
-          'Your responses indicate you may benefit from immediate support. Crisis resources are available 24/7.',
-          [
-            { 
-              text: 'Call 988 Now', 
-              onPress: () => Linking.openURL('tel:988'),
-              style: 'default'
-            },
-            { 
-              text: 'View Resources', 
-              onPress: () => {},
-              style: 'cancel'
-            }
-          ],
-          { cancelable: false }
-        );
-        
-        const alertTime = performance.now() - startTime;
-        if (alertTime > 200) {
-          logSecurity('Crisis alert time exceeded', 'high', {
-            alertTime,
-            threshold: 200
-          });
-        }
-      }, 100); // Small delay for UI rendering
-    }
-  }, [crisisDetection.isCrisis, showCrisisIntervention]);
+  // Crisis intervention alert is fired by the store's `handleCrisisDetection`
+  // (assessmentStore.ts:663-708), which is the single writer guaranteeing the
+  // `crisisIntervention.detection === crisisDetection` audit-trail invariant
+  // and per-session dedup. The previous bypass useEffect here (DEBUG-187)
+  // rendered the OLD MAINT-166 mockCrisisEngine copy and double-fired on the
+  // Q9 path; deleted. The in-page `results-crisis-banner` below remains the
+  // visible severity affordance.
 
   // Handle completion
   const handleComplete = useCallback(() => {
@@ -278,7 +242,8 @@ const AssessmentResults: React.FC<AssessmentResultsProps> = ({
             id="crisis-banner"
             priority={5}
           >
-            <View 
+            <View
+              testID="results-crisis-banner"
               style={styles.crisisBanner}
               accessibilityRole="alert"
               accessibilityLiveRegion="assertive"

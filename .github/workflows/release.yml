@@ -1,0 +1,95 @@
+name: Release - iOS TestFlight
+
+# Triggered when development → main release PRs merge (per INFRA-145 GitHub
+# Flow). Produces a TestFlight build via EAS and chains submission server-side
+# using --auto-submit, so this workflow exits in <2 min while EAS does the
+# heavy lifting asynchronously.
+#
+# workflow_dispatch lets you manually re-run a release (without retagging) if
+# a transient EAS or App Store Connect error needs a retry, or validate the
+# pipeline with dry_run=true (auth + pre-flight only — no build, no TestFlight).
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Validate auth + pre-flight without building (no TestFlight)'
+        type: boolean
+        default: false
+
+env:
+  NODE_VERSION: '20'
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+permissions:
+  contents: read
+  packages: read
+
+# Never cancel a release mid-flight. If a hotfix lands on main while a build
+# is queued on EAS, both should proceed; cancelling would orphan the in-flight
+# build on EAS with no submission step ever queued.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-and-submit:
+    name: EAS build + auto-submit to TestFlight
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: 'app/package-lock.json'
+
+      - name: Install dependencies
+        run: cd app && npm ci --prefer-offline --no-audit
+
+      # Pre-flight safety net: MAINT-161 reconciled the real ascAppId +
+      # appleTeamId into app/eas.json (submit.production.ios / submit.preview.ios,
+      # bundle fyi.being.app). This guard catches any future regression that
+      # reintroduces a PLACEHOLDER_ literal before it burns ~20 min of build
+      # time on a submission EAS would reject. Fail fast instead.
+      - name: Pre-flight - reject placeholder credentials in eas.json
+        run: |
+          if grep -q 'PLACEHOLDER_' app/eas.json; then
+            echo "::error::app/eas.json submit.*.ios contains PLACEHOLDER_ credentials. Restore the real ascAppId / appleTeamId (MAINT-161) before releasing."
+            exit 1
+          fi
+
+      - name: Setup EAS CLI
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      # Proves EXPO_TOKEN resolves to the expected account before any build.
+      # On a dry_run dispatch this is the terminal check — green here means the
+      # auth + pre-flight plumbing works end-to-end without producing a build.
+      - name: Verify EAS auth (eas whoami)
+        run: cd app && eas whoami
+
+      # --auto-submit chains submission server-side on EAS once the build
+      # finishes. --no-wait lets this workflow exit quickly while EAS does
+      # the 20-30 min build + submit asynchronously. Failures surface in
+      # the EAS dashboard, in App Store Connect, and (for EAS-side errors)
+      # in this job's logs.
+      # Skipped on a workflow_dispatch with dry_run=true (validation only).
+      - name: Build + auto-submit to TestFlight
+        if: ${{ !inputs.dry_run }}
+        run: |
+          cd app
+          eas build \
+            --platform ios \
+            --profile production \
+            --auto-submit \
+            --submit-profile production \
+            --non-interactive \
+            --no-wait

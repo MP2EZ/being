@@ -1,97 +1,51 @@
 /**
  * ACCOUNT SETTINGS SCREEN
- * Account management: email, password, logout, deletion
+ * Account information + an honest disclosure of forthcoming data rights.
  *
- * BLOCKED (FEAT-6 Open Questions):
- * - Authentication integration - how to get current user?
- * - Account deletion flow - app store compliance requirements
- * - Data export requirements
+ * Self-service controls (change password, logout, data export, account
+ * deletion) are not yet implemented. Rather than ship tappable controls that
+ * only error, this screen shows account info and one honest, non-interactive
+ * row signalling that export and deletion are coming.
  *
  * COMPLIANCE:
- * - Account deletion must be app store compliant
- * - Data export for Privacy compliance (right to access)
- * - Clear explanation of what gets deleted
- * - Confirmation flow for destructive actions
+ * - Data export and account deletion are user data rights (CCPA §1798.100
+ *   access, §1798.105 deletion). The data-rights row names them as forthcoming
+ *   so their absence reads as a timing gap, not a policy retreat (FEAT-203 §5.2).
+ *   Interim request mechanism is documented in the privacy policy, not in-app.
+ * - Terminology: "wellness data", never "PHI". No encryption claims about
+ *   export until FEAT-29 defines the export format.
  *
- * SECURITY:
- * - Logout must clear sensitive data
- * - Account deletion must be irreversible with confirmation
- * - No credentials displayed
+ * FUTURE WORK (each reimplements its own first-class control here):
+ * - FEAT-16 change password · FEAT-58 logout
+ * - FEAT-29 data export · FEAT-59 account deletion (with grace period)
  *
  * ACCESSIBILITY:
- * - WCAG AA compliant
- * - Screen reader support
- * - Clear warnings for destructive actions
+ * - WCAG AA; the data-rights row is informational text (accessibilityRole
+ *   "text"), not a button, and carries no tappable affordance.
  */
 
-import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  Pressable,
-  Alert,
-  TextInput,
-} from 'react-native';
+import React from 'react';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getCurrentUserEmail, getUserCreatedAt, isDevMode } from '@/core/constants/devMode';
 import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
-import SubMenuHeader from '../components/SubMenuHeader';
 
-interface AccountSettingsScreenProps {
-  onReturn: () => void;
-}
+// FEAT-212: rendered as a route on ProfileStackNavigator; the native stack header
+// supplies the back chevron (SubMenuHeader's ✕ removed).
 
-const AccountSettingsScreen: React.FC<AccountSettingsScreenProps> = ({ onReturn }) => {
-  const [deleteConfirmText, setDeleteConfirmText] = useState('');
-  const [isDeleting, setIsDeleting] = useState(false);
+const DATA_RIGHTS_TITLE = 'Your data rights';
+const DATA_RIGHTS_DESCRIPTION =
+  'Data export and account deletion are coming soon. You have the right to access and delete your personal wellness data.';
 
+const AccountSettingsScreen: React.FC = () => {
   // MVP: Use dev mode utilities for user information
   // V2 (FEAT-16): Replace with actual auth service
   const userEmail = getCurrentUserEmail();
   const userCreatedAt = getUserCreatedAt();
   const devMode = isDevMode();
 
-  const handleChangePassword = () => {
-    // MVP: Disabled until FEAT-16 (authentication) ships
-    Alert.alert(
-      'Feature Not Available',
-      '⚠️ Development Mode\n\nPassword change requires authentication system (FEAT-16). This feature will be available in V2.',
-      [{ text: 'OK' }]
-    );
-  };
-
-  const handleLogout = () => {
-    // MVP: Disabled until FEAT-58 (logout flow) ships
-    Alert.alert(
-      'Feature Not Available',
-      '⚠️ Development Mode\n\nLogout requires authentication system (FEAT-16) and logout flow (FEAT-58). This feature will be available in V2.',
-      [{ text: 'OK' }]
-    );
-  };
-
-  const handleExportData = () => {
-    // MVP: Disabled until FEAT-29 (export & sharing) ships
-    Alert.alert(
-      'Feature Not Available',
-      '⚠️ Development Mode\n\nData export is blocked by FEAT-29 (Export & Sharing). This feature has been validated and will use client-side PDF generation to comply with Privacy requirements.',
-      [{ text: 'OK' }]
-    );
-  };
-
-  const handleDeleteAccount = () => {
-    // MVP: Disabled until FEAT-59 (account deletion with grace period) ships
-    Alert.alert(
-      'Feature Not Available',
-      '⚠️ Development Mode\n\nAccount deletion is blocked by FEAT-59 (Account Deletion with Grace Period). This feature will include:\n\n• 30-day recovery period\n• App store compliance\n• Pre-deletion data export\n• Full Privacy compliance\n\nThis feature will be available in V2.',
-      [{ text: 'OK' }]
-    );
-  };
-
   return (
     <SafeAreaView style={styles.container}>
-      <SubMenuHeader title="Account Settings" onClose={onReturn} />
       <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
         {/* Account Information Section */}
         <View style={styles.section}>
@@ -115,92 +69,17 @@ const AccountSettingsScreen: React.FC<AccountSettingsScreenProps> = ({ onReturn 
           </View>
         </View>
 
-        {/* Security Section */}
+        {/* Data rights — honest, non-interactive disclosure (FEAT-210). */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Security</Text>
-
-          <Pressable style={[styles.actionCard, styles.actionCardDisabled]} onPress={handleChangePassword}>
-            <View>
-              <Text style={styles.actionCardTitle}>Change Password</Text>
-              <Text style={styles.actionCardDescription}>
-                Update your account password (Requires FEAT-16)
-              </Text>
-            </View>
-            <Text style={styles.actionCardArrow}>🔒</Text>
-          </Pressable>
-
-          <Pressable style={[styles.actionCard, styles.actionCardDisabled]} onPress={handleLogout}>
-            <View>
-              <Text style={styles.actionCardTitle}>Logout</Text>
-              <Text style={styles.actionCardDescription}>
-                Sign out of your account (Requires FEAT-58)
-              </Text>
-            </View>
-            <Text style={styles.actionCardArrow}>🔒</Text>
-          </Pressable>
-        </View>
-
-        {/* Data Management Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Data Management</Text>
-
-          <Pressable style={[styles.actionCard, styles.actionCardDisabled]} onPress={handleExportData}>
-            <View>
-              <Text style={styles.actionCardTitle}>Export Your Data</Text>
-              <Text style={styles.actionCardDescription}>
-                Download all your therapeutic data (Requires FEAT-29)
-              </Text>
-            </View>
-            <Text style={styles.actionCardArrow}>🔒</Text>
-          </Pressable>
-
-          <View style={styles.infoBox}>
-            <Text style={styles.infoText}>
-              📦 Your data export will include: check-in responses, therapeutic values, settings, and progress history. All data is encrypted for your privacy.
-            </Text>
+          <View
+            style={styles.dataRightsCard}
+            accessible
+            accessibilityRole="text"
+            accessibilityLabel={`${DATA_RIGHTS_TITLE}. ${DATA_RIGHTS_DESCRIPTION}`}
+          >
+            <Text style={styles.dataRightsTitle}>{DATA_RIGHTS_TITLE}</Text>
+            <Text style={styles.dataRightsDescription}>{DATA_RIGHTS_DESCRIPTION}</Text>
           </View>
-        </View>
-
-        {/* Danger Zone */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, styles.dangerTitle]}>Danger Zone</Text>
-          <Text style={styles.sectionDescription}>
-            ⚠️ Irreversible actions - proceed with caution
-          </Text>
-
-          <View style={[styles.dangerCard, styles.dangerCardDisabled]}>
-            <Text style={styles.dangerCardTitle}>Delete Account</Text>
-            <Text style={styles.dangerCardDescription}>
-              ⚠️ Feature disabled in MVP - Requires FEAT-59 (Account Deletion with Grace Period)
-            </Text>
-            <Text style={styles.dangerCardDescription}>
-              V2 will include: 30-day recovery period, app store compliance, pre-deletion data export.
-            </Text>
-          </View>
-
-          <View style={styles.warningBox}>
-            <Text style={styles.warningText}>
-              ⚠️ Before deleting: Consider exporting your data first. Account deletion is permanent and cannot be reversed.
-            </Text>
-          </View>
-        </View>
-
-        {/* Implementation Notice */}
-        <View style={styles.todoBox}>
-          <Text style={styles.todoTitle}>🚧 Implementation Status</Text>
-          <Text style={styles.todoText}>
-            This screen is a UI shell. The following integrations are pending:
-          </Text>
-          <Text style={styles.todoText}>
-            • Authentication service (user ID, email, credentials){'\n'}
-            • Password change flow{'\n'}
-            • Logout functionality (clear tokens, navigate to login){'\n'}
-            • Data export (gather data, encrypt, offer download){'\n'}
-            • Account deletion (compliance validation, grace period)
-          </Text>
-          <Text style={styles.todoText}>
-            See FEAT-6-ARCHITECTURE.md for open questions and integration plan.
-          </Text>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -228,19 +107,10 @@ const styles = StyleSheet.create({
     color: colorSystem.base.black,
     marginBottom: spacing[8],
   },
-  sectionDescription: {
-    fontSize: typography.bodyRegular.size,
-    fontWeight: typography.fontWeight.regular,
-    color: colorSystem.gray[600],
-    lineHeight: 22,
-    marginBottom: spacing[16],
-  },
-  dangerTitle: {
-    color: colorSystem.status.error,
-  },
   infoCard: {
     backgroundColor: colorSystem.gray[100],
-    borderRadius: borderRadius.large,
+    // MAINT-222: unified content-card radius (xl=16)
+    borderRadius: borderRadius.xl,
     padding: spacing[24],
     marginBottom: spacing[16],
     borderWidth: 1,
@@ -264,148 +134,27 @@ const styles = StyleSheet.create({
     color: colorSystem.status.warning,
     fontStyle: 'italic',
   },
-  actionCard: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  dataRightsCard: {
     backgroundColor: colorSystem.gray[100],
-    borderRadius: borderRadius.large,
+    // MAINT-222: unified content-card radius (xl=16)
+    borderRadius: borderRadius.xl,
     padding: spacing[24],
-    marginBottom: spacing[16],
     borderWidth: 1,
     borderColor: colorSystem.gray[200],
-  },
-  actionCardTitle: {
-    fontSize: typography.bodyLarge.size,
-    fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
-    marginBottom: spacing[8],
-  },
-  actionCardDescription: {
-    fontSize: typography.bodySmall.size,
-    fontWeight: typography.fontWeight.regular,
-    color: colorSystem.gray[600],
-    lineHeight: 20,
-  },
-  actionCardArrow: {
-    fontSize: 24,
-    fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.midnightBlue,
-  },
-  actionCardDisabled: {
-    opacity: 0.6,
-  },
-  dangerCard: {
-    backgroundColor: '#FFF5F5',
-    borderRadius: borderRadius.large,
-    padding: spacing[24],
-    marginBottom: spacing[16],
-    borderWidth: 2,
-    borderColor: '#FEE2E2',
-    borderLeftWidth: 4,
-    borderLeftColor: colorSystem.status.error,
-  },
-  dangerCardDisabled: {
-    opacity: 0.6,
-    backgroundColor: colorSystem.gray[100],
-    borderColor: colorSystem.gray[300],
-    borderLeftColor: colorSystem.gray[400],
-  },
-  dangerCardTitle: {
-    fontSize: typography.bodyLarge.size,
-    fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.status.error,
-    marginBottom: spacing[8],
-  },
-  dangerCardDescription: {
-    fontSize: typography.bodySmall.size,
-    fontWeight: typography.fontWeight.regular,
-    color: colorSystem.gray[600],
-    lineHeight: 20,
-    marginBottom: spacing[16],
-  },
-  confirmationBox: {
-    marginVertical: spacing[16],
-  },
-  confirmationLabel: {
-    fontSize: typography.bodySmall.size,
-    fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.gray[600],
-    marginBottom: spacing[8],
-  },
-  confirmationInput: {
-    backgroundColor: colorSystem.base.white,
-    borderRadius: borderRadius.medium,
-    borderWidth: 2,
-    borderColor: colorSystem.gray[300],
-    padding: spacing[16],
-    fontSize: typography.bodyRegular.size,
-    fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
-  },
-  infoBox: {
-    backgroundColor: '#F0F4FF',
-    borderRadius: borderRadius.medium,
-    padding: spacing[16],
-    marginTop: spacing[8],
     borderLeftWidth: 3,
     borderLeftColor: colorSystem.base.midnightBlue,
   },
-  infoText: {
-    fontSize: typography.bodySmall.size,
-    fontWeight: typography.fontWeight.regular,
-    color: colorSystem.gray[600],
-    lineHeight: 20,
-  },
-  warningBox: {
-    backgroundColor: '#FEF3C7',
-    borderRadius: borderRadius.medium,
-    padding: spacing[16],
-    marginTop: spacing[8],
-    borderLeftWidth: 3,
-    borderLeftColor: colorSystem.status.warning,
-  },
-  warningText: {
-    fontSize: typography.bodySmall.size,
-    fontWeight: typography.fontWeight.medium,
-    color: '#92400E',
-    lineHeight: 20,
-  },
-  todoBox: {
-    backgroundColor: colorSystem.gray[100],
-    borderRadius: borderRadius.medium,
-    padding: spacing[16],
-    marginTop: spacing[32],
-    borderLeftWidth: 3,
-    borderLeftColor: colorSystem.status.warning,
-  },
-  todoTitle: {
-    fontSize: typography.bodyRegular.size,
+  dataRightsTitle: {
+    fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.black,
     marginBottom: spacing[8],
   },
-  todoText: {
+  dataRightsDescription: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
     color: colorSystem.gray[600],
     lineHeight: 20,
-    marginBottom: spacing[8],
-  },
-  dangerButton: {
-    backgroundColor: colorSystem.status.error,
-    paddingVertical: spacing[16],
-    paddingHorizontal: spacing[32],
-    borderRadius: borderRadius.large,
-    alignItems: 'center',
-  },
-  dangerButtonText: {
-    fontSize: typography.bodyLarge.size,
-    fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.white,
-  },
-  buttonDisabled: {
-    opacity: 0.5,
   },
 });
 

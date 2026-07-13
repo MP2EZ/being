@@ -26,6 +26,7 @@ import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
 import { AppState } from 'react-native';
 import { generateInternalId } from '@/core/utils/id';
+import { getIsoWeekStart } from '@/core/utils/isoWeek';
 import { logError, LogCategory } from '@/core/services/logging';
 import type {
   CardinalVirtue,
@@ -74,6 +75,25 @@ export interface PrincipleEngagement {
   timestamp: Date;
 }
 
+/**
+ * Weekly Reflection (FEAT-194)
+ *
+ * One free-text reflection per ISO week, captured from the Weekly
+ * Reflection card on the Insights tab. Replaces FEAT-53's standalone
+ * weekly-review feature. Anchored on Seneca, Letters 84: "for deepening,
+ * not catching up. Daily practice remains the work."
+ *
+ * Anti-scope (do not extend this shape):
+ *   - No frequency counts, no principle suggestions, no algorithmic prompts.
+ *   - The card must never show principle-engagement data as input to a choice.
+ */
+export interface WeeklyReflection {
+  id: string;
+  weekStartIso: string; // 'YYYY-MM-DD' Monday of the ISO week (local-tz)
+  text: string;
+  savedAt: string; // ISO datetime string
+}
+
 export interface StoicPracticeState {
   // Developmental tracking
   developmentalStage: DevelopmentalStage;
@@ -100,6 +120,10 @@ export interface StoicPracticeState {
   // Records which principles users engage with during check-in flows
   principleEngagements: PrincipleEngagement[];
 
+  // Weekly reflections (FEAT-194: Weekly Reflection card on Insights)
+  // One free-text entry per ISO week; upserted on re-save in the same week.
+  weeklyReflections: WeeklyReflection[];
+
   // Loading state
   isLoading: boolean;
 
@@ -124,6 +148,9 @@ export interface StoicPracticeState {
   ) => Promise<void>;
   getPrincipleEngagements: (days: number) => PrincipleEngagement[];
   getCheckInHistory: (days: number) => CheckInCompletion[];
+  // Weekly reflection (FEAT-194) - upsert by current ISO week
+  addWeeklyReflection: (text: string) => Promise<void>;
+  getWeeklyReflectionForWeek: (weekStartIso: string) => WeeklyReflection | undefined;
   loadPersistedState: () => Promise<void>;
   persistState: () => Promise<void>;
   resetStore: () => Promise<void>;
@@ -169,7 +196,7 @@ const initialDomainProgress: DomainProgress = {
   lastPracticeDate: null,
 };
 
-const getInitialState = (): Omit<StoicPracticeState, 'isLoading' | 'addVirtueInstance' | 'addVirtueChallenge' | 'updateStreak' | 'incrementPracticeDays' | 'setPracticeStartDate' | 'setDevelopmentalStage' | 'getVirtueInstancesByDomain' | 'getVirtueInstancesByVirtue' | 'getRecentVirtueInstances' | 'markCheckInComplete' | 'isCheckInCompletedToday' | 'recordPrincipleEngagement' | 'getPrincipleEngagements' | 'getCheckInHistory' | 'loadPersistedState' | 'persistState' | 'resetStore'> => ({
+const getInitialState = (): Omit<StoicPracticeState, 'isLoading' | 'addVirtueInstance' | 'addVirtueChallenge' | 'updateStreak' | 'incrementPracticeDays' | 'setPracticeStartDate' | 'setDevelopmentalStage' | 'getVirtueInstancesByDomain' | 'getVirtueInstancesByVirtue' | 'getRecentVirtueInstances' | 'markCheckInComplete' | 'isCheckInCompletedToday' | 'recordPrincipleEngagement' | 'getPrincipleEngagements' | 'getCheckInHistory' | 'addWeeklyReflection' | 'getWeeklyReflectionForWeek' | 'loadPersistedState' | 'persistState' | 'resetStore'> => ({
   developmentalStage: 'fragmented',
   practiceStartDate: null,
   totalPracticeDays: 0,
@@ -179,6 +206,7 @@ const getInitialState = (): Omit<StoicPracticeState, 'isLoading' | 'addVirtueIns
   virtueChallenges: [],
   checkInCompletions: [],
   principleEngagements: [],
+  weeklyReflections: [],
   domainProgress: {
     work: { ...initialDomainProgress, domain: 'work' },
     relationships: { ...initialDomainProgress, domain: 'relationships' },
@@ -287,15 +315,33 @@ const updateDomainProgressForInstance = (
 };
 
 /**
+ * Format a Date as YYYY-MM-DD in the LOCAL timezone.
+ * Single source of truth for date-stamping AND retention cutoffs so the
+ * two never disagree (MAINT-242: a prior UTC-based cutoff drifted one day
+ * ahead of these local stamps in non-UTC zones near midnight, pruning
+ * records that were exactly 90 local days old).
+ */
+const toLocalDateString = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+/**
  * Get today's date in YYYY-MM-DD format (local timezone)
  * Used for check-in completion tracking
  */
-const getTodayString = (): string => {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+const getTodayString = (): string => toLocalDateString(new Date());
+
+/**
+ * Compute the 90-day retention cutoff as a LOCAL-tz YYYY-MM-DD string.
+ * MUST use the same local basis as getTodayString() (see toLocalDateString).
+ */
+const getRetentionCutoffString = (): string => {
+  const cutoffDate = new Date();
+  cutoffDate.setDate(cutoffDate.getDate() - 90);
+  return toLocalDateString(cutoffDate);
 };
 
 /**
@@ -304,9 +350,7 @@ const getTodayString = (): string => {
  * Storage impact: ~3KB/user (negligible)
  */
 const cleanOldCheckInCompletions = (completions: CheckInCompletion[]): CheckInCompletion[] => {
-  const cutoffDate = new Date();
-  cutoffDate.setDate(cutoffDate.getDate() - 90);
-  const cutoffString = cutoffDate.toISOString().split('T')[0];
+  const cutoffString = getRetentionCutoffString();
 
   return completions.filter(completion => cutoffString && completion.date >= cutoffString);
 };
@@ -317,9 +361,7 @@ const cleanOldCheckInCompletions = (completions: CheckInCompletion[]): CheckInCo
  * Storage impact: ~5KB/user (negligible, encrypted)
  */
 const cleanOldPrincipleEngagements = (engagements: PrincipleEngagement[]): PrincipleEngagement[] => {
-  const cutoffDate = new Date();
-  cutoffDate.setDate(cutoffDate.getDate() - 90);
-  const cutoffString = cutoffDate.toISOString().split('T')[0];
+  const cutoffString = getRetentionCutoffString();
 
   return engagements.filter(engagement => cutoffString && engagement.date >= cutoffString);
 };
@@ -429,6 +471,7 @@ const persistToSecureStore = async (state: Partial<StoicPracticeState>): Promise
         ...pe,
         timestamp: pe.timestamp.toISOString(),
       })) ?? [],
+      weeklyReflections: state.weeklyReflections ?? [],
       domainProgress: {
         work: {
           ...state.domainProgress?.work,
@@ -484,6 +527,7 @@ const loadFromSecureStore = async (): Promise<Partial<StoicPracticeState> | null
         ...pe,
         timestamp: new Date(pe.timestamp),
       })) ?? [],
+      weeklyReflections: parsed.weeklyReflections ?? [],
       domainProgress: {
         work: {
           ...parsed.domainProgress.work,
@@ -753,8 +797,13 @@ export const useStoicPracticeStore = create<StoicPracticeState>((set, get) => ({
    */
   getPrincipleEngagements: (days: number): PrincipleEngagement[] => {
     const engagements = get().principleEngagements;
-    const cutoffDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
-    const cutoffString = cutoffDate.toISOString().split('T')[0];
+    // Local-calendar decrement (DEBUG-259): match how records are stamped
+    // (getTodayString → toLocalDateString) and the MAINT-242 retention
+    // cutoff (getRetentionCutoffString). A UTC ms-window cutoff drifted one
+    // day off the local `date` stamps near midnight in non-UTC zones.
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - days);
+    const cutoffString = toLocalDateString(cutoffDate);
     return engagements.filter(pe => cutoffString && pe.date >= cutoffString);
   },
 
@@ -764,9 +813,47 @@ export const useStoicPracticeStore = create<StoicPracticeState>((set, get) => ({
    */
   getCheckInHistory: (days: number): CheckInCompletion[] => {
     const completions = get().checkInCompletions;
-    const cutoffDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
-    const cutoffString = cutoffDate.toISOString().split('T')[0];
+    // Local-calendar decrement (DEBUG-259): match how records are stamped
+    // (getTodayString → toLocalDateString) and the MAINT-242 retention
+    // cutoff (getRetentionCutoffString). A UTC ms-window cutoff drifted one
+    // day off the local `date` stamps near midnight in non-UTC zones.
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - days);
+    const cutoffString = toLocalDateString(cutoffDate);
     return completions.filter(c => cutoffString && c.date >= cutoffString);
+  },
+
+  /**
+   * Add or replace this week's reflection (FEAT-194)
+   *
+   * Upsert-by-current-ISO-week semantics: if a reflection already exists
+   * for this week, replace its text + savedAt in place (same id). The
+   * Edit affordance on the card calls this same action.
+   */
+  addWeeklyReflection: async (text: string) => {
+    const weekStartIso = getIsoWeekStart();
+    const savedAt = new Date().toISOString();
+    const reflections = get().weeklyReflections;
+    const existing = reflections.find(r => r.weekStartIso === weekStartIso);
+
+    const updated: WeeklyReflection[] = existing
+      ? reflections.map(r =>
+          r.weekStartIso === weekStartIso ? { ...r, text, savedAt } : r
+        )
+      : [
+          ...reflections,
+          { id: generateId(), weekStartIso, text, savedAt },
+        ];
+
+    set({ weeklyReflections: updated });
+    schedulePersist();
+  },
+
+  /**
+   * Get the reflection (if any) for a given ISO-week-start string
+   */
+  getWeeklyReflectionForWeek: (weekStartIso: string): WeeklyReflection | undefined => {
+    return get().weeklyReflections.find(r => r.weekStartIso === weekStartIso);
   },
 
   /**

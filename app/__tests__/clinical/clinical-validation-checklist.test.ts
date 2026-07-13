@@ -33,6 +33,17 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
   removeItem: jest.fn().mockResolvedValue(undefined),
 }));
 
+// INFRA-144: assessmentStore now persists via SecureStorageService.
+// Passthrough so the existing assertions (which probe state, not storage) hold.
+jest.mock('@/core/services/security/SecureStorageService', () => ({
+  __esModule: true,
+  default: {
+    storeWellnessBlob: jest.fn().mockResolvedValue({ success: true, operationType: 'store', storageKey: '', operationTimeMs: 0, dataSize: 0 }),
+    retrieveWellnessBlob: jest.fn().mockResolvedValue(null),
+    deleteWellnessBlob: jest.fn().mockResolvedValue(undefined),
+  },
+}));
+
 jest.mock('react-native', () => ({
   Alert: {
     alert: jest.fn(),
@@ -180,7 +191,7 @@ describe('CLINICAL VALIDATION CHECKLIST - CLOUD SYNC INTEGRATION', () => {
 
       // Should complete in reasonable therapeutic timeframe
       expect(completionTime).toBeLessThan(5000); // Under 5 seconds
-      expect(completionTime).toBeGreaterThan(90); // At least 90ms for realistic timing
+      expect(completionTime).toBeGreaterThanOrEqual(90); // At least 90ms for realistic timing (setTimeout(10) × 9 lands exactly at 90ms on fast CI runners)
 
       const result = store.currentResult;
       expect(result?.totalScore).toBe(9);

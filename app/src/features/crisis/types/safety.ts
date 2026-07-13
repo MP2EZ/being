@@ -16,6 +16,12 @@ import { generateTimestampedId } from '@/core/utils/id';
 /**
  * Crisis Detection Thresholds - IMMUTABLE CLINICAL CONSTANTS
  * These values MUST NOT be modified as they represent clinical standards
+ *
+ * ⚠️ DIVERGENCE WARNING — `PHQ9_CRISIS_SCORE` here is 20 (active-intervention
+ * floor); `CRISIS_THRESHOLDS.PHQ9_CRISIS_SCORE` in
+ * `@/features/assessment/types` is 15 (support floor). Both are correct for
+ * their respective semantics. The dual-threshold contract is pinned by
+ * `src/features/crisis/types/__tests__/crisis-thresholds.test.ts`.
  */
 export const CRISIS_SAFETY_THRESHOLDS = {
   /** PHQ-9 Moderately Severe Depression Score - Support Recommended */
@@ -24,7 +30,7 @@ export const CRISIS_SAFETY_THRESHOLDS = {
   PHQ9_SEVERE_THRESHOLD: 20,
   /** GAD-7 Severe Anxiety Score - Immediate Intervention */
   GAD7_SEVERE_THRESHOLD: 15,
-  /** PHQ-9 Crisis Score (alias for severe threshold) - Backward Compatibility */
+  /** PHQ-9 Crisis Score (alias for severe threshold = 20) - see DIVERGENCE WARNING above */
   PHQ9_CRISIS_SCORE: 20,
   /** GAD-7 Crisis Score (alias for severe threshold) - Backward Compatibility */
   GAD7_CRISIS_SCORE: 15,
@@ -236,7 +242,7 @@ export interface CrisisFollowUp {
   /** Urgency level of follow-up */
   urgency: 'immediate' | 'within_24h' | 'within_48h' | 'within_week';
   /** Type of follow-up needed */
-  type: 'clinical_assessment' | 'safety_check' | 'therapy_appointment' | 'medication_review';
+  type: 'wellness_follow_up' | 'safety_check' | 'therapy_appointment' | 'medication_review';
   /** Recommended follow-up actions */
   recommendations: string[];
   /** Follow-up contacts */
@@ -341,15 +347,26 @@ export function detectCrisis(
       primaryTrigger = 'phq9_suicidal_ideation';
     }
     
-    // Check for severe depression score
-    if (result.totalScore >= CRISIS_SAFETY_THRESHOLDS.PHQ9_CRISIS_SCORE) {
+    // Score tier (DEBUG-229 / MAINT-226 Decision E — dual-threshold contract):
+    //   ≥20 → active-intervention tier (phq9_severe_score, critical)
+    //   15–19 → support tier (phq9_moderate_severe_score, high) — "≥15 = support
+    //     resources offered". Omitting this band was the zero-false-negative bug.
+    // Q9>0 keeps precedence as primaryTrigger; the score tier is recorded as a
+    // secondary trigger so both signals are preserved end-to-end.
+    if (result.totalScore >= CRISIS_SAFETY_THRESHOLDS.PHQ9_SEVERE_THRESHOLD) {
       triggers.push('phq9_severe_score');
       if (!primaryTrigger!) {
         primaryTrigger = 'phq9_severe_score';
+        severityLevel = 'critical';
+      }
+    } else if (result.totalScore >= CRISIS_SAFETY_THRESHOLDS.PHQ9_MODERATE_SEVERE_THRESHOLD) {
+      triggers.push('phq9_moderate_severe_score');
+      if (!primaryTrigger!) {
+        primaryTrigger = 'phq9_moderate_severe_score';
         severityLevel = 'high';
       }
     }
-  } 
+  }
   // GAD-7 Crisis Detection
   else {
     if (result.totalScore >= CRISIS_SAFETY_THRESHOLDS.GAD7_CRISIS_SCORE) {
@@ -423,8 +440,30 @@ export function validateCrisisDetection(detection: CrisisDetection): boolean {
  * Type Guards
  */
 export function isCriticalCrisis(detection: CrisisDetection): boolean {
-  return detection.severityLevel === 'critical' || 
+  return detection.severityLevel === 'critical' ||
          detection.severityLevel === 'emergency';
+}
+
+/**
+ * Intervention-tier predicate (MAINT-251).
+ *
+ * Separates the active-intervention tier (PHQ-9 ≥20 / Q9>0 / GAD-7 ≥15 →
+ * primaryTrigger phq9_severe_score | phq9_suicidal_ideation | gad7_severe_score)
+ * from the PHQ-9 15–19 support tier (primaryTrigger 'phq9_moderate_severe_score').
+ * The support tier offers resources via the severity-driven support surface but
+ * does NOT fire the assertive crisis banner.
+ *
+ * detectCrisis's ONLY non-intervention output is the 15–19 support tier, so the
+ * predicate is "triggered AND not the support tier."
+ *
+ * NOT equivalent to isCriticalCrisis: a Q9>0 detection with totalScore<20 is
+ * severityLevel 'high' (not 'critical') yet IS intervention tier — gating the
+ * banner on severity alone would drop the suicidal-ideation signal (this is the
+ * zero-false-negative guarantee; see crisis-thresholds.test.ts).
+ */
+export function isInterventionTier(detection: CrisisDetection): boolean {
+  return detection.isTriggered &&
+         detection.primaryTrigger !== 'phq9_moderate_severe_score';
 }
 
 export function requiresImmediateIntervention(detection: CrisisDetection): boolean {

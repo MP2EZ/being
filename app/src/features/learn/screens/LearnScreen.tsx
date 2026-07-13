@@ -23,8 +23,8 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useAnalytics } from '@/core/analytics';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
-import { CollapsibleCrisisButton } from '@/features/crisis/components';
-import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
+import { colorSystem, semantic, spacing, typography, borderRadius } from '@/core/theme';
+import { BodyHeader } from '@/core/components/BodyHeader';
 import { useEducationStore } from '@/features/learn/stores/educationStore';
 import type { ModuleId } from '@/features/learn/types/education';
 
@@ -122,19 +122,12 @@ const LearnScreen: React.FC = () => {
     <SafeAreaView style={styles.safeArea} testID="learn-screen">
       <View style={{ flex: 1 }}>
         <View style={styles.container}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text
-            style={styles.headerTitle}
-            accessibilityRole="header"
-            accessibilityLevel={1}
-          >
-            Learn
-          </Text>
-          <Text style={styles.headerSubtitle}>
-            Explore the 5 Stoic Mindfulness principles
-          </Text>
-        </View>
+        {/* Header (MAINT-257: shared BodyHeader idiom — borderless, left headline2) */}
+        <BodyHeader
+          title="Learn"
+          subtitle="Explore the 5 Stoic Mindfulness principles"
+          containerStyle={styles.header}
+        />
 
         <ScrollView
           style={styles.scrollView}
@@ -265,13 +258,27 @@ const LearnScreen: React.FC = () => {
               );
             })}
           </View>
+
+          {/* Classical Library entry (FEAT-54) */}
+          <Pressable
+            style={({ pressed }) => [styles.libraryEntry, pressed && { opacity: 0.7 }]}
+            onPress={() => navigation.navigate('ClassicalLibrary')}
+            accessibilityRole="button"
+            accessibilityLabel="Browse the Classical Library"
+            accessibilityHint="Curated passages from Marcus Aurelius, Epictetus, and Seneca"
+          >
+            <View style={styles.libraryEntryMain}>
+              <Text style={styles.libraryEntryTitle}>Classical Library</Text>
+              <Text style={styles.libraryEntryDescription}>
+                Read curated passages from Marcus Aurelius, Epictetus, and Seneca.
+              </Text>
+            </View>
+            <Text style={styles.libraryEntryArrow} importantForAccessibility="no">
+              →
+            </Text>
+          </Pressable>
         </ScrollView>
         </View>
-        <CollapsibleCrisisButton
-          mode="standard"
-          onNavigate={() => navigation.navigate('CrisisResources')}
-          testID="crisis-button"
-        />
       </View>
     </SafeAreaView>
   );
@@ -280,28 +287,17 @@ const LearnScreen: React.FC = () => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: colorSystem.base.white,
+    // MAINT-263: shared tab-screen surface token (value unchanged: white).
+    backgroundColor: semantic.background.screen,
   },
   container: {
     flex: 1,
   },
+  // MAINT-257: borderless to match the harmonized in-body header idiom.
   header: {
     paddingHorizontal: spacing[24],
     paddingTop: spacing[24],
     paddingBottom: spacing[16],
-    borderBottomWidth: 1,
-    borderBottomColor: colorSystem.gray[200],
-  },
-  headerTitle: {
-    fontSize: typography.headline2.size,
-    fontWeight: typography.fontWeight.bold,
-    color: colorSystem.base.midnightBlue,
-    marginBottom: spacing[4],
-  },
-  headerSubtitle: {
-    fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[600],
-    lineHeight: 20,
   },
   scrollView: {
     flex: 1,
@@ -311,7 +307,7 @@ const styles = StyleSheet.create({
     paddingBottom: spacing[48],
   },
   recommendationCard: {
-    backgroundColor: '#F8F5FF', // Light purple background
+    backgroundColor: colorSystem.themes.learn.background,
     borderRadius: borderRadius.xl,
     padding: spacing[24],
     marginBottom: spacing[32],
@@ -365,17 +361,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     // WCAG AA: Use gray[400] for 3:1 minimum contrast ratio on borders
     borderColor: colorSystem.gray[400],
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    // MAINT-222: border-preferred elevation; dropped the hand-rolled #000 shadow
+    // (the gray[400] border above is now the single elevation approach).
     marginBottom: spacing[16],
   },
   moduleCardEssential: {
     borderWidth: 2,
     borderColor: colorSystem.navigation.learn,
-    backgroundColor: '#FEFAFF', // Very light purple tint
+    backgroundColor: colorSystem.themes.learn.background,
   },
   moduleHeader: {
     flexDirection: 'row',
@@ -454,6 +447,37 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing[16],
+  },
+  libraryEntry: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colorSystem.gray[50],
+    borderRadius: borderRadius.xl,
+    padding: spacing[20],
+    marginTop: spacing[24],
+    borderWidth: 1,
+    borderColor: colorSystem.gray[400],
+    minHeight: 76,
+  },
+  libraryEntryMain: {
+    flex: 1,
+    marginRight: spacing[12],
+  },
+  libraryEntryTitle: {
+    fontSize: typography.bodyLarge.size,
+    fontWeight: typography.fontWeight.semibold,
+    color: colorSystem.base.black,
+    marginBottom: spacing[4],
+  },
+  libraryEntryDescription: {
+    fontSize: typography.bodySmall.size,
+    color: colorSystem.gray[600],
+    lineHeight: 20,
+  },
+  libraryEntryArrow: {
+    fontSize: typography.bodyLarge.size,
+    fontWeight: typography.fontWeight.semibold,
+    color: colorSystem.base.midnightBlue,
   },
   moduleTime: {
     fontSize: typography.bodySmall.size,

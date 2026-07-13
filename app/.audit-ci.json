@@ -1,0 +1,14 @@
+{
+  "$schema": "https://raw.githubusercontent.com/IBM/audit-ci/main/docs/schema.json",
+  "moderate": true,
+  "report-type": "summary",
+  "allowlist": [
+    "GHSA-ph9p-34f9-6g65",
+    "GHSA-6vfc-qv3f-vr6c",
+    "GHSA-w5hq-g745-h8pq",
+    "GHSA-h67p-54hq-rp68",
+    "GHSA-6v5v-wf23-fmfq",
+    "GHSA-22p9-wv53-3rq4"
+  ],
+  "$comment": "MAINT-182. First three CVEs are transitive through @expo/config-plugins@56.0.8 (build-time only, no patched stable available as of 2026-05-27). GHSA-ph9p (tmp path traversal) and GHSA-6vfc (markdown-it ReDoS) only run during prebuild/codegen. GHSA-w5hq (uuid buffer bounds) is in dev tooling. Review when Expo ships @expo/config-plugins >=56.0.9 stable: drop these GHSAs and verify `npm audit --audit-level moderate` passes. --- MAINT-281 (2026-06-15) added the last two (both quadratic-complexity DoS, no fix in range, require attacker-controlled input which Being has no path for): GHSA-h67p (js-yaml) is dev/build-time ONLY — transitive via ts-jest, @expo/cli/@expo/xcpretty, and babel-jest; fix is a breaking ts-jest major bump. GHSA-6v5v (markdown-it) is runtime via react-native-markdown-display@7, but its ONLY call site renders bundled first-party legal docs (LegalDocumentScreen <- legalContent.generated.ts <- docs/legal/*.md) — no remote/user markdown, so the DoS is unreachable; no patched markdown-it in react-native-markdown-display@7's range. Drop GHSA-6v5v if react-native-markdown-display upgrades markdown-it; drop GHSA-h67p on the next ts-jest major. The high-severity form-data CVE (GHSA-hmw2-7cc7-3qxx) disclosed the same day was FIXED via lockfile (npm audit fix), not allowlisted. --- MAINT-294 (2026-07-08) added GHSA-22p9-wv53-3rq4 (linkify-it 'LinkifyIt#match' scan loop, quadratic-complexity ReDoS, high; range <=5.0.0, fixAvailable:false). Direct twin of GHSA-6v5v: transitive via react-native-markdown-display@7 -> markdown-it@10 -> linkify-it@2.2.0, and its ONLY call site is LegalDocumentScreen rendering bundled first-party legal docs (legalContent.generated.ts <- docs/legal/*.md) — no remote/user markdown, so the quadratic blow-up needs attacker-controlled input Being has no path to. No fix in range (would need breaking markdown-it/react-native-markdown-display majors, risking the expo-modules-jsi@56.0.7 patch pin). Drop GHSA-22p9 together with GHSA-6v5v when react-native-markdown-display upgrades markdown-it/linkify-it past the vulnerable range."
+}

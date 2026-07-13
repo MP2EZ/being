@@ -280,7 +280,7 @@ export default function PurchaseOptionsScreen({
           </View>
           <Text style={styles.optionTitle}>Yearly</Text>
           <Text style={styles.optionPrice}>
-            {yearlyProduct?.price || SUBSCRIPTION_PRICING.yearly.label}
+            {yearlyProduct?.displayPrice || SUBSCRIPTION_PRICING.yearly.label}
           </Text>
           <Text style={styles.optionSavings}>{SUBSCRIPTION_PRICING.yearly.savingsLabel}</Text>
           <Text style={styles.optionDescription}>
@@ -301,7 +301,7 @@ export default function PurchaseOptionsScreen({
         >
           <Text style={styles.optionTitle}>Monthly</Text>
           <Text style={styles.optionPrice}>
-            {monthlyProduct?.price || SUBSCRIPTION_PRICING.monthly.label}
+            {monthlyProduct?.displayPrice || SUBSCRIPTION_PRICING.monthly.label}
           </Text>
           <Text style={styles.optionDescription}>
             Billed monthly • Cancel anytime

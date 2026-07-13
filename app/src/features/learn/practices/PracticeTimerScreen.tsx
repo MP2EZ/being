@@ -1,8 +1,7 @@
 /**
  * Practice Timer Screen - Educational Breathing & Reflection Exercises
- * FEAT-81: Interactive Practice Screens (Phase 2 DRY Migration)
  *
- * Phase 2 Migration: Uses Phase 2 DRY abstractions from practiceCommon.ts barrel
+ * Uses shared abstractions from the practiceCommon.ts barrel:
  * - PracticeScreenLayout: Shared layout wrapper (replaces SafeAreaView + header)
  * - PracticeInstructions: Fade animation component (replaces inline Animated.View)
  * - useTimerPractice: Timer state management hook (consolidates timer logic)
@@ -56,7 +55,6 @@ const PracticeTimerScreen: React.FC<PracticeTimerScreenProps> = ({
   onBack,
   testID = 'practice-timer-screen',
 }) => {
-  // Phase 2: Consolidated timer state management
   const {
     isTimerActive,
     elapsedTime,
@@ -77,6 +75,11 @@ const PracticeTimerScreen: React.FC<PracticeTimerScreenProps> = ({
     testID,
   });
 
+  // Stable pause/resume handlers so the memoized Timer is not re-rendered
+  // by new inline closures on every parent render.
+  const handlePause = React.useCallback(() => setIsTimerActive(false), [setIsTimerActive]);
+  const handleResume = React.useCallback(() => setIsTimerActive(true), [setIsTimerActive]);
+
   // Show completion screen after timer finishes
   const completionScreen = renderCompletion();
   if (completionScreen) {
@@ -90,7 +93,7 @@ const PracticeTimerScreen: React.FC<PracticeTimerScreenProps> = ({
       scrollable={false}
       testID={testID}
     >
-      {/* Practice Instructions - Phase 2: Uses shared PracticeInstructions component */}
+      {/* Practice Instructions */}
       <PracticeInstructions
         text="Find a comfortable position. Follow the breathing circle and let your breath find its natural rhythm."
         isActive={isTimerActive}
@@ -113,8 +116,8 @@ const PracticeTimerScreen: React.FC<PracticeTimerScreenProps> = ({
           isActive={isTimerActive}
           onComplete={handleTimerComplete}
           onTick={handleTimerTick}
-          onPause={() => setIsTimerActive(false)}
-          onResume={() => setIsTimerActive(true)}
+          onPause={handlePause}
+          onResume={handleResume}
           showProgress={true}
           showControls={false} // Hide built-in controls, using custom button below
           showSkip={false}
@@ -132,7 +135,7 @@ const PracticeTimerScreen: React.FC<PracticeTimerScreenProps> = ({
         testID={`${testID}-toggle-button`}
       />
 
-      {/* Mindfulness Note - Phase 2: Uses shared styles */}
+      {/* Mindfulness Note */}
       <View style={sharedPracticeStyles.noteSection}>
         <Text style={sharedPracticeStyles.noteIcon}>💡</Text>
         <Text style={sharedPracticeStyles.noteText}>

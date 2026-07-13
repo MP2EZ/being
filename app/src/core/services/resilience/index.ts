@@ -1,8 +1,5 @@
 /**
-
-
  * SYSTEM RESILIENCE SERVICES
- * Week 4 Phase 2a - Critical Production Infrastructure
  *
  * FAULT TOLERANCE AND SYSTEM RESILIENCE:
  * - Circuit breaker patterns for external service protection
@@ -100,6 +97,10 @@ export class ResilienceOrchestrator {
    * Start periodic health monitoring
    */
   private startHealthMonitoring(): void {
+    // INFRA-177: Skip interval setup in test environment to prevent Jest
+    // worker hang from unguarded timers (INFRA-144/175 pattern).
+    if (process.env.NODE_ENV === 'test') return;
+
     // Check system health every 30 seconds
     this.healthCheckInterval = setInterval(() => {
       this.performHealthCheck();

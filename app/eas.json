@@ -10,12 +10,10 @@
       "distribution": "internal",
       "ios": {
         "simulator": false,
-        "buildConfiguration": "Debug",
-        "newArchEnabled": true
+        "buildConfiguration": "Debug"
       },
       "android": {
-        "buildType": "apk",
-        "newArchEnabled": true
+        "buildType": "apk"
       },
       "env": {
         "BUILD_TYPE": "development",
@@ -29,55 +27,54 @@
       "env": {
         "BUILD_TYPE": "preview",
         "CLINICAL_VALIDATION": "true",
-        "HEALTHCARE_COMPLIANCE_MONITORING": "true",
+        "WELLNESS_MONITORING_ENABLED": "true",
         "PERFORMANCE_MONITORING": "true",
         "NEW_ARCHITECTURE": "true",
         "CRISIS_MONITORING": "true",
-        "EXPO_PUBLIC_API_URL": "http://localhost:3000",
         "EXPO_PUBLIC_SUPABASE_URL": "$SUPABASE_URL_STAGING"
       },
       "cache": {
-        "disabled": false,
-        "cacheDefaultPaths": true
+        "disabled": false
       }
     },
     "production": {
       "ios": {
         "simulator": false,
         "buildConfiguration": "Release",
-        "newArchEnabled": true,
-        "resourceClass": "m1-medium",
-        "config": {
-          "usesNonExemptEncryption": false
-        },
-        "entitlements": {
-          "com.apple.security.application-groups": [
-            "group.com.being.app.widgets"
-          ]
-        }
+        "resourceClass": "m-medium"
       },
       "android": {
-        "buildType": "aab",
-        "newArchEnabled": true,
+        "buildType": "app-bundle",
         "resourceClass": "medium"
       },
       "env": {
         "BUILD_TYPE": "production",
         "CLINICAL_VALIDATION": "true",
-        "HEALTHCARE_COMPLIANCE_MONITORING": "true",
+        "WELLNESS_MONITORING_ENABLED": "true",
         "PERFORMANCE_MONITORING": "true",
         "NEW_ARCHITECTURE": "true",
         "CRISIS_MONITORING": "true",
         "PRODUCTION_MONITORING": "true",
-        "HIPAA_COMPLIANCE": "true",
-        "THERAPEUTIC_MONITORING": "true"
+        "WELLNESS_DATA_PROTECTION": "true",
+        "WELLNESS_PRACTICES_MONITORING": "true"
       },
       "cache": {
         "disabled": false,
-        "cacheDefaultPaths": true,
-        "customPaths": [
+        "paths": [
           "app/node_modules"
         ]
+      }
+    },
+    "e2e-sim": {
+      "extends": "production",
+      "developmentClient": false,
+      "distribution": "internal",
+      "ios": {
+        "simulator": true,
+        "buildConfiguration": "Release"
+      },
+      "env": {
+        "EXPO_PUBLIC_E2E_SEED_ONBOARDED": "true"
       }
     },
     "production-emergency": {
@@ -87,20 +84,19 @@
         "BUILD_TYPE": "production",
         "EMERGENCY_DEPLOYMENT": "true",
         "CRISIS_OVERRIDE": "true",
-        "HEALTHCARE_COMPLIANCE_MONITORING": "true",
+        "WELLNESS_MONITORING_ENABLED": "true",
         "PERFORMANCE_MONITORING": "true",
         "NEW_ARCHITECTURE": "true",
         "PRODUCTION_MONITORING": "true",
-        "HIPAA_COMPLIANCE": "true"
+        "WELLNESS_DATA_PROTECTION": "true"
       }
     }
   },
   "submit": {
     "production": {
       "ios": {
-        "appId": "com.being.app",
-        "ascAppId": "PLACEHOLDER_APP_ID",
-        "appleTeamId": "PLACEHOLDER_TEAM_ID"
+        "ascAppId": "6777579207",
+        "appleTeamId": "KN6FDLG98K"
       },
       "android": {
         "serviceAccountKeyPath": "./android-service-account.json",
@@ -110,9 +106,8 @@
     },
     "preview": {
       "ios": {
-        "appId": "com.being.app",
-        "ascAppId": "PLACEHOLDER_APP_ID",
-        "appleTeamId": "PLACEHOLDER_TEAM_ID"
+        "ascAppId": "6777579207",
+        "appleTeamId": "KN6FDLG98K"
       },
       "android": {
         "serviceAccountKeyPath": "./android-service-account.json",
@@ -120,11 +115,5 @@
         "releaseStatus": "draft"
       }
     }
-  },
-  "updates": {
-    "url": "https://u.expo.dev/75ab182c-82f1-4f22-bd9c-d57358950bc6"
-  },
-  "experimental": {
-    "prebuildCommand": "node scripts/prebuild-health-check.js"
   }
 }

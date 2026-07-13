@@ -3,12 +3,12 @@
  *
  * PRIVACY-FIRST DESIGN:
  * - Uses existing EncryptionService for client-side encryption
- * - Only stores encrypted blobs in cloud (no PHI)
+ * - Only stores encrypted blobs in cloud (no wellness data in plaintext)
  * - Integrity verification with checksums
  * - Anonymous user association only
  *
  * Privacy COMPLIANCE (MAINT-117):
- * Cloud backup MUST NOT include Protected Health Information (PHI).
+ * Cloud backup MUST NOT include sensitive wellness data.
  *
  * SENSITIVE FIELDS EXCLUDED (privacy protection):
  * - Individual PHQ-9/GAD-7 question responses (answers[])
@@ -17,13 +17,13 @@
  * - Crisis detection/intervention records
  * - Completed assessment history
  *
- * PERMITTED DATA (Non-PHI settings only):
+ * PERMITTED DATA (non-sensitive settings only):
  * - autoSaveEnabled (boolean preference)
  * - lastSyncAt (backup metadata timestamp)
  *
  * FILTERING APPROACH: STRICT ALLOWLIST
  * Only explicitly permitted fields are backed up. Unknown fields
- * are automatically excluded for fail-safe PHI protection.
+ * are automatically excluded for fail-safe wellness-data protection.
  *
  * FEATURES:
  * - Automated backup on significant events
@@ -56,6 +56,7 @@ import supabaseService from './SupabaseService';
 
 // Store imports
 import { useAssessmentStore as assessmentStore } from '@/features/assessment/stores/assessmentStore';
+import { useConsentStore } from '@/core/stores/consentStore';
 
 // Types
 interface BackupData {
@@ -129,7 +130,6 @@ interface BackupConfig {
   autoBackupEnabled: boolean;
   autoBackupIntervalMs: number;
   maxBackupSizeMB: number;
-  compressionEnabled: boolean;
   integrityCheckEnabled: boolean;
 }
 
@@ -151,7 +151,6 @@ class CloudBackupService {
       autoBackupEnabled: true,
       autoBackupIntervalMs: 4 * 60 * 60 * 1000, // 4 hours
       maxBackupSizeMB: 10,
-      compressionEnabled: true,
       integrityCheckEnabled: true,
     };
   }
@@ -198,6 +197,18 @@ class CloudBackupService {
       return { success: false, error: 'Service not initialized' };
     }
 
+    // Consent gate (MAINT-173): cloud backup is opt-in. This is the single
+    // chokepoint for all backup egress — the auto-backup timer, store
+    // listener, and app-state foreground listener all route through
+    // createBackup(), so guarding here enforces consent on every path
+    // without per-caller checks. Without this, toggling cloudSyncEnabled off
+    // in Privacy & Data settings did NOT stop backups (the consent flag had
+    // no consumer in this service).
+    if (!this.cloudSyncConsented()) {
+      logSecurity('[CloudBackupService] Backup skipped — cloud_sync consent absent', 'low');
+      return { success: false, error: 'cloud_sync_consent_absent' };
+    }
+
     try {
       const startTime = Date.now();
 
@@ -211,14 +222,11 @@ class CloudBackupService {
         return { success: true, timestamp: Date.now() };
       }
 
-      // Serialize and optionally compress
-      let serializedData = JSON.stringify(backupData);
-      let originalSize = new Blob([serializedData]).size;
-
-      if (this.config.compressionEnabled) {
-        serializedData = await this.compressData(serializedData);
-      }
-
+      // Serialize backup payload (compression intentionally not applied — see
+      // DEBUG-233: the previous compressData/decompressData were no-op
+      // placeholders, and config-only backups are <500 bytes so there is
+      // nothing to compress).
+      const serializedData = JSON.stringify(backupData);
       const finalSize = new Blob([serializedData]).size;
 
       // Check size limits
@@ -255,14 +263,11 @@ class CloudBackupService {
         timestamp: Date.now(),
         hash: dataHash,
         size: finalSize,
-        originalSize,
-        compressed: this.config.compressionEnabled,
       }));
 
       // Track analytics
       await supabaseService.trackEvent('backup_completed', {
         size_mb: Math.round(finalSize / 1024 / 1024 * 100) / 100,
-        compression_ratio: originalSize > 0 ? Math.round(originalSize / finalSize * 100) / 100 : 1,
         duration_ms: Date.now() - startTime,
       });
 
@@ -326,14 +331,10 @@ class CloudBackupService {
         'level_3_intervention_metadata'
       );
 
-      // Decompress if needed
-      let restoredDataString = decryptedData;
-      if (this.config.compressionEnabled) {
-        restoredDataString = await this.decompressData(decryptedData);
-      }
-
-      // Parse backup data
-      const backupData: BackupData = JSON.parse(restoredDataString);
+      // Parse backup data. Compression was never actually applied (the old
+      // compressData was a no-op), so existing records are plaintext JSON and
+      // need no decompression step — DEBUG-233.
+      const backupData: BackupData = JSON.parse(decryptedData);
 
       // Validate backup structure
       if (!this.validateBackupStructure(backupData)) {
@@ -501,6 +502,16 @@ class CloudBackupService {
    *
    * @security Uses allowlist pattern - only explicitly safe fields are included
    */
+  /**
+   * Whether the user has consented to cloud sync (MAINT-173).
+   * Reads the consent store at call time so a mid-session toggle takes
+   * effect immediately. Returns false unless consent is valid AND cloud
+   * sync is enabled (and no universal opt-out is in force).
+   */
+  private cloudSyncConsented(): boolean {
+    return useConsentStore.getState().canPerformOperation('cloud_sync');
+  }
+
   private async collectStoreData(): Promise<BackupData> {
     // Get full assessment state for filtering
     const fullAssessmentState = assessmentStore.getState();
@@ -608,26 +619,6 @@ class CloudBackupService {
   }
 
   /**
-   * Compress data using simple algorithm
-   */
-  private async compressData(data: string): Promise<string> {
-    // For React Native, we'll use a simple compression
-    // In a real implementation, you might use pako or similar
-
-    // Simple run-length encoding for demonstration
-    // This is a placeholder - use proper compression library
-    return data; // TODO: Implement actual compression
-  }
-
-  /**
-   * Decompress data
-   */
-  private async decompressData(data: string): Promise<string> {
-    // Placeholder for decompression
-    return data; // TODO: Implement actual decompression
-  }
-
-  /**
    * Validate backup data structure
    */
   private validateBackupStructure(data: any): data is BackupData {
@@ -693,6 +684,10 @@ class CloudBackupService {
    * Setup automatic backup timer
    */
   private setupAutoBackup(): void {
+    // INFRA-177: Skip interval setup in test environment to prevent Jest
+    // worker hang from unguarded timers (INFRA-144/175 pattern).
+    if (process.env.NODE_ENV === 'test') return;
+
     if (this.autoBackupTimer) {
       clearInterval(this.autoBackupTimer);
     }

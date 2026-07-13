@@ -8,7 +8,7 @@
  * 2. Reset PostHog identity (immediate unlinking)
  * 3. Provide user confirmation with regulatory-appropriate language
  *
- * Note: Full historical data deletion requires contacting privacy@being.app
+ * Note: Full historical data deletion requires contacting privacy@being.fyi
  * PostHog API deletion is handled via their dashboard or support.
  *
  * @see docs/development/PostHog-Integration-Plan.md
@@ -122,11 +122,11 @@ export function showDeletionConfirmation(type: DeletionRequestType = 'user_reque
 
   if (type === 'gdpr' || type === 'ccpa') {
     message +=
-      '\n\nFor complete deletion of historical data, contact privacy@being.app. ' +
+      '\n\nFor complete deletion of historical data, contact privacy@being.fyi. ' +
       'We will process your request within 30 days (GDPR) or 45 days (CCPA).';
   } else {
     message +=
-      '\n\nFor complete deletion of historical data, contact privacy@being.app.';
+      '\n\nFor complete deletion of historical data, contact privacy@being.fyi.';
   }
 
   Alert.alert(title, message, [{ text: 'OK' }]);

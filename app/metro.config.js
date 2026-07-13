@@ -6,6 +6,11 @@
  * - Production builds use Terser minification with console.log removal
  * - Source maps excluded from production bundles (see eas.json)
  *
+ * Legal documents: the canonical `.md` sources at `docs/legal/*.md` (worktree
+ * root) are mirrored into `app/src/features/profile/content/legalContent.generated.ts`
+ * by `scripts/generate-legal-content.js`. Metro then loads them as a normal TS
+ * module — no cross-tree resolution, no custom transformer. See DEBUG-178.
+ *
  * @see https://docs.expo.dev/guides/minify/
  * @see https://docs.expo.dev/guides/using-hermes/
  */
@@ -27,19 +32,6 @@ config.resolver.alias = {
   '@/utils': path.resolve(__dirname, 'src/utils'),
   '@/api': path.resolve(__dirname, 'src/api'),
 };
-
-// Add .md to source extensions for importing markdown files as raw text
-config.resolver.assetExts = config.resolver.assetExts.filter(ext => ext !== 'md');
-config.resolver.sourceExts = [...config.resolver.sourceExts, 'md'];
-
-// Configure transformer to handle .md files as raw text
-config.transformer.babelTransformerPath = require.resolve('./metro-md-transformer.js');
-
-// Watch parent directory to allow importing from docs/legal/
-// This enables single source of truth for legal documents (used by both website and app)
-const repoRoot = path.resolve(__dirname, '..');
-config.watchFolders = [repoRoot];
-config.resolver.nodeModulesPaths = [path.resolve(__dirname, 'node_modules')];
 
 /**
  * Production Minification Configuration

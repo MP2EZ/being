@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 
 /**
  * Configuration options for the timer practice hook
@@ -67,30 +67,46 @@ export function useTimerPractice({
   const [isTimerActive, setIsTimerActive] = useState<boolean>(false);
   const [elapsedTime, setElapsedTime] = useState<number>(0);
 
+  // Hold the latest options in refs so the returned handlers can be
+  // referentially stable without going stale. This is required for timer
+  // correctness, not just perf: Timer's internal `startTimer` is memoized on
+  // the identity of `onTick`/`onComplete`, and its lifecycle effect depends on
+  // `startTimer` — an unstable handler would tear down and restart the interval
+  // on every parent render. Screens pass inline `onComplete` (e.g.
+  // `() => markComplete()`), so refs are what make the handlers stable.
+  const durationRef = useRef(duration);
+  const onTickRef = useRef(onTick);
+  const onCompleteRef = useRef(onComplete);
+  useEffect(() => {
+    durationRef.current = duration;
+    onTickRef.current = onTick;
+    onCompleteRef.current = onComplete;
+  });
+
   /**
    * Handle timer tick event
    * Calculates elapsed time from remaining time and invokes optional tick callback
    *
    * @param remainingMs - Remaining time in milliseconds
    */
-  const handleTimerTick = (remainingMs: number): void => {
-    const durationMs = duration * 1000;
+  const handleTimerTick = useCallback((remainingMs: number): void => {
+    const durationMs = durationRef.current * 1000;
     const elapsed = durationMs - remainingMs;
 
     setElapsedTime(elapsed);
 
     // Invoke optional tick callback for custom logic (e.g., BodyScan area advancement)
-    onTick?.(elapsed, remainingMs);
-  };
+    onTickRef.current?.(elapsed, remainingMs);
+  }, []);
 
   /**
    * Handle timer completion
    * Stops the timer and invokes the completion callback
    */
-  const handleTimerComplete = (): void => {
+  const handleTimerComplete = useCallback((): void => {
     setIsTimerActive(false);
-    onComplete();
-  };
+    onCompleteRef.current();
+  }, []);
 
   return {
     isTimerActive,

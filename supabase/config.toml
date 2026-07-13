@@ -35,6 +35,12 @@ verify_jwt = true
 [functions.verify-google-receipt]
 verify_jwt = true
 
+# Account Deletion (data-subject erasure, INFRA-260 PR3)
+# User-initiated; the gateway-verified JWT scopes deletion to the caller's own
+# auth.uid(). MUST stay true — a forged sub would let any caller delete any account.
+[functions.delete-account]
+verify_jwt = true
+
 # Subscription Webhook Handler
 # Apple/Google call this directly; they don't carry a Supabase JWT. The
 # function verifies their own signatures (Apple JWS via verifyAppleJWS.ts,
@@ -43,29 +49,53 @@ verify_jwt = true
 verify_jwt = false
 
 # Grace Period Automation (Cron Job)
+# verify_jwt=false is REQUIRED: pg_cron -> net.http_post carries no user JWT. The
+# X-Cron-Secret constant-time check inside index.ts is the sole compensating control.
+# Scheduled via 20260616000000_grace_period_automation_cron.sql (INFRA-266). Uses its OWN
+# Vault secret (grace_period_cron_secret) — a trust domain DISTINCT from the crisis alerter.
 [functions.grace-period-automation]
+verify_jwt = false
+
+# Crisis-Detection Alerting (INFRA-219, Cron Job)
+# verify_jwt=false is REQUIRED: pg_cron -> net.http_post carries no user JWT. The
+# X-Cron-Secret constant-time check inside index.ts is the sole compensating control.
+[functions.crisis-detection-alerting]
+verify_jwt = false
+
+# Crisis-Detection Synthetic Liveness Probe (INFRA-265, Cron Job)
+# Same posture as the alerter: pg_cron -> net.http_post carries no user JWT, so
+# verify_jwt=false and the X-Cron-Secret constant-time check inside index.ts is the sole
+# compensating control. Shares CRON_SECRET with crisis-detection-alerting (same
+# crisis-monitoring trust domain). Writes a synthetic marker to crisis_liveness_probe only.
+[functions.crisis-liveness-probe]
 verify_jwt = false
 
 # CRON JOB CONFIGURATION
 #
-# TODO: re-schedule grace-period-automation in v2. The CLI v2 dropped the
-# inline [[functions.X.schedule]] block. Two paths:
-#   1) Create a pg_cron migration that schedules `net.http_post` against
-#      the function's endpoint with the X-Cron-Secret header.
-#   2) Set up via Supabase Dashboard -> Database -> Cron.
-#
-# Until one of those lands, the daily 2 AM UTC run will not fire.
-# Original intent preserved here for reference:
-#   schedule = "0 2 * * *"   (every day at 2:00 AM UTC)
-#   payload  = { "source": "cron" }
+# RESOLVED (INFRA-266): grace-period-automation is scheduled via the pg_cron migration
+# 20260616000000_grace_period_automation_cron.sql (path 1 below) — CLI v2 dropped the inline
+# [[functions.X.schedule]] block, so the cron now lives in a migration, not this file.
+#   job name : 'grace-period-automation'
+#   schedule : '0 2 * * *'   (daily 2:00 AM UTC — the original intent)
+#   payload  : { "source": "pg_cron" }
+#   command  : net.http_post to the Vault `grace_period_function_url`, with the
+#              X-Cron-Secret header read from the Vault `grace_period_cron_secret`
+#              (a secret DISTINCT from the crisis alerter's). Bootstrap both Vault
+#              secrets + the edge CRON_SECRET out of band (see the migration header).
+# A heartbeat row lands in public.grace_period_automation_runs per run (observability).
 
 # AUTH CONFIGURATION
 [auth]
 enabled = true
 site_url = "exp://localhost:8081"  # Expo development URL
 additional_redirect_urls = ["exp://being.app"]
+# INFRA-260: the app's identity is a Supabase anonymous session (signInAnonymously).
+# This MUST be enabled for auth.uid() to be non-null and for RLS to enforce isolation.
+# config.toml governs the LOCAL stack; the shared project (yliycxslzdsgjtpxggtf) also
+# needs Anonymous Sign-Ins toggled ON in the dashboard (Authentication → Providers).
+enable_anonymous_sign_ins = true
 
-# Anonymous sign-in enabled (no email/password required)
+# Email signup stays disabled — no email/password accounts (no PII).
 [auth.email]
 enable_signup = false
 
@@ -93,6 +123,10 @@ enabled = false  # Not needed for this app
 #
 # Required for cron job:
 # - CRON_SECRET
+#
+# Optional for crisis-detection-alerting external dead-man's-switch (INFRA-264):
+# - CRISIS_HEALTHCHECK_PING_URL  (capability URL, e.g. https://hc-ping.com/<uuid> — secret;
+#   set by name only, never committed. Unset = external switch not provisioned.)
 #
 # Required for all functions:
 # - SUPABASE_URL

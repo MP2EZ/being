@@ -54,7 +54,8 @@ import Animated, {
   runOnJS,
   interpolate,
 } from 'react-native-reanimated';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { MaterialDesignIcons } from '@react-native-vector-icons/material-design-icons';
+import * as Sentry from '@sentry/react-native';
 import { logSecurity, logPerformance, logCrisis } from '@/core/services/logging';
 import { spacing, borderRadius, typography, colorSystem } from '@/core/theme';
 
@@ -183,24 +184,31 @@ export const CollapsibleCrisisButton: React.FC<CollapsibleCrisisButtonProps> = (
    * Direct tap works immediately, even in faded state
    */
   const handleCrisisAction = useCallback(() => {
-    const startTime = performance.now();
+    Sentry.startSpan(
+      { name: 'crisis_button_response', op: 'ui.crisis.tap' },
+      (span) => {
+        const startTime = performance.now();
 
-    // Reset fade on interaction
-    resetFade();
+        // Reset fade on interaction
+        resetFade();
 
-    // Navigate to CrisisResourcesScreen (provides choice: Call 988, Text 741741, Emergency contacts)
-    onNavigate();
+        // Navigate to CrisisResourcesScreen (provides choice: Call 988, Text 741741, Emergency contacts)
+        onNavigate();
 
-    // Performance monitoring for clinical safety
-    const responseTime = performance.now() - startTime;
-    if (responseTime > 200) {
-      logSecurity('Crisis button response time exceeded', 'high', {
-        responseTime,
-        threshold: 200
-      });
-    } else {
-      logPerformance('crisis_button_response', responseTime);
-    }
+        // Performance monitoring for clinical safety
+        const responseTime = performance.now() - startTime;
+        span?.setAttribute('response_time_ms', responseTime);
+        span?.setAttribute('exceeded_budget', responseTime > 200);
+        if (responseTime > 200) {
+          logSecurity('Crisis button response time exceeded', 'high', {
+            responseTime,
+            threshold: 200
+          });
+        } else {
+          logPerformance('crisis_button_response', responseTime);
+        }
+      }
+    );
   }, [onNavigate, resetFade]);
 
   /**
@@ -385,7 +393,7 @@ export const CollapsibleCrisisButton: React.FC<CollapsibleCrisisButtonProps> = (
               testID={testID}
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             >
-              <MaterialCommunityIcons
+              <MaterialDesignIcons
                 name="lifebuoy"
                 size={iconSize}
                 color={colorSystem.base.white}
@@ -408,7 +416,7 @@ export const CollapsibleCrisisButton: React.FC<CollapsibleCrisisButtonProps> = (
                 accessibilityHint="Open crisis support resources"
                 testID={`${testID}-action`}
               >
-                <MaterialCommunityIcons
+                <MaterialDesignIcons
                   name="lifebuoy"
                   size={20}
                   color={colorSystem.base.white}
@@ -428,7 +436,7 @@ export const CollapsibleCrisisButton: React.FC<CollapsibleCrisisButtonProps> = (
                 testID={`${testID}-collapse`}
                 hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
-                <MaterialCommunityIcons
+                <MaterialDesignIcons
                   name="close"
                   size={20}
                   color={colorSystem.base.white}

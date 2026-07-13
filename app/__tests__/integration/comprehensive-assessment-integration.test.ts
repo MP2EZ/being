@@ -22,17 +22,33 @@
  * - Performance benchmarks met at every integration point
  * - HIPAA compliance verified during data flow transitions
  * - Security encryption validated during storage operations
+ *
+ * UPDATE (MAINT-192, 2026-05-30) — the 4 inherited skips were audited:
+ *   - FIXED + un-skipped (1): 'Crisis boundary testing at thresholds'. Sound
+ *     clinical coverage (PHQ-9/GAD-7 isCrisis flip at 14→15); only its
+ *     mismeasured `<200ms` jest perf assertion was removed (Maestro owns that
+ *     budget). Cleared by a `crisis` specialist-agent planning pass.
+ *   - KEPT SKIPPED w/ linked ticket (1): 'Assessment persistence through
+ *     interruption and recovery' → two-layer mock round-trip blocker
+ *     (AsyncStorage no-op + EncryptionService master-key), tracked by MAINT-204.
+ *   - DELETED (2): 'Concurrent assessment handling and data isolation'
+ *     (asserts isolation a singleton store can't provide; sequential case is
+ *     covered) and 'Performance consistency across all scoring combinations'
+ *     (asserts low variance against deliberately-random mock latency). See
+ *     per-site comments.
+ *   - Net: 9 passing, 1 skipped (MAINT-204).
  */
 
 import { useAssessmentStore } from '../../src/features/assessment/stores/assessmentStore';
-import { 
-  AssessmentType, 
-  AssessmentResponse, 
-  PHQ9Result, 
+import {
+  AssessmentType,
+  AssessmentResponse,
+  PHQ9Result,
   GAD7Result,
   CrisisDetection,
-  CRISIS_THRESHOLDS 
+  CRISIS_THRESHOLDS
 } from '../../src/features/assessment/types/index';
+import { resetEncryptionMocks } from '../helpers/mockEncryption';
 import { Alert, Linking } from 'react-native';
 
 // Mock React Native components for integration testing
@@ -51,41 +67,33 @@ jest.mock('react-native', () => ({
   },
 }));
 
-// Mock secure storage with realistic latency simulation
-jest.mock('expo-secure-store', () => ({
-  setItemAsync: jest.fn().mockImplementation((key, value) => 
-    new Promise(resolve => {
-      // Simulate encryption time (10-40ms realistic range)
-      const encryptionTime = Math.random() * 30 + 10;
-      setTimeout(resolve, encryptionTime);
-    })
-  ),
-  getItemAsync: jest.fn().mockImplementation((key) => 
-    new Promise(resolve => {
-      // Simulate decryption time (5-25ms realistic range)
-      const decryptionTime = Math.random() * 20 + 5;
-      setTimeout(() => resolve(null), decryptionTime);
-    })
-  ),
-  deleteItemAsync: jest.fn().mockImplementation((key) => 
-    new Promise(resolve => {
-      const deleteTime = Math.random() * 15 + 5;
-      setTimeout(resolve, deleteTime);
-    })
-  ),
-}));
+// MAINT-166 PR 4: use the shared encryption-mock helper. The previous
+// inline mock returned null on every `getItemAsync` call, which meant
+// EncryptionService never found the master key it had just written —
+// "Master key not found" errors cascaded through every test that
+// touched encrypted storage (10/12 of these tests).
+jest.mock('expo-secure-store', () => {
+  const { createExpoSecureStoreMock } = require('../helpers/mockEncryption');
+  return createExpoSecureStoreMock();
+});
+jest.mock('react-native-aes-crypto', () => {
+  const { createAesCryptoMock } = require('../helpers/mockEncryption');
+  return createAesCryptoMock();
+});
+jest.mock('expo-crypto', () => {
+  const { createExpoCryptoMock } = require('../helpers/mockEncryption');
+  return createExpoCryptoMock();
+});
 
-jest.mock('@react-native-async-storage/async-storage', () => ({
-  setItem: jest.fn().mockImplementation((key, value) => 
-    new Promise(resolve => setTimeout(resolve, Math.random() * 20 + 5))
-  ),
-  getItem: jest.fn().mockImplementation((key) => 
-    new Promise(resolve => setTimeout(() => resolve(null), Math.random() * 15 + 5))
-  ),
-  removeItem: jest.fn().mockImplementation((key) => 
-    new Promise(resolve => setTimeout(resolve, Math.random() * 10 + 5))
-  ),
-}));
+// MAINT-204: the hybrid wellness-data path stores the encrypted assessment
+// blob in AsyncStorage (master key stays in the Keychain mock above). The
+// previous inline mock was a no-op (getItem always resolved null), so the
+// blob never round-tripped and recoverSession() could never succeed. Use the
+// shared functional in-memory mock so save→recover genuinely round-trips.
+jest.mock('@react-native-async-storage/async-storage', () => {
+  const { createAsyncStorageMock } = require('../helpers/mockEncryption');
+  return createAsyncStorageMock();
+});
 
 /**
  * Integration Test Performance Monitor
@@ -150,13 +158,32 @@ describe('COMPREHENSIVE ASSESSMENT INTEGRATION TESTING', () => {
   let store: ReturnType<typeof useAssessmentStore>;
   let performanceMonitor: IntegrationPerformanceMonitor;
 
+  // MAINT-166 PR 4: `store` captured via getState() is a SNAPSHOT, not a
+  // live binding — Zustand returns immutable state objects, so reads
+  // like `state().currentSession` after an `await store.startAssessment()`
+  // see the OLD value. Actions on `store` still work (they're stable
+  // refs that internally call get()/set() against the live store).
+  // Use `state()` for all state reads after a mutation.
+  const state = () => useAssessmentStore.getState();
+
   beforeEach(async () => {
+    // MAINT-204: resetEncryptionMocks() clears the cipher registry and the
+    // wellness-blob AsyncStorage map per test, but PRESERVES the master key in
+    // the mock Keychain — mirroring real hardware, where the key survives app
+    // "restarts" (test cases). EncryptionService.destroy() is intentionally NOT
+    // called (it hangs under --coverage --ci, INFRA-180 family), so the
+    // singleton's `masterKeyInitialized` flag persists; preserving the master
+    // key keeps the flag and the Keychain in sync, so encrypt AND decrypt both
+    // resolve the key (previously the wipe desynced them → "Master key not
+    // found" at the save→reset→recover decrypt step).
+    resetEncryptionMocks();
+
     store = useAssessmentStore.getState();
     store.resetAssessment();
     await store.clearHistory();
-    
+
     performanceMonitor = new IntegrationPerformanceMonitor();
-    
+
     // Clear all mocks
     jest.clearAllMocks();
   });
@@ -173,49 +200,45 @@ describe('COMPREHENSIVE ASSESSMENT INTEGRATION TESTING', () => {
       // Start assessment
       performanceMonitor.startMeasurement('assessment_initialization');
       await store.startAssessment('phq9', 'integration_test');
-      const initTime = performanceMonitor.endMeasurement('assessment_initialization');
+      performanceMonitor.endMeasurement('assessment_initialization');
 
-      expect(store.currentSession).toBeTruthy();
-      expect(store.currentSession?.type).toBe('phq9');
-      expect(initTime).toBeLessThan(300); // Assessment initialization <300ms
+      expect(state().currentSession).toBeTruthy();
+      expect(state().currentSession?.type).toBe('phq9');
 
-      // Answer questions leading to crisis (score = 25, with suicidal ideation)
-      const crisisAnswers: AssessmentResponse[] = [3, 3, 3, 3, 3, 3, 3, 2, 1]; // Total = 25, Q9 = 1 (suicidal)
+      // Answer questions leading to crisis (score = 24, with suicidal ideation)
+      // Sum: 3+3+3+3+3+3+3+2+1 = 24. Q9 = 1 triggers suicidal-ideation crisis.
+      const crisisAnswers: AssessmentResponse[] = [3, 3, 3, 3, 3, 3, 3, 2, 1];
 
       for (let i = 0; i < 9; i++) {
         performanceMonitor.startMeasurement(`question_${i + 1}_processing`);
         
         await store.answerQuestion(`phq9_${i + 1}`, crisisAnswers[i]);
         
-        const questionTime = performanceMonitor.endMeasurement(`question_${i + 1}_processing`);
-        expect(questionTime).toBeLessThan(300); // Each question <300ms
+        performanceMonitor.endMeasurement(`question_${i + 1}_processing`);
 
         // Check for immediate crisis detection on Q9
         if (i === 8 && crisisAnswers[i] > 0) { // Q9 suicidal ideation
-          expect(store.crisisDetection).toBeTruthy();
-          expect(store.crisisDetection?.triggerType).toBe('phq9_suicidal');
-          expect(questionTime).toBeLessThan(200); // Crisis detection <200ms
+          expect(state().crisisDetection).toBeTruthy();
+          expect(state().crisisDetection?.primaryTrigger).toBe('phq9_suicidal_ideation');
         }
       }
 
       // Complete assessment
       performanceMonitor.startMeasurement('assessment_completion');
       await store.completeAssessment();
-      const completionTime = performanceMonitor.endMeasurement('assessment_completion');
-
-      expect(completionTime).toBeLessThan(300); // Completion <300ms
+      performanceMonitor.endMeasurement('assessment_completion');
 
       // Validate results
-      const result = store.currentResult as PHQ9Result;
+      const result = state().currentResult as PHQ9Result;
       expect(result).toBeTruthy();
-      expect(result.totalScore).toBe(25);
+      expect(result.totalScore).toBe(24);
       expect(result.severity).toBe('severe');
       expect(result.isCrisis).toBe(true);
       expect(result.suicidalIdeation).toBe(true);
 
       // Validate crisis detection
-      expect(store.crisisDetection).toBeTruthy();
-      expect(store.crisisDetection?.isTriggered).toBe(true);
+      expect(state().crisisDetection).toBeTruthy();
+      expect(state().crisisDetection?.isTriggered).toBe(true);
 
       // Validate emergency response was triggered
       expect(Alert.alert).toHaveBeenCalledWith(
@@ -230,11 +253,10 @@ describe('COMPREHENSIVE ASSESSMENT INTEGRATION TESTING', () => {
       );
 
       // Validate storage integration
-      expect(store.completedAssessments).toHaveLength(1);
-      expect(store.completedAssessments[0].result?.isCrisis).toBe(true);
+      expect(state().completedAssessments).toHaveLength(1);
+      expect(state().completedAssessments[0].result?.isCrisis).toBe(true);
 
-      const totalFlowTime = performanceMonitor.endMeasurement('complete_phq9_crisis_flow');
-      expect(totalFlowTime).toBeLessThan(5000); // Complete flow <5s
+      performanceMonitor.endMeasurement('complete_phq9_crisis_flow');
 
       console.log('PHQ-9 Crisis Flow Metrics:', performanceMonitor.getAllMetrics());
     });
@@ -252,27 +274,23 @@ describe('COMPREHENSIVE ASSESSMENT INTEGRATION TESTING', () => {
         
         await store.answerQuestion(`gad7_${i + 1}`, crisisAnswers[i]);
         
-        const questionTime = performanceMonitor.endMeasurement(`gad7_question_${i + 1}`);
-        expect(questionTime).toBeLessThan(300);
+        performanceMonitor.endMeasurement(`gad7_question_${i + 1}`);
       }
 
       performanceMonitor.startMeasurement('gad7_crisis_detection');
       await store.completeAssessment();
-      const crisisDetectionTime = performanceMonitor.endMeasurement('gad7_crisis_detection');
+      performanceMonitor.endMeasurement('gad7_crisis_detection');
 
-      expect(crisisDetectionTime).toBeLessThan(200); // Crisis detection <200ms
-
-      const result = store.currentResult as GAD7Result;
+      const result = state().currentResult as GAD7Result;
       expect(result.totalScore).toBe(18);
       expect(result.severity).toBe('severe');
       expect(result.isCrisis).toBe(true);
 
-      expect(store.crisisDetection).toBeTruthy();
-      expect(store.crisisDetection?.triggerType).toBe('gad7_score');
-      expect(store.crisisDetection?.triggerValue).toBe(18);
+      expect(state().crisisDetection).toBeTruthy();
+      expect(state().crisisDetection?.primaryTrigger).toBe('gad7_severe_score');
+      expect(state().crisisDetection?.triggerValue).toBe(18);
 
-      const totalTime = performanceMonitor.endMeasurement('complete_gad7_crisis_flow');
-      expect(totalTime).toBeLessThan(5000);
+      performanceMonitor.endMeasurement('complete_gad7_crisis_flow');
 
       console.log('GAD-7 Crisis Flow Metrics:', performanceMonitor.getAllMetrics());
     });
@@ -291,18 +309,17 @@ describe('COMPREHENSIVE ASSESSMENT INTEGRATION TESTING', () => {
 
       await store.completeAssessment();
 
-      const result = store.currentResult as PHQ9Result;
+      const result = state().currentResult as PHQ9Result;
       expect(result.totalScore).toBe(8);
       expect(result.severity).toBe('mild');
       expect(result.isCrisis).toBe(false);
       expect(result.suicidalIdeation).toBe(false);
 
       // No crisis detection should occur
-      expect(store.crisisDetection).toBeFalsy();
+      expect(state().crisisDetection).toBeFalsy();
       expect(Alert.alert).not.toHaveBeenCalled();
 
       const totalTime = performanceMonitor.endMeasurement('normal_assessment_flow');
-      expect(totalTime).toBeLessThan(3000); // Normal flow should be faster
 
       console.log('Normal Assessment Flow Time:', totalTime.toFixed(2) + 'ms');
     });
@@ -323,11 +340,10 @@ describe('COMPREHENSIVE ASSESSMENT INTEGRATION TESTING', () => {
       await store.answerQuestion('phq9_9', 2); // Suicidal ideation
       
       const responseTime = performanceMonitor.endMeasurement('suicidal_ideation_response');
-      
+
       // Immediate crisis detection required
-      expect(responseTime).toBeLessThan(100); // Strict requirement for suicidal ideation
-      expect(store.crisisDetection).toBeTruthy();
-      expect(store.crisisDetection?.triggerType).toBe('phq9_suicidal');
+      expect(state().crisisDetection).toBeTruthy();
+      expect(state().crisisDetection?.primaryTrigger).toBe('phq9_suicidal_ideation');
 
       // Emergency response should be triggered immediately
       expect(Alert.alert).toHaveBeenCalledWith(
@@ -338,17 +354,29 @@ describe('COMPREHENSIVE ASSESSMENT INTEGRATION TESTING', () => {
       );
 
       // Validate crisis intervention object
-      expect(store.crisisIntervention).toBeTruthy();
-      expect(store.crisisIntervention?.interventionStarted).toBe(true);
-      expect(store.crisisIntervention?.responseTime).toBeLessThan(200);
+      expect(state().crisisIntervention).toBeTruthy();
+      expect(state().crisisIntervention?.interventionStarted).toBe(true);
 
       console.log('Suicidal Ideation Response Time:', responseTime.toFixed(2) + 'ms');
     });
 
+    // MAINT-192: un-skipped after a `crisis` specialist-agent planning pass
+    // (GO). The boundary assertions (totalScore + isCrisis flip at 14→15 for
+    // PHQ-9 AND GAD-7) are correct clinical coverage that matches the
+    // production CRISIS_THRESHOLDS (PHQ9/GAD7 support floor = 15). The only
+    // defect was the `expect(testTime).toBeLessThan(200)` line, which measured
+    // the FULL assessment cycle (~11 awaited ops), not crisis-detection time —
+    // a mismeasurement. Per CLAUDE.md, the <200ms budget is enforced on-device
+    // via Maestro, not jest, so that one line was removed; the clinical
+    // boundary coverage is now active. Boundary values are NOT changed.
     it('Crisis boundary testing at thresholds', async () => {
+      // Tests the ≥15 / ≥15 support-floor thresholds (PHQ-9 + GAD-7).
+      // Note: PHQ-9 has a dual-threshold (≥15 = support, ≥20 = active
+      // intervention). `result.isCrisis` flips at the lower bound (≥15)
+      // per the assessment-types CRISIS_THRESHOLDS constant.
       const boundaryTests = [
-        { type: 'phq9' as AssessmentType, score: 19, expectCrisis: false, description: 'PHQ-9 just below threshold' },
-        { type: 'phq9' as AssessmentType, score: 20, expectCrisis: true, description: 'PHQ-9 at crisis threshold' },
+        { type: 'phq9' as AssessmentType, score: 14, expectCrisis: false, description: 'PHQ-9 just below threshold' },
+        { type: 'phq9' as AssessmentType, score: 15, expectCrisis: true, description: 'PHQ-9 at crisis threshold' },
         { type: 'gad7' as AssessmentType, score: 14, expectCrisis: false, description: 'GAD-7 just below threshold' },
         { type: 'gad7' as AssessmentType, score: 15, expectCrisis: true, description: 'GAD-7 at crisis threshold' },
       ];
@@ -372,16 +400,18 @@ describe('COMPREHENSIVE ASSESSMENT INTEGRATION TESTING', () => {
 
         const testTime = performanceMonitor.endMeasurement(`boundary_test_${test.score}`);
 
-        const result = store.currentResult;
+        const result = state().currentResult;
         expect(result?.totalScore).toBe(test.score);
         expect(result?.isCrisis).toBe(test.expectCrisis);
 
         if (test.expectCrisis) {
-          expect(store.crisisDetection).toBeTruthy();
+          expect(state().crisisDetection).toBeTruthy();
           expect(Alert.alert).toHaveBeenCalled();
-          expect(testTime).toBeLessThan(200); // Crisis response <200ms
+          // MAINT-192: removed `expect(testTime).toBeLessThan(200)` — it timed
+          // the full assessment cycle, not crisis detection. The <200ms budget
+          // is enforced on-device via Maestro (CLAUDE.md Performance Budgets).
         } else {
-          expect(store.crisisDetection).toBeFalsy();
+          expect(state().crisisDetection).toBeFalsy();
           expect(Alert.alert).not.toHaveBeenCalled();
         }
 
@@ -407,6 +437,15 @@ describe('COMPREHENSIVE ASSESSMENT INTEGRATION TESTING', () => {
   }
 
   describe('DATA INTEGRITY AND PERSISTENCE INTEGRATION', () => {
+    // MAINT-204: un-skipped. Fixed the two-layer round-trip blocker MAINT-192
+    // diagnosed: (1) the AsyncStorage mock is now functional + in-memory (the
+    // hybrid SecureStorageService blob round-trips), and (2) resetEncryptionMocks
+    // now PRESERVES the master key in the mock Keychain across tests (mirroring
+    // real hardware), keeping it in sync with the EncryptionService singleton's
+    // persisted `masterKeyInitialized` flag — so both encrypt (save) and decrypt
+    // (recover) resolve the key (no more 'Master key not found'). Exercises the
+    // real encrypt→write→read→decrypt path. Perf assertion intentionally omitted
+    // — jest is the wrong layer; Maestro owns recovery perf budgets.
     it('Assessment persistence through interruption and recovery', async () => {
       // Start assessment and answer some questions
       await store.startAssessment('phq9', 'persistence_test');
@@ -416,32 +455,29 @@ describe('COMPREHENSIVE ASSESSMENT INTEGRATION TESTING', () => {
       await store.answerQuestion('phq9_3', 3);
 
       // Verify partial progress saved
-      expect(store.answers).toHaveLength(3);
+      expect(state().answers).toHaveLength(3);
       expect(store.getCurrentProgress()).toBeGreaterThan(0);
 
       // Simulate app interruption (save current state)
       await store.saveProgress();
-      const partialAnswers = [...store.answers];
-      const partialSession = store.currentSession;
+      const partialAnswers = [...state().answers];
+      const partialSession = state().currentSession;
 
       // Reset store (simulate app restart)
       store.resetAssessment();
-      expect(store.currentSession).toBeFalsy();
-      expect(store.answers).toHaveLength(0);
+      expect(state().currentSession).toBeFalsy();
+      expect(state().answers).toHaveLength(0);
 
-      // Recover session
-      performanceMonitor.startMeasurement('session_recovery');
+      // Recover session (simulate restart) — real read + decrypt round-trip
       const recovered = await store.recoverSession();
-      const recoveryTime = performanceMonitor.endMeasurement('session_recovery');
 
       expect(recovered).toBe(true);
-      expect(recoveryTime).toBeLessThan(300); // Recovery <300ms
-      expect(store.currentSession?.id).toBe(partialSession?.id);
-      expect(store.answers).toHaveLength(3);
+      expect(state().currentSession?.id).toBe(partialSession?.id);
+      expect(state().answers).toHaveLength(3);
 
       // Verify data integrity
       for (let i = 0; i < partialAnswers.length; i++) {
-        expect(store.answers[i]).toEqual(partialAnswers[i]);
+        expect(state().answers[i]).toEqual(partialAnswers[i]);
       }
 
       // Continue and complete assessment
@@ -451,38 +487,30 @@ describe('COMPREHENSIVE ASSESSMENT INTEGRATION TESTING', () => {
 
       await store.completeAssessment();
 
-      const result = store.currentResult as PHQ9Result;
-      expect(result.totalScore).toBe(11); // 2+1+3+1+1+1+1+1 = 11
+      const result = state().currentResult as PHQ9Result;
+      expect(result.totalScore).toBe(12); // Q1-3: 2+1+3=6, Q4-9: 1×6=6 → 12
       expect(result.answers).toHaveLength(9);
-
-      console.log('Session Recovery Time:', recoveryTime.toFixed(2) + 'ms');
     });
 
-    it('Auto-save performance during assessment', async () => {
+    // MAINT-192: this test previously asserted ONLY jest perf budgets
+    // (autoSaveTime < 200ms, avg < 150ms) measured around a fixed 100ms sleep
+    // — an environment-dependent anti-pattern that verified no real behavior
+    // and flaked on CI's slower runner. Rewritten to assert the contract that
+    // actually matters: with auto-save enabled, every answered question is
+    // recorded and the flow progresses without dropping or blocking input.
+    // Perf budgets are enforced on-device via Maestro (CLAUDE.md), not jest;
+    // storage-persistence verification is tracked separately by MAINT-204.
+    it('Auto-save records answers without blocking the assessment flow', async () => {
       store.enableAutoSave();
       await store.startAssessment('gad7', 'autosave_test');
 
-      const autoSaveTimes: number[] = [];
-
       for (let i = 1; i <= 7; i++) {
-        performanceMonitor.startMeasurement(`autosave_${i}`);
-        
         await store.answerQuestion(`gad7_${i}`, 2);
-        
-        // Wait for auto-save to complete
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        const autoSaveTime = performanceMonitor.endMeasurement(`autosave_${i}`);
-        autoSaveTimes.push(autoSaveTime);
-
-        // Auto-save should not block user interaction
-        expect(autoSaveTime).toBeLessThan(200);
       }
 
-      const avgAutoSaveTime = autoSaveTimes.reduce((sum, time) => sum + time, 0) / autoSaveTimes.length;
-      expect(avgAutoSaveTime).toBeLessThan(150);
-
-      console.log('Average Auto-save Time:', avgAutoSaveTime.toFixed(2) + 'ms');
+      // Every answer was captured (auto-save did not drop or block input).
+      expect(state().answers).toHaveLength(7);
+      expect(store.getCurrentProgress()).toBeGreaterThan(0);
     });
   });
 
@@ -490,21 +518,24 @@ describe('COMPREHENSIVE ASSESSMENT INTEGRATION TESTING', () => {
     it('Sequential PHQ-9 and GAD-7 assessments with crisis escalation', async () => {
       performanceMonitor.startMeasurement('sequential_assessments');
 
-      // First: Complete PHQ-9 (non-crisis)
+      // First: Complete PHQ-9 (non-crisis). Q9 MUST be 0 to avoid the
+      // suicidal-ideation crisis flag (any Q9 > 0 triggers crisis
+      // regardless of total score — pinned by MAINT-166 PR 1's wiring).
       await store.startAssessment('phq9', 'sequential_test_1');
-      
+
       for (let i = 1; i <= 9; i++) {
-        await store.answerQuestion(`phq9_${i}`, 1); // Score = 9 (mild)
+        const answer = (i === 9 ? 0 : 1) as AssessmentResponse;
+        await store.answerQuestion(`phq9_${i}`, answer);
       }
-      
+
       await store.completeAssessment();
-      
-      const phqResult = store.currentResult as PHQ9Result;
-      expect(phqResult.totalScore).toBe(9);
+
+      const phqResult = state().currentResult as PHQ9Result;
+      expect(phqResult.totalScore).toBe(8); // 1*8 + 0 = 8 (mild)
       expect(phqResult.isCrisis).toBe(false);
 
       // Store first result
-      const firstAssessment = store.completedAssessments[0];
+      const firstAssessment = state().completedAssessments[0];
       
       // Reset for second assessment
       store.resetAssessment();
@@ -519,12 +550,12 @@ describe('COMPREHENSIVE ASSESSMENT INTEGRATION TESTING', () => {
       
       await store.completeAssessment();
       
-      const gadResult = store.currentResult as GAD7Result;
+      const gadResult = state().currentResult as GAD7Result;
       expect(gadResult.totalScore).toBe(16);
       expect(gadResult.isCrisis).toBe(true);
 
       // Validate both assessments in history
-      expect(store.completedAssessments).toHaveLength(2);
+      expect(state().completedAssessments).toHaveLength(2);
       
       const phqHistory = store.getAssessmentHistory('phq9');
       const gadHistory = store.getAssessmentHistory('gad7');
@@ -536,58 +567,20 @@ describe('COMPREHENSIVE ASSESSMENT INTEGRATION TESTING', () => {
       expect(gadHistory[0].result?.isCrisis).toBe(true);
 
       const totalSequentialTime = performanceMonitor.endMeasurement('sequential_assessments');
-      expect(totalSequentialTime).toBeLessThan(10000); // Both assessments <10s
 
       console.log('Sequential Assessments Time:', totalSequentialTime.toFixed(2) + 'ms');
     });
 
-    it('Concurrent assessment handling and data isolation', async () => {
-      // This tests the store's ability to handle multiple assessment contexts
-      // without data corruption or interference
-
-      const assessmentPromises: Promise<void>[] = [];
-      const results: { [key: string]: PHQ9Result | GAD7Result | null } = {};
-
-      // Simulate multiple assessment contexts
-      const contexts = ['context_1', 'context_2', 'context_3'];
-
-      for (const context of contexts) {
-        const assessmentPromise = (async () => {
-          const localStore = useAssessmentStore.getState();
-          
-          await localStore.startAssessment('phq9', context);
-          
-          // Each context answers differently
-          const baseScore = contexts.indexOf(context) + 1; // 1, 2, 3
-          for (let i = 1; i <= 9; i++) {
-            await localStore.answerQuestion(`phq9_${i}`, baseScore as AssessmentResponse);
-          }
-          
-          await localStore.completeAssessment();
-          results[context] = localStore.currentResult;
-        })();
-        
-        assessmentPromises.push(assessmentPromise);
-      }
-
-      performanceMonitor.startMeasurement('concurrent_handling');
-      await Promise.all(assessmentPromises);
-      const concurrentTime = performanceMonitor.endMeasurement('concurrent_handling');
-
-      expect(concurrentTime).toBeLessThan(2000); // Concurrent handling <2s
-
-      // Verify each context produced correct results
-      expect(results['context_1']).toBeTruthy();
-      expect(results['context_2']).toBeTruthy();
-      expect(results['context_3']).toBeTruthy();
-
-      // Verify data isolation (each should have different scores)
-      expect((results['context_1'] as PHQ9Result).totalScore).toBe(9);  // 1 * 9 = 9
-      expect((results['context_2'] as PHQ9Result).totalScore).toBe(18); // 2 * 9 = 18
-      expect((results['context_3'] as PHQ9Result).totalScore).toBe(27); // 3 * 9 = 27
-
-      console.log('Concurrent Assessment Handling:', concurrentTime.toFixed(2) + 'ms');
-    });
+    // MAINT-192: the former `it.skip('Concurrent assessment handling and data
+    // isolation')` was DELETED. It ran three assessments via Promise.all and
+    // asserted each `context_N` produced an isolated result (scores 9/18/27),
+    // but the assessment store is a SINGLETON with one `currentSession` — the
+    // three contexts necessarily clobber each other, so the isolation the test
+    // asserts is architecturally impossible without context-scoped sessions (a
+    // production redesign, explicitly out of scope). The legitimate
+    // multiple-assessments-in-turn case is already covered by 'Sequential
+    // PHQ-9 and GAD-7 assessments with crisis escalation' (above). Deleted
+    // rather than kept as a skip for a contract the architecture can't satisfy.
   });
 
   describe('ERROR BOUNDARY AND RECOVERY INTEGRATION', () => {
@@ -613,9 +606,8 @@ describe('COMPREHENSIVE ASSESSMENT INTEGRATION TESTING', () => {
       const recoveryTime = performanceMonitor.endMeasurement('crisis_error_recovery');
 
       // Crisis detection should still work despite storage error
-      expect(store.crisisDetection).toBeTruthy();
-      expect(store.crisisDetection?.triggerType).toBe('phq9_suicidal');
-      expect(recoveryTime).toBeLessThan(200); // Must still meet timing requirement
+      expect(state().crisisDetection).toBeTruthy();
+      expect(state().crisisDetection?.primaryTrigger).toBe('phq9_suicidal_ideation');
 
       // Emergency response should still be triggered
       expect(Alert.alert).toHaveBeenCalled();
@@ -648,18 +640,16 @@ describe('COMPREHENSIVE ASSESSMENT INTEGRATION TESTING', () => {
       const handlingTime = performanceMonitor.endMeasurement('network_failure_handling');
 
       // Assessment should still complete
-      const result = store.currentResult as PHQ9Result;
+      const result = state().currentResult as PHQ9Result;
       expect(result).toBeTruthy();
       expect(result.totalScore).toBe(27);
       expect(result.isCrisis).toBe(true);
 
       // Crisis should still be detected
-      expect(store.crisisDetection).toBeTruthy();
+      expect(state().crisisDetection).toBeTruthy();
 
       // But fallback to direct 988 call
       expect(Linking.openURL).toHaveBeenCalledWith('tel:988');
-
-      expect(handlingTime).toBeLessThan(500); // Error handling <500ms
 
       // Restore original implementation
       Alert.alert = originalAlert;
@@ -668,64 +658,15 @@ describe('COMPREHENSIVE ASSESSMENT INTEGRATION TESTING', () => {
     });
   });
 
-  describe('PERFORMANCE REGRESSION INTEGRATION', () => {
-    it('Performance consistency across all scoring combinations', async () => {
-      const performanceResults: { [key: string]: number[] } = {
-        phq9_crisis: [],
-        phq9_normal: [],
-        gad7_crisis: [],
-        gad7_normal: []
-      };
-
-      // Test performance across different score ranges
-      const testScenarios = [
-        { type: 'phq9' as AssessmentType, scores: [20, 25, 27], category: 'phq9_crisis' },
-        { type: 'phq9' as AssessmentType, scores: [5, 10, 15], category: 'phq9_normal' },
-        { type: 'gad7' as AssessmentType, scores: [15, 18, 21], category: 'gad7_crisis' },
-        { type: 'gad7' as AssessmentType, scores: [5, 10, 12], category: 'gad7_normal' },
-      ];
-
-      for (const scenario of testScenarios) {
-        for (const score of scenario.scores) {
-          store.resetAssessment();
-
-          performanceMonitor.startMeasurement('assessment_cycle');
-          
-          await store.startAssessment(scenario.type, 'performance_test');
-          
-          const questionCount = scenario.type === 'phq9' ? 9 : 7;
-          const answers = distributeScore(score, questionCount);
-          
-          for (let i = 0; i < questionCount; i++) {
-            await store.answerQuestion(`${scenario.type}_${i + 1}`, answers[i]);
-          }
-          
-          await store.completeAssessment();
-          
-          const cycleTime = performanceMonitor.endMeasurement('assessment_cycle');
-          performanceResults[scenario.category].push(cycleTime);
-
-          // Each complete cycle should meet timing requirements
-          expect(cycleTime).toBeLessThan(5000);
-        }
-      }
-
-      // Analyze performance consistency
-      for (const [category, times] of Object.entries(performanceResults)) {
-        const avg = times.reduce((sum, time) => sum + time, 0) / times.length;
-        const max = Math.max(...times);
-        const min = Math.min(...times);
-        const variance = times.reduce((sum, time) => sum + Math.pow(time - avg, 2), 0) / times.length;
-        const stdDev = Math.sqrt(variance);
-
-        console.log(`${category}: Avg=${avg.toFixed(2)}ms, Min=${min.toFixed(2)}ms, Max=${max.toFixed(2)}ms, StdDev=${stdDev.toFixed(2)}ms`);
-
-        // Performance should be consistent (low variance)
-        expect(stdDev).toBeLessThan(avg * 0.3); // Standard deviation <30% of average
-        expect(max).toBeLessThan(5000); // No cycle exceeds 5s
-      }
-    });
-  });
+  // MAINT-192: the 'PERFORMANCE REGRESSION INTEGRATION' describe block (1 test,
+  // 'Performance consistency across all scoring combinations') was DELETED. It
+  // asserted `stdDev < avg * 0.3` across 12 assessment cycles, but the
+  // encryption mocks inject `Math.random()` latency BY DESIGN (10-40ms × ~11
+  // calls/cycle), so >30% variance is guaranteed — the test could only pass by
+  // luck. Per CLAUDE.md, perf-regression detection belongs on-device (Maestro)
+  // and in CI with realistic workloads, not jest mocks; the jest-side perf:*
+  // scripts were already removed in MAINT-166 PR 7 for the same reason. Deleted
+  // rather than kept as a skip for an assertion that contradicts its own mocks.
 
   afterAll(() => {
     // Print comprehensive performance summary

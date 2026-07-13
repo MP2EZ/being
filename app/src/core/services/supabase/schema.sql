@@ -4,10 +4,12 @@
 -- =====================================================
 
 -- LEGAL COMPLIANCE:
--- - No PHI stored (only encrypted blobs)
+-- - Being is a consumer wellness app under Palouse Labs LLC, NOT a HIPAA covered entity
+--   (see docs/legal/regulatory-applicability.md).
+-- - No sensitive wellness data stored server-side in plaintext (only client-encrypted blobs)
 -- - Anonymous users only (no PII)
--- - HIPAA compliant under "conduit exception"
--- - No BAA required
+-- - Applicable regulations: FTC HBNR (16 CFR Part 318), state privacy laws
+--   (CCPA / TDPSA / CPA / VCDPA / CTDPA), GDPR for EEA users
 
 -- PERFORMANCE TARGETS:
 -- - <200ms for backup operations
@@ -18,23 +20,20 @@
 -- 1. ANONYMOUS USERS TABLE
 -- =====================================================
 
+-- INFRA-260: identity is the Supabase anonymous session. `id` IS auth.uid()
+-- (FK → auth.users), provisioned by the on_auth_user_created trigger below. No
+-- device_id column — the device-hash model was retired in INFRA-260.
 CREATE TABLE IF NOT EXISTS users (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  device_id TEXT UNIQUE NOT NULL, -- Hashed device identifier (no PII)
+  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   last_sync TIMESTAMPTZ DEFAULT NOW(),
 
   -- Metadata for free tier monitoring
   backup_count INTEGER DEFAULT 0,
-  total_backup_size_bytes BIGINT DEFAULT 0,
-
-  -- Constraints
-  CONSTRAINT device_id_length CHECK (length(device_id) = 64), -- SHA256 hash length
-  CONSTRAINT device_id_format CHECK (device_id ~ '^[a-f0-9]{64}$') -- Hex format
+  total_backup_size_bytes BIGINT DEFAULT 0
 );
 
 -- Indexes for performance
-CREATE INDEX IF NOT EXISTS idx_users_device_id ON users(device_id);
 CREATE INDEX IF NOT EXISTS idx_users_created_at ON users(created_at);
 CREATE INDEX IF NOT EXISTS idx_users_last_sync ON users(last_sync);
 
@@ -71,7 +70,7 @@ CREATE INDEX IF NOT EXISTS idx_encrypted_backups_created_at ON encrypted_backups
 CREATE INDEX IF NOT EXISTS idx_encrypted_backups_size ON encrypted_backups(size_bytes);
 
 -- =====================================================
--- 3. ANALYTICS EVENTS TABLE (NO PHI)
+-- 3. ANALYTICS EVENTS TABLE (NO SENSITIVE WELLNESS DATA)
 -- =====================================================
 
 CREATE TABLE IF NOT EXISTS analytics_events (
@@ -114,78 +113,58 @@ ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE encrypted_backups ENABLE ROW LEVEL SECURITY;
 ALTER TABLE analytics_events ENABLE ROW LEVEL SECURITY;
 
--- Users can only access their own data
-CREATE POLICY "Users can only access own data"
-  ON users
-  FOR ALL
-  USING (device_id = current_setting('app.device_id', true));
+-- INFRA-260: RLS keys on auth.uid() (the anonymous-session principal), split into
+-- explicit verbs with WITH CHECK on writes so a forged user_id cannot be inserted.
+-- users: the row id IS the principal.
+CREATE POLICY users_select ON users
+  FOR SELECT USING (id = auth.uid());
+CREATE POLICY users_insert ON users
+  FOR INSERT WITH CHECK (id = auth.uid());
+CREATE POLICY users_update ON users
+  FOR UPDATE USING (id = auth.uid()) WITH CHECK (id = auth.uid());
 
--- Users can only access their own backups
-CREATE POLICY "Users can only access own backups"
-  ON encrypted_backups
-  FOR ALL
-  USING (user_id = (
-    SELECT id FROM users
-    WHERE device_id = current_setting('app.device_id', true)
-  ));
+-- encrypted_backups: own row only; DELETE supports re-backup + data-subject erasure.
+CREATE POLICY backups_select ON encrypted_backups
+  FOR SELECT USING (user_id = auth.uid());
+CREATE POLICY backups_insert ON encrypted_backups
+  FOR INSERT WITH CHECK (user_id = auth.uid());
+CREATE POLICY backups_update ON encrypted_backups
+  FOR UPDATE USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+CREATE POLICY backups_delete ON encrypted_backups
+  FOR DELETE USING (user_id = auth.uid());
 
--- Users can only access their own analytics
-CREATE POLICY "Users can only access own analytics"
-  ON analytics_events
-  FOR ALL
-  USING (user_id = (
-    SELECT id FROM users
-    WHERE device_id = current_setting('app.device_id', true)
-  ));
+-- analytics_events: SELECT + INSERT only. Client DELETE withheld to preserve
+-- crisis-audit integrity (INFRA-214); retention cleanup runs as the service role.
+CREATE POLICY analytics_select ON analytics_events
+  FOR SELECT USING (user_id = auth.uid());
+CREATE POLICY analytics_insert ON analytics_events
+  FOR INSERT WITH CHECK (user_id = auth.uid());
 
 -- =====================================================
 -- 5. FUNCTIONS FOR COMMON OPERATIONS
 -- =====================================================
 
--- Function to get or create user by device ID
--- SECURITY: Input validation added per MAINT-116 security review (LOW-01)
-CREATE OR REPLACE FUNCTION get_or_create_user(device_id_hash TEXT)
-RETURNS UUID
+-- INFRA-260: auto-provision the public.users row when an anonymous auth user is
+-- created (signInAnonymously), so child-table FKs to users(id) always resolve and
+-- the client never inserts the row itself. SECURITY DEFINER to bypass RLS;
+-- search_path pinned to public.
+CREATE OR REPLACE FUNCTION handle_new_auth_user()
+RETURNS TRIGGER
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
-DECLARE
-  user_uuid UUID;
 BEGIN
-  -- Input validation: Verify device_id format before database operations
-  -- Must be exactly 64 hex characters (SHA-256 hash)
-  IF device_id_hash IS NULL THEN
-    RAISE EXCEPTION 'device_id_hash cannot be NULL';
-  END IF;
-
-  IF length(device_id_hash) != 64 THEN
-    RAISE EXCEPTION 'device_id_hash must be exactly 64 characters (got %)', length(device_id_hash);
-  END IF;
-
-  IF device_id_hash !~ '^[a-f0-9]{64}$' THEN
-    RAISE EXCEPTION 'device_id_hash must be lowercase hex format (a-f, 0-9)';
-  END IF;
-
-  -- Try to find existing user
-  SELECT id INTO user_uuid
-  FROM users
-  WHERE device_id = device_id_hash;
-
-  -- Create user if not exists
-  IF user_uuid IS NULL THEN
-    INSERT INTO users (device_id)
-    VALUES (device_id_hash)
-    RETURNING id INTO user_uuid;
-  ELSE
-    -- Update last_sync for existing user
-    UPDATE users
-    SET last_sync = NOW()
-    WHERE id = user_uuid;
-  END IF;
-
-  RETURN user_uuid;
+  INSERT INTO public.users (id) VALUES (NEW.id) ON CONFLICT (id) DO NOTHING;
+  RETURN NEW;
 END;
 $$;
+
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW
+  EXECUTE FUNCTION handle_new_auth_user();
 
 -- Function to update backup statistics
 CREATE OR REPLACE FUNCTION update_backup_stats()
@@ -240,6 +219,87 @@ GROUP BY event_type, DATE_TRUNC('day', created_at)
 ORDER BY event_date DESC, event_count DESC;
 
 -- =====================================================
+-- 6b. CRISIS-DETECTION ANALYTICS VIEWS (FEAT-129)
+-- =====================================================
+-- Operator-only aggregate views over the vital-interests `crisis_detected` event
+-- (routed to analytics_events by INFRA-214, GDPR Art. 6(1)(d)/9(2)(c) basis) for
+-- release-health safety monitoring — "did the crisis safety net survive this release?"
+--
+-- PRIVACY (PII-free by construction; reviewed by crisis + compliance, FEAT-129):
+--   Re-identification is managed by (1) severity-bucketing — no raw PHQ-9/GAD-7 scores
+--   or Q9 values; (2) absence of quasi-identifiers — no device id, name, IP, geo;
+--   (3) daily session rotation — session_id cannot be joined to a user identity; and
+--   (4) operator-only access — these views are NOT granted to `authenticated`/`anon`
+--   (service-role only, via the Supabase SQL editor / MCP), matching analytics_summary
+--   and subscription_metrics. k-anonymity / differential privacy are NOT claimed; at
+--   pre-launch scale such thresholds are not operationally meaningful, AND a safety
+--   monitor must never suppress the FIRST detected crisis.
+--
+-- SAFETY INVARIANTS (do not "optimize" these away):
+--   * NO `HAVING COUNT(*) >= N` / k-anon suppression — it would hide a single/rare crisis.
+--   * `COUNT(*)` is the AUTHORITATIVE crisis count. `COUNT(DISTINCT session_id)` is a
+--     secondary same-day episode proxy and UNDER-counts (daily-rotated session_id
+--     collapses repeat same-day detections on one device); never treat it as the floor.
+--   * Rows whose severity_bucket / assessment_type are the literal text 'undefined' are
+--     NOT filtered. The inline PHQ-9 Q9 (suicidal-ideation) path currently emits
+--     String(undefined) for those fields; dropping them would launder away the
+--     highest-acuity detections. The breakdown groups by the raw value so the mis-tag is
+--     VISIBLE. (Emit-path fix tracked as a follow-up; see crisis-analytics-runbook.md.)
+--   * Monitoring-only. These views MUST NOT be referenced by any detection / 988 /
+--     intervention code path, and are NOT the safety mechanism — the on-device crisis
+--     audit log remains the accountability record.
+--
+-- No time-window filter is applied: the 90-day analytics retention (cleanup_old_analytics)
+-- already bounds the rows, and a window would drop durably-queued events that flush late
+-- with an older created_at (offline / first-run reconciliation).
+
+-- (a) Detection mix — per-day breakdown by assessment, trigger, and severity bucket.
+CREATE OR REPLACE VIEW crisis_detection_daily AS
+SELECT
+  DATE_TRUNC('day', created_at)                                       AS event_date,
+  properties->>'assessment_type'                                      AS assessment_type,
+  properties->>'trigger_type'                                         AS trigger_type,
+  properties->>'severity_bucket'                                      AS severity_bucket,
+  COUNT(*)                                                            AS detection_count,
+  COUNT(*) FILTER (WHERE properties->>'intervention_surfaced' = 'true')
+                                                                      AS intervention_surfaced_count
+FROM analytics_events
+WHERE event_type = 'crisis_detected'
+GROUP BY 1, 2, 3, 4
+ORDER BY event_date DESC, detection_count DESC;
+
+-- (b) Detection volume — per-day total for spike/drift monitoring.
+CREATE OR REPLACE VIEW crisis_detection_volume_daily AS
+SELECT
+  DATE_TRUNC('day', created_at)  AS event_date,
+  COUNT(*)                       AS detection_count,
+  COUNT(DISTINCT session_id)     AS distinct_sessions
+FROM analytics_events
+WHERE event_type = 'crisis_detected'
+GROUP BY 1
+ORDER BY event_date DESC;
+
+-- (c) Liveness / reconciliation — supports the post-release check that distinguishes
+--     "zero crises (healthy)" from "pipeline dead (no events landing)". A count alone
+--     cannot tell these apart; the runbook pairs `last_detection_at` with an ACTIVE
+--     synthetic-detection assertion in staging after each release.
+CREATE OR REPLACE VIEW crisis_detection_liveness AS
+SELECT
+  COUNT(*)         AS total_detections_retained,
+  MAX(created_at)  AS last_detection_at,
+  MIN(created_at)  AS first_detection_retained_at
+FROM analytics_events
+WHERE event_type = 'crisis_detected';
+
+-- Intentionally NO GRANT to authenticated/anon — operator/service-role access only.
+COMMENT ON VIEW crisis_detection_daily IS
+  'FEAT-129 operator-only aggregate: crisis_detected counts per day x assessment_type x trigger_type x severity_bucket. PII-free (bucketed counts; no user_id/session_id). No k-anon suppression — safety monitor must not hide the first crisis. severity_bucket=''undefined'' rows are surfaced, not filtered (inline-Q9 emit bug).';
+COMMENT ON VIEW crisis_detection_volume_daily IS
+  'FEAT-129 operator-only aggregate: per-day crisis_detected volume. COUNT(*) is authoritative; distinct_sessions under-counts (daily-rotated session_id).';
+COMMENT ON VIEW crisis_detection_liveness IS
+  'FEAT-129 operator-only: total retained crisis_detected + last_detection_at, for the post-release safety-pipeline liveness check (distinguish zero-crises from pipeline-dead).';
+
+-- =====================================================
 -- 7. DATA RETENTION POLICIES
 -- =====================================================
 
@@ -292,38 +352,39 @@ ANALYZE analytics_events;
 -- 9. GRANTS AND PERMISSIONS
 -- =====================================================
 
--- Grant necessary permissions to authenticated role
+-- Grant necessary permissions to authenticated role.
+-- INFRA-260: the anonymous SESSION is the `authenticated` role; the bare `anon`
+-- (unauthenticated) role gets nothing on user tables.
 GRANT SELECT, INSERT, UPDATE ON users TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON encrypted_backups TO authenticated;
 GRANT SELECT, INSERT ON analytics_events TO authenticated;
+REVOKE ALL PRIVILEGES ON users, encrypted_backups, analytics_events FROM anon;
 
 -- Grant usage on sequences
 GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO authenticated;
-
--- Grant execute on functions
-GRANT EXECUTE ON FUNCTION get_or_create_user(TEXT) TO authenticated;
 
 -- =====================================================
 -- 10. COMMENTS FOR DOCUMENTATION
 -- =====================================================
 
-COMMENT ON TABLE users IS 'Anonymous users identified only by hashed device ID. No PII stored.';
+COMMENT ON TABLE users IS 'Anonymous users; id = auth.uid() (Supabase anonymous session). No PII stored.';
 COMMENT ON TABLE encrypted_backups IS 'Client-side encrypted data backups. Server cannot decrypt contents.';
-COMMENT ON TABLE analytics_events IS 'Privacy-preserving analytics with no PHI. Severity buckets only.';
+COMMENT ON TABLE analytics_events IS 'Privacy-preserving analytics with no sensitive wellness data. Severity buckets only.';
 
-COMMENT ON COLUMN users.device_id IS 'SHA256 hash of device identifier. No PII.';
 COMMENT ON COLUMN encrypted_backups.encrypted_data IS 'AES-256-GCM encrypted JSON blob. Server has no decryption keys.';
 COMMENT ON COLUMN encrypted_backups.checksum IS 'SHA256 checksum for integrity verification.';
-COMMENT ON COLUMN analytics_events.properties IS 'Anonymous event metadata. No scores or PHI allowed.';
+COMMENT ON COLUMN analytics_events.properties IS 'Anonymous event metadata. No scores or sensitive wellness data allowed.';
 
 -- =====================================================
--- 11. SUBSCRIPTION TABLES (TREAT AS PHI)
+-- 11. SUBSCRIPTION TABLES (SENSITIVE WELLNESS DATA)
 -- =====================================================
 
 -- COMPLIANCE NOTE:
--- Subscription metadata is treated as PHI because it correlates with mental health data.
--- A user's subscription status + encrypted health data = PHI correlation.
--- Therefore, same security standards as encrypted_backups apply.
+-- Subscription metadata is treated as sensitive wellness data because it correlates
+-- with mental health activity: a user's subscription status combined with their
+-- encrypted wellness data forms a sensitive-data set under state privacy laws
+-- (TDPSA §541.001(b)(28), CPA §6-1-1303(24), VCDPA / CTDPA equivalents).
+-- Therefore, the same security standards as encrypted_backups apply.
 
 CREATE TABLE IF NOT EXISTS subscriptions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -352,7 +413,11 @@ CREATE TABLE IF NOT EXISTS subscriptions (
 
   -- Receipt Verification
   last_receipt_verified TIMESTAMPTZ,
-  receipt_data_encrypted TEXT, -- Encrypted receipt for re-verification
+  receipt_data_encrypted TEXT, -- AES-256-GCM-encrypted receipt for re-verification (INFRA-260 PR2)
+  -- INFRA-260 PR2: replay binding. Holds Apple original_transaction_id / Google
+  -- purchaseToken; UNIQUE per platform binds the txn to one auth.uid().
+  original_transaction_id TEXT,
+  receipt_hash TEXT, -- SHA-256 of the raw receipt/token (dedup; non-reversible)
 
   -- Payment History (minimal)
   last_payment_date TIMESTAMPTZ,
@@ -383,6 +448,10 @@ CREATE INDEX IF NOT EXISTS idx_subscriptions_user_id ON subscriptions(user_id);
 CREATE INDEX IF NOT EXISTS idx_subscriptions_platform ON subscriptions(platform);
 CREATE INDEX IF NOT EXISTS idx_subscriptions_status ON subscriptions(status);
 CREATE INDEX IF NOT EXISTS idx_subscriptions_platform_subscription_id ON subscriptions(platform_subscription_id);
+-- INFRA-260 PR2: one IAP transaction binds to one row (one auth.uid()) per platform.
+CREATE UNIQUE INDEX IF NOT EXISTS uniq_txn_per_platform
+  ON subscriptions (platform, original_transaction_id)
+  WHERE original_transaction_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_subscriptions_trial_end_date ON subscriptions(trial_end_date) WHERE status = 'trial';
 CREATE INDEX IF NOT EXISTS idx_subscriptions_grace_period_end ON subscriptions(grace_period_end) WHERE status = 'grace';
 CREATE INDEX IF NOT EXISTS idx_subscriptions_updated_at ON subscriptions(updated_at);
@@ -436,23 +505,20 @@ CREATE INDEX IF NOT EXISTS idx_subscription_events_created_at ON subscription_ev
 ALTER TABLE subscriptions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE subscription_events ENABLE ROW LEVEL SECURITY;
 
--- Users can only access their own subscription
-CREATE POLICY "Users can only access own subscription"
-  ON subscriptions
-  FOR ALL
-  USING (user_id = (
-    SELECT id FROM users
-    WHERE device_id = current_setting('app.device_id', true)
-  ));
+-- INFRA-260: own rows only via auth.uid(). Edge-function writes use the service
+-- role (bypass RLS); the IAP replay guard is a UNIQUE constraint + in-function
+-- ownership check (PR2), not an RLS policy.
+CREATE POLICY subscriptions_select ON subscriptions
+  FOR SELECT USING (user_id = auth.uid());
+CREATE POLICY subscriptions_insert ON subscriptions
+  FOR INSERT WITH CHECK (user_id = auth.uid());
+CREATE POLICY subscriptions_update ON subscriptions
+  FOR UPDATE USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
 
--- Users can only access their own subscription events
-CREATE POLICY "Users can only access own subscription events"
-  ON subscription_events
-  FOR ALL
-  USING (user_id = (
-    SELECT id FROM users
-    WHERE device_id = current_setting('app.device_id', true)
-  ));
+CREATE POLICY subscription_events_select ON subscription_events
+  FOR SELECT USING (user_id = auth.uid());
+CREATE POLICY subscription_events_insert ON subscription_events
+  FOR INSERT WITH CHECK (user_id = auth.uid());
 
 -- =====================================================
 -- 14. SUBSCRIPTION FUNCTIONS
@@ -701,7 +767,7 @@ GRANT EXECUTE ON FUNCTION get_expiring_grace_periods(INTEGER) TO authenticated;
 -- 17. COMMENTS (SUBSCRIPTIONS)
 -- =====================================================
 
-COMMENT ON TABLE subscriptions IS 'Subscription metadata (treated as PHI due to correlation with mental health data). IAP-only (Apple/Google).';
+COMMENT ON TABLE subscriptions IS 'Subscription metadata (treated as sensitive wellness data due to correlation with mental health activity, per state privacy laws). IAP-only (Apple/Google).';
 COMMENT ON TABLE subscription_events IS 'Audit log for subscription lifecycle events.';
 
 COMMENT ON COLUMN subscriptions.platform_subscription_id IS 'Opaque reference to Apple/Google subscription. No payment data stored.';
@@ -724,4 +790,4 @@ COMMENT ON COLUMN subscriptions.crisis_access_enabled IS 'ALWAYS TRUE - crisis f
 -- ✅ Data retention policies
 -- ✅ Performance optimization
 -- ✅ Row Level Security
--- ✅ HIPAA compliance (subscription metadata treated as PHI)
+-- ✅ Sensitive wellness data protections (subscription metadata treated as sensitive data per state privacy laws)

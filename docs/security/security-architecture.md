@@ -137,7 +137,7 @@ interface iOSDataIsolation {
   },
 
   keychain_integration: {
-    access_group: "com.being.app.keychain",
+    access_group: "fyi.being.app.keychain",
     accessibility: "kSecAttrAccessibleWhenUnlockedThisDeviceOnly",
     synchronization: false, // Never sync to iCloud
     biometric_protection: "kSecAccessControlBiometryAny"
@@ -155,7 +155,7 @@ interface iOSDataIsolation {
 ```typescript
 interface AndroidDataIsolation {
   app_sandbox: {
-    internal_storage: "/data/data/com.being.app/",
+    internal_storage: "/data/data/fyi.being.app/",
     protection_mode: "MODE_PRIVATE",
     file_based_encryption: true,
     direct_boot_aware: false // Require user authentication
@@ -590,7 +590,7 @@ class SecureDataDeletion {
   private async destroyAllEncryptionKeys(): Promise<void> {
     // iOS Keychain
     if (Platform.OS === 'ios') {
-      await Keychain.resetInternetCredentials('com.being.app');
+      await Keychain.resetInternetCredentials('fyi.being.app');
       await Keychain.resetGenericPasswords();
     }
 

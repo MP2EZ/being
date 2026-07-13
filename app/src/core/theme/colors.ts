@@ -10,12 +10,15 @@ import {
   borderRadius,
   typography,
   getTheme,
+  shadows,
 } from '@mp2ez/being-design-system/native';
-import type { Theme, ThemeKey } from '@mp2ez/being-design-system/native';
+import type { Theme, ThemeKey, Shadows, ShadowKey } from '@mp2ez/being-design-system/native';
 
-// Re-export spacing, borderRadius, typography, getTheme directly
-export { spacing, borderRadius, typography, getTheme };
-export type { Theme, ThemeKey };
+// Re-export spacing, borderRadius, typography, getTheme, shadows directly.
+// MAINT-222: shadows is now re-exported here so UI uses the DS elevation token
+// instead of hand-rolled shadowColor:'#000' literals (DS guidance: prefer borders).
+export { spacing, borderRadius, typography, getTheme, shadows };
+export type { Theme, ThemeKey, Shadows, ShadowKey };
 
 // Create themes object with Proxy for safe access (maintains backward compatibility)
 const themesHandler: ProxyHandler<typeof dsColors.themes> = {
@@ -39,6 +42,7 @@ export const colorSystem = {
   accessibility: dsColors.accessibility,
   navigation: dsColors.navigation,
   therapeutic: dsColors.therapeutic,
+  principles: dsColors.principles, // MAINT-253: principle category colours for the Insights chart
 };
 
 // Export as 'colors' for backward compatibility
@@ -58,12 +62,55 @@ export const semantic = {
   background: {
     primary: colorSystem.base.white,
     secondary: colorSystem.gray[100],
+    // MAINT-263: single tab-screen surface token. Home/Learn/Insights/Profile (and the
+    // Insights "full history" detail screen) all read from this so the cross-tab
+    // background decision lives in one place. Unified to white (was: Insights gray[100])
+    // after MAINT-257 made tab headers borderless — the screen background is now the
+    // visual separator, so one surface keeps the tabs reading as a single coherent space.
+    // Insights content cards take a 1px semantic.border.default hairline to stay defined
+    // on white (they previously relied on the gray backdrop).
+    screen: colorSystem.base.white,
   },
   border: {
     default: colorSystem.gray[200],
     strong: colorSystem.gray[400],
   },
 } as const;
+
+/**
+ * Neutral severity reference-band tokens (FEAT-30).
+ *
+ * Used to shade the clinical reference ranges behind the Wellness Screening
+ * Trends chart. Deliberately NOT a green→red stoplight ramp: a rising PHQ-9 /
+ * GAD-7 score is information, not failure, so severity must read as neutral
+ * depth + a text label — never as "you're winning / failing" colour
+ * (philosopher red line on moralized severity colour).
+ *
+ * A single DS gray fill is rendered at increasing `fillOpacity` for higher
+ * severity bands (deeper, not redder). Zero new hex — all values derive from
+ * the design-system gray scale.
+ */
+export const severityBands = {
+  /** Single neutral fill for every reference band (legacy filled-band style). */
+  fill: colorSystem.gray[700],
+  /** Hairline colour for reference-boundary gridlines (neutral, matches list dividers). */
+  gridline: colorSystem.gray[300],
+  /** Neutral colour for band range labels. */
+  label: semantic.text.muted,
+  /**
+   * Per-severity fill opacity. Keyed by the clinical severity names used by
+   * PHQ-9 (includes `moderately_severe`) and GAD-7. Stepped, not hued.
+   */
+  opacity: {
+    minimal: 0.04,
+    mild: 0.07,
+    moderate: 0.1,
+    moderately_severe: 0.13,
+    severe: 0.16,
+  },
+} as const;
+
+export type SeverityBandKey = keyof typeof severityBands.opacity;
 
 // Flat re-exports for direct destructuring (optional convenience)
 // Use colorSystem.* for most cases; these are for legacy compatibility

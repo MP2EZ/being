@@ -1,6 +1,30 @@
 /**
  * Jest Setup for Local Development Testing
  * Enhanced setup with performance monitoring and clinical safety validation
+ *
+ * AUDIT TRAIL (INFRA-143 PR 4, post-audit):
+ * All jest.mock() calls below are load-bearing — each one was added because
+ * its target module either (a) imports an Expo/RN TurboModule whose binding
+ * is undefined in the Jest env, or (b) calls native crypto / native storage
+ * that has no JS-side implementation. Removing any of these mocks will
+ * cause cascading "is not a function" or "Cannot find module" failures
+ * across hundreds of tests. If a mock looks "dead" because nothing in
+ * production calls it directly, verify the transitive import chain
+ * (e.g., react-native-safe-area-context is pulled in by
+ * @react-navigation/elements → MaskedView → NativeSafeAreaContext).
+ *
+ * Post-INFRA-158 specifics:
+ *   - Touchable is re-exposed from the RN mock (commit 431fc0c) because
+ *     react-native-svg@15.15.4 still uses Touchable.Mixin.
+ *   - @expo/vector-icons is fully removed (migrated to
+ *     @react-native-vector-icons/* — see lines 426 + 433).
+ *   - expo-crypto exposes BOTH getRandomBytes and getRandomBytesAsync
+ *     (EncryptionService.ts:948 uses the async variant).
+ *
+ * Any new mock added should follow these patterns:
+ *   1. Comment explaining WHY (which TurboModule, which transitive chain)
+ *   2. Cover all members the production code uses (no whack-a-mole)
+ *   3. Add to quick-setup.js too if the mock is needed for *.quick.test.* files
  */
 
 import '@testing-library/jest-native/extend-expect';
@@ -252,6 +276,9 @@ jest.mock('react-native', () => {
     TouchableOpacity: RN.TouchableOpacity,
     TouchableHighlight: RN.TouchableHighlight,
     TouchableWithoutFeedback: RN.TouchableWithoutFeedback,
+    // Touchable (with Mixin) — required by react-native-svg 15.x's SvgTouchableMixin
+    // until upstream drops the legacy mixin pattern.
+    Touchable: RN.Touchable,
     Pressable: RN.Pressable,
     Image: RN.Image,
     ImageBackground: RN.ImageBackground,
@@ -260,6 +287,13 @@ jest.mock('react-native', () => {
     ActivityIndicator: RN.ActivityIndicator,
     Modal: RN.Modal,
     StatusBar: RN.StatusBar,
+    // MAINT-191: missing from the original curated whitelist. Used by
+    // form-input screens (PrincipleFocusScreen, etc.) to dodge keyboard
+    // overlap. Safe + non-deprecated; omission caused
+    // `Element type is invalid: ... got: undefined` on first render of
+    // any screen that uses it.
+    KeyboardAvoidingView: RN.KeyboardAvoidingView,
+    SafeAreaView: RN.SafeAreaView,
 
     // Layout & Styling (SAFE)
     StyleSheet: RN.StyleSheet,
@@ -372,21 +406,30 @@ jest.mock('expo-haptics', () => ({
 }));
 
 // Mock expo-crypto for cryptographic ID generation
-jest.mock('expo-crypto', () => ({
-  getRandomBytes: jest.fn((length) => {
-    // Generate pseudo-random bytes for testing (NOT cryptographically secure)
+jest.mock('expo-crypto', () => {
+  const generateBytes = (length) => {
+    // Pseudo-random bytes for testing (NOT cryptographically secure)
     const bytes = new Uint8Array(length);
     for (let i = 0; i < length; i++) {
       bytes[i] = Math.floor(Math.random() * 256);
     }
     return bytes;
-  }),
-  digestStringAsync: jest.fn(() => Promise.resolve('mockedhash123')),
-  CryptoDigestAlgorithm: {
-    SHA256: 'SHA-256',
-    SHA512: 'SHA-512',
-  },
-}));
+  };
+  return {
+    getRandomBytes: jest.fn(generateBytes),
+    // EncryptionService uses the async variant for master-key generation
+    // (EncryptionService.ts:948). Previously missing — caused
+    // `Crypto.getRandomBytesAsync is not a function` failures in
+    // sync-coordinator-integration.test.ts (one of the INFRA-143
+    // quarantined tests).
+    getRandomBytesAsync: jest.fn(async (length) => generateBytes(length)),
+    digestStringAsync: jest.fn(() => Promise.resolve('mockedhash123')),
+    CryptoDigestAlgorithm: {
+      SHA256: 'SHA-256',
+      SHA512: 'SHA-512',
+    },
+  };
+});
 
 jest.mock('@react-native-async-storage/async-storage', () => ({
   getItem: jest.fn(() => Promise.resolve(null)),
@@ -409,9 +452,16 @@ jest.mock('@react-native-community/netinfo', () => ({
   NetInfoStateType: { wifi: 'wifi', cellular: 'cellular', none: 'none', unknown: 'unknown' },
 }));
 
-// @expo/vector-icons: factory mock — pulls in expo-font → expo-modules-core
-// which fails on EventEmitter native binding outside the device runtime.
-jest.mock('@expo/vector-icons', () => {
+// @react-native-vector-icons/*: factory mock — same expo-modules-core pitfall
+// as @expo/vector-icons in pre-SDK-56 setup (migrated in INFRA-158).
+jest.mock('@react-native-vector-icons/material-design-icons', () => {
+  const React = require('react');
+  const { Text } = require('react-native');
+  const Icon = ({ name, testID, ...rest }) =>
+    React.createElement(Text, { testID: testID || `icon-${name}`, ...rest }, name);
+  return new Proxy({}, { get: () => Icon });
+});
+jest.mock('@react-native-vector-icons/ionicons', () => {
   const React = require('react');
   const { Text } = require('react-native');
   const Icon = ({ name, testID, ...rest }) =>
@@ -427,6 +477,41 @@ jest.mock('expo-local-authentication', () => ({
   supportedAuthenticationTypesAsync: jest.fn(() => Promise.resolve([])),
   AuthenticationType: { FINGERPRINT: 1, FACIAL_RECOGNITION: 2, IRIS: 3 },
   SecurityLevel: { NONE: 0, SECRET: 1, BIOMETRIC_WEAK: 2, BIOMETRIC_STRONG: 3 },
+}));
+
+// expo-file-system (SDK 56 new API): its package entry is TypeScript src that
+// Jest's transformIgnorePatterns skips, so a bare import throws "Unexpected
+// token 'export'". Stub the File/Paths surface (FEAT-267 export path); tests
+// that exercise the write/share behavior override this with a local jest.mock.
+jest.mock('expo-file-system', () => ({
+  __esModule: true,
+  Paths: { cache: '/mock-cache', document: '/mock-document' },
+  File: jest.fn().mockImplementation((...uris) => ({
+    uri: `file:///mock-cache/${String(uris[uris.length - 1] ?? 'file')}`,
+    create: jest.fn(),
+    write: jest.fn(),
+    delete: jest.fn(),
+    exists: false,
+  })),
+  Directory: jest.fn(),
+}));
+
+// expo-sharing: native module, no-op in Jest. Local mocks override per-test.
+jest.mock('expo-sharing', () => ({
+  __esModule: true,
+  isAvailableAsync: jest.fn(() => Promise.resolve(true)),
+  shareAsync: jest.fn(() => Promise.resolve()),
+}));
+
+// expo-sensors (FEAT-284 shake-to-report): native module, no-op in Jest. Local
+// mocks override per-test.
+jest.mock('expo-sensors', () => ({
+  __esModule: true,
+  Accelerometer: {
+    setUpdateInterval: jest.fn(),
+    addListener: jest.fn(() => ({ remove: jest.fn() })),
+    removeAllListeners: jest.fn(),
+  },
 }));
 
 // react-native-aes-crypto: native TurboModule, undefined in Jest env.
@@ -460,6 +545,37 @@ jest.mock('react-native-safe-area-context', () => {
     initialWindowMetrics: { insets: inset, frame },
   };
 });
+
+// @sentry/react-native: the runtime require chain hits the RNSentry native
+// TurboModule (devicecontext integration), which is undefined in Jest. We use
+// Sentry for performance spans on the crisis button + encryption init (INFRA-62);
+// production code calls startSpan/captureException/init/close. The mock invokes
+// span callbacks so wrapped code still runs under test.
+jest.mock('@sentry/react-native', () => ({
+  init: jest.fn(),
+  close: jest.fn(() => Promise.resolve()),
+  captureException: jest.fn(),
+  captureMessage: jest.fn(),
+  addBreadcrumb: jest.fn(),
+  setUser: jest.fn(),
+  setTag: jest.fn(),
+  setContext: jest.fn(),
+  startSpan: jest.fn((_spanOptions, callback) => {
+    const span = {
+      setAttribute: jest.fn(),
+      setAttributes: jest.fn(),
+      setStatus: jest.fn(),
+      end: jest.fn(),
+    };
+    return callback(span);
+  }),
+  startInactiveSpan: jest.fn(() => ({
+    setAttribute: jest.fn(),
+    setAttributes: jest.fn(),
+    setStatus: jest.fn(),
+    end: jest.fn(),
+  })),
+}));
 
 // Global teardown for performance reporting
 afterAll(() => {

@@ -120,6 +120,10 @@ PHASE_*.json
 *-draft.md
 *-working.md
 
+# Audit reports — /m:audit output (regenerable; never commit). Matches repo-root
+# (.audit-report.md, .audit-report-perf.md) and app/ (app/.audit-report.md).
+.audit-report*.md
+
 # Performance and Validation Artifacts
 *performance-report*
 *baseline-report*
@@ -154,6 +158,13 @@ verify-*.js
 verify-*.py
 check-*.js
 check-*.py
+# Whitelist the crisis-hotline pre-push guard (MAINT-154) — it's a permanent
+# safety check, not an ad-hoc developer scratch script.
+!app/scripts/check-crisis-hotline.js
+!app/__tests__/scripts/check-crisis-hotline.test.js
+# Whitelist the service-singleton setInterval guard check (INFRA-177) —
+# CI-enforced convention guard, not an ad-hoc developer scratch script.
+!scripts/check-service-interval-guards.js
 execute-*.js
 execute-*.py
 batch_*.py
@@ -246,3 +257,8 @@ monitoring-*.js
 monitoring-*.py
 # Local test results
 app/test-results/local-performance.json
+
+# Supabase CLI local state (per-worktree link cache: project-ref, pooler-url, etc.)
+supabase/.temp/
+# Supabase CLI local-stack branch marker (written by `supabase start`/`db reset`)
+supabase/.branches/

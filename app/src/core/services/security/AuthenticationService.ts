@@ -219,6 +219,40 @@ export class AuthenticationService {
   }
 
   /**
+   * MAINT-190: Test-only escape hatch for singleton state isolation.
+   * Clears in-memory session state + timers. Does NOT touch persisted
+   * sessions in expo-secure-store (use deleteCurrentSession() for that).
+   *
+   * Production safety: throws if NODE_ENV !== 'test'. A production call
+   * here would silently log the user out mid-session without firing the
+   * normal sign-out audit event.
+   */
+  public static __resetForTesting__(): void {
+    if (process.env.NODE_ENV !== 'test') {
+      throw new Error(
+        'AuthenticationService.__resetForTesting__() called outside NODE_ENV=test — refusing to clear auth state in production'
+      );
+    }
+    if (AuthenticationService.instance) {
+      const inst = AuthenticationService.instance;
+      if (inst.sessionTimer) {
+        clearTimeout(inst.sessionTimer);
+        inst.sessionTimer = null;
+      }
+      if (inst.tokenRefreshTimer) {
+        clearTimeout(inst.tokenRefreshTimer);
+        inst.tokenRefreshTimer = null;
+      }
+      inst.currentUser = null;
+      inst.authenticationAttempts.clear();
+      inst.auditLog = [];
+      inst.initialized = false;
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- intentional: nulling private static reset target
+    AuthenticationService.instance = undefined as any;
+  }
+
+  /**
    * INITIALIZE AUTHENTICATION SERVICE
    */
   public async initialize(): Promise<void> {
@@ -337,7 +371,7 @@ export class AuthenticationService {
 
       // Validate authentication performance
       if (authenticationTime > AUTH_CONFIG.STANDARD_AUTH_THRESHOLD_MS) {
-        logSecurity('⚠️  Authentication slow: ${authenticationTime.toFixed(2)}ms > ${AUTH_CONFIG.STANDARD_AUTH_THRESHOLD_MS}ms', 'medium', { component: 'SecurityService' });
+        logSecurity(`⚠️  Authentication slow: ${authenticationTime.toFixed(2)}ms > ${AUTH_CONFIG.STANDARD_AUTH_THRESHOLD_MS}ms`, 'medium', { component: 'SecurityService' });
       }
 
       // Log authentication attempt
@@ -609,7 +643,7 @@ export class AuthenticationService {
 
       // Validate session check performance
       if (validationTime > AUTH_CONFIG.SESSION_CHECK_THRESHOLD_MS) {
-        logSecurity('⚠️  Session validation slow: ${validationTime.toFixed(2)}ms > ${AUTH_CONFIG.SESSION_CHECK_THRESHOLD_MS}ms', 'medium', { component: 'SecurityService' });
+        logSecurity(`⚠️  Session validation slow: ${validationTime.toFixed(2)}ms > ${AUTH_CONFIG.SESSION_CHECK_THRESHOLD_MS}ms`, 'medium', { component: 'SecurityService' });
       }
 
       // Log session check (only for significant events)
@@ -831,6 +865,14 @@ export class AuthenticationService {
   }
 
   private setupSessionMonitoring(): void {
+    // INFRA-175: Skip interval setup in test environment to prevent Jest
+    // worker hang from unguarded timers (INFRA-144 pattern). Teardown sites
+    // at lines ~763 and ~1220 are guarded by `if (this.sessionTimer)`, so
+    // leaving sessionTimer as null under test is safe.
+    if (process.env.NODE_ENV === 'test') {
+      return;
+    }
+
     // Check session status every minute
     this.sessionTimer = setInterval(async () => {
       try {
@@ -1015,9 +1057,13 @@ export class AuthenticationService {
 
   private async generateAuthenticationToken(user: UserAuthenticationContext): Promise<AuthenticationToken> {
     try {
-      // In a real implementation, this would use proper JWT generation
+      // Unsecured JWT (alg:"none", RFC 7519 §6). No signature is computed or
+      // verified anywhere in the app — the previous keyless truncated-SHA-256
+      // labeled "HS256" was forgeable security theater (MAINT-244/SEC-W4).
+      // Real per-user session signing + verification is deferred to INFRA-260's
+      // auth-model session; until a verifier exists, claiming HS256 is dishonest.
       const header = {
-        alg: 'HS256',
+        alg: 'none',
         typ: 'JWT'
       };
 
@@ -1032,12 +1078,12 @@ export class AuthenticationService {
         permissions: user.permissions
       };
 
-      // Simple token generation (would use proper JWT library in production)
+      // Unsecured serialization: header.payload with an empty signature segment
+      // (RFC 7519 §6). A real JWT library + verifier arrives with INFRA-260.
       const headerB64 = btoa(JSON.stringify(header));
       const payloadB64 = btoa(JSON.stringify(payload));
-      const signature = await this.generateTokenSignature(`${headerB64}.${payloadB64}`);
 
-      const accessToken = `${headerB64}.${payloadB64}.${signature}`;
+      const accessToken = `${headerB64}.${payloadB64}.`;
       const refreshToken = await this.generateSecureId();
 
       return {
@@ -1054,20 +1100,6 @@ export class AuthenticationService {
 
     } catch (error) {
       logError(LogCategory.SECURITY, '🚨 TOKEN GENERATION ERROR:', error instanceof Error ? error : new Error(String(error)));
-      throw error;
-    }
-  }
-
-  private async generateTokenSignature(data: string): Promise<string> {
-    try {
-      const digest = await Crypto.digestStringAsync(
-        Crypto.CryptoDigestAlgorithm.SHA256,
-        data,
-        { encoding: Crypto.CryptoEncoding.HEX }
-      );
-      return digest.substring(0, 32);
-    } catch (error) {
-      logError(LogCategory.SECURITY, '🚨 TOKEN SIGNATURE ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }
@@ -1179,6 +1211,58 @@ export class AuthenticationService {
 
   public hasPermission(permission: string): boolean {
     return this.currentUser?.permissions.includes(permission) || false;
+  }
+
+  /**
+   * ANALYTICS PERMISSION CHECK (MAINT-201)
+   *
+   * Defence-in-depth gate for the analytics pipeline (NOT the consent gate — that
+   * remains `useConsentStore.canPerformOperation('analytics')` in AnalyticsService).
+   * Fail-closed and strictly narrower than the prior session-only check: crisis
+   * sessions are now rejected. The anonymous device-trust session (the product's
+   * default identity) is analytics-eligible so this does not silently disable
+   * analytics; an explicit `analytics_access` permission also qualifies.
+   *
+   * `userId` is accepted only for call-site/spy signature symmetry; the decision is
+   * made entirely from the current session.
+   */
+  public validateAnalyticsPermissions(userId?: string): boolean {
+    void userId;
+    const user = this.getCurrentUser();
+    if (!user) return false;
+    if (user.isCrisisAccess) return false;
+    if (user.authenticationLevel === 'crisis_access') return false;
+    if (user.permissions.includes('analytics_access')) return true;
+    return user.authenticationMethod === 'device_trust' && user.authenticationLevel === 'anonymous';
+  }
+
+  /**
+   * OPERATION AUTHENTICATION (MAINT-201)
+   *
+   * Authenticates a named analytics operation by delegating to `validateSession`.
+   * Returns a real `AuthenticationResult` (replacing the prior `'session_validation'
+   * as any` stub in AnalyticsService). Never routes through credential auth (SEC-03).
+   */
+  public async authenticateOperation(operation: string): Promise<AuthenticationResult> {
+    void operation;
+    const startTime = performance.now();
+    const session = await this.validateSession();
+
+    if (!session.isValid || !session.user) {
+      return {
+        success: false,
+        authenticationMethod: 'device_trust',
+        authenticationTimeMs: performance.now() - startTime,
+        error: session.error ?? 'Session invalid',
+      };
+    }
+
+    return {
+      success: true,
+      user: session.user,
+      authenticationMethod: session.user.authenticationMethod,
+      authenticationTimeMs: performance.now() - startTime,
+    };
   }
 
   public isCrisisAccess(): boolean {

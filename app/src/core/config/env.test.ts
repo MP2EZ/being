@@ -37,13 +37,10 @@ const validEnv = {
   EXPO_PUBLIC_LEGAL_URL: 'https://being.fyi/legal',
   EXPO_PUBLIC_GDPR_URL: 'https://being.fyi/gdpr',
   EXPO_PUBLIC_ACCESSIBILITY_URL: 'https://being.fyi/accessibility',
-  EXPO_PUBLIC_API_URL: 'https://api.being.app',
-  EXPO_PUBLIC_CDN_URL: 'https://cdn.being.app',
-  EXPO_PUBLIC_STATIC_ASSETS_URL: 'https://assets.being.app',
   EXPO_PUBLIC_SUPABASE_URL: 'https://test.supabase.co',
   EXPO_PUBLIC_SUPABASE_KEY: 'sb_publishable_test_key',
   EXPO_PUBLIC_SUPABASE_REGION: 'us-west-2',
-  EXPO_PUBLIC_AUTH_APPLE_CLIENT_ID: 'com.being.mbct',
+  EXPO_PUBLIC_AUTH_APPLE_CLIENT_ID: 'fyi.being.app',
   EXPO_PUBLIC_AUTH_GOOGLE_CLIENT_ID: 'test-client.apps.googleusercontent.com',
   EXPO_PUBLIC_AUTH_EMAIL_SIGNUP_ENABLED: 'true',
   EXPO_PUBLIC_AUTH_BIOMETRIC_ENABLED: 'true',
@@ -55,14 +52,14 @@ const validEnv = {
   EXPO_PUBLIC_SENTRY_DSN: '',
   EXPO_PUBLIC_POSTHOG_API_KEY: '',
   EXPO_PUBLIC_POSTHOG_HOST: 'https://eu.i.posthog.com',
-  EXPO_PUBLIC_FEATURE_FLAGS: 'production_mode:true',
+  EXPO_PUBLIC_FEATURE_FLAGS: 'cloud_sync:false',
   EXPO_PUBLIC_CLINICAL_ACCURACY_MODE: 'true',
   EXPO_PUBLIC_ASSESSMENT_VALIDATION: 'strict',
   EXPO_PUBLIC_PHQ9_CRISIS_THRESHOLD: '20',
   EXPO_PUBLIC_GAD7_CRISIS_THRESHOLD: '15',
   EXPO_PUBLIC_BREATHING_TIMER_PRECISION: '60000',
   EXPO_PUBLIC_THERAPEUTIC_TIMING_STRICT: 'true',
-  EXPO_PUBLIC_HIPAA_COMPLIANCE_MODE: 'ready',
+  EXPO_PUBLIC_WELLNESS_DATA_MODE: 'ready',
   EXPO_PUBLIC_GDPR_COMPLIANCE: 'true',
   EXPO_PUBLIC_DATA_RETENTION_DAYS: '365',
   EXPO_PUBLIC_ANONYMOUS_ANALYTICS: 'true',
@@ -218,6 +215,25 @@ describe('env schema (INFRA-141, clinical safety)', () => {
         EXPO_PUBLIC_SUICIDE_PREVENTION_URL: 'https://suicidepreventionhelpline.org',
       });
       expect(result.success).toBe(false);
+    });
+  });
+
+  describe('INFRA-217: e2e-sim onboarding-seed flag', () => {
+    it('defaults EXPO_PUBLIC_E2E_SEED_ONBOARDED to "false" when absent (real builds)', () => {
+      const parsed = envSchema.parse(validEnv);
+      expect(parsed.EXPO_PUBLIC_E2E_SEED_ONBOARDED).toBe('false');
+    });
+    it('accepts an explicit "true" (e2e-sim profile) even under ENV=production', () => {
+      // The e2e-sim profile extends production, so it resolves ENV=production.
+      // The seed flag must parse there — there is deliberately no production
+      // superRefine guarding it (see env.ts / e2eSeedGate.config.test.ts).
+      const result = envSchema.safeParse({ ...validEnv, EXPO_PUBLIC_E2E_SEED_ONBOARDED: 'true' });
+      expect(result.success).toBe(true);
+    });
+    it('rejects a non-boolean value', () => {
+      expect(
+        envSchema.safeParse({ ...validEnv, EXPO_PUBLIC_E2E_SEED_ONBOARDED: '1' }).success,
+      ).toBe(false);
     });
   });
 

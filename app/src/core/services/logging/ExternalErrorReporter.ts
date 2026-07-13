@@ -4,27 +4,32 @@
  * Privacy-first external error reporting service.
  *
  * PRIVACY PRINCIPLES:
- * - Being is NOT a Privacy covered entity (wellness app, not healthcare)
+ * - Being is NOT a HIPAA-covered entity (wellness app, not healthcare). See
+ *   docs/legal/regulatory-applicability.md for the applicable regulatory frame.
  * - We voluntarily implement strong privacy practices per our privacy policy
  * - Local-first data architecture: wellness data never leaves device
- * - Only crash/error metadata sent externally (no PHI, no wellness data)
+ * - Only crash/error metadata sent externally (no wellness data, no sensitive
+ *   identifiers)
  *
  * DESIGN:
  * - Abstracted interface supporting any error reporting backend (Sentry, etc.)
  * - Allowlist-based sanitization: only explicitly allowed fields transmitted
- * - Multi-layer PHI scrubbing before any external transmission
+ * - Multi-layer sensitive-data scrubbing before any external transmission
  * - Kill switch for immediate disable in production
  * - Crisis events logged locally only (never external)
  *
  * ACTIVATION:
  * - Set SENTRY_DSN environment variable when ready
- * - No BAA required (Being is not Privacy covered entity)
  * - Any Sentry tier is sufficient (including free)
  */
 
 import { Platform } from 'react-native';
 import { LogCategory, logger } from './ProductionLogger';
 import { env } from '@/core/config/env';
+import { isSensitiveRoute, sanitizeScreenName } from '@/core/utils/sensitiveScreens';
+// MAINT-248: canonical sensitive-data patterns single source of truth. The
+// reporter keeps only its two reporter-specific extras (JWT, base64) below.
+import { SENSITIVE_DATA_PATTERNS as CORE_SENSITIVE_DATA_PATTERNS } from './SensitiveDataPatterns';
 
 /**
  * CONFIGURATION
@@ -49,7 +54,7 @@ const ALLOWED_ERROR_FIELDS = [
   'name',
   'errorCode',
 
-  // Context (no PHI)
+  // Context (no sensitive data)
   'platform',
   'version',
   'buildNumber',
@@ -62,11 +67,11 @@ const ALLOWED_ERROR_FIELDS = [
   'lineno',
   'colno',
 
-  // Performance (no PHI)
+  // Performance (no sensitive data)
   'duration',
   'operationType',
 
-  // App state (no PHI)
+  // App state (no sensitive data)
   'screenName',       // Generic screen names only
   'flowType',         // morning/midday/evening only
   'networkStatus',
@@ -77,7 +82,9 @@ const ALLOWED_ERROR_FIELDS = [
  * BLOCKLIST: Fields that must NEVER be sent externally
  * Defense-in-depth: blocked even if somehow bypasses allowlist
  */
-const BLOCKED_FIELDS = [
+// Exported (read-only) so privacy regression tests can pin the contract that
+// sensitive fields — e.g. wellness scores — are never sent to Sentry.
+export const BLOCKED_FIELDS = [
   // User identifiers
   'userId', 'user_id', 'userIdentifier', 'id', 'email', 'phone',
 
@@ -96,44 +103,118 @@ const BLOCKED_FIELDS = [
   // Personal data
   'data', 'userData', 'profile', 'profileData', 'private',
   'therapeutic', 'mood', 'emotion', 'feeling', 'thought',
-  'journal', 'reflection', 'note', 'content',
+  'journal', 'reflection', 'note', 'content', 'annotation',
 
   // Stoic/philosophical content
   'principle', 'virtue', 'practice', 'exercise',
 ] as const;
 
 /**
- * PHI PATTERNS: Regex patterns for additional PHI detection
+ * REPORTER-SPECIFIC SENSITIVE-DATA PATTERNS
+ *
+ * MAINT-248: only the two patterns that are NOT in the canonical
+ * SensitiveDataPatterns set live here. The UUID / PHQ / GAD / score / email /
+ * phone / SSN / mood / feeling / thought patterns the reporter used inline are
+ * all covered by the canonical set, so they were removed (zero coverage loss).
  */
-const SENSITIVE_DATA_PATTERNS = [
-  // UUIDs (could be user IDs)
-  /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi,
-
-  // Assessment scores (PHQ-9: 0-27, GAD-7: 0-21)
-  /phq[_-]?9?[:\s]*\d+/gi,
-  /gad[_-]?7?[:\s]*\d+/gi,
-  /score[:\s]*\d+/gi,
-
-  // Email patterns
-  /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/gi,
-
-  // Phone numbers
-  /\b\d{3}[-.]?\d{3}[-.]?\d{4}\b/g,
-
-  // SSN patterns
-  /\b\d{3}-?\d{2}-?\d{4}\b/g,
-
-  // JWT tokens
+const REPORTER_EXTRA_PATTERNS = [
+  // JWT tokens — reporter-specific (Sentry events can carry auth headers)
   /eyJ[A-Za-z0-9_-]*\.eyJ[A-Za-z0-9_-]*\.[A-Za-z0-9_-]*/g,
 
-  // Base64 encoded data (potential PHI)
+  // Base64-encoded data (potential sensitive payload) — reporter-specific
   /(?:[A-Za-z0-9+/]{4}){10,}(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?/g,
-
-  // Therapeutic content patterns
-  /mood[:\s]*["']?[a-zA-Z]+["']?/gi,
-  /feeling[:\s]*["']?[a-zA-Z]+["']?/gi,
-  /thought[:\s]*["']?[^"'\n]{5,}["']?/gi,
 ];
+
+/**
+ * SENSITIVE-DATA PATTERNS: canonical patterns + the two reporter-specific extras.
+ * Exported (read-only) so privacy regression tests can pin the scrub contract.
+ */
+export const SENSITIVE_DATA_PATTERNS = [
+  ...CORE_SENSITIVE_DATA_PATTERNS,
+  ...REPORTER_EXTRA_PATTERNS,
+];
+
+/**
+ * CRISIS / WELLNESS CONTENT SUBSTRINGS
+ *
+ * Content that must never reach an external processor (Sentry) — assessment
+ * identifiers, crisis terms, the 988 hotline. Single-sourced so the error path
+ * (`containsCrisisContent`) and the FEAT-284 feedback path
+ * (`feedbackContainsCrisisContent`) enforce the identical set.
+ */
+const CRISIS_CONTENT_PATTERNS = [
+  'phq-9', 'phq9', 'gad-7', 'gad7',
+  'crisis', 'suicid', 'self-harm',
+  'emergency', 'intervention', '988',
+] as const;
+
+/* ------------------------------------------------------------------------- *
+ * FEAT-284 — in-app bug/feedback reporting (Sentry feedback widget)
+ *
+ * The surface is Sentry's native feedback widget (message + screenshot),
+ * triggered by shake-to-report or the Profile entry. It is INTERNAL-ONLY: the
+ * whole thing is gated behind the build-time `bug_reporting` flag, which is ON
+ * for TestFlight/dev and MUST be flipped OFF before the public App Store launch
+ * (there is no build-time TestFlight-vs-App-Store distinction — same binary).
+ *
+ * PRIVACY POSTURE (deliberately useful, not maximal — internal tool, owner's
+ * own data): the screenshot is intentional and never scrubbed. Breadcrumbs ride
+ * along because they are ALREADY sanitized app-wide by `beforeBreadcrumbHook`
+ * (drops ui-interaction and sensitive-route nav, scrubs messages) and are the trail
+ * a bug report needs. `scrubFeedbackEvent` (a global event processor) applies
+ * light identity hygiene + a message pattern-scrub as defense-in-depth.
+ *
+ * WHY A PROCESSOR: `captureFeedback` (which the widget calls) emits a
+ * `type:'feedback'` event that BYPASSES `beforeSend` (verified in
+ * @sentry/core@10.x: beforeSend runs only when `event.type === undefined`). A
+ * global event processor DOES run for feedback (via prepareEvent), so it is the
+ * only place to touch the outbound feedback event.
+ * ------------------------------------------------------------------------- */
+
+/**
+ * Pattern-scrub + truncate a user-authored feedback string. Redacts inline
+ * secrets/scores/emails via the shared SENSITIVE_DATA_PATTERNS and caps length
+ * at 500 (matching the reporter's `sanitizeString` contract).
+ */
+export function sanitizeFeedbackMessage(message: string): string {
+  if (!message || typeof message !== 'string') return '';
+  let out = message;
+  for (const pattern of SENSITIVE_DATA_PATTERNS) {
+    out = out.replace(pattern, '[REDACTED]');
+  }
+  return out.substring(0, 500);
+}
+
+/**
+ * Global Sentry event processor for FEAT-284 feedback events.
+ *
+ * - Non-feedback events pass through untouched (beforeSend still owns them).
+ * - Feedback events: keep the useful debugging context (screenshot attachment,
+ *   already-sanitized breadcrumbs, device, release) but apply light hygiene —
+ *   reduce `user` to the anonymous uid ONLY (never email/ip/username), never
+ *   cross-link via `associated_event_id`, and pattern-scrub the typed message.
+ * - Fail-safe: any throw → return null (drop), never fail-open.
+ */
+export function scrubFeedbackEvent(event: any): any | null {
+  if (!event || event.type !== 'feedback') return event;
+  try {
+    // Identity hygiene: keep ONLY the anonymous Supabase uid; never email/ip.
+    if (event.user) {
+      event.user = event.user.id ? { id: event.user.id } : undefined;
+    }
+
+    const fb = event.contexts?.feedback;
+    if (fb) {
+      // Don't link a feedback report to a prior (possibly wellness-context) error.
+      delete fb.associated_event_id;
+      if (fb.message) fb.message = sanitizeFeedbackMessage(fb.message);
+    }
+
+    return event;
+  } catch {
+    return null; // Fail-safe: drop on any error.
+  }
+}
 
 /**
  * Sanitized error event structure
@@ -229,12 +310,41 @@ export class ExternalErrorReporter {
             // CRITICAL: Privacy-first beforeBreadcrumb hook
             beforeBreadcrumb: (breadcrumb: any) => this.beforeBreadcrumbHook(breadcrumb),
 
-            // Disable features that could leak PHI
+            // FEAT-284: register the in-app feedback widget (shake-to-report /
+            // Profile entry → Sentry's native form + screenshot). Only wired
+            // when a DSN is present, so the dev/sim (empty DSN) build never gets
+            // it. Screenshot is intentional (a bug reporter needs it) — the
+            // wellness-data guardrail is that the whole surface is gated OFF for
+            // the public App Store build (bug_reporting flag). Feedback events
+            // are still sanitized by scrubFeedbackEvent (registered below).
+            integrations: (defaultIntegrations: any[]) => [
+              ...defaultIntegrations,
+              this.sentryModule.feedbackIntegration({
+                enableScreenshot: true,
+                enableTakeScreenshot: true,
+                showName: false,
+                showEmail: false,
+                showBranding: false,
+                formTitle: 'Report a bug',
+                submitButtonLabel: 'Send report',
+                messagePlaceholder:
+                  "What happened? A screenshot is attached — avoid typing personal wellness details here.",
+              }),
+            ],
+
+            // Disable features that could leak sensitive data
             autoSessionTracking: false,
             enableAutoPerformanceTracing: false,
             attachStacktrace: true,
             normalizeDepth: 3, // Limit depth to prevent deep object exposure
           });
+
+          // FEAT-284: feedback events (captureFeedback) BYPASS beforeSend, so
+          // register a global event processor as the enforcement point. It is a
+          // no-op for non-feedback events (which beforeSend still scrubs).
+          if (typeof this.sentryModule.addEventProcessor === 'function') {
+            this.sentryModule.addEventProcessor(scrubFeedbackEvent);
+          }
 
           this.initialized = true;
           logger.info(LogCategory.SYSTEM, 'External error reporting initialized');
@@ -311,6 +421,26 @@ export class ExternalErrorReporter {
   }
 
   /**
+   * FEAT-284: Open Sentry's in-app feedback widget (message + screenshot).
+   *
+   * No-ops safely when reporting is inactive (empty DSN on dev/sim, killed, or
+   * the feedback integration never registered), so the shake gesture and Profile
+   * entry are harmless in dev. The widget itself requires `Sentry.wrap(App)` —
+   * see App.tsx. Feedback events are sanitized by the scrubFeedbackEvent
+   * processor registered in initialize().
+   */
+  showFeedbackForm(): void {
+    if (!this.isActive() || !this.sentryModule) return;
+    try {
+      if (typeof this.sentryModule.showFeedbackWidget === 'function') {
+        this.sentryModule.showFeedbackWidget();
+      }
+    } catch {
+      logger.warn(LogCategory.SYSTEM, 'showFeedbackWidget failed');
+    }
+  }
+
+  /**
    * CRITICAL: beforeSend hook for Sentry
    * Sanitizes ALL data before external transmission
    */
@@ -329,8 +459,8 @@ export class ExternalErrorReporter {
       // Apply allowlist filtering
       const sanitized = this.applyAllowlist(event);
 
-      // Apply PHI pattern scrubbing
-      return this.scrubPHI(sanitized);
+      // Apply sensitive-data pattern scrubbing
+      return this.scrubSensitiveData(sanitized);
     } catch {
       // On any error, drop the event (fail-safe)
       logger.error(LogCategory.SECURITY, 'beforeSend sanitization failed - dropping event');
@@ -351,7 +481,7 @@ export class ExternalErrorReporter {
       // Block navigation breadcrumbs to assessment/crisis screens
       if (breadcrumb.category === 'navigation') {
         const route = breadcrumb.data?.to || breadcrumb.message || '';
-        if (this.isSensitiveRoute(route)) {
+        if (isSensitiveRoute(route)) {
           return null;
         }
       }
@@ -395,13 +525,7 @@ export class ExternalErrorReporter {
    */
   private containsCrisisContent(event: any): boolean {
     const eventStr = JSON.stringify(event).toLowerCase();
-    const crisisPatterns = [
-      'phq-9', 'phq9', 'gad-7', 'gad7',
-      'crisis', 'suicid', 'self-harm',
-      'emergency', 'intervention', '988'
-    ];
-
-    return crisisPatterns.some(pattern => eventStr.includes(pattern));
+    return CRISIS_CONTENT_PATTERNS.some(pattern => eventStr.includes(pattern));
   }
 
   /**
@@ -444,13 +568,13 @@ export class ExternalErrorReporter {
   }
 
   /**
-   * Scrub PHI patterns from event
+   * Scrub sensitive-data patterns from event
    */
-  private scrubPHI(event: any): any {
+  private scrubSensitiveData(event: any): any {
     const eventStr = JSON.stringify(event);
     let scrubbed = eventStr;
 
-    // Apply all PHI patterns
+    // Apply all sensitive-data patterns
     for (const pattern of SENSITIVE_DATA_PATTERNS) {
       scrubbed = scrubbed.replace(pattern, '[REDACTED]');
     }
@@ -474,7 +598,7 @@ export class ExternalErrorReporter {
   private sanitizeError(error: Error, context?: any): SanitizedErrorEvent {
     const sanitizedContext: SanitizedErrorEvent['context'] = {};
 
-    const screenName = this.sanitizeScreenName(context?.screenName);
+    const screenName = sanitizeScreenName(context?.screenName);
     if (screenName !== undefined) {
       sanitizedContext.screenName = screenName;
     }
@@ -499,7 +623,7 @@ export class ExternalErrorReporter {
   }
 
   /**
-   * Sanitize string by removing PHI patterns
+   * Sanitize string by removing sensitive-data patterns
    */
   private sanitizeString(str: string): string {
     if (!str || typeof str !== 'string') return '';
@@ -524,39 +648,6 @@ export class ExternalErrorReporter {
       .replace(/\/Users\/[^/]+\//gi, '/~/')
       .replace(/C:\\Users\\[^\\]+\\/gi, 'C:\\~\\')
       .replace(/node_modules/gi, 'nm');
-  }
-
-  /**
-   * Sanitize screen name
-   */
-  private sanitizeScreenName(name?: string): string | undefined {
-    if (!name) return undefined;
-
-    // Only allow generic screen names
-    const allowedScreens = [
-      'Home', 'Settings', 'Profile', 'Learn', 'Practice',
-      'Morning', 'Midday', 'Evening', 'CheckIn', 'Progress',
-    ];
-
-    const genericName = name.replace(/Screen$/, '');
-    if (allowedScreens.some(s => genericName.toLowerCase().includes(s.toLowerCase()))) {
-      return genericName;
-    }
-
-    return 'App'; // Default for sensitive screens
-  }
-
-  /**
-   * Check if route is sensitive
-   */
-  private isSensitiveRoute(route: string): boolean {
-    const sensitiveRoutes = [
-      'assessment', 'phq', 'gad', 'crisis', 'emergency',
-      'safety', 'intervention', 'journal', 'reflection'
-    ];
-
-    const routeLower = route.toLowerCase();
-    return sensitiveRoutes.some(r => routeLower.includes(r));
   }
 
   /**
@@ -588,7 +679,7 @@ export class ExternalErrorReporter {
    */
   private detectEnvironment(): 'development' | 'staging' | 'production' {
     if (__DEV__) return 'development';
-    if (process.env.NODE_ENV === 'staging') return 'staging';
+    if ((process.env.NODE_ENV as string) === 'staging') return 'staging';
     return 'production';
   }
 
@@ -652,3 +743,10 @@ export const killExternalReporting = () =>
 
 export const isExternalReportingActive = () =>
   externalErrorReporter.isActive();
+
+/**
+ * FEAT-284: Open the in-app bug/feedback widget (Sentry). Safe no-op when
+ * reporting is inactive (dev/sim empty DSN). Gated at call sites by
+ * isFeatureEnabled('bug_reporting').
+ */
+export const showFeedbackForm = (): void => externalErrorReporter.showFeedbackForm();

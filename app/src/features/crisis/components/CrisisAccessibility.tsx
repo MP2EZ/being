@@ -22,11 +22,10 @@ import {
   Animated,
   Vibration,
   Platform,
-  Linking,
-  Alert,
   Dimensions,
 } from 'react-native';
 import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
+import { openCrisisUrl } from '@/features/crisis/utils/openCrisisUrl';
 import { useAdvancedScreenReader } from '@/core/components/accessibility/advanced/AdvancedScreenReader';
 import { useSensoryAccessibility } from '@/core/components/accessibility/advanced/SensoryAccessibility';
 import { useMotorAccessibility, AccessiblePressable } from '@/core/components/accessibility/advanced/MotorAccessibility';
@@ -273,20 +272,13 @@ export const CrisisAccessibilityProvider: React.FC<CrisisAccessibilityProviderPr
 
       // Announce action
       announceEmergencyAction(`Calling ${contact.name}`);
-      
-      // Initiate call
-      const phoneUrl = `tel:${contact.phone}`;
-      Linking.canOpenURL(phoneUrl).then(supported => {
-        if (supported) {
-          Linking.openURL(phoneUrl);
-        } else {
-          Alert.alert('Cannot make call', `Please dial ${contact.phone} manually`);
-        }
-      });
+
+      // Initiate call (guarded + manual-dial fallback via shared helper)
+      void openCrisisUrl(`tel:${contact.phone}`, { manualLabel: contact.phone });
     } else if (contactId === '988') {
       // Direct 988 crisis line
       announceEmergencyAction('Connecting to 988 Crisis Lifeline');
-      Linking.openURL('tel:988');
+      void openCrisisUrl('tel:988', { manualLabel: '988' });
     }
   }, [emergencyContacts]);
 

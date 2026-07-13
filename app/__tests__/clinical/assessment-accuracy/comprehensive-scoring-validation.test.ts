@@ -50,6 +50,16 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
   removeItem: jest.fn().mockResolvedValue(undefined),
 }));
 
+// INFRA-144: assessmentStore now persists via SecureStorageService.
+jest.mock('@/core/services/security/SecureStorageService', () => ({
+  __esModule: true,
+  default: {
+    storeWellnessBlob: jest.fn().mockResolvedValue({ success: true, operationType: 'store', storageKey: '', operationTimeMs: 0, dataSize: 0 }),
+    retrieveWellnessBlob: jest.fn().mockResolvedValue(null),
+    deleteWellnessBlob: jest.fn().mockResolvedValue(undefined),
+  },
+}));
+
 jest.mock('react-native', () => ({
   Alert: {
     alert: jest.fn(),
@@ -157,9 +167,14 @@ describe('COMPREHENSIVE CLINICAL SCORING VALIDATION - ALL 48 COMBINATIONS', () =
 
         if (expectCrisis) {
           expect(finalStore.crisisDetection).toBeTruthy();
+          // DEBUG-229 / MAINT-226 Decision E — dual-threshold tiers: ≥20 (no Q9)
+          // is the intervention tier `phq9_severe_score`; 15–19 is the support tier
+          // `phq9_moderate_severe_score`. Q9>0 always wins as suicidal-ideation.
           const expectedTrigger = suicidalResponse > 0
             ? 'phq9_suicidal_ideation'
-            : 'phq9_moderate_severe_score';
+            : score >= CRISIS_THRESHOLDS.PHQ9_SEVERE_THRESHOLD
+              ? 'phq9_severe_score'
+              : 'phq9_moderate_severe_score';
           expect(finalStore.crisisDetection?.primaryTrigger).toBe(expectedTrigger);
           // triggerValue: when answerQuestion fires inline crisis for phq9_9 > 0,
           // the detection carries the *actual response value* (1, 2, or 3) — that

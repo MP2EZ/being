@@ -125,10 +125,15 @@ jest.mock('react-native', () => ({
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { EncryptionService } = require('../EncryptionService');
 
-beforeEach(() => {
+beforeEach(async () => {
   mockCipherRegistry.clear();
   mockSecureStoreMap.clear();
   mockRandomCounter = 0;
+  // INFRA-144 followup: initialize() is now idempotent (singleton trusts its
+  // masterKeyInitialized flag). Wiping mockSecureStoreMap clears the stored
+  // master key but not the in-memory flag, so the singleton must be reset
+  // explicitly between tests.
+  await EncryptionService.getInstance().destroy();
 });
 
 describe('EncryptionService — round-trip integrity (audit TEST-02)', () => {
@@ -330,5 +335,24 @@ describe('EncryptionService — error branches (TEST-20)', () => {
       // The error message must mention initialization for Sentry triage
       expect(String((e as Error).message)).toMatch(/initialized|initialize/i);
     }
+  });
+});
+
+describe('EncryptionService — master key deletion (MAINT-241 right-to-erasure)', () => {
+  it('deleteMasterKey removes the master key from SecureStore and resets init state', async () => {
+    const service = EncryptionService.getInstance();
+    await service.initialize();
+    expect(mockSecureStoreMap.has('mental_health_master_key')).toBe(true);
+
+    await service.deleteMasterKey();
+
+    // Master key gone from hardware-backed store — wellness ciphertext is now
+    // cryptographically unrecoverable (the point of account-deletion erasure).
+    expect(mockSecureStoreMap.has('mental_health_master_key')).toBe(false);
+
+    // Init state was reset: a fresh initialize() re-provisions a new master key
+    // rather than short-circuiting on a stale masterKeyInitialized flag.
+    await service.initialize();
+    expect(mockSecureStoreMap.has('mental_health_master_key')).toBe(true);
   });
 });

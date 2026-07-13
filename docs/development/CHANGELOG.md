@@ -1,0 +1,39 @@
+# Changelog
+
+All notable infrastructure and tooling changes that affect contributors. App-store-facing release notes live elsewhere (see `/b-release` flow). Keep entries Keep-a-Changelog style.
+
+## [Unreleased]
+
+### Changed (INFRA-158 — Expo SDK 54 → 56)
+
+- **Expo SDK** 54 → 56 (carries **React Native** 0.81.4 → 0.85.3, **React** 19.1.0 → 19.2.3)
+- **iOS minimum deployment target** 15.1 → 16.4 (drops iPhone 7/7+, 6s/6s+, SE 1st gen, iPad mini 4, iPad Air 2)
+- **Hermes V1** is now the default JS engine
+- **Reanimated** 4.3.x with new animation backend (`react-native-worklets` is now a required peer dep — added)
+- **Vector icons** migrated from `@expo/vector-icons` to scoped `@react-native-vector-icons/*` packages. `MaterialCommunityIcons` → `MaterialDesignIcons` (same glyphs, new component name).
+
+### Changed (MAINT-162 — TypeScript 5.9 → 6.0)
+
+- **TypeScript** `~5.9.2` → `~6.0.3` — lands the Expo SDK 56 default deferred by INFRA-158. Removed the `expo.install.exclude: ["typescript"]` opt-out from `app/package.json`.
+- `tsconfig.json`: added explicit `types: ["node", "react"]` because TS 6 stopped auto-including `@types/node`'s ambient globals (`NodeJS.Timeout`, `global`); and added `ignoreDeprecations: "6.0"` to defer the `baseUrl` removal to the eventual TS 7 migration.
+- **No source/behavioral changes** — TS 6's stricter discriminated-union narrowing surfaced no new errors in the existing strict-typed clinical/crisis code; clinical, crisis-detection, unit, and safety suites all pass unchanged.
+
+### Removed
+
+- `newArchEnabled` config field (removed by SDK 55; New Architecture is mandatory)
+- `edgeToEdgeEnabled` and `expo.edgeToEdgeEnabled` Android config (removed by SDK 55; edge-to-edge is mandatory)
+- Top-level `splash` config (replaced by the `expo-splash-screen` config plugin)
+- `ios.jsEngine` / `android.jsEngine` config (Hermes is the only option)
+- `expo-build-properties`'s `ios.entitlements` field (removed in SDK 56). App Groups entitlement now injected via the local config plugin at `app/plugins/withAppGroupsEntitlement.js`.
+
+### Added
+
+- `expo-splash-screen` (formerly bundled into the `splash` top-level field)
+- `expo-system-ui` (required to honor `userInterfaceStyle: "automatic"`)
+- `react-native-worklets` (required peer dep of Reanimated 4.x)
+- `@react-native-vector-icons/material-design-icons`, `@react-native-vector-icons/ionicons`
+- `app/plugins/withAppGroupsEntitlement.js` — local Expo config plugin for App Groups
+
+### Changed (MAINT-163 — `expo/fetch` as `globalThis.fetch`)
+
+- Dropped the `EXPO_PUBLIC_USE_RN_FETCH=1` opt-out from both `.config/.env.production` and `.config/.env.development`. `globalThis.fetch` is now Expo's `expo/fetch` (the SDK 56 default) instead of React Native's native `fetch`. This lands the second half of the INFRA-158 deferral. Validation is **manual end-to-end on a TestFlight build** — the work item AC covers Supabase auth + RLS queries, Stripe receipt verification via Supabase Edge Function, PostHog event ingestion, Sentry error capture, and react-native-iap sandbox receipt round-trip.

@@ -14,36 +14,32 @@
  */
 
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { Text, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRoute, RouteProp } from '@react-navigation/native';
 import Markdown from 'react-native-markdown-display';
 import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
-import { LegalDocument } from '../content/legalDocuments';
+import { getLegalDocument } from '../content/legalDocuments';
+import type { ProfileStackParamList } from '../ProfileStackNavigator';
 
-interface LegalDocumentScreenProps {
-  document: LegalDocument;
-  onReturn: () => void;
-}
+// FEAT-212: route on ProfileStackNavigator. The document is resolved from the
+// serializable `documentType` route param; the native stack header supplies the
+// back chevron and the document title (set in the navigator), so the former
+// custom in-content "← Back" header is removed.
+const LegalDocumentScreen: React.FC = () => {
+  const route = useRoute<RouteProp<ProfileStackParamList, 'LegalDocument'>>();
+  const document = getLegalDocument(route.params.documentType);
 
-const LegalDocumentScreen: React.FC<LegalDocumentScreenProps> = ({
-  document,
-  onReturn,
-}) => {
+  if (!document) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <Text style={styles.notFoundText}>Document not found.</Text>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          onPress={onReturn}
-          style={styles.backButton}
-          accessibilityLabel="Back to Legal Documents"
-          accessibilityRole="button"
-        >
-          <Text style={styles.backButtonText}>← Back</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Legal Documents</Text>
-        <View style={styles.headerSpacer} />
-      </View>
-
       <ScrollView
         style={styles.scrollContainer}
         contentContainerStyle={styles.scrollContent}
@@ -60,33 +56,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colorSystem.base.white,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing[16],
-    paddingVertical: spacing[12],
-    borderBottomWidth: 1,
-    borderBottomColor: colorSystem.gray[200],
-  },
-  backButton: {
-    minWidth: 44,
-    minHeight: 44,
-    justifyContent: 'center',
-  },
-  backButtonText: {
+  notFoundText: {
     fontSize: typography.bodyRegular.size,
-    fontWeight: typography.fontWeight.medium as '500',
-    color: colorSystem.base.midnightBlue,
-  },
-  headerTitle: {
-    flex: 1,
-    fontSize: typography.headline3.size,
-    fontWeight: typography.fontWeight.semibold as '600',
-    color: colorSystem.base.black,
+    color: colorSystem.gray[600],
     textAlign: 'center',
-  },
-  headerSpacer: {
-    minWidth: 44,
+    padding: spacing[24],
   },
   scrollContainer: {
     flex: 1,

@@ -7,21 +7,29 @@
 import React, { useState, useEffect } from 'react';
 import { View, ActivityIndicator, StyleSheet, TouchableOpacity, Text } from 'react-native';
 import { logPerformance, logSystem } from '@/core/services/logging';
+import { whenE2ESeedComplete } from '@/core/config/e2eSeed';
 import { generateTimestampedId } from '@/core/utils/id';
 import { NavigationContainer } from '@react-navigation/native';
 import { linkingConfig } from './linking';
+import { navigationRef, getActiveRootRouteName } from './navigationRef';
 import { createStackNavigator } from '@react-navigation/stack';
+import { HeaderBackButton } from '@react-navigation/elements';
 import { spacing, typography } from '@/core/theme';
 import CleanTabNavigator from './CleanTabNavigator';
 import MorningFlowNavigator from '@/features/practices/morning/MorningFlowNavigator';
 import MiddayFlowNavigator from '@/features/practices/midday/MiddayFlowNavigator';
 import EveningFlowNavigator from '@/features/practices/evening/EveningFlowNavigator';
+import { DailyLoopNavigator } from '@/features/practices/dailyloop';
 import CrisisResourcesScreen from '@/features/crisis/screens/CrisisResourcesScreen';
+import RootCrisisButton from '@/features/crisis/components/RootCrisisButton';
 import PurchaseOptionsScreen from '@/core/components/subscription/PurchaseOptionsScreen';
 import SubscriptionStatusCard from '@/core/components/subscription/SubscriptionStatusCard';
 import OnboardingScreen from '@/features/onboarding/screens/OnboardingScreen';
 import EnhancedAssessmentFlow from '@/features/assessment/components/EnhancedAssessmentFlow';
 import ModuleDetailScreen from '@/features/learn/screens/ModuleDetailScreen';
+import WellnessTrendsDetailScreen from '@/features/insights/screens/WellnessTrendsDetailScreen';
+import ClassicalLibraryScreen from '@/features/library/screens/ClassicalLibraryScreen';
+import PassageReaderScreen from '@/features/library/screens/PassageReaderScreen';
 import {
   PracticeTimerScreen,
   ReflectionTimerScreen,
@@ -34,7 +42,9 @@ import { useSettingsStore } from '@/core/stores/settingsStore';
 import { useConsentStore } from '@/core/stores/consentStore';
 import { CombinedLegalGateScreen } from '@/features/consent';
 import type { AssessmentType, PHQ9Result, GAD7Result } from '@/features/assessment/types';
+import type { DailyLoopMode, DailyLoopSessionData } from '@/features/practices/types/flows';
 import type { ModuleId, SortingScenario } from '@/features/learn/types/education';
+import type { PassageAuthor } from '@/features/library/types/library';
 
 export type RootStackParamList = {
   LegalGate: undefined;
@@ -43,7 +53,12 @@ export type RootStackParamList = {
   MorningFlow: undefined;
   MiddayFlow: undefined;
   EveningFlow: undefined;
+  // FEAT-291: single-loop daily-practice prototype (build-time flag `daily_loop`).
+  // `mode` optional — when absent the loop shows its in-flow mode picker.
+  DailyLoop: { mode?: DailyLoopMode } | undefined;
   ModuleDetail: { moduleId: ModuleId };
+  ClassicalLibrary: { principle?: ModuleId; author?: PassageAuthor } | undefined;
+  PassageReader: { passageId: string };
   PracticeTimer: {
     practiceId: string;
     moduleId: ModuleId;
@@ -86,6 +101,7 @@ export type RootStackParamList = {
   } | undefined;
   Subscription: undefined;
   SubscriptionStatus: undefined;
+  WellnessTrendsDetail: undefined;
 };
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -102,9 +118,18 @@ const CleanRootNavigator: React.FC = () => {
   const { loadSettings, markOnboardingComplete } = useSettingsStore();
   const { loadConsent, consentStatus } = useConsentStore();
   const [initialRoute, setInitialRoute] = useState<'LegalGate' | 'Onboarding' | 'Main' | null>(null);
+  // MAINT-290: active root-stack route drives the single RootCrisisButton overlay
+  // (suppression + immersive/standard mode). Tracked via NavigationContainer below.
+  const [activeRootRoute, setActiveRootRoute] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     async function checkInitialRoute() {
+      // INFRA-217: in the e2e-sim build, wait for the launch-time seed to write
+      // onboarding + consent before reading state, so the FIRST resolved route is
+      // already Main (initialRouteName only applies on first navigator mount).
+      // Resolves immediately in every real build.
+      await whenE2ESeedComplete();
+
       // Both reads are independent AsyncStorage gets — parallelize.
       const [settings, consent] = await Promise.all([loadSettings(), loadConsent()]);
 
@@ -185,6 +210,14 @@ const CleanRootNavigator: React.FC = () => {
     }
   };
 
+  // FEAT-291: daily-loop prototype. Tracked as 'midday' (no new CheckInType — the
+  // FlowType unification is the deferred step-5 migration). Marks midday's card
+  // complete-today; acceptable dark-prototype tradeoff (noted in the PR).
+  const handleDailyLoopComplete = async (sessionData: DailyLoopSessionData) => {
+    logSystem(`Daily loop completed (mode: ${sessionData.mode})`);
+    await markCheckInComplete('midday');
+  };
+
   const handleOnboardingComplete = async (destination?: 'home' | 'morning') => {
     await markOnboardingComplete();
     setInitialRoute('Main');
@@ -203,9 +236,15 @@ const CleanRootNavigator: React.FC = () => {
   }
 
   return (
-    <NavigationContainer linking={linkingConfig}>
-      <Stack.Navigator
-        initialRouteName={initialRoute}
+    <NavigationContainer
+      ref={navigationRef}
+      linking={linkingConfig}
+      onReady={() => setActiveRootRoute(getActiveRootRouteName() ?? initialRoute)}
+      onStateChange={() => setActiveRootRoute(getActiveRootRouteName())}
+    >
+      <View style={styles.root}>
+        <Stack.Navigator
+          initialRouteName={initialRoute}
         screenOptions={{
           headerShown: false,
           headerStyle: {
@@ -279,6 +318,34 @@ const CleanRootNavigator: React.FC = () => {
           component={ModuleDetailScreen}
           options={{
             headerShown: false, // ModuleDetailScreen has its own header
+            presentation: 'card',
+          }}
+        />
+
+        {/* Wellness Trends full-history detail (FEAT-196) */}
+        <Stack.Screen
+          name="WellnessTrendsDetail"
+          component={WellnessTrendsDetailScreen}
+          options={{
+            headerShown: false, // screen renders its own header + back affordance
+            presentation: 'card',
+          }}
+        />
+
+        {/* Classical Resources Library (FEAT-54) */}
+        <Stack.Screen
+          name="ClassicalLibrary"
+          component={ClassicalLibraryScreen}
+          options={{
+            headerShown: false, // ClassicalLibraryScreen has its own header
+            presentation: 'card',
+          }}
+        />
+        <Stack.Screen
+          name="PassageReader"
+          component={PassageReaderScreen}
+          options={{
+            headerShown: false, // PassageReaderScreen has its own header
             presentation: 'card',
           }}
         />
@@ -450,6 +517,29 @@ const CleanRootNavigator: React.FC = () => {
             )}
           </Stack.Screen>
 
+          {/* FEAT-291: Daily Loop prototype — reached only from the Home
+              `daily_loop`-flag-gated card. One nested navigator → inherits the single
+              root crisis overlay (DailyLoop is in RootCrisisButton IMMERSIVE_ROUTES). */}
+          <Stack.Screen
+            name="DailyLoop"
+            options={{
+              headerShown: false,
+              gestureEnabled: false,
+              animationTypeForReplace: 'push'
+            }}
+          >
+            {({ navigation, route }) => (
+              <DailyLoopNavigator
+                mode={route.params?.mode}
+                onComplete={(sessionData) => {
+                  handleDailyLoopComplete(sessionData);
+                  navigation.goBack();
+                }}
+                onExit={() => navigation.goBack()}
+              />
+            )}
+          </Stack.Screen>
+
           {/* Assessment Flow Modal */}
           <Stack.Screen
             name="AssessmentFlow"
@@ -506,7 +596,20 @@ const CleanRootNavigator: React.FC = () => {
               headerShown: true,
               headerBackTitle: 'Back',
               presentation: 'modal',
-              gestureEnabled: true
+              gestureEnabled: true,
+              // INFRA-185: wrap the default HeaderBackButton with a testID so
+              // Maestro's `crisis-button-reachability.yaml` flow can pop the
+              // modal between tab iterations. Maestro v2.6's `- back` action
+              // doesn't honor modal-presentation stack screens on iOS sim,
+              // and `text:` doesn't match the iOS header chevron's
+              // accessibilityText. Native HeaderBackButton, just with the
+              // testID prop — same visual UX as every other stack screen.
+              headerLeft: (headerLeftProps) => (
+                <HeaderBackButton
+                  {...headerLeftProps}
+                  testID="nav-back-button"
+                />
+              ),
             }}
           />
 
@@ -533,12 +636,22 @@ const CleanRootNavigator: React.FC = () => {
             }}
           />
         </Stack.Group>
-      </Stack.Navigator>
+        </Stack.Navigator>
+
+        {/* MAINT-290: single persistent crisis-button overlay. Sibling of the root
+            Stack.Navigator (JS stack → renders above stack modals too), so 988 access
+            is guaranteed on every screen/step and can't regress per-screen. Mode +
+            suppression are driven by the active root-stack route. */}
+        <RootCrisisButton routeName={activeRootRoute ?? initialRoute} />
+      </View>
     </NavigationContainer>
   );
 };
 
 const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',

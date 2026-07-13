@@ -19,13 +19,23 @@
     "composite": false,
     "verbatimModuleSyntax": false,
     "isolatedModules": true,
+    // MAINT-162 (TS 5.9 → 6.0): under TS 6 the automatic inclusion of ambient
+    // `@types` stopped pulling in `@types/node`, so `NodeJS.Timeout` / `global`
+    // failed to resolve across the codebase. Pin the ambient type packages
+    // explicitly. (`@types/react` also flows in via module imports; listed here
+    // to preserve its UMD global. Test-only `@types/jest` is unneeded — test
+    // files are excluded below.)
+    "types": ["node", "react"],
+    // TS 6 deprecates `baseUrl` (removed in TS 7). Kept for now — its clean
+    // removal belongs to the deferred TS 7 migration. Silence the TS6.0
+    // deprecation-as-error via `ignoreDeprecations` until then.
+    "ignoreDeprecations": "6.0",
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"],
       // New feature-based path aliases
       "@/core/*": ["src/core/*"],
       "@/features/*": ["src/features/*"],
-      "@/compliance/*": ["src/compliance/*"],
       "@/analytics/*": ["src/analytics/*"],
       // Legacy path aliases (kept during migration, will be removed in Phase 10)
       "@/components/*": ["src/components/*"],

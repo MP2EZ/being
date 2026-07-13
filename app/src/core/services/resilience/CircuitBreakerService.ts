@@ -1,6 +1,5 @@
 /**
  * CIRCUIT BREAKER SERVICE - System Resilience
- * Week 4 Phase 2a - Critical Production Infrastructure
  *
  * FAULT TOLERANCE FOR SAFETY-CRITICAL SYSTEMS:
  * - Prevent cascading failures in external service dependencies
@@ -69,7 +68,7 @@ interface CircuitBreakerMetrics {
 // Fallback Strategy Configuration
 interface FallbackConfig {
   enabled: boolean;
-  strategy: 'cache' | 'default' | 'queue' | 'offline' | 'skip';
+  strategy: 'cache' | 'default' | 'queue' | 'offline' | 'skip' | 'escalate';
   cacheKey?: string;
   defaultValue?: any;
   queueForRetry?: boolean;
@@ -205,6 +204,18 @@ class CircuitBreaker {
           strategy: 'skip'
         });
         return undefined as T;
+
+      case 'escalate':
+        // Safety-critical, non-breakable services (e.g. crisis detection)
+        // must NEVER silently degrade to a fallback value — a false negative
+        // here is life-threatening. Escalate by throwing so the caller's own
+        // error handling fires. Audit-logged at critical severity.
+        logSecurity(`Circuit breaker escalation (fail-closed) for ${this.serviceName}`, 'critical', {
+          component: 'circuit_breaker',
+          service: this.serviceName,
+          strategy: 'escalate'
+        });
+        throw new Error(`Circuit breaker escalated (fail-closed) for ${this.serviceName}`);
 
       default:
         throw new Error(`Circuit breaker open for ${this.serviceName}`);
@@ -453,6 +464,12 @@ class CircuitBreaker {
 
     if (state === CircuitBreakerState.CLOSED) {
       this.metrics.circuitOpenTime = null;
+    } else if (state === CircuitBreakerState.OPEN) {
+      // MAINT-242 fix: stamp circuitOpenTime when force-opening (mirrors
+      // transitionToOpen). Without this, shouldAttemptRecovery() — which
+      // compares Date.now() - circuitOpenTime against recoveryTimeout —
+      // never becomes true for a force-opened circuit, wedging it OPEN.
+      this.metrics.circuitOpenTime = Date.now();
     }
   }
 }
@@ -528,9 +545,13 @@ export class CircuitBreakerService {
   // Fallback configurations
   private readonly fallbackConfigs: Record<ProtectedService, FallbackConfig> = {
     [ProtectedService.CRISIS_DETECTION]: {
-      enabled: true,
-      strategy: 'default',
-      defaultValue: { isCrisis: false, severity: 'unknown' }
+      // Non-breakable: crisis detection must never fail open to a false
+      // negative. With enabled:false, a failed operation rethrows the
+      // original error (execute() → throw error); an already-OPEN breaker
+      // escalates via the 'escalate' strategy. Either way it fails closed.
+      // (DEBUG-230 / SEC-07.)
+      enabled: false,
+      strategy: 'escalate'
     },
     [ProtectedService.AUTHENTICATION]: {
       enabled: true,

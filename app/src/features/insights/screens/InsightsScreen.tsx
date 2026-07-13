@@ -29,22 +29,23 @@
  */
 
 import React, { useMemo, useCallback } from 'react';
-import { View, Text, ScrollView, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useStoicPracticeStore } from '@/features/practices/stores/stoicPracticeStore';
 import { useAssessmentStore } from '@/features/assessment/stores/assessmentStore';
-import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useAnalytics } from '@/core/analytics';
 import { StackNavigationProp } from '@react-navigation/stack';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
-import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
+import { colorSystem, semantic, spacing, borderRadius, typography } from '@/core/theme';
+import { BodyHeader } from '@/core/components/BodyHeader';
 
 // Import components
 import {
   DotCalendar,
   PrincipleEngagementChart,
   WellnessScreeningTrends,
+  WeeklyReflectionCard,
 } from '../components';
 
 type NavigationProp = StackNavigationProp<RootStackParamList>;
@@ -123,34 +124,12 @@ const InsightsScreen: React.FC = () => {
   // Get daily quote
   const dailyQuote = useMemo(() => getDailyQuote(), []);
 
-  // Process assessment history for wellness trends
-  const { phq9History, gad7History } = useMemo(() => {
-    const phq9: { score: number; date: Date; severity: string }[] = [];
-    const gad7: { score: number; date: Date; severity: string }[] = [];
-
-    for (const session of completedAssessments) {
-      if (!session.result) continue;
-
-      // Get date from progress.startedAt (timestamp in ms)
-      const date = new Date(session.progress.startedAt);
-
-      if (session.type === 'phq9') {
-        phq9.push({
-          score: session.result.totalScore,
-          date,
-          severity: session.result.severity,
-        });
-      } else if (session.type === 'gad7') {
-        gad7.push({
-          score: session.result.totalScore,
-          date,
-          severity: session.result.severity,
-        });
-      }
-    }
-
-    return { phq9History: phq9, gad7History: gad7 };
-  }, [completedAssessments]);
+  // Only offer the full-history detail screen (FEAT-196) once there's a
+  // completed screening to show — mirrors WellnessScreeningTrends' own guard.
+  const hasWellnessHistory = useMemo(
+    () => completedAssessments.some((s) => (s.type === 'phq9' || s.type === 'gad7') && s.result),
+    [completedAssessments]
+  );
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -159,13 +138,12 @@ const InsightsScreen: React.FC = () => {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header Section */}
-        <View style={styles.header}>
-          <Text style={styles.screenTitle}>Insights</Text>
-          <Text style={styles.headerSubtitle}>
-            Here is what your practice looks like.{'\n'}What do you notice?
-          </Text>
-        </View>
+        {/* Header (MAINT-257: shared BodyHeader idiom — borderless, left headline2) */}
+        <BodyHeader
+          title="Insights"
+          subtitle={'Here is what your practice looks like.\nWhat do you notice?'}
+          containerStyle={styles.header}
+        />
 
         {/* Marcus Aurelius Quote */}
         {dailyQuote && (
@@ -184,22 +162,31 @@ const InsightsScreen: React.FC = () => {
           initialTimeRange="month"
         />
 
-        {/* Wellness Screening Trends (Clinical Context) */}
-        <WellnessScreeningTrends
-          phq9History={phq9History}
-          gad7History={gad7History}
-        />
+        {/* Weekly Reflection (FEAT-194) - replaces FEAT-53 standalone weekly review */}
+        <WeeklyReflectionCard />
+
+        {/* Wellness Screening Trends (wellness context) */}
+        <WellnessScreeningTrends sessions={completedAssessments} />
+
+        {/* Full-history detail entry point (FEAT-196) */}
+        {hasWellnessHistory && (
+          <TouchableOpacity
+            style={styles.fullHistoryLink}
+            onPress={() => navigation.navigate('WellnessTrendsDetail')}
+            accessibilityRole="button"
+            accessibilityLabel="See full history"
+            accessibilityHint="Opens the full wellness screening trend history"
+          >
+            <Text style={styles.fullHistoryLinkText}>See full history</Text>
+            <Text style={styles.fullHistoryLinkArrow} accessibilityElementsHidden importantForAccessibility="no">
+              →
+            </Text>
+          </TouchableOpacity>
+        )}
 
         {/* Bottom Padding */}
         <View style={styles.bottomPadding} />
       </ScrollView>
-
-      {/* Crisis Button */}
-      <CollapsibleCrisisButton
-        mode="standard"
-        onNavigate={() => navigation.navigate('CrisisResources')}
-        testID="crisis-insights"
-      />
     </SafeAreaView>
   );
 };
@@ -211,7 +198,8 @@ const InsightsScreen: React.FC = () => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: colorSystem.gray[100],
+    // MAINT-263: unified tab-screen surface (was gray[100]).
+    backgroundColor: semantic.background.screen,
   },
   scrollView: {
     flex: 1,
@@ -223,24 +211,17 @@ const styles = StyleSheet.create({
   header: {
     marginBottom: spacing[16],
   },
-  screenTitle: {
-    fontSize: typography.headline2.size,
-    fontWeight: typography.fontWeight.bold,
-    color: colorSystem.base.midnightBlue,
-    marginBottom: spacing[4],
-  },
-  headerSubtitle: {
-    fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[600],
-    lineHeight: 22,
-  },
   quoteContainer: {
     backgroundColor: colorSystem.base.white,
-    borderRadius: borderRadius.medium,
+    // MAINT-222: unified content-card radius (xl=16)
+    borderRadius: borderRadius.xl,
+    // MAINT-263: hairline so the card stays defined on the now-white screen surface.
+    borderWidth: 1,
+    borderColor: semantic.border.default,
     padding: spacing[16],
     marginBottom: spacing[16],
     borderLeftWidth: 3,
-    borderLeftColor: colorSystem.themes.morning.primary,
+    borderLeftColor: colorSystem.navigation.insights,
   },
   quoteText: {
     fontSize: typography.bodyRegular.size,
@@ -256,6 +237,24 @@ const styles = StyleSheet.create({
   },
   bottomPadding: {
     height: spacing[32],
+  },
+  fullHistoryLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 44, // ≥44pt tap target (WCAG 2.5.5)
+    marginBottom: spacing[16],
+  },
+  fullHistoryLinkText: {
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.medium,
+    color: colorSystem.base.midnightBlue,
+  },
+  fullHistoryLinkArrow: {
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.medium,
+    color: colorSystem.base.midnightBlue,
+    marginLeft: spacing[4],
   },
 });
 

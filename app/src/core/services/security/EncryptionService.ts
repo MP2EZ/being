@@ -1,7 +1,7 @@
 /**
  * ENCRYPTION SERVICE - DRD-FLOW-005 Security Implementation
  *
- * COMPREHENSIVE ENCRYPTION FOR MENTAL HEALTH DATA:
+ * COMPREHENSIVE ENCRYPTION FOR WELLNESS DATA:
  * - End-to-end encryption for PHQ-9/GAD-7 assessment responses
  * - Crisis intervention data protection with AES-256-GCM
  * - Key derivation and management with PBKDF2
@@ -15,7 +15,7 @@
  * - Perfect forward secrecy with ephemeral keys
  * - Memory-safe key handling and cleanup
  *
- * MENTAL HEALTH DATA CATEGORIES:
+ * WELLNESS DATA CATEGORIES:
  * - Level 1: PHQ-9/GAD-7 responses (highest security)
  * - Level 2: Crisis intervention metadata
  * - Level 3: Performance and audit data
@@ -143,7 +143,7 @@ export interface EncryptionPerformanceMetrics {
 
 /**
  * COMPREHENSIVE ENCRYPTION SERVICE
- * Handles all mental health data encryption requirements
+ * Handles all wellness data encryption requirements
  */
 export class EncryptionService {
   private static instance: EncryptionService;
@@ -152,9 +152,21 @@ export class EncryptionService {
   private performanceMetrics: EncryptionPerformanceMetrics[] = [];
   private masterKeyInitialized: boolean = false;
   private keyRotationTimer: NodeJS.Timeout | null = null;
+  /**
+   * In-flight initialize promise. Concurrent callers (e.g. several Zustand
+   * persist rehydration paths racing during boot, each via
+   * SecureStorageService.storeWellnessBlob's lazy init) share this so we run
+   * the key-derivation + capability-verify dance exactly once per cold start.
+   */
+  private initPromise: Promise<void> | null = null;
 
   private constructor() {
-    this.initializeKeyRotationScheduler();
+    // Match SecureStorageService.ts:159 — skip the long-lived setInterval
+    // under Jest so the runtime can exit cleanly. The scheduler is only
+    // meaningful in the running app (cold-boot → 24h rotation cadence).
+    if (process.env.NODE_ENV !== 'test') {
+      this.initializeKeyRotationScheduler();
+    }
   }
 
   public static getInstance(): EncryptionService {
@@ -165,10 +177,93 @@ export class EncryptionService {
   }
 
   /**
+   * MAINT-190: Test-only escape hatch for singleton state isolation.
+   *
+   * Clears in-memory caches and the rotation timer so the next test gets a
+   * fresh instance. **Does NOT delete the master key in expo-secure-store**
+   * — that key is hardware-backed (Keychain / Keystore) and shared across
+   * the entire app; wiping it would silently brick subsequent tests' ability
+   * to decrypt anything written by earlier tests. Tests that need a fresh
+   * master key must `await this.deleteMasterKey()` explicitly.
+   *
+   * Also nulls `initPromise` so the in-flight-init race-guard doesn't hold
+   * a stale resolved promise across tests.
+   *
+   * Production safety: throws if NODE_ENV !== 'test'. The compliance agent
+   * called out specifically that a production call here would invalidate
+   * the AES key cache mid-session, causing all subsequent wellness-data
+   * reads to round-trip through key derivation again — a multi-hundred-ms
+   * performance regression invisible to users until they hit a slow flow.
+   */
+  public static __resetForTesting__(): void {
+    if (process.env.NODE_ENV !== 'test') {
+      throw new Error(
+        'EncryptionService.__resetForTesting__() called outside NODE_ENV=test — refusing to clear encryption caches in production'
+      );
+    }
+    if (EncryptionService.instance) {
+      const inst = EncryptionService.instance;
+      if (inst.keyRotationTimer) {
+        clearInterval(inst.keyRotationTimer);
+        inst.keyRotationTimer = null;
+      }
+      inst.keyCache.clear();
+      inst.keyMetadata.clear();
+      inst.performanceMetrics = [];
+      inst.masterKeyInitialized = false;
+      inst.initPromise = null;
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- intentional: nulling private static reset target
+    EncryptionService.instance = undefined as any;
+  }
+
+  /**
    * INITIALIZE ENCRYPTION SYSTEM
    * Sets up master key and encryption infrastructure
    */
   public async initialize(userPassphrase?: string): Promise<void> {
+    // Already done — short-circuit. Without this, lazy-init callers from
+    // SecureStorageService would re-run the full ~150ms verifyEncryption
+    // round-trip on every wellness read/write.
+    if (this.masterKeyInitialized) {
+      return;
+    }
+    // In-flight — share the promise so concurrent callers don't fan out.
+    if (this.initPromise) {
+      return this.initPromise;
+    }
+    this.initPromise = this.doInitialize(userPassphrase).finally(() => {
+      this.initPromise = null;
+    });
+    return this.initPromise;
+  }
+
+  /**
+   * MAINT-241: Delete the master key from SecureStore for a full
+   * account-deletion wipe (CCPA/TDPSA right-to-delete + GDPR Art. 17). After
+   * this returns, every piece of wellness ciphertext is cryptographically
+   * unrecoverable — which is the point of erasure. Resets in-memory init state
+   * so a subsequent `initialize()` provisions a fresh key rather than
+   * short-circuiting on a stale `masterKeyInitialized` flag.
+   *
+   * Unlike `__resetForTesting__`, this is a real production operation: it must
+   * be called LAST in the account-deletion sequence (after all dependent
+   * ciphertext has been removed), and ONLY on full account deletion — never on
+   * logout or a partial clear, or remaining encrypted data becomes permanently
+   * unreadable.
+   */
+  public async deleteMasterKey(): Promise<void> {
+    await SecureStore.deleteItemAsync(ENCRYPTION_CONFIG.MASTER_KEY_ID);
+    this.keyCache.delete(ENCRYPTION_CONFIG.MASTER_KEY_ID);
+    this.keyMetadata.delete(ENCRYPTION_CONFIG.MASTER_KEY_ID);
+    this.masterKeyInitialized = false;
+    this.initPromise = null;
+    logSecurity('Master key deleted (account-deletion erasure)', 'high', {
+      component: 'EncryptionService',
+    });
+  }
+
+  private async doInitialize(userPassphrase?: string): Promise<void> {
     const startTime = performance.now();
 
     try {
@@ -217,7 +312,7 @@ export class EncryptionService {
   }
 
   /**
-   * ENCRYPT MENTAL HEALTH DATA
+   * ENCRYPT WELLNESS DATA
    * Encrypts sensitive data with appropriate security level
    */
   public async encryptData(
@@ -322,7 +417,7 @@ export class EncryptionService {
   }
 
   /**
-   * DECRYPT MENTAL HEALTH DATA
+   * DECRYPT WELLNESS DATA
    * Decrypts data with verification and integrity checking
    */
   public async decryptData(
@@ -379,7 +474,7 @@ export class EncryptionService {
       // Validate decryption performance for crisis scenarios
       if (encryptedPackage.metadata.sensitivityLevel === 'level_1_crisis_responses') {
         if (decryptionTime > ENCRYPTION_CONFIG.PERFORMANCE_THRESHOLD_MS) {
-          logSecurity('⚠️  Crisis data decryption slow: ${decryptionTime.toFixed(2)}ms', 'medium', { component: 'SecurityService' });
+          logSecurity(`⚠️  Crisis data decryption slow: ${decryptionTime.toFixed(2)}ms`, 'medium', { component: 'SecurityService' });
         }
       }
 
@@ -976,7 +1071,7 @@ export class EncryptionService {
     const threshold = performanceThresholds[sensitivityLevel];
     
     if (operationTimeMs > threshold) {
-      logSecurity('⚠️  Encryption performance warning: ${operationTimeMs.toFixed(2)}ms > ${threshold}ms for ${sensitivityLevel}', 'medium', { component: 'SecurityService' });
+      logSecurity(`⚠️  Encryption performance warning: ${operationTimeMs.toFixed(2)}ms > ${threshold}ms for ${sensitivityLevel}`, 'medium', { component: 'SecurityService' });
       
       // Critical for crisis data
       if (sensitivityLevel === 'level_1_crisis_responses' && operationTimeMs > ENCRYPTION_CONFIG.PERFORMANCE_THRESHOLD_MS) {
@@ -1000,7 +1095,7 @@ export class EncryptionService {
       }
 
       if (metrics.operationTimeMs > ENCRYPTION_CONFIG.PERFORMANCE_THRESHOLD_MS) {
-        logSecurity('⚠️  ENCRYPTION PERFORMANCE WARNING: ${metrics.operationTimeMs.toFixed(2)}ms', 'medium', { component: 'SecurityService' });
+        logSecurity(`⚠️  ENCRYPTION PERFORMANCE WARNING: ${metrics.operationTimeMs.toFixed(2)}ms`, 'medium', { component: 'SecurityService' });
       }
 
     } catch (error) {

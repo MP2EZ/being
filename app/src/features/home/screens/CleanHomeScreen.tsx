@@ -9,20 +9,23 @@ import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
-import { colorSystem, getTheme, spacing, borderRadius, typography } from '@/core/theme';
+import { colorSystem, semantic, getTheme, spacing, borderRadius, typography } from '@/core/theme';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 import { useStoicPracticeStore } from '@/features/practices/stores/stoicPracticeStore';
 import { useSettingsStore, useAccessibilitySettings } from '@/core/stores/settingsStore';
-import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
 import AssessmentStatusBadge from '@/features/assessment/components/AssessmentStatusBadge';
 import { IntroOverlay } from '../components/IntroOverlay';
 import { useAnalytics } from '@/core/analytics';
+import { isFeatureEnabled } from '@/core/services/featureFlags';
 
 // 30 minutes in milliseconds
 const INTRO_THRESHOLD_MS = 30 * 60 * 1000;
 
 type CleanHomeScreenNavigationProp = StackNavigationProp<RootStackParamList>;
-type FlowType = 'morning' | 'midday' | 'evening';
+// FEAT-291: 'daily-loop' is the local card type for the flag-gated Daily Practice
+// (Beta) entry. It is themed as 'midday' (getTheme below) — NOT added to the closed
+// ThemeKey/CheckInType unions (the FlowType unification is the deferred step-5 migration).
+type FlowType = 'morning' | 'midday' | 'evening' | 'daily-loop';
 
 // PERF-04: hoisted out of CleanHomeScreen's render — defining components inside
 // a function component creates a NEW component type on every render, forcing
@@ -46,7 +49,8 @@ const CheckInCard: React.FC<CheckInCardProps> = ({
   isCompleted,
   onPress,
 }) => {
-  const themeColors = getTheme(type);
+  // FEAT-291: the daily-loop prototype card themes as midday (no ThemeKey union change).
+  const themeColors = getTheme(type === 'daily-loop' ? 'midday' : type);
   const handlePress = useCallback(() => onPress(type), [onPress, type]);
 
   return (
@@ -150,6 +154,13 @@ const CleanHomeScreen: React.FC = () => {
 
   const currentPeriod = getCurrentPeriod();
 
+  // FEAT-291 prototype flags (build-time, dark in production):
+  //  - daily_loop: show the Daily Practice card alongside the 3 flows.
+  //  - daily_loop_only: preview the eventual single-ritual Home — hide the 3
+  //    time-of-day flows, show only the loop (requires daily_loop on).
+  const dailyLoopEnabled = isFeatureEnabled('daily_loop');
+  const dailyLoopOnly = dailyLoopEnabled && isFeatureEnabled('daily_loop_only');
+
   const handleCheckInPress = useCallback((type: FlowType) => {
     switch (type) {
       case 'morning':
@@ -161,26 +172,30 @@ const CleanHomeScreen: React.FC = () => {
       case 'evening':
         navigation.navigate('EveningFlow');
         break;
+      case 'daily-loop':
+        // FEAT-291: no mode param → the loop shows its in-flow mode picker (flat/morning/evening).
+        navigation.navigate('DailyLoop');
+        break;
     }
   }, [navigation]);
 
   return (
     <SafeAreaView style={styles.container} testID="home-screen">
       <View style={styles.content}>
-        {/* Header */}
+        {/* Header — MAINT-257: Home is the SOLE intentional exception to the
+            shared BodyHeader idiom. The centered display2 "Being" wordmark is the
+            brand/landing treatment; Learn/Insights/Profile use the left-aligned
+            BodyHeader. Only the appTitle is the screen heading (h1); the greeting
+            is a plain text line (not a heading), so each screen has exactly one h1. */}
         <View style={styles.header}>
           <Text
             style={styles.appTitle}
             accessibilityRole="header"
             accessibilityLevel={1}
           >
-            Being.
+            Being
           </Text>
-          <Text
-            style={styles.greeting}
-            accessibilityRole="header"
-            accessibilityLevel={2}
-          >
+          <Text style={styles.greeting}>
             {getGreeting()}
           </Text>
           <Text style={styles.subtitle}>
@@ -193,44 +208,59 @@ const CleanHomeScreen: React.FC = () => {
 
         {/* Check-in Cards - flex to fill remaining space */}
         <View style={styles.checkInSection}>
-          <CheckInCard
-            type="morning"
-            title="Morning Awareness"
-            description="Start your day with mindful awareness of your body, emotions, and intentions."
-            duration="5-7 min"
-            isCurrent={currentPeriod === 'morning'}
-            isCompleted={isCheckInCompletedToday('morning')}
-            onPress={handleCheckInPress}
-          />
+          {/* The 3 time-of-day flows. Hidden when the daily_loop_only preview is on
+              (dark in production) — otherwise the unchanged default Home. */}
+          {!dailyLoopOnly && (
+            <>
+              <CheckInCard
+                type="morning"
+                title="Morning Awareness"
+                description="Start your day with mindful awareness of your body, emotions, and intentions."
+                duration="5-7 min"
+                isCurrent={currentPeriod === 'morning'}
+                isCompleted={isCheckInCompletedToday('morning')}
+                onPress={handleCheckInPress}
+              />
 
-          <CheckInCard
-            type="midday"
-            title="Midday Reset"
-            description="Take a moment to reconnect with the present through mindful awareness."
-            duration="3 min"
-            isCurrent={currentPeriod === 'midday'}
-            isCompleted={isCheckInCompletedToday('midday')}
-            onPress={handleCheckInPress}
-          />
+              <CheckInCard
+                type="midday"
+                title="Midday Reset"
+                description="Take a moment to reconnect with the present through mindful awareness."
+                duration="3 min"
+                isCurrent={currentPeriod === 'midday'}
+                isCompleted={isCheckInCompletedToday('midday')}
+                onPress={handleCheckInPress}
+              />
 
-          <CheckInCard
-            type="evening"
-            title="Evening Reflection"
-            description="Reflect on your day with gratitude and intention. Release what's done and rest peacefully."
-            duration="5-6 min"
-            isCurrent={currentPeriod === 'evening'}
-            isCompleted={isCheckInCompletedToday('evening')}
-            onPress={handleCheckInPress}
-          />
+              <CheckInCard
+                type="evening"
+                title="Evening Reflection"
+                description="Reflect on your day with gratitude and intention. Release what's done and rest peacefully."
+                duration="5-6 min"
+                isCurrent={currentPeriod === 'evening'}
+                isCompleted={isCheckInCompletedToday('evening')}
+                onPress={handleCheckInPress}
+              />
+            </>
+          )}
+
+          {/* FEAT-291: single-loop daily-practice prototype. Flag-gated (build-time
+              `daily_loop`, dark in production). When daily_loop_only is also on, this
+              is the ONLY card and drops the "(Beta)" tag — a preview of the eventual
+              single-ritual Home. */}
+          {dailyLoopEnabled && (
+            <CheckInCard
+              type="daily-loop"
+              title={dailyLoopOnly ? 'Daily Practice' : 'Daily Practice (Beta)'}
+              description="One loop through the Five Principles: Aware Presence, Radical Acceptance, Sphere Sovereignty, Virtuous Response, Interconnected Living."
+              duration="5-6 min"
+              isCurrent={dailyLoopOnly}
+              isCompleted={false}
+              onPress={handleCheckInPress}
+            />
+          )}
         </View>
       </View>
-
-      {/* Crisis Button Overlay */}
-      <CollapsibleCrisisButton
-        mode="standard"
-        onNavigate={() => navigation.navigate('CrisisResources')}
-        testID="crisis-home"
-      />
 
       {/* Intro Animation Overlay */}
       {showIntro && (
@@ -246,7 +276,8 @@ const CleanHomeScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colorSystem.base.white,
+    // MAINT-263: shared tab-screen surface token (value unchanged: white).
+    backgroundColor: semantic.background.screen,
   },
   content: {
     flex: 1,
@@ -284,16 +315,12 @@ const styles = StyleSheet.create({
     paddingTop: spacing[16],
     paddingHorizontal: spacing[16],
     paddingBottom: spacing[20], // Extra to optically balance with title line-height
-    borderRadius: borderRadius.large,
+    borderRadius: borderRadius.xl,
     marginBottom: spacing[16],
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.08,
-    shadowRadius: borderRadius.xs,
-    elevation: 2,
+    // MAINT-222: border-preferred elevation (DS guidance), replacing the
+    // hand-rolled black-shadow recipe. Matches the unified card system.
+    borderWidth: 1,
+    borderColor: colorSystem.gray[400],
   },
   cardHeader: {
     flexDirection: 'row',
@@ -309,8 +336,9 @@ const styles = StyleSheet.create({
     fontSize: typography.micro.size,
     color: colorSystem.gray[600],
     backgroundColor: colorSystem.gray[100],
-    paddingHorizontal: borderRadius.medium,
-    paddingVertical: borderRadius.xs,
+    // MAINT-222: use spacing tokens for padding (was borderRadius.medium/.xs misuse)
+    paddingHorizontal: spacing[8],
+    paddingVertical: spacing[4],
     borderRadius: borderRadius.medium,
     fontWeight: typography.fontWeight.medium,
   },
@@ -322,11 +350,12 @@ const styles = StyleSheet.create({
   },
   startButton: {
     paddingVertical: spacing[12],
-    borderRadius: spacing[12],
+    // MAINT-222: use a borderRadius token (was spacing[12] misuse); same 12px value
+    borderRadius: borderRadius.large,
     alignItems: 'center',
   },
   startButtonText: {
-    color: 'white',
+    color: colorSystem.base.white,
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.semibold,
   },

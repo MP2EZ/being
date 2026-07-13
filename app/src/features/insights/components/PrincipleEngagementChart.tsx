@@ -95,27 +95,27 @@ const PRINCIPLE_METADATA: Record<StoicPrinciple, { name: string; shortName: stri
   aware_presence: {
     name: 'Aware Presence',
     shortName: 'Presence',
-    color: '#FF9F43', // Morning primary (warm orange)
+    color: colorSystem.principles.awarePresence, // warm orange
   },
   radical_acceptance: {
     name: 'Radical Acceptance',
     shortName: 'Acceptance',
-    color: '#6C5CE7', // Purple (contemplative)
+    color: colorSystem.principles.radicalAcceptance, // brand-family purple (MAINT-253)
   },
   sphere_sovereignty: {
     name: 'Sphere Sovereignty',
     shortName: 'Sovereignty',
-    color: '#00CEC9', // Teal (control/clarity)
+    color: colorSystem.principles.sphereSovereignty, // teal (control/clarity)
   },
   virtuous_response: {
     name: 'Virtuous Response',
     shortName: 'Virtue',
-    color: '#E17055', // Evening primary (warm coral)
+    color: colorSystem.principles.virtuousResponse, // coral (virtue)
   },
   interconnected_living: {
     name: 'Interconnected Living',
     shortName: 'Connection',
-    color: '#00B894', // Green (growth/community)
+    color: colorSystem.principles.interconnectedLiving, // green (growth/community)
   },
 };
 
@@ -489,6 +489,9 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: colorSystem.base.white,
     borderRadius: borderRadius.medium,
+    // MAINT-263: hairline so the card stays defined on the now-white screen surface.
+    borderWidth: 1,
+    borderColor: semantic.border.default,
     padding: spacing[16],
     marginBottom: spacing[16],
   },
@@ -560,12 +563,12 @@ const styles = StyleSheet.create({
   barTrack: {
     height: 8,
     backgroundColor: colorSystem.gray[200],
-    borderRadius: 4,
+    borderRadius: borderRadius.small,
     overflow: 'hidden',
   },
   barFill: {
     height: '100%',
-    borderRadius: 4,
+    borderRadius: borderRadius.small,
   },
   summaryText: {
     fontSize: typography.bodySmall.size,
@@ -583,19 +586,22 @@ const styles = StyleSheet.create({
     fontSize: typography.bodySmall.size,
     color: colorSystem.gray[700],
     textAlign: 'center',
+    // MAINT-224: absolute lineHeight literals (here and below) left as-is — DS gap.
+    // The design system has no standalone line-height token scale (typography variants
+    // expose only unitless multipliers), so these are not forced onto another token.
     lineHeight: 20,
   },
   insightPrincipleName: {
     fontWeight: typography.fontWeight.semibold,
     color: semantic.text.primary,
   },
-  // FEAT-133: Beginner Tip styles (light purple tint with left border)
+  // FEAT-133: Beginner Tip styles (soft brand-purple callout) — MAINT-253: brand Learn-theme tokens
   beginnerTipContainer: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: 'rgba(108, 92, 231, 0.08)', // Light purple tint
+    backgroundColor: colorSystem.themes.learn.background, // light purple tint
     borderLeftWidth: 3,
-    borderLeftColor: '#6C5CE7', // Purple
+    borderLeftColor: colorSystem.themes.learn.primary, // brand purple
     borderRadius: borderRadius.small,
     padding: spacing[12],
     marginTop: spacing[12],
@@ -608,10 +614,10 @@ const styles = StyleSheet.create({
   beginnerTipIcon: {
     width: 18,
     height: 18,
-    borderRadius: 9,
-    backgroundColor: '#6C5CE7',
+    borderRadius: borderRadius.full,
+    backgroundColor: colorSystem.themes.learn.primary, // brand purple (MAINT-253)
     color: colorSystem.base.white,
-    fontSize: 12,
+    fontSize: typography.micro.size,
     fontWeight: typography.fontWeight.bold,
     textAlign: 'center',
     lineHeight: 18,
@@ -628,7 +634,7 @@ const styles = StyleSheet.create({
     padding: spacing[4],
   },
   beginnerTipDismissText: {
-    fontSize: 18,
+    fontSize: typography.bodyLarge.size,
     color: colorSystem.gray[500],
     fontWeight: typography.fontWeight.light,
   },

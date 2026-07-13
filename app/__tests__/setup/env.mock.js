@@ -38,18 +38,13 @@ const ENV = {
   EXPO_PUBLIC_GDPR_URL: 'https://being.fyi/gdpr',
   EXPO_PUBLIC_ACCESSIBILITY_URL: 'https://being.fyi/accessibility',
 
-  // API
-  EXPO_PUBLIC_API_URL: 'https://api.being.app',
-  EXPO_PUBLIC_CDN_URL: 'https://cdn.being.app',
-  EXPO_PUBLIC_STATIC_ASSETS_URL: 'https://assets.being.app',
-
   // Supabase
   EXPO_PUBLIC_SUPABASE_URL: 'https://test.supabase.co',
   EXPO_PUBLIC_SUPABASE_KEY: 'sb_publishable_test_key_value_for_jest_env',
   EXPO_PUBLIC_SUPABASE_REGION: 'us-west-2',
 
   // Auth
-  EXPO_PUBLIC_AUTH_APPLE_CLIENT_ID: 'com.being.mbct',
+  EXPO_PUBLIC_AUTH_APPLE_CLIENT_ID: 'fyi.being.app',
   EXPO_PUBLIC_AUTH_GOOGLE_CLIENT_ID: 'test-google-client-id.apps.googleusercontent.com',
   EXPO_PUBLIC_AUTH_EMAIL_SIGNUP_ENABLED: 'true',
   EXPO_PUBLIC_AUTH_BIOMETRIC_ENABLED: 'true',
@@ -77,8 +72,8 @@ const ENV = {
   EXPO_PUBLIC_BREATHING_TIMER_PRECISION: '60000',
   EXPO_PUBLIC_THERAPEUTIC_TIMING_STRICT: 'true',
 
-  // Compliance (note: HIPAA_COMPLIANCE_MODE is a stale name — INFRA-142 will rename)
-  EXPO_PUBLIC_HIPAA_COMPLIANCE_MODE: 'ready',
+  // Compliance
+  EXPO_PUBLIC_WELLNESS_DATA_MODE: 'ready',
   EXPO_PUBLIC_GDPR_COMPLIANCE: 'true',
   EXPO_PUBLIC_DATA_RETENTION_DAYS: '365',
   EXPO_PUBLIC_ANONYMOUS_ANALYTICS: 'true',

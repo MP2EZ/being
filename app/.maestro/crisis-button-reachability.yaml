@@ -1,0 +1,298 @@
+appId: fyi.being.app
+tags:
+  - safety
+name: "Crisis button (single root mount) reaches CrisisResources from every surface"
+---
+# Pins the safety fact: 988 access <3 taps from any screen. Asserts that the
+# SINGLE persistent root-level crisis button (MAINT-290, testID
+# "crisis-button-root") successfully navigates to CrisisResources from each of
+# the 4 main tabs AND every Profile subscreen depth. Replaces the dormant Detox
+# crisis-access.e2e.ts.
+#
+# MAINT-290 (Flow Redesign 1): the crisis button was promoted from ~11
+# per-screen / per-navigator CollapsibleCrisisButton mounts to ONE persistent
+# overlay mounted at the navigation root (sibling of the root Stack.Navigator,
+# see CleanRootNavigator.tsx → RootCrisisButton). Because the button is no longer
+# each screen's responsibility to mount, a screen or future practice step can no
+# longer ship with no 988 access. Every per-screen testID (crisis-home,
+# crisis-learn, crisis-insights, crisis-profile, crisis-morning-flow, …) is now
+# the single stable id "crisis-button-root".
+#
+# CARVE-OUTS (deliberately NOT walked here; pinned by RootCrisisButton.test.tsx
+# instead, which is deterministic + CI-run, unlike this local-only device flow):
+#   • AssessmentFlow — keeps its own per-screen `prominent` buttons; the root
+#     overlay is SUPPRESSED there (MAINT-290 must not touch the assessment flow).
+#   • CrisisResources — the destination itself; overlay suppressed.
+#   • LegalGate — under-age gate with its own inline Call-988 / Text UI; suppressed.
+#   • Practice flows/timers (Morning/Midday/Evening, PracticeTimer, BodyScan, …)
+#     now DO carry the root overlay in `immersive` mode — previously the exact
+#     "steps with no 988 access" gap this refactor closes. Their on-device walk
+#     needs a long check-in preamble (preamble-skip is a tracked INFRA-216
+#     follow-up), so route→mode/suppression is asserted in RootCrisisButton.test.tsx.
+#
+# Maestro's default assertVisible timeout (~10s) covers the <3s SLA from CLAUDE.md.
+# On-device timing budgets live in CLAUDE.md's "Performance Budgets" section and
+# are validated by hand until a real perf harness exists.
+
+- launchApp:
+    clearState: true
+    clearKeychain: true # SecureStore-backed consent persists across clearState — wipe keychain too (INFRA-179)
+- runFlow: _seeded-home.yaml # INFRA-217: e2e-sim seeds onboarding; start at home
+
+# Tabs are addressed via tabBarTestID (INFRA-183, CleanTabNavigator.tsx) —
+# Maestro's text: selector doesn't match the bottom-tab accessibilityText
+# "X, tab, N of 4" patterns because the text field itself is empty.
+
+# ── Home tab ─────────────────────────────────────────────────────
+- tapOn:
+    id: "tab-home"
+- tapOn:
+    id: "crisis-button-root"
+- assertVisible:
+    id: "crisis-resources-screen"
+# INFRA-185: pop the CrisisResources modal via the explicit nav-back-button
+# testID added to CleanRootNavigator's HeaderBackButton override. Maestro's
+# `- back` action on iOS 18.6 sim reports COMPLETED but doesn't actually
+# pop modal-presentation stack screens; left-edge swipe doesn't honor them
+# either. Tapping the testID-tagged back button is the mechanically
+# reliable route.
+- tapOn:
+    id: "nav-back-button"
+
+# ── Learn tab ────────────────────────────────────────────────────
+- tapOn:
+    id: "tab-learn"
+- tapOn:
+    id: "crisis-button-root"
+- assertVisible:
+    id: "crisis-resources-screen"
+- tapOn:
+    id: "nav-back-button"
+
+# ── Insights tab ─────────────────────────────────────────────────
+# DEBUG-189: re-enabled. The FeatureGate wrapper around InsightsScreen was
+# removed (CleanTabNavigator.tsx) — it was incidental FEAT-16-deferral debris,
+# not an intentional v1 paywall. The root crisis overlay renders unconditionally
+# on this tab like every other surface (crisis features are ALWAYS accessible,
+# regardless of subscription — CLAUDE.md Safety Fact).
+- tapOn:
+    id: "tab-insights"
+- tapOn:
+    id: "crisis-button-root"
+- assertVisible:
+    id: "crisis-resources-screen"
+- tapOn:
+    id: "nav-back-button"
+
+# ── Profile tab ──────────────────────────────────────────────────
+# FEAT-212: Profile migrated to a nested React Navigation stack
+# (ProfileStackNavigator). MAINT-290 removed the per-navigator crisis overlay
+# it once hosted; the single ROOT overlay now covers every Profile route
+# (landing + every pushed subscreen) — the precise regression this migration
+# risks. We visit each depth-1 route + representative depth-2 routes and assert
+# crisis-button-root → crisis-resources-screen from each.
+#
+# INFRA-220: each subscreen check is self-contained and starts from the Profile
+# menu root via a `tab-profile` re-tap. React Navigation's default bottom-tab
+# behavior pops the focused tab's stack to root (CleanTabNavigator sets no
+# tabPress override), so re-tapping the already-focused Profile tab returns to the
+# menu regardless of current depth. This replaces the previous `nav-back-button` +
+# `profile-back-button` pop pairs, which were fragile: on a non-pristine sim the
+# CrisisResources modal's `nav-back-button` intermittently OVER-pops (dismissing
+# the modal AND the underlying subscreen), landing on the menu where
+# `profile-back-button` doesn't exist — failing "profile-back-button not visible"
+# (observed in the INFRA-217 /b-close gate). The tab re-tap resets to a known
+# state no matter how far nav-back-button popped, so the flow is immune to the
+# over-pop. nav-back-button still dismisses the modal (which covers the tab bar)
+# before each tab-reset.
+#
+# NOTE: the Privacy → CloudBackup depth-2 route is gated by the cloud_sync feature
+# flag (dark by default), so its entry row is not present in this default-build
+# run; that route's overlay hosting is pinned by ProfileStackNavigator.test.tsx.
+# Legal → LegalDocument (ungated) provides the on-device depth-2 assertion here.
+
+# menu route (Profile tab landing)
+- tapOn:
+    id: "tab-profile"
+- tapOn:
+    id: "crisis-button-root"
+- assertVisible:
+    id: "crisis-resources-screen"
+- tapOn:
+    id: "nav-back-button"
+
+# depth-1: Notifications & Display
+- tapOn:
+    id: "tab-profile" # re-tap → pop ProfileStack to menu root (immune to over-pop)
+- scrollUntilVisible:
+    element:
+      id: "profile-card-appsettings"
+    direction: DOWN
+- tapOn:
+    id: "profile-card-appsettings"
+- tapOn:
+    id: "crisis-button-root"
+- assertVisible:
+    id: "crisis-resources-screen"
+- tapOn:
+    id: "nav-back-button"
+
+# depth-1: Privacy & Data
+- tapOn:
+    id: "tab-profile"
+- scrollUntilVisible:
+    element:
+      id: "profile-card-privacy"
+    direction: DOWN
+- tapOn:
+    id: "profile-card-privacy"
+- tapOn:
+    id: "crisis-button-root"
+- assertVisible:
+    id: "crisis-resources-screen"
+- tapOn:
+    id: "nav-back-button"
+
+# depth-2: Privacy & Data → Export My Data (FEAT-267). The data-subject-rights
+# screens are pushed routes inside ProfileStackNavigator, so the root crisis
+# overlay must remain reachable on them — the exact regression a new pushed
+# subscreen risks. Placed in the Privacy menu slot (NOT appended after Legal):
+# `scrollUntilVisible direction:DOWN` is one-directional and the `tab-profile`
+# re-tap pops the stack without resetting the menu ScrollView offset, so a
+# segment whose card sits ABOVE the prior segment's would never scroll back up.
+# centerElement:true is required on these card scrolls: scrollUntilVisible
+# otherwise stops with the card at the screen's bottom edge (near the floating
+# crisis button), where the subsequent tap doesn't land cleanly enough to fire
+# navigation — it silently stays on the menu. Centering the card before the tap
+# makes the push reliable. (The existing depth-1 segments don't need this only
+# because their crisis assertion is satisfiable by the menu's own overlay.)
+- tapOn:
+    id: "tab-profile"
+- scrollUntilVisible:
+    element:
+      id: "profile-card-privacy"
+    direction: DOWN
+    centerElement: true
+- tapOn:
+    id: "profile-card-privacy"
+- scrollUntilVisible:
+    element:
+      id: "profile-card-export"
+    direction: DOWN
+    centerElement: true
+- tapOn:
+    id: "profile-card-export"
+- assertVisible:
+    id: "export-data-screen"
+- tapOn:
+    id: "crisis-button-root"
+- assertVisible:
+    id: "crisis-resources-screen"
+- tapOn:
+    id: "nav-back-button"
+
+# depth-2: Privacy & Data → Delete Account (FEAT-267). The DeleteAccount
+# confirmation screen is the most crisis-sensitive surface in this feature, so
+# we assert crisis reachability HERE — landing on the confirmation screen
+# (pre-typed-confirmation) and backing out. We deliberately do NOT type DELETE
+# or press the destructive button: driving the real erasure would wipe the
+# seeded sim state. Crisis reachability is the only contract under test here.
+- tapOn:
+    id: "tab-profile"
+- scrollUntilVisible:
+    element:
+      id: "profile-card-privacy"
+    direction: DOWN
+    centerElement: true
+- tapOn:
+    id: "profile-card-privacy"
+# profile-card-delete is the BOTTOM-MOST element on the Privacy screen, so its
+# right edge sits under the always-on-top crisis button (bottom-right overlay).
+# centerElement can't center a last element (no content below to scroll past it),
+# so it never reaches 100% visibility — drop the threshold to 60% (the card is
+# substantially visible; only the chevron corner is occluded). That the
+# destructive control is partly under the crisis button while 988 stays
+# reachable is itself the contract this segment pins.
+- scrollUntilVisible:
+    element:
+      id: "profile-card-delete"
+    direction: DOWN
+    visibilityPercentage: 60
+- tapOn:
+    id: "profile-card-delete"
+- assertVisible:
+    id: "delete-account-screen"
+- tapOn:
+    id: "crisis-button-root"
+- assertVisible:
+    id: "crisis-resources-screen"
+- tapOn:
+    id: "nav-back-button"
+
+# depth-1: Account
+- tapOn:
+    id: "tab-profile"
+- scrollUntilVisible:
+    element:
+      id: "profile-card-account"
+    direction: DOWN
+- tapOn:
+    id: "profile-card-account"
+- tapOn:
+    id: "crisis-button-root"
+- assertVisible:
+    id: "crisis-resources-screen"
+- tapOn:
+    id: "nav-back-button"
+
+# depth-1: About Stoic Mindfulness
+- tapOn:
+    id: "tab-profile"
+- scrollUntilVisible:
+    element:
+      id: "profile-card-stoic"
+    direction: DOWN
+- tapOn:
+    id: "profile-card-stoic"
+- tapOn:
+    id: "crisis-button-root"
+- assertVisible:
+    id: "crisis-resources-screen"
+- tapOn:
+    id: "nav-back-button"
+
+# depth-1: Legal Documents
+- tapOn:
+    id: "tab-profile"
+- scrollUntilVisible:
+    element:
+      id: "profile-card-legal"
+    direction: DOWN
+- tapOn:
+    id: "profile-card-legal"
+- tapOn:
+    id: "crisis-button-root"
+- assertVisible:
+    id: "crisis-resources-screen"
+- tapOn:
+    id: "nav-back-button"
+
+# depth-2: Legal Documents → an individual document (real push, depth 2).
+# Re-navigate menu → legal → legal-doc from scratch so the depth-2 assertion
+# never depends on where the prior nav-back-button landed.
+- tapOn:
+    id: "tab-profile"
+- scrollUntilVisible:
+    element:
+      id: "profile-card-legal"
+    direction: DOWN
+- tapOn:
+    id: "profile-card-legal"
+- tapOn:
+    id: "profile-legal-doc-privacy-policy"
+- tapOn:
+    id: "crisis-button-root"
+- assertVisible:
+    id: "crisis-resources-screen"
+- tapOn:
+    id: "nav-back-button"

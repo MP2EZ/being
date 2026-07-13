@@ -359,11 +359,23 @@ export function validateCrisisDetection(detection: unknown): ValidationResult {
   
   // Validate trigger conditions
   if (detection.assessmentType === 'phq9') {
-    if (detection.primaryTrigger === 'phq9_severe_score' && 
-        detection.triggerValue < CRISIS_SAFETY_THRESHOLDS.PHQ9_CRISIS_SCORE) {
+    if (detection.primaryTrigger === 'phq9_severe_score' &&
+        detection.triggerValue < CRISIS_SAFETY_THRESHOLDS.PHQ9_SEVERE_THRESHOLD) {
       errors.push({
         code: 'INVALID_PHQ9_CRISIS_TRIGGER',
-        message: `PHQ-9 score ${detection.triggerValue} below crisis threshold ${CRISIS_SAFETY_THRESHOLDS.PHQ9_CRISIS_SCORE}`,
+        message: `PHQ-9 score ${detection.triggerValue} below crisis threshold ${CRISIS_SAFETY_THRESHOLDS.PHQ9_SEVERE_THRESHOLD}`,
+        field: 'triggerValue',
+        value: detection.triggerValue,
+        severity: 'critical'
+      });
+    }
+    // DEBUG-229 / MAINT-226 Decision E: the support tier is valid only in the
+    // 15–19 band (≥ moderate-severe floor, < active-intervention floor).
+    if (detection.primaryTrigger === 'phq9_moderate_severe_score' &&
+        detection.triggerValue < CRISIS_SAFETY_THRESHOLDS.PHQ9_MODERATE_SEVERE_THRESHOLD) {
+      errors.push({
+        code: 'INVALID_PHQ9_SUPPORT_TRIGGER',
+        message: `PHQ-9 score ${detection.triggerValue} below support threshold ${CRISIS_SAFETY_THRESHOLDS.PHQ9_MODERATE_SEVERE_THRESHOLD}`,
         field: 'triggerValue',
         value: detection.triggerValue,
         severity: 'critical'
@@ -445,7 +457,7 @@ function isCrisisDetectionShape(value: unknown): value is CrisisDetection {
   return typeof value === 'object' &&
          value !== null &&
          'isTriggered' in value &&
-         'triggerType' in value &&
+         'primaryTrigger' in value &&
          'triggerValue' in value &&
          'timestamp' in value &&
          'assessmentId' in value;

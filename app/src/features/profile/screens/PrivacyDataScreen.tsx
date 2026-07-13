@@ -19,21 +19,19 @@ import {
   StyleSheet,
   ScrollView,
   Switch,
+  TouchableOpacity,
   ActivityIndicator,
   Alert,
   Platform,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons } from '@react-native-vector-icons/ionicons';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
 import { useConsentStore } from '@/core/stores/consentStore';
-import { useAnalytics } from '@/core/analytics';
+import { useAnalytics, useFeatureFlag } from '@/core/analytics';
 import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
-import SubMenuHeader from '../components/SubMenuHeader';
-
-interface PrivacyDataScreenProps {
-  onReturn: () => void;
-}
+import type { ProfileStackParamList } from '../ProfileStackNavigator';
 
 /**
  * Storage Location Row Component
@@ -52,7 +50,9 @@ interface StorageLocationRowProps {
   location: StorageLocation;
 }
 
-const getStorageDisplay = (location: StorageLocation): { icon: keyof typeof Ionicons.glyphMap; text: string; accessibilityText: string } => {
+type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
+
+const getStorageDisplay = (location: StorageLocation): { icon: IoniconName; text: string; accessibilityText: string } => {
   const isIOS = Platform.OS === 'ios';
 
   switch (location) {
@@ -151,11 +151,18 @@ const storageRowStyles = StyleSheet.create({
   },
 });
 
-const PrivacyDataScreen: React.FC<PrivacyDataScreenProps> = ({ onReturn }) => {
-  const { loadConsent, currentConsent, updateConsent } = useConsentStore();
+const PrivacyDataScreen: React.FC = () => {
+  // FEAT-212: rendered as a route on ProfileStackNavigator. The cloud-backup
+  // sub-screen is now a pushed route (Privacy → CloudBackup), not an in-component
+  // state machine; the native stack header supplies the back chevron.
+  const navigation = useNavigation<StackNavigationProp<ProfileStackParamList>>();
+  const { loadConsent, currentConsent, updateConsent, setUniversalOptOut } = useConsentStore();
   const { trackScreenView, trackSettingsOpened, trackConsentChanged } = useAnalytics();
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  // Runtime flag (INFRA-199): gates UI visibility of the cloud-backup entry.
+  // PostHog promotes post-consent; build-time default is the fail-safe floor.
+  const cloudSyncAvailable = useFeatureFlag('cloud_sync');
 
   // Track screen view and settings opened for analytics
   useFocusEffect(
@@ -170,6 +177,8 @@ const PrivacyDataScreen: React.FC<PrivacyDataScreenProps> = ({ onReturn }) => {
   const crashReportsEnabled = currentConsent?.preferences?.crashReportsEnabled ?? false;
   const cloudSyncEnabled = currentConsent?.preferences?.cloudSyncEnabled ?? false;
   const researchEnabled = currentConsent?.preferences?.researchEnabled ?? false;
+  // INFRA-151: GPC-equivalent universal opt-out flag
+  const universalOptOut = currentConsent?.universalOptOut ?? false;
 
   // Load consent on mount
   useEffect(() => {
@@ -197,6 +206,22 @@ const PrivacyDataScreen: React.FC<PrivacyDataScreenProps> = ({ onReturn }) => {
     }
   };
 
+  const handleUniversalOptOutToggle = async (value: boolean): Promise<void> => {
+    setIsSaving(true);
+    try {
+      await setUniversalOptOut(value);
+      trackConsentChanged();
+    } catch {
+      Alert.alert(
+        'Save Failed',
+        'Failed to save preference. Please try again.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   // Render loading state
   if (isLoading) {
     return (
@@ -211,13 +236,40 @@ const PrivacyDataScreen: React.FC<PrivacyDataScreenProps> = ({ onReturn }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <SubMenuHeader title="Privacy & Data" onClose={onReturn} />
       <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
+        {/* Universal Opt-Out Section (INFRA-151) */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Universal Opt-Out</Text>
+          <Text style={styles.sectionDescription}>
+            A single switch that opts you out of all non-essential data collection — the in-app equivalent of the Global Privacy Control (GPC) browser signal.
+          </Text>
+
+          <View style={styles.settingCard}>
+            <View style={styles.settingRow}>
+              <View style={styles.settingInfo}>
+                <Text style={styles.settingLabel}>Honor Universal Opt-Out</Text>
+                <Text style={styles.settingDescription}>
+                  When enabled, Being treats your in-app session as opted out of all analytics, crash reports, settings backup, and research participation — overriding the individual toggles below. Honored under CCPA, TDPSA, CPA, and CTDPA.
+                </Text>
+              </View>
+              <Switch
+                value={universalOptOut}
+                onValueChange={handleUniversalOptOutToggle}
+                trackColor={{ false: colorSystem.gray[300], true: colorSystem.base.midnightBlue }}
+                thumbColor={colorSystem.base.white}
+                disabled={isSaving}
+                accessibilityLabel="Honor Universal Opt-Out"
+                accessibilityHint="Enables the Global Privacy Control equivalent — overrides all non-essential analytics and tracking preferences"
+              />
+            </View>
+          </View>
+        </View>
+
         {/* Data Sharing Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Data Sharing</Text>
           <Text style={styles.sectionDescription}>
-            Control how your data is used and stored. Privacy-first by default.
+            Control how your data is used and stored. Privacy-first by default.{universalOptOut ? ' These toggles are overridden while Universal Opt-Out is on.' : ''}
           </Text>
 
           <View style={styles.settingCard}>
@@ -229,11 +281,11 @@ const PrivacyDataScreen: React.FC<PrivacyDataScreenProps> = ({ onReturn }) => {
                 </Text>
               </View>
               <Switch
-                value={analyticsEnabled}
+                value={analyticsEnabled && !universalOptOut}
                 onValueChange={(value) => handleConsentToggle('analyticsEnabled', value)}
                 trackColor={{ false: colorSystem.gray[300], true: colorSystem.base.midnightBlue }}
                 thumbColor={colorSystem.base.white}
-                disabled={isSaving}
+                disabled={isSaving || universalOptOut}
               />
             </View>
           </View>
@@ -247,11 +299,11 @@ const PrivacyDataScreen: React.FC<PrivacyDataScreenProps> = ({ onReturn }) => {
                 </Text>
               </View>
               <Switch
-                value={crashReportsEnabled}
+                value={crashReportsEnabled && !universalOptOut}
                 onValueChange={(value) => handleConsentToggle('crashReportsEnabled', value)}
                 trackColor={{ false: colorSystem.gray[300], true: colorSystem.base.midnightBlue }}
                 thumbColor={colorSystem.base.white}
-                disabled={isSaving}
+                disabled={isSaving || universalOptOut}
               />
             </View>
           </View>
@@ -259,20 +311,44 @@ const PrivacyDataScreen: React.FC<PrivacyDataScreenProps> = ({ onReturn }) => {
           <View style={styles.settingCard}>
             <View style={styles.settingRow}>
               <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>Cloud Backup</Text>
+                <Text style={styles.settingLabel}>Settings Backup</Text>
                 <Text style={styles.settingDescription}>
-                  Securely sync your preferences across devices
+                  Back up app preferences to encrypted cloud storage
                 </Text>
               </View>
               <Switch
-                value={cloudSyncEnabled}
+                value={cloudSyncEnabled && !universalOptOut}
                 onValueChange={(value) => handleConsentToggle('cloudSyncEnabled', value)}
                 trackColor={{ false: colorSystem.gray[300], true: colorSystem.base.midnightBlue }}
                 thumbColor={colorSystem.base.white}
-                disabled={isSaving}
+                disabled={isSaving || universalOptOut}
               />
             </View>
           </View>
+
+          {/* Manage Cloud Backup — flag-gated entry to the comprehensive
+              controls (backup now, restore, status). Ships dark: hidden
+              until the cloud_sync feature flag is enabled. */}
+          {cloudSyncAvailable && (
+            <TouchableOpacity
+              style={styles.settingCard}
+              onPress={() => navigation.navigate('CloudBackup')}
+              testID="profile-cloud-backup"
+              accessibilityRole="button"
+              accessibilityLabel="Manage Cloud Backup"
+              accessibilityHint="Opens cloud backup status, manual backup, and restore controls"
+            >
+              <View style={styles.settingRow}>
+                <View style={styles.settingInfo}>
+                  <Text style={styles.settingLabel}>Manage Cloud Backup</Text>
+                  <Text style={styles.settingDescription}>
+                    Back up now, restore, and view sync status
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color={colorSystem.gray[400]} />
+              </View>
+            </TouchableOpacity>
+          )}
 
           <View style={styles.settingCard}>
             <View style={styles.settingRow}>
@@ -283,11 +359,11 @@ const PrivacyDataScreen: React.FC<PrivacyDataScreenProps> = ({ onReturn }) => {
                 </Text>
               </View>
               <Switch
-                value={researchEnabled}
+                value={researchEnabled && !universalOptOut}
                 onValueChange={(value) => handleConsentToggle('researchEnabled', value)}
                 trackColor={{ false: colorSystem.gray[300], true: colorSystem.base.midnightBlue }}
                 thumbColor={colorSystem.base.white}
-                disabled={isSaving}
+                disabled={isSaving || universalOptOut}
               />
             </View>
           </View>
@@ -334,13 +410,61 @@ const PrivacyDataScreen: React.FC<PrivacyDataScreenProps> = ({ onReturn }) => {
             <StorageLocationRow
               label="Preferences"
               description="App settings and customizations"
-              location={cloudSyncEnabled ? 'cloud' : 'app'}
+              location={cloudSyncEnabled && !universalOptOut ? 'cloud' : 'app'}
             />
           </View>
 
           <Text style={styles.storageInfoText}>
             Device data survives reinstall. App data is lost if you delete the app.
           </Text>
+        </View>
+
+        {/* Your Data Rights Section (FEAT-267) — data-portability + erasure.
+            Both rows push routes registered inside ProfileStackNavigator, which
+            keeps the crisis-button overlay reachable on the destination screens. */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Your Data Rights</Text>
+          <Text style={styles.sectionDescription}>
+            Export a copy of your data or permanently delete your account, under CCPA, TDPSA, and GDPR.
+          </Text>
+
+          <TouchableOpacity
+            style={styles.settingCard}
+            onPress={() => navigation.navigate('ExportData')}
+            testID="profile-card-export"
+            accessibilityRole="button"
+            accessibilityLabel="Export my data"
+            accessibilityHint="Opens a screen to download a JSON copy of your on-device data"
+          >
+            <View style={styles.settingRow}>
+              <View style={styles.settingInfo}>
+                <Text style={styles.settingLabel}>Export my data</Text>
+                <Text style={styles.settingDescription}>
+                  Download a portable JSON copy of your on-device data
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={colorSystem.gray[400]} />
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.settingCard}
+            onPress={() => navigation.navigate('DeleteAccount')}
+            testID="profile-card-delete"
+            accessibilityRole="button"
+            accessibilityLabel="Delete account"
+            accessibilityHint="Opens a screen to permanently delete your account and wellness data"
+          >
+            <View style={styles.settingRow}>
+              <View style={styles.settingInfo}>
+                <Text style={[styles.settingLabel, styles.destructiveLabel]}>Delete account</Text>
+                <Text style={styles.settingDescription}>
+                  Permanently erase your account and wellness data
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={colorSystem.gray[400]} />
+            </View>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -410,6 +534,9 @@ const styles = StyleSheet.create({
     color: colorSystem.base.black,
     marginBottom: spacing[8],
   },
+  destructiveLabel: {
+    color: colorSystem.status.error,
+  },
   settingDescription: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
@@ -417,7 +544,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   infoBox: {
-    backgroundColor: '#F0F4FF',
+    backgroundColor: colorSystem.status.infoBackground,
     borderRadius: borderRadius.medium,
     padding: spacing[16],
     marginTop: spacing[8],

@@ -1,8 +1,8 @@
 # Privacy Policy
 
-**Version:** 1.2
+**Version:** 1.7
 **Effective Date:** December 12, 2025
-**Last Updated:** May 23, 2026
+**Last Updated:** June 13, 2026
 
 ---
 
@@ -13,7 +13,7 @@
 3. [How We Use Your Information](#3-how-we-use-your-information)
 4. [Data Storage & Security](#4-data-storage--security)
    - [4.1 Local-First Architecture](#41-local-first-architecture)
-   - [4.2 Optional Cloud Backup](#42-optional-cloud-backup)
+   - [4.2 Optional Settings Backup](#42-optional-settings-backup)
    - [4.3 Security Measures](#43-security-measures)
    - [4.4 Breach Notification](#44-breach-notification)
 5. [Data Sharing & Third Parties](#5-data-sharing--third-parties)
@@ -38,7 +38,7 @@ Being ("we," "us," or "our") is committed to protecting your privacy. This Priva
 - **Local-First:** Your mental health data stays on your device by default
 - **Never Sold:** We will never sell your personal information to third parties
 - **Strong Security:** We use AES-256 encryption to protect your data
-- **You're in Control:** Export, delete, or transfer your data at any time
+- **You're in Control:** Export or delete your data at any time
 
 ---
 
@@ -48,7 +48,6 @@ Being ("we," "us," or "our") is committed to protecting your privacy. This Priva
 
 - **Check-In Data:** Daily mindfulness check-ins, mood tracking, journal entries
 - **Wellness Assessments:** PHQ-9 and GAD-7 responses and scores (for self-monitoring, not clinical diagnosis)
-- **Account Information:** Email, username (optional for cloud backup)
 - **Emergency Contacts:** Contact information for crisis support (stored locally only)
 
 ### 2.2 Automatically Collected Information
@@ -61,7 +60,7 @@ Being ("we," "us," or "our") is committed to protecting your privacy. This Priva
 
 - Location data or GPS tracking
 - Contacts or address book access
-- Camera or microphone access (except for optional features you explicitly enable)
+- Camera or microphone access
 - Third-party advertising identifiers
 
 ---
@@ -72,7 +71,7 @@ We use your information solely to provide and improve the Being app:
 
 - **Core Functionality:** Enable mindfulness check-ins, mood tracking, and progress visualization
 - **Wellness Tools:** Calculate PHQ-9 and GAD-7 scores for self-monitoring, recommend crisis resources when wellness screening thresholds are reached
-- **Safety Features:** Provide crisis support resources when wellness screening thresholds are met
+- **Safety Features:** Provide crisis support resources when wellness screening thresholds are met. When a PHQ-9 score of 20 or higher, a non-zero PHQ-9 Q9 (self-harm) response, or a GAD-7 score of 15 or higher is detected, Being also records an aggregate, PII-free crisis-detection event to our own first-party secure storage (Supabase). This recording happens under a vital-interests basis and is **not** gated on your analytics consent — crisis-safety monitoring is not something you can inadvertently disable. The event contains only a category label, a severity bucket, whether an intervention was surfaced, and the assessment type — **no** raw score, no Q9 value, no device identifier, and nothing that identifies you.
 - **App Improvement:** Analyze anonymized usage patterns to improve user experience
 - **Technical Support:** Debug issues, provide customer support
 - **Legal Compliance:** Comply with applicable laws and regulations
@@ -87,13 +86,15 @@ We use your information solely to provide and improve the Being app:
 
 All your mental health data is stored locally on your device by default. We use AES-256 encryption to protect your data at rest.
 
-### 4.2 Optional Cloud Backup
+To keep any data that does reach our servers (optional settings backup; the PII-free crisis-detection event described in §3) isolated to you and to you alone, the app creates — at startup — an **anonymous account identifier** with our database provider (Supabase). This identifier is a randomly generated value — it contains **no** email address, name, phone number, or other personal information, and you are never asked to sign in. It exists only to enforce that one device's data cannot be read by another. It is removed when you delete your account or data (§7.4).
 
-You may optionally enable encrypted cloud backup to sync data across devices. Cloud backups are:
+### 4.2 Optional Settings Backup
 
-- Encrypted end-to-end (we cannot read your data)
-- Stored on secure cloud infrastructure (Supabase, SOC 2 Type II certified)
-- Deletable at any time from your account settings
+You may optionally enable an encrypted settings backup. This is a narrow, opt-in feature that backs up a small set of non-wellness app preferences (such as autosave configuration and last-sync timestamps) to encrypted cloud storage. It does **not** back up your mental-health data — PHQ-9 / GAD-7 responses, mood check-ins, journal entries, and crisis records always stay on your device. Settings backups are:
+
+- Encrypted in transit (TLS 1.2+) and at rest (AES-256) on Supabase infrastructure (SOC 2 Type II certified)
+- Scoped to a strict allowlist of non-sensitive preference fields
+- Deletable at any time from in-app *Settings → Privacy & Data*
 
 ### 4.3 Security Measures
 
@@ -101,7 +102,7 @@ You may optionally enable encrypted cloud backup to sync data across devices. Cl
 - TLS 1.2+ encryption for data in transit
 - Regular security audits and penetration testing
 - Limited employee access to encrypted data
-- Two-factor authentication for accounts
+- A documented Data Protection Impact Assessment covering our processing of sensitive wellness data is maintained as an internal compliance artifact in accordance with applicable state privacy laws
 
 ### 4.4 Breach Notification
 
@@ -115,7 +116,7 @@ Notifications will include:
 - What we are doing to investigate the breach and prevent recurrence
 - How to contact us for more information
 
-Notifications will be delivered by email (if you provided one) and by prominent in-app notice.
+Notifications will be delivered by prominent in-app notice. (Being does not collect email addresses in v1, so email notifications are not available; if email collection is introduced in a future release, this section will be updated accordingly.)
 
 ---
 
@@ -131,9 +132,12 @@ Notifications will be delivered by email (if you provided one) and by prominent 
 
 We use the following third-party service providers to operate our Services:
 
-- **[Supabase](https://supabase.com/privacy):** Database, authentication, and cloud storage (SOC 2 Type II certified, US data region). If you enable optional cloud backup, your encrypted data is stored on Supabase infrastructure.
+- **[Supabase](https://supabase.com/privacy):** Database, authentication, and cloud storage (SOC 2 Type II certified, US data region). If you enable optional settings backup, your encrypted preference data is stored on Supabase infrastructure.
 - **[PostHog](https://posthog.com/privacy):** Product analytics (EU data residency, Frankfurt). See Section 5.2 for details.
-- **Expo:** Mobile app framework and over-the-air updates (anonymized crash reports only)
+- **[Notion](https://www.notion.so/privacy):** Waitlist email storage for the being.fyi marketing website. When you submit your email via the pre-launch waitlist form, we store it (along with your A/B variant assignment, where applicable) in an internal Notion database. We do not transfer mental-health data, app usage, or any other personal data to Notion.
+- **[Sentry](https://sentry.io/privacy/):** Crash, error, and performance diagnostics. Event payloads are scrubbed of wellness data and identifiers before transmission — no PHQ-9 / GAD-7 responses or scores, no journal content, and no device identifier are sent.
+- **[Resend](https://resend.com/legal/privacy-policy):** Transactional email delivery for internal operational alerts only — for example, automated notifications to our operators about the health of the crisis-detection pipeline. These alerts contain aggregate, non-personal operational data; no user personal data is sent to Resend.
+- **Expo:** Mobile app framework and over-the-air updates
 - **Apple/Google:** App distribution and in-app purchases (no health data shared)
 
 All service providers are contractually bound to protect your data and may only use it to provide services to us.
@@ -142,9 +146,13 @@ All service providers are contractually bound to protect your data and may only 
 
 ### 5.2 Analytics
 
-Being uses PostHog (EU data residency) to collect anonymous product analytics. **Analytics is disabled by default and requires your explicit opt-in.**
+Being uses PostHog (EU data residency, Frankfurt) for product analytics. We use it on two separate surfaces with different defaults: the **mobile app** (opt-in) and the **marketing website** at being.fyi (opt-out, GPC-honored).
 
-**What We Collect (when opted in):**
+#### Mobile app: opt-in only
+
+**Analytics is OFF by default in the app and requires your explicit opt-in.**
+
+What we collect (when opted in):
 
 - Screen views and navigation patterns
 - Feature usage counts (e.g., "check-in completed")
@@ -152,7 +160,7 @@ Being uses PostHog (EU data residency) to collect anonymous product analytics. *
 - Session duration
 - Device type and OS version
 
-**What We NEVER Collect:**
+What we **NEVER** collect in-app:
 
 - Assessment scores (PHQ-9, GAD-7)
 - Mood check-in values or notes
@@ -160,11 +168,31 @@ Being uses PostHog (EU data residency) to collect anonymous product analytics. *
 - Crisis contact information
 - Any mental health data
 
-**Your Control:**
+Your control:
 
 - Analytics is **OFF by default**
 - Opt-in via Settings > Privacy > Analytics
 - Request deletion via Settings > Privacy > Delete Analytics Data
+
+**Note on crisis-safety recording:** The analytics opt-in above controls what is sent to PostHog. It does **not** control the separate crisis-detection event described in §3 (Safety Features), which is recorded to Being's own first-party storage under a vital-interests basis and is not suppressible by analytics opt-out or universal opt-out. That event contains no raw scores and no identifying information — only aggregate category labels.
+
+#### Marketing website (being.fyi): opt-out, GPC-honored
+
+The marketing site uses PostHog for aggregate visitor measurement, scoped tightly:
+
+- **Pageviews** (path, referrer, UTM parameters)
+- **Waitlist signup events** (submission success, submission failure with reason)
+
+What we **NEVER** do on the website:
+
+- Autocapture (we do not record all clicks, form keystrokes, or DOM interactions)
+- Session replay (we do not record video of your sessions)
+- Heatmaps, surveys, or behavioral profiling
+- Transmit raw email addresses or any other personally identifying information to PostHog
+
+**Global Privacy Control (GPC) hard kill:** if your browser sends `Sec-GPC: 1` (Brave, DuckDuckGo, Firefox with an extension, etc.), PostHog does not load, no analytics cookie is set, and no event is transmitted. This is structurally enforced server-side and is independent of any in-app preference.
+
+The website's reduced collection scope and GPC honoring is what allows opt-out-default on the web surface while preserving opt-in-only for the app. Both surfaces share the same data residency (EU, Frankfurt) and the same vendor.
 
 **Data Residency:** EU (Frankfurt, Germany)
 
@@ -176,11 +204,11 @@ Being uses PostHog (EU data residency) to collect anonymous product analytics. *
 
 In accordance with CCPA §1798.135(b)(1), we satisfy our opt-out obligation by publishing this notice in our privacy policy in lieu of maintaining a separate "Do Not Sell or Share My Personal Information" link.
 
-**Global Privacy Control (GPC):** We honor the Global Privacy Control (GPC) browser signal as a valid opt-out request under CCPA, the Texas Data Privacy and Security Act (TDPSA), and the Colorado Privacy Act (CPA). If your browser or device sends a GPC signal, we treat it as an opt-out request even though no sale or sharing is occurring.
+**Global Privacy Control (GPC) and Universal Opt-Out:** Being honors universal opt-out signals as required under CCPA, the Texas Data Privacy and Security Act (TDPSA), the Colorado Privacy Act (CPA), and the Connecticut Data Privacy Act (CTDPA). In the app, you can enable *Settings → Privacy & Data → Honor Universal Opt-Out*, which immediately suppresses all non-essential analytics, crash reporting, settings backup, and research participation regardless of any granular consent previously granted — the in-app equivalent of a GPC signal. On the web, our privacy and support pages at `being.fyi` honor the `Sec-GPC: 1` request header sent by browsers and extensions implementing the Global Privacy Control specification. *(Web-side detection is rolling out and tracked separately; the in-app universal opt-out is live as of v1.3 of this policy.)*
 
 To submit a formal opt-out request by email, write to [privacy@being.fyi](mailto:privacy@being.fyi) with the subject line "Do Not Sell or Share My Personal Information." We will confirm receipt and document your request.
 
-For complete California privacy rights, see our [California Privacy Rights](/privacy/california) page.
+For complete California privacy rights, see our [California Privacy Rights](/privacy/california) page. For Texas, Colorado, Connecticut, and Virginia rights, see our [Multi-State Privacy Rights](/privacy/multi-state) page.
 
 ---
 
@@ -190,9 +218,9 @@ You have the following rights regarding your personal information:
 
 - **Access:** Request a copy of your data at any time
 - **Correction:** Update or correct your information
-- **Deletion:** Delete your account and all associated data
+- **Deletion:** Delete all of your in-app and backed-up data
 - **Export:** Download your data in portable JSON format
-- **Opt-Out:** Disable cloud backup, analytics, or crash reporting
+- **Opt-Out:** Disable settings backup, analytics, or crash reporting
 
 To exercise these rights, email [privacy@being.fyi](mailto:privacy@being.fyi) or use the in-app settings.
 
@@ -223,14 +251,14 @@ This extended retention ensures continuity of care information and protects both
 ### 7.3 Other Data
 
 - **Local Data:** Stored on your device until you delete the app or clear data
-- **Cloud Backup:** Retained until you delete your account or disable backup
-- **Account Deletion:** All data permanently deleted within 30 days
+- **Settings Backup:** Retained until you disable backup or request deletion via in-app *Privacy & Data* settings
+- **Data Deletion Requests:** Honored within 30 days of request
 - **Audit Logs:** 3 years (for security and compliance)
 - **Consent Records:** Retained indefinitely as proof of lawful data processing
 
 ### 7.4 Your Right to Delete
 
-You can delete your data at any time in Settings, including crisis-related data. We will honor deletion requests within 30 days, though we may retain anonymized records for legal compliance.
+You can delete your data at any time in Settings, including crisis-related data. Deletion removes your data both on your device and on our servers: it erases your anonymous account identifier (§4.1), which automatically and permanently deletes every record tied to it (any settings backup, subscription records, and crisis-detection events). We will honor deletion requests within 30 days, though we may retain anonymized records for legal compliance.
 
 ---
 
@@ -244,13 +272,13 @@ Being is intended for users age 18 and older. We do not knowingly collect person
 
 Being is based in the United States. If you access our Services from outside the U.S., your data may be transferred to and processed in the U.S. or other countries where our service providers operate.
 
-**GDPR Compliance:** For European users, we comply with GDPR requirements, including data portability, right to erasure, and lawful processing bases. See our [California Privacy Rights](/privacy/california) page for additional state-specific rights.
+**GDPR Compliance:** For European users, we comply with GDPR requirements, including data portability, right to erasure, and lawful processing bases.
 
 ---
 
 ## 10. Changes to This Policy
 
-We may update this Privacy Policy from time to time. We will notify you of material changes via email (if you provided one) or in-app notification. Your continued use of Being after changes take effect constitutes acceptance of the updated policy.
+We may update this Privacy Policy from time to time. We will notify you of material changes via in-app notification. Your continued use of Being after changes take effect constitutes acceptance of the updated policy.
 
 ---
 

@@ -39,15 +39,27 @@ jest.mock('expo-secure-store', () => ({
 }));
 
 jest.mock('@react-native-async-storage/async-storage', () => ({
-  setItem: jest.fn().mockImplementation(() => 
+  setItem: jest.fn().mockImplementation(() =>
     new Promise(resolve => setTimeout(resolve, Math.random() * 15)) // 0-15ms
   ),
-  getItem: jest.fn().mockImplementation(() => 
+  getItem: jest.fn().mockImplementation(() =>
     new Promise(resolve => setTimeout(resolve, Math.random() * 10)) // 0-10ms
   ),
-  removeItem: jest.fn().mockImplementation(() => 
+  removeItem: jest.fn().mockImplementation(() =>
     new Promise(resolve => setTimeout(resolve, Math.random() * 5)) // 0-5ms
   ),
+}));
+
+// INFRA-144: assessmentStore now persists via SecureStorageService.
+// Passthrough so the perf test doesn't drag in real EncryptionService
+// (which retries getRandomBytesAsync in jsdom and balloons memory).
+jest.mock('@/core/services/security/SecureStorageService', () => ({
+  __esModule: true,
+  default: {
+    storeWellnessBlob: jest.fn().mockResolvedValue({ success: true, operationType: 'store', storageKey: '', operationTimeMs: 0, dataSize: 0 }),
+    retrieveWellnessBlob: jest.fn().mockResolvedValue(null),
+    deleteWellnessBlob: jest.fn().mockResolvedValue(undefined),
+  },
 }));
 
 jest.mock('react-native', () => ({
@@ -144,8 +156,8 @@ describe('ASSESSMENT PERFORMANCE TESTING SUITE', () => {
         expect(state().crisisDetection?.isTriggered).toBe(true);
         
         // Test env budget: <500ms (mocked storage adds random 0-30ms × 9 answers
-        // = 135ms variance baseline). Production <200ms budget is enforced by
-        // npm run perf:crisis using real device timings.
+        // = 135ms variance baseline). Production <200ms budget is documented
+        // in CLAUDE.md "Performance Budgets" and validated on-device.
         expect(detectionTime).toBeLessThan(500);
 
         console.log(`PHQ-9 Score ${targetScore}: Crisis detected in ${detectionTime.toFixed(2)}ms`);
@@ -227,7 +239,7 @@ describe('ASSESSMENT PERFORMANCE TESTING SUITE', () => {
         expect(state().crisisDetection?.primaryTrigger).toBe('phq9_suicidal_ideation');
 
         // Critical: Suicidal ideation must be detected immediately
-        expect(immediateDetectionTime).toBeLessThan(300); // Test env; <100ms production via perf:crisis
+        expect(immediateDetectionTime).toBeLessThan(300); // Test env; <100ms production budget on-device
 
         console.log(`Suicidal Response ${suicidalResponse}: Detected in ${immediateDetectionTime.toFixed(2)}ms`);
       }

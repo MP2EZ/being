@@ -192,13 +192,20 @@ describe('DRD Check-in Flows Accessibility Validation', () => {
   });
 
   describe('5. AUDIO ANNOUNCEMENTS FOR BREATHING EXERCISES', () => {
-    it('CRITICAL: Breathing circle announces phase transitions', () => {
+    it('CRITICAL: Breathing circle announces the inhale cue immediately on activation', () => {
       render(
         <BreathingCircle isActive={true} />
       );
 
-      // Verify audio announcements are configured
-      expect(AccessibilityInfo.announceForAccessibility).toBeDefined();
+      // The first "Breathe in" cue must fire synchronously on activation, not
+      // be deferred to the first animation boundary (one cycle late). Subsequent
+      // phase cues are driven by withSequence completion callbacks.
+      expect(AccessibilityInfo.announceForAccessibility).toHaveBeenCalledWith('Breathe in');
+    });
+
+    it('does not announce when inactive', () => {
+      render(<BreathingCircle isActive={false} />);
+      expect(AccessibilityInfo.announceForAccessibility).not.toHaveBeenCalled();
     });
 
     it('Timer announces time remaining at key intervals', () => {
@@ -225,6 +232,9 @@ describe('DRD Check-in Flows Accessibility Validation', () => {
 
       const breathingCircle = getByTestId('breathing-circle');
       expect(breathingCircle).toBeTruthy();
+      // Reduced motion damps the visual but must NOT suppress audio cues —
+      // the guidance text promises audio will guide breathing.
+      expect(AccessibilityInfo.announceForAccessibility).toHaveBeenCalledWith('Breathe in');
     });
   });
 

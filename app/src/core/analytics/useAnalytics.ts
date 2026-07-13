@@ -11,6 +11,7 @@ import { useCallback } from 'react';
 import { usePostHog } from 'posthog-react-native';
 import { PHIFilter, AnalyticsEvents } from './PHIFilter';
 import { logAnalytics } from '@/core/services/logging';
+import { coarsenScreenNameForAnalytics } from '@/core/utils/sensitiveScreens';
 
 /**
  * Hook for safe analytics tracking
@@ -59,7 +60,15 @@ export function useAnalytics() {
    */
   const trackScreenView = useCallback(
     (screenName: string) => {
-      trackEvent(AnalyticsEvents.SCREEN_VIEWED, { screen_name: screenName });
+      // Coarsen sensitive screen names (e.g. CrisisResourcesScreen,
+      // AssessmentScreen) to a generic bucket BEFORE the event reaches
+      // PHIFilter/PostHog, so a screen-view cannot disclose a wellness-
+      // sensitive context. Non-sensitive names pass through unchanged so
+      // per-screen funnels survive (DEBUG-239). Mirrors the Sentry path,
+      // which uses the same shared sensitive-route list.
+      trackEvent(AnalyticsEvents.SCREEN_VIEWED, {
+        screen_name: coarsenScreenNameForAnalytics(screenName),
+      });
     },
     [trackEvent]
   );

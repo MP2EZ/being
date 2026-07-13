@@ -1,8 +1,8 @@
 /**
- * Performance Validation Service - Week 3 Target Validation
+ * Performance Validation Service - Target Validation
  *
  * TARGET VALIDATION:
- * - Crisis detection: <50ms (enhanced from <200ms)
+ * - Crisis detection: <50ms
  * - Assessment flow: <200ms per question (enhanced from <300ms)
  * - Memory usage: <150MB during extended sessions
  * - Frame rate: 60fps maintained (16.67ms per frame)
@@ -157,6 +157,7 @@ class PerformanceStressTester {
     MemoryOptimizer.initialize();
 
     return new Promise((resolve) => {
+      // interval-guard-skip: stress-test runtime self-clears on line ~187 (clearInterval(interval) when duration elapses); not a singleton-init leak pattern
       const interval = setInterval(() => {
         // Simulate memory-intensive operations
         const largeData = new Array(10000).fill(0).map(() => ({

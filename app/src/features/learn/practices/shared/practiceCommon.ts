@@ -46,30 +46,22 @@ export {
 } from '@/core/theme';
 
 // ============================================================================
-// Phase 1 Shared Components (Existing)
+// Shared Components
 // ============================================================================
 export { default as PracticeScreenHeader } from './PracticeScreenHeader';
 export { default as PracticeToggleButton } from './PracticeToggleButton';
-
-// ============================================================================
-// Phase 2 Shared Components (New)
-// ============================================================================
 export { default as PracticeScreenLayout } from './PracticeScreenLayout';
 export { default as PracticeInstructions } from './PracticeInstructions';
 
 // ============================================================================
-// Phase 1 Shared Hooks (Existing)
+// Shared Hooks
 // ============================================================================
 export { usePracticeCompletion } from './usePracticeCompletion';
 export { useInstructionsFade } from './useInstructionsFade';
-
-// ============================================================================
-// Phase 2 Shared Hooks (New)
-// ============================================================================
 export { useTimerPractice } from './useTimerPractice';
 
 // ============================================================================
-// Phase 2 Shared Styles (New)
+// Shared Styles
 // ============================================================================
 export { sharedPracticeStyles } from './sharedPracticeStyles';
 

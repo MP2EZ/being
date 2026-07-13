@@ -1,18 +1,19 @@
 /**
- * SYNC STATUS INDICATOR - Week 3 UI Enhancement
+ * SYNC STATUS INDICATOR
  *
- * COMPREHENSIVE SYNC & ANALYTICS STATUS DISPLAY:
- * - Real-time sync coordinator status monitoring  
- * - Analytics service status and privacy compliance
+ * SYNC STATUS DISPLAY:
+ * - Real-time sync coordinator status monitoring
  * - Crisis sync performance metrics (<200ms requirement)
- * - Network security and privacy protection indicators
  * - User-friendly visual status indicators with accessibility
+ *
+ * NOTE (INFRA-214): the former "Analytics Service" half of this indicator was removed.
+ * It read `AnalyticsService.getStatus()` from the dead custom-API analytics path and
+ * displayed hardcoded `privacyCompliance: true` / `networkSecurity: true` — never real
+ * signal. The PostHog analytics tier has no per-device status surface.
  *
  * FEATURES:
  * - Live sync status updates with color-coded indicators
- * - Analytics privacy compliance visualization
  * - Crisis sync performance monitoring
- * - Session rotation status and security metrics
  * - Detailed status breakdown in advanced mode
  * - Accessibility optimized with screen reader support
  *
@@ -23,7 +24,7 @@
  */
 
 
-import { logSecurity, logPerformance, logError, LogCategory } from '@/core/services/logging';
+import { logError, LogCategory } from '@/core/services/logging';
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
@@ -36,31 +37,19 @@ import {
 
 // Import services
 import SyncCoordinator from '@/core/services/supabase/SyncCoordinator';
-import AnalyticsService from '@/core/analytics/AnalyticsService';
+import type { SyncIndicatorStatus } from '@/core/services/supabase/SyncCoordinator';
 import { spacing, borderRadius, typography } from '@/core/theme';
 
 /**
  * SYNC STATUS TYPES
+ *
+ * DEBUG-276: the indicator's display shape is now owned by SyncCoordinator
+ * (`SyncIndicatorStatus`) and read via its real `getStatus()` method. The former
+ * local `SyncStatus` interface paired with a `(SyncCoordinator as any).getStatus()`
+ * call against a method that did not exist — the `as any` hid the missing method,
+ * which threw on every poll. Aliased here to preserve the public export.
  */
-interface SyncStatus {
-  isInitialized: boolean;
-  lastSyncTime: number | null;
-  pendingOperations: number;
-  isConnected: boolean;
-  circuitBreakerState: 'closed' | 'open' | 'half-open';
-  errorCount: number;
-  retryScheduled: boolean;
-}
-
-interface AnalyticsStatus {
-  initialized: boolean;
-  queueSize: number;
-  currentSession: string;
-  lastProcessedBatch: number | null;
-  securityValidation: boolean;
-  privacyCompliance: boolean;
-  networkSecurity: boolean;
-}
+type SyncStatus = SyncIndicatorStatus;
 
 interface SyncStatusIndicatorProps {
   showDetailed?: boolean;
@@ -80,11 +69,10 @@ export default function SyncStatusIndicator({
 }: SyncStatusIndicatorProps) {
   // Component state
   const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null);
-  const [analyticsStatus, setAnalyticsStatus] = useState<AnalyticsStatus | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<number>(Date.now());
-  
+
   // Animation values
   const [pulseAnim] = useState(new Animated.Value(1));
   const [fadeAnim] = useState(new Animated.Value(0));
@@ -97,34 +85,14 @@ export default function SyncStatusIndicator({
       setIsLoading(true);
       setError(null);
 
-      // Get sync coordinator status
-      const syncCoordinatorStatus = await (SyncCoordinator as any).getStatus();
-      setSyncStatus({
-        isInitialized: syncCoordinatorStatus.isInitialized,
-        lastSyncTime: syncCoordinatorStatus.lastSyncTime,
-        pendingOperations: syncCoordinatorStatus.pendingOperations || 0,
-        isConnected: syncCoordinatorStatus.isConnected || false,
-        circuitBreakerState: syncCoordinatorStatus.circuitBreakerState || 'closed',
-        errorCount: syncCoordinatorStatus.errorCount || 0,
-        retryScheduled: syncCoordinatorStatus.retryScheduled || false
-      });
-
-      // Get analytics service status
-      const analyticsServiceStatus = await AnalyticsService.getStatus();
-      setAnalyticsStatus({
-        initialized: analyticsServiceStatus.initialized,
-        queueSize: analyticsServiceStatus.queueSize,
-        currentSession: analyticsServiceStatus.currentSession,
-        lastProcessedBatch: analyticsServiceStatus.lastProcessedBatch,
-        securityValidation: analyticsServiceStatus.securityValidation,
-        privacyCompliance: true, // Would get from actual service
-        networkSecurity: true // Would get from actual service
-      });
+      // Get sync coordinator status (DEBUG-276: real, typed, synchronous method)
+      const syncCoordinatorStatus = SyncCoordinator.getStatus();
+      setSyncStatus(syncCoordinatorStatus);
 
       setLastUpdated(Date.now());
-      
+
       // Determine overall status and notify parent
-      const overallStatus = determineOverallStatus(syncCoordinatorStatus, analyticsServiceStatus);
+      const overallStatus = determineOverallStatus(syncCoordinatorStatus);
       onStatusChange?.(overallStatus);
 
     } catch (error) {
@@ -162,11 +130,10 @@ export default function SyncStatusIndicator({
    * STATUS DETERMINATION
    */
   const determineOverallStatus = (
-    sync: any,
-    analytics: any
+    sync: any
   ): 'healthy' | 'warning' | 'critical' | 'offline' => {
-    // Critical: Not initialized or major errors
-    if (!sync.isInitialized || !analytics.initialized) {
+    // Critical: Not initialized
+    if (!sync.isInitialized) {
       return 'critical';
     }
 
@@ -175,13 +142,13 @@ export default function SyncStatusIndicator({
       return 'offline';
     }
 
-    // Critical: Circuit breaker open or security failures
-    if (sync.circuitBreakerState === 'open' || !analytics.securityValidation) {
+    // Critical: Circuit breaker open
+    if (sync.circuitBreakerState === 'open') {
       return 'critical';
     }
 
-    // Warning: High error count or privacy issues
-    if (sync.errorCount > 5 || !analytics.privacyCompliance || analytics.queueSize > 50) {
+    // Warning: High error count
+    if (sync.errorCount > 5) {
       return 'warning';
     }
 
@@ -189,25 +156,25 @@ export default function SyncStatusIndicator({
   };
 
   const getStatusColor = (): string => {
-    if (!syncStatus || !analyticsStatus) return '#999';
-    
-    const status = determineOverallStatus(syncStatus, analyticsStatus);
+    if (!syncStatus) return '#999';
+
+    const status = determineOverallStatus(syncStatus);
     const colors = {
       healthy: '#4caf50',
-      warning: '#ffa726', 
+      warning: '#ffa726',
       critical: '#f44336',
       offline: '#757575'
     };
-    
+
     return colors[status];
   };
 
   const getStatusText = (): string => {
     if (isLoading) return 'Updating...';
     if (error) return 'Error';
-    if (!syncStatus || !analyticsStatus) return 'Unknown';
+    if (!syncStatus) return 'Unknown';
 
-    const status = determineOverallStatus(syncStatus, analyticsStatus);
+    const status = determineOverallStatus(syncStatus);
     const statusTexts = {
       healthy: 'All Systems Healthy',
       warning: 'Minor Issues Detected',
@@ -240,39 +207,30 @@ export default function SyncStatusIndicator({
 
   // Start pulse animation for critical status
   useEffect(() => {
-    if (syncStatus && analyticsStatus) {
-      const status = determineOverallStatus(syncStatus, analyticsStatus);
+    if (syncStatus) {
+      const status = determineOverallStatus(syncStatus);
       if (status === 'critical') {
         startPulseAnimation();
       }
     }
-  }, [syncStatus, analyticsStatus, startPulseAnimation]);
+  }, [syncStatus, startPulseAnimation]);
 
   /**
    * UTILITY METHODS
    */
   const formatLastSync = (timestamp: number | null): string => {
     if (!timestamp) return 'Never';
-    
+
     const now = Date.now();
     const diff = now - timestamp;
     const minutes = Math.floor(diff / 60000);
     const hours = Math.floor(diff / 3600000);
-    
+
     if (minutes < 1) return 'Just now';
     if (minutes < 60) return `${minutes}m ago`;
     if (hours < 24) return `${hours}h ago`;
-    
-    return new Date(timestamp).toLocaleDateString();
-  };
 
-  const formatSessionId = (sessionId: string): string => {
-    // Format session ID for display (hide random component for privacy)
-    const parts = sessionId.split('_');
-    if (parts.length >= 3) {
-      return `${parts[1]}_***`;
-    }
-    return 'session_***';
+    return new Date(timestamp).toLocaleDateString();
   };
 
   /**
@@ -288,12 +246,12 @@ export default function SyncStatusIndicator({
    * RENDER METHODS
    */
   const renderCompactStatus = () => (
-    <Animated.View 
+    <Animated.View
       style={[
         styles.compactContainer,
-        { 
+        {
           transform: [{ scale: pulseAnim }],
-          opacity: fadeAnim 
+          opacity: fadeAnim
         }
       ]}
     >
@@ -304,7 +262,7 @@ export default function SyncStatusIndicator({
   );
 
   const renderDetailedStatus = () => (
-    <Animated.View 
+    <Animated.View
       style={[
         styles.detailedContainer,
         { opacity: fadeAnim }
@@ -313,16 +271,16 @@ export default function SyncStatusIndicator({
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <Animated.View 
+          <Animated.View
             style={[
-              styles.statusIndicator, 
-              { 
+              styles.statusIndicator,
+              {
                 backgroundColor: getStatusColor(),
                 transform: [{ scale: pulseAnim }]
               }
-            ]} 
+            ]}
           />
-          <Text style={styles.headerTitle}>Sync & Analytics Status</Text>
+          <Text style={styles.headerTitle}>Sync Status</Text>
         </View>
         {isLoading && <ActivityIndicator size="small" color={getStatusColor()} />}
       </View>
@@ -331,7 +289,7 @@ export default function SyncStatusIndicator({
       {error && (
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity 
+          <TouchableOpacity
             onPress={updateStatus}
             style={styles.retryButton}
             accessibilityLabel="Retry status update"
@@ -346,7 +304,7 @@ export default function SyncStatusIndicator({
       {syncStatus && (
         <View style={styles.statusSection}>
           <Text style={styles.sectionTitle}>Sync Coordinator</Text>
-          
+
           <View style={styles.statusRow}>
             <Text style={styles.statusLabel}>Status:</Text>
             <Text style={[styles.statusValue, { color: getStatusColor() }]}>
@@ -381,56 +339,12 @@ export default function SyncStatusIndicator({
         </View>
       )}
 
-      {/* Analytics Status Section */}
-      {analyticsStatus && (
-        <View style={styles.statusSection}>
-          <Text style={styles.sectionTitle}>Analytics Service</Text>
-          
-          <View style={styles.statusRow}>
-            <Text style={styles.statusLabel}>Status:</Text>
-            <Text style={[styles.statusValue, { color: analyticsStatus.initialized ? '#4caf50' : '#f44336' }]}>
-              {analyticsStatus.initialized ? 'Active' : 'Inactive'}
-            </Text>
-          </View>
-
-          <View style={styles.statusRow}>
-            <Text style={styles.statusLabel}>Session:</Text>
-            <Text style={styles.statusValue}>
-              {formatSessionId(analyticsStatus.currentSession)}
-            </Text>
-          </View>
-
-          {analyticsStatus.queueSize > 0 && (
-            <View style={styles.statusRow}>
-              <Text style={styles.statusLabel}>Queue:</Text>
-              <Text style={[styles.statusValue, analyticsStatus.queueSize > 20 ? styles.warningText : undefined]}>
-                {analyticsStatus.queueSize} events
-              </Text>
-            </View>
-          )}
-
-          <View style={styles.statusRow}>
-            <Text style={styles.statusLabel}>Privacy:</Text>
-            <Text style={[styles.statusValue, { color: analyticsStatus.privacyCompliance ? '#4caf50' : '#f44336' }]}>
-              {analyticsStatus.privacyCompliance ? 'Compliant' : 'Issue'}
-            </Text>
-          </View>
-
-          <View style={styles.statusRow}>
-            <Text style={styles.statusLabel}>Security:</Text>
-            <Text style={[styles.statusValue, { color: analyticsStatus.securityValidation ? '#4caf50' : '#f44336' }]}>
-              {analyticsStatus.securityValidation ? 'Valid' : 'Issue'}
-            </Text>
-          </View>
-        </View>
-      )}
-
       {/* Last Updated */}
       <View style={styles.footer}>
         <Text style={styles.lastUpdatedText}>
           Updated: {new Date(lastUpdated).toLocaleTimeString()}
         </Text>
-        <TouchableOpacity 
+        <TouchableOpacity
           onPress={updateStatus}
           style={styles.refreshButton}
           accessibilityLabel="Refresh status"
@@ -446,7 +360,7 @@ export default function SyncStatusIndicator({
    * MAIN RENDER
    */
   return (
-    <View 
+    <View
       style={[styles.container, style]}
       testID={testID}
       accessible={true}
@@ -635,4 +549,4 @@ const styles = StyleSheet.create({
 });
 
 // Export prop types for documentation
-export type { SyncStatusIndicatorProps, SyncStatus, AnalyticsStatus };
+export type { SyncStatusIndicatorProps, SyncStatus };

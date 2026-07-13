@@ -168,9 +168,9 @@ jobs:
         run: |
           ENV="${{ needs.validate-environment.outputs.environment }}"
 
-          # Check HIPAA compliance mode
-          if ! grep -q "EXPO_PUBLIC_HIPAA_COMPLIANCE_MODE=" "app/.env.$ENV"; then
-            echo "❌ HIPAA compliance mode not configured"
+          # Check wellness-data mode
+          if ! grep -q "EXPO_PUBLIC_WELLNESS_DATA_MODE=" "app/.env.$ENV"; then
+            echo "❌ Wellness data mode not configured"
             exit 1
           fi
 

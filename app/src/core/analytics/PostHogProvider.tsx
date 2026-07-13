@@ -11,7 +11,7 @@
  */
 
 import React from 'react';
-import { PostHogProvider as PHProvider } from 'posthog-react-native';
+import { PostHogProvider as PHProvider, usePostHog } from 'posthog-react-native';
 import { useConsentStore } from '@/core/stores/consentStore';
 import { env } from '@/core/config/env';
 
@@ -21,6 +21,26 @@ const POSTHOG_HOST = env.EXPO_PUBLIC_POSTHOG_HOST;
 
 interface PostHogProviderProps {
   children: React.ReactNode;
+}
+
+/**
+ * Tags every PostHog event with `surface: 'app'` so the app's data
+ * stays distinguishable from being-website's data in the shared PostHog
+ * project (free-tier constraint: 1 project per account). The website
+ * mirrors this with `ph.register({ surface: 'web' })` in its own
+ * PosthogProvider — see mp2ez/being-website#42.
+ *
+ * Renders inside <PHProvider> so `usePostHog()` returns the initialized
+ * instance. Runs once when the instance becomes available.
+ */
+function RegisterSurfaceProperty(): null {
+  const posthog = usePostHog();
+  React.useEffect(() => {
+    if (posthog) {
+      posthog.register({ surface: 'app' });
+    }
+  }, [posthog]);
+  return null;
 }
 
 /**
@@ -34,10 +54,19 @@ export function PostHogProvider({ children }: PostHogProviderProps): React.React
   const analyticsEnabled = useConsentStore(
     (state) => state.currentConsent?.preferences?.analyticsEnabled ?? false
   );
+  // INFRA-151: GPC-equivalent universal opt-out overrides granular analytics consent.
+  const universalOptOut = useConsentStore(
+    (state) => state.currentConsent?.universalOptOut ?? false
+  );
 
-  // Don't render PostHog if no API key configured or no consent
-  if (!POSTHOG_API_KEY || POSTHOG_API_KEY === 'phc_your_api_key_here' || !analyticsEnabled) {
-    // Development mode or no consent - just render children without PostHog
+  // Don't render PostHog if no API key configured, no consent, or universal opt-out is active
+  if (
+    !POSTHOG_API_KEY ||
+    POSTHOG_API_KEY === 'phc_your_api_key_here' ||
+    !analyticsEnabled ||
+    universalOptOut
+  ) {
+    // Development mode, no consent, or honoring universal opt-out — render children without PostHog
     return <>{children}</>;
   }
 
@@ -60,6 +89,7 @@ export function PostHogProvider({ children }: PostHogProviderProps): React.React
         captureAppLifecycleEvents: false, // We handle this ourselves
       }}
     >
+      <RegisterSurfaceProperty />
       {children}
     </PHProvider>
   );

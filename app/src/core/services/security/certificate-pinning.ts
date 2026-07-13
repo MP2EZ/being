@@ -70,19 +70,6 @@ export const SUPABASE_CERTIFICATE_PINS = {
 } as const;
 
 /**
- * Future API endpoint pins (being.fyi)
- * Placeholder for when custom API is implemented
- */
-export const API_CERTIFICATE_PINS = {
-  'api.being.fyi': {
-    // Placeholder - update when API is deployed
-    primary: 'PLACEHOLDER_UPDATE_BEFORE_USE',
-    backup1: 'PLACEHOLDER_UPDATE_BEFORE_USE',
-    backup2: 'PLACEHOLDER_UPDATE_BEFORE_USE',
-  },
-} as const;
-
-/**
  * Pin validation configuration
  */
 export const PIN_VALIDATION_CONFIG = {
@@ -151,35 +138,16 @@ export interface PinValidationResult {
 export interface CertificatePinningAuditLog {
   timestamp: string;
   event:
-    | 'pin_validation_success'
     | 'pin_validation_failure'
     | 'certificate_rotation'
     | 'fallback_pin_used'
-    | 'development_bypass'
-    | 'crisis_fallback';
+    | 'development_bypass';
   endpoint: string;
   matchedPin?: string;
   dataClassification: DataClassification;
   action: 'allow' | 'block' | 'fallback';
   securityException?: string;
   platform: string;
-}
-
-/**
- * Check if endpoint is crisis-critical
- * Crisis endpoints get fallback behavior per Privacy §164.308(a)(7)(ii)(E)
- * Life-safety takes precedence over security controls
- */
-export function isCrisisEndpoint(url: string): boolean {
-  const crisisPatterns = [
-    '/crisis/',
-    '/emergency/',
-    '/intervention/',
-    '/safety-plan/',
-    '/988/', // National Suicide Prevention Lifeline
-  ];
-
-  return crisisPatterns.some((pattern) => url.toLowerCase().includes(pattern));
 }
 
 /**
@@ -198,17 +166,6 @@ export function getPinsForHost(
   // Wildcard match for *.supabase.co
   if (hostname.endsWith('.supabase.co')) {
     return SUPABASE_CERTIFICATE_PINS['*.supabase.co'];
-  }
-
-  // Future: API endpoint match
-  if (hostname in API_CERTIFICATE_PINS) {
-    const pins =
-      API_CERTIFICATE_PINS[hostname as keyof typeof API_CERTIFICATE_PINS];
-    // Don't return placeholder pins
-    if (pins.primary === 'PLACEHOLDER_UPDATE_BEFORE_USE') {
-      return null;
-    }
-    return pins;
   }
 
   return null;
@@ -287,8 +244,7 @@ export function logSecurityEvent(
 
   // Determine severity based on event type
   const severity =
-    event.event === 'pin_validation_failure' ||
-    event.event === 'crisis_fallback'
+    event.event === 'pin_validation_failure'
       ? 'high'
       : event.event === 'development_bypass'
         ? 'medium'
@@ -306,47 +262,6 @@ export function logSecurityEvent(
       new Error(event.securityException || 'Pin mismatch')
     );
   }
-}
-
-/**
- * Handle pin validation failure
- * Returns action to take: 'block' or 'fallback' (crisis only)
- */
-export function handlePinValidationFailure(
-  url: string,
-  dataClassification: DataClassification,
-  error: string
-): 'block' | 'fallback' {
-  // COMPLIANCE: Crisis endpoints get fallback per life-safety requirement
-  if (isCrisisEndpoint(url)) {
-    logSecurityEvent({
-      event: 'crisis_fallback',
-      endpoint: url,
-      dataClassification,
-      action: 'fallback',
-      securityException:
-        'Crisis endpoint pin failure - fallback allowed per life-safety requirement (Privacy §164.308(a)(7)(ii)(E))',
-    });
-
-    // Alert would be sent to security monitoring in production
-    logSecurity(
-      '[SECURITY ALERT] Crisis endpoint pin failure - using fallback',
-      'high'
-    );
-
-    return 'fallback';
-  }
-
-  // All other endpoints: fail-closed
-  logSecurityEvent({
-    event: 'pin_validation_failure',
-    endpoint: url,
-    dataClassification,
-    action: 'block',
-    securityException: error,
-  });
-
-  return 'block';
 }
 
 /**
@@ -393,12 +308,9 @@ if (
 
 export default {
   SUPABASE_CERTIFICATE_PINS,
-  API_CERTIFICATE_PINS,
   PIN_VALIDATION_CONFIG,
   getPinsForHost,
   validateCertificatePin,
-  handlePinValidationFailure,
   shouldBypassPinning,
-  isCrisisEndpoint,
   logSecurityEvent,
 };

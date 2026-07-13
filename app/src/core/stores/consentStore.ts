@@ -10,8 +10,9 @@
  *
  * COMPLIANCE:
  * - Privacy: Granular consent scopes with audit trail
- * - COPPA: Age verification gate (13+ years)
+ * - Age verification gate (18+ years, per ToS §4 / Privacy Policy §8)
  * - CCPA/VCDPA: Opt-out defaults, export capability
+ * - GDPR Art. 9(2)(a): Explicit consent for mental-health data processing
  * - Dark pattern prevention: No pre-checked boxes
  *
  * NON-NEGOTIABLE:
@@ -24,13 +25,64 @@ import { create } from 'zustand';
 import { generateRandomString } from '@/core/utils/id';
 import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import SecureStorageService from '@/core/services/security/SecureStorageService';
 import { getCurrentUserId } from '@/core/constants/devMode';
 
 // Storage keys
 const CONSENT_SECURE_KEY = 'consent_record_v1';
 const CONSENT_CACHE_KEY = 'consent_cache_v1';
 const AGE_VERIFICATION_KEY = 'age_verification_v1';
-const CONSENT_HISTORY_KEY = 'consent_history_v1';
+/** Legacy SecureStore key — left in place for the read-old/write-new migration. */
+const LEGACY_CONSENT_HISTORY_KEY = 'consent_history_v1';
+/**
+ * Logical blob name passed to SecureStorageService.storeWellnessBlob. The
+ * service maps this to its WELLNESS_ASYNC_PREFIX in AsyncStorage. AES-256-GCM
+ * ciphertext only — master key remains in platform Keychain.
+ */
+const CONSENT_HISTORY_BLOB_KEY = 'consent_history_v1';
+/** Per-keystore-migration idempotency flag, separate from EncryptionService's. */
+const CONSENT_HISTORY_MIGRATION_FLAG = 'being.consent_history_migration_v2';
+const LEGAL_GATE_CONSENTS_KEY = 'legal_gate_consents_v1';
+
+/**
+ * Legal-gate consents captured on CombinedLegalGateScreen — persisted between
+ * the legal-gate step and the granular-preferences step in OnboardingScreen,
+ * where the full ConsentRecord is granted.
+ *
+ * `mentalHealthProcessingConsent` is the GDPR Art. 9(2)(a) explicit consent
+ * for processing wellness data (mood check-ins, anxiety/depression
+ * self-screening responses, journal entries).
+ */
+export interface LegalGateConsents {
+  tosAccepted: boolean;
+  privacyAccepted: boolean;
+  wellnessDisclaimerAcknowledged: boolean;
+  mentalHealthProcessingConsent: boolean;
+  /** Timestamp of acceptance (GDPR Art. 7(1) consent record) */
+  timestamp: number;
+  /** Policy version at acceptance time (for re-consent on policy changes) */
+  version: string;
+}
+
+export const recordLegalGateConsents = async (
+  consents: Omit<LegalGateConsents, 'timestamp' | 'version'>,
+): Promise<void> => {
+  const record: LegalGateConsents = {
+    ...consents,
+    timestamp: Date.now(),
+    version: CONSENT_VERSION,
+  };
+  await SecureStore.setItemAsync(LEGAL_GATE_CONSENTS_KEY, JSON.stringify(record));
+};
+
+export const getLegalGateConsents = async (): Promise<LegalGateConsents | null> => {
+  try {
+    const stored = await SecureStore.getItemAsync(LEGAL_GATE_CONSENTS_KEY);
+    return stored ? (JSON.parse(stored) as LegalGateConsents) : null;
+  } catch {
+    return null;
+  }
+};
 
 /**
  * Consent categories (FEAT-90 requirements)
@@ -45,10 +97,18 @@ export interface ConsentPreferences {
   cloudSyncEnabled: boolean;
   /** Research participation (default: false) */
   researchEnabled: boolean;
+  /**
+   * Explicit consent for processing personal wellness data (mood check-ins,
+   * anxiety/depression self-screening responses, journal entries) for
+   * wellness support features. Required under GDPR Art. 9(2)(a) for the
+   * special category of "data concerning health." Must be ticked separately —
+   * bundled consent does not satisfy "explicit."
+   */
+  mentalHealthProcessingConsent: boolean;
 }
 
 /**
- * Age verification data (COPPA compliance)
+ * Age verification data (18+ gate per ToS §4 / Privacy Policy §8)
  */
 export interface AgeVerification {
   /** Whether age has been verified */
@@ -59,7 +119,7 @@ export interface AgeVerification {
   ageAtVerification?: number;
   /** Timestamp of verification */
   verifiedAt?: number;
-  /** Whether user is eligible (13+) */
+  /** Whether user is eligible (18+) */
   isEligible?: boolean;
 }
 
@@ -75,6 +135,15 @@ export interface ConsentRecord {
   version: string;
   /** User's consent preferences */
   preferences: ConsentPreferences;
+  /**
+   * Universal opt-out signal (INFRA-151) — GPC-equivalent. When `true`,
+   * overrides all non-essential preferences (analytics, crash reports,
+   * cloud sync, research) and short-circuits `canPerformOperation` for
+   * those categories. Mental-health processing consent is unaffected
+   * (governed separately by GDPR Art. 9(2)(a)). Honored under CCPA,
+   * TDPSA, CPA, CTDPA; VCDPA does not mandate a universal opt-out signal.
+   */
+  universalOptOut: boolean;
   /** Age verification data */
   ageVerification: AgeVerification;
   /** Timestamp of consent */
@@ -103,6 +172,13 @@ export interface ConsentHistoryEntry {
   changes: Partial<ConsentPreferences>;
   /** Timestamp */
   timestamp: number;
+  /**
+   * Optional note documenting non-user actions on the audit chain
+   * (e.g., the INFRA-144 storage-substrate migration). Lets the audit
+   * chain stay unbroken across maintenance events without inventing
+   * new action types.
+   */
+  note?: string;
 }
 
 /**
@@ -122,6 +198,9 @@ export interface ConsentStore {
     canCollectCrashReports: boolean;
     canSyncToCloud: boolean;
     canParticipateInResearch: boolean;
+    canProcessMentalHealthData: boolean;
+    /** Mirror of ConsentRecord.universalOptOut for <5ms hot-path reads (INFRA-151) */
+    honorUniversalOptOut: boolean;
     ageVerified: boolean;
     isEligible: boolean;
     cacheTimestamp: number;
@@ -132,11 +211,20 @@ export interface ConsentStore {
   grantConsent: (preferences: ConsentPreferences, ageVerification: AgeVerification) => Promise<void>;
   updateConsent: (preferences: Partial<ConsentPreferences>) => Promise<void>;
   revokeConsent: (reason?: string) => Promise<void>;
+  /**
+   * Set the universal opt-out flag (INFRA-151). When `true`, blocks all
+   * non-essential operations (analytics, crash reports, cloud sync, research)
+   * regardless of granular consent. Persists to SecureStore + appends a
+   * `ConsentHistoryEntry` for audit trail (GDPR Art. 7).
+   */
+  setUniversalOptOut: (value: boolean) => Promise<void>;
   verifyAge: (birthYear: number) => Promise<{ eligible: boolean; age: number }>;
   getStoredAgeVerification: () => Promise<AgeVerification | null>;
 
   // Fast validation (uses cache, <5ms)
-  canPerformOperation: (operation: 'analytics' | 'crash_reports' | 'cloud_sync' | 'research') => boolean;
+  canPerformOperation: (
+    operation: 'analytics' | 'crash_reports' | 'cloud_sync' | 'research' | 'mental_health_processing',
+  ) => boolean;
   hasValidConsent: () => boolean;
   isAgeVerified: () => boolean;
 
@@ -146,6 +234,18 @@ export interface ConsentStore {
     history: ConsentHistoryEntry[];
     exportedAt: number;
   }>;
+
+  /**
+   * Write a minimized terminal audit attestation of an account-deletion request
+   * to the plaintext `consent_history_v1` SecureStore key (FEAT-267). That key
+   * is in ERASURE_EXCLUDED_SECURE_STORE_KEYS (survives clearAllWellnessData) and
+   * is NOT master-key encrypted (survives deleteMasterKey:true), so it remains
+   * readable as GDPR Art. 17(3)(b) demonstrability evidence after erasure. Only
+   * the attestation (timestamp, action, prior-entry count, final consent
+   * snapshot) is retained — not the full mutable history (Art. 5(1)(e)
+   * minimization). Called by AccountDeletionService before the on-device wipe.
+   */
+  recordAccountDeletionAttestation: () => Promise<void>;
 
   // Reset (for testing/development)
   resetConsent: () => Promise<void>;
@@ -159,6 +259,7 @@ const DEFAULT_PREFERENCES: ConsentPreferences = {
   crashReportsEnabled: false,
   cloudSyncEnabled: false,
   researchEnabled: false,
+  mentalHealthProcessingConsent: false,
 };
 
 /**
@@ -169,6 +270,8 @@ const DEFAULT_CACHE = {
   canCollectCrashReports: false,
   canSyncToCloud: false,
   canParticipateInResearch: false,
+  canProcessMentalHealthData: false,
+  honorUniversalOptOut: false,
   ageVerified: false,
   isEligible: false,
   cacheTimestamp: 0,
@@ -177,7 +280,7 @@ const DEFAULT_CACHE = {
 /**
  * Current consent version (update when policy changes)
  */
-const CONSENT_VERSION = '1.0.0';
+const CONSENT_VERSION = '1.1.0';
 
 /**
  * Generate unique consent ID
@@ -195,6 +298,63 @@ const calculateAge = (birthYear: number): number => {
   const currentYear = new Date().getFullYear();
   return currentYear - birthYear;
 };
+
+/**
+ * Persist consent history via SecureStorageService hybrid path (INFRA-144).
+ * AES-256-GCM ciphertext in AsyncStorage; master key in platform Keychain.
+ */
+async function persistConsentHistory(history: ConsentHistoryEntry[]): Promise<void> {
+  const result = await SecureStorageService.storeWellnessBlob(
+    CONSENT_HISTORY_BLOB_KEY,
+    history,
+    'level_2_assessment_data'
+  );
+  if (!result.success) {
+    throw new Error(`Failed to persist consent history: ${result.error ?? 'unknown'}`);
+  }
+}
+
+/**
+ * Load consent history with one-time legacy migration. On first read after
+ * INFRA-144 ships: if `consent_history_v1` exists in SecureStore but not in
+ * AsyncStorage, the underlying SecureStorageService moves the ciphertext to
+ * AsyncStorage and deletes the SecureStore copy. We then append a single
+ * `note`-annotated `ConsentHistoryEntry` so the audit chain documents the
+ * substrate transition (compliance requirement, INFRA-144 sign-off).
+ *
+ * Idempotency: a separate flag (`being.consent_history_migration_v2`) ensures
+ * the migration audit entry is appended exactly once across reruns.
+ */
+async function loadConsentHistoryWithMigration(): Promise<ConsentHistoryEntry[]> {
+  const migrationFlag = await AsyncStorage.getItem(CONSENT_HISTORY_MIGRATION_FLAG);
+  const isFirstRun = migrationFlag !== '1';
+
+  const history = await SecureStorageService.retrieveWellnessBlob<ConsentHistoryEntry[]>(
+    CONSENT_HISTORY_BLOB_KEY,
+    LEGACY_CONSENT_HISTORY_KEY,
+    { legacyFormat: 'plaintext_json', sensitivityLevel: 'level_2_assessment_data' }
+  );
+
+  if (!isFirstRun || !history || history.length === 0) {
+    // No legacy data to annotate, or migration audit entry already appended.
+    if (isFirstRun) {
+      await AsyncStorage.setItem(CONSENT_HISTORY_MIGRATION_FLAG, '1');
+    }
+    return history ?? [];
+  }
+
+  // Append migration audit entry (only on the run that actually migrated data).
+  const migrationEntry: ConsentHistoryEntry = {
+    action: 'updated',
+    changes: {},
+    timestamp: Date.now(),
+    note: 'storage_migration_v2: ciphertext moved to AsyncStorage, encryption boundary preserved',
+  };
+  const annotated = [...history, migrationEntry];
+  await persistConsentHistory(annotated);
+  await AsyncStorage.setItem(CONSENT_HISTORY_MIGRATION_FLAG, '1');
+  return annotated;
+}
 
 /**
  * Consent Zustand Store
@@ -228,10 +388,23 @@ export const useConsentStore = create<ConsentStore>((set, get) => ({
         return null;
       }
 
-      const consent = JSON.parse(storedConsent) as ConsentRecord;
+      const parsed = JSON.parse(storedConsent) as ConsentRecord;
+      // INFRA-151: additive `universalOptOut` field — pre-v1.2 records lack it.
+      // Defaulting to false here avoids forcing a re-grant for an opt-IN flag.
+      const consent: ConsentRecord = {
+        ...parsed,
+        universalOptOut: parsed.universalOptOut ?? false,
+      };
 
-      // Validate consent integrity
-      if (!consent.consentId || !consent.userId || consent.revoked) {
+      // Validate consent integrity.
+      // version !== CONSENT_VERSION forces re-grant when the policy shape changes
+      // (e.g., DEBUG-150 added Art. 9 explicit consent at version 1.1.0).
+      if (
+        !consent.consentId ||
+        !consent.userId ||
+        consent.revoked ||
+        consent.version !== CONSENT_VERSION
+      ) {
         set({
           currentConsent: null,
           consentStatus: 'invalid',
@@ -263,16 +436,22 @@ export const useConsentStore = create<ConsentStore>((set, get) => ({
         return consent;
       }
 
-      // Load consent history from SecureStore (for audit trail persistence)
-      const storedHistory = await SecureStore.getItemAsync(CONSENT_HISTORY_KEY);
-      const history: ConsentHistoryEntry[] = storedHistory ? JSON.parse(storedHistory) : [];
+      // Load consent history via hybrid path (AES-256-GCM ciphertext in
+      // AsyncStorage; master key in Keychain). Legacy SecureStore key is
+      // migrated on first read. INFRA-144.
+      const history = await loadConsentHistoryWithMigration();
 
-      // Update cache for fast validation
+      // Update cache for fast validation. INFRA-151: when universalOptOut is
+      // active, force the analytics/tracking cache fields to false so direct
+      // reads stay consistent without round-tripping through canPerformOperation.
+      const optOut = consent.universalOptOut;
       const cache = {
-        canCollectAnalytics: consent.preferences.analyticsEnabled,
-        canCollectCrashReports: consent.preferences.crashReportsEnabled,
-        canSyncToCloud: consent.preferences.cloudSyncEnabled,
-        canParticipateInResearch: consent.preferences.researchEnabled,
+        canCollectAnalytics: optOut ? false : consent.preferences.analyticsEnabled,
+        canCollectCrashReports: optOut ? false : consent.preferences.crashReportsEnabled,
+        canSyncToCloud: optOut ? false : consent.preferences.cloudSyncEnabled,
+        canParticipateInResearch: optOut ? false : consent.preferences.researchEnabled,
+        canProcessMentalHealthData: consent.preferences.mentalHealthProcessingConsent ?? false,
+        honorUniversalOptOut: optOut,
         ageVerified: consent.ageVerification.verified,
         isEligible: consent.ageVerification.isEligible ?? false,
         cacheTimestamp: Date.now(),
@@ -318,6 +497,9 @@ export const useConsentStore = create<ConsentStore>((set, get) => ({
         userId,
         version: CONSENT_VERSION,
         preferences,
+        // INFRA-151: New users default to no universal opt-out — they must
+        // explicitly enable it via Settings → Privacy & Data.
+        universalOptOut: false,
         ageVerification,
         timestamp: now,
         updatedAt: now,
@@ -335,9 +517,9 @@ export const useConsentStore = create<ConsentStore>((set, get) => ({
         timestamp: now,
       };
 
-      // Persist history to SecureStore (Privacy audit trail requirement)
+      // Persist history via hybrid path (encrypted AsyncStorage). INFRA-144.
       const updatedHistory = [historyEntry];
-      await SecureStore.setItemAsync(CONSENT_HISTORY_KEY, JSON.stringify(updatedHistory));
+      await persistConsentHistory(updatedHistory);
 
       // Update cache
       const cache = {
@@ -345,6 +527,8 @@ export const useConsentStore = create<ConsentStore>((set, get) => ({
         canCollectCrashReports: preferences.crashReportsEnabled,
         canSyncToCloud: preferences.cloudSyncEnabled,
         canParticipateInResearch: preferences.researchEnabled,
+        canProcessMentalHealthData: preferences.mentalHealthProcessingConsent,
+        honorUniversalOptOut: false,
         ageVerified: ageVerification.verified,
         isEligible: ageVerification.isEligible ?? false,
         cacheTimestamp: now,
@@ -407,16 +591,20 @@ export const useConsentStore = create<ConsentStore>((set, get) => ({
         timestamp: now,
       };
 
-      // Persist history to SecureStore (Privacy audit trail requirement)
+      // Persist history via hybrid path (encrypted AsyncStorage). INFRA-144.
       const updatedHistory = [...consentHistory, historyEntry];
-      await SecureStore.setItemAsync(CONSENT_HISTORY_KEY, JSON.stringify(updatedHistory));
+      await persistConsentHistory(updatedHistory);
 
-      // Update cache
+      // Update cache. INFRA-151: respect existing universal opt-out — if active,
+      // analytics/tracking fields stay false even when granular prefs are toggled.
+      const optOut = currentConsent.universalOptOut;
       const cache = {
-        canCollectAnalytics: updatedPreferences.analyticsEnabled,
-        canCollectCrashReports: updatedPreferences.crashReportsEnabled,
-        canSyncToCloud: updatedPreferences.cloudSyncEnabled,
-        canParticipateInResearch: updatedPreferences.researchEnabled,
+        canCollectAnalytics: optOut ? false : updatedPreferences.analyticsEnabled,
+        canCollectCrashReports: optOut ? false : updatedPreferences.crashReportsEnabled,
+        canSyncToCloud: optOut ? false : updatedPreferences.cloudSyncEnabled,
+        canParticipateInResearch: optOut ? false : updatedPreferences.researchEnabled,
+        canProcessMentalHealthData: updatedPreferences.mentalHealthProcessingConsent,
+        honorUniversalOptOut: optOut,
         ageVerified: updatedConsent.ageVerification.verified,
         isEligible: updatedConsent.ageVerification.isEligible ?? false,
         cacheTimestamp: now,
@@ -438,6 +626,72 @@ export const useConsentStore = create<ConsentStore>((set, get) => ({
       console.error('[Consent] Failed to update consent', error);
       set({
         error: 'Failed to update consent',
+        isLoading: false,
+      });
+    }
+  },
+
+  /**
+   * Set universal opt-out flag (INFRA-151)
+   *
+   * Persists the new value, refreshes the consentCache (forcing
+   * analytics/tracking cache fields to false when opt-out is on), and appends
+   * a ConsentHistoryEntry for audit trail. The on-disk record is updated in
+   * place — no version bump needed since `universalOptOut` is additive.
+   */
+  setUniversalOptOut: async (value: boolean) => {
+    const { currentConsent, consentHistory } = get();
+    if (!currentConsent) {
+      set({ error: 'No existing consent to update' });
+      return;
+    }
+
+    set({ isLoading: true, error: null });
+
+    try {
+      const now = Date.now();
+      const updatedConsent: ConsentRecord = {
+        ...currentConsent,
+        universalOptOut: value,
+        updatedAt: now,
+      };
+
+      await SecureStore.setItemAsync(CONSENT_SECURE_KEY, JSON.stringify(updatedConsent));
+
+      const historyEntry: ConsentHistoryEntry = {
+        action: 'updated',
+        // universalOptOut is a top-level field, not part of ConsentPreferences,
+        // so `changes` stays empty — the action + timestamp record is enough
+        // for the GDPR Art. 7 audit trail.
+        changes: {},
+        timestamp: now,
+      };
+      const updatedHistory = [...consentHistory, historyEntry];
+      await persistConsentHistory(updatedHistory);
+
+      const cache = {
+        canCollectAnalytics: value ? false : updatedConsent.preferences.analyticsEnabled,
+        canCollectCrashReports: value ? false : updatedConsent.preferences.crashReportsEnabled,
+        canSyncToCloud: value ? false : updatedConsent.preferences.cloudSyncEnabled,
+        canParticipateInResearch: value ? false : updatedConsent.preferences.researchEnabled,
+        canProcessMentalHealthData: updatedConsent.preferences.mentalHealthProcessingConsent,
+        honorUniversalOptOut: value,
+        ageVerified: updatedConsent.ageVerification.verified,
+        isEligible: updatedConsent.ageVerification.isEligible ?? false,
+        cacheTimestamp: now,
+      };
+      await AsyncStorage.setItem(CONSENT_CACHE_KEY, JSON.stringify(cache));
+
+      set({
+        currentConsent: updatedConsent,
+        consentHistory: updatedHistory,
+        consentCache: cache,
+        isLoading: false,
+      });
+    } catch (error) {
+      console.error('[Consent] Failed to set universal opt-out', error);
+      set({
+        error: 'Failed to update universal opt-out',
         isLoading: false,
       });
     }
@@ -475,9 +729,9 @@ export const useConsentStore = create<ConsentStore>((set, get) => ({
         timestamp: now,
       };
 
-      // Persist history to SecureStore (Privacy audit trail requirement)
+      // Persist history via hybrid path (encrypted AsyncStorage). INFRA-144.
       const updatedHistory = [...consentHistory, historyEntry];
-      await SecureStore.setItemAsync(CONSENT_HISTORY_KEY, JSON.stringify(updatedHistory));
+      await persistConsentHistory(updatedHistory);
 
       // Clear cache
       await AsyncStorage.removeItem(CONSENT_CACHE_KEY);
@@ -503,7 +757,27 @@ export const useConsentStore = create<ConsentStore>((set, get) => ({
   },
 
   /**
-   * Verify age (COPPA compliance)
+   * Record a terminal account-deletion attestation (FEAT-267). See interface
+   * doc. Written as plaintext JSON to the legacy consent_history_v1 SecureStore
+   * key — the pre-INFRA-144 substrate — chosen deliberately because it is
+   * preserved by erasure AND independent of the master key (which the wipe
+   * deletes). Minimized to a single attestation entry, not the full chain.
+   */
+  recordAccountDeletionAttestation: async () => {
+    const { currentConsent, consentHistory } = get();
+    const attestation: ConsentHistoryEntry = {
+      action: 'revoked',
+      // Final consent-state snapshot (booleans only — no wellness content):
+      // proves the lawful basis that existed at the moment of erasure.
+      changes: currentConsent?.preferences ?? {},
+      timestamp: Date.now(),
+      note: `account_deletion_requested; prior_entries=${consentHistory.length}`,
+    };
+    await SecureStore.setItemAsync(LEGACY_CONSENT_HISTORY_KEY, JSON.stringify([attestation]));
+  },
+
+  /**
+   * Verify age (18+ gate per ToS §4 / Privacy Policy §8)
    * Validates birth year is within acceptable range before processing
    */
   verifyAge: async (birthYear: number) => {
@@ -518,7 +792,7 @@ export const useConsentStore = create<ConsentStore>((set, get) => ({
     }
 
     const age = calculateAge(birthYear);
-    const eligible = age >= 13;
+    const eligible = age >= 18;
 
     const verification: AgeVerification = {
       verified: true,
@@ -551,12 +825,27 @@ export const useConsentStore = create<ConsentStore>((set, get) => ({
 
   /**
    * Fast consent validation (uses cache, <5ms)
+   *
+   * INFRA-151: when `honorUniversalOptOut` is true, all non-essential
+   * categories return false regardless of granular consent. Mental-health
+   * processing is governed by GDPR Art. 9(2)(a) explicit consent and is
+   * intentionally NOT short-circuited — universal opt-out targets analytics
+   * and tracking, not the user's primary wellness data processing they
+   * actively consented to during onboarding.
    */
   canPerformOperation: (operation) => {
     const { consentCache, consentStatus } = get();
 
     // Block if no valid consent (fail-safe)
     if (consentStatus !== 'valid') {
+      return false;
+    }
+
+    if (operation === 'mental_health_processing') {
+      return consentCache.canProcessMentalHealthData;
+    }
+
+    if (consentCache.honorUniversalOptOut) {
       return false;
     }
 
@@ -610,7 +899,15 @@ export const useConsentStore = create<ConsentStore>((set, get) => ({
     try {
       await SecureStore.deleteItemAsync(CONSENT_SECURE_KEY);
       await SecureStore.deleteItemAsync(AGE_VERIFICATION_KEY);
+      await SecureStore.deleteItemAsync(LEGAL_GATE_CONSENTS_KEY);
       await AsyncStorage.removeItem(CONSENT_CACHE_KEY);
+      // Hybrid storage cleanup (INFRA-144): remove encrypted history blob and
+      // its legacy SecureStore copy + migration flag.
+      await SecureStorageService.deleteWellnessBlob(
+        CONSENT_HISTORY_BLOB_KEY,
+        LEGACY_CONSENT_HISTORY_KEY
+      );
+      await AsyncStorage.removeItem(CONSENT_HISTORY_MIGRATION_FLAG);
 
       set({
         currentConsent: null,

@@ -1,10 +1,10 @@
 /**
- * Sync Coordinator - Week 2 Orchestration Layer
+ * Sync Coordinator - Orchestration Layer
  *
  * ARCHITECTURAL PATTERN: Facade Pattern
  * - Orchestrates CloudBackupService & SupabaseService
  * - Enhances existing services without replacement
- * - Maintains Week 1 encryption and performance guarantees
+ * - Maintains encryption and performance guarantees
  *
  * CORE RESPONSIBILITIES:
  * - Last-write-wins conflict resolution
@@ -36,6 +36,7 @@ import NetInfo from '@react-native-community/netinfo';
 import { cloudBackupService } from './CloudBackupService';
 import supabaseService from './SupabaseService';
 import { useAssessmentStore } from '@/features/assessment/stores/assessmentStore';
+import type { PHQ9Result, GAD7Result } from '@/features/assessment/types/index';
 
 // Types
 export type SyncState = 'idle' | 'syncing' | 'conflict' | 'error' | 'crisis_priority';
@@ -72,6 +73,22 @@ export interface StoreSyncState {
   lastModified: number;
   pendingChanges: number;
   priority: SyncPriority;
+}
+
+/**
+ * Flattened, display-oriented status the SyncStatusIndicator UI reads
+ * (DEBUG-276). Distinct from the rich internal `SyncStatus`: this is the
+ * minimal projection the indicator needs, with the circuit-breaker narrowed to a
+ * strict union so the UI's colour/severity mapping can switch on it exhaustively.
+ */
+export interface SyncIndicatorStatus {
+  isInitialized: boolean;
+  lastSyncTime: number | null;
+  pendingOperations: number;
+  isConnected: boolean;
+  circuitBreakerState: 'closed' | 'open' | 'half-open';
+  errorCount: number;
+  retryScheduled: boolean;
 }
 
 export interface SyncOperation {
@@ -112,6 +129,77 @@ export interface SyncResult {
     duration: number;
     throughput: number;
   };
+}
+
+/**
+ * Result of classifying an assessment result for crisis conditions.
+ */
+export type AssessmentCrisisClassification = {
+  isCrisis: boolean;
+  crisisType:
+    | 'phq9_score'
+    | 'phq9_suicidal'
+    | 'gad7_score'
+    | 'assessment_crisis_flag'
+    | '';
+  crisisValue: number;
+  assessmentType: 'phq9' | 'gad7';
+};
+
+/**
+ * Classify a completed assessment result for crisis conditions.
+ *
+ * DEBUG-233: the previous logic discriminated PHQ-9 vs GAD-7 by *score range*
+ * (`totalScore <= 27` then an unreachable `else if (<= 21)`), which routed every
+ * GAD-7 score into the PHQ-9 branch and missed GAD-7 totals of 15-19 (a real
+ * ≥15 crisis). We discriminate by result shape instead — `'suicidalIdeation' in
+ * result` is the codebase's canonical PHQ-9/GAD-7 guard (see `types/scoring.ts`)
+ * — and apply per-type thresholds:
+ *   PHQ-9: crisis if totalScore ≥ 20 OR suicidalIdeation (Q9 > 0) at any total.
+ *   GAD-7: crisis if totalScore ≥ 15.
+ * `result.isCrisis` (authoritative, computed at scoring time) is OR'd in as a
+ * belt-and-suspenders net for any shape this function does not recognise.
+ *
+ * Pure and synchronous so it can be exhaustively unit-tested at the threshold
+ * boundaries (zero false negatives — CLAUDE.md → Safety Facts).
+ */
+export function classifyAssessmentCrisis(
+  result: PHQ9Result | GAD7Result | null | undefined
+): AssessmentCrisisClassification {
+  const isPHQ9 = result != null && 'suicidalIdeation' in result;
+  const assessmentType: 'phq9' | 'gad7' = isPHQ9 ? 'phq9' : 'gad7';
+  const totalScore =
+    typeof result?.totalScore === 'number' ? result.totalScore : 0;
+
+  let isCrisis = false;
+  let crisisType: AssessmentCrisisClassification['crisisType'] = '';
+  let crisisValue = 0;
+
+  if (isPHQ9) {
+    // Q9 / suicidal ideation overrides total: crisis at ANY score.
+    if ((result as PHQ9Result).suicidalIdeation === true) {
+      isCrisis = true;
+      crisisType = 'phq9_suicidal';
+      crisisValue = 1;
+    } else if (totalScore >= 20) {
+      isCrisis = true;
+      crisisType = 'phq9_score';
+      crisisValue = totalScore;
+    }
+  } else if (totalScore >= 15) {
+    isCrisis = true;
+    crisisType = 'gad7_score';
+    crisisValue = totalScore;
+  }
+
+  // Safety net: honour the authoritative crisis flag computed at scoring time.
+  if (!isCrisis && result?.isCrisis === true) {
+    isCrisis = true;
+    crisisType = 'assessment_crisis_flag';
+    crisisValue = totalScore;
+  }
+
+  return { isCrisis, crisisType, crisisValue, assessmentType };
 }
 
 // Storage keys
@@ -184,6 +272,59 @@ class SyncCoordinator {
       SyncCoordinator.instance = new SyncCoordinator();
     }
     return SyncCoordinator.instance;
+  }
+
+  /**
+   * MAINT-190: Test-only escape hatch for singleton state isolation.
+   * Direct fix for the `lastSyncTime` pollution flake observed in
+   * MAINT-188 PR 5 Group C: timestamps from prior tests bled into
+   * subsequent tests because the singleton instance survived across
+   * Jest files. Clears both timers (syncTimer, syncScheduler) and the
+   * unsubscribe handles to prevent orphan listener leaks across tests.
+   *
+   * Production safety: throws if NODE_ENV !== 'test'. A production reset
+   * here would silently drop queued sync operations + listener handles
+   * mid-session, breaking offline-recovery and freezing the UI's sync
+   * status indicator.
+   */
+  public static __resetForTesting__(): void {
+    if (process.env.NODE_ENV !== 'test') {
+      throw new Error(
+        'SyncCoordinator.__resetForTesting__() called outside NODE_ENV=test — refusing to clear sync state in production'
+      );
+    }
+    if (SyncCoordinator.instance) {
+      const inst = SyncCoordinator.instance;
+      if (inst.syncTimer) {
+        clearInterval(inst.syncTimer);
+        inst.syncTimer = null;
+      }
+      if (inst.syncScheduler) {
+        clearInterval(inst.syncScheduler);
+        inst.syncScheduler = null;
+      }
+      inst.networkUnsubscribe?.();
+      inst.networkUnsubscribe = null;
+      inst.storeUnsubscribe?.();
+      inst.storeUnsubscribe = null;
+      inst.appStateCleanup?.();
+      inst.appStateCleanup = null;
+      inst.isInitialized = false;
+      inst.syncQueue = [];
+      inst.conflictHistory = [];
+      inst.stateChangeListeners = [];
+      inst.lastSuccessfulSync = 0;
+      inst.lastSyncOperationStart = 0;
+      inst.lastSyncOperationEnd = 0;
+      inst.operationMetrics = { successful: 0, failed: 0 };
+      inst.performanceMetrics = [];
+      inst.retryAttempts.clear();
+      inst.failureBackoff.clear();
+      inst.circuitBreakerFailures = 0;
+      inst.circuitBreakerLastFailure = 0;
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- intentional: nulling private static reset target
+    SyncCoordinator.instance = undefined as any;
   }
 
   /**
@@ -383,30 +524,21 @@ class SyncCoordinator {
    * Detect conflicts between local and remote data
    */
   private async detectConflicts(): Promise<string[]> {
-    try {
-      // Get remote backup data
-      const remoteBackup = await this.supabaseService.getBackup();
-      if (!remoteBackup) {
-        return []; // No remote data, no conflicts
-      }
-
-      // Calculate local data hash
-      const assessmentStore = useAssessmentStore.getState();
-      const localDataString = JSON.stringify(assessmentStore);
-      const localHash = Date.now().toString(); // Simple timestamp-based comparison for now
-
-      // Compare checksums to detect conflicts
-      if (remoteBackup.checksum !== localHash) {
-        // Conflict detected - will be handled by resolution
-        return ['data_conflict'];
-      }
-
-      return [];
-
-    } catch (error) {
-      logError(LogCategory.SYNC, 'Conflict detection failed', error instanceof Error ? error : new Error(String(error)));
-      return [];
-    }
+    // DEBUG-233: NOT IMPLEMENTED — returns no conflicts.
+    //
+    // The previous implementation compared the remote backup checksum against
+    // `Date.now().toString()`, which never matched, so it reported a conflict on
+    // every sync that found a remote backup. A real content comparison is not
+    // available here: the remote `checksum` is a SHA-256 over the *encrypted*
+    // backup string, whose ciphertext is non-deterministic (fresh IV per
+    // encryption), so it cannot be reproduced from local plaintext. Honest
+    // change detection belongs in CloudBackupService (which already tracks a
+    // plaintext `lastBackupHash`); wiring that through is deferred.
+    //
+    // Returning [] here means `resolveConflicts` is a no-op, which is the
+    // correct conservative behaviour: backups are full-state last-write-wins
+    // snapshots, so a missed "conflict" simply means the next backup overwrites.
+    return [];
   }
 
   /**
@@ -434,8 +566,21 @@ class SyncCoordinator {
   }
 
   /**
-   * Resolve individual conflict using architect-defined strategy
-   * Implements clinical safety guards for crisis and assessment data
+   * Resolve an individual conflict using last-write-wins on the most recent
+   * timestamp.
+   *
+   * DEBUG-233: the former crisis "preserve_both" / assessment "merge" branches
+   * (and their `determineConflictContext` / `isCrisisScore` /
+   * `preserveBothWithCrisisFlag` / `mergeAssessmentHistory` /
+   * `isCompletedAssessment` helpers) were deleted. They inspected
+   * `stores.assessment.crisisDetected` and per-response score fields that never
+   * reach this path: cloud backups deliberately exclude all clinical data
+   * (CloudBackupService PHI allowlist, MAINT-117 — only `autoSaveEnabled` and
+   * `lastSyncAt` are synced), and the remote blob is encrypted. Crisis scores
+   * are device-only, so there is no cloud conflict over them to detect or
+   * preserve; the branches were unreachable dead code that gave the false
+   * appearance of crisis-data safety handling. What does sync is non-clinical
+   * config, for which last-write-wins is correct.
    */
   private async resolveConflict(conflictId: string): Promise<ConflictResolution | null> {
     try {
@@ -452,36 +597,14 @@ class SyncCoordinator {
         return null;
       }
 
-      // Determine conflict context from data
-      const context = await this.determineConflictContext(localData.data, remoteData.data);
-
-      let resolutionStrategy: 'last_write_wins' | 'preserve_both' | 'merge' = 'last_write_wins';
-      let resolvedData: string;
-
-      // SAFETY FIRST: Crisis data preservation
-      if (context === 'crisis') {
-        // Crisis data conflict - preserving both with flags (logged in audit trail)
-        resolutionStrategy = 'preserve_both';
-        resolvedData = await this.preserveBothWithCrisisFlag(localData.data, remoteData.data);
-
-      // CLINICAL: Assessment completions are append-only
-      } else if (context === 'assessment' && await this.isCompletedAssessment(localData.data, remoteData.data)) {
-        // Assessment completion conflict - merging history (logged in audit trail)
-        resolutionStrategy = 'merge';
-        resolvedData = await this.mergeAssessmentHistory(localData.data, remoteData.data);
-
-      // ROUTINE: Standard last-write-wins
-      } else {
-        const useLocal = localData.timestamp > remoteData.timestamp;
-        resolvedData = useLocal ? localData.data : remoteData.data;
-        // Standard conflict resolved using timestamp comparison
-      }
+      const useLocal = localData.timestamp > remoteData.timestamp;
+      const resolvedData = useLocal ? localData.data : remoteData.data;
 
       return {
         conflictId,
         localTimestamp: localData.timestamp,
         remoteTimestamp: remoteData.timestamp,
-        resolutionStrategy,
+        resolutionStrategy: 'last_write_wins',
         resolvedData,
         resolutionTime: Date.now(),
       };
@@ -489,161 +612,6 @@ class SyncCoordinator {
     } catch (error) {
       logError(LogCategory.SYNC, 'Conflict resolution failed', error instanceof Error ? error : new Error(String(error)));
       return null;
-    }
-  }
-
-  /**
-   * Determine the context of the conflict for safety guards
-   */
-  private async determineConflictContext(localData: string, remoteData: string): Promise<'crisis' | 'assessment' | 'routine'> {
-    try {
-      // Parse data to check for crisis indicators
-      // Note: This operates on structured data before encryption
-      const localParsed = JSON.parse(localData);
-      const remoteParsed = JSON.parse(remoteData);
-
-      // Check for crisis indicators in stores
-      if (localParsed.stores?.assessment?.crisisDetected ||
-          remoteParsed.stores?.assessment?.crisisDetected ||
-          localParsed.stores?.assessment?.lastCompleted) {
-
-        // Further check for actual crisis scores (PHQ-9 ≥20, GAD-7 ≥15)
-        const localAssessment = localParsed.stores?.assessment;
-        const remoteAssessment = remoteParsed.stores?.assessment;
-
-        if (this.isCrisisScore(localAssessment) || this.isCrisisScore(remoteAssessment)) {
-          return 'crisis';
-        }
-
-        // Assessment completion without crisis
-        return 'assessment';
-      }
-
-      return 'routine';
-
-    } catch (error) {
-      logSecurity('Failed to determine conflict context, defaulting to routine', 'low', {
-        component: 'SyncCoordinator',
-        action: 'determine_conflict_context',
-        result: 'failure'
-      });
-      return 'routine';
-    }
-  }
-
-  /**
-   * Check if assessment data indicates crisis-level scores
-   */
-  private isCrisisScore(assessmentData: any): boolean {
-    if (!assessmentData) return false;
-
-    const responses = assessmentData.responses;
-    const assessmentType = assessmentData.currentAssessment;
-
-    if (!responses || !Array.isArray(responses)) return false;
-
-    // Calculate total score
-    const totalScore = responses.reduce((sum: number, response: number) => sum + response, 0);
-
-    // Crisis thresholds
-    if (assessmentType === 'PHQ-9' && totalScore >= 20) return true;
-    if (assessmentType === 'GAD-7' && totalScore >= 15) return true;
-
-    // PHQ-9 Question 9 (suicidal ideation) check
-    if (assessmentType === 'PHQ-9' && responses[8] > 0) return true;
-
-    return false;
-  }
-
-  /**
-   * Check if data represents completed assessments
-   */
-  private async isCompletedAssessment(localData: string, remoteData: string): Promise<boolean> {
-    try {
-      const localParsed = JSON.parse(localData);
-      const remoteParsed = JSON.parse(remoteData);
-
-      const localCompleted = localParsed.stores?.assessment?.lastCompleted;
-      const remoteCompleted = remoteParsed.stores?.assessment?.lastCompleted;
-
-      return !!(localCompleted || remoteCompleted);
-
-    } catch (error) {
-      return false;
-    }
-  }
-
-  /**
-   * Preserve both datasets with crisis flags for manual review
-   */
-  private async preserveBothWithCrisisFlag(localData: string, remoteData: string): Promise<string> {
-    try {
-      const localParsed = JSON.parse(localData);
-      const remoteParsed = JSON.parse(remoteData);
-
-      // Create combined dataset with conflict markers
-      const preservedData = {
-        ...localParsed,
-        conflictResolution: {
-          strategy: 'preserve_both',
-          localData: localParsed,
-          remoteData: remoteParsed,
-          requiresManualReview: true,
-          crisisConflict: true,
-          resolvedAt: Date.now(),
-        },
-      };
-
-      return JSON.stringify(preservedData);
-
-    } catch (error) {
-      logError(LogCategory.CRISIS, 'Failed to preserve crisis data', error instanceof Error ? error : new Error(String(error)));
-      // Fallback to local data if preservation fails
-      return localData;
-    }
-  }
-
-  /**
-   * Merge assessment history from both sources
-   */
-  private async mergeAssessmentHistory(localData: string, remoteData: string): Promise<string> {
-    try {
-      const localParsed = JSON.parse(localData);
-      const remoteParsed = JSON.parse(remoteData);
-
-      // Merge assessment stores
-      const localAssessment = localParsed.stores?.assessment || {};
-      const remoteAssessment = remoteParsed.stores?.assessment || {};
-
-      // Combine assessment history (append-only)
-      const mergedAssessment = {
-        ...localAssessment,
-        ...remoteAssessment,
-        // Keep the most recent completion
-        lastCompleted: localAssessment.lastCompleted || remoteAssessment.lastCompleted,
-        // Merge any additional properties
-        conflictResolution: {
-          strategy: 'merge',
-          mergedAt: Date.now(),
-          sources: ['local', 'remote'],
-        },
-      };
-
-      const mergedData = {
-        ...localParsed,
-        stores: {
-          ...localParsed.stores,
-          assessment: mergedAssessment,
-        },
-        timestamp: Math.max(localParsed.timestamp || 0, remoteParsed.timestamp || 0),
-      };
-
-      return JSON.stringify(mergedData);
-
-    } catch (error) {
-      logError(LogCategory.ASSESSMENT, 'Failed to merge assessment history', error instanceof Error ? error : new Error(String(error)));
-      // Fallback to local data if merge fails
-      return localData;
     }
   }
 
@@ -656,6 +624,36 @@ class SyncCoordinator {
    */
   public getSyncStatus(): SyncStatus {
     return { ...this.currentSyncStatus };
+  }
+
+  /**
+   * Flattened status for the SyncStatusIndicator UI (DEBUG-276).
+   *
+   * Composes the indicator's display shape from the coordinator's own live
+   * state (initialised / connectivity / pending queue / recent-failure count /
+   * pending retries) and delegates the circuit-breaker tri-state to
+   * SupabaseService, whose breaker is the authoritative
+   * 'closed' | 'open' | 'half-open' machine. An unrecognised breaker string
+   * narrows to 'closed' so the UI's strict union is never violated.
+   *
+   * Synchronous and side-effect-free — a status read, safe to call on the
+   * indicator's 30s poll. `lastSyncTime` of 0 (never synced) normalises to null
+   * so the UI renders "Never" rather than the epoch.
+   */
+  public getStatus(): SyncIndicatorStatus {
+    const breakerState = this.supabaseService.getStatus().circuitBreakerState;
+    const circuitBreakerState: SyncIndicatorStatus['circuitBreakerState'] =
+      breakerState === 'open' || breakerState === 'half-open' ? breakerState : 'closed';
+
+    return {
+      isInitialized: this.isInitialized,
+      lastSyncTime: this.currentSyncStatus.lastSyncTime || null,
+      pendingOperations: this.currentSyncStatus.pendingOperations,
+      isConnected: this.isConnected,
+      circuitBreakerState,
+      errorCount: this.circuitBreakerFailures,
+      retryScheduled: this.retryAttempts.size > 0,
+    };
   }
 
   /**
@@ -997,48 +995,14 @@ class SyncCoordinator {
     context: 'current_assessment' | 'completed_assessment'
   ): Promise<void> {
     try {
-      let isCrisisDetected = false;
-      let crisisType = '';
-      let crisisValue = 0;
-
-      // Check PHQ-9 crisis conditions
-      if (result.totalScore !== undefined && result.severity !== undefined) {
-        // Determine if this is PHQ-9 or GAD-7 based on score range
-        if (result.totalScore <= 27) {
-          // Likely PHQ-9 (0-27 range)
-          if (result.totalScore >= 20) {
-            isCrisisDetected = true;
-            crisisType = 'phq9_score';
-            crisisValue = result.totalScore;
-          }
-
-          // Check for suicidal ideation
-          if (result.suicidalIdeation === true) {
-            isCrisisDetected = true;
-            crisisType = 'phq9_suicidal';
-            crisisValue = 1;
-          }
-        } else if (result.totalScore <= 21) {
-          // Likely GAD-7 (0-21 range)
-          if (result.totalScore >= 15) {
-            isCrisisDetected = true;
-            crisisType = 'gad7_score';
-            crisisValue = result.totalScore;
-          }
-        }
-      }
-
-      // Check the isCrisis flag directly from assessment store
-      if (result.isCrisis === true) {
-        isCrisisDetected = true;
-        if (!crisisType) {
-          crisisType = 'assessment_crisis_flag';
-          crisisValue = result.totalScore || 0;
-        }
-      }
+      // DEBUG-233: discriminate PHQ-9 vs GAD-7 by result shape and apply
+      // per-type thresholds (see classifyAssessmentCrisis). The old score-range
+      // heuristic mislabelled GAD-7 totals as PHQ-9 and missed GAD-7 15-19.
+      const { isCrisis, crisisType, crisisValue, assessmentType } =
+        classifyAssessmentCrisis(result);
 
       // Trigger priority backup for crisis scores
-      if (isCrisisDetected) {
+      if (isCrisis) {
         if (__DEV__) console.log(`[SyncCoordinator] Crisis assessment detected: ${crisisType} = ${crisisValue}`);
         if (__DEV__) console.log(`Assessment context: ${context}, total score: ${result.totalScore}`);
 
@@ -1052,7 +1016,7 @@ class SyncCoordinator {
           totalScore: result.totalScore,
           context,
           timestamp: Date.now(),
-          assessmentType: result.totalScore <= 21 ? 'gad7' : 'phq9'
+          assessmentType,
         });
       }
 
@@ -1109,6 +1073,10 @@ class SyncCoordinator {
 
   private startSyncScheduler(): void {
     try {
+      // INFRA-177: Skip interval setup in test environment to prevent Jest
+      // worker hang from unguarded timers (INFRA-144/175 pattern).
+      if (process.env.NODE_ENV === 'test') return;
+
       // Clear any existing scheduler
       if (this.syncScheduler) {
         clearInterval(this.syncScheduler);
@@ -1413,44 +1381,56 @@ class SyncCoordinator {
 
       this.lastConnectionTest = now;
 
-      // Test connection speed with small payload
-      const startTime = performance.now();
+      // MAINT-241 (SEC-W3 / BLOAT): derive network quality from the in-process
+      // NetInfo connection details instead of beaconing the device IP to an
+      // unaffiliated third-party echo host on every assessment (an undisclosed
+      // data leak). NetInfo already reports the connection type + radio
+      // generation locally; no outbound probe is needed.
+      const connectionType = networkState?.type;
+      const details = networkState?.details ?? {};
 
-      try {
-        // Simple ping test to Supabase
-        const testStart = Date.now();
-        await fetch('https://httpbin.org/get', {
-          method: 'GET',
-          cache: 'no-cache',
-          signal: AbortSignal.timeout(5000), // 5 second timeout
-        });
-        const responseTime = Date.now() - testStart;
-
-        // Estimate quality based on response time
-        if (responseTime < 200) {
-          this.networkQuality = 'excellent';
-          this.connectionSpeed = 10; // Estimate fast connection
-        } else if (responseTime < 500) {
-          this.networkQuality = 'good';
-          this.connectionSpeed = 5;
-        } else if (responseTime < 2000) {
+      if (connectionType === 'wifi' || connectionType === 'ethernet') {
+        // linkSpeed (Mbps) is present on some Android wifi states; otherwise
+        // treat a wired/wifi link as strong.
+        const linkSpeed =
+          typeof details.linkSpeed === 'number' ? details.linkSpeed : undefined;
+        if (linkSpeed !== undefined && linkSpeed < 5) {
           this.networkQuality = 'poor';
-          this.connectionSpeed = 1;
+          this.connectionSpeed = Math.max(linkSpeed, 0.5);
         } else {
-          this.networkQuality = 'poor';
-          this.connectionSpeed = 0.5;
+          this.networkQuality = 'excellent';
+          this.connectionSpeed = linkSpeed ?? 10;
         }
-
-        logPerformance('SyncCoordinator.networkQualityTest', responseTime, {
-          networkQuality: this.networkQuality
-        });
-
-      } catch (error) {
-        // Network test failed, assume poor quality
-        this.networkQuality = 'poor';
-        this.connectionSpeed = 0.1;
-        logSecurity('[SyncCoordinator] Network quality test failed, assuming poor connection', 'low', { component: 'SyncCoordinator' });
+      } else if (connectionType === 'cellular') {
+        switch (details.cellularGeneration) {
+          case '5g':
+            this.networkQuality = 'excellent';
+            this.connectionSpeed = 10;
+            break;
+          case '4g':
+            this.networkQuality = 'good';
+            this.connectionSpeed = 5;
+            break;
+          case '3g':
+            this.networkQuality = 'poor';
+            this.connectionSpeed = 1;
+            break;
+          case '2g':
+          default:
+            this.networkQuality = 'poor';
+            this.connectionSpeed = 0.5;
+            break;
+        }
+      } else {
+        // Connected via an unclassified transport (vpn/other): assume usable.
+        this.networkQuality = 'good';
+        this.connectionSpeed = 5;
       }
+
+      logPerformance('SyncCoordinator.networkQualityAssessment', this.connectionSpeed, {
+        networkQuality: this.networkQuality,
+        connectionType: connectionType ?? 'unknown',
+      });
 
     } catch (error) {
       logError(LogCategory.SYNC, 'Failed to assess network quality', error instanceof Error ? error : new Error(String(error)));

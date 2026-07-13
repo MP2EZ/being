@@ -70,9 +70,13 @@ const BreathingCircle: React.FC<BreathingCircleProps> = ({
   // High-performance shared values for 60fps animations
   const scale = useSharedValue(1);
   const opacity = useSharedValue(0.8);
-  const phase = useSharedValue(0); // 0 = inhale start, 0.5 = exhale start, 1 = cycle complete
+  const phase = useSharedValue(0); // retained for reset/cancel only (no longer frame-sampled)
   const countdown = useSharedValue(0);        // Current countdown number
   const currentPhase = useSharedValue<'inhale' | 'hold' | 'exhale'>('inhale');
+  // UI-thread active flag, read inside animation-completion worklets so a
+  // callback that resolves after deactivation/unmount does not emit a stray
+  // announcement or phantom cycle-complete.
+  const activeRef = useSharedValue(false);
 
   // Cycle counter for completion tracking
   const cycleCountRef = useRef(0);
@@ -110,22 +114,6 @@ const BreathingCircle: React.FC<BreathingCircleProps> = ({
     };
   }, [scale, opacity, isReducedMotion]); // Add dependencies for better optimization
 
-  // Phase monitoring for accessibility announcements
-  const phaseStyle = useAnimatedStyle(() => {
-    'worklet';
-
-    // Trigger announcements at phase transitions
-    if (phase.value === 0) {
-      runOnJS(announcePhase)('Breathe in');
-    } else if (phase.value === 0.5) {
-      runOnJS(announcePhase)('Breathe out');
-    } else if (phase.value >= 0.99) {
-      runOnJS(handleCycleComplete)();
-    }
-
-    return {};
-  }, [phase]); // Add dependencies for optimization
-
   useEffect(() => {
     isReducedMotion.value = reducedMotion;
   }, [reducedMotion, isReducedMotion]);
@@ -133,6 +121,7 @@ const BreathingCircle: React.FC<BreathingCircleProps> = ({
   useEffect(() => {
     if (!isActive) {
       // Stop all animations and reset to initial state
+      activeRef.value = false;
       cancelAnimation(scale);
       cancelAnimation(opacity);
       cancelAnimation(phase);
@@ -152,6 +141,7 @@ const BreathingCircle: React.FC<BreathingCircleProps> = ({
     }
 
     // When becoming active, ensure clean state by canceling any existing animations
+    activeRef.value = true;
     cancelAnimation(scale);
     cancelAnimation(opacity);
     cancelAnimation(phase);
@@ -160,38 +150,59 @@ const BreathingCircle: React.FC<BreathingCircleProps> = ({
     const hasHoldPhase = pattern.hold && pattern.hold > 0;
 
     if (!hasHoldPhase) {
-      // Backward compatible: use withRepeat for simple inhale/exhale pattern
-      const cycleDuration = pattern.inhale + pattern.exhale;
+      // Simple inhale/exhale pattern. Scale expands over `inhale` then contracts
+      // over `exhale`, repeating. Completion callbacks on each leg drive the
+      // accessibility announcements and fire `handleCycleComplete` exactly once
+      // per cycle — replacing the old per-frame phase sampling, which could
+      // double-fire cycle-complete and used float-equality phase checks that
+      // rarely matched. `activeRef` guards against a callback resolving after
+      // deactivation (cancelAnimation invokes the callback with finished=false).
+      const inhaleLabel = phaseText.inhale || 'Breathe in';
+      const exhaleLabel = phaseText.exhale || 'Breathe out';
 
       scale.value = withRepeat(
-        withTiming(1.5, {
-          duration: pattern.inhale,
-          easing: Easing.inOut(Easing.ease),
-        }),
-        -1,
-        true // Reverse animation for exhale
-      );
-
-      opacity.value = withRepeat(
-        withTiming(1, {
-          duration: pattern.inhale,
-          easing: Easing.inOut(Easing.ease),
-        }),
-        -1,
-        true // Reverse animation for exhale
-      );
-
-      phase.value = withRepeat(
-        withTiming(1, {
-          duration: cycleDuration,
-          easing: Easing.linear,
-        }),
+        withSequence(
+          withTiming(
+            1.5,
+            { duration: pattern.inhale, easing: Easing.inOut(Easing.ease) },
+            (finished) => {
+              'worklet';
+              // Contraction begins → announce exhale.
+              if (finished && activeRef.value) {
+                runOnJS(announcePhase)(exhaleLabel);
+              }
+            }
+          ),
+          withTiming(
+            1,
+            { duration: pattern.exhale, easing: Easing.inOut(Easing.ease) },
+            (finished) => {
+              'worklet';
+              // Cycle end → count it once, then cue the next inhale (the repeat
+              // loops straight into the next expansion).
+              if (finished && activeRef.value) {
+                runOnJS(handleCycleComplete)();
+                runOnJS(announcePhase)(inhaleLabel);
+              }
+            }
+          )
+        ),
         -1,
         false
       );
 
-      // Initial announcement
-      announcePhase(phaseText.inhale || 'Breathe in');
+      opacity.value = withRepeat(
+        withSequence(
+          withTiming(1, { duration: pattern.inhale, easing: Easing.inOut(Easing.ease) }),
+          withTiming(0.8, { duration: pattern.exhale, easing: Easing.inOut(Easing.ease) })
+        ),
+        -1,
+        false
+      );
+
+      // Immediate first inhale cue on activation (subsequent inhale cues come
+      // from the exhale-leg completion callback above).
+      announcePhase(inhaleLabel);
     } else {
       // Sequential animation for patterns with hold phase (e.g., 4-7-8)
       let isComponentActive = true;
@@ -307,13 +318,10 @@ const BreathingCircle: React.FC<BreathingCircleProps> = ({
       cancelAnimation(phase);
       cancelAnimation(countdown);
     };
-  }, [isActive, pattern, scale, opacity, phase, countdown, announcePhase, handleCycleComplete, phaseText, showCountdown]);
+  }, [isActive, pattern, scale, opacity, phase, countdown, activeRef, currentPhase, announcePhase, handleCycleComplete, phaseText, showCountdown]);
 
   return (
     <View style={styles.container} testID={testID}>
-      {/* Phase monitoring for accessibility */}
-      <Animated.View style={phaseStyle} />
-
       {/* Main breathing circle */}
       <Animated.View
         style={[styles.breathingCircle, animatedStyle]}
@@ -412,4 +420,7 @@ const styles = StyleSheet.create({
   },
 });
 
-export default BreathingCircle;
+// Memoized: props are stable during a session (isActive flips only on
+// start/pause; pattern/phaseText are module constants for the default callers),
+// so a parent re-render no longer reconciles the breathing circle.
+export default React.memo(BreathingCircle);

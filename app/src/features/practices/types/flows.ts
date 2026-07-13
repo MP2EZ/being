@@ -43,14 +43,6 @@ export type EveningFlowParamList = {
 };
 
 // Common Flow Data Types
-export interface FlowProgress {
-  currentStep: number;
-  totalSteps: number;
-  flowType: 'morning' | 'midday' | 'evening';
-  startTime: Date;
-  isComplete: boolean;
-}
-
 export interface BodyAreaData {
   area: string;
   sensation: string;
@@ -147,18 +139,6 @@ export interface TomorrowPrepData {
   priorities: string[];
   selfCare: string[];
   gratitude: string;
-}
-
-// Complete Flow Session Data
-export interface FlowSessionData {
-  id: string;
-  type: 'morning' | 'midday' | 'evening';
-  date: Date;
-  startTime: Date;
-  endTime?: Date;
-  progress: FlowProgress;
-  data: MorningFlowData | MiddayFlowData | EveningFlowData;
-  isComplete: boolean;
 }
 
 export interface MorningFlowData {
@@ -407,77 +387,6 @@ export interface CompassionateCloseData {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// LEGACY MIDDAY FLOW TYPES (Deprecated - kept for backward compatibility)
-// These types support the old 5-screen flow. New implementations should use
-// the MAINT-65 types above.
-// ──────────────────────────────────────────────────────────────────────────────
-
-/** @deprecated Use StoicMiddayFlowData instead */
-export interface LegacyMiddayFlowData {
-  currentSituation?: CurrentSituationData;
-  controlCheck?: ControlCheckData;
-  reappraisal?: ReappraisalData;
-  intentionProgress?: IntentionProgressData;
-  embodiment?: EmbodimentData;
-  completedAt: Date;
-  timeSpentSeconds: number;
-  flowVersion: string;
-}
-
-/** @deprecated Use PauseAcknowledgeData instead */
-export interface CurrentSituationData {
-  situation: string;
-  emotionalState: string;
-  energyLevel: number;
-  timestamp: Date;
-}
-
-/** @deprecated Use RealityCheckData instead */
-export interface ControlCheckData {
-  aspect: string;
-  controlType: 'fully_in_control' | 'can_influence' | 'not_in_control';
-  whatIControl?: string | undefined;
-  whatICannotControl?: string | undefined;
-  actionIfControllable?: string | undefined;
-  acceptanceIfUncontrollable?: string | undefined;
-  timestamp: Date;
-}
-
-/** @deprecated Use VirtueResponseData instead */
-export interface ReappraisalData {
-  obstacle: string;
-  virtueOpportunity: string;
-  reframedPerspective: string;
-  principleApplied?: string | undefined;
-  timestamp: Date;
-}
-
-/** @deprecated No longer used in new flow */
-export interface IntentionProgressData {
-  morningIntention: string;
-  practiced: boolean;
-  howApplied?: string | undefined;
-  adjustment?: string | undefined;
-  timestamp: Date;
-}
-
-/** @deprecated Breathing now integrated into PauseAcknowledgeData */
-export interface EmbodimentData {
-  breathingDuration: 60;
-  breathingQuality: number;
-  bodyAwareness: string;
-  timestamp: Date;
-}
-
-/** @deprecated Use CompassionateCloseData instead */
-export interface AffirmationData {
-  selectedAffirmation?: string | undefined;
-  personalAffirmation?: string | undefined;
-  selfCompassionNote?: string | undefined;
-  timestamp: Date;
-}
-
-// ──────────────────────────────────────────────────────────────────────────────
 // EVENING FLOW TYPES
 // ──────────────────────────────────────────────────────────────────────────────
 
@@ -600,4 +509,66 @@ export interface MeditationData {
   duration: number;
   reflection: string;
   timestamp: Date;
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// FEAT-291: SINGLE-LOOP DAILY PRACTICE PROTOTYPE (build-time flag `daily_loop`)
+// The Five Principles in canonical order as ONE loop. Ships dark. Themed as
+// 'midday' so it adds NO new FlowType/CheckInType/ThemeKey union member — the
+// full flow unification is the deferred step-5 migration, not this prototype.
+// @see docs/product/stoic-mindfulness (canonical principle names + sources)
+// ──────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Tense mode — the prototype compares these head-to-head (deciding flat-vs-tensed
+ * is the experiment's GOAL, so all three are authored to equal fidelity):
+ *  - 'flat'    : time-agnostic voice
+ *  - 'morning' : prospective (praemeditatio / intention — Marcus, Meditations 2.1)
+ *  - 'evening' : retrospective (Senecan examen — De Ira III.36)
+ */
+export type DailyLoopMode = 'flat' | 'morning' | 'evening';
+
+export type DailyLoopParamList = {
+  AwarePresence: undefined;        // Step 1: Aware Presence (30s breath + what's present)
+  RadicalAcceptance: undefined;    // Step 2: Radical Acceptance (NEW beat vs. Midday)
+  SphereSovereignty: undefined;    // Step 3: Sphere Sovereignty (dichotomy of control)
+  VirtuousResponse: undefined;     // Step 4: Virtuous Response (four cardinal virtues + reappraisal)
+  InterconnectedLiving: undefined; // Step 5: Interconnected Living (NEW beat vs. Midday)
+  DailyLoopComplete: undefined;    // Completion — NOT a principle beat
+};
+
+/**
+ * One beat's captured data. ALL fields are optional — the loop is reflect-first
+ * (typing is capture, never a gate; preserves prohairesis and suits the walking,
+ * eyes-up practice). Fields are populated per step:
+ *  - `response`  : the primary reflection (steps 1, 2, 5) or the synthesized action (step 4)
+ *  - `notMine`/`mine` : step 3's two-sided dichotomy of control (either order)
+ *  - `virtues`   : step 4's multi-select cardinal virtues (optional scaffolding, not a gate)
+ *  - `adversityRehearsal` : step 4 MORNING-only guardrailed premeditatio
+ */
+export interface DailyLoopStepData {
+  response?: string | undefined;
+  notMine?: string | undefined;
+  mine?: string | undefined;
+  virtues?: CardinalVirtue[] | undefined;
+  adversityRehearsal?: string | undefined;
+  timestamp: Date;
+}
+
+export interface DailyLoopCompleteData {
+  integrationNote?: string | undefined;
+  timestamp: Date;
+}
+
+export interface DailyLoopSessionData {
+  mode: DailyLoopMode;
+  awarePresence?: DailyLoopStepData;
+  radicalAcceptance?: DailyLoopStepData;
+  sphereSovereignty?: DailyLoopStepData;
+  virtuousResponse?: DailyLoopStepData;
+  interconnectedLiving?: DailyLoopStepData;
+  complete?: DailyLoopCompleteData;
+  completedAt?: Date;
+  timeSpentSeconds?: number;
+  flowVersion: 'feat-291-daily-loop-v1';
 }

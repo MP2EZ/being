@@ -1,16 +1,19 @@
 /**
  * NetworkSecurityService API-contract tests (TEST-18a)
  *
- * Scope: regression guard against accidental removal of public methods +
- * config constant validation. Deep HMAC signing + crisis-priority routing
- * tests deferred — they require mocked fetch infrastructure with deterministic
- * timing that's out of proportion to value for this PR.
+ * Scope: regression guard against accidental removal of the SURVIVING public
+ * surface + config constant validation. The mock `secureRequest` pipeline (and
+ * its `getSecurityViolations` / `destroy` companions) was deleted in MAINT-238
+ * as dead code with zero production callers; the assertions that pinned them
+ * were removed with it.
  *
  * Coverage:
  * - Singleton getInstance returns same instance
- * - Required public methods exist
+ * - Surviving public methods exist (initialize, getSecurityMetrics)
  * - NETWORK_CONFIG exports documented values
- * - getSecurityMetrics + getSecurityViolations return documented shapes
+ * - getSecurityMetrics returns the documented NetworkSecurityMetrics shape
+ *   (successfulRequests / totalRequests / securityViolations are read by
+ *   SecurityMonitoringService — load-bearing fields)
  */
 
 jest.mock('expo-secure-store', () => ({
@@ -39,14 +42,7 @@ describe('NetworkSecurityService', () => {
     test('exposes required public methods', () => {
       const service = NetworkSecurityService.getInstance();
       expect(typeof service.initialize).toBe('function');
-      expect(typeof service.secureRequest).toBe('function');
-      expect(typeof service.crisisApiRequest).toBe('function');
-      expect(typeof service.uploadAssessmentData).toBe('function');
-      expect(typeof service.professionalApiRequest).toBe('function');
-      expect(typeof service.bulkDataOperation).toBe('function');
       expect(typeof service.getSecurityMetrics).toBe('function');
-      expect(typeof service.getSecurityViolations).toBe('function');
-      expect(typeof service.destroy).toBe('function');
     });
   });
 
@@ -57,7 +53,7 @@ describe('NetworkSecurityService', () => {
     });
   });
 
-  describe('metrics + violations shape', () => {
+  describe('metrics shape', () => {
     const service = NetworkSecurityService.getInstance();
 
     test('getSecurityMetrics returns truthy object (data contract)', () => {
@@ -66,9 +62,13 @@ describe('NetworkSecurityService', () => {
       expect(typeof metrics).toBe('object');
     });
 
-    test('getSecurityViolations returns array', () => {
-      const violations = service.getSecurityViolations();
-      expect(Array.isArray(violations)).toBe(true);
+    test('getSecurityMetrics exposes the fields SecurityMonitoringService reads', () => {
+      const metrics = service.getSecurityMetrics();
+      // These three are consumed by SecurityMonitoringService.assessNetworkSecurity()
+      // and checkDataProtectionCompliance(); their presence is load-bearing.
+      expect(typeof metrics.successfulRequests).toBe('number');
+      expect(typeof metrics.totalRequests).toBe('number');
+      expect(typeof metrics.securityViolations).toBe('number');
     });
   });
 });

@@ -1,130 +1,218 @@
 /**
  * SupabaseService Unit Tests
  *
- * TEST COVERAGE:
- * - Service initialization
- * - Anonymous user creation
- * - Encrypted backup operations
- * - Analytics event tracking
- * - Circuit breaker functionality
- * - Offline queue management
- * - Error handling
+ * REVIVED IN MAINT-243. The legacy version of this file never executed: a
+ * local `expo-crypto` mock that stubbed only `digestStringAsync` shadowed the
+ * complete global mock, so import-time singleton construction threw
+ * `Crypto.getRandomBytes is not a function` before any test ran. Because the
+ * file isn't matched by the precommit `test:unit` pattern (no `.unit.` in the
+ * name) the breakage only surfaced in full CI and went unnoticed. That dead
+ * state hid two classes of rot, both fixed here:
+ *
+ *  1. No-op assertions — `expect(arr).toContain(expect.objectContaining(...))`.
+ *     `toContain` compares by reference / SameValueZero and does NOT honor
+ *     asymmetric matchers, so the matcher was never found yet the call was
+ *     silently treated as satisfied. Replaced with `toContainEqual`, which
+ *     does recursive equality.
+ *  2. Stale-vs-impl tests — the failure-path tests mocked Supabase calls to
+ *     *resolve* with an `{ error }` object, but `executeWithResilience` only
+ *     treats a *thrown* error as failure; the per-`from()` throwaway builder
+ *     meant `mockResolvedValueOnce` never reached the impl; and `trackEvent`
+ *     now gates on `cloud_sync` consent (INFRA-214 T5). All corrected.
+ *
+ * COVERAGE:
+ * - Service initialization (incl. missing-config guard)
+ * - Anonymous session establishment (INFRA-260: restore vs. mint; offline degrade)
+ * - Encrypted backup save/retrieve
+ * - Analytics: cloud_sync consent gate, PHI-stripping + severity bucketing
+ * - Circuit breaker open / prevent / half-open
+ * - Offline queue: queue-on-failure, drain, size cap
  */
 
 import { jest } from '@jest/globals';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Mock dependencies
+// Deliberately do NOT mock expo-crypto here — the global jest.setup mock
+// supplies BOTH getRandomBytes (used by the import-time singleton's session-id
+// generation) and digestStringAsync. A local mock shadows it incompletely and
+// breaks module import (the trap documented in the sibling
+// analyticsGate.unit / crisisTelemetry*.unit tests in this directory).
 jest.mock('@react-native-async-storage/async-storage');
-jest.mock('expo-crypto');
-jest.mock('@supabase/supabase-js');
 
-// Mock Supabase client
-const mockSupabaseClient = {
-  from: jest.fn(() => ({
-    select: jest.fn().mockReturnThis(),
-    insert: jest.fn().mockReturnThis(),
-    upsert: jest.fn().mockReturnThis(),
-    eq: jest.fn().mockReturnThis(),
-    single: jest.fn().mockResolvedValue({ data: null, error: null }),
-    order: jest.fn().mockReturnThis(),
-    limit: jest.fn().mockReturnThis(),
-  })),
+// trackEvent() carries OPERATIONAL telemetry gated on cloud_sync consent
+// (INFRA-214 T5). Grant it so the analytics-queue paths under test execute;
+// the gate itself is pinned independently in analyticsGate.unit.test.ts.
+const mockCanPerform = jest.fn(() => true);
+jest.mock('@/core/stores/consentStore', () => ({
+  useConsentStore: { getState: () => ({ canPerformOperation: mockCanPerform }) },
+}));
+
+// A single STABLE query-builder returned by every from() call, so a test's
+// `mockChain.single.mockResolvedValueOnce(...)` actually reaches the impl.
+// Chain methods return `this`; terminals (single/upsert/insert) are
+// configured per-test. Reset + re-seeded in the file-level beforeEach below.
+const mockChain: any = {
+  select: jest.fn(() => mockChain),
+  insert: jest.fn(() => mockChain),
+  upsert: jest.fn(() => mockChain),
+  eq: jest.fn(() => mockChain),
+  order: jest.fn(() => mockChain),
+  limit: jest.fn(() => mockChain),
+  single: jest.fn(() => Promise.resolve({ data: null, error: null })),
 };
+// INFRA-260: identity is now the Supabase anonymous session, not a device-hash
+// `users` row. `ensureAnonymousSession()` calls auth.getSession() then, if absent,
+// auth.signInAnonymously(); userId == the session user id (== auth.uid()).
+const mockAuth: any = {
+  getSession: jest.fn(() => Promise.resolve({ data: { session: null }, error: null })),
+  signInAnonymously: jest.fn(() =>
+    Promise.resolve({ data: { user: { id: 'user_123' }, session: {} }, error: null }),
+  ),
+  signOut: jest.fn(() => Promise.resolve({ error: null })),
+};
+// INFRA-260 PR3: deleteAccount() invokes the delete-account edge function.
+const mockFunctions: any = {
+  invoke: jest.fn(() => Promise.resolve({ data: { success: true }, error: null })),
+};
+const mockSupabaseClient = { from: jest.fn(() => mockChain), auth: mockAuth, functions: mockFunctions };
 
 jest.mock('@supabase/supabase-js', () => ({
   createClient: jest.fn(() => mockSupabaseClient),
 }));
 
-// Mock crypto
-const mockCrypto = {
-  digestStringAsync: jest.fn().mockResolvedValue('mock_hash'),
-};
-
-jest.mock('expo-crypto', () => mockCrypto);
-
 // Import service after mocks
 import SupabaseService from '../SupabaseService';
+
+/**
+ * Run an async op under fake timers, flushing the resilience layer's setTimeout
+ * backoff (1s + 2s per failed attempt) so retry-heavy paths resolve instantly
+ * and deterministically instead of burning real wall-clock against the 10s
+ * jest timeout.
+ */
+async function withFakeTimers<T>(fn: () => Promise<T>): Promise<T> {
+  jest.useFakeTimers();
+  try {
+    const promise = fn();
+    await jest.runAllTimersAsync();
+    return await promise;
+  } finally {
+    jest.useRealTimers();
+  }
+}
+
+// File-level harness reset — applies to every test, including the standalone
+// "Device ID Generation" describe outside describe('SupabaseService').
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockCanPerform.mockReturnValue(true);
+
+  // mockReset drains call data, implementations AND any leftover *Once queue
+  // between tests; then re-seed the stable chain.
+  for (const m of [
+    mockChain.select,
+    mockChain.insert,
+    mockChain.upsert,
+    mockChain.eq,
+    mockChain.order,
+    mockChain.limit,
+    mockChain.single,
+    mockSupabaseClient.from,
+  ]) {
+    m.mockReset();
+  }
+  mockChain.select.mockImplementation(() => mockChain);
+  mockChain.insert.mockImplementation(() => mockChain);
+  mockChain.upsert.mockImplementation(() => mockChain);
+  mockChain.eq.mockImplementation(() => mockChain);
+  mockChain.order.mockImplementation(() => mockChain);
+  mockChain.limit.mockImplementation(() => mockChain);
+  mockChain.single.mockResolvedValue({ data: null, error: null });
+  mockSupabaseClient.from.mockImplementation(() => mockChain);
+
+  // INFRA-260: re-seed the anonymous-session auth mocks (no existing session →
+  // signInAnonymously mints user_123) so each init establishes userId == auth.uid().
+  mockAuth.getSession.mockReset();
+  mockAuth.signInAnonymously.mockReset();
+  mockAuth.getSession.mockResolvedValue({ data: { session: null }, error: null });
+  mockAuth.signInAnonymously.mockResolvedValue({
+    data: { user: { id: 'user_123' }, session: {} },
+    error: null,
+  });
+  mockAuth.signOut.mockReset();
+  mockAuth.signOut.mockResolvedValue({ error: null });
+  mockFunctions.invoke.mockReset();
+  mockFunctions.invoke.mockResolvedValue({ data: { success: true }, error: null });
+
+  (AsyncStorage.getItem as jest.Mock).mockResolvedValue(null);
+  (AsyncStorage.setItem as jest.Mock).mockResolvedValue(undefined);
+});
 
 describe('SupabaseService', () => {
   let service: any;
 
   beforeEach(() => {
-    jest.clearAllMocks();
     service = new (SupabaseService as any).constructor();
-
-    // Setup AsyncStorage mocks
-    (AsyncStorage.getItem as jest.Mock).mockResolvedValue(null);
-    (AsyncStorage.setItem as jest.Mock).mockResolvedValue(undefined);
   });
 
   describe('Initialization', () => {
-    it('should initialize successfully with valid configuration', async () => {
-      // Mock environment variables
-      process.env.EXPO_PUBLIC_SUPABASE_URL = 'https://test.supabase.co';
-      process.env.EXPO_PUBLIC_SUPABASE_KEY = 'test_key';
-
-      // Mock user creation
-      mockSupabaseClient.from().single.mockResolvedValueOnce({
-        data: { id: 'user_123', device_id: 'device_hash' },
+    it('should initialize and restore an existing anonymous session', async () => {
+      // A returning device: getSession() restores the persisted anon session;
+      // signInAnonymously must NOT be called (no new auth.users row minted).
+      mockAuth.getSession.mockResolvedValueOnce({
+        data: { session: { user: { id: 'returning_user' } } },
         error: null,
       });
 
       await service.initialize();
 
       expect(service.isInitialized).toBe(true);
-      expect(service.userId).toBe('user_123');
+      expect(service.userId).toBe('returning_user');
+      expect(mockAuth.signInAnonymously).not.toHaveBeenCalled();
     });
 
     it('should throw error with missing configuration', async () => {
-      // Clear environment variables
-      delete process.env.EXPO_PUBLIC_SUPABASE_URL;
-      delete process.env.EXPO_PUBLIC_SUPABASE_KEY;
+      // SUPABASE_URL/KEY are captured from `@/core/config/env` at module load,
+      // not from process.env — so the missing-config guard can only be
+      // exercised by re-importing the service against an env with empty values.
+      await jest.isolateModulesAsync(async () => {
+        jest.doMock('@/core/config/env', () => ({
+          env: { EXPO_PUBLIC_SUPABASE_URL: '', EXPO_PUBLIC_SUPABASE_KEY: '' },
+        }));
+        const FreshDefault = require('../SupabaseService').default;
+        const freshSvc = new (FreshDefault as any).constructor();
 
-      await expect(service.initialize()).rejects.toThrow('Supabase configuration missing');
+        await expect(freshSvc.initialize()).rejects.toThrow(
+          'Supabase configuration missing'
+        );
+      });
     });
 
-    it('should create new anonymous user if none exists', async () => {
-      process.env.EXPO_PUBLIC_SUPABASE_URL = 'https://test.supabase.co';
-      process.env.EXPO_PUBLIC_SUPABASE_KEY = 'test_key';
-
-      // Mock no existing user
-      mockSupabaseClient.from().single
-        .mockResolvedValueOnce({ data: null, error: { message: 'No rows found' } })
-        .mockResolvedValueOnce({ data: { id: 'new_user_123' }, error: null });
+    it('should mint a new anonymous session when none is persisted', async () => {
+      // Fresh install: no session → signInAnonymously() establishes one and
+      // userId becomes the new session principal (== auth.uid()).
+      mockAuth.getSession.mockResolvedValueOnce({ data: { session: null }, error: null });
+      mockAuth.signInAnonymously.mockResolvedValueOnce({
+        data: { user: { id: 'new_user_123' }, session: {} },
+        error: null,
+      });
 
       await service.initialize();
 
-      expect(mockSupabaseClient.from).toHaveBeenCalledWith('users');
+      expect(mockAuth.signInAnonymously).toHaveBeenCalled();
       expect(service.userId).toBe('new_user_123');
     });
   });
 
   describe('Backup Operations', () => {
     beforeEach(async () => {
-      // Setup initialized service
-      process.env.EXPO_PUBLIC_SUPABASE_URL = 'https://test.supabase.co';
-      process.env.EXPO_PUBLIC_SUPABASE_KEY = 'test_key';
-
-      mockSupabaseClient.from().single.mockResolvedValue({
-        data: { id: 'user_123' },
-        error: null,
-      });
-
+      mockChain.single.mockResolvedValue({ data: { id: 'user_123' }, error: null });
       await service.initialize();
     });
 
     it('should save backup successfully', async () => {
-      const encryptedData = 'encrypted_test_data';
-      const checksum = 'test_checksum';
-      const version = 1;
+      mockChain.upsert.mockResolvedValueOnce({ data: { id: 'backup_123' }, error: null });
 
-      mockSupabaseClient.from().upsert.mockResolvedValueOnce({
-        data: { id: 'backup_123' },
-        error: null,
-      });
-
-      const result = await service.saveBackup(encryptedData, checksum, version);
+      const result = await service.saveBackup('encrypted_test_data', 'test_checksum', 1);
 
       expect(result).toBe(true);
       expect(mockSupabaseClient.from).toHaveBeenCalledWith('encrypted_backups');
@@ -134,19 +222,47 @@ describe('SupabaseService', () => {
       );
     });
 
-    it('should handle backup failure gracefully', async () => {
-      mockSupabaseClient.from().upsert.mockResolvedValueOnce({
-        data: null,
-        error: { message: 'Backup failed' },
-      });
+    it('DEBUG-274: upsert includes a numeric size_bytes (NOT NULL column)', async () => {
+      // encrypted_backups.size_bytes is NOT NULL (CHECK <= 10MB). Omitting it made
+      // every real write fail "null value in column size_bytes ... violates not-null
+      // constraint" once the auth.uid() path actually reached the table (INFRA-260).
+      mockChain.upsert.mockResolvedValueOnce({ data: { id: 'backup_123' }, error: null });
 
-      const result = await service.saveBackup('data', 'checksum', 1);
+      await service.saveBackup('encrypted_test_data', 'test_checksum', 1);
+
+      // Assert the payload (first arg) regardless of any upsert options (2nd arg).
+      expect(mockChain.upsert.mock.calls[0][0]).toEqual(
+        expect.objectContaining({ size_bytes: 'encrypted_test_data'.length })
+      );
+    });
+
+    it('DEBUG-275: upserts onConflict user_id (one_backup_per_user) so repeats UPDATE', async () => {
+      // Without onConflict, supabase-js conflicts on the PK (fresh uuid each call) →
+      // always INSERT → the 2nd backup violates UNIQUE(user_id) one_backup_per_user.
+      mockChain.upsert.mockResolvedValueOnce({ data: { id: 'backup_123' }, error: null });
+
+      await service.saveBackup('encrypted_test_data', 'test_checksum', 1);
+
+      expect(mockChain.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({ user_id: 'user_123' }),
+        { onConflict: 'user_id' }
+      );
+    });
+
+    it('should handle backup failure gracefully', async () => {
+      // A thrown error is what the resilience layer treats as failure (a
+      // resolved `{ error }` is NOT — see the file header note).
+      mockChain.upsert.mockRejectedValue(new Error('Backup failed'));
+
+      const result = await withFakeTimers(() => service.saveBackup('data', 'checksum', 1));
 
       expect(result).toBe(false);
-      // Should queue for offline processing
-      expect(service.offlineQueue).toContain(
+      // toContainEqual (not the legacy toContain) actually verifies the queued
+      // op shape — operation name AND the carried payload.
+      expect(service.offlineQueue).toContainEqual(
         expect.objectContaining({
           operation: 'saveBackup',
+          data: { encryptedData: 'data', checksum: 'checksum', version: 1 },
         })
       );
     });
@@ -159,10 +275,7 @@ describe('SupabaseService', () => {
         created_at: '2024-01-01T00:00:00Z',
       };
 
-      mockSupabaseClient.from().single.mockResolvedValueOnce({
-        data: mockBackup,
-        error: null,
-      });
+      mockChain.single.mockResolvedValueOnce({ data: mockBackup, error: null });
 
       const result = await service.getBackup();
 
@@ -171,28 +284,65 @@ describe('SupabaseService', () => {
     });
 
     it('should return null when no backup exists', async () => {
-      mockSupabaseClient.from().single.mockResolvedValueOnce({
+      // Supabase "no rows" surfaces as an error; getBackup throws it into the
+      // resilience layer (hence fake timers for the retry backoff) and resolves
+      // to null. Use a persistent value (not *Once) so every retry attempt —
+      // not just the first — sees the error and the op ultimately fails.
+      mockChain.single.mockResolvedValue({
         data: null,
         error: { message: 'No rows found' },
       });
 
-      const result = await service.getBackup();
+      const result = await withFakeTimers(() => service.getBackup());
 
       expect(result).toBeNull();
     });
   });
 
+  describe('Account deletion — DSR erasure (INFRA-260 PR3)', () => {
+    beforeEach(async () => {
+      await service.initialize(); // establishes session → userId = 'user_123'
+    });
+
+    it('invokes delete-account, signs out, clears userId, returns true on success', async () => {
+      const ok = await service.deleteAccount();
+
+      expect(ok).toBe(true);
+      expect(mockFunctions.invoke).toHaveBeenCalledWith('delete-account', { body: {} });
+      expect(mockAuth.signOut).toHaveBeenCalled();
+      expect(service.userId).toBeNull();
+    });
+
+    it('returns false and PRESERVES the session when the edge function errors', async () => {
+      mockFunctions.invoke.mockResolvedValueOnce({ data: null, error: { message: 'boom' } });
+
+      const ok = await service.deleteAccount();
+
+      expect(ok).toBe(false);
+      expect(mockAuth.signOut).not.toHaveBeenCalled(); // data may still exist server-side
+      expect(service.userId).toBe('user_123');
+    });
+
+    it('returns false when the function resolves without success:true', async () => {
+      mockFunctions.invoke.mockResolvedValueOnce({ data: { success: false }, error: null });
+
+      expect(await service.deleteAccount()).toBe(false);
+      expect(mockAuth.signOut).not.toHaveBeenCalled();
+    });
+
+    it('is a no-op (true) when there is no established session', async () => {
+      service.userId = null;
+
+      const ok = await service.deleteAccount();
+
+      expect(ok).toBe(true);
+      expect(mockFunctions.invoke).not.toHaveBeenCalled();
+    });
+  });
+
   describe('Analytics Tracking', () => {
     beforeEach(async () => {
-      // Setup initialized service
-      process.env.EXPO_PUBLIC_SUPABASE_URL = 'https://test.supabase.co';
-      process.env.EXPO_PUBLIC_SUPABASE_KEY = 'test_key';
-
-      mockSupabaseClient.from().single.mockResolvedValue({
-        data: { id: 'user_123' },
-        error: null,
-      });
-
+      mockChain.single.mockResolvedValue({ data: { id: 'user_123' }, error: null });
       await service.initialize();
     });
 
@@ -202,30 +352,37 @@ describe('SupabaseService', () => {
 
       await service.trackEvent(eventType, properties);
 
-      expect(service.analyticsQueue).toContain(
+      // toContainEqual does recursive equality and honors objectContaining —
+      // the previous toContain compared by reference and silently no-op'd, so
+      // the queued event's shape was never actually verified.
+      expect(service.analyticsQueue).toContainEqual(
         expect.objectContaining({
           event_type: eventType,
-          properties,
+          properties: { test_prop: 'value' },
           user_id: 'user_123',
         })
       );
     });
 
-    it('should sanitize analytics properties', async () => {
+    it('should sanitize analytics properties (strip objects, bucket clinical numerics)', async () => {
       const properties = {
-        phq9_score: 15, // Should be converted to bucket
+        phq9_score: 15, // clinically-named numeric → severity bucket
         valid_prop: 'keep_this',
-        unsafe_object: { nested: 'remove_this' },
+        unsafe_object: { nested: 'remove_this' }, // non-primitive → stripped
       };
 
       await service.trackEvent('test', properties);
 
       const queuedEvent = service.analyticsQueue[0];
       expect(queuedEvent.properties).toEqual({
-        phq9_score_bucket: 'moderate',
+        // PHQ-9 15 is "moderately severe" (band 15–19), NOT "moderate" (10–14).
+        // The legacy assertion expected 'moderate' and never ran to catch it.
+        phq9_score_bucket: 'moderate_severe',
         valid_prop: 'keep_this',
-        // unsafe_object should be removed
+        // unsafe_object is absent — only string/number/boolean pass through.
       });
+      expect('unsafe_object' in queuedEvent.properties).toBe(false);
+      expect('phq9_score' in queuedEvent.properties).toBe(false);
     });
 
     it('should flush analytics when queue is full', async () => {
@@ -256,25 +413,19 @@ describe('SupabaseService', () => {
 
   describe('Circuit Breaker', () => {
     beforeEach(async () => {
-      process.env.EXPO_PUBLIC_SUPABASE_URL = 'https://test.supabase.co';
-      process.env.EXPO_PUBLIC_SUPABASE_KEY = 'test_key';
-
-      mockSupabaseClient.from().single.mockResolvedValue({
-        data: { id: 'user_123' },
-        error: null,
-      });
-
+      mockChain.single.mockResolvedValue({ data: { id: 'user_123' }, error: null });
       await service.initialize();
     });
 
     it('should open circuit after threshold failures', async () => {
-      // Mock failures
-      mockSupabaseClient.from().upsert.mockRejectedValue(new Error('Network error'));
+      mockChain.upsert.mockRejectedValue(new Error('Network error'));
 
-      // Trigger multiple failures
-      for (let i = 0; i < 5; i++) {
-        await service.saveBackup('data', 'checksum', 1);
-      }
+      await withFakeTimers(async () => {
+        // 5 failing ops (each exhausting its retries) cross the threshold.
+        for (let i = 0; i < 5; i++) {
+          await service.saveBackup('data', 'checksum', 1);
+        }
+      });
 
       expect(service.circuitBreaker.state).toBe('open');
     });
@@ -287,20 +438,16 @@ describe('SupabaseService', () => {
       const result = await service.saveBackup('data', 'checksum', 1);
 
       expect(result).toBe(false);
-      // Should not call Supabase
-      expect(mockSupabaseClient.from().upsert).not.toHaveBeenCalled();
+      // Should not reach Supabase
+      expect(mockChain.upsert).not.toHaveBeenCalled();
     });
 
     it('should transition to half-open after timeout', async () => {
-      // Set circuit to open with old timestamp
+      // Open circuit with an expired cooldown
       service.circuitBreaker.state = 'open';
-      service.circuitBreaker.lastFailureTime = Date.now() - 70000; // 70 seconds ago
+      service.circuitBreaker.lastFailureTime = Date.now() - 70000; // 70s ago
 
-      // Mock successful operation
-      mockSupabaseClient.from().upsert.mockResolvedValueOnce({
-        data: { id: 'backup_123' },
-        error: null,
-      });
+      mockChain.upsert.mockResolvedValueOnce({ data: { id: 'backup_123' }, error: null });
 
       const result = await service.saveBackup('data', 'checksum', 1);
 
@@ -311,14 +458,7 @@ describe('SupabaseService', () => {
 
   describe('Offline Queue', () => {
     beforeEach(async () => {
-      process.env.EXPO_PUBLIC_SUPABASE_URL = 'https://test.supabase.co';
-      process.env.EXPO_PUBLIC_SUPABASE_KEY = 'test_key';
-
-      mockSupabaseClient.from().single.mockResolvedValue({
-        data: { id: 'user_123' },
-        error: null,
-      });
-
+      mockChain.single.mockResolvedValue({ data: { id: 'user_123' }, error: null });
       await service.initialize();
     });
 
@@ -337,7 +477,6 @@ describe('SupabaseService', () => {
     });
 
     it('should process offline queue on connectivity restore', async () => {
-      // Add items to queue
       service.offlineQueue = [
         {
           operation: 'saveBackup',
@@ -351,15 +490,12 @@ describe('SupabaseService', () => {
         },
       ];
 
-      mockSupabaseClient.from().upsert.mockResolvedValue({
-        data: { id: 'backup_123' },
-        error: null,
-      });
+      mockChain.upsert.mockResolvedValue({ data: { id: 'backup_123' }, error: null });
 
       await service.processOfflineQueue();
 
       expect(service.offlineQueue).toHaveLength(0);
-      expect(mockSupabaseClient.from().upsert).toHaveBeenCalledTimes(2);
+      expect(mockChain.upsert).toHaveBeenCalledTimes(2);
     });
 
     it('should limit offline queue size', async () => {
@@ -368,40 +504,35 @@ describe('SupabaseService', () => {
         service.queueOfflineOperation('test', { data: i });
       }
 
-      expect(service.offlineQueue).toHaveLength(100); // Should be limited to 100
-      expect(service.offlineQueue[0].data).toEqual({ data: 50 }); // Oldest should be removed
+      expect(service.offlineQueue).toHaveLength(100); // capped at 100
+      expect(service.offlineQueue[0].data).toEqual({ data: 50 }); // oldest evicted
     });
   });
 
   describe('Error Handling', () => {
-    it('should handle network errors gracefully', async () => {
-      process.env.EXPO_PUBLIC_SUPABASE_URL = 'https://test.supabase.co';
-      process.env.EXPO_PUBLIC_SUPABASE_KEY = 'test_key';
+    it('should handle session network errors gracefully (degrade, do not throw)', async () => {
+      // INFRA-260: a network failure establishing the anonymous session is
+      // non-fatal — init completes so the offline queues survive; userId stays
+      // null and a later flush / AppState-active retry re-establishes it.
+      mockAuth.getSession.mockRejectedValue(new Error('Network error'));
+      mockAuth.signInAnonymously.mockRejectedValue(new Error('Network error'));
 
-      mockSupabaseClient.from().single.mockRejectedValue(new Error('Network error'));
-
-      await expect(service.initialize()).rejects.toThrow('Network error');
-      expect(service.isInitialized).toBe(false);
+      await expect(service.initialize()).resolves.toBeUndefined();
+      expect(service.isInitialized).toBe(true);
+      expect(service.userId).toBeNull();
     });
 
-    it('should handle Supabase errors', async () => {
-      process.env.EXPO_PUBLIC_SUPABASE_URL = 'https://test.supabase.co';
-      process.env.EXPO_PUBLIC_SUPABASE_KEY = 'test_key';
-
-      mockSupabaseClient.from().single.mockResolvedValue({
-        data: { id: 'user_123' },
-        error: null,
-      });
-
+    it('should treat a thrown Supabase error as a failed backup', async () => {
+      mockChain.single.mockResolvedValue({ data: { id: 'user_123' }, error: null });
       await service.initialize();
 
-      // Mock Supabase error
-      mockSupabaseClient.from().upsert.mockResolvedValue({
-        data: null,
-        error: { message: 'Database error' },
-      });
+      // NOTE: the resilience layer keys failure off a THROW. A Supabase call
+      // that resolves with `{ error }` (no throw) is currently treated as
+      // success by saveBackup — a separate production gap, out of scope for
+      // MAINT-243 (test-only). Here we pin the throw path.
+      mockChain.upsert.mockRejectedValue(new Error('Database error'));
 
-      const result = await service.saveBackup('data', 'checksum', 1);
+      const result = await withFakeTimers(() => service.saveBackup('data', 'checksum', 1));
 
       expect(result).toBe(false);
     });
@@ -409,14 +540,7 @@ describe('SupabaseService', () => {
 
   describe('Service Status', () => {
     it('should return accurate service status', async () => {
-      process.env.EXPO_PUBLIC_SUPABASE_URL = 'https://test.supabase.co';
-      process.env.EXPO_PUBLIC_SUPABASE_KEY = 'test_key';
-
-      mockSupabaseClient.from().single.mockResolvedValue({
-        data: { id: 'user_123' },
-        error: null,
-      });
-
+      mockChain.single.mockResolvedValue({ data: { id: 'user_123' }, error: null });
       await service.initialize();
 
       const status = service.getStatus();
@@ -435,14 +559,7 @@ describe('SupabaseService', () => {
 
   describe('Cleanup', () => {
     it('should cleanup service properly', async () => {
-      process.env.EXPO_PUBLIC_SUPABASE_URL = 'https://test.supabase.co';
-      process.env.EXPO_PUBLIC_SUPABASE_KEY = 'test_key';
-
-      mockSupabaseClient.from().single.mockResolvedValue({
-        data: { id: 'user_123' },
-        error: null,
-      });
-
+      mockChain.single.mockResolvedValue({ data: { id: 'user_123' }, error: null });
       await service.initialize();
 
       // Add some analytics to queue
@@ -450,7 +567,7 @@ describe('SupabaseService', () => {
 
       await service.cleanup();
 
-      // Should flush analytics and save offline queue
+      // Should flush analytics and persist offline queue
       expect(AsyncStorage.setItem).toHaveBeenCalledWith(
         '@being/supabase/offline_queue',
         expect.any(String)
@@ -459,34 +576,34 @@ describe('SupabaseService', () => {
   });
 });
 
-describe('Device ID Generation', () => {
-  it('should generate consistent device ID hash', async () => {
+// INFRA-260: the device-hash identity is gone — identity is the Supabase
+// anonymous session. These pin the session-establishment contract that replaced
+// generateDeviceIdHash().
+describe('Anonymous session establishment (INFRA-260)', () => {
+  it('prefers a restored session over minting a new one', async () => {
     const service = new (SupabaseService as any).constructor();
+    service.client = mockSupabaseClient; // ensureAnonymousSession() uses this.client.auth
+    mockAuth.getSession.mockResolvedValueOnce({
+      data: { session: { user: { id: 'restored' } } },
+      error: null,
+    });
 
-    // Mock AsyncStorage to return same device ID
-    (AsyncStorage.getItem as jest.Mock).mockResolvedValue('device_123');
+    await service.ensureAnonymousSession();
 
-    const hash1 = await service.generateDeviceIdHash();
-    const hash2 = await service.generateDeviceIdHash();
-
-    expect(hash1).toBe(hash2);
-    expect(mockCrypto.digestStringAsync).toHaveBeenCalledWith(
-      expect.any(String),
-      'device_123'
-    );
+    expect(service.userId).toBe('restored');
+    expect(mockAuth.signInAnonymously).not.toHaveBeenCalled();
   });
 
-  it('should create new device ID if none exists', async () => {
+  it('does NOT persist the session identity to AsyncStorage (secure-store only)', async () => {
     const service = new (SupabaseService as any).constructor();
+    service.client = mockSupabaseClient;
 
-    // Mock AsyncStorage to return null, then save new ID
-    (AsyncStorage.getItem as jest.Mock).mockResolvedValue(null);
+    await service.ensureAnonymousSession();
 
-    await service.generateDeviceIdHash();
-
-    expect(AsyncStorage.setItem).toHaveBeenCalledWith(
-      '@being/device_id',
-      expect.any(String)
-    );
+    // No legacy device_id / user_id identity writes to the unencrypted store.
+    const asyncKeys = (AsyncStorage.setItem as jest.Mock).mock.calls.map((c) => c[0]);
+    expect(asyncKeys).not.toContain('@being/device_id');
+    expect(asyncKeys).not.toContain('@being/supabase/user_id');
+    expect(asyncKeys).not.toContain('@being/supabase/device_id_hash');
   });
 });
