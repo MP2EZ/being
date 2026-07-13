@@ -22,6 +22,8 @@ import { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 import type { ProfileStackParamList } from '../ProfileStackNavigator';
 import { useSubscriptionStore } from '@/core/stores/subscriptionStore';
 import { isDevMode } from '@/core/constants/devMode';
+import { isFeatureEnabled } from '@/core/services/featureFlags';
+import { showFeedbackForm } from '@/core/services/logging';
 import { MaterialDesignIcons } from '@react-native-vector-icons/material-design-icons';
 import ThresholdEducationModal from '@/core/components/ThresholdEducationModal';
 import { BodyHeader } from '@/core/components/BodyHeader';
@@ -413,6 +415,27 @@ const ProfileScreen: React.FC = () => {
             </Text>
             <Text style={styles.cardAction} importantForAccessibility="no">View Documents →</Text>
           </Pressable>
+
+          {/* FEAT-284: internal-only bug/feedback entry. Gated on the build-time
+              `bug_reporting` flag. Opens Sentry's feedback widget (screenshot +
+              form); you can also shake the device from anywhere. Discoverable
+              fallback for the shake gesture. */}
+          {isFeatureEnabled('bug_reporting') && (
+            <Pressable
+              style={styles.profileCard}
+              onPress={() => showFeedbackForm()}
+              testID="profile-card-bug-report"
+              accessibilityRole="button"
+              accessibilityLabel="Report a bug or send feedback"
+              accessibilityHint="Opens a form to send a bug report with a screenshot. You can also shake your device."
+            >
+              <Text style={styles.cardTitle}>Report a bug / Send feedback</Text>
+              <Text style={styles.cardDescription}>
+                Hit a bug during testing? Send it with a screenshot attached — or just shake your device from any screen.
+              </Text>
+              <Text style={styles.cardAction} importantForAccessibility="no">Report →</Text>
+            </Pressable>
+          )}
         </View>
 
         {/* FEAT-209 H3: Onboarding Setup demoted from a top card to a footer link. */}

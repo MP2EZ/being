@@ -19,6 +19,7 @@ import { DataRetentionService } from './src/core/services/data-retention';
 import { PostHogProvider } from './src/core/analytics';
 import { closeMenu as closeDevMenu } from 'expo-dev-menu';
 import { maybeSeedE2EOnboardedState } from './src/core/config/e2eSeed';
+import { useBugReportShake } from './src/core/hooks/useBugReportShake';
 
 // INFRA-181: hide RN LogBox during Maestro runs. The dev warning toast (e.g.
 // posthog-react-native's "usePostHog was called without a client" notice when
@@ -30,9 +31,13 @@ if (__DEV__ && process.env['EXPO_PUBLIC_E2E_SUPPRESS_DEV_MENU'] === '1') {
   LogBox.ignoreAllLogs(true);
 }
 
-export default function App() {
+function App() {
   const [isInitialized, setIsInitialized] = useState(false);
   const appState = useRef(AppState.currentState);
+
+  // FEAT-284: shake-to-report (internal builds only; no-ops when the
+  // bug_reporting flag is off or Sentry has no DSN).
+  useBugReportShake();
 
   useEffect(() => {
     async function initializeApp() {
@@ -150,3 +155,8 @@ export default function App() {
     </PostHogProvider>
   );
 }
+
+// FEAT-284: Sentry.wrap is REQUIRED for the in-app feedback widget
+// (showFeedbackWidget) to present; it also enables Sentry's touch/gesture
+// context. Harmless when Sentry has no DSN (dev/sim).
+export default Sentry.wrap(App);
