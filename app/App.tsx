@@ -7,6 +7,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { AppState, AppStateStatus, LogBox } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as Sentry from '@sentry/react-native';
 import CleanRootNavigator from './src/core/navigation/CleanRootNavigator';
 import { IAPService } from './src/core/services/subscription/IAPService';
@@ -147,12 +148,20 @@ function App() {
 
   // Render app immediately - migration runs in background
   return (
-    <PostHogProvider>
-      <SafeAreaProvider>
-        <StatusBar style="auto" />
-        <CleanRootNavigator />
-      </SafeAreaProvider>
-    </PostHogProvider>
+    // GestureHandlerRootView MUST be the top-most wrapper. The single root crisis
+    // button (MAINT-290: RootCrisisButton → CollapsibleCrisisButton) uses
+    // GestureDetector at the navigation root, OUTSIDE any stack's gesture context, so
+    // without this it throws "GestureDetector must be used as a descendant of
+    // GestureHandlerRootView" (redbox in dev; swipe-to-expand silently dead in
+    // release). Do not remove — the crisis button's swipe affordance depends on it.
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <PostHogProvider>
+        <SafeAreaProvider>
+          <StatusBar style="auto" />
+          <CleanRootNavigator />
+        </SafeAreaProvider>
+      </PostHogProvider>
+    </GestureHandlerRootView>
   );
 }
 

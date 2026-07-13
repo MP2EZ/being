@@ -16,12 +16,16 @@ import { useSettingsStore, useAccessibilitySettings } from '@/core/stores/settin
 import AssessmentStatusBadge from '@/features/assessment/components/AssessmentStatusBadge';
 import { IntroOverlay } from '../components/IntroOverlay';
 import { useAnalytics } from '@/core/analytics';
+import { isFeatureEnabled } from '@/core/services/featureFlags';
 
 // 30 minutes in milliseconds
 const INTRO_THRESHOLD_MS = 30 * 60 * 1000;
 
 type CleanHomeScreenNavigationProp = StackNavigationProp<RootStackParamList>;
-type FlowType = 'morning' | 'midday' | 'evening';
+// FEAT-291: 'daily-loop' is the local card type for the flag-gated Daily Practice
+// (Beta) entry. It is themed as 'midday' (getTheme below) — NOT added to the closed
+// ThemeKey/CheckInType unions (the FlowType unification is the deferred step-5 migration).
+type FlowType = 'morning' | 'midday' | 'evening' | 'daily-loop';
 
 // PERF-04: hoisted out of CleanHomeScreen's render — defining components inside
 // a function component creates a NEW component type on every render, forcing
@@ -45,7 +49,8 @@ const CheckInCard: React.FC<CheckInCardProps> = ({
   isCompleted,
   onPress,
 }) => {
-  const themeColors = getTheme(type);
+  // FEAT-291: the daily-loop prototype card themes as midday (no ThemeKey union change).
+  const themeColors = getTheme(type === 'daily-loop' ? 'midday' : type);
   const handlePress = useCallback(() => onPress(type), [onPress, type]);
 
   return (
@@ -149,6 +154,13 @@ const CleanHomeScreen: React.FC = () => {
 
   const currentPeriod = getCurrentPeriod();
 
+  // FEAT-291 prototype flags (build-time, dark in production):
+  //  - daily_loop: show the Daily Practice card alongside the 3 flows.
+  //  - daily_loop_only: preview the eventual single-ritual Home — hide the 3
+  //    time-of-day flows, show only the loop (requires daily_loop on).
+  const dailyLoopEnabled = isFeatureEnabled('daily_loop');
+  const dailyLoopOnly = dailyLoopEnabled && isFeatureEnabled('daily_loop_only');
+
   const handleCheckInPress = useCallback((type: FlowType) => {
     switch (type) {
       case 'morning':
@@ -159,6 +171,10 @@ const CleanHomeScreen: React.FC = () => {
         break;
       case 'evening':
         navigation.navigate('EveningFlow');
+        break;
+      case 'daily-loop':
+        // FEAT-291: no mode param → the loop shows its in-flow mode picker (flat/morning/evening).
+        navigation.navigate('DailyLoop');
         break;
     }
   }, [navigation]);
@@ -192,35 +208,57 @@ const CleanHomeScreen: React.FC = () => {
 
         {/* Check-in Cards - flex to fill remaining space */}
         <View style={styles.checkInSection}>
-          <CheckInCard
-            type="morning"
-            title="Morning Awareness"
-            description="Start your day with mindful awareness of your body, emotions, and intentions."
-            duration="5-7 min"
-            isCurrent={currentPeriod === 'morning'}
-            isCompleted={isCheckInCompletedToday('morning')}
-            onPress={handleCheckInPress}
-          />
+          {/* The 3 time-of-day flows. Hidden when the daily_loop_only preview is on
+              (dark in production) — otherwise the unchanged default Home. */}
+          {!dailyLoopOnly && (
+            <>
+              <CheckInCard
+                type="morning"
+                title="Morning Awareness"
+                description="Start your day with mindful awareness of your body, emotions, and intentions."
+                duration="5-7 min"
+                isCurrent={currentPeriod === 'morning'}
+                isCompleted={isCheckInCompletedToday('morning')}
+                onPress={handleCheckInPress}
+              />
 
-          <CheckInCard
-            type="midday"
-            title="Midday Reset"
-            description="Take a moment to reconnect with the present through mindful awareness."
-            duration="3 min"
-            isCurrent={currentPeriod === 'midday'}
-            isCompleted={isCheckInCompletedToday('midday')}
-            onPress={handleCheckInPress}
-          />
+              <CheckInCard
+                type="midday"
+                title="Midday Reset"
+                description="Take a moment to reconnect with the present through mindful awareness."
+                duration="3 min"
+                isCurrent={currentPeriod === 'midday'}
+                isCompleted={isCheckInCompletedToday('midday')}
+                onPress={handleCheckInPress}
+              />
 
-          <CheckInCard
-            type="evening"
-            title="Evening Reflection"
-            description="Reflect on your day with gratitude and intention. Release what's done and rest peacefully."
-            duration="5-6 min"
-            isCurrent={currentPeriod === 'evening'}
-            isCompleted={isCheckInCompletedToday('evening')}
-            onPress={handleCheckInPress}
-          />
+              <CheckInCard
+                type="evening"
+                title="Evening Reflection"
+                description="Reflect on your day with gratitude and intention. Release what's done and rest peacefully."
+                duration="5-6 min"
+                isCurrent={currentPeriod === 'evening'}
+                isCompleted={isCheckInCompletedToday('evening')}
+                onPress={handleCheckInPress}
+              />
+            </>
+          )}
+
+          {/* FEAT-291: single-loop daily-practice prototype. Flag-gated (build-time
+              `daily_loop`, dark in production). When daily_loop_only is also on, this
+              is the ONLY card and drops the "(Beta)" tag — a preview of the eventual
+              single-ritual Home. */}
+          {dailyLoopEnabled && (
+            <CheckInCard
+              type="daily-loop"
+              title={dailyLoopOnly ? 'Daily Practice' : 'Daily Practice (Beta)'}
+              description="One loop through the Five Principles: Aware Presence, Radical Acceptance, Sphere Sovereignty, Virtuous Response, Interconnected Living."
+              duration="5-6 min"
+              isCurrent={dailyLoopOnly}
+              isCompleted={false}
+              onPress={handleCheckInPress}
+            />
+          )}
         </View>
       </View>
 

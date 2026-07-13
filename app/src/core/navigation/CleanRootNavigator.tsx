@@ -19,6 +19,7 @@ import CleanTabNavigator from './CleanTabNavigator';
 import MorningFlowNavigator from '@/features/practices/morning/MorningFlowNavigator';
 import MiddayFlowNavigator from '@/features/practices/midday/MiddayFlowNavigator';
 import EveningFlowNavigator from '@/features/practices/evening/EveningFlowNavigator';
+import { DailyLoopNavigator } from '@/features/practices/dailyloop';
 import CrisisResourcesScreen from '@/features/crisis/screens/CrisisResourcesScreen';
 import RootCrisisButton from '@/features/crisis/components/RootCrisisButton';
 import PurchaseOptionsScreen from '@/core/components/subscription/PurchaseOptionsScreen';
@@ -41,6 +42,7 @@ import { useSettingsStore } from '@/core/stores/settingsStore';
 import { useConsentStore } from '@/core/stores/consentStore';
 import { CombinedLegalGateScreen } from '@/features/consent';
 import type { AssessmentType, PHQ9Result, GAD7Result } from '@/features/assessment/types';
+import type { DailyLoopMode, DailyLoopSessionData } from '@/features/practices/types/flows';
 import type { ModuleId, SortingScenario } from '@/features/learn/types/education';
 import type { PassageAuthor } from '@/features/library/types/library';
 
@@ -51,6 +53,9 @@ export type RootStackParamList = {
   MorningFlow: undefined;
   MiddayFlow: undefined;
   EveningFlow: undefined;
+  // FEAT-291: single-loop daily-practice prototype (build-time flag `daily_loop`).
+  // `mode` optional — when absent the loop shows its in-flow mode picker.
+  DailyLoop: { mode?: DailyLoopMode } | undefined;
   ModuleDetail: { moduleId: ModuleId };
   ClassicalLibrary: { principle?: ModuleId; author?: PassageAuthor } | undefined;
   PassageReader: { passageId: string };
@@ -203,6 +208,14 @@ const CleanRootNavigator: React.FC = () => {
         );
       }
     }
+  };
+
+  // FEAT-291: daily-loop prototype. Tracked as 'midday' (no new CheckInType — the
+  // FlowType unification is the deferred step-5 migration). Marks midday's card
+  // complete-today; acceptable dark-prototype tradeoff (noted in the PR).
+  const handleDailyLoopComplete = async (sessionData: DailyLoopSessionData) => {
+    logSystem(`Daily loop completed (mode: ${sessionData.mode})`);
+    await markCheckInComplete('midday');
   };
 
   const handleOnboardingComplete = async (destination?: 'home' | 'morning') => {
@@ -500,6 +513,29 @@ const CleanRootNavigator: React.FC = () => {
                 }}
                 // FEAT-134: Pass recordPrincipleEngagement for Insights dashboard
                 recordPrincipleEngagement={recordPrincipleEngagement}
+              />
+            )}
+          </Stack.Screen>
+
+          {/* FEAT-291: Daily Loop prototype — reached only from the Home
+              `daily_loop`-flag-gated card. One nested navigator → inherits the single
+              root crisis overlay (DailyLoop is in RootCrisisButton IMMERSIVE_ROUTES). */}
+          <Stack.Screen
+            name="DailyLoop"
+            options={{
+              headerShown: false,
+              gestureEnabled: false,
+              animationTypeForReplace: 'push'
+            }}
+          >
+            {({ navigation, route }) => (
+              <DailyLoopNavigator
+                mode={route.params?.mode}
+                onComplete={(sessionData) => {
+                  handleDailyLoopComplete(sessionData);
+                  navigation.goBack();
+                }}
+                onExit={() => navigation.goBack()}
               />
             )}
           </Stack.Screen>
