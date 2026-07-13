@@ -538,14 +538,20 @@ export type DailyLoopParamList = {
 };
 
 /**
- * One text-input beat's captured data. `virtue` / `adversityRehearsal` are only
- * populated on step 4 (Virtuous Response); both are optional scaffolding, never
- * required gates (preserves prohairesis).
+ * One beat's captured data. ALL fields are optional — the loop is reflect-first
+ * (typing is capture, never a gate; preserves prohairesis and suits the walking,
+ * eyes-up practice). Fields are populated per step:
+ *  - `response`  : the primary reflection (steps 1, 2, 5) or the synthesized action (step 4)
+ *  - `notMine`/`mine` : step 3's two-sided dichotomy of control (either order)
+ *  - `virtues`   : step 4's multi-select cardinal virtues (optional scaffolding, not a gate)
+ *  - `adversityRehearsal` : step 4 MORNING-only guardrailed premeditatio
  */
 export interface DailyLoopStepData {
-  response: string;
-  virtue?: CardinalVirtue | undefined;      // step 4: optionally-named cardinal virtue
-  adversityRehearsal?: string | undefined;  // step 4 morning-tensed: optional guardrailed premeditatio
+  response?: string | undefined;
+  notMine?: string | undefined;
+  mine?: string | undefined;
+  virtues?: CardinalVirtue[] | undefined;
+  adversityRehearsal?: string | undefined;
   timestamp: Date;
 }
 

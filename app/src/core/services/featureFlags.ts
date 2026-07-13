@@ -56,7 +56,12 @@ export type FeatureFlag =
   // gates a whole navigator + Home entry, not a per-user rollout), read via
   // isFeatureEnabled('daily_loop'). Ships dark (false in production; on in dev so the
   // prototype is exercisable). NOT in PRODUCT_FLAGS — no PostHog/runtime control.
-  | 'daily_loop';
+  | 'daily_loop'
+  // FEAT-291 preview: when on (AND daily_loop on), Home hides the 3 time-of-day flows
+  // and shows ONLY the daily loop — a dark preview of the eventual single-ritual Home.
+  // NOT the FlowType-unification migration (that's the deferred step-5 work); this only
+  // gates Home card visibility. Ships dark in production.
+  | 'daily_loop_only';
 
 /**
  * Parse a feature-flag blob into a boolean lookup.

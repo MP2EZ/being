@@ -95,7 +95,10 @@ const DailyLoopNavigator: React.FC<DailyLoopNavigatorProps> = ({ mode: initialMo
     if (idx <= 0) return undefined;
     const prevField = STEP_FIELD[order[idx - 1] as DailyLoopStepKey];
     const prev = sessionData[prevField] as DailyLoopStepData | undefined;
-    return prev?.response ? { label, text: prev.response } : undefined;
+    // Reflect-first: inputs are optional, so the prior beat may have no capture.
+    // Prefer its primary text; for Sphere Sovereignty (two fields) echo "what's yours".
+    const text = prev?.response ?? prev?.mine ?? prev?.notMine;
+    return text ? { label, text } : undefined;
   };
 
   const getHeaderOptions = (showProgress: boolean) => ({

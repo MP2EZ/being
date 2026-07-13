@@ -47,10 +47,15 @@ jest.mock('../../components/IntroOverlay', () => ({
   default: () => null,
 }));
 
-// Controllable build-time flag (prefixed `mock` per jest's factory scope rule).
+// Controllable build-time flags (prefixed `mock` per jest's factory scope rule).
 let mockDailyLoopOn = false;
+let mockDailyLoopOnly = false;
 jest.mock('@/core/services/featureFlags', () => ({
-  isFeatureEnabled: (key: string) => (key === 'daily_loop' ? mockDailyLoopOn : false),
+  isFeatureEnabled: (key: string) => {
+    if (key === 'daily_loop') return mockDailyLoopOn;
+    if (key === 'daily_loop_only') return mockDailyLoopOnly;
+    return false;
+  },
 }));
 
 import CleanHomeScreen from '../CleanHomeScreen';
@@ -61,6 +66,7 @@ describe('CleanHomeScreen — daily_loop entry', () => {
   beforeEach(() => {
     mockNavigate.mockClear();
     mockDailyLoopOn = false;
+    mockDailyLoopOnly = false;
   });
 
   it('flag OFF: renders the unchanged 3-card layout with no beta card', () => {
@@ -81,5 +87,26 @@ describe('CleanHomeScreen — daily_loop entry', () => {
 
     fireEvent.press(getByLabelText(/Daily Practice \(Beta\) check-in/i));
     expect(mockNavigate).toHaveBeenCalledWith('DailyLoop');
+  });
+
+  it('daily_loop_only ON: hides the 3 flows and shows only Daily Practice (no Beta tag)', () => {
+    mockDailyLoopOn = true;
+    mockDailyLoopOnly = true;
+    const { getByText, queryByText } = render(<CleanHomeScreen />);
+    // The single ritual card, no "(Beta)" suffix.
+    expect(getByText('Daily Practice')).toBeTruthy();
+    expect(queryByText(BETA)).toBeNull();
+    // The three time-of-day flows are gone.
+    expect(queryByText('Morning Awareness')).toBeNull();
+    expect(queryByText('Midday Reset')).toBeNull();
+    expect(queryByText('Evening Reflection')).toBeNull();
+  });
+
+  it('daily_loop_only requires daily_loop (both off → normal 3-card Home)', () => {
+    mockDailyLoopOn = false;
+    mockDailyLoopOnly = true; // ignored without daily_loop
+    const { getByText, queryByText } = render(<CleanHomeScreen />);
+    expect(getByText('Morning Awareness')).toBeTruthy();
+    expect(queryByText(/Daily Practice/i)).toBeNull();
   });
 });

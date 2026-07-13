@@ -154,6 +154,13 @@ const CleanHomeScreen: React.FC = () => {
 
   const currentPeriod = getCurrentPeriod();
 
+  // FEAT-291 prototype flags (build-time, dark in production):
+  //  - daily_loop: show the Daily Practice card alongside the 3 flows.
+  //  - daily_loop_only: preview the eventual single-ritual Home — hide the 3
+  //    time-of-day flows, show only the loop (requires daily_loop on).
+  const dailyLoopEnabled = isFeatureEnabled('daily_loop');
+  const dailyLoopOnly = dailyLoopEnabled && isFeatureEnabled('daily_loop_only');
+
   const handleCheckInPress = useCallback((type: FlowType) => {
     switch (type) {
       case 'morning':
@@ -201,46 +208,53 @@ const CleanHomeScreen: React.FC = () => {
 
         {/* Check-in Cards - flex to fill remaining space */}
         <View style={styles.checkInSection}>
-          <CheckInCard
-            type="morning"
-            title="Morning Awareness"
-            description="Start your day with mindful awareness of your body, emotions, and intentions."
-            duration="5-7 min"
-            isCurrent={currentPeriod === 'morning'}
-            isCompleted={isCheckInCompletedToday('morning')}
-            onPress={handleCheckInPress}
-          />
+          {/* The 3 time-of-day flows. Hidden when the daily_loop_only preview is on
+              (dark in production) — otherwise the unchanged default Home. */}
+          {!dailyLoopOnly && (
+            <>
+              <CheckInCard
+                type="morning"
+                title="Morning Awareness"
+                description="Start your day with mindful awareness of your body, emotions, and intentions."
+                duration="5-7 min"
+                isCurrent={currentPeriod === 'morning'}
+                isCompleted={isCheckInCompletedToday('morning')}
+                onPress={handleCheckInPress}
+              />
 
-          <CheckInCard
-            type="midday"
-            title="Midday Reset"
-            description="Take a moment to reconnect with the present through mindful awareness."
-            duration="3 min"
-            isCurrent={currentPeriod === 'midday'}
-            isCompleted={isCheckInCompletedToday('midday')}
-            onPress={handleCheckInPress}
-          />
+              <CheckInCard
+                type="midday"
+                title="Midday Reset"
+                description="Take a moment to reconnect with the present through mindful awareness."
+                duration="3 min"
+                isCurrent={currentPeriod === 'midday'}
+                isCompleted={isCheckInCompletedToday('midday')}
+                onPress={handleCheckInPress}
+              />
 
-          <CheckInCard
-            type="evening"
-            title="Evening Reflection"
-            description="Reflect on your day with gratitude and intention. Release what's done and rest peacefully."
-            duration="5-6 min"
-            isCurrent={currentPeriod === 'evening'}
-            isCompleted={isCheckInCompletedToday('evening')}
-            onPress={handleCheckInPress}
-          />
+              <CheckInCard
+                type="evening"
+                title="Evening Reflection"
+                description="Reflect on your day with gratitude and intention. Release what's done and rest peacefully."
+                duration="5-6 min"
+                isCurrent={currentPeriod === 'evening'}
+                isCompleted={isCheckInCompletedToday('evening')}
+                onPress={handleCheckInPress}
+              />
+            </>
+          )}
 
           {/* FEAT-291: single-loop daily-practice prototype. Flag-gated (build-time
-              `daily_loop`, dark in production) — with the flag OFF this card is not
-              rendered and Home is the unchanged 3-card layout. */}
-          {isFeatureEnabled('daily_loop') && (
+              `daily_loop`, dark in production). When daily_loop_only is also on, this
+              is the ONLY card and drops the "(Beta)" tag — a preview of the eventual
+              single-ritual Home. */}
+          {dailyLoopEnabled && (
             <CheckInCard
               type="daily-loop"
-              title="Daily Practice (Beta)"
+              title={dailyLoopOnly ? 'Daily Practice' : 'Daily Practice (Beta)'}
               description="One loop through the Five Principles: Aware Presence, Radical Acceptance, Sphere Sovereignty, Virtuous Response, Interconnected Living."
               duration="5-6 min"
-              isCurrent={false}
+              isCurrent={dailyLoopOnly}
               isCompleted={false}
               onPress={handleCheckInPress}
             />

@@ -2,20 +2,20 @@
  * DailyLoopStepScreen — FEAT-291
  *
  * ONE parameterized beat screen for the single-loop daily practice, driven by the
- * tenseMode config. Covers all five principle steps; step-specific surfaces are
- * optional slots:
- *  - step 1 (Aware Presence): a 30s micro-breath gate before the input (reuses
- *    BreathingCircle/Timer/SkipLink/GuidanceCard, mirroring the Midday pattern),
- *  - step 4 (Virtuous Response): the four cardinal virtues as a reference line +
- *    OPTIONAL selectable chips (scaffolding, never a required gate), plus — in
- *    morning-tensed mode only — an OPTIONAL, skippable, coping-clause-paired
- *    premeditatio input.
+ * tenseMode step config. Reflect-first: every text field is OPTIONAL — after the
+ * breath, Continue is always enabled (typing is capture, not a gate), suiting the
+ * walking, eyes-up practice. Step-specific surfaces are declared by the config:
+ *  - step 1 (Aware Presence): a 30s micro-breath with a grounding prompt (body
+ *    sensation + environment + mind) in the guidance card, then optional capture,
+ *  - step 3 (Sphere Sovereignty): two order-agnostic fields (the full dichotomy),
+ *  - step 4 (Virtuous Response): MULTI-select virtue chips (optional lens) + one
+ *    synthesized action, plus — morning only — the guardrailed premeditatio,
+ *  - step 2 (Radical Acceptance): a quiet static crisis-support line (crisis review).
  *
- * The screen owns no navigation: it calls onSave(data) and the navigator advances.
- * This decouples the loop's step order from any hardcoded route targets. Themed as
- * 'midday' (no ThemeKey union change — FEAT-291 ships alongside the 3 flows).
- * Crisis access is inherited from the single root overlay (MAINT-290); this screen
- * mounts NO crisis button of its own.
+ * The screen owns no navigation for step advance (calls onSave; the navigator
+ * advances). The support line taps to CrisisResources via the root nav ref — the
+ * only crisis path; NO scan of the free text. Themed as 'midday'. Crisis access is
+ * otherwise inherited from the single root overlay (MAINT-290); no per-step button.
  */
 import React, { useState, useCallback } from 'react';
 import {
@@ -38,14 +38,17 @@ import {
   FlowBackButton,
   PreviousAnswerCard,
 } from '@/features/practices/shared/components';
+import { navigationRef } from '@/core/navigation/navigationRef';
 import type { DailyLoopMode, DailyLoopStepData } from '@/features/practices/types/flows';
 import type { CardinalVirtue } from '@/features/practices/types/stoic';
 import {
-  getStepCopy,
+  getStepConfig,
   STEP_TITLES,
   VIRTUE_REFERENCE,
   PREMEDITATIO,
+  SUPPORT_LINE,
   type DailyLoopStepKey,
+  type LoopFieldKey,
 } from '../config/tenseMode';
 
 const BREATH_DURATION_MS = 30 * 1000;
@@ -53,9 +56,9 @@ const BREATH_DURATION_MS = 30 * 1000;
 export interface DailyLoopStepScreenProps {
   stepKey: DailyLoopStepKey;
   mode: DailyLoopMode;
-  /** Whether to gate the input behind a 30s micro-breath (step 1 only). */
+  /** Gate the input behind a 30s micro-breath (step 1 only). */
   showBreath?: boolean;
-  /** Whether to render the in-content back affordance (all but the first step). */
+  /** Render the in-content back affordance (all but the first step). */
   showBack?: boolean;
   onBack?: () => void;
   /** Previous beat's answer, shown as context. */
@@ -63,6 +66,12 @@ export interface DailyLoopStepScreenProps {
   /** Called with the captured beat data; the navigator advances to the next step. */
   onSave: (data: DailyLoopStepData) => void;
 }
+
+const openCrisisResources = () => {
+  if (navigationRef.isReady()) {
+    navigationRef.navigate('CrisisResources', { source: 'crisis_button' });
+  }
+};
 
 const DailyLoopStepScreen: React.FC<DailyLoopStepScreenProps> = ({
   stepKey,
@@ -73,17 +82,24 @@ const DailyLoopStepScreen: React.FC<DailyLoopStepScreenProps> = ({
   previousAnswer,
   onSave,
 }) => {
-  const copy = getStepCopy(mode, stepKey);
+  const config = getStepConfig(mode, stepKey);
   const title = STEP_TITLES[stepKey];
   const themeColors = getTheme('midday');
-  const isVirtueStep = stepKey === 'VirtuousResponse';
-  const showPremeditatio = isVirtueStep && mode === 'morning';
+  const showPremeditatio = stepKey === 'VirtuousResponse' && mode === 'morning';
 
-  const [response, setResponse] = useState('');
-  const [selectedVirtue, setSelectedVirtue] = useState<CardinalVirtue | undefined>(undefined);
+  const [values, setValues] = useState<Record<LoopFieldKey, string>>({ response: '', notMine: '', mine: '' });
+  const [selectedVirtues, setSelectedVirtues] = useState<CardinalVirtue[]>([]);
   const [adversityRehearsal, setAdversityRehearsal] = useState('');
   const [breathCompleted, setBreathCompleted] = useState(!showBreath);
   const [isBreathActive, setIsBreathActive] = useState(showBreath);
+
+  const setField = useCallback((key: LoopFieldKey, text: string) => {
+    setValues((v) => ({ ...v, [key]: text }));
+  }, []);
+
+  const toggleVirtue = useCallback((key: CardinalVirtue) => {
+    setSelectedVirtues((prev) => (prev.includes(key) ? prev.filter((v) => v !== key) : [...prev, key]));
+  }, []);
 
   const handleBreathComplete = useCallback(() => {
     setBreathCompleted(true);
@@ -91,16 +107,35 @@ const DailyLoopStepScreen: React.FC<DailyLoopStepScreenProps> = ({
   }, []);
 
   const handleContinue = useCallback(() => {
-    if (!response.trim()) return;
-    onSave({
-      response: response.trim(),
-      ...(selectedVirtue ? { virtue: selectedVirtue } : {}),
-      ...(adversityRehearsal.trim() ? { adversityRehearsal: adversityRehearsal.trim() } : {}),
-      timestamp: new Date(),
-    });
-  }, [response, selectedVirtue, adversityRehearsal, onSave]);
+    // Reflect-first: all inputs optional. Capture only what was written.
+    const data: DailyLoopStepData = { timestamp: new Date() };
+    if (values.response.trim()) data.response = values.response.trim();
+    if (values.notMine.trim()) data.notMine = values.notMine.trim();
+    if (values.mine.trim()) data.mine = values.mine.trim();
+    if (selectedVirtues.length) data.virtues = selectedVirtues;
+    if (adversityRehearsal.trim()) data.adversityRehearsal = adversityRehearsal.trim();
+    onSave(data);
+  }, [values, selectedVirtues, adversityRehearsal, onSave]);
 
-  const canContinue = breathCompleted && response.trim().length > 0;
+  const renderField = (key: LoopFieldKey, label: string, hint: string | undefined, placeholder: string) => (
+    <View style={styles.inputSection} key={key}>
+      <Text style={styles.inputLabel}>{label}</Text>
+      {hint ? <Text style={styles.inputHint}>{hint}</Text> : null}
+      <TextInput
+        style={[styles.textInput, { borderColor: values[key] ? themeColors.primary : colorSystem.gray[300] }]}
+        value={values[key]}
+        onChangeText={(t) => setField(key, t)}
+        placeholder={placeholder}
+        placeholderTextColor={colorSystem.gray[500]}
+        multiline
+        numberOfLines={3}
+        textAlignVertical="top"
+        accessibilityLabel={label}
+        accessibilityHint="Optional — leave blank to reflect without writing"
+        testID={`daily-loop-input-${key}`}
+      />
+    </View>
+  );
 
   return (
     <KeyboardAvoidingView
@@ -113,11 +148,9 @@ const DailyLoopStepScreen: React.FC<DailyLoopStepScreenProps> = ({
         keyboardShouldPersistTaps="handled"
         testID={`daily-loop-${stepKey}-screen`}
       >
-        {showBack && (
-          <FlowBackButton onPress={() => onBack?.()} theme="midday" />
-        )}
+        {showBack && <FlowBackButton onPress={() => onBack?.()} theme="midday" />}
 
-        {/* Breath gate (step 1 only) */}
+        {/* Breath gate (step 1) — grounding prompt lives in the guidance card */}
         {!breathCompleted && (
           <View style={styles.breathSection}>
             <Text style={styles.breathTitle}>Take a moment to arrive</Text>
@@ -148,19 +181,19 @@ const DailyLoopStepScreen: React.FC<DailyLoopStepScreenProps> = ({
             />
             <View style={styles.guidanceWrapper}>
               <GuidanceCard
-                title="Pause and notice:"
-                items={['Your posture right now', 'The rhythm of your breath', "What's asking for your attention"]}
-                testID="daily-loop-pause-guidance"
+                title="As you breathe, notice:"
+                items={config.grounding ?? ['Your posture right now', 'The rhythm of your breath', "What's asking for your attention"]}
+                testID="daily-loop-grounding"
               />
             </View>
           </View>
         )}
 
-        {/* Input phase */}
+        {/* Reflection phase */}
         {breathCompleted && (
           <>
             <Text style={styles.sectionTitle}>{title}</Text>
-            <Text style={styles.sectionSubtitle}>{copy.subtitle}</Text>
+            <Text style={styles.sectionSubtitle}>{config.subtitle}</Text>
 
             {previousAnswer && previousAnswer.text ? (
               <PreviousAnswerCard
@@ -171,19 +204,22 @@ const DailyLoopStepScreen: React.FC<DailyLoopStepScreenProps> = ({
               />
             ) : null}
 
-            {/* Step 4: four cardinal virtues reference + optional chips */}
-            {isVirtueStep && (
+            {/* Step 4: four cardinal virtues — multi-select lens (optional) */}
+            {config.virtueChips && (
               <View style={styles.virtueBlock}>
+                {config.virtueChipsPrompt ? (
+                  <Text style={styles.virtuePrompt}>{config.virtueChipsPrompt}</Text>
+                ) : null}
                 <Text style={styles.virtueReference}>
                   {VIRTUE_REFERENCE.map((v) => `${v.label} — ${v.gloss}`).join('   ·   ')}
                 </Text>
                 <View style={styles.virtueChips}>
                   {VIRTUE_REFERENCE.map((v) => {
-                    const active = selectedVirtue === v.key;
+                    const active = selectedVirtues.includes(v.key);
                     return (
                       <Pressable
                         key={v.key}
-                        onPress={() => setSelectedVirtue(active ? undefined : v.key)}
+                        onPress={() => toggleVirtue(v.key)}
                         style={[
                           styles.virtueChip,
                           {
@@ -194,7 +230,7 @@ const DailyLoopStepScreen: React.FC<DailyLoopStepScreenProps> = ({
                         accessibilityRole="button"
                         accessibilityState={{ selected: active }}
                         accessibilityLabel={`${v.label}${active ? ', selected' : ''}`}
-                        accessibilityHint="Optional — name the virtue this calls for"
+                        accessibilityHint="Optional — name any virtues this calls for"
                         testID={`virtue-chip-${v.key}`}
                       >
                         <Text
@@ -212,28 +248,10 @@ const DailyLoopStepScreen: React.FC<DailyLoopStepScreenProps> = ({
               </View>
             )}
 
-            <View style={styles.inputSection}>
-              <Text style={styles.inputLabel}>{copy.inputLabel}</Text>
-              {copy.inputHint ? <Text style={styles.inputHint}>{copy.inputHint}</Text> : null}
-              <TextInput
-                style={[
-                  styles.textInput,
-                  { borderColor: response ? themeColors.primary : colorSystem.gray[300] },
-                ]}
-                value={response}
-                onChangeText={setResponse}
-                placeholder={copy.placeholder}
-                placeholderTextColor={colorSystem.gray[500]}
-                multiline
-                numberOfLines={4}
-                textAlignVertical="top"
-                accessibilityLabel={title}
-                accessibilityHint="Enter your reflection for this step"
-                testID="daily-loop-input"
-              />
-            </View>
+            {/* Optional fields (1 for most beats, 2 for Sphere Sovereignty) */}
+            {config.fields.map((f) => renderField(f.key, f.label, f.hint, f.placeholder))}
 
-            {/* Step 4 morning-tensed: optional, skippable premeditatio */}
+            {/* Step 4 morning-tensed only: optional, skippable premeditatio */}
             {showPremeditatio && (
               <View style={styles.inputSection}>
                 <Text style={styles.inputLabel}>{PREMEDITATIO.label}</Text>
@@ -250,12 +268,28 @@ const DailyLoopStepScreen: React.FC<DailyLoopStepScreenProps> = ({
                   multiline
                   numberOfLines={3}
                   textAlignVertical="top"
-                  accessibilityLabel="Optional: how you'd want to meet adversity"
+                  accessibilityLabel="Optional: how you'd want to meet a setback"
                   accessibilityHint="Optional and skippable — leave blank to skip"
                   testID="premeditatio-input"
                 />
               </View>
             )}
+
+            {/* Step 2: quiet, static crisis-support line (crisis review) */}
+            {config.supportLine && (
+              <Pressable
+                onPress={openCrisisResources}
+                style={styles.supportLine}
+                accessibilityRole="button"
+                accessibilityLabel={SUPPORT_LINE}
+                accessibilityHint="Opens crisis support resources"
+                testID="daily-loop-support-line"
+              >
+                <Text style={styles.supportLineText}>{SUPPORT_LINE}</Text>
+              </Pressable>
+            )}
+
+            <Text style={styles.reflectNote}>Reflect as long as you like — writing is optional.</Text>
 
             <AccessibleButton
               onPress={handleContinue}
@@ -263,7 +297,6 @@ const DailyLoopStepScreen: React.FC<DailyLoopStepScreenProps> = ({
               variant="primary"
               size="large"
               theme="midday"
-              disabled={!canContinue}
               testID="continue-button"
               accessibilityHint="Continue to the next step"
             />
@@ -309,6 +342,12 @@ const styles = StyleSheet.create({
   },
 
   virtueBlock: { marginBottom: spacing[16] },
+  virtuePrompt: {
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.medium,
+    color: colorSystem.base.black,
+    marginBottom: spacing[8],
+  },
   virtueReference: {
     fontSize: typography.bodySmall.size,
     color: colorSystem.gray[600],
@@ -349,7 +388,25 @@ const styles = StyleSheet.create({
     fontSize: typography.bodyRegular.size,
     color: colorSystem.base.black,
     backgroundColor: colorSystem.base.white,
-    minHeight: 110,
+    minHeight: 96,
+  },
+
+  supportLine: {
+    paddingVertical: spacing[12],
+    marginBottom: spacing[8],
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+  supportLineText: {
+    fontSize: typography.bodySmall.size,
+    color: colorSystem.gray[600],
+    textDecorationLine: 'underline',
+  },
+  reflectNote: {
+    fontSize: typography.caption.size,
+    color: colorSystem.gray[500],
+    fontStyle: 'italic',
+    marginBottom: spacing[16],
   },
 });
 
