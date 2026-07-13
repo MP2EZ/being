@@ -199,6 +199,7 @@ export {
   reportExternalError,
   killExternalReporting,
   isExternalReportingActive,
+  showFeedbackForm,
 } from './ExternalErrorReporter';
 
 /**
