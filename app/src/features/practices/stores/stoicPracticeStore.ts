@@ -5,7 +5,6 @@
  * Uses Zustand for reactive state + SecureStore for AES-256 encryption.
  *
  * Philosopher-validated (9.7/10 rating) - Tracks:
- * - Developmental stage (4 metrics: consistency, repertoire, integration, time)
  * - Domain progress (work, relationships, adversity)
  * - Virtue instances (successes) and challenges (struggles)
  * - Practice streaks and total days
@@ -30,7 +29,6 @@ import { getIsoWeekStart } from '@/core/utils/isoWeek';
 import { logError, LogCategory } from '@/core/services/logging';
 import type {
   CardinalVirtue,
-  DevelopmentalStage,
   PracticeDomain,
   StoicPrinciple,
   VirtueInstance,
@@ -96,7 +94,6 @@ export interface WeeklyReflection {
 
 export interface StoicPracticeState {
   // Developmental tracking
-  developmentalStage: DevelopmentalStage;
   practiceStartDate: Date | null;
   totalPracticeDays: number;
   currentStreak: number;
@@ -133,7 +130,6 @@ export interface StoicPracticeState {
   updateStreak: (newStreak: number) => void;
   incrementPracticeDays: () => Promise<void>;
   setPracticeStartDate: (date: Date) => void;
-  setDevelopmentalStage: (stage: DevelopmentalStage) => void;
   getVirtueInstancesByDomain: (domain: PracticeDomain) => VirtueInstance[];
   getVirtueInstancesByVirtue: (virtue: CardinalVirtue) => VirtueInstance[];
   getRecentVirtueInstances: (days: number) => VirtueInstance[];
@@ -162,29 +158,6 @@ export interface StoicPracticeState {
 
 const SECURE_STORE_KEY = 'stoic_practice_state';
 
-// Developmental stage thresholds (based on 4 metrics)
-// FEAT-45: Updated for 5-principle framework (was 12 principles)
-const STAGE_THRESHOLDS = {
-  effortful: {
-    minDays: 180, // 6 months
-    minStreak: 7,
-    minPrinciples: 2, // 2 of 5 principles (was 5 of 12)
-    minDomains: 2,
-  },
-  fluid: {
-    minDays: 730, // 2 years
-    minStreak: 14,
-    minPrinciples: 4, // 4 of 5 principles (was 8 of 12)
-    minDomains: 3,
-  },
-  integrated: {
-    minDays: 1825, // 5 years
-    minStreak: 30,
-    minPrinciples: 5, // All 5 principles (was 10 of 12)
-    minDomains: 3,
-  },
-};
-
 // ──────────────────────────────────────────────────────────────────────────────
 // INITIAL STATE
 // ──────────────────────────────────────────────────────────────────────────────
@@ -196,8 +169,7 @@ const initialDomainProgress: DomainProgress = {
   lastPracticeDate: null,
 };
 
-const getInitialState = (): Omit<StoicPracticeState, 'isLoading' | 'addVirtueInstance' | 'addVirtueChallenge' | 'updateStreak' | 'incrementPracticeDays' | 'setPracticeStartDate' | 'setDevelopmentalStage' | 'getVirtueInstancesByDomain' | 'getVirtueInstancesByVirtue' | 'getRecentVirtueInstances' | 'markCheckInComplete' | 'isCheckInCompletedToday' | 'recordPrincipleEngagement' | 'getPrincipleEngagements' | 'getCheckInHistory' | 'addWeeklyReflection' | 'getWeeklyReflectionForWeek' | 'loadPersistedState' | 'persistState' | 'resetStore'> => ({
-  developmentalStage: 'fragmented',
+const getInitialState = (): Omit<StoicPracticeState, 'isLoading' | 'addVirtueInstance' | 'addVirtueChallenge' | 'updateStreak' | 'incrementPracticeDays' | 'setPracticeStartDate' | 'getVirtueInstancesByDomain' | 'getVirtueInstancesByVirtue' | 'getRecentVirtueInstances' | 'markCheckInComplete' | 'isCheckInCompletedToday' | 'recordPrincipleEngagement' | 'getPrincipleEngagements' | 'getCheckInHistory' | 'addWeeklyReflection' | 'getWeeklyReflectionForWeek' | 'loadPersistedState' | 'persistState' | 'resetStore'> => ({
   practiceStartDate: null,
   totalPracticeDays: 0,
   currentStreak: 0,
@@ -223,69 +195,6 @@ const getInitialState = (): Omit<StoicPracticeState, 'isLoading' | 'addVirtueIns
  */
 const generateId = (): string => {
   return generateInternalId();
-};
-
-/**
- * Calculate developmental stage based on 4 metrics
- *
- * Metrics:
- * 1. Practice consistency (current streak)
- * 2. Principle repertoire (unique principles applied)
- * 3. Cross-domain integration (domains with practice)
- * 4. Depth of practice (total days since start)
- */
-const calculateDevelopmentalStage = (
-  totalDays: number,
-  currentStreak: number,
-  domainProgress: StoicPracticeState['domainProgress']
-): DevelopmentalStage => {
-  // Count unique principles across all domains
-  const allPrinciples = new Set([
-    ...domainProgress.work.principlesApplied,
-    ...domainProgress.relationships.principlesApplied,
-    ...domainProgress.adversity.principlesApplied,
-  ]);
-  const uniquePrinciples = allPrinciples.size;
-
-  // Count domains with active practice
-  const activeDomains = [
-    domainProgress.work,
-    domainProgress.relationships,
-    domainProgress.adversity,
-  ].filter(d => d.practiceInstances > 0).length;
-
-  // Check integrated stage (5+ years)
-  if (
-    totalDays >= STAGE_THRESHOLDS.integrated.minDays &&
-    currentStreak >= STAGE_THRESHOLDS.integrated.minStreak &&
-    uniquePrinciples >= STAGE_THRESHOLDS.integrated.minPrinciples &&
-    activeDomains >= STAGE_THRESHOLDS.integrated.minDomains
-  ) {
-    return 'integrated';
-  }
-
-  // Check fluid stage (2-5 years)
-  if (
-    totalDays >= STAGE_THRESHOLDS.fluid.minDays &&
-    currentStreak >= STAGE_THRESHOLDS.fluid.minStreak &&
-    uniquePrinciples >= STAGE_THRESHOLDS.fluid.minPrinciples &&
-    activeDomains >= STAGE_THRESHOLDS.fluid.minDomains
-  ) {
-    return 'fluid';
-  }
-
-  // Check effortful stage (6-18 months)
-  if (
-    totalDays >= STAGE_THRESHOLDS.effortful.minDays &&
-    currentStreak >= STAGE_THRESHOLDS.effortful.minStreak &&
-    uniquePrinciples >= STAGE_THRESHOLDS.effortful.minPrinciples &&
-    activeDomains >= STAGE_THRESHOLDS.effortful.minDomains
-  ) {
-    return 'effortful';
-  }
-
-  // Default: fragmented stage (1-6 months)
-  return 'fragmented';
 };
 
 /**
@@ -450,7 +359,6 @@ export async function flushStoicPracticePersist(): Promise<void> {
 const persistToSecureStore = async (state: Partial<StoicPracticeState>): Promise<void> => {
   try {
     const dataToStore = {
-      developmentalStage: state.developmentalStage,
       practiceStartDate: state.practiceStartDate?.toISOString() ?? null,
       totalPracticeDays: state.totalPracticeDays,
       currentStreak: state.currentStreak,
@@ -506,7 +414,6 @@ const loadFromSecureStore = async (): Promise<Partial<StoicPracticeState> | null
     const parsed = JSON.parse(storedData);
 
     return {
-      developmentalStage: parsed.developmentalStage,
       practiceStartDate: parsed.practiceStartDate ? new Date(parsed.practiceStartDate) : null,
       totalPracticeDays: parsed.totalPracticeDays,
       currentStreak: parsed.currentStreak,
@@ -588,16 +495,6 @@ export const useStoicPracticeStore = create<StoicPracticeState>((set, get) => ({
 
     set(newState);
     schedulePersist();
-
-    // Auto-calculate developmental stage
-    const calculatedStage = calculateDevelopmentalStage(
-      state.totalPracticeDays,
-      state.currentStreak,
-      updatedDomainProgress
-    );
-    if (calculatedStage !== state.developmentalStage) {
-      set({ developmentalStage: calculatedStage });
-    }
   },
 
   /**
@@ -642,16 +539,6 @@ export const useStoicPracticeStore = create<StoicPracticeState>((set, get) => ({
 
     set({ totalPracticeDays: newTotalDays });
     schedulePersist();
-
-    // Auto-calculate developmental stage
-    const calculatedStage = calculateDevelopmentalStage(
-      newTotalDays,
-      state.currentStreak,
-      state.domainProgress
-    );
-    if (calculatedStage !== state.developmentalStage) {
-      set({ developmentalStage: calculatedStage });
-    }
   },
 
   /**
@@ -659,13 +546,6 @@ export const useStoicPracticeStore = create<StoicPracticeState>((set, get) => ({
    */
   setPracticeStartDate: (date: Date) => {
     set({ practiceStartDate: date });
-  },
-
-  /**
-   * Manually set developmental stage (allows override)
-   */
-  setDevelopmentalStage: (stage: DevelopmentalStage) => {
-    set({ developmentalStage: stage });
   },
 
   /**
