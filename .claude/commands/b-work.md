@@ -49,28 +49,30 @@ Parse WORK_ITEM_ID into components:
 
 ### Step 1.2: Search for Work Item
 
-Search using the content-based format (added by `/b-create`):
+> **Why this needs care:** the Notion MCP has **no exact-ID query** — `notion-search` is
+> semantic only and returns a recency-weighted candidate set. The embedding for
+> "MAINT-168" is nearly identical to "MAINT-200", so the correct row is often *not* the
+> top hit, and for older/Done items it can be absent from the first page entirely. Never
+> trust rank or the highlight snippet; always scan candidates by property (Step 1.3), and
+> never conclude "not found" from the top result alone. (The real unique key is
+> `userDefined:ID`; "Work Item ID" is a display formula `Type-ID`.)
+
+Primary search — matches the `## Work Item ID: MAINT-140` header that `/b-create` writes,
+with a wide page size so the right row is in the candidate set even when it isn't ranked first:
 
 ```
 mcp__notion__notion-search
 query: "Work Item ID: [WORK_ITEM_ID]"
 data_source_url: "collection://${NOTION_WORK_DB}"
-```
-
-This matches the `## Work Item ID: MAINT-140` header that `/b-create` adds to page content.
-
-**If no results**, fallback search for legacy items:
-```
-mcp__notion__notion-search
-query: "[WORK_ITEM_ID]"
-data_source_url: "collection://${NOTION_WORK_DB}"
+page_size: 25
+max_highlight_length: 0
 ```
 
 ---
 
 ### Step 1.3: Verify & Select Result
 
-For each search result, verify properties match the parsed components:
+Fetch candidates and match on **properties, not rank**:
 
 ```
 mcp__notion__notion-fetch
@@ -79,13 +81,27 @@ id: [candidate page_id from Step 1.2]
 
 **Check properties:**
 - `Type` equals parsed TYPE
-- `userDefined:ID` equals parsed ID_NUMBER
+- `userDefined:ID` equals parsed ID_NUMBER   ← the real unique key
 
-**If match found**: Use this page_id, proceed to Step 1.4
+**If a candidate matches**: use this page_id, proceed to Step 1.4.
 
-**If no match**:
-- Report "Work item [WORK_ITEM_ID] not found in database"
-- Suggest: "Check Notion directly or verify the Work Item ID"
+**If no candidate matches**, retry the search **once**, recency-biased (a recently-edited
+item floats to the top of the semantic set), then re-scan by property:
+```
+mcp__notion__notion-search
+query: "[WORK_ITEM_ID] [topic words if known]"
+data_source_url: "collection://${NOTION_WORK_DB}"
+query_type: "internal"
+content_search_mode: "ai_search"
+page_size: 25
+```
+
+**If still no match after the retry**: do NOT keep churning searches and do NOT report a
+bare "not found" — semantic search genuinely cannot always surface a cold ID. STOP and ask:
+> "Couldn't resolve [WORK_ITEM_ID] via search (the Notion MCP has no exact-ID query).
+> Paste the Notion page link and I'll fetch it directly."
+
+Then `notion-fetch` the pasted URL and confirm `userDefined:ID` equals ID_NUMBER before proceeding.
 
 ---
 
@@ -500,8 +516,14 @@ Phase 2.5 gate; do not re-author Maestro flows here.
 | compliance (wellness data) | targeted unit/integration on the export/consent path | "wellness data" terminology |
 | general logic / backend | `npm run test:unit`, `npm run test:integration` | co-locate with consumer |
 
-- **Bug fixes (`DEBUG-*`)**: 3.4a's first deliverable is a **regression test that
-  reproduces the bug** (must fail before the fix exists).
+- **Bug fixes (`DEBUG-*`)**: before writing the regression test, **root-cause the
+  bug with the `/rca` skill** (recommended; skip only for self-evident one-liners
+  where the cause is obvious — a typo, an off-by-one with a clear origin). `/rca`'s
+  REPRODUCE phase produces the observed failure that *becomes* the regression test,
+  and its VERIFY phase is satisfied when that test goes green. Carry the work item's
+  story context (User Story, Technical Notes from `/b-create`) into `/rca` INTAKE so
+  the diagnosis starts informed. 3.4a's first deliverable is then a **regression test
+  that reproduces the bug** (must fail before the fix exists).
 - **Boundary obligations** for clinical work: test at the threshold edges —
   PHQ-9 14/15 and 19/20, GAD-7 14/15, Q9 `=0` vs `>0` — not just a happy path.
 
@@ -644,6 +666,43 @@ Notion updated: Status → Testing
 2. Provide any feedback
 3. Run: /b-close [WORK_ITEM_ID]
 ```
+
+---
+
+## Phase 6: Skill Retrospective (conditional — most runs skip this)
+
+Fires **only** on one of two triggers:
+
+- **A durable process correction**: the user corrected how this skill operates, a
+  documented step here was wrong or missing, or friction hit that would recur on
+  unrelated future runs (e.g. the Notion-search pitfall in Step 1.2 — that caveat is
+  exactly the kind of lesson this phase exists to capture).
+- **An observed improvement opportunity** (stricter bar, max ONE per run): nothing
+  broke, but something in *this* run would have gone measurably smoother with a
+  procedure change — and you can cite the concrete moment where it would have helped.
+  No observed moment this run → not a suggestion, regardless of how good the idea seems.
+
+**Not a lesson — skip silently, say nothing:**
+- Facts about the work item itself (its bug, its feature, its root cause)
+- One-off environment hiccups that self-resolved
+- Anything already covered by this file or `.claude/CLAUDE.md`
+- Speculative flexibility: new flags, phases, or generalizations with no observed
+  trigger this run
+
+**If a lesson qualifies:**
+1. **Route it** to the right file:
+   - Skill *procedure* (Notion search, worktree setup, test-lane selection, phase order)
+     → this file (`/Users/max/dev/being/.claude/commands/b-work.md`)
+   - *Project* fact (build, env, native, dependency gotcha) → propose an entry for
+     `.claude/CLAUDE.md` → Known Gotchas instead
+   - Lesson about closing/merging → flag it for `/b-close`, don't record it here
+2. **Draft the smallest edit.** Prefer amending or tightening existing text over
+   appending. This file is large and loads every run — if appending, note what could be
+   pruned to pay for it.
+3. **Present as a diff** with one line of justification: the lesson, and which future
+   runs it helps.
+4. **Never auto-apply.** On approval, make the edit. On decline, drop it — do not
+   re-propose the same lesson on later runs.
 
 ---
 

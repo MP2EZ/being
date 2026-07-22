@@ -449,6 +449,33 @@ would fight over one install; sequential is mandatory.
    Resume the rest:  /clear  then  /b-batch --resume
 ```
 
+### Step 4.3: Batch retrospective (conditional — most batches skip this)
+
+Fires **only** on one of two triggers:
+
+- **An orchestration flaw**: an unhandled seam (parse, manifest, resume, sibling-batch,
+  merge-race, gate-scoping — like the test-only safety-grep blind spot recorded in
+  Step 3.2), or a user correction to how the batch loop itself operates.
+- **An observed batching opportunity** (stricter bar, max ONE per batch): nothing broke,
+  but a citable pattern in *this* batch shows avoidable cost — e.g. the same human
+  prompt answered identically N times that Stage 2 could have batched up front, or a
+  reconciliation step repeated per-item that could run once. Cite the count and the
+  moments; no observed pattern → no suggestion.
+
+**Not a lesson — skip silently:** anything about an individual work item, any lesson
+that belongs to a wrapped skill — those get flagged for `/b-work` or `/b-close`
+(their own retrospectives), never duplicated here — and speculative orchestration
+features with no observed trigger this batch.
+
+**If a lesson qualifies:**
+1. Draft the smallest edit to this file
+   (`/Users/max/dev/being/.claude/commands/b-batch.md`) — amend over append.
+2. Present as a diff, and **include the concrete failure scenario observed this batch**.
+   Edits here touch resume/concurrency/race logic — the highest-blast-radius text in
+   this repo's commands — so the justification must show exactly what went wrong, not
+   a hypothetical.
+3. Never auto-apply. On decline, drop it — do not re-propose.
+
 ---
 
 ## Phase 5: Resume (`--resume`)

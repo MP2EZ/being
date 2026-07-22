@@ -460,6 +460,30 @@ Ready to work on it? Use: /b-work FEAT-28
 
 ---
 
+## Phase 8.5: Depth-Table Retrospective (conditional, narrowly scoped)
+
+**Scope: the Phase 2.6 table and its keyword lists ONLY.** No other part of this skill
+self-improves — the rest is a stable capture pipeline.
+
+Fires **only** when the auto-resolution demonstrably missed:
+- The user **overrode** the resolved depth at the Phase 6 confirm (`edit` → different depth), or
+- The user states the resolved depth was wrong (including feedback arriving later,
+  e.g. a `quick`-scored item that turned out to need a design pass during `/b-work`).
+
+A forced `--depth` flag is **not** a signal — forcing expresses preference, not a table miss.
+
+**If it fires:**
+1. Identify the miss: which tier fired (or fell through), and what token/signal in the
+   Name + brief *should* have routed it correctly.
+2. Draft the smallest table edit — usually one keyword added to Tier 1 or Tier 2, or a
+   keyword moved. Preserve the determinism notes: Tier 1 must stay superset-aligned with
+   the AGENTS REQUIRED safety groups (update both together if the keyword is safety-adjacent).
+3. Present as a diff: the miss (item, resolved vs. correct depth, why), the edit, and a
+   quick check that the new keyword doesn't over-trigger on common backend terms.
+4. Never auto-apply. On decline, drop it — do not re-propose.
+
+---
+
 ## Error Handling
 
 **Invalid TYPE**:
