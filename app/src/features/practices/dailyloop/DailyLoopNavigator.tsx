@@ -22,27 +22,31 @@ import { colorSystem, spacing, typography } from '@/core/theme';
 import { FlowProgressIndicator } from '../shared/components';
 import type {
   DailyLoopMode,
+  DailyLoopDepth,
   DailyLoopParamList,
   DailyLoopStepData,
   DailyLoopCompleteData,
   DailyLoopSessionData,
 } from '@/features/practices/types/flows';
-import { DAILY_LOOP_STEP_KEYS, type DailyLoopStepKey } from './config/tenseMode';
+import { getStepKeysForDepth, type DailyLoopStepKey } from './config/tenseMode';
 import DailyLoopStepScreen from './screens/DailyLoopStepScreen';
 import DailyLoopModeSelectScreen from './screens/DailyLoopModeSelectScreen';
+import DailyLoopDepthSelectScreen from './screens/DailyLoopDepthSelectScreen';
 import DailyLoopCompleteScreen from './screens/DailyLoopCompleteScreen';
 
 interface DailyLoopNavigatorProps {
   mode?: DailyLoopMode | undefined;
+  /** Per-session depth (FEAT-301). When absent, the in-flow depth picker is shown. */
+  depth?: DailyLoopDepth | undefined;
   onComplete: (sessionData: DailyLoopSessionData) => void;
   onExit: () => void;
 }
 
 const Stack = createStackNavigator<DailyLoopParamList>();
 
-// Route order (5 principle beats + completion). Completion is NOT a principle step.
-const SCREEN_ORDER = [...DAILY_LOOP_STEP_KEYS, 'DailyLoopComplete'] as const;
-type LoopRoute = (typeof SCREEN_ORDER)[number];
+// A loop route is any principle beat + the (non-principle) completion. The RUNTIME
+// order is depth-resolved inside the component (deep = all five; quick = 1→3→4).
+type LoopRoute = DailyLoopStepKey | 'DailyLoopComplete';
 
 // stepKey → session field + the label shown when the NEXT step echoes this answer.
 const STEP_FIELD: Record<DailyLoopStepKey, keyof DailyLoopSessionData> = {
@@ -59,41 +63,68 @@ const PREV_LABEL: Partial<Record<DailyLoopStepKey, string>> = {
   InterconnectedLiving: 'Your virtuous response:',
 };
 
-const DailyLoopNavigator: React.FC<DailyLoopNavigatorProps> = ({ mode: initialMode, onComplete, onExit }) => {
+const DailyLoopNavigator: React.FC<DailyLoopNavigatorProps> = ({
+  mode: initialMode,
+  depth: initialDepth,
+  onComplete,
+  onExit,
+}) => {
+  const [depth, setDepth] = useState<DailyLoopDepth | null>(initialDepth ?? null);
   const [mode, setMode] = useState<DailyLoopMode | null>(initialMode ?? null);
   const [sessionData, setSessionData] = useState<Partial<DailyLoopSessionData>>({});
   const [startTime] = useState(() => Date.now());
   const [currentStep, setCurrentStep] = useState(1);
-  const totalSteps = DAILY_LOOP_STEP_KEYS.length; // 5 principle beats
+
+  const closeButton = (
+    <Pressable
+      onPress={onExit}
+      style={styles.closeButton}
+      accessibilityRole="button"
+      accessibilityLabel="Close daily practice"
+      accessibilityHint="Returns to home screen"
+      testID="daily-loop-exit"
+    >
+      <Text style={styles.closeButtonText}>✕</Text>
+    </Pressable>
+  );
+
+  // Depth picker (FEAT-301) — shown FIRST, only when no depth route param was passed.
+  // Two equal, always-available choices; the chosen depth lives in local state and is
+  // NEVER persisted (non-sticky — the next session re-presents this neutral choice).
+  if (!depth) {
+    return (
+      <View style={styles.pickerContainer}>
+        <View style={styles.pickerHeader}>{closeButton}</View>
+        <DailyLoopDepthSelectScreen onSelect={setDepth} />
+      </View>
+    );
+  }
 
   // Mode picker (only when no mode was passed as a route param).
   if (!mode) {
     return (
       <View style={styles.pickerContainer}>
-        <View style={styles.pickerHeader}>
-          <Pressable
-            onPress={onExit}
-            style={styles.closeButton}
-            accessibilityRole="button"
-            accessibilityLabel="Close daily practice"
-            accessibilityHint="Returns to home screen"
-            testID="daily-loop-exit"
-          >
-            <Text style={styles.closeButtonText}>✕</Text>
-          </Pressable>
-        </View>
+        <View style={styles.pickerHeader}>{closeButton}</View>
         <DailyLoopModeSelectScreen onSelect={setMode} />
       </View>
     );
   }
 
+  // Depth-resolved step set: deep = all five beats; quick = canonical 1→3→4.
+  const stepKeys = getStepKeysForDepth(depth);
+  const screenOrder: LoopRoute[] = [...stepKeys, 'DailyLoopComplete'];
+  const totalSteps = stepKeys.length;
+
   const prevResponse = (step: DailyLoopStepKey): { label: string; text: string } | undefined => {
+    // Quick is a fast pass over a NON-contiguous subset (1→3→4); the PREV_LABEL chain
+    // assumes contiguous predecessors, so echoing a prior beat would mislabel it. Skip
+    // the echo for quick — it stays a clean short pass.
+    if (depth === 'quick') return undefined;
     const label = PREV_LABEL[step];
     if (!label) return undefined;
-    const order = DAILY_LOOP_STEP_KEYS;
-    const idx = order.indexOf(step);
+    const idx = stepKeys.indexOf(step);
     if (idx <= 0) return undefined;
-    const prevField = STEP_FIELD[order[idx - 1] as DailyLoopStepKey];
+    const prevField = STEP_FIELD[stepKeys[idx - 1] as DailyLoopStepKey];
     const prev = sessionData[prevField] as DailyLoopStepData | undefined;
     // Reflect-first: inputs are optional, so the prior beat may have no capture.
     // Prefer its primary text; for Sphere Sovereignty (two fields) echo "what's yours".
@@ -117,13 +148,14 @@ const DailyLoopNavigator: React.FC<DailyLoopNavigatorProps> = ({ mode: initialMo
     <DailyLoopStepScreen
       stepKey={stepKey}
       mode={mode}
+      depth={depth}
       showBreath={stepKey === 'AwarePresence'}
       showBack={index > 0}
       onBack={() => navigation.goBack()}
       previousAnswer={prevResponse(stepKey)}
       onSave={(data: DailyLoopStepData) => {
         setSessionData((prev) => ({ ...prev, [STEP_FIELD[stepKey]]: data }));
-        const next = SCREEN_ORDER[index + 1] as LoopRoute;
+        const next = screenOrder[index + 1] as LoopRoute;
         navigation.navigate(next);
       }}
     />
@@ -131,10 +163,13 @@ const DailyLoopNavigator: React.FC<DailyLoopNavigatorProps> = ({ mode: initialMo
 
   const CompleteScreen = ({ navigation: _navigation }: any) => (
     <DailyLoopCompleteScreen
+      depth={depth}
       onComplete={(data: DailyLoopCompleteData) => {
         const finalSessionData: DailyLoopSessionData = {
           ...sessionData,
           mode,
+          // Record-only (analytics parity); never read back to bias a future session.
+          depth,
           complete: data,
           completedAt: new Date(),
           timeSpentSeconds: Math.round((Date.now() - startTime) / 1000),
@@ -159,30 +194,19 @@ const DailyLoopNavigator: React.FC<DailyLoopNavigatorProps> = ({ mode: initialMo
           height: 100,
         },
         headerTintColor: colorSystem.themes.midday.primary,
-        headerLeft: () => (
-          <Pressable
-            onPress={onExit}
-            style={styles.closeButton}
-            accessibilityRole="button"
-            accessibilityLabel="Close daily practice"
-            accessibilityHint="Returns to home screen"
-            testID="daily-loop-exit"
-          >
-            <Text style={styles.closeButtonText}>✕</Text>
-          </Pressable>
-        ),
+        headerLeft: () => closeButton,
       }}
       screenListeners={{
         state: (e) => {
           const state = e.data.state;
           if (!state) return;
           const routeName = state.routes[state.index]?.name as LoopRoute | undefined;
-          const stepIndex = DAILY_LOOP_STEP_KEYS.indexOf(routeName as DailyLoopStepKey);
+          const stepIndex = stepKeys.indexOf(routeName as DailyLoopStepKey);
           if (stepIndex !== -1) setCurrentStep(stepIndex + 1);
         },
       }}
     >
-      {DAILY_LOOP_STEP_KEYS.map((stepKey, index) => (
+      {stepKeys.map((stepKey, index) => (
         <Stack.Screen key={stepKey} name={stepKey} options={getHeaderOptions(true)}>
           {makeStep(stepKey, index)}
         </Stack.Screen>

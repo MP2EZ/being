@@ -27,7 +27,7 @@
  *  - Premeditatio (step 4, MORNING only) is optional, skippable, brief, coping-paired.
  *  - The closing breath is practice-architecture — a coda (CLOSING), NOT step-5 content.
  */
-import type { DailyLoopMode } from '@/features/practices/types/flows';
+import type { DailyLoopMode, DailyLoopDepth } from '@/features/practices/types/flows';
 import type { CardinalVirtue } from '@/features/practices/types/stoic';
 
 export const DAILY_LOOP_STEP_KEYS = [
@@ -39,6 +39,58 @@ export const DAILY_LOOP_STEP_KEYS = [
 ] as const;
 
 export type DailyLoopStepKey = (typeof DAILY_LOOP_STEP_KEYS)[number];
+
+/**
+ * FEAT-301 — the QUICK depth variant: canonical steps 1→3→4 (arrive → discern
+ * what's yours → act). A short, self-contained micro-arc, NOT a truncated fragment:
+ * the dichotomy-of-control discernment (Sphere Sovereignty) sits between arriving and
+ * acting, so the synthesized Virtuous Response issues from clarity rather than
+ * reactivity (discipline of action presupposes discipline of desire). It reuses the
+ * SAME canonical StepConfig for each included step, so the philosopher NAMES+ORDER
+ * invariant above holds — quick runs a SUBSET in canonical order, never a rename or
+ * reorder. Radical Acceptance (2) and Interconnected Living (5) are omitted from quick.
+ */
+export const QUICK_STEP_KEYS = [
+  'AwarePresence',
+  'SphereSovereignty',
+  'VirtuousResponse',
+] as const satisfies readonly DailyLoopStepKey[];
+
+/** Resolve the ordered step keys for a depth. Deep = the full five; quick = 1→3→4. */
+export function getStepKeysForDepth(depth: DailyLoopDepth): readonly DailyLoopStepKey[] {
+  return depth === 'quick' ? QUICK_STEP_KEYS : DAILY_LOOP_STEP_KEYS;
+}
+
+/**
+ * FEAT-301 — re-host of the crisis SUPPORT_LINE for the QUICK variant. Quick omits
+ * Radical Acceptance (deep's support-line carrier), so the quiet static support
+ * affordance is re-hosted onto SPHERE SOVEREIGNTY — quick's second beat and, crucially,
+ * a NO-breath-gate beat: it renders the instant the user lands (unlike Aware Presence,
+ * whose reflection phase sits behind a 30s breath, which would make quick's crisis
+ * affordance strictly less available than deep's — crisis-review rejected). Sphere
+ * Sovereignty is also distress-adjacent ("when it's heavy, start with what you can set
+ * down"). Deep is unchanged (support line stays on Radical Acceptance via
+ * StepConfig.supportLine). The immersive root crisis overlay (MAINT-290) still covers
+ * every step of both variants regardless (route name 'DailyLoop' unchanged).
+ */
+export const QUICK_SUPPORT_STEP: DailyLoopStepKey = 'SphereSovereignty';
+
+/**
+ * Whether the quiet crisis support line shows for a given (depth, mode, step). Kept at
+ * the DATA level (not a screen ternary) so tenseMode.test.ts can assert the crisis
+ * "exactly once, per depth" invariant (crisis review):
+ *  - deep  : exactly Radical Acceptance (delegated to its StepConfig.supportLine — deep
+ *            behavior is byte-for-byte unchanged)
+ *  - quick : exactly QUICK_SUPPORT_STEP (Sphere Sovereignty)
+ */
+export function showsSupportLine(
+  depth: DailyLoopDepth,
+  mode: DailyLoopMode,
+  step: DailyLoopStepKey,
+): boolean {
+  if (depth === 'quick') return step === QUICK_SUPPORT_STEP;
+  return getStepConfig(mode, step).supportLine === true;
+}
 
 /** Canonical principle names — INVARIANT across every mode (on-screen step labels). */
 export const STEP_TITLES: Record<DailyLoopStepKey, string> = {
@@ -351,3 +403,40 @@ export const MODE_LABELS: Record<DailyLoopMode, { label: string; blurb: string }
   morning: { label: 'Morning', blurb: 'Prospective — intention for the day ahead.' },
   evening: { label: 'Evening', blurb: 'Retrospective — reflection on the day behind.' },
 };
+
+/**
+ * FEAT-301 — depth-picker copy. Two EQUAL, always-available choices. Symmetric,
+ * non-ranking voice (philosopher requirement): quick is never framed as lesser /
+ * lite / partial, and deep is never framed as the "real" / "full" / "proper" practice
+ * by contrast — the axis is how much time this moment allows, not quality.
+ */
+export const DEPTH_PICKER_COPY = {
+  title: 'Daily Practice',
+  subtitle: 'Choose what fits this moment — both are complete practices.',
+} as const;
+
+export const DEPTH_LABELS: Record<DailyLoopDepth, { label: string; blurb: string }> = {
+  quick: {
+    label: 'Quick',
+    blurb: "A short, self-contained practice — arrive, see what's yours, and act. Whole in a few minutes.",
+  },
+  // 'Unhurried' (not 'Deeper' / 'Deep') pairs symmetrically with 'Quick' on the only
+  // non-ranking axis the two variants genuinely differ on — pace/space, NOT
+  // depth/completeness (philosopher: 'Deeper' silently codes Quick as less-deep). The
+  // blurb differentiates on spaciousness, never on a count of principles (which would
+  // cluster 'complete/all' onto deep and undercut "both are complete practices").
+  deep: {
+    label: 'Unhurried',
+    blurb: 'The unhurried loop — more room to pause, reflect, and let each step land.',
+  },
+};
+
+/**
+ * FEAT-301 — the completion-title copy is depth-aware. Deep keeps CLOSING.completeTitle
+ * ("You moved through all five principles"); quick MUST NOT reuse it — that count is
+ * factually wrong for the 3-beat arc and re-ranks quick as the deficient version
+ * (philosopher blocker). Quick closes with a non-counting line.
+ */
+export function getCompleteTitle(depth: DailyLoopDepth): string {
+  return depth === 'quick' ? 'You moved through the practice.' : CLOSING.completeTitle;
+}

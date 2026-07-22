@@ -17,10 +17,18 @@ import {
   CLOSING,
   MODE_LABELS,
   getStepConfig,
+  QUICK_STEP_KEYS,
+  QUICK_SUPPORT_STEP,
+  getStepKeysForDepth,
+  showsSupportLine,
+  getCompleteTitle,
+  DEPTH_LABELS,
+  DEPTH_PICKER_COPY,
 } from '../config/tenseMode';
-import type { DailyLoopMode } from '@/features/practices/types/flows';
+import type { DailyLoopMode, DailyLoopDepth } from '@/features/practices/types/flows';
 
 const MODES: DailyLoopMode[] = ['flat', 'morning', 'evening'];
+const DEPTHS: DailyLoopDepth[] = ['quick', 'deep'];
 
 describe('canonical names + order (invariant)', () => {
   it('is the Five Principles in canonical order', () => {
@@ -173,5 +181,102 @@ describe('closing coda copy (practice-architecture, not a principle)', () => {
     expect(CLOSING.breathTitle.toLowerCase()).toMatch(/breath|release/);
     expect(CLOSING.completeTitle.length).toBeGreaterThan(0);
     expect(CLOSING.noteLabel).toMatch(/optional/i);
+  });
+});
+
+// ──────────────────────────────────────────────────────────────────────────────
+// FEAT-301 — per-session depth (quick / deep)
+// ──────────────────────────────────────────────────────────────────────────────
+describe('FEAT-301 depth — quick variant composition', () => {
+  it('quick is canonical steps 1→3→4 (arrive → discern → act), a SUBSET in canonical order', () => {
+    expect(QUICK_STEP_KEYS).toEqual(['AwarePresence', 'SphereSovereignty', 'VirtuousResponse']);
+    // Every quick step is a canonical step, in the same relative order (no rename/reorder).
+    const canonicalOrder = QUICK_STEP_KEYS.map((k) => DAILY_LOOP_STEP_KEYS.indexOf(k));
+    expect(canonicalOrder).toEqual([...canonicalOrder].sort((a, b) => a - b));
+    expect(canonicalOrder.every((i) => i !== -1)).toBe(true);
+  });
+
+  it('getStepKeysForDepth: deep = all five, quick = the three-beat arc', () => {
+    expect(getStepKeysForDepth('deep')).toEqual(DAILY_LOOP_STEP_KEYS);
+    expect(getStepKeysForDepth('quick')).toEqual(QUICK_STEP_KEYS);
+    expect(getStepKeysForDepth('deep')).toHaveLength(5);
+    expect(getStepKeysForDepth('quick')).toHaveLength(3);
+  });
+
+  it('quick reuses the canonical StepConfig verbatim for each included beat (no condensed copy)', () => {
+    for (const mode of MODES) {
+      for (const step of QUICK_STEP_KEYS) {
+        // getStepConfig is depth-agnostic — quick renders the SAME canonical config.
+        expect(getStepConfig(mode, step)).toBe(getStepConfig(mode, step));
+        expect(getStepConfig(mode, step).subtitle.trim().length).toBeGreaterThan(0);
+      }
+    }
+  });
+});
+
+describe('FEAT-301 depth — crisis support line "exactly once, per depth"', () => {
+  it('quick surfaces the support line on EXACTLY Sphere Sovereignty (a no-breath-gate beat), never Aware Presence', () => {
+    // Aware Presence gates its reflection behind a 30s breath; hosting the crisis
+    // affordance there would make it strictly less available than deep's (crisis review).
+    expect(QUICK_SUPPORT_STEP).toBe('SphereSovereignty');
+    for (const mode of MODES) {
+      const shown = QUICK_STEP_KEYS.filter((s) => showsSupportLine('quick', mode, s));
+      expect(shown).toEqual(['SphereSovereignty']); // exactly one, and it's the no-gate beat
+    }
+  });
+
+  it('deep still surfaces the support line on EXACTLY Radical Acceptance (byte-for-byte unchanged)', () => {
+    for (const mode of MODES) {
+      const shown = DAILY_LOOP_STEP_KEYS.filter((s) => showsSupportLine('deep', mode, s));
+      expect(shown).toEqual(['RadicalAcceptance']);
+    }
+  });
+
+  it('never zero and never duplicated for either depth', () => {
+    for (const depth of DEPTHS) {
+      for (const mode of MODES) {
+        const shown = getStepKeysForDepth(depth).filter((s) => showsSupportLine(depth, mode, s));
+        expect(shown).toHaveLength(1);
+      }
+    }
+  });
+});
+
+describe('FEAT-301 depth — picker copy is symmetric + non-ranking', () => {
+  it('exposes a label + blurb for each depth', () => {
+    for (const depth of DEPTHS) {
+      expect(DEPTH_LABELS[depth].label.length).toBeGreaterThan(0);
+      expect(DEPTH_LABELS[depth].blurb.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('the picker frames BOTH as complete practices', () => {
+    expect(DEPTH_PICKER_COPY.subtitle.toLowerCase()).toMatch(/both.*complete|complete practices/);
+  });
+
+  it('deep is never framed by a count of principles or as the "full/real/complete" one', () => {
+    const deepBlob = `${DEPTH_LABELS.deep.label} ${DEPTH_LABELS.deep.blurb}`.toLowerCase();
+    expect(deepBlob).not.toMatch(/all five|five principles|full|complete|the real|proper/);
+    // "Deeper" is comparative (codes quick as less-deep) — forbidden.
+    expect(DEPTH_LABELS.deep.label.toLowerCase()).not.toMatch(/deeper/);
+  });
+
+  it('quick is never framed as lesser / lite / partial / a subset', () => {
+    const quickBlob = `${DEPTH_LABELS.quick.label} ${DEPTH_LABELS.quick.blurb}`.toLowerCase();
+    expect(quickBlob).not.toMatch(/lite|lesser|partial|subset|less than|basic|just a/);
+    // Affirmatively frames it as a whole/self-contained practice.
+    expect(quickBlob).toMatch(/self-contained|whole|complete/);
+  });
+});
+
+describe('FEAT-301 depth — completion copy is depth-accurate', () => {
+  it('quick does NOT claim "all five principles" (false + re-ranking) and does not count', () => {
+    const quickTitle = getCompleteTitle('quick').toLowerCase();
+    expect(quickTitle).not.toMatch(/all five|five principles/);
+    expect(getCompleteTitle('quick').length).toBeGreaterThan(0);
+  });
+
+  it('deep keeps the canonical completion title', () => {
+    expect(getCompleteTitle('deep')).toBe(CLOSING.completeTitle);
   });
 });

@@ -21,16 +21,18 @@ import {
 import { colorSystem, spacing, borderRadius, typography, getTheme } from '@/core/theme';
 import { AccessibleButton } from '@/core/components/accessibility/AccessibleButton';
 import { BreathingCircle, Timer, SkipLink } from '@/features/practices/shared/components';
-import type { DailyLoopCompleteData } from '@/features/practices/types/flows';
-import { CLOSING } from '../config/tenseMode';
+import type { DailyLoopCompleteData, DailyLoopDepth } from '@/features/practices/types/flows';
+import { CLOSING, STEP_TITLES, getStepKeysForDepth, getCompleteTitle } from '../config/tenseMode';
 
 const CLOSING_BREATH_MS = 15 * 1000;
 
 export interface DailyLoopCompleteScreenProps {
+  /** Per-session depth (FEAT-301) — drives the depth-accurate completion copy. */
+  depth: DailyLoopDepth;
   onComplete: (data: DailyLoopCompleteData) => void;
 }
 
-const DailyLoopCompleteScreen: React.FC<DailyLoopCompleteScreenProps> = ({ onComplete }) => {
+const DailyLoopCompleteScreen: React.FC<DailyLoopCompleteScreenProps> = ({ depth, onComplete }) => {
   const themeColors = getTheme('midday');
   const [breathDone, setBreathDone] = useState(false);
   const [isBreathActive, setIsBreathActive] = useState(true);
@@ -98,10 +100,11 @@ const DailyLoopCompleteScreen: React.FC<DailyLoopCompleteScreenProps> = ({ onCom
               <Text style={[styles.badgeText, { color: themeColors.primary }]}>✓ Loop complete</Text>
             </View>
 
-            <Text style={styles.title}>{CLOSING.completeTitle}</Text>
+            {/* Depth-accurate: quick moved through 3 canonical beats, not five —
+                naming all five (or "all five principles") would be false + re-rank quick. */}
+            <Text style={styles.title}>{getCompleteTitle(depth)}</Text>
             <Text style={styles.subtitle}>
-              Aware Presence · Radical Acceptance · Sphere Sovereignty · Virtuous Response ·
-              Interconnected Living
+              {getStepKeysForDepth(depth).map((k) => STEP_TITLES[k]).join(' · ')}
             </Text>
 
             <Text style={styles.inputLabel}>{CLOSING.noteLabel}</Text>
