@@ -90,13 +90,19 @@
     "react": "19.2.3",
     "react-test-renderer": "19.2.3",
     "@types/react": "19.2.14",
-    "form-data": "4.0.6"
+    "form-data": "4.0.6",
+    "shell-quote": "^1.10.0",
+    "brace-expansion@^1.1.7": "1.1.16",
+    "brace-expansion@^5.0.5": "5.0.7"
   },
   "resolutions": {
     "react": "19.2.3",
     "react-test-renderer": "19.2.3",
     "@types/react": "19.2.14",
-    "form-data": "4.0.6"
+    "form-data": "4.0.6",
+    "shell-quote": "^1.10.0",
+    "brace-expansion@^1.1.7": "1.1.16",
+    "brace-expansion@^5.0.5": "5.0.7"
   },
   "dependencies": {
     "@mp2ez/being-design-system": "^1.9.0",
