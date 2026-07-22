@@ -157,30 +157,14 @@ export interface PrincipleMetadata {
 
 // ──────────────────────────────────────────────────────────────────────────────
 // DEVELOPMENTAL STAGES (Practice Progression)
+//
+// The algorithm-assigned developmental-stage machinery was removed in MAINT-300
+// (stages are an educational map, never a computed progression mechanic —
+// Sphere Sovereignty + FEAT-28 Insights non-negotiables). The self-assessed
+// stage lens now lives solely in `features/learn` (educationStore +
+// `learn/types/education.ts`'s own DevelopmentalStage). This module no longer
+// declares a stage type.
 // ──────────────────────────────────────────────────────────────────────────────
-
-/**
- * Developmental Stages of Stoic Practice
- *
- * Represents user's progression in Stoic practice over time. NOT completion levels
- * (e.g., "beginner", "intermediate", "advanced"), but developmental stages that
- * reflect increasing integration of practice.
- *
- * Timeline (approximate):
- * - Fragmented: 1-6 months (learning principles, inconsistent practice)
- * - Effortful: 6-18 months (conscious application, requires effort)
- * - Fluid: 2-5 years (spontaneous application, less effort)
- * - Integrated: 5+ years (second nature, embodied practice)
- *
- * @example
- * const stage: DevelopmentalStage = 'fragmented';
- * const advancedStage: DevelopmentalStage = 'integrated';
- */
-export type DevelopmentalStage =
-  | 'fragmented'   // 1-6 months: Learning principles, inconsistent practice
-  | 'effortful'    // 6-18 months: Conscious application, requires effort
-  | 'fluid'        // 2-5 years: Spontaneous application, less effort
-  | 'integrated';  // 5+ years: Second nature, embodied practice
 
 // ──────────────────────────────────────────────────────────────────────────────
 // PRACTICE DOMAINS (Application Areas)

@@ -2,14 +2,18 @@
  * STOIC PRACTICE STORE UNIT TESTS
  *
  * Tests for Zustand-based Stoic practice state management with encryption.
- * Validates developmental stage tracking, domain progress, and virtue recording.
+ * Validates domain progress, streak tracking, and virtue recording.
  *
  * TDD Approach: Tests written first, store implemented to pass tests.
+ *
+ * MAINT-300: the algorithm-assigned developmental-stage field + calc were
+ * removed (stages are an educational map, not a computed mechanic). Stage
+ * tests were dropped here; legacy-blob rehydration tolerance is covered by
+ * stoicPracticeStore.rehydration.test.ts.
  *
  * Key Requirements:
  * - Zustand store with persistence
  * - SecureStore encryption for sensitive data
- * - Developmental stage calculation (4 metrics)
  * - Domain progress tracking
  * - Virtue instance/challenge recording
  */
@@ -22,7 +26,6 @@ import {
 } from '@/features/practices/stores/stoicPracticeStore';
 import type {
   CardinalVirtue,
-  DevelopmentalStage,
   PracticeDomain,
   VirtueInstance,
   VirtueChallenge,
@@ -46,7 +49,6 @@ describe('StoicPracticeStore', () => {
     it('should initialize with default state', () => {
       const state = useStoicPracticeStore.getState();
 
-      expect(state.developmentalStage).toBe('fragmented');
       expect(state.practiceStartDate).toBeNull();
       expect(state.totalPracticeDays).toBe(0);
       expect(state.currentStreak).toBe(0);
@@ -241,58 +243,6 @@ describe('StoicPracticeStore', () => {
     });
   });
 
-  describe('Developmental Stage Tracking', () => {
-    it('should start at fragmented stage', () => {
-      const state = useStoicPracticeStore.getState();
-      expect(state.developmentalStage).toBe('fragmented');
-    });
-
-    it('should calculate stage based on 4 metrics', async () => {
-      const store = useStoicPracticeStore.getState();
-
-      // Metric 1: Practice consistency (streak)
-      // Metric 2: Principle repertoire (unique principles applied)
-      // Metric 3: Cross-domain integration (practice in multiple domains)
-      // Metric 4: Depth of practice (time in practice)
-
-      // Simulate consistent practice over time
-      for (let i = 0; i < 20; i++) {
-        await store.addVirtueInstance({
-          virtue: 'wisdom',
-          context: `Practice ${i}`,
-          domain: i % 3 === 0 ? 'work' : i % 3 === 1 ? 'relationships' : 'adversity',
-          principleApplied: `principle_${(i % 10) + 1}`,
-        });
-      }
-
-      // Set practice start date to 8 months ago (effortful stage range)
-      store.setPracticeStartDate(
-        new Date(Date.now() - 8 * 30 * 24 * 60 * 60 * 1000)
-      );
-
-      // Update streak to simulate consistency
-      store.updateStreak(30); // 30 day streak
-
-      // Set total practice days
-      for (let i = 0; i < 200; i++) {
-        await store.incrementPracticeDays();
-      }
-
-      const state = useStoicPracticeStore.getState();
-      // Should advance to effortful stage (6-18 months + consistent practice)
-      expect(state.developmentalStage).toBe('effortful');
-    });
-
-    it('should allow manual developmental stage override', () => {
-      const store = useStoicPracticeStore.getState();
-
-      store.setDevelopmentalStage('fluid');
-
-      const state = useStoicPracticeStore.getState();
-      expect(state.developmentalStage).toBe('fluid');
-    });
-  });
-
   describe('Practice Streak Tracking', () => {
     it('should track current streak', () => {
       const store = useStoicPracticeStore.getState();
@@ -432,7 +382,9 @@ describe('StoicPracticeStore', () => {
       await store.loadPersistedState();
 
       const state = useStoicPracticeStore.getState();
-      expect(state.developmentalStage).toBe('effortful');
+      // developmentalStage is a legacy key in the blob (MAINT-300 removed the
+      // field); rehydration ignores it. Dedicated coverage:
+      // stoicPracticeStore.rehydration.test.ts.
       expect(state.totalPracticeDays).toBe(50);
       expect(state.virtueInstances).toHaveLength(1);
     });
@@ -530,7 +482,6 @@ describe('StoicPracticeStore', () => {
       const state = useStoicPracticeStore.getState();
       expect(state.virtueInstances).toHaveLength(0);
       expect(state.currentStreak).toBe(0);
-      expect(state.developmentalStage).toBe('fragmented');
     });
 
     it('should clear SecureStore on reset', async () => {
