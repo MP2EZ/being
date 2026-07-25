@@ -93,7 +93,8 @@
     "form-data": "4.0.6",
     "shell-quote": "^1.10.0",
     "brace-expansion@^1.1.7": "1.1.16",
-    "brace-expansion@^5.0.5": "5.0.7"
+    "brace-expansion@^5.0.5": "5.0.8",
+    "postcss": "^8.5.18"
   },
   "resolutions": {
     "react": "19.2.3",
@@ -102,7 +103,8 @@
     "form-data": "4.0.6",
     "shell-quote": "^1.10.0",
     "brace-expansion@^1.1.7": "1.1.16",
-    "brace-expansion@^5.0.5": "5.0.7"
+    "brace-expansion@^5.0.5": "5.0.8",
+    "postcss": "^8.5.18"
   },
   "dependencies": {
     "@mp2ez/being-design-system": "^1.9.0",
