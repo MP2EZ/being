@@ -23,6 +23,7 @@ import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
 import { useEducationStore } from '../stores/educationStore';
 import type { ModuleContent, ModuleId, Practice } from '@/features/learn/types/education';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
+import { resolvePracticeRoute } from '@/features/practices/catalog/practiceNavigation';
 
 type NavigationProp = StackNavigationProp<RootStackParamList>;
 
@@ -39,69 +40,11 @@ const PracticeTab: React.FC<PracticeTabProps> = ({
   const { incrementPracticeCount } = useEducationStore();
 
   const handlePracticePress = (practice: Practice) => {
-    // Navigate to the appropriate practice screen based on type
-    switch (practice.type) {
-      case 'guided-timer':
-        navigation.navigate('PracticeTimer', {
-          practiceId: practice.id,
-          moduleId,
-          duration: practice.duration ?? 180, // Default 3 minutes
-          title: practice.title,
-        });
-        break;
-
-      case 'sorting':
-        // Sorting practice uses scenarios from the practice object
-        if (practice.scenarios && practice.scenarios.length > 0) {
-          navigation.navigate('SortingPractice', {
-            practiceId: practice.id,
-            moduleId,
-            scenarios: practice.scenarios,
-          });
-        } else {
-          console.warn(`Sorting practice ${practice.id} has no scenarios`);
-        }
-        break;
-
-      case 'body-scan':
-        navigation.navigate('BodyScan', {
-          practiceId: practice.id,
-          moduleId,
-          duration: practice.duration ?? 300, // Default 5 minutes
-        });
-        break;
-
-      case 'reflection':
-        // Reflection exercises - contemplation without breathing circle
-        navigation.navigate('ReflectionTimer', {
-          practiceId: practice.id,
-          moduleId,
-          duration: practice.duration ?? 300, // Default 5 minutes
-          title: practice.title,
-          prompt: practice.description, // Use description as reflection prompt
-          ...(practice.instructions && { instructions: practice.instructions }), // Full instruction steps
-        });
-        break;
-
-      case 'guided-body-scan':
-        // Self-paced resistance/tension body check
-        navigation.navigate('GuidedBodyScan', {
-          practiceId: practice.id,
-          moduleId,
-          title: practice.title,
-        });
-        break;
-
-      default:
-        console.warn(`Unknown practice type: ${practice.type}`);
-        // Fallback to timer screen
-        navigation.navigate('PracticeTimer', {
-          practiceId: practice.id,
-          moduleId,
-          duration: practice.duration ?? 180,
-          title: practice.title,
-        });
-    }
+    // FEAT-293: the launch switch moved to the shared resolver so that Learn and
+    // the standalone Practice Library open practices through identical code.
+    // Behaviour here is unchanged — pinned by practiceNavigation.contract.test.ts.
+    const { screen, params } = resolvePracticeRoute(practice, moduleId);
+    navigation.navigate(screen, params as never);
   };
 
   const formatDuration = (seconds: number): string => {
