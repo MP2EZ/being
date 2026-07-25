@@ -260,6 +260,24 @@ const CleanHomeScreen: React.FC = () => {
             />
           )}
         </View>
+
+        {/* FEAT-293: standalone-practice discoverability.
+            Deliberately a FIXED-HEIGHT row BELOW checkInSection, not a fifth
+            CheckInCard: checkInSection is flex:1 and every card inside it is
+            also flex:1 with no ScrollView, so an extra card would squeeze all
+            of them. A fixed row keeps the cards equal to each other and reflows
+            cleanly if the three time-of-day cards are later retired. */}
+        <Pressable
+          style={styles.practicesEntry}
+          onPress={() => navigation.navigate('PracticeLibrary')}
+          accessibilityRole="button"
+          accessibilityLabel="Practices"
+          accessibilityHint="Opens breathing, body scan, and Stoic practices"
+          testID="home-practices-entry"
+        >
+          <Text style={styles.practicesEntryLabel}>Practices</Text>
+          <Text style={styles.practicesEntryAction}>Explore ›</Text>
+        </Pressable>
       </View>
 
       {/* Intro Animation Overlay */}
@@ -308,6 +326,25 @@ const styles = StyleSheet.create({
   checkInSection: {
     flex: 1,
     marginTop: spacing[12],
+  },
+  // FEAT-293: fixed height, so it never competes with the flex:1 check-in cards.
+  practicesEntry: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: spacing[12],
+    marginTop: spacing[8],
+    borderTopWidth: 1,
+    borderTopColor: colorSystem.gray[200],
+  },
+  practicesEntryLabel: {
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.medium,
+    color: colorSystem.base.black,
+  },
+  practicesEntryAction: {
+    fontSize: typography.bodySmall.size,
+    color: colorSystem.gray[600],
   },
   checkInCard: {
     flex: 1,

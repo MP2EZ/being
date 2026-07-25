@@ -33,10 +33,12 @@ import PassageReaderScreen from '@/features/library/screens/PassageReaderScreen'
 import {
   PracticeTimerScreen,
   ReflectionTimerScreen,
-  SortingPracticeScreen,
   BodyScanScreen,
   GuidedBodyScanScreen
 } from '@/features/learn/practices';
+// FEAT-293: standalone practice discoverability.
+import SortingPracticeRoute from '@/features/practices/catalog/SortingPracticeRoute';
+import PracticeLibraryScreen from '@/features/practices/screens/PracticeLibraryScreen';
 import { useStoicPracticeStore } from '@/features/practices/stores/stoicPracticeStore';
 import { useSettingsStore } from '@/core/stores/settingsStore';
 import { useConsentStore } from '@/core/stores/consentStore';
@@ -76,8 +78,16 @@ export type RootStackParamList = {
   SortingPractice: {
     practiceId: string;
     moduleId: ModuleId;
-    scenarios: SortingScenario[];
+    // FEAT-293: OPTIONAL. Learn still passes the already-loaded scenarios
+    // (unchanged); the standalone Practice Library omits them and the screen
+    // self-loads from module content. This also repairs the pre-existing
+    // `/sorting` deep link in linking.ts, which could never supply an array.
+    scenarios?: SortingScenario[];
   };
+  // FEAT-293: standalone practice discoverability. A listing surface, so it is
+  // deliberately absent from RootCrisisButton's SUPPRESSED_ROUTES and
+  // IMMERSIVE_ROUTES — it must resolve to the default `standard` crisis overlay.
+  PracticeLibrary: undefined;
   BodyScan: {
     practiceId: string;
     moduleId: ModuleId;
@@ -371,6 +381,27 @@ const CleanRootNavigator: React.FC = () => {
           )}
         </Stack.Screen>
 
+        {/* FEAT-293: standalone practice discoverability. `card` presentation,
+            NOT modal — it is a browsable listing surface, and it must keep the
+            root crisis overlay in its default `standard` mode (hence its
+            deliberate absence from RootCrisisButton's route sets). */}
+        <Stack.Screen
+          name="PracticeLibrary"
+          options={{ headerShown: false, presentation: 'card' }}
+        >
+          {({ navigation }) => (
+            <PracticeLibraryScreen
+              onBack={() => navigation.goBack()}
+              onOpenPractice={(screen, params) =>
+                navigation.navigate(screen as never, params as never)
+              }
+              onOpenModule={(moduleId) =>
+                navigation.navigate('ModuleDetail', { moduleId })
+              }
+            />
+          )}
+        </Stack.Screen>
+
         <Stack.Screen
           name="SortingPractice"
           options={{
@@ -380,7 +411,9 @@ const CleanRootNavigator: React.FC = () => {
           }}
         >
           {({ navigation, route }) => (
-            <SortingPracticeScreen
+            // FEAT-293: routed through the resolving wrapper so scenarios can be
+            // omitted (Practice Library / deep link) and loaded on demand.
+            <SortingPracticeRoute
               practiceId={route.params.practiceId}
               moduleId={route.params.moduleId}
               scenarios={route.params.scenarios}

@@ -86,6 +86,17 @@ describe('RootCrisisButton (MAINT-290 single root mount)', () => {
     expect(receivedProps[0]?.testID).toBe(ROOT_CRISIS_BUTTON_TEST_ID);
   });
 
+  it('keeps the overlay in standard mode on the FEAT-293 PracticeLibrary route', () => {
+    // PracticeLibrary is a browsable LISTING surface, not a practice the user is
+    // immersed in, so it must resolve to the default `standard` overlay — and it
+    // must never end up in SUPPRESSED_ROUTES, which would make it a screen with
+    // zero 988 access. Unknown routes fall through to `standard`, which is the
+    // fail-safe direction, but "safe by accident" is not a contract; this pins it.
+    const { getByTestId } = render(<RootCrisisButton routeName="PracticeLibrary" />);
+    expect(getByTestId(ROOT_CRISIS_BUTTON_TEST_ID)).toBeTruthy();
+    expect(receivedProps[0]?.mode).toBe('standard');
+  });
+
   it('renders in standard mode when route is undefined (pre-ready)', () => {
     const { getByTestId } = render(<RootCrisisButton />);
     expect(getByTestId(ROOT_CRISIS_BUTTON_TEST_ID)).toBeTruthy();
