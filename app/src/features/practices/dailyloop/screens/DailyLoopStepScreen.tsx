@@ -17,7 +17,7 @@
  * only crisis path; NO scan of the free text. Themed as 'midday'. Crisis access is
  * otherwise inherited from the single root overlay (MAINT-290); no per-step button.
  */
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -44,6 +44,7 @@ import type { CardinalVirtue } from '@/features/practices/types/stoic';
 import {
   getStepConfig,
   STEP_TITLES,
+  DAILY_LOOP_STEP_KEYS,
   VIRTUE_REFERENCE,
   PREMEDITATIO,
   SUPPORT_LINE,
@@ -51,6 +52,14 @@ import {
   type DailyLoopStepKey,
   type LoopFieldKey,
 } from '../config/tenseMode';
+import {
+  MODULE_FOR_STEP,
+  getStageNote,
+  selectStageNoteStep,
+  dayIndexFor,
+  type StagesByStep,
+} from '../config/stageNotes';
+import { useEducationStore } from '@/features/learn/stores/educationStore';
 
 const BREATH_DURATION_MS = 30 * 1000;
 
@@ -97,6 +106,21 @@ const DailyLoopStepScreen: React.FC<DailyLoopStepScreenProps> = ({
   // "exactly once, per depth" invariant is config-testable — deep: Radical Acceptance;
   // quick: Sphere Sovereignty (a no-breath-gate beat). Never a screen-level decision.
   const showSupportLine = showsSupportLine(depth, mode, stepKey);
+
+  // FEAT-292 — stage-aware normalization. Each beat reads the stage the user
+  // self-assessed FOR ITS OWN PRINCIPLE (step↔module is 1:1), so nothing is
+  // aggregated and nothing is computed: an unassessed principle simply stays silent.
+  // At most ONE note surfaces per session (selectStageNoteStep), which both keeps it
+  // from becoming wallpaper and holds quick/deep at the same count.
+  const moduleProgress = useEducationStore((s) => s.modules);
+  const stageNote = useMemo(() => {
+    const stagesByStep: StagesByStep = {};
+    for (const key of DAILY_LOOP_STEP_KEYS) {
+      stagesByStep[key] = moduleProgress?.[MODULE_FOR_STEP[key]]?.developmentalStage ?? null;
+    }
+    const selected = selectStageNoteStep(stagesByStep, depth, mode, dayIndexFor(new Date()));
+    return selected === stepKey ? getStageNote(stagesByStep[stepKey] ?? null, stepKey) : undefined;
+  }, [moduleProgress, depth, mode, stepKey]);
 
   const [values, setValues] = useState<Record<LoopFieldKey, string>>({ response: '', notMine: '', mine: '' });
   const [selectedVirtues, setSelectedVirtues] = useState<CardinalVirtue[]>([]);
@@ -205,6 +229,17 @@ const DailyLoopStepScreen: React.FC<DailyLoopStepScreenProps> = ({
           <>
             <Text style={styles.sectionTitle}>{title}</Text>
             <Text style={styles.sectionSubtitle}>{config.subtitle}</Text>
+
+            {/* FEAT-292 stage normalization — framing for the beat, so it sits BEFORE
+                the prompt (telling someone the difficulty was expected only after
+                they've already written reads as retroactive consolation). Kept at the
+                head of the beat and non-interactive so it can never be mistaken for
+                the tappable crisis support line at the foot. Never labels the stage. */}
+            {stageNote ? (
+              <Text style={styles.stageNote} testID="daily-loop-stage-note">
+                {stageNote}
+              </Text>
+            ) : null}
 
             {previousAnswer && previousAnswer.text ? (
               <PreviousAnswerCard
@@ -350,6 +385,19 @@ const styles = StyleSheet.create({
   sectionSubtitle: {
     fontSize: typography.bodyRegular.size,
     color: colorSystem.gray[600],
+    marginBottom: spacing[16],
+  },
+  // FEAT-292. The philosopher pass asked for gray[500] — one step quieter than the
+  // support line — but flagged it to be MEASURED rather than assumed: gray[500]
+  // (#B8B8B8) is 1.98:1 on white, failing WCAG AA (4.5:1). gray[600] (#757575) is
+  // 4.61:1 and is used instead. Subordination to the crisis affordance is preserved
+  // structurally rather than chromatically: this line sits at the HEAD of the beat
+  // (the support line sits at the foot), carries no underline, and is not pressable
+  // — so the two never read as the same affordance despite sharing a colour.
+  stageNote: {
+    fontSize: typography.bodySmall.size,
+    color: colorSystem.gray[600],
+    lineHeight: typography.bodySmall.size * 1.5,
     marginBottom: spacing[16],
   },
 
