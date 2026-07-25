@@ -123,11 +123,15 @@ describe('educationStore', () => {
     });
 
     test('setDevelopmentalStage persists + survives reload', async () => {
-      state().setDevelopmentalStage('sphere-sovereignty', 'integrating');
+      // 'integrated' — one of the four canonical DevelopmentalStage keys. This
+      // previously read 'integrating', which is not in the union; tsconfig excludes
+      // test files and the store does not validate, so it passed while pinning a
+      // value no reader can match (FEAT-292 consumes this exact field per module).
+      state().setDevelopmentalStage('sphere-sovereignty', 'integrated');
       await new Promise((r) => setTimeout(r, 10));
       resetStore();
       await state().loadState();
-      expect(state().modules['sphere-sovereignty'].developmentalStage).toBe('integrating');
+      expect(state().modules['sphere-sovereignty'].developmentalStage).toBe('integrated');
     });
 
     test('setCurrentModule persists + survives reload', async () => {
