@@ -200,6 +200,14 @@ batch into as few calls as possible). Each amber's options must include:
 - **an "I'm giving you the missing context — treat as GREEN" upgrade option** so your
   answer promotes it to auto-run in this same batch rather than dropping it to manual.
 
+**If an amber's options differ in UI layout or placement, put the artifact in the option
+`preview` field** — an ASCII wireframe of each candidate, grounded in the real layout
+constraints (read the actual styles first, don't sketch from imagination). Per CLAUDE.md
+fidelity-matches-progress, early concepts get wireframes; asking someone to choose between
+screens they cannot see is what forces a second decision round, which is precisely the cost
+this phase exists to avoid. Observed 2026-07-25: 1 of 4 batched questions came back "I need
+to see wireframes for this to decide," costing a full extra round-trip on FEAT-293.
+
 An amber you don't resolve → leave for a later manual run (record in manifest as `deferred`).
 
 **Scoped upgrade (partial green).** Often an amber can only be *partially* upgraded:
