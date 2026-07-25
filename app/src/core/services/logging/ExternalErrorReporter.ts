@@ -53,6 +53,9 @@ const ALLOWED_ERROR_FIELDS = [
   'message',         // Sanitized message only
   'name',
   'errorCode',
+  'level',           // INFRA-295: fatal vs error — no user content, and dropping
+                     // it flattens every crash to the same severity in Sentry.
+                     // Validated against ALLOWED_LEVELS in applyAllowlist.
 
   // Context (no sensitive data)
   'platform',
@@ -77,6 +80,12 @@ const ALLOWED_ERROR_FIELDS = [
   'networkStatus',
   'memoryUsage',
 ] as const;
+
+/**
+ * INFRA-295: Sentry's `level` is a closed enum. Anything outside it is dropped
+ * rather than forwarded, so the field can never become a free-text channel.
+ */
+const ALLOWED_LEVELS = ['fatal', 'error', 'warning', 'log', 'info', 'debug'] as const;
 
 /**
  * BLOCKLIST: Fields that must NEVER be sent externally
@@ -332,8 +341,30 @@ export class ExternalErrorReporter {
               }),
             ],
 
-            // Disable features that could leak sensitive data
-            autoSessionTracking: false,
+            // INFRA-295 — release-health session tracking.
+            //
+            // MIND THE OPTION NAME. The SDK reads `enableAutoSessionTracking`.
+            // The `autoSessionTracking` key this file used to pass does not
+            // exist in @sentry/react-native: unrecognized keys are forwarded
+            // verbatim to the native layer, which ignores it and applies its own
+            // default of ON. So the "sessions are disabled" posture the previous
+            // comment claimed was never real — sessions have been transmitting
+            // from every non-__DEV__ build. This makes the actual behaviour
+            // explicit and intentional rather than accidental. Dev/sim still
+            // no-ops because the DSN is empty there, so no env gate is needed.
+            //
+            // A session envelope is NOT an event: it never passes through
+            // beforeSend, normalizeDepth, or the FEAT-284 event processor. Its
+            // schema is fixed (sid/did/started/duration/status/errors + release
+            // and environment attrs) and has no field for user content, so there
+            // is no wellness-data path — but `did` is a per-install identifier.
+            // See docs/legal/dpia-sensitive-wellness-data.md and privacy-policy §5.1.
+            enableAutoSessionTracking: true,
+
+            // Performance tracing stays OFF — enabling it is INFRA-297's scope
+            // and is deliberately deferred. Transactions bypass beforeSend the
+            // same way sessions do, so that work needs its own
+            // beforeSendTransaction before any sample rate is raised above zero.
             enableAutoPerformanceTracing: false,
             attachStacktrace: true,
             normalizeDepth: 3, // Limit depth to prevent deep object exposure
@@ -547,6 +578,34 @@ export class ExternalErrorReporter {
         values: event.exception.values.map((ex: any) => ({
           type: ex.type,
           value: this.sanitizeString(ex.value),
+          // INFRA-295: `mechanism` is what the SDK reads to decide whether a JS
+          // error is a HARD CRASH (isHardCrash() requires handled === false &&
+          // type === 'onerror'), and beforeSend runs BEFORE envelope creation.
+          // Dropping it here meant no JS fatal ever marked its session crashed,
+          // so crash-free-session-rate silently counted native crashes only.
+          // Copy the three named scalars explicitly — never spread — so a richer
+          // `mechanism.data` from a future SDK cannot ride along as a smuggling
+          // channel. Pinned by __tests__/privacy/releaseHealthSession.contract.test.ts.
+          ...(ex.mechanism
+            ? {
+                mechanism: {
+                  // Type-guard each scalar. `mechanism.data` / `.source` /
+                  // `.exception_id` / `.parent_id` are deliberately NOT copied —
+                  // `data` in particular is an open `{[key: string]: string |
+                  // boolean}` bag the SDK documents as "arbitrary data, e.g. the
+                  // handler name and the event target", which is not
+                  // privacy-neutral.
+                  type:
+                    typeof ex.mechanism.type === 'string' ? ex.mechanism.type : 'generic',
+                  ...(typeof ex.mechanism.handled === 'boolean' && {
+                    handled: ex.mechanism.handled,
+                  }),
+                  ...(typeof ex.mechanism.synthetic === 'boolean' && {
+                    synthetic: ex.mechanism.synthetic,
+                  }),
+                },
+              }
+            : {}),
           stacktrace: ex.stacktrace ? {
             frames: ex.stacktrace.frames?.map((frame: any) => ({
               filename: this.sanitizeFilename(frame.filename),
@@ -557,6 +616,14 @@ export class ExternalErrorReporter {
           } : undefined,
         })),
       };
+    }
+
+    // INFRA-295: `level` is on the allowlist above, but the bare copy would pass
+    // through whatever it was handed. Sentry's level is a closed six-value enum,
+    // so validate against it — a future `captureMessage(msg, someVariable)`
+    // must not be able to smuggle a free-text string out through this field.
+    if (filtered.level !== undefined && !ALLOWED_LEVELS.includes(filtered.level)) {
+      delete filtered.level;
     }
 
     // Add safe metadata

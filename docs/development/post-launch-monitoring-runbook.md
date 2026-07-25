@@ -73,21 +73,37 @@ in the dashboard, then verify with the MCP.
 5. Action: notify the founder channel (email / Slack integration). No user context in payload.
 6. Name it `crash-rate >1% (INFRA-87)`.
 
-> [!WARNING]
-> **The crash-free-session-rate metric has NO data source today.** Crash-free *session* rate
-> depends on release-health **session** tracking, but the app deliberately disables it:
-> `ExternalErrorReporter.ts:232` sets `autoSessionTracking: false` (an intentional privacy-first,
-> error-only Sentry config — see the "Disable features that could leak sensitive data" block). So
-> a crash-free-session-rate alert will sit at **"no data"** until sessions are enabled. Two paths:
-> - **Interim (no code change):** create a **Number of Errors** metric alert (Critical when crash
->   events exceed a tuned absolute count/hour). A count, not a true 1% rate, but it fires today.
-> - **True crash-rate (code change):** flip `autoSessionTracking: true`, which requires a privacy
->   re-review of the session payload against the existing `beforeSend`/`normalizeDepth` controls
->   (sessions add release/device/OS context) — then use crash-free-session-rate < 99%. Track as a
->   follow-up; don't flip it silently.
+> [!NOTE]
+> **CORRECTED 2026-07-25 (INFRA-295). The warning that used to sit here was wrong** — it said
+> release-health sessions had "no data source today" because the app deliberately disabled them.
+> It did not. `ExternalErrorReporter.ts` passed `autoSessionTracking: false`, but
+> `@sentry/react-native` reads **`enableAutoSessionTracking`**; the key we set does not exist in
+> the SDK, is forwarded verbatim to the native layer, and is ignored there — and both native SDKs
+> default session tracking **ON**. So sessions have most likely been transmitting from every
+> non-`__DEV__` build all along, and the "intentional privacy-first, error-only config" this
+> runbook credited was never in effect.
 >
-> Either way, dev no-ops Sentry (empty DSN), so this only populates from TestFlight/prod builds.
-> Confirm data exists in **Releases → Health** before trusting the alert.
+> INFRA-295 corrected the key to `enableAutoSessionTracking: true`, keeping sessions as an
+> intentional stability signal, and recorded the retrospective privacy review in
+> `docs/legal/dpia-sensitive-wellness-data.md` §9 v1.7 + `privacy-policy.md` §5.1 (session
+> envelopes bypass `beforeSend` entirely — they are envelope session items, not events — so that
+> control never applied to them; the posture rests on the fixed session schema having no field
+> for user content, and the residual is the per-install `did` identifier).
+>
+> **The "interim Number of Errors alert" this section used to recommend was never created** —
+> verified live 2026-07-25: `being-prod/javascript-react` has exactly one rule, the default
+> onboarding issue alert (ID 2878415), and **zero** metric alerts. There is nothing to supersede.
+>
+> **Crash attribution was also broken and is now fixed.** `applyAllowlist` stripped `mechanism`
+> from the outbound payload, and the SDK's `isHardCrash()` requires
+> `mechanism.handled === false && mechanism.type === 'onerror'`. Since `beforeSend` runs *before*
+> envelope creation, no JS fatal ever marked its session crashed — crash-free session rate would
+> have counted **native crashes only** and read systematically optimistic. Pinned by
+> `app/__tests__/privacy/releaseHealthSession.contract.test.ts`.
+>
+> Dev no-ops Sentry (empty DSN), so this only populates from TestFlight/prod builds. **Still
+> confirm data exists in Releases → Health before trusting the alert** — as of 2026-07-25
+> `being-prod` had zero error events in 90 days, so the pipeline is not yet observed end-to-end.
 
 > [!IMPORTANT]
 > **PostHog is NOT an alternative crash source — don't reach for it.** Verified 2026-06-18: the
