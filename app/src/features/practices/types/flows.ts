@@ -528,6 +528,20 @@ export interface MeditationData {
  */
 export type DailyLoopMode = 'flat' | 'morning' | 'evening';
 
+/**
+ * Depth — the per-session variant choice (FEAT-301), orthogonal to tense mode.
+ *  - 'deep'  : the full five-principle loop
+ *  - 'quick' : a short, self-contained pass over canonical steps 1→3→4
+ *              (Aware Presence → Sphere Sovereignty → Virtuous Response:
+ *              arrive → discern what's yours → act). A complete micro-arc, not a
+ *              truncated fragment; reuses the canonical step config, so the
+ *              names+order invariant holds (it runs a SUBSET, never a rename).
+ * Chosen fresh each session and NEVER persisted as a sticky status / progression /
+ * streak / unlock — the next session re-presents the same neutral choice
+ * (operationalizes prohairesis / non-striving; the whole point of FEAT-301).
+ */
+export type DailyLoopDepth = 'quick' | 'deep';
+
 export type DailyLoopParamList = {
   AwarePresence: undefined;        // Step 1: Aware Presence (30s breath + what's present)
   RadicalAcceptance: undefined;    // Step 2: Radical Acceptance (NEW beat vs. Midday)
@@ -562,6 +576,13 @@ export interface DailyLoopCompleteData {
 
 export interface DailyLoopSessionData {
   mode: DailyLoopMode;
+  /**
+   * The depth chosen for THIS session (FEAT-301). Recorded on the completed session
+   * for analytics parity only — it is write-only from the session's perspective and
+   * MUST NOT be read back to pre-select, gate, or bias a future session's entry
+   * (that would re-import the sticky-status dynamic this feature exists to reject).
+   */
+  depth?: DailyLoopDepth;
   awarePresence?: DailyLoopStepData;
   radicalAcceptance?: DailyLoopStepData;
   sphereSovereignty?: DailyLoopStepData;

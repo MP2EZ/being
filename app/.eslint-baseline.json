@@ -150,6 +150,7 @@
   "src/features/onboarding/screens/OnboardingScreen.tsx": 13,
   "src/features/onboarding/screens/__tests__/OnboardingScreen.test.tsx": 1,
   "src/features/practices/__tests__/accessibility/practices-accessibility-validation.test.tsx": 1,
+  "src/features/practices/dailyloop/__tests__/DailyLoopDepthSelectScreen.test.tsx": 1,
   "src/features/practices/dailyloop/__tests__/tenseMode.test.ts": 1,
   "src/features/practices/evening/screens/SleepTransitionScreen.tsx": 1,
   "src/features/practices/evening/screens/VirtueReflectionScreen.tsx": 1,

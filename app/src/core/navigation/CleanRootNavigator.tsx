@@ -42,7 +42,7 @@ import { useSettingsStore } from '@/core/stores/settingsStore';
 import { useConsentStore } from '@/core/stores/consentStore';
 import { CombinedLegalGateScreen } from '@/features/consent';
 import type { AssessmentType, PHQ9Result, GAD7Result } from '@/features/assessment/types';
-import type { DailyLoopMode, DailyLoopSessionData } from '@/features/practices/types/flows';
+import type { DailyLoopMode, DailyLoopDepth, DailyLoopSessionData } from '@/features/practices/types/flows';
 import type { ModuleId, SortingScenario } from '@/features/learn/types/education';
 import type { PassageAuthor } from '@/features/library/types/library';
 
@@ -55,7 +55,7 @@ export type RootStackParamList = {
   EveningFlow: undefined;
   // FEAT-291: single-loop daily-practice prototype (build-time flag `daily_loop`).
   // `mode` optional — when absent the loop shows its in-flow mode picker.
-  DailyLoop: { mode?: DailyLoopMode } | undefined;
+  DailyLoop: { mode?: DailyLoopMode; depth?: DailyLoopDepth } | undefined;
   ModuleDetail: { moduleId: ModuleId };
   ClassicalLibrary: { principle?: ModuleId; author?: PassageAuthor } | undefined;
   PassageReader: { passageId: string };
@@ -531,6 +531,7 @@ const CleanRootNavigator: React.FC = () => {
             {({ navigation, route }) => (
               <DailyLoopNavigator
                 mode={route.params?.mode}
+                depth={route.params?.depth}
                 onComplete={(sessionData) => {
                   handleDailyLoopComplete(sessionData);
                   navigation.goBack();

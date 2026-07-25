@@ -39,7 +39,7 @@ import {
   PreviousAnswerCard,
 } from '@/features/practices/shared/components';
 import { navigationRef } from '@/core/navigation/navigationRef';
-import type { DailyLoopMode, DailyLoopStepData } from '@/features/practices/types/flows';
+import type { DailyLoopMode, DailyLoopDepth, DailyLoopStepData } from '@/features/practices/types/flows';
 import type { CardinalVirtue } from '@/features/practices/types/stoic';
 import {
   getStepConfig,
@@ -47,6 +47,7 @@ import {
   VIRTUE_REFERENCE,
   PREMEDITATIO,
   SUPPORT_LINE,
+  showsSupportLine,
   type DailyLoopStepKey,
   type LoopFieldKey,
 } from '../config/tenseMode';
@@ -56,6 +57,8 @@ const BREATH_DURATION_MS = 30 * 1000;
 export interface DailyLoopStepScreenProps {
   stepKey: DailyLoopStepKey;
   mode: DailyLoopMode;
+  /** Per-session depth (FEAT-301). Deep = full loop; quick = canonical steps 1→3→4. */
+  depth: DailyLoopDepth;
   /** Gate the input behind a 30s micro-breath (step 1 only). */
   showBreath?: boolean;
   /** Render the in-content back affordance (all but the first step). */
@@ -76,6 +79,7 @@ const openCrisisResources = () => {
 const DailyLoopStepScreen: React.FC<DailyLoopStepScreenProps> = ({
   stepKey,
   mode,
+  depth,
   showBreath = false,
   showBack = true,
   onBack,
@@ -85,7 +89,14 @@ const DailyLoopStepScreen: React.FC<DailyLoopStepScreenProps> = ({
   const config = getStepConfig(mode, stepKey);
   const title = STEP_TITLES[stepKey];
   const themeColors = getTheme('midday');
-  const showPremeditatio = stepKey === 'VirtuousResponse' && mode === 'morning';
+  // Premeditatio (morning-tensed negative visualization on Virtuous Response) is
+  // EXCLUDED from the quick pass — a fast micro-arc is not the container for it. Its
+  // morning-only + acute-distress gating is otherwise unchanged for the deep loop.
+  const showPremeditatio = stepKey === 'VirtuousResponse' && mode === 'morning' && depth !== 'quick';
+  // Crisis support line placement is resolved at the DATA level (tenseMode.ts) so the
+  // "exactly once, per depth" invariant is config-testable — deep: Radical Acceptance;
+  // quick: Sphere Sovereignty (a no-breath-gate beat). Never a screen-level decision.
+  const showSupportLine = showsSupportLine(depth, mode, stepKey);
 
   const [values, setValues] = useState<Record<LoopFieldKey, string>>({ response: '', notMine: '', mine: '' });
   const [selectedVirtues, setSelectedVirtues] = useState<CardinalVirtue[]>([]);
@@ -275,8 +286,9 @@ const DailyLoopStepScreen: React.FC<DailyLoopStepScreenProps> = ({
               </View>
             )}
 
-            {/* Step 2: quiet, static crisis-support line (crisis review) */}
-            {config.supportLine && (
+            {/* Quiet, static crisis-support line (crisis review). Deep: Radical
+                Acceptance; quick: re-hosted to Aware Presence (its first beat). */}
+            {showSupportLine && (
               <Pressable
                 onPress={openCrisisResources}
                 style={styles.supportLine}
