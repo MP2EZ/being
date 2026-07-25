@@ -47,19 +47,37 @@ Parse WORK_ITEM_ID into components:
 
 ---
 
-### Step 1.2: Search for Work Item
+### Step 1.2: Look Up Work Item (exact, one call)
 
-> **Why this needs care:** the Notion MCP has **no exact-ID query** — `notion-search` is
-> semantic only and returns a recency-weighted candidate set. The embedding for
-> "MAINT-168" is nearly identical to "MAINT-200", so the correct row is often *not* the
-> top hit, and for older/Done items it can be absent from the first page entirely. Never
-> trust rank or the highlight snippet; always scan candidates by property (Step 1.3), and
-> never conclude "not found" from the top result alone. (The real unique key is
-> `userDefined:ID`; "Work Item ID" is a display formula `Type-ID`.)
+The unique key is `userDefined:ID` — "Work Item ID" is a display formula `Type-ID`, so
+MAINT-168 → `userDefined:ID = 168`. Query the data source directly in **SQL mode**:
 
-Primary search — matches the `## Work Item ID: MAINT-140` header that `/b-create` writes,
-with a wide page size so the right row is in the candidate set even when it isn't ranked first:
+```
+mcp__notion__notion-query-data-sources
+data: {
+  "mode": "sql",
+  "data_source_urls": ["collection://${NOTION_WORK_DB}"],
+  "query": "SELECT * FROM \"collection://${NOTION_WORK_DB}\" WHERE \"userDefined:ID\" = [ID_NUMBER]"
+}
+```
 
+Returns every property directly (Type, Status, Name, Blocked by, dimension scores) — no
+candidate scan, no fetch loop. Confirm `Type` equals the parsed TYPE before proceeding: the
+ID counter is shared across FEAT/MAINT/INFRA/DEBUG, so `292` is unique on its own, but a
+caller asking for "MAINT-292" when 292 is a FEAT must not silently get the FEAT.
+
+Batch related items — blockers, siblings, anything named in Technical Notes — in the same
+call rather than one lookup each:
+```
+... WHERE "userDefined:ID" IN (286, 291, 300, 301)
+```
+
+**Fallback**, only if SQL mode is unavailable (single-data-source SQL has an hourly rate
+limit on Free/Plus plans): semantic search, which is recency-weighted and cannot reliably
+distinguish "MAINT-168" from "MAINT-200" — the right row is often *not* the top hit and cold
+or Done items can miss the first page entirely. Never trust rank or the highlight snippet;
+`notion-fetch` candidates and match by **property**, and never conclude "not found" from the
+top result alone.
 ```
 mcp__notion__notion-search
 query: "Work Item ID: [WORK_ITEM_ID]"
@@ -67,56 +85,28 @@ data_source_url: "collection://${NOTION_WORK_DB}"
 page_size: 25
 max_highlight_length: 0
 ```
+If that also fails, STOP and ask rather than churning more searches:
+> "Couldn't resolve [WORK_ITEM_ID]. Paste the Notion page link and I'll fetch it directly."
+
+Then `notion-fetch` the pasted URL and confirm `userDefined:ID` equals ID_NUMBER.
 
 ---
 
-### Step 1.3: Verify & Select Result
+### Step 1.3: Retrieve Full Page Details
 
-Fetch candidates and match on **properties, not rank**:
-
-```
-mcp__notion__notion-fetch
-id: [candidate page_id from Step 1.2]
-```
-
-**Check properties:**
-- `Type` equals parsed TYPE
-- `userDefined:ID` equals parsed ID_NUMBER   ← the real unique key
-
-**If a candidate matches**: use this page_id, proceed to Step 1.4.
-
-**If no candidate matches**, retry the search **once**, recency-biased (a recently-edited
-item floats to the top of the semantic set), then re-scan by property:
-```
-mcp__notion__notion-search
-query: "[WORK_ITEM_ID] [topic words if known]"
-data_source_url: "collection://${NOTION_WORK_DB}"
-query_type: "internal"
-content_search_mode: "ai_search"
-page_size: 25
-```
-
-**If still no match after the retry**: do NOT keep churning searches and do NOT report a
-bare "not found" — semantic search genuinely cannot always surface a cold ID. STOP and ask:
-> "Couldn't resolve [WORK_ITEM_ID] via search (the Notion MCP has no exact-ID query).
-> Paste the Notion page link and I'll fetch it directly."
-
-Then `notion-fetch` the pasted URL and confirm `userDefined:ID` equals ID_NUMBER before proceeding.
-
----
-
-### Step 1.4: Retrieve Full Page Details
+The Step 1.2 query returns *properties* only. The authored story — User Story, Acceptance
+Criteria, Technical Notes, AGENTS REQUIRED — lives in the page **body**, so fetch it:
 
 ```
 mcp__notion__notion-fetch
-id: [verified page_id from Step 1.3]
+id: [page id from Step 1.2]
 ```
 
 Returns page properties and content in Notion-flavored Markdown.
 
 ---
 
-### Step 1.5: Incorporate Additional Context
+### Step 1.4: Incorporate Additional Context
 
 **If ADDITIONAL_CONTEXT exists** (from Phase 0):
 
@@ -130,7 +120,7 @@ Use ADDITIONAL_CONTEXT to inform safety-scan and implementation in subsequent ph
 
 ---
 
-### Step 1.6: Extract Context
+### Step 1.5: Extract Context
 
 Parse from Notion page:
 - Type (FEAT, DEBUG, INFRA, MAINT, AGENT)
@@ -380,7 +370,7 @@ Reference `CLAUDE.md` for safety facts (PHQ/GAD thresholds, 988 access budget, p
 ### Step 3.2: Feature-Flag Decision
 
 Decide whether this work item should **ship behind a feature flag**, driven by the
-authored story extracted in Step 1.6 (`Name`, `User Story`, `Acceptance Criteria`,
+authored story extracted in Step 1.5 (`Name`, `User Story`, `Acceptance Criteria`,
 `Technical Notes`, `## Segments & Jobs` if present, `ADDITIONAL_CONTEXT`). Being has a
 two-tier flag system (INFRA-199): a runtime PostHog-backed tier and a build-time tier.
 Classify into one **lane**:
@@ -675,8 +665,11 @@ Fires **only** on one of two triggers:
 
 - **A durable process correction**: the user corrected how this skill operates, a
   documented step here was wrong or missing, or friction hit that would recur on
-  unrelated future runs (e.g. the Notion-search pitfall in Step 1.2 — that caveat is
-  exactly the kind of lesson this phase exists to capture).
+  unrelated future runs. Step 1.2 is the worked example in both directions: it once
+  documented a semantic-search workaround, and a later run found that the documented
+  premise ("no exact-ID query exists") was simply false and replaced it with the SQL
+  lookup. A step that *works* can still be wrong — if you find a better primitive than
+  the one written here, that is exactly the lesson this phase exists to capture.
 - **An observed improvement opportunity** (stricter bar, max ONE per run): nothing
   broke, but something in *this* run would have gone measurably smoother with a
   procedure change — and you can cite the concrete moment where it would have helped.
