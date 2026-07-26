@@ -88,7 +88,18 @@ npm run e2e:safety:988-dial        # 988 dial does not fall back (pins LSApplica
 
 ## Validation Matrix
 
-Which validators are required for which work type. `crisis`, `compliance`, `philosopher` are specialist agents. Accessibility is validated via `npm run test:accessibility` / `validate:accessibility`. Performance budgets (see "Performance Budgets" section) are enforced on-device via the Maestro flows under `app/.maestro/` — the jest-side `perf:*` scripts were removed in MAINT-166 PR 7 because they ran zero matching tests.
+Which validators are required for which work type. `crisis`, `compliance`, `philosopher` are specialist agents. Accessibility is validated via `npm run test:accessibility` / `validate:accessibility`.
+
+**Performance budgets are only partly enforced — know which (corrected MAINT-307).** This section previously claimed they are "enforced on-device via the Maestro flows under `app/.maestro/`". **They are not.** Verified across all 8 flows: there is not one ms or fps assertion, only `timeout:` failure ceilings; `crisis-button-reachability.yaml:34-35` says so itself. What actually holds:
+
+| Budget | Enforced by |
+|---|---|
+| Crisis detection <200ms | **Strict CI gate** — `__tests__/performance/assessment-performance.test.ts`, run by the `Performance regression` job |
+| Crisis button <200ms | **Coarse jest proxy** — `CollapsibleCrisisButton.behavioral.test.tsx`; measures synthetic dispatch, not tap→render |
+| Breathing 60fps | **Nothing** — tracked as INFRA-306 |
+| App launch <2s, check-in transition <500ms | **Nothing** — hand-validated |
+
+The jest-side `perf:*` scripts were removed in MAINT-166 PR 7 (they ran zero matching tests). `__tests__/reporters/performance-regression-reporter.js` does **not** gate: it is non-strict unless `PERF_REGRESSION_STRICT=true`, so `performance-baselines.json`'s `crisis_response_ms` is a recorded baseline, not a threshold. A "performance" cell below therefore means *the budget applies*, not *a gate will catch you*.
 
 | Work Type | crisis | compliance | philosopher | accessibility | performance | safety e2e |
 |---|---|---|---|---|---|---|
