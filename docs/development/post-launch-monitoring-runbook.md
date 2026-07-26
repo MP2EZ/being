@@ -29,7 +29,7 @@ code-side alert (the subscription-verification watchdog) and documents the other
 | 2 | API / edge error rate > 5% | Sentry metric alert (+ Supabase logs for edge) | Sentry dashboard | ⏳ operator to create — see [§2](#2-error-rate-alert-sentry) |
 | 3 | Sustained Supabase connection failures | Supabase project notifications + external watcher | Supabase dashboard | ⏳ operator to enable — see [§3](#3-supabase-connection-failure-alert) |
 | 4 | Subscription-verification automation dead | `subscription_verification_watchdog()` pg_cron + Resend | **code (this PR)** | ✅ migration shipped; needs deploy + Vault bootstrap — see [§4](#4-subscription-verification-failure-watchdog-shipped) |
-| 5 | Crisis-button / 60fps perf regression | on-device Maestro budgets (prod RUM deferred) | Maestro / app | ✅ covered by pre-merge gate; prod RUM deferred — see [§5](#5-performance-degradation-alert-deferred-prod-rum) |
+| 5 | Crisis-button / 60fps perf regression | crisis **detection** <200ms: strict CI gate. Crisis **button**: coarse jest proxy. 60fps: **nothing** (INFRA-306) | jest / CI | ⚠️ partially covered — Maestro enforces none of these; prod RUM deferred — see [§5](#5-performance-degradation-alert-deferred-prod-rum) |
 
 **Grounding (verified live 2026-06-18 against `being-production` = `yliycxslzdsgjtpxggtf` and
 Sentry org `being-prod` / project `javascript-react`):**
@@ -239,9 +239,31 @@ runbook takes the documented-defer path. The rationale is substantive, not a dod
 
 1. **A crisis-button latency regression is a safety contract, and the strongest control for a
    contract is a gate that blocks it pre-merge — not a prod alert that fires after users felt it.**
-   That gate already exists: the on-device Maestro flow enforcing `<200ms` / 60fps
-   (`app/.maestro/`, gated by `/b-close` Phase 2.5). Prod RUM is a *trailing* indicator; for a
-   safety budget the *leading* gate dominates.
+   Prod RUM is a *trailing* indicator; for a safety budget the *leading* gate dominates.
+
+   > [!WARNING]
+   > **CORRECTED 2026-07-25 (MAINT-307).** This point previously read *"That gate already exists:
+   > the on-device Maestro flow enforcing `<200ms` / 60fps."* **It does not exist.** Verified across
+   > all 8 flows in `app/.maestro/`: there is not one ms or fps assertion, only `timeout:` failure
+   > ceilings. `crisis-button-reachability.yaml:34-35` says so itself — *"on-device timing budgets
+   > live in CLAUDE.md's Performance Budgets section and are validated by hand until a real perf
+   > harness exists."*
+   >
+   > What actually enforces what, as of 2026-07-25:
+   > - **Crisis detection `<200ms` — strict CI gate.** `__tests__/performance/assessment-performance.test.ts`
+   >   asserts `toBeLessThan(200)` for suicidal-ideation detection, run by the `Performance regression` job.
+   > - **Crisis button `<200ms` — coarse jest proxy only.** `CollapsibleCrisisButton.behavioral.test.tsx:51`;
+   >   its own comment concedes it measures synthetic event dispatch, not tap→render.
+   > - **Breathing 60fps — nothing.** Tracked as **INFRA-306**.
+   > - **App launch `<2s`, check-in transition `<500ms` — nothing.** Hand-validated.
+   >
+   > Note `__tests__/reporters/performance-regression-reporter.js` does **not** gate: it is non-strict
+   > unless `PERF_REGRESSION_STRICT=true`, and its own comment says it is for "really slow test"
+   > warnings. `performance-baselines.json`'s `crisis_response_ms: 9.38` is a recorded baseline, not a
+   > threshold.
+   >
+   > The deferral above still stands on its other leg — reason 3, that pre-launch there is no traffic
+   > to alert on or tune against. But it can no longer lean on a leading gate that was never built.
 2. **The two AC5 budgets need app-code work, not a config flip.** The crisis-tap `<200ms`
    measurement needs a **custom span** wired into the tap handler (real app-code instrumentation).
    Sentry *does* auto-emit app-start and slow/frozen-frame metrics as config (no custom spans) —

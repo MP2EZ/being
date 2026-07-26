@@ -310,8 +310,15 @@ jobs:
   #   - assessment-store API drift (primaryTrigger vs triggerType).
   #   - SecureStorageService cleanup setInterval kept Jest alive past
   #     completion — now skipped in NODE_ENV=test.
-  #   - CI threshold variance recalibrated; production budgets still
-  #     enforced via perf:crisis/perf:breathing/perf:launch scripts.
+  #   - CI threshold variance recalibrated.
+  # CORRECTED 2026-07-25 (MAINT-307): this comment used to claim "production
+  # budgets still enforced via perf:crisis/perf:breathing/perf:launch scripts".
+  # Those scripts were deleted in MAINT-166 PR 7 (they ran zero matching tests),
+  # so the claim was false. What this job actually enforces is the crisis
+  # DETECTION <200ms budget, via assessment-performance.test.ts. The crisis
+  # BUTTON budget has only a coarse jest proxy (CollapsibleCrisisButton.
+  # behavioral.test.tsx), and breathing 60fps / app launch <2s / check-in
+  # transition <500ms are enforced by nothing — 60fps is tracked as INFRA-306.
   # Deferred (testPathIgnorePatterns in jest.config.js):
   #   - sync-performance-validation + week3-analytics-performance:
   #     tests reference older service APIs (new SyncCoordinator() when

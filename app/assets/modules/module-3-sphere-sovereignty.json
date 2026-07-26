@@ -86,26 +86,6 @@
           ]
         },
         {
-          "id": "medical-test-anxiety",
-          "text": "How you respond to anxiety while waiting for a medical test result.",
-          "correctAnswer": "in-control",
-          "explanation": "How you respond to the anxiety is in your control. The first wave of fear is not — it arrives before you can choose. Neither is the result itself; it was never yours to decide.",
-          "inControl": [
-            "How you work with the anxiety once you notice it (breathing, grounding)",
-            "Your self-talk and interpretations",
-            "Whether you seek support while waiting",
-            "Activities you choose while you wait (steadying yourself, not avoiding)",
-            "Thinking through what you'd do next, whichever way it goes"
-          ],
-          "notInControl": [
-            "The first wave of fear (it appears automatically)",
-            "The medical test result itself",
-            "When you receive the results",
-            "The medical facts of your condition",
-            "Others' reactions to your news"
-          ]
-        },
-        {
           "id": "friend-no-reply",
           "text": "A friend hasn't replied to your text message for three days.",
           "correctAnswer": "not-in-control",
@@ -226,6 +206,26 @@
             "Budget constraints",
             "Company politics",
             "Timing and external factors"
+          ]
+        },
+        {
+          "id": "medical-test-anxiety",
+          "text": "How you respond to anxiety while waiting for a medical test result.",
+          "correctAnswer": "in-control",
+          "explanation": "How you respond to the anxiety is in your control. The first wave of fear is not — it arrives before you can choose. Neither is the result itself; it was never yours to decide.",
+          "inControl": [
+            "How you work with the anxiety once you notice it (breathing, grounding)",
+            "Your self-talk and interpretations",
+            "Whether you seek support while waiting",
+            "Activities you choose while you wait (steadying yourself, not avoiding)",
+            "Thinking through what you'd do next, whichever way it goes"
+          ],
+          "notInControl": [
+            "The first wave of fear (it appears automatically)",
+            "The medical test result itself",
+            "When you receive the results",
+            "The medical facts of your condition",
+            "Others' reactions to your news"
           ]
         },
         {
