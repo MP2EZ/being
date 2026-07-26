@@ -28,7 +28,8 @@
  *  - The closing breath is practice-architecture — a coda (CLOSING), NOT step-5 content.
  */
 import type { DailyLoopMode, DailyLoopDepth } from '@/features/practices/types/flows';
-import type { CardinalVirtue } from '@/features/practices/types/stoic';
+import type { CardinalVirtue, StoicPrinciple } from '@/features/practices/types/stoic';
+import type { PrincipleEngagementType } from '@/features/practices/stores/stoicPracticeStore';
 
 export const DAILY_LOOP_STEP_KEYS = [
   'AwarePresence',
@@ -39,6 +40,49 @@ export const DAILY_LOOP_STEP_KEYS = [
 ] as const;
 
 export type DailyLoopStepKey = (typeof DAILY_LOOP_STEP_KEYS)[number];
+
+/**
+ * Loop step → the canonical Stoic principle that beat IS (FEAT-298 slice 3).
+ *
+ * Not a lookup of convenience: each beat is one principle, which is why the loop can
+ * record principle engagements at all. Total `Record`, so a new beat cannot be added
+ * without deciding its principle.
+ */
+export const STEP_PRINCIPLE: Record<DailyLoopStepKey, StoicPrinciple> = {
+  AwarePresence: 'aware_presence',
+  RadicalAcceptance: 'radical_acceptance',
+  SphereSovereignty: 'sphere_sovereignty',
+  VirtuousResponse: 'virtuous_response',
+  InterconnectedLiving: 'interconnected_living',
+};
+
+/**
+ * Tense mode → the engagement type a loop session records (FEAT-298 slice 3,
+ * philosopher pass).
+ *
+ * The type is derived from MODE and is uniform across the beats of a session, because
+ * within a mode every beat shares the same tense and act-shape. The three modes map 1:1
+ * onto what the legacy flows recorded, which is what keeps the 90-day Insights chart and
+ * the JSON export interpretable ACROSS the slice-6 flow retirement: a 'selected' written
+ * by a morning-mode loop means what one written by the retired morning flow meant.
+ *
+ * `'selected'` is read here as PROSPECTIVE FOCUS (the tense), not "picked one principle
+ * from a menu" — the loop brings all five to focus rather than choosing among them. See
+ * the docstring on `PrincipleEngagementType`, updated to match.
+ *
+ * NOT per-beat: varying the type across beats within a mode would encode a ranking of
+ * kinds-of-engagement across the five principles, which the Insights chart explicitly
+ * rejects, and it is never displayed anyway — only stored and exported.
+ *
+ * `'practiced'` is deliberately absent: it is FEAT-133's Learn-module marker, and reusing
+ * it would leave the exported vocabulary unable to tell in-app education from lived
+ * practice.
+ */
+export const ENGAGEMENT_TYPE_BY_MODE: Record<DailyLoopMode, PrincipleEngagementType> = {
+  morning: 'selected',
+  flat: 'applied',
+  evening: 'reflected',
+};
 
 /**
  * FEAT-301 — the QUICK depth variant: canonical steps 1→3→4 (arrive → discern

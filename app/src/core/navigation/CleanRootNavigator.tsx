@@ -45,6 +45,11 @@ import { useConsentStore } from '@/core/stores/consentStore';
 import { CombinedLegalGateScreen } from '@/features/consent';
 import type { AssessmentType, PHQ9Result, GAD7Result } from '@/features/assessment/types';
 import type { DailyLoopMode, DailyLoopDepth, DailyLoopSessionData } from '@/features/practices/types/flows';
+import {
+  ENGAGEMENT_TYPE_BY_MODE,
+  STEP_PRINCIPLE,
+  getStepKeysForDepth,
+} from '@/features/practices/dailyloop/config/tenseMode';
 import type { ModuleId, SortingScenario } from '@/features/learn/types/education';
 import type { PassageAuthor } from '@/features/library/types/library';
 
@@ -220,12 +225,43 @@ const CleanRootNavigator: React.FC = () => {
     }
   };
 
-  // FEAT-291: daily-loop prototype. Tracked as 'midday' (no new CheckInType — the
-  // FlowType unification is the deferred step-5 migration). Marks midday's card
-  // complete-today; acceptable dark-prototype tradeoff (noted in the PR).
+  // FEAT-298 slice 3: the loop is now a FIRST-CLASS check-in. It records its own 'daily'
+  // type instead of borrowing 'midday' — that borrowing made loop sessions
+  // indistinguishable from real Midday check-ins and faded the wrong Home card.
+  //
+  // Legacy records written by the FEAT-291 prototype as 'midday' COEXIST read-only: they
+  // are deliberately NOT rewritten to 'daily'. Rewriting would fabricate a record of an
+  // action the user did not take (they completed what the app then called a Midday
+  // check-in), which is a data-accuracy violation and would corrupt an export/right-to-know
+  // response. Provenance beats tidiness — see the slice-2 migration note.
   const handleDailyLoopComplete = async (sessionData: DailyLoopSessionData) => {
-    logSystem(`Daily loop completed (mode: ${sessionData.mode})`);
-    await markCheckInComplete('midday');
+    const depth = sessionData.depth ?? 'deep';
+    logSystem(`Daily loop completed (mode: ${sessionData.mode}, depth: ${depth})`);
+    await markCheckInComplete('daily');
+
+    // FEAT-298 slice 3: the loop recorded ZERO principle engagements, so it was invisible
+    // in the Insights principle chart despite being five principles end to end.
+    //
+    // One engagement per beat REACHED, unconditional on whether the user typed anything:
+    // "typing is capture, never a gate" (tenseMode.ts) — every field is optional by design
+    // for a walking, eyes-up practice. Gating the record on text would reintroduce the gate
+    // through the back door and systematically under-record the practitioner the loop was
+    // shaped for. One principle, one engagement, one session — NOT one per captured field,
+    // which would inflate Sphere Sovereignty (2 fields) and Virtuous Response (up to 3)
+    // and manufacture a false dominance signal.
+    //
+    // A quick session therefore records exactly 3, never 5. Under-recording is the
+    // ACCURATE reading: crediting the two omitted beats would fabricate acts the user did
+    // not perform. Quick and deep remain equally complete where completeness actually
+    // lives — the calendar dot — because both write one 'daily' check-in.
+    const engagementType = ENGAGEMENT_TYPE_BY_MODE[sessionData.mode];
+    const stepKeys = getStepKeysForDepth(depth);
+    for (const stepKey of stepKeys) {
+      await recordPrincipleEngagement(STEP_PRINCIPLE[stepKey], 'daily', engagementType);
+    }
+    logSystem(
+      `Recorded ${stepKeys.length} principle engagements (daily loop, ${engagementType})`
+    );
   };
 
   const handleOnboardingComplete = async (destination?: 'home' | 'morning') => {

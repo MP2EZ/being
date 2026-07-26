@@ -360,8 +360,12 @@ const BeginnerTip: React.FC<BeginnerTipProps> = ({ onDismiss }) => (
   <View style={styles.beginnerTipContainer}>
     <View style={styles.beginnerTipContent}>
       <Text style={styles.beginnerTipIcon}>i</Text>
+      {/* FEAT-298 slice 3 (philosopher pass): re-copied. The old line urged the user to
+          "explore multiple principles" — incoherent once the daily loop is the default,
+          because ONE unhurried session writes all five engagements, so a user who has
+          just moved through every principle would be told to go explore them. */}
       <Text style={styles.beginnerTipText}>
-        Exploring multiple principles can provide different perspectives on the same situation.
+        Principles you return to often, and ones you rarely reach, are both worth noticing.
       </Text>
     </View>
     <TouchableOpacity
@@ -437,8 +441,13 @@ const PrincipleEngagementChart: React.FC<PrincipleEngagementChartProps> = ({
     if (totalEngagements === 0) {
       return 'No principle engagement recorded yet in this period.';
     }
-    const activePrinciples = principleCounts.filter(p => p.count > 0).length;
-    return `${activePrinciples} of 5 principles appear in your practice.`;
+    // FEAT-298 slice 3 (philosopher pass): the denominator is gone on purpose. A QUICK
+    // session (FEAT-301) runs beats 1→3→4, so a quick-only practitioner would be shown a
+    // permanent "3 of 5" — a target-naming count that reads as a deficiency score. It is
+    // the exact count FEAT-301 refused to put in the depth blurb, reintroduced downstream.
+    // Completeness lives on the calendar dot, where quick and deep are equally complete;
+    // this chart only observes which principles appeared.
+    return 'Here is how each principle has appeared in your practice.';
   };
 
   return (

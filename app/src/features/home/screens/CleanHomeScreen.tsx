@@ -256,7 +256,10 @@ const CleanHomeScreen: React.FC = () => {
               description="One loop through the Five Principles: Aware Presence, Radical Acceptance, Sphere Sovereignty, Virtuous Response, Interconnected Living."
               duration="5-6 min"
               isCurrent={dailyLoopOnly}
-              isCompleted={false}
+              // FEAT-298 slice 3: was hardcoded false. The loop now records its own
+              // 'daily' check-in, so its card can finally reflect its own completion
+              // instead of silently fading the Midday card.
+              isCompleted={isCheckInCompletedToday('daily')}
               onPress={handleCheckInPress}
             />
           )}

@@ -63,11 +63,16 @@ export interface CheckInCompletion {
  * Records when a user engages with a Stoic principle during check-in flows.
  * Used by InsightsScreen to show principle engagement patterns over time.
  *
- * Engagement types:
- * - 'selected': User selected this principle as focus in morning flow
- * - 'applied': User reported applying principle during midday/evening
- * - 'reflected': User reflected on principle in evening review
- * - 'practiced': User completed a practice exercise in Learn module (FEAT-133)
+ * Engagement types — these track TENSE (when the engagement stands relative to the day),
+ * not the mechanism by which a principle was chosen (FEAT-298 slice 3 clarification):
+ * - 'selected': PROSPECTIVE focus — morning flow, or a morning-tensed daily loop. The
+ *   loop brings all five principles to focus rather than picking one from a menu; the
+ *   recorded fact is that the engagement was forward-looking.
+ * - 'applied': PRESENT engagement with live material — midday flow, or a flat daily loop.
+ * - 'reflected': RETROSPECTIVE review — evening flow, or an evening-tensed daily loop.
+ * - 'practiced': User completed a practice exercise in Learn module (FEAT-133). Reserved
+ *   for in-app education — never reused by a practice flow, so the exported vocabulary can
+ *   always tell education from lived practice.
  */
 export type PrincipleEngagementType = 'selected' | 'applied' | 'reflected' | 'practiced';
 
