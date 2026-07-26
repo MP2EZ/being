@@ -14,6 +14,25 @@
  * - Assessment flow never blocks UI thread
  * - Smooth therapeutic interaction experience
  * - Accessibility performance maintenance
+ *
+ * ⚠️  NOT THE 60fps CONTROL (INFRA-306). Do not wire this module into a
+ * performance gate. Two independent reasons:
+ *
+ *   1. It samples the JS thread. `scheduleFrameCheck()` is a self-perpetuating
+ *      `requestAnimationFrame` loop, so `frameRate` measures how often the JS
+ *      thread gets scheduled. The breathing circle — the animation actually
+ *      carrying a therapeutic budget — runs entirely in Reanimated worklets on
+ *      the UI thread, which this cannot observe. A JS-thread rAF loop is also
+ *      the exact pattern PERF-02 (commit ff591f3a) deleted from
+ *      `BreathingCircle.tsx` as a performance fix.
+ *   2. Nothing starts it on the app's real paths. `RenderingOptimizer` is
+ *      reachable only via `useAssessmentPerformance`, whose sole consumer is
+ *      `AssessmentIntegrationExample.tsx` — a demo component.
+ *
+ * The breathing-circle 60fps budget is enforced by NO runtime measurement. What
+ * exists is a structural proxy (`app/scripts/check-breathing-worklet-purity.js`,
+ * INFRA-306 Layer A) that pins the PERF-01/PERF-02 fix in place. The real
+ * on-device UI-thread measurement is INFRA-309.
  */
 
 
@@ -22,13 +41,24 @@ import { DeviceEventEmitter, InteractionManager, Animated, LayoutAnimation } fro
 import { unstable_batchedUpdates } from 'react-native';
 
 interface FrameMetrics {
-  frameRate: number; // fps
+  frameRate: number; // fps, derived from requestAnimationFrame deltas — JS thread
   frameTime: number; // ms
   droppedFrames: number;
-  jsFrameRate: number;
-  uiFrameRate: number;
   timestamp: number;
   interactionType: string;
+  // NOTE (INFRA-306): there are deliberately no `jsFrameRate` / `uiFrameRate`
+  // fields here. They existed until 2026-07-25 and were populated by two
+  // fabricated getters returning `58 + Math.random() * 4` and
+  // `59 + Math.random() * 2` under a "Mock implementation - in real app, use
+  // native bridge" comment. Both fields were write-only — nothing in `src/` or
+  // `__tests__/` ever read them — so the plausible-looking numbers sat waiting
+  // for someone told to "wire up the existing UI frame rate" to build a gate
+  // that asserts on a random number generator. Removed rather than left in
+  // place: an honest absence is safer than a convincing fake.
+  //
+  // There is currently NO UI-thread frame-rate sensor in this codebase. Adding
+  // one is INFRA-309, and it must read the UI thread (Reanimated
+  // `useFrameCallback`), not this module.
 }
 
 interface RenderOptimizationConfig {
@@ -120,8 +150,6 @@ class FrameRateMonitor {
         frameRate: currentFps,
         frameTime: deltaTime,
         droppedFrames: this.droppedFrameCount,
-        jsFrameRate: this.getJSFrameRate(),
-        uiFrameRate: this.getUIFrameRate(),
         timestamp: Date.now(),
         interactionType: 'general'
       };
@@ -141,22 +169,6 @@ class FrameRateMonitor {
       // Reset counters
       this.droppedFrameCount = 0;
     }
-  }
-
-  /**
-   * Get JavaScript thread frame rate
-   */
-  private static getJSFrameRate(): number {
-    // Mock implementation - in real app, use native bridge
-    return 58 + Math.random() * 4; // 58-62 fps
-  }
-
-  /**
-   * Get UI thread frame rate
-   */
-  private static getUIFrameRate(): number {
-    // Mock implementation - in real app, use native bridge
-    return 59 + Math.random() * 2; // 59-61 fps
   }
 
   /**
