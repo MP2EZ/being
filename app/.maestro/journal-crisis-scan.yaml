@@ -33,8 +33,14 @@ name: "Voice journal crisis scan surfaces support"
 # ── Navigate to the reflection surface ────────────────────────────────────
 - tapOn:
     id: "tab-profile"
-- assertVisible:
-    id: "profile-card-voice-reflection"
+# INFRA-186: the Profile card list is taller than the screen and the
+# Reflections card sits at the bottom, below the fold. Maestro's
+# center-of-bounds tap on an unscrolled card can land in the tab bar instead,
+# silently switching tabs. scrollUntilVisible brings it into view first.
+- scrollUntilVisible:
+    element:
+      id: "profile-card-voice-reflection"
+    direction: DOWN
 - tapOn:
     id: "profile-card-voice-reflection"
 - assertVisible:
@@ -70,6 +76,10 @@ name: "Voice journal crisis scan surfaces support"
 - runFlow: _seeded-home.yaml
 - tapOn:
     id: "tab-profile"
+- scrollUntilVisible:
+    element:
+      id: "profile-card-voice-reflection"
+    direction: DOWN
 - tapOn:
     id: "profile-card-voice-reflection"
 - tapOn:
