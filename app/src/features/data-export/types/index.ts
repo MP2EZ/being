@@ -24,8 +24,21 @@ import type {
   PrincipleEngagementType,
 } from '@/features/practices/stores/stoicPracticeStore';
 
-/** Schema version stamped into every export so downstream readers can adapt. */
-export const EXPORT_SCHEMA_VERSION = 1;
+/**
+ * Schema version stamped into every export so downstream readers can adapt.
+ *
+ * v2 (FEAT-298 slice 2): `CheckInType` gained 'daily' for the single daily ritual, so
+ * `ExportedCheckIn.type` and `ExportedPrincipleEngagement.flowType` can now carry a value
+ * no v1 reader knows. `exportService` passes `type` through without runtime narrowing, so
+ * nothing would otherwise stop a 'daily' row landing in a file labelled v1.
+ *
+ * The version tracks the VALUE SPACE a reader must interpret, not just the JSON shape:
+ * additive widening is compatible for parsing, but not for exhaustive interpretation — a
+ * reader that switches on `type` (a future PDF renderer, or a user's own script) would
+ * silently mis-bucket or drop 'daily' rows. Already-exported v1 files remain valid
+ * archives of a closed value set; only new exports carry v2, so no payload migration.
+ */
+export const EXPORT_SCHEMA_VERSION = 2;
 
 /**
  * Verbatim "not medical records" disclaimer (compliance pass, non-negotiable

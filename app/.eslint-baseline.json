@@ -128,6 +128,7 @@
   "src/features/data-export/services/__tests__/exportService.test.ts": 1,
   "src/features/home/screens/__tests__/CleanHomeScreen.accessibility.test.tsx": 1,
   "src/features/home/screens/__tests__/CleanHomeScreen.dailyLoop.test.tsx": 1,
+  "src/features/insights/components/__tests__/DotCalendar.eraAware.test.ts": 1,
   "src/features/insights/components/__tests__/SessionNoteComposer.test.tsx": 1,
   "src/features/insights/components/__tests__/WellnessScreeningTrends.notes.test.tsx": 1,
   "src/features/insights/components/__tests__/WellnessScreeningTrends.test.tsx": 1,

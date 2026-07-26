@@ -65,7 +65,7 @@ const TIME_RANGE_LABELS: Record<TimeRange, string> = {
   quarter: 'Quarter',
 };
 
-// All possible check-in types
+// The three time-of-day check-ins that constituted a "complete" day under the legacy model.
 const ALL_CHECK_INS: CheckInType[] = ['morning', 'midday', 'evening'];
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -99,10 +99,32 @@ const generateDateRange = (days: number): string[] => {
 };
 
 /**
- * Calculate dot state based on completed check-ins
+ * Calculate dot state based on completed check-ins — ERA-AWARE (FEAT-298 slice 2).
+ *
+ * A day is SELF-DESCRIBING. If its own records contain a 'daily' ritual it is a daily-era
+ * day and completes at one; otherwise it is a legacy day and keeps the 3-of-3 bar.
+ *
+ * Why not a date or app-version cutover: a cutoff misclassifies any day whose real records
+ * disagree with the assumed rollout timeline — flag rollback, staggered rollout, a user who
+ * skipped an update. A calendar asserting "complete" against records that say otherwise is
+ * a data-accuracy problem, not just a cosmetic one (compliance pass, FEAT-298 slice 2).
+ *
+ * Because nothing writes a 'daily' record until slice 3, this change reclassifies ZERO
+ * existing days — pinned by the property test in __tests__/DotCalendar.eraAware.test.ts.
+ * A naive "complete at 1" would instead have flipped every historical partial day to
+ * complete, silently rewriting the user's practice history in the UI.
+ *
+ * Note the legacy branch counts ANY check-in type toward the three, including 'learn'
+ * (getCheckInHistory is unfiltered — InsightsScreen.tsx:115). That predates this slice and
+ * is deliberately preserved: "fixing" it here would flip historical days complete→partial,
+ * the same harm in the opposite direction. Tracked as a separate, reviewable change.
+ *
+ * Exported for direct testing — this is the one place "preserve historical records" can be
+ * violated by a one-line edit, so the rule is pinned independently of the component.
  */
-const calculateDotState = (checkIns: CheckInType[]): DotState => {
+export const calculateDotState = (checkIns: CheckInType[]): DotState => {
   if (checkIns.length === 0) return 'empty';
+  if (checkIns.includes('daily')) return 'complete';
   if (checkIns.length >= ALL_CHECK_INS.length) return 'complete';
   return 'partial';
 };

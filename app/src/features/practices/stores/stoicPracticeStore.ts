@@ -43,7 +43,13 @@ import type {
 // Check-in completion tracking for daily check-ins
 // Used by Home screen to display faded appearance for completed check-ins
 // FEAT-133: Added 'learn' for Learn module practice engagements
-export type CheckInType = 'morning' | 'midday' | 'evening' | 'learn';
+// FEAT-298 slice 2: Added 'daily' for the single daily ritual. ADDITIVE — the three
+// time-of-day members are deliberately NOT dropped. Preserving them is what preserves
+// history by construction: every record already on disk stays valid under this union, so
+// the migration never has to rewrite a stored value (see migratePersistedBlob below).
+// The eventual target shape is 'daily' | 'learn', reached only after slice 6 retires the
+// three flows; 'learn' (FEAT-133) is orthogonal to the ritual and survives regardless.
+export type CheckInType = 'morning' | 'midday' | 'evening' | 'learn' | 'daily';
 
 export interface CheckInCompletion {
   type: CheckInType;
@@ -354,11 +360,56 @@ export async function flushStoicPracticePersist(): Promise<void> {
 }
 
 /**
+ * Current persisted schema version for the `stoic_practice_state` blob (FEAT-298 slice 2).
+ *
+ * Before this the blob carried NO version, so there was no way to express "these records
+ * were written under the old model" — which is exactly what "preserve historical records"
+ * needs. Blobs without a `version` key are treated as v0 (pre-versioning).
+ *
+ * Bump this ONLY together with a migration step in `migratePersistedBlob`.
+ */
+export const STOIC_PRACTICE_SCHEMA_VERSION = 1;
+
+/**
+ * Migrate a raw parsed blob forward to `STOIC_PRACTICE_SCHEMA_VERSION`.
+ *
+ * FORWARD-ONLY and ADDITIVE, and non-negotiably so (compliance pass, FEAT-298 slice 2):
+ * rewriting a stored 'midday' into 'daily' would fabricate a record of an action the user
+ * never took. That is a data-accuracy violation under the state privacy regimes in
+ * docs/legal/regulatory-applicability.md, and it would corrupt any right-to-know / export
+ * response. Records are therefore preserved verbatim; only the version stamp is added.
+ *
+ * v0 → v1 needs NO field transformation at all, because slice 2 widened `CheckInType`
+ * additively — every value already on disk is still valid under the new union. That is the
+ * point of the additive design, not an oversight: the cheapest migration is the one with
+ * nothing to migrate. The mechanism exists so later slices have a versioned base to
+ * migrate FROM.
+ *
+ * Idempotent by construction: gated on the stored version, never on shape-sniffing.
+ */
+const migratePersistedBlob = (parsed: any): any => {
+  const storedVersion =
+    typeof parsed.version === 'number' && Number.isFinite(parsed.version) ? parsed.version : 0;
+
+  if (storedVersion >= STOIC_PRACTICE_SCHEMA_VERSION) {
+    // Already current, or written by a NEWER build (the user downgraded). Migrating
+    // backwards is undefined, so leave every record exactly as it is rather than guessing.
+    return parsed;
+  }
+
+  // v0 → v1: stamp only. No record is read, rewritten, or filtered — including records
+  // whose `type` this build does not recognise (forward-compat: they may come from a
+  // future version, and dropping them would be silent data loss).
+  return { ...parsed, version: STOIC_PRACTICE_SCHEMA_VERSION };
+};
+
+/**
  * Persist state to SecureStore (encrypted)
  */
 const persistToSecureStore = async (state: Partial<StoicPracticeState>): Promise<void> => {
   try {
     const dataToStore = {
+      version: STOIC_PRACTICE_SCHEMA_VERSION,
       practiceStartDate: state.practiceStartDate?.toISOString() ?? null,
       totalPracticeDays: state.totalPracticeDays,
       currentStreak: state.currentStreak,
@@ -411,7 +462,26 @@ const loadFromSecureStore = async (): Promise<Partial<StoicPracticeState> | null
     const storedData = await SecureStore.getItemAsync(SECURE_STORE_KEY);
     if (!storedData) return null;
 
-    const parsed = JSON.parse(storedData);
+    const rawParsed = JSON.parse(storedData);
+
+    // Migration runs in its OWN try/catch on purpose. If it fell through to the outer
+    // catch below, a migration bug would return null — and null leaves the store at its
+    // EMPTY initial state, which the very next schedulePersist() would write over the
+    // user's good on-disk blob. That is real data loss, unlike the accepted swallow-on-
+    // write in persistToSecureStore (where in-memory state is already correct and only the
+    // write is delayed). On failure we fall back to the UNtransformed parse — never a
+    // partially-transformed object — and leave the blob unstamped so it retries next load.
+    let parsed: any;
+    try {
+      parsed = migratePersistedBlob(rawParsed);
+    } catch (err) {
+      logError(
+        LogCategory.SYSTEM,
+        'stoicPracticeStore schema migration failed; loading records unmigrated',
+        err instanceof Error ? err : new Error(String(err))
+      );
+      parsed = rawParsed;
+    }
 
     return {
       practiceStartDate: parsed.practiceStartDate ? new Date(parsed.practiceStartDate) : null,
