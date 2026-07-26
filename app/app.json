@@ -106,7 +106,14 @@
           "backgroundColor": "#ffffff"
         }
       ],
-      "expo-sharing"
+      "expo-sharing",
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Being uses the microphone only to turn a spoken reflection into text on this device. The recording is discarded once transcribed and never leaves your phone.",
+          "speechRecognitionPermission": "Being transcribes spoken reflections entirely on this device. Nothing you say is sent to Apple or to Being."
+        }
+      ]
     ],
     "extra": {
       "clinicalVersion": "1.0",

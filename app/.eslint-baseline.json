@@ -61,6 +61,7 @@
   "src/core/services/security/__tests__/pinned-fetch.test.ts": 1,
   "src/core/services/security/pinned-fetch.ts": 2,
   "src/core/services/session/SessionStorageService.ts": 9,
+  "src/core/services/speech/__tests__/onDeviceSpeechGuard.unit.test.ts": 1,
   "src/core/services/subscription/__tests__/IAPService.test.ts": 1,
   "src/core/services/subscription/__tests__/subscription.integration.test.ts": 1,
   "src/core/services/supabase/CloudBackupService.ts": 7,
