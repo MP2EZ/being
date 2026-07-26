@@ -24,8 +24,34 @@
 
 import * as Haptics from 'expo-haptics';
 
+import { logAccessibility } from '@/core/services/logging';
+
 import { primitiveFor, type HapticPlatform, type HapticPrimitive, type PracticeCue } from './cueCatalog';
 import { MIN_CUE_INTERVAL_MS } from './constants';
+
+/**
+ * Why a dev-only trace exists here.
+ *
+ * A haptic is the one output this codebase produces that CANNOT be observed on
+ * a simulator — there is no Taptic Engine, and expo-haptics no-ops silently
+ * rather than erroring. Without a trace, "correctly wired but running on a
+ * simulator" and "completely broken" look identical: nothing happens either
+ * way. That makes every wiring bug invisible until someone has a physical
+ * device in hand.
+ *
+ * This makes the pipeline observable everywhere. It reports the OUTCOME, not
+ * just the attempt, so a suppressed cue is distinguishable from a delivered one
+ * and from one that was never scheduled at all.
+ *
+ * Stripped in production by the __DEV__ guard.
+ */
+function trace(cue: PracticeCue, outcome: string, primitive?: HapticPrimitive): void {
+  if (!__DEV__) return;
+  logAccessibility(
+    `[haptics] ${cue} → ${outcome}${primitive ? ` (${primitive})` : ''}`,
+    { action: outcome === 'delivered' ? 'triggered' : 'disabled' }
+  );
+}
 
 export interface HapticEngineOptions {
   /**
@@ -106,16 +132,31 @@ export function createHapticEngine(options: HapticEngineOptions): HapticEngine {
       // makes no native calls and — just as importantly — does not advance the
       // throttle clock. Otherwise a suppressed cue would swallow the next
       // legitimate one.
-      if (!available || !isEnabled()) return false;
+      if (!available) {
+        trace(cue, 'suppressed: actuator latched off');
+        return false;
+      }
+      if (!isEnabled()) {
+        trace(cue, 'suppressed: gated off');
+        return false;
+      }
 
       const timestamp = now();
-      if (timestamp - lastDeliveredAt < MIN_CUE_INTERVAL_MS) return false;
+      if (timestamp - lastDeliveredAt < MIN_CUE_INTERVAL_MS) {
+        trace(cue, 'dropped: inside throttle window');
+        return false;
+      }
 
+      const primitive = primitiveFor(cue, platform);
       try {
-        await invokePrimitive(primitiveFor(cue, platform));
+        await invokePrimitive(primitive);
         lastDeliveredAt = timestamp;
+        // On a simulator this line still prints even though nothing is felt —
+        // that is the point. It separates "not wired" from "no hardware".
+        trace(cue, 'delivered', primitive);
         return true;
       } catch {
+        trace(cue, 'failed: latching off permanently');
         // Latch off permanently. Deliberately swallowed: a device without an
         // actuator is an expected configuration, not an error worth reporting
         // from inside a practice.
