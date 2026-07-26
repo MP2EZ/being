@@ -266,7 +266,29 @@ jobs:
         # transitive chain; threshold was raised to `high` as an interim
         # measure pending the Expo upgrade. audit-ci with an explicit
         # allowlist replaces that interim.
-        run: cd app && npx audit-ci --config .audit-ci.json
+        #
+        # INFRA-312 (2026-07-26): pinned to npm >=11 for this step only.
+        # The job's Node 20 ships npm 10, whose audit uses the LEGACY
+        # `/-/npm/v1/security/audits/quick` endpoint. That endpoint is being
+        # retired and now rejects a tree this size with
+        # `400 Bad Request — Invalid package tree`, which audit-ci surfaces
+        # only as the useless `code undefined:`. It broke every PR in the
+        # repo without a single line of app code changing.
+        # Diagnosis (see INFRA-312 for the full matrix): npm 10 audits a
+        # ~20-package tree fine and Being's 1,185-package tree not at all;
+        # npm 11 uses the newer `security/advisories/bulk` endpoint instead.
+        # The package-lock is NOT stale — `npm install` leaves it
+        # byte-identical, so npm's "rebuild your package-lock.json" hint is
+        # a red herring.
+        # Scoped to this one step deliberately: bumping NODE_VERSION would
+        # change the toolchain for all 12 jobs to fix one endpoint call.
+        # Remove this pin once NODE_VERSION moves to a release shipping
+        # npm >=11 (Node 24+).
+        run: |
+          cd app
+          npm i -g npm@11
+          npm --version
+          npx audit-ci --config .audit-ci.json
 
   # Accessibility — WCAG AA validation + a11y test suite. Strict gate
   # as of Phase B+C paydown. Root causes addressed:
