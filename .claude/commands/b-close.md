@@ -495,8 +495,14 @@ if [ ${#SCRIPTS[@]} -gt 0 ]; then
     echo "   install Being on a sim, then retry /b-close. Do NOT use 'npm run ios' (dev build → flaky gate)."
     exit 1
   fi
-  if ! xcrun simctl listapps booted 2>/dev/null | grep -q com.being.app; then
-    echo "❌ com.being.app not installed on booted sim."
+  # Bundle id is fyi.being.app (MAINT-161). It is NOT com.being.app — that target
+  # was claimed by a third party and retired, and this guard used to grep for it,
+  # so it failed closed on any machine without a stale pre-MAINT-161 build lying
+  # around, and passed by accident on machines that had one. Keep this string in
+  # sync with `appId:` in app/.maestro/*.yaml — they must name the same app or the
+  # guard greenlights a suite that cannot launch anything.
+  if ! xcrun simctl listapps booted 2>/dev/null | grep -q fyi.being.app; then
+    echo "❌ fyi.being.app not installed on booted sim."
     echo "   Run 'npm run e2e:safety:build' first (no-dev-client EAS build, INFRA-216), then retry /b-close."
     exit 1
   fi
