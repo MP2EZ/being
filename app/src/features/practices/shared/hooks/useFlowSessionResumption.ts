@@ -26,11 +26,13 @@ import { SessionMetadata } from '@/core/types/session';
 
 // FEAT-298 slice 1: re-exported from the canonical declaration, not re-declared.
 export type { FlowType } from '@/core/types/practice-identity';
-import type { FlowType } from '@/core/types/practice-identity';
+// FEAT-298 slice 3b: the hook is keyed by PRACTICE IDENTITY so the daily loop can use it.
+// See the token-split note in core/types/session.ts.
+import type { PracticeIdentity } from '@/core/types/practice-identity';
 
 interface UseFlowSessionResumptionOptions<TScreenName extends string> {
-  /** Flow type for session storage */
-  flowType: FlowType;
+  /** Practice surface this session belongs to (drives the storage key). */
+  flowType: PracticeIdentity;
   /** Ordered list of screen names in the flow */
   screenOrder: readonly TScreenName[];
   /** Log prefix for debugging */

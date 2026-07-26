@@ -18,12 +18,14 @@
 
 import * as SecureStore from 'expo-secure-store';
 import {
-  FlowType,
   SessionData,
   SessionMetadata,
   SESSION_STORAGE_KEYS,
-  SESSION_TTL_MS,
+  computeSessionExpiry,
 } from '@/core/types/session';
+// FEAT-298 slice 3b: sessions are keyed by PRACTICE IDENTITY ('daily-loop'), not by the
+// persisted record type ('daily'). See the token-split note in core/types/session.ts.
+import type { PracticeIdentity } from '@/core/types/practice-identity';
 import EncryptionService from '../security/EncryptionService';
 
 /**
@@ -38,7 +40,7 @@ export class SessionStorageService {
    * @param flowState - Optional flow-specific state to preserve
    */
   static async saveSession(
-    flowType: FlowType,
+    flowType: PracticeIdentity,
     currentScreen: string,
     flowState?: Record<string, any>
   ): Promise<void> {
@@ -50,7 +52,7 @@ export class SessionStorageService {
         lastSavedAt: now,
         currentScreen,
         completed: false,
-        expiresAt: now + SESSION_TTL_MS,
+        expiresAt: computeSessionExpiry(flowType, now),
         flowState,
       };
 
@@ -81,7 +83,7 @@ export class SessionStorageService {
    * @param flowType - Type of flow to load session for
    * @returns Session data if valid and resumable, null otherwise
    */
-  static async loadSession(flowType: FlowType): Promise<SessionData | null> {
+  static async loadSession(flowType: PracticeIdentity): Promise<SessionData | null> {
     try {
       const key = this.getStorageKey(flowType);
       const encryptedJson = await SecureStore.getItemAsync(key);
@@ -134,7 +136,7 @@ export class SessionStorageService {
    *
    * @param flowType - Type of flow to clear session for
    */
-  static async clearSession(flowType: FlowType): Promise<void> {
+  static async clearSession(flowType: PracticeIdentity): Promise<void> {
     try {
       const key = this.getStorageKey(flowType);
       await SecureStore.deleteItemAsync(key);
@@ -151,7 +153,7 @@ export class SessionStorageService {
    *
    * @param flowType - Type of flow to mark as completed
    */
-  static async markSessionCompleted(flowType: FlowType): Promise<void> {
+  static async markSessionCompleted(flowType: PracticeIdentity): Promise<void> {
     try {
       const sessionData = await this.loadSession(flowType);
       if (sessionData) {
@@ -185,7 +187,7 @@ export class SessionStorageService {
    * @param flowType - Type of flow to get metadata for
    * @returns Session metadata if exists and valid, null otherwise
    */
-  static async getSessionMetadata(flowType: FlowType): Promise<SessionMetadata | null> {
+  static async getSessionMetadata(flowType: PracticeIdentity): Promise<SessionMetadata | null> {
     const sessionData = await this.loadSession(flowType);
     if (!sessionData) {
       return null;
@@ -201,7 +203,7 @@ export class SessionStorageService {
    * @param flowType - Type of flow
    * @returns Storage key for SecureStore
    */
-  private static getStorageKey(flowType: FlowType): string {
+  private static getStorageKey(flowType: PracticeIdentity): string {
     switch (flowType) {
       case 'morning':
         return SESSION_STORAGE_KEYS.MORNING;
@@ -209,6 +211,8 @@ export class SessionStorageService {
         return SESSION_STORAGE_KEYS.MIDDAY;
       case 'evening':
         return SESSION_STORAGE_KEYS.EVENING;
+      case 'daily-loop':
+        return SESSION_STORAGE_KEYS.DAILY_LOOP;
     }
   }
 

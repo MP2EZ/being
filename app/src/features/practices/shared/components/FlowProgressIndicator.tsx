@@ -17,15 +17,18 @@ import { themeKeyFor } from '@/core/types/practice-identity';
 
 // FEAT-298 slice 1: re-exported from the canonical declaration, not re-declared.
 export type { FlowType } from '@/core/types/practice-identity';
-import type { FlowType } from '@/core/types/practice-identity';
+// FEAT-298 slice 3b: accepts any practice identity so the daily loop can pass its OWN
+// identity instead of claiming to be midday. The palette is unchanged (themeKeyFor maps
+// 'daily-loop' to midday) — what changes is that the prop now tells the truth.
+import type { PracticeIdentity } from '@/core/types/practice-identity';
 
 interface FlowProgressIndicatorProps {
   /** Current step number (1-indexed) */
   currentStep: number;
   /** Total number of steps in the flow */
   totalSteps: number;
-  /** Flow type for theme coloring */
-  flowType: FlowType;
+  /** Practice identity for theme colouring */
+  flowType: PracticeIdentity;
 }
 
 /**

@@ -31,7 +31,9 @@ import {
   ScrollView,
 } from 'react-native';
 import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
-import { FlowType, SessionMetadata } from '@/core/types/session';
+import { SessionMetadata } from '@/core/types/session';
+import { themeKeyFor } from '@/core/types/practice-identity';
+import type { PracticeIdentity } from '@/core/types/practice-identity';
 
 interface ResumeSessionModalProps {
   visible: boolean;
@@ -45,15 +47,24 @@ interface ResumeSessionModalProps {
  * Philosopher validation: Use "Earlier today" instead of "2 hours ago"
  */
 const formatTimeElapsed = (startedAt: number): string => {
-  const elapsed = Date.now() - startedAt;
-  const hours = Math.floor(elapsed / (1000 * 60 * 60));
-  const days = Math.floor(hours / 24);
+  const now = new Date();
+  const started = new Date(startedAt);
+  const hours = Math.floor((now.getTime() - startedAt) / (1000 * 60 * 60));
 
-  if (days > 0) {
+  // FEAT-298 slice 3b: compare CALENDAR DAYS, not elapsed hours. The old version returned
+  // 'earlier today' for anything under 12h, so a 22:00 -> 08:00 resume claimed "today" for
+  // work done yesterday. Cosmetic for the legacy flows; materially false for a day-keyed
+  // daily ritual, whose records are stamped with the local calendar date.
+  const startedOnADifferentDay =
+    started.getFullYear() !== now.getFullYear() ||
+    started.getMonth() !== now.getMonth() ||
+    started.getDate() !== now.getDate();
+
+  if (hours >= 24) {
     return 'earlier this week';
   }
-  if (hours > 12) {
-    return 'earlier today';
+  if (startedOnADifferentDay) {
+    return 'yesterday';
   }
   if (hours > 4) {
     return 'a few hours ago';
@@ -66,6 +77,18 @@ const formatTimeElapsed = (startedAt: number): string => {
  */
 const getFriendlyScreenName = (screenName: string): string => {
   const screenNames: Record<string, string> = {
+    // Daily loop (FEAT-291 / FEAT-298). Canonical principle names verbatim — these are a
+    // philosopher invariant fixed across every mode. Without them the badge would render
+    // the raw camelCase route key ("AwarePresence") to the user.
+    AwarePresence: 'Aware Presence',
+    RadicalAcceptance: 'Radical Acceptance',
+    SphereSovereignty: 'Sphere Sovereignty',
+    VirtuousResponse: 'Virtuous Response',
+    InterconnectedLiving: 'Interconnected Living',
+    // Completed sessions are not resumable, so this should be unreachable — mapped so a
+    // bug can never surface a route key to the user.
+    DailyLoopComplete: 'Closing',
+
     // Morning
     Gratitude: 'Morning Gratitude',
     Intention: 'Intention Setting',
@@ -98,7 +121,7 @@ const getFriendlyScreenName = (screenName: string): string => {
 /**
  * Get flow-specific theme and display text
  */
-const getFlowInfo = (flowType: FlowType) => {
+const getFlowInfo = (flowType: PracticeIdentity) => {
   const flowInfo = {
     morning: {
       title: 'Morning Practice',
@@ -117,6 +140,18 @@ const getFlowInfo = (flowType: FlowType) => {
       practice: 'evening examination',
       emoji: '🌙',
       theme: colorSystem.themes.evening,
+    },
+    // FEAT-298 slice 3b. `practice` must be an act-noun that is NOT mode-specific: this
+    // function has no access to DailyLoopMode, so "preparation"/"examination" would be
+    // wrong two-thirds of the time. 🌿 keeps the calm register of 🌅 ☀️ 🌙 while carrying
+    // no time of day (the loop is time-agnostic in flat mode); 🔄/⏳/🎯 were rejected as
+    // redo / time-pressure / outcome cues. Theme goes through the slice-1 seam rather than
+    // hardcoding midday, so PracticeIdentity can widen without a design-system release.
+    'daily-loop': {
+      title: 'Daily Practice',
+      practice: 'daily practice',
+      emoji: '🌿',
+      theme: colorSystem.themes[themeKeyFor('daily-loop')],
     },
   };
 
@@ -191,7 +226,7 @@ export const ResumeSessionModal: React.FC<ResumeSessionModalProps> = ({
             {/* Stoic-validated message */}
             <View style={styles.messageSection}>
               <Text style={styles.message}>
-                Earlier today, you began your {flowInfo.practice}. Would you like to return to this practice, or begin fresh with full presence now?
+                You began your {flowInfo.practice}. Would you like to return to it, or begin fresh with full presence now?
               </Text>
               <Text style={styles.submessage}>
                 Either choice is an opportunity to practice virtue. What matters is not completing the session, but the quality of your intention and presence in this moment.

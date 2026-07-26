@@ -15,7 +15,7 @@
  *    the real Midday flow's saved session. A local accumulator sidesteps that entirely.
  *  - Themed as 'midday' (no ThemeKey/FlowType/CheckInType union change).
  */
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 import { View, Pressable, Text, StyleSheet } from 'react-native';
 import { colorSystem, spacing, typography } from '@/core/theme';
@@ -33,6 +33,9 @@ import DailyLoopStepScreen from './screens/DailyLoopStepScreen';
 import DailyLoopModeSelectScreen from './screens/DailyLoopModeSelectScreen';
 import DailyLoopDepthSelectScreen from './screens/DailyLoopDepthSelectScreen';
 import DailyLoopCompleteScreen from './screens/DailyLoopCompleteScreen';
+import { ResumeSessionModal } from '../shared/components/ResumeSessionModal';
+import { SessionStorageService } from '@/core/services/session/SessionStorageService';
+import type { SessionMetadata } from '@/core/types/session';
 
 interface DailyLoopNavigatorProps {
   mode?: DailyLoopMode | undefined;
@@ -75,6 +78,78 @@ const DailyLoopNavigator: React.FC<DailyLoopNavigatorProps> = ({
   const [startTime] = useState(() => Date.now());
   const [currentStep, setCurrentStep] = useState(1);
 
+  // ── Session resumption (FEAT-298 slice 3b) ──────────────────────────────────────────
+  // FEAT-291 skipped resumption because the shared hook keys sessions by CheckInType and
+  // the prototype borrowed 'midday', so it would have collided with the real Midday flow's
+  // saved session. Slice 3b removes that collision: the loop has its own PracticeIdentity
+  // ('daily-loop') and its own SecureStore key, so it can persist properly.
+  //
+  // Storage goes through SessionStorageService — the same AES-256 path the legacy flows
+  // use. The typed beats are wellness data; there is no second path.
+  const [resumableSession, setResumableSession] = useState<SessionMetadata | null>(null);
+  const [showResumeModal, setShowResumeModal] = useState(false);
+  const [hasCheckedSession, setHasCheckedSession] = useState(false);
+  // Set when a resume is accepted: the beat to land on AFTER re-grounding.
+  const [regroundTarget, setRegroundTarget] = useState<DailyLoopStepKey | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const check = async () => {
+      try {
+        const session = await SessionStorageService.loadSession('daily-loop');
+        if (cancelled) return;
+        // A session parked on the first beat has nothing to resume TO — re-grounding would
+        // land the user exactly where they already are.
+        if (session && session.currentScreen !== 'AwarePresence') {
+          const { flowState, ...metadata } = session;
+          if (flowState?.['sessionData']) setSessionData(flowState['sessionData']);
+          if (flowState?.['mode']) setMode(flowState['mode']);
+          if (flowState?.['depth']) setDepth(flowState['depth']);
+          setResumableSession(metadata);
+          setShowResumeModal(true);
+        }
+      } catch (error) {
+        // Resumption is a nice-to-have; never block entry to the practice.
+        console.error('[DailyLoop] Failed to check for resumable session:', error);
+      } finally {
+        if (!cancelled) setHasCheckedSession(true);
+      }
+    };
+    check();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const saveSession = useCallback(
+    (currentScreen: string, data: Partial<DailyLoopSessionData>, m: DailyLoopMode | null, d: DailyLoopDepth | null) => {
+      void SessionStorageService.saveSession('daily-loop', currentScreen, {
+        sessionData: data,
+        mode: m,
+        depth: d,
+      });
+    },
+    []
+  );
+
+  const handleResumeSession = useCallback(() => {
+    // MUST re-ground before the resumed beat. Aware Presence is "the ground the other four
+    // beats stand on", and ground established hours ago has expired — dropping the user
+    // straight into beat 4 stands the arc on nothing. We replay the BREATH only, never a
+    // re-capture of beat 1's answer, and never framed as a penalty or a re-do. It is the
+    // practice, not a toll.
+    const target = resumableSession?.currentScreen as DailyLoopStepKey | undefined;
+    if (target) setRegroundTarget(target);
+    setShowResumeModal(false);
+  }, [resumableSession]);
+
+  const handleBeginFresh = useCallback(async () => {
+    await SessionStorageService.clearSession('daily-loop');
+    setSessionData({});
+    setRegroundTarget(null);
+    setShowResumeModal(false);
+  }, []);
+
   const closeButton = (
     <Pressable
       onPress={onExit}
@@ -87,6 +162,12 @@ const DailyLoopNavigator: React.FC<DailyLoopNavigatorProps> = ({
       <Text style={styles.closeButtonText}>✕</Text>
     </Pressable>
   );
+
+  // Wait for the session check before rendering anything. Without this the depth picker
+  // paints for a frame and is then replaced by the resume modal — and worse, a resumed
+  // session's restored depth/mode would arrive after the user had already been offered
+  // the choice. Nothing is shown for one async tick; the practice has not started yet.
+  if (!hasCheckedSession) return <View style={styles.pickerContainer} />;
 
   // Depth picker (FEAT-301) — shown FIRST, only when no depth route param was passed.
   // Two equal, always-available choices; the chosen depth lives in local state and is
@@ -137,7 +218,7 @@ const DailyLoopNavigator: React.FC<DailyLoopNavigatorProps> = ({
       <View style={styles.headerContainer}>
         <Text style={styles.headerTitle}>Daily Practice</Text>
         {showProgress && (
-          <FlowProgressIndicator currentStep={currentStep} totalSteps={totalSteps} flowType="midday" />
+          <FlowProgressIndicator currentStep={currentStep} totalSteps={totalSteps} flowType="daily-loop" />
         )}
       </View>
     ),
@@ -154,8 +235,18 @@ const DailyLoopNavigator: React.FC<DailyLoopNavigatorProps> = ({
       onBack={() => navigation.goBack()}
       previousAnswer={prevResponse(stepKey)}
       onSave={(data: DailyLoopStepData) => {
-        setSessionData((prev) => ({ ...prev, [STEP_FIELD[stepKey]]: data }));
-        const next = screenOrder[index + 1] as LoopRoute;
+        const updated = { ...sessionData, [STEP_FIELD[stepKey]]: data };
+        setSessionData(updated);
+
+        // After re-grounding on Aware Presence, jump to the beat the user left off at
+        // rather than walking forward from beat 2.
+        const next =
+          stepKey === 'AwarePresence' && regroundTarget
+            ? (regroundTarget as LoopRoute)
+            : (screenOrder[index + 1] as LoopRoute);
+        if (stepKey === 'AwarePresence' && regroundTarget) setRegroundTarget(null);
+
+        saveSession(String(next), updated, mode, depth);
         navigation.navigate(next);
       }}
     />
@@ -175,12 +266,20 @@ const DailyLoopNavigator: React.FC<DailyLoopNavigatorProps> = ({
           timeSpentSeconds: Math.round((Date.now() - startTime) / 1000),
           flowVersion: 'feat-291-daily-loop-v1',
         };
+        void SessionStorageService.clearSession('daily-loop');
         onComplete(finalSessionData);
       }}
     />
   );
 
   return (
+    <>
+    <ResumeSessionModal
+      visible={showResumeModal}
+      session={resumableSession}
+      onResume={handleResumeSession}
+      onBeginFresh={handleBeginFresh}
+    />
     <Stack.Navigator
       initialRouteName="AwarePresence"
       screenOptions={{
@@ -215,6 +314,7 @@ const DailyLoopNavigator: React.FC<DailyLoopNavigatorProps> = ({
         {CompleteScreen}
       </Stack.Screen>
     </Stack.Navigator>
+    </>
   );
 };
 
