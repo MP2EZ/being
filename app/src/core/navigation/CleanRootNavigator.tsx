@@ -20,6 +20,7 @@ import MorningFlowNavigator from '@/features/practices/morning/MorningFlowNaviga
 import MiddayFlowNavigator from '@/features/practices/midday/MiddayFlowNavigator';
 import EveningFlowNavigator from '@/features/practices/evening/EveningFlowNavigator';
 import { DailyLoopNavigator } from '@/features/practices/dailyloop';
+import { VoiceReflectionScreen } from '@/features/journal/screens/VoiceReflectionScreen';
 import CrisisResourcesScreen from '@/features/crisis/screens/CrisisResourcesScreen';
 import RootCrisisButton from '@/features/crisis/components/RootCrisisButton';
 import PurchaseOptionsScreen from '@/core/components/subscription/PurchaseOptionsScreen';
@@ -56,6 +57,9 @@ export type RootStackParamList = {
   // FEAT-291: single-loop daily-practice prototype (build-time flag `daily_loop`).
   // `mode` optional — when absent the loop shows its in-flow mode picker.
   DailyLoop: { mode?: DailyLoopMode; depth?: DailyLoopDepth } | undefined;
+  // FEAT-283 Slice A: spoken reflection capture, reached from the
+  // `voice_journal`-flag-gated Profile card.
+  VoiceReflection: undefined;
   ModuleDetail: { moduleId: ModuleId };
   ClassicalLibrary: { principle?: ModuleId; author?: PassageAuthor } | undefined;
   PassageReader: { passageId: string };
@@ -515,6 +519,17 @@ const CleanRootNavigator: React.FC = () => {
                 recordPrincipleEngagement={recordPrincipleEngagement}
               />
             )}
+          </Stack.Screen>
+
+          {/* FEAT-283 Slice A: spoken reflection capture. Reached only from the
+              `voice_journal`-flag-gated Profile card. Deliberately NOT added to
+              RootCrisisButton IMMERSIVE_ROUTES — crisis text may be on screen
+              here, so the root crisis affordance must stay reachable. */}
+          <Stack.Screen
+            name="VoiceReflection"
+            options={{ headerShown: true, title: 'Reflections' }}
+          >
+            {() => <VoiceReflectionScreen />}
           </Stack.Screen>
 
           {/* FEAT-291: Daily Loop prototype — reached only from the Home

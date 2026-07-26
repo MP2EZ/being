@@ -74,6 +74,18 @@ describe('RootCrisisButton (MAINT-290 single root mount)', () => {
     expect(receivedProps).toHaveLength(0);
   });
 
+  it('stays reachable in standard mode on VoiceReflection (FEAT-283)', () => {
+    // The voice journal review surface can have crisis text on screen, so the
+    // always-available affordance matters most there. Suppressing it, or
+    // fading it to immersive, would be a safety regression — this pins that
+    // adding the route to SUPPRESSED_ROUTES or IMMERSIVE_ROUTES fails a test
+    // rather than silently shipping. Also pinned end-to-end by
+    // .maestro/journal-crisis-scan.yaml.
+    render(<RootCrisisButton routeName="VoiceReflection" />);
+    expect(receivedProps[0]?.mode).toBe('standard');
+    expect(receivedProps[0]?.testID).toBe(ROOT_CRISIS_BUTTON_TEST_ID);
+  });
+
   it.each(IMMERSIVE)('uses immersive mode on practice route %s', (route) => {
     render(<RootCrisisButton routeName={route} />);
     expect(receivedProps[0]?.mode).toBe('immersive');

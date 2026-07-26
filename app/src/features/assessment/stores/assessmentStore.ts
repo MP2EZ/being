@@ -50,6 +50,7 @@ import {
 // DEBUG-229 / MAINT-226 Decision E: pure detectCrisis is the single source of
 // truth for crisis thresholds + trigger taxonomy; the store delegates to it.
 import { detectCrisis as detectCrisisPure } from '@/features/crisis/types/safety';
+import { showCrisisAlert } from '@/features/crisis/services/crisisAlert';
 import { validateSingleResponse } from '../types/schemas';
 
 // Clinical scoring algorithms (validated for 100% accuracy)
@@ -355,29 +356,11 @@ class CrisisDetectionService {
 
   static async triggerEmergencyResponse(detection: CrisisDetection): Promise<void> {
     try {
-      // Immediate crisis intervention
-      Alert.alert(
-        '🚨 Crisis Support Available',
-        'You\'re not alone. Crisis support is available 24/7.',
-        [
-          {
-            text: 'Call 988 (Crisis Lifeline)',
-            onPress: () => Linking.openURL('tel:988'),
-            style: 'default'
-          },
-          {
-            text: 'Text 741741 (Crisis Text)',
-            onPress: () => Linking.openURL('sms:741741'),
-            style: 'default'
-          },
-          {
-            text: 'Emergency 911',
-            onPress: () => Linking.openURL('tel:911'),
-            style: 'destructive'
-          }
-        ],
-        { cancelable: false }
-      );
+      // Immediate crisis intervention. Copy lives in the crisis feature
+      // (FEAT-283) because voice journal surfaces the same alert — one
+      // implementation, so the two can never drift in wording, button order,
+      // or cancelability. Behaviour here is unchanged.
+      showCrisisAlert();
 
       // Log crisis intervention for clinical records
       await this.logCrisisIntervention(detection);
