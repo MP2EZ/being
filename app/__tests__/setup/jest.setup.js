@@ -336,6 +336,11 @@ jest.mock('react-native', () => {
       setAccessibilityFocus: jest.fn(),
     },
 
+    // FEAT-285: needed to resolve a ref into a native tag for
+    // AccessibilityInfo.setAccessibilityFocus. Absent from this mock until now,
+    // so any component moving screen-reader focus threw at render time.
+    findNodeHandle: jest.fn(() => 1),
+
     // UIManager — minimal mock so getViewManagerConfig() returns an object
     // instead of undefined (needed by @react-navigation/elements MaskedView).
     UIManager: {
@@ -398,10 +403,25 @@ jest.mock('react-native', () => {
 });
 
 // Mock Expo modules
+// FEAT-285 widened this from `impactAsync` + `ImpactFeedbackStyle.Heavy` to the
+// full semantic surface. The old partial mock left `selectionAsync`,
+// `notificationAsync` and every enum member except Heavy as `undefined`, so any
+// suite touching a real cue would have failed with a confusing "not a function"
+// rather than a meaningful assertion.
 jest.mock('expo-haptics', () => ({
   impactAsync: jest.fn(() => Promise.resolve()),
+  selectionAsync: jest.fn(() => Promise.resolve()),
+  notificationAsync: jest.fn(() => Promise.resolve()),
+  performAndroidHapticsAsync: jest.fn(() => Promise.resolve()),
   ImpactFeedbackStyle: {
+    Light: 'light',
+    Medium: 'medium',
     Heavy: 'heavy'
+  },
+  NotificationFeedbackType: {
+    Success: 'success',
+    Warning: 'warning',
+    Error: 'error'
   }
 }));
 

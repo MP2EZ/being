@@ -30,6 +30,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useSettingsStore } from '@/core/stores/settingsStore';
 import { useAnalytics } from '@/core/analytics';
 import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
+import { isFeatureEnabled } from '@/core/services/featureFlags';
 
 // FEAT-212: rendered as a route on ProfileStackNavigator; the native stack header
 // supplies the back chevron (SubMenuHeader's ✕ removed).
@@ -52,7 +53,7 @@ const AppSettingsScreen: React.FC = () => {
   }, []);
 
   const handleToggleSetting = async (
-    category: 'notifications' | 'accessibility',
+    category: 'notifications' | 'accessibility' | 'practices',
     key: string,
     value: boolean | string
   ) => {
@@ -62,6 +63,8 @@ const AppSettingsScreen: React.FC = () => {
         await settingsStore.updateNotificationSettings({ [key]: value });
       } else if (category === 'accessibility') {
         await settingsStore.updateAccessibilitySettings({ [key]: value });
+      } else if (category === 'practices') {
+        await settingsStore.updatePracticeSettings({ [key]: value });
       }
     } catch (error) {
       Alert.alert(
@@ -157,6 +160,12 @@ const AppSettingsScreen: React.FC = () => {
                 trackColor={{ false: colorSystem.gray[300], true: colorSystem.base.midnightBlue }}
                 thumbColor={colorSystem.base.white}
                 disabled={isSaving}
+                accessible={true}
+                accessibilityRole="switch"
+                accessibilityLabel="Check-in reminders"
+                accessibilityHint="Daily reminders for morning, midday, and evening check-ins"
+                accessibilityState={{ checked: settings.notifications.checkInReminders, disabled: isSaving }}
+                testID="check-in-reminders-toggle"
               />
             </View>
           </View>
@@ -175,6 +184,12 @@ const AppSettingsScreen: React.FC = () => {
                 trackColor={{ false: colorSystem.gray[300], true: colorSystem.base.midnightBlue }}
                 thumbColor={colorSystem.base.white}
                 disabled={isSaving}
+                accessible={true}
+                accessibilityRole="switch"
+                accessibilityLabel="Breathing reminders"
+                accessibilityHint="Gentle prompts to practice mindful breathing throughout the day"
+                accessibilityState={{ checked: settings.notifications.breathingReminders, disabled: isSaving }}
+                testID="breathing-reminders-toggle"
               />
             </View>
           </View>
@@ -193,6 +208,12 @@ const AppSettingsScreen: React.FC = () => {
                 trackColor={{ false: colorSystem.gray[300], true: colorSystem.base.midnightBlue }}
                 thumbColor={colorSystem.base.white}
                 disabled={isSaving}
+                accessible={true}
+                accessibilityRole="switch"
+                accessibilityLabel="Values reflection prompts"
+                accessibilityHint="Periodic invitations to reflect on your therapeutic values"
+                accessibilityState={{ checked: settings.notifications.valuesReflectionPrompts, disabled: isSaving }}
+                testID="values-reflection-toggle"
               />
             </View>
           </View>
@@ -263,6 +284,12 @@ const AppSettingsScreen: React.FC = () => {
                 trackColor={{ false: colorSystem.gray[300], true: colorSystem.base.midnightBlue }}
                 thumbColor={colorSystem.base.white}
                 disabled={isSaving}
+                accessible={true}
+                accessibilityRole="switch"
+                accessibilityLabel="Reduce motion"
+                accessibilityHint="Minimize animations and transitions"
+                accessibilityState={{ checked: settings.accessibility.reducedMotion, disabled: isSaving }}
+                testID="reduced-motion-toggle"
               />
             </View>
           </View>
@@ -282,10 +309,105 @@ const AppSettingsScreen: React.FC = () => {
                 trackColor={{ false: colorSystem.gray[300], true: colorSystem.base.midnightBlue }}
                 thumbColor={colorSystem.base.white}
                 disabled={isSaving}
+                accessible={true}
+                accessibilityRole="switch"
+                accessibilityLabel="High contrast"
+                accessibilityHint="Increase color contrast for better visibility"
+                accessibilityState={{ checked: settings.accessibility.highContrast, disabled: isSaving }}
+                testID="high-contrast-toggle"
               />
             </View>
           </View>
         </View>
+
+        {/* Practices Section — FEAT-285 */}
+        {isFeatureEnabled('practice_haptics') && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Practices</Text>
+            <Text style={styles.sectionDescription}>
+              How timed practices guide you
+            </Text>
+
+            {/* Master haptics toggle */}
+            <View style={styles.settingCard}>
+              <View style={styles.settingRow}>
+                <View style={styles.settingInfo}>
+                  <Text style={styles.settingLabel}>Haptic Cues</Text>
+                  <Text style={styles.settingDescription}>
+                    Vibration marks phase changes during breathing, body scan, and
+                    timed practices
+                  </Text>
+                </View>
+                <Switch
+                  value={settings.practices.practiceHaptics}
+                  onValueChange={(value) => handleToggleSetting('practices', 'practiceHaptics', value)}
+                  trackColor={{ false: colorSystem.gray[300], true: colorSystem.base.midnightBlue }}
+                  thumbColor={colorSystem.base.white}
+                  disabled={isSaving}
+                  accessible={true}
+                  accessibilityRole="switch"
+                  accessibilityLabel="Haptic cues in practices"
+                  accessibilityHint="Vibration marks phase changes during breathing, body scan, and timed practices"
+                  accessibilityState={{ checked: settings.practices.practiceHaptics, disabled: isSaving }}
+                  testID="haptics-master-toggle"
+                />
+              </View>
+            </View>
+
+            {/*
+              Interval cues. Always rendered, disabled when the master is off —
+              never hidden. Removing a row from the swipe order on toggle is a
+              context change on input (WCAG 3.2.2), and worse, it makes the
+              sub-setting undiscoverable to a blind user, who cannot know a row
+              exists to be revealed.
+            */}
+            <View style={styles.settingCard}>
+              <View style={styles.settingRow}>
+                <View style={styles.settingInfo}>
+                  <Text
+                    style={[
+                      styles.settingLabel,
+                      !settings.practices.practiceHaptics && styles.settingLabelDisabled,
+                    ]}
+                  >
+                    Interval Cues
+                  </Text>
+                  <Text style={styles.settingDescription}>
+                    A single pulse each minute during reflection and meditation timers
+                  </Text>
+                </View>
+                <Switch
+                  value={settings.practices.practiceHapticsInterval === 'minute'}
+                  onValueChange={(value) =>
+                    handleToggleSetting(
+                      'practices',
+                      'practiceHapticsInterval',
+                      value ? 'minute' : 'none'
+                    )
+                  }
+                  trackColor={{ false: colorSystem.gray[300], true: colorSystem.base.midnightBlue }}
+                  thumbColor={colorSystem.base.white}
+                  disabled={!settings.practices.practiceHaptics || isSaving}
+                  accessible={true}
+                  accessibilityRole="switch"
+                  // The LABEL never changes — mutating it would break find-by-name
+                  // and rotor search. The HINT carries the reason it is dimmed.
+                  accessibilityLabel="Interval cues during timed practices"
+                  accessibilityHint={
+                    settings.practices.practiceHaptics
+                      ? 'Vibration marks each minute during reflection and meditation timers'
+                      : 'Available when haptic cues are on'
+                  }
+                  accessibilityState={{
+                    checked: settings.practices.practiceHapticsInterval === 'minute',
+                    disabled: !settings.practices.practiceHaptics || isSaving,
+                  }}
+                  testID="haptics-interval-toggle"
+                />
+              </View>
+            </View>
+          </View>
+        )}
 
         {/* App Information */}
         <View style={styles.section}>
@@ -410,6 +532,18 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.black,
     marginBottom: spacing[8],
+  },
+  /**
+   * Disabled label treatment (FEAT-285).
+   *
+   * Deliberately a colour swap, NOT `opacity`. Opacity on a container
+   * multiplies through to its text, which is exactly how contrast gets silently
+   * broken. gray[600] is the same token the description text already uses and
+   * holds AA against the card background; the disabled affordance itself is
+   * carried by the Switch's own track colour and the announced state.
+   */
+  settingLabelDisabled: {
+    color: colorSystem.gray[600],
   },
   settingDescription: {
     fontSize: typography.bodySmall.size,

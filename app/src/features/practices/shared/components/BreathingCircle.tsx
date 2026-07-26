@@ -327,7 +327,7 @@ const BreathingCircle: React.FC<BreathingCircleProps> = ({
         style={[styles.breathingCircle, animatedStyle]}
         accessibilityRole="image"
         accessibilityLabel="Breathing guide circle"
-        accessibilityHint="Follow the expanding and contracting circle to guide your breathing. Audio cues will announce when to breathe in and out."
+        accessibilityHint="Follow the expanding and contracting circle to guide your breathing. Each phase change is announced."
       >
         {/* Inner circle for visual depth */}
         <View style={styles.innerCircle} />
@@ -346,7 +346,7 @@ const BreathingCircle: React.FC<BreathingCircleProps> = ({
       <View style={styles.guidanceContainer}>
         <Text style={styles.guidanceText}>
           {reducedMotion
-            ? 'Audio cues will guide your breathing'
+            ? 'Each phase change is announced as it happens'
             : 'Follow the circle as it expands and contracts'
           }
         </Text>
