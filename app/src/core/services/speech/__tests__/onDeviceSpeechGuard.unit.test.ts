@@ -212,3 +212,36 @@ describe('AC #1 static pin — on-device flag is not configurable', () => {
     expect(source).toMatch(/getLocales\(\)/);
   });
 });
+
+/**
+ * AC #3's primary control, pinned statically.
+ *
+ * `expo-speech-recognition` only creates an output audio file when
+ * `recordingOptions.persist` is true; on iOS the file writer is never
+ * constructed otherwise and buffers go straight to the recognizer. So the
+ * strongest possible protection for raw audio is that the file is never
+ * written — a file that does not exist cannot leak, cannot be backed up, and
+ * cannot survive account erasure (which enumerates AsyncStorage keys and is
+ * blind to the cache directory entirely).
+ *
+ * `audioArtifactSweeper` is the backstop for what this cannot reach — Android's
+ * scratch PCM, and files stranded by a crash mid-recording.
+ */
+describe('AC #3 static pin — no audio file is ever persisted', () => {
+  const source = readFileSync(join(__dirname, '../onDeviceSpeechGuard.ts'), 'utf8');
+
+  it('never enables recording persistence', () => {
+    expect(source).not.toMatch(/persist:\s*true/);
+  });
+
+  it('does not pass recordingOptions at all', () => {
+    // Absence is the guarantee. Passing recordingOptions with persist:false
+    // would work today, but it puts the knob one edit away from being flipped
+    // — and on Android the mere presence of a recorder writes a scratch file.
+    expect(source).not.toMatch(/recordingOptions/);
+  });
+
+  it('does not name an output directory or filename', () => {
+    expect(source).not.toMatch(/outputDirectory|outputFileName/);
+  });
+});

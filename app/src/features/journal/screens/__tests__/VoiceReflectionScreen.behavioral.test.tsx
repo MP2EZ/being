@@ -15,6 +15,18 @@ jest.mock('@/core/services/speech/onDeviceSpeechGuard', () => ({
   startGuardedRecognition: jest.fn().mockResolvedValue({ started: true }),
 }));
 
+jest.mock('@/core/services/speech/audioArtifactSweeper', () => ({
+  sweepAllAudioArtifacts: jest.fn().mockReturnValue(0),
+}));
+
+jest.mock('expo-speech-recognition', () => ({
+  // Event subscription is a no-op here: the specs drive the transcript through
+  // the TextInput, which is the same path the Maestro flow uses and the only
+  // path available on a device that cannot speak.
+  useSpeechRecognitionEvent: jest.fn(),
+  ExpoSpeechRecognitionModule: { stop: jest.fn() },
+}));
+
 jest.mock('@/features/crisis/services/crisisAlert', () => ({
   showCrisisAlert: jest.fn(),
 }));
@@ -25,6 +37,7 @@ jest.mock('../../services/journalEntryStore', () => ({
 }));
 
 import { checkOnDeviceAvailability } from '@/core/services/speech/onDeviceSpeechGuard';
+import { sweepAllAudioArtifacts } from '@/core/services/speech/audioArtifactSweeper';
 import { showCrisisAlert } from '@/features/crisis/services/crisisAlert';
 import { saveEntry } from '../../services/journalEntryStore';
 import { VoiceReflectionScreen } from '../VoiceReflectionScreen';
@@ -32,6 +45,7 @@ import { VoiceReflectionScreen } from '../VoiceReflectionScreen';
 const mockSave = saveEntry as jest.Mock;
 const mockAlert = showCrisisAlert as jest.Mock;
 const mockAvailability = checkOnDeviceAvailability as jest.Mock;
+const mockSweep = sweepAllAudioArtifacts as jest.Mock;
 
 const CRISIS_TEXT = 'i want to die';
 const CLEAN_TEXT = 'today was hard but i made it through';
@@ -51,6 +65,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   mockSave.mockResolvedValue({ saved: true, entry: { id: 'x' } });
   mockAvailability.mockResolvedValue({ available: true });
+  mockSweep.mockReturnValue(0);
 });
 
 describe('transcript editing', () => {
@@ -141,6 +156,38 @@ describe('save failures', () => {
 
     // Support must not be contingent on a successful write.
     await waitFor(() => expect(utils.getByTestId('journal-crisis-banner')).toBeTruthy());
+  });
+});
+
+describe('raw audio lifecycle (AC #3)', () => {
+  it('sweeps audio artifacts when the recording is stopped', async () => {
+    await reachReview('anything');
+    expect(mockSweep).toHaveBeenCalled();
+  });
+
+  it('sweeps even when stopping the recognizer throws', async () => {
+    const { ExpoSpeechRecognitionModule } = jest.requireMock('expo-speech-recognition');
+    ExpoSpeechRecognitionModule.stop.mockImplementationOnce(() => {
+      throw new Error('not running');
+    });
+
+    // The sweep is in a `finally`: cleanup must not be contingent on a clean
+    // stop, which is exactly the case where a file is most likely stranded.
+    const utils = render(<VoiceReflectionScreen />);
+    fireEvent.press(utils.getByTestId('journal-record-button'));
+    await waitFor(() => utils.getByTestId('journal-stop-button'));
+    fireEvent.press(utils.getByTestId('journal-stop-button'));
+
+    await waitFor(() => expect(mockSweep).toHaveBeenCalled());
+  });
+
+  it('does not break the flow when the sweep itself throws', async () => {
+    mockSweep.mockImplementationOnce(() => {
+      throw new Error('cache locked');
+    });
+
+    const utils = await reachReview('a reflection');
+    expect(utils.getByTestId('journal-transcript-input')).toBeTruthy();
   });
 });
 

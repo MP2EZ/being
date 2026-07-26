@@ -59,12 +59,15 @@ import {
   semantic,
 } from '@/core/theme';
 
+import { useSpeechRecognitionEvent, ExpoSpeechRecognitionModule } from 'expo-speech-recognition';
+
 import { journalCrisisScanner } from '../services/journalCrisisScan';
 import { MAX_ENTRY_CHARS, saveEntry } from '../services/journalEntryStore';
 import {
   checkOnDeviceAvailability,
   startGuardedRecognition,
 } from '@/core/services/speech/onDeviceSpeechGuard';
+import { sweepAllAudioArtifacts } from '@/core/services/speech/audioArtifactSweeper';
 
 type Phase = 'idle' | 'recording' | 'review' | 'saved' | 'unavailable';
 
@@ -120,6 +123,28 @@ export function VoiceReflectionScreen(): React.ReactElement {
   }, []);
 
   /**
+   * Live transcription. The guard has already established that this is running
+   * on-device, so nothing here reaches the network.
+   */
+  useSpeechRecognitionEvent('result', (event) => {
+    const spoken = event.results?.[0]?.transcript ?? '';
+    if (spoken.length > 0) {
+      setTranscript(spoken);
+    }
+  });
+
+  useSpeechRecognitionEvent('error', () => {
+    // A failed transcription must not silently destroy the reflection with no
+    // explanation — the person spoke and has nothing to show for it.
+    try {
+      sweepAllAudioArtifacts();
+    } catch {
+      // Never surface cleanup failure to someone mid-reflection.
+    }
+    setPhase('review');
+  });
+
+  /**
    * Transcript finalize — scan point 1.
    * Fires even if the entry is later discarded.
    */
@@ -132,6 +157,31 @@ export function VoiceReflectionScreen(): React.ReactElement {
       setCrisisActive(true);
     }
   }, []);
+
+  /**
+   * Stop the recognizer and finalize.
+   *
+   * Audio cleanup runs in a `finally` rather than on the success path only:
+   * "discarded immediately post-transcription" has to hold when transcription
+   * FAILS too, which is exactly when a stranded file is most likely. The guard
+   * never asks the library to persist audio, so on iOS there is usually nothing
+   * to remove — this covers Android's scratch PCM (written even when persist is
+   * false) and anything a crash left behind.
+   */
+  const finishCapture = useCallback(() => {
+    try {
+      ExpoSpeechRecognitionModule.stop();
+    } catch {
+      // Already stopped, or never started — not actionable.
+    } finally {
+      try {
+        sweepAllAudioArtifacts();
+      } catch {
+        // Never surface cleanup failure to someone mid-reflection.
+      }
+    }
+    handleFinalize(transcript);
+  }, [handleFinalize, transcript]);
 
   /**
    * Save commit — scan point 2, over the exact string handed to encryption.
@@ -232,7 +282,7 @@ export function VoiceReflectionScreen(): React.ReactElement {
             testID="journal-stop-button"
             accessibilityRole="button"
             accessibilityLabel="Finish recording"
-            onPress={() => handleFinalize(transcript)}
+            onPress={finishCapture}
           >
             <Text style={styles.primaryButtonText}>Done</Text>
           </Pressable>
