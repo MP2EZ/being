@@ -13,6 +13,7 @@ import * as Linking from 'expo-linking';
 import DeepLinkValidationService from '@/core/services/security/DeepLinkValidationService';
 import { logSecurity, logError, LogCategory } from '@/core/services/logging';
 import type { RootStackParamList } from './CleanRootNavigator';
+import { isFeatureEnabled } from '@/core/services/featureFlags';
 
 /**
  * URL PREFIXES
@@ -25,6 +26,23 @@ const URL_PREFIXES = [
   'https://www.being.fyi',
   'https://app.being.fyi',
 ];
+
+/**
+ * FEAT-298 slice 4 — is this deep link gated off by a dark feature flag?
+ *
+ * The `DailyLoop` Stack.Screen is registered UNCONDITIONALLY (CleanRootNavigator), while
+ * the Home card that reaches it is `daily_loop`-gated and the flag ships dark in
+ * production. Adding `DailyLoop: 'daily'` to the linking config would therefore make the
+ * deep link a FLAG BYPASS: a production user on a dark build could reach a surface that
+ * build's QA never exercised. The URL is gated to match the flag.
+ *
+ * `/crisis` is never gated here under any condition — it is the 988 path.
+ */
+function isFlagGatedPath(path: string | null | undefined): boolean {
+  if (!path) return false;
+  const base = path.split('/').filter(Boolean)[0];
+  return base === 'daily' && !isFeatureEnabled('daily_loop');
+}
 
 /**
  * SECURE GET INITIAL URL
@@ -45,6 +63,13 @@ async function getSecureInitialURL(): Promise<string | null> {
       logSecurity('DeepLink: Initial URL blocked', 'high', {
         originalUrl: url.substring(0, 100),
         errors: validation.errors.map(e => e.code),
+      });
+      return null;
+    }
+
+    if (isFlagGatedPath(validation.metadata.path)) {
+      logSecurity('DeepLink: Initial URL dropped (feature flag off)', 'low', {
+        path: validation.metadata.path,
       });
       return null;
     }
@@ -92,6 +117,13 @@ function secureSubscribe(
       return;
     }
 
+    if (isFlagGatedPath(validation.metadata.path)) {
+      logSecurity('DeepLink: Runtime URL dropped (feature flag off)', 'low', {
+        path: validation.metadata.path,
+      });
+      return;
+    }
+
     logSecurity('DeepLink: Runtime URL validated', 'low', {
       path: validation.metadata.path,
       hasParams: Object.keys(validation.metadata.params).length > 0,
@@ -121,6 +153,13 @@ export const linkingConfig: LinkingOptions<RootStackParamList> = {
 
   // Screen configuration
   config: {
+    // FEAT-298 slice 4 — REQUIRED, and its absence was a real bug. Without it a cold-start
+    // deep link produces a root state of exactly [TargetRoute], so `navigation.goBack()`
+    // (DailyLoop's onExit/onComplete) is a no-op on an empty stack and the user is stranded
+    // in an immersive practice with gestureEnabled:false — no way out but force-quit. 988
+    // still works (the crisis overlay is a SIBLING of the navigator, so it is mounted
+    // regardless), but "cannot leave the default daily practice" is not shippable.
+    initialRouteName: 'Main',
     screens: {
       // Main navigation
       Main: '',
@@ -131,6 +170,11 @@ export const linkingConfig: LinkingOptions<RootStackParamList> = {
       MorningFlow: 'morning',
       MiddayFlow: 'midday',
       EveningFlow: 'evening',
+      // FEAT-298 slice 4. Route NAME ('DailyLoop') and path TOKEN ('daily') are separate
+      // concepts and must not be "harmonized" — the route name is pinned in three places
+      // (RootCrisisButton IMMERSIVE_ROUTES, the Stack.Screen, getActiveRootRouteName) and
+      // by a Maestro flow. Bare path: no mode/depth params — see ALLOWED_PARAMS.
+      DailyLoop: 'daily',
 
       // Features
       CrisisResources: 'crisis',
