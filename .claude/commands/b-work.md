@@ -104,6 +104,25 @@ id: [page id from Step 1.2]
 
 Returns page properties and content in Notion-flavored Markdown.
 
+**Then fetch the comments — this is not optional.** The body is the *authored* story; comments
+are the *current* state. `/b-close`, `/b-batch`, and founder decisions all record to comments,
+so a body section can be stale the moment a comment supersedes it.
+
+```
+mcp__notion__notion-get-comments
+page_id: [page id from Step 1.2]
+include_all_blocks: true
+```
+
+Read newest-last and let comments **override** the body on any conflict. Specifically:
+- A body section labelled BLOCKED / HARD BLOCKER is only blocking if **no later comment
+  resolves it**. Cross-check against the `Status` property: a body reading "blocked" while
+  `Status` is `Not started` / `In progress` means the blocker was lifted — the property is
+  the tell, and the resolving comment is the record.
+- Prerequisite items opened by a prior planning pass are often named **only** in a comment.
+- Never ask the user to re-decide something a comment already records. If a decision looks
+  open, confirm it is absent from the comments before raising it.
+
 ---
 
 ### Step 1.4: Incorporate Additional Context
