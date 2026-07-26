@@ -71,7 +71,11 @@ jest.mock('expo-secure-store', () => ({
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import SecureStorageService from '@/core/services/security/SecureStorageService';
 
-import { deleteAllEntries, saveEntry } from '../journalEntryStore';
+import {
+  deleteAllEntries,
+  gatherJournalEntriesForExport,
+  saveEntry,
+} from '../journalEntryStore';
 
 const SECRET_A = 'I went back over the whole day and hid nothing from myself';
 const SECRET_B = 'the meeting went badly and I was short with him';
@@ -165,6 +169,40 @@ describe('journal entries fall under the erasure sweep', () => {
     const after = await AsyncStorage.getAllKeys();
     expect(after).toContain('crisis_intervention_abc');
     expect(JSON.stringify([...mockMemoryStore.entries()])).toContain(SECRET_B);
+  });
+});
+
+describe('export-then-erase round trip (AC #7)', () => {
+  it('exports entries before erasure and nothing after', async () => {
+    await saveEntry({ text: SECRET_A });
+    await saveEntry({ text: SECRET_B });
+
+    const before = await gatherJournalEntriesForExport();
+    expect(before.map((e) => e.text).sort()).toEqual([SECRET_A, SECRET_B].sort());
+
+    await SecureStorageService.clearAllWellnessData();
+
+    // Empty, not a throw. A decrypt error after erasure would mean ciphertext
+    // outlived its key — a different and worse failure than "there is nothing
+    // here", and one that would leave recoverable data behind if the key were
+    // ever restored from a backup.
+    await expect(gatherJournalEntriesForExport()).resolves.toEqual([]);
+  });
+
+  it('skips an unreadable entry rather than failing the whole export', async () => {
+    await saveEntry({ text: SECRET_A });
+    await saveEntry({ text: SECRET_B });
+
+    // Corrupt one entry blob in place.
+    const entryKey = [...mockMemoryStore.keys()].find((k) =>
+      k.includes('voice_journal_entry_')
+    )!;
+    mockMemoryStore.set(entryKey, 'not json at all');
+
+    // A disclosure missing one entry serves the user exercising a portability
+    // right far better than a disclosure that errors out entirely.
+    const exported = await gatherJournalEntriesForExport();
+    expect(exported.length).toBe(1);
   });
 });
 

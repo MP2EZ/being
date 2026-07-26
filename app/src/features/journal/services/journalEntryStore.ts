@@ -174,6 +174,34 @@ export async function listEntryMetadata(): Promise<JournalEntryMeta[]> {
   return [...index].sort((a, b) => b.createdAt - a.createdAt);
 }
 
+/**
+ * Every entry, decrypted, for the data-portability export (AC #7).
+ *
+ * Walks the index and decrypts each entry rather than exposing a bulk reader,
+ * so the export sees exactly what the app stores and nothing more.
+ *
+ * A single unreadable entry is skipped rather than failing the whole export: a
+ * disclosure missing one entry is a far better outcome for the user exercising
+ * a portability right than a disclosure that errors out entirely.
+ */
+export async function gatherJournalEntriesForExport(): Promise<JournalEntry[]> {
+  const index = await listEntryMetadata();
+  const entries: JournalEntry[] = [];
+
+  for (const meta of index) {
+    try {
+      const entry = await getEntry(meta.id);
+      if (entry) {
+        entries.push(entry);
+      }
+    } catch {
+      // Skip and continue — see above.
+    }
+  }
+
+  return entries;
+}
+
 export async function deleteEntry(id: string): Promise<void> {
   await SecureStorageService.deleteWellnessBlob(entryKey(id));
   const index = await readIndex();
