@@ -619,6 +619,12 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 
 ### Step 5.1: Update Status to Testing
 
+**Only if the work item's Acceptance Criteria are fully met.** If this run completed an
+*increment* of a larger item (Effort L/XL), or hit a blocker that stops the remaining ACs,
+leave Status as `In progress` and say so explicitly in the Step 5.2 comment — including
+which ACs are served and which are not. Marking a partial run `Testing` misreports state to
+the next reader and invites a `/b-close` on unfinished work.
+
 ```
 mcp__notion__notion-update-page
 data: {
