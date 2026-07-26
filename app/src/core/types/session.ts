@@ -13,9 +13,13 @@
  */
 
 /**
- * Flow type for daily Stoic practices
+ * Flow type for daily Stoic practices.
+ *
+ * FEAT-298 slice 1: re-exported from the canonical declaration rather than re-declared.
+ * Session storage keys below are keyed by this union, so it stays narrow (no 'daily-loop').
  */
-export type FlowType = 'morning' | 'midday' | 'evening';
+export type { FlowType } from './practice-identity';
+import type { FlowType } from './practice-identity';
 
 /**
  * Screen names by flow (for friendly display in resume modal)

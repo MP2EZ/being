@@ -24,7 +24,9 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { SessionStorageService } from '@/core/services/session/SessionStorageService';
 import { SessionMetadata } from '@/core/types/session';
 
-export type FlowType = 'morning' | 'midday' | 'evening';
+// FEAT-298 slice 1: re-exported from the canonical declaration, not re-declared.
+export type { FlowType } from '@/core/types/practice-identity';
+import type { FlowType } from '@/core/types/practice-identity';
 
 interface UseFlowSessionResumptionOptions<TScreenName extends string> {
   /** Flow type for session storage */

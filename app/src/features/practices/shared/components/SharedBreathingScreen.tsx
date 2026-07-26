@@ -32,7 +32,9 @@ import { SkipLink, GuidanceCard } from './index';
 import { AccessibleButton } from '@/core/components/accessibility/AccessibleButton';
 import { spacing, typography, colorSystem } from '@/core/theme';
 
-export type FlowThemeType = 'morning' | 'midday' | 'evening';
+// FEAT-298 slice 1: alias of the canonical `FlowType`.
+export type { FlowType as FlowThemeType } from '@/core/types/practice-identity';
+import type { FlowType as FlowThemeType } from '@/core/types/practice-identity';
 
 export interface BreathingPattern {
   /** Inhale duration in milliseconds */

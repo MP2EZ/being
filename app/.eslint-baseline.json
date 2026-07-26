@@ -82,6 +82,7 @@
   "src/core/stores/__tests__/consentStore.test.ts": 1,
   "src/core/stores/__tests__/settingsStore.test.ts": 1,
   "src/core/stores/__tests__/subscriptionStore.test.ts": 1,
+  "src/core/types/__tests__/practice-identity.test.ts": 1,
   "src/core/stores/consentStore.ts": 5,
   "src/core/stores/subscriptionStore.ts": 2,
   "src/core/theme/colors.ts": 1,

@@ -15,8 +15,12 @@
 import React from 'react';
 import { TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { colorSystem, spacing, typography, getTheme } from '@/core/theme';
+import { themeKeyFor } from '@/core/types/practice-identity';
 
-export type FlowTheme = 'morning' | 'midday' | 'evening';
+// FEAT-298 slice 1: alias of the canonical `FlowType`; barrel re-export at
+// shared/components/index.ts:25 keeps resolving through here unchanged.
+export type { FlowType as FlowTheme } from '@/core/types/practice-identity';
+import type { FlowType as FlowTheme } from '@/core/types/practice-identity';
 
 interface FlowBackButtonProps {
   /** Press handler (typically navigation.goBack) */
@@ -35,7 +39,7 @@ export const FlowBackButton: React.FC<FlowBackButtonProps> = ({
   theme = 'morning',
   testID = 'back-button',
 }) => {
-  const themeColors = getTheme(theme);
+  const themeColors = getTheme(themeKeyFor(theme));
 
   return (
     <TouchableOpacity

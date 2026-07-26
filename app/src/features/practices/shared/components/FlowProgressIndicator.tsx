@@ -13,8 +13,11 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { colorSystem, spacing, borderRadius, typography, getTheme } from '@/core/theme';
+import { themeKeyFor } from '@/core/types/practice-identity';
 
-export type FlowType = 'morning' | 'midday' | 'evening';
+// FEAT-298 slice 1: re-exported from the canonical declaration, not re-declared.
+export type { FlowType } from '@/core/types/practice-identity';
+import type { FlowType } from '@/core/types/practice-identity';
 
 interface FlowProgressIndicatorProps {
   /** Current step number (1-indexed) */
@@ -35,7 +38,7 @@ export const FlowProgressIndicator: React.FC<FlowProgressIndicatorProps> = ({
   flowType,
 }) => {
   const progress = (currentStep / totalSteps) * 100;
-  const themeColors = getTheme(flowType);
+  const themeColors = getTheme(themeKeyFor(flowType));
 
   return (
     <View style={styles.progressContainer}>

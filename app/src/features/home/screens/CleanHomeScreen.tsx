@@ -17,15 +17,17 @@ import AssessmentStatusBadge from '@/features/assessment/components/AssessmentSt
 import { IntroOverlay } from '../components/IntroOverlay';
 import { useAnalytics } from '@/core/analytics';
 import { isFeatureEnabled } from '@/core/services/featureFlags';
+import { themeKeyFor } from '@/core/types/practice-identity';
+import type { PracticeIdentity } from '@/core/types/practice-identity';
 
 // 30 minutes in milliseconds
 const INTRO_THRESHOLD_MS = 30 * 60 * 1000;
 
 type CleanHomeScreenNavigationProp = StackNavigationProp<RootStackParamList>;
-// FEAT-291: 'daily-loop' is the local card type for the flag-gated Daily Practice
-// (Beta) entry. It is themed as 'midday' (getTheme below) — NOT added to the closed
-// ThemeKey/CheckInType unions (the FlowType unification is the deferred step-5 migration).
-type FlowType = 'morning' | 'midday' | 'evening' | 'daily-loop';
+// FEAT-298 slice 1: this local 4-member union is now the canonical `PracticeIdentity`.
+// 'daily-loop' is the card type for the flag-gated Daily Practice (Beta) entry; its
+// palette comes from `themeKeyFor` rather than an inline ternary.
+type FlowType = PracticeIdentity;
 
 // PERF-04: hoisted out of CleanHomeScreen's render — defining components inside
 // a function component creates a NEW component type on every render, forcing
@@ -49,8 +51,7 @@ const CheckInCard: React.FC<CheckInCardProps> = ({
   isCompleted,
   onPress,
 }) => {
-  // FEAT-291: the daily-loop prototype card themes as midday (no ThemeKey union change).
-  const themeColors = getTheme(type === 'daily-loop' ? 'midday' : type);
+  const themeColors = getTheme(themeKeyFor(type));
   const handlePress = useCallback(() => onPress(type), [onPress, type]);
 
   return (
