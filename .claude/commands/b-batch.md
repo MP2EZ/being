@@ -420,9 +420,24 @@ because CI actually went red:
    (the status exists — it surfaces the item on the board), add a Notion comment
    summarizing the failure + PR link, leave the PR open, continue to the next green.
 
+**Repo-wide blocker check — run this BEFORE parking.** Re-run the failing gate's own
+command against a **clean `development` worktree**. If it fails there too, the blocker is
+not this item's: file it as its own INFRA item, park the current item with `blocked_by` set
+to it, and **halt the batch** rather than continuing to the next item — every remaining item
+would hit the same wall and park identically, each burning a full implement-plus-CI cycle to
+rediscover it. Report the blocker as the headline finding, not as a footnote under a parked
+item. Observed 2026-07-26: `Security + compliance` began failing repo-wide mid-batch
+(→ INFRA-312) with no repo change; INFRA-306's PR was complete and 8/9 green, and following
+step 3 literally would have parked the entire queue one expensive cycle at a time.
+
+Two cheap habits that came out of the same run: a gate reporting an unclassified error
+(`audit-ci`'s bare `code undefined:`) is **not** a finding — re-run the underlying command
+directly to get the real message before theorising; and confirm a fix hypothesis is even
+testable locally before pushing it, since a CI-only fix costs a full round-trip per attempt.
+
 Tell the two apart by the error text: the stale-check refusal names `Required status
 check`/branch-not-up-to-date at **merge** time; CI-red surfaces as a failed check in
-`gh pr checks`. Route (a) → re-invoke; route (b) → flake/RCA/park.
+`gh pr checks`. Route (a) → re-invoke; route (b) → flake / repo-wide check / RCA / park.
 
 ---
 
