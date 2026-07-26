@@ -23,15 +23,11 @@ name: "DailyLoop deep link (FEAT-298): crisis overlay + escape from a cold-start
 #       (the overlay is mounted), so it is not a zero-988 screen — but "cannot leave the
 #       default daily practice" is not shippable. The final step catches that regression.
 #
-# NOTE ON THE FLAG: the `DailyLoop` Stack.Screen is registered unconditionally while the
-# Home CARD is `daily_loop`-gated, so the deep link is gated in `linking.ts` to match the
-# flag (otherwise it would be a flag bypass into a surface QA never exercised on a dark
-# build). The e2e-sim EAS profile sets `daily_loop:true`, so the link resolves here.
-#
-# NOTE ON PARAMS: `being://daily` is deliberately bare. `mode`/`depth` are NOT allow-listed
-# — depth is non-sticky by design (FEAT-301) and an external caller must not get to choose
-# the depth of someone's practice. The loop shows its own pickers instead, which is why the
-# depth picker is the expected landing surface below.
+# NOTE: FEAT-298 slice 5 retired the `daily_loop` flag, so both the Home card and this
+# deep link are unconditional. `being://daily` is deliberately BARE — `mode`/`depth` are
+# not allow-listed, because depth is non-sticky by design (FEAT-301) and the tense is
+# inferred from the clock. An external caller must not get to choose either. The loop
+# therefore shows its own depth picker on entry, which is the expected landing surface.
 
 - launchApp:
     clearState: true

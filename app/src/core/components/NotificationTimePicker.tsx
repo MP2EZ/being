@@ -38,8 +38,9 @@ interface NotificationTimePickerProps {
   /** Current time value as Date object */
   value: Date;
 
-  /** Notification period for contextual labeling */
-  period: 'morning' | 'midday' | 'evening';
+  /** Notification period for contextual labeling. FEAT-298 slice 5 added 'daily' — the
+   *  single ritual — alongside the legacy periods, which retire with the flows in slice 6. */
+  period: 'morning' | 'midday' | 'evening' | 'daily';
 
   /** Callback when user confirms time selection */
   onConfirm: (time: Date) => void;

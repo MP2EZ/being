@@ -22,8 +22,8 @@ name: "DailyLoop quick-depth (FEAT-301): crisis affordance survives the shorter 
 #     simulator-attended /b-close (INFRA-171 Phase 2.5). Validate/adjust selectors +
 #     timing on the booted e2e-sim build during that attended session. Known prereqs:
 #       • Build with `npm run e2e:safety:build` (no-dev-client EAS e2e-sim, INFRA-216).
-#       • The build-time `daily_loop` flag MUST be ON for the Daily Practice home card to
-#         render (CleanHomeScreen: isFeatureEnabled('daily_loop')). If the e2e-sim build
+#       • FEAT-298 slice 5 retired the `daily_loop` flag — the Daily Practice card is now
+#         the unconditional default on Home. If the e2e-sim build
 #         ships it dark, enable it in the e2e env before this flow can reach DailyLoop.
 #       • Maestro `text:` is a full-match regex and RN merges a11y nodes — the wildcarded
 #         text selectors below may need widening (see docs/testing/e2e-maestro.md).

@@ -441,12 +441,9 @@ export const CLOSING = {
   notePlaceholder: "E.g., 'Focus on what's mine; act with courage.'",
 } as const;
 
-/** Human-readable mode labels for the mode picker. */
-export const MODE_LABELS: Record<DailyLoopMode, { label: string; blurb: string }> = {
-  flat: { label: 'Flat', blurb: 'Time-agnostic — the five principles, plainly.' },
-  morning: { label: 'Morning', blurb: 'Prospective — intention for the day ahead.' },
-  evening: { label: 'Evening', blurb: 'Retrospective — reflection on the day behind.' },
-};
+// FEAT-298 slice 5: MODE_LABELS removed with DailyLoopModeSelectScreen. The tense is now
+// inferred from the clock and is never surfaced to the user, so there is nothing to label.
+// DailyLoopMode itself survives as an internal, time-derived value.
 
 /**
  * FEAT-301 — depth-picker copy. Two EQUAL, always-available choices. Symmetric,

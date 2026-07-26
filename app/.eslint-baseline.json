@@ -89,6 +89,7 @@
   "src/core/theme/colors.ts": 1,
   "src/core/types/__tests__/practice-identity.test.ts": 1,
   "src/core/types/__tests__/sessionExpiry.test.ts": 1,
+  "src/core/utils/__tests__/timeOfDay.test.ts": 1,
   "src/core/utils/errorSanitization.ts": 1,
   "src/features/assessment/__tests__/scoring.quick.test.ts": 1,
   "src/features/assessment/__tests__/thresholds.quick.test.ts": 1,

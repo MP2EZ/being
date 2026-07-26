@@ -60,8 +60,9 @@ export type RootStackParamList = {
   MorningFlow: undefined;
   MiddayFlow: undefined;
   EveningFlow: undefined;
-  // FEAT-291: single-loop daily-practice prototype (build-time flag `daily_loop`).
-  // `mode` optional — when absent the loop shows its in-flow mode picker.
+  // The single daily ritual (FEAT-298 slice 5: the default practice; no longer flagged).
+  // `mode` is a test/tooling param only — the tense is inferred from the clock, and there
+  // is no mode picker.
   DailyLoop: { mode?: DailyLoopMode; depth?: DailyLoopDepth } | undefined;
   ModuleDetail: { moduleId: ModuleId };
   ClassicalLibrary: { principle?: ModuleId; author?: PassageAuthor } | undefined;
@@ -587,7 +588,7 @@ const CleanRootNavigator: React.FC = () => {
           </Stack.Screen>
 
           {/* FEAT-291: Daily Loop prototype — reached only from the Home
-              `daily_loop`-flag-gated card. One nested navigator → inherits the single
+              Home's single Daily Practice card. One nested navigator → inherits the single
               root crisis overlay (DailyLoop is in RootCrisisButton IMMERSIVE_ROUTES). */}
           <Stack.Screen
             name="DailyLoop"

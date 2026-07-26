@@ -1,5 +1,5 @@
 /**
- * DailyLoopNavigator — FEAT-291 single-loop daily practice (build-time flag `daily_loop`).
+ * DailyLoopNavigator — the single daily practice (FEAT-298 slice 5: default, unflagged).
  *
  * The Five Principles in canonical order as ONE nested flow, cloned structurally from
  * the Midday navigator. Registered as a SINGLE root-stack modal screen (`DailyLoop`) in
@@ -8,8 +8,9 @@
  * IMMERSIVE_ROUTES). It therefore mounts NO crisis button of its own.
  *
  * Prototype specifics:
- *  - `mode` (flat / morning / evening) is chosen from a route param or an in-flow mode
- *    picker, and drives which tense copy each step renders (tenseMode config).
+ *  - `mode` (flat / morning / evening) is INFERRED FROM THE CLOCK (getDailyLoopTense) and
+ *    drives which tense copy each step renders. It is internal — never user-picked, never
+ *    displayed. The route param survives for tests/tooling only.
  *  - Session resumption is intentionally NOT used: it is keyed by CheckInType, and this
  *    prototype themes as 'midday' (no new CheckInType), so the hook would collide with
  *    the real Midday flow's saved session. A local accumulator sidesteps that entirely.
@@ -30,11 +31,11 @@ import type {
 } from '@/features/practices/types/flows';
 import { getStepKeysForDepth, type DailyLoopStepKey } from './config/tenseMode';
 import DailyLoopStepScreen from './screens/DailyLoopStepScreen';
-import DailyLoopModeSelectScreen from './screens/DailyLoopModeSelectScreen';
 import DailyLoopDepthSelectScreen from './screens/DailyLoopDepthSelectScreen';
 import DailyLoopCompleteScreen from './screens/DailyLoopCompleteScreen';
 import { ResumeSessionModal } from '../shared/components/ResumeSessionModal';
 import { SessionStorageService } from '@/core/services/session/SessionStorageService';
+import { getDailyLoopTense } from '@/core/utils/timeOfDay';
 import type { SessionMetadata } from '@/core/types/session';
 
 interface DailyLoopNavigatorProps {
@@ -73,7 +74,12 @@ const DailyLoopNavigator: React.FC<DailyLoopNavigatorProps> = ({
   onExit,
 }) => {
   const [depth, setDepth] = useState<DailyLoopDepth | null>(initialDepth ?? null);
-  const [mode, setMode] = useState<DailyLoopMode | null>(initialMode ?? null);
+  // FEAT-298 slice 5: the tense is INFERRED FROM THE CLOCK, never picked by the user.
+  // `initialMode` survives only as a route param for tests/tooling; there is no picker and
+  // no UI path that sets it. Resolved once per session so a session that straddles a
+  // boundary (e.g. begun 16:58) keeps the tense it opened in rather than switching
+  // mid-practice.
+  const [mode, setMode] = useState<DailyLoopMode>(initialMode ?? getDailyLoopTense());
   const [sessionData, setSessionData] = useState<Partial<DailyLoopSessionData>>({});
   const [startTime] = useState(() => Date.now());
   const [currentStep, setCurrentStep] = useState(1);
@@ -177,16 +183,6 @@ const DailyLoopNavigator: React.FC<DailyLoopNavigatorProps> = ({
       <View style={styles.pickerContainer}>
         <View style={styles.pickerHeader}>{closeButton}</View>
         <DailyLoopDepthSelectScreen onSelect={setDepth} />
-      </View>
-    );
-  }
-
-  // Mode picker (only when no mode was passed as a route param).
-  if (!mode) {
-    return (
-      <View style={styles.pickerContainer}>
-        <View style={styles.pickerHeader}>{closeButton}</View>
-        <DailyLoopModeSelectScreen onSelect={setMode} />
       </View>
     );
   }

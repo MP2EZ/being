@@ -83,8 +83,12 @@ type Screen = 'welcome' | 'stoicIntro' | 'notifications' | 'privacy' | 'celebrat
 type RetentionPeriod = '30_days' | '90_days' | '1_year' | '7_years' | 'indefinite';
 type DataMinimizationStatus = 'necessary' | 'optional' | 'excessive' | 'prohibited';
 
+// FEAT-298 slice 5: ONE reminder for ONE daily ritual. The three time-of-day periods are
+// retired with the three flows. (These values are still component-local and are neither
+// persisted nor scheduled — there is no reminder scheduling in the app; see AppSettings.
+// Collapsing them is about not PROMISING three reminders for one practice.)
 interface NotificationTime {
-  period: 'morning' | 'midday' | 'evening';
+  period: 'daily';
   time: string;
   enabled: boolean;
   dataMinimization: DataMinimizationStatus;
@@ -197,9 +201,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
   // Primary state (following ExercisesScreen pattern)
   const [currentScreen, setCurrentScreen] = useState<Screen>('welcome');
   const [notificationTimes, setNotificationTimes] = useState<NotificationTime[]>([
-    { period: 'morning', time: '09:00', enabled: true, dataMinimization: 'necessary', retentionPeriod: '90_days' },
-    { period: 'midday', time: '13:00', enabled: true, dataMinimization: 'necessary', retentionPeriod: '90_days' },
-    { period: 'evening', time: '19:00', enabled: true, dataMinimization: 'necessary', retentionPeriod: '90_days' },
+    { period: 'daily', time: '09:00', enabled: true, dataMinimization: 'necessary', retentionPeriod: '90_days' },
   ]);
   const [completionDestination, setCompletionDestination] = useState<'home' | 'morning'>('home');
 
@@ -216,7 +218,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
   const { grantConsent, getStoredAgeVerification } = useConsentStore();
 
   // Time picker state management
-  const [showTimePicker, setShowTimePicker] = useState<'morning' | 'midday' | 'evening' | null>(null);
+  const [showTimePicker, setShowTimePicker] = useState<'daily' | null>(null);
   const [tempTimePickerValue, setTempTimePickerValue] = useState<Date>(new Date());
 
   // ACCESSIBILITY STATE MANAGEMENT
@@ -348,8 +350,9 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
   // Assessments now presented via AssessmentFlow modal (see navigateNext welcome case)
 
   const validateNotificationTimes = (times: NotificationTime[]): boolean => {
-    return times.length === 3 &&
-           times.every(t => ['morning', 'midday', 'evening'].includes(t.period));
+    // FEAT-298 slice 5: was `times.length === 3`, which blocked Continue the moment the
+    // three time-of-day reminders collapsed to one daily reminder.
+    return times.length > 0 && times.every(t => t.period === 'daily');
   };
 
   // State reset/cleanup functions (following ExercisesScreen pattern)
@@ -357,9 +360,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
   const resetOnboardingState = (): void => {
     setCurrentScreen('welcome');
     setNotificationTimes([
-      { period: 'morning', time: '09:00', enabled: true, dataMinimization: 'necessary', retentionPeriod: '90_days' },
-      { period: 'midday', time: '13:00', enabled: true, dataMinimization: 'necessary', retentionPeriod: '90_days' },
-      { period: 'evening', time: '19:00', enabled: true, dataMinimization: 'necessary', retentionPeriod: '90_days' },
+      { period: 'daily', time: '09:00', enabled: true, dataMinimization: 'necessary', retentionPeriod: '90_days' },
     ]);
   };
 
@@ -563,7 +564,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
   };
 
   // Time picker handlers
-  const handleOpenTimePicker = (period: 'morning' | 'midday' | 'evening'): void => {
+  const handleOpenTimePicker = (period: 'daily'): void => {
     const notification = notificationTimes.find(n => n.period === period);
     if (!notification) return;
 
@@ -1134,7 +1135,9 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
           <View style={styles.summarySection}>
             <Text style={styles.summaryLabel}>Reminders</Text>
             <Text style={styles.summaryValue}>
-              ✓ {notificationTimes.filter(n => n.enabled).length} daily check-in reminders
+              ✓ {notificationTimes.filter(n => n.enabled).length > 0
+                ? 'Daily practice reminder'
+                : 'No reminder set'}
             </Text>
           </View>
 

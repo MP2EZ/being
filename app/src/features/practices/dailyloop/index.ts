@@ -1,5 +1,5 @@
 /**
  * Daily Loop (FEAT-291) — barrel export.
- * Single-loop daily-practice prototype, gated by the build-time `daily_loop` flag.
+ * The single daily practice — the default and only daily ritual since FEAT-298 slice 5.
  */
 export { default as DailyLoopNavigator } from './DailyLoopNavigator';

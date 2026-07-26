@@ -13,7 +13,6 @@ import * as Linking from 'expo-linking';
 import DeepLinkValidationService from '@/core/services/security/DeepLinkValidationService';
 import { logSecurity, logError, LogCategory } from '@/core/services/logging';
 import type { RootStackParamList } from './CleanRootNavigator';
-import { isFeatureEnabled } from '@/core/services/featureFlags';
 
 /**
  * URL PREFIXES
@@ -26,23 +25,6 @@ const URL_PREFIXES = [
   'https://www.being.fyi',
   'https://app.being.fyi',
 ];
-
-/**
- * FEAT-298 slice 4 — is this deep link gated off by a dark feature flag?
- *
- * The `DailyLoop` Stack.Screen is registered UNCONDITIONALLY (CleanRootNavigator), while
- * the Home card that reaches it is `daily_loop`-gated and the flag ships dark in
- * production. Adding `DailyLoop: 'daily'` to the linking config would therefore make the
- * deep link a FLAG BYPASS: a production user on a dark build could reach a surface that
- * build's QA never exercised. The URL is gated to match the flag.
- *
- * `/crisis` is never gated here under any condition — it is the 988 path.
- */
-function isFlagGatedPath(path: string | null | undefined): boolean {
-  if (!path) return false;
-  const base = path.split('/').filter(Boolean)[0];
-  return base === 'daily' && !isFeatureEnabled('daily_loop');
-}
 
 /**
  * SECURE GET INITIAL URL
@@ -63,13 +45,6 @@ async function getSecureInitialURL(): Promise<string | null> {
       logSecurity('DeepLink: Initial URL blocked', 'high', {
         originalUrl: url.substring(0, 100),
         errors: validation.errors.map(e => e.code),
-      });
-      return null;
-    }
-
-    if (isFlagGatedPath(validation.metadata.path)) {
-      logSecurity('DeepLink: Initial URL dropped (feature flag off)', 'low', {
-        path: validation.metadata.path,
       });
       return null;
     }
@@ -114,13 +89,6 @@ function secureSubscribe(
         errors: validation.errors.map(e => e.code),
       });
       // Don't call listener - block navigation
-      return;
-    }
-
-    if (isFlagGatedPath(validation.metadata.path)) {
-      logSecurity('DeepLink: Runtime URL dropped (feature flag off)', 'low', {
-        path: validation.metadata.path,
-      });
       return;
     }
 

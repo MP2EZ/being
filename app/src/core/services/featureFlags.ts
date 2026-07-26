@@ -52,16 +52,6 @@ export type FeatureFlag =
   | 'emergency_sync'
   | 'cross_device_sync'
   | 'wellness_trend_notes'
-  // FEAT-291: single-loop daily-practice prototype. Build-time (safety/structural —
-  // gates a whole navigator + Home entry, not a per-user rollout), read via
-  // isFeatureEnabled('daily_loop'). Ships dark (false in production; on in dev so the
-  // prototype is exercisable). NOT in PRODUCT_FLAGS — no PostHog/runtime control.
-  | 'daily_loop'
-  // FEAT-291 preview: when on (AND daily_loop on), Home hides the 3 time-of-day flows
-  // and shows ONLY the daily loop — a dark preview of the eventual single-ritual Home.
-  // NOT the FlowType-unification migration (that's the deferred step-5 work); this only
-  // gates Home card visibility. Ships dark in production.
-  | 'daily_loop_only'
   // FEAT-284: gates the internal-only "Report a bug / Send feedback" surface
   // (shake-to-report + Sentry feedback widget with screenshot). Build-time (not
   // runtime/PostHog) by design: availability must be deterministic, offline, and

@@ -15,7 +15,6 @@ import {
   PREMEDITATIO,
   SUPPORT_LINE,
   CLOSING,
-  MODE_LABELS,
   getStepConfig,
   QUICK_STEP_KEYS,
   QUICK_SUPPORT_STEP,
@@ -72,13 +71,6 @@ describe('all three modes authored to equal fidelity (no stubs)', () => {
     for (const step of DAILY_LOOP_STEP_KEYS) {
       const labels = MODES.map((m) => getStepConfig(m, step).fields[0]?.label);
       expect(new Set(labels).size).toBe(3);
-    }
-  });
-
-  it('exposes a label + blurb for each mode picker option', () => {
-    for (const mode of MODES) {
-      expect(MODE_LABELS[mode].label.length).toBeGreaterThan(0);
-      expect(MODE_LABELS[mode].blurb.length).toBeGreaterThan(0);
     }
   });
 });
