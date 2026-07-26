@@ -24,6 +24,7 @@ import Animated, {
   cancelAnimation,
 } from 'react-native-reanimated';
 import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
+import { DEFAULT_PATTERN } from '../breathingPatterns';
 
 interface BreathingPattern {
   inhale: number;  // milliseconds
@@ -45,11 +46,15 @@ interface BreathingCircleProps {
   };
 }
 
-// Default 4-4 pattern (backward compatible)
-const DEFAULT_PATTERN: BreathingPattern = {
-  inhale: 4000,
-  exhale: 4000,
-};
+/**
+ * Default 4-4 pattern, re-exported for backward compatibility.
+ *
+ * The definition lives in `../breathingPatterns` since FEAT-285 — screens that
+ * render this component without a `pattern` prop build their haptic cue
+ * schedule from the same constant, and it must survive this component being
+ * mocked in tests.
+ */
+export { DEFAULT_PATTERN };
 
 // Default phase text (stable reference to prevent re-renders)
 const DEFAULT_PHASE_TEXT = {

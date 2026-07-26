@@ -16,7 +16,7 @@
  * Philosopher-validated Stoic quotes for completion screen
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   View,
   Text,
@@ -34,6 +34,9 @@ import {
   type ModuleId,
 } from '@/features/learn/practices/shared/practiceCommon';
 import BreathingCircle from '@/features/practices/shared/components/BreathingCircle';
+import { DEFAULT_PATTERN } from '@/features/practices/shared/breathingPatterns';
+import { usePracticeHaptics } from '@/features/practices/shared/haptics/usePracticeHaptics';
+import { boundariesWithin } from '@/features/practices/shared/haptics/phaseAtElapsed';
 import Timer from '@/features/practices/shared/components/Timer';
 
 interface PracticeTimerScreenProps {
@@ -74,6 +77,25 @@ const PracticeTimerScreen: React.FC<PracticeTimerScreenProps> = ({
     onComplete,
     testID,
   });
+
+  /**
+   * Breath-phase haptic cues (FEAT-285).
+   *
+   * This screen renders BreathingCircle with NO `pattern` prop, so the visuals
+   * run on the component's exported DEFAULT_PATTERN. The cue schedule is built
+   * from that same constant rather than a local copy, so the two cannot drift
+   * apart if the default ever changes.
+   */
+  const hapticSchedule = useMemo(
+    () =>
+      boundariesWithin(DEFAULT_PATTERN, duration * 1000).map((b) => ({
+        atMs: b.atMs,
+        cue: b.phase,
+      })),
+    [duration]
+  );
+
+  usePracticeHaptics({ schedule: hapticSchedule, isActive: isTimerActive });
 
   // Stable pause/resume handlers so the memoized Timer is not re-rendered
   // by new inline closures on every parent render.
