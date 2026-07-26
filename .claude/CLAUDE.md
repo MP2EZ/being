@@ -96,7 +96,7 @@ Which validators are required for which work type. `crisis`, `compliance`, `phil
 |---|---|
 | Crisis detection <200ms | **Strict CI gate** — `__tests__/performance/assessment-performance.test.ts`, run by the `Performance regression` job |
 | Crisis button <200ms | **Coarse jest proxy** — `CollapsibleCrisisButton.behavioral.test.tsx`; measures synthetic dispatch, not tap→render |
-| Breathing 60fps | **Nothing** — tracked as INFRA-306 |
+| Breathing 60fps | **Structural proxy only — the frame rate is still unmeasured.** INFRA-306 shipped `npm run check:breathing-worklets` (CI, `Performance regression` job): it fails if the PERF-01/PERF-02 shape returns to the animation path — `runOnJS`/state-setter inside a `useAnimatedStyle`/`useDerivedValue`/`useAnimatedReaction` body, `requestAnimationFrame` on that path, or `BreathingCircle` losing `React.memo` / its module-scope prop constants. It does **not** measure frames and cannot: CI is 100% `ubuntu-latest`. Real on-device measurement is INFRA-309 (blocked on naming a calibration handset). Note the budget is also device-naive as written — ProMotion nominal is 8.3ms, not 16.67ms — see `post-launch-monitoring-runbook.md` §5a |
 | App launch <2s, check-in transition <500ms | **Nothing** — hand-validated |
 
 The jest-side `perf:*` scripts were removed in MAINT-166 PR 7 (they ran zero matching tests). `__tests__/reporters/performance-regression-reporter.js` does **not** gate: it is non-strict unless `PERF_REGRESSION_STRICT=true`, so `performance-baselines.json`'s `crisis_response_ms` is a recorded baseline, not a threshold. A "performance" cell below therefore means *the budget applies*, not *a gate will catch you*.
