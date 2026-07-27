@@ -15,7 +15,7 @@
  * - Accessibility: WCAG AA compliant
  */
 
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect, useLayoutEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -33,6 +33,7 @@ import { useAnalytics } from '@/core/analytics';
 import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
 import { logPerformance, logSecurity, logError, LogCategory } from '@/core/services/logging';
 import { openCrisisUrl } from '@/features/crisis/utils/openCrisisUrl';
+import { endCrisisTap } from '@/features/crisis/services/crisisTapTrace';
 import {
   CRISIS_RESOURCE_CATEGORIES,
   getPriorityCrisisResources,
@@ -238,6 +239,23 @@ export default function CrisisResourcesScreen() {
       trackCrisisResourcesViewed();
     }, [trackScreenView, trackCrisisResourcesViewed])
   );
+
+  // Close the crisis-tap measurement opened by the crisis button (INFRA-297).
+  //
+  // `useLayoutEffect`, deliberately: it fires synchronously after React commits
+  // the tree, so the view hierarchy exists — the closest defensible boundary for
+  // "the user can see it". Rejected alternatives, do not "improve" this later:
+  //   - render body → fires before commit, and on every re-render.
+  //   - InteractionManager.runAfterInteractions → waits for the modal transition
+  //     animation to drain, folding hundreds of ms of settle into the number and
+  //     putting the p95 permanently over budget for reasons unrelated to
+  //     responsiveness.
+  //   - onLayout → per-view, refires on re-layout, ordering not guaranteed.
+  // A no-op when no mark is open (e.g. the screen was reached by a route other
+  // than the crisis button), by design.
+  useLayoutEffect(() => {
+    endCrisisTap('screen_commit');
+  }, []);
 
   // Track screen load performance
   useEffect(() => {

@@ -55,8 +55,11 @@ import Animated, {
   interpolate,
 } from 'react-native-reanimated';
 import { MaterialDesignIcons } from '@react-native-vector-icons/material-design-icons';
-import * as Sentry from '@sentry/react-native';
-import { logSecurity, logPerformance, logCrisis } from '@/core/services/logging';
+import { logCrisis } from '@/core/services/logging';
+// Eager import, deliberately — the crisis path never lazy-imports (CLAUDE.md).
+// Sentry itself is no longer imported here: all crisis-tap telemetry moved into
+// crisisTapTrace so that no telemetry code can sit upstream of the dial.
+import { beginCrisisTap } from '@/features/crisis/services/crisisTapTrace';
 import { spacing, borderRadius, typography, colorSystem } from '@/core/theme';
 
 /** Display mode for the crisis button */
@@ -184,31 +187,44 @@ export const CollapsibleCrisisButton: React.FC<CollapsibleCrisisButtonProps> = (
    * Direct tap works immediately, even in faded state
    */
   const handleCrisisAction = useCallback(() => {
-    Sentry.startSpan(
-      { name: 'crisis_button_response', op: 'ui.crisis.tap' },
-      (span) => {
-        const startTime = performance.now();
+    // ORDERING IS THE SAFETY CONTRACT HERE (INFRA-297). Do not reorder.
+    //
+    // `onNavigate()` used to be called from INSIDE a `Sentry.startSpan` callback.
+    // `startSpan` does real work before it invokes that callback — async-context
+    // strategy dispatch, a scope fork, a sampling decision, span creation. If any
+    // of it throws, the callback never runs and the crisis tap produces NOTHING:
+    // no navigation, no dial, and no log, because the audit call was inside the
+    // same callback. On the CrisisErrorBoundary path that is the last-resort
+    // tel:988 dial in an already-crashed app — the one context where Sentry is
+    // itself a likely cause of the crash.
+    //
+    // A try/catch around the span does NOT fix that: it turns a visible crash
+    // into a silently swallowed tap, which is worse. So the navigate is moved
+    // out of the callback entirely, and telemetry is strictly downstream.
+    // Pinned by __tests__/safety/crisis-button-telemetry-ordering.test.tsx,
+    // which asserts ORDER, not just occurrence — occurrence alone would pass a
+    // try/catch non-fix.
 
-        // Reset fade on interaction
-        resetFade();
+    // Opens the tap→render measurement. Must precede the navigate (you cannot
+    // measure tap→render starting after the navigate). Safe to sit here only
+    // because it reads a clock, writes one field, schedules a timer, and is
+    // internally guarded so it cannot throw. Do not add anything to it.
+    beginCrisisTap('crisis_button');
 
-        // Navigate to CrisisResourcesScreen (provides choice: Call 988, Text 741741, Emergency contacts)
-        onNavigate();
+    // THE CRISIS ACTION. First, unconditional, synchronous, outside every
+    // telemetry construct. Navigates to CrisisResourcesScreen (choice of Call
+    // 988, Text 741741, emergency contacts) — or, on the error-boundary mount,
+    // dials 988 directly.
+    onNavigate();
 
-        // Performance monitoring for clinical safety
-        const responseTime = performance.now() - startTime;
-        span?.setAttribute('response_time_ms', responseTime);
-        span?.setAttribute('exceeded_budget', responseTime > 200);
-        if (responseTime > 200) {
-          logSecurity('Crisis button response time exceeded', 'high', {
-            responseTime,
-            threshold: 200
-          });
-        } else {
-          logPerformance('crisis_button_response', responseTime);
-        }
-      }
-    );
+    // Cosmetic only, and therefore after. Nothing may run ahead of the crisis
+    // action for the sake of a fade animation.
+    resetFade();
+
+    // No telemetry here by design. The measurement closes at the point the user
+    // can actually act — CrisisResourcesScreen's commit, or the OS taking the
+    // dial — which also moves the span and log work off this tap frame entirely.
+    // Net effect: this path is now faster than before, not slower.
   }, [onNavigate, resetFade]);
 
   /**
