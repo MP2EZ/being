@@ -437,8 +437,44 @@ export const CLOSING = {
   breathTitle: 'Breathe and release',
   breathSubtitle: 'One slow breath. Loosen your grip, and let this be complete.',
   completeTitle: 'You moved through all five principles.',
+  /**
+   * FEAT-298 slice 6a — the self-compassion posture, re-homed from the retired Midday
+   * CompassionateCloseScreen (philosopher pass).
+   *
+   * It lives HERE, in the coda, not in step 5. Step 5 is oikeiōsis / belonging and its
+   * copy is other-directed by construction. The classical warrant for the coda position is
+   * Seneca, De Ira 3.36.3-4, where the nightly examination ENDS in self-pardon — "vide ne
+   * istud amplius facias; nunc tibi ignosco" ("see that you never do that again; this time
+   * I pardon you"). Seneca puts the clemency after the honest review, not inside it.
+   *
+   * The substance is Stoic (prokopē — you are a progressor in training, never a sage, so
+   * falling short is the expected condition of the practice). The WORD "compassion" is the
+   * therapeutic import and is deliberately absent: resources.md itself flags Neff as "not
+   * explicitly Stoic". Ship the substance, not the label.
+   *
+   * ONE string for all three tenses — the posture is tense-invariant (you are a progressor
+   * prospectively and retrospectively alike), and splitting it by tense would recreate the
+   * exact bug this fixes: a posture reachable in only one tense.
+   *
+   * Keeps the standard and removes only the surplus: "be honest" stays, "no harsher than
+   * honest" is what is added. Never praise, never absolution, never indulgence.
+   */
+  postureLine:
+    'Be honest with yourself, and no harsher than honest. The honesty is what corrects; harshness only adds weight.',
   noteLabel: 'Anything to carry back with you? (optional)',
-  notePlaceholder: "E.g., 'Focus on what's mine; act with courage.'",
+  // Amended (slice 6a): carries the self-directed example the retired screen had.
+  notePlaceholder:
+    "E.g., 'Focus on what's mine; act with courage.' Or 'Steady, and patient with myself.'",
+  /**
+   * Re-homes MAINT-140's "return anytime" reinforcement, which had no equivalent in the
+   * loop (the only re-entry signal was a navigation button label). Upgraded from "the pause
+   * is always available" to the Stoic reading — re-entry after shortfall IS the practice
+   * (Marcus, Meditations 5.9) — which also inoculates against the streak anxiety
+   * stageNotes.ts bans elsewhere. MAINT-140's CelebrationToast delivery is deliberately
+   * NOT reproduced: a third congratulatory beat would turn the coda into a trophy.
+   */
+  returnLine:
+    'Falling short and beginning again is the practice, not a break from it. Come back to this as often as that takes.',
 } as const;
 
 // FEAT-298 slice 5: MODE_LABELS removed with DailyLoopModeSelectScreen. The tense is now

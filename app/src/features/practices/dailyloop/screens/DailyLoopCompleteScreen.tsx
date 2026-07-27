@@ -107,6 +107,13 @@ const DailyLoopCompleteScreen: React.FC<DailyLoopCompleteScreenProps> = ({ depth
               {getStepKeysForDepth(depth).map((k) => STEP_TITLES[k]).join(' · ')}
             </Text>
 
+            {/* FEAT-298 slice 6a — self-compassion posture, re-homed from the retired
+                Midday CompassionateCloseScreen. Placement is load-bearing: this sits in the
+                POST-BREATH block, never in the breath section above, because the breath is
+                skippable (SkipLink) and anything attached to it is invisible to a skipper —
+                the exact failure that stranded the evening step-4 compassion hint. */}
+            <Text style={styles.postureLine}>{CLOSING.postureLine}</Text>
+
             <Text style={styles.inputLabel}>{CLOSING.noteLabel}</Text>
             <TextInput
               style={[
@@ -124,6 +131,10 @@ const DailyLoopCompleteScreen: React.FC<DailyLoopCompleteScreenProps> = ({ depth
               accessibilityHint="Optional — leave blank to skip"
               testID="daily-loop-integration-input"
             />
+
+            {/* MAINT-140's "return anytime", re-homed and made Stoic: beginning again IS
+                the practice (Marcus 5.9), not a concession. Quiet static line — no toast. */}
+            <Text style={styles.returnLine}>{CLOSING.returnLine}</Text>
 
             <AccessibleButton
               onPress={handleDone}
@@ -183,6 +194,21 @@ const styles = StyleSheet.create({
     fontSize: typography.bodySmall.size,
     color: colorSystem.gray[600],
     marginBottom: spacing[24],
+    lineHeight: typography.bodySmall.size * 1.5,
+  },
+  // FEAT-298 slice 6a — quiet, non-congratulatory register. Deliberately the same muted
+  // gray as `subtitle`, never accent-coloured or emphasised: the coda carries a posture,
+  // not a reward.
+  postureLine: {
+    fontSize: typography.bodySmall.size,
+    color: colorSystem.gray[600],
+    marginBottom: spacing[24],
+    lineHeight: typography.bodySmall.size * 1.5,
+  },
+  returnLine: {
+    fontSize: typography.bodySmall.size,
+    color: colorSystem.gray[600],
+    marginTop: spacing[16],
     lineHeight: typography.bodySmall.size * 1.5,
   },
   inputLabel: {

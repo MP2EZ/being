@@ -174,6 +174,71 @@ describe('closing coda copy (practice-architecture, not a principle)', () => {
     expect(CLOSING.completeTitle.length).toBeGreaterThan(0);
     expect(CLOSING.noteLabel).toMatch(/optional/i);
   });
+
+  /**
+   * FEAT-298 slice 6a — the self-compassion posture re-homed from the retired Midday
+   * CompassionateCloseScreen. It lives in the CODA, not step 5 (which is oikeiōsis /
+   * belonging, other-directed by construction). Until now that boundary was asserted only
+   * in a docstring and enforced by nothing.
+   */
+  describe('self-compassion posture (re-homed from Midday)', () => {
+    const codaText = [
+      CLOSING.postureLine,
+      CLOSING.notePlaceholder,
+      CLOSING.returnLine,
+    ].join(' ');
+
+    it('keeps the standard — honesty is demanded, only the harshness is removed', () => {
+      expect(CLOSING.postureLine.toLowerCase()).toMatch(/honest/);
+    });
+
+    it('re-homes the return-anytime reinforcement as beginning again', () => {
+      expect(CLOSING.returnLine.toLowerCase()).toMatch(/begin|again|come back/);
+    });
+
+    it('never uses the word "compassion" — the substance is Stoic, the label is not', () => {
+      // resources.md flags Neff as "not explicitly Stoic". Ship prokopē, not the import.
+      expect(codaText).not.toMatch(/compassion/i);
+    });
+
+    it('never borrows step 5s relational framing', () => {
+      // These recruit the moral-circle logic of Interconnected Living, and a reader would
+      // experience the coda as "step 5 continued" — which is the collision to avoid.
+      for (const banned of [
+        /as you would (a )?friend/i,
+        /not alone/i,
+        /social connection/i,
+        /connect with people/i,
+      ]) {
+        expect(codaText).not.toMatch(banned);
+      }
+    });
+
+    it('never congratulates, rewards, or absolves', () => {
+      // The screen already has a ✓ badge and a completeTitle; a third congratulatory beat
+      // would turn the coda into a trophy. Absolution would relocate responsibility off
+      // the practitioner, where shortfall is data to act on, not a charge to be acquitted.
+      for (const banned of [
+        /well done/i,
+        /nice work/i,
+        /you earned/i,
+        /you deserve/i,
+        /treat yourself/i,
+        /did your best/i,
+        /not your fault/i,
+      ]) {
+        expect(codaText).not.toMatch(banned);
+      }
+    });
+
+    it('is tense-neutral — one string serves all three modes', () => {
+      // A tense-bound posture would recreate the bug being fixed: reachable in one tense
+      // only. Also depth-neutral: nothing here presumes five beats ran.
+      for (const banned of [/today/i, /\bthe day you\b/i, /all five/i]) {
+        expect(codaText).not.toMatch(banned);
+      }
+    });
+  });
 });
 
 // ──────────────────────────────────────────────────────────────────────────────
