@@ -49,6 +49,8 @@ Morning provides optimal timing because you're setting your day's tone before re
 - Briefly acknowledge: this day isn't guaranteed, circumstances will change
 - Note three specific things you're grateful for right now
 - This incorporates **negative visualization** from [Principle 4](../principles/04-virtuous-response.md)
+- **Implemented as** the daily loop's closing coda — `CLOSING.gratitudeLine`, morning tense — which keeps the impermanence framing (FEAT-313). Its warrant is that the loop already ships `PREMEDITATIO`, and [Principle 4](../principles/04-virtuous-response.md) makes present-moment gratitude the *required complement* of contemplating loss; without this line the loop ships the aversive half alone.
+- **"Optional" is load-bearing and was violated in the retired implementation.** The Morning flow's `GratitudeIntentionScreen` made gratitude *required*, which this section never asked for and which the loop's "typing is capture, never a gate" invariant forbids. The coda version is a static line — there is nothing to submit and nothing to skip.
 
 **Quick Reference Card (5-minute minimum):**
 If you only have 5 minutes:
@@ -96,6 +98,8 @@ Brief mindful moments (seconds to minutes) throughout day create bridges from me
 
 Before sleep, conduct brief review using Stoic methodology. This isn't self-judgment but honest examination for learning and growth.
 
+> **"Before sleep" is timing, not a beat.** Sleep is the *consequence* of the examination, not a component of it — Seneca, *De Ira* 3.36.2: *"qualis ille somnus post recognitionem sui sequitur"* ("what sleep follows this self-examination"). The retired Evening flow's `SleepTransitionScreen` turned that consequence into a step; it was **dropped deliberately** in FEAT-313 rather than re-homed. Its substance is already covered: the wind-down breath by the loop's skippable `CLOSING` breath, and "tomorrow is a new practice" by `CLOSING.returnLine` on a *Meditations* 5.9 warrant. If a sleep-compatible wind-down is wanted as a product feature, it belongs in `STANDALONE_PRACTICES` as an **Aware Presence** practice (the mindfulness limb, labelled as such) — never inside the loop as classical Stoic technique.
+
 **Structure (Can Write or Contemplate):**
 
 **1. Review Morning Intention**
@@ -123,12 +127,16 @@ Before sleep, conduct brief review using Stoic methodology. This isn't self-judg
 - If you reacted defensively to criticism: visualize hearing criticism, noticing defensiveness, taking breath, responding with openness
 - This concrete rehearsal makes alternative responses more accessible
 - Much more effective than vague commitments to "do better"
+- **Implemented as** the daily loop's `EVENING.VirtuousResponse` — *"Where did you meet them, or fall short — and how would you meet it next time?"* — which binds the rehearsal to a specifically reviewed shortfall, exactly as the last bullet demands.
+- The retired Evening flow's `TomorrowScreen` ("Any intention for tomorrow?") was **dropped deliberately** in FEAT-313, not re-homed: free-floating and unhedged, it *is* the vague commitment this section warns against, and it carried no reserve clause (cf. Seneca, *Ep.* 101.4-5, *nihil sibi in posterum promittere*). Its "letting go" field survives one beat earlier at `EVENING.SphereSovereignty.notMine`, minus the instrumental "for more peaceful rest" framing.
 
 **5. Three Gratitudes**
 - Three specific things from today (not generic)
 - "I'm grateful my daughter told me about her day even though tired"
 - Not "I'm grateful for my family"
 - Specificity engages memory and emotion
+- **Implemented as** the daily loop's closing coda — `CLOSING.gratitudeLine`, evening tense — which preserves the specificity requirement verbatim in its copy ("a moment, not a category") (FEAT-313). The static line invites one; the coda's existing optional note accepts as many as the practitioner wants, so the "three" standard here is intact rather than reduced.
+- The retired Evening flow justified this beat as *"positive priming before evaluative work."* That rationale is **not** carried forward: it makes gratitude instrumental to a downstream mood outcome, where Stoic gratitude is an act of justice and correct judgment, good in itself (Seneca, *De Beneficiis*; Marcus, *Meditations* Bk 1).
 
 **Application of Five Principles:**
 - **[Aware Presence](../principles/01-aware-presence.md):** How often was I actually present vs. lost in thought?
