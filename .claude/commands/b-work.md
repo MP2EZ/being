@@ -219,6 +219,17 @@ git worktree add [dir-name] [branch-name]
 ```
 
 **If branch doesn't exist** (Scenario C):
+
+**First, a base check — only when the item depends on another item's in-flight branch.**
+If the body or comments name a parent item, prerequisite, or slice sequence, verify that
+item's commits are actually on `development` before branching:
+```bash
+git log --oneline origin/development..[their-branch] | head
+```
+Non-empty output means their work is NOT on development: a `development`-based worktree
+will show pre-migration code, and cannot host edits to files only their branch has in
+current form. Ask which base to use — don't assume `development`.
+
 ```bash
 cd /Users/max/dev/being
 git worktree add [dir-name] -b [branch-name] development
