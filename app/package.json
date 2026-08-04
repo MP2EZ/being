@@ -16,7 +16,7 @@
     "test:coverage": "jest --coverage --forceExit",
     "test:ci": "jest --coverage --ci --watchAll=false --forceExit",
     "test:clinical": "jest --testPathPattern=clinical --verbose --forceExit",
-    "test:crisis-detection": "jest --testPathPattern=\"(crisis-safety-automation|crisis-intervention-safety|crisis-thresholds|offline-crisis-management|CollapsibleCrisisButton.behavioral|CrisisSecurityProtocol)\" --verbose --testTimeout=30000 --forceExit",
+    "test:crisis-detection": "jest --testPathPattern=\"(crisis-safety-automation|crisis-intervention-safety|crisis-thresholds|offline-crisis-management|CollapsibleCrisisButton.behavioral|CrisisSecurityProtocol|textCrisisDetection)\" --verbose --testTimeout=30000 --forceExit",
     "test:unit": "jest --testPathPattern=unit --forceExit",
     "test:safety": "jest --testPathPattern=\"(__tests__/safety|__tests__/crisis-safety)\" --verbose --forceExit",
     "test:edge-functions": "cd ../supabase/functions && deno task test",
@@ -85,7 +85,8 @@
     "e2e:safety:phq9": "maestro test .maestro/phq9-severe-completion.yaml",
     "e2e:safety:gad7": "maestro test .maestro/gad7-severe.yaml",
     "e2e:safety:crisis-button": "maestro test .maestro/crisis-button-reachability.yaml",
-    "e2e:safety:988-dial": "maestro test .maestro/crisis-988-dial.yaml"
+    "e2e:safety:988-dial": "maestro test .maestro/crisis-988-dial.yaml",
+    "e2e:safety:journal": "maestro test .maestro/journal-crisis-scan.yaml"
   },
   "overrides": {
     "react": "19.2.3",
@@ -137,6 +138,7 @@
     "expo-secure-store": "~56.0.4",
     "expo-sensors": "~56.0.6",
     "expo-sharing": "~56.0.16",
+    "expo-speech-recognition": "^56.0.1",
     "expo-splash-screen": "~56.0.10",
     "expo-status-bar": "~56.0.4",
     "expo-system-ui": "~56.0.5",

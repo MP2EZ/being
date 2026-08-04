@@ -436,6 +436,28 @@ const ProfileScreen: React.FC = () => {
               <Text style={styles.cardAction} importantForAccessibility="no">Report →</Text>
             </Pressable>
           )}
+
+          {/* FEAT-283 Slice A: spoken reflection capture. Gated on the
+              build-time `voice_journal` flag (NOT runtime/PostHog — a
+              zero-egress feature must not have network-dependent availability,
+              and the crisis-scan path on this surface must never inherit an
+              analytics-consent dependency). Ships dark in production. */}
+          {isFeatureEnabled('voice_journal') && (
+            <Pressable
+              style={styles.profileCard}
+              onPress={() => navigation.navigate('VoiceReflection')}
+              testID="profile-card-voice-reflection"
+              accessibilityRole="button"
+              accessibilityLabel="Speak a reflection"
+              accessibilityHint="Record a spoken reflection. It is transcribed and saved on this device."
+            >
+              <Text style={styles.cardTitle}>Reflections</Text>
+              <Text style={styles.cardDescription}>
+                Speak your reflection instead of typing it. Transcribed and saved on this device — nothing you say leaves your phone.
+              </Text>
+              <Text style={styles.cardAction} importantForAccessibility="no">Speak →</Text>
+            </Pressable>
+          )}
         </View>
 
         {/* FEAT-209 H3: Onboarding Setup demoted from a top card to a footer link. */}
