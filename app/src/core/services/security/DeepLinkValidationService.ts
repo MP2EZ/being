@@ -419,9 +419,6 @@ class DeepLinkValidationService {
     const screenMap: Record<string, string> = {
       '/': 'Main',
       '/main': 'Main',
-      '/morning': 'MorningFlow',
-      '/midday': 'MiddayFlow',
-      '/evening': 'EveningFlow',
       // FEAT-298 slice 4: kept in sync with ALLOWED_PATHS and linking.ts. This map is a
       // THIRD source of truth for path->screen and currently has no production callers
       // (test-only), so it drifts silently; omitting '/daily' would hand a future caller

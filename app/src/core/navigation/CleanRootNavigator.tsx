@@ -16,9 +16,6 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { HeaderBackButton } from '@react-navigation/elements';
 import { spacing, typography } from '@/core/theme';
 import CleanTabNavigator from './CleanTabNavigator';
-import MorningFlowNavigator from '@/features/practices/morning/MorningFlowNavigator';
-import MiddayFlowNavigator from '@/features/practices/midday/MiddayFlowNavigator';
-import EveningFlowNavigator from '@/features/practices/evening/EveningFlowNavigator';
 import { DailyLoopNavigator } from '@/features/practices/dailyloop';
 import CrisisResourcesScreen from '@/features/crisis/screens/CrisisResourcesScreen';
 import RootCrisisButton from '@/features/crisis/components/RootCrisisButton';
@@ -57,9 +54,6 @@ export type RootStackParamList = {
   LegalGate: undefined;
   Onboarding: undefined;
   Main: undefined;
-  MorningFlow: undefined;
-  MiddayFlow: undefined;
-  EveningFlow: undefined;
   // The single daily ritual (FEAT-298 slice 5: the default practice; no longer flagged).
   // `mode` is a test/tooling param only — the tense is inferred from the clock, and there
   // is no mode picker.
@@ -164,68 +158,6 @@ const CleanRootNavigator: React.FC = () => {
     checkInitialRoute();
   }, [loadSettings, loadConsent, consentStatus]);
 
-  const handleMorningFlowComplete = async (sessionData: any) => {
-    logSystem('Morning flow completed');
-    await markCheckInComplete('morning');
-
-    // FEAT-28: Record principle engagement for Insights Dashboard
-    if (sessionData?.principleFocus?.principleKey) {
-      await recordPrincipleEngagement(
-        sessionData.principleFocus.principleKey,
-        'morning',
-        'selected'
-      );
-      logSystem('Recorded principle engagement (morning)');
-    }
-  };
-
-  const handleMiddayFlowComplete = async (sessionData: any) => {
-    logSystem('Midday flow completed');
-    await markCheckInComplete('midday');
-
-    // FEAT-28: Record principle engagement for Insights Dashboard
-    if (sessionData?.reappraisal?.principleApplied) {
-      await recordPrincipleEngagement(
-        sessionData.reappraisal.principleApplied,
-        'midday',
-        'applied'
-      );
-      logSystem('Recorded principle engagement (midday)');
-    }
-  };
-
-  const handleEveningFlowComplete = async (sessionData: any) => {
-    logSystem('Evening flow completed');
-    await markCheckInComplete('evening');
-
-    // FEAT-134: Record principle engagement from VirtueReflection screen (new path)
-    // Note: The EveningFlowNavigator now records principle engagement directly via
-    // recordPrincipleEngagement prop when the user selects a principle on VirtueReflection.
-    // This is the primary engagement tracking path for FEAT-134.
-    // The principle is recorded in real-time when selected, not at flow completion.
-
-    // FEAT-28: Legacy path - Record principle engagements from virtue instances
-    // Kept for backward compatibility with older session data format
-    if (sessionData?.virtueInstances?.length) {
-      const principlesReflected = new Set<string>();
-      for (const instance of sessionData.virtueInstances) {
-        if (instance.principleApplied && !principlesReflected.has(instance.principleApplied)) {
-          principlesReflected.add(instance.principleApplied);
-          await recordPrincipleEngagement(
-            instance.principleApplied,
-            'evening',
-            'reflected'
-          );
-        }
-      }
-      if (principlesReflected.size > 0) {
-        logSystem(
-          `Recorded principle engagements (legacy path): ${Array.from(principlesReflected).join(', ')}`
-        );
-      }
-    }
-  };
-
   // FEAT-298 slice 3: the loop is now a FIRST-CLASS check-in. It records its own 'daily'
   // type instead of borrowing 'midday' — that borrowing made loop sessions
   // indistinguishable from real Midday check-ins and faded the wrong Home card.
@@ -265,12 +197,14 @@ const CleanRootNavigator: React.FC = () => {
     );
   };
 
-  const handleOnboardingComplete = async (destination?: 'home' | 'morning') => {
+  // FEAT-298 slice 6c: the "start practising now" destination is the daily loop. It was
+  // 'morning' — the retired Morning flow — so leaving it would navigate to a deleted route.
+  const handleOnboardingComplete = async (destination?: 'home' | 'practice') => {
     await markOnboardingComplete();
     setInitialRoute('Main');
 
     // Navigate to destination after state update
-    if (destination === 'morning') {
+    if (destination === 'practice') {
       // Small delay to ensure Main screen is mounted before modal presentation
       setTimeout(() => {
         // Navigation will be handled by the OnboardingScreen's navigation prop
@@ -341,11 +275,12 @@ const CleanRootNavigator: React.FC = () => {
               onComplete={async (destination) => {
                 await handleOnboardingComplete(destination);
                 // Navigate based on destination
-                if (destination === 'morning') {
+                if (destination === 'practice') {
                   navigation.replace('Main');
-                  // Navigate to MorningFlow after Main is mounted
+                  // Enter the daily loop once Main is mounted. No mode param — the tense is
+                  // inferred from the clock (slice 5).
                   setTimeout(() => {
-                    navigation.navigate('MorningFlow');
+                    navigation.navigate('DailyLoop');
                   }, 100);
                 } else {
                   navigation.replace('Main');
@@ -522,70 +457,8 @@ const CleanRootNavigator: React.FC = () => {
 
         {/* Check-in Flow Modals */}
         <Stack.Group screenOptions={{ presentation: 'modal' }}>
-          <Stack.Screen
-            name="MorningFlow"
-            options={{
-              headerShown: false, // MorningFlowNavigator has its own header with progress
-              gestureEnabled: false, // Prevent swipe to dismiss during session
-              animationTypeForReplace: 'push'
-            }}
-          >
-            {({ navigation }) => (
-              <MorningFlowNavigator
-                onComplete={(sessionData) => {
-                  handleMorningFlowComplete(sessionData);
-                  navigation.goBack();
-                }}
-                onExit={() => {
-                  navigation.goBack();
-                }}
-              />
-            )}
-          </Stack.Screen>
 
-          <Stack.Screen
-            name="MiddayFlow"
-            options={{
-              headerShown: false, // MiddayFlowNavigator has its own header with progress
-              gestureEnabled: false, // Prevent swipe to dismiss during session
-              animationTypeForReplace: 'push'
-            }}
-          >
-            {({ navigation }) => (
-              <MiddayFlowNavigator
-                onComplete={(sessionData) => {
-                  handleMiddayFlowComplete(sessionData);
-                  navigation.goBack();
-                }}
-                onExit={() => {
-                  navigation.goBack();
-                }}
-              />
-            )}
-          </Stack.Screen>
 
-          <Stack.Screen
-            name="EveningFlow"
-            options={{
-              headerShown: false, // EveningFlowNavigator has its own header with progress
-              gestureEnabled: false, // Prevent swipe to dismiss during session
-              animationTypeForReplace: 'push'
-            }}
-          >
-            {({ navigation }) => (
-              <EveningFlowNavigator
-                onComplete={(sessionData) => {
-                  handleEveningFlowComplete(sessionData);
-                  navigation.goBack();
-                }}
-                onExit={() => {
-                  navigation.goBack();
-                }}
-                // FEAT-134: Pass recordPrincipleEngagement for Insights dashboard
-                recordPrincipleEngagement={recordPrincipleEngagement}
-              />
-            )}
-          </Stack.Screen>
 
           {/* FEAT-291: Daily Loop prototype — reached only from the Home
               Home's single Daily Practice card. One nested navigator → inherits the single

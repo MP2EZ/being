@@ -58,6 +58,21 @@ describe('Assessment Store — Your note annotations (FEAT-195)', () => {
     });
   });
 
+  /**
+   * FEAT-298 slice 6c — this suite had NO cleanup. It mutates the assessment store
+   * singleton via setState and never restores it, so whichever suite ran next inherited
+   * whatever it left behind. That made `assessmentStore.test.ts`'s "respects auto-save
+   * disabled state" pass or fail purely on suite ORDER — and slice 6c's deletions changed
+   * the file set, which changed the order, which surfaced it. Pre-existing latent defect,
+   * not caused by the deletions; fixed at the source rather than worked around in the
+   * suite that happened to expose it.
+   */
+  afterEach(() => {
+    useAssessmentStore.getState().resetAssessment();
+    useAssessmentStore.setState({ completedAssessments: [], currentSession: null });
+    jest.clearAllMocks();
+  });
+
   it('attaches a note to the matching session only', async () => {
     const { result } = renderHook(() => useAssessmentStore());
 

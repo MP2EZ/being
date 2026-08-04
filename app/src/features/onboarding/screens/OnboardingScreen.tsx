@@ -100,7 +100,7 @@ interface NotificationTime {
 
 // Component props interface for embedded mode support
 interface OnboardingScreenProps {
-  onComplete?: (destination?: 'home' | 'morning') => void;
+  onComplete?: (destination?: 'home' | 'practice') => void;
   isEmbedded?: boolean;
 }
 
@@ -203,7 +203,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
   const [notificationTimes, setNotificationTimes] = useState<NotificationTime[]>([
     { period: 'daily', time: '09:00', enabled: true, dataMinimization: 'necessary', retentionPeriod: '90_days' },
   ]);
-  const [completionDestination, setCompletionDestination] = useState<'home' | 'morning'>('home');
+  const [completionDestination, setCompletionDestination] = useState<'home' | 'practice'>('home');
 
   // Granular consent preferences (FEAT-90: all default to false for privacy)
   const [consentPreferences, setConsentPreferences] = useState<ConsentPreferences>({
@@ -617,7 +617,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
   // Celebration screen button handlers for destination-aware navigation
   const handleStartMorningPractice = (): void => {
     logStateChange('handleStartMorningPractice', { currentScreen });
-    setCompletionDestination('morning');
+    setCompletionDestination('practice');
     navigateNext();
   };
 

@@ -40,10 +40,10 @@ import { RootCrisisButton, ROOT_CRISIS_BUTTON_TEST_ID } from '../RootCrisisButto
 
 const SUPPRESSED = ['CrisisResources', 'AssessmentFlow', 'LegalGate'];
 const IMMERSIVE = [
-  'MorningFlow',
-  'MiddayFlow',
-  'EveningFlow',
-  'DailyLoop', // FEAT-291: single-loop daily-practice prototype (flag-independent pin)
+  // FEAT-298 slice 6c: MorningFlow / MiddayFlow / EveningFlow removed with the flows.
+  // DailyLoop is now the ONLY daily-practice immersive route — which raises the stakes on
+  // this pin, since it is the sole surface where the overlay must render in immersive mode.
+  'DailyLoop',
   'PracticeTimer',
   'ReflectionTimer',
   'SortingPractice',

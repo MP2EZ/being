@@ -148,15 +148,6 @@ const CleanHomeScreen: React.FC = () => {
 
   const handleCheckInPress = useCallback((type: FlowType) => {
     switch (type) {
-      case 'morning':
-        navigation.navigate('MorningFlow');
-        break;
-      case 'midday':
-        navigation.navigate('MiddayFlow');
-        break;
-      case 'evening':
-        navigation.navigate('EveningFlow');
-        break;
       case 'daily-loop':
         // FEAT-298 slice 5: no mode param, and no picker to fall through to any more —
         // the loop infers its tense from the clock (getDailyLoopTense).

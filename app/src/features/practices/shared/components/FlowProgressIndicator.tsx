@@ -4,8 +4,8 @@
  * Shared progress indicator for flow navigator headers.
  * Displays current step and visual progress bar with theme-appropriate styling.
  *
- * INFRA-135: Extracted from MorningFlowNavigator, MiddayFlowNavigator, EveningFlowNavigator
- * to reduce code duplication (~75 lines saved across 3 navigators).
+ * INFRA-135: originally extracted from the three retired time-of-day navigators
+ * (FEAT-298 slice 6c); now serves the daily loop.
  *
  * @see /docs/architecture/Stoic-Mindfulness-Architecture-v1.0.md
  */

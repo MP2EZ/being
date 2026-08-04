@@ -2,8 +2,8 @@
  * useFlowSessionResumption Hook
  *
  * FEAT-23: Session resumption for flow navigators with philosopher-validated Stoic language.
- * Extracted from MorningFlowNavigator, MiddayFlowNavigator, EveningFlowNavigator
- * to reduce code duplication (~210 lines saved across 3 navigators).
+ * Originally extracted from the three retired time-of-day navigators (FEAT-298 slice 6c);
+ * now serves the daily loop.
  *
  * Features:
  * - Supports resuming interrupted sessions (24hr TTL)

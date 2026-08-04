@@ -313,9 +313,6 @@ export const linkingConfig: LinkingOptions<RootStackParamList> = {
       Onboarding: 'onboarding',
 
       // Check-in flows
-      MorningFlow: 'morning',
-      MiddayFlow: 'midday',
-      EveningFlow: 'evening',
       // FEAT-298 slice 4. Route NAME ('DailyLoop') and path TOKEN ('daily') are separate
       // concepts and must not be "harmonized" — the route name is pinned in three places
       // (the crisis overlay's IMMERSIVE_ROUTES, the Stack.Screen, getActiveRootRouteName) and
