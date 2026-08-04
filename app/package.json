@@ -70,6 +70,7 @@
     "typecheck": "npx tsc --noEmit --incremental",
     "precommit": "npm run typecheck && npm run lint:baseline && npm run test:safety && npm run test:clinical && npm run test:unit && npm run test:privacy",
     "check:crisis-hotline": "node scripts/check-crisis-hotline.js",
+    "check:breathing-worklets": "node scripts/check-breathing-worklet-purity.js",
     "prepare": "[ ! -e ../.git ] && exit 0; cd .. && husky app/.husky",
     "postinstall": "patch-package && node scripts/generate-legal-content.js",
     "prepush": "npm run check:crisis-hotline",

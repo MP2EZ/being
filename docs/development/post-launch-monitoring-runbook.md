@@ -29,7 +29,7 @@ code-side alert (the subscription-verification watchdog) and documents the other
 | 2 | API / edge error rate > 5% | Sentry metric alert (+ Supabase logs for edge) | Sentry dashboard | ⏳ operator to create — see [§2](#2-error-rate-alert-sentry) |
 | 3 | Sustained Supabase connection failures | Supabase project notifications + external watcher | Supabase dashboard | ⏳ operator to enable — see [§3](#3-supabase-connection-failure-alert) |
 | 4 | Subscription-verification automation dead | `subscription_verification_watchdog()` pg_cron + Resend | **code (this PR)** | ✅ migration shipped; needs deploy + Vault bootstrap — see [§4](#4-subscription-verification-failure-watchdog-shipped) |
-| 5 | Crisis-button / 60fps perf regression | on-device Maestro budgets (prod RUM deferred) | Maestro / app | ✅ covered by pre-merge gate; prod RUM deferred — see [§5](#5-performance-degradation-alert-deferred-prod-rum) |
+| 5 | Crisis-button / 60fps perf regression | crisis **detection** <200ms: strict CI gate. Crisis **button**: coarse jest proxy. 60fps: **structural proxy only, frame rate unmeasured** (INFRA-306 Layer A; measurement is INFRA-309) | jest / CI | ⚠️ partially covered — Maestro enforces none of these; prod RUM deferred — see [§5](#5-performance-degradation-alert-deferred-prod-rum) and [§5a](#5a-breathing-circle-60fps--what-the-control-actually-is) |
 
 **Grounding (verified live 2026-06-18 against `being-production` = `yliycxslzdsgjtpxggtf` and
 Sentry org `being-prod` / project `javascript-react`):**
@@ -239,9 +239,33 @@ runbook takes the documented-defer path. The rationale is substantive, not a dod
 
 1. **A crisis-button latency regression is a safety contract, and the strongest control for a
    contract is a gate that blocks it pre-merge — not a prod alert that fires after users felt it.**
-   That gate already exists: the on-device Maestro flow enforcing `<200ms` / 60fps
-   (`app/.maestro/`, gated by `/b-close` Phase 2.5). Prod RUM is a *trailing* indicator; for a
-   safety budget the *leading* gate dominates.
+   Prod RUM is a *trailing* indicator; for a safety budget the *leading* gate dominates.
+
+   > [!WARNING]
+   > **CORRECTED 2026-07-25 (MAINT-307).** This point previously read *"That gate already exists:
+   > the on-device Maestro flow enforcing `<200ms` / 60fps."* **It does not exist.** Verified across
+   > all 8 flows in `app/.maestro/`: there is not one ms or fps assertion, only `timeout:` failure
+   > ceilings. `crisis-button-reachability.yaml:34-35` says so itself — *"on-device timing budgets
+   > live in CLAUDE.md's Performance Budgets section and are validated by hand until a real perf
+   > harness exists."*
+   >
+   > What actually enforces what, as of 2026-07-25:
+   > - **Crisis detection `<200ms` — strict CI gate.** `__tests__/performance/assessment-performance.test.ts`
+   >   asserts `toBeLessThan(200)` for suicidal-ideation detection, run by the `Performance regression` job.
+   > - **Crisis button `<200ms` — coarse jest proxy only.** `CollapsibleCrisisButton.behavioral.test.tsx:51`;
+   >   its own comment concedes it measures synthetic event dispatch, not tap→render.
+   > - **Breathing 60fps — no measurement; a structural proxy since INFRA-306.** See
+   >   [§5a](#5a-breathing-circle-60fps--what-the-control-actually-is) below for exactly what
+   >   the proxy does and does not cover. The frame rate itself is still unmeasured.
+   > - **App launch `<2s`, check-in transition `<500ms` — nothing.** Hand-validated.
+   >
+   > Note `__tests__/reporters/performance-regression-reporter.js` does **not** gate: it is non-strict
+   > unless `PERF_REGRESSION_STRICT=true`, and its own comment says it is for "really slow test"
+   > warnings. `performance-baselines.json`'s `crisis_response_ms: 9.38` is a recorded baseline, not a
+   > threshold.
+   >
+   > The deferral above still stands on its other leg — reason 3, that pre-launch there is no traffic
+   > to alert on or tune against. But it can no longer lean on a leading gate that was never built.
 2. **The two AC5 budgets need app-code work, not a config flip.** The crisis-tap `<200ms`
    measurement needs a **custom span** wired into the tap handler (real app-code instrumentation).
    Sentry *does* auto-emit app-start and slow/frozen-frame metrics as config (no custom spans) —
@@ -261,6 +285,79 @@ button-access (`<3 taps / <3s`) is pinned by **Maestro**, not telemetry.
 **Follow-up (post-launch):** revisit Sentry performance/RUM for the crisis-tap transaction once
 there is real traffic, alongside the ops-domain external-watcher follow-up. Tracked as a Notion
 item.
+
+---
+
+## 5a. Breathing-circle 60fps — what the control actually is
+
+**Shipped by INFRA-306 (Layer A), 2026-07-25.** Read this section before citing a 60fps control
+anywhere, because the honest answer is narrower than the name suggests.
+
+### What exists
+
+`app/scripts/check-breathing-worklet-purity.js`, run as `npm run check:breathing-worklets` in the
+`Performance regression` CI job. It **fails the build** when the shape of the already-fixed
+PERF-01/PERF-02 regression (commit `ff591f3a`) reappears on the breathing animation path:
+
+| Rule | What it catches |
+|---|---|
+| `runOnJS` inside a `useAnimatedStyle` / `useDerivedValue` / `useAnimatedReaction` body | a JS-thread hop on **every frame** — the PERF-02 regression |
+| React state setter inside those same bodies | a re-render on every frame |
+| `requestAnimationFrame` on the animation path | JS-thread frame sampling — wrong thread, and the pattern PERF-02 deleted |
+| `BreathingCircle` default export losing its `React.memo` wrapper | parent re-renders reconciling the circle mid-animation |
+| `DEFAULT_PATTERN` / `DEFAULT_PHASE_TEXT` ceasing to be module-scope constants | new object identity each render, defeating `React.memo` (the PERF-01 fix) |
+
+Guarded files are listed explicitly in `ANIMATION_PATH_FILES`, so widening the guarded set is a
+visible diff rather than a side effect of where a new component was placed. Escape hatch:
+`// breathing-worklet-skip: <reason>` on the line directly above. Expect zero usages.
+
+### What it does NOT cover — say this plainly
+
+- **It does not measure frames.** Not one. It is a *structural proxy* that pins a known-good
+  shape in place. A file can satisfy every rule above and still drop frames on a real device.
+- **CI cannot ever measure them.** All 12 jobs in `.github/workflows/ci.yml` are
+  `runs-on: ubuntu-latest`; nothing there renders a frame. This is the same constraint that made
+  Maestro safety-e2e local-only (INFRA-171).
+- **Maestro cannot measure them either.** Verified across all 8 flows in `app/.maestro/`: zero ms
+  or fps assertions, only `timeout:` failure ceilings. `crisis-button-reachability.yaml:34-35`
+  says so in-file.
+- **The 60fps number has never been validated on hardware**, and it is device-naive as written —
+  see below.
+
+### Why "60fps" is the wrong unit, for whoever builds INFRA-309
+
+ProMotion iPhones run at 120Hz, where nominal frame time is **8.3ms, not 16.67ms**. A UI thread
+delivering a steady 60fps on such a device is dropping **half** its frames while sailing past any
+`fps >= 55` floor. Mid-tier Android spans 60/90/120Hz. So the budget must eventually be expressed
+as a **dropped-frame ratio against the device's own measured nominal refresh interval**, not the
+literal `60` in `CLAUDE.md`'s Performance Budgets table. Reanimated's `FrameInfo` exposes only
+`timestamp` / `timeSincePreviousFrame` / `timeSinceFirstFrame` — no refresh rate — so normalising
+needs a native call (`UIScreen.maximumFramesPerSecond`, Android `Display.getRefreshRate()`) that
+does not exist in this codebase yet.
+
+### Removed in the same change: a fabricated metric
+
+`RenderingOptimizer.getJSFrameRate()` and `getUIFrameRate()` returned `58 + Math.random() * 4` and
+`59 + Math.random() * 2` under a *"Mock implementation - in real app, use native bridge"* comment.
+They populated `FrameMetrics.jsFrameRate` / `.uiFrameRate`, which were **write-only** — nothing in
+`src/` or `__tests__/` ever read them, and the `frame_metrics_collected` event they rode on has no
+listeners. No live gate was asserting on random numbers, but the trap was set: anyone told to
+"wire up the existing UI frame rate" would have produced a permanently-green control. Both getters
+and both fields are gone.
+
+Note also that `RenderingOptimizer` samples the **JS thread** via a `requestAnimationFrame` loop
+and is reachable only through `useAssessmentPerformance`, whose sole consumer is
+`AssessmentIntegrationExample.tsx` — a demo component. It is not, and must not become, the 60fps
+control. A warning to that effect now sits in its module header.
+
+### The real control
+
+**INFRA-309** — a UI-thread `useFrameCallback` probe accumulating in shared values, a
+flag-scoped HUD, and a device-only Maestro flow asserting the rendered number via
+`copyTextFrom` + `assertTrue`. Blocked on naming a calibration handset: there is no device
+inventory in this repo, and the only model named anywhere (`ACCESSIBILITY_TESTING_GUIDE.md:326`,
+iPhone 13 Pro) is a bug-report template example — and is a 120Hz ProMotion device, so neither
+mid-tier nor 60Hz.
 
 ---
 

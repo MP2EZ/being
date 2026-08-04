@@ -310,8 +310,21 @@ jobs:
   #   - assessment-store API drift (primaryTrigger vs triggerType).
   #   - SecureStorageService cleanup setInterval kept Jest alive past
   #     completion — now skipped in NODE_ENV=test.
-  #   - CI threshold variance recalibrated; production budgets still
-  #     enforced via perf:crisis/perf:breathing/perf:launch scripts.
+  #   - CI threshold variance recalibrated.
+  # CORRECTED 2026-07-25 (MAINT-307): this comment used to claim "production
+  # budgets still enforced via perf:crisis/perf:breathing/perf:launch scripts".
+  # Those scripts were deleted in MAINT-166 PR 7 (they ran zero matching tests),
+  # so the claim was false. What this job actually enforces is the crisis
+  # DETECTION <200ms budget, via assessment-performance.test.ts. The crisis
+  # BUTTON budget has only a coarse jest proxy (CollapsibleCrisisButton.
+  # behavioral.test.tsx). App launch <2s and check-in transition <500ms are
+  # enforced by nothing.
+  # UPDATED 2026-07-25 (INFRA-306): breathing 60fps is still not MEASURED
+  # anywhere — no macOS runner exists, so no CI job can render a frame. What
+  # this job now adds is a structural PROXY ("Breathing-worklet purity guard")
+  # that fails when the PERF-01/PERF-02 regression shape returns to the
+  # animation path. Do not read that step as an fps gate; the on-device
+  # UI-thread measurement is INFRA-309.
   # Deferred (testPathIgnorePatterns in jest.config.js):
   #   - sync-performance-validation + week3-analytics-performance:
   #     tests reference older service APIs (new SyncCoordinator() when
@@ -333,6 +346,14 @@ jobs:
 
       - name: Install dependencies
         run: cd app && npm ci --prefer-offline --no-audit
+
+      # INFRA-306 Layer A. STRUCTURAL PROXY, not a frame-rate measurement — this
+      # runner is ubuntu-latest and cannot render a frame. It fails when the
+      # PERF-01/PERF-02 regression shape (commit ff591f3a) reappears on the
+      # breathing animation path. The breathing 60fps budget itself remains
+      # unmeasured; the on-device measurement is INFRA-309.
+      - name: Breathing-worklet purity guard
+        run: cd app && npm run check:breathing-worklets
 
       - name: Performance test suite
         run: cd app && npm run test:performance -- --ci --testTimeout=30000

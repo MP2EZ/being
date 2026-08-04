@@ -70,7 +70,7 @@
           "correctAnswer": "not-in-control",
           "explanation": "Other drivers' actions and the traffic situation are not in your control.",
           "inControl": [
-            "Your emotional response (staying calm vs. getting angry)",
+            "How you handle the anger once it flares (steadying vs. escalating)",
             "How you drive in response (safely vs. recklessly)",
             "Your judgment about the situation",
             "Calling ahead to inform you'll be late",
@@ -78,30 +78,11 @@
             "Your breathing and stress management"
           ],
           "notInControl": [
+            "The first flash of anger (it appears automatically)",
             "The other driver's behavior",
             "The traffic conditions",
             "Being late (it's already happening)",
             "Other drivers on the road"
-          ]
-        },
-        {
-          "id": "medical-test-anxiety",
-          "text": "Your anxiety about an upcoming medical test result.",
-          "correctAnswer": "in-control",
-          "explanation": "Your anxiety itself (your judgment/response) is in your control, though the test result is not.",
-          "inControl": [
-            "Your anxiety (it's your judgment/mental response)",
-            "How you work with the anxiety (breathing, grounding)",
-            "Your self-talk and interpretations",
-            "Whether you seek support while waiting",
-            "Activities you choose to distract or soothe yourself",
-            "Your preparation for different possible outcomes"
-          ],
-          "notInControl": [
-            "The medical test result itself",
-            "When you receive the results",
-            "The medical facts of your condition",
-            "Others' reactions to your news"
           ]
         },
         {
@@ -155,7 +136,7 @@
             "Your attitude about the situation",
             "Whether you bring rain gear",
             "How you make the best of circumstances",
-            "Finding enjoyment despite the rain"
+            "Where you put your attention despite the rain"
           ],
           "notInControl": [
             "The actual weather",
@@ -188,16 +169,17 @@
           "id": "event-interpretation",
           "text": "Your interpretation of a difficult event that happened.",
           "correctAnswer": "in-control",
-          "explanation": "Your interpretations and judgments are in your control—this is a core Stoic teaching.",
+          "explanation": "Your interpretations and judgments are in your control — this is a core Stoic teaching. The feeling that arrives before you've interpreted anything is not.",
           "inControl": [
             "The meaning you assign to the event",
             "Your perspective and framing",
-            "Your emotional response (based on interpretation)",
+            "How the feeling shifts once you revisit the interpretation",
             "The story you tell yourself about it",
             "Whether you reframe or reinterpret",
             "How you choose to think about it"
           ],
           "notInControl": [
+            "The feeling that arrives before you've interpreted anything",
             "The event itself (it already happened)",
             "Others' interpretations of the event",
             "The objective facts of what occurred",
@@ -224,6 +206,26 @@
             "Budget constraints",
             "Company politics",
             "Timing and external factors"
+          ]
+        },
+        {
+          "id": "medical-test-anxiety",
+          "text": "How you respond to anxiety while waiting for a medical test result.",
+          "correctAnswer": "in-control",
+          "explanation": "How you respond to the anxiety is in your control. The first wave of fear is not — it arrives before you can choose. Neither is the result itself; it was never yours to decide.",
+          "inControl": [
+            "How you work with the anxiety once you notice it (breathing, grounding)",
+            "Your self-talk and interpretations",
+            "Whether you seek support while waiting",
+            "Activities you choose while you wait (steadying yourself, not avoiding)",
+            "Thinking through what you'd do next, whichever way it goes"
+          ],
+          "notInControl": [
+            "The first wave of fear (it appears automatically)",
+            "The medical test result itself",
+            "When you receive the results",
+            "The medical facts of your condition",
+            "Others' reactions to your news"
           ]
         },
         {
@@ -269,9 +271,9 @@
         },
         {
           "id": "political-response",
-          "text": "Your emotional response when hearing those political beliefs.",
+          "text": "How you respond when you hear those political beliefs.",
           "correctAnswer": "in-control",
-          "explanation": "Your responses—emotional and behavioral—are within your control, though they may require practice.",
+          "explanation": "How you respond is in your control — the tone you take, whether you engage, what you make it mean. The first flash of feeling is not; it arrives before you can choose.",
           "inControl": [
             "How you regulate your emotional reaction",
             "Your interpretation of their words",
@@ -281,7 +283,7 @@
             "How you choose to think about the situation"
           ],
           "notInControl": [
-            "Your initial emotional flash (appears automatically)",
+            "The first flash of feeling (it appears automatically)",
             "Their words and delivery",
             "The content of their beliefs",
             "The political climate creating tension"
