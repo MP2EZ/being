@@ -21,7 +21,7 @@ import {
 import { colorSystem, spacing, borderRadius, typography, getTheme } from '@/core/theme';
 import { AccessibleButton } from '@/core/components/accessibility/AccessibleButton';
 import { BreathingCircle, Timer, SkipLink } from '@/features/practices/shared/components';
-import type { DailyLoopCompleteData, DailyLoopDepth } from '@/features/practices/types/flows';
+import type { DailyLoopMode, DailyLoopCompleteData, DailyLoopDepth } from '@/features/practices/types/flows';
 import { CLOSING, STEP_TITLES, getStepKeysForDepth, getCompleteTitle } from '../config/tenseMode';
 
 const CLOSING_BREATH_MS = 15 * 1000;
@@ -29,10 +29,17 @@ const CLOSING_BREATH_MS = 15 * 1000;
 export interface DailyLoopCompleteScreenProps {
   /** Per-session depth (FEAT-301) — drives the depth-accurate completion copy. */
   depth: DailyLoopDepth;
+  /**
+   * Session tense (FEAT-298 slice 6b). The ONLY structural cost of the re-homed gratitude
+   * line: unlike postureLine, gratitude varies by tense, so the coda needs the mode the
+   * navigator already holds. Not user-facing — since slice 5 the tense is inferred from
+   * the clock and never displayed.
+   */
+  mode: DailyLoopMode;
   onComplete: (data: DailyLoopCompleteData) => void;
 }
 
-const DailyLoopCompleteScreen: React.FC<DailyLoopCompleteScreenProps> = ({ depth, onComplete }) => {
+const DailyLoopCompleteScreen: React.FC<DailyLoopCompleteScreenProps> = ({ depth, mode, onComplete }) => {
   const themeColors = getTheme('midday');
   const [breathDone, setBreathDone] = useState(false);
   const [isBreathActive, setIsBreathActive] = useState(true);
@@ -106,6 +113,12 @@ const DailyLoopCompleteScreen: React.FC<DailyLoopCompleteScreenProps> = ({ depth
             <Text style={styles.subtitle}>
               {getStepKeysForDepth(depth).map((k) => STEP_TITLES[k]).join(' · ')}
             </Text>
+
+            {/* FEAT-298 slice 6b — gratitude, re-homed from the retired morning/evening
+                flows. Tense-varied (unlike the posture below), static (nothing to submit or
+                skip), and placed BEFORE the posture because De Ira 3.36 runs review →
+                clemency and the pardon is terminal. */}
+            <Text style={styles.gratitudeLine}>{CLOSING.gratitudeLine[mode]}</Text>
 
             {/* FEAT-298 slice 6a — self-compassion posture, re-homed from the retired
                 Midday CompassionateCloseScreen. Placement is load-bearing: this sits in the
@@ -199,6 +212,13 @@ const styles = StyleSheet.create({
   // FEAT-298 slice 6a — quiet, non-congratulatory register. Deliberately the same muted
   // gray as `subtitle`, never accent-coloured or emphasised: the coda carries a posture,
   // not a reward.
+  // Styled identically to postureLine — same quiet register, same muted gray.
+  gratitudeLine: {
+    fontSize: typography.bodySmall.size,
+    color: colorSystem.gray[600],
+    marginBottom: spacing[16],
+    lineHeight: typography.bodySmall.size * 1.5,
+  },
   postureLine: {
     fontSize: typography.bodySmall.size,
     color: colorSystem.gray[600],

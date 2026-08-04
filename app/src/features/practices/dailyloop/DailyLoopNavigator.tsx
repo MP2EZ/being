@@ -251,6 +251,7 @@ const DailyLoopNavigator: React.FC<DailyLoopNavigatorProps> = ({
   const CompleteScreen = ({ navigation: _navigation }: any) => (
     <DailyLoopCompleteScreen
       depth={depth}
+      mode={mode}
       onComplete={(data: DailyLoopCompleteData) => {
         const finalSessionData: DailyLoopSessionData = {
           ...sessionData,

@@ -231,12 +231,85 @@ describe('closing coda copy (practice-architecture, not a principle)', () => {
       }
     });
 
+    it('EXCLUDES gratitudeLine from this join, deliberately', () => {
+      // gratitudeLine is the ONE coda element that IS tense-bound — morning and evening are
+      // genuinely different practices in the framework. It must stay outside the
+      // tense-neutrality join below, or a future reader "fixing" a /today/i violation will
+      // flatten three authored strings into one and lose a distinction the docs are
+      // explicit about.
+      expect(codaText).not.toContain(CLOSING.gratitudeLine.morning);
+      expect(codaText).not.toContain(CLOSING.gratitudeLine.evening);
+    });
+
     it('is tense-neutral — one string serves all three modes', () => {
       // A tense-bound posture would recreate the bug being fixed: reachable in one tense
       // only. Also depth-neutral: nothing here presumes five beats ran.
       for (const banned of [/today/i, /\bthe day you\b/i, /all five/i]) {
         expect(codaText).not.toMatch(banned);
       }
+    });
+  });
+
+  /**
+   * FEAT-298 slice 6b — gratitude, re-homed from the retired morning/evening flows.
+   *
+   * The warrant is a defect in ALREADY-SHIPPED code, not "deleting the flows removes
+   * gratitude from the app" (that premise is false — a weak generic gratitude-reflection
+   * survives in module-4). The loop ships PREMEDITATIO (beat 4, morning-only), and the
+   * framework makes present-moment gratitude its REQUIRED complement — so the loop has
+   * been shipping the aversive half of a two-half practice with nothing to complete it.
+   */
+  describe('gratitude (re-homed from morning/evening)', () => {
+    const ALL_MODES: DailyLoopMode[] = ['flat', 'morning', 'evening'];
+    const allGratitude = ALL_MODES.map((m) => CLOSING.gratitudeLine[m]).join(' ');
+
+    it('is authored for every tense — no stubs', () => {
+      for (const mode of ALL_MODES) {
+        expect(CLOSING.gratitudeLine[mode]).toEqual(expect.any(String));
+        expect(CLOSING.gratitudeLine[mode].length).toBeGreaterThan(40);
+      }
+    });
+
+    it('gives each tense a DISTINCT line — the whole point of varying it', () => {
+      expect(new Set(ALL_MODES.map((m) => CLOSING.gratitudeLine[m])).size).toBe(
+        ALL_MODES.length
+      );
+    });
+
+    it('morning keeps the impermanence framing (Epictetus, Enchiridion 11)', () => {
+      expect(CLOSING.gratitudeLine.morning.toLowerCase()).toMatch(
+        /isn't promised|not owed|if it were gone/
+      );
+    });
+
+    it('evening keeps the SPECIFICITY requirement — a moment, not a category', () => {
+      // daily-architecture.md is explicit: "Three specific things from today (not generic)".
+      expect(CLOSING.gratitudeLine.evening).toMatch(/specific|moment, not a category/i);
+    });
+
+    it('flat frames it as noticing what is already here (Marcus 7.27)', () => {
+      expect(CLOSING.gratitudeLine.flat.toLowerCase()).toMatch(/already here/);
+    });
+
+    it('never congratulates, moralizes, or imports wellness-gratitude register', () => {
+      // Stoic gratitude is an act of correct judgment, good in itself — not instrumental
+      // to a mood outcome. Same standard 6a applied when it stripped "compassion".
+      for (const banned of [
+        /well done/i,
+        /you deserve/i,
+        /you earned/i,
+        /should be grateful/i,
+        /count your blessings/i,
+        /positive/i,
+        /blessing/i,
+      ]) {
+        expect(allGratitude).not.toMatch(banned);
+      }
+    });
+
+    it('offers somewhere to WRITE gratitude without adding a second input', () => {
+      // A second coda input would turn a closing into a form; the existing note absorbs it.
+      expect(CLOSING.notePlaceholder).toMatch(/glad of/i);
     });
   });
 });

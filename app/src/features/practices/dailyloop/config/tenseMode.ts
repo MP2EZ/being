@@ -438,6 +438,45 @@ export const CLOSING = {
   breathSubtitle: 'One slow breath. Loosen your grip, and let this be complete.',
   completeTitle: 'You moved through all five principles.',
   /**
+   * FEAT-298 slice 6b — gratitude, re-homed from the retired morning/evening flows
+   * (FEAT-313 decision, philosopher pass).
+   *
+   * The warrant is NOT "deleting the flows removes gratitude from the app" — that premise
+   * is false (a weak, generic `gratitude-reflection` survives in module-4). It is a defect
+   * in ALREADY-SHIPPED code: the loop ships PREMEDITATIO (beat 4, morning-only), and
+   * principles/04-virtuous-response.md:52 makes present-moment gratitude its REQUIRED
+   * complement — "after briefly contemplating potential loss, turn attention to what you
+   * actually have right now." The loop has been shipping the aversive half of a two-half
+   * practice with no complement.
+   *
+   * Placed BEFORE postureLine: De Ira 3.36 runs review → clemency, and the pardon is
+   * terminal. Gratitude precedes the self-pardon, never follows it.
+   *
+   * VARIES BY TENSE — deliberately unlike postureLine. Morning and evening are genuinely
+   * different practices in the framework (impermanence-framed vs. specific-retrospective)
+   * and collapsing them would lose a distinction the doc is explicit about. `flat` is
+   * authored too: neither retired screen ever covered the midday band.
+   *
+   * A STATIC LINE, not a second input. The coda already has one input and a second would
+   * turn a closing into a form. Marcus 7.27 is a perceptual act, and the framework's own
+   * justification is that specificity engages memory and emotion — not text entry. Nothing
+   * to submit, nothing to skip: optional in the strongest sense.
+   *
+   * Depth-invariant, so it reaches quick AND deep in all three tenses — avoiding the exact
+   * bug 6a's docstring names, "a posture reachable in only one tense."
+   *
+   * Warrants — morning: Epictetus, Enchiridion 11. flat: Marcus, Meditations 7.27.
+   * evening: Marcus, Meditations Bk 1 + daily-architecture.md:127-131.
+   */
+  gratitudeLine: {
+    morning:
+      "This day isn't promised. Notice one thing in it you'd miss if it were gone — not owed to you, which is what makes it worth seeing.",
+    flat:
+      "Look at what's already here. Take one thing you have and ask how hard you'd have chased it if you didn't — then let yourself actually see it.",
+    evening:
+      "Before this day closes, find one specific thing in it you're glad of — a moment, not a category. 'That ten minutes on the porch,' not 'my life.'",
+  } satisfies Record<DailyLoopMode, string>,
+  /**
    * FEAT-298 slice 6a — the self-compassion posture, re-homed from the retired Midday
    * CompassionateCloseScreen (philosopher pass).
    *
@@ -464,7 +503,7 @@ export const CLOSING = {
   noteLabel: 'Anything to carry back with you? (optional)',
   // Amended (slice 6a): carries the self-directed example the retired screen had.
   notePlaceholder:
-    "E.g., 'Focus on what's mine; act with courage.' Or 'Steady, and patient with myself.'",
+    "E.g., 'Focus on what's mine; act with courage.' Or 'Steady, and patient with myself.' Or simply what you were glad of.",
   /**
    * Re-homes MAINT-140's "return anytime" reinforcement, which had no equivalent in the
    * loop (the only re-entry signal was a navigation button label). Upgraded from "the pause
