@@ -318,7 +318,7 @@ export const linkingConfig: LinkingOptions<RootStackParamList> = {
       EveningFlow: 'evening',
       // FEAT-298 slice 4. Route NAME ('DailyLoop') and path TOKEN ('daily') are separate
       // concepts and must not be "harmonized" — the route name is pinned in three places
-      // (RootCrisisButton IMMERSIVE_ROUTES, the Stack.Screen, getActiveRootRouteName) and
+      // (the crisis overlay's IMMERSIVE_ROUTES, the Stack.Screen, getActiveRootRouteName) and
       // by a Maestro flow. Bare path: no mode/depth params — see ALLOWED_PARAMS.
       DailyLoop: 'daily',
 
