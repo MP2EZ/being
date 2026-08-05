@@ -50,6 +50,32 @@ cd app
 npm run e2e:safety:build   # EAS local build (e2e-sim profile) + install on the booted sim
 ```
 
+> 🚨 **Do not pipe this command.** `npm run e2e:safety:build 2>&1 | tee build.log`
+> (or `| tail`, `| head`, `| grep`) reports the exit status of the **last** command
+> in the pipeline, not the build — so a failed build looks like success:
+>
+> ```bash
+> bash -c 'exit 7' | cat; echo $?   # -> 0
+> ```
+>
+> This is almost certainly what produced the 2026-08-02 report behind DEBUG-315:
+> EAS aborted on a dirty tree, the piped invocation reported 0, and the full
+> Maestro suite then ran 0/5 against the stale build still installed. The script
+> itself propagates correctly (`set -euo pipefail`, verified) — the masking happens
+> in the **calling** shell, which the script cannot fix. If you must capture output:
+>
+> ```bash
+> set -o pipefail; npm run e2e:safety:build 2>&1 | tee build.log
+> ```
+>
+> **Manual regression smoke** (cannot be automated — CI is 100% `ubuntu-latest`, and
+> the script exits on the booted-sim precondition long before reaching EAS): with a
+> dirty working tree, run `npm run e2e:safety:build; echo $?` and expect a non-zero
+> code plus an `❌ e2e:safety:build failed at stage: …` line. The stage-level failure
+> paths (build fails, build succeeds without producing an artifact, extraction, sim
+> install) are covered automatically by `app/__tests__/scripts/e2e-sim-build.test.js`,
+> which PATH-shims `eas`/`xcrun` and runs anywhere in milliseconds.
+
 > ⚠️ **The gate target is a build that EXCLUDES `expo-dev-client`, not just a
 > Release build.** This is the load-bearing INFRA-216 finding, and it corrects
 > earlier guidance in this doc:
@@ -68,7 +94,9 @@ npm run e2e:safety:build   # EAS local build (e2e-sim profile) + install on the 
 >   `_legal-and-onboarding.yaml` launcher steps simply `WARN`+skip). This is also
 >   effectively what TestFlight/App Store users get.
 
-**Prereqs** (one-time per machine, checked by the build script):
+**Prereqs** (one-time per machine). Only the booted-simulator check is enforced by the
+build script — the rest are **not** verified, so a missing one surfaces as an opaque EAS
+failure rather than a named prereq error:
 - `eas-cli` logged in — `npx eas whoami` (else `npx eas login`).
 - `fastlane` — `brew install fastlane`. *(Heads-up: on some setups `brew install
   fastlane` upgrades Ruby and can orphan CocoaPods' `ffi` gem — if `pod --version`
