@@ -20,7 +20,7 @@
  */
 
 import React from 'react';
-import { render, fireEvent, act } from '@testing-library/react-native';
+import { render, fireEvent, act, waitFor } from '@testing-library/react-native';
 import { Alert, Linking } from 'react-native';
 
 // Mock navigation hooks before importing the screen.
@@ -173,6 +173,42 @@ describe('CrisisResourcesScreen', () => {
       });
 
       expect(Linking.openURL).toHaveBeenCalledWith('tel:911');
+      // DEBUG-314: the dial is now guarded. Before, this site had a `.catch`
+      // but never a `canOpenURL` check, so an unsupported scheme still failed
+      // silently.
+      expect(Linking.canOpenURL).toHaveBeenCalledWith('tel:911');
+    });
+
+    test('911 keeps its own manual-dial copy when the device cannot dial', async () => {
+      // Ruling from the crisis specialist (DEBUG-314): 911 must NOT inherit
+      // openCrisisUrl's default "Please manually dial 911 for support" —
+      // 911 is emergency dispatch, not support, and the actionable
+      // instruction is to dial it on the phone itself. The copy is preserved
+      // verbatim via fallbackTitle/fallbackMessage overrides.
+      (Linking.canOpenURL as jest.Mock).mockResolvedValueOnce(false);
+
+      const { getByLabelText } = render(<CrisisResourcesScreen />);
+
+      let confirmCallback: (() => void) | undefined;
+      (Alert.alert as jest.Mock).mockImplementationOnce(
+        (_title: string, _msg: string, buttons: { text: string; onPress?: () => void }[]) => {
+          confirmCallback = buttons.find((b) => b.text === 'Call 911')?.onPress;
+        }
+      );
+
+      fireEvent.press(getByLabelText('Call 911 for emergency'));
+      await act(async () => {
+        confirmCallback?.();
+        await Promise.resolve();
+      });
+
+      await waitFor(() =>
+        expect(Alert.alert).toHaveBeenCalledWith(
+          'Call Failed',
+          'Unable to initiate 911 call. Please dial 911 manually on your phone.',
+          expect.any(Array)
+        )
+      );
     });
   });
 

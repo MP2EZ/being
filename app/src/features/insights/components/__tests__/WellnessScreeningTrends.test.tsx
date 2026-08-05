@@ -8,7 +8,8 @@
  */
 
 import React from 'react';
-import { render, fireEvent } from '@testing-library/react-native';
+import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import { Alert, Linking } from 'react-native';
 import { severityBands } from '@/core/theme';
 
 // react-native-svg isn't in the jest transform allowlist; mock it as plain
@@ -114,6 +115,54 @@ describe('WellnessScreeningTrends', () => {
     );
     expect(getByText(/wellness screening tools for personal awareness/i)).toBeTruthy();
     expect(getByLabelText('Call or text 988 for immediate support')).toBeTruthy();
+  });
+
+  describe('the 988 tap target actually dials (DEBUG-314)', () => {
+    // Until DEBUG-314 the assertion above was the whole story: the link was
+    // proven to *render*, never to dial. A bare `Linking.openURL('tel:988')`
+    // that rejected produced no dial, no alert and no log, and no test noticed.
+    const sessions = [session('gad7', 9, 'mild', 10), session('gad7', 12, 'moderate', 1)];
+
+    // This suite has no global mock reset, and the Linking mocks are shared
+    // module-level jest.fn()s. Without this, the `not.toHaveBeenCalled()`
+    // assertion below sees the previous test's dial and fails only when the
+    // file runs as a whole — the kind of order-dependent failure that gets
+    // misread as flake.
+    beforeEach(() => {
+      (Linking.openURL as jest.Mock).mockClear();
+      (Linking.canOpenURL as jest.Mock).mockClear();
+      (Alert.alert as jest.Mock).mockClear();
+    });
+
+    it('dials 988 through the canOpenURL guard', async () => {
+      (Linking.canOpenURL as jest.Mock).mockResolvedValueOnce(true);
+
+      const { getByLabelText } = render(
+        <WellnessScreeningTrends sessions={sessions} now={NOW} />
+      );
+      fireEvent.press(getByLabelText('Call or text 988 for immediate support'));
+      await waitFor(() => expect(Linking.openURL).toHaveBeenCalledWith('tel:988'));
+
+      expect(Linking.canOpenURL).toHaveBeenCalledWith('tel:988');
+    });
+
+    it('shows a manual-dial instruction when the device cannot open tel:', async () => {
+      (Linking.canOpenURL as jest.Mock).mockResolvedValueOnce(false);
+
+      const { getByLabelText } = render(
+        <WellnessScreeningTrends sessions={sessions} now={NOW} />
+      );
+      fireEvent.press(getByLabelText('Call or text 988 for immediate support'));
+
+      await waitFor(() =>
+        expect(Alert.alert).toHaveBeenCalledWith(
+          'Unable to Call',
+          'Please manually dial 988 for support.',
+          expect.any(Array)
+        )
+      );
+      expect(Linking.openURL).not.toHaveBeenCalled();
+    });
   });
 
   it('closes the card on a within-control reflection prompt, never on the number', () => {

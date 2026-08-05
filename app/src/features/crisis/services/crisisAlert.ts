@@ -28,11 +28,24 @@
  * CONTRACT (pinned by `__tests__/crisisAlert.unit.test.ts`)
  * - Exactly three actions, in order: 988, 741741, 911.
  * - Not cancelable — dismissing by tapping away is not an exit.
- * - No network. The dial paths are local `Linking` calls, which is what keeps
- *   this usable offline and inside the <3s budget.
+ * - No network. The dial issues no network call before the dial, which is what
+ *   keeps this usable offline and inside the <3s budget. (`openCrisisUrl` pulls
+ *   `logError` and `crisisTapTrace` into the graph, but neither touches the
+ *   network on the path to `Linking.openURL`.)
+ *
+ * GUARDED DIALS (DEBUG-314)
+ * The three actions dial through `openCrisisUrl`, not bare `Linking.openURL`,
+ * so each gets the `canOpenURL` guard, the manual-dial fallback Alert, and the
+ * `LogCategory.CRISIS` audit record. Previously a rejected `openURL` — no
+ * telephony, a missing `LSApplicationQueriesSchemes` entry, an OS restriction —
+ * rejected into nothing: no dial, no alert, no log, on the PHQ-9/GAD-7
+ * threshold path. Import is static per the crisis-path no-lazy-import rule.
  */
 
 import { Alert, Linking } from 'react-native';
+
+import { logError, LogCategory } from '@/core/services/logging';
+import { openCrisisUrl } from '@/features/crisis/utils/openCrisisUrl';
 
 /**
  * Copy is exported so tests and any future in-page banner can assert against
@@ -61,29 +74,62 @@ export function showCrisisAlert(): void {
       [
         {
           text: CRISIS_ACTION_988,
+          // `void`, never `await`, and never an `async` handler: openCrisisUrl
+          // terminates in `.catch` and cannot reject, so the floating promise is
+          // safe by construction, while an async handler would change the
+          // Alert's dismissal timing.
+          //
+          // These handlers reach `endCrisisTap('url_open')` inside the helper.
+          // On this path (assessment completion, voice journal) no crisis-tap
+          // mark is open, so it no-ops — that is correct, not telemetry noise.
           onPress: (): void => {
-            void Linking.openURL('tel:988');
+            void openCrisisUrl('tel:988', { manualLabel: '988' });
           },
           style: 'default',
         },
         {
           text: CRISIS_ACTION_TEXT_LINE,
+          // Explicit copy rather than `manualLabel`: the default fallback reads
+          // "Please manually dial 741741 for support", which is wrong for a
+          // text line. Matches CrisisErrorBoundary.tsx and CrisisResourcesScreen.
           onPress: (): void => {
-            void Linking.openURL('sms:741741');
+            void openCrisisUrl('sms:741741', {
+              fallbackTitle: 'Unable to Text',
+              fallbackMessage: 'Please text 741741 for support.',
+            });
           },
           style: 'default',
         },
         {
           text: CRISIS_ACTION_911,
           onPress: (): void => {
-            void Linking.openURL('tel:911');
+            void openCrisisUrl('tel:911', { manualLabel: '911' });
           },
           style: 'destructive',
         },
       ],
       { cancelable: false }
     );
-  } catch {
-    Linking.openURL('tel:988');
+  } catch (error) {
+    // Deliberately NOT openCrisisUrl (DEBUG-314). We are here because
+    // `Alert.alert` threw, and openCrisisUrl's only failure surface IS
+    // `Alert.alert` — routing this through the guard would trade a blind dial
+    // for a guaranteed-silent one. A bare last-resort dial is the honest
+    // fallback when the modal layer is already broken.
+    //
+    // What WAS the DEBUG-314 defect here is the unhandled rejection: an
+    // `openURL` that rejects had nowhere to go. The `.catch` is the fix.
+    logError(
+      LogCategory.CRISIS,
+      'Crisis alert failed to render; falling back to a direct 988 dial',
+      error instanceof Error ? error : new Error(String(error))
+    );
+    void Linking.openURL('tel:988').catch((dialError) =>
+      logError(
+        LogCategory.CRISIS,
+        'Crisis alert fallback dial failed',
+        dialError instanceof Error ? dialError : new Error(String(dialError))
+      )
+    );
   }
 }

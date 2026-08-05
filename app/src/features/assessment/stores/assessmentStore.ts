@@ -366,8 +366,27 @@ class CrisisDetectionService {
       await this.logCrisisIntervention(detection);
     } catch (error) {
       logError(LogCategory.SYSTEM, 'Emergency response failed:', error instanceof Error ? error : new Error(String(error)));
-      // Fallback: Direct 988 call
-      Linking.openURL('tel:988');
+      // Fallback: Direct 988 call.
+      //
+      // Deliberately NOT openCrisisUrl (DEBUG-314), for two reasons. First, the
+      // guard's only failure surface is `Alert.alert`, so if we are here because
+      // the modal layer broke, guarding would trade a blind dial for a silent
+      // no-op. Second, `showCrisisAlert()` cannot throw — it is internally
+      // try/caught and already falls through to its own 988 dial — so reaching
+      // this catch means 988 has most likely been dialed already; stacking an
+      // "Unable to Call" alert on top of a canonical alert that rendered fine
+      // would be worse than the duplicate `tel:` open, which the OS treats as
+      // idempotent. This stays as defense-in-depth.
+      //
+      // The DEBUG-314 defect at this line was the unhandled rejection, not the
+      // missing guard. The `.catch` is the fix.
+      void Linking.openURL('tel:988').catch((dialError) =>
+        logError(
+          LogCategory.CRISIS,
+          'Emergency-response fallback dial failed',
+          dialError instanceof Error ? dialError : new Error(String(dialError))
+        )
+      );
     }
   }
 

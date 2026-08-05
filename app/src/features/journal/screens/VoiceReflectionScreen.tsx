@@ -49,8 +49,9 @@ import {
   Pressable,
   TextInput,
   ScrollView,
-  Linking,
 } from 'react-native';
+// Static import — the crisis path's no-lazy-import rule (CLAUDE.md).
+import { openCrisisUrl } from '@/features/crisis/utils/openCrisisUrl';
 import {
   colorSystem,
   spacing,
@@ -229,7 +230,12 @@ export function VoiceReflectionScreen(): React.ReactElement {
         testID="journal-crisis-call-988"
         accessibilityRole="button"
         accessibilityLabel="Call 988, the Suicide and Crisis Lifeline"
-        onPress={() => Linking.openURL('tel:988')}
+        // Guarded dial (DEBUG-314). This banner shipped in FEAT-283 — *after*
+        // the audit that catalogued this bug class — which is the clearest
+        // evidence that the mechanical pin in
+        // `__tests__/safety/crisisDialGuard.test.ts` was the necessary fix, not
+        // the one-time sweep.
+        onPress={() => { void openCrisisUrl('tel:988', { manualLabel: '988' }); }}
       >
         <Text style={styles.crisisActionText}>Call 988</Text>
       </Pressable>
