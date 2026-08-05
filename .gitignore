@@ -168,6 +168,10 @@ check-*.py
 # Whitelist the breathing-worklet purity guard (INFRA-306) — CI-enforced
 # structural guard on the animation path, not an ad-hoc developer scratch script.
 !app/scripts/check-breathing-worklet-purity.js
+# Whitelist the crisis-dial guard (DEBUG-314) — pins every tel:/sms: dial to
+# openCrisisUrl. Enforced both in precommit (via __tests__/safety) and in the
+# CI security job, not an ad-hoc developer scratch script.
+!app/scripts/check-crisis-dial-guard.js
 !app/__tests__/scripts/check-breathing-worklet-purity.test.js
 execute-*.js
 execute-*.py

@@ -18,6 +18,9 @@
 
 import { logSecurity, logPerformance, logError, LogCategory } from '../logging';
 import { generateTimestampedId } from '@/core/utils/id';
+// `Alert` and `Linking` were dropped with the dead crisis-dial paths (DEBUG-314
+// — see the note below). This module no longer dials or alerts at all, which is
+// why it needs no entry in the crisis-dial guard's allowlist.
 import { DeviceEventEmitter } from 'react-native';
 import {
   AssessmentType,
@@ -296,27 +299,28 @@ export class CrisisPerformanceOptimizer {
     }
   }
 
-  /*
-   * REMOVED (DEBUG-305): `triggerOptimizedEmergencyResponse`, a private
-   * `showCrisisAlert`, and `logCrisisInterventionOptimized`.
-   *
-   * `triggerOptimizedEmergencyResponse` never had a caller outside this file in
-   * any commit (`git log -S` across history), so nothing here ever ran. It was
-   * deleted rather than repaired because it carried two live hazards:
-   *
-   * 1. A SECOND copy of the crisis alert, with its own `Alert.alert` and its own
-   *    copy of the 988/741741/911 actions. `crisisAlert.ts` exists precisely to
-   *    prevent that (MAINT-166 already shipped a double-alert bug of this
-   *    family, pinned by `.maestro/q9-single-alert.yaml`), and this copy also
-   *    dialled through raw `Linking.openURL` rather than `openCrisisUrl`,
-   *    bypassing the DEBUG-314 guard. Fixing the storage half would have
-   *    preserved the alert duplication — the more dangerous half.
-   * 2. A plaintext `crisis_<assessmentId>` write carrying `triggerValue`, under
-   *    a key matching no erasure prefix — the same defect as
-   *    `logCrisisIntervention`, self-described as "non-encrypted storage."
-   *
-   * `detectCrisisOptimized` above has live callers and is unaffected.
-   */
+  // DELETED (DEBUG-314): `triggerOptimizedEmergencyResponse`, its private
+  // `showCrisisAlert`, and `logCrisisInterventionOptimized` lived here and
+  // dialed 988/741741/911 through bare `Linking.openURL`.
+  //
+  // They were deleted rather than converted to `openCrisisUrl` because
+  // `triggerOptimizedEmergencyResponse` had ZERO callers anywhere in src/ or
+  // __tests__/, and the other two were reachable only from it. Converting dead
+  // code would have preserved a second copy of the exact alert copy FEAT-283
+  // extracted `crisisAlert.ts` to deduplicate — and an allowlisted, guarded
+  // duplicate reads as endorsement, so the next person adds a caller.
+  //
+  // The copy had already drifted structurally from canonical: it was
+  // `cancelable: false` *with* an `onDismiss` resolver, giving it a dismiss
+  // path canonical deliberately does not have. `logCrisisInterventionOptimized`
+  // also wrote `crisis_${assessmentId}` as plaintext JSON to a bare AsyncStorage
+  // key matching no erasure prefix — a second latent writer of the DEBUG-305
+  // erasure-orphan family.
+  //
+  // The surviving optimizer surface (detectCrisisOptimized, getPerformanceStats,
+  // configureOptimizations, recordPerformanceMetric, handlePerformanceAlert) is
+  // untouched. Whether *those* are reachable outside the demo component is the
+  // separate INFRA-306-style question and is not this defect.
 
   /**
    * Performance metrics recording

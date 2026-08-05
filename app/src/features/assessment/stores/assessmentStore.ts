@@ -29,6 +29,10 @@ import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+// `Linking` is used only by triggerEmergencyResponse's last-resort 988 fallback
+// (DEBUG-314). It is deliberately NOT routed through `openCrisisUrl` — see the
+// comment at that call site.
+import { Linking } from 'react-native';
 
 // Import types from assessment flow
 import {
@@ -373,7 +377,7 @@ class CrisisDetectionService {
   }
 
   /**
-   * Surface the crisis intervention. Nothing is persisted here — see below.
+   * Surface the crisis intervention. Nothing is persisted here.
    *
    * WHY THERE IS NO LOCAL RECORD (DEBUG-305)
    *
@@ -393,20 +397,52 @@ class CrisisDetectionService {
    * encryption cold-start (PBKDF2, 100k iterations) on the suicidal-ideation
    * path, which is measured by a strict CI performance gate.
    *
-   * There is also no try/catch here any more. The former outer catch fell back
-   * to `Linking.openURL('tel:988')` — correct for an alert failure, but with a
-   * persisting write inside the same try, a storage failure (locked device,
-   * Keychain unavailable) would have placed an unrequested call to a crisis
-   * line on top of an already-displayed alert. `showCrisisAlert` carries that
-   * fallback internally, one level down, where the only thing that can trigger
-   * it is the alert itself failing.
+   * `_detection` is now unused and kept only to preserve the call signature.
+   *
+   * WHY THE try/catch STAYS (DEBUG-305 × DEBUG-314)
+   *
+   * DEBUG-305's planning pass called for removing it, on the grounds that a
+   * catch whose reachable trigger is a STORAGE failure would dial 988 for a
+   * locked device or an unavailable Keychain — an unrequested call to a crisis
+   * line on top of an already-displayed alert. Deleting the write removes that
+   * trigger, and with it the objection: the only thing left inside the try is
+   * the alert, which is precisely what this fallback is for.
+   *
+   * So DEBUG-314's hardened handler below is kept intact rather than reverted
+   * in a merge. Its reasoning still holds unchanged, including why it does not
+   * route through `openCrisisUrl`.
    *
    * Copy lives in the crisis feature (FEAT-283) because voice journal surfaces
    * the same alert — one implementation, so the two can never drift in wording,
    * button order, or cancelability.
    */
   static async triggerEmergencyResponse(_detection: CrisisDetection): Promise<void> {
-    showCrisisAlert();
+    try {
+      showCrisisAlert();
+    } catch (error) {
+      logError(LogCategory.SYSTEM, 'Emergency response failed:', error instanceof Error ? error : new Error(String(error)));
+      // Fallback: Direct 988 call.
+      //
+      // Deliberately NOT openCrisisUrl (DEBUG-314), for two reasons. First, the
+      // guard's only failure surface is `Alert.alert`, so if we are here because
+      // the modal layer broke, guarding would trade a blind dial for a silent
+      // no-op. Second, `showCrisisAlert()` cannot throw — it is internally
+      // try/caught and already falls through to its own 988 dial — so reaching
+      // this catch means 988 has most likely been dialed already; stacking an
+      // "Unable to Call" alert on top of a canonical alert that rendered fine
+      // would be worse than the duplicate `tel:` open, which the OS treats as
+      // idempotent. This stays as defense-in-depth.
+      //
+      // The DEBUG-314 defect at this line was the unhandled rejection, not the
+      // missing guard. The `.catch` is the fix.
+      void Linking.openURL('tel:988').catch((dialError) =>
+        logError(
+          LogCategory.CRISIS,
+          'Emergency-response fallback dial failed',
+          dialError instanceof Error ? dialError : new Error(String(dialError))
+        )
+      );
+    }
   }
 }
 

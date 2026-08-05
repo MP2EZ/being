@@ -466,7 +466,11 @@ export const CLOSING = {
    * bug 6a's docstring names, "a posture reachable in only one tense."
    *
    * Warrants — morning: Epictetus, Enchiridion 11. flat: Marcus, Meditations 7.27.
-   * evening: Marcus, Meditations Bk 1 + daily-architecture.md:127-131.
+   * evening: Marcus, Meditations Bk 1 + daily-architecture.md, Evening Examen §5
+   * "Three Gratitudes" (the specificity standard: "a moment, not a category").
+   * NOTE: this cited "daily-architecture.md:127-131" until MAINT-322 — a line range that
+   * pointed at §4 Mental Rehearsal, not §5, and was already off at HEAD. Cite the section,
+   * never a line range: the doc is edited far more often than this file.
    */
   gratitudeLine: {
     morning:
@@ -482,9 +486,11 @@ export const CLOSING = {
    *
    * It lives HERE, in the coda, not in step 5. Step 5 is oikeiōsis / belonging and its
    * copy is other-directed by construction. The classical warrant for the coda position is
-   * Seneca, De Ira 3.36.3-4, where the nightly examination ENDS in self-pardon — "vide ne
+   * Seneca, De Ira 3.36.3, where the nightly examination ENDS in self-pardon — "vide ne
    * istud amplius facias; nunc tibi ignosco" ("see that you never do that again; this time
    * I pardon you"). Seneca puts the clemency after the honest review, not inside it.
+   * (Narrowed from "3.36.3-4" at MAINT-322: the pardon is at 3.36.3; 3.36.4 is the
+   * unrelated "in illa disputatione" examples. 3.36.2 has "speculator sui censorque".)
    *
    * The substance is Stoic (prokopē — you are a progressor in training, never a sage, so
    * falling short is the expected condition of the practice). The WORD "compassion" is the

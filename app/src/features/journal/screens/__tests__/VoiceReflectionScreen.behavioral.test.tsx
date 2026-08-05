@@ -9,6 +9,7 @@
 
 import React from 'react';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import { Alert, Linking } from 'react-native';
 
 jest.mock('@/core/services/speech/onDeviceSpeechGuard', () => ({
   checkOnDeviceAvailability: jest.fn().mockResolvedValue({ available: true }),
@@ -133,6 +134,46 @@ describe('crisis scan on save', () => {
       ? Object.assign({}, ...action.props.style)
       : action.props.style;
     expect(flat.minHeight).toBeGreaterThanOrEqual(44);
+  });
+
+  describe('the 988 action actually dials (DEBUG-314)', () => {
+    // This banner shipped in FEAT-283 with a bare `Linking.openURL('tel:988')`
+    // — introduced AFTER the audit that catalogued that exact bug class. The
+    // test above proved the button rendered; nothing proved it dialled, so a
+    // silent failure here was invisible.
+    beforeEach(() => {
+      (Linking.openURL as jest.Mock).mockClear();
+      (Linking.canOpenURL as jest.Mock).mockClear();
+      (Alert.alert as jest.Mock).mockClear();
+    });
+
+    it('dials 988 through the canOpenURL guard', async () => {
+      (Linking.canOpenURL as jest.Mock).mockResolvedValueOnce(true);
+
+      const utils = await reachReview(CRISIS_TEXT);
+      fireEvent.press(utils.getByTestId('journal-save-button'));
+      fireEvent.press(await waitFor(() => utils.getByTestId('journal-crisis-call-988')));
+
+      await waitFor(() => expect(Linking.openURL).toHaveBeenCalledWith('tel:988'));
+      expect(Linking.canOpenURL).toHaveBeenCalledWith('tel:988');
+    });
+
+    it('shows a manual-dial instruction when the device cannot open tel:', async () => {
+      (Linking.canOpenURL as jest.Mock).mockResolvedValueOnce(false);
+
+      const utils = await reachReview(CRISIS_TEXT);
+      fireEvent.press(utils.getByTestId('journal-save-button'));
+      fireEvent.press(await waitFor(() => utils.getByTestId('journal-crisis-call-988')));
+
+      await waitFor(() =>
+        expect(Alert.alert).toHaveBeenCalledWith(
+          'Unable to Call',
+          'Please manually dial 988 for support.',
+          expect.any(Array)
+        )
+      );
+      expect(Linking.openURL).not.toHaveBeenCalled();
+    });
   });
 });
 

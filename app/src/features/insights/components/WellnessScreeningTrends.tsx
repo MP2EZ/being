@@ -25,7 +25,9 @@
  */
 
 import React, { useMemo, useState } from 'react';
-import { View, Text, StyleSheet, Linking, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+// Static import — the crisis path's no-lazy-import rule (CLAUDE.md).
+import { openCrisisUrl } from '@/features/crisis/utils/openCrisisUrl';
 import Svg, { Polyline, Circle, Line, Text as SvgText } from 'react-native-svg';
 import {
   colorSystem,
@@ -172,7 +174,11 @@ export const WellnessDisclaimer: React.FC = () => (
       If you're experiencing severe symptoms or a crisis, call or text{' '}
       <Text
         style={styles.crisisLink}
-        onPress={() => Linking.openURL('tel:988')}
+        // Guarded dial (DEBUG-314) — canOpenURL check, manual-dial fallback
+        // Alert and CRISIS audit log. The existing test only asserts this tap
+        // target renders with its a11y label; nothing asserted it ever dialed,
+        // which is precisely why a silent failure here was invisible.
+        onPress={() => { void openCrisisUrl('tel:988', { manualLabel: '988' }); }}
         accessibilityRole="link"
         accessibilityLabel="Call or text 988 for immediate support"
       >
