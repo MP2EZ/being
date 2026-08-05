@@ -37,6 +37,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Picker } from '@react-native-picker/picker';
 import { useConsentStore, recordLegalGateConsents } from '@/core/stores/consentStore';
 import { logSecurity } from '@/core/services/logging';
+// Static import — the crisis path's no-lazy-import rule (CLAUDE.md).
+import { openCrisisUrl } from '@/features/crisis/utils/openCrisisUrl';
 import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
 
 interface CombinedLegalGateScreenProps {
@@ -129,12 +131,22 @@ const CombinedLegalGateScreen: React.FC<CombinedLegalGateScreenProps> = ({
     onUnderAge,
   ]);
 
+  // Guarded crisis dials (DEBUG-314): `openCrisisUrl` supplies the canOpenURL
+  // check, the manual-dial fallback Alert and the CRISIS audit log. A bare
+  // `Linking.openURL` here failed silently whenever the scheme could not be
+  // opened — and this screen is reachable before onboarding completes, so it is
+  // a first-run user's only crisis affordance.
   const handleCall988 = () => {
-    Linking.openURL('tel:988');
+    void openCrisisUrl('tel:988', { manualLabel: '988' });
   };
 
   const handleTextCrisis = () => {
-    Linking.openURL('sms:741741?body=HELLO');
+    // Explicit copy: the default "manually dial 741741" is wrong for a text
+    // line, and this one carries the HELLO keyword Crisis Text Line expects.
+    void openCrisisUrl('sms:741741?body=HELLO', {
+      fallbackTitle: 'Unable to Text',
+      fallbackMessage: 'Please text HELLO to 741741 for support.',
+    });
   };
 
   const handleReEnterAge = useCallback(() => {

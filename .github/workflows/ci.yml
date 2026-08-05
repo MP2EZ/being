@@ -235,6 +235,21 @@ jobs:
         # other self-clearing patterns.
         run: node scripts/check-service-interval-guards.js
 
+      - name: Crisis-dial guard check
+        # DEBUG-314: Verifies every tel:/sms: dial routes through
+        # `openCrisisUrl`, which owns the canOpenURL guard, the manual-dial
+        # fallback Alert and the CRISIS audit record. A bare Linking.openURL
+        # fails SILENTLY when the scheme cannot be opened — no dial, no alert,
+        # no log — which is a false negative on the app's one
+        # zero-false-negative path.
+        #
+        # The primary pin is `app/__tests__/safety/crisisDialGuard.test.ts`,
+        # which shares this script's detection logic and runs in `precommit` on
+        # every machine. This step exists because `test:safety` is not a CI job
+        # and `--no-verify` is permitted on hotfix/* branches, so CI must not
+        # depend on the local hook having run.
+        run: cd app && npm run check:crisis-dial
+
       - name: Compliance authority validation
         run: cd app && npm run validate:compliance-authority
 

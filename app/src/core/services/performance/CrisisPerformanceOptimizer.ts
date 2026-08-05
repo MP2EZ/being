@@ -18,7 +18,10 @@
 
 import { logSecurity, logPerformance, logError, LogCategory } from '../logging';
 import { generateTimestampedId } from '@/core/utils/id';
-import { Alert, Linking, DeviceEventEmitter } from 'react-native';
+// `Alert` and `Linking` were dropped with the dead crisis-dial paths (DEBUG-314
+// — see the note below). This module no longer dials or alerts at all, which is
+// why it needs no entry in the crisis-dial guard's allowlist.
+import { DeviceEventEmitter } from 'react-native';
 import {
   AssessmentType,
   AssessmentAnswer,
@@ -296,116 +299,28 @@ export class CrisisPerformanceOptimizer {
     }
   }
 
-  /**
-   * Optimized emergency response with performance tracking
-   * Target: <100ms total intervention time
-   */
-  static async triggerOptimizedEmergencyResponse(detection: CrisisDetection): Promise<void> {
-    const startTime = performance.now();
-
-    try {
-      // Immediate emergency alert (non-blocking)
-      const alertPromise = this.showCrisisAlert();
-
-      // Parallel logging (non-blocking)
-      const logPromise = this.logCrisisInterventionOptimized(detection);
-
-      // Emit performance event for monitoring
-      DeviceEventEmitter.emit('crisis_intervention_started', {
-        assessmentId: detection.assessmentId,
-        triggerType: detection.primaryTrigger,
-        timestamp: detection.timestamp
-      });
-
-      // Wait for critical operations
-      await Promise.all([alertPromise, logPromise]);
-
-      const interventionTime = performance.now() - startTime;
-
-      // Update performance metrics
-      const lastMetric = this.performanceHistory[this.performanceHistory.length - 1];
-      if (lastMetric) {
-        lastMetric.interventionTime = interventionTime;
-        lastMetric.totalResponseTime = lastMetric.crisisDetectionTime + interventionTime;
-      }
-
-      // Performance validation
-      if (interventionTime > 100) {
-        this.handlePerformanceAlert(interventionTime, 'crisis_intervention');
-      }
-
-    } catch (error) {
-      logError(LogCategory.PERFORMANCE, 'Optimized emergency response failed:', error instanceof Error ? error : new Error(String(error)));
-      // Fallback: Direct 988 call
-      Linking.openURL('tel:988');
-    }
-  }
-
-  /**
-   * Non-blocking crisis alert display
-   */
-  private static async showCrisisAlert(): Promise<void> {
-    return new Promise((resolve) => {
-      Alert.alert(
-        '🚨 Crisis Support Available',
-        'You\'re not alone. Crisis support is available 24/7.',
-        [
-          {
-            text: 'Call 988 (Crisis Lifeline)',
-            onPress: () => {
-              Linking.openURL('tel:988');
-              resolve();
-            },
-            style: 'default'
-          },
-          {
-            text: 'Text 741741 (Crisis Text)',
-            onPress: () => {
-              Linking.openURL('sms:741741');
-              resolve();
-            },
-            style: 'default'
-          },
-          {
-            text: 'Emergency 911',
-            onPress: () => {
-              Linking.openURL('tel:911');
-              resolve();
-            },
-            style: 'destructive'
-          }
-        ],
-        {
-          cancelable: false,
-          onDismiss: () => resolve()
-        }
-      );
-    });
-  }
-
-  /**
-   * Optimized crisis intervention logging
-   */
-  private static async logCrisisInterventionOptimized(detection: CrisisDetection): Promise<void> {
-    try {
-      // Use minimal, fast logging
-      const interventionLog = {
-        id: detection.assessmentId,
-        type: detection.primaryTrigger,
-        value: detection.triggerValue,
-        timestamp: detection.timestamp,
-        responseTime: Date.now() - detection.timestamp
-      };
-
-      // Store in fast, non-encrypted storage for emergency access
-      const logKey = `crisis_${detection.assessmentId}`;
-      await import('@react-native-async-storage/async-storage').then(({ default: AsyncStorage }) =>
-        AsyncStorage.setItem(logKey, JSON.stringify(interventionLog))
-      );
-    } catch (error) {
-      logError(LogCategory.PERFORMANCE, 'Crisis intervention logging failed:', error instanceof Error ? error : new Error(String(error)));
-    }
-  }
+  // DELETED (DEBUG-314): `triggerOptimizedEmergencyResponse`, its private
+  // `showCrisisAlert`, and `logCrisisInterventionOptimized` lived here and
+  // dialed 988/741741/911 through bare `Linking.openURL`.
+  //
+  // They were deleted rather than converted to `openCrisisUrl` because
+  // `triggerOptimizedEmergencyResponse` had ZERO callers anywhere in src/ or
+  // __tests__/, and the other two were reachable only from it. Converting dead
+  // code would have preserved a second copy of the exact alert copy FEAT-283
+  // extracted `crisisAlert.ts` to deduplicate — and an allowlisted, guarded
+  // duplicate reads as endorsement, so the next person adds a caller.
+  //
+  // The copy had already drifted structurally from canonical: it was
+  // `cancelable: false` *with* an `onDismiss` resolver, giving it a dismiss
+  // path canonical deliberately does not have. `logCrisisInterventionOptimized`
+  // also wrote `crisis_${assessmentId}` as plaintext JSON to a bare AsyncStorage
+  // key matching no erasure prefix — a second latent writer of the DEBUG-305
+  // erasure-orphan family.
+  //
+  // The surviving optimizer surface (detectCrisisOptimized, getPerformanceStats,
+  // configureOptimizations, recordPerformanceMetric, handlePerformanceAlert) is
+  // untouched. Whether *those* are reachable outside the demo component is the
+  // separate INFRA-306-style question and is not this defect.
 
   /**
    * Performance metrics recording

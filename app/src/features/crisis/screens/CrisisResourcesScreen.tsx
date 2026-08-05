@@ -348,13 +348,20 @@ export default function CrisisResourcesScreen() {
                     style: 'destructive',
                     onPress: () => {
                       logSecurity('911 emergency call initiated', 'critical', {});
-                      Linking.openURL('tel:911').catch(error => {
-                        logError(LogCategory.CRISIS, 'Failed to call 911', error instanceof Error ? error : new Error(String(error)));
-                        Alert.alert(
-                          'Call Failed',
+                      // DEBUG-314: this had a `.catch` but never a `canOpenURL`
+                      // guard, so an unsupported scheme still failed silently.
+                      // The bespoke copy is preserved verbatim via the override
+                      // pair rather than `manualLabel` — "please manually dial
+                      // 911 for support" is wrong for 911: it is emergency
+                      // dispatch, not support, and "dial 911 manually on your
+                      // phone" is the actionable instruction. Same override
+                      // pattern as the 'Unable to Text' caller above.
+                      // openCrisisUrl already logs LogCategory.CRISIS on
+                      // failure, so the old .catch would now double-log.
+                      void openCrisisUrl('tel:911', {
+                        fallbackTitle: 'Call Failed',
+                        fallbackMessage:
                           'Unable to initiate 911 call. Please dial 911 manually on your phone.',
-                          [{ text: 'OK' }]
-                        );
                       });
                     }
                   }
