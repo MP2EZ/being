@@ -108,15 +108,16 @@ name: "DailyLoop quick-depth (FEAT-301): crisis affordance survives the shorter 
 #    than silently inheriting the abandoned session's depth.
 - tapOn:
     text: ".*Daily Practice.*"
-# `text:` is a FULL-MATCH regex and RN merges the child <Text> into the Pressable's
-# accessibilityLabel ("Begin fresh Daily Practice"), so a bare "Begin Fresh" never
-# matches. Wildcards both sides, case-tolerant on the F.
+# Target the button by ID, never by text: the modal's BODY COPY also contains the phrase
+# "begin fresh" ("...or begin fresh with full presence now?"), and that <Text> precedes the
+# button in the hierarchy — so a text selector taps the paragraph and silently no-ops,
+# leaving the modal open.
 - extendedWaitUntil:
     visible:
-      text: ".*Begin [Ff]resh.*"
+      id: "begin-fresh-button"
     timeout: 15000
 - tapOn:
-    text: ".*Begin [Ff]resh.*"
+    id: "begin-fresh-button"
 - assertVisible:
     id: "daily-loop-depth-select-screen"
 - tapOn:

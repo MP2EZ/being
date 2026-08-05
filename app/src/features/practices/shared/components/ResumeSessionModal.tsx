@@ -281,6 +281,7 @@ export const ResumeSessionModal: React.FC<ResumeSessionModalProps> = ({
                 accessibilityRole="button"
                 accessibilityLabel={`Resume ${flowInfo.title} from ${friendlyScreenName}`}
                 accessibilityHint="Continue your practice where you left off"
+                testID="resume-session-button"
               >
                 <Text style={styles.primaryButtonText}>
                   Return to Practice
@@ -299,6 +300,10 @@ export const ResumeSessionModal: React.FC<ResumeSessionModalProps> = ({
                 accessibilityRole="button"
                 accessibilityLabel={`Begin fresh ${flowInfo.title}`}
                 accessibilityHint="Start a new practice from the beginning"
+                // FEAT-298: stable ids on both actions. A text selector is ambiguous here —
+                // the modal's BODY COPY also contains "begin fresh", and that <Text> precedes
+                // the button, so a text match taps the paragraph and silently no-ops.
+                testID="begin-fresh-button"
               >
                 <Text style={styles.secondaryButtonText}>Begin Fresh</Text>
               </Pressable>
