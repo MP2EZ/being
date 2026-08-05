@@ -12,11 +12,12 @@ This folder contains guidance on how to practice Stoic Mindfulness and track dev
    - Progress markers, challenges, and strategies for each stage
 
 2. **[Daily Practice Architecture](./daily-architecture.md)**
-   - Morning Foundation Practice (10-20 minutes)
-   - Mindful Moments Throughout the Day
-   - Evening Reflection Practice (5-10 minutes)
+   - Morning Preparation — *praemeditatio* (10-20 minutes)
+   - Mindful Moments Throughout the Day — *prosoche*
+   - Evening Examen (5-10 minutes)
    - Weekly integration, monthly deepening
    - Adjustments for life circumstances
+   - **Implementation mapping** — how the single tense-inferred loop delivers both exercises
 
 ## Use Cases
 
@@ -24,13 +25,14 @@ This folder contains guidance on how to practice Stoic Mindfulness and track dev
 - Read `developmental-stages.md` to determine where user is in their journey
 - Personalize content and expectations based on stage
 
-**Design Check-In Flows:**
-- Read `daily-architecture.md` for morning/evening structure
-- Morning: Settle with breath + Open awareness + Set intention + Gratitude
-- Evening: Review intention + Wise responses + Unskillful responses + Mental rehearsal + Gratitudes
+**Design the Daily Loop:**
+- Read `daily-architecture.md` — the two classical exercises (morning *praemeditatio*, evening *examen*) and the **Implementation mapping** section for how the product delivers them
+- The product ships **ONE** loop of five beats in canonical order — Aware Presence → Radical Acceptance → Sphere Sovereignty → Virtuous Response → Interconnected Living — plus a `CLOSING` coda
+- The **tense** is inferred from the clock and never surfaced: 05:00–11:59 morning · 12:00–16:59 flat · 17:00–01:59 evening · 02:00–04:59 flat (rumination carve-out). There is no mode picker (FEAT-298 slice 5)
+- Two depths, presented as equally complete: unhurried (all five) and quick (beats 1→3→4)
 
 **Practice Guidance:**
-- Morning sets tone, evening provides reflection
+- The same five beats every session; the tense shifts the framing, prospective to retrospective
 - Consistency over intensity (10 min daily > 1 hour weekly)
 - The STOP practice for difficulty: Stop, Take breath, Observe, Proceed
 
