@@ -1,8 +1,8 @@
 # Privacy Policy
 
-**Version:** 1.7
+**Version:** 1.8
 **Effective Date:** December 12, 2025
-**Last Updated:** June 13, 2026
+**Last Updated:** July 25, 2026
 
 ---
 
@@ -49,6 +49,7 @@ Being ("we," "us," or "our") is committed to protecting your privacy. This Priva
 - **Check-In Data:** Daily mindfulness check-ins, mood tracking, journal entries
 - **Wellness Assessments:** PHQ-9 and GAD-7 responses and scores (for self-monitoring, not clinical diagnosis)
 - **Emergency Contacts:** Contact information for crisis support (stored locally only)
+- **Voice Reflections:** If you choose to speak a reflection rather than type it, your device's microphone captures audio for the sole purpose of transcribing it into text. Transcription runs entirely on your device — Being will not begin recording unless your device confirms it can transcribe without using the network. The audio is discarded as soon as transcription completes; only the resulting text is saved, encrypted, on your device. No audio and no transcript is sent to Being, to Palouse Labs, or to any third party.
 
 ### 2.2 Automatically Collected Information
 
@@ -60,7 +61,8 @@ Being ("we," "us," or "our") is committed to protecting your privacy. This Priva
 
 - Location data or GPS tracking
 - Contacts or address book access
-- Camera or microphone access
+- Camera or photo library access
+- Audio recordings — if you speak a reflection, the recording is transcribed on your device and then discarded. We never receive, transmit, or store audio (see 2.1)
 - Third-party advertising identifiers
 
 ---

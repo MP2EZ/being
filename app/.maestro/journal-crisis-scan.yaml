@@ -1,0 +1,117 @@
+appId: fyi.being.app
+tags:
+  - safety
+name: "Voice journal crisis scan surfaces support"
+---
+# FEAT-283 Slice A. Pins the user-visible contract for AC #4: an entry
+# containing crisis language surfaces support, and a clean entry does not.
+#
+# WHY THIS FLOW CAN EXIST AT ALL
+# A simulator cannot speak, so the transcript field is a real RN TextInput with
+# a stable testID (journal-transcript-input). That is a hard design constraint
+# from the crisis planning pass, not a testing convenience: if the transcript
+# were not editable through a normal text input, the safety path would be
+# undrivable on device and the feature could not ship.
+#
+# WHAT IT ASSERTS AGAINST
+# The in-page banner (journal-crisis-banner), NOT the iOS Alert. Maestro's
+# `text:` selector does not match iOS UIAlertController accessibility text —
+# see the long note in q9-single-alert.yaml. The banner is also the durable
+# affordance: the Alert is one tap from gone, the banner persists.
+#
+# FLAG DEPENDENCY
+# The entry point is gated on the build-time `voice_journal` flag, which is
+# false in .env.production. The e2e-sim EAS profile sets voice_journal:true —
+# without that this flow fails at the Profile card, not at the safety contract
+# (see project_e2e_sim_build_ships_flags_dark).
+
+- launchApp:
+    clearState: true
+    clearKeychain: true # SecureStore-backed consent survives clearState (INFRA-179)
+- runFlow: _seeded-home.yaml # INFRA-217: e2e-sim seeds onboarding; start at home
+
+# ── Navigate to the reflection surface ────────────────────────────────────
+- tapOn:
+    id: "tab-profile"
+# INFRA-186: the Profile card list is taller than the screen and the
+# Reflections card sits at the bottom, below the fold. Maestro's
+# center-of-bounds tap on an unscrolled card can land in the tab bar instead,
+# silently switching tabs. scrollUntilVisible brings it into view first.
+- scrollUntilVisible:
+    element:
+      id: "profile-card-voice-reflection"
+    direction: DOWN
+- tapOn:
+    id: "profile-card-voice-reflection"
+- assertVisible:
+    id: "voice-reflection-screen"
+
+# ── NEGATIVE CASE FIRST ───────────────────────────────────────────────────
+# Run the clean entry before the crisis entry. A flow that only ever asserts
+# the banner appears would still pass if the banner rendered unconditionally —
+# this pins specificity, not just sensitivity.
+- tapOn:
+    id: "journal-record-button"
+- tapOn:
+    id: "journal-stop-button"
+- assertVisible:
+    id: "journal-transcript-input"
+- tapOn:
+    id: "journal-transcript-input"
+- inputText: "today was hard but i made it through and i slept well"
+- hideKeyboard
+- assertNotVisible:
+    id: "journal-crisis-banner"
+- tapOn:
+    id: "journal-save-button"
+- assertVisible:
+    id: "journal-saved-state"
+- assertNotVisible:
+    id: "journal-crisis-banner"
+
+# ── POSITIVE CASE ─────────────────────────────────────────────────────────
+- launchApp:
+    clearState: true
+    clearKeychain: true
+- runFlow: _seeded-home.yaml
+- tapOn:
+    id: "tab-profile"
+- scrollUntilVisible:
+    element:
+      id: "profile-card-voice-reflection"
+    direction: DOWN
+- tapOn:
+    id: "profile-card-voice-reflection"
+- tapOn:
+    id: "journal-record-button"
+- tapOn:
+    id: "journal-stop-button"
+- assertVisible:
+    id: "journal-transcript-input"
+- tapOn:
+    id: "journal-transcript-input"
+- inputText: "i went over the day and honestly i want to die"
+- hideKeyboard
+- tapOn:
+    id: "journal-save-button"
+
+# The intervention must appear. Generous timeout: the scan is <200ms but the
+# save, navigation, and render are not budgeted.
+- extendedWaitUntil:
+    visible:
+      id: "journal-crisis-banner"
+    timeout: 10000
+
+# Saving is NEVER blocked by the intervention — the entry still saved.
+- assertVisible:
+    id: "journal-saved-state"
+
+# <3 taps to 988 from the point of disclosure.
+- assertVisible:
+    id: "journal-crisis-call-988"
+
+# ── Root crisis affordance stays reachable on this surface ────────────────
+# The journal routes must NOT be in RootCrisisButton's SUPPRESSED_ROUTES:
+# crisis text can be on screen here, so the always-available path matters most.
+- assertVisible:
+    id: "crisis-button-root"

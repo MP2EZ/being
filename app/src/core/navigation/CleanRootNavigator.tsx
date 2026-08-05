@@ -17,6 +17,7 @@ import { HeaderBackButton } from '@react-navigation/elements';
 import { spacing, typography } from '@/core/theme';
 import CleanTabNavigator from './CleanTabNavigator';
 import { DailyLoopNavigator } from '@/features/practices/dailyloop';
+import { VoiceReflectionScreen } from '@/features/journal/screens/VoiceReflectionScreen';
 import CrisisResourcesScreen from '@/features/crisis/screens/CrisisResourcesScreen';
 import RootCrisisButton from '@/features/crisis/components/RootCrisisButton';
 import PurchaseOptionsScreen from '@/core/components/subscription/PurchaseOptionsScreen';
@@ -58,6 +59,9 @@ export type RootStackParamList = {
   // `mode` is a test/tooling param only — the tense is inferred from the clock, and there
   // is no mode picker.
   DailyLoop: { mode?: DailyLoopMode; depth?: DailyLoopDepth } | undefined;
+  // FEAT-283 Slice A: spoken reflection capture, reached from the
+  // `voice_journal`-flag-gated Profile card.
+  VoiceReflection: undefined;
   ModuleDetail: { moduleId: ModuleId };
   ClassicalLibrary: { principle?: ModuleId; author?: PassageAuthor } | undefined;
   PassageReader: { passageId: string };
@@ -459,6 +463,17 @@ const CleanRootNavigator: React.FC = () => {
         <Stack.Group screenOptions={{ presentation: 'modal' }}>
 
 
+
+          {/* FEAT-283 Slice A: spoken reflection capture. Reached only from the
+              `voice_journal`-flag-gated Profile card. Deliberately NOT added to
+              RootCrisisButton IMMERSIVE_ROUTES — crisis text may be on screen
+              here, so the root crisis affordance must stay reachable. */}
+          <Stack.Screen
+            name="VoiceReflection"
+            options={{ headerShown: true, title: 'Reflections' }}
+          >
+            {() => <VoiceReflectionScreen />}
+          </Stack.Screen>
 
           {/* FEAT-291: Daily Loop prototype — reached only from the Home
               Home's single Daily Practice card. One nested navigator → inherits the single

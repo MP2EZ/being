@@ -60,7 +60,17 @@ export type FeatureFlag =
   // App Store — no build-time way to distinguish). ⚠️ LAUNCH GATE: flip OFF in
   // `.env.production` before the public v1.0.0 release. Pinned in
   // __tests__/privacy/feedbackScrub.contract.test.ts.
-  | 'bug_reporting';
+  | 'bug_reporting'
+  // FEAT-283: gates the voice journal / spoken reflection surface (capture,
+  // on-device transcription, encrypted store, crisis scan). Build-time, NOT
+  // runtime/PostHog, for three reasons: it gates a whole screen + entry point
+  // rather than a per-user rollout (same shape as `daily_loop`); a zero-egress
+  // feature must not have network-dependent availability; and INFRA-199 forbids
+  // coupling availability to analytics consent, which the crisis-scan path on
+  // this surface must never inherit. Ships dark (false in production).
+  // NOTE: the e2e-sim EAS profile must enable this or the Maestro safety flow
+  // runs against a dark flag and fails.
+  | 'voice_journal';
 
 /**
  * Parse a feature-flag blob into a boolean lookup.
