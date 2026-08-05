@@ -302,6 +302,13 @@ Invoke with the approved approach fed through the existing `ADDITIONAL_CONTEXT` 
 ```
 /b-work <ID> - Approved approach: <approach from manifest>
 ```
+**Load each wrapped skill once per batch, not once per item.** `/b-work` and `/b-close`
+are large files that load in full on every invocation, and their procedures do not change
+between items. Invoke each via the Skill tool for the FIRST item that needs it, then follow
+the loaded procedure directly for the rest (say so, so the run stays auditable). Observed
+2026-08-04: a 3-item run would have loaded them 8 times instead of 2, spending on
+re-reading instructions the very context budget the Step 2.4 cap of 4 exists to protect.
+
 Keep the approach string free of stray safety keywords (`crisis`, `encryption`, `PHQ`,
 …) for non-safety stories — `/b-work` Step 3.1 scans `ADDITIONAL_CONTEXT` and would
 spuriously invoke a specialist. `/b-work` already writes and runs the relevant
