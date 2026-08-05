@@ -17,13 +17,19 @@
  *
  * WHAT IS DELIBERATELY NOT HERE
  *
- * The original method also called `logCrisisIntervention`, which serializes the
- * whole `CrisisDetection` — including `context.triggeringAnswers`, i.e. the raw
- * Q9 self-harm response — as plaintext JSON to a bare `crisis_intervention_*`
- * AsyncStorage key that matches no erasure prefix and survives account deletion
- * (DEBUG-305). That call stays behind at its existing call site rather than
- * being promoted into shared code where new callers would inherit it. Voice
- * journal must not write transcript-derived data through that path.
+ * The original method also called `logCrisisIntervention`, which serialized the
+ * `CrisisDetection` — `primaryTrigger: 'phq9_suicidal_ideation'` plus
+ * `triggerValue`, the raw Q9 self-harm response — as plaintext JSON to a bare
+ * `crisis_intervention_*` AsyncStorage key that matched no erasure prefix and
+ * survived account deletion. That call was kept out of this shared module so
+ * new callers could not inherit it; DEBUG-305 has since deleted it outright at
+ * its original call site, so no crisis surface persists a local record.
+ *
+ * Nothing here writes to storage, and nothing added here should. The durable
+ * crisis audit trail is the off-device `crisis_detected` event emitted by the
+ * caller; the assessment answers are already encrypted under the swept
+ * `wellness_async_` prefix. A local record on this path would be a duplicate
+ * with a fresh erasure obligation.
  *
  * CONTRACT (pinned by `__tests__/crisisAlert.unit.test.ts`)
  * - Exactly three actions, in order: 988, 741741, 911.

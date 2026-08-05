@@ -8,11 +8,12 @@
  * that actually matters: a key whose name does not match any swept prefix. Such
  * a key survives erasure while every "was it called" assertion still passes.
  *
- * That is not hypothetical. `crisis_intervention_*` (written by
- * `assessmentStore.logCrisisIntervention`) matches none of the four swept
- * prefixes and survives account deletion today — tracked as DEBUG-305. This
- * suite is the assertion shape that would have caught it, and DEBUG-305 should
- * reuse it.
+ * That was not hypothetical. `crisis_intervention_*` (written by
+ * `assessmentStore.logCrisisIntervention`) matched none of the four swept
+ * prefixes and survived account deletion — DEBUG-305, since fixed by deleting
+ * the write and purging the residue. This suite is the assertion shape that
+ * would have caught it, and DEBUG-305 reused it in
+ * `crisisRecordErasure.privacy.test.ts`.
  *
  * So: write real entries, enumerate the store, erase, enumerate again, and
  * assert nothing remains. Proof of absence, not proof of intent.
@@ -120,7 +121,7 @@ describe('journal entries fall under the erasure sweep', () => {
     expect(keys.length).toBeGreaterThan(0);
 
     // The regression this catches: a future key added outside the convention,
-    // exactly like crisis_intervention_* (DEBUG-305).
+    // exactly like crisis_intervention_* was before DEBUG-305.
     for (const key of keys) {
       expect(
         SWEPT_PREFIXES.some((p) => key.startsWith(p))
@@ -160,15 +161,73 @@ describe('journal entries fall under the erasure sweep', () => {
   it('proves the test can fail — an unswept key IS detected', async () => {
     // Guards the guard. If the sweep or the enumeration silently stopped
     // working, the assertions above would pass vacuously on an empty store.
-    // This plants exactly the DEBUG-305 defect and confirms it is caught.
+    // This plants the DEBUG-305 defect SHAPE — a key under no swept prefix —
+    // and confirms the sweep genuinely leaves it behind.
+    //
+    // The canary is a neutral name, not `crisis_intervention_abc` as it was
+    // originally: DEBUG-305 added that literal prefix to the sweep to purge
+    // residue from shipped builds, so the real key is now swept and would make
+    // this control fail. The property under test is "an unswept key survives,"
+    // not "this particular key survives" — so the canary must be a name nothing
+    // sweeps, or it stops testing anything.
     await saveEntry({ text: SECRET_A });
-    mockMemoryStore.set('crisis_intervention_abc', JSON.stringify({ text: SECRET_B }));
+    mockMemoryStore.set('unswept_canary_abc', JSON.stringify({ text: SECRET_B }));
 
     await SecureStorageService.clearAllWellnessData();
 
     const after = await AsyncStorage.getAllKeys();
-    expect(after).toContain('crisis_intervention_abc');
+    expect(after).toContain('unswept_canary_abc');
     expect(JSON.stringify([...mockMemoryStore.entries()])).toContain(SECRET_B);
+  });
+});
+
+describe('erasure covers keys that cannot use a swept prefix (DEBUG-305)', () => {
+  it('removes legacy plaintext records even without a relaunch', async () => {
+    // `legacyPlaintextRecordSweeper` purges these at app launch, but a user who
+    // deletes their account without relaunching first never runs it. The sweep
+    // matches them too so erasure does not depend on launch ordering.
+    mockMemoryStore.set('crisis_intervention_s1', JSON.stringify({ triggerValue: 3 }));
+    mockMemoryStore.set('assessment_audit_trail', '[]');
+
+    await SecureStorageService.clearAllWellnessData();
+
+    const after = await AsyncStorage.getAllKeys();
+    expect(after).not.toContain('crisis_intervention_s1');
+    expect(after).not.toContain('assessment_audit_trail');
+  });
+
+  it('removes the pending crisis-telemetry queue', async () => {
+    // Not swept at launch — it must survive ordinary restarts to flush. But it
+    // MUST go on account deletion: the server is erased first, so a surviving
+    // queue would flush afterwards and re-create crisis rows for a deleted
+    // account.
+    mockMemoryStore.set(
+      '@being/supabase/crisis_analytics_queue',
+      JSON.stringify([{ properties: { trigger_type: 'phq9_suicidal_ideation' } }])
+    );
+
+    await SecureStorageService.clearAllWellnessData();
+
+    const after = await AsyncStorage.getAllKeys();
+    expect(after).not.toContain('@being/supabase/crisis_analytics_queue');
+    expect(JSON.stringify([...mockMemoryStore.entries()])).not.toContain(
+      'phq9_suicidal_ideation'
+    );
+  });
+
+  it('matches the legacy names exactly rather than greedily', async () => {
+    // The counterpart to the sweeper's collision guard. `crisis_async_*` is
+    // swept here by design (it IS wellness data), so the risk this pins is
+    // different: that broadening the sweep starts eating unrelated keys that
+    // merely share the `crisis_`/`assessment_` stem.
+    mockMemoryStore.set('crisis_unrelated_feature_state', 'keep me');
+    mockMemoryStore.set('assessment_audit_trail_backup', 'keep me too');
+
+    await SecureStorageService.clearAllWellnessData();
+
+    const after = await AsyncStorage.getAllKeys();
+    expect(after).toContain('crisis_unrelated_feature_state');
+    expect(after).toContain('assessment_audit_trail_backup');
   });
 });
 

@@ -415,8 +415,12 @@ describe('Assessment Store - Clinical Validation', () => {
         await result.current.saveProgress();
       });
 
+      // DEBUG-305: the key moved under the swept `assessment_async_` prefix.
+      // Under its old bare name it matched no erasure prefix and survived
+      // account deletion. Asserting the prefixed name here keeps this test
+      // honest about where the record actually lands.
       expect(mockAsyncStorage.setItem).toHaveBeenCalledWith(
-        'assessment_audit_trail',
+        'assessment_async_audit_trail',
         expect.stringContaining('SAVE')
       );
     });
