@@ -55,7 +55,7 @@
   "src/core/services/security/__tests__/AuthenticationService.sec03.test.ts": 1,
   "src/core/services/security/__tests__/AuthenticationService.test.ts": 1,
   "src/core/services/security/__tests__/EncryptionService.realcrypto.test.ts": 1,
-  "src/core/services/security/__tests__/legacyPlaintextRecordSweeper.test.ts": 1,
+  "src/core/services/security/__tests__/legacyPlaintextRecordSweeper.privacy.test.ts": 1,
   "src/core/services/security/__tests__/EncryptionService.test.ts": 1,
   "src/core/services/security/__tests__/NetworkSecurityService.test.ts": 1,
   "src/core/services/security/__tests__/SecureStorageService.test.ts": 1,

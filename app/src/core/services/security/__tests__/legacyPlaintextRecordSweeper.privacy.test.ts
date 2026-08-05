@@ -26,6 +26,9 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
   },
 }));
 
+import { readFileSync } from 'fs';
+import { join } from 'path';
+
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { sweepLegacyPlaintextRecords } from '../legacyPlaintextRecordSweeper';
 
@@ -148,5 +151,54 @@ describe('safe to run at app launch', () => {
     );
 
     await expect(sweepLegacyPlaintextRecords()).resolves.toBe(0);
+  });
+});
+
+/**
+ * Static wiring pin.
+ *
+ * Everything above proves the sweeper WORKS. None of it proves it RUNS: delete
+ * the call from `App.tsx` and every assertion in this file still passes, while
+ * the plaintext records stay on every device forever. That is the whole point
+ * of the sweeper, so it needs its own pin.
+ *
+ * Read as source text rather than by rendering `App.tsx`. The house pattern for
+ * this is `__tests__/safety/lsApplicationQueriesSchemes.config.test.ts`, which
+ * reads `app.json` directly: a static contract deserves a static check, and
+ * standing up a render harness for `App.tsx` (which has none today, and pulls
+ * in Sentry, PostHog, navigation, and every store) would cost far more than it
+ * proves and would fail for unrelated reasons.
+ */
+describe('the sweeper is actually wired into app launch', () => {
+  const appSource = readFileSync(
+    join(__dirname, '../../../../../App.tsx'),
+    'utf8'
+  );
+
+  it('imports the sweeper', () => {
+    expect(appSource).toMatch(
+      /import\s*\{[^}]*\bsweepLegacyPlaintextRecords\b[^}]*\}\s*from/
+    );
+  });
+
+  it('calls it during launch', () => {
+    expect(appSource).toMatch(/\bsweepLegacyPlaintextRecords\s*\(/);
+  });
+
+  it('awaits it — a floating promise could lose to app teardown', () => {
+    expect(appSource).toMatch(/await\s+sweepLegacyPlaintextRecords\s*\(/);
+  });
+
+  it('guards the call so a sweep failure cannot break app start', () => {
+    // The sweeper already returns 0 rather than throwing, but it runs before
+    // render: the call site should not be the single point where that
+    // guarantee is assumed rather than enforced.
+    const callIndex = appSource.indexOf('await sweepLegacyPlaintextRecords');
+    expect(callIndex).toBeGreaterThan(-1);
+
+    const precedingSource = appSource.slice(0, callIndex);
+    const lastTry = precedingSource.lastIndexOf('try {');
+    const lastCatch = precedingSource.lastIndexOf('catch');
+    expect(lastTry).toBeGreaterThan(lastCatch);
   });
 });
