@@ -380,6 +380,18 @@ Scan the work item's **Name**, **User Story**, **Acceptance Criteria**, **AGENTS
 
 Multiple signals → invoke multiple specialists in parallel.
 
+**When specialists conflict**, send the conflict back to the specialist whose domain owns
+the decision, quoting the other's reasoning and any facts it lacked — do not adjudicate
+between them yourself, and do not average the two rulings. A specialist that ruled without
+a key fact will often amend its own constraint once given it. Record the amended ruling,
+not the original.
+
+**A specialist ruling is scoped to the code it read.** If the tree changes under you —
+a back-merge, a sibling item landing on `development` — re-check any ruling whose premise
+was a line that moved. Where the incumbent code already solves the concern by other means,
+keep the incumbent and note why; reverting a just-landed change during a merge resolution
+is how a fix becomes a regression.
+
 Reference `CLAUDE.md` for safety facts (PHQ/GAD thresholds, 988 access budget, performance budgets, validation matrix). Specialist agent specs are at:
 - `/Users/max/dev/being/.claude/agents/crisis.md`
 - `/Users/max/dev/being/.claude/agents/compliance.md`
