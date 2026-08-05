@@ -23,8 +23,8 @@
 | Validate Dichotomy of Control | [principles/03-sphere-sovereignty.md](./principles/03-sphere-sovereignty.md) | Core Stoic principle - most critical |
 | Validate Virtue Ethics | [principles/04-virtuous-response.md](./principles/04-virtuous-response.md) | Four cardinal virtues |
 | Validate mindfulness practice | [principles/01-aware-presence.md](./principles/01-aware-presence.md) | Foundation principle |
-| Design morning check-in flow | [practice/daily-architecture.md](./practice/daily-architecture.md) | Morning Foundation Practice section |
-| Design evening reflection | [practice/daily-architecture.md](./practice/daily-architecture.md) | Evening Reflection Practice section |
+| Design the daily loop (morning tense) | [practice/daily-architecture.md](./practice/daily-architecture.md) | Morning Preparation (*praemeditatio*) + Implementation mapping |
+| Design the daily loop (evening tense) | [practice/daily-architecture.md](./practice/daily-architecture.md) | Evening Examen + Implementation mapping |
 | Assess user developmental stage | [practice/developmental-stages.md](./practice/developmental-stages.md) | Four stages with markers |
 | Validate acceptance practice | [principles/02-radical-acceptance.md](./principles/02-radical-acceptance.md) | Acceptance vs resignation |
 | Context-specific guidance | [applications/domain-specific.md](./applications/domain-specific.md) | Pain, grief, conflict, career |
@@ -76,7 +76,7 @@ How to practice and track progress:
   *Four stages of development: Fragmented Practice → Effortful Integration → Fluid Responsiveness → Integrated Wisdom*
 
 - **[10. Daily Practice Architecture](./practice/daily-architecture.md)**  
-  *Morning foundation (10-20 min), mindful moments throughout the day, evening reflection (5-10 min), weekly/monthly integration*
+  *Morning preparation (praemeditatio), mindful moments (prosoche), evening examen, weekly/monthly integration, and the implementation mapping for the single tense-inferred loop*
 
 ### 🌍 Applications & Support
 Context-specific guidance and troubleshooting:
@@ -121,8 +121,8 @@ Ask yourself these questions throughout each day to apply the five principles in
 
 ## Common Multi-File Workflows
 
-### Designing Morning Check-In Flow
-1. Read [practice/daily-architecture.md](./practice/daily-architecture.md) (structure and timing)
+### Designing the Daily Loop
+1. Read [practice/daily-architecture.md](./practice/daily-architecture.md) — both exercises, plus **Implementation mapping** for the one-loop/tense-inferred shape and the clock table
 2. Read [principles/01-aware-presence.md](./principles/01-aware-presence.md) (breath work, body scan)
 3. Read [principles/04-virtuous-response.md](./principles/04-virtuous-response.md) (intention setting with virtue)
 
@@ -205,7 +205,7 @@ Ask yourself these questions throughout each day to apply the five principles in
 1. Start with [Introduction](./foundation/01-introduction.md) to understand the integration
 2. Read [Core Philosophy](./foundation/02-core-philosophy.md) for the conceptual framework
 3. Study [The Five Principles](./principles/) one at a time, in order
-4. Begin [Daily Practice](./practice/daily-architecture.md) with 10-20 minute morning sessions
+4. Begin [Daily Practice](./practice/daily-architecture.md) — one daily loop, five beats, tense inferred from the clock
 5. Track your progress with [Developmental Stages](./practice/developmental-stages.md)
 
 **Implementing in Being app?**
