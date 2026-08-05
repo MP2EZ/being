@@ -43,9 +43,6 @@ const SUPPRESSED_ROUTES: ReadonlySet<string> = new Set([
 
 /** Root-stack routes that are meditative practices → faded immersive mode. */
 const IMMERSIVE_ROUTES: ReadonlySet<string> = new Set([
-  'MorningFlow',
-  'MiddayFlow',
-  'EveningFlow',
   'DailyLoop', // FEAT-291 single-loop daily-practice prototype (meditative practice surface)
   'PracticeTimer',
   'ReflectionTimer',

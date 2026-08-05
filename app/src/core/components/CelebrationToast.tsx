@@ -29,9 +29,12 @@ import {
   Animated,
 } from 'react-native';
 import { spacing, borderRadius, typography, getTheme } from '@/core/theme';
+import { themeKeyFor } from '@/core/types/practice-identity';
+import type { FlowType } from '@/core/types/practice-identity';
 
 export interface CelebrationToastProps {
-  flowType: 'morning' | 'midday' | 'evening';
+  // FEAT-298 slice 1: was an unnamed inline union — the 10th declaration of the same shape.
+  flowType: FlowType;
   screenCount: number;
   duration: number;
   streak: number;
@@ -62,7 +65,7 @@ export const CelebrationToast: React.FC<CelebrationToastProps> = ({
   enhancement,
 }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const themeColors = getTheme(flowType);
+  const themeColors = getTheme(themeKeyFor(flowType));
   const title = FLOW_TITLES[flowType];
 
   useEffect(() => {

@@ -1,7 +1,10 @@
 /**
- * Clean Home Screen - Fresh start implementation
- * Shows three DRD-compliant check-in cards without crypto dependencies
- * Integrated with check-in flow navigation
+ * Clean Home Screen
+ *
+ * FEAT-298 slice 5: ONE daily practice card. The three time-of-day check-in cards and the
+ * `daily_loop` / `daily_loop_only` preview flags are retired — the single loop is the
+ * default and only daily ritual, and its tense is inferred from the clock rather than
+ * chosen by the user.
  */
 
 import React, { useState, useMemo, useCallback } from 'react';
@@ -16,16 +19,17 @@ import { useSettingsStore, useAccessibilitySettings } from '@/core/stores/settin
 import AssessmentStatusBadge from '@/features/assessment/components/AssessmentStatusBadge';
 import { IntroOverlay } from '../components/IntroOverlay';
 import { useAnalytics } from '@/core/analytics';
-import { isFeatureEnabled } from '@/core/services/featureFlags';
+import { themeKeyFor } from '@/core/types/practice-identity';
+import { getGreeting } from '@/core/utils/timeOfDay';
+import type { PracticeIdentity } from '@/core/types/practice-identity';
 
 // 30 minutes in milliseconds
 const INTRO_THRESHOLD_MS = 30 * 60 * 1000;
 
 type CleanHomeScreenNavigationProp = StackNavigationProp<RootStackParamList>;
-// FEAT-291: 'daily-loop' is the local card type for the flag-gated Daily Practice
-// (Beta) entry. It is themed as 'midday' (getTheme below) — NOT added to the closed
-// ThemeKey/CheckInType unions (the FlowType unification is the deferred step-5 migration).
-type FlowType = 'morning' | 'midday' | 'evening' | 'daily-loop';
+// FEAT-298 slice 1: this local 4-member union is now the canonical `PracticeIdentity`.
+// The three legacy members remain reachable via deep link until slice 6 retires the flows.
+type FlowType = PracticeIdentity;
 
 // PERF-04: hoisted out of CleanHomeScreen's render — defining components inside
 // a function component creates a NEW component type on every render, forcing
@@ -49,8 +53,7 @@ const CheckInCard: React.FC<CheckInCardProps> = ({
   isCompleted,
   onPress,
 }) => {
-  // FEAT-291: the daily-loop prototype card themes as midday (no ThemeKey union change).
-  const themeColors = getTheme(type === 'daily-loop' ? 'midday' : type);
+  const themeColors = getTheme(themeKeyFor(type));
   const handlePress = useCallback(() => onPress(type), [onPress, type]);
 
   return (
@@ -104,7 +107,6 @@ const CleanHomeScreen: React.FC = () => {
   const isCheckInCompletedToday = useStoicPracticeStore((s) => s.isCheckInCompletedToday);
   const accessibilitySettings = useAccessibilitySettings();
   const getLastActiveTimestamp = useSettingsStore((state) => state.getLastActiveTimestamp);
-  const currentHour = new Date().getHours();
   const { trackScreenView } = useAnalytics();
 
   // Track screen view for analytics (FEAT-40)
@@ -140,40 +142,15 @@ const CleanHomeScreen: React.FC = () => {
     setShowIntro(false);
   };
 
-  const getGreeting = () => {
-    if (currentHour < 12) return 'Good morning';
-    if (currentHour < 17) return 'Good afternoon';
-    return 'Good evening';
-  };
-
-  const getCurrentPeriod = (): 'morning' | 'midday' | 'evening' => {
-    if (currentHour < 12) return 'morning';
-    if (currentHour < 17) return 'midday';
-    return 'evening';
-  };
-
-  const currentPeriod = getCurrentPeriod();
-
-  // FEAT-291 prototype flags (build-time, dark in production):
-  //  - daily_loop: show the Daily Practice card alongside the 3 flows.
-  //  - daily_loop_only: preview the eventual single-ritual Home — hide the 3
-  //    time-of-day flows, show only the loop (requires daily_loop on).
-  const dailyLoopEnabled = isFeatureEnabled('daily_loop');
-  const dailyLoopOnly = dailyLoopEnabled && isFeatureEnabled('daily_loop_only');
+  // FEAT-298 slice 5: the greeting reads the SHARED time helper. It used to inline the
+  // same <12 / <17 thresholds that getCurrentPeriod also inlined — two copies of one
+  // boundary, which is how the greeting and the loop's tense would have drifted apart.
 
   const handleCheckInPress = useCallback((type: FlowType) => {
     switch (type) {
-      case 'morning':
-        navigation.navigate('MorningFlow');
-        break;
-      case 'midday':
-        navigation.navigate('MiddayFlow');
-        break;
-      case 'evening':
-        navigation.navigate('EveningFlow');
-        break;
       case 'daily-loop':
-        // FEAT-291: no mode param → the loop shows its in-flow mode picker (flat/morning/evening).
+        // FEAT-298 slice 5: no mode param, and no picker to fall through to any more —
+        // the loop infers its tense from the clock (getDailyLoopTense).
         navigation.navigate('DailyLoop');
         break;
     }
@@ -208,57 +185,21 @@ const CleanHomeScreen: React.FC = () => {
 
         {/* Check-in Cards - flex to fill remaining space */}
         <View style={styles.checkInSection}>
-          {/* The 3 time-of-day flows. Hidden when the daily_loop_only preview is on
-              (dark in production) — otherwise the unchanged default Home. */}
-          {!dailyLoopOnly && (
-            <>
-              <CheckInCard
-                type="morning"
-                title="Morning Awareness"
-                description="Start your day with mindful awareness of your body, emotions, and intentions."
-                duration="5-7 min"
-                isCurrent={currentPeriod === 'morning'}
-                isCompleted={isCheckInCompletedToday('morning')}
-                onPress={handleCheckInPress}
-              />
-
-              <CheckInCard
-                type="midday"
-                title="Midday Reset"
-                description="Take a moment to reconnect with the present through mindful awareness."
-                duration="3 min"
-                isCurrent={currentPeriod === 'midday'}
-                isCompleted={isCheckInCompletedToday('midday')}
-                onPress={handleCheckInPress}
-              />
-
-              <CheckInCard
-                type="evening"
-                title="Evening Reflection"
-                description="Reflect on your day with gratitude and intention. Release what's done and rest peacefully."
-                duration="5-6 min"
-                isCurrent={currentPeriod === 'evening'}
-                isCompleted={isCheckInCompletedToday('evening')}
-                onPress={handleCheckInPress}
-              />
-            </>
-          )}
-
-          {/* FEAT-291: single-loop daily-practice prototype. Flag-gated (build-time
-              `daily_loop`, dark in production). When daily_loop_only is also on, this
-              is the ONLY card and drops the "(Beta)" tag — a preview of the eventual
-              single-ritual Home. */}
-          {dailyLoopEnabled && (
-            <CheckInCard
-              type="daily-loop"
-              title={dailyLoopOnly ? 'Daily Practice' : 'Daily Practice (Beta)'}
-              description="One loop through the Five Principles: Aware Presence, Radical Acceptance, Sphere Sovereignty, Virtuous Response, Interconnected Living."
-              duration="5-6 min"
-              isCurrent={dailyLoopOnly}
-              isCompleted={false}
-              onPress={handleCheckInPress}
-            />
-          )}
+          {/* FEAT-298 slice 5: ONE indistinguishable daily practice. The three time-of-day
+              flows and the `daily_loop` / `daily_loop_only` flags are gone; the loop is the
+              default and only daily ritual. Its TENSE is inferred from the clock inside
+              DailyLoopNavigator (getDailyLoopTense) — never chosen here and never shown to
+              the user, so this card is one button, not a menu. `isCurrent` is always true:
+              there is nothing for it to be current *against* any more. */}
+          <CheckInCard
+            type="daily-loop"
+            title="Daily Practice"
+            description="One loop through the Five Principles: Aware Presence, Radical Acceptance, Sphere Sovereignty, Virtuous Response, Interconnected Living."
+            duration="5-6 min"
+            isCurrent
+            isCompleted={isCheckInCompletedToday('daily')}
+            onPress={handleCheckInPress}
+          />
         </View>
 
         {/* FEAT-293: standalone-practice discoverability.

@@ -15,7 +15,6 @@ import {
   PREMEDITATIO,
   SUPPORT_LINE,
   CLOSING,
-  MODE_LABELS,
   getStepConfig,
   QUICK_STEP_KEYS,
   QUICK_SUPPORT_STEP,
@@ -72,13 +71,6 @@ describe('all three modes authored to equal fidelity (no stubs)', () => {
     for (const step of DAILY_LOOP_STEP_KEYS) {
       const labels = MODES.map((m) => getStepConfig(m, step).fields[0]?.label);
       expect(new Set(labels).size).toBe(3);
-    }
-  });
-
-  it('exposes a label + blurb for each mode picker option', () => {
-    for (const mode of MODES) {
-      expect(MODE_LABELS[mode].label.length).toBeGreaterThan(0);
-      expect(MODE_LABELS[mode].blurb.length).toBeGreaterThan(0);
     }
   });
 });
@@ -181,6 +173,144 @@ describe('closing coda copy (practice-architecture, not a principle)', () => {
     expect(CLOSING.breathTitle.toLowerCase()).toMatch(/breath|release/);
     expect(CLOSING.completeTitle.length).toBeGreaterThan(0);
     expect(CLOSING.noteLabel).toMatch(/optional/i);
+  });
+
+  /**
+   * FEAT-298 slice 6a — the self-compassion posture re-homed from the retired Midday
+   * CompassionateCloseScreen. It lives in the CODA, not step 5 (which is oikeiōsis /
+   * belonging, other-directed by construction). Until now that boundary was asserted only
+   * in a docstring and enforced by nothing.
+   */
+  describe('self-compassion posture (re-homed from Midday)', () => {
+    const codaText = [
+      CLOSING.postureLine,
+      CLOSING.notePlaceholder,
+      CLOSING.returnLine,
+    ].join(' ');
+
+    it('keeps the standard — honesty is demanded, only the harshness is removed', () => {
+      expect(CLOSING.postureLine.toLowerCase()).toMatch(/honest/);
+    });
+
+    it('re-homes the return-anytime reinforcement as beginning again', () => {
+      expect(CLOSING.returnLine.toLowerCase()).toMatch(/begin|again|come back/);
+    });
+
+    it('never uses the word "compassion" — the substance is Stoic, the label is not', () => {
+      // resources.md flags Neff as "not explicitly Stoic". Ship prokopē, not the import.
+      expect(codaText).not.toMatch(/compassion/i);
+    });
+
+    it('never borrows step 5s relational framing', () => {
+      // These recruit the moral-circle logic of Interconnected Living, and a reader would
+      // experience the coda as "step 5 continued" — which is the collision to avoid.
+      for (const banned of [
+        /as you would (a )?friend/i,
+        /not alone/i,
+        /social connection/i,
+        /connect with people/i,
+      ]) {
+        expect(codaText).not.toMatch(banned);
+      }
+    });
+
+    it('never congratulates, rewards, or absolves', () => {
+      // The screen already has a ✓ badge and a completeTitle; a third congratulatory beat
+      // would turn the coda into a trophy. Absolution would relocate responsibility off
+      // the practitioner, where shortfall is data to act on, not a charge to be acquitted.
+      for (const banned of [
+        /well done/i,
+        /nice work/i,
+        /you earned/i,
+        /you deserve/i,
+        /treat yourself/i,
+        /did your best/i,
+        /not your fault/i,
+      ]) {
+        expect(codaText).not.toMatch(banned);
+      }
+    });
+
+    it('EXCLUDES gratitudeLine from this join, deliberately', () => {
+      // gratitudeLine is the ONE coda element that IS tense-bound — morning and evening are
+      // genuinely different practices in the framework. It must stay outside the
+      // tense-neutrality join below, or a future reader "fixing" a /today/i violation will
+      // flatten three authored strings into one and lose a distinction the docs are
+      // explicit about.
+      expect(codaText).not.toContain(CLOSING.gratitudeLine.morning);
+      expect(codaText).not.toContain(CLOSING.gratitudeLine.evening);
+    });
+
+    it('is tense-neutral — one string serves all three modes', () => {
+      // A tense-bound posture would recreate the bug being fixed: reachable in one tense
+      // only. Also depth-neutral: nothing here presumes five beats ran.
+      for (const banned of [/today/i, /\bthe day you\b/i, /all five/i]) {
+        expect(codaText).not.toMatch(banned);
+      }
+    });
+  });
+
+  /**
+   * FEAT-298 slice 6b — gratitude, re-homed from the retired morning/evening flows.
+   *
+   * The warrant is a defect in ALREADY-SHIPPED code, not "deleting the flows removes
+   * gratitude from the app" (that premise is false — a weak generic gratitude-reflection
+   * survives in module-4). The loop ships PREMEDITATIO (beat 4, morning-only), and the
+   * framework makes present-moment gratitude its REQUIRED complement — so the loop has
+   * been shipping the aversive half of a two-half practice with nothing to complete it.
+   */
+  describe('gratitude (re-homed from morning/evening)', () => {
+    const ALL_MODES: DailyLoopMode[] = ['flat', 'morning', 'evening'];
+    const allGratitude = ALL_MODES.map((m) => CLOSING.gratitudeLine[m]).join(' ');
+
+    it('is authored for every tense — no stubs', () => {
+      for (const mode of ALL_MODES) {
+        expect(CLOSING.gratitudeLine[mode]).toEqual(expect.any(String));
+        expect(CLOSING.gratitudeLine[mode].length).toBeGreaterThan(40);
+      }
+    });
+
+    it('gives each tense a DISTINCT line — the whole point of varying it', () => {
+      expect(new Set(ALL_MODES.map((m) => CLOSING.gratitudeLine[m])).size).toBe(
+        ALL_MODES.length
+      );
+    });
+
+    it('morning keeps the impermanence framing (Epictetus, Enchiridion 11)', () => {
+      expect(CLOSING.gratitudeLine.morning.toLowerCase()).toMatch(
+        /isn't promised|not owed|if it were gone/
+      );
+    });
+
+    it('evening keeps the SPECIFICITY requirement — a moment, not a category', () => {
+      // daily-architecture.md is explicit: "Three specific things from today (not generic)".
+      expect(CLOSING.gratitudeLine.evening).toMatch(/specific|moment, not a category/i);
+    });
+
+    it('flat frames it as noticing what is already here (Marcus 7.27)', () => {
+      expect(CLOSING.gratitudeLine.flat.toLowerCase()).toMatch(/already here/);
+    });
+
+    it('never congratulates, moralizes, or imports wellness-gratitude register', () => {
+      // Stoic gratitude is an act of correct judgment, good in itself — not instrumental
+      // to a mood outcome. Same standard 6a applied when it stripped "compassion".
+      for (const banned of [
+        /well done/i,
+        /you deserve/i,
+        /you earned/i,
+        /should be grateful/i,
+        /count your blessings/i,
+        /positive/i,
+        /blessing/i,
+      ]) {
+        expect(allGratitude).not.toMatch(banned);
+      }
+    });
+
+    it('offers somewhere to WRITE gratitude without adding a second input', () => {
+      // A second coda input would turn a closing into a form; the existing note absorbs it.
+      expect(CLOSING.notePlaceholder).toMatch(/glad of/i);
+    });
   });
 });
 

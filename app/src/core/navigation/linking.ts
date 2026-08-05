@@ -299,6 +299,13 @@ export const linkingConfig: LinkingOptions<RootStackParamList> = {
 
   // Screen configuration
   config: {
+    // FEAT-298 slice 4 — REQUIRED, and its absence was a real bug. Without it a cold-start
+    // deep link produces a root state of exactly [TargetRoute], so `navigation.goBack()`
+    // (DailyLoop's onExit/onComplete) is a no-op on an empty stack and the user is stranded
+    // in an immersive practice with gestureEnabled:false — no way out but force-quit. 988
+    // still works (the crisis overlay is a SIBLING of the navigator, so it is mounted
+    // regardless), but "cannot leave the default daily practice" is not shippable.
+    initialRouteName: 'Main',
     screens: {
       // Main navigation
       Main: '',
@@ -306,9 +313,11 @@ export const linkingConfig: LinkingOptions<RootStackParamList> = {
       Onboarding: 'onboarding',
 
       // Check-in flows
-      MorningFlow: 'morning',
-      MiddayFlow: 'midday',
-      EveningFlow: 'evening',
+      // FEAT-298 slice 4. Route NAME ('DailyLoop') and path TOKEN ('daily') are separate
+      // concepts and must not be "harmonized" — the route name is pinned in three places
+      // (the crisis overlay's IMMERSIVE_ROUTES, the Stack.Screen, getActiveRootRouteName) and
+      // by a Maestro flow. Bare path: no mode/depth params — see ALLOWED_PARAMS.
+      DailyLoop: 'daily',
 
       // Features
       CrisisResources: CRISIS_PATH_SEGMENT,

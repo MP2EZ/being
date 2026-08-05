@@ -18,15 +18,19 @@ name: "DailyLoop quick-depth (FEAT-301): crisis affordance survives the shorter 
 #       Sphere Sovereignty beat, NOT behind the breath;
 #   (3) (deep sub-check) deep still shows the support line on Radical Acceptance.
 #
-# ⚠️  DRAFT — NOT YET SIM-VALIDATED. FEAT-301 is a safety surface queued for a
-#     simulator-attended /b-close (INFRA-171 Phase 2.5). Validate/adjust selectors +
-#     timing on the booted e2e-sim build during that attended session. Known prereqs:
-#       • Build with `npm run e2e:safety:build` (no-dev-client EAS e2e-sim, INFRA-216).
-#       • The build-time `daily_loop` flag MUST be ON for the Daily Practice home card to
-#         render (CleanHomeScreen: isFeatureEnabled('daily_loop')). If the e2e-sim build
-#         ships it dark, enable it in the e2e env before this flow can reach DailyLoop.
-#       • Maestro `text:` is a full-match regex and RN merges a11y nodes — the wildcarded
-#         text selectors below may need widening (see docs/testing/e2e-maestro.md).
+# ✅ SIM-VALIDATED 2026-08-04 (FEAT-298 slice 6c close-out) — attended run on the
+#     no-dev-client e2e-sim build, iPhone 16 Plus / iOS 18.6, green as part of a full
+#     6-flow `npm run e2e:safety` pass. What the validation changed:
+#       • Removed the mode-picker steps — FEAT-298 slice 5 retired
+#         DailyLoopModeSelectScreen, so the tense is inferred from the clock and depth is
+#         the only entry choice. NOTHING below may assert tense-specific copy: everything
+#         it does assert is tense-invariant, so the flow stays deterministic all day.
+#       • The re-entry pass now goes through the resume modal (FEAT-298 slice 3b) via
+#         `begin-fresh-button`. Targeting that button BY ID is required, not stylistic:
+#         the modal's body copy also contains the phrase "begin fresh", and a text
+#         selector matches that paragraph first and silently no-ops.
+#       • The `daily_loop` flag no longer exists — the Daily Practice card is the
+#         unconditional default on Home, so there is no flag to enable in the e2e env.
 
 - launchApp:
     clearState: true
@@ -47,11 +51,15 @@ name: "DailyLoop quick-depth (FEAT-301): crisis affordance survives the shorter 
 - tapOn:
     id: "daily-loop-depth-quick"
 
-# ── Mode picker (FEAT-291): pick Flat for a deterministic path ───
-- assertVisible:
-    id: "daily-loop-mode-flat"
-- tapOn:
-    id: "daily-loop-mode-flat"
+# ── NO mode picker. FEAT-298 slice 5 retired DailyLoopModeSelectScreen: the tense is
+#    inferred from the clock and is never user-picked, so depth is the only choice on
+#    entry and the loop goes straight to beat 1. The flow previously tapped
+#    `daily-loop-mode-flat` here, which no longer exists.
+#
+#    Consequence for this flow: the TENSE now varies with wall-clock time, so nothing
+#    below may assert tense-specific copy. Everything it does assert — step screen ids,
+#    the crisis overlay, the support line, continue/exit controls — is tense-invariant
+#    by design, so the flow stays deterministic across all three tenses.
 
 # ── Quick beat 1 — Aware Presence (breath-gated). Root overlay must
 #    still be reachable here even during/after the breath. ────────
@@ -95,12 +103,29 @@ name: "DailyLoop quick-depth (FEAT-301): crisis affordance survives the shorter 
 #    still on Radical Acceptance (deep unchanged). ─────────────────────
 - tapOn:
     id: "daily-loop-exit"
+
+# ── Re-entry after an interrupted session (FEAT-298 slice 3b) ────
+#    Exiting mid-loop SAVES a resumable session, so re-entering now offers the resume
+#    modal rather than the depth picker. Taking "Begin Fresh" here is deliberate: it is
+#    the only device coverage of slice 3b's resumption, and it pins the FEAT-301
+#    non-sticky rule — a fresh start must RE-PRESENT the neutral depth choice rather
+#    than silently inheriting the abandoned session's depth.
 - tapOn:
     text: ".*Daily Practice.*"
+# Target the button by ID, never by text: the modal's BODY COPY also contains the phrase
+# "begin fresh" ("...or begin fresh with full presence now?"), and that <Text> precedes the
+# button in the hierarchy — so a text selector taps the paragraph and silently no-ops,
+# leaving the modal open.
+- extendedWaitUntil:
+    visible:
+      id: "begin-fresh-button"
+    timeout: 15000
+- tapOn:
+    id: "begin-fresh-button"
+- assertVisible:
+    id: "daily-loop-depth-select-screen"
 - tapOn:
     id: "daily-loop-depth-deep"
-- tapOn:
-    id: "daily-loop-mode-flat"
 - tapOn:
     id: "daily-loop-skip-breath"
 - tapOn:
