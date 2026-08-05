@@ -18,7 +18,7 @@
 
 import { logSecurity, logPerformance, logError, LogCategory } from '../logging';
 import { generateTimestampedId } from '@/core/utils/id';
-import { Alert, Linking, DeviceEventEmitter } from 'react-native';
+import { DeviceEventEmitter } from 'react-native';
 import {
   AssessmentType,
   AssessmentAnswer,
@@ -296,116 +296,27 @@ export class CrisisPerformanceOptimizer {
     }
   }
 
-  /**
-   * Optimized emergency response with performance tracking
-   * Target: <100ms total intervention time
+  /*
+   * REMOVED (DEBUG-305): `triggerOptimizedEmergencyResponse`, a private
+   * `showCrisisAlert`, and `logCrisisInterventionOptimized`.
+   *
+   * `triggerOptimizedEmergencyResponse` never had a caller outside this file in
+   * any commit (`git log -S` across history), so nothing here ever ran. It was
+   * deleted rather than repaired because it carried two live hazards:
+   *
+   * 1. A SECOND copy of the crisis alert, with its own `Alert.alert` and its own
+   *    copy of the 988/741741/911 actions. `crisisAlert.ts` exists precisely to
+   *    prevent that (MAINT-166 already shipped a double-alert bug of this
+   *    family, pinned by `.maestro/q9-single-alert.yaml`), and this copy also
+   *    dialled through raw `Linking.openURL` rather than `openCrisisUrl`,
+   *    bypassing the DEBUG-314 guard. Fixing the storage half would have
+   *    preserved the alert duplication — the more dangerous half.
+   * 2. A plaintext `crisis_<assessmentId>` write carrying `triggerValue`, under
+   *    a key matching no erasure prefix — the same defect as
+   *    `logCrisisIntervention`, self-described as "non-encrypted storage."
+   *
+   * `detectCrisisOptimized` above has live callers and is unaffected.
    */
-  static async triggerOptimizedEmergencyResponse(detection: CrisisDetection): Promise<void> {
-    const startTime = performance.now();
-
-    try {
-      // Immediate emergency alert (non-blocking)
-      const alertPromise = this.showCrisisAlert();
-
-      // Parallel logging (non-blocking)
-      const logPromise = this.logCrisisInterventionOptimized(detection);
-
-      // Emit performance event for monitoring
-      DeviceEventEmitter.emit('crisis_intervention_started', {
-        assessmentId: detection.assessmentId,
-        triggerType: detection.primaryTrigger,
-        timestamp: detection.timestamp
-      });
-
-      // Wait for critical operations
-      await Promise.all([alertPromise, logPromise]);
-
-      const interventionTime = performance.now() - startTime;
-
-      // Update performance metrics
-      const lastMetric = this.performanceHistory[this.performanceHistory.length - 1];
-      if (lastMetric) {
-        lastMetric.interventionTime = interventionTime;
-        lastMetric.totalResponseTime = lastMetric.crisisDetectionTime + interventionTime;
-      }
-
-      // Performance validation
-      if (interventionTime > 100) {
-        this.handlePerformanceAlert(interventionTime, 'crisis_intervention');
-      }
-
-    } catch (error) {
-      logError(LogCategory.PERFORMANCE, 'Optimized emergency response failed:', error instanceof Error ? error : new Error(String(error)));
-      // Fallback: Direct 988 call
-      Linking.openURL('tel:988');
-    }
-  }
-
-  /**
-   * Non-blocking crisis alert display
-   */
-  private static async showCrisisAlert(): Promise<void> {
-    return new Promise((resolve) => {
-      Alert.alert(
-        '🚨 Crisis Support Available',
-        'You\'re not alone. Crisis support is available 24/7.',
-        [
-          {
-            text: 'Call 988 (Crisis Lifeline)',
-            onPress: () => {
-              Linking.openURL('tel:988');
-              resolve();
-            },
-            style: 'default'
-          },
-          {
-            text: 'Text 741741 (Crisis Text)',
-            onPress: () => {
-              Linking.openURL('sms:741741');
-              resolve();
-            },
-            style: 'default'
-          },
-          {
-            text: 'Emergency 911',
-            onPress: () => {
-              Linking.openURL('tel:911');
-              resolve();
-            },
-            style: 'destructive'
-          }
-        ],
-        {
-          cancelable: false,
-          onDismiss: () => resolve()
-        }
-      );
-    });
-  }
-
-  /**
-   * Optimized crisis intervention logging
-   */
-  private static async logCrisisInterventionOptimized(detection: CrisisDetection): Promise<void> {
-    try {
-      // Use minimal, fast logging
-      const interventionLog = {
-        id: detection.assessmentId,
-        type: detection.primaryTrigger,
-        value: detection.triggerValue,
-        timestamp: detection.timestamp,
-        responseTime: Date.now() - detection.timestamp
-      };
-
-      // Store in fast, non-encrypted storage for emergency access
-      const logKey = `crisis_${detection.assessmentId}`;
-      await import('@react-native-async-storage/async-storage').then(({ default: AsyncStorage }) =>
-        AsyncStorage.setItem(logKey, JSON.stringify(interventionLog))
-      );
-    } catch (error) {
-      logError(LogCategory.PERFORMANCE, 'Crisis intervention logging failed:', error instanceof Error ? error : new Error(String(error)));
-    }
-  }
 
   /**
    * Performance metrics recording

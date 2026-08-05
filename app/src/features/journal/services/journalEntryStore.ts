@@ -30,9 +30,10 @@
  * and `clearAllWellnessData` sweeps that prefix, so both the entry records and
  * the index are erased automatically. This is why every write goes through
  * `SecureStorageService` and never touches `AsyncStorage` directly: a bare key
- * would be both unencrypted AND invisible to the sweep — the live defect
- * tracked as DEBUG-305 (`crisis_intervention_*`). `journalErasure.privacy.test.ts`
- * proves absence by enumeration rather than trusting this comment.
+ * would be both unencrypted AND invisible to the sweep — the failure mode
+ * `crisis_intervention_*` exhibited before DEBUG-305 removed it.
+ * `journalErasure.privacy.test.ts` proves absence by enumeration rather than
+ * trusting this comment.
  */
 
 import SecureStorageService from '@/core/services/security/SecureStorageService';
