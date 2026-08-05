@@ -154,7 +154,22 @@ const DailyLoopNavigator: React.FC<DailyLoopNavigatorProps> = ({
     setSessionData({});
     setRegroundTarget(null);
     setShowResumeModal(false);
-  }, []);
+
+    // FEAT-298 slice 6c: reset the ENTRY CHOICES too, not just the answers.
+    //
+    // The session check above restores `depth` (and `mode`) from the saved session so a
+    // RESUMED session continues in the shape it began. But "begin fresh" is the opposite
+    // intent, and leaving them restored made depth STICKY across it — the abandoned
+    // session's depth silently became the new session's depth, with no picker shown.
+    // That contradicts FEAT-301's explicit rule, stated in this file's own depth-picker
+    // comment: depth is never persisted, and "the next session re-presents this neutral
+    // choice". Caught by the Maestro flow on device, not by any unit test.
+    //
+    // Mode re-derives from the clock rather than inheriting the old session's tense:
+    // "fresh" means now, not whenever the abandoned session started.
+    if (!initialDepth) setDepth(null);
+    setMode(initialMode ?? getDailyLoopTense());
+  }, [initialDepth, initialMode]);
 
   const closeButton = (
     <Pressable

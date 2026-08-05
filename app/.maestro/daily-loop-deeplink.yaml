@@ -48,7 +48,12 @@ name: "DailyLoop deep link (FEAT-298): crisis overlay + escape from a cold-start
     id: "crisis-button-root"
 - assertVisible:
     id: "crisis-resources-screen"
-- back
+# In-app back, NOT `- back`: the system/gesture back is a no-op on this modal stack, so
+# the flow stayed on CrisisResources — where the overlay is correctly SUPPRESSED — and the
+# next assertion failed for the right reason on the wrong screen. Every other safety flow
+# uses this control; match them.
+- tapOn:
+    id: "nav-back-button"
 
 # Back on the loop's own entry surface (the depth picker — params are stripped, so the
 # picker is always shown on a deep-link entry).

@@ -47,11 +47,15 @@ name: "DailyLoop quick-depth (FEAT-301): crisis affordance survives the shorter 
 - tapOn:
     id: "daily-loop-depth-quick"
 
-# ── Mode picker (FEAT-291): pick Flat for a deterministic path ───
-- assertVisible:
-    id: "daily-loop-mode-flat"
-- tapOn:
-    id: "daily-loop-mode-flat"
+# ── NO mode picker. FEAT-298 slice 5 retired DailyLoopModeSelectScreen: the tense is
+#    inferred from the clock and is never user-picked, so depth is the only choice on
+#    entry and the loop goes straight to beat 1. The flow previously tapped
+#    `daily-loop-mode-flat` here, which no longer exists.
+#
+#    Consequence for this flow: the TENSE now varies with wall-clock time, so nothing
+#    below may assert tense-specific copy. Everything it does assert — step screen ids,
+#    the crisis overlay, the support line, continue/exit controls — is tense-invariant
+#    by design, so the flow stays deterministic across all three tenses.
 
 # ── Quick beat 1 — Aware Presence (breath-gated). Root overlay must
 #    still be reachable here even during/after the breath. ────────
@@ -95,12 +99,28 @@ name: "DailyLoop quick-depth (FEAT-301): crisis affordance survives the shorter 
 #    still on Radical Acceptance (deep unchanged). ─────────────────────
 - tapOn:
     id: "daily-loop-exit"
+
+# ── Re-entry after an interrupted session (FEAT-298 slice 3b) ────
+#    Exiting mid-loop SAVES a resumable session, so re-entering now offers the resume
+#    modal rather than the depth picker. Taking "Begin Fresh" here is deliberate: it is
+#    the only device coverage of slice 3b's resumption, and it pins the FEAT-301
+#    non-sticky rule — a fresh start must RE-PRESENT the neutral depth choice rather
+#    than silently inheriting the abandoned session's depth.
 - tapOn:
     text: ".*Daily Practice.*"
+# `text:` is a FULL-MATCH regex and RN merges the child <Text> into the Pressable's
+# accessibilityLabel ("Begin fresh Daily Practice"), so a bare "Begin Fresh" never
+# matches. Wildcards both sides, case-tolerant on the F.
+- extendedWaitUntil:
+    visible:
+      text: ".*Begin [Ff]resh.*"
+    timeout: 15000
+- tapOn:
+    text: ".*Begin [Ff]resh.*"
+- assertVisible:
+    id: "daily-loop-depth-select-screen"
 - tapOn:
     id: "daily-loop-depth-deep"
-- tapOn:
-    id: "daily-loop-mode-flat"
 - tapOn:
     id: "daily-loop-skip-breath"
 - tapOn:
