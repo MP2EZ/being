@@ -165,6 +165,16 @@ Build a directed graph over the batch from these edge sources:
   These don't force a logical order, but the second to run will have to merge-resolve.
   Serial execution + `/b-close` Step 3.1's sync-to-`origin/development` already handles
   the conflict; soft edges only bias the ordering to minimize churn.
+  **Ledger files are an invisible soft edge — add them yourself.** `files_touched` is a
+  prediction of *authored* edits, so no lens ever lists a repo-wide append-only ledger
+  that changes as a SIDE EFFECT of the work. The one that bites here is
+  `app/.eslint-baseline.json`: every new test file under `app/src/**/__tests__/` appends
+  one line to it (see the Known Gotchas entry), both branches append at the same spot,
+  and the second to merge conflicts on that file **and nothing else**. So: if ≥2 items
+  in the batch will add a test file under `app/src/`, record a soft edge between them.
+  It does not change the tranche order (resolution is trivial — keep BOTH entries, add
+  the comma, re-validate the JSON parses, re-run `lint:baseline`), but it stops the
+  later merges reading as a real conflict worth diagnosing.
 
 Then:
 1. **Topologically sort** the items; hard edges define the order, soft edges break ties.
