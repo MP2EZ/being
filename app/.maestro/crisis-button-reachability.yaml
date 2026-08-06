@@ -43,6 +43,39 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
 # Maestro's text: selector doesn't match the bottom-tab accessibilityText
 # "X, tab, N of 4" patterns because the text field itself is empty.
 
+# ── DEBUG-299: drag-then-tap ─────────────────────────────────────
+# The rest of this flow only ever TAPS the button, which is why it passed for
+# two releases while the shipped build had a crisis button that could vanish.
+#
+# The reported failure needed a drag: the button carried a Gesture.Pan whose
+# worklets captured `collapsedWidth` before it was initialised, so panning
+# wrote NaN into the transform. A NaN transform on iOS/Fabric is neither drawn
+# nor hit-testable, and the single root mount (MAINT-290) never unmounts — so
+# one drag removed 988 access from EVERY screen for the rest of the session.
+# The pan has since been removed entirely; this segment pins that no future
+# gesture can reintroduce the failure.
+#
+# Runs FIRST and on Home, matching the verbatim user report ("on the main
+# screen"). If this regresses, every segment below it fails too — which is the
+# correct blast radius for a button that is gone app-wide.
+- tapOn:
+    id: "tab-home"
+- swipe:
+    from:
+      id: "crisis-button-root"
+    direction: LEFT
+# Still present after the drag. Before the fix the layer was not drawn here.
+- assertVisible:
+    id: "crisis-button-root"
+# Still INTERACTIVE after the drag — the load-bearing half. A drag used to leave
+# the button mounted-but-inert, so assertVisible alone would not have caught it.
+- tapOn:
+    id: "crisis-button-root"
+- assertVisible:
+    id: "crisis-resources-screen"
+- tapOn:
+    id: "nav-back-button"
+
 # ── Home tab ─────────────────────────────────────────────────────
 - tapOn:
     id: "tab-home"
