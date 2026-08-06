@@ -246,9 +246,9 @@ For your safety and our liability protection, we retain crisis-related data for 
 
 - **High-Severity Assessments:** PHQ-9 scores ≥ 20, GAD-7 scores ≥ 15
 - **Suicidal Ideation Responses:** Any non-zero response to PHQ-9 question 9
-- **Crisis Intervention Records:** When you accessed 988 or emergency resources
+- **Crisis Detection Events:** An aggregate, PII-free record of when a crisis threshold was detected and support resources were surfaced (see §3, Safety Features) — this records that a threshold was met and resources were shown, not whether you tapped through to 988 or another resource
 
-This extended retention ensures continuity of care information and protects both you and us in case of legal proceedings.
+This extended retention supports safety-monitoring continuity and protects both you and us in case of legal proceedings.
 
 ### 7.3 Other Data
 
