@@ -191,5 +191,6 @@
   "src/features/profile/screens/__tests__/AccountSettingsScreen.accessibility.test.tsx": 1,
   "src/features/profile/screens/__tests__/DeleteAccountScreen.accessibility.test.tsx": 1,
   "src/features/profile/screens/__tests__/ExportDataScreen.accessibility.test.tsx": 1,
-  "src/features/profile/screens/__tests__/ProfileScreen.accessibility.test.tsx": 1
+  "src/features/profile/screens/__tests__/ProfileScreen.accessibility.test.tsx": 1,
+  "src/features/learn/practices/__tests__/practiceQuotes.test.ts": 1
 }
