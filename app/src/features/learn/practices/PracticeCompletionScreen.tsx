@@ -69,13 +69,25 @@ export const PRACTICE_QUOTES: Record<string, ClassicalQuote> = {
     author: 'Marcus Aurelius',
     source: 'Meditations 5.18',
   },
+  // DEBUG-330: was "Waste no more time arguing what a good person should be.
+  // Be one." — not a loose paraphrase but Gregory Hays (2002) with two words
+  // dropped, i.e. in-copyright. Now George Long (1862) verbatim, byte-identical
+  // to assets/passages/passages-4-virtuous-response.json.
   'virtue-check': {
-    text: 'Waste no more time arguing what a good person should be. Be one.',
+    text: 'No longer talk at all about the kind of man that a good man ought to be, but be such.',
     author: 'Marcus Aurelius',
     source: 'Meditations 10.16',
   },
+  // DEBUG-330: was Hays' "The impediment to action advances action. What stands
+  // in the way becomes the way." The CITATION was right; only the wording was in
+  // copyright. Now George Long (1862), trimmed to the final clause-chain of 5.20
+  // verbatim (only the subordinating "for the" dropped) so it stays a substring
+  // of the passages-corpus entry. The "mind converts" clause is kept
+  // deliberately: the mind as AGENT of the reframing is the whole point of a
+  // virtuous-reframing practice, and it is exactly what the Hays compression
+  // flattens away.
   'virtuous-reframing': {
-    text: 'The impediment to action advances action. What stands in the way becomes the way.',
+    text: 'The mind converts and changes every hindrance to its activity into an aid; and so that which is a hindrance is made a furtherance to an act; and that which is an obstacle on the road helps us on this road.',
     author: 'Marcus Aurelius',
     source: 'Meditations 5.20',
   },
@@ -84,10 +96,26 @@ export const PRACTICE_QUOTES: Record<string, ClassicalQuote> = {
     author: 'Marcus Aurelius',
     source: 'Meditations 8.33',
   },
+  // DEBUG-330: was "You have power over your mind - not outside events. Realize
+  // this, and you will find strength." cited to Meditations 5.9 — a
+  // well-documented SPURIOUS quotation appearing in no standard translation.
+  // (The real 5.9 is the "return to it again" passage, which this codebase
+  // already cites correctly at tenseMode.ts.) Because the line is a fabrication
+  // there is no public-domain rendering of it to substitute, so the locus had to
+  // be CHOSEN rather than re-translated.
+  //
+  // Meditations 5.26 (George Long, 1862) is the one passage that states the
+  // instruction a body scan actually gives: sensation arises naturally and is
+  // not to be resisted; what is up to you is whether the ruling faculty adds the
+  // judgement "good" or "bad" to it. That is authentically Stoic
+  // (phantasia/synkatathesis applied to somatic experience) rather than a Stoic
+  // gloss on vipassana, and it is clinically safer than the alternatives — it
+  // explicitly forbids striving against sensation, so it cannot read as
+  // suppression to a user in pain. 5.26 collides with no other entry's locus.
   'body-scan': {
-    text: 'You have power over your mind - not outside events. Realize this, and you will find strength.',
+    text: 'Thou must not strive to resist the sensation, for it is natural: but let not the ruling part of itself add to the sensation the opinion that it is either good or bad.',
     author: 'Marcus Aurelius',
-    source: 'Meditations 5.9',
+    source: 'Meditations 5.26',
   },
 };
 
