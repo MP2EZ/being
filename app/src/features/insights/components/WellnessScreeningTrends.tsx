@@ -671,7 +671,11 @@ const styles = StyleSheet.create({
   timeRangeText: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.medium,
-    color: colorSystem.gray[500],
+    // DEBUG-323: was raw colorSystem.gray[500] — 1.90:1 on the gray[100]
+    // segmented-control track, i.e. worse than the token defect this item
+    // fixes, and bypassing the token entirely so the token fix would not have
+    // reached it. Routed through the corrected token.
+    color: semantic.text.muted,
   },
   timeRangeTextSelected: {
     color: semantic.text.primary,
