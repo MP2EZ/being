@@ -17,6 +17,58 @@ import module5 from '../../../../assets/modules/module-5-interconnected-living.j
 const MODULES = [module1, module2, module3, module4, module5];
 const STOIC_AUTHORS = ['Marcus Aurelius', 'Epictetus', 'Seneca'];
 
+/**
+ * DEBUG-343 — the repo's public-domain translator set, keyed by author.
+ *
+ * Marcus  → George Long (1862)
+ * Epictetus → Elizabeth Carter (1758)
+ * Seneca  → Richard Mott Gummere (Letters) / Aubrey Stewart (dialogues)
+ *
+ * Enforced POSITIVELY, not just by banning known-bad strings. A ban-only guard
+ * can stop a regression to a phrase someone already caught; it cannot stop drift
+ * to a new one — which is exactly how modules 4 and 5 came to ship Gregory Hays
+ * renderings while three sibling suites watched three other surfaces.
+ *
+ * The translator is read out of the existing `(trans. X)` suffix on `source`
+ * rather than a new schema field. Modules 1/2/4/5 already carried that suffix;
+ * module 3 was the ONLY module with an undeclared translator and the ONLY one
+ * shipping an in-copyright text. Those were the same fact, so making the suffix
+ * mechanically required is the fix for the structural gap, not just for the
+ * string.
+ */
+const PUBLIC_DOMAIN_BY_AUTHOR: Record<string, string[]> = {
+  'Marcus Aurelius': ['George Long'],
+  Epictetus: ['Elizabeth Carter'],
+  Seneca: ['Richard Mott Gummere', 'Aubrey Stewart'],
+};
+
+const TRANSLATOR_RE = /\(trans\.\s*([^)]+)\)/;
+
+/**
+ * In-copyright renderings that must never ship. Each entry names the translator
+ * and work so a failure is self-explaining rather than a bare regex miss.
+ *
+ * Run over the WHOLE module body (`JSON.stringify`), not just `classicalQuote`:
+ * every defect DEBUG-343 found beyond the named one lived in prose fields
+ * (`whatItIs.concepts[].content`, `commonObstacles[].response`) that a
+ * field-scoped assertion cannot see.
+ *
+ * Deliberately NOT hoisted into a constant shared with practiceQuotes.test.ts /
+ * passagesContent.test.ts — those suites' extraction scopes differ in a
+ * load-bearing way (passages-4's `context` field legitimately contains a banned
+ * phrase while explaining it), and practiceQuotes.test.ts already evaluated and
+ * rejected the hoist. A fourth independent list is correct here.
+ */
+const IN_COPYRIGHT_PATTERNS: { pattern: RegExp; translator: string; work: string }[] = [
+  { pattern: /\bup to us\b/i, translator: 'Nicholas White / Robin Hard', work: 'Enchiridion 1' },
+  { pattern: /stands in the way becomes the way/i, translator: 'Gregory Hays', work: 'Meditations 5.20' },
+  { pattern: /what good or harm they thought would come/i, translator: 'Gregory Hays', work: 'Meditations 7.26' },
+  { pattern: /sympathy rather than outrage/i, translator: 'Gregory Hays', work: 'Meditations 7.26' },
+  { pattern: /ashamed to need help/i, translator: 'Gregory Hays', work: 'Meditations 7.7' },
+  { pattern: /upset you to lose/i, translator: 'Gregory Hays', work: 'Meditations 7.27' },
+  { pattern: /fingers of a hand/i, translator: 'n/a — FEAT-54 misattribution', work: 'not Marcus Aurelius' },
+];
+
 describe('module classical quotes', () => {
   it.each(MODULES.map((m) => [m.id, m]))(
     '%s carries text, a known author, and a source citation',
@@ -30,16 +82,31 @@ describe('module classical quotes', () => {
     }
   );
 
-  it('does not re-introduce the module-5 "fingers of a hand" misattribution', () => {
-    const serialized = JSON.stringify(module5);
-    expect(serialized).not.toMatch(/fingers of a hand/i);
-  });
-
-  it('does not quote the in-copyright Hays "stands in the way" phrasing', () => {
-    for (const module of MODULES) {
-      expect(JSON.stringify(module)).not.toMatch(/stands in the way becomes the way/i);
+  it.each(MODULES.map((m) => [m.id, m]))(
+    '%s declares its translator in the source citation (DEBUG-343)',
+    (_id, module) => {
+      const { source } = (module as any).classicalQuote;
+      expect(source).toMatch(TRANSLATOR_RE);
     }
-  });
+  );
+
+  it.each(MODULES.map((m) => [m.id, m]))(
+    '%s names a public-domain translator for its author (DEBUG-343)',
+    (_id, module) => {
+      const { author, source } = (module as any).classicalQuote;
+      const translator = TRANSLATOR_RE.exec(source)?.[1]?.trim();
+      expect(PUBLIC_DOMAIN_BY_AUTHOR[author]).toContain(translator);
+    }
+  );
+
+  describe.each(IN_COPYRIGHT_PATTERNS)(
+    'does not ship $translator ($work)',
+    ({ pattern }) => {
+      it.each(MODULES.map((m) => [m.id, m]))('%s is clean', (_id, module) => {
+        expect(JSON.stringify(module)).not.toMatch(pattern);
+      });
+    }
+  );
 });
 
 /**
