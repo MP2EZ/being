@@ -38,6 +38,29 @@ fail() {
   exit 1
 }
 
+# INFRA-329 — clean-tree pre-flight. eas.json sets requireCommit:true, so a dirty tree was
+# already fatal, but only ~30s in, after EAS's own startup prints a wall of output. This
+# costs milliseconds and names the offending paths. It runs FIRST, before the booted-sim
+# check, so it is observable on any machine rather than only on one with a sim running.
+#
+# There is deliberately NO bypass flag. This script is the safety gate's only evidence that
+# the build under test is fresh (DEBUG-315), and a --allow-dirty escape hatch would exist
+# purely to defeat that. The jest harness PATH-shims `git` instead.
+if REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"; then
+  # `status --porcelain` is repo-wide, so this inspects exactly the tree EAS packages,
+  # including files outside app/. The bare-repo + worktrees layout is fine: --show-toplevel
+  # resolves to the worktree root, not the bare repo.
+  DIRTY="$(git -C "$REPO_ROOT" status --porcelain 2>/dev/null || true)"
+  if [ -n "$DIRTY" ]; then
+    echo "$DIRTY" >&2
+    fail "clean-tree pre-flight — commit or stash the changes above first. eas.json sets requireCommit:true, so the EAS build would abort with 'Commit all changes. Aborting...'."
+  fi
+else
+  # git missing, or not a work tree. Not fatal: the pre-flight is a fast-fail convenience
+  # and EAS still enforces requireCommit on its own.
+  echo "⚠️  Not inside a git work tree — skipping the clean-tree pre-flight (EAS still enforces requireCommit)." >&2
+fi
+
 if ! xcrun simctl list devices booted | grep -qE '\(Booted\)'; then
   echo "❌ No iOS simulator booted. Open Simulator (or 'xcrun simctl boot <device>') first."
   exit 1
@@ -51,7 +74,7 @@ rm -f "$OUT"
 echo "🏗  Building no-dev-client Release simulator build via EAS (local, ~10–15 min)…"
 echo "    profile: e2e-sim  ·  output: $OUT"
 if ! eas build --local --profile e2e-sim --platform ios --non-interactive --output "$OUT"; then
-  fail "EAS local build (profile e2e-sim). If EAS printed 'Commit all changes. Aborting...', commit or stash your changes — eas.json sets requireCommit:true."
+  fail "EAS local build (profile e2e-sim). The clean-tree pre-flight above already rules out the dirty-tree abort, so read the EAS output for the real cause (credentials, provisioning, Xcode/CocoaPods state)."
 fi
 
 # Freshness assert. Combined with the rm -f above this makes the guarantee independent of

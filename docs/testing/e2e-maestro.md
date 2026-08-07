@@ -68,13 +68,19 @@ npm run e2e:safety:build   # EAS local build (e2e-sim profile) + install on the 
 > set -o pipefail; npm run e2e:safety:build 2>&1 | tee build.log
 > ```
 >
-> **Manual regression smoke** (cannot be automated — CI is 100% `ubuntu-latest`, and
-> the script exits on the booted-sim precondition long before reaching EAS): with a
-> dirty working tree, run `npm run e2e:safety:build; echo $?` and expect a non-zero
-> code plus an `❌ e2e:safety:build failed at stage: …` line. The stage-level failure
-> paths (build fails, build succeeds without producing an artifact, extraction, sim
-> install) are covered automatically by `app/__tests__/scripts/e2e-sim-build.test.js`,
-> which PATH-shims `eas`/`xcrun` and runs anywhere in milliseconds.
+> **Clean-tree pre-flight (INFRA-329).** `eas.json` sets `requireCommit: true`, so a
+> dirty working tree was always fatal — but EAS only says so ~30 s in, after its own
+> startup, in output that reads like progress. The script now runs `git status
+> --porcelain` **first**, before even the booted-sim check, and fails immediately with
+> the offending paths listed. There is deliberately **no bypass flag**: this script is
+> the gate's only evidence that the build under test is fresh (DEBUG-315), so a
+> dirty-tree escape hatch would exist purely to defeat it. The stage-level failure paths
+> (dirty tree, build fails, build succeeds without producing an artifact, extraction,
+> sim install) are covered by `app/__tests__/scripts/e2e-sim-build.test.js`, which
+> PATH-shims `git`/`eas`/`xcrun` and runs anywhere in milliseconds. What stays manual is
+> the genuine end-to-end run against real eas-cli and a real simulator — CI is 100%
+> `ubuntu-latest`, so nothing here proves EAS itself honours `requireCommit`, only that
+> the script refuses to reach EAS with a dirty tree.
 
 > ⚠️ **The gate target is a build that EXCLUDES `expo-dev-client`, not just a
 > Release build.** This is the load-bearing INFRA-216 finding, and it corrects
@@ -236,7 +242,7 @@ When a work item touches the safety surface (signals: `crisis`, `988`, `PHQ`, `G
 3. Update the `name:` and `tags:` lines.
 4. Wire it into `app/package.json`: add `e2e:safety:<name>` script.
 5. Extend `/b-close` Phase 2.5 path-to-flow mapping if the new flow pins a contract not already covered by the path globs.
-6. Add the test-only testIDs your flow needs to source files (prefer testID over text selectors for anything that isn't legal/copy-stable).
+6. Add the test-only testIDs your flow needs to source files (prefer testID over text selectors for anything that isn't legal/copy-stable). **For anything you `tapOn` this is load-bearing, not stylistic**: a `text:` selector that matches two nodes taps the first and still reports `COMPLETED`, so an ambiguous tap selector produces a green run that never touched the control — see the selector gotchas at the end of "Debugging a failing flow".
 7. Document in this file under the flow list.
 
 ## Debugging a failing flow
@@ -259,6 +265,8 @@ Maestro's output names the failing step. Three common causes:
    Verified during INFRA-208: a no-reset 5× loop gave **1/5**; the same loop with a driver reset between runs gave a clean **5/5 (20/20 flows)**. **INFRA-220 update:** the degradation also accumulates *within a single batch session* — the old `npm run e2e:safety` (`maestro test .maestro/`, all 4 flows in one driver) failed on the 4th/longest flow (`crisis-button`) as the driver slowed and `nav-back-button` over-popped. `npm run e2e:safety` now runs each flow as a separate invocation with a driver reset between (`scripts/e2e-safety.sh`), so the real `/b-close` usage gets a fresh driver per flow and is unaffected. A related **dev-build-only** flake: the Expo dev launcher can time out at the `legal-dob-picker` wait while the JS bundle is still loading from Metro (the failure screenshot shows the bundle spinner, not the LegalGate). Mitigate by raising `MAESTRO_DRIVER_STARTUP_TIMEOUT` (e.g. `120000`) and/or warming the bundle (`curl -s -o /dev/null "http://localhost:8081/index.bundle?platform=ios&dev=true"`) before the run. Absent in Release builds (no Metro, no dev launcher).
 
 > One more selector gotcha (INFRA-208): Maestro's `text:` selector is a **full-match** regex, and React Native merges a `Focusable`/`accessible` container's child `Text` with a sibling's `accessibilityLabel` into one node. The assessment progress counter renders as "Question 1 of 9" but its accessibility text is `"Question 1 of 9, Progress: 1 of 9 questions completed"`, so a bare `text: "Question 1 of 9"` silently fails to match. Wrap such selectors in `.*…*` (e.g. `text: ".*Question 1 of 9.*"`). Confirm the real accessibility string with `maestro hierarchy`.
+>
+> **And its mirror image (FEAT-298): a selector matching _two_ nodes does not fail — it silently taps the first.** The daily-loop flow used `text: ".*Begin [Ff]resh.*"` for the resume modal's button, but the modal's **body copy** contains the phrase too (*"…or begin fresh with full presence now?"*), and that `<Text>` precedes the button in the hierarchy. Maestro tapped the paragraph and reported **`COMPLETED`** — truthfully, since it did tap *something*. Two device runs were burned before a screenshot showed the modal still open, and for that window a committed fix looked verified when it had never executed. The rule: **for any control whose surrounding copy could contain its label, add a `testID` and target by id** (FEAT-298 added `resume-session-button` / `begin-fresh-button`). The two gotchas compose badly — the first makes a selector match *nothing*, the second makes it match the *wrong thing*, and **only the first one fails your run**. So the general lesson is the one to carry: *a passing step is not proof the intended element was hit.* When a flow passes but the assertion it was protecting looks untested, re-run with `maestro hierarchy` (or a screenshot at that step) before believing it.
 
 To debug interactively:
 
