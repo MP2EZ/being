@@ -22,6 +22,14 @@ env:
   # Keep in sync with app/.nvmrc and app/package.json engines.node.
   # NOT the same axis as INFRA-337, which bumped each action's `runs.using: node20`.
   NODE_VERSION: '24'
+  # INFRA-354: pinned, NOT floating. The edge-functions gate previously used
+  # `deno-version: v1.x`, which drifted silently, is EOL, and matched neither the
+  # local toolchain (2.8.2) nor the Supabase Edge Runtime the functions deploy to.
+  # The pin is also a hard prerequisite for the vendored resolution below:
+  # `deno vendor` was REMOVED in Deno 2, `supabase/functions/deno.lock` is lockfile
+  # format v5 (Deno 1.x reads v3 at most), and the two majors disagree on the vendor
+  # layout (manifest.json vs import_map.json). Bump this and the vendor tree together.
+  DENO_VERSION: '2.8.2'
   # The app's package.json depends on @mp2ez/being-design-system (private
   # GitHub Packages release). The app/.npmrc references ${GITHUB_TOKEN}
   # which we surface from the workflow's automatic token here. Read-only
@@ -396,8 +404,27 @@ jobs:
       - uses: actions/checkout@v5
       - uses: denoland/setup-deno@v2
         with:
-          deno-version: v1.x
+          deno-version: ${{ env.DENO_VERSION }}
       - name: Edge Functions test suite
+        # INFRA-354: this gate used to resolve https://esm.sh/jose@5.9.6 and the
+        # deno.land/std imports over the network at test time, so an esm.sh blip
+        # (HTTP 522) reddened `CI pass` and blocked the merge of ANY PR in the repo —
+        # it fired twice in ~20 minutes on 2026-08-06 against PRs touching zero edge
+        # functions. Dependencies are now committed under supabase/functions/vendor/
+        # and `deno task test` carries --cached-only, so the gate cannot reach the
+        # network and fails closed on a new unvendored import instead of flaking.
+        #
+        # NOTE a lockfile alone does NOT fix this: `deno.lock` records integrity
+        # hashes, it never populates the module cache. Measured on a cold DENO_DIR,
+        # lock + --frozen still downloaded 74 files. The vendor tree is what removes
+        # the fetch. Likewise --no-remote does NOT work here: vendoring maps remote
+        # specifiers to local files but they stay remote specifiers, so --no-remote
+        # rejects them and breaks the suite. --cached-only is the correct flag.
+        #
+        # DENO_DIR is pointed at an empty per-run path deliberately (no actions/cache):
+        # a warm cache would hide a regression where a dependency stops being vendored.
+        env:
+          DENO_DIR: ${{ runner.temp }}/deno-cold
         run: cd supabase/functions && deno task test
 
   # Aggregate gate. Required jobs must pass; perf and lint can be

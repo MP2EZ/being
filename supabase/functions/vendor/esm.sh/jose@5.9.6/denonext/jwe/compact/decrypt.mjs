@@ -1,0 +1,3 @@
+/* esm.sh - jose@5.9.6/jwe/compact/decrypt */
+import{flattenedDecrypt as m}from"../flattened/decrypt.mjs";import{JWEInvalid as o}from"../../errors.mjs";import{decoder as s}from"../../dist/browser/lib/buffer_utils.mjs";async function h(t,r,i){if(t instanceof Uint8Array&&(t=s.decode(t)),typeof t!="string")throw new o("Compact JWE must be a string or Uint8Array");let{0:d,1:c,2:p,3:a,4:f,length:y}=t.split(".");if(y!==5)throw new o("Invalid Compact JWE");let e=await m({ciphertext:a,iv:p||void 0,protected:d,tag:f||void 0,encrypted_key:c||void 0},r,i),n={plaintext:e.plaintext,protectedHeader:e.protectedHeader};return typeof r=="function"?{...n,key:e.key}:n}export{h as compactDecrypt};
+//# sourceMappingURL=decrypt.mjs.map

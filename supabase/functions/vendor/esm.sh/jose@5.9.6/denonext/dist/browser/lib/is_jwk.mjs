@@ -1,0 +1,3 @@
+/* esm.sh - jose@5.9.6/dist/browser/lib/is_jwk */
+import r from"./is_object.mjs";function n(t){return r(t)&&typeof t.kty=="string"}function i(t){return t.kty!=="oct"&&typeof t.d=="string"}function e(t){return t.kty!=="oct"&&typeof t.d>"u"}function c(t){return n(t)&&t.kty==="oct"&&typeof t.k=="string"}export{n as isJWK,i as isPrivateJWK,e as isPublicJWK,c as isSecretJWK};
+//# sourceMappingURL=is_jwk.mjs.map

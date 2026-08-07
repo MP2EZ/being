@@ -1,0 +1,3 @@
+/* esm.sh - jose@5.9.6/jwe/compact/encrypt */
+import{FlattenedEncrypt as a}from"../flattened/encrypt.mjs";var n=class{constructor(t){this._flattened=new a(t)}setContentEncryptionKey(t){return this._flattened.setContentEncryptionKey(t),this}setInitializationVector(t){return this._flattened.setInitializationVector(t),this}setProtectedHeader(t){return this._flattened.setProtectedHeader(t),this}setKeyManagementParameters(t){return this._flattened.setKeyManagementParameters(t),this}async encrypt(t,r){let e=await this._flattened.encrypt(t,r);return[e.protected,e.encrypted_key,e.iv,e.ciphertext,e.tag].join(".")}};export{n as CompactEncrypt};
+//# sourceMappingURL=encrypt.mjs.map

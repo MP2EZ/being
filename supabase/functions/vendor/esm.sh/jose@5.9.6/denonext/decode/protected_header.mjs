@@ -1,0 +1,3 @@
+/* esm.sh - jose@5.9.6/decode/protected_header */
+import{decode as o}from"../base64url.mjs";import{decoder as d}from"../dist/browser/lib/buffer_utils.mjs";import c from"../dist/browser/lib/is_object.mjs";function f(e){let t;if(typeof e=="string"){let r=e.split(".");(r.length===3||r.length===5)&&([t]=r)}else if(typeof e=="object"&&e)if("protected"in e)t=e.protected;else throw new TypeError("Token does not contain a Protected Header");try{if(typeof t!="string"||!t)throw new Error;let r=JSON.parse(d.decode(o(t)));if(!c(r))throw new Error;return r}catch{throw new TypeError("Invalid Token or Protected Header formatting")}}export{f as decodeProtectedHeader};
+//# sourceMappingURL=protected_header.mjs.map
