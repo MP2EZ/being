@@ -13,7 +13,7 @@ related: ["./01-aware-presence.md", "./03-sphere-sovereignty.md", "../applicatio
 
 ## Understanding Acceptance
 
-The Stoics had a striking phrase for their orientation toward existence: **amor fati**, or love of fate. Marcus Aurelius wrote that we should "welcome with affection what comes to us," treating each event as if we had wished for it ourselves. This attitude strikes many modern readers as paradoxical or even masochistic. Why should we welcome painful experiences?
+The Stoics oriented themselves toward existence not by merely tolerating what happens but by embracing it. Marcus Aurelius put it directly: "Love that only which happens to thee and is spun with the thread of thy destiny" (*Meditations* 7.57, trans. George Long). A later name for this stance is **amor fati**, love of fate — the phrase is Nietzsche's, not an ancient Stoic one, but it names the orientation well. This attitude strikes many modern readers as paradoxical or even masochistic. Why should we welcome painful experiences?
 
 The answer lies in understanding what acceptance means and doesn't mean:
 
