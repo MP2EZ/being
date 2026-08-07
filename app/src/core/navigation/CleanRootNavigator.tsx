@@ -48,7 +48,11 @@ import {
   STEP_PRINCIPLE,
   getStepKeysForDepth,
 } from '@/features/practices/dailyloop/config/tenseMode';
-import type { ModuleId, SortingScenario } from '@/features/learn/types/education';
+import type {
+  ModuleId,
+  PracticeVisualMode,
+  SortingScenario,
+} from '@/features/learn/types/education';
 import type { PassageAuthor } from '@/features/library/types/library';
 
 export type RootStackParamList = {
@@ -70,6 +74,11 @@ export type RootStackParamList = {
     moduleId: ModuleId;
     duration: number;
     title: string;
+    // DEBUG-353: optional so the deep-link path (which cannot carry authored
+    // content) still type-checks; resolvePracticeRoute supplies both when the
+    // practice is launched from the module JSON.
+    instructions?: string[];
+    visualMode?: PracticeVisualMode;
   };
   ReflectionTimer: {
     practiceId: string;
@@ -351,6 +360,8 @@ const CleanRootNavigator: React.FC = () => {
               moduleId={route.params.moduleId}
               duration={route.params.duration}
               title={route.params.title}
+              instructions={route.params.instructions}
+              visualMode={route.params.visualMode}
               onComplete={() => navigation.goBack()}
               onBack={() => navigation.goBack()}
             />

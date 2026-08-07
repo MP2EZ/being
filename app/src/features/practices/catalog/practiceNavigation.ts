@@ -96,6 +96,11 @@ export function resolvePracticeRoute(
 
     case 'guided-timer':
     default:
+      // DEBUG-353: forward the authored instructions and visualMode, mirroring
+      // what the 'reflection' branch above already does. Without this,
+      // PracticeTimerScreen had no source of practice-specific copy and fell
+      // back to hardcoded breathing-space text — so selecting Loving-Kindness
+      // guided the user through breath work for the whole session.
       return {
         screen: 'PracticeTimer',
         params: {
@@ -103,6 +108,10 @@ export function resolvePracticeRoute(
           moduleId,
           duration: practice.duration ?? DEFAULT_TIMER_SECONDS,
           title: practice.title,
+          ...(practice.instructions?.length && {
+            instructions: practice.instructions,
+          }),
+          ...(practice.visualMode && { visualMode: practice.visualMode }),
         },
       };
   }

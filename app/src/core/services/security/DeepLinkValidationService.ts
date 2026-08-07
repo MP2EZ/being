@@ -62,6 +62,17 @@ export const DEEP_LINK_CONFIG = {
     'utm_source',
     'utm_medium',
     'utm_campaign',
+    // DEBUG-353: `duration` and `title` are REQUIRED params of the PracticeTimer
+    // route, and linking.ts already ships sanitisers for both — a clamp to
+    // 10..3600s defaulting to 60, and a `<>`-stripping 100-char truncation.
+    // Stripping the keys here made those sanitisers unreachable, so
+    // `being://practice/<anything>` arrived with duration: undefined, feeding
+    // NaN into useTimerPractice: the timer's `remaining <= 0` never became true,
+    // so it ran forever and never completed. Allowing the keys activates the
+    // sanitisers that were already written for exactly this purpose.
+    // Both are attacker-supplied, hence the clamp+strip rather than raw passthrough.
+    'duration',
+    'title',
   ] as const,
 
   /** Maximum parameter value length */
