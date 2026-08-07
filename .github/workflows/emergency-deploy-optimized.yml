@@ -94,7 +94,7 @@ jobs:
 
     steps:
       - name: ⚡ Ultra-Fast Repository Access
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 1
 
@@ -144,13 +144,13 @@ jobs:
 
     steps:
       - name: ⚡ Repository Access (10s)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 1
 
       - name: ⚡ Emergency Cache Recovery (70s)
         id: recovery
-        uses: actions/cache/restore@v3
+        uses: actions/cache/restore@v5
         with:
           path: |
             app/dist/
@@ -189,19 +189,19 @@ jobs:
 
     steps:
       - name: ⚡ Repository Access (5s)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 1
 
       - name: ⚡ Node.js Setup (15s)
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
           cache-dependency-path: 'app/package-lock.json'
 
       - name: ⚡ EAS Setup (10s)
-        uses: expo/expo-github-action@v8
+        uses: expo/expo-github-action@v9
         with:
           expo-version: latest
           eas-version: latest
@@ -233,7 +233,7 @@ jobs:
           echo "✅ Emergency build completed in ${build_time}s"
 
       - name: ⚡ Cache Emergency Artifacts (10s)
-        uses: actions/cache/save@v3
+        uses: actions/cache/save@v5
         with:
           path: |
             app/dist/
@@ -257,19 +257,19 @@ jobs:
 
     steps:
       - name: ⚡ Repository Access (5s)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 1
 
       - name: ⚡ Node.js Setup (10s)
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
           cache-dependency-path: 'app/package-lock.json'
 
       - name: ⚡ EAS Setup (10s)
-        uses: expo/expo-github-action@v8
+        uses: expo/expo-github-action@v9
         with:
           expo-version: latest
           eas-version: latest
@@ -330,7 +330,7 @@ jobs:
 
     steps:
       - name: ⚡ Repository Access (5s)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 1
 
@@ -368,7 +368,7 @@ jobs:
 
     steps:
       - name: ⚡ Repository Access (5s)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 1
 
@@ -441,7 +441,7 @@ jobs:
           echo "- **Lightning Rollback**: <30s emergency rollback capability" >> emergency-report.md
 
       - name: ⚡ Upload Emergency Report (5s)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: lightning-emergency-report
           path: emergency-report.md

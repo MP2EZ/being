@@ -1,3 +1,18 @@
+# ⚠️  DISABLED — NOT EXECUTED BY GITHUB.
+#     The `.disabled` suffix means this is not a `.yml`/`.yaml` file, so Actions
+#     never loads it. Kept for reference / possible future re-enable.
+#
+# INFRA-337 (2026-08-06): `actions/checkout`, `actions/setup-node` and
+#     `expo/expo-github-action` were bumped to their Node-24-capable majors here
+#     alongside the live workflows, so re-enabling this file cannot resurrect a
+#     runtime GitHub removed on 2026-09-16.
+#
+#     KNOWINGLY STALE: the `actions/upload-artifact@v3` refs below are left as-is
+#     on purpose. The v3 backend was retired 2025-01-30 and already hard-fails, and
+#     migrating to v6 is a SEMANTIC change (immutable artifacts, no same-name
+#     append) rather than a runtime bump — it cannot be validated on a workflow
+#     that never runs. Anyone re-enabling this file must migrate them deliberately.
+
 name: 🚀 Deploy - Standard Production Deployment
 
 on:
@@ -46,12 +61,12 @@ jobs:
 
     steps:
       - name: 🔍 Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 2
 
       - name: 📦 Setup Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
@@ -157,12 +172,12 @@ jobs:
 
     steps:
       - name: 🔍 Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
       - name: 📦 Setup Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
@@ -216,19 +231,19 @@ jobs:
 
     steps:
       - name: 🔍 Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
       - name: 📦 Setup Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
           cache-dependency-path: 'app/package-lock.json'
 
       - name: 🔧 Setup EAS CLI
-        uses: expo/expo-github-action@v8
+        uses: expo/expo-github-action@v9
         with:
           expo-version: latest
           eas-version: latest
@@ -280,10 +295,10 @@ jobs:
 
     steps:
       - name: 🔍 Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: 📦 Setup Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
@@ -337,10 +352,10 @@ jobs:
 
     steps:
       - name: 🔍 Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: 🔧 Setup EAS CLI
-        uses: expo/expo-github-action@v8
+        uses: expo/expo-github-action@v9
         with:
           expo-version: latest
           eas-version: latest
@@ -382,10 +397,10 @@ jobs:
 
     steps:
       - name: 🔍 Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: 📦 Setup Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
@@ -435,7 +450,7 @@ jobs:
 
     steps:
       - name: 🔍 Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: 📋 Generate Deployment Report
         run: |
