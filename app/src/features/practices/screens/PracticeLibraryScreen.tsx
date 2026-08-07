@@ -180,13 +180,20 @@ const PracticeLibraryScreen: React.FC<PracticeLibraryScreenProps> = ({
                   already exists byte-identical as PRACTICE_QUOTES['control-sorting'],
                   and a hand-typed second copy is precisely how the citation drift
                   that FEAT-268 had to clean up recurs. */}
+              {/* DEBUG-339: this card renders control-sorting, whose text was
+                  Nicholas White (Hackett, 1983) — in copyright — until that
+                  entry was re-rendered to Elizabeth Carter (1758). Because the
+                  quote is imported rather than retyped, the fix reached this
+                  surface for free; the translator is now surfaced here too, on
+                  both the visual and screen-reader paths. */}
               <View
                 accessible
-                accessibilityLabel={`${FRAMING_QUOTE.author}, ${FRAMING_QUOTE.source}. ${FRAMING_QUOTE.text}`}
+                accessibilityLabel={`${FRAMING_QUOTE.author}, ${FRAMING_QUOTE.source}, translated by ${FRAMING_QUOTE.translation}. ${FRAMING_QUOTE.text}`}
               >
                 <Text style={styles.featuredFraming}>“{FRAMING_QUOTE.text}”</Text>
                 <Text style={styles.citation}>
-                  {FRAMING_QUOTE.author}, {FRAMING_QUOTE.source}
+                  {FRAMING_QUOTE.author}, {FRAMING_QUOTE.source} (trans.{' '}
+                  {FRAMING_QUOTE.translation})
                 </Text>
               </View>
 

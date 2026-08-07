@@ -517,6 +517,22 @@ export const CLOSING = {
    * (Marcus, Meditations 5.9) — which also inoculates against the streak anxiety
    * stageNotes.ts bans elsewhere. MAINT-140's CelebrationToast delivery is deliberately
    * NOT reproduced: a third congratulatory beat would turn the coda into a trophy.
+   *
+   * DEBUG-339 — DO NOT STRIP THIS CITATION. It has now been challenged twice and is
+   * correct both times, so here is the warrant in full. George Long, Meditations 5.9:
+   * "Be not disgusted, nor discouraged, nor dissatisfied, if thou dost not succeed in
+   * doing everything according to right principles, but when thou hast failed, return
+   * back again, and be content if the greater part of what thou doest is consistent with
+   * man's nature, and love this to which thou returnest."
+   *
+   * What DEBUG-330 removed was a SPURIOUS QUOTATION ("You have power over your mind — not
+   * outside events...") that had been falsely hung on 5.9 inside PRACTICE_QUOTES. The
+   * LOCUS itself is genuine and is precisely the passage about failing and beginning
+   * again, which is what `returnLine` below paraphrases. DEBUG-339 was filed asserting
+   * this was a "phantom" citation; three independent reviews confirmed it is not, and the
+   * acceptance criterion was withdrawn. Note also that nothing here QUOTES 5.9 — the
+   * shipped copy carries no citation at all; this is a developer-facing warrant for a
+   * paraphrase, which is a weaker claim than a quotation and correctly made.
    */
   returnLine:
     'Falling short and beginning again is the practice, not a break from it. Come back to this as often as that takes.',
