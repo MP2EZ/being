@@ -14,6 +14,7 @@ This folder contains ALL documentation related to the Being mobile app.
 
 ### Legal & Compliance
 - **`/legal/`** - Privacy policy, terms of service, medical disclaimer (source of truth for app + website)
+- **`/legal/README.md`** - **READ BEFORE EDITING ANY LEGAL DOC** - How each surface consumes this directory, where a change should land (corrections vs forward-looking disclosures), and why editing a file here does *not* update being.fyi on its own
 - **`/legal/regulatory-applicability.md`** - **COMPLIANCE SOURCE OF TRUTH** - Authoritative reference for what regulations apply (and don't)
 - **`/security/`** - Privacy-first security architecture (Being is NOT HIPAA-covered)
 
