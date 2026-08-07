@@ -211,10 +211,16 @@ describe('PRACTICE_QUOTES — entries with no corpus counterpart', () => {
     // practice whose own instruction is "allowing it to be there".
     'resistance-check':
       'Pain is either an evil to the body — then let the body say what it thinks of it — or to the soul; but it is in the power of the soul to maintain its own serenity and tranquillity, and not to think that pain is an evil.',
-    // Long 7.27, first sentence, contiguous and verbatim. This IS the Stoic
-    // gratitude passage; 8.33's actual subject is wealth/prosperity.
+    // Long 7.27, BOTH sentences, contiguous and verbatim — permitted under the
+    // edit rules above, which forbid only splicing across NON-adjacent sentences.
+    // This IS the Stoic gratitude passage; 8.33's actual subject is wealth.
+    // MAINT-331 widened this from s.1 to s.1+s.2 deliberately: s.2 is Marcus's own
+    // "At the same time however take care that…" hedge on s.1's counterfactual, and
+    // PracticeCompletionScreen REPLACES the practice screen, so s.1 alone left the
+    // flow ending on a desire-amplifying clause with the practice's in-situ guard
+    // already off-screen. Restoring s.1-only here is a regression, not a cleanup.
     'gratitude-reflection':
-      'Think not so much of what thou hast not as of what thou hast: but of the things which thou hast select the best, and then reflect how eagerly they would have been sought, if thou hadst them not.',
+      'Think not so much of what thou hast not as of what thou hast: but of the things which thou hast select the best, and then reflect how eagerly they would have been sought, if thou hadst them not. At the same time however take care that thou dost not through being so pleased with them accustom thyself to overvalue them, so as to be disturbed if ever thou shouldst not have them.',
     // Long 5.18, verbatim. "which", not "that".
     'reserve-clause': 'Nothing happens to any man which he is not formed by nature to bear.',
     // Long 5.26, verbatim except the leading "then" dropped (DEBUG-330).
