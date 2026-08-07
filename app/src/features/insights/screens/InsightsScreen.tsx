@@ -197,7 +197,7 @@ const styles = StyleSheet.create({
   },
   quoteSource: {
     fontSize: typography.caption.size,
-    color: colorSystem.gray[500],
+    color: semantic.text.muted,
     textAlign: 'right',
   },
   bottomPadding: {

@@ -22,7 +22,7 @@ import {
   ScrollView,
   AccessibilityInfo,
 } from 'react-native';
-import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
+import { semantic, colorSystem, spacing, typography, borderRadius } from '@/core/theme';
 import type { ModuleId } from '@/features/learn/types/education';
 
 /**
@@ -531,7 +531,7 @@ const styles = StyleSheet.create({
   },
   secondaryButtonPressed: {
     backgroundColor: colorSystem.gray[100],
-    borderColor: colorSystem.gray[500],
+    borderColor: semantic.text.muted,
   },
   secondaryButtonText: {
     fontSize: typography.bodyRegular.size,

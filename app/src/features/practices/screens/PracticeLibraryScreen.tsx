@@ -34,7 +34,7 @@ import {
   Text,
   View,
 } from 'react-native';
-import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
+import { semantic, colorSystem, spacing, typography, borderRadius } from '@/core/theme';
 import { PRINCIPLES } from '@/features/practices/shared/constants/principles';
 import { loadModuleContent } from '@/core/services/moduleContent';
 import { resolvePracticeRoute } from '@/features/practices/catalog/practiceNavigation';
@@ -345,7 +345,7 @@ const styles = StyleSheet.create({
   },
   practiceRowMeta: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[500],
+    color: semantic.text.muted,
   },
 });
 
