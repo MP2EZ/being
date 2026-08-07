@@ -1,8 +1,8 @@
 # Privacy Policy
 
-**Version:** 1.8
+**Version:** 1.9
 **Effective Date:** December 12, 2025
-**Last Updated:** July 25, 2026
+**Last Updated:** August 6, 2026
 
 ---
 
@@ -237,6 +237,7 @@ We retain your information as follows:
 - **Daily Check-Ins:** Mood logs, mindfulness completions
 - **Principle Engagements:** Stoic practice progress tracking
 - **Non-Crisis Assessments:** PHQ-9 and GAD-7 results below crisis thresholds
+- **Server-Side Product Analytics:** If you opt in to analytics, the usage events sent to our servers (see §2)
 
 This data is automatically deleted after 90 days to minimize data collection while still enabling meaningful progress tracking.
 
@@ -249,6 +250,8 @@ For your safety and our liability protection, we retain crisis-related data for 
 - **Crisis Detection Events:** An aggregate, PII-free record of when a crisis threshold was detected and support resources were surfaced (see §3, Safety Features) — this records that a threshold was met and resources were shown, not whether you tapped through to 988 or another resource
 
 This extended retention supports safety-monitoring continuity and protects both you and us in case of legal proceedings.
+
+**Where this data lives, and what enforces the limit:** High-Severity Assessments and Suicidal Ideation Responses never leave your device — an automated on-device cleanup removes them 3 years after they are recorded. Crisis Detection Events are the only crisis-related records held on our servers; an automated daily job deletes them 3 years after they are recorded. All other analytics events on our servers are deleted after 90 days by the same job.
 
 ### 7.3 Other Data
 
@@ -281,6 +284,10 @@ Being is based in the United States. If you access our Services from outside the
 ## 10. Changes to This Policy
 
 We may update this Privacy Policy from time to time. We will notify you of material changes via in-app notification. Your continued use of Being after changes take effect constitutes acceptance of the updated policy.
+
+**Recent revisions**
+
+- **v1.9 (August 6, 2026):** Clarified §7.1 and §7.2 to state where each category of retained data lives and what enforces its time limit. The stated retention periods are unchanged — 90 days for general wellness and analytics data, 3 years for crisis-related data. §7.1 now explicitly names server-side product analytics, which the 90-day period already covered but did not list.
 
 ---
 

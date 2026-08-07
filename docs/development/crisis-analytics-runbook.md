@@ -221,6 +221,12 @@ same aggregate views and never sits in a detection / 988 / intervention path.
 | `crisis-alert-runs-prune` | daily 03:30 UTC | prunes `crisis_alert_runs` older than 90 days. |
 | `crisis-liveness-probe` (INFRA-265) | every 6h | `net.http_post` → the `crisis-liveness-probe` edge function, which writes a tagged **synthetic** marker to `crisis_liveness_probe` (drives the real cron→edge→PostgREST write leg). The daily alerter reads `MAX(probed_at)` as the authoritative ingest-leg liveness signal. |
 | `crisis-liveness-probe-prune` (INFRA-265) | daily 03:45 UTC | prunes `crisis_liveness_probe` older than 90 days. |
+| `analytics-retention-prune` (DEBUG-340) | daily 04:20 UTC | `cleanup_old_analytics()` — enforces the **two-tier** retention published in privacy-policy §7.1/§7.2: deletes non-`crisis_detected` rows from `analytics_events` at **90 days**, and `crisis_detected` rows at **3 years**. 04:20 deliberately clears the 03:30/03:45/03:50 prunes. |
+
+> **Retention and these views (DEBUG-340).** `crisis_detection_daily`, `crisis_detection_volume_daily` and `crisis_detection_liveness` apply no time-window filter, so the retention job is what bounds them — and until DEBUG-340 that was *nothing*: `cleanup_old_analytics()` existed from the base schema but was never `cron.schedule`d, so server-side retention was **indefinite** while privacy-policy §7.2 promised 3 years. Two consequences worth holding in mind when reading these views now:
+>
+> 1. **They are bounded at 3 years, not 90 days.** An older comment in the migration said the "90-day analytics retention already bounds the rows". That was wrong twice over — nothing was scheduled, and `crisis_detected` is now deliberately exempt from the 90-day tier so the operator aggregates and the alerter's dead-vs-quiet baseline keep more than a quarter of history.
+> 2. **Never make this job blanket again.** Scheduling a 90-day sweep over `crisis_detected` would silently reset `crisis_detection_liveness`'s baseline — which the alerter reads to distinguish "the pipeline is dead" from "it has genuinely been quiet" — *and* breach a published retention promise. If you are tempted to simplify the two-branch `DELETE`, read `supabase/tests/debug340_analytics_retention.sql` first; test 3 exists precisely to fail on that change.
 
 ### Alert conditions (operator-tunable via edge-function env)
 
