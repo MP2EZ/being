@@ -27,7 +27,7 @@ on:
 
 env:
   EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-  NODE_VERSION: '20'
+  NODE_VERSION: '24'
   HEALTHCARE_COMPLIANCE: 'true'
   NEW_ARCHITECTURE: 'true'
   CLINICAL_VALIDATION: 'true'

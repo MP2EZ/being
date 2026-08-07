@@ -12,7 +12,16 @@ on:
     - cron: '0 9 * * *'
 
 env:
-  NODE_VERSION: '20'
+  # INFRA-346: Node 20 went EOL 2026-04-30. 24 is the ACTIVE LTS (until 2026-10-20,
+  # EOL 2028-04-30); 22 has been in maintenance since 2025-10-21, so it would put this
+  # ticket back on the board in months. react-native@0.85.3 and metro@0.84.4 both
+  # declare engines.node '^20.19.4 || ^22.13.0 || ^24.3.0 || >= 25.0.0', and
+  # @types/node was already pinned to ^24 (MAINT-162) — this collapses a two-major
+  # skew between the types tsc checked against and the runtime CI executed.
+  # Floating major on purpose: absorbs security patches without a bump treadmill.
+  # Keep in sync with app/.nvmrc and app/package.json engines.node.
+  # NOT the same axis as INFRA-337, which bumped each action's `runs.using: node20`.
+  NODE_VERSION: '24'
   # The app's package.json depends on @mp2ez/being-design-system (private
   # GitHub Packages release). The app/.npmrc references ${GITHUB_TOKEN}
   # which we surface from the workflow's automatic token here. Read-only
