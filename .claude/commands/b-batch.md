@@ -459,9 +459,23 @@ Two cheap habits that came out of the same run: a gate reporting an unclassified
 directly to get the real message before theorising; and confirm a fix hypothesis is even
 testable locally before pushing it, since a CI-only fix costs a full round-trip per attempt.
 
-Tell the two apart by the error text: the stale-check refusal names `Required status
-check`/branch-not-up-to-date at **merge** time; CI-red surfaces as a failed check in
-`gh pr checks`. Route (a) → re-invoke; route (b) → flake / repo-wide check / RCA / park.
+Tell the two apart by the **full rollup** — not the error text, and not
+`gh pr checks --watch`. Both refusals name `Required status check` at merge time, and a
+push-triggered AND a PR-triggered run can both exist on one commit, so `--watch` can exit
+reporting all-green having read only one of them. Always resolve with:
+```bash
+gh pr view <PR> --json statusCheckRollup -q '.statusCheckRollup[] | "\(.name)\t\(.conclusion)"' | sort | uniq -c
+```
+Any `FAILURE` row → route **(b)** (CI red), whatever the merge error said. All `SUCCESS`
+and still refused → route **(a)** (stale base). Route (a) → re-invoke; route (b) → flake /
+repo-wide check / RCA / park.
+
+Observed 2026-08-06 (INFRA-329, PR #244): `gh pr merge` was refused with
+`Required status check "CI pass" is failing` *after* `--watch` had exited reporting all 9
+gates green. The commit had two runs; the PR-triggered one hit the esm.sh flake. Read
+literally, the old text routed this to (a) — re-invoking `/b-close` against a base that was
+never stale — when the fix was a free `gh run rerun --failed`. The two routes have opposite
+fixes, so misrouting is not harmless.
 
 ---
 
