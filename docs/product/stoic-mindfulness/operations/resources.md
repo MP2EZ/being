@@ -11,11 +11,13 @@ related: ["./assessment.md", "../practice/daily-architecture.md", "../foundation
 
 ## Classical Stoic Texts
 
+> **Note on translations.** The translations recommended below are for *your own reading*. They are **not** the ones the app ships. Every rendering quoted in-app comes from a public-domain translation — George Long (Marcus Aurelius), Elizabeth Carter (Epictetus), Richard Mott Gummere and Aubrey Stewart (Seneca). Gregory Hays, Robin Hard and Nicholas White are in copyright and must never be transcribed into module, passage or practice content. Recommending an edition to a reader is a different act from claiming it as the repo's source — this file is the regeneration source for the principle docs, so keeping the two straight here is what stops the claim drifting downstream (DEBUG-352).
+
 **Marcus Aurelius - Meditations**
 Written as personal reminders to himself, provides intimate access to how a sophisticated practitioner worked with Stoic principles facing enormous responsibilities. Gregory Hays' translation captures practical, accessible quality. Read slowly, perhaps one book at a time, reflecting on how each passage applies to your own life.
 
 **Epictetus - Discourses and Enchiridion**
-Epictetus's teachings emphasize [dichotomy of control](../principles/03-sphere-sovereignty.md) and fundamental freedom from focusing on what's genuinely up to us. The Enchiridion (Handbook) provides concise introduction; Discourses offer rich elaboration. Robin Hard's translation is highly accessible.
+Epictetus's teachings emphasize [dichotomy of control](../principles/03-sphere-sovereignty.md) and fundamental freedom from focusing on what's genuinely in our control. The Enchiridion (Handbook) provides concise introduction; Discourses offer rich elaboration. Robin Hard's translation is highly accessible.
 
 **Seneca - Letters from a Stoic**
 Seneca's letters to Lucilius provide practical guidance on applying philosophy to daily challenges. His advice on dealing with anger, grief, busy-ness, and finding time for philosophy remains remarkably relevant. Each letter stands alone, making this ideal for daily reading practice.

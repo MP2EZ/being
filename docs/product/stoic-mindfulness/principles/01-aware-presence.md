@@ -19,7 +19,7 @@ Aware Presence represents the foundational capacity upon which all other princip
 
 ## Present Perception: Escaping Mental Time-Travel
 
-The journey toward wisdom begins with learning to experience what is actually happening right now. Marcus Aurelius wrote to "confine yourself to the present," recognizing that the past no longer exists except as memory and the future doesn't yet exist except as anticipation. Both are mental constructions, while the present moment contains the only reality you can directly experience and the only point at which you can actually act.
+The journey toward wisdom begins with learning to experience what is actually happening right now. Marcus Aurelius wrote "Confine thyself to the present" (*Meditations* 7.29, trans. George Long), recognizing that the past no longer exists except as memory and the future doesn't yet exist except as anticipation. Both are mental constructions, while the present moment contains the only reality you can directly experience and the only point at which you can actually act.
 
 Cognitive science research reveals that people spend approximately 47% of their waking hours thinking about something other than what they're currently doing, and this mind-wandering correlates with decreased happiness. We spend enormous mental energy reliving past events, often editing them to increase regret or resentment, and simulating feared futures rather than hoped-for ones.
 
