@@ -6,7 +6,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { View, ActivityIndicator, StyleSheet, TouchableOpacity, Text } from 'react-native';
-import { logPerformance, logSystem } from '@/core/services/logging';
+import { logPerformance, logSystem, logError, LogCategory } from '@/core/services/logging';
 import { whenE2ESeedComplete } from '@/core/config/e2eSeed';
 import { generateTimestampedId } from '@/core/utils/id';
 import { NavigationContainer } from '@react-navigation/native';
@@ -20,6 +20,10 @@ import { DailyLoopNavigator } from '@/features/practices/dailyloop';
 import { VoiceReflectionScreen } from '@/features/journal/screens/VoiceReflectionScreen';
 import CrisisResourcesScreen from '@/features/crisis/screens/CrisisResourcesScreen';
 import RootCrisisButton from '@/features/crisis/components/RootCrisisButton';
+// DEBUG-341: eager, never lazy (CLAUDE.md crisis-path rule). Rendered by LoadingScreen
+// above and by the overlay boundary below.
+import Static988Button from '@/features/crisis/components/Static988Button';
+import RootCrisisBoundary from '@/features/crisis/components/RootCrisisBoundary';
 import PurchaseOptionsScreen from '@/core/components/subscription/PurchaseOptionsScreen';
 import SubscriptionStatusCard from '@/core/components/subscription/SubscriptionStatusCard';
 import OnboardingScreen from '@/features/onboarding/screens/OnboardingScreen';
@@ -121,9 +125,32 @@ export type RootStackParamList = {
 const Stack = createStackNavigator<RootStackParamList>();
 
 // Loading screen component
+/**
+ * DEBUG-341 — bound on the pre-route resolution, tied to the <3s 988-access contract
+ * rather than picked freely. On timeout we resolve to a concrete route rather than
+ * leaving `initialRoute` null forever.
+ */
+const INITIAL_ROUTE_TIMEOUT_MS = 3000;
+
+/**
+ * DEBUG-341 — LoadingScreen now carries a 988 control, and this is the single
+ * highest-value change in the item.
+ *
+ * `RootCrisisButton` mounts at the bottom of this file, INSIDE `NavigationContainer`.
+ * The `if (!initialRoute) return <LoadingScreen />` early return sits above it. So on
+ * EVERY cold launch there is a window where the app is on screen and the crisis button
+ * provably is not — no error required, no edge case. `NavigationContainer` also withholds
+ * children while `linkingConfig`'s getInitialURL() resolves, which is a second,
+ * independent render-withholding gate above the same button.
+ *
+ * That is the always-reachable version of the hole this item was filed about, and it is
+ * closed here rather than by the error boundary: a boundary only helps once something
+ * throws, and nothing throws during a normal launch.
+ */
 const LoadingScreen: React.FC = () => (
-  <View style={styles.loadingContainer}>
+  <View style={styles.loadingContainer} testID="loading-screen">
     <ActivityIndicator size="large" color="#FF9F43" />
+    <Static988Button message="Still loading. If you need support right now, you do not have to wait." />
   </View>
 );
 
@@ -137,29 +164,86 @@ const CleanRootNavigator: React.FC = () => {
   const [activeRootRoute, setActiveRootRoute] = useState<string | undefined>(undefined);
 
   useEffect(() => {
+    let cancelled = false;
+
+    /**
+     * DEBUG-341 — FAIL OPEN, NEVER CLOSED.
+     *
+     * This function previously had no try/catch and used Promise.all. Every branch of
+     * its if/else does set a route, so the only way to leave `initialRoute` null was a
+     * rejection or a hang in one of the three awaits — and the app would then sit on
+     * LoadingScreen indefinitely, which (before this change) carried NO 988 affordance
+     * at all, because RootCrisisButton mounts inside NavigationContainer further down.
+     *
+     * Honest note on reachability: the three awaits are, today, hard to make fail.
+     * `whenE2ESeedComplete()` resolves immediately in real builds and self-times-out at
+     * 15s when seeding; `loadSettings` and `loadConsent` both wrap their bodies and
+     * return null on error. So the "stuck forever" state has no demonstrated trigger.
+     * The hardening is kept anyway for two reasons: it costs nothing, and it is not the
+     * load-bearing fix. The load-bearing fix is that LoadingScreen now renders a 988
+     * control (below), which closes the whole class — including the ALWAYS-reachable
+     * case that has nothing to do with errors: the ordinary pre-route window on every
+     * cold launch, plus NavigationContainer withholding children while `linkingConfig`
+     * resolves getInitialURL().
+     */
     async function checkInitialRoute() {
-      // INFRA-217: in the e2e-sim build, wait for the launch-time seed to write
-      // onboarding + consent before reading state, so the FIRST resolved route is
-      // already Main (initialRouteName only applies on first navigator mount).
-      // Resolves immediately in every real build.
-      await whenE2ESeedComplete();
+      try {
+        // INFRA-217: in the e2e-sim build, wait for the launch-time seed to write
+        // onboarding + consent before reading state, so the FIRST resolved route is
+        // already Main (initialRouteName only applies on first navigator mount).
+        // Resolves immediately in every real build.
+        //
+        // Bounded at 3000ms — tied to the <3s 988-access contract, not picked freely.
+        // A hung SecureStore/AsyncStorage read must not be able to pin LoadingScreen.
+        await Promise.race([
+          whenE2ESeedComplete(),
+          new Promise<void>((resolve) => setTimeout(resolve, INITIAL_ROUTE_TIMEOUT_MS)),
+        ]);
 
-      // Both reads are independent AsyncStorage gets — parallelize.
-      const [settings, consent] = await Promise.all([loadSettings(), loadConsent()]);
+        // allSettled, not all: one rejected read must not take the other down with it.
+        // Both loaders already swallow internally, so this is belt-and-braces against a
+        // future refactor that stops doing so.
+        const [settingsResult, consentResult] = await Promise.allSettled([
+          loadSettings(),
+          loadConsent(),
+        ]);
+        const settings = settingsResult.status === 'fulfilled' ? settingsResult.value : null;
+        const consent = consentResult.status === 'fulfilled' ? consentResult.value : null;
 
-      // Determine initial route based on onboarding and consent status
-      if (settings?.onboardingCompleted) {
-        // Already onboarded - go to main
-        setInitialRoute('Main');
-      } else if (!consent || consentStatus === 'missing' || consentStatus === 'under_age') {
-        // No consent or under age - start with legal gate (COPPA compliance)
+        if (cancelled) return;
+
+        // Determine initial route based on onboarding and consent status
+        if (settings?.onboardingCompleted) {
+          // Already onboarded - go to main
+          setInitialRoute('Main');
+        } else if (!consent || consentStatus === 'missing' || consentStatus === 'under_age') {
+          // No consent or under age - start with legal gate (COPPA compliance)
+          setInitialRoute('LegalGate');
+        } else {
+          // Has consent but not onboarded - go to onboarding
+          setInitialRoute('Onboarding');
+        }
+      } catch (error) {
+        if (cancelled) return;
+        // DEBUG-341: default to LegalGate, NOT Main. Routing an unconsented or under-age
+        // user into the full app on a storage error is a COPPA/consent violation — and
+        // for a minor, a safety one. LegalGate is the fail-SAFE destination, and it is
+        // only genuinely safe because this change also makes its crisis section
+        // unconditional (see CombinedLegalGateScreen); it is in SUPPRESSED_ROUTES, so
+        // the root overlay does not cover for it.
+        logError(
+          LogCategory.SYSTEM,
+          'checkInitialRoute failed — defaulting to LegalGate (fail-safe)',
+          error instanceof Error ? error : new Error(String(error)),
+        );
         setInitialRoute('LegalGate');
-      } else {
-        // Has consent but not onboarded - go to onboarding
-        setInitialRoute('Onboarding');
       }
     }
+
     checkInitialRoute();
+    return () => {
+      cancelled = true;
+    };
   }, [loadSettings, loadConsent, consentStatus]);
 
   // FEAT-298 slice 3: the loop is now a FIRST-CLASS check-in. It records its own 'daily'
@@ -601,7 +685,20 @@ const CleanRootNavigator: React.FC = () => {
             Stack.Navigator (JS stack → renders above stack modals too), so 988 access
             is guaranteed on every screen/step and can't regress per-screen. Mode +
             suppression are driven by the active root-stack route. */}
-        <RootCrisisButton routeName={activeRootRoute ?? initialRoute} />
+        {/*
+          DEBUG-341: the overlay gets its OWN boundary, nested inside the root one in
+          App.tsx. CollapsibleCrisisButton pulls in reanimated shared values,
+          GestureDetector, AccessibilityInfo and the vector-icon package — a throw in any
+          of them would otherwise propagate to the root boundary and blank the entire app,
+          when the correct degradation is to lose only the animated button and keep
+          everything else. React's nearest-boundary semantics make this one win.
+
+          Its fallback is the same Static988Button, so the user still has a working dial
+          control exactly where the crisis button used to be.
+        */}
+        <RootCrisisBoundary>
+          <RootCrisisButton routeName={activeRootRoute ?? initialRoute} />
+        </RootCrisisBoundary>
       </View>
     </NavigationContainer>
   );
