@@ -56,7 +56,26 @@ export const semantic = {
   text: {
     primary: colorSystem.base.black,
     secondary: colorSystem.gray[600],
-    muted: colorSystem.gray[500],
+    // DEBUG-323: was gray[500], which is 1.98:1 on background.primary (white) —
+    // failing WCAG AA for normal text (4.5:1) AND for large text (3:1). A
+    // semantic *text* token that could not legally render text on the default
+    // background; all 7 non-test consumers were latent AA failures.
+    //
+    // This is now a DELIBERATE ALIAS of `secondary`, not an oversight. The
+    // design-system gray ramp has no accessible step between gray[500] (1.98:1)
+    // and gray[600] (4.61:1), and 4.5:1 on white requires roughly #767676 or
+    // darker — so any value light enough to read as distinct from gray[600] is
+    // by construction too light to pass. There is no legal third text tier on
+    // white, and minting a hex would violate the no-hardcoded-colour rule.
+    //
+    // Consequence: quieting must be expressed STRUCTURALLY — italic, position,
+    // size, enclosure — never chromatically. Same ruling FEAT-292 already made
+    // one level down at DailyLoopStepScreen.tsx ("subordination is preserved
+    // structurally rather than chromatically"); this lifts it to the token so
+    // the two cannot contradict each other.
+    //
+    // Pinned by core/theme/__tests__/theme-contrast.accessibility.test.ts.
+    muted: colorSystem.gray[600],
     inverse: colorSystem.base.white,
   },
   background: {

@@ -77,7 +77,13 @@ jobs:
         run: cd app && eas whoami
 
       # --auto-submit chains submission server-side on EAS once the build
-      # finishes. --no-wait lets this workflow exit quickly while EAS does
+      # finishes. It picks the submit profile whose name matches the *build*
+      # profile, so --profile production selects submit.production in
+      # eas.json. There is deliberately no submit-profile flag here: eas build
+      # accepts only --auto-submit / --auto-submit-with-profile, and the
+      # invented --submit-profile failed every real release from INFRA-146
+      # until DEBUG-336 (dry runs skip this step, so it went unnoticed).
+      # --no-wait lets this workflow exit quickly while EAS does
       # the 20-30 min build + submit asynchronously. Failures surface in
       # the EAS dashboard, in App Store Connect, and (for EAS-side errors)
       # in this job's logs.
@@ -90,6 +96,5 @@ jobs:
             --platform ios \
             --profile production \
             --auto-submit \
-            --submit-profile production \
             --non-interactive \
             --no-wait
