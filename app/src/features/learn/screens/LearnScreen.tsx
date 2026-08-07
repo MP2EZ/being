@@ -481,11 +481,11 @@ const styles = StyleSheet.create({
   },
   moduleTime: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[500],
+    color: semantic.text.muted,
   },
   modulePractices: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[500],
+    color: semantic.text.muted,
   },
 });
 

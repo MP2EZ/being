@@ -78,3 +78,37 @@ describe('semantic text tokens come from the design-system ramp', () => {
     expect(ramp).toContain(semantic.text.muted);
   });
 });
+
+/**
+ * DEBUG-342 — why `colorSystem.gray[500]` is banned outright.
+ *
+ * DEBUG-323 fixed the TOKEN, but 34 non-test sites read the raw ramp value and
+ * bypassed it entirely, so the fix reached none of them. These pins record the
+ * reason the ESLint `no-restricted-syntax` rule in eslint.config.js is a hard zero
+ * with no allowlist: gray[500] clears neither WCAG bar on any light surface here,
+ * so the "prove it is non-text and meets 3:1" escape hatch is empty by construction.
+ */
+describe('gray[500] is not a legal UI colour (DEBUG-342)', () => {
+  it('fails the AA text bar AND the 1.4.11 non-text bar on white', () => {
+    const ratio = getContrastRatio(colorSystem.gray[500], semantic.background.primary);
+    expect(ratio).toBeLessThan(4.5); // normal text
+    expect(ratio).toBeLessThan(3.0); // non-text / UI component — no exemption available
+  });
+
+  it('the replacement clears the 3:1 non-text bar, so tab icons are legal', () => {
+    // The 4 CleanTabNavigator inactive icons moved here. 1.4.11 governs them
+    // (graphical objects identifying a UI state), not 1.4.3.
+    const ratio = getContrastRatio(semantic.text.muted, semantic.background.primary);
+    expect(ratio).toBeGreaterThanOrEqual(3.0);
+  });
+
+  it('records the residual: muted still fails 4.5:1 on the SECONDARY surface', () => {
+    // Not fixed here — this is the pre-existing semantic.text.secondary-on-
+    // background.secondary defect DEBUG-342 explicitly scoped out. The 7 sites on
+    // tinted surfaces land at ~4.4:1: strictly better than the 1.90:1 they had, but
+    // still short. Pinned so the gap is visible rather than assumed closed.
+    const ratio = getContrastRatio(semantic.text.muted, semantic.background.secondary);
+    expect(ratio).toBeGreaterThan(4.0);
+    expect(ratio).toBeLessThan(4.5);
+  });
+});

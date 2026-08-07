@@ -10,7 +10,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
+import { semantic, colorSystem, spacing, borderRadius, typography } from '@/core/theme';
 
 const AboutBeingScreen: React.FC = () => (
   <SafeAreaView style={styles.container}>
@@ -57,7 +57,7 @@ const styles = StyleSheet.create({
   placeholderText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
-    color: colorSystem.gray[500],
+    color: semantic.text.muted,
     textAlign: 'center',
     lineHeight: 24,
   },

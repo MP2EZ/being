@@ -30,7 +30,7 @@ import {
   Vibration,
   ScrollView,
 } from 'react-native';
-import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
+import { semantic, colorSystem, spacing, borderRadius, typography } from '@/core/theme';
 import { SessionMetadata } from '@/core/types/session';
 import { themeKeyFor } from '@/core/types/practice-identity';
 import type { PracticeIdentity } from '@/core/types/practice-identity';
@@ -446,7 +446,7 @@ const styles = StyleSheet.create({
   },
   tooltipCitation: {
     fontSize: typography.micro.size,
-    color: colorSystem.gray[500],
+    color: semantic.text.muted,
     fontStyle: 'italic',
     marginTop: spacing[4],
   },

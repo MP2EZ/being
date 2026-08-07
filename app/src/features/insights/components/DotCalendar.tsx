@@ -337,7 +337,7 @@ const styles = StyleSheet.create({
   timeRangeText: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.medium,
-    color: colorSystem.gray[500],
+    color: semantic.text.muted,
   },
   timeRangeTextSelected: {
     color: semantic.text.primary,
@@ -386,7 +386,7 @@ const styles = StyleSheet.create({
   },
   legendText: {
     fontSize: typography.caption.size,
-    color: colorSystem.gray[500],
+    color: semantic.text.muted,
   },
   summaryText: {
     fontSize: typography.bodySmall.size,

@@ -28,7 +28,7 @@ import {
   Platform,
   Pressable,
 } from 'react-native';
-import { colorSystem, spacing, borderRadius, typography, getTheme } from '@/core/theme';
+import { semantic, colorSystem, spacing, borderRadius, typography, getTheme } from '@/core/theme';
 import { AccessibleButton } from '@/core/components/accessibility/AccessibleButton';
 import {
   BreathingCircle,
@@ -161,7 +161,7 @@ const DailyLoopStepScreen: React.FC<DailyLoopStepScreenProps> = ({
         value={values[key]}
         onChangeText={(t) => setField(key, t)}
         placeholder={placeholder}
-        placeholderTextColor={colorSystem.gray[500]}
+        placeholderTextColor={semantic.text.muted}
         multiline
         numberOfLines={3}
         textAlignVertical="top"
@@ -310,7 +310,7 @@ const DailyLoopStepScreen: React.FC<DailyLoopStepScreenProps> = ({
                   value={adversityRehearsal}
                   onChangeText={setAdversityRehearsal}
                   placeholder={PREMEDITATIO.placeholder}
-                  placeholderTextColor={colorSystem.gray[500]}
+                  placeholderTextColor={semantic.text.muted}
                   multiline
                   numberOfLines={3}
                   textAlignVertical="top"
@@ -464,7 +464,7 @@ const styles = StyleSheet.create({
   },
   reflectNote: {
     fontSize: typography.caption.size,
-    color: colorSystem.gray[500],
+    color: semantic.text.muted,
     fontStyle: 'italic',
     marginBottom: spacing[16],
   },

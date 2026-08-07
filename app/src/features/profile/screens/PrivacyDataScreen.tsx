@@ -30,7 +30,7 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useConsentStore } from '@/core/stores/consentStore';
 import { useAnalytics, useFeatureFlag } from '@/core/analytics';
-import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
+import { semantic, colorSystem, spacing, borderRadius, typography } from '@/core/theme';
 import type { ProfileStackParamList } from '../ProfileStackNavigator';
 
 /**
@@ -101,7 +101,7 @@ const StorageLocationRow: React.FC<StorageLocationRowProps> = ({
         <Ionicons
           name={icon}
           size={18}
-          color={colorSystem.gray[500]}
+          color={semantic.text.muted}
           style={storageRowStyles.icon}
         />
         <Text style={storageRowStyles.storageText}>{text}</Text>
@@ -130,7 +130,7 @@ const storageRowStyles = StyleSheet.create({
   description: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: colorSystem.gray[500],
+    color: semantic.text.muted,
     lineHeight: 18,
   },
   indicatorContainer: {
@@ -578,7 +578,7 @@ const styles = StyleSheet.create({
   storageInfoText: {
     fontSize: typography.caption.size,
     fontWeight: typography.fontWeight.regular,
-    color: colorSystem.gray[500],
+    color: semantic.text.muted,
     marginTop: spacing[12],
     lineHeight: 18,
     textAlign: 'center',
