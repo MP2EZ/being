@@ -74,18 +74,18 @@
     },
     {
       "id": "gratitude-reflection",
-      "title": "Gratitude Reflection",
-      "description": "Reflect on what you're grateful for in your life right now.",
+      "title": "What You Already Have",
+      "description": "Take one thing you already have, picture it briefly absent and let it return, then see it as it is.",
       "type": "reflection",
-      "duration": 240,
-      "icon": "🙏",
+      "duration": 300,
+      "icon": "🔍",
       "instructions": [
-        "Consider three things you're genuinely grateful for",
-        "Notice the people who have contributed to your wellbeing",
-        "Acknowledge the opportunities you've been given",
-        "Reflect on moments of kindness you've received",
-        "Notice any ordinary blessings you usually overlook",
-        "Allow the feeling of gratitude to settle in your body"
+        "Choose one specific thing you have today — this cup, that doorway, the use of your right hand. One thing, not a class of things.",
+        "Look at it plainly first, before any story about it. What is actually there?",
+        "Now, briefly, picture it simply absent — then let it come back. Not lost dramatically, just not there; one breath is long enough for both.",
+        "It is still here. Notice what changed in how it looks to you now, and stay with that longer than you stayed with its absence.",
+        "Take care that being pleased with it does not become overvaluing it, so that its absence one day would overturn you. The aim is to see it clearly, not to clutch it.",
+        "Ask who this came through — who made it, kept it, or handed it on. What gratitude asks is a return you make, not a feeling you hold."
       ]
     }
   ],

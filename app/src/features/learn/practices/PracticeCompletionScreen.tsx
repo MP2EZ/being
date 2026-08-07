@@ -192,8 +192,25 @@ export const PRACTICE_QUOTES: Record<string, ClassicalQuote> = {
   // reflection — the 8.33 locus was only ever chosen to fit a paraphrase that is
   // itself wrong. Long 7.27 first sentence, contiguous and verbatim, IS the
   // Stoic gratitude passage.
+  //
+  // MAINT-331 — DO NOT TRIM THIS BACK TO THE FIRST SENTENCE. It is ~375 chars,
+  // roughly 1.8x the next-longest entry, so it is exactly the kind of string
+  // someone shortens for layout. The second sentence is here because Marcus put
+  // it here: it opens "At the same time however take care that…", i.e. he hedges
+  // his own instruction in the same breath, because the counterfactual s.1
+  // prescribes ("how eagerly they would have been sought") recruits desire to
+  // re-value a thing you already have, and overshoots into overvaluing it.
+  // s.1 alone is the un-guarded half. This screen REPLACES the practice screen
+  // (ReflectionTimerScreen returns it instead of the sit), so the practice's own
+  // in-situ guard is off-screen and unrecoverable by the time this renders —
+  // shipping s.1 alone makes the flow's last word a desire-amplifying clause,
+  // after the disarming is over. Ending instead on "so as to be disturbed if
+  // ever thou shouldst not have them" lands on your own assent rather than on a
+  // picture of privation, which is the correct terminus for a Principle-4 screen.
+  // Layout is safe by construction: no numberOfLines/ellipsizeMode/maxHeight
+  // anywhere in this file, and the quote sits in a ScrollView.
   'gratitude-reflection': {
-    text: 'Think not so much of what thou hast not as of what thou hast: but of the things which thou hast select the best, and then reflect how eagerly they would have been sought, if thou hadst them not.',
+    text: 'Think not so much of what thou hast not as of what thou hast: but of the things which thou hast select the best, and then reflect how eagerly they would have been sought, if thou hadst them not. At the same time however take care that thou dost not through being so pleased with them accustom thyself to overvalue them, so as to be disturbed if ever thou shouldst not have them.',
     author: 'Marcus Aurelius',
     source: 'Meditations 7.27',
     translation: 'George Long',
