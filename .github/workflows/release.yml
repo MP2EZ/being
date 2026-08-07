@@ -64,10 +64,22 @@ jobs:
             exit 1
           fi
 
+      # eas-version is PINNED, not `latest` (INFRA-345). The eas-cli flag surface
+      # is consumed at exactly one place — the `eas build` step below — and that
+      # step is gated `if: ${{ !inputs.dry_run }}`, so a dry run cannot exercise
+      # it. An unpinned CLI therefore makes the one command we cannot test a
+      # moving target. The `--submit-profile` incident documented on that step is
+      # what this costs when it goes wrong: broken on every real release from
+      # INFRA-146 until DEBUG-336, invisible to every dry run in between.
+      #
+      # BUMP PROTOCOL: change this deliberately, in its own commit, and expect
+      # validation only from the NEXT REAL RELEASE reaching TestFlight — never
+      # from a dry run. Do not bundle a bump with any other release-path change,
+      # or a failure is unattributable between them.
       - name: Setup EAS CLI
         uses: expo/expo-github-action@v9
         with:
-          eas-version: latest
+          eas-version: 21.6.0
           token: ${{ secrets.EXPO_TOKEN }}
 
       # Proves EXPO_TOKEN resolves to the expected account before any build.
