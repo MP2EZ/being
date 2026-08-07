@@ -23,14 +23,19 @@
  *      system bash 3.2 returns 141 and killed the script printing nothing.
  *
  * Real `eas` is never invoked: it needs credentials, a booted simulator, and 10-15
- * minutes. Instead `eas` and `xcrun` are PATH-shimmed and $TMPDIR is redirected into a
- * sandbox, so the REAL script runs end-to-end against controllable stages. This runs on
- * ubuntu-latest in milliseconds and covers stages a real dirty-tree run never reaches
- * (a dirty tree aborts at eas pre-flight, so extraction and install are never exercised).
+ * minutes. Instead `git`, `eas` and `xcrun` are PATH-shimmed and $TMPDIR is redirected
+ * into a sandbox, so the REAL script runs end-to-end against controllable stages. This
+ * runs on ubuntu-latest in milliseconds.
  *
- * The genuine dirty-tree run remains a documented MANUAL smoke — it cannot be automated
- * in CI, which is 100% ubuntu-latest, and the script exits on the booted-sim precondition
- * long before reaching eas.
+ * INFRA-329 added the clean-tree pre-flight, and with it the `git` shim. The shim is not
+ * optional decoration: the script now runs `git status --porcelain` on the real repo, so
+ * without it every test in this file would abort on any dirty working tree — including
+ * the tree of whoever is running the suite. Shimming `git` also lets the dirty-tree stage
+ * itself be covered here rather than left to memory.
+ *
+ * What is still MANUAL: the genuine end-to-end run against real eas-cli and a real
+ * simulator. CI is 100% ubuntu-latest, so no test here proves EAS actually honours
+ * requireCommit — only that the script refuses to reach EAS with a dirty tree.
  */
 
 const { spawnSync } = require('child_process');
@@ -67,23 +72,51 @@ function makeAppTarball(dest, appNames = ['Being.app']) {
 }
 
 /**
- * Run the real script with `eas` and `xcrun` stubbed.
+ * Bash body for the `git` stub, covering the three states the clean-tree pre-flight
+ * distinguishes. The real script calls `git rev-parse --show-toplevel` and then
+ * `git -C <root> status --porcelain`, so the stub dispatches on the subcommand found
+ * anywhere in the args rather than on $1 (which is `-C` for the second call).
+ */
+function gitStubBody(state) {
+  const dispatch = [
+    'MODE=""',
+    'for a in "$@"; do case "$a" in rev-parse) MODE=rev ;; status) MODE=status ;; esac; done',
+  ];
+  if (state === 'not-a-repo') {
+    return [...dispatch, 'echo "fatal: not a git repository" >&2', 'exit 128'].join('\n');
+  }
+  const statusOutput = state === 'dirty' ? 'echo " M app/src/features/learn/Dirty.tsx"' : ':';
+  return [
+    ...dispatch,
+    'if [ "$MODE" = "rev" ]; then echo "/tmp/fake-repo-root"; exit 0; fi',
+    `if [ "$MODE" = "status" ]; then ${statusOutput}; exit 0; fi`,
+    'exit 0',
+  ].join('\n');
+}
+
+/**
+ * Run the real script with `git`, `eas` and `xcrun` stubbed.
  *
  * @param easBody   bash body for the `eas` stub (controls the build stage)
  * @param opts.installExits  exit code for `xcrun simctl install`
  * @param opts.seedStaleTarball  app names to pre-seed at $OUT before the run, simulating
  *                               a leftover artifact from a previous run
+ * @param opts.gitState  'clean' (default) | 'dirty' | 'not-a-repo'
  */
 function runScript(easBody, opts = {}) {
-  const { installExits = 0, seedStaleTarball = null } = opts;
+  const { installExits = 0, seedStaleTarball = null, gitState = 'clean' } = opts;
 
   const sandbox = fs.mkdtempSync(path.join(os.tmpdir(), 'e2e-sandbox-'));
   const stubs = fs.mkdtempSync(path.join(os.tmpdir(), 'e2e-stubs-'));
   const installMarker = path.join(sandbox, 'install-ran.txt');
+  const easMarker = path.join(sandbox, 'eas-ran.txt');
 
   if (seedStaleTarball) makeAppTarball(outPath(sandbox), seedStaleTarball);
 
-  writeStub(stubs, 'eas', easBody);
+  writeStub(stubs, 'git', gitStubBody(gitState));
+  // Record that the build stage was reached at all, so a pre-flight can be proven to
+  // abort BEFORE eas rather than merely to fail somewhere.
+  writeStub(stubs, 'eas', `echo "$@" > "${easMarker}"\n${easBody}`);
 
   // `xcrun` must satisfy the booted-sim precondition, tolerate the intentional
   // `uninstall ... || true`, and record whether `install` was ever reached.
@@ -112,6 +145,7 @@ function runScript(easBody, opts = {}) {
     output: `${res.stdout || ''}${res.stderr || ''}`,
     installRan: fs.existsSync(installMarker),
     installArgs: fs.existsSync(installMarker) ? fs.readFileSync(installMarker, 'utf8') : null,
+    easRan: fs.existsSync(easMarker),
     outExists: fs.existsSync(outPath(sandbox)),
   };
 }
@@ -134,6 +168,41 @@ const EAS_DIRTY_TREE_ABORT = [
 
 /** The dangerous case: eas reports success but produces NO artifact. */
 const EAS_SUCCEEDS_WITHOUT_ARTIFACT = 'echo "Build finished."; exit 0';
+
+describe('e2e-sim-build.sh — clean-tree pre-flight (INFRA-329)', () => {
+  test('aborts before invoking EAS when the working tree is dirty', () => {
+    // The point of the guard: eas.json sets requireCommit:true, so a dirty tree was
+    // already fatal — but only ~30s in, after EAS startup. Failing here costs
+    // milliseconds. `easRan` is the assertion that matters; a non-zero exit alone
+    // would also be satisfied by aborting later, which is the behaviour being fixed.
+    const r = runScript(EAS_SUCCEEDS, { gitState: 'dirty' });
+    expect(r.status).not.toBe(0);
+    expect(r.easRan).toBe(false);
+    expect(r.installRan).toBe(false);
+    expect(r.output).toMatch(/❌/);
+    expect(r.output).toMatch(/clean-tree/i);
+  });
+
+  test('names the offending paths so you know what to commit', () => {
+    const r = runScript(EAS_SUCCEEDS, { gitState: 'dirty' });
+    expect(r.output).toMatch(/Dirty\.tsx/);
+  });
+
+  test('proceeds to the build when the tree is clean', () => {
+    const r = runScript(EAS_SUCCEEDS, { gitState: 'clean' });
+    expect(r.status).toBe(0);
+    expect(r.easRan).toBe(true);
+  });
+
+  test('does not block the build when run outside a git work tree', () => {
+    // A missing or non-repo git must not make the script unusable: the pre-flight is a
+    // fast-fail convenience, and EAS still enforces requireCommit on its own.
+    const r = runScript(EAS_SUCCEEDS, { gitState: 'not-a-repo' });
+    expect(r.status).toBe(0);
+    expect(r.easRan).toBe(true);
+    expect(r.output).toMatch(/skipping the clean-tree pre-flight/i);
+  });
+});
 
 describe('e2e-sim-build.sh — failure propagation', () => {
   test('exits non-zero and names the build stage when the EAS build fails', () => {
