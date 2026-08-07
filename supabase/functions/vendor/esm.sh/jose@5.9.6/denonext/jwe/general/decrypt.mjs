@@ -1,0 +1,3 @@
+/* esm.sh - jose@5.9.6/jwe/general/decrypt */
+import{flattenedDecrypt as o}from"../flattened/decrypt.mjs";import{JWEDecryptionFailed as p,JWEInvalid as t}from"../../errors.mjs";import i from"../../dist/browser/lib/is_object.mjs";async function y(e,n,c){if(!i(e))throw new t("General JWE must be an object");if(!Array.isArray(e.recipients)||!e.recipients.every(i))throw new t("JWE Recipients missing or incorrect type");if(!e.recipients.length)throw new t("JWE Recipients has no members");for(let r of e.recipients)try{return await o({aad:e.aad,ciphertext:e.ciphertext,encrypted_key:r.encrypted_key,header:r.header,iv:e.iv,protected:e.protected,tag:e.tag,unprotected:e.unprotected},n,c)}catch{}throw new p}export{y as generalDecrypt};
+//# sourceMappingURL=decrypt.mjs.map

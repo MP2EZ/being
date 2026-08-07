@@ -1,0 +1,3 @@
+/* esm.sh - jose@5.9.6/dist/browser/lib/aesgcmkw */
+import a from"../runtime/encrypt.mjs";import p from"../runtime/decrypt.mjs";import{encode as c}from"../runtime/base64url.mjs";async function y(t,e,n,o){let i=t.slice(0,7),r=await a(i,n,e,o,new Uint8Array(0));return{encryptedKey:r.ciphertext,iv:c(r.iv),tag:c(r.tag)}}async function u(t,e,n,o,i){let r=t.slice(0,7);return p(r,e,n,o,i,new Uint8Array(0))}export{u as unwrap,y as wrap};
+//# sourceMappingURL=aesgcmkw.mjs.map

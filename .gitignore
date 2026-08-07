@@ -47,6 +47,17 @@ build/
 web-build/
 *.pyc
 
+# INFRA-354: supabase/functions/vendor/ is committed on purpose so the
+# `Edge Functions (Deno)` gate resolves without touching the network. esm.sh mirrors
+# each package's own layout, so the `dist/` and `build/` rules above — meant for OUR
+# build output — also match vendored paths like
+# vendor/esm.sh/jose@5.9.6/denonext/dist/... and silently drop 72 of the tree's 108
+# files. A clean checkout then fails closed with "Specifier not found in cache".
+# Re-include the directories here; do NOT narrow the rules above, which are correct
+# for everything else.
+!supabase/functions/vendor/**/dist/
+!supabase/functions/vendor/**/build/
+
 # Expo/React Native
 .expo/
 expo-env.d.ts

@@ -261,6 +261,50 @@ supabase secrets set CRON_SECRET=your_random_secret
 
 ## Testing
 
+### Dependency resolution is vendored (INFRA-354)
+
+`supabase/functions/vendor/` and `deno.lock` are **committed on purpose**. The
+`Edge Functions (Deno)` CI job is one of the 9 strict gates, so when it resolved
+`https://esm.sh/jose@5.9.6` and the `deno.land/std` imports over the network at test
+time, an esm.sh outage failed `CI pass` and blocked the merge of *any* PR in the repo —
+it fired twice in ~20 minutes on 2026-08-06 against PRs touching zero edge functions.
+
+`deno.json` sets `"vendor": true` and the `test` task carries `--cached-only`, so the
+gate resolves entirely from the committed tree. Two things that look like they'd work
+and don't:
+
+- **A lockfile alone does not fix it.** `deno.lock` records integrity hashes; it never
+  populates the module cache. Measured against a cold `DENO_DIR`, lock + `--frozen`
+  still downloaded 74 files.
+- **`--no-remote` is not a substitute for `--cached-only`.** Vendoring maps remote
+  specifiers to local files, but they remain *remote specifiers*, so `--no-remote`
+  rejects them and the suite fails to start.
+
+**Regenerate after adding or bumping any remote import** (Deno is at `~/.deno/bin`,
+not on the default `PATH`):
+
+```bash
+cd supabase/functions
+PATH="$HOME/.deno/bin:$PATH" deno install --entrypoint _tests/*.test.ts
+git add vendor deno.lock
+```
+
+Verify it is genuinely hermetic before pushing — this must report zero `Download` lines:
+
+```bash
+DENO_DIR=$(mktemp -d) PATH="$HOME/.deno/bin:$PATH" deno task test
+```
+
+The vendor tree covers the **test graph** (520K / 108 files), which is what the gate
+executes. A new import that is not vendored fails closed with
+`Specifier not found in cache: ... --cached-only is specified` rather than reaching the
+network — that error means "run the regenerate command", not "the gate is broken".
+
+The Deno version is pinned in `.github/workflows/ci.yml` (`DENO_VERSION`) and must stay
+compatible with the committed artifacts: `deno vendor` was removed in Deno 2, the
+lockfile here is format v5 (Deno 1.x reads v3 at most), and the two majors disagree on
+the vendor layout. Bump the pin and regenerate the tree together.
+
 ### Local Development
 
 ```bash

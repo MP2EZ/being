@@ -1,0 +1,3 @@
+/* esm.sh - jose@5.9.6/jws/general/verify */
+import{flattenedVerify as o}from"../flattened/verify.mjs";import{JWSInvalid as t,JWSSignatureVerificationFailed as s}from"../../errors.mjs";import a from"../../dist/browser/lib/is_object.mjs";async function g(r,i,n){if(!a(r))throw new t("General JWS must be an object");if(!Array.isArray(r.signatures)||!r.signatures.every(a))throw new t("JWS Signatures missing or incorrect type");for(let e of r.signatures)try{return await o({header:e.header,payload:r.payload,protected:e.protected,signature:e.signature},i,n)}catch{}throw new s}export{g as generalVerify};
+//# sourceMappingURL=verify.mjs.map
