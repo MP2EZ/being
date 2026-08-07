@@ -18,7 +18,14 @@
  * - Principle engagements: 90-day auto-delete
  * - Assessment history: 90-day auto-delete (except crisis data)
  * - Crisis assessment data: 3-year retention (PHQ-9 ≥20, Item 9 > 0, GAD-7 ≥15)
- * - Crisis intervention records: 3-year retention (liability protection)
+ *   — enforced HERE, as a predicate inside the assessment_history sweep.
+ * - Crisis intervention records: NOT swept by this service. There is no local
+ *   crisis-intervention store for it to sweep; `DataCategory` has no such member
+ *   by design. (DEBUG-340 corrected this line, which previously claimed a
+ *   3-year retention this service does not implement.) The server-side crisis
+ *   record — the `crisis_detected` rows in `analytics_events` — is pruned at
+ *   3 years by `cleanup_old_analytics()`, scheduled as the `analytics-retention-prune`
+ *   database job. See privacy-policy §7.2.
  * - Practice progress: User-controlled (delete on request)
  * - Consent records: Indefinite (audit trail)
  * - Audit logs: 3-year retention (legal defense)
@@ -49,7 +56,21 @@ export const DATA_RETENTION_CONFIG = {
   DEFAULT_RETENTION_MS: 90 * 24 * 60 * 60 * 1000,
 
   // Crisis data retention: 3 years (liability protection)
-  // Applies to: PHQ-9 ≥20, PHQ-9 Item 9 > 0, GAD-7 ≥15, crisis interventions
+  //
+  // Applies to: PHQ-9 ≥20, PHQ-9 Item 9 > 0, GAD-7 ≥15 — held inside
+  // `assessment_history` and kept by the crisis predicate in cleanupAssessmentData().
+  //
+  // DEBUG-340: this comment used to end "…, crisis interventions", which was not true
+  // of this service — there is no local crisis-intervention sink for it to sweep, and
+  // `DataCategory` has no such member. Server-side crisis records (`crisis_detected` in
+  // `analytics_events`) are pruned at 3 years by the `analytics-retention-prune` database
+  // job, NOT here. The two sinks now agree on the number; do not change one without the
+  // other, and do not change either without privacy-policy §7.2.
+  //
+  // Note this constant is 3 * 365 days (1095), while the SQL side uses a calendar
+  // INTERVAL '3 years' (~1096 across a leap year). The device therefore deletes up to a
+  // day EARLIER than the server. That is the safe direction under a policy that states a
+  // maximum, so the ~1-day skew is deliberate and left alone.
   CRISIS_RETENTION_YEARS: 3,
   CRISIS_RETENTION_MS: 3 * 365 * 24 * 60 * 60 * 1000,
 
