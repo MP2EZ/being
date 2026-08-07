@@ -77,6 +77,11 @@ this batch and report it, naming the owning batch slug:
 ⛔ FEAT-130 is already in-flight in batch `debug44-feat130-maint191` — dropped from this batch.
    Co-locate overlapping work in one batch, or wait for the other to finish.
 ```
+**No worktree or PR is NOT evidence a sibling batch is dead.** A sibling that has planned
+but not yet reached Step 3.1 looks identical to an abandoned one. Manifest `state` is the
+only authority. To override, mark the entry `deferred` in that manifest first — never
+proceed silently.
+
 Abort only if dropping leaves the list empty. (This makes the disjoint-list rule a guard,
 not just discipline — it closes the Notion-status race on shared items.)
 
