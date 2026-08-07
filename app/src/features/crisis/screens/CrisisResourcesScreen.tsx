@@ -30,7 +30,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, useFocusEffect, RouteProp } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import { useAnalytics } from '@/core/analytics';
-import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
+import { semantic, colorSystem, spacing, borderRadius, typography } from '@/core/theme';
 import { logPerformance, logSecurity, logError, LogCategory } from '@/core/services/logging';
 import { openCrisisUrl } from '@/features/crisis/utils/openCrisisUrl';
 import { endCrisisTap } from '@/features/crisis/services/crisisTapTrace';
@@ -620,7 +620,7 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: typography.micro.size,
-    color: colorSystem.gray[500],
+    color: semantic.text.muted,
     lineHeight: typography.bodyLarge.size,
     textAlign: 'center'
   }

@@ -621,7 +621,7 @@ const styles = StyleSheet.create({
   cardMetadata: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: colorSystem.gray[500],
+    color: semantic.text.muted,
   },
   statusRecent: {
     fontSize: typography.micro.size,

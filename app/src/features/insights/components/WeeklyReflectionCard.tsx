@@ -130,7 +130,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[500],
+    color: semantic.text.muted,
     fontStyle: 'italic',
     marginBottom: spacing[16],
   },
