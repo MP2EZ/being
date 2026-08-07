@@ -210,6 +210,13 @@ batch into as few calls as possible). Each amber's options must include:
 - **an "I'm giving you the missing context — treat as GREEN" upgrade option** so your
   answer promotes it to auto-run in this same batch rather than dropping it to manual.
 
+**Spot-verify any UNNAMED defect before it becomes a scope option.** A finding the item's
+own ACs don't mention has had no prior review, yet it carries the most scope weight. Re-read
+the cited file first — a lens reporting "X is absent" may have found one occurrence and
+missed a second. (DEBUG-341, 2026-08-06: a "no 988 control on the legal gate" finding drove
+an approved scope expansion; the control was there, 200 lines below the block the lens read.
+Implemented, then reverted.)
+
 **If an amber's options differ in UI layout or placement, put the artifact in the option
 `preview` field** — an ASCII wireframe of each candidate, grounded in the real layout
 constraints (read the actual styles first, don't sketch from imagination). Per CLAUDE.md
