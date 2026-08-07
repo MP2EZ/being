@@ -1,3 +1,14 @@
+# ⚠️  ARCHIVED — NOT EXECUTED BY GITHUB.
+#     Actions only runs workflows under `.github/workflows/`; this directory is
+#     never loaded. Last touched 2025-09-27 (MAINT-10).
+#
+# INFRA-337 (2026-08-06): the action pins in this file are KNOWINGLY STALE and were
+#     deliberately NOT bumped — 44 edits across two byte-identical dead files buys
+#     nothing. Anyone reviving this workflow must bump every `uses:` pin first: as of
+#     GitHub's Node-20 runner removal (2026-09-16), `actions/checkout@v4`,
+#     `actions/setup-node@v4`, `expo/expo-github-action@v8` and
+#     `actions/upload-artifact@v3` are all non-functional.
+
 name: 🏥 Production Deployment - FullMind MBCT Healthcare
 
 on:
