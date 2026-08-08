@@ -164,9 +164,13 @@ describe('DRD Check-in Flows Accessibility Validation', () => {
     // rendered the Timer and asserted the CONTAINER existed — it never reached a
     // control, never read a style, and could not have failed on an undersized
     // target. RNTL performs no layout, so no jest test can measure a rendered
-    // tap target; a declared-minHeight assertion is the most that is honest, and
-    // Timer's controls do not currently declare one. Tracked as its own item
-    // rather than faked here.
+    // tap target; a declared-minHeight assertion is the most that is honest.
+    //
+    // DEBUG-365 discharged that: Timer's controlButton/skipButton,
+    // PracticeLibraryScreen's back button and principle link, and
+    // ResumeSessionModal's tooltip button now declare minHeight, and the
+    // declared-style assertions live in ./practices-touch-targets.test.tsx —
+    // labelled a structural proxy there, not a geometry measurement.
 
     // MAINT-65: EmotionGrid and EveningValueSlider tests removed (unused legacy components)
   });
