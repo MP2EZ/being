@@ -145,7 +145,7 @@ const styles = StyleSheet.create({
   },
   headerSubtitle: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     lineHeight: 22,
   },
   emptyState: {

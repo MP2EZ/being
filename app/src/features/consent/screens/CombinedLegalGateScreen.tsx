@@ -457,7 +457,7 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     textAlign: 'center',
     lineHeight: spacing[24],
   },
@@ -473,7 +473,7 @@ const styles = StyleSheet.create({
   sectionDescription: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     marginBottom: spacing[16],
   },
   pickerContainer: {
@@ -534,7 +534,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     lineHeight: 22,
   },
   linkRow: {
@@ -568,7 +568,7 @@ const styles = StyleSheet.create({
   essentialItem: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     lineHeight: spacing[24],
   },
   essentialNote: {
@@ -648,7 +648,7 @@ const styles = StyleSheet.create({
   crisisDescription: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     textAlign: 'center',
     marginBottom: spacing[24],
   },
@@ -688,7 +688,7 @@ const styles = StyleSheet.create({
   crisisButtonSubtextSecondary: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     marginTop: spacing[4],
   },
   resourcesSection: {
@@ -712,7 +712,7 @@ const styles = StyleSheet.create({
   reEnterAgeButtonText: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.medium,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     textDecorationLine: 'underline',
   },
 });

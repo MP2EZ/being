@@ -170,6 +170,7 @@
   "src/features/onboarding/screens/__tests__/OnboardingScreen.test.tsx": 1,
   "src/features/practices/__tests__/accessibility/practices-accessibility-validation.test.tsx": 1,
   "src/features/practices/__tests__/accessibility/practices-touch-targets.test.tsx": 1,
+  "src/features/practices/dailyloop/__tests__/DailyLoopCompleteScreen.completionRegister.test.tsx": 1,
   "src/features/practices/dailyloop/__tests__/DailyLoopDepthSelectScreen.test.tsx": 1,
   "src/features/practices/dailyloop/__tests__/DailyLoopStepScreen.stageNote.test.tsx": 1,
   "src/features/practices/dailyloop/__tests__/dailyLoopEngagement.test.ts": 1,

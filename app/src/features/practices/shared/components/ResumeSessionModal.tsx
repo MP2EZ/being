@@ -367,7 +367,7 @@ const styles = StyleSheet.create({
   },
   infoLabel: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     marginBottom: spacing[4],
   },
   infoValue: {
@@ -381,7 +381,7 @@ const styles = StyleSheet.create({
   },
   progressLabel: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     marginBottom: spacing[4],
   },
   screenBadge: {
@@ -406,7 +406,7 @@ const styles = StyleSheet.create({
   },
   submessage: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     textAlign: 'center',
     lineHeight: typography.title.size,
     fontStyle: 'italic',

@@ -214,7 +214,7 @@ const styles = StyleSheet.create({
   },
   introText: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     lineHeight: 22,
   },
   practicesSection: {
