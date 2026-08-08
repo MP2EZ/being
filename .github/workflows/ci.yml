@@ -1,8 +1,34 @@
 name: CI
 
 on:
+  # Short-lived branches (feat/*, fix/*, chore/*, refactor/*, hotfix/*) are
+  # deliberately NOT here. They used to be, and every commit on one with an open
+  # PR fired BOTH a push run and a pull_request run against the same SHA — two
+  # complete 9-job runs, 22 check rows per PR (verified on PR #254: every gate
+  # appeared exactly twice). The `concurrency` group below cannot dedupe them
+  # because github.ref is refs/heads/<branch> for push and refs/pull/N/merge for
+  # pull_request, so they land in different groups and both proceed.
+  #
+  # That was not merely wasteful, it was unsound. INFRA-329 (2026-08-06, PR #244):
+  # `gh pr checks --watch` exited reporting all 9 gates green while the
+  # PR-triggered run had hit the esm.sh flake, because it read only one of the two
+  # runs; `gh pr merge` then refused with `Required status check "CI pass" is
+  # failing`. Every short-lived branch PRs into main or development, so the
+  # pull_request trigger already covers 100% of the code that can merge — the push
+  # run added no coverage, only a second run for a --watch to misread.
+  #
+  # `main` and `development` are KEPT. They cannot receive direct pushes
+  # (required_PR + enforce_admins are both on), so a run here is always a
+  # post-merge integration signal on a merge commit — the only check that runs
+  # after `gh pr merge --admin`, which /b-close uses on every close and which
+  # bypasses PR-time protection. One run per merge, no duplication.
+  #
+  # Known and accepted: a release PR (development -> main) still gets two runs,
+  # because its head IS development. /b-release 6.5 documents that and verifies
+  # via statusCheckRollup rather than --watch, which is the robust fix regardless
+  # of run count.
   push:
-    branches: [main, development, 'feat/*', 'fix/*', 'chore/*', 'refactor/*', 'hotfix/*']
+    branches: [main, development]
   pull_request:
     branches: [main, development]
     types: [opened, synchronize, reopened]
