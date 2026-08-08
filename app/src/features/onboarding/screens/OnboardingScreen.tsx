@@ -989,6 +989,22 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
     logStateChange('handleConsentPreferenceToggle', { key, value });
   };
 
+  /**
+   * Read the legal-gate consents, retrying once (DEBUG-382).
+   *
+   * Transient SecureStore failures dominate this call's failure modes, and
+   * reconstructing on the first miss would discard a value a second read would
+   * have returned truthfully. The `.catch` is defensive: `getLegalGateConsents`
+   * swallows internally today, but it is not this call site's job to depend on
+   * that — a future change there must not silently reintroduce an unhandled
+   * rejection here.
+   */
+  const readLegalGateConsentsWithRetry = async () => {
+    const first = await getLegalGateConsents().catch(() => null);
+    if (first) return first;
+    return await getLegalGateConsents().catch(() => null);
+  };
+
   // Save consent preferences when leaving privacy screen
   const handlePrivacyContinue = async () => {
     try {
@@ -997,11 +1013,47 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
 
       // Read back the four legal-gate consents (recorded on CombinedLegalGateScreen)
       // so the GDPR Art. 9 explicit-consent flag lands in the granted ConsentRecord.
-      const legalGate = await getLegalGateConsents();
+      //
+      // DEBUG-382: this read is retried once, and a persistent failure is
+      // RECONSTRUCTED rather than defaulted. `getLegalGateConsents` returns null
+      // for both "no record" and "the read or JSON.parse threw" (its catch is
+      // bare), so the previous `?? false` silently recorded a user who had
+      // TICKED the mandatory Art. 9 box as having REFUSED it — in the record
+      // used as lawful-basis evidence, with no log and no trace.
+      const legalGate = await readLegalGateConsentsWithRetry();
+
+      // Reaching this screen is itself evidence the consent was given:
+      // CombinedLegalGateScreen requires all four ticks to advance. So an
+      // unreadable record is reconstructed from that enforced precondition, not
+      // guessed. Recording `false` would manufacture a refusal the user never
+      // made — and, once FEAT-318's write gate ships, a silent permanent lockout,
+      // since that gate blocks exactly `valid` + `canProcessMentalHealthData:false`
+      // and no UI exists to grant it.
+      //
+      // The precondition is pinned by CombinedLegalGateScreen.consentInvariant.test.tsx.
+      // FEAT-318 Slice 2 plans to unbundle that tick; when it does, that suite
+      // fails ON PURPOSE and this reconstruction must be revisited rather than
+      // silently outliving its justification.
+      const mentalHealthProcessingConsent =
+        legalGate?.mentalHealthProcessingConsent ?? true;
+
+      if (!legalGate) {
+        logSecurity(
+          'legal-gate consents unreadable at onboarding — Art. 9 flag reconstructed from the enforced gate invariant',
+          'high',
+          {
+            component: 'OnboardingScreen',
+            action: 'handlePrivacyContinue',
+            result: 'failure',
+            reconstructed: true,
+            reconstructedValue: mentalHealthProcessingConsent,
+          },
+        );
+      }
 
       const mergedPreferences: ConsentPreferences = {
         ...consentPreferences,
-        mentalHealthProcessingConsent: legalGate?.mentalHealthProcessingConsent ?? false,
+        mentalHealthProcessingConsent,
       };
 
       if (ageVerification) {
