@@ -284,7 +284,7 @@ const styles = StyleSheet.create({
   headerSpacer: { minWidth: spacing[64] },
   backText: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.navigation.learn,
+    color: semantic.text.learn,
   },
   headerTitle: {
     fontSize: typography.bodyLarge.size,
@@ -304,7 +304,7 @@ const styles = StyleSheet.create({
   principleEyebrow: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.navigation.learn,
+    color: semantic.text.learn,
     letterSpacing: 1,
     marginBottom: spacing[4],
   },
@@ -326,7 +326,7 @@ const styles = StyleSheet.create({
   principleLink: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.medium,
-    color: colorSystem.navigation.learn,
+    color: semantic.text.learn,
     marginTop: spacing[4],
   },
   // DEBUG-365 sweep finding, not named in the ticket. The Pressable wrapping
@@ -339,7 +339,7 @@ const styles = StyleSheet.create({
   },
   featuredButton: {
     marginTop: spacing[16],
-    backgroundColor: colorSystem.navigation.learn,
+    backgroundColor: semantic.text.learn,
     borderRadius: borderRadius.large,
     paddingVertical: spacing[16],
     alignItems: 'center',
