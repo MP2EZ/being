@@ -176,6 +176,15 @@ check-*.py
 # Whitelist the service-singleton setInterval guard check (INFRA-177) —
 # CI-enforced convention guard, not an ad-hoc developer scratch script.
 !scripts/check-service-interval-guards.js
+# Whitelist the CI test-coverage ledger (INFRA-368) — CI-enforced gate, not an
+# ad-hoc developer scratch script. Without these two lines the `check-*.js` rule
+# above silently swallows both files, and the CI step added by INFRA-368 would
+# invoke a script that is not in the repository. Note two sibling guards
+# (check-breathing-worklet-purity.js, check-crisis-dial-guard.js) are tracked
+# without an entry here because they were force-added; prefer this form, which
+# leaves a reason behind.
+!app/scripts/check-ci-test-coverage.js
+!app/__tests__/scripts/check-ci-test-coverage.test.js
 # Whitelist the breathing-worklet purity guard (INFRA-306) — CI-enforced
 # structural guard on the animation path, not an ad-hoc developer scratch script.
 !app/scripts/check-breathing-worklet-purity.js
