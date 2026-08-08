@@ -168,6 +168,7 @@ function runScript(opts = {}) {
     seedStaleApp = false,
     iosExists = true,
     cngStamp = 'current',
+    statDialect = 'native',
   } = opts;
 
   const root = makeProject({ iosExists, cngStamp });
@@ -271,6 +272,38 @@ function runScript(opts = {}) {
   );
 
   writeStub(stubs, 'plutil', `echo '${JSON.stringify(plistSchemes)}'`);
+
+  // Optionally force GNU `stat` semantics so the BSD-vs-GNU divergence is reproducible on
+  // macOS instead of only on CI. GNU's `-f` is --file-system and takes NO format argument,
+  // so `stat -f %m file` treats `%m` as a second FILE operand: it fails on that operand
+  // (non-zero) while STILL printing filesystem info for `file`. A naive
+  // `stat -f %m x || stat -c %Y x` therefore emits BOTH, yielding a multi-line value and an
+  // integer-expression error under `set -e`. This shim reproduces exactly that.
+  if (statDialect === 'gnu') {
+    writeStub(
+      stubs,
+      'stat',
+      [
+        'if [ "$1" = "-c" ]; then',
+        '  shift 2',                     // drop -c and the format
+        '  for f in "$@"; do /usr/bin/stat -f %m "$f"; done',
+        '  exit 0',
+        'fi',
+        'if [ "$1" = "-f" ]; then',
+        '  shift',
+        '  rc=0',
+        '  for a in "$@"; do',
+        '    case "$a" in',
+        '      %*) echo "stat: cannot read file system information for $a" >&2; rc=1 ;;',
+        '      *)  echo "  File: \\"$a\\"  ID: 0 Namelen: 255 Type: apfs" ;;',
+        '    esac',
+        '  done',
+        '  exit $rc',
+        'fi',
+        'exit 1',
+      ].join('\n')
+    );
+  }
 
   const res = spawnSync('bash', [path.join(root, 'scripts', 'e2e-sim-build.sh')], {
     encoding: 'utf8',
@@ -470,5 +503,30 @@ describe('e2e-sim-build.sh — happy path', () => {
     expect(r.installed).toBe(true);
     expect(r.output).toMatch(/✅/);
     expect(r.output).not.toMatch(/❌/);
+  });
+});
+
+describe('e2e-sim-build.sh — portability of the freshness assert', () => {
+  test('works under GNU stat semantics, not just BSD', () => {
+    // Regression. The first implementation used
+    //   stat -f %m "$1" 2>/dev/null || stat -c %Y "$1" 2>/dev/null
+    // which is correct on macOS and silently broken on Linux: GNU's -f is --file-system
+    // and takes no format arg, so `%m` becomes a FILE operand — the command fails (firing
+    // the ||) while STILL printing filesystem info, so BOTH branches emit, the value is
+    // multi-line, and `[ "$m" -ge N ]` dies as an integer-expression error under set -e.
+    // Every happy-path case went red on ubuntu-latest and green on the author's Mac.
+    // The fix probes with -c (which BSD rejects outright) and picks a dialect once.
+    const r = runScript({ statDialect: 'gnu' });
+    expect(r.status).toBe(0);
+    expect(r.installed).toBe(true);
+    expect(r.output).not.toMatch(/integer expression|❌/);
+  });
+
+  test('still refuses a stale bundle under GNU stat semantics', () => {
+    // The portability fix must not cost the assert its teeth.
+    const r = runScript({ statDialect: 'gnu', bundleState: 'stale' });
+    expect(r.status).not.toBe(0);
+    expect(r.installed).toBe(false);
+    expect(r.output).toMatch(/stale|fresh/i);
   });
 });

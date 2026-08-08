@@ -142,11 +142,22 @@ rm -rf "${PRODUCT_DIR:?}"/*.app
 # from a previous build minutes or hours ago, never the same second.
 BUILD_STARTED_AT="$(date +%s)"
 
-# Portable mtime: BSD stat (macOS, where this actually runs) vs GNU stat (ubuntu-latest,
-# where the jest harness runs). Neither flag set exists on the other platform.
-mtime_of() {
-  stat -f %m "$1" 2>/dev/null || stat -c %Y "$1" 2>/dev/null
-}
+# Portable mtime. Decide the dialect ONCE by probing, and probe with `-c` (GNU) rather
+# than `-f` (BSD).
+#
+# The obvious `stat -f %m "$1" || stat -c %Y "$1"` is subtly broken on GNU and CI caught
+# it: GNU's `-f` means --file-system and takes NO format argument, so `stat -f %m file`
+# treats `%m` as a second FILE operand. It fails on that operand (non-zero, so the `||`
+# fires) but STILL prints filesystem info for `file` — so both branches emit and the
+# variable ends up multi-line, making `[ "$m" -ge N ]` an integer-expression error that
+# `set -e` turns into a dead script. Every happy-path test went red on ubuntu-latest.
+#
+# Probing with `-c` has no such failure mode: BSD stat rejects `-c` outright.
+if stat -c %Y . >/dev/null 2>&1; then
+  mtime_of() { stat -c %Y "$1"; }   # GNU (ubuntu-latest, where the jest harness runs)
+else
+  mtime_of() { stat -f %m "$1"; }   # BSD (macOS, where the build actually runs)
+fi
 
 # ---------------------------------------------------------------------------------------
 # 6. Build. Env is derived from the RESOLVED e2e-sim profile (following `extends`) so it
