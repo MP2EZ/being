@@ -5,18 +5,48 @@
  * Uses Zustand for reactive state + SecureStore for AES-256 encryption.
  *
  * Philosopher-validated (9.7/10 rating) - Tracks:
- * - Domain progress (work, relationships, adversity)
- * - Virtue instances (successes) and challenges (struggles)
+ * - Check-in completions and principle engagements
+ * - Weekly reflections
  * - Practice streaks and total days
  *
  * FEAT-45: Updated to 5-principle framework (2025-10-29)
- * Principle repertoire thresholds adjusted: 12 principles → 5 principles
  *
  * NON-NEGOTIABLES:
- * - All virtue/challenge data encrypted at rest (SecureStore)
- * - Self-compassion required in VirtueChallenge
- * - Balanced examination (instances + challenges)
- * - Privacy-first: No analytics on virtue content
+ * - All practice data encrypted at rest (SecureStore)
+ * - Privacy-first: No analytics on practice content
+ *
+ * ── MAINT-320 (2026-08-08): virtue WRITERS removed, virtue STATE retained ──
+ *
+ * `addVirtueInstance` / `addVirtueChallenge` and the domain-progress helper they
+ * drove are gone. They had zero production callers, and git history shows no
+ * reachable writer ever shipped: the only caller `addVirtueInstance` ever had was
+ * `VirtueInstancesScreen`, which was never registered in `EveningFlowNavigator`
+ * and was deleted as orphaned in MAINT-79 (abff5b09); `VirtueDashboardScreen`
+ * (FEAT-51) was read-only. So the evening flow APPEARED to write virtue records
+ * and never did — `virtueInstances` / `virtueChallenges` have always been empty
+ * in production.
+ *
+ * WHY THE STATE AND `getRecentVirtueInstances` STAY (deliberate, not an oversight):
+ * `getRecentVirtueInstances` has a live production caller —
+ * `features/data-export/services/exportService.ts` reads it into
+ * `payload.practices.virtues`. Removing the state would therefore change the
+ * data-export contract, which needs `EXPORT_SCHEMA_VERSION` bumped, an
+ * `EXPORT_OMISSIONS` disclosure entry, a schema-version bump with a forward-only
+ * migration, a co-edit to `DataRetentionService`'s `practice_progress` branch
+ * (it writes these keys back, and would resurrect them), and a compliance pass.
+ * That is tracked as **MAINT-371**, not smuggled in here. Keeping the state means
+ * the persisted shape is unchanged, so this removal needs no migration at all.
+ *
+ * `domainProgress` is now frozen at its initial zeroes — its only writer was the
+ * helper removed above, and it has no production readers. It is retained for the
+ * same reason: dropping it would change the persisted shape. Also folded into
+ * MAINT-371.
+ *
+ * OUT OF SCOPE, recorded so it is not lost: the daily loop's Virtuous Response
+ * beat collects `virtues: CardinalVirtue[]` (`DailyLoopStepScreen`) that
+ * `handleDailyLoopComplete` never reads. Wiring it up would be a NEW wellness-data
+ * write carrying free-text `context` and needs its own compliance review; dropping
+ * the chips is a UX change. Either way it is a separate item, not this cleanup.
  *
  * @see /docs/architecture/Stoic-Mindfulness-Architecture-v1.0.md (v1.1 LOCKED)
  */
@@ -28,8 +58,6 @@ import { generateInternalId } from '@/core/utils/id';
 import { getIsoWeekStart } from '@/core/utils/isoWeek';
 import { logError, LogCategory } from '@/core/services/logging';
 import type {
-  CardinalVirtue,
-  PracticeDomain,
   StoicPrinciple,
   VirtueInstance,
   VirtueChallenge,
@@ -110,11 +138,18 @@ export interface StoicPracticeState {
   currentStreak: number;
   longestStreak: number;
 
-  // Virtue tracking (encrypted at rest)
+  // Virtue tracking (encrypted at rest).
+  // MAINT-320: WRITE-DEAD as of this build — no writer remains, and none ever
+  // shipped (see the file header). Retained, not removed: `virtueInstances` is
+  // read by the data-export contract, and keeping both fields keeps the
+  // persisted shape unchanged so no migration is needed. Removal is MAINT-371.
   virtueInstances: VirtueInstance[];
   virtueChallenges: VirtueChallenge[];
 
-  // Domain progress (work, relationships, adversity)
+  // Domain progress (work, relationships, adversity).
+  // MAINT-320: also write-dead — its only writer was the virtue-instance helper
+  // removed above, and it has no production readers. Frozen at initial zeroes.
+  // Retained for the same persisted-shape reason. Removal is MAINT-371.
   domainProgress: {
     work: DomainProgress;
     relationships: DomainProgress;
@@ -136,13 +171,11 @@ export interface StoicPracticeState {
   isLoading: boolean;
 
   // Actions
-  addVirtueInstance: (instance: Omit<VirtueInstance, 'id' | 'timestamp'>) => Promise<void>;
-  addVirtueChallenge: (challenge: Omit<VirtueChallenge, 'id' | 'timestamp'>) => Promise<void>;
   updateStreak: (newStreak: number) => void;
   incrementPracticeDays: () => Promise<void>;
   setPracticeStartDate: (date: Date) => void;
-  getVirtueInstancesByDomain: (domain: PracticeDomain) => VirtueInstance[];
-  getVirtueInstancesByVirtue: (virtue: CardinalVirtue) => VirtueInstance[];
+  // Retained for the data-export contract — see the MAINT-320 note in the file
+  // header. The by-domain / by-virtue variants had no callers and are gone.
   getRecentVirtueInstances: (days: number) => VirtueInstance[];
   // Check-in completion tracking (for home screen faded appearance)
   markCheckInComplete: (type: CheckInType) => Promise<void>;
@@ -180,7 +213,7 @@ const initialDomainProgress: DomainProgress = {
   lastPracticeDate: null,
 };
 
-const getInitialState = (): Omit<StoicPracticeState, 'isLoading' | 'addVirtueInstance' | 'addVirtueChallenge' | 'updateStreak' | 'incrementPracticeDays' | 'setPracticeStartDate' | 'getVirtueInstancesByDomain' | 'getVirtueInstancesByVirtue' | 'getRecentVirtueInstances' | 'markCheckInComplete' | 'isCheckInCompletedToday' | 'recordPrincipleEngagement' | 'getPrincipleEngagements' | 'getCheckInHistory' | 'addWeeklyReflection' | 'getWeeklyReflectionForWeek' | 'loadPersistedState' | 'persistState' | 'resetStore'> => ({
+const getInitialState = (): Omit<StoicPracticeState, 'isLoading' | 'updateStreak' | 'incrementPracticeDays' | 'setPracticeStartDate' | 'getRecentVirtueInstances' | 'markCheckInComplete' | 'isCheckInCompletedToday' | 'recordPrincipleEngagement' | 'getPrincipleEngagements' | 'getCheckInHistory' | 'addWeeklyReflection' | 'getWeeklyReflectionForWeek' | 'loadPersistedState' | 'persistState' | 'resetStore'> => ({
   practiceStartDate: null,
   totalPracticeDays: 0,
   currentStreak: 0,
@@ -206,32 +239,6 @@ const getInitialState = (): Omit<StoicPracticeState, 'isLoading' | 'addVirtueIns
  */
 const generateId = (): string => {
   return generateInternalId();
-};
-
-/**
- * Update domain progress when virtue instance is added
- */
-const updateDomainProgressForInstance = (
-  domainProgress: StoicPracticeState['domainProgress'],
-  domain: PracticeDomain,
-  principleApplied: string | null
-): StoicPracticeState['domainProgress'] => {
-  const currentProgress = domainProgress[domain];
-
-  // Add principle if not already applied in this domain
-  const principlesApplied = principleApplied && !currentProgress.principlesApplied.includes(principleApplied)
-    ? [...currentProgress.principlesApplied, principleApplied]
-    : currentProgress.principlesApplied;
-
-  return {
-    ...domainProgress,
-    [domain]: {
-      ...currentProgress,
-      practiceInstances: currentProgress.practiceInstances + 1,
-      principlesApplied,
-      lastPracticeDate: new Date(),
-    },
-  };
 };
 
 /**
@@ -546,53 +553,6 @@ export const useStoicPracticeStore = create<StoicPracticeState>((set, get) => ({
   isLoading: false,
 
   /**
-   * Add a virtue instance (successful practice)
-   */
-  addVirtueInstance: async (instance: Omit<VirtueInstance, 'id' | 'timestamp'>) => {
-    const state = get();
-
-    const newInstance: VirtueInstance = {
-      ...instance,
-      id: generateId(),
-      timestamp: new Date(),
-    };
-
-    const updatedDomainProgress = updateDomainProgressForInstance(
-      state.domainProgress,
-      instance.domain,
-      instance.principleApplied
-    );
-
-    const newState = {
-      virtueInstances: [...state.virtueInstances, newInstance],
-      domainProgress: updatedDomainProgress,
-    };
-
-    set(newState);
-    schedulePersist();
-  },
-
-  /**
-   * Add a virtue challenge (struggle with practice)
-   */
-  addVirtueChallenge: async (challenge: Omit<VirtueChallenge, 'id' | 'timestamp'>) => {
-    const state = get();
-
-    const newChallenge: VirtueChallenge = {
-      ...challenge,
-      id: generateId(),
-      timestamp: new Date(),
-    };
-
-    const newState = {
-      virtueChallenges: [...state.virtueChallenges, newChallenge],
-    };
-
-    set(newState);
-    schedulePersist();
-  },
-
-  /**
    * Update practice streak
    */
   updateStreak: (newStreak: number) => {
@@ -621,22 +581,6 @@ export const useStoicPracticeStore = create<StoicPracticeState>((set, get) => ({
    */
   setPracticeStartDate: (date: Date) => {
     set({ practiceStartDate: date });
-  },
-
-  /**
-   * Get virtue instances by domain
-   */
-  getVirtueInstancesByDomain: (domain: PracticeDomain): VirtueInstance[] => {
-    const state = get();
-    return state.virtueInstances.filter(vi => vi.domain === domain);
-  },
-
-  /**
-   * Get virtue instances by virtue
-   */
-  getVirtueInstancesByVirtue: (virtue: CardinalVirtue): VirtueInstance[] => {
-    const state = get();
-    return state.virtueInstances.filter(vi => vi.virtue === virtue);
   },
 
   /**
