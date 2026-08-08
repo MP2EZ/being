@@ -14,9 +14,17 @@
 --   OWN distinct Vault secrets (`subscription_alert_*`) and its own channel, never the crisis
 --   alerter's `crisis_alert_*` secrets. The operator MAY point them at the same Resend account
 --   + founder inbox, but the names stay distinct so the two domains rotate independently. This
---   watchdog must never sit in a detection / 988 / intervention path. (It also needs no external
+--   watchdog must never sit in a detection / 988 / intervention path.
+--
+--   AMENDED BY INFRA-296. This parenthetical previously read "(It also needs no external
 --   healthchecks.io dead-man's-switch: grace-period is not life-safety, so the in-Supabase
---   watchdog is sufficient — that external layer is reserved for the crisis pipeline.)
+--   watchdog is sufficient — that external layer is reserved for the crisis pipeline.)"
+--   That is now false. Severity was the wrong axis: THIS watchdog lives inside the very
+--   Supabase project it watches, so a total outage silences the watchdog and the thing it
+--   watches together, no matter how un-safety-critical the subject is. INFRA-296 added an
+--   external switch on the ops side — pinged by grace-period-automation, with its own
+--   healthchecks.io check and ping-URL secret, so the two trust domains still page and
+--   rotate independently. See docs/development/post-launch-monitoring-runbook.md §3.
 --
 -- SECURITY / SECRETS — NO SECRET VALUE APPEARS IN THIS FILE.
 --   The watchdog reads secrets from Supabase Vault BY NAME at run time. Bootstrap these OUT OF
