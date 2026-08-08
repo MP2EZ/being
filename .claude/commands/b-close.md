@@ -493,6 +493,39 @@ fi
 
 ### Step 2.5.4: Verify simulator readiness
 
+**FIRST — is this worktree's build script the new one?** `.claude/` is shared across every
+worktree (it lives on `_bare`), but `app/scripts/e2e-sim-build.sh` is **app code**, so it
+arrives only when INFRA-383 is on *this branch*. Until a branch back-merges `development`,
+the guidance below describes a build that worktree cannot produce. Detect it rather than
+letting the operator discover it 12 minutes in:
+
+```bash
+if [ ${#SCRIPTS[@]} -gt 0 ]; then
+  if ! grep -q 'INFRA-383' app/scripts/e2e-sim-build.sh 2>/dev/null; then
+    echo "⚠️  This worktree still has the LEGACY EAS gate build (pre-INFRA-383)."
+    echo "    'npm run e2e:safety:build' here = eas build --local: 10-15 min EVERY run,"
+    echo "    and it additionally requires eas-cli logged in + fastlane + a clean tree."
+    echo ""
+    echo "    To get the ~1 min incremental Release build, back-merge development first:"
+    echo "      git merge origin/development"
+    echo "    Then re-read app/scripts/e2e-sim-build.sh's header before building."
+    echo ""
+    echo "    If app/ios/Podfile.lock checksums shift in that merge, do the pod-deintegrate"
+    echo "    sequence in CLAUDE.md 'Known Gotchas' or the sim build will fail with"
+    echo "    [runtime not ready]: ReferenceError: Property 'MessageQueue' doesn't exist."
+    echo ""
+    echo "    Proceeding on the legacy path is FINE — it produces a valid gate target."
+    echo "    This is a heads-up about time and prereqs, not a blocker."
+  fi
+fi
+```
+
+Not a hard stop, deliberately. The legacy EAS build still produces a correct, launcher-free
+Release artifact — it is only slow and has more prereqs. Blocking a close over it would
+convert a papercut into an outage. Delete this guard once every active branch carries
+INFRA-383.
+
+
 The gate requires a **Release** build on the sim, NOT `npm run ios` (Debug).
 `npm run e2e:safety:build` produces and installs it — since INFRA-383 that is
 `expo run:ios --configuration Release`, ~1 min warm instead of 10–15, so there is
