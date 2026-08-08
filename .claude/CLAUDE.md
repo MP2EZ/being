@@ -133,7 +133,9 @@ Short-lived branches:
 - `feat/*`, `fix/*`, `chore/*` — branched off `development`, PR'd to `development`, deleted on merge.
 - `hotfix/*` — branched off `main` (NOT dev), PR'd to `main`. After merge: **cherry-pick** the hotfix commit onto `development` (decision: cherry-pick over rebase, keeps dev's force-push protection on).
 
-**Branch protection**: both `main` and `development` require `CI pass` (9 strict gates), enforce admins, prevent force-push and deletion, and require PRs (no direct push). Use `gh pr merge --admin` for solo workflow speed.
+**Branch protection**: both `main` and `development` require `CI pass` (9 strict gates), enforce admins, prevent force-push and deletion, and require PRs (no direct push). Use `gh pr merge --admin` for solo workflow speed. "No direct push" is literal and applies to you: `required_pull_request_reviews` is present with 0 required approvals, and `enforce_admins: true` extends it to admins, so `git push origin development` is rejected with `GH006` — see the Hotfix Process below, whose backport step used to get this wrong.
+
+**When CI runs**: `ci.yml` fires on `pull_request` (into `main` or `development`) and on `push` to **`main` and `development` only**. Short-lived branches are deliberately absent from the `push:` trigger — they used to be there, and every commit on one with an open PR produced *two* complete runs on the same SHA (22 check rows per PR), which is how INFRA-329 happened: `gh pr checks --watch` read only one of the two and reported all-green on a red commit. Since every short-lived branch PRs into a protected branch, the `pull_request` trigger already covers 100% of what can merge. Consequences worth knowing: a feature branch gets **no CI until its PR is opened**, and a `push` run on `main`/`development` is the post-merge integration signal — the only check that runs after `gh pr merge --admin`. Never take a merge verdict from `--watch`'s exit status; use `statusCheckRollup` (wired into `/b-close` Step 3.4 and `/b-release` 6.5).
 
 **Multi-agent rule**: each Claude agent runs in its own worktree on its own feature branch. All agents converge on `development` via PRs. This is why `development` exists — it's the convergence point for parallel work streams.
 
@@ -157,17 +159,29 @@ For bugs found in production (or TestFlight) that need to ship without waiting o
 1. `git checkout main && git pull`
 2. `git checkout -b hotfix/<short-description>`
 3. Fix + commit
-4. PR `hotfix/* → main` (NOT to development). CI runs against main.
+4. **Open the PR `hotfix/* → main` immediately** (NOT to development) — draft is fine, don't batch commits first. `hotfix/*` is **not** in `ci.yml`'s `push:` trigger, so a hotfix branch gets no CI until its PR exists; combined with the `--no-verify` allowance below, the PR run can be the only gate a hotfix ever passes. The `opened` event fires it.
 5. After merge:
    - Tag main with patch bump (e.g., `v1.0.1`).
-   - **Cherry-pick** the hotfix commit onto development:
+   - **Cherry-pick** the hotfix commit onto development — **via a PR, not a direct push**:
      ```bash
      git -C ~/dev/being/development fetch origin
-     git -C ~/dev/being/development checkout development
-     git -C ~/dev/being/development cherry-pick origin/main
-     # (or specifically pick the hotfix sha if main has multiple new commits)
-     git -C ~/dev/being/development push origin development
+     git -C ~/dev/being/development checkout -b fix/backport-<slug> origin/development
+     git -C ~/dev/being/development cherry-pick <hotfix-sha>
+     git -C ~/dev/being/development push -u origin fix/backport-<slug>
+
+     gh pr create --base development --head fix/backport-<slug> \
+       --title "fix: backport <slug> from main" \
+       --body "Cherry-pick of <hotfix-sha>, already shipped on main via PR #<N>."
+
+     # verify per /b-close Step 3.4 — statusCheckRollup, never `gh pr checks --watch` alone
+     gh pr merge <PR> --merge --delete-branch --admin
      ```
+
+**Why a PR and not `git push origin development`.** This step used to end with a direct push. That cannot work and never could: `development` protection is `required_pull_request_reviews` present (0 approvals, but present) **+** `enforce_admins: true`, so a direct push is rejected with `GH006: Protected branch update failed — Changes must be made through a pull request`, admin or not. Requiring a PR *at all* blocks direct pushes; the 0-approval count is irrelevant. It went unnoticed because no `hotfix/*` branch has ever been cut — every commit on `development` has arrived via a PR merge — so the procedure was written but never executed, and it would have failed mid-incident with the fix already live on `main` and `development` silently missing it.
+
+Two details that matter in the same step:
+- **Name the `<hotfix-sha>`, never `origin/main`.** If `main` advanced after the hotfix (a release, a second hotfix), `cherry-pick origin/main` picks the wrong commit.
+- **Branch off `origin/development`, don't `checkout development`.** It satisfies `strict: true` (required-branches-up-to-date) by construction so the merge won't be refused as BEHIND, and it leaves the `development` worktree on `development`, which `/b-release` and the rest of the tooling assume.
 
 Cherry-pick is preferred over rebase to keep dev's "prevent force-push" protection on. The duplicate commit content is fine — git handles identical content gracefully on the next release PR.
 
