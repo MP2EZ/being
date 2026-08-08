@@ -606,6 +606,93 @@ jobs:
       - name: Performance test suite
         run: cd app && npm run test:performance -- --ci --testTimeout=30000
 
+  # INFRA-368. CI coverage in this workflow is an EMERGENT property of
+  # `--testPathPattern` substring matching, not a declared one — so a suite is
+  # gated only if someone happened to name it into a pattern. Measured on
+  # 5f6accdf: `npx jest --listTests` = 194 files, the union of every CI pattern
+  # = 131, leaving 63 ungated. Among them was every file in `__tests__/privacy/`
+  # and `__tests__/compliance/`, plus the five `__tests__/safety/` config pins
+  # that no filename accident rescues. (The other six safety files DO run today,
+  # but only because their filenames contain "crisis" and so match
+  # `test:crisis-quick`. That is the same accident, pointing the lucky way.)
+  #
+  # Why this must be a merge gate and not a local hook. `npm run precommit`
+  # already runs test:safety and test:privacy, but a hook is not a control on
+  # what reaches `main`: `--no-verify` is permitted by policy on `hotfix/*` —
+  # exactly the branch class most likely to touch crisis config under time
+  # pressure — and a hook cannot run on a machine that never installed husky.
+  # DEBUG-314 already reached this conclusion for the sibling contract and built
+  # `check:crisis-dial` into the security job for it; see the note there. This
+  # job generalises that precedent instead of re-deriving it a third time.
+  #
+  # The sharpest case is `lsApplicationQueriesSchemes.config.test.ts`, which
+  # pins `tel`/`sms` in app.json. Without those, `canOpenURL('tel:988')` returns
+  # false on every iOS device and CrisisResourcesScreen degrades to an
+  # "Unable to Call — please manually dial" alert mid-crisis. Two earlier
+  # decisions compound on it: INFRA-184 retired the Maestro trigger on app.json
+  # changes on the stated premise that this jest pin "runs on every commit on
+  # every machine", and INFRA-280 moved iOS to CNG, so app.json is now the sole
+  # source of the generated Info.plist and no reviewer ever sees a plist diff.
+  #
+  # Deliberate cost, chosen not missed: 6 of the 12 files test:safety selects
+  # already run in crisis-validation, and they are the slow ones (~48s of RN
+  # component work re-executed). Folding these into the existing crisis and
+  # security jobs would be ~20s cheaper, but the whole point of INFRA-368 is
+  # that the 988 pin should be VISIBLE as a named gate row rather than inferable
+  # from a job named for something else. Revisit only with that tradeoff in view.
+  #
+  # NOTE: adding a job here is not sufficient to gate anything. `ci-pass` tracks
+  # each gate in FOUR hand-synced places (needs / add / echo / the if-condition).
+  # Wiring only `needs:` produces a job that runs, fails, and still reports
+  # `CI pass` green — this item's own failure mode, reproduced by its own fix.
+  safety-privacy:
+    name: Safety + privacy gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: 'app/package-lock.json'
+
+      - name: Install dependencies
+        run: cd app && npm ci --prefer-offline --no-audit
+
+      # Same rationale as the other jest jobs — see the Performance regression
+      # job for why `restore-keys` is safe for a transform cache. Distinct key
+      # prefix so this job's subset does not evict theirs.
+      - name: Jest transform cache
+        uses: actions/cache@v4
+        with:
+          path: app/.jest-cache
+          key: jest-safety-privacy-${{ hashFiles('app/package-lock.json','app/jest.config.js','app/babel.config.js') }}-${{ github.sha }}
+          restore-keys: |
+            jest-safety-privacy-${{ hashFiles('app/package-lock.json','app/jest.config.js','app/babel.config.js') }}-
+
+      # INFRA-180: `--testTimeout` must appear in exactly ONE place. Verified
+      # that neither `test:safety` nor `test:privacy` carries it in
+      # package.json, so supplying it here is safe. If you ever add one to those
+      # scripts, remove it here — yargs turns the duplicate into an array, jest
+      # coerces that to NaN, and every async test fails in ~10ms while sync ones
+      # pass, which reads as flake rather than as the deterministic bug it is.
+      - name: Safety pin suite
+        run: cd app && npm run test:safety -- --ci --testTimeout=20000
+
+      - name: Privacy contract suite
+        run: cd app && npm run test:privacy -- --ci --testTimeout=20000
+
+      # Keeps CI coverage DECLARED rather than emergent. Fails when a new test
+      # file lands matching no pattern and unlisted (it would run on nobody's
+      # PR), when a listed file becomes covered (a stale entry hides the next
+      # real gap), and when ci-pass's four gate lists disagree. Deliberately
+      # last: the suites above are the gate, this is the thing that stops the
+      # gate quietly developing new holes.
+      - name: CI test-coverage ledger
+        run: cd app && npm run check:ci-test-coverage
+
   # T17 (TEST-10): Deno-based tests for Supabase Edge Functions. Closes
   # the audit's largest unprotected security surface — webhook JWS chain
   # validation, Google OIDC verification, replay protection, and
@@ -670,6 +757,7 @@ jobs:
       - accessibility
       - performance
       - edge-functions
+      - safety-privacy
 
     steps:
       # INFRA-362. This MUST run before "Aggregate gate status", which exits 1.
@@ -711,6 +799,7 @@ jobs:
           add "Accessibility (WCAG AA)"       "${{ needs.accessibility.result }}"
           add "Performance regression"        "${{ needs.performance.result }}"
           add "Edge Functions (Deno)"         "${{ needs.edge-functions.result }}"
+          add "Safety + privacy gates"        "${{ needs.safety-privacy.result }}"
           echo "failed=$FAILED"       >> "$GITHUB_OUTPUT"
           echo "cancelled=$CANCELLED" >> "$GITHUB_OUTPUT"
           echo "Failing gates:   ${FAILED:-none}"
@@ -727,14 +816,21 @@ jobs:
           echo "performance:      ${{ needs.performance.result }}"
           echo "accessibility:    ${{ needs.accessibility.result }}"
           echo "edge-functions:   ${{ needs.edge-functions.result }}"
-          # All 9 jobs are strict gates after T17 (TEST-10) added the
-          # Edge Functions Deno suite.
+          echo "safety-privacy:   ${{ needs.safety-privacy.result }}"
+          # All 10 jobs are strict gates: T17 (TEST-10) added the Edge Functions
+          # Deno suite, INFRA-368 added Safety + privacy gates.
           # Advisory list: (empty)
           #
           # Real gates that must pass:
           #   typecheck, lint (baseline ratchet), crisis-validation,
           #   clinical-validation, security, test, performance, accessibility,
-          #   edge-functions
+          #   edge-functions, safety-privacy
+          #
+          # ⚠️ A gate is tracked in FOUR places in this job — the `needs:` list,
+          # the `add` line above, the `echo` line above, and this condition.
+          # Only THIS condition decides pass/fail: a job present in `needs:` but
+          # absent here runs, goes red, and still reports `CI pass` green.
+          # `app/scripts/check-ci-test-coverage.js` asserts the four agree.
           if [[ "${{ needs.typecheck.result }}" != "success" \
              || "${{ needs.lint.result }}" != "success" \
              || "${{ needs.crisis-validation.result }}" != "success" \
@@ -743,7 +839,8 @@ jobs:
              || "${{ needs.test.result }}" != "success" \
              || "${{ needs.performance.result }}" != "success" \
              || "${{ needs.accessibility.result }}" != "success" \
-             || "${{ needs.edge-functions.result }}" != "success" ]]; then
+             || "${{ needs.edge-functions.result }}" != "success" \
+             || "${{ needs.safety-privacy.result }}" != "success" ]]; then
             echo "❌ One or more required gates failed"
             exit 1
           fi
