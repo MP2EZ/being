@@ -162,8 +162,29 @@ export const envSchema = z
     EXPO_PUBLIC_EMERGENCY_CONTACT_ENABLED: z.literal('true'),
 
     // === Performance budgets (CLAUDE.md ceilings) ===
-    // Each MAX_MS field is a ceiling. Floors prevent zero/negative values
-    // from silently disabling the budget check.
+    // Each MAX_MS field is a ceiling; the min()/max() bounds keep a nonsense
+    // value from validating.
+    //
+    // ⚠️  DECLARED, NOT CONSUMED (verified INFRA-309, 2026-08-08). All five of
+    // these are parsed here and set in both .env files, and NOTHING READS ANY OF
+    // THEM. They are not the enforcement mechanism for any budget. What actually
+    // enforces what is the table in CLAUDE.md → Performance Budgets; the short
+    // version is that crisis detection <200ms is a real CI gate, the crisis
+    // button has a coarse jest proxy, and app launch / check-in transition are
+    // hand-validated only.
+    //
+    // Do NOT "wire up the existing budget" by reading one of these. That is the
+    // trap: BREATHING_FPS_MIN in particular defaults to the literal 60, which is
+    // device-naive — ProMotion nominal is 8.3ms, not 16.67ms, so a UI thread
+    // delivering 60fps on a 120Hz iPhone is dropping half its frames yet sails
+    // past an `fps >= 60` floor. A budget expressed against a fixed 60 is a
+    // permanently-green no-op, which is the same class of fabricated control
+    // INFRA-306 deleted (`58 + Math.random() * 4`). The real measurement has to
+    // normalise against the device's own measured refresh interval — INFRA-373.
+    //
+    // Left in place rather than deleted because removing them touches both
+    // canonical .env files for no behavioural gain. If you are here to build the
+    // real control, take the value from INFRA-373's calibration, not from here.
     EXPO_PUBLIC_PERFORMANCE_CRISIS_BUTTON_MAX_MS: z.coerce.number().int().min(50).max(200).default(200),
     EXPO_PUBLIC_PERFORMANCE_APP_LAUNCH_MAX_MS: z.coerce.number().int().min(500).max(2000).default(2000),
     EXPO_PUBLIC_PERFORMANCE_ASSESSMENT_LOAD_MAX_MS: z.coerce.number().int().min(100).max(300).default(300),

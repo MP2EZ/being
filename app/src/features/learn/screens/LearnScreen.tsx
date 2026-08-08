@@ -401,7 +401,7 @@ const styles = StyleSheet.create({
   moduleTagText: {
     fontSize: typography.micro.size,
     fontWeight: typography.fontWeight.bold,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     letterSpacing: 0.5,
   },
   moduleTagTextEssential: {
@@ -415,7 +415,7 @@ const styles = StyleSheet.create({
   },
   moduleDescription: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     lineHeight: 20,
     marginBottom: spacing[16],
   },
@@ -439,7 +439,7 @@ const styles = StyleSheet.create({
   progressText: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     minWidth: spacing[40],
     textAlign: 'right',
   },
@@ -471,7 +471,7 @@ const styles = StyleSheet.create({
   },
   libraryEntryDescription: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     lineHeight: 20,
   },
   libraryEntryArrow: {

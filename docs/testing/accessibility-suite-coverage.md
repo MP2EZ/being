@@ -97,8 +97,17 @@ no reason to look further. That is a sufficient indictment on its own.
   cause is `themes.learn.primary` / `navigation.learn` `#9B7EBD` at **3.44:1**,
   which is `Timer`'s default theme. It ships from
   `@mp2ez/being-design-system`, so fixing it is a cross-repo change.
-- **`Timer.controlButton` / `skipButton` and `PracticeLibraryScreen.backButton`
-  declare no 44pt minimum.** A WCAG 2.5.5 gap, currently unasserted.
+- ~~**`Timer.controlButton` / `skipButton` and `PracticeLibraryScreen.backButton`
+  declare no 44pt minimum.**~~ — **fixed in DEBUG-365**, along with two controls
+  the ticket missed (`PracticeLibraryScreen`'s principle link, which carried no
+  `style` prop at all, and `ResumeSessionModal.tooltipButton`). All five now
+  declare `minHeight: TOUCH_TARGETS.minimum`; assertions in
+  `practices-touch-targets.test.tsx`, mutation-tested.
+  **Note the framing correction**: 44pt is *not* a WCAG AA requirement. 2.5.5
+  (44×44) is Level AAA; WCAG 2.2's 2.5.8 is AA but only 24×24, which all five
+  already cleared. 44 is the house standard (`TOUCH_TARGETS.minimum`) and matches
+  Apple HIG 44pt / Android Material 48dp. Still only a *declared*-style proxy —
+  RNTL performs no layout, so rendered geometry remains device-QA territory.
 - ~~**`app/.github/workflows/` is 10 git-tracked files GitHub never reads**~~ —
   **fixed in MAINT-366**, directory deleted. Only the repo-root
   `.github/workflows/` is ever executed. The most misleading of the ten,
