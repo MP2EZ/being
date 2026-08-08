@@ -360,9 +360,19 @@ git -C /Users/max/dev/being/<worktree-dir> fetch origin   # retry-on-lock per B2
 # the dry run: MAINT-250, a test-assertion repair under features/assessment/, was
 # being mis-queued for a sim-attended run. b-close's own Phase 2.5 grep has the same
 # blind spot — see the b-close follow-up note.)
+# Two entries in the path set are NOT feature paths and are easy to omit on sight,
+# but both reach the gate's own subject matter:
+#   - `.maestro/` — a diff that adds or edits a safety flow IS a safety-surface
+#     change by definition. The flow is the contract; it cannot be validated
+#     without running it, and a flow that has never run is not coverage.
+#   - `e2eSeed.ts` — it decides the launch state every flow starts from, so a
+#     regression there changes what all of them see while touching no feature
+#     path. Nothing else in the tree has that reach.
+# Both are UNDER-trigger risks, which is the high-severity direction: a missed
+# safety change merges unattended, whereas an unnecessary sim run is only friction.
 SAFETY=$(git -C /Users/max/dev/being/<worktree-dir> diff --name-only origin/development...HEAD \
   | grep -vE '(__tests__/|\.test\.|\.spec\.)' \
-  | grep -E 'app/(src/features/(assessment|crisis)|src/core/services/security|src/core/navigation/|app\.json|ios/.*Info\.plist)' || true)
+  | grep -E 'app/(src/features/(assessment|crisis)|src/core/services/security|src/core/navigation/|src/core/config/e2eSeed\.ts|\.maestro/|app\.json|ios/.*Info\.plist)' || true)
 # Two exclusions apply to the crisis content detector. The overlay can be re-hosted
 # in any SOURCE dir, which is why this check greps content rather than paths — but
 # neither excluded class can change what a flow sees, because Maestro drives the
