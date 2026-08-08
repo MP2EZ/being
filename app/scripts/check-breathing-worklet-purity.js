@@ -11,7 +11,9 @@
  * What it IS: a structural proxy that FAILS when the *shape* of the already-fixed
  * PERF-01/PERF-02 regression (commit ff591f3a) reappears on the breathing
  * animation path. It pins the fix in place. The actual on-device measurement is
- * INFRA-309, which is blocked on naming a calibration handset.
+ * INFRA-373, which is blocked on naming a calibration handset AND on respecifying
+ * its acceptance criteria against the current tree (INFRA-309 shipped this guard
+ * extension; it did not build the probe).
  *
  * Stating that boundary plainly is deliberate. MAINT-307 had to correct two
  * separate docs that claimed these budgets were "enforced on-device via the
@@ -62,8 +64,22 @@ const ANIMATION_PATH_FILES = [
   'src/features/practices/shared/components/SharedBreathingScreen.tsx',
 ];
 
-/** Reanimated hooks whose callback bodies run on the UI thread every frame. */
-const WORKLET_HOOKS = ['useAnimatedStyle', 'useDerivedValue', 'useAnimatedReaction'];
+/**
+ * Reanimated hooks whose callback bodies run on the UI thread every frame.
+ *
+ * `useFrameCallback` (INFRA-309) is the one to watch. The other three run
+ * per-frame as a side effect of what they compute; `useFrameCallback` runs
+ * per-frame as its entire purpose, so a `runOnJS` in its body is the PERF-02
+ * cost by construction rather than by accident. It was absent from this list
+ * until INFRA-309, which meant the guard could not see the regression in the
+ * exact hook the eventual frame probe (INFRA-373) has to use.
+ */
+const WORKLET_HOOKS = [
+  'useAnimatedStyle',
+  'useDerivedValue',
+  'useAnimatedReaction',
+  'useFrameCallback',
+];
 
 const SKIP_DIRECTIVE_RE = /\/\/\s*breathing-worklet-skip\b/;
 const RUN_ON_JS_RE = /\brunOnJS\s*\(/;
@@ -144,10 +160,19 @@ function analyzeSource(source, baseName) {
       if (hasSkipDirective(rawLines, lineNo)) continue;
 
       if (RUN_ON_JS_RE.test(slice)) {
+        // The remedy differs by hook, and naming the wrong one is how a guard
+        // earns a skip-directive instead of a fix. `withTiming` completion is
+        // the right answer for an animation hook; a frame probe has no cycle
+        // leg to hang it on, so it must accumulate and cross once at the end.
+        const remedy =
+          hook === 'useFrameCallback'
+            ? `Accumulate into Reanimated shared values and cross to JS exactly ` +
+              `once, when the measurement window closes.`
+            : `Move the JS call to a withTiming completion callback so it fires ` +
+              `once per cycle leg.`;
         violations.push(
           `${baseName}:${lineNo} — runOnJS inside a ${hook} body. That hops the ` +
-            `bridge on every frame (the PERF-02 regression). Move the JS call to a ` +
-            `withTiming completion callback so it fires once per cycle leg.`
+            `bridge on every frame (the PERF-02 regression). ${remedy}`
         );
       }
       if (STATE_SETTER_RE.test(slice)) {
@@ -229,8 +254,8 @@ function main() {
     console.error(allViolations.join('\n\n'));
     console.error(
       '\nThis guard pins the PERF-01/PERF-02 fix (commit ff591f3a) in place. It is a\n' +
-        'structural proxy — it does NOT measure frames. The on-device 60fps\n' +
-        'measurement is INFRA-309.\n\n' +
+        'structural proxy — it does NOT measure frames. The on-device measurement is\n' +
+        'INFRA-373.\n\n' +
         'If a violation is genuinely intentional, add\n' +
         '`// breathing-worklet-skip: <reason>` directly above it.\n'
     );
@@ -239,7 +264,7 @@ function main() {
 
   console.log(
     `✅ Breathing animation path is worklet-pure across ${ANIMATION_PATH_FILES.length} file(s) ` +
-      '(structural proxy; frame rate itself is unmeasured — INFRA-309).'
+      '(structural proxy; frame rate itself is unmeasured — INFRA-373).'
   );
 }
 
