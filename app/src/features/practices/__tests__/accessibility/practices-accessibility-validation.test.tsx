@@ -1,19 +1,38 @@
 /**
- * DRD Check-in Flows Accessibility Validation Suite
+ * Practices check-in flows — accessibility assertions.
  *
- * CRITICAL ACCESSIBILITY REQUIREMENTS:
- * - WCAG AA compliance
- * - Screen reader navigation
- * - Voice control compatibility
- * - High contrast mode support
- * - Touch target accessibility (44pt minimum)
- * - Audio announcements for breathing exercises
+ * WHAT THIS FILE PROVES (and it is narrower than the old header claimed):
+ * - `CollapsibleCrisisButton` exposes the exact accessibilityRole, label and
+ *   hint the crisis surface depends on, and carries its 12pt hitSlop. These are
+ *   the ONLY assertions of that label and that hitSlop anywhere in the repo —
+ *   the sibling `CollapsibleCrisisButton.accessibility.test.ts` pins width and
+ *   height but neither of these. Do not delete them believing they are covered.
+ * - `BreathingCircle` announces "Breathe in" synchronously on activation, stays
+ *   silent when inactive, and STILL announces under `reducedMotion`.
+ * - The three components render without crashing.
+ *
+ * WHAT IT DOES NOT PROVE. It measures no contrast ratio, no rendered tap-target
+ * geometry, and no OS-level mode. React Native Testing Library performs no
+ * layout, and jest has no high-contrast, Dynamic Type, or VoiceOver mode to
+ * enter — those need device QA. Tests named for such properties are therefore
+ * absent by design rather than faked.
+ *
+ * MAINT-358 removed 8 tests that could not fail — three self-asserting
+ * checklists that declared an object of 34 `true` values, asserted it against
+ * itself and printed `✅ contrastRatioMet: PASS` / `🚨 crisisResponseTime: PASS`
+ * into CI logs; three `expect(true).toBe(true)` placeholders; and two tests that
+ * asserted only that a jest mock was defined. Also removed a "colors adapt to
+ * high contrast" test whose `themes.forEach` loop variable reached nothing but
+ * the testID string — `BreathingCircleProps` has no `theme` prop, so it rendered
+ * the same component three times.
+ *
+ * If you add a test here, it must be able to fail. See docs/testing/
+ * accessibility-suite-coverage.md for what the wider gate does and does not
+ * cover.
  */
 
-
-import { logSecurity, logPerformance, logError, LogCategory } from '@/core/services/logging';
 import React from 'react';
-import { render, fireEvent } from '@testing-library/react-native';
+import { render } from '@testing-library/react-native';
 import { AccessibilityInfo } from 'react-native';
 
 // Component imports
@@ -59,29 +78,24 @@ describe('DRD Check-in Flows Accessibility Validation', () => {
     });
 
     describe('BreathingCircle Accessibility', () => {
-      it('CRITICAL: Breathing guide has proper accessibility description', () => {
+      // Renamed from "has proper accessibility description": it asserts no
+      // description. getByTestId throws when the node is absent, so this is a
+      // render smoke test — real, but only that. The announcement contract is
+      // asserted in section 4.
+      it('renders while active and exposes its testID', () => {
         const { getByTestId } = render(
           <BreathingCircle isActive={true} testID="breathing-circle" />
         );
 
-        const breathingContainer = getByTestId('breathing-circle');
-
-        // Check for accessibility annotations
-        expect(breathingContainer).toBeTruthy();
-      });
-
-      it('CRITICAL: Audio announcements for breathing phases', () => {
-        render(
-          <BreathingCircle isActive={true} />
-        );
-
-        // Verify AccessibilityInfo.announceForAccessibility is set up correctly
-        expect(AccessibilityInfo.announceForAccessibility).toBeDefined();
+        expect(getByTestId('breathing-circle')).toBeTruthy();
       });
     });
 
     describe('Timer Accessibility', () => {
-      it('Timer has proper accessibility role and labels', () => {
+      // Renamed from "has proper accessibility role and labels": it asserts
+      // neither. Left as a render smoke test rather than deleted — nothing else
+      // in the repo renders this Timer.
+      it('renders while active and exposes its testID', () => {
         const { getByTestId } = render(
           <Timer
             duration={60000}
@@ -91,8 +105,7 @@ describe('DRD Check-in Flows Accessibility Validation', () => {
           />
         );
 
-        const timer = getByTestId('timer');
-        expect(timer).toBeTruthy();
+        expect(getByTestId('timer')).toBeTruthy();
       });
     });
 
@@ -116,44 +129,19 @@ describe('DRD Check-in Flows Accessibility Validation', () => {
         expect(element.props.accessibilityLabel).toBeTruthy();
       });
     });
-
-    it('Voice commands work with navigation elements', () => {
-      // Voice control validation for navigation
-      expect(true).toBe(true); // Placeholder for voice control testing
-    });
   });
 
-  describe('3. HIGH CONTRAST MODE SUPPORT', () => {
-    it('CRITICAL: Crisis button maintains visibility in high contrast', () => {
-      const { getByTestId } = render(
-        <CollapsibleCrisisButton testID="crisis-button" />
-      );
+  // MAINT-358: the "HIGH CONTRAST MODE SUPPORT" section is gone rather than
+  // renamed. Neither of its tests touched contrast: one rendered the crisis
+  // button and asserted it existed (already covered by section 1, with stronger
+  // assertions), and the other looped ['morning','midday','evening'] passing the
+  // value nowhere but into a testID string — BreathingCircleProps has no `theme`
+  // prop, so it rendered the identical component three times. jest cannot enter
+  // an OS high-contrast mode at all; real contrast is computed against tokens in
+  // core/theme/__tests__/theme-contrast.accessibility.test.ts, and the rest needs
+  // device QA.
 
-      const crisisButton = getByTestId('crisis-button');
-
-      // High contrast mode should maintain button visibility
-      expect(crisisButton).toBeTruthy();
-    });
-
-    it('Component colors adapt to high contrast preferences', () => {
-      // High contrast mode testing with BreathingCircle
-      const themes = ['morning', 'midday', 'evening'] as const;
-
-      themes.forEach(theme => {
-        const { getByTestId } = render(
-          <BreathingCircle
-            isActive={true}
-            testID={`breathing-${theme}`}
-          />
-        );
-
-        const circle = getByTestId(`breathing-${theme}`);
-        expect(circle).toBeTruthy();
-      });
-    });
-  });
-
-  describe('4. TOUCH TARGET ACCESSIBILITY', () => {
+  describe('3. TOUCH TARGET ACCESSIBILITY', () => {
     it('CRITICAL: All buttons meet 44pt minimum touch target', () => {
       const { getByTestId } = render(
         <CollapsibleCrisisButton testID="collapsible-crisis-button" />
@@ -172,26 +160,18 @@ describe('DRD Check-in Flows Accessibility Validation', () => {
       });
     });
 
-    it('Timer controls have adequate touch targets', () => {
-      const { getByTestId } = render(
-        <Timer
-          duration={60000}
-          isActive={true}
-          onComplete={jest.fn()}
-          testID="timer"
-        />
-      );
-
-      const timer = getByTestId('timer');
-
-      // Touch targets should be large enough for accessibility
-      expect(timer).toBeTruthy();
-    });
+    // MAINT-358: "Timer controls have adequate touch targets" deleted. It
+    // rendered the Timer and asserted the CONTAINER existed — it never reached a
+    // control, never read a style, and could not have failed on an undersized
+    // target. RNTL performs no layout, so no jest test can measure a rendered
+    // tap target; a declared-minHeight assertion is the most that is honest, and
+    // Timer's controls do not currently declare one. Tracked as its own item
+    // rather than faked here.
 
     // MAINT-65: EmotionGrid and EveningValueSlider tests removed (unused legacy components)
   });
 
-  describe('5. AUDIO ANNOUNCEMENTS FOR BREATHING EXERCISES', () => {
+  describe('4. AUDIO ANNOUNCEMENTS FOR BREATHING EXERCISES', () => {
     it('CRITICAL: Breathing circle announces the inhale cue immediately on activation', () => {
       render(
         <BreathingCircle isActive={true} />
@@ -208,21 +188,14 @@ describe('DRD Check-in Flows Accessibility Validation', () => {
       expect(AccessibilityInfo.announceForAccessibility).not.toHaveBeenCalled();
     });
 
-    it('Timer announces time remaining at key intervals', () => {
+    // MAINT-358: "Timer announces time remaining at key intervals" deleted — it
+    // asserted `announceForAccessibility` was `toBeDefined()`, i.e. that the jest
+    // mock existed. It was also unreachable by construction: the Timer's
+    // thresholds are 30s/10s/≤5s, the test used a 60s duration and never advanced
+    // timers, so no announcement could have fired even had it been asserted.
+
+    it('still announces under reduced motion', () => {
       render(
-        <Timer
-          duration={60000}
-          isActive={true}
-          onComplete={jest.fn()}
-        />
-      );
-
-      // Timer should announce remaining time
-      expect(AccessibilityInfo.announceForAccessibility).toBeDefined();
-    });
-
-    it('Reduced motion mode provides alternative audio guidance', () => {
-      const { getByTestId } = render(
         <BreathingCircle
           isActive={true}
           reducedMotion={true}
@@ -230,136 +203,27 @@ describe('DRD Check-in Flows Accessibility Validation', () => {
         />
       );
 
-      const breathingCircle = getByTestId('breathing-circle');
-      expect(breathingCircle).toBeTruthy();
       // Reduced motion damps the visual but must NOT suppress audio cues —
-      // the guidance text promises audio will guide breathing.
+      // the guidance text promises audio will guide breathing. This is the only
+      // runtime assertion of that promise in the repo.
       expect(AccessibilityInfo.announceForAccessibility).toHaveBeenCalledWith('Breathe in');
     });
   });
 
-  describe('6. REDUCED MOTION SUPPORT', () => {
-    it('CRITICAL: BreathingCircle respects reduced motion preferences', () => {
-      const { getByTestId } = render(
-        <BreathingCircle
-          isActive={true}
-          reducedMotion={true}
-          testID="breathing-circle"
-        />
-      );
+  // MAINT-358: the "REDUCED MOTION SUPPORT" and "FOCUS MANAGEMENT" sections are
+  // gone. Reduced motion's only real assertion lives in section 4 above; what
+  // remained here re-rendered the same component to assert it existed, plus an
+  // `expect(true).toBe(true)` placeholder. Focus management asserted nothing
+  // about focus — it rendered one component, and there is no focus ORDER to
+  // traverse with a single node. VoiceOver/TalkBack traversal is not observable
+  // in jest and belongs to device QA.
 
-      const breathingCircle = getByTestId('breathing-circle');
-      expect(breathingCircle).toBeTruthy();
-    });
-
-    it('Animations gracefully degrade with reduced motion', () => {
-      // Test animation fallbacks
-      expect(true).toBe(true); // Placeholder for animation testing
-    });
-  });
-
-  describe('7. FOCUS MANAGEMENT', () => {
-    it('Focus moves logically through interactive elements', () => {
-      const { getByTestId } = render(
-        <BreathingCircle
-          isActive={true}
-          testID="breathing-focus"
-        />
-      );
-
-      // Focus management validation
-      const circle = getByTestId('breathing-focus');
-      expect(circle).toBeTruthy();
-    });
-
-    it('Modal presentation maintains proper focus', () => {
-      // Focus management in modals
-      expect(true).toBe(true); // Placeholder for modal focus testing
-    });
-  });
-
-  describe('8. COMPREHENSIVE ACCESSIBILITY CHECKLIST', () => {
-    it('WCAG AA compliance validation checklist', () => {
-      const accessibilityChecklist = {
-        // Level A Requirements
-        keyboardAccessible: true,
-        altTextProvided: true,
-        colorNotSoleIndicator: true,
-
-        // Level AA Requirements
-        contrastRatioMet: true, // 4.5:1 for normal text, 3:1 for large text
-        resizeableText: true, // Text can scale to 200% without scrolling
-        keyboardTrapAvoided: true,
-        noSeizureContent: true,
-        skipNavigation: true,
-        headingsStructured: true,
-        focusVisible: true,
-
-        // Mobile Specific
-        touchTargetSize: true, // 44pt minimum
-        orientationSupport: true,
-        motionTolerance: true,
-        screenReaderSupport: true,
-        voiceControlSupport: true
-      };
-
-      Object.entries(accessibilityChecklist).forEach(([requirement, passes]) => {
-        expect(passes).toBe(true);
-        console.log(`✅ ${requirement}: ${passes ? 'PASS' : 'FAIL'}`);
-      });
-    });
-
-    it('Crisis safety accessibility requirements', () => {
-      const crisisAccessibilityChecklist = {
-        // Crisis Button Requirements
-        crisisButtonVisible: true,
-        crisisButtonAccessible: true,
-        crisisResponseTime: true, // <200ms
-        emergencyContactsAccessible: true,
-
-        // Screen Reader Support
-        crisisAnnouncementsClear: true,
-        emergencyInstructionsSpoken: true,
-
-        // High Contrast Support
-        crisisButtonHighContrast: true,
-        emergencyContentVisible: true,
-
-        // Voice Control
-        crisisVoiceActivation: true,
-        emergencyVoiceCommands: true
-      };
-
-      Object.entries(crisisAccessibilityChecklist).forEach(([requirement, passes]) => {
-        expect(passes).toBe(true);
-        console.log(`🚨 ${requirement}: ${passes ? 'PASS' : 'FAIL'}`);
-      });
-    });
-
-    it('Clinical timing accessibility requirements', () => {
-      const timingAccessibilityChecklist = {
-        // Timer Accessibility
-        timerAnnouncementsAccurate: true,
-        remainingTimeSpoken: true,
-
-        // Breathing Exercise Accessibility
-        breathingPhaseAnnouncements: true,
-        inhaleExhaleGuidance: true,
-        alternativeAudioGuidance: true,
-
-        // Reduced Motion Support
-        reducedMotionFallbacks: true,
-        audioOnlyGuidance: true,
-
-        // Pause/Resume Accessibility
-        pauseControlsAccessible: true,
-        resumeInstructionsClear: true
-      };
-
-      Object.entries(timingAccessibilityChecklist).forEach(([requirement, passes]) => {
-        expect(passes).toBe(true);
-        console.log(`⏱️ ${requirement}: ${passes ? 'PASS' : 'FAIL'}`);
-      });
-    });
-  });
+  // MAINT-358: the "COMPREHENSIVE ACCESSIBILITY CHECKLIST" section is gone. Its
+  // three tests declared objects totalling 34 hardcoded `true` values, asserted
+  // each against itself, and printed a PASS line per key into CI logs. They
+  // computed nothing, rendered nothing, and could not fail. The most damaging
+  // was `crisisResponseTime: true, // <200ms` printing `🚨 crisisResponseTime:
+  // PASS` beside a budget that is genuinely gated elsewhere
+  // (__tests__/performance/assessment-performance.test.ts). Real contrast
+  // coverage lives in core/theme/__tests__/theme-contrast.accessibility.test.ts.
 });
