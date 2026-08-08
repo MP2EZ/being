@@ -347,7 +347,14 @@ fi
 # is deliberately NOT subject to the INFRA-256 inert filter — it is an independent,
 # paranoid over-trigger signal; a CollapsibleCrisisButton line moving at all re-arms
 # the reachability flow regardless of how "inert" the surrounding diff looks.
+# It IS subject to the test-file exclusion, which is a different question from
+# inertness: the overlay can be re-hosted in any SOURCE dir (hence content, not
+# paths), but a jest test file is not in the app bundle and Maestro drives the
+# running app, so a test-only diff cannot change what any flow sees. Without the
+# exclusion a deleted test that merely RENDERED the overlay, or a comment naming
+# it, gates a sim-attended close on a change with no runtime code in it.
 CRISIS_HOST_CHANGED=$(git diff origin/development...HEAD -- 'app/**/*.tsx' 'app/**/*.ts' \
+  ':(exclude)app/**/__tests__/**' ':(exclude)app/**/*.test.*' ':(exclude)app/**/*.spec.*' \
   | grep -E '^[+-].*CollapsibleCrisisButton' || true)
 ```
 

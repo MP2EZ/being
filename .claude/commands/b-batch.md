@@ -355,7 +355,14 @@ git -C /Users/max/dev/being/<worktree-dir> fetch origin   # retry-on-lock per B2
 SAFETY=$(git -C /Users/max/dev/being/<worktree-dir> diff --name-only origin/development...HEAD \
   | grep -vE '(__tests__/|\.test\.|\.spec\.)' \
   | grep -E 'app/(src/features/(assessment|crisis)|src/core/services/security|src/core/navigation/|app\.json|ios/.*Info\.plist)' || true)
+# The same test-file exclusion applies to the crisis content detector. The overlay
+# can be re-hosted in any SOURCE dir, which is why this check greps content rather
+# than paths — but a jest test file is not in the app bundle, and Maestro drives the
+# running app, so a test-only diff cannot change what any flow sees. Without the
+# exclusion a deleted test that merely RENDERED the overlay, or a comment naming it,
+# queues a sim-attended close for a change with no runtime code in it.
 CRISIS=$(git -C /Users/max/dev/being/<worktree-dir> diff origin/development...HEAD -- 'app/**/*.tsx' 'app/**/*.ts' \
+  ':(exclude)app/**/__tests__/**' ':(exclude)app/**/*.test.*' ':(exclude)app/**/*.spec.*' \
   | grep -E '^[+-].*CollapsibleCrisisButton' || true)
 ```
 
