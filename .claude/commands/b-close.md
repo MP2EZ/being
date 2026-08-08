@@ -420,9 +420,14 @@ SCRIPTS=()
 # --- Classify: which safety changes are RENDER/BOOT-relevant vs SERVICE-LAYER-only? ---
 # The sim flows drive the UI; they can ONLY validate render / boot / navigation surfaces.
 # Pure service-layer code is jest-owned (precommit + CI's crisis/clinical/security/
-# encryption suites + the CollapsibleCrisisButton render tests) and must not pull a slow
-# no-dev-client EAS build. Two carve-outs, both fail SAFE (a file leaves the sim-relevant
-# set only when unambiguously non-UI):
+# encryption suites + the CollapsibleCrisisButton render tests) and need not pull a sim
+# build. Two carve-outs, both fail SAFE (a file leaves the sim-relevant
+# set only when unambiguously non-UI).
+# NOTE (INFRA-383): these carve-outs were originally sized against a 10-15 min EAS build,
+# on the reasoning that charging one for a service-layer change trains the `--skip-e2e`
+# reflex. The build is now ~1 min warm, so that cost argument no longer holds and the
+# carve-outs could be re-widened for real coverage. Deliberately NOT done here — widening
+# gate scope is its own change with its own validation. Left as a recorded opportunity:
 #   1. features/crisis/services/**  — crisis BACKEND services (e.g. CrisisSecurityProtocol),
 #      not the overlay / screens / components the crisis-button flow renders.
 #   2. core/services/security/** EXCEPT EncryptionService / SecureStorageService —
@@ -488,18 +493,25 @@ fi
 
 ### Step 2.5.4: Verify simulator readiness
 
-The gate requires a **no-dev-client** build on the sim (INFRA-216), NOT a dev
-build and NOT a plain `--configuration Release` build. `expo-dev-client` is a
-project dependency, so BOTH `npm run ios` and `expo run:ios --configuration
-Release` still ship the Expo dev launcher, which the flows can only navigate by a
-guessed-coordinate tap — the gate flakes badly and trains `--skip-e2e` reflexes.
-Only the EAS `e2e-sim` profile (`developmentClient:false`) removes the launcher;
-`npm run e2e:safety:build` produces + installs it. The check below can't tell
-which build is installed, so this is guidance, not enforcement — if flows flake
-in the launcher/onboarding preamble, reinstall via `e2e:safety:build` before
-suspecting a real regression. (Known INFRA-216 follow-up: even on the no-dev-client
-build the slower Release boot leaves the long preamble timing-fragile — not yet
-≥5/5 consecutive; expect occasional retries until the seed-state follow-up lands.)
+The gate requires a **Release** build on the sim, NOT `npm run ios` (Debug).
+`npm run e2e:safety:build` produces and installs it — since INFRA-383 that is
+`expo run:ios --configuration Release`, ~1 min warm instead of 10–15, so there is
+no longer a cost argument for skipping it.
+
+**Corrected (INFRA-383).** This paragraph used to say a plain
+`--configuration Release` build also ships the dev launcher and that only the EAS
+`e2e-sim` profile removes it. That was false — Expo autolinking marks
+`expo-dev-launcher` `debugOnly: true`, so no Release build links it, and EAS's
+`developmentClient:false` only *defaults* `buildConfiguration`, which `e2e-sim`
+already set to Release explicitly. Do not reinstate the claim.
+
+The `listapps` check below still can't tell *which* build is installed — but since
+INFRA-383 `e2e-safety.sh` re-checks the artifact's shape (embedded bundle present,
+no dev-launcher linkage, `tel` in `LSApplicationQueriesSchemes`) before running any
+flow, and refuses outright on mismatch. So a dev build reaching the gate now fails
+loudly there rather than flaking. What is still NOT bound is the installed binary to
+*this tree* — a provenance marker is the tracked follow-up; until it lands, rebuild
+before closing if you have any doubt.
 
 ```bash
 # Only require a simulator when there are flows to run. A service-layer-only safety
@@ -507,8 +519,8 @@ build the slower Release boot leaves the long preamble timing-fragile — not ye
 if [ ${#SCRIPTS[@]} -gt 0 ]; then
   if ! xcrun simctl list devices booted | grep -qE '\([A-F0-9-]+\) \(Booted\)'; then
     echo "❌ No iOS simulator booted."
-    echo "   Run 'npm run e2e:safety:build' first (no-dev-client EAS build, INFRA-216) to build +"
-    echo "   install Being on a sim, then retry /b-close. Do NOT use 'npm run ios' (dev build → flaky gate)."
+    echo "   Run 'npm run e2e:safety:build' first (Release build, INFRA-383) to build +"
+    echo "   install Being on a sim, then retry /b-close. Do NOT use 'npm run ios' (Debug → dev launcher → gate refuses)."
     exit 1
   fi
   # Bundle id is fyi.being.app (MAINT-161). It is NOT com.being.app — that target
@@ -519,7 +531,7 @@ if [ ${#SCRIPTS[@]} -gt 0 ]; then
   # guard greenlights a suite that cannot launch anything.
   if ! xcrun simctl listapps booted 2>/dev/null | grep -q fyi.being.app; then
     echo "❌ fyi.being.app not installed on booted sim."
-    echo "   Run 'npm run e2e:safety:build' first (no-dev-client EAS build, INFRA-216), then retry /b-close."
+    echo "   Run 'npm run e2e:safety:build' first (Release build, INFRA-383), then retry /b-close."
     exit 1
   fi
 fi
