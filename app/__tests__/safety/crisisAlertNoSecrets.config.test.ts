@@ -1,12 +1,19 @@
 /**
  * Committed-secret static pin for the Supabase deploy surface (INFRA-219).
  *
+ * Despite the file name, this pin is DOMAIN-AGNOSTIC and always has been: it matches secret
+ * SHAPES over the whole `supabase/` tree, so it covers the crisis pipeline (INFRA-219,
+ * INFRA-264) and the subscription/ops pipeline (INFRA-282, INFRA-296) equally. A new edge
+ * function is protected the moment its file exists — no new pattern, no registration. Do
+ * not add a parallel "opsAlertNoSecrets" test; extend this one.
+ *
  * The crisis-detection alerting cron (migration 20260607000000_crisis_alert_cron.sql)
  * and its edge function reference the CRON_SECRET, Resend key, and notification target
  * BY NAME from Supabase Vault / Edge secrets — never as literals. This test mechanically
  * enforces that: it greps every committed migration + edge-function source for secret
  * shapes (Resend keys, Supabase JWT/service-role keys, Slack/Discord webhook URLs — a
  * webhook URL with an embedded token IS a secret) and fails the commit if any are found.
+ * It also scans the two operator runbooks (see SCANNED_DOCS).
  *
  * Runs in `npm run precommit` via `test:safety` on every machine in <100ms — the same
  * mechanical-pin pattern as lsApplicationQueriesSchemes.config.test.ts (INFRA-184). If a
@@ -19,6 +26,21 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 const SUPABASE_ROOT = path.resolve(__dirname, '../../../supabase');
+const REPO_ROOT = path.resolve(__dirname, '../../..');
+
+/**
+ * Operator runbooks are scanned too (INFRA-296). They are the likeliest place a real
+ * capability URL gets pasted, because they are the documents that tell a human to go
+ * fetch one — §3's setup checklist literally instructs "copy its ping URL", and the
+ * natural next move when writing up a completed setup is to paste what you used. The
+ * regexes stay shape-based and require a token, so both runbooks can (and do) name
+ * `hc-ping.com` and `healthchecks.io` in prose and in `<uuid>` placeholders without
+ * matching.
+ */
+const SCANNED_DOCS = [
+  'docs/development/post-launch-monitoring-runbook.md',
+  'docs/development/crisis-analytics-runbook.md',
+].map((rel) => path.join(REPO_ROOT, rel));
 
 /** Secret shapes that must never appear in a committed migration / function. */
 const SECRET_PATTERNS: ReadonlyArray<{ name: string; re: RegExp }> = [
@@ -59,6 +81,7 @@ describe('Supabase deploy surface carries no committed secrets (INFRA-219)', () 
     ...collectFiles(path.join(SUPABASE_ROOT, 'migrations'), (f) => f.endsWith('.sql')),
     ...collectFiles(path.join(SUPABASE_ROOT, 'functions'), (f) => f.endsWith('.ts')),
     path.join(SUPABASE_ROOT, 'config.toml'),
+    ...SCANNED_DOCS,
   ].filter((f) => fs.existsSync(f));
 
   it('finds migration + function files to scan (guards against a broken path)', () => {
