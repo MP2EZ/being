@@ -1,8 +1,34 @@
 name: CI
 
 on:
+  # Short-lived branches (feat/*, fix/*, chore/*, refactor/*, hotfix/*) are
+  # deliberately NOT here. They used to be, and every commit on one with an open
+  # PR fired BOTH a push run and a pull_request run against the same SHA — two
+  # complete 9-job runs, 22 check rows per PR (verified on PR #254: every gate
+  # appeared exactly twice). The `concurrency` group below cannot dedupe them
+  # because github.ref is refs/heads/<branch> for push and refs/pull/N/merge for
+  # pull_request, so they land in different groups and both proceed.
+  #
+  # That was not merely wasteful, it was unsound. INFRA-329 (2026-08-06, PR #244):
+  # `gh pr checks --watch` exited reporting all 9 gates green while the
+  # PR-triggered run had hit the esm.sh flake, because it read only one of the two
+  # runs; `gh pr merge` then refused with `Required status check "CI pass" is
+  # failing`. Every short-lived branch PRs into main or development, so the
+  # pull_request trigger already covers 100% of the code that can merge — the push
+  # run added no coverage, only a second run for a --watch to misread.
+  #
+  # `main` and `development` are KEPT. They cannot receive direct pushes
+  # (required_PR + enforce_admins are both on), so a run here is always a
+  # post-merge integration signal on a merge commit — the only check that runs
+  # after `gh pr merge --admin`, which /b-close uses on every close and which
+  # bypasses PR-time protection. One run per merge, no duplication.
+  #
+  # Known and accepted: a release PR (development -> main) still gets two runs,
+  # because its head IS development. /b-release 6.5 documents that and verifies
+  # via statusCheckRollup rather than --watch, which is the robust fix regardless
+  # of run count.
   push:
-    branches: [main, development, 'feat/*', 'fix/*', 'chore/*', 'refactor/*', 'hotfix/*']
+    branches: [main, development]
   pull_request:
     branches: [main, development]
     types: [opened, synchronize, reopened]
@@ -47,35 +73,41 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# There is deliberately NO `prepare` job. One used to sit here, described as
+# "single install, subsequent jobs restore from cache rather than running npm ci
+# each time (9 jobs × 1-2 min install = 10+ min wasted)". That description was
+# wrong about how Actions works and the job cost ~33s of pure serial latency on
+# every run:
+#
+#   - Actions jobs do not share a filesystem. Every job below still ran its own
+#     `npm ci` regardless (the `prepare` job installed into a VM that was then
+#     discarded). The only thing shared was actions/setup-node's ~/.npm tarball
+#     cache, keyed on the package-lock hash.
+#   - Measured on run 31227306205: `prepare` and every downstream job all logged
+#     `Cache restored from key: node-cache-Linux-x64-npm-0670e3c2…` — the SAME
+#     pre-existing key, saved by an earlier run. `prepare` warmed nothing; it
+#     just made 8 jobs wait 29s + ~9s scheduling before starting.
+#   - On a lockfile change `prepare` does warm a cold cache (measured on run
+#     31225879268: `npm cache is not found` → `Cache saved with the key: …`),
+#     but the cold-vs-warm delta is only ~5s (cold `npm ci` 23s, warm 14-18s)
+#     and it is a delta each job would otherwise pay IN PARALLEL. Paying 29s of
+#     serial time to save 8 jobs ~5s of parallel time is a net loss in both
+#     cases.
+#
+# Consequence to expect, not a bug: on the first run after a package-lock.json
+# change, all jobs miss the cache simultaneously and race to save the same key.
+# One wins; the others log `Unable to reserve cache with key …, another job may
+# be creating this cache` and continue. That warning is benign.
+#
+# Do not reintroduce a fan-in install job without measuring the serialization
+# cost against the parallel-savings-PER-CHILD (not the total across children).
+# The correct fix for slow installs is a faster install, not an earlier one.
 jobs:
-  # Single install. Subsequent jobs restore from cache rather than running
-  # npm ci each time (9 jobs × 1-2 min install = 10+ min wasted in the old
-  # workflow).
-  prepare:
-    name: Install dependencies
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-
-    steps:
-      - uses: actions/checkout@v5
-
-      - uses: actions/setup-node@v5
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          cache-dependency-path: 'app/package-lock.json'
-
-      - name: Install dependencies
-        run: |
-          cd app
-          npm ci --prefer-offline --no-audit
-
   # Static analysis — fast, runs in parallel with tests below.
   typecheck:
     name: TypeScript typecheck
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    needs: prepare
 
     steps:
       - uses: actions/checkout@v5
@@ -102,7 +134,6 @@ jobs:
     name: ESLint (baseline ratchet)
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    needs: prepare
 
     steps:
       - uses: actions/checkout@v5
@@ -124,7 +155,6 @@ jobs:
     name: Crisis authority validation
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    needs: prepare
 
     steps:
       - uses: actions/checkout@v5
@@ -150,7 +180,6 @@ jobs:
     name: Clinical authority validation
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: prepare
 
     steps:
       - uses: actions/checkout@v5
@@ -179,7 +208,6 @@ jobs:
     name: Unit + integration tests
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    needs: prepare
 
     steps:
       - uses: actions/checkout@v5
@@ -219,7 +247,6 @@ jobs:
     name: Security + compliance
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: prepare
 
     steps:
       - uses: actions/checkout@v5
@@ -267,15 +294,27 @@ jobs:
         # depend on the local hook having run.
         run: cd app && npm run check:crisis-dial
 
-      - name: Compliance authority validation
-        run: cd app && npm run validate:compliance-authority
-
-      - name: Encryption test suite
-        # --coverage omitted on subset runs (see Unit tests rationale).
-        run: cd app && npm run test:encryption -- --ci
-
       - name: Security test suite
         # --coverage omitted on subset runs (see Unit tests rationale).
+        #
+        # This step is the ONLY encryption gate. Two steps used to precede it —
+        # "Compliance authority validation" (`validate:compliance-authority`,
+        # which is a pure alias: `npm run test:encryption && echo ✅`) and
+        # "Encryption test suite" (`test:encryption`) — and BOTH were fully
+        # subsumed here. Verified in the run 31227306205 log: the EncryptionService
+        # suites executed three times in this one job (lines 2920, 5609, then
+        # 8985/11066), reporting an identical `Test Suites: 2 passed, 25 tests`
+        # each time. `test:security` is `jest --testPathPattern=security`, and
+        # both suites live at src/core/services/security/__tests__/, so the path
+        # pattern already sweeps them in.
+        #
+        # ⚠️ COVERAGE DEPENDS ON DIRECTORY LAYOUT. The encryption suites are
+        # covered here because their PATH contains "security", not because
+        # anything names them. If EncryptionService.test.ts or
+        # EncryptionService.realcrypto.test.ts ever move out of a `security/`
+        # directory, this gate silently stops running them — AES-256 at rest is
+        # a non-negotiable in CLAUDE.md, so restore an explicit
+        # `npm run test:encryption` step here if that move happens.
         run: cd app && npm run test:security -- --ci --testTimeout=15000
 
       - name: npm audit
@@ -316,7 +355,6 @@ jobs:
     name: Accessibility (WCAG AA)
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: prepare
 
     steps:
       - uses: actions/checkout@v5
@@ -329,10 +367,13 @@ jobs:
       - name: Install dependencies
         run: cd app && npm ci --prefer-offline --no-audit
 
-      - name: Accessibility validation
-        run: cd app && npm run validate:accessibility
-
       - name: Accessibility test suite
+        # A preceding "Accessibility validation" step used to run
+        # `validate:accessibility`, which is a pure alias for this same command
+        # (`npm run test:accessibility && echo ✅`). Both steps reported an
+        # identical `Test Suites: 12 passed, Tests: 98 passed` in the run
+        # 31227306205 log (lines 1137 and 2073) — byte-identical work, twice.
+        # This variant is kept because it carries the CI flags.
         run: cd app && npm run test:accessibility -- --ci --testTimeout=20000
 
   # Performance regression sweep. Strict gate as of Phase A paydown.
@@ -366,7 +407,6 @@ jobs:
     name: Performance regression
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: prepare
 
     steps:
       - uses: actions/checkout@v5
@@ -399,7 +439,10 @@ jobs:
     name: Edge Functions (Deno)
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    # No `needs: prepare` because Deno doesn't share Node's npm cache.
+    # Deno doesn't share Node's npm cache, so this job never depended on the
+    # (now-removed) `prepare` job. It is the fastest gate in the workflow (~6s)
+    # and was the standing proof that the Node jobs did not need `prepare`
+    # either — it always started at t+3s while they waited until t+36s.
     steps:
       - uses: actions/checkout@v5
       - uses: denoland/setup-deno@v2
