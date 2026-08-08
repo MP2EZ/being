@@ -678,3 +678,5 @@ jobs:
             exit 1
           fi
           echo "✅ All required gates passed (advisory jobs may show non-success — see logs)"
+
+# cache-scope verification probe
