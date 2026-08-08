@@ -23,7 +23,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
-import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
+import { colorSystem, spacing, borderRadius, typography, semantic } from '@/core/theme';
 import { gatherExportData, serializeExport } from '@/core/services/privacy/DataExportService';
 import { logError, LogCategory } from '@/core/services/logging';
 
@@ -146,7 +146,7 @@ const styles = StyleSheet.create({
   lead: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     lineHeight: 22,
     marginBottom: spacing[24],
   },
@@ -172,14 +172,14 @@ const styles = StyleSheet.create({
   },
   bulletDot: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     marginRight: spacing[8],
   },
   bulletText: {
     flex: 1,
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     lineHeight: 22,
   },
   infoBox: {
@@ -193,7 +193,7 @@ const styles = StyleSheet.create({
   infoText: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     lineHeight: 20,
   },
   errorText: {
