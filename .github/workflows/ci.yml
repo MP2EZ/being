@@ -552,7 +552,7 @@ jobs:
   # this job now adds is a structural PROXY ("Breathing-worklet purity guard")
   # that fails when the PERF-01/PERF-02 regression shape returns to the
   # animation path. Do not read that step as an fps gate; the on-device
-  # UI-thread measurement is INFRA-309.
+  # UI-thread measurement is INFRA-373.
   # Deferred (testPathIgnorePatterns in jest.config.js):
   #   - sync-performance-validation + week3-analytics-performance:
   #     tests reference older service APIs (new SyncCoordinator() when
@@ -578,7 +578,7 @@ jobs:
       # runner is ubuntu-latest and cannot render a frame. It fails when the
       # PERF-01/PERF-02 regression shape (commit ff591f3a) reappears on the
       # breathing animation path. The breathing 60fps budget itself remains
-      # unmeasured; the on-device measurement is INFRA-309.
+      # unmeasured; the on-device measurement is INFRA-373.
       # Jest transform cache. Babel-transforming the RN/Expo tree is the single
       # largest component of every jest job, and nothing cached it between jobs or
       # runs. Measured on PR #262 (fully warm vs baseline): job 33s -> 28s.

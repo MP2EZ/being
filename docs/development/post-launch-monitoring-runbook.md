@@ -29,7 +29,7 @@ code-side alert (the subscription-verification watchdog) and documents the other
 | 2 | API / edge error rate > 5% | Sentry metric alert (+ Supabase logs for edge) | Sentry dashboard | ⏳ operator to create — see [§2](#2-error-rate-alert-sentry) |
 | 3 | Sustained Supabase connection failures | Supabase project notifications + external watcher | Supabase dashboard | ⏳ operator to enable — see [§3](#3-supabase-connection-failure-alert) |
 | 4 | Subscription-verification automation dead | `subscription_verification_watchdog()` pg_cron + Resend | **code (this PR)** | ✅ migration shipped; needs deploy + Vault bootstrap — see [§4](#4-subscription-verification-failure-watchdog-shipped) |
-| 5 | Crisis-button / 60fps perf regression | crisis **detection** <200ms: strict CI gate. Crisis **button**: coarse jest proxy. 60fps: **structural proxy only, frame rate unmeasured** (INFRA-306 Layer A; measurement is INFRA-309) | jest / CI | ⚠️ partially covered — Maestro enforces none of these; prod RUM deferred — see [§5](#5-performance-degradation-alert-deferred-prod-rum) and [§5a](#5a-breathing-circle-60fps--what-the-control-actually-is) |
+| 5 | Crisis-button / 60fps perf regression | crisis **detection** <200ms: strict CI gate. Crisis **button**: coarse jest proxy. 60fps: **structural proxy only, frame rate unmeasured** (INFRA-306 Layer A; measurement is INFRA-373) | jest / CI | ⚠️ partially covered — Maestro enforces none of these; prod RUM deferred — see [§5](#5-performance-degradation-alert-deferred-prod-rum) and [§5a](#5a-breathing-circle-60fps--what-the-control-actually-is) |
 
 **Grounding (verified live 2026-06-18 against `being-production` = `yliycxslzdsgjtpxggtf` and
 Sentry org `being-prod` / project `javascript-react`):**
@@ -324,7 +324,7 @@ visible diff rather than a side effect of where a new component was placed. Esca
 - **The 60fps number has never been validated on hardware**, and it is device-naive as written —
   see below.
 
-### Why "60fps" is the wrong unit, for whoever builds INFRA-309
+### Why "60fps" is the wrong unit, for whoever builds INFRA-373
 
 ProMotion iPhones run at 120Hz, where nominal frame time is **8.3ms, not 16.67ms**. A UI thread
 delivering a steady 60fps on such a device is dropping **half** its frames while sailing past any
@@ -352,7 +352,7 @@ control. A warning to that effect now sits in its module header.
 
 ### The real control
 
-**INFRA-309** — a UI-thread `useFrameCallback` probe accumulating in shared values, a
+**INFRA-373** — a UI-thread `useFrameCallback` probe accumulating in shared values, a
 flag-scoped HUD, and a device-only Maestro flow asserting the rendered number via
 `copyTextFrom` + `assertTrue`. Blocked on naming a calibration handset: there is no device
 inventory in this repo, and the only model named anywhere (`ACCESSIBILITY_TESTING_GUIDE.md:326`,
