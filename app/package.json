@@ -28,6 +28,7 @@
     "test:accessibility": "jest --testPathPattern=accessibility --verbose --forceExit",
     "test:security": "jest --testPathPattern=security --verbose --forceExit --detectOpenHandles",
     "test:privacy": "jest --testPathPattern=privacy --verbose --forceExit",
+    "test:scripts": "jest --testPathPattern=__tests__/scripts --verbose --forceExit",
     "test:encryption": "jest --testPathPattern=EncryptionService --verbose",
     "test:crisis-quick": "jest --testPathPattern=\"[Cc]risis\" --ci --silent --testTimeout=5000 --maxWorkers=4",
     "test:clinical-quick": "JEST_QUICK=true jest --testNamePattern=\"clinical|phq|gad\"",
