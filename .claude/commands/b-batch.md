@@ -583,8 +583,13 @@ Reconstruct state from disk + Notion + manifest — no in-context memory require
      - **0 files** → nothing to resume; tell the user and stop.
      - **1 file** → use it.
      - **>1 file** → there are multiple live batches (expected under concurrent use).
-       Present each (slug, `created`, and pending/done counts read from the file) via
-       `AskUserQuestion` and resume the one the user picks. Never silently pick one.
+       First SPLIT them: a batch whose only non-`done`/`deferred` items are `queued_red`
+       has no unattended work left — it belongs in the Phase 4.1 sim queue, not the
+       resume picker. List those separately as a reminder and do not offer them as
+       resume targets. Present the remainder (slug, `created`, pending/done counts) via
+       `AskUserQuestion` and resume the one the user picks; never silently pick one. If
+       more than 4 remain, offer the 4 most recently created and say how many were
+       withheld — the picker caps at 4 options.
 
 1. Read the selected `$MANIFEST`.
 2. For each item, reconcile against ground truth:
