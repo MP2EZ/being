@@ -78,7 +78,7 @@ npm run test:offline-crisis        # offline 988 access
 npm run validate:accessibility     # accessibility validation
 
 # Safety-path e2e (Maestro, local-only — INFRA-171)
-npm run e2e:safety                 # all 5 Maestro safety flows
+npm run e2e:safety                 # all 8 Maestro safety flows (nothing enforces this count)
 npm run e2e:safety:q9              # PHQ-9 Q9 single-alert pinning
 npm run e2e:safety:phq9            # PHQ-9 ≥20 completion path
 npm run e2e:safety:gad7            # GAD-7 ≥15 severe handoff
@@ -96,7 +96,7 @@ Which validators are required for which work type. `crisis`, `compliance`, `phil
 |---|---|
 | Crisis detection <200ms | **Strict CI gate** — `__tests__/performance/assessment-performance.test.ts`, run by the `Performance regression` job |
 | Crisis button <200ms | **Coarse jest proxy** — `CollapsibleCrisisButton.behavioral.test.tsx`; measures synthetic dispatch, not tap→render |
-| Breathing 60fps | **Structural proxy only — the frame rate is still unmeasured.** INFRA-306 shipped `npm run check:breathing-worklets` (CI, `Performance regression` job): it fails if the PERF-01/PERF-02 shape returns to the animation path — `runOnJS`/state-setter inside a `useAnimatedStyle`/`useDerivedValue`/`useAnimatedReaction` body, `requestAnimationFrame` on that path, or `BreathingCircle` losing `React.memo` / its module-scope prop constants. It does **not** measure frames and cannot: CI is 100% `ubuntu-latest`. Real on-device measurement is INFRA-309 (blocked on naming a calibration handset). Note the budget is also device-naive as written — ProMotion nominal is 8.3ms, not 16.67ms — see `post-launch-monitoring-runbook.md` §5a |
+| Breathing 60fps | **Structural proxy only — the frame rate is still unmeasured.** INFRA-306 shipped `npm run check:breathing-worklets` (CI, `Performance regression` job): it fails if the PERF-01/PERF-02 shape returns to the animation path — `runOnJS`/state-setter inside a `useAnimatedStyle`/`useDerivedValue`/`useAnimatedReaction`/`useFrameCallback` body, `requestAnimationFrame` on that path, or `BreathingCircle` losing `React.memo` / its module-scope prop constants. It does **not** measure frames and cannot: CI is 100% `ubuntu-latest`. Real on-device measurement is INFRA-373, blocked on TWO things: naming a calibration handset, AND respecifying its ACs — they target `SharedBreathingScreen.tsx` (dead code, nothing renders it), name 6 mount screens when only 3 are live, and justify themselves by a hold branch no caller reaches. Note the budget is also device-naive as written — ProMotion nominal is 8.3ms, not 16.67ms — see `post-launch-monitoring-runbook.md` §5a |
 | App launch <2s, check-in transition <500ms | **Nothing** — hand-validated |
 
 The jest-side `perf:*` scripts were removed in MAINT-166 PR 7 (they ran zero matching tests). `__tests__/reporters/performance-regression-reporter.js` does **not** gate: it is non-strict unless `PERF_REGRESSION_STRICT=true`, so `performance-baselines.json`'s `crisis_response_ms` is a recorded baseline, not a threshold. A "performance" cell below therefore means *the budget applies*, not *a gate will catch you*.
