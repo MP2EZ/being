@@ -1,10 +1,10 @@
 {
-  "note": "INFRA-368. Test files that match NO CI --testPathPattern and therefore run on NOBODY'S pull request. They still run in `npm run precommit` only if their path happens to match one of its patterns; most of these match none of those either. This file exists so that state is DECLARED rather than emergent: `npm run check:ci-test-coverage` fails when a new test file lands ungated and unlisted, and also when a listed file becomes covered (a stale entry hides the next real gap). Regenerate the path list with `--update-allowlist`; it merges, so these annotations survive. Shrinking this list is the point — it is a debt register, not a permanent exemption.",
+  "note": "INFRA-368. Test files that match NO CI --testPathPattern and therefore run on NOBODY'S pull request. They still run in `npm run precommit` only if their path happens to match one of its patterns; most of these match none of those either. This file exists so that state is DECLARED rather than emergent: `npm run check:ci-test-coverage` fails when a new test file lands ungated and unlisted, and also when a listed file becomes covered (a stale entry hides the next real gap). Regenerate the path list with `--update-allowlist`; it merges, so these annotations survive. Shrinking this list is the point \u2014 it is a debt register, not a permanent exemption.",
   "measured": {
-    "on": "chore/INFRA-368-ci-safety-privacy-gates, base 5f6accdf",
-    "testFiles": 195,
+    "on": "chore/INFRA-368-ci-safety-privacy-gates, after back-merging origin/development",
+    "testFiles": 196,
     "coveredByCI": 143,
-    "ungated": 52,
+    "ungated": 53,
     "beforeThisChange": {
       "testFiles": 194,
       "coveredByCI": 131,
@@ -13,9 +13,10 @@
   },
   "why": {
     "_": "Every remaining entry is under src/**, i.e. co-located with its consumer rather than under a top-level app/__tests__/ directory that a pattern names. After this change all of app/__tests__/{safety,privacy,compliance,scripts}/ IS gated. These 52 were VERIFIED GREEN and substantive during INFRA-368 planning (1014 assertions, zero .skip, zero trivial placeholders), so they are ungated by accident of directory layout, NOT because they are redundant.",
-    "wiring-them-is-deferred": "Wiring the remainder as a required gate is a follow-up, blocked on one file: src/features/assessment/stores/__tests__/assessmentStore.test.ts > 'respects auto-save disabled state' is load-dependent — it passes 3/3 solo and failed 2 of 6 under parallel/batch load. `CI pass` is the SOLE required status check on both main and development with enforce_admins:true, so wiring it unfixed would intermittently block every PR in the repo, and a flaky safety gate trains --admin merge-through, which is strictly worse than no gate. Its root cause is a real product question, not a bad assertion: zustand persist writes on every set() regardless of autoSaveEnabled, which gates only the debounced save — so 'auto-save off' still persists wellness answers. That needs a decision, not a quiet patch inside a CI-plumbing PR.",
-    "do-not-fix-by-renaming": "The tempting shortcut — rename a file so it matches an existing pattern — is forbidden. Coverage-by-filename is the exact defect this item documents: 6 of the 12 files under app/__tests__/safety/ run in CI today ONLY because their names contain 'crisis'. Renaming toward a pattern is as fragile as renaming away from one, and dragging a file into test:crisis-quick also subjects it to that job's much shorter --testTimeout=5000. Fix the pattern, never the filename.",
-    "src/core/config/env.test.ts": "Worth singling out: the only full env-schema coverage in the repo, and it is not even under a __tests__/ directory, so any 'just add a src/**/__tests__ pattern' shortcut would still miss it."
+    "wiring-them-is-deferred": "Wiring the remainder as a required gate is a follow-up, blocked on one file: src/features/assessment/stores/__tests__/assessmentStore.test.ts > 'respects auto-save disabled state' is load-dependent \u2014 it passes 3/3 solo and failed 2 of 6 under parallel/batch load. `CI pass` is the SOLE required status check on both main and development with enforce_admins:true, so wiring it unfixed would intermittently block every PR in the repo, and a flaky safety gate trains --admin merge-through, which is strictly worse than no gate. Its root cause is a real product question, not a bad assertion: zustand persist writes on every set() regardless of autoSaveEnabled, which gates only the debounced save \u2014 so 'auto-save off' still persists wellness answers. That needs a decision, not a quiet patch inside a CI-plumbing PR.",
+    "do-not-fix-by-renaming": "The tempting shortcut \u2014 rename a file so it matches an existing pattern \u2014 is forbidden. Coverage-by-filename is the exact defect this item documents: 6 of the 12 files under app/__tests__/safety/ run in CI today ONLY because their names contain 'crisis'. Renaming toward a pattern is as fragile as renaming away from one, and dragging a file into test:crisis-quick also subjects it to that job's much shorter --testTimeout=5000. Fix the pattern, never the filename.",
+    "src/core/config/env.test.ts": "Worth singling out: the only full env-schema coverage in the repo, and it is not even under a __tests__/ directory, so any 'just add a src/**/__tests__ pattern' shortcut would still miss it.",
+    "caught-in-flight": "DailyLoopCompleteScreen.completionRegister.test.tsx was added to this list by the gate itself, not by hand. It landed on development from a sibling work item WHILE INFRA-368 was in progress, and back-merging origin/development into this branch made `npm run check:ci-test-coverage` fail immediately: a brand-new test file matching no CI pattern, i.e. running on nobody's pull request. That is this item's thesis reproducing itself within hours on unrelated work, and it is the argument for keeping this ledger enforced rather than reporting-only \u2014 nobody would have noticed otherwise."
   },
   "uncovered": [
     "src/core/config/__tests__/env.quick.test.ts",
@@ -64,6 +65,7 @@
     "src/features/library/__tests__/PassageReaderScreen.test.tsx",
     "src/features/library/__tests__/passagesContent.test.ts",
     "src/features/onboarding/screens/__tests__/OnboardingScreen.test.tsx",
+    "src/features/practices/dailyloop/__tests__/DailyLoopCompleteScreen.completionRegister.test.tsx",
     "src/features/practices/dailyloop/__tests__/DailyLoopDepthSelectScreen.test.tsx",
     "src/features/practices/dailyloop/__tests__/DailyLoopStepScreen.stageNote.test.tsx",
     "src/features/practices/dailyloop/__tests__/dailyLoopEngagement.test.ts",
