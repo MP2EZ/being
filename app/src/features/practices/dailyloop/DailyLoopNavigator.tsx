@@ -325,8 +325,8 @@ const DailyLoopNavigator: React.FC<DailyLoopNavigatorProps> = ({
       {/* FEAT-298 slice 6b — the ✕ is SUPPRESSED on the coda, and this is a data-integrity
           fix, not cosmetics. `screenOptions.headerLeft` renders the close button on every
           route, and its `onExit` is a bare `navigation.goBack()` that skips `onComplete`.
-          On a screen that says "✓ Loop complete", taking that exit discarded the whole
-          session: no `markCheckInComplete('daily')`, no principle engagements (the exact
+          On a screen whose title states the practice is finished, taking that exit discarded
+          the whole session: no `markCheckInComplete('daily')`, no principle engagements (the exact
           defect slice 3 existed to fix), and a finished session left resumable on disk.
           There is nothing to abandon here — the practice is over — so the only way off this
           screen must be the one that records it. */}
