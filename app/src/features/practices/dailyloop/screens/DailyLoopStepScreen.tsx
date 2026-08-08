@@ -282,7 +282,7 @@ const DailyLoopStepScreen: React.FC<DailyLoopStepScreenProps> = ({
                         <Text
                           style={[
                             styles.virtueChipText,
-                            { color: active ? themeColors.primary : colorSystem.gray[600] },
+                            { color: active ? themeColors.primary : semantic.text.secondary },
                           ]}
                         >
                           {v.label}
@@ -369,7 +369,7 @@ const styles = StyleSheet.create({
   },
   breathSubtitle: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     textAlign: 'center',
     marginBottom: spacing[32],
   },
@@ -384,19 +384,27 @@ const styles = StyleSheet.create({
   },
   sectionSubtitle: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     marginBottom: spacing[16],
   },
   // FEAT-292. The philosopher pass asked for gray[500] — one step quieter than the
   // support line — but flagged it to be MEASURED rather than assumed: gray[500]
-  // (#B8B8B8) is 1.98:1 on white, failing WCAG AA (4.5:1). gray[600] (#757575) is
-  // 4.61:1 and is used instead. Subordination to the crisis affordance is preserved
-  // structurally rather than chromatically: this line sits at the HEAD of the beat
-  // (the support line sits at the foot), carries no underline, and is not pressable
-  // — so the two never read as the same affordance despite sharing a colour.
+  // (#B8B8B8) is 1.98:1 on white, failing WCAG AA (4.5:1). Subordination to the
+  // crisis affordance is preserved structurally rather than chromatically: this
+  // line sits at the HEAD of the beat (the support line sits at the foot), carries
+  // no underline, and is not pressable — so the two never read as the same
+  // affordance despite sharing a colour.
+  //
+  // DEBUG-357: this now reads `semantic.text.secondary` rather than a raw ramp
+  // value. The original note said "gray[600] (#757575) is 4.61:1 and is used
+  // instead", which was true only on white — this screen renders on a getTheme
+  // background where gray[600] measured 4.26–4.37:1 and FAILED. The token is now
+  // gray[700] and clears 4.5:1 on every surface. The structural-subordination
+  // ruling above is unchanged and, if anything, load-bearing at a second ramp
+  // step: the two lines still share a colour, and position still separates them.
   stageNote: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     lineHeight: typography.bodySmall.size * 1.5,
     marginBottom: spacing[16],
   },
@@ -410,7 +418,7 @@ const styles = StyleSheet.create({
   },
   virtueReference: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     marginBottom: spacing[12],
     lineHeight: typography.bodySmall.size * 1.5,
   },
@@ -437,7 +445,7 @@ const styles = StyleSheet.create({
   },
   inputHint: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     marginBottom: spacing[16],
     lineHeight: typography.bodySmall.size * 1.5,
   },
@@ -459,7 +467,7 @@ const styles = StyleSheet.create({
   },
   supportLineText: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     textDecorationLine: 'underline',
   },
   reflectNote: {

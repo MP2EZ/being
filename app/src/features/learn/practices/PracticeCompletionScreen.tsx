@@ -483,7 +483,7 @@ const styles = StyleSheet.create({
   },
   quoteAttribution: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     textAlign: 'right',
     fontWeight: typography.fontWeight.medium,
   },
