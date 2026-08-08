@@ -23,7 +23,6 @@
     "src/core/config/env.test.ts",
     "src/core/navigation/__tests__/dailyLoopDeepLink.test.ts",
     "src/core/services/data-retention/__tests__/DataRetentionService.test.ts",
-    "src/core/services/logging/__tests__/LogEncryption.test.ts",
     "src/core/services/logging/__tests__/RateLimiter.test.ts",
     "src/core/services/logging/__tests__/SensitiveDataPatterns.consolidation.test.ts",
     "src/core/services/logging/__tests__/flowTypeClamp.test.ts",
