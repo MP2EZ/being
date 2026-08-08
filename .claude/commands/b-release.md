@@ -77,13 +77,34 @@ git log --oneline development..origin/development | head -5
 ### 2.4 Main not ahead of dev
 
 ```bash
-git log --oneline development..origin/main | head -5
+# (1) Real divergence: non-merge commits on main with no patch-equivalent on dev.
+git log --oneline --cherry-pick --right-only --no-merges development...origin/main
+# (2) Evil merge: a merge whose tree carries content present in NEITHER parent.
+for m in $(git rev-list --merges development..origin/main); do
+  [ -n "$(git show --cc --format= "$m")" ] && git log -1 --oneline "$m"
+done
 ```
 
-If origin/main has commits dev doesn't: ABORT with
-"main has commits dev doesn't — a hotfix likely landed. Cherry-pick to dev first:
-  git cherry-pick origin/main
-Then retry /b-release."
+Both must be empty. The **three** dots in (1) and **two** in (2) are not interchangeable.
+
+**Do not simplify this to `git log development..origin/main`.** Phase 6.6 merges the
+release PR with `--merge` (not `--squash`), so every release leaves a merge commit on
+`main` that `development` never sees — zero unique content, present by construction. A
+naive range therefore aborts on every release after the first. `--no-merges` alone is
+not sufficient either: the Hotfix Process cherry-picks onto `development`, which
+rewrites the SHA, so a *reachability* query stays red permanently even after the
+operator has complied. Only `--cherry-pick --right-only` (patch-id equivalence) clears.
+
+If (1) is non-empty — ABORT with:
+"main carries commits dev doesn't. Cherry-pick the SHAs listed above onto development,
+oldest first (`git cherry-pick <sha> [<sha> ...]`), land them via the backport PR in
+CLAUDE.md's Hotfix Process, then retry /b-release.
+Never `git cherry-pick origin/main` — main's tip is normally a release merge commit;
+cherry-pick refuses it without `-m`, and forcing it produces an empty commit."
+
+If (2) is non-empty — ABORT with:
+"merge commit(s) on main carry content in neither parent (a conflict resolved in the
+GitHub UI). Reconcile that content onto development by hand before releasing."
 
 ### 2.5 Latest dev commit has passing CI
 
