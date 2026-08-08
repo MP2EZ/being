@@ -31,6 +31,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { semantic, colorSystem, spacing, borderRadius, typography } from '@/core/theme';
+import { TOUCH_TARGETS } from '@/core/theme/accessibility';
 import { SessionMetadata } from '@/core/types/session';
 import { themeKeyFor } from '@/core/types/practice-identity';
 import type { PracticeIdentity } from '@/core/types/practice-identity';
@@ -414,6 +415,12 @@ const styles = StyleSheet.create({
   tooltipButton: {
     paddingVertical: spacing[8],
     alignItems: 'center',
+    // DEBUG-365 sweep finding, not named in the ticket — which listed this file
+    // as already compliant. That is true of primaryButton / secondaryButton (48)
+    // but not of this third control, which was ~33pt on the same padding-only
+    // shape as Timer.controlButton.
+    minHeight: TOUCH_TARGETS.minimum,
+    justifyContent: 'center',
   },
   tooltipButtonText: {
     fontSize: typography.bodySmall.size,

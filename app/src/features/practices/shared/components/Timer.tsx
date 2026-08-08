@@ -12,6 +12,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, Pressable, AccessibilityInfo } from 'react-native';
 import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
+import { TOUCH_TARGETS } from '@/core/theme/accessibility';
 
 interface TimerProps {
   duration: number; // Duration in milliseconds
@@ -299,6 +300,17 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.medium,
     minWidth: 80,
     alignItems: 'center',
+    // DEBUG-365. Padding alone gave ~33pt. minHeight (never height) so the box
+    // can still grow at large Dynamic Type sizes instead of clipping the label;
+    // justifyContent centres the label now that the box is taller than content.
+    // NOT hitSlop: the collapsible crisis overlay already rejected slop-only as
+    // meeting "functional but not visual requirement" (see the 44pt visible-target
+    // note in features/crisis/components/), and controlsContainer's 16pt gap
+    // means a 12pt slop on both this and skipButton would overlap by 8pt — Skip
+    // renders later, so it would win the overlap and fire an irreversible step
+    // advance when the user aimed at Pause.
+    minHeight: TOUCH_TARGETS.minimum,
+    justifyContent: 'center',
   },
   controlButtonText: {
     color: colorSystem.base.white,
@@ -308,6 +320,14 @@ const styles = StyleSheet.create({
   skipButton: {
     paddingHorizontal: spacing[8],
     paddingVertical: spacing[8],
+    // DEBUG-365. LATENT, not live: `showSkip && onSkip` guards the render and
+    // every one of the six <Timer> call sites passes showSkip={false} with no
+    // onSkip, so this renders nowhere today (SkipLink, already 44pt, provides
+    // the skip affordance instead). Fixed rather than deleted because showSkip
+    // defaults to true — the next call site that omits the prop gets a compliant
+    // control instead of a ~33pt one.
+    minHeight: TOUCH_TARGETS.minimum,
+    justifyContent: 'center',
   },
   skipButtonText: {
     fontSize: typography.caption.size,
