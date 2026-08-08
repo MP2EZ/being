@@ -348,8 +348,31 @@ BUMP_PR_URL=$(gh pr create \
 
 BUMP_PR_NUMBER=$(echo "$BUMP_PR_URL" | grep -oE '[0-9]+$')
 
-# Wait for CI on the bump PR
-gh pr checks $BUMP_PR_NUMBER --watch
+# Wait for CI on the bump PR, then VERIFY against the rollup — `--watch` alone is
+# not a verdict (INFRA-329: it exits all-green having read only one of several runs
+# on the commit). The bump branch is chore/*, which CI's `push:` trigger no longer
+# covers, so the only run is the one `gh pr create` just triggered — hence the
+# register-wait before --watch.
+for i in $(seq 1 30); do
+  gh pr checks $BUMP_PR_NUMBER >/dev/null 2>&1 && break
+  sleep 5
+done
+gh pr checks $BUMP_PR_NUMBER --watch || true
+
+# Verdict is jq-only, never `grep -qv`: Claude Code's shell snapshot aliases grep
+# to a ugrep wrapper whose `-q` + `-v` exit status is inverted vs system grep, so a
+# grep-based gate reads a red rollup as GREEN. (Positive `grep -q` is unaffected.)
+gh pr view $BUMP_PR_NUMBER --json statusCheckRollup \
+  -q '.statusCheckRollup[] | "\(.name)\t\(.conclusion // .state)"' | sort
+BUMP_VERDICT=$(gh pr view $BUMP_PR_NUMBER --json statusCheckRollup -q '
+  [.statusCheckRollup[] | (.conclusion // .state)]
+  | if length == 0 then "EMPTY"
+    elif all(. == "SUCCESS" or . == "NEUTRAL" or . == "SKIPPED") then "GREEN"
+    else "RED" end')
+if [ "$BUMP_VERDICT" != "GREEN" ]; then
+  echo "❌ Bump PR #$BUMP_PR_NUMBER is $BUMP_VERDICT — STOP. Do not merge or tag."
+  exit 1
+fi
 
 # Merge the bump into dev
 gh pr merge $BUMP_PR_NUMBER --merge --delete-branch --admin
@@ -393,11 +416,37 @@ Display:
 
 ### 6.5 Wait for CI
 
+Same 9 strict gates as feature PRs. Typical 2-4 min.
+
+**This is the one PR where two runs per gate is still normal, so the rollup check
+matters most here.** The release PR's head is `development`, which CI's `push:`
+trigger still covers (feature branches were dropped from it; `main` and
+`development` were kept for the post-merge integration signal). So this commit
+carries a push-triggered run AND a pull_request-triggered run — the exact INFRA-329
+condition where `gh pr checks --watch` can exit all-green having read only one.
+Never merge a release on `--watch`'s exit status.
+
 ```bash
-gh pr checks $PR_NUMBER --watch
+gh pr checks $PR_NUMBER --watch || true
+
+# Verdict is jq-only, never `grep -qv` — see the bump-PR block above for why.
+gh pr view $PR_NUMBER --json statusCheckRollup \
+  -q '.statusCheckRollup[] | "\(.name)\t\(.conclusion // .state)"' | sort
+VERDICT=$(gh pr view $PR_NUMBER --json statusCheckRollup -q '
+  [.statusCheckRollup[] | (.conclusion // .state)]
+  | if length == 0 then "EMPTY"
+    elif all(. == "SUCCESS" or . == "NEUTRAL" or . == "SKIPPED") then "GREEN"
+    else "RED" end')
+if [ "$VERDICT" != "GREEN" ]; then
+  echo "❌ Release PR #$PR_NUMBER is $VERDICT — STOP. Do not merge, do not tag."
+  exit 1
+fi
 ```
 
-(Same 9 strict gates as feature PRs. Typical 2-4 min.)
+Expect **two rows per gate** here (one run each from `push` and `pull_request`).
+Both must be SUCCESS. A gate that is green in one row and red in the other is red —
+a flake in either run is a real red that `gh pr merge` will refuse on, and a release
+is the worst place to discover that from a misread `--watch`.
 
 ### 6.6 Merge with merge-commit strategy (decision #1)
 

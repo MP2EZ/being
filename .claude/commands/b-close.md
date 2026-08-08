@@ -634,11 +634,64 @@ EOF
 
 ### Step 3.4: Wait for CI
 
+**Never use `gh pr checks --watch` alone as the verdict.** It blocks correctly but
+its exit status is not trustworthy: `--watch` can exit reporting all-green having
+read only one of several runs attached to the commit. Observed 2026-08-06
+(INFRA-329, PR #244): `--watch` reported all 9 gates green, then `gh pr merge` was
+refused with `Required status check "CI pass" is failing` — the commit carried two
+runs and the PR-triggered one had hit the esm.sh flake. `/b-batch` Step 3.4 already
+documents this; this step is the other half of the same fix.
+
+Wait, then verify against the **full rollup**, which is authoritative:
+
 ```bash
-gh pr checks [PR_NUMBER] --watch
+# (a) Wait for the run to REGISTER. `gh pr checks` exits non-zero when no checks
+#     exist yet, and this window is real: CI's `push:` trigger no longer covers
+#     feat/*|fix/*|chore/* branches, so Step 3.2's push creates no run and the
+#     only run is the one `gh pr create` (Step 3.3) just triggered seconds ago.
+for i in $(seq 1 30); do
+  gh pr checks [PR_NUMBER] >/dev/null 2>&1 && break
+  sleep 5
+done
+
+# (b) Block until every check completes. `|| true` because --watch exits non-zero
+#     on failure and (c) must still run — (c) is what decides, not this.
+gh pr checks [PR_NUMBER] --watch || true
+
+# (c) AUTHORITATIVE verdict — one word: GREEN | RED | EMPTY.
+#     `.conclusion // .state` because Actions check-runs carry `.conclusion` while
+#     StatusContext rows (non-Actions integrations) carry `.state` — reading only
+#     `.conclusion` renders those as literal "null" and reads as permanently red.
+#     Deliberately grep-free: `grep -qv` is NOT safe here. Claude Code's shell
+#     snapshot aliases `grep` to a ugrep wrapper whose `-q` + `-v` exit status is
+#     INVERTED vs system grep (verified: `-qv` on input containing a non-matching
+#     line returns 1 via the wrapper, 0 via /usr/bin/grep). A `grep -qv` gate
+#     therefore reads a red rollup as green — the exact bug this step exists to
+#     stop. Positive `grep -q` is unaffected, which is why the Phase 2.5 path
+#     checks above are fine.
+gh pr view [PR_NUMBER] --json statusCheckRollup -q '
+  [.statusCheckRollup[] | (.conclusion // .state)]
+  | if length == 0 then "EMPTY"
+    elif all(. == "SUCCESS" or . == "NEUTRAL" or . == "SKIPPED") then "GREEN"
+    else "RED" end'
+
+# Human-readable detail, for the failure message:
+gh pr view [PR_NUMBER] --json statusCheckRollup \
+  -q '.statusCheckRollup[] | "\(.name)\t\(.conclusion // .state)"' | sort
 ```
 
-This blocks until all 9 strict CI gates complete. Typical: 2-4 minutes.
+Route on (c), never on (b)'s exit code:
+- **`GREEN`** → proceed to Step 3.5.
+- **`RED`** → CI is red. STOP (see below).
+- **`EMPTY`** → no checks registered yet; the (a) wait fell through. Re-run (a)–(c)
+  once. Still `EMPTY` → STOP and report; a PR with no checks must never merge,
+  because `CI pass` is the sole required context and an empty rollup is
+  indistinguishable from "the workflow never triggered".
+
+Expect **one row per gate** now that the duplicate push-triggered run is gone. Two
+rows per gate means a second workflow is attaching runs to this commit — a
+`CI pass` row green in one and red in the other is exactly the INFRA-329 shape,
+and the verdict above correctly returns `RED` for it.
 
 **Display while waiting**:
 ```
@@ -647,12 +700,13 @@ This blocks until all 9 strict CI gates complete. Typical: 2-4 minutes.
 
 **On success**:
 ```
-✅ All CI gates passed
+✅ All CI gates passed (verified against statusCheckRollup, not --watch)
 ```
 
 **On failure**:
 ```
 ❌ CI failed on PR #[PR_NUMBER]
+   Failing gate(s): [names from the rollup with a non-SUCCESS conclusion]
    Investigate: [PR URL]/checks
 
    To re-trigger after a fix:
@@ -661,6 +715,12 @@ This blocks until all 9 strict CI gates complete. Typical: 2-4 minutes.
 ```
 
 (STOP here on failure — do not proceed to merge.)
+
+**Do not route a red gate to a re-sync.** If `gh pr merge` is later refused while
+the rollup is all-SUCCESS, *that* is the stale-base case and re-invoking `/b-close`
+is correct. A refusal with a `FAILURE` row in the rollup is CI red — a free
+`gh run rerun --failed` is the first move, not a re-sync. The two have opposite
+fixes; `/b-batch` Step 3.4(a)/(b) has the full routing table.
 
 ---
 
