@@ -167,6 +167,27 @@ jobs:
       - name: Install dependencies
         run: cd app && npm ci --prefer-offline --no-audit
 
+      # Jest transform cache. Babel-transforming the RN/Expo tree is the single
+      # largest component of every jest job, and nothing cached it between jobs or
+      # runs. Measured on PR #262 (fully warm vs baseline): job 42s -> 28s.
+      # Restore costs 0-1s and the entry is 2-4MB (46MB total across all six jest
+      # jobs) because each job only transforms the subset its testPathPattern
+      # selects — not the 280MB a full local suite accumulates.
+      #
+      # `restore-keys` is SAFE here in a way it would NOT be for a node_modules
+      # cache: jest keys each cached entry by file content + transformer config and
+      # re-validates on read, so a cache carried from an older commit serves only
+      # the files that did not change. A stale transform cannot be served for
+      # changed source. The key still pins package-lock.json, jest.config.js and
+      # babel.config.js so a toolchain change starts clean.
+      - name: Jest transform cache
+        uses: actions/cache@v4
+        with:
+          path: app/.jest-cache
+          key: jest-crisis-${{ hashFiles('app/package-lock.json','app/jest.config.js','app/babel.config.js') }}-${{ github.sha }}
+          restore-keys: |
+            jest-crisis-${{ hashFiles('app/package-lock.json','app/jest.config.js','app/babel.config.js') }}-
+
       - name: Crisis authority validation
         run: cd app && npm run validate:crisis-authority
 
@@ -191,6 +212,27 @@ jobs:
 
       - name: Install dependencies
         run: cd app && npm ci --prefer-offline --no-audit
+
+      # Jest transform cache. Babel-transforming the RN/Expo tree is the single
+      # largest component of every jest job, and nothing cached it between jobs or
+      # runs. Measured on PR #262 (fully warm vs baseline): job 38s -> 36s.
+      # Restore costs 0-1s and the entry is 2-4MB (46MB total across all six jest
+      # jobs) because each job only transforms the subset its testPathPattern
+      # selects — not the 280MB a full local suite accumulates.
+      #
+      # `restore-keys` is SAFE here in a way it would NOT be for a node_modules
+      # cache: jest keys each cached entry by file content + transformer config and
+      # re-validates on read, so a cache carried from an older commit serves only
+      # the files that did not change. A stale transform cannot be served for
+      # changed source. The key still pins package-lock.json, jest.config.js and
+      # babel.config.js so a toolchain change starts clean.
+      - name: Jest transform cache
+        uses: actions/cache@v4
+        with:
+          path: app/.jest-cache
+          key: jest-clinical-${{ hashFiles('app/package-lock.json','app/jest.config.js','app/babel.config.js') }}-${{ github.sha }}
+          restore-keys: |
+            jest-clinical-${{ hashFiles('app/package-lock.json','app/jest.config.js','app/babel.config.js') }}-
 
       - name: Clinical authority validation
         run: cd app && npm run validate:clinical-authority
@@ -219,6 +261,27 @@ jobs:
 
       - name: Install dependencies
         run: cd app && npm ci --prefer-offline --no-audit
+
+      # Jest transform cache. Babel-transforming the RN/Expo tree is the single
+      # largest component of every jest job, and nothing cached it between jobs or
+      # runs. Measured on PR #262 (fully warm vs baseline): unit 16s -> 7s, integration 17s -> 13s; job 59s -> 39s.
+      # Restore costs 0-1s and the entry is 2-4MB (46MB total across all six jest
+      # jobs) because each job only transforms the subset its testPathPattern
+      # selects — not the 280MB a full local suite accumulates.
+      #
+      # `restore-keys` is SAFE here in a way it would NOT be for a node_modules
+      # cache: jest keys each cached entry by file content + transformer config and
+      # re-validates on read, so a cache carried from an older commit serves only
+      # the files that did not change. A stale transform cannot be served for
+      # changed source. The key still pins package-lock.json, jest.config.js and
+      # babel.config.js so a toolchain change starts clean.
+      - name: Jest transform cache
+        uses: actions/cache@v4
+        with:
+          path: app/.jest-cache
+          key: jest-test-${{ hashFiles('app/package-lock.json','app/jest.config.js','app/babel.config.js') }}-${{ github.sha }}
+          restore-keys: |
+            jest-test-${{ hashFiles('app/package-lock.json','app/jest.config.js','app/babel.config.js') }}-
 
       - name: Unit tests
         # --coverage intentionally omitted: this is a SUBSET run (jest
@@ -281,6 +344,27 @@ jobs:
 
       - name: Install dependencies
         run: cd app && npm ci --prefer-offline --no-audit
+
+      # Jest transform cache. Babel-transforming the RN/Expo tree is the single
+      # largest component of every jest job, and nothing cached it between jobs or
+      # runs. Measured on PR #262 (fully warm vs baseline): the security suite 17s -> 5s; job 52s -> 37s.
+      # Restore costs 0-1s and the entry is 2-4MB (46MB total across all six jest
+      # jobs) because each job only transforms the subset its testPathPattern
+      # selects — not the 280MB a full local suite accumulates.
+      #
+      # `restore-keys` is SAFE here in a way it would NOT be for a node_modules
+      # cache: jest keys each cached entry by file content + transformer config and
+      # re-validates on read, so a cache carried from an older commit serves only
+      # the files that did not change. A stale transform cannot be served for
+      # changed source. The key still pins package-lock.json, jest.config.js and
+      # babel.config.js so a toolchain change starts clean.
+      - name: Jest transform cache
+        uses: actions/cache@v4
+        with:
+          path: app/.jest-cache
+          key: jest-security-${{ hashFiles('app/package-lock.json','app/jest.config.js','app/babel.config.js') }}-${{ github.sha }}
+          restore-keys: |
+            jest-security-${{ hashFiles('app/package-lock.json','app/jest.config.js','app/babel.config.js') }}-
 
       - name: Legal docs registry drift check
         # Verifies docs/legal/*.md filenames match the require() calls and
@@ -392,6 +476,27 @@ jobs:
       - name: Install dependencies
         run: cd app && npm ci --prefer-offline --no-audit
 
+      # Jest transform cache. Babel-transforming the RN/Expo tree is the single
+      # largest component of every jest job, and nothing cached it between jobs or
+      # runs. Measured on PR #262 (fully warm vs baseline): job 40s -> 29s.
+      # Restore costs 0-1s and the entry is 2-4MB (46MB total across all six jest
+      # jobs) because each job only transforms the subset its testPathPattern
+      # selects — not the 280MB a full local suite accumulates.
+      #
+      # `restore-keys` is SAFE here in a way it would NOT be for a node_modules
+      # cache: jest keys each cached entry by file content + transformer config and
+      # re-validates on read, so a cache carried from an older commit serves only
+      # the files that did not change. A stale transform cannot be served for
+      # changed source. The key still pins package-lock.json, jest.config.js and
+      # babel.config.js so a toolchain change starts clean.
+      - name: Jest transform cache
+        uses: actions/cache@v4
+        with:
+          path: app/.jest-cache
+          key: jest-a11y-${{ hashFiles('app/package-lock.json','app/jest.config.js','app/babel.config.js') }}-${{ github.sha }}
+          restore-keys: |
+            jest-a11y-${{ hashFiles('app/package-lock.json','app/jest.config.js','app/babel.config.js') }}-
+
       - name: Accessibility test suite
         # A preceding "Accessibility validation" step used to run
         # `validate:accessibility`, which is a pure alias for this same command
@@ -456,6 +561,27 @@ jobs:
       # PERF-01/PERF-02 regression shape (commit ff591f3a) reappears on the
       # breathing animation path. The breathing 60fps budget itself remains
       # unmeasured; the on-device measurement is INFRA-309.
+      # Jest transform cache. Babel-transforming the RN/Expo tree is the single
+      # largest component of every jest job, and nothing cached it between jobs or
+      # runs. Measured on PR #262 (fully warm vs baseline): job 33s -> 28s.
+      # Restore costs 0-1s and the entry is 2-4MB (46MB total across all six jest
+      # jobs) because each job only transforms the subset its testPathPattern
+      # selects — not the 280MB a full local suite accumulates.
+      #
+      # `restore-keys` is SAFE here in a way it would NOT be for a node_modules
+      # cache: jest keys each cached entry by file content + transformer config and
+      # re-validates on read, so a cache carried from an older commit serves only
+      # the files that did not change. A stale transform cannot be served for
+      # changed source. The key still pins package-lock.json, jest.config.js and
+      # babel.config.js so a toolchain change starts clean.
+      - name: Jest transform cache
+        uses: actions/cache@v4
+        with:
+          path: app/.jest-cache
+          key: jest-perf-${{ hashFiles('app/package-lock.json','app/jest.config.js','app/babel.config.js') }}-${{ github.sha }}
+          restore-keys: |
+            jest-perf-${{ hashFiles('app/package-lock.json','app/jest.config.js','app/babel.config.js') }}-
+
       - name: Breathing-worklet purity guard
         run: cd app && npm run check:breathing-worklets
 
