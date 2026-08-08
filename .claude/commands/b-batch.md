@@ -218,9 +218,8 @@ batch into as few calls as possible). Each amber's options must include:
 **Spot-verify any UNNAMED defect before it becomes a scope option.** A finding the item's
 own ACs don't mention has had no prior review, yet it carries the most scope weight. Re-read
 the cited file first — a lens reporting "X is absent" may have found one occurrence and
-missed a second. (DEBUG-341, 2026-08-06: a "no 988 control on the legal gate" finding drove
-an approved scope expansion; the control was there, 200 lines below the block the lens read.
-Implemented, then reverted.)
+missed a second. An unverified absence claim can drive an approved scope expansion that is
+then reverted, so read the whole file, not the cited block.
 
 **If an amber's options differ in UI layout or placement, put the artifact in the option
 `preview` field** — an ASCII wireframe of each candidate, grounded in the real layout
@@ -315,8 +314,6 @@ implementing:
    a link to the follow-up. This makes the eventual `Done` truthful — the work matches the
    narrowed scope, and the deferred part is tracked, not lost.
 3. The **narrowed** `approach` (not the original AC) is what feeds `/b-work` in Step 3.1.
-
-Established by the first live run: MAINT-245 → deployment-delete now / MAINT-252 perf-pruning deferred; MAINT-225 → app-side accents now / MAINT-253 cross-repo palette deferred.
 
 ### Step 3.1: Implement via /b-work
 Invoke with the approved approach fed through the existing `ADDITIONAL_CONTEXT` seam:
@@ -470,14 +467,8 @@ gh pr view <PR> --json statusCheckRollup -q '.statusCheckRollup[] | "\(.name)\t\
 ```
 Any `FAILURE` row → route **(b)** (CI red), whatever the merge error said. All `SUCCESS`
 and still refused → route **(a)** (stale base). Route (a) → re-invoke; route (b) → flake /
-repo-wide check / RCA / park.
-
-Observed 2026-08-06 (INFRA-329, PR #244): `gh pr merge` was refused with
-`Required status check "CI pass" is failing` *after* `--watch` had exited reporting all 9
-gates green. The commit had two runs; the PR-triggered one hit the esm.sh flake. Read
-literally, the old text routed this to (a) — re-invoking `/b-close` against a base that was
-never stale — when the fix was a free `gh run rerun --failed`. The two routes have opposite
-fixes, so misrouting is not harmless.
+repo-wide check / RCA / park. The two routes have opposite fixes, so misrouting is not
+harmless: never resolve this from the error text or from `--watch`.
 
 ---
 
@@ -533,10 +524,14 @@ features with no observed trigger this batch.
 **If a lesson qualifies:**
 1. Draft the smallest edit to this file
    (`/Users/max/dev/being/.claude/commands/b-batch.md`) — amend over append.
-2. Present as a diff, and **include the concrete failure scenario observed this batch**.
-   Edits here touch resume/concurrency/race logic — the highest-blast-radius text in
-   this repo's commands — so the justification must show exactly what went wrong, not
-   a hypothetical.
+2. Present as a diff. Because edits here touch resume/concurrency/race logic, the
+   justification must show exactly what went wrong, not a hypothetical — but it
+   belongs in the **proposal and the commit message, never in the file text**. This
+   file loads in full on every run, so a dated incident log (`Observed 2026-08-04: …`,
+   `Learned the hard way on MAINT-244 …`) charges every future batch for a one-time
+   lesson, and git already stores it — `git log -S` finds the incident on demand.
+   Write the **rule and why it holds**; strip the date, the work-item ID, and the
+   war story.
 3. Never auto-apply. On decline, drop it — do not re-propose.
 
 ---
