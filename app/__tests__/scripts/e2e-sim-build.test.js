@@ -285,8 +285,13 @@ function runScript(opts = {}) {
       'stat',
       [
         'if [ "$1" = "-c" ]; then',
-        '  shift 2',                     // drop -c and the format
-        '  for f in "$@"; do /usr/bin/stat -f %m "$f"; done',
+        '  shift 2', // drop -c and the format
+        // Compute mtime with node, not the real `stat`. Delegating to /usr/bin/stat would
+        // make this shim platform-specific in exactly the way it exists to test: BSD
+        // syntax breaks on the Linux runner and vice versa. node is present on both.
+        '  for f in "$@"; do',
+        '    node -e \'process.stdout.write(String(Math.floor(require("fs").statSync(process.argv[1]).mtimeMs/1000))+"\\n")\' "$f"',
+        '  done',
         '  exit 0',
         'fi',
         'if [ "$1" = "-f" ]; then',
