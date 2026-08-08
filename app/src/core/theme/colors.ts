@@ -55,18 +55,18 @@ export const colors = colorSystem;
 export const semantic = {
   text: {
     primary: colorSystem.base.black,
-    secondary: colorSystem.gray[600],
+    secondary: colorSystem.gray[700],
     // DEBUG-323: was gray[500], which is 1.98:1 on background.primary (white) —
     // failing WCAG AA for normal text (4.5:1) AND for large text (3:1). A
     // semantic *text* token that could not legally render text on the default
     // background; all 7 non-test consumers were latent AA failures.
     //
-    // This is now a DELIBERATE ALIAS of `secondary`, not an oversight. The
+    // This is a DELIBERATE ALIAS of `secondary`, not an oversight. The
     // design-system gray ramp has no accessible step between gray[500] (1.98:1)
-    // and gray[600] (4.61:1), and 4.5:1 on white requires roughly #767676 or
-    // darker — so any value light enough to read as distinct from gray[600] is
-    // by construction too light to pass. There is no legal third text tier on
-    // white, and minting a hex would violate the no-hardcoded-colour rule.
+    // and gray[600] (4.61:1) — so any value light enough to read as distinct
+    // from the passing step is by construction too light to pass. There is no
+    // legal third text tier, and minting a hex would violate the
+    // no-hardcoded-colour rule.
     //
     // Consequence: quieting must be expressed STRUCTURALLY — italic, position,
     // size, enclosure — never chromatically. Same ruling FEAT-292 already made
@@ -74,8 +74,27 @@ export const semantic = {
     // structurally rather than chromatically"); this lifts it to the token so
     // the two cannot contradict each other.
     //
-    // Pinned by core/theme/__tests__/theme-contrast.accessibility.test.ts.
-    muted: colorSystem.gray[600],
+    // DEBUG-357: both tokens moved gray[600] -> gray[700]. gray[600] (#757575)
+    // was legal ONLY on white (4.61:1) and failed AA on every other surface in
+    // the app — gray[50] 4.38, gray[100] 4.41, gray[200] 3.97, and all four
+    // getTheme backgrounds 4.26–4.37. That made the token a trap: the "correct"
+    // choice silently failed the moment a site sat on a tinted surface, and the
+    // pin at the time asserted white only, so nothing could detect it.
+    //
+    // gray[700] (#424242) clears 4.5:1 on EVERY surface (worst case 8.66 on
+    // gray[200]), which makes these tokens SURFACE-INDEPENDENT. That property is
+    // the point, not a side effect: `SkipLink` renders `muted` with no
+    // backgroundColor of its own over five different hosts, so its surface is
+    // not statically knowable and no per-site fix could ever cover it.
+    //
+    // The cost is that the subordinate tier and body text are now the same
+    // colour. That is the DEBUG-323 ruling above being paid, not violated —
+    // there was never a legal chromatic tier to preserve.
+    //
+    // Pinned by core/theme/__tests__/theme-contrast.accessibility.test.ts, which
+    // DEBUG-357 widened from a single-surface assertion to a per-(foreground,
+    // surface) matrix so "valid only on white" cannot become tribal knowledge again.
+    muted: colorSystem.gray[700],
     inverse: colorSystem.base.white,
     // DEBUG-364: the learn-brand purple that is LEGAL AS TEXT on light surfaces.
     //
