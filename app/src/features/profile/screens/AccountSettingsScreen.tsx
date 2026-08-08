@@ -153,7 +153,7 @@ const styles = StyleSheet.create({
   dataRightsDescription: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     lineHeight: 20,
   },
 });

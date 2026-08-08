@@ -147,7 +147,7 @@ const storageRowStyles = StyleSheet.create({
   storageText: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.medium,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
   },
 });
 
@@ -492,7 +492,7 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     marginTop: spacing[16],
   },
   section: {
@@ -507,7 +507,7 @@ const styles = StyleSheet.create({
   sectionDescription: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     lineHeight: 22,
     marginBottom: spacing[16],
   },
@@ -540,7 +540,7 @@ const styles = StyleSheet.create({
   settingDescription: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     lineHeight: 20,
   },
   infoBox: {
@@ -554,7 +554,7 @@ const styles = StyleSheet.create({
   infoText: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     lineHeight: 20,
   },
   consentLastUpdated: {

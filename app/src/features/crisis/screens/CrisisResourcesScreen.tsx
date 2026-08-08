@@ -446,7 +446,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     lineHeight: typography.bodyLarge.size
   },
   emergencyBanner: {
@@ -488,7 +488,7 @@ const styles = StyleSheet.create({
   },
   sectionDescription: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     marginBottom: spacing[24],
     lineHeight: spacing[20]
   },
@@ -544,7 +544,7 @@ const styles = StyleSheet.create({
   },
   resourceAvailability: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     fontWeight: typography.fontWeight.medium
   },
   resourceDescription: {
@@ -560,7 +560,7 @@ const styles = StyleSheet.create({
   contactLabel: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     width: 80
   },
   contactValue: {

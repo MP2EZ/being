@@ -309,7 +309,7 @@ const styles = StyleSheet.create({
   citation: {
     fontSize: typography.bodySmall.size,
     fontStyle: 'italic',
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
   },
   principleLink: {
     fontSize: typography.bodySmall.size,
