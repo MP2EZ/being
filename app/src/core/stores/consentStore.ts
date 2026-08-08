@@ -187,8 +187,48 @@ export interface ConsentHistoryEntry {
 export interface ConsentStore {
   // State
   currentConsent: ConsentRecord | null;
+  /**
+   * The parsed-but-unusable consent record from a `version_mismatch` load
+   * (FEAT-316 slice A). That branch nulls `currentConsent`, which destroys the
+   * record FEAT-332's delta screen needs to compute "what changed" and to check
+   * 18+ eligibility. Retained here purely as data for that later screen.
+   *
+   * 🚫 NEVER read this to widen permission. It is deliberately not consulted by
+   * `canPerformOperation`, `hasValidConsent`, `isAgeVerified`, or the cache
+   * builder, and is test-pinned inert. A stale record can be fully opted-in; if
+   * any of those started reading it, a user whose consent lapsed would silently
+   * regain processing they never re-authorized.
+   *
+   * Null on every other outcome. Deliberately NOT set on `expired` — that
+   * branch retains `currentConsent`, so duplicating the record here would
+   * create two sources of truth. FEAT-332 reads `staleConsent ?? currentConsent`.
+   */
+  staleConsent: ConsentRecord | null;
   consentHistory: ConsentHistoryEntry[];
-  consentStatus: 'loading' | 'valid' | 'invalid' | 'expired' | 'missing' | 'under_age';
+  /**
+   * FEAT-316 slice A split the former catch-all `'invalid'` into three causes.
+   * Six sites produced it — four collapsed conditions in `loadConsent`, its
+   * catch block, and `revokeConsent` — which made a user who deliberately
+   * withdrew consent (GDPR Art. 7(3)) indistinguishable from one holding a
+   * stale policy version. FEAT-332 mounts a re-consent prompt on that
+   * distinction; without the split it would nag the withdrawn user.
+   *
+   * Re-consent is permitted for `version_mismatch` and `expired` ONLY, and must
+   * be expressed as an allowlist — never "everything except revoked" — so that
+   * adding a status here later cannot silently re-enable nagging.
+   */
+  consentStatus:
+    | 'loading'
+    | 'valid'
+    /** Stored record predates the current CONSENT_VERSION. Re-consent eligible. */
+    | 'version_mismatch'
+    /** Record unreadable or missing identifiers. NEVER re-consent eligible. */
+    | 'integrity_error'
+    /** User deliberately withdrew (Art. 7(3)). NEVER re-consent eligible. */
+    | 'revoked'
+    | 'expired'
+    | 'missing'
+    | 'under_age';
   isLoading: boolean;
   error: string | null;
 
@@ -278,9 +318,21 @@ const DEFAULT_CACHE = {
 };
 
 /**
- * Current consent version (update when policy changes)
+ * Current consent version (update when policy changes).
+ *
+ * Exported (FEAT-316 slice A) so the version-keyed changelog map FEAT-332 adds
+ * can live beside it — a bump and its user-facing "what changed" explanation
+ * must not be able to drift apart.
+ *
+ * 🔴 DO NOT BUMP until the full re-consent flow (FEAT-332) has landed. This was
+ * already bumped once (1.0.0 → 1.1.0, DEBUG-150 `c96ab71e`) explicitly to force
+ * a re-grant, with no re-grant path ever built. Bumping again strips consent
+ * from every onboarded install with no recovery: CleanRootNavigator routes on
+ * `onboardingCompleted` first so they still reach Main, loadConsent nulls
+ * currentConsent, and the only production re-grant surface (PrivacyDataScreen →
+ * updateConsent) early-returns "No existing consent to update".
  */
-const CONSENT_VERSION = '1.1.0';
+export const CONSENT_VERSION = '1.1.0';
 
 /**
  * Generate unique consent ID
@@ -359,8 +411,29 @@ async function loadConsentHistoryWithMigration(): Promise<ConsentHistoryEntry[]>
 /**
  * Consent Zustand Store
  */
+/**
+ * Drop the persisted `consent_cache_v1` blob whenever consent resolves to
+ * anything other than valid (FEAT-316 slice A).
+ *
+ * Scope note: this blob is write-only repo-wide — four writers, zero readers —
+ * so a leftover permissive copy is NOT a live consent bypass today. This is
+ * data hygiene against the day something starts reading it back, not a security
+ * fix, and should not be described as one.
+ *
+ * Never throws: a storage failure here must not turn a recoverable stale-consent
+ * load into an integrity error.
+ */
+async function clearPersistedConsentCache(): Promise<void> {
+  try {
+    await AsyncStorage.removeItem(CONSENT_CACHE_KEY);
+  } catch (error) {
+    console.error('[Consent] Failed to clear persisted consent cache', error);
+  }
+}
+
 export const useConsentStore = create<ConsentStore>((set, get) => ({
   currentConsent: null,
+  staleConsent: null,
   consentHistory: [],
   consentStatus: 'loading',
   isLoading: false,
@@ -379,8 +452,10 @@ export const useConsentStore = create<ConsentStore>((set, get) => ({
 
       if (!storedConsent) {
         // No consent found - fail-safe: block access
+        await clearPersistedConsentCache();
         set({
           currentConsent: null,
+          staleConsent: null,
           consentStatus: 'missing',
           consentCache: DEFAULT_CACHE,
           isLoading: false,
@@ -396,18 +471,55 @@ export const useConsentStore = create<ConsentStore>((set, get) => ({
         universalOptOut: parsed.universalOptOut ?? false,
       };
 
-      // Validate consent integrity.
-      // version !== CONSENT_VERSION forces re-grant when the policy shape changes
-      // (e.g., DEBUG-150 added Art. 9 explicit consent at version 1.1.0).
-      if (
-        !consent.consentId ||
-        !consent.userId ||
-        consent.revoked ||
-        consent.version !== CONSENT_VERSION
-      ) {
+      // Validate consent integrity (FEAT-316 slice A).
+      //
+      // ⚠️ THE ORDER OF THESE THREE CHECKS IS SAFETY-CRITICAL — do not reorder.
+      // The conditions overlap: a user who withdrew consent while on policy
+      // 1.0.0 satisfies BOTH `revoked` and `version !== CONSENT_VERSION`. Test
+      // `version` first and they resolve to 'version_mismatch', and FEAT-332's
+      // re-consent screen re-prompts someone who deliberately said no — a GDPR
+      // Art. 7(3) violation and a regression that does not exist today.
+      //
+      //   1. integrity — an unparseable/identifier-less record cannot be trusted
+      //      to report its own `revoked` or `version` fields either.
+      //   2. revoked   — a deliberate withdrawal. Terminal; never re-prompted.
+      //   3. version   — the only re-consent-eligible outcome of the three.
+      if (!consent.consentId || !consent.userId) {
+        await clearPersistedConsentCache();
         set({
           currentConsent: null,
-          consentStatus: 'invalid',
+          staleConsent: null,
+          consentStatus: 'integrity_error',
+          consentCache: DEFAULT_CACHE,
+          isLoading: false,
+        });
+        return null;
+      }
+
+      if (consent.revoked) {
+        await clearPersistedConsentCache();
+        set({
+          currentConsent: null,
+          staleConsent: null,
+          consentStatus: 'revoked',
+          consentCache: DEFAULT_CACHE,
+          isLoading: false,
+        });
+        return null;
+      }
+
+      // version !== CONSENT_VERSION forces re-grant when the policy shape changes
+      // (e.g., DEBUG-150 added Art. 9 explicit consent at version 1.1.0).
+      if (consent.version !== CONSENT_VERSION) {
+        await clearPersistedConsentCache();
+        set({
+          currentConsent: null,
+          // Retained as inert data for FEAT-332's delta screen only. Note this
+          // branch runs BEFORE the age check below, so an ineligible user never
+          // reaches 'under_age' — the eligibility flag on this record is the
+          // only thing standing between FEAT-332 and re-consenting a minor.
+          staleConsent: consent,
+          consentStatus: 'version_mismatch',
           consentCache: DEFAULT_CACHE,
           isLoading: false,
         });
@@ -416,8 +528,10 @@ export const useConsentStore = create<ConsentStore>((set, get) => ({
 
       // Check age eligibility
       if (!consent.ageVerification.isEligible) {
+        await clearPersistedConsentCache();
         set({
           currentConsent: consent,
+          staleConsent: null,
           consentStatus: 'under_age',
           consentCache: DEFAULT_CACHE,
           isLoading: false,
@@ -425,10 +539,13 @@ export const useConsentStore = create<ConsentStore>((set, get) => ({
         return consent;
       }
 
-      // Check expiry (if set)
+      // Check expiry (if set). Unlike version_mismatch this retains
+      // currentConsent, so staleConsent stays null — see its doc comment.
       if (consent.expiresAt && consent.expiresAt < Date.now()) {
+        await clearPersistedConsentCache();
         set({
           currentConsent: consent,
+          staleConsent: null,
           consentStatus: 'expired',
           consentCache: DEFAULT_CACHE,
           isLoading: false,
@@ -462,6 +579,7 @@ export const useConsentStore = create<ConsentStore>((set, get) => ({
 
       set({
         currentConsent: consent,
+        staleConsent: null,
         consentHistory: history,
         consentStatus: 'valid',
         consentCache: cache,
@@ -471,9 +589,17 @@ export const useConsentStore = create<ConsentStore>((set, get) => ({
       return consent;
     } catch (error) {
       console.error('[Consent] Failed to load consent', error);
+      await clearPersistedConsentCache();
       set({
         error: 'Failed to load consent',
-        consentStatus: 'invalid',
+        // A thrown load says nothing about WHY the record is unusable, so it
+        // must never be re-consent eligible — fabricating a fromVersion →
+        // toVersion audit entry off an unread record is worse than not
+        // prompting. Also nulls currentConsent: this branch previously left a
+        // prior in-memory record standing beside a non-valid status.
+        currentConsent: null,
+        staleConsent: null,
+        consentStatus: 'integrity_error',
         consentCache: DEFAULT_CACHE,
         isLoading: false,
       });
@@ -538,6 +664,8 @@ export const useConsentStore = create<ConsentStore>((set, get) => ({
 
       set({
         currentConsent: consent,
+        // A fresh grant supersedes whatever stale record prompted it.
+        staleConsent: null,
         consentHistory: updatedHistory,
         consentStatus: ageVerification.isEligible ? 'valid' : 'under_age',
         consentCache: cache,
@@ -738,8 +866,13 @@ export const useConsentStore = create<ConsentStore>((set, get) => ({
 
       set({
         currentConsent: revokedConsent,
+        // FEAT-316 slice A: the sixth site that used to produce 'invalid', and
+        // the only one representing a deliberate Art. 7(3) withdrawal. Leaving
+        // it collapsed would have defeated the whole split — the in-memory
+        // status after a revoke is exactly what a re-consent trigger reads.
+        staleConsent: null,
+        consentStatus: 'revoked',
         consentHistory: updatedHistory,
-        consentStatus: 'invalid',
         consentCache: DEFAULT_CACHE,
         isLoading: false,
       });
@@ -911,6 +1044,7 @@ export const useConsentStore = create<ConsentStore>((set, get) => ({
 
       set({
         currentConsent: null,
+        staleConsent: null,
         consentHistory: [],
         consentStatus: 'missing',
         consentCache: DEFAULT_CACHE,
