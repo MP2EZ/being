@@ -635,12 +635,10 @@ EOF
 ### Step 3.4: Wait for CI
 
 **Never use `gh pr checks --watch` alone as the verdict.** It blocks correctly but
-its exit status is not trustworthy: `--watch` can exit reporting all-green having
-read only one of several runs attached to the commit. Observed 2026-08-06
-(INFRA-329, PR #244): `--watch` reported all 9 gates green, then `gh pr merge` was
-refused with `Required status check "CI pass" is failing` — the commit carried two
-runs and the PR-triggered one had hit the esm.sh flake. `/b-batch` Step 3.4 already
-documents this; this step is the other half of the same fix.
+its exit status is not trustworthy: a commit can carry both a push-triggered and a
+PR-triggered run, and `--watch` can exit reporting all-green having read only one of
+them — leaving `gh pr merge` to refuse with `Required status check "CI pass" is
+failing` seconds later. `/b-batch` Step 3.4 is the other half of the same fix.
 
 Wait, then verify against the **full rollup**, which is authoritative:
 
