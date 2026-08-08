@@ -119,8 +119,10 @@ npm run e2e:safety:build   # Release build (expo run:ios) + verify + install on 
 - Working CocoaPods, for the prebuild stage — `pod --version`. *(If `brew install
   fastlane` ever upgrades Ruby and orphans CocoaPods' `ffi` gem, `brew reinstall
   cocoapods`.)*
-- **Timing: ~11 min for the first build in a worktree, then ~1 min.** DerivedData is
-  ~7.5 GB and keyed by project path, so each worktree pays its own cold build once. Use
+- **Timing (measured, SDK 56 / Xcode 26.0.1):** ~14 min for the first build in a *fresh*
+  worktree — it also pays the CNG prebuild and `pod install`; ~11 min if `app/ios/`
+  already exists; **~35-75 s warm** thereafter. DerivedData is ~7.5 GB and keyed by
+  project path, so each worktree pays its own cold build once. Use
   `npm run e2e:safety:clean` to see what that is costing and to reclaim it.
 - The EAS fallback (`npm run e2e:safety:build:eas`) *does* still need `eas-cli` logged in
   (`npx eas whoami`), `fastlane`, and a clean tree, and takes 10–15 min every run.
