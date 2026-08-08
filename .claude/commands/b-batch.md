@@ -299,6 +299,11 @@ this run's manifest **or** already `Done` in Notion. If any prerequisite is not 
 dependent off a `development` that lacks its prerequisite. Set the item's manifest
 `state: running` before each.
 
+**Re-check `deferred` items too, between items.** A sibling batch can land a cross-batch
+prerequisite mid-run, and nothing else looks until `--resume`. If `blocked_by` is now
+satisfied on both sources, clear it and set `state: pending`; run it only if a cap slot
+remains AND the remaining context can fund the Phase-1 panel it never got.
+
 **A SOFT edge whose predecessor is `queued_red` doesn't block — but it moves the base.**
 A RED predecessor is committed yet never merges unattended, so branch the successor off
 `origin/development` anyway (branching it off the RED branch makes a GREEN item
