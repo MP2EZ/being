@@ -20,7 +20,7 @@ import {
   TouchableOpacity,
   StyleSheet,
 } from 'react-native';
-import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
+import { colorSystem, spacing, typography, borderRadius, semantic } from '@/core/theme';
 import { useEducationStore } from '../stores/educationStore';
 import type { ModuleContent, ModuleId } from '@/features/learn/types/education';
 import FromTheSourceSection from '@/features/library/components/FromTheSourceSection';
@@ -368,7 +368,7 @@ const styles = StyleSheet.create({
   },
   learnMoreText: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     lineHeight: 21,
   },
   exampleCard: {
@@ -414,7 +414,7 @@ const styles = StyleSheet.create({
   },
   obstaclesIntro: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     lineHeight: 20,
     marginBottom: spacing[24],
   },
@@ -476,7 +476,7 @@ const styles = StyleSheet.create({
   },
   stagesIntro: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     lineHeight: 20,
     marginBottom: spacing[24],
     fontStyle: 'italic',
@@ -523,7 +523,7 @@ const styles = StyleSheet.create({
   },
   stageDescription: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     lineHeight: 20,
     marginBottom: spacing[16],
   },
