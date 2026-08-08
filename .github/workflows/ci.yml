@@ -220,6 +220,11 @@ jobs:
       - name: Install dependencies
         run: cd app && npm ci --prefer-offline --no-audit
 
+      - name: Runner spec (EXPERIMENT — remove before shipping)
+        run: |
+          echo "nproc=$(nproc)"
+          echo "mem=$(free -g | awk '/^Mem:/{print $2}')GB"
+
       - name: Unit tests
         # --coverage intentionally omitted: this is a SUBSET run (jest
         # --testPathPattern=unit) so per-file coverage would always fall
@@ -228,6 +233,36 @@ jobs:
         # dedicated full-suite job; subset runs validate their slice.
         run: cd app && npm run test:unit -- --ci --testTimeout=20000
 
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: coverage-report-unit
+          path: app/coverage/
+          retention-days: 14
+
+  # EXPERIMENT: split out of `test`. Rationale — `test` ran unit (16s) THEN
+  # integration (17s) serially inside one job, making it the 59s long pole while
+  # seven other jobs sat idle. Splitting trades +21s of runner time (a second
+  # install) for wall clock. Modelled effect: this split ALONE is only ~-7s
+  # because `security` (52s) then becomes the long pole — which is why the
+  # security/audit split below is in the same experiment.
+  test-integration:
+    name: Integration tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: 'app/package-lock.json'
+
+      - name: Install dependencies
+        run: cd app && npm ci --prefer-offline --no-audit
+
       - name: Integration tests
         run: cd app && npm run test:integration -- --ci --testTimeout=30000
 
@@ -235,7 +270,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v6
         with:
-          name: coverage-report
+          name: coverage-report-integration
           path: app/coverage/
           retention-days: 14
 
@@ -316,6 +351,26 @@ jobs:
         # a non-negotiable in CLAUDE.md, so restore an explicit
         # `npm run test:encryption` step here if that move happens.
         run: cd app && npm run test:security -- --ci --testTimeout=15000
+
+
+  # EXPERIMENT: split out of `security`. npm audit needs the installed tree but
+  # is otherwise independent of the security test suite, and it was 6s of serial
+  # tail on the second-longest job.
+  audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: 'app/package-lock.json'
+
+      - name: Install dependencies
+        run: cd app && npm ci --prefer-offline --no-audit
 
       - name: npm audit
         # MAINT-182: switched from raw `npm audit --audit-level=high` to
@@ -482,6 +537,8 @@ jobs:
       - crisis-validation
       - clinical-validation
       - test
+      - test-integration
+      - audit
       - security
       - accessibility
       - performance
@@ -495,6 +552,8 @@ jobs:
           echo "crisis:           ${{ needs.crisis-validation.result }}"
           echo "clinical:         ${{ needs.clinical-validation.result }}"
           echo "test:             ${{ needs.test.result }}"
+          echo "test-integration: ${{ needs['test-integration'].result }}"
+          echo "audit:            ${{ needs.audit.result }}"
           echo "security:         ${{ needs.security.result }}"
           echo "performance:      ${{ needs.performance.result }}"
           echo "accessibility:    ${{ needs.accessibility.result }}"
@@ -513,6 +572,8 @@ jobs:
              || "${{ needs.clinical-validation.result }}" != "success" \
              || "${{ needs.security.result }}" != "success" \
              || "${{ needs.test.result }}" != "success" \
+             || "${{ needs['test-integration'].result }}" != "success" \
+             || "${{ needs.audit.result }}" != "success" \
              || "${{ needs.performance.result }}" != "success" \
              || "${{ needs.accessibility.result }}" != "success" \
              || "${{ needs.edge-functions.result }}" != "success" ]]; then
