@@ -538,3 +538,5 @@ jobs:
             exit 1
           fi
           echo "✅ All required gates passed (advisory jobs may show non-success — see logs)"
+
+# trigger run 2 (warm)
