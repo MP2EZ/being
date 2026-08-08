@@ -167,6 +167,14 @@ jobs:
       - name: Install dependencies
         run: cd app && npm ci --prefer-offline --no-audit
 
+      - name: Jest transform cache (EXPERIMENT)
+        uses: actions/cache@v4
+        with:
+          path: app/.jest-cache
+          key: jest-crisis-${{ hashFiles('app/package-lock.json','app/jest.config.js','app/babel.config.js') }}-${{ github.sha }}
+          restore-keys: |
+            jest-crisis-${{ hashFiles('app/package-lock.json','app/jest.config.js','app/babel.config.js') }}-
+
       - name: Crisis authority validation
         run: cd app && npm run validate:crisis-authority
 
@@ -191,6 +199,14 @@ jobs:
 
       - name: Install dependencies
         run: cd app && npm ci --prefer-offline --no-audit
+
+      - name: Jest transform cache (EXPERIMENT)
+        uses: actions/cache@v4
+        with:
+          path: app/.jest-cache
+          key: jest-clinical-${{ hashFiles('app/package-lock.json','app/jest.config.js','app/babel.config.js') }}-${{ github.sha }}
+          restore-keys: |
+            jest-clinical-${{ hashFiles('app/package-lock.json','app/jest.config.js','app/babel.config.js') }}-
 
       - name: Clinical authority validation
         run: cd app && npm run validate:clinical-authority
@@ -385,6 +401,14 @@ jobs:
       - name: Install dependencies
         run: cd app && npm ci --prefer-offline --no-audit
 
+      - name: Jest transform cache (EXPERIMENT)
+        uses: actions/cache@v4
+        with:
+          path: app/.jest-cache
+          key: jest-a11y-${{ hashFiles('app/package-lock.json','app/jest.config.js','app/babel.config.js') }}-${{ github.sha }}
+          restore-keys: |
+            jest-a11y-${{ hashFiles('app/package-lock.json','app/jest.config.js','app/babel.config.js') }}-
+
       - name: Accessibility test suite
         # A preceding "Accessibility validation" step used to run
         # `validate:accessibility`, which is a pure alias for this same command
@@ -442,6 +466,14 @@ jobs:
       # PERF-01/PERF-02 regression shape (commit ff591f3a) reappears on the
       # breathing animation path. The breathing 60fps budget itself remains
       # unmeasured; the on-device measurement is INFRA-309.
+      - name: Jest transform cache (EXPERIMENT)
+        uses: actions/cache@v4
+        with:
+          path: app/.jest-cache
+          key: jest-perf-${{ hashFiles('app/package-lock.json','app/jest.config.js','app/babel.config.js') }}-${{ github.sha }}
+          restore-keys: |
+            jest-perf-${{ hashFiles('app/package-lock.json','app/jest.config.js','app/babel.config.js') }}-
+
       - name: Breathing-worklet purity guard
         run: cd app && npm run check:breathing-worklets
 
@@ -538,5 +570,3 @@ jobs:
             exit 1
           fi
           echo "✅ All required gates passed (advisory jobs may show non-success — see logs)"
-
-# trigger run 2 (warm)
