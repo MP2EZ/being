@@ -27,6 +27,7 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 import { timingSafeEqual } from 'node:crypto';
+import { shouldPingSubscriptionHealthcheck } from './healthcheckGate.ts';
 
 /**
  * Constant-time string comparison via node:crypto's timingSafeEqual.
@@ -54,6 +55,19 @@ interface AutomationResult {
  * scheduled run is observable (INFRA-266). PII-free counters only — no user/receipt data.
  * Best-effort: a heartbeat-write failure is logged but NEVER changes the function's HTTP
  * result, so observability can't take down the automation it observes.
+ *
+ * RETURNS whether the row actually landed (INFRA-296). This used to return void, and the
+ * `await ... .insert()` below was unchecked — but supabase-js `.insert()` does NOT throw
+ * on a DB/RLS/permission error, it RESOLVES with `{ error }`. So the try/catch caught
+ * nothing that mattered and a heartbeat that never landed looked exactly like success.
+ * That was survivable while the only consumer was the in-Supabase watchdog (which reads
+ * the table directly and correctly saw no row), but the external dead-man's-switch gates
+ * its ping on this boolean: without a truthful answer the switch would report health at
+ * the exact moment the watchdog reports failure. The crisis alerter has always checked
+ * `insErr` for this reason; this brings the ops side to the same standard.
+ *
+ * The best-effort property is preserved deliberately: a false return does NOT push into
+ * `errors`, does NOT flip the run status, and does NOT throw. It only suppresses the ping.
  */
 async function recordRun(
   supabase: any,
@@ -61,9 +75,9 @@ async function recordRun(
   result: AutomationResult,
   durationMs: number,
   errors: string[],
-): Promise<void> {
+): Promise<boolean> {
   try {
-    await supabase.from('grace_period_automation_runs').insert({
+    const { error: insErr } = await supabase.from('grace_period_automation_runs').insert({
       status,
       trials_expired: result.trialsExpired,
       grace_periods_expired: result.gracePeriodsExpired,
@@ -73,8 +87,61 @@ async function recordRun(
       errors: errors.length > 0 ? errors : null,
       duration_ms: durationMs,
     });
+    if (insErr) {
+      console.error('[Automation] Heartbeat run-record insert returned an error:', insErr);
+      return false;
+    }
+    return true;
   } catch (e) {
     console.error('[Automation] Failed to write heartbeat run-record:', e);
+    return false;
+  }
+}
+
+/**
+ * Fire the ops-domain healthchecks.io dead-man's-switch success ping (INFRA-296).
+ *
+ * The check URL (e.g. https://hc-ping.com/<uuid>) is a CAPABILITY URL — anyone holding it
+ * can silence the alarm, so treat it as a secret. It is read BY NAME from the
+ * `SUBSCRIPTION_HEALTHCHECK_PING_URL` Edge secret and used ONLY as the fetch target: never
+ * interpolated into a logged/thrown/response string, never written to the heartbeat row,
+ * never appended with run details. GET, no body, no query params, no custom headers — so
+ * the only thing healthchecks.io observes is the fact and timestamp of the request.
+ *
+ * TRUST-DOMAIN SEPARATION IS THE POINT (AC2). This is a DIFFERENT secret name and a
+ * DIFFERENT healthchecks.io check from the crisis pipeline's `CRISIS_HEALTHCHECK_PING_URL`
+ * (INFRA-264). Do not merge them or point both at one check: the two domains must rotate
+ * and page independently, and a shared check would let an ops-side rotation silently break
+ * crisis paging. Mirrors the existing `subscription_alert_*` vs `crisis_alert_*` Vault
+ * split. Note the static pin cannot verify distinctness — it forbids both URLs identically
+ * — so that part is console discipline, recorded in the runbook.
+ *
+ * Fully best-effort and bounded, matching INFRA-264:
+ *   - Unset/blank secret → skip silently. The switch is simply not provisioned yet, and a
+ *     missing-config state must NOT page through the internal watchdog. The runbook's
+ *     setup checklist is what confirms the first ping actually landed.
+ *   - GET with `redirect: 'error'` (a capability URL resolves directly to a known host;
+ *     following an unexpected redirect would be an exfiltration vector) and a 5s timeout
+ *     (a hung endpoint must never stall the function or bleed into the next cron tick).
+ *   - Any failure is swallowed with a generic, URL-free console line, so a healthchecks.io
+ *     outage can never flip this run to 'error' or falsely trip the in-Supabase watchdog.
+ */
+async function pingOpsHealthcheck(): Promise<void> {
+  const pingUrl = Deno.env.get('SUBSCRIPTION_HEALTHCHECK_PING_URL');
+  if (!pingUrl) return; // not provisioned — skip silently (see runbook §3 setup checklist)
+  try {
+    const res = await fetch(pingUrl, {
+      method: 'GET',
+      redirect: 'error',
+      signal: AbortSignal.timeout(5000),
+    });
+    // Outcome recorded as status only, never the URL.
+    if (!res.ok) {
+      console.warn(`[Automation] ops healthcheck ping returned non-2xx (${res.status})`);
+    }
+  } catch {
+    // URL-free by construction — never echo the capability URL into logs.
+    console.warn('[Automation] ops healthcheck ping failed (network/timeout)');
   }
 }
 
@@ -366,7 +433,30 @@ serve(async (req) => {
 
     // Heartbeat: a per-step failure is collected in `errors` but still returns 200, so
     // the run is 'error' only when at least one step failed; otherwise 'ok' (INFRA-266).
-    await recordRun(supabase, errors.length > 0 ? 'error' : 'ok', result, duration, errors);
+    const heartbeatPersisted = await recordRun(
+      supabase,
+      errors.length > 0 ? 'error' : 'ok',
+      result,
+      duration,
+      errors,
+    );
+
+    // --- External dead-man's-switch, subscription/ops domain (INFRA-296). LAST action
+    //     before return, gated on BOTH a clean run and a persisted heartbeat. Mirrors
+    //     INFRA-264's placement in the crisis alerter, one trust domain over.
+    //
+    //     Every non-clean path deliberately reaches this with no ping: the 401 above
+    //     returns before any run exists; any of the five per-step failures put an entry in
+    //     `errors` (note the function still returns HTTP 200 in that case, which is exactly
+    //     why the gate reads `errors` and not the status code); the outer catch below
+    //     returns 500 without coming through here at all; and a silently-failed heartbeat
+    //     write now yields heartbeatPersisted === false. A total Supabase/edge outage or an
+    //     unscheduled cron means the function never runs, so no ping either. In every case
+    //     the check's grace window lapses and healthchecks.io pages from an independent
+    //     failure domain. ---
+    if (shouldPingSubscriptionHealthcheck({ errorCount: errors.length, heartbeatPersisted })) {
+      await pingOpsHealthcheck();
+    }
 
     return new Response(
       JSON.stringify({

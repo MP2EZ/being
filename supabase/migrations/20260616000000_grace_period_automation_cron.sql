@@ -9,8 +9,17 @@
 --
 -- NOT safety-critical: grace-period automation is subscription lifecycle ops, not crisis
 -- monitoring. It deliberately uses its OWN distinct Vault secret + a separate trust domain
--- from the crisis alerter, and needs no watchdog/dead-man's-switch (that is reserved for
--- the crisis-detection pipeline).
+-- from the crisis alerter.
+--
+-- AMENDED BY INFRA-296. This header previously continued "...and needs no
+-- watchdog/dead-man's-switch (that is reserved for the crisis-detection pipeline)". That
+-- is no longer true and the reasoning behind it did not hold: the argument conflated
+-- SEVERITY (grace-period is not life-safety, correct) with FAILURE DOMAIN (an in-Supabase
+-- watchdog cannot page when the DB hosting it is down — true regardless of severity).
+-- This job now fires a bare GET to its own external healthchecks.io check on each clean
+-- run, so its silence pages the founder. Separate check and separate ping-URL secret from
+-- the crisis pipeline's; the trust-domain separation asserted above is preserved, not
+-- weakened. See docs/development/post-launch-monitoring-runbook.md §3.
 --
 -- SECURITY / SECRETS — NO SECRET VALUE APPEARS IN THIS FILE.
 --   The cron command reads secrets from Supabase Vault BY NAME at run time. Bootstrap these
