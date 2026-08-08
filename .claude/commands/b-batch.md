@@ -227,8 +227,7 @@ Implemented, then reverted.)
 constraints (read the actual styles first, don't sketch from imagination). Per CLAUDE.md
 fidelity-matches-progress, early concepts get wireframes; asking someone to choose between
 screens they cannot see is what forces a second decision round, which is precisely the cost
-this phase exists to avoid. Observed 2026-07-25: 1 of 4 batched questions came back "I need
-to see wireframes for this to decide," costing a full extra round-trip on FEAT-293.
+this phase exists to avoid.
 
 An amber you don't resolve → leave for a later manual run (record in manifest as `deferred`).
 
@@ -327,9 +326,7 @@ Invoke with the approved approach fed through the existing `ADDITIONAL_CONTEXT` 
 **Load each wrapped skill once per batch, not once per item.** `/b-work` and `/b-close`
 are large files that load in full on every invocation, and their procedures do not change
 between items. Invoke each via the Skill tool for the FIRST item that needs it, then follow
-the loaded procedure directly for the rest (say so, so the run stays auditable). Observed
-2026-08-04: a 3-item run would have loaded them 8 times instead of 2, spending on
-re-reading instructions the very context budget the Step 2.4 cap of 4 exists to protect.
+the loaded procedure directly for the rest (say so, so the run stays auditable).
 
 Keep the approach string free of stray safety keywords (`crisis`, `encryption`, `PHQ`,
 …) for non-safety stories — `/b-work` Step 3.1 scans `ADDITIONAL_CONTEXT` and would
@@ -413,9 +410,7 @@ time**, but a naively-chained cleanup block runs the deletions anyway — orphan
 head branch (GitHub closes the PR) and forcing a from-commit reconstruction. The commit
 object survives (recoverable via `git worktree add <dir> -b <branch> <sha>`), but the clean
 fix is to never delete on an unconfirmed merge: leave the branch+worktree intact so Step
-3.4(a)'s `/b-close` re-invoke can finish the merge. (Learned the hard way on a live run:
-MAINT-244 lost the race to a sibling PR, the cleanup ran regardless, and the branch had to
-be rebuilt from the dangling commit before re-closing.)
+3.4(a)'s `/b-close` re-invoke can finish the merge.
 
 ### Step 3.4: Close-failure handling (distinguish the two failure modes)
 `/b-close` can fail at two different points; **route by the failure signature** — they
@@ -450,14 +445,16 @@ because CI actually went red:
    summarizing the failure + PR link, leave the PR open, continue to the next green.
 
 **Repo-wide blocker check — run this BEFORE parking.** Re-run the failing gate's own
-command against a **clean `development` worktree**. If it fails there too, the blocker is
+command against a **freshly-synced `development` worktree** — `git -C
+~/dev/being/development fetch origin && git -C ~/dev/being/development pull --ff-only`
+FIRST. "Clean" is not "current": a worktree sitting on an old commit reproduces any
+failure a same-age feature branch hits, so an already-fixed advisory reads as repo-wide
+and halts the batch. If it fails on the SYNCED tree too, the blocker is
 not this item's: file it as its own INFRA item, park the current item with `blocked_by` set
 to it, and **halt the batch** rather than continuing to the next item — every remaining item
 would hit the same wall and park identically, each burning a full implement-plus-CI cycle to
 rediscover it. Report the blocker as the headline finding, not as a footnote under a parked
-item. Observed 2026-07-26: `Security + compliance` began failing repo-wide mid-batch
-(→ INFRA-312) with no repo change; INFRA-306's PR was complete and 8/9 green, and following
-step 3 literally would have parked the entire queue one expensive cycle at a time.
+item.
 
 Two cheap habits that came out of the same run: a gate reporting an unclassified error
 (`audit-ci`'s bare `code undefined:`) is **not** a finding — re-run the underlying command
