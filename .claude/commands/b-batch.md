@@ -355,15 +355,20 @@ git -C /Users/max/dev/being/<worktree-dir> fetch origin   # retry-on-lock per B2
 SAFETY=$(git -C /Users/max/dev/being/<worktree-dir> diff --name-only origin/development...HEAD \
   | grep -vE '(__tests__/|\.test\.|\.spec\.)' \
   | grep -E 'app/(src/features/(assessment|crisis)|src/core/services/security|src/core/navigation/|app\.json|ios/.*Info\.plist)' || true)
-# The same test-file exclusion applies to the crisis content detector. The overlay
-# can be re-hosted in any SOURCE dir, which is why this check greps content rather
-# than paths — but a jest test file is not in the app bundle, and Maestro drives the
-# running app, so a test-only diff cannot change what any flow sees. Without the
-# exclusion a deleted test that merely RENDERED the overlay, or a comment naming it,
-# queues a sim-attended close for a change with no runtime code in it.
+# Two exclusions apply to the crisis content detector. The overlay can be re-hosted
+# in any SOURCE dir, which is why this check greps content rather than paths — but
+# neither excluded class can change what a flow sees, because Maestro drives the
+# running app:
+#   1. Test files — not in the app bundle at all.
+#   2. Comment lines, INCLUDING in source files. Naming the overlay in a comment is
+#      not a re-host; it changes no rendered output. Referencing it as a precedent
+#      (e.g. its 44pt-visible-target decision) is a normal thing for a comment
+#      elsewhere in the tree to do, and must not cost a sim-attended close.
+# A line bearing executable code still trips the gate — that is the whole point.
 CRISIS=$(git -C /Users/max/dev/being/<worktree-dir> diff origin/development...HEAD -- 'app/**/*.tsx' 'app/**/*.ts' \
   ':(exclude)app/**/__tests__/**' ':(exclude)app/**/*.test.*' ':(exclude)app/**/*.spec.*' \
-  | grep -E '^[+-].*CollapsibleCrisisButton' || true)
+  | grep -E '^[+-].*CollapsibleCrisisButton' \
+  | grep -vE '^[+-][[:space:]]*(//|\*|/\*)' || true)
 ```
 
 The same test-file exclusion applies to the **Phase 1 prediction** (Step 2.1's RED

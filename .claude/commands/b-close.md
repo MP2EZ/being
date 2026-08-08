@@ -345,17 +345,25 @@ fi
 # the reachability gate on a crisis-surface change. If the diff adds/removes a line
 # referencing the overlay anywhere, treat it as a crisis-surface change. NOTE: this
 # is deliberately NOT subject to the INFRA-256 inert filter — it is an independent,
-# paranoid over-trigger signal; a CollapsibleCrisisButton line moving at all re-arms
-# the reachability flow regardless of how "inert" the surrounding diff looks.
-# It IS subject to the test-file exclusion, which is a different question from
-# inertness: the overlay can be re-hosted in any SOURCE dir (hence content, not
-# paths), but a jest test file is not in the app bundle and Maestro drives the
-# running app, so a test-only diff cannot change what any flow sees. Without the
-# exclusion a deleted test that merely RENDERED the overlay, or a comment naming
-# it, gates a sim-attended close on a change with no runtime code in it.
+# paranoid over-trigger signal; a CODE line referencing the overlay moving at all
+# re-arms the reachability flow regardless of how "inert" the surrounding diff looks.
+# It IS subject to two exclusions, which are a different question from inertness:
+# the overlay can be re-hosted in any SOURCE dir (hence content, not paths), but
+# neither excluded class can change what a flow sees, because Maestro drives the
+# running app.
+#   1. TEST FILES — not in the app bundle at all. Without this, a deleted test that
+#      merely RENDERED the overlay gates a sim-attended close on no runtime code.
+#   2. COMMENT LINES, INCLUDING IN SOURCE FILES. Naming the overlay in a comment is
+#      not a re-host; it changes no rendered output. Citing it as a precedent — its
+#      44pt-visible-target decision is the canonical touch-target reference in this
+#      repo — is a normal thing for a comment elsewhere in the tree to do, and must
+#      not cost a full EAS build plus flow run. Charging one trains exactly the
+#      `--skip-e2e` reflex this gate exists to prevent (same reasoning as INFRA-256).
+# A line bearing executable code still trips the gate — that is the whole point.
 CRISIS_HOST_CHANGED=$(git diff origin/development...HEAD -- 'app/**/*.tsx' 'app/**/*.ts' \
   ':(exclude)app/**/__tests__/**' ':(exclude)app/**/*.test.*' ':(exclude)app/**/*.spec.*' \
-  | grep -E '^[+-].*CollapsibleCrisisButton' || true)
+  | grep -E '^[+-].*CollapsibleCrisisButton' \
+  | grep -vE '^[+-][[:space:]]*(//|\*|/\*)' || true)
 ```
 
 **INFRA-256 decision table** — which safety-path change classes skip the gate vs. trigger it (the implementer/maintainer's quick reference; the bash above is the source of truth):
@@ -367,6 +375,7 @@ CRISIS_HOST_CHANGED=$(git diff origin/development...HEAD -- 'app/**/*.tsx' 'app/
 | Real threshold / scoring edit (assessment) | **trigger** q9/phq9/gad7 | Added executable line → live. |
 | Crisis-dir UI / screen / component change | **trigger** crisis-button | Added executable line under `features/crisis/`. |
 | `CollapsibleCrisisButton` re-host in ANY dir | **trigger** crisis-button | Content detection (`CRISIS_HOST_CHANGED`), exempt from inert filter. |
+| Comment merely NAMING the overlay, in any file | **skip** | Not a re-host; changes no rendered output, so no flow can see it. Citing its 44pt decision as a precedent is normal. |
 | `core/services/security` (non-encryption) / `core/navigation` change | **full suite** | Cross-cutting; existing override in Step 2.5.3. |
 | Test-only file (`__tests__/`, `.test.`, `.spec.`) | **skip** | Drives nothing in the running app (pre-existing exclusion). |
 | `app.json` / `Info.plist` change (incl. deletions) | **gated as today** | Bypasses inert filter; contracts pinned by the INFRA-184 jest test, but keep the coarse net. |
