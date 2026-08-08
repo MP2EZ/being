@@ -36,6 +36,24 @@ on:
     # Daily health check — verifies the suite still passes against current
     # branches even with no new commits. Hourly was overkill for pre-launch.
     - cron: '0 9 * * *'
+  # INFRA-362. Exists so the scheduled-failure notifier below is TESTABLE.
+  # The notifier fires only on `schedule`, and `schedule` fires only on the
+  # default branch (development), which is protected — so a deliberately-failing
+  # commit can never be landed there to exercise it. Without this input the AC
+  # "verify by forcing a scheduled-context failure" is unsatisfiable: a plain
+  # workflow_dispatch run has github.event_name == 'workflow_dispatch', so a
+  # condition testing for 'schedule' evaluates false and the step is skipped —
+  # the verification would exercise nothing.
+  #
+  # Dispatch a branch that fails a gate with simulate_schedule=true to prove the
+  # notifier opens an issue; dispatch a green branch to prove it closes one.
+  # push/PR runs can never trigger it either way.
+  workflow_dispatch:
+    inputs:
+      simulate_schedule:
+        description: 'Treat this run as a scheduled run (exercises the CI-health notifier)'
+        type: boolean
+        default: false
 
 env:
   # INFRA-346: Node 20 went EOL 2026-04-30. 24 is the ACTIVE LTS (until 2026-10-20,
@@ -634,6 +652,14 @@ jobs:
     name: CI pass
     runs-on: ubuntu-latest
     if: always()
+    # INFRA-362: needed by the scheduled-failure notifier steps below.
+    # A job-level `permissions:` block REPLACES the workflow-level default
+    # (contents: read + packages: read) rather than merging with it, so
+    # `contents: read` is restated here deliberately. `packages: read` is
+    # omitted because this job never checks out or runs npm ci.
+    permissions:
+      contents: read
+      issues: write
     needs:
       - typecheck
       - lint
@@ -646,6 +672,50 @@ jobs:
       - edge-functions
 
     steps:
+      # INFRA-362. This MUST run before "Aggregate gate status", which exits 1.
+      # A step placed after it inherits the default `if: success()` and would be
+      # skipped on precisely the failure it is meant to report — so the gate
+      # outcomes are captured here, by a step that never exits non-zero.
+      #
+      # `cancelled` is tracked separately from `failed` on purpose. The workflow
+      # sets `concurrency: cancel-in-progress: true` on `ci-${{ github.ref }}`,
+      # and a scheduled run on development shares that group with push runs on
+      # development (identical ref) — so a merge landing mid-run cancels it.
+      # `if: always()` means this job still executes, and the aggregate below
+      # treats cancelled != success as a failure. Without this split, every
+      # cancelled scheduled run would file a bogus CI-health issue.
+      #
+      # Deliberate bias: if a run has BOTH a real failure and a cancellation,
+      # the notifier stays silent. A cancelled run is incomplete, and the thing
+      # that cancelled it was a push to development — so a human is already
+      # active and that push's own run reports to them. A genuine quiet-tree
+      # failure resurfaces on the next clean scheduled run. Under-reporting an
+      # already-observed failure beats crying wolf daily.
+      - name: Collect gate results
+        id: gates
+        run: |
+          FAILED=""; CANCELLED=""
+          add() {
+            case "$2" in
+              success)   ;;
+              cancelled) CANCELLED="${CANCELLED}${CANCELLED:+, }$1" ;;
+              *)         FAILED="${FAILED}${FAILED:+, }$1 ($2)" ;;
+            esac
+          }
+          add "TypeScript typecheck"          "${{ needs.typecheck.result }}"
+          add "ESLint (baseline ratchet)"     "${{ needs.lint.result }}"
+          add "Crisis authority validation"   "${{ needs.crisis-validation.result }}"
+          add "Clinical authority validation" "${{ needs.clinical-validation.result }}"
+          add "Unit + integration tests"      "${{ needs.test.result }}"
+          add "Security + compliance"         "${{ needs.security.result }}"
+          add "Accessibility (WCAG AA)"       "${{ needs.accessibility.result }}"
+          add "Performance regression"        "${{ needs.performance.result }}"
+          add "Edge Functions (Deno)"         "${{ needs.edge-functions.result }}"
+          echo "failed=$FAILED"       >> "$GITHUB_OUTPUT"
+          echo "cancelled=$CANCELLED" >> "$GITHUB_OUTPUT"
+          echo "Failing gates:   ${FAILED:-none}"
+          echo "Cancelled gates: ${CANCELLED:-none}"
+
       - name: Aggregate gate status
         run: |
           echo "typecheck:        ${{ needs.typecheck.result }}"
@@ -678,3 +748,123 @@ jobs:
             exit 1
           fi
           echo "✅ All required gates passed (advisory jobs may show non-success — see logs)"
+
+      # ---------------------------------------------------------------------
+      # INFRA-362 — route SCHEDULED failures to a human.
+      #
+      # The daily cron has caught a real repo-wide block before and nobody was
+      # told: of the last ~30 scheduled runs exactly one failed (2026-07-21,
+      # sha 09de8cb8, `Security + compliance` + `CI pass`), which was INFRA-302's
+      # three HIGH advisories landing on a quiet tree with no PR in flight. The
+      # detection already existed; only the routing was missing, so the same
+      # class of problem kept being rediscovered mid-close instead.
+      #
+      # Fires ONLY on schedule (or a deliberate simulate_schedule dispatch).
+      # push/PR failures already surface to whoever pushed and must not be
+      # duplicated. Signal rate ~1/month, so this should not become noise.
+      #
+      # actions/github-script@v8 is a NEW dependency for this repo — no
+      # github-script pin existed anywhere before. v8 is the node24 major,
+      # consistent with the checkout@v5 / setup-node@v5 / cache@v4 posture.
+      - name: Open or update CI-health issue (scheduled failures only)
+        if: >-
+          !cancelled()
+          && failure()
+          && steps.gates.outputs.cancelled == ''
+          && (github.event_name == 'schedule'
+              || (github.event_name == 'workflow_dispatch' && inputs.simulate_schedule))
+        uses: actions/github-script@v8
+        env:
+          FAILED_GATES: ${{ steps.gates.outputs.failed }}
+        with:
+          script: |
+            const MARKER = '<!-- ci-health-tracker -->';
+            const { owner, repo } = context.repo;
+            const failed = process.env.FAILED_GATES || 'unknown';
+            const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+            const today = new Date().toISOString().slice(0, 10);
+
+            // Ensure the label exists. It did not exist when this shipped, and
+            // issues.create with an unknown label 422s — which would make the
+            // notifier fail silently on its very first real firing.
+            try {
+              await github.rest.issues.createLabel({
+                owner, repo, name: 'ci-health', color: 'B60205',
+                description: 'Scheduled CI run failed on a quiet tree (INFRA-362)',
+              });
+            } catch (e) {
+              if (e.status !== 422) core.warning(`createLabel: ${e.message}`);
+            }
+
+            // issues.listForRepo is strongly consistent. Deliberately NOT the
+            // search API, whose index lags ~1min and carries its own rate limit
+            // — a day-2 run could miss day-1's issue and open a duplicate.
+            const existing = (await github.rest.issues.listForRepo({
+              owner, repo, state: 'open', labels: 'ci-health', per_page: 100,
+            })).data.find(i => (i.body || '').includes(MARKER));
+
+            const body = [
+              MARKER,
+              `**Scheduled CI run failed on \`${context.ref.replace('refs/heads/', '')}\`.**`,
+              '',
+              `- Failing gates: **${failed}**`,
+              `- Run: ${runUrl}`,
+              `- Commit: \`${context.sha.slice(0, 8)}\``,
+              `- Detected: ${today}`,
+              '',
+              'No PR was involved — this is drift on a quiet tree (a new advisory, an',
+              'expired pin, an upstream change). Triage from the gate names above.',
+            ].join('\n');
+
+            if (existing) {
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: existing.number, body,
+              });
+              core.notice(`Updated existing CI-health issue #${existing.number}`);
+            } else {
+              const created = await github.rest.issues.create({
+                owner, repo,
+                title: `CI scheduled run failing (${today}) — ${failed}`,
+                labels: ['ci-health'],
+                body,
+              });
+              core.notice(`Opened CI-health issue #${created.data.number}`);
+            }
+
+      # Recovery. Must be a SEPARATE step from the one above: they need
+      # success() and failure() respectively, which are mutually exclusive
+      # within one job. The aggregate step's `exit 1` is what makes both
+      # evaluable here — do not convert it to continue-on-error.
+      #
+      # Errors are swallowed to a warning on purpose: a notifier hiccup must
+      # never redden `CI pass`, which is the sole required status check.
+      - name: Close CI-health issue on recovery
+        if: >-
+          !cancelled()
+          && success()
+          && (github.event_name == 'schedule'
+              || (github.event_name == 'workflow_dispatch' && inputs.simulate_schedule))
+        uses: actions/github-script@v8
+        continue-on-error: true
+        with:
+          script: |
+            const MARKER = '<!-- ci-health-tracker -->';
+            const { owner, repo } = context.repo;
+            try {
+              const existing = (await github.rest.issues.listForRepo({
+                owner, repo, state: 'open', labels: 'ci-health', per_page: 100,
+              })).data.find(i => (i.body || '').includes(MARKER));
+              if (!existing) return;
+              const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: existing.number,
+                body: `${MARKER}\n✅ Scheduled run recovered — all gates green.\n\n- Run: ${runUrl}\n- Commit: \`${context.sha.slice(0, 8)}\`\n\nClosing. If the underlying cause was an advisory-database change rather than a repo change, it can recur without any commit here.`,
+              });
+              await github.rest.issues.update({
+                owner, repo, issue_number: existing.number,
+                state: 'closed', state_reason: 'completed',
+              });
+              core.notice(`Closed CI-health issue #${existing.number}`);
+            } catch (e) {
+              core.warning(`CI-health recovery step failed (non-fatal): ${e.message}`);
+            }
