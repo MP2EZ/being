@@ -92,7 +92,8 @@
     "e2e:safety:gad7": "maestro test .maestro/gad7-severe.yaml",
     "e2e:safety:crisis-button": "maestro test .maestro/crisis-button-reachability.yaml",
     "e2e:safety:988-dial": "maestro test .maestro/crisis-988-dial.yaml",
-    "e2e:safety:journal": "maestro test .maestro/journal-crisis-scan.yaml"
+    "e2e:safety:journal": "maestro test .maestro/journal-crisis-scan.yaml",
+    "e2e:safety:consent-gate": "maestro test .maestro/deeplink-consent-gate.yaml"
   },
   "overrides": {
     "react": "19.2.3",

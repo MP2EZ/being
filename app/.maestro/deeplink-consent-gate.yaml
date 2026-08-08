@@ -1,0 +1,97 @@
+appId: fyi.being.app
+tags:
+  - safety
+name: "Deep-link consent gate (INFRA-308): gated link blocked, crisis link never is"
+---
+# INFRA-317 safety flow — pins the INFRA-308 deep-link consent-gate contracts on the
+# RUNNING app. Until now they existed only in jest, where `canOpenURL` and the consent
+# store are both mocked, so nothing verified that a cold-start link actually lands where
+# the gate says it should.
+#
+# WHY THIS FLOW NEEDS ITS OWN BOOT STATE
+# ======================================
+# Every other sim safety flow calls `_seeded-home.yaml`, because the e2e-sim build seeds
+# consent + onboarding at launch (INFRA-217) to skip a preamble that is timing-fragile on
+# the slow Release build. But a CONSENT GATE cannot be tested from a build that has already
+# granted consent. INFRA-317 adds a per-flow opt-out: the marker `?e2eSeed=ungranted` on
+# the launch URL makes the seed skip its writes, so the app boots from genuinely empty
+# state — onboardingCompleted false, consentStatus 'missing' — and resolves to LegalGate.
+#
+# The marker is a SUPPRESSOR only. It writes nothing and revokes nothing; the empty state
+# comes from `clearState` + `clearKeychain` below, exactly as a fresh install would.
+# `DeepLinkValidationService` strips it (not in ALLOWED_PARAMS) and rebuilds the URL from
+# the surviving params, so React Navigation receives a bare `being://daily` / `being://crisis`
+# — the link under test is not modified by the mechanism that selects the boot state.
+#
+# WHY `stopApp` + `clearState` + `openLink` AND NOT `launchApp`
+# =============================================================
+# The marker has to be visible to `Linking.getInitialURL()`, which only carries a URL on a
+# COLD start. `launchApp` cannot carry one. And the clearing must happen WITHOUT an
+# intervening launch: a `launchApp` first would run the seed with no marker, grant consent,
+# and leave it in SecureStore — so the subsequent marker launch would boot already-consented
+# and every assertion below would be vacuous. Hence: stop, clear, then let `openLink` be the
+# launch. (`openLink` on a stopped app cold-launches via `simctl openurl`.)
+#
+# The 90s waits mirror `_seeded-home.yaml`: cold boot + encryption init on the Release build,
+# and this flow pays that cost twice because it cold-starts twice.
+
+# ── Contract 28 — a GATED link is refused while consent is ungranted ──────────────────
+# `being://daily` is used deliberately, NOT the `being://morning` the original ticket named.
+# FEAT-298 retired the morning route: it has no entry in `linkingConfig.config.screens`, so
+# "the morning flow does not render" is true in EVERY consent state — including with the
+# gate deleted entirely. That assertion cannot fail, and a test that cannot fail is not
+# coverage. `being://daily` resolves to a real screen with a real testID and is already
+# proven to render when consent IS granted (see `daily-loop-deeplink.yaml`), so blocking it
+# here is a fact about the gate rather than a fact about a dead route.
+- stopApp
+- clearState
+- clearKeychain
+- openLink: being://daily?e2eSeed=ungranted
+
+- extendedWaitUntil:
+    visible:
+      id: "legal-dob-picker"
+    timeout: 90000
+# The gated destination did not render, and neither did Home. Both matter: the gate must
+# DROP the link, not merely defer it until after the gate is satisfied.
+- assertNotVisible:
+    id: "daily-loop-exit"
+- assertNotVisible:
+    id: "home-screen"
+
+# ── Contract 29 — the CRISIS link is never gated ──────────────────────────────────────
+# This is the assertion that earns the flow. `isCrisisExemptPath` runs BEFORE any
+# consent-store access on both deep-link entry points, so no consent state — and no consent
+# store FAILURE — can suppress the 988 path. Being's standing non-negotiable is 988 access
+# from any screen; a consent gate that intercepted `being://crisis` would be a safety defect,
+# and this is the only automated check that would catch it on the running app.
+- stopApp
+- clearState
+- clearKeychain
+- openLink: being://crisis?e2eSeed=ungranted
+
+- extendedWaitUntil:
+    visible:
+      id: "crisis-resources-screen"
+    timeout: 90000
+# Visible and hit-testable — deliberately NOT tapped. On the simulator
+# `Linking.canOpenURL('tel:988')` returns false unconditionally (INFRA-184), so a tap here
+# would surface the "Unable to Call" manual-dial fallback and the assertion would be about
+# the fallback rather than about reachability. The dial contract stays owned by
+# `crisis-988-dial.yaml`, which is tagged `safety-device-only` and runs on real hardware.
+- assertVisible:
+    id: "crisis-call-988-button"
+
+# ── NOT ASSERTED HERE: the C6 exit path (INFRA-308 contract 30) ───────────────────────
+# The original ticket also asked this flow to pin "dismissing the crisis modal lands on
+# LegalGate, never Main/tabs". It does not, because the app currently does the opposite:
+# `linking.ts` sets `initialRouteName: 'Main'` (deliberately — FEAT-298, so `goBack()` cannot
+# strand a user inside an immersive practice), which makes a cold-start `being://crisis`
+# build a root state of [Main, CrisisResources]. Main is therefore mounted BENEATH the modal
+# while consent is ungranted, and dismissing lands there.
+#
+# That is a pre-consent wellness-surface exposure, tracked as DEBUG-372 — a behaviour fix
+# needing a navigation decision and a compliance pass, not a flow-authoring gap. Writing the
+# assertion now would produce a red flow pinning a known bug, and the only ways to make it
+# green would be to weaken it or to skip it. Neither is acceptable, so the contract waits for
+# the fix. Add the third pass here once DEBUG-372 lands.
