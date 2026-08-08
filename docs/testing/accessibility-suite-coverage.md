@@ -13,8 +13,12 @@ npm run validate:accessibility npm run test:accessibility && echo '✅ Accessibi
 ```
 
 `validate:accessibility` is **not a second validator** — it is the same suite
-plus an `echo`. CI's *Accessibility (WCAG AA)* job currently runs both, so the
-whole suite executes **twice per run** for no additional coverage.
+plus an `echo`. CI's *Accessibility (WCAG AA)* job used to run both, executing
+the whole suite twice per run for no additional coverage; PR #260 dropped the
+duplicate step, so CI now runs `test:accessibility` once. The alias is
+deliberately kept in `package.json` as the human-facing entry point named by
+CLAUDE.md's Validation Matrix and `QUICKSTART_COMMANDS.md` — treat it as an
+alias, never as a second gate.
 
 Selection is by **path**, not filename, and the pattern matches any path segment
 containing `accessibility`. Two consequences:
@@ -95,13 +99,24 @@ no reason to look further. That is a sufficient indictment on its own.
   `@mp2ez/being-design-system`, so fixing it is a cross-repo change.
 - **`Timer.controlButton` / `skipButton` and `PracticeLibraryScreen.backButton`
   declare no 44pt minimum.** A WCAG 2.5.5 gap, currently unasserted.
-- **`app/.github/workflows/` is 10 git-tracked files GitHub never reads** — only
-  the repo-root `.github/workflows/` is executed. One of them,
-  `accessibility-automation.yml`, installs `jest-axe` / `@axe-core/react` (DOM
-  tooling, inapplicable to React Native) and triggers on a branch `develop` that
-  has never existed in this repo. **If you believed an axe scan was running,
-  this is why it is not.**
-- **`app/__tests__/scripts/` is executed by no CI job.** CI's test job runs
-  `test:unit` (`--testPathPattern=unit`) and `test:integration` (`=integration`);
-  neither matches. Relevant here because it is the same failure class this
-  document is about — a suite that exists, passes locally, and gates nothing.
+- ~~**`app/.github/workflows/` is 10 git-tracked files GitHub never reads**~~ —
+  **fixed in MAINT-366**, directory deleted. Only the repo-root
+  `.github/workflows/` is ever executed. The most misleading of the ten,
+  `accessibility-automation.yml`, installed `jest-axe` / `@axe-core/react` (DOM
+  tooling, inapplicable to React Native) and triggered on a branch `develop`
+  that has never existed in this repo. **No axe scan has ever run here**, and
+  now nothing in the tree suggests otherwise.
+- ~~**`app/__tests__/scripts/` is executed by no CI job.**~~ — **fixed in
+  MAINT-366**, now gated by the *Script guard tests* step via `test:scripts`.
+  It had been invisible because CI's test job runs `test:unit`
+  (`--testPathPattern=unit`) and `test:integration` (`=integration`) and neither
+  matches. Recorded here because it was the same failure class this document is
+  about — a suite that exists, passes locally, and gates nothing.
+- **Still open: 65 of 192 jest files match no CI test pattern at all.** The union
+  of every pattern CI runs (`unit`, `integration`, `security`, `accessibility`,
+  `performance`, `clinical`, `[Cc]risis`) covers 127. The gap includes every file
+  under `__tests__/safety/` — among them
+  `lsApplicationQueriesSchemes.config.test.ts`, which CLAUDE.md calls the
+  *primary mechanical pin* for the 988 dial path — plus all of `__tests__/privacy/`
+  and `__tests__/compliance/`. Those run in `precommit` only, so they gate a local
+  machine rather than the merge. Tracked separately; MAINT-366 closed 2 of the 65.

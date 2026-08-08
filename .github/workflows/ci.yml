@@ -231,6 +231,29 @@ jobs:
       - name: Integration tests
         run: cd app && npm run test:integration -- --ci --testTimeout=30000
 
+      - name: Script guard tests
+        # MAINT-366 Finding 3. These three suites passed locally and gated
+        # NOTHING: `test:unit` is --testPathPattern=unit and `test:integration`
+        # is =integration, and neither matches `__tests__/scripts/`. They are
+        # meta-tests for the repo's own guard scripts, and each one is the only
+        # evidence its guard CAN fail:
+        #   - check-breathing-worklet-purity.test.js drives analyzeSource over
+        #     regression fixtures AND negative cases. The Performance job runs
+        #     `check:breathing-worklets`, but that CLI path only scans real
+        #     current source, so it can never demonstrate a failing detection.
+        #   - e2e-sim-build.test.js PATH-shims git/eas/xcrun and runs the real
+        #     script end-to-end, pinning DEBUG-315 stale-artifact reuse — which
+        #     is the Maestro gate's only evidence the build under test is fresh.
+        #   - check-crisis-hotline.test.js was ALREADY reached here, but only by
+        #     accident: `test:crisis-quick` is --testPathPattern="[Cc]risis" and
+        #     the filename happens to contain "crisis". Naming it explicitly.
+        #
+        # ⚠️ COVERAGE DEPENDS ON DIRECTORY LAYOUT. These are covered because
+        # their PATH contains `__tests__/scripts`, not because anything names
+        # the files. Move or rename that directory and this gate silently stops
+        # running them — the exact failure mode MAINT-366 exists to remove.
+        run: cd app && npm run test:scripts -- --ci --testTimeout=20000
+
       - name: Upload coverage
         if: always()
         uses: actions/upload-artifact@v6
@@ -350,7 +373,9 @@ jobs:
   #   - Crisis button label updated to "I need support" (per crisis
   #     specialist guidance — first-person agency, gentler for repeated
   #     screen-reader exposure).
-  # 45/45 accessibility tests pass.
+  # Suite size moves; do not restate a count here. What the gate does and
+  # does NOT prove is documented in docs/testing/accessibility-suite-coverage.md
+  # (a green run is not evidence of WCAG conformance).
   accessibility:
     name: Accessibility (WCAG AA)
     runs-on: ubuntu-latest
@@ -373,7 +398,14 @@ jobs:
         # (`npm run test:accessibility && echo ✅`). Both steps reported an
         # identical `Test Suites: 12 passed, Tests: 98 passed` in the run
         # 31227306205 log (lines 1137 and 2073) — byte-identical work, twice.
+        # (That 98 is a quotation from THAT run, not a current figure; MAINT-358
+        # landed in parallel and took the suite to 85. Do not read it as a
+        # target — it is evidence of the duplication, nothing more.)
         # This variant is kept because it carries the CI flags.
+        #
+        # `validate:accessibility` remains in app/package.json ON PURPOSE: it is
+        # named in CLAUDE.md's Validation Matrix and in QUICKSTART_COMMANDS.md as
+        # the human-facing entry point. It is an alias, not a second gate.
         run: cd app && npm run test:accessibility -- --ci --testTimeout=20000
 
   # Performance regression sweep. Strict gate as of Phase A paydown.
