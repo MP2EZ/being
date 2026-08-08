@@ -26,6 +26,18 @@
  *    "it doesn't matter" / suppression; keep the "influence" middle-ground.
  *  - Premeditatio (step 4, MORNING only) is optional, skippable, brief, coping-paired.
  *  - The closing breath is practice-architecture — a coda (CLOSING), NOT step-5 content.
+ *  - COMPLETION MAY BE STATED, NEVER MARKED (FEAT-328). The coda may say once, in the
+ *    title, in body register, that the practice is finished. It may not MARK that fact:
+ *    no checkmark, no accent-coloured surface, no toast, no count, no streak, no badge.
+ *    Accent teal is this app's reward vocabulary and the coda carries none of it.
+ *    Rationale: completing a loop is an outcome, and the framework's spine is intention
+ *    over outcome — the practice is not a completable item, so a "done" verdict on a
+ *    day's practice contradicts the two lines directly beneath it (returnLine, which
+ *    says beginning again IS the practice, and postureLine, whose examen ends in
+ *    clemency and therefore presupposes shortfall). This invariant replaces an earlier
+ *    formulation that COUNTED congratulatory beats; counting invited the reading that
+ *    two were acceptable, and a badge duly survived in the same file that banned a
+ *    third. State the register, not the tally.
  */
 import type { DailyLoopMode, DailyLoopDepth } from '@/features/practices/types/flows';
 import type { CardinalVirtue, StoicPrinciple } from '@/features/practices/types/stoic';
@@ -516,7 +528,9 @@ export const CLOSING = {
    * is always available" to the Stoic reading — re-entry after shortfall IS the practice
    * (Marcus, Meditations 5.9) — which also inoculates against the streak anxiety
    * stageNotes.ts bans elsewhere. MAINT-140's CelebrationToast delivery is deliberately
-   * NOT reproduced: a third congratulatory beat would turn the coda into a trophy.
+   * NOT reproduced — see the "completion may be stated, never marked" INVARIANT at the top
+   * of this file, which is the governing rule and supersedes the beat-counting phrasing
+   * that used to sit here.
    *
    * DEBUG-339 — DO NOT STRIP THIS CITATION. It has now been challenged twice and is
    * correct both times, so here is the warrant in full. George Long, Meditations 5.9:

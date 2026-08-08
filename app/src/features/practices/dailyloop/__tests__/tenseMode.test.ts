@@ -215,9 +215,17 @@ describe('closing coda copy (practice-architecture, not a principle)', () => {
     });
 
     it('never congratulates, rewards, or absolves', () => {
-      // The screen already has a ✓ badge and a completeTitle; a third congratulatory beat
-      // would turn the coda into a trophy. Absolution would relocate responsibility off
-      // the practitioner, where shortfall is data to act on, not a charge to be acquitted.
+      // The completeTitle already states that the practice is finished; congratulating on
+      // top of it would turn the coda into a trophy. Absolution would relocate
+      // responsibility off the practitioner, where shortfall is data to act on, not a
+      // charge to be acquitted.
+      //
+      // NOTE ON THIS GUARD'S REACH (FEAT-328): it matches only the joined CLOSING copy
+      // constants, so it can police authored strings and nothing else. The "✓ Loop
+      // complete" badge lived inline in the screen's JSX and was invisible to this guard
+      // for exactly that reason — the rule was written down in the same file it was being
+      // violated in. The render-level counterpart that covers the JSX is
+      // DailyLoopCompleteScreen.completionRegister.test.tsx; keep both.
       for (const banned of [
         /well done/i,
         /nice work/i,
