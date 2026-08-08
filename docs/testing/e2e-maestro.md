@@ -41,13 +41,13 @@ export JAVA_HOME=/opt/homebrew/opt/openjdk
 export PATH="$JAVA_HOME/bin:$PATH"
 ```
 
-## Per-session prereq — build a NO-DEV-CLIENT install (INFRA-216)
+## Per-session prereq — build the Release gate target (INFRA-216, revised INFRA-383)
 
-Maestro drives an already-installed app on an already-booted sim. It does **not** build the app. Build a **no-dev-client** install once per worktree session:
+Maestro drives an already-installed app on an already-booted sim. It does **not** build the app. Build the launcher-free Release install once per worktree session (then ~1 min per rebuild):
 
 ```bash
 cd app
-npm run e2e:safety:build   # EAS local build (e2e-sim profile) + install on the booted sim
+npm run e2e:safety:build   # Release build (expo run:ios) + verify + install on the booted sim
 ```
 
 > 🚨 **Do not pipe this command.** `npm run e2e:safety:build 2>&1 | tee build.log`
@@ -68,55 +68,76 @@ npm run e2e:safety:build   # EAS local build (e2e-sim profile) + install on the 
 > set -o pipefail; npm run e2e:safety:build 2>&1 | tee build.log
 > ```
 >
-> **Clean-tree pre-flight (INFRA-329).** `eas.json` sets `requireCommit: true`, so a
-> dirty working tree was always fatal — but EAS only says so ~30 s in, after its own
-> startup, in output that reads like progress. The script now runs `git status
-> --porcelain` **first**, before even the booted-sim check, and fails immediately with
-> the offending paths listed. There is deliberately **no bypass flag**: this script is
-> the gate's only evidence that the build under test is fresh (DEBUG-315), so a
-> dirty-tree escape hatch would exist purely to defeat it. The stage-level failure paths
-> (dirty tree, build fails, build succeeds without producing an artifact, extraction,
-> sim install) are covered by `app/__tests__/scripts/e2e-sim-build.test.js`, which
-> PATH-shims `git`/`eas`/`xcrun` and runs anywhere in milliseconds. What stays manual is
-> the genuine end-to-end run against real eas-cli and a real simulator — CI is 100%
-> `ubuntu-latest`, so nothing here proves EAS itself honours `requireCommit`, only that
-> the script refuses to reach EAS with a dirty tree.
-
-> ⚠️ **The gate target is a build that EXCLUDES `expo-dev-client`, not just a
-> Release build.** This is the load-bearing INFRA-216 finding, and it corrects
-> earlier guidance in this doc:
+> **Clean-tree pre-flight (INFRA-329) — kept, and now load-bearing on its own.** It runs
+> `git status --porcelain` **first**, before even the booted-sim check, and fails
+> immediately with the offending paths listed. There is deliberately **no bypass flag**.
 >
-> - `expo-dev-client` is a project dependency, so it is linked into **both**
->   `npm run ios` **and** `expo run:ios --configuration Release`. Both therefore
->   still show the Expo dev launcher ("DEVELOPMENT SERVERS" screen) after
->   `clearState: true`. The flows can only navigate that launcher by tapping a
->   guessed screen coordinate, which flakes badly (INFRA-216: every sim flow hit
->   0–1/5 on a dev build *and* on a plain `--configuration Release` build — the
->   launcher is present on both).
-> - Only a build with `developmentClient: false` removes the launcher. That is
->   the EAS **`e2e-sim`** profile (`eas.json`: `developmentClient:false`,
->   `simulator:true`, Release), which `npm run e2e:safety:build` produces and
->   installs. With it, the app boots straight to the LegalGate (validated: the
->   `_legal-and-onboarding.yaml` launcher steps simply `WARN`+skip). This is also
->   effectively what TestFlight/App Store users get.
+> It originally existed to fail fast ahead of EAS's `requireCommit: true`. INFRA-383
+> removed EAS — and with it `requireCommit`, which was the only thing forcing the
+> installed binary to correspond to a *commit*. Since rebuilds are now ~1 min, iterating
+> on an uncommitted tree is the natural workflow, so relaxing this pre-flight would turn
+> "the gate ran against a never-committed tree" from impossible into routine. It stays
+> until a provenance marker (git HEAD + dirty hash, checked by `e2e-safety.sh`) replaces
+> the guarantee; only then does it relax to dirty-allowed-with-a-banner.
+>
+> Stage-level failure paths are covered by `app/__tests__/scripts/e2e-sim-build.test.js`,
+> which PATH-shims `git`/`npx`/`xcrun`/`otool`/`plutil` and runs anywhere in
+> milliseconds. What stays manual is the genuine end-to-end run against a real simulator
+> — CI is 100% `ubuntu-latest`, so nothing there proves Xcode actually rebuilt the
+> bundle, only that the script refuses to proceed when the evidence says it did not.
 
-**Prereqs** (one-time per machine). Only the booted-simulator check is enforced by the
-build script — the rest are **not** verified, so a missing one surfaces as an opaque EAS
-failure rather than a named prereq error:
-- `eas-cli` logged in — `npx eas whoami` (else `npx eas login`).
-- `fastlane` — `brew install fastlane`. *(Heads-up: on some setups `brew install
-  fastlane` upgrades Ruby and can orphan CocoaPods' `ffi` gem — if `pod --version`
-  then errors, run `brew reinstall cocoapods`.)*
-- A booted iOS simulator.
-- First build is ~10–15 min (EAS local). After that the sim can stay open across
-  many flow runs.
+> ⚠️ **The gate target is a Release build — `npm run ios` (Debug) will not do.**
+> The **configuration**, not the EAS profile, is what removes the dev launcher.
+>
+> - `npm run ios` builds **Debug**, which links `expo-dev-launcher` and shows the
+>   "DEVELOPMENT SERVERS" screen. The flows can only navigate that by tapping a
+>   guessed screen coordinate, which flakes badly — and worse, can *pass by
+>   coincidence*, producing a green crisis-path gate that is evidence of nothing.
+> - A **Release** build excludes it structurally. Expo autolinking marks
+>   `expo-dev-launcher` / `expo-dev-menu` `debugOnly: true`, so
+>   `Pods-Being.release.xcconfig` never links them and `ExpoModulesProvider.swift`'s
+>   Release branch of `getReactDelegateHandlers()` is an empty array. Verified on
+>   the built artifact: 0 `otool` linkage, 0 `EXDevLauncher` symbols, no dev
+>   frameworks; app boots straight to the seeded home screen; 7/7 flows pass.
+>
+> **Correction (INFRA-383).** This callout previously said `expo run:ios
+> --configuration Release` *also* ships the launcher and that only the EAS
+> `e2e-sim` profile (`developmentClient: false`) removes it. That was false. EAS's
+> `developmentClient` flag only *defaults* `buildConfiguration`, and `e2e-sim` sets
+> `Release` explicitly — so the flag was unreachable and never did the thing it was
+> credited with. **How the error happened, because it will recur:** INFRA-216's own
+> documented verification command was `npm run ios --configuration Release`, which
+> omits the `--` separator, so the flag went to *npm* rather than to the script and
+> it built **Debug**. Its `0–1/5` figure is also the same number INFRA-217 later
+> attributed to the onboarding-preamble timing, on a build with no launcher at all.
+> When a flag seems not to take effect through an npm script, check the separator
+> before concluding anything about the tool.
+
+**Prereqs.** Since INFRA-383 the default path needs no `eas-cli`, no credentials and no
+`fastlane` — only Xcode and a booted simulator:
+- A booted iOS simulator (the one prereq the script enforces by name).
+- Working CocoaPods, for the prebuild stage — `pod --version`. *(If `brew install
+  fastlane` ever upgrades Ruby and orphans CocoaPods' `ffi` gem, `brew reinstall
+  cocoapods`.)*
+- **Timing (measured, SDK 56 / Xcode 26.0.1):** ~14 min for the first build in a *fresh*
+  worktree — it also pays the CNG prebuild and `pod install`; ~11 min if `app/ios/`
+  already exists; **~35-75 s warm** thereafter. DerivedData is ~7.5 GB and keyed by
+  project path, so each worktree pays its own cold build once. Use
+  `npm run e2e:safety:clean` to see what that is costing and to reclaim it.
+- The EAS fallback (`npm run e2e:safety:build:eas`) *does* still need `eas-cli` logged in
+  (`npx eas whoami`), `fastlane`, and a clean tree, and takes 10–15 min every run.
 
 > ✅ **Resolved (INFRA-217): the sim flows skip the preamble via a seeded state.**
 > The no-dev-client Release build boots/transitions slowly, and the long LegalGate
 > + 16-question onboarding preamble in `_legal-and-onboarding.yaml` was too
-> timing-fragile for consecutive ≥5/5. The robust fix shipped: the `e2e-sim` EAS
-> profile sets **`EXPO_PUBLIC_E2E_SEED_ONBOARDED=true`** (eas.json
-> `build.e2e-sim.env`), which makes `App.tsx` seed post-onboarding state at launch
+> timing-fragile for consecutive ≥5/5. The robust fix shipped:
+> **`EXPO_PUBLIC_E2E_SEED_ONBOARDED=true`** is declared in `eas.json`
+> `build.e2e-sim.env` and applied to the build by `e2e-sim-build.sh`, which resolves that
+> profile (following `extends`) and scopes the vars to the single build invocation rather
+> than exporting them. It is deliberately never restated in the script — `eas.json` stays
+> the one place the consent-auto-grant boundary is declared, and
+> `__tests__/safety/e2eSeedGate.config.test.ts` pins both halves. This makes `App.tsx`
+> seed post-onboarding state at launch
 > — legal consents + age verification (≥18) + onboarding-complete, written via the
 > real store APIs (`grantConsent` / `verifyAge` / `recordLegalGateConsents`). With
 > that state present, `CleanRootNavigator` routes straight to Main, so the four sim
@@ -148,13 +169,13 @@ of dev-mode-only overlays that block flow execution:
    routine info logs; in dev mode LogBox renders a full-screen stack over the
    LegalGate.
 
-**A plain `expo run:ios --configuration Release` does NOT escape #1** — because
-`expo-dev-client` is still linked, the launcher is present on Release too
-(verified INFRA-216). #4 (LogBox) is gone on Release (`__DEV__` false), but the
-launcher is the killer. The **`e2e-sim` no-dev-client build** is the only thing
-that removes the launcher; `npm run e2e:safety:build` is the supported entry
-point. CLAUDE.md "Known Gotchas" and `/b-close` Phase 2.5 were reconciled to this
-in INFRA-216.
+**A Release build escapes #1 and #4** (INFRA-383, correcting INFRA-216). The dev
+launcher is compiled out of any Release configuration — see the callout above for
+the mechanism and for how the earlier claim went wrong. LogBox is likewise gone on
+Release (`__DEV__` false). `npm run e2e:safety:build` is the supported entry point
+and now uses `expo run:ios --configuration Release`, rebuilding in ~1 min warm
+instead of 10–15 min; `npm run e2e:safety:build:eas` keeps the old EAS path as a
+rollback and as a re-measurable baseline after toolchain upgrades.
 
 ## Running the flows
 
