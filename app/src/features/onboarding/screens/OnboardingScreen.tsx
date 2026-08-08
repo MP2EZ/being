@@ -28,7 +28,7 @@ import NotificationTimePicker from '@/core/components/NotificationTimePicker';
 import BrainIcon from '@/core/components/shared/BrainIcon';
 import { useConsentStore, ConsentPreferences, getLegalGateConsents } from '@/core/stores/consentStore';
 import { ConsentToggleCard } from '@/features/consent';
-import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
+import { colorSystem, spacing, borderRadius, typography, semantic } from '@/core/theme';
 import { PRINCIPLES } from '@/features/practices/shared/constants/principles';
 
 // Local colors for onboarding (flat access for convenience in this large file)
@@ -42,7 +42,6 @@ const localColors = {
   gray200: colorSystem.gray[200],
   gray300: colorSystem.gray[300],
   gray400: colorSystem.gray[400],
-  gray600: colorSystem.gray[600],
   gray700: colorSystem.gray[700],
   // Theme colors
   morningPrimary: colorSystem.themes.morning.primary,
@@ -1242,7 +1241,7 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.regular,
-    color: localColors.gray600,
+    color: semantic.text.secondary,
     textAlign: 'center',
     lineHeight: 24,
   },
@@ -1263,7 +1262,7 @@ const styles = StyleSheet.create({
   bodyText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
-    color: localColors.gray600,
+    color: semantic.text.secondary,
     lineHeight: 22,
     marginBottom: spacing[16],
   },
@@ -1290,13 +1289,13 @@ const styles = StyleSheet.create({
   principleDescription: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: localColors.gray600,
+    color: semantic.text.secondary,
     lineHeight: 20,
   },
   bulletText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
-    color: localColors.gray600,
+    color: semantic.text.secondary,
     lineHeight: 22,
     marginBottom: spacing[8],
   },
@@ -1306,7 +1305,7 @@ const styles = StyleSheet.create({
   featureText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
-    color: localColors.gray600,
+    color: semantic.text.secondary,
     lineHeight: 22,
     marginBottom: spacing[8],
   },
@@ -1318,7 +1317,7 @@ const styles = StyleSheet.create({
   progressText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.medium,
-    color: localColors.gray600,
+    color: semantic.text.secondary,
     marginBottom: spacing[8],
   },
   progressBar: {
@@ -1339,7 +1338,7 @@ const styles = StyleSheet.create({
   questionIntro: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
-    color: localColors.gray600,
+    color: semantic.text.secondary,
     lineHeight: 22,
     marginBottom: spacing[16],
     textAlign: 'center',
@@ -1408,7 +1407,7 @@ const styles = StyleSheet.create({
   valueDescription: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: localColors.gray600,
+    color: semantic.text.secondary,
     lineHeight: 18,
   },
   valueDescriptionSelected: {
@@ -1468,7 +1467,7 @@ const styles = StyleSheet.create({
   notificationTime: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
-    color: localColors.gray600,
+    color: semantic.text.secondary,
   },
   timeButton: {
     // Pressable wrapper for time display
@@ -1493,7 +1492,7 @@ const styles = StyleSheet.create({
   toggleButtonText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.semibold,
-    color: localColors.gray600,
+    color: semantic.text.secondary,
   },
   toggleButtonTextEnabled: {
     color: localColors.white,
@@ -1514,7 +1513,7 @@ const styles = StyleSheet.create({
   consentText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
-    color: localColors.gray600,
+    color: semantic.text.secondary,
     lineHeight: 22,
   },
   consentCheckbox: {
@@ -1562,7 +1561,7 @@ const styles = StyleSheet.create({
   summaryValue: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
-    color: localColors.gray600,
+    color: semantic.text.secondary,
     lineHeight: 22,
   },
   // Navigation Buttons

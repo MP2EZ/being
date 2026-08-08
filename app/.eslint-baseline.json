@@ -196,6 +196,7 @@
   "src/features/profile/screens/__tests__/ProfileScreen.accessibility.test.tsx": 1,
   "src/features/learn/practices/__tests__/practiceQuotes.test.ts": 1,
   "src/core/theme/__tests__/theme-contrast.accessibility.test.ts": 1,
+  "src/core/theme/__tests__/gray600-call-sites.accessibility.test.ts": 1,
   "src/core/services/supabase/__tests__/crisisTelemetryKillWindow.unit.test.ts": 1,
   "src/features/practices/__tests__/accessibility/practices-surface-contrast.accessibility.test.tsx": 1,
   "src/core/navigation/__tests__/CleanTabNavigator.accessibility.test.tsx": 1

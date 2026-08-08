@@ -15,7 +15,7 @@
  */
 import React from 'react';
 import { View, Text, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
-import { colorSystem, spacing, typography } from '@/core/theme';
+import { colorSystem, spacing, typography, semantic } from '@/core/theme';
 
 interface BodyHeaderProps {
   title: string;
@@ -48,7 +48,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     lineHeight: 22,
   },
 });

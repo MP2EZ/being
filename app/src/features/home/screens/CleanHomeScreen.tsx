@@ -260,7 +260,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     textAlign: 'center',
     marginBottom: spacing[12],
   },
@@ -285,7 +285,7 @@ const styles = StyleSheet.create({
   },
   practicesEntryAction: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
   },
   checkInCard: {
     flex: 1,
@@ -312,7 +312,7 @@ const styles = StyleSheet.create({
   },
   durationBadge: {
     fontSize: typography.micro.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     backgroundColor: colorSystem.gray[100],
     // MAINT-222: use spacing tokens for padding (was borderRadius.medium/.xs misuse)
     paddingHorizontal: spacing[8],
@@ -322,7 +322,7 @@ const styles = StyleSheet.create({
   },
   cardDescription: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     lineHeight: typography.title.size,
     marginBottom: spacing[12], // Space before button
   },

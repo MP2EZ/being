@@ -390,7 +390,7 @@ const styles = StyleSheet.create({
   },
   summaryText: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.muted,
     textAlign: 'center',
     fontStyle: 'italic',
   },

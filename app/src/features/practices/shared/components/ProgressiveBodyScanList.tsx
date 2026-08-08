@@ -162,7 +162,7 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.semibold,
   },
   areaTextUpcoming: {
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
   },
   guidanceText: {
     fontSize: typography.bodySmall.size,

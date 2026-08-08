@@ -30,7 +30,7 @@ import {
   ScrollView,
   Animated,
 } from 'react-native';
-import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
+import { colorSystem, spacing, typography, borderRadius, semantic } from '@/core/theme';
 import { BODY_AREAS } from '@/features/practices/shared/components/BodyAreaGrid';
 import ProgressiveBodyScanList from '@/features/practices/shared/components/ProgressiveBodyScanList';
 import PracticeScreenHeader from '@/features/learn/practices/shared/PracticeScreenHeader';
@@ -208,7 +208,7 @@ const styles = StyleSheet.create({
   sectionLabel: {
     fontSize: typography.caption.size,
     fontWeight: typography.fontWeight.bold,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: spacing[16],

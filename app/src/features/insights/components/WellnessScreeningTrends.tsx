@@ -630,7 +630,7 @@ const styles = StyleSheet.create({
   },
   disclaimerText: {
     fontSize: typography.caption.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.muted,
     // MAINT-224: absolute lineHeight literals (here and below) left as-is — DS gap.
     // No standalone line-height token scale exists in the design system (typography
     // variants expose only unitless multipliers); not forced onto another token.
