@@ -478,19 +478,18 @@ describe('StoicPracticeStore — behavior (MAINT-242)', () => {
     it('collapses a burst of mutations into a single trailing-edge write', async () => {
       jest.useFakeTimers();
 
-      // Three rapid mutations within the 500ms debounce window.
-      await useStoicPracticeStore.getState().addVirtueChallenge({
-        domain: 'work',
-        virtue: 'wisdom',
-        description: 'a',
-        selfCompassion: 'kind to self',
-      } as any);
-      await useStoicPracticeStore.getState().addVirtueChallenge({
-        domain: 'work',
-        virtue: 'wisdom',
-        description: 'b',
-        selfCompassion: 'kind to self',
-      } as any);
+      // Three rapid mutations within the 500ms debounce window. MAINT-320 swapped
+      // the first two off addVirtueChallenge (removed — it had no production
+      // callers and never did) onto surviving mutations. The count stays three
+      // deliberately: collapsing a BURST is the property under test, so reducing
+      // it to a single mutation would leave the assertion passing while testing
+      // nothing.
+      await useStoicPracticeStore
+        .getState()
+        .recordPrincipleEngagement('aware_presence', 'daily', 'selected');
+      await useStoicPracticeStore
+        .getState()
+        .recordPrincipleEngagement('radical_acceptance', 'daily', 'applied');
       await useStoicPracticeStore.getState().incrementPracticeDays();
 
       // No write yet — still inside the quiet window.
