@@ -96,6 +96,28 @@ export const semantic = {
     // surface) matrix so "valid only on white" cannot become tribal knowledge again.
     muted: colorSystem.gray[700],
     inverse: colorSystem.base.white,
+    // DEBUG-364: the learn-brand purple that is LEGAL AS TEXT on light surfaces.
+    //
+    // THE COUNTERPART RULE, which is the whole point of this token existing:
+    // `colorSystem.navigation.learn` and `colorSystem.themes.learn.primary` are
+    // the SAME hex (#9B7EBD) at 3.44:1 on white. That clears the WCAG 1.4.11
+    // non-text bar (3:1) but NOT the 1.4.3 text bar (4.5:1), so it may be used as
+    // a fill, a border or an icon — never as `color:`.
+    //
+    // The design system already says so in its own code: the token's comment
+    // reads "Use for >=18pt text or icons; for body text on learn surfaces, pair
+    // with accessibility.text.primary or text.primary instead", and
+    // `pairings.learnPrimaryOnBackground` is declared at level 'AA-large'. So the
+    // eight failing practices sites were app-side MISUSE of a correctly-labelled
+    // token, not a broken token — which is why this is fixed here and needs no
+    // design-system release.
+    //
+    // themes.learn.success (#7C5FA0) is the same brand family one step darker:
+    // 5.25:1 on white, 5.25:1 as a fill under white text, and 4.86:1 on
+    // themes.learn.background. It clears the text bar in every direction these
+    // sites need, with zero new hex. MAINT-253 already promoted it elsewhere as
+    // "darker brand purple", so this is a second consumer of a settled choice.
+    learn: colorSystem.themes.learn.success,
   },
   background: {
     primary: colorSystem.base.white,
@@ -114,6 +136,32 @@ export const semantic = {
     strong: colorSystem.gray[400],
   },
 } as const;
+
+/**
+ * DEBUG-364 — the text-legal accent for each time-of-day / learn theme.
+ *
+ * `colorSystem.themes[k].primary` is the theme's brand accent, but it is only
+ * *coincidentally* legal as text. Measured on white: morning #B45309 5.02:1,
+ * midday #0F766E 5.47:1, evening #4A7C59 4.86:1 — and learn #9B7EBD 3.44:1,
+ * which FAILS. Learn is the single asymmetry in the set, and it is the default
+ * theme of `Timer`, so a component reading `themeColors.primary` for text is
+ * correct three times out of four and silently wrong the fourth.
+ *
+ * This map exists so a consumer can resolve a text-safe accent by theme without
+ * a conditional at the call site — which is exactly where the asymmetry would
+ * otherwise be forgotten. Every value is an existing design-system token; the
+ * learn entry simply points one step darker in the same brand family.
+ *
+ * Use this for `color:` and for fills sitting under white text. For progress
+ * bars, borders and icons, keep reading `themes[k].primary` — those are governed
+ * by 1.4.11 at 3:1, which #9B7EBD clears.
+ */
+export const themeAccent: Record<ThemeKey, string> = {
+  morning: colorSystem.themes.morning.primary,
+  midday: colorSystem.themes.midday.primary,
+  evening: colorSystem.themes.evening.primary,
+  learn: semantic.text.learn,
+};
 
 /**
  * Neutral severity reference-band tokens (FEAT-30).

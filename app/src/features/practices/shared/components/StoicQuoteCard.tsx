@@ -25,7 +25,7 @@
 
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { colorSystem, spacing, borderRadius, typography, getTheme } from '@/core/theme';
+import { colorSystem, semantic, spacing, borderRadius, typography, getTheme } from '@/core/theme';
 import { themeKeyFor } from '@/core/types/practice-identity';
 
 // FEAT-298 slice 1: `FlowTheme` is an alias of the canonical `FlowType`, kept so existing
@@ -91,7 +91,7 @@ const styles = StyleSheet.create({
   },
   attribution: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     textAlign: 'right',
   },
   source: {

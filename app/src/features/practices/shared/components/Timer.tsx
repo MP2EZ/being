@@ -11,7 +11,8 @@
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, Pressable, AccessibilityInfo } from 'react-native';
-import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
+import { colorSystem, spacing, typography, borderRadius, themeAccent } from '@/core/theme';
+import { TOUCH_TARGETS } from '@/core/theme/accessibility';
 
 interface TimerProps {
   duration: number; // Duration in milliseconds
@@ -57,6 +58,20 @@ const Timer: React.FC<TimerProps> = ({
   const TICK_INTERVAL_MS = 250;
 
   const themeColors = colorSystem.themes[theme];
+
+  // DEBUG-364: text and text-bearing fills read `accent`, NOT `themeColors.primary`.
+  // For morning/midday/evening the two are the same value; for learn they are not,
+  // because themes.learn.primary (#9B7EBD) is 3.44:1 on white — legal as a graphic
+  // under 1.4.11, illegal as text under 1.4.3.
+  //
+  // Note the story's causal claim, that the `theme = 'learn'` DEFAULT at the top of
+  // this component propagates the failure, is not what happens: every one of the six
+  // <Timer> call sites passes `theme` explicitly (PracticeTimerScreen,
+  // ReflectionTimerScreen and BodyScanScreen pass "learn"; the two DailyLoop screens
+  // pass "midday"; SharedBreathingScreen forwards its own). Changing the default
+  // would therefore have fixed nothing while LOOKING like a fix. The defect is in how
+  // colour is resolved from the theme, which is what this line addresses.
+  const accent = themeAccent[theme];
 
   // Calculate progress percentage
   const progress = 1 - (timeRemaining / duration);
@@ -195,6 +210,12 @@ const Timer: React.FC<TimerProps> = ({
       {/* Progress indicator */}
       {showProgress && (
         <View style={styles.progressContainer}>
+          {/* DEBUG-364: the progress bar deliberately keeps reading themeColors,
+              not `accent`. It carries no text, so SC 1.4.11 governs it at 3:1 —
+              and themes.learn.primary on themes.learn.background is 3.18:1, which
+              passes. Keeping the brand hue here is what preserves the theme's
+              visual identity on the surface while the text moves to the darker
+              step. */}
           <View style={[styles.progressTrack, { backgroundColor: themeColors.background }]}>
             <View 
               style={[
@@ -211,7 +232,7 @@ const Timer: React.FC<TimerProps> = ({
 
       {/* Time display */}
       <Text 
-        style={[styles.timeText, { color: themeColors.primary }]}
+        style={[styles.timeText, { color: accent }]}
         accessibilityRole="timer"
         accessibilityLabel={`Time remaining: ${formatTime(timeRemaining)}`}
       >
@@ -226,7 +247,14 @@ const Timer: React.FC<TimerProps> = ({
             style={({ pressed }) => [
               styles.controlButton,
               {
-                backgroundColor: pressed ? themeColors.light : themeColors.primary,
+                // DEBUG-364: the pressed state used to swap the fill to
+                // themeColors.light, under the static white controlButtonText. That
+                // is 2.08:1 on midday.light and 2.39:1 on learn.light — WORSE than
+                // the 3.44:1 pair this item was raised to fix, and the midday one is
+                // reachable on the Daily Loop today. SC 1.4.3 applies to every
+                // visible state, so the swap is dropped; press is still signalled by
+                // the opacity change below.
+                backgroundColor: accent,
                 opacity: pressed ? 0.8 : 1
               }
             ]}
@@ -253,7 +281,7 @@ const Timer: React.FC<TimerProps> = ({
             accessibilityLabel="Skip this step"
             accessibilityHint="Skip the current breathing exercise step"
           >
-            <Text style={[styles.skipButtonText, { color: themeColors.primary }]}>
+            <Text style={[styles.skipButtonText, { color: accent }]}>
               Skip this step
             </Text>
           </Pressable>
@@ -299,6 +327,17 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.medium,
     minWidth: 80,
     alignItems: 'center',
+    // DEBUG-365. Padding alone gave ~33pt. minHeight (never height) so the box
+    // can still grow at large Dynamic Type sizes instead of clipping the label;
+    // justifyContent centres the label now that the box is taller than content.
+    // NOT hitSlop: the collapsible crisis overlay already rejected slop-only as
+    // meeting "functional but not visual requirement" (see the 44pt visible-target
+    // note in features/crisis/components/), and controlsContainer's 16pt gap
+    // means a 12pt slop on both this and skipButton would overlap by 8pt — Skip
+    // renders later, so it would win the overlap and fire an irreversible step
+    // advance when the user aimed at Pause.
+    minHeight: TOUCH_TARGETS.minimum,
+    justifyContent: 'center',
   },
   controlButtonText: {
     color: colorSystem.base.white,
@@ -308,6 +347,14 @@ const styles = StyleSheet.create({
   skipButton: {
     paddingHorizontal: spacing[8],
     paddingVertical: spacing[8],
+    // DEBUG-365. LATENT, not live: `showSkip && onSkip` guards the render and
+    // every one of the six <Timer> call sites passes showSkip={false} with no
+    // onSkip, so this renders nowhere today (SkipLink, already 44pt, provides
+    // the skip affordance instead). Fixed rather than deleted because showSkip
+    // defaults to true — the next call site that omits the prop gets a compliant
+    // control instead of a ~33pt one.
+    minHeight: TOUCH_TARGETS.minimum,
+    justifyContent: 'center',
   },
   skipButtonText: {
     fontSize: typography.caption.size,

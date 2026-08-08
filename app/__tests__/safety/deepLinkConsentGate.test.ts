@@ -55,7 +55,14 @@ function fireRuntimeUrl(url: string): string[] {
 
 /** Put the real zustand store into a settled consent state (no persistence I/O). */
 function setConsentState(
-  status: 'valid' | 'invalid' | 'expired' | 'missing' | 'under_age',
+  status:
+    | 'valid'
+    | 'version_mismatch'
+    | 'integrity_error'
+    | 'revoked'
+    | 'expired'
+    | 'missing'
+    | 'under_age',
   opts: { ageVerified?: boolean; isEligible?: boolean } = {},
 ) {
   const { ageVerified = status === 'valid', isEligible = status === 'valid' } = opts;
@@ -75,7 +82,18 @@ function setConsentState(
   });
 }
 
-const UNGRANTED_STATES = ['missing', 'under_age', 'invalid', 'expired'] as const;
+// FEAT-316 slice A split the single 'invalid' status into three. All three are
+// listed explicitly rather than collapsed, so the `being://crisis` exemption is
+// pinned under each one individually — a user in crisis on a device with a
+// withdrawn, corrupted, or version-stale consent record reaches 988 the same way.
+const UNGRANTED_STATES = [
+  'missing',
+  'under_age',
+  'version_mismatch',
+  'integrity_error',
+  'revoked',
+  'expired',
+] as const;
 const GATED_URLS = [
   'being://morning',
   'being://midday',
