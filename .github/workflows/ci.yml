@@ -220,6 +220,15 @@ jobs:
       - name: Install dependencies
         run: cd app && npm ci --prefer-offline --no-audit
 
+
+      - name: Jest transform cache (EXPERIMENT)
+        uses: actions/cache@v4
+        with:
+          path: app/.jest-cache
+          key: jest-test-${{ hashFiles('app/package-lock.json','app/jest.config.js','app/babel.config.js') }}-${{ github.sha }}
+          restore-keys: |
+            jest-test-${{ hashFiles('app/package-lock.json','app/jest.config.js','app/babel.config.js') }}-
+
       - name: Unit tests
         # --coverage intentionally omitted: this is a SUBSET run (jest
         # --testPathPattern=unit) so per-file coverage would always fall
@@ -258,6 +267,15 @@ jobs:
 
       - name: Install dependencies
         run: cd app && npm ci --prefer-offline --no-audit
+
+
+      - name: Jest transform cache (EXPERIMENT)
+        uses: actions/cache@v4
+        with:
+          path: app/.jest-cache
+          key: jest-security-${{ hashFiles('app/package-lock.json','app/jest.config.js','app/babel.config.js') }}-${{ github.sha }}
+          restore-keys: |
+            jest-security-${{ hashFiles('app/package-lock.json','app/jest.config.js','app/babel.config.js') }}-
 
       - name: Legal docs registry drift check
         # Verifies docs/legal/*.md filenames match the require() calls and
