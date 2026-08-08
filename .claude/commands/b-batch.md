@@ -299,6 +299,14 @@ this run's manifest **or** already `Done` in Notion. If any prerequisite is not 
 dependent off a `development` that lacks its prerequisite. Set the item's manifest
 `state: running` before each.
 
+**A SOFT edge whose predecessor is `queued_red` doesn't block — but it moves the base.**
+A RED predecessor is committed yet never merges unattended, so branch the successor off
+`origin/development` anyway (branching it off the RED branch makes a GREEN item
+un-auto-closable). Then split the contract: the successor owns the call-site change and
+asserts **membership** — "this site reads the token" — never the value the predecessor
+hasn't landed. Membership holds before and after; a ratio assertion is red now and a
+landmine later. Note the expected merge-time conflict for the attended close.
+
 ### Step 3.0: Scope-down bookkeeping (scoped items only)
 If the manifest marks this item `scoped: true`, make the eventual close honest **before**
 implementing:
