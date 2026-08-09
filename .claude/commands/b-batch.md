@@ -125,14 +125,29 @@ never a candidate either — an owned one belongs to a live batch, and an orphan
 reverted to `Not started`, so it re-enters the pool on the next read.
 
 #### 0.1a.3 — Hygiene report (mechanical, no judgement)
-A `Blocked` row whose `Blocked by` relation is **empty** is a structural anomaly: the database
-has a relation for exactly this and it is unset, so the blocker exists only as prose. Report
-count and IDs. Do **not** read those bodies and do not adjudicate whether the blocker still
-holds — that is the in-context judgement Step 2.1 exists to avoid, and it would re-run every
-invocation instead of driving a one-time fix.
+List `Blocked` rows whose `Blocked by` relation is **empty**, with count and IDs. Do **not**
+read those bodies and do not adjudicate whether each blocker still holds — that is the
+in-context judgement Step 2.1 exists to avoid, and at this stage the bodies have not been
+fetched anyway.
 
-    📌 N items are Blocked with no recorded blocker (relation unset): …
-       Triage once — a prose blocker contributes no edge to the Step 2.2 graph.
+**Report it as a review list, never as a defect count, and expect the steady state to be
+non-zero.** An empty relation resolves three different ways, and only the first is a defect:
+
+| The blocker is… | Correct fix | Example |
+|---|---|---|
+| a work item | set the relation | prerequisite named only in Technical Notes |
+| gone or already `Done` | `→ Not started` | prereq landed; or the named prereq was `Cancelled` |
+| **not a work item at all** | **nothing — already correct** | procurement, a compliance ruling, a scheduling call, an external tool upgrade |
+
+That third class is why the wording matters. Those rows have real, often thoroughly
+documented blockers that a *relation* structurally cannot express, so they will appear in
+this list on every run forever. Calling them "items with no recorded blocker" asserts
+something false about them and trains you to ignore the whole list — which is worse than not
+reporting it, because the genuinely stale rows hide among them.
+
+    📌 N `Blocked` items have no `Blocked by` relation: …
+       Some are correct (blocker isn't a work item); some are stale. Worth a periodic look —
+       only a relation contributes an edge to the Step 2.2 graph.
 
 #### 0.1a.4 — Exclude, and name every exclusion
 Drop from the pool, reporting each class. **Never silently** — a hidden cap reads as
