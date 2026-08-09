@@ -160,11 +160,29 @@ Drop from the pool, reporting each class. **Never silently** — a hidden cap re
   5–8+ weeks; these need slicing via `/b-create` first. Naming them makes the omission a
   recommendation rather than a silence.
 
-If the pool empties, report why and stop — never widen the criteria to fill a slate.
+#### 0.1a.5 — Read bodies for the top ~10, then drop what the batch cannot execute
+`notion-fetch` the top ~10 survivors, not the whole pool — nothing below needs a body.
 
-#### 0.1a.5 — Read bodies for the top ~10 only
-`notion-fetch` the top ~10 survivors, not the whole pool. Everything below this point needs
-the AC and technical notes; nothing needs them for a row that will never be proposed.
+**Then apply the two exclusions only a body can decide.** `Priority` says what is worth
+doing, `Effort` says how big it is; neither says whether `/b-work` can reach the work at all.
+Expect these near the **top** of the pool — work outgrows the batch model by becoming a
+release, a cross-repo change, or a decision, and none of that lowers its rank.
+
+- **Out of reach** — the deliverable is not a feature-branch PR into `development` in *this*
+  repo: another repo (`being-website`, the design system — `/b-work` cannot worktree outside
+  the `being` bare repo); a release (route: `/b-release`); a console configuration; an
+  external account, procurement, or a founder decision. Name the real route, so the item
+  reads as *routed elsewhere* rather than *skipped*.
+- **Attended-only** — `/b-work` could produce a diff, but the ACs demand human-*observed*
+  work (bisect build, device run, N consecutive clean runs). Running one unattended is worse
+  than skipping it: a plausible fix lands, the item closes, and the question it existed to
+  answer stays open. Surface as **run solo, attended**; never use one to fill the budget.
+
+    🔀 Routed elsewhere: INFRA-363 (being-website) · MAINT-388 (design-system release)
+                         DEBUG-360 (ships via /b-release)
+    🖐️  Attended-only:  DEBUG-392 — ACs require a bisect build + 5 clean runs
+
+If the pool empties here or at 0.1a.4, report why and stop — never widen the criteria.
 
 #### 0.1a.6 — Shape the slate
 Fill **in view order**, subject to all three:
