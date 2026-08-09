@@ -1,0 +1,3 @@
+/* esm.sh - jose@5.9.6/dist/browser/lib/cek */
+import{JOSENotSupported as t}from"../../../errors.mjs";import e from"../runtime/random.mjs";function n(r){switch(r){case"A128GCM":return 128;case"A192GCM":return 192;case"A256GCM":case"A128CBC-HS256":return 256;case"A192CBC-HS384":return 384;case"A256CBC-HS512":return 512;default:throw new t(`Unsupported JWE Algorithm: ${r}`)}}var a=r=>e(new Uint8Array(n(r)>>3));export{n as bitLength,a as default};
+//# sourceMappingURL=cek.mjs.map

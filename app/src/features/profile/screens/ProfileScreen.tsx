@@ -533,7 +533,7 @@ const styles = StyleSheet.create({
   sectionDescription: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     lineHeight: 22,
     marginBottom: spacing[16],
   },
@@ -556,7 +556,7 @@ const styles = StyleSheet.create({
   cardDescription: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     lineHeight: 22,
     marginBottom: spacing[16],
   },
@@ -621,7 +621,7 @@ const styles = StyleSheet.create({
   cardMetadata: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: colorSystem.gray[500],
+    color: semantic.text.muted,
   },
   statusRecent: {
     fontSize: typography.micro.size,

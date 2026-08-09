@@ -17,11 +17,8 @@
  */
 
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 import { TokenBucketRateLimiter } from './RateLimiter';
-import type { EncryptionService, DataSensitivityLevel } from '../security/EncryptionService';
 // MAINT-248: single source of truth for sensitive-data sanitization. The inline
 // pattern array / isSensitiveKey copy that lived here was deleted — these are the
 // canonical implementations every logging service shares.
@@ -87,10 +84,6 @@ export class ProductionLogger {
 
   // INFRA-61: Rate limiter for log throughput control
   private rateLimiter: TokenBucketRateLimiter;
-
-  // INFRA-61: Optional encryption for sensitive logs
-  private encryptionService: EncryptionService | null = null;
-  private encryptionEnabled = false;
 
   private constructor() {
     this.rateLimiter = new TokenBucketRateLimiter();
@@ -225,7 +218,7 @@ export class ProductionLogger {
       sessionHash: this.generateSessionHash()
     };
 
-    // Store in audit trail (memory, encrypted storage for critical)
+    // Store in audit trail (memory only — see addToAuditTrail)
     this.addToAuditTrail(logEntry);
 
     // Output based on environment
@@ -250,6 +243,24 @@ export class ProductionLogger {
 
   /**
    * AUDIT TRAIL MANAGEMENT
+   *
+   * DEBUG-355: memory only, deliberately. This used to additionally persist every
+   * ERROR-level or CRISIS-category entry to SecureStore under
+   * `critical_log_${Date.now()}`. SecureStore has no enumerate API and the key
+   * carried a timestamp, so the record matched no fixed erasure manifest and no
+   * sweepable prefix — it was unerasable BY CONSTRUCTION, and account deletion
+   * could not reach it. It was also write-only: nothing in the app ever read one
+   * back, and the cleanup that claimed to remove them searched AsyncStorage, the
+   * wrong store, so it could never match.
+   *
+   * Do not reintroduce a persistence sink here — not SecureStore, not
+   * AsyncStorage, not a queue. The compliance ruling is stop persisting: a
+   * CRISIS-category entry is sensitive wellness data, and no lawful basis
+   * defends retaining it past erasure. The durable crisis audit trail is the
+   * off-device `crisis_detected` event (SupabaseService.trackCrisisDetection).
+   *
+   * This method must also stay synchronous and non-throwing: it sits on the
+   * crisis logging path, which carries a strict <200ms budget.
    */
   private addToAuditTrail(entry: LogEntry): void {
     this.auditTrail.push(entry);
@@ -257,56 +268,6 @@ export class ProductionLogger {
     // Maintain size limit
     if (this.auditTrail.length > this.maxAuditEntries) {
       this.auditTrail.shift();
-    }
-
-    // Store critical entries securely
-    if (entry.level === 'ERROR' || entry.category === LogCategory.CRISIS) {
-      this.storeCriticalEntry(entry);
-    }
-  }
-
-  private async storeCriticalEntry(entry: LogEntry): Promise<void> {
-    try {
-      const storageKey = `critical_log_${Date.now()}`;
-
-      // INFRA-61: Encrypt if encryption is enabled
-      if (this.encryptionEnabled && this.encryptionService) {
-        try {
-          const sensitivityLevel = this.mapCategoryToSensitivity(entry.category);
-          const encryptedPackage = await this.encryptionService.encryptData(entry, sensitivityLevel);
-
-          // Store encrypted wrapper
-          const encryptedEntry = {
-            encrypted: true,
-            package: encryptedPackage,
-          };
-          await SecureStore.setItemAsync(storageKey, JSON.stringify(encryptedEntry));
-        } catch {
-          // Fallback to unencrypted storage if encryption fails
-          await SecureStore.setItemAsync(storageKey, JSON.stringify(entry));
-        }
-      } else {
-        // Store unencrypted
-        await SecureStore.setItemAsync(storageKey, JSON.stringify(entry));
-      }
-    } catch {
-      // Fail silently - we don't want logging errors to break the app
-    }
-  }
-
-  /**
-   * INFRA-61: Map log category to encryption sensitivity level
-   */
-  private mapCategoryToSensitivity(category: LogCategory): DataSensitivityLevel {
-    switch (category) {
-      case LogCategory.CRISIS:
-        return 'level_1_crisis_responses';
-      case LogCategory.ASSESSMENT:
-        return 'level_2_assessment_data';
-      case LogCategory.SECURITY:
-        return 'level_3_intervention_metadata';
-      default:
-        return 'level_5_general_data';
     }
   }
 
@@ -403,17 +364,23 @@ export class ProductionLogger {
     return [...this.auditTrail]; // Return copy for safety
   }
 
-  async clearAuditTrail(): Promise<void> {
+  /**
+   * Clear the in-memory audit trail (GDPR erasure).
+   *
+   * DEBUG-355: SYNCHRONOUS AND STRUCTURALLY NON-THROWING, and both properties
+   * are load-bearing. This runs as the last step of `deleteAccountAndWipe`,
+   * whose caller (`DeleteAccountScreen`) wraps the whole sequence in a
+   * try/catch: a rejection here — AFTER the server erase and the local wipe have
+   * both succeeded — would surface "Something went wrong while deleting your
+   * account" and skip the navigation reset, stranding a fully-erased user on the
+   * delete screen. An array truncation cannot fail; storage I/O could.
+   *
+   * It previously swept AsyncStorage for `critical_log_` keys that were only
+   * ever written to SecureStore, so the sweep could never match. That write is
+   * gone (see addToAuditTrail), and with it the only reason to touch storage.
+   */
+  clearAuditTrail(): void {
     this.auditTrail.length = 0;
-
-    // Clear stored critical entries (GDPR compliance)
-    try {
-      const keys = await AsyncStorage.getAllKeys();
-      const logKeys = keys.filter(key => key.startsWith('critical_log_'));
-      await AsyncStorage.multiRemove(logKeys);
-    } catch {
-      // Fail silently
-    }
   }
 
   /**
@@ -429,24 +396,6 @@ export class ProductionLogger {
    */
   getRateLimiterStats() {
     return this.rateLimiter.getStats();
-  }
-
-  /**
-   * INFRA-61: Enable log encryption
-   */
-  async enableEncryption(encryptionService: EncryptionService): Promise<void> {
-    this.encryptionService = encryptionService;
-    this.encryptionEnabled = true;
-    this.info(LogCategory.SECURITY, 'Log encryption enabled');
-  }
-
-  /**
-   * INFRA-61: Disable log encryption
-   */
-  disableEncryption(): void {
-    this.encryptionEnabled = false;
-    this.encryptionService = null;
-    this.info(LogCategory.SECURITY, 'Log encryption disabled');
   }
 }
 

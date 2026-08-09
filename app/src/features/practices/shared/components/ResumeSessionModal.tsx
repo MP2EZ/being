@@ -30,7 +30,8 @@ import {
   Vibration,
   ScrollView,
 } from 'react-native';
-import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
+import { semantic, colorSystem, spacing, borderRadius, typography } from '@/core/theme';
+import { TOUCH_TARGETS } from '@/core/theme/accessibility';
 import { SessionMetadata } from '@/core/types/session';
 import { themeKeyFor } from '@/core/types/practice-identity';
 import type { PracticeIdentity } from '@/core/types/practice-identity';
@@ -366,7 +367,7 @@ const styles = StyleSheet.create({
   },
   infoLabel: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     marginBottom: spacing[4],
   },
   infoValue: {
@@ -380,7 +381,7 @@ const styles = StyleSheet.create({
   },
   progressLabel: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     marginBottom: spacing[4],
   },
   screenBadge: {
@@ -405,7 +406,7 @@ const styles = StyleSheet.create({
   },
   submessage: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     textAlign: 'center',
     lineHeight: typography.title.size,
     fontStyle: 'italic',
@@ -414,6 +415,12 @@ const styles = StyleSheet.create({
   tooltipButton: {
     paddingVertical: spacing[8],
     alignItems: 'center',
+    // DEBUG-365 sweep finding, not named in the ticket — which listed this file
+    // as already compliant. That is true of primaryButton / secondaryButton (48)
+    // but not of this third control, which was ~33pt on the same padding-only
+    // shape as Timer.controlButton.
+    minHeight: TOUCH_TARGETS.minimum,
+    justifyContent: 'center',
   },
   tooltipButtonText: {
     fontSize: typography.bodySmall.size,
@@ -446,7 +453,7 @@ const styles = StyleSheet.create({
   },
   tooltipCitation: {
     fontSize: typography.micro.size,
-    color: colorSystem.gray[500],
+    color: semantic.text.muted,
     fontStyle: 'italic',
     marginTop: spacing[4],
   },

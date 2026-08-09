@@ -27,9 +27,9 @@ code-side alert (the subscription-verification watchdog) and documents the other
 |---|---|---|---|---|
 | 1 | App crash rate > 1% | Sentry metric alert (release-health crash-free rate) | Sentry dashboard | ⏳ operator to create — see [§1](#1-crash-rate-alert-sentry) |
 | 2 | API / edge error rate > 5% | Sentry metric alert (+ Supabase logs for edge) | Sentry dashboard | ⏳ operator to create — see [§2](#2-error-rate-alert-sentry) |
-| 3 | Sustained Supabase connection failures | Supabase project notifications + external watcher | Supabase dashboard | ⏳ operator to enable — see [§3](#3-supabase-connection-failure-alert) |
+| 3 | Sustained Supabase connection failures | Supabase project notifications + **external healthchecks.io dead-man's-switch (INFRA-296)** | Supabase dashboard + healthchecks.io | ✅ code shipped; needs deploy + secret + check creation, **in that order** — see [§3](#3-supabase-connection-failure-alert) |
 | 4 | Subscription-verification automation dead | `subscription_verification_watchdog()` pg_cron + Resend | **code (this PR)** | ✅ migration shipped; needs deploy + Vault bootstrap — see [§4](#4-subscription-verification-failure-watchdog-shipped) |
-| 5 | Crisis-button / 60fps perf regression | crisis **detection** <200ms: strict CI gate. Crisis **button**: coarse jest proxy. 60fps: **structural proxy only, frame rate unmeasured** (INFRA-306 Layer A; measurement is INFRA-309) | jest / CI | ⚠️ partially covered — Maestro enforces none of these; prod RUM deferred — see [§5](#5-performance-degradation-alert-deferred-prod-rum) and [§5a](#5a-breathing-circle-60fps--what-the-control-actually-is) |
+| 5 | Crisis-button / 60fps perf regression | crisis **detection** <200ms: strict CI gate. Crisis **button**: coarse jest proxy. 60fps: **structural proxy only, frame rate unmeasured** (INFRA-306 Layer A; measurement is INFRA-373) | jest / CI | ⚠️ partially covered — Maestro enforces none of these; prod RUM deferred — see [§5](#5-performance-degradation-alert-deferred-prod-rum) and [§5a](#5a-breathing-circle-60fps--what-the-control-actually-is) |
 
 **Grounding (verified live 2026-06-18 against `being-production` = `yliycxslzdsgjtpxggtf` and
 Sentry org `being-prod` / project `javascript-react`):**
@@ -162,11 +162,83 @@ enabled.
 > [!IMPORTANT]
 > A connection-failure alert that lives **inside** Supabase shares the failure domain it is
 > meant to watch — if the project is down, an in-DB `pg_cron` check can't fire either. The
-> robust form needs an **external** watcher. That external dead-man's-switch already exists for
-> the crisis pipeline (healthchecks.io, INFRA-264) and is tracked as a **separate follow-up** for
-> the ops domain — it is out of scope here. Do not re-implement it as an in-Supabase cron.
+> robust form needs an **external** watcher. **INFRA-296 shipped it for the ops domain**
+> (code below); it mirrors the crisis pipeline's INFRA-264 switch one trust domain over.
+> Do not re-implement it as an in-Supabase cron.
 
-**In-scope operator actions:**
+### The external dead-man's-switch (INFRA-296) — mechanism
+
+On each clean run, the daily `grace-period-automation` edge function fires a bare `GET` to
+an external healthchecks.io check as its **last** action. Nothing is transmitted but the
+fact and timestamp of the request: no body, no query string, no headers, no identifiers.
+
+The alert is the **silence**. If the ping does not arrive within the check's grace window,
+healthchecks.io pages the founder from a failure domain Supabase cannot take down with it.
+Every non-clean path is deliberately silent:
+
+| Situation | Pings? |
+|---|---|
+| All five automation steps succeeded **and** the heartbeat row persisted | ✅ yes |
+| Any step failed (note: the function still returns **HTTP 200** — errors are collected, not thrown, so the gate reads the error tally, never the status code) | ❌ no |
+| The heartbeat write silently failed | ❌ no |
+| Unauthorized call (401) — an unauthorized probe is not a run | ❌ no |
+| Top-level exception (500) | ❌ no |
+| Total Supabase/edge outage, or the cron is not scheduled — the function never runs | ❌ no |
+
+> [!NOTE]
+> **What a green check does and does not prove.** It proves ONLY that the daily ops cron
+> executed cleanly and persisted its own heartbeat. It proves nothing about receipt
+> validity, StoreKit/Play state, or whether any user's subscription status is correct —
+> that is §4's job, and §4 is what a green-but-wrong pipeline would still trip.
+>
+> **Accepted residual:** the switch pings from the daily automation, not from the §4
+> watchdog, so an *unscheduled watchdog* is not externally detected. The crisis domain
+> accepts the identical residual — INFRA-264 also pings from the alerter rather than from
+> `crisis_alert_watchdog`. Stated here so it is inherited knowingly rather than silently.
+
+### Trust-domain separation (non-negotiable)
+
+This check has its **own** healthchecks.io check and its **own** ping-URL secret
+(`SUBSCRIPTION_HEALTHCHECK_PING_URL`), distinct from the crisis pipeline's
+`CRISIS_HEALTHCHECK_PING_URL`. Never point both at one check: the two domains must rotate
+and page independently, and a shared check would let an ops-side rotation silently break
+crisis paging. This mirrors the `subscription_alert_*` vs `crisis_alert_*` Vault split.
+
+The ping URL is a **capability secret** — anyone holding it can silence the alarm. It is
+never committed, never logged, and never written to a row; the
+`crisisAlertNoSecrets.config.test.ts` static pin fails the commit if a healthchecks.io
+capability URL appears anywhere it scans (it matches URL *shape*, so it covers both
+domains). The pin cannot verify *distinctness*, though — it forbids both URLs identically.
+Keeping the two checks separate is console discipline, which is why it is written down here.
+
+### Setup checklist (operator, out of PR)
+
+> [!WARNING]
+> **Order matters, and arming early is worse than arming late.** A check created before the
+> daily cron exists pages continuously and correctly, because a never-pinged check is
+> indistinguishable from a dead one. As of this writing the grace-period stack is **not
+> applied in prod** (see the grounding note above), so steps 1–2 are genuine prerequisites,
+> not formalities. Tracked as INFRA-379.
+
+1. **Deploy the grace-period stack** (`supabase db push`, Vault secrets first) and confirm
+   with `SELECT jobname, schedule, active FROM cron.job;` that `grace-period-automation`
+   exists and is active, and that `grace_period_automation_runs` is present.
+2. **Redeploy the edge function** — `supabase functions deploy grace-period-automation
+   --no-verify-jwt` — so the deployed code contains both the heartbeat and this ping.
+3. **Create the healthchecks.io check.** A NEW check, distinct from the crisis one.
+   **Period 1 day, grace 26h** — the daily 02:00 UTC cadence plus one tolerated skip, which
+   also matches the 26h healthy window hard-coded in the §4 watchdog. If the cron schedule
+   ever changes, **these three move together**: the cron expression, the watchdog's
+   interval, and this grace window.
+4. **Set the secret:** `supabase secrets set SUBSCRIPTION_HEALTHCHECK_PING_URL='…'`.
+   An unset secret makes the ping skip *silently* by design, so this step is not optional
+   and its omission is not self-announcing.
+5. **Verify the first ping actually landed.** `supabase secrets list` showing the name set
+   is NOT sufficient — a never-pinged check looks identical to a newly-created one. Trigger
+   a run with a valid `x-cron-secret`, confirm the check flips to *up*, then let one period
+   lapse and confirm it pages.
+
+**Remaining in-scope operator actions:**
 1. **Enable Supabase project notifications:** Supabase dashboard → **Account → Notifications**
    (and Project settings) → turn on project-health / outage notifications for
    `being-production`. This covers Supabase-side incidents Supabase itself detects.
@@ -174,8 +246,6 @@ enabled.
    revenue-critical scheduled job going silent). For broader edge error visibility, review
    **Edge Functions → Logs** post-release, or wire a **log drain** to an external service as the
    future robust path.
-3. **Document the residual:** true "Supabase is wholly down" paging is the external-watcher
-   follow-up, by design — note it as accepted until that item ships.
 
 ---
 
@@ -324,7 +394,7 @@ visible diff rather than a side effect of where a new component was placed. Esca
 - **The 60fps number has never been validated on hardware**, and it is device-naive as written —
   see below.
 
-### Why "60fps" is the wrong unit, for whoever builds INFRA-309
+### Why "60fps" is the wrong unit, for whoever builds INFRA-373
 
 ProMotion iPhones run at 120Hz, where nominal frame time is **8.3ms, not 16.67ms**. A UI thread
 delivering a steady 60fps on such a device is dropping **half** its frames while sailing past any
@@ -352,7 +422,7 @@ control. A warning to that effect now sits in its module header.
 
 ### The real control
 
-**INFRA-309** — a UI-thread `useFrameCallback` probe accumulating in shared values, a
+**INFRA-373** — a UI-thread `useFrameCallback` probe accumulating in shared values, a
 flag-scoped HUD, and a device-only Maestro flow asserting the rendered number via
 `copyTextFrom` + `assertTrue`. Blocked on naming a calibration handset: there is no device
 inventory in this repo, and the only model named anywhere (`ACCESSIBILITY_TESTING_GUIDE.md:326`,
@@ -363,8 +433,6 @@ mid-tier nor 60Hz.
 
 ## Out of scope (follow-ups)
 
-- **External ops dead-man's-switch** (healthchecks.io for Supabase/edge total-outage) — the §3
-  robust form; mirrors INFRA-264 but for the subscription/ops domain. Not in this PR.
 - **Prod performance RUM** (§5) — deferred with rationale above; revisit post-launch.
 - **Generic edge-function error-rate alerting** (§2b) — Supabase log-drain concern; the §4
   watchdog covers the one revenue-critical scheduled job.

@@ -512,7 +512,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[500],
+    color: semantic.text.muted,
     marginBottom: spacing[12],
   },
   timeRangeContainer: {
@@ -540,7 +540,7 @@ const styles = StyleSheet.create({
   timeRangeText: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.medium,
-    color: colorSystem.gray[500],
+    color: semantic.text.muted,
   },
   timeRangeTextSelected: {
     color: semantic.text.primary,
@@ -565,7 +565,7 @@ const styles = StyleSheet.create({
   },
   barCount: {
     fontSize: typography.caption.size,
-    color: colorSystem.gray[500],
+    color: semantic.text.muted,
     minWidth: 20,
     textAlign: 'right',
   },
@@ -581,7 +581,7 @@ const styles = StyleSheet.create({
   },
   summaryText: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.muted,
     textAlign: 'center',
     fontStyle: 'italic',
   },
@@ -644,7 +644,7 @@ const styles = StyleSheet.create({
   },
   beginnerTipDismissText: {
     fontSize: typography.bodyLarge.size,
-    color: colorSystem.gray[500],
+    color: semantic.text.muted,
     fontWeight: typography.fontWeight.light,
   },
 });

@@ -73,6 +73,7 @@ import {
   canPerformCrisisIntervention,
   recordLegalGateConsents,
   getLegalGateConsents,
+  CONSENT_VERSION,
   type ConsentPreferences,
   type AgeVerification,
 } from '../consentStore';
@@ -260,37 +261,38 @@ describe('consentStore', () => {
   });
 
   describe('fail-safe defaults on corrupted payload', () => {
-    test('corrupted SecureStore JSON → status = "invalid", cache = defaults', async () => {
+    test('corrupted SecureStore JSON → status = "integrity_error", cache = defaults', async () => {
       mockSecureStore['consent_record_v1'] = '{not valid json';
       await state().loadConsent();
-      expect(state().consentStatus).toBe('invalid');
+      expect(state().consentStatus).toBe('integrity_error');
       expect(state().canPerformOperation('analytics')).toBe(false);
       expect(state().canPerformOperation('research')).toBe(false);
     });
 
-    test('consent missing required fields → status = "invalid"', async () => {
+    test('consent missing required fields → status = "integrity_error"', async () => {
       mockSecureStore['consent_record_v1'] = JSON.stringify({
         // missing consentId and userId
         preferences: ALL_OPT_IN,
         ageVerification: ELIGIBLE_AGE,
       });
       await state().loadConsent();
-      expect(state().consentStatus).toBe('invalid');
+      expect(state().consentStatus).toBe('integrity_error');
     });
 
-    test('revoked consent on disk → status = "invalid"', async () => {
+    test('revoked consent on disk → status = "revoked"', async () => {
       mockSecureStore['consent_record_v1'] = JSON.stringify({
         consentId: 'c1',
         userId: 'u1',
+        version: CONSENT_VERSION,
         revoked: true,
         preferences: ALL_OPT_IN,
         ageVerification: ELIGIBLE_AGE,
       });
       await state().loadConsent();
-      expect(state().consentStatus).toBe('invalid');
+      expect(state().consentStatus).toBe('revoked');
     });
 
-    test('stored version mismatch (legacy 1.0.0 record) → status = "invalid" forces re-grant', async () => {
+    test('stored version mismatch (legacy 1.0.0 record) → status = "version_mismatch" forces re-grant', async () => {
       mockSecureStore['consent_record_v1'] = JSON.stringify({
         consentId: 'c1',
         userId: 'u1',
@@ -305,16 +307,16 @@ describe('consentStore', () => {
         ageVerification: ELIGIBLE_AGE,
       });
       await state().loadConsent();
-      expect(state().consentStatus).toBe('invalid');
+      expect(state().consentStatus).toBe('version_mismatch');
     });
   });
 
   describe('revocation', () => {
-    test('revoke clears cache and sets status = "invalid"', async () => {
+    test('revoke clears cache and sets status = "revoked"', async () => {
       await state().grantConsent(ALL_OPT_IN, ELIGIBLE_AGE);
       expect(state().canPerformOperation('analytics')).toBe(true);
       await state().revokeConsent('user changed mind');
-      expect(state().consentStatus).toBe('invalid');
+      expect(state().consentStatus).toBe('revoked');
       expect(state().canPerformOperation('analytics')).toBe(false);
     });
 
@@ -323,6 +325,215 @@ describe('consentStore', () => {
       await state().revokeConsent('GDPR right to erasure');
       const revokeEntry = state().consentHistory.find((h) => h.action === 'revoked');
       expect(revokeEntry).toBeDefined();
+    });
+  });
+
+  /**
+   * FEAT-316 slice A — stale-consent status discrimination.
+   *
+   * Before this slice, five sites in loadConsent() plus revokeConsent() all
+   * produced the single status 'invalid', making a deliberately-withdrawn user
+   * indistinguishable from a user holding a stale policy version. FEAT-332
+   * mounts a re-consent screen keyed off that distinction; keyed off 'invalid'
+   * it would nag a user who exercised GDPR Art. 7(3) withdrawal. Compliance
+   * ruled that regression worse than not shipping at all, so the split lands
+   * first, on its own, with no UI attached.
+   */
+  describe('stale-consent status discrimination (FEAT-316 slice A)', () => {
+    const staleRecord = (overrides: Record<string, unknown> = {}) =>
+      JSON.stringify({
+        consentId: 'c1',
+        userId: 'u1',
+        version: '1.0.0',
+        revoked: false,
+        universalOptOut: false,
+        preferences: ALL_OPT_IN,
+        ageVerification: ELIGIBLE_AGE,
+        timestamp: Date.now(),
+        updatedAt: Date.now(),
+        ...overrides,
+      });
+
+    describe('revoked is never conflated with version_mismatch (GDPR Art. 7(3))', () => {
+      test('CRITICAL: a record that is BOTH revoked AND version-stale reads as "revoked"', async () => {
+        // The overlap case is the whole reason the split exists. A user who
+        // withdrew consent under policy 1.0.0 satisfies both conditions; if
+        // version is tested first they read as version_mismatch and FEAT-332
+        // re-prompts someone who deliberately said no.
+        mockSecureStore['consent_record_v1'] = staleRecord({ revoked: true, version: '1.0.0' });
+        await state().loadConsent();
+        expect(state().consentStatus).toBe('revoked');
+        expect(state().consentStatus).not.toBe('version_mismatch');
+      });
+
+      test('revokeConsent() sets "revoked", not a stale status', async () => {
+        // The sixth producing site, outside loadConsent entirely.
+        await state().grantConsent(ALL_OPT_IN, ELIGIBLE_AGE);
+        await state().revokeConsent('withdrawal');
+        expect(state().consentStatus).toBe('revoked');
+      });
+
+      test('an unreadable payload reads as "integrity_error", never a stale status', async () => {
+        mockSecureStore['consent_record_v1'] = '{corrupt';
+        await state().loadConsent();
+        expect(state().consentStatus).toBe('integrity_error');
+      });
+
+      test('missing identifiers read as "integrity_error" even when also version-stale', async () => {
+        mockSecureStore['consent_record_v1'] = staleRecord({ consentId: undefined, version: '1.0.0' });
+        await state().loadConsent();
+        expect(state().consentStatus).toBe('integrity_error');
+      });
+    });
+
+    describe('staleConsent retention', () => {
+      test('version_mismatch retains the parsed record in staleConsent', async () => {
+        mockSecureStore['consent_record_v1'] = staleRecord();
+        await state().loadConsent();
+        expect(state().consentStatus).toBe('version_mismatch');
+        expect(state().currentConsent).toBeNull();
+        expect(state().staleConsent?.version).toBe('1.0.0');
+        expect(state().staleConsent?.consentId).toBe('c1');
+      });
+
+      test('18+ HAZARD: eligibility stays visible on the retained stale record', async () => {
+        // loadConsent checks version BEFORE age, so an ineligible user with a
+        // stale record short-circuits to version_mismatch and NEVER resolves to
+        // 'under_age'. The ordering does not protect the age gate — it defeats
+        // it. FEAT-332's trigger must therefore gate on this field itself, so
+        // slice A's obligation is to guarantee it survives.
+        mockSecureStore['consent_record_v1'] = staleRecord({
+          ageVerification: { ...ELIGIBLE_AGE, isEligible: false, ageAtVerification: 15 },
+        });
+        await state().loadConsent();
+        expect(state().consentStatus).toBe('version_mismatch');
+        expect(state().staleConsent?.ageVerification.isEligible).toBe(false);
+      });
+
+      test('universalOptOut survives on the stale record (must not be silently dropped)', async () => {
+        mockSecureStore['consent_record_v1'] = staleRecord({ universalOptOut: true });
+        await state().loadConsent();
+        expect(state().staleConsent?.universalOptOut).toBe(true);
+      });
+
+      test('expired does NOT set staleConsent — it retains currentConsent instead', async () => {
+        // Deliberate asymmetry, and the reason staleConsent exists at all: the
+        // version-mismatch branch nulls currentConsent and destroys the record,
+        // the expired branch does not. Adding staleConsent to the expired path
+        // would duplicate the same record into two fields. FEAT-332's trigger
+        // reads `staleConsent ?? currentConsent`.
+        await state().grantConsent(ALL_OPT_IN, ELIGIBLE_AGE);
+        mockSecureStore['consent_record_v1'] = staleRecord({
+          version: CONSENT_VERSION,
+          expiresAt: Date.now() - 1000,
+        });
+        await state().loadConsent();
+        expect(state().consentStatus).toBe('expired');
+        expect(state().staleConsent).toBeNull();
+        expect(state().currentConsent?.consentId).toBe('c1');
+      });
+
+      test('staleConsent is null for every non-stale outcome', async () => {
+        // missing
+        await state().loadConsent();
+        expect(state().staleConsent).toBeNull();
+
+        // integrity_error
+        mockSecureStore['consent_record_v1'] = '{corrupt';
+        await state().loadConsent();
+        expect(state().staleConsent).toBeNull();
+
+        // revoked
+        mockSecureStore['consent_record_v1'] = staleRecord({
+          revoked: true,
+          version: CONSENT_VERSION,
+        });
+        await state().loadConsent();
+        expect(state().staleConsent).toBeNull();
+
+        // valid
+        delete mockSecureStore['consent_record_v1'];
+        await state().grantConsent(ALL_OPT_IN, ELIGIBLE_AGE);
+        await state().loadConsent();
+        expect(state().consentStatus).toBe('valid');
+        expect(state().staleConsent).toBeNull();
+      });
+    });
+
+    describe('staleConsent is inert — never widens permission', () => {
+      test.each(['analytics', 'crash_reports', 'cloud_sync', 'research', 'mental_health_processing'] as const)(
+        'canPerformOperation(%s) === false with a fully opted-in stale record present',
+        async (operation) => {
+          mockSecureStore['consent_record_v1'] = staleRecord({ preferences: ALL_OPT_IN });
+          await state().loadConsent();
+          expect(state().staleConsent).not.toBeNull();
+          expect(state().canPerformOperation(operation)).toBe(false);
+        },
+      );
+
+      test('hasValidConsent() and isAgeVerified() stay false despite an eligible stale record', async () => {
+        mockSecureStore['consent_record_v1'] = staleRecord({ ageVerification: ELIGIBLE_AGE });
+        await state().loadConsent();
+        expect(state().staleConsent?.ageVerification.isEligible).toBe(true);
+        expect(state().hasValidConsent()).toBe(false);
+        expect(state().isAgeVerified()).toBe(false);
+      });
+
+      test('the cache builder never reads staleConsent — cache stays at defaults', async () => {
+        mockSecureStore['consent_record_v1'] = staleRecord({ preferences: ALL_OPT_IN });
+        await state().loadConsent();
+        expect(state().consentCache.canCollectAnalytics).toBe(false);
+        expect(state().consentCache.canProcessMentalHealthData).toBe(false);
+        expect(state().consentCache.ageVerified).toBe(false);
+        expect(state().consentCache.isEligible).toBe(false);
+      });
+
+      test('SAFETY: crisis intervention remains available under every stale status', async () => {
+        for (const record of [
+          staleRecord(),
+          staleRecord({ revoked: true }),
+          '{corrupt',
+        ]) {
+          mockSecureStore['consent_record_v1'] = record;
+          await state().loadConsent();
+          expect(canPerformCrisisIntervention()).toBe(true);
+        }
+      });
+    });
+
+    describe('persisted cache hygiene', () => {
+      // The consent_cache_v1 AsyncStorage blob is write-only repo-wide (four
+      // writers, zero readers), so a stale permissive copy is not a live
+      // bypass today — this is data hygiene, not a security fix. Left in place
+      // it would become one the moment anything starts reading it back.
+      test.each([
+        ['version_mismatch', () => staleRecord()],
+        ['revoked', () => staleRecord({ revoked: true, version: CONSENT_VERSION })],
+        ['integrity_error', () => '{corrupt'],
+      ])('%s clears the persisted consent_cache_v1 blob', async (_label, makeRecord) => {
+        await state().grantConsent(ALL_OPT_IN, ELIGIBLE_AGE);
+        expect(mockAsyncStorage['consent_cache_v1']).toBeDefined();
+
+        mockSecureStore['consent_record_v1'] = makeRecord();
+        await state().loadConsent();
+        expect(mockAsyncStorage['consent_cache_v1']).toBeUndefined();
+      });
+
+      test('expired clears the persisted blob too', async () => {
+        await state().grantConsent(ALL_OPT_IN, ELIGIBLE_AGE);
+        mockSecureStore['consent_record_v1'] = staleRecord({
+          version: CONSENT_VERSION,
+          expiresAt: Date.now() - 1000,
+        });
+        await state().loadConsent();
+        expect(state().consentStatus).toBe('expired');
+        expect(mockAsyncStorage['consent_cache_v1']).toBeUndefined();
+      });
+    });
+
+    test('CONSENT_VERSION is exported so the changelog map cannot drift from it', () => {
+      expect(typeof CONSENT_VERSION).toBe('string');
+      expect(CONSENT_VERSION).toMatch(/^\d+\.\d+\.\d+$/);
     });
   });
 

@@ -38,6 +38,22 @@ module.exports = [
       // syntax — they don't interpolate, so the literal text ships to logs.
       // 16 instances landed silently in security services before this rule.
       'no-template-curly-in-string': 'error',
+      // DEBUG-342: gray[500] is #B8B8B8 — 1.98:1 on white. That is below the AA text
+      // bar (4.5:1) AND below the WCAG 1.4.11 non-text bar (3:1), so there is no
+      // legal use for it as a colour on any light surface in this app. DEBUG-323
+      // fixed the semantic.text.muted token, but 34 sites read the raw ramp value
+      // and bypassed the fix entirely — this rule is what stops site 35.
+      // The matching test-file override below keeps the theme-contrast regression
+      // pin (which must reference gray[500] to assert it fails) legal.
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            'MemberExpression[computed=true][property.value=500][object.property.name="gray"]',
+          message:
+            'colorSystem.gray[500] is 1.98:1 on white — fails AA text (4.5:1) and the 1.4.11 non-text bar (3:1). Use semantic.text.muted / semantic.text.secondary. See DEBUG-323, DEBUG-342.',
+        },
+      ],
       // Remove unsafe rules that don't exist in current version
       // '@typescript-eslint/no-unsafe-any': 'warn',
       // '@typescript-eslint/no-unsafe-assignment': 'warn',
@@ -126,6 +142,9 @@ module.exports = [
       '@typescript-eslint/explicit-function-return-type': 'off',
       'complexity': 'off',
       'max-depth': 'off',
+      // DEBUG-342: the contrast regression pins MUST be able to name gray[500] —
+      // asserting that it fails is the whole point of those tests.
+      'no-restricted-syntax': 'off',
     },
   },
   

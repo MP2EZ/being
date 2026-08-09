@@ -1,0 +1,10 @@
+{
+  "modules": {
+    "https://esm.sh/jose@5.9.6": {
+      "headers": {
+        "content-type": "application/javascript; charset=utf-8",
+        "x-typescript-types": "https://esm.sh/jose@5.9.6/dist/types/index.d.ts"
+      }
+    }
+  }
+}

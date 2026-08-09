@@ -30,7 +30,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, useFocusEffect, RouteProp } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import { useAnalytics } from '@/core/analytics';
-import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
+import { semantic, colorSystem, spacing, borderRadius, typography } from '@/core/theme';
 import { logPerformance, logSecurity, logError, LogCategory } from '@/core/services/logging';
 import { openCrisisUrl } from '@/features/crisis/utils/openCrisisUrl';
 import { endCrisisTap } from '@/features/crisis/services/crisisTapTrace';
@@ -446,7 +446,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     lineHeight: typography.bodyLarge.size
   },
   emergencyBanner: {
@@ -488,7 +488,7 @@ const styles = StyleSheet.create({
   },
   sectionDescription: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     marginBottom: spacing[24],
     lineHeight: spacing[20]
   },
@@ -544,7 +544,7 @@ const styles = StyleSheet.create({
   },
   resourceAvailability: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     fontWeight: typography.fontWeight.medium
   },
   resourceDescription: {
@@ -560,7 +560,7 @@ const styles = StyleSheet.create({
   contactLabel: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     width: 80
   },
   contactValue: {
@@ -620,7 +620,7 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: typography.micro.size,
-    color: colorSystem.gray[500],
+    color: semantic.text.muted,
     lineHeight: typography.bodyLarge.size,
     textAlign: 'center'
   }

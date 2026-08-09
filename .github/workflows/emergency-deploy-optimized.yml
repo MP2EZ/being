@@ -27,7 +27,7 @@ on:
 
 env:
   EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-  NODE_VERSION: '20'
+  NODE_VERSION: '24'
   EMERGENCY_MODE: 'true'
   CACHE_VERSION: 'v1.2'
   DEPLOYMENT_START_TIME: ${{ github.run_id }}
@@ -203,7 +203,6 @@ jobs:
       - name: ⚡ EAS Setup (10s)
         uses: expo/expo-github-action@v9
         with:
-          expo-version: latest
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
@@ -271,7 +270,6 @@ jobs:
       - name: ⚡ EAS Setup (10s)
         uses: expo/expo-github-action@v9
         with:
-          expo-version: latest
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 

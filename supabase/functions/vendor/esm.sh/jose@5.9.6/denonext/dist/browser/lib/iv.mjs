@@ -1,0 +1,3 @@
+/* esm.sh - jose@5.9.6/dist/browser/lib/iv */
+import{JOSENotSupported as t}from"../../../errors.mjs";import r from"../runtime/random.mjs";function o(e){switch(e){case"A128GCM":case"A128GCMKW":case"A192GCM":case"A192GCMKW":case"A256GCM":case"A256GCMKW":return 96;case"A128CBC-HS256":case"A192CBC-HS384":case"A256CBC-HS512":return 128;default:throw new t(`Unsupported JWE Algorithm: ${e}`)}}var c=e=>r(new Uint8Array(o(e)>>3));export{o as bitLength,c as default};
+//# sourceMappingURL=iv.mjs.map

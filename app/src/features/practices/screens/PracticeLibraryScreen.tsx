@@ -34,7 +34,8 @@ import {
   Text,
   View,
 } from 'react-native';
-import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
+import { semantic, colorSystem, spacing, typography, borderRadius } from '@/core/theme';
+import { TOUCH_TARGETS } from '@/core/theme/accessibility';
 import { PRINCIPLES } from '@/features/practices/shared/constants/principles';
 import { loadModuleContent } from '@/core/services/moduleContent';
 import { resolvePracticeRoute } from '@/features/practices/catalog/practiceNavigation';
@@ -155,7 +156,7 @@ const PracticeLibraryScreen: React.FC<PracticeLibraryScreenProps> = ({
           <Text style={styles.backText}>‹ Back</Text>
         </Pressable>
         <Text style={styles.headerTitle}>Practices</Text>
-        <View style={styles.backButton} />
+        <View style={styles.headerSpacer} />
       </View>
 
       {!entries ? (
@@ -199,6 +200,7 @@ const PracticeLibraryScreen: React.FC<PracticeLibraryScreenProps> = ({
 
               <Pressable
                 onPress={() => onOpenModule(featured.moduleId)}
+                style={styles.principleLinkTouch}
                 accessibilityRole="link"
                 accessibilityLabel={`Read the full principle: ${featuredPrinciple.title}`}
                 accessibilityHint="Opens Module 3, Sphere Sovereignty"
@@ -269,10 +271,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing[16],
     paddingVertical: spacing[16],
   },
-  backButton: { minWidth: spacing[64] },
+  // DEBUG-365. This style used to be shared with the layout spacer below, so
+  // adding minHeight here would have silently grown the header row too. Split:
+  // only the interactive Pressable gets the touch target.
+  backButton: {
+    minWidth: spacing[64],
+    minHeight: TOUCH_TARGETS.minimum,
+    justifyContent: 'center',
+  },
+  // Non-interactive right-hand spacer that balances the centred title. Keeps
+  // ONLY the width — it is not a touch target and must not gain a height.
+  headerSpacer: { minWidth: spacing[64] },
   backText: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.navigation.learn,
+    color: semantic.text.learn,
   },
   headerTitle: {
     fontSize: typography.bodyLarge.size,
@@ -292,7 +304,7 @@ const styles = StyleSheet.create({
   principleEyebrow: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.navigation.learn,
+    color: semantic.text.learn,
     letterSpacing: 1,
     marginBottom: spacing[4],
   },
@@ -309,17 +321,25 @@ const styles = StyleSheet.create({
   citation: {
     fontSize: typography.bodySmall.size,
     fontStyle: 'italic',
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
   },
   principleLink: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.medium,
-    color: colorSystem.navigation.learn,
+    color: semantic.text.learn,
     marginTop: spacing[4],
+  },
+  // DEBUG-365 sweep finding, not named in the ticket. The Pressable wrapping
+  // the principle link carried NO style prop at all, so its box collapsed to
+  // the bodySmall line height (~17-21pt) — a smaller target than the declared
+  // defect the ticket was filed for.
+  principleLinkTouch: {
+    minHeight: TOUCH_TARGETS.minimum,
+    justifyContent: 'center',
   },
   featuredButton: {
     marginTop: spacing[16],
-    backgroundColor: colorSystem.navigation.learn,
+    backgroundColor: semantic.text.learn,
     borderRadius: borderRadius.large,
     paddingVertical: spacing[16],
     alignItems: 'center',
@@ -345,7 +365,7 @@ const styles = StyleSheet.create({
   },
   practiceRowMeta: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[500],
+    color: semantic.text.muted,
   },
 });
 

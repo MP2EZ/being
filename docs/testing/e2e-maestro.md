@@ -41,13 +41,13 @@ export JAVA_HOME=/opt/homebrew/opt/openjdk
 export PATH="$JAVA_HOME/bin:$PATH"
 ```
 
-## Per-session prereq — build a NO-DEV-CLIENT install (INFRA-216)
+## Per-session prereq — build the Release gate target (INFRA-216, revised INFRA-383)
 
-Maestro drives an already-installed app on an already-booted sim. It does **not** build the app. Build a **no-dev-client** install once per worktree session:
+Maestro drives an already-installed app on an already-booted sim. It does **not** build the app. Build the launcher-free Release install once per worktree session (then ~1 min per rebuild):
 
 ```bash
 cd app
-npm run e2e:safety:build   # EAS local build (e2e-sim profile) + install on the booted sim
+npm run e2e:safety:build   # Release build (expo run:ios) + verify + install on the booted sim
 ```
 
 > 🚨 **Do not pipe this command.** `npm run e2e:safety:build 2>&1 | tee build.log`
@@ -68,49 +68,76 @@ npm run e2e:safety:build   # EAS local build (e2e-sim profile) + install on the 
 > set -o pipefail; npm run e2e:safety:build 2>&1 | tee build.log
 > ```
 >
-> **Manual regression smoke** (cannot be automated — CI is 100% `ubuntu-latest`, and
-> the script exits on the booted-sim precondition long before reaching EAS): with a
-> dirty working tree, run `npm run e2e:safety:build; echo $?` and expect a non-zero
-> code plus an `❌ e2e:safety:build failed at stage: …` line. The stage-level failure
-> paths (build fails, build succeeds without producing an artifact, extraction, sim
-> install) are covered automatically by `app/__tests__/scripts/e2e-sim-build.test.js`,
-> which PATH-shims `eas`/`xcrun` and runs anywhere in milliseconds.
-
-> ⚠️ **The gate target is a build that EXCLUDES `expo-dev-client`, not just a
-> Release build.** This is the load-bearing INFRA-216 finding, and it corrects
-> earlier guidance in this doc:
+> **Clean-tree pre-flight (INFRA-329) — kept, and now load-bearing on its own.** It runs
+> `git status --porcelain` **first**, before even the booted-sim check, and fails
+> immediately with the offending paths listed. There is deliberately **no bypass flag**.
 >
-> - `expo-dev-client` is a project dependency, so it is linked into **both**
->   `npm run ios` **and** `expo run:ios --configuration Release`. Both therefore
->   still show the Expo dev launcher ("DEVELOPMENT SERVERS" screen) after
->   `clearState: true`. The flows can only navigate that launcher by tapping a
->   guessed screen coordinate, which flakes badly (INFRA-216: every sim flow hit
->   0–1/5 on a dev build *and* on a plain `--configuration Release` build — the
->   launcher is present on both).
-> - Only a build with `developmentClient: false` removes the launcher. That is
->   the EAS **`e2e-sim`** profile (`eas.json`: `developmentClient:false`,
->   `simulator:true`, Release), which `npm run e2e:safety:build` produces and
->   installs. With it, the app boots straight to the LegalGate (validated: the
->   `_legal-and-onboarding.yaml` launcher steps simply `WARN`+skip). This is also
->   effectively what TestFlight/App Store users get.
+> It originally existed to fail fast ahead of EAS's `requireCommit: true`. INFRA-383
+> removed EAS — and with it `requireCommit`, which was the only thing forcing the
+> installed binary to correspond to a *commit*. Since rebuilds are now ~1 min, iterating
+> on an uncommitted tree is the natural workflow, so relaxing this pre-flight would turn
+> "the gate ran against a never-committed tree" from impossible into routine. It stays
+> until a provenance marker (git HEAD + dirty hash, checked by `e2e-safety.sh`) replaces
+> the guarantee; only then does it relax to dirty-allowed-with-a-banner.
+>
+> Stage-level failure paths are covered by `app/__tests__/scripts/e2e-sim-build.test.js`,
+> which PATH-shims `git`/`npx`/`xcrun`/`otool`/`plutil` and runs anywhere in
+> milliseconds. What stays manual is the genuine end-to-end run against a real simulator
+> — CI is 100% `ubuntu-latest`, so nothing there proves Xcode actually rebuilt the
+> bundle, only that the script refuses to proceed when the evidence says it did not.
 
-**Prereqs** (one-time per machine). Only the booted-simulator check is enforced by the
-build script — the rest are **not** verified, so a missing one surfaces as an opaque EAS
-failure rather than a named prereq error:
-- `eas-cli` logged in — `npx eas whoami` (else `npx eas login`).
-- `fastlane` — `brew install fastlane`. *(Heads-up: on some setups `brew install
-  fastlane` upgrades Ruby and can orphan CocoaPods' `ffi` gem — if `pod --version`
-  then errors, run `brew reinstall cocoapods`.)*
-- A booted iOS simulator.
-- First build is ~10–15 min (EAS local). After that the sim can stay open across
-  many flow runs.
+> ⚠️ **The gate target is a Release build — `npm run ios` (Debug) will not do.**
+> The **configuration**, not the EAS profile, is what removes the dev launcher.
+>
+> - `npm run ios` builds **Debug**, which links `expo-dev-launcher` and shows the
+>   "DEVELOPMENT SERVERS" screen. The flows can only navigate that by tapping a
+>   guessed screen coordinate, which flakes badly — and worse, can *pass by
+>   coincidence*, producing a green crisis-path gate that is evidence of nothing.
+> - A **Release** build excludes it structurally. Expo autolinking marks
+>   `expo-dev-launcher` / `expo-dev-menu` `debugOnly: true`, so
+>   `Pods-Being.release.xcconfig` never links them and `ExpoModulesProvider.swift`'s
+>   Release branch of `getReactDelegateHandlers()` is an empty array. Verified on
+>   the built artifact: 0 `otool` linkage, 0 `EXDevLauncher` symbols, no dev
+>   frameworks; app boots straight to the seeded home screen; 7/7 flows pass.
+>
+> **Correction (INFRA-383).** This callout previously said `expo run:ios
+> --configuration Release` *also* ships the launcher and that only the EAS
+> `e2e-sim` profile (`developmentClient: false`) removes it. That was false. EAS's
+> `developmentClient` flag only *defaults* `buildConfiguration`, and `e2e-sim` sets
+> `Release` explicitly — so the flag was unreachable and never did the thing it was
+> credited with. **How the error happened, because it will recur:** INFRA-216's own
+> documented verification command was `npm run ios --configuration Release`, which
+> omits the `--` separator, so the flag went to *npm* rather than to the script and
+> it built **Debug**. Its `0–1/5` figure is also the same number INFRA-217 later
+> attributed to the onboarding-preamble timing, on a build with no launcher at all.
+> When a flag seems not to take effect through an npm script, check the separator
+> before concluding anything about the tool.
+
+**Prereqs.** Since INFRA-383 the default path needs no `eas-cli`, no credentials and no
+`fastlane` — only Xcode and a booted simulator:
+- A booted iOS simulator (the one prereq the script enforces by name).
+- Working CocoaPods, for the prebuild stage — `pod --version`. *(If `brew install
+  fastlane` ever upgrades Ruby and orphans CocoaPods' `ffi` gem, `brew reinstall
+  cocoapods`.)*
+- **Timing (measured, SDK 56 / Xcode 26.0.1):** ~14 min for the first build in a *fresh*
+  worktree — it also pays the CNG prebuild and `pod install`; ~11 min if `app/ios/`
+  already exists; **~35-75 s warm** thereafter. DerivedData is ~7.5 GB and keyed by
+  project path, so each worktree pays its own cold build once. Use
+  `npm run e2e:safety:clean` to see what that is costing and to reclaim it.
+- The EAS fallback (`npm run e2e:safety:build:eas`) *does* still need `eas-cli` logged in
+  (`npx eas whoami`), `fastlane`, and a clean tree, and takes 10–15 min every run.
 
 > ✅ **Resolved (INFRA-217): the sim flows skip the preamble via a seeded state.**
 > The no-dev-client Release build boots/transitions slowly, and the long LegalGate
 > + 16-question onboarding preamble in `_legal-and-onboarding.yaml` was too
-> timing-fragile for consecutive ≥5/5. The robust fix shipped: the `e2e-sim` EAS
-> profile sets **`EXPO_PUBLIC_E2E_SEED_ONBOARDED=true`** (eas.json
-> `build.e2e-sim.env`), which makes `App.tsx` seed post-onboarding state at launch
+> timing-fragile for consecutive ≥5/5. The robust fix shipped:
+> **`EXPO_PUBLIC_E2E_SEED_ONBOARDED=true`** is declared in `eas.json`
+> `build.e2e-sim.env` and applied to the build by `e2e-sim-build.sh`, which resolves that
+> profile (following `extends`) and scopes the vars to the single build invocation rather
+> than exporting them. It is deliberately never restated in the script — `eas.json` stays
+> the one place the consent-auto-grant boundary is declared, and
+> `__tests__/safety/e2eSeedGate.config.test.ts` pins both halves. This makes `App.tsx`
+> seed post-onboarding state at launch
 > — legal consents + age verification (≥18) + onboarding-complete, written via the
 > real store APIs (`grantConsent` / `verifyAge` / `recordLegalGateConsents`). With
 > that state present, `CleanRootNavigator` routes straight to Main, so the four sim
@@ -142,13 +169,13 @@ of dev-mode-only overlays that block flow execution:
    routine info logs; in dev mode LogBox renders a full-screen stack over the
    LegalGate.
 
-**A plain `expo run:ios --configuration Release` does NOT escape #1** — because
-`expo-dev-client` is still linked, the launcher is present on Release too
-(verified INFRA-216). #4 (LogBox) is gone on Release (`__DEV__` false), but the
-launcher is the killer. The **`e2e-sim` no-dev-client build** is the only thing
-that removes the launcher; `npm run e2e:safety:build` is the supported entry
-point. CLAUDE.md "Known Gotchas" and `/b-close` Phase 2.5 were reconciled to this
-in INFRA-216.
+**A Release build escapes #1 and #4** (INFRA-383, correcting INFRA-216). The dev
+launcher is compiled out of any Release configuration — see the callout above for
+the mechanism and for how the earlier claim went wrong. LogBox is likewise gone on
+Release (`__DEV__` false). `npm run e2e:safety:build` is the supported entry point
+and now uses `expo run:ios --configuration Release`, rebuilding in ~1 min warm
+instead of 10–15 min; `npm run e2e:safety:build:eas` keeps the old EAS path as a
+rollback and as a re-measurable baseline after toolchain upgrades.
 
 ## Running the flows
 
@@ -236,7 +263,7 @@ When a work item touches the safety surface (signals: `crisis`, `988`, `PHQ`, `G
 3. Update the `name:` and `tags:` lines.
 4. Wire it into `app/package.json`: add `e2e:safety:<name>` script.
 5. Extend `/b-close` Phase 2.5 path-to-flow mapping if the new flow pins a contract not already covered by the path globs.
-6. Add the test-only testIDs your flow needs to source files (prefer testID over text selectors for anything that isn't legal/copy-stable).
+6. Add the test-only testIDs your flow needs to source files (prefer testID over text selectors for anything that isn't legal/copy-stable). **For anything you `tapOn` this is load-bearing, not stylistic**: a `text:` selector that matches two nodes taps the first and still reports `COMPLETED`, so an ambiguous tap selector produces a green run that never touched the control — see the selector gotchas at the end of "Debugging a failing flow".
 7. Document in this file under the flow list.
 
 ## Debugging a failing flow
@@ -259,6 +286,8 @@ Maestro's output names the failing step. Three common causes:
    Verified during INFRA-208: a no-reset 5× loop gave **1/5**; the same loop with a driver reset between runs gave a clean **5/5 (20/20 flows)**. **INFRA-220 update:** the degradation also accumulates *within a single batch session* — the old `npm run e2e:safety` (`maestro test .maestro/`, all 4 flows in one driver) failed on the 4th/longest flow (`crisis-button`) as the driver slowed and `nav-back-button` over-popped. `npm run e2e:safety` now runs each flow as a separate invocation with a driver reset between (`scripts/e2e-safety.sh`), so the real `/b-close` usage gets a fresh driver per flow and is unaffected. A related **dev-build-only** flake: the Expo dev launcher can time out at the `legal-dob-picker` wait while the JS bundle is still loading from Metro (the failure screenshot shows the bundle spinner, not the LegalGate). Mitigate by raising `MAESTRO_DRIVER_STARTUP_TIMEOUT` (e.g. `120000`) and/or warming the bundle (`curl -s -o /dev/null "http://localhost:8081/index.bundle?platform=ios&dev=true"`) before the run. Absent in Release builds (no Metro, no dev launcher).
 
 > One more selector gotcha (INFRA-208): Maestro's `text:` selector is a **full-match** regex, and React Native merges a `Focusable`/`accessible` container's child `Text` with a sibling's `accessibilityLabel` into one node. The assessment progress counter renders as "Question 1 of 9" but its accessibility text is `"Question 1 of 9, Progress: 1 of 9 questions completed"`, so a bare `text: "Question 1 of 9"` silently fails to match. Wrap such selectors in `.*…*` (e.g. `text: ".*Question 1 of 9.*"`). Confirm the real accessibility string with `maestro hierarchy`.
+>
+> **And its mirror image (FEAT-298): a selector matching _two_ nodes does not fail — it silently taps the first.** The daily-loop flow used `text: ".*Begin [Ff]resh.*"` for the resume modal's button, but the modal's **body copy** contains the phrase too (*"…or begin fresh with full presence now?"*), and that `<Text>` precedes the button in the hierarchy. Maestro tapped the paragraph and reported **`COMPLETED`** — truthfully, since it did tap *something*. Two device runs were burned before a screenshot showed the modal still open, and for that window a committed fix looked verified when it had never executed. The rule: **for any control whose surrounding copy could contain its label, add a `testID` and target by id** (FEAT-298 added `resume-session-button` / `begin-fresh-button`). The two gotchas compose badly — the first makes a selector match *nothing*, the second makes it match the *wrong thing*, and **only the first one fails your run**. So the general lesson is the one to carry: *a passing step is not proof the intended element was hit.* When a flow passes but the assertion it was protecting looks untested, re-run with `maestro hierarchy` (or a screenshot at that step) before believing it.
 
 To debug interactively:
 
@@ -291,7 +320,12 @@ If anything matches (`app/src/features/(assessment|crisis)/`, `app/src/core/serv
 - **Sim not ready** → exit cleanly with "Run `npm run ios` first, then retry /b-close". No auto-boot.
 - **Flow fails** → print Maestro output, exit. Push is blocked.
 
-## The 5 flows + what each pins
+## The flows + what each pins
+
+**8 flows tagged `safety`** run under `npm run e2e:safety`, plus 1 tagged
+`safety-device-only` that does not. (This table read "The 5 flows" until
+INFRA-317; it had drifted three behind — the count here and in CLAUDE.md is worth
+re-checking whenever a flow is added, since nothing enforces it.)
 
 | Flow | What it pins | Source contract |
 |---|---|---|
@@ -299,7 +333,38 @@ If anything matches (`app/src/features/(assessment|crisis)/`, `app/src/core/serv
 | `phq9-severe-completion.yaml` | Score ≥20 (Q9=0) shows `results-crisis-banner` on completion | `safety.ts` `PHQ9_SEVERE_THRESHOLD = 20` |
 | `gad7-severe.yaml` | Score ≥15 shows `results-crisis-banner` on completion | `safety.ts` `GAD7_SEVERE_THRESHOLD = 15` |
 | `crisis-button-reachability.yaml` | Crisis button → `CrisisResources` from each of 4 tabs | CLAUDE.md "988 access <3 taps from any screen" |
+| `journal-crisis-scan.yaml` | Journal crisis-content scan fires its intervention | crisis detection contract |
+| `daily-loop-deeplink.yaml` | `being://daily` cold start keeps the crisis overlay AND an escape from the immersive practice | FEAT-298 slice 4 + `linking.ts` `initialRouteName` |
+| `daily-loop-quick-depth.yaml` | Quick-depth loop path completes | FEAT-301 |
+| `deeplink-consent-gate.yaml` (INFRA-317) | With consent **ungranted**: `being://daily` is dropped and LegalGate renders; `being://crisis` still reaches crisis resources with a visible 988 affordance | INFRA-308 contracts 28–29 + `linking.ts` `isCrisisExemptPath` running before any consent read |
 | `crisis-988-dial.yaml` (device-only — see INFRA-184) | Tapping 988 does NOT show "Unable to Call" fallback (i.e., `LSApplicationQueriesSchemes` still allows `tel:`). **Primary pin is the jest test at `app/__tests__/safety/lsApplicationQueriesSchemes.config.test.ts`** — runs in precommit on every commit. | `app/app.json` + `app/ios/Being/Info.plist` `LSApplicationQueriesSchemes` array (INFRA-147; INFRA-184 decomposition) |
+
+### Booting with consent ungranted (INFRA-317)
+
+Every sim flow except `deeplink-consent-gate.yaml` calls `_seeded-home.yaml` and
+relies on the INFRA-217 launch seed. A consent gate cannot be tested from a build
+that has already granted consent, so INFRA-317 added a per-flow opt-out.
+
+Append `?e2eSeed=ungranted` to the launch URL. The seed then skips all of its
+writes and the app boots from empty state (`onboardingCompleted` false,
+`consentStatus` `'missing'`) → LegalGate. Three properties make this safe, and any
+future flow using it must preserve them:
+
+- **Suppressor only.** It writes nothing and revokes nothing; the empty state comes
+  from `clearState` + `clearKeychain`. It can decline a grant, never cause one.
+- **No new env var, no new EAS profile.** The marker is read only inside the
+  existing `EXPO_PUBLIC_E2E_SEED_ONBOARDED` branch, so with that var at its
+  `'false'` default the path is unreachable dead code and the compliance boundary
+  stays exactly where INFRA-217 put it. Pinned by
+  `__tests__/safety/e2eSeedGate.config.test.ts`.
+- **Invisible to navigation.** `DeepLinkValidationService` strips the param (not in
+  `ALLOWED_PARAMS`) and rebuilds the URL from the survivors, so the link under test
+  reaches React Navigation bare.
+
+Use `stopApp` → `clearState` → `clearKeychain` → `openLink`, **not** `launchApp`.
+The marker must reach `Linking.getInitialURL()`, which only carries a URL on a cold
+start, and an intervening `launchApp` would seed consent before the marker is ever
+seen — making every later assertion vacuous.
 
 ## Out of scope (deferred)
 

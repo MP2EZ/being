@@ -27,7 +27,7 @@ on:
 
 env:
   EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-  NODE_VERSION: '20'
+  NODE_VERSION: '24'
   HEALTHCARE_COMPLIANCE: 'true'
   NEW_ARCHITECTURE: 'true'
   CLINICAL_VALIDATION: 'true'
@@ -157,7 +157,6 @@ jobs:
       - name: 🔧 Setup EAS CLI
         uses: expo/expo-github-action@v9
         with:
-          expo-version: latest
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
@@ -230,7 +229,6 @@ jobs:
       - name: 🚨 Emergency App Store Submission
         uses: expo/expo-github-action@v9
         with:
-          expo-version: latest
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 

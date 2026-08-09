@@ -19,7 +19,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
-import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
+import { semantic, colorSystem, spacing, typography, borderRadius } from '@/core/theme';
 import { useEducationStore } from '../stores/educationStore';
 import type { ModuleContent, ModuleId, Practice } from '@/features/learn/types/education';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
@@ -214,7 +214,7 @@ const styles = StyleSheet.create({
   },
   introText: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     lineHeight: 22,
   },
   practicesSection: {
@@ -266,7 +266,7 @@ const styles = StyleSheet.create({
   },
   practiceDuration: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[500],
+    color: semantic.text.muted,
   },
   practiceDescription: {
     fontSize: typography.bodyRegular.size,
@@ -303,7 +303,7 @@ const styles = StyleSheet.create({
   },
   instructionsMore: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[500],
+    color: semantic.text.muted,
     fontStyle: 'italic',
     marginTop: spacing[4],
   },

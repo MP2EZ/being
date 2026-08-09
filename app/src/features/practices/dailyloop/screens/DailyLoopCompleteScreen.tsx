@@ -7,6 +7,12 @@
  * (Interconnected Living). The breath is SKIPPABLE and short (crisis review:
  * non-trapping; the root crisis overlay stays tappable throughout). Then a neutral
  * completion with an optional integration note. This is NOT a principle beat.
+ *
+ * FEAT-328 removed the "✓ Loop complete" pill that used to open the post-breath block.
+ * Do not reinstate a completion marker here. Completion is STATED by the title; marking it
+ * as well made the coda congratulate twice in its two most prominent positions. The
+ * governing rule lives with the closing copy in `tenseMode.ts` (INVARIANTS) — read it there
+ * before adding anything to the top of this block.
  */
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
@@ -21,7 +27,7 @@ import {
   findNodeHandle,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colorSystem, spacing, borderRadius, typography, getTheme } from '@/core/theme';
+import { colorSystem, spacing, borderRadius, typography, getTheme, semantic } from '@/core/theme';
 import { AccessibleButton } from '@/core/components/accessibility/AccessibleButton';
 import { BreathingCircle, Timer, SkipLink } from '@/features/practices/shared/components';
 import type { DailyLoopMode, DailyLoopCompleteData, DailyLoopDepth } from '@/features/practices/types/flows';
@@ -59,7 +65,8 @@ const DailyLoopCompleteScreen: React.FC<DailyLoopCompleteScreenProps> = ({ depth
   // WCAG 4.1.3 — when the breath section unmounts, VoiceOver focus is left on a destroyed
   // element and iOS gives no announcement. A user who let the 15s timer run out (so had no
   // tap to anchor focus) would sit in silence, unaware the screen changed. Move focus to
-  // the title — not the badge — so they land on the substantive line and can swipe back.
+  // the title, which since FEAT-328 is also the first post-breath element — so the
+  // announcement and the visual top of the block are the same substantive line.
   useEffect(() => {
     if (!breathDone) return;
     const handle = findNodeHandle(titleRef.current);
@@ -121,15 +128,6 @@ const DailyLoopCompleteScreen: React.FC<DailyLoopCompleteScreenProps> = ({ depth
         {/* Completion */}
         {breathDone && (
           <>
-            <View style={[styles.badge, { backgroundColor: themeColors.background }]}>
-              <Text
-                style={[styles.badgeText, { color: themeColors.primary }]}
-                accessibilityLabel="Loop complete"
-              >
-                ✓ Loop complete
-              </Text>
-            </View>
-
             {/* Depth-accurate: quick moved through 3 canonical beats, not five —
                 naming all five (or "all five principles") would be false + re-rank quick. */}
             <Text ref={titleRef} style={styles.title} accessibilityRole="header">
@@ -176,7 +174,7 @@ const DailyLoopCompleteScreen: React.FC<DailyLoopCompleteScreenProps> = ({ depth
               value={integrationNote}
               onChangeText={setIntegrationNote}
               placeholder={CLOSING.notePlaceholder}
-              placeholderTextColor={colorSystem.gray[600]}
+              placeholderTextColor={semantic.text.secondary}
               multiline
               numberOfLines={3}
               textAlignVertical="top"
@@ -237,26 +235,22 @@ const styles = StyleSheet.create({
   },
   breathSubtitle: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     textAlign: 'center',
     marginBottom: spacing[32],
   },
   breathCircleContainer: { marginBottom: spacing[24] },
 
-  badge: {
-    padding: spacing[12],
-    borderRadius: borderRadius.medium,
-    marginBottom: spacing[24],
-    alignItems: 'center',
-  },
-  badgeText: {
-    fontSize: typography.bodyRegular.size,
-    fontWeight: typography.fontWeight.semibold,
-  },
   title: {
     fontSize: typography.headline3.size,
     fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.black,
+    // FEAT-328 removed a badge that sat above this line and contributed its own leading
+    // margin. Without a little top space the title butts against the header and reads as
+    // a rendering fault rather than as the top of the block. This is deliberately less
+    // than the badge's old footprint — the point of the removal was to reclaim the space,
+    // not to respend it.
+    marginTop: spacing[8],
     // 4pt, so the beat-name subtitle below reads as belonging TO this title.
     marginBottom: spacing[4],
   },
@@ -270,7 +264,7 @@ const styles = StyleSheet.create({
    */
   subtitle: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     letterSpacing: typography.caption.spacing,
     marginBottom: spacing[32],
     lineHeight: typography.bodySmall.size * typography.bodySmall.lineHeight,
@@ -329,7 +323,7 @@ const styles = StyleSheet.create({
   },
   returnLine: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     lineHeight: typography.bodySmall.size * 1.5,
   },
   inputLabel: {

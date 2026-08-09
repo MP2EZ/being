@@ -81,13 +81,17 @@ import {
 const SECRET_A = 'I went back over the whole day and hid nothing from myself';
 const SECRET_B = 'the meeting went badly and I was short with him';
 
-/** Prefixes `clearAllWellnessData` sweeps. Any wellness key MUST use one. */
-const SWEPT_PREFIXES = [
-  'crisis_async_',
-  'assessment_async_',
-  'wellness_async_',
-  'wellness_migrated:',
-];
+/**
+ * Prefixes `clearAllWellnessData` sweeps. Any wellness key MUST use one.
+ *
+ * Read from the same constant the sweep filters on (DEBUG-355), not hand-copied.
+ * A local copy silently goes stale the moment production gains or loses a
+ * prefix, and every assertion here keeps passing against the wrong list — which
+ * is precisely how `audit_log_` sat outside the sweep unnoticed.
+ */
+const SWEPT_PREFIXES = jest.requireActual<{
+  SWEPT_ASYNC_PREFIXES: readonly string[];
+}>('@/core/services/security/SecureStorageService').SWEPT_ASYNC_PREFIXES;
 
 beforeEach(() => {
   mockMemoryStore.clear();

@@ -1,0 +1,3 @@
+/* esm.sh - jose@5.9.6/jws/compact/sign */
+import{FlattenedSign as a}from"../flattened/sign.mjs";var r=class{constructor(e){this._flattened=new a(e)}setProtectedHeader(e){return this._flattened.setProtectedHeader(e),this}async sign(e,n){let t=await this._flattened.sign(e,n);if(t.payload===void 0)throw new TypeError("use the flattened module for creating JWS with b64: false");return`${t.protected}.${t.payload}.${t.signature}`}};export{r as CompactSign};
+//# sourceMappingURL=sign.mjs.map

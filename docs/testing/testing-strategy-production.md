@@ -546,9 +546,13 @@ npm run test:performance:crisis         # Crisis response performance
 npm run test:performance:memory         # Memory usage validation
 
 # Accessibility testing
-npm run test:accessibility              # Complete accessibility suite
-npm run test:accessibility:wcag         # WCAG AA compliance
-npm run test:accessibility:mental-health # Mental health specific tests
+npm run test:accessibility              # the ONLY accessibility script that exists
+# NOTE (MAINT-358): `test:accessibility:wcag` and `test:accessibility:mental-health`
+# were listed here but have never existed in app/package.json. `validate:accessibility`
+# is not a second validator either — it is `test:accessibility` plus an echo.
+# A green run of this gate is NOT evidence of WCAG conformance; it means the pairs
+# and props someone thought to assert are correct. Read what it does and does not
+# cover before relying on it: docs/testing/accessibility-suite-coverage.md
 
 # Security testing
 npm run test:security                   # Complete security suite

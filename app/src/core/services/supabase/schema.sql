@@ -339,25 +339,16 @@ BEGIN
 END;
 $$;
 
--- Function to cleanup orphaned backups
-CREATE OR REPLACE FUNCTION cleanup_orphaned_backups()
-RETURNS INTEGER
-LANGUAGE plpgsql
-AS $$
-DECLARE
-  deleted_count INTEGER;
-BEGIN
-  -- Delete backups for users who haven't synced in 180 days
-  DELETE FROM encrypted_backups
-  WHERE user_id IN (
-    SELECT id FROM users
-    WHERE last_sync < NOW() - INTERVAL '180 days'
-  );
-
-  GET DIAGNOSTICS deleted_count = ROW_COUNT;
-  RETURN deleted_count;
-END;
-$$;
+-- MAINT-347 removed cleanup_orphaned_backups(). It deleted encrypted_backups rows for
+-- users whose last_sync was older than 180 days, but privacy-policy.md §7.3 promises
+-- settings backup is "Retained until you disable backup or request deletion" — both user
+-- acts. An inactivity purge deletes without one, so the function could never be scheduled
+-- without first amending the published policy. Two further reasons it was unschedulable:
+-- the FK is ON DELETE CASCADE so an "orphaned" backup cannot exist (it was a dormancy
+-- prune misnamed), and update_backup_stats has no AFTER DELETE branch, so any prune would
+-- permanently inflate users.backup_count and the free_tier_usage view.
+-- See supabase/migrations/20260808000000_retention_prune_heartbeat.sql for the full
+-- reasoning and for what a legitimate dormancy prune would have to include.
 
 -- =====================================================
 -- 8. PERFORMANCE OPTIMIZATION

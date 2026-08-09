@@ -18,7 +18,7 @@
  * @see /docs/architecture/Stoic-Mindfulness-Architecture-v1.0.md
  */
 
-import React, { useState, useRef } from 'react';
+import React, { useMemo, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -28,9 +28,14 @@ import {
 } from 'react-native';
 import BreathingCircle from './BreathingCircle';
 import Timer from './Timer';
+import HapticsOptInPrompt from './HapticsOptInPrompt';
+import { usePracticeHaptics } from '../haptics/usePracticeHaptics';
+import { boundariesWithin } from '../haptics/phaseAtElapsed';
+import { isFeatureEnabled } from '@/core/services/featureFlags';
+import { usePracticeSettings, useSettingsStore } from '@/core/stores/settingsStore';
 import { SkipLink, GuidanceCard } from './index';
 import { AccessibleButton } from '@/core/components/accessibility/AccessibleButton';
-import { spacing, typography, colorSystem } from '@/core/theme';
+import { spacing, typography, colorSystem, semantic } from '@/core/theme';
 
 // FEAT-298 slice 1: alias of the canonical `FlowType`.
 export type { FlowType as FlowThemeType } from '@/core/types/practice-identity';
@@ -99,6 +104,51 @@ export const SharedBreathingScreen: React.FC<SharedBreathingScreenProps> = ({
   const [reduceMotion, setReduceMotion] = useState(false);
   const buttonOpacity = useRef(new Animated.Value(wasCompleted ? 1 : 0)).current;
 
+  /**
+   * Haptics opt-in (FEAT-285).
+   *
+   * Shown before the practice starts, never during it, and only once ever. The
+   * timer is held inactive while it is up so the practitioner is not answering
+   * a question with a session already running underneath.
+   */
+  const practiceSettings = usePracticeSettings();
+  const updatePracticeSettings = useSettingsStore((s) => s.updatePracticeSettings);
+  const showOptIn =
+    isFeatureEnabled('practice_haptics') &&
+    practiceSettings !== undefined &&
+    practiceSettings.practiceHapticsPrompted === false &&
+    !wasCompleted;
+
+  const handleOptInChoice = React.useCallback(
+    (accepted: boolean) => {
+      // Both branches mark the prompt spent. That is what makes a decline
+      // permanent rather than a deferral.
+      void updatePracticeSettings({
+        practiceHaptics: accepted,
+        practiceHapticsPrompted: true,
+      });
+    },
+    [updatePracticeSettings]
+  );
+
+  /**
+   * Breath-phase cue timeline, derived from the same pattern that drives the
+   * visuals but scheduled independently against a fixed origin.
+   */
+  const hapticSchedule = useMemo(
+    () =>
+      boundariesWithin(breathingPattern, duration).map((b) => ({
+        atMs: b.atMs,
+        cue: b.phase,
+      })),
+    [breathingPattern, duration]
+  );
+
+  usePracticeHaptics({
+    schedule: hapticSchedule,
+    isActive: isTimerActive && !showOptIn,
+  });
+
   // Check for reduced motion preference (accessibility)
   React.useEffect(() => {
     AccessibilityInfo.isReduceMotionEnabled().then((enabled) => {
@@ -133,7 +183,15 @@ export const SharedBreathingScreen: React.FC<SharedBreathingScreenProps> = ({
   };
 
   return (
-    <View style={styles.container} testID={testID}>
+    <>
+    <View
+      style={styles.container}
+      testID={testID}
+      // Android has no accessibilityViewIsModal; hiding the descendants behind
+      // the prompt is the equivalent, and without it a TalkBack user could
+      // swipe straight past the one prompt they will ever be shown.
+      importantForAccessibility={showOptIn ? 'no-hide-descendants' : 'auto'}
+    >
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>{title}</Text>
@@ -146,8 +204,14 @@ export const SharedBreathingScreen: React.FC<SharedBreathingScreenProps> = ({
           <View
             style={[
               styles.staticGlow,
-              { backgroundColor: colorSystem.themes[theme].primary },
+              // '4D' == 30% alpha. Applied to the FILL, not the container, so
+              // the "Breathe" label keeps full contrast.
+              { backgroundColor: `${colorSystem.themes[theme].primary}4D` },
             ]}
+            // A bare View carrying only a label is not reliably focusable, so
+            // the label may never be spoken. Match BreathingCircle's treatment.
+            accessible={true}
+            accessibilityRole="image"
             accessibilityLabel="Breathing guidance circle"
           >
             <Text style={styles.staticGlowText}>Breathe</Text>
@@ -212,6 +276,10 @@ export const SharedBreathingScreen: React.FC<SharedBreathingScreenProps> = ({
         )}
       </View>
     </View>
+
+    {/* Rendered as a SIBLING of the hidden subtree, not inside it. */}
+    {showOptIn && <HapticsOptInPrompt onChoose={handleOptInChoice} />}
+    </>
   );
 };
 
@@ -236,7 +304,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     textAlign: 'center',
     marginTop: spacing[8],
   },
@@ -248,7 +316,10 @@ const styles = StyleSheet.create({
     width: STATIC_GLOW_SIZE,
     height: STATIC_GLOW_SIZE,
     borderRadius: STATIC_GLOW_SIZE / 2,
-    opacity: 0.3,
+    // Opacity deliberately NOT set here. Container opacity multiplies through
+    // to child text: black at 0.3 alpha on white is ~1.9:1, a WCAG 1.4.3 AA
+    // failure for the "Breathe" label. The softness now lives in the
+    // background colour's own alpha channel instead — see the caller.
     justifyContent: 'center',
     alignItems: 'center',
   },

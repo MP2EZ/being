@@ -1,0 +1,3 @@
+/* esm.sh - jose@5.9.6/jwt/verify */
+import{compactVerify as d}from"../jws/compact/verify.mjs";import c from"../dist/browser/lib/jwt_claims_set.mjs";import{JWTInvalid as i}from"../errors.mjs";async function l(a,t,r){let e=await d(a,t,r);if(e.protectedHeader.crit?.includes("b64")&&e.protectedHeader.b64===!1)throw new i("JWTs MUST NOT use unencoded payload");let o={payload:c(e.protectedHeader,e.payload,r),protectedHeader:e.protectedHeader};return typeof t=="function"?{...o,key:e.key}:o}export{l as jwtVerify};
+//# sourceMappingURL=verify.mjs.map

@@ -31,8 +31,24 @@ interface SeedMocks {
  * logging dependencies mocked. Returns the loaded module plus the mock fns so a
  * test can assert which store APIs were (or were not) called.
  */
-function loadSeed(flag: string | undefined): { run: () => Promise<void>; mocks: SeedMocks } {
+function loadSeed(
+  flag: string | undefined,
+  /**
+   * INFRA-317: the raw launch URL `Linking.getInitialURL()` resolves to. `null`
+   * (the default) is the no-deep-link launch every existing test assumes, and
+   * keeps their behaviour identical.
+   */
+  initialUrl: string | null = null,
+  /** INFRA-317: make `getInitialURL()` reject, to pin the fail-safe direction. */
+  rejectInitialUrl = false,
+): { run: () => Promise<void>; mocks: SeedMocks } {
   jest.resetModules();
+
+  jest.doMock('expo-linking', () => ({
+    getInitialURL: rejectInitialUrl
+      ? jest.fn().mockRejectedValue(new Error('no window yet'))
+      : jest.fn().mockResolvedValue(initialUrl),
+  }));
 
   const mocks: SeedMocks = {
     loadSettings: jest.fn().mockResolvedValue(null),
@@ -141,5 +157,85 @@ describe('maybeSeedE2EOnboardedState — gate (INFRA-217)', () => {
       await expect(run()).resolves.toBeUndefined();
       expect(mocks.logError).toHaveBeenCalled();
     });
+  });
+});
+
+/**
+ * INFRA-317 — ungranted-consent boot variant.
+ *
+ * The switch exists so one binary can boot BOTH seeded (every existing safety
+ * flow) and unseeded (the INFRA-308 deep-link consent-gate flows, which can only
+ * be exercised with consent ungranted). It is a pure SUPPRESSOR: its only power
+ * is to skip the writes above.
+ *
+ * The first test in this block is the compliance-critical one. The switch must be
+ * strictly weaker than the build-time gate it lives inside — able to decline a
+ * grant, never to cause one — so that the boundary INFRA-217 established (eas.json
+ * profile scoping, pinned by e2eSeedGate.config.test.ts) is entirely unchanged by
+ * this item.
+ */
+describe('maybeSeedE2EOnboardedState — ungranted boot variant (INFRA-317)', () => {
+  const UNGRANTED_URL = 'being://crisis?e2eSeed=ungranted';
+
+  afterEach(() => {
+    jest.clearAllMocks();
+    jest.resetModules();
+  });
+
+  it('COMPLIANCE: the marker cannot enable anything when the build flag is off', async () => {
+    // The whole path lives inside the SEED_ACTIVE branch, so with the build var
+    // at its 'false' default this is unreachable dead code. A marker URL must
+    // therefore be as inert as no URL at all — it can never be the thing that
+    // turns the seed on.
+    for (const flag of [undefined, 'false', '1']) {
+      const { run, mocks } = loadSeed(flag, UNGRANTED_URL);
+      await run();
+      expect(mocks.markOnboardingComplete).not.toHaveBeenCalled();
+      expect(mocks.grantConsent).not.toHaveBeenCalled();
+      expect(mocks.recordLegalGateConsents).not.toHaveBeenCalled();
+      expect(mocks.verifyAge).not.toHaveBeenCalled();
+      jest.resetModules();
+    }
+  });
+
+  it('writes NOTHING when the marker is present (suppressor, not a mutator)', async () => {
+    const { run, mocks } = loadSeed('true', UNGRANTED_URL);
+    await run();
+
+    // No writes at all — the ungranted state comes from Maestro's clearState +
+    // clearKeychain, never from this code revoking or clearing a consent record.
+    expect(mocks.markOnboardingComplete).not.toHaveBeenCalled();
+    expect(mocks.recordLegalGateConsents).not.toHaveBeenCalled();
+    expect(mocks.verifyAge).not.toHaveBeenCalled();
+    expect(mocks.grantConsent).not.toHaveBeenCalled();
+  });
+
+  it('still resolves (the navigator gate must be released, or the app hangs)', async () => {
+    const { run } = loadSeed('true', UNGRANTED_URL);
+    await expect(run()).resolves.toBeUndefined();
+  });
+
+  it('seeds as usual when the launch URL carries no marker', async () => {
+    const { run, mocks } = loadSeed('true', 'being://daily');
+    await run();
+    expect(mocks.markOnboardingComplete).toHaveBeenCalledTimes(1);
+    expect(mocks.grantConsent).toHaveBeenCalledTimes(1);
+  });
+
+  it('seeds as usual on a plain launch with no deep link (the 7 existing flows)', async () => {
+    const { run, mocks } = loadSeed('true', null);
+    await run();
+    expect(mocks.markOnboardingComplete).toHaveBeenCalledTimes(1);
+    expect(mocks.grantConsent).toHaveBeenCalledTimes(1);
+  });
+
+  it('fails SAFE toward seeding when getInitialURL rejects', async () => {
+    // The failure direction matters: degrading to "seed as usual" costs nothing,
+    // whereas degrading to "skip the seed" would strand all 7 existing flows on
+    // LegalGate and read as a mass regression.
+    const { run, mocks } = loadSeed('true', null, true);
+    await run();
+    expect(mocks.markOnboardingComplete).toHaveBeenCalledTimes(1);
+    expect(mocks.grantConsent).toHaveBeenCalledTimes(1);
   });
 });

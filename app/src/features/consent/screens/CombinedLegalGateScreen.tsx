@@ -39,7 +39,7 @@ import { useConsentStore, recordLegalGateConsents } from '@/core/stores/consentS
 import { logSecurity } from '@/core/services/logging';
 // Static import — the crisis path's no-lazy-import rule (CLAUDE.md).
 import { openCrisisUrl } from '@/features/crisis/utils/openCrisisUrl';
-import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
+import { semantic, colorSystem, spacing, borderRadius, typography } from '@/core/theme';
 
 interface CombinedLegalGateScreenProps {
   /** Called when user passes legal gate (age verified + four consents accepted) */
@@ -457,7 +457,7 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     textAlign: 'center',
     lineHeight: spacing[24],
   },
@@ -473,7 +473,7 @@ const styles = StyleSheet.create({
   sectionDescription: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     marginBottom: spacing[16],
   },
   pickerContainer: {
@@ -489,7 +489,7 @@ const styles = StyleSheet.create({
   helperText: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: colorSystem.gray[500],
+    color: semantic.text.muted,
     marginTop: spacing[8],
     fontStyle: 'italic',
   },
@@ -534,7 +534,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     lineHeight: 22,
   },
   linkRow: {
@@ -560,7 +560,7 @@ const styles = StyleSheet.create({
   essentialTitle: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.gray[500],
+    color: semantic.text.muted,
     marginBottom: spacing[8],
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -568,13 +568,13 @@ const styles = StyleSheet.create({
   essentialItem: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     lineHeight: spacing[24],
   },
   essentialNote: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: colorSystem.gray[500],
+    color: semantic.text.muted,
     marginTop: spacing[16],
     fontStyle: 'italic',
   },
@@ -615,7 +615,7 @@ const styles = StyleSheet.create({
   crisisFooterTitle: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.medium,
-    color: colorSystem.gray[500],
+    color: semantic.text.muted,
     marginBottom: spacing[8],
   },
   crisisFooterButtons: {
@@ -648,7 +648,7 @@ const styles = StyleSheet.create({
   crisisDescription: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     textAlign: 'center',
     marginBottom: spacing[24],
   },
@@ -688,7 +688,7 @@ const styles = StyleSheet.create({
   crisisButtonSubtextSecondary: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     marginTop: spacing[4],
   },
   resourcesSection: {
@@ -712,7 +712,7 @@ const styles = StyleSheet.create({
   reEnterAgeButtonText: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.medium,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     textDecorationLine: 'underline',
   },
 });

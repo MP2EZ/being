@@ -13,7 +13,7 @@
 
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
+import { colorSystem, semantic, spacing, borderRadius, typography } from '@/core/theme';
 
 interface GuidanceCardProps {
   title: string;
@@ -53,7 +53,7 @@ const styles = StyleSheet.create({
   },
   item: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     lineHeight: 24,
   },
 });

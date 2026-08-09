@@ -1,0 +1,3 @@
+/* esm.sh - jose@5.9.6/jws/compact/verify */
+import{flattenedVerify as f}from"../flattened/verify.mjs";import{JWSInvalid as a}from"../../errors.mjs";import{decoder as y}from"../../dist/browser/lib/buffer_utils.mjs";async function u(t,r,i){if(t instanceof Uint8Array&&(t=y.decode(t)),typeof t!="string")throw new a("Compact JWS must be a string or Uint8Array");let{0:n,1:d,2:c,length:p}=t.split(".");if(p!==3)throw new a("Invalid Compact JWS");let e=await f({payload:d,protected:n,signature:c},r,i),o={payload:e.payload,protectedHeader:e.protectedHeader};return typeof r=="function"?{...o,key:e.key}:o}export{u as compactVerify};
+//# sourceMappingURL=verify.mjs.map

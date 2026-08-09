@@ -7,7 +7,10 @@ name: "Helper: wait for seeded Main tab (e2e-sim)"
 # `- runFlow: _seeded-home.yaml` from each sim safety flow after a fresh
 # launchApp { clearState: true, clearKeychain: true }.
 #
-# The e2e-sim EAS profile sets EXPO_PUBLIC_E2E_SEED_ONBOARDED=true, so App.tsx
+# EXPO_PUBLIC_E2E_SEED_ONBOARDED=true is declared in eas.json build.e2e-sim.env
+# and applied to the gate build by scripts/e2e-sim-build.sh (INFRA-383 — the build
+# no longer goes through EAS, but eas.json remains the single declaration site).
+# With it set, App.tsx
 # seeds legal consents + age verification + onboarding-complete at launch and
 # CleanRootNavigator routes straight to Main. There is therefore NO LegalGate /
 # onboarding preamble to traverse — we just wait for the home screen.

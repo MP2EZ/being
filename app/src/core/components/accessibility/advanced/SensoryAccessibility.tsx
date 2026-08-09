@@ -26,7 +26,7 @@ import {
   Dimensions,
   Vibration,
 } from 'react-native';
-import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
+import { colorSystem, spacing, typography, borderRadius, semantic } from '@/core/theme';
 import { useAdvancedScreenReader } from './AdvancedScreenReader';
 
 // Sensory accessibility configuration
@@ -106,7 +106,7 @@ const COLOR_SCHEMES = {
     primary: colorSystem.base.midnightBlue,
     secondary: colorSystem.themes.midday.primary,
     text: colorSystem.base.midnightBlue,
-    textSecondary: colorSystem.gray[600],
+    textSecondary: semantic.text.secondary,
     border: colorSystem.gray[300],
     focus: colorSystem.accessibility.focus.primary,
     error: colorSystem.status.error,

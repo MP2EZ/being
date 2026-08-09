@@ -28,7 +28,7 @@ import React from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getCurrentUserEmail, getUserCreatedAt, isDevMode } from '@/core/constants/devMode';
-import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
+import { semantic, colorSystem, spacing, borderRadius, typography } from '@/core/theme';
 
 // FEAT-212: rendered as a route on ProfileStackNavigator; the native stack header
 // supplies the back chevron (SubMenuHeader's ✕ removed).
@@ -119,7 +119,7 @@ const styles = StyleSheet.create({
   infoCardLabel: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.gray[500],
+    color: semantic.text.muted,
     marginBottom: spacing[8],
   },
   infoCardValue: {
@@ -153,7 +153,7 @@ const styles = StyleSheet.create({
   dataRightsDescription: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     lineHeight: 20,
   },
 });

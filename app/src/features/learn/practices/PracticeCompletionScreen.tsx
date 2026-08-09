@@ -22,7 +22,7 @@ import {
   ScrollView,
   AccessibilityInfo,
 } from 'react-native';
-import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
+import { semantic, colorSystem, spacing, typography, borderRadius } from '@/core/theme';
 import type { ModuleId } from '@/features/learn/types/education';
 
 /**
@@ -47,7 +47,16 @@ interface ClassicalQuote {
 
 interface PracticeCompletionScreenProps {
   practiceTitle: string;
-  quote: ClassicalQuote;
+  /**
+   * DEBUG-344: optional. It is always supplied for an authored practice — the
+   * key-set guard in practiceQuotes.test.ts fails the build otherwise. It is
+   * absent only for an unknown practiceId, which is reachable from outside the
+   * app via linking.ts's unvalidated `practice/:practiceId`. In that case the
+   * screen renders without a citation rather than throwing: there is no error
+   * boundary above these screens and the crisis affordance is a sibling in the
+   * same tree, so a throw here would white-screen the 988 path.
+   */
+  quote?: ClassicalQuote;
   moduleId: ModuleId;
   onContinue: () => void;
   testID?: string;
@@ -192,8 +201,25 @@ export const PRACTICE_QUOTES: Record<string, ClassicalQuote> = {
   // reflection — the 8.33 locus was only ever chosen to fit a paraphrase that is
   // itself wrong. Long 7.27 first sentence, contiguous and verbatim, IS the
   // Stoic gratitude passage.
+  //
+  // MAINT-331 — DO NOT TRIM THIS BACK TO THE FIRST SENTENCE. It is ~375 chars,
+  // roughly 1.8x the next-longest entry, so it is exactly the kind of string
+  // someone shortens for layout. The second sentence is here because Marcus put
+  // it here: it opens "At the same time however take care that…", i.e. he hedges
+  // his own instruction in the same breath, because the counterfactual s.1
+  // prescribes ("how eagerly they would have been sought") recruits desire to
+  // re-value a thing you already have, and overshoots into overvaluing it.
+  // s.1 alone is the un-guarded half. This screen REPLACES the practice screen
+  // (ReflectionTimerScreen returns it instead of the sit), so the practice's own
+  // in-situ guard is off-screen and unrecoverable by the time this renders —
+  // shipping s.1 alone makes the flow's last word a desire-amplifying clause,
+  // after the disarming is over. Ending instead on "so as to be disturbed if
+  // ever thou shouldst not have them" lands on your own assent rather than on a
+  // picture of privation, which is the correct terminus for a Principle-4 screen.
+  // Layout is safe by construction: no numberOfLines/ellipsizeMode/maxHeight
+  // anywhere in this file, and the quote sits in a ScrollView.
   'gratitude-reflection': {
-    text: 'Think not so much of what thou hast not as of what thou hast: but of the things which thou hast select the best, and then reflect how eagerly they would have been sought, if thou hadst them not.',
+    text: 'Think not so much of what thou hast not as of what thou hast: but of the things which thou hast select the best, and then reflect how eagerly they would have been sought, if thou hadst them not. At the same time however take care that thou dost not through being so pleased with them accustom thyself to overvalue them, so as to be disturbed if ever thou shouldst not have them.',
     author: 'Marcus Aurelius',
     source: 'Meditations 7.27',
     translation: 'George Long',
@@ -220,6 +246,77 @@ export const PRACTICE_QUOTES: Record<string, ClassicalQuote> = {
     source: 'Meditations 5.26',
     translation: 'George Long',
   },
+  // DEBUG-344: module 5 authors three practices that had NO entry here, so
+  // usePracticeCompletion's `|| PRACTICE_QUOTES['breathing-space']` served all
+  // three the Aware-Presence quote — a principle→practice misattribution on a
+  // surface users read as canonical. That fallback is now gone; these are the
+  // replacements.
+  //
+  // All three take loci with NO counterpart in assets/passages/, deliberately.
+  // The tempting move is to cite Meditations 2.1 / 4.4 / 7.13 so the corpus loop
+  // in practiceQuotes.test.ts covers them for free — but passages-5's 7.13 is
+  // NOT George Long despite declaring him (its whole first sentence is
+  // rewritten), and its 2.1 splices out Long's middle sentence with no ellipsis.
+  // corpusContains() is a substring check, so an excerpt from either would PASS
+  // the guard while shipping non-Long text: DEBUG-339's defect laundered through
+  // the corpus, arriving test-blessed. These are exact-string pinned in EXPECTED
+  // instead. (Corpus defects tracked separately as DEBUG-352.)
+  //
+  // The practice is metta in STRUCTURE (self → loved one → neutral → difficult →
+  // all beings) but oikeiōsis in SUBSTANCE — Hierocles' widening circles. Its
+  // hardest and most distinctively Stoic step is extending goodwill to someone
+  // who has wronged you. 7.22's first sentence names exactly that capacity, and
+  // frames it as what is distinctively human rather than as a duty — the right
+  // register for a closing line.
+  //
+  // STOPS at the first sentence, non-negotiably. Long's continuation ("the
+  // wrong-doer has done thee no harm, for he has not made thy ruling faculty
+  // worse") reads on a context-free completion screen as harm-minimisation to a
+  // user who has actually been harmed — the same clinical-safety ground on which
+  // DEBUG-339 rejected 4.39 outright and rejected 5.26's opening for
+  // resistance-check.
+  'loving-kindness': {
+    text: 'It is peculiar to man to love even those who do wrong.',
+    author: 'Marcus Aurelius',
+    source: 'Meditations 7.22',
+    translation: 'George Long',
+  },
+  // 6.53 in its entirety, and it maps the practice's two halves exactly.
+  // "Attend carefully to what is said" is the attentional half (notice the
+  // wandering mind, notice the impulse to interrupt or pre-compose a reply);
+  // "be in the speaker's mind" is the relational half (listen for what is
+  // beneath the words) and is what makes this justice/oikeiōsis rather than
+  // mere concentration — the other person is a mind to enter, not a stimulus
+  // to process.
+  //
+  // 7.30 ("Direct thy attention to what is said") is genuine and adjacent but
+  // purely attentional; it drops the empathic move that distinguishes this from
+  // Module 1's presence work, which is the exact principle→practice confusion
+  // this item exists to fix.
+  'mindful-listening': {
+    text: "Accustom thyself to attend carefully to what is said by another, and as much as it is possible, be in the speaker's mind.",
+    author: 'Marcus Aurelius',
+    source: 'Meditations 6.53',
+    translation: 'George Long',
+  },
+  // The practice is Seneca's evening examen turned outward: review the day, name
+  // one contribution, one harm, one missed opportunity, set tomorrow's intention.
+  // 11.4 is the Stoic answer to the question such a review invites — "did it
+  // count? was it noticed?" — namely that the reward is internal to the just act.
+  // That is dikaiosynē as its own end, and it guards the failure mode a
+  // social-impact tracker structurally invites: performative virtue and
+  // scorekeeping.
+  //
+  // STOPS after 'reward.' Long's third sentence ends with his own bracketed
+  // insertion "[doing such good]"; shipping the brackets is ugly and silently
+  // unbracketing them is inventing translator text. Excerpting at a sentence
+  // boundary is the move already sanctioned for gratitude-reflection.
+  'social-impact-reflection': {
+    text: 'Have I done something for the general interest? Well then, I have had my reward.',
+    author: 'Marcus Aurelius',
+    source: 'Meditations 11.4',
+    translation: 'George Long',
+  },
 };
 
 const PracticeCompletionScreen: React.FC<PracticeCompletionScreenProps> = ({
@@ -232,7 +329,9 @@ const PracticeCompletionScreen: React.FC<PracticeCompletionScreenProps> = ({
   // Announce completion for screen readers
   React.useEffect(() => {
     AccessibilityInfo.announceForAccessibility(
-      `Practice complete: ${practiceTitle}. ${quote.text}`
+      quote
+        ? `Practice complete: ${practiceTitle}. ${quote.text}`
+        : `Practice complete: ${practiceTitle}.`
     );
   }, [practiceTitle, quote]);
 
@@ -262,26 +361,32 @@ const PracticeCompletionScreen: React.FC<PracticeCompletionScreenProps> = ({
       {/* Practice Name */}
       <Text style={styles.practiceName}>{practiceTitle}</Text>
 
-      {/* Stoic Quote - Philosopher Validated */}
-      <View style={styles.quoteContainer}>
-        <Text
-          style={styles.quoteText}
-          // DEBUG-339: the a11y label carries the translator too, so the
-          // screen-reader path says the same thing as the visual attribution
-          // below. Surfacing it only visually would leave the two paths
-          // disagreeing about provenance.
-          accessibilityLabel={`Quote from ${quote.author}, ${quote.source}, translated by ${quote.translation}: ${quote.text}`}
-        >
-          "{quote.text}"
-        </Text>
-        <Text style={styles.quoteAttribution}>
-          {/* DEBUG-339: "(trans. …)" matches the convention InsightsScreen.tsx
-              already uses. Storing the translator without rendering it would
-              leave the public-domain posture documented in code but invisible
-              to the reader. */}
-          — {quote.author}, {quote.source} (trans. {quote.translation})
-        </Text>
-      </View>
+      {/* Stoic Quote - Philosopher Validated.
+          DEBUG-344: omitted entirely for an unknown practiceId. Showing no
+          citation is correct here — the previous behaviour was to fall back to
+          the breathing-space quote, which asserted a false principle→practice
+          mapping rather than admitting the gap. */}
+      {quote && (
+        <View style={styles.quoteContainer}>
+          <Text
+            style={styles.quoteText}
+            // DEBUG-339: the a11y label carries the translator too, so the
+            // screen-reader path says the same thing as the visual attribution
+            // below. Surfacing it only visually would leave the two paths
+            // disagreeing about provenance.
+            accessibilityLabel={`Quote from ${quote.author}, ${quote.source}, translated by ${quote.translation}: ${quote.text}`}
+          >
+            "{quote.text}"
+          </Text>
+          <Text style={styles.quoteAttribution}>
+            {/* DEBUG-339: "(trans. …)" matches the convention InsightsScreen.tsx
+                already uses. Storing the translator without rendering it would
+                leave the public-domain posture documented in code but invisible
+                to the reader. */}
+            — {quote.author}, {quote.source} (trans. {quote.translation})
+          </Text>
+        </View>
+      )}
 
       {/* Educational Message - No Gamification */}
       <Text style={styles.educationalMessage}>
@@ -378,7 +483,7 @@ const styles = StyleSheet.create({
   },
   quoteAttribution: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     textAlign: 'right',
     fontWeight: typography.fontWeight.medium,
   },
@@ -426,7 +531,7 @@ const styles = StyleSheet.create({
   },
   secondaryButtonPressed: {
     backgroundColor: colorSystem.gray[100],
-    borderColor: colorSystem.gray[500],
+    borderColor: semantic.text.muted,
   },
   secondaryButtonText: {
     fontSize: typography.bodyRegular.size,

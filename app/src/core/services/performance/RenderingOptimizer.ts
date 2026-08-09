@@ -32,7 +32,7 @@
  * The breathing-circle 60fps budget is enforced by NO runtime measurement. What
  * exists is a structural proxy (`app/scripts/check-breathing-worklet-purity.js`,
  * INFRA-306 Layer A) that pins the PERF-01/PERF-02 fix in place. The real
- * on-device UI-thread measurement is INFRA-309.
+ * on-device UI-thread measurement is INFRA-373.
  */
 
 
@@ -57,7 +57,7 @@ interface FrameMetrics {
   // place: an honest absence is safer than a convincing fake.
   //
   // There is currently NO UI-thread frame-rate sensor in this codebase. Adding
-  // one is INFRA-309, and it must read the UI thread (Reanimated
+  // one is INFRA-373, and it must read the UI thread (Reanimated
   // `useFrameCallback`), not this module.
 }
 
