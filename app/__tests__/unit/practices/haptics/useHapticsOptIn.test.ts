@@ -15,7 +15,7 @@
 
 import { act, renderHook } from '@testing-library/react-native';
 
-import { useHapticsOptIn, __resetHapticsOptInLatch } from '../useHapticsOptIn';
+import { useHapticsOptIn, __resetHapticsOptInLatch } from '@/features/practices/shared/haptics/useHapticsOptIn';
 
 jest.mock('@/core/services/featureFlags', () => ({
   isFeatureEnabled: jest.fn(() => true),
