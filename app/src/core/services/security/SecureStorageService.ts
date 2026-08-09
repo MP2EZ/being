@@ -63,6 +63,26 @@ export const SECURE_STORAGE_CONFIG = {
   MIGRATION_MARKER_PREFIX: 'wellness_migrated:',
   MIGRATION_MARKER_VERSION: 'v1',
 
+  /**
+   * Keys swept on erasure by EXACT name rather than by prefix (DEBUG-305).
+   *
+   * The prefix convention is the rule; this is the auditable exception list for
+   * keys that cannot adopt a prefix. `crisis_analytics_queue` is the pending
+   * upload buffer for `crisis_detected` telemetry: renaming it would strand
+   * events already queued on existing installs, so it keeps its name and is
+   * named here instead.
+   *
+   * It is swept on erasure but NOT purged at launch — it must survive ordinary
+   * restarts to flush. On account deletion it must go: `deleteAccountAndWipe`
+   * erases the server BEFORE wiping locally, so a surviving queue would flush
+   * on next launch and re-create crisis rows for an account the user deleted.
+   *
+   * Anything added here must also be covered by the crisis-path erasure guard
+   * in `crisisRecordErasure.privacy.test.ts`, which reads this same constant —
+   * so the exception list cannot silently grow a hole.
+   */
+  SWEPT_EXACT_KEYS: ['@being/supabase/crisis_analytics_queue'] as readonly string[],
+
   /** Storage limits */
   MAX_SECURE_STORE_SIZE: 2048, // 2KB limit for SecureStore (legacy path)
   MAX_WELLNESS_PAYLOAD_SIZE: 256 * 1024, // 256KB cap for wellness ciphertext in AsyncStorage
@@ -1455,7 +1475,14 @@ export class SecureStorageService {
       k.startsWith(SECURE_STORAGE_CONFIG.CRISIS_ASYNC_PREFIX) ||
       k.startsWith(SECURE_STORAGE_CONFIG.ASSESSMENT_ASYNC_PREFIX) ||
       k.startsWith(SECURE_STORAGE_CONFIG.WELLNESS_ASYNC_PREFIX) ||
-      k.startsWith(SECURE_STORAGE_CONFIG.MIGRATION_MARKER_PREFIX)
+      k.startsWith(SECURE_STORAGE_CONFIG.MIGRATION_MARKER_PREFIX) ||
+      // Keys that cannot adopt a prefix — see SWEPT_EXACT_KEYS (DEBUG-305).
+      SECURE_STORAGE_CONFIG.SWEPT_EXACT_KEYS.includes(k) ||
+      // Legacy plaintext records from shipped builds. `legacyPlaintextRecordSweeper`
+      // purges these at launch; sweeping them here too covers the user who
+      // deletes their account without relaunching first (DEBUG-305).
+      k.startsWith('crisis_intervention_') ||
+      k === 'assessment_audit_trail'
     );
     if (toRemove.length > 0) {
       await AsyncStorage.multiRemove(toRemove);

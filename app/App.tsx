@@ -15,6 +15,8 @@ import { useSubscriptionStore } from './src/core/stores/subscriptionStore';
 import EncryptionService from './src/core/services/security/EncryptionService';
 import { useSettingsStore } from './src/core/stores/settingsStore';
 import { initializeExternalReporting, logSystem, logError, LogCategory } from './src/core/services/logging';
+import { sweepStaleAudioArtifacts } from './src/core/services/speech/audioArtifactSweeper';
+import { sweepLegacyPlaintextRecords } from './src/core/services/security/legacyPlaintextRecordSweeper';
 import { initializeCrisisMonitoring } from './src/core/services/monitoring';
 import { DataRetentionService } from './src/core/services/data-retention';
 import { PostHogProvider } from './src/core/analytics';
@@ -52,6 +54,33 @@ function App() {
           await initializeExternalReporting();
         } catch (err) {
           logError(LogCategory.SYSTEM, 'Sentry init failed (non-blocking)', err as Error);
+        }
+
+        // FEAT-283 AC #3: remove raw audio stranded by a crash, kill, or
+        // backgrounding mid-recording. The app cache is invisible to
+        // `clearAllWellnessData` (which enumerates AsyncStorage keys), so a
+        // stranded recording would otherwise survive even account deletion.
+        // Name-scoped and self-contained; it never throws.
+        try {
+          const sweptAudio = sweepStaleAudioArtifacts();
+          if (sweptAudio > 0) {
+            logSystem(`Swept ${sweptAudio} stranded audio artifact(s) at launch`);
+          }
+        } catch (err) {
+          logError(LogCategory.SYSTEM, 'Audio artifact sweep failed (non-blocking)', err as Error);
+        }
+
+        // DEBUG-305: purge plaintext crisis-intervention records written by
+        // shipped builds. Removing the write helps only new installs — these
+        // records are already on the devices of existing users, unencrypted and
+        // invisible to account erasure. Runs before render; never throws.
+        try {
+          const sweptRecords = await sweepLegacyPlaintextRecords();
+          if (sweptRecords > 0) {
+            logSystem(`Swept ${sweptRecords} legacy plaintext wellness record(s) at launch`);
+          }
+        } catch (err) {
+          logError(LogCategory.SYSTEM, 'Legacy record sweep failed (non-blocking)', err as Error);
         }
 
         // EncryptionService must initialize before downstream secure-storage

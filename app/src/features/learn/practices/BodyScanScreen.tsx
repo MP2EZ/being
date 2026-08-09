@@ -19,7 +19,7 @@
  * - Timestamp-based timer (deterministic)
  *
  * PHILOSOPHER VALIDATION:
- * - Marcus Aurelius quote on completion (Meditations 5.9)
+ * - Marcus Aurelius quote on completion (Meditations 5.26, trans. George Long)
  * - Educational tone (no gamification)
  *
  * ACCESSIBILITY:

@@ -1,0 +1,3 @@
+/* esm.sh - jose@5.9.6/dist/browser/runtime/get_sign_verify_key */
+import f,{isCryptoKey as m}from"./webcrypto.mjs";import{checkSigCryptoKey as p}from"../lib/crypto_key.mjs";import o from"../lib/invalid_key_input.mjs";import{types as n}from"./is_key_like.mjs";import e from"./normalize_key.mjs";async function a(i,r,t){if(t==="sign"&&(r=await e.normalizePrivateKey(r,i)),t==="verify"&&(r=await e.normalizePublicKey(r,i)),m(r))return p(r,i,t),r;if(r instanceof Uint8Array){if(!i.startsWith("HS"))throw new TypeError(o(r,...n));return f.subtle.importKey("raw",r,{hash:`SHA-${i.slice(-3)}`,name:"HMAC"},!1,[t])}throw new TypeError(o(r,...n,"Uint8Array","JSON Web Key"))}export{a as default};
+//# sourceMappingURL=get_sign_verify_key.mjs.map

@@ -512,7 +512,7 @@ export interface MeditationData {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// FEAT-291: SINGLE-LOOP DAILY PRACTICE PROTOTYPE (build-time flag `daily_loop`)
+// SINGLE-LOOP DAILY PRACTICE (FEAT-291 prototype; the DEFAULT practice since FEAT-298 slice 5)
 // The Five Principles in canonical order as ONE loop. Ships dark. Themed as
 // 'midday' so it adds NO new FlowType/CheckInType/ThemeKey union member — the
 // full flow unification is the deferred step-5 migration, not this prototype.

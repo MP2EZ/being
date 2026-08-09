@@ -249,9 +249,18 @@ ORDER BY event_date DESC, event_count DESC;
 --     intervention code path, and are NOT the safety mechanism — the on-device crisis
 --     audit log remains the accountability record.
 --
--- No time-window filter is applied: the 90-day analytics retention (cleanup_old_analytics)
--- already bounds the rows, and a window would drop durably-queued events that flush late
--- with an older created_at (offline / first-run reconciliation).
+-- No time-window filter is applied: retention (cleanup_old_analytics) already bounds the
+-- rows, and a window would drop durably-queued events that flush late with an older
+-- created_at (offline / first-run reconciliation).
+--
+-- DEBUG-340 CORRECTION: this comment used to say "the 90-day analytics retention ...
+-- already bounds the rows". That was doubly wrong. (a) cleanup_old_analytics was never
+-- cron.schedule'd, so nothing bounded these rows at all — real retention was INDEFINITE.
+-- (b) It is no longer 90 days for this view's rows: crisis_detected is now retained for
+-- 3 YEARS (privacy-policy §7.2) while every other event type is pruned at 90 days
+-- (§7.1). So these views are bounded at 3 years, not 90 days, and that is deliberate —
+-- they are the FEAT-129 operator aggregates and the alerter's dead-vs-quiet baseline,
+-- both of which need history longer than a quarter.
 
 -- (a) Detection mix — per-day breakdown by assessment, trigger, and severity bucket.
 CREATE OR REPLACE VIEW crisis_detection_daily AS
@@ -303,41 +312,43 @@ COMMENT ON VIEW crisis_detection_liveness IS
 -- 7. DATA RETENTION POLICIES
 -- =====================================================
 
--- Function to cleanup old analytics (90 days retention)
-CREATE OR REPLACE FUNCTION cleanup_old_analytics()
+-- Function to cleanup old analytics — TWO tiers (DEBUG-340).
+-- 90 days for general analytics (privacy-policy §7.1); 3 years for crisis_detected
+-- (privacy-policy §7.2). Before DEBUG-340 this deleted EVERYTHING at 90 days with no
+-- carve-out, contradicting the published 3-year crisis promise — and it was never
+-- cron.schedule'd, so nothing pruned at all and real server retention was INDEFINITE.
+-- Both halves are fixed in supabase/migrations/20260806000000_analytics_retention_crisis_carveout.sql,
+-- which also adds the schedule. Keep this mirror byte-identical to that function body.
+CREATE OR REPLACE FUNCTION public.cleanup_old_analytics()
 RETURNS INTEGER
 LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
 AS $$
 DECLARE
   deleted_count INTEGER;
 BEGIN
-  DELETE FROM analytics_events
-  WHERE created_at < NOW() - INTERVAL '90 days';
+  DELETE FROM public.analytics_events
+  WHERE
+    (event_type <> 'crisis_detected' AND created_at < NOW() - INTERVAL '90 days')
+    OR
+    (event_type = 'crisis_detected' AND created_at < NOW() - INTERVAL '3 years');
 
   GET DIAGNOSTICS deleted_count = ROW_COUNT;
   RETURN deleted_count;
 END;
 $$;
 
--- Function to cleanup orphaned backups
-CREATE OR REPLACE FUNCTION cleanup_orphaned_backups()
-RETURNS INTEGER
-LANGUAGE plpgsql
-AS $$
-DECLARE
-  deleted_count INTEGER;
-BEGIN
-  -- Delete backups for users who haven't synced in 180 days
-  DELETE FROM encrypted_backups
-  WHERE user_id IN (
-    SELECT id FROM users
-    WHERE last_sync < NOW() - INTERVAL '180 days'
-  );
-
-  GET DIAGNOSTICS deleted_count = ROW_COUNT;
-  RETURN deleted_count;
-END;
-$$;
+-- MAINT-347 removed cleanup_orphaned_backups(). It deleted encrypted_backups rows for
+-- users whose last_sync was older than 180 days, but privacy-policy.md §7.3 promises
+-- settings backup is "Retained until you disable backup or request deletion" — both user
+-- acts. An inactivity purge deletes without one, so the function could never be scheduled
+-- without first amending the published policy. Two further reasons it was unschedulable:
+-- the FK is ON DELETE CASCADE so an "orphaned" backup cannot exist (it was a dormancy
+-- prune misnamed), and update_backup_stats has no AFTER DELETE branch, so any prune would
+-- permanently inflate users.backup_count and the free_tier_usage view.
+-- See supabase/migrations/20260808000000_retention_prune_heartbeat.sql for the full
+-- reasoning and for what a legitimate dormancy prune would have to include.
 
 -- =====================================================
 -- 8. PERFORMANCE OPTIMIZATION

@@ -1,0 +1,3 @@
+/* esm.sh - jose@5.9.6/dist/browser/lib/invalid_key_input */
+function f(n,e,...o){if(o=o.filter(Boolean),o.length>2){let i=o.pop();n+=`one of type ${o.join(", ")}, or ${i}.`}else o.length===2?n+=`one of type ${o[0]} or ${o[1]}.`:n+=`of type ${o[0]}.`;return e==null?n+=` Received ${e}`:typeof e=="function"&&e.name?n+=` Received function ${e.name}`:typeof e=="object"&&e!=null&&e.constructor?.name&&(n+=` Received an instance of ${e.constructor.name}`),n}var r=(n,...e)=>f("Key must be ",n,...e);function t(n,e,...o){return f(`Key for the ${n} algorithm must be `,e,...o)}export{r as default,t as withAlg};
+//# sourceMappingURL=invalid_key_input.mjs.map

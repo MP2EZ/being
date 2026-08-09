@@ -16,10 +16,8 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { HeaderBackButton } from '@react-navigation/elements';
 import { spacing, typography } from '@/core/theme';
 import CleanTabNavigator from './CleanTabNavigator';
-import MorningFlowNavigator from '@/features/practices/morning/MorningFlowNavigator';
-import MiddayFlowNavigator from '@/features/practices/midday/MiddayFlowNavigator';
-import EveningFlowNavigator from '@/features/practices/evening/EveningFlowNavigator';
 import { DailyLoopNavigator } from '@/features/practices/dailyloop';
+import { VoiceReflectionScreen } from '@/features/journal/screens/VoiceReflectionScreen';
 import CrisisResourcesScreen from '@/features/crisis/screens/CrisisResourcesScreen';
 import RootCrisisButton from '@/features/crisis/components/RootCrisisButton';
 import PurchaseOptionsScreen from '@/core/components/subscription/PurchaseOptionsScreen';
@@ -33,16 +31,23 @@ import PassageReaderScreen from '@/features/library/screens/PassageReaderScreen'
 import {
   PracticeTimerScreen,
   ReflectionTimerScreen,
-  SortingPracticeScreen,
   BodyScanScreen,
   GuidedBodyScanScreen
 } from '@/features/learn/practices';
+// FEAT-293: standalone practice discoverability.
+import SortingPracticeRoute from '@/features/practices/catalog/SortingPracticeRoute';
+import PracticeLibraryScreen from '@/features/practices/screens/PracticeLibraryScreen';
 import { useStoicPracticeStore } from '@/features/practices/stores/stoicPracticeStore';
 import { useSettingsStore } from '@/core/stores/settingsStore';
 import { useConsentStore } from '@/core/stores/consentStore';
 import { CombinedLegalGateScreen } from '@/features/consent';
 import type { AssessmentType, PHQ9Result, GAD7Result } from '@/features/assessment/types';
 import type { DailyLoopMode, DailyLoopDepth, DailyLoopSessionData } from '@/features/practices/types/flows';
+import {
+  ENGAGEMENT_TYPE_BY_MODE,
+  STEP_PRINCIPLE,
+  getStepKeysForDepth,
+} from '@/features/practices/dailyloop/config/tenseMode';
 import type { ModuleId, SortingScenario } from '@/features/learn/types/education';
 import type { PassageAuthor } from '@/features/library/types/library';
 
@@ -50,12 +55,13 @@ export type RootStackParamList = {
   LegalGate: undefined;
   Onboarding: undefined;
   Main: undefined;
-  MorningFlow: undefined;
-  MiddayFlow: undefined;
-  EveningFlow: undefined;
-  // FEAT-291: single-loop daily-practice prototype (build-time flag `daily_loop`).
-  // `mode` optional — when absent the loop shows its in-flow mode picker.
+  // The single daily ritual (FEAT-298 slice 5: the default practice; no longer flagged).
+  // `mode` is a test/tooling param only — the tense is inferred from the clock, and there
+  // is no mode picker.
   DailyLoop: { mode?: DailyLoopMode; depth?: DailyLoopDepth } | undefined;
+  // FEAT-283 Slice A: spoken reflection capture, reached from the
+  // `voice_journal`-flag-gated Profile card.
+  VoiceReflection: undefined;
   ModuleDetail: { moduleId: ModuleId };
   ClassicalLibrary: { principle?: ModuleId; author?: PassageAuthor } | undefined;
   PassageReader: { passageId: string };
@@ -76,8 +82,16 @@ export type RootStackParamList = {
   SortingPractice: {
     practiceId: string;
     moduleId: ModuleId;
-    scenarios: SortingScenario[];
+    // FEAT-293: OPTIONAL. Learn still passes the already-loaded scenarios
+    // (unchanged); the standalone Practice Library omits them and the screen
+    // self-loads from module content. This also repairs the pre-existing
+    // `/sorting` deep link in linking.ts, which could never supply an array.
+    scenarios?: SortingScenario[];
   };
+  // FEAT-293: standalone practice discoverability. A listing surface, so it is
+  // deliberately absent from RootCrisisButton's SUPPRESSED_ROUTES and
+  // IMMERSIVE_ROUTES — it must resolve to the default `standard` crisis overlay.
+  PracticeLibrary: undefined;
   BodyScan: {
     practiceId: string;
     moduleId: ModuleId;
@@ -148,82 +162,53 @@ const CleanRootNavigator: React.FC = () => {
     checkInitialRoute();
   }, [loadSettings, loadConsent, consentStatus]);
 
-  const handleMorningFlowComplete = async (sessionData: any) => {
-    logSystem('Morning flow completed');
-    await markCheckInComplete('morning');
-
-    // FEAT-28: Record principle engagement for Insights Dashboard
-    if (sessionData?.principleFocus?.principleKey) {
-      await recordPrincipleEngagement(
-        sessionData.principleFocus.principleKey,
-        'morning',
-        'selected'
-      );
-      logSystem('Recorded principle engagement (morning)');
-    }
-  };
-
-  const handleMiddayFlowComplete = async (sessionData: any) => {
-    logSystem('Midday flow completed');
-    await markCheckInComplete('midday');
-
-    // FEAT-28: Record principle engagement for Insights Dashboard
-    if (sessionData?.reappraisal?.principleApplied) {
-      await recordPrincipleEngagement(
-        sessionData.reappraisal.principleApplied,
-        'midday',
-        'applied'
-      );
-      logSystem('Recorded principle engagement (midday)');
-    }
-  };
-
-  const handleEveningFlowComplete = async (sessionData: any) => {
-    logSystem('Evening flow completed');
-    await markCheckInComplete('evening');
-
-    // FEAT-134: Record principle engagement from VirtueReflection screen (new path)
-    // Note: The EveningFlowNavigator now records principle engagement directly via
-    // recordPrincipleEngagement prop when the user selects a principle on VirtueReflection.
-    // This is the primary engagement tracking path for FEAT-134.
-    // The principle is recorded in real-time when selected, not at flow completion.
-
-    // FEAT-28: Legacy path - Record principle engagements from virtue instances
-    // Kept for backward compatibility with older session data format
-    if (sessionData?.virtueInstances?.length) {
-      const principlesReflected = new Set<string>();
-      for (const instance of sessionData.virtueInstances) {
-        if (instance.principleApplied && !principlesReflected.has(instance.principleApplied)) {
-          principlesReflected.add(instance.principleApplied);
-          await recordPrincipleEngagement(
-            instance.principleApplied,
-            'evening',
-            'reflected'
-          );
-        }
-      }
-      if (principlesReflected.size > 0) {
-        logSystem(
-          `Recorded principle engagements (legacy path): ${Array.from(principlesReflected).join(', ')}`
-        );
-      }
-    }
-  };
-
-  // FEAT-291: daily-loop prototype. Tracked as 'midday' (no new CheckInType — the
-  // FlowType unification is the deferred step-5 migration). Marks midday's card
-  // complete-today; acceptable dark-prototype tradeoff (noted in the PR).
+  // FEAT-298 slice 3: the loop is now a FIRST-CLASS check-in. It records its own 'daily'
+  // type instead of borrowing 'midday' — that borrowing made loop sessions
+  // indistinguishable from real Midday check-ins and faded the wrong Home card.
+  //
+  // Legacy records written by the FEAT-291 prototype as 'midday' COEXIST read-only: they
+  // are deliberately NOT rewritten to 'daily'. Rewriting would fabricate a record of an
+  // action the user did not take (they completed what the app then called a Midday
+  // check-in), which is a data-accuracy violation and would corrupt an export/right-to-know
+  // response. Provenance beats tidiness — see the slice-2 migration note.
   const handleDailyLoopComplete = async (sessionData: DailyLoopSessionData) => {
-    logSystem(`Daily loop completed (mode: ${sessionData.mode})`);
-    await markCheckInComplete('midday');
+    const depth = sessionData.depth ?? 'deep';
+    logSystem(`Daily loop completed (mode: ${sessionData.mode}, depth: ${depth})`);
+    await markCheckInComplete('daily');
+
+    // FEAT-298 slice 3: the loop recorded ZERO principle engagements, so it was invisible
+    // in the Insights principle chart despite being five principles end to end.
+    //
+    // One engagement per beat REACHED, unconditional on whether the user typed anything:
+    // "typing is capture, never a gate" (tenseMode.ts) — every field is optional by design
+    // for a walking, eyes-up practice. Gating the record on text would reintroduce the gate
+    // through the back door and systematically under-record the practitioner the loop was
+    // shaped for. One principle, one engagement, one session — NOT one per captured field,
+    // which would inflate Sphere Sovereignty (2 fields) and Virtuous Response (up to 3)
+    // and manufacture a false dominance signal.
+    //
+    // A quick session therefore records exactly 3, never 5. Under-recording is the
+    // ACCURATE reading: crediting the two omitted beats would fabricate acts the user did
+    // not perform. Quick and deep remain equally complete where completeness actually
+    // lives — the calendar dot — because both write one 'daily' check-in.
+    const engagementType = ENGAGEMENT_TYPE_BY_MODE[sessionData.mode];
+    const stepKeys = getStepKeysForDepth(depth);
+    for (const stepKey of stepKeys) {
+      await recordPrincipleEngagement(STEP_PRINCIPLE[stepKey], 'daily', engagementType);
+    }
+    logSystem(
+      `Recorded ${stepKeys.length} principle engagements (daily loop, ${engagementType})`
+    );
   };
 
-  const handleOnboardingComplete = async (destination?: 'home' | 'morning') => {
+  // FEAT-298 slice 6c: the "start practising now" destination is the daily loop. It was
+  // 'morning' — the retired Morning flow — so leaving it would navigate to a deleted route.
+  const handleOnboardingComplete = async (destination?: 'home' | 'practice') => {
     await markOnboardingComplete();
     setInitialRoute('Main');
 
     // Navigate to destination after state update
-    if (destination === 'morning') {
+    if (destination === 'practice') {
       // Small delay to ensure Main screen is mounted before modal presentation
       setTimeout(() => {
         // Navigation will be handled by the OnboardingScreen's navigation prop
@@ -294,11 +279,12 @@ const CleanRootNavigator: React.FC = () => {
               onComplete={async (destination) => {
                 await handleOnboardingComplete(destination);
                 // Navigate based on destination
-                if (destination === 'morning') {
+                if (destination === 'practice') {
                   navigation.replace('Main');
-                  // Navigate to MorningFlow after Main is mounted
+                  // Enter the daily loop once Main is mounted. No mode param — the tense is
+                  // inferred from the clock (slice 5).
                   setTimeout(() => {
-                    navigation.navigate('MorningFlow');
+                    navigation.navigate('DailyLoop');
                   }, 100);
                 } else {
                   navigation.replace('Main');
@@ -371,6 +357,27 @@ const CleanRootNavigator: React.FC = () => {
           )}
         </Stack.Screen>
 
+        {/* FEAT-293: standalone practice discoverability. `card` presentation,
+            NOT modal — it is a browsable listing surface, and it must keep the
+            root crisis overlay in its default `standard` mode (hence its
+            deliberate absence from RootCrisisButton's route sets). */}
+        <Stack.Screen
+          name="PracticeLibrary"
+          options={{ headerShown: false, presentation: 'card' }}
+        >
+          {({ navigation }) => (
+            <PracticeLibraryScreen
+              onBack={() => navigation.goBack()}
+              onOpenPractice={(screen, params) =>
+                navigation.navigate(screen as never, params as never)
+              }
+              onOpenModule={(moduleId) =>
+                navigation.navigate('ModuleDetail', { moduleId })
+              }
+            />
+          )}
+        </Stack.Screen>
+
         <Stack.Screen
           name="SortingPractice"
           options={{
@@ -380,7 +387,9 @@ const CleanRootNavigator: React.FC = () => {
           }}
         >
           {({ navigation, route }) => (
-            <SortingPracticeScreen
+            // FEAT-293: routed through the resolving wrapper so scenarios can be
+            // omitted (Practice Library / deep link) and loaded on demand.
+            <SortingPracticeRoute
               practiceId={route.params.practiceId}
               moduleId={route.params.moduleId}
               scenarios={route.params.scenarios}
@@ -452,73 +461,22 @@ const CleanRootNavigator: React.FC = () => {
 
         {/* Check-in Flow Modals */}
         <Stack.Group screenOptions={{ presentation: 'modal' }}>
-          <Stack.Screen
-            name="MorningFlow"
-            options={{
-              headerShown: false, // MorningFlowNavigator has its own header with progress
-              gestureEnabled: false, // Prevent swipe to dismiss during session
-              animationTypeForReplace: 'push'
-            }}
-          >
-            {({ navigation }) => (
-              <MorningFlowNavigator
-                onComplete={(sessionData) => {
-                  handleMorningFlowComplete(sessionData);
-                  navigation.goBack();
-                }}
-                onExit={() => {
-                  navigation.goBack();
-                }}
-              />
-            )}
-          </Stack.Screen>
 
-          <Stack.Screen
-            name="MiddayFlow"
-            options={{
-              headerShown: false, // MiddayFlowNavigator has its own header with progress
-              gestureEnabled: false, // Prevent swipe to dismiss during session
-              animationTypeForReplace: 'push'
-            }}
-          >
-            {({ navigation }) => (
-              <MiddayFlowNavigator
-                onComplete={(sessionData) => {
-                  handleMiddayFlowComplete(sessionData);
-                  navigation.goBack();
-                }}
-                onExit={() => {
-                  navigation.goBack();
-                }}
-              />
-            )}
-          </Stack.Screen>
 
+
+          {/* FEAT-283 Slice A: spoken reflection capture. Reached only from the
+              `voice_journal`-flag-gated Profile card. Deliberately NOT added to
+              RootCrisisButton IMMERSIVE_ROUTES — crisis text may be on screen
+              here, so the root crisis affordance must stay reachable. */}
           <Stack.Screen
-            name="EveningFlow"
-            options={{
-              headerShown: false, // EveningFlowNavigator has its own header with progress
-              gestureEnabled: false, // Prevent swipe to dismiss during session
-              animationTypeForReplace: 'push'
-            }}
+            name="VoiceReflection"
+            options={{ headerShown: true, title: 'Reflections' }}
           >
-            {({ navigation }) => (
-              <EveningFlowNavigator
-                onComplete={(sessionData) => {
-                  handleEveningFlowComplete(sessionData);
-                  navigation.goBack();
-                }}
-                onExit={() => {
-                  navigation.goBack();
-                }}
-                // FEAT-134: Pass recordPrincipleEngagement for Insights dashboard
-                recordPrincipleEngagement={recordPrincipleEngagement}
-              />
-            )}
+            {() => <VoiceReflectionScreen />}
           </Stack.Screen>
 
           {/* FEAT-291: Daily Loop prototype — reached only from the Home
-              `daily_loop`-flag-gated card. One nested navigator → inherits the single
+              Home's single Daily Practice card. One nested navigator → inherits the single
               root crisis overlay (DailyLoop is in RootCrisisButton IMMERSIVE_ROUTES). */}
           <Stack.Screen
             name="DailyLoop"

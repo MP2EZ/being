@@ -1,5 +1,5 @@
 /**
- * DailyLoopNavigator — FEAT-291 single-loop daily practice (build-time flag `daily_loop`).
+ * DailyLoopNavigator — the single daily practice (FEAT-298 slice 5: default, unflagged).
  *
  * The Five Principles in canonical order as ONE nested flow, cloned structurally from
  * the Midday navigator. Registered as a SINGLE root-stack modal screen (`DailyLoop`) in
@@ -8,14 +8,15 @@
  * IMMERSIVE_ROUTES). It therefore mounts NO crisis button of its own.
  *
  * Prototype specifics:
- *  - `mode` (flat / morning / evening) is chosen from a route param or an in-flow mode
- *    picker, and drives which tense copy each step renders (tenseMode config).
+ *  - `mode` (flat / morning / evening) is INFERRED FROM THE CLOCK (getDailyLoopTense) and
+ *    drives which tense copy each step renders. It is internal — never user-picked, never
+ *    displayed. The route param survives for tests/tooling only.
  *  - Session resumption is intentionally NOT used: it is keyed by CheckInType, and this
  *    prototype themes as 'midday' (no new CheckInType), so the hook would collide with
  *    the real Midday flow's saved session. A local accumulator sidesteps that entirely.
  *  - Themed as 'midday' (no ThemeKey/FlowType/CheckInType union change).
  */
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 import { View, Pressable, Text, StyleSheet } from 'react-native';
 import { colorSystem, spacing, typography } from '@/core/theme';
@@ -30,9 +31,12 @@ import type {
 } from '@/features/practices/types/flows';
 import { getStepKeysForDepth, type DailyLoopStepKey } from './config/tenseMode';
 import DailyLoopStepScreen from './screens/DailyLoopStepScreen';
-import DailyLoopModeSelectScreen from './screens/DailyLoopModeSelectScreen';
 import DailyLoopDepthSelectScreen from './screens/DailyLoopDepthSelectScreen';
 import DailyLoopCompleteScreen from './screens/DailyLoopCompleteScreen';
+import { ResumeSessionModal } from '../shared/components/ResumeSessionModal';
+import { SessionStorageService } from '@/core/services/session/SessionStorageService';
+import { getDailyLoopTense } from '@/core/utils/timeOfDay';
+import type { SessionMetadata } from '@/core/types/session';
 
 interface DailyLoopNavigatorProps {
   mode?: DailyLoopMode | undefined;
@@ -70,10 +74,102 @@ const DailyLoopNavigator: React.FC<DailyLoopNavigatorProps> = ({
   onExit,
 }) => {
   const [depth, setDepth] = useState<DailyLoopDepth | null>(initialDepth ?? null);
-  const [mode, setMode] = useState<DailyLoopMode | null>(initialMode ?? null);
+  // FEAT-298 slice 5: the tense is INFERRED FROM THE CLOCK, never picked by the user.
+  // `initialMode` survives only as a route param for tests/tooling; there is no picker and
+  // no UI path that sets it. Resolved once per session so a session that straddles a
+  // boundary (e.g. begun 16:58) keeps the tense it opened in rather than switching
+  // mid-practice.
+  const [mode, setMode] = useState<DailyLoopMode>(initialMode ?? getDailyLoopTense());
   const [sessionData, setSessionData] = useState<Partial<DailyLoopSessionData>>({});
   const [startTime] = useState(() => Date.now());
   const [currentStep, setCurrentStep] = useState(1);
+
+  // ── Session resumption (FEAT-298 slice 3b) ──────────────────────────────────────────
+  // FEAT-291 skipped resumption because the shared hook keys sessions by CheckInType and
+  // the prototype borrowed 'midday', so it would have collided with the real Midday flow's
+  // saved session. Slice 3b removes that collision: the loop has its own PracticeIdentity
+  // ('daily-loop') and its own SecureStore key, so it can persist properly.
+  //
+  // Storage goes through SessionStorageService — the same AES-256 path the legacy flows
+  // use. The typed beats are wellness data; there is no second path.
+  const [resumableSession, setResumableSession] = useState<SessionMetadata | null>(null);
+  const [showResumeModal, setShowResumeModal] = useState(false);
+  const [hasCheckedSession, setHasCheckedSession] = useState(false);
+  // Set when a resume is accepted: the beat to land on AFTER re-grounding.
+  const [regroundTarget, setRegroundTarget] = useState<DailyLoopStepKey | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const check = async () => {
+      try {
+        const session = await SessionStorageService.loadSession('daily-loop');
+        if (cancelled) return;
+        // A session parked on the first beat has nothing to resume TO — re-grounding would
+        // land the user exactly where they already are.
+        if (session && session.currentScreen !== 'AwarePresence') {
+          const { flowState, ...metadata } = session;
+          if (flowState?.['sessionData']) setSessionData(flowState['sessionData']);
+          if (flowState?.['mode']) setMode(flowState['mode']);
+          if (flowState?.['depth']) setDepth(flowState['depth']);
+          setResumableSession(metadata);
+          setShowResumeModal(true);
+        }
+      } catch (error) {
+        // Resumption is a nice-to-have; never block entry to the practice.
+        console.error('[DailyLoop] Failed to check for resumable session:', error);
+      } finally {
+        if (!cancelled) setHasCheckedSession(true);
+      }
+    };
+    check();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const saveSession = useCallback(
+    (currentScreen: string, data: Partial<DailyLoopSessionData>, m: DailyLoopMode | null, d: DailyLoopDepth | null) => {
+      void SessionStorageService.saveSession('daily-loop', currentScreen, {
+        sessionData: data,
+        mode: m,
+        depth: d,
+      });
+    },
+    []
+  );
+
+  const handleResumeSession = useCallback(() => {
+    // MUST re-ground before the resumed beat. Aware Presence is "the ground the other four
+    // beats stand on", and ground established hours ago has expired — dropping the user
+    // straight into beat 4 stands the arc on nothing. We replay the BREATH only, never a
+    // re-capture of beat 1's answer, and never framed as a penalty or a re-do. It is the
+    // practice, not a toll.
+    const target = resumableSession?.currentScreen as DailyLoopStepKey | undefined;
+    if (target) setRegroundTarget(target);
+    setShowResumeModal(false);
+  }, [resumableSession]);
+
+  const handleBeginFresh = useCallback(async () => {
+    await SessionStorageService.clearSession('daily-loop');
+    setSessionData({});
+    setRegroundTarget(null);
+    setShowResumeModal(false);
+
+    // FEAT-298 slice 6c: reset the ENTRY CHOICES too, not just the answers.
+    //
+    // The session check above restores `depth` (and `mode`) from the saved session so a
+    // RESUMED session continues in the shape it began. But "begin fresh" is the opposite
+    // intent, and leaving them restored made depth STICKY across it — the abandoned
+    // session's depth silently became the new session's depth, with no picker shown.
+    // That contradicts FEAT-301's explicit rule, stated in this file's own depth-picker
+    // comment: depth is never persisted, and "the next session re-presents this neutral
+    // choice". Caught by the Maestro flow on device, not by any unit test.
+    //
+    // Mode re-derives from the clock rather than inheriting the old session's tense:
+    // "fresh" means now, not whenever the abandoned session started.
+    if (!initialDepth) setDepth(null);
+    setMode(initialMode ?? getDailyLoopTense());
+  }, [initialDepth, initialMode]);
 
   const closeButton = (
     <Pressable
@@ -88,6 +184,12 @@ const DailyLoopNavigator: React.FC<DailyLoopNavigatorProps> = ({
     </Pressable>
   );
 
+  // Wait for the session check before rendering anything. Without this the depth picker
+  // paints for a frame and is then replaced by the resume modal — and worse, a resumed
+  // session's restored depth/mode would arrive after the user had already been offered
+  // the choice. Nothing is shown for one async tick; the practice has not started yet.
+  if (!hasCheckedSession) return <View style={styles.pickerContainer} />;
+
   // Depth picker (FEAT-301) — shown FIRST, only when no depth route param was passed.
   // Two equal, always-available choices; the chosen depth lives in local state and is
   // NEVER persisted (non-sticky — the next session re-presents this neutral choice).
@@ -96,16 +198,6 @@ const DailyLoopNavigator: React.FC<DailyLoopNavigatorProps> = ({
       <View style={styles.pickerContainer}>
         <View style={styles.pickerHeader}>{closeButton}</View>
         <DailyLoopDepthSelectScreen onSelect={setDepth} />
-      </View>
-    );
-  }
-
-  // Mode picker (only when no mode was passed as a route param).
-  if (!mode) {
-    return (
-      <View style={styles.pickerContainer}>
-        <View style={styles.pickerHeader}>{closeButton}</View>
-        <DailyLoopModeSelectScreen onSelect={setMode} />
       </View>
     );
   }
@@ -137,7 +229,7 @@ const DailyLoopNavigator: React.FC<DailyLoopNavigatorProps> = ({
       <View style={styles.headerContainer}>
         <Text style={styles.headerTitle}>Daily Practice</Text>
         {showProgress && (
-          <FlowProgressIndicator currentStep={currentStep} totalSteps={totalSteps} flowType="midday" />
+          <FlowProgressIndicator currentStep={currentStep} totalSteps={totalSteps} flowType="daily-loop" />
         )}
       </View>
     ),
@@ -154,8 +246,18 @@ const DailyLoopNavigator: React.FC<DailyLoopNavigatorProps> = ({
       onBack={() => navigation.goBack()}
       previousAnswer={prevResponse(stepKey)}
       onSave={(data: DailyLoopStepData) => {
-        setSessionData((prev) => ({ ...prev, [STEP_FIELD[stepKey]]: data }));
-        const next = screenOrder[index + 1] as LoopRoute;
+        const updated = { ...sessionData, [STEP_FIELD[stepKey]]: data };
+        setSessionData(updated);
+
+        // After re-grounding on Aware Presence, jump to the beat the user left off at
+        // rather than walking forward from beat 2.
+        const next =
+          stepKey === 'AwarePresence' && regroundTarget
+            ? (regroundTarget as LoopRoute)
+            : (screenOrder[index + 1] as LoopRoute);
+        if (stepKey === 'AwarePresence' && regroundTarget) setRegroundTarget(null);
+
+        saveSession(String(next), updated, mode, depth);
         navigation.navigate(next);
       }}
     />
@@ -164,6 +266,7 @@ const DailyLoopNavigator: React.FC<DailyLoopNavigatorProps> = ({
   const CompleteScreen = ({ navigation: _navigation }: any) => (
     <DailyLoopCompleteScreen
       depth={depth}
+      mode={mode}
       onComplete={(data: DailyLoopCompleteData) => {
         const finalSessionData: DailyLoopSessionData = {
           ...sessionData,
@@ -175,12 +278,20 @@ const DailyLoopNavigator: React.FC<DailyLoopNavigatorProps> = ({
           timeSpentSeconds: Math.round((Date.now() - startTime) / 1000),
           flowVersion: 'feat-291-daily-loop-v1',
         };
+        void SessionStorageService.clearSession('daily-loop');
         onComplete(finalSessionData);
       }}
     />
   );
 
   return (
+    <>
+    <ResumeSessionModal
+      visible={showResumeModal}
+      session={resumableSession}
+      onResume={handleResumeSession}
+      onBeginFresh={handleBeginFresh}
+    />
     <Stack.Navigator
       initialRouteName="AwarePresence"
       screenOptions={{
@@ -211,10 +322,22 @@ const DailyLoopNavigator: React.FC<DailyLoopNavigatorProps> = ({
           {makeStep(stepKey, index)}
         </Stack.Screen>
       ))}
-      <Stack.Screen name="DailyLoopComplete" options={getHeaderOptions(false)}>
+      {/* FEAT-298 slice 6b — the ✕ is SUPPRESSED on the coda, and this is a data-integrity
+          fix, not cosmetics. `screenOptions.headerLeft` renders the close button on every
+          route, and its `onExit` is a bare `navigation.goBack()` that skips `onComplete`.
+          On a screen whose title states the practice is finished, taking that exit discarded
+          the whole session: no `markCheckInComplete('daily')`, no principle engagements (the exact
+          defect slice 3 existed to fix), and a finished session left resumable on disk.
+          There is nothing to abandon here — the practice is over — so the only way off this
+          screen must be the one that records it. */}
+      <Stack.Screen
+        name="DailyLoopComplete"
+        options={{ ...getHeaderOptions(false), headerLeft: () => null }}
+      >
         {CompleteScreen}
       </Stack.Screen>
     </Stack.Navigator>
+    </>
   );
 };
 

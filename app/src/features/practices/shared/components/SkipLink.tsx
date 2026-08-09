@@ -18,7 +18,7 @@
 
 import React from 'react';
 import { TouchableOpacity, Text, StyleSheet } from 'react-native';
-import { colorSystem, spacing, typography } from '@/core/theme';
+import { semantic, spacing, typography } from '@/core/theme';
 
 interface SkipLinkProps {
   /** Press handler */
@@ -59,7 +59,7 @@ const styles = StyleSheet.create({
   },
   text: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[500],
+    color: semantic.text.muted,
   },
 });
 

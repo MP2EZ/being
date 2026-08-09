@@ -29,7 +29,10 @@ import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Alert, Linking } from 'react-native';
+// `Linking` is used only by triggerEmergencyResponse's last-resort 988 fallback
+// (DEBUG-314). It is deliberately NOT routed through `openCrisisUrl` — see the
+// comment at that call site.
+import { Linking } from 'react-native';
 
 // Import types from assessment flow
 import {
@@ -50,6 +53,7 @@ import {
 // DEBUG-229 / MAINT-226 Decision E: pure detectCrisis is the single source of
 // truth for crisis thresholds + trigger taxonomy; the store delegates to it.
 import { detectCrisis as detectCrisisPure } from '@/features/crisis/types/safety';
+import { showCrisisAlert } from '@/features/crisis/services/crisisAlert';
 import { validateSingleResponse } from '../types/schemas';
 
 // Clinical scoring algorithms (validated for 100% accuracy)
@@ -111,7 +115,26 @@ class EncryptedAssessmentStorage {
   private static readonly BLOB_KEY = 'assessment_store';
   /** Legacy SecureStore key for the unencrypted-JSON-in-Keychain era. */
   private static readonly LEGACY_SECURE_STORE_KEY = 'assessment_store_encrypted';
-  private static readonly AUDIT_KEY = 'assessment_audit_trail';
+  /**
+   * Content-free operational audit trail ({timestamp, action, itemCount,
+   * source}) — no wellness content, so it is written unencrypted. It still
+   * carries the swept `assessment_async_` prefix (DEBUG-305): the prefix buys
+   * erasure coverage, which every key needs; encryption is the separate
+   * question of confidentiality, which this record does not require. The bare
+   * `assessment_audit_trail` name it used previously matched no sweep prefix
+   * and survived account deletion; `legacyPlaintextRecordSweeper` purges it.
+   *
+   * Spelled literally rather than composed from
+   * `SECURE_STORAGE_CONFIG.ASSESSMENT_ASYNC_PREFIX`: importing that named export
+   * here would break every suite that stubs `SecureStorageService` with a
+   * default export only, which is the prevailing pattern across ~19 files.
+   * The prefix is pinned mechanically instead by
+   * `crisisRecordErasure.privacy.test.ts`, which enumerates every key written on
+   * this path and fails on any that the erasure sweep would miss — a stronger
+   * guarantee than a shared constant, since it also catches keys written by
+   * code that never referenced the constant.
+   */
+  private static readonly AUDIT_KEY = 'assessment_async_audit_trail';
 
   static async save(data: unknown): Promise<void> {
     const result = await SecureStorageService.storeWellnessBlob(
@@ -353,56 +376,72 @@ class CrisisDetectionService {
     }
   }
 
-  static async triggerEmergencyResponse(detection: CrisisDetection): Promise<void> {
+  /**
+   * Surface the crisis intervention. Nothing is persisted here.
+   *
+   * WHY THERE IS NO LOCAL RECORD (DEBUG-305)
+   *
+   * This used to `await logCrisisIntervention(detection)`, which serialized the
+   * detection — `primaryTrigger: 'phq9_suicidal_ideation'` and `triggerValue`,
+   * the Q9 self-harm response — as plaintext JSON under
+   * `crisis_intervention_<assessmentId>`. That key matched none of the erasure
+   * prefixes, so it was unencrypted AND survived account deletion.
+   *
+   * It was removed rather than encrypted, because the record had no reader and
+   * no unique content. `answerQuestion` calls `saveProgress` (AES-256 under the
+   * swept `wellness_async_` prefix) BEFORE the Q9 check, so the answers were
+   * already stored correctly; the durable crisis audit trail is the off-device
+   * `crisis_detected` event emitted by the caller. The local key was a strictly
+   * less-protected duplicate that nothing read. Encrypting it would have added
+   * a second retention and erasure obligation for zero information, and put an
+   * encryption cold-start (PBKDF2, 100k iterations) on the suicidal-ideation
+   * path, which is measured by a strict CI performance gate.
+   *
+   * `_detection` is now unused and kept only to preserve the call signature.
+   *
+   * WHY THE try/catch STAYS (DEBUG-305 × DEBUG-314)
+   *
+   * DEBUG-305's planning pass called for removing it, on the grounds that a
+   * catch whose reachable trigger is a STORAGE failure would dial 988 for a
+   * locked device or an unavailable Keychain — an unrequested call to a crisis
+   * line on top of an already-displayed alert. Deleting the write removes that
+   * trigger, and with it the objection: the only thing left inside the try is
+   * the alert, which is precisely what this fallback is for.
+   *
+   * So DEBUG-314's hardened handler below is kept intact rather than reverted
+   * in a merge. Its reasoning still holds unchanged, including why it does not
+   * route through `openCrisisUrl`.
+   *
+   * Copy lives in the crisis feature (FEAT-283) because voice journal surfaces
+   * the same alert — one implementation, so the two can never drift in wording,
+   * button order, or cancelability.
+   */
+  static async triggerEmergencyResponse(_detection: CrisisDetection): Promise<void> {
     try {
-      // Immediate crisis intervention
-      Alert.alert(
-        '🚨 Crisis Support Available',
-        'You\'re not alone. Crisis support is available 24/7.',
-        [
-          {
-            text: 'Call 988 (Crisis Lifeline)',
-            onPress: () => Linking.openURL('tel:988'),
-            style: 'default'
-          },
-          {
-            text: 'Text 741741 (Crisis Text)',
-            onPress: () => Linking.openURL('sms:741741'),
-            style: 'default'
-          },
-          {
-            text: 'Emergency 911',
-            onPress: () => Linking.openURL('tel:911'),
-            style: 'destructive'
-          }
-        ],
-        { cancelable: false }
-      );
-
-      // Log crisis intervention for clinical records
-      await this.logCrisisIntervention(detection);
+      showCrisisAlert();
     } catch (error) {
       logError(LogCategory.SYSTEM, 'Emergency response failed:', error instanceof Error ? error : new Error(String(error)));
-      // Fallback: Direct 988 call
-      Linking.openURL('tel:988');
-    }
-  }
-
-  private static async logCrisisIntervention(detection: CrisisDetection): Promise<void> {
-    try {
-      const interventionLog = {
-        detection,
-        interventionStarted: true,
-        timestamp: Date.now(),
-        responseTime: Date.now() - detection.timestamp
-      };
-
-      await AsyncStorage.setItem(
-        `crisis_intervention_${detection.assessmentId}`,
-        JSON.stringify(interventionLog)
+      // Fallback: Direct 988 call.
+      //
+      // Deliberately NOT openCrisisUrl (DEBUG-314), for two reasons. First, the
+      // guard's only failure surface is `Alert.alert`, so if we are here because
+      // the modal layer broke, guarding would trade a blind dial for a silent
+      // no-op. Second, `showCrisisAlert()` cannot throw — it is internally
+      // try/caught and already falls through to its own 988 dial — so reaching
+      // this catch means 988 has most likely been dialed already; stacking an
+      // "Unable to Call" alert on top of a canonical alert that rendered fine
+      // would be worse than the duplicate `tel:` open, which the OS treats as
+      // idempotent. This stays as defense-in-depth.
+      //
+      // The DEBUG-314 defect at this line was the unhandled rejection, not the
+      // missing guard. The `.catch` is the fix.
+      void Linking.openURL('tel:988').catch((dialError) =>
+        logError(
+          LogCategory.CRISIS,
+          'Emergency-response fallback dial failed',
+          dialError instanceof Error ? dialError : new Error(String(dialError))
+        )
       );
-    } catch (error) {
-      logError(LogCategory.SYSTEM, 'Crisis intervention logging failed:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 }

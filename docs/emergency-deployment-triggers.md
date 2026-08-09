@@ -1,5 +1,23 @@
 # Emergency Deployment Trigger Conditions
 
+> ## ⚠️ STATUS — READ BEFORE ACTING (MAINT-369, 2026-08-08)
+>
+> **Not every command below works today.** This document is kept for its trigger
+> matrix and authority rules; treat the invocations as unverified.
+>
+> - **`deploy.yml` is not a runnable workflow.** It is parked as
+>   `.github/workflows/deploy.yml.disabled`, so `gh workflow run deploy.yml` fails
+>   with *"could not find any workflows named deploy.yml"*. Its header lists the 10
+>   missing npm scripts that would also have to be written before it could run. The
+>   real deploy path is **`release.yml`** — see `docs/development/github-flow.md`.
+> - **`emergency-deploy.yml` and `emergency-deploy-optimized.yml` load, but would
+>   fail mid-run.** Five of the six `npm run` targets they invoke do not exist in
+>   `app/package.json`. Tracked as **DEBUG-374** — a green start is not a green
+>   finish.
+> - **To ship a production fix right now**, use the Hotfix Process in `CLAUDE.md`
+>   (`hotfix/*` branched off `main`, PR to `main`). That is the path that is
+>   actually exercised.
+
 ## Trigger Matrix: Emergency vs Regular Deployment
 
 ### **EMERGENCY DEPLOYMENT (4.5min) - Use emergency-deploy-optimized.yml**
@@ -41,7 +59,10 @@
 - Immediate deployment
 - Mandatory post-deployment validation
 
-### **REGULAR DEPLOYMENT (42min) - Use deploy.yml**
+### **REGULAR DEPLOYMENT (42min) - ~~Use deploy.yml~~ → use `release.yml`**
+
+> `deploy.yml` is parked (`.disabled`) and cannot be invoked. See the status block
+> at the top of this file.
 
 #### **Standard Production**
 **Trigger Conditions:**
@@ -100,15 +121,27 @@ gh workflow run emergency-deploy-optimized.yml \
 ```
 
 ### **Regular Deployments**
+
+⚠️ **These two invocations do not work.** `deploy.yml` is parked as
+`deploy.yml.disabled`, so `gh workflow run deploy.yml` fails outright. They are
+retained only to record what the parked workflow's inputs were.
+
 ```bash
-# Standard Production (42min)
+# ✗ FAILS — deploy.yml is .disabled. Standard Production (42min)
 gh workflow run deploy.yml \
   --field deployment_type=production
 
-# Expedited Production (20min)
+# ✗ FAILS — deploy.yml is .disabled. Expedited Production (20min)
 gh workflow run deploy.yml \
   --field deployment_type=production \
   --field skip_healthcare_validation=false
+```
+
+**Use instead** — promote `development → main`, which builds and ships:
+
+```bash
+/b-release              # opens the release PR (CI runs the 9 gates)
+/b-release --finish     # after merge: tag + push
 ```
 
 ## Authority Override Matrix

@@ -52,16 +52,6 @@ export type FeatureFlag =
   | 'emergency_sync'
   | 'cross_device_sync'
   | 'wellness_trend_notes'
-  // FEAT-291: single-loop daily-practice prototype. Build-time (safety/structural —
-  // gates a whole navigator + Home entry, not a per-user rollout), read via
-  // isFeatureEnabled('daily_loop'). Ships dark (false in production; on in dev so the
-  // prototype is exercisable). NOT in PRODUCT_FLAGS — no PostHog/runtime control.
-  | 'daily_loop'
-  // FEAT-291 preview: when on (AND daily_loop on), Home hides the 3 time-of-day flows
-  // and shows ONLY the daily loop — a dark preview of the eventual single-ritual Home.
-  // NOT the FlowType-unification migration (that's the deferred step-5 work); this only
-  // gates Home card visibility. Ships dark in production.
-  | 'daily_loop_only'
   // FEAT-284: gates the internal-only "Report a bug / Send feedback" surface
   // (shake-to-report + Sentry feedback widget with screenshot). Build-time (not
   // runtime/PostHog) by design: availability must be deterministic, offline, and
@@ -80,7 +70,17 @@ export type FeatureFlag =
   // degradation checks are on-device manual validation that CI cannot run
   // (100% ubuntu, and the iOS simulator emits no haptics at all), so the flag
   // stays false in production until that checklist is signed off.
-  | 'practice_haptics';
+  | 'practice_haptics'
+  // FEAT-283: gates the voice journal / spoken reflection surface (capture,
+  // on-device transcription, encrypted store, crisis scan). Build-time, NOT
+  // runtime/PostHog, for three reasons: it gates a whole screen + entry point
+  // rather than a per-user rollout (same shape as `daily_loop`); a zero-egress
+  // feature must not have network-dependent availability; and INFRA-199 forbids
+  // coupling availability to analytics consent, which the crisis-scan path on
+  // this surface must never inherit. Ships dark (false in production).
+  // NOTE: the e2e-sim EAS profile must enable this or the Maestro safety flow
+  // runs against a dark flag and fails.
+  | 'voice_journal';
 
 /**
  * Parse a feature-flag blob into a boolean lookup.

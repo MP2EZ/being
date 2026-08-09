@@ -27,7 +27,7 @@ on:
 
 env:
   EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-  NODE_VERSION: '20'
+  NODE_VERSION: '24'
   HEALTHCARE_COMPLIANCE: 'true'
   NEW_ARCHITECTURE: 'true'
   CLINICAL_VALIDATION: 'true'
@@ -46,7 +46,7 @@ jobs:
 
     steps:
       - name: 🔍 Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: 🚨 Emergency Authorization Check
         id: auth-check
@@ -102,10 +102,10 @@ jobs:
 
     steps:
       - name: 🔍 Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: 📦 Setup Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
@@ -143,21 +143,20 @@ jobs:
 
     steps:
       - name: 🔍 Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
       - name: 📦 Setup Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
           cache-dependency-path: 'app/package-lock.json'
 
       - name: 🔧 Setup EAS CLI
-        uses: expo/expo-github-action@v8
+        uses: expo/expo-github-action@v9
         with:
-          expo-version: latest
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
@@ -185,7 +184,7 @@ jobs:
           echo "✅ Emergency build completed for ${{ matrix.platform }}"
 
       - name: 📊 Upload Emergency Build Artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: emergency-build-artifacts-${{ matrix.platform }}
           path: |
@@ -203,10 +202,10 @@ jobs:
 
     steps:
       - name: 🔍 Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: 📦 Setup Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
@@ -228,9 +227,8 @@ jobs:
           echo "✅ Emergency cloud deployment completed"
 
       - name: 🚨 Emergency App Store Submission
-        uses: expo/expo-github-action@v8
+        uses: expo/expo-github-action@v9
         with:
-          expo-version: latest
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
@@ -262,10 +260,10 @@ jobs:
 
     steps:
       - name: 🔍 Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: 📦 Setup Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
@@ -309,10 +307,10 @@ jobs:
 
     steps:
       - name: 🔍 Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: 📦 Setup Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
@@ -362,7 +360,7 @@ jobs:
 
     steps:
       - name: 🔍 Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: 📋 Generate Emergency Audit Report
         run: |
@@ -402,7 +400,7 @@ jobs:
           echo "- **Rollback Capability**: <30 seconds verified" >> emergency-audit-report.md
 
       - name: 📊 Upload Emergency Audit Report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: emergency-deployment-audit-report
           path: emergency-audit-report.md

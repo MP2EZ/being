@@ -117,6 +117,15 @@ class SupabaseService {
     session_id: string;
     enqueued_at: number;
   }> = [];
+  /**
+   * DEBUG-335: serializes EVERY write to CRISIS_ANALYTICS_QUEUE — the enqueue write,
+   * the post-flush truncation write, and the startup-load merge. `null` means idle.
+   * Without one chain, two writers can serialize different snapshots concurrently and
+   * the older one can land last, erasing an event from the sole crisis audit sink.
+   */
+  private crisisPersistTail: Promise<void> | null = null;
+  /** DEBUG-335: a durable write failed; retry it on the next flush rather than lose it. */
+  private crisisPersistDirty = false;
   private sessionId: string;
   private analyticsFlushTimer: NodeJS.Timeout | null = null;
   private isInitialized = false;
@@ -610,10 +619,9 @@ class SupabaseService {
         enqueued_at: Date.now(),
       });
       // Durable persist immediately (own key — never evicted by the ops queue).
-      void AsyncStorage.setItem(
-        STORAGE_KEYS.CRISIS_ANALYTICS_QUEUE,
-        JSON.stringify(this.crisisAnalyticsQueue)
-      );
+      // DEBUG-335: goes through the serialized chain so a concurrent truncation write
+      // cannot clobber it, and a failed write is retried instead of silently swallowed.
+      void this.persistCrisisQueue();
       // Best-effort flush now; never awaited, never throws out of here.
       void this.flushCrisisAnalytics();
     } catch (error) {
@@ -624,11 +632,65 @@ class SupabaseService {
   }
 
   /**
+   * DEBUG-335 — the single serialization point for CRISIS_ANALYTICS_QUEUE writes.
+   *
+   * Two properties matter and they pull in opposite directions:
+   *
+   *  - The write must be ISSUED in the same synchronous step as the enqueue, because
+   *    `handleCrisisDetection` is awaited by `answerQuestion`/`completeAssessment` and
+   *    that span is measured by the strict <200ms `Performance regression` gate. Hence
+   *    the idle fast path below: when nothing is in flight, `run()` is invoked directly
+   *    and its `AsyncStorage.setItem(...)` call is evaluated before this method returns.
+   *  - Writes must be TOTALLY ORDERED, because the flush truncation write and an
+   *    enqueue write both serialize the whole queue. Hence the chain when one is
+   *    already in flight.
+   *
+   * `run()` re-serializes the LIVE queue at write time rather than capturing a snapshot,
+   * so a queued write always persists current truth and self-heals a previous failure.
+   * The returned promise NEVER rejects — `trackCrisisDetection` is fire-and-forget and a
+   * rejection would surface as an unhandled rejection on the crisis path.
+   */
+  private persistCrisisQueue(): Promise<void> {
+    const run = async (): Promise<void> => {
+      try {
+        await AsyncStorage.setItem(
+          STORAGE_KEYS.CRISIS_ANALYTICS_QUEUE,
+          JSON.stringify(this.crisisAnalyticsQueue)
+        );
+        this.crisisPersistDirty = false;
+      } catch (error) {
+        // Do NOT rethrow: mark dirty so the next flush retries. Losing the event is
+        // worse than writing it twice — this is the only crisis audit sink.
+        this.crisisPersistDirty = true;
+        logSecurity(
+          '[SupabaseService] crisis telemetry persist failed — retained for retry',
+          'high',
+          { error }
+        );
+      }
+    };
+
+    const tail = this.crisisPersistTail === null ? run() : this.crisisPersistTail.then(run);
+    this.crisisPersistTail = tail;
+    // Identity-guard the reset so a settling link cannot clear a newer tail.
+    void tail.then(() => {
+      if (this.crisisPersistTail === tail) this.crisisPersistTail = null;
+    });
+    return tail;
+  }
+
+  /**
    * Reconcile + flush durably-queued crisis-detection telemetry to analytics_events.
    * user_id is resolved at flush time; if not yet provisioned (first-run/offline) or
    * the client is unavailable, the events stay durably queued for a later attempt.
    */
   private async flushCrisisAnalytics(): Promise<void> {
+    // DEBUG-335: retry a previously-failed durable write BEFORE the early returns
+    // below. An offline or unprovisioned device returns early every time, so a retry
+    // placed after these guards would never run — the first-run case DEBUG-305 made
+    // critical by removing the local duplicate record.
+    if (this.crisisPersistDirty) void this.persistCrisisQueue();
+
     if (this.crisisAnalyticsQueue.length === 0) return;
     if (!this.client) return; // reconcile on a later flush
 
@@ -662,10 +724,9 @@ class SupabaseService {
     if (result.success) {
       // Drop the flushed prefix; keep anything enqueued during the flight.
       this.crisisAnalyticsQueue = this.crisisAnalyticsQueue.slice(pending.length);
-      await AsyncStorage.setItem(
-        STORAGE_KEYS.CRISIS_ANALYTICS_QUEUE,
-        JSON.stringify(this.crisisAnalyticsQueue)
-      );
+      // DEBUG-335: through the same chain as the enqueue write. A raw setItem here
+      // races an in-flight enqueue write and can resurrect an already-flushed event.
+      await this.persistCrisisQueue();
     } else {
       // Retained for retry. Escalate to the local audit/security log so the gap is visible.
       logSecurity(
@@ -682,9 +743,29 @@ class SupabaseService {
   private async loadCrisisAnalyticsQueue(): Promise<void> {
     try {
       const data = await AsyncStorage.getItem(STORAGE_KEYS.CRISIS_ANALYTICS_QUEUE);
-      if (data) {
-        this.crisisAnalyticsQueue = JSON.parse(data);
+      if (!data) return;
+      const persisted = JSON.parse(data);
+      if (!Array.isArray(persisted)) return;
+
+      // Normal boot: nothing in memory yet, so adopt what is on disk.
+      if (this.crisisAnalyticsQueue.length === 0) {
+        this.crisisAnalyticsQueue = persisted;
+        return;
       }
+
+      // DEBUG-335: `initialize()` is lazy (it runs on Cloud Backup, not at boot), so a
+      // detection can fire BEFORE this load. A blind assign would drop that live event
+      // from the sole crisis audit sink. Merge instead, de-duplicating on a composite
+      // identity so a repeated load cannot double-count, and keeping disk entries first
+      // to preserve chronology.
+      const identity = (e: any): string =>
+        `${e?.session_id}|${e?.enqueued_at}|${e?.event_type}|${JSON.stringify(e?.properties)}`;
+      const inMemory = new Set(this.crisisAnalyticsQueue.map(identity));
+      const recovered = persisted.filter((e: any) => !inMemory.has(identity(e)));
+      if (recovered.length === 0) return;
+
+      this.crisisAnalyticsQueue = [...recovered, ...this.crisisAnalyticsQueue];
+      void this.persistCrisisQueue();
     } catch (error) {
       logSecurity('[SupabaseService] Failed to load crisis telemetry queue', 'medium', { error });
     }
@@ -789,6 +870,12 @@ class SupabaseService {
         // App came to foreground, process offline queue + retry crisis telemetry
         this.processOfflineQueue();
         void this.flushCrisisAnalytics();
+      } else if (nextAppState === 'background' || nextAppState === 'inactive') {
+        // DEBUG-335: the ONLY point where the real-device kill window actually narrows.
+        // iOS grants time on `background`, so re-issue the durable write before the OS
+        // can reclaim the process. Everything else in this fix is JS-side bookkeeping —
+        // no JS change can make a native AsyncStorage write commit sooner.
+        void this.persistCrisisQueue();
       }
     });
   }

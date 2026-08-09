@@ -20,12 +20,25 @@ describe('ResumeSessionModal', () => {
   const mockOnResume = jest.fn();
   const mockOnBeginFresh = jest.fn();
 
+  /**
+   * A start time guaranteed to fall on the SAME local calendar day as "now", however late
+   * or early the suite runs.
+   *
+   * FEAT-298 slice 3b made `formatTimeElapsed` compare calendar days rather than elapsed
+   * hours — because the old version returned "earlier today" for anything under 12h, so a
+   * 22:00 -> 08:00 resume claimed "today" for yesterday's work. A bare `Date.now() - 1h`
+   * therefore crosses midnight whenever the suite runs between 00:00 and 00:59, correctly
+   * renders "yesterday", and made the assertion below fail once an hour, every night.
+   */
+  const startOfToday = new Date(new Date().setHours(0, 0, 0, 0)).getTime();
+  const sameDayHourAgo = Math.max(startOfToday + 60 * 1000, Date.now() - 1000 * 60 * 60);
+
   const mockSession: SessionMetadata = {
     id: 'test-session-123',
     flowType: 'morning',
     currentScreen: 'Gratitude',
-    startedAt: Date.now() - 1000 * 60 * 60, // 1 hour ago
-    lastActiveAt: Date.now() - 1000 * 60 * 30, // 30 min ago
+    startedAt: sameDayHourAgo,
+    lastActiveAt: Math.max(sameDayHourAgo, Date.now() - 1000 * 60 * 30),
     completedScreens: ['PhysicalGrounding'],
     version: 1,
   };

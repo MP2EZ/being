@@ -22,7 +22,7 @@ import {
 } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
-import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
+import { colorSystem, spacing, typography, borderRadius, semantic } from '@/core/theme';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 import type { ModuleId } from '@/features/learn/types/education';
 import type { PassageAuthor } from '@/features/library/types/library';
@@ -230,7 +230,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     lineHeight: 20,
   },
   scroll: {
@@ -283,7 +283,7 @@ const styles = StyleSheet.create({
   },
   empty: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     textAlign: 'center',
     paddingVertical: spacing[32],
   },

@@ -16,6 +16,9 @@
 
 import { Alert, Linking } from 'react-native';
 import { logError, LogCategory } from '@/core/services/logging';
+// Eager, per the crisis-path no-lazy-import rule. Every function in this module
+// is internally guarded and cannot throw into the dial path.
+import { endCrisisTap } from '@/features/crisis/services/crisisTapTrace';
 
 export interface OpenCrisisUrlOptions {
   /** Human-readable target shown in the manual-fallback Alert, e.g. "988". */
@@ -40,6 +43,11 @@ export function openCrisisUrl(
   onTap?.();
 
   const showManualFallback = (error: unknown): void => {
+    // Close the crisis-tap measurement with a distinct outcome (INFRA-297). This
+    // is a legitimate non-success terminal, NOT a dropped tap: the user still
+    // gets the manual-dial Alert below, so it must not be classified as the
+    // watchdog's 'deadline_exceeded'. No-op if no mark is open.
+    endCrisisTap('manual_fallback');
     logError(
       LogCategory.CRISIS,
       'Failed to open crisis URL',
@@ -58,7 +66,22 @@ export function openCrisisUrl(
   return Linking.canOpenURL(url)
     .then((supported) => {
       if (supported) {
-        return Linking.openURL(url).then(() => undefined);
+        return Linking.openURL(url).then(() => {
+          // Success terminal for the crisis-tap measurement (INFRA-297): the OS
+          // has taken the dial. Needed because the CrisisErrorBoundary path dials
+          // without ever rendering CrisisResourcesScreen, so the screen-commit
+          // terminal would never fire for it.
+          //
+          // Tagged distinctly from 'screen_commit' on purpose — tap→OS-handoff
+          // and tap→render are different physical quantities and must never be
+          // aggregated into one p95.
+          //
+          // A no-op when no mark is open, which is the common case: a "Call Now"
+          // tap inside CrisisResourcesScreen arrives after the commit already
+          // closed the mark. openCrisisUrl's other callers are unaffected.
+          endCrisisTap('url_open');
+          return undefined;
+        });
       }
       throw new Error(`Crisis URL not supported: ${url}`);
     })

@@ -12,9 +12,12 @@
 
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { colorSystem, spacing, borderRadius, typography, getTheme } from '@/core/theme';
+import { colorSystem, spacing, borderRadius, typography, getTheme, semantic } from '@/core/theme';
+import { themeKeyFor } from '@/core/types/practice-identity';
 
-export type FlowTheme = 'morning' | 'midday' | 'evening';
+// FEAT-298 slice 1: alias of the canonical `FlowType`.
+export type { FlowType as FlowTheme } from '@/core/types/practice-identity';
+import type { FlowType as FlowTheme } from '@/core/types/practice-identity';
 
 interface PreviousAnswerCardProps {
   /** The label describing what this answer is */
@@ -43,7 +46,7 @@ export const PreviousAnswerCard: React.FC<PreviousAnswerCardProps> = ({
   theme = 'midday',
   testID = 'previous-answer-card',
 }) => {
-  const themeColors = getTheme(theme);
+  const themeColors = getTheme(themeKeyFor(theme));
 
   return (
     <View
@@ -74,7 +77,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: typography.caption.size,
     fontWeight: typography.fontWeight.medium,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     marginBottom: spacing[4],
   },
   answer: {

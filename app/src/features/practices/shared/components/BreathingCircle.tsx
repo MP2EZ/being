@@ -23,7 +23,7 @@ import Animated, {
   Easing,
   cancelAnimation,
 } from 'react-native-reanimated';
-import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
+import { colorSystem, spacing, typography, borderRadius, semantic } from '@/core/theme';
 import { DEFAULT_PATTERN } from '../breathingPatterns';
 
 interface BreathingPattern {
@@ -407,7 +407,7 @@ const styles = StyleSheet.create({
   },
   instructionText: {
     fontSize: typography.caption.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     textAlign: 'center',
     lineHeight: spacing[24],
     fontStyle: 'italic',

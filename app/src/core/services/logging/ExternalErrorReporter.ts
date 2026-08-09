@@ -76,16 +76,41 @@ const ALLOWED_ERROR_FIELDS = [
 
   // App state (no sensitive data)
   'screenName',       // Generic screen names only
-  'flowType',         // morning/midday/evening only
+  'flowType',         // closed PracticeIdentity set only — clamped at runtime, see ALLOWED_FLOW_TYPES
   'networkStatus',
   'memoryUsage',
 ] as const;
+
+import type { PracticeIdentity } from '@/core/types/practice-identity';
 
 /**
  * INFRA-295: Sentry's `level` is a closed enum. Anything outside it is dropped
  * rather than forwarded, so the field can never become a free-text channel.
  */
 const ALLOWED_LEVELS = ['fatal', 'error', 'warning', 'log', 'info', 'debug'] as const;
+
+/**
+ * FEAT-298 slice 4: same reasoning as ALLOWED_LEVELS, applied to `flowType`.
+ *
+ * `flowType` is on ALLOWED_ERROR_FIELDS and was copied through verbatim into a field typed
+ * `string | undefined` — so it was a FREE-TEXT CHANNEL into Sentry guarded only by
+ * TypeScript. Widening the compile-time union does nothing about that; a runtime clamp
+ * does. Anything outside the closed PracticeIdentity set is dropped, not forwarded.
+ *
+ * Carries the PRESENTATION identity ('daily-loop'), never the persisted record token
+ * ('daily'): the breadcrumb answers "which surface did this error occur on". Mixing in the
+ * CheckInType vocabulary would make a future record-schema change ripple into telemetry.
+ *
+ * CAUTION when adding a token: `isCrisisRelated` keyword-scans the stringified context for
+ * terms including 'safety', 'crisis', 'emergency'. A surface token containing one would
+ * silently suppress EVERY error report from that surface. 'daily-loop' hits none.
+ */
+const ALLOWED_FLOW_TYPES: readonly PracticeIdentity[] = [
+  'morning',
+  'midday',
+  'evening',
+  'daily-loop',
+];
 
 /**
  * BLOCKLIST: Fields that must NEVER be sent externally
@@ -418,7 +443,7 @@ export class ExternalErrorReporter {
     error: Error,
     context?: {
       screenName?: string;
-      flowType?: 'morning' | 'midday' | 'evening';
+      flowType?: PracticeIdentity;
       operationType?: string;
     }
   ): Promise<void> {
@@ -670,7 +695,12 @@ export class ExternalErrorReporter {
       sanitizedContext.screenName = screenName;
     }
 
-    if (context?.flowType !== undefined) {
+    // Runtime clamp — see ALLOWED_FLOW_TYPES. A value outside the closed set is dropped
+    // rather than forwarded, so this field can never become a free-text channel.
+    if (
+      context?.flowType !== undefined &&
+      ALLOWED_FLOW_TYPES.includes(context.flowType as PracticeIdentity)
+    ) {
       sanitizedContext.flowType = context.flowType;
     }
 

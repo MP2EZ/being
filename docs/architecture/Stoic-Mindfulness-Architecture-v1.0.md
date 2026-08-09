@@ -1777,8 +1777,8 @@ Beta Launch:
 
 *Stoic Mindfulness: Wisdom in practice, virtue in action.*
 
-*"The impediment to action advances action. What stands in the way becomes the way."*
-— Marcus Aurelius, Meditations 5.20
+*"that which is a hindrance is made a furtherance to an act; and that which is an obstacle on the road helps us on this road"*
+— Marcus Aurelius, Meditations 5.20 (trans. George Long)
 
 ---
 

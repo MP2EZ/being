@@ -25,7 +25,7 @@ on:
 
 env:
   EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-  NODE_VERSION: '20'
+  NODE_VERSION: '24'
   CACHE_VERSION: 'v1.2'
   ARTIFACT_RETENTION_DAYS: 90
 
@@ -42,7 +42,7 @@ jobs:
 
     steps:
       - name: 🔍 Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 2
 
@@ -139,21 +139,20 @@ jobs:
 
     steps:
       - name: 🔍 Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
       - name: 📦 Setup Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
           cache-dependency-path: 'app/package-lock.json'
 
       - name: 🔧 Setup EAS CLI
-        uses: expo/expo-github-action@v8
+        uses: expo/expo-github-action@v9
         with:
-          expo-version: latest
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
@@ -205,7 +204,7 @@ jobs:
           }" > build-cache/emergency-build-${{ matrix.platform }}-metadata.json
 
       - name: 💾 Cache Emergency Artifacts
-        uses: actions/cache/save@v3
+        uses: actions/cache/save@v5
         with:
           path: |
             app/dist/
@@ -215,7 +214,7 @@ jobs:
           key: emergency-build-${{ matrix.platform }}-${{ github.sha }}-${{ env.CACHE_VERSION }}
 
       - name: 📊 Upload Build Metadata
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: emergency-build-metadata-${{ matrix.platform }}
           path: app/build-cache/emergency-build-${{ matrix.platform }}-metadata.json
@@ -231,10 +230,10 @@ jobs:
 
     steps:
       - name: 🔍 Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: 📦 Setup Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
@@ -260,7 +259,7 @@ jobs:
           echo "✅ Dependencies validated for emergency cache"
 
       - name: 💾 Cache Validated Dependencies
-        uses: actions/cache/save@v3
+        uses: actions/cache/save@v5
         with:
           path: |
             app/node_modules/
@@ -277,17 +276,17 @@ jobs:
 
     steps:
       - name: 🔍 Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: 📦 Setup Node.js ${{ env.NODE_VERSION }}
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
           cache-dependency-path: 'app/package-lock.json'
 
       - name: 🔄 Restore Validated Dependencies
-        uses: actions/cache/restore@v3
+        uses: actions/cache/restore@v5
         with:
           path: |
             app/node_modules/
@@ -323,7 +322,7 @@ jobs:
           }" > validation-cache/crisis-validation-certificate.json
 
       - name: 💾 Cache Crisis Validation Results
-        uses: actions/cache/save@v3
+        uses: actions/cache/save@v5
         with:
           path: |
             app/coverage/
@@ -332,7 +331,7 @@ jobs:
           key: crisis-validated-${{ github.sha }}-${{ env.CACHE_VERSION }}
 
       - name: 📊 Upload Validation Certificate
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: crisis-validation-certificate
           path: app/validation-cache/crisis-validation-certificate.json
@@ -396,7 +395,7 @@ jobs:
           echo "- **Storage Size**: ~1GB total per platform" >> cache-report.md
 
       - name: 📊 Upload Cache Report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: cache-management-report
           path: cache-report.md

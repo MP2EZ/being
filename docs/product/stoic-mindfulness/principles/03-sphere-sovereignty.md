@@ -15,7 +15,7 @@ related: ["./02-radical-acceptance.md", "./04-virtuous-response.md", "../applica
 
 ## The Core of Stoic Psychology
 
-The dichotomy of control stands as the cornerstone of Stoic philosophy. Epictetus began his *Handbook* with this teaching: some things are up to us, and some things are not up to us. What is up to us includes our judgments, intentions, desires, aversions, and actions—the movements of our own will. What is not up to us includes our body, reputation, career, property, and essentially everything external to our volition.
+The dichotomy of control stands as the cornerstone of Stoic philosophy. Epictetus began his *Handbook* with this teaching: some things are in our control and others are not. What is in our control includes our judgments, intentions, desires, aversions, and actions—the movements of our own will. What is not in our control includes our body, reputation, career, property, and essentially everything external to our volition.
 
 This might seem like a harsh limitation—surely your body and career are connected to you? But the Stoics' point is subtle and crucial: while you can influence these externals, you cannot guarantee outcomes regarding them. You can exercise and eat well, but you cannot guarantee perfect health. You can work excellently, but you cannot guarantee promotion. You can treat people with kindness, but you cannot guarantee they'll like you.
 
@@ -47,7 +47,7 @@ This continuous sorting becomes a mental habit that dramatically reduces stress 
 
 ## Intention Over Outcome: The Reserve Clause
 
-This aspect of the principle extends control boundaries by addressing how we approach goals and performance. The Stoics taught that we should act with what they called a **reserve clause**: "I will sail to Corinth, if nothing prevents me" or "I will give a great speech, fate permitting." This grammatical construction expresses the proper relationship between intention and outcome.
+This aspect of the principle extends control boundaries by addressing how we approach goals and performance. The Stoics taught that we should act with what they called a **reserve clause**. Seneca gives its form in his own examples: "I will set sail unless anything happens to prevent me, I shall be praetor, if nothing hinders me, my financial operations will succeed, unless anything goes wrong with them" (*On Tranquility of Mind* 13, trans. Aubrey Stewart). This grammatical construction expresses the proper relationship between intention and outcome.
 
 Contemporary psychology has discovered that this orientation produces better performance and wellbeing than either outcome-obsession (defining success entirely by results) or effort-dismissal (caring only about trying without concern for outcomes). The Stoic approach charts a middle path: you care deeply about outcomes in the sense that you choose goals aligned with your values and apply yourself fully. However, you evaluate yourself based on factors within your control: the quality of your preparation, the courage you showed in attempting something difficult, whether you maintained integrity under pressure, and how you handled setbacks.
 

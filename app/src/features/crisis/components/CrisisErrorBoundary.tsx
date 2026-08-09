@@ -321,8 +321,23 @@ export class CrisisErrorBoundary extends Component<
             {/* Crisis support - always first priority */}
             <View style={styles.actionGroup}>
               <Text style={styles.actionGroupTitle}>🚨 Crisis Support (24/7)</Text>
+              {/*
+                CORRECTED (INFRA-297). This previously read "Use the crisis button
+                at the top of your screen for immediate support," which was false
+                twice over in this branch:
+                  1. No crisis button was on screen. This boundary replaced its
+                     children, and RootCrisisButton suppresses the root overlay on
+                     'AssessmentFlow' — the only route this boundary wraps. So the
+                     copy pointed at a control that did not exist.
+                  2. The button is bottom-right, not "at the top".
+                RootCrisisButton's own header claims this boundary "keeps its OWN
+                CollapsibleCrisisButton … the last-resort 988 access when a render
+                crash removes this root-mounted overlay". That claim was only true
+                of the fallbackComponent branch, which no caller uses. The button
+                below makes it true for the branch that actually renders.
+              */}
               <Text style={styles.crisisNotice}>
-                Use the crisis button at the top of your screen for immediate support.
+                Tap the support button below to call or text a crisis line now.
               </Text>
               <Pressable
                 style={styles.emergencyButton}

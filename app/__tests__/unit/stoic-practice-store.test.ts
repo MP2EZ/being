@@ -68,180 +68,12 @@ describe('StoicPracticeStore', () => {
     });
   });
 
-  describe('Virtue Instance Recording', () => {
-    it('should add a virtue instance and update domain progress', async () => {
-      const store = useStoicPracticeStore.getState();
-
-      const instance: Omit<VirtueInstance, 'id' | 'timestamp'> = {
-        virtue: 'wisdom',
-        context: 'Paused before reacting to criticism',
-        domain: 'work',
-        principleApplied: 'principle_2',
-      };
-
-      await store.addVirtueInstance(instance);
-
-      const updatedState = useStoicPracticeStore.getState();
-      expect(updatedState.virtueInstances).toHaveLength(1);
-      expect(updatedState.virtueInstances[0].virtue).toBe('wisdom');
-      expect(updatedState.virtueInstances[0].id).toBeTruthy();
-      expect(updatedState.virtueInstances[0].timestamp).toBeInstanceOf(Date);
-
-      // Domain progress should update
-      expect(updatedState.domainProgress.work.practiceInstances).toBe(1);
-      expect(updatedState.domainProgress.work.principlesApplied).toContain('principle_2');
-      expect(updatedState.domainProgress.work.lastPracticeDate).toBeInstanceOf(Date);
-    });
-
-    it('should handle multiple virtue instances across domains', async () => {
-      const store = useStoicPracticeStore.getState();
-
-      await store.addVirtueInstance({
-        virtue: 'wisdom',
-        context: 'Work context',
-        domain: 'work',
-        principleApplied: 'principle_1',
-      });
-      await store.addVirtueInstance({
-        virtue: 'courage',
-        context: 'Relationship context',
-        domain: 'relationships',
-        principleApplied: 'principle_2',
-      });
-      await store.addVirtueInstance({
-        virtue: 'temperance',
-        context: 'Adversity context',
-        domain: 'adversity',
-        principleApplied: null,
-      });
-
-      const state = useStoicPracticeStore.getState();
-      expect(state.virtueInstances).toHaveLength(3);
-      expect(state.domainProgress.work.practiceInstances).toBe(1);
-      expect(state.domainProgress.relationships.practiceInstances).toBe(1);
-      expect(state.domainProgress.adversity.practiceInstances).toBe(1);
-    });
-
-    it('should persist virtue instances to SecureStore (encrypted)', async () => {
-      const store = useStoicPracticeStore.getState();
-
-      await store.addVirtueInstance({
-        virtue: 'wisdom',
-        context: 'Test',
-        domain: 'work',
-        principleApplied: null,
-      });
-
-      // PERF-01: persistence is now debounced (500ms trailing); flush
-      // explicitly so we verify the eventual write happens.
-      await flushStoicPracticePersist();
-
-      // Should call SecureStore.setItemAsync to encrypt and persist
-      expect(SecureStore.setItemAsync).toHaveBeenCalled();
-    });
-  });
-
-  describe('Virtue Challenge Recording', () => {
-    it('should add a virtue challenge with required self-compassion', async () => {
-      const store = useStoicPracticeStore.getState();
-
-      const challenge: Omit<VirtueChallenge, 'id' | 'timestamp'> = {
-        situation: 'Reacted defensively to feedback',
-        virtueViolated: 'wisdom',
-        whatICouldHaveDone: 'Paused and listened',
-        triggerIdentified: 'Felt criticized',
-        whatWillIPractice: 'Pause before responding',
-        selfCompassion: 'I\'m learning. This is hard.',
-      };
-
-      await store.addVirtueChallenge(challenge);
-
-      const state = useStoicPracticeStore.getState();
-      expect(state.virtueChallenges).toHaveLength(1);
-      expect(state.virtueChallenges[0].situation).toBe('Reacted defensively to feedback');
-      expect(state.virtueChallenges[0].selfCompassion).toBe('I\'m learning. This is hard.');
-      expect(state.virtueChallenges[0].id).toBeTruthy();
-      expect(state.virtueChallenges[0].timestamp).toBeInstanceOf(Date);
-    });
-
-    it('should persist virtue challenges to SecureStore (encrypted)', async () => {
-      const store = useStoicPracticeStore.getState();
-
-      await store.addVirtueChallenge({
-        situation: 'Test',
-        virtueViolated: 'wisdom',
-        whatICouldHaveDone: 'Test',
-        triggerIdentified: null,
-        whatWillIPractice: 'Test',
-        selfCompassion: 'Test',
-      });
-
-      await flushStoicPracticePersist();
-
-      expect(SecureStore.setItemAsync).toHaveBeenCalled();
-    });
-  });
-
-  describe('Domain Progress Tracking', () => {
-    it('should update domain progress when principles are applied', async () => {
-      const store = useStoicPracticeStore.getState();
-
-      await store.addVirtueInstance({
-        virtue: 'wisdom',
-        context: 'Test 1',
-        domain: 'work',
-        principleApplied: 'principle_1',
-      });
-      await store.addVirtueInstance({
-        virtue: 'courage',
-        context: 'Test 2',
-        domain: 'work',
-        principleApplied: 'principle_2',
-      });
-      await store.addVirtueInstance({
-        virtue: 'justice',
-        context: 'Test 3',
-        domain: 'work',
-        principleApplied: 'principle_1', // Duplicate principle
-      });
-
-      const state = useStoicPracticeStore.getState();
-      const workProgress = state.domainProgress.work;
-      expect(workProgress.practiceInstances).toBe(3);
-      expect(workProgress.principlesApplied).toHaveLength(2); // Only unique principles
-      expect(workProgress.principlesApplied).toContain('principle_1');
-      expect(workProgress.principlesApplied).toContain('principle_2');
-    });
-
-    it('should track cross-domain integration', async () => {
-      const store = useStoicPracticeStore.getState();
-
-      // Practice in all 3 domains
-      await store.addVirtueInstance({
-        virtue: 'wisdom',
-        context: 'Work',
-        domain: 'work',
-        principleApplied: 'principle_1',
-      });
-      await store.addVirtueInstance({
-        virtue: 'courage',
-        context: 'Relationship',
-        domain: 'relationships',
-        principleApplied: 'principle_2',
-      });
-      await store.addVirtueInstance({
-        virtue: 'temperance',
-        context: 'Adversity',
-        domain: 'adversity',
-        principleApplied: 'principle_3',
-      });
-
-      const state = useStoicPracticeStore.getState();
-      expect(state.domainProgress.work.practiceInstances).toBeGreaterThan(0);
-      expect(state.domainProgress.relationships.practiceInstances).toBeGreaterThan(0);
-      expect(state.domainProgress.adversity.practiceInstances).toBeGreaterThan(0);
-    });
-  });
+  // MAINT-320: 'Virtue Instance Recording', 'Virtue Challenge Recording' and
+  // 'Domain Progress Tracking' were deleted with the writers they exercised
+  // (addVirtueInstance / addVirtueChallenge / updateDomainProgressForInstance).
+  // They are not re-homed anywhere: they asserted behaviour that no longer
+  // exists and that no reachable code path ever invoked in production. Coverage
+  // of the surviving read path lives in 'Data Retrieval' below.
 
   describe('Practice Streak Tracking', () => {
     it('should track current streak', () => {
@@ -275,77 +107,61 @@ describe('StoicPracticeStore', () => {
   });
 
   describe('Data Retrieval', () => {
-    it('should retrieve virtue instances by domain', async () => {
-      const store = useStoicPracticeStore.getState();
+    // MAINT-320: getVirtueInstancesByDomain / getVirtueInstancesByVirtue are
+    // gone (no callers, ever). getRecentVirtueInstances SURVIVES because
+    // exportService reads it into payload.practices.virtues, so it keeps
+    // coverage — but seeded via rehydration, which is now the only way a record
+    // can reach this state at all. That is the honest shape of the contract.
+    it('should retrieve recent virtue instances (last 7 days) from rehydrated state', async () => {
+      const tenDaysAgo = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
+      const yesterday = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000);
 
-      await store.addVirtueInstance({
-        virtue: 'wisdom',
-        context: 'Work context',
-        domain: 'work',
-        principleApplied: 'principle_1',
-      });
-      await store.addVirtueInstance({
-        virtue: 'courage',
-        context: 'Relationship context',
-        domain: 'relationships',
-        principleApplied: 'principle_2',
-      });
+      (SecureStore.getItemAsync as jest.Mock).mockResolvedValueOnce(
+        JSON.stringify({
+          virtueInstances: [
+            {
+              id: 'old',
+              virtue: 'wisdom',
+              context: 'Old',
+              domain: 'work',
+              principleApplied: null,
+              timestamp: tenDaysAgo.toISOString(),
+            },
+            {
+              id: 'recent',
+              virtue: 'courage',
+              context: 'Recent',
+              domain: 'work',
+              principleApplied: null,
+              timestamp: yesterday.toISOString(),
+            },
+          ],
+          virtueChallenges: [],
+          // domainProgress is REQUIRED in any fixture blob, and its absence is
+          // not a cosmetic omission. loadFromSecureStore reads every other key
+          // with `?.` but dereferences `parsed.domainProgress.work` (and
+          // .relationships / .adversity) unguarded. A blob without it throws,
+          // the outer catch swallows the throw, and loadPersistedState silently
+          // returns null — leaving the store at initial state, with an empty
+          // array here rather than a failure anyone can see.
+          //
+          // ⚠️  MAINT-371 (removing domainProgress) MUST add the optional
+          // chaining first. Dropping the key from the WRITER while the READER
+          // still dereferences it unguarded would make every subsequent load
+          // throw, and the next schedulePersist() would then overwrite the
+          // user's real checkInCompletions / principleEngagements with initial
+          // state. This is the one place that failure mode is visible.
+          domainProgress: {
+            work: { domain: 'work', practiceInstances: 0, principlesApplied: [], lastPracticeDate: null },
+            relationships: { domain: 'relationships', practiceInstances: 0, principlesApplied: [], lastPracticeDate: null },
+            adversity: { domain: 'adversity', practiceInstances: 0, principlesApplied: [], lastPracticeDate: null },
+          },
+        })
+      );
 
-      const workInstances = store.getVirtueInstancesByDomain('work');
-      expect(workInstances).toHaveLength(1);
-      expect(workInstances[0].domain).toBe('work');
-    });
+      await useStoicPracticeStore.getState().loadPersistedState();
 
-    it('should retrieve virtue instances by virtue', async () => {
-      const store = useStoicPracticeStore.getState();
-
-      await store.addVirtueInstance({
-        virtue: 'wisdom',
-        context: 'Context 1',
-        domain: 'work',
-        principleApplied: null,
-      });
-      await store.addVirtueInstance({
-        virtue: 'wisdom',
-        context: 'Context 2',
-        domain: 'relationships',
-        principleApplied: null,
-      });
-      await store.addVirtueInstance({
-        virtue: 'courage',
-        context: 'Context 3',
-        domain: 'work',
-        principleApplied: null,
-      });
-
-      const wisdomInstances = store.getVirtueInstancesByVirtue('wisdom');
-      expect(wisdomInstances).toHaveLength(2);
-      expect(wisdomInstances.every(i => i.virtue === 'wisdom')).toBe(true);
-    });
-
-    it('should retrieve recent virtue instances (last 7 days)', async () => {
-      const store = useStoicPracticeStore.getState();
-
-      await store.addVirtueInstance({
-        virtue: 'wisdom',
-        context: 'Old',
-        domain: 'work',
-        principleApplied: null,
-      });
-
-      const state = useStoicPracticeStore.getState();
-      // Manually set timestamp to old date
-      const oldDate = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000); // 10 days ago
-      state.virtueInstances[0].timestamp = oldDate;
-
-      await store.addVirtueInstance({
-        virtue: 'courage',
-        context: 'Recent',
-        domain: 'work',
-        principleApplied: null,
-      });
-
-      const recentInstances = store.getRecentVirtueInstances(7);
+      const recentInstances = useStoicPracticeStore.getState().getRecentVirtueInstances(7);
       expect(recentInstances).toHaveLength(1);
       expect(recentInstances[0].context).toBe('Recent');
     });
@@ -392,12 +208,7 @@ describe('StoicPracticeStore', () => {
     it('should persist state changes to SecureStore', async () => {
       const store = useStoicPracticeStore.getState();
 
-      await store.addVirtueInstance({
-        virtue: 'wisdom',
-        context: 'Test',
-        domain: 'work',
-        principleApplied: null,
-      });
+      await store.markCheckInComplete('daily');
 
       await flushStoicPracticePersist();
 
@@ -415,43 +226,27 @@ describe('StoicPracticeStore', () => {
 
       const store = useStoicPracticeStore.getState();
 
-      await store.addVirtueInstance({
-        virtue: 'wisdom',
-        context: 'Test',
-        domain: 'work',
-        principleApplied: null,
-      });
+      await store.markCheckInComplete('daily');
 
       await flushStoicPracticePersist();
 
       const state = useStoicPracticeStore.getState();
-      // Should not throw error, should log error
-      expect(state.virtueInstances).toHaveLength(1); // State updated locally
+      // Should not throw; the local mutation still stands even though the
+      // write failed.
+      expect(state.checkInCompletions).toHaveLength(1);
     });
 
     it('PERF-01: debounces multiple mutations into a single SecureStore write', async () => {
       const store = useStoicPracticeStore.getState();
       (SecureStore.setItemAsync as jest.Mock).mockClear();
 
-      // Three rapid mutations within the 500ms debounce window
-      await store.addVirtueInstance({
-        virtue: 'wisdom',
-        context: 'a',
-        domain: 'work',
-        principleApplied: null,
-      });
-      await store.addVirtueInstance({
-        virtue: 'courage',
-        context: 'b',
-        domain: 'work',
-        principleApplied: null,
-      });
-      await store.addVirtueInstance({
-        virtue: 'justice',
-        context: 'c',
-        domain: 'work',
-        principleApplied: null,
-      });
+      // Three rapid mutations within the 500ms debounce window. MAINT-320
+      // swapped the vehicle from addVirtueInstance to surviving mutations; the
+      // count is deliberately still three, because collapsing a BURST is the
+      // property under test and a single mutation would not test it.
+      await store.recordPrincipleEngagement('aware_presence', 'daily', 'selected');
+      await store.recordPrincipleEngagement('radical_acceptance', 'daily', 'applied');
+      await store.incrementPracticeDays();
 
       // Before flush: writes are scheduled but haven't fired yet
       expect(SecureStore.setItemAsync).not.toHaveBeenCalled();
@@ -467,20 +262,15 @@ describe('StoicPracticeStore', () => {
     it('should reset store to initial state', async () => {
       const store = useStoicPracticeStore.getState();
 
-      // Add some data
-      await store.addVirtueInstance({
-        virtue: 'wisdom',
-        context: 'Test',
-        domain: 'work',
-        principleApplied: null,
-      });
+      // Dirty the store with surviving mutations (MAINT-320: was addVirtueInstance).
+      await store.markCheckInComplete('daily');
       store.updateStreak(10);
 
       // Reset
       await store.resetStore();
 
       const state = useStoicPracticeStore.getState();
-      expect(state.virtueInstances).toHaveLength(0);
+      expect(state.checkInCompletions).toHaveLength(0);
       expect(state.currentStreak).toBe(0);
     });
 

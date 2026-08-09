@@ -4,25 +4,31 @@
  * Shared progress indicator for flow navigator headers.
  * Displays current step and visual progress bar with theme-appropriate styling.
  *
- * INFRA-135: Extracted from MorningFlowNavigator, MiddayFlowNavigator, EveningFlowNavigator
- * to reduce code duplication (~75 lines saved across 3 navigators).
+ * INFRA-135: originally extracted from the three retired time-of-day navigators
+ * (FEAT-298 slice 6c); now serves the daily loop.
  *
  * @see /docs/architecture/Stoic-Mindfulness-Architecture-v1.0.md
  */
 
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { colorSystem, spacing, borderRadius, typography, getTheme } from '@/core/theme';
+import { colorSystem, spacing, borderRadius, typography, getTheme, semantic } from '@/core/theme';
+import { themeKeyFor } from '@/core/types/practice-identity';
 
-export type FlowType = 'morning' | 'midday' | 'evening';
+// FEAT-298 slice 1: re-exported from the canonical declaration, not re-declared.
+export type { FlowType } from '@/core/types/practice-identity';
+// FEAT-298 slice 3b: accepts any practice identity so the daily loop can pass its OWN
+// identity instead of claiming to be midday. The palette is unchanged (themeKeyFor maps
+// 'daily-loop' to midday) — what changes is that the prop now tells the truth.
+import type { PracticeIdentity } from '@/core/types/practice-identity';
 
 interface FlowProgressIndicatorProps {
   /** Current step number (1-indexed) */
   currentStep: number;
   /** Total number of steps in the flow */
   totalSteps: number;
-  /** Flow type for theme coloring */
-  flowType: FlowType;
+  /** Practice identity for theme colouring */
+  flowType: PracticeIdentity;
 }
 
 /**
@@ -35,7 +41,7 @@ export const FlowProgressIndicator: React.FC<FlowProgressIndicatorProps> = ({
   flowType,
 }) => {
   const progress = (currentStep / totalSteps) * 100;
-  const themeColors = getTheme(flowType);
+  const themeColors = getTheme(themeKeyFor(flowType));
 
   return (
     <View style={styles.progressContainer}>
@@ -75,7 +81,7 @@ const styles = StyleSheet.create({
   },
   progressText: {
     fontSize: typography.micro.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     fontWeight: typography.fontWeight.medium,
   },
 });

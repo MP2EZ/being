@@ -40,10 +40,10 @@ import { RootCrisisButton, ROOT_CRISIS_BUTTON_TEST_ID } from '../RootCrisisButto
 
 const SUPPRESSED = ['CrisisResources', 'AssessmentFlow', 'LegalGate'];
 const IMMERSIVE = [
-  'MorningFlow',
-  'MiddayFlow',
-  'EveningFlow',
-  'DailyLoop', // FEAT-291: single-loop daily-practice prototype (flag-independent pin)
+  // FEAT-298 slice 6c: MorningFlow / MiddayFlow / EveningFlow removed with the flows.
+  // DailyLoop is now the ONLY daily-practice immersive route — which raises the stakes on
+  // this pin, since it is the sole surface where the overlay must render in immersive mode.
+  'DailyLoop',
   'PracticeTimer',
   'ReflectionTimer',
   'SortingPractice',
@@ -74,6 +74,18 @@ describe('RootCrisisButton (MAINT-290 single root mount)', () => {
     expect(receivedProps).toHaveLength(0);
   });
 
+  it('stays reachable in standard mode on VoiceReflection (FEAT-283)', () => {
+    // The voice journal review surface can have crisis text on screen, so the
+    // always-available affordance matters most there. Suppressing it, or
+    // fading it to immersive, would be a safety regression — this pins that
+    // adding the route to SUPPRESSED_ROUTES or IMMERSIVE_ROUTES fails a test
+    // rather than silently shipping. Also pinned end-to-end by
+    // .maestro/journal-crisis-scan.yaml.
+    render(<RootCrisisButton routeName="VoiceReflection" />);
+    expect(receivedProps[0]?.mode).toBe('standard');
+    expect(receivedProps[0]?.testID).toBe(ROOT_CRISIS_BUTTON_TEST_ID);
+  });
+
   it.each(IMMERSIVE)('uses immersive mode on practice route %s', (route) => {
     render(<RootCrisisButton routeName={route} />);
     expect(receivedProps[0]?.mode).toBe('immersive');
@@ -84,6 +96,17 @@ describe('RootCrisisButton (MAINT-290 single root mount)', () => {
     render(<RootCrisisButton routeName={route} />);
     expect(receivedProps[0]?.mode).toBe('standard');
     expect(receivedProps[0]?.testID).toBe(ROOT_CRISIS_BUTTON_TEST_ID);
+  });
+
+  it('keeps the overlay in standard mode on the FEAT-293 PracticeLibrary route', () => {
+    // PracticeLibrary is a browsable LISTING surface, not a practice the user is
+    // immersed in, so it must resolve to the default `standard` overlay — and it
+    // must never end up in SUPPRESSED_ROUTES, which would make it a screen with
+    // zero 988 access. Unknown routes fall through to `standard`, which is the
+    // fail-safe direction, but "safe by accident" is not a contract; this pins it.
+    const { getByTestId } = render(<RootCrisisButton routeName="PracticeLibrary" />);
+    expect(getByTestId(ROOT_CRISIS_BUTTON_TEST_ID)).toBeTruthy();
+    expect(receivedProps[0]?.mode).toBe('standard');
   });
 
   it('renders in standard mode when route is undefined (pre-ready)', () => {

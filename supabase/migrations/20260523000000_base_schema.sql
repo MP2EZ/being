@@ -286,9 +286,18 @@ ORDER BY event_date DESC, event_count DESC;
 --     intervention code path, and are NOT the safety mechanism — the on-device crisis
 --     audit log remains the accountability record.
 --
--- No time-window filter is applied: the 90-day analytics retention (cleanup_old_analytics)
--- already bounds the rows, and a window would drop durably-queued events that flush late
--- with an older created_at (offline / first-run reconciliation).
+-- No time-window filter is applied: retention (cleanup_old_analytics) already bounds the
+-- rows, and a window would drop durably-queued events that flush late with an older
+-- created_at (offline / first-run reconciliation).
+--
+-- DEBUG-340 CORRECTION: this comment used to say "the 90-day analytics retention ...
+-- already bounds the rows". That was doubly wrong. (a) cleanup_old_analytics was never
+-- cron.schedule'd, so nothing bounded these rows at all — real retention was INDEFINITE.
+-- (b) It is no longer 90 days for this view's rows: crisis_detected is now retained for
+-- 3 YEARS (privacy-policy §7.2) while every other event type is pruned at 90 days
+-- (§7.1). So these views are bounded at 3 years, not 90 days, and that is deliberate —
+-- they are the FEAT-129 operator aggregates and the alerter's dead-vs-quiet baseline,
+-- both of which need history longer than a quarter.
 
 -- (a) Detection mix — per-day breakdown by assessment, trigger, and severity bucket.
 CREATE OR REPLACE VIEW crisis_detection_daily AS

@@ -28,7 +28,7 @@ The Stoics organized virtue into four cardinal categories that encompass all eth
 
 ## Virtuous Reappraisal: Obstacles Are Opportunities
 
-The Stoics made a striking claim: obstacles are not impediments to action but rather the material for action. Marcus Aurelius wrote: "The impediment to action advances action. What stands in the way becomes the way." This reflects cognitive reappraisal—changing the meaning you assign to events.
+The Stoics made a striking claim: obstacles are not impediments to action but rather the material for action. Marcus Aurelius wrote: "that which is a hindrance is made a furtherance to an act; and that which is an obstacle on the road helps us on this road" (*Meditations* 5.20, trans. George Long). This reflects cognitive reappraisal—changing the meaning you assign to events.
 
 Consider facing a serious illness. The facts of the illness—pain, limitations, uncertainty—are real and difficult. The Stoic reframe doesn't claim "this is good" (which you likely don't believe). Instead, it asks: "How can I respond to this illness with wisdom, courage, justice, and temperance?"
 

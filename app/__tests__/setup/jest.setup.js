@@ -336,9 +336,12 @@ jest.mock('react-native', () => {
       setAccessibilityFocus: jest.fn(),
     },
 
-    // FEAT-285: needed to resolve a ref into a native tag for
-    // AccessibilityInfo.setAccessibilityFocus. Absent from this mock until now,
-    // so any component moving screen-reader focus threw at render time.
+    // findNodeHandle — required by any screen that programmatically moves VoiceOver
+    // focus (WCAG 4.1.3), e.g. DailyLoopCompleteScreen when the breath section unmounts,
+    // or the FEAT-285 haptics opt-in prompt. This mock is a wholesale allow-list, so an
+    // export omitted here is `undefined` at call time and the component throws "is not a
+    // function" on render rather than degrading. Returns a truthy tag so the focus effect
+    // runs its real code path into the mocked AccessibilityInfo.setAccessibilityFocus above.
     findNodeHandle: jest.fn(() => 1),
 
     // UIManager — minimal mock so getViewManagerConfig() returns an object

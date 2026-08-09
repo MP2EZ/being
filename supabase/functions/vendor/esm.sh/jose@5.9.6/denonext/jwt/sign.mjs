@@ -1,0 +1,3 @@
+/* esm.sh - jose@5.9.6/jwt/sign */
+import{CompactSign as d}from"../jws/compact/sign.mjs";import{JWTInvalid as s}from"../errors.mjs";import{encoder as i}from"../dist/browser/lib/buffer_utils.mjs";import{ProduceJWT as a}from"../dist/browser/jwt/produce.mjs";var t=class extends a{setProtectedHeader(e){return this._protectedHeader=e,this}async sign(e,o){let r=new d(i.encode(JSON.stringify(this._payload)));if(r.setProtectedHeader(this._protectedHeader),Array.isArray(this._protectedHeader?.crit)&&this._protectedHeader.crit.includes("b64")&&this._protectedHeader.b64===!1)throw new s("JWTs MUST NOT use unencoded payload");return r.sign(e,o)}};export{t as SignJWT};
+//# sourceMappingURL=sign.mjs.map

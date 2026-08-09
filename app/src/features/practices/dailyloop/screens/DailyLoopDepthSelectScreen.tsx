@@ -16,7 +16,7 @@
  */
 import React from 'react';
 import { Text, Pressable, ScrollView, StyleSheet } from 'react-native';
-import { colorSystem, spacing, borderRadius, typography, getTheme } from '@/core/theme';
+import { colorSystem, spacing, borderRadius, typography, getTheme, semantic } from '@/core/theme';
 import type { DailyLoopDepth } from '@/features/practices/types/flows';
 import { DEPTH_LABELS, DEPTH_PICKER_COPY } from '../config/tenseMode';
 
@@ -70,7 +70,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     marginBottom: spacing[24],
     lineHeight: typography.bodyRegular.size * 1.5,
   },
@@ -88,7 +88,7 @@ const styles = StyleSheet.create({
   },
   cardBlurb: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
   },
 });
 

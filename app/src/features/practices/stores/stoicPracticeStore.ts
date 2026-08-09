@@ -5,18 +5,48 @@
  * Uses Zustand for reactive state + SecureStore for AES-256 encryption.
  *
  * Philosopher-validated (9.7/10 rating) - Tracks:
- * - Domain progress (work, relationships, adversity)
- * - Virtue instances (successes) and challenges (struggles)
+ * - Check-in completions and principle engagements
+ * - Weekly reflections
  * - Practice streaks and total days
  *
  * FEAT-45: Updated to 5-principle framework (2025-10-29)
- * Principle repertoire thresholds adjusted: 12 principles → 5 principles
  *
  * NON-NEGOTIABLES:
- * - All virtue/challenge data encrypted at rest (SecureStore)
- * - Self-compassion required in VirtueChallenge
- * - Balanced examination (instances + challenges)
- * - Privacy-first: No analytics on virtue content
+ * - All practice data encrypted at rest (SecureStore)
+ * - Privacy-first: No analytics on practice content
+ *
+ * ── MAINT-320 (2026-08-08): virtue WRITERS removed, virtue STATE retained ──
+ *
+ * `addVirtueInstance` / `addVirtueChallenge` and the domain-progress helper they
+ * drove are gone. They had zero production callers, and git history shows no
+ * reachable writer ever shipped: the only caller `addVirtueInstance` ever had was
+ * `VirtueInstancesScreen`, which was never registered in `EveningFlowNavigator`
+ * and was deleted as orphaned in MAINT-79 (abff5b09); `VirtueDashboardScreen`
+ * (FEAT-51) was read-only. So the evening flow APPEARED to write virtue records
+ * and never did — `virtueInstances` / `virtueChallenges` have always been empty
+ * in production.
+ *
+ * WHY THE STATE AND `getRecentVirtueInstances` STAY (deliberate, not an oversight):
+ * `getRecentVirtueInstances` has a live production caller —
+ * `features/data-export/services/exportService.ts` reads it into
+ * `payload.practices.virtues`. Removing the state would therefore change the
+ * data-export contract, which needs `EXPORT_SCHEMA_VERSION` bumped, an
+ * `EXPORT_OMISSIONS` disclosure entry, a schema-version bump with a forward-only
+ * migration, a co-edit to `DataRetentionService`'s `practice_progress` branch
+ * (it writes these keys back, and would resurrect them), and a compliance pass.
+ * That is tracked as **MAINT-371**, not smuggled in here. Keeping the state means
+ * the persisted shape is unchanged, so this removal needs no migration at all.
+ *
+ * `domainProgress` is now frozen at its initial zeroes — its only writer was the
+ * helper removed above, and it has no production readers. It is retained for the
+ * same reason: dropping it would change the persisted shape. Also folded into
+ * MAINT-371.
+ *
+ * OUT OF SCOPE, recorded so it is not lost: the daily loop's Virtuous Response
+ * beat collects `virtues: CardinalVirtue[]` (`DailyLoopStepScreen`) that
+ * `handleDailyLoopComplete` never reads. Wiring it up would be a NEW wellness-data
+ * write carrying free-text `context` and needs its own compliance review; dropping
+ * the chips is a UX change. Either way it is a separate item, not this cleanup.
  *
  * @see /docs/architecture/Stoic-Mindfulness-Architecture-v1.0.md (v1.1 LOCKED)
  */
@@ -28,8 +58,6 @@ import { generateInternalId } from '@/core/utils/id';
 import { getIsoWeekStart } from '@/core/utils/isoWeek';
 import { logError, LogCategory } from '@/core/services/logging';
 import type {
-  CardinalVirtue,
-  PracticeDomain,
   StoicPrinciple,
   VirtueInstance,
   VirtueChallenge,
@@ -43,7 +71,13 @@ import type {
 // Check-in completion tracking for daily check-ins
 // Used by Home screen to display faded appearance for completed check-ins
 // FEAT-133: Added 'learn' for Learn module practice engagements
-export type CheckInType = 'morning' | 'midday' | 'evening' | 'learn';
+// FEAT-298 slice 2: Added 'daily' for the single daily ritual. ADDITIVE — the three
+// time-of-day members are deliberately NOT dropped. Preserving them is what preserves
+// history by construction: every record already on disk stays valid under this union, so
+// the migration never has to rewrite a stored value (see migratePersistedBlob below).
+// The eventual target shape is 'daily' | 'learn', reached only after slice 6 retires the
+// three flows; 'learn' (FEAT-133) is orthogonal to the ritual and survives regardless.
+export type CheckInType = 'morning' | 'midday' | 'evening' | 'learn' | 'daily';
 
 export interface CheckInCompletion {
   type: CheckInType;
@@ -57,11 +91,16 @@ export interface CheckInCompletion {
  * Records when a user engages with a Stoic principle during check-in flows.
  * Used by InsightsScreen to show principle engagement patterns over time.
  *
- * Engagement types:
- * - 'selected': User selected this principle as focus in morning flow
- * - 'applied': User reported applying principle during midday/evening
- * - 'reflected': User reflected on principle in evening review
- * - 'practiced': User completed a practice exercise in Learn module (FEAT-133)
+ * Engagement types — these track TENSE (when the engagement stands relative to the day),
+ * not the mechanism by which a principle was chosen (FEAT-298 slice 3 clarification):
+ * - 'selected': PROSPECTIVE focus — morning flow, or a morning-tensed daily loop. The
+ *   loop brings all five principles to focus rather than picking one from a menu; the
+ *   recorded fact is that the engagement was forward-looking.
+ * - 'applied': PRESENT engagement with live material — midday flow, or a flat daily loop.
+ * - 'reflected': RETROSPECTIVE review — evening flow, or an evening-tensed daily loop.
+ * - 'practiced': User completed a practice exercise in Learn module (FEAT-133). Reserved
+ *   for in-app education — never reused by a practice flow, so the exported vocabulary can
+ *   always tell education from lived practice.
  */
 export type PrincipleEngagementType = 'selected' | 'applied' | 'reflected' | 'practiced';
 
@@ -99,11 +138,18 @@ export interface StoicPracticeState {
   currentStreak: number;
   longestStreak: number;
 
-  // Virtue tracking (encrypted at rest)
+  // Virtue tracking (encrypted at rest).
+  // MAINT-320: WRITE-DEAD as of this build — no writer remains, and none ever
+  // shipped (see the file header). Retained, not removed: `virtueInstances` is
+  // read by the data-export contract, and keeping both fields keeps the
+  // persisted shape unchanged so no migration is needed. Removal is MAINT-371.
   virtueInstances: VirtueInstance[];
   virtueChallenges: VirtueChallenge[];
 
-  // Domain progress (work, relationships, adversity)
+  // Domain progress (work, relationships, adversity).
+  // MAINT-320: also write-dead — its only writer was the virtue-instance helper
+  // removed above, and it has no production readers. Frozen at initial zeroes.
+  // Retained for the same persisted-shape reason. Removal is MAINT-371.
   domainProgress: {
     work: DomainProgress;
     relationships: DomainProgress;
@@ -125,13 +171,11 @@ export interface StoicPracticeState {
   isLoading: boolean;
 
   // Actions
-  addVirtueInstance: (instance: Omit<VirtueInstance, 'id' | 'timestamp'>) => Promise<void>;
-  addVirtueChallenge: (challenge: Omit<VirtueChallenge, 'id' | 'timestamp'>) => Promise<void>;
   updateStreak: (newStreak: number) => void;
   incrementPracticeDays: () => Promise<void>;
   setPracticeStartDate: (date: Date) => void;
-  getVirtueInstancesByDomain: (domain: PracticeDomain) => VirtueInstance[];
-  getVirtueInstancesByVirtue: (virtue: CardinalVirtue) => VirtueInstance[];
+  // Retained for the data-export contract — see the MAINT-320 note in the file
+  // header. The by-domain / by-virtue variants had no callers and are gone.
   getRecentVirtueInstances: (days: number) => VirtueInstance[];
   // Check-in completion tracking (for home screen faded appearance)
   markCheckInComplete: (type: CheckInType) => Promise<void>;
@@ -169,7 +213,7 @@ const initialDomainProgress: DomainProgress = {
   lastPracticeDate: null,
 };
 
-const getInitialState = (): Omit<StoicPracticeState, 'isLoading' | 'addVirtueInstance' | 'addVirtueChallenge' | 'updateStreak' | 'incrementPracticeDays' | 'setPracticeStartDate' | 'getVirtueInstancesByDomain' | 'getVirtueInstancesByVirtue' | 'getRecentVirtueInstances' | 'markCheckInComplete' | 'isCheckInCompletedToday' | 'recordPrincipleEngagement' | 'getPrincipleEngagements' | 'getCheckInHistory' | 'addWeeklyReflection' | 'getWeeklyReflectionForWeek' | 'loadPersistedState' | 'persistState' | 'resetStore'> => ({
+const getInitialState = (): Omit<StoicPracticeState, 'isLoading' | 'updateStreak' | 'incrementPracticeDays' | 'setPracticeStartDate' | 'getRecentVirtueInstances' | 'markCheckInComplete' | 'isCheckInCompletedToday' | 'recordPrincipleEngagement' | 'getPrincipleEngagements' | 'getCheckInHistory' | 'addWeeklyReflection' | 'getWeeklyReflectionForWeek' | 'loadPersistedState' | 'persistState' | 'resetStore'> => ({
   practiceStartDate: null,
   totalPracticeDays: 0,
   currentStreak: 0,
@@ -195,32 +239,6 @@ const getInitialState = (): Omit<StoicPracticeState, 'isLoading' | 'addVirtueIns
  */
 const generateId = (): string => {
   return generateInternalId();
-};
-
-/**
- * Update domain progress when virtue instance is added
- */
-const updateDomainProgressForInstance = (
-  domainProgress: StoicPracticeState['domainProgress'],
-  domain: PracticeDomain,
-  principleApplied: string | null
-): StoicPracticeState['domainProgress'] => {
-  const currentProgress = domainProgress[domain];
-
-  // Add principle if not already applied in this domain
-  const principlesApplied = principleApplied && !currentProgress.principlesApplied.includes(principleApplied)
-    ? [...currentProgress.principlesApplied, principleApplied]
-    : currentProgress.principlesApplied;
-
-  return {
-    ...domainProgress,
-    [domain]: {
-      ...currentProgress,
-      practiceInstances: currentProgress.practiceInstances + 1,
-      principlesApplied,
-      lastPracticeDate: new Date(),
-    },
-  };
 };
 
 /**
@@ -354,11 +372,56 @@ export async function flushStoicPracticePersist(): Promise<void> {
 }
 
 /**
+ * Current persisted schema version for the `stoic_practice_state` blob (FEAT-298 slice 2).
+ *
+ * Before this the blob carried NO version, so there was no way to express "these records
+ * were written under the old model" — which is exactly what "preserve historical records"
+ * needs. Blobs without a `version` key are treated as v0 (pre-versioning).
+ *
+ * Bump this ONLY together with a migration step in `migratePersistedBlob`.
+ */
+export const STOIC_PRACTICE_SCHEMA_VERSION = 1;
+
+/**
+ * Migrate a raw parsed blob forward to `STOIC_PRACTICE_SCHEMA_VERSION`.
+ *
+ * FORWARD-ONLY and ADDITIVE, and non-negotiably so (compliance pass, FEAT-298 slice 2):
+ * rewriting a stored 'midday' into 'daily' would fabricate a record of an action the user
+ * never took. That is a data-accuracy violation under the state privacy regimes in
+ * docs/legal/regulatory-applicability.md, and it would corrupt any right-to-know / export
+ * response. Records are therefore preserved verbatim; only the version stamp is added.
+ *
+ * v0 → v1 needs NO field transformation at all, because slice 2 widened `CheckInType`
+ * additively — every value already on disk is still valid under the new union. That is the
+ * point of the additive design, not an oversight: the cheapest migration is the one with
+ * nothing to migrate. The mechanism exists so later slices have a versioned base to
+ * migrate FROM.
+ *
+ * Idempotent by construction: gated on the stored version, never on shape-sniffing.
+ */
+const migratePersistedBlob = (parsed: any): any => {
+  const storedVersion =
+    typeof parsed.version === 'number' && Number.isFinite(parsed.version) ? parsed.version : 0;
+
+  if (storedVersion >= STOIC_PRACTICE_SCHEMA_VERSION) {
+    // Already current, or written by a NEWER build (the user downgraded). Migrating
+    // backwards is undefined, so leave every record exactly as it is rather than guessing.
+    return parsed;
+  }
+
+  // v0 → v1: stamp only. No record is read, rewritten, or filtered — including records
+  // whose `type` this build does not recognise (forward-compat: they may come from a
+  // future version, and dropping them would be silent data loss).
+  return { ...parsed, version: STOIC_PRACTICE_SCHEMA_VERSION };
+};
+
+/**
  * Persist state to SecureStore (encrypted)
  */
 const persistToSecureStore = async (state: Partial<StoicPracticeState>): Promise<void> => {
   try {
     const dataToStore = {
+      version: STOIC_PRACTICE_SCHEMA_VERSION,
       practiceStartDate: state.practiceStartDate?.toISOString() ?? null,
       totalPracticeDays: state.totalPracticeDays,
       currentStreak: state.currentStreak,
@@ -411,7 +474,26 @@ const loadFromSecureStore = async (): Promise<Partial<StoicPracticeState> | null
     const storedData = await SecureStore.getItemAsync(SECURE_STORE_KEY);
     if (!storedData) return null;
 
-    const parsed = JSON.parse(storedData);
+    const rawParsed = JSON.parse(storedData);
+
+    // Migration runs in its OWN try/catch on purpose. If it fell through to the outer
+    // catch below, a migration bug would return null — and null leaves the store at its
+    // EMPTY initial state, which the very next schedulePersist() would write over the
+    // user's good on-disk blob. That is real data loss, unlike the accepted swallow-on-
+    // write in persistToSecureStore (where in-memory state is already correct and only the
+    // write is delayed). On failure we fall back to the UNtransformed parse — never a
+    // partially-transformed object — and leave the blob unstamped so it retries next load.
+    let parsed: any;
+    try {
+      parsed = migratePersistedBlob(rawParsed);
+    } catch (err) {
+      logError(
+        LogCategory.SYSTEM,
+        'stoicPracticeStore schema migration failed; loading records unmigrated',
+        err instanceof Error ? err : new Error(String(err))
+      );
+      parsed = rawParsed;
+    }
 
     return {
       practiceStartDate: parsed.practiceStartDate ? new Date(parsed.practiceStartDate) : null,
@@ -471,53 +553,6 @@ export const useStoicPracticeStore = create<StoicPracticeState>((set, get) => ({
   isLoading: false,
 
   /**
-   * Add a virtue instance (successful practice)
-   */
-  addVirtueInstance: async (instance: Omit<VirtueInstance, 'id' | 'timestamp'>) => {
-    const state = get();
-
-    const newInstance: VirtueInstance = {
-      ...instance,
-      id: generateId(),
-      timestamp: new Date(),
-    };
-
-    const updatedDomainProgress = updateDomainProgressForInstance(
-      state.domainProgress,
-      instance.domain,
-      instance.principleApplied
-    );
-
-    const newState = {
-      virtueInstances: [...state.virtueInstances, newInstance],
-      domainProgress: updatedDomainProgress,
-    };
-
-    set(newState);
-    schedulePersist();
-  },
-
-  /**
-   * Add a virtue challenge (struggle with practice)
-   */
-  addVirtueChallenge: async (challenge: Omit<VirtueChallenge, 'id' | 'timestamp'>) => {
-    const state = get();
-
-    const newChallenge: VirtueChallenge = {
-      ...challenge,
-      id: generateId(),
-      timestamp: new Date(),
-    };
-
-    const newState = {
-      virtueChallenges: [...state.virtueChallenges, newChallenge],
-    };
-
-    set(newState);
-    schedulePersist();
-  },
-
-  /**
    * Update practice streak
    */
   updateStreak: (newStreak: number) => {
@@ -546,22 +581,6 @@ export const useStoicPracticeStore = create<StoicPracticeState>((set, get) => ({
    */
   setPracticeStartDate: (date: Date) => {
     set({ practiceStartDate: date });
-  },
-
-  /**
-   * Get virtue instances by domain
-   */
-  getVirtueInstancesByDomain: (domain: PracticeDomain): VirtueInstance[] => {
-    const state = get();
-    return state.virtueInstances.filter(vi => vi.domain === domain);
-  },
-
-  /**
-   * Get virtue instances by virtue
-   */
-  getVirtueInstancesByVirtue: (virtue: CardinalVirtue): VirtueInstance[] => {
-    const state = get();
-    return state.virtueInstances.filter(vi => vi.virtue === virtue);
   },
 
   /**

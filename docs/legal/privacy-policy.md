@@ -1,8 +1,8 @@
 # Privacy Policy
 
-**Version:** 1.7
+**Version:** 1.9
 **Effective Date:** December 12, 2025
-**Last Updated:** June 13, 2026
+**Last Updated:** August 6, 2026
 
 ---
 
@@ -49,6 +49,7 @@ Being ("we," "us," or "our") is committed to protecting your privacy. This Priva
 - **Check-In Data:** Daily mindfulness check-ins, mood tracking, journal entries
 - **Wellness Assessments:** PHQ-9 and GAD-7 responses and scores (for self-monitoring, not clinical diagnosis)
 - **Emergency Contacts:** Contact information for crisis support (stored locally only)
+- **Voice Reflections:** If you choose to speak a reflection rather than type it, your device's microphone captures audio for the sole purpose of transcribing it into text. Transcription runs entirely on your device — Being will not begin recording unless your device confirms it can transcribe without using the network. The audio is discarded as soon as transcription completes; only the resulting text is saved, encrypted, on your device. No audio and no transcript is sent to Being, to Palouse Labs, or to any third party.
 
 ### 2.2 Automatically Collected Information
 
@@ -60,7 +61,8 @@ Being ("we," "us," or "our") is committed to protecting your privacy. This Priva
 
 - Location data or GPS tracking
 - Contacts or address book access
-- Camera or microphone access
+- Camera or photo library access
+- Audio recordings — if you speak a reflection, the recording is transcribed on your device and then discarded. We never receive, transmit, or store audio (see 2.1)
 - Third-party advertising identifiers
 
 ---
@@ -137,6 +139,7 @@ We use the following third-party service providers to operate our Services:
 - **[Notion](https://www.notion.so/privacy):** Waitlist email storage for the being.fyi marketing website. When you submit your email via the pre-launch waitlist form, we store it (along with your A/B variant assignment, where applicable) in an internal Notion database. We do not transfer mental-health data, app usage, or any other personal data to Notion.
 - **[Sentry](https://sentry.io/privacy/):** Crash, error, and performance diagnostics. Error event payloads are scrubbed of wellness data before transmission — no PHQ-9 / GAD-7 responses or scores, and no journal content are sent. Sentry also receives standard app-session diagnostics (session start/end, app version, crash status) used to measure app stability across releases; these session records include a random identifier generated per app installation by our mobile framework. This identifier is not linked to your account, your wellness data, or any other personal information we hold, and is not used to identify you or to track you across apps or websites.
 - **[Resend](https://resend.com/legal/privacy-policy):** Transactional email delivery for internal operational alerts only — for example, automated notifications to our operators about the health of the crisis-detection pipeline. These alerts contain aggregate, non-personal operational data; no user personal data is sent to Resend.
+- **[healthchecks.io](https://healthchecks.io/privacy/):** Uptime monitoring for our own internal scheduled jobs. Our servers send a periodic signal to healthchecks.io confirming that a maintenance job ran; if the signal stops arriving, healthchecks.io notifies our operators. The signal is an empty request carrying no message content — no account identifier, no wellness data, and nothing about you. Only the fact and time of the request are recorded. ("Health" in the provider's name refers to the health of our servers, not to health information.)
 - **Expo:** Mobile app framework and over-the-air updates
 - **Apple/Google:** App distribution and in-app purchases (no health data shared)
 
@@ -235,6 +238,7 @@ We retain your information as follows:
 - **Daily Check-Ins:** Mood logs, mindfulness completions
 - **Principle Engagements:** Stoic practice progress tracking
 - **Non-Crisis Assessments:** PHQ-9 and GAD-7 results below crisis thresholds
+- **Server-Side Product Analytics:** If you opt in to analytics, the usage events sent to our servers (see §2)
 
 This data is automatically deleted after 90 days to minimize data collection while still enabling meaningful progress tracking.
 
@@ -244,9 +248,11 @@ For your safety and our liability protection, we retain crisis-related data for 
 
 - **High-Severity Assessments:** PHQ-9 scores ≥ 20, GAD-7 scores ≥ 15
 - **Suicidal Ideation Responses:** Any non-zero response to PHQ-9 question 9
-- **Crisis Intervention Records:** When you accessed 988 or emergency resources
+- **Crisis Detection Events:** An aggregate, PII-free record of when a crisis threshold was detected and support resources were surfaced (see §3, Safety Features) — this records that a threshold was met and resources were shown, not whether you tapped through to 988 or another resource
 
-This extended retention ensures continuity of care information and protects both you and us in case of legal proceedings.
+This extended retention supports safety-monitoring continuity and protects both you and us in case of legal proceedings.
+
+**Where this data lives, and what enforces the limit:** High-Severity Assessments and Suicidal Ideation Responses never leave your device — an automated on-device cleanup removes them 3 years after they are recorded. Crisis Detection Events are the only crisis-related records held on our servers; an automated daily job deletes them 3 years after they are recorded. All other analytics events on our servers are deleted after 90 days by the same job.
 
 ### 7.3 Other Data
 
@@ -279,6 +285,10 @@ Being is based in the United States. If you access our Services from outside the
 ## 10. Changes to This Policy
 
 We may update this Privacy Policy from time to time. We will notify you of material changes via in-app notification. Your continued use of Being after changes take effect constitutes acceptance of the updated policy.
+
+**Recent revisions**
+
+- **v1.9 (August 6, 2026):** Clarified §7.1 and §7.2 to state where each category of retained data lives and what enforces its time limit. The stated retention periods are unchanged — 90 days for general wellness and analytics data, 3 years for crisis-related data. §7.1 now explicitly names server-side product analytics, which the 90-day period already covered but did not list.
 
 ---
 

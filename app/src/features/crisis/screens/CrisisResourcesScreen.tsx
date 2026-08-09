@@ -15,7 +15,7 @@
  * - Accessibility: WCAG AA compliant
  */
 
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect, useLayoutEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -30,9 +30,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, useFocusEffect, RouteProp } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import { useAnalytics } from '@/core/analytics';
-import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
+import { semantic, colorSystem, spacing, borderRadius, typography } from '@/core/theme';
 import { logPerformance, logSecurity, logError, LogCategory } from '@/core/services/logging';
 import { openCrisisUrl } from '@/features/crisis/utils/openCrisisUrl';
+import { endCrisisTap } from '@/features/crisis/services/crisisTapTrace';
 import {
   CRISIS_RESOURCE_CATEGORIES,
   getPriorityCrisisResources,
@@ -239,6 +240,23 @@ export default function CrisisResourcesScreen() {
     }, [trackScreenView, trackCrisisResourcesViewed])
   );
 
+  // Close the crisis-tap measurement opened by the crisis button (INFRA-297).
+  //
+  // `useLayoutEffect`, deliberately: it fires synchronously after React commits
+  // the tree, so the view hierarchy exists — the closest defensible boundary for
+  // "the user can see it". Rejected alternatives, do not "improve" this later:
+  //   - render body → fires before commit, and on every re-render.
+  //   - InteractionManager.runAfterInteractions → waits for the modal transition
+  //     animation to drain, folding hundreds of ms of settle into the number and
+  //     putting the p95 permanently over budget for reasons unrelated to
+  //     responsiveness.
+  //   - onLayout → per-view, refires on re-layout, ordering not guaranteed.
+  // A no-op when no mark is open (e.g. the screen was reached by a route other
+  // than the crisis button), by design.
+  useLayoutEffect(() => {
+    endCrisisTap('screen_commit');
+  }, []);
+
   // Track screen load performance
   useEffect(() => {
     const loadTime = performance.now() - startTime;
@@ -330,13 +348,20 @@ export default function CrisisResourcesScreen() {
                     style: 'destructive',
                     onPress: () => {
                       logSecurity('911 emergency call initiated', 'critical', {});
-                      Linking.openURL('tel:911').catch(error => {
-                        logError(LogCategory.CRISIS, 'Failed to call 911', error instanceof Error ? error : new Error(String(error)));
-                        Alert.alert(
-                          'Call Failed',
+                      // DEBUG-314: this had a `.catch` but never a `canOpenURL`
+                      // guard, so an unsupported scheme still failed silently.
+                      // The bespoke copy is preserved verbatim via the override
+                      // pair rather than `manualLabel` — "please manually dial
+                      // 911 for support" is wrong for 911: it is emergency
+                      // dispatch, not support, and "dial 911 manually on your
+                      // phone" is the actionable instruction. Same override
+                      // pattern as the 'Unable to Text' caller above.
+                      // openCrisisUrl already logs LogCategory.CRISIS on
+                      // failure, so the old .catch would now double-log.
+                      void openCrisisUrl('tel:911', {
+                        fallbackTitle: 'Call Failed',
+                        fallbackMessage:
                           'Unable to initiate 911 call. Please dial 911 manually on your phone.',
-                          [{ text: 'OK' }]
-                        );
                       });
                     }
                   }
@@ -421,7 +446,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     lineHeight: typography.bodyLarge.size
   },
   emergencyBanner: {
@@ -463,7 +488,7 @@ const styles = StyleSheet.create({
   },
   sectionDescription: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     marginBottom: spacing[24],
     lineHeight: spacing[20]
   },
@@ -519,7 +544,7 @@ const styles = StyleSheet.create({
   },
   resourceAvailability: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     fontWeight: typography.fontWeight.medium
   },
   resourceDescription: {
@@ -535,7 +560,7 @@ const styles = StyleSheet.create({
   contactLabel: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     width: 80
   },
   contactValue: {
@@ -595,7 +620,7 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: typography.micro.size,
-    color: colorSystem.gray[500],
+    color: semantic.text.muted,
     lineHeight: typography.bodyLarge.size,
     textAlign: 'center'
   }

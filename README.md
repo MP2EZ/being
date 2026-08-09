@@ -407,10 +407,12 @@ While Being is primarily an educational tool for Stoic Mindfulness philosophy an
 
 ### **Philosophical Sources**
 
-**Classical Stoic Texts:**
-- Marcus Aurelius - *Meditations* (Gregory Hays translation)
-- Epictetus - *Enchiridion* and *Discourses* (Robin Hard translation)
-- Seneca - *Letters from a Stoic* and *On Anger*
+**Classical Stoic Texts** — public-domain translations, the only renderings shipped in the app:
+- Marcus Aurelius - *Meditations*, trans. George Long (1862; text as digitized in Project Gutenberg ebook #15877, *Thoughts of Marcus Aurelius Antoninus*)
+- Epictetus - *Enchiridion*, trans. Elizabeth Carter (1758)
+- Seneca - *Letters from a Stoic* (*Epistulae Morales*), trans. Richard Mott Gummere (Loeb Classical Library, 1917–1925); *Of Anger*, *Of Peace of Mind* and the other dialogues, trans. Aubrey Stewart (*Minor Dialogues*, 1889); *On Benefits*, trans. Aubrey Stewart (1887)
+
+Gregory Hays (2002), Robin Hard (2011/2014) and Nicholas White (1983) are excellent modern translations and worth reading, but they are **in copyright** and no rendering from them appears anywhere in this app. That is enforced mechanically by `app/src/features/learn/__tests__/moduleClassicalQuotes.test.ts` and its sibling guards.
 
 **Integration Framework:**
 - Stoic Mindfulness V2: Five-principle synthesis of Stoicism + mindfulness + neuroscience

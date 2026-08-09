@@ -4,3 +4,4 @@
  */
 
 export * from './CrisisSecurityProtocol';
+export * from './textCrisisDetection';

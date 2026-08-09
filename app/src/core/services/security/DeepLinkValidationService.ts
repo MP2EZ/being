@@ -41,6 +41,9 @@ export const DEEP_LINK_CONFIG = {
     '/morning',
     '/midday',
     '/evening',
+    // FEAT-298 slice 4: the single daily ritual. Bare path only — no sub-paths, and
+    // deliberately no 'mode'/'depth' in ALLOWED_PARAMS (see below).
+    '/daily',
     '/crisis',
     '/assessment',
     '/learn',
@@ -416,9 +419,11 @@ class DeepLinkValidationService {
     const screenMap: Record<string, string> = {
       '/': 'Main',
       '/main': 'Main',
-      '/morning': 'MorningFlow',
-      '/midday': 'MiddayFlow',
-      '/evening': 'EveningFlow',
+      // FEAT-298 slice 4: kept in sync with ALLOWED_PATHS and linking.ts. This map is a
+      // THIRD source of truth for path->screen and currently has no production callers
+      // (test-only), so it drifts silently; omitting '/daily' would hand a future caller
+      // `screen: null` and navigate nowhere.
+      '/daily': 'DailyLoop',
       '/crisis': 'CrisisResources',
       '/assessment': 'AssessmentFlow',
       '/learn': 'Main',

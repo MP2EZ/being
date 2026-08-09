@@ -29,7 +29,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSettingsStore } from '@/core/stores/settingsStore';
 import { useAnalytics } from '@/core/analytics';
-import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
+import { colorSystem, spacing, borderRadius, typography, semantic } from '@/core/theme';
 import { isFeatureEnabled } from '@/core/services/featureFlags';
 
 // FEAT-212: rendered as a route on ProfileStackNavigator; the native stack header
@@ -466,7 +466,7 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     marginTop: spacing[16],
   },
   errorContainer: {
@@ -505,7 +505,7 @@ const styles = StyleSheet.create({
   sectionDescription: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     lineHeight: 22,
     marginBottom: spacing[16],
   },
@@ -548,7 +548,7 @@ const styles = StyleSheet.create({
   settingDescription: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     lineHeight: 20,
   },
   textSizeContainer: {
@@ -574,7 +574,7 @@ const styles = StyleSheet.create({
   textSizeButtonText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
   },
   textSizeButtonTextActive: {
     color: colorSystem.base.white,
@@ -590,7 +590,7 @@ const styles = StyleSheet.create({
   infoText: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     lineHeight: 20,
   },
   infoCard: {
@@ -611,7 +611,7 @@ const styles = StyleSheet.create({
   infoCardValue: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
   },
   actionContainer: {
     marginTop: spacing[24],

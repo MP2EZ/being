@@ -24,7 +24,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
+import { colorSystem, spacing, borderRadius, typography, semantic } from '@/core/theme';
 import { legalDocumentsList } from '../content/legalDocuments';
 import type { ProfileStackParamList } from '../ProfileStackNavigator';
 
@@ -91,7 +91,7 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     lineHeight: 24,
     marginBottom: spacing[24],
   },
@@ -122,7 +122,7 @@ const styles = StyleSheet.create({
   documentDescription: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     lineHeight: 20,
   },
   documentArrow: {
@@ -141,7 +141,7 @@ const styles = StyleSheet.create({
   offlineNoteText: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     lineHeight: 20,
   },
 });
