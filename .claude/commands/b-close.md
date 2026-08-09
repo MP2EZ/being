@@ -493,7 +493,18 @@ fi
 
 ### Step 2.5.4: Verify simulator readiness
 
-**FIRST — is this worktree's build script the new one?** `.claude/` is shared across every
+**FIRST — sync with `origin/development` (Step 3.1) BEFORE building.** This phase runs
+before Step 3.1 in file order, but gating a tree you are about to change tests an artifact
+that never merges. If `git rev-list --count HEAD..origin/development` is non-zero, perform
+Step 3.1's merge **now**, then build and gate the merged tree. Otherwise the flows validate
+the pre-merge tree while the merged result — the thing that actually lands on `development`
+— is exercised by no runtime check at all; CI's jest suites do run on the merged PR, but the
+Maestro flows are the only runtime UI validation there is. Doing it here also gets you
+INFRA-383's fast build, since `e2e-sim-build.sh` is app code that arrives with the
+back-merge. `git merge` does not fire the pre-commit hook, so run `npm run precommit`
+against the merged tree before spending a build on it.
+
+**SECOND — is this worktree's build script the new one?** `.claude/` is shared across every
 worktree (it lives on `_bare`), but `app/scripts/e2e-sim-build.sh` is **app code**, so it
 arrives only when INFRA-383 is on *this branch*. Until a branch back-merges `development`,
 the guidance below describes a build that worktree cannot produce. Detect it rather than
