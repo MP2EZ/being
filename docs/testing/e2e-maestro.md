@@ -320,7 +320,12 @@ If anything matches (`app/src/features/(assessment|crisis)/`, `app/src/core/serv
 - **Sim not ready** → exit cleanly with "Run `npm run ios` first, then retry /b-close". No auto-boot.
 - **Flow fails** → print Maestro output, exit. Push is blocked.
 
-## The 5 flows + what each pins
+## The flows + what each pins
+
+**8 flows tagged `safety`** run under `npm run e2e:safety`, plus 1 tagged
+`safety-device-only` that does not. (This table read "The 5 flows" until
+INFRA-317; it had drifted three behind — the count here and in CLAUDE.md is worth
+re-checking whenever a flow is added, since nothing enforces it.)
 
 | Flow | What it pins | Source contract |
 |---|---|---|
@@ -328,7 +333,38 @@ If anything matches (`app/src/features/(assessment|crisis)/`, `app/src/core/serv
 | `phq9-severe-completion.yaml` | Score ≥20 (Q9=0) shows `results-crisis-banner` on completion | `safety.ts` `PHQ9_SEVERE_THRESHOLD = 20` |
 | `gad7-severe.yaml` | Score ≥15 shows `results-crisis-banner` on completion | `safety.ts` `GAD7_SEVERE_THRESHOLD = 15` |
 | `crisis-button-reachability.yaml` | Crisis button → `CrisisResources` from each of 4 tabs | CLAUDE.md "988 access <3 taps from any screen" |
+| `journal-crisis-scan.yaml` | Journal crisis-content scan fires its intervention | crisis detection contract |
+| `daily-loop-deeplink.yaml` | `being://daily` cold start keeps the crisis overlay AND an escape from the immersive practice | FEAT-298 slice 4 + `linking.ts` `initialRouteName` |
+| `daily-loop-quick-depth.yaml` | Quick-depth loop path completes | FEAT-301 |
+| `deeplink-consent-gate.yaml` (INFRA-317) | With consent **ungranted**: `being://daily` is dropped and LegalGate renders; `being://crisis` still reaches crisis resources with a visible 988 affordance | INFRA-308 contracts 28–29 + `linking.ts` `isCrisisExemptPath` running before any consent read |
 | `crisis-988-dial.yaml` (device-only — see INFRA-184) | Tapping 988 does NOT show "Unable to Call" fallback (i.e., `LSApplicationQueriesSchemes` still allows `tel:`). **Primary pin is the jest test at `app/__tests__/safety/lsApplicationQueriesSchemes.config.test.ts`** — runs in precommit on every commit. | `app/app.json` + `app/ios/Being/Info.plist` `LSApplicationQueriesSchemes` array (INFRA-147; INFRA-184 decomposition) |
+
+### Booting with consent ungranted (INFRA-317)
+
+Every sim flow except `deeplink-consent-gate.yaml` calls `_seeded-home.yaml` and
+relies on the INFRA-217 launch seed. A consent gate cannot be tested from a build
+that has already granted consent, so INFRA-317 added a per-flow opt-out.
+
+Append `?e2eSeed=ungranted` to the launch URL. The seed then skips all of its
+writes and the app boots from empty state (`onboardingCompleted` false,
+`consentStatus` `'missing'`) → LegalGate. Three properties make this safe, and any
+future flow using it must preserve them:
+
+- **Suppressor only.** It writes nothing and revokes nothing; the empty state comes
+  from `clearState` + `clearKeychain`. It can decline a grant, never cause one.
+- **No new env var, no new EAS profile.** The marker is read only inside the
+  existing `EXPO_PUBLIC_E2E_SEED_ONBOARDED` branch, so with that var at its
+  `'false'` default the path is unreachable dead code and the compliance boundary
+  stays exactly where INFRA-217 put it. Pinned by
+  `__tests__/safety/e2eSeedGate.config.test.ts`.
+- **Invisible to navigation.** `DeepLinkValidationService` strips the param (not in
+  `ALLOWED_PARAMS`) and rebuilds the URL from the survivors, so the link under test
+  reaches React Navigation bare.
+
+Use `stopApp` → `clearState` → `clearKeychain` → `openLink`, **not** `launchApp`.
+The marker must reach `Linking.getInitialURL()`, which only carries a URL on a cold
+start, and an intervening `launchApp` would seed consent before the marker is ever
+seen — making every later assertion vacuous.
 
 ## Out of scope (deferred)
 
