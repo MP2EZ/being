@@ -75,11 +75,15 @@ fumbled bare `/b-batch` harmless: it costs a few fetches and shows a slate you c
 It must run **here**, between the parse and the slug: Step 0.1b derives the slug from the
 final ID list, so selection cannot happen after it.
 
-**Source — the `b-batch intake` view**, `view://3b7a1108-c208-81cb-895f-000c23835d40`: a
-table on `${NOTION_WORK_DB}` sorted `Priority` DESC, filtered to `Not started` + `Blocked` +
-`Batched`. Read it via `notion-query-data-sources` with `mode: "view"`. To recreate it, that
-filter and sort plus
-`SHOW "Name", "Work Item ID", "Status", "Type", "Effort", "Priority", "Blocked by"`.
+**Source — the `Batched` view**, `view://3b7a1108-c208-8055-bc9b-000cfccdb28e`: a table on
+`${NOTION_WORK_DB}` sorted `Priority` DESC, filtered to the **`To-do` status group** (which
+is `Not started` + `Batched`) **plus `Blocked`**. Read it via `notion-query-data-sources`
+with `mode: "view"`.
+
+Filtering by *group* rather than by listing options is deliberate and worth preserving: a
+status option added to `To-do` later is picked up automatically, where an option list would
+silently exclude it. Only the sort is reproducible from here (`SORT BY "Priority" DESC`);
+the filter is not — see 0.1a.1.
 
 This view is **the command's read path, not just the selector's** — Step 0.0's reaper needs
 the `Batched` rows and runs on every invocation, including ones with explicit IDs. That is
@@ -108,8 +112,8 @@ missing or was edited — **STOP**. Do not filter client-side instead: sorted by
 no filter, the top of this backlog is `Done` items, so the failure is silent and proposes
 finished work.
 
-    ⛔ `b-batch intake` returned a `Done` row — its Status filter is missing.
-       Restore in Notion: Filter → Status → is any of → Not started, Blocked, Batched.
+    ⛔ `Batched` view returned a `Done` row — its Status filter is missing.
+       Restore in Notion: Filter → Status → is any of → To-do (group), Blocked.
 
 Because Step 0.0 depends on the same view, treat this assertion as gating the **whole**
 command, not just auto-select: a broken filter blinds the reaper too.
