@@ -588,8 +588,13 @@ Reconstruct state from disk + Notion + manifest — no in-context memory require
        resume picker. List those separately as a reminder and do not offer them as
        resume targets. Present the remainder (slug, `created`, pending/done counts) via
        `AskUserQuestion` and resume the one the user picks; never silently pick one. If
-       more than 4 remain, offer the 4 most recently created and say how many were
-       withheld — the picker caps at 4 options.
+       more than 4 remain, rank by ACTIONABILITY first — a batch holding a `pending`,
+       `running`, or `parked` item outranks one whose only non-`done` items are
+       `deferred`, whatever its date — then break ties by `created`, newest first. Offer
+       the top 4 and say how many were withheld. Recency alone is the wrong key:
+       manifests accumulate precisely because their batches finished, so the oldest
+       surviving one is often the only one with work left, and a newest-4 cut hides it
+       behind batches that have nothing to do.
 
 1. Read the selected `$MANIFEST`.
 2. For each item, reconcile against ground truth:
