@@ -151,10 +151,23 @@ describe('semantic text tokens come from the design-system ramp', () => {
     // AA. Block it here.
     //
     // DEBUG-357 sharpened why this guard matters. A pure neutral that passes on
-    // ALL surfaces does exist numerically, at roughly #707070 — but it is five
-    // hex steps from gray[600], so it is visually indistinguishable and cannot
-    // express a third tier anyway. The bespoke hex buys nothing and costs the
-    // ramp guarantee. That is the trap this assertion exists to close.
+    // ALL surfaces does exist numerically — but the value it named, roughly
+    // #707070, is NOT it.
+    //
+    // DEBUG-380 CORRECTION: #707070 measures 4.042:1 on gray[300], so it FAILS.
+    // That figure was true when written and went stale in the same commit that
+    // superseded it: DEBUG-370 added gray[300] (#E8E8E8) to SURFACES, and
+    // gray[300] is the darkest ground in the matrix, so it displaced gray[200]
+    // as the binding constraint on every neutral. The true lightest
+    // all-surface-legal neutral is #686868 at 4.548:1 on gray[300] — a margin of
+    // 0.048 over the bar, thin enough that darkening any surface token would
+    // break it.
+    //
+    // The ruling is UNCHANGED and the correction strengthens it rather than
+    // weakening it: #686868 is four hex steps from gray[600] (#757575), so it is
+    // still visually indistinguishable and still cannot express a third tier.
+    // The bespoke hex buys nothing and costs the ramp guarantee. That is the
+    // trap this assertion exists to close.
     const ramp = Object.values(colorSystem.gray as Record<string, string>);
     expect(ramp).toContain(semantic.text.muted);
     expect(ramp).toContain(semantic.text.secondary);
@@ -366,5 +379,93 @@ describe('DEBUG-357: severity-band labels clear AA on the composited band fill',
       ),
     );
     expect(Math.min(...ratios)).toBe(ratios[ratios.length - 1]);
+  });
+});
+
+/**
+ * DEBUG-380 — the primary↔secondary separation, pinned as a RULING rather than fixed.
+ *
+ * DEBUG-357 moved `secondary`/`muted` gray[600] → gray[700] to close a real AA
+ * failure. Its side effect was that the two text tiers stopped being
+ * chromatically distinguishable: `primary` is `base.black` #1C1C1C, so the
+ * separation fell from 3.699:1 to 1.696:1. DEBUG-370 then multiplied the affected
+ * sites roughly fivefold, which is what made it worth filing.
+ *
+ * DEBUG-380 PROPOSED re-pointing `primary` to gray[800] to restore ~2.3:1. That
+ * remedy is arithmetically impossible, in two independent ways, and this describe
+ * exists so neither can be re-proposed from prose:
+ *
+ *   1. gray[800] #212121 is rgb(33,33,33). base.black #1C1C1C is rgb(28,28,28).
+ *      gray[800] is LIGHTER. Re-pointing there moves the separation to 1.602:1 —
+ *      it makes the filed defect WORSE. The "800" label misleads because
+ *      `base.black` is not a member of the gray ramp at all; `colors.base` and
+ *      `colors.gray` are separate namespaces that happen to interleave at the
+ *      dark end. gray[900] #171717 IS darker, but buys only 1.784:1 — a 5/255
+ *      step, imperceptible.
+ *   2. The ~2.3:1 target is unreachable by ANY foreground. Separation against a
+ *      fixed `secondary` is (L_sec + 0.05) / (L_fg + 0.05), maximised at L_fg = 0,
+ *      so with `secondary` at gray[700] the supremum is 2.090:1 at pure #000000.
+ *      2.3:1 would require 23.1:1 on white against a 21:1 physical ceiling.
+ *
+ * THE RULING: accept the flattening; subordination is expressed structurally —
+ * italic, position, size, enclosure — never chromatically. That is DEBUG-323's
+ * standing ruling, and DEBUG-380 does not overturn it. WCAG has no success
+ * criterion governing contrast between two text tiers (1.4.3/1.4.6 govern text
+ * against its own background; 1.4.11 governs UI components and graphical
+ * objects), and both tiers clear AA on all 17 grounds this file asserts — so this
+ * is a hierarchy judgement, not a gate failure.
+ *
+ * The only lever that could actually move the number is LIGHTENING `secondary`,
+ * which requires a design-system release minting a legal mid-tier; the app cannot
+ * add a ramp value, only re-point which one a semantic token reads. Tracked
+ * separately. Note also that `semantic.text.primary` reaches only ~26 render
+ * sites while `colorSystem.base.black` is read directly at ~102 — so any future
+ * primary move must be preceded by that sweep, or it ships two indistinguishable
+ * blacks. That is the DEBUG-342 shape, one token up.
+ */
+describe('DEBUG-380: the primary↔secondary separation ruling', () => {
+  it('records the collapse — the two text tiers are not chromatically distinct', () => {
+    // A RESIDUAL PIN in the DEBUG-357 shape (see the muted-on-secondary test
+    // above): assert the gap EXISTS so it stays visible rather than assumed
+    // closed. This goes RED if the design system ever widens the dark end of the
+    // ramp — which is exactly the moment to re-open DEBUG-380, and the only
+    // moment worth re-opening it.
+    const separation = getContrastRatio(semantic.text.primary, semantic.text.secondary);
+    expect(separation).toBeLessThan(3.0);
+    expect(separation).toBeGreaterThan(1.5);
+  });
+
+  it('proves the ~2.3:1 acceptance target is unreachable by ANY foreground', () => {
+    // THE LOAD-BEARING ASSERTION. Pure black is the theoretical maximum contrast
+    // against anything, so if #000000 cannot reach 2.3:1 against `secondary`,
+    // no colour can — in the ramp or out of it, hardcoded or not. Without this,
+    // the target survives as a plausible-sounding number in prose and gets
+    // re-proposed. #000000 is a literal on purpose: it is named to be REJECTED,
+    // the same way gray[500] is named in the DEBUG-342 block above.
+    const ceiling = getContrastRatio('#000000', semantic.text.secondary);
+    expect(ceiling).toBeLessThan(2.3);
+  });
+
+  it('blocks the gray[800] proposal by name — it is LIGHTER than base.black', () => {
+    // The specific inversion DEBUG-380 was filed on. Asserted as a comparison
+    // rather than as two magic numbers so it stays true if the design system
+    // renumbers the ramp, and still fails loudly if gray[800] ever becomes the
+    // darker of the two (at which point the proposal deserves a fresh hearing).
+    const white = colorSystem.base.white;
+    expect(getContrastRatio(colorSystem.gray[800], white)).toBeLessThan(
+      getContrastRatio(colorSystem.base.black, white),
+    );
+  });
+
+  it('confirms secondary is the binding constraint, not primary', () => {
+    // Why the remedy has to move `secondary` and not `primary`: `primary` already
+    // sits within 0.9 of the 21:1 ceiling, so there is almost nothing left to
+    // gain by darkening it, while `secondary` has ~10 points of headroom. States
+    // the asymmetry mechanically so the next reader does not have to re-derive it.
+    const white = colorSystem.base.white;
+    const primaryHeadroom = 21 - getContrastRatio(semantic.text.primary, white);
+    const secondaryHeadroom = 21 - getContrastRatio(semantic.text.secondary, white);
+    expect(primaryHeadroom).toBeLessThan(5);
+    expect(secondaryHeadroom).toBeGreaterThan(primaryHeadroom);
   });
 });
