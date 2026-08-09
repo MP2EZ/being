@@ -2,8 +2,10 @@
 
 > **Being has no emergency fast-path deploy workflow, deliberately.**
 >
-> Two crisis-labelled workflows (`emergency-deploy.yml`, `emergency-deploy-optimized.yml`)
-> used to sit in `.github/workflows/`. DEBUG-374 deleted them. The reason is not that
+> Three workflows from the same 2025-09-27 batch used to sit in `.github/workflows/`:
+> `emergency-deploy.yml` and `emergency-deploy-optimized.yml` (deleted by DEBUG-374),
+> and `artifact-cache-manager.yml`, the cache warmer that existed to make their
+> advertised speed achievable (deleted by DEBUG-389). The reason is not that
 > they were unfinished — it is that **the capability they advertised cannot exist**:
 > Being ships through the App Store, where TestFlight processing and review dominate
 > end-to-end time-to-user by an order of magnitude. A 4.5-minute CI job cannot make a
@@ -105,6 +107,61 @@ Recorded here so the decision is not silently reversed:
 The `.disabled` parking convention (INFRA-337, MAINT-369) was not used because parking
 is for a workflow held against a genuine unmet precondition — as `deploy.yml.disabled`
 is. These had no pending precondition; they were simply wrong.
+
+### `artifact-cache-manager.yml` (DEBUG-389)
+
+Deleted for the same reason one level down: it was the cache warmer whose entire
+purpose was to make the "4.5-minute emergency deployment" figure above achievable, and
+that figure was already ruled unreachable. Its state was also invisible to git — the
+Actions API reported it `disabled_manually`, a bit that lives only in the GitHub UI, is
+one click from being reverted, and cannot be seen by anyone reading the repo. Meanwhile
+the file declared `push: [main, release/*, hotfix/*]` **and** a weekly `schedule`, so it
+read as *more* automatic than the dispatch-only pair DEBUG-374 removed.
+
+Evidence, recorded here because it is perishable — `gh run view --log-failed` already
+returns HTTP 410 for every one of these runs:
+
+- **9 runs on record, 9 failures.** One `push` run 2025-10-01, then eight scheduled runs
+  2025-10-05 through 2025-11-23. It never completed successfully, once.
+- **The two missing scripts were not why it failed.** `npm run test:crisis` (`:304`) and
+  `npm run perf:crisis` (`:306`) sat in `crisis-validation-cache`, which declared
+  `needs: [cache-analysis, validated-dependencies-cache]`. The upstream job failed every
+  run, so that job was *skipped* every run and those two lines never executed. The real
+  break is upstream: `:251` runs raw `npm audit --audit-level=moderate`, which MAINT-182
+  replaced repo-wide with `npx audit-ci --config .audit-ci.json` precisely because the
+  repo carries allowlisted advisories. Repairing the script names would have changed
+  nothing observable — which is the trap this whole class sets.
+- **Zero consumers.** `grep -rn download-artifact .github/` returns nothing repo-wide, so
+  all three of its uploads (`emergency-build-metadata-{ios,android}`,
+  `crisis-validation-certificate`, `cache-management-report`) were read by nobody. Its
+  `emergency-build-*` and `crisis-validated-*` cache keys had no restorer anywhere; the
+  only one that ever existed was in `emergency-deploy-optimized.yml`, deleted by
+  DEBUG-374. (`deploy.yml.disabled` contains the string `crisis-validated`, but as a job
+  *output* name, not the cache key — a false positive worth knowing about.)
+- **The caching premise was void regardless.** `eas build` executes in EAS cloud and
+  writes no local artifact; `app/dist/` is gitignored and was never produced by that job;
+  and both build-artifact keys embed `${{ github.sha }}`, so a weekly pre-build could
+  never be restored by a later hotfix commit even if a consumer had existed.
+
+Note that `origin/main` still carries this file *and* its deleted consumer until the next
+release — the deletion lands on `development` first, like everything else.
+
+`app/eas.json`'s `production-emergency` build profile was deliberately **not** removed as
+cleanup: `app/__tests__/safety/e2eSeedGate.config.test.ts` enumerates it, so deleting it
+reddens a safety gate. It is now workflow-orphaned, which is worth its own item.
+
+### The guard that ends this class
+
+Three work items on "a workflow invokes an npm script that does not exist" — MAINT-369,
+DEBUG-374, DEBUG-389 — is enough. `app/scripts/check-workflow-scripts.js` now asserts
+every `npm run` target in a loadable workflow resolves, following alias chains, and runs
+in CI's `Safety + privacy gates` job.
+
+It scans `*.yml`/`*.yaml` only. That is not an allowlist and needs no maintenance: it is
+the same predicate GitHub Actions uses to decide what to load, so the scanned set is
+defined by what can actually execute. `deploy.yml.disabled`'s 10 knowingly-missing
+targets are excluded by construction — and renaming it back to `.yml` turns MAINT-369's
+advisory header into an immediate red build.
 
 ---
 
