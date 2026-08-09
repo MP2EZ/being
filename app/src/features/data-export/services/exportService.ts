@@ -118,17 +118,8 @@ export function buildExportPayload(options: ExportOptions): ExportPayload {
 
   if (categories.has('practices')) {
     const state = useStoicPracticeStore.getState();
-    const virtues: ExportedPractices['virtues'] = state
-      .getRecentVirtueInstances(fetchDays)
-      .map((v) => ({
-        virtue: v.virtue,
-        domain: v.domain,
-        context: v.context,
-        principleApplied: v.principleApplied,
-        timestamp: toMs(v.timestamp),
-      }))
-      .filter((v) => within(v.timestamp, from, to))
-      .sort((a, b) => b.timestamp - a.timestamp);
+    // MAINT-371 (export schema v3): the `virtues` block that stood here is gone with
+    // the store state it read. Disclosed via EXPORT_OMISSIONS, not silently dropped.
     const principleEngagements: ExportedPractices['principleEngagements'] = state
       .getPrincipleEngagements(fetchDays)
       .map((p) => ({
@@ -139,9 +130,8 @@ export function buildExportPayload(options: ExportOptions): ExportPayload {
       }))
       .filter((p) => within(p.timestamp, from, to))
       .sort((a, b) => b.timestamp - a.timestamp);
-    virtues.forEach((v) => includedTimestamps.push(v.timestamp));
     principleEngagements.forEach((p) => includedTimestamps.push(p.timestamp));
-    payload.practices = { virtues, principleEngagements };
+    payload.practices = { principleEngagements };
   }
 
   if (categories.has('reflections')) {

@@ -8,9 +8,28 @@
  * - Therapeutic blue-gray (#6B8BA8) - flow-agnostic color
  * - Accessibility compliant with audio cues
  * - Reduced motion support
+ *
+ * REDUCED MOTION (MAINT-386)
+ * ==========================
+ * This component now DETECTS the OS reduce-motion setting itself instead of
+ * waiting to be told. Before MAINT-386 the `reducedMotion` prop was the only
+ * way in, and the only screen that ever passed it — SharedBreathingScreen — had
+ * been dead code since FEAT-298 slice 6c retired its callers. The net effect was
+ * that all three live breathing surfaces (PracticeTimerScreen,
+ * DailyLoopStepScreen, DailyLoopCompleteScreen) ran an unconditional 1.0 → 1.5
+ * scale pulse with no vestibular accommodation at all. Detecting here rather
+ * than at each call site means all three inherit it, and any future one does too.
+ *
+ * The accommodation deliberately is NOT the dead screen's answer. That one
+ * swapped the circle for a static glow carrying the word "Breathe" — motion
+ * gone, but pacing gone with it, leaving a reduce-motion practitioner sitting
+ * untimed with no cue for when to breathe in or out. Here the breath CLOCK keeps
+ * running (it is what schedules the phase cues); only its visual expression is
+ * suppressed, and the pacing moves into a visible phase label plus the existing
+ * spoken announcements. A paced practice stays a paced practice.
  */
 
-import React, { useEffect, useCallback, useRef } from 'react';
+import React, { useEffect, useCallback, useRef, useState } from 'react';
 import { View, Text, StyleSheet, AccessibilityInfo } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -87,12 +106,64 @@ const BreathingCircle: React.FC<BreathingCircleProps> = ({
   const cycleCountRef = useRef(0);
   // Countdown interval ref for proper cleanup
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  /**
+   * OS reduce-motion, OR'd with the explicit prop (MAINT-386).
+   *
+   * The prop stays authoritative when set — a caller that has already decided
+   * (or a test) must not be overridden — but the OS switch alone is now enough.
+   */
+  const [systemReducedMotion, setSystemReducedMotion] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    AccessibilityInfo.isReduceMotionEnabled().then((enabled) => {
+      if (!cancelled) setSystemReducedMotion(enabled);
+    });
+
+    // Listened to, not just read once: a practitioner can flip the switch mid
+    // practice precisely BECAUSE the motion is bothering them, and that is the
+    // moment the accommodation matters most.
+    const subscription = AccessibilityInfo.addEventListener(
+      'reduceMotionChanged',
+      (enabled) => setSystemReducedMotion(enabled)
+    );
+
+    return () => {
+      cancelled = true;
+      subscription.remove();
+    };
+  }, []);
+
+  const effectiveReducedMotion = reducedMotion || systemReducedMotion;
+
   // Use shared value for worklet compatibility (accessed in UI thread)
-  const isReducedMotion = useSharedValue(reducedMotion);
+  const isReducedMotion = useSharedValue(effectiveReducedMotion);
+
+  /**
+   * Visible phase cue — the pacing that replaces the suppressed motion.
+   *
+   * Only rendered under reduced motion. `announcePhase` is already the single
+   * JS-thread funnel every phase transition passes through, in BOTH the simple
+   * and hold-pattern branches, so hanging the label off it needs no new timing
+   * machinery — and adding one would mean a second clock that could drift from
+   * the animation's.
+   */
+  const [phaseCue, setPhaseCue] = useState<string | null>(null);
+  // Read inside `announcePhase` so its identity can stay stable: it sits in the
+  // animation effect's dep array, and a new identity restarts the animation.
+  // Also keeps the setState off the non-reduced path entirely, where a re-render
+  // every cycle leg would be reconciling mid-animation for nothing.
+  const reducedMotionRef = useRef(effectiveReducedMotion);
+  useEffect(() => {
+    reducedMotionRef.current = effectiveReducedMotion;
+    if (!effectiveReducedMotion) setPhaseCue(null);
+  }, [effectiveReducedMotion]);
 
   // Audio accessibility announcements
   const announcePhase = useCallback((phaseText: string) => {
     AccessibilityInfo.announceForAccessibility(phaseText);
+    if (reducedMotionRef.current) setPhaseCue(phaseText);
   }, []);
 
   // Handle cycle completion on JS thread
@@ -106,9 +177,21 @@ const BreathingCircle: React.FC<BreathingCircleProps> = ({
     'worklet';
 
     if (isReducedMotion.value) {
-      // Minimal animation for reduced motion
+      // MAINT-386: motion fully suppressed, not merely damped.
+      //
+      // This branch used to return `scale: 1 + (scale.value - 1) * 0.2` — a
+      // continuous 1.0 → 1.1 pulse. That was written when nothing could reach
+      // this branch (only the dead SharedBreathingScreen passed the prop), so it
+      // was never a validated answer; now that the OS switch reaches it on every
+      // breathing surface it has to actually be one. A smoothly and continuously
+      // scaling 120dp object is the vestibular trigger whether it grows by 50% or
+      // by 10%, so the honest reading of the setting is: stop.
+      //
+      // The underlying `scale` animation keeps running — it is the breath clock
+      // that fires the phase-cue callbacks — it just stops being drawn. Pacing is
+      // carried by the visible phase label and the spoken announcements instead.
       return {
-        transform: [{ scale: 1 + (scale.value - 1) * 0.2 }],
+        transform: [{ scale: 1 }],
         opacity: 0.9,
       };
     }
@@ -349,8 +432,37 @@ const BreathingCircle: React.FC<BreathingCircleProps> = ({
 
       {/* Guidance text */}
       <View style={styles.guidanceContainer}>
+        {/*
+          Visible phase cue — the pacing that replaces suppressed motion
+          (MAINT-386). Rendered ONLY under reduced motion: with the circle
+          static, this label and the spoken announcement are the only things
+          carrying the rhythm, so without it a reduce-motion practitioner gets
+          an untimed sit. That is the defect the dead SharedBreathingScreen's
+          own treatment had, and the reason its branch was not copied verbatim.
+
+          `accessibilityElementsHidden` / `importantForAccessibility="no-hide-
+          descendants"`: `announcePhase` already pushes each transition through
+          the screen-reader announcement queue, so exposing this text as well
+          would double every phase for a VoiceOver/TalkBack user.
+
+          Colour is `semantic.text.primary` (base.black, 21:1 on white). The
+          dead screen tinted its equivalent text with the flow theme at 0.3
+          container opacity, which multiplied through to the glyphs and landed
+          at ~1.9:1 — a 1.4.3 failure that DEBUG-364 had to pin. Do not
+          reintroduce a themed colour or a container opacity here.
+        */}
+        {effectiveReducedMotion && phaseCue && (
+          <Text
+            style={styles.phaseCueText}
+            accessibilityElementsHidden
+            importantForAccessibility="no-hide-descendants"
+            testID={testID ? `${testID}-phase-cue` : undefined}
+          >
+            {phaseCue}
+          </Text>
+        )}
         <Text style={styles.guidanceText}>
-          {reducedMotion
+          {effectiveReducedMotion
             ? 'Each phase change is announced as it happens'
             : 'Follow the circle as it expands and contracts'
           }
@@ -396,6 +508,16 @@ const styles = StyleSheet.create({
     marginTop: spacing[56], // Extra space to account for circle expansion (1.5x scale adds 30px to bottom)
     alignItems: 'center',
     paddingHorizontal: spacing[24],
+  },
+  phaseCueText: {
+    fontSize: typography.headline3.size,
+    fontWeight: typography.fontWeight.semibold,
+    // base.black on the default white surface = 21:1. See the render-site
+    // comment: the branch this replaces failed 1.4.3 at ~1.9:1 because a themed
+    // colour was composited under a 0.3 container opacity.
+    color: semantic.text.primary,
+    textAlign: 'center',
+    marginBottom: spacing[8],
   },
   guidanceText: {
     fontSize: typography.bodyRegular.size,
