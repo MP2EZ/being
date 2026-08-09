@@ -32,6 +32,8 @@ import {
 } from 'react-native';
 import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
 import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
+// DEBUG-341: one-tap 988 on the branch that actually renders.
+import Static988Button from './Static988Button';
 import { openCrisisUrl } from '@/features/crisis/utils/openCrisisUrl';
 
 interface CrisisErrorBoundaryProps {
@@ -339,6 +341,14 @@ export class CrisisErrorBoundary extends Component<
               <Text style={styles.crisisNotice}>
                 Tap the support button below to call or text a crisis line now.
               </Text>
+              {/*
+                DEBUG-341: INFRA-297 made this branch's 988 access real, but it is an
+                Alert — two taps, and transient. A person in acute distress on a crash
+                screen should reach 988 in ONE tap, and should still see the digits after
+                dismissing anything. Static988Button is added ABOVE the Alert route (which
+                is kept: it also offers 911 and Text, which this does not replace).
+              */}
+              <Static988Button />
               <Pressable
                 style={styles.emergencyButton}
                 onPress={this.handleEmergencyIntervention}
