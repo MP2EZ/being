@@ -65,12 +65,14 @@ const Timer: React.FC<TimerProps> = ({
   // under 1.4.11, illegal as text under 1.4.3.
   //
   // Note the story's causal claim, that the `theme = 'learn'` DEFAULT at the top of
-  // this component propagates the failure, is not what happens: every one of the six
+  // this component propagates the failure, is not what happens: every one of the five
   // <Timer> call sites passes `theme` explicitly (PracticeTimerScreen,
   // ReflectionTimerScreen and BodyScanScreen pass "learn"; the two DailyLoop screens
-  // pass "midday"; SharedBreathingScreen forwards its own). Changing the default
-  // would therefore have fixed nothing while LOOKING like a fix. The defect is in how
-  // colour is resolved from the theme, which is what this line addresses.
+  // pass "midday"). Changing the default would therefore have fixed nothing while
+  // LOOKING like a fix. The defect is in how colour is resolved from the theme, which
+  // is what this line addresses. (Was six until MAINT-386 deleted SharedBreathingScreen,
+  // the sixth, which forwarded its own theme — the count was correct then and is
+  // correct now; verify with `grep -rn '<Timer' src/` before trusting it again.)
   const accent = themeAccent[theme];
 
   // Calculate progress percentage
@@ -348,7 +350,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing[8],
     paddingVertical: spacing[8],
     // DEBUG-365. LATENT, not live: `showSkip && onSkip` guards the render and
-    // every one of the six <Timer> call sites passes showSkip={false} with no
+    // every one of the five <Timer> call sites passes showSkip={false} with no
     // onSkip, so this renders nowhere today (SkipLink, already 44pt, provides
     // the skip affordance instead). Fixed rather than deleted because showSkip
     // defaults to true — the next call site that omits the prop gets a compliant
