@@ -47,6 +47,41 @@ export interface AccessibilitySettings {
 }
 
 /**
+ * Interval-cue cadence for reflection / meditation timers (FEAT-285).
+ *
+ * Deliberately NOT a general scheduling knob: 'minute' emits one identical
+ * pulse per elapsed minute. There is no halfway or near-end variant, because an
+ * escalating cue turns resting into counting down.
+ */
+export type PracticeHapticsInterval = 'none' | 'minute';
+
+/**
+ * Practice preferences (FEAT-285)
+ *
+ * Plain AsyncStorage, unencrypted — these are interaction preferences, not
+ * wellness data. Nothing here records anything about the user's state.
+ */
+export interface PracticeSettings {
+  /** Master gate for practice haptic cues. Defaults OFF — see the opt-in note. */
+  practiceHaptics: boolean;
+  /**
+   * Interval cues during reflection / meditation timers. Defaults to 'none'
+   * and stays independent of the master toggle: turning haptics ON must not
+   * silently start pulsing at a practitioner mid-session.
+   */
+  practiceHapticsInterval: PracticeHapticsInterval;
+  /**
+   * True once the single first-run opt-in has been answered, either way.
+   *
+   * This is what makes a decline PERMANENT. A haptic is an unrequested somatic
+   * intervention during a practice that exists to sensitise the practitioner to
+   * their own body, so it must be assented to — and re-asking after a decline
+   * would make that assent meaningless. There is exactly one prompt, ever.
+   */
+  practiceHapticsPrompted: boolean;
+}
+
+/**
  * App settings metadata
  */
 export interface AppSettings {
@@ -54,6 +89,7 @@ export interface AppSettings {
   notifications: NotificationSettings;
   privacy: PrivacySettings;
   accessibility: AccessibilitySettings;
+  practices: PracticeSettings;
   onboardingCompleted: boolean;
   appVersion: string;
   updatedAt: number;
@@ -73,6 +109,7 @@ export interface SettingsStore {
   updateNotificationSettings: (notifications: Partial<NotificationSettings>) => Promise<void>;
   updatePrivacySettings: (privacy: Partial<PrivacySettings>) => Promise<void>;
   updateAccessibilitySettings: (accessibility: Partial<AccessibilitySettings>) => Promise<void>;
+  updatePracticeSettings: (practices: Partial<PracticeSettings>) => Promise<void>;
   markOnboardingComplete: () => Promise<void>;
   resetSettings: () => Promise<void>;
   setLastActiveTimestamp: (timestamp: number) => Promise<void>;
@@ -96,10 +133,45 @@ const DEFAULT_SETTINGS: Omit<AppSettings, 'userId' | 'updatedAt'> = {
     reducedMotion: false,
     highContrast: false
   },
+  practices: {
+    practiceHaptics: false, // Default: OFF — assent is required, not assumed
+    practiceHapticsInterval: 'none',
+    practiceHapticsPrompted: false
+  },
   onboardingCompleted: false,
   appVersion: '1.0.0', // TODO: Get from app config
   lastActiveTimestamp: null
 };
+
+/**
+ * Merge a persisted blob over the defaults (FEAT-285).
+ *
+ * WHY THIS IS NECESSARY: `loadSettings` previously JSON.parsed the stored blob
+ * and cast it straight to AppSettings. That is correct only while the shape
+ * never changes — the moment a key is added, every EXISTING install reads it as
+ * `undefined`, because their blob was written before the key existed. For a
+ * boolean gate that is actively dangerous: `undefined` is falsy today but any
+ * `!settings.practices.practiceHaptics` style check would throw outright when
+ * the whole section is missing.
+ *
+ * The obvious-looking alternative — bumping STORAGE_KEY — is not a fix. It
+ * "resolves" the shape mismatch by discarding every preference the user has
+ * ever set.
+ *
+ * Section-level merge (one level deep) is sufficient and is all that is done
+ * here: the settings tree is exactly two levels, and a blind deep merge would
+ * happily "repair" a value that is legitimately absent.
+ */
+function mergeWithDefaults(stored: Partial<AppSettings> | null | undefined): Omit<AppSettings, 'userId' | 'updatedAt'> {
+  return {
+    ...DEFAULT_SETTINGS,
+    ...stored,
+    notifications: { ...DEFAULT_SETTINGS.notifications, ...stored?.notifications },
+    privacy: { ...DEFAULT_SETTINGS.privacy, ...stored?.privacy },
+    accessibility: { ...DEFAULT_SETTINGS.accessibility, ...stored?.accessibility },
+    practices: { ...DEFAULT_SETTINGS.practices, ...stored?.practices }
+  };
+}
 
 /**
  * NOTE: getCurrentUserId() is now imported from devMode.ts
@@ -125,12 +197,30 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
       const storedData = await AsyncStorage.getItem(STORAGE_KEY);
 
       if (storedData) {
-        const settings = JSON.parse(storedData) as AppSettings;
-        set({ settings, isLoading: false });
-        return settings;
+        // Parse defensively and separately from the storage read: a corrupt
+        // blob is unrecoverable, and falling through to defaults beats handing
+        // the app a null settings object whose every field then reads
+        // `undefined`. A *storage* failure is a different thing and still
+        // surfaces as an error below.
+        let parsed: Partial<AppSettings> | null = null;
+        try {
+          parsed = JSON.parse(storedData) as Partial<AppSettings>;
+        } catch (parseError) {
+          console.error('[Settings] Stored settings were corrupt; falling back to defaults', parseError);
+        }
+
+        if (parsed) {
+          const settings: AppSettings = {
+            ...mergeWithDefaults(parsed),
+            userId: parsed.userId ?? getCurrentUserId(),
+            updatedAt: parsed.updatedAt ?? Date.now()
+          };
+          set({ settings, isLoading: false });
+          return settings;
+        }
       }
 
-      // No settings stored - create defaults
+      // No settings stored (or unreadable) - create defaults
       const userId = getCurrentUserId();
       const defaultSettings: AppSettings = {
         ...DEFAULT_SETTINGS,
@@ -232,6 +322,33 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
   },
 
   /**
+   * Update practice settings (FEAT-285 — haptic cue preferences)
+   */
+  updatePracticeSettings: async (practices: Partial<PracticeSettings>) => {
+    const { settings } = get();
+    if (!settings) return;
+
+    set({ isLoading: true, error: null });
+
+    try {
+      const updatedSettings: AppSettings = {
+        ...settings,
+        practices: {
+          ...settings.practices,
+          ...practices
+        },
+        updatedAt: Date.now()
+      };
+
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updatedSettings));
+      set({ settings: updatedSettings, isLoading: false });
+    } catch (error) {
+      console.error('[Settings] Failed to update practice settings', error);
+      set({ error: 'Failed to update settings', isLoading: false });
+    }
+  },
+
+  /**
    * Mark onboarding as completed
    */
   markOnboardingComplete: async () => {
@@ -312,3 +429,4 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
 export const useNotificationSettings = () => useSettingsStore((state) => state.settings?.notifications);
 export const usePrivacySettings = () => useSettingsStore((state) => state.settings?.privacy);
 export const useAccessibilitySettings = () => useSettingsStore((state) => state.settings?.accessibility);
+export const usePracticeSettings = () => useSettingsStore((state) => state.settings?.practices);

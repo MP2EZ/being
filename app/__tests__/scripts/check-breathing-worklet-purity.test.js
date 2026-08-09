@@ -247,6 +247,42 @@ describe('analyzeSource — memoization contract (BreathingCircle only)', () => 
     expect(found[0]).toMatch(/DEFAULT_PATTERN/);
   });
 
+  test('accepts a module-scope named import in place of a local const', () => {
+    // What the rule actually protects is one stable object identity shared by
+    // every render, not where the constant is declared. An import binding is
+    // that, so relocating the definition must not read as the PERF-01 regression.
+    const src = `
+      import { DEFAULT_PATTERN } from '../breathingPatterns';
+      const DEFAULT_PHASE_TEXT = { inhale: 'Breathe in' };
+      export default React.memo(BreathingCircle);
+    `;
+    expect(analyzeSource(src, 'BreathingCircle.tsx')).toEqual([]);
+  });
+
+  test('accepts the constant arriving in a multi-specifier import', () => {
+    const src = `
+      import {
+        BreathingPattern,
+        DEFAULT_PATTERN,
+      } from '../breathingPatterns';
+      const DEFAULT_PHASE_TEXT = { inhale: 'Breathe in' };
+      export default React.memo(BreathingCircle);
+    `;
+    expect(analyzeSource(src, 'BreathingCircle.tsx')).toEqual([]);
+  });
+
+  test('still flags an inline default-prop literal when nothing declares or imports it', () => {
+    // The genuine regression: no binding anywhere, the object minted per render.
+    const src = `
+      const DEFAULT_PHASE_TEXT = { inhale: 'Breathe in' };
+      const BreathingCircle = ({ pattern = { inhale: 4000, exhale: 4000 } }) => null;
+      export default React.memo(BreathingCircle);
+    `;
+    const found = analyzeSource(src, 'BreathingCircle.tsx');
+    expect(found).toHaveLength(1);
+    expect(found[0]).toMatch(/DEFAULT_PATTERN/);
+  });
+
   test('flags a missing module-scope DEFAULT_PHASE_TEXT constant', () => {
     const src = `
       const DEFAULT_PATTERN = { inhale: 4000, exhale: 4000 };

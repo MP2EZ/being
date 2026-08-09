@@ -23,7 +23,7 @@
  * - Screen reader announcements via Timer
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   View,
   Text,
@@ -40,6 +40,9 @@ import {
   type ModuleId,
 } from '@/features/learn/practices/shared/practiceCommon';
 import Timer from '@/features/practices/shared/components/Timer';
+import { usePracticeHaptics } from '@/features/practices/shared/haptics/usePracticeHaptics';
+import { intervalSchedule } from '@/features/practices/shared/haptics/cueScheduler';
+import { usePracticeSettings } from '@/core/stores/settingsStore';
 
 interface ReflectionTimerScreenProps {
   practiceId: string;
@@ -83,6 +86,26 @@ const ReflectionTimerScreen: React.FC<ReflectionTimerScreenProps> = ({
     duration,
     onComplete: markComplete,
   });
+
+  /**
+   * Interval haptic cues (FEAT-285).
+   *
+   * OFF unless the practitioner has separately opted into interval cadence —
+   * turning the master haptics toggle on must not, by itself, start pulsing at
+   * someone mid-contemplation. Every pulse is identical: no halfway marker, no
+   * near-end escalation. An escalating cue turns resting into counting down,
+   * which is the opposite of what a reflection timer is for.
+   */
+  const practiceSettings = usePracticeSettings();
+  const intervalCues = useMemo(
+    () =>
+      practiceSettings?.practiceHapticsInterval === 'minute'
+        ? intervalSchedule(duration * 1000, 60_000)
+        : [],
+    [practiceSettings?.practiceHapticsInterval, duration]
+  );
+
+  usePracticeHaptics({ schedule: intervalCues, isActive: isTimerActive });
 
   // Stable pause/resume handlers so the memoized Timer is not re-rendered
   // by new inline closures on every parent render.
