@@ -175,7 +175,7 @@ describe('DRD Check-in Flows Accessibility Validation', () => {
     // MAINT-65: EmotionGrid and EveningValueSlider tests removed (unused legacy components)
   });
 
-  describe('4. AUDIO ANNOUNCEMENTS FOR BREATHING EXERCISES', () => {
+  describe('4. SCREEN-READER PHASE ANNOUNCEMENTS FOR BREATHING EXERCISES', () => {
     it('CRITICAL: Breathing circle announces the inhale cue immediately on activation', () => {
       render(
         <BreathingCircle isActive={true} />
@@ -207,9 +207,13 @@ describe('DRD Check-in Flows Accessibility Validation', () => {
         />
       );
 
-      // Reduced motion damps the visual but must NOT suppress audio cues —
-      // the guidance text promises audio will guide breathing. This is the only
-      // runtime assertion of that promise in the repo.
+      // Reduced motion suppresses the visual but must NOT suppress the
+      // screen-reader phase announcement — under MAINT-386 the breath clock
+      // keeps running precisely so the pacing survives as the phase label plus
+      // this announcement. There is no audio cue to suppress: the app ships no
+      // audio playback (no expo-av / expo-audio / expo-speech), so
+      // `announceForAccessibility` is the only non-visual channel that exists.
+      // This is the only runtime assertion of it in the repo.
       expect(AccessibilityInfo.announceForAccessibility).toHaveBeenCalledWith('Breathe in');
     });
   });
