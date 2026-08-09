@@ -38,6 +38,9 @@ import EnhancedAssessmentQuestion from './EnhancedAssessmentQuestion';
 import AssessmentIntroduction from '@/features/assessment/components/AssessmentIntroduction';
 import AssessmentResults from '@/features/assessment/components/AssessmentResults';
 import CrisisErrorBoundary from '@/features/crisis/components/CrisisErrorBoundary';
+// DEBUG-341: eager import on the crisis path. Renders in the two render states that
+// previously had no crisis affordance on this suppressed route.
+import Static988Button from '@/features/crisis/components/Static988Button';
 import { useAssessmentStore } from '../stores/assessmentStore';
 
 // Types and interfaces
@@ -425,6 +428,30 @@ const EnhancedAssessmentFlow: React.FC<EnhancedAssessmentFlowProps> = ({
         {flowState === 'completing' && (
           <View style={styles.completingContainer}>
             <ActivityIndicator size="large" color={themeColors.primary} />
+            {/*
+              DEBUG-341 — this was an ActivityIndicator and NOTHING ELSE.
+              `AssessmentFlow` is in RootCrisisButton.SUPPRESSED_ROUTES, and the
+              suppression is justified by the per-screen prominent buttons on
+              introduction / questions / results. This branch had none, so it was a
+              zero-988 window on a suppressed route — and it is reached IMMEDIATELY
+              AFTER a PHQ-9 that may have just crossed a crisis threshold, which is the
+              highest-risk moment in the product.
+            */}
+            <Static988Button message="Finishing up. If you need support right now, it is here." />
+          </View>
+        )}
+
+        {/*
+          DEBUG-341 — the second zero-988 window on this suppressed route.
+          In the ONBOARDING context CleanRootNavigator passes context='standalone' with
+          showIntroduction false, so between mount and the async startAssessment flipping
+          flowState to 'questions', every branch above renders nothing and the screen is
+          an empty View. Same reasoning as 'completing': if this route suppresses the root
+          overlay, EVERY reachable render state must carry its own crisis affordance.
+        */}
+        {flowState === 'introduction' && !showIntroduction && (
+          <View style={styles.completingContainer}>
+            <Static988Button message="Getting your check-in ready. Support is available now if you need it." />
           </View>
         )}
       </View>
