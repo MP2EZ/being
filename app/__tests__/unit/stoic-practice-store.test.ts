@@ -2,7 +2,7 @@
  * STOIC PRACTICE STORE UNIT TESTS
  *
  * Tests for Zustand-based Stoic practice state management with encryption.
- * Validates domain progress, streak tracking, and virtue recording.
+ * Validates streak tracking, check-in completion, and persistence.
  *
  * TDD Approach: Tests written first, store implemented to pass tests.
  *
@@ -11,11 +11,17 @@
  * tests were dropped here; legacy-blob rehydration tolerance is covered by
  * stoicPracticeStore.rehydration.test.ts.
  *
+ * MAINT-320 / MAINT-371: virtue recording and domain progress are gone from
+ * this store entirely — writers first, then the read path and the persisted
+ * fields. This suite no longer covers them because they no longer exist; the
+ * only remaining obligation is that blobs still carrying those keys rehydrate
+ * without crashing, which lives in stoicPracticeStore.rehydration.test.ts.
+ *
  * Key Requirements:
  * - Zustand store with persistence
  * - SecureStore encryption for sensitive data
- * - Domain progress tracking
- * - Virtue instance/challenge recording
+ * - Streak + practice-day tracking
+ * - Debounced persistence (PERF-01)
  */
 
 import * as SecureStore from 'expo-secure-store';
@@ -24,12 +30,6 @@ import {
   StoicPracticeState,
   flushStoicPracticePersist,
 } from '@/features/practices/stores/stoicPracticeStore';
-import type {
-  CardinalVirtue,
-  PracticeDomain,
-  VirtueInstance,
-  VirtueChallenge,
-} from '@/features/practices/types/stoic';
 
 // Mock SecureStore
 jest.mock('expo-secure-store', () => ({
@@ -53,13 +53,12 @@ describe('StoicPracticeStore', () => {
       expect(state.totalPracticeDays).toBe(0);
       expect(state.currentStreak).toBe(0);
       expect(state.longestStreak).toBe(0);
-      expect(state.virtueInstances).toEqual([]);
-      expect(state.virtueChallenges).toEqual([]);
-      expect(state.domainProgress).toEqual({
-        work: { domain: 'work', practiceInstances: 0, principlesApplied: [], lastPracticeDate: null },
-        relationships: { domain: 'relationships', practiceInstances: 0, principlesApplied: [], lastPracticeDate: null },
-        adversity: { domain: 'adversity', practiceInstances: 0, principlesApplied: [], lastPracticeDate: null },
-      });
+      // MAINT-371 removed virtueInstances / virtueChallenges / domainProgress from
+      // state entirely. Asserted absent rather than simply dropped, so a
+      // reintroduction has to trip a test rather than sail through.
+      expect(state).not.toHaveProperty('virtueInstances');
+      expect(state).not.toHaveProperty('virtueChallenges');
+      expect(state).not.toHaveProperty('domainProgress');
     });
 
     it('should track isLoading state during initialization', () => {
@@ -72,8 +71,10 @@ describe('StoicPracticeStore', () => {
   // 'Domain Progress Tracking' were deleted with the writers they exercised
   // (addVirtueInstance / addVirtueChallenge / updateDomainProgressForInstance).
   // They are not re-homed anywhere: they asserted behaviour that no longer
-  // exists and that no reachable code path ever invoked in production. Coverage
-  // of the surviving read path lives in 'Data Retrieval' below.
+  // exists and that no reachable code path ever invoked in production.
+  //
+  // MAINT-371 finished the job — the read path they fed is gone too. See the
+  // note where 'Data Retrieval' used to sit, below.
 
   describe('Practice Streak Tracking', () => {
     it('should track current streak', () => {
@@ -106,66 +107,19 @@ describe('StoicPracticeStore', () => {
     });
   });
 
-  describe('Data Retrieval', () => {
-    // MAINT-320: getVirtueInstancesByDomain / getVirtueInstancesByVirtue are
-    // gone (no callers, ever). getRecentVirtueInstances SURVIVES because
-    // exportService reads it into payload.practices.virtues, so it keeps
-    // coverage — but seeded via rehydration, which is now the only way a record
-    // can reach this state at all. That is the honest shape of the contract.
-    it('should retrieve recent virtue instances (last 7 days) from rehydrated state', async () => {
-      const tenDaysAgo = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
-      const yesterday = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000);
-
-      (SecureStore.getItemAsync as jest.Mock).mockResolvedValueOnce(
-        JSON.stringify({
-          virtueInstances: [
-            {
-              id: 'old',
-              virtue: 'wisdom',
-              context: 'Old',
-              domain: 'work',
-              principleApplied: null,
-              timestamp: tenDaysAgo.toISOString(),
-            },
-            {
-              id: 'recent',
-              virtue: 'courage',
-              context: 'Recent',
-              domain: 'work',
-              principleApplied: null,
-              timestamp: yesterday.toISOString(),
-            },
-          ],
-          virtueChallenges: [],
-          // domainProgress is REQUIRED in any fixture blob, and its absence is
-          // not a cosmetic omission. loadFromSecureStore reads every other key
-          // with `?.` but dereferences `parsed.domainProgress.work` (and
-          // .relationships / .adversity) unguarded. A blob without it throws,
-          // the outer catch swallows the throw, and loadPersistedState silently
-          // returns null — leaving the store at initial state, with an empty
-          // array here rather than a failure anyone can see.
-          //
-          // ⚠️  MAINT-371 (removing domainProgress) MUST add the optional
-          // chaining first. Dropping the key from the WRITER while the READER
-          // still dereferences it unguarded would make every subsequent load
-          // throw, and the next schedulePersist() would then overwrite the
-          // user's real checkInCompletions / principleEngagements with initial
-          // state. This is the one place that failure mode is visible.
-          domainProgress: {
-            work: { domain: 'work', practiceInstances: 0, principlesApplied: [], lastPracticeDate: null },
-            relationships: { domain: 'relationships', practiceInstances: 0, principlesApplied: [], lastPracticeDate: null },
-            adversity: { domain: 'adversity', practiceInstances: 0, principlesApplied: [], lastPracticeDate: null },
-          },
-        })
-      );
-
-      await useStoicPracticeStore.getState().loadPersistedState();
-
-      const recentInstances = useStoicPracticeStore.getState().getRecentVirtueInstances(7);
-      expect(recentInstances).toHaveLength(1);
-      expect(recentInstances[0].context).toBe('Recent');
-    });
-  });
+  /*
+   * 'Data Retrieval' (getRecentVirtueInstances) was DELETED by MAINT-371.
+   *
+   * MAINT-320 kept that accessor alive for one reason, recorded here at the time:
+   * exportService read it into `payload.practices.virtues`. MAINT-371 removed that
+   * export member (EXPORT_SCHEMA_VERSION 2 -> 3) along with the state it read, so
+   * the accessor lost its last consumer and went with them. The suite it had is
+   * not replaced — there is nothing left to retrieve.
+   *
+   * Rehydration tolerance for blobs that STILL carry the removed keys is covered
+   * by stoicPracticeStore.rehydration.test.ts, which is also where the
+   * persist-then-reload round trip guarding the domainProgress landmine lives.
+   */
 
   describe('Persistence and Encryption', () => {
     it('should load persisted state from SecureStore on initialization', async () => {
@@ -198,11 +152,15 @@ describe('StoicPracticeStore', () => {
       await store.loadPersistedState();
 
       const state = useStoicPracticeStore.getState();
-      // developmentalStage is a legacy key in the blob (MAINT-300 removed the
-      // field); rehydration ignores it. Dedicated coverage:
-      // stoicPracticeStore.rehydration.test.ts.
+      // The blob deliberately still carries FOUR removed keys — developmentalStage
+      // (MAINT-300) plus virtueInstances / virtueChallenges / domainProgress
+      // (MAINT-371) — because that is what a real device holds after upgrading.
+      // Rehydration must hand-pick the live fields and ignore the rest.
+      // Dedicated coverage: stoicPracticeStore.rehydration.test.ts.
       expect(state.totalPracticeDays).toBe(50);
-      expect(state.virtueInstances).toHaveLength(1);
+      expect(state.currentStreak).toBe(10);
+      expect(state).not.toHaveProperty('virtueInstances');
+      expect(state).not.toHaveProperty('domainProgress');
     });
 
     it('should persist state changes to SecureStore', async () => {

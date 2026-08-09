@@ -14,7 +14,7 @@ import type {
   GAD7Result,
 } from '@/features/assessment/types';
 import { buildExportPayload } from '../exportService';
-import { EXPORT_DISCLAIMER, EXPORT_SCHEMA_VERSION } from '../../types';
+import { EXPORT_DISCLAIMER, EXPORT_OMISSIONS, EXPORT_SCHEMA_VERSION } from '../../types';
 
 const DAY = 24 * 60 * 60 * 1000;
 const FIXED_NOW = new Date('2026-06-08T12:00:00.000Z').getTime();
@@ -251,18 +251,8 @@ describe('buildExportPayload', () => {
   });
 
   describe('practices category', () => {
-    it('exports virtues and principle engagements verbatim with normalized timestamps', () => {
+    it('exports principle engagements verbatim with normalized timestamps', () => {
       useStoicPracticeStore.setState({
-        virtueInstances: [
-          {
-            id: 'v1',
-            virtue: 'courage',
-            context: 'Spoke up despite fear',
-            domain: 'work',
-            principleApplied: 'sphere_sovereignty',
-            timestamp: new Date(FIXED_NOW - DAY),
-          },
-        ],
         principleEngagements: [
           {
             principle: 'sphere_sovereignty',
@@ -274,10 +264,26 @@ describe('buildExportPayload', () => {
         ],
       });
       const payload = buildExportPayload({ categories: ['practices'], range: { preset: 'all' } });
-      expect(payload.practices!.virtues[0].context).toBe('Spoke up despite fear');
-      expect(payload.practices!.virtues[0].timestamp).toBe(FIXED_NOW - DAY);
       expect(payload.practices!.principleEngagements[0].principle).toBe('sphere_sovereignty');
       expect(payload.practices!.principleEngagements[0].timestamp).toBe(FIXED_NOW - DAY);
+    });
+
+    it('no longer emits a virtues member (MAINT-371, EXPORT_SCHEMA_VERSION 3)', () => {
+      // The removal is the whole point of the v2 -> v3 bump, so assert the absence
+      // directly rather than inferring it from the positive test above. `virtues`
+      // was a REQUIRED member of ExportedPractices in v2, so a v2-shaped consumer
+      // doing `payload.practices.virtues.map(...)` throws on a v3 file — which is
+      // why this is a harder compat class than the additive v1 -> v2 widening.
+      const payload = buildExportPayload({ categories: ['practices'], range: { preset: 'all' } });
+      expect(payload.practices).toBeDefined();
+      expect(payload.practices).not.toHaveProperty('virtues');
+    });
+
+    it('records the virtue log in EXPORT_OMISSIONS rather than dropping it silently', () => {
+      // MAINT-358's lesson: an omission that is not disclosed reads as coverage.
+      const payload = buildExportPayload({ categories: ['practices'], range: { preset: 'all' } });
+      const omissions = JSON.stringify(payload.meta?.omissions ?? {});
+      expect(omissions).toMatch(/virtue/i);
     });
   });
 });

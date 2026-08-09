@@ -693,11 +693,13 @@ class DataRetentionServiceImpl {
           if (!storedData) return { success: true, recordsDeleted: 0 };
 
           const parsed = JSON.parse(storedData);
-          const recordsDeleted =
-            (parsed.virtueInstances?.length || 0) + (parsed.virtueChallenges?.length || 0);
 
-          parsed.virtueInstances = [];
-          parsed.virtueChallenges = [];
+          // MAINT-371: this branch used to write `parsed.virtueInstances = []` and
+          // `parsed.virtueChallenges = []` back onto the RAW blob. Those keys no
+          // longer exist on the state (schema v2), and since this writes the parsed
+          // blob back verbatim rather than re-serializing from the store, assigning
+          // them here would RESURRECT both keys on disk on the first deletion after
+          // the migration dropped them. Removed for that reason, not as tidying.
           parsed.totalPracticeDays = 0;
           parsed.currentStreak = 0;
           parsed.longestStreak = 0;
@@ -705,7 +707,15 @@ class DataRetentionServiceImpl {
 
           await SecureStore.setItemAsync(SECURE_STORE_KEY, JSON.stringify(parsed));
 
-          return { success: true, recordsDeleted };
+          // recordsDeleted: 0 is the honest answer, not a placeholder. The category
+          // now resets only scalar counters (totalPracticeDays, currentStreak,
+          // longestStreak, practiceStartDate). Those are aggregates, not countable
+          // records — there is no row set whose size could be reported. Returning 1
+          // (or 4) would misstate the outcome of a DSR / right-to-delete response,
+          // which is the one number a regulator or user actually reads here. The
+          // category stays in `handleAccountDeletion`'s allCategories because the
+          // reset itself still has to happen.
+          return { success: true, recordsDeleted: 0 };
         }
 
         case 'consent_records':
