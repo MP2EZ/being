@@ -67,8 +67,9 @@ const createMockPracticeData = (
     date,
     principleId: 'test-principle',
   })),
-  virtueInstances: [],
-  virtueChallenges: [],
+  // MAINT-371: virtueInstances / virtueChallenges deliberately absent. The
+  // erasure branch no longer reads or writes them, so seeding them here would be
+  // asserting against data the code cannot see.
 });
 
 // Helper: Create mock assessment data
@@ -449,6 +450,64 @@ describe('DataRetentionService', () => {
       expect(result.categoriesDeleted).toContain('practice_progress');
       // consent_records should NOT be deleted
       expect(result.categoriesDeleted).not.toContain('consent_records');
+    });
+
+    /**
+     * MAINT-371 anti-resurrection guard — requested by the compliance pass.
+     *
+     * The `practice_progress` branch used to write `parsed.virtueInstances = []`
+     * and `parsed.virtueChallenges = []` back onto the RAW blob. That is why the
+     * co-edit had to land in the same PR as the store change: otherwise the first
+     * account deletion after the migration would have re-created both keys on
+     * disk, immediately after the migration dropped them.
+     *
+     * That rationale lived only in a comment. This pins it. Note it exercises
+     * DataRetentionService's OWN raw getItemAsync -> JSON.parse -> mutate ->
+     * setItemAsync path, which is independent of the store's
+     * persistToSecureStore/loadFromSecureStore path covered by
+     * stoicPracticeStore.rehydration.test.ts — neither test substitutes for the
+     * other.
+     */
+    it('MAINT-371: erasure never writes virtueInstances/virtueChallenges back onto the blob', async () => {
+      // A blob as it exists on a device that upgraded THROUGH the removal: the
+      // stale keys are still on disk from the pre-MAINT-371 build.
+      const legacyPracticeData = {
+        checkInCompletions: [{ id: '1', date: daysAgo(10) }],
+        principleEngagements: [{ id: '2', date: daysAgo(5) }],
+        virtueInstances: [{ id: '3' }],
+        virtueChallenges: [{ id: '4' }],
+        totalPracticeDays: 30,
+        currentStreak: 5,
+        longestStreak: 10,
+        practiceStartDate: daysAgo(30),
+      };
+
+      mockSecureStore.getItemAsync.mockResolvedValue(JSON.stringify(legacyPracticeData));
+      mockSecureStore.setItemAsync.mockResolvedValue(undefined);
+
+      const result = await DataRetentionService.deleteDataCategory('practice_progress');
+
+      expect(result.success).toBe(true);
+
+      // recordsDeleted is structurally 0: the category now resets only scalar
+      // counters, which are aggregates rather than a countable row set. Inventing
+      // a non-zero count would misreport a data-subject-request outcome.
+      expect(result.recordsDeleted).toBe(0);
+
+      // The scalars it IS responsible for were actually reset.
+      expect(mockSecureStore.setItemAsync).toHaveBeenCalled();
+      const written = JSON.parse(
+        mockSecureStore.setItemAsync.mock.calls.at(-1)![1] as string,
+      );
+      expect(written.totalPracticeDays).toBe(0);
+      expect(written.currentStreak).toBe(0);
+      expect(written.longestStreak).toBe(0);
+      expect(written.practiceStartDate).toBeNull();
+
+      // THE GUARD: the stale keys are not re-emitted. They may pass through
+      // untouched from the parsed blob, but the branch must never ASSIGN them.
+      expect(written.virtueInstances).not.toEqual([]);
+      expect(written.virtueChallenges).not.toEqual([]);
     });
 
     it('should mark audit entry as account_deletion', async () => {
