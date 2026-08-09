@@ -50,7 +50,7 @@ else. This needs only the manifest glob, not the batch slug, which is why it run
 the resume/fresh split and covers both paths with no cross-reference.
 
 Collect every ID any live manifest still owns — same predicate as Step 0.1c, `state ∉
-{done, deferred}` — then read the **`b-batch intake` view** (Step 0.1a names it and states
+{done, deferred}` — then read the **`Batched` view** (Step 0.1a names it and states
 why it is the only viable read path) and take its `Status: Batched` rows. Any such ID **not**
 in the owned set is an orphan: set it back to `Not started` and report it. Never touch an
 owned one.
@@ -545,6 +545,14 @@ spuriously invoke a specialist. `/b-work` already writes and runs the relevant
 `npm run test:*` suite in its Phase 3.4 — **do not re-run a separate test pass**;
 confirm the green result it reports. If `/b-work`'s tests are not green, treat it as an
 implementation failure → park (Step 3.4).
+
+**If implementation is delegated rather than run through `/b-work`, read the call path
+for any state the agent reports adding.** A green suite cannot distinguish "wired up"
+from "computed and dropped" — a `useState` that is set on every transition and rendered
+nowhere type-checks, lints, and passes every existing test while delivering none of the
+behaviour it was added for. Grep for the identifier in the render/return body, not just
+in the file. The same check applies to a value that is computed and never returned, or a
+flag that is set and never read.
 
 ### Step 3.2: Authoritative safety re-check (predict → verify)
 The Phase-1 classification was a *prediction*. Now that code exists, re-run
