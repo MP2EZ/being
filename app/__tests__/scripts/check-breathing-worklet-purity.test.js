@@ -216,10 +216,16 @@ describe('analyzeSource — JS-thread frame sampling', () => {
     expect(analyzeSource(src, 'AnotherAnimationPathFile.tsx')).toEqual([]);
   });
 
-  test('does NOT flag a 1s countdown setInterval (per-second, not per-frame)', () => {
+  // The fixture here used to be BreathingCircle's hold-pattern countdown
+  // verbatim, and the test was named after it. MAINT-391 deleted that code, so
+  // the fixture is now a generic per-second timer: the RULE it pins — a timer is
+  // not per-frame sampling and must not be flagged — is unchanged and still
+  // worth pinning, but a fixture quoting deleted code reads as if the guard is
+  // still protecting it.
+  test('does NOT flag a 1s setInterval (per-second, not per-frame)', () => {
     const src = `
-      countdownIntervalRef.current = setInterval(() => {
-        countdown.value = Math.max(0, countdown.value - 1);
+      intervalRef.current = setInterval(() => {
+        remaining.value = Math.max(0, remaining.value - 1);
       }, 1000);
     `;
     expect(analyzeSource(src, 'AnotherAnimationPathFile.tsx')).toEqual([]);

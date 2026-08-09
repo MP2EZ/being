@@ -16,6 +16,15 @@
 #     This file is kept because the precondition above is genuine, not because it
 #     is close to runnable.
 #
+# DEBUG-389 (2026-08-09): the list above is now ENFORCED, not just advisory.
+#     `npm run check:workflow-scripts` (ci.yml → Safety + privacy gates) asserts
+#     every `npm run` target in a workflow resolves, and scans `*.yml`/`*.yaml`
+#     only — the same predicate Actions uses to load a file. That is what keeps
+#     this file from being a permanent red while it stays parked. Rename it back
+#     to `.yml` and CI goes red immediately with all 10 names above, which is the
+#     intended behaviour and the cheapest possible reminder that re-enabling is a
+#     rewrite.
+#
 # INFRA-337 (2026-08-06): `actions/checkout`, `actions/setup-node` and
 #     `expo/expo-github-action` were bumped to their Node-24-capable majors here
 #     alongside the live workflows, so re-enabling this file cannot resurrect a
@@ -519,4 +528,4 @@ jobs:
           echo ""
           echo "🏥 Healthcare Systems: OPERATIONAL"
           echo "📊 Monitoring: ACTIVE (See monitoring workflow)"
-          echo "🚨 Emergency Rollback: Available (See emergency-deploy workflow)"
+          echo "🚨 Emergency Rollback: See CLAUDE.md → Hotfix Process, and docs/emergency-deployment-triggers.md"

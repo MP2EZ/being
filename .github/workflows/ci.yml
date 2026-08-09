@@ -693,6 +693,16 @@ jobs:
       - name: CI test-coverage ledger
         run: cd app && npm run check:ci-test-coverage
 
+      # Sibling of the ledger above, same principle one level out: that one
+      # checks every test file is reached by some job, this one checks every
+      # script a job invokes still exists. Third occurrence of the class
+      # (MAINT-369, DEBUG-374, DEBUG-389) — a workflow calling a deleted script
+      # stays valid YAML and still schedules, so it only ever surfaces as a red
+      # run in a job nobody reads. Scans *.yml/*.yaml only, which is the same
+      # predicate Actions uses to load them.
+      - name: Workflow script ledger
+        run: cd app && npm run check:workflow-scripts
+
   # T17 (TEST-10): Deno-based tests for Supabase Edge Functions. Closes
   # the audit's largest unprotected security surface — webhook JWS chain
   # validation, Google OIDC verification, replay protection, and

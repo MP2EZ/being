@@ -45,11 +45,22 @@ export type HapticPlatform = 'ios' | 'android';
 /**
  * Every cue the practice surfaces can emit. Adding a name here without adding a
  * catalog entry fails `cueCatalog.test.ts`, and vice versa.
+ *
+ * `hold` was removed in MAINT-391 along with the breath-retention engine. The
+ * catalog's whole point is that it is a review surface for vibrations the app
+ * can actually produce, and `BreathPhase` no longer has a hold to emit — an
+ * entry describing a cue nothing can fire is exactly the orphan this file's
+ * totality test exists to forbid, just in the other direction. It also invited
+ * the wrong conclusion on reintroduction: retention is a safety-surface change
+ * needing a `crisis` pass (see `../breathingPatterns`), and a ready-made haptic
+ * for it sitting here made it look like a half-finished feature rather than a
+ * deliberately closed door. Consequence to know: no cue now maps to the
+ * `selection` primitive, which joins `impactHeavy`, `notificationWarning` and
+ * `notificationError` as an available-but-unused rung of the API surface.
  */
 export const PRACTICE_CUES = Object.freeze([
   'sessionStart',
   'inhale',
-  'hold',
   'exhale',
   'regionTransition',
   'intervalTick',
@@ -71,9 +82,7 @@ export interface CueDefinition {
  *
  * Primitive choices follow the work item's technical notes: inhale and exhale
  * are deliberately contrasted (Light against Medium) so the two halves of the
- * breath are distinguishable by feel alone; the hold uses `selection`, the
- * lightest tick available, because a hold is a boundary you rest inside rather
- * than an instruction to act.
+ * breath are distinguishable by feel alone.
  */
 export const CUE_CATALOG: Readonly<Record<PracticeCue, CueDefinition>> = Object.freeze({
   sessionStart: Object.freeze({
@@ -85,11 +94,6 @@ export const CUE_CATALOG: Readonly<Record<PracticeCue, CueDefinition>> = Object.
     meaning: 'Begin breathing in.',
     ios: 'impactLight',
     android: 'impactLight',
-  }),
-  hold: Object.freeze({
-    meaning: 'Hold the breath.',
-    ios: 'selection',
-    android: 'selection',
   }),
   exhale: Object.freeze({
     meaning: 'Begin releasing the breath.',

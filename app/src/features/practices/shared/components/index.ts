@@ -8,6 +8,11 @@
 export { default as BreathingCircle } from './BreathingCircle';
 export { default as Timer } from './Timer';
 
+// FEAT-385: re-homed onto the three live practice screens via
+// PracticeScreenLayout's `overlay` slot. Pair it with `useHapticsOptIn`, which
+// owns the once-ever claim — rendering it unconditionally would re-ask.
+export { HapticsOptInPrompt } from './HapticsOptInPrompt';
+
 // FEAT-23: Session resumption
 export { ResumeSessionModal } from './ResumeSessionModal';
 

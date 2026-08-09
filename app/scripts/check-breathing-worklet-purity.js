@@ -36,9 +36,17 @@
  *   - `runOnJS` inside a `withTiming` COMPLETION callback. That fires once per
  *     cycle leg and is precisely the pattern PERF-02 replaced the bad one with.
  *     Banning it would ban the fix.
- *   - `setInterval(..., 1000)` for the hold-pattern countdown, and the 100ms
- *     inter-cycle `setTimeout` restart. Both are per-cycle, not per-frame.
  *   - `cancelAnimationFrame` — teardown, not sampling.
+ *
+ * This list used to carry a third exemption: `setInterval(..., 1000)` for the
+ * hold-pattern countdown and the 100 ms inter-cycle `setTimeout` restart. Both
+ * belonged to the breath-retention engine, which MAINT-391 deleted. The
+ * exemption is removed with it rather than left standing — a stale exemption
+ * silently re-permits the exact shape that was just taken out. Note what this
+ * does NOT mean: `STATE_SETTER_RE` below still excludes `setTimeout` /
+ * `setInterval` / `setImmediate` by name, so timers are not newly *banned* on
+ * the animation path. They are simply no longer blessed by a comment pointing at
+ * code that no longer exists. There are none in `BreathingCircle.tsx` today.
  *
  * ESCAPE HATCH
  * ============

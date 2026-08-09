@@ -71,7 +71,6 @@ describe('consent gate — the toggle is OFF', () => {
 
     await engine.fire('sessionStart');
     await engine.fire('inhale');
-    await engine.fire('hold');
     await engine.fire('exhale');
     await engine.fire('regionTransition');
     await engine.fire('intervalTick');
@@ -109,10 +108,13 @@ describe('primitive dispatch', () => {
     expect(mockHaptics.impactAsync).toHaveBeenCalledWith(Haptics.ImpactFeedbackStyle.Medium);
   });
 
-  it('routes the hold through selectionAsync', async () => {
-    await engineFreeOfThrottle().fire('hold');
-    expect(mockHaptics.selectionAsync).toHaveBeenCalledTimes(1);
-  });
+  // The `selectionAsync` dispatch branch used to be covered here, via the `hold`
+  // cue — the only cue that ever mapped to the `selection` primitive. MAINT-391
+  // deleted the breath-retention engine and the cue with it, so there is no
+  // longer a cue to fire that reaches this branch. `selection` joins
+  // `impactHeavy`, `notificationWarning` and `notificationError`: a rung of the
+  // expo-haptics surface that `invokePrimitive` still handles exhaustively but
+  // no catalog entry selects. Reachability, not the switch, is what moved.
 
   it('routes session end through notificationAsync', async () => {
     await engineFreeOfThrottle().fire('sessionEnd');
@@ -164,7 +166,7 @@ describe('failure latch — a device that cannot render haptics', () => {
 
     // Subsequent cues of every kind must not retry the native layer.
     await engine.fire('exhale');
-    await engine.fire('hold');
+    await engine.fire('intervalTick');
     await engine.fire('sessionEnd');
     await engine.fire('regionTransition');
 
@@ -294,7 +296,7 @@ describe('constants', () => {
   });
 
   it('keeps the floor below the shortest real phase so valid cues survive', () => {
-    // The shortest phase in any shipped pattern is a 4000ms inhale/hold/exhale.
+    // The shortest phase in any shipped pattern is a 4000ms inhale/exhale.
     // A floor at or above that would silently swallow legitimate cues.
     expect(MIN_CUE_INTERVAL_MS).toBeLessThan(4000);
   });

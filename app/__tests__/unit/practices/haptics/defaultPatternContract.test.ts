@@ -14,7 +14,6 @@ import { DEFAULT_PATTERN } from '@/features/practices/shared/breathingPatterns';
 import {
   cycleDurationMs,
   boundariesWithin,
-  INTER_CYCLE_GAP_MS,
 } from '@/features/practices/shared/haptics/phaseAtElapsed';
 
 describe('DEFAULT_PATTERN', () => {
@@ -24,20 +23,17 @@ describe('DEFAULT_PATTERN', () => {
     expect(typeof DEFAULT_PATTERN.exhale).toBe('number');
   });
 
-  it('is the 4-4 pattern the seamless engine assumes', () => {
+  it('is the 4-4 pattern the engine assumes', () => {
     expect(DEFAULT_PATTERN).toEqual({ inhale: 4000, exhale: 4000 });
   });
 
-  it('has NO hold phase — it must select the seamless Reanimated engine', () => {
-    // A hold would route BreathingCircle down its setTimeout-chain path, which
-    // inserts an inter-cycle gap. The cue model has to agree about which engine
-    // is running, so this is a real coupling, not a style preference.
-    expect(DEFAULT_PATTERN.hold ?? 0).toBe(0);
-  });
-
-  it('therefore has no inter-cycle gap in its cue timeline', () => {
+  it('has an 8-second cue cycle', () => {
+    // MAINT-391 deleted the hold engine and its 100 ms inter-cycle gap, so the
+    // pair of assertions that used to live here — "no hold phase" and "cycle is
+    // NOT 8000 + gap" — are now enforced by the type rather than at runtime.
+    // `BreathingPattern` has no `hold` to set and `phaseAtElapsed` has no gap to
+    // add, so both are unwritable, not merely unnecessary.
     expect(cycleDurationMs(DEFAULT_PATTERN)).toBe(8000);
-    expect(cycleDurationMs(DEFAULT_PATTERN)).not.toBe(8000 + INTER_CYCLE_GAP_MS);
   });
 });
 
@@ -49,11 +45,6 @@ describe('cue schedule built from the default', () => {
     expect(cues.map((c) => c.phase)).toEqual([
       'inhale', 'exhale', 'inhale', 'exhale', 'inhale',
     ]);
-  });
-
-  it('never emits a hold cue', () => {
-    const cues = boundariesWithin(DEFAULT_PATTERN, 300_000);
-    expect(cues.some((c) => c.phase === 'hold')).toBe(false);
   });
 
   it('stays comfortably inside the throttle floor for a 5-minute session', () => {

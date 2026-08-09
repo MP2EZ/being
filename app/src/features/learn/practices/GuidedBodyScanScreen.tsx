@@ -16,7 +16,12 @@
  *
  * ACCESSIBILITY:
  * - WCAG AA compliant
- * - Clear visual and audio feedback for area changes
+ * - Clear visual feedback for area changes. The current area is also carried in
+ *   the accessibility tree — ProgressiveBodyScanList labels each row with its
+ *   status ("currently focusing" / "completed" / "upcoming") — so a screen
+ *   reader user can find it on traversal. There is no audio: the app ships no
+ *   audio playback (no expo-av / expo-audio / expo-speech dependency), and this
+ *   screen does not push announcements, since the user drives the pace by tap.
  */
 
 import React, { useState } from 'react';
