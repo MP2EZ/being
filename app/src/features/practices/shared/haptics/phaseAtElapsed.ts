@@ -110,6 +110,22 @@ export function phaseAtElapsed(pattern: BreathPattern, elapsedMs: number): Phase
   };
 }
 
+/** Options for {@link boundariesWithin}. */
+export interface BoundariesWithinOptions {
+  /**
+   * Omit the opening `inhale` at atMs 0 (FEAT-311).
+   *
+   * Set this on any screen that also fires the `sessionStart` anchor. Both cues
+   * are `impactLight` and would land on the same instant, so the engine's
+   * module-scoped MIN_CUE_INTERVAL_MS throttle drops one of them — and two
+   * identical transients 0ms apart are a single pulse to the skin regardless.
+   * Trimming here makes `sessionStart` REPLACE the opening inhale as a stated
+   * decision, rather than leaving the throttle to arbitrate which meaning the
+   * practitioner receives.
+   */
+  skipOpening?: boolean;
+}
+
 /**
  * Every phase boundary strictly inside a session of `sessionMs`.
  *
@@ -118,7 +134,11 @@ export function phaseAtElapsed(pattern: BreathPattern, elapsedMs: number): Phase
  * use these absolute positions as targets measured against a fixed session
  * start, never as successive relative delays.
  */
-export function boundariesWithin(pattern: BreathPattern, sessionMs: number): PhaseBoundary[] {
+export function boundariesWithin(
+  pattern: BreathPattern,
+  sessionMs: number,
+  options: BoundariesWithinOptions = {}
+): PhaseBoundary[] {
   if (sessionMs <= 0) return [];
 
   const cycle = cycleDurationMs(pattern);
@@ -138,6 +158,7 @@ export function boundariesWithin(pattern: BreathPattern, sessionMs: number): Pha
 
     for (const { offset, phase } of offsets) {
       const atMs = cycleStart + offset;
+      if (atMs === 0 && options.skipOpening) continue;
       if (atMs < sessionMs) boundaries.push({ atMs, phase, cycleIndex });
     }
   }

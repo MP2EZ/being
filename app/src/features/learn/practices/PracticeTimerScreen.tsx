@@ -66,7 +66,14 @@ const PracticeTimerScreen: React.FC<PracticeTimerScreenProps> = ({
     handleTimerComplete,
   } = useTimerPractice({
     duration,
-    onComplete: () => markComplete(),
+    onComplete: () => {
+      // FEAT-311: the ONLY sessionEnd call site. Reached solely by the timer
+      // running out, so an abandoned practice — back-navigation, unmount —
+      // stays silent rather than asserting "the practice is complete" to
+      // someone who did not complete it.
+      emitSessionEnd();
+      markComplete();
+    },
   });
 
   // Shared hooks
@@ -85,17 +92,26 @@ const PracticeTimerScreen: React.FC<PracticeTimerScreenProps> = ({
    * run on the component's exported DEFAULT_PATTERN. The cue schedule is built
    * from that same constant rather than a local copy, so the two cannot drift
    * apart if the default ever changes.
+   *
+   * FEAT-311: `skipOpening` drops the boundary at atMs 0, because the
+   * `sessionStart` anchor now occupies that instant. Both are impactLight, so
+   * firing both would be one pulse to the skin with the engine's throttle
+   * silently picking which meaning survived.
    */
   const hapticSchedule = useMemo(
     () =>
-      boundariesWithin(DEFAULT_PATTERN, duration * 1000).map((b) => ({
+      boundariesWithin(DEFAULT_PATTERN, duration * 1000, { skipOpening: true }).map((b) => ({
         atMs: b.atMs,
         cue: b.phase,
       })),
     [duration]
   );
 
-  usePracticeHaptics({ schedule: hapticSchedule, isActive: isTimerActive });
+  const { emitSessionEnd } = usePracticeHaptics({
+    schedule: hapticSchedule,
+    isActive: isTimerActive,
+    sessionAnchors: true,
+  });
 
   // Stable pause/resume handlers so the memoized Timer is not re-rendered
   // by new inline closures on every parent render.
