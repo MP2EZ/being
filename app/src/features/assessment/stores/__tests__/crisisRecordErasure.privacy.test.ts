@@ -93,24 +93,25 @@ import { Alert } from 'react-native';
 
 import { useAssessmentStore } from '../assessmentStore';
 
-/** Prefixes `clearAllWellnessData` sweeps. Any persisted key MUST use one. */
-const SWEPT_PREFIXES = [
-  'crisis_async_',
-  'assessment_async_',
-  'wellness_async_',
-  'wellness_migrated:',
-];
-
 /**
- * Keys erased by exact name instead of prefix. Read from the same constant
- * `clearAllWellnessData` filters on, deliberately: a hand-copied allow-list
- * here could drift from the real sweep and turn this guard into a rubber
- * stamp. Importing it means adding an exception requires editing the sweep.
+ * The two halves of what `clearAllWellnessData` erases — prefix families and
+ * exact-name exceptions — both read from the constants the sweep itself filters
+ * on. A hand-copied list here could drift from the real sweep and turn this
+ * guard into a rubber stamp; importing means adding a prefix or an exception
+ * requires editing the sweep.
+ *
+ * The exact-key half was already wired this way (DEBUG-305). The prefix half was
+ * a hand-copy until DEBUG-355, and the gap was not theoretical: `audit_log_`
+ * lived outside the sweep while this list, mirroring only four prefixes, kept
+ * reporting full coverage.
  */
-const SWEPT_EXACT_KEYS = jest.requireActual<{
-  SECURE_STORAGE_CONFIG: { SWEPT_EXACT_KEYS: readonly string[] };
-}>('@/core/services/security/SecureStorageService').SECURE_STORAGE_CONFIG
-  .SWEPT_EXACT_KEYS;
+const { SWEPT_ASYNC_PREFIXES: SWEPT_PREFIXES, SECURE_STORAGE_CONFIG } =
+  jest.requireActual<{
+    SWEPT_ASYNC_PREFIXES: readonly string[];
+    SECURE_STORAGE_CONFIG: { SWEPT_EXACT_KEYS: readonly string[] };
+  }>('@/core/services/security/SecureStorageService');
+
+const SWEPT_EXACT_KEYS = SECURE_STORAGE_CONFIG.SWEPT_EXACT_KEYS;
 
 const isSwept = (key: string) =>
   SWEPT_PREFIXES.some((p) => key.startsWith(p)) || SWEPT_EXACT_KEYS.includes(key);

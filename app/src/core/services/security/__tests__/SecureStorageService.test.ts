@@ -473,6 +473,12 @@ describe('SecureStorageService — INFRA-144 hybrid storage', () => {
     expect(keysAfter.some((k) => k.startsWith('assessment_async_'))).toBe(false);
     expect(keysAfter.some((k) => k.startsWith('wellness_async_'))).toBe(false);
     expect(keysAfter.some((k) => k.startsWith('wellness_migrated:'))).toBe(false);
+    // DEBUG-355: the storeCrisisData call above routes through logStorageAccess,
+    // which persists an `audit_log_${Date.now()}` entry on every crisis_tier
+    // operation. That prefix was outside the sweep, so the record survived
+    // account erasure. Asserted here rather than left as an unobserved line in
+    // the filter.
+    expect(keysAfter.some((k) => k.startsWith('audit_log_'))).toBe(false);
   });
 
   // MAINT-241 right-to-erasure key sweep: SecureStore has no enumerate API, so
