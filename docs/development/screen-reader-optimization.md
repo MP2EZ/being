@@ -1536,7 +1536,23 @@ class AccessibilityFailureDetector {
 
 ### Alternative Crisis Access Methods
 
-#### Multi-Modal Emergency Access
+#### Alternative Input Paths to Emergency Access
+
+> **MAINT-304 — what "multi-modal" does and does not mean here.** This section
+> was titled "Multi-Modal Emergency Access", which read as a claim that the app
+> delivers crisis information over several sensory channels — visual, audio and
+> haptic simultaneously. It does not. Being ships **no audio playback of any
+> kind** (there is no `expo-av`, `expo-audio` or `expo-speech` dependency; the
+> only speech package is `expo-speech-recognition`, an *input* API), and haptics
+> are scoped to breathing practices behind the `practice_haptics` flag — dark in
+> production — and are not wired to the crisis path.
+>
+> The two output channels the crisis path actually has are **visual** and the
+> **user's own screen reader** reading `accessibilityLabel` / `accessibilityRole`
+> / `accessibilityHint` off the crisis controls. What varies below is the
+> *input* method — how a user reaches 988 — not the sensory channel the response
+> comes back on. The sample below is also illustrative DOM/keyboard code, not
+> the React Native implementation.
 
 **Comprehensive Emergency Access Implementation**
 ```typescript
