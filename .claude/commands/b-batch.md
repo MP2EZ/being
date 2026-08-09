@@ -24,7 +24,7 @@ plan mode, say so and stop — ask the user to switch (Shift+Tab) and re-invoke.
 **Guardrails inherited from CLAUDE.md (non-negotiable, the loop hits the same walls you would):**
 - Never `--no-verify` (commit/push) and never `--skip-e2e` on `feat/*`/`fix/*`/`chore/*`. Hotfix-only, and this skill never creates hotfixes.
 - Never make CI green by deleting/weakening a failing assertion. Fixes must re-run the suite locally to green first.
-- A safety-surface story is **never** auto-closed. It is implemented, tested headless, and queued for a simulator-attended close.
+- A safety-surface change never merges without the Maestro gate having RUN AND PASSED — that much is inherited (`/b-close` Phase 2.5; `--skip-e2e` hotfix-only). Who *watches* it is this skill's own policy, not CLAUDE.md's: the gate is mechanical and `/b-close` owns it end to end, so this loop may let it run. A human approves the merge only for `features/crisis/` / `features/assessment/` changes and for an added/edited `.maestro/` flow; other safety paths close mechanically on green.
 
 ---
 
@@ -152,10 +152,15 @@ the `Blocked by` relation yet. Also capture user-stated ordering from `$ARGUMENT
 Apply per item — this is a mechanical rule, not a judgment call (judgment in-context is
 exactly where drift creeps in):
 
-- **RED (sim-attended close)** if any agent's `files_touched` hits a safety path
-  (`features/assessment`, `features/crisis`, `core/services/security`,
-  `core/navigation/`, `app.json`, `Info.plist`) or mentions `CollapsibleCrisisButton`.
-  RED is decided first and overrides confidence.
+- **RED** if any agent's `files_touched` hits a safety path (`features/assessment`,
+  `features/crisis`, `core/services/security`, `core/navigation/`, `app.json`,
+  `Info.plist`, `.maestro/`) or mentions `CollapsibleCrisisButton`. Decided first,
+  overrides confidence. Step 3.2 re-decides the tier against the real diff:
+  - **RED-ATTENDED** — non-test diff under `features/crisis/` or `features/assessment/`,
+    or an added/edited `.maestro/` flow. A human approves the merge: the 988 path is
+    consequential and hard to reverse, and a new flow needs eyes to confirm it asserts
+    something real rather than passing on a selector that matches nothing.
+  - **RED-GATED** — every other safety path. Closes mechanically on a green gate.
 - **GREEN (auto)** if **all** of: every lens returns `confidence: high`; their
   `files_touched` sets substantially overlap (same problem, same place); zero
   `blocking_constraints`; combined `ambiguities` empty; not RED.
@@ -283,14 +288,12 @@ Walk GREEN **and RED** items **one at a time, in tranche order** (serial — the
 serializes on `origin/development` anyway, and the simulator is a single serial
 resource).
 
-**RED items are NOT skipped — they are implemented, then queued.** This is the design's
-guarantee (run-mode guardrail): a safety-surface story is *implemented + headless-tested*
-but never auto-closed. So **both** GREEN and RED items run `/b-work` (Step 3.1) and the
-safety re-check (Step 3.2); the only difference is the close — GREEN → `/b-close`
-(Step 3.3); RED (whether classified RED at Phase 2.1 or reclassified at Step 3.2) →
-**stop before close**, mark `queued_red`, leave the worktree intact for a sim-attended
-close (Phase 4.1). A common bug to avoid: leaving a Phase-2.1 RED un-implemented and
-then trying to `/b-close` it — there is nothing to close until `/b-work` has run.
+**RED items are NOT skipped — they are implemented, then tiered.** Every GREEN and RED item
+runs `/b-work` (Step 3.1) and the safety re-check (Step 3.2); only the close differs —
+GREEN and RED-GATED → `/b-close` (Step 3.3); RED-ATTENDED → **stop before close**, mark
+`queued_red`, leave the worktree intact for Phase 4.1. A common bug to avoid: leaving a
+Phase-2.1 RED un-implemented and then trying to `/b-close` it — there is nothing to close
+until `/b-work` has run.
 
 **Before each item, assert its `depends_on` are all satisfied** — each must be `done` in
 this run's manifest **or** already `Done` in Notion. If any prerequisite is not satisfied
@@ -398,13 +401,18 @@ The same test-file exclusion applies to the **Phase 1 prediction** (Step 2.1's R
 rule): a predicted `files_touched` set that hits a safety path *only* via test files
 (`__tests__/`, `.test.`, `.spec.`) is **not** RED on that basis alone.
 **Routing after the re-check:**
-- **RED** — either a **Phase-2.1 RED** (expected to be RED here; `/b-work` has now
-  implemented + headless-tested it) **or** a GREEN the re-check just flipped
-  (`SAFETY`/`CRISIS` non-empty): set manifest `state: queued_red`, leave the worktree
-  intact and the work committed, and **do NOT run `/b-close`** (it would stall on the
-  Maestro sim gate that isn't satisfiable unattended). Continue to the next item. This is
-  both the "a green turned out to touch navigation" fix **and** the normal path every
-  Phase-2.1 RED takes — implemented, then queued for Phase 4.1.
+- **RED-ATTENDED** — set `state: queued_red`, leave the worktree intact and the work
+  committed, and **do NOT run `/b-close`**. Continue to the next item; Phase 4.1 surfaces it.
+- **RED-GATED** — **back-merge `origin/development` first.** It is Step 3.1's sync anyway,
+  and `app/scripts/e2e-sim-build.sh` is *app code*: without INFRA-383 on the branch the gate
+  builds via `eas build --local` — 10-15 min every run, plus eas-cli login + fastlane —
+  instead of ~35-75 s warm. If `app/ios/Podfile.lock` checksums shift, do the
+  pod-deintegrate sequence in CLAUDE.md's Known Gotchas or the build dies with
+  `MessageQueue doesn't exist`. Then proceed to Step 3.3 and let `/b-close` Phase 2.5 run
+  the gate — **do not run flows here**: b-close scopes them (MAINT-237 narrowing spares a
+  sim build entirely for service-layer-only changes), verifies sim readiness, and fails
+  closed. A flow failure there → `queued_red` with the verbatim output, continue to the next
+  item; never weaken a flow, never `--skip-e2e`.
 - **GREEN** (re-check clean) → proceed to Step 3.3.
 
 ### Step 3.3: Close via /b-close (pre-answer its human prompts)
