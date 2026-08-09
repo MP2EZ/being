@@ -30,25 +30,25 @@
  * here is about KEY NAMING and sweep coverage, not cipher correctness, which
  * `EncryptionService.realcrypto.test.ts` covers.
  *
- * KNOWN SURVIVOR, NOT FIXED HERE — `storage_metadata_index`
+ * SURVIVOR FOUND HERE, CLOSED BY DEBUG-381 — `storage_metadata_index`
  *
  * Enumerating the store after erasure (which is how this suite works) also
- * exposes a THIRD unswept key, found while writing these tests. It holds one
- * record per stored blob: `storageKey` (e.g. `crisis_async_<episodeId>`),
- * `storageTier: 'crisis_tier'`, `sensitivityLevel: 'level_1_crisis_responses'`,
- * `dataType: 'crisis_intervention'`, and timestamps. No wellness content, but it
- * records that a crisis episode existed and when — and it survives account
- * deletion.
+ * exposed a THIRD unswept key, found while writing these tests: one record per
+ * stored blob carrying `storageKey` (e.g. `crisis_async_<episodeId>`),
+ * `storageTier: 'crisis_tier'`, `sensitivityLevel`, `dataType` and timestamps.
  *
- * It is deliberately NOT fixed in this change, because the obvious one-line fix
- * is wrong. `storeMetadata` re-serializes the ENTIRE in-memory `metadataCache`
- * on every write, and `clearAllWellnessData` never clears that cache — so
- * sweeping the key would delete the file and the next `storeMetadata` call would
- * write it straight back, complete with the erased records. A real fix must
- * clear the cache and the key together, which is a behavioural change to the
- * logout path (`deleteMasterKey: false`) that neither the compliance nor the
- * crisis review for this item covered. Tracked as DEBUG-381; the assertions
- * below are scoped so they neither depend on it nor pretend it is fine.
+ * It was left unfixed here because the obvious one-line fix was wrong:
+ * `storeMetadata` re-serialises the entire in-memory `metadataCache` on every
+ * write, so sweeping the key alone would have let the next write restore it.
+ * DEBUG-381 closed it properly — cache cleared before the sweep, key on
+ * `SWEPT_EXACT_KEYS` — and its own suite,
+ * `storageMetadataIndexErasure.privacy.test.ts`, carries the write-back
+ * regression pin. The whole-store assertion below was widened back at the same
+ * time, which is what makes this file's coverage honest rather than scoped.
+ *
+ * Worth keeping the sequence in mind: this is the fourth local crisis-path
+ * survivor across three work items, and each was found by enumerating after
+ * erasure rather than by review. The enumeration IS the control.
  */
 
 const mockSecureStoreMap = new Map<string, string>();
@@ -190,10 +190,25 @@ describe('account erasure removes the storage-access audit logs', () => {
 
     await service.clearAllWellnessData({ deleteMasterKey: true });
 
-    // Scoped to the audit-log records this item covers, deliberately — see the
-    // KNOWN SURVIVOR note in the header. A whole-store `not.toContain
-    // ('crisis_tier')` becomes the honest assertion once DEBUG-381 lands, and
-    // widening it back is an acceptance criterion of that item.
+    // DEBUG-381 WIDENED THIS BACK, as that item's acceptance criteria required.
+    // It was scoped to the `audit_log_` prefix because `storage_metadata_index`
+    // survived erasure carrying `crisis_tier`, so the honest whole-store form
+    // would have failed. That key is now swept AND its write-back loop closed,
+    // so the unscoped assertion is the one that tells the truth.
+    //
+    // Both stores, not just AsyncStorage: asserting over one would under-assert
+    // invisibly, because the gap only shows when the other store happens to be
+    // non-empty.
+    const dump = JSON.stringify([
+      ...mockAsyncStorageMap.entries(),
+      ...mockSecureStoreMap.entries(),
+    ]);
+    expect(dump).not.toContain('crisis_tier');
+
+    // Kept alongside the whole-store form rather than replaced by it. This one
+    // names the prefix THIS item exists for, so a regression here points at
+    // `audit_log_` directly instead of at "something, somewhere, said
+    // crisis_tier".
     const surviving = Array.from(mockAsyncStorageMap.entries()).filter(([k]) =>
       k.startsWith(AUDIT_PREFIX)
     );

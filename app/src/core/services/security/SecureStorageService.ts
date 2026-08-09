@@ -45,6 +45,23 @@ import EncryptionService, {
 } from './EncryptionService';
 
 /**
+ * The persisted metadata index (DEBUG-381).
+ *
+ * Named rather than inlined because it is written from `storeMetadata` and
+ * `deleteMetadata`, read by `loadStorageMetadata`, swept by
+ * `clearAllWellnessData`, and asserted by the erasure privacy suites — five
+ * sites that must agree. It was a bare string literal at three of them, which is
+ * the same hand-copied-mirror shape that let `audit_log_` go unswept through two
+ * work items (see `SWEPT_ASYNC_PREFIXES` below).
+ *
+ * Its contents are CLEARTEXT and crisis-describing: one record per stored blob
+ * carrying `storageKey` (e.g. `crisis_async_<episodeId>`), `storageTier`,
+ * `sensitivityLevel`, `dataType` and access timestamps. No wellness content —
+ * but enough to establish that a crisis episode existed and when.
+ */
+export const STORAGE_METADATA_INDEX_KEY = 'storage_metadata_index';
+
+/**
  * SECURE STORAGE CONFIGURATION
  */
 export const SECURE_STORAGE_CONFIG = {
@@ -80,8 +97,25 @@ export const SECURE_STORAGE_CONFIG = {
    * Anything added here must also be covered by the crisis-path erasure guard
    * in `crisisRecordErasure.privacy.test.ts`, which reads this same constant —
    * so the exception list cannot silently grow a hole.
+   *
+   * 🔴 `storage_metadata_index` (DEBUG-381) IS INERT WITHOUT THE CACHE CLEAR IN
+   * `clearAllWellnessData`. Do not "simplify" that clear away on the reasoning
+   * that membership here already covers the key — it does not, and the two must
+   * land and stay together. `storeMetadata` re-serialises the ENTIRE in-memory
+   * `metadataCache` on every write, so sweeping the key alone deletes the file
+   * and lets the very next crisis or assessment write restore it verbatim,
+   * erased records included. That is a fake control: it reads as coverage and
+   * provides none. The regression pin for the write-back specifically is
+   * `storageMetadataIndexErasure.privacy.test.ts` → "does not COME BACK".
+   *
+   * Note the two entries fail differently, which is why one comment cannot serve
+   * both: `crisis_analytics_queue` is a passive buffer that nothing rewrites
+   * after erasure, so for IT the list membership genuinely is the whole control.
    */
-  SWEPT_EXACT_KEYS: ['@being/supabase/crisis_analytics_queue'] as readonly string[],
+  SWEPT_EXACT_KEYS: [
+    '@being/supabase/crisis_analytics_queue',
+    STORAGE_METADATA_INDEX_KEY,
+  ] as readonly string[],
 
   /** Storage limits */
   MAX_SECURE_STORE_SIZE: 2048, // 2KB limit for SecureStore (legacy path)
@@ -1194,8 +1228,7 @@ export class SecureStorageService {
 
   private async loadStorageMetadata(): Promise<void> {
     try {
-      const metadataKey = 'storage_metadata_index';
-      const metadataString = await AsyncStorage.getItem(metadataKey);
+      const metadataString = await AsyncStorage.getItem(STORAGE_METADATA_INDEX_KEY);
       
       if (metadataString) {
         const metadataArray: Array<[string, SecureStorageMetadata]> = JSON.parse(metadataString);
@@ -1208,14 +1241,36 @@ export class SecureStorageService {
     }
   }
 
+  /**
+   * Write the cache to `storage_metadata_index`, or REMOVE the key when the
+   * cache is empty (DEBUG-381).
+   *
+   * Extracted so `storeMetadata` and `deleteMetadata` cannot drift — they held
+   * byte-identical persist blocks, which is how the key ended up written from
+   * two places and swept from none.
+   *
+   * The empty-cache branch matters for erasure hygiene: without it, deleting the
+   * last remaining record via `deleteSecureData` → `deleteMetadata` re-creates
+   * the key holding `"[]"`. Harmless in content, but it leaves a
+   * crisis-path-adjacent key present in a store that just enumerated clean, and
+   * the whole-store assertions in the privacy suites are the poorer for it.
+   */
+  private async persistMetadataIndex(): Promise<void> {
+    if (this.metadataCache.size === 0) {
+      await AsyncStorage.removeItem(STORAGE_METADATA_INDEX_KEY);
+      return;
+    }
+    const metadataArray = Array.from(this.metadataCache.entries());
+    await AsyncStorage.setItem(STORAGE_METADATA_INDEX_KEY, JSON.stringify(metadataArray));
+  }
+
   private async storeMetadata(storageKey: string, metadata: SecureStorageMetadata): Promise<void> {
     try {
       // Store in cache
       this.metadataCache.set(storageKey, metadata);
 
       // Persist metadata index
-      const metadataArray = Array.from(this.metadataCache.entries());
-      await AsyncStorage.setItem('storage_metadata_index', JSON.stringify(metadataArray));
+      await this.persistMetadataIndex();
 
     } catch (error) {
       logError(LogCategory.SECURITY, '🚨 METADATA STORAGE ERROR:', error instanceof Error ? error : new Error(String(error)));
@@ -1225,10 +1280,9 @@ export class SecureStorageService {
   private async deleteMetadata(storageKey: string): Promise<void> {
     try {
       this.metadataCache.delete(storageKey);
-      
+
       // Update persisted index
-      const metadataArray = Array.from(this.metadataCache.entries());
-      await AsyncStorage.setItem('storage_metadata_index', JSON.stringify(metadataArray));
+      await this.persistMetadataIndex();
 
     } catch (error) {
       logError(LogCategory.SECURITY, '🚨 METADATA DELETION ERROR:', error instanceof Error ? error : new Error(String(error)));
@@ -1495,6 +1549,38 @@ export class SecureStorageService {
   public async clearAllWellnessData(
     options: { deleteMasterKey?: boolean } = {}
   ): Promise<void> {
+    // DEBUG-381 — MUST be the first statement, and MUST be synchronous.
+    //
+    // `storeMetadata` re-serialises this entire cache to
+    // `storage_metadata_index` on every write, and nothing cleared it here — so
+    // sweeping the key below (via SWEPT_EXACT_KEYS) without this line would
+    // delete the file and let the next crisis or assessment write restore every
+    // erased record verbatim. Membership in the sweep list is inert on its own.
+    //
+    // POSITION IS LOAD-BEARING, not stylistic. `storeMetadata` is synchronous
+    // from entry through `JSON.stringify`; its only suspension point is inside
+    // the `AsyncStorage.setItem` await. So a snapshot's contents are frozen when
+    // its synchronous prelude runs, and there are exactly two cases: a prelude
+    // that ran BEFORE this clear enqueued its write before our removal (and
+    // AsyncStorage's native module dispatches serially, so the removal wins), or
+    // it ran AFTER and can only contain post-erasure entries. Move this line
+    // below the `getAllKeys()` await and a third case opens — a prelude
+    // capturing the full pre-erasure map inside that window.
+    //
+    // The reverse order (remove the key, then clear the cache) is strictly
+    // worse: a prelude landing between the two steps re-persists the ENTIRE
+    // pre-erasure index.
+    //
+    // Unconditional on both `deleteMasterKey` branches, deliberately. Every
+    // entry this cache can hold names a `crisis_async_*` or `assessment_async_*`
+    // key — only `storeCrisisData` and `storeAssessmentData` write metadata —
+    // and both prefixes are swept on both branches, so after either call the
+    // cache is 100% stale by construction. `accessLog` is deliberately NOT
+    // cleared alongside it: `getStorageMetrics` derives `successRate` from that
+    // array, and an empty one reports 0, which trips
+    // SecurityMonitoringService's reliability and audit-trail checks.
+    this.metadataCache.clear();
+
     const asyncKeys = await AsyncStorage.getAllKeys();
     const toRemove = asyncKeys.filter((k) =>
       // Prefix families — SWEPT_ASYNC_PREFIXES is the single source of truth the
