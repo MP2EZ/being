@@ -4,14 +4,23 @@
  * WHY THIS SUITE IS THE MOST IMPORTANT ONE IN THE PR
  *
  * The sweeper deletes AsyncStorage keys by pattern. The keys it must remove sit
- * in the same `crisis_`/`assessment_` namespace as the keys it must NEVER
- * remove: `crisis_async_*` holds the AES-256-encrypted safety plan and
- * emergency contacts. A naive `startsWith('crisis_')` would destroy them —
- * converting a privacy defect into a safety incident, silently, at app launch,
- * with no error message.
+ * in the same `crisis_`/`assessment_` namespace as keys it must NEVER remove,
+ * and it runs unsupervised at app launch, before render, with no error surface.
+ * A naive `startsWith('crisis_')` would take the whole namespace with it.
  *
  * So the survival assertions below are not padding. They are the actual
  * contract; the removal assertions are the easy half.
+ *
+ * This header used to name the stakes as "`crisis_async_*` holds the
+ * AES-256-encrypted safety plan and emergency contacts." That was false, and
+ * false from the start (MAINT-378): the only writer of that namespace was
+ * `SecureStorageService.storeCrisisData`, whose last real caller went in
+ * MAINT-123, and the safety plan has never been persisted through that service.
+ * The survival assertions still stand, on a narrower but real basis — those
+ * namespaces are retained as a defensive erasure floor for records on
+ * already-shipped installs, so a launch-time sweeper deleting them out from
+ * under `clearAllWellnessData` would remove the only path that can still reach
+ * them. Keep the assertions; do not restore the old justification.
  */
 
 const mockMemoryStore = new Map<string, string>();
@@ -74,7 +83,7 @@ describe('removes the DEBUG-305 legacy plaintext records', () => {
 });
 
 describe('PREFIX COLLISION GUARD — encrypted crisis data must survive', () => {
-  it('does NOT delete crisis_async_* (encrypted safety plan / emergency contacts)', async () => {
+  it('does NOT delete crisis_async_* (write-free namespace retained as an erasure floor)', async () => {
     mockMemoryStore.set('crisis_async_safety_plan', 'ciphertext');
     mockMemoryStore.set('crisis_async_emergency_contacts', 'ciphertext');
     mockMemoryStore.set('crisis_intervention_s1', 'plaintext');
