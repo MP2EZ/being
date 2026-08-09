@@ -21,7 +21,6 @@ import {
   Dimensions,
   PanResponder,
   Vibration,
-  Platform,
   AccessibilityInfo,
 } from 'react-native';
 import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
@@ -110,25 +109,30 @@ export const MotorAccessibilityProvider: React.FC<MotorAccessibilityProviderProp
     setConfig(prev => ({ ...prev, ...updates }));
   }, []);
 
+  /**
+   * MAINT-304: this used to branch on `Platform.OS === 'ios'` into
+   * `require('react-native').Haptics.ImpactFeedbackGenerator`. React Native
+   * exports no `Haptics` module, so the destructure always yielded `{}`, the
+   * `if (ImpactFeedbackGenerator)` guard never passed, and iOS silently did
+   * nothing while Android really vibrated. That is a platform-parity defect,
+   * not merely dead code — CLAUDE.md requires iOS and Android behaviour to
+   * match. Both platforms now take the `Vibration` path, which works on both.
+   *
+   * Deliberately NOT routed through `expo-haptics`: `hapticEngine.ts` is the
+   * only module permitted to import it (FEAT-285), and it owns the
+   * `practice_haptics` flag, the opt-in prompt and the OS-setting checks that
+   * go with it. A general-purpose sensory-feedback surface for the rest of the
+   * app is FEAT-8; until that lands, `Vibration` is the honest primitive here.
+   */
   const triggerHapticFeedback = useCallback((type: 'light' | 'medium' | 'heavy') => {
     if (!config.hapticFeedback) return;
 
-    if (Platform.OS === 'ios') {
-      // iOS haptic feedback
-      const { ImpactFeedbackGenerator } = require('react-native').Haptics || {};
-      if (ImpactFeedbackGenerator) {
-        const style = type === 'light' ? 'light' : type === 'medium' ? 'medium' : 'heavy';
-        ImpactFeedbackGenerator.impactOccurred(style);
-      }
-    } else {
-      // Android vibration
-      const durations = {
-        light: 50,
-        medium: 100,
-        heavy: 200,
-      };
-      Vibration.vibrate(durations[type]);
-    }
+    const durations = {
+      light: 50,
+      medium: 100,
+      heavy: 200,
+    };
+    Vibration.vibrate(durations[type]);
   }, [config.hapticFeedback]);
 
   const activateDwellMode = useCallback(() => {

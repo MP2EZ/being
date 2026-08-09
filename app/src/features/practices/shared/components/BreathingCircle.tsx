@@ -1,12 +1,13 @@
 /**
  * BreathingCircle Component - 3-Minute Breathing Space
  *
- * CLINICAL SPECIFICATIONS:
+ * PRACTICE SPECIFICATIONS:
  * - 8-second breathing cycle (4s inhale, 4s exhale)
  * - 60fps performance for therapeutic smoothness
  * - Non-directive guidance (follows natural rhythm)
  * - Therapeutic blue-gray (#6B8BA8) - flow-agnostic color
- * - Accessibility compliant with audio cues
+ * - Screen-reader phase cues via AccessibilityInfo.announceForAccessibility
+ *   (spoken by VoiceOver/TalkBack when enabled — the app plays no audio itself)
  * - Reduced motion support
  *
  * REDUCED MOTION (MAINT-386)
@@ -160,7 +161,12 @@ const BreathingCircle: React.FC<BreathingCircleProps> = ({
     if (!effectiveReducedMotion) setPhaseCue(null);
   }, [effectiveReducedMotion]);
 
-  // Audio accessibility announcements
+  // Screen-reader phase announcements — NOT audio. `announceForAccessibility`
+  // hands the string to VoiceOver/TalkBack, so it is heard only when a screen
+  // reader is running. Being ships no audio playback at all (no expo-av,
+  // expo-audio or expo-speech in app/package.json), so a silent-by-default
+  // practitioner gets pacing from the animation and, under reduced motion, from
+  // the visible phase label below — never from a sound.
   const announcePhase = useCallback((phaseText: string) => {
     AccessibilityInfo.announceForAccessibility(phaseText);
     if (reducedMotionRef.current) setPhaseCue(phaseText);

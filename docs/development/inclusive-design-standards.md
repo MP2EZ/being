@@ -546,10 +546,17 @@ universal_crisis_design:
     - memory_aids: crisis_information_always_visible
     
   sensory_accessibility:
-    - audio_crisis_guidance: spoken_instructions_for_crisis_procedures
+    # MAINT-304: the crisis path has TWO sensory channels, not four. Being ships
+    # no audio playback anywhere (no expo-av / expo-audio / expo-speech), so
+    # nothing is ever "spoken" by the app; the spoken channel is the user's own
+    # screen reader reading the accessibility tree. Haptics exist in the app
+    # (hapticEngine.ts, FEAT-285) but are scoped to breathing practices, are
+    # dark in production behind the `practice_haptics` flag, and are not wired
+    # to the crisis path at all.
+    - screen_reader_crisis_guidance: crisis_actions_carry_accessibilityLabel_role_and_hint_for_voiceover_talkback
     - visual_crisis_indicators: flashing_alerts_for_hearing_impaired_users
     - haptic_crisis_feedback: vibration_confirmation_of_crisis_activation
-    - multimodal_crisis_communication: simultaneous_visual_audio_haptic_feedback
+    - multimodal_crisis_communication: visual_plus_screen_reader_only_no_audio_playback_and_no_haptics_on_the_crisis_path
 ```
 
 **Crisis Communication Across Cultural Contexts**

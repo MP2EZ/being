@@ -641,9 +641,13 @@ Being provides a complete daily mindfulness practice structure grounded in Stoic
 
 **Breathing Exercises**:
 - **60fps animations** (production requirement: smooth, calming motion)
-- **Accessible timing**: 4-4-4-4 box breathing (inhale-hold-exhale-hold) as default
+- **Accessible timing**: 4-4 breathing — 4s inhale, 4s exhale, **no hold** — as default (`DEFAULT_PATTERN` in `app/src/features/practices/shared/breathingPatterns.ts`). This line previously said "4-4-4-4 box breathing (inhale-hold-exhale-hold)"; no shipped surface has ever run a box pattern.
 - **Customizable timing**: Users can adjust for comfort (4-7-8, 4-4-6-6, etc.)
-- **Visual + audio + haptic**: Multimodal guidance for accessibility
+- **Guidance channels — three states, not one** (corrected MAINT-304; this line previously read "Visual + audio + haptic: Multimodal guidance for accessibility", which was true of exactly one channel):
+  - **Visual — shipped.** The animated breathing circle, plus a visible phase label that replaces the motion under reduced motion so the pacing survives the accommodation (MAINT-386).
+  - **Screen reader — shipped.** Phase announcements ("Breathe in" / "Breathe out") pushed through `AccessibilityInfo.announceForAccessibility` and spoken by the user's VoiceOver/TalkBack. This is the only non-visual channel that exists today, and it is the one the reduced-motion path leans on.
+  - **Haptic — implemented, shipping dark.** `hapticEngine.ts` (FEAT-285) is the sole module permitted to call `expo-haptics`; three practice screens consume it via `usePracticeHaptics` and `AppSettingsScreen` exposes the toggle. It is gated by the `practice_haptics` feature flag, which is `false` in `.env.production` and `true` in `.env.development` — so it is off for every real user until that flips.
+  - **Audio — not implemented at any layer.** There is no `expo-av`, `expo-audio` or `expo-speech` dependency; the only speech package is `expo-speech-recognition`, an *input* API for voice journaling. The app plays no sound. Any doc, comment or spec claiming "audio cues" or "audio feedback" during breathing is describing the screen-reader channel above, or is simply wrong. Candidate status is in the Feature Backlog below.
 - **Screen reader support**: Full VoiceOver/TalkBack compatibility
 - **Background mode**: Continue breathing guidance when screen locked
 - **Crisis integration**: Quick access from crisis button (<3s)
@@ -869,6 +873,7 @@ Being provides a complete daily mindfulness practice structure grounded in Stoic
 ### Feature Backlog (Future Consideration)
 
 **Under Evaluation** (Post-Month 24):
+- Audio breathing guidance (optional bell/chime pacing a breath cycle) — moved here from the Breathing Exercises requirements in MAINT-304, where it had been asserted as shipped. Scored **COULD-HAVE (31.2)** in `docs/product/prioritization-framework-v2.md` §"Example 4: Breathing Bell Sound", whose ruling stands: *launch without audio, survey users on audio preferences, then build if validated.* Not a commitment and not scheduled — the gate is the post-launch survey, not the Month-24 horizon this list otherwise assumes. Would require adding an audio playback dependency (none exists today).
 - Family mindfulness features (parent + kids joint practice)
 - Stoic wisdom podcast (weekly deep-dives with scholars + practitioners)
 - Integration with health platforms (Apple Health, Google Fit for holistic wellness)
