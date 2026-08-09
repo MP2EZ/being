@@ -163,10 +163,26 @@ describe('a Q9-positive crisis writes no plaintext record', () => {
     // flushed. It is covered by erasure via SWEPT_EXACT_KEYS — asserted
     // separately by the swept-prefix test above, so excluding it here narrows
     // the assertion without creating a blind spot.
+    //
+    // DEBUG-381 NARROWED THIS FROM THE WHOLE CONSTANT TO ONE KEY BY NAME, and
+    // the distinction is the entire point. Filtering on `SWEPT_EXACT_KEYS`
+    // membership meant every FUTURE addition to that list silently exempted
+    // itself from this cleartext assertion — so the list, whose stated purpose
+    // is that it "cannot silently grow a hole", was growing one here. DEBUG-381
+    // added `storage_metadata_index`, which is cleartext and crisis-describing
+    // (`crisis_async_<episodeId>` / `crisis_tier` / `level_1_crisis_responses`)
+    // and is exactly the sort of key this assertion exists to catch. Excluding
+    // it would have traded one blind spot for another.
+    //
+    // Only `crisis_analytics_queue` earns the exemption, because it is the one
+    // key that must stay READABLE to function — it is a pending-upload buffer,
+    // and its payload is the allow-listed categorical shape named above.
+    // Anything else added to the exception list gets asserted here like every
+    // other key. If a future entry genuinely needs exempting, add it by name
+    // with its own justification.
+    const CLEARTEXT_EXEMPT = ['@being/supabase/crisis_analytics_queue'];
     const dump = JSON.stringify(
-      [...mockMemoryStore.entries()].filter(
-        ([key]) => !SWEPT_EXACT_KEYS.includes(key)
-      )
+      [...mockMemoryStore.entries()].filter(([key]) => !CLEARTEXT_EXEMPT.includes(key))
     );
 
     // Everything else must be free of the crisis record's plaintext shape.
