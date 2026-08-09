@@ -173,6 +173,18 @@ check-*.py
 # safety check, not an ad-hoc developer scratch script.
 !app/scripts/check-crisis-hotline.js
 !app/__tests__/scripts/check-crisis-hotline.test.js
+
+# Same carve-out, DEBUG-389. NOTE FOR WHOEVER ADDS THE NEXT ONE: the blanket
+# `check-*.js` above was written for ad-hoc developer scratch scripts, but it
+# catches every permanent guard in app/scripts/ too — and it does so SILENTLY.
+# `git add -A` reports nothing, `git status` shows nothing, and the miss only
+# surfaces when CI runs the step and the file it names is not in the repo.
+# Every permanent guard therefore needs an explicit un-ignore here. The ones
+# already tracked (check-breathing-worklet-purity, check-ci-test-coverage,
+# check-crisis-dial-guard) are tracked only because someone force-added them,
+# so this list reads shorter than the real set.
+!app/scripts/check-workflow-scripts.js
+!app/__tests__/scripts/check-workflow-scripts.test.js
 # Whitelist the service-singleton setInterval guard check (INFRA-177) —
 # CI-enforced convention guard, not an ad-hoc developer scratch script.
 !scripts/check-service-interval-guards.js

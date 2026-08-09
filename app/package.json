@@ -76,6 +76,7 @@
     "check:crisis-hotline": "node scripts/check-crisis-hotline.js",
     "check:breathing-worklets": "node scripts/check-breathing-worklet-purity.js",
     "check:ci-test-coverage": "node scripts/check-ci-test-coverage.js",
+    "check:workflow-scripts": "node scripts/check-workflow-scripts.js",
     "check:crisis-dial": "node scripts/check-crisis-dial-guard.js",
     "prepare": "[ ! -e ../.git ] && exit 0; cd .. && husky app/.husky",
     "postinstall": "patch-package && node scripts/generate-legal-content.js",
