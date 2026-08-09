@@ -50,8 +50,10 @@ else. This needs only the manifest glob, not the batch slug, which is why it run
 the resume/fresh split and covers both paths with no cross-reference.
 
 Collect every ID any live manifest still owns — same predicate as Step 0.1c, `state ∉
-{done, deferred}` — then query Notion for `Status = 'Batched'`. Any ID **not** in the owned
-set is an orphan: set it back to `Not started` and report it. Never touch an owned one.
+{done, deferred}` — then read the **`b-batch intake` view** (Step 0.1a names it and states
+why it is the only viable read path) and take its `Status: Batched` rows. Any such ID **not**
+in the owned set is an orphan: set it back to `Not started` and report it. Never touch an
+owned one.
 
     ⚠️  Reaped 2 orphaned Batched claims → Not started: MAINT-304, INFRA-379
 
@@ -74,9 +76,15 @@ It must run **here**, between the parse and the slug: Step 0.1b derives the slug
 final ID list, so selection cannot happen after it.
 
 **Source — the `b-batch intake` view**, `view://3b7a1108-c208-81cb-895f-000c23835d40`: a
-table on `${NOTION_WORK_DB}` sorted `Priority` DESC, filtered to `Not started` + `Blocked`.
-Read it via `notion-query-data-sources` with `mode: "view"`. To recreate it, that filter and
-sort plus `SHOW "Name", "Work Item ID", "Status", "Type", "Effort", "Priority", "Blocked by"`.
+table on `${NOTION_WORK_DB}` sorted `Priority` DESC, filtered to `Not started` + `Blocked` +
+`Batched`. Read it via `notion-query-data-sources` with `mode: "view"`. To recreate it, that
+filter and sort plus
+`SHOW "Name", "Work Item ID", "Status", "Type", "Effort", "Priority", "Blocked by"`.
+
+This view is **the command's read path, not just the selector's** — Step 0.0's reaper needs
+the `Batched` rows and runs on every invocation, including ones with explicit IDs. That is
+why the filter carries all three statuses: one unmetered read serves the reaper, the
+candidate pool, and the hygiene scan.
 
 **Use the view, never SQL.** SQL mode is metered on this workspace and exhausts after a few
 calls; view mode is unmetered. SQL also cannot select `Priority` at all — it is in the data
@@ -95,16 +103,22 @@ leaves on `status`-type properties, writing the surrounding AND/OR group and sil
 discarding the condition — the same gap that prevents creating status options. Assert it,
 don't assume it.
 
-If **any** row comes back with `Status` ∉ {`Not started`, `Blocked`}, the filter is missing or
-was edited — **STOP**. Do not filter client-side instead: sorted by `Priority` with no filter,
-the top of this backlog is `Done` items, so the failure is silent and proposes finished work.
+If **any** row comes back with `Status` ∉ {`Not started`, `Blocked`, `Batched`}, the filter is
+missing or was edited — **STOP**. Do not filter client-side instead: sorted by `Priority` with
+no filter, the top of this backlog is `Done` items, so the failure is silent and proposes
+finished work.
 
     ⛔ `b-batch intake` returned a `Done` row — its Status filter is missing.
-       Restore in Notion: Filter → Status → is any of → Not started, Blocked.
+       Restore in Notion: Filter → Status → is any of → Not started, Blocked, Batched.
+
+Because Step 0.0 depends on the same view, treat this assertion as gating the **whole**
+command, not just auto-select: a broken filter blinds the reaper too.
 
 #### 0.1a.2 — Partition
 `Not started` → **candidate pool**, already in priority order. `Blocked` → **hygiene scan
-only**, never a candidate (Step 2.2 would defer it anyway).
+only**, never a candidate (Step 2.2 would defer it anyway). `Batched` → **Step 0.0's input**;
+never a candidate either — an owned one belongs to a live batch, and an orphan has just been
+reverted to `Not started`, so it re-enters the pool on the next read.
 
 #### 0.1a.3 — Hygiene report (mechanical, no judgement)
 A `Blocked` row whose `Blocked by` relation is **empty** is a structural anomaly: the database
