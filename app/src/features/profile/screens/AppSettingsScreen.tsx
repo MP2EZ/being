@@ -538,12 +538,16 @@ const styles = StyleSheet.create({
    *
    * Deliberately a colour swap, NOT `opacity`. Opacity on a container
    * multiplies through to its text, which is exactly how contrast gets silently
-   * broken. gray[600] is the same token the description text already uses and
-   * holds AA against the card background; the disabled affordance itself is
-   * carried by the Switch's own track colour and the announced state.
+   * broken. This is the same token `settingDescription` below uses and holds AA
+   * against the card background; the disabled affordance itself is carried by
+   * the Switch's own track colour and the announced state.
+   *
+   * Read the token, not the raw ramp value: DEBUG-370 pins raw
+   * `colorSystem.gray[600]` out of every text position (it clears 3:1 for
+   * non-text but not the 4.5:1 text bar on every surface).
    */
   settingLabelDisabled: {
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
   },
   settingDescription: {
     fontSize: typography.bodySmall.size,
