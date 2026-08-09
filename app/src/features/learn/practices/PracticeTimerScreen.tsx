@@ -38,12 +38,40 @@ import { DEFAULT_PATTERN } from '@/features/practices/shared/breathingPatterns';
 import { usePracticeHaptics } from '@/features/practices/shared/haptics/usePracticeHaptics';
 import { boundariesWithin } from '@/features/practices/shared/haptics/phaseAtElapsed';
 import Timer from '@/features/practices/shared/components/Timer';
+import type { PracticeVisualMode } from '@/features/learn/types/education';
+
+/**
+ * DEBUG-353: default copy for the breath-paced presentation. Kept verbatim so
+ * breathing-space renders byte-identically to before this change.
+ */
+const BREATHING_INSTRUCTION =
+  'Find a comfortable position. Follow the breathing circle and let your breath find its natural rhythm.';
+const BREATHING_NOTE =
+  'If your mind wanders, gently return your attention to the breath. This is the practice.';
+
+/**
+ * Contemplative note. The breath note above is WRONG for a directed-intention
+ * practice: it tells the practitioner to return to the breath, when the object
+ * of attention is a person. Philosopher-authored (DEBUG-353).
+ */
+const CONTEMPLATIVE_NOTE =
+  "If your mind wanders, that's expected. Notice where it went, and return to the person you were holding in mind. Returning is the practice.";
+const CONTEMPLATIVE_FALLBACK_INSTRUCTION =
+  'Settle comfortably and let your attention rest. Hold one person in mind at a time and offer them a simple, sincere wish.';
 
 interface PracticeTimerScreenProps {
   practiceId: string;
   moduleId: ModuleId;
   duration: number; // Duration in seconds
   title: string;
+  /**
+   * Authored steps from the module JSON (DEBUG-353). Explicit `| undefined`
+   * because tsconfig sets exactOptionalPropertyTypes — the navigator forwards
+   * `route.params.instructions`, which is genuinely `string[] | undefined`.
+   */
+  instructions?: string[] | undefined;
+  /** 'contemplative' suppresses the breathing circle (DEBUG-353). */
+  visualMode?: PracticeVisualMode | undefined;
   onComplete?: () => void;
   onBack?: () => void;
   testID?: string;
@@ -54,6 +82,8 @@ const PracticeTimerScreen: React.FC<PracticeTimerScreenProps> = ({
   moduleId,
   duration,
   title,
+  instructions,
+  visualMode = 'breathing',
   onComplete,
   onBack,
   testID = 'practice-timer-screen',
@@ -118,6 +148,31 @@ const PracticeTimerScreen: React.FC<PracticeTimerScreenProps> = ({
   const handlePause = React.useCallback(() => setIsTimerActive(false), [setIsTimerActive]);
   const handleResume = React.useCallback(() => setIsTimerActive(true), [setIsTimerActive]);
 
+  // DEBUG-353 — presentation resolution.
+  //
+  // `contemplative` is only honoured when the practice actually carries authored
+  // steps; otherwise there is nothing to guide with and falling back to the
+  // breath copy would be worse than a generic contemplative line. Degrades, never
+  // throws: this renders above RootCrisisButton with no error boundary between
+  // (ErrorBoundary.tsx has zero importers), so a throw here would white-screen the
+  // 988 affordance (DEBUG-344).
+  const steps = React.useMemo(
+    () => (instructions ?? []).filter((s) => typeof s === 'string' && s.trim().length > 0),
+    [instructions]
+  );
+  const isContemplative = visualMode === 'contemplative';
+
+  // Advance one step per equal slice of the session, derived from elapsed time
+  // rather than chained timers so a pause/resume cannot drift the sequence.
+  const activeStep = React.useMemo(() => {
+    if (!isContemplative || steps.length === 0 || duration <= 0) return 0;
+    const slice = duration / steps.length;
+    return Math.min(Math.floor(elapsedTime / slice), steps.length - 1);
+  }, [isContemplative, steps.length, duration, elapsedTime]);
+
+  const showBreathingCircle = !isContemplative;
+  const noteText = isContemplative ? CONTEMPLATIVE_NOTE : BREATHING_NOTE;
+
   // Show completion screen after timer finishes
   const completionScreen = renderCompletion();
   if (completionScreen) {
@@ -132,20 +187,38 @@ const PracticeTimerScreen: React.FC<PracticeTimerScreenProps> = ({
       testID={testID}
     >
       {/* Practice Instructions */}
-      <PracticeInstructions
-        text="Find a comfortable position. Follow the breathing circle and let your breath find its natural rhythm."
-        isActive={isTimerActive}
-        variant="simple"
-        testID={`${testID}-instructions`}
-      />
-
-      {/* Breathing Circle - Screen-specific component */}
-      <View style={styles.breathingSection}>
-        <BreathingCircle
+      {isContemplative && steps.length > 0 ? (
+        <PracticeInstructions
+          text={steps}
           isActive={isTimerActive}
-          testID={`${testID}-breathing-circle`}
+          variant="stepped"
+          activeStep={activeStep}
+          persistent
+          testID={`${testID}-instructions`}
         />
-      </View>
+      ) : (
+        <PracticeInstructions
+          text={
+            isContemplative ? CONTEMPLATIVE_FALLBACK_INSTRUCTION : BREATHING_INSTRUCTION
+          }
+          isActive={isTimerActive}
+          variant="simple"
+          testID={`${testID}-instructions`}
+        />
+      )}
+
+      {/* Breathing Circle — suppressed for contemplative practices. A
+          breath-paced animation entrains respiration and re-anchors attention
+          on the breath, which contradicts a directed-intention practice whose
+          object of attention is a person (philosopher ruling, DEBUG-353). */}
+      {showBreathingCircle && (
+        <View style={styles.breathingSection}>
+          <BreathingCircle
+            isActive={isTimerActive}
+            testID={`${testID}-breathing-circle`}
+          />
+        </View>
+      )}
 
       {/* Timer Component (Shared DRY Component) - Always rendered, controlled by isActive */}
       <View style={sharedPracticeStyles.timerSection}>
@@ -176,10 +249,7 @@ const PracticeTimerScreen: React.FC<PracticeTimerScreenProps> = ({
       {/* Mindfulness Note */}
       <View style={sharedPracticeStyles.noteSection}>
         <Text style={sharedPracticeStyles.noteIcon}>💡</Text>
-        <Text style={sharedPracticeStyles.noteText}>
-          If your mind wanders, gently return your attention to the breath. This is
-          the practice.
-        </Text>
+        <Text style={sharedPracticeStyles.noteText}>{noteText}</Text>
       </View>
     </PracticeScreenLayout>
   );
