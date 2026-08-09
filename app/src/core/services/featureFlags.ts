@@ -80,7 +80,24 @@ export type FeatureFlag =
   // this surface must never inherit. Ships dark (false in production).
   // NOTE: the e2e-sim EAS profile must enable this or the Maestro safety flow
   // runs against a dark flag and fails.
-  | 'voice_journal';
+  | 'voice_journal'
+  // FEAT-270 (FEAT-29 Slice B): gates the "See what's included" scoping +
+  // count-preview section on ExportDataScreen. Build-time, NOT runtime/PostHog,
+  // and the reasoning is stronger here than for the flags above: a runtime flag
+  // resolves only under granted analytics consent, so a PostHog gate would make
+  // a DATA-SUBJECT-RIGHTS surface (GDPR Art. 20 / CCPA §1798.110) unavailable to
+  // exactly the users who declined analytics. Availability of a privacy right
+  // must never be a function of a privacy choice. Same INFRA-199 carve-out shape
+  // as `bug_reporting` / `practice_haptics` / `voice_journal`: it gates a whole
+  // surface, not a per-user rollout.
+  //
+  // SCOPE LIMIT (compliance, non-negotiable): this flag gates UI VISIBILITY
+  // ONLY. It is not — and must never become — a consent gate for a data
+  // operation. The always-on JSON export below it is unaffected by this flag and
+  // stays reachable when it is false.
+  //
+  // Ships dark (`data_export:false` in both env files and the e2e-sim profile).
+  | 'data_export';
 
 /**
  * Parse a feature-flag blob into a boolean lookup.
