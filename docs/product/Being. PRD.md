@@ -642,7 +642,7 @@ Being provides a complete daily mindfulness practice structure grounded in Stoic
 **Breathing Exercises**:
 - **60fps animations** (production requirement: smooth, calming motion)
 - **Accessible timing**: 4-4-4-4 box breathing (inhale-hold-exhale-hold) as default
-- **Customizable timing**: Users can adjust for comfort (4-7-8, 4-4-6-6, etc.)
+- **Customizable timing**: Two-phase inhale/exhale patterns, symmetric (4-4) or asymmetric for an extended exhale (e.g. 4-6). **No breath retention** — MAINT-391 deleted the hold engine, so 4-7-8 and 4-4-6-6 are not buildable as written (the latter never was: the pattern type carried at most one hold). Reintroducing a hold is a new engine plus a `crisis` safety pass, not a config change — see `app/src/features/practices/shared/breathingPatterns.ts`.
 - **Visual + audio + haptic**: Multimodal guidance for accessibility
 - **Screen reader support**: Full VoiceOver/TalkBack compatibility
 - **Background mode**: Continue breathing guidance when screen locked
