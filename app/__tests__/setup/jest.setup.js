@@ -337,11 +337,11 @@ jest.mock('react-native', () => {
     },
 
     // findNodeHandle — required by any screen that programmatically moves VoiceOver
-    // focus (WCAG 4.1.3), e.g. DailyLoopCompleteScreen when the breath section unmounts.
-    // This mock is a wholesale allow-list, so an export omitted here is `undefined` at
-    // call time and the component throws "is not a function" on render rather than
-    // degrading. Returns a truthy tag so the focus effect runs its real code path into
-    // the mocked AccessibilityInfo.setAccessibilityFocus above.
+    // focus (WCAG 4.1.3), e.g. DailyLoopCompleteScreen when the breath section unmounts,
+    // or the FEAT-285 haptics opt-in prompt. This mock is a wholesale allow-list, so an
+    // export omitted here is `undefined` at call time and the component throws "is not a
+    // function" on render rather than degrading. Returns a truthy tag so the focus effect
+    // runs its real code path into the mocked AccessibilityInfo.setAccessibilityFocus above.
     findNodeHandle: jest.fn(() => 1),
 
     // UIManager — minimal mock so getViewManagerConfig() returns an object
@@ -406,10 +406,25 @@ jest.mock('react-native', () => {
 });
 
 // Mock Expo modules
+// FEAT-285 widened this from `impactAsync` + `ImpactFeedbackStyle.Heavy` to the
+// full semantic surface. The old partial mock left `selectionAsync`,
+// `notificationAsync` and every enum member except Heavy as `undefined`, so any
+// suite touching a real cue would have failed with a confusing "not a function"
+// rather than a meaningful assertion.
 jest.mock('expo-haptics', () => ({
   impactAsync: jest.fn(() => Promise.resolve()),
+  selectionAsync: jest.fn(() => Promise.resolve()),
+  notificationAsync: jest.fn(() => Promise.resolve()),
+  performAndroidHapticsAsync: jest.fn(() => Promise.resolve()),
   ImpactFeedbackStyle: {
+    Light: 'light',
+    Medium: 'medium',
     Heavy: 'heavy'
+  },
+  NotificationFeedbackType: {
+    Success: 'success',
+    Warning: 'warning',
+    Error: 'error'
   }
 }));
 

@@ -208,9 +208,18 @@ function analyzeSource(source, baseName) {
     }
     for (const constName of ['DEFAULT_PATTERN', 'DEFAULT_PHASE_TEXT']) {
       const declRe = new RegExp(`^\\s*const\\s+${constName}\\b`, 'm');
-      if (!declRe.test(code)) {
+      // A named import is the same guarantee: one module-scope binding, one
+      // object identity for every render. The rule is about identity stability,
+      // not about which file the definition happens to sit in — so relocating a
+      // constant to a shared module must not read as the PERF-01 regression.
+      const importRe = new RegExp(
+        `^\\s*import\\s+(?:[\\w$]+\\s*,\\s*)?\\{[^}]*\\b${constName}\\b[^}]*\\}\\s*from\\b`,
+        'm'
+      );
+      if (!declRe.test(code) && !importRe.test(code)) {
         violations.push(
-          `${baseName} — module-scope const ${constName} is missing. Inlining it as ` +
+          `${baseName} — no module-scope binding for ${constName} (declare it as a ` +
+            `const or import it). Inlining it as ` +
             `a default prop creates a new object identity every render, which ` +
             `defeats React.memo and undoes the PERF-01 fix.`
         );
