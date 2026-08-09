@@ -58,10 +58,17 @@ const APP_ROOT = path.resolve(__dirname, '..');
  * The breathing animation path, listed explicitly rather than glob-discovered.
  * An explicit list is reviewable: adding a file to the guarded set should be a
  * visible diff, not a silent consequence of where someone put a new component.
+ *
+ * MAINT-386 removed `SharedBreathingScreen.tsx`. That file had been dead since
+ * FEAT-298 slice 6c (672032f5) retired its only two callers, and `main()` below
+ * is fail-closed on a guarded file's absence — so deleting the component without
+ * this line would have turned the `Performance regression` job red on every PR.
+ * Note the consequence: the list is down to one file, and the reduce-motion
+ * treatment the deleted screen owned now lives inside BreathingCircle, i.e.
+ * inside the guarded file rather than beside it.
  */
 const ANIMATION_PATH_FILES = [
   'src/features/practices/shared/components/BreathingCircle.tsx',
-  'src/features/practices/shared/components/SharedBreathingScreen.tsx',
 ];
 
 /**

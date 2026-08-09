@@ -1,6 +1,21 @@
 /**
  * HapticsOptInPrompt — the one and only haptics opt-in (FEAT-285).
  *
+ * ⚠️ CURRENTLY UNMOUNTED — DO NOT DELETE AS DEAD CODE (MAINT-386).
+ *
+ * Its only render site was SharedBreathingScreen, which MAINT-386 deleted after
+ * FEAT-298 slice 6c orphaned it. This component was deliberately KEPT: FEAT-385
+ * re-homes it onto a live surface, on its own terms, with the Android
+ * BackHandler and the race-safe once-ever `practiceHapticsPrompted` write that
+ * item specifies. Deleting it here would have prejudged FEAT-385's open mount-site
+ * question and thrown away the only worked example of the sibling-render +
+ * `importantForAccessibility="no-hide-descendants"` modality pattern.
+ *
+ * Until FEAT-385 lands, the only reference to this file is
+ * `haptic-cues-accessibility.test.tsx` — i.e. it is dead-but-tested by design.
+ * A dead-code sweep that trusts reference counts will flag it; this note is the
+ * answer. Re-check FEAT-385's status before acting on that flag.
+ *
  * A haptic is an unrequested somatic intervention during a practice whose
  * purpose is sensitising the practitioner to their own body, so it has to be
  * assented to rather than assumed. That is why this exists at all, and why it
