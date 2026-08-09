@@ -11,6 +11,17 @@
  * per cycle leg) and legitimately calls `setInterval(..., 1000)` for the
  * hold-pattern countdown. A guard that flagged those would ban the very fix it
  * exists to protect, and would be loosened the first time it fired.
+ *
+ * FIXTURE BASENAMES (MAINT-386). The rule-detection fixtures below are labelled
+ * `AnotherAnimationPathFile.tsx` — a deliberate placeholder standing for "any
+ * guarded file that is not BreathingCircle". They used to be labelled
+ * `SharedBreathingScreen.tsx`, which was a real file until MAINT-386 deleted it
+ * as dead code. The basename is inert for rules 1–3 (they apply to every guarded
+ * file), but it is load-bearing for the memoization block at the bottom, whose
+ * rules are BreathingCircle-scoped by design: the last test there proves the
+ * scoping, so it needs a name that is NOT BreathingCircle.tsx. A placeholder is
+ * used rather than a second real filename so the fixtures cannot rot again the
+ * next time a guarded file is added or removed.
  */
 
 const fs = require('fs');
@@ -32,7 +43,7 @@ describe('analyzeSource — per-frame JS hops (the PERF-02 regression shape)', (
         return { transform: [{ scale: scale.value }] };
       }, [scale]);
     `;
-    const found = analyzeSource(src, 'SharedBreathingScreen.tsx');
+    const found = analyzeSource(src, 'AnotherAnimationPathFile.tsx');
     expect(found).toHaveLength(1);
     expect(found[0]).toMatch(/runOnJS/);
     expect(found[0]).toMatch(/useAnimatedStyle/);
@@ -46,7 +57,7 @@ describe('analyzeSource — per-frame JS hops (the PERF-02 regression shape)', (
         return scale.value;
       });
     `;
-    expect(analyzeSource(src, 'SharedBreathingScreen.tsx')).toHaveLength(1);
+    expect(analyzeSource(src, 'AnotherAnimationPathFile.tsx')).toHaveLength(1);
   });
 
   test('flags runOnJS inside a useAnimatedReaction body', () => {
@@ -59,7 +70,7 @@ describe('analyzeSource — per-frame JS hops (the PERF-02 regression shape)', (
         }
       );
     `;
-    expect(analyzeSource(src, 'SharedBreathingScreen.tsx')).toHaveLength(1);
+    expect(analyzeSource(src, 'AnotherAnimationPathFile.tsx')).toHaveLength(1);
   });
 
   test('flags a React state setter inside a worklet hook body', () => {
@@ -70,7 +81,7 @@ describe('analyzeSource — per-frame JS hops (the PERF-02 regression shape)', (
         return { opacity: opacity.value };
       });
     `;
-    const found = analyzeSource(src, 'SharedBreathingScreen.tsx');
+    const found = analyzeSource(src, 'AnotherAnimationPathFile.tsx');
     expect(found).toHaveLength(1);
     expect(found[0]).toMatch(/state setter/i);
   });
@@ -97,7 +108,7 @@ describe('analyzeSource — per-frame JS hops (the PERF-02 regression shape)', (
         false
       );
     `;
-    expect(analyzeSource(src, 'SharedBreathingScreen.tsx')).toEqual([]);
+    expect(analyzeSource(src, 'AnotherAnimationPathFile.tsx')).toEqual([]);
   });
 
   test('does NOT flag a plain worklet body with no JS hop', () => {
@@ -107,7 +118,7 @@ describe('analyzeSource — per-frame JS hops (the PERF-02 regression shape)', (
         return { transform: [{ scale: scale.value }], opacity: opacity.value };
       }, [scale, opacity]);
     `;
-    expect(analyzeSource(src, 'SharedBreathingScreen.tsx')).toEqual([]);
+    expect(analyzeSource(src, 'AnotherAnimationPathFile.tsx')).toEqual([]);
   });
 });
 
@@ -127,7 +138,7 @@ describe('analyzeSource — useFrameCallback (INFRA-309)', () => {
         runOnJS(reportFrame)(frameInfo.timeSincePreviousFrame);
       });
     `;
-    const found = analyzeSource(src, 'SharedBreathingScreen.tsx');
+    const found = analyzeSource(src, 'AnotherAnimationPathFile.tsx');
     expect(found).toHaveLength(1);
     expect(found[0]).toMatch(/runOnJS/);
     expect(found[0]).toMatch(/useFrameCallback/);
@@ -142,7 +153,7 @@ describe('analyzeSource — useFrameCallback (INFRA-309)', () => {
         runOnJS(setDroppedRatio)(timeSincePreviousFrame);
       });
     `;
-    const [runOnJsViolation] = analyzeSource(src, 'SharedBreathingScreen.tsx').filter((v) =>
+    const [runOnJsViolation] = analyzeSource(src, 'AnotherAnimationPathFile.tsx').filter((v) =>
       /runOnJS/.test(v)
     );
     expect(runOnJsViolation).toMatch(/shared values/i);
@@ -157,7 +168,7 @@ describe('analyzeSource — useFrameCallback (INFRA-309)', () => {
         setFps(1000 / frameInfo.timeSincePreviousFrame);
       });
     `;
-    const found = analyzeSource(src, 'SharedBreathingScreen.tsx');
+    const found = analyzeSource(src, 'AnotherAnimationPathFile.tsx');
     expect(found).toHaveLength(1);
     expect(found[0]).toMatch(/state setter/i);
   });
@@ -184,7 +195,7 @@ describe('analyzeSource — useFrameCallback (INFRA-309)', () => {
         };
       }, []);
     `;
-    expect(analyzeSource(src, 'SharedBreathingScreen.tsx')).toEqual([]);
+    expect(analyzeSource(src, 'AnotherAnimationPathFile.tsx')).toEqual([]);
   });
 });
 
@@ -195,14 +206,14 @@ describe('analyzeSource — JS-thread frame sampling', () => {
         requestAnimationFrame(tick);
       };
     `;
-    const found = analyzeSource(src, 'SharedBreathingScreen.tsx');
+    const found = analyzeSource(src, 'AnotherAnimationPathFile.tsx');
     expect(found).toHaveLength(1);
     expect(found[0]).toMatch(/requestAnimationFrame/);
   });
 
   test('does NOT flag cancelAnimationFrame (teardown, not sampling)', () => {
     const src = `cancelAnimationFrame(this.animationFrameId);`;
-    expect(analyzeSource(src, 'SharedBreathingScreen.tsx')).toEqual([]);
+    expect(analyzeSource(src, 'AnotherAnimationPathFile.tsx')).toEqual([]);
   });
 
   test('does NOT flag a 1s countdown setInterval (per-second, not per-frame)', () => {
@@ -211,7 +222,7 @@ describe('analyzeSource — JS-thread frame sampling', () => {
         countdown.value = Math.max(0, countdown.value - 1);
       }, 1000);
     `;
-    expect(analyzeSource(src, 'SharedBreathingScreen.tsx')).toEqual([]);
+    expect(analyzeSource(src, 'AnotherAnimationPathFile.tsx')).toEqual([]);
   });
 });
 
@@ -294,8 +305,8 @@ describe('analyzeSource — memoization contract (BreathingCircle only)', () => 
   });
 
   test('memoization rules do not apply to other animation-path files', () => {
-    const src = `export default SharedBreathingScreen;`;
-    expect(analyzeSource(src, 'SharedBreathingScreen.tsx')).toEqual([]);
+    const src = `export default AnotherAnimationPathFile;`;
+    expect(analyzeSource(src, 'AnotherAnimationPathFile.tsx')).toEqual([]);
   });
 });
 

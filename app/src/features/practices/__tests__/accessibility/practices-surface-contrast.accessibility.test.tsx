@@ -150,18 +150,28 @@ describe('DEBUG-364: known-failing pairs, pinned rather than omitted', () => {
     expect(ratio).toBeLessThan(AA_NORMAL_TEXT);
   });
 
-  it('SharedBreathingScreen staticGlowText is failing and was not in the story', () => {
-    // base.black on themes[theme].primary in the reduceMotion branch: 3.39:1 on
-    // morning at 18 DP / weight 500, which qualifies as large text under NEITHER
-    // corrected threshold (18 < 24, and 500 < 700). Found during this item, out of
-    // scope for it, deliberately not left invisible.
-    const ratio = getContrastRatio(
-      colorSystem.base.black,
-      colorSystem.themes.morning.primary,
-    );
-    expect(ratio).toBeGreaterThan(AA_NON_TEXT);
-    expect(ratio).toBeLessThan(AA_NORMAL_TEXT);
-  });
+  /*
+   * RETIRED by MAINT-386 — the pinned defect no longer exists.
+   *
+   * The pin read: "SharedBreathingScreen staticGlowText is failing and was not in
+   * the story" — base.black on themes[theme].primary in that screen's reduceMotion
+   * branch, 3.39:1 on morning at 18 DP / weight 500, large text under NEITHER
+   * corrected threshold.
+   *
+   * MAINT-386 deleted SharedBreathingScreen.tsx (dead since FEAT-298 slice 6c
+   * orphaned it) and ported its reduce-motion handling into BreathingCircle. The
+   * port deliberately does NOT carry the static-glow treatment across: the
+   * replacement phase cue uses `semantic.text.primary` on the default surface
+   * (21:1) with no container opacity, so the failing pair has no render site left
+   * anywhere in the tree.
+   *
+   * Deleted rather than left passing, per this describe's own contract: the
+   * assertion was on colorSystem tokens, not on the component, so it would have
+   * gone on passing indefinitely while naming a file that no longer exists —
+   * silent omission wearing the other hat. If a themed colour is ever composited
+   * under a container opacity on a breath surface again, this pin should come
+   * back with a live subject.
+   */
 
   it('ProgressiveBodyScanList still carries hardcoded hexes, one of them failing', () => {
     // #4CAF50 on #E8F5E9 is ~2.2:1 — worse than any pair the story listed — and is
