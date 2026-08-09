@@ -10,7 +10,11 @@
  */
 
 import React from 'react';
+import { StyleSheet, Text } from 'react-native';
 import { render, fireEvent } from '@testing-library/react-native';
+
+import { colorSystem } from '@/core/theme';
+import PracticeScreenLayout from '@/features/learn/practices/shared/PracticeScreenLayout';
 
 import {
   PRACTICE_CUES,
@@ -159,5 +163,149 @@ describe('first-run opt-in prompt', () => {
     // The card wrapper must not collapse heading/body/buttons into one stop.
     const accept = getByTestId('haptics-optin-prompt-accept');
     expect(accept.props.accessibilityLabel).toBeTruthy();
+  });
+
+  /**
+   * FEAT-385 — the preferred-"Turn on" override.
+   *
+   * The founder decision made accept the recommended choice. These assertions are
+   * the line between PREFERENCE and COERCION, and they are written to fail if the
+   * emphasis ever leaks out of the two channels it is allowed to occupy.
+   */
+  describe('preferred treatment stays a preference, not a coercion', () => {
+    const flat = (node: { props: { style?: unknown } }) =>
+      StyleSheet.flatten(node.props.style) as Record<string, unknown>;
+
+    it('EMPHASISES accept additively — a fill, and only a fill', () => {
+      const { getByTestId } = renderPrompt();
+      const accept = flat(getByTestId('haptics-optin-prompt-accept'));
+      const decline = flat(getByTestId('haptics-optin-prompt-decline'));
+
+      expect(accept.backgroundColor).toBe(colorSystem.base.midnightBlue);
+      // Decline is byte-identical to the original treatment — never de-emphasised.
+      expect(decline.backgroundColor).toBe(colorSystem.base.white);
+      expect(decline.borderColor).toBe(colorSystem.base.midnightBlue);
+    });
+
+    it('keeps the COST of both choices exactly equal', () => {
+      // Emphasis may change appearance; it must never change reachability. An
+      // unequally-sized target is the motor-channel equivalent of a pre-selected
+      // control, which this prompt already forbids.
+      const { getByTestId } = renderPrompt();
+      const accept = flat(getByTestId('haptics-optin-prompt-accept'));
+      const decline = flat(getByTestId('haptics-optin-prompt-decline'));
+
+      for (const key of [
+        'flex',
+        'minHeight',
+        'paddingVertical',
+        'paddingHorizontal',
+        'borderRadius',
+        'borderWidth',
+      ]) {
+        expect([key, accept[key]]).toEqual([key, decline[key]]);
+      }
+    });
+
+    it('keeps both LABELS identical in weight and size', () => {
+      const { getByTestId } = renderPrompt();
+      const accept = flat(getByTestId('haptics-optin-prompt-accept').children[0] as never);
+      const decline = flat(getByTestId('haptics-optin-prompt-decline').children[0] as never);
+
+      expect(accept.fontSize).toBe(decline.fontSize);
+      expect(accept.fontWeight).toBe(decline.fontWeight);
+      // The only label difference is colour, carrying the fill's contrast.
+      expect(accept.color).toBe(colorSystem.base.white);
+      expect(decline.color).toBe(colorSystem.base.midnightBlue);
+    });
+
+    it('declares NO opacity on either choice', () => {
+      // midnightBlue at 0.6 over white composites to 4.00:1 — a silent 1.4.3
+      // failure that reads as a styling choice rather than a regression.
+      const { getByTestId } = renderPrompt();
+      for (const id of ['haptics-optin-prompt-accept', 'haptics-optin-prompt-decline']) {
+        expect(flat(getByTestId(id)).opacity).toBeUndefined();
+      }
+    });
+
+    it('carries the recommendation in the BODY and nowhere in button metadata', () => {
+      // WCAG 1.3.1: a visual-only recommendation has no text equivalent, and it
+      // would withhold the suggestion from precisely the cohort the tactile
+      // channel exists for. Hints are the wrong carrier too — iOS can disable
+      // hint speech outright and TalkBack truncates it.
+      const { getByTestId } = renderPrompt();
+
+      expect(getByTestId('haptics-optin-prompt-body').props.children).toMatch(/we suggest/i);
+
+      for (const id of ['haptics-optin-prompt-accept', 'haptics-optin-prompt-decline']) {
+        const node = getByTestId(id);
+        expect(node.props.accessibilityLabel.toLowerCase()).not.toMatch(/suggest|recommend/);
+        expect(node.props.accessibilityHint.toLowerCase()).not.toMatch(/suggest|recommend/);
+        expect(node.props.accessibilityState?.selected).toBeUndefined();
+      }
+    });
+
+    it('uses a LIGHT backdrop so the faded crisis overlay stays perceivable', () => {
+      // The old gray[900] fill put the faded crisis button at 1.34:1 beneath an
+      // undismissable prompt. A darker scrim cannot fix that — #991B1B is lighter
+      // than #171717 — so the only available direction is light.
+      const { getByTestId } = renderPrompt();
+      expect(flat(getByTestId('haptics-optin-prompt')).backgroundColor).toBe(
+        colorSystem.base.white
+      );
+    });
+  });
+});
+
+/**
+ * FEAT-385 — the mount contract. The prompt is an absolutely-positioned inset-0
+ * layer, so WHERE it renders decides whether it covers the screen or scrolls away
+ * with the content.
+ */
+describe('practice screen overlay slot', () => {
+  const renderLayout = (overlay?: React.ReactNode) =>
+    render(
+      <PracticeScreenLayout
+        title="Practice"
+        onBack={() => {}}
+        scrollable={true}
+        overlay={overlay}
+        testID="practice-screen"
+      >
+        <Text>practice content</Text>
+      </PracticeScreenLayout>
+    );
+
+  it('renders the overlay OUTSIDE the hidden content subtree, and keeps it reachable', () => {
+    // Two assertions in one, both load-bearing:
+    //   1. The content subtree is GONE from the accessibility tree (TalkBack
+    //      modality — Android has no accessibilityViewIsModal).
+    //   2. The overlay is STILL reachable by the same query, which is only
+    //      possible if it renders as a SIBLING of that subtree rather than
+    //      inside it. Two of the three hosts are scrollable={true}, and nested
+    //      inside the ScrollView an inset-0 backdrop sizes to the content box
+    //      and scrolls off with it.
+    const { getByTestId, queryByTestId } = renderLayout(
+      <Text testID="test-overlay">overlay</Text>
+    );
+
+    expect(queryByTestId('practice-screen-content')).toBeNull();
+    expect(getByTestId('test-overlay')).toBeTruthy();
+  });
+
+  it('scopes the hiding to the content wrapper, never to the overlay ancestor', () => {
+    // Hiding the ROOT would hide the overlay too, since the root is its ancestor.
+    const { getByTestId } = renderLayout(<Text testID="test-overlay">overlay</Text>);
+
+    expect(
+      getByTestId('practice-screen-content', { includeHiddenElements: true }).props
+        .importantForAccessibility
+    ).toBe('no-hide-descendants');
+    expect(getByTestId('practice-screen').props.importantForAccessibility).toBeUndefined();
+  });
+
+  it('leaves the content reachable when there is no overlay', () => {
+    const { getByTestId } = renderLayout(undefined);
+    expect(getByTestId('practice-screen-content').props.importantForAccessibility).toBe('auto');
   });
 });

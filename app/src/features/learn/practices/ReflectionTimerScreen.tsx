@@ -41,6 +41,8 @@ import {
 } from '@/features/learn/practices/shared/practiceCommon';
 import Timer from '@/features/practices/shared/components/Timer';
 import { usePracticeHaptics } from '@/features/practices/shared/haptics/usePracticeHaptics';
+import { useHapticsOptIn } from '@/features/practices/shared/haptics/useHapticsOptIn';
+import { HapticsOptInPrompt } from '@/features/practices/shared/components/HapticsOptInPrompt';
 import { intervalSchedule } from '@/features/practices/shared/haptics/cueScheduler';
 import { usePracticeSettings } from '@/core/stores/settingsStore';
 
@@ -126,6 +128,11 @@ const ReflectionTimerScreen: React.FC<ReflectionTimerScreenProps> = ({
     sessionAnchors: true,
   });
 
+  // FEAT-385: the once-ever haptics opt-in. `useHapticsOptIn` owns the claim
+  // across all three practice screens, so this renders on at most one of them,
+  // at most once ever — see its module note for the async-write window.
+  const { shouldPrompt: shouldPromptHaptics, onChoose: onChooseHaptics } = useHapticsOptIn();
+
   // Stable pause/resume handlers so the memoized Timer is not re-rendered
   // by new inline closures on every parent render.
   const handlePause = React.useCallback(() => setIsTimerActive(false), [setIsTimerActive]);
@@ -142,6 +149,9 @@ const ReflectionTimerScreen: React.FC<ReflectionTimerScreenProps> = ({
       title={title}
       onBack={onBack || (() => {})}
       scrollable={true}
+      overlay={
+        shouldPromptHaptics ? <HapticsOptInPrompt onChoose={onChooseHaptics} /> : undefined
+      }
       testID={testID}
     >
       {/* Always-Visible Full Instructions */}
