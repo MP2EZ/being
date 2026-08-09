@@ -27,7 +27,8 @@
  * - Screen reader announcements via ProgressiveBodyScanList
  */
 
-import React from 'react';
+import React, { useCallback, useMemo } from 'react';
+import { AccessibilityInfo } from 'react-native';
 import {
   View,
   Text,
@@ -47,6 +48,8 @@ import {
 import { BODY_AREAS } from '@/features/practices/shared/components/BodyAreaGrid';
 import ProgressiveBodyScanList from '@/features/practices/shared/components/ProgressiveBodyScanList';
 import Timer from '@/features/practices/shared/components/Timer';
+import { usePracticeHaptics } from '@/features/practices/shared/haptics/usePracticeHaptics';
+import { regionSchedule } from '@/features/practices/shared/haptics/cueScheduler';
 
 interface BodyScanScreenProps {
   practiceId: string;
@@ -103,7 +106,12 @@ const BodyScanScreen: React.FC<BodyScanScreenProps> = ({
     handleTimerComplete,
   } = useTimerPractice({
     duration,
-    onComplete: markComplete,
+    // FEAT-311: reached only by the timer running out, so an abandoned scan
+    // stays silent.
+    onComplete: () => {
+      emitSessionEnd();
+      markComplete();
+    },
     onTick: (elapsedMs) => {
       // Calculate which area we should be on based on elapsed time
       const elapsedSeconds = elapsedMs / 1000;
@@ -117,6 +125,39 @@ const BodyScanScreen: React.FC<BodyScanScreenProps> = ({
         setCurrentAreaIndex(targetAreaIndex);
       }
     },
+  });
+
+  /**
+   * Haptic region cues (FEAT-285).
+   *
+   * Built as an ABSOLUTE timeline rather than fired from the `onTick` branch
+   * above. That branch runs on Timer's whole-second-gated tick, so a cue fired
+   * from it would inherit up to a second of quantisation error — fine for
+   * swapping the on-screen region, far too coarse for something the
+   * practitioner is meant to follow by feel.
+   */
+  const hapticSchedule = useMemo(
+    () => regionSchedule(duration * 1000, areaCount),
+    [duration, areaCount]
+  );
+
+  const { emitSessionEnd } = usePracticeHaptics({
+    schedule: hapticSchedule,
+    isActive: isTimerActive,
+    sessionAnchors: true,
+    // The screen has no existing announcement on this boundary — the region
+    // list only updates its labels — so the hook supplies the paired speech.
+    //
+    // NOTE (FEAT-311): this callback ignores its cue argument and speaks "Next
+    // area" unconditionally, which is correct ONLY because it is reached solely
+    // from the SCHEDULED path, where regionTransition is the only cue on the
+    // timeline. The session anchors deliberately bypass it — routing them here
+    // would tell a blind practitioner to move body region at the start and
+    // again at completion. If this callback ever gains a second scheduled cue,
+    // it must switch on the argument.
+    announce: useCallback(() => {
+      AccessibilityInfo.announceForAccessibility('Next area');
+    }, []),
   });
 
   // Current area context

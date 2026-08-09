@@ -27,7 +27,7 @@ import {
   findNodeHandle,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colorSystem, spacing, borderRadius, typography, getTheme } from '@/core/theme';
+import { colorSystem, spacing, borderRadius, typography, getTheme, semantic } from '@/core/theme';
 import { AccessibleButton } from '@/core/components/accessibility/AccessibleButton';
 import { BreathingCircle, Timer, SkipLink } from '@/features/practices/shared/components';
 import type { DailyLoopMode, DailyLoopCompleteData, DailyLoopDepth } from '@/features/practices/types/flows';
@@ -174,7 +174,7 @@ const DailyLoopCompleteScreen: React.FC<DailyLoopCompleteScreenProps> = ({ depth
               value={integrationNote}
               onChangeText={setIntegrationNote}
               placeholder={CLOSING.notePlaceholder}
-              placeholderTextColor={colorSystem.gray[600]}
+              placeholderTextColor={semantic.text.secondary}
               multiline
               numberOfLines={3}
               textAlignVertical="top"
@@ -235,7 +235,7 @@ const styles = StyleSheet.create({
   },
   breathSubtitle: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     textAlign: 'center',
     marginBottom: spacing[32],
   },
@@ -264,7 +264,7 @@ const styles = StyleSheet.create({
    */
   subtitle: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     letterSpacing: typography.caption.spacing,
     marginBottom: spacing[32],
     lineHeight: typography.bodySmall.size * typography.bodySmall.lineHeight,
@@ -323,7 +323,7 @@ const styles = StyleSheet.create({
   },
   returnLine: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     lineHeight: typography.bodySmall.size * 1.5,
   },
   inputLabel: {

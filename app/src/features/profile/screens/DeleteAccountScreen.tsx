@@ -30,7 +30,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
+import { colorSystem, spacing, borderRadius, typography, semantic } from '@/core/theme';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 import { deleteAccountAndWipe } from '@/core/services/privacy/AccountDeletionService';
 
@@ -172,7 +172,7 @@ const styles = StyleSheet.create({
   lead: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     lineHeight: 22,
     marginBottom: spacing[24],
   },
@@ -198,14 +198,14 @@ const styles = StyleSheet.create({
   },
   bulletDot: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     marginRight: spacing[8],
   },
   bulletText: {
     flex: 1,
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     lineHeight: 22,
   },
   infoBox: {
@@ -219,7 +219,7 @@ const styles = StyleSheet.create({
   infoText: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     lineHeight: 20,
   },
   input: {

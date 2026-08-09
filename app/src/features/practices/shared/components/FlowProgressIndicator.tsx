@@ -12,7 +12,7 @@
 
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { colorSystem, spacing, borderRadius, typography, getTheme } from '@/core/theme';
+import { colorSystem, spacing, borderRadius, typography, getTheme, semantic } from '@/core/theme';
 import { themeKeyFor } from '@/core/types/practice-identity';
 
 // FEAT-298 slice 1: re-exported from the canonical declaration, not re-declared.
@@ -81,7 +81,7 @@ const styles = StyleSheet.create({
   },
   progressText: {
     fontSize: typography.micro.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     fontWeight: typography.fontWeight.medium,
   },
 });

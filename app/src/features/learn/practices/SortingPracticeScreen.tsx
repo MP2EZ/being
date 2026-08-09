@@ -29,7 +29,7 @@ import {
   AccessibilityInfo,
   Animated,
 } from 'react-native';
-import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
+import { colorSystem, spacing, typography, borderRadius, semantic } from '@/core/theme';
 import PracticeScreenHeader from '@/features/learn/practices/shared/PracticeScreenHeader';
 import { usePracticeCompletion } from '@/features/learn/practices/shared/usePracticeCompletion';
 import type { ModuleId } from '@/features/learn/types/education';
@@ -378,7 +378,7 @@ const styles = StyleSheet.create({
   scenarioLabel: {
     fontSize: typography.caption.size,
     fontWeight: typography.fontWeight.bold,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: spacing[8],

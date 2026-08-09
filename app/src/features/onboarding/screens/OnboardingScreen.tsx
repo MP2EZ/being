@@ -28,7 +28,7 @@ import NotificationTimePicker from '@/core/components/NotificationTimePicker';
 import BrainIcon from '@/core/components/shared/BrainIcon';
 import { useConsentStore, ConsentPreferences, getLegalGateConsents } from '@/core/stores/consentStore';
 import { ConsentToggleCard } from '@/features/consent';
-import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
+import { colorSystem, spacing, borderRadius, typography, semantic } from '@/core/theme';
 import { PRINCIPLES } from '@/features/practices/shared/constants/principles';
 
 // Local colors for onboarding (flat access for convenience in this large file)
@@ -42,7 +42,6 @@ const localColors = {
   gray200: colorSystem.gray[200],
   gray300: colorSystem.gray[300],
   gray400: colorSystem.gray[400],
-  gray600: colorSystem.gray[600],
   gray700: colorSystem.gray[700],
   // Theme colors
   morningPrimary: colorSystem.themes.morning.primary,
@@ -989,6 +988,22 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
     logStateChange('handleConsentPreferenceToggle', { key, value });
   };
 
+  /**
+   * Read the legal-gate consents, retrying once (DEBUG-382).
+   *
+   * Transient SecureStore failures dominate this call's failure modes, and
+   * reconstructing on the first miss would discard a value a second read would
+   * have returned truthfully. The `.catch` is defensive: `getLegalGateConsents`
+   * swallows internally today, but it is not this call site's job to depend on
+   * that — a future change there must not silently reintroduce an unhandled
+   * rejection here.
+   */
+  const readLegalGateConsentsWithRetry = async () => {
+    const first = await getLegalGateConsents().catch(() => null);
+    if (first) return first;
+    return await getLegalGateConsents().catch(() => null);
+  };
+
   // Save consent preferences when leaving privacy screen
   const handlePrivacyContinue = async () => {
     try {
@@ -997,11 +1012,47 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
 
       // Read back the four legal-gate consents (recorded on CombinedLegalGateScreen)
       // so the GDPR Art. 9 explicit-consent flag lands in the granted ConsentRecord.
-      const legalGate = await getLegalGateConsents();
+      //
+      // DEBUG-382: this read is retried once, and a persistent failure is
+      // RECONSTRUCTED rather than defaulted. `getLegalGateConsents` returns null
+      // for both "no record" and "the read or JSON.parse threw" (its catch is
+      // bare), so the previous `?? false` silently recorded a user who had
+      // TICKED the mandatory Art. 9 box as having REFUSED it — in the record
+      // used as lawful-basis evidence, with no log and no trace.
+      const legalGate = await readLegalGateConsentsWithRetry();
+
+      // Reaching this screen is itself evidence the consent was given:
+      // CombinedLegalGateScreen requires all four ticks to advance. So an
+      // unreadable record is reconstructed from that enforced precondition, not
+      // guessed. Recording `false` would manufacture a refusal the user never
+      // made — and, once FEAT-318's write gate ships, a silent permanent lockout,
+      // since that gate blocks exactly `valid` + `canProcessMentalHealthData:false`
+      // and no UI exists to grant it.
+      //
+      // The precondition is pinned by CombinedLegalGateScreen.consentInvariant.test.tsx.
+      // FEAT-318 Slice 2 plans to unbundle that tick; when it does, that suite
+      // fails ON PURPOSE and this reconstruction must be revisited rather than
+      // silently outliving its justification.
+      const mentalHealthProcessingConsent =
+        legalGate?.mentalHealthProcessingConsent ?? true;
+
+      if (!legalGate) {
+        logSecurity(
+          'legal-gate consents unreadable at onboarding — Art. 9 flag reconstructed from the enforced gate invariant',
+          'high',
+          {
+            component: 'OnboardingScreen',
+            action: 'handlePrivacyContinue',
+            result: 'failure',
+            reconstructed: true,
+            reconstructedValue: mentalHealthProcessingConsent,
+          },
+        );
+      }
 
       const mergedPreferences: ConsentPreferences = {
         ...consentPreferences,
-        mentalHealthProcessingConsent: legalGate?.mentalHealthProcessingConsent ?? false,
+        mentalHealthProcessingConsent,
       };
 
       if (ageVerification) {
@@ -1242,7 +1293,7 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.regular,
-    color: localColors.gray600,
+    color: semantic.text.secondary,
     textAlign: 'center',
     lineHeight: 24,
   },
@@ -1263,7 +1314,7 @@ const styles = StyleSheet.create({
   bodyText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
-    color: localColors.gray600,
+    color: semantic.text.secondary,
     lineHeight: 22,
     marginBottom: spacing[16],
   },
@@ -1290,13 +1341,13 @@ const styles = StyleSheet.create({
   principleDescription: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: localColors.gray600,
+    color: semantic.text.secondary,
     lineHeight: 20,
   },
   bulletText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
-    color: localColors.gray600,
+    color: semantic.text.secondary,
     lineHeight: 22,
     marginBottom: spacing[8],
   },
@@ -1306,7 +1357,7 @@ const styles = StyleSheet.create({
   featureText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
-    color: localColors.gray600,
+    color: semantic.text.secondary,
     lineHeight: 22,
     marginBottom: spacing[8],
   },
@@ -1318,7 +1369,7 @@ const styles = StyleSheet.create({
   progressText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.medium,
-    color: localColors.gray600,
+    color: semantic.text.secondary,
     marginBottom: spacing[8],
   },
   progressBar: {
@@ -1339,7 +1390,7 @@ const styles = StyleSheet.create({
   questionIntro: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
-    color: localColors.gray600,
+    color: semantic.text.secondary,
     lineHeight: 22,
     marginBottom: spacing[16],
     textAlign: 'center',
@@ -1408,7 +1459,7 @@ const styles = StyleSheet.create({
   valueDescription: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: localColors.gray600,
+    color: semantic.text.secondary,
     lineHeight: 18,
   },
   valueDescriptionSelected: {
@@ -1468,7 +1519,7 @@ const styles = StyleSheet.create({
   notificationTime: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
-    color: localColors.gray600,
+    color: semantic.text.secondary,
   },
   timeButton: {
     // Pressable wrapper for time display
@@ -1493,7 +1544,7 @@ const styles = StyleSheet.create({
   toggleButtonText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.semibold,
-    color: localColors.gray600,
+    color: semantic.text.secondary,
   },
   toggleButtonTextEnabled: {
     color: localColors.white,
@@ -1514,7 +1565,7 @@ const styles = StyleSheet.create({
   consentText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
-    color: localColors.gray600,
+    color: semantic.text.secondary,
     lineHeight: 22,
   },
   consentCheckbox: {
@@ -1562,7 +1613,7 @@ const styles = StyleSheet.create({
   summaryValue: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
-    color: localColors.gray600,
+    color: semantic.text.secondary,
     lineHeight: 22,
   },
   // Navigation Buttons

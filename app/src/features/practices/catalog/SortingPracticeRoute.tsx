@@ -17,7 +17,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
-import { colorSystem, spacing, typography } from '@/core/theme';
+import { colorSystem, spacing, typography, semantic } from '@/core/theme';
 import SortingPracticeScreen from '@/features/learn/practices/SortingPracticeScreen';
 import { loadModuleContent } from '@/core/services/moduleContent';
 import type { ModuleId, SortingScenario } from '@/features/learn/types/education';
@@ -108,7 +108,7 @@ const styles = StyleSheet.create({
   },
   message: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     textAlign: 'center',
   },
 });

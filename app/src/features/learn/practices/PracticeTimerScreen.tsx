@@ -16,7 +16,7 @@
  * Philosopher-validated Stoic quotes for completion screen
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   View,
   Text,
@@ -34,6 +34,9 @@ import {
   type ModuleId,
 } from '@/features/learn/practices/shared/practiceCommon';
 import BreathingCircle from '@/features/practices/shared/components/BreathingCircle';
+import { DEFAULT_PATTERN } from '@/features/practices/shared/breathingPatterns';
+import { usePracticeHaptics } from '@/features/practices/shared/haptics/usePracticeHaptics';
+import { boundariesWithin } from '@/features/practices/shared/haptics/phaseAtElapsed';
 import Timer from '@/features/practices/shared/components/Timer';
 
 interface PracticeTimerScreenProps {
@@ -63,7 +66,14 @@ const PracticeTimerScreen: React.FC<PracticeTimerScreenProps> = ({
     handleTimerComplete,
   } = useTimerPractice({
     duration,
-    onComplete: () => markComplete(),
+    onComplete: () => {
+      // FEAT-311: the ONLY sessionEnd call site. Reached solely by the timer
+      // running out, so an abandoned practice — back-navigation, unmount —
+      // stays silent rather than asserting "the practice is complete" to
+      // someone who did not complete it.
+      emitSessionEnd();
+      markComplete();
+    },
   });
 
   // Shared hooks
@@ -73,6 +83,34 @@ const PracticeTimerScreen: React.FC<PracticeTimerScreenProps> = ({
     title,
     onComplete,
     testID,
+  });
+
+  /**
+   * Breath-phase haptic cues (FEAT-285).
+   *
+   * This screen renders BreathingCircle with NO `pattern` prop, so the visuals
+   * run on the component's exported DEFAULT_PATTERN. The cue schedule is built
+   * from that same constant rather than a local copy, so the two cannot drift
+   * apart if the default ever changes.
+   *
+   * FEAT-311: `skipOpening` drops the boundary at atMs 0, because the
+   * `sessionStart` anchor now occupies that instant. Both are impactLight, so
+   * firing both would be one pulse to the skin with the engine's throttle
+   * silently picking which meaning survived.
+   */
+  const hapticSchedule = useMemo(
+    () =>
+      boundariesWithin(DEFAULT_PATTERN, duration * 1000, { skipOpening: true }).map((b) => ({
+        atMs: b.atMs,
+        cue: b.phase,
+      })),
+    [duration]
+  );
+
+  const { emitSessionEnd } = usePracticeHaptics({
+    schedule: hapticSchedule,
+    isActive: isTimerActive,
+    sessionAnchors: true,
   });
 
   // Stable pause/resume handlers so the memoized Timer is not re-rendered

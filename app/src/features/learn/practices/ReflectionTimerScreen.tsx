@@ -23,7 +23,7 @@
  * - Screen reader announcements via Timer
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   View,
   Text,
@@ -40,6 +40,9 @@ import {
   type ModuleId,
 } from '@/features/learn/practices/shared/practiceCommon';
 import Timer from '@/features/practices/shared/components/Timer';
+import { usePracticeHaptics } from '@/features/practices/shared/haptics/usePracticeHaptics';
+import { intervalSchedule } from '@/features/practices/shared/haptics/cueScheduler';
+import { usePracticeSettings } from '@/core/stores/settingsStore';
 
 interface ReflectionTimerScreenProps {
   practiceId: string;
@@ -81,7 +84,46 @@ const ReflectionTimerScreen: React.FC<ReflectionTimerScreenProps> = ({
     handleTimerComplete,
   } = useTimerPractice({
     duration,
-    onComplete: markComplete,
+    // FEAT-311: reached only by the timer running out, so an abandoned
+    // reflection stays silent.
+    onComplete: () => {
+      emitSessionEnd();
+      markComplete();
+    },
+  });
+
+  /**
+   * Interval haptic cues (FEAT-285).
+   *
+   * OFF unless the practitioner has separately opted into interval cadence —
+   * turning the master haptics toggle on must not, by itself, start pulsing at
+   * someone mid-contemplation. Every pulse is identical: no halfway marker, no
+   * near-end escalation. An escalating cue turns resting into counting down,
+   * which is the opposite of what a reflection timer is for.
+   */
+  const practiceSettings = usePracticeSettings();
+  const intervalCues = useMemo(
+    () =>
+      practiceSettings?.practiceHapticsInterval === 'minute'
+        ? intervalSchedule(duration * 1000, 60_000)
+        : [],
+    [practiceSettings?.practiceHapticsInterval, duration]
+  );
+
+  /**
+   * FEAT-311: the session anchors ride the MASTER toggle, NOT the interval
+   * opt-in above. Two markers bounding the practice are a different thing from
+   * a cadence inside it — the separate interval consent exists so that enabling
+   * haptics does not start pulsing at someone mid-contemplation, and that
+   * reasoning does not extend to "begun" and "complete".
+   *
+   * This is also why the anchors cannot ride the scheduler: `intervalCues` is
+   * an EMPTY array by default, and the scheduler effect early-returns on it.
+   */
+  const { emitSessionEnd } = usePracticeHaptics({
+    schedule: intervalCues,
+    isActive: isTimerActive,
+    sessionAnchors: true,
   });
 
   // Stable pause/resume handlers so the memoized Timer is not re-rendered

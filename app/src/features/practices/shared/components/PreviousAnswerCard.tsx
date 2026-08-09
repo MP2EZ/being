@@ -12,7 +12,7 @@
 
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { colorSystem, spacing, borderRadius, typography, getTheme } from '@/core/theme';
+import { colorSystem, spacing, borderRadius, typography, getTheme, semantic } from '@/core/theme';
 import { themeKeyFor } from '@/core/types/practice-identity';
 
 // FEAT-298 slice 1: alias of the canonical `FlowType`.
@@ -77,7 +77,7 @@ const styles = StyleSheet.create({
   label: {
     fontSize: typography.caption.size,
     fontWeight: typography.fontWeight.medium,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     marginBottom: spacing[4],
   },
   answer: {
