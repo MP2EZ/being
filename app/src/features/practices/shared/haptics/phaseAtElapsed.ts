@@ -2,33 +2,34 @@
  * phaseAtElapsed — breath-phase timing model for practice haptic cues (FEAT-285).
  *
  * WHY THIS EXISTS SEPARATELY FROM THE ANIMATION
- * `BreathingCircle` schedules its visuals two different ways depending on the
- * pattern, and neither is a usable timing source for cues:
- *   - No hold phase: a Reanimated `withRepeat(withSequence(...))` that lives on
- *     the UI thread; JS only learns about a boundary through a `runOnJS` hop.
- *   - With a hold phase: a nested `setTimeout` chain on the JS thread, where
- *     every link adds its own scheduling latency to the one before it.
- * Driving cues off either would accumulate error across a session. Instead this
- * module models the schedule analytically: given a fixed session origin and an
- * elapsed duration, it answers "which phase, and when did it start" with no
- * dependence on how many boundaries have already gone by. Error therefore does
- * not accumulate — it is zero by construction.
+ * `BreathingCircle` schedules its visuals as a Reanimated
+ * `withRepeat(withSequence(...))` that lives on the UI thread; JS only learns
+ * about a boundary through a `runOnJS` hop. Driving cues off that would
+ * accumulate error across a session. Instead this module models the schedule
+ * analytically: given a fixed session origin and an elapsed duration, it answers
+ * "which phase, and when did it start" with no dependence on how many boundaries
+ * have already gone by. Error therefore does not accumulate — it is zero by
+ * construction.
  *
- * THE INTER-CYCLE GAP
- * The hold-path setTimeout chain waits `INTER_CYCLE_GAP_MS` after a cycle
- * completes before starting the next one. That gap is part of the *visual*
- * cadence, so the model has to include it or cues would slide 100 ms earlier per
- * cycle relative to what the practitioner sees. The seamless no-hold path has no
- * such gap. Keep this constant in sync with BreathingCircle's restart delay.
+ * ONE ENGINE, NO INTER-CYCLE GAP (MAINT-391)
+ * This module used to carry an `INTER_CYCLE_GAP_MS = 100` constant and a
+ * gap-inclusive cycle length, because a pattern with a `hold` selected a second
+ * animation engine in `BreathingCircle` — a nested setTimeout chain that waited
+ * 100 ms before restarting. That engine, the `hold` field, and the gap are gone.
+ * A cycle is now exactly `inhale + exhale`, and it is seamless, so the model and
+ * the visuals agree without a shared constant anyone has to remember to keep in
+ * sync. The retention ruling — and what reintroducing a hold would require — is
+ * in `../breathingPatterns`.
+ *
+ * The pattern may be asymmetric (`{ inhale: 4000, exhale: 6000 }`); nothing here
+ * assumes the two phases are equal.
  */
 
-export type BreathPhase = 'inhale' | 'hold' | 'exhale';
+export type BreathPhase = 'inhale' | 'exhale';
 
 export interface BreathPattern {
   /** Duration of the inhale, in ms. */
   inhale: number;
-  /** Duration of the hold, in ms. Absent or 0 selects the seamless engine. */
-  hold?: number;
   /** Duration of the exhale, in ms. */
   exhale: number;
 }
@@ -50,39 +51,18 @@ export interface PhaseBoundary {
 }
 
 /**
- * Delay BreathingCircle's hold-path chain inserts between cycles, in ms.
+ * Full length of one breath cycle as the practitioner experiences it.
  *
- * Mirrors the `setTimeout(..., 100)` that restarts `startBreathingCycle`. If
- * that value ever changes, this one must change with it — the drift test in
- * `__tests__/unit/practices/haptics/phaseAtElapsed.test.ts` pins the pairing.
- */
-export const INTER_CYCLE_GAP_MS = 100;
-
-/** True when the pattern selects the hold-path (setTimeout chain) engine. */
-function hasHold(pattern: BreathPattern): boolean {
-  return typeof pattern.hold === 'number' && pattern.hold > 0;
-}
-
-/** Hold duration in ms, normalised to 0 when the pattern has no hold. */
-function holdMs(pattern: BreathPattern): number {
-  return hasHold(pattern) ? (pattern.hold as number) : 0;
-}
-
-/**
- * Full length of one breath cycle as the practitioner experiences it,
- * including the inter-cycle gap on the hold path.
+ * The animation loops seamlessly, so this is the whole story: no gap, no
+ * settling time, nothing between the end of one exhale and the start of the
+ * next inhale.
  */
 export function cycleDurationMs(pattern: BreathPattern): number {
-  const gap = hasHold(pattern) ? INTER_CYCLE_GAP_MS : 0;
-  return pattern.inhale + holdMs(pattern) + pattern.exhale + gap;
+  return pattern.inhale + pattern.exhale;
 }
 
 /**
  * Which phase is active at `elapsedMs` into the session, and when it began.
- *
- * The inter-cycle gap reads as the tail of the exhale: the circle has already
- * finished contracting and the practitioner is still emptying, so there is no
- * fourth phase to name and no cue to fire.
  *
  * Negative input clamps to the opening inhale rather than throwing — a caller
  * comparing timestamps across a pause can legitimately produce one.
@@ -98,15 +78,10 @@ export function phaseAtElapsed(pattern: BreathPattern, elapsedMs: number): Phase
     return { phase: 'inhale', cycleIndex, phaseStartedAtMs: cycleStart };
   }
 
-  const hold = holdMs(pattern);
-  if (hold > 0 && withinCycle < pattern.inhale + hold) {
-    return { phase: 'hold', cycleIndex, phaseStartedAtMs: cycleStart + pattern.inhale };
-  }
-
   return {
     phase: 'exhale',
     cycleIndex,
-    phaseStartedAtMs: cycleStart + pattern.inhale + hold,
+    phaseStartedAtMs: cycleStart + pattern.inhale,
   };
 }
 
@@ -142,7 +117,6 @@ export function boundariesWithin(
   if (sessionMs <= 0) return [];
 
   const cycle = cycleDurationMs(pattern);
-  const hold = holdMs(pattern);
   const boundaries: PhaseBoundary[] = [];
 
   for (let cycleIndex = 0; cycleIndex * cycle < sessionMs; cycleIndex += 1) {
@@ -150,10 +124,7 @@ export function boundariesWithin(
 
     const offsets: Array<{ offset: number; phase: BreathPhase }> = [
       { offset: 0, phase: 'inhale' },
-      ...(hold > 0
-        ? [{ offset: pattern.inhale, phase: 'hold' as BreathPhase }]
-        : []),
-      { offset: pattern.inhale + hold, phase: 'exhale' },
+      { offset: pattern.inhale, phase: 'exhale' },
     ];
 
     for (const { offset, phase } of offsets) {

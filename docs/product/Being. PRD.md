@@ -642,7 +642,7 @@ Being provides a complete daily mindfulness practice structure grounded in Stoic
 **Breathing Exercises**:
 - **60fps animations** (production requirement: smooth, calming motion)
 - **Accessible timing**: 4-4 breathing — 4s inhale, 4s exhale, **no hold** — as default (`DEFAULT_PATTERN` in `app/src/features/practices/shared/breathingPatterns.ts`). This line previously said "4-4-4-4 box breathing (inhale-hold-exhale-hold)"; no shipped surface has ever run a box pattern.
-- **Customizable timing**: Users can adjust for comfort (4-7-8, 4-4-6-6, etc.)
+- **Customizable timing**: Two-phase inhale/exhale patterns, symmetric (4-4) or asymmetric for an extended exhale (e.g. 4-6). **No breath retention** — MAINT-391 deleted the hold engine, so 4-7-8 and 4-4-6-6 are not buildable as written (the latter never was: the pattern type carried at most one hold). Reintroducing a hold is a new engine plus a `crisis` safety pass, not a config change — see `app/src/features/practices/shared/breathingPatterns.ts`.
 - **Guidance channels — three states, not one** (corrected MAINT-304; this line previously read "Visual + audio + haptic: Multimodal guidance for accessibility", which was true of exactly one channel):
   - **Visual — shipped.** The animated breathing circle, plus a visible phase label that replaces the motion under reduced motion so the pacing survives the accommodation (MAINT-386).
   - **Screen reader — shipped.** Phase announcements ("Breathe in" / "Breathe out") pushed through `AccessibilityInfo.announceForAccessibility` and spoken by the user's VoiceOver/TalkBack. This is the only non-visual channel that exists today, and it is the one the reduced-motion path leans on.

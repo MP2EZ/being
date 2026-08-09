@@ -28,6 +28,17 @@
  * running (it is what schedules the phase cues); only its visual expression is
  * suppressed, and the pacing moves into a visible phase label plus the existing
  * spoken announcements. A paced practice stays a paced practice.
+ *
+ * ONE ENGINE (MAINT-391)
+ * ======================
+ * There used to be two. A pattern carrying a `hold` selected a nested
+ * `setTimeout` chain instead of the Reanimated sequence below. That path was
+ * dormant, broken in four separate ways, and untested; MAINT-391 deleted it
+ * along with the `hold` field, the countdown display it drove, and the
+ * `phaseText.hold` label. This component now paces exactly one shape: a
+ * two-phase inhale/exhale pattern, symmetric (4-4) or asymmetric (4-6, the
+ * extended-exhale shape). The full ruling — including what reintroducing
+ * retention would require — lives in `../breathingPatterns`.
  */
 
 import React, { useEffect, useCallback, useRef, useState } from 'react';
@@ -37,7 +48,6 @@ import Animated, {
   useAnimatedStyle,
   withTiming,
   withRepeat,
-  withDelay,
   withSequence,
   runOnJS,
   Easing,
@@ -48,7 +58,6 @@ import { DEFAULT_PATTERN } from '../breathingPatterns';
 
 interface BreathingPattern {
   inhale: number;  // milliseconds
-  hold?: number;   // milliseconds (optional)
   exhale: number;  // milliseconds
 }
 
@@ -57,11 +66,9 @@ interface BreathingCircleProps {
   onCycleComplete?: () => void;
   testID?: string;
   reducedMotion?: boolean;
-  pattern?: BreathingPattern; // NEW: configurable pattern
-  showCountdown?: boolean;     // NEW: show countdown numbers
-  phaseText?: {                // NEW: custom phase labels
+  pattern?: BreathingPattern; // configurable pattern (two-phase only)
+  phaseText?: {               // custom phase labels
     inhale?: string;
-    hold?: string;
     exhale?: string;
   };
 }
@@ -79,7 +86,6 @@ export { DEFAULT_PATTERN };
 // Default phase text (stable reference to prevent re-renders)
 const DEFAULT_PHASE_TEXT = {
   inhale: 'Breathe in',
-  hold: 'Hold',
   exhale: 'Breathe out',
 };
 
@@ -89,15 +95,12 @@ const BreathingCircle: React.FC<BreathingCircleProps> = ({
   testID = 'breathing-circle',
   reducedMotion = false,
   pattern = DEFAULT_PATTERN,
-  showCountdown = false,
   phaseText = DEFAULT_PHASE_TEXT,
 }) => {
   // High-performance shared values for 60fps animations
   const scale = useSharedValue(1);
   const opacity = useSharedValue(0.8);
   const phase = useSharedValue(0); // retained for reset/cancel only (no longer frame-sampled)
-  const countdown = useSharedValue(0);        // Current countdown number
-  const currentPhase = useSharedValue<'inhale' | 'hold' | 'exhale'>('inhale');
   // UI-thread active flag, read inside animation-completion worklets so a
   // callback that resolves after deactivation/unmount does not emit a stray
   // announcement or phantom cycle-complete.
@@ -105,8 +108,6 @@ const BreathingCircle: React.FC<BreathingCircleProps> = ({
 
   // Cycle counter for completion tracking
   const cycleCountRef = useRef(0);
-  // Countdown interval ref for proper cleanup
-  const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   /**
    * OS reduce-motion, OR'd with the explicit prop (MAINT-386).
@@ -145,10 +146,9 @@ const BreathingCircle: React.FC<BreathingCircleProps> = ({
    * Visible phase cue — the pacing that replaces the suppressed motion.
    *
    * Only rendered under reduced motion. `announcePhase` is already the single
-   * JS-thread funnel every phase transition passes through, in BOTH the simple
-   * and hold-pattern branches, so hanging the label off it needs no new timing
-   * machinery — and adding one would mean a second clock that could drift from
-   * the animation's.
+   * JS-thread funnel every phase transition passes through, so hanging the label
+   * off it needs no new timing machinery — and adding one would mean a second
+   * clock that could drift from the animation's.
    */
   const [phaseCue, setPhaseCue] = useState<string | null>(null);
   // Read inside `announcePhase` so its identity can stay stable: it sits in the
@@ -219,18 +219,10 @@ const BreathingCircle: React.FC<BreathingCircleProps> = ({
       cancelAnimation(scale);
       cancelAnimation(opacity);
       cancelAnimation(phase);
-      cancelAnimation(countdown);
-
-      // Clear countdown interval
-      if (countdownIntervalRef.current) {
-        clearInterval(countdownIntervalRef.current);
-        countdownIntervalRef.current = null;
-      }
 
       scale.value = withTiming(1, { duration: 300 });
       opacity.value = withTiming(0.8, { duration: 300 });
       phase.value = 0;
-      countdown.value = 0;
       return;
     }
 
@@ -239,180 +231,70 @@ const BreathingCircle: React.FC<BreathingCircleProps> = ({
     cancelAnimation(scale);
     cancelAnimation(opacity);
     cancelAnimation(phase);
-    cancelAnimation(countdown);
 
-    const hasHoldPhase = pattern.hold && pattern.hold > 0;
+    // Two-phase inhale/exhale pattern — the only engine (MAINT-391). Scale
+    // expands over `inhale` then contracts over `exhale`, repeating seamlessly:
+    // no inter-cycle gap, which is what lets `haptics/phaseAtElapsed` model the
+    // cue timeline as plain (inhale + exhale) arithmetic. Completion callbacks
+    // on each leg drive the accessibility announcements and fire
+    // `handleCycleComplete` exactly once per cycle — replacing the old per-frame
+    // phase sampling, which could double-fire cycle-complete and used
+    // float-equality phase checks that rarely matched. `activeRef` guards
+    // against a callback resolving after deactivation (cancelAnimation invokes
+    // the callback with finished=false).
+    const inhaleLabel = phaseText.inhale || 'Breathe in';
+    const exhaleLabel = phaseText.exhale || 'Breathe out';
 
-    if (!hasHoldPhase) {
-      // Simple inhale/exhale pattern. Scale expands over `inhale` then contracts
-      // over `exhale`, repeating. Completion callbacks on each leg drive the
-      // accessibility announcements and fire `handleCycleComplete` exactly once
-      // per cycle — replacing the old per-frame phase sampling, which could
-      // double-fire cycle-complete and used float-equality phase checks that
-      // rarely matched. `activeRef` guards against a callback resolving after
-      // deactivation (cancelAnimation invokes the callback with finished=false).
-      const inhaleLabel = phaseText.inhale || 'Breathe in';
-      const exhaleLabel = phaseText.exhale || 'Breathe out';
-
-      scale.value = withRepeat(
-        withSequence(
-          withTiming(
-            1.5,
-            { duration: pattern.inhale, easing: Easing.inOut(Easing.ease) },
-            (finished) => {
-              'worklet';
-              // Contraction begins → announce exhale.
-              if (finished && activeRef.value) {
-                runOnJS(announcePhase)(exhaleLabel);
-              }
+    scale.value = withRepeat(
+      withSequence(
+        withTiming(
+          1.5,
+          { duration: pattern.inhale, easing: Easing.inOut(Easing.ease) },
+          (finished) => {
+            'worklet';
+            // Contraction begins → announce exhale.
+            if (finished && activeRef.value) {
+              runOnJS(announcePhase)(exhaleLabel);
             }
-          ),
-          withTiming(
-            1,
-            { duration: pattern.exhale, easing: Easing.inOut(Easing.ease) },
-            (finished) => {
-              'worklet';
-              // Cycle end → count it once, then cue the next inhale (the repeat
-              // loops straight into the next expansion).
-              if (finished && activeRef.value) {
-                runOnJS(handleCycleComplete)();
-                runOnJS(announcePhase)(inhaleLabel);
-              }
-            }
-          )
-        ),
-        -1,
-        false
-      );
-
-      opacity.value = withRepeat(
-        withSequence(
-          withTiming(1, { duration: pattern.inhale, easing: Easing.inOut(Easing.ease) }),
-          withTiming(0.8, { duration: pattern.exhale, easing: Easing.inOut(Easing.ease) })
-        ),
-        -1,
-        false
-      );
-
-      // Immediate first inhale cue on activation (subsequent inhale cues come
-      // from the exhale-leg completion callback above).
-      announcePhase(inhaleLabel);
-    } else {
-      // Sequential animation for patterns with hold phase (e.g., 4-7-8)
-      let isComponentActive = true;
-
-      const startCountdown = (duration: number, phaseName: 'inhale' | 'hold' | 'exhale') => {
-        if (!showCountdown) return;
-
-        const seconds = Math.ceil(duration / 1000);
-        countdown.value = seconds;
-        currentPhase.value = phaseName;
-
-        countdownIntervalRef.current = setInterval(() => {
-          countdown.value = Math.max(0, countdown.value - 1);
-          if (countdown.value <= 0 && countdownIntervalRef.current) {
-            clearInterval(countdownIntervalRef.current);
-            countdownIntervalRef.current = null;
           }
-        }, 1000);
-      };
+        ),
+        withTiming(
+          1,
+          { duration: pattern.exhale, easing: Easing.inOut(Easing.ease) },
+          (finished) => {
+            'worklet';
+            // Cycle end → count it once, then cue the next inhale (the repeat
+            // loops straight into the next expansion).
+            if (finished && activeRef.value) {
+              runOnJS(handleCycleComplete)();
+              runOnJS(announcePhase)(inhaleLabel);
+            }
+          }
+        )
+      ),
+      -1,
+      false
+    );
 
-      const clearCountdown = () => {
-        if (countdownIntervalRef.current) {
-          clearInterval(countdownIntervalRef.current);
-          countdownIntervalRef.current = null;
-        }
-      };
+    opacity.value = withRepeat(
+      withSequence(
+        withTiming(1, { duration: pattern.inhale, easing: Easing.inOut(Easing.ease) }),
+        withTiming(0.8, { duration: pattern.exhale, easing: Easing.inOut(Easing.ease) })
+      ),
+      -1,
+      false
+    );
 
-      const startBreathingCycle = () => {
-        if (!isComponentActive) return;
+    // Immediate first inhale cue on activation (subsequent inhale cues come
+    // from the exhale-leg completion callback above).
+    announcePhase(inhaleLabel);
 
-        // INHALE phase - start announcements and countdown
-        currentPhase.value = 'inhale';
-        announcePhase(phaseText.inhale || 'Breathe in');
-        startCountdown(pattern.inhale, 'inhale');
-
-        // Animation: inhale -> hold (maintain) -> exhale
-        scale.value = withSequence(
-          // Inhale: scale up
-          withTiming(1.5, {
-            duration: pattern.inhale,
-            easing: Easing.inOut(Easing.ease),
-          }),
-          // Hold: maintain scale for hold duration
-          withDelay(pattern.hold!, withTiming(1.5, { duration: 0 })),
-          // Exhale: scale down
-          withTiming(1, {
-            duration: pattern.exhale,
-            easing: Easing.inOut(Easing.ease),
-          })
-        );
-
-        // Schedule phase transitions and announcements
-        // After inhale completes -> start hold
-        setTimeout(() => {
-          if (!isComponentActive) return;
-          clearCountdown();
-          currentPhase.value = 'hold';
-          announcePhase(phaseText.hold || 'Hold');
-          startCountdown(pattern.hold!, 'hold');
-
-          // After hold completes -> start exhale
-          setTimeout(() => {
-            if (!isComponentActive) return;
-            clearCountdown();
-            currentPhase.value = 'exhale';
-            announcePhase(phaseText.exhale || 'Breathe out');
-            startCountdown(pattern.exhale, 'exhale');
-
-            // After exhale completes -> cycle complete
-            setTimeout(() => {
-              if (!isComponentActive) return;
-              clearCountdown();
-              handleCycleComplete();
-
-              // Restart cycle
-              setTimeout(() => {
-                if (isComponentActive) {
-                  startBreathingCycle();
-                }
-              }, 100);
-            }, pattern.exhale);
-          }, pattern.hold!);
-        }, pattern.inhale);
-
-        // Opacity animation (simpler - just pulse throughout)
-        opacity.value = withRepeat(
-          withTiming(1, {
-            duration: (pattern.inhale + (pattern.hold || 0) + pattern.exhale) / 2,
-            easing: Easing.inOut(Easing.ease),
-          }),
-          -1,
-          true
-        );
-      };
-
-      startBreathingCycle();
-
-      // Cleanup function
-      return () => {
-        isComponentActive = false;
-        clearCountdown();
-        cancelAnimation(scale);
-        cancelAnimation(opacity);
-        cancelAnimation(phase);
-        cancelAnimation(countdown);
-      };
-    }
-
-    // Cleanup function for simple pattern
     return () => {
       cancelAnimation(scale);
       cancelAnimation(opacity);
       cancelAnimation(phase);
-      cancelAnimation(countdown);
     };
-  }, [isActive, pattern, scale, opacity, phase, countdown, activeRef, currentPhase, announcePhase, handleCycleComplete, phaseText, showCountdown]);
+  }, [isActive, pattern, scale, opacity, phase, activeRef, announcePhase, handleCycleComplete, phaseText]);
 
   return (
     <View style={styles.container} testID={testID}>
@@ -425,15 +307,6 @@ const BreathingCircle: React.FC<BreathingCircleProps> = ({
       >
         {/* Inner circle for visual depth */}
         <View style={styles.innerCircle} />
-
-        {/* Countdown display (when enabled) */}
-        {showCountdown && (
-          <View style={styles.countdownContainer}>
-            <Text style={styles.countdownText}>
-              {countdown.value > 0 ? countdown.value : ''}
-            </Text>
-          </View>
-        )}
       </Animated.View>
 
       {/* Guidance text */}
@@ -539,17 +412,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: spacing[24],
     fontStyle: 'italic',
-  },
-  countdownContainer: {
-    position: 'absolute',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  countdownText: {
-    fontSize: spacing[48],
-    fontWeight: typography.fontWeight.bold,
-    color: colorSystem.base.white,
-    textAlign: 'center',
   },
 });
 

@@ -23,7 +23,13 @@ import {
 } from '@/features/practices/shared/haptics/phaseAtElapsed';
 import { MAX_CUE_LATENESS_MS } from '@/features/practices/shared/haptics/constants';
 
-const PATTERN_446: BreathPattern = { inhale: 4000, hold: 4000, exhale: 6000 };
+/**
+ * 4-6 — asymmetric extended exhale. Was 4-4-6 until MAINT-391 deleted the
+ * breath-retention engine. Deliberately NOT the symmetric 4-4 default: an
+ * uneven cadence is what exercises the scheduler's absolute targeting, since a
+ * symmetric one would let a "fire every N ms" regression pass.
+ */
+const PATTERN_46: BreathPattern = { inhale: 4000, exhale: 6000 };
 
 /**
  * A controllable clock + timer queue. Using our own rather than jest's global
@@ -73,7 +79,7 @@ function makeHarness() {
 }
 
 function breathingSchedule(sessionMs: number): ScheduledCue[] {
-  return boundariesWithin(PATTERN_446, sessionMs).map((b) => ({
+  return boundariesWithin(PATTERN_46, sessionMs).map((b) => ({
     atMs: b.atMs,
     cue: b.phase,
   }));
@@ -184,12 +190,12 @@ describe('delivery over a full session', () => {
     scheduler.start();
     h.advance(30_000);
 
-    // Cycle 0 at 0/4000/8000, cycle 1 at 14100/18100/22100, then cycle 2's
-    // inhale at 28200. Its hold falls at 32200, past the 30s session.
+    // Cycles open at 0/10000/20000, each exhaling 4000 ms in: 0, 4000, 10000,
+    // 14000, 20000, 24000. Cycle 3 would open at 30000, the session end.
     expect(onCue.mock.calls.map((c) => c[0])).toEqual([
-      'inhale', 'hold', 'exhale',
-      'inhale', 'hold', 'exhale',
-      'inhale',
+      'inhale', 'exhale',
+      'inhale', 'exhale',
+      'inhale', 'exhale',
     ]);
   });
 
@@ -358,8 +364,8 @@ describe('lateness budget', () => {
     const scheduler = createCueScheduler({
       schedule: [
         { atMs: 1000, cue: 'inhale' },
-        { atMs: 2000, cue: 'hold' },
-        { atMs: 9000, cue: 'exhale' },
+        { atMs: 2000, cue: 'exhale' },
+        { atMs: 9000, cue: 'intervalTick' },
       ],
       onCue,
       now: h.now,
@@ -371,7 +377,7 @@ describe('lateness budget', () => {
     h.suspend(3000); // 1000 and 2000 are now stale
     h.advance(6000); // reaches 9000
 
-    expect(onCue.mock.calls.map((c) => c[0])).toEqual(['exhale']);
+    expect(onCue.mock.calls.map((c) => c[0])).toEqual(['intervalTick']);
   });
 });
 
