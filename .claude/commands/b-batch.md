@@ -2,7 +2,8 @@
 
 **ARGUMENTS**: $ARGUMENTS
 
-**Format**: `ID1, ID2, ID3, …` (comma- or space-separated work item IDs) — or `--resume`
+**Format**: `ID1, ID2, ID3, …` (comma- or space-separated work item IDs) — or `--resume` —
+or **no arguments**, which auto-selects a slate from the backlog (Step 0.1a)
 
 Orchestrates a sequence of work items through plan → approve → implement → test →
 close, with as few human prompts as possible. Wraps `/b-work` and `/b-close` — it
@@ -60,7 +61,95 @@ predicate is *owned by a live manifest entry*, not *some manifest exists*.
 ### Step 0.1: Resume vs. fresh
 - If `$ARGUMENTS` contains `--resume` → go to **Phase 5 (Resume)** (it handles both
   `--resume` alone and `--resume <IDs>`).
-- Otherwise parse the remaining text into an ordered list of WORK_ITEM_IDs (split on commas and/or whitespace; uppercase; validate each against `TYPE-NUMBER` where TYPE ∈ {FEAT, DEBUG, INFRA, MAINT, AGENT}). Drop and report any malformed token; abort only if the list is empty.
+- Otherwise parse the remaining text into an ordered list of WORK_ITEM_IDs (split on commas and/or whitespace; uppercase; validate each against `TYPE-NUMBER` where TYPE ∈ {FEAT, DEBUG, INFRA, MAINT, AGENT}). Drop and report any malformed token.
+- If the resulting list is empty **because no arguments were given** → **Step 0.1a** (auto-select). If it is empty because every token was malformed, abort and say which.
+
+### Step 0.1a: Auto-select the batch (no-args invocation)
+
+Produces an ordered ID list and nothing else — no manifest, no Notion write, no worktree —
+then hands it to Step 0.1b as if you had typed it. Read-only-until-approved is what makes a
+fumbled bare `/b-batch` harmless: it costs a few fetches and shows a slate you can decline.
+
+It must run **here**, between the parse and the slug: Step 0.1b derives the slug from the
+final ID list, so selection cannot happen after it.
+
+**Source — the `b-batch intake` view**, `view://3b7a1108-c208-81cb-895f-000c23835d40`: a
+table on `${NOTION_WORK_DB}` sorted `Priority` DESC, filtered to `Not started` + `Blocked`.
+Read it via `notion-query-data-sources` with `mode: "view"`. To recreate it, that filter and
+sort plus `SHOW "Name", "Work Item ID", "Status", "Type", "Effort", "Priority", "Blocked by"`.
+
+**Use the view, never SQL.** SQL mode is metered on this workspace and exhausts after a few
+calls; view mode is unmetered. SQL also cannot select `Priority` at all — it is in the data
+source's `notAvailableInQuerySql` — so ranking there means recomputing
+`(I × V^1.5 × SF × U) / (E × R)` and trusting the reconstruction. The view applies the real formula.
+
+Two read constraints that hold in **every** path, including this one:
+- **Rank is row ORDER, not a value.** `Priority` returns an opaque `formulaResult://…`
+  handle. Never parse it or compare two rows by it; position in the result *is* the ranking.
+- **Rebuild the ID as `{Type}-{userDefined:ID}`** (`DEBUG` + `189` → `DEBUG-189`). The
+  `Work Item ID` property is itself a formula and returns a handle too.
+
+#### 0.1a.1 — Verify the view's filter, fail closed
+The filter is **hand-maintained and cannot be repaired from here**: this API drops filter
+leaves on `status`-type properties, writing the surrounding AND/OR group and silently
+discarding the condition — the same gap that prevents creating status options. Assert it,
+don't assume it.
+
+If **any** row comes back with `Status` ∉ {`Not started`, `Blocked`}, the filter is missing or
+was edited — **STOP**. Do not filter client-side instead: sorted by `Priority` with no filter,
+the top of this backlog is `Done` items, so the failure is silent and proposes finished work.
+
+    ⛔ `b-batch intake` returned a `Done` row — its Status filter is missing.
+       Restore in Notion: Filter → Status → is any of → Not started, Blocked.
+
+#### 0.1a.2 — Partition
+`Not started` → **candidate pool**, already in priority order. `Blocked` → **hygiene scan
+only**, never a candidate (Step 2.2 would defer it anyway).
+
+#### 0.1a.3 — Hygiene report (mechanical, no judgement)
+A `Blocked` row whose `Blocked by` relation is **empty** is a structural anomaly: the database
+has a relation for exactly this and it is unset, so the blocker exists only as prose. Report
+count and IDs. Do **not** read those bodies and do not adjudicate whether the blocker still
+holds — that is the in-context judgement Step 2.1 exists to avoid, and it would re-run every
+invocation instead of driving a one-time fix.
+
+    📌 N items are Blocked with no recorded blocker (relation unset): …
+       Triage once — a prose blocker contributes no edge to the Step 2.2 graph.
+
+#### 0.1a.4 — Exclude, and name every exclusion
+Drop from the pool, reporting each class. **Never silently** — a hidden cap reads as
+"considered everything":
+- **Owned elsewhere** — the ID is in a live `.b-batch-state.*.json` with `state ∉ {done,
+  deferred}`, or `gh pr list` shows an open PR on its branch. A plain `/b-work` + `/b-close`
+  session has no manifest, so the PR is the only evidence it exists.
+- **Unlanded prerequisites** — `Blocked by` non-empty with any target not `Done`.
+- **Too large to batch** — `Effort` `XL` / `XXL`. One `/b-work` in one worktree cannot carry
+  5–8+ weeks; these need slicing via `/b-create` first. Naming them makes the omission a
+  recommendation rather than a silence.
+
+If the pool empties, report why and stop — never widen the criteria to fill a slate.
+
+#### 0.1a.5 — Read bodies for the top ~10 only
+`notion-fetch` the top ~10 survivors, not the whole pool. Everything below this point needs
+the AC and technical notes; nothing needs them for a row that will never be proposed.
+
+#### 0.1a.6 — Shape the slate
+Fill **in view order**, subject to all three:
+- **Effort budget** — Step 2.4's 12 points / 6 items, same scale. Selecting past it only
+  manufactures `pending` items.
+- **RED quota — at most 2.** Classify from the fetched body against Step 2.1's path set, never
+  from the title: titles do not predict safety surface, and an infra or script item can read
+  alarming while touching nothing gated. Each RED costs a *serial, human-attended* simulator
+  close (Phase 4.1), so four REDs is a bad slate at any priority.
+- **Coherence bonus** — prefer candidates forming a `Blocked by` / `Blocking` chain **inside
+  the pool**. Phase 2.2 already sorts those into tranches, making A-then-B in one run the
+  cheapest batch available. Weaker tie-break: shared `Type` and overlapping subject matter,
+  which tend to share files and merge cheaply.
+
+#### 0.1a.7 — Propose, never auto-run
+Present the slate via `AskUserQuestion`: the picks, the point total, the RED count, and a
+one-line reason each (rank / chain / cheap). Offer at least accept, edit-the-slate, and fall
+back to typing IDs. The approved list continues at Step 0.1b as though typed.
 
 ### Step 0.1b: Compute the batch slug (per-batch manifest key)
 The manifest path is **per-batch**, keyed by a slug derived **deterministically from the
