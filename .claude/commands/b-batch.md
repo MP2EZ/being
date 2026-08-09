@@ -342,7 +342,11 @@ Build a directed graph over the batch from these edge sources:
 Then:
 1. **Topologically sort** the items; hard edges define the order, soft edges break ties.
    The sorted order *is* the tranche order — each item branches off the dev state its
-   predecessors produced.
+   predecessors produced. **Where neither edge type constrains a pair, put RED-GATED
+   items LAST.** Their dominant cost is the sim build, the flow run, and any gate-flake
+   diagnosis — none of which the Step 2.4 effort budget prices, because `Effort` scores
+   implementation size, not gating. An `S` RED-GATED item can outspend every green in
+   the batch combined, and anything sequenced behind it may never start.
 2. **Cycle detection:** if hard edges form a cycle, abort with the cycle printed and ask
    the user to break it — do not guess an order.
 3. **Cross-batch deps:** if a `declared_dep` (or `Blocked by` relation) is **not** in this
