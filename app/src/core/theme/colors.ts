@@ -76,12 +76,21 @@ export const semantic = {
     //
     // DEBUG-357: both tokens moved gray[600] -> gray[700]. gray[600] (#757575)
     // was legal ONLY on white (4.61:1) and failed AA on every other surface in
-    // the app — gray[50] 4.38, gray[100] 4.41, gray[200] 3.97, and all four
+    // the app — gray[50] 4.38, gray[100] 4.41, gray[200] 4.23, and all four
     // getTheme backgrounds 4.26–4.37. That made the token a trap: the "correct"
     // choice silently failed the moment a site sat on a tinted surface, and the
     // pin at the time asserted white only, so nothing could detect it.
     //
-    // gray[700] (#424242) clears 4.5:1 on EVERY surface (worst case 8.66 on
+    // DEBUG-370 CORRECTED TWO NUMBERS IN THIS BLOCK. The gray[200] figure read
+    // 3.97 and the worst case below read 8.66; re-derived against
+    // @mp2ez/being-design-system@1.9.0 they are 4.23 and 9.22. 3.97 in particular
+    // corresponds to nothing in the ramp (gray[300] is 3.76), and it was the
+    // figure DEBUG-370's acceptance criteria leaned on to justify a non-text
+    // carve-out that turned out not to exist. Neither error changed a pass/fail
+    // verdict — the ruling below stands unaltered — but a wrong ratio in prose
+    // gets copied into the next story, which is exactly how it reached one.
+    //
+    // gray[700] (#424242) clears 4.5:1 on EVERY surface (worst case 9.22 on
     // gray[200]), which makes these tokens SURFACE-INDEPENDENT. That property is
     // the point, not a side effect: `SkipLink` renders `muted` with no
     // backgroundColor of its own over five different hosts, so its surface is

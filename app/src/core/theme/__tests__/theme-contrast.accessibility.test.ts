@@ -59,6 +59,39 @@ const SURFACES: Array<[string, string]> = [
   ['themes.midday.background', colorSystem.themes.midday.background],
   ['themes.evening.background', colorSystem.themes.evening.background],
   ['themes.learn.background', colorSystem.themes.learn.background],
+  // DEBUG-370 additions. The sweep moved ~75 call sites onto these tokens, which
+  // landed subordinate text on four design-system grounds this matrix had never
+  // asserted. They are added because the sweep put text there, not speculatively:
+  // gray[300] hosts CloudBackupSettings' tertiary buttons and OverviewTab's stage
+  // cards; status.infoBackground is AppSettingsScreen's `infoText` ground, which
+  // was a live 4.23:1 failure before the sweep.
+  ['gray[300]', colorSystem.gray[300]],
+  ['status.infoBackground', colorSystem.status.infoBackground],
+  ['status.successBackground', colorSystem.status.successBackground],
+  ['status.errorBackground', colorSystem.status.errorBackground],
+];
+
+/**
+ * DEBUG-370 — grounds that are HARDCODED HEX in feature files, not DS tokens.
+ *
+ * Deliberately a separate array rather than extra `SURFACES` entries. `SURFACES`
+ * means "design-system surface", and the sibling test below asserts the text
+ * tokens come from the ramp; folding app-local literals into it would blur a
+ * contract that is currently exact.
+ *
+ * They are pinned at all because the sweep genuinely lands token text on them, so
+ * omitting them would assert the sweep against grounds it does not actually touch
+ * while leaving the ones it does untested. Each is a duplicate of a token that
+ * already exists (#FEF2F2 is status.errorBackground, #F0FDF4 is
+ * status.successBackground) or a one-off tint — eliminating them is its own
+ * hex-elimination item, and this list is the inventory that item will start from.
+ */
+const APP_LOCAL_TINTED_SURFACES: Array<[string, string]> = [
+  ['#E8F4EC (ConsentToggleCard.privacyNote)', '#E8F4EC'],
+  ['#F0F4FF (LegalDocumentsListScreen.offlineNote)', '#F0F4FF'],
+  ['#FFF9E6 (OverviewTab.exampleCard)', '#FFF9E6'],
+  ['#F8F5FF (ModuleDetailScreen / PassageReaderScreen)', '#F8F5FF'],
+  ['#E8F5E9 (ProgressiveBodyScanList)', '#E8F5E9'],
 ];
 
 /** The two aliased body-subordinate text tokens this matrix governs. */
@@ -212,7 +245,13 @@ describe('DEBUG-357: subordinate text tokens are surface-INDEPENDENT', () => {
     // GREEN, which is the exact shape MAINT-358 deleted eight tests for. Pin the
     // count so shrinking the matrix is a failure, not a quiet coverage loss.
     expect(cases).toHaveLength(SUBORDINATE_TEXT.length * SURFACES.length);
-    expect(cases).toHaveLength(16);
+    // DEBUG-370: was 16 (2 tokens x 8 surfaces). The literal is not redundant with
+    // the derived assertion above — that one only proves `cases` was built from the
+    // two arrays, and would stay green if a surface were quietly deleted. This one
+    // is what makes shrinking the matrix a failure. Both must move together, and
+    // forgetting this line is the most likely way to turn the gate red for a reason
+    // that has nothing to do with contrast.
+    expect(cases).toHaveLength(24);
   });
 
   test.each(cases)(
@@ -226,6 +265,50 @@ describe('DEBUG-357: subordinate text tokens are surface-INDEPENDENT', () => {
       );
     },
   );
+});
+
+/**
+ * DEBUG-370 — the same obligation, on the app-local hex grounds the sweep touched.
+ *
+ * Split from the matrix above rather than merged into it because these are not
+ * design-system surfaces and must not be mistaken for them. The assertion is
+ * identical; only the provenance of the ground differs.
+ */
+describe('DEBUG-370: subordinate text also clears AA on app-local tinted grounds', () => {
+  const cases: Array<[string, string, string, string]> = SUBORDINATE_TEXT.flatMap(
+    ([tokenName, color]) =>
+      APP_LOCAL_TINTED_SURFACES.map(
+        ([surfaceName, surface]) =>
+          [tokenName, surfaceName, color, surface] as [string, string, string, string],
+      ),
+  );
+
+  it('covers every token x app-local surface pair', () => {
+    expect(cases).toHaveLength(SUBORDINATE_TEXT.length * APP_LOCAL_TINTED_SURFACES.length);
+    expect(cases).toHaveLength(10);
+  });
+
+  test.each(cases)(
+    'semantic.text.%s is >= 4.5:1 on %s',
+    (tokenName, surfaceName, color, surface) => {
+      const ratio = getContrastRatio(color, surface);
+      expect(`${tokenName} on ${surfaceName}: ${ratio >= AA_NORMAL_TEXT}`).toBe(
+        `${tokenName} on ${surfaceName}: true`,
+      );
+    },
+  );
+
+  it('records that gray[600] would have FAILED on these same grounds', () => {
+    // The reason the sweep was worth doing, stated as an assertion rather than
+    // prose. Every one of these grounds carried raw gray[600] text before
+    // DEBUG-370; each was a real AA failure, none was detectable by any pin that
+    // existed at the time. If a future change makes gray[600] legal here, this
+    // goes red and the sweep's justification should be re-read, not assumed.
+    for (const [surfaceName, surface] of APP_LOCAL_TINTED_SURFACES) {
+      const ratio = getContrastRatio(colorSystem.gray[600], surface);
+      expect(`${surfaceName}: ${ratio < AA_NORMAL_TEXT}`).toBe(`${surfaceName}: true`);
+    }
+  });
 });
 
 /**

@@ -30,7 +30,7 @@ import BreathingCircle from './BreathingCircle';
 import Timer from './Timer';
 import { SkipLink, GuidanceCard } from './index';
 import { AccessibleButton } from '@/core/components/accessibility/AccessibleButton';
-import { spacing, typography, colorSystem } from '@/core/theme';
+import { spacing, typography, colorSystem, semantic } from '@/core/theme';
 
 // FEAT-298 slice 1: alias of the canonical `FlowType`.
 export type { FlowType as FlowThemeType } from '@/core/types/practice-identity';
@@ -236,7 +236,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     textAlign: 'center',
     marginTop: spacing[8],
   },

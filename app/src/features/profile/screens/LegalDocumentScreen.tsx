@@ -18,7 +18,7 @@ import { Text, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRoute, RouteProp } from '@react-navigation/native';
 import Markdown from 'react-native-markdown-display';
-import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
+import { colorSystem, spacing, borderRadius, typography, semantic } from '@/core/theme';
 import { getLegalDocument } from '../content/legalDocuments';
 import type { ProfileStackParamList } from '../ProfileStackNavigator';
 
@@ -58,7 +58,7 @@ const styles = StyleSheet.create({
   },
   notFoundText: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     textAlign: 'center',
     padding: spacing[24],
   },

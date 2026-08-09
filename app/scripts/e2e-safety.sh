@@ -23,6 +23,38 @@ set -u
 cd "$(dirname "$0")/.." || exit 1 # -> app/ (npm already sets cwd=app; belt + suspenders)
 MAESTRO_DIR=".maestro"
 
+# INFRA-383 — artifact-shape pre-flight, once, before any flow runs (<1s).
+#
+# Why this lives HERE and not only in e2e-sim-build.sh: that script's failure trap only
+# covers failures the build process survives to handle. A `kill -9`, a crash, a reboot, or
+# an operator running `npm run ios` or a manual `simctl install` between build and gate all
+# defeat it. THIS is the only check that runs at the moment evidence is produced, so it is
+# the load-bearing one. A launcher-bearing or Debug build must never reach a flow: it does
+# not merely flake, it can pass by coincidence via the guessed-coordinate tap in
+# _legal-and-onboarding.yaml, producing a green crisis-path gate that proves nothing.
+BUNDLE_ID="fyi.being.app"
+if APP="$(xcrun simctl get_app_container booted "$BUNDLE_ID" 2>/dev/null)" && [ -d "$APP" ]; then
+  preflight_fail() {
+    echo "❌ e2e:safety pre-flight — $1" >&2
+    echo "   Rebuild the gate target: npm run e2e:safety:build" >&2
+    exit 1
+  }
+  [ -f "$APP/main.jsbundle" ] \
+    || preflight_fail "the installed app has no main.jsbundle — it is a Debug/dev-client build, not the Release gate target"
+  if otool -L "$APP/Being" 2>/dev/null | grep -qiE 'EXDevLauncher|EXDevMenu|expo-dev-'; then
+    preflight_fail "the installed app links the Expo dev launcher"
+  fi
+  SCHEMES="$(plutil -extract LSApplicationQueriesSchemes json -o - "$APP/Info.plist" 2>/dev/null || true)"
+  case "$SCHEMES" in
+    *'"tel"'*) : ;;
+    *) preflight_fail "the installed app's LSApplicationQueriesSchemes is missing 'tel' — the 988 dial path would fall back to a manual-dial alert" ;;
+  esac
+  echo "✓ gate target verified: Release build, launcher-free, 988 dial scheme intact"
+else
+  echo "⚠️  $BUNDLE_ID is not installed on the booted sim — run 'npm run e2e:safety:build' first." >&2
+  exit 1
+fi
+
 fail=0
 ran=0
 results=()
