@@ -8,7 +8,7 @@
  * - Rate limiting protection
  */
 
-import { LinkingOptions } from '@react-navigation/native';
+import { LinkingOptions, getStateFromPath } from '@react-navigation/native';
 import * as Linking from 'expo-linking';
 import DeepLinkValidationService, {
   DEEP_LINK_CONFIG,
@@ -61,6 +61,37 @@ function isCrisisExemptPath(path: string | null): boolean {
   const firstSegment = path.split('/').filter(Boolean)[0];
   return firstSegment !== undefined && firstSegment.toLowerCase() === CRISIS_PATH_SEGMENT;
 }
+
+/**
+ * Same question as `isCrisisExemptPath`, but for the string React Navigation
+ * hands `getStateFromPath` — which is NOT the same string.
+ *
+ * `isCrisisExemptPath` takes the URL()-normalized pathname from
+ * DeepLinkValidationService (`/crisis`). `getStateFromPath` receives
+ * `extractPathFromURL` output, which can be `crisis`, `crisis?source=x`, or
+ * `/crisis` depending on the prefix that matched. Strip the query/hash and an
+ * optional leading slash, then reuse the one matcher so the two cannot drift.
+ */
+function isCrisisLinkPath(path: string): boolean {
+  const withoutQuery = path.split(/[?#]/)[0] ?? '';
+  return isCrisisExemptPath(withoutQuery.startsWith('/') ? withoutQuery : `/${withoutQuery}`);
+}
+
+/**
+ * DEBUG-372 — one-shot arming flag for the cold-start crisis base route.
+ *
+ * `getStateFromPath` cannot tell a cold start from a warm one, and the
+ * difference is not cosmetic: React Navigation's RUNTIME path feeds links
+ * through `getActionFromState` with the ORIGINAL config, and that only emits
+ * NAVIGATE when `routes[0].name === config.initialRouteName`. Any other 2-route
+ * base yields a destructive RESET. So substituting the base route unconditionally
+ * would silently convert warm-app crisis links into a root reset.
+ *
+ * Hence: `getSecureInitialURL` (which only ever runs at cold start) arms this,
+ * and `getStateFromPath` consumes-and-clears it. Scoping is load-bearing, not
+ * defensive.
+ */
+let coldStartCrisisLinkPending = false;
 
 /**
  * AGE-VERIFICATION / CONSENT GATE (INFRA-308)
@@ -136,6 +167,12 @@ function isRateLimitedCrisisIntent(
  * Validates the initial URL before allowing navigation
  */
 async function getSecureInitialURL(): Promise<string | null> {
+  // DEBUG-372: clear first, arm only on the two crisis-delivery branches below.
+  // Clearing here rather than on each non-crisis `return` means a path added
+  // later cannot forget to disarm and leak the substitution onto a non-crisis
+  // link.
+  coldStartCrisisLinkPending = false;
+
   try {
     const url = await Linking.getInitialURL();
 
@@ -152,6 +189,7 @@ async function getSecureInitialURL(): Promise<string | null> {
         logSecurity('DeepLink: rate-limited crisis URL, delivering crisis fallback', 'high', {
           path: `/${CRISIS_PATH_SEGMENT}`,
         });
+        coldStartCrisisLinkPending = true; // DEBUG-372
         return CRISIS_FALLBACK_URL;
       }
       logSecurity('DeepLink: Initial URL blocked', 'high', {
@@ -168,6 +206,10 @@ async function getSecureInitialURL(): Promise<string | null> {
         path: validation.metadata.path,
         hasParams: Object.keys(validation.metadata.params).length > 0,
       });
+      // DEBUG-372: armed AFTER the exemption check, so it adds no consent, seed
+      // or env read ahead of it — the "ZERO consent-store reads on the crisis
+      // cold start" pin stays green.
+      coldStartCrisisLinkPending = true;
       return validation.sanitizedUrl;
     }
 
@@ -296,6 +338,7 @@ export const linkingConfig: LinkingOptions<RootStackParamList> = {
   // Use secure handlers
   getInitialURL: getSecureInitialURL,
   subscribe: secureSubscribe,
+  getStateFromPath: secureGetStateFromPath,
 
   // Screen configuration
   config: {
@@ -386,6 +429,76 @@ export function getDeepLinkSecurityMetrics() {
  */
 export function validateDeepLink(url: string) {
   return DeepLinkValidationService.validateDeepLink(url);
+}
+
+/**
+ * DEBUG-372 — the pre-consent variant of the linking config.
+ *
+ * Identical to `linkingConfig.config` except for `initialRouteName`. Derived by
+ * spread rather than re-declared, so `screens` is the SAME OBJECT REFERENCE and
+ * the two cannot drift apart as routes are added.
+ *
+ * Module-level identity is load-bearing, not style: `getStateFromPath` caches
+ * the parsed config in a WeakMap keyed by the options object, so building this
+ * per call would re-parse the entire screen map on the crisis path — the one
+ * path with a latency budget.
+ */
+export const PRE_CONSENT_CRISIS_CONFIG = {
+  ...linkingConfig.config,
+  initialRouteName: 'LegalGate',
+} as NonNullable<LinkingOptions<RootStackParamList>['config']>;
+
+/**
+ * DEBUG-372 — swap the BASE route beneath a cold-start crisis modal.
+ *
+ * THE BUG: `config.initialRouteName` is 'Main' (FEAT-298 slice 4, and required —
+ * without it `goBack()` strands the user in an immersive practice). So
+ * `getStateFromPath('crisis', config)` returns
+ * `{index:1, routes:[{name:'Main'}, {name:'CrisisResources'}]}`. That state
+ * becomes `initialState` and OVERRIDES `Stack.Navigator initialRouteName`, so on
+ * a fresh install — consent ungranted, no age check — CleanTabNavigator mounts
+ * beneath the crisis modal and `goBack()` lands the user in the app proper. The
+ * stack is a JS `createStackNavigator` with `presentation:'modal'`, so it is
+ * visible beneath on iOS, not merely present.
+ *
+ * THE FIX: when a cold-start crisis link is in flight AND consent is ungranted,
+ * resolve against a config whose `initialRouteName` is 'LegalGate'. Every other
+ * call delegates unchanged.
+ *
+ * FAIL DIRECTIONS ARE ASYMMETRIC AND MUST NOT BE COLLAPSED. The consent read
+ * fails CLOSED (a throw lands the user on LegalGate, the conservative base). But
+ * EVERY branch still resolves `CrisisResources` — the crisis screen is never
+ * gated, never delayed, and never dropped, because the state comes from the
+ * default resolver either way and only the BASE route is substituted. A
+ * consent-store failure degrades to today's known defect; it can never degrade
+ * to a missing 988 path.
+ */
+function secureGetStateFromPath(
+  path: string,
+  options: Parameters<typeof getStateFromPath>[1],
+): ReturnType<typeof getStateFromPath> {
+  // Consume-and-clear: one cold start arms exactly one resolution.
+  const wasColdStartCrisisLink = coldStartCrisisLinkPending;
+  coldStartCrisisLinkPending = false;
+
+  if (!wasColdStartCrisisLink || !isCrisisLinkPath(path)) {
+    return getStateFromPath(path, options);
+  }
+
+  let consentGranted: boolean;
+  try {
+    consentGranted = consentGateAllowsNavigation();
+  } catch {
+    // Fail CLOSED on the consent question only. `getStateFromPath` below still
+    // runs, so CrisisResources is still in the resulting state.
+    consentGranted = false;
+  }
+
+  if (consentGranted) {
+    return getStateFromPath(path, options);
+  }
+
+  return getStateFromPath(path, PRE_CONSENT_CRISIS_CONFIG);
 }
 
 export default linkingConfig;

@@ -82,16 +82,26 @@ name: "Deep-link consent gate (INFRA-308): gated link blocked, crisis link never
 - assertVisible:
     id: "crisis-call-988-button"
 
-# ── NOT ASSERTED HERE: the C6 exit path (INFRA-308 contract 30) ───────────────────────
-# The original ticket also asked this flow to pin "dismissing the crisis modal lands on
-# LegalGate, never Main/tabs". It does not, because the app currently does the opposite:
-# `linking.ts` sets `initialRouteName: 'Main'` (deliberately — FEAT-298, so `goBack()` cannot
-# strand a user inside an immersive practice), which makes a cold-start `being://crisis`
-# build a root state of [Main, CrisisResources]. Main is therefore mounted BENEATH the modal
-# while consent is ungranted, and dismissing lands there.
+# ── C6 exit path (INFRA-308 contract 30) — LANDED by DEBUG-372 ────────────────────────
+# This assertion waited for the fix rather than pinning the bug. Until DEBUG-372,
+# `linking.ts`'s `initialRouteName: 'Main'` (deliberate — FEAT-298, so `goBack()` cannot
+# strand a user inside an immersive practice) made a cold-start `being://crisis` build a
+# root state of [Main, CrisisResources]: Main mounted BENEATH the modal while consent was
+# ungranted, and dismissing landed there.
 #
-# That is a pre-consent wellness-surface exposure, tracked as DEBUG-372 — a behaviour fix
-# needing a navigation decision and a compliance pass, not a flow-authoring gap. Writing the
-# assertion now would produce a red flow pinning a known bug, and the only ways to make it
-# green would be to weaken it or to skip it. Neither is acceptable, so the contract waits for
-# the fix. Add the third pass here once DEBUG-372 lands.
+# DEBUG-372 substitutes the BASE route only, and only on a cold-start crisis link with
+# consent ungranted, so the general `initialRouteName` stays 'Main' and the FEAT-298
+# stranding fix is untouched. The state is now [LegalGate, CrisisResources].
+#
+# Deliberately NOT asserted here: `crisis-button-root`. The root crisis overlay suppresses
+# itself on LegalGate by design (RootCrisisButton's SUPPRESSED_ROUTES), so asserting it
+# would be asserting a bug. LegalGate carries its own inline 988 footer instead — whose
+# above-the-fold placement is DEBUG-390, not this contract.
+- tapOn:
+    id: "nav-back-button"
+- assertVisible:
+    id: "legal-dob-picker"
+# The whole point: the tab shell must NOT be underneath. `home-screen` is the testID the
+# seeded-home helper waits on, so if Main were mounted this would find it.
+- assertNotVisible:
+    id: "home-screen"
