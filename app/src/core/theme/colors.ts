@@ -90,8 +90,19 @@ export const semantic = {
     // verdict — the ruling below stands unaltered — but a wrong ratio in prose
     // gets copied into the next story, which is exactly how it reached one.
     //
-    // gray[700] (#424242) clears 4.5:1 on EVERY surface (worst case 9.22 on
-    // gray[200]), which makes these tokens SURFACE-INDEPENDENT. That property is
+    // DEBUG-380 CORRECTED THE WORST CASE STATED BELOW, for the same reason
+    // DEBUG-370 corrected the two above it — and one iteration later, which is
+    // the point. The figure read "9.22 on gray[200]", which was true when
+    // DEBUG-370 wrote it and went stale in that same commit: DEBUG-370 added
+    // gray[300] (#E8E8E8) to the matrix's SURFACES, and gray[300] is the darkest
+    // ground in the app, so it displaced gray[200] as the binding constraint on
+    // every neutral. Re-derived across all 17 grounds the pin now asserts, the
+    // true worst case is 8.202 on gray[300]. The verdict is unaltered (8.202 >>
+    // 4.5) — but a prose ratio that nothing asserts drifts every time the surface
+    // set grows, and it has now drifted twice.
+    //
+    // gray[700] (#424242) clears 4.5:1 on EVERY surface (worst case 8.202 on
+    // gray[300]), which makes these tokens SURFACE-INDEPENDENT. That property is
     // the point, not a side effect: `SkipLink` renders `muted` with no
     // backgroundColor of its own over five different hosts, so its surface is
     // not statically knowable and no per-site fix could ever cover it.
@@ -99,6 +110,49 @@ export const semantic = {
     // The cost is that the subordinate tier and body text are now the same
     // colour. That is the DEBUG-323 ruling above being paid, not violated —
     // there was never a legal chromatic tier to preserve.
+    //
+    // DEBUG-380 TESTED THAT COST AND UPHELD IT. The complaint was that `primary`
+    // (base.black #1C1C1C) and `secondary` (gray[700]) are now 1.696:1 apart,
+    // down from 3.699:1 before DEBUG-357 — near-indistinguishable, in a token
+    // vocabulary that claims two tiers. Real, and DEBUG-370 multiplied the
+    // affected sites roughly fivefold. But the proposed remedy — re-point
+    // `primary` to gray[800] — is arithmetically impossible twice over:
+    //
+    //   - gray[800] #212121 is rgb(33,33,33); base.black #1C1C1C is rgb(28,28,28).
+    //     gray[800] is LIGHTER, so the re-point moves the separation to 1.602:1
+    //     and makes the defect worse. The "800" label misleads because
+    //     `colors.base` and `colors.gray` are separate namespaces that merely
+    //     interleave at the dark end. gray[900] #171717 is genuinely darker but
+    //     buys only 1.784:1 — a 5/255 step.
+    //   - The ~2.3:1 target is unreachable by any foreground whatsoever. Against a
+    //     fixed `secondary` the separation is (L_sec + 0.05) / (L_fg + 0.05),
+    //     maximised at L_fg = 0, so the ceiling is 2.090:1 at pure #000000.
+    //
+    // WCAG has no criterion governing contrast between two text TIERS (1.4.3 and
+    // 1.4.6 govern text against its background; 1.4.11 governs UI components and
+    // graphical objects), and both tiers clear AA on all 17 grounds the pin
+    // asserts — so this is a hierarchy judgement, not a gate failure.
+    //
+    // Two further facts settle it. #1C1C1C is not an app-side accident: it IS the
+    // design system's own `colors.text.primary`, paired in-package with
+    // `text.secondary` #424242, so the collapsed pairing is the DS's declared
+    // intent. And `semantic.text.primary` reaches only ~26 render sites while
+    // `colorSystem.base.black` is read directly at ~102 across 46 files — so any
+    // primary re-point would move a fifth of the sites and mint two
+    // indistinguishable blacks. That is the DEBUG-342 token-bypass shape exactly,
+    // one token up, and it is the real prerequisite for ever moving this token.
+    //
+    // The only lever that can actually restore a chromatic tier is LIGHTENING
+    // `secondary`, which the app cannot do — it can re-point which ramp value a
+    // semantic token reads, not add one. That needs a design-system release
+    // minting a legal mid-tier (~#686868, 4.548:1 on gray[300]), tracked
+    // separately. Until then the ruling stands: subordination is structural.
+    //
+    // Pinned mechanically by the DEBUG-380 describe in
+    // core/theme/__tests__/theme-contrast.accessibility.test.ts, including an
+    // assertion that #000000 itself cannot reach 2.3:1 — so the target cannot be
+    // re-proposed from prose — and one that goes RED if the ramp is ever widened,
+    // which is the only event that should re-open this.
     //
     // Pinned by core/theme/__tests__/theme-contrast.accessibility.test.ts, which
     // DEBUG-357 widened from a single-surface assertion to a per-(foreground,
