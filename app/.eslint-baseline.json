@@ -194,6 +194,7 @@
   "src/features/practices/morning/screens/PrincipleFocusScreen.tsx": 1,
   "src/features/practices/shared/components/FlowBackButton.tsx": 1,
   "src/features/practices/shared/constants/__tests__/principles.test.ts": 1,
+  "src/features/practices/shared/haptics/__tests__/useHapticsOptIn.test.ts": 1,
   "src/features/practices/shared/hooks/useFlowSessionResumption.ts": 9,
   "src/features/practices/types/flows.ts": 1,
   "src/features/profile/screens/AppSettingsScreen.tsx": 3,

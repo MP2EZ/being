@@ -49,6 +49,8 @@ import { BODY_AREAS } from '@/features/practices/shared/components/BodyAreaGrid'
 import ProgressiveBodyScanList from '@/features/practices/shared/components/ProgressiveBodyScanList';
 import Timer from '@/features/practices/shared/components/Timer';
 import { usePracticeHaptics } from '@/features/practices/shared/haptics/usePracticeHaptics';
+import { useHapticsOptIn } from '@/features/practices/shared/haptics/useHapticsOptIn';
+import { HapticsOptInPrompt } from '@/features/practices/shared/components/HapticsOptInPrompt';
 import { regionSchedule } from '@/features/practices/shared/haptics/cueScheduler';
 
 interface BodyScanScreenProps {
@@ -160,6 +162,11 @@ const BodyScanScreen: React.FC<BodyScanScreenProps> = ({
     }, []),
   });
 
+  // FEAT-385: the once-ever haptics opt-in. `useHapticsOptIn` owns the claim
+  // across all three practice screens, so this renders on at most one of them,
+  // at most once ever — see its module note for the async-write window.
+  const { shouldPrompt: shouldPromptHaptics, onChoose: onChooseHaptics } = useHapticsOptIn();
+
   // Current area context
   const currentArea = BODY_AREAS[currentAreaIndex] ?? 'Head & Neck';
   const currentGuidance = AREA_GUIDANCE[currentArea] || 'Bring gentle awareness to this area.';
@@ -175,6 +182,9 @@ const BodyScanScreen: React.FC<BodyScanScreenProps> = ({
       title="Body Scan Practice"
       onBack={onBack || (() => {})}
       scrollable={true}
+      overlay={
+        shouldPromptHaptics ? <HapticsOptInPrompt onChoose={onChooseHaptics} /> : undefined
+      }
       testID={testID}
     >
       {/* Practice Instructions - Fade out after starting */}

@@ -36,6 +36,8 @@ import {
 import BreathingCircle from '@/features/practices/shared/components/BreathingCircle';
 import { DEFAULT_PATTERN } from '@/features/practices/shared/breathingPatterns';
 import { usePracticeHaptics } from '@/features/practices/shared/haptics/usePracticeHaptics';
+import { useHapticsOptIn } from '@/features/practices/shared/haptics/useHapticsOptIn';
+import { HapticsOptInPrompt } from '@/features/practices/shared/components/HapticsOptInPrompt';
 import { boundariesWithin } from '@/features/practices/shared/haptics/phaseAtElapsed';
 import Timer from '@/features/practices/shared/components/Timer';
 import type { PracticeVisualMode } from '@/features/learn/types/education';
@@ -143,6 +145,11 @@ const PracticeTimerScreen: React.FC<PracticeTimerScreenProps> = ({
     sessionAnchors: true,
   });
 
+  // FEAT-385: the once-ever haptics opt-in. `useHapticsOptIn` owns the claim
+  // across all three practice screens, so this renders on at most one of them,
+  // at most once ever — see its module note for the async-write window.
+  const { shouldPrompt: shouldPromptHaptics, onChoose: onChooseHaptics } = useHapticsOptIn();
+
   // Stable pause/resume handlers so the memoized Timer is not re-rendered
   // by new inline closures on every parent render.
   const handlePause = React.useCallback(() => setIsTimerActive(false), [setIsTimerActive]);
@@ -184,6 +191,9 @@ const PracticeTimerScreen: React.FC<PracticeTimerScreenProps> = ({
       title={title}
       onBack={onBack || (() => {})}
       scrollable={false}
+      overlay={
+        shouldPromptHaptics ? <HapticsOptInPrompt onChoose={onChooseHaptics} /> : undefined
+      }
       testID={testID}
     >
       {/* Practice Instructions */}
