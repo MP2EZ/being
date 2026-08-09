@@ -117,8 +117,8 @@ include_all_blocks: true
 Read newest-last and let comments **override** the body on any conflict. Specifically:
 - A body section labelled BLOCKED / HARD BLOCKER is only blocking if **no later comment
   resolves it**. Cross-check against the `Status` property: a body reading "blocked" while
-  `Status` is `Not started` / `In progress` means the blocker was lifted — the property is
-  the tell, and the resolving comment is the record.
+  `Status` is `Not started` / `Batched` / `In progress` means the blocker was lifted — the
+  property is the tell, and the resolving comment is the record.
 - Prerequisite items opened by a prior planning pass are often named **only** in a comment.
 - Never ask the user to re-decide something a comment already records. If a decision looks
   open, confirm it is absent from the comments before raising it.

@@ -39,6 +39,24 @@ plan mode, say so and stop — ask the user to switch (Shift+Tab) and re-invoke.
 > lock is needed. **Do not** run two simultaneous batches that each carry a Supabase
 > DB-migration item (one shared live DB).
 
+### Step 0.0: Reap orphaned `Batched` claims (runs on BOTH fresh and `--resume`)
+
+Notion `Status: Batched` is a **projection** of manifest state, never a source of truth —
+the same rule Step 0.1c states for in-flight IDs. A batch that dies (crashed session,
+`/clear` with no resume, abandoned run) leaves its claims behind, and a status column that
+is confidently wrong is worse than the silence it replaced. So reconcile before anything
+else. This needs only the manifest glob, not the batch slug, which is why it runs ahead of
+the resume/fresh split and covers both paths with no cross-reference.
+
+Collect every ID any live manifest still owns — same predicate as Step 0.1c, `state ∉
+{done, deferred}` — then query Notion for `Status = 'Batched'`. Any ID **not** in the owned
+set is an orphan: set it back to `Not started` and report it. Never touch an owned one.
+
+    ⚠️  Reaped 2 orphaned Batched claims → Not started: MAINT-304, INFRA-379
+
+Manifests are never deleted, so a finished batch's file still answers for its items. The
+predicate is *owned by a live manifest entry*, not *some manifest exists*.
+
 ### Step 0.1: Resume vs. fresh
 - If `$ARGUMENTS` contains `--resume` → go to **Phase 5 (Resume)** (it handles both
   `--resume` alone and `--resume <IDs>`).
@@ -85,11 +103,45 @@ proceed silently.
 Abort only if dropping leaves the list empty. (This makes the disjoint-list rule a guard,
 not just discipline — it closes the Notion-status race on shared items.)
 
-### Step 0.2: Confirm the list
-Echo the parsed list back so the user sees what will run:
+### Step 0.2: Claim the list, then confirm it
+
+**Write the stub manifest here, not at Phase 2.5.** Step 0.1c's overlap guard reads sibling
+manifests — but the manifest did not exist until after the planning sweep, so two batches
+launched inside that multi-minute window both passed the guard and both claimed the same
+IDs. Claiming at the moment ownership is taken is what makes the guard real. Write `$MANIFEST`
+now with the parsed IDs and `state: "claiming"` (the shape is Phase 2.5's; the fields that
+phase adds are simply absent yet). `claiming` counts as in-flight for Step 0.1c and Step 0.0.
+
+The stub is the half that closes the guard window, and it is local and instant. The Notion
+half needs a resolved page, so it lands in **Phase 1** at the fetch that resolves it — a few
+seconds later, and it skips IDs that never resolve at all rather than trying to claim them.
+
+**Claim only from `Not started`, and revert only to `Not started`.** Leave every other status
+exactly as found. `Blocked`, `In progress`, and `Testing` already read as spoken-for, so they
+were never part of the visibility problem, and the restriction means no prior status ever has
+to be remembered in order to be restored. It matters in one non-obvious place: Phase 5 step 3
+revives a `Blocked` item when its prerequisite lands and re-applies the cap, so a revived item
+can sit `pending` — leave it `Blocked` rather than inventing a reversion target for it.
+
+**Releasing the claim.** Most exits already write a status and need nothing new — the one
+that does not is a plain `deferred`, which is precisely the case that would strand a claim:
+
+| Exit | Leaves `Batched` via | New write? |
+|---|---|---|
+| `/b-work` runs it | its Step 2.7 → `In progress` | no |
+| cascade-blocked / parked (Steps 2.2.4, 3.1, 3.4) | explicit → `Blocked` | no |
+| closed (Step 3.3) | `/b-close` → `Done` | no |
+| `pending` behind the Step 2.4 cap | stays `Batched` — **the point of the status** | no |
+| dropped as `Cancelled` on resume | Notion already says so | no |
+| **`deferred`** (amber unresolved, `unresolved-id`, cross-batch dep) | — | **yes → `Not started`** |
+| batch abandoned | — | Step 0.0 reaper |
+
+Echo the parsed list back so the user sees what will run (the Notion claims are reported by
+Phase 1 as each page resolves, not here):
 ```
 📋 Batch queue (N items): FEAT-130, MAINT-191, DEBUG-44, …
    Batch slug: debug44-feat130-maint191
+   Manifest claimed: 3 items → state "claiming"
    Mode: Accept-Edits ✓
 ```
 
@@ -114,7 +166,19 @@ First fetch each item's Notion page (reuse `/b-work` Phase 1 logic: search
 `Work Item ID: <ID>` in `collection://${NOTION_WORK_DB}` with `page_size: 25`, then verify
 `Type` + `userDefined:ID` **by property, not rank** — semantic search has no exact-ID match
 and the right row is often not the top hit) so the panel plans against the real story, AC,
-and technical notes. **Unattended-miss rule:** if an ID still won't resolve after b-work's
+and technical notes.
+
+**Claim the page as you resolve it (Step 0.2's Notion half).** The fetch returns `Status`
+directly, so the moment a page resolves: if its `Status` is `Not started`, set
+`Status: Batched`; otherwise leave it untouched. Also record its `Effort` on the manifest
+item — Step 2.4 budgets on it. Doing this here rather than at Step 0.2 costs no extra fetch
+and never claims an ID that turns out not to resolve. Report the result once, after the
+sweep:
+
+    🔖 Claimed in Notion (→ Batched): FEAT-130, MAINT-191
+       Left as-is: DEBUG-44 (In progress)
+
+**Unattended-miss rule:** if an ID still won't resolve after b-work's
 one recency-biased retry, do **not** stop to ask for a link (no human in this loop) — record
 the item in the manifest as `deferred` (reason: `unresolved-id`) and surface it in the
 end-of-run summary for manual lookup. Never guess a page or proceed on the wrong one.
@@ -243,26 +307,46 @@ string, plus `scoped: true` and a `defer_note` describing the carved-off remaind
 split is *materialized* in Phase 3 (Step 3.0) — a follow-up Notion item for the remainder
 + a scope-down comment on the original — so the narrowed item closes honestly as `Done`.
 
-### Step 2.4: Soft cap
-The cap counts **every item that will run `/b-work` this session — GREEN and RED both**
-(a RED is implemented headless, then queued; it consumes the same context budget as a
-green). If that count > **4**, run the first 4 **in tranche order** this session and mark
-the rest `pending`. A hard chain longer than the cap is fine: the prefix lands and merges
-to `development` this run, so on `--resume` the prerequisites read as `Done` in Notion
-and the tail branches off them cleanly — never split a chain in a way that runs a
-dependent before its prerequisite is `done`. Tell the user explicitly:
-```
-⚠️  N items to implement (greens + reds) exceed the per-run cap of 4 (context hygiene).
-   Running 4 now; run `/b-batch --resume` after `/clear` to continue.
-```
-The cap is a tunable default reflecting the context ceiling, not a hard limit of the system.
+### Step 2.4: Soft cap (effort points, plus an item ceiling)
+The cap governs **every item that will run `/b-work` this session — GREEN and RED both**
+(a RED is implemented headless, then queued; it consumes the same context budget as a green).
 
-### Step 2.5: Write the manifest
-Persist to the **per-batch** path `$MANIFEST`
-(`/Users/max/dev/being/.config/.b-batch-state.<slug>.json` from Step 0.1b — gitignored,
-survives `/clear`). The per-batch slug is what lets two concurrent batches coexist without
-clobbering each other's `approach` strings + dependency graph (the parts Notion can't
-reconstruct):
+Cost has two axes, and a bare item count prices only one of them. Implementation and review
+context scale with **effort**; the per-item fixed cost — worktree, skill invocation, CI
+round-trip, back-merge — scales with **count**. An `XS` copy fix and an `L` refactor are not
+one unit each. So bound both and stop at whichever binds first:
+
+| Budget | Default | Models |
+|---|---|---|
+| Effort points | **12** | implementation + review context |
+| Item count | **6** | per-item fixed overhead |
+
+Points come from the `Effort` property recorded during the Phase 1 fetch — `XS`=1, `S`=2,
+`M`=3, `L`=5, `XL`=8, `XXL`=13, the `/b-create` scale, so a batch prices work the same way
+the backlog does. A missing `Effort` counts as `M`. Record `effort_points` on each item.
+
+Walk the items **in tranche order**, admitting each while the running total stays inside
+*both* budgets, and mark the rest `pending`. **An item that alone exceeds the point budget
+still runs, alone** — otherwise an `XXL` is permanently unadmittable and deadlocks its queue.
+
+12 points reproduces the old 4-item cap for the common all-`M` batch while letting the tails
+flex: eight `XS` items in one run, or one `XL` on its own. A hard chain longer than the cap
+is fine: the prefix lands and merges to `development` this run, so on `--resume` the
+prerequisites read as `Done` in Notion and the tail branches off them cleanly — never split a
+chain in a way that runs a dependent before its prerequisite is `done`. Tell the user
+explicitly:
+```
+⚠️  7 items / 17 pts exceed the per-run cap (12 pts, 6 items — context hygiene).
+   Running 4 now (11 pts); run `/b-batch --resume` after `/clear` to continue.
+```
+Both are tunable defaults reflecting the context ceiling, not hard limits of the system.
+
+### Step 2.5: Complete the manifest
+Upgrade the Step 0.2 stub at `$MANIFEST` in place — same file, same slug, now carrying
+everything the classify-and-decide pass produced. Path from Step 0.1b:
+`/Users/max/dev/being/.config/.b-batch-state.<slug>.json` — gitignored, survives `/clear`.
+The per-batch slug is what lets two concurrent batches coexist without clobbering each
+other's `approach` strings + dependency graph (the parts Notion can't reconstruct):
 ```json
 {
   "slug": "<batch slug from Step 0.1b>",
@@ -271,14 +355,21 @@ reconstruct):
     { "id": "FEAT-130", "verdict": "green", "tranche": 0,
       "approach": "<synthesized (possibly narrowed) approved approach>",
       "scoped": false, "defer_note": null,
+      "effort": "M", "effort_points": 3,
       "depends_on": [], "blocked_by": null,
       "state": "pending", "pr": null, "notes": "" }
   ]
 }
 ```
-`state` ∈ `pending | running | done | parked | queued_red | deferred`. The approach
-string and the dependency graph (`tranche`/`depends_on`/`blocked_by`) are the parts
-Notion can't reconstruct, so they live here.
+`state` ∈ `claiming | pending | running | done | parked | queued_red | deferred`. The
+approach string and the dependency graph (`tranche`/`depends_on`/`blocked_by`) are the parts
+Notion can't reconstruct, so they live here. No item should still read `claiming` after this
+step — that value exists only to make the Step 0.2 stub count as in-flight.
+
+**Release every item this pass `deferred`** (amber unresolved, `unresolved-id`, cross-batch
+dep) back to `Status: Not started` per the Step 0.2 table, unless it was cascade-blocked —
+those get `Blocked` and are already correct. A deferred item is one this batch is handing
+back, and leaving it `Batched` is exactly the stranded claim Step 0.0 exists to sweep up.
 
 ---
 
@@ -606,7 +697,7 @@ Reconstruct state from disk + Notion + manifest — no in-context memory require
 
 1. Read the selected `$MANIFEST`.
 2. For each item, reconcile against ground truth:
-   - Notion `Status`: `Done` → `done` (skip); `Cancelled` → drop; `Testing` → work implemented, resume at `/b-close` (Step 3.3); `In progress` → resume at Step 3.1's tail (verify/commit); `Not started` → run from Step 3.1; `Blocked` → consult the manifest: `parked` (CI ×2) needs a human triage decision — surface it, don't silently retry; `deferred`/`blocked_by` re-evaluates in step 3 below.
+   - Notion `Status`: `Done` → `done` (skip); `Cancelled` → drop; `Testing` → work implemented, resume at `/b-close` (Step 3.3); `In progress` → resume at Step 3.1's tail (verify/commit); `Batched` → this batch's own claim, never implemented (Step 0.0 already reaped any claim no live manifest owns, so a surviving one is ours) → run from Step 3.1; `Not started` → run from Step 3.1; `Blocked` → consult the manifest: `parked` (CI ×2) needs a human triage decision — surface it, don't silently retry; `deferred`/`blocked_by` re-evaluates in step 3 below.
    - `git worktree list` → confirms what's mid-flight on disk.
    - `gh pr list` → confirms what's awaiting/failed CI.
    - `gh pr list --head <branch>` → **an open PR on an item's own head branch means another
