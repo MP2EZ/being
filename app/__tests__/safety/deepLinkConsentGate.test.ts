@@ -13,7 +13,12 @@
  *   in every consent state AND when the consent store itself fails.
  */
 
-import { linkingConfig, CRISIS_PATH_SEGMENT } from '@/core/navigation/linking';
+import { getActionFromState } from '@react-navigation/native';
+import {
+  linkingConfig,
+  CRISIS_PATH_SEGMENT,
+  PRE_CONSENT_CRISIS_CONFIG,
+} from '@/core/navigation/linking';
 import { useConsentStore } from '@/core/stores/consentStore';
 import DeepLinkValidationService from '@/core/services/security/DeepLinkValidationService';
 import * as Linking from 'expo-linking';
@@ -287,7 +292,184 @@ describe('Deep link consent gate (INFRA-308)', () => {
     });
   });
 
+  /**
+   * DEBUG-372 — the route sitting BENEATH the crisis modal on a cold start.
+   *
+   * `getSecureInitialURL` correctly DELIVERS `being://crisis` while consent is
+   * ungranted (the tests above). What it could not control was the base route
+   * React Navigation builds underneath it: `config.initialRouteName` is 'Main',
+   * so `getStateFromPath('/crisis', config)` produced [Main, CrisisResources].
+   * That linking state REPLACES the navigator's own `initialRouteName`
+   * ('LegalGate'), so CleanTabNavigator — which performs zero consent reads —
+   * mounted beneath a `presentation: 'modal'` card (visible behind it on iOS)
+   * and `goBack()` landed there, all while consent was ungranted.
+   *
+   * SAFETY CONTRACT: every branch below must still yield a state CONTAINING
+   * CrisisResources. Fail-closed applies to consent (throw ⇒ LegalGate);
+   * fail-OPEN applies to the 988 path (never a state without CrisisResources).
+   *
+   * SCOPE: cold start only. React Navigation feeds RUNTIME links through
+   * `getActionFromState(state, config)` with the ORIGINAL config, and that only
+   * emits NAVIGATE when `routes[0].name === config.initialRouteName`; any other
+   * two-route base yields a destructive RESET. Substituting on the runtime path
+   * would silently convert warm-app crisis links into a root reset.
+   */
+  describe('cold-start base route beneath the crisis modal (DEBUG-372)', () => {
+    type ParsedState = ReturnType<
+      NonNullable<typeof linkingConfig.getStateFromPath>
+    >;
+
+    const parse = (path: string): ParsedState =>
+      (linkingConfig.getStateFromPath as NonNullable<
+        typeof linkingConfig.getStateFromPath
+      >)(path, linkingConfig.config);
+
+    const routeNames = (state: ParsedState): string[] | undefined =>
+      state?.routes?.map((route) => route.name);
+
+    /** Arm the cold-start path exactly as React Navigation does, then parse. */
+    async function coldStart(url: string, path: string): Promise<ParsedState> {
+      mockGetInitialURL.mockResolvedValue(url);
+      await getInitialURL();
+      return parse(path);
+    }
+
+    it('HEADLINE: a cold-start crisis link with consent missing puts LegalGate — not Main — beneath the modal', async () => {
+      setConsentState('missing');
+      const state = await coldStart('being://crisis', 'crisis');
+      expect(routeNames(state)).toEqual(['LegalGate', 'CrisisResources']);
+    });
+
+    // `getStateFromPath` receives `extractPathFromURL` output, which is NOT the
+    // URL()-normalized pathname `isCrisisExemptPath` consumes: it arrives bare,
+    // with the query still attached, and sometimes slash-prefixed.
+    it.each([
+      ['being://crisis', 'crisis'],
+      ['being://crisis', '/crisis'],
+      ['being://crisis?source=deeplink', 'crisis?source=deeplink'],
+    ])('substitutes for %s delivered as path %s', async (url, path) => {
+      setConsentState('missing');
+      const state = await coldStart(url, path);
+      expect(routeNames(state)?.[0]).toBe('LegalGate');
+      expect(routeNames(state)).toContain('CrisisResources');
+    });
+
+    /**
+     * PRE-EXISTING GAP, recorded rather than fixed — NOT introduced by DEBUG-372.
+     *
+     * `isCrisisExemptPath` matches on the FIRST path segment, so its docstring is
+     * right that "any route added under `crisis/` inherits this exemption". But no
+     * such route has ever been added: `screens.CrisisResources` is the bare string
+     * `'crisis'`, so React Navigation resolves `crisis/safety-plan` to NO STATE AT
+     * ALL — with or without this fix, and identically before it.
+     *
+     * The consequence is that a nested crisis URL passes the consent gate (correct)
+     * and then resolves to nothing (not correct), falling back to whatever
+     * `Stack.Navigator initialRouteName` gives. 988 survives, because the crisis
+     * overlay is a sibling of the navigator, but `CrisisResources` does not open.
+     *
+     * Pinned here so the behaviour is a known quantity rather than a surprise, and
+     * so that registering a real `crisis/*` route later breaks this test and forces
+     * the question. Fixing it is out of scope: this item was deliberately narrowed
+     * to the base route beneath the modal.
+     */
+    it('nested crisis paths resolve to no state — pre-existing, unchanged by this fix', async () => {
+      setConsentState('missing');
+      const state = await coldStart('being://crisis/safety-plan', 'crisis/safety-plan');
+      expect(state).toBeUndefined();
+    });
+
+    it.each(UNGRANTED_STATES)(
+      'SAFETY: CrisisResources is still present under consent %s (988 is never gated)',
+      async (status) => {
+        setConsentState(status);
+        const state = await coldStart('being://crisis', 'crisis');
+        expect(routeNames(state)).toContain('CrisisResources');
+      },
+    );
+
+    it('SAFETY: CrisisResources survives a THROWING consent store, and the base fails closed to LegalGate', async () => {
+      setConsentState('missing');
+      mockGetInitialURL.mockResolvedValue('being://crisis');
+      // Arm first: the cold-start entry point performs zero consent reads by
+      // design (pinned above), so the spy only intercepts the getStateFromPath read.
+      await getInitialURL();
+      const getStateSpy = jest
+        .spyOn(useConsentStore, 'getState')
+        .mockImplementation(() => {
+          throw new Error('consent store unavailable');
+        });
+      try {
+        const state = parse('crisis');
+        expect(routeNames(state)).toContain('CrisisResources');
+        expect(routeNames(state)).toEqual(['LegalGate', 'CrisisResources']);
+      } finally {
+        getStateSpy.mockRestore();
+      }
+    });
+
+    it('base stays Main when consent is valid and age is verified', async () => {
+      setConsentState('valid');
+      const state = await coldStart('being://crisis', 'crisis');
+      expect(routeNames(state)).toEqual(['Main', 'CrisisResources']);
+    });
+
+    it('a RUNTIME crisis link is NOT substituted — it must stay a NAVIGATE, never a RESET', () => {
+      setConsentState('missing');
+      expect(fireRuntimeUrl('being://crisis')).toHaveLength(1);
+      const state = parse('crisis');
+      expect(routeNames(state)).toEqual(['Main', 'CrisisResources']);
+      expect(getActionFromState(state!, linkingConfig.config)?.type).toBe('NAVIGATE');
+    });
+
+    it('the cold-start substitution is ONE-SHOT (a second parse reverts to Main)', async () => {
+      setConsentState('missing');
+      const first = await coldStart('being://crisis', 'crisis');
+      expect(routeNames(first)).toEqual(['LegalGate', 'CrisisResources']);
+      expect(routeNames(parse('crisis'))).toEqual(['Main', 'CrisisResources']);
+    });
+
+    it('a non-crisis cold start still yields [Main, DailyLoop] (FEAT-298 stranding fix preserved)', async () => {
+      setConsentState('valid');
+      const state = await coldStart('being://daily', 'daily');
+      expect(routeNames(state)).toEqual(['Main', 'DailyLoop']);
+    });
+
+    it('a blocked cold-start URL leaves the flag disarmed', async () => {
+      setConsentState('missing');
+      mockGetInitialURL.mockResolvedValue('javascript://alert(1)');
+      await expect(getInitialURL()).resolves.toBeNull();
+      expect(routeNames(parse('crisis'))).toEqual(['Main', 'CrisisResources']);
+    });
+
+    it('a cold start with NO url leaves the flag disarmed', async () => {
+      setConsentState('missing');
+      mockGetInitialURL.mockResolvedValue(null);
+      await expect(getInitialURL()).resolves.toBeNull();
+      expect(routeNames(parse('crisis'))).toEqual(['Main', 'CrisisResources']);
+    });
+
+    it('SAFETY: the rate-limited crisis fallback also arms the substitution', async () => {
+      setConsentState('missing');
+      for (let i = 0; i < 31; i++) {
+        DeepLinkValidationService.validateDeepLink('being://morning');
+      }
+      mockGetInitialURL.mockResolvedValue('being://crisis');
+      await expect(getInitialURL()).resolves.toBe(`being://${CRISIS_PATH_SEGMENT}`);
+      expect(routeNames(parse('crisis'))).toEqual(['LegalGate', 'CrisisResources']);
+    });
+  });
+
   describe('config pins', () => {
+    it('the default config still bases at Main, and the pre-consent config shares the SAME screens object (DEBUG-372)', () => {
+      expect(linkingConfig.config?.initialRouteName).toBe('Main');
+      expect(PRE_CONSENT_CRISIS_CONFIG.initialRouteName).toBe('LegalGate');
+      // Identical object, not a copy: `getStateFromPath` caches its parsed
+      // config in a WeakMap keyed by reference, so a per-call spread would
+      // re-parse the whole screen map on the crisis path.
+      expect(PRE_CONSENT_CRISIS_CONFIG.screens).toBe(linkingConfig.config?.screens);
+    });
+
     it('CrisisResources screen path equals CRISIS_PATH_SEGMENT (exemption cannot silently drift)', () => {
       const screens = linkingConfig.config?.screens as Record<string, unknown>;
       expect(screens.CrisisResources).toBe(CRISIS_PATH_SEGMENT);

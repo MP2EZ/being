@@ -18,14 +18,24 @@
  *
  * WHY THE PATTERNS ARE THIS NARROW
  *
- * The keys being removed live in the same namespace as keys that must NEVER be
- * removed. `crisis_async_*` holds the AES-256-encrypted safety plan and
- * emergency contacts; `crisis_secure_*` is the legacy migration fallback. A
- * `startsWith('crisis_')` sweep would destroy a user's safety plan at app
- * launch, silently, with no error message — converting a privacy defect into a
- * safety incident. Every pattern here is anchored and specific, and the
- * suite in `__tests__/legacyPlaintextRecordSweeper.test.ts` asserts the
+ * The keys being removed share a namespace prefix with keys this module must
+ * never touch. A `startsWith('crisis_')` sweep would run at app launch, before
+ * render, against every `crisis_*` key on the device — silently, with no error
+ * message. Every pattern here is therefore anchored and specific, and the suite
+ * in `__tests__/legacyPlaintextRecordSweeper.privacy.test.ts` asserts the
  * survival of each neighbouring namespace explicitly.
+ *
+ * This paragraph used to justify that narrowness by saying `crisis_async_*`
+ * holds the AES-256-encrypted safety plan and emergency contacts. It does not,
+ * and it never did (MAINT-378): the only writer of that namespace was
+ * `SecureStorageService.storeCrisisData`, whose last real caller was deleted in
+ * MAINT-123, and the safety plan is not persisted through that service at all.
+ * The correct argument is the structural one above — a broad prefix sweep
+ * running unsupervised at launch is unsafe on its own terms, regardless of what
+ * currently happens to live under the prefix. `crisis_async_*` and
+ * `crisis_secure_*` remain reachable by the erasure paths in
+ * SecureStorageService as a defensive floor for shipped installs, which is
+ * another reason this module must not race them.
  *
  * Deliberately NOT swept: the `crisis_<assessmentId>` key from
  * `CrisisPerformanceOptimizer.logCrisisInterventionOptimized`. That method was

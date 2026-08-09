@@ -4,7 +4,13 @@
  * Re-exports of the core security services and their public types. The high-level
  * `SecurityOrchestrator` was removed in INFRA-62 — it was never initialized at
  * runtime, and each consumer holds its own reference to the specific service(s)
- * it needs (e.g. `AnalyticsService` imports `SecurityMonitoringService` directly).
+ * it needs.
+ *
+ * This header used to cite `AnalyticsService` importing `SecurityMonitoringService`
+ * as the worked example of that pattern. It does not, and no other production
+ * module does either (MAINT-378 verified: every non-test reference in `src/` is a
+ * comment or this barrel's own re-export). `SecurityMonitoringService` is reachable
+ * but unwired — worth knowing before treating anything it does as live behaviour.
  *
  * Service layers (each kept):
  * 1. Encryption — data protection at rest and in transit
@@ -12,7 +18,7 @@
  * 3. Secure Storage — protected data storage with audit trails
  * 4. Network Security — secure API communications
  * 5. Crisis Security Protocol — crisis data special protections
- * 6. Security Monitoring — vulnerability assessment (consumed by AnalyticsService)
+ * 6. Security Monitoring — vulnerability assessment (no production consumer)
  * 7. Deep Link Validation — URL scheme validation
  */
 
@@ -53,7 +59,6 @@ export type {
   StorageTier,
   SecureStorageMetadata,
   StorageOperationResult,
-  BulkStorageOperation,
   StorageAccessLogEntry
 } from './SecureStorageService';
 

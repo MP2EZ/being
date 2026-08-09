@@ -3,35 +3,38 @@
  *
  * Comprehensive secure storage for wellness data:
  * - Hybrid: AES-256-GCM ciphertext in AsyncStorage; master key in platform Keychain (expo-secure-store)
- * - Tiered storage based on data sensitivity (PHQ-9/GAD-7/Crisis)
+ * - Tiered storage based on data sensitivity (PHQ-9/GAD-7)
  * - Automatic encryption/decryption with performance optimization
  * - Wellness data lifecycle management and cleanup
  * - Audit trails and access logging
  *
  * STORAGE ARCHITECTURE (INFRA-144):
- * - Level 1: Crisis responses (AsyncStorage ciphertext + AES-256-GCM)
- * - Level 2: Assessment data (AsyncStorage ciphertext + AES-256-GCM)
- * - Level 3: Intervention metadata (SecureStore + AES-256)
- * - Level 4: Performance data (AsyncStorage + basic encryption)
- * - Level 5: General data (AsyncStorage, unencrypted)
+ * - Level 1: Assessment data (AsyncStorage ciphertext + AES-256-GCM)
+ * - Level 2: Intervention metadata (SecureStore + AES-256)
+ * - Level 3: Performance data (AsyncStorage + basic encryption)
+ * - Level 4: General data (AsyncStorage, unencrypted)
+ *
+ * A `crisis_tier` sat above assessment until MAINT-378. It was removed as dead
+ * code: its writer (`storeCrisisData`) had a single caller in an unwired service
+ * and its reader (`retrieveCrisisData`) had none. The crisis safety plan is not,
+ * and since MAINT-123 never has been, persisted through this service. The
+ * `crisis_async_` / `crisis_secure_` namespaces are retained in the erasure paths
+ * below as a defensive floor for records on already-shipped installs — see
+ * SWEPT_ASYNC_PREFIXES and deleteSecureData.
  *
  * Plaintext is never written to disk. AES-256-GCM ciphertext is opaque;
  * confidentiality derives from the key (held in Keychain), not the
- * substrate. Removing SecureStore as the substrate for crisis/assessment
+ * substrate. Removing SecureStore as the substrate for assessment data
  * escapes the iOS Keychain 2KB per-attribute limit without weakening the
  * encryption boundary.
  *
  * PERFORMANCE REQUIREMENTS:
- * - Crisis data access: <200ms (includes decryption)
  * - Assessment data access: <300ms
- * - Bulk operations: <500ms for up to 100 records
  * - Background sync: <1000ms for data export
  *
  * DATA PROTECTION STANDARDS:
  * - Privacy-compliant storage with audit trails
- * - 3-year retention for crisis intervention records (liability protection)
  * - Secure data deletion and device cleanup
- * - Emergency data access protocols
  */
 
 
@@ -149,12 +152,20 @@ export const SECURE_STORAGE_CONFIG = {
  * prefix half.
  *
  * `audit_log_` is on this list because `logStorageAccess` persists an entry on
- * every `crisis_tier` operation and every failure. Nothing reads those records
- * back and `cleanupAuditLogs()` prunes only the in-memory array, so before
- * DEBUG-355 nothing in the app could remove them at all. Unlike the SecureStore
- * `critical_log_*` records in the same work item, these enumerate — so adding
- * the prefix here fixes already-shipped installs retroactively, with no
- * migration and no persisted index.
+ * every failed operation. (It also persisted on every `crisis_tier` operation
+ * until MAINT-378 removed that tier; the failure arm is now the only writer.)
+ * Nothing reads those records back and `cleanupAuditLogs()` prunes only the
+ * in-memory array, so before DEBUG-355 nothing in the app could remove them at
+ * all. Unlike the SecureStore `critical_log_*` records in the same work item,
+ * these enumerate — so adding the prefix here fixes already-shipped installs
+ * retroactively, with no migration and no persisted index.
+ *
+ * `crisis_async_` is retained here after MAINT-378 deleted the tier that wrote
+ * it. The namespace is now write-free: no production code path produces such a
+ * key. It stays as a defensive erasure floor for records that may exist on
+ * already-shipped installs. Removing a prefix from this sweep is a one-way
+ * compliance regression — there is no way to re-erase what a shipped build left
+ * behind once the sweep stops looking for it.
  */
 export const SWEPT_ASYNC_PREFIXES = [
   SECURE_STORAGE_CONFIG.CRISIS_ASYNC_PREFIX,
@@ -202,7 +213,6 @@ export const ERASURE_EXCLUDED_SECURE_STORE_KEYS = [
  * STORAGE TIER DEFINITIONS
  */
 export type StorageTier =
-  | 'crisis_tier'        // Highest security - AsyncStorage ciphertext + AES-256-GCM (master key in Keychain)
   | 'assessment_tier'    // High security - AsyncStorage ciphertext + AES-256-GCM (master key in Keychain)
   | 'intervention_tier'  // Medium security - SecureStore + Level 3 encryption
   | 'performance_tier'   // Low security - AsyncStorage + basic encryption
@@ -210,9 +220,9 @@ export type StorageTier =
 
 /**
  * Legacy SecureStore data format. INFRA-144 migration handles two shapes:
- * - 'encrypted_package': existing AES-256-GCM ciphertext (crisis safety plan
- *   via storeCrisisData was always encrypted). Migration decrypt-verifies under
- *   the current master key before moving to AsyncStorage.
+ * - 'encrypted_package': existing AES-256-GCM ciphertext. Migration
+ *   decrypt-verifies under the current master key before moving to
+ *   AsyncStorage.
  * - 'plaintext_json': pre-INFRA-144 plain JSON written directly to SecureStore
  *   (assessment_store_encrypted and consent_history_v1 — the variable was named
  *   "encrypted" but the data was JSON-stringified plaintext relying solely on
@@ -248,18 +258,6 @@ export interface StorageOperationResult {
   dataSize: number;
   error?: string | undefined;
   metadata?: SecureStorageMetadata | undefined;
-}
-
-/**
- * BULK STORAGE OPERATION
- */
-export interface BulkStorageOperation {
-  operationType: 'store' | 'retrieve' | 'delete';
-  items: Array<{
-    key: string;
-    data?: any;
-    metadata?: Partial<SecureStorageMetadata>;
-  }>;
 }
 
 /**
@@ -386,128 +384,6 @@ export class SecureStorageService {
   }
 
   /**
-   * CRISIS DATA STORAGE
-   * Highest security tier for crisis intervention data
-   */
-  public async storeCrisisData(
-    key: string,
-    crisisData: any,
-    crisisEpisodeId: string,
-    userContext?: string
-  ): Promise<StorageOperationResult> {
-    const startTime = performance.now();
-
-    try {
-      // Lazy-init the encryption layer so callers can hit these methods
-      // before app-startup ordering completes (e.g. Zustand persist rehydration
-      // for the assessment store fires at module load, ahead of App.tsx's
-      // SecureStorageService.initialize() call). encryptionService.initialize
-      // is idempotent and shares the in-flight promise across concurrent calls.
-      await this.encryptionService.initialize();
-
-      const storageKey = `${SECURE_STORAGE_CONFIG.CRISIS_ASYNC_PREFIX}${key}`;
-
-      const encryptedPackage = await this.encryptionService.encryptCrisisData(
-        crisisData,
-        crisisEpisodeId
-      );
-
-      await this.validateStorageSize(encryptedPackage, 'crisis_tier');
-
-      // Hybrid storage: ciphertext to AsyncStorage; AES master key remains
-      // in Keychain via EncryptionService. Plaintext never touches disk.
-      await AsyncStorage.setItem(storageKey, JSON.stringify(encryptedPackage));
-
-      // Mark legacy SecureStore key as migrated so retrieve won't fall back
-      // for new writes. Idempotent: this records "we have a fresh write at the
-      // async key" so any stale SecureStore copy under the legacy prefix is
-      // ignored on read.
-      await this.markMigrated(`${SECURE_STORAGE_CONFIG.CRISIS_PREFIX}${key}`);
-
-      const metadata: SecureStorageMetadata = {
-        storageKey,
-        storageTier: 'crisis_tier',
-        sensitivityLevel: 'level_1_crisis_responses',
-        dataType: 'crisis_intervention',
-        createdAt: Date.now(),
-        lastAccessedAt: Date.now(),
-        accessCount: 1,
-        encrypted: true,
-        dataSize: JSON.stringify(encryptedPackage).length,
-        retentionPolicy: 'wellness_record'
-      };
-
-      // Cache metadata
-      this.metadataCache.set(storageKey, metadata);
-
-      // Store metadata separately
-      await this.storeMetadata(storageKey, metadata);
-
-      const operationTime = performance.now() - startTime;
-
-      // Validate crisis performance requirement
-      if (operationTime > SECURE_STORAGE_CONFIG.CRISIS_ACCESS_THRESHOLD_MS) {
-        logSecurity(`⚠️  Crisis storage slow: ${operationTime.toFixed(2)}ms > ${SECURE_STORAGE_CONFIG.CRISIS_ACCESS_THRESHOLD_MS}ms`, 'medium', { component: 'SecurityService' });
-      }
-
-      // Log access
-      await this.logStorageAccess({
-        timestamp: Date.now(),
-        operationType: 'store',
-        storageKey,
-        storageTier: 'crisis_tier',
-        dataType: 'crisis_intervention',
-        success: true,
-        operationTimeMs: operationTime,
-        dataSize: metadata.dataSize,
-        userContext,
-        securityContext: 'crisis_data_storage'
-      });
-
-      logPerformance('SecureStorageService.storeCrisisData', operationTime, {
-        dataSize: metadata.dataSize,
-        tier: 'crisis_tier'
-      });
-
-      return {
-        success: true,
-        operationType: 'store',
-        storageKey,
-        operationTimeMs: operationTime,
-        dataSize: metadata.dataSize,
-        metadata
-      };
-
-    } catch (error) {
-      const operationTime = performance.now() - startTime;
-      logError(LogCategory.SECURITY, '🚨 CRISIS DATA STORAGE ERROR:', error instanceof Error ? error : new Error(String(error)));
-
-      // Log failure
-      await this.logStorageAccess({
-        timestamp: Date.now(),
-        operationType: 'store',
-        storageKey: `${SECURE_STORAGE_CONFIG.CRISIS_ASYNC_PREFIX}${key}`,
-        storageTier: 'crisis_tier',
-        dataType: 'crisis_intervention',
-        success: false,
-        operationTimeMs: operationTime,
-        dataSize: 0,
-        userContext,
-        error: (error instanceof Error ? error.message : String(error))
-      });
-
-      return {
-        success: false,
-        operationType: 'store',
-        storageKey: `${SECURE_STORAGE_CONFIG.CRISIS_ASYNC_PREFIX}${key}`,
-        operationTimeMs: operationTime,
-        dataSize: 0,
-        error: (error instanceof Error ? error.message : String(error))
-      };
-    }
-  }
-
-  /**
    * ASSESSMENT DATA STORAGE
    * High security tier for PHQ-9/GAD-7 assessment data
    */
@@ -628,103 +504,6 @@ export class SecureStorageService {
   }
 
   /**
-   * RETRIEVE CRISIS DATA
-   * Fast retrieval for crisis intervention (must be <200ms)
-   */
-  public async retrieveCrisisData(
-    key: string,
-    userContext?: string
-  ): Promise<{ data: any; metadata: SecureStorageMetadata } | null> {
-    const startTime = performance.now();
-
-    try {
-      // Lazy-init the encryption layer so callers can hit these methods
-      // before app-startup ordering completes (e.g. Zustand persist rehydration
-      // for the assessment store fires at module load, ahead of App.tsx's
-      // SecureStorageService.initialize() call). encryptionService.initialize
-      // is idempotent and shares the in-flight promise across concurrent calls.
-      await this.encryptionService.initialize();
-
-      const storageKey = `${SECURE_STORAGE_CONFIG.CRISIS_ASYNC_PREFIX}${key}`;
-      const legacyKey = `${SECURE_STORAGE_CONFIG.CRISIS_PREFIX}${key}`;
-
-      const encryptedDataString = await this.readWithLegacyFallback(storageKey, legacyKey);
-      if (!encryptedDataString) {
-        return null;
-      }
-
-      const encryptedPackage: EncryptedDataPackage = JSON.parse(encryptedDataString);
-      const decryptedData = await this.encryptionService.decryptData(encryptedPackage);
-
-      const metadata = this.metadataCache.get(storageKey);
-      if (metadata) {
-        metadata.lastAccessedAt = Date.now();
-        metadata.accessCount += 1;
-        this.metadataCache.set(storageKey, metadata);
-      }
-
-      const operationTime = performance.now() - startTime;
-
-      if (operationTime > SECURE_STORAGE_CONFIG.CRISIS_ACCESS_THRESHOLD_MS) {
-        logError(LogCategory.SYSTEM, `CRISIS DATA ACCESS TOO SLOW: ${operationTime.toFixed(2)}ms > ${SECURE_STORAGE_CONFIG.CRISIS_ACCESS_THRESHOLD_MS}ms`);
-      }
-
-      await this.logStorageAccess({
-        timestamp: Date.now(),
-        operationType: 'retrieve',
-        storageKey,
-        storageTier: 'crisis_tier',
-        dataType: 'crisis_intervention',
-        success: true,
-        operationTimeMs: operationTime,
-        dataSize: encryptedDataString.length,
-        userContext,
-        securityContext: 'crisis_data_retrieval'
-      });
-
-      logPerformance('SecureStorageService.retrieveCrisisData', operationTime, {
-        tier: 'crisis_tier'
-      });
-
-      return {
-        data: decryptedData,
-        metadata: metadata || {
-          storageKey,
-          storageTier: 'crisis_tier',
-          sensitivityLevel: 'level_1_crisis_responses',
-          dataType: 'crisis_intervention',
-          createdAt: Date.now(),
-          lastAccessedAt: Date.now(),
-          accessCount: 1,
-          encrypted: true,
-          dataSize: encryptedDataString.length,
-          retentionPolicy: 'wellness_record'
-        }
-      };
-
-    } catch (error) {
-      const operationTime = performance.now() - startTime;
-      logError(LogCategory.SECURITY, '🚨 CRISIS DATA RETRIEVAL ERROR:', error instanceof Error ? error : new Error(String(error)));
-
-      // Log failure
-      await this.logStorageAccess({
-        timestamp: Date.now(),
-        operationType: 'retrieve',
-        storageKey: `${SECURE_STORAGE_CONFIG.CRISIS_ASYNC_PREFIX}${key}`,
-        storageTier: 'crisis_tier',
-        dataType: 'crisis_intervention',
-        success: false,
-        operationTimeMs: operationTime,
-        dataSize: 0,
-        userContext,
-        error: (error instanceof Error ? error.message : String(error))
-      });
-
-      throw error;
-    }
-  }
-
-  /**
    * RETRIEVE ASSESSMENT DATA
    * Retrieval for PHQ-9/GAD-7 assessment data
    */
@@ -808,155 +587,6 @@ export class SecureStorageService {
         storageKey: `${SECURE_STORAGE_CONFIG.ASSESSMENT_ASYNC_PREFIX}${assessmentId}`,
         storageTier: 'assessment_tier',
         dataType: 'assessment_data',
-        success: false,
-        operationTimeMs: operationTime,
-        dataSize: 0,
-        userContext,
-        error: (error instanceof Error ? error.message : String(error))
-      });
-
-      throw error;
-    }
-  }
-
-  /**
-   * BULK STORAGE OPERATIONS
-   * Efficient handling of multiple storage operations
-   */
-  public async executeBulkOperation(
-    operation: BulkStorageOperation,
-    userContext?: string
-  ): Promise<StorageOperationResult[]> {
-    const startTime = performance.now();
-
-    try {
-      // Lazy-init the encryption layer so callers can hit these methods
-      // before app-startup ordering completes (e.g. Zustand persist rehydration
-      // for the assessment store fires at module load, ahead of App.tsx's
-      // SecureStorageService.initialize() call). encryptionService.initialize
-      // is idempotent and shares the in-flight promise across concurrent calls.
-      await this.encryptionService.initialize();
-
-      if (operation.items.length > SECURE_STORAGE_CONFIG.BULK_OPERATION_LIMIT) {
-        throw new Error(`Bulk operation limit exceeded: ${operation.items.length} > ${SECURE_STORAGE_CONFIG.BULK_OPERATION_LIMIT}`);
-      }
-
-      const results: StorageOperationResult[] = [];
-
-      // Process items in parallel where safe
-      const promises = operation.items.map(async (item) => {
-        try {
-          switch (operation.operationType) {
-            case 'store':
-              if (!item.data) {
-                throw new Error('Data required for store operation');
-              }
-              
-              // Determine storage tier based on metadata
-              const tier = item.metadata?.storageTier || 'general_tier';
-              
-              if (tier === 'crisis_tier') {
-                return await this.storeCrisisData(item.key, item.data, item.key, userContext);
-              } else if (tier === 'assessment_tier') {
-                return await this.storeAssessmentData(item.key, item.data, userContext);
-              } else {
-                return await this.storeGeneralData(item.key, item.data, tier, userContext);
-              }
-
-            case 'retrieve':
-              const tier2 = item.metadata?.storageTier || 'general_tier';
-              
-              if (tier2 === 'crisis_tier') {
-                const result = await this.retrieveCrisisData(item.key, userContext);
-                return {
-                  success: result !== null,
-                  operationType: 'retrieve' as const,
-                  storageKey: item.key,
-                  operationTimeMs: 0, // Would be measured
-                  dataSize: result ? JSON.stringify(result.data).length : 0,
-                  metadata: result?.metadata
-                };
-              } else if (tier2 === 'assessment_tier') {
-                const result = await this.retrieveAssessmentData(item.key, userContext);
-                return {
-                  success: result !== null,
-                  operationType: 'retrieve' as const,
-                  storageKey: item.key,
-                  operationTimeMs: 0,
-                  dataSize: result ? JSON.stringify(result.data).length : 0,
-                  metadata: result?.metadata
-                };
-              } else {
-                const result = await this.retrieveGeneralData(item.key, userContext);
-                return {
-                  success: result !== null,
-                  operationType: 'retrieve' as const,
-                  storageKey: item.key,
-                  operationTimeMs: 0,
-                  dataSize: result ? JSON.stringify(result).length : 0
-                };
-              }
-
-            case 'delete':
-              return await this.deleteSecureData(item.key, userContext);
-
-            default:
-              throw new Error(`Unsupported bulk operation: ${operation.operationType}`);
-          }
-        } catch (error) {
-          return {
-            success: false,
-            operationType: operation.operationType,
-            storageKey: item.key,
-            operationTimeMs: 0,
-            dataSize: 0,
-            error: (error instanceof Error ? error.message : String(error))
-          };
-        }
-      });
-
-      const operationResults = await Promise.all(promises);
-      results.push(...operationResults);
-
-      const totalOperationTime = performance.now() - startTime;
-
-      // Validate bulk operation performance
-      if (totalOperationTime > SECURE_STORAGE_CONFIG.BULK_OPERATION_THRESHOLD_MS) {
-        logSecurity(`⚠️  Bulk operation slow: ${totalOperationTime.toFixed(2)}ms > ${SECURE_STORAGE_CONFIG.BULK_OPERATION_THRESHOLD_MS}ms`, 'medium', { component: 'SecurityService' });
-      }
-
-      // Log bulk operation
-      await this.logStorageAccess({
-        timestamp: Date.now(),
-        operationType: 'bulk',
-        storageKey: `bulk_${operation.operationType}_${operation.items.length}_items`,
-        storageTier: 'general_tier',
-        dataType: 'bulk_operation',
-        success: results.every(r => r.success),
-        operationTimeMs: totalOperationTime,
-        dataSize: results.reduce((sum, r) => sum + r.dataSize, 0),
-        userContext,
-        securityContext: 'bulk_storage_operation'
-      });
-
-      logPerformance('SecureStorageService.bulkOperation', totalOperationTime, {
-        operationType: operation.operationType,
-        itemCount: operation.items.length
-      });
-
-      return results;
-
-    } catch (error) {
-      const operationTime = performance.now() - startTime;
-      logError(LogCategory.SECURITY, '🚨 BULK OPERATION ERROR:', error instanceof Error ? error : new Error(String(error)));
-
-      // Log failure
-      await this.logStorageAccess({
-        timestamp: Date.now(),
-        operationType: 'bulk',
-        storageKey: `bulk_${operation.operationType}_failed`,
-        storageTier: 'general_tier',
-        dataType: 'bulk_operation',
         success: false,
         operationTimeMs: operationTime,
         dataSize: 0,
@@ -1067,6 +697,13 @@ export class SecureStorageService {
       // first-read migration. Enumerate both. Always also clear the migration
       // marker so a future write under the legacy key would re-migrate if
       // needed.
+      //
+      // The two crisis namespaces below are write-free since MAINT-378 removed
+      // the tier that produced them. They are enumerated deliberately, as a
+      // defensive erasure floor for records on already-shipped installs. Do not
+      // prune them for tidiness: dropping a namespace from a deletion path is a
+      // one-way regression, and SecureStore in particular has no enumerate API,
+      // so a legacy `crisis_secure_*` key can only ever be reached by name.
       const asyncPossibleKeys = [
         `${SECURE_STORAGE_CONFIG.CRISIS_ASYNC_PREFIX}${key}`,
         `${SECURE_STORAGE_CONFIG.ASSESSMENT_ASYNC_PREFIX}${key}`,
@@ -1299,7 +936,7 @@ export class SecureStorageService {
   ): Promise<void> {
     const packageSize = JSON.stringify(encryptedPackage).length;
 
-    if (storageTier === 'crisis_tier' || storageTier === 'assessment_tier') {
+    if (storageTier === 'assessment_tier') {
       // Hybrid: ciphertext sits in AsyncStorage now. Cap at 256KB per record
       // to keep AsyncStorage performant and force pagination on unbounded
       // growth (assessment history, consent audit trail) rather than allowing
@@ -1658,8 +1295,11 @@ export class SecureStorageService {
         this.accessLog = this.accessLog.slice(-SECURE_STORAGE_CONFIG.MAX_AUDIT_ENTRIES);
       }
 
-      // Persist critical access logs
-      if (entry.storageTier === 'crisis_tier' || !entry.success) {
+      // Persist critical access logs.
+      // Failure is the only persistence trigger since MAINT-378 removed the
+      // crisis tier. `audit_log_` stays in SWEPT_ASYNC_PREFIXES because this
+      // arm still writes.
+      if (!entry.success) {
         const logKey = `${SECURE_STORAGE_CONFIG.AUDIT_LOG_PREFIX}${Date.now()}`;
         await AsyncStorage.setItem(logKey, JSON.stringify(entry));
       }
@@ -1680,14 +1320,12 @@ export class SecureStorageService {
 
   public async getStorageMetrics(): Promise<{
     totalEntries: number;
-    crisisEntries: number;
     assessmentEntries: number;
     totalStorageSize: number;
     accessLogSize: number;
     averageAccessTime: number;
     successRate: number;
   }> {
-    const crisisEntries = Array.from(this.metadataCache.values()).filter(m => m.storageTier === 'crisis_tier').length;
     const assessmentEntries = Array.from(this.metadataCache.values()).filter(m => m.storageTier === 'assessment_tier').length;
     const totalStorageSize = Array.from(this.metadataCache.values()).reduce((sum, m) => sum + m.dataSize, 0);
     
@@ -1699,7 +1337,6 @@ export class SecureStorageService {
 
     return {
       totalEntries: this.metadataCache.size,
-      crisisEntries,
       assessmentEntries,
       totalStorageSize,
       accessLogSize: this.accessLog.length,
