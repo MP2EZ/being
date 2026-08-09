@@ -596,6 +596,17 @@ Reconstruct state from disk + Notion + manifest — no in-context memory require
    - Notion `Status`: `Done` → `done` (skip); `Cancelled` → drop; `Testing` → work implemented, resume at `/b-close` (Step 3.3); `In progress` → resume at Step 3.1's tail (verify/commit); `Not started` → run from Step 3.1; `Blocked` → consult the manifest: `parked` (CI ×2) needs a human triage decision — surface it, don't silently retry; `deferred`/`blocked_by` re-evaluates in step 3 below.
    - `git worktree list` → confirms what's mid-flight on disk.
    - `gh pr list` → confirms what's awaiting/failed CI.
+   - `gh pr list --head <branch>` → **an open PR on an item's own head branch means another
+     session is driving that close right now.** A worktree is evidence of work; an open PR on
+     it is evidence of an owner. Step 0.1c cannot see a plain `/b-work` + `/b-close` run — it
+     has no manifest — so a reconciled item is not automatically this batch's to run. Hand it
+     off: record the PR, mark `deferred` (`blocked_by: owned by a concurrent session`), and
+     never commit, push, or merge on that branch.
+   - Re-check `git status --short` **immediately before** any commit in a pre-existing
+     worktree, and refuse if `MERGE_HEAD` exists. A clean status read minutes earlier is not a
+     clean status now, and `git commit` will silently finalize a foreign staged merge under
+     your own invocation — bundling your change into a merge commit and discarding your
+     message, so the change vanishes from `git log`.
    - Manifest `queued_red` → still belongs in the sim queue, never auto-close.
 3. **Recompute dependency satisfaction** from current Notion `Done` status **and sibling
    manifests** (per Step 2.2.3): a previously `Blocked`/`deferred`/`blocked_by` item whose
