@@ -10,6 +10,10 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as Sentry from '@sentry/react-native';
 import CleanRootNavigator from './src/core/navigation/CleanRootNavigator';
+// DEBUG-341: eager import, never lazy. CLAUDE.md's crisis-path rule — a fallback that
+// has to resolve a chunk before it can render is not a fallback.
+import RootCrisisBoundary from './src/features/crisis/components/RootCrisisBoundary';
+import { logCrisis } from './src/core/services/logging';
 import { IAPService } from './src/core/services/subscription/IAPService';
 import { useSubscriptionStore } from './src/core/stores/subscriptionStore';
 import EncryptionService from './src/core/services/security/EncryptionService';
@@ -187,7 +191,42 @@ function App() {
       <PostHogProvider>
         <SafeAreaProvider>
           <StatusBar style="auto" />
-          <CleanRootNavigator />
+          {/*
+            DEBUG-341: the app had NO error boundary above CleanRootNavigator, so any
+            render throw under it unmounted the whole tree to a white screen with no 988
+            affordance. Sentry.wrap is a profiler/touch wrapper, not a boundary —
+            componentDidCatch appears nowhere in its tree.
+
+            Placement is deliberate: INSIDE SafeAreaProvider so the fallback can respect
+            insets, and INSIDE GestureHandlerRootView, which must stay the outermost
+            native host view. A boundary wrapping only the crisis subtree would be
+            useless — a screen crash unmounts the navigator, taking that boundary and the
+            button it protects down together.
+          */}
+          <RootCrisisBoundary
+            onError={(error, componentStack) => {
+              // Runs in componentDidCatch, i.e. AFTER the 988 fallback has committed —
+              // never on the path to first paint.
+              //
+              // NOTE this is an ON-DEVICE record only, by design and by constraint.
+              // ExternalErrorReporter's `containsCrisisContent` filter drops any event
+              // whose serialization contains 'crisis', '988', 'emergency' or
+              // 'intervention', and a stack originating under features/crisis/ contains
+              // 'crisis' in every frame. So a root crash on this path is largely
+              // invisible to Sentry by existing design. Do not add a claim to the
+              // contrary; the local log is the accountability record here.
+              // logCrisis's context is a fixed shape (detectionTime / interventionType
+              // / severity) and deliberately does NOT take free-form fields, so the
+              // detail rides in the message and the structured part stays schema-clean.
+              logCrisis(
+                `Root render error — degraded to static 988 fallback: ${error.message}`,
+                { severity: 'critical', interventionType: 'display' },
+              );
+              void componentStack;
+            }}
+          >
+            <CleanRootNavigator />
+          </RootCrisisBoundary>
         </SafeAreaProvider>
       </PostHogProvider>
     </GestureHandlerRootView>

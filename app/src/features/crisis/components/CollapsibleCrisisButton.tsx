@@ -146,8 +146,16 @@ export const CollapsibleCrisisButton: React.FC<CollapsibleCrisisButtonProps> = (
         const enabled = await AccessibilityInfo.isReduceMotionEnabled();
         setReduceMotionEnabled(enabled);
       } catch {
-        // Default to false if check fails
-        setReduceMotionEnabled(false);
+        // DEBUG-341 — FAIL OPEN. This used to default to `false`, which meant an
+        // errored or unavailable accessibility read left the button in its FADED
+        // immersive state. A predicate that can dim the crisis button must resolve
+        // toward SHOWING it fully when its input is unknown, not toward hiding it.
+        //
+        // `true` here means "treat as reduce-motion", which is the safe direction: it
+        // skips the fade entirely and renders at full opacity. The MAINT-127 immersive
+        // fade is an accepted tradeoff only when we KNOW the user has not asked for
+        // reduced motion; on an unknown, full visibility wins.
+        setReduceMotionEnabled(true);
       }
     };
 

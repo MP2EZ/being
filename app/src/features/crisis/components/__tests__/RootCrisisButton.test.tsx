@@ -28,6 +28,12 @@ jest.mock('../CollapsibleCrisisButton', () => {
 
 const mockNavigate = jest.fn();
 let mockReady = true;
+// DEBUG-341: the not-ready branch now dials through openCrisisUrl, so it must be
+// mocked here or the tests would hit the real Linking/Alert path.
+jest.mock('@/features/crisis/utils/openCrisisUrl', () => ({
+  openCrisisUrl: jest.fn(),
+}));
+
 jest.mock('@/core/navigation/navigationRef', () => ({
   navigationRef: {
     isReady: () => mockReady,
@@ -37,6 +43,9 @@ jest.mock('@/core/navigation/navigationRef', () => ({
 }));
 
 import { RootCrisisButton, ROOT_CRISIS_BUTTON_TEST_ID } from '../RootCrisisButton';
+import { openCrisisUrl } from '@/features/crisis/utils/openCrisisUrl';
+
+const mockOpenCrisisUrl = openCrisisUrl as jest.MockedFunction<typeof openCrisisUrl>;
 
 const SUPPRESSED = ['CrisisResources', 'AssessmentFlow', 'LegalGate'];
 const IMMERSIVE = [
@@ -121,10 +130,80 @@ describe('RootCrisisButton (MAINT-290 single root mount)', () => {
     expect(mockNavigate).toHaveBeenCalledWith('CrisisResources', { source: 'crisis_button' });
   });
 
-  it('does not throw or navigate when the nav container is not ready', () => {
-    mockReady = false;
-    render(<RootCrisisButton routeName="Main" />);
-    expect(() => receivedProps[0]?.onNavigate()).not.toThrow();
-    expect(mockNavigate).not.toHaveBeenCalled();
+  /**
+   * DEBUG-341 — THIS BLOCK'S INTENT IS DELIBERATELY REWRITTEN, NOT EXTENDED.
+   *
+   * The case here used to be "does not throw or navigate when the nav container is not
+   * ready", asserting `expect(mockNavigate).not.toHaveBeenCalled()`. That PINNED THE
+   * SILENT DROP AS CORRECT — the very behaviour crisisTapTrace.ts names verbatim as "the
+   * known live producer" of vanished crisis taps. Leaving it in place and adding cases
+   * beside it would have left the suite asserting two contradictory contracts.
+   *
+   * The contract now: not-ready still must not throw, and must not navigate ON THE TAP
+   * FRAME — but it must not end in nothing either. It retries to a 400ms ceiling and then
+   * dials 988 unconditionally.
+   */
+  describe('when the nav container is not ready (DEBUG-341)', () => {
+    beforeEach(() => {
+      mockOpenCrisisUrl.mockClear();
+      mockReady = false;
+    });
+
+    it('still does not throw, and does not navigate synchronously', () => {
+      render(<RootCrisisButton routeName="Main" />);
+      expect(() => receivedProps[0]?.onNavigate()).not.toThrow();
+      expect(mockNavigate).not.toHaveBeenCalled();
+      // ...but it has NOT given up: the retry is armed. See the deadline case below.
+      expect(mockOpenCrisisUrl).not.toHaveBeenCalled();
+    });
+
+    it('dials 988 once the 400ms deadline passes', () => {
+      jest.useFakeTimers();
+      try {
+        render(<RootCrisisButton routeName="Main" />);
+        receivedProps[0]?.onNavigate();
+        jest.advanceTimersByTime(500);
+        expect(mockOpenCrisisUrl).toHaveBeenCalledWith('tel:988', { manualLabel: '988' });
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    it('navigates instead of dialling if the container becomes ready in time', () => {
+      // The reason this is retry-then-fallback rather than immediate-fallback: an early
+      // tap on a cold start is a one-frame race, and turning that into a phone call for
+      // someone who expected the resources screen is a materially different action.
+      jest.useFakeTimers();
+      try {
+        render(<RootCrisisButton routeName="Main" />);
+        receivedProps[0]?.onNavigate();
+        mockReady = true;
+        jest.advanceTimersByTime(100);
+        expect(mockNavigate).toHaveBeenCalledWith('CrisisResources', {
+          source: 'crisis_button',
+        });
+        // SINGLE-FLIGHT: the pending fallback must be cancelled. Firing both would yank
+        // the user out of the CrisisResources screen they just reached and into the
+        // dialer.
+        jest.advanceTimersByTime(1000);
+        expect(mockOpenCrisisUrl).not.toHaveBeenCalled();
+      } finally {
+        jest.useRealTimers();
+      }
+    });
+
+    it('produces exactly one terminal outcome per tap', () => {
+      jest.useFakeTimers();
+      try {
+        render(<RootCrisisButton routeName="Main" />);
+        receivedProps[0]?.onNavigate();
+        jest.advanceTimersByTime(2000);
+        // Never both, never twice.
+        expect(mockOpenCrisisUrl).toHaveBeenCalledTimes(1);
+        expect(mockNavigate).not.toHaveBeenCalled();
+      } finally {
+        jest.useRealTimers();
+      }
+    });
   });
 });
