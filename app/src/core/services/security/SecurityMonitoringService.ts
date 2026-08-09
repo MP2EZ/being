@@ -1505,14 +1505,17 @@ export class SecurityMonitoringService {
       const cutoffTime = Date.now() - (7 * 24 * 60 * 60 * 1000); // 7 days
       this.detectedIncidents = this.detectedIncidents.filter(inc => inc.timestamp > cutoffTime);
 
-      // Store critical incidents
-      if (incident.severity === 'critical' || incident.severity === 'high') {
-        await this.secureStorage.storeCrisisData(
-          `security_incident_${incident.incidentId}`,
-          incident,
-          'security_incident'
-        );
-      }
+      // MAINT-378: critical/high incidents used to be persisted via
+      // storeCrisisData. That persistence is gone, not relocated.
+      //
+      // Two reasons it is not re-homed onto storeGeneralData('performance_tier'):
+      // storeGeneralData always writes under GENERAL_PREFIX regardless of the
+      // tier argument, and `general_` is in neither SWEPT_ASYNC_PREFIXES nor
+      // SWEPT_EXACT_KEYS — so a reroute would mint a fresh class of records that
+      // account erasure cannot reach, which is precisely the defect DEBUG-355
+      // closed. And nothing read these records back: `detectedIncidents` above
+      // already holds the payload in memory for the lifetime of the process,
+      // which is the only scope any consumer of this service ever used.
     } catch (error) {
       logError(LogCategory.SECURITY, '🚨 INCIDENT LOGGING ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
