@@ -1,8 +1,34 @@
 name: CI
 
 on:
+  # Short-lived branches (feat/*, fix/*, chore/*, refactor/*, hotfix/*) are
+  # deliberately NOT here. They used to be, and every commit on one with an open
+  # PR fired BOTH a push run and a pull_request run against the same SHA — two
+  # complete 9-job runs, 22 check rows per PR (verified on PR #254: every gate
+  # appeared exactly twice). The `concurrency` group below cannot dedupe them
+  # because github.ref is refs/heads/<branch> for push and refs/pull/N/merge for
+  # pull_request, so they land in different groups and both proceed.
+  #
+  # That was not merely wasteful, it was unsound. INFRA-329 (2026-08-06, PR #244):
+  # `gh pr checks --watch` exited reporting all 9 gates green while the
+  # PR-triggered run had hit the esm.sh flake, because it read only one of the two
+  # runs; `gh pr merge` then refused with `Required status check "CI pass" is
+  # failing`. Every short-lived branch PRs into main or development, so the
+  # pull_request trigger already covers 100% of the code that can merge — the push
+  # run added no coverage, only a second run for a --watch to misread.
+  #
+  # `main` and `development` are KEPT. They cannot receive direct pushes
+  # (required_PR + enforce_admins are both on), so a run here is always a
+  # post-merge integration signal on a merge commit — the only check that runs
+  # after `gh pr merge --admin`, which /b-close uses on every close and which
+  # bypasses PR-time protection. One run per merge, no duplication.
+  #
+  # Known and accepted: a release PR (development -> main) still gets two runs,
+  # because its head IS development. /b-release 6.5 documents that and verifies
+  # via statusCheckRollup rather than --watch, which is the robust fix regardless
+  # of run count.
   push:
-    branches: [main, development, 'feat/*', 'fix/*', 'chore/*', 'refactor/*', 'hotfix/*']
+    branches: [main, development]
   pull_request:
     branches: [main, development]
     types: [opened, synchronize, reopened]
@@ -10,6 +36,24 @@ on:
     # Daily health check — verifies the suite still passes against current
     # branches even with no new commits. Hourly was overkill for pre-launch.
     - cron: '0 9 * * *'
+  # INFRA-362. Exists so the scheduled-failure notifier below is TESTABLE.
+  # The notifier fires only on `schedule`, and `schedule` fires only on the
+  # default branch (development), which is protected — so a deliberately-failing
+  # commit can never be landed there to exercise it. Without this input the AC
+  # "verify by forcing a scheduled-context failure" is unsatisfiable: a plain
+  # workflow_dispatch run has github.event_name == 'workflow_dispatch', so a
+  # condition testing for 'schedule' evaluates false and the step is skipped —
+  # the verification would exercise nothing.
+  #
+  # Dispatch a branch that fails a gate with simulate_schedule=true to prove the
+  # notifier opens an issue; dispatch a green branch to prove it closes one.
+  # push/PR runs can never trigger it either way.
+  workflow_dispatch:
+    inputs:
+      simulate_schedule:
+        description: 'Treat this run as a scheduled run (exercises the CI-health notifier)'
+        type: boolean
+        default: false
 
 env:
   # INFRA-346: Node 20 went EOL 2026-04-30. 24 is the ACTIVE LTS (until 2026-10-20,
@@ -47,35 +91,41 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# There is deliberately NO `prepare` job. One used to sit here, described as
+# "single install, subsequent jobs restore from cache rather than running npm ci
+# each time (9 jobs × 1-2 min install = 10+ min wasted)". That description was
+# wrong about how Actions works and the job cost ~33s of pure serial latency on
+# every run:
+#
+#   - Actions jobs do not share a filesystem. Every job below still ran its own
+#     `npm ci` regardless (the `prepare` job installed into a VM that was then
+#     discarded). The only thing shared was actions/setup-node's ~/.npm tarball
+#     cache, keyed on the package-lock hash.
+#   - Measured on run 31227306205: `prepare` and every downstream job all logged
+#     `Cache restored from key: node-cache-Linux-x64-npm-0670e3c2…` — the SAME
+#     pre-existing key, saved by an earlier run. `prepare` warmed nothing; it
+#     just made 8 jobs wait 29s + ~9s scheduling before starting.
+#   - On a lockfile change `prepare` does warm a cold cache (measured on run
+#     31225879268: `npm cache is not found` → `Cache saved with the key: …`),
+#     but the cold-vs-warm delta is only ~5s (cold `npm ci` 23s, warm 14-18s)
+#     and it is a delta each job would otherwise pay IN PARALLEL. Paying 29s of
+#     serial time to save 8 jobs ~5s of parallel time is a net loss in both
+#     cases.
+#
+# Consequence to expect, not a bug: on the first run after a package-lock.json
+# change, all jobs miss the cache simultaneously and race to save the same key.
+# One wins; the others log `Unable to reserve cache with key …, another job may
+# be creating this cache` and continue. That warning is benign.
+#
+# Do not reintroduce a fan-in install job without measuring the serialization
+# cost against the parallel-savings-PER-CHILD (not the total across children).
+# The correct fix for slow installs is a faster install, not an earlier one.
 jobs:
-  # Single install. Subsequent jobs restore from cache rather than running
-  # npm ci each time (9 jobs × 1-2 min install = 10+ min wasted in the old
-  # workflow).
-  prepare:
-    name: Install dependencies
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-
-    steps:
-      - uses: actions/checkout@v5
-
-      - uses: actions/setup-node@v5
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-          cache-dependency-path: 'app/package-lock.json'
-
-      - name: Install dependencies
-        run: |
-          cd app
-          npm ci --prefer-offline --no-audit
-
   # Static analysis — fast, runs in parallel with tests below.
   typecheck:
     name: TypeScript typecheck
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    needs: prepare
 
     steps:
       - uses: actions/checkout@v5
@@ -102,7 +152,6 @@ jobs:
     name: ESLint (baseline ratchet)
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    needs: prepare
 
     steps:
       - uses: actions/checkout@v5
@@ -124,7 +173,6 @@ jobs:
     name: Crisis authority validation
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    needs: prepare
 
     steps:
       - uses: actions/checkout@v5
@@ -136,6 +184,27 @@ jobs:
 
       - name: Install dependencies
         run: cd app && npm ci --prefer-offline --no-audit
+
+      # Jest transform cache. Babel-transforming the RN/Expo tree is the single
+      # largest component of every jest job, and nothing cached it between jobs or
+      # runs. Measured on PR #262 (fully warm vs baseline): job 42s -> 28s.
+      # Restore costs 0-1s and the entry is 2-4MB (46MB total across all six jest
+      # jobs) because each job only transforms the subset its testPathPattern
+      # selects — not the 280MB a full local suite accumulates.
+      #
+      # `restore-keys` is SAFE here in a way it would NOT be for a node_modules
+      # cache: jest keys each cached entry by file content + transformer config and
+      # re-validates on read, so a cache carried from an older commit serves only
+      # the files that did not change. A stale transform cannot be served for
+      # changed source. The key still pins package-lock.json, jest.config.js and
+      # babel.config.js so a toolchain change starts clean.
+      - name: Jest transform cache
+        uses: actions/cache@v4
+        with:
+          path: app/.jest-cache
+          key: jest-crisis-${{ hashFiles('app/package-lock.json','app/jest.config.js','app/babel.config.js') }}-${{ github.sha }}
+          restore-keys: |
+            jest-crisis-${{ hashFiles('app/package-lock.json','app/jest.config.js','app/babel.config.js') }}-
 
       - name: Crisis authority validation
         run: cd app && npm run validate:crisis-authority
@@ -150,7 +219,6 @@ jobs:
     name: Clinical authority validation
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: prepare
 
     steps:
       - uses: actions/checkout@v5
@@ -162,6 +230,27 @@ jobs:
 
       - name: Install dependencies
         run: cd app && npm ci --prefer-offline --no-audit
+
+      # Jest transform cache. Babel-transforming the RN/Expo tree is the single
+      # largest component of every jest job, and nothing cached it between jobs or
+      # runs. Measured on PR #262 (fully warm vs baseline): job 38s -> 36s.
+      # Restore costs 0-1s and the entry is 2-4MB (46MB total across all six jest
+      # jobs) because each job only transforms the subset its testPathPattern
+      # selects — not the 280MB a full local suite accumulates.
+      #
+      # `restore-keys` is SAFE here in a way it would NOT be for a node_modules
+      # cache: jest keys each cached entry by file content + transformer config and
+      # re-validates on read, so a cache carried from an older commit serves only
+      # the files that did not change. A stale transform cannot be served for
+      # changed source. The key still pins package-lock.json, jest.config.js and
+      # babel.config.js so a toolchain change starts clean.
+      - name: Jest transform cache
+        uses: actions/cache@v4
+        with:
+          path: app/.jest-cache
+          key: jest-clinical-${{ hashFiles('app/package-lock.json','app/jest.config.js','app/babel.config.js') }}-${{ github.sha }}
+          restore-keys: |
+            jest-clinical-${{ hashFiles('app/package-lock.json','app/jest.config.js','app/babel.config.js') }}-
 
       - name: Clinical authority validation
         run: cd app && npm run validate:clinical-authority
@@ -179,7 +268,6 @@ jobs:
     name: Unit + integration tests
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    needs: prepare
 
     steps:
       - uses: actions/checkout@v5
@@ -192,6 +280,27 @@ jobs:
       - name: Install dependencies
         run: cd app && npm ci --prefer-offline --no-audit
 
+      # Jest transform cache. Babel-transforming the RN/Expo tree is the single
+      # largest component of every jest job, and nothing cached it between jobs or
+      # runs. Measured on PR #262 (fully warm vs baseline): unit 16s -> 7s, integration 17s -> 13s; job 59s -> 39s.
+      # Restore costs 0-1s and the entry is 2-4MB (46MB total across all six jest
+      # jobs) because each job only transforms the subset its testPathPattern
+      # selects — not the 280MB a full local suite accumulates.
+      #
+      # `restore-keys` is SAFE here in a way it would NOT be for a node_modules
+      # cache: jest keys each cached entry by file content + transformer config and
+      # re-validates on read, so a cache carried from an older commit serves only
+      # the files that did not change. A stale transform cannot be served for
+      # changed source. The key still pins package-lock.json, jest.config.js and
+      # babel.config.js so a toolchain change starts clean.
+      - name: Jest transform cache
+        uses: actions/cache@v4
+        with:
+          path: app/.jest-cache
+          key: jest-test-${{ hashFiles('app/package-lock.json','app/jest.config.js','app/babel.config.js') }}-${{ github.sha }}
+          restore-keys: |
+            jest-test-${{ hashFiles('app/package-lock.json','app/jest.config.js','app/babel.config.js') }}-
+
       - name: Unit tests
         # --coverage intentionally omitted: this is a SUBSET run (jest
         # --testPathPattern=unit) so per-file coverage would always fall
@@ -202,6 +311,29 @@ jobs:
 
       - name: Integration tests
         run: cd app && npm run test:integration -- --ci --testTimeout=30000
+
+      - name: Script guard tests
+        # MAINT-366 Finding 3. These three suites passed locally and gated
+        # NOTHING: `test:unit` is --testPathPattern=unit and `test:integration`
+        # is =integration, and neither matches `__tests__/scripts/`. They are
+        # meta-tests for the repo's own guard scripts, and each one is the only
+        # evidence its guard CAN fail:
+        #   - check-breathing-worklet-purity.test.js drives analyzeSource over
+        #     regression fixtures AND negative cases. The Performance job runs
+        #     `check:breathing-worklets`, but that CLI path only scans real
+        #     current source, so it can never demonstrate a failing detection.
+        #   - e2e-sim-build.test.js PATH-shims git/eas/xcrun and runs the real
+        #     script end-to-end, pinning DEBUG-315 stale-artifact reuse — which
+        #     is the Maestro gate's only evidence the build under test is fresh.
+        #   - check-crisis-hotline.test.js was ALREADY reached here, but only by
+        #     accident: `test:crisis-quick` is --testPathPattern="[Cc]risis" and
+        #     the filename happens to contain "crisis". Naming it explicitly.
+        #
+        # ⚠️ COVERAGE DEPENDS ON DIRECTORY LAYOUT. These are covered because
+        # their PATH contains `__tests__/scripts`, not because anything names
+        # the files. Move or rename that directory and this gate silently stops
+        # running them — the exact failure mode MAINT-366 exists to remove.
+        run: cd app && npm run test:scripts -- --ci --testTimeout=20000
 
       - name: Upload coverage
         if: always()
@@ -219,7 +351,6 @@ jobs:
     name: Security + compliance
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: prepare
 
     steps:
       - uses: actions/checkout@v5
@@ -231,6 +362,27 @@ jobs:
 
       - name: Install dependencies
         run: cd app && npm ci --prefer-offline --no-audit
+
+      # Jest transform cache. Babel-transforming the RN/Expo tree is the single
+      # largest component of every jest job, and nothing cached it between jobs or
+      # runs. Measured on PR #262 (fully warm vs baseline): the security suite 17s -> 5s; job 52s -> 37s.
+      # Restore costs 0-1s and the entry is 2-4MB (46MB total across all six jest
+      # jobs) because each job only transforms the subset its testPathPattern
+      # selects — not the 280MB a full local suite accumulates.
+      #
+      # `restore-keys` is SAFE here in a way it would NOT be for a node_modules
+      # cache: jest keys each cached entry by file content + transformer config and
+      # re-validates on read, so a cache carried from an older commit serves only
+      # the files that did not change. A stale transform cannot be served for
+      # changed source. The key still pins package-lock.json, jest.config.js and
+      # babel.config.js so a toolchain change starts clean.
+      - name: Jest transform cache
+        uses: actions/cache@v4
+        with:
+          path: app/.jest-cache
+          key: jest-security-${{ hashFiles('app/package-lock.json','app/jest.config.js','app/babel.config.js') }}-${{ github.sha }}
+          restore-keys: |
+            jest-security-${{ hashFiles('app/package-lock.json','app/jest.config.js','app/babel.config.js') }}-
 
       - name: Legal docs registry drift check
         # Verifies docs/legal/*.md filenames match the require() calls and
@@ -267,15 +419,27 @@ jobs:
         # depend on the local hook having run.
         run: cd app && npm run check:crisis-dial
 
-      - name: Compliance authority validation
-        run: cd app && npm run validate:compliance-authority
-
-      - name: Encryption test suite
-        # --coverage omitted on subset runs (see Unit tests rationale).
-        run: cd app && npm run test:encryption -- --ci
-
       - name: Security test suite
         # --coverage omitted on subset runs (see Unit tests rationale).
+        #
+        # This step is the ONLY encryption gate. Two steps used to precede it —
+        # "Compliance authority validation" (`validate:compliance-authority`,
+        # which is a pure alias: `npm run test:encryption && echo ✅`) and
+        # "Encryption test suite" (`test:encryption`) — and BOTH were fully
+        # subsumed here. Verified in the run 31227306205 log: the EncryptionService
+        # suites executed three times in this one job (lines 2920, 5609, then
+        # 8985/11066), reporting an identical `Test Suites: 2 passed, 25 tests`
+        # each time. `test:security` is `jest --testPathPattern=security`, and
+        # both suites live at src/core/services/security/__tests__/, so the path
+        # pattern already sweeps them in.
+        #
+        # ⚠️ COVERAGE DEPENDS ON DIRECTORY LAYOUT. The encryption suites are
+        # covered here because their PATH contains "security", not because
+        # anything names them. If EncryptionService.test.ts or
+        # EncryptionService.realcrypto.test.ts ever move out of a `security/`
+        # directory, this gate silently stops running them — AES-256 at rest is
+        # a non-negotiable in CLAUDE.md, so restore an explicit
+        # `npm run test:encryption` step here if that move happens.
         run: cd app && npm run test:security -- --ci --testTimeout=15000
 
       - name: npm audit
@@ -311,12 +475,13 @@ jobs:
   #   - Crisis button label updated to "I need support" (per crisis
   #     specialist guidance — first-person agency, gentler for repeated
   #     screen-reader exposure).
-  # 45/45 accessibility tests pass.
+  # Suite size moves; do not restate a count here. What the gate does and
+  # does NOT prove is documented in docs/testing/accessibility-suite-coverage.md
+  # (a green run is not evidence of WCAG conformance).
   accessibility:
     name: Accessibility (WCAG AA)
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: prepare
 
     steps:
       - uses: actions/checkout@v5
@@ -329,10 +494,41 @@ jobs:
       - name: Install dependencies
         run: cd app && npm ci --prefer-offline --no-audit
 
-      - name: Accessibility validation
-        run: cd app && npm run validate:accessibility
+      # Jest transform cache. Babel-transforming the RN/Expo tree is the single
+      # largest component of every jest job, and nothing cached it between jobs or
+      # runs. Measured on PR #262 (fully warm vs baseline): job 40s -> 29s.
+      # Restore costs 0-1s and the entry is 2-4MB (46MB total across all six jest
+      # jobs) because each job only transforms the subset its testPathPattern
+      # selects — not the 280MB a full local suite accumulates.
+      #
+      # `restore-keys` is SAFE here in a way it would NOT be for a node_modules
+      # cache: jest keys each cached entry by file content + transformer config and
+      # re-validates on read, so a cache carried from an older commit serves only
+      # the files that did not change. A stale transform cannot be served for
+      # changed source. The key still pins package-lock.json, jest.config.js and
+      # babel.config.js so a toolchain change starts clean.
+      - name: Jest transform cache
+        uses: actions/cache@v4
+        with:
+          path: app/.jest-cache
+          key: jest-a11y-${{ hashFiles('app/package-lock.json','app/jest.config.js','app/babel.config.js') }}-${{ github.sha }}
+          restore-keys: |
+            jest-a11y-${{ hashFiles('app/package-lock.json','app/jest.config.js','app/babel.config.js') }}-
 
       - name: Accessibility test suite
+        # A preceding "Accessibility validation" step used to run
+        # `validate:accessibility`, which is a pure alias for this same command
+        # (`npm run test:accessibility && echo ✅`). Both steps reported an
+        # identical `Test Suites: 12 passed, Tests: 98 passed` in the run
+        # 31227306205 log (lines 1137 and 2073) — byte-identical work, twice.
+        # (That 98 is a quotation from THAT run, not a current figure; MAINT-358
+        # landed in parallel and took the suite to 85. Do not read it as a
+        # target — it is evidence of the duplication, nothing more.)
+        # This variant is kept because it carries the CI flags.
+        #
+        # `validate:accessibility` remains in app/package.json ON PURPOSE: it is
+        # named in CLAUDE.md's Validation Matrix and in QUICKSTART_COMMANDS.md as
+        # the human-facing entry point. It is an alias, not a second gate.
         run: cd app && npm run test:accessibility -- --ci --testTimeout=20000
 
   # Performance regression sweep. Strict gate as of Phase A paydown.
@@ -356,7 +552,7 @@ jobs:
   # this job now adds is a structural PROXY ("Breathing-worklet purity guard")
   # that fails when the PERF-01/PERF-02 regression shape returns to the
   # animation path. Do not read that step as an fps gate; the on-device
-  # UI-thread measurement is INFRA-309.
+  # UI-thread measurement is INFRA-373.
   # Deferred (testPathIgnorePatterns in jest.config.js):
   #   - sync-performance-validation + week3-analytics-performance:
   #     tests reference older service APIs (new SyncCoordinator() when
@@ -366,7 +562,6 @@ jobs:
     name: Performance regression
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: prepare
 
     steps:
       - uses: actions/checkout@v5
@@ -383,12 +578,120 @@ jobs:
       # runner is ubuntu-latest and cannot render a frame. It fails when the
       # PERF-01/PERF-02 regression shape (commit ff591f3a) reappears on the
       # breathing animation path. The breathing 60fps budget itself remains
-      # unmeasured; the on-device measurement is INFRA-309.
+      # unmeasured; the on-device measurement is INFRA-373.
+      # Jest transform cache. Babel-transforming the RN/Expo tree is the single
+      # largest component of every jest job, and nothing cached it between jobs or
+      # runs. Measured on PR #262 (fully warm vs baseline): job 33s -> 28s.
+      # Restore costs 0-1s and the entry is 2-4MB (46MB total across all six jest
+      # jobs) because each job only transforms the subset its testPathPattern
+      # selects — not the 280MB a full local suite accumulates.
+      #
+      # `restore-keys` is SAFE here in a way it would NOT be for a node_modules
+      # cache: jest keys each cached entry by file content + transformer config and
+      # re-validates on read, so a cache carried from an older commit serves only
+      # the files that did not change. A stale transform cannot be served for
+      # changed source. The key still pins package-lock.json, jest.config.js and
+      # babel.config.js so a toolchain change starts clean.
+      - name: Jest transform cache
+        uses: actions/cache@v4
+        with:
+          path: app/.jest-cache
+          key: jest-perf-${{ hashFiles('app/package-lock.json','app/jest.config.js','app/babel.config.js') }}-${{ github.sha }}
+          restore-keys: |
+            jest-perf-${{ hashFiles('app/package-lock.json','app/jest.config.js','app/babel.config.js') }}-
+
       - name: Breathing-worklet purity guard
         run: cd app && npm run check:breathing-worklets
 
       - name: Performance test suite
         run: cd app && npm run test:performance -- --ci --testTimeout=30000
+
+  # INFRA-368. CI coverage in this workflow is an EMERGENT property of
+  # `--testPathPattern` substring matching, not a declared one — so a suite is
+  # gated only if someone happened to name it into a pattern. Measured on
+  # 5f6accdf: `npx jest --listTests` = 194 files, the union of every CI pattern
+  # = 131, leaving 63 ungated. Among them was every file in `__tests__/privacy/`
+  # and `__tests__/compliance/`, plus the five `__tests__/safety/` config pins
+  # that no filename accident rescues. (The other six safety files DO run today,
+  # but only because their filenames contain "crisis" and so match
+  # `test:crisis-quick`. That is the same accident, pointing the lucky way.)
+  #
+  # Why this must be a merge gate and not a local hook. `npm run precommit`
+  # already runs test:safety and test:privacy, but a hook is not a control on
+  # what reaches `main`: `--no-verify` is permitted by policy on `hotfix/*` —
+  # exactly the branch class most likely to touch crisis config under time
+  # pressure — and a hook cannot run on a machine that never installed husky.
+  # DEBUG-314 already reached this conclusion for the sibling contract and built
+  # `check:crisis-dial` into the security job for it; see the note there. This
+  # job generalises that precedent instead of re-deriving it a third time.
+  #
+  # The sharpest case is `lsApplicationQueriesSchemes.config.test.ts`, which
+  # pins `tel`/`sms` in app.json. Without those, `canOpenURL('tel:988')` returns
+  # false on every iOS device and CrisisResourcesScreen degrades to an
+  # "Unable to Call — please manually dial" alert mid-crisis. Two earlier
+  # decisions compound on it: INFRA-184 retired the Maestro trigger on app.json
+  # changes on the stated premise that this jest pin "runs on every commit on
+  # every machine", and INFRA-280 moved iOS to CNG, so app.json is now the sole
+  # source of the generated Info.plist and no reviewer ever sees a plist diff.
+  #
+  # Deliberate cost, chosen not missed: 6 of the 12 files test:safety selects
+  # already run in crisis-validation, and they are the slow ones (~48s of RN
+  # component work re-executed). Folding these into the existing crisis and
+  # security jobs would be ~20s cheaper, but the whole point of INFRA-368 is
+  # that the 988 pin should be VISIBLE as a named gate row rather than inferable
+  # from a job named for something else. Revisit only with that tradeoff in view.
+  #
+  # NOTE: adding a job here is not sufficient to gate anything. `ci-pass` tracks
+  # each gate in FOUR hand-synced places (needs / add / echo / the if-condition).
+  # Wiring only `needs:` produces a job that runs, fails, and still reports
+  # `CI pass` green — this item's own failure mode, reproduced by its own fix.
+  safety-privacy:
+    name: Safety + privacy gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: 'app/package-lock.json'
+
+      - name: Install dependencies
+        run: cd app && npm ci --prefer-offline --no-audit
+
+      # Same rationale as the other jest jobs — see the Performance regression
+      # job for why `restore-keys` is safe for a transform cache. Distinct key
+      # prefix so this job's subset does not evict theirs.
+      - name: Jest transform cache
+        uses: actions/cache@v4
+        with:
+          path: app/.jest-cache
+          key: jest-safety-privacy-${{ hashFiles('app/package-lock.json','app/jest.config.js','app/babel.config.js') }}-${{ github.sha }}
+          restore-keys: |
+            jest-safety-privacy-${{ hashFiles('app/package-lock.json','app/jest.config.js','app/babel.config.js') }}-
+
+      # INFRA-180: `--testTimeout` must appear in exactly ONE place. Verified
+      # that neither `test:safety` nor `test:privacy` carries it in
+      # package.json, so supplying it here is safe. If you ever add one to those
+      # scripts, remove it here — yargs turns the duplicate into an array, jest
+      # coerces that to NaN, and every async test fails in ~10ms while sync ones
+      # pass, which reads as flake rather than as the deterministic bug it is.
+      - name: Safety pin suite
+        run: cd app && npm run test:safety -- --ci --testTimeout=20000
+
+      - name: Privacy contract suite
+        run: cd app && npm run test:privacy -- --ci --testTimeout=20000
+
+      # Keeps CI coverage DECLARED rather than emergent. Fails when a new test
+      # file lands matching no pattern and unlisted (it would run on nobody's
+      # PR), when a listed file becomes covered (a stale entry hides the next
+      # real gap), and when ci-pass's four gate lists disagree. Deliberately
+      # last: the suites above are the gate, this is the thing that stops the
+      # gate quietly developing new holes.
+      - name: CI test-coverage ledger
+        run: cd app && npm run check:ci-test-coverage
 
   # T17 (TEST-10): Deno-based tests for Supabase Edge Functions. Closes
   # the audit's largest unprotected security surface — webhook JWS chain
@@ -399,7 +702,10 @@ jobs:
     name: Edge Functions (Deno)
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    # No `needs: prepare` because Deno doesn't share Node's npm cache.
+    # Deno doesn't share Node's npm cache, so this job never depended on the
+    # (now-removed) `prepare` job. It is the fastest gate in the workflow (~6s)
+    # and was the standing proof that the Node jobs did not need `prepare`
+    # either — it always started at t+3s while they waited until t+36s.
     steps:
       - uses: actions/checkout@v5
       - uses: denoland/setup-deno@v2
@@ -433,6 +739,14 @@ jobs:
     name: CI pass
     runs-on: ubuntu-latest
     if: always()
+    # INFRA-362: needed by the scheduled-failure notifier steps below.
+    # A job-level `permissions:` block REPLACES the workflow-level default
+    # (contents: read + packages: read) rather than merging with it, so
+    # `contents: read` is restated here deliberately. `packages: read` is
+    # omitted because this job never checks out or runs npm ci.
+    permissions:
+      contents: read
+      issues: write
     needs:
       - typecheck
       - lint
@@ -443,8 +757,54 @@ jobs:
       - accessibility
       - performance
       - edge-functions
+      - safety-privacy
 
     steps:
+      # INFRA-362. This MUST run before "Aggregate gate status", which exits 1.
+      # A step placed after it inherits the default `if: success()` and would be
+      # skipped on precisely the failure it is meant to report — so the gate
+      # outcomes are captured here, by a step that never exits non-zero.
+      #
+      # `cancelled` is tracked separately from `failed` on purpose. The workflow
+      # sets `concurrency: cancel-in-progress: true` on `ci-${{ github.ref }}`,
+      # and a scheduled run on development shares that group with push runs on
+      # development (identical ref) — so a merge landing mid-run cancels it.
+      # `if: always()` means this job still executes, and the aggregate below
+      # treats cancelled != success as a failure. Without this split, every
+      # cancelled scheduled run would file a bogus CI-health issue.
+      #
+      # Deliberate bias: if a run has BOTH a real failure and a cancellation,
+      # the notifier stays silent. A cancelled run is incomplete, and the thing
+      # that cancelled it was a push to development — so a human is already
+      # active and that push's own run reports to them. A genuine quiet-tree
+      # failure resurfaces on the next clean scheduled run. Under-reporting an
+      # already-observed failure beats crying wolf daily.
+      - name: Collect gate results
+        id: gates
+        run: |
+          FAILED=""; CANCELLED=""
+          add() {
+            case "$2" in
+              success)   ;;
+              cancelled) CANCELLED="${CANCELLED}${CANCELLED:+, }$1" ;;
+              *)         FAILED="${FAILED}${FAILED:+, }$1 ($2)" ;;
+            esac
+          }
+          add "TypeScript typecheck"          "${{ needs.typecheck.result }}"
+          add "ESLint (baseline ratchet)"     "${{ needs.lint.result }}"
+          add "Crisis authority validation"   "${{ needs.crisis-validation.result }}"
+          add "Clinical authority validation" "${{ needs.clinical-validation.result }}"
+          add "Unit + integration tests"      "${{ needs.test.result }}"
+          add "Security + compliance"         "${{ needs.security.result }}"
+          add "Accessibility (WCAG AA)"       "${{ needs.accessibility.result }}"
+          add "Performance regression"        "${{ needs.performance.result }}"
+          add "Edge Functions (Deno)"         "${{ needs.edge-functions.result }}"
+          add "Safety + privacy gates"        "${{ needs.safety-privacy.result }}"
+          echo "failed=$FAILED"       >> "$GITHUB_OUTPUT"
+          echo "cancelled=$CANCELLED" >> "$GITHUB_OUTPUT"
+          echo "Failing gates:   ${FAILED:-none}"
+          echo "Cancelled gates: ${CANCELLED:-none}"
+
       - name: Aggregate gate status
         run: |
           echo "typecheck:        ${{ needs.typecheck.result }}"
@@ -456,14 +816,21 @@ jobs:
           echo "performance:      ${{ needs.performance.result }}"
           echo "accessibility:    ${{ needs.accessibility.result }}"
           echo "edge-functions:   ${{ needs.edge-functions.result }}"
-          # All 9 jobs are strict gates after T17 (TEST-10) added the
-          # Edge Functions Deno suite.
+          echo "safety-privacy:   ${{ needs.safety-privacy.result }}"
+          # All 10 jobs are strict gates: T17 (TEST-10) added the Edge Functions
+          # Deno suite, INFRA-368 added Safety + privacy gates.
           # Advisory list: (empty)
           #
           # Real gates that must pass:
           #   typecheck, lint (baseline ratchet), crisis-validation,
           #   clinical-validation, security, test, performance, accessibility,
-          #   edge-functions
+          #   edge-functions, safety-privacy
+          #
+          # ⚠️ A gate is tracked in FOUR places in this job — the `needs:` list,
+          # the `add` line above, the `echo` line above, and this condition.
+          # Only THIS condition decides pass/fail: a job present in `needs:` but
+          # absent here runs, goes red, and still reports `CI pass` green.
+          # `app/scripts/check-ci-test-coverage.js` asserts the four agree.
           if [[ "${{ needs.typecheck.result }}" != "success" \
              || "${{ needs.lint.result }}" != "success" \
              || "${{ needs.crisis-validation.result }}" != "success" \
@@ -472,8 +839,129 @@ jobs:
              || "${{ needs.test.result }}" != "success" \
              || "${{ needs.performance.result }}" != "success" \
              || "${{ needs.accessibility.result }}" != "success" \
-             || "${{ needs.edge-functions.result }}" != "success" ]]; then
+             || "${{ needs.edge-functions.result }}" != "success" \
+             || "${{ needs.safety-privacy.result }}" != "success" ]]; then
             echo "❌ One or more required gates failed"
             exit 1
           fi
           echo "✅ All required gates passed (advisory jobs may show non-success — see logs)"
+
+      # ---------------------------------------------------------------------
+      # INFRA-362 — route SCHEDULED failures to a human.
+      #
+      # The daily cron has caught a real repo-wide block before and nobody was
+      # told: of the last ~30 scheduled runs exactly one failed (2026-07-21,
+      # sha 09de8cb8, `Security + compliance` + `CI pass`), which was INFRA-302's
+      # three HIGH advisories landing on a quiet tree with no PR in flight. The
+      # detection already existed; only the routing was missing, so the same
+      # class of problem kept being rediscovered mid-close instead.
+      #
+      # Fires ONLY on schedule (or a deliberate simulate_schedule dispatch).
+      # push/PR failures already surface to whoever pushed and must not be
+      # duplicated. Signal rate ~1/month, so this should not become noise.
+      #
+      # actions/github-script@v8 is a NEW dependency for this repo — no
+      # github-script pin existed anywhere before. v8 is the node24 major,
+      # consistent with the checkout@v5 / setup-node@v5 / cache@v4 posture.
+      - name: Open or update CI-health issue (scheduled failures only)
+        if: >-
+          !cancelled()
+          && failure()
+          && steps.gates.outputs.cancelled == ''
+          && (github.event_name == 'schedule'
+              || (github.event_name == 'workflow_dispatch' && inputs.simulate_schedule))
+        uses: actions/github-script@v8
+        env:
+          FAILED_GATES: ${{ steps.gates.outputs.failed }}
+        with:
+          script: |
+            const MARKER = '<!-- ci-health-tracker -->';
+            const { owner, repo } = context.repo;
+            const failed = process.env.FAILED_GATES || 'unknown';
+            const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+            const today = new Date().toISOString().slice(0, 10);
+
+            // Ensure the label exists. It did not exist when this shipped, and
+            // issues.create with an unknown label 422s — which would make the
+            // notifier fail silently on its very first real firing.
+            try {
+              await github.rest.issues.createLabel({
+                owner, repo, name: 'ci-health', color: 'B60205',
+                description: 'Scheduled CI run failed on a quiet tree (INFRA-362)',
+              });
+            } catch (e) {
+              if (e.status !== 422) core.warning(`createLabel: ${e.message}`);
+            }
+
+            // issues.listForRepo is strongly consistent. Deliberately NOT the
+            // search API, whose index lags ~1min and carries its own rate limit
+            // — a day-2 run could miss day-1's issue and open a duplicate.
+            const existing = (await github.rest.issues.listForRepo({
+              owner, repo, state: 'open', labels: 'ci-health', per_page: 100,
+            })).data.find(i => (i.body || '').includes(MARKER));
+
+            const body = [
+              MARKER,
+              `**Scheduled CI run failed on \`${context.ref.replace('refs/heads/', '')}\`.**`,
+              '',
+              `- Failing gates: **${failed}**`,
+              `- Run: ${runUrl}`,
+              `- Commit: \`${context.sha.slice(0, 8)}\``,
+              `- Detected: ${today}`,
+              '',
+              'No PR was involved — this is drift on a quiet tree (a new advisory, an',
+              'expired pin, an upstream change). Triage from the gate names above.',
+            ].join('\n');
+
+            if (existing) {
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: existing.number, body,
+              });
+              core.notice(`Updated existing CI-health issue #${existing.number}`);
+            } else {
+              const created = await github.rest.issues.create({
+                owner, repo,
+                title: `CI scheduled run failing (${today}) — ${failed}`,
+                labels: ['ci-health'],
+                body,
+              });
+              core.notice(`Opened CI-health issue #${created.data.number}`);
+            }
+
+      # Recovery. Must be a SEPARATE step from the one above: they need
+      # success() and failure() respectively, which are mutually exclusive
+      # within one job. The aggregate step's `exit 1` is what makes both
+      # evaluable here — do not convert it to continue-on-error.
+      #
+      # Errors are swallowed to a warning on purpose: a notifier hiccup must
+      # never redden `CI pass`, which is the sole required status check.
+      - name: Close CI-health issue on recovery
+        if: >-
+          !cancelled()
+          && success()
+          && (github.event_name == 'schedule'
+              || (github.event_name == 'workflow_dispatch' && inputs.simulate_schedule))
+        uses: actions/github-script@v8
+        continue-on-error: true
+        with:
+          script: |
+            const MARKER = '<!-- ci-health-tracker -->';
+            const { owner, repo } = context.repo;
+            try {
+              const existing = (await github.rest.issues.listForRepo({
+                owner, repo, state: 'open', labels: 'ci-health', per_page: 100,
+              })).data.find(i => (i.body || '').includes(MARKER));
+              if (!existing) return;
+              const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: existing.number,
+                body: `${MARKER}\n✅ Scheduled run recovered — all gates green.\n\n- Run: ${runUrl}\n- Commit: \`${context.sha.slice(0, 8)}\`\n\nClosing. If the underlying cause was an advisory-database change rather than a repo change, it can recur without any commit here.`,
+              });
+              await github.rest.issues.update({
+                owner, repo, issue_number: existing.number,
+                state: 'closed', state_reason: 'completed',
+              });
+              core.notice(`Closed CI-health issue #${existing.number}`);
+            } catch (e) {
+              core.warning(`CI-health recovery step failed (non-fatal): ${e.message}`);
+            }

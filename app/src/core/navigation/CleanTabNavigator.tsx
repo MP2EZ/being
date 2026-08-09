@@ -7,7 +7,9 @@
  * - Navigation colors from colorSystem.navigation
  * - NavShape components: triangle (home), book (learn), circle (insights)
  * - BrainIcon with 60% fill for profile
- * - Inactive state: colorSystem.gray[500]
+ * - Inactive state: semantic.text.muted (was gray[500] until DEBUG-342 — that
+ *   value is 1.98:1 on white and is now banned outright by ESLint)
+ * - Active state: the brand hue on an ActiveTabIndicator container (DEBUG-356)
  */
 
 import React from 'react';
@@ -15,6 +17,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { View, Text } from 'react-native';
 import Svg, { Path, Circle, Rect, ClipPath, Defs, G } from 'react-native-svg';
 import { semantic, colorSystem, spacing, typography } from '@/core/theme';
+import { ActiveTabIndicator } from './ActiveTabIndicator';
 import CleanHomeScreen from '@/features/home/screens/CleanHomeScreen';
 import ProfileStackNavigator from '@/features/profile/ProfileStackNavigator';
 import InsightsScreen from '@/features/insights/screens/InsightsScreen';
@@ -116,8 +119,20 @@ const CleanTabNavigator: React.FC = () => {
         // is restored structurally in the label instead, per DEBUG-323's ruling that
         // quieting must be structural rather than chromatic.
         //
-        // The active tints failing 3:1 are a design-system palette defect and are NOT
-        // fixed here — they live in @mp2ez/being-design-system and need a release.
+        // DEBUG-356 closed the half DEBUG-342 left open. This block previously ended
+        // "The active tints failing 3:1 are a design-system palette defect and are
+        // NOT fixed here — they live in @mp2ez/being-design-system and need a
+        // release." That turned out to be avoidable: the release is only required if
+        // the HUE has to carry 1.4.11. Wrapping the focused glyph in
+        // ActiveTabIndicator moves the obligation onto the container (14.16:1 against
+        // this bar), so every brand hex ships unchanged and no package release is
+        // needed. See ActiveTabIndicator.tsx for the measurements and the rejected
+        // alternatives.
+        //
+        // Two corrections to DEBUG-342's note above, verified in code: the failing
+        // set is TWO tints (insights 1.41:1, home 2.68:1) — navigation.learn is
+        // 3.44:1 and passes — and navigation.exercises is not a tab tint at all; it
+        // has zero consumers in app/src.
         tabBarActiveTintColor: semantic.text.primary,
         tabBarInactiveTintColor: semantic.text.muted,
         // Rendered here rather than via tabBarLabelStyle because that style is static
@@ -169,9 +184,11 @@ const CleanTabNavigator: React.FC = () => {
           // Maestro's `text:` selector doesn't match against accessibilityText.
           tabBarButtonTestID: 'tab-home',
           tabBarIcon: ({ focused }) => (
-            <TriangleIcon
-              color={focused ? colorSystem.navigation.home : semantic.text.muted}
-            />
+            <ActiveTabIndicator focused={focused}>
+              <TriangleIcon
+                color={focused ? colorSystem.navigation.home : semantic.text.muted}
+              />
+            </ActiveTabIndicator>
           ),
         }}
       />
@@ -184,9 +201,11 @@ const CleanTabNavigator: React.FC = () => {
           headerShown: false, // LearnScreen has its own SafeAreaView
           tabBarButtonTestID: 'tab-learn',
           tabBarIcon: ({ focused }) => (
-            <BookIcon
-              color={focused ? colorSystem.navigation.learn : semantic.text.muted}
-            />
+            <ActiveTabIndicator focused={focused}>
+              <BookIcon
+                color={focused ? colorSystem.navigation.learn : semantic.text.muted}
+              />
+            </ActiveTabIndicator>
           ),
         }}
       />
@@ -208,9 +227,11 @@ const CleanTabNavigator: React.FC = () => {
           headerShown: false, // InsightsScreen has its own SafeAreaView
           tabBarButtonTestID: 'tab-insights',
           tabBarIcon: ({ focused }) => (
-            <CircleIcon
-              color={focused ? colorSystem.navigation.insights : semantic.text.muted}
-            />
+            <ActiveTabIndicator focused={focused}>
+              <CircleIcon
+                color={focused ? colorSystem.navigation.insights : semantic.text.muted}
+              />
+            </ActiveTabIndicator>
           ),
         }}
       />
@@ -224,10 +245,15 @@ const CleanTabNavigator: React.FC = () => {
           // which owns its own headers; keep the tab header hidden to avoid doubling.
           headerShown: false,
           tabBarButtonTestID: 'tab-profile',
+          // DEBUG-356: Profile is the one tab whose ACTIVE glyph had to change
+          // colour. Its tint was base.midnightBlue — which is now the container
+          // fill, so it would render at 1.00:1 against its own background, i.e.
+          // invisible. Knocked out to semantic.text.inverse (14.16:1 on the
+          // container). The other three keep their brand hue unchanged.
           tabBarIcon: ({ focused }) => (
-            <BrainIcon
-              color={focused ? colorSystem.base.midnightBlue : semantic.text.muted}
-            />
+            <ActiveTabIndicator focused={focused}>
+              <BrainIcon color={focused ? semantic.text.inverse : semantic.text.muted} />
+            </ActiveTabIndicator>
           ),
         }}
       />

@@ -41,7 +41,7 @@ import {
 } from 'react-native';
 import { useCloudSync, useCloudBackupConfig } from '@/core/services/supabase/hooks/useCloudSync';
 import SyncStatusIndicator from '../sync/SyncStatusIndicator';
-import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
+import { colorSystem, spacing, borderRadius, typography, semantic } from '@/core/theme';
 
 interface CloudBackupSettingsProps {
   style?: StyleProp<ViewStyle>;
@@ -153,7 +153,7 @@ export default function CloudBackupSettings({
 
   // Get status color
   const getStatusColor = (): string => {
-    if (!isInitialized) return colorSystem.gray[600];
+    if (!isInitialized) return semantic.text.secondary;
     if (!isOnline) return colorSystem.status.error;
     if (status.circuitBreakerState === 'open') return colorSystem.status.warning;
     return colorSystem.status.success;
@@ -522,7 +522,7 @@ const styles = StyleSheet.create({
   },
 
   privacyNoticeNote: {
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     fontSize: typography.micro.size,
     marginTop: spacing[8],
     fontStyle: 'italic',
@@ -547,7 +547,7 @@ const styles = StyleSheet.create({
   },
 
   statusLabel: {
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
   },
 
   statusValue: {
@@ -588,7 +588,7 @@ const styles = StyleSheet.create({
   },
 
   tertiaryButtonText: {
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
   },
 
   subsection: {
@@ -601,7 +601,7 @@ const styles = StyleSheet.create({
   subsectionTitle: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.bold,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     marginBottom: spacing[8],
     textTransform: 'uppercase',
   },
@@ -621,7 +621,7 @@ const styles = StyleSheet.create({
 
   configValue: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
   },
 
   advancedToggle: {

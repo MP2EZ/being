@@ -28,6 +28,7 @@
     "test:accessibility": "jest --testPathPattern=accessibility --verbose --forceExit",
     "test:security": "jest --testPathPattern=security --verbose --forceExit --detectOpenHandles",
     "test:privacy": "jest --testPathPattern=privacy --verbose --forceExit",
+    "test:scripts": "jest --testPathPattern=__tests__/scripts --verbose --forceExit",
     "test:encryption": "jest --testPathPattern=EncryptionService --verbose",
     "test:crisis-quick": "jest --testPathPattern=\"[Cc]risis\" --ci --silent --testTimeout=5000 --maxWorkers=4",
     "test:clinical-quick": "JEST_QUICK=true jest --testNamePattern=\"clinical|phq|gad\"",
@@ -74,6 +75,7 @@
     "precommit": "npm run typecheck && npm run lint:baseline && npm run test:safety && npm run test:clinical && npm run test:unit && npm run test:privacy",
     "check:crisis-hotline": "node scripts/check-crisis-hotline.js",
     "check:breathing-worklets": "node scripts/check-breathing-worklet-purity.js",
+    "check:ci-test-coverage": "node scripts/check-ci-test-coverage.js",
     "check:crisis-dial": "node scripts/check-crisis-dial-guard.js",
     "prepare": "[ ! -e ../.git ] && exit 0; cd .. && husky app/.husky",
     "postinstall": "patch-package && node scripts/generate-legal-content.js",
@@ -85,12 +87,15 @@
     "deploy:validate-rollback": "echo \"\ud83d\udd04 Validating rollback safety...\" && node -e \"console.log('Rollback validation would run here in production')\"",
     "e2e:safety": "bash scripts/e2e-safety.sh",
     "e2e:safety:build": "bash scripts/e2e-sim-build.sh",
+    "e2e:safety:build:eas": "bash scripts/e2e-sim-build-eas.sh",
+    "e2e:safety:clean": "bash scripts/e2e-sim-clean.sh",
     "e2e:safety:q9": "maestro test .maestro/q9-single-alert.yaml",
     "e2e:safety:phq9": "maestro test .maestro/phq9-severe-completion.yaml",
     "e2e:safety:gad7": "maestro test .maestro/gad7-severe.yaml",
     "e2e:safety:crisis-button": "maestro test .maestro/crisis-button-reachability.yaml",
     "e2e:safety:988-dial": "maestro test .maestro/crisis-988-dial.yaml",
-    "e2e:safety:journal": "maestro test .maestro/journal-crisis-scan.yaml"
+    "e2e:safety:journal": "maestro test .maestro/journal-crisis-scan.yaml",
+    "e2e:safety:consent-gate": "maestro test .maestro/deeplink-consent-gate.yaml"
   },
   "overrides": {
     "react": "19.2.3",

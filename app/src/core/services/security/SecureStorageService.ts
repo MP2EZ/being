@@ -106,6 +106,31 @@ export const SECURE_STORAGE_CONFIG = {
 } as const;
 
 /**
+ * AsyncStorage prefix families swept by `clearAllWellnessData` (DEBUG-355).
+ *
+ * Exported so the erasure privacy suites assert against the SAME list the sweep
+ * filters on. They previously hand-copied it, which is how `audit_log_` went
+ * unnoticed: production could gain or lose a prefix and every mirror kept
+ * passing. `SWEPT_EXACT_KEYS` above already had this property; this is the
+ * prefix half.
+ *
+ * `audit_log_` is on this list because `logStorageAccess` persists an entry on
+ * every `crisis_tier` operation and every failure. Nothing reads those records
+ * back and `cleanupAuditLogs()` prunes only the in-memory array, so before
+ * DEBUG-355 nothing in the app could remove them at all. Unlike the SecureStore
+ * `critical_log_*` records in the same work item, these enumerate — so adding
+ * the prefix here fixes already-shipped installs retroactively, with no
+ * migration and no persisted index.
+ */
+export const SWEPT_ASYNC_PREFIXES = [
+  SECURE_STORAGE_CONFIG.CRISIS_ASYNC_PREFIX,
+  SECURE_STORAGE_CONFIG.ASSESSMENT_ASYNC_PREFIX,
+  SECURE_STORAGE_CONFIG.WELLNESS_ASYNC_PREFIX,
+  SECURE_STORAGE_CONFIG.MIGRATION_MARKER_PREFIX,
+  SECURE_STORAGE_CONFIG.AUDIT_LOG_PREFIX,
+] as const;
+
+/**
  * MAINT-241 — right-to-erasure manifest.
  *
  * SecureStore has no enumerate API, so a full wipe must explicitly name every
@@ -1472,10 +1497,9 @@ export class SecureStorageService {
   ): Promise<void> {
     const asyncKeys = await AsyncStorage.getAllKeys();
     const toRemove = asyncKeys.filter((k) =>
-      k.startsWith(SECURE_STORAGE_CONFIG.CRISIS_ASYNC_PREFIX) ||
-      k.startsWith(SECURE_STORAGE_CONFIG.ASSESSMENT_ASYNC_PREFIX) ||
-      k.startsWith(SECURE_STORAGE_CONFIG.WELLNESS_ASYNC_PREFIX) ||
-      k.startsWith(SECURE_STORAGE_CONFIG.MIGRATION_MARKER_PREFIX) ||
+      // Prefix families — SWEPT_ASYNC_PREFIXES is the single source of truth the
+      // erasure privacy suites assert against (DEBUG-355).
+      SWEPT_ASYNC_PREFIXES.some((p) => k.startsWith(p)) ||
       // Keys that cannot adopt a prefix — see SWEPT_EXACT_KEYS (DEBUG-305).
       SECURE_STORAGE_CONFIG.SWEPT_EXACT_KEYS.includes(k) ||
       // Legacy plaintext records from shipped builds. `legacyPlaintextRecordSweeper`

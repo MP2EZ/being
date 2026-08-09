@@ -61,6 +61,16 @@ export type FeatureFlag =
   // `.env.production` before the public v1.0.0 release. Pinned in
   // __tests__/privacy/feedbackScrub.contract.test.ts.
   | 'bug_reporting'
+  // FEAT-285: haptic phase cues during timed practices. Build-time (not
+  // runtime/PostHog) by design — this is a non-visual guidance channel for
+  // low-vision and eyes-closed practitioners, so its availability must not be
+  // coupled to analytics consent (INFRA-199 carve-out, same reasoning as
+  // `bug_reporting`). A user who declined analytics must not thereby lose their
+  // only non-visual cue channel. Ships dark: the item's 60fps / cue-latency /
+  // degradation checks are on-device manual validation that CI cannot run
+  // (100% ubuntu, and the iOS simulator emits no haptics at all), so the flag
+  // stays false in production until that checklist is signed off.
+  | 'practice_haptics'
   // FEAT-283: gates the voice journal / spoken reflection surface (capture,
   // on-device transcription, encrypted store, crisis scan). Build-time, NOT
   // runtime/PostHog, for three reasons: it gates a whole screen + entry point

@@ -111,6 +111,83 @@ describe('analyzeSource — per-frame JS hops (the PERF-02 regression shape)', (
   });
 });
 
+/**
+ * INFRA-309. `useFrameCallback` was missing from WORKLET_HOOKS, so the guard was
+ * blind in the one hook a frame probe must use — it would have passed a per-frame
+ * runOnJS in exactly the file INFRA-373 adds. These cases pin the hook into the
+ * guarded set, and pin the boundary that keeps the guard usable: accumulating on
+ * the UI thread and crossing once at window close is the intended design, and
+ * must stay clean, or INFRA-373 ships with a skip-directive on day one.
+ */
+describe('analyzeSource — useFrameCallback (INFRA-309)', () => {
+  test('flags runOnJS inside a useFrameCallback body', () => {
+    const src = `
+      useFrameCallback((frameInfo) => {
+        'worklet';
+        runOnJS(reportFrame)(frameInfo.timeSincePreviousFrame);
+      });
+    `;
+    const found = analyzeSource(src, 'SharedBreathingScreen.tsx');
+    expect(found).toHaveLength(1);
+    expect(found[0]).toMatch(/runOnJS/);
+    expect(found[0]).toMatch(/useFrameCallback/);
+  });
+
+  test('the remedy names shared-value accumulation, not a withTiming completion', () => {
+    // A frame probe has no cycle leg to hang a completion callback on. Naming
+    // the wrong remedy is how a guard earns a skip-directive instead of a fix.
+    const src = `
+      useFrameCallback(({ timeSincePreviousFrame }) => {
+        'worklet';
+        runOnJS(setDroppedRatio)(timeSincePreviousFrame);
+      });
+    `;
+    const [runOnJsViolation] = analyzeSource(src, 'SharedBreathingScreen.tsx').filter((v) =>
+      /runOnJS/.test(v)
+    );
+    expect(runOnJsViolation).toMatch(/shared values/i);
+    expect(runOnJsViolation).toMatch(/window closes/i);
+    expect(runOnJsViolation).not.toMatch(/withTiming/);
+  });
+
+  test('flags a React state setter inside a useFrameCallback body', () => {
+    const src = `
+      useFrameCallback((frameInfo) => {
+        'worklet';
+        setFps(1000 / frameInfo.timeSincePreviousFrame);
+      });
+    `;
+    const found = analyzeSource(src, 'SharedBreathingScreen.tsx');
+    expect(found).toHaveLength(1);
+    expect(found[0]).toMatch(/state setter/i);
+  });
+
+  test('does NOT flag accumulate-in-shared-values with a single cross at window close', () => {
+    // This is INFRA-373's intended shape. The frame callback only mutates shared
+    // values; the one runOnJS lives in the window-close effect, outside the
+    // callback body. If this ever starts failing, the guard has become
+    // unsatisfiable and the probe cannot be written without an escape hatch.
+    const src = `
+      useFrameCallback(({ timeSincePreviousFrame }) => {
+        'worklet';
+        if (timeSincePreviousFrame === null) return;
+        frameCount.value += 1;
+        minInterval.value = Math.min(minInterval.value, timeSincePreviousFrame);
+      });
+
+      useEffect(() => {
+        return () => {
+          runOnJS(onWindowClose)({
+            frames: frameCount.value,
+            minInterval: minInterval.value,
+          });
+        };
+      }, []);
+    `;
+    expect(analyzeSource(src, 'SharedBreathingScreen.tsx')).toEqual([]);
+  });
+});
+
 describe('analyzeSource — JS-thread frame sampling', () => {
   test('flags requestAnimationFrame on the animation path', () => {
     const src = `
@@ -163,6 +240,42 @@ describe('analyzeSource — memoization contract (BreathingCircle only)', () => 
   test('flags a missing module-scope DEFAULT_PATTERN constant', () => {
     const src = `
       const DEFAULT_PHASE_TEXT = { inhale: 'Breathe in' };
+      export default React.memo(BreathingCircle);
+    `;
+    const found = analyzeSource(src, 'BreathingCircle.tsx');
+    expect(found).toHaveLength(1);
+    expect(found[0]).toMatch(/DEFAULT_PATTERN/);
+  });
+
+  test('accepts a module-scope named import in place of a local const', () => {
+    // What the rule actually protects is one stable object identity shared by
+    // every render, not where the constant is declared. An import binding is
+    // that, so relocating the definition must not read as the PERF-01 regression.
+    const src = `
+      import { DEFAULT_PATTERN } from '../breathingPatterns';
+      const DEFAULT_PHASE_TEXT = { inhale: 'Breathe in' };
+      export default React.memo(BreathingCircle);
+    `;
+    expect(analyzeSource(src, 'BreathingCircle.tsx')).toEqual([]);
+  });
+
+  test('accepts the constant arriving in a multi-specifier import', () => {
+    const src = `
+      import {
+        BreathingPattern,
+        DEFAULT_PATTERN,
+      } from '../breathingPatterns';
+      const DEFAULT_PHASE_TEXT = { inhale: 'Breathe in' };
+      export default React.memo(BreathingCircle);
+    `;
+    expect(analyzeSource(src, 'BreathingCircle.tsx')).toEqual([]);
+  });
+
+  test('still flags an inline default-prop literal when nothing declares or imports it', () => {
+    // The genuine regression: no binding anywhere, the object minted per render.
+    const src = `
+      const DEFAULT_PHASE_TEXT = { inhale: 'Breathe in' };
+      const BreathingCircle = ({ pattern = { inhale: 4000, exhale: 4000 } }) => null;
       export default React.memo(BreathingCircle);
     `;
     const found = analyzeSource(src, 'BreathingCircle.tsx');

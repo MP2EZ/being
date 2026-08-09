@@ -26,7 +26,7 @@ import { useRoute, useNavigation, useFocusEffect, RouteProp } from '@react-navig
 import { useAnalytics } from '@/core/analytics';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
-import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
+import { colorSystem, spacing, typography, borderRadius, semantic } from '@/core/theme';
 import { useEducationStore } from '@/features/learn/stores/educationStore';
 import { loadModuleContent } from '@/core/services/moduleContent';
 import type { ModuleId, ModuleContent } from '@/features/learn/types/education';
@@ -232,7 +232,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
   },
   errorContainer: {
     flex: 1,
@@ -287,7 +287,7 @@ const styles = StyleSheet.create({
   headerNumber: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
@@ -316,7 +316,7 @@ const styles = StyleSheet.create({
   },
   headerDescription: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     lineHeight: 20,
   },
   tabBar: {
@@ -338,7 +338,7 @@ const styles = StyleSheet.create({
   tabText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.medium,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
   },
   tabTextActive: {
     fontSize: typography.bodyRegular.size,

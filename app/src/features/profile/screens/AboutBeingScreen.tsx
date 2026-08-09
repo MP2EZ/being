@@ -40,7 +40,7 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.regular,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     textAlign: 'center',
     lineHeight: 24,
     marginBottom: spacing[24],

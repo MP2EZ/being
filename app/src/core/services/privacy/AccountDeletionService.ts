@@ -18,7 +18,7 @@
 import supabaseService from '@/core/services/supabase/SupabaseService';
 import SecureStorageService from '@/core/services/security/SecureStorageService';
 import { useConsentStore } from '@/core/stores/consentStore';
-import { logError, logSecurity, LogCategory } from '@/core/services/logging';
+import { clearLogAuditTrail, logError, logSecurity, LogCategory } from '@/core/services/logging';
 
 export type AccountDeletionResult =
   | { ok: true }
@@ -60,5 +60,14 @@ export async function deleteAccountAndWipe(): Promise<AccountDeletionResult> {
   //    gone server-side and a retry of the whole sequence remains safe.
   await SecureStorageService.clearAllWellnessData({ deleteMasterKey: true });
   logSecurity('[AccountDeletion] local wellness data wiped after server erasure', 'low');
+
+  // 4. Drop the in-memory log audit trail LAST (DEBUG-355), so the entry the
+  //    line above just pushed goes with it. Synchronous and structurally
+  //    non-throwing by design — a rejection here, after both erasures have
+  //    already succeeded, would be caught by DeleteAccountScreen and reported to
+  //    the user as a failed deletion, skipping the navigation reset. The
+  //    durable erasure evidence is the attestation written in step 2, not this
+  //    in-memory echo.
+  clearLogAuditTrail();
   return { ok: true };
 }

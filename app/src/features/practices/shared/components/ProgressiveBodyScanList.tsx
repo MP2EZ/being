@@ -9,7 +9,7 @@
 
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
+import { colorSystem, semantic, spacing, borderRadius, typography } from '@/core/theme';
 
 interface ProgressiveBodyScanListProps {
   areas: string[];
@@ -74,7 +74,7 @@ const ProgressiveBodyScanList: React.FC<ProgressiveBodyScanListProps> = ({
                     status === 'completed' && styles.areaTextCompleted,
                     status === 'current' && [
                       styles.areaTextCurrent,
-                      { color: learnPurple }
+                      { color: semantic.text.learn }
                     ],
                     status === 'upcoming' && styles.areaTextUpcoming,
                   ]}
@@ -162,7 +162,7 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.semibold,
   },
   areaTextUpcoming: {
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
   },
   guidanceText: {
     fontSize: typography.bodySmall.size,

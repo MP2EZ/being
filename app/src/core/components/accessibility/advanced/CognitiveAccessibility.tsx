@@ -20,7 +20,7 @@ import {
   Easing,
   Dimensions,
 } from 'react-native';
-import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
+import { colorSystem, spacing, typography, borderRadius, semantic } from '@/core/theme';
 import { useAdvancedScreenReader } from './AdvancedScreenReader';
 
 // Cognitive accessibility configuration
@@ -385,7 +385,7 @@ export const SimplifiedInstruction: React.FC<SimplifiedInstructionProps> = ({
   const { isSimplifiedMode, config } = useCognitiveAccessibility();
   
   const importanceColors = {
-    low: colorSystem.gray[600],
+    low: semantic.text.secondary,
     medium: colorSystem.base.midnightBlue,
     high: colorSystem.status.warning,
   };

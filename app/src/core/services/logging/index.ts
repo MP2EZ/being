@@ -161,8 +161,15 @@ export const getLogAuditTrail = () => {
   return logger.getAuditTrail();
 };
 
-export const clearLogAuditTrail = async () => {
-  await logger.clearAuditTrail();
+/**
+ * Clear the in-memory log audit trail (GDPR erasure).
+ *
+ * DEBUG-355: synchronous by design — see `ProductionLogger.clearAuditTrail`.
+ * Its one caller is the final step of `deleteAccountAndWipe`, where a rejected
+ * promise would misreport a completed erasure as a failure.
+ */
+export const clearLogAuditTrail = (): void => {
+  logger.clearAuditTrail();
 };
 
 export const emergencyLoggerShutdown = (reason: string) => {
@@ -174,20 +181,6 @@ export const emergencyLoggerShutdown = (reason: string) => {
  */
 export const getRateLimiterStats = () => {
   return logger.getRateLimiterStats();
-};
-
-/**
- * INFRA-61: Enable log encryption
- */
-export const enableLogEncryption = async (encryptionService: any) => {
-  await logger.enableEncryption(encryptionService);
-};
-
-/**
- * INFRA-61: Disable log encryption
- */
-export const disableLogEncryption = () => {
-  logger.disableEncryption();
 };
 
 /**
