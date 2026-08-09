@@ -84,7 +84,12 @@ const ReflectionTimerScreen: React.FC<ReflectionTimerScreenProps> = ({
     handleTimerComplete,
   } = useTimerPractice({
     duration,
-    onComplete: markComplete,
+    // FEAT-311: reached only by the timer running out, so an abandoned
+    // reflection stays silent.
+    onComplete: () => {
+      emitSessionEnd();
+      markComplete();
+    },
   });
 
   /**
@@ -105,7 +110,21 @@ const ReflectionTimerScreen: React.FC<ReflectionTimerScreenProps> = ({
     [practiceSettings?.practiceHapticsInterval, duration]
   );
 
-  usePracticeHaptics({ schedule: intervalCues, isActive: isTimerActive });
+  /**
+   * FEAT-311: the session anchors ride the MASTER toggle, NOT the interval
+   * opt-in above. Two markers bounding the practice are a different thing from
+   * a cadence inside it — the separate interval consent exists so that enabling
+   * haptics does not start pulsing at someone mid-contemplation, and that
+   * reasoning does not extend to "begun" and "complete".
+   *
+   * This is also why the anchors cannot ride the scheduler: `intervalCues` is
+   * an EMPTY array by default, and the scheduler effect early-returns on it.
+   */
+  const { emitSessionEnd } = usePracticeHaptics({
+    schedule: intervalCues,
+    isActive: isTimerActive,
+    sessionAnchors: true,
+  });
 
   // Stable pause/resume handlers so the memoized Timer is not re-rendered
   // by new inline closures on every parent render.
