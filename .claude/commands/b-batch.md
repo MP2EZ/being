@@ -160,6 +160,15 @@ Drop from the pool, reporting each class. **Never silently** — a hidden cap re
   5–8+ weeks; these need slicing via `/b-create` first. Naming them makes the omission a
   recommendation rather than a silence.
 
+**When an exclusion names a sibling manifest, report that batch's outstanding work too.** The
+file is already open for the ownership check, so tally its non-`done`/`deferred` items by
+state. An owned ID is not just unavailable — it is evidence of a batch that stalled with work
+left, and resuming it is usually worth more than a fresh slate, since its items already have
+approved approaches and a dependency graph this run would re-derive from scratch:
+
+    ⏸️  batch debug374-debug380-… still owes 3 pending + 1 parked — `/b-batch --resume` likely
+        beats a new slate
+
 #### 0.1a.5 — Read bodies for the top ~10, then drop what the batch cannot execute
 `notion-fetch` the top ~10 survivors, not the whole pool — nothing below needs a body.
 
