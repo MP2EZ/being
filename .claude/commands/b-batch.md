@@ -308,6 +308,13 @@ First fetch each item's Notion page (reuse `/b-work` Phase 1 logic: search
 and the right row is often not the top hit) so the panel plans against the real story, AC,
 and technical notes.
 
+**Fetch the COMMENTS too and feed them to every lens — not optional.** `/b-work` Step 1.3
+requires it for one item; a panel needs it more, because lenses plan in parallel and cannot
+discover mid-run that a premise was retired. The body is the *authored* story; comments are
+the *current* state, and routinely carry the decision that reversed an AC — a rescope, a
+flag-tier ruling. Read newest-last and let them **override** the body. A lens given only the
+body reasons impeccably to a conclusion ruled out months ago, and sounds just as confident.
+
 **Claim the page as you resolve it (Step 0.2's Notion half).** The fetch returns `Status`
 directly, so the moment a page resolves: if its `Status` is `Not started`, set
 `Status: Batched`; otherwise leave it untouched. Also record its `Effort` on the manifest
