@@ -203,6 +203,13 @@ UDID="$(xcrun simctl list devices booted -j 2>/dev/null | node -e '
     process.exit(1);
   });' 2>/dev/null)" || UDID=""
 
+# Snapshot the tree HERE, immediately before bundling — not at step 1 (an `expo prebuild`
+# can touch tracked files) and not at step 7g (too late by definition). The binary about to
+# be produced corresponds to THIS tree; step 7g refuses to write a marker describing any
+# other one. Empty on failure, which disarms the guard rather than failing the build — the
+# marker write itself still fails closed.
+TREE_BEFORE_BUILD="$(node scripts/e2e-provenance.js fingerprint 2>/dev/null || true)"
+
 echo "🏗  Building Release simulator app (warm ≈1 min, cold ≈11 min)…"
 BUILD_CMD=(npx expo run:ios --configuration Release --no-bundler)
 [ -n "$UDID" ] && BUILD_CMD+=(--device "$UDID")
@@ -293,7 +300,8 @@ done
 #     the artifact carries no lineage, so e2e-safety.sh will refuse it with MISSING.
 #     Say so now rather than letting the refusal arrive minutes later, unexplained.
 if [ "$IN_GIT_REPO" = "1" ]; then
-  node scripts/e2e-provenance.js write "$APP" || fail "provenance marker write"
+  node scripts/e2e-provenance.js write "$APP" --expect "$TREE_BEFORE_BUILD" \
+    || fail "provenance marker write (did the working tree change during the build?)"
 else
   echo "⚠️  Not inside a git work tree — no provenance marker written." >&2
   echo "    This artifact is NOT usable as gate evidence; e2e:safety will refuse it." >&2

@@ -37,6 +37,59 @@ set -u
 cd "$(dirname "$0")/.." || exit 1 # -> app/ (npm already sets cwd=app; belt + suspenders)
 MAESTRO_DIR=".maestro"
 
+BUNDLE_ID="fyi.being.app"
+
+# --- Flow selection: explicit args, else the tagged suite -------------------------------
+# Deliberately BEFORE the pre-flight: which flows were asked for decides whether a booted
+# simulator is even relevant. Checking the sim first would break the device-only flow.
+FLOWS=()
+if [ "$#" -gt 0 ]; then
+  for arg in "$@"; do
+    # Accept a bare name (`q9-single-alert`) or a path (`.maestro/q9-single-alert.yaml`).
+    base="$(basename "$arg" .yaml)"
+    case "$base" in
+      _*)
+        echo "❌ '$base' is a helper subflow, not a runnable flow" >&2
+        exit 1
+        ;;
+    esac
+    if [ ! -f "$MAESTRO_DIR/$base.yaml" ]; then
+      echo "❌ no such flow: $MAESTRO_DIR/$base.yaml" >&2
+      exit 1
+    fi
+    FLOWS+=("$MAESTRO_DIR/$base.yaml")
+  done
+else
+  for f in "$MAESTRO_DIR"/[!_]*.yaml; do
+    # Match a tag line that is exactly `- safety` (excludes `- safety-device-only`).
+    grep -qE '^[[:space:]]*-[[:space:]]+safety[[:space:]]*$' "$f" || continue
+    FLOWS+=("$f")
+  done
+fi
+
+# Zero flows must never read as success. It also keeps `"${FLOWS[@]}"` and
+# `"${results[@]}"` off an empty array, which is an unbound-variable error under `set -u`
+# in the bash 3.2 that ships with macOS.
+if [ "${#FLOWS[@]}" -eq 0 ]; then
+  echo "❌ no flows selected — refusing to report success on an empty run." >&2
+  echo "   (No \`safety\`-tagged flow found in $MAESTRO_DIR/, or the named flows resolved to nothing.)" >&2
+  exit 1
+fi
+
+# --- Device-only detection --------------------------------------------------------------
+# `crisis-988-dial` is tagged `safety-device-only` and is documented to be run by hand
+# against a REAL iPhone, because the simulator's canOpenURL returns false unconditionally
+# regardless of LSApplicationQueriesSchemes. Everything below this line reasons about the
+# booted SIMULATOR's installed app, so applying it to a device run is worse than useless:
+# with no sim booted it aborts a documented procedure, and with an unrelated sim booted it
+# would print "✓ gate target verified / ✓ provenance" banners describing an artifact the
+# flow is not running against. Attesting the wrong binary is precisely the failure this
+# work item exists to remove, so detect the case and say plainly that no attestation applies.
+DEVICE_ONLY=1
+for f in "${FLOWS[@]}"; do
+  grep -qE '^[[:space:]]*-[[:space:]]+safety-device-only[[:space:]]*$' "$f" || DEVICE_ONLY=0
+done
+
 # INFRA-383 — artifact-shape pre-flight, once, before any flow runs (<1s).
 #
 # Why this lives HERE and not only in e2e-sim-build.sh: that script's failure trap only
@@ -46,8 +99,12 @@ MAESTRO_DIR=".maestro"
 # the load-bearing one. A launcher-bearing or Debug build must never reach a flow: it does
 # not merely flake, it can pass by coincidence via the guessed-coordinate tap in
 # _legal-and-onboarding.yaml, producing a green crisis-path gate that proves nothing.
-BUNDLE_ID="fyi.being.app"
-if APP="$(xcrun simctl get_app_container booted "$BUNDLE_ID" 2>/dev/null)" && [ -d "$APP" ]; then
+if [ "$DEVICE_ONLY" = "1" ]; then
+  echo "📱 Device-only flow(s) selected — skipping the simulator pre-flight."
+  echo "   This run carries NO artifact attestation: shape and provenance both describe"
+  echo "   the booted simulator's app, not the device's. Run it against a real iPhone"
+  echo "   with a build you installed deliberately."
+elif APP="$(xcrun simctl get_app_container booted "$BUNDLE_ID" 2>/dev/null)" && [ -d "$APP" ]; then
   preflight_fail() {
     echo "❌ e2e:safety pre-flight — $1" >&2
     echo "   Rebuild the gate target: npm run e2e:safety:build" >&2
@@ -58,11 +115,16 @@ if APP="$(xcrun simctl get_app_container booted "$BUNDLE_ID" 2>/dev/null)" && [ 
   if otool -L "$APP/Being" 2>/dev/null | grep -qiE 'EXDevLauncher|EXDevMenu|expo-dev-'; then
     preflight_fail "the installed app links the Expo dev launcher"
   fi
+  # Both schemes, matching e2e-sim-build.sh's 7f. This checked only `tel` while claiming
+  # in its own comment above to be "the load-bearing one" — and `sms` is the Crisis Text
+  # Line path, so a build that lost it would have passed here.
   SCHEMES="$(plutil -extract LSApplicationQueriesSchemes json -o - "$APP/Info.plist" 2>/dev/null || true)"
-  case "$SCHEMES" in
-    *'"tel"'*) : ;;
-    *) preflight_fail "the installed app's LSApplicationQueriesSchemes is missing 'tel' — the 988 dial path would fall back to a manual-dial alert" ;;
-  esac
+  for scheme in tel sms; do
+    case "$SCHEMES" in
+      *"\"$scheme\""*) : ;;
+      *) preflight_fail "the installed app's LSApplicationQueriesSchemes is missing '$scheme' — the 988 dial / Crisis Text Line path would fall back to a manual-dial alert" ;;
+    esac
+  done
   echo "✓ gate target verified: Release build, launcher-free, 988 dial scheme intact"
 
   # INFRA-384 — artifact LINEAGE, as distinct from the artifact SHAPE checked above.
@@ -104,41 +166,6 @@ if APP="$(xcrun simctl get_app_container booted "$BUNDLE_ID" 2>/dev/null)" && [ 
   esac
 else
   echo "⚠️  $BUNDLE_ID is not installed on the booted sim — run 'npm run e2e:safety:build' first." >&2
-  exit 1
-fi
-
-# --- Flow selection: explicit args, else the tagged suite -------------------------------
-FLOWS=()
-if [ "$#" -gt 0 ]; then
-  for arg in "$@"; do
-    # Accept a bare name (`q9-single-alert`) or a path (`.maestro/q9-single-alert.yaml`).
-    base="$(basename "$arg" .yaml)"
-    case "$base" in
-      _*)
-        echo "❌ '$base' is a helper subflow, not a runnable flow" >&2
-        exit 1
-        ;;
-    esac
-    if [ ! -f "$MAESTRO_DIR/$base.yaml" ]; then
-      echo "❌ no such flow: $MAESTRO_DIR/$base.yaml" >&2
-      exit 1
-    fi
-    FLOWS+=("$MAESTRO_DIR/$base.yaml")
-  done
-else
-  for f in "$MAESTRO_DIR"/[!_]*.yaml; do
-    # Match a tag line that is exactly `- safety` (excludes `- safety-device-only`).
-    grep -qE '^[[:space:]]*-[[:space:]]+safety[[:space:]]*$' "$f" || continue
-    FLOWS+=("$f")
-  done
-fi
-
-# Zero flows must never read as success. It also keeps `"${FLOWS[@]}"` and
-# `"${results[@]}"` off an empty array, which is an unbound-variable error under `set -u`
-# in the bash 3.2 that ships with macOS.
-if [ "${#FLOWS[@]}" -eq 0 ]; then
-  echo "❌ no flows selected — refusing to report success on an empty run." >&2
-  echo "   (No \`safety\`-tagged flow found in $MAESTRO_DIR/, or the named flows resolved to nothing.)" >&2
   exit 1
 fi
 

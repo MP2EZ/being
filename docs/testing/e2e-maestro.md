@@ -222,6 +222,13 @@ npm run e2e:safety:crisis-button   # crisis button reaches CrisisResources from 
 # LSApplicationQueriesSchemes contract is the jest static-config test at
 # `app/__tests__/safety/lsApplicationQueriesSchemes.config.test.ts`, which
 # runs in `npm run precommit` on every commit (INFRA-184).
+#
+# INFRA-384: this one SKIPS the simulator pre-flight and the provenance check, and
+# says so. Both describe the booted simulator's installed app, which is not what a
+# device run executes — enforcing them here would abort the procedure when no sim is
+# booted, and, worse, print "gate target verified / provenance" banners about an
+# artifact the flow never touches. A device-only run therefore carries NO artifact
+# attestation; install the build you mean to test, deliberately.
 npm run e2e:safety:988-dial        # 988 button does not show "Unable to Call" fallback (device-only)
 ```
 

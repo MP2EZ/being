@@ -872,6 +872,108 @@ describe('e2e-safety.sh — flow selection and the no-silent-green rule', () => 
     expect(gate.flowsRun).toBe(1);
   });
 
+  test('a device-only flow SKIPS the simulator pre-flight entirely', () => {
+    // crisis-988-dial runs against a REAL iPhone (the sim's canOpenURL returns false
+    // unconditionally). Everything in the pre-flight reasons about the booted SIM's
+    // installed app, so applying it here is worse than useless: with no sim booted it
+    // aborts a documented procedure, and with an unrelated sim booted it would print
+    // "gate target verified / provenance" banners describing an artifact the flow is not
+    // running against — attesting the wrong binary, the exact failure this item removes.
+    const built = runScript({});
+    fs.rmSync(built.container, { recursive: true, force: true }); // no app on the sim
+    const gate = runSafety(built, { flows: ['crisis-988-dial'] });
+    expect(gate.status).toBe(0);
+    expect(gate.flowsRun).toBe(1);
+    expect(gate.output).toMatch(/NO artifact attestation/i);
+    expect(gate.output).not.toMatch(/provenance: built from this exact tree/);
+  });
+
+  test('a MIXED selection is not treated as device-only', () => {
+    // Only an all-device-only selection may skip the pre-flight. One sim flow in the set
+    // means the sim artifact is genuinely under test again.
+    const built = runScript({});
+    fs.unlinkSync(path.join(built.container, MARKER_NAME));
+    const gate = runSafety(built, { flows: ['crisis-988-dial', 'q9-single-alert'] });
+    expect(gate.status).not.toBe(0);
+    expect(gate.output).toMatch(/MISSING/);
+  });
+});
+
+describe('e2e-safety.sh — pre-flight checks BOTH crisis dial schemes', () => {
+  test('refuses when the installed app lost sms, not just tel', () => {
+    // This block calls itself "the load-bearing one" yet checked only `tel`. `sms` is the
+    // Crisis Text Line path, so a build that lost it passed here.
+    const built = runScript({});
+    writeStub(built.stubs, 'plutil', `echo '${JSON.stringify(['tel'])}'`);
+    const gate = runSafety(built);
+    expect(gate.status).not.toBe(0);
+    expect(gate.flowsRun).toBe(0);
+    expect(gate.output).toMatch(/sms/);
+  });
+});
+
+describe('e2e-sim-build.sh — mid-build tree mutation (the marker must not attest a tree the binary lacks)', () => {
+  test('refuses to write a marker when the tree moves during the build', () => {
+    // The binary corresponds to the tree AS BUNDLED; the marker records the tree NOW.
+    // Committing mid-build would record dirty:false at a NEW head with a hash the binary
+    // does not match — which then verifies as MATCH_CLEAN. A false green of exactly the
+    // kind this file exists to prevent, and made likelier by AC5: dirty builds are now
+    // routine and the remediation text is literally "commit and rebuild".
+    const root = makeProject({});
+    const stubs = fs.mkdtempSync(path.join(os.tmpdir(), 'e2e-stubs-'));
+    const container = path.join(root, 'container', `${BUNDLE_ID}.app`);
+    writeGitStub(stubs, root);
+
+    // The npx shim mutates the git state mid-build — i.e. between the fingerprint
+    // snapshot taken just before the build and the marker write after it.
+    writeStub(
+      stubs,
+      'npx',
+      [
+        'SUB=""',
+        'for a in "$@"; do case "$a" in prebuild) SUB=prebuild ;; run:ios) SUB=run ;; esac; done',
+        '[ "$SUB" = "prebuild" ] && exit 0',
+        'if [ "$SUB" = "run" ]; then',
+        `  printf 'moved-during-build' > "${path.join(root, GIT_STATE_DIR, 'head')}"`,
+        `  APP="${path.join(root, PRODUCT_REL, 'Being.app')}"`,
+        '  mkdir -p "$APP/Frameworks"',
+        '  echo "<plist/>" > "$APP/Info.plist"',
+        "  printf 'JSBUNDLE cloud_sync:false,bug_reporting:true,voice_journal:true' > \"$APP/main.jsbundle\"",
+        '  echo "binary" > "$APP/Being"',
+        `  rm -rf "${container}"; mkdir -p "$(dirname "${container}")"`,
+        `  cp -Rp "$APP" "${container}"`,
+        'fi',
+        'exit 0',
+      ].join('\n')
+    );
+    writeStub(
+      stubs,
+      'xcrun',
+      [
+        'if [ "$1" = "simctl" ] && [ "$2" = "list" ]; then echo "iPhone 16 (ABC) (Booted)"; exit 0; fi',
+        `if [ "$1" = "simctl" ] && [ "$2" = "uninstall" ]; then rm -rf "${container}"; exit 0; fi`,
+        'if [ "$1" = "simctl" ] && [ "$2" = "get_app_container" ]; then',
+        `  if [ -d "${container}" ]; then echo "${container}"; exit 0; fi`,
+        '  exit 1',
+        'fi',
+        'exit 0',
+      ].join('\n')
+    );
+    writeStub(stubs, 'otool', 'echo "\t/usr/lib/libSystem.B.dylib"');
+    writeStub(stubs, 'plutil', `echo '${JSON.stringify(['tel', 'sms'])}'`);
+
+    const res = spawnSync('bash', [path.join(root, 'scripts', 'e2e-sim-build.sh')], {
+      encoding: 'utf8',
+      env: { ...process.env, PATH: `${stubs}:${process.env.PATH}`, CI: '' },
+    });
+
+    const output = `${res.stdout || ''}${res.stderr || ''}`;
+    expect(res.status).not.toBe(0);
+    expect(output).toMatch(/CHANGED during the build/i);
+    // Fail-closed: the trap uninstalls, so nothing is left for a gate to run against.
+    expect(fs.existsSync(container)).toBe(false);
+  });
+
   test('refuses a helper subflow by name', () => {
     const built = runScript({});
     const gate = runSafety(built, { flows: ['_legal-and-onboarding'] });

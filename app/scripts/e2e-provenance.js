@@ -166,7 +166,7 @@ function markerPath(containerPath) {
   return path.join(containerPath, MARKER_NAME);
 }
 
-function write(containerPath) {
+function write(containerPath, expected) {
   if (!containerPath || !fs.existsSync(containerPath)) {
     console.error(`e2e-provenance: container path does not exist: ${containerPath}`);
     return 1;
@@ -174,6 +174,27 @@ function write(containerPath) {
   const fp = fingerprint(process.cwd());
   if (!fp) {
     console.error('e2e-provenance: could not fingerprint the working tree (not a git repo?)');
+    return 1;
+  }
+
+  // MID-BUILD MUTATION GUARD.
+  //
+  // The binary corresponds to the tree AS IT WAS WHEN BUNDLED; this marker records the
+  // tree as it is NOW. Those are the same instant only if nothing moved in between — and
+  // the build takes 35-75s warm, so they can differ. The dangerous direction is specific:
+  // commit (or edit) mid-build and the marker records dirty:false at a NEW head with a
+  // hash the binary does not match, which then verifies as MATCH_CLEAN. That is a false
+  // green of exactly the kind this file exists to prevent.
+  //
+  // It is not hypothetical hygiene: relaxing the clean-tree pre-flight makes dirty builds
+  // routine, and the script's own remediation text is "commit and rebuild before closing",
+  // which trains the commit-while-building reflex.
+  //
+  // The caller snapshots the fingerprint immediately before the build and passes it here.
+  if (expected && expected !== fp.treeHash) {
+    console.error('e2e-provenance: the working tree CHANGED during the build.');
+    console.error('  The binary was bundled from one tree and this marker would record');
+    console.error('  another, so the marker would attest something untrue. Rebuild.');
     return 1;
   }
   const marker = {
@@ -254,10 +275,21 @@ function verify(containerPath) {
 }
 
 function main(argv) {
-  const [cmd, containerPath] = argv;
+  const [cmd, containerPath, ...rest] = argv;
   switch (cmd) {
-    case 'write':
-      return write(containerPath);
+    // Print just the tree hash. The build script snapshots this immediately before the
+    // build and hands it back to `write --expect`, which is how the mid-build mutation
+    // guard is armed.
+    case 'fingerprint': {
+      const fp = fingerprint(process.cwd());
+      if (!fp) return 1;
+      console.log(fp.treeHash);
+      return 0;
+    }
+    case 'write': {
+      const i = rest.indexOf('--expect');
+      return write(containerPath, i >= 0 ? rest[i + 1] : undefined);
+    }
     case 'verify':
       if (!containerPath) {
         console.log(VERDICT.MISSING);
