@@ -90,13 +90,13 @@
     "e2e:safety:build": "bash scripts/e2e-sim-build.sh",
     "e2e:safety:build:eas": "bash scripts/e2e-sim-build-eas.sh",
     "e2e:safety:clean": "bash scripts/e2e-sim-clean.sh",
-    "e2e:safety:q9": "maestro test .maestro/q9-single-alert.yaml",
-    "e2e:safety:phq9": "maestro test .maestro/phq9-severe-completion.yaml",
-    "e2e:safety:gad7": "maestro test .maestro/gad7-severe.yaml",
-    "e2e:safety:crisis-button": "maestro test .maestro/crisis-button-reachability.yaml",
-    "e2e:safety:988-dial": "maestro test .maestro/crisis-988-dial.yaml",
-    "e2e:safety:journal": "maestro test .maestro/journal-crisis-scan.yaml",
-    "e2e:safety:consent-gate": "maestro test .maestro/deeplink-consent-gate.yaml"
+    "e2e:safety:q9": "bash scripts/e2e-safety.sh q9-single-alert",
+    "e2e:safety:phq9": "bash scripts/e2e-safety.sh phq9-severe-completion",
+    "e2e:safety:gad7": "bash scripts/e2e-safety.sh gad7-severe",
+    "e2e:safety:crisis-button": "bash scripts/e2e-safety.sh crisis-button-reachability",
+    "e2e:safety:988-dial": "bash scripts/e2e-safety.sh crisis-988-dial",
+    "e2e:safety:journal": "bash scripts/e2e-safety.sh journal-crisis-scan",
+    "e2e:safety:consent-gate": "bash scripts/e2e-safety.sh deeplink-consent-gate"
   },
   "overrides": {
     "react": "19.2.3",

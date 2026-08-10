@@ -83,7 +83,9 @@ trap cleanup EXIT INT TERM
 # ---------------------------------------------------------------------------------------
 # 1. Clean-tree pre-flight (INFRA-329). See header for why this stays.
 # ---------------------------------------------------------------------------------------
+IN_GIT_REPO=0
 if REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"; then
+  IN_GIT_REPO=1
   DIRTY="$(git -C "$REPO_ROOT" status --porcelain 2>/dev/null || true)"
   if [ -n "$DIRTY" ]; then
     echo "$DIRTY" >&2
@@ -265,7 +267,27 @@ for scheme in tel sms; do
   esac
 done
 
+# 7g. Provenance marker (INFRA-384). LAST, after every assert above, so the marker's
+#     presence means "this artifact passed every shape check AND came from this tree".
+#     Written INSIDE the installed container: simctl mints a new container UUID on every
+#     fresh install, so any reinstall (`npm run ios`, a manual simctl install) takes the
+#     marker with it and e2e-safety.sh refuses. That disappearance IS the binding.
+#     Before BUILD_OK=1, so a failure here still trips the cleanup trap's uninstall and
+#     satisfies AC1's "marker absent after a failed or refused build" for free.
+#     Outside a git work tree there is nothing to fingerprint, so no marker can exist.
+#     That does NOT fail the build — INFRA-329 deliberately allows building outside a
+#     work tree, and breaking that here would be an unrelated regression. It does mean
+#     the artifact carries no lineage, so e2e-safety.sh will refuse it with MISSING.
+#     Say so now rather than letting the refusal arrive minutes later, unexplained.
+if [ "$IN_GIT_REPO" = "1" ]; then
+  node scripts/e2e-provenance.js write "$APP" || fail "provenance marker write"
+else
+  echo "⚠️  Not inside a git work tree — no provenance marker written." >&2
+  echo "    This artifact is NOT usable as gate evidence; e2e:safety will refuse it." >&2
+fi
+
 BUILD_OK=1
 echo "✅ Launcher-free Release build installed and verified."
 echo "   launcher-free · fresh bundle · env parity · LSApplicationQueriesSchemes intact"
+echo "   provenance marker bound to this tree"
 echo "   Run flows:  npm run e2e:safety   (or npm run e2e:safety:<flow>)"
