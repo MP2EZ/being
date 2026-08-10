@@ -21,6 +21,16 @@
  * scale pulse with no vestibular accommodation at all. Detecting here rather
  * than at each call site means all three inherit it, and any future one does too.
  *
+ * That last sentence was ASPIRATIONAL until DEBUG-394, and this header asserted
+ * it as fact. MAINT-386 derived `effectiveReducedMotion` correctly and then threw
+ * it away: the worklet read a shared value that an effect overwrote with the raw
+ * `reducedMotion` prop, which no live caller passes. So the suppression branch
+ * never executed on any of the three surfaces, while the phase label and guidance
+ * copy — reading `effectiveReducedMotion` directly — correctly reported the
+ * accommodation as active. A user with OS reduce-motion on got the full pulse
+ * they had asked to avoid AND text telling them it was suppressed. DEBUG-394
+ * collapsed the two readers onto one value, so the halves can no longer disagree.
+ *
  * The accommodation deliberately is NOT the dead screen's answer. That one
  * swapped the circle for a static glow carrying the word "Breathe" — motion
  * gone, but pacing gone with it, leaving a reduce-motion practitioner sitting
@@ -139,9 +149,6 @@ const BreathingCircle: React.FC<BreathingCircleProps> = ({
 
   const effectiveReducedMotion = reducedMotion || systemReducedMotion;
 
-  // Use shared value for worklet compatibility (accessed in UI thread)
-  const isReducedMotion = useSharedValue(effectiveReducedMotion);
-
   /**
    * Visible phase cue — the pacing that replaces the suppressed motion.
    *
@@ -156,9 +163,28 @@ const BreathingCircle: React.FC<BreathingCircleProps> = ({
   // Also keeps the setState off the non-reduced path entirely, where a re-render
   // every cycle leg would be reconciling mid-animation for nothing.
   const reducedMotionRef = useRef(effectiveReducedMotion);
+  // Last phase announced, recorded unconditionally (not only under reduced
+  // motion) so the visible cue can be seeded the instant suppression turns on.
+  const lastPhaseRef = useRef<string | null>(null);
   useEffect(() => {
+    const wasReduced = reducedMotionRef.current;
     reducedMotionRef.current = effectiveReducedMotion;
-    if (!effectiveReducedMotion) setPhaseCue(null);
+    if (!effectiveReducedMotion) {
+      setPhaseCue(null);
+      return;
+    }
+    // false → true (DEBUG-394). `systemReducedMotion` starts false and resolves
+    // asynchronously, so the animation effect's immediate first-inhale
+    // `announcePhase` has already run with this ref still false and set no cue.
+    // That effect deliberately does NOT depend on reduce-motion — depending on
+    // it would restart the breath mid-practice — so nothing re-announces until
+    // the next leg completes. Without seeding here, a practitioner who has the
+    // OS switch on gets a static circle and no pacing text for up to a full
+    // inhale, at exactly the moment they are orienting to the practice.
+    //
+    // Seed SILENTLY: a screen-reader user already heard this phase when it was
+    // announced, so re-announcing it here would duplicate it for them.
+    if (!wasReduced && lastPhaseRef.current) setPhaseCue(lastPhaseRef.current);
   }, [effectiveReducedMotion]);
 
   // Screen-reader phase announcements — NOT audio. `announceForAccessibility`
@@ -169,6 +195,7 @@ const BreathingCircle: React.FC<BreathingCircleProps> = ({
   // the visible phase label below — never from a sound.
   const announcePhase = useCallback((phaseText: string) => {
     AccessibilityInfo.announceForAccessibility(phaseText);
+    lastPhaseRef.current = phaseText;
     if (reducedMotionRef.current) setPhaseCue(phaseText);
   }, []);
 
@@ -182,7 +209,7 @@ const BreathingCircle: React.FC<BreathingCircleProps> = ({
   const animatedStyle = useAnimatedStyle(() => {
     'worklet';
 
-    if (isReducedMotion.value) {
+    if (effectiveReducedMotion) {
       // MAINT-386: motion fully suppressed, not merely damped.
       //
       // This branch used to return `scale: 1 + (scale.value - 1) * 0.2` — a
@@ -206,11 +233,22 @@ const BreathingCircle: React.FC<BreathingCircleProps> = ({
       transform: [{ scale: scale.value }],
       opacity: opacity.value,
     };
-  }, [scale, opacity, isReducedMotion]); // Add dependencies for better optimization
-
-  useEffect(() => {
-    isReducedMotion.value = reducedMotion;
-  }, [reducedMotion, isReducedMotion]);
+    // DEBUG-394: the worklet closes over the render-scoped
+    // `effectiveReducedMotion` boolean rather than reading a shared value.
+    //
+    // It used to read an `isReducedMotion` shared value seeded from
+    // `effectiveReducedMotion` — but `useSharedValue`'s argument applies only at
+    // MOUNT, and an effect then overwrote it with the RAW `reducedMotion` prop,
+    // which no live caller passes. So the shared value was `false` forever and
+    // this entire branch was unreachable in production, while the phase label
+    // and guidance copy below (which read `effectiveReducedMotion` directly)
+    // correctly reported the accommodation as active. Two halves, two sources of
+    // truth, guaranteed to disagree.
+    //
+    // One source of truth removes the bug class rather than patching the write:
+    // there is no longer a value that CAN go stale. Reanimated re-runs the
+    // mapper when a dependency changes, and the boolean is in the dep array.
+  }, [scale, opacity, effectiveReducedMotion]);
 
   useEffect(() => {
     if (!isActive) {
@@ -341,8 +379,18 @@ const BreathingCircle: React.FC<BreathingCircleProps> = ({
           </Text>
         )}
         <Text style={styles.guidanceText}>
+          {/*
+            DEBUG-394: this read 'Each phase change is announced as it happens'.
+            "Announced" describes `announceForAccessibility`, which only
+            VoiceOver/TalkBack speak — and Being ships no audio playback at all.
+            Reduce-motion is a vestibular/migraine setting, so the MODAL user of
+            this branch is sighted with no screen reader, and for them the
+            sentence was simply false: nothing is announced, they get the silent
+            text label above. Copy here must be true for every user regardless of
+            assistive tech; a screen-reader user additionally hears it.
+          */}
           {effectiveReducedMotion
-            ? 'Each phase change is announced as it happens'
+            ? 'Each phase change is shown above as it happens'
             : 'Follow the circle as it expands and contracts'
           }
         </Text>

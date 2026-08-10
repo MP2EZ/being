@@ -176,6 +176,7 @@
   "src/features/onboarding/screens/OnboardingScreen.tsx": 13,
   "src/features/onboarding/screens/__tests__/OnboardingScreen.test.tsx": 1,
   "src/features/onboarding/screens/__tests__/legalGateConsentReconstruction.privacy.test.tsx": 1,
+  "src/features/practices/__tests__/accessibility/BreathingCircle.reducedMotion.accessibility.test.tsx": 1,
   "src/features/practices/__tests__/accessibility/haptic-cues-accessibility.test.tsx": 1,
   "src/features/practices/__tests__/accessibility/practices-accessibility-validation.test.tsx": 1,
   "src/features/practices/__tests__/accessibility/practices-surface-contrast.accessibility.test.tsx": 1,

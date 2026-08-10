@@ -38,6 +38,10 @@ import {
   FlowBackButton,
   PreviousAnswerCard,
 } from '@/features/practices/shared/components';
+// Module-scope constant, not an inline literal: `pattern` sits in BreathingCircle's
+// animation-effect dep array, so a fresh object identity each parent render both
+// defeats its React.memo and can restart the breath cycle mid-practice (DEBUG-394).
+import { DEFAULT_PATTERN } from '@/features/practices/shared/breathingPatterns';
 import { navigationRef } from '@/core/navigation/navigationRef';
 import type { DailyLoopMode, DailyLoopDepth, DailyLoopStepData } from '@/features/practices/types/flows';
 import type { CardinalVirtue } from '@/features/practices/types/stoic';
@@ -193,7 +197,7 @@ const DailyLoopStepScreen: React.FC<DailyLoopStepScreenProps> = ({
             <View style={styles.breathCircleContainer}>
               <BreathingCircle
                 isActive={isBreathActive}
-                pattern={{ inhale: 4000, exhale: 4000 }}
+                pattern={DEFAULT_PATTERN}
                 testID="daily-loop-breathing-circle"
               />
             </View>
