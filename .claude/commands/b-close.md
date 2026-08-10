@@ -79,8 +79,24 @@ git worktree list
 - Worktree name (lowercase): `maint-140`, `feat-42`
 - Work Item ID (uppercase): `MAINT-140`, `FEAT-42`
 
-**Search with explicit Work Item ID** (semantic search has **no exact-ID match** — it
-returns a recency-weighted set, so widen the page size and match by property, never by rank):
+**Look it up exactly, in one call.** `userDefined:ID` is the unique key — "Work Item ID" is a
+display formula `Type-ID`, so MAINT-140 → `userDefined:ID = 140`. Query the data source in
+**SQL mode**:
+```
+mcp__notion__notion-query-data-sources
+data: {
+  "mode": "sql",
+  "data_source_urls": ["collection://${NOTION_WORK_DB}"],
+  "query": "SELECT * FROM \"collection://${NOTION_WORK_DB}\" WHERE \"userDefined:ID\" = 140"
+}
+```
+Returns every property directly — no candidate scan, no fetch loop. Confirm `Type` matches
+the parsed TYPE: the ID counter is shared across FEAT/MAINT/INFRA/DEBUG, so `292` is unique
+on its own, but closing "MAINT-292" must not silently resolve to a FEAT.
+
+**Fallback**, only if SQL mode is unavailable (it is metered on this workspace): semantic
+search, which is recency-weighted and has no exact-ID match — widen the page size and match
+by **property, never by rank or highlight**.
 ```
 mcp__notion__notion-search
 query: "Work Item ID: [WORK_ITEM_ID]"
@@ -88,11 +104,6 @@ data_source_url: "collection://${NOTION_WORK_DB}"
 query_type: "internal"
 page_size: 25
 max_highlight_length: 0
-```
-
-**Example**: For worktree `maint-140`:
-```
-query: "Work Item ID: MAINT-140"
 ```
 
 **Fetch + verify each candidate** (match on `userDefined:ID` — the real unique key — and `Type`):
@@ -114,8 +125,8 @@ id: [page_id or URL from search result]
 - If multiple results: fetch each and verify `userDefined:ID` matches exactly — do not pick by rank.
 - If no candidate matches: retry the search **once**, recency-biased (`content_search_mode: "ai_search"`,
   add topic words, keep `page_size: 25`), re-scan by property. If still unresolved, STOP and ask:
-  *"Couldn't resolve [WORK_ITEM_ID] via search (the Notion MCP has no exact-ID query). Paste the
-  Notion page link and I'll fetch it directly."* — then `notion-fetch` the URL and verify the ID.
+  *"Couldn't resolve [WORK_ITEM_ID]. Paste the Notion page link and I'll fetch it directly."*
+  — then `notion-fetch` the URL and verify the ID.
 
 ---
 
